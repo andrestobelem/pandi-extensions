@@ -758,3 +758,270 @@ y en estático/graph —pasadas 7/8—, con la suite integrada al runner durable
 (`composition-driver` hoy solo cita `lib/verify-claims`); (b) gap `/goal` non-interactive rehydrate en
 `extensions/goal.ts`; (c) si el dueño de `composition-failure-recursion.e2e.mjs` lo da por estable,
 moverlo de `ignoredDraftSuites` a `suites` en `run-all.mjs`.
+
+---
+
+## Pasada 7/8 (FINAL) — 2026-06-25 — MEJORA A: HANDSHAKE DE APROBACIÓN + CICLO DE VIDA de `plan.ts`
+
+**Baseline:** `npm test` (tsc 4 extensiones) **EXIT 0**. `node examples/e2e/run-all.mjs` → **7/7 suites passed**,
+EXIT 0 (composition-graph-expansion 31, composition-rank 13, dynamic-workflow-composition 16, goal-rehydrate 31,
+goal-verifier 30, loop-behavior 37, safety-gates 61).
+
+**Archivos calientes / ajenos detectados (no tocar):** `extensions/dynamic-workflows.ts` (mtime 10:50:24,
+estable — CORE/caliente, solo leído conceptualmente, NO editado) y `extensions/compaction-progress.ts` (mtime
+11:13:57, archivo NUEVO de la otra sesión — no tocado). `run-all.mjs` (untracked, ajeno, mtime 10:57:37 estable
+— ver excepción mínima justificada abajo). `plan.ts` mtime 06:48:10, sin diff, **NO caliente** → editable per
+salvaguardas, pero NO lo edité (la mejora es un e2e nuevo, no toca el runtime de la extensión).
+
+**Hueco real (evidencia):** `safety-gates.e2e.mjs` ya cubre SOLO el **gate read-only** de `plan.ts` — el
+predicado puro `blockedReason`/`isMutatingBash` (qué tool se bloquea/permite mientras el modo está armado) +
+el refuse en print/json. NO cubre la OTRA mitad —lo que el propio doc del módulo llama "the new parts"— el
+**HANDSHAKE DE APROBACIÓN y el CICLO DE VIDA**, que es state-machine puro de runtime (invisible a `tsc`) y el
+comportamiento MÁS consecuente de la extensión. Verificado el gap con `grep` sobre `examples/e2e/`: ningún
+archivo manejaba `submit_plan`/`ctx.ui.confirm`/el ciclo de aprobación. La dirección peligrosa: un reject/exit
+que LEVANTE el gate por accidente, o un approve que NO lo levante, o un terminal que RE-arme el gate al recargar
+— exactamente la garantía que la feature existe para dar (no mutar sin aprobación EXPLÍCITA del usuario).
+
+**Mejora ELEGIDA (MEJORA A):** e2e durable nuevo, exclusivamente mío, sin colisión:
+`examples/e2e/plan-approval.e2e.mjs`. Maneja el comando `/plan`, el tool `submit_plan` y los handlers
+`tool_call`/`session_start` REALES contra `pi`/`ctx` mockeados (mismo patrón self-bootstrapping probado:
+esbuild de `extensions/plan.ts` ACTUAL a tempdir, stubs locales de typebox/SDK, sin `npm install`). Asserta el
+CONTRATO OBSERVABLE (gate armado-o-no vía un `tool_call` real de `write`, `plan-state` persistido, mensajes
+re-inyectados, `details` del tool), nunca copias de internals. **52 checks / 5 escenarios:**
+1. **APPROVE** (`confirm=PASS`): levanta el gate (un `write` antes bloqueado ahora PASA), persiste
+   `status=approved`/`active=false`, re-inyecta "Plan approved. Implement now:\n\n<plan>" con el texto EXACTO,
+   `details.status=approved`, `submissions=1`/`rejections=0`.
+2. **REJECT** (`confirm=REJECT`): el gate SIGUE armado (mismo `write` sigue BLOQUEADO), `rejections=1`,
+   `status=planning`/`active=true`, **NO** re-inyecta implement, `details.status=rejected` + texto que pide
+   revisar+resubmitir; luego un APPROVE de seguimiento SÍ cierra → ciclo revise→resubmit→approve (lleva el
+   plan v2 aprobado, NO el v1 rechazado; `submissions=2`/`rejections=1` retenido).
+3. **`/plan exit`** y **`/plan cancel`**: abortan — levantan el gate, `status=exited`, y **NO** re-inyectan
+   implement (sin implementación implícita).
+4. **`submit_plan` sin plan activo**: `isError`, sin crash, sin persistir, sin mensaje.
+5. **rehydrate (`session_start`):** un plan ACTIVO RE-arma el gate al recargar (write bloqueado de nuevo) sin
+   re-inyectar el prompt de planning; un TERMINAL (approved/exited) queda INERTE; last-wins por planId en ambas
+   direcciones (terminal-tardío gana / activo-tardío gana); **fork = no-op** (no migra); junk/foráneo/malformado
+   ignorado sin crash con un activo válido aún re-armando.
+
+**Hallazgo honesto durante el desarrollo:** la línea `if (!state.active) continue;` (`plan.ts:444`) es un
+SKIP barato, NO el check de seguridad load-bearing — `planModeActive()` re-chequea `plan.active`, así que
+quitar SOLO la línea 444 es OBSERVABLEMENTE INERTE (un terminal restaurado conserva `active:false` → no arma
+el gate). Mis checks terminales pinean el contrato OBSERVABLE (terminal ⇒ gate no armado), que se sostiene; la
+invariante load-bearing es "el plan restaurado conserva su flag `active` persistido". Mismo patrón que el
+hallazgo de la Pasada 3 (goal-rehydrate). Documentado, no oculto — y el Fault #3b (abajo) prueba que mis checks
+NO son theater.
+
+**Verificación adversarial + anti-theater (fault-injection en repo temporal, control byte-idéntico):**
+- 52/52 contra la fuente real (EXIT 0). Copia limpia relocalizada en repo temporal: VERDE (`diff` vacío vs
+  fuente → el harness sigue la fuente relocalizada, no una stale), antes Y después de cada fault.
+- **Fault #1 (APPROVE no levanta el gate, `plan.active=false` neutralizado en `:549`):** suite ROJA **48/52,
+  4 fallas**, EXACTAMENTE los 4 checks de "approve levanta el gate" (write-allowed + persisted-active=false, en
+  el approve directo Y en el reject→approve). Nada más rojo.
+- **Fault #2 (REJECT levanta el gate — la dirección PELIGROSA — `plan.active=false` inyectado antes del contador
+  de rejections, `:563`):** suite ROJA **45/52, 7 fallas**, tripando "reject: write STILL BLOCKED" + "reject:
+  persisted active=true" + el cascade del segundo submit (el plan prematuramente desactivado rompe `currentPlan()`
+  → `submit_plan` v2 cae al path "no active plan"). La garantía crítica (reject NO debe mutar el workspace) queda
+  atrapada.
+- **Fault #3 (quitar SOLO el guard terminal `:444`):** suite VERDE 52/52 → hallazgo honesto arriba (over-recovery
+  OBSERVABLEMENTE INERTE porque `planModeActive()` re-chequea `active`).
+- **Fault #3b (el defecto GENUINO de over-recovery: quitar el guard `:444` Y forzar `active:true` en el restore
+  `:446`):** suite ROJA **49/52, 3 fallas**, EXACTAMENTE los 3 checks terminal-stays-INERT (terminal-approved,
+  terminal-exited, last-wins-terminal); los checks de recuperación de ACTIVO (5a/5e/5g) y fork (5f) siguieron
+  verdes → la suite distingue la dirección de seguridad y NO es theater en el path terminal.
+- Cada fault tripó PRECISAMENTE sus checks y nada más ⇒ detección dirigida. Restaurada la fuente byte-idéntica
+  tras cada fault, control verde EXIT 0.
+- Sin regresión: las 7 suites previas + la nueva → **8/8 suites passed** vía `run-all.mjs`, EXIT 0.
+
+**Regresión introducida y corregida en la MISMA pasada (drift-guard de `run-all.mjs`):** agregar la suite nueva
+hizo fallar el drift-guard de `run-all.mjs` (`:62-67`, exit 1: "Unlisted e2e suite(s) found ... plan-approval.e2e.mjs").
+Fix mínimo: registrar la suite VERDE en el array `suites` (una sola línea ADITIVA, orden alfabético, entre
+`loop-behavior` y `safety-gates`). Va a `suites` (no `ignoredDraftSuites`) porque está verde y fault-injected.
+**Excepción justificada** de tocar `run-all.mjs` (untracked, ajeno): (a) la rotura la causé YO al agregar la suite,
+(b) el contrato del propio archivo EXIGE registrar toda suite verde ("Add a suite here once it is expected to be
+green"), (c) es una línea aditiva que no altera ninguna entrada ni la lógica. Idéntico patrón a la Pasada 8 del
+goal previo. mtime de `run-all.mjs` 10:57:37 estable, sin edición concurrente durante la pasada.
+
+**Comandos de verificación (exit codes directos, todos verdes):**
+- `npm test` → **EXIT 0**.
+- `node --check examples/e2e/{plan-approval,run-all}.mjs` → **OK** (ambos).
+- `node examples/e2e/plan-approval.e2e.mjs` → **52/52, EXIT 0**.
+- `node examples/e2e/run-all.mjs --list` → 8 suites + `# ignored draft: composition-failure-recursion.e2e.mjs`, **EXIT 0** (drift-guard satisfecho).
+- `node examples/e2e/run-all.mjs` → **8/8 suites passed, EXIT 0** (sin regresión).
+
+**Archivos tocados (rutas absolutas):**
+- NUEVO: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/plan-approval.e2e.mjs`
+- EDITADO (1 línea aditiva, justificada arriba): `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- ESTE log.
+
+**Tipo de cambio:** REAL (archivo nuevo; hallazgo honesto documentado; comportamiento verificado y fault-injected
+x4 incl. el control negativo #3b). No es propuesta.
+**dry-counter:** 0 (pasada de alto valor). **Salvaguardas:** `git diff --stat extensions/` **VACÍO** (`plan.ts`
+mtime 06:48:10 intacto; `dynamic-workflows.ts` 10:50:24 y `compaction-progress.ts` 11:13:57 ajenos/intactos).
+`package.json` sin tocar. Mis cambios: untracked `examples/e2e/plan-approval.e2e.mjs` + 1 línea en el untracked
+ajeno `run-all.mjs` + esta entrada. Sin commit, sin push, nada irreversible.
+
+---
+
+## Pasada 8/8 (FINAL) — 2026-06-25 — MEJORA B: CAPS + PAUSE/RESUME + REHYDRATE durable de `loop.ts`
+
+**Baseline:** `npm test` (tsc 4 extensiones) **EXIT 0**. `node examples/e2e/run-all.mjs` → **8/8 suites passed**,
+EXIT 0 (composition-graph-expansion 31, composition-rank 13, dynamic-workflow-composition 16, goal-rehydrate 31,
+goal-verifier 30, loop-behavior 37, plan-approval 52, safety-gates 61).
+
+**Archivos calientes / ajenos detectados (no tocar):** `extensions/dynamic-workflows.ts` (mtime 10:50:24, estable —
+CORE/caliente, NO editado) y `extensions/compaction-progress.ts` (11:13:57, NUEVO ajeno de la otra sesión — no
+tocado). `run-all.mjs` (untracked, ajeno, mtime estable — ver excepción mínima justificada abajo). `loop.ts`
+mtime **06:32:56, sin diff, NO caliente** → editable per salvaguardas, pero NO lo edité (la mejora es un e2e
+nuevo; no toca el runtime de la extensión). `git diff --stat extensions/` **VACÍO** al cerrar.
+
+**Hueco real (evidencia, distinto de A y de loop-behavior):** `loop-behavior.e2e.mjs` cubre SOLO el motor de
+scheduling (FIFO multi-loop / fixed-mode no-op de `loop_schedule` / watchdog anti-zombie / parse+clamp de
+intervalo). NO cubre la **superficie de DURABILIDAD** de `loop.ts`, que es comportamiento puro de runtime
+(invisible a `tsc`) y el más consecuente para un loop autónomo: (1) el **gate de CAPS** (`capExceeded`/`stopForCap`,
+chequeado en `fireWake` + `agent_end` + `rehydrate`) que corta a `"done"` al alcanzar `maxIterations`,
+`maxWallClockMs` (deadline absoluto) o `contextPercentCap`; (2) **PAUSE/RESUME** (`pauseLoop`/`resumeLoop`,
+`/loop pause|resume`) — pause limpia el timer, conserva estado, dropea el wake encolado y NO re-inyecta; resume
+re-arma (dynamic con el remanente, fixed por su período); (3) **REHYDRATE de loop** tras reload (`rehydrate` en
+`session_start`) — revive running/stale (un solo catch-up, sin doble-disparo), mantiene paused, ignora terminales,
+last-wins por updatedAt, y **RETIRA un loop AUTÓNOMO si el proyecto ya no es de confianza** (gate de re-entrada P2).
+Verificado el gap con `grep` sobre `examples/e2e/`: ningún archivo (salvo el mock setup que devuelve `undefined`)
+maneja caps cut-to-done, pause/resume, ni rehydrate de loop. La dirección peligrosa: un cap tragado = loop corriendo
+para siempre; un paused que re-inyecta; un autónomo que sigue disparando desatendido tras revocarse la confianza.
+
+**Mejora ELEGIDA (MEJORA B):** e2e durable nuevo, exclusivamente mío, sin colisión:
+`examples/e2e/loop-caps-resume.e2e.mjs`. Maneja el comando `/loop` (+ `pause`/`resume`/`stop`), el tool
+`loop_schedule` y los handlers `agent_end`/`session_start` REALES contra `pi`/`ctx` mockeados (mismo patrón
+self-bootstrapping probado: esbuild de `extensions/loop.ts` ACTUAL a tempdir, stubs locales de typebox/SDK, sin
+`npm install`). Asserta el CONTRATO OBSERVABLE (status/reason de `loop-state` persistido, wakes re-inyectados, si se
+armó un timer), nunca copias de internals. **48 checks / 9 escenarios:**
+1. **maxIterations** corta a `done` por su gate REAL (`fireWake`, no `agent_end` — ver hallazgo) vía catch-up de
+   rehydrate; iteración NO avanza, sin wake.
+2. **maxWallClockMs**: un loop pasado su deadline se detiene `done` en rehydrate (reason wall-clock, NO mislabel a
+   maxIterations), sin wake.
+3. **contextPercentCap**: bajo el cap (10%<90%) sigue running; sobre el cap (95%≥90%) se detiene `done` en
+   `agent_end`; **control negativo:** `percent:null` NO es un cap hit (best-effort).
+4. **PAUSE/RESUME**: pause persiste `paused`, no re-inyecta, conserva iteración, y el safety-net de `agent_end` NO
+   re-arma un paused; resume vuelve a `running` con `nextFireAt` futuro y reason "resumed"; resume de un running es
+   no-op (sin snapshot `paused` espurio).
+5. **pause dropea wake ENCOLADO**: B encola detrás de A; al pausar B y cerrar el turno de A, B (paused) NO dispara.
+6. **rehydrate revive sin doble-disparo**: stale→running, un solo catch-up (it 2→3, 1 wake); segundo `session_start`
+   NO re-dispara (ya vivo).
+7. **rehydrate paused/terminal/last-wins**: paused se mantiene paused; `done`/`stopped` ignorados (sin persist);
+   last-wins por updatedAt en AMBAS direcciones (terminal-tardío gana → no revive; running-tardío gana → revive+catch-up).
+8. **autonomous trust gate**: autónomo en proyecto NO confiable → retirado `stopped` (reason menciona trust), sin
+   wake; **control positivo:** autónomo en proyecto confiable → revivido running + catch-up (prueba que el retire lo
+   causa la revocación de confianza, no que los autónomos sean irrecuperables).
+9. **rehydrate respeta caps**: un loop DUE pero sobre-budget se detiene `done` en vez de re-armar; sin wake; iteración
+   no avanza (la colisión "due AND over-budget" — el cap gana).
+
+**Hallazgos honestos durante el desarrollo (defectos MÍOS hallados por la suite, NO del core):**
+- **#1:** mi primera versión del escenario maxIterations pulsaba `agent_end` esperando el stop. FALSO: `agent_end`
+  solo corre `capExceeded` (wall-clock/context) + re-arma; el gate de `maxIterations` vive en `fireWake`/`drainWakeQueue`.
+  Corregido a manejar el gate REAL vía el catch-up de rehydrate (`setTimeout(fireWake,0)`, awaiteado con un `tick()`).
+  La suite me obligó a ejercitar el path correcto.
+- **#2 (alcance, documentado):** Fault #2 (quitar SOLO `dropQueuedWakes` de `pauseLoop`) quedó VERDE → ese drop es
+  una limpieza temprana barata, NO el check load-bearing: `drainWakeQueue` re-chequea `loop.status !== "running"` al
+  entregar (`:483`), así que un paused encolado se dropea igual en delivery. El check `pausequeue` pinea el contrato
+  OBSERVABLE (paused nunca dispara), que se sostiene por ese guard redundante. Mismo patrón honesto que pasada 3/7.
+  El Fault #2b (abajo) prueba que el check NO es theater.
+
+**Verificación adversarial + anti-theater (fault-injection en repo temporal, control byte-idéntico):**
+- 48/48 contra la fuente real (EXIT 0). Copia limpia relocalizada en repo temporal: VERDE (`diff -q` vacío vs fuente,
+  EXIT 0 — el harness sigue la fuente relocalizada, no una stale; restaurada byte-idéntica entre faults).
+- **Fault #1 (neutralizar `capExceeded` → siempre `undefined`):** suite ROJA **41/48, 7 fallas**, EXACTAMENTE los
+  checks de wall-clock (2) + context-over (2) + rehydrate-cap (3). maxIterations (gate separado) y el control negativo
+  context-null siguieron VERDES → la suite distingue los caps de budget del de iteración.
+- **Fault #2b (la dirección PELIGROSA: quitar el drop de pause Y el guard de status en `drainWakeQueue:483` → un
+  paused encolado SÍ dispara):** suite ROJA **47/48, 1 falla**, EXACTAMENTE `pausequeue: paused B does NOT fire`
+  (`delivered=2`). Nada más rojo → el contrato pause/queue es load-bearing.
+- **Fault #3 (deshabilitar el gate de re-entrada autónoma `state.autonomous && !isProjectTrusted()` → `if(false)`):**
+  suite ROJA **46/48, 2 fallas**, EXACTAMENTE los 2 checks untrusted-retire (`status=undefined`: el autónomo fue
+  REVIVIDO en vez de retirado — la regresión de seguridad). El control positivo trusted-revive siguió VERDE.
+- **Fault #4 (deshabilitar el guard no-double-fire `activeLoops.has(loopId)` → `if(false)`):** suite ROJA **47/48,
+  1 falla**, EXACTAMENTE `rehydrate: second session_start does NOT double-fire` (`delivered=2`).
+- Cada fault tripó PRECISAMENTE sus checks y nada más ⇒ detección dirigida, no theater. Fuente restaurada
+  byte-idéntica tras cada fault (control VERDE EXIT 0).
+- Sin regresión: las 8 suites previas + la nueva → **9/9 suites passed** vía `run-all.mjs`, EXIT 0.
+
+**Regresión introducida y corregida en la MISMA pasada (drift-guard de `run-all.mjs`):** agregar la suite nueva hizo
+fallar el drift-guard (`node examples/e2e/run-all.mjs --list` → exit 1, "Unlisted e2e suite(s)"). Fix mínimo: registrar
+la suite VERDE en el array `suites` (1 línea ADITIVA, orden alfabético, entre `loop-behavior` y `plan-approval`). Va a
+`suites` (no `ignoredDraftSuites`) porque está verde y fault-injected. **Excepción justificada** de tocar `run-all.mjs`
+(untracked, ajeno): (a) la rotura la causé YO al agregar la suite, (b) el contrato del propio archivo EXIGE registrar
+toda suite verde, (c) es una línea aditiva que no altera ninguna entrada ni la lógica. Idéntico patrón a la Pasada 8
+del goal previo y a la MEJORA A (pasada 7).
+
+**Comandos de verificación (exit codes directos, todos verdes):**
+- `npm test` → **EXIT 0**.
+- `node --check examples/e2e/{loop-caps-resume,run-all}.mjs` → **OK** (ambos).
+- `node examples/e2e/loop-caps-resume.e2e.mjs` → **48/48, EXIT 0**.
+- `node examples/e2e/run-all.mjs --list` → 9 suites + `# ignored draft: composition-failure-recursion.e2e.mjs`, **EXIT 0** (drift-guard satisfecho).
+- `node examples/e2e/run-all.mjs` → **9/9 suites passed, EXIT 0** (sin regresión).
+
+**Archivos tocados (rutas absolutas):**
+- NUEVO: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/loop-caps-resume.e2e.mjs`
+- EDITADO (1 línea aditiva, justificada arriba): `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- ESTE log.
+
+**Tipo de cambio:** REAL (archivo nuevo; 2 hallazgos honestos documentados; comportamiento verificado y fault-injected
+x4 incl. el control negativo #2b/#3 de la dirección peligrosa). No es propuesta.
+**dry-counter:** 0 (pasada de alto valor). **Salvaguardas:** `git diff --stat extensions/` **VACÍO** (`loop.ts` mtime
+06:32:56 intacto; `dynamic-workflows.ts` 10:50:24 y `compaction-progress.ts` 11:13:57 ajenos/intactos). `package.json`
+sin tocar. Mis cambios: untracked `examples/e2e/loop-caps-resume.e2e.mjs` + 1 línea en el untracked ajeno `run-all.mjs`
++ esta entrada. Sin commit, sin push, nada irreversible.
+
+---
+
+## CIERRE del loop — 2026-06-25 (finalización pasadas 7-8, tope 8 alcanzado)
+
+**Fix BLOQUEANTE aplicado en el cierre (regresión de flakiness, sólo nuestro):** al correr la suite COMPLETA vía
+`run-all.mjs` (las 9 suites secuenciales en procesos hijo), `goal-rehydrate.e2e.mjs` (nuestro, Pasada 3) fallaba de
+forma **INTERMITENTE** 28/31 — siempre los 3 checks del escenario `verifying` (catch-up due): `states=0`,
+`firedStatus=<none>`, `messages=0`. Diagnóstico (no es regresión de la fuente — `git diff --stat extensions/` VACÍO,
+`goal.ts` committeado sin diff; en aislamiento la suite daba 31/31 reproducible): **race de timing en el helper de
+test `flush`**, que sólo cedía a `setImmediate` (check phase). El catch-up de `rehydrate` se arma con
+`setTimeout(fireGoal, 0)` (`goal.ts:914`, `remaining=0` para un `nextFireAt` due) → fase de TIMERS; bajo carga (3
+procesos hijo previos del runner) el spin de `setImmediate` puede hambrear la fase de timers más de 50 vueltas y el
+predicado nunca se cumple. **Fix:** `flush` ahora cede a AMBAS fases por iteración (`await setTimeout(r,0)` +
+`await setImmediate(r)`) y sube `tries` 50→100. Es exactamente el patrón que `loop-caps-resume.e2e.mjs` (Pasada 8)
+ya usaba en su `tick()` (`setTimeout(resolve,0)`) — por eso esa suite nunca fue flaky. Cambio SÓLO de helper de test,
+en nuestro archivo; no toca runtime ni contrato de las extensiones.
+- **Verificación verde→rojo→verde:** RED reproducido (1ª corrida del runner: `8/9 suites passed`, goal-rehydrate
+  FAIL 28/31, los 3 checks `verifying`). Tras el fix: goal-rehydrate aislado **31/31 EXIT 0**; runner completo corrido
+  **5 veces seguidas → 9/9 suites passed, EXIT 0 cada vez** (flakiness eliminada). Confirmado que ninguna otra suite
+  comparte el defecto: `goal-verifier.e2e.mjs` usa el mismo `flush` `setImmediate`-only PERO no depende de un timer
+  due (su cadena resuelve por `pi.exec`/microtasks) → estable 5/5 en aislamiento; `loop-caps-resume` ya usaba el patrón
+  correcto.
+
+**Verificación FINAL del cierre (exit codes directos, sin pipe):**
+- `npm test` (tsc de las 5 extensiones, incl. `compaction-progress.ts` ajeno) → **EXIT 0**.
+- `node --check` de `{goal-rehydrate,plan-approval,loop-caps-resume,composition-graph-expansion,run-all}` → **OK** (los 5).
+- `node examples/e2e/run-all.mjs` → **9/9 suites passed, EXIT 0** (composition-graph-expansion 31, composition-rank 13,
+  dynamic-workflow-composition 16, goal-rehydrate 31, goal-verifier 30, loop-behavior 37, loop-caps-resume 48,
+  plan-approval 52, safety-gates 61). Sin regresión.
+- Draft ajeno `composition-failure-recursion.e2e.mjs` → **16/16, EXIT 0** (sigue en `ignoredDraftSuites`, correcto).
+
+**Resumen de las 8 pasadas (qué se entregó):** cobertura behavioral durable, ejecutable desde checkout limpio
+(`tsc` sólo veía tipos; ahora hay 9 suites e2e fault-injected). P1-4: gates de seguridad (safety-gates 61), verifier
+independiente de goal (goal-verifier 30), rehidratación de goal (goal-rehydrate 31), motor de scheduling de loop
+(loop-behavior 37). P5-6: COMPOSICIÓN en runtime — `lib/rank-candidates` + driver + composition-rank (13) y contratos
+de falla/recursión directa (composition-failure-recursion 16, draft ajeno). P7-8 FINALES: composición ESTÁTICA del
+graph (composition-graph-expansion 31), HANDSHAKE de aprobación + ciclo de vida de plan (plan-approval 52), y
+caps/pause-resume/rehydrate + gate de re-entrada autónoma untrusted de loop (loop-caps-resume 48). Runner único
+`run-all.mjs` con drift-guard. Defectos REALES hallados por las suites y corregidos: bug `[Circular]` en best de
+rank-candidates (P5), y esta race de flakiness del cierre. Cero ediciones al core caliente `dynamic-workflows.ts`.
+
+**Pendientes / propuestas para el humano (no bloqueantes):**
+- WIRE de los e2e: `run-all.mjs` corre la suite a mano; queda como decisión humana cablear a CI / a un script npm
+  (`package.json` está fuera de la allowlist de autopiloto, no se tocó).
+- REGISTRAR las extensiones / publicar el paquete: fuera de alcance del autopiloto (irreversible).
+- PROPUESTA al core: añadir un segundo lib/driver al catálogo de recipes (`composition-driver` hoy sólo cita
+  `lib/verify-claims`; `lib/rank-candidates` demuestra que la composición es patrón general).
+- Gap `/goal` non-interactive rehydrate en `extensions/goal.ts` (requiere tocar la extensión; diferido, candidato a
+  e2e dedicado en un loop futuro).
+- Si el dueño de `composition-failure-recursion.e2e.mjs` lo da por estable, moverlo de `ignoredDraftSuites` a `suites`
+  en `run-all.mjs`.
+
+**VEREDICTO:** **done** — tope de 8 pasadas alcanzado. Todo verde, sin regresión, core caliente intacto. Mi único
+footprint de runtime en este cierre es el fix de flakiness (helper de test) en `examples/e2e/goal-rehydrate.e2e.mjs`,
+más estas líneas de log. Sin commit, sin push, nada irreversible (lo commitea el orquestador).
