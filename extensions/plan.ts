@@ -234,10 +234,10 @@ function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
  * heuristic backstop. When unsure we err toward BLOCKING (this is plan mode — no mutation).
  *
  * Blocking set:
- *   - File deletion / move / truncate: rm, rmdir, mv, truncate, shred, unlink
+ *   - File creation / deletion / move / metadata changes: touch, mkdir, rm, rmdir, mv, truncate, shred, unlink, chmod, chown, chgrp
  *   - In-place / writing tooling: sed -i, tee, dd, mkfs
- *   - Shell redirections that WRITE a file: >, >>, >| (but NOT 2>&1 / process substitution
- *     duplications, which are matched conservatively below)
+ *   - Shell redirections that WRITE a file: >, >>, >|, including numbered-fd
+ *     writes like 2>err.log (but NOT fd duplications like 2>&1)
  *   - Git mutations: commit, add, push, reset, clean, checkout, switch, restore, merge,
  *     rebase, stash, apply, rm, mv, tag, branch -D/-d, cherry-pick, revert
  *   - Package installs: npm/pnpm/yarn install|add|ci, npx -y, pip/pipx install, poetry add,
@@ -246,7 +246,12 @@ function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
  *     helm upgrade/install/uninstall
  */
 const MUTATING_BASH_PATTERNS: RegExp[] = [
-	// File deletion / move / truncation (any flags). \brm\b also covers rm -rf.
+	// File creation / deletion / move / metadata changes (any flags). \brm\b also covers rm -rf.
+	/\btouch\b/i,
+	/\bmkdir\b/i,
+	/\bchmod\b/i,
+	/\bchown\b/i,
+	/\bchgrp\b/i,
 	/\brm\b/i,
 	/\brmdir\b/i,
 	/\bmv\b/i,
@@ -258,8 +263,9 @@ const MUTATING_BASH_PATTERNS: RegExp[] = [
 	/\btee\b/i,
 	/\bdd\b[^\n]*\b(if|of)=/i,
 	/\bmkfs(\.\w+)?\b/i,
-	// Shell redirections that write a file: >, >>, >| (avoid matching 2>&1 / >&N fd-dups).
-	/(^|[^0-9&>])>>?\s*(?![&>])/,
+	// Shell redirections that write a file: >, >>, >|, including numbered-fd
+	// writes like 2>err.log (avoid matching 2>&1 / >&N fd-dups).
+	/(^|[^&>])>>?\s*(?![&>])/,
 	/>\|/,
 	// Git mutations.
 	/\bgit\b[^\n]*\b(commit|add|push|reset|clean|checkout|switch|restore|merge|rebase|stash|apply|rm|mv|tag|cherry-pick|revert)\b/i,

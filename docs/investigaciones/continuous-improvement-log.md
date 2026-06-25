@@ -1025,3 +1025,23 @@ rank-candidates (P5), y esta race de flakiness del cierre. Cero ediciones al cor
 **VEREDICTO:** **done** — tope de 8 pasadas alcanzado. Todo verde, sin regresión, core caliente intacto. Mi único
 footprint de runtime en este cierre es el fix de flakiness (helper de test) en `examples/e2e/goal-rehydrate.e2e.mjs`,
 más estas líneas de log. Sin commit, sin push, nada irreversible (lo commitea el orquestador).
+
+---
+
+## Pass final — 2026-06-25 15:53 -03
+
+**Mejora / fix bloqueante:** endurecimiento del gate read-only de `/plan` para bloquear mutaciones que las revisiones marcaron como agujeros: comandos de creación/metadata (`mkdir`, `touch`, `chmod`, `chown`, `chgrp`) y redirecciones de escritura con fd numerado como `2>err.log`, conservando permitido el fd-dup seguro `2>&1`.
+
+**Archivos:**
+- `extensions/plan.ts`
+- `examples/e2e/safety-gates.e2e.mjs`
+- `docs/investigaciones/continuous-improvement-log.md` (esta entrada)
+
+**Verificación verde:**
+- `npm test` → EXIT 0.
+- `npx --yes esbuild extensions/plan.ts --bundle --platform=node --format=esm --outfile=/tmp/pi-plan-check.mjs` → EXIT 0.
+- `node --check examples/e2e/safety-gates.e2e.mjs` → OK.
+- `node examples/e2e/safety-gates.e2e.mjs` → `TOTAL: 65 passed, 0 failed`.
+- `node examples/e2e/run-all.mjs` → `9/9 suites passed`.
+
+**Evidencia adversarial:** la suite `safety-gates` ahora cubre explícitamente los casos antes faltantes: `mkdir generated`, `touch generated.txt`, `chmod +x script.sh`, `node test.js 2>err.log`; todos son bloqueados por `/plan` y no se tocó `extensions/dynamic-workflows.ts`, `package.json` ni lockfiles. Sin commit, sin push, sin borrados.
