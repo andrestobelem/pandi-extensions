@@ -785,6 +785,28 @@ function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG): stri
 	return lines.join("\n");
 }
 
+function formatWorkflowPatternPromptCheatSheet(patterns = WORKFLOW_PATTERN_CATALOG): string {
+	const lines = [
+		"Workflow template catalog (choose from these before writing from scratch; inspect with dynamic_workflow action=template, fetch a scaffold with name=<key>):",
+	];
+	for (const pattern of patterns) {
+		const aliases = getPatternAliases(pattern).slice(0, 2);
+		const key = aliases.length ? `${pattern.key} (${aliases.join(", ")})` : pattern.key;
+		lines.push(`- ${key}: ${pattern.useWhen} Primitives: ${pattern.primitives.join(", ")}.`);
+	}
+	return lines.join("\n");
+}
+
+function formatWorkflowCompositionPromptGuidance(): string {
+	return [
+		"Workflow composition rules:",
+		"- Use ctx.workflow(\"lib/<name>\", args) for a reusable sub-step with no human/agent decision gate between parent and child; keep one shared run, concurrency pool, maxAgents budget, abort signal, runDir, and resume/cache journal.",
+		"- Store reusable contracts under lib/<name>.js, accept one args object, validate inputs, return stable JSON-serializable results, and document the contract in a header comment.",
+		"- Depth is 1: a sub-workflow must not call ctx.workflow() again; if the next phase depends on inspecting child output, run separate workflows sequentially and inspect artifacts between runs.",
+		"- Prefer composition-driver plus verify-claims-lib as the reference pattern for discovery -> reusable verification; graph literal ctx.workflow(\"...\") calls when reviewing structure.",
+	].join("\n");
+}
+
 async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
 	if (!pattern.exampleFile) return WORKFLOW_TEMPLATE;
 	const examplePath = path.join(EXTENSION_ROOT, "examples", WORKFLOW_DIR, pattern.exampleFile);
@@ -6230,6 +6252,10 @@ function makeUltracodePrompt(task: string, mode: "ultracode" | "deep-research" =
 Task:
 ${trimmed}
 
+${formatWorkflowPatternPromptCheatSheet()}
+
+${formatWorkflowCompositionPromptGuidance()}
+
 Instructions:
 - This is an explicit ultracode request. Do not merely describe workflows. Decide quickly, then either run/create a workflow or explain why the task fails the trivial gate.
 - Use the three-gate router: trivial gate -> scout inline first -> orchestrate only for exhaustiveness, confidence, or scale.
@@ -6249,6 +6275,10 @@ For every substantive task, silently run this decision before choosing an approa
 2. Scout inline first. If the task might be large, probe it cheaply this turn (git ls-files, read the diff, grep/glob candidates) to learn the real work-list and its size. You need the work-list before the orchestration step, not before the task.
 3. Orchestrate only for a reason. After scouting, prefer dynamic_workflow only when one holds: exhaustiveness (many independent items in parallel), confidence (independent perspectives + adversarial verification before committing), or scale (more context than one window holds: migrations, audits, broad sweeps, long-running work with checkpoints). Else stay single-agent.
 4. Scale to the ask. Light ("find some", "quick check") -> small fan-out (~3-5) + light synthesis. Heavy ("audit thoroughly", "be exhaustive") -> larger pool + adversarial reviewers/judges + synthesis, repeating only when the work-list is still yielding new findings.
+
+${formatWorkflowPatternPromptCheatSheet()}
+
+${formatWorkflowCompositionPromptGuidance()}
 
 When a workflow is warranted: dynamically create a task-specific project workflow rather than relying on canned examples, preferably under generated/<task-slug> as a disposable draft, then launch it in background in persistent TUI/RPC sessions (action=start; action=run is only the print/non-persistent fallback). If the task is to design/improve a workflow or prompts/contracts, use the workflow-factory pattern first so a workflow generates the task-specific workflow with review artifacts. After it succeeds, tell the user the path and offer to keep/promote it if useful. Then use ctx.agents(items,{concurrency}) for one independent step per item; use ctx.pipeline(items,...stages) by default when each item needs multiple dependent steps and no cross-item merge; use ctx.agents(items,{concurrency,settle:true}) when a large fan-out should keep going and return null for failed branches; use ctx.parallel([async()=>...]) only for true barriers where a later step needs all branch results at once (global dedup/merge, early-exit when total is zero, cross-branch ranking); use ctx.workflow(name,input) for reusable sub-steps with no decision gate (depth 1, shared run budget/cache). Include a stable item id/index in prompts that pipeline stages generate. Filter nulls, log how many branches failed, keep fan-out bounded by ctx.limits.concurrency, use read-only tools or agentType:"reviewer"/"researcher" for audit/research subagents, and ctx.log() any coverage cap instead of capping silently.
 
@@ -6308,6 +6338,8 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		promptGuidelines: [
 			"Decide in three steps before orchestrating. (1) Trivial gate: if the task is conversational, single-step, or solvable with a few direct tool calls, answer normally — do NOT build a workflow. (2) Scout inline first: if it may be large, run a cheap probe inline (git ls-files, read the diff, grep/glob candidates) to discover the real work-list and size. (3) Orchestrate only for exhaustiveness (many independent items), confidence (independent perspectives + adversarial verification), or scale (more context than one window: migrations, audits, broad sweeps).",
 			"Scale effort to the ask. 'Find some' / 'quick check' -> small fan-out (~3-5) + light synthesis. 'Review this plan' -> a few perspective-diverse reviewers + synthesis-as-judge. 'Audit thoroughly' / 'be exhaustive' -> larger pool, adversarial checks per finding, synthesis, and another round only if new findings keep appearing.",
+			formatWorkflowPatternPromptCheatSheet(),
+			formatWorkflowCompositionPromptGuidance(),
 			"Choose primitives by data dependency. Use ctx.agents(items,{concurrency}) for one independent step per item. Use ctx.pipeline(items,...stages) by default for >=2 dependent steps per item with no cross-item merge; include a stable item id/index in prompts generated inside stages. Use ctx.agents(items,{concurrency,settle:true}) for large fan-out or reviewer panels where one branch failure should return null. Use ctx.parallel([async()=>...]) only for a true barrier where a later step needs all branch results at once (dedup/merge, early-exit if total=0, cross-branch ranking). Use ctx.workflow(name,input) for reusable sub-steps with no decision gate; sequence separate runs when a decision depends on prior output.",
 			"Use ctx.agent(prompt,{schema}) when a subagent must return JSON; consume result.data/result.schemaOk and use schemaOnInvalid:'null' when invalid JSON should become a non-throwing branch result. Use agentType:'explore'|'reviewer'|'planner'|'implementer'|'researcher' for persona defaults; explicit options override the persona. Scope each subagent's access with tools/excludeTools, skills/includeSkills, extensions/includeExtensions, and keys/env when it needs specific capabilities; never put secret values in prompts.",
 			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, ctx.log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them.",

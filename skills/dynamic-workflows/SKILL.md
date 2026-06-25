@@ -101,6 +101,8 @@ Dynamic workflows should be generated for the concrete task after scouting. Do n
 
 The pattern catalog is visible in TUI (`/workflows` → Patterns or `/workflow patterns`) and from the tool (`dynamic_workflow action=template`). It lists aliases and concrete use cases. Key patterns include: default/fanout-synthesize, scout-fanout/pipeline/classify-act, loop-until-dry, multi-modal-sweep, adversarial-verify, completeness-critic, judge-escalate/judge-panel/generate-filter, tournament, tree-of-thoughts, self-consistency, self-repair, plan-and-execute, router, deep-research, repo-bug-hunt, adversarial-plan-review, workflow-factory, composition-driver, and verify-claims-lib.
 
+Ultracode prompts are expected to know this catalog as the default design vocabulary, not merely as UI documentation. Before hand-writing a workflow, choose the closest scaffold or explicitly say why no template fits; for composition, prefer `ctx.workflow("lib/<name>", args)` only for reusable sub-steps with no decision gate, keep `lib/` contracts stable and JSON-serializable, and sequence separate runs when the next phase depends on inspecting previous artifacts.
+
 - **Workflow factory / meta-workflow**: for a complex user task, first run `workflow-factory` with `{ task, write:true }`; it designs prompts/contracts, generates a task-specific workflow draft under `generated/<slug>`, reviews it, and leaves inspectable artifacts.
 - **Composition**: use `composition-driver` + `verify-claims-lib` as examples of `ctx.workflow("lib/verify-claims", args)` when a reusable sub-step needs no decision gate.
 - **Fan-out and synthesize**: split files/topics among subagents, then run a synthesis subagent.

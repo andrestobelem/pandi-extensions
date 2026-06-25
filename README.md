@@ -63,6 +63,8 @@ También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` 
 
 La extensión activa por defecto un router estilo Claude Code `/effort ultracode`: en cada tarea sustantiva Pi evalúa si conviene resolver normalmente o crear/ejecutar un workflow dinámico. No fuerza workflows para tareas simples; solo añade criterio de ruteo al system prompt cuando el tool `dynamic_workflow` está disponible. Por ahora no cambia automáticamente el thinking level a `xhigh` para evitar modificar coste/modelo sin una decisión explícita.
 
+Ultracode recibe ahora un mapa accionable del catálogo de templates: antes de escribir un workflow desde cero debe considerar `default`, `scout-fanout`, `loop-until-dry`, `multi-modal-sweep`, `adversarial-verify`, `completeness-critic`, `judge-escalate`, `tournament`, `tree-of-thoughts`, `self-consistency`, `self-repair`, `plan-and-execute`, `router`, `workflow-factory`, `composition-driver`, `verify-claims-lib`, `deep-research`, `repo-bug-hunt` y `adversarial-plan-review`. También recibe reglas de composición: usar `ctx.workflow("lib/<name>", args)` solo para sub-pasos reusables sin decisión intermedia, mantener contratos `lib/` estables y secuenciar workflows separados cuando haya que inspeccionar resultados antes de seguir.
+
 Úsalo sin prefijos: pide una tarea y Pi decidirá. Para controlar el modo durante la sesión:
 
 ```text
