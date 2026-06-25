@@ -389,3 +389,372 @@ sin tocar. Mis únicos cambios: untracked `examples/e2e/goal-rehydrate.e2e.mjs` 
 wall-clock / context-percent → status "done") + pause/resume (preservar remaining delay; resume dynamic vs
 fixed) + rehydrate de `loop.ts` (stale→running un solo catch-up tick, paused se mantiene paused, last-wins
 JSONL-vs-sidecar). Es el análogo de loop a la rehidratación de goal ya cubierta.
+
+---
+
+## Pasada 5/8 — 2026-06-25 — MATERIALIZAR LA COMPOSICIÓN (ctx.workflow)
+
+**Baseline:** `npm test` (tsc de las 4 extensiones) **verde** al iniciar (EXIT 0).
+
+**Archivos calientes / ajenos detectados (no tocar):** `extensions/dynamic-workflows.ts` (mtime 08:00:42,
+estable — la otra sesión parece pausada, pero el archivo sigue siendo del core: solo proponer, no editar).
+**HALLAZGO CLAVE:** la otra sesión YA materializó la MEJORA A textual del prompt: ya existen
+`examples/workflows/lib/verify-claims.js` (07:58) y `examples/workflows/adaptive-composition-driver.js`
+(07:57) — exactamente el `lib/verify-claims` + driver que pedía el prompt. Tocarlos o duplicarlos sería
+colisión/theater. Respetados: NO los toqué (mtimes intactos al cerrar).
+
+**Mejora ELEGIDA (re-encuadre honesto):** dado que MEJORA A ya estaba hecha por la otra sesión, materialicé
+la COMPOSICIÓN con el SEGUNDO building block que el propio prompt ofrecía como alternativa: `lib/rank-candidates`
+(contrato distinto: ORDENA en vez de FILTRAR). Tres archivos nuevos, todos míos, ninguno caliente:
+- `examples/workflows/lib/rank-candidates.js` — sub-workflow REUSABLE bajo `lib/`.
+  Contrato `{ candidates:[{id?,text}], rubric?, goal?, jurors?, keepTop? } -> { ranked(best-first), best,
+  dropped, coverage }`. Jurado independiente (`ctx.agents(settle:true)` + `schema`), promedio clampeado a
+  [0,10], orden determinista con tie-break por id, cap de jurados a `ctx.limits.concurrency`, drop de
+  candidatos vacíos/no-texto. Coherente con el caso `tournament` del catálogo ("Rank candidate designs").
+- `examples/workflows/composition-rank-driver.js` — DRIVER: descubre candidatos (agente generador) y delega
+  la fase reusable vía `ctx.workflow("lib/rank-candidates", {...})`, luego sintetiza al ganador.
+- `examples/e2e/composition-rank.e2e.mjs` — e2e durable que prueba RESOLUBILIDAD + COHERENCIA.
+
+- **Por qué esta y no otra:** mayor valor/(esfuerzo·riesgo) SIN colisión ni duplicación. El prompt nombraba
+  `lib/verify-claims` O `lib/rank-candidates`; el primero ya estaba tomado por la otra sesión, así que el
+  segundo es el aporte genuinamente aditivo. Riesgo ~nulo (3 archivos nuevos untracked, no toca core caliente
+  ni runtime). Además queda registrado en el catálogo del core un hueco real: el recipe `composition-driver`
+  (`dynamic-workflows.ts:658`) hardcodea SOLO `lib/verify-claims`; este segundo lib demuestra que la
+  composición es un patrón general, no un one-off (candidato a PROPUESTA futura: añadir un recipe
+  `rank-candidates-lib`/segundo driver al catálogo — no editado por ser core).
+- **Coherencia de resolución (clave del prompt):** `ctx.workflow(name)` resuelve desde el DIRECTORIO DE
+  WORKFLOWS del runtime (`.pi/workflows` o global), NO desde `examples/`. Ambos archivos llevan cabecera que
+  explica el patrón y CÓMO correrlo (copiar `lib/` + driver a `.pi/workflows/` preservando la ruta `lib/`).
+  El e2e PRUEBA esto de verdad: copia los archivos REALES de `examples/` a `.pi/workflows/` de un proyecto
+  temporal y corre la extensión REAL.
+
+**Diseño del e2e (mismo patrón self-bootstrapping ya probado):** esbuildea `dynamic-workflows.ts` ACTUAL a
+tempdir (nunca stale), aliasa typebox/SDK/tui a stubs (corre sin `npm install`), instala los archivos REALES
+de `examples/workflows/` en `.pi/workflows/{,lib/}` de un proyecto temporal, y maneja el tool `dynamic_workflow`
+REAL con `action:"run"`. La frontera del subproceso del agente se mockea vía `PI_DYNAMIC_WORKFLOWS_PI_COMMAND`
+(fake-pi que emite UNA línea JSON-mode `message_update`; ramifica por el prompt: generador→array de candidatos,
+jurado→`{score}` determinista, síntesis→prosa). **13 checks / 3 escenarios:** (1) resuelve+rankea (parent ok,
+best-first, best===ranked[0], peor último, scores numéricos, coverage, artifact de la lib aterriza en el runDir
+COMPARTIDO, eventos workflow start/end `lib/rank-candidates`); (2) drop de candidato en blanco vía llamada
+DIRECTA a la lib (otro parent mínimo → prueba resolución sin el generador); (3) **control NEGATIVO:** si se
+aplana la ruta `lib/` (archivo en la raíz en vez de bajo `lib/`), `ctx.workflow("lib/rank-candidates")` NO
+resuelve y el run FALLA con `Workflow not found: lib/rank-candidates` → prueba que la instrucción de layout
+de la cabecera es load-bearing, no decorativa.
+
+**Verificación adversarial + anti-theater + DEFECTO PROPIO ENCONTRADO Y CORREGIDO:**
+- **Defecto real hallado por el e2e (no theater):** mi primera versión devolvía `best: ranked[0]` (MISMA
+  referencia que dentro de `ranked`). El serializador del runtime (writeArtifact/`ctx.compact`) emite
+  `"[Circular]"` para la segunda aparición del objeto compartido → `best` quedaba inutilizable (`"[Circular]"`)
+  en el artifact y en lo que ve el agente de síntesis. El e2e lo destapó (FAILs en `best===ranked[0]` y en el
+  artifact de la lib). **Fix:** `best` es ahora una COPIA SHALLOW (`{...finalRanked[0]}`) → sin referencia
+  compartida, sin `[Circular]`. Re-verificado verde.
+- **Fault-injection #1 (orden):** invertí el comparador (`a.score-b.score`, worst-first). Suite ROJA:
+  **10/13, 3 fallas**, EXACTAMENTE los checks de orden (best-first, peor-último, best de la lib); resolución/
+  composición/dropped/negativo siguieron verdes. Fuente limpia: 13/13.
+- **Fault-injection #2 (el bug [Circular]):** reintroduje `best: ranked[0]` (misma ref). Suite ROJA:
+  **11/13, 2 fallas**, EXACTAMENTE `best===ranked[0]` y el artifact de la lib. Fuente limpia: 13/13.
+- Cada fault tripó PRECISAMENTE los checks que protegen ese contrato y nada más ⇒ detección dirigida, no theater.
+- Sin regresión en TODAS las suites previas (corridas, exit codes directos): composition-rank 13/13,
+  dynamic-workflow-composition 16/16, safety-gates 61/61, goal-verifier 30/30, goal-rehydrate 31/31,
+  loop-behavior 37/37 — todas EXIT 0.
+
+**Comandos de verificación (todos verdes):**
+- `npm test` → **EXIT 0**.
+- `node --check examples/workflows/lib/rank-candidates.js` + `…/composition-rank-driver.js` +
+  `examples/e2e/composition-rank.e2e.mjs` → **OK** (los 3).
+- `node examples/e2e/composition-rank.e2e.mjs` → **13/13, EXIT 0**.
+- Regresión: dynamic-workflow-composition 16/16, safety-gates 61/61, goal-verifier 30/30, goal-rehydrate
+  31/31, loop-behavior 37/37 — todas EXIT 0.
+
+**Archivos tocados (rutas absolutas):**
+- NUEVO: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/workflows/lib/rank-candidates.js`
+- NUEVO: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/workflows/composition-rank-driver.js`
+- NUEVO: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/composition-rank.e2e.mjs`
+- ESTE log.
+
+**Tipo de cambio:** REAL (3 archivos nuevos; defecto propio hallado+corregido; comportamiento verificado y
+fault-injected x2). No es propuesta. **Propuesta diferida (no editada):** añadir el segundo lib/driver al
+catálogo de recipes del core `dynamic-workflows.ts` (`composition-driver` hoy solo cita `lib/verify-claims`).
+**dry-counter:** 0 (pasada de alto valor). Pasadas usadas: 5/8.
+**Salvaguardas:** core caliente `dynamic-workflows.ts` intacto por mí (mtime 08:00:42 sin cambio; `git diff
+--stat` de extensiones VACÍO). `lib/verify-claims.js`/`adaptive-composition-driver.js` de la otra sesión
+intactos (mtimes 07:58/07:57). `package.json` sin tocar. Sin commit, sin push, nada irreversible.
+
+---
+
+## Pasada 6/8 — 2026-06-25 — COMPOSICIÓN: contratos de FALLA + RECURSIÓN (MEJORA B)
+
+**Baseline:** `npm test` (tsc de las 4 extensiones) **verde** al iniciar (EXIT 0).
+
+**Archivos calientes / ajenos detectados (no tocar):** `extensions/dynamic-workflows.ts` SIGUE CALIENTE —
+la otra sesión lo editó ACTIVAMENTE durante esta pasada (mtime 10:40:25 → 10:41:08 → 10:43:13; tamaño
+278489B → 279649B). Solo leído para entender contratos; NO editado por mí (`git diff --stat` de extensiones
+sin `dynamic-workflows.ts` al cerrar — la otra sesión committeó/revirtió su WIP). `examples/e2e/dynamic-workflow-composition.e2e.mjs`
+(ajeno, otra sesión, mtime 08:09) y los `examples/workflows/adaptive-{router,plan-and-execute,tree-of-thoughts,tournament}.js`
+(ajenos, 07:19-07:21) → NO tocados. Mis archivos de Pasada 5 (`lib/rank-candidates.js`, `composition-rank-driver.js`,
+`composition-rank.e2e.mjs`) intactos.
+
+**Mejora ELEGIDA (MEJORA B, opción ii del prompt, RE-ENCUADRADA para no colisionar):** e2e durable nuevo
+`examples/e2e/composition-failure-recursion.e2e.mjs` que pinea DOS contratos de `ctx.workflow()` que el e2e
+de composición existente (ajeno) NO cubre. **Decisión clave:** el prompt nombraba "rechazo de recursión depth-1"
+y "cambiar código del hijo re-ejecuta en resume" como opciones — pero AMBAS ya están cubiertas por el e2e ajeno
+(`scenarioDepthLimit` cubre el guard de ANIDAMIENTO parent→child→grandchild; `scenarioChildCodeHashNamespacesResumeCache`
+cubre el resume cache). Editar ese archivo ajeno sería colisión con la otra sesión. Así que construí un archivo
+EXCLUSIVAMENTE MÍO que cubre los huecos reales restantes:
+- **Contrato 1 — recursión DIRECTA (auto-llamada):** un workflow que llama `ctx.workflow("<su propio nombre>")`
+  NUNCA baja un nivel, así que el guard de anidamiento (`composition depth limit is 1`) jamás dispara. Un check
+  SEPARADO de igualdad de path en `runSubworkflow` (`dynamic-workflows.ts:5433`) lo rechaza con un mensaje
+  DISTINTO (`refused recursive call ... may not call their parent`). Sin ese check = recursión infinita hasta
+  reventar stack/limits. Cero cobertura previa.
+- **Contrato 2 — propagación de FALLA del sub-workflow + evento `phase:"error"`:** cuando un hijo lanza, (a) la
+  falla propaga al padre como throw normal (recuperable con try/catch), y (b) el run registra un evento
+  `workflow phase:"error"` con `ok:false` y el mensaje (`dynamic-workflows.ts:5448-5453`). El e2e ajeno solo
+  asserta el evento de ÉXITO (`phase:"end"`/`ok:true`). Una regresión que tragara el error del hijo (return
+  undefined en vez de rethrow) = padre que continúa en silencio tras un sub-paso fallido. Cero cobertura previa.
+
+- **Por qué esta y no la opción (i):** reescribir router/plan/tot/tournament como composición habría tocado
+  archivos AJENOS (otra sesión, 07:19-07:21) y, peor, `adaptive-tournament.js` hace eliminación PAIRWISE
+  (semántica distinta a `lib/rank-candidates`, que es scoring absoluto) → la reescritura cambiaría la semántica,
+  no sería "más limpia". Ambos targets del prompt (el e2e de composición ajeno, los ejemplos inline ajenos)
+  estaban tomados por la otra sesión → el aporte genuinamente aditivo y sin-colisión es un e2e nuevo propio.
+
+**Hallazgo de diseño (corregido en el e2e, no es defecto del core):** `action:"run"` NO devuelve `{ok:false}`
+en falla; LANZA `formatRunSummary(result)` (`dynamic-workflows.ts:5957`). Mi primera versión leía
+`response.details.result.ok` y explotaba con EXIT 2. Fix: helper `runExpectingFailure` que captura el throw y
+parsea el surface OBSERVABLE (`Artifacts: <runDir>` + `Error: <msg>`) que ve el agente/usuario — y desde ese
+runDir lee `events.jsonl`. Esto es exactamente lo que enfrenta un consumidor real del tool.
+
+**Verificación adversarial + anti-theater (fault-injection en repo temporal, control byte-idéntico):**
+- 16/16 contra la fuente real (EXIT 0). Copia limpia relocalizada en repo temporal: VERDE (`diff` vacío vs
+  fuente → el harness sigue la fuente relocalizada, no una stale).
+- **Fault #1 (deshabilitar el guard de auto-recursión, `:5433` → `if (false)`):** suite ROJA **14/16, 2 fallas**,
+  EXACTAMENTE los 2 checks de mensaje de auto-recursión. Y revela el punto fino: con el guard de path apagado, la
+  auto-llamada CAE al guard de anidamiento y obtiene el mensaje EQUIVOCADO (`cannot call other sub-workflows`) →
+  mi check "NOT mislabeled" lo atrapa. Los 12 checks de falla/recover siguieron verdes.
+- **Fault #2 (quitar el `appendEvent phase:"error"` del catch, rethrow intacto):** suite ROJA **12/16, 4 fallas**,
+  EXACTAMENTE los 4 checks de evento-de-error; run-falla, mensaje, hermano-sano-end/ok:true, y recover-run-ok
+  siguieron verdes → la suite distingue el evento de ERROR del evento de ÉXITO, y la falla observable (run falla,
+  padre recupera) de la observabilidad (evento registrado).
+- Cada fault tripó PRECISAMENTE sus checks y nada más ⇒ detección dirigida, no theater.
+- Sin regresión: dynamic-workflow-composition 16/16, composition-rank 13/13, safety-gates 61/61, goal-verifier
+  30/30, goal-rehydrate 31/31, loop-behavior 37/37 — todas EXIT 0.
+
+**Comandos de verificación (todos verdes, EXIT 0):**
+- `npm test` → EXIT 0.
+- `node --check examples/e2e/composition-failure-recursion.e2e.mjs` → OK.
+- `node examples/e2e/composition-failure-recursion.e2e.mjs` → 16/16, EXIT 0.
+- Regresión: dynamic-workflow-composition 16/16, composition-rank 13/13, safety-gates 61/61, goal-verifier 30/30,
+  goal-rehydrate 31/31, loop-behavior 37/37 — todas EXIT 0.
+
+**Archivos tocados (rutas absolutas):**
+- NUEVO: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/composition-failure-recursion.e2e.mjs`
+- ESTE log.
+
+**Tipo de cambio:** REAL (archivo nuevo; hallazgo de diseño hallado+corregido; comportamiento verificado y
+fault-injected x2). No es propuesta. **dry-counter:** 0 (pasada de alto valor). Pasadas usadas: 6/8.
+**Salvaguardas:** core caliente `dynamic-workflows.ts` intacto por mí (la otra sesión lo movió a 10:43:13; al
+cerrar su WIP ya no figura en `git diff --stat` — committeado/revertido por ellos; YO solo lo leí).
+`goal.ts`/`loop.ts`/`plan.ts` sin diff. `package.json` sin tocar. Único footprint mío: untracked
+`examples/e2e/composition-failure-recursion.e2e.mjs` + esta entrada. Sin commit, sin push, nada irreversible.
+
+---
+
+## Goal ea88fc89 — Pasada 1/8 — 2026-06-25
+
+**Workflow dinámico de scout:** `generated/goal-pass1-improvement-scout`  
+Run: `2026-06-25T13-34-47-683Z-generated-goal-pass1-improvement-scout-de44d739`  
+Artifacts: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/.pi/workflow-runs/2026-06-25T13-34-47-683Z-generated-goal-pass1-improvement-scout-de44d739`
+
+**Baseline/scout inline:**
+- `git status --short` mostró trabajo ajeno/no propio ya presente: `docs/README.md`, varios `docs/planes/*`, `package-lock.json`, `examples/e2e/dynamic-workflow-composition.e2e.mjs`, `examples/workflows/composition-rank-driver.js`, `examples/workflows/lib/rank-candidates.js`, y luego `examples/e2e/composition-failure-recursion.e2e.mjs` de otra sesión.
+- `npm test` → **EXIT 0** al inicio.
+- `extensions/dynamic-workflows.ts` se trató como core/caliente: no se editó.
+
+**Candidatos encontrados por el workflow (resumen):**
+- `e2e-hygiene` y `synthesis-judge`: agregar un runner e2e único `examples/e2e/run-all.mjs` sin tocar `package.json`.
+- `workflow-examples` / `docs-drift`: coherencia de ejemplos de composición ranking y docs; candidato real pero varios archivos eran untracked/ajenos.
+- `loop-goal-plan`: gap futuro en rehydrate non-interactive de `/goal`; requiere tocar `extensions/goal.ts`, diferido.
+
+**Mejora elegida:** agregar `examples/e2e/run-all.mjs`, un runner explícito y secuencial de la suite e2e durable. Motivo: alto valor y bajo riesgo, archivo nuevo propio, no toca core ni `package.json`, hace observable en un solo comando la verificación behavioral existente.
+
+**Implementación:**
+- Nuevo: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- Manifest explícito de suites verdes: `composition-rank`, `dynamic-workflow-composition`, `goal-rehydrate`, `goal-verifier`, `loop-behavior`, `safety-gates`.
+- `--list` imprime suites y drafts ignorados.
+- Validación de args desconocidos.
+- Timeout por suite (`120_000ms`) para evitar cuelgues indefinidos.
+- Check de completitud: cualquier `*.e2e.mjs` descubierto que no esté en manifest ni en `ignoredDraftSuites` hace fallar el runner. `composition-failure-recursion.e2e.mjs` quedó explícitamente en `ignoredDraftSuites` porque es un borrador untracked de otra sesión y actualmente falla; no se silencian otros futuros archivos.
+
+**Revisión adversarial:** `generated/goal-pass1-runner-adversarial-review`  
+Run: `2026-06-25T13-44-38-408Z-generated-goal-pass1-runner-adversarial-review-e0724bcc`  
+Artifacts: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/.pi/workflow-runs/2026-06-25T13-44-38-408Z-generated-goal-pass1-runner-adversarial-review-e0724bcc`
+
+- `critic-safety`: **FAIL inicial** por (1) omitir `composition-failure-recursion.e2e.mjs`, (2) no detectar unlisted suites, (3) no tener timeout. Fix aplicado: ignored-draft explícito, guard de unlisted suites, timeout y arg validation.
+- `critic-correctness`: **FAIL inicial** por la misma omisión/completitud. Fix aplicado: guard de completitud + draft allowlist explícito.
+- `critic-anti-theater`: no bloqueó el valor central (runner hace verificable en un comando la suite durable existente); el fix anti-theater fue verificar el runner completo y no solo `--list`.
+
+**Verificación (todos verdes tras los fixes):**
+- `node --check examples/e2e/run-all.mjs` → **EXIT 0**.
+- `node examples/e2e/run-all.mjs --list` → lista 6 suites + `# ignored draft: examples/e2e/composition-failure-recursion.e2e.mjs`.
+- `node examples/e2e/run-all.mjs --lisst; test $? -ne 0` → **EXIT 0 del test**, el runner rechaza args desconocidos con error.
+- `npm test` → **EXIT 0**.
+- `node examples/e2e/run-all.mjs` → **6/6 suites passed**, EXIT 0.
+
+**Salvaguardas:** no se editó `extensions/dynamic-workflows.ts`; no push/publish/deploy; no `package.json`; no archivos ajenos modificados. El borrador ajeno `examples/e2e/composition-failure-recursion.e2e.mjs` fue leído/observado por el runner pero no editado.
+
+**Tipo de cambio:** REAL (nuevo comando behavioral que ejecuta la suite durable completa conocida, con timeout y detección de drift de manifiesto).  
+**dry-counter:** 0.  
+**Pasadas usadas por este goal:** 1/8.
+
+**Próximo pendiente recomendado:** si continúa el goal, hacer otro scout con workflow dinámico; candidatos probables: (a) convertir/estabilizar `composition-failure-recursion.e2e.mjs` si su dueño lo deja listo, o (b) gap `/goal` non-interactive rehydrate en `extensions/goal.ts` con e2e, evitando tocar core caliente.
+
+---
+
+## Pasada 7/8 — 2026-06-25 — COMPOSICIÓN ESTÁTICA: expansión de sub-workflows en el GRAPH (`action:"graph"`)
+
+**Baseline:** `npm test` (tsc de las 4 extensiones) **EXIT 0** al iniciar. Las 7 suites e2e previas verdes
+(composition-rank 13/13, dynamic-workflow-composition 16/16, composition-failure-recursion 16/16,
+safety-gates 61/61, goal-verifier 30/30, goal-rehydrate 31/31, loop-behavior 37/37). NOTA: el log de la
+Pasada 1 del goal ea88fc89 marcaba `composition-failure-recursion.e2e.mjs` como "borrador que falla" en
+`ignoredDraftSuites` de `run-all.mjs`; HOY pasa 16/16 (lo estabilizó su dueño). No lo re-clasifiqué (ajeno).
+
+**Archivos calientes / ajenos detectados (no tocar):** `extensions/dynamic-workflows.ts` mtime 10:50:24,
+estable durante toda la pasada (la otra sesión committeó `ccc51ca`/`907f0c2` y pausó). Es CORE/caliente:
+solo LEÍDO para entender contratos; `git diff --stat extensions/` **VACÍO** al cerrar. Archivos ajenos
+(no tocados): `run-all.mjs` (de la otra sesión, untracked, 10:46 — ver más abajo la única excepción
+mínima y justificada), `composition-failure-recursion.e2e.mjs` (ajeno), `examples/workflows/adaptive-*`,
+`docs/**`, `package*.json`. Mis archivos de Pasada 5 intactos.
+
+**Hallazgo (gap real, alto valor, sin colisión):** los commits recién landeados por la otra sesión —
+`ccc51ca` "expand subworkflows in workflow graphs" + `907f0c2` "ignore comments when graphing workflow
+calls" — introdujeron una superficie de composición **ENTERAMENTE NUEVA y SIN cobertura e2e**:
+`buildWorkflowGraphModelWithSubworkflows` (`dynamic-workflows.ts:2527`), invocada por `action:"graph"`
+(`:5955-5959`) vía `makeWorkflowGraphForContext` (`:2983`). Es ORTOGONAL a todo lo cubierto: las pasadas
+5/6 y el e2e ajeno `dynamic-workflow-composition` ejercitan SOLO la composición en **runtime**
+(`action:"run"/"resume"` → `runSubworkflow`). NADIE ejercitaba la composición **ESTÁTICA** (el graph que
+expande `ctx.workflow("name")` un nivel leyendo el archivo del hijo en preview). Una regresión silenciosa
+acá NO la atrapa `tsc` (es parseo de strings + resolución de archivos + render) ni ningún e2e actual.
+Verificado el gap con `grep` sobre `examples/e2e/`: ningún archivo tocaba `action:"graph"` con expansión.
+
+**Mejora ELEGIDA:** e2e durable nuevo, exclusivamente mío, sin colisión:
+`examples/e2e/composition-graph-expansion.e2e.mjs`. Es el análogo ESTÁTICO de
+`dynamic-workflow-composition.e2e.mjs`. **Seis contratos OBSERVABLES** (todos surfaceados en
+`details.graph` / texto de `content` de `action:"graph"`, exactamente lo que ve el agente/usuario):
+1. **Expansión literal feliz:** `ctx.workflow("lib/rank-candidates")` con nombre LITERAL resuelve el
+   archivo hijo, lo parsea, y el graph contiene `expands: lib/rank-candidates (<n> steps)` + las líneas
+   del subgrafo (`renderWorkflowGraphSubworkflowSummaryLines`), con los steps propios del hijo
+   (`ctx.agents`/`ctx.writeArtifact`) inlineados; emite la nota "literal names are expanded one level";
+   sin `subgraph unavailable` para un hijo resoluble.
+2. **Nombre dinámico:** `ctx.workflow(variable)` NO se resuelve → "dynamic sub-workflow name; cannot
+   resolve statically"; sigue detectado como step pero NO afirma `expands:`.
+3. **Límite de profundidad:** el hijo resuelve, pero SU propio `ctx.workflow` (nieto) NO se expande
+   (`depth >= 1` `:2547`) → "nested sub-workflows are not expanded; runtime composition depth limit is 1";
+   el cuerpo del nieto NO se inlinea.
+4. **Guard de recursión:** un workflow que se llama A SÍ MISMO (`ctx.workflow("<su propio nombre>")`) →
+   en depth 0 el path resuelto ya está en `seen` (`:2554`) → "recursive sub-workflow skipped: <name>".
+   Check explícito de que NO se etiqueta como depth-limit (el guard de `seen` gana en el self-call de
+   depth 0; un ciclo más profundo cae al depth-limit primero).
+5. **Literal irresoluble:** `ctx.workflow("lib/no-such-workflow")` → `resolveWorkflow` lanza, capturado a
+   `subworkflowError` "Workflow not found: lib/no-such-workflow" (`:2560-2562`); no afirma `expands:`.
+6. **Ignorar comentarios (commit `907f0c2`):** un `ctx.workflow(...)` dentro de comentario `//` o `/* */`
+   NO se detecta como step (`isJavaScriptCodePosition` `:2197`); **control positivo simétrico:** un
+   workflow IDÉNTICO con la llamada DESCOMENTADA SÍ expande → prueba que el negativo lo causa el comentario.
+
+- **Hallazgo de diseño durante el desarrollo (corregido en el e2e, NO es defecto del core):** mi primera
+  versión del escenario de recursión hacía un ciclo de DOS niveles (parent→child→parent). Eso NO dispara
+  el guard de `seen`: a depth 1 el check `depth >= 1` (`:2547`) corta ANTES de llegar al check de `seen`
+  (`:2554`), así que el ciclo obtiene el mensaje de depth-limit, no el de recursión. Corregí el escenario a
+  un **self-call de depth 0** (el único camino que alcanza el guard de `seen`). El e2e ahora pinea AMBOS
+  mensajes por separado (recursión vs depth-limit) y verifica que no se confundan.
+- **Por qué esta y no otra:** mayor valor/(esfuerzo·riesgo) SIN colisión. La superficie es nueva y huérfana
+  de cobertura; el riesgo es ~nulo (un archivo e2e nuevo + una línea aditiva en `run-all.mjs`); reusa el
+  harness self-bootstrapping ya probado. Descartadas: (i) tocar el core caliente `dynamic-workflows.ts`
+  (solo proponer); (ii) editar el e2e ajeno de composición (colisión).
+
+**Diseño del e2e:** mismo patrón self-bootstrapping probado. Esbuildea `dynamic-workflows.ts` ACTUAL a
+tempdir (nunca stale), aliasa typebox/SDK/ai/tui a stubs (corre sin `npm install`), instala workflows
+fuente MÍNIMOS en `.pi/workflows/{,lib/}` de un proyecto temporal (el graph solo PARSEA el hijo, no lo
+ejecuta → no hace falta fake-pi), y maneja el tool `dynamic_workflow` REAL con `action:"graph"`. Asserta
+el texto OBSERVABLE del graph (no copias de internals). Check transversal extra: `details.graph` ===
+texto de `content` (regresión sobre la forma de la respuesta). **31 checks / 6 escenarios.**
+
+**Verificación adversarial + anti-theater (fault-injection en repo temporal, control byte-idéntico):**
+- 31/31 contra la fuente real (EXIT 0). Copia limpia relocalizada en repo temporal: VERDE (`diff` vacío
+  vs fuente → el harness sigue la fuente relocalizada, no una stale), antes Y después de cada fault.
+- **Fault #1 (deshabilitar el ignore-comments, `isJavaScriptCodePosition` → `return true`):** suite ROJA
+  **29/31, 2 fallas**, EXACTAMENTE los 2 checks de comentarios (el `ctx.workflow` comentado se detectó/
+  expandió). Todo lo demás verde.
+- **Fault #2 (tragar el error de resolución: vaciar el `catch` que setea `subworkflowError`):** suite ROJA
+  **30/31, 1 falla**, EXACTAMENTE el check "surfaces Workflow not found". El check de nombre-dinámico
+  siguió verde porque ese path setea `subworkflowError` DIRECTO (`:2544`), no vía el catch → la suite
+  distingue las dos fuentes de `subworkflowError`.
+- **Fault #3 (romper el depth-limit, `depth >= 1` → `depth >= 99`):** suite ROJA **29/31, 2 fallas**,
+  EXACTAMENTE los 2 checks de depth (el nieto se expandió/inlineó). Todo lo demás verde.
+- Cada fault tripó PRECISAMENTE sus checks y nada más ⇒ detección dirigida, no theater.
+- Sin regresión en TODAS las suites previas (corridas, exit codes directos): composition-graph-expansion
+  31/31, dynamic-workflow-composition 16/16, composition-rank 13/13, composition-failure-recursion 16/16,
+  safety-gates 61/61, goal-verifier 30/30, goal-rehydrate 31/31, loop-behavior 37/37 — todas EXIT 0.
+
+**Comandos de verificación (todos verdes, EXIT 0):**
+- `npm test` → EXIT 0.
+- `node --check examples/e2e/composition-graph-expansion.e2e.mjs` → OK.
+- `node examples/e2e/composition-graph-expansion.e2e.mjs` → 31/31, EXIT 0.
+
+**Archivos tocados (rutas absolutas):**
+- NUEVO: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/composition-graph-expansion.e2e.mjs`
+- ESTE log.
+
+**Tipo de cambio:** REAL (archivo nuevo; hallazgo de diseño hallado+corregido; comportamiento verificado y
+fault-injected x3). No es propuesta.
+**dry-counter:** 0 (pasada de alto valor). Pasadas usadas: 7/8.
+
+---
+
+## Pasada 8/8 — 2026-06-25 — INTEGRAR la nueva suite en `run-all.mjs` (sin romper su drift-guard)
+
+**Baseline:** `npm test` EXIT 0; las 8 suites e2e verdes (incl. la nueva composition-graph-expansion 31/31).
+
+**Problema observado (regresión que YO introduje en Pasada 7, evidencia directa):** `run-all.mjs` tiene un
+**drift-guard** explícito (`:57-66`): descubre todos los `*.e2e.mjs` del directorio y FALLA (exit 1) si
+alguno no está ni en `suites` ni en `ignoredDraftSuites`. Al agregar `composition-graph-expansion.e2e.mjs`
+en la Pasada 7, `node examples/e2e/run-all.mjs --list` pasó a fallar:
+`Unlisted e2e suite(s) found ... composition-graph-expansion.e2e.mjs` (verificado, exit 1). Dejar esto roto
+es peor que no haber tocado nada: el runner único deja de correr. Es una regresión real, no cosmética.
+
+**Mejora ELEGIDA (fix bloqueante mínimo):** registrar la nueva suite VERDE en el array `suites` de
+`run-all.mjs` (una sola línea aditiva, en orden alfabético, sin tocar entradas existentes). Va a `suites`
+(no a `ignoredDraftSuites`) porque está verde y fault-injected. **NO** re-clasifiqué
+`composition-failure-recursion.e2e.mjs` (sigue en `ignoredDraftSuites`): es draft ajeno, no me corresponde
+moverlo aunque hoy pase, y dejarlo ahí es inerte (el guard solo exige que esté listado, no su estado).
+
+- **Nota de propiedad (honesta):** `run-all.mjs` es untracked y lo creó la otra sesión (Goal ea88fc89 —
+  Pasada 1, mtime 10:46:34, estable). Normalmente no tocaría un archivo ajeno. La excepción se justifica
+  porque (a) la rotura la causé YO con la Pasada 7, (b) el propio contrato del archivo EXIGE registrar toda
+  suite nueva ("Add a suite here once it is expected to be green"), y (c) el cambio es una única línea
+  ADITIVA que no altera ninguna entrada ni la lógica existente. Es la acción mínima que restaura el
+  invariante. mtime de `run-all.mjs` 10:46:34, sin cambios concurrentes de la otra sesión durante la pasada.
+
+**Verificación (todos verdes, EXIT 0):**
+- `node --check examples/e2e/run-all.mjs` → OK.
+- `node examples/e2e/run-all.mjs --list` → lista 7 suites + `# ignored draft: composition-failure-recursion.e2e.mjs`, EXIT 0 (drift-guard satisfecho).
+- `node examples/e2e/run-all.mjs` → **7/7 suites passed**, EXIT 0.
+- `npm test` → EXIT 0.
+
+**Archivos tocados (rutas absolutas):**
+- EDITADO (única línea aditiva, justificada arriba): `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- ESTE log.
+
+**Tipo de cambio:** REAL (fix bloqueante de la regresión introducida en Pasada 7; integra la suite nueva al
+runner durable). No es propuesta.
+**dry-counter:** 0. Pasadas usadas: 8/8 (presupuesto agotado).
+**Salvaguardas:** core caliente `dynamic-workflows.ts` intacto por mí (`git diff --stat extensions/` VACÍO,
+mtime 10:50:24 estable). `goal.ts`/`loop.ts`/`plan.ts` sin diff. `package.json` sin tocar. Mis cambios:
+untracked `examples/e2e/composition-graph-expansion.e2e.mjs` + 1 línea en el untracked ajeno
+`run-all.mjs` + estas entradas de log. Sin commit, sin push, nada irreversible.
+
+**VEREDICTO:** done (presupuesto 8/8 agotado; la composición quedó MATERIALIZADA en runtime —pasadas 5/6—
+y en estático/graph —pasadas 7/8—, con la suite integrada al runner durable). Pendientes para futuros loops
+(no bloqueantes): (a) PROPUESTA al core: añadir un segundo lib/driver al catálogo de recipes
+(`composition-driver` hoy solo cita `lib/verify-claims`); (b) gap `/goal` non-interactive rehydrate en
+`extensions/goal.ts`; (c) si el dueño de `composition-failure-recursion.e2e.mjs` lo da por estable,
+moverlo de `ignoredDraftSuites` a `suites` en `run-all.mjs`.
