@@ -31,7 +31,7 @@ Para usar workflows de proyecto en `.pi/workflows/`, confía el proyecto con `/t
 Comandos humanos:
 
 ```text
-/workflows                              # dashboard TUI interactivo (tabs Workflows/Runs/Activity)
+/workflows                              # dashboard TUI monitor-first (tabs Monitor/Runs/Workflows/Activity)
 Ctrl+Alt+W                              # shortcut para abrir el dashboard
 /workflow dashboard                     # alias del dashboard TUI
 /workflow list
@@ -78,7 +78,7 @@ Los workflows se guardan en:
 
 Los resultados/artifacts se guardan en `.pi/workflow-runs/<run-id>/` cuando el proyecto está trusted. En proyectos no confiados se usa un directorio global bajo `~/.pi/agent/workflow-runs/<hash>/`.
 
-Durante ejecuciones foreground (comando `/workflow run` o tool `dynamic_workflow action=run`), Pi muestra el workflow activo en la status line (`▶/✓/✗ wf ... /workflows ↑↓`) y un widget live con progreso: workflow, agentes completados, comandos bash y últimos logs. En modo interactivo, `/workflows` o `Ctrl+Alt+W` abre un dashboard TUI con tabs para workflows, runs y Activity; desde ahí navegas con ↑↓ para abrir graphs, ejecutar workflows, inspeccionar timelines/artifacts o ver actividad reciente en vivo. Después de cualquier ejecución puedes usar `/workflow view latest`.
+Durante ejecuciones foreground (comando `/workflow run` o tool `dynamic_workflow action=run`), Pi muestra el workflow activo en la status line (`▶/✓/✗ wf ... /workflows ↑↓`) y un widget live compacto debajo del editor (máximo 2 líneas) con progreso derivado de logs existentes: agentes completados/iniciados, comandos bash y último log. En modo interactivo, `/workflows` o `Ctrl+Alt+W` abre un dashboard TUI en tab `Monitor` por defecto, con tabs `Monitor`, `Runs`, `Workflows` y `Activity`. El Monitor prioriza el run activo o, si no hay ninguno, el último run; muestra workflow, estado, elapsed, active/stale, agentes, bash, artifacts, último log y `runDir`. Atajos: `Enter`/`v` abre el run, `g` abre el graph, `c` cancela solo runs activos, `r` rerun con confirmación usando `input.json` (o editor JSON si falta), `q`/`esc` cierra. Las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran. Después de cualquier ejecución puedes usar `/workflow view latest`.
 
 Para probar ejemplos, copia uno a `.pi/workflows/`:
 
@@ -115,7 +115,7 @@ Notas:
 - `start` devuelve inmediatamente `runId`, `status.json` y directorio de artifacts.
 - Al completar o fallar, el background workflow despierta al agente con un follow-up automático para inspeccionar `dynamic_workflow action=view name=<runId>` y continuar la tarea.
 - El run continúa solo mientras viva la sesión actual de Pi; al reiniciar, un run incompleto se ve como `stale`. Puedes reanudarlo con `/workflow resume <runId>` (ver "Runs reanudables").
-- Monitorea con `/workflow runs`, `/workflow view <runId>` o el tab `Activity` del dashboard; cancela con `/workflow cancel <runId>` o `dynamic_workflow action=cancel`.
+- Monitorea con `/workflow runs`, `/workflow view <runId>` o el tab `Monitor` del dashboard; cancela con `/workflow cancel <runId>` o `dynamic_workflow action=cancel` (el dashboard solo cancela runs activos en esta sesión).
 - Sigue gastando llamadas/modelos en background: usa límites explícitos.
 
 ## Runs reanudables (idempotentes)

@@ -18,7 +18,7 @@ import {
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
@@ -1047,6 +1047,38 @@ function shortWorkflowName(name: string): string {
 	return name.length <= 36 ? name : `${name.slice(0, 33)}…`;
 }
 
+function formatElapsedMs(ms: number): string {
+	const seconds = Math.max(0, Math.round(ms / 1000));
+	if (seconds < 60) return `${seconds}s`;
+	const minutes = Math.floor(seconds / 60);
+	const remainder = seconds % 60;
+	if (minutes < 60) return `${minutes}m${remainder.toString().padStart(2, "0")}s`;
+	const hours = Math.floor(minutes / 60);
+	return `${hours}h${(minutes % 60).toString().padStart(2, "0")}m`;
+}
+
+function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRunState(run)): number {
+	if (state === "running") {
+		const started = new Date(run.startedAt).getTime();
+		if (Number.isFinite(started)) return Date.now() - started;
+	}
+	return run.elapsedMs;
+}
+
+function isActiveRunRecord(run: WorkflowRunRecord): boolean {
+	return getRunState(run) === "running" && activeRuns.has(run.runId);
+}
+
+function canCancelRun(run: WorkflowRunRecord): boolean {
+	return isActiveRunRecord(run);
+}
+
+function padRightVisible(value: string, width: number): string {
+	const maxWidth = Math.max(1, width);
+	const truncated = visibleWidth(value) > maxWidth ? truncateToWidth(value, maxWidth, "") : value;
+	return truncated + " ".repeat(Math.max(0, maxWidth - visibleWidth(truncated)));
+}
+
 function setWorkflowIdleStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
 	ctx.ui.setStatus(WORKFLOW_STATUS_KEY, ctx.ui.theme.fg("dim", "wf"));
@@ -1098,14 +1130,33 @@ function clearWorkflowWidget(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, undefined);
 }
 
-function formatLiveRunView(logs: WorkflowLogEntry[], workflowName: string): string[] {
+function formatLiveRunView(logs: WorkflowLogEntry[], workflowName: string, width = 80): string[] {
+	const w = Math.max(1, width);
 	const { agentsStarted, agentsDone, bashDone } = workflowProgress(logs);
+	const latest = logs.slice(-1)[0];
+	const line = (s: string) => truncateToWidth(s, w, "");
 	return [
-		`▶ workflow: ${workflowName}`,
-		`🤖 agents ${agentsDone}/${agentsStarted}  🐚 bash ${bashDone}  📝 logs ${logs.length}`,
-		`↗ dashboard: ${workflowDashboardHint()}`,
-		...logs.slice(-8).map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`),
+		line(`▶ wf ${shortWorkflowName(workflowName)}  agents ${agentsDone}/${agentsStarted}  bash ${bashDone}  logs ${logs.length}`),
+		line(latest ? `${latest.time.slice(11, 19)} ${latest.message}  •  ${workflowDashboardHint()}` : `Open monitor: ${workflowDashboardHint()}`),
 	];
+}
+
+function setWorkflowWidget(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[]): void {
+	if (!ctx.hasUI) return;
+	if (ctx.mode !== "tui") {
+		ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, formatLiveRunView(logs, workflowName), { placement: "belowEditor" });
+		return;
+	}
+	ctx.ui.setWidget(
+		WORKFLOW_WIDGET_KEY,
+		() => ({
+			invalidate(): void {},
+			render(width: number): string[] {
+				return formatLiveRunView(logs, workflowName, width);
+			},
+		}),
+		{ placement: "belowEditor" },
+	);
 }
 
 function mermaidLabel(value: string): string {
@@ -1521,7 +1572,7 @@ async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 }
 
 interface WorkflowDashboardResult {
-	type: "graph" | "run" | "view";
+	type: "graph" | "run" | "view" | "cancel" | "rerun";
 	workflow?: WorkflowFile;
 	run?: WorkflowRunRecord;
 }
@@ -1557,8 +1608,74 @@ function compactInline(value: unknown, maxChars = 160): string {
 	return stringify(value, maxChars).replace(/\s+/g, " ").trim();
 }
 
+interface WorkflowMonitorModel {
+	run: WorkflowRunRecord;
+	workflow: string;
+	runId: string;
+	state: WorkflowRunState;
+	active: boolean;
+	stale: boolean;
+	elapsedMs: number;
+	agentsStarted: number;
+	agentsDone: number;
+	bashDone: number;
+	artifactCount: number;
+	lastLog?: WorkflowLogEntry;
+	runDir: string;
+	priority: "active" | "latest";
+	canCancel: boolean;
+	canRerun: boolean;
+}
+
+async function countRunArtifacts(runDir: string): Promise<number> {
+	try {
+		const files = await listRunFiles(runDir, 200);
+		const bookkeeping = new Set(["status.json", "result.json", "input.json", "events.jsonl", JOURNAL_FILE, "summary.md"]);
+		return files.filter((file) => !bookkeeping.has(file)).length;
+	} catch {
+		return 0;
+	}
+}
+
+function canRerunRun(run: WorkflowRunRecord): boolean {
+	return getRunState(run) !== "running" && !!run.file && existsSync(run.file);
+}
+
+async function deriveWorkflowMonitor(run: WorkflowRunRecord, priority: "active" | "latest"): Promise<WorkflowMonitorModel> {
+	const state = getRunState(run);
+	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : await readRunLogEvents(run.runDir);
+	const { agentsStarted, agentsDone, bashDone } = workflowProgress(logs);
+	const active = isActiveRunRecord(run);
+	const lastLog = logs.slice(-1)[0];
+	return {
+		run,
+		workflow: run.workflow,
+		runId: run.runId,
+		state,
+		active,
+		stale: state === "stale" || (state === "running" && !active),
+		elapsedMs: getRunElapsedMs(run, state),
+		agentsStarted: Math.max(agentsStarted, run.agentCount),
+		agentsDone,
+		bashDone,
+		artifactCount: await countRunArtifacts(run.runDir),
+		...(lastLog ? { lastLog } : {}),
+		runDir: run.runDir,
+		priority,
+		canCancel: canCancelRun(run),
+		canRerun: canRerunRun(run),
+	};
+}
+
+async function deriveWorkflowMonitorModels(runs: WorkflowRunRecord[]): Promise<WorkflowMonitorModel[]> {
+	const active = runs.find((run) => isActiveRunRecord(run));
+	const selected = active ?? runs[0];
+	if (!selected) return [];
+	return [await deriveWorkflowMonitor(selected, active ? "active" : "latest")];
+}
+
 class WorkflowDashboard {
-	private tab: "workflows" | "runs" | "activity" = "workflows";
+	private tab: "monitor" | "runs" | "workflows" | "activity" = "monitor";
 	private workflowIndex = 0;
 	private runIndex = 0;
 	private activityIndex = 0;
@@ -1567,6 +1684,7 @@ class WorkflowDashboard {
 		private readonly workflows: WorkflowFile[],
 		private runs: WorkflowRunRecord[],
 		private activity: WorkflowActivityEntry[],
+		private monitorModels: WorkflowMonitorModel[],
 		private readonly theme: any,
 		private readonly requestRender: () => void,
 		private readonly done: (result: WorkflowDashboardResult | null) => void,
@@ -1582,7 +1700,25 @@ class WorkflowDashboard {
 		this.activityIndex = Math.min(this.activityIndex, Math.max(0, activity.length - 1));
 	}
 
+	setMonitorModels(models: WorkflowMonitorModel[]): void {
+		this.monitorModels = models;
+	}
+
 	invalidate(): void {}
+
+	private selectedMonitor(): WorkflowMonitorModel | undefined {
+		return this.monitorModels.find((model) => model.active) ?? this.monitorModels[0];
+	}
+
+	private selectedRun(): WorkflowRunRecord | undefined {
+		if (this.tab === "monitor") return this.selectedMonitor()?.run;
+		if (this.tab === "runs") return this.runs[this.runIndex];
+		if (this.tab === "activity") {
+			const entry = this.activity[this.activityIndex];
+			return entry ? this.runs.find((candidate) => candidate.runId === entry.runId) : undefined;
+		}
+		return undefined;
+	}
 
 	handleInput(data: string): void {
 		if (matchesKey(data, Key.escape) || data === "q") {
@@ -1590,7 +1726,12 @@ class WorkflowDashboard {
 			return;
 		}
 		if (matchesKey(data, Key.tab)) {
-			this.tab = this.tab === "workflows" ? "runs" : this.tab === "runs" ? "activity" : "workflows";
+			this.tab = this.tab === "monitor" ? "runs" : this.tab === "runs" ? "workflows" : this.tab === "workflows" ? "activity" : "monitor";
+			this.requestRender();
+			return;
+		}
+		if (data === "m") {
+			this.tab = "monitor";
 			this.requestRender();
 			return;
 		}
@@ -1599,17 +1740,22 @@ class WorkflowDashboard {
 			this.requestRender();
 			return;
 		}
+		if (data === "w") {
+			this.tab = "workflows";
+			this.requestRender();
+			return;
+		}
 		if (matchesKey(data, Key.up)) {
 			if (this.tab === "workflows") this.workflowIndex = Math.max(0, this.workflowIndex - 1);
 			else if (this.tab === "runs") this.runIndex = Math.max(0, this.runIndex - 1);
-			else this.activityIndex = Math.max(0, this.activityIndex - 1);
+			else if (this.tab === "activity") this.activityIndex = Math.max(0, this.activityIndex - 1);
 			this.requestRender();
 			return;
 		}
 		if (matchesKey(data, Key.down)) {
 			if (this.tab === "workflows") this.workflowIndex = Math.min(Math.max(0, this.workflows.length - 1), this.workflowIndex + 1);
 			else if (this.tab === "runs") this.runIndex = Math.min(Math.max(0, this.runs.length - 1), this.runIndex + 1);
-			else this.activityIndex = Math.min(Math.max(0, this.activity.length - 1), this.activityIndex + 1);
+			else if (this.tab === "activity") this.activityIndex = Math.min(Math.max(0, this.activity.length - 1), this.activityIndex + 1);
 			this.requestRender();
 			return;
 		}
@@ -1620,15 +1766,12 @@ class WorkflowDashboard {
 			else if (data === "r") this.done({ type: "run", workflow });
 			return;
 		}
-		if (this.tab === "activity") {
-			const entry = this.activity[this.activityIndex];
-			const run = entry ? this.runs.find((candidate) => candidate.runId === entry.runId) : undefined;
-			if (run && (matchesKey(data, Key.enter) || data === "v")) this.done({ type: "view", run });
-			return;
-		}
-		const run = this.runs[this.runIndex];
+		const run = this.selectedRun();
 		if (!run) return;
 		if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
+		else if (data === "g") this.done({ type: "graph", run });
+		else if (data === "c" && canCancelRun(run)) this.done({ type: "cancel", run });
+		else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
 	}
 
 	render(width: number): string[] {
@@ -1638,21 +1781,66 @@ class WorkflowDashboard {
 		const success = (s: string) => this.theme.fg("success", s);
 		const error = (s: string) => this.theme.fg("error", s);
 		const warning = (s: string) => this.theme.fg("warning", s);
-		const line = (s: string) => truncateToWidth(s, w);
-		const workflowTab = this.tab === "workflows" ? accent("[Workflows]") : muted(" Workflows ");
+		const line = (s: string) => truncateToWidth(s, w, "");
+		const monitorTab = this.tab === "monitor" ? accent("[Monitor]") : muted(" Monitor ");
 		const runsTab = this.tab === "runs" ? accent("[Runs]") : muted(" Runs ");
+		const workflowTab = this.tab === "workflows" ? accent("[Workflows]") : muted(" Workflows ");
 		const activityTab = this.tab === "activity" ? accent("[Activity]") : muted(" Activity ");
-		const activeCount = this.runs.filter((run) => getRunState(run) === "running").length;
+		const activeCount = this.runs.filter((run) => canCancelRun(run)).length;
+		const help = this.tab === "workflows"
+			? "Tab switch • ↑↓ navigate • Enter/g graph • r run with JSON + confirm • q/esc close"
+			: this.tab === "monitor"
+				? "Tab switch • Enter/v view • g graph • c cancel active • r rerun • q/esc close"
+				: "Tab switch • m monitor • a activity • ↑↓ navigate • Enter/v view • g graph • c cancel active • r rerun • q/esc close";
 		const lines: string[] = [
-			line(accent("Pi Dynamic Workflows") + muted("  •  ") + workflowTab + " " + runsTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
-			line(muted("Tab switch • a activity • ↑↓ navigate • Enter graph/view • r run • g graph • v view • q/esc close")),
+			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + runsTab + " " + workflowTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
+			line(muted(help)),
 			line(muted("─".repeat(Math.min(w, 120)))),
 		];
 
-		if (this.tab === "workflows") this.renderWorkflows(lines, line, accent, muted, warning);
+		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning);
 		else if (this.tab === "runs") this.renderRuns(lines, line, accent, muted, success, error);
+		else if (this.tab === "workflows") this.renderWorkflows(lines, line, accent, muted, warning);
 		else this.renderActivity(lines, line, accent, muted, success, error, warning);
 		return lines;
+	}
+
+	private renderMonitor(
+		lines: string[],
+		line: (s: string) => string,
+		accent: (s: string) => string,
+		muted: (s: string) => string,
+		success: (s: string) => string,
+		error: (s: string) => string,
+		warning: (s: string) => string,
+	): void {
+		const model = this.selectedMonitor();
+		if (!model) {
+			lines.push(line(warning("No workflow runs found.")));
+			lines.push(line(muted("Start one with /workflow start <name> {json} or dynamic_workflow action=start.")));
+			return;
+		}
+
+		const stateColor = model.state === "completed" ? success : model.state === "running" ? accent : model.state === "stale" ? warning : error;
+		const label = (name: string, value: string) => lines.push(line(`${muted(padRightVisible(`${name}:`, 11))} ${value}`));
+		const statusTail = model.active ? accent("active") : model.stale ? warning("stale") : muted("inactive");
+		const title = model.priority === "active" ? "Active run" : "Latest run";
+		lines.push(line(accent(title)));
+		label("workflow", model.workflow);
+		label("state", `${stateColor(getRunStatusLabel(model.run))} ${muted("•")} ${statusTail}`);
+		label("elapsed", formatElapsedMs(model.elapsedMs));
+		label("agents", `${model.agentsDone}/${model.agentsStarted} done/started`);
+		label("bash", `${model.bashDone} done`);
+		label("artifacts", String(model.artifactCount));
+		label("run", model.runId);
+		label("runDir", model.runDir);
+		const last = model.lastLog ? `${model.lastLog.time.slice(11, 19)} ${model.lastLog.message}` : "No logs recorded yet.";
+		label("last", last);
+		const actions = ["Enter/v view", "g graph"];
+		if (model.canCancel) actions.push("c cancel active");
+		if (model.canRerun) actions.push("r rerun (confirm)");
+		lines.push(line(muted("")));
+		lines.push(line(muted(actions.join(" • "))));
 	}
 
 	private renderWorkflows(
@@ -1684,7 +1872,7 @@ class WorkflowDashboard {
 			lines.push(line(`name: ${selected.name}`));
 			lines.push(line(`scope: ${selected.scope}`));
 			lines.push(line(`path: ${selected.path}`));
-			lines.push(line(muted("Enter/g opens graph • r runs with JSON input")));
+			lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm")));
 		}
 	}
 
@@ -1712,7 +1900,7 @@ class WorkflowDashboard {
 			const bg = run.background ? " bg" : "";
 			const resumable = isResumableState(state) ? muted(" resumable") : "";
 			const cached = getRunCachedCalls(run) > 0 ? muted(` cached:${getRunCachedCalls(run)}`) : "";
-			lines.push(line(`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${Math.round(run.elapsedMs / 1000)}s agents:${run.agentCount}${resumable}${cached}`));
+			lines.push(line(`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${formatElapsedMs(getRunElapsedMs(run, state))} agents:${run.agentCount}${resumable}${cached}`));
 		}
 		const selected = this.runs[this.runIndex];
 		if (selected) {
@@ -1723,12 +1911,11 @@ class WorkflowDashboard {
 			lines.push(line(`dir: ${selected.runDir}`));
 			for (const logEntry of getRunLogs(selected).slice(-5)) lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${logEntry.message}`));
 			const selectedState = getRunState(selected);
-			const hint = selectedState === "running"
-				? "Enter/v view • /workflow cancel to stop"
-				: isResumableState(selectedState)
-					? `Enter/v opens timeline + artifacts • /workflow resume ${selected.runId}`
-					: "Enter/v opens timeline + artifacts";
-			lines.push(line(muted(hint)));
+			const actions = ["Enter/v view", "g graph"];
+			if (canCancelRun(selected)) actions.push("c cancel active");
+			if (canRerunRun(selected)) actions.push("r rerun (confirm)");
+			if (isResumableState(selectedState)) actions.push(`/workflow resume ${selected.runId}`);
+			lines.push(line(muted(actions.join(" • "))));
 		}
 	}
 
@@ -1741,14 +1928,14 @@ class WorkflowDashboard {
 		error: (s: string) => string,
 		warning: (s: string) => string,
 	): void {
-		const active = this.runs.filter((run) => getRunState(run) === "running");
+		const active = this.runs.filter((run) => canCancelRun(run));
 		lines.push(line(accent("Active runs")));
 		if (active.length === 0) {
 			lines.push(line(muted("No active background workflow runs.")));
 		} else {
 			for (const run of active.slice(0, 5)) {
 				const lastLog = getRunLogs(run).slice(-1)[0];
-				lines.push(line(`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${Math.round(run.elapsedMs / 1000)}s agents:${run.agentCount}${lastLog ? muted(` — ${lastLog.message}`) : ""}`));
+				lines.push(line(`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${formatElapsedMs(getRunElapsedMs(run))} agents:${run.agentCount}${lastLog ? muted(` — ${lastLog.message}`) : ""}`));
 			}
 		}
 
@@ -1776,7 +1963,11 @@ class WorkflowDashboard {
 			lines.push(line(`workflow: ${selected.workflow}`));
 			lines.push(line(`run: ${selected.runId}`));
 			lines.push(line(`time: ${selected.time}`));
-			lines.push(line(muted("Enter/v opens full run timeline")));
+			const run = this.runs.find((candidate) => candidate.runId === selected.runId);
+			const actions = ["Enter/v opens full run timeline", "g graph"];
+			if (run && canCancelRun(run)) actions.push("c cancel active");
+			if (run && canRerunRun(run)) actions.push("r rerun (confirm)");
+			lines.push(line(muted(actions.join(" • "))));
 		}
 	}
 }
@@ -1793,14 +1984,14 @@ async function runWorkflowWithUi(
 ): Promise<WorkflowRunResult> {
 	if (ctx.hasUI) {
 		setWorkflowRunningStatus(ctx, workflow.name, []);
-		ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, formatLiveRunView([], workflow.name));
+		setWorkflowWidget(ctx, workflow.name, []);
 	}
 	try {
 		const result = await runWorkflow(pi, ctx, workflow, input, limits, signal, (logs) => {
 			onProgress?.(logs);
 			if (ctx.hasUI) {
 				setWorkflowRunningStatus(ctx, workflow.name, logs);
-				ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, formatLiveRunView(logs, workflow.name));
+				setWorkflowWidget(ctx, workflow.name, logs);
 			}
 		}, prepared);
 		setWorkflowFinishedStatus(ctx, result);
@@ -1820,6 +2011,38 @@ async function runWorkflowFromUi(pi: ExtensionAPI, ctx: ExtensionContext, workfl
 	return result;
 }
 
+async function resolveWorkflowForRun(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<WorkflowFile | undefined> {
+	try {
+		return await resolveWorkflow(ctx, run.workflow, run.scope);
+	} catch {
+		if (run.file && existsSync(run.file)) {
+			return { name: run.workflow, scope: run.scope, path: run.file, relativePath: path.basename(run.file) };
+		}
+		return undefined;
+	}
+}
+
+async function loadRerunInput(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<{ input: unknown; source: string } | undefined> {
+	const inputPath = path.join(run.runDir, "input.json");
+	let textValue: string;
+	let source = inputPath;
+	try {
+		textValue = await fs.readFile(inputPath, "utf8");
+	} catch {
+		const edited = await ctx.ui.editor(`Workflow input JSON: ${run.workflow}`, "{}");
+		if (edited === undefined) return undefined;
+		textValue = edited;
+		source = "editor JSON (input.json missing)";
+	}
+	try {
+		return { input: parseCliJsonOrText(textValue, { strictJson: true }), source };
+	} catch {
+		const edited = await ctx.ui.editor(`Fix workflow input JSON: ${run.workflow}`, textValue);
+		if (edited === undefined) return undefined;
+		return { input: parseCliJsonOrText(edited, { strictJson: true }), source: "editor JSON" };
+	}
+}
+
 async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	if (ctx.mode !== "tui") {
 		notify(ctx, "Workflow dashboard requires TUI mode. Use /workflow list, /workflow graph, /workflow runs, or /workflow view.", "warning");
@@ -1827,21 +2050,23 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext): P
 	}
 	const workflows = await listWorkflows(ctx);
 	const runs = await listRuns(ctx);
-	const activity = await collectWorkflowActivity(runs);
+	const [activity, monitorModels] = await Promise.all([collectWorkflowActivity(runs), deriveWorkflowMonitorModels(runs)]);
 	let refreshTimer: NodeJS.Timeout | undefined;
 	let refreshing = false;
 	let dashboard: WorkflowDashboard | undefined;
 	let choice: WorkflowDashboardResult | null = null;
 	try {
 		choice = await ctx.ui.custom<WorkflowDashboardResult | null>((tui, theme, _keybindings, done) => {
-			dashboard = new WorkflowDashboard(workflows, runs, activity, theme, () => tui.requestRender(), done);
+			dashboard = new WorkflowDashboard(workflows, runs, activity, monitorModels, theme, () => tui.requestRender(), done);
 			const refresh = async () => {
 				if (refreshing || !dashboard) return;
 				refreshing = true;
 				try {
 					const nextRuns = await listRuns(ctx);
+					const [nextActivity, nextMonitorModels] = await Promise.all([collectWorkflowActivity(nextRuns), deriveWorkflowMonitorModels(nextRuns)]);
 					dashboard.setRuns(nextRuns);
-					dashboard.setActivity(await collectWorkflowActivity(nextRuns));
+					dashboard.setActivity(nextActivity);
+					dashboard.setMonitorModels(nextMonitorModels);
 					tui.requestRender();
 				} finally {
 					refreshing = false;
@@ -1854,19 +2079,51 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext): P
 		if (refreshTimer) clearInterval(refreshTimer);
 	}
 	if (!choice) return;
-	if (choice.type === "graph" && choice.workflow) {
-		const code = await fs.readFile(choice.workflow.path, "utf8");
-		await showText(ctx, `Workflow graph: ${choice.workflow.name}`, makeWorkflowGraph(choice.workflow, code));
+	if (choice.type === "graph") {
+		const workflow = choice.workflow ?? (choice.run ? await resolveWorkflowForRun(ctx, choice.run) : undefined);
+		if (!workflow) {
+			notify(ctx, "Cannot open graph: workflow file not found.", "warning");
+			return;
+		}
+		const code = await fs.readFile(workflow.path, "utf8");
+		await showText(ctx, `Workflow graph: ${workflow.name}`, makeWorkflowGraph(workflow, code));
 		return;
 	}
 	if (choice.type === "view" && choice.run) {
 		await showText(ctx, `Workflow run: ${choice.run.runId}`, await formatRunView(choice.run));
 		return;
 	}
+	if (choice.type === "cancel" && choice.run) {
+		const message = await cancelWorkflowRun(ctx, choice.run.runId);
+		notify(ctx, message, "warning");
+		return;
+	}
+	if (choice.type === "rerun" && choice.run) {
+		if (canCancelRun(choice.run)) {
+			notify(ctx, `Run is still active; cancel or wait before rerunning: ${choice.run.runId}`, "warning");
+			return;
+		}
+		const workflow = await resolveWorkflowForRun(ctx, choice.run);
+		if (!workflow) {
+			notify(ctx, "Cannot rerun: workflow file not found.", "warning");
+			return;
+		}
+		const loaded = await loadRerunInput(ctx, choice.run);
+		if (!loaded) return;
+		const ok = await ctx.ui.confirm(
+			"Rerun workflow?",
+			`Workflow: ${workflow.name}\nFrom run: ${choice.run.runId}\nInput: ${loaded.source}\n\n${stringify(loaded.input, 1200)}`,
+		);
+		if (!ok) return;
+		await runWorkflowFromUi(pi, ctx, workflow, loaded.input);
+		return;
+	}
 	if (choice.type === "run" && choice.workflow) {
 		const inputText = await ctx.ui.editor("Workflow input JSON", "{}");
 		if (inputText === undefined) return;
 		const input = parseCliJsonOrText(inputText, { strictJson: true });
+		const ok = await ctx.ui.confirm("Run workflow?", `Workflow: ${choice.workflow.name}\n\n${stringify(input, 1200)}`);
+		if (!ok) return;
 		await runWorkflowFromUi(pi, ctx, choice.workflow, input);
 	}
 }
@@ -2858,7 +3115,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("workflows", {
-		description: "Open dynamic workflow picker or pass through to /workflow",
+		description: "Open the dynamic workflows monitor dashboard or pass through to /workflow",
 		handler: async (args, ctx) => await handleWorkflowsCommand(pi, args, ctx),
 	});
 
