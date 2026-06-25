@@ -339,6 +339,37 @@ async function verifyingIndependentReloadIgnoresReentry(goalUrl) {
 	check("the reloaded verifier's verdict still closes the goal (done)", lastStatusFor(built.states, s.goalId) === "done", `last=${lastStatusFor(built.states, s.goalId)}`);
 }
 
+// The agent_end safety net must NOT re-arm a reloaded verifying-independent goal: its verifier
+// runs OUTSIDE the turn and resolves the next transition itself; re-arming would race (and could
+// discard) the in-flight verdict. On the RELOAD path `rearmedThisTurn` is false, so the gstatus
+// EXCLUSION (goal.ts agent_end) is the SOLE guard here — this is where it is load-bearing.
+async function verifyingIndependentReloadSurvivesAgentEnd(goalUrl) {
+	let release;
+	const gate = new Promise((r) => {
+		release = r;
+	});
+	const exec = async () => {
+		await gate;
+		return { code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" };
+	};
+	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
+	const { ctx, built } = await rehydrateFrom(goalUrl, [entry(s)], { execImpl: exec });
+	check("reload parks the goal in verifying-independent (verifier in flight)", lastStatusFor(built.states, s.goalId) === "verifying-independent", `last=${lastStatusFor(built.states, s.goalId)}`);
+
+	// Fire the safety net while the re-run verifier is mid-flight.
+	for (const h of built.handlers.get("agent_end") ?? []) await h({}, ctx);
+	check(
+		"agent_end does NOT re-arm a reloaded verifying-independent goal",
+		!built.states.some((st) => st.goalId === s.goalId && st.lastReason === "auto: turn closed without goal_progress"),
+		"unexpected auto re-arm",
+	);
+	check("agent_end does not spawn a second verifier on reload", built.execCalls.length === 1, `calls=${built.execCalls.length}`);
+
+	release();
+	await flush(() => lastStatusFor(built.states, s.goalId) === "done");
+	check("the reloaded verifier's verdict still closes the goal after agent_end (done)", lastStatusFor(built.states, s.goalId) === "done", `last=${lastStatusFor(built.states, s.goalId)}`);
+}
+
 // ===========================================================================
 // SCENARIO B: a `stale` snapshot resumes as `pursuing` (the shutdown shape for a pursuing
 // goal). rehydrate downgrades stale→pursuing in memory and arms a single catch-up tick. We
@@ -529,6 +560,7 @@ async function main() {
 		await verifyingIndependentReRunFailDoesNotClose(url);
 		await verifyingIndependentReRunFailAtCapBlocks(url);
 		await verifyingIndependentReloadIgnoresReentry(url);
+		await verifyingIndependentReloadSurvivesAgentEnd(url);
 		await staleResumesPursuing(url);
 		await verifyingResumesVerifying(url);
 		await terminalSnapshotsAreNotRecovered(url);

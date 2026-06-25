@@ -584,6 +584,93 @@ async function contextBudgetGate(goalUrl) {
 	check("context well under cap (50%) proceeds to pursuing", lastStatus(await startWithUsage({ percent: 50 })) === "pursuing", "expected pursuing");
 }
 
+// The reason scheduleGoal stamps when the agent_end safety net re-arms a stranded goal.
+const AUTO_REASON = "auto: turn closed without goal_progress";
+const fireAgentEnd = async (built, ctx) => {
+	for (const h of built.handlers.get("agent_end") ?? []) await h({}, ctx);
+};
+
+// ===========================================================================
+// SCENARIO O: the agent_end safety net RESCUES a stranded goal. After fireGoal injects a
+// prompt, the goal sits pursuing with no re-arm and no live timer; if the turn then ends
+// WITHOUT the model calling goal_progress, the goal would silently die. agent_end must
+// defensively re-arm it (a wake stamped with the AUTO reason).
+// ===========================================================================
+async function agentEndReArmsStrandedGoal(goalUrl) {
+	const goalExtension = await freshDefault(goalUrl);
+	const ctx = makeCtx();
+	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
+	goalExtension(built.pi);
+	built.commands.get("goal").handler("ship it -- the tests pass", ctx);
+	check("no auto re-arm before agent_end", !built.states.some((s) => s.lastReason === AUTO_REASON));
+	await fireAgentEnd(built, ctx);
+	check("agent_end re-arms a stranded pursuing goal (AUTO reason persisted)", built.states.some((s) => s.lastReason === AUTO_REASON));
+	check("the re-armed goal stays pursuing", lastStatus(built.states) === "pursuing", `last=${lastStatus(built.states)}`);
+}
+
+// ===========================================================================
+// SCENARIO P: the safety net must NOT stack a second wake when the model ALREADY re-armed
+// this turn (goal_progress→advanceGoal set rearmedThisTurn + a live timer). Double-arming
+// would inject a duplicate iteration prompt.
+// ===========================================================================
+async function agentEndDoesNotDoubleArm(goalUrl) {
+	const goalExtension = await freshDefault(goalUrl);
+	const ctx = makeCtx();
+	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
+	goalExtension(built.pi);
+	built.commands.get("goal").handler("keep going -- done when green", ctx);
+	const progress = built.tools.get("goal_progress");
+	await progress.execute("tcP", { status: "continue", assessment: "still working", nextStep: "next", waitSeconds: 120 }, undefined, undefined, ctx);
+	await fireAgentEnd(built, ctx);
+	check("agent_end does NOT auto re-arm when the model already re-armed this turn", !built.states.some((s) => s.lastReason === AUTO_REASON));
+	const last = built.states[built.states.length - 1];
+	check("the model's own re-arm reason is preserved (not overwritten by the safety net)", lastStatus(built.states) === "pursuing" && (last?.lastReason ?? "").startsWith("continue"), JSON.stringify(last?.lastReason));
+}
+
+// ===========================================================================
+// SCENARIO Q: agent_end must LEAVE a verifying-independent goal alone — its verifier runs in
+// a separate process OUTSIDE the turn and resolves the next transition itself. Re-arming here
+// would race (and could discard) the in-flight verdict.
+// ===========================================================================
+async function agentEndLeavesIndependentVerificationAlone(goalUrl) {
+	let release;
+	const gate = new Promise((r) => {
+		release = r;
+	});
+	const exec = async () => {
+		await gate;
+		return { code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" };
+	};
+	const { ctx, states, execCalls, handlers } = await driveToVerifier(goalUrl, exec);
+	const built = { handlers };
+	check("goal is in verifying-independent before agent_end", lastStatus(states) === "verifying-independent", `last=${lastStatus(states)}`);
+	await fireAgentEnd(built, ctx);
+	check("agent_end leaves verifying-independent untouched (no AUTO re-arm)", !states.some((s) => s.lastReason === AUTO_REASON));
+	check("agent_end does not spawn a second verifier", execCalls.length === 1, `calls=${execCalls.length}`);
+	check("goal still in verifying-independent after agent_end", lastStatus(states) === "verifying-independent", `last=${lastStatus(states)}`);
+	release();
+	await flush(() => lastStatus(states) === "done");
+	check("the in-flight verdict still closes the goal after agent_end (done)", lastStatus(states) === "done", `last=${lastStatus(states)}`);
+}
+
+// ===========================================================================
+// SCENARIO R: the safety net has its OWN budget gate (the continue/advance path arms without
+// consulting the budget). If the turn closes with context over the cap, agent_end must STOP
+// the goal cleanly rather than pay for another turn.
+// ===========================================================================
+async function agentEndBudgetCut(goalUrl) {
+	const goalExtension = await freshDefault(goalUrl);
+	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
+	goalExtension(built.pi);
+	built.commands.get("goal").handler("big task -- complete", makeCtx()); // starts pursuing (budget fine)
+	check("goal starts pursuing (budget fine at start)", lastStatus(built.states) === "pursuing", `last=${lastStatus(built.states)}`);
+	// Turn closes with context over the cap → the safety net must stop, not re-arm.
+	const tightCtx = { ...makeCtx(), getContextUsage: () => ({ percent: 95 }) };
+	await fireAgentEnd(built, tightCtx);
+	check("agent_end stops a pursuing goal when the context budget is exhausted", lastStatus(built.states) === "stopped", `last=${lastStatus(built.states)}`);
+	check("budget cut at agent_end does NOT auto re-arm", !built.states.some((s) => s.lastReason === AUTO_REASON));
+}
+
 // ===========================================================================
 async function main() {
 	const { outDir, url } = await buildExtension("goal");
@@ -602,6 +689,10 @@ async function main() {
 		await waitSecondsIsClamped(url);
 		await modeGateRefusesNonInteractive(url);
 		await contextBudgetGate(url);
+		await agentEndReArmsStrandedGoal(url);
+		await agentEndDoesNotDoubleArm(url);
+		await agentEndLeavesIndependentVerificationAlone(url);
+		await agentEndBudgetCut(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
