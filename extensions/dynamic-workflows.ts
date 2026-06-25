@@ -12,23 +12,28 @@
 
 import {
 	CONFIG_DIR_NAME,
+	CustomEditor,
 	getAgentDir,
 	type AgentToolUpdateCallback,
 	type ExtensionAPI,
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { Image as TerminalImage, Key, getCapabilities, matchesKey, truncateToWidth, visibleWidth, type EditorComponent } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
+import { spawn } from "node:child_process";
 import * as crypto from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 
 const WORKFLOW_DIR = "workflows";
 const WORKFLOW_RUN_DIR = "workflow-runs";
+const WORKFLOW_GRAPH_DIR = "workflow-graphs";
 const DEFAULT_MAX_AGENTS = 64;
 const HARD_MAX_AGENTS = 1000;
 const DEFAULT_CONCURRENCY = 4;
@@ -41,6 +46,7 @@ const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
+const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // Resumable / idempotent runs: host-side content-address cache journal.
 const JOURNAL_FILE = "journal.jsonl";
@@ -90,11 +96,24 @@ interface RunLimits {
 	syncTimeoutMs: number;
 }
 
+interface AgentPhaseInfo {
+	id: number;
+	index: number;
+	total: number;
+	label?: string;
+}
+
 interface AgentOptions {
 	name?: string;
 	cwd?: string;
 	tools?: string[];
 	excludeTools?: string[];
+	skills?: string[];
+	includeSkills?: boolean;
+	extensions?: string[];
+	keys?: string[];
+	env?: Record<string, string>;
+	inheritEnv?: boolean;
 	model?: string;
 	provider?: string;
 	thinking?: string;
@@ -109,6 +128,11 @@ interface AgentOptions {
 	schema?: unknown;
 	schemaRetries?: number;
 	schemaOnInvalid?: "throw" | "null";
+}
+
+interface InternalAgentOptions extends AgentOptions {
+	__workflowPhase?: AgentPhaseInfo;
+	__workflowNamespace?: string;
 }
 
 interface AgentSpec extends AgentOptions {
@@ -148,6 +172,9 @@ const BUILTIN_AGENT_PERSONAS: Record<string, AgentOptions> = {
 const PERSONA_OPTION_KEYS = new Set<keyof AgentOptions>([
 	"tools",
 	"excludeTools",
+	"skills",
+	"includeSkills",
+	"extensions",
 	"model",
 	"provider",
 	"thinking",
@@ -157,6 +184,9 @@ const PERSONA_OPTION_KEYS = new Set<keyof AgentOptions>([
 	"systemPrompt",
 	"appendSystemPrompt",
 	"timeoutMs",
+	"keys",
+	"env",
+	"inheritEnv",
 ]);
 
 interface SubagentResult {
@@ -171,6 +201,19 @@ interface SubagentResult {
 	stdout: string;
 	stderr: string;
 	artifactPath: string;
+	tools?: string[];
+	excludeTools?: string[];
+	skills?: string[];
+	includeSkills?: boolean;
+	extensions?: string[];
+	includeExtensions?: boolean;
+	keys?: string[];
+	missingKeys?: string[];
+	isolatedEnv?: boolean;
+	phaseId?: number;
+	phaseIndex?: number;
+	phaseTotal?: number;
+	phaseLabel?: string;
 	data?: unknown;
 	schemaOk?: boolean;
 }
@@ -205,6 +248,10 @@ interface WorkflowRunResult {
 	endedAt: string;
 	elapsedMs: number;
 	agentCount: number;
+	agentConcurrency?: number;
+	maxAgents?: number;
+	parallelAgents?: number;
+	peakParallelAgents?: number;
 	logs: WorkflowLogEntry[];
 	output?: unknown;
 	error?: string;
@@ -235,6 +282,7 @@ interface PreparedWorkflowRun {
 		baseAgentCount: number;
 		codeHash: string;
 		resumedFrom: string;
+		previousPeakParallelAgents?: number;
 	};
 }
 
@@ -252,6 +300,10 @@ interface WorkflowRunStatus {
 	endedAt?: string;
 	elapsedMs: number;
 	agentCount: number;
+	agentConcurrency?: number;
+	maxAgents?: number;
+	parallelAgents?: number;
+	peakParallelAgents?: number;
 	logs: WorkflowLogEntry[];
 	lastLog?: WorkflowLogEntry;
 	output?: unknown;
@@ -311,6 +363,14 @@ async function appendJsonLine(filePath: string, value: unknown): Promise<void> {
 	});
 }
 
+interface BashOptions {
+	cwd?: string;
+	timeoutMs?: number;
+	throwOnError?: boolean;
+	cache?: boolean;
+	__workflowNamespace?: string;
+}
+
 interface WorkflowRuntimeApi {
 	cwd: string;
 	runId: string;
@@ -321,7 +381,8 @@ interface WorkflowRuntimeApi {
 	agent(prompt: string, options?: AgentOptions): Promise<SubagentResult>;
 	agents(items: Array<string | AgentSpec>, options?: AgentOptions & { concurrency?: number; settle?: false }): Promise<SubagentResult[]>;
 	agents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle: true }): Promise<Array<SubagentResult | null>>;
-	bash(command: string, options?: { cwd?: string; timeoutMs?: number; throwOnError?: boolean; cache?: boolean }): Promise<BashResult>;
+	workflow(name: string, input?: unknown): Promise<unknown>;
+	bash(command: string, options?: BashOptions): Promise<BashResult>;
 	readFile(filePath: string, encoding?: BufferEncoding): Promise<string>;
 	writeFile(filePath: string, data: string | Uint8Array): Promise<{ path: string }>;
 	appendFile(filePath: string, data: string | Uint8Array): Promise<{ path: string }>;
@@ -336,11 +397,11 @@ interface WorkflowRuntimeApi {
 const workflowToolSchema = Type.Object({
 	action: StringEnum(TOOL_ACTIONS, {
 		description:
-			"Workflow operation to perform: list/template/read/write/run/start/resume/cancel/delete/graph/runs/view. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed.",
+			"Workflow operation to perform: list/template/read/write/run/start/resume/cancel/delete/graph/runs/view. template with no name lists the pattern catalog; template with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed.",
 	}),
 	name: Type.Optional(
 		Type.String({
-			description: "Workflow name/path relative to the workflow directory (.js is added when omitted), or run id for view/cancel/resume (defaults to latest for resume).",
+			description: "Workflow name/path relative to the workflow directory (.js is added when omitted), run id for view/cancel/resume (defaults to latest for resume), or pattern key for action=template.",
 		}),
 	),
 	scope: Type.Optional(
@@ -350,7 +411,7 @@ const workflowToolSchema = Type.Object({
 	),
 	code: Type.Optional(Type.String({ description: "JavaScript workflow source for action=write." })),
 	input: Type.Optional(Type.Any({ description: "JSON-serializable input passed to action=run/start workflow(ctx, input)." })),
-	background: Type.Optional(Type.Boolean({ description: "For action=run/resume, start the workflow in the background and return immediately." })),
+	background: Type.Optional(Type.Boolean({ description: "Compatibility flag for action=run/resume. In persistent TUI/RPC sessions, workflows always start in background; print/json mode falls back to foreground because no background session stays alive." })),
 	force: Type.Optional(Type.Boolean({ description: "For action=resume, allow resuming an already completed run (re-runs only uncached calls)." })),
 	concurrency: Type.Optional(
 		Type.Integer({ minimum: 1, maximum: HARD_MAX_CONCURRENCY, description: "Default subagent concurrency." }),
@@ -370,47 +431,369 @@ const WORKFLOW_TEMPLATE = [
 	" *",
 	" * Export a function: async function workflow(ctx, input) { ... }",
 	" *",
+	" * Pattern defaults:",
+	" * - Scout first, then choose fan-out dynamically from the discovered work-list.",
+	" * - Use evidence contracts and synthesis-as-judge; do not summarize unsupported claims.",
+	" * - Log caps and partial failures; never hide skipped work.",
+	" *",
 	" * Useful ctx helpers:",
-	" * - ctx.agent(prompt, opts)        Run one Pi subagent; opts can include schema or agentType",
+	" * - ctx.agent(prompt, opts)        Run one Pi subagent; opts can include tools, skills, extensions, keys, schema, or agentType",
 	" * - ctx.agents([...], opts)        Run many subagents with bounded concurrency; add {settle:true} for null-on-failure",
 	" * - ctx.pipeline(items, ...stages) Multi-stage per-item flow without global barriers; failed items return null",
 	" * - ctx.parallel([...thunks])      Run async branches with a barrier; failed branches return null",
+	" * - ctx.workflow(name, input)      Compose a reusable sub-workflow inline (depth 1, shared run budget/cache)",
 	" * - ctx.bash(command, opts)        Run a shell command",
 	" * - ctx.readFile/writeFile(...)    File helpers relative to the project cwd",
 	" * - ctx.writeArtifact(name, data)  Persist intermediate state under ctx.runDir",
 	" * - ctx.log(message, details)      Stream progress to Pi and events.jsonl",
 	" */",
 	"",
+	"function chooseConcurrency(ctx, input, items, opts = {}) {",
+	"  if (Number.isFinite(input?.concurrency)) {",
+	"    return Math.min(Math.max(Math.floor(input.concurrency), 1), ctx.limits.concurrency, Math.max(1, items.length));",
+	"  }",
+	"  if (items.length <= 1) return 1;",
+	"  if (opts.sideEffects || opts.expensiveModel) return Math.min(2, items.length, ctx.limits.concurrency);",
+	"  if (opts.readOnlyAudit && items.length >= 30) return Math.min(8, items.length, ctx.limits.concurrency);",
+	"  return Math.min(4, items.length, ctx.limits.concurrency);",
+	"}",
+	"",
 	"module.exports = async function workflow(ctx, input) {",
 	"  await ctx.log(\"Starting workflow\", { input });",
 	"",
-	"  const files = await ctx.bash(\"git ls-files | head -200\");",
-	"  const candidates = files.stdout",
+	"  const files = await ctx.bash(\"git ls-files\", { throwOnError: true });",
+	"  const allCandidates = files.stdout",
 	"    .split(\"\\n\")",
 	"    .filter(Boolean)",
-	"    .filter((file) => /\\.(ts|tsx|js|jsx|py|go|rs)$/.test(file))",
-	"    .slice(0, input?.limit ?? 12);",
+	"    .filter((file) => /\\.(ts|tsx|js|jsx|py|go|rs)$/.test(file));",
+	"  const limit = input?.limit ?? 12;",
+	"  const candidates = allCandidates.slice(0, limit);",
+	"  if (candidates.length < allCandidates.length) {",
+	"    await ctx.log(\"candidate cap applied\", { reviewed: candidates.length, total: allCandidates.length, skipped: allCandidates.length - candidates.length });",
+	"  }",
+	"  await ctx.writeArtifact(\"candidate-files.json\", candidates);",
+	"",
+	"  const concurrency = chooseConcurrency(ctx, input, candidates, { readOnlyAudit: true });",
+	"  await ctx.log(\"fan-out selected\", { items: candidates.length, concurrency, maxAgents: ctx.limits.maxAgents });",
 	"",
 	"  const reviews = await ctx.agents(",
-	"    candidates.map((file) => ({",
+	"    candidates.map((file, index) => ({",
 	"      name: `review-${file}`,",
-	"      prompt: `Review ${file} for likely bugs or risky code. Be concise and cite line numbers when possible.`,",
+	"      prompt: `Review ${file} for likely bugs or risky code. This is branch ${index + 1}/${candidates.length}; your report must be useful even if other branches fail. Cite file/line evidence for every finding. Say NO_FINDINGS if there are no credible issues.`,",
 	"      tools: [\"read\", \"grep\", \"find\", \"ls\"],",
+	"      agentType: \"reviewer\",",
 	"    })),",
-	"    { concurrency: Math.min(input?.concurrency ?? ctx.limits.concurrency, ctx.limits.concurrency) },",
+	"    { concurrency, settle: true },",
 	"  );",
+	"  const completedReviews = reviews.filter(Boolean);",
+	"  await ctx.log(\"fan-out complete\", { total: reviews.length, completed: completedReviews.length, failed: reviews.length - completedReviews.length });",
 	"",
 	"  await ctx.writeArtifact(\"reviews.json\", reviews);",
 	"",
 	"  const synthesis = await ctx.agent(",
-	"    `Synthesize these review outputs into prioritized findings.\\n\\n${ctx.compact(reviews, 50000)}`,",
-	"    { name: \"synthesis\", tools: [\"read\", \"grep\", \"find\", \"ls\"] },",
+	"    `Synthesize these review outputs into prioritized findings. Pattern: synthesis-as-judge. Discard unsupported claims; mention caps and failed branches.\\n\\nCoverage: ${candidates.length}/${allCandidates.length} files, failed branches: ${reviews.length - completedReviews.length}\\n\\n${ctx.compact(completedReviews, 50000)}`,",
+	"    { name: \"synthesis\", tools: [\"read\", \"grep\", \"find\", \"ls\"], agentType: \"reviewer\" },",
 	"  );",
 	"",
+	"  await ctx.writeArtifact(\"summary.md\", synthesis.output);",
 	"  return synthesis.output;",
 	"};",
 	"",
 ].join("\n");
+
+interface WorkflowPattern {
+	key: string;
+	title: string;
+	blurb: string;
+	useWhen: string;
+	inputHint: string;
+	primitives: string[];
+	defaultName: string;
+	exampleFile?: string;
+	aliases?: string[];
+	useCases?: string[];
+}
+
+const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
+	{
+		key: "default",
+		title: "Default scout + fan-out",
+		blurb: "General-purpose starter: scout files, fan out reviewers, synthesize as judge.",
+		useWhen: "You need a safe blank-ish workflow that already follows the routing/no-silent-caps defaults.",
+		inputHint: "{ \"limit\": 12, \"concurrency\": 4 }",
+		primitives: ["ctx.bash", "ctx.agents(settle)", "ctx.agent"],
+		defaultName: "generated/default-workflow",
+	},
+	{
+		key: "scout-fanout",
+		title: "Scout → adaptive fan-out/pipeline",
+		blurb: "Discover a work-list, classify each item cheaply, deep-review only high-signal items.",
+		useWhen: "Repo/code audits where only some files deserve expensive review after an initial scout.",
+		inputHint: "{ \"pattern\": \"\\\\.(ts|tsx|js)$\", \"maxFiles\": 40 }",
+		primitives: ["ctx.bash", "ctx.pipeline", "ctx.agent(schema)"],
+		defaultName: "generated/scout-fanout",
+		exampleFile: "adaptive-scout-fanout.js",
+	},
+	{
+		key: "loop-until-dry",
+		title: "Loop until dry",
+		blurb: "Repeat independent discovery rounds until enough consecutive rounds find nothing new.",
+		useWhen: "Unknown-size discovery: bugs, risks, sources, claims, call sites, or opportunities.",
+		inputHint: "{ \"finders\": 3, \"quietRounds\": 2, \"maxRounds\": 8 }",
+		primitives: ["ctx.agents(settle)", "loop", "ctx.log"],
+		defaultName: "generated/loop-until-dry",
+		exampleFile: "adaptive-loop-until-dry.js",
+	},
+	{
+		key: "multi-modal-sweep",
+		title: "Multi-modal sweep",
+		blurb: "Search the same target several different ways, union/dedupe results, then ask a critic what coverage is thin.",
+		useWhen: "Coverage matters and one search modality (grep, tests, deps, git history) may miss findings.",
+		inputHint: "{ \"target\": \"all call sites of X\" }",
+		primitives: ["ctx.parallel", "ctx.agent(schema)", "dedupe"],
+		defaultName: "generated/multi-modal-sweep",
+		exampleFile: "adaptive-multi-modal-sweep.js",
+	},
+	{
+		key: "adversarial-verify",
+		title: "Adversarial verify",
+		blurb: "Launch skeptics per claim/finding and keep only what survives refutation.",
+		useWhen: "You have findings/claims/plans and need confidence before acting on them.",
+		inputHint: "{ \"findings\": [{ \"id\": \"f1\", \"claim\": \"...\" }], \"skeptics\": 3 }",
+		primitives: ["ctx.parallel", "ctx.agent(schema)", "voting"],
+		defaultName: "generated/adversarial-verify",
+		exampleFile: "adaptive-adversarial-verify.js",
+	},
+	{
+		key: "completeness-critic",
+		title: "Completeness critic",
+		blurb: "Run an initial pass, have a critic identify missing gaps, and target those gaps in later rounds.",
+		useWhen: "Research/audit tasks where the hard part is knowing what you failed to inspect.",
+		inputHint: "{ \"question\": \"...\", \"maxRounds\": 4 }",
+		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "feedback loop"],
+		defaultName: "generated/completeness-critic",
+		exampleFile: "adaptive-completeness-critic.js",
+	},
+	{
+		key: "judge-escalate",
+		title: "Judge + escalate",
+		blurb: "Generate candidates from distinct angles, judge them, and spend another round only when confidence is low.",
+		useWhen: "Best-of-N decisions where you want dynamic depth instead of a fixed number of attempts.",
+		inputHint: "{ \"question\": \"...\", \"angles\": [\"risk-first\", \"simplicity-first\"] }",
+		primitives: ["ctx.parallel", "ctx.agent(schema)", "adaptive loop"],
+		defaultName: "generated/judge-escalate",
+		exampleFile: "adaptive-judge-escalate.js",
+	},
+	{
+		key: "tournament",
+		title: "Tournament / ranking",
+		blurb: "Generate or accept candidates and run pairwise judging rounds until one winner remains.",
+		useWhen: "You need comparative ranking, not just independent scoring.",
+		inputHint: "{ \"topic\": \"...\", \"angles\": [\"cost\", \"quality\", \"risk\"] }",
+		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "bracket"],
+		defaultName: "generated/tournament",
+		exampleFile: "adaptive-tournament.js",
+	},
+	{
+		key: "tree-of-thoughts",
+		title: "Tree of Thoughts / beam search",
+		blurb: "Expand reasoning branches, score them, prune to a beam, and continue from the most promising paths.",
+		useWhen: "Deliberate problem solving where early weak branches should not consume the full budget.",
+		inputHint: "{ \"problem\": \"...\", \"branching\": 3, \"beamWidth\": 2, \"depth\": 3 }",
+		primitives: ["ctx.agents(settle)", "ctx.parallel", "ctx.agent(schema)"],
+		defaultName: "generated/tree-of-thoughts",
+		exampleFile: "adaptive-tree-of-thoughts.js",
+	},
+	{
+		key: "self-consistency",
+		title: "Self-consistency vote",
+		blurb: "Sample the same prompt multiple times with cache disabled, normalize answers, and tally agreement.",
+		useWhen: "Reasoning questions where agreement/disagreement is useful signal.",
+		inputHint: "{ \"question\": \"...\", \"samples\": 5 }",
+		primitives: ["ctx.agents", "cache:false", "voting"],
+		defaultName: "generated/self-consistency",
+		exampleFile: "adaptive-self-consistency.js",
+	},
+	{
+		key: "self-repair",
+		title: "Self-repair loop",
+		blurb: "Implement/fix, run a real verification command, feed failures back, and stop when green or capped.",
+		useWhen: "Implementation tasks with an objective test/typecheck/lint command. This pattern edits files.",
+		inputHint: "{ \"task\": \"...\", \"verifyCmd\": \"npm test\" }",
+		primitives: ["ctx.agent(edit/write)", "ctx.bash", "verify loop"],
+		defaultName: "generated/self-repair",
+		exampleFile: "adaptive-self-repair.js",
+	},
+	{
+		key: "plan-and-execute",
+		title: "Plan and execute with replan",
+		blurb: "Create typed steps, execute them in order, verify each step, and replan the tail on failure.",
+		useWhen: "Long tasks where reality may invalidate the initial plan mid-run.",
+		inputHint: "{ \"goal\": \"...\", \"maxReplans\": 3, \"maxSteps\": 12 }",
+		primitives: ["ctx.agent(schema)", "sequential steps", "replanning"],
+		defaultName: "generated/plan-and-execute",
+		exampleFile: "adaptive-plan-and-execute.js",
+	},
+	{
+		key: "router",
+		title: "Router / classify and dispatch",
+		blurb: "Classify the request, optionally disambiguate, then dispatch to a specialized handler.",
+		useWhen: "Mixed workloads where the right tools/persona depend on the request category.",
+		inputHint: "{ \"request\": \"...\" }",
+		primitives: ["ctx.agent(schema)", "routing", "specialized handlers"],
+		defaultName: "generated/router",
+		exampleFile: "adaptive-router.js",
+	},
+	{
+		key: "workflow-factory",
+		title: "Workflow factory / meta-workflow",
+		blurb: "Given a task, launch a workflow that designs prompts/contracts and writes a task-specific generated workflow draft.",
+		useWhen: "The task is complex enough that Pi should first generate the right workflow shape instead of hand-writing it inline.",
+		inputHint: "{ \"task\": \"audit this repo for race conditions\", \"write\": true }",
+		primitives: ["ctx.agent(schema)", "prompt improvement", "ctx.writeFile"],
+		defaultName: "generated/workflow-factory",
+		exampleFile: "adaptive-workflow-factory.js",
+	},
+	{
+		key: "composition-driver",
+		title: "Composition driver",
+		blurb: "Discover claims/items, then delegate a reusable phase to ctx.workflow('lib/verify-claims').",
+		useWhen: "A sub-step is reusable and there is no decision gate between parent and child workflow.",
+		inputHint: "{ \"topic\": \"claims to discover and verify\" }",
+		primitives: ["ctx.workflow", "ctx.agent", "sub-workflow"],
+		defaultName: "generated/composition-driver",
+		exampleFile: "adaptive-composition-driver.js",
+	},
+	{
+		key: "verify-claims-lib",
+		title: "Composable lib/verify-claims",
+		blurb: "Reusable sub-workflow contract: { claims, skeptics? } -> verified/dropped claims with evidence.",
+		useWhen: "You want a shared library workflow under lib/ that other workflows call with ctx.workflow().",
+		inputHint: "{ \"claims\": [{ \"id\": \"c1\", \"claim\": \"...\" }] }",
+		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "library contract"],
+		defaultName: "lib/verify-claims",
+		exampleFile: "lib/verify-claims.js",
+	},
+	{
+		key: "deep-research",
+		title: "Deep research",
+		blurb: "Run independent research angles, then synthesize with citations/evidence and coverage notes.",
+		useWhen: "You need broad source-backed research, migration analysis, or vendor/architecture comparison.",
+		inputHint: "{ \"question\": \"...\", \"angles\": [\"docs\", \"risks\", \"alternatives\"] }",
+		primitives: ["ctx.agents(settle)", "research angles", "synthesis-as-judge"],
+		defaultName: "generated/deep-research",
+		exampleFile: "deep-research.js",
+	},
+	{
+		key: "repo-bug-hunt",
+		title: "Repo bug hunt",
+		blurb: "Scout code files, fan out reviewer agents, and synthesize prioritized bugs with citations.",
+		useWhen: "You want a reusable broad bug-hunt workflow rather than a one-off generated audit.",
+		inputHint: "{ \"maxFiles\": 40, \"concurrency\": 4 }",
+		primitives: ["ctx.bash", "ctx.agents(settle)", "reviewer synthesis"],
+		defaultName: "generated/repo-bug-hunt",
+		exampleFile: "repo-bug-hunt.js",
+	},
+	{
+		key: "adversarial-plan-review",
+		title: "Adversarial plan review",
+		blurb: "Review a plan from multiple skeptical perspectives and synthesize accepted risks and fixes.",
+		useWhen: "Before implementing a risky plan, migration, or architecture change.",
+		inputHint: "{ \"plan\": \"...\", \"perspectives\": [\"security\", \"performance\"] }",
+		primitives: ["ctx.agents(settle)", "reviewer panel", "synthesis-as-judge"],
+		defaultName: "generated/adversarial-plan-review",
+		exampleFile: "adversarial-plan-review.js",
+	},
+];
+
+const WORKFLOW_PATTERN_ALIASES: Record<string, string[]> = {
+	default: ["fanout-synthesize", "map-reduce", "basic-audit"],
+	"scout-fanout": ["pipeline", "classify-act", "classify-and-act", "adaptive-depth", "prompt-chaining", "react"],
+	"judge-escalate": ["judge-panel", "generate-filter", "generate-and-filter", "best-of-n"],
+	"adversarial-verify": ["multiagent-debate", "plan-review", "verify-findings"],
+	"multi-modal-sweep": ["coverage-sweep", "orchestrator-workers", "orchestrator-worker", "parallelization"],
+	"self-repair": ["evaluator-optimizer", "reflexion", "self-refine"],
+	"plan-and-execute": ["metagpt", "plan-execute", "replan"],
+	router: ["routing", "classify-dispatch"],
+	"workflow-factory": ["workflow-generator", "meta-workflow", "dynamic-workflow-generator"],
+	"composition-driver": ["compose", "subworkflow-driver", "workflow-composition", "sub-workflows"],
+	"verify-claims-lib": ["lib/verify-claims", "verify-claims"],
+};
+
+const WORKFLOW_PATTERN_USE_CASES: Record<string, string[]> = {
+	default: ["Quick repo bug skim over a capped file list", "Split a docs audit by file and synthesize", "Prototype a one-off generated workflow under generated/<slug>"],
+	"scout-fanout": ["Audit only files that a cheap classifier marks medium/high risk", "Review a PR by touched files with deeper follow-up only where needed", "Migrate a codebase by classifying files then applying targeted analysis"],
+	"loop-until-dry": ["Keep searching for security issues until two rounds find nothing new", "Discover unknown call sites or migration blockers", "Run multiple bug finders until findings stop increasing"],
+	"multi-modal-sweep": ["Find all references to an API via grep, imports, tests, and git history", "Research a topic from docs, code, tests, and changelog separately", "Audit coverage where a single search strategy is likely incomplete"],
+	"adversarial-verify": ["Verify suspected bugs before filing them", "Have skeptics refute a migration plan", "Drop hallucinated findings from a previous broad sweep"],
+	"completeness-critic": ["Ask what sources or modalities are missing before final research synthesis", "Audit a plan for unhandled edge cases and then investigate those gaps", "Iterate on a repo survey until a critic says coverage is adequate"],
+	"judge-escalate": ["Generate several implementation strategies and escalate only if the judge is unsure", "Pick between architecture options by rubric", "Improve a prompt by trying variants and judging confidence"],
+	tournament: ["Rank candidate designs pairwise", "Choose the best generated prompt/template", "Compare multiple remediation plans without relying on one scalar score"],
+	"tree-of-thoughts": ["Explore multi-step debugging hypotheses with pruning", "Design a complex feature by branching and scoring partial approaches", "Solve planning problems where early decisions shape later work"],
+	"self-consistency": ["Estimate confidence on a reasoning answer by sampling agreement", "Vote on classification labels", "Surface dissenting answers for ambiguous product decisions"],
+	"self-repair": ["Implement a small fix and loop on npm test until green", "Repair type errors using tsc output", "Run a lint/test-driven editing loop with explicit max attempts"],
+	"plan-and-execute": ["Execute a long task with re-planning after failed steps", "Turn a vague objective into typed steps and evidence", "Keep progress when the initial plan becomes stale"],
+	router: ["Classify incoming work as bug/feature/docs/ops and choose tools", "Dispatch mixed support requests to specialized handlers", "Avoid using write tools for docs-only questions"],
+	"workflow-factory": ["Given a user task, design a custom generated/<slug> workflow", "Improve the prompts/contracts before spending many subagents", "Produce a reusable workflow scaffold plus review notes as artifacts"],
+	"composition-driver": ["Use ctx.workflow('lib/verify-claims') as a reusable verification phase", "Separate discovery from reusable claim verification", "Demonstrate when no human decision is needed between sub-steps"],
+	"verify-claims-lib": ["Reusable sub-workflow for fact-checking claims", "Shared verifier called by multiple generated workflows", "Teach lib/ convention for composable workflow building blocks"],
+	"deep-research": ["Research a migration or vendor choice with independent angles", "Collect and synthesize source-backed options", "Compare alternatives before implementation"],
+	"repo-bug-hunt": ["Find likely bugs across many repo files", "Run reviewer agents by file chunk", "Produce prioritized findings with citations"],
+	"adversarial-plan-review": ["Review an implementation plan from security/performance/product angles", "Find reasons not to execute a proposed migration", "Get a skeptical panel before committing code"],
+};
+
+function normalizePatternKey(key: string): string {
+	return key.trim().toLowerCase().replace(/^adaptive-/, "").replace(/\.(js|mjs|cjs)$/i, "");
+}
+
+function getPatternAliases(pattern: WorkflowPattern): string[] {
+	return [...(pattern.aliases ?? []), ...(WORKFLOW_PATTERN_ALIASES[pattern.key] ?? [])];
+}
+
+function resolveWorkflowPattern(key: string | undefined): WorkflowPattern | undefined {
+	if (!key) return undefined;
+	const normalized = normalizePatternKey(key);
+	return WORKFLOW_PATTERN_CATALOG.find((pattern) => {
+		const exampleKey = pattern.exampleFile ? normalizePatternKey(pattern.exampleFile) : undefined;
+		return pattern.key === normalized || exampleKey === normalized || getPatternAliases(pattern).some((alias) => normalizePatternKey(alias) === normalized);
+	});
+}
+
+function getPatternUseCases(pattern: WorkflowPattern): string[] {
+	return pattern.useCases ?? WORKFLOW_PATTERN_USE_CASES[pattern.key] ?? [];
+}
+
+function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG): string {
+	const lines = [
+		"Workflow pattern catalog",
+		"Use in TUI: /workflows → Patterns tab, then Enter/n to create a project workflow draft.",
+		"Use from command line: /workflow new <name> --pattern=<key>",
+		"Use from tool: dynamic_workflow action=template name=<key>",
+		"",
+	];
+	for (const pattern of patterns) {
+		const aliases = getPatternAliases(pattern);
+		const useCases = getPatternUseCases(pattern);
+		lines.push(`- ${pattern.key} — ${pattern.title}`);
+		if (aliases.length) lines.push(`  Aliases: ${aliases.join(", ")}`);
+		lines.push(`  ${pattern.blurb}`);
+		lines.push(`  When: ${pattern.useWhen}`);
+		if (useCases.length) lines.push(`  Use cases: ${useCases.slice(0, 3).join("; ")}`);
+		lines.push(`  Input: ${pattern.inputHint}`);
+		lines.push(`  Primitives: ${pattern.primitives.join(", ")}`);
+	}
+	return lines.join("\n");
+}
+
+async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
+	if (!pattern.exampleFile) return WORKFLOW_TEMPLATE;
+	const examplePath = path.join(EXTENSION_ROOT, "examples", WORKFLOW_DIR, pattern.exampleFile);
+	try {
+		return await fs.readFile(examplePath, "utf8");
+	} catch {
+		return WORKFLOW_TEMPLATE;
+	}
+}
 
 function text(content: string) {
 	return { type: "text" as const, text: content };
@@ -474,14 +857,27 @@ function extractAssistantTextFromMessage(message: unknown): string | undefined {
 }
 
 function parsePiJsonModeOutput(stdout: string): { ok: true; output: string } | { ok: false; warning: string } {
+	return parsePiJsonModeOutputInternal(stdout, false);
+}
+
+function parsePiJsonModeOutputLenient(stdout: string): { ok: true; output: string } | { ok: false; warning: string } {
+	return parsePiJsonModeOutputInternal(stdout, true);
+}
+
+function parsePiJsonModeOutputInternal(stdout: string, lenient: boolean): { ok: true; output: string } | { ok: false; warning: string } {
 	const lines = stdout.split(/\r?\n/).filter((line) => line.trim());
 	if (lines.length === 0) return { ok: false, warning: "empty JSON event stream" };
 	let lastAssistantText: string | undefined;
+	let skippedInvalid = 0;
 	for (let i = 0; i < lines.length; i++) {
 		let event: unknown;
 		try {
 			event = JSON.parse(lines[i]!);
 		} catch (err) {
+			if (lenient) {
+				skippedInvalid++;
+				continue;
+			}
 			return { ok: false, warning: `invalid JSON event line ${i + 1}: ${err instanceof Error ? err.message : String(err)}` };
 		}
 		if (!event || typeof event !== "object") continue;
@@ -498,7 +894,9 @@ function parsePiJsonModeOutput(stdout: string): { ok: true; output: string } | {
 			if (textValue !== undefined) lastAssistantText = textValue;
 		}
 	}
-	if (lastAssistantText === undefined) return { ok: false, warning: "no assistant text found in JSON event stream" };
+	if (lastAssistantText === undefined) {
+		return { ok: false, warning: skippedInvalid ? `no assistant text found in complete JSON events (${skippedInvalid} partial/invalid line(s) ignored)` : "no assistant text found in JSON event stream" };
+	}
 	return { ok: true, output: lastAssistantText.trim() };
 }
 
@@ -517,6 +915,107 @@ function appendSystemPromptOption(options: AgentOptions, addition: string): Agen
 		...options,
 		appendSystemPrompt: options.appendSystemPrompt ? `${options.appendSystemPrompt}\n\n${addition}` : addition,
 	};
+}
+
+const AGENT_ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const BASE_AGENT_ENV_KEYS = ["PATH", "HOME", "SHELL", "TERM", "USER", "LOGNAME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "LC_CTYPE"];
+
+interface AgentEnvAccess {
+	keyNames: string[];
+	missingKeys: string[];
+	values: Record<string, string>;
+	isolatedEnv: boolean;
+	useEnvCommand: boolean;
+}
+
+function uniqueStringList(values: Iterable<string | undefined>): string[] {
+	const out: string[] = [];
+	const seen = new Set<string>();
+	for (const value of values) {
+		if (typeof value !== "string") continue;
+		const trimmed = value.trim();
+		if (!trimmed) continue;
+		if (!AGENT_ENV_NAME_RE.test(trimmed)) throw new Error(`Invalid agent key/env name: ${trimmed}`);
+		if (!seen.has(trimmed)) {
+			seen.add(trimmed);
+			out.push(trimmed);
+		}
+	}
+	return out;
+}
+
+function normalizeAgentEnvAccess(options: AgentOptions): AgentEnvAccess {
+	const inlineEnv = options.env ?? {};
+	const inlineKeys = Object.keys(inlineEnv);
+	for (const key of inlineKeys) {
+		if (!AGENT_ENV_NAME_RE.test(key)) throw new Error(`Invalid agent env name: ${key}`);
+	}
+	const keyNames = uniqueStringList([...(options.keys ?? []), ...inlineKeys]);
+	const hasScopedEnv = keyNames.length > 0 || options.inheritEnv === false;
+	const isolatedEnv = options.inheritEnv === false || (hasScopedEnv && options.inheritEnv !== true);
+	const useEnvCommand = hasScopedEnv;
+	const values: Record<string, string> = {};
+	const missingKeys: string[] = [];
+	if (useEnvCommand && isolatedEnv) {
+		for (const key of BASE_AGENT_ENV_KEYS) {
+			const value = process.env[key];
+			if (value !== undefined) values[key] = value;
+		}
+		if (!values.PATH) values.PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+	}
+	for (const key of keyNames) {
+		if (Object.prototype.hasOwnProperty.call(inlineEnv, key)) values[key] = String(inlineEnv[key]);
+		else if (process.env[key] !== undefined) values[key] = process.env[key]!;
+		else missingKeys.push(key);
+	}
+	return { keyNames, missingKeys, values, isolatedEnv, useEnvCommand };
+}
+
+function formatAgentAccessMarkdown(options: AgentOptions, envAccess: AgentEnvAccess): string {
+	const list = (values: string[] | undefined, fallback = "default") => values && values.length ? values.join(", ") : fallback;
+	const skillAccess = options.skills?.length
+		? `${options.skills.join(", ")}${options.includeSkills === true ? " + discovery" : " (explicit only)"}`
+		: options.includeSkills === false ? "disabled" : "default discovery";
+	const extensionAccess = options.extensions?.length
+		? `${options.extensions.join(", ")}${options.includeExtensions === true ? " + discovery" : " (explicit only)"}`
+		: options.includeExtensions === true ? "default discovery" : "disabled";
+	return [
+		`- tools: ${list(options.tools)}`,
+		`- excludeTools: ${list(options.excludeTools, "none")}`,
+		`- skills: ${skillAccess}`,
+		`- extensions: ${extensionAccess}`,
+		`- keys: ${envAccess.keyNames.length ? `${envAccess.keyNames.join(", ")} (values redacted)` : envAccess.useEnvCommand ? "none selected" : "default inherited environment"}`,
+		...(envAccess.missingKeys.length ? [`- missingKeys: ${envAccess.missingKeys.join(", ")}`] : []),
+		`- env: ${envAccess.useEnvCommand ? (envAccess.isolatedEnv ? "isolated + selected keys" : "inherited + selected overrides") : "process default"}`,
+	].join("\n");
+}
+
+function sanitizeEnvForCache(env: Record<string, string> | undefined): Record<string, string> | undefined {
+	if (!env) return undefined;
+	const out: Record<string, string> = {};
+	for (const key of Object.keys(env).sort()) out[key] = "[set]";
+	return out;
+}
+
+function shellSingleQuote(value: string): string {
+	return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+async function createAgentEnvWrapper(envAccess: AgentEnvAccess): Promise<{ path: string; dir: string }> {
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-workflow-agent-env-"));
+	const scriptPath = path.join(dir, "run-agent.sh");
+	const lines = ["#!/usr/bin/env bash", "set -euo pipefail"];
+	if (envAccess.isolatedEnv) {
+		lines.push(
+			"while IFS='=' read -r name _; do",
+			"  case \"$name\" in BASH*|EUID|PPID|SHELLOPTS|UID) ;; *) unset \"$name\" 2>/dev/null || true ;; esac",
+			"done < <(env)",
+		);
+	}
+	for (const key of Object.keys(envAccess.values).sort()) lines.push(`export ${key}=${shellSingleQuote(envAccess.values[key] ?? "")}`);
+	lines.push("exec \"$@\"");
+	await fs.writeFile(scriptPath, `${lines.join("\n")}\n`, { encoding: "utf8", mode: 0o700 });
+	return { path: scriptPath, dir };
 }
 
 function sanitizePersonaOptions(value: unknown): AgentOptions {
@@ -696,6 +1195,12 @@ function getRunRoot(ctx: ExtensionContext): string {
 	return path.join(getAgentDir(), WORKFLOW_RUN_DIR, projectHash);
 }
 
+function getGraphRoot(ctx: ExtensionContext): string {
+	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, WORKFLOW_GRAPH_DIR);
+	const projectHash = crypto.createHash("sha1").update(ctx.cwd).digest("hex").slice(0, 12);
+	return path.join(getAgentDir(), WORKFLOW_GRAPH_DIR, projectHash);
+}
+
 function requireTrustedProject(ctx: ExtensionContext): void {
 	if (!ctx.isProjectTrusted()) {
 		throw new Error(`Project workflows require a trusted project. Run /trust or use scope=global.`);
@@ -777,6 +1282,13 @@ async function resolveWorkflow(
 
 function looksLikeJson(value: string): boolean {
 	return /^(?:[\[{\"]|true\b|false\b|null\b|-?\d)/.test(value.trim());
+}
+
+function parsePatternFlag(raw: string | undefined): string | undefined {
+	const value = raw?.trim();
+	if (!value) return undefined;
+	const match = /(?:^|\s)--pattern(?:=|\s+)([^\s]+)/.exec(value) ?? /(?:^|\s)--from-pattern(?:=|\s+)([^\s]+)/.exec(value);
+	return match?.[1]?.replace(/^['\"]|['\"]$/g, "");
 }
 
 function parseCliJsonOrText(raw: string | undefined, options: { strictJson?: boolean } = {}): unknown {
@@ -1184,6 +1696,7 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
     log: (...args) => hostCall("log", args),
     agent: (prompt, options) => hostCall("agent", [prompt, options]),
     agents: (items, options) => hostCall("agents", [items, options]),
+    workflow: (name, input) => hostCall("workflow", [name, input]),
     parallel: (thunks) => parallel(thunks, limits.concurrency),
     pipeline: (items, ...stages) => pipeline(items, limits.concurrency, ...stages),
     bash: (command, options) => hostCall("bash", [command, options]),
@@ -1265,6 +1778,7 @@ async function executeWorkflowCode(
 		"log",
 		"agent",
 		"agents",
+		"workflow",
 		"bash",
 		"readFile",
 		"writeFile",
@@ -1373,6 +1887,7 @@ function formatRunSummary(result: WorkflowRunResult): string {
 		`Run: ${result.runId}`,
 		`State: ${status}${result.background ? " (background)" : ""}`,
 		`Agents: ${result.agentCount}`,
+		`Parallel agents: ${formatParallelAgents(result)}`,
 		`Elapsed: ${Math.round(result.elapsedMs / 1000)}s`,
 		`Artifacts: ${result.runDir}`,
 	];
@@ -1401,7 +1916,7 @@ async function showText(ctx: ExtensionContext, title: string, content: string): 
 	notify(ctx, content, "info");
 }
 
-function workflowProgress(logs: WorkflowLogEntry[]): { agentsStarted: number; agentsDone: number; bashDone: number } {
+function workflowProgress(logs: WorkflowLogEntry[]): { agentsStarted: number; agentsDone: number; agentsRunning: number; bashDone: number } {
 	let agentsStarted = 0;
 	let agentsDone = 0;
 	let bashDone = 0;
@@ -1410,11 +1925,11 @@ function workflowProgress(logs: WorkflowLogEntry[]): { agentsStarted: number; ag
 		if (/^agent \d+ end:/.test(logEntry.message)) agentsDone++;
 		if (/^bash end:/.test(logEntry.message)) bashDone++;
 	}
-	return { agentsStarted, agentsDone, bashDone };
+	return { agentsStarted, agentsDone, agentsRunning: Math.max(0, agentsStarted - agentsDone), bashDone };
 }
 
 function workflowDashboardHint(): string {
-	return "/workflows ↑↓";
+	return "/workflows ↓ Ctrl+Alt+W";
 }
 
 function shortWorkflowName(name: string): string {
@@ -1439,6 +1954,59 @@ function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRu
 	return run.elapsedMs;
 }
 
+function getRunAgentConcurrency(run: WorkflowRunRecord): number | undefined {
+	return typeof run.agentConcurrency === "number" && Number.isFinite(run.agentConcurrency) ? Math.max(0, Math.floor(run.agentConcurrency)) : undefined;
+}
+
+function getRunParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number {
+	if (typeof run.parallelAgents === "number" && Number.isFinite(run.parallelAgents)) return Math.max(0, Math.floor(run.parallelAgents));
+	if (getRunState(run) === "running" && agents) return agents.filter((agent) => agent.state === "running").length;
+	return 0;
+}
+
+function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number | undefined {
+	const points: Array<{ t: number; d: number }> = [];
+	for (const agent of agents) {
+		if (agent.state === "cached") continue;
+		const started = agent.startedAt ? new Date(agent.startedAt).getTime() : Number.NaN;
+		if (!Number.isFinite(started)) continue;
+		points.push({ t: started, d: 1 });
+		const ended = agent.endedAt ? new Date(agent.endedAt).getTime() : Number.NaN;
+		if (Number.isFinite(ended)) points.push({ t: ended, d: -1 });
+	}
+	if (points.length === 0) return undefined;
+	points.sort((a, b) => a.t - b.t || b.d - a.d);
+	let current = 0;
+	let peak = 0;
+	for (const point of points) {
+		current = Math.max(0, current + point.d);
+		peak = Math.max(peak, current);
+	}
+	return peak;
+}
+
+function getRunPeakParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number | undefined {
+	if (typeof run.peakParallelAgents === "number" && Number.isFinite(run.peakParallelAgents)) return Math.max(0, Math.floor(run.peakParallelAgents));
+	return agents ? estimatePeakParallelAgents(agents) : undefined;
+}
+
+function formatParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): string {
+	const current = getRunParallelAgents(run, agents);
+	const limit = getRunAgentConcurrency(run);
+	const peak = getRunPeakParallelAgents(run, agents);
+	const currentText = limit && limit > 0 ? `${current}/${limit} running` : `${current} running`;
+	const peakText = peak === undefined ? "" : ` • peak:${peak}`;
+	return `${currentText}${peakText}`;
+}
+
+function formatParallelAgentsCompact(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): string {
+	const current = getRunParallelAgents(run, agents);
+	const limit = getRunAgentConcurrency(run);
+	const peak = getRunPeakParallelAgents(run, agents);
+	if (getRunState(run) === "running") return limit && limit > 0 ? `${current}/${limit}` : String(current);
+	return peak === undefined ? "-" : `peak:${peak}`;
+}
+
 function isActiveRunRecord(run: WorkflowRunRecord): boolean {
 	return getRunState(run) === "running" && activeRuns.has(run.runId);
 }
@@ -1453,20 +2021,32 @@ function padRightVisible(value: string, width: number): string {
 	return truncated + " ".repeat(Math.max(0, maxWidth - visibleWidth(truncated)));
 }
 
+function renderSafeInline(value: string): string {
+	return value
+		.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
+		.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "")
+		.replace(/[\r\n\t]+/g, " ")
+		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
 function setWorkflowIdleStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
 	ctx.ui.setStatus(WORKFLOW_STATUS_KEY, ctx.ui.theme.fg("dim", "wf"));
 }
 
-function setWorkflowRunningStatus(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[]): void {
+function setWorkflowRunningStatus(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[], status?: WorkflowRunStatus): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
-	const { agentsStarted, agentsDone, bashDone } = workflowProgress(logs);
+	const { agentsStarted, agentsDone, agentsRunning, bashDone } = workflowProgress(logs);
 	const progress = agentsStarted > 0 ? ` ${agentsDone}/${agentsStarted}` : "";
+	const parallel = status ? formatParallelAgentsCompact(status) : agentsRunning > 0 ? String(agentsRunning) : "";
+	const parallelText = parallel ? ` parallel:${parallel}` : "";
 	const bash = bashDone > 0 ? ` bash:${bashDone}` : "";
 	ctx.ui.setStatus(
 		WORKFLOW_STATUS_KEY,
-		`${theme.fg("accent", "▶ wf")} ${theme.fg("dim", shortWorkflowName(workflowName))}${theme.fg("accent", progress)}${theme.fg("dim", `${bash} ${workflowDashboardHint()}`)}`,
+		`${theme.fg("accent", "▶ wf")} ${theme.fg("dim", shortWorkflowName(workflowName))}${theme.fg("accent", progress)}${theme.fg("dim", `${parallelText}${bash} ${workflowDashboardHint()}`)}`,
 	);
 }
 
@@ -1504,21 +2084,24 @@ function clearWorkflowWidget(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, undefined);
 }
 
-function formatLiveRunView(logs: WorkflowLogEntry[], workflowName: string, width = 80): string[] {
-	const w = Math.max(1, width);
-	const { agentsStarted, agentsDone, bashDone } = workflowProgress(logs);
+function formatLiveRunView(logs: WorkflowLogEntry[], workflowName: string, width = 80, status?: WorkflowRunStatus): string[] {
+	if (width <= 0) return [];
+	const w = width;
+	const { agentsStarted, agentsDone, agentsRunning, bashDone } = workflowProgress(logs);
 	const latest = logs.slice(-1)[0];
 	const line = (s: string) => truncateToWidth(s, w, "");
+	const name = renderSafeInline(shortWorkflowName(workflowName));
+	const parallel = status ? formatParallelAgentsCompact(status) : agentsRunning > 0 ? String(agentsRunning) : "0";
 	return [
-		line(`▶ wf ${shortWorkflowName(workflowName)}  agents ${agentsDone}/${agentsStarted}  bash ${bashDone}  logs ${logs.length}`),
-		line(latest ? `${latest.time.slice(11, 19)} ${latest.message}  •  ${workflowDashboardHint()}` : `Open monitor: ${workflowDashboardHint()}`),
+		line(`▶ wf ${name}  agents ${agentsDone}/${agentsStarted}  parallel ${parallel}  bash ${bashDone}  logs ${logs.length}`),
+		line(latest ? `${latest.time.slice(11, 19)} ${renderSafeInline(latest.message)}  •  ${workflowDashboardHint()}` : `Open monitor: ${workflowDashboardHint()}`),
 	];
 }
 
-function setWorkflowWidget(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[]): void {
+function setWorkflowWidget(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[], status?: WorkflowRunStatus): void {
 	if (!ctx.hasUI) return;
 	if (ctx.mode !== "tui") {
-		ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, formatLiveRunView(logs, workflowName), { placement: "belowEditor" });
+		ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, formatLiveRunView(logs, workflowName, undefined, status), { placement: "belowEditor" });
 		return;
 	}
 	ctx.ui.setWidget(
@@ -1526,68 +2109,788 @@ function setWorkflowWidget(ctx: ExtensionContext, workflowName: string, logs: Wo
 		() => ({
 			invalidate(): void {},
 			render(width: number): string[] {
-				return formatLiveRunView(logs, workflowName, width);
+				return formatLiveRunView(logs, workflowName, width, status);
 			},
 		}),
 		{ placement: "belowEditor" },
 	);
 }
 
+type WorkflowGraphStepKind = "agent" | "artifact" | "barrier" | "fanout" | "file" | "pipeline" | "shell" | "subworkflow";
+
+type WorkflowGraphFanoutUnit = "agents" | "branches" | "lanes";
+
+interface WorkflowGraphFanoutInfo {
+	unit: WorkflowGraphFanoutUnit;
+	countLabel: string;
+	count?: number;
+	many: boolean;
+	phaseLabel?: string;
+	concurrency?: string;
+	settle?: boolean;
+	stages?: number;
+}
+
+interface WorkflowGraphChildCall {
+	method: string;
+	kind: WorkflowGraphStepKind;
+	symbol: string;
+	title: string;
+	label: string;
+	line: number;
+	firstArg?: string;
+}
+
+interface WorkflowGraphStep {
+	index: number;
+	method: string;
+	kind: WorkflowGraphStepKind;
+	symbol: string;
+	title: string;
+	label: string;
+	line: number;
+	firstArg?: string;
+	children: WorkflowGraphChildCall[];
+	fanout?: WorkflowGraphFanoutInfo;
+}
+
+interface WorkflowGraphCall extends WorkflowGraphChildCall {
+	start: number;
+	end: number;
+	snippet: string;
+}
+
+interface WorkflowGraphModel {
+	workflow: WorkflowFile;
+	steps: WorkflowGraphStep[];
+	notes: string[];
+}
+
+interface WorkflowGraphRenderTheme {
+	accent(text: string): string;
+	muted(text: string): string;
+	success(text: string): string;
+	warning(text: string): string;
+}
+
 function mermaidLabel(value: string): string {
-	return value.replace(/["<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 90) || "step";
+	return value.replace(/["<>{}\[\]()|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 90) || "step";
+}
+
+function graphTextLabel(value: string): string {
+	return renderSafeInline(value).slice(0, 96) || "step";
 }
 
 function extractFirstStringLiteral(source: string): string | undefined {
-	const match = /(?:`([^`]{1,120})`|"([^"\n]{1,120})"|'([^'\n]{1,120})')/.exec(source);
+	const match = /(?:`([^`]{1,160})`|"([^"\n]{1,160})"|'([^'\n]{1,160})')/.exec(source);
 	return match?.[1] ?? match?.[2] ?? match?.[3];
 }
 
-function makeWorkflowGraph(workflow: WorkflowFile, code: string): string {
-	const stepTypes: Record<string, string> = {
-		agents: "parallel subagents",
-		agent: "subagent",
-		bash: "bash",
-		writeArtifact: "write artifact",
-		appendArtifact: "append artifact",
-		readFile: "read file",
-		writeFile: "write file",
-		appendFile: "append file",
-		listFiles: "list files",
-	};
-	const regex = /ctx\.(agents|agent|bash|writeArtifact|appendArtifact|readFile|writeFile|appendFile|listFiles)\s*\(/g;
-	const steps: Array<{ method: string; label: string }> = [];
+function lineNumberAtIndex(source: string, index: number): number {
+	let line = 1;
+	for (let i = 0; i < index; i++) {
+		if (source.charCodeAt(i) === 10) line++;
+	}
+	return line;
+}
+
+function findCallEndIndex(source: string, openParenIndex: number): number {
+	let depth = 0;
+	let quote: "'" | '"' | "`" | undefined;
+	let escaped = false;
+	let lineComment = false;
+	let blockComment = false;
+	for (let i = openParenIndex; i < source.length; i++) {
+		const char = source[i]!;
+		const next = source[i + 1];
+		if (lineComment) {
+			if (char === "\n") lineComment = false;
+			continue;
+		}
+		if (blockComment) {
+			if (char === "*" && next === "/") {
+				blockComment = false;
+				i++;
+			}
+			continue;
+		}
+		if (quote) {
+			if (escaped) {
+				escaped = false;
+				continue;
+			}
+			if (char === "\\") {
+				escaped = true;
+				continue;
+			}
+			if (char === quote) quote = undefined;
+			continue;
+		}
+		if (char === "/" && next === "/") {
+			lineComment = true;
+			i++;
+			continue;
+		}
+		if (char === "/" && next === "*") {
+			blockComment = true;
+			i++;
+			continue;
+		}
+		if (char === "'" || char === '"' || char === "`") {
+			quote = char;
+			continue;
+		}
+		if (char === "(") depth++;
+		else if (char === ")") {
+			depth--;
+			if (depth === 0) return i + 1;
+		}
+	}
+	return Math.min(source.length, openParenIndex + 320);
+}
+
+function splitTopLevelArguments(source: string): string[] {
+	const args: string[] = [];
+	let start = 0;
+	let depth = 0;
+	let quote: "'" | '"' | "`" | undefined;
+	let escaped = false;
+	let lineComment = false;
+	let blockComment = false;
+	for (let i = 0; i < source.length; i++) {
+		const char = source[i]!;
+		const next = source[i + 1];
+		if (lineComment) {
+			if (char === "\n") lineComment = false;
+			continue;
+		}
+		if (blockComment) {
+			if (char === "*" && next === "/") {
+				blockComment = false;
+				i++;
+			}
+			continue;
+		}
+		if (quote) {
+			if (escaped) {
+				escaped = false;
+				continue;
+			}
+			if (char === "\\") {
+				escaped = true;
+				continue;
+			}
+			if (char === quote) quote = undefined;
+			continue;
+		}
+		if (char === "/" && next === "/") {
+			lineComment = true;
+			i++;
+			continue;
+		}
+		if (char === "/" && next === "*") {
+			blockComment = true;
+			i++;
+			continue;
+		}
+		if (char === "'" || char === '"' || char === "`") {
+			quote = char;
+			continue;
+		}
+		if (char === "(" || char === "[" || char === "{") depth++;
+		else if (char === ")" || char === "]" || char === "}") depth = Math.max(0, depth - 1);
+		else if (char === "," && depth === 0) {
+			const arg = source.slice(start, i).trim();
+			if (arg) args.push(arg);
+			start = i + 1;
+		}
+	}
+	const tail = source.slice(start).trim();
+	if (tail) args.push(tail);
+	return args;
+}
+
+function compactExpressionLabel(value: string, max = 64): string {
+	return value.replace(/\s+/g, " ").replace(/,$/, "").trim().slice(0, max) || "dynamic";
+}
+
+function countTopLevelArrayItems(expression: string): number | undefined {
+	const trimmed = expression.trim();
+	if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return undefined;
+	const inner = trimmed.slice(1, -1).trim();
+	if (!inner) return 0;
+	return splitTopLevelArguments(inner).length;
+}
+
+function inferCollectionCardinality(expression: string, fallbackLabel: string): Pick<WorkflowGraphFanoutInfo, "count" | "countLabel" | "many"> {
+	const trimmed = expression.trim();
+	const literalCount = countTopLevelArrayItems(trimmed);
+	if (literalCount !== undefined) return { count: literalCount, countLabel: String(literalCount), many: literalCount > 1 };
+	const mapMatch = /^(.+?)\.map\s*\(/s.exec(trimmed);
+	if (mapMatch) {
+		const source = compactExpressionLabel(mapMatch[1]!, 48);
+		return { countLabel: `${source}.length`, many: true };
+	}
+	if (/\.length\b/.test(trimmed)) return { countLabel: compactExpressionLabel(trimmed, 48), many: true };
+	if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\?\.[A-Za-z_$][\w$]*)*$/.test(trimmed)) return { countLabel: `${trimmed}.length`, many: true };
+	return { countLabel: fallbackLabel, many: true };
+}
+
+function extractObjectOptionValue(options: string | undefined, key: string): string | undefined {
+	if (!options) return undefined;
+	const property = new RegExp(`\\b${key}\\s*:\\s*([^,}\\n]+)`).exec(options);
+	if (property) return compactExpressionLabel(property[1]!, 32);
+	const shorthand = new RegExp(`(?:^|[{,]\\s*)${key}(?:\\s*[,}])`).exec(options);
+	return shorthand ? key : undefined;
+}
+
+function extractObjectBooleanOption(options: string | undefined, key: string): boolean | undefined {
+	const raw = extractObjectOptionValue(options, key);
+	if (raw === "true") return true;
+	if (raw === "false") return false;
+	return undefined;
+}
+
+function inferWorkflowGraphFanout(method: string, args: string[], phaseIndex: number | undefined): WorkflowGraphFanoutInfo | undefined {
+	const firstArg = args[0] ?? "";
+	const options = args[1];
+	if (method === "agents") {
+		const cardinality = inferCollectionCardinality(firstArg, "dynamic");
+		return {
+			unit: "agents",
+			...cardinality,
+			...(phaseIndex ? { phaseLabel: `P${phaseIndex}` } : {}),
+			...(extractObjectOptionValue(options, "concurrency") ? { concurrency: extractObjectOptionValue(options, "concurrency") } : {}),
+			...(extractObjectBooleanOption(options, "settle") === undefined ? {} : { settle: extractObjectBooleanOption(options, "settle") }),
+		};
+	}
+	if (method === "parallel") {
+		const cardinality = inferCollectionCardinality(firstArg, "dynamic");
+		return { unit: "branches", ...cardinality };
+	}
+	if (method === "pipeline") {
+		const cardinality = inferCollectionCardinality(firstArg, "dynamic");
+		return { unit: "lanes", ...cardinality, stages: Math.max(0, args.length - 1) };
+	}
+	return undefined;
+}
+
+function formatWorkflowGraphFanoutSummary(fanout: WorkflowGraphFanoutInfo): string {
+	const parts = [`×${fanout.countLabel} ${fanout.unit}`];
+	if (fanout.phaseLabel) parts.unshift(fanout.phaseLabel);
+	if (fanout.stages !== undefined) parts.push(`${fanout.stages} stages`);
+	if (fanout.concurrency) parts.push(fanout.concurrency === "concurrency" ? "concurrency" : `concurrency=${fanout.concurrency}`);
+	if (fanout.settle !== undefined) parts.push(`settle:${fanout.settle}`);
+	return parts.join(" · ");
+}
+
+function summarizeWorkflowGraphChildren(children: WorkflowGraphChildCall[]): string | undefined {
+	if (children.length === 0) return undefined;
+	const counts = new Map<string, number>();
+	for (const child of children) counts.set(child.method, (counts.get(child.method) ?? 0) + 1);
+	return Array.from(counts.entries()).map(([method, count]) => `${count}× ctx.${method}`).join(", ");
+}
+
+function workflowGraphMethodInfo(method: string): Omit<WorkflowGraphStep, "index" | "label" | "line" | "firstArg" | "children" | "fanout"> {
+	if (method === "agents") return { method, kind: "fanout", symbol: "◆", title: "fan-out subagents" };
+	if (method === "parallel") return { method, kind: "barrier", symbol: "⧉", title: "parallel barrier" };
+	if (method === "pipeline") return { method, kind: "pipeline", symbol: "▣", title: "pipeline lanes" };
+	if (method === "agent") return { method, kind: "agent", symbol: "●", title: "subagent" };
+	if (method === "workflow") return { method, kind: "subworkflow", symbol: "◇", title: "sub-workflow" };
+	if (method === "bash") return { method, kind: "shell", symbol: "$", title: "bash" };
+	if (method === "writeArtifact" || method === "appendArtifact") return { method, kind: "artifact", symbol: "▤", title: method === "writeArtifact" ? "write artifact" : "append artifact" };
+	return { method, kind: "file", symbol: "◌", title: method.replace(/[A-Z]/g, (char) => ` ${char.toLowerCase()}`) };
+}
+
+function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): WorkflowGraphModel {
+	const regex = /\bctx\.(parallel|pipeline|agents|agent|workflow|bash|writeArtifact|appendArtifact|readFile|writeFile|appendFile|listFiles)\s*\(/g;
+	const calls: WorkflowGraphCall[] = [];
 	let match: RegExpExecArray | null;
 	while ((match = regex.exec(code)) !== null) {
 		const method = match[1]!;
-		const snippet = code.slice(match.index, match.index + 240);
+		const openParenIndex = regex.lastIndex - 1;
+		const end = findCallEndIndex(code, openParenIndex);
+		const snippet = code.slice(openParenIndex + 1, Math.max(openParenIndex + 1, end - 1));
 		const firstArg = extractFirstStringLiteral(snippet);
-		steps.push({ method, label: `${stepTypes[method] ?? method}${firstArg ? `: ${mermaidLabel(firstArg)}` : ""}` });
+		const info = workflowGraphMethodInfo(method);
+		calls.push({
+			...info,
+			start: match.index,
+			end,
+			snippet,
+			line: lineNumberAtIndex(code, match.index),
+			label: `${info.title}${firstArg ? `: ${graphTextLabel(firstArg)}` : ""}`,
+			...(firstArg ? { firstArg: graphTextLabel(firstArg) } : {}),
+		});
 	}
 
-	const lines = [
-		`# Workflow graph: ${workflow.name}`,
-		"",
-		"> Heuristic static graph inferred from `ctx.*` calls. Dynamic loops/branches are approximate.",
-		"",
-		"```mermaid",
-		"flowchart TD",
-		`  start([${mermaidLabel(workflow.name)}])`,
-	];
-	if (steps.length === 0) {
-		lines.push("  start --> done([done])");
-	} else {
-		for (let i = 0; i < steps.length; i++) {
-			const id = `s${i + 1}`;
-			const shape = steps[i]!.method === "agents" ? `{{${mermaidLabel(steps[i]!.label)}}}` : `["${mermaidLabel(steps[i]!.label)}"]`;
-			lines.push(`  ${id}${shape}`);
-			lines.push(`  ${i === 0 ? "start" : `s${i}`} --> ${id}`);
+	const orchestrationParents = new Set(["agents", "parallel", "pipeline"]);
+	const childrenByParent = new Map<WorkflowGraphCall, WorkflowGraphChildCall[]>();
+	const topLevelCalls: WorkflowGraphCall[] = [];
+	for (const call of calls) {
+		let parent: WorkflowGraphCall | undefined;
+		for (const candidate of calls) {
+			if (candidate === call || !orchestrationParents.has(candidate.method)) continue;
+			if (candidate.start < call.start && call.end <= candidate.end && (!parent || candidate.start > parent.start)) parent = candidate;
 		}
-		lines.push(`  s${steps.length} --> done([done])`);
+		if (parent) {
+			const children = childrenByParent.get(parent) ?? [];
+			children.push(call);
+			childrenByParent.set(parent, children);
+		} else {
+			topLevelCalls.push(call);
+		}
 	}
-	lines.push("```", "", "## Detected steps", "");
-	if (steps.length === 0) lines.push("No `ctx.*` workflow API calls detected.");
-	else steps.forEach((step, index) => lines.push(`${index + 1}. ${step.label}`));
-	return lines.join("\n");
+
+	const steps: WorkflowGraphStep[] = [];
+	let agentPhaseIndex = 0;
+	for (const call of topLevelCalls) {
+		const args = splitTopLevelArguments(call.snippet);
+		const phaseIndex = call.method === "agents" ? ++agentPhaseIndex : undefined;
+		const fanout = inferWorkflowGraphFanout(call.method, args, phaseIndex);
+		const children = childrenByParent.get(call) ?? [];
+		steps.push({
+			method: call.method,
+			kind: call.kind,
+			symbol: call.symbol,
+			title: call.title,
+			index: steps.length + 1,
+			line: call.line,
+			label: fanout ? `${call.title} (${formatWorkflowGraphFanoutSummary(fanout)})` : call.label,
+			...(call.firstArg ? { firstArg: call.firstArg } : {}),
+			children,
+			...(fanout ? { fanout } : {}),
+		});
+	}
+
+	const notes = [
+		"Static preview inferred from source-order ctx.* calls; runtime data can differ.",
+		"Fan-out counts are static expressions; /workflow view shows runtime P1 i/n totals.",
+		"Does not evaluate budget, retries, cache hits, or error paths.",
+	];
+	if (steps.some((step) => step.children.length > 0)) notes.push("Nested ctx.* calls inside ctx.pipeline/ctx.parallel/ctx.agents are grouped under their orchestration step.");
+	if (/\b(for|while)\s*\(/.test(code)) notes.push("Loops detected; repeated calls are shown once in source order.");
+	if (/\bif\s*\(|\?[^\n]+:/.test(code)) notes.push("Branches detected; conditional paths are approximate.");
+	return { workflow, steps, notes };
+}
+
+function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
+	const lines: string[] = [];
+	if (step.fanout) {
+		lines.push(`visual: ${formatWorkflowGraphFanoutSummary(step.fanout)}`);
+		if (step.fanout.many) lines.push("diagram: fork → visible workers/lanes → join, with … when the count is large or dynamic");
+	}
+	if (step.kind === "fanout") lines.push("branches: one Pi subagent per item/spec", "join: results array; failed branches may be null with settle:true");
+	else if (step.kind === "barrier") lines.push("branches: async thunks run concurrently", "join: barrier waits for every branch before continuing");
+	else if (step.kind === "pipeline") lines.push("lanes: each item flows through stages", "join: returned array preserves item order");
+	else if (step.kind === "subworkflow") lines.push("delegates to another workflow and returns to this flow");
+	else if (step.kind === "agent") lines.push("single Pi subagent call");
+	else if (step.kind === "shell") lines.push("host shell command from workflow cwd");
+	else if (step.kind === "artifact") lines.push("persists run evidence outside chat context");
+	else lines.push("file helper inside workflow cwd");
+	const childSummary = summarizeWorkflowGraphChildren(step.children);
+	if (childSummary) lines.push(`inside: ${childSummary}`);
+	return lines;
+}
+
+function workflowGraphStyles(theme?: any): WorkflowGraphRenderTheme {
+	return {
+		accent: (text: string) => theme ? theme.fg("accent", text) : text,
+		muted: (text: string) => theme ? theme.fg("muted", text) : text,
+		success: (text: string) => theme ? theme.fg("success", text) : text,
+		warning: (text: string) => theme ? theme.fg("warning", text) : text,
+	};
+}
+
+function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: number, theme?: any): string[] {
+	if (width <= 0) return [];
+	const w = width;
+	const style = workflowGraphStyles(theme);
+	const line = (textValue: string) => truncateToWidth(textValue, w, "");
+	const steps = model.steps;
+	const fanoutCount = steps.filter((step) => step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline").length;
+	const ioCount = steps.filter((step) => step.kind === "artifact" || step.kind === "file" || step.kind === "shell").length;
+	const lines: string[] = [
+		line(`${style.accent("Workflow topology")} ${style.muted("static preview")}`),
+		line(`${style.muted("name:")} ${model.workflow.name}`),
+		line(`${style.muted("file:")} ${model.workflow.relativePath}`),
+		line(`${style.muted("steps:")} ${steps.length} ${style.muted("• orchestration:")} ${fanoutCount} ${style.muted("• I/O:")} ${ioCount}`),
+		line(`${style.muted("legend:")} ${style.accent("◆ fan-out ×N")} ${style.muted("|")} ${style.accent("⧉ barrier branches")} ${style.muted("|")} ${style.accent("▣ pipeline lanes")} ${style.muted("|")} ${style.accent("● agent")} ${style.muted("|")} ${style.accent("$ bash")} ${style.muted("|")} ${style.accent("▤ artifact")}`),
+		line(""),
+		line(style.accent("Topology")),
+	];
+
+	if (steps.length === 0) {
+		lines.push(line(`  ${style.warning("No ctx.* workflow API calls detected.")}`));
+		lines.push(line(`  ${style.muted("This may be a trivial workflow or the graph heuristic missed dynamic indirection.")}`));
+	} else {
+		lines.push(line(`  ${style.success("start")} ${style.muted("→")} ${graphTextLabel(model.workflow.name)}`));
+		for (const step of steps) {
+			lines.push(line(`    ${style.muted("│")}`));
+			lines.push(line(`    ${style.accent(step.symbol)} ${step.label} ${style.muted(`L${step.line} ctx.${step.method}`)}`));
+			for (const detail of renderWorkflowGraphStepDetail(step)) {
+				lines.push(line(`    ${style.muted("│")} ${style.muted(detail)}`));
+			}
+		}
+		lines.push(line(`    ${style.muted("│")}`));
+		lines.push(line(`  ${style.success("done")}`));
+	}
+
+	lines.push(line(""));
+	lines.push(line(style.accent("Detected calls")));
+	if (steps.length === 0) {
+		lines.push(line(style.muted("No calls to list.")));
+	} else {
+		for (const step of steps) {
+			const index = padRightVisible(`${step.index}.`, 4);
+			lines.push(line(`${style.muted(index)}${style.accent(step.symbol)} ${step.label} ${style.muted(`— L${step.line}, ctx.${step.method}`)}`));
+			for (const child of step.children) {
+				lines.push(line(`${style.muted("    ↳")} ${style.accent(child.symbol)} ${child.label} ${style.muted(`— L${child.line}, nested ctx.${child.method}`)}`));
+			}
+		}
+	}
+
+	lines.push(line(""));
+	lines.push(line(style.accent("Limitations")));
+	for (const note of model.notes) lines.push(line(`${style.muted("•")} ${style.muted(note)}`));
+	return lines;
+}
+
+function workflowGraphSingularUnit(unit: WorkflowGraphFanoutUnit): string {
+	if (unit === "agents") return "agent";
+	if (unit === "branches") return "branch";
+	return "lane";
+}
+
+function workflowGraphVisibleFanoutSlots(fanout: WorkflowGraphFanoutInfo): string[] {
+	const unit = workflowGraphSingularUnit(fanout.unit);
+	if (fanout.count !== undefined) {
+		if (fanout.count <= 0) return [`no ${fanout.unit}`];
+		if (fanout.count <= 6) return Array.from({ length: fanout.count }, (_, index) => `${unit} ${index + 1}`);
+		return [`${unit} 1`, `${unit} 2`, `${unit} 3`, "…", `${unit} ${fanout.count}`];
+	}
+	return [`${unit} 1`, `${unit} 2`, "…", `${unit} n`];
+}
+
+function renderWorkflowGraphMermaidLines(model: WorkflowGraphModel): string[] {
+	const lines = ["flowchart TD", `  start([${mermaidLabel(model.workflow.name)}])`];
+	if (model.steps.length === 0) {
+		lines.push("  start --> done([done])");
+		return lines;
+	}
+	let previousExit = "start";
+	for (const step of model.steps) {
+		const id = `s${step.index}`;
+		const label = mermaidLabel(`${step.symbol} ${step.label}`);
+		if (step.fanout) {
+			const groupId = `g${step.index}`;
+			const entryId = `${id}_in`;
+			const exitId = `${id}_out`;
+			const entryLabel = step.kind === "pipeline" ? "items" : "fork";
+			const exitLabel = step.kind === "barrier" ? "barrier" : "join";
+			lines.push(`  subgraph ${groupId}["${label}"]`);
+			lines.push("    direction LR");
+			lines.push(`    ${entryId}((${mermaidLabel(entryLabel)}))`);
+			lines.push(`    ${exitId}((${mermaidLabel(exitLabel)}))`);
+			const slots = workflowGraphVisibleFanoutSlots(step.fanout);
+			for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
+				const workerId = `${id}_w${slotIndex + 1}`;
+				const workerLabel = step.fanout.unit === "lanes" && step.fanout.stages !== undefined
+					? `${slots[slotIndex]} · ${step.fanout.stages} stages`
+					: slots[slotIndex]!;
+				lines.push(`    ${workerId}["${mermaidLabel(workerLabel)}"]`);
+				lines.push(`    ${entryId} --> ${workerId}`);
+				lines.push(`    ${workerId} --> ${exitId}`);
+			}
+			lines.push("  end");
+			lines.push(`  ${previousExit} --> ${groupId}`);
+			previousExit = groupId;
+			continue;
+		}
+		const shape = step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline" ? `{{${label}}}` : `["${label}"]`;
+		lines.push(`  ${id}${shape}`);
+		lines.push(`  ${previousExit} --> ${id}`);
+		previousExit = id;
+	}
+	lines.push(`  ${previousExit} --> done([done])`);
+	return lines;
+}
+
+interface WorkflowGraphImageRender {
+	base64: string;
+	pngPath: string;
+	mmdPath: string;
+	command: string;
+	elapsedMs: number;
+	width: number;
+	height: number;
+	scale: number;
+}
+
+interface WorkflowGraphImageAttempt {
+	image?: WorkflowGraphImageRender;
+	warning?: string;
+}
+
+interface ProcessResult {
+	ok: boolean;
+	code: number | null;
+	signal: NodeJS.Signals | null;
+	stdout: string;
+	stderr: string;
+	error?: string;
+	timedOut?: boolean;
+}
+
+function displayPathFromCwd(cwd: string, file: string): string {
+	const relative = path.relative(cwd, file).replaceAll(path.sep, "/");
+	return relative && !relative.startsWith("../") && relative !== ".." && !path.isAbsolute(relative) ? relative : file;
+}
+
+function clampWorkflowGraphNumber(value: number, min: number, max: number): number {
+	return Math.min(max, Math.max(min, value));
+}
+
+function workflowGraphImageOptions(model: WorkflowGraphModel): { width: number; height: number; scale: number; maxWidthCells: number; maxHeightCells: number } {
+	const fanoutSlots = model.steps.reduce((sum, step) => sum + (step.fanout ? workflowGraphVisibleFanoutSlots(step.fanout).length : 0), 0);
+	const orchestrationGroups = model.steps.filter((step) => !!step.fanout).length;
+	return {
+		width: clampWorkflowGraphNumber(2200 + fanoutSlots * 120, 2200, 3600),
+		height: clampWorkflowGraphNumber(1300 + model.steps.length * 130 + orchestrationGroups * 180, 1300, 2800),
+		scale: 2,
+		maxWidthCells: 320,
+		maxHeightCells: clampWorkflowGraphNumber(54 + orchestrationGroups * 8 + Math.floor(model.steps.length / 2), 54, 88),
+	};
+}
+
+function mmdcBinName(): string {
+	return process.platform === "win32" ? "mmdc.cmd" : "mmdc";
+}
+
+function resolveMmdcInvocation(cwd: string): { command: string; argsPrefix: string[]; display: string } {
+	const bin = mmdcBinName();
+	const candidates = [path.join(cwd, "node_modules", ".bin", bin), path.join(process.cwd(), "node_modules", ".bin", bin), path.join(EXTENSION_ROOT, "node_modules", ".bin", bin)];
+	for (const candidate of candidates) {
+		if (existsSync(candidate)) return { command: candidate, argsPrefix: [], display: displayPathFromCwd(cwd, candidate) };
+	}
+	return { command: "mmdc", argsPrefix: [], display: "mmdc" };
+}
+
+async function runProcess(command: string, args: string[], options: { cwd: string; timeoutMs: number }): Promise<ProcessResult> {
+	return await new Promise<ProcessResult>((resolve) => {
+		let stdout = "";
+		let stderr = "";
+		let finished = false;
+		const append = (current: string, chunk: Buffer) => {
+			const next = current + chunk.toString("utf8");
+			return next.length > 20_000 ? next.slice(-20_000) : next;
+		};
+		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
+		const timer = setTimeout(() => {
+			child.kill("SIGTERM");
+		}, options.timeoutMs);
+		const finish = (result: ProcessResult) => {
+			if (finished) return;
+			finished = true;
+			clearTimeout(timer);
+			resolve(result);
+		};
+		child.stdout?.on("data", (chunk: Buffer) => {
+			stdout = append(stdout, chunk);
+		});
+		child.stderr?.on("data", (chunk: Buffer) => {
+			stderr = append(stderr, chunk);
+		});
+		child.on("error", (err) => finish({ ok: false, code: null, signal: null, stdout, stderr, error: err instanceof Error ? err.message : String(err) }));
+		child.on("close", (code, signal) => finish({ ok: code === 0, code, signal, stdout, stderr, timedOut: signal === "SIGTERM" }));
+	});
+}
+
+async function runStreamingAgentProcess(
+	command: string,
+	args: string[],
+	options: {
+		cwd: string;
+		timeoutMs: number;
+		signal: AbortSignal;
+		onStdout?: (chunk: Buffer) => void | Promise<void>;
+		onStderr?: (chunk: Buffer) => void | Promise<void>;
+	},
+): Promise<{ code: number; killed: boolean; stdout: string; stderr: string }> {
+	return await new Promise((resolve, reject) => {
+		let stdout = "";
+		let stderr = "";
+		let killed = false;
+		let finished = false;
+		const append = (current: string, chunk: Buffer) => {
+			const next = current + chunk.toString("utf8");
+			return next.length > MAX_JOURNALED_STREAM ? next.slice(-MAX_JOURNALED_STREAM) : next;
+		};
+		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
+		const kill = () => {
+			killed = true;
+			child.kill("SIGTERM");
+		};
+		const timer = setTimeout(kill, options.timeoutMs);
+		const onAbort = () => kill();
+		options.signal.addEventListener("abort", onAbort, { once: true });
+		const finish = (err: Error | undefined, code = 1) => {
+			if (finished) return;
+			finished = true;
+			clearTimeout(timer);
+			options.signal.removeEventListener("abort", onAbort);
+			if (err) reject(err);
+			else resolve({ code, killed, stdout, stderr });
+		};
+		child.stdout?.on("data", (chunk: Buffer) => {
+			stdout = append(stdout, chunk);
+			void options.onStdout?.(chunk);
+		});
+		child.stderr?.on("data", (chunk: Buffer) => {
+			stderr = append(stderr, chunk);
+			void options.onStderr?.(chunk);
+		});
+		child.on("error", (err) => finish(err instanceof Error ? err : new Error(String(err))));
+		child.on("close", (code, signal) => finish(undefined, code ?? (signal ? 143 : 1)));
+	});
+}
+
+function formatMmdcFailure(command: string, result: ProcessResult): string {
+	const details = [result.error, result.stderr.trim(), result.stdout.trim()].filter(Boolean).join("\n").trim();
+	const hint = /Could not find Chrome|Chrome.*not found|browser/i.test(details)
+		? "\nHint: run `npx puppeteer browsers install chrome-headless-shell` if the Puppeteer browser was not installed."
+		: "";
+	const code = result.code === null ? "spawn" : `exit ${result.code}`;
+	return `mmdc failed (${code}) via ${command}.${hint}${details ? `\n${details}` : ""}`;
+}
+
+async function renderWorkflowGraphImage(ctx: ExtensionContext, model: WorkflowGraphModel): Promise<WorkflowGraphImageAttempt> {
+	if (!getCapabilities().images) return { warning: "Terminal image protocol is not available, so inline PNG rendering is disabled." };
+	const root = getGraphRoot(ctx);
+	await ensureDir(root);
+	const base = `${slugify(model.workflow.name)}-${crypto.createHash("sha1").update(model.workflow.path).digest("hex").slice(0, 8)}`;
+	const mmdPath = path.join(root, `${base}.mmd`);
+	const pngPath = path.join(root, `${base}.png`);
+	await fs.writeFile(mmdPath, `${renderWorkflowGraphMermaidLines(model).join("\n")}\n`, "utf8");
+
+	const invocation = resolveMmdcInvocation(ctx.cwd);
+	const imageOptions = workflowGraphImageOptions(model);
+	const args = [
+		...invocation.argsPrefix,
+		"-q",
+		"-i",
+		mmdPath,
+		"-o",
+		pngPath,
+		"-e",
+		"png",
+		"-t",
+		"dark",
+		"-b",
+		"transparent",
+		"-w",
+		String(imageOptions.width),
+		"-H",
+		String(imageOptions.height),
+		"-s",
+		String(imageOptions.scale),
+	];
+	const started = Date.now();
+	const result = await runProcess(invocation.command, args, { cwd: ctx.cwd, timeoutMs: 60_000 });
+	if (!result.ok) return { warning: formatMmdcFailure(invocation.display, result) };
+	try {
+		const base64 = await fs.readFile(pngPath, "base64");
+		return { image: { base64, pngPath, mmdPath, command: invocation.display, elapsedMs: Date.now() - started, width: imageOptions.width, height: imageOptions.height, scale: imageOptions.scale } };
+	} catch (err) {
+		return { warning: `mmdc reported success but the PNG could not be read: ${err instanceof Error ? err.message : String(err)}` };
+	}
+}
+
+function renderWorkflowGraphDocumentLines(model: WorkflowGraphModel, width: number, theme?: any): string[] {
+	if (width <= 0) return [];
+	const style = workflowGraphStyles(theme);
+	const line = (textValue: string) => truncateToWidth(textValue, width, "");
+	const lines = renderWorkflowGraphOverviewLines(model, width, theme);
+	lines.push(line(""));
+	lines.push(line(style.accent("Mermaid export")));
+	lines.push(line(style.muted("Copyable fallback for tools/docs that can render Mermaid.")));
+	lines.push(line("```mermaid"));
+	for (const mermaidLine of renderWorkflowGraphMermaidLines(model)) lines.push(line(mermaidLine));
+	lines.push(line("```"));
+	return lines;
+}
+
+function makeWorkflowGraph(workflow: WorkflowFile, code: string): string {
+	return renderWorkflowGraphDocumentLines(buildWorkflowGraphModel(workflow, code), 120).join("\n");
+}
+
+class WorkflowGraphComponent {
+	private cachedWidth?: number;
+	private cachedLines?: string[];
+	private readonly imageComponent?: TerminalImage;
+
+	constructor(
+		private readonly model: WorkflowGraphModel,
+		private readonly theme: any,
+		private readonly close: () => void,
+		private readonly imageAttempt: WorkflowGraphImageAttempt = {},
+	) {
+		if (imageAttempt.image) {
+			const imageOptions = workflowGraphImageOptions(model);
+			this.imageComponent = new TerminalImage(imageAttempt.image.base64, "image/png", { fallbackColor: (textValue: string) => theme.fg("muted", textValue) }, { filename: path.basename(imageAttempt.image.pngPath), maxWidthCells: imageOptions.maxWidthCells, maxHeightCells: imageOptions.maxHeightCells });
+		}
+	}
+
+	handleInput(data: string): void {
+		if (matchesKey(data, Key.escape) || matchesKey(data, Key.enter) || data === "q") this.close();
+	}
+
+	render(width: number): string[] {
+		if (this.cachedLines && this.cachedWidth === width) return this.cachedLines;
+		const w = Math.max(1, width);
+		const line = (textValue: string) => truncateToWidth(textValue, w, "");
+		const help = line(this.theme.fg("dim", "enter/q/esc close • mmdc PNG when supported • static graph; use /workflow view for runtime timeline"));
+		const lines = [help];
+		if (this.imageAttempt.image && this.imageComponent) {
+			const image = this.imageAttempt.image;
+			lines.push(line(`${this.theme.fg("accent", "Mermaid PNG")} ${this.theme.fg("dim", `via ${image.command} • ${image.width}×${image.height} @${image.scale}x • ${image.elapsedMs}ms`)}`));
+			lines.push(line(this.theme.fg("dim", `png: ${image.pngPath}`)));
+			lines.push(line(this.theme.fg("dim", `mmd: ${image.mmdPath}`)));
+			lines.push(...this.imageComponent.render(w));
+			lines.push(line(""));
+		} else if (this.imageAttempt.warning) {
+			lines.push(line(this.theme.fg("warning", "Mermaid PNG unavailable; falling back to text graph.")));
+			for (const warningLine of this.imageAttempt.warning.split(/\r?\n/).slice(0, 8)) lines.push(line(this.theme.fg("muted", warningLine)));
+			lines.push(line(""));
+		}
+		lines.push(...renderWorkflowGraphDocumentLines(this.model, w, this.theme));
+		this.cachedLines = lines;
+		this.cachedWidth = width;
+		return this.cachedLines;
+	}
+
+	invalidate(): void {
+		this.cachedWidth = undefined;
+		this.cachedLines = undefined;
+	}
+}
+
+async function showWorkflowGraph(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<void> {
+	const model = buildWorkflowGraphModel(workflow, code);
+	if (ctx.mode === "print") {
+		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));
+		return;
+	}
+	if (ctx.mode === "tui") {
+		const imageAttempt = await renderWorkflowGraphImage(ctx, model).catch((err) => ({ warning: err instanceof Error ? err.message : String(err) }));
+		await ctx.ui.custom<void>((_tui, theme, _keybindings, done) => new WorkflowGraphComponent(model, theme, () => done(undefined), imageAttempt));
+		return;
+	}
+	if (ctx.hasUI) {
+		await ctx.ui.editor(`Workflow graph: ${workflow.name}`, renderWorkflowGraphDocumentLines(model, 120).join("\n"));
+		return;
+	}
+	notify(ctx, renderWorkflowGraphDocumentLines(model, 100).join("\n"), "info");
 }
 
 async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
@@ -1844,25 +3147,225 @@ function getRunStatusIcon(run: WorkflowRunRecord): string {
 	return "✗";
 }
 
-async function readRunLogEvents(runDir: string): Promise<WorkflowLogEntry[]> {
+interface ParsedRunEvents {
+	logs: WorkflowLogEntry[];
+	agents: AgentMonitorModel[];
+}
+
+function recordValue(value: unknown): Record<string, unknown> | undefined {
+	return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+	return typeof value === "string" ? value : undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function booleanValue(value: unknown): boolean | undefined {
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<SubagentResult> {
+	if (!phase || phase.total <= 0) return {};
+	return {
+		phaseId: phase.id,
+		phaseIndex: phase.index,
+		phaseTotal: phase.total,
+		...(phase.label ? { phaseLabel: phase.label } : {}),
+	};
+}
+
+function formatAgentPhase(agent: Pick<AgentMonitorModel, "phaseId" | "phaseIndex" | "phaseTotal" | "phaseLabel">): string | undefined {
+	if (!agent.phaseIndex || !agent.phaseTotal) return undefined;
+	const batch = agent.phaseId ? `P${agent.phaseId} ` : "";
+	return `${batch}${agent.phaseIndex}/${agent.phaseTotal}`;
+}
+
+function stringArrayValue(value: unknown): string[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const values = value.filter((item): item is string => typeof item === "string");
+	return values.length === value.length ? values : undefined;
+}
+
+function isAgentMonitorState(value: unknown): value is AgentMonitorState {
+	return value === "running" || value === "completed" || value === "failed" || value === "cached" || value === "unknown";
+}
+
+function mergeAgentMonitor(existing: AgentMonitorModel | undefined, patch: Partial<AgentMonitorModel> & { id: number; name: string }): AgentMonitorModel {
+	const existingState = existing?.state;
+	const patchState = patch.state;
+	const state = existingState && (existingState === "completed" || existingState === "failed" || existingState === "cached") && patchState === "running"
+		? existingState
+		: patchState ?? existingState ?? "unknown";
+	const artifactPath = patch.artifactPath ?? existing?.artifactPath;
+	return {
+		id: patch.id,
+		name: patch.name || existing?.name || `agent-${patch.id}`,
+		state,
+		...(existing?.startedAt || patch.startedAt ? { startedAt: patch.startedAt ?? existing?.startedAt } : {}),
+		...(existing?.endedAt || patch.endedAt ? { endedAt: patch.endedAt ?? existing?.endedAt } : {}),
+		...(existing?.elapsedMs !== undefined || patch.elapsedMs !== undefined ? { elapsedMs: patch.elapsedMs ?? existing?.elapsedMs } : {}),
+		...(existing?.ok !== undefined || patch.ok !== undefined ? { ok: patch.ok ?? existing?.ok } : {}),
+		...(existing?.code !== undefined || patch.code !== undefined ? { code: patch.code ?? existing?.code } : {}),
+		...(existing?.killed !== undefined || patch.killed !== undefined ? { killed: patch.killed ?? existing?.killed } : {}),
+		...(artifactPath ? { artifactPath } : {}),
+		...(existing?.tools || patch.tools ? { tools: patch.tools ?? existing?.tools } : {}),
+		...(existing?.excludeTools || patch.excludeTools ? { excludeTools: patch.excludeTools ?? existing?.excludeTools } : {}),
+		...(existing?.skills || patch.skills ? { skills: patch.skills ?? existing?.skills } : {}),
+		...(existing?.includeSkills !== undefined || patch.includeSkills !== undefined ? { includeSkills: patch.includeSkills ?? existing?.includeSkills } : {}),
+		...(existing?.extensions || patch.extensions ? { extensions: patch.extensions ?? existing?.extensions } : {}),
+		...(existing?.includeExtensions !== undefined || patch.includeExtensions !== undefined ? { includeExtensions: patch.includeExtensions ?? existing?.includeExtensions } : {}),
+		...(existing?.keys || patch.keys ? { keys: patch.keys ?? existing?.keys } : {}),
+		...(existing?.missingKeys || patch.missingKeys ? { missingKeys: patch.missingKeys ?? existing?.missingKeys } : {}),
+		...(existing?.isolatedEnv !== undefined || patch.isolatedEnv !== undefined ? { isolatedEnv: patch.isolatedEnv ?? existing?.isolatedEnv } : {}),
+		...(existing?.phaseId !== undefined || patch.phaseId !== undefined ? { phaseId: patch.phaseId ?? existing?.phaseId } : {}),
+		...(existing?.phaseIndex !== undefined || patch.phaseIndex !== undefined ? { phaseIndex: patch.phaseIndex ?? existing?.phaseIndex } : {}),
+		...(existing?.phaseTotal !== undefined || patch.phaseTotal !== undefined ? { phaseTotal: patch.phaseTotal ?? existing?.phaseTotal } : {}),
+		...(existing?.phaseLabel || patch.phaseLabel ? { phaseLabel: patch.phaseLabel ?? existing?.phaseLabel } : {}),
+		...(existing?.promptPreview || patch.promptPreview ? { promptPreview: patch.promptPreview ?? existing?.promptPreview } : {}),
+		...(existing?.output || patch.output ? { output: patch.output ?? existing?.output } : {}),
+		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined ? { schemaOk: patch.schemaOk ?? existing?.schemaOk } : {}),
+		promptAvailable: existing?.promptAvailable === true || patch.promptAvailable === true || !!artifactPath,
+	};
+}
+
+async function readFilePrefix(file: string, maxBytes = 16_000): Promise<string> {
+	const handle = await fs.open(file, "r");
+	try {
+		const buffer = Buffer.alloc(maxBytes);
+		const { bytesRead } = await handle.read(buffer, 0, maxBytes, 0);
+		return buffer.subarray(0, bytesRead).toString("utf8");
+	} finally {
+		await handle.close();
+	}
+}
+
+async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
+	const logs: WorkflowLogEntry[] = [];
+	const agentsById = new Map<number, AgentMonitorModel>();
+	const upsert = (patch: Partial<AgentMonitorModel> & { id: number; name: string }) => {
+		agentsById.set(patch.id, mergeAgentMonitor(agentsById.get(patch.id), patch));
+	};
+
 	try {
 		const body = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8");
-		const logs: WorkflowLogEntry[] = [];
 		for (const line of body.split("\n")) {
 			if (!line.trim()) continue;
 			try {
-				const event = JSON.parse(line) as { type?: string; time?: string; message?: string; details?: unknown };
+				const event = JSON.parse(line) as { type?: string; time?: string; message?: string; details?: unknown; [key: string]: unknown };
 				if (event.type === "log" && event.time && event.message) {
-					logs.push({ time: event.time, message: event.message, ...(event.details === undefined ? {} : { details: event.details }) });
+					const logEntry: WorkflowLogEntry = { time: event.time, message: event.message, ...(event.details === undefined ? {} : { details: event.details }) };
+					logs.push(logEntry);
+					const startMatch = /^agent (\d+) start: (.+)$/.exec(event.message);
+					if (startMatch) {
+						upsert({ id: Number.parseInt(startMatch[1]!, 10), name: startMatch[2]!, state: "running", startedAt: event.time });
+						continue;
+					}
+					const endMatch = /^agent (\d+) end: (.+)$/.exec(event.message);
+					if (endMatch) {
+						const details = recordValue(event.details);
+						const ok = booleanValue(details?.ok);
+						upsert({
+							id: Number.parseInt(endMatch[1]!, 10),
+							name: endMatch[2]!,
+							state: ok === false ? "failed" : "completed",
+							endedAt: event.time,
+							...(ok === undefined ? {} : { ok }),
+							...(numberValue(details?.code) === undefined ? {} : { code: numberValue(details?.code) }),
+							...(numberValue(details?.elapsedMs) === undefined ? {} : { elapsedMs: numberValue(details?.elapsedMs) }),
+							...(booleanValue(details?.schemaOk) === undefined ? {} : { schemaOk: booleanValue(details?.schemaOk) }),
+						});
+					}
+				} else if (event.type === "agent") {
+					const id = numberValue(event.id);
+					const name = stringValue(event.name);
+					if (id !== undefined && name) {
+						const ok = booleanValue(event.ok);
+						const explicitState = isAgentMonitorState(event.state) ? event.state : undefined;
+						const tools = stringArrayValue(event.tools);
+						const excludeTools = stringArrayValue(event.excludeTools);
+						const skills = stringArrayValue(event.skills);
+						const extensions = stringArrayValue(event.extensions);
+						const keys = stringArrayValue(event.keys);
+						const missingKeys = stringArrayValue(event.missingKeys);
+						const phaseId = numberValue(event.phaseId);
+						const phaseIndex = numberValue(event.phaseIndex);
+						const phaseTotal = numberValue(event.phaseTotal);
+						const phaseLabel = stringValue(event.phaseLabel);
+						upsert({
+							id,
+							name,
+							state: explicitState ?? (ok === undefined ? "unknown" : ok ? "completed" : "failed"),
+							...(stringValue(event.startedAt) ? { startedAt: stringValue(event.startedAt) } : {}),
+							...(stringValue(event.endedAt) ? { endedAt: stringValue(event.endedAt) } : {}),
+							...(numberValue(event.elapsedMs) === undefined ? {} : { elapsedMs: numberValue(event.elapsedMs) }),
+							...(ok === undefined ? {} : { ok }),
+							...(numberValue(event.code) === undefined ? {} : { code: numberValue(event.code) }),
+							...(booleanValue(event.killed) === undefined ? {} : { killed: booleanValue(event.killed) }),
+							...(stringValue(event.artifactPath) ? { artifactPath: stringValue(event.artifactPath) } : {}),
+							...(tools ? { tools } : {}),
+							...(excludeTools ? { excludeTools } : {}),
+							...(skills ? { skills } : {}),
+							...(booleanValue(event.includeSkills) === undefined ? {} : { includeSkills: booleanValue(event.includeSkills) }),
+							...(extensions ? { extensions } : {}),
+							...(booleanValue(event.includeExtensions) === undefined ? {} : { includeExtensions: booleanValue(event.includeExtensions) }),
+							...(keys ? { keys } : {}),
+							...(missingKeys ? { missingKeys } : {}),
+							...(booleanValue(event.isolatedEnv) === undefined ? {} : { isolatedEnv: booleanValue(event.isolatedEnv) }),
+							...(phaseId === undefined ? {} : { phaseId }),
+							...(phaseIndex === undefined ? {} : { phaseIndex }),
+							...(phaseTotal === undefined ? {} : { phaseTotal }),
+							...(phaseLabel ? { phaseLabel } : {}),
+							...(stringValue(event.output) ? { output: stringValue(event.output) } : {}),
+							...(booleanValue(event.schemaOk) === undefined ? {} : { schemaOk: booleanValue(event.schemaOk) }),
+							promptAvailable: booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),
+						});
+					}
 				}
 			} catch {
 				// Ignore malformed event lines.
 			}
 		}
-		return logs;
 	} catch {
-		return [];
+		// Missing events.jsonl is tolerated for older or partial runs.
 	}
+
+	try {
+		const agentDir = path.join(runDir, "agents");
+		const entries = await fs.readdir(agentDir, { withFileTypes: true });
+		for (const entry of entries) {
+			if (!entry.isFile()) continue;
+			const match = /^(\d{4})-(.+)\.md$/.exec(entry.name);
+			if (!match) continue;
+			const id = Number.parseInt(match[1]!, 10);
+			const file = path.join(agentDir, entry.name);
+			let title = match[2]!.replace(/-/g, " ");
+			let promptAvailable = true;
+			let promptPreview: string | undefined;
+			try {
+				const prefix = await readFilePrefix(file);
+				const heading = /^#\s+(.+)$/m.exec(prefix);
+				if (heading?.[1]) title = heading[1].trim();
+				promptAvailable = /\n## Prompt\n/.test(prefix) || prefix.includes("state: running");
+				const promptSection = extractMarkdownSection(prefix, "Prompt");
+				if (promptSection) promptPreview = renderSafeInline(promptSection).slice(0, 500);
+			} catch {
+				promptAvailable = false;
+			}
+			upsert({ id, name: title, artifactPath: file, promptAvailable, ...(promptPreview ? { promptPreview } : {}) });
+		}
+	} catch {
+		// Runs without agent artifacts still render their timeline normally.
+	}
+
+	return { logs, agents: [...agentsById.values()].sort((a, b) => a.id - b.id) };
+}
+
+async function readRunLogEvents(runDir: string): Promise<WorkflowLogEntry[]> {
+	return (await readRunEvents(runDir)).logs;
 }
 
 async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord[]> {
@@ -1884,7 +3387,9 @@ function formatRunList(runs: WorkflowRunRecord[]): string {
 			const active = state === "running" ? " active" : "";
 			const resumable = isResumableState(state) ? " resumable" : "";
 			const cached = getRunCachedCalls(run) > 0 ? ` cached:${getRunCachedCalls(run)}` : "";
-			return `${getRunStatusIcon(run)} ${run.runId} — ${run.workflow}${bg} — ${getRunStatusLabel(run)}${active}${resumable} — ${Math.round(run.elapsedMs / 1000)}s — agents ${run.agentCount}${cached}`;
+			const parallelCompact = formatParallelAgentsCompact(run);
+			const parallel = parallelCompact === "-" ? "" : ` parallel:${parallelCompact}`;
+			return `${getRunStatusIcon(run)} ${run.runId} — ${run.workflow}${bg} — ${getRunStatusLabel(run)}${active}${resumable} — ${Math.round(run.elapsedMs / 1000)}s — agents ${run.agentCount}${parallel}${cached}`;
 		})
 		.join("\n");
 }
@@ -1915,8 +3420,10 @@ async function listRunFiles(runDir: string, maxFiles = 80): Promise<string[]> {
 
 async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 	const files = await listRunFiles(run.runDir);
+	const parsedEvents = await readRunEvents(run.runDir);
 	const started = new Date(run.startedAt).getTime();
-	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : await readRunLogEvents(run.runDir);
+	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : parsedEvents.logs;
+	const agents = parsedEvents.agents;
 	const timeline = logs.map((entry) => {
 		const elapsed = Math.max(0, new Date(entry.time).getTime() - started);
 		const seconds = (elapsed / 1000).toFixed(1).padStart(5, " ");
@@ -1926,6 +3433,19 @@ async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 	const statusEmoji = state === "completed" ? "✅" : state === "running" ? "▶️" : state === "cancelled" ? "🟨" : state === "stale" ? "⚠️" : "❌";
 	const cachedCalls = getRunCachedCalls(run);
 	const resumable = isResumableState(state);
+	const agentLines = agents.map((agent) => {
+		const elapsed = agent.elapsedMs === undefined ? "elapsed:?" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
+		const phase = formatAgentPhase(agent);
+		const code = agent.code === undefined ? "" : ` code:${agent.code}`;
+		const schema = agent.schemaOk === undefined ? "" : ` schema:${agent.schemaOk ? "ok" : "bad"}`;
+		const prompt = agent.promptAvailable ? " prompt:yes" : " prompt:no";
+		const tools = ` tools:${agent.tools?.length ? agent.tools.join(",") : "default"}`;
+		const skills = ` skills:${agent.skills?.length ? agent.skills.join(",") : agent.includeSkills === false ? "disabled" : "default"}`;
+		const extensions = ` extensions:${agent.extensions?.length ? agent.extensions.join(",") : agent.includeExtensions ? "default" : "disabled"}`;
+		const keys = ` keys:${agent.keys?.length ? agent.keys.join(",") : agent.isolatedEnv ? "none" : "default"}${agent.missingKeys?.length ? ` missing:${agent.missingKeys.join(",")}` : ""}`;
+		const preview = agent.promptPreview ? ` — prompt preview: ${compactInline(agent.promptPreview, 180)}` : "";
+		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
+	});
 
 	// Detect whether the workflow source changed since this run (best-effort:
 	// reads the recorded file path and compares hashes).
@@ -1947,6 +3467,8 @@ async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		`Background: ${run.background ? "yes" : "no"}`,
 		`Elapsed: ${Math.round(run.elapsedMs / 1000)}s`,
 		`Agents: ${run.agentCount}`,
+		`Parallel agents: ${formatParallelAgents(run, agents)}`,
+		...(run.maxAgents === undefined ? [] : [`Max agents: ${run.maxAgents}`]),
 		...(cachedCalls > 0 ? [`Cached calls: ${cachedCalls}`] : []),
 		...(run.resumedFrom ? [`Resumed from: ${run.resumedFrom}`] : []),
 		...(run.codeHash ? [`Code hash: ${run.codeHash.slice(0, 16)}`] : []),
@@ -1956,6 +3478,10 @@ async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		...(state === "stale" ? ["Note: this run was marked running on disk but is not active in this Pi session."] : []),
 		...(codeChanged ? ["Warning: workflow code changed since this run. On resume, calls whose arguments changed will be re-executed (cache miss); unchanged calls stay cached."] : []),
 		...(run.error ? [`Error: ${run.error}`] : []),
+		"",
+		"## Agents",
+		"",
+		...(agentLines.length ? agentLines : ["No agents recorded for this run."]),
 		"",
 		"## Timeline",
 		"",
@@ -1972,10 +3498,267 @@ async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 	].join("\n");
 }
 
+function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
+	if (!agent.artifactPath) return undefined;
+	return path.isAbsolute(agent.artifactPath) ? agent.artifactPath : path.join(run.runDir, agent.artifactPath);
+}
+
+function resolveAgentLiveStreamPath(artifactPath: string | undefined, stream: "stdout" | "stderr"): string | undefined {
+	if (!artifactPath) return undefined;
+	return artifactPath.endsWith(".md") ? artifactPath.slice(0, -3) + `.${stream}.log` : `${artifactPath}.${stream}.log`;
+}
+
+function extractMarkdownSection(markdown: string, heading: string): string | undefined {
+	const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const knownHeadings = ["Access", "Prompt", "Structured Output", "Stdout", "Stderr"];
+	const nextHeadings = knownHeadings.filter((candidate) => candidate !== heading).map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+	const nextPattern = nextHeadings.length ? `\\n## (?:${nextHeadings.join("|")})\\n` : "$^";
+	const match = new RegExp(`(?:^|\\n)## ${escaped}\\n\\n([\\s\\S]*?)(?=${nextPattern}|$)`).exec(markdown);
+	return match?.[1]?.trim();
+}
+
+function fencedBlock(content: string, lang = "text"): string {
+	const fence = content.includes("```") ? "````" : "```";
+	return `${fence}${lang}\n${content}\n${fence}`;
+}
+
+async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<string> {
+	const artifactPath = resolveAgentArtifactPath(run, agent);
+	let artifactBody = "";
+	let artifactError = "";
+	if (artifactPath) {
+		try {
+			artifactBody = await fs.readFile(artifactPath, "utf8");
+		} catch (err) {
+			artifactError = err instanceof Error ? err.message : String(err);
+		}
+	}
+	const access = artifactBody ? extractMarkdownSection(artifactBody, "Access") : undefined;
+	const prompt = artifactBody ? extractMarkdownSection(artifactBody, "Prompt") : undefined;
+	const stdout = artifactBody ? extractMarkdownSection(artifactBody, "Stdout") : undefined;
+	const stderr = artifactBody ? extractMarkdownSection(artifactBody, "Stderr") : undefined;
+	const structuredOutput = artifactBody ? extractMarkdownSection(artifactBody, "Structured Output") : undefined;
+	const liveStdoutPath = resolveAgentLiveStreamPath(artifactPath, "stdout");
+	const liveStderrPath = resolveAgentLiveStreamPath(artifactPath, "stderr");
+	let liveStdout = "";
+	let liveStderr = "";
+	if (liveStdoutPath && !stdout) liveStdout = await fs.readFile(liveStdoutPath, "utf8").catch(() => "");
+	if (liveStderrPath && !stderr) liveStderr = await fs.readFile(liveStderrPath, "utf8").catch(() => "");
+	const stdoutForParsing = stdout || liveStdout;
+	const parsedStdout = stdout ? parsePiJsonModeOutput(stdout) : liveStdout ? parsePiJsonModeOutputLenient(liveStdout) : undefined;
+	const modelOutput = agent.output || (parsedStdout?.ok ? parsedStdout.output : undefined);
+	const stdoutNote = stdoutForParsing
+		? parsedStdout?.ok
+			? `${stdout ? "Raw" : "Live"} stdout is a Pi JSON event stream; parsed assistant output is shown above and raw stdout is omitted.`
+			: `${stdout ? "Raw" : "Live"} stdout could not be parsed as Pi JSON (${parsedStdout?.warning ?? "unknown reason"}); see the artifact/live stream path if you need the raw stream.`
+		: undefined;
+	const promptText = prompt
+		? truncate(prompt, 12_000)
+		: agent.promptAvailable
+			? "Prompt artifact exists, but the prompt section could not be parsed."
+			: "Prompt not available for this run/agent.";
+	const stateIcon = agent.state === "completed" ? "✅" : agent.state === "running" ? "▶️" : agent.state === "cached" ? "♻️" : agent.state === "failed" ? "❌" : "?";
+	const phase = formatAgentPhase(agent);
+	const outputText = modelOutput
+		? truncate(modelOutput, MAX_TOOL_TEXT)
+		: agent.state === "running"
+			? "Agent is still running. The parsed answer will appear here when it finishes."
+			: "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
+	const accessFallback = [
+		`- tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}`,
+		`- excludeTools: ${agent.excludeTools?.length ? agent.excludeTools.join(", ") : "none"}`,
+		`- skills: ${agent.skills?.length ? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}` : agent.includeSkills === false ? "disabled" : "default discovery"}`,
+		`- extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`,
+		`- keys: ${agent.keys?.length ? `${agent.keys.join(", ")} (values redacted)` : agent.isolatedEnv ? "none selected" : "default inherited environment"}`,
+		...(agent.missingKeys?.length ? [`- missingKeys: ${agent.missingKeys.join(", ")}`] : []),
+		...(agent.isolatedEnv === undefined ? [] : [`- env: ${agent.isolatedEnv ? "isolated + selected keys" : "process default/inherited"}`]),
+	].join("\n");
+	const summary = [
+		`- Agent: #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name}`,
+		`- State: ${stateIcon} ${agent.state}`,
+		...(phase ? [`- Phase: ${phase}${agent.phaseLabel ? ` (${agent.phaseLabel})` : ""}`] : []),
+		`- Workflow: ${run.workflow}`,
+		`- Run: ${run.runId}`,
+		...(agent.startedAt ? [`- Started: ${agent.startedAt}`] : []),
+		...(agent.endedAt ? [`- Ended: ${agent.endedAt}`] : []),
+		...(agent.elapsedMs !== undefined ? [`- Elapsed: ${formatElapsedMs(agent.elapsedMs)}`] : []),
+		...(agent.ok !== undefined ? [`- OK: ${agent.ok}`] : []),
+		...(agent.code !== undefined ? [`- Exit code: ${agent.code}`] : []),
+		...(agent.killed !== undefined ? [`- Killed: ${agent.killed}`] : []),
+		...(agent.schemaOk !== undefined ? [`- Schema OK: ${agent.schemaOk}`] : []),
+		`- Artifact: ${artifactPath ?? "unavailable"}`,
+		...(artifactError ? [`- Artifact read error: ${artifactError}`] : []),
+	];
+	return [
+		`# Agent #${agent.id}${phase ? ` ${phase}` : ""}: ${agent.name}`,
+		"",
+		"## Summary",
+		"",
+		...summary,
+		"",
+		"## Agent answer",
+		"",
+		"Best available agent text. Raw Pi JSON stdout is hidden when it parses cleanly; otherwise see Diagnostics/artifact.",
+		"",
+		outputText,
+		...(structuredOutput ? ["", "## Structured output", "", fencedBlock(truncate(structuredOutput, MAX_TOOL_TEXT), "text")] : []),
+		"",
+		"## Prompt sent to this agent",
+		"",
+		prompt ? fencedBlock(promptText, "text") : promptText,
+		"",
+		"## Runtime access",
+		"",
+		access ? truncate(access, 6000) : accessFallback,
+		"",
+		"## Diagnostics",
+		"",
+		...(stdoutNote ? [`- stdout: ${stdoutNote}`] : ["- stdout: not recorded yet."]),
+		...(liveStdoutPath ? [`- live stdout: ${liveStdoutPath}`] : []),
+		...(liveStderrPath ? [`- live stderr: ${liveStderrPath}`] : []),
+		...(stderr || liveStderr ? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")] : []),
+	].join("\n");
+}
+
+class AgentLiveViewComponent {
+	private lines: string[] = ["Loading agent execution…"];
+	private scroll = 0;
+
+	constructor(
+		private readonly theme: any,
+		private readonly getHeight: () => number,
+		private readonly close: () => void,
+	) {}
+
+	setContent(content: string): void {
+		this.lines = content.split(/\r?\n/);
+		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
+	}
+
+	handleInput(data: string): void {
+		if (matchesKey(data, Key.escape) || data === "q") {
+			this.close();
+			return;
+		}
+		if (matchesKey(data, Key.up)) this.scroll = Math.max(0, this.scroll - 1);
+		else if (matchesKey(data, Key.down)) this.scroll = Math.min(this.maxScroll(), this.scroll + 1);
+		else if (matchesKey(data, Key.pageUp)) this.scroll = Math.max(0, this.scroll - this.pageSize());
+		else if (matchesKey(data, Key.pageDown)) this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
+		else if (matchesKey(data, Key.home)) this.scroll = 0;
+		else if (matchesKey(data, Key.end)) this.scroll = this.maxScroll();
+	}
+
+	render(width: number): string[] {
+		const w = Math.max(1, width);
+		const page = this.pageSize();
+		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
+		const line = (textValue: string) => truncateToWidth(textValue, w, "");
+		const header = this.theme.fg("accent", "Live workflow agent") + this.theme.fg("dim", ` • refresh 1s • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`);
+		return [
+			line(header),
+			line(this.theme.fg("dim", "─".repeat(Math.min(w, 120)))),
+			...this.lines.slice(this.scroll, this.scroll + page).map(line),
+		];
+	}
+
+	invalidate(): void {}
+
+	private pageSize(): number {
+		return Math.max(5, this.getHeight() - 4);
+	}
+
+	private maxScroll(): number {
+		return Math.max(0, this.lines.length - this.pageSize());
+	}
+}
+
+async function latestAgentForRun(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentMonitorModel> {
+	const { agents } = await readRunEvents(run.runDir);
+	return agents.find((candidate) => candidate.id === agent.id) ?? agent;
+}
+
+async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<void> {
+	if (ctx.mode === "print") {
+		console.log(await formatAgentView(run, await latestAgentForRun(run, agent)));
+		return;
+	}
+	if (ctx.mode === "tui") {
+		let timer: NodeJS.Timeout | undefined;
+		let refreshing = false;
+		let component: AgentLiveViewComponent | undefined;
+		try {
+			await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+				component = new AgentLiveViewComponent(theme, () => tui.terminal.rows, () => done(undefined));
+				const refresh = async () => {
+					if (refreshing || !component) return;
+					refreshing = true;
+					try {
+						const latest = await latestAgentForRun(run, agent);
+						component.setContent(await formatAgentView(run, latest));
+						tui.requestRender();
+					} finally {
+						refreshing = false;
+					}
+				};
+				timer = setInterval(() => void refresh(), 1000);
+				void refresh();
+				return component;
+			});
+		} finally {
+			if (timer) clearInterval(timer);
+		}
+		return;
+	}
+	if (ctx.hasUI) {
+		await ctx.ui.editor(`Workflow agent: ${agent.name}`, await formatAgentView(run, await latestAgentForRun(run, agent)));
+		return;
+	}
+	notify(ctx, await formatAgentView(run, await latestAgentForRun(run, agent)), "info");
+}
+
+type AgentMonitorState = "running" | "completed" | "failed" | "cached" | "unknown";
+
+interface AgentMonitorModel {
+	id: number;
+	name: string;
+	state: AgentMonitorState;
+	startedAt?: string;
+	endedAt?: string;
+	elapsedMs?: number;
+	ok?: boolean;
+	code?: number;
+	killed?: boolean;
+	artifactPath?: string;
+	tools?: string[];
+	excludeTools?: string[];
+	skills?: string[];
+	includeSkills?: boolean;
+	extensions?: string[];
+	includeExtensions?: boolean;
+	keys?: string[];
+	missingKeys?: string[];
+	isolatedEnv?: boolean;
+	phaseId?: number;
+	phaseIndex?: number;
+	phaseTotal?: number;
+	phaseLabel?: string;
+	promptPreview?: string;
+	output?: string;
+	schemaOk?: boolean;
+	promptAvailable: boolean;
+}
+
 interface WorkflowDashboardResult {
-	type: "graph" | "run" | "view" | "cancel" | "rerun";
+	type: "agent" | "graph" | "run" | "view" | "cancel" | "rerun" | "deleteWorkflow" | "deleteRun" | "newPattern";
 	workflow?: WorkflowFile;
 	run?: WorkflowRunRecord;
+	agent?: AgentMonitorModel;
+	pattern?: WorkflowPattern;
+}
+
+interface WorkflowAgentEntry {
+	run: WorkflowRunRecord;
+	agent: AgentMonitorModel;
 }
 
 interface WorkflowActivityEntry {
@@ -2005,6 +3788,20 @@ async function collectWorkflowActivity(runs: WorkflowRunRecord[], maxRuns = 12, 
 	return entries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, maxEntries);
 }
 
+async function collectWorkflowAgents(runs: WorkflowRunRecord[]): Promise<WorkflowAgentEntry[]> {
+	const entries: WorkflowAgentEntry[] = [];
+	const runOrder = new Map(runs.map((run, index) => [run.runId, index]));
+	for (const run of runs) {
+		const { agents } = await readRunEvents(run.runDir);
+		for (const agent of agents) entries.push({ run, agent });
+	}
+	return entries.sort((a, b) => {
+		const byRun = (runOrder.get(a.run.runId) ?? 0) - (runOrder.get(b.run.runId) ?? 0);
+		if (byRun !== 0) return byRun;
+		return a.agent.id - b.agent.id;
+	});
+}
+
 function compactInline(value: unknown, maxChars = 160): string {
 	return stringify(value, maxChars).replace(/\s+/g, " ").trim();
 }
@@ -2019,8 +3816,12 @@ interface WorkflowMonitorModel {
 	elapsedMs: number;
 	agentsStarted: number;
 	agentsDone: number;
+	parallelAgents: number;
+	peakParallelAgents?: number;
+	agentConcurrency?: number;
 	bashDone: number;
 	artifactCount: number;
+	agents: AgentMonitorModel[];
 	lastLog?: WorkflowLogEntry;
 	runDir: string;
 	priority: "active" | "latest";
@@ -2044,10 +3845,12 @@ function canRerunRun(run: WorkflowRunRecord): boolean {
 
 async function deriveWorkflowMonitor(run: WorkflowRunRecord, priority: "active" | "latest"): Promise<WorkflowMonitorModel> {
 	const state = getRunState(run);
-	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : await readRunLogEvents(run.runDir);
+	const parsedEvents = await readRunEvents(run.runDir);
+	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : parsedEvents.logs;
 	const { agentsStarted, agentsDone, bashDone } = workflowProgress(logs);
 	const active = isActiveRunRecord(run);
 	const lastLog = logs.slice(-1)[0];
+	const peakParallelAgents = getRunPeakParallelAgents(run, parsedEvents.agents);
 	return {
 		run,
 		workflow: run.workflow,
@@ -2056,10 +3859,14 @@ async function deriveWorkflowMonitor(run: WorkflowRunRecord, priority: "active" 
 		active,
 		stale: state === "stale" || (state === "running" && !active),
 		elapsedMs: getRunElapsedMs(run, state),
-		agentsStarted: Math.max(agentsStarted, run.agentCount),
-		agentsDone,
+		agentsStarted: Math.max(agentsStarted, run.agentCount, parsedEvents.agents.length),
+		agentsDone: Math.max(agentsDone, parsedEvents.agents.filter((agent) => agent.state === "completed" || agent.state === "failed" || agent.state === "cached").length),
+		parallelAgents: getRunParallelAgents(run, parsedEvents.agents),
+		...(peakParallelAgents === undefined ? {} : { peakParallelAgents }),
+		...(getRunAgentConcurrency(run) === undefined ? {} : { agentConcurrency: getRunAgentConcurrency(run) }),
 		bashDone,
 		artifactCount: await countRunArtifacts(run.runDir),
+		agents: parsedEvents.agents,
 		...(lastLog ? { lastLog } : {}),
 		runDir: run.runDir,
 		priority,
@@ -2075,21 +3882,31 @@ async function deriveWorkflowMonitorModels(runs: WorkflowRunRecord[]): Promise<W
 	return [await deriveWorkflowMonitor(selected, active ? "active" : "latest")];
 }
 
+const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "runs", "workflows", "patterns", "activity"] as const;
+type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
+
 class WorkflowDashboard {
-	private tab: "monitor" | "runs" | "workflows" | "activity" = "monitor";
+	private tab: WorkflowDashboardTab;
 	private workflowIndex = 0;
 	private runIndex = 0;
 	private activityIndex = 0;
+	private agentIndex = 0;
+	private monitorAgentIndex = 0;
+	private patternIndex = 0;
 
 	constructor(
 		private readonly workflows: WorkflowFile[],
 		private runs: WorkflowRunRecord[],
 		private activity: WorkflowActivityEntry[],
 		private monitorModels: WorkflowMonitorModel[],
+		private agentEntries: WorkflowAgentEntry[],
 		private readonly theme: any,
 		private readonly requestRender: () => void,
 		private readonly done: (result: WorkflowDashboardResult | null) => void,
-	) {}
+		initialTab: WorkflowDashboardTab = "monitor",
+	) {
+		this.tab = initialTab;
+	}
 
 	setRuns(runs: WorkflowRunRecord[]): void {
 		this.runs = runs;
@@ -2101,11 +3918,25 @@ class WorkflowDashboard {
 		this.activityIndex = Math.min(this.activityIndex, Math.max(0, activity.length - 1));
 	}
 
+	setAgentEntries(entries: WorkflowAgentEntry[]): void {
+		this.agentEntries = entries;
+		this.agentIndex = Math.min(this.agentIndex, Math.max(0, entries.length - 1));
+	}
+
 	setMonitorModels(models: WorkflowMonitorModel[]): void {
 		this.monitorModels = models;
+		const agentCount = this.selectedMonitor()?.agents.length ?? 0;
+		this.monitorAgentIndex = Math.min(this.monitorAgentIndex, Math.max(0, agentCount - 1));
 	}
 
 	invalidate(): void {}
+
+	private moveTab(delta: number): void {
+		const current = WORKFLOW_DASHBOARD_TABS.indexOf(this.tab);
+		const next = (current + delta + WORKFLOW_DASHBOARD_TABS.length) % WORKFLOW_DASHBOARD_TABS.length;
+		this.tab = WORKFLOW_DASHBOARD_TABS[next]!;
+		this.requestRender();
+	}
 
 	private selectedMonitor(): WorkflowMonitorModel | undefined {
 		return this.monitorModels.find((model) => model.active) ?? this.monitorModels[0];
@@ -2113,6 +3944,7 @@ class WorkflowDashboard {
 
 	private selectedRun(): WorkflowRunRecord | undefined {
 		if (this.tab === "monitor") return this.selectedMonitor()?.run;
+		if (this.tab === "agents") return this.selectedAgentEntry()?.run;
 		if (this.tab === "runs") return this.runs[this.runIndex];
 		if (this.tab === "activity") {
 			const entry = this.activity[this.activityIndex];
@@ -2121,18 +3953,43 @@ class WorkflowDashboard {
 		return undefined;
 	}
 
+	private selectedAgentEntry(): WorkflowAgentEntry | undefined {
+		return this.agentEntries[this.agentIndex];
+	}
+
+	private selectedAgent(): AgentMonitorModel | undefined {
+		if (this.tab === "agents") return this.selectedAgentEntry()?.agent;
+		return this.selectedMonitor()?.agents[this.monitorAgentIndex];
+	}
+
+	private isDeleteInput(data: string): boolean {
+		return data === "d" || matchesKey(data, Key.delete) || matchesKey(data, Key.backspace);
+	}
+
 	handleInput(data: string): void {
 		if (matchesKey(data, Key.escape) || data === "q") {
 			this.done(null);
 			return;
 		}
 		if (matchesKey(data, Key.tab)) {
-			this.tab = this.tab === "monitor" ? "runs" : this.tab === "runs" ? "workflows" : this.tab === "workflows" ? "activity" : "monitor";
-			this.requestRender();
+			this.moveTab(1);
+			return;
+		}
+		if (matchesKey(data, Key.left)) {
+			this.moveTab(-1);
+			return;
+		}
+		if (matchesKey(data, Key.right)) {
+			this.moveTab(1);
 			return;
 		}
 		if (data === "m") {
 			this.tab = "monitor";
+			this.requestRender();
+			return;
+		}
+		if (data === "n" || data === "A") {
+			this.tab = "agents";
 			this.requestRender();
 			return;
 		}
@@ -2146,15 +4003,26 @@ class WorkflowDashboard {
 			this.requestRender();
 			return;
 		}
+		if (data === "p") {
+			this.tab = "patterns";
+			this.requestRender();
+			return;
+		}
 		if (matchesKey(data, Key.up)) {
-			if (this.tab === "workflows") this.workflowIndex = Math.max(0, this.workflowIndex - 1);
+			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0) this.monitorAgentIndex = Math.max(0, this.monitorAgentIndex - 1);
+			else if (this.tab === "agents") this.agentIndex = Math.max(0, this.agentIndex - 1);
+			else if (this.tab === "workflows") this.workflowIndex = Math.max(0, this.workflowIndex - 1);
+			else if (this.tab === "patterns") this.patternIndex = Math.max(0, this.patternIndex - 1);
 			else if (this.tab === "runs") this.runIndex = Math.max(0, this.runIndex - 1);
 			else if (this.tab === "activity") this.activityIndex = Math.max(0, this.activityIndex - 1);
 			this.requestRender();
 			return;
 		}
 		if (matchesKey(data, Key.down)) {
-			if (this.tab === "workflows") this.workflowIndex = Math.min(Math.max(0, this.workflows.length - 1), this.workflowIndex + 1);
+			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0) this.monitorAgentIndex = Math.min(Math.max(0, (this.selectedMonitor()?.agents.length ?? 1) - 1), this.monitorAgentIndex + 1);
+			else if (this.tab === "agents") this.agentIndex = Math.min(Math.max(0, this.agentEntries.length - 1), this.agentIndex + 1);
+			else if (this.tab === "workflows") this.workflowIndex = Math.min(Math.max(0, this.workflows.length - 1), this.workflowIndex + 1);
+			else if (this.tab === "patterns") this.patternIndex = Math.min(Math.max(0, WORKFLOW_PATTERN_CATALOG.length - 1), this.patternIndex + 1);
 			else if (this.tab === "runs") this.runIndex = Math.min(Math.max(0, this.runs.length - 1), this.runIndex + 1);
 			else if (this.tab === "activity") this.activityIndex = Math.min(Math.max(0, this.activity.length - 1), this.activityIndex + 1);
 			this.requestRender();
@@ -2165,18 +4033,47 @@ class WorkflowDashboard {
 			if (!workflow) return;
 			if (matchesKey(data, Key.enter) || data === "g") this.done({ type: "graph", workflow });
 			else if (data === "r") this.done({ type: "run", workflow });
+			else if (this.isDeleteInput(data)) this.done({ type: "deleteWorkflow", workflow });
+			return;
+		}
+		if (this.tab === "patterns") {
+			const pattern = WORKFLOW_PATTERN_CATALOG[this.patternIndex];
+			if (!pattern) return;
+			if (matchesKey(data, Key.enter) || data === "n" || data === "u") this.done({ type: "newPattern", pattern });
 			return;
 		}
 		const run = this.selectedRun();
 		if (!run) return;
+		if (this.tab === "monitor") {
+			const agent = this.selectedAgent();
+			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
+			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
+			else if (data === "g") this.done({ type: "graph", run });
+			else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
+			else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
+			else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
+			return;
+		}
+		if (this.tab === "agents") {
+			const agent = this.selectedAgent();
+			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
+			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
+			else if (data === "g") this.done({ type: "graph", run });
+			else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
+			else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
+			else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
+			return;
+		}
 		if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
 		else if (data === "g") this.done({ type: "graph", run });
-		else if (data === "c" && canCancelRun(run)) this.done({ type: "cancel", run });
+		else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
 		else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
+		else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 	}
 
 	render(width: number): string[] {
-		const w = Math.max(1, width);
+		if (width <= 0) return [];
+		const w = width;
 		const accent = (s: string) => this.theme.fg("accent", s);
 		const muted = (s: string) => this.theme.fg("muted", s);
 		const success = (s: string) => this.theme.fg("success", s);
@@ -2184,24 +4081,32 @@ class WorkflowDashboard {
 		const warning = (s: string) => this.theme.fg("warning", s);
 		const line = (s: string) => truncateToWidth(s, w, "");
 		const monitorTab = this.tab === "monitor" ? accent("[Monitor]") : muted(" Monitor ");
+		const agentsTab = this.tab === "agents" ? accent("[Agents]") : muted(" Agents ");
 		const runsTab = this.tab === "runs" ? accent("[Runs]") : muted(" Runs ");
 		const workflowTab = this.tab === "workflows" ? accent("[Workflows]") : muted(" Workflows ");
+		const patternsTab = this.tab === "patterns" ? accent("[Patterns]") : muted(" Patterns ");
 		const activityTab = this.tab === "activity" ? accent("[Activity]") : muted(" Activity ");
 		const activeCount = this.runs.filter((run) => canCancelRun(run)).length;
-		const help = this.tab === "workflows"
-			? "Tab switch • ↑↓ navigate • Enter/g graph • r run with JSON + confirm • q/esc close"
-			: this.tab === "monitor"
-				? "Tab switch • Enter/v view • g graph • c cancel active • r rerun • q/esc close"
-				: "Tab switch • m monitor • a activity • ↑↓ navigate • Enter/v view • g graph • c cancel active • r rerun • q/esc close";
+		const help = this.tab === "patterns"
+			? "←→/Tab tabs • ↑↓ navigate catalog • Enter/n use pattern • q/esc close"
+			: this.tab === "workflows"
+				? "←→/Tab tabs • ↑↓ navigate • Enter/g graph • r run • d/delete workflow • q/esc close"
+				: this.tab === "monitor"
+					? "←→/Tab tabs • ↑↓ agents • Enter/o agent detail • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
+					: this.tab === "agents"
+						? "←→/Tab tabs • ↑↓ select agent • Enter/o detail+prompt • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
+						: "←→/Tab tabs • ↑↓ navigate • Enter/v view • g graph • c/x cancel active • r rerun • d/delete run • q/esc close";
 		const lines: string[] = [
-			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + runsTab + " " + workflowTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
+			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + agentsTab + " " + runsTab + " " + workflowTab + " " + patternsTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
 			line(muted(help)),
 			line(muted("─".repeat(Math.min(w, 120)))),
 		];
 
 		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning);
+		else if (this.tab === "agents") this.renderAgents(lines, line, accent, muted, success, error, warning);
 		else if (this.tab === "runs") this.renderRuns(lines, line, accent, muted, success, error);
 		else if (this.tab === "workflows") this.renderWorkflows(lines, line, accent, muted, warning);
+		else if (this.tab === "patterns") this.renderPatterns(lines, line, accent, muted, warning);
 		else this.renderActivity(lines, line, accent, muted, success, error, warning);
 		return lines;
 	}
@@ -2231,16 +4136,141 @@ class WorkflowDashboard {
 		label("state", `${stateColor(getRunStatusLabel(model.run))} ${muted("•")} ${statusTail}`);
 		label("elapsed", formatElapsedMs(model.elapsedMs));
 		label("agents", `${model.agentsDone}/${model.agentsStarted} done/started`);
+		label("parallel", `${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents} running${model.peakParallelAgents === undefined ? "" : ` • peak:${model.peakParallelAgents}`}`);
 		label("bash", `${model.bashDone} done`);
 		label("artifacts", String(model.artifactCount));
 		label("run", model.runId);
 		label("runDir", model.runDir);
-		const last = model.lastLog ? `${model.lastLog.time.slice(11, 19)} ${model.lastLog.message}` : "No logs recorded yet.";
+		const last = model.lastLog ? `${model.lastLog.time.slice(11, 19)} ${renderSafeInline(model.lastLog.message)}` : "No logs recorded yet.";
 		label("last", last);
-		const actions = ["Enter/v view", "g graph"];
-		if (model.canCancel) actions.push("c cancel active");
+		const actions = model.agents.length > 0 ? ["←→ tabs", "↑↓ select agent", "Enter/o agent output", "v run", "g graph"] : ["←→ tabs", "Enter/v view", "g graph"];
+		if (model.canCancel) actions.push("c/x cancel active");
 		if (model.canRerun) actions.push("r rerun (confirm)");
+		actions.push("d/delete run artifacts");
 		lines.push(line(muted("")));
+		lines.push(line(muted(actions.join(" • "))));
+		this.renderMonitorAgents(lines, line, model, accent, muted, success, error, warning);
+	}
+
+	private agentStateLabel(agent: AgentMonitorModel, accent: (s: string) => string, muted: (s: string) => string, success: (s: string) => string, error: (s: string) => string): string {
+		if (agent.state === "completed") return success("✓ done");
+		if (agent.state === "running") return accent("▶ running");
+		if (agent.state === "cached") return muted("♻ cached");
+		if (agent.state === "failed") return error("✗ failed");
+		return muted("? unknown");
+	}
+
+	private renderMonitorAgents(
+		lines: string[],
+		line: (s: string) => string,
+		model: WorkflowMonitorModel,
+		accent: (s: string) => string,
+		muted: (s: string) => string,
+		success: (s: string) => string,
+		error: (s: string) => string,
+		warning: (s: string) => string,
+	): void {
+		if (model.agents.length === 0) return;
+		lines.push(line(muted("")));
+		lines.push(line(accent(`Agents (${model.agents.length})`) + muted(` • parallel ${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents}${model.peakParallelAgents === undefined ? "" : ` • peak ${model.peakParallelAgents}`}`)));
+		const start = Math.max(0, Math.min(this.monitorAgentIndex - 6, model.agents.length - 12));
+		const visible = model.agents.slice(start, start + 12);
+		for (let i = 0; i < visible.length; i++) {
+			const index = start + i;
+			const agent = visible[i]!;
+			const selected = index === this.monitorAgentIndex;
+			const prefix = selected ? accent("› ") : "  ";
+			const state = this.agentStateLabel(agent, accent, muted, success, error);
+			const elapsed = agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
+			const phase = formatAgentPhase(agent);
+			const code = agent.code === undefined ? "" : muted(` code:${agent.code}`);
+			const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
+			const schema = agent.schemaOk === undefined ? "" : muted(` schema:${agent.schemaOk ? "ok" : "bad"}`);
+			const tools = muted(` tools:${agent.tools?.length ? agent.tools.length : "default"}`);
+			const skills = muted(` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`);
+			const extensions = muted(` ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`);
+			const keys = muted(` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}${agent.missingKeys?.length ? ` missing:${agent.missingKeys.length}` : ""}`);
+			lines.push(line(`${prefix}${state} #${agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(agent.name)} ${muted(elapsed)}${code} ${prompt}${schema}${tools}${skills}${extensions}${keys}`));
+		}
+		const selected = this.selectedAgent();
+		if (!selected) return;
+		lines.push(line(muted("")));
+		lines.push(line(accent("Selected agent")));
+		lines.push(line(`agent: #${selected.id} ${formatAgentPhase(selected) ? `${formatAgentPhase(selected)} ` : ""}${selected.name}`));
+		lines.push(line(`state: ${renderSafeInline(selected.state)}${selected.elapsedMs === undefined ? "" : ` • ${formatElapsedMs(selected.elapsedMs)}`}${selected.code === undefined ? "" : ` • code ${selected.code}`}`));
+		if (formatAgentPhase(selected)) lines.push(line(`phase: ${formatAgentPhase(selected)}${selected.phaseLabel ? muted(` • ${selected.phaseLabel}`) : ""}`));
+		lines.push(line(`prompt: ${selected.promptAvailable ? success("available") : warning("not available")} ${selected.artifactPath ? muted(`• ${selected.artifactPath}`) : ""}`));
+		lines.push(line(`tools: ${selected.tools?.length ? selected.tools.join(", ") : "default"}${selected.excludeTools?.length ? ` • exclude: ${selected.excludeTools.join(", ")}` : ""}`));
+		lines.push(line(`skills: ${selected.skills?.length ? `${selected.skills.join(", ")}${selected.includeSkills ? " + discovery" : " (explicit only)"}` : selected.includeSkills === false ? "disabled" : "default discovery"}`));
+		lines.push(line(`extensions: ${selected.extensions?.length ? `${selected.extensions.join(", ")}${selected.includeExtensions ? " + discovery" : " (explicit only)"}` : selected.includeExtensions ? "default discovery" : "disabled"}`));
+		lines.push(line(`keys: ${selected.keys?.length ? selected.keys.join(", ") : selected.isolatedEnv ? "none selected" : "default inherited environment"}${selected.missingKeys?.length ? warning(` • missing: ${selected.missingKeys.join(", ")}`) : ""}`));
+		if (selected.promptPreview) lines.push(line(`prompt preview: ${renderSafeInline(compactInline(selected.promptPreview, 220))}`));
+		if (selected.output) lines.push(line(`output: ${renderSafeInline(compactInline(selected.output, 220))}`));
+	}
+
+	private renderAgents(
+		lines: string[],
+		line: (s: string) => string,
+		accent: (s: string) => string,
+		muted: (s: string) => string,
+		success: (s: string) => string,
+		error: (s: string) => string,
+		warning: (s: string) => string,
+	): void {
+		if (this.agentEntries.length === 0) {
+			lines.push(line(warning("No workflow agents found yet.")));
+			lines.push(line(muted("Start a workflow with subagents, then return here to inspect prompts, state, artifacts, and output.")));
+			return;
+		}
+		const running = this.agentEntries.filter((entry) => entry.agent.state === "running").length;
+		const failed = this.agentEntries.filter((entry) => entry.agent.state === "failed").length;
+		const cached = this.agentEntries.filter((entry) => entry.agent.state === "cached").length;
+		const activeRuns = this.runs.filter((run) => getRunState(run) === "running");
+		const parallelNow = activeRuns.reduce((sum, run) => sum + getRunParallelAgents(run), 0);
+		const parallelLimit = activeRuns.reduce((sum, run) => sum + (getRunAgentConcurrency(run) ?? 0), 0);
+		const parallelText = parallelLimit > 0 ? `${parallelNow}/${parallelLimit}` : String(parallelNow);
+		lines.push(line(`${accent("All agents")} ${muted(`(${this.agentEntries.length})`)} ${accent(`parallel:${parallelText}`)} ${running ? accent(`running:${running}`) : muted("running:0")} ${failed ? error(`failed:${failed}`) : muted("failed:0")} ${cached ? muted(`cached:${cached}`) : ""}`));
+		const start = Math.max(0, Math.min(this.agentIndex - 7, this.agentEntries.length - 14));
+		const visible = this.agentEntries.slice(start, start + 14);
+		for (let i = 0; i < visible.length; i++) {
+			const index = start + i;
+			const entry = visible[i]!;
+			const selected = index === this.agentIndex;
+			const prefix = selected ? accent("› ") : "  ";
+			const state = this.agentStateLabel(entry.agent, accent, muted, success, error);
+			const elapsed = entry.agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(entry.agent.elapsedMs)}`;
+			const phase = formatAgentPhase(entry.agent);
+			const prompt = entry.agent.promptAvailable ? success("prompt✓") : warning("prompt?");
+			const schema = entry.agent.schemaOk === undefined ? "" : muted(` schema:${entry.agent.schemaOk ? "ok" : "bad"}`);
+			const tools = muted(` tools:${entry.agent.tools?.length ? entry.agent.tools.length : "default"}`);
+			const skills = muted(` skills:${entry.agent.skills?.length ? entry.agent.skills.length : entry.agent.includeSkills === false ? "off" : "default"}`);
+			const extensions = muted(` ext:${entry.agent.extensions?.length ? entry.agent.extensions.length : entry.agent.includeExtensions ? "default" : "off"}`);
+			const keys = muted(` keys:${entry.agent.keys?.length ? entry.agent.keys.length : entry.agent.isolatedEnv ? "none" : "default"}${entry.agent.missingKeys?.length ? ` missing:${entry.agent.missingKeys.length}` : ""}`);
+			lines.push(line(`${prefix}${state} #${entry.agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(entry.agent.name)} ${muted(`— ${entry.run.workflow} ${entry.run.runId.slice(-12)}`)} ${muted(elapsed)} ${prompt}${schema}${tools}${skills}${extensions}${keys}`));
+		}
+		const selected = this.selectedAgentEntry();
+		if (!selected) return;
+		const agent = selected.agent;
+		const run = selected.run;
+		lines.push(line(muted("")));
+		lines.push(line(accent("Selected agent")));
+		lines.push(line(`workflow: ${run.workflow}`));
+		lines.push(line(`run: ${run.runId}`));
+		lines.push(line(`parallel: ${formatParallelAgents(run)}`));
+		lines.push(line(`agent: #${agent.id} ${formatAgentPhase(agent) ? `${formatAgentPhase(agent)} ` : ""}${agent.name}`));
+		lines.push(line(`state: ${renderSafeInline(agent.state)}${agent.elapsedMs === undefined ? "" : ` • ${formatElapsedMs(agent.elapsedMs)}`}${agent.code === undefined ? "" : ` • code ${agent.code}`}${agent.schemaOk === undefined ? "" : ` • schema ${agent.schemaOk ? "ok" : "bad"}`}`));
+		if (formatAgentPhase(agent)) lines.push(line(`phase: ${formatAgentPhase(agent)}${agent.phaseLabel ? muted(` • ${agent.phaseLabel}`) : ""}`));
+		lines.push(line(`prompt: ${agent.promptAvailable ? success("available") : warning("not available")} ${agent.artifactPath ? muted(`• ${agent.artifactPath}`) : ""}`));
+		lines.push(line(`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`));
+		lines.push(line(`skills: ${agent.skills?.length ? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}` : agent.includeSkills === false ? "disabled" : "default discovery"}`));
+		lines.push(line(`extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`));
+		lines.push(line(`keys: ${agent.keys?.length ? agent.keys.join(", ") : agent.isolatedEnv ? "none selected" : "default inherited environment"}${agent.missingKeys?.length ? warning(` • missing: ${agent.missingKeys.join(", ")}`) : ""}`));
+		if (agent.promptPreview) lines.push(line(`prompt preview: ${renderSafeInline(compactInline(agent.promptPreview, 260))}`));
+		if (agent.output) lines.push(line(`output: ${renderSafeInline(compactInline(agent.output, 260))}`));
+		const actions = ["Enter/o opens output+prompt", "v run", "g graph"];
+		if (canCancelRun(run)) actions.push("c/x cancel active");
+		if (canRerunRun(run)) actions.push("r rerun (confirm)");
+		actions.push("d/delete run artifacts");
 		lines.push(line(muted(actions.join(" • "))));
 	}
 
@@ -2273,8 +4303,50 @@ class WorkflowDashboard {
 			lines.push(line(`name: ${selected.name}`));
 			lines.push(line(`scope: ${selected.scope}`));
 			lines.push(line(`path: ${selected.path}`));
-			lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm")));
+			lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file")));
 		}
+	}
+
+	private renderPatterns(
+		lines: string[],
+		line: (s: string) => string,
+		accent: (s: string) => string,
+		muted: (s: string) => string,
+		warning: (s: string) => string,
+	): void {
+		if (WORKFLOW_PATTERN_CATALOG.length === 0) {
+			lines.push(line(warning("No workflow patterns registered.")));
+			return;
+		}
+		lines.push(line(`${accent("Pattern catalog")} ${muted(`(${WORKFLOW_PATTERN_CATALOG.length})`)} ${muted("• choose a scaffold, then edit before saving")}`));
+		const start = Math.max(0, Math.min(this.patternIndex - 6, WORKFLOW_PATTERN_CATALOG.length - 12));
+		const visible = WORKFLOW_PATTERN_CATALOG.slice(start, start + 12);
+		for (let i = 0; i < visible.length; i++) {
+			const index = start + i;
+			const pattern = visible[i]!;
+			const selected = index === this.patternIndex;
+			const prefix = selected ? accent("› ") : "  ";
+			const aliasHint = getPatternAliases(pattern)[0];
+			lines.push(line(`${prefix}${pattern.key} ${muted("—")} ${pattern.title}${aliasHint ? muted(` aka:${aliasHint}`) : ""} ${muted(`(${pattern.primitives.join(" + ")})`)}`));
+		}
+		const selected = WORKFLOW_PATTERN_CATALOG[this.patternIndex];
+		if (!selected) return;
+		const aliases = getPatternAliases(selected);
+		const useCases = getPatternUseCases(selected);
+		lines.push(line(muted("")));
+		lines.push(line(accent("Selected pattern")));
+		lines.push(line(`key: ${selected.key}${aliases.length ? muted(` • aliases: ${aliases.join(", ")}`) : ""}`));
+		lines.push(line(`title: ${selected.title}`));
+		lines.push(line(`summary: ${selected.blurb}`));
+		lines.push(line(`use when: ${selected.useWhen}`));
+		if (useCases.length) {
+			lines.push(line(accent("Example use cases")));
+			for (const useCase of useCases.slice(0, 4)) lines.push(line(`- ${useCase}`));
+		}
+		lines.push(line(`input: ${selected.inputHint}`));
+		lines.push(line(`primitives: ${selected.primitives.join(", ")}`));
+		lines.push(line(`draft name: ${selected.defaultName}`));
+		lines.push(line(muted("Enter/n creates a project workflow draft from this pattern; you can edit before save.")));
 	}
 
 	private renderRuns(
@@ -2301,7 +4373,9 @@ class WorkflowDashboard {
 			const bg = run.background ? " bg" : "";
 			const resumable = isResumableState(state) ? muted(" resumable") : "";
 			const cached = getRunCachedCalls(run) > 0 ? muted(` cached:${getRunCachedCalls(run)}`) : "";
-			lines.push(line(`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${formatElapsedMs(getRunElapsedMs(run, state))} agents:${run.agentCount}${resumable}${cached}`));
+			const parallelCompact = formatParallelAgentsCompact(run);
+			const parallel = parallelCompact === "-" ? "" : muted(` parallel:${parallelCompact}`);
+			lines.push(line(`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${formatElapsedMs(getRunElapsedMs(run, state))} agents:${run.agentCount}${parallel}${resumable}${cached}`));
 		}
 		const selected = this.runs[this.runIndex];
 		if (selected) {
@@ -2309,12 +4383,14 @@ class WorkflowDashboard {
 			lines.push(line(accent("Selected run")));
 			lines.push(line(`status: ${getRunStatusLabel(selected)}`));
 			lines.push(line(`run: ${selected.runId}`));
+			lines.push(line(`parallel: ${formatParallelAgents(selected)}`));
 			lines.push(line(`dir: ${selected.runDir}`));
-			for (const logEntry of getRunLogs(selected).slice(-5)) lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${logEntry.message}`));
+			for (const logEntry of getRunLogs(selected).slice(-5)) lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${renderSafeInline(logEntry.message)}`));
 			const selectedState = getRunState(selected);
 			const actions = ["Enter/v view", "g graph"];
-			if (canCancelRun(selected)) actions.push("c cancel active");
+			if (canCancelRun(selected)) actions.push("c/x cancel active");
 			if (canRerunRun(selected)) actions.push("r rerun (confirm)");
+			if (!canCancelRun(selected)) actions.push("d/delete run artifacts");
 			if (isResumableState(selectedState)) actions.push(`/workflow resume ${selected.runId}`);
 			lines.push(line(muted(actions.join(" • "))));
 		}
@@ -2336,7 +4412,7 @@ class WorkflowDashboard {
 		} else {
 			for (const run of active.slice(0, 5)) {
 				const lastLog = getRunLogs(run).slice(-1)[0];
-				lines.push(line(`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${formatElapsedMs(getRunElapsedMs(run))} agents:${run.agentCount}${lastLog ? muted(` — ${lastLog.message}`) : ""}`));
+				lines.push(line(`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${formatElapsedMs(getRunElapsedMs(run))} agents:${run.agentCount} parallel:${formatParallelAgentsCompact(run)}${lastLog ? muted(` — ${renderSafeInline(lastLog.message)}`) : ""}`));
 			}
 		}
 
@@ -2354,8 +4430,8 @@ class WorkflowDashboard {
 			const selected = index === this.activityIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const status = entry.state === "completed" ? success("✓") : entry.state === "running" ? accent("▶") : entry.state === "stale" ? muted("?") : error(entry.state === "cancelled" ? "■" : "✗");
-			const details = entry.details === undefined ? "" : muted(` — ${compactInline(entry.details, 120)}`);
-			lines.push(line(`${prefix}${muted(entry.time.slice(11, 19))} ${status} ${entry.workflow} ${muted(entry.runId.slice(-12))} ${entry.message}${details}`));
+			const details = entry.details === undefined ? "" : muted(` — ${renderSafeInline(compactInline(entry.details, 120))}`);
+			lines.push(line(`${prefix}${muted(entry.time.slice(11, 19))} ${status} ${entry.workflow} ${muted(entry.runId.slice(-12))} ${renderSafeInline(entry.message)}${details}`));
 		}
 		const selected = this.activity[this.activityIndex];
 		if (selected) {
@@ -2366,8 +4442,9 @@ class WorkflowDashboard {
 			lines.push(line(`time: ${selected.time}`));
 			const run = this.runs.find((candidate) => candidate.runId === selected.runId);
 			const actions = ["Enter/v opens full run timeline", "g graph"];
-			if (run && canCancelRun(run)) actions.push("c cancel active");
+			if (run && canCancelRun(run)) actions.push("c/x cancel active");
 			if (run && canRerunRun(run)) actions.push("r rerun (confirm)");
+			if (run && !canCancelRun(run)) actions.push("d/delete run artifacts");
 			lines.push(line(muted(actions.join(" • "))));
 		}
 	}
@@ -2380,7 +4457,7 @@ async function runWorkflowWithUi(
 	input: unknown,
 	limits: RunLimits,
 	signal: AbortSignal | undefined,
-	onProgress?: (logs: WorkflowLogEntry[]) => void,
+	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 	prepared?: PreparedWorkflowRun,
 ): Promise<WorkflowRunResult> {
 	if (ctx.hasUI) {
@@ -2388,11 +4465,11 @@ async function runWorkflowWithUi(
 		setWorkflowWidget(ctx, workflow.name, []);
 	}
 	try {
-		const result = await runWorkflow(pi, ctx, workflow, input, limits, signal, (logs) => {
-			onProgress?.(logs);
+		const result = await runWorkflow(pi, ctx, workflow, input, limits, signal, (logs, status) => {
+			onProgress?.(logs, status);
 			if (ctx.hasUI) {
-				setWorkflowRunningStatus(ctx, workflow.name, logs);
-				setWorkflowWidget(ctx, workflow.name, logs);
+				setWorkflowRunningStatus(ctx, workflow.name, logs, status);
+				setWorkflowWidget(ctx, workflow.name, logs, status);
 			}
 		}, prepared);
 		setWorkflowFinishedStatus(ctx, result);
@@ -2405,8 +4482,13 @@ async function runWorkflowWithUi(
 	}
 }
 
-async function runWorkflowFromUi(pi: ExtensionAPI, ctx: ExtensionContext, workflow: WorkflowFile, input: unknown): Promise<WorkflowRunResult> {
+async function runWorkflowFromUi(pi: ExtensionAPI, ctx: ExtensionContext, workflow: WorkflowFile, input: unknown): Promise<WorkflowRunRecord> {
 	const limits = buildLimits(limitParamsFromInput(input));
+	if (shouldLaunchWorkflowInBackground(ctx)) {
+		const status = await startWorkflowBackground(pi, ctx, workflow, input, limits);
+		notify(ctx, formatBackgroundStart(status), "info");
+		return status;
+	}
 	const result = await runWorkflowWithUi(pi, ctx, workflow, input, limits, undefined);
 	notify(ctx, formatRunSummary(result), result.ok ? "info" : "error");
 	return result;
@@ -2444,30 +4526,246 @@ async function loadRerunInput(ctx: ExtensionContext, run: WorkflowRunRecord): Pr
 	}
 }
 
-async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+type DashboardOpener = () => Promise<void>;
+
+const WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER = "__dynamicWorkflowDashboardDownEditor";
+
+class WorkflowDashboardDownEditor implements EditorComponent {
+	readonly [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] = true;
+	actionHandlers: Map<string, () => void>;
+	private opening = false;
+
+	constructor(
+		private readonly base: EditorComponent,
+		private openDashboard: DashboardOpener,
+	) {
+		const customBase = base as { actionHandlers?: unknown };
+		this.actionHandlers = customBase.actionHandlers instanceof Map ? customBase.actionHandlers as Map<string, () => void> : new Map<string, () => void>();
+	}
+
+	setWorkflowDashboardOpen(openDashboard: DashboardOpener): void {
+		this.openDashboard = openDashboard;
+	}
+
+	get focused(): boolean {
+		return Boolean((this.base as { focused?: boolean }).focused);
+	}
+
+	set focused(value: boolean) {
+		(this.base as { focused?: boolean }).focused = value;
+	}
+
+	get wantsKeyRelease(): boolean | undefined {
+		return this.base.wantsKeyRelease;
+	}
+
+	set wantsKeyRelease(value: boolean | undefined) {
+		this.base.wantsKeyRelease = value;
+	}
+
+	get onSubmit(): ((text: string) => void) | undefined {
+		return this.base.onSubmit;
+	}
+
+	set onSubmit(handler: ((text: string) => void) | undefined) {
+		this.base.onSubmit = handler;
+	}
+
+	get onChange(): ((text: string) => void) | undefined {
+		return this.base.onChange;
+	}
+
+	set onChange(handler: ((text: string) => void) | undefined) {
+		this.base.onChange = handler;
+	}
+
+	get borderColor(): ((str: string) => string) | undefined {
+		return this.base.borderColor;
+	}
+
+	set borderColor(color: ((str: string) => string) | undefined) {
+		this.base.borderColor = color;
+	}
+
+	get onEscape(): (() => void) | undefined {
+		return (this.base as { onEscape?: () => void }).onEscape;
+	}
+
+	set onEscape(handler: (() => void) | undefined) {
+		(this.base as { onEscape?: () => void }).onEscape = handler;
+	}
+
+	get onCtrlD(): (() => void) | undefined {
+		return (this.base as { onCtrlD?: () => void }).onCtrlD;
+	}
+
+	set onCtrlD(handler: (() => void) | undefined) {
+		(this.base as { onCtrlD?: () => void }).onCtrlD = handler;
+	}
+
+	get onPasteImage(): (() => void) | undefined {
+		return (this.base as { onPasteImage?: () => void }).onPasteImage;
+	}
+
+	set onPasteImage(handler: (() => void) | undefined) {
+		(this.base as { onPasteImage?: () => void }).onPasteImage = handler;
+	}
+
+	get onExtensionShortcut(): ((data: string) => boolean | void) | undefined {
+		return (this.base as { onExtensionShortcut?: (data: string) => boolean | void }).onExtensionShortcut;
+	}
+
+	set onExtensionShortcut(handler: ((data: string) => boolean | void) | undefined) {
+		(this.base as { onExtensionShortcut?: (data: string) => boolean | void }).onExtensionShortcut = handler;
+	}
+
+	render(width: number): string[] {
+		return this.base.render(width);
+	}
+
+	invalidate(): void {
+		this.base.invalidate();
+	}
+
+	getText(): string {
+		return this.base.getText();
+	}
+
+	setText(text: string): void {
+		this.base.setText(text);
+	}
+
+	addToHistory(text: string): void {
+		this.base.addToHistory?.(text);
+	}
+
+	insertTextAtCursor(text: string): void {
+		this.base.insertTextAtCursor?.(text);
+	}
+
+	getExpandedText(): string {
+		return this.base.getExpandedText?.() ?? this.base.getText();
+	}
+
+	setAutocompleteProvider(provider: Parameters<NonNullable<EditorComponent["setAutocompleteProvider"]>>[0]): void {
+		this.base.setAutocompleteProvider?.(provider);
+	}
+
+	setPaddingX(padding: number): void {
+		this.base.setPaddingX?.(padding);
+	}
+
+	setAutocompleteMaxVisible(maxVisible: number): void {
+		this.base.setAutocompleteMaxVisible?.(maxVisible);
+	}
+
+	handleInput(data: string): void {
+		if (!matchesKey(data, Key.down)) {
+			this.base.handleInput(data);
+			return;
+		}
+
+		const cursorBefore = this.getCursor();
+		const textBefore = this.base.getText();
+		const autocompleteBefore = this.isShowingAutocomplete();
+		this.base.handleInput(data);
+		const autocompleteAfter = this.isShowingAutocomplete();
+		const cursorAfter = this.getCursor();
+		const textAfter = this.base.getText();
+
+		if (autocompleteBefore || autocompleteAfter) return;
+		if (!cursorBefore || !cursorAfter) return;
+		if (textBefore !== textAfter || !sameEditorCursor(cursorBefore, cursorAfter)) return;
+		if (this.opening) return;
+
+		this.opening = true;
+		void this.openDashboard().finally(() => {
+			this.opening = false;
+		});
+	}
+
+	private getCursor(): { line: number; col: number } | undefined {
+		const editor = this.base as { getCursor?: () => { line: number; col: number } };
+		if (typeof editor.getCursor !== "function") return undefined;
+		try {
+			return editor.getCursor.call(this.base);
+		} catch {
+			return undefined;
+		}
+	}
+
+	private isShowingAutocomplete(): boolean {
+		const editor = this.base as { isShowingAutocomplete?: () => boolean };
+		if (typeof editor.isShowingAutocomplete !== "function") return false;
+		try {
+			return editor.isShowingAutocomplete.call(this.base);
+		} catch {
+			return false;
+		}
+	}
+}
+
+function sameEditorCursor(a: { line: number; col: number }, b: { line: number; col: number }): boolean {
+	return a.line === b.line && a.col === b.col;
+}
+
+function installWorkflowDashboardDownEditor(pi: ExtensionAPI, ctx: ExtensionContext): void {
+	if (ctx.mode !== "tui") return;
+	const previous = ctx.ui.getEditorComponent?.();
+	ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+		const open = async () => await openWorkflowDashboard(pi, ctx);
+		const base = previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
+		const existing = base as EditorComponent & { [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER]?: boolean; setWorkflowDashboardOpen?: (openDashboard: DashboardOpener) => void };
+		if (existing[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] && typeof existing.setWorkflowDashboardOpen === "function") {
+			existing.setWorkflowDashboardOpen(open);
+			return existing;
+		}
+		return new WorkflowDashboardDownEditor(base, open);
+	});
+}
+
+async function createWorkflowDraftFromPattern(ctx: ExtensionContext, pattern: WorkflowPattern): Promise<WorkflowFile | undefined> {
+	const nameText = await ctx.ui.editor("Workflow name", pattern.defaultName);
+	const name = nameText?.trim();
+	if (!name) return undefined;
+	const code = await loadWorkflowPatternCode(pattern);
+	const edited = await ctx.ui.editor(`New workflow from pattern: ${pattern.key}`, code);
+	if (edited === undefined) return undefined;
+	const workflow = await resolveWorkflow(ctx, name, "project", true);
+	if (existsSync(workflow.path)) {
+		const ok = await ctx.ui.confirm("Overwrite existing workflow?", `${workflow.name}\n${workflow.path}`);
+		if (!ok) return undefined;
+	}
+	await ensureDir(path.dirname(workflow.path));
+	await fs.writeFile(workflow.path, edited, "utf8");
+	return workflow;
+}
+
+async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext, initialTab: WorkflowDashboardTab = "monitor"): Promise<void> {
 	if (ctx.mode !== "tui") {
 		notify(ctx, "Workflow dashboard requires TUI mode. Use /workflow list, /workflow graph, /workflow runs, or /workflow view.", "warning");
 		return;
 	}
 	const workflows = await listWorkflows(ctx);
 	const runs = await listRuns(ctx);
-	const [activity, monitorModels] = await Promise.all([collectWorkflowActivity(runs), deriveWorkflowMonitorModels(runs)]);
+	const [activity, monitorModels, agentEntries] = await Promise.all([collectWorkflowActivity(runs), deriveWorkflowMonitorModels(runs), collectWorkflowAgents(runs)]);
 	let refreshTimer: NodeJS.Timeout | undefined;
 	let refreshing = false;
 	let dashboard: WorkflowDashboard | undefined;
 	let choice: WorkflowDashboardResult | null = null;
 	try {
 		choice = await ctx.ui.custom<WorkflowDashboardResult | null>((tui, theme, _keybindings, done) => {
-			dashboard = new WorkflowDashboard(workflows, runs, activity, monitorModels, theme, () => tui.requestRender(), done);
+			dashboard = new WorkflowDashboard(workflows, runs, activity, monitorModels, agentEntries, theme, () => tui.requestRender(), done, initialTab);
 			const refresh = async () => {
 				if (refreshing || !dashboard) return;
 				refreshing = true;
 				try {
 					const nextRuns = await listRuns(ctx);
-					const [nextActivity, nextMonitorModels] = await Promise.all([collectWorkflowActivity(nextRuns), deriveWorkflowMonitorModels(nextRuns)]);
+					const [nextActivity, nextMonitorModels, nextAgentEntries] = await Promise.all([collectWorkflowActivity(nextRuns), deriveWorkflowMonitorModels(nextRuns), collectWorkflowAgents(nextRuns)]);
 					dashboard.setRuns(nextRuns);
 					dashboard.setActivity(nextActivity);
 					dashboard.setMonitorModels(nextMonitorModels);
+					dashboard.setAgentEntries(nextAgentEntries);
 					tui.requestRender();
 				} finally {
 					refreshing = false;
@@ -2480,6 +4778,13 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext): P
 		if (refreshTimer) clearInterval(refreshTimer);
 	}
 	if (!choice) return;
+	if (choice.type === "newPattern" && choice.pattern) {
+		const workflow = await createWorkflowDraftFromPattern(ctx, choice.pattern);
+		if (workflow) {
+			notify(ctx, `Wrote ${workflow.path}\nRun it with /workflow start ${workflow.name} ${choice.pattern.inputHint}`, "info");
+		}
+		return;
+	}
 	if (choice.type === "graph") {
 		const workflow = choice.workflow ?? (choice.run ? await resolveWorkflowForRun(ctx, choice.run) : undefined);
 		if (!workflow) {
@@ -2487,7 +4792,11 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext): P
 			return;
 		}
 		const code = await fs.readFile(workflow.path, "utf8");
-		await showText(ctx, `Workflow graph: ${workflow.name}`, makeWorkflowGraph(workflow, code));
+		await showWorkflowGraph(ctx, workflow, code);
+		return;
+	}
+	if (choice.type === "agent" && choice.run && choice.agent) {
+		await showLiveAgentView(ctx, choice.run, choice.agent);
 		return;
 	}
 	if (choice.type === "view" && choice.run) {
@@ -2495,8 +4804,35 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext): P
 		return;
 	}
 	if (choice.type === "cancel" && choice.run) {
+		const ok = await ctx.ui.confirm("Cancel workflow run?", `Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\n\nThis aborts the active background run. Artifacts already written remain on disk.`);
+		if (!ok) return;
 		const message = await cancelWorkflowRun(ctx, choice.run.runId);
 		notify(ctx, message, "warning");
+		return;
+	}
+	if (choice.type === "deleteRun" && choice.run) {
+		if (canCancelRun(choice.run)) {
+			notify(ctx, `Run is still active; cancel it before deleting artifacts: ${choice.run.runId}`, "warning");
+			return;
+		}
+		const ok = await ctx.ui.confirm(
+			"Delete workflow run artifacts?",
+			`Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\nState: ${getRunStatusLabel(choice.run)}\nDirectory: ${choice.run.runDir}\n\nThis permanently deletes this run directory and its artifacts. The workflow file is not deleted.`,
+		);
+		if (!ok) return;
+		const message = await deleteWorkflowRun(ctx, choice.run.runId);
+		notify(ctx, message, "warning");
+		return;
+	}
+	if (choice.type === "deleteWorkflow" && choice.workflow) {
+		const activeForWorkflow = [...activeRuns.values()].filter((run) => run.workflow.path === choice.workflow!.path || run.workflow.name === choice.workflow!.name);
+		const ok = await ctx.ui.confirm(
+			"Delete workflow?",
+			`Workflow: ${choice.workflow.name}\nScope: ${choice.workflow.scope}\nPath: ${choice.workflow.path}\n\nThis deletes only the workflow file, not previous run artifacts.${activeForWorkflow.length ? `\n\nWarning: ${activeForWorkflow.length} active run(s) from this workflow will keep running unless cancelled.` : ""}`,
+		);
+		if (!ok) return;
+		await fs.unlink(choice.workflow.path);
+		notify(ctx, `Deleted workflow ${choice.workflow.name}: ${choice.workflow.path}`, "info");
 		return;
 	}
 	if (choice.type === "rerun" && choice.run) {
@@ -2536,7 +4872,7 @@ async function runWorkflow(
 	input: unknown,
 	limits: RunLimits,
 	signal: AbortSignal | undefined,
-	onProgress?: (logs: WorkflowLogEntry[]) => void,
+	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 	prepared?: PreparedWorkflowRun,
 ): Promise<WorkflowRunResult> {
 	const preparedRun = prepared ?? (await prepareWorkflowRun(ctx, workflowFile.name, false));
@@ -2552,6 +4888,9 @@ async function runWorkflow(
 	// Resumed runs start agentCount past the agents/NNNN artifacts already on disk
 	// so freshly re-run subagents never overwrite the cached ones.
 	let agentCount = preparedRun.resume?.baseAgentCount ?? 0;
+	let agentPhaseCount = 0;
+	let parallelAgents = 0;
+	let peakParallelAgents = preparedRun.resume?.previousPeakParallelAgents ?? 0;
 	let state: WorkflowRunState = "running";
 
 	// Content-address cache (for resumable/idempotent runs).
@@ -2598,6 +4937,10 @@ async function runWorkflow(
 			...(statusState !== "running" && statusState !== "stale" ? { endedAt: new Date(now).toISOString() } : {}),
 			elapsedMs: now - started,
 			agentCount,
+			agentConcurrency: runLimits.concurrency,
+			maxAgents: runLimits.maxAgents,
+			parallelAgents,
+			peakParallelAgents,
 			logs,
 			...(logs.length ? { lastLog: logs[logs.length - 1] } : {}),
 			...(codeHash ? { codeHash } : {}),
@@ -2606,17 +4949,23 @@ async function runWorkflow(
 		};
 	}
 
-	async function persistStatus(statusState: WorkflowRunState = state): Promise<void> {
+	async function persistStatus(statusState: WorkflowRunState = state): Promise<WorkflowRunStatus> {
 		const status = makeStatus(statusState);
 		await writeRunStatus(status);
+		return status;
+	}
+
+	async function publishStatus(statusState: WorkflowRunState = state): Promise<WorkflowRunStatus> {
+		const status = await persistStatus(statusState);
+		onProgress?.(logs, status);
+		return status;
 	}
 
 	async function log(message: string, details?: unknown): Promise<void> {
 		const entry: WorkflowLogEntry = { time: new Date().toISOString(), message, ...(details === undefined ? {} : { details }) };
 		logs.push(entry);
 		await appendEvent({ type: "log", ...entry });
-		await persistStatus();
-		onProgress?.(logs);
+		await publishStatus();
 	}
 
 	async function writeArtifact(name: string, data: unknown): Promise<{ path: string }> {
@@ -2638,12 +4987,15 @@ async function runWorkflow(
 		return { path: file };
 	}
 
-	async function runSubagent(prompt: string, options: AgentOptions = {}): Promise<SubagentResult> {
+	async function runSubagent(prompt: string, options: InternalAgentOptions = {}): Promise<SubagentResult> {
 		throwIfAborted(runSignal.signal);
-		let effectiveOptions: AgentOptions = await applyPersonaOptions(ctx, options);
+		let effectiveOptions = await applyPersonaOptions(ctx, options) as InternalAgentOptions;
 		if (effectiveOptions.schema !== undefined) {
-			effectiveOptions = appendSystemPromptOption(effectiveOptions, makeStructuredOutputSystemPrompt(effectiveOptions.schema));
+			effectiveOptions = appendSystemPromptOption(effectiveOptions, makeStructuredOutputSystemPrompt(effectiveOptions.schema)) as InternalAgentOptions;
 		}
+		const phase = effectiveOptions.__workflowPhase;
+		const envAccess = normalizeAgentEnvAccess(effectiveOptions);
+		const accessMarkdown = formatAgentAccessMarkdown(effectiveOptions, envAccess);
 		// Content-address cache. occ is assigned synchronously, in emission order,
 		// before any await, so it is deterministic under ctx.agents/mapLimit
 		// concurrency. agent() is cached by default; opt out with { cache: false }.
@@ -2654,8 +5006,22 @@ async function runWorkflow(
 			const hit = journalLookup(key, occ) as SubagentResult | undefined;
 			if (hit && "artifactPath" in hit) {
 				cachedCalls++;
-				await log(`agent cached: ${hit.name}`, { key: key.slice(0, 12), occ });
-				return hit;
+				const cachedPhase = phase ?? (hit.phaseIndex && hit.phaseTotal ? { id: hit.phaseId ?? 0, index: hit.phaseIndex, total: hit.phaseTotal, ...(hit.phaseLabel ? { label: hit.phaseLabel } : {}) } : undefined);
+				const cachedHit: SubagentResult = {
+					...hit,
+					...(hit.tools?.length || !effectiveOptions.tools?.length ? {} : { tools: effectiveOptions.tools }),
+					...(hit.excludeTools?.length || !effectiveOptions.excludeTools?.length ? {} : { excludeTools: effectiveOptions.excludeTools }),
+					...(hit.skills?.length || !effectiveOptions.skills?.length ? {} : { skills: effectiveOptions.skills }),
+					includeSkills: hit.includeSkills ?? effectiveOptions.includeSkills,
+					...(hit.extensions?.length || !effectiveOptions.extensions?.length ? {} : { extensions: effectiveOptions.extensions }),
+					includeExtensions: hit.includeExtensions ?? effectiveOptions.includeExtensions,
+					...(hit.keys?.length || !envAccess.keyNames.length ? {} : { keys: envAccess.keyNames }),
+					...(hit.missingKeys?.length || !envAccess.missingKeys.length ? {} : { missingKeys: envAccess.missingKeys }),
+					isolatedEnv: hit.isolatedEnv ?? envAccess.isolatedEnv,
+				};
+				await appendEvent({ type: "agent", ...cachedHit, ...phaseEventFields(cachedPhase), state: "cached", promptAvailable: !!cachedHit.artifactPath, stdout: undefined, stderr: undefined, prompt: undefined });
+				await log(`agent cached: ${cachedHit.name}`, { key: key.slice(0, 12), occ, artifactPath: cachedHit.artifactPath, tools: cachedHit.tools, skills: cachedHit.skills, extensions: cachedHit.extensions, keys: cachedHit.keys, missingKeys: cachedHit.missingKeys, isolatedEnv: cachedHit.isolatedEnv, ...phaseEventFields(cachedPhase) });
+				return cachedHit;
 			}
 		}
 		if (agentCount >= runLimits.maxAgents) {
@@ -2664,11 +5030,51 @@ async function runWorkflow(
 		const id = ++agentCount;
 		const name = effectiveOptions.name ?? `agent-${id}`;
 		const startedAt = Date.now();
-		await log(`agent ${id} start: ${name}`);
+		const startedAtIso = new Date(startedAt).toISOString();
+		const artifactName = `agents/${String(id).padStart(4, "0")}-${slugify(name)}.md`;
+		const phaseFields = phaseEventFields(phase);
+		const phaseLine = phase?.total ? `\n- phase: P${phase.id} ${phase.index}/${phase.total}${phase.label ? ` (${phase.label})` : ""}` : "";
+		const preliminaryArtifact = await writeArtifact(
+			artifactName,
+			`# ${name}\n\n- state: running\n- startedAt: ${startedAtIso}${phaseLine}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}\n`,
+		);
+		const liveStdoutArtifactName = artifactName.endsWith(".md") ? artifactName.slice(0, -3) + ".stdout.log" : `${artifactName}.stdout.log`;
+		const liveStderrArtifactName = artifactName.endsWith(".md") ? artifactName.slice(0, -3) + ".stderr.log" : `${artifactName}.stderr.log`;
+		const liveStdoutArtifact = await writeArtifact(liveStdoutArtifactName, "");
+		const liveStderrArtifact = await writeArtifact(liveStderrArtifactName, "");
+		let liveWriteTail: Promise<unknown> = Promise.resolve();
+		const appendLive = (file: string, chunk: Buffer) => {
+			liveWriteTail = liveWriteTail.then(() => fs.appendFile(file, chunk)).catch(() => {});
+		};
+		await appendEvent({
+			type: "agent",
+			id,
+			name,
+			state: "running",
+			startedAt: startedAtIso,
+			artifactPath: preliminaryArtifact.path,
+			promptAvailable: true,
+			...phaseFields,
+			...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
+			...(effectiveOptions.excludeTools?.length ? { excludeTools: effectiveOptions.excludeTools } : {}),
+			...(effectiveOptions.skills?.length ? { skills: effectiveOptions.skills } : {}),
+			...(effectiveOptions.includeSkills !== undefined ? { includeSkills: effectiveOptions.includeSkills } : {}),
+			...(effectiveOptions.extensions?.length ? { extensions: effectiveOptions.extensions } : {}),
+			...(effectiveOptions.includeExtensions !== undefined ? { includeExtensions: effectiveOptions.includeExtensions } : {}),
+			...(envAccess.keyNames.length ? { keys: envAccess.keyNames } : {}),
+			...(envAccess.missingKeys.length ? { missingKeys: envAccess.missingKeys } : {}),
+			isolatedEnv: envAccess.isolatedEnv,
+		});
+		await log(`agent ${id} start: ${name}`, { artifactPath: preliminaryArtifact.path, liveStdoutPath: liveStdoutArtifact.path, liveStderrPath: liveStderrArtifact.path, tools: effectiveOptions.tools, skills: effectiveOptions.skills, includeSkills: effectiveOptions.includeSkills, extensions: effectiveOptions.extensions, includeExtensions: effectiveOptions.includeExtensions, keys: envAccess.keyNames, missingKeys: envAccess.missingKeys, isolatedEnv: envAccess.isolatedEnv, ...phaseFields });
 
 		function buildAgentArgs(attemptPrompt: string): string[] {
 			const args = ["-p", "--no-session", "--mode", "json"];
+			const explicitExtensions = effectiveOptions.extensions ?? [];
 			if (effectiveOptions.includeExtensions !== true) args.push("--no-extensions");
+			for (const extensionPath of explicitExtensions) args.push("--extension", extensionPath);
+			const explicitSkills = effectiveOptions.skills ?? [];
+			if (effectiveOptions.includeSkills === false || (explicitSkills.length > 0 && effectiveOptions.includeSkills !== true)) args.push("--no-skills");
+			for (const skillPath of explicitSkills) args.push("--skill", skillPath);
 			if (effectiveOptions.approve ?? ctx.isProjectTrusted()) args.push("--approve");
 			else args.push("--no-approve");
 			if (effectiveOptions.useContextFiles === false) args.push("--no-context-files");
@@ -2686,6 +5092,12 @@ async function runWorkflow(
 		}
 
 		const piCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi";
+		let envWrapper: { path: string; dir: string } | undefined;
+		function buildAgentProcess(attemptPrompt: string): { command: string; args: string[] } {
+			const agentArgs = buildAgentArgs(attemptPrompt);
+			if (!envWrapper) return { command: piCommand, args: agentArgs };
+			return { command: envWrapper.path, args: [piCommand, ...agentArgs] };
+		}
 		const schema = effectiveOptions.schema;
 		const schemaRetries = schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
 		const schemaOnInvalid = effectiveOptions.schemaOnInvalid ?? "throw";
@@ -2699,13 +5111,31 @@ async function runWorkflow(
 			const attemptPrompt = attempt === 0 ? prompt : formatSchemaRetryPrompt(prompt, schemaError);
 			if (attempt > 0) await log(`agent ${id} schema retry ${attempt}/${schemaRetries}: ${name}`, { error: schemaError });
 			const release = await agentSemaphore.acquire();
+			parallelAgents++;
+			peakParallelAgents = Math.max(peakParallelAgents, parallelAgents);
+			let countedParallelSlot = true;
+			let attemptWrapper: { path: string; dir: string } | undefined;
 			try {
-				result = await pi.exec(piCommand, buildAgentArgs(attemptPrompt), {
+				await publishStatus();
+				attemptWrapper = envAccess.useEnvCommand ? await createAgentEnvWrapper(envAccess) : undefined;
+				envWrapper = attemptWrapper;
+				const processSpec = buildAgentProcess(attemptPrompt);
+				result = await runStreamingAgentProcess(processSpec.command, processSpec.args, {
 					cwd: effectiveOptions.cwd ?? ctx.cwd,
-					timeout: effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs,
+					timeoutMs: effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs,
 					signal: runSignal.signal,
+					onStdout: (chunk) => appendLive(liveStdoutArtifact.path, chunk),
+					onStderr: (chunk) => appendLive(liveStderrArtifact.path, chunk),
 				});
+				await liveWriteTail;
 			} finally {
+				envWrapper = undefined;
+				if (attemptWrapper) await fs.rm(attemptWrapper.dir, { recursive: true, force: true }).catch(() => {});
+				if (countedParallelSlot) {
+					countedParallelSlot = false;
+					parallelAgents = Math.max(0, parallelAgents - 1);
+					await publishStatus().catch(() => {});
+				}
 				release();
 			}
 			throwIfAborted(runSignal.signal);
@@ -2732,11 +5162,11 @@ async function runWorkflow(
 		if (!result) throw new Error(`Agent did not produce a result: ${name}`);
 		if (schema !== undefined && schemaOk !== true && schemaOnInvalid === "null") schemaData = null;
 		const schemaShouldThrow = schema !== undefined && schemaOk !== true && schemaOnInvalid !== "null";
+		const endedAtIso = new Date().toISOString();
 		const elapsedMs = Date.now() - startedAt;
-		const artifactName = `agents/${String(id).padStart(4, "0")}-${slugify(name)}.md`;
 		const artifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${result.stdout}\n\n## Stderr\n\n${result.stderr}\n`,
+			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${result.stdout}\n\n## Stderr\n\n${result.stderr}\n`,
 		);
 		const rawSubagent: SubagentResult = {
 			id,
@@ -2750,10 +5180,30 @@ async function runWorkflow(
 			stdout: result.stdout,
 			stderr: result.stderr,
 			artifactPath: artifact.path,
+			...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
+			...(effectiveOptions.excludeTools?.length ? { excludeTools: effectiveOptions.excludeTools } : {}),
+			...(effectiveOptions.skills?.length ? { skills: effectiveOptions.skills } : {}),
+			...(effectiveOptions.includeSkills !== undefined ? { includeSkills: effectiveOptions.includeSkills } : {}),
+			...(effectiveOptions.extensions?.length ? { extensions: effectiveOptions.extensions } : {}),
+			...(effectiveOptions.includeExtensions !== undefined ? { includeExtensions: effectiveOptions.includeExtensions } : {}),
+			...(envAccess.keyNames.length ? { keys: envAccess.keyNames } : {}),
+			...(envAccess.missingKeys.length ? { missingKeys: envAccess.missingKeys } : {}),
+			isolatedEnv: envAccess.isolatedEnv,
+			...phaseFields,
 			...(schema === undefined ? {} : { data: schemaData, schemaOk: schemaOk === true }),
 		};
 		const subagent = cacheEnabled ? normalizeSubagentResultForJournal(rawSubagent) : rawSubagent;
-		await appendEvent({ type: "agent", ...subagent, stdout: undefined, stderr: undefined, prompt: undefined });
+		await appendEvent({
+			type: "agent",
+			...subagent,
+			state: subagent.ok ? "completed" : "failed",
+			startedAt: startedAtIso,
+			endedAt: endedAtIso,
+			promptAvailable: true,
+			stdout: undefined,
+			stderr: undefined,
+			prompt: undefined,
+		});
 		if (!schemaShouldThrow && cacheEnabled) {
 			await appendJournalRecord(runDir, {
 				v: JOURNAL_VERSION,
@@ -2765,7 +5215,7 @@ async function runWorkflow(
 				result: subagent,
 			});
 		}
-		await log(`agent ${id} end: ${name}`, { ok: subagent.ok, code: subagent.code, elapsedMs, ...(schema === undefined ? {} : { schemaOk: subagent.schemaOk }) });
+		await log(`agent ${id} end: ${name}`, { ok: subagent.ok, code: subagent.code, elapsedMs, tools: subagent.tools, skills: subagent.skills, extensions: subagent.extensions, keys: subagent.keys, missingKeys: subagent.missingKeys, ...phaseFields, ...(schema === undefined ? {} : { schemaOk: subagent.schemaOk }) });
 		if (schemaShouldThrow) throw new Error(`Agent ${name} did not produce valid structured output: ${schemaError || "schema validation failed"}`);
 		return subagent;
 	}
@@ -2776,129 +5226,169 @@ async function runWorkflow(
 	// agents() spreads a spec (which carries prompt) into options, so excluding
 	// it keeps the key dependent on the prompt exactly once.
 	function sanitizeAgentOpts(options: AgentOptions): Record<string, unknown> {
-		const { name: _name, timeoutMs: _timeoutMs, cache: _cache, concurrency: _concurrency, settle: _settle, agentType: _agentType, ...rest } = options as AgentOptions & {
+		const { name: _name, timeoutMs: _timeoutMs, cache: _cache, concurrency: _concurrency, settle: _settle, agentType: _agentType, __workflowPhase: _workflowPhase, env, ...rest } = options as InternalAgentOptions & {
 			prompt?: string;
 			concurrency?: number;
 			settle?: boolean;
 		};
 		delete (rest as { prompt?: string }).prompt;
-		return rest;
+		return { ...rest, ...(env ? { env: sanitizeEnvForCache(env) } : {}) };
 	}
 
-	async function runAgents(items: Array<string | AgentSpec>, options?: AgentOptions & { concurrency?: number; settle?: false }): Promise<SubagentResult[]>;
-	async function runAgents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle: true }): Promise<Array<SubagentResult | null>>;
-	async function runAgents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle?: boolean } = {}): Promise<Array<SubagentResult | null>> {
-		const concurrency = Math.min(Math.max(Math.floor(options.concurrency ?? runLimits.concurrency), 1), runLimits.concurrency);
-		const { concurrency: _concurrency, settle = false, ...sharedOptions } = options as AgentOptions & { concurrency?: number; settle?: boolean };
-		const runItem = async (item: string | AgentSpec, index: number): Promise<SubagentResult> => {
-			if (typeof item === "string") return await agent(item, { ...sharedOptions, name: sharedOptions.name ?? `agent-${index + 1}` });
-			const { prompt: itemPrompt, ...itemOptions } = item;
-			return await agent(itemPrompt, { ...sharedOptions, ...itemOptions, name: item.name ?? `agent-${index + 1}` });
-		};
-		if (settle) return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
-		return await mapLimit(items, concurrency, runSignal.signal, runItem);
-	}
+	const agent = (prompt: string, options: InternalAgentOptions = {}) => trackSubagent(runSubagent(prompt, options));
 
-	const agent = (prompt: string, options: AgentOptions = {}) => trackSubagent(runSubagent(prompt, options));
-
-	const api: WorkflowRuntimeApi = {
-		cwd: ctx.cwd,
-		runId,
-		runDir,
-		input,
-		limits: runLimits,
-		log,
-		agent,
-		agents: runAgents,
-		bash: async (command, options = {}) => {
-			throwIfAborted(runSignal.signal);
-			// bash caching is opt-in: bash(cmd, { cache: true }). occ assigned
-			// synchronously before any await for deterministic ordering.
-			const cacheEnabled = options.cache === true;
-			const key = computeCallKey("bash", [command, { cwd: options.cwd ?? ctx.cwd }]);
-			const occ = nextOcc(key);
-			if (cacheEnabled) {
-				const hit = journalLookup(key, occ) as BashResult | undefined;
-				if (hit && !("artifactPath" in hit)) {
-					cachedCalls++;
-					await log(`bash cached: ${command.slice(0, 80)}`, { key: key.slice(0, 12), occ });
-					if (options.throwOnError && !hit.ok) {
-						throw new Error(`Command failed (${hit.code}): ${command}\n${hit.stderr || hit.stdout}`);
-					}
-					return hit;
-				}
-			}
-			const startedAt = Date.now();
-			await log(`bash start: ${command.slice(0, 120)}`);
-			const result = await pi.exec("bash", ["-lc", command], {
-				cwd: options.cwd ?? ctx.cwd,
-				timeout: options.timeoutMs ?? runLimits.agentTimeoutMs,
-				signal: runSignal.signal,
-			});
-			throwIfAborted(runSignal.signal);
-			const rawBashResult: BashResult = {
-				ok: result.code === 0 && !result.killed,
-				code: result.code,
-				killed: result.killed,
-				elapsedMs: Date.now() - startedAt,
-				stdout: result.stdout,
-				stderr: result.stderr,
+	function makeRunAgents(agentRunner: (prompt: string, options?: InternalAgentOptions) => Promise<SubagentResult>): WorkflowRuntimeApi["agents"] {
+		async function runAgents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle?: boolean } = {}): Promise<Array<SubagentResult | null>> {
+			const concurrency = Math.min(Math.max(Math.floor(options.concurrency ?? runLimits.concurrency), 1), runLimits.concurrency);
+			const { concurrency: _concurrency, settle = false, ...sharedOptions } = options as AgentOptions & { concurrency?: number; settle?: boolean };
+			const phaseId = items.length > 0 ? ++agentPhaseCount : 0;
+			const phaseLabel = typeof sharedOptions.name === "string" && sharedOptions.name.trim() ? sharedOptions.name.trim() : `agents-${phaseId}`;
+			const runItem = async (item: string | AgentSpec, index: number): Promise<SubagentResult> => {
+				const __workflowPhase: AgentPhaseInfo = { id: phaseId, index: index + 1, total: items.length, label: phaseLabel };
+				if (typeof item === "string") return await agentRunner(item, { ...sharedOptions, __workflowPhase, name: sharedOptions.name ?? `agent-${index + 1}` } as InternalAgentOptions);
+				const { prompt: itemPrompt, ...itemOptions } = item;
+				return await agentRunner(itemPrompt, { ...sharedOptions, ...itemOptions, __workflowPhase, name: item.name ?? `agent-${index + 1}` } as InternalAgentOptions);
 			};
-			const bashResult = cacheEnabled ? normalizeBashResultForJournal(rawBashResult) : rawBashResult;
-			await appendEvent({ type: "bash", command, ...bashResult });
-			if (cacheEnabled) {
-				await appendJournalRecord(runDir, {
-					v: JOURNAL_VERSION,
-					key,
-					occ,
-					method: "bash",
-					codeHash,
-					ts: new Date().toISOString(),
-					result: bashResult,
-				});
-			}
-			await log(`bash end: ${command.slice(0, 120)}`, { ok: bashResult.ok, code: bashResult.code });
-			if (options.throwOnError && !bashResult.ok) {
-				throw new Error(`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`);
-			}
-			return bashResult;
-		},
-		readFile: async (filePath, encoding = "utf8") => await fs.readFile(resolveCwdPath(ctx.cwd, filePath), encoding),
-		writeFile: async (filePath, data) => {
-			const file = resolveCwdPath(ctx.cwd, filePath);
-			await ensureDir(path.dirname(file));
-			await fs.writeFile(file, data);
-			return { path: file };
-		},
-		appendFile: async (filePath, data) => {
-			const file = resolveCwdPath(ctx.cwd, filePath);
-			await ensureDir(path.dirname(file));
-			await fs.appendFile(file, data);
-			return { path: file };
-		},
-		listFiles: async (dir = ".", options = {}) => {
-			const root = resolveCwdPath(ctx.cwd, dir);
-			const maxFiles = options.maxFiles ?? 10_000;
-			const files: string[] = [];
-			async function walk(current: string): Promise<void> {
-				if (files.length >= maxFiles) return;
-				for (const entry of await fs.readdir(current, { withFileTypes: true })) {
-					if (entry.name === "node_modules" || entry.name === ".git") continue;
-					const full = path.join(current, entry.name);
-					if (entry.isDirectory()) await walk(full);
-					else if (entry.isFile()) files.push(path.relative(ctx.cwd, full).replaceAll(path.sep, "/"));
-					if (files.length >= maxFiles) return;
+			if (settle) return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
+			return await mapLimit(items, concurrency, runSignal.signal, runItem);
+		}
+		return runAgents as WorkflowRuntimeApi["agents"];
+	}
+
+	async function runBash(command: string, options: BashOptions = {}): Promise<BashResult> {
+		throwIfAborted(runSignal.signal);
+		// bash caching is opt-in: bash(cmd, { cache: true }). occ assigned
+		// synchronously before any await for deterministic ordering.
+		const cacheEnabled = options.cache === true;
+		const key = computeCallKey("bash", [command, { cwd: options.cwd ?? ctx.cwd, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) }]);
+		const occ = nextOcc(key);
+		if (cacheEnabled) {
+			const hit = journalLookup(key, occ) as BashResult | undefined;
+			if (hit && !("artifactPath" in hit)) {
+				cachedCalls++;
+				await log(`bash cached: ${command.slice(0, 80)}`, { key: key.slice(0, 12), occ, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) });
+				if (options.throwOnError && !hit.ok) {
+					throw new Error(`Command failed (${hit.code}): ${command}\n${hit.stderr || hit.stdout}`);
 				}
+				return hit;
 			}
-			await walk(root);
-			return files;
-		},
-		writeArtifact,
-		appendArtifact,
-		sleep: async (ms) => await sleep(ms, runSignal.signal),
-		json: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
-		compact: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
-	};
+		}
+		const startedAt = Date.now();
+		await log(`bash start: ${command.slice(0, 120)}`, options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : undefined);
+		const result = await pi.exec("bash", ["-lc", command], {
+			cwd: options.cwd ?? ctx.cwd,
+			timeout: options.timeoutMs ?? runLimits.agentTimeoutMs,
+			signal: runSignal.signal,
+		});
+		throwIfAborted(runSignal.signal);
+		const rawBashResult: BashResult = {
+			ok: result.code === 0 && !result.killed,
+			code: result.code,
+			killed: result.killed,
+			elapsedMs: Date.now() - startedAt,
+			stdout: result.stdout,
+			stderr: result.stderr,
+		};
+		const bashResult = cacheEnabled ? normalizeBashResultForJournal(rawBashResult) : rawBashResult;
+		await appendEvent({ type: "bash", command, ...bashResult, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) });
+		if (cacheEnabled) {
+			await appendJournalRecord(runDir, {
+				v: JOURNAL_VERSION,
+				key,
+				occ,
+				method: "bash",
+				codeHash,
+				ts: new Date().toISOString(),
+				result: bashResult,
+			});
+		}
+		await log(`bash end: ${command.slice(0, 120)}`, { ok: bashResult.ok, code: bashResult.code, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) });
+		if (options.throwOnError && !bashResult.ok) {
+			throw new Error(`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`);
+		}
+		return bashResult;
+	}
+
+	async function runSubworkflow(name: string, workflowInput: unknown = {}): Promise<unknown> {
+		throwIfAborted(runSignal.signal);
+		const subWorkflow = await resolveWorkflow(ctx, name, "auto");
+		if (path.resolve(subWorkflow.path) === path.resolve(workflowFile.path)) {
+			throw new Error(`ctx.workflow() refused recursive call to ${subWorkflow.name}. Sub-workflows are depth-1 and may not call their parent.`);
+		}
+		const subCode = await fs.readFile(subWorkflow.path, "utf8");
+		const subCodeHash = computeCodeHash(subCode);
+		const workflowCallKey = computeCallKey("workflow", [subWorkflow.name, workflowInput]);
+		const workflowOcc = nextOcc(workflowCallKey);
+		const namespace = `workflow:${subWorkflow.name}:${subCodeHash.slice(0, 12)}:${workflowOcc}`;
+		await appendEvent({ type: "workflow", phase: "start", name: subWorkflow.name, file: subWorkflow.path, namespace, occ: workflowOcc });
+		await log(`sub-workflow start: ${subWorkflow.name}`, { file: subWorkflow.path, namespace, occ: workflowOcc, remainingAgents: Math.max(0, runLimits.maxAgents - agentCount) });
+		try {
+			const result = await executeWorkflowCode(subWorkflow, subCode, makeApi(namespace, false, workflowInput), workflowInput, runLimits, runSignal.signal);
+			await appendEvent({ type: "workflow", phase: "end", name: subWorkflow.name, namespace, occ: workflowOcc, ok: true });
+			await log(`sub-workflow end: ${subWorkflow.name}`, { namespace, occ: workflowOcc, remainingAgents: Math.max(0, runLimits.maxAgents - agentCount) });
+			return result;
+		} catch (err) {
+			const message = err instanceof Error ? err.stack || err.message : String(err);
+			await appendEvent({ type: "workflow", phase: "error", name: subWorkflow.name, namespace, occ: workflowOcc, ok: false, error: message });
+			await log(`sub-workflow failed: ${subWorkflow.name}`, { namespace, occ: workflowOcc, error: message });
+			throw err;
+		}
+	}
+
+	function makeApi(workflowNamespace: string | undefined, allowWorkflow: boolean, apiInput: unknown): WorkflowRuntimeApi {
+		const namespacedAgent = (prompt: string, options: InternalAgentOptions = {}) => agent(prompt, { ...options, ...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}) });
+		return {
+			cwd: ctx.cwd,
+			runId,
+			runDir,
+			input: apiInput,
+			limits: runLimits,
+			log,
+			agent: namespacedAgent,
+			agents: makeRunAgents(namespacedAgent),
+			workflow: allowWorkflow ? runSubworkflow : async () => {
+				throw new Error("ctx.workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.");
+			},
+			bash: async (command, options = {}) => await runBash(command, { ...options, ...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}) }),
+			readFile: async (filePath, encoding = "utf8") => await fs.readFile(resolveCwdPath(ctx.cwd, filePath), encoding),
+			writeFile: async (filePath, data) => {
+				const file = resolveCwdPath(ctx.cwd, filePath);
+				await ensureDir(path.dirname(file));
+				await fs.writeFile(file, data);
+				return { path: file };
+			},
+			appendFile: async (filePath, data) => {
+				const file = resolveCwdPath(ctx.cwd, filePath);
+				await ensureDir(path.dirname(file));
+				await fs.appendFile(file, data);
+				return { path: file };
+			},
+			listFiles: async (dir = ".", options = {}) => {
+				const root = resolveCwdPath(ctx.cwd, dir);
+				const maxFiles = options.maxFiles ?? 10_000;
+				const files: string[] = [];
+				async function walk(current: string): Promise<void> {
+					if (files.length >= maxFiles) return;
+					for (const entry of await fs.readdir(current, { withFileTypes: true })) {
+						if (entry.name === "node_modules" || entry.name === ".git") continue;
+						const full = path.join(current, entry.name);
+						if (entry.isDirectory()) await walk(full);
+						else if (entry.isFile()) files.push(path.relative(ctx.cwd, full).replaceAll(path.sep, "/"));
+						if (files.length >= maxFiles) return;
+					}
+				}
+				await walk(root);
+				return files;
+			},
+			writeArtifact,
+			appendArtifact,
+			sleep: async (ms) => await sleep(ms, runSignal.signal),
+			json: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
+			compact: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
+		};
+	}
+
+	const api = makeApi(undefined, true, input);
 
 	let output: unknown;
 	let error: string | undefined;
@@ -2940,6 +5430,10 @@ async function runWorkflow(
 		endedAt: new Date(ended).toISOString(),
 		elapsedMs: ended - started,
 		agentCount,
+		agentConcurrency: runLimits.concurrency,
+		maxAgents: runLimits.maxAgents,
+		parallelAgents,
+		peakParallelAgents,
 		logs,
 		...(output === undefined ? {} : { output }),
 		...(error === undefined ? {} : { error }),
@@ -2953,7 +5447,7 @@ async function runWorkflow(
 	return result;
 }
 
-function initialRunStatus(workflow: WorkflowFile, prepared: PreparedWorkflowRun, active: boolean): WorkflowRunStatus {
+function initialRunStatus(workflow: WorkflowFile, prepared: PreparedWorkflowRun, active: boolean, limits?: RunLimits): WorkflowRunStatus {
 	const now = Date.now();
 	return {
 		workflow: workflow.name,
@@ -2968,6 +5462,7 @@ function initialRunStatus(workflow: WorkflowFile, prepared: PreparedWorkflowRun,
 		updatedAt: new Date(now).toISOString(),
 		elapsedMs: now - prepared.started,
 		agentCount: 0,
+		...(limits ? { agentConcurrency: limits.concurrency, maxAgents: limits.maxAgents, parallelAgents: 0, peakParallelAgents: prepared.resume?.previousPeakParallelAgents ?? 0 } : {}),
 		logs: [],
 	};
 }
@@ -2976,6 +5471,7 @@ function formatBackgroundStart(status: WorkflowRunStatus): string {
 	return [
 		`Started background workflow: ${status.workflow}`,
 		`Run: ${status.runId}`,
+		`Parallel agents: ${formatParallelAgents(status)}`,
 		`Status: ${path.join(status.runDir, "status.json")}`,
 		`Artifacts: ${status.runDir}`,
 		`View: dynamic_workflow action=view name=${status.runId}`,
@@ -3003,6 +5499,17 @@ function wakeAgentForWorkflowResult(pi: ExtensionAPI, ctx: ExtensionContext, res
 	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 }
 
+function canLaunchWorkflowInBackground(ctx: ExtensionContext): boolean {
+	return ctx.mode === "tui" || ctx.mode === "rpc";
+}
+
+function shouldLaunchWorkflowInBackground(ctx: ExtensionContext): boolean {
+	// Project preference: every workflow launched from a persistent session runs
+	// in background so the dashboard remains the control plane and completion can
+	// wake the agent. Print/json modes have no live session to keep the run alive.
+	return canLaunchWorkflowInBackground(ctx);
+}
+
 async function startWorkflowBackground(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
@@ -3011,15 +5518,15 @@ async function startWorkflowBackground(
 	limits: RunLimits,
 	preparedRun?: PreparedWorkflowRun,
 ): Promise<WorkflowRunStatus> {
-	if (ctx.mode !== "tui" && ctx.mode !== "rpc") {
-		throw new Error("Background workflow runs require a persistent TUI/RPC session. Use action=run instead.");
+	if (!canLaunchWorkflowInBackground(ctx)) {
+		throw new Error("Background workflow runs require a persistent TUI/RPC session. In print/json mode, action=run falls back to foreground because there is no live session to keep a background run alive.");
 	}
 	// For resume, preparedRun reuses the existing runDir/runId in place.
 	const prepared = preparedRun ?? (await prepareWorkflowRun(ctx, workflow.name, true));
 	const controller = new AbortController();
 	const active: ActiveWorkflowRun = { runId: prepared.runId, runDir: prepared.runDir, started: prepared.started, workflow, controller };
 	activeRuns.set(prepared.runId, active);
-	const status = initialRunStatus(workflow, prepared, true);
+	const status = initialRunStatus(workflow, prepared, true, limits);
 	await writeRunStatus(status);
 	refreshActiveWorkflowStatus(ctx);
 
@@ -3047,11 +5554,15 @@ async function startWorkflowBackground(
 				endedAt: new Date(now).toISOString(),
 				elapsedMs: now - prepared.started,
 				agentCount: 0,
+				agentConcurrency: limits.concurrency,
+				maxAgents: limits.maxAgents,
+				parallelAgents: 0,
+				peakParallelAgents: 0,
 				logs: [],
 				error,
 			};
 			await writeJsonFile(path.join(prepared.runDir, "result.json"), result);
-			await writeRunStatus({ ...initialRunStatus(workflow, prepared, false), state: "failed", endedAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString(), elapsedMs: now - prepared.started, error });
+			await writeRunStatus({ ...initialRunStatus(workflow, prepared, false, limits), state: "failed", endedAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString(), elapsedMs: now - prepared.started, error });
 			await fs.writeFile(path.join(prepared.runDir, "summary.md"), formatRunSummary(result), "utf8");
 			notify(ctx, `Background workflow failed to run: ${workflow.name}\nRun: ${prepared.runId}\nError: ${error}`, "error");
 			wakeAgentForWorkflowResult(pi, ctx, result);
@@ -3074,7 +5585,7 @@ async function resumeWorkflow(
 	idOrLatest: string | undefined,
 	opts: { background?: boolean; force?: boolean } = {},
 	signal?: AbortSignal,
-	onProgress?: (logs: WorkflowLogEntry[]) => void,
+	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 ): Promise<WorkflowRunRecord> {
 	const record = await resolveRun(ctx, idOrLatest);
 	if (activeRuns.has(record.runId)) {
@@ -3104,13 +5615,14 @@ async function resumeWorkflow(
 		input = {};
 	}
 	const limits = buildLimits(limitParamsFromInput(input));
+	const resumeInBackground = shouldLaunchWorkflowInBackground(ctx);
 
 	const prepared: PreparedWorkflowRun = {
 		started: Number.isFinite(new Date(record.startedAt).getTime()) ? new Date(record.startedAt).getTime() : Date.now(),
 		runId: record.runId,
 		runDir: record.runDir,
-		background: !!opts.background,
-		resume: { journal, baseAgentCount, codeHash, resumedFrom: record.runId },
+		background: resumeInBackground,
+		resume: { journal, baseAgentCount, codeHash, resumedFrom: record.runId, previousPeakParallelAgents: getRunPeakParallelAgents(record) ?? 0 },
 	};
 	await ensureDir(path.join(record.runDir, "agents"));
 	// Remove the stale result.json from the prior (failed/cancelled/completed)
@@ -3129,12 +5641,12 @@ async function resumeWorkflow(
 		);
 	}
 
-	if (opts.background) {
+	if (resumeInBackground) {
 		// Returns a WorkflowRunStatus (the run keeps executing in the background).
 		return await startWorkflowBackground(pi, ctx, workflow, input, limits, prepared);
 	}
 
-	// Foreground: returns a WorkflowRunResult.
+	// Print/json fallback: returns a WorkflowRunResult because background cannot stay alive.
 	return await runWorkflowWithUi(pi, ctx, workflow, input, limits, signal, onProgress, prepared);
 }
 
@@ -3175,6 +5687,28 @@ async function cancelWorkflowRun(ctx: ExtensionContext, id: string | undefined):
 	return `Cancellation requested for background workflow run: ${active.runId}`;
 }
 
+async function resolveRunForDeletion(ctx: ExtensionContext, id: string | undefined): Promise<{ run: WorkflowRunRecord; runDir: string }> {
+	const dirs = await getRunDirs(ctx);
+	const records: Array<{ run: WorkflowRunRecord; runDir: string }> = [];
+	for (const runDir of dirs) {
+		const run = await readRunRecord(runDir);
+		if (run) records.push({ run, runDir });
+	}
+	if (records.length === 0) throw new Error("No workflow runs found.");
+	const key = id?.trim() || "latest";
+	if (key === "latest") return records[0]!;
+	const found = records.find(({ run }) => run.runId === key || run.runId.includes(key) || run.workflow === key);
+	if (!found) throw new Error(`Workflow run not found: ${key}`);
+	return found;
+}
+
+async function deleteWorkflowRun(ctx: ExtensionContext, id: string | undefined): Promise<string> {
+	const { run, runDir } = await resolveRunForDeletion(ctx, id);
+	if (activeRuns.has(run.runId)) throw new Error(`Workflow run is active; cancel it before deleting artifacts: ${run.runId}`);
+	await fs.rm(runDir, { recursive: true, force: false });
+	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
+}
+
 async function abortActiveWorkflowRuns(reason: string): Promise<void> {
 	const promises = [...activeRuns.values()].map((run) => {
 		run.controller.abort(reason);
@@ -3196,7 +5730,15 @@ async function handleTool(
 	const scope = params.scope ?? "auto";
 
 	if (action === "template") {
-		return { content: [text(WORKFLOW_TEMPLATE)], details: { action, template: WORKFLOW_TEMPLATE } };
+		const pattern = params.name ? resolveWorkflowPattern(params.name) : undefined;
+		if (params.name && !pattern) {
+			throw new Error(`Unknown workflow pattern: ${params.name}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`);
+		}
+		if (pattern) {
+			const template = await loadWorkflowPatternCode(pattern);
+			return { content: [text(template)], details: { action, pattern, template } };
+		}
+		return { content: [text(formatWorkflowPatternCatalog())], details: { action, patterns: WORKFLOW_PATTERN_CATALOG, template: WORKFLOW_TEMPLATE } };
 	}
 
 	if (action === "list") {
@@ -3221,18 +5763,19 @@ async function handleTool(
 	}
 
 	if (action === "resume") {
+		const resumeInBackground = shouldLaunchWorkflowInBackground(ctx);
 		const record = await resumeWorkflow(
 			pi,
 			ctx,
 			params.name,
-			{ background: !!params.background, force: !!params.force },
+			{ background: resumeInBackground, force: !!params.force },
 			signal,
 			(logs) => {
 				const preview = logs.slice(-8).map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`).join("\n");
 				onUpdate?.({ content: [text(preview)], details: { action, logCount: logs.length } });
 			},
 		);
-		if (params.background) {
+		if (resumeInBackground) {
 			const status = record as WorkflowRunStatus;
 			return { content: [text(formatBackgroundStart(status))], details: { action, status } };
 		}
@@ -3276,7 +5819,7 @@ async function handleTool(
 		return { content: [text(`Deleted workflow ${workflow.name} (${workflow.scope}) from ${workflow.path}`)], details: { action, workflow } };
 	}
 
-	if (action === "start" || (action === "run" && params.background)) {
+	if (action === "start" || (action === "run" && shouldLaunchWorkflowInBackground(ctx))) {
 		const workflow = await resolveWorkflow(ctx, params.name, scope);
 		const workflowInput = params.input ?? {};
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
@@ -3319,6 +5862,12 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 			return;
 		}
 
+		if (action === "patterns" || action === "catalog" || action === "templates") {
+			if (ctx.mode === "tui") await openWorkflowDashboard(pi, ctx, "patterns");
+			else await showText(ctx, "Workflow pattern catalog", formatWorkflowPatternCatalog());
+			return;
+		}
+
 		if (action === "graph" || action === "viz") {
 			const name = commandName;
 			if (!name) {
@@ -3327,7 +5876,7 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 			}
 			const workflow = await resolveWorkflow(ctx, name, "auto");
 			const code = await fs.readFile(workflow.path, "utf8");
-			await showText(ctx, `Workflow graph: ${workflow.name}`, makeWorkflowGraph(workflow, code));
+			await showWorkflowGraph(ctx, workflow, code);
 			return;
 		}
 
@@ -3345,19 +5894,30 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 		if (action === "new" || action === "create") {
 			const name = commandName;
 			if (!name) {
-				notify(ctx, "Usage: /workflow new <name>", "warning");
+				notify(ctx, "Usage: /workflow new <name> [--pattern=<key>]", "warning");
 				return;
 			}
 			if (!ctx.hasUI) {
 				notify(ctx, "/workflow new requires interactive UI. Use dynamic_workflow action=write in agent mode.", "warning");
 				return;
 			}
-			const edited = await ctx.ui.editor(`New workflow: ${name}`, WORKFLOW_TEMPLATE);
+			const patternKey = parsePatternFlag(trailingText);
+			const pattern = patternKey ? resolveWorkflowPattern(patternKey) : undefined;
+			if (patternKey && !pattern) {
+				notify(ctx, `Unknown workflow pattern: ${patternKey}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`, "warning");
+				return;
+			}
+			const template = pattern ? await loadWorkflowPatternCode(pattern) : WORKFLOW_TEMPLATE;
+			const edited = await ctx.ui.editor(pattern ? `New workflow: ${name} (${pattern.key})` : `New workflow: ${name}`, template);
 			if (edited === undefined) return;
 			const workflow = await resolveWorkflow(ctx, name, "project", true);
+			if (existsSync(workflow.path)) {
+				const ok = await ctx.ui.confirm("Overwrite existing workflow?", `${workflow.name}\n${workflow.path}`);
+				if (!ok) return;
+			}
 			await ensureDir(path.dirname(workflow.path));
 			await fs.writeFile(workflow.path, edited, "utf8");
-			notify(ctx, `Wrote ${workflow.path}`, "info");
+			notify(ctx, `Wrote ${workflow.path}${pattern ? ` from pattern ${pattern.key}` : ""}`, "info");
 			return;
 		}
 
@@ -3393,6 +5953,11 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 			const input = parseCliJsonOrText(jsonText);
 			const workflow = await resolveWorkflow(ctx, name, "auto");
 			const limits = buildLimits(limitParamsFromInput(input));
+			if (shouldLaunchWorkflowInBackground(ctx)) {
+				const status = await startWorkflowBackground(pi, ctx, workflow, input, limits);
+				notify(ctx, formatBackgroundStart(status), "info");
+				return;
+			}
 			let lastLogs: WorkflowLogEntry[] = [];
 			const result = await runWorkflowWithUi(pi, ctx, workflow, input, limits, undefined, (logs) => {
 				lastLogs = logs;
@@ -3419,9 +5984,10 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 
 		if (action === "resume") {
 			// Tokens after "resume": optional <runId> (defaults to latest) plus
-			// --background/--bg and --force flags in any order. Foreground by default.
+			// --force. Persistent sessions resume in background by default; print/json
+			// falls back to foreground because no background run can stay alive.
 			const tokens = afterAction.split(/\s+/).filter(Boolean);
-			const background = tokens.some((t) => t === "--background" || t === "--bg" || t === "-b");
+			const background = shouldLaunchWorkflowInBackground(ctx);
 			const force = tokens.some((t) => t === "--force" || t === "-f");
 			const runId = tokens.find((t) => !t.startsWith("-"));
 			const record = await resumeWorkflow(pi, ctx, runId, { background, force });
@@ -3436,6 +6002,26 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 
 		if (action === "cancel" || action === "stop") {
 			const message = await cancelWorkflowRun(ctx, commandName);
+			notify(ctx, message, "warning");
+			return;
+		}
+
+		if (action === "delete-run" || action === "rm-run" || action === "delete-run-artifacts") {
+			const run = await resolveRun(ctx, commandName);
+			if (canCancelRun(run)) {
+				notify(ctx, `Run is still active; cancel it before deleting artifacts: ${run.runId}`, "warning");
+				return;
+			}
+			if (!ctx.hasUI) {
+				notify(ctx, "/workflow delete-run requires interactive confirmation; refusing in no-UI mode.", "warning");
+				return;
+			}
+			const ok = await ctx.ui.confirm(
+				"Delete workflow run artifacts?",
+				`Workflow: ${run.workflow}\nRun: ${run.runId}\nState: ${getRunStatusLabel(run)}\nDirectory: ${run.runDir}\n\nThis permanently deletes this run directory and its artifacts. The workflow file is not deleted.`,
+			);
+			if (!ok) return;
+			const message = await deleteWorkflowRun(ctx, run.runId);
 			notify(ctx, message, "warning");
 			return;
 		}
@@ -3458,7 +6044,7 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 			return;
 		}
 
-		notify(ctx, "Usage: /workflow list | dashboard | graph <name> | runs | view [latest|runId] | new <name> | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--background] [--force] | cancel [latest|runId] | delete <name>", "warning");
+		notify(ctx, "Usage: /workflow list | dashboard | patterns | graph <name> | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | delete-run [latest|runId] | delete <name>", "warning");
 	} catch (err) {
 		clearWorkflowWidget(ctx);
 		notify(ctx, err instanceof Error ? err.message : String(err), "error");
@@ -3485,12 +6071,13 @@ Task:
 ${trimmed}
 
 Instructions:
-- Decide whether a workflow is warranted. If the task is simple, say so and proceed normally.
-- If warranted, use the dynamic_workflow tool to inspect the template, create or reuse a project workflow, and run it with explicit concurrency/maxAgents limits.
-- For long-running research/audit tasks in persistent sessions, prefer action=start and poll with action=runs/view instead of blocking the chat.
-- Use parallel subagents for independent exploration, verification, review, or research branches.
-- Keep expensive fan-out bounded; prefer read-only tools for audit/research subagents.
-- Persist intermediate state with ctx.writeArtifact() and synthesize a concise final answer with citations or file paths where relevant.`;
+- This is an explicit ultracode request. Do not merely describe workflows. Decide quickly, then either run/create a workflow or explain why the task fails the trivial gate.
+- Use the three-gate router: trivial gate -> scout inline first -> orchestrate only for exhaustiveness, confidence, or scale.
+- If warranted, use the dynamic_workflow tool in this turn: inspect the pattern catalog/template, then create a fresh task-specific project workflow with action=write, preferably under generated/<task-slug>, and launch it in background with explicit concurrency/maxAgents limits. Treat it as a disposable draft unless the user asks to keep/promote it. Reuse an existing workflow only when it exactly matches the task; examples are references, not the default path.
+- If the task itself is to design a workflow, improve prompts/contracts, or decide the right orchestration shape, prefer the workflow-factory pattern: create/run a generated workflow-factory draft with {task, write:true}; inspect its generated-workflow.js/review artifacts before running the produced workflow.
+- Workflows launched from persistent TUI/RPC sessions must run in background: use action=start (or action=run, which the extension backgrounds there), then inspect with action=runs/view. Use action=run only as the print/non-persistent fallback where background is unavailable.
+- Choose concurrency dynamically from the discovered work-list and ctx.limits; do not hardcode 4 unless it is the safe fallback.
+- Use settling fan-out for large panels, log partial failures/caps, restrict audit/research subagents to read-only tools, persist artifacts, and synthesize with citations/evidence.`;
 }
 
 function makeAlwaysOnUltracodeSystemPrompt(): string {
@@ -3503,15 +6090,29 @@ For every substantive task, silently run this decision before choosing an approa
 3. Orchestrate only for a reason. After scouting, prefer dynamic_workflow only when one holds: exhaustiveness (many independent items in parallel), confidence (independent perspectives + adversarial verification before committing), or scale (more context than one window holds: migrations, audits, broad sweeps, long-running work with checkpoints). Else stay single-agent.
 4. Scale to the ask. Light ("find some", "quick check") -> small fan-out (~3-5) + light synthesis. Heavy ("audit thoroughly", "be exhaustive") -> larger pool + adversarial reviewers/judges + synthesis, repeating only when the work-list is still yielding new findings.
 
-When a workflow is warranted: scout inline, then use ctx.agents(items,{concurrency}) for one independent step per item; use ctx.pipeline(items,...stages) by default when each item needs multiple dependent steps and no cross-item merge; use ctx.agents(items,{concurrency,settle:true}) when a large fan-out should keep going and return null for failed branches; use ctx.parallel([async()=>...]) only for true barriers where a later step needs all branch results at once (global dedup/merge, early-exit when total is zero, cross-branch ranking). Include a stable item id/index in prompts that pipeline stages generate. Filter nulls, log how many branches failed, keep fan-out bounded by ctx.limits.concurrency, use read-only tools or agentType:"reviewer"/"researcher" for audit/research subagents, and ctx.log() any coverage cap instead of capping silently.
+When a workflow is warranted: dynamically create a task-specific project workflow rather than relying on canned examples, preferably under generated/<task-slug> as a disposable draft, then launch it in background in persistent TUI/RPC sessions (action=start; action=run is only the print/non-persistent fallback). If the task is to design/improve a workflow or prompts/contracts, use the workflow-factory pattern first so a workflow generates the task-specific workflow with review artifacts. After it succeeds, tell the user the path and offer to keep/promote it if useful. Then use ctx.agents(items,{concurrency}) for one independent step per item; use ctx.pipeline(items,...stages) by default when each item needs multiple dependent steps and no cross-item merge; use ctx.agents(items,{concurrency,settle:true}) when a large fan-out should keep going and return null for failed branches; use ctx.parallel([async()=>...]) only for true barriers where a later step needs all branch results at once (global dedup/merge, early-exit when total is zero, cross-branch ranking); use ctx.workflow(name,input) for reusable sub-steps with no decision gate (depth 1, shared run budget/cache). Include a stable item id/index in prompts that pipeline stages generate. Filter nulls, log how many branches failed, keep fan-out bounded by ctx.limits.concurrency, use read-only tools or agentType:"reviewer"/"researcher" for audit/research subagents, and ctx.log() any coverage cap instead of capping silently.
 
-Use ctx.agent(prompt,{schema}) when a branch must return machine-readable JSON; read result.data/result.schemaOk and set schemaOnInvalid:"null" when you want settling semantics. Use agentType:"explore"|"reviewer"|"planner"|"implementer"|"researcher" as persona defaults, with explicit caller options overriding them.
+Use ctx.agent(prompt,{schema}) when a branch must return machine-readable JSON; read result.data/result.schemaOk and set schemaOnInvalid:"null" when you want settling semantics. Use agentType:"explore"|"reviewer"|"planner"|"implementer"|"researcher" as persona defaults, with explicit caller options overriding them. Scope each subagent's access with tools/excludeTools, skills/includeSkills, extensions/includeExtensions, and keys/env; never put secret values in prompts.
 
 Mention the routing decision only when it affects the plan, cost, latency, or user expectations.`;
 }
 
 function dynamicWorkflowToolAvailable(selectedTools: string[] | undefined): boolean {
 	return selectedTools?.includes("dynamic_workflow") ?? false;
+}
+
+function ensureDynamicWorkflowToolActive(pi: ExtensionAPI): boolean {
+	try {
+		const active = pi.getActiveTools?.();
+		if (!Array.isArray(active)) return false;
+		if (active.includes("dynamic_workflow")) return true;
+		const exists = pi.getAllTools?.().some((tool) => tool.name === "dynamic_workflow") ?? false;
+		if (!exists) return false;
+		pi.setActiveTools([...new Set([...active, "dynamic_workflow"])]);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function setUltracodeStatus(ctx: ExtensionContext, enabled: boolean): void {
@@ -3547,12 +6148,12 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		promptGuidelines: [
 			"Decide in three steps before orchestrating. (1) Trivial gate: if the task is conversational, single-step, or solvable with a few direct tool calls, answer normally — do NOT build a workflow. (2) Scout inline first: if it may be large, run a cheap probe inline (git ls-files, read the diff, grep/glob candidates) to discover the real work-list and size. (3) Orchestrate only for exhaustiveness (many independent items), confidence (independent perspectives + adversarial verification), or scale (more context than one window: migrations, audits, broad sweeps).",
 			"Scale effort to the ask. 'Find some' / 'quick check' -> small fan-out (~3-5) + light synthesis. 'Review this plan' -> a few perspective-diverse reviewers + synthesis-as-judge. 'Audit thoroughly' / 'be exhaustive' -> larger pool, adversarial checks per finding, synthesis, and another round only if new findings keep appearing.",
-			"Choose primitives by data dependency. Use ctx.agents(items,{concurrency}) for one independent step per item. Use ctx.pipeline(items,...stages) by default for >=2 dependent steps per item with no cross-item merge; include a stable item id/index in prompts generated inside stages. Use ctx.agents(items,{concurrency,settle:true}) for large fan-out or reviewer panels where one branch failure should return null. Use ctx.parallel([async()=>...]) only for a true barrier where a later step needs all branch results at once (dedup/merge, early-exit if total=0, cross-branch ranking).",
-			"Use ctx.agent(prompt,{schema}) when a subagent must return JSON; consume result.data/result.schemaOk and use schemaOnInvalid:'null' when invalid JSON should become a non-throwing branch result. Use agentType:'explore'|'reviewer'|'planner'|'implementer'|'researcher' for persona defaults; explicit options override the persona.",
+			"Choose primitives by data dependency. Use ctx.agents(items,{concurrency}) for one independent step per item. Use ctx.pipeline(items,...stages) by default for >=2 dependent steps per item with no cross-item merge; include a stable item id/index in prompts generated inside stages. Use ctx.agents(items,{concurrency,settle:true}) for large fan-out or reviewer panels where one branch failure should return null. Use ctx.parallel([async()=>...]) only for a true barrier where a later step needs all branch results at once (dedup/merge, early-exit if total=0, cross-branch ranking). Use ctx.workflow(name,input) for reusable sub-steps with no decision gate; sequence separate runs when a decision depends on prior output.",
+			"Use ctx.agent(prompt,{schema}) when a subagent must return JSON; consume result.data/result.schemaOk and use schemaOnInvalid:'null' when invalid JSON should become a non-throwing branch result. Use agentType:'explore'|'reviewer'|'planner'|'implementer'|'researcher' for persona defaults; explicit options override the persona. Scope each subagent's access with tools/excludeTools, skills/includeSkills, extensions/includeExtensions, and keys/env when it needs specific capabilities; never put secret values in prompts.",
 			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, ctx.log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them.",
 			"Never cap coverage silently. Whenever a workflow uses slice/head/top-N/sampling/no-retry or clamps concurrency to ctx.limits.concurrency, ctx.log() exactly what was excluded or clamped.",
-			"When creating a workflow, first request dynamic_workflow action=template or read an existing workflow, then write a clear JavaScript file under project scope and run it with explicit limits.",
-			"For long-running workflows in persistent TUI/RPC sessions, prefer dynamic_workflow action=start (or action=run with background=true), then inspect with action=runs/view and stop with action=cancel if needed.",
+			"When creating a workflow, prefer a fresh task-specific project workflow: request dynamic_workflow action=template to inspect the pattern catalog (optionally action=template name=<key> for a scaffold), write a clear JavaScript file with action=write under generated/<task-slug> as a disposable draft, then launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If the task is to design/improve a workflow or prompts/contracts, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name. Reuse existing workflows only when they exactly match the task; examples are references, not the default path.",
+			"Workflows in persistent TUI/RPC sessions always run in background: use dynamic_workflow action=start (or action=run, which the extension backgrounds there), then inspect with action=runs/view and stop with action=cancel if needed.",
 			"If a run was interrupted (state stale/failed/cancelled), use dynamic_workflow action=resume name=<runId> to continue it in place; completed subagent/bash calls are reused from the run journal and are not re-executed, so resuming is cheap. agent() output is cached by default (opt out with {cache:false}); bash() is cached only with {cache:true}. Calls whose arguments depend on Date.now()/Math.random() will not be cached and will re-run on resume.",
 			"Workflow scripts are trusted code. Keep subagent prompts scoped, use read-only tool lists for audit/research tasks, and persist intermediate outputs with ctx.writeArtifact().",
 			"Use dynamic_workflow action=graph to explain a workflow before running it, and action=view/runs to inspect execution timelines and artifacts after running it.",
@@ -3565,7 +6166,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("workflow", {
-		description: "Manage dynamic workflows: /workflow list|graph|runs|view|new|edit|run|start|resume|cancel|delete",
+		description: "Manage dynamic workflows: /workflow list|patterns|graph|runs|view|new|edit|run|start|resume|cancel|delete-run|delete",
 		handler: async (args, ctx) => await handleWorkflowCommand(pi, args, ctx),
 	});
 
@@ -3573,6 +6174,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		description: "Open the dynamic workflows monitor dashboard or pass through to /workflow",
 		handler: async (args, ctx) => await handleWorkflowsCommand(pi, args, ctx),
 	});
+
 
 	pi.registerShortcut(Key.ctrlAlt("w"), {
 		description: "Open dynamic workflows dashboard",
@@ -3587,6 +6189,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				notify(ctx, "Usage: /ultracode <task>", "warning");
 				return;
 			}
+			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; ultracode will only provide routing guidance.", "warning");
 			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode"));
 		},
 	});
@@ -3599,6 +6202,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				notify(ctx, "Usage: /deep-research <research question>", "warning");
 				return;
 			}
+			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; deep-research will only provide routing guidance.", "warning");
 			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "deep-research"));
 		},
 	});
@@ -3614,6 +6218,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			}
 			if (["on", "enable", "enabled", "true", "1"].includes(value)) {
 				ultracodeAlwaysOn = true;
+				ensureDynamicWorkflowToolActive(pi);
 				setUltracodeStatus(ctx, ultracodeAlwaysOn);
 				notify(ctx, "Ultracode always-on enabled: Pi will evaluate each task for workflow routing.", "info");
 				return;
@@ -3632,18 +6237,21 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		if (event.source === "extension") return;
 		const task = extractUltracodeTask(event.text);
 		if (!task) return;
+		ensureDynamicWorkflowToolActive(pi);
 		return { action: "transform" as const, text: makeUltracodePrompt(task, "ultracode"), images: event.images };
 	});
 
 	pi.on("before_agent_start", async (event) => {
 		if (!ultracodeAlwaysOn) return;
-		if (!dynamicWorkflowToolAvailable(event.systemPromptOptions.selectedTools)) return;
+		if (!dynamicWorkflowToolAvailable(event.systemPromptOptions.selectedTools) && !ensureDynamicWorkflowToolActive(pi)) return;
 		return {
 			systemPrompt: `${event.systemPrompt}\n\n${makeAlwaysOnUltracodeSystemPrompt()}`,
 		};
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
+		installWorkflowDashboardDownEditor(pi, ctx);
+		if (ultracodeAlwaysOn) ensureDynamicWorkflowToolActive(pi);
 		refreshActiveWorkflowStatus(ctx);
 		setUltracodeStatus(ctx, ultracodeAlwaysOn);
 	});

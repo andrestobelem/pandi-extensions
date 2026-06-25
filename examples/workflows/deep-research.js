@@ -1,3 +1,12 @@
+function chooseConcurrency(ctx, input, items, opts = {}) {
+  if (Number.isFinite(input?.concurrency)) {
+    return Math.min(Math.max(Math.floor(input.concurrency), 1), ctx.limits.concurrency, Math.max(1, items.length));
+  }
+  if (items.length <= 1) return 1;
+  if (opts.usesWeb) return Math.min(3, items.length, ctx.limits.concurrency);
+  return Math.min(4, items.length, ctx.limits.concurrency);
+}
+
 module.exports = async function workflow(ctx, input) {
   const question = input?.question ?? input?.q ?? input?.text;
   if (!question) throw new Error("Pass { question: \"...\" } as workflow input.");
@@ -8,20 +17,21 @@ module.exports = async function workflow(ctx, input) {
     "risks, gotchas, and migration concerns",
     "best current recommendation with evidence",
   ];
+  const concurrency = chooseConcurrency(ctx, input, angles, { usesWeb: true });
 
-  await ctx.log("Starting deep research", { question, angles });
+  await ctx.log("Starting deep research", { question, angles, concurrency });
 
   const research = await ctx.agents(
-    angles.map((angle) => ({
+    angles.map((angle, index) => ({
       name: `research-${String(angle).slice(0, 40)}`,
       prompt: `Research this question from the perspective of: ${angle}.
 
 Question: ${question}
 
-Pattern: independent research fan-out. Your answer must be useful even if other agents fail.
+Pattern: independent research fan-out. This is branch ${index + 1}/${angles.length}. Your answer must be useful even if other agents fail.
 
 Evidence rules:
-- Prefer official docs, primary sources, and repository evidence.
+- Prefer official docs, primary sources, repository evidence, and concrete observed behavior.
 - Cite URLs, files/lines, or commands only if actually used/observed.
 - Separate facts, interpretation, and open questions.
 - If evidence is insufficient, say INSUFFICIENT_EVIDENCE and explain what would be needed.
@@ -34,11 +44,15 @@ Output format:
 ## Recommendation for this angle`,
       tools: ["read", "grep", "find", "ls", "web_search"],
       includeExtensions: true,
+      agentType: "researcher",
       timeoutMs: input?.agentTimeoutMs ?? ctx.limits.agentTimeoutMs,
     })),
-    { concurrency: Math.min(input?.concurrency ?? ctx.limits.concurrency, ctx.limits.concurrency) },
+    { concurrency, settle: true },
   );
 
+  const completedResearch = research.filter(Boolean);
+  const failed = research.length - completedResearch.length;
+  await ctx.log("research fan-out complete", { total: research.length, completed: completedResearch.length, failed });
   await ctx.writeArtifact("research.json", research);
 
   const synthesis = await ctx.agent(
@@ -48,17 +62,22 @@ Pattern: synthesis-as-judge. Deduplicate, prefer primary evidence, mark uncertai
 
 Question: ${question}
 
+Coverage:
+- Angles requested: ${angles.length}
+- Completed branches: ${completedResearch.length}
+- Failed/empty branches: ${failed}
+
 Output format:
 1. Executive summary.
 2. Recommendation.
 3. Evidence/sources.
 4. Tradeoffs and alternatives.
 5. Risks/open questions.
-6. What to verify next.
+6. Coverage gaps and what to verify next.
 
 Research outputs:
-${ctx.compact(research, 90000)}`,
-    { name: "research-synthesis", tools: ["read", "grep", "find", "ls", "web_search"], includeExtensions: true, timeoutMs: input?.agentTimeoutMs ?? ctx.limits.agentTimeoutMs },
+${ctx.compact(completedResearch, 90000)}`,
+    { name: "research-synthesis", tools: ["read", "grep", "find", "ls", "web_search"], includeExtensions: true, agentType: "researcher", timeoutMs: input?.agentTimeoutMs ?? ctx.limits.agentTimeoutMs },
   );
 
   await ctx.writeArtifact("synthesis.md", synthesis.output);

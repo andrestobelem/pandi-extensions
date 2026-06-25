@@ -41,6 +41,7 @@ Pick by data dependency, not by aesthetics.
 2. **Two or more dependent steps PER item, with no cross-item merge?** `ctx.pipeline(items, ...stages)` — default for multi-stage work. Each item flows through all stages independently; failed items return `null`. Stage callbacks receive `(prevResult, originalItem, index)`.
 3. **Large fan-out or reviewer panel where one branch may fail?** `ctx.agents(items, { concurrency, settle: true })` — returns `null` for a failed branch instead of failing the whole batch. Filter nulls and `ctx.log()` how many failed.
 4. **A later step needs ALL branch results at once?** `ctx.parallel([async () => ..., async () => ...])` — a barrier over async thunks, locally bounded by `ctx.limits.concurrency`; failed thunks return `null`. Use only for global dedup/merge, early-exit when the total is zero, cross-branch ranking, or other true barriers.
+5. **Reusable sub-step with no decision gate?** `ctx.workflow(name, input)` — compose a sub-workflow inline, depth 1, sharing this run's `runDir`, agent budget, concurrency, abort signal, and resume journal/cache. Use `lib/<name>` for reusable contracts like claim verification. If you must inspect results before deciding the next phase, run separate workflows sequentially instead.
 
 **Barrier smell test:** `parallel -> transform-with-no-cross-item-dependency -> parallel` should be one `ctx.pipeline`. `map`/`filter`/formatting alone do not justify a barrier; dedup, merge, early-exit, and compare-against-others do.
 
@@ -49,6 +50,20 @@ Pick by data dependency, not by aesthetics.
 **Robustness is explicit:** settling variants make failures visible as `null`; synthesis prompts should mention failed, empty, stale, or timed-out branches instead of hiding them.
 
 **Loops:** wrap any primitive in loop-until-count (fixed N) or loop-until-dry (stop after K quiet rounds, dedupe by stable key) when discovery size is unknown.
+
+## Research-backed workflow patterns
+
+Map common agent papers/frameworks to Pi workflow design:
+
+- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.
+- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.
+- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.
+- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.
+- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.
+- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.
+- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.
+
+Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
 
 ## Structured output and personas
 
@@ -62,22 +77,32 @@ Options: `schemaRetries` (default `2`) retries with validation feedback; `schema
 
 Use `agentType` for persona defaults before cache-key computation: `explore`, `reviewer`, `planner`, `implementer`, `researcher`. Explicit options win; `appendSystemPrompt` is concatenated. Trusted projects may define `.pi/personas/<name>.json` with persona defaults.
 
+Per-agent access is explicit: pass `tools`/`excludeTools` to scope Pi tools, `skills: ["/path/to/skill"]` and `extensions: ["/path/to/extension.ts"]` to load only the needed skill/extension resources, and `keys: ["ENV_VAR_NAME"]` to expose only named environment keys to that subagent in an isolated environment (values are redacted in artifacts). Use `includeSkills: true` / `includeExtensions: true` only when you intentionally want normal discovery in addition to explicit paths. Use `env: { NAME: "value" }` only for non-prompt secrets you intentionally inject; prefer env var names and never write secret values into prompts. Cache keys redact credential values, so use `{ cache: false }` when a branch depends on a rotated/exact secret value.
+
 ## Core Tool and Commands
 
-Use the `dynamic_workflow` tool. The extension also runs an always-on ultracode router by default: for each substantive task, Pi should evaluate whether a dynamic workflow is warranted and proceed normally for simple tasks. Users can explicitly invoke `/ultracode <task>`, `/deep-research <question>`, or start a message with `ultracode ...` to request this workflow style. Use `/ultracode-mode status|on|off` to inspect or toggle the always-on router for the current session. Visualization commands are available via the `/workflows` TUI dashboard (also `Ctrl+Alt+W`), `/workflow graph <name>`, `/workflow runs`, and `/workflow view [latest|runId]`.
+Use the `dynamic_workflow` tool. The extension also runs an always-on ultracode router by default: for each substantive task, Pi should evaluate whether a dynamic workflow is warranted and proceed normally for simple tasks. Users can explicitly invoke `/ultracode <task>`, `/deep-research <question>`, or start a message with `ultracode ...` to request this workflow style. In persistent TUI/RPC sessions, workflows always launch in background (`action:"start"`, and `action:"run"`/`"resume"` are backgrounded by the extension); `run` is foreground only as a print/json fallback. Use `/ultracode-mode status|on|off` to inspect or toggle the always-on router for the current session. Visualization commands are available via the `/workflows` TUI dashboard (also `Ctrl+Alt+W`, or `↓` when the editor cannot move further down; includes Monitor, Agents, Runs, Workflows, Patterns, and Activity tabs; Patterns is a scaffold catalog with Enter/n to create an editable project workflow draft; Monitor/Agents show current parallel agent count `actual/concurrency`, peak, selectable live agent execution/prompt/status detail, marks agents from the same `ctx.agents(...)` phase as `P<phase> 1/n`, supports `c`/`x` to cancel active runs with confirmation, `d`/Delete in Monitor/Agents/Runs/Activity to delete inactive run artifacts, and `d`/Delete in Workflows to delete a workflow file), `/workflow patterns` (opens the catalog directly in TUI or prints it outside TUI), `/workflow graph <name>` (larger inline Mermaid PNG via `mmdc` when terminal images are supported; static diagrams show `ctx.agents(...)` fan-out as `P1 ×items.length` with visible worker nodes/ellipsis/join, plus pipeline lanes and parallel branches; fallback text/Mermaid export), `/workflow runs`, and `/workflow view [latest|runId]`.
 
 If a run was interrupted (state `stale`, `failed`, or `cancelled`), resume it in place with `dynamic_workflow({ action: "resume", name: "<runId>" })` (or `/workflow resume <runId>`). Completed subagent and bash calls are read from the run journal and are not re-executed, so resuming is cheap. `ctx.agent()` is cached by default (opt out with `{ cache: false }`); `ctx.bash()` is cached only with `{ cache: true }`. Calls whose arguments depend on `Date.now()`/`Math.random()` will not match the cache and will re-run on resume.
 
 Typical loop:
 
-1. `dynamic_workflow({ action: "template" })` to inspect the workflow API.
-2. Write a project workflow with `action: "write"`, usually under `scope: "project"`.
-3. Run it with `action: "run"` and explicit `input`, `concurrency`, and `maxAgents`.
+1. `dynamic_workflow({ action: "template" })` to inspect the pattern catalog (or `action:"template", name:"<key>"` for one scaffold).
+2. Dynamically write a task-specific project workflow with `action: "write"`, usually under `generated/<task-slug>` in project scope. Use existing workflows/examples only as references unless one exactly matches the task.
+3. Launch it in background with `action: "start"` and explicit `input`, `concurrency`, and `maxAgents` (in TUI/RPC, `action:"run"` is also backgrounded; in print/json it is the foreground fallback).
 4. Inspect execution with `dynamic_workflow({ action: "view", name: "latest" })` or read artifacts from the reported run directory.
-5. Synthesize the final answer from workflow output and artifacts.
+5. Synthesize the final answer from workflow output and artifacts, then tell the user the generated workflow path and offer to keep/promote/delete it.
+
+If the user likes a generated workflow, promote it by reading `generated/<task-slug>` and writing the same code, cleaned/generalized if needed, to a stable name such as `<domain>-audit` or `<team>-research`. If they do not want it, delete the generated draft.
 
 ## Workflow Patterns
 
+Dynamic workflows should be generated for the concrete task after scouting. Do not treat checked-in examples as canned jobs; treat them as pattern references. Generated workflows are drafts by default; keep/promote them only when the user likes the result or wants reuse.
+
+The pattern catalog is visible in TUI (`/workflows` → Patterns or `/workflow patterns`) and from the tool (`dynamic_workflow action=template`). It lists aliases and concrete use cases. Key patterns include: default/fanout-synthesize, scout-fanout/pipeline/classify-act, loop-until-dry, multi-modal-sweep, adversarial-verify, completeness-critic, judge-escalate/judge-panel/generate-filter, tournament, tree-of-thoughts, self-consistency, self-repair, plan-and-execute, router, deep-research, repo-bug-hunt, adversarial-plan-review, workflow-factory, composition-driver, and verify-claims-lib.
+
+- **Workflow factory / meta-workflow**: for a complex user task, first run `workflow-factory` with `{ task, write:true }`; it designs prompts/contracts, generates a task-specific workflow draft under `generated/<slug>`, reviews it, and leaves inspectable artifacts.
+- **Composition**: use `composition-driver` + `verify-claims-lib` as examples of `ctx.workflow("lib/verify-claims", args)` when a reusable sub-step needs no decision gate.
 - **Fan-out and synthesize**: split files/topics among subagents, then run a synthesis subagent.
 - **Classify and act**: classify many items, then run targeted follow-ups only on high-signal items.
 - **Adversarial verification**: have independent agents critique/verify a plan or patch.
@@ -112,11 +137,12 @@ module.exports = async function workflow(ctx, input) {
 
 Useful helpers:
 
-- `ctx.agent(prompt, options)` — run one Pi subagent; supports `schema`, `schemaRetries`, `schemaOnInvalid`, and `agentType`.
+- `ctx.agent(prompt, options)` — run one Pi subagent; supports `tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `includeExtensions`, `keys`, `env`, `schema`, `schemaRetries`, `schemaOnInvalid`, and `agentType`.
 - `ctx.agents(items, { concurrency })` — run many subagents with bounded concurrency.
 - `ctx.agents(items, { concurrency, settle: true })` — keep a fan-out running when one branch fails; failed branches return `null` and should be logged/filtered.
 - `ctx.pipeline(items, ...stages)` — multi-stage per-item flow without global barriers; failed items return `null`.
 - `ctx.parallel([async () => ...])` — worker-side barrier for arbitrary async branches; bounded by `ctx.limits.concurrency`, returns `null` per failed thunk.
+- `ctx.workflow(name, input)` — compose a reusable sub-workflow inline (depth 1, shared limits/abort/cache/runDir); emits workflow events.
 - `ctx.bash(command)` — run shell commands.
 - `ctx.readFile`, `ctx.writeFile`, `ctx.appendFile`, `ctx.listFiles` — file helpers confined to the workflow cwd.
 - `ctx.writeArtifact(name, data)` — persist intermediate state in the run directory.
@@ -129,6 +155,7 @@ Useful helpers:
 - Workflows are trusted JavaScript and can spawn many model calls.
 - Keep `maxAgents` and `concurrency` explicit.
 - For audits/research, restrict subagents to read-only tools: `tools: ["read", "grep", "find", "ls"]`.
+- For skills/extensions/credentials, grant only what each subagent needs, e.g. `skills: ["/path/to/skill"]`, `extensions: ["/path/to/ext.ts"]`, `keys: ["GITHUB_TOKEN"]`; dashboards/artifacts show names/paths and missing keys, never secret values.
 - Avoid `bash` unless the workflow genuinely needs shell/web access.
 - Keep subagent prompts narrow and require line/file citations when relevant.
 - Prefer explicit prompt contracts over vague requests: role, evidence rules, output format, confidence, and what to do when blocked.

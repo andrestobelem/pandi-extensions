@@ -4,6 +4,8 @@ Fecha: 2026-06-25
 Estado base: `extensions/dynamic-workflows.ts` (2945 líneas, commit `9ea1924`, con resume/idempotencia ya implementado).
 Método: workflow de auditoría + feasibility contra el SDK real de pi (`node_modules/@earendil-works/*`, `pi --help`) + diseño por feature + síntesis (14 subagentes).
 
+> Actualización de implementación (2026-06-25): el estado base de este plan es histórico. En el árbol actual ya están implementados `agents({settle:true})`, `ctx.parallel`, `ctx.pipeline`, `agent({schema})`, `agentType`, `--mode json`, runs background/resume, dashboard TUI monitor-first y el router ultracode always-on que instruye crear workflows dinámicos bajo `generated/<slug>`. Siguen fuera de este corte `ctx.workflow()`, budget tokens/coste, aislamiento por worktree y determinismo estricto. La verificación local canónica es `npm test`; además se smokeó un workflow generado `generated/runtime-smoke` con `run` y `start`.
+
 ## Contexto
 
 Tras implementar runs reanudables/idempotentes, el objetivo es llevar la extensión a paridad con
@@ -98,8 +100,9 @@ agentes ya completados en resume** (pérdida de tokens/trabajo).
   compartido con F: cambia el stdout → hay que reconstruir `output` desde el último assistant message o se rompe
   `.output` de todos los workflows. `ctx.budget` síncrono via espejo en el worker; acumulador persistido (`baseSpent`).
 - **P2.2 — guardas determinismo (E).** Capa 1 (aditiva, siempre on): `ctx.now()/random()/uuid()` sembrados por
-  `sha256(runId)`. Capa 2 (opt-in `determinism:'off'|'seed'|'strict'`, default off): PRELUDE en el vm que reemplaza
-  `Date`/`Math.random`/`crypto`. Reusar `started` original en resume como epoch base.
+  `sha256(runId)`. Capa 2 (`determinism:'off'|'seed'|'strict'`, **default `'seed'`**): PRELUDE en el vm que
+  reemplaza `Date`/`Math.random`/`crypto` por las versiones sembradas; `'off'` restaura los globales reales
+  (opt-out). Reusar `started` original en resume como epoch base.
 - **P2.3 — workflow() sub-workflows (H).** Refactor `executeWorkflowCode` → `spawnWorkflowWorker(code,input,api,...)`;
   el hijo comparte la misma `api` (semáforo/journal/abort gratis). Añadir `workflow` a `allowedMethods`; guard
   `depth<=1` host-side; `occNamespace` para no colisionar journal padre/hijo.
@@ -107,17 +110,28 @@ agentes ya completados en resume** (pérdida de tokens/trabajo).
   = worktree; cleanup en el `finally` de `runWorkflow`. Trampa única: excluir `isolation*` de la cache-key en
   `sanitizeAgentOpts` o el path efímero envenena el resume.
 
-## 4. Decisiones abiertas (requieren tu input antes de P1/P2)
+## 4. Decisiones resueltas
 
-1. **Retorno de structured output (F):** ¿`SubagentResult.data` poblado (consistente con la API actual) o azúcar
-   `ctx.agentData(prompt,{schema})` que devuelve el objeto directo (paridad estricta)? *Recomendación: lo primero + azúcar opcional.*
-2. **Validador (F):** TypeBox `Value.Check` cubre un subset de JSON Schema (`oneOf`/`$ref`/`formats` flojos).
-   ¿Subset documentado o sumar `ajv` (nueva dep)?
-3. **`--mode json` global vs gated (F+G):** cambia el stdout de TODOS los subagentes. ¿Gate detrás de flag o migrar
-   todo y reconstruir `output` siempre?
-4. **Ubicación de worktrees (I):** `.pi/workflow-runs/` (gitignored, riesgo de anidar repos) vs `os.tmpdir()`.
-   *Recomendación: tmpdir.*
-5. **Default de `determinism` (E):** `'off'` mantiene compat total; ¿empujar `'seed'` como default a futuro?
+Resueltas con evidencia del SDK real (workflow `resolve-decisions`: D1/D2/D3/D6 con tests empíricos de typebox y `pi -p --mode json`; D4/D5 cerradas por análisis). Todas con default accionable.
+
+| id | Decisión | Resolución | Confianza |
+|---|---|---|---|
+| D1 | Retorno de structured output | **`SubagentResult.data?` + `.schemaOk?`** (sin `ctx.agentData` aún; agregable después sin romper tipos) | alta |
+| D2 | Validador de schema | **typebox `Value.Check` (sin `ajv`)**; documentar subset; `allOf`→Intersect, `oneOf`→Union, `Not`→Exclude | alta |
+| D3 | `--mode json` global vs gated | **Migrar TODO** + reconstruir `.output` (concatenar `text` del último assistant); bump `JOURNAL_VERSION` | alta |
+| D4 | Ubicación de worktrees | **`os.tmpdir()/pi-wf-<runId>/`** (fuera del repo); cleanup `git worktree remove --force` en `finally` | alta |
+| D5 | Default de determinismo | Capa 1 (`ctx.now/random/uuid` sembrados) siempre on; Capa 2 (freeze `Date`/`Math`) **default `'seed'`** (opt-out `'off'`) | alta |
+| D6 | Eval de sub-workflows | **HOST eval** con ctx-hijo que reusa semáforo/journal/agentCount/signal (NO anidar Worker) | alta |
+
+**Fundamento:**
+- **D1 — `.data` en `SubagentResult`.** Un solo tipo de resultado → cohesión; `ctx.agents()` funciona sin variante; el journal persiste `data` sin cambios; workflows sin schema ignoran `.data` null. `ctx.agentData()` queda como azúcar opcional posterior.
+- **D2 — typebox solo.** Tests empíricos: `Value.Check` cubre objects/arrays/enums/unions/`$ref`/format/pattern/if-then-else/nested/Tuple; ~2-4× más rápido que ajv; ya es dependencia. Los huecos (allOf/oneOf/Not puros, dynamicRef/unevaluatedItems de 2020-12) se evitan refactorizando o no aparecen en structured output típico.
+- **D3 — migrar todo a `--mode json`.** Prerequisito de F y G; gatearlo crea dos caminos (deuda + falso cache-hit por flag). `.output` se reconstruye filtrando `agent_end` → concatenar `content[type=text].text` (verificado: idéntico al baseline). `.output` NO entra en la cache-key → seguro en resume. *Es el cambio más transversal: re-testear los ejemplos.*
+- **D4 — worktrees en `os.tmpdir()`.** Fuera del árbol trackeado → sin riesgo de anidar repos ni depender de `.gitignore`; `git worktree add --detach <tmp>`; cleanup best-effort en el `finally` de `runWorkflow`; excluir `isolation*` de la cache-key (`sanitizeAgentOpts`).
+- **D5 — determinismo default `'seed'`.** Determinista por defecto (como Claude, que directamente deshabilita `Date.now`/`Math.random`): la Capa 2 congela `Date`/`Math.random`/`crypto` en el sandbox con valores sembrados por `runId`, así el resume es 100% cache-hit barato sin pedirle nada al autor. Escape hatch `determinism:'off'` para workflows que necesiten reloj/azar real, más `ctx.unsafeNow()/ctx.unsafeRandom()` para usos puntuales. Caveat: un workflow que timestampee con la hora real verá el reloj lógico salvo que opte por `'off'`.
+- **D6 — HOST eval.** El semáforo (closures/Promesas) y el journal/`occCounters` (Maps en memoria host) **no son serializables** a un Worker; anidar fragmentaría el presupuesto (`maxAgents` del padre y del hijo no se sincronizan → violación) y el cache. HOST eval con ctx-hijo (mismos semáforo/journal/agentCount/signal, sin `workflow()` → depth-1), namespace en `computeCallKey` contra falso cache-hit, y Set de nombres en curso contra ciclos. Workflows son trusted → evaluar fuera del sandbox del Worker padre es aceptable.
+
+> **Quedan para tu visto bueno** solo si querés algo distinto: **D3** (migración global a `--mode json` ⇒ re-test de ejemplos). D5 quedó en **default `'seed'`** (determinista por defecto, opt-out `'off'`) por tu indicación. El resto se cierra por el análisis.
 
 ## 5. Riesgos técnicos
 
