@@ -19,14 +19,15 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "tsc --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext extensions/dynamic-workflows.ts extensions/loop.ts extensions/goal.ts extensions/plan.ts"
+    "test": "tsc --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext extensions/dynamic-workflows.ts extensions/loop.ts extensions/goal.ts extensions/plan.ts extensions/compaction-progress.ts"
   },
   "pi": {
     "extensions": [
       "./extensions/dynamic-workflows.ts",
       "./extensions/loop.ts",
       "./extensions/goal.ts",
-      "./extensions/plan.ts"
+      "./extensions/plan.ts",
+      "./extensions/compaction-progress.ts"
     ],
     "skills": [
       "./skills"
