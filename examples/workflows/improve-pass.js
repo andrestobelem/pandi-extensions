@@ -16,10 +16,10 @@
  *
  * input: { allow?: string[] (glob-ish paths editable, default our extensions+examples+docs),
  *          avoid?: string[] (paths to treat as hot/off-limits, e.g. ["extensions/dynamic-workflows.ts"]),
- *          log?: string (progress-log path, default docs/investigaciones/loop-mejora-continua.md) }
+ *          log?: string (progress-log path, default docs/investigaciones/continuous-improvement-log.md) }
  */
 module.exports = async function workflow(ctx, input) {
-  const log = input?.log ?? "docs/investigaciones/loop-mejora-continua.md";
+  const log = input?.log ?? "docs/investigaciones/continuous-improvement-log.md";
   const avoid = input?.avoid ?? ["extensions/dynamic-workflows.ts"];
   const allow = input?.allow ?? ["extensions/loop.ts", "extensions/goal.ts", "extensions/plan.ts", "examples/**", "docs/**"];
   const concurrency = Math.min(input?.concurrency ?? ctx.limits.concurrency, ctx.limits.concurrency);
