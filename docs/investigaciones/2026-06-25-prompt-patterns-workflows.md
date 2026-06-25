@@ -34,6 +34,7 @@ Aplicar lo aprendido sobre patrones de workflows agénticos a los prompts usados
 - `README.md`: sección “Patrones de prompts recomendados”.
 - `skills/dynamic-workflows/SKILL.md`: sección “Prompting Patterns”.
 - `docs/memoria.md`: preferencia persistente.
+- `docs/investigaciones/2026-06-25-karpathy-programming-recommendations.md`: síntesis recuperada de Karpathy como criterio de prompts/workflows.
 
 ## Decisiones
 

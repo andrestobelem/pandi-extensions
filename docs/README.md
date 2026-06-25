@@ -10,6 +10,8 @@ Este directorio guarda el historial de trabajo, decisiones, workflows creados y 
 - [Configuración local de Pi](./configuracion-pi.md)
 - [Investigación: ultracode always-on](./investigaciones/2026-06-25-ultracode-always-on.md)
 - [Mejora de prompts para workflows dinámicos](./investigaciones/2026-06-25-prompt-patterns-workflows.md)
+- [Recomendaciones de Andrej Karpathy para programar, aprender y usar IA](./investigaciones/2026-06-25-karpathy-programming-recommendations.md)
+- [Patrones agénticos y papers aplicables a Dynamic Workflows](./investigaciones/2026-06-25-patrones-agenticos-papers-workflows.md)
 - [Workflow: revisar estado actual](./workflows/revisar-estado-actual.md)
 - [Workflow: inventar mejor TUI de workflows](./workflows/inventar-mejor-tui-workflows.md)
 - [Conversación: 2026-06-25 - revisar estado actual](./conversaciones/2026-06-25-revisar-estado-actual.md)
