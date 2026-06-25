@@ -1,0 +1,35 @@
+{
+  "name": "pi-dynamic-workflows",
+  "version": "0.1.0",
+  "description": "Claude-style dynamic workflows for Pi: JavaScript orchestration scripts with parallel Pi subagents.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "dynamic-workflows",
+    "claude-code",
+    "subagents"
+  ],
+  "files": [
+    "extensions",
+    "skills",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/dynamic-workflows.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  }
+}
