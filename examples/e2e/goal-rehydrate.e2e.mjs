@@ -123,9 +123,15 @@ async function freshDefault(url) {
 	return mod.default;
 }
 
-// Let fire-and-forget async chains (`void beginIndependentVerification(...)`) settle.
-async function flush(predicate, tries = 50) {
+// Let fire-and-forget async chains (`void beginIndependentVerification(...)`) AND the
+// rehydrate catch-up tick settle. rehydrate arms the catch-up wake with `setTimeout(fireGoal, 0)`
+// (goal.ts: a due nextFireAt → remaining 0), so each poll iteration must yield to BOTH the timer
+// phase (setTimeout) and the check phase (setImmediate). Awaiting setImmediate alone can starve
+// the timer phase under load (e.g. when run sequentially via run-all.mjs), which made this suite
+// flaky: scenarios B/C (stale/verifying due catch-up) intermittently saw the tick not yet fired.
+async function flush(predicate, tries = 100) {
 	for (let i = 0; i < tries; i++) {
+		await new Promise((r) => setTimeout(r, 0));
 		await new Promise((r) => setImmediate(r));
 		if (predicate && predicate()) return;
 	}
@@ -297,6 +303,40 @@ async function verifyingIndependentReRunFailAtCapBlocks(goalUrl) {
 		"verifying-independent reload at cap never closes as done",
 		!built.states.some((st) => st.goalId === s.goalId && st.gstatus === "done"),
 	);
+}
+
+// A goal recovered into `verifying-independent` re-runs the verifier OUT of the model turn. If
+// the model fires goal_progress while that re-run is in flight, it must be IGNORED (the verdict,
+// not the re-entrant report, decides) — otherwise the re-entry would flip gstatus and the
+// liveness guard would discard the in-flight verdict (the MEDIO bug, here on the RELOAD path).
+// We gate the re-run verifier in flight, poke goal_progress, then release: the verdict closes it.
+async function verifyingIndependentReloadIgnoresReentry(goalUrl) {
+	let release;
+	const gate = new Promise((r) => {
+		release = r;
+	});
+	const exec = async () => {
+		await gate;
+		return { code: 0, killed: false, stdout: "Criterion 1: PASS.\nVERDICT: PASS", stderr: "" };
+	};
+	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
+	const { ctx, built } = await rehydrateFrom(goalUrl, [entry(s)], { execImpl: exec });
+
+	// Re-run launched and gated → goal parked in verifying-independent.
+	check("reload re-spawns the verifier once (in flight)", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
+	check("reloaded goal sits in verifying-independent before re-entry", lastStatusFor(built.states, s.goalId) === "verifying-independent", `last=${lastStatusFor(built.states, s.goalId)}`);
+
+	const progress = built.tools.get("goal_progress");
+	if (!progress) throw new Error("goal_progress tool not registered");
+	const r = await progress.execute("tcReload", { status: "done", assessment: "racing the re-run verifier on reload" }, undefined, undefined, ctx);
+	check("re-entrant goal_progress during reloaded verification is ignored", r?.details?.ignored === true, JSON.stringify(r?.details));
+	check("re-entry does NOT change gstatus (stays verifying-independent)", lastStatusFor(built.states, s.goalId) === "verifying-independent", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check("re-entry does NOT spawn a second verifier", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
+
+	// Release the gated re-run: its PASS — not the discarded re-entry — closes the goal.
+	release();
+	await flush(() => lastStatusFor(built.states, s.goalId) === "done");
+	check("the reloaded verifier's verdict still closes the goal (done)", lastStatusFor(built.states, s.goalId) === "done", `last=${lastStatusFor(built.states, s.goalId)}`);
 }
 
 // ===========================================================================
@@ -488,6 +528,7 @@ async function main() {
 		await verifyingIndependentReRunsVerifierAndPasses(url);
 		await verifyingIndependentReRunFailDoesNotClose(url);
 		await verifyingIndependentReRunFailAtCapBlocks(url);
+		await verifyingIndependentReloadIgnoresReentry(url);
 		await staleResumesPursuing(url);
 		await verifyingResumesVerifying(url);
 		await terminalSnapshotsAreNotRecovered(url);

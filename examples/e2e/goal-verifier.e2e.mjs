@@ -478,6 +478,113 @@ async function verifierArgvIsReadOnly(goalUrl) {
 }
 
 // ===========================================================================
+// SCENARIO K: the SELF-CHECK cap (MAX_VERIFY_ATTEMPTS=3). A model that keeps declaring done
+// and then walking it back (done→verifying→continue, repeated) is ping-ponging without real
+// progress; after 3 failed completeness checks the goal must BLOCK rather than silently burn
+// the iteration budget. This is a DIFFERENT cap from the independent-verifier cap (Scenario B):
+// here every continue comes FROM verifying, so the independent verifier is NEVER spawned. The
+// assert that execCount===0 is what distinguishes the two caps.
+// ===========================================================================
+async function selfCheckCapBlocks(goalUrl) {
+	const goalExtension = await freshDefault(goalUrl);
+	const ctx = makeCtx();
+	let execCount = 0;
+	const built = makePi(() => {
+		execCount += 1;
+		return { code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" };
+	});
+	goalExtension(built.pi);
+	built.commands.get("goal").handler("ship it -- the tests pass", ctx);
+	const progress = built.tools.get("goal_progress");
+
+	// Three rounds of done(→verifying) then continue(→verifying fails the check). The 3rd
+	// continue hits the cap and blocks. No round ever sends done FROM verifying, so the
+	// independent verifier is never launched.
+	for (let round = 1; round <= 3; round++) {
+		await progress.execute(`tcKd${round}`, { status: "done", assessment: `Round ${round}: I think it's done.` }, undefined, undefined, ctx);
+		await progress.execute(`tcKc${round}`, { status: "continue", assessment: `Round ${round}: actually a gap remains.`, nextStep: "close the gap" }, undefined, undefined, ctx);
+	}
+	check("self-check cap (3 failed completeness checks) BLOCKS the goal", lastStatus(built.states) === "blocked", `last=${lastStatus(built.states)}`);
+	check("self-check ping-pong never closes as done", !built.states.some((s) => s.gstatus === "done"));
+	// Sanity check on the scenario's PREMISE (not a discriminator of the cap logic): every `done`
+	// here comes from `pursuing`, so the independent verifier — spawned only on done-FROM-verifying
+	// — is never invoked. This confirms K exercises the SELF-check cap path, not the independent one.
+	check("self-check cap sequence never invokes the independent verifier", execCount === 0, `execCount=${execCount}`);
+}
+
+// ===========================================================================
+// SCENARIO L: waitSeconds is CLAMPED inside execute() — never trusted from the model.
+// Absent / 0 / non-finite → immediate (0). A finite positive value is clamped to [60, 3600].
+// The observable is the tool's returned details {delaySeconds, clampedFrom}.
+// ===========================================================================
+async function waitSecondsIsClamped(goalUrl) {
+	const goalExtension = await freshDefault(goalUrl);
+	const ctx = makeCtx();
+	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
+	goalExtension(built.pi);
+	built.commands.get("goal").handler("keep going -- done when green", ctx);
+	const progress = built.tools.get("goal_progress");
+
+	// Each continue comes from pursuing (the goal never enters verifying here), so verifyAttempts
+	// stays 0 and the goal keeps iterating — we just read the clamp decision from each return.
+	const cont = async (waitSeconds) => {
+		const params = { status: "continue", assessment: "still working", nextStep: "next" };
+		if (waitSeconds !== undefined) params.waitSeconds = waitSeconds;
+		return progress.execute("tcL", params, undefined, undefined, ctx);
+	};
+	const below = await cont(5);
+	check("waitSeconds 5 clamps UP to 60", below?.details?.delaySeconds === 60, JSON.stringify(below?.details));
+	check("waitSeconds 5 reports clampedFrom=5", below?.details?.clampedFrom === 5, JSON.stringify(below?.details));
+	const above = await cont(99999);
+	check("waitSeconds 99999 clamps DOWN to 3600", above?.details?.delaySeconds === 3600, JSON.stringify(above?.details));
+	check("waitSeconds 99999 reports clampedFrom=99999", above?.details?.clampedFrom === 99999, JSON.stringify(above?.details));
+	const mid = await cont(120);
+	check("waitSeconds 120 passes through (in range)", mid?.details?.delaySeconds === 120 && mid?.details?.clampedFrom === undefined, JSON.stringify(mid?.details));
+	const zero = await cont(0);
+	check("waitSeconds 0 → immediate (0)", zero?.details?.delaySeconds === 0, JSON.stringify(zero?.details));
+	const nan = await cont(Number.NaN);
+	check("waitSeconds NaN → immediate (0), never trusted", nan?.details?.delaySeconds === 0, JSON.stringify(nan?.details));
+	const absent = await cont(undefined);
+	check("waitSeconds absent → immediate (0)", absent?.details?.delaySeconds === 0, JSON.stringify(absent?.details));
+}
+
+// ===========================================================================
+// SCENARIO M: the mode gate. Only TUI/RPC can sustain a goal (print is one-shot, json is
+// non-interactive). Starting /goal in those modes must be REFUSED — no goal persisted.
+// ===========================================================================
+async function modeGateRefusesNonInteractive(goalUrl) {
+	for (const mode of ["print", "json"]) {
+		const goalExtension = await freshDefault(goalUrl);
+		const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
+		const ctx = { ...makeCtx(), mode, hasUI: false };
+		goalExtension(built.pi);
+		await built.commands.get("goal").handler("do the thing -- it works", ctx);
+		check(`/goal is refused in ${mode} mode (no goal persisted)`, built.states.length === 0, `states=${built.states.length}`);
+	}
+}
+
+// ===========================================================================
+// SCENARIO N: the context-budget gate. fireGoal refuses to (continue to) work once context
+// usage crosses the cap (default 90%). A null percent (e.g. right after compaction) must NOT
+// cut. This pins the "stop and let the human /compact" behavior and the null-safety.
+// ===========================================================================
+async function contextBudgetGate(goalUrl) {
+	const startWithUsage = async (usage) => {
+		const goalExtension = await freshDefault(goalUrl);
+		const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
+		const ctx = { ...makeCtx(), getContextUsage: () => usage };
+		goalExtension(built.pi);
+		built.commands.get("goal").handler("big task -- complete", ctx);
+		return built.states;
+	};
+	check("context at 95% (≥ cap 90) stops the goal on start", lastStatus(await startWithUsage({ percent: 95 })) === "stopped", "expected stopped");
+	check("context EXACTLY at cap 90 stops on start (inclusive ≥ boundary)", lastStatus(await startWithUsage({ percent: 90 })) === "stopped", "expected stopped");
+	check("context percent=null does NOT cut (proceeds to pursuing)", lastStatus(await startWithUsage({ percent: null })) === "pursuing", "expected pursuing");
+	check("context usage undefined does NOT cut (proceeds to pursuing)", lastStatus(await startWithUsage(undefined)) === "pursuing", "expected pursuing");
+	check("context well under cap (50%) proceeds to pursuing", lastStatus(await startWithUsage({ percent: 50 })) === "pursuing", "expected pursuing");
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildExtension("goal");
 	try {
@@ -491,6 +598,10 @@ async function main() {
 		await reentryDuringVerifyIsIgnored(url);
 		await secondGoalIsRefused(url);
 		await verifierArgvIsReadOnly(url);
+		await selfCheckCapBlocks(url);
+		await waitSecondsIsClamped(url);
+		await modeGateRefusesNonInteractive(url);
+		await contextBudgetGate(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
