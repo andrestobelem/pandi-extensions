@@ -19,7 +19,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "tsc --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext extensions/dynamic-workflows.ts extensions/loop.ts extensions/goal.ts extensions/plan.ts"
+    "typecheck": "tsc --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext extensions/dynamic-workflows.ts extensions/loop.ts extensions/goal.ts extensions/plan.ts",
+    "test:e2e": "for f in examples/e2e/*.e2e.mjs; do echo \"› $f\" && node \"$f\" || exit 1; done",
+    "test": "npm run typecheck && npm run test:e2e"
   },
   "pi": {
     "extensions": [
