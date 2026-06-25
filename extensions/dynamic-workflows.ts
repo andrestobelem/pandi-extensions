@@ -20,6 +20,7 @@ import {
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { Value } from "typebox/value";
 import * as crypto from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
 import * as fs from "node:fs/promises";
@@ -43,7 +44,7 @@ const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
 
 // Resumable / idempotent runs: host-side content-address cache journal.
 const JOURNAL_FILE = "journal.jsonl";
-const JOURNAL_VERSION = 1;
+const JOURNAL_VERSION = 4;
 const MAX_JOURNALED_STREAM = 200_000;
 
 type WorkflowScope = "project" | "global";
@@ -104,11 +105,59 @@ interface AgentOptions {
 	systemPrompt?: string;
 	appendSystemPrompt?: string;
 	cache?: boolean;
+	agentType?: string;
+	schema?: unknown;
+	schemaRetries?: number;
+	schemaOnInvalid?: "throw" | "null";
 }
 
 interface AgentSpec extends AgentOptions {
 	prompt: string;
 }
+
+const READ_ONLY_AGENT_TOOLS = ["read", "grep", "find", "ls"];
+
+const BUILTIN_AGENT_PERSONAS: Record<string, AgentOptions> = {
+	explore: {
+		tools: READ_ONLY_AGENT_TOOLS,
+		thinking: "medium",
+		systemPrompt: "Explore broadly but stay evidence-based. Prefer read-only inspection, cite files/lines, and call out uncertainty.",
+	},
+	reviewer: {
+		tools: READ_ONLY_AGENT_TOOLS,
+		thinking: "high",
+		systemPrompt: "Act as a skeptical code reviewer. Look for correctness, security, concurrency, and maintainability risks. Do not edit files; cite concrete evidence.",
+	},
+	planner: {
+		tools: READ_ONLY_AGENT_TOOLS,
+		thinking: "high",
+		systemPrompt: "Act as a careful planner. Decompose the task, identify dependencies and risks, and propose a minimal verifiable plan with clear trade-offs.",
+	},
+	implementer: {
+		tools: READ_ONLY_AGENT_TOOLS,
+		thinking: "medium",
+		systemPrompt: "Act as an implementer designing a concrete patch. Prefer minimal changes, preserve existing behavior, and explain verification steps. Do not edit files unless explicitly allowed by the caller.",
+	},
+	researcher: {
+		tools: READ_ONLY_AGENT_TOOLS,
+		thinking: "high",
+		systemPrompt: "Act as a researcher. Gather independent evidence, compare alternatives, cite sources or files, and separate facts from assumptions.",
+	},
+};
+
+const PERSONA_OPTION_KEYS = new Set<keyof AgentOptions>([
+	"tools",
+	"excludeTools",
+	"model",
+	"provider",
+	"thinking",
+	"includeExtensions",
+	"approve",
+	"useContextFiles",
+	"systemPrompt",
+	"appendSystemPrompt",
+	"timeoutMs",
+]);
 
 interface SubagentResult {
 	id: number;
@@ -122,6 +171,8 @@ interface SubagentResult {
 	stdout: string;
 	stderr: string;
 	artifactPath: string;
+	data?: unknown;
+	schemaOk?: boolean;
 }
 
 interface BashResult {
@@ -223,6 +274,43 @@ interface ActiveWorkflowRun {
 
 const activeRuns = new Map<string, ActiveWorkflowRun>();
 
+class AsyncMutex {
+	private tail: Promise<void> = Promise.resolve();
+
+	async runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+		const previous = this.tail;
+		let release!: () => void;
+		this.tail = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await previous;
+		try {
+			return await fn();
+		} finally {
+			release();
+		}
+	}
+}
+
+const appendFileMutexes = new Map<string, AsyncMutex>();
+
+function mutexForAppendFile(filePath: string): AsyncMutex {
+	const key = path.resolve(filePath);
+	let mutex = appendFileMutexes.get(key);
+	if (!mutex) {
+		mutex = new AsyncMutex();
+		appendFileMutexes.set(key, mutex);
+	}
+	return mutex;
+}
+
+async function appendJsonLine(filePath: string, value: unknown): Promise<void> {
+	const file = path.resolve(filePath);
+	await mutexForAppendFile(file).runExclusive(async () => {
+		await fs.appendFile(file, `${safeJson(value, 0)}\n`, "utf8");
+	});
+}
+
 interface WorkflowRuntimeApi {
 	cwd: string;
 	runId: string;
@@ -231,7 +319,8 @@ interface WorkflowRuntimeApi {
 	limits: Readonly<RunLimits>;
 	log(message: string, details?: unknown): Promise<void>;
 	agent(prompt: string, options?: AgentOptions): Promise<SubagentResult>;
-	agents(items: Array<string | AgentSpec>, options?: AgentOptions & { concurrency?: number }): Promise<SubagentResult[]>;
+	agents(items: Array<string | AgentSpec>, options?: AgentOptions & { concurrency?: number; settle?: false }): Promise<SubagentResult[]>;
+	agents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle: true }): Promise<Array<SubagentResult | null>>;
 	bash(command: string, options?: { cwd?: string; timeoutMs?: number; throwOnError?: boolean; cache?: boolean }): Promise<BashResult>;
 	readFile(filePath: string, encoding?: BufferEncoding): Promise<string>;
 	writeFile(filePath: string, data: string | Uint8Array): Promise<{ path: string }>;
@@ -282,8 +371,10 @@ const WORKFLOW_TEMPLATE = [
 	" * Export a function: async function workflow(ctx, input) { ... }",
 	" *",
 	" * Useful ctx helpers:",
-	" * - ctx.agent(prompt, opts)        Run one Pi subagent",
-	" * - ctx.agents([...], opts)        Run many subagents with bounded concurrency",
+	" * - ctx.agent(prompt, opts)        Run one Pi subagent; opts can include schema or agentType",
+	" * - ctx.agents([...], opts)        Run many subagents with bounded concurrency; add {settle:true} for null-on-failure",
+	" * - ctx.pipeline(items, ...stages) Multi-stage per-item flow without global barriers; failed items return null",
+	" * - ctx.parallel([...thunks])      Run async branches with a barrier; failed branches return null",
 	" * - ctx.bash(command, opts)        Run a shell command",
 	" * - ctx.readFile/writeFile(...)    File helpers relative to the project cwd",
 	" * - ctx.writeArtifact(name, data)  Persist intermediate state under ctx.runDir",
@@ -353,6 +444,210 @@ function stringify(value: unknown, max = MAX_TOOL_TEXT): string {
 	} catch (err) {
 		return truncate(String(err), max);
 	}
+}
+
+function extractTextFromMessageContent(content: unknown): string | undefined {
+	if (typeof content === "string") return content;
+	if (Array.isArray(content)) {
+		const parts = content.map((part) => {
+			if (typeof part === "string") return part;
+			if (part && typeof part === "object") {
+				const record = part as Record<string, unknown>;
+				if ((record.type === "text" || record.type === undefined) && typeof record.text === "string") return record.text;
+			}
+			return "";
+		});
+		return parts.join("");
+	}
+	if (content && typeof content === "object") {
+		const record = content as Record<string, unknown>;
+		if ((record.type === "text" || record.type === undefined) && typeof record.text === "string") return record.text;
+	}
+	return undefined;
+}
+
+function extractAssistantTextFromMessage(message: unknown): string | undefined {
+	if (!message || typeof message !== "object") return undefined;
+	const record = message as Record<string, unknown>;
+	if (record.role !== "assistant") return undefined;
+	return extractTextFromMessageContent(record.content);
+}
+
+function parsePiJsonModeOutput(stdout: string): { ok: true; output: string } | { ok: false; warning: string } {
+	const lines = stdout.split(/\r?\n/).filter((line) => line.trim());
+	if (lines.length === 0) return { ok: false, warning: "empty JSON event stream" };
+	let lastAssistantText: string | undefined;
+	for (let i = 0; i < lines.length; i++) {
+		let event: unknown;
+		try {
+			event = JSON.parse(lines[i]!);
+		} catch (err) {
+			return { ok: false, warning: `invalid JSON event line ${i + 1}: ${err instanceof Error ? err.message : String(err)}` };
+		}
+		if (!event || typeof event !== "object") continue;
+		const record = event as Record<string, unknown>;
+		if (record.type === "agent_end" && Array.isArray(record.messages)) {
+			for (const message of record.messages) {
+				const textValue = extractAssistantTextFromMessage(message);
+				if (textValue !== undefined) lastAssistantText = textValue;
+			}
+			continue;
+		}
+		if (record.type === "turn_end" || record.type === "message_end" || record.type === "message_update") {
+			const textValue = extractAssistantTextFromMessage(record.message);
+			if (textValue !== undefined) lastAssistantText = textValue;
+		}
+	}
+	if (lastAssistantText === undefined) return { ok: false, warning: "no assistant text found in JSON event stream" };
+	return { ok: true, output: lastAssistantText.trim() };
+}
+
+function makeStructuredOutputSystemPrompt(schema: unknown): string {
+	return [
+		"You must respond with ONLY one valid JSON value that matches the JSON Schema below.",
+		"Do not include Markdown fences, prose, comments, or any text outside the JSON value.",
+		"If evidence is insufficient, still return a JSON value matching the schema and encode uncertainty inside the fields.",
+		"JSON Schema:",
+		safeJson(schema),
+	].join("\n");
+}
+
+function appendSystemPromptOption(options: AgentOptions, addition: string): AgentOptions {
+	return {
+		...options,
+		appendSystemPrompt: options.appendSystemPrompt ? `${options.appendSystemPrompt}\n\n${addition}` : addition,
+	};
+}
+
+function sanitizePersonaOptions(value: unknown): AgentOptions {
+	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Persona files must contain a JSON object.");
+	const source = value as Record<string, unknown>;
+	const out: AgentOptions = {};
+	for (const key of PERSONA_OPTION_KEYS) {
+		if (source[key] !== undefined) (out as Record<string, unknown>)[key] = source[key];
+	}
+	return out;
+}
+
+function mergePersonaOptions(persona: AgentOptions, options: AgentOptions): AgentOptions {
+	const appendSystemPrompt = [persona.appendSystemPrompt, options.appendSystemPrompt].filter((part): part is string => typeof part === "string" && part.length > 0).join("\n\n");
+	return {
+		...persona,
+		...options,
+		...(appendSystemPrompt ? { appendSystemPrompt } : {}),
+	};
+}
+
+function normalizePersonaName(agentType: string): string {
+	const name = agentType.trim();
+	if (!/^[a-zA-Z0-9._-]+$/.test(name)) throw new Error("agentType may only contain letters, numbers, '.', '_', and '-'.");
+	return name;
+}
+
+async function loadProjectPersona(ctx: ExtensionContext, agentType: string): Promise<AgentOptions | undefined> {
+	if (!ctx.isProjectTrusted()) return undefined;
+	const name = normalizePersonaName(agentType);
+	const file = path.join(ctx.cwd, CONFIG_DIR_NAME, "personas", `${name}.json`);
+	try {
+		return sanitizePersonaOptions(JSON.parse(await fs.readFile(file, "utf8")));
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+		throw new Error(`Failed to load persona ${agentType}: ${err instanceof Error ? err.message : String(err)}`);
+	}
+}
+
+async function applyPersonaOptions(ctx: ExtensionContext, options: AgentOptions): Promise<AgentOptions> {
+	if (!options.agentType) return { ...options };
+	const name = normalizePersonaName(options.agentType);
+	const projectPersona = await loadProjectPersona(ctx, name);
+	const persona = projectPersona ?? BUILTIN_AGENT_PERSONAS[name.toLowerCase()];
+	if (!persona) throw new Error(`Unknown agentType: ${options.agentType}`);
+	return mergePersonaOptions(persona, options);
+}
+
+function parseJsonText(textValue: string): { ok: true; data: unknown } | { ok: false; error: string } {
+	try {
+		return { ok: true, data: JSON.parse(textValue) };
+	} catch (err) {
+		return { ok: false, error: err instanceof Error ? err.message : String(err) };
+	}
+}
+
+function balancedJsonCandidate(textValue: string): string | undefined {
+	const starts = [textValue.indexOf("{"), textValue.indexOf("[")].filter((index) => index >= 0).sort((a, b) => a - b);
+	for (const start of starts) {
+		const stack: string[] = [];
+		let inString = false;
+		let escaped = false;
+		for (let i = start; i < textValue.length; i++) {
+			const ch = textValue[i]!;
+			if (inString) {
+				if (escaped) escaped = false;
+				else if (ch === "\\") escaped = true;
+				else if (ch === '"') inString = false;
+				continue;
+			}
+			if (ch === '"') {
+				inString = true;
+				continue;
+			}
+			if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]");
+			else if (ch === "}" || ch === "]") {
+				if (stack.pop() !== ch) break;
+				if (stack.length === 0) return textValue.slice(start, i + 1);
+			}
+		}
+	}
+	return undefined;
+}
+
+function extractJsonCandidate(output: string): { ok: true; data: unknown } | { ok: false; error: string } {
+	const trimmed = output.trim();
+	if (!trimmed) return { ok: false, error: "empty output" };
+	const direct = parseJsonText(trimmed);
+	if (direct.ok) return direct;
+	const fencePattern = /```(?:json)?\s*([\s\S]*?)```/gi;
+	for (const match of trimmed.matchAll(fencePattern)) {
+		const fenced = parseJsonText(match[1]!.trim());
+		if (fenced.ok) return fenced;
+	}
+	const balanced = balancedJsonCandidate(trimmed);
+	if (balanced) {
+		const parsed = parseJsonText(balanced);
+		if (parsed.ok) return parsed;
+		return { ok: false, error: `balanced JSON candidate did not parse: ${parsed.error}` };
+	}
+	return { ok: false, error: `could not parse JSON output: ${direct.error}` };
+}
+
+function formatSchemaValidationErrors(schema: unknown, data: unknown): string[] {
+	try {
+		const valueApi = Value as unknown as { Errors(schema: unknown, value: unknown): Iterable<unknown> };
+		const errors = [...valueApi.Errors(schema, data)].slice(0, 8);
+		return errors.map((error) => {
+			if (!error || typeof error !== "object") return String(error);
+			const record = error as Record<string, unknown>;
+			const location = record.path ?? record.instancePath ?? record.schemaPath ?? "";
+			const message = record.message ?? safeJson(record, 0);
+			return `${location ? `${location}: ` : ""}${String(message)}`;
+		});
+	} catch (err) {
+		return [`schema validation failed: ${err instanceof Error ? err.message : String(err)}`];
+	}
+}
+
+function validateStructuredData(schema: unknown, data: unknown): { ok: true } | { ok: false; errors: string[] } {
+	try {
+		const valueApi = Value as unknown as { Check(schema: unknown, value: unknown): boolean };
+		if (valueApi.Check(schema, data)) return { ok: true };
+		return { ok: false, errors: formatSchemaValidationErrors(schema, data) };
+	} catch (err) {
+		return { ok: false, errors: [`schema validation failed: ${err instanceof Error ? err.message : String(err)}`] };
+	}
+}
+
+function formatSchemaRetryPrompt(prompt: string, error: string): string {
+	return `${prompt}\n\nThe previous response did not match the required JSON schema. Return ONLY a corrected JSON value, with no Markdown or prose. Validation errors:\n${error}`;
 }
 
 function slugify(value: string): string {
@@ -582,8 +877,24 @@ async function mapLimit<T, R>(
 	concurrency: number,
 	signal: AbortSignal,
 	fn: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-	const results = new Array<R>(items.length);
+	options?: { onError?: "throw" },
+): Promise<R[]>;
+async function mapLimit<T, R>(
+	items: T[],
+	concurrency: number,
+	signal: AbortSignal,
+	fn: (item: T, index: number) => Promise<R>,
+	options: { onError: "null" },
+): Promise<Array<R | null>>;
+async function mapLimit<T, R>(
+	items: T[],
+	concurrency: number,
+	signal: AbortSignal,
+	fn: (item: T, index: number) => Promise<R>,
+	options: { onError?: "throw" | "null" } = {},
+): Promise<Array<R | null>> {
+	const results = new Array<R | null>(items.length);
+	const onError = options.onError ?? "throw";
 	let next = 0;
 	const workerCount = Math.min(Math.max(1, concurrency), items.length || 1);
 	await Promise.all(
@@ -592,7 +903,12 @@ async function mapLimit<T, R>(
 				throwIfAborted(signal);
 				const index = next++;
 				if (index >= items.length) return;
-				results[index] = await fn(items[index]!, index);
+				try {
+					results[index] = await fn(items[index]!, index);
+				} catch (err) {
+					if (signal.aborted || onError === "throw") throw err;
+					results[index] = null;
+				}
 			}
 		}),
 	);
@@ -802,6 +1118,60 @@ function send(type, payload) {
   }
 }
 
+async function parallel(thunks, concurrency) {
+  if (!Array.isArray(thunks)) throw new Error("parallel(thunks) expects an array of functions.");
+  const results = new Array(thunks.length).fill(null);
+  let next = 0;
+  const workerCount = Math.min(Math.max(1, Math.floor(concurrency || 1)), thunks.length || 1);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const index = next++;
+      if (index >= thunks.length) return;
+      const thunk = thunks[index];
+      if (typeof thunk !== "function") {
+        results[index] = null;
+        continue;
+      }
+      try {
+        results[index] = await thunk();
+      } catch {
+        results[index] = null;
+      }
+    }
+  }));
+  return results;
+}
+
+async function pipeline(items, concurrency, ...stagesAndOptions) {
+  if (!Array.isArray(items)) throw new Error("pipeline(items, ...stages) expects an array of items.");
+  if (items.length > 4096) throw new Error("pipeline() supports at most 4096 items per call; chunk the work-list explicitly.");
+  const maybeOptions = stagesAndOptions.length && typeof stagesAndOptions[stagesAndOptions.length - 1] === "object" && typeof stagesAndOptions[stagesAndOptions.length - 1] !== "function"
+    ? stagesAndOptions.pop()
+    : undefined;
+  const stages = stagesAndOptions;
+  if (stages.length === 0) return items.slice();
+  if (!stages.every((stage) => typeof stage === "function")) throw new Error("pipeline stages must be functions.");
+  const requested = maybeOptions && Number.isFinite(maybeOptions.inFlight) ? maybeOptions.inFlight : concurrency;
+  const inFlight = Math.min(Math.max(1, Math.floor(requested || 1)), Math.max(1, concurrency || 1), items.length || 1);
+  const results = new Array(items.length).fill(null);
+  let next = 0;
+  await Promise.all(Array.from({ length: inFlight }, async () => {
+    while (true) {
+      const index = next++;
+      if (index >= items.length) return;
+      const original = items[index];
+      try {
+        let value = original;
+        for (const stage of stages) value = await stage(value, original, index);
+        results[index] = value;
+      } catch {
+        results[index] = null;
+      }
+    }
+  }));
+  return results;
+}
+
 (async () => {
   const moduleObj = { exports: {} };
   const limits = Object.freeze({ ...workerData.limits });
@@ -814,6 +1184,8 @@ function send(type, payload) {
     log: (...args) => hostCall("log", args),
     agent: (prompt, options) => hostCall("agent", [prompt, options]),
     agents: (items, options) => hostCall("agents", [items, options]),
+    parallel: (thunks) => parallel(thunks, limits.concurrency),
+    pipeline: (items, ...stages) => pipeline(items, limits.concurrency, ...stages),
     bash: (command, options) => hostCall("bash", [command, options]),
     readFile: (filePath, encoding) => hostCall("readFile", [filePath, encoding]),
     writeFile: (filePath, data) => hostCall("writeFile", [filePath, data]),
@@ -853,6 +1225,8 @@ function send(type, payload) {
   };
 
   try {
+    sandbox.parallel = ctx.parallel;
+    sandbox.pipeline = ctx.pipeline;
     const context = vm.createContext(sandbox, { name: "pi-workflow:" + workerData.workflowName });
     const script = new vm.Script(workerData.code, { filename: workerData.filePath });
     script.runInContext(context, { timeout: limits.syncTimeoutMs });
@@ -1304,7 +1678,15 @@ async function loadJournal(runDir: string): Promise<JournalCache> {
 	} catch {
 		return cache;
 	}
+	const journalPath = path.join(runDir, JOURNAL_FILE);
 	const lines = body.split("\n");
+	let lastContentLine = -1;
+	for (let i = lines.length - 1; i >= 0; i--) {
+		if (lines[i]!.trim()) {
+			lastContentLine = i;
+			break;
+		}
+	}
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i]!;
 		if (!line.trim()) continue;
@@ -1312,7 +1694,9 @@ async function loadJournal(runDir: string): Promise<JournalCache> {
 		try {
 			record = JSON.parse(line) as JournalRecord;
 		} catch {
-			// Discard a malformed final line; treat any earlier malformed line as a skip.
+			// A crash can leave the final JSONL record torn; tolerate only that case.
+			if (i === lastContentLine) continue;
+			console.warn(`[dynamic-workflows] Ignoring malformed journal line ${i + 1} in ${journalPath}; resume cache may be incomplete.`);
 			continue;
 		}
 		if (!record || typeof record.key !== "string" || typeof record.occ !== "number" || !record.result) continue;
@@ -1324,7 +1708,24 @@ async function loadJournal(runDir: string): Promise<JournalCache> {
 }
 
 async function appendJournalRecord(runDir: string, record: JournalRecord): Promise<void> {
-	await fs.appendFile(path.join(runDir, JOURNAL_FILE), `${safeJson(record, 0)}\n`, "utf8");
+	await appendJsonLine(path.join(runDir, JOURNAL_FILE), record);
+}
+
+function normalizeSubagentResultForJournal(result: SubagentResult): SubagentResult {
+	return {
+		...result,
+		output: truncate(result.output, MAX_AGENT_OUTPUT_IN_RESULT),
+		stdout: truncate(result.stdout, MAX_JOURNALED_STREAM),
+		stderr: truncate(result.stderr, MAX_JOURNALED_STREAM),
+	};
+}
+
+function normalizeBashResultForJournal(result: BashResult): BashResult {
+	return {
+		...result,
+		stdout: truncate(result.stdout, MAX_JOURNALED_STREAM),
+		stderr: truncate(result.stderr, MAX_JOURNALED_STREAM),
+	};
 }
 
 // Highest agent id recorded in the journal. A count is NOT safe here: the
@@ -2179,7 +2580,7 @@ async function runWorkflow(
 	}
 
 	async function appendEvent(event: unknown): Promise<void> {
-		await fs.appendFile(path.join(runDir, "events.jsonl"), `${safeJson(event, 0)}\n`, "utf8");
+		await appendJsonLine(path.join(runDir, "events.jsonl"), event);
 	}
 
 	function makeStatus(statusState: WorkflowRunState = state, now = Date.now()): WorkflowRunStatus {
@@ -2239,11 +2640,15 @@ async function runWorkflow(
 
 	async function runSubagent(prompt: string, options: AgentOptions = {}): Promise<SubagentResult> {
 		throwIfAborted(runSignal.signal);
+		let effectiveOptions: AgentOptions = await applyPersonaOptions(ctx, options);
+		if (effectiveOptions.schema !== undefined) {
+			effectiveOptions = appendSystemPromptOption(effectiveOptions, makeStructuredOutputSystemPrompt(effectiveOptions.schema));
+		}
 		// Content-address cache. occ is assigned synchronously, in emission order,
 		// before any await, so it is deterministic under ctx.agents/mapLimit
 		// concurrency. agent() is cached by default; opt out with { cache: false }.
-		const cacheEnabled = options.cache !== false;
-		const key = computeCallKey("agent", [prompt, sanitizeAgentOpts(options)]);
+		const cacheEnabled = effectiveOptions.cache !== false;
+		const key = computeCallKey("agent", [prompt, sanitizeAgentOpts(effectiveOptions)]);
 		const occ = nextOcc(key);
 		if (cacheEnabled) {
 			const hit = journalLookup(key, occ) as SubagentResult | undefined;
@@ -2257,47 +2662,83 @@ async function runWorkflow(
 			throw new Error(`Workflow exceeded maxAgents=${runLimits.maxAgents}.`);
 		}
 		const id = ++agentCount;
-		const name = options.name ?? `agent-${id}`;
+		const name = effectiveOptions.name ?? `agent-${id}`;
 		const startedAt = Date.now();
 		await log(`agent ${id} start: ${name}`);
 
-		const args = ["-p", "--no-session"];
-		if (options.includeExtensions !== true) args.push("--no-extensions");
-		if (options.approve ?? ctx.isProjectTrusted()) args.push("--approve");
-		else args.push("--no-approve");
-		if (options.useContextFiles === false) args.push("--no-context-files");
-		if (options.provider) args.push("--provider", options.provider);
-		const model = options.model ?? (options.provider ? undefined : makeModelArg(ctx));
-		if (model) args.push("--model", model);
-		const thinking = options.thinking ?? pi.getThinkingLevel?.();
-		if (thinking) args.push("--thinking", String(thinking));
-		if (options.tools?.length) args.push("--tools", options.tools.join(","));
-		if (options.excludeTools?.length) args.push("--exclude-tools", options.excludeTools.join(","));
-		if (options.systemPrompt) args.push("--system-prompt", options.systemPrompt);
-		if (options.appendSystemPrompt) args.push("--append-system-prompt", options.appendSystemPrompt);
-		args.push(prompt);
+		function buildAgentArgs(attemptPrompt: string): string[] {
+			const args = ["-p", "--no-session", "--mode", "json"];
+			if (effectiveOptions.includeExtensions !== true) args.push("--no-extensions");
+			if (effectiveOptions.approve ?? ctx.isProjectTrusted()) args.push("--approve");
+			else args.push("--no-approve");
+			if (effectiveOptions.useContextFiles === false) args.push("--no-context-files");
+			if (effectiveOptions.provider) args.push("--provider", effectiveOptions.provider);
+			const model = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
+			if (model) args.push("--model", model);
+			const thinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
+			if (thinking) args.push("--thinking", String(thinking));
+			if (effectiveOptions.tools?.length) args.push("--tools", effectiveOptions.tools.join(","));
+			if (effectiveOptions.excludeTools?.length) args.push("--exclude-tools", effectiveOptions.excludeTools.join(","));
+			if (effectiveOptions.systemPrompt) args.push("--system-prompt", effectiveOptions.systemPrompt);
+			if (effectiveOptions.appendSystemPrompt) args.push("--append-system-prompt", effectiveOptions.appendSystemPrompt);
+			args.push(attemptPrompt);
+			return args;
+		}
 
 		const piCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi";
-		const release = await agentSemaphore.acquire();
-		let result;
-		try {
-			result = await pi.exec(piCommand, args, {
-				cwd: options.cwd ?? ctx.cwd,
-				timeout: options.timeoutMs ?? runLimits.agentTimeoutMs,
-				signal: runSignal.signal,
-			});
-		} finally {
-			release();
+		const schema = effectiveOptions.schema;
+		const schemaRetries = schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
+		const schemaOnInvalid = effectiveOptions.schemaOnInvalid ?? "throw";
+		let result: { code: number; killed: boolean; stdout: string; stderr: string } | undefined;
+		let output = "";
+		let schemaData: unknown;
+		let schemaOk: boolean | undefined;
+		let schemaError = "";
+
+		for (let attempt = 0; attempt <= schemaRetries; attempt++) {
+			const attemptPrompt = attempt === 0 ? prompt : formatSchemaRetryPrompt(prompt, schemaError);
+			if (attempt > 0) await log(`agent ${id} schema retry ${attempt}/${schemaRetries}: ${name}`, { error: schemaError });
+			const release = await agentSemaphore.acquire();
+			try {
+				result = await pi.exec(piCommand, buildAgentArgs(attemptPrompt), {
+					cwd: effectiveOptions.cwd ?? ctx.cwd,
+					timeout: effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs,
+					signal: runSignal.signal,
+				});
+			} finally {
+				release();
+			}
+			throwIfAborted(runSignal.signal);
+			const parsedOutput = parsePiJsonModeOutput(result.stdout);
+			if (!parsedOutput.ok) await log(`agent ${id} json output fallback: ${name}`, { warning: parsedOutput.warning, attempt: attempt + 1 });
+			output = truncate(parsedOutput.ok ? parsedOutput.output : result.stdout.trim() || result.stderr.trim(), MAX_AGENT_OUTPUT_IN_RESULT);
+			if (schema === undefined) break;
+			const extracted = extractJsonCandidate(output);
+			if (!extracted.ok) {
+				schemaOk = false;
+				schemaError = extracted.error;
+				continue;
+			}
+			const validation = validateStructuredData(schema, extracted.data);
+			if (validation.ok) {
+				schemaOk = true;
+				schemaData = extracted.data;
+				break;
+			}
+			schemaOk = false;
+			schemaError = validation.errors.join("\n") || "schema validation failed";
 		}
-		throwIfAborted(runSignal.signal);
+
+		if (!result) throw new Error(`Agent did not produce a result: ${name}`);
+		if (schema !== undefined && schemaOk !== true && schemaOnInvalid === "null") schemaData = null;
+		const schemaShouldThrow = schema !== undefined && schemaOk !== true && schemaOnInvalid !== "null";
 		const elapsedMs = Date.now() - startedAt;
-		const output = (result.stdout.trim() || result.stderr.trim()).slice(0, MAX_AGENT_OUTPUT_IN_RESULT);
 		const artifactName = `agents/${String(id).padStart(4, "0")}-${slugify(name)}.md`;
 		const artifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}\n\n## Prompt\n\n${prompt}\n\n## Stdout\n\n${result.stdout}\n\n## Stderr\n\n${result.stderr}\n`,
+			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${result.stdout}\n\n## Stderr\n\n${result.stderr}\n`,
 		);
-		const subagent: SubagentResult = {
+		const rawSubagent: SubagentResult = {
 			id,
 			name,
 			ok: result.code === 0 && !result.killed,
@@ -2309,9 +2750,11 @@ async function runWorkflow(
 			stdout: result.stdout,
 			stderr: result.stderr,
 			artifactPath: artifact.path,
+			...(schema === undefined ? {} : { data: schemaData, schemaOk: schemaOk === true }),
 		};
+		const subagent = cacheEnabled ? normalizeSubagentResultForJournal(rawSubagent) : rawSubagent;
 		await appendEvent({ type: "agent", ...subagent, stdout: undefined, stderr: undefined, prompt: undefined });
-		if (cacheEnabled) {
+		if (!schemaShouldThrow && cacheEnabled) {
 			await appendJournalRecord(runDir, {
 				v: JOURNAL_VERSION,
 				key,
@@ -2319,10 +2762,11 @@ async function runWorkflow(
 				method: "agent",
 				codeHash,
 				ts: new Date().toISOString(),
-				result: { ...subagent, stdout: truncate(subagent.stdout, MAX_JOURNALED_STREAM), stderr: truncate(subagent.stderr, MAX_JOURNALED_STREAM) },
+				result: subagent,
 			});
 		}
-		await log(`agent ${id} end: ${name}`, { ok: subagent.ok, code: subagent.code, elapsedMs });
+		await log(`agent ${id} end: ${name}`, { ok: subagent.ok, code: subagent.code, elapsedMs, ...(schema === undefined ? {} : { schemaOk: subagent.schemaOk }) });
+		if (schemaShouldThrow) throw new Error(`Agent ${name} did not produce valid structured output: ${schemaError || "schema validation failed"}`);
 		return subagent;
 	}
 
@@ -2332,9 +2776,27 @@ async function runWorkflow(
 	// agents() spreads a spec (which carries prompt) into options, so excluding
 	// it keeps the key dependent on the prompt exactly once.
 	function sanitizeAgentOpts(options: AgentOptions): Record<string, unknown> {
-		const { name: _name, timeoutMs: _timeoutMs, cache: _cache, ...rest } = options as AgentOptions & { prompt?: string };
+		const { name: _name, timeoutMs: _timeoutMs, cache: _cache, concurrency: _concurrency, settle: _settle, agentType: _agentType, ...rest } = options as AgentOptions & {
+			prompt?: string;
+			concurrency?: number;
+			settle?: boolean;
+		};
 		delete (rest as { prompt?: string }).prompt;
 		return rest;
+	}
+
+	async function runAgents(items: Array<string | AgentSpec>, options?: AgentOptions & { concurrency?: number; settle?: false }): Promise<SubagentResult[]>;
+	async function runAgents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle: true }): Promise<Array<SubagentResult | null>>;
+	async function runAgents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle?: boolean } = {}): Promise<Array<SubagentResult | null>> {
+		const concurrency = Math.min(Math.max(Math.floor(options.concurrency ?? runLimits.concurrency), 1), runLimits.concurrency);
+		const { concurrency: _concurrency, settle = false, ...sharedOptions } = options as AgentOptions & { concurrency?: number; settle?: boolean };
+		const runItem = async (item: string | AgentSpec, index: number): Promise<SubagentResult> => {
+			if (typeof item === "string") return await agent(item, { ...sharedOptions, name: sharedOptions.name ?? `agent-${index + 1}` });
+			const { prompt: itemPrompt, ...itemOptions } = item;
+			return await agent(itemPrompt, { ...sharedOptions, ...itemOptions, name: item.name ?? `agent-${index + 1}` });
+		};
+		if (settle) return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
+		return await mapLimit(items, concurrency, runSignal.signal, runItem);
 	}
 
 	const agent = (prompt: string, options: AgentOptions = {}) => trackSubagent(runSubagent(prompt, options));
@@ -2347,13 +2809,7 @@ async function runWorkflow(
 		limits: runLimits,
 		log,
 		agent,
-		agents: async (items, options = {}) => {
-			const concurrency = Math.min(Math.max(Math.floor(options.concurrency ?? runLimits.concurrency), 1), runLimits.concurrency);
-			return await mapLimit(items, concurrency, runSignal.signal, async (item, index) => {
-				if (typeof item === "string") return await agent(item, { ...options, name: options.name ?? `agent-${index + 1}` });
-				return await agent(item.prompt, { ...options, ...item, name: item.name ?? `agent-${index + 1}` });
-			});
-		},
+		agents: runAgents,
 		bash: async (command, options = {}) => {
 			throwIfAborted(runSignal.signal);
 			// bash caching is opt-in: bash(cmd, { cache: true }). occ assigned
@@ -2380,7 +2836,7 @@ async function runWorkflow(
 				signal: runSignal.signal,
 			});
 			throwIfAborted(runSignal.signal);
-			const bashResult: BashResult = {
+			const rawBashResult: BashResult = {
 				ok: result.code === 0 && !result.killed,
 				code: result.code,
 				killed: result.killed,
@@ -2388,6 +2844,7 @@ async function runWorkflow(
 				stdout: result.stdout,
 				stderr: result.stderr,
 			};
+			const bashResult = cacheEnabled ? normalizeBashResultForJournal(rawBashResult) : rawBashResult;
 			await appendEvent({ type: "bash", command, ...bashResult });
 			if (cacheEnabled) {
 				await appendJournalRecord(runDir, {
@@ -2397,7 +2854,7 @@ async function runWorkflow(
 					method: "bash",
 					codeHash,
 					ts: new Date().toISOString(),
-					result: { ...bashResult, stdout: truncate(bashResult.stdout, MAX_JOURNALED_STREAM), stderr: truncate(bashResult.stderr, MAX_JOURNALED_STREAM) },
+					result: bashResult,
 				});
 			}
 			await log(`bash end: ${command.slice(0, 120)}`, { ok: bashResult.ok, code: bashResult.code });
@@ -3039,24 +3496,18 @@ Instructions:
 function makeAlwaysOnUltracodeSystemPrompt(): string {
 	return `## Always-on Ultracode Workflow Router
 
-For every substantive user task, silently evaluate whether Pi Dynamic Workflows are a better execution strategy before choosing an approach.
+For every substantive task, silently run this decision before choosing an approach. Do not narrate it for trivial tasks.
 
-Use normal single-agent execution when the task is simple, local, low-risk, or can be completed with a small number of direct tool calls.
+1. Trivial gate. Conversational, single-step, or a few direct tool calls -> solve normally, single-agent. Do not build a workflow.
+2. Scout inline first. If the task might be large, probe it cheaply this turn (git ls-files, read the diff, grep/glob candidates) to learn the real work-list and its size. You need the work-list before the orchestration step, not before the task.
+3. Orchestrate only for a reason. After scouting, prefer dynamic_workflow only when one holds: exhaustiveness (many independent items in parallel), confidence (independent perspectives + adversarial verification before committing), or scale (more context than one window holds: migrations, audits, broad sweeps, long-running work with checkpoints). Else stay single-agent.
+4. Scale to the ask. Light ("find some", "quick check") -> small fan-out (~3-5) + light synthesis. Heavy ("audit thoroughly", "be exhaustive") -> larger pool + adversarial reviewers/judges + synthesis, repeating only when the work-list is still yielding new findings.
 
-Prefer dynamic_workflow when the task benefits from orchestration, including:
-- repo-wide audits, bug hunts, security/performance reviews, or broad state reviews;
-- large migrations/refactors or changes spanning many files/components;
-- deep research, source gathering, comparison of alternatives, or synthesis from multiple branches;
-- adversarial verification, independent reviewers, repeated checks, generate-and-filter, or tournament/ranking patterns;
-- long-running work where artifacts, checkpoints, or background execution would preserve context and make progress inspectable.
+When a workflow is warranted: scout inline, then use ctx.agents(items,{concurrency}) for one independent step per item; use ctx.pipeline(items,...stages) by default when each item needs multiple dependent steps and no cross-item merge; use ctx.agents(items,{concurrency,settle:true}) when a large fan-out should keep going and return null for failed branches; use ctx.parallel([async()=>...]) only for true barriers where a later step needs all branch results at once (global dedup/merge, early-exit when total is zero, cross-branch ranking). Include a stable item id/index in prompts that pipeline stages generate. Filter nulls, log how many branches failed, keep fan-out bounded by ctx.limits.concurrency, use read-only tools or agentType:"reviewer"/"researcher" for audit/research subagents, and ctx.log() any coverage cap instead of capping silently.
 
-When a workflow is warranted:
-- use dynamic_workflow to inspect the template or reuse an existing workflow, then write/run/start it with explicit concurrency, maxAgents, timeoutMs, and agentTimeoutMs limits;
-- prefer action=start/background for long-running work in persistent sessions, then inspect with action=runs/view;
-- keep fan-out bounded and use read-only tools for audit/research subagents unless mutation is required;
-- persist intermediate state with ctx.writeArtifact() and synthesize final results with file paths, citations, or run artifact paths.
+Use ctx.agent(prompt,{schema}) when a branch must return machine-readable JSON; read result.data/result.schemaOk and set schemaOnInvalid:"null" when you want settling semantics. Use agentType:"explore"|"reviewer"|"planner"|"implementer"|"researcher" as persona defaults, with explicit caller options overriding them.
 
-Do not announce this routing checklist for every trivial task. Mention the decision only when it affects the plan, cost, latency, or user expectations.`;
+Mention the routing decision only when it affects the plan, cost, latency, or user expectations.`;
 }
 
 function dynamicWorkflowToolAvailable(selectedTools: string[] | undefined): boolean {
@@ -3094,8 +3545,12 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			"Create, manage, and run Claude-style dynamic workflows: JavaScript orchestration scripts that can spawn parallel Pi subagents and store artifacts outside chat context.",
 		promptSnippet: "Create/list/read/write/run/start JavaScript workflows that orchestrate parallel Pi subagents.",
 		promptGuidelines: [
-			"Use dynamic_workflow for complex, high-value tasks that benefit from parallel subagents, repeated verification, repo-wide audits, large migrations, deep research, or generate-and-filter workflows.",
-			"Do not use dynamic_workflow for simple single-step edits; workflows can spend many model calls.",
+			"Decide in three steps before orchestrating. (1) Trivial gate: if the task is conversational, single-step, or solvable with a few direct tool calls, answer normally — do NOT build a workflow. (2) Scout inline first: if it may be large, run a cheap probe inline (git ls-files, read the diff, grep/glob candidates) to discover the real work-list and size. (3) Orchestrate only for exhaustiveness (many independent items), confidence (independent perspectives + adversarial verification), or scale (more context than one window: migrations, audits, broad sweeps).",
+			"Scale effort to the ask. 'Find some' / 'quick check' -> small fan-out (~3-5) + light synthesis. 'Review this plan' -> a few perspective-diverse reviewers + synthesis-as-judge. 'Audit thoroughly' / 'be exhaustive' -> larger pool, adversarial checks per finding, synthesis, and another round only if new findings keep appearing.",
+			"Choose primitives by data dependency. Use ctx.agents(items,{concurrency}) for one independent step per item. Use ctx.pipeline(items,...stages) by default for >=2 dependent steps per item with no cross-item merge; include a stable item id/index in prompts generated inside stages. Use ctx.agents(items,{concurrency,settle:true}) for large fan-out or reviewer panels where one branch failure should return null. Use ctx.parallel([async()=>...]) only for a true barrier where a later step needs all branch results at once (dedup/merge, early-exit if total=0, cross-branch ranking).",
+			"Use ctx.agent(prompt,{schema}) when a subagent must return JSON; consume result.data/result.schemaOk and use schemaOnInvalid:'null' when invalid JSON should become a non-throwing branch result. Use agentType:'explore'|'reviewer'|'planner'|'implementer'|'researcher' for persona defaults; explicit options override the persona.",
+			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, ctx.log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them.",
+			"Never cap coverage silently. Whenever a workflow uses slice/head/top-N/sampling/no-retry or clamps concurrency to ctx.limits.concurrency, ctx.log() exactly what was excluded or clamped.",
 			"When creating a workflow, first request dynamic_workflow action=template or read an existing workflow, then write a clear JavaScript file under project scope and run it with explicit limits.",
 			"For long-running workflows in persistent TUI/RPC sessions, prefer dynamic_workflow action=start (or action=run with background=true), then inspect with action=runs/view and stop with action=cancel if needed.",
 			"If a run was interrupted (state stale/failed/cancelled), use dynamic_workflow action=resume name=<runId> to continue it in place; completed subagent/bash calls are reused from the run journal and are not re-executed, so resuming is cheap. agent() output is cached by default (opt out with {cache:false}); bash() is cached only with {cache:true}. Calls whose arguments depend on Date.now()/Math.random() will not be cached and will re-run on resume.",

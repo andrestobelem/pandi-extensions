@@ -158,17 +158,24 @@ module.exports = async function workflow(ctx, input) {
   const reviews = await ctx.agents([
     { name: "a", prompt: "Review src/a.ts", tools: ["read", "grep", "find", "ls"] },
     { name: "b", prompt: "Review src/b.ts", tools: ["read", "grep", "find", "ls"] },
-  ], { concurrency: Math.min(input?.concurrency ?? ctx.limits.concurrency, ctx.limits.concurrency) });
+  ], { concurrency: Math.min(input?.concurrency ?? ctx.limits.concurrency, ctx.limits.concurrency), settle: true });
+  const completedReviews = reviews.filter(Boolean);
+  await ctx.log("review fan-out complete", { total: reviews.length, failed: reviews.length - completedReviews.length });
 
-  await ctx.writeArtifact("reviews.json", reviews);
-  return ctx.compact(reviews, 20000);
+  await ctx.writeArtifact("reviews.json", completedReviews);
+  return ctx.compact(completedReviews, 20000);
 };
 ```
 
 ## API del workflow
 
 - `ctx.agent(prompt, opts)` — ejecuta un subagente Pi (`pi -p --no-session`). Se cachea por defecto para resume; desactívalo con `{ cache: false }`.
+- `ctx.agent(prompt, { schema })` — pide JSON validado; devuelve `result.data` y `result.schemaOk` (reintenta con `schemaRetries`, default `2`).
+- `ctx.agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`, `implementer`, `researcher`); las opciones explícitas ganan.
 - `ctx.agents(items, opts)` — ejecuta muchos subagentes con concurrencia limitada.
+- `ctx.agents(items, { concurrency, settle: true })` — devuelve `Array<SubagentResult | null>`: los fallos de ramas individuales son `null`, las demás ramas siguen.
+- `ctx.pipeline(items, ...stages)` — flujo multi-etapa por item sin barrera global; cada stage recibe `(prev, item, index)` y los items fallidos devuelven `null`.
+- `ctx.parallel([async () => ...])` — ejecuta thunks async con barrera y concurrencia local limitada; cada thunk fallido produce `null`. Usalo solo cuando un paso posterior necesita todos los resultados juntos.
 - `ctx.bash(command, opts)` — ejecuta shell. Opt-in al cache de resume con `{ cache: true }` (solo comandos deterministas).
 - `ctx.readFile/writeFile/appendFile/listFiles` — helpers de archivos confinados al cwd del workflow.
 - `ctx.writeArtifact/appendArtifact` — persiste datos en el directorio del run (idempotente; no se cachea, se reescribe al reanudar).
@@ -183,7 +190,10 @@ Opciones habituales de subagente:
   name: "review-auth",
   tools: ["read", "grep", "find", "ls"],
   timeoutMs: 300000,
-  thinking: "high"
+  thinking: "high",
+  agentType: "reviewer",
+  schema: { type: "object", required: ["verdict"], properties: { verdict: { type: "string" } } },
+  schemaOnInvalid: "throw"
 }
 ```
 
@@ -193,7 +203,7 @@ Los workflows funcionan mejor cuando cada prompt declara explícitamente el patr
 
 - **Fan-out independiente**: cada subagente debe producir un reporte útil aunque otros fallen.
 - **Contrato de evidencia**: pedir archivo/línea, URL, comando observado o `INSUFFICIENT_EVIDENCE` / `NO_FINDINGS`.
-- **Formato fijo**: `Veredicto`, `Hallazgos`, `Evidencia`, `Riesgos`, `Fix`, `Verificación`.
+- **Formato fijo**: preferí `ctx.agent(prompt, { schema })` para JSON; si no, secciones `Veredicto`, `Hallazgos`, `Evidencia`, `Riesgos`, `Fix`, `Verificación`.
 - **Synthesis-as-judge**: el agente final deduplica, descarta claims sin evidencia, preserva incertidumbre y elige una ruta concreta.
 - **Crítica adversarial**: reviewers con objetivo explícito de encontrar edge cases, reducir scope y marcar riesgos aceptados.
 - **Fallas parciales visibles**: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o con timeout.
