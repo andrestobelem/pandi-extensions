@@ -2152,6 +2152,8 @@ interface WorkflowGraphStep {
 	firstArg?: string;
 	children: WorkflowGraphChildCall[];
 	fanout?: WorkflowGraphFanoutInfo;
+	subworkflow?: WorkflowGraphModel;
+	subworkflowError?: string;
 }
 
 interface WorkflowGraphCall extends WorkflowGraphChildCall {
@@ -2183,6 +2185,12 @@ function graphTextLabel(value: string): string {
 
 function extractFirstStringLiteral(source: string): string | undefined {
 	const match = /(?:`([^`]{1,160})`|"([^"\n]{1,160})"|'([^'\n]{1,160})')/.exec(source);
+	return match?.[1] ?? match?.[2] ?? match?.[3];
+}
+
+function extractDirectStringLiteralArgument(source: string): string | undefined {
+	const trimmed = source.trim();
+	const match = /^(?:`([^`$]{1,200})`|"([^"\n]{1,200})"|'([^'\n]{1,200})')\s*$/s.exec(trimmed);
 	return match?.[1] ?? match?.[2] ?? match?.[3];
 }
 
@@ -2411,7 +2419,8 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		const openParenIndex = regex.lastIndex - 1;
 		const end = findCallEndIndex(code, openParenIndex);
 		const snippet = code.slice(openParenIndex + 1, Math.max(openParenIndex + 1, end - 1));
-		const firstArg = extractFirstStringLiteral(snippet);
+		const args = splitTopLevelArguments(snippet);
+		const firstArg = method === "workflow" ? extractDirectStringLiteralArgument(args[0] ?? "") : extractFirstStringLiteral(snippet);
 		const info = workflowGraphMethodInfo(method);
 		calls.push({
 			...info,
@@ -2474,6 +2483,46 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 	return { workflow, steps, notes };
 }
 
+async function buildWorkflowGraphModelWithSubworkflows(
+	ctx: ExtensionContext,
+	workflow: WorkflowFile,
+	code: string,
+	depth = 0,
+	seen = new Set<string>(),
+): Promise<WorkflowGraphModel> {
+	const model = buildWorkflowGraphModel(workflow, code);
+	const currentPath = path.resolve(workflow.path);
+	const nextSeen = new Set(seen);
+	nextSeen.add(currentPath);
+	const subworkflowSteps = model.steps.filter((step) => step.kind === "subworkflow");
+	if (subworkflowSteps.length > 0) {
+		model.notes.push("ctx.workflow() calls with literal names are expanded one level using the referenced workflow file; dynamic names are shown but not resolved.");
+	}
+	for (const step of subworkflowSteps) {
+		if (!step.firstArg) {
+			step.subworkflowError = "dynamic sub-workflow name; cannot resolve statically";
+			continue;
+		}
+		if (depth >= 1) {
+			step.subworkflowError = "nested sub-workflows are not expanded; runtime composition depth limit is 1";
+			continue;
+		}
+		try {
+			const subWorkflow = await resolveWorkflow(ctx, step.firstArg, "auto");
+			const subPath = path.resolve(subWorkflow.path);
+			if (nextSeen.has(subPath)) {
+				step.subworkflowError = `recursive sub-workflow skipped: ${subWorkflow.name}`;
+				continue;
+			}
+			const subCode = await fs.readFile(subWorkflow.path, "utf8");
+			step.subworkflow = await buildWorkflowGraphModelWithSubworkflows(ctx, subWorkflow, subCode, depth + 1, nextSeen);
+		} catch (err) {
+			step.subworkflowError = err instanceof Error ? err.message : String(err);
+		}
+	}
+	return model;
+}
+
 function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
 	const lines: string[] = [];
 	if (step.fanout) {
@@ -2483,7 +2532,11 @@ function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
 	if (step.kind === "fanout") lines.push("branches: one Pi subagent per item/spec", "join: results array; failed branches may be null with settle:true");
 	else if (step.kind === "barrier") lines.push("branches: async thunks run concurrently", "join: barrier waits for every branch before continuing");
 	else if (step.kind === "pipeline") lines.push("lanes: each item flows through stages", "join: returned array preserves item order");
-	else if (step.kind === "subworkflow") lines.push("delegates to another workflow and returns to this flow");
+	else if (step.kind === "subworkflow") {
+		lines.push("delegates to another workflow and returns to this flow");
+		if (step.subworkflow) lines.push(`expands: ${step.subworkflow.workflow.name} (${step.subworkflow.steps.length} steps)`);
+		else if (step.subworkflowError) lines.push(`subgraph unavailable: ${step.subworkflowError}`);
+	}
 	else if (step.kind === "agent") lines.push("single Pi subagent call");
 	else if (step.kind === "shell") lines.push("host shell command from workflow cwd");
 	else if (step.kind === "artifact") lines.push("persists run evidence outside chat context");
@@ -2502,19 +2555,32 @@ function workflowGraphStyles(theme?: any): WorkflowGraphRenderTheme {
 	};
 }
 
+function renderWorkflowGraphSubworkflowSummaryLines(model: WorkflowGraphModel, depth = 1): string[] {
+	const indent = "  ".repeat(depth);
+	const lines = [`${indent}↳ sub-workflow graph: ${model.workflow.name} (${model.steps.length} steps)`];
+	for (const step of model.steps.slice(0, 12)) {
+		lines.push(`${indent}  ${step.symbol} ${step.label} L${step.line} ctx.${step.method}`);
+		if (step.subworkflow) lines.push(...renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow, depth + 2));
+		else if (step.subworkflowError) lines.push(`${indent}    ↳ subgraph unavailable: ${step.subworkflowError}`);
+	}
+	if (model.steps.length > 12) lines.push(`${indent}  … ${model.steps.length - 12} more steps`);
+	return lines;
+}
+
 function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: number, theme?: any): string[] {
 	if (width <= 0) return [];
 	const w = width;
 	const style = workflowGraphStyles(theme);
 	const line = (textValue: string) => truncateToWidth(textValue, w, "");
 	const steps = model.steps;
+	const stats = workflowGraphStats(model);
 	const fanoutCount = steps.filter((step) => step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline").length;
 	const ioCount = steps.filter((step) => step.kind === "artifact" || step.kind === "file" || step.kind === "shell").length;
 	const lines: string[] = [
 		line(`${style.accent("Workflow topology")} ${style.muted("static preview")}`),
 		line(`${style.muted("name:")} ${model.workflow.name}`),
 		line(`${style.muted("file:")} ${model.workflow.relativePath}`),
-		line(`${style.muted("steps:")} ${steps.length} ${style.muted("• orchestration:")} ${fanoutCount} ${style.muted("• I/O:")} ${ioCount}`),
+		line(`${style.muted("steps:")} ${steps.length}${stats.steps !== steps.length ? ` (${stats.steps} incl. sub-workflows)` : ""} ${style.muted("• orchestration:")} ${fanoutCount} ${style.muted("• I/O:")} ${ioCount}${stats.subworkflows ? ` ${style.muted("• sub-workflows:")} ${stats.subworkflows}` : ""}`),
 		line(`${style.muted("legend:")} ${style.accent("◆ fan-out ×N")} ${style.muted("|")} ${style.accent("⧉ barrier branches")} ${style.muted("|")} ${style.accent("▣ pipeline lanes")} ${style.muted("|")} ${style.accent("● agent")} ${style.muted("|")} ${style.accent("$ bash")} ${style.muted("|")} ${style.accent("▤ artifact")}`),
 		line(""),
 		line(style.accent("Topology")),
@@ -2531,6 +2597,11 @@ function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: numb
 			for (const detail of renderWorkflowGraphStepDetail(step)) {
 				lines.push(line(`    ${style.muted("│")} ${style.muted(detail)}`));
 			}
+			if (step.subworkflow) {
+				for (const subLine of renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow)) {
+					lines.push(line(`    ${style.muted("│")} ${style.muted(subLine)}`));
+				}
+			}
 		}
 		lines.push(line(`    ${style.muted("│")}`));
 		lines.push(line(`  ${style.success("done")}`));
@@ -2546,6 +2617,9 @@ function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: numb
 			lines.push(line(`${style.muted(index)}${style.accent(step.symbol)} ${step.label} ${style.muted(`— L${step.line}, ctx.${step.method}`)}`));
 			for (const child of step.children) {
 				lines.push(line(`${style.muted("    ↳")} ${style.accent(child.symbol)} ${child.label} ${style.muted(`— L${child.line}, nested ctx.${child.method}`)}`));
+			}
+			if (step.subworkflow) {
+				for (const subLine of renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow)) lines.push(line(style.muted(`    ${subLine}`)));
 			}
 		}
 	}
@@ -2572,47 +2646,67 @@ function workflowGraphVisibleFanoutSlots(fanout: WorkflowGraphFanoutInfo): strin
 	return [`${unit} 1`, `${unit} 2`, "…", `${unit} n`];
 }
 
-function renderWorkflowGraphMermaidLines(model: WorkflowGraphModel): string[] {
-	const lines = ["flowchart TD", `  start([${mermaidLabel(model.workflow.name)}])`];
-	if (model.steps.length === 0) {
-		lines.push("  start --> done([done])");
-		return lines;
-	}
-	let previousExit = "start";
+function appendWorkflowGraphMermaidSteps(lines: string[], model: WorkflowGraphModel, previousExit: string, prefix: string, indent: string): string {
+	let currentExit = previousExit;
 	for (const step of model.steps) {
-		const id = `s${step.index}`;
+		const id = `${prefix}s${step.index}`;
 		const label = mermaidLabel(`${step.symbol} ${step.label}`);
+		if (step.kind === "subworkflow" && step.subworkflow) {
+			const groupId = `${prefix}g${step.index}_sub`;
+			const subStartId = `${id}_start`;
+			const subDoneId = `${id}_return`;
+			lines.push(`${indent}subgraph ${groupId}["${label}"]`);
+			lines.push(`${indent}  direction TD`);
+			lines.push(`${indent}  ${subStartId}([${mermaidLabel(step.subworkflow.workflow.name)}])`);
+			const subExit = appendWorkflowGraphMermaidSteps(lines, step.subworkflow, subStartId, `${prefix}s${step.index}_`, `${indent}  `);
+			lines.push(`${indent}  ${subExit} --> ${subDoneId}([return])`);
+			lines.push(`${indent}end`);
+			lines.push(`${indent}${currentExit} --> ${groupId}`);
+			currentExit = groupId;
+			continue;
+		}
 		if (step.fanout) {
-			const groupId = `g${step.index}`;
+			const groupId = `${prefix}g${step.index}`;
 			const entryId = `${id}_in`;
 			const exitId = `${id}_out`;
 			const entryLabel = step.kind === "pipeline" ? "items" : "fork";
 			const exitLabel = step.kind === "barrier" ? "barrier" : "join";
-			lines.push(`  subgraph ${groupId}["${label}"]`);
-			lines.push("    direction LR");
-			lines.push(`    ${entryId}((${mermaidLabel(entryLabel)}))`);
-			lines.push(`    ${exitId}((${mermaidLabel(exitLabel)}))`);
+			lines.push(`${indent}subgraph ${groupId}["${label}"]`);
+			lines.push(`${indent}  direction LR`);
+			lines.push(`${indent}  ${entryId}((${mermaidLabel(entryLabel)}))`);
+			lines.push(`${indent}  ${exitId}((${mermaidLabel(exitLabel)}))`);
 			const slots = workflowGraphVisibleFanoutSlots(step.fanout);
 			for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
 				const workerId = `${id}_w${slotIndex + 1}`;
 				const workerLabel = step.fanout.unit === "lanes" && step.fanout.stages !== undefined
 					? `${slots[slotIndex]} · ${step.fanout.stages} stages`
 					: slots[slotIndex]!;
-				lines.push(`    ${workerId}["${mermaidLabel(workerLabel)}"]`);
-				lines.push(`    ${entryId} --> ${workerId}`);
-				lines.push(`    ${workerId} --> ${exitId}`);
+				lines.push(`${indent}  ${workerId}["${mermaidLabel(workerLabel)}"]`);
+				lines.push(`${indent}  ${entryId} --> ${workerId}`);
+				lines.push(`${indent}  ${workerId} --> ${exitId}`);
 			}
-			lines.push("  end");
-			lines.push(`  ${previousExit} --> ${groupId}`);
-			previousExit = groupId;
+			lines.push(`${indent}end`);
+			lines.push(`${indent}${currentExit} --> ${groupId}`);
+			currentExit = groupId;
 			continue;
 		}
-		const shape = step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline" ? `{{${label}}}` : `["${label}"]`;
-		lines.push(`  ${id}${shape}`);
-		lines.push(`  ${previousExit} --> ${id}`);
-		previousExit = id;
+		const unavailable = step.kind === "subworkflow" && step.subworkflowError ? ` · ${step.subworkflowError}` : "";
+		const shape = step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline" ? `{{${label}}}` : `["${mermaidLabel(`${step.symbol} ${step.label}${unavailable}`)}"]`;
+		lines.push(`${indent}${id}${shape}`);
+		lines.push(`${indent}${currentExit} --> ${id}`);
+		currentExit = id;
 	}
-	lines.push(`  ${previousExit} --> done([done])`);
+	return currentExit;
+}
+
+function renderWorkflowGraphMermaidLines(model: WorkflowGraphModel): string[] {
+	const lines = ["flowchart TD", `  start([${mermaidLabel(model.workflow.name)}])`];
+	if (model.steps.length === 0) {
+		lines.push("  start --> done([done])");
+		return lines;
+	}
+	const exit = appendWorkflowGraphMermaidSteps(lines, model, "start", "", "  ");
+	lines.push(`  ${exit} --> done([done])`);
 	return lines;
 }
 
@@ -2651,15 +2745,36 @@ function clampWorkflowGraphNumber(value: number, min: number, max: number): numb
 	return Math.min(max, Math.max(min, value));
 }
 
+function workflowGraphStats(model: WorkflowGraphModel): { steps: number; fanoutSlots: number; orchestrationGroups: number; subworkflows: number } {
+	let steps = model.steps.length;
+	let fanoutSlots = 0;
+	let orchestrationGroups = 0;
+	let subworkflows = 0;
+	for (const step of model.steps) {
+		if (step.fanout) {
+			fanoutSlots += workflowGraphVisibleFanoutSlots(step.fanout).length;
+			orchestrationGroups++;
+		}
+		if (step.subworkflow) {
+			subworkflows++;
+			const child = workflowGraphStats(step.subworkflow);
+			steps += child.steps;
+			fanoutSlots += child.fanoutSlots;
+			orchestrationGroups += child.orchestrationGroups;
+			subworkflows += child.subworkflows;
+		}
+	}
+	return { steps, fanoutSlots, orchestrationGroups, subworkflows };
+}
+
 function workflowGraphImageOptions(model: WorkflowGraphModel): { width: number; height: number; scale: number; maxWidthCells: number; maxHeightCells: number } {
-	const fanoutSlots = model.steps.reduce((sum, step) => sum + (step.fanout ? workflowGraphVisibleFanoutSlots(step.fanout).length : 0), 0);
-	const orchestrationGroups = model.steps.filter((step) => !!step.fanout).length;
+	const stats = workflowGraphStats(model);
 	return {
-		width: clampWorkflowGraphNumber(2200 + fanoutSlots * 120, 2200, 3600),
-		height: clampWorkflowGraphNumber(1300 + model.steps.length * 130 + orchestrationGroups * 180, 1300, 2800),
+		width: clampWorkflowGraphNumber(2200 + stats.fanoutSlots * 120 + stats.subworkflows * 220, 2200, 3800),
+		height: clampWorkflowGraphNumber(1300 + stats.steps * 130 + stats.orchestrationGroups * 180 + stats.subworkflows * 220, 1300, 3200),
 		scale: 2,
 		maxWidthCells: 320,
-		maxHeightCells: clampWorkflowGraphNumber(54 + orchestrationGroups * 8 + Math.floor(model.steps.length / 2), 54, 88),
+		maxHeightCells: clampWorkflowGraphNumber(54 + stats.orchestrationGroups * 8 + stats.subworkflows * 8 + Math.floor(stats.steps / 2), 54, 96),
 	};
 }
 
@@ -2824,6 +2939,10 @@ function makeWorkflowGraph(workflow: WorkflowFile, code: string): string {
 	return renderWorkflowGraphDocumentLines(buildWorkflowGraphModel(workflow, code), 120).join("\n");
 }
 
+async function makeWorkflowGraphForContext(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<string> {
+	return renderWorkflowGraphDocumentLines(await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code), 120).join("\n");
+}
+
 class WorkflowGraphComponent {
 	private cachedWidth?: number;
 	private cachedLines?: string[];
@@ -2876,7 +2995,7 @@ class WorkflowGraphComponent {
 }
 
 async function showWorkflowGraph(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<void> {
-	const model = buildWorkflowGraphModel(workflow, code);
+	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code);
 	if (ctx.mode === "print") {
 		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));
 		return;
@@ -5795,7 +5914,7 @@ async function handleTool(
 	if (action === "graph") {
 		const workflow = await resolveWorkflow(ctx, params.name, scope);
 		const code = await fs.readFile(workflow.path, "utf8");
-		const graph = makeWorkflowGraph(workflow, code);
+		const graph = await makeWorkflowGraphForContext(ctx, workflow, code);
 		return { content: [text(graph)], details: { action, workflow, graph } };
 	}
 
