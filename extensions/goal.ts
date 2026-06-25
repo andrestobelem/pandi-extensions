@@ -328,9 +328,14 @@ function makeIndependentVerifierPrompt(goal: GoalState): string {
 /** Build the verifier subagent argv, mirroring dynamic-workflows.ts buildAgentArgs (subset). */
 function buildVerifierArgs(goal: ActiveGoal, model: string | undefined, prompt: string): string[] {
 	const args = ["-p", "--no-session", "--no-extensions"];
-	// READ-ONLY: never let the verifier mutate the workspace it is judging.
+	// Ignore project-local config for a clean, reproducible judge run. NOTE: --no-approve does
+	// NOT restrict tools — read-only is enforced solely by the --tools allowlist below.
 	args.push("--no-approve");
+	// READ-ONLY: the allowlist is the guarantee. Without one, pi starts with the DEFAULT toolset
+	// (which includes write/edit/bash), so an empty list must DISABLE tools (--no-tools), never
+	// fall through to a mutating default.
 	if (goal.verifierTools.length) args.push("--tools", goal.verifierTools.join(","));
+	else args.push("--no-tools");
 	if (model) args.push("--model", model);
 	args.push(prompt);
 	return args;
@@ -747,6 +752,18 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 		notify(ctx, "/goal requires a TUI or RPC session (this mode cannot run a goal).", "error");
 		return undefined;
 	}
+	// Single active goal at a time: the P0 tool (goal_progress) carries no goalId and resolves
+	// the one active goal, so a second concurrent goal would make reports ambiguous and let two
+	// goals fight over wake re-injection. Refuse to start a second; the user stops the first.
+	const existing = activeGoal();
+	if (existing) {
+		notify(
+			ctx,
+			`A goal is already active (${existing.goalId}: ${existing.objective}). Stop it first with /goal stop.`,
+			"warning",
+		);
+		return undefined;
+	}
 	const { objective, successCriteria } = parseGoalArgs(args);
 	if (!objective) {
 		notify(ctx, "Usage: /goal <objective> [-- <success criteria>]", "warning");
@@ -1020,6 +1037,22 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				return {
 					content: [{ type: "text" as const, text: "No active goal. There is nothing to report progress on." }],
 					details: { isError: true },
+				};
+			}
+
+			// An INDEPENDENT verifier is judging this goal right now (separate process, launched
+			// from a prior confirmed `done`). Its verdict — not this call — decides the outcome.
+			// Reject any re-entrant goal_progress so it cannot mutate gstatus out from under the
+			// in-flight verdict (which would corrupt the state machine and silently discard it).
+			if (goal.gstatus === "verifying-independent") {
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Goal ${goal.goalId} is under INDEPENDENT verification right now; that verdict (not this report) decides whether it closes. Wait for it — this report was not recorded.`,
+						},
+					],
+					details: { goalId: goal.goalId, status: "verifying-independent", ignored: true },
 				};
 			}
 

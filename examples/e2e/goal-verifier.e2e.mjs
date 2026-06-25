@@ -347,6 +347,137 @@ async function firstDoneNeverClosesNorVerifies(goalUrl) {
 }
 
 // ===========================================================================
+// SCENARIO H: a re-entrant goal_progress DURING independent verification is IGNORED.
+// While the external verifier is in flight (gstatus = verifying-independent), a second
+// goal_progress({done|continue}) must NOT mutate gstatus — otherwise it corrupts the state
+// machine and the in-flight verdict is silently discarded (the MEDIO bug the review found:
+// the done re-entry flips gstatus to "verifying", so the liveness guard later throws the
+// verdict away). The fix short-circuits execute() when gstatus === "verifying-independent".
+// This pins: (a) re-entry is rejected (ignored), (b) gstatus stays verifying-independent,
+// (c) no second verifier is spawned, (d) the in-flight verdict STILL drives the close.
+// ===========================================================================
+async function reentryDuringVerifyIsIgnored(goalUrl) {
+	// Gate the verifier so it stays IN FLIGHT while we poke goal_progress again.
+	let release;
+	const gate = new Promise((r) => {
+		release = r;
+	});
+	const exec = async () => {
+		await gate;
+		return { code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" };
+	};
+	const { progress, ctx, states, execCalls } = await driveToVerifier(goalUrl, exec);
+
+	// Verifier launched and blocked on the gate → goal parked in verifying-independent.
+	check("verifier in flight (verifying-independent) before re-entry", lastStatus(states) === "verifying-independent", `last=${lastStatus(states)}`);
+	check("exactly one verifier spawned so far", execCalls.length === 1, `calls=${execCalls.length}`);
+
+	// Re-entrant done while the verifier judges: must be IGNORED (not recorded, no state change).
+	const r1 = await progress.execute("tcRe1", { status: "done", assessment: "Re-confirming done while the verifier runs." }, undefined, undefined, ctx);
+	check("re-entrant done is reported as ignored", r1?.details?.ignored === true, JSON.stringify(r1?.details));
+	check("re-entrant done does NOT change gstatus (stays verifying-independent)", lastStatus(states) === "verifying-independent", `last=${lastStatus(states)}`);
+
+	// A re-entrant continue is also ignored — the guard covers every status, not just done.
+	const r2 = await progress.execute("tcRe2", { status: "continue", assessment: "Still working.", nextStep: "keep going" }, undefined, undefined, ctx);
+	check("re-entrant continue is also ignored", r2?.details?.ignored === true, JSON.stringify(r2?.details));
+	check("re-entry never spawned a second verifier", execCalls.length === 1, `calls=${execCalls.length}`);
+
+	// Release the gated verifier: its PASS — NOT the discarded re-entry — closes the goal.
+	release();
+	await flush(() => lastStatus(states) === "done");
+	check("the in-flight verdict still drives the close to done (not discarded)", lastStatus(states) === "done", `last=${lastStatus(states)}`);
+}
+
+// ===========================================================================
+// SCENARIO I: only ONE active goal at a time. Starting a second /goal while one is active
+// must be REFUSED (no second goalId persisted, a warning shown) — otherwise goal_progress
+// (which carries NO goalId) would resolve an arbitrary goal and reports would be misattributed.
+// Pins the single-active-goal invariant the design declares but (pre-fix) did not enforce.
+// ===========================================================================
+async function secondGoalIsRefused(goalUrl) {
+	const goalExtension = await freshDefault(goalUrl);
+	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
+	const notifies = [];
+	const ctx = makeCtx();
+	ctx.ui.notify = (m, t) => notifies.push({ m, t });
+	goalExtension(built.pi);
+
+	const goalCmd = built.commands.get("goal");
+	await goalCmd.handler("goal A -- A is done", ctx); // becomes the active goal (pursuing)
+	const afterA = new Set(built.states.map((s) => s.goalId)).size;
+	check("first goal starts (exactly one goalId persisted)", afterA === 1, `distinct=${afterA}`);
+
+	await goalCmd.handler("goal B -- B is done", ctx); // must be refused: A is still active
+	const distinct = new Set(built.states.map((s) => s.goalId)).size;
+	check("second concurrent goal is REFUSED (no new goalId persisted)", distinct === 1, `distinct=${distinct}`);
+	check(
+		"user is warned a goal is already active",
+		notifies.some((n) => n.t === "warning" && /already active/i.test(n.m)),
+		JSON.stringify(notifies),
+	);
+}
+
+// ===========================================================================
+// SCENARIO J: the verifier subprocess is spawned READ-ONLY. The whole independent-verifier
+// guarantee rests on the argv: a regression that dropped the tool allowlist (or the --no-tools
+// fallback for an empty allowlist) would let a "read-only" judge mutate the very workspace it
+// is judging — a silent, high-severity hole that the done/continue/blocked assertions cannot
+// see. This pins the OBSERVABLE argv handed to pi.exec for BOTH reachable configs.
+// ===========================================================================
+async function verifierArgvIsReadOnly(goalUrl) {
+	const argTools = (args) => {
+		const i = args.indexOf("--tools");
+		return i >= 0 && i + 1 < args.length ? args[i + 1] : undefined;
+	};
+
+	// Part 1: DEFAULT tools (reachable via a normal /goal start, no tampering). Must be the
+	// read-only allowlist — never pi's default toolset (which includes write/edit/bash).
+	const { execCalls } = await driveToVerifier(goalUrl, () => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
+	await flush(() => execCalls.length > 0);
+	const args = execCalls[0]?.args ?? [];
+	check("verifier argv: --no-extensions present", args.includes("--no-extensions"), JSON.stringify(args));
+	check("verifier argv: --no-approve present", args.includes("--no-approve"), JSON.stringify(args));
+	check("verifier argv: --tools is the read-only allowlist read,grep,find,ls", argTools(args) === "read,grep,find,ls", `tools=${argTools(args)}`);
+	check("verifier argv: default case does NOT pass --no-tools", !args.includes("--no-tools"), JSON.stringify(args));
+	check("verifier argv: allowlist has NO mutating tool (write/edit/bash)", !/\b(write|edit|bash)\b/.test(argTools(args) ?? ""), `tools=${argTools(args)}`);
+
+	// Part 2: EMPTY verifierTools (reachable only via a rehydrated sidecar). An empty list must
+	// DISABLE all tools (--no-tools) — never fall through to the mutating default. We rehydrate a
+	// goal parked in verifying-independent (which re-runs the verifier) with verifierTools: [].
+	const goalExtension = await freshDefault(goalUrl);
+	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
+	const ctx = makeCtx();
+	const snap = {
+		goalId: "deadbeef",
+		objective: "x",
+		successCriteria: "y",
+		derivedCriteria: undefined,
+		iteration: 2,
+		maxIterations: 30,
+		contextPercentCap: 80,
+		assessments: [],
+		verifyAttempts: 0,
+		independentVerifyAttempts: 0,
+		maxIndependentVerifications: 2,
+		verifierTimeoutMs: 120000,
+		verifierTools: [], // the empty-allowlist config under test
+		gstatus: "verifying-independent",
+		startedAt: 1,
+		nextFireAt: null,
+		lastReason: "persisted",
+		updatedAt: "2026-01-01T00:00:00.000Z",
+	};
+	ctx.sessionManager = { getEntries: () => [{ type: "custom", customType: "goal-state", data: snap }] };
+	goalExtension(built.pi);
+	const onStart = built.handlers.get("session_start");
+	for (const h of onStart ?? []) await h({ reason: "reload" }, ctx);
+	await flush(() => built.execCalls.length > 0);
+	const a2 = built.execCalls[0]?.args ?? [];
+	check("verifier argv (empty verifierTools): --no-tools present", a2.includes("--no-tools"), JSON.stringify(a2));
+	check("verifier argv (empty verifierTools): does NOT pass --tools", !a2.includes("--tools"), JSON.stringify(a2));
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildExtension("goal");
 	try {
@@ -357,6 +488,9 @@ async function main() {
 		await nonZeroExitWithPassIsFail(url);
 		await timeoutAndThrowAreFail(url);
 		await firstDoneNeverClosesNorVerifies(url);
+		await reentryDuringVerifyIsIgnored(url);
+		await secondGoalIsRefused(url);
+		await verifierArgvIsReadOnly(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
