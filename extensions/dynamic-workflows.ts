@@ -2194,6 +2194,46 @@ function extractDirectStringLiteralArgument(source: string): string | undefined 
 	return match?.[1] ?? match?.[2] ?? match?.[3];
 }
 
+function isJavaScriptCodePosition(source: string, index: number): boolean {
+	let quote: "'" | '"' | "`" | undefined;
+	let escaped = false;
+	let lineComment = false;
+	let blockComment = false;
+	for (let i = 0; i < index; i++) {
+		const char = source[i]!;
+		const next = source[i + 1];
+		if (lineComment) {
+			if (char === "\n") lineComment = false;
+			continue;
+		}
+		if (blockComment) {
+			if (char === "*" && next === "/") {
+				blockComment = false;
+				i++;
+			}
+			continue;
+		}
+		if (quote) {
+			if (escaped) escaped = false;
+			else if (char === "\\") escaped = true;
+			else if (char === quote) quote = undefined;
+			continue;
+		}
+		if (char === "/" && next === "/") {
+			lineComment = true;
+			i++;
+			continue;
+		}
+		if (char === "/" && next === "*") {
+			blockComment = true;
+			i++;
+			continue;
+		}
+		if (char === "'" || char === '"' || char === "`") quote = char;
+	}
+	return !quote && !lineComment && !blockComment;
+}
+
 function lineNumberAtIndex(source: string, index: number): number {
 	let line = 1;
 	for (let i = 0; i < index; i++) {
@@ -2415,6 +2455,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 	const calls: WorkflowGraphCall[] = [];
 	let match: RegExpExecArray | null;
 	while ((match = regex.exec(code)) !== null) {
+		if (!isJavaScriptCodePosition(code, match.index)) continue;
 		const method = match[1]!;
 		const openParenIndex = regex.lastIndex - 1;
 		const end = findCallEndIndex(code, openParenIndex);
