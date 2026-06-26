@@ -63,6 +63,7 @@ const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
+const ULTRACODE_PHASE0_STATUS_KEY = "dynamic-workflows-ultracode-phase0";
 // Best-effort inter-extension hook used by extensions/effort/index.ts for `/effort ultracode`.
 const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
 const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -6420,32 +6421,42 @@ async function handleWorkflowsCommand(pi: ExtensionAPI, args: string, ctx: Exten
 	await openWorkflowDashboard(pi, ctx);
 }
 
-function makeUltracodePrompt(task: string, mode: "ultracode" | "deep-research" = "ultracode"): string {
-	const trimmed = task.trim();
-	const header =
-		mode === "deep-research"
-			? "Use Pi Dynamic Workflows for a source-backed deep-research investigation."
-			: "Use Pi Dynamic Workflows when they are warranted for this task.";
-	return `${header}
+function formatUltracodePhaseZeroPrompt(taskLabel = "Ultracode tasks"): string {
+	return `Phase 0: adversarial prompt engineering
 
-Task:
-${trimmed}
+- For substantive ${taskLabel} that survive the trivial gate, run a small read-only adversarial prompt-engineering workflow before normal scout/orchestration.
+- If ambiguity blocks even the phase-0 contract, ask only blocking questions; otherwise let the workflow infer safe assumptions and non-goals.
+- Keep it cheap and inspectable: 3-4 independent prompt reviewers plus synthesis, explicit concurrency/maxAgents, artifacts under the run directory, and no file edits.
+- Required synthesis fields: improvedTask, successCriteria, assumptions, nonGoals, routingHints, verificationPlan, blockers.
+- Use the improved task for the routing/scouting decision and mention whether Phase 0 ran, was skipped as trivial, or was blocked.`;
+}
 
-Ultracode rules:
-
-Decision gates:
+function formatUltracodeRoutingRules(style: "command" | "always-on"): string {
+	const trivialGate = style === "command" ? "solve conversational, single-step, or few-tool-call tasks directly; do not build a workflow" : "conversational, single-step, or few-tool-call tasks stay single-agent";
+	const scoutGate = style === "command" ? "if the task may be broad, probe cheaply inline to discover the real work-list" : "broad-looking tasks get a cheap inline probe first (git ls-files, diff, rg/glob)";
+	const orchestrateGate = style === "command" ? "use a workflow only for exhaustiveness, confidence, or scale" : "use dynamic_workflow only for exhaustiveness, confidence, or scale";
+	const catalogLine = style === "command"
+		? "Inspect the template catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft."
+		: "Inspect the catalog, then reuse an exact existing fit or write a gitignored .pi/workflows/drafts/<slug>.js draft.";
+	const launchLine = style === "command" ? "Graph/start background runs with explicit concurrency/maxAgents, then inspect artifacts." : "Graph/start in background with explicit concurrency/maxAgents, then inspect artifacts.";
+	const scaleLine = style === "command" ? "Scale concurrency/maxAgents to the discovered work-list and risk; log caps, clamps, skipped work, and failures." : "Scale parallelism to the work-list and risk; log caps, clamps, skipped work, and failed branches.";
+	const commandWorkflowPath = `- ${catalogLine}
+- ${launchLine}
+- Use workflow-factory only when a warranted workflow needs complex prompt/contract design.
+- ${scaleLine}
+- For audits/research, keep subagents read-only and synthesize only evidence-backed findings.`;
+	const alwaysOnWorkflowPath = `- ${catalogLine}
+- ${launchLine}
+- ${scaleLine}
+- Use workflow-factory only when a warranted workflow needs complex prompt/contract design.`;
+	return `Decision gates:
 - Ambiguity: if it blocks routing or implementation, infer concise success criteria when safe; ask only blocking questions.
-- Trivial: solve conversational, single-step, or few-tool-call tasks directly; do not build a workflow.
-- Scout: if the task may be broad, probe cheaply inline to discover the real work-list.
-- Orchestrate: use a workflow only for exhaustiveness, confidence, or scale.
+- Trivial: ${trivialGate}.
+- Scout: ${scoutGate}.
+- Orchestrate: ${orchestrateGate}.
 
 Workflow path:
-- Inspect the template catalog before writing code.
-- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft.
-- Graph/start background runs with explicit concurrency/maxAgents, then inspect artifacts.
-- Use workflow-factory only when a warranted workflow needs complex prompt/contract design.
-- Scale concurrency/maxAgents to the discovered work-list and risk; log caps, clamps, skipped work, and failures.
-- For audits/research, keep subagents read-only and synthesize only evidence-backed findings.
+${style === "command" ? commandWorkflowPath : alwaysOnWorkflowPath}
 - When drafting workflow code, remember subagents get web_search via pi-codex-web-search and context7-cli when installed; do not opt out unless the task requires isolation.
 
 Reference:
@@ -6453,27 +6464,30 @@ Reference:
 - ${formatWorkflowCompositionPromptSummary()}`;
 }
 
-function makeAlwaysOnUltracodeSystemPrompt(): string {
+function makeUltracodePrompt(task: string, mode: "ultracode" | "deep-research" = "ultracode", phase0Enabled = true): string {
+	const trimmed = task.trim();
+	const header =
+		mode === "deep-research"
+			? "Use Pi Dynamic Workflows for a source-backed deep-research investigation."
+			: "Use Pi Dynamic Workflows when they are warranted for this task.";
+	const phase0 = phase0Enabled ? `\n\n${formatUltracodePhaseZeroPrompt(mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks")}` : "";
+	return `${header}
+
+Task:
+${trimmed}${phase0}
+
+Ultracode rules:
+
+${formatUltracodeRoutingRules("command")}`;
+}
+
+function makeAlwaysOnUltracodeSystemPrompt(phase0Enabled = true): string {
+	const phase0 = phase0Enabled ? `\n\n${formatUltracodePhaseZeroPrompt("tasks")}` : "";
 	return `## Always-on Ultracode Router
 
-For substantive tasks, choose the lightest path that can verify the answer.
+For substantive tasks, choose the lightest path that can verify the answer.${phase0}
 
-Decision gates:
-- Ambiguity: if it blocks routing or implementation, infer concise success criteria when safe; ask only blocking questions.
-- Trivial: conversational, single-step, or few-tool-call tasks stay single-agent.
-- Scout: broad-looking tasks get a cheap inline probe first (git ls-files, diff, rg/glob).
-- Orchestrate: use dynamic_workflow only for exhaustiveness, confidence, or scale.
-
-Workflow path:
-- Inspect the catalog, then reuse an exact existing fit or write a gitignored .pi/workflows/drafts/<slug>.js draft.
-- Graph/start in background with explicit concurrency/maxAgents, then inspect artifacts.
-- Scale parallelism to the work-list and risk; log caps, clamps, skipped work, and failed branches.
-- Use workflow-factory only when a warranted workflow needs complex prompt/contract design.
-- When drafting workflow code, remember subagents get web_search via pi-codex-web-search and context7-cli when installed; do not opt out unless the task requires isolation.
-
-Reference:
-- ${formatWorkflowPatternKeyList()}
-- ${formatWorkflowCompositionPromptSummary()}
+${formatUltracodeRoutingRules("always-on")}
 
 Mention routing only when it affects plan, cost, latency, or user expectations.`;
 }
@@ -6506,6 +6520,16 @@ function clearUltracodeStatus(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_STATUS_KEY, undefined);
 }
 
+function setUltracodePhase0Status(ctx: ExtensionContext, enabled: boolean): void {
+	if (!ctx.hasUI) return;
+	const theme = ctx.ui.theme;
+	ctx.ui.setStatus(ULTRACODE_PHASE0_STATUS_KEY, enabled ? theme.fg("dim", "p0:on") : theme.fg("warning", "p0:off"));
+}
+
+function clearUltracodePhase0Status(ctx: ExtensionContext): void {
+	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_PHASE0_STATUS_KEY, undefined);
+}
+
 function extractUltracodeTask(textValue: string): string | undefined {
 	const trimmed = textValue.trim();
 	const match = /^(?:ultracode|dynamic\s+workflow)\s*[:\-]?\s+([\s\S]+)/i.exec(trimmed);
@@ -6516,6 +6540,16 @@ function isGeneratedUltracodePrompt(prompt: string): boolean {
 	return prompt.includes("\nUltracode rules:\n");
 }
 
+type ToggleCommandValue = "status" | "on" | "off" | "invalid";
+
+function parseToggleCommandValue(raw: string): ToggleCommandValue {
+	const value = raw.trim().toLowerCase();
+	if (!value || value === "status") return "status";
+	if (["on", "enable", "enabled", "true", "1"].includes(value)) return "on";
+	if (["off", "disable", "disabled", "false", "0"].includes(value)) return "off";
+	return "invalid";
+}
+
 function sendWorkflowPrompt(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
 	if (ctx.isIdle()) pi.sendUserMessage(prompt);
 	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
@@ -6523,6 +6557,7 @@ function sendWorkflowPrompt(pi: ExtensionAPI, ctx: ExtensionContext, prompt: str
 
 export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	let ultracodeAlwaysOn = true;
+	let ultracodePhase0Enabled = true;
 	let currentCtx: ExtensionContext | undefined;
 
 	pi.events?.on?.(ULTRACODE_MODE_EVENT, (data) => {
@@ -6587,7 +6622,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; ultracode will only provide routing guidance.", "warning");
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode"));
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodePhase0Enabled));
 		},
 	});
 
@@ -6600,27 +6635,52 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; deep-research will only provide routing guidance.", "warning");
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "deep-research"));
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "deep-research", ultracodePhase0Enabled));
+		},
+	});
+
+	pi.registerCommand("ultracode-phase0", {
+		description: "Show or toggle Ultracode Phase 0 prompt-engineering for this session",
+		handler: async (args, ctx) => {
+			const value = parseToggleCommandValue(args);
+			if (value === "status") {
+				setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
+				notify(ctx, `Ultracode Phase 0 is ${ultracodePhase0Enabled ? "enabled" : "disabled"}.`, "info");
+				return;
+			}
+			if (value === "on") {
+				ultracodePhase0Enabled = true;
+				setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
+				notify(ctx, "Ultracode Phase 0 enabled: substantive workflow tasks will include prompt-engineering review guidance.", "info");
+				return;
+			}
+			if (value === "off") {
+				ultracodePhase0Enabled = false;
+				setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
+				notify(ctx, "Ultracode Phase 0 disabled for this session; workflow routing remains available.", "warning");
+				return;
+			}
+			notify(ctx, "Usage: /ultracode-phase0 [on|off|status]", "warning");
 		},
 	});
 
 	pi.registerCommand("ultracode-mode", {
 		description: "Show or toggle always-on ultracode workflow routing for this session",
 		handler: async (args, ctx) => {
-			const value = args.trim().toLowerCase();
-			if (!value || value === "status") {
+			const value = parseToggleCommandValue(args);
+			if (value === "status") {
 				setUltracodeStatus(ctx, ultracodeAlwaysOn);
 				notify(ctx, `Ultracode always-on is ${ultracodeAlwaysOn ? "enabled" : "disabled"}.`, "info");
 				return;
 			}
-			if (["on", "enable", "enabled", "true", "1"].includes(value)) {
+			if (value === "on") {
 				ultracodeAlwaysOn = true;
 				ensureDynamicWorkflowToolActive(pi);
 				setUltracodeStatus(ctx, ultracodeAlwaysOn);
 				notify(ctx, "Ultracode always-on enabled: Pi will evaluate each task for workflow routing.", "info");
 				return;
 			}
-			if (["off", "disable", "disabled", "false", "0"].includes(value)) {
+			if (value === "off") {
 				ultracodeAlwaysOn = false;
 				setUltracodeStatus(ctx, ultracodeAlwaysOn);
 				notify(ctx, "Ultracode always-on disabled for this session.", "warning");
@@ -6635,7 +6695,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		const task = extractUltracodeTask(event.text);
 		if (!task) return;
 		ensureDynamicWorkflowToolActive(pi);
-		return { action: "transform" as const, text: makeUltracodePrompt(task, "ultracode"), images: event.images };
+		return { action: "transform" as const, text: makeUltracodePrompt(task, "ultracode", ultracodePhase0Enabled), images: event.images };
 	});
 
 	pi.on("before_agent_start", async (event) => {
@@ -6643,7 +6703,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		if (isGeneratedUltracodePrompt(event.prompt)) return;
 		if (!dynamicWorkflowToolAvailable(event.systemPromptOptions.selectedTools) && !ensureDynamicWorkflowToolActive(pi)) return;
 		return {
-			systemPrompt: `${event.systemPrompt}\n\n${makeAlwaysOnUltracodeSystemPrompt()}`,
+			systemPrompt: `${event.systemPrompt}\n\n${makeAlwaysOnUltracodeSystemPrompt(ultracodePhase0Enabled)}`,
 		};
 	});
 
@@ -6654,6 +6714,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		if (ultracodeAlwaysOn) ensureDynamicWorkflowToolActive(pi);
 		refreshActiveWorkflowStatus(ctx);
 		setUltracodeStatus(ctx, ultracodeAlwaysOn);
+		setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
@@ -6662,6 +6723,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		clearWorkflowWidget(ctx);
 		setWorkflowIdleStatus(ctx);
 		clearUltracodeStatus(ctx);
+		clearUltracodePhase0Status(ctx);
 		currentCtx = undefined;
 	});
 }

@@ -58,7 +58,7 @@ Comandos humanos:
 /workflow graph bug-hunt                # visual Mermaid PNG grande en TUI; muestra fan-out ×N, lanes/branches y export Mermaid
 /workflow runs                          # runs recientes
 /workflow view latest                   # timeline + artifacts del último run
-/workflow new bug-hunt --pattern=scout-fanout
+/workflow new bug-hunt --pattern=bug-hunt-repo-audit
 /workflow edit bug-hunt
 /workflow run bug-hunt {"maxFiles":40,"concurrency":6,"maxAgents":16}     # background por defecto en TUI/RPC
 /workflow start bug-hunt {"maxFiles":40,"concurrency":4,"maxAgents":16}   # alias explícito background
@@ -87,6 +87,8 @@ La extensión activa por defecto un router estilo Claude Code `/effort ultracode
 
 Ultracode inyecta un recordatorio corto: reglas de decisión, claves de plantillas y composición. El catálogo detallado queda en `dynamic_workflow action=template`; antes de escribir un workflow debe inspeccionarlo, reutilizar un workflow existente solo si coincide exactamente o elegir el scaffold más cercano.
 
+También incluye una Fase 0 de prompt engineering adversarial: para tareas Ultracode sustantivas que sobreviven el trivial gate, Pi debe lanzar un workflow read-only pequeño que sintetice `improvedTask`, criterios de éxito, supuestos, no-objetivos y plan de verificación antes del scout/orquestación normal.
+
 Úsalo sin prefijos: pide una tarea y Pi decidirá. Para controlar el modo durante la sesión:
 
 ```text
@@ -114,16 +116,19 @@ Mentalmente, es un **MapReduce con agentes**:
 - `map`: muchos subagentes trabajan en paralelo sobre unidades independientes.
 - `reduce`: una síntesis final combina resultados, resuelve contradicciones y prioriza.
 
-### Patrones agénticos incorporados
+### Research-backed templates
 
-La guía y los ejemplos siguen patrones observados en papers y frameworks de agentes:
+Map common agent papers/frameworks to Pi workflow design:
 
-- **ReAct**: separar razonamiento, acciones con tools y observaciones; en workflows esto aparece como scout → fan-out con tools → síntesis.
-- **Self-consistency / multiagent debate**: correr perspectivas independientes y elegir por evidencia/consenso, no por una única muestra.
-- **Reflexion / Self-Refine**: iterar generar → criticar → refinar, pero siempre con límites explícitos (`maxAgents`, rondas, timeout, quiet rounds).
-- **Tree of Thoughts**: explorar alternativas, evaluarlas y podar antes de comprometer una implementación.
-- **AutoGen / CAMEL / MetaGPT**: roles claros, contratos de salida y artifacts compartidos entre agentes.
-- **SWE-agent / DSPy**: la interfaz importa; prompts con tools concretas, evidencia verificable y formatos estables son parte del diseño.
+- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.
+- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.
+- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.
+- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.
+- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.
+- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.
+- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.
+
+Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
 
 See detailed notes in `docs/research/2026-06-25-agentic-patterns-papers-workflows.md`.
 
