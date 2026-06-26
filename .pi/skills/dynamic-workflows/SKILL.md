@@ -38,7 +38,7 @@ Do not treat low defaults as a ceiling. After the inline scout reveals the work-
 - Clamp to `ctx.limits.concurrency` and `ctx.limits.maxAgents`, but log requested vs effective values and what is delayed, skipped, sampled, or excluded.
 - A fallback like `Math.min(4, items.length, ctx.limits.concurrency)` is acceptable for small/uncertain work; for large independent read-only sweeps, consider 8-12+ if limits and provider budget allow.
 
-Unknown size -> prefer a loop-until-dry pattern over a fixed count.
+Unknown size -> prefer a loop-until-done pattern over a fixed count.
 
 ### No silent caps
 
@@ -60,9 +60,9 @@ Pick by data dependency, not by aesthetics.
 
 **Robustness is explicit:** settling variants make failures visible as `null`; synthesis prompts should mention failed, empty, stale, or timed-out branches instead of hiding them.
 
-**Loops:** wrap any primitive in loop-until-count (fixed N) or loop-until-dry (stop after K quiet rounds, dedupe by stable key) when discovery size is unknown.
+**Loops:** wrap any primitive in loop-until-count (fixed N) or loop-until-done (stop after K quiet rounds, dedupe by stable key) when discovery size is unknown.
 
-## Research-backed workflow patterns
+## Research-backed templates
 
 Map common agent papers/frameworks to Pi workflow design:
 
@@ -129,12 +129,12 @@ If the user likes a generated workflow, promote it by reading `<task-slug>` and 
 
 Dynamic workflows should be generated for the concrete task after scouting. Do not treat checked-in examples as canned jobs; treat them as pattern references. Generated workflows are drafts by default; keep/promote them only when the user likes the result or wants reuse.
 
-The pattern catalog is visible in TUI (`/workflows` → Patterns or `/workflow patterns`) and from the tool (`dynamic_workflow action=template`). It lists aliases and concrete use cases. Key patterns include: default/fanout-synthesize, scout-fanout/pipeline/classify-act, loop-until-dry, multi-modal-sweep, adversarial-verify, completeness-critic, judge-escalate/judge-panel/generate-filter, tournament, tree-of-thoughts, self-consistency, self-repair, plan-and-execute, router, deep-research, repo-bug-hunt, adversarial-plan-review, workflow-factory, composition-driver, and verify-claims-lib.
+The pattern catalog is visible in TUI (`/workflows` → Patterns or `/workflow patterns`) and from the tool (`dynamic_workflow action=template`). It lists concrete patterns and use cases, without pattern aliases. The visible catalog is compact and Claude-style: templates (`classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`), compose templates (`compose-verify-claims`, `lib-verify-claims`, `workflow-factory`), and use-cases (`bug-hunt-repo-audit`, `large-migration`, `complex-research`, `plan-review`, `claim-bug-verification`). Legacy intents `deep-research` and `default` live as skills that route to `complex-research` and `fan-out-and-synthesize` respectively.
 
 Ultracode prompts carry only a short key list for this catalog. Before hand-writing a workflow, inspect `dynamic_workflow action=template`, choose the closest scaffold, or explicitly say why no template fits; for composition, prefer `ctx.workflow("lib/<name>", args)` only for reusable sub-steps with no decision gate, keep `lib/` contracts stable and JSON-serializable, and sequence separate runs when the next phase depends on inspecting previous artifacts.
 
 - **Workflow factory / meta-workflow**: for complex workflow/prompt/contract design tasks where a workflow is warranted, first run `workflow-factory` with `{ task, write:true }`; it designs prompts/contracts, generates a task-specific workflow draft under the gitignored `.pi/workflows/drafts/<slug>.js` path, reviews it, and leaves inspectable artifacts.
-- **Composition**: use `composition-driver` + `verify-claims-lib` as examples of `ctx.workflow("lib/verify-claims", args)` when a reusable sub-step needs no decision gate.
+- **Composition**: use `compose-verify-claims` + `lib-verify-claims` as examples of `ctx.workflow("lib/verify-claims", args)` when a reusable sub-step needs no decision gate.
 - **Fan-out and synthesize**: split files/topics among subagents, then run a synthesis subagent.
 - **Classify and act**: classify many items, then run targeted follow-ups only on high-signal items.
 - **Adversarial verification**: have independent agents critique/verify a plan or patch.

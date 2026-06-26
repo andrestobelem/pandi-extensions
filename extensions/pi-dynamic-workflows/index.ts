@@ -38,7 +38,6 @@ import {
 	formatWorkflowPatternCatalog,
 	formatWorkflowPatternKeyList,
 	formatWorkflowPatternPromptCheatSheet,
-	getPatternAliases,
 	getPatternUseCases,
 	loadWorkflowPatternCode,
 	resolveWorkflowPattern,
@@ -4545,16 +4544,14 @@ class WorkflowDashboard {
 			const pattern = visible[i]!;
 			const selected = index === this.patternIndex;
 			const prefix = selected ? accent("› ") : "  ";
-			const aliasHint = getPatternAliases(pattern)[0];
-			lines.push(line(`${prefix}${pattern.key} ${muted("—")} ${pattern.title}${aliasHint ? muted(` aka:${aliasHint}`) : ""} ${muted(`(${pattern.primitives.join(" + ")})`)}`));
+			lines.push(line(`${prefix}${pattern.key} ${muted("—")} ${pattern.title} ${muted(`(${pattern.primitives.join(" + ")})`)}`));
 		}
 		const selected = WORKFLOW_PATTERN_CATALOG[this.patternIndex];
 		if (!selected) return;
-		const aliases = getPatternAliases(selected);
 		const useCases = getPatternUseCases(selected);
 		lines.push(line(muted("")));
 		lines.push(line(accent("Selected pattern")));
-		lines.push(line(`key: ${selected.key}${aliases.length ? muted(` • aliases: ${aliases.join(", ")}`) : ""}`));
+		lines.push(line(`key: ${selected.key}`));
 		lines.push(line(`title: ${selected.title}`));
 		lines.push(line(`summary: ${selected.blurb}`));
 		lines.push(line(`use when: ${selected.useWhen}`));

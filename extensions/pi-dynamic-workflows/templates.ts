@@ -94,218 +94,168 @@ export interface WorkflowPattern {
 	inputHint: string;
 	primitives: string[];
 	defaultName: string;
-	aliases?: string[];
+	category?: "template" | "compose" | "use-case";
 	useCases?: string[];
 }
 
 export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
-		key: "default",
-		title: "Default scout + fan-out",
-		blurb: "General-purpose starter: scout files, fan out reviewers, synthesize as judge.",
-		useWhen: "You need a safe blank-ish workflow that already follows the routing/no-silent-caps defaults.",
-		inputHint: "{ \"limit\": 12, \"concurrency\": 4 }",
-		primitives: ["ctx.bash", "ctx.agents(settle)", "ctx.agent"],
-		defaultName: "default-workflow",
-	},
-	{
-		key: "scout-fanout",
-		title: "Scout → adaptive fan-out/pipeline",
-		blurb: "Discover a work-list, classify each item cheaply, deep-review only high-signal items.",
-		useWhen: "Repo/code audits where only some files deserve expensive review after an initial scout.",
+		key: "classify-and-act",
+		title: "Classify and act",
+		category: "template",
+		blurb: "Scout/classify items cheaply, then run targeted follow-ups only for high-signal classes.",
+		useWhen: "Many items need different handling after a cheap classifier, such as code audits or migrations.",
 		inputHint: "{ \"pattern\": \"\\\\.(ts|tsx|js)$\", \"maxFiles\": 40 }",
 		primitives: ["ctx.bash", "ctx.pipeline", "ctx.agent(schema)"],
-		defaultName: "scout-fanout",
+		defaultName: "classify-and-act",
 	},
 	{
-		key: "loop-until-dry",
-		title: "Loop until dry",
-		blurb: "Repeat independent discovery rounds until enough consecutive rounds find nothing new.",
-		useWhen: "Unknown-size discovery: bugs, risks, sources, claims, call sites, or opportunities.",
-		inputHint: "{ \"finders\": 3, \"quietRounds\": 2, \"maxRounds\": 8 }",
-		primitives: ["ctx.agents(settle)", "loop", "ctx.log"],
-		defaultName: "loop-until-dry",
+		key: "fan-out-and-synthesize",
+		title: "Fan-out and synthesize",
+		category: "template",
+		blurb: "Split independent work across agents, then synthesize as a judge with evidence and partial-failure notes.",
+		useWhen: "The task has many independent branches and a final merge/synthesis step.",
+		inputHint: "{ \"limit\": 12, \"concurrency\": 4 }",
+		primitives: ["ctx.bash", "ctx.agents(settle)", "ctx.agent"],
+		defaultName: "fan-out-and-synthesize",
 	},
 	{
-		key: "multi-modal-sweep",
-		title: "Multi-modal sweep",
-		blurb: "Search the same target several different ways, union/dedupe results, then ask a critic what coverage is thin.",
-		useWhen: "Coverage matters and one search modality (grep, tests, deps, git history) may miss findings.",
-		inputHint: "{ \"target\": \"all call sites of X\" }",
-		primitives: ["ctx.parallel", "ctx.agent(schema)", "dedupe"],
-		defaultName: "multi-modal-sweep",
-	},
-	{
-		key: "adversarial-verify",
-		title: "Adversarial verify",
-		blurb: "Launch skeptics per claim/finding and keep only what survives refutation.",
-		useWhen: "You have findings/claims/plans and need confidence before acting on them.",
+		key: "adversarial-verification",
+		title: "Adversarial verification",
+		category: "template",
+		blurb: "Launch skeptics per claim/finding and keep only what survives evidence-backed refutation.",
+		useWhen: "You have findings, claims, or plans and need confidence before acting on them.",
 		inputHint: "{ \"findings\": [{ \"id\": \"f1\", \"claim\": \"...\" }], \"skeptics\": 3 }",
 		primitives: ["ctx.parallel", "ctx.agent(schema)", "voting"],
-		defaultName: "adversarial-verify",
+		defaultName: "adversarial-verification",
 	},
 	{
-		key: "completeness-critic",
-		title: "Completeness critic",
-		blurb: "Run an initial pass, have a critic identify missing gaps, and target those gaps in later rounds.",
-		useWhen: "Research/audit tasks where the hard part is knowing what you failed to inspect.",
-		inputHint: "{ \"question\": \"...\", \"maxRounds\": 4 }",
-		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "feedback loop"],
-		defaultName: "completeness-critic",
-	},
-	{
-		key: "judge-escalate",
-		title: "Judge + escalate",
-		blurb: "Generate candidates from distinct angles, judge them, and spend another round only when confidence is low.",
-		useWhen: "Best-of-N decisions where you want dynamic depth instead of a fixed number of attempts.",
+		key: "generate-and-filter",
+		title: "Generate and filter",
+		category: "template",
+		blurb: "Generate candidates from distinct angles, judge by rubric, and escalate only if confidence is low.",
+		useWhen: "You need best-of-N options without trusting one sample or one scalar score.",
 		inputHint: "{ \"question\": \"...\", \"angles\": [\"risk-first\", \"simplicity-first\"] }",
 		primitives: ["ctx.parallel", "ctx.agent(schema)", "adaptive loop"],
-		defaultName: "judge-escalate",
+		defaultName: "generate-and-filter",
 	},
 	{
-		key: "tournament",
-		title: "Tournament / ranking",
+		key: "tournaments",
+		title: "Tournaments",
+		category: "template",
 		blurb: "Generate or accept candidates and run pairwise judging rounds until one winner remains.",
 		useWhen: "You need comparative ranking, not just independent scoring.",
 		inputHint: "{ \"topic\": \"...\", \"angles\": [\"cost\", \"quality\", \"risk\"] }",
 		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "bracket"],
-		defaultName: "tournament",
+		defaultName: "tournaments",
 	},
 	{
-		key: "tree-of-thoughts",
-		title: "Tree of Thoughts / beam search",
-		blurb: "Expand reasoning branches, score them, prune to a beam, and continue from the most promising paths.",
-		useWhen: "Deliberate problem solving where early weak branches should not consume the full budget.",
-		inputHint: "{ \"problem\": \"...\", \"branching\": 3, \"beamWidth\": 2, \"depth\": 3 }",
-		primitives: ["ctx.agents(settle)", "ctx.parallel", "ctx.agent(schema)"],
-		defaultName: "tree-of-thoughts",
+		key: "loop-until-done",
+		title: "Loop until done",
+		category: "template",
+		blurb: "Repeat discovery or repair rounds until no new findings remain or a hard stop condition fires.",
+		useWhen: "The work-list size is unknown and progress should stop on quiet rounds, max rounds, budget, or timeout.",
+		inputHint: "{ \"finders\": 3, \"quietRounds\": 2, \"maxRounds\": 8 }",
+		primitives: ["ctx.agents(settle)", "loop", "ctx.log"],
+		defaultName: "loop-until-done",
 	},
 	{
-		key: "self-consistency",
-		title: "Self-consistency vote",
-		blurb: "Sample the same prompt multiple times with cache disabled, normalize answers, and tally agreement.",
-		useWhen: "Reasoning questions where agreement/disagreement is useful signal.",
-		inputHint: "{ \"question\": \"...\", \"samples\": 5 }",
-		primitives: ["ctx.agents", "cache:false", "voting"],
-		defaultName: "self-consistency",
-	},
-	{
-		key: "self-repair",
-		title: "Self-repair loop",
-		blurb: "Implement/fix, run a real verification command, feed failures back, and stop when green or capped.",
-		useWhen: "Implementation tasks with an objective test/typecheck/lint command. This pattern edits files.",
-		inputHint: "{ \"task\": \"...\", \"verifyCmd\": \"npm test\" }",
-		primitives: ["ctx.agent(edit/write)", "ctx.bash", "verify loop"],
-		defaultName: "self-repair",
-	},
-	{
-		key: "plan-and-execute",
-		title: "Plan and execute with replan",
-		blurb: "Create typed steps, execute them in order, verify each step, and replan the tail on failure.",
-		useWhen: "Long tasks where reality may invalidate the initial plan mid-run.",
-		inputHint: "{ \"goal\": \"...\", \"maxReplans\": 3, \"maxSteps\": 12 }",
-		primitives: ["ctx.agent(schema)", "sequential steps", "replanning"],
-		defaultName: "plan-and-execute",
-	},
-	{
-		key: "router",
-		title: "Router / classify and dispatch",
-		blurb: "Classify the request, optionally disambiguate, then dispatch to a specialized handler.",
-		useWhen: "Mixed workloads where the right tools/persona depend on the request category.",
-		inputHint: "{ \"request\": \"...\" }",
-		primitives: ["ctx.agent(schema)", "routing", "specialized handlers"],
-		defaultName: "router",
-	},
-	{
-		key: "workflow-factory",
-		title: "Workflow factory / meta-workflow",
-		blurb: "Given a task, launch a workflow that designs prompts/contracts and writes a task-specific generated workflow draft.",
-		useWhen: "The task is complex enough that Pi should first generate the right workflow shape instead of hand-writing it inline.",
-		inputHint: "{ \"task\": \"audit this repo for race conditions\", \"write\": true }",
-		primitives: ["ctx.agent(schema)", "prompt improvement", "ctx.writeFile"],
-		defaultName: "workflow-factory",
-	},
-	{
-		key: "composition-driver",
-		title: "Composition driver",
-		blurb: "Discover claims/items, then delegate a reusable phase to ctx.workflow('lib/verify-claims').",
-		useWhen: "A sub-step is reusable and there is no decision gate between parent and child workflow.",
+		key: "compose-verify-claims",
+		title: "Compose: verify claims",
+		category: "compose",
+		blurb: "Discover claims/items, then delegate reusable verification to ctx.workflow('lib/verify-claims').",
+		useWhen: "Discovery and reusable verification can run in one parent workflow without a decision gate between them.",
 		inputHint: "{ \"topic\": \"claims to discover and verify\" }",
 		primitives: ["ctx.workflow", "ctx.agent", "sub-workflow"],
-		defaultName: "composition-driver",
+		defaultName: "compose-verify-claims",
 	},
 	{
-		key: "verify-claims-lib",
-		title: "Composable lib/verify-claims",
+		key: "lib-verify-claims",
+		title: "Lib: verify claims",
+		category: "compose",
 		blurb: "Reusable sub-workflow contract: { claims, skeptics? } -> verified/dropped claims with evidence.",
-		useWhen: "You want a shared library workflow under lib/ that other workflows call with ctx.workflow().",
+		useWhen: "You want a shared library workflow under lib/ that parent workflows call with ctx.workflow().",
 		inputHint: "{ \"claims\": [{ \"id\": \"c1\", \"claim\": \"...\" }] }",
 		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "library contract"],
 		defaultName: "lib/verify-claims",
 	},
 	{
-		key: "deep-research",
-		title: "Deep research",
-		blurb: "Run independent research angles, then synthesize with citations/evidence and coverage notes.",
-		useWhen: "You need broad source-backed research, migration analysis, or vendor/architecture comparison.",
-		inputHint: "{ \"question\": \"...\", \"angles\": [\"docs\", \"risks\", \"alternatives\"] }",
-		primitives: ["ctx.agents(settle)", "research angles", "synthesis-as-judge"],
-		defaultName: "deep-research",
+		key: "workflow-factory",
+		title: "Workflow factory",
+		category: "compose",
+		blurb: "Meta-workflow that designs prompts/contracts, generates a task-specific draft, and reviews it.",
+		useWhen: "A warranted workflow needs complex prompt/contract design before spending many subagents.",
+		inputHint: "{ \"task\": \"audit this repo for race conditions\", \"write\": true }",
+		primitives: ["ctx.agent(schema)", "prompt improvement", "ctx.writeFile"],
+		defaultName: "workflow-factory",
 	},
 	{
-		key: "repo-bug-hunt",
-		title: "Repo bug hunt",
+		key: "bug-hunt-repo-audit",
+		title: "Bug hunt / repo audit",
+		category: "use-case",
 		blurb: "Scout code files, fan out reviewer agents, and synthesize prioritized bugs with citations.",
 		useWhen: "You want a reusable broad bug-hunt workflow rather than a one-off generated audit.",
 		inputHint: "{ \"maxFiles\": 40, \"concurrency\": 4 }",
 		primitives: ["ctx.bash", "ctx.agents(settle)", "reviewer synthesis"],
-		defaultName: "repo-bug-hunt",
+		defaultName: "bug-hunt-repo-audit",
 	},
 	{
-		key: "adversarial-plan-review",
-		title: "Adversarial plan review",
+		key: "large-migration",
+		title: "Large migration",
+		category: "use-case",
+		blurb: "Scout and classify files, then target migration review/work only where the classifier says it matters.",
+		useWhen: "A migration spans many files and needs capped, evidence-backed coverage before implementation.",
+		inputHint: "{ \"pattern\": \"\\\\.(ts|tsx|js)$\", \"maxFiles\": 80 }",
+		primitives: ["ctx.bash", "ctx.pipeline", "ctx.agent(schema)"],
+		defaultName: "large-migration",
+	},
+	{
+		key: "complex-research",
+		title: "Complex research",
+		category: "use-case",
+		blurb: "Run independent research angles, then synthesize with citations/evidence and coverage notes.",
+		useWhen: "You need broad source-backed research, migration analysis, or vendor/architecture comparison.",
+		inputHint: "{ \"question\": \"...\", \"angles\": [\"docs\", \"risks\", \"alternatives\"] }",
+		primitives: ["ctx.agents(settle)", "research angles", "synthesis-as-judge"],
+		defaultName: "complex-research",
+	},
+	{
+		key: "plan-review",
+		title: "Plan review",
+		category: "use-case",
 		blurb: "Review a plan from multiple skeptical perspectives and synthesize accepted risks and fixes.",
 		useWhen: "Before implementing a risky plan, migration, or architecture change.",
 		inputHint: "{ \"plan\": \"...\", \"perspectives\": [\"security\", \"performance\"] }",
 		primitives: ["ctx.agents(settle)", "reviewer panel", "synthesis-as-judge"],
-		defaultName: "adversarial-plan-review",
+		defaultName: "plan-review",
+	},
+	{
+		key: "claim-bug-verification",
+		title: "Claim/bug verification",
+		category: "use-case",
+		blurb: "Verify suspected bugs or factual claims with independent skeptics before reporting or acting.",
+		useWhen: "A previous sweep produced claims/findings that need evidence-backed pruning.",
+		inputHint: "{ \"findings\": [{ \"id\": \"f1\", \"claim\": \"...\" }], \"skeptics\": 3 }",
+		primitives: ["ctx.parallel", "ctx.agent(schema)", "voting"],
+		defaultName: "claim-bug-verification",
 	},
 ];
 
-const WORKFLOW_PATTERN_ALIASES: Record<string, string[]> = {
-	default: ["fanout-synthesize", "map-reduce", "basic-audit"],
-	"scout-fanout": ["pipeline", "classify-act", "classify-and-act", "adaptive-depth", "prompt-chaining", "react"],
-	"judge-escalate": ["judge-panel", "generate-filter", "generate-and-filter", "best-of-n"],
-	"adversarial-verify": ["multiagent-debate", "plan-review", "verify-findings"],
-	"multi-modal-sweep": ["coverage-sweep", "orchestrator-workers", "orchestrator-worker", "parallelization"],
-	"self-repair": ["evaluator-optimizer", "reflexion", "self-refine"],
-	"plan-and-execute": ["metagpt", "plan-execute", "replan"],
-	router: ["routing", "classify-dispatch"],
-	"workflow-factory": ["workflow-generator", "meta-workflow", "dynamic-workflow-generator"],
-	"composition-driver": ["compose", "subworkflow-driver", "workflow-composition", "sub-workflows"],
-	"verify-claims-lib": ["lib/verify-claims", "verify-claims"],
-};
-
 const WORKFLOW_PATTERN_USE_CASES: Record<string, string[]> = {
-	default: ["Quick repo bug skim over a capped file list", "Split a docs audit by file and synthesize", "Prototype a one-off generated workflow under <slug>"],
-	"scout-fanout": ["Audit only files that a cheap classifier marks medium/high risk", "Review a PR by touched files with deeper follow-up only where needed", "Migrate a codebase by classifying files then applying targeted analysis"],
-	"loop-until-dry": ["Keep searching for security issues until two rounds find nothing new", "Discover unknown call sites or migration blockers", "Run multiple bug finders until findings stop increasing"],
-	"multi-modal-sweep": ["Find all references to an API via grep, imports, tests, and git history", "Research a topic from docs, code, tests, and changelog separately", "Audit coverage where a single search strategy is likely incomplete"],
-	"adversarial-verify": ["Verify suspected bugs before filing them", "Have skeptics refute a migration plan", "Drop hallucinated findings from a previous broad sweep"],
-	"completeness-critic": ["Ask what sources or modalities are missing before final research synthesis", "Audit a plan for unhandled edge cases and then investigate those gaps", "Iterate on a repo survey until a critic says coverage is adequate"],
-	"judge-escalate": ["Generate several implementation strategies and escalate only if the judge is unsure", "Pick between architecture options by rubric", "Improve a prompt by trying variants and judging confidence"],
-	tournament: ["Rank candidate designs pairwise", "Choose the best generated prompt/template", "Compare multiple remediation plans without relying on one scalar score"],
-	"tree-of-thoughts": ["Explore multi-step debugging hypotheses with pruning", "Design a complex feature by branching and scoring partial approaches", "Solve planning problems where early decisions shape later work"],
-	"self-consistency": ["Estimate confidence on a reasoning answer by sampling agreement", "Vote on classification labels", "Surface dissenting answers for ambiguous product decisions"],
-	"self-repair": ["Implement a small fix and loop on npm test until green", "Repair type errors using tsc output", "Run a lint/test-driven editing loop with explicit max attempts"],
-	"plan-and-execute": ["Execute a long task with re-planning after failed steps", "Turn a vague objective into typed steps and evidence", "Keep progress when the initial plan becomes stale"],
-	router: ["Classify incoming work as bug/feature/docs/ops and choose tools", "Dispatch mixed support requests to specialized handlers", "Avoid using write tools for docs-only questions"],
-	"workflow-factory": ["Given a user task, design a custom <slug> workflow", "Improve the prompts/contracts before spending many subagents", "Produce a reusable workflow scaffold plus review notes as artifacts"],
-	"composition-driver": ["Use ctx.workflow('lib/verify-claims') as a reusable verification phase", "Separate discovery from reusable claim verification", "Demonstrate when no human decision is needed between sub-steps"],
-	"verify-claims-lib": ["Reusable sub-workflow for fact-checking claims", "Shared verifier called by multiple generated workflows", "Teach lib/ convention for composable workflow building blocks"],
-	"deep-research": ["Research a migration or vendor choice with independent angles", "Collect and synthesize source-backed options", "Compare alternatives before implementation"],
-	"repo-bug-hunt": ["Find likely bugs across many repo files", "Run reviewer agents by file chunk", "Produce prioritized findings with citations"],
-	"adversarial-plan-review": ["Review an implementation plan from security/performance/product angles", "Find reasons not to execute a proposed migration", "Get a skeptical panel before committing code"],
+	"classify-and-act": ["Audit only files that a cheap classifier marks medium/high risk", "Review a PR by touched files with deeper follow-up only where needed", "Migrate a codebase by classifying files before targeted action"],
+	"fan-out-and-synthesize": ["Split a docs audit by file and synthesize", "Run independent reviewers over a capped work-list", "Prototype a one-off generated workflow under <slug>"],
+	"adversarial-verification": ["Verify suspected bugs before filing them", "Have skeptics refute a migration plan", "Drop hallucinated findings from a previous broad sweep"],
+	"generate-and-filter": ["Generate several implementation strategies and keep the best", "Pick between architecture options by rubric", "Improve a prompt by trying variants and judging confidence"],
+	tournaments: ["Rank candidate designs pairwise", "Choose the best generated prompt/template", "Compare multiple remediation plans without relying on one scalar score"],
+	"loop-until-done": ["Keep searching for security issues until quiet rounds", "Discover unknown call sites or migration blockers", "Run repair/verify rounds until green or capped"],
+	"compose-verify-claims": ["Use ctx.workflow('lib/verify-claims') as a reusable verification phase", "Separate discovery from reusable claim verification", "Demonstrate parent/child workflow composition"],
+	"lib-verify-claims": ["Reusable sub-workflow for fact-checking claims", "Shared verifier called by multiple generated workflows", "Teach lib/ convention for composable workflow building blocks"],
+	"workflow-factory": ["Given a user task, design a custom <slug> workflow", "Improve prompts/contracts before spending many subagents", "Produce a reusable workflow scaffold plus review notes as artifacts"],
+	"bug-hunt-repo-audit": ["Find likely bugs across many repo files", "Run reviewer agents by file chunk", "Produce prioritized findings with citations"],
+	"large-migration": ["Classify migration files by risk", "Find migration blockers before editing", "Plan a broad API/package migration with visible caps"],
+	"complex-research": ["Research a migration or vendor choice with independent angles", "Collect and synthesize source-backed options", "Compare alternatives before implementation"],
+	"plan-review": ["Review an implementation plan from security/performance/product angles", "Find reasons not to execute a proposed migration", "Get a skeptical panel before committing code"],
+	"claim-bug-verification": ["Verify suspected bugs before reporting", "Check claims from a previous sweep", "Separate true findings from unsupported suspicions"],
 };
 
 // Keep pattern scaffolds self-contained in this extension so packaged installs do not
@@ -1646,7 +1596,7 @@ const EMBEDDED_WORKFLOW_PATTERN_TEMPLATES: Record<string, string> = {
 		"};",
 		"",
 	].join("\n"),
-	"deep-research": [
+	"complex-research": [
 		"function chooseConcurrency(ctx, input, items, opts = {}) {",
 		"  if (Number.isFinite(input?.concurrency)) {",
 		"    return Math.min(Math.max(Math.floor(input.concurrency), 1), ctx.limits.concurrency, Math.max(1, items.length));",
@@ -1923,18 +1873,27 @@ const EMBEDDED_WORKFLOW_PATTERN_TEMPLATES: Record<string, string> = {
 	].join("\n"),
 };
 
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["classify-and-act"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["fan-out-and-synthesize"] = WORKFLOW_TEMPLATE;
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verification"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verify"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["generate-and-filter"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["judge-escalate"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES.tournaments = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES.tournament;
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-done"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-dry"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["compose-verify-claims"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["composition-driver"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["lib-verify-claims"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["verify-claims-lib"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["bug-hunt-repo-audit"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["repo-bug-hunt"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["large-migration"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["plan-review"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-plan-review"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["claim-bug-verification"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verify"];
+
 function normalizePatternKey(key: string): string {
 	return key.trim().toLowerCase().replace(/^adaptive-/, "").replace(/\.(js|mjs|cjs)$/i, "");
-}
-
-export function getPatternAliases(pattern: WorkflowPattern): string[] {
-	return [...(pattern.aliases ?? []), ...(WORKFLOW_PATTERN_ALIASES[pattern.key] ?? [])];
 }
 
 export function resolveWorkflowPattern(key: string | undefined): WorkflowPattern | undefined {
 	if (!key) return undefined;
 	const normalized = normalizePatternKey(key);
-	return WORKFLOW_PATTERN_CATALOG.find((pattern) => pattern.key === normalized || getPatternAliases(pattern).some((alias) => normalizePatternKey(alias) === normalized));
+	return WORKFLOW_PATTERN_CATALOG.find((pattern) => pattern.key === normalized);
 }
 
 export function getPatternUseCases(pattern: WorkflowPattern): string[] {
@@ -1949,18 +1908,42 @@ export function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG
 		"Use from tool: dynamic_workflow action=template name=<key>",
 		"",
 	];
-	for (const pattern of patterns) {
-		const aliases = getPatternAliases(pattern);
-		const useCases = getPatternUseCases(pattern);
-		lines.push(`- ${pattern.key} — ${pattern.title}`);
-		if (aliases.length) lines.push(`  Aliases: ${aliases.join(", ")}`);
-		lines.push(`  ${pattern.blurb}`);
-		lines.push(`  When: ${pattern.useWhen}`);
-		if (useCases.length) lines.push(`  Use cases: ${useCases.slice(0, 3).join("; ")}`);
-		lines.push(`  Input: ${pattern.inputHint}`);
-		lines.push(`  Primitives: ${pattern.primitives.join(", ")}`);
+	const sections: Array<[WorkflowPattern["category"], string]> = [
+		["template", "Templates"],
+		["compose", "Compose templates"],
+		["use-case", "Use-case templates"],
+	];
+	for (const [category, label] of sections) {
+		const sectionPatterns = patterns.filter((pattern) => (pattern.category ?? "template") === category);
+		if (sectionPatterns.length === 0) continue;
+		lines.push(`## ${label}`, "");
+		for (const pattern of sectionPatterns) {
+			const useCases = getPatternUseCases(pattern);
+			lines.push(`- ${pattern.key} — ${pattern.title}`);
+			lines.push(`  ${pattern.blurb}`);
+			lines.push(`  When: ${pattern.useWhen}`);
+			if (useCases.length) lines.push(`  Use cases: ${useCases.slice(0, 3).join("; ")}`);
+			lines.push(`  Input: ${pattern.inputHint}`);
+			lines.push(`  Primitives: ${pattern.primitives.join(", ")}`);
+		}
+		lines.push("");
 	}
-	return lines.join("\n");
+	lines.push(
+		"## Research-backed templates",
+		"",
+		"Map common agent papers/frameworks to Pi workflow design:",
+		"",
+		"- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.",
+		"- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.",
+		"- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.",
+		"- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.",
+		"- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.",
+		"- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.",
+		"- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.",
+		"",
+		"Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.",
+	);
+	return lines.join("\n").trimEnd();
 }
 
 export function formatWorkflowPatternPromptCheatSheet(patterns = WORKFLOW_PATTERN_CATALOG): string {
@@ -1968,9 +1951,7 @@ export function formatWorkflowPatternPromptCheatSheet(patterns = WORKFLOW_PATTER
 		"Workflow template catalog (choose from these before writing from scratch; inspect with dynamic_workflow action=template, fetch a scaffold with name=<key>):",
 	];
 	for (const pattern of patterns) {
-		const aliases = getPatternAliases(pattern).slice(0, 2);
-		const key = aliases.length ? `${pattern.key} (${aliases.join(", ")})` : pattern.key;
-		lines.push(`- ${key}: ${pattern.useWhen} Primitives: ${pattern.primitives.join(", ")}.`);
+		lines.push(`- ${pattern.key}: ${pattern.useWhen} Primitives: ${pattern.primitives.join(", ")}.`);
 	}
 	return lines.join("\n");
 }
@@ -1981,7 +1962,7 @@ export function formatWorkflowCompositionPromptGuidance(): string {
 		"- Use ctx.workflow(\"lib/<name>\", args) for a reusable sub-step with no human/agent decision gate between parent and child; keep one shared run, concurrency pool, maxAgents budget, abort signal, runDir, and resume/cache journal.",
 		"- Store reusable contracts under lib/<name>.js, accept one args object, validate inputs, return stable JSON-serializable results, and document the contract in a header comment.",
 		"- Depth is 1: a sub-workflow must not call ctx.workflow() again; if the next phase depends on inspecting child output, run separate workflows sequentially and inspect artifacts between runs.",
-		"- Prefer composition-driver plus verify-claims-lib as the reference pattern for discovery -> reusable verification; graph literal ctx.workflow(\"...\") calls when reviewing structure.",
+		"- Prefer compose-verify-claims plus lib-verify-claims as the reference pattern for discovery -> reusable verification; graph literal ctx.workflow(\"...\") calls when reviewing structure.",
 	].join("\n");
 }
 
@@ -1995,7 +1976,6 @@ export function formatWorkflowCompositionPromptSummary(): string {
 }
 
 export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
-	if (pattern.key === "default") return WORKFLOW_TEMPLATE;
 	const template = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES[pattern.key];
 	if (template === undefined) {
 		throw new Error(`Embedded workflow template missing for pattern ${pattern.key}`);
