@@ -225,7 +225,7 @@ Si `/ultracode`, `/workflow`, `/workflows` o el dashboard no aparecen:
   pi list
   ```
 
-- Si estás parado en `examples/`, ese subdirectorio necesita su propio `.pi/settings.json` apuntando al paquete padre (`../..`) o arrancá Pi desde la raíz del repo.
+- No arranques Pi con `examples/` como cwd: ese directorio debe quedar libre de `.pi/`. Arrancá Pi desde la raíz del repo o usá un proyecto temporal para copiar/ejecutar ejemplos.
 - Después de instalar/cambiar settings, ejecutá `/reload` o reiniciá Pi.
 - `dynamic_workflow` debe estar activo. `/ultracode-mode on` intenta activarlo para la sesión.
 - El dashboard `/workflows` requiere modo TUI. En `pi -p`/print usá `/workflow list`, `/workflow runs` y `/workflow view latest`.

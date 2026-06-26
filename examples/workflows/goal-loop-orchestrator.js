@@ -15,7 +15,7 @@ export default async function workflow(ctx, input = {}) {
     { id: "test", cmd: "npm test" },
     { id: "extensions-diff", cmd: "git diff --stat -- extensions/" },
     { id: "memory-tail", cmd: `test -f ${JSON.stringify(logPath)} && tail -120 ${JSON.stringify(logPath)} || true` },
-    { id: "generated-workflows", cmd: "find examples/.pi/workflows/generated .pi/workflows/generated -maxdepth 1 -type f 2>/dev/null | sort | tail -80" },
+    { id: "generated-workflows", cmd: "find .pi/workflows/generated -maxdepth 1 -type f 2>/dev/null | sort | tail -80" },
   ];
 
   const scout = [];

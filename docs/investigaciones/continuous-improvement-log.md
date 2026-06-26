@@ -563,7 +563,7 @@ cerrar su WIP ya no figura en `git diff --stat` — committeado/revertido por el
 
 **Workflow dinámico de scout:** `generated/goal-pass1-improvement-scout`  
 Run: `2026-06-25T13-34-47-683Z-generated-goal-pass1-improvement-scout-de44d739`  
-Artifacts: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/.pi/workflow-runs/2026-06-25T13-34-47-683Z-generated-goal-pass1-improvement-scout-de44d739`
+Artifacts: workflow run `2026-06-25T13-34-47-683Z-generated-goal-pass1-improvement-scout-de44d739` (legacy local run artifacts; `examples/` no debe contener `.pi`).
 
 **Baseline/scout inline:**
 - `git status --short` mostró trabajo ajeno/no propio ya presente: `docs/README.md`, varios `docs/planes/*`, `package-lock.json`, `examples/e2e/dynamic-workflow-composition.e2e.mjs`, `examples/workflows/composition-rank-driver.js`, `examples/workflows/lib/rank-candidates.js`, y luego `examples/e2e/composition-failure-recursion.e2e.mjs` de otra sesión.
@@ -587,7 +587,7 @@ Artifacts: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/.pi/workflo
 
 **Revisión adversarial:** `generated/goal-pass1-runner-adversarial-review`  
 Run: `2026-06-25T13-44-38-408Z-generated-goal-pass1-runner-adversarial-review-e0724bcc`  
-Artifacts: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/.pi/workflow-runs/2026-06-25T13-44-38-408Z-generated-goal-pass1-runner-adversarial-review-e0724bcc`
+Artifacts: workflow run `2026-06-25T13-44-38-408Z-generated-goal-pass1-runner-adversarial-review-e0724bcc` (legacy local run artifacts; `examples/` no debe contener `.pi`).
 
 - `critic-safety`: **FAIL inicial** por (1) omitir `composition-failure-recursion.e2e.mjs`, (2) no detectar unlisted suites, (3) no tener timeout. Fix aplicado: ignored-draft explícito, guard de unlisted suites, timeout y arg validation.
 - `critic-correctness`: **FAIL inicial** por la misma omisión/completitud. Fix aplicado: guard de completitud + draft allowlist explícito.

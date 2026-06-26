@@ -13,7 +13,7 @@ Mejorar `/workflow graph` para que deje de parecer una lista lineal de llamadas 
 - Mermaid, **Flowchart syntax**: `subgraph`, dirección local, edges hacia/desde subgraphs, labels y shapes.
 - Mermaid CLI (`mmdc`): flags `-w/--width`, `-H/--height`, `-s/--scale`, `-t`, `-b`, config JSON.
 - Papers: ReAct (arXiv:2210.03629), Self-Consistency (arXiv:2203.11171), Reflexion (arXiv:2303.11366), Self-Refine (arXiv:2303.17651), Tree of Thoughts (arXiv:2305.10601), Multiagent Debate (arXiv:2305.14325).
-- Investigación paralela local: workflow `generated/agentic-viz-patterns-research`, run `2026-06-25T10-17-20-913Z-generated-agentic-viz-patterns-research-ef06f94c`, artifacts en `examples/.pi/workflow-runs/...`.
+- Investigación paralela local: workflow `generated/agentic-viz-patterns-research`, run `2026-06-25T10-17-20-913Z-generated-agentic-viz-patterns-research-ef06f94c`, artifacts en el directorio `.pi/workflow-runs/...` del proyecto donde se ejecutó.
 
 ## Gramática visual recomendada
 
@@ -60,6 +60,6 @@ Mejorar `/workflow graph` para que deje de parecer una lista lineal de llamadas 
 
 ```bash
 npm test
-cd examples && PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ../extensions/dynamic-workflows.ts --no-session -p "/workflow graph generated/agentic-viz-patterns-research"
+PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p "/workflow graph generated/agentic-viz-patterns-research"
 ./node_modules/.bin/mmdc -q -i /tmp/subgraph-id-edge.mmd -o /tmp/subgraph-id-edge.png -e png -t dark -b transparent -w 2600 -H 1800 -s 2
 ```

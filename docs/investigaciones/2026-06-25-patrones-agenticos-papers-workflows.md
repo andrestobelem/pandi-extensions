@@ -67,7 +67,7 @@ Consolidar lo aprendido sobre workflows agénticos y papers relevantes para mejo
 - Ejemplos: `repo-bug-hunt`, `deep-research` y `adversarial-plan-review` pasan a elegir concurrencia dinámicamente, loguear fallas parciales y usar personas/settling.
 - Ultracode explícito: `/ultracode` ahora fuerza una instrucción más operativa (“crear un workflow task-specific dinámicamente con `dynamic_workflow` en este turno si pasa el gate”), prefiere `generated/<task-slug>` como borrador y activa el tool `dynamic_workflow` si estaba inactivo.
 - TUI/widget: se endureció render para `width <= 0` y se sanitizan mensajes de logs antes de renderizar.
-- `examples/.pi/settings.json`: agregado para que al abrir Pi desde `examples/` se cargue el paquete padre (`../..`).
+- Política actualizada: `examples/` no debe contener `.pi`; abrir Pi desde la raíz del repo o copiar ejemplos a un proyecto temporal.
 
 ## Validación
 
