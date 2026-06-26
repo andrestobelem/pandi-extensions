@@ -19,21 +19,40 @@ pi install -l ./
 Probar sin instalar:
 
 ```bash
-pi --no-extensions -e ./extensions/dynamic-workflows.ts
+pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts
 # o cargar el paquete entero:
 pi --no-extensions -e .
 ```
 
 Para usar workflows de proyecto en `.pi/workflows/`, confía el proyecto con `/trust` y reinicia o ejecuta `/reload`.
 
+### Paquetes individuales por extensión
+
+Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package instalable por separado:
+
+| Extensión | Paquete local |
+| --- | --- |
+| Dynamic Workflows / Ultracode | `pi install ./extensions/pi-dynamic-workflows` |
+| `/loop` | `pi install ./extensions/pi-loop` |
+| `/goal` | `pi install ./extensions/pi-goal` |
+| `/plan` | `pi install ./extensions/pi-plan` |
+| `/bg` | `pi install ./extensions/pi-bg` |
+| `/effort` | `pi install ./extensions/pi-effort` |
+| `/mdview` | `pi install ./extensions/pi-mdview` |
+| Local memory | `pi install ./extensions/pi-local-memory` |
+| Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
+
+Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
+
 ## Uso
 
 Comandos humanos:
 
 ```text
-/workflows                              # dashboard TUI monitor-first (tabs Monitor/Agents/Runs/Workflows/Patterns/Activity)
+/workflows                              # dashboard TUI monitor-first (tabs Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
 ↓ al fondo del editor / Ctrl+Alt+W       # shortcuts para abrir el dashboard desde el editor
 /workflow dashboard                     # alias del dashboard TUI
+/workflow sessions                      # abre el tab TUI de sesiones Pi vivas (TUI/RPC)
 /workflow patterns                      # abre el catálogo TUI de patrones/scaffolds para crear workflows
 /workflow list
 /workflow graph bug-hunt                # visual Mermaid PNG grande en TUI; muestra fan-out ×N, lanes/branches y export Mermaid
@@ -52,6 +71,9 @@ Comandos humanos:
 /workflows
 /ultracode revisa todo el repo buscando bugs de concurrencia
 /deep-research investiga opciones para migrar X a Y
+/effort high                           # cambia el thinking effort: off|minimal|low|medium|high|xhigh
+/effort ultracode                      # xhigh + router dinámico estilo Claude Code
+/mdview README.md                      # visualiza un archivo Markdown con scroll en la TUI
 /ultracode-mode status                 # muestra si el router always-on está activo
 /ultracode-mode off                    # desactiva el router en esta sesión
 /ultracode-mode on                     # vuelve a activarlo
@@ -61,13 +83,15 @@ También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` 
 
 ### Ultracode always-on
 
-La extensión activa por defecto un router estilo Claude Code `/effort ultracode`: en cada tarea sustantiva Pi evalúa si conviene resolver normalmente o crear/ejecutar un workflow dinámico. No fuerza workflows para tareas simples; solo añade criterio de ruteo al system prompt cuando el tool `dynamic_workflow` está disponible. Por ahora no cambia automáticamente el thinking level a `xhigh` para evitar modificar coste/modelo sin una decisión explícita.
+La extensión activa por defecto un router estilo Claude Code `/effort ultracode`: en cada tarea sustantiva Pi evalúa si conviene resolver normalmente o crear/ejecutar un workflow dinámico. No fuerza workflows para tareas simples; solo añade criterio de ruteo al system prompt cuando el tool `dynamic_workflow` está disponible. El router always-on por sí solo no cambia el thinking level para evitar modificar coste/modelo sin una decisión explícita; `/effort ultracode` sí pide `xhigh` explícitamente.
 
-Ultracode recibe ahora un mapa accionable del catálogo de templates: antes de escribir un workflow desde cero debe considerar `default`, `scout-fanout`, `loop-until-dry`, `multi-modal-sweep`, `adversarial-verify`, `completeness-critic`, `judge-escalate`, `tournament`, `tree-of-thoughts`, `self-consistency`, `self-repair`, `plan-and-execute`, `router`, `workflow-factory`, `composition-driver`, `verify-claims-lib`, `deep-research`, `repo-bug-hunt` y `adversarial-plan-review`. También recibe reglas de composición: usar `ctx.workflow("lib/<name>", args)` solo para sub-pasos reusables sin decisión intermedia, mantener contratos `lib/` estables y secuenciar workflows separados cuando haya que inspeccionar resultados antes de seguir.
+Ultracode inyecta un recordatorio corto: reglas de decisión, claves de plantillas y composición. El catálogo detallado queda en `dynamic_workflow action=template`; antes de escribir un workflow debe inspeccionarlo, reutilizar un workflow existente solo si coincide exactamente o elegir el scaffold más cercano.
 
 Úsalo sin prefijos: pide una tarea y Pi decidirá. Para controlar el modo durante la sesión:
 
 ```text
+/effort high          # solo cambia el thinking level
+/effort ultracode     # thinking xhigh + activa el router de workflows
 /ultracode-mode status
 /ultracode-mode off
 /ultracode-mode on
@@ -101,14 +125,14 @@ La guía y los ejemplos siguen patrones observados en papers y frameworks de age
 - **AutoGen / CAMEL / MetaGPT**: roles claros, contratos de salida y artifacts compartidos entre agentes.
 - **SWE-agent / DSPy**: la interfaz importa; prompts con tools concretas, evidencia verificable y formatos estables son parte del diseño.
 
-Ver notas detalladas en `docs/investigaciones/2026-06-25-patrones-agenticos-papers-workflows.md`.
+See detailed notes in `docs/research/2026-06-25-agentic-patterns-papers-workflows.md`.
 
 ### Ciclo de ejecución
 
 Cuando lanzás un workflow (`/workflow run`/`start` o `dynamic_workflow action=run`/`start`), la extensión hace esto:
 
 1. **Resuelve el workflow** por nombre, buscando en workflows de proyecto y globales.
-2. **Crea un run** con `runId` y directorio propio bajo `.pi/workflow-runs/<run-id>/` o el root global equivalente.
+2. **Crea un run** con `runId` y directorio propio bajo `.pi/workflows/runs/<run-id>/` o el root global equivalente.
 3. **Persiste estado inicial**: `input.json`, `status.json`, `events.jsonl`, `codeHash` y carpeta `agents/`.
 4. **Ejecuta el JS en un Worker** con una API `ctx` controlada. El workflow no necesita importar Pi: llama helpers como `ctx.agent`, `ctx.agents`, `ctx.bash`, `ctx.writeArtifact` y `ctx.log`.
 5. **Lanza subagentes**: cada `ctx.agent()` ejecuta un proceso `pi -p --no-session --mode json` con prompt, tools, skills, extensiones, keys/env, modelo, thinking y timeouts configurables.
@@ -130,7 +154,7 @@ Cuando lanzás un workflow (`/workflow run`/`start` o `dynamic_workflow action=r
 - `ctx.compact(value, maxChars)` — serializa y trunca resultados grandes para pasarlos a una síntesis.
 - `ctx.limits` — límites efectivos read-only (`concurrency`, `maxAgents`, timeouts).
 
-Acceso por subagente: `tools`/`excludeTools` limitan tools de Pi; `skills: ["path/to/skill"]` carga skills explícitas (`includeSkills: true` las suma al discovery, `includeSkills: false` desactiva discovery); `extensions: ["path/to/ext.ts"]` carga extensiones explícitas (`includeExtensions: true` habilita discovery); y `keys: ["GITHUB_TOKEN"]` expone solo esas variables de entorno al agente en un entorno aislado (los valores se redactan en artifacts/dashboard). Usa `env: { NAME: "value" }` solo cuando quieras inyectar explícitamente un valor; nunca escribas secretos en prompts.
+Acceso por subagente: `tools`/`excludeTools` limitan tools de Pi; por defecto los allowlists explícitos reciben además `web_search` cuando está disponible el paquete `pi-codex-web-search` (opt-out: `includeExtensions: false` o `excludeTools: ["web_search"]`). `skills: ["path/to/skill"]` carga skills explícitas (`includeSkills: true` las suma al discovery, `includeSkills: false` desactiva discovery); el discovery normal deja disponible `context7-cli` y, si usás una lista explícita de skills, Dynamic Workflows agrega `context7-cli` si lo encuentra (opt-out: `includeSkills: false`). `extensions: ["path/to/ext.ts"]` carga extensiones explícitas (`includeExtensions: true` habilita discovery); y `keys: ["GITHUB_TOKEN"]` expone solo esas variables de entorno al agente en un entorno aislado (los valores se redactan en artifacts/dashboard). Usa `env: { NAME: "value" }` solo cuando quieras inyectar explícitamente un valor; nunca escribas secretos en prompts.
 
 ### Background por defecto y resume
 
@@ -157,9 +181,9 @@ No los uses para tareas triviales: una edición chica, una pregunta simple o poc
 
 ### Catálogo de patrones y casos de uso
 
-El tab `Patterns` y `/workflow patterns` muestran todos los scaffolds registrados, alias y ejemplos de uso. Incluye patrones base (`default`, `scout-fanout`, `loop-until-dry`, `multi-modal-sweep`, `adversarial-verify`, `completeness-critic`, `judge-escalate`, `tournament`, `tree-of-thoughts`, `self-consistency`, `self-repair`, `plan-and-execute`, `router`), ejemplos reutilizables (`deep-research`, `repo-bug-hunt`, `adversarial-plan-review`) y patrones nuevos de composición/meta-orquestación:
+El tab `Patterns` y `/workflow patterns` muestran todos los scaffolds registrados, alias y casos de uso. Los scaffolds están embebidos en la extensión, así que el paquete no depende de archivos bajo `examples/workflows/`. Incluye patrones base (`default`, `scout-fanout`, `loop-until-dry`, `multi-modal-sweep`, `adversarial-verify`, `completeness-critic`, `judge-escalate`, `tournament`, `tree-of-thoughts`, `self-consistency`, `self-repair`, `plan-and-execute`, `router`), plantillas reutilizables (`deep-research`, `repo-bug-hunt`, `adversarial-plan-review`) y patrones nuevos de composición/meta-orquestación:
 
-- `workflow-factory` / `workflow-generator`: dado `{ task }`, lanza un workflow que mejora prompts/contratos, genera un workflow task-specific bajo `.pi/workflows/generated/<slug>.js`, lo revisa y deja artifacts (`workflow-plan.json`, `generated-workflow.js`, `workflow-review.md`). Útil cuando primero conviene diseñar el workflow correcto antes de gastar muchos agentes.
+- `workflow-factory` / `workflow-generator`: dado `{ task }`, lanza un workflow que mejora prompts/contratos, genera un workflow task-specific bajo `.pi/workflows/drafts/<slug>.js` (gitignored, junto a `.pi/workflows/runs/`), lo revisa y deja artifacts (`workflow-plan.json`, `generated-workflow.js`, `workflow-review.md`). Útil solo cuando los gates ya justifican un workflow y primero conviene diseñarlo antes de gastar muchos agentes.
 - `composition-driver`: ejemplo padre que descubre claims/items y delega verificación con `ctx.workflow("lib/verify-claims", args)`.
 - `verify-claims-lib`: sub-workflow reusable para guardar en `lib/verify-claims.js` y llamar desde múltiples workflows.
 
@@ -175,16 +199,18 @@ Smell test de composición: si no hay decisión humana/externa entre dos sub-pas
 
 ## Ubicación de workflows y artifacts
 
-Los workflows se guardan en:
+Los workflows estables se guardan en:
 
 - Proyecto: `.pi/workflows/*.js`
 - Global: `~/.pi/agent/workflows/*.js`
 
-Los resultados/artifacts se guardan en `.pi/workflow-runs/<run-id>/` cuando el proyecto está trusted. En proyectos no confiados se usa un directorio global bajo `~/.pi/agent/workflow-runs/<hash>/`. Los PNG/Mermaid generados por `/workflow graph` se guardan en `.pi/workflow-graphs/` o en el root global equivalente.
+Los borradores task-specific generados se guardan al lado de los runs, en `.pi/workflows/drafts/*.js` (o `~/.pi/agent/workflows/drafts/*.js` para global). Promové a `.pi/workflows/` solo los workflows que quieras conservar como estables/reusables.
 
-Durante runs activos en background (default en TUI/RPC), Pi muestra el estado en la status line (`▶ wf ... /workflows ↓ Ctrl+Alt+W`) y el dashboard es la torre de control. En print/json no hay TUI persistente: `run` bloquea como fallback y después se inspecciona con `/workflow view`/`dynamic_workflow action=view`. En modo interactivo, `/workflows`, `Ctrl+Alt+W` o `↓` cuando el editor ya no puede bajar más abre un dashboard TUI en tab `Monitor` por defecto, con tabs `Monitor`, `Agents`, `Runs`, `Workflows`, `Patterns` y `Activity`. El tab `Patterns` muestra un catálogo de patrones (scout-fanout, loop-until-dry, multi-modal-sweep, adversarial-verify, etc.) con cuándo usar cada uno, input esperado y primitivas; `Enter`/`n` crea un borrador de workflow de proyecto desde el scaffold seleccionado para editar antes de guardar. El Monitor prioriza el run activo o, si no hay ninguno, el último run; muestra workflow, estado, elapsed, active/stale, cantidad de agentes ejecutándose en paralelo (`actual/concurrency`) y pico, bash, artifacts, último log y `runDir`. Cuando hay subagentes, muestra una lista con estado, duración, código de salida, schema, tools, skills, extensiones, keys y disponibilidad/preview del prompt; los agentes lanzados por la misma llamada `ctx.agents(...)` se marcan como `P<fase> 1/n`, `P<fase> 2/n`, etc.; `↑`/`↓` seleccionan agente, `Enter`/`o` abre una vista live del agente (refresco cada 1s, output parseado, prompt y acceso; sin volcar el stdout JSON crudo) y `←`/`→` cambian de tab. El tab `Agents` lista todos los agentes registrados en los runs, agrupados por runs recientes, con el total paralelo actual arriba; `↑`/`↓` selecciona cualquiera y el panel inferior muestra estado, fase `1/n`, artifact, tools, skills, extensiones, keys, prompt preview y output preview antes de abrir el detalle live con `Enter`/`o`. Atajos dentro del dashboard: `v` abre el run completo, `g` abre el graph TUI (Mermaid PNG inline grande vía `mmdc` cuando el terminal soporta imágenes; el diagrama agrupa fan-outs `ctx.agents(...)` como `P1 ×items.length` con nodos visibles de agentes/ellipsis/join, además de lanes de `ctx.pipeline(...)` y branches de `ctx.parallel(...)`; fallback topología ASCII width-safe + export Mermaid), `c`/`x` cancela runs activos con confirmación, `r` rerun con confirmación usando `input.json` (o editor JSON si falta), en tabs `Monitor`/`Agents`/`Runs`/`Activity` `d`/Delete borra artifacts/directorio del run seleccionado si ya no está activo, en tab `Workflows` `d`/Delete borra el workflow seleccionado con confirmación, `q`/`esc` cierra. Las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran. Después de cualquier ejecución puedes usar `/workflow view latest`, que también incluye una sección `Agents` y `Parallel agents`.
+Los resultados/artifacts se guardan en `.pi/workflows/runs/<run-id>/` cuando el proyecto está trusted. En proyectos no confiados se usa un directorio global bajo `~/.pi/agent/workflows/runs/<hash>/`. Los PNG/Mermaid generados por `/workflow graph` se guardan en `.pi/workflows/graphs/` o en el root global equivalente. La extensión también lee `.pi` global (`~/.pi/agent/workflows/{drafts,runs,sessions}/`) como fallback para drafts, runs y sesiones.
 
-Los ejemplos en `examples/workflows/` son **referencias**, no el camino normal. En uso real, el agente debe crear un workflow dinámicamente para la tarea concreta:
+Durante runs activos en background (default en TUI/RPC), Pi muestra el estado en la status line (`▶ wf ... /workflows ↓ monitor ← agents Ctrl+Alt+W`) y el dashboard es la torre de control. En print/json no hay TUI persistente: `run` bloquea como fallback y después se inspecciona con `/workflow view`/`dynamic_workflow action=view`. En modo interactivo, `/workflows`, `Ctrl+Alt+W` o `↓` cuando el editor ya no puede bajar más abre un dashboard TUI en tab `Monitor` por defecto; `←` cuando el editor ya no puede moverse más a la izquierda abre el mismo dashboard directamente en tab `Agents`, con tabs `Monitor`, `Agents`, `Sessions`, `Runs`, `Workflows`, `Patterns` y `Activity`. El tab `Patterns` muestra un catálogo de patrones (scout-fanout, loop-until-dry, multi-modal-sweep, adversarial-verify, etc.) con cuándo usar cada uno, input esperado y primitivas; `Enter`/`n` crea un borrador de workflow de proyecto desde el scaffold seleccionado para editar antes de guardar. El Monitor prioriza el run activo o, si no hay ninguno, el último run; muestra workflow, estado, elapsed, active/stale, cantidad de agentes ejecutándose en paralelo (`actual/concurrency`) y pico, bash, artifacts, último log y `runDir`. Cuando hay subagentes, muestra una lista con estado, duración, código de salida, schema, tools, skills, extensiones, keys y disponibilidad/preview del prompt; los agentes lanzados por la misma llamada `ctx.agents(...)` se marcan como `P<fase> 1/n`, `P<fase> 2/n`, etc.; `↑`/`↓` seleccionan agente, `Enter`/`o` abre una vista live del agente (refresco cada 1s, output parseado, prompt y acceso; sin volcar el stdout JSON crudo) y `←`/`→` cambian de tab. El tab `Agents` lista todos los agentes registrados en los runs, agrupados por runs recientes, con el total paralelo actual arriba; `↑`/`↓` selecciona cualquiera y el panel inferior muestra estado, fase `1/n`, artifact, tools, skills, extensiones, keys, prompt preview y output preview antes de abrir el detalle live con `Enter`/`o`. El tab `Sessions` muestra las sesiones Pi TUI/RPC vivas para el proyecto mediante heartbeat (pid, modo, idle, session file y workflows activos), marcando filas stale si el proceso murió sin limpiar; `Enter` cambia la sesión actual a la seleccionada cuando hay `session file` disponible. Atajos dentro del dashboard: `v` abre el run completo, `g` abre el graph TUI (Mermaid PNG inline grande vía `mmdc` cuando el terminal soporta imágenes; el diagrama agrupa fan-outs `ctx.agents(...)` como `P1 ×items.length` con nodos visibles de agentes/ellipsis/join, además de lanes de `ctx.pipeline(...)` y branches de `ctx.parallel(...)`; fallback topología ASCII width-safe + export Mermaid), `c`/`x` cancela runs activos con confirmación, `r` rerun con confirmación usando `input.json` (o editor JSON si falta), en tabs `Monitor`/`Agents`/`Runs`/`Activity` `d`/Delete borra artifacts/directorio del run seleccionado si ya no está activo, en tab `Workflows` `d`/Delete borra el workflow seleccionado con confirmación, `q`/`esc` cierra. Las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran. Después de cualquier ejecución puedes usar `/workflow view latest`, que también incluye una sección `Agents` y `Parallel agents`.
+
+El camino normal es crear un workflow dinámicamente para la tarea concreta:
 
 ```text
 /ultracode auditá este repo buscando bugs de concurrencia y proponé fixes verificados
@@ -194,22 +220,22 @@ O desde el tool:
 
 ```json
 { "action": "template" }
-{ "action": "write", "name": "generated/audit-concurrency-<slug>", "scope": "project", "code": "...workflow JS generado para esta tarea..." }
-{ "action": "start", "name": "generated/audit-concurrency-<slug>", "input": { "maxAgents": 20, "concurrency": 4 } }
+{ "action": "write", "name": "audit-concurrency-<slug>", "scope": "project", "code": "...workflow JS generado para esta tarea..." }
+{ "action": "start", "name": "audit-concurrency-<slug>", "input": { "maxAgents": 20, "concurrency": 4 } }
 ```
 
-Reusar un workflow existente solo corresponde si **calza exactamente** con la tarea; si no, se genera uno nuevo bajo `.pi/workflows/generated/` como borrador task-specific.
+Reusar un workflow existente solo corresponde si **calza exactamente** con la tarea; si no, se genera uno nuevo bajo `.pi/workflows/drafts/` como borrador task-specific gitignored.
 
 ### Guardar/promover un workflow dinámico
 
 Un workflow generado dinámicamente debe tratarse como **borrador descartable** hasta que demuestre valor. Después de correrlo:
 
-- Si no sirvió: se puede borrar con `/workflow delete generated/<name>`.
-- Si sirvió para esa tarea pero no será reusable: se puede dejar en `generated/` como historial local.
+- Si no sirvió: se puede borrar con `/workflow delete <name>`.
+- Si sirvió para esa tarea pero no será reusable: se puede dejar en `.pi/workflows/drafts/` como historial local.
 - Si gustó y querés volver a usarlo: se **promueve** a un nombre estable copiando su código a otro workflow, por ejemplo:
 
 ```json
-{ "action": "read", "name": "generated/audit-concurrency-<slug>" }
+{ "action": "read", "name": "audit-concurrency-<slug>" }
 { "action": "write", "name": "audit-concurrency", "scope": "project", "code": "...mismo código, opcionalmente limpiado/generalizado..." }
 ```
 
@@ -225,12 +251,28 @@ Si `/ultracode`, `/workflow`, `/workflows` o el dashboard no aparecen:
   pi list
   ```
 
-- No arranques Pi con `examples/` como cwd: ese directorio debe quedar libre de `.pi/`. Arrancá Pi desde la raíz del repo o usá un proyecto temporal para copiar/ejecutar ejemplos.
+- Arrancá Pi desde la raíz del repo o desde un proyecto temporal; evitá subdirectorios de tests/fixtures con su propia `.pi/`.
 - Después de instalar/cambiar settings, ejecutá `/reload` o reiniciá Pi.
 - `dynamic_workflow` debe estar activo. `/ultracode-mode on` intenta activarlo para la sesión.
 - El dashboard `/workflows` requiere modo TUI. En `pi -p`/print usá `/workflow list`, `/workflow runs` y `/workflow view latest`.
 - Background requiere sesión persistente TUI/RPC. En esas sesiones `/workflow run`, `/workflow start` y `dynamic_workflow action=run/start` lanzan background; en print/json `run` es fallback foreground.
 - El graph visual necesita `mmdc` y soporte de imágenes del terminal (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi lo desactiva bajo tmux). Si `mmdc` falla por Chrome/Puppeteer, ejecutá `npx puppeteer browsers install chrome-headless-shell`.
+
+## Estructura de extensiones
+
+Cada extensión vive como un mini-paquete npm bajo `extensions/<nombre>/`:
+
+```text
+extensions/<nombre>/
+  index.ts              # entrypoint de Pi
+  *.ts                  # helpers runtime de esa extensión
+  tests/unit/           # tests rápidos, si aplica
+  tests/integration/    # suites durables de comportamiento
+```
+
+`package.json` publica solo archivos runtime con `files: ["extensions/*/*.ts", ...]`, así los tests quedan colocalizados en el repo pero no entran al tarball npm. `pi.extensions` lista explícitamente los entrypoints que se cargan por defecto; extensiones opcionales pueden existir en la misma convención y cargarse desde settings.
+
+`extensions/pi-local-memory/` carga `.pi/MEMORY.md` si existe. La extensión es parte del paquete; el contenido de memoria sigue siendo privado y gitignored.
 
 ## Verificación local
 
@@ -238,7 +280,30 @@ Si `/ultracode`, `/workflow`, `/workflows` o el dashboard no aparecen:
 npm test
 ```
 
-El test actual typecheckea las extensiones publicadas (`dynamic-workflows`, `loop`, `goal`) con `tsc --noEmit`. Para smoke runtime sin gastar subagentes, crea un workflow que use `ctx.parallel`, `ctx.pipeline`, `ctx.bash` y `ctx.writeArtifact`; en sesión TUI/RPC ejecútalo con `dynamic_workflow action=start` (o `action=run`, que también va a background) + `action=view`. En print/json, `action=run` sigue siendo el fallback foreground.
+El test actual typecheckea todas las extensiones con `extensions/*/index.ts` y corre las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Para smoke runtime sin gastar subagentes, crea un workflow que use `ctx.parallel`, `ctx.pipeline`, `ctx.bash` y `ctx.writeArtifact`; en sesión TUI/RPC ejecútalo con `dynamic_workflow action=start` (o `action=run`, que también va a background) + `action=view`. En print/json, `action=run` sigue siendo el fallback foreground.
+
+## `/bg` jobs locales
+
+`/bg` provee un runner local mínimo para comandos humanos en background:
+
+```text
+/bg plan npm test
+/bg start npm test
+/bg list
+/bg status <jobId>
+/bg logs <jobId>
+/bg cancel <jobId>
+```
+
+Comportamiento y límites de M2:
+
+- `/bg start` solo funciona en sesiones persistentes TUI/RPC y en proyectos trusted; en proyectos untrusted se rechaza antes de ejecutar o escribir artifacts.
+- `/bg start` y `/bg cancel` se bloquean mientras `/plan` está activo.
+- No se registra ningún tool LLM `background_job`; la superficie mutante es solo slash command humano.
+- Los artifacts project-local viven en `.pi/bg/runs/<jobId>/`; el fallback global de lectura usa `~/.pi/agent/bg/runs/<hash-del-cwd>/<jobId>/`. Cada run contiene `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
+- `job.json` y `status.json` se escriben con temp file + rename atómico; los logs son append-only y `/bg logs` lee de forma bounded/truncada.
+- `/bg cancel` solo cancela jobs activos creados por este proceso Pi. Si un `status.json` persistido dice `running` pero no hay job activo en memoria, se muestra como `stale` y no se mata ningún PID persistido.
+- No hay runner Supacode, daemon, rehidratación automática, `prune/delete` ni dashboard de `/bg` en M2.
 
 ## Background runs
 
@@ -458,10 +523,11 @@ Los workflows funcionan mejor cuando cada prompt declara explícitamente el patr
 Buenas prácticas:
 
 - Usa límites explícitos: `concurrency`, `maxAgents`, `timeoutMs`, `agentTimeoutMs`.
-- Para auditorías, limita subagentes a tools read-only: `tools: ["read", "grep", "find", "ls"]`.
-- Para skills/extensiones, usa `skills: ["ruta"]` y `extensions: ["ruta.ts"]` por agente. Si pasas listas explícitas, Pi desactiva discovery para ese tipo salvo que marques `includeSkills: true` o `includeExtensions: true`.
+- Para auditorías, limita subagentes a tools read-only: `tools: ["read", "grep", "find", "ls", "web_search"]`.
+- Por defecto, los subagentes intentan tener búsqueda web (`pi-codex-web-search` + `web_search`) y Context7 (`context7-cli`) disponibles; podés desactivarlos con `includeExtensions: false` / `excludeTools: ["web_search"]` y `includeSkills: false`.
+- Para skills/extensiones adicionales, usa `skills: ["ruta"]` y `extensions: ["ruta.ts"]` por agente. Si pasas listas explícitas, Pi desactiva discovery para ese tipo salvo que marques `includeSkills: true` o `includeExtensions: true`.
 - Para credenciales, usa `keys: ["ENV_VAR"]` por agente; si `keys` está presente, el subagente corre con env aislado + esas keys. `env: { NAME: "value" }` también existe, pero evita literales secretos en código.
 - Evita `bash` salvo que el workflow realmente lo necesite.
 - Revisa workflows antes de ejecutarlos, especialmente si vienen de terceros.
 
-Mira `examples/workflows/` solo como referencia de patrones; los runs reales deberían crear workflows task-specific dinámicamente.
+Para ver los scaffolds disponibles, usá `/workflow patterns` o `dynamic_workflow action=template`; los runs reales deberían crear workflows task-specific dinámicamente.

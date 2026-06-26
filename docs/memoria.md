@@ -33,6 +33,9 @@ Fecha inicial: 2026-06-25
 - Prompts de workflows: usar contratos explícitos basados en patrones agénticos: fan-out independiente, evidencia obligatoria, formato fijo, synthesis-as-judge, crítica adversarial, fallas parciales visibles y seguridad por defecto.
 - Los workflows deben ser dinámicos y task-specific: ante una tarea compleja se crea/escribe un workflow nuevo para esa tarea (usando ejemplos solo como referencia), idealmente bajo `generated/<task-slug>` como borrador; se hace scout, se mide la work-list y se elige concurrencia/fan-out según tamaño, coste, riesgo y profundidad pedida; no hardcodear `4` salvo como fallback seguro. Si al usuario le gustó, se ofrece guardarlo/promoverlo a un nombre estable y reusable.
 - Karpathy aplicado al proyecto: aprender/construir desde implementaciones pequeñas y legibles; usar IA agresivamente para prototipar, pero en trabajo serio exigir especificación, revisión humana, tests/evals, seguridad y evidencia.
+- Commits: incluso cuando el usuario pida "commiteá todo", mantener atomicidad. Si hay cambios heterogéneos, separar por unidad coherente (feat/docs/tests/chore) antes de commitear; no meter lockfile, docs, e2e, helpers y cambios de extensión en un único commit paraguas salvo instrucción explícita.
+- Push: después de reescribir/splitear commits locales, no pushear implícitamente si el usuario no lo pidió en ese paso. Confirmar estado y dejar claro qué quedó local vs remoto.
+- Autopiloto/workflows: el workflow de mejora continua puede terminar `BLOCKED` aun con verde porque deja revisión/commit al humano; antes de commitear, inspeccionar diff y staged set, no asumir que todo el working tree pertenece al run.
 
 ## Registro 2026-06-25
 
@@ -40,4 +43,11 @@ Fecha inicial: 2026-06-25
 - Se smokeó `dynamic_workflow` creando un workflow generado de prueba; `action=run` completó con `ctx.parallel` (incluyendo rama fallida → `null`), `ctx.pipeline`, `ctx.bash` y artifact `smoke-result.json`.
 - Se smokeó `action=start` en sesión persistente/RPC para el mismo workflow; el run background completó y `action=view` mostró `Background: yes`, timeline y artifacts.
 - Se actualizó `extensions/dynamic-workflows.ts` para que en sesiones TUI/RPC los workflows lanzados con `run`, `start` o `resume` vayan siempre en background; `run` foreground queda solo como fallback print/json.
-- Se recuperó `.pi/workflows/karpathy-programming-recommendations-research.js` desde git y se integró la síntesis en `docs/investigaciones/2026-06-25-karpathy-programming-recommendations.md`.
+- Se recuperó `.pi/workflows/karpathy-programming-recommendations-research.js` desde git y se integró la síntesis en `docs/research/2026-06-25-karpathy-programming-recommendations.md`.
+
+## Registro 2026-06-26
+
+- Se implementó `/bg` M2a como runner local slash-only: `/bg start`, `/bg cancel`, `/bg list`, `/bg status`, `/bg logs`, con start solo en proyectos trusted/TUI-RPC, bloqueo en `/plan`, artifacts atómicos bajo `.pi/bg/runs/<jobId>/`, logs bounded y cancelación solo de jobs activos de la sesión.
+- Se agregó `tests/bg/integration/bg-jobs.test.mjs` para start/completion/failure/cancel/stale/mode gates y se incluyó en `scripts/test/run-all.mjs`.
+- La auditoría `generated/bg-m2a-final-audit` completó con síntesis ruidosa; se tomaron los findings de reviewers como accionables y se corrigieron symlink roots, race fast-exit→running, preservación de whitespace en comandos, cancelación Windows vía `taskkill`, y determinismo de tests de integración con `esbuild` devDependency. `npm test` quedó verde.
+- Se mantienen diferidos para planes separados: runner Supacode, tool LLM `background_job`, daemon/rehydrate automático, prune/delete y dashboard `/bg`.

@@ -1,0 +1,26 @@
+{
+  "name": "pi-dynamic-workflows-effort",
+  "version": "0.1.0",
+  "description": "Pi extension that adds a Claude-style /effort command for thinking levels and Ultracode mode.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "effort",
+    "thinking"
+  ],
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

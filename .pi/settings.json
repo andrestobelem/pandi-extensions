@@ -1,5 +1,15 @@
 {
+  "sessionDir": ".pi/sessions",
   "packages": [
-    ".."
-  ]
+    "../extensions/pi-dynamic-workflows",
+    "../extensions/pi-loop",
+    "../extensions/pi-goal",
+    "../extensions/pi-plan",
+    "../extensions/pi-bg",
+    "../extensions/pi-effort",
+    "../extensions/pi-mdview",
+    "../extensions/pi-local-memory",
+    "../extensions/pi-auto-compact-context"
+  ],
+  "extensions": []
 }

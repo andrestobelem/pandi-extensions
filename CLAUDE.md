@@ -53,7 +53,7 @@ For multi-step tasks, state a brief plan (`1. [Step] → verify: [check]`). Stro
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
-> In this package these principles are operationalized as runtime mechanisms: the `/plan` extension (read-only plan mode until approved) ≈ Think Before Coding; the `/loop` safeguards (touch only your own files, never hot/foreign ones) ≈ Surgical Changes; `/goal` + `/loop` (success criteria + independent verification, loop until done) ≈ Goal-Driven Execution. Behavior e2e suites under `examples/e2e/` (run via `npm test`) keep them honest.
+> In this package these principles are operationalized as runtime mechanisms: the `/plan` extension (read-only plan mode until approved) ≈ Think Before Coding; the `/loop` safeguards (touch only your own files, never hot/foreign ones) ≈ Surgical Changes; `/goal` + `/loop` (success criteria + independent verification, loop until done) ≈ Goal-Driven Execution. Behavior integration suites grouped by extension under `tests/<extension>/integration/` (run via `npm test`) keep them honest.
 
 ## Commits
 

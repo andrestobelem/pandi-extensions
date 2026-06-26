@@ -1,0 +1,185 @@
+# Claude Dynamic Workflows: _A harness for every task_
+
+## Fuentes revisadas
+
+- Anthropic blog: [_A harness for every task: dynamic workflows in Claude Code_](https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code), Thariq Shihipar y Sid Bidasaria, 2026-06-02.
+- Anthropic blog: [_Introducing dynamic workflows in Claude Code_](https://claude.com/blog/introducing-dynamic-workflows-in-claude-code), 2026-05-28.
+- Claude Code docs: [Orchestrate subagents at scale with dynamic workflows](https://code.claude.com/docs/en/workflows).
+- Claude Code docs: [Model configuration](https://code.claude.com/docs/en/model-config) para `ultracode`.
+- Claude Code docs: [Settings](https://code.claude.com/docs/en/settings) para deshabilitar workflows.
+- Claude Code docs: [Glossary](https://code.claude.com/docs/en/glossary) para la definición de agentic harness.
+- Claude Code changelog: v2.1.154 introduce dynamic workflows.
+- InfoQ: cobertura independiente del lanzamiento de Dynamic Workflows.
+
+## Tesis del post
+
+El punto central de _A harness for every task_ es que, para tareas grandes o inciertas, el agente no debería intentar coordinar todo dentro de una sola conversación. En su lugar, Claude Code genera un **harness** específico para la tarea: un script JavaScript que codifica la orquestación, lanza subagentes, guarda estado intermedio fuera del contexto principal y devuelve una síntesis final.
+
+La idea no es solamente "más subagentes". Es mover la estrategia de ejecución a código inspeccionable para que el sistema pueda:
+
+- paralelizar trabajo independiente;
+- preservar resultados intermedios sin llenar el contexto principal;
+- aplicar patrones de calidad repetibles;
+- reanudar o gestionar runs desde una vista de workflows;
+- verificar hallazgos antes de reportarlos.
+
+## Qué es un Dynamic Workflow en Claude Code
+
+Según la documentación oficial, un workflow dinámico es un script JavaScript que Claude escribe para la tarea descrita por el usuario y que un runtime ejecuta en background. El script actúa como coordinador: mantiene loops, branching, variables intermedias y reglas de reducción, mientras los subagentes hacen el trabajo concreto.
+
+Diferencia principal frente a otras capacidades:
+
+| Mecanismo | Quién sostiene el plan | Dónde quedan resultados intermedios | Escala típica |
+| --- | --- | --- | --- |
+| Subagents | Claude, turno por turno | Contexto de Claude | Pocas delegaciones por turno |
+| Skills | Instrucciones que Claude sigue | Contexto de Claude | Similar a subagents |
+| Agent teams | Un agente líder supervisa peers | Task list compartida | Algunos peers persistentes |
+| Workflows | Un script ejecutado por runtime | Variables/artifacts del script | Decenas a cientos de agentes |
+
+Claude recomienda workflows cuando una tarea necesita más agentes de los que una conversación puede coordinar bien, o cuando conviene que la orquestación quede codificada y se pueda leer/reusar.
+
+Ejemplos oficiales:
+
+- barrido de bugs en todo un codebase;
+- migración de cientos de archivos;
+- investigación que requiere cruzar fuentes;
+- plan difícil que conviene evaluar desde varios ángulos antes de implementar.
+
+## Triggers y UX en Claude Code
+
+Claude Code ofrece tres entradas principales:
+
+1. **Workflow bundled**: `/deep-research <question>`.
+   - Hace fan-out de búsquedas web por ángulos.
+   - Descarga y cruza fuentes.
+   - Vota o filtra claims.
+   - Devuelve un reporte citado.
+
+2. **Pedido explícito**.
+   - Incluir `ultracode` en el prompt.
+   - O pedir en lenguaje natural: "use a workflow", "run a workflow".
+   - Claude escribe un script para esa tarea y lo ejecuta.
+
+3. **`/effort ultracode`**.
+   - Combina `xhigh` reasoning effort con orquestación automática.
+   - Claude decide cuándo una tarea sustantiva merece uno o más workflows.
+   - Puede encadenar workflows: entender → modificar → verificar.
+   - Es por sesión y se resetea al iniciar una nueva.
+
+## Approval, permisos y seguridad
+
+Antes de correr un workflow, Claude Code muestra una aprobación con fases planeadas. Opciones documentadas:
+
+- correr una vez;
+- correr y no volver a preguntar para ese workflow en ese proyecto;
+- ver el script crudo;
+- cancelar;
+- abrir el script en editor con `Ctrl+G`.
+
+La prompt depende del permission mode. En modos no interactivos (`claude -p`, SDK, bypass permissions) puede arrancar sin prompt.
+
+Punto importante: los subagentes corren con `acceptEdits` e heredan el tool allowlist de la sesión. Las ediciones de archivos se autoaprueban, pero shell, web fetches y MCP tools fuera del allowlist todavía pueden pedir permiso durante el run.
+
+## Guardado y reutilización
+
+Si un run funciona, se puede guardar como comando desde `/workflows` con `s`.
+
+Ubicaciones documentadas:
+
+- `.claude/workflows/` en el proyecto, compartible con el repo;
+- `~/.claude/workflows/` en home, personal/global.
+
+Los workflows guardados se invocan como slash commands (`/<name>`). También pueden recibir input vía un global `args`, para pasar preguntas, paths, issue numbers o configuración estructurada sin editar el script.
+
+Claude Code carga workflows de `.claude/workflows/` a lo largo del path del proyecto; si hay nombres duplicados, gana el más cercano al cwd. Los workflows de proyecto ganan sobre los personales.
+
+## Runtime y límites oficiales
+
+Restricciones documentadas del runtime:
+
+| Restricción | Razón |
+| --- | --- |
+| No user input a mitad del run | Para sign-off entre etapas, correr workflows separados |
+| El workflow no tiene acceso directo a filesystem/shell | Los agentes leen, escriben y ejecutan; el script coordina |
+| Hasta 16 agentes concurrentes | Limitar recursos locales |
+| Hasta 1,000 agentes por run | Evitar loops descontrolados |
+
+Gestión de runs:
+
+- `/workflows` lista runs activos y completados.
+- Vista de progreso muestra fases, agentes, tokens y elapsed.
+- Se puede pausar/reanudar (`p`), detener (`x`), reiniciar agentes (`r`) y guardar script (`s`).
+- Si se pausa un run, al reanudar los agentes completados devuelven resultados cacheados y el resto corre live.
+- La reanudación oficial funciona dentro de la misma sesión; si se cierra Claude Code mientras un workflow corre, la siguiente sesión arranca el workflow de cero.
+
+## Patrones nombrados por Anthropic
+
+Los patrones destacados en la cobertura del blog y docs son:
+
+- **Classify-and-act**: clasificar items y elegir acción por clase.
+- **Fan-out-and-synthesize**: dividir trabajo independiente y sintetizar.
+- **Adversarial verification**: agentes escépticos verifican claims o hallazgos.
+- **Generate-and-filter**: producir muchas opciones y filtrar por criterios.
+- **Tournaments**: comparar candidatos en rondas o jurados.
+- **Loop-until-done**: iterar con una condición de salida observable.
+
+## Costo y cuándo no usarlo
+
+Anthropic advierte que un workflow puede gastar muchos más tokens que resolver la tarea conversacionalmente, porque dispara muchos subagentes. Recomendación oficial: probar primero con un slice pequeño, por ejemplo un directorio en vez de todo el repo, o una pregunta estrecha en vez de un tema amplio.
+
+No conviene usar workflows para tareas normales de edición o preguntas simples. El criterio fuerte es si hay escala, independencia, verificación cruzada o necesidad de reusar la orquestación.
+
+## Comparación con este repo Pi Dynamic Workflows
+
+Lo que ya está alineado:
+
+- Scripts JavaScript task-specific.
+- `dynamic_workflow` para listar, templar, escribir, correr, resumir y ver workflows.
+- Background por defecto en TUI/RPC.
+- Dashboard `/workflows`.
+- `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`.
+- Límites similares: `concurrency` hard cap 16 y `maxAgents` hard cap 1000.
+- Drafts y artifacts fuera del contexto conversacional.
+- `ultracode`/router always-on y `/effort ultracode`.
+- Templates equivalentes: scout-fanout, adversarial-verify, tournament, loop-until-dry, self-consistency, deep-research, repo-bug-hunt.
+- Resume más fuerte que Claude en un punto: este repo persiste un journal content-addressed para reanudar runs stale/failed/cancelled in-place entre sesiones Pi, reutilizando llamadas completadas.
+
+Deltas o ideas para acercarse más a Claude:
+
+1. **Aprobación pre-run con fases y raw script**.
+   - Claude muestra fases planeadas y deja ver/editar el script antes de ejecutar.
+   - En Pi, se podría añadir un modo humano de aprobación para workflows generados por el agente, especialmente si tienen tools mutantes.
+
+2. **Guardar run como slash command directo**.
+   - Claude permite `s` en `/workflows` y luego invocar `/<name>`.
+   - Pi ya tiene `/workflow run <name>`, pero podría generar comandos dinámicos o una UX equivalente para saved workflows.
+
+3. **Input natural a workflows guardados**.
+   - Claude usa un global `args` estructurado inferido del prompt.
+   - Pi usa `input` JSON explícito. Una mejora sería aceptar `/workflow run name <texto>` y pedirle al modelo estructurar `input`, o crear aliases con schema.
+
+4. **Métricas de tokens por fase/agente**.
+   - Claude muestra token totals en la vista de progreso.
+   - El README actual de Pi indica que métricas no persistidas como tokens/coste/model/toolCalls no se muestran.
+
+5. **Pause/restart agent desde dashboard**.
+   - Claude documenta pause/resume de run, stop de agente/run y restart de agente.
+   - Pi tiene cancel/resume de run; podría sumar pausa y restart granular.
+
+6. **Modelo de permisos por agente**.
+   - Claude separa aprobación del run y permisos de subagente según allowlist.
+   - Pi ya permite tools/keys/env por agente; convendría documentar y reforzar presets read-only/mutating.
+
+7. **Modo coordinador sin shell/filesystem directo**.
+   - Claude restringe el script: el workflow coordina y los agentes actúan.
+   - Pi permite `ctx.bash`, `readFile`, `writeFile` y artifacts. Es más potente, pero menos aislado. Podría existir un modo de runtime restringido para workflows no confiables o compartibles.
+
+## Recomendación para Pi
+
+Mantener la ventaja actual de Pi: workflows como código confiable, composable y resumable. Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reusabilidad:
+
+1. **Pre-run approval para workflows generados**: mostrar nombre, fases, límites, tools mutantes y raw script.
+2. **Save-as-command**: promover desde run/draft a comando invocable sin recordar `/workflow run`.
+3. **Args ergonómicos**: permitir input estructurado o natural para workflows guardados.
+
+El siguiente slice seguro sería documentar estos deltas como roadmap y después implementar primero `save-as-command`, porque es de bajo riesgo: no cambia el runtime, solo la capa de descubrimiento/invocación.

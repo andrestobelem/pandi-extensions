@@ -1,0 +1,31 @@
+{
+  "name": "pi-dynamic-workflows-core",
+  "version": "0.1.0",
+  "description": "Pi extension for dynamic JavaScript workflows, parallel subagents, artifacts, and Ultracode routing.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "dynamic-workflows",
+    "subagents",
+    "ultracode"
+  ],
+  "files": [
+    "index.ts",
+    "templates.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  }
+}

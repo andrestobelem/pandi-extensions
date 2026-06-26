@@ -1,0 +1,27 @@
+{
+  "name": "pi-dynamic-workflows-plan",
+  "version": "0.1.0",
+  "description": "Pi extension for Claude-style read-only plan mode with explicit approval before mutation.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "plan-mode",
+    "approval"
+  ],
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

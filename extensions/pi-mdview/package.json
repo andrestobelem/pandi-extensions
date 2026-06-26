@@ -1,0 +1,27 @@
+{
+  "name": "pi-dynamic-workflows-mdview",
+  "version": "0.1.0",
+  "description": "Pi extension that adds a TUI Markdown viewer command.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "markdown",
+    "tui"
+  ],
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}

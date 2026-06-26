@@ -1,0 +1,26 @@
+{
+  "name": "pi-dynamic-workflows-auto-compact-context",
+  "version": "0.1.0",
+  "description": "Pi extension that auto-compacts context when usage crosses a configurable threshold.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "compaction",
+    "context"
+  ],
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

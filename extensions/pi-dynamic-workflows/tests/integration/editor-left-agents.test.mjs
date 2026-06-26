@@ -1,0 +1,385 @@
+#!/usr/bin/env node
+/**
+ * Behavioral regression test for the editor-boundary workflow dashboard shortcuts.
+ *
+ * Observable contract:
+ *   - Down at the bottom of the prompt still opens the workflow dashboard on Monitor.
+ *   - Left at the left edge of the prompt opens the same dashboard directly on Agents
+ *     (Claude Code-style Agent View shortcut).
+ *   - Left that actually moves the editor cursor does NOT open the dashboard.
+ *   - /workflow agents is a slash-command fallback for the same Agents tab.
+ *   - /workflow sessions opens the live Pi sessions tab.
+ *   - Enter on a selected Pi session switches to that session file from both
+ *     slash-command and editor-opened dashboards.
+ */
+
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+
+let passed = 0;
+let failed = 0;
+const failures = [];
+function check(label, cond, detail) {
+	if (cond) {
+		passed += 1;
+		console.log(`PASS: ${label}`);
+	} else {
+		failed += 1;
+		failures.push(label + (detail ? `  [${detail}]` : ""));
+		console.log(`FAIL: ${label}${detail ? `  [${detail}]` : ""}`);
+	}
+}
+
+async function buildExtension() {
+	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-editor-shortcuts-"));
+
+	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
+	await fs.writeFile(
+		typeboxStub,
+		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id, Integer: id };\nexport default { Type };\n",
+	);
+	const typeboxValueStub = path.join(outDir, "stub-typebox-value.mjs");
+	await fs.writeFile(typeboxValueStub, "export const Value = { Check: () => true, Errors: function* () {} };\nexport default { Value };\n");
+	const sdkStub = path.join(outDir, "stub-sdk.mjs");
+	await fs.writeFile(
+		sdkStub,
+		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\nexport class CustomEditor { constructor() {} getText() { return ""; } setText() {} handleInput() {} render() { return []; } invalidate() {} }\n`,
+	);
+	const aiStub = path.join(outDir, "stub-ai.mjs");
+	await fs.writeFile(aiStub, "export function StringEnum(values, opts = {}) { return { ...opts, enum: values }; }\n");
+	const tuiStub = path.join(outDir, "stub-tui.mjs");
+	await fs.writeFile(
+		tuiStub,
+		`export class Image { constructor() {} input() {} render() { return []; } }\nexport const Key = { escape: "escape", enter: "enter", up: "up", down: "down", pageUp: "pageUp", pageDown: "pageDown", home: "home", end: "end", delete: "delete", backspace: "backspace", tab: "tab", left: "left", right: "right", ctrlAlt: (key) => "ctrlAlt:" + key };\nexport function getCapabilities() { return { images: false }; }\nexport function matchesKey(data, key) { return data === key; }\nexport function truncateToWidth(value, width, suffix = "") { const s = String(value); return s.length > width ? s.slice(0, Math.max(0, width - suffix.length)) + suffix : s; }\nexport function visibleWidth(value) { return String(value).length; }\n`,
+	);
+
+	const src = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "index.ts");
+	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
+	const out = path.join(outDir, "dynamic-workflows.mjs");
+	const r = spawnSync(
+		"npx",
+		[
+			"--yes",
+			"esbuild",
+			src,
+			"--bundle",
+			"--platform=node",
+			"--format=esm",
+			`--alias:typebox=${typeboxStub}`,
+			`--alias:typebox/value=${typeboxValueStub}`,
+			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
+			`--alias:@earendil-works/pi-ai=${aiStub}`,
+			`--alias:@earendil-works/pi-tui=${tuiStub}`,
+			`--outfile=${out}`,
+		],
+		{ cwd: REPO_ROOT, encoding: "utf8" },
+	);
+	if (r.status !== 0) throw new Error(`esbuild failed: ${r.stderr || r.stdout}`);
+	return { outDir, url: pathToFileURL(out).href };
+}
+
+let instance = 0;
+async function freshExtension(url) {
+	const mod = await import(`${url}?i=${instance++}`);
+	return mod.default;
+}
+
+function makePi() {
+	const tools = new Map();
+	const commands = new Map();
+	const handlers = new Map();
+	const shortcuts = [];
+	const activeTools = [];
+	const pi = {
+		events: { on: () => {} },
+		registerTool: (def) => tools.set(def.name, def),
+		registerCommand: (name, opts) => commands.set(name, opts),
+		registerShortcut: (key, opts) => shortcuts.push({ key, opts }),
+		on: (event, handler) => {
+			if (!handlers.has(event)) handlers.set(event, []);
+			handlers.get(event).push(handler);
+		},
+		appendEntry: () => {},
+		sendUserMessage: () => {},
+		getThinkingLevel: () => "medium",
+		setThinkingLevel: () => {},
+		getActiveTools: () => activeTools,
+		getAllTools: () => [...tools.values()],
+		setActiveTools: (next) => {
+			activeTools.splice(0, activeTools.length, ...next);
+		},
+		exec: async () => ({ code: 0, killed: false, stdout: "", stderr: "" }),
+	};
+	return { pi, tools, commands, handlers, shortcuts };
+}
+
+function makeBaseEditor({ text = "", cursor = { line: 0, col: 0 }, moveOnLeft = false, autocomplete = false } = {}) {
+	const handledInputs = [];
+	return {
+		actionHandlers: new Map(),
+		focused: false,
+		getText: () => text,
+		setText: (next) => {
+			text = next;
+		},
+		handleInput: (data) => {
+			handledInputs.push(data);
+			if (moveOnLeft && data === "left") cursor = { ...cursor, col: Math.max(0, cursor.col - 1) };
+		},
+		render: () => ["editor"],
+		invalidate: () => {},
+		getCursor: () => ({ ...cursor }),
+		isShowingAutocomplete: () => autocomplete,
+		addToHistory: () => {},
+		insertTextAtCursor: (value) => {
+			text = text.slice(0, cursor.col) + value + text.slice(cursor.col);
+			cursor = { ...cursor, col: cursor.col + value.length };
+		},
+		getExpandedText: () => text,
+		setAutocompleteProvider: () => {},
+		setPaddingX: () => {},
+		setAutocompleteMaxVisible: () => {},
+		handledInputs,
+	};
+}
+
+function makeCtx(cwd, baseFactory, opts = {}) {
+	let editorFactory;
+	const customCalls = [];
+	const switchCalls = [];
+	const customInputs = [...(opts.customInputs ?? [])];
+	let renderRequests = 0;
+	const theme = {
+		fg: (_color, value) => value,
+		bg: (_color, value) => value,
+		bold: (value) => value,
+	};
+	const ctx = {
+		mode: "tui",
+		hasUI: true,
+		cwd,
+		isIdle: () => true,
+		isProjectTrusted: () => true,
+		getContextUsage: () => undefined,
+		ui: {
+			theme,
+			notify: () => {},
+			setStatus: () => {},
+			setWidget: () => {},
+			confirm: async () => true,
+			select: async () => undefined,
+			editor: async (_title, initial = "") => initial,
+			getEditorComponent: () => baseFactory,
+			setEditorComponent: (factory) => {
+				editorFactory = factory;
+			},
+			custom: async (factory) => {
+				const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => { renderRequests += 1; } };
+				let doneValue;
+				const component = factory(tui, theme, {}, (value) => { doneValue = value; });
+				while (customInputs.length > 0 && typeof component?.handleInput === "function") component.handleInput(customInputs.shift());
+				const lines = typeof component?.render === "function" ? component.render(100) : [];
+				customCalls.push({ component, lines, doneValue });
+				return doneValue ?? null;
+			},
+		},
+		sessionManager: {
+			getEntries: () => [],
+			getBranch: () => [],
+			getSessionId: () => "test-session-id",
+			getSessionFile: () => path.join(cwd, ".pi", "sessions", "test-session.jsonl"),
+			getSessionName: () => "Test session",
+		},
+	};
+	if (opts.includeSwitchSession !== false) {
+		ctx.switchSession = async (sessionPath, options = {}) => {
+			switchCalls.push({ sessionPath, options });
+			if (typeof options.withSession === "function") await options.withSession(ctx);
+			return { cancelled: false };
+		};
+	}
+	return { ctx, customCalls, switchCalls, getEditorFactory: () => editorFactory, getRenderRequests: () => renderRequests };
+}
+
+async function makeProject() {
+	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-editor-project-"));
+	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
+	return project;
+}
+
+async function seedOtherPiSession(project) {
+	const sessionFile = path.join(project, ".pi", "sessions", "other-session.jsonl");
+	await fs.mkdir(path.dirname(sessionFile), { recursive: true });
+	await fs.writeFile(sessionFile, JSON.stringify({ type: "session", id: "other-session-id", timestamp: "2026-01-01T00:00:00.000Z", cwd: project }) + "\n");
+	const liveRoot = path.join(project, ".pi", "live-sessions");
+	await fs.mkdir(liveRoot, { recursive: true });
+	const now = new Date().toISOString();
+	await fs.writeFile(path.join(liveRoot, "other.json"), JSON.stringify({
+		id: "other-runtime",
+		pid: process.pid,
+		mode: "tui",
+		cwd: project,
+		startedAt: now,
+		updatedAt: now,
+		sessionId: "other-session-id",
+		sessionFile,
+		sessionName: "Other session",
+		trusted: true,
+		idle: true,
+		activeWorkflowRuns: 0,
+	}, null, 2));
+	return sessionFile;
+}
+
+async function installEditor(url, baseEditor) {
+	const project = await makeProject();
+	const ext = await freshExtension(url);
+	const { pi, handlers, commands } = makePi();
+	ext(pi);
+	const state = makeCtx(project, () => baseEditor);
+	for (const handler of handlers.get("session_start") ?? []) {
+		await handler({ reason: "startup" }, state.ctx);
+	}
+	const editorFactory = state.getEditorFactory();
+	if (typeof editorFactory !== "function") throw new Error("session_start did not install an editor factory");
+	const wrapped = editorFactory({ requestRender: () => {}, terminal: { rows: 30, columns: 100 } }, state.ctx.ui.theme, {});
+	return { ...state, commands, wrapped };
+}
+
+async function waitFor(predicate, timeoutMs = 1000) {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		if (predicate()) return true;
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	}
+	return predicate();
+}
+
+function renderedText(call) {
+	return (call?.lines ?? []).join("\n");
+}
+
+async function scenarioLeftOpensAgents(url) {
+	const { wrapped, customCalls } = await installEditor(url, makeBaseEditor({ cursor: { line: 0, col: 0 } }));
+	wrapped.handleInput("left");
+	await waitFor(() => customCalls.length === 1);
+	const text = renderedText(customCalls[0]);
+	check("left boundary opens dashboard", customCalls.length === 1, `calls=${customCalls.length}`);
+	check("left boundary opens Agents tab", text.includes("[Agents]"), text.split("\n")[0]);
+	check("left boundary does not open Monitor tab", !text.includes("[Monitor]"), text.split("\n")[0]);
+}
+
+async function scenarioDownStillOpensMonitor(url) {
+	const { wrapped, customCalls } = await installEditor(url, makeBaseEditor({ cursor: { line: 0, col: 0 } }));
+	wrapped.handleInput("down");
+	await waitFor(() => customCalls.length === 1);
+	const text = renderedText(customCalls[0]);
+	check("down boundary still opens dashboard", customCalls.length === 1, `calls=${customCalls.length}`);
+	check("down boundary opens Monitor tab", text.includes("[Monitor]"), text.split("\n")[0]);
+}
+
+async function scenarioLeftMovementDoesNotOpen(url) {
+	const base = makeBaseEditor({ cursor: { line: 0, col: 1 }, moveOnLeft: true });
+	const { wrapped, customCalls } = await installEditor(url, base);
+	wrapped.handleInput("left");
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	check("left that moves cursor is delegated to editor", base.handledInputs.includes("left"), JSON.stringify(base.handledInputs));
+	check("left that moves cursor does not open dashboard", customCalls.length === 0, `calls=${customCalls.length}`);
+}
+
+async function scenarioWorkflowAgentsCommand(url) {
+	const project = await makeProject();
+	const ext = await freshExtension(url);
+	const { pi, handlers, commands } = makePi();
+	ext(pi);
+	const state = makeCtx(project, () => makeBaseEditor());
+	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, state.ctx);
+	await commands.get("workflow").handler("agents", state.ctx);
+	const text = renderedText(state.customCalls[0]);
+	check("/workflow agents opens dashboard", state.customCalls.length === 1, `calls=${state.customCalls.length}`);
+	check("/workflow agents opens Agents tab", text.includes("[Agents]"), text.split("\n")[0]);
+}
+
+async function scenarioWorkflowSessionsCommand(url) {
+	const project = await makeProject();
+	const ext = await freshExtension(url);
+	const { pi, handlers, commands } = makePi();
+	ext(pi);
+	const state = makeCtx(project, () => makeBaseEditor());
+	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, state.ctx);
+	await commands.get("workflow").handler("sessions", state.ctx);
+	const text = renderedText(state.customCalls[0]);
+	check("/workflow sessions opens dashboard", state.customCalls.length === 1, `calls=${state.customCalls.length}`);
+	check("/workflow sessions opens Sessions tab", text.includes("[Sessions]"), text.split("\n")[0]);
+	check("/workflow sessions shows current live Pi session", text.includes("test-session-id") && text.includes("this process"), text);
+}
+
+async function scenarioWorkflowSessionsEnterSwitches(url) {
+	const project = await makeProject();
+	const ext = await freshExtension(url);
+	const { pi, handlers, commands } = makePi();
+	ext(pi);
+	const state = makeCtx(project, () => makeBaseEditor(), { customInputs: ["down", "enter"] });
+	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, state.ctx);
+
+	const sessionFile = await seedOtherPiSession(project);
+
+	await commands.get("workflow").handler("sessions", state.ctx);
+	check("Enter on Sessions tab switches once", state.switchCalls.length === 1, `calls=${state.switchCalls.length}`);
+	check("Enter on selected Pi session switches to its session file", state.switchCalls[0]?.sessionPath === sessionFile, `path=${state.switchCalls[0]?.sessionPath}`);
+}
+
+async function scenarioEditorOpenedSessionsEnterSwitches(url) {
+	const project = await makeProject();
+	const ext = await freshExtension(url);
+	const { pi, handlers, commands } = makePi();
+	ext(pi);
+	const base = makeBaseEditor({ cursor: { line: 0, col: 0 } });
+	const eventState = makeCtx(project, () => base, { customInputs: ["right", "down", "enter"], includeSwitchSession: false });
+	const commandState = makeCtx(project, () => base);
+	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, eventState.ctx);
+	const sessionFile = await seedOtherPiSession(project);
+	const editorFactory = eventState.getEditorFactory();
+	if (typeof editorFactory !== "function") throw new Error("session_start did not install an editor factory");
+	const wrapped = editorFactory({ requestRender: () => {}, terminal: { rows: 30, columns: 100 } }, eventState.ctx.ui.theme, {});
+	wrapped.onSubmit = async (text) => {
+		const prefix = "/workflow ";
+		if (!text.startsWith(prefix)) throw new Error(`unexpected submitted command: ${text}`);
+		await commands.get("workflow").handler(text.slice(prefix.length), commandState.ctx);
+	};
+
+	wrapped.handleInput("left");
+	await waitFor(() => commandState.switchCalls.length === 1);
+	check("Enter from editor-opened Sessions dashboard submits switch command", commandState.switchCalls.length === 1, `calls=${commandState.switchCalls.length}`);
+	check("Editor-opened Sessions dashboard switches to selected session file", commandState.switchCalls[0]?.sessionPath === sessionFile, `path=${commandState.switchCalls[0]?.sessionPath}`);
+}
+
+async function main() {
+	const { url } = await buildExtension();
+	await scenarioLeftOpensAgents(url);
+	await scenarioDownStillOpensMonitor(url);
+	await scenarioLeftMovementDoesNotOpen(url);
+	await scenarioWorkflowAgentsCommand(url);
+	await scenarioWorkflowSessionsCommand(url);
+	await scenarioWorkflowSessionsEnterSwitches(url);
+	await scenarioEditorOpenedSessionsEnterSwitches(url);
+
+	if (failed > 0) {
+		console.error("\nFailures:");
+		for (const failure of failures) console.error(`- ${failure}`);
+		process.exit(1);
+	}
+	console.log(`\n${passed} checks passed`);
+}
+
+main().catch((err) => {
+	console.error(err);
+	process.exit(1);
+});
