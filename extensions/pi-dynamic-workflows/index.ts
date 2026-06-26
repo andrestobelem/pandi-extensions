@@ -2657,9 +2657,13 @@ async function runStreamingAgentProcess(
 		let stderr = "";
 		let killed = false;
 		let finished = false;
-		const append = (current: string, chunk: Buffer) => {
+		const append = (current: string, chunk: Buffer, options: { preserveLineBoundary?: boolean } = {}) => {
 			const next = current + chunk.toString("utf8");
-			return next.length > MAX_JOURNALED_STREAM ? next.slice(-MAX_JOURNALED_STREAM) : next;
+			if (next.length <= MAX_JOURNALED_STREAM) return next;
+			const tail = next.slice(-MAX_JOURNALED_STREAM);
+			if (!options.preserveLineBoundary) return tail;
+			const newline = tail.indexOf("\n");
+			return newline >= 0 ? tail.slice(newline + 1) : tail;
 		};
 		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
 		const kill = () => {
@@ -2678,7 +2682,7 @@ async function runStreamingAgentProcess(
 			else resolve({ code, killed, stdout, stderr });
 		};
 		child.stdout?.on("data", (chunk: Buffer) => {
-			stdout = append(stdout, chunk);
+			stdout = append(stdout, chunk, { preserveLineBoundary: true });
 			void options.onStdout?.(chunk);
 		});
 		child.stderr?.on("data", (chunk: Buffer) => {
@@ -5451,8 +5455,15 @@ async function runWorkflow(
 				release();
 			}
 			throwIfAborted(runSignal.signal);
-			const parsedOutput = parsePiJsonModeOutput(result.stdout);
-			if (!parsedOutput.ok) await log(`agent ${id} json output fallback: ${name}`, { warning: parsedOutput.warning, attempt: attempt + 1 });
+			const parsedStrictOutput = parsePiJsonModeOutput(result.stdout);
+			const parsedOutput = parsedStrictOutput.ok ? parsedStrictOutput : parsePiJsonModeOutputLenient(result.stdout);
+			if (!parsedStrictOutput.ok) {
+				await log(`agent ${id} json output ${parsedOutput.ok ? "recovered" : "fallback"}: ${name}`, {
+					warning: parsedStrictOutput.warning,
+					...(parsedOutput.ok ? {} : { lenientWarning: parsedOutput.warning }),
+					attempt: attempt + 1,
+				});
+			}
 			output = truncate(parsedOutput.ok ? parsedOutput.output : result.stdout.trim() || result.stderr.trim(), MAX_AGENT_OUTPUT_IN_RESULT);
 			if (schema === undefined) break;
 			const extracted = extractJsonCandidate(output);

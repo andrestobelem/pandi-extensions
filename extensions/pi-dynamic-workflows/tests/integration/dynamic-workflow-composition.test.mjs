@@ -353,6 +353,55 @@ module.exports = async function workflow(ctx) {
 	check("agent access: includeSkills false opts out of skill defaults", optOutCall.includes("--no-skills") && valuesFor(optOutCall, "--skill").length === 0, JSON.stringify(optOutCall));
 }
 
+async function scenarioAgentStructuredOutputSurvivesTruncatedJsonEventStream(url, outDir) {
+	const project = await makeProject();
+	await writeWorkflow(project, "agent-truncated-json", `
+module.exports = async function workflow(ctx) {
+  const result = await ctx.agent("return the required structured object", {
+    name: "truncated-json-agent",
+    cache: false,
+    includeSkills: false,
+    includeExtensions: false,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "value"],
+      properties: {
+        ok: { type: "boolean" },
+        value: { type: "string" },
+      },
+    },
+  });
+  return { output: result.output, data: result.data, schemaOk: result.schemaOk };
+};
+`);
+
+	const expected = { ok: true, value: "kept" };
+	const fakePi = path.join(outDir, "fake-pi-truncated-json.mjs");
+	await fs.writeFile(
+		fakePi,
+		`#!/usr/bin/env node\nconst huge = "x".repeat(210_000);\nconst expected = ${JSON.stringify(JSON.stringify(expected))};\nprocess.stdout.write(JSON.stringify({ type: "message_update", message: { role: "assistant", content: [{ type: "text", text: huge }] } }) + "\\n");\nprocess.stdout.write(JSON.stringify({ type: "message_update", message: { role: "assistant", content: [{ type: "text", text: expected }] } }) + "\\n");\n`,
+		{ mode: 0o700 },
+	);
+
+	const oldCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
+	process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND = fakePi;
+	try {
+		const ext = await freshExtension(url);
+		const { pi, tools } = makePi();
+		ext(pi);
+		const ctx = makeCtx(project);
+		const response = await runTool(tools.get("dynamic_workflow"), ctx, { action: "run", name: "agent-truncated-json", maxAgents: 1, concurrency: 1, timeoutMs: 30_000 });
+		const result = response.details.result;
+		check("agent JSON: workflow succeeds with truncated event stream", result.ok === true, result.error);
+		check("agent JSON: parsed output is final assistant text", result.output.output === JSON.stringify(expected), JSON.stringify(result.output));
+		check("agent JSON: structured data comes from assistant text", result.output.schemaOk === true && result.output.data?.ok === true && result.output.data?.value === "kept", JSON.stringify(result.output));
+	} finally {
+		if (oldCommand === undefined) delete process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
+		else process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND = oldCommand;
+	}
+}
+
 async function scenarioGeneratedDraftLocation(url, outDir) {
 	const project = await makeProject();
 	const ext = await freshExtension(url);
@@ -461,6 +510,7 @@ async function main() {
 		await scenarioDepthLimit(url);
 		await scenarioSharedAgentBudget(url, outDir);
 		await scenarioDefaultAgentAccess(url, outDir);
+		await scenarioAgentStructuredOutputSurvivesTruncatedJsonEventStream(url, outDir);
 		await scenarioGeneratedDraftLocation(url, outDir);
 		await scenarioChildCodeHashNamespacesResumeCache(url);
 		console.log(`\n${passed} passed, ${failed} failed`);
