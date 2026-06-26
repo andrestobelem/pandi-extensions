@@ -119,7 +119,11 @@ async function scenarioLevels(url) {
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
 	check("/effort command registered", !!command);
+	const allCompletions = command.getArgumentCompletions("");
 	check("/effort has completions", Array.isArray(command.getArgumentCompletions("h")));
+	check("/effort autocomplete includes canonical levels", ["off", "minimal", "low", "medium", "high", "xhigh", "ultracode", "status"].every((value) => allCompletions.some((item) => item.value === value)));
+	check("/effort autocomplete includes max alias", command.getArgumentCompletions("ma")?.some((item) => item.value === "max"));
+	check("/effort autocomplete includes ultra-code alias", command.getArgumentCompletions("ultra-")?.some((item) => item.value === "ultra-code"));
 
 	const ctx = makeCtx();
 	await command.handler("high", ctx);

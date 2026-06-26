@@ -63,6 +63,9 @@ const COMPLETIONS: Array<{ value: string; description: string }> = [
 	{ value: "xhigh", description: "Extra-high thinking" },
 	{ value: "ultracode", description: "Extra-high thinking + dynamic workflow router" },
 	{ value: "status", description: "Show current effort" },
+	{ value: "none", description: "Alias for off" },
+	{ value: "max", description: "Alias for xhigh" },
+	{ value: "ultra-code", description: "Alias for ultracode" },
 ];
 
 const SELECT_ITEMS = [
@@ -176,6 +179,38 @@ async function resolveCommandValue(args: string, ctx: ExtensionContext): Promise
 	return choice?.split(/\s+/)[0] ?? "status";
 }
 
+function enableUltracodeEffort(pi: ExtensionAPI, ctx: ExtensionContext): void {
+	const actual = setThinkingEffort(pi, ctx, "xhigh", { announce: false });
+	const workflowToolActive = ensureToolActive(pi, "dynamic_workflow");
+	pi.events.emit(ULTRACODE_MODE_EVENT, { enabled: true, source: "/effort" });
+	const routerStatus = workflowToolActive
+		? "dynamic workflow router enabled"
+		: "dynamic workflow router requested, but dynamic_workflow is not available in this session";
+	notify(ctx, `Ultracode effort enabled (${actual}); ${routerStatus}.`, workflowToolActive ? "info" : "warning");
+}
+
+function handleEffortTarget(pi: ExtensionAPI, ctx: ExtensionContext, target: EffortTarget): void {
+	if (target.kind === "status") {
+		const current = safeCurrentLevel(pi);
+		updateEffortStatus(pi, ctx, current);
+		notify(ctx, usage(current), "info");
+		return;
+	}
+
+	if (target.kind === "invalid") {
+		const current = safeCurrentLevel(pi);
+		notify(ctx, `Unknown effort "${target.value}". ${usage(current)}`, "warning");
+		return;
+	}
+
+	if (target.kind === "level") {
+		setThinkingEffort(pi, ctx, target.level);
+		return;
+	}
+
+	enableUltracodeEffort(pi, ctx);
+}
+
 export default function effortExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("effort", {
 		description: "Set thinking effort: off|minimal|low|medium|high|xhigh|ultracode",
@@ -186,33 +221,7 @@ export default function effortExtension(pi: ExtensionAPI): void {
 		},
 		handler: async (args, ctx) => {
 			const value = await resolveCommandValue(args, ctx);
-			const target = parseEffortTarget(value);
-
-			if (target.kind === "status") {
-				const current = safeCurrentLevel(pi);
-				updateEffortStatus(pi, ctx, current);
-				notify(ctx, usage(current), "info");
-				return;
-			}
-
-			if (target.kind === "invalid") {
-				const current = safeCurrentLevel(pi);
-				notify(ctx, `Unknown effort "${target.value}". ${usage(current)}`, "warning");
-				return;
-			}
-
-			if (target.kind === "level") {
-				setThinkingEffort(pi, ctx, target.level);
-				return;
-			}
-
-			const actual = setThinkingEffort(pi, ctx, "xhigh", { announce: false });
-			const workflowToolActive = ensureToolActive(pi, "dynamic_workflow");
-			pi.events.emit(ULTRACODE_MODE_EVENT, { enabled: true, source: "/effort" });
-			const routerStatus = workflowToolActive
-				? "dynamic workflow router enabled"
-				: "dynamic workflow router requested, but dynamic_workflow is not available in this session";
-			notify(ctx, `Ultracode effort enabled (${actual}); ${routerStatus}.`, workflowToolActive ? "info" : "warning");
+			handleEffortTarget(pi, ctx, parseEffortTarget(value));
 		},
 	});
 
