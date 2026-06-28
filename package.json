@@ -33,7 +33,8 @@
       "./extensions/pi-bg/index.ts",
       "./extensions/pi-effort/index.ts",
       "./extensions/pi-mdview/index.ts",
-      "./extensions/pi-local-memory/index.ts"
+      "./extensions/pi-local-memory/index.ts",
+      "./extensions/pi-auto-compact-context/index.ts"
     ],
     "skills": [
       "./.pi/skills"
