@@ -115,6 +115,21 @@ import {
 	switchToPiSession,
 	openWorkflowDashboard,
 } from "./dashboard-orchestration.js";
+import {
+	makeUltracodePrompt,
+	makeAlwaysOnUltracodeSystemPrompt,
+	dynamicWorkflowToolAvailable,
+	ensureDynamicWorkflowToolActive,
+	setUltracodeStatus,
+	clearUltracodeStatus,
+	setUltracodeContractGateStatus,
+	clearUltracodeContractGateStatus,
+	extractUltracodeTask,
+	isGeneratedUltracodePrompt,
+	parseToggleCommandValue,
+	sendWorkflowPrompt,
+} from "./ultracode.js";
+export { extractUltracodeTask } from "./ultracode.js";
 import { listRuns, formatRunList, resolveRun, listRunFiles, formatRunView } from "./run-view.js";
 export { selectRunByKey } from "./run-view.js";
 export {
@@ -162,8 +177,6 @@ export const PROCESS_KILL_GRACE_MS = 2_000;
 export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
-const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
-const ULTRACODE_CONTRACT_STATUS_KEY = "dynamic-workflows-ultracode-contract";
 // Label embedded in the editor's top border (the violet prompt line) while
 // always-on Ultracode routing is active, so the router state is visible there too.
 const ULTRACODE_BORDER_LABEL = "ultracode auto";
@@ -2008,6 +2021,9 @@ export async function runWorkflow(
 					cwd: effectiveOptions.cwd ?? ctx.cwd,
 					timeoutMs: effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs,
 					signal: runSignal.signal,
+					// Recursion guard: stamp the child one level deeper so a nested dynamic_workflow
+					// start/run/resume is refused once it hits maxWorkflowDepth().
+					env: { ...process.env, [WORKFLOW_DEPTH_ENV]: String(currentWorkflowDepth() + 1) },
 					onStdout: (chunk) => appendLive(liveStdoutArtifact.path, chunk),
 					onStderr: (chunk) => appendLive(liveStderrArtifact.path, chunk),
 				});
@@ -2489,6 +2505,29 @@ export async function runWorkflow(
 	return result;
 }
 
+// ---------------------------------------------------------------------------
+// Recursion guard (PI_DYNAMIC_WORKFLOWS_DEPTH)
+// ---------------------------------------------------------------------------
+// ctx.workflow() composition is depth-1, and a single run is bounded by maxAgents, but a
+// subagent spawned with includeExtensions:true + the dynamic_workflow tool could otherwise
+// launch fresh top-level runs that are NOT counted against the parent's budget — unbounded
+// nesting (a fork bomb). We propagate a per-session DEPTH env into every spawned subagent
+// (depth+1) and refuse start/run/resume once a session is at the limit.
+const WORKFLOW_DEPTH_ENV = "PI_DYNAMIC_WORKFLOWS_DEPTH";
+const DEFAULT_MAX_WORKFLOW_DEPTH = 2;
+
+/** Workflow-nesting depth of THIS session (0 at the top-level Pi session). */
+function currentWorkflowDepth(): number {
+	const raw = Number.parseInt(process.env[WORKFLOW_DEPTH_ENV] ?? "", 10);
+	return Number.isFinite(raw) && raw > 0 ? raw : 0;
+}
+
+/** Max nesting before start/run/resume is refused (override via PI_DYNAMIC_WORKFLOWS_MAX_DEPTH). */
+function maxWorkflowDepth(): number {
+	const raw = Number.parseInt(process.env.PI_DYNAMIC_WORKFLOWS_MAX_DEPTH ?? "", 10);
+	return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_MAX_WORKFLOW_DEPTH;
+}
+
 async function handleTool(
 	pi: ExtensionAPI,
 	params: DynamicWorkflowToolParams,
@@ -2498,6 +2537,18 @@ async function handleTool(
 ) {
 	const action = params.action;
 	const scope = params.scope ?? "auto";
+
+	// Recursion guard: a workflow subagent (depth >= limit) may not launch more workflows.
+	if (
+		(action === "start" || action === "run" || action === "resume") &&
+		currentWorkflowDepth() >= maxWorkflowDepth()
+	) {
+		throw new Error(
+			`dynamic_workflow recursion guard: this session is at workflow depth ${currentWorkflowDepth()} ` +
+				`(limit ${maxWorkflowDepth()}). A subagent spawned by a workflow must not start/run/resume more ` +
+				`workflows — have the orchestrator run them, or raise PI_DYNAMIC_WORKFLOWS_MAX_DEPTH to override.`,
+		);
+	}
 
 	if (action === "template") {
 		const pattern = params.name ? resolveWorkflowPattern(params.name) : undefined;
@@ -2906,164 +2957,6 @@ async function handleWorkflowsCommand(pi: ExtensionAPI, args: string, ctx: Exten
 		return;
 	}
 	await openWorkflowDashboard(pi, ctx);
-}
-
-function formatUltracodeContractGatePrompt(taskLabel = "Ultracode tasks"): string {
-	return `Contract Gate
-
-- For substantive ${taskLabel} that survive the trivial gate, run a small read-only task-contract review workflow before normal scout/orchestration.
-- If ambiguity blocks even the task contract, ask only blocking questions; otherwise let the workflow infer safe assumptions and non-goals.
-- Keep it cheap and inspectable: 3-4 independent contract reviewers plus synthesis, explicit concurrency/maxAgents, artifacts under the run directory, and no file edits.
-- Required synthesis fields: improvedTask, successCriteria, assumptions, nonGoals, routingHints, verificationPlan, blockers.
-- Use the improved task for the routing/scouting decision and mention whether the Contract Gate ran, was skipped as trivial, or was blocked.`;
-}
-
-function formatUltracodeRoutingRules(style: "command" | "always-on"): string {
-	const trivialGate =
-		style === "command"
-			? "solve conversational, single-step, or few-tool-call tasks directly; do not build a workflow"
-			: "conversational, single-step, or few-tool-call tasks stay single-agent";
-	const scoutGate =
-		style === "command"
-			? "if the task may be broad, probe cheaply inline to discover the real work-list"
-			: "broad-looking tasks get a cheap inline probe first (git ls-files, diff, rg/glob)";
-	const orchestrateGate =
-		style === "command"
-			? "use a workflow only for exhaustiveness, confidence, or scale"
-			: "use dynamic_workflow only for exhaustiveness, confidence, or scale";
-	const catalogLine =
-		style === "command"
-			? "Inspect the template catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft."
-			: "Inspect the catalog, then reuse an exact existing fit or write a gitignored .pi/workflows/drafts/<slug>.js draft.";
-	const launchLine =
-		style === "command"
-			? "Graph/start background runs with explicit concurrency/maxAgents, then inspect artifacts."
-			: "Graph/start in background with explicit concurrency/maxAgents, then inspect artifacts.";
-	const scaleLine =
-		style === "command"
-			? "Scale concurrency/maxAgents to the discovered work-list and risk; log caps, clamps, skipped work, and failures."
-			: "Scale parallelism to the work-list and risk; log caps, clamps, skipped work, and failed branches.";
-	const commandWorkflowPath = `- ${catalogLine}
-- ${launchLine}
-- Use workflow-factory only when a warranted workflow needs complex prompt/contract design.
-- ${scaleLine}
-- For audits/research, keep subagents read-only and synthesize only evidence-backed findings.`;
-	const alwaysOnWorkflowPath = `- ${catalogLine}
-- ${launchLine}
-- ${scaleLine}
-- Use workflow-factory only when a warranted workflow needs complex prompt/contract design.`;
-	return `Decision gates:
-- Ambiguity: if it blocks routing or implementation, infer concise success criteria when safe; ask only blocking questions.
-- Trivial: ${trivialGate}.
-- Scout: ${scoutGate}.
-- Orchestrate: ${orchestrateGate}.
-
-Workflow path:
-${style === "command" ? commandWorkflowPath : alwaysOnWorkflowPath}
-- When drafting workflow code, remember subagents get web_search via pi-codex-web-search and context7-cli when installed; do not opt out unless the task requires isolation.
-
-Reference:
-- ${formatWorkflowPatternKeyList()}
-- ${formatWorkflowCompositionPromptSummary()}`;
-}
-
-function makeUltracodePrompt(
-	task: string,
-	mode: "ultracode" | "deep-research" = "ultracode",
-	contractGateEnabled = true,
-): string {
-	const trimmed = task.trim();
-	const header =
-		mode === "deep-research"
-			? "Use Pi Dynamic Workflows for a source-backed deep-research investigation."
-			: "Use Pi Dynamic Workflows when they are warranted for this task.";
-	const contractGate = contractGateEnabled
-		? `\n\n${formatUltracodeContractGatePrompt(mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks")}`
-		: "";
-	return `${header}
-
-Task:
-${trimmed}${contractGate}
-
-Ultracode rules:
-
-${formatUltracodeRoutingRules("command")}`;
-}
-
-function makeAlwaysOnUltracodeSystemPrompt(contractGateEnabled = true): string {
-	const contractGate = contractGateEnabled ? `\n\n${formatUltracodeContractGatePrompt("tasks")}` : "";
-	return `## Always-on Ultracode Router
-
-For substantive tasks, choose the lightest path that can verify the answer.${contractGate}
-
-${formatUltracodeRoutingRules("always-on")}
-
-Mention routing only when it affects plan, cost, latency, or user expectations.`;
-}
-
-function dynamicWorkflowToolAvailable(selectedTools: string[] | undefined): boolean {
-	return selectedTools?.includes("dynamic_workflow") ?? false;
-}
-
-function ensureDynamicWorkflowToolActive(pi: ExtensionAPI): boolean {
-	try {
-		const active = pi.getActiveTools?.();
-		if (!Array.isArray(active)) return false;
-		if (active.includes("dynamic_workflow")) return true;
-		const exists = pi.getAllTools?.().some((tool) => tool.name === "dynamic_workflow") ?? false;
-		if (!exists) return false;
-		pi.setActiveTools([...new Set([...active, "dynamic_workflow"])]);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function setUltracodeStatus(ctx: ExtensionContext, enabled: boolean): void {
-	if (!ctx.hasUI) return;
-	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(ULTRACODE_STATUS_KEY, enabled ? theme.fg("accent", "uc:auto") : theme.fg("dim", "uc:off"));
-}
-
-function clearUltracodeStatus(ctx: ExtensionContext): void {
-	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_STATUS_KEY, undefined);
-}
-
-function setUltracodeContractGateStatus(ctx: ExtensionContext, enabled: boolean): void {
-	if (!ctx.hasUI) return;
-	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(ULTRACODE_CONTRACT_STATUS_KEY, enabled ? theme.fg("dim", "cg:on") : theme.fg("warning", "cg:off"));
-}
-
-function clearUltracodeContractGateStatus(ctx: ExtensionContext): void {
-	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_CONTRACT_STATUS_KEY, undefined);
-}
-
-export function extractUltracodeTask(textValue: string): string | undefined {
-	const trimmed = textValue.trim();
-	// Separator after the keyword may be a `:`/`-` (with or without a trailing space) or just
-	// whitespace, so `ultracode:do X`, `ultracode: do X`, and `ultracode do X` all parse.
-	const match = /^(?:ultracode|dynamic\s+workflow)(?:\s*[:-]\s*|\s+)([\s\S]+)/i.exec(trimmed);
-	return match?.[1]?.trim();
-}
-
-function isGeneratedUltracodePrompt(prompt: string): boolean {
-	return prompt.includes("\nUltracode rules:\n");
-}
-
-type ToggleCommandValue = "status" | "on" | "off" | "invalid";
-
-function parseToggleCommandValue(raw: string): ToggleCommandValue {
-	const value = raw.trim().toLowerCase();
-	if (!value || value === "status") return "status";
-	if (["on", "enable", "enabled", "true", "1"].includes(value)) return "on";
-	if (["off", "disable", "disabled", "false", "0"].includes(value)) return "off";
-	return "invalid";
-}
-
-function sendWorkflowPrompt(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
-	if (ctx.isIdle()) pi.sendUserMessage(prompt);
-	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 }
 
 export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
