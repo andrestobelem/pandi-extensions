@@ -185,6 +185,50 @@ async function scenarioErrors(url) {
 	check("/mdview missing file reports error", missingCtx._notes.at(-1)?.type === "error", JSON.stringify(missingCtx._notes));
 }
 
+async function captureConsole(fn) {
+	const out = [];
+	const err = [];
+	const origLog = console.log;
+	const origErr = console.error;
+	console.log = (...a) => out.push(a.join(" "));
+	console.error = (...a) => err.push(a.join(" "));
+	try {
+		await fn();
+	} finally {
+		console.log = origLog;
+		console.error = origErr;
+	}
+	return { out: out.join("\n"), err: err.join("\n") };
+}
+
+async function scenarioLargeFileGuard(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-large-"));
+	await fs.writeFile(path.join(cwd, "big.md"), `# Big\n${"x".repeat(3_000_000)}\n`, "utf8");
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd });
+	await commands.get("mdview").handler("big.md", ctx);
+	check("large-file: does not open the viewer for an oversized file", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("large-file: warns about size", /large/i.test(ctx._notes.at(-1)?.msg || "") && ctx._notes.at(-1)?.type === "warning", JSON.stringify(ctx._notes.at(-1)));
+}
+
+async function scenarioPrintModeStdout(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-print-"));
+	await fs.writeFile(path.join(cwd, "doc.md"), "# Heading\n\nplain body\n", "utf8");
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, mode: "print" });
+	const { out } = await captureConsole(() => commands.get("mdview").handler("doc.md", ctx));
+	check("print: writes file content to stdout", out.includes("plain body"), out);
+	check("print: opens no custom UI", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+}
+
+async function scenarioPrintModeErrorToStderr(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-print-err-"));
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, mode: "print" });
+	const { out, err } = await captureConsole(() => commands.get("mdview").handler("missing.md", ctx));
+	check("print-error: error goes to stderr, not stdout", /Could not read/.test(err) && !/Could not read/.test(out), JSON.stringify({ out, err }));
+}
+
 async function main() {
 	const { outDir, url } = await buildMdview();
 	try {
@@ -192,6 +236,9 @@ async function main() {
 		await scenarioRendersRelativePath(url);
 		await scenarioQuotedPath(url);
 		await scenarioErrors(url);
+		await scenarioLargeFileGuard(url);
+		await scenarioPrintModeStdout(url);
+		await scenarioPrintModeErrorToStderr(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}

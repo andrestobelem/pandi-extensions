@@ -6,10 +6,14 @@ import * as path from "node:path";
 
 const VIEWER_MIN_BODY_LINES = 3;
 const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
+const MAX_MDVIEW_BYTES = 2_000_000; // guard: reading/parsing a huge file blocks the TUI event loop
 
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
-		console.log(message);
+		// Keep stdout clean for the rendered document: diagnostics go to stderr so a
+		// redirected `pi /mdview f.md > out.md` does not get warnings/errors mixed in.
+		if (type === "info") console.log(message);
+		else console.error(message);
 		return;
 	}
 	if (ctx.hasUI) ctx.ui.notify(message, type);
@@ -145,6 +149,11 @@ async function showMarkdown(pathArg: string, ctx: ExtensionCommandContext): Prom
 
 	let content: string;
 	try {
+		const stat = await fs.stat(filePath);
+		if (stat.size > MAX_MDVIEW_BYTES) {
+			notify(ctx, `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES}).`, "warning");
+			return;
+		}
 		content = await fs.readFile(filePath, "utf8");
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
