@@ -69,35 +69,26 @@
  * AUTONOMOUS: this file does not import from extensions/loop/index.ts; patterns are copied.
  */
 
-import {
-	CONFIG_DIR_NAME,
-	getAgentDir,
-	type ExtensionAPI,
-	type ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import * as crypto from "node:crypto";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import { formatEta } from "./time.js";
 import { notify } from "./notify.js";
 import { collectLatestByKey } from "./session-state.js";
 import {
 	GOAL_STATE_TYPE,
-	GOAL_DIR,
-	STATE_FILE,
 	DEFAULT_MAX_ITERATIONS,
 	MIN_WAIT_SECONDS,
 	MAX_WAIT_SECONDS,
 	SAFETY_NET_DELAY_SECONDS,
 	DEFAULT_CONTEXT_PERCENT_CAP,
-	PROGRESS_LOG_KEEP,
 	MAX_VERIFY_ATTEMPTS,
 	DEFAULT_VERIFIER_TOOLS,
 	DEFAULT_VERIFIER_TIMEOUT_MS,
 	DEFAULT_MAX_INDEPENDENT_VERIFICATIONS,
 } from "./constants.js";
 import type { GoalStatus, GoalAssessment, GoalState, ActiveGoal } from "./types.js";
+import { persist } from "./persistence.js";
 import { makeGoalIterationPrompt, makeGoalVerificationPrompt } from "./prompts.js";
 import { runIndependentVerifier } from "./verifier.js";
 import { setGoalStatus, clearGoalStatus } from "./status.js";
@@ -120,71 +111,6 @@ function refreshGoalStatus(ctx: ExtensionContext): void {
 		}
 	}
 	clearGoalStatus(ctx);
-}
-
-// ---------------------------------------------------------------------------
-// Persistence
-// ---------------------------------------------------------------------------
-
-function snapshot(goal: ActiveGoal): GoalState {
-	return {
-		goalId: goal.goalId,
-		objective: goal.objective,
-		successCriteria: goal.successCriteria,
-		derivedCriteria: goal.derivedCriteria,
-		iteration: goal.iteration,
-		maxIterations: goal.maxIterations,
-		contextPercentCap: goal.contextPercentCap,
-		// Bound the persisted log so the JSONL entry never grows without limit.
-		assessments: goal.assessments.slice(-PROGRESS_LOG_KEEP),
-		verifyAttempts: goal.verifyAttempts,
-		independentVerifyAttempts: goal.independentVerifyAttempts,
-		maxIndependentVerifications: goal.maxIndependentVerifications,
-		verifierTimeoutMs: goal.verifierTimeoutMs,
-		verifierTools: goal.verifierTools,
-		gstatus: goal.gstatus,
-		startedAt: goal.startedAt,
-		nextFireAt: goal.nextFireAt,
-		lastReason: goal.lastReason,
-		updatedAt: goal.updatedAt,
-	};
-}
-
-/**
- * Persist a goal transition. Stamps `updatedAt`, appends to the session JSONL (does NOT
- * go to the LLM), and fire-and-forgets an ATOMIC sidecar write for crash recovery.
- */
-function persist(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): void {
-	goal.updatedAt = new Date().toISOString();
-	const snap = snapshot(goal);
-	pi.appendEntry<GoalState>(GOAL_STATE_TYPE, snap);
-	void writeSidecar(ctx, snap).catch(() => {});
-}
-
-/**
- * Dual-root state dir:
- * - trusted project → <cwd>/.pi/goals/<id>
- * - otherwise       → <agentDir>/goals/<projectHash>/<id>
- */
-function goalStateDir(ctx: ExtensionContext, goalId: string): string {
-	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, GOAL_DIR, goalId);
-	const projectHash = crypto.createHash("sha1").update(ctx.cwd).digest("hex").slice(0, 12);
-	return path.join(getAgentDir(), GOAL_DIR, projectHash, goalId);
-}
-
-/** Atomic write: temp file then rename, so a crash mid-write never truncates state.json. */
-async function writeSidecar(ctx: ExtensionContext, state: GoalState): Promise<void> {
-	const dir = goalStateDir(ctx, state.goalId);
-	await fs.mkdir(dir, { recursive: true });
-	const file = path.join(dir, STATE_FILE);
-	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
-	await fs.writeFile(temp, `${JSON.stringify(state, null, 2)}\n`, "utf8");
-	try {
-		await fs.rename(temp, file);
-	} catch (err) {
-		await fs.rm(temp, { force: true }).catch(() => {});
-		throw err;
-	}
 }
 
 // ---------------------------------------------------------------------------
