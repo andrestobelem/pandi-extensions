@@ -18,13 +18,8 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import {
-	appendJsonLine,
-	transformWorkflowCode,
-	JOURNAL_FILE,
-	MAX_AGENT_OUTPUT_IN_RESULT,
-	MAX_JOURNALED_STREAM,
-} from "./index.js";
+import { transformWorkflowCode, JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./index.js";
+import { appendJsonLine } from "./file-append.js";
 import { truncate } from "./format.js";
 import type { JournalCache, JournalRecord, SubagentResult, BashResult } from "./index.js";
 
