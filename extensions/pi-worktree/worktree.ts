@@ -340,9 +340,9 @@ export function buildListArgs(): string[] {
 	return ["worktree", "list", "--porcelain"];
 }
 
-/** One-line human summary of a worktree entry for lists/notifications. */
-export function describeWorktree(entry: WorktreeEntry): string {
-	const label = entry.bare
+/** Short label describing a worktree entry's checkout state. */
+function worktreeLabel(entry: WorktreeEntry): string {
+	return entry.bare
 		? "(bare)"
 		: entry.detached
 			? `(detached ${entry.head ? entry.head.slice(0, 8) : "?"})`
@@ -351,6 +351,11 @@ export function describeWorktree(entry: WorktreeEntry): string {
 				: entry.head
 					? entry.head.slice(0, 8)
 					: "(unknown)";
+}
+
+/** One-line human summary of a worktree entry for lists/notifications. */
+export function describeWorktree(entry: WorktreeEntry): string {
+	const label = worktreeLabel(entry);
 	const flags: string[] = [];
 	if (entry.locked) flags.push("locked");
 	if (entry.prunable) flags.push("prunable");
