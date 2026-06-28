@@ -99,6 +99,19 @@ const LOOP_STATUS_KEY = "loop";
 const LOOP_DIR = "loops";
 const STATE_FILE = "state.json";
 const DEFAULT_MAX_ITERATIONS = 25;
+// Hard ceiling on simultaneously-active loops (running/paused). Bounds unbounded timer/
+// state accumulation from repeated /loop starts — each loop owns a setTimeout, so without
+// this a user could grow activeLoops without limit. New starts past the cap are refused;
+// rehydrate of already-created loops is deliberately exempt (it recovers existing state).
+const MAX_CONCURRENT_LOOPS = 20;
+// Treat a persisted cap as valid only if it is a finite number > 0; otherwise fall back to
+// the default. Defends rehydrate against a corrupt/tampered sidecar where `0`/NaN/undefined
+// would slip past `??` (which only replaces null/undefined) and silently disable a cap
+// (maxWallClockMs<=0 voids the deadline; a missing maxIterations makes `iter >= undefined`
+// always-false, voiding the iteration gate). Call sites add per-cap shaping: Math.trunc for
+// the integer iteration count, and a Math.min(.,100) clamp for the percentage cap.
+const positiveOr = (value: unknown, dflt: number): number =>
+	typeof value === "number" && Number.isFinite(value) && value > 0 ? value : dflt;
 const MIN_DELAY_SECONDS = 60;
 const MAX_DELAY_SECONDS = 3600;
 // Safety-net cadence when a turn closed without the model calling loop_schedule.
@@ -565,6 +578,14 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		notify(ctx, "Usage: /loop <task> [interval]", "warning");
 		return undefined;
 	}
+	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
+		notify(
+			ctx,
+			`Too many active loops (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Stop one with /loop stop before starting another.`,
+			"error",
+		);
+		return undefined;
+	}
 
 	const loopId = crypto.randomBytes(4).toString("hex");
 	const loop: ActiveLoop = {
@@ -654,6 +675,14 @@ async function startAutonomousLoop(
 	);
 	if (!approved) {
 		notify(ctx, "Autonomous loop not started (not confirmed).", "info");
+		return undefined;
+	}
+	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
+		notify(
+			ctx,
+			`Too many active loops (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Stop one with /loop stop before starting another.`,
+			"error",
+		);
 		return undefined;
 	}
 
@@ -867,8 +896,9 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 			const retired: ActiveLoop = {
 				...state,
 				mode: state.mode ?? "dynamic",
-				maxWallClockMs: state.maxWallClockMs ?? DEFAULT_MAX_WALL_CLOCK_MS,
-				contextPercentCap: state.contextPercentCap ?? DEFAULT_CONTEXT_PERCENT_CAP,
+				maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
+				maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
+				contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
 				updatedAt: state.updatedAt ?? new Date().toISOString(),
 				status: "stopped",
 				timer: null,
@@ -886,8 +916,9 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 			...state,
 			// Back-compat for pre-P1 snapshots missing the new fields.
 			mode: state.mode ?? "dynamic",
-			maxWallClockMs: state.maxWallClockMs ?? DEFAULT_MAX_WALL_CLOCK_MS,
-			contextPercentCap: state.contextPercentCap ?? DEFAULT_CONTEXT_PERCENT_CAP,
+			maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
+			maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
+			contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
 			updatedAt: state.updatedAt ?? new Date().toISOString(),
 			// Normalize a recovered "stale" snapshot back to "running"; keep "paused" as-is.
 			status: recoverPaused ? "paused" : "running",

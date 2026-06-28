@@ -22,6 +22,12 @@ import { Worker } from "node:worker_threads";
 import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
 import { notify } from "./notify.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
+import {
+	aggregateRunFocusMetrics,
+	formatFocusMetricsMarkdown,
+	parseAgentFocusMetrics,
+	type AgentFocusMetrics,
+} from "./focus-metrics.js";
 import { extractJsonCandidate } from "./json-extract.js";
 import { HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY } from "./config.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
@@ -503,6 +509,10 @@ export async function runWorkflow(
 	const journal = preparedRun.resume?.journal;
 	const occCounters = new Map<string, number>();
 	let cachedCalls = 0;
+	// Focus observability (research §4): per-agent metrics folded from each freshly-run
+	// subagent's JSON-mode stdout, aggregated into metrics.json/metrics.md at run end.
+	// Cached/resumed calls (served from the journal) are not re-run, so they are excluded.
+	const focusByAgent: AgentFocusMetrics[] = [];
 
 	// Assign the occurrence index for a key synchronously, in emission order.
 	// Same key (identical args) -> 0, 1, 2, ...; distinct args -> distinct key.
@@ -858,9 +868,19 @@ export async function runWorkflow(
 		const schemaShouldThrow = schema !== undefined && schemaOk !== true && schemaOnInvalid !== "null";
 		const endedAtIso = new Date().toISOString();
 		const elapsedMs = Date.now() - startedAt;
+		// Fold this agent's JSON-mode stdout into focus metrics (tokens, tool-error rate,
+		// retries) for the per-run observability artifact. Pure + fail-safe; never throws.
+		const focus = parseAgentFocusMetrics(result.stdout, {
+			id,
+			name,
+			ok: result.code === 0 && !result.killed,
+			elapsedMs,
+		});
+		focusByAgent.push(focus);
+		const focusLine = `\n- focus: ${focus.turns} turns, peakInput ${focus.inputTokensPeak} tok, out ${focus.outputTokensTotal} tok, tools ${focus.toolCalls} (${focus.toolErrors} err), retries ${focus.autoRetries}`;
 		const artifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${result.stdout}\n\n## Stderr\n\n${result.stderr}\n`,
+			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${focusLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${result.stdout}\n\n## Stderr\n\n${result.stderr}\n`,
 		);
 		const rawSubagent: SubagentResult = {
 			id,
@@ -1284,6 +1304,18 @@ export async function runWorkflow(
 		...(error === undefined ? {} : { error }),
 	});
 	await fs.writeFile(path.join(runDir, "summary.md"), formatRunSummary(result), "utf8");
+	// Focus observability artifacts (research §4): aggregate per-agent metrics into a
+	// machine-readable metrics.json + a human-readable metrics.md. Fully fail-safe so a
+	// metrics write can never change the run's outcome.
+	try {
+		const focus = aggregateRunFocusMetrics(focusByAgent);
+		// writeJsonFile/fs.writeFile are abort-agnostic, so these land even though the run
+		// signal is already aborted by the finally above.
+		await writeJsonFile(path.join(runDir, "metrics.json"), { ...focus, cachedCalls, agentCount });
+		await fs.writeFile(path.join(runDir, "metrics.md"), formatFocusMetricsMarkdown(focus, { cachedCalls }), "utf8");
+	} catch {
+		/* metrics are best-effort observability; never fail the run on them */
+	}
 	return result;
 }
 

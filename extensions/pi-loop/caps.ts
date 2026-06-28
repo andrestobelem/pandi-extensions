@@ -24,6 +24,11 @@ export interface LoopCapsInput {
  * maxIterations stays a separate gate inside fireWake (unchanged from P0).
  */
 export function capExceeded(ctx: ExtensionContext, loop: LoopCapsInput): string | undefined {
+	// NOTE (accepted limitation): elapsed is WALL-CLOCK (Date.now() - startedAt), not a
+	// monotonic clock. This is deliberate — the deadline must survive process restarts ("6h
+	// from when the loop started"), which a per-process monotonic clock cannot do. A backward
+	// clock jump (NTP/DST) only DELAYS this soft cap by the jump magnitude; the
+	// clock-independent maxIterations gate (fireWake) stays the hard, monotonic backstop.
 	const elapsed = Date.now() - loop.startedAt;
 	if (loop.maxWallClockMs > 0 && elapsed >= loop.maxWallClockMs) {
 		return `reached wall-clock deadline (${Math.round(loop.maxWallClockMs / 60000)}m)`;

@@ -265,6 +265,42 @@ async function main() {
 			JSON.stringify(c2),
 		);
 
+		// #3.6 focus observability: the completed run must write focus-metrics artifacts
+		// (the fake pi emits no usage, so token totals are 0 — we verify shape + coverage).
+		let metrics = null;
+		try {
+			metrics = JSON.parse(await fs.readFile(path.join(result.runDir, "metrics.json"), "utf8"));
+		} catch {
+			metrics = null;
+		}
+		check("focus: metrics.json artifact written and parses", !!metrics, String(result.runDir));
+		check(
+			"focus: measuredAgents matches the agents actually run",
+			!!metrics && metrics.measuredAgents >= 1,
+			metrics && JSON.stringify(metrics.measuredAgents),
+		);
+		check(
+			"focus: has the expected top-level focus keys",
+			!!metrics &&
+				[
+					"inputTokensPeak",
+					"outputTokensTotal",
+					"toolCalls",
+					"toolErrors",
+					"toolErrorRate",
+					"autoRetries",
+					"agents",
+				].every((k) => k in metrics),
+			metrics && Object.keys(metrics).join(","),
+		);
+		let metricsMdOk = true;
+		try {
+			await fs.readFile(path.join(result.runDir, "metrics.md"), "utf8");
+		} catch {
+			metricsMdOk = false;
+		}
+		check("focus: metrics.md artifact written", metricsMdOk);
+
 		finish();
 	} catch (err) {
 		console.error(err instanceof Error ? err.stack || err.message : err);
