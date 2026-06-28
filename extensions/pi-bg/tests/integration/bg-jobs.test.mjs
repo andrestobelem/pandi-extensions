@@ -631,6 +631,24 @@ async function deleteGateReDerivesLiveState(url) {
 	await waitFor("active job finished", async () => (await readJson(path.join(job.runDir, "status.json")))?.state === "completed");
 }
 
+// R3: removeRunDir re-validates liveness at the edge (immediately before fs.rm) and aborts
+// the removal if the injected re-check says the job is no longer deletable.
+async function removeRunDirRevalidatesBeforeRm(url) {
+	const mod = await loadModule(url);
+	const removeRunDir = mod.removeRunDir;
+	check("revalidate: removeRunDir is exported", typeof removeRunDir === "function", typeof removeRunDir);
+	if (typeof removeRunDir !== "function") return;
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-revalidate-"));
+	const dir = path.join(cwd, ".pi", "bg", "runs", "guard-job");
+	await fs.mkdir(dir, { recursive: true });
+	await fs.writeFile(path.join(dir, "status.json"), JSON.stringify({ jobId: "guard-job", state: "completed", updatedAt: new Date().toISOString() }, null, 2));
+	const ctx = makeCtx({ cwd, trusted: true });
+	const aborted = await removeRunDir(ctx, "guard-job", { verb: "delete" }, async () => false);
+	check("revalidate: an aborting re-check leaves the dir intact", aborted === false && existsSync(dir), `aborted=${aborted}`);
+	const removed = await removeRunDir(ctx, "guard-job", { verb: "delete" }, async () => true);
+	check("revalidate: a passing re-check removes the dir", removed === true && !existsSync(dir), `removed=${removed}`);
+}
+
 async function logStreamErrorsAreContained(url) {
 	const mod = await loadModule(url);
 	const guard = mod.guardStreamErrors;
@@ -898,6 +916,7 @@ async function main() {
 	await cancelSignalsVerifiedOrphan(url);
 	await cancelRefusesReusedPid(url);
 	await deleteGateReDerivesLiveState(url);
+	await removeRunDirRevalidatesBeforeRm(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);

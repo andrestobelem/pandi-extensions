@@ -24,7 +24,7 @@ import {
 	RUNS_DIR,
 	validJobId,
 } from "./storage.js";
-export { atomicWriteJson };
+export { atomicWriteJson, removeRunDir };
 
 const MAX_LOG_BYTES = 20_000;
 const MAX_LOG_WRITE_BYTES = 5_000_000;
@@ -648,14 +648,22 @@ function classifyForDeletion(jobId: string, status: Record<string, unknown> | un
 async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const blocked = rejectInPlanMode("delete");
 	if (blocked) return blocked;
+	if (!ctx.isProjectTrusted()) return response("Cannot /bg delete in an untrusted project.", { action: "delete", blockedBy: "trust" }, "warning");
 	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg delete <jobId>");
 	if (typeof runDir !== "string") return runDir;
+	// Write boundary: only the project-local store is mutable. A global-fallback job
+	// resolves via findJobDir for reads, but delete refuses it (read-only).
+	const projectRuns = path.join(getProjectBgRoot(ctx), RUNS_DIR);
+	if (!path.resolve(runDir).startsWith(path.resolve(projectRuns) + path.sep)) {
+		return response(`Background job ${jobId} lives in the global (read-only) fallback store; /bg delete only removes project-local jobs.`, { action: "delete", jobId, deleted: false, scope: "global" }, "warning");
+	}
 	const status = (await readJson(path.join(runDir, "status.json"))) ?? {};
 	const verdict = classifyForDeletion(jobId, status);
 	if (!verdict.deletable) {
 		return response(`Background job ${jobId} cannot be deleted: ${verdict.reason}.`, { action: "delete", jobId, deleted: false, liveState: verdict.liveState }, "warning");
 	}
-	const removed = await removeRunDir(ctx, jobId, { verb: "delete", state: verdict.liveState });
+	// Re-derive deletability from a fresh status read right before fs.rm (TOCTOU guard).
+	const removed = await removeRunDir(ctx, jobId, { verb: "delete", state: verdict.liveState }, (reread) => classifyForDeletion(jobId, reread).deletable);
 	if (!removed) return response(`Background job not found: ${jobId}`, { action: "delete", jobId, deleted: false }, "warning");
 	return response(`Background job ${jobId} deleted.`, { action: "delete", jobId, deleted: true });
 }

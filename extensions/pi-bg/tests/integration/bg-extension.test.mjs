@@ -168,6 +168,52 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 	check("delete: symlink target survives the refusal", existsSync(realDir) && existsSync(path.join(realDir, "status.json")));
 }
 
+// R3: /bg delete scope/trust + the blocking inner-symlink escape (fs.rm unlinks an inner
+// symlink instead of following it, so an external target survives the removal).
+async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-scope-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const say = async (line, c) => {
+		await commands.get("bg").handler(line, c);
+		return c._notes.at(-1)?.msg || "";
+	};
+
+	// (a) Inner symlink escape: deleting the job dir unlinks combined.log, never the target.
+	const okDir = await setupJob(runsRoot, "symlink-job", { state: "completed" });
+	const external = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-external-"));
+	const externalFile = path.join(external, "precious.txt");
+	await fs.writeFile(externalFile, "do not delete me");
+	await fs.symlink(externalFile, path.join(okDir, "combined.log"));
+	await say("delete symlink-job", makeCtx({ cwd, trusted: true }));
+	check("delete-scope: the run dir with an inner symlink is removed", !existsSync(okDir));
+	check("delete-scope: the external symlink target survives the removal", existsSync(externalFile) && (await fs.readFile(externalFile, "utf8")) === "do not delete me");
+
+	// (b) Global-fallback job: refused as read-only/out-of-scope; dir intact.
+	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
+	const globalDir = await setupJob(globalRunsRoot, "global-job", { state: "completed" });
+	const globalMsg = await say("delete global-job", makeCtx({ cwd, trusted: true }));
+	check("delete-scope: refuses a global-fallback job", /global.*read-?only|out of scope/i.test(globalMsg), globalMsg);
+	check("delete-scope: the global job dir is left intact", existsSync(globalDir));
+
+	// (c) Untrusted project: trust-gated no-op; dir intact.
+	const keepDir = await setupJob(runsRoot, "keep-job", { state: "completed" });
+	const untrustedMsg = await say("delete keep-job", makeCtx({ cwd, trusted: false }));
+	check("delete-scope: untrusted project is refused", /untrusted/i.test(untrustedMsg), untrustedMsg);
+	check("delete-scope: untrusted leaves the dir intact", existsSync(keepDir));
+}
+
+async function deleteRejectedInPlanMode(planUrl, bgUrl) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-plan-"));
+	const { commands } = await loadPlanAndBg(planUrl, bgUrl);
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("plan").handler("design safely", ctx);
+	await commands.get("bg").handler("delete some-job", ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("delete-plan: /bg delete rejected while plan mode active", /Cannot \/bg delete while plan mode is active/.test(msg), msg);
+	await commands.get("plan").handler("exit", ctx);
+}
+
 async function loadExtension(url) {
 	const extension = await loadDefault(url);
 	const { pi, commands, tools } = makePi();
@@ -511,6 +557,8 @@ async function main() {
 	await dryRunHasNoRuntimeWrites(url);
 	await statusOrphanedRefinementPinned(url);
 	await deleteRemovesTerminalJobsAndGuards(url);
+	await deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir);
+	await deleteRejectedInPlanMode(planUrl, url);
 	await startCancelRejectInPlanMode(planUrl, url);
 	await listStatusLogsReadExistingArtifacts(url, agentDir);
 	await logTailDoesNotSplitUtf8(url);

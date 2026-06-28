@@ -140,11 +140,19 @@ export async function appendAuditLine(ctx: ExtensionContext, entry: Record<strin
 // escape from the project runs root). fs.rm(recursive) lstats each entry, so a
 // malicious inner symlink (e.g. combined.log -> /etc/...) is unlinked, not followed.
 // Returns false (nothing removed) when the dir is missing, symlinked, or out of scope.
-export async function removeRunDir(ctx: ExtensionContext, jobId: string, audit: { verb: string; state?: string; sizeBytes?: number }): Promise<boolean> {
+export async function removeRunDir(
+	ctx: ExtensionContext,
+	jobId: string,
+	audit: { verb: string; state?: string; sizeBytes?: number },
+	revalidate?: (status: Record<string, unknown> | undefined) => boolean | Promise<boolean>,
+): Promise<boolean> {
 	if (!validJobId(jobId)) return false;
 	const runDir = path.join(getProjectBgRoot(ctx), RUNS_DIR, jobId);
 	if (!(await lstatPlainDirectoryChain(ctx.cwd, runDir))) return false;
 	if (!(await lstatPlainDirectory(runDir))) return false;
+	// Edge re-validation: re-read status and let the caller re-derive deletability
+	// immediately before the irreversible fs.rm, closing the classify->remove window.
+	if (revalidate && !(await revalidate(await readJson(path.join(runDir, "status.json"))))) return false;
 	await fs.rm(runDir, { recursive: true, force: true });
 	await appendAuditLine(ctx, { verb: audit.verb, jobId, state: audit.state ?? null, sizeBytes: audit.sizeBytes ?? null });
 	return true;
