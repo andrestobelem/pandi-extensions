@@ -23,7 +23,7 @@ export interface AgentFocusMetrics {
 	name: string;
 	ok: boolean;
 	elapsedMs: number;
-	/** Assistant turns observed (message_end / turn_end with an assistant message). */
+	/** Assistant turns observed (counted from message_end events only — see parseAgentFocusMetrics). */
 	turns: number;
 	/** Peak per-call input tokens = peak context pressure for this agent. */
 	inputTokensPeak: number;
@@ -230,9 +230,12 @@ export function formatFocusMetricsMarkdown(agg: RunFocusMetrics, opts: { cachedC
 		"| id | name | ok | turns | inputPeak | outputTotal | toolCalls | toolErrors | retries | elapsedMs |",
 		"| -- | ---- | -- | ----- | --------- | ----------- | --------- | ---------- | ------- | --------- |",
 	);
+	// Agent names are workflow-supplied, so escape Markdown table-breaking characters
+	// (pipes and newlines) before interpolating into a cell.
+	const cell = (value: string) => String(value).replace(/\r?\n/g, " ").replace(/\|/g, "\\|");
 	for (const a of agg.agents) {
 		lines.push(
-			`| ${a.id} | ${a.name} | ${a.ok ? "ok" : "FAIL"} | ${a.turns} | ${a.inputTokensPeak} | ${a.outputTokensTotal} | ${a.toolCalls} | ${a.toolErrors} | ${a.autoRetries} | ${a.elapsedMs} |`,
+			`| ${a.id} | ${cell(a.name)} | ${a.ok ? "ok" : "FAIL"} | ${a.turns} | ${a.inputTokensPeak} | ${a.outputTokensTotal} | ${a.toolCalls} | ${a.toolErrors} | ${a.autoRetries} | ${a.elapsedMs} |`,
 		);
 	}
 	return lines.join("\n");

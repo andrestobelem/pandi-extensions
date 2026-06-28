@@ -142,6 +142,11 @@ async function main() {
 	check("format: notes excluded cached/resumed calls", /3 cached\/resumed call\(s\)/.test(md));
 	const mdNoCache = formatFocusMetricsMarkdown(agg, {});
 	check("format: no cached-note when none excluded", !/cached\/resumed call/.test(mdNoCache));
+	// A workflow-supplied agent name with a pipe/newline must not break the Markdown table.
+	const piped = parseAgentFocusMetrics("", { id: 9, name: "a|b\nc", ok: true, elapsedMs: 0 });
+	const mdEscaped = formatFocusMetricsMarkdown(aggregateRunFocusMetrics([piped]), {});
+	const row = mdEscaped.split("\n").find((l) => l.includes("a"));
+	check("format: escapes pipe in agent name (no raw table-breaking |)", /a\\\|b c/.test(mdEscaped), row);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

@@ -280,7 +280,66 @@ async function scenarioCompletions(url) {
 	check("completions: second token → null", gac("add ") === null, JSON.stringify(gac("add ")));
 	check("completions: no match → null", gac("zzz") === null, JSON.stringify(gac("zzz")));
 	const all = gac("");
-	check("completions: empty → all five subcommands", Array.isArray(all) && all.length === 5, JSON.stringify(all));
+	check("completions: empty → all six subcommands", Array.isArray(all) && all.length === 6, JSON.stringify(all));
+	const op = gac("op");
+	check(
+		"completions: 'op' → open",
+		Array.isArray(op) && op.length === 1 && op[0].value === "open",
+		JSON.stringify(op),
+	);
+}
+
+async function scenarioOpenFallback(url) {
+	// Force the non-Supacode path so the test never spawns a real terminal tab,
+	// even when the suite itself runs inside Supacode. isSupacode() reads these at
+	// call time, so clearing them here is enough; restore them in finally.
+	const saved = { term: process.env.TERM_PROGRAM, sock: process.env.SUPACODE_SOCKET_PATH };
+	delete process.env.TERM_PROGRAM;
+	delete process.env.SUPACODE_SOCKET_PATH;
+	try {
+		const cwd = await makeRepo();
+		const { commands, tools } = await loadExtension(url);
+
+		// Command: create-if-missing under the default base, then report how to open it.
+		const ctx = makeCtx({ cwd });
+		await commands.get("worktree").handler("open -b open-feat open-wt", ctx);
+		const wtPath = path.join(cwd, ".pi", "worktrees", "open-wt");
+		check("open cmd: created the worktree dir", existsSync(wtPath), wtPath);
+		check("open cmd: created the branch", /open-feat/.test(git(cwd, ["branch", "--list", "open-feat"])));
+		check("open cmd: reports cd+pi (fallback)", /cd .* && pi/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+		check("open cmd: not an error note", lastNote(ctx).type !== "error", String(lastNote(ctx).type));
+
+		// Tool: opening an EXISTING worktree does not recreate it.
+		const res = await tools
+			.get("git_worktree")
+			.execute("id", { action: "open", path: "open-wt" }, undefined, undefined, makeCtx({ cwd }));
+		check("open tool: not an error", !res.details?.isError, JSON.stringify(res.details));
+		check("open tool: created=false for existing", res.details?.created === false, JSON.stringify(res.details));
+		check("open tool: opened=false in fallback", res.details?.opened === false, JSON.stringify(res.details));
+		check(
+			"open tool: text mentions cd+pi",
+			/cd .* && pi/.test(res.content?.[0]?.text || ""),
+			res.content?.[0]?.text,
+		);
+
+		// Tool: invalid branch name is a bounded error, no directory created.
+		const bad = await tools
+			.get("git_worktree")
+			.execute(
+				"id",
+				{ action: "open", path: "open-bad", branch: "bad name~x" },
+				undefined,
+				undefined,
+				makeCtx({ cwd }),
+			);
+		check("open tool: invalid branch is an error", bad.details?.isError === true, JSON.stringify(bad.details));
+		check("open tool: invalid branch made no dir", !existsSync(path.join(cwd, ".pi", "worktrees", "open-bad")));
+	} finally {
+		if (saved.term !== undefined) process.env.TERM_PROGRAM = saved.term;
+		else delete process.env.TERM_PROGRAM;
+		if (saved.sock !== undefined) process.env.SUPACODE_SOCKET_PATH = saved.sock;
+		else delete process.env.SUPACODE_SOCKET_PATH;
+	}
 }
 
 async function scenarioBareRepo(url) {
@@ -703,6 +762,7 @@ async function main() {
 		await scenarioAddCreatesBranch(url);
 		await scenarioAddInvalidBranch(url);
 		await scenarioAddDetachAndPlain(url);
+		await scenarioOpenFallback(url);
 		await scenarioRemoveDirtyNeedsForce(url);
 		await scenarioRemoveCommandConfirm(url);
 		await scenarioRemoveCommandForce(url);
