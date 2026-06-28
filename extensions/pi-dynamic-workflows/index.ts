@@ -49,6 +49,8 @@ import { extractJsonCandidate } from "./json-extract.js";
 import { buildLimits, HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
 import { formatElapsedMs, formatWorkflowList, shortWorkflowName, workflowDashboardHint, workflowProgress } from "./presentation.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
+import { formatParallelAgents, formatParallelAgentsCompact, getRunAgentConcurrency, getRunCachedCalls, getRunElapsedMs, getRunLogs, getRunParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusIcon, getRunStatusLabel, isResumableState, isRunResult } from "./run-state.js";
+export { estimatePeakParallelAgents } from "./run-state.js";
 
 const WORKFLOW_DIR = "workflows";
 const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
@@ -263,9 +265,9 @@ export interface WorkflowLogEntry {
 	details?: unknown;
 }
 
-type WorkflowRunState = "running" | "completed" | "failed" | "cancelled" | "stale";
+export type WorkflowRunState = "running" | "completed" | "failed" | "cancelled" | "stale";
 
-interface WorkflowRunResult {
+export interface WorkflowRunResult {
 	workflow: string;
 	scope: WorkflowScope;
 	file: string;
@@ -343,7 +345,7 @@ interface WorkflowRunStatus {
 	resumedFrom?: string;
 }
 
-type WorkflowRunRecord = WorkflowRunResult | WorkflowRunStatus;
+export type WorkflowRunRecord = WorkflowRunResult | WorkflowRunStatus;
 
 interface ActiveWorkflowRun {
 	runId: string;
@@ -1357,69 +1359,6 @@ async function showText(ctx: ExtensionContext, title: string, content: string): 
 		return;
 	}
 	notify(ctx, content, "info");
-}
-
-function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRunState(run)): number {
-	if (state === "running") {
-		const started = new Date(run.startedAt).getTime();
-		if (Number.isFinite(started)) return Date.now() - started;
-	}
-	return run.elapsedMs;
-}
-
-function getRunAgentConcurrency(run: WorkflowRunRecord): number | undefined {
-	return typeof run.agentConcurrency === "number" && Number.isFinite(run.agentConcurrency) ? Math.max(0, Math.floor(run.agentConcurrency)) : undefined;
-}
-
-function getRunParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number {
-	if (typeof run.parallelAgents === "number" && Number.isFinite(run.parallelAgents)) return Math.max(0, Math.floor(run.parallelAgents));
-	if (getRunState(run) === "running" && agents) return agents.filter((agent) => agent.state === "running").length;
-	return 0;
-}
-
-export function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number | undefined {
-	const points: Array<{ t: number; d: number }> = [];
-	for (const agent of agents) {
-		if (agent.state === "cached") continue;
-		const started = agent.startedAt ? new Date(agent.startedAt).getTime() : Number.NaN;
-		if (!Number.isFinite(started)) continue;
-		points.push({ t: started, d: 1 });
-		const ended = agent.endedAt ? new Date(agent.endedAt).getTime() : Number.NaN;
-		if (Number.isFinite(ended)) points.push({ t: ended, d: -1 });
-	}
-	if (points.length === 0) return undefined;
-	// On a timestamp tie, apply ends (-1) before starts (+1) so a hand-off (one agent ends exactly
-	// when the next starts) is not double-counted as concurrent.
-	points.sort((a, b) => a.t - b.t || a.d - b.d);
-	let current = 0;
-	let peak = 0;
-	for (const point of points) {
-		current = Math.max(0, current + point.d);
-		peak = Math.max(peak, current);
-	}
-	return peak;
-}
-
-function getRunPeakParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number | undefined {
-	if (typeof run.peakParallelAgents === "number" && Number.isFinite(run.peakParallelAgents)) return Math.max(0, Math.floor(run.peakParallelAgents));
-	return agents ? estimatePeakParallelAgents(agents) : undefined;
-}
-
-function formatParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): string {
-	const current = getRunParallelAgents(run, agents);
-	const limit = getRunAgentConcurrency(run);
-	const peak = getRunPeakParallelAgents(run, agents);
-	const currentText = limit && limit > 0 ? `${current}/${limit} running` : `${current} running`;
-	const peakText = peak === undefined ? "" : ` • peak:${peak}`;
-	return `${currentText}${peakText}`;
-}
-
-function formatParallelAgentsCompact(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): string {
-	const current = getRunParallelAgents(run, agents);
-	const limit = getRunAgentConcurrency(run);
-	const peak = getRunPeakParallelAgents(run, agents);
-	if (getRunState(run) === "running") return limit && limit > 0 ? `${current}/${limit}` : String(current);
-	return peak === undefined ? "-" : `peak:${peak}`;
 }
 
 function isActiveRunRecord(run: WorkflowRunRecord): boolean {
@@ -2703,49 +2642,6 @@ async function readRunRecord(runDir: string): Promise<WorkflowRunRecord | undefi
 	return await readRunStatus(runDir);
 }
 
-function isRunResult(run: WorkflowRunRecord): run is WorkflowRunResult {
-	return "ok" in run;
-}
-
-function getRunState(run: WorkflowRunRecord): WorkflowRunState {
-	if (!isRunResult(run)) return run.state;
-	if (run.state) return run.state;
-	if (run.ok) return "completed";
-	return run.error?.toLowerCase().includes("cancel") ? "cancelled" : "failed";
-}
-
-function getRunLogs(run: WorkflowRunRecord): WorkflowLogEntry[] {
-	return run.logs ?? [];
-}
-
-// A run can be resumed in place when it was interrupted (stale) or ended
-// without completing (failed/cancelled). Completed runs need force.
-function isResumableState(state: WorkflowRunState): boolean {
-	return state === "stale" || state === "failed" || state === "cancelled";
-}
-
-function getRunCachedCalls(run: WorkflowRunRecord): number {
-	return typeof run.cachedCalls === "number" ? run.cachedCalls : 0;
-}
-
-function getRunStatusLabel(run: WorkflowRunRecord): string {
-	const state = getRunState(run);
-	if (state === "completed") return "completed";
-	if (state === "running") return "running";
-	if (state === "cancelled") return "cancelled";
-	if (state === "stale") return "stale";
-	return "failed";
-}
-
-function getRunStatusIcon(run: WorkflowRunRecord): string {
-	const state = getRunState(run);
-	if (state === "completed") return "✓";
-	if (state === "running") return "▶";
-	if (state === "cancelled") return "■";
-	if (state === "stale") return "?";
-	return "✗";
-}
-
 interface ParsedRunEvents {
 	logs: WorkflowLogEntry[];
 	agents: AgentMonitorModel[];
@@ -3357,7 +3253,7 @@ async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, 
 
 type AgentMonitorState = "running" | "completed" | "failed" | "cached" | "unknown";
 
-interface AgentMonitorModel {
+export interface AgentMonitorModel {
 	id: number;
 	name: string;
 	state: AgentMonitorState;
@@ -6617,7 +6513,6 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		description: "Open the dynamic workflows dashboard (or pass through to /workflow, e.g. /workflows agents)",
 		handler: async (args, ctx) => await handleWorkflowsCommand(pi, args, ctx),
 	});
-
 
 	pi.registerShortcut(Key.ctrlAlt("w"), {
 		description: "Open dynamic workflows dashboard",
