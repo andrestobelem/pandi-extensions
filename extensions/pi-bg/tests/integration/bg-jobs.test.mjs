@@ -579,6 +579,58 @@ async function cancelRefusesReusedPid(url) {
 	}
 }
 
+// R2: /bg delete gate re-derives LIVE state (never trusts status.json.state) and refines
+// an orphaned pid by identity, so active/verified-alive/unknown jobs are never deletable
+// while a reused-pid (different identity => interrupted) job is.
+async function deleteGateReDerivesLiveState(url) {
+	const mod = await loadModule(url);
+	const readStartId = mod.readProcessStartId;
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-gate-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const ctx = makeCtx({ cwd, trusted: true });
+	const win32 = process.platform === "win32";
+	const seed = async (jobId, status) => {
+		const dir = path.join(runsRoot, jobId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "job.json"), JSON.stringify({ jobId, command: jobId, cwd, createdAt: new Date().toISOString() }, null, 2));
+		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify({ jobId, updatedAt: new Date().toISOString(), ...status }, null, 2));
+		return dir;
+	};
+	const del = async (jobId) => {
+		await commands.get("bg").handler(`delete ${jobId}`, ctx);
+		return ctx._notes.at(-1)?.msg || "";
+	};
+
+	const aliveDir = await seed("alive-orphan", { state: "running", pid: process.pid, startId: readStartId(process.pid) });
+	const aliveMsg = await del("alive-orphan");
+	check("delete-gate: refuses a verified-alive orphan", existsSync(aliveDir), aliveMsg);
+	if (!win32) check("delete-gate: explains the alive refusal", /cannot be deleted|alive/i.test(aliveMsg), aliveMsg);
+
+	const unkDir = await seed("unknown-orphan", { state: "running", pid: process.pid });
+	const unkMsg = await del("unknown-orphan");
+	check("delete-gate: refuses an unknown-identity orphan", existsSync(unkDir), unkMsg);
+
+	const reusedDir = await seed("reused-pid", { state: "running", pid: process.pid, startId: "stale:bogus-identity" });
+	const reusedMsg = await del("reused-pid");
+	if (win32) {
+		check("delete-gate: win32 keeps a reused-pid orphan (unverifiable)", existsSync(reusedDir), reusedMsg);
+	} else {
+		check("delete-gate: deletes a reused-pid job (refined to interrupted)", !existsSync(reusedDir) && /deleted/i.test(reusedMsg), reusedMsg);
+	}
+
+	const job = await startControlledJob(commands, cwd);
+	await waitFor("active job is owned", async () => {
+		await commands.get("bg").handler(`status ${job.jobId}`, job.ctx);
+		return /"active": true/.test(job.ctx._notes.at(-1)?.msg || "");
+	});
+	const activeMsg = await del(job.jobId);
+	check("delete-gate: refuses a job active in this session", existsSync(job.runDir), activeMsg);
+	check("delete-gate: explains the active refusal", /active/i.test(activeMsg), activeMsg);
+	await fs.writeFile(job.release, "go");
+	await waitFor("active job finished", async () => (await readJson(path.join(job.runDir, "status.json")))?.state === "completed");
+}
+
 async function logStreamErrorsAreContained(url) {
 	const mod = await loadModule(url);
 	const guard = mod.guardStreamErrors;
@@ -845,6 +897,7 @@ async function main() {
 	await identityDefeatsPidReuse(url);
 	await cancelSignalsVerifiedOrphan(url);
 	await cancelRefusesReusedPid(url);
+	await deleteGateReDerivesLiveState(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);

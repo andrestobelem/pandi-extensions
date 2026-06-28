@@ -193,6 +193,16 @@ function deriveState(jobId: string, status: Record<string, unknown> | undefined)
 	return projectState(jobId, asString(status?.state) ?? "unknown", asNumber(status?.pid)).state;
 }
 
+// Refine a read-time `orphaned` projection with one identity probe: a different start
+// identity means the pid was reused (our process is gone => interrupted); a matching
+// identity is verified-alive; unknown stays orphaned (best-effort). Shared by /bg status
+// and classifyForDeletion so the two never diverge.
+function refineOrphanedIdentity(pid: number | undefined, startId: string | undefined): { state: "orphaned" | "interrupted"; verified: boolean } {
+	const identity = verifyProcessIdentity(pid, startId);
+	if (identity === "different") return { state: "interrupted", verified: false };
+	return { state: "orphaned", verified: identity === "same" };
+}
+
 function decorateStatus(jobId: string, raw: Record<string, unknown>): Record<string, unknown> {
 	const copy: Record<string, unknown> = { ...raw };
 	const projected = projectState(jobId, asString(copy.state), asNumber(copy.pid));
@@ -613,20 +623,39 @@ async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	return response(["Background jobs:", ...jobs.map(formatJob)].join("\n"), { jobs });
 }
 
-// Delete one finished job's artifacts. R1 gates on the persisted terminal state; R2 will
-// re-derive live state via classifyForDeletion so a running/active/verified-alive job is
-// never deletable. removeRunDir enforces project scope + symlink safety at the edge.
+// Single source of truth for whether a job's artifacts may be removed. Never trusts
+// status.json.state as liveness: re-derives the live state via projectState and refines
+// an orphaned pid by identity. Active (owned) and verified/unverifiable-alive jobs are
+// never deletable; a reused pid refines to `interrupted` and is.
+function classifyForDeletion(jobId: string, status: Record<string, unknown> | undefined): { liveState: string; deletable: boolean; reason?: string } {
+	if (activeJobs.has(jobId)) return { liveState: "running", deletable: false, reason: "it is active in this session" };
+	const pid = asNumber(status?.pid);
+	let state: string = projectState(jobId, asString(status?.state), pid).state;
+	if (state === "orphaned") state = refineOrphanedIdentity(pid, asString(status?.startId)).state;
+	if (DELETABLE_STATES.has(state)) return { liveState: state, deletable: true };
+	const reason =
+		state === "orphaned"
+			? "its process is still alive (or its identity cannot be verified)"
+			: state === "stale"
+				? "its liveness cannot be proven"
+				: `it is not in a terminal state (${state})`;
+	return { liveState: state, deletable: false, reason };
+}
+
+// Delete one finished job's artifacts, gated on re-derived LIVE state (classifyForDeletion)
+// so a running/active/verified-alive job is never deletable. removeRunDir enforces project
+// scope + symlink safety at the edge.
 async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const blocked = rejectInPlanMode("delete");
 	if (blocked) return blocked;
 	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg delete <jobId>");
 	if (typeof runDir !== "string") return runDir;
 	const status = (await readJson(path.join(runDir, "status.json"))) ?? {};
-	const state = asString(status.state);
-	if (!state || !DELETABLE_STATES.has(state)) {
-		return response(`Background job ${jobId} is not in a terminal state (${state ?? "unknown"}); refusing to delete.`, { action: "delete", jobId, deleted: false }, "warning");
+	const verdict = classifyForDeletion(jobId, status);
+	if (!verdict.deletable) {
+		return response(`Background job ${jobId} cannot be deleted: ${verdict.reason}.`, { action: "delete", jobId, deleted: false, liveState: verdict.liveState }, "warning");
 	}
-	const removed = await removeRunDir(ctx, jobId, { verb: "delete", state });
+	const removed = await removeRunDir(ctx, jobId, { verb: "delete", state: verdict.liveState });
 	if (!removed) return response(`Background job not found: ${jobId}`, { action: "delete", jobId, deleted: false }, "warning");
 	return response(`Background job ${jobId} deleted.`, { action: "delete", jobId, deleted: true });
 }
@@ -651,12 +680,12 @@ async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	// pid downgrades to `interrupted`; a verified pid is marked so the operator can trust it.
 	if (status.state === "orphaned") {
 		const pid = asNumber(status.pid);
-		const identity = verifyProcessIdentity(pid, asString(status.startId));
-		if (identity === "different") {
+		const refined = refineOrphanedIdentity(pid, asString(status.startId));
+		if (refined.state === "interrupted") {
 			status.state = "interrupted";
 			delete status.hint;
 			status.interruptedCause = "pid-reused";
-		} else if (identity === "same") {
+		} else if (refined.verified) {
 			status.identity = "verified";
 			status.hint = `PID ${pid} is verified still running (same start identity). Stop it with kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`;
 		}
