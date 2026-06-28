@@ -24,7 +24,9 @@ import * as path from "node:path";
  *        optional — the recursive flag is the data-loss risk). Single-file rm is not gated.
  *      find ... -delete and find ... -exec rm (recursive deletion via find)
  *      truncate / shred (in-place destruction of existing files)
- *      shell redirections (>, >>) and tee writing OUTSIDE the project cwd
+ *      shell redirections (>, >>) and tee writing OUTSIDE the project cwd, including
+ *        targets that escape via a leading ~ (home), an unexpanded $VAR/${VAR}, or a
+ *        relative target reached after a `cd`/`pushd` into a dir outside the project
  *      git push --force / -f / push ... --force-with-lease
  *      git reset --hard
  *      git clean -fd / -xfd
@@ -82,6 +84,23 @@ export function isDestructiveBash(command: string): boolean {
 export const REDIRECT_TARGET_RE = /(?:^|[^&>=\d-])\d*>>?\s*(?![&>=])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
 // `tee [flags] <file>` also writes a file.
 export const TEE_TARGET_RE = /\btee\b\s+(?:-\S+\s+)*("[^"]*"|'[^']*'|[^\s|&;<>]+)/gi;
+// `cd`/`pushd` at COMMAND position (start, or after a ;/&&/||/|/newline/`(` separator),
+// capturing the optional directory operand. A bare `cd` (no operand) goes to $HOME.
+export const CD_TARGET_RE = /(?:^|[;&|\n(])[ \t]*(?:cd|pushd)\b[ \t]*("[^"]*"|'[^']*'|[^\s|&;<>]+)?/gi;
+
+// Does the command `cd`/`pushd` into a directory we cannot prove stays inside the
+// project? If so, any RELATIVE redirect/tee target is no longer provably in-project.
+// A bare `cd`, `cd -`, `cd ~`, `cd ..`, `cd /abs-outside`, or `cd $VAR` all qualify.
+export function commandChangesToUnsafeDir(ctx: ExtensionContext, command: string): boolean {
+	for (const m of command.matchAll(CD_TARGET_RE)) {
+		const raw = m[1];
+		if (raw === undefined) return true; // bare `cd` -> $HOME (outside the project)
+		const dir = unquote(raw);
+		if (dir === "" || dir === "-") return true; // `cd -` returns to an unknown previous dir
+		if (isUnsafeWritePath(ctx, dir)) return true; // absolute-outside, .., leading ~, or $VAR
+	}
+	return false;
+}
 
 export function unquote(value: string): string {
 	if (
@@ -99,9 +118,12 @@ export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): s
 	const targets: string[] = [];
 	for (const m of command.matchAll(REDIRECT_TARGET_RE)) if (m[1]) targets.push(unquote(m[1]));
 	for (const m of command.matchAll(TEE_TARGET_RE)) if (m[1]) targets.push(unquote(m[1]));
+	const leftProject = commandChangesToUnsafeDir(ctx, command);
 	for (const target of targets) {
 		if (target.startsWith("/dev/")) continue; // /dev/null and friends are not real writes
 		if (isUnsafeWritePath(ctx, target)) return target;
+		// After a `cd` outside the project, a relative target resolves outside too.
+		if (leftProject && !path.isAbsolute(target)) return target;
 	}
 	return undefined;
 }
@@ -109,6 +131,11 @@ export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): s
 /** Is this write/edit path unsafe (outside the trusted project cwd, or escaping via "..")? */
 export function isUnsafeWritePath(ctx: ExtensionContext, filePath: unknown): boolean {
 	if (typeof filePath !== "string" || filePath.length === 0) return false;
+	// A leading ~ (home) or an unexpanded shell variable ($VAR / ${VAR}) cannot be proven
+	// to resolve inside the project: the shell expands them at runtime, path.normalize does
+	// not. Treat them as out-of-project rather than as innocuous relative names.
+	if (filePath.startsWith("~")) return true;
+	if (/\$[\w{]/.test(filePath)) return true;
 	// Reject any path that climbs out of cwd via "..".
 	const normalized = path.normalize(filePath);
 	if (normalized.split(path.sep).includes("..")) return true;

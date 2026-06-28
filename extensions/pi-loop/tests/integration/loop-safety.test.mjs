@@ -158,6 +158,20 @@ async function loopAutopilotGate(loopUrl) {
 		// Shell redirections / tee writing OUTSIDE the project (parity with write/edit).
 		"echo x > /etc/cron.d/pwn",
 		"echo x | tee /etc/hosts",
+		// L1: tilde (~) and unexpanded shell vars ($HOME/${HOME}) resolve OUTSIDE the
+		// project at shell-expansion time; our path math never expands them, so they
+		// must be treated as out-of-project writes.
+		"echo pwn >> ~/.bashrc",
+		"echo pwn > $HOME/.profile",
+		"echo pwn > ${HOME}/.evil",
+		"echo pwn | tee ~/.ssh/authorized_keys",
+		// L2: a `cd`/`pushd` to a dir we cannot prove is in-project makes a RELATIVE
+		// redirect target unsafe (it no longer resolves under ctx.cwd).
+		"cd /etc && echo x > hosts",
+		"cd /tmp && echo x | tee secret.key",
+		"cd ~ && echo x > .bashrc",
+		"cd && echo x > .bashrc",
+		"cd .. && echo x > escaped.txt",
 	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`loop(autopilot): BLOCKS bash "${cmd}"`, !!r && r.block === true, r ? "" : "not blocked");
@@ -175,6 +189,11 @@ async function loopAutopilotGate(loopUrl) {
 		"node build.js > out.log 2>&1",
 		"cmd 2>&1",
 		"echo ok > /dev/null",
+		// L2 false-positive guards: an IN-PROJECT cd, a substring "cd" inside a path,
+		// and /dev/null after an out-of-project cd must all stay ALLOWED.
+		"cd build && echo x > out.log",
+		"cat src/cd/file > out.txt",
+		"cd /etc && echo ok > /dev/null",
 	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`loop(autopilot): ALLOWS bash "${cmd}"`, r === undefined, r ? r.reason : "");
