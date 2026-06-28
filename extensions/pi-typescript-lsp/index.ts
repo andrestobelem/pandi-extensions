@@ -41,6 +41,7 @@ import {
 	type FormatResult,
 	type TscRunResult,
 } from "./diagnostics.js";
+import { parseMax, parseMode, parseOnOff, parseScope, type FeedbackMode, type Scope } from "./settings.js";
 
 // Re-exported for the integration suite to unit-test the pure helpers directly
 // against the same bundle (an `export … from` re-export creates no local binding,
@@ -57,51 +58,15 @@ export {
 	shouldRun,
 } from "./diagnostics.js";
 
+// Setting parsers live in settings.ts (mirrors the diagnostics.ts split); re-exported
+// here so the extension's public surface stays identical.
+export { parseMax, parseMode, parseOnOff, parseScope } from "./settings.js";
+
 /** Custom message type owned by this extension (for dedupe/rendering). */
 const CUSTOM_TYPE = "pi-typescript-lsp";
 const MAX_TSC_OUTPUT_BYTES = 2_000_000;
 /** Default autofix budget per prompt: at most one auto-triggered fix turn. */
 const DEFAULT_AUTOFIX_BUDGET = 1;
-
-type FeedbackMode = "advisory" | "autofix";
-type Scope = "touched" | "project";
-
-// --------------------------------------------------------------------------
-// Setting parsers (env + subcommand share these — mirrors pi-auto-compact-context)
-// --------------------------------------------------------------------------
-
-/** Parse an on/off-style setting. Returns undefined for unrecognised input. */
-export function parseOnOff(value: string | undefined): boolean | undefined {
-	if (value === undefined) return undefined;
-	const v = value.trim().toLowerCase();
-	if (v === "on" || v === "1" || v === "true" || v === "yes") return true;
-	if (v === "off" || v === "0" || v === "false" || v === "no") return false;
-	return undefined;
-}
-
-/** Parse the feedback mode setting (advisory | autofix). */
-export function parseMode(value: string | undefined): FeedbackMode | undefined {
-	if (value === undefined) return undefined;
-	const v = value.trim().toLowerCase();
-	if (v === "advisory" || v === "autofix") return v;
-	return undefined;
-}
-
-/** Parse a positive integer max-errors setting. */
-export function parseMax(value: string | undefined): number | undefined {
-	if (value === undefined) return undefined;
-	const n = Number(value.trim());
-	if (!Number.isInteger(n) || n <= 0) return undefined;
-	return n;
-}
-
-/** Parse a scope setting (touched | project). */
-export function parseScope(value: string | undefined): Scope | undefined {
-	if (value === undefined) return undefined;
-	const v = value.trim().toLowerCase();
-	if (v === "touched" || v === "project") return v;
-	return undefined;
-}
 
 // --------------------------------------------------------------------------
 // tsc runner — argv array, never a shell (mirrors pi-worktree's runGit)
