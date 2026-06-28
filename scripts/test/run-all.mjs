@@ -51,6 +51,7 @@ const suites = [
 	"extensions/pi-loop/tests/integration/loop-behavior.test.mjs",
 	"extensions/pi-loop/tests/integration/loop-caps-resume.test.mjs",
 	"extensions/pi-loop/tests/integration/loop-safety.test.mjs",
+	"extensions/pi-local-memory/tests/integration/local-memory.test.mjs",
 	"extensions/pi-mdview/tests/integration/mdview-extension.test.mjs",
 	"extensions/pi-plan/tests/integration/plan-approval.test.mjs",
 	"extensions/pi-plan/tests/integration/plan-gate.test.mjs",
@@ -70,6 +71,7 @@ const suiteDirs = [
 	"extensions/pi-effort/tests/integration",
 	"extensions/pi-goal/tests/integration",
 	"extensions/pi-loop/tests/integration",
+	"extensions/pi-local-memory/tests/integration",
 	"extensions/pi-mdview/tests/integration",
 	"extensions/pi-plan/tests/integration",
 ];
