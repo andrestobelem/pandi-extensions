@@ -58,6 +58,8 @@ const DEFAULT_WORKFLOW_TIMEOUT_MS = 60 * 60_000;
 const DEFAULT_SYNC_TIMEOUT_MS = 5_000;
 const PI_SESSION_HEARTBEAT_MS = 5_000;
 const PI_SESSION_STALE_MS = 20_000;
+// Grace period after SIGTERM before escalating to SIGKILL for spawned child processes.
+const PROCESS_KILL_GRACE_MS = 2_000;
 const MAX_TOOL_TEXT = 24_000;
 const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
@@ -2630,23 +2632,29 @@ function resolveMmdcInvocation(cwd: string): { command: string; argsPrefix: stri
 	return { command: "mmdc", argsPrefix: [], display: "mmdc" };
 }
 
-async function runProcess(command: string, args: string[], options: { cwd: string; timeoutMs: number }): Promise<ProcessResult> {
+export async function runProcess(command: string, args: string[], options: { cwd: string; timeoutMs: number; killGraceMs?: number }): Promise<ProcessResult> {
 	return await new Promise<ProcessResult>((resolve) => {
 		let stdout = "";
 		let stderr = "";
 		let finished = false;
+		let timedOut = false;
+		let killTimer: ReturnType<typeof setTimeout> | undefined;
 		const append = (current: string, chunk: Buffer) => {
 			const next = current + chunk.toString("utf8");
 			return next.length > 20_000 ? next.slice(-20_000) : next;
 		};
 		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
 		const timer = setTimeout(() => {
+			timedOut = true;
 			child.kill("SIGTERM");
+			// Escalate to SIGKILL if the child ignores SIGTERM, so the promise can't hang forever.
+			killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
 		}, options.timeoutMs);
 		const finish = (result: ProcessResult) => {
 			if (finished) return;
 			finished = true;
 			clearTimeout(timer);
+			if (killTimer) clearTimeout(killTimer);
 			resolve(result);
 		};
 		child.stdout?.on("data", (chunk: Buffer) => {
@@ -2656,17 +2664,18 @@ async function runProcess(command: string, args: string[], options: { cwd: strin
 			stderr = append(stderr, chunk);
 		});
 		child.on("error", (err) => finish({ ok: false, code: null, signal: null, stdout, stderr, error: err instanceof Error ? err.message : String(err) }));
-		child.on("close", (code, signal) => finish({ ok: code === 0, code, signal, stdout, stderr, timedOut: signal === "SIGTERM" }));
+		child.on("close", (code, signal) => finish({ ok: code === 0, code, signal, stdout, stderr, timedOut }));
 	});
 }
 
-async function runStreamingAgentProcess(
+export async function runStreamingAgentProcess(
 	command: string,
 	args: string[],
 	options: {
 		cwd: string;
 		timeoutMs: number;
 		signal: AbortSignal;
+		killGraceMs?: number;
 		onStdout?: (chunk: Buffer) => void | Promise<void>;
 		onStderr?: (chunk: Buffer) => void | Promise<void>;
 	},
@@ -2685,9 +2694,13 @@ async function runStreamingAgentProcess(
 			return newline >= 0 ? tail.slice(newline + 1) : tail;
 		};
 		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
+		let killTimer: ReturnType<typeof setTimeout> | undefined;
 		const kill = () => {
 			killed = true;
 			child.kill("SIGTERM");
+			// Escalate to SIGKILL if the child ignores SIGTERM, so we never leak the process or hold
+			// the agent semaphore indefinitely.
+			if (!killTimer) killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
 		};
 		const timer = setTimeout(kill, options.timeoutMs);
 		const onAbort = () => kill();
@@ -2696,6 +2709,7 @@ async function runStreamingAgentProcess(
 			if (finished) return;
 			finished = true;
 			clearTimeout(timer);
+			if (killTimer) clearTimeout(killTimer);
 			options.signal.removeEventListener("abort", onAbort);
 			if (err) reject(err);
 			else resolve({ code, killed, stdout, stderr });

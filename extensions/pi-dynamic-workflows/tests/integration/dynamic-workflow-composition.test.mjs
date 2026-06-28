@@ -503,6 +503,34 @@ module.exports = async function workflow(ctx) {
 	check("composition cache: reports cached parent call", resumed.cachedCalls === 1, `cachedCalls=${resumed.cachedCalls}`);
 }
 
+// F4: a child that ignores SIGTERM must be escalated to SIGKILL so the process runners can't
+// hang forever (and, for the streaming runner, never release the agent semaphore).
+const SIGTERM_IGNORING_CHILD = "process.on('SIGTERM', () => {}); const t = setInterval(() => {}, 1e9); setTimeout(() => { clearInterval(t); process.exit(0); }, 30000);";
+
+async function scenarioRunProcessSigkillEscalation(url) {
+	const mod = await import(`${url}?p=${instance++}`);
+	check("runProcess: exported", typeof mod.runProcess === "function", typeof mod.runProcess);
+	if (typeof mod.runProcess !== "function") return;
+	const TIMED_OUT = Symbol("guard");
+	const guard = new Promise((res) => setTimeout(() => res(TIMED_OUT), 6000));
+	const run = mod.runProcess("node", ["-e", SIGTERM_IGNORING_CHILD], { cwd: REPO_ROOT, timeoutMs: 200, killGraceMs: 200 });
+	const result = await Promise.race([run, guard]);
+	check("runProcess: SIGTERM-ignoring child is force-killed so the promise resolves (no hang)", result !== TIMED_OUT, "did not resolve within 6s");
+	if (result !== TIMED_OUT) check("runProcess: reports timedOut", result.timedOut === true, JSON.stringify(result));
+}
+
+async function scenarioStreamingSigkillEscalation(url) {
+	const mod = await import(`${url}?s=${instance++}`);
+	check("runStreamingAgentProcess: exported", typeof mod.runStreamingAgentProcess === "function", typeof mod.runStreamingAgentProcess);
+	if (typeof mod.runStreamingAgentProcess !== "function") return;
+	const TIMED_OUT = Symbol("guard");
+	const guard = new Promise((res) => setTimeout(() => res(TIMED_OUT), 6000));
+	const run = mod.runStreamingAgentProcess("node", ["-e", SIGTERM_IGNORING_CHILD], { cwd: REPO_ROOT, timeoutMs: 200, killGraceMs: 200, signal: new AbortController().signal });
+	const result = await Promise.race([run, guard]);
+	check("runStreamingAgentProcess: SIGTERM-ignoring child is force-killed so the promise resolves (no hang)", result !== TIMED_OUT, "did not resolve within 6s");
+	if (result !== TIMED_OUT) check("runStreamingAgentProcess: reports killed", result.killed === true, JSON.stringify(result));
+}
+
 // F14: run resolution must prefer an EXACT id match over a substring match on a different run
 // (otherwise `/workflow delete abc` could delete a run "abc123" instead of "abc").
 async function scenarioResolveRunExactMatchFirst(url) {
@@ -691,6 +719,8 @@ async function main() {
 		await scenarioGeneratedDraftLocation(url, outDir);
 		await scenarioChildCodeHashNamespacesResumeCache(url);
 		await scenarioResolveRunExactMatchFirst(url);
+		await scenarioRunProcessSigkillEscalation(url);
+		await scenarioStreamingSigkillEscalation(url);
 		const templatesUrl = await buildTemplates();
 		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
 		await scenarioScoutTemplateInjectionSafe(templatesMod);
