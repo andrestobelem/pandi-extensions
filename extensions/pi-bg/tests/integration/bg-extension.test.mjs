@@ -386,6 +386,40 @@ async function corruptArtifactsAreTolerated(url) {
 	check("corrupt: missing logs are reported safely", /No logs found/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
 }
 
+async function eventsSubcommandReadsBoundedEvents(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-events-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const runDir = await setupJob(runsRoot, "events-job", { command: "echo hi", state: "completed" });
+	const events =
+		[
+			{ time: "2026-06-25T00:00:00.000Z", event: "start", jobId: "events-job", command: "echo hi" },
+			{ time: "2026-06-25T00:00:01.000Z", event: "running", jobId: "events-job", pid: 4242 },
+			{ time: "2026-06-25T00:00:02.000Z", event: "finish", jobId: "events-job", state: "completed", exitCode: 0 },
+		]
+			.map((e) => JSON.stringify(e))
+			.join("\n") + "\n";
+	await fs.writeFile(path.join(runDir, "events.jsonl"), events);
+
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, trusted: true });
+
+	await commands.get("bg").handler("events events-job", ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("events: surfaces the lifecycle timeline", /"event":"start"/.test(msg) && /"event":"finish"/.test(msg), msg.slice(0, 120));
+	check("events: includes the running pid event", /"pid":4242/.test(msg), msg.slice(0, 200));
+
+	await commands.get("bg").handler("events missing-job", ctx);
+	check("events: unknown job reports not found", /not found/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+
+	await commands.get("bg").handler("events ..", ctx);
+	check("events: path traversal job id is rejected", /Usage: \/bg events/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+
+	const desc = commands.get("bg")?.description || "";
+	check("events: command description lists events", /\bevents\b/.test(desc), desc);
+	const completions = commands.get("bg").getArgumentCompletions("ev").map((c) => c.value);
+	check("events: completions include events for prefix 'ev'", completions.includes("events"), completions.join(","));
+}
+
 async function sessionStartReconcilesInterruptedJobs(url) {
 	const extension = await freshDefault(url);
 	const handlers = new Map();
@@ -437,6 +471,7 @@ async function main() {
 	await symlinkedArtifactFilesAreIgnored(url, agentDir);
 	await corruptArtifactsAreTolerated(url);
 	await sessionStartReconcilesInterruptedJobs(url);
+	await eventsSubcommandReadsBoundedEvents(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

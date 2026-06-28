@@ -574,11 +574,24 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 	});
 }
 
+// Surface the structured lifecycle journal (start/running/cancel-*/finish/
+// reconcile-interrupted/finalize-error). It explains WHY a job ended
+// failed/cancelled/interrupted — evidence that status.json alone does not carry.
+// Bounded/symlink-safe via the same readBoundedLog path as /bg logs.
+async function handleEvents(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
+	if (!jobId || !validJobId(jobId)) return response("Usage: /bg events <jobId>", undefined, "warning");
+	const runDir = await findJobDir(ctx, jobId);
+	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
+	const events = await readBoundedLog(path.join(runDir, "events.jsonl"));
+	if (events === undefined) return response(`No events found for ${jobId}.`, { jobId, found: true, events: false }, "warning");
+	return response(events || "(no events)", { jobId, source: "events.jsonl", truncatedTo: MAX_LOG_BYTES });
+}
+
 async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgResponse> {
 	try {
 		const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
 		if (!match) {
-			return response("Usage: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>", undefined, "warning");
+			return response("Usage: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>", undefined, "warning");
 		}
 		const subcommand = match[1] ?? "";
 		const tail = match[2] ?? "";
@@ -595,8 +608,10 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 				return await handleStatus(ctx, tail.trim());
 			case "logs":
 				return await handleLogs(ctx, tail.trim());
+			case "events":
+				return await handleEvents(ctx, tail.trim());
 			default:
-				return response(`Unknown /bg subcommand: ${subcommand}. Supported: plan, start, cancel, list, status, logs.`, undefined, "warning");
+				return response(`Unknown /bg subcommand: ${subcommand}. Supported: plan, start, cancel, list, status, logs, events.`, undefined, "warning");
 		}
 	} catch (err) {
 		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
@@ -605,7 +620,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
-		description: "Background jobs: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>",
+		description: "Background jobs: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "plan", label: "plan", description: "Dry-run a background command plan" },
@@ -614,6 +629,7 @@ export default function bgExtension(pi: ExtensionAPI): void {
 				{ value: "list", label: "list", description: "List background job artifacts" },
 				{ value: "status", label: "status", description: "Read job status" },
 				{ value: "logs", label: "logs", description: "Read bounded job logs" },
+				{ value: "events", label: "events", description: "Read bounded job lifecycle events" },
 			];
 			const prefix = argumentPrefix.trim().toLowerCase();
 			if (!prefix) return items;
