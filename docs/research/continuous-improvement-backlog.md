@@ -56,6 +56,40 @@ Conventions:
   `web_search` budget. Re-run with a single active writer to get clean 7/7 coverage.
 - Where: `.pi/workflows/agentic-workflow-patterns-research.js` (fixed in commits f36226b, 132af53).
 
+### CI-6 — Monitor height budget (adaptive windowing that keeps the detail visible)
+
+- Status: open
+- Why: `WorkflowDashboard.render(width)` receives no terminal height, so on short
+  terminals (e.g. 80×24) the Monitor's metadata labels + agent list + "Selected agent"
+  detail overflow and the detail falls below the fold. Needs adaptive per-tab windowing
+  that shrinks the list while keeping the selected detail on screen — the live viewer
+  already does this via `getHeight()`/`pageSize()`. A blind bottom-clamp would be theater
+  (it would hide the very detail the user wants), so this is deferred until it can be done
+  properly. From the dashboard UX review; the rest of that review's P1–P3 items already
+  landed (commits 6dc5876, e04598e, e446f2d, 8fe2842, dc47503, 697d5ce, bbfaa18, 612623a).
+- Where: `extensions/pi-dynamic-workflows/index.ts` (`class WorkflowDashboard` constructor +
+  `render`/`renderMonitor`; mirror `AgentLiveViewComponent.pageSize()`), the
+  `ctx.ui.custom` factory in `openWorkflowDashboard` (pass `() => tui.terminal.rows`), and
+  parametrize the hardcoded `terminal: { rows: 30 }` in
+  `extensions/pi-dynamic-workflows/tests/integration/dashboard-usability-fixes.test.mjs` to
+  cover 24/50 rows.
+- Note: changes the `WorkflowDashboard` constructor signature — best done when `index.ts`
+  is not being edited concurrently (see H-4).
+
+### CI-7 — Reuse Pi TUI primitives instead of hand-rolled list/help code
+
+- Status: open
+- Why: the dashboard hand-rolls window math in ~6 per-tab renderers (different magic
+  offsets) and swaps the whole screen for `?` help; Pi already ships `SelectList`
+  (windowing, scroll info, `setFilter`/`enableSearch`, `setSelectedIndex`) and overlays
+  (`ctx.ui.custom(..., { overlay: true })`) plus a keybindings manager. Reuse would remove
+  off-by-one risk, add a `/` filter on Agents/Runs, and make `?`/detail a non-destructive
+  overlay. Evaluate against the existing identity-stable selection (`reselectIndexByKey`)
+  and per-line truncation before adopting; larger refactor, so scoped as a separate pass.
+- Where: `extensions/pi-dynamic-workflows/index.ts` (`renderRuns`/`renderAgents`/
+  `renderWorkflows`/`renderPatterns`/`renderSessions` window slices and `renderHelp`);
+  reference `docs/tui.md` (SelectList/SettingsList/overlays/keybindings).
+
 ## Deferred (separate plans — `/bg` feature, see `docs/memoria.md` 2026-06-26)
 
 ### BG-1 — Supacode runner
