@@ -304,14 +304,17 @@ El test actual typecheckea todas las extensiones con `extensions/*/index.ts` y c
 /bg cancel <jobId>
 ```
 
+`/bg` es el primo pequeño de `dynamic_workflow`: este último journaliza y permite `resume`; `/bg` es solo-humano, in-memory y **no resumible**. Usa `/bg` para comandos sueltos en background y `dynamic_workflow` para orquestación agentic.
+
 Comportamiento y límites de M2:
 
-- `/bg start` solo funciona en sesiones persistentes TUI/RPC y en proyectos trusted; en proyectos untrusted se rechaza antes de ejecutar o escribir artifacts.
+- `/bg start` solo funciona en sesiones persistentes TUI/RPC y en proyectos trusted; en proyectos untrusted se rechaza antes de ejecutar o escribir artifacts. El trust/mode gate protege el **contexto y los artifacts** del proyecto, no el comando en sí: igual que el resto de exec en Pi, `/bg start` corre vía `shell:true` lo que el humano teclee.
 - `/bg start` y `/bg cancel` se bloquean mientras `/plan` está activo.
 - No se registra ningún tool LLM `background_job`; la superficie mutante es solo slash command humano.
-- Los artifacts project-local viven en `.pi/bg/runs/<jobId>/`; el fallback global de lectura usa `~/.pi/agent/bg/runs/<hash-del-cwd>/<jobId>/`. Cada run contiene `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
+- Los artifacts project-local viven en `.pi/bg/runs/<jobId>/`; el fallback global de lectura usa `~/.pi/agent/bg/runs/<hash-del-cwd>/<jobId>/` (en M2 ese root global solo se **lee**: lo poblará BG-1/BG-3). Cada run contiene `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
 - `job.json` y `status.json` se escriben con temp file + rename atómico; los logs son append-only y `/bg logs` lee de forma bounded/truncada.
-- `/bg cancel` solo cancela jobs activos creados por este proceso Pi. Si un `status.json` persistido dice `running` pero no hay job activo en memoria, se muestra como `stale` y no se mata ningún PID persistido.
+- El comando (`job.json`) y su salida (`stdout/stderr/combined.log`) se guardan en **texto plano** y no se redactan: evita pasar secretos en la línea de comando (p. ej. tokens en `curl -H`). En M2 no hay `prune/delete`, así que esos artifacts crecen hasta que los borres a mano.
+- `/bg cancel` solo cancela jobs activos creados por este proceso Pi. Si un `status.json` persistido dice `running` pero no hay job activo en memoria, se muestra como `stale` y no se mata ningún PID persistido. `stale` es una proyección en tiempo de lectura por membresía en memoria (no sondea liveness del PID), así que cubre tanto un job ya terminado mientras Pi estaba caído como un proceso detached aún vivo y huérfano: ante un `stale`, usa herramientas del SO (`kill`/`pkill`/`taskkill`) si sospechas que sigue corriendo. La cancelación señaliza por grupo de proceso y, en la ventana exit→close, podría no señalar un PID ya reapeado.
 - No hay runner Supacode, daemon, rehidratación automática, `prune/delete` ni dashboard de `/bg` en M2.
 
 ## Background runs

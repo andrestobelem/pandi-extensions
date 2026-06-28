@@ -2,6 +2,10 @@
 
 Individual Pi package for the `/bg` local background jobs extension.
 
+`/bg` is the small, human-only sibling of `dynamic_workflow` background runs: it
+is in-memory and **not** resumable/journaled. Use `dynamic_workflow` for
+resumable agentic orchestration and `/bg` for one-off human background commands.
+
 ## Install
 
 From this repository:
@@ -34,3 +38,9 @@ Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bu
   `kill`/`pkill` or `taskkill`).
 - `/bg cancel` only acts on jobs owned by the current Pi process; it never
   signals a job persisted by another session or a previous run.
+- The trust/mode gate protects the project's **context and artifacts**, not the
+  command itself: like the rest of Pi's exec, `/bg start` runs whatever the human
+  types via `shell:true`.
+- The command (`job.json`) and its output (`stdout/stderr/combined.log`) are
+  stored in **plaintext** and are not redacted or pruned. Avoid passing secrets
+  on the command line; delete `.pi/bg/runs/<jobId>/` by hand to reclaim space.
