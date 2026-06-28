@@ -29,10 +29,10 @@ import { formatElapsedMs } from "./presentation.js";
 import { padRightVisible, renderSafeInline } from "./render-utils.js";
 import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./templates.js";
 import { canCancelRun, canRerunRun, compactInline, PI_SESSION_HEARTBEAT_MS } from "./index.js";
+import type { PiSessionModel } from "./pi-session.js";
 import type {
 	WorkflowMonitorModel,
 	WorkflowActivityEntry,
-	PiSessionModel,
 	WorkflowAgentEntry,
 	WorkflowDashboardResult,
 	WorkflowRunRecord,
