@@ -27,20 +27,6 @@ Conventions:
 - Where: `extensions/pi-dynamic-workflows/templates.ts` (the `compose-verify-claims` /
   `verify-claims-lib` entries).
 
-### CI-2 — Harden `/goal` non-interactive rehydrate + add a durable e2e
-
-- Status: open
-- Why: the rehydrate path for `/goal` in non-interactive mode is a known gap; needs a dedicated
-  integration test.
-- Where: `extensions/pi-goal/index.ts`, `extensions/pi-goal/tests/integration/`.
-
-### CI-3 — Promote the composition-failure-recursion suite when stable
-
-- Status: open
-- Why: it is still excluded as a draft; move it into the durable manifest once it is reliably green.
-- Where: `scripts/test/run-all.mjs` (`ignoredDraftSuites` → `suites`),
-  `extensions/pi-dynamic-workflows/tests/integration/composition-failure-recursion.test.mjs`.
-
 ### CI-4 — Refresh stale path references in the chronological log
 
 - Status: open
@@ -89,6 +75,39 @@ Conventions:
 - Where: `extensions/pi-dynamic-workflows/index.ts` (`renderRuns`/`renderAgents`/
   `renderWorkflows`/`renderPatterns`/`renderSessions` window slices and `renderHelp`);
   reference `docs/tui.md` (SelectList/SettingsList/overlays/keybindings).
+
+## Recently done (kept for traceability)
+
+Resolved items are kept here briefly so a pass scanning "Open (actionable)" never re-picks them.
+
+### CI-2 — Harden `/goal` non-interactive rehydrate + add a durable e2e
+
+- Status: done (2026-06-28; `extensions/pi-goal/index.ts`, `extensions/pi-goal/tests/integration/goal-rehydrate.test.mjs`)
+- Why: `rehydrate()` ran on every `session_start` regardless of mode. `wake()` is mode-gated, so the
+  prompt re-injection was suppressed in print/json, but the reload path still (a) armed a catch-up
+  timer whose `fireGoal` bumped the iteration and persisted, and (b) for a `verifying-independent`
+  snapshot SPAWNED the heavyweight `pi -p` independent-verifier subprocess and could close/block the
+  goal — all in a one-shot/non-interactive session that can never sustain a goal.
+- Resolution: TDD. Added SCENARIO I to `goal-rehydrate.test.mjs` (print + json) asserting rehydrate is
+  a NO-OP — no verifier spawn, no wake, no persisted snapshot — for both a `verifying-independent` and a
+  due `stale` snapshot. Confirmed RED (8 failing checks: `execCalls=1`, persisted `done`, iteration
+  bumped) against the unfixed code, then added a single `if (!canGoalInMode(ctx)) return;` mode gate at
+  the top of `rehydrate()` (mirrors `startGoal`'s gate and the intent documented on `wake()`). GREEN
+  3/3 deterministic (51/51 checks); the sibling `goal-verifier` suite stays 82/82; `npm test` 27/27.
+- Where: `extensions/pi-goal/index.ts` (`rehydrate` mode gate),
+  `extensions/pi-goal/tests/integration/goal-rehydrate.test.mjs` (SCENARIO I + `makeCtx`/`rehydrateFrom`
+  `mode` parametrization).
+
+### CI-3 — Promote the composition-failure-recursion suite when stable
+
+- Status: done (2026-06-28; `scripts/test/run-all.mjs`)
+- Why: it was excluded as a draft; promoted into the durable manifest once it ran reliably green.
+- Resolution: verified green 3/3 in isolation (16/16 checks, ~1s, deterministic) and inside the full
+  behavioral run, then moved from `ignoredDraftSuites` to `suites` in `scripts/test/run-all.mjs`. The
+  test file under `extensions/pi-dynamic-workflows/` (out of the edit allowlist) was NOT modified; only
+  the allowed manifest changed. `npm test` went 26/26 → 27/27 with no regression.
+- Where: `scripts/test/run-all.mjs` (`ignoredDraftSuites` → `suites`),
+  `extensions/pi-dynamic-workflows/tests/integration/composition-failure-recursion.test.mjs`.
 
 ## Deferred (separate plans — `/bg` feature, see `docs/memoria.md` 2026-06-26)
 
