@@ -9,7 +9,8 @@
     "../extensions/pi-effort",
     "../extensions/pi-mdview",
     "../extensions/pi-local-memory",
-    "../extensions/pi-auto-compact-context"
+    "../extensions/pi-auto-compact-context",
+    "../extensions/pi-worktree"
   ],
   "extensions": []
 }

@@ -11,11 +11,15 @@
  */
 
 import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 export const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 const MAX_GIT_OUTPUT_BYTES = 1_000_000;
+/** Default subdirectory (under the Pi config dir) for worktrees created from a bare name. */
+export const WORKTREES_DIR = "worktrees";
 
 export interface GitResult {
 	/** true when git exited 0 and was neither aborted nor timed out. */
@@ -214,13 +218,49 @@ export function isValidBranchName(name: string): boolean {
 	return true;
 }
 
-/** Resolve a user/model supplied worktree path: ~, relative, or absolute. */
-export function resolveWorktreePath(rawPath: string, cwd: string): string | undefined {
+export interface WorktreeTarget {
+	/** absolute path where the worktree will live. */
+	path: string;
+	/** true when a bare <name> was placed under <cwd>/<configDir>/worktrees/. */
+	usedDefaultBase: boolean;
+}
+
+/**
+ * Resolve a user/model supplied worktree location.
+ *
+ * A BARE NAME (no path separator, not ~/absolute) lands in the default base
+ * `<cwd>/<configDir>/worktrees/<name>` (kept local + gitignored — see
+ * ensureWorktreesBaseDir). Anything that looks like a path — `./x`, `../x`,
+ * `/abs/x`, `~/x`, or `a/b` — is honored literally (escape hatch), resolved
+ * against `cwd` when relative.
+ */
+export function resolveWorktreeTarget(rawPath: string, cwd: string, configDirName: string = CONFIG_DIR_NAME): WorktreeTarget | undefined {
 	const requested = stripWrappingQuotes(rawPath);
 	if (!requested) return undefined;
-	if (requested === "~") return os.homedir();
-	if (requested.startsWith("~/")) return path.join(os.homedir(), requested.slice(2));
-	return path.resolve(cwd, requested);
+	if (requested === "~") return { path: os.homedir(), usedDefaultBase: false };
+	if (requested.startsWith("~/")) return { path: path.join(os.homedir(), requested.slice(2)), usedDefaultBase: false };
+	if (path.isAbsolute(requested)) return { path: requested, usedDefaultBase: false };
+	if (requested.includes("/") || requested.includes("\\")) return { path: path.resolve(cwd, requested), usedDefaultBase: false };
+	return { path: path.join(cwd, configDirName, WORKTREES_DIR, requested), usedDefaultBase: true };
+}
+
+/**
+ * Make sure `<cwd>/<configDir>/worktrees/` exists and is self-ignoring, so the
+ * worktrees created there never show up in the main repo's `git status`. Writes
+ * a `.gitignore` containing `*` (ignores everything, including itself) on first
+ * use. Best-effort: filesystem errors are swallowed because the subsequent
+ * `git worktree add` will surface any real problem with a clear message.
+ */
+export function ensureWorktreesBaseDir(cwd: string, configDirName: string = CONFIG_DIR_NAME): string {
+	const base = path.join(cwd, configDirName, WORKTREES_DIR);
+	try {
+		mkdirSync(base, { recursive: true });
+		const gitignore = path.join(base, ".gitignore");
+		if (!existsSync(gitignore)) writeFileSync(gitignore, "*\n", "utf8");
+	} catch {
+		/* best-effort: git add will report any real failure */
+	}
+	return base;
 }
 
 export function stripWrappingQuotes(value: string): string {
@@ -252,7 +292,9 @@ export function buildAddArgs(options: AddArgsOptions): string[] {
 	if (options.force) args.push("--force");
 	if (options.detach) args.push("--detach");
 	if (options.newBranch) args.push("-b", options.newBranch);
-	args.push(options.path);
+	// `--` ends option parsing so a dash-leading commitish (the only model/user
+	// value reaching git unvalidated) can't be interpreted as a flag.
+	args.push("--", options.path);
 	if (options.commitish) args.push(options.commitish);
 	return args;
 }

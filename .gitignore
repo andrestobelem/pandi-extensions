@@ -30,6 +30,10 @@ examples/.pi/
 .pi/plans/
 **/.pi/plans/
 
+# Pi git worktrees scratch space (default base for the pi-worktree extension).
+.pi/worktrees/
+**/.pi/worktrees/
+
 # Pi private memory and local extension plugins.
 .pi/MEMORY.md
 **/.pi/MEMORY.md

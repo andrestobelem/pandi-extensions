@@ -25,12 +25,17 @@ import {
 	describeWorktree,
 	isValidBranchName,
 	parseWorktreeList,
-	resolveWorktreePath,
+	resolveWorktreeTarget,
+	ensureWorktreesBaseDir,
 	runGit,
-	stripWrappingQuotes,
 	type GitResult,
 	type WorktreeEntry,
 } from "./worktree.js";
+
+// Re-exported for the integration suite to unit-test the pure helpers directly
+// against the same bundle. Internal use still goes through the import above
+// (an `export … from` re-export creates no local binding, so there is no clash).
+export { buildAddArgs, parseWorktreeList, isValidBranchName, describeWorktree } from "./worktree.js";
 
 function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
@@ -69,9 +74,20 @@ function needsForce(result: GitResult): boolean {
 	return /--force/.test(`${result.stderr}\n${result.stdout}`);
 }
 
-async function ensureGitRepo(ctx: ExtensionContext, signal?: AbortSignal): Promise<boolean> {
-	const result = await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
-	return result.ok && result.stdout.trim() === "true";
+/**
+ * Detect a usable git context (work tree OR bare repo) and return the raw
+ * GitResult so callers can tell "not a repo" apart from git-missing/timeout.
+ * `rev-parse --git-dir` exits 0 inside a work tree AND inside a bare repo, where
+ * worktree add/list/remove/prune still work.
+ */
+async function ensureGitRepo(ctx: ExtensionContext, signal?: AbortSignal): Promise<GitResult> {
+	return runGit(["rev-parse", "--git-dir"], { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
+}
+
+/** Diagnostic for a failed repo check: distinguish git-missing/timeout from "no repo". */
+function repoError(result: GitResult, surface: string): string {
+	if (result.spawnError || result.timedOut) return gitError(result);
+	return `Not inside a git repository — ${surface} needs a git repo.`;
 }
 
 async function listWorktrees(ctx: ExtensionContext, signal?: AbortSignal): Promise<{ ok: true; entries: WorktreeEntry[] } | { ok: false; error: string }> {
@@ -163,9 +179,12 @@ export function parseCommand(input: string): ParsedCommand {
 const HELP_TEXT = [
 	"Usage:",
 	"  /worktree [list]                       list worktrees",
-	"  /worktree add [-b <branch>] <path> [<commit-ish>]   add a worktree",
+	"  /worktree add [-b <branch>] [--detach] [--force] <path> [<commit-ish>]   add a worktree",
 	"  /worktree remove [--force] <path>      remove a worktree",
 	"  /worktree prune [--dry-run]            prune stale worktree metadata",
+	"",
+	"A bare <name> (no slash) is created under .pi/worktrees/<name> (gitignored).",
+	"Use ./x, ../x, /abs, or ~/x for an explicit location.",
 ].join("\n");
 
 // --------------------------------------------------------------------------
@@ -191,13 +210,14 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 		notify(ctx, parsed.error, "warning");
 		return;
 	}
-	const resolved = resolveWorktreePath(parsed.path ?? "", ctx.cwd);
-	if (!resolved) {
+	const target = resolveWorktreeTarget(parsed.path ?? "", ctx.cwd);
+	if (!target) {
 		notify(ctx, "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]", "warning");
 		return;
 	}
+	if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
 	const args = buildAddArgs({
-		path: resolved,
+		path: target.path,
 		newBranch: parsed.newBranch,
 		commitish: parsed.commitish,
 		detach: parsed.detach,
@@ -209,7 +229,8 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 		return;
 	}
 	const branchNote = parsed.newBranch ? ` (new branch ${parsed.newBranch})` : "";
-	notify(ctx, `Added worktree at ${resolved}${branchNote}.`, "info");
+	const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
+	notify(ctx, `Added worktree at ${target.path}${branchNote}${locationNote}.`, "info");
 }
 
 async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
@@ -217,11 +238,12 @@ async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal
 		notify(ctx, parsed.error, "warning");
 		return;
 	}
-	const resolved = resolveWorktreePath(parsed.path ?? "", ctx.cwd);
-	if (!resolved) {
+	const target = resolveWorktreeTarget(parsed.path ?? "", ctx.cwd);
+	if (!target) {
 		notify(ctx, "Usage: /worktree remove [--force] <path>", "warning");
 		return;
 	}
+	const resolved = target.path;
 
 	// Confirm in interactive mode — removal deletes the worktree directory.
 	if (ctx.hasUI) {
@@ -328,8 +350,9 @@ async function resolveInteractiveAction(ctx: ExtensionContext): Promise<ParsedCo
 
 async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 	const signal = ctx.signal;
-	if (!(await ensureGitRepo(ctx, signal))) {
-		notify(ctx, "Not inside a git repository — /worktree needs a git repo.", "error");
+	const repo = await ensureGitRepo(ctx, signal);
+	if (!repo.ok) {
+		notify(ctx, repoError(repo, "/worktree"), "error");
 		return;
 	}
 
@@ -399,7 +422,12 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		],
 		parameters: Type.Object({
 			action: StringEnum(["list", "add", "remove", "prune"] as const),
-			path: Type.Optional(Type.String({ description: "Worktree directory path (required for add/remove); relative to cwd, ~-expanded, or absolute." })),
+			path: Type.Optional(
+				Type.String({
+					description:
+						'Worktree location (required for add/remove). A BARE name with no \'/\' (e.g. "feature") is created under <configDir>/worktrees/<name> (gitignored). Use ./x, ../x, /abs, or ~/x to place it literally (relative to cwd / home / absolute).',
+				}),
+			),
 			branch: Type.Optional(Type.String({ description: "For add: create and check out this new branch (git worktree add -b)." })),
 			commitish: Type.Optional(Type.String({ description: "For add: commit/branch/tag to base the worktree on (start point)." })),
 			detach: Type.Optional(Type.Boolean({ description: "For add: check out in detached HEAD mode." })),
@@ -408,9 +436,10 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			if (!(await ensureGitRepo(ctx, signal ?? undefined))) {
+			const repo = await ensureGitRepo(ctx, signal ?? undefined);
+			if (!repo.ok) {
 				return {
-					content: [{ type: "text" as const, text: "Not inside a git repository — git_worktree needs a git repo." }],
+					content: [{ type: "text" as const, text: repoError(repo, "git_worktree") }],
 					details: { isError: true, action: params.action },
 				};
 			}
@@ -439,30 +468,33 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			}
 
 			if (params.action === "add") {
-				const resolved = resolveWorktreePath(stripWrappingQuotes(params.path ?? ""), ctx.cwd);
-				if (!resolved) {
+				const target = resolveWorktreeTarget(params.path ?? "", ctx.cwd);
+				if (!target) {
 					return { content: [{ type: "text" as const, text: "git_worktree add requires a 'path'." }], details: { isError: true, action: "add" } };
 				}
 				if (params.branch !== undefined && !isValidBranchName(params.branch)) {
 					return { content: [{ type: "text" as const, text: `Invalid branch name: "${params.branch}"` }], details: { isError: true, action: "add" } };
 				}
-				const args = buildAddArgs({ path: resolved, newBranch: params.branch, commitish: params.commitish, detach: params.detach, force: params.force });
+				if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
+				const args = buildAddArgs({ path: target.path, newBranch: params.branch, commitish: params.commitish, detach: params.detach, force: params.force });
 				const result = await runGit(args, opts);
 				if (!result.ok) {
-					return { content: [{ type: "text" as const, text: `Could not add worktree: ${gitError(result)}` }], details: { isError: true, action: "add", path: resolved } };
+					return { content: [{ type: "text" as const, text: `Could not add worktree: ${gitError(result)}` }], details: { isError: true, action: "add", path: target.path } };
 				}
 				const branchNote = params.branch ? ` (new branch ${params.branch})` : "";
+				const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
 				return {
-					content: [{ type: "text" as const, text: `Added worktree at ${resolved}${branchNote}. Open it with: cd ${resolved} && pi` }],
-					details: { action: "add", path: resolved, branch: params.branch ?? null },
+					content: [{ type: "text" as const, text: `Added worktree at ${target.path}${branchNote}${locationNote}. Open it with: cd ${target.path} && pi` }],
+					details: { action: "add", path: target.path, branch: params.branch ?? null, defaultBase: target.usedDefaultBase },
 				};
 			}
 
 			// remove
-			const resolved = resolveWorktreePath(stripWrappingQuotes(params.path ?? ""), ctx.cwd);
-			if (!resolved) {
+			const target = resolveWorktreeTarget(params.path ?? "", ctx.cwd);
+			if (!target) {
 				return { content: [{ type: "text" as const, text: "git_worktree remove requires a 'path'." }], details: { isError: true, action: "remove" } };
 			}
+			const resolved = target.path;
 			const force = params.force ?? false;
 			const result = await runGit(buildRemoveArgs(resolved, force), opts);
 			if (!result.ok) {
