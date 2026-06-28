@@ -14,10 +14,12 @@ import {
 	atomicWriteJson,
 	candidateRunRoots,
 	createRunDir,
+	dirSizeBytes,
 	generateJobId,
 	getProjectBgRoot,
 	lstatPlainDirectory,
 	lstatPlainDirectoryChain,
+	parsePruneFlags,
 	readJson,
 	removeRunDir,
 	RUNS_DIR,
@@ -707,42 +709,6 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 		jobId: trimmed,
 		active: true,
 	});
-}
-
-// Sum the sizes of regular files under a run dir (lstat-walk via Dirent; an inner symlink
-// is skipped, never followed, so it cannot inflate the total or escape the tree).
-async function dirSizeBytes(dir: string): Promise<number> {
-	let total = 0;
-	let entries: {
-		name: string;
-		isDirectory(): boolean;
-		isFile(): boolean;
-		isSymbolicLink(): boolean;
-	}[];
-	try {
-		entries = await fs.readdir(dir, { withFileTypes: true });
-	} catch {
-		return 0;
-	}
-	for (const entry of entries) {
-		if (entry.isSymbolicLink()) continue;
-		const full = path.join(dir, entry.name);
-		if (entry.isDirectory()) total += await dirSizeBytes(full);
-		else if (entry.isFile()) {
-			try {
-				total += (await fs.lstat(full)).size;
-			} catch {
-				// unreadable entry contributes nothing
-			}
-		}
-	}
-	return total;
-}
-
-// Minimal flag parse for /bg prune: only --yes executes; everything else is ignored (no
-// other flags in BG-4), so a typo like --yse stays a safe dry-run.
-function parsePruneFlags(tail: string): { yes: boolean } {
-	return { yes: tail.trim().split(/\s+/).filter(Boolean).includes("--yes") };
 }
 
 async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
