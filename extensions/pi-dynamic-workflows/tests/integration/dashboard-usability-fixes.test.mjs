@@ -386,6 +386,19 @@ async function scenarioEllipsisOnOverflow(url) {
 	check("overflowing lines render a visible ellipsis marker", text.includes("…"), text.split("\n").slice(0, 2).join(" | "));
 }
 
+async function scenarioAgentsJumpToFailed(url) {
+	// Agents announces failed:N but, before this, only ↑↓ navigation existed; finding the
+	// failed agents (the reason to open the tab) meant manual scrolling. 'f' should jump.
+	const { component, getDone } = await openDashboardComponent(url);
+	const mk = (runId, id, state) => ({ run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 1, background: true, scope: "project" }, agent: { id, name: `a${id}`, state, promptAvailable: true } });
+	component.setAgentEntries([mk("A", 1, "running"), mk("B", 1, "running"), mk("C", 1, "failed"), mk("D", 1, "running")]);
+	component.handleInput("A"); // Agents tab (agentIndex starts at 0)
+	component.handleInput("f"); // jump to the next failed agent
+	component.handleInput("o"); // open the selected agent
+	const dv = getDone();
+	check("agents: 'f' jumps to the next failed agent", dv?.type === "agent" && dv?.agent?.state === "failed" && dv?.run?.runId === "C", JSON.stringify(dv));
+}
+
 async function scenarioRefreshFreshnessAndErrors(url) {
 	// The 1.5s dashboard refresh wraps disk reads; a failure must stay visible
 	// (not a silent unhandled rejection) and a healthy refresh must advertise recency.
@@ -415,6 +428,7 @@ async function main() {
 	await scenarioHelpOverlay(url);
 	await scenarioRunningAgentLiveElapsed(url);
 	await scenarioRefreshFreshnessAndErrors(url);
+	await scenarioAgentsJumpToFailed(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 

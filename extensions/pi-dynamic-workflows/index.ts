@@ -4407,6 +4407,7 @@ class WorkflowDashboard {
 			return;
 		}
 		if (this.tab === "agents") {
+			if (data === "f") { this.jumpToNextFailedAgent(); return; }
 			const agent = this.selectedAgent();
 			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
 			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
@@ -4423,6 +4424,21 @@ class WorkflowDashboard {
 		else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 	}
 
+	// Jump selection to the next failed agent (forward, wrapping). Turns the
+	// failed:N counter into one-key triage for large fan-outs.
+	private jumpToNextFailedAgent(): void {
+		const n = this.agentEntries.length;
+		if (n === 0) return;
+		for (let step = 1; step <= n; step++) {
+			const index = (this.agentIndex + step) % n;
+			if (this.agentEntries[index]?.agent.state === "failed") {
+				this.agentIndex = index;
+				this.requestRender();
+				return;
+			}
+		}
+	}
+
 	private renderHelp(w: number, line: (s: string) => string, accent: (s: string) => string, muted: (s: string) => string): string[] {
 		return [
 			line(accent("Pi Dynamic Workflows — keyboard help")),
@@ -4435,6 +4451,7 @@ class WorkflowDashboard {
 			line("  ↑ ↓ move · PgUp / PgDn page · Home / End first / last"),
 			line(accent("Actions")),
 			line("  Enter / o agent output · v run view · g graph"),
+			line("  f next failed agent (Agents tab)"),
 			line("  c / x cancel active · r rerun (confirm) · d / Del delete (confirm)"),
 			line("  Patterns: Enter / n / u use pattern · Workflows: Enter / g graph, r run, d delete"),
 			line("  Sessions: Enter switch session"),
@@ -4470,7 +4487,7 @@ class WorkflowDashboard {
 					: this.tab === "monitor"
 					? "←→/Tab tabs • ↑↓ agents • Enter/o agent detail • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
 					: this.tab === "agents"
-						? "←→/Tab tabs • ↑↓ select agent • Enter/o detail+prompt • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
+						? "←→/Tab tabs • ↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
 						: "←→/Tab tabs • ↑↓ navigate • Enter/v view • g graph • c/x cancel active • r rerun • d/delete run • q/esc close";
 		const lines: string[] = [
 			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + agentsTab + " " + sessionsTab + " " + runsTab + " " + workflowTab + " " + patternsTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
