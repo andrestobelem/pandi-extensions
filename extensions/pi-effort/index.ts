@@ -231,8 +231,10 @@ export default function effortExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.on("thinking_level_select", async (event, ctx) => {
-		updateEffortStatus(pi, ctx, event.level as ThinkingLevel);
+	pi.on("thinking_level_select", async (_event, ctx) => {
+		// Show the resolved/clamped active level (safeCurrentLevel) like every other
+		// status update, not the requested event.level which the model may not accept.
+		updateEffortStatus(pi, ctx);
 	});
 
 	pi.on("session_start", async (_event, ctx) => {

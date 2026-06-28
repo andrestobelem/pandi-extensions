@@ -166,7 +166,12 @@ async function scenarioSelectorAndStatusEvent(url) {
 	check("/effort no args uses selector choice", harness.level === "low", harness.level);
 
 	await fire(harness.handlers, "thinking_level_select", { level: "minimal", previousLevel: "low" }, ctx);
-	check("thinking_level_select refreshes status", ctx._statuses.some((s) => s.key === "effort" && s.value === "effort:minimal"));
+	const lastStatus = ctx._statuses[ctx._statuses.length - 1];
+	check(
+		"thinking_level_select shows resolved active level, not requested event.level",
+		lastStatus && lastStatus.key === "effort" && lastStatus.value === "effort:low",
+		JSON.stringify(ctx._statuses),
+	);
 
 	await command.handler("status", ctx);
 	check("/effort status reports current", ctx._notes.some((n) => /Current effort: low/i.test(n.msg)));
@@ -192,6 +197,26 @@ async function scenarioUltracode(url) {
 
 // F50/F51: notify() must not route warnings/errors to stdout in print mode, and must not
 // silently drop them when headless (no UI, not print).
+// Finding 3: documented degradation path. When dynamic_workflow is not available in this
+// session, /effort ultracode must still raise thinking to xhigh, must NOT activate a tool
+// that doesn't exist, and must warn that the router is unavailable.
+async function scenarioUltracodeToolUnavailable(url) {
+	const effortExtension = await freshDefault(url);
+	const harness = makePi({ allTools: ["read"], activeTools: ["read"] });
+	effortExtension(harness.pi);
+	const command = harness.commands.get("effort");
+	const ctx = makeCtx();
+
+	await command.handler("ultracode", ctx);
+	check("/effort ultracode still sets xhigh without dynamic_workflow", harness.level === "xhigh", harness.level);
+	check("/effort ultracode does not activate a missing dynamic_workflow", !harness.activeTools.includes("dynamic_workflow"), harness.activeTools.join(","));
+	check(
+		"/effort ultracode warns the router is not available in this session",
+		ctx._notes.some((n) => n.type === "warning" && /not available in this session/i.test(n.msg)),
+		JSON.stringify(ctx._notes),
+	);
+}
+
 async function scenarioNotifyErrorRouting(url) {
 	const effortExtension = await freshDefault(url);
 	const harness = makePi({ initialLevel: "medium" });
@@ -238,6 +263,7 @@ async function main() {
 		await scenarioClampAndInvalid(url);
 		await scenarioSelectorAndStatusEvent(url);
 		await scenarioUltracode(url);
+		await scenarioUltracodeToolUnavailable(url);
 		await scenarioNotifyErrorRouting(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
