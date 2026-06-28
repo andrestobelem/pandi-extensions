@@ -4048,6 +4048,14 @@ type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
 // (lists are mtime-sorted and refreshed every 1.5s, so a fixed index would
 // silently retarget destructive actions). Falls back to clamped position when
 // the previously-selected item is gone.
+// Compact "showing a-b/total" suffix for windowed lists; empty when the whole
+// list fits, so users can tell a list is scrolled and where the window sits.
+function windowLabel(total: number, start: number, count: number): string {
+	if (total <= count) return "";
+	const end = Math.min(total, start + count);
+	return ` · ${start + 1}–${end}/${total}`;
+}
+
 function reselectIndexByKey<T>(previous: T[], previousIndex: number, next: T[], keyOf: (item: T) => string): number {
 	const clamped = Math.min(previousIndex, Math.max(0, next.length - 1));
 	const prev = previous[previousIndex];
@@ -4424,9 +4432,9 @@ class WorkflowDashboard {
 	): void {
 		if (model.agents.length === 0) return;
 		lines.push(line(muted("")));
-		lines.push(line(accent(`Agents (${model.agents.length})`) + muted(` • parallel ${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents}${model.peakParallelAgents === undefined ? "" : ` • peak ${model.peakParallelAgents}`}`)));
 		const start = Math.max(0, Math.min(this.monitorAgentIndex - 6, model.agents.length - 12));
 		const visible = model.agents.slice(start, start + 12);
+		lines.push(line(accent(`Agents (${model.agents.length})`) + muted(windowLabel(model.agents.length, start, 12)) + muted(` • parallel ${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents}${model.peakParallelAgents === undefined ? "" : ` • peak ${model.peakParallelAgents}`}`)));
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
 			const agent = visible[i]!;
@@ -4481,9 +4489,9 @@ class WorkflowDashboard {
 		const parallelNow = activeRuns.reduce((sum, run) => sum + getRunParallelAgents(run), 0);
 		const parallelLimit = activeRuns.reduce((sum, run) => sum + (getRunAgentConcurrency(run) ?? 0), 0);
 		const parallelText = parallelLimit > 0 ? `${parallelNow}/${parallelLimit}` : String(parallelNow);
-		lines.push(line(`${accent("All agents")} ${muted(`(${this.agentEntries.length})`)} ${accent(`parallel:${parallelText}`)} ${running ? accent(`running:${running}`) : muted("running:0")} ${failed ? error(`failed:${failed}`) : muted("failed:0")} ${cached ? muted(`cached:${cached}`) : ""}`));
 		const start = Math.max(0, Math.min(this.agentIndex - 7, this.agentEntries.length - 14));
 		const visible = this.agentEntries.slice(start, start + 14);
+		lines.push(line(`${accent("All agents")} ${muted(`(${this.agentEntries.length})`)}${muted(windowLabel(this.agentEntries.length, start, 14))} ${accent(`parallel:${parallelText}`)} ${running ? accent(`running:${running}`) : muted("running:0")} ${failed ? error(`failed:${failed}`) : muted("failed:0")} ${cached ? muted(`cached:${cached}`) : ""}`));
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
 			const entry = visible[i]!;
@@ -4665,6 +4673,7 @@ class WorkflowDashboard {
 		}
 		const start = Math.max(0, Math.min(this.runIndex - 6, this.runs.length - 12));
 		const visible = this.runs.slice(start, start + 12);
+		lines.push(line(`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`));
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
 			const run = visible[i]!;

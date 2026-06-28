@@ -307,6 +307,22 @@ async function scenarioListPaging(url) {
 	check("PageUp jumps a page (10) up", getDone()?.run?.runId === "r0", JSON.stringify(getDone()));
 }
 
+async function scenarioListWindowIndicator(url) {
+	const { component } = await openDashboardComponent(url);
+	const now = new Date().toISOString();
+	const runs = Array.from({ length: 25 }, (_, i) => ({ runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 0, background: true, scope: "project", ok: false, state: "failed", startedAt: now, endedAt: now, elapsedMs: 1000, logs: [] }));
+	component.setRuns(runs);
+	component.handleInput("tab"); component.handleInput("tab"); component.handleInput("tab"); // -> runs
+	const runsText = component.render(100).join("\n");
+	check("runs header shows windowed position (a-b/total)", runsText.includes("/25"), runsText.split("\n").find((l) => l.includes("/25")) ?? runsText.slice(0, 160));
+
+	const entries = Array.from({ length: 20 }, (_, i) => ({ run: { runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 1, background: true, scope: "project" }, agent: { id: i, name: `a${i}`, state: "running", promptAvailable: true } }));
+	component.setAgentEntries(entries);
+	component.handleInput("A"); // -> agents
+	const agentsText = component.render(100).join("\n");
+	check("agents header shows windowed position (a-b/total)", agentsText.includes("/20"), agentsText.split("\n").find((l) => l.includes("/20")) ?? agentsText.slice(0, 160));
+}
+
 async function scenarioFailedRunErrorVisible(url) {
 	const monProject = await makeProject();
 	await seedFailedRun(monProject, { error: "BOOM_SENTINEL_ERR" });
@@ -340,6 +356,7 @@ async function main() {
 	await scenarioAgentsSelectionStability(url);
 	await scenarioListPaging(url);
 	await scenarioFailedRunErrorVisible(url);
+	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 
 	if (failed > 0) {
