@@ -18,6 +18,11 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
 - `/workflow` and `/workflows` human commands.
 - `/ultracode`, `/deep-research`, `/ultracode-mode`, and `/ultracode-contract` routing commands.
 - Ultracode Contract Gate guidance for a small read-only task-contract review workflow before broad scout/orchestration; disable it per session with `/ultracode-contract off`.
+- Visual state indicators when always-on routing is enabled: the prompt's top
+  border embeds an `ultracode auto` label (using the border color, and only on a
+  plain border so scroll hints like `↑ N more` stay untouched), and the status
+  line shows `uc:auto`/`uc:off` for routing plus `cg:on`/`cg:off` for the
+  Contract Gate.
 - Compact Claude-style template catalog: six primary templates, compose templates, and use-case templates, with no pattern aliases.
 - JavaScript workflow runtime with `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`, artifacts, resumable journal, and TUI dashboard.
 
