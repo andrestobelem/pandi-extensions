@@ -1244,7 +1244,7 @@ function makeModelArg(ctx: ExtensionContext): string | undefined {
 	return `${ctx.model.provider}/${ctx.model.id}`;
 }
 
-function transformWorkflowCode(code: string): string {
+export function transformWorkflowCode(code: string): string {
 	if (/^\s*import\s/m.test(code)) {
 		throw new Error("Static import statements are not supported in workflows. Use ctx helpers instead.");
 	}

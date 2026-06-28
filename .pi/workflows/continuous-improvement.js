@@ -1,6 +1,57 @@
-import { createHash } from "node:crypto";
-import * as fs from "node:fs";
-import * as path from "node:path";
+// Workflows run in a sandbox WITHOUT `require`/node builtins (no fs/path/crypto),
+// so the file fingerprint (lstat + sha256 + readlink) runs in a child Node process
+// via ctx.bash. Behaviour is byte-identical to the previous in-process version;
+// only the execution location changed. The script is written once per run as an
+// artifact and reused (cached by ctx.runId).
+const FINGERPRINT_CJS = `'use strict';
+const fs = require('node:fs');
+const crypto = require('node:crypto');
+const path = require('node:path');
+const paths = JSON.parse(Buffer.from(process.argv[2] || '', 'base64').toString('utf8'));
+const out = {};
+for (const rel of paths) {
+  const abs = path.resolve(rel);
+  let stat;
+  try { stat = fs.lstatSync(abs); } catch { out[rel] = { exists: false }; continue; }
+  const fp = {
+    exists: true,
+    type: stat.isFile() ? 'file' : stat.isDirectory() ? 'dir' : stat.isSymbolicLink() ? 'symlink' : 'other',
+    size: stat.size,
+    mtimeMs: Math.trunc(stat.mtimeMs),
+  };
+  if (stat.isFile()) fp.sha256 = crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex');
+  else if (stat.isSymbolicLink()) { try { fp.link = fs.readlinkSync(abs); } catch { fp.link = null; } }
+  out[rel] = fp;
+}
+process.stdout.write(JSON.stringify(out));
+`;
+
+const fingerprintScriptByRun = new Map();
+const ensureFingerprintScript = async (ctx) => {
+  let cached = fingerprintScriptByRun.get(ctx.runId);
+  if (cached) return cached;
+  const artifact = await ctx.writeArtifact("safety-fingerprint.cjs", FINGERPRINT_CJS);
+  cached = artifact.path;
+  fingerprintScriptByRun.set(ctx.runId, cached);
+  return cached;
+};
+
+// Fingerprint a batch of repo paths in one child-process call. base64 keeps the
+// path list shell-safe; the child resolves paths against the repo-root cwd.
+const fingerprintPaths = async (ctx, paths) => {
+  if (!paths.length) return {};
+  const scriptPath = await ensureFingerprintScript(ctx);
+  const b64 = Buffer.from(JSON.stringify(paths)).toString("base64");
+  const result = await ctx.bash(`node '${scriptPath}' '${b64}'`, { timeoutMs: 120000 });
+  if (!result.ok) {
+    throw new Error(`fingerprint helper failed (exit ${result.code}): ${String(result.stderr || "").slice(0, 500)}`);
+  }
+  try {
+    return JSON.parse(String(result.stdout || "{}"));
+  } catch {
+    throw new Error(`fingerprint helper returned non-JSON: ${String(result.stdout || "").slice(0, 200)}`);
+  }
+};
 
 const normalizeRepoPath = (value) =>
   String(value || "")
@@ -70,33 +121,6 @@ const parsePorcelainZ = (stdout) => {
   return files;
 };
 
-const fingerprintPath = (repoPath) => {
-  const absPath = path.resolve(repoPath);
-  let stat;
-  try {
-    stat = fs.lstatSync(absPath);
-  } catch {
-    return { exists: false };
-  }
-
-  const fingerprint = {
-    exists: true,
-    type: stat.isFile() ? "file" : stat.isDirectory() ? "dir" : stat.isSymbolicLink() ? "symlink" : "other",
-    size: stat.size,
-    mtimeMs: Math.trunc(stat.mtimeMs),
-  };
-  if (stat.isFile()) {
-    fingerprint.sha256 = createHash("sha256").update(fs.readFileSync(absPath)).digest("hex");
-  } else if (stat.isSymbolicLink()) {
-    try {
-      fingerprint.link = fs.readlinkSync(absPath);
-    } catch {
-      fingerprint.link = null;
-    }
-  }
-  return fingerprint;
-};
-
 const collectSafetySnapshot = async (ctx, extraPaths = []) => {
   const status = await ctx.bash("git status --porcelain=v1 -z --untracked-files=all", { timeoutMs: 60000 });
   if (!status.ok) throw new Error(`git status failed while collecting safety snapshot (exit ${status.code})`);
@@ -108,11 +132,13 @@ const collectSafetySnapshot = async (ctx, extraPaths = []) => {
     if (repoPath && !hasGlob(repoPath)) paths.add(repoPath);
   }
 
+  const sortedPaths = [...paths].sort();
+  const fps = await fingerprintPaths(ctx, sortedPaths);
   const files = {};
-  for (const repoPath of [...paths].sort()) {
+  for (const repoPath of sortedPaths) {
     files[repoPath] = {
       status: statusFiles.get(repoPath) || "clean",
-      ...fingerprintPath(repoPath),
+      ...(fps[repoPath] || { exists: false }),
     };
   }
   return { head: head.ok ? String(head.stdout || "").trim() : null, files };
@@ -136,7 +162,7 @@ const runSafetyGate = async (ctx, baseline, { allow, hotFiles }) => {
   }
 
   for (const [repoPath, before] of Object.entries(baseline.files)) {
-    const after = current.files[repoPath] || { status: "clean", ...fingerprintPath(repoPath) };
+    const after = current.files[repoPath] || { status: "clean", exists: false };
     if (!sameFingerprint(before, after)) {
       problems.push(`pre-existing/protected file changed during the pass: ${repoPath}`);
     }
