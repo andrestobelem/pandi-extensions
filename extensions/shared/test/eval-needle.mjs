@@ -78,7 +78,7 @@ export function tokenize(text) {
 	if (typeof text !== "string" || text.length === 0) return [];
 	return text
 		.toLowerCase()
-		.split(/[^a-z0-9]+/i)
+		.split(/[^a-z0-9]+/)
 		.filter((tok) => tok.length >= 3 && !STOPWORDS.has(tok));
 }
 
@@ -174,8 +174,10 @@ export function literalGrade(answer, needleSentence) {
 }
 
 /**
- * Non-lexical grader: pass iff the answer contains at least one `accept` paraphrase key and
- * is not dominated by a `reject` distractor lure. Case-insensitive substring presence on the
+ * Non-lexical grader: pass iff the answer contains at least one `accept` paraphrase key AND
+ * matches NO `reject` distractor lure (zero-tolerance — a single reject-key hit fails the
+ * answer, so the caller must choose reject keys that are specific to the distractors and would
+ * not legitimately appear in a correct answer). Case-insensitive substring presence on the
  * SEMANTIC keys (not the needle sentence), so a paraphrase passes and a lure-echo fails.
  *
  * @returns {{ pass: boolean, matchedAccept: string[], matchedReject: string[] }}

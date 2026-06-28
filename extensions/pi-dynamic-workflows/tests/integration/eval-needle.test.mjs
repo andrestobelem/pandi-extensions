@@ -128,6 +128,14 @@ async function main() {
 		"non-lexical grader: rejects an empty/irrelevant answer",
 		gradeNonLexical("I don't know.", evalCase).pass === false,
 	);
+	// Zero-tolerance is intentional: an otherwise-correct answer that also trips a reject key is
+	// FAILED, so callers must choose distractor-specific reject keys. Document it explicitly.
+	const collision = gradeNonLexical("A security escort accompanies Dr. Okonkwo into the chamber.", evalCase);
+	check(
+		"non-lexical grader: zero-tolerance — a reject-key collision fails an otherwise-correct answer",
+		collision.pass === false && collision.matchedAccept.length > 0 && collision.matchedReject.includes("escort"),
+		JSON.stringify(collision),
+	);
 
 	// 5) Fail-safe: garbage inputs never throw.
 	check(
