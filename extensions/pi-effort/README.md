@@ -19,3 +19,5 @@ pi --no-extensions -e ./extensions/pi-effort
 - `/effort ultracode` — request `xhigh` and enable the Dynamic Workflows Ultracode router when that extension is loaded.
 
 For `/effort ultracode` routing, also install `./extensions/pi-dynamic-workflows` or the repository root bundle.
+
+Lowering thinking afterwards with `/effort <level>` (e.g. `/effort medium`) does **not** turn the Ultracode router off — these are separate concerns. To disable the router, use `/ultracode-mode off`.
