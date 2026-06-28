@@ -36,6 +36,7 @@ const suites = [
 	"extensions/pi-bg/tests/integration/bg-jobs.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/composition-graph-expansion.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/composition-rank.test.mjs",
+	"extensions/pi-dynamic-workflows/tests/integration/dashboard-usability-fixes.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/dynamic-workflow-composition.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/editor-left-agents.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/ultracode-contract-gate.test.mjs",

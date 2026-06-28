@@ -1822,7 +1822,7 @@ function renderSafeInline(value: string): string {
 
 function setWorkflowIdleStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
-	ctx.ui.setStatus(WORKFLOW_STATUS_KEY, ctx.ui.theme.fg("dim", "wf"));
+	ctx.ui.setStatus(WORKFLOW_STATUS_KEY, ctx.ui.theme.fg("dim", "wf · /workflows"));
 }
 
 function setWorkflowRunningStatus(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[], status?: WorkflowRunStatus): void {
@@ -3583,6 +3583,7 @@ class AgentLiveViewComponent {
 		private readonly theme: any,
 		private readonly getHeight: () => number,
 		private readonly close: () => void,
+		private readonly requestRender: () => void = () => {},
 	) {}
 
 	setContent(content: string): void {
@@ -3601,13 +3602,15 @@ class AgentLiveViewComponent {
 		else if (matchesKey(data, Key.pageDown)) this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
 		else if (matchesKey(data, Key.home)) this.scroll = 0;
 		else if (matchesKey(data, Key.end)) this.scroll = this.maxScroll();
+		// Repaint immediately on scroll instead of waiting for the 1s refresh tick.
+		this.requestRender();
 	}
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const page = this.pageSize();
 		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
-		const line = (textValue: string) => truncateToWidth(textValue, w, "");
+		const line = (textValue: string) => truncateToWidth(textValue, w, "…");
 		const header = this.theme.fg("accent", "Live workflow agent") + this.theme.fg("dim", ` • refresh 1s • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`);
 		return [
 			line(header),
@@ -3643,7 +3646,7 @@ async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, 
 		let component: AgentLiveViewComponent | undefined;
 		try {
 			await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-				component = new AgentLiveViewComponent(theme, () => tui.terminal.rows, () => done(undefined));
+				component = new AgentLiveViewComponent(theme, () => tui.terminal.rows, () => done(undefined), () => tui.requestRender());
 				const refresh = async () => {
 					if (refreshing || !component) return;
 					refreshing = true;
@@ -4126,7 +4129,9 @@ class WorkflowDashboard {
 	}
 
 	private isDeleteInput(data: string): boolean {
-		return data === "d" || matchesKey(data, Key.delete) || matchesKey(data, Key.backspace);
+		// Backspace is intentionally excluded: it reads as "go back/erase" in almost
+		// every TUI, so binding it to a destructive delete was a surprising mis-hit.
+		return data === "d" || matchesKey(data, Key.delete);
 	}
 
 	handleInput(data: string): void {
@@ -4151,7 +4156,7 @@ class WorkflowDashboard {
 			this.requestRender();
 			return;
 		}
-		if (data === "n" || data === "A") {
+		if (data === "A" || (data === "n" && this.tab !== "patterns")) {
 			this.tab = "agents";
 			this.requestRender();
 			return;
@@ -4255,7 +4260,7 @@ class WorkflowDashboard {
 		const success = (s: string) => this.theme.fg("success", s);
 		const error = (s: string) => this.theme.fg("error", s);
 		const warning = (s: string) => this.theme.fg("warning", s);
-		const line = (s: string) => truncateToWidth(s, w, "");
+		const line = (s: string) => truncateToWidth(s, w, "…");
 		const monitorTab = this.tab === "monitor" ? accent("[Monitor]") : muted(" Monitor ");
 		const agentsTab = this.tab === "agents" ? accent("[Agents]") : muted(" Agents ");
 		const sessionsTab = this.tab === "sessions" ? accent("[Sessions]") : muted(" Sessions ");
@@ -4363,13 +4368,13 @@ class WorkflowDashboard {
 			const state = this.agentStateLabel(agent, accent, muted, success, error);
 			const elapsed = agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
 			const phase = formatAgentPhase(agent);
-			const code = agent.code === undefined ? "" : muted(` code:${agent.code}`);
+			const code = agent.code === undefined ? "" : agent.code === 0 ? muted(` code:0`) : error(` code:${agent.code}`);
 			const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-			const schema = agent.schemaOk === undefined ? "" : muted(` schema:${agent.schemaOk ? "ok" : "bad"}`);
+			const schema = agent.schemaOk === undefined ? "" : agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
 			const tools = muted(` tools:${agent.tools?.length ? agent.tools.length : "default"}`);
 			const skills = muted(` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`);
 			const extensions = muted(` ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`);
-			const keys = muted(` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}${agent.missingKeys?.length ? ` missing:${agent.missingKeys.length}` : ""}`);
+			const keys = muted(` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`) + (agent.missingKeys?.length ? warning(` missing:${agent.missingKeys.length}`) : "");
 			lines.push(line(`${prefix}${state} #${agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(agent.name)} ${muted(elapsed)}${code} ${prompt}${schema}${tools}${skills}${extensions}${keys}`));
 		}
 		const selected = this.selectedAgent();
@@ -4421,11 +4426,11 @@ class WorkflowDashboard {
 			const elapsed = entry.agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(entry.agent.elapsedMs)}`;
 			const phase = formatAgentPhase(entry.agent);
 			const prompt = entry.agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-			const schema = entry.agent.schemaOk === undefined ? "" : muted(` schema:${entry.agent.schemaOk ? "ok" : "bad"}`);
+			const schema = entry.agent.schemaOk === undefined ? "" : entry.agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
 			const tools = muted(` tools:${entry.agent.tools?.length ? entry.agent.tools.length : "default"}`);
 			const skills = muted(` skills:${entry.agent.skills?.length ? entry.agent.skills.length : entry.agent.includeSkills === false ? "off" : "default"}`);
 			const extensions = muted(` ext:${entry.agent.extensions?.length ? entry.agent.extensions.length : entry.agent.includeExtensions ? "default" : "off"}`);
-			const keys = muted(` keys:${entry.agent.keys?.length ? entry.agent.keys.length : entry.agent.isolatedEnv ? "none" : "default"}${entry.agent.missingKeys?.length ? ` missing:${entry.agent.missingKeys.length}` : ""}`);
+			const keys = muted(` keys:${entry.agent.keys?.length ? entry.agent.keys.length : entry.agent.isolatedEnv ? "none" : "default"}`) + (entry.agent.missingKeys?.length ? warning(` missing:${entry.agent.missingKeys.length}`) : "");
 			lines.push(line(`${prefix}${state} #${entry.agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(entry.agent.name)} ${muted(`— ${entry.run.workflow} ${entry.run.runId.slice(-12)}`)} ${muted(elapsed)} ${prompt}${schema}${tools}${skills}${extensions}${keys}`));
 		}
 		const selected = this.selectedAgentEntry();
