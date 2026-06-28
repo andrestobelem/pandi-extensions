@@ -888,6 +888,80 @@ async function concurrentLoopCap(url) {
 }
 
 // ===========================================================================
+// SCENARIO P3a: rehydrate sanitizes a persisted maxWallClockMs <= 0. A corrupt/tampered
+//   sidecar with maxWallClockMs:0 must NOT silently disable the wall-clock cap (caps.ts
+//   gates on `> 0`, and `0 ?? DEFAULT` keeps 0). After sanitize -> DEFAULT, an
+//   over-deadline loop stops "done" on rehydrate.
+// ===========================================================================
+async function rehydrateZeroWallClockSanitized(url) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	loopExtension(pi);
+	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
+
+	const now = Date.now();
+	const wall = 6 * 60 * 60 * 1000; // DEFAULT_MAX_WALL_CLOCK_MS
+	seedEntries(ctx, [
+		snap("zerocap", {
+			status: "running",
+			iteration: 4,
+			maxIterations: 25, // not the iteration cap
+			maxWallClockMs: 0, // corrupt: would disable the wall-clock cap unless sanitized
+			startedAt: now - (wall + 60 * 1000), // 6h+1m ago: past the DEFAULT deadline
+			nextFireAt: now + 60 * 60 * 1000,
+			updatedAt: new Date(now - 1000).toISOString(),
+		}),
+	]);
+
+	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+	const s = latestSnapshot(entries, "zerocap");
+	check(
+		"sanitize: maxWallClockMs<=0 sanitized so an over-deadline loop stops 'done'",
+		s?.status === "done",
+		`status=${s?.status}`,
+	);
+	check("sanitize: stop reason mentions the wall-clock deadline", /wall-clock|deadline/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
+	check("sanitize: NO wake delivered for the over-deadline loop", sentMessages.length === 0, `delivered=${sentMessages.length}`);
+}
+
+// ===========================================================================
+// SCENARIO P3b: rehydrate sanitizes a missing/invalid maxIterations. A pre-P1 (or
+//   tampered) snapshot without maxIterations must NOT make `iteration >= undefined`
+//   always-false (iteration gate silently disabled). After sanitize -> DEFAULT, a DUE
+//   loop above the cap stops "done" on the fire gate instead of delivering another wake.
+// ===========================================================================
+async function rehydrateMissingMaxIterationsSanitized(url) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	loopExtension(pi);
+	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
+
+	const now = Date.now();
+	seedEntries(ctx, [
+		snap("noiter", {
+			status: "running",
+			iteration: 999,
+			maxIterations: undefined, // missing: would disable the iteration gate
+			maxWallClockMs: 24 * 60 * 60 * 1000, // generous: isolate the iteration cap
+			startedAt: now - 1000,
+			nextFireAt: now - 1000, // DUE -> rehydrate arms a 0ms catch-up fireWake
+			updatedAt: new Date(now).toISOString(),
+		}),
+	]);
+
+	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+	await tick();
+	const s = latestSnapshot(entries, "noiter");
+	check(
+		"sanitize: missing maxIterations sanitized so a DUE over-cap loop stops 'done'",
+		s?.status === "done",
+		`status=${s?.status}`,
+	);
+	check("sanitize: stop reason names maxIterations", /maxIterations/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
+	check("sanitize: capped loop delivered NO new wake", sentMessages.length === 0, `delivered=${sentMessages.length}`);
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildLoop();
 	TEST_PROJECT_ROOT = path.join(outDir, "project");
@@ -905,6 +979,8 @@ async function main() {
 		await shutdownThenStartupRehydrates(url);
 		await rehydrateSidecarOnly(url);
 		await concurrentLoopCap(url);
+		await rehydrateZeroWallClockSanitized(url);
+		await rehydrateMissingMaxIterationsSanitized(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

@@ -104,6 +104,13 @@ const DEFAULT_MAX_ITERATIONS = 25;
 // this a user could grow activeLoops without limit. New starts past the cap are refused;
 // rehydrate of already-created loops is deliberately exempt (it recovers existing state).
 const MAX_CONCURRENT_LOOPS = 20;
+// Treat a persisted cap as valid only if it is a finite number > 0; otherwise fall back to
+// the default. Defends rehydrate against a corrupt/tampered sidecar where `0`/NaN/undefined
+// would slip past `??` (which only replaces null/undefined) and silently disable a cap
+// (maxWallClockMs<=0 voids the deadline; a missing maxIterations makes `iter >= undefined`
+// always-false, voiding the iteration gate).
+const positiveCap = (value: unknown, dflt: number): number =>
+	typeof value === "number" && Number.isFinite(value) && value > 0 ? value : dflt;
 const MIN_DELAY_SECONDS = 60;
 const MAX_DELAY_SECONDS = 3600;
 // Safety-net cadence when a turn closed without the model calling loop_schedule.
@@ -888,8 +895,9 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 			const retired: ActiveLoop = {
 				...state,
 				mode: state.mode ?? "dynamic",
-				maxWallClockMs: state.maxWallClockMs ?? DEFAULT_MAX_WALL_CLOCK_MS,
-				contextPercentCap: state.contextPercentCap ?? DEFAULT_CONTEXT_PERCENT_CAP,
+				maxIterations: positiveCap(state.maxIterations, DEFAULT_MAX_ITERATIONS),
+				maxWallClockMs: positiveCap(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
+				contextPercentCap: positiveCap(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP),
 				updatedAt: state.updatedAt ?? new Date().toISOString(),
 				status: "stopped",
 				timer: null,
@@ -907,8 +915,9 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 			...state,
 			// Back-compat for pre-P1 snapshots missing the new fields.
 			mode: state.mode ?? "dynamic",
-			maxWallClockMs: state.maxWallClockMs ?? DEFAULT_MAX_WALL_CLOCK_MS,
-			contextPercentCap: state.contextPercentCap ?? DEFAULT_CONTEXT_PERCENT_CAP,
+			maxIterations: positiveCap(state.maxIterations, DEFAULT_MAX_ITERATIONS),
+			maxWallClockMs: positiveCap(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
+			contextPercentCap: positiveCap(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP),
 			updatedAt: state.updatedAt ?? new Date().toISOString(),
 			// Normalize a recovered "stale" snapshot back to "running"; keep "paused" as-is.
 			status: recoverPaused ? "paused" : "running",
