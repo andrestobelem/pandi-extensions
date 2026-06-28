@@ -7,6 +7,7 @@ import {
 	parseSnapshotSetting,
 	parseSnapshotKeep,
 	parseClearSetting,
+	resolveToggle,
 } from "./settings.js";
 import {
 	buildSnapshot,
@@ -374,7 +375,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 			// `bar` (toggle), `bar on`, `bar off` — control the footer progress bar.
 			if (trimmed === "bar" || trimmed.startsWith("bar ")) {
 				const arg = trimmed.slice("bar ".length).trim();
-				const next = arg === "" ? !showBar : parseBarSetting(arg);
+				const next = resolveToggle(arg, showBar, parseBarSetting);
 				if (next === undefined) {
 					notify(ctx, "Usage: /auto-compact-context bar [on|off]", "warning");
 					return;
@@ -410,7 +411,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 			// `snapshot` (toggle), `snapshot on`, `snapshot off` — recoverable-compaction snapshots.
 			if (trimmed === "snapshot" || trimmed.startsWith("snapshot ")) {
 				const arg = trimmed.slice("snapshot".length).trim();
-				const next = arg === "" ? !snapshotsEnabled : parseSnapshotSetting(arg);
+				const next = resolveToggle(arg, snapshotsEnabled, parseSnapshotSetting);
 				if (next === undefined) {
 					notify(ctx, "Usage: /auto-compact-context snapshot [on|off]", "warning");
 					return;
@@ -423,7 +424,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 			// `clear-tools` (toggle), `clear-tools on`, `clear-tools off` — elide old tool outputs.
 			if (trimmed === "clear-tools" || trimmed.startsWith("clear-tools ")) {
 				const arg = trimmed.slice("clear-tools".length).trim();
-				const next = arg === "" ? !clearToolResults : parseClearSetting(arg);
+				const next = resolveToggle(arg, clearToolResults, parseClearSetting);
 				if (next === undefined) {
 					notify(ctx, "Usage: /auto-compact-context clear-tools [on|off]", "warning");
 					return;

@@ -33,3 +33,12 @@ export const parseSnapshotKeep = (value: string | undefined): number | undefined
 
 // Tool-result clearing shares the on/off grammar (aliased for intent at call sites).
 export const parseClearSetting = parseOnOff;
+
+// Resolve a `/auto-compact-context <toggle> [on|off]` argument: an empty arg flips the
+// current value, otherwise parse the explicit on/off token (undefined => unrecognised, so
+// the caller shows usage). Shared by the bar/snapshot/clear-tools subcommands.
+export const resolveToggle = (
+	arg: string,
+	current: boolean,
+	parse: (value: string | undefined) => boolean | undefined,
+): boolean | undefined => (arg === "" ? !current : parse(arg));
