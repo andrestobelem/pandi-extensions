@@ -11,7 +11,8 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import { WORKFLOW_DIR, WORKFLOW_DRAFT_DIR, WORKFLOW_RUN_DIR, WORKFLOW_GRAPH_DIR, resolveInsideRoot } from "./index.js";
+import { WORKFLOW_DIR, WORKFLOW_DRAFT_DIR, WORKFLOW_RUN_DIR, WORKFLOW_GRAPH_DIR } from "./index.js";
+import { resolveInsideRoot } from "./path-safety.js";
 import type { WorkflowFile, WorkflowLocation, WorkflowScope, WorkflowScopeInput } from "./index.js";
 import { getAgentDir, CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 

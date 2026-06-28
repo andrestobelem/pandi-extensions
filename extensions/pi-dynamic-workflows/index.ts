@@ -15,7 +15,6 @@ import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-cod
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Key } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { existsSync, realpathSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -72,6 +71,7 @@ import {
 } from "./ultracode.js";
 import { handleTool, handleWorkflowCommand, handleWorkflowsCommand } from "./command-handlers.js";
 export { liveAgentHeaderStatus } from "./agent-view.js";
+import { resolveCwdPath, resolveArtifactPath } from "./path-safety.js";
 import type {
 	ActiveWorkflowRun,
 	AgentOptions,
@@ -369,50 +369,6 @@ export async function prepareWorkflowRun(
 	const { runId, runDir } = await createRunDirectory(ctx, workflowName, started);
 	await ensureDir(path.join(runDir, "agents"));
 	return { started, runId, runDir, background };
-}
-
-function isInsidePath(root: string, target: string): boolean {
-	const relative = path.relative(root, target);
-	return (
-		relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative))
-	);
-}
-
-export function resolveInsideRoot(
-	rootInput: string,
-	resolvedInput: string,
-	displayPath: string,
-	label: string,
-): string {
-	const root = path.resolve(rootInput);
-	const resolved = path.resolve(resolvedInput);
-	if (!isInsidePath(root, resolved)) throw new Error(`Path escapes ${label}: ${displayPath}`);
-
-	const realRoot = realpathSync(root);
-	let existing = resolved;
-	while (!existsSync(existing)) {
-		const parent = path.dirname(existing);
-		if (parent === existing) break;
-		existing = parent;
-	}
-	const realExisting = realpathSync(existing);
-	if (!isInsidePath(realRoot, realExisting)) throw new Error(`Path escapes ${label} through symlink: ${displayPath}`);
-	return existsSync(resolved) ? realpathSync(resolved) : resolved;
-}
-
-function resolveCwdPath(cwd: string, filePath: string): string {
-	const root = path.resolve(cwd);
-	const resolved = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(root, filePath);
-	return resolveInsideRoot(root, resolved, filePath, "workflow cwd");
-}
-
-function resolveArtifactPath(runDir: string, name: string): string {
-	const normalized = name.trim().replaceAll("\\", "/");
-	if (!normalized) throw new Error("Artifact name is required.");
-	if (path.isAbsolute(normalized) || normalized.split("/").some((part) => part === "..")) {
-		throw new Error("Artifact names must stay inside the workflow run directory.");
-	}
-	return resolveInsideRoot(runDir, path.join(runDir, normalized), normalized, "workflow run directory");
 }
 
 function makeModelArg(ctx: ExtensionContext): string | undefined {
@@ -1440,7 +1396,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			"Choose primitives by data dependency. Use ctx.agents(items,{concurrency}) for one independent step per item. Use ctx.pipeline(items,...stages) by default for >=2 dependent steps per item with no cross-item merge; include a stable item id/index in prompts generated inside stages. Use ctx.agents(items,{concurrency,settle:true}) for large fan-out or reviewer panels where one branch failure should return null. Use ctx.parallel([async()=>...]) only for a true barrier where a later step needs all branch results at once (dedup/merge, early-exit if total=0, cross-branch ranking). Use ctx.workflow(name,input) for reusable sub-steps with no decision gate; sequence separate runs when a decision depends on prior output.",
 			"Use ctx.agent(prompt,{schema}) when a subagent must return JSON; consume result.data/result.schemaOk and use schemaOnInvalid:'null' when invalid JSON should become a non-throwing branch result. Use agentType:'explore'|'reviewer'|'planner'|'implementer'|'researcher' for persona defaults; explicit options override the persona. Scope each subagent's access with tools/excludeTools, skills/includeSkills, extensions/includeExtensions, and keys/env when it needs specific capabilities; never put secret values in prompts. When writing workflow code, assume subagents get web_search via pi-codex-web-search and context7-cli when installed; include web_search in read-only allowlists when web/docs/current evidence may help, and only use includeExtensions:false/includeSkills:false as an explicit opt-out.",
 			"Decide model and reasoning per call: pass model (e.g. 'haiku' or 'anthropic/claude-sonnet-4'), provider, and thinking (off|minimal|low|medium|high|xhigh) on ctx.agent/ctx.agents/ctx.pipeline or any per-item spec. Use a cheap/fast model + low/minimal thinking for wide scouting, classification, and extraction; use a stronger model + high/xhigh thinking for synthesis, adversarial verification, planning, and hard reasoning. Omitting them inherits the orchestrator model (ctx.model) and session thinking level; agentType personas set thinking defaults (reviewer/planner/researcher=high, explore/implementer=medium) and explicit options win. model/provider/thinking are part of the cache key, so changing them re-runs that call on resume.",
-			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, ctx.log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them.",
+			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, ctx.log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them. In synthesis/judge prompts, restate the task + success criteria at BOTH the start and the end (after the evidence block), most-important findings first, to counter lost-in-the-middle.",
 			"Never cap coverage silently. Whenever a workflow uses slice/head/top-N/sampling/no-retry, clamps concurrency to ctx.limits.concurrency, or lowers maxAgents below the discovered work-list, ctx.log() exactly what was excluded, delayed, or clamped.",
 			"When creating a workflow, inspect the pattern catalog first (optionally action=template name=<key> for a scaffold), reuse an existing workflow only when it exactly matches the task, otherwise write a clear gitignored .pi/workflows/drafts/<task-slug>.js project draft and launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If a workflow is warranted for complex workflow/prompt/contract design, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name.",
 			"Workflows in persistent TUI/RPC sessions always run in background: use dynamic_workflow action=start (or action=run, which the extension backgrounds there), then inspect with action=runs/view and stop with action=cancel if needed.",
