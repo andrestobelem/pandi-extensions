@@ -386,6 +386,29 @@ async function scenarioEllipsisOnOverflow(url) {
 	check("overflowing lines render a visible ellipsis marker", text.includes("…"), text.split("\n").slice(0, 2).join(" | "));
 }
 
+async function scenarioMonitorMultiRun(url) {
+	// The Monitor used to render a single run even when several were active (the
+	// bar shows "▶ N active"). It must expose all active runs and switch focus.
+	const { component, getDone } = await openDashboardComponent(url);
+	const now = new Date().toISOString();
+	const mkModel = (runId) => ({
+		run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 0, background: true, scope: "project", ok: false, state: "running", startedAt: now, elapsedMs: 1000, logs: [] },
+		runId, runDir: `/tmp/${runId}`, workflow: "wf",
+		state: "running", active: true, stale: false, priority: "active",
+		elapsedMs: 1000, agentsDone: 0, agentsStarted: 2, agentConcurrency: 2,
+		parallelAgents: 1, peakParallelAgents: 1, bashDone: 0, artifactCount: 0,
+		agents: [], canCancel: true, canRerun: false,
+	});
+	component.setMonitorModels([mkModel("RUN_AAA"), mkModel("RUN_BBB")]);
+	const shown = component.render(120).join("\n");
+	check("monitor lists all active runs, not just one", shown.includes("RUN_AAA") && shown.includes("RUN_BBB"), shown.split("\n").slice(0, 10).join(" | "));
+
+	component.handleInput("]"); // focus the second active run
+	component.handleInput("v"); // view the focused run
+	const dv = getDone();
+	check("monitor ] switches the focused active run", dv?.type === "view" && dv?.run?.runId === "RUN_BBB", JSON.stringify(dv));
+}
+
 async function scenarioAgentsJumpToFailed(url) {
 	// Agents announces failed:N but, before this, only ↑↓ navigation existed; finding the
 	// failed agents (the reason to open the tab) meant manual scrolling. 'f' should jump.
@@ -429,6 +452,7 @@ async function main() {
 	await scenarioRunningAgentLiveElapsed(url);
 	await scenarioRefreshFreshnessAndErrors(url);
 	await scenarioAgentsJumpToFailed(url);
+	await scenarioMonitorMultiRun(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 

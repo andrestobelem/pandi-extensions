@@ -4077,10 +4077,13 @@ async function deriveWorkflowMonitor(run: WorkflowRunRecord, priority: "active" 
 }
 
 async function deriveWorkflowMonitorModels(runs: WorkflowRunRecord[]): Promise<WorkflowMonitorModel[]> {
-	const active = runs.find((run) => isActiveRunRecord(run));
-	const selected = active ?? runs[0];
-	if (!selected) return [];
-	return [await deriveWorkflowMonitor(selected, active ? "active" : "latest")];
+	// Surface ALL active runs (the header advertises "▶ N active"); fall back to the
+	// latest run only when nothing is active. The Monitor lets the user switch focus.
+	const actives = runs.filter((run) => isActiveRunRecord(run));
+	if (actives.length > 0) return Promise.all(actives.map((run) => deriveWorkflowMonitor(run, "active")));
+	const latest = runs[0];
+	if (!latest) return [];
+	return [await deriveWorkflowMonitor(latest, "latest")];
 }
 
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
@@ -4126,6 +4129,7 @@ class WorkflowDashboard {
 	private sessionIndex = 0;
 	private agentIndex = 0;
 	private monitorAgentIndex = 0;
+	private monitorRunIndex = 0;
 	private patternIndex = 0;
 	private showHelp = false;
 	// Refresh health: the 1.5s background refresh marks success/failure here so the
@@ -4211,8 +4215,12 @@ class WorkflowDashboard {
 	}
 
 	setMonitorModels(models: WorkflowMonitorModel[]): void {
-		const previousAgent = this.selectedMonitor()?.agents[this.monitorAgentIndex];
+		const previousModel = this.selectedMonitor();
+		const previousAgent = previousModel?.agents[this.monitorAgentIndex];
 		this.monitorModels = models;
+		// Keep the focused run stable across refreshes (the active set can change).
+		const foundRun = previousModel ? models.findIndex((model) => model.runId === previousModel.runId) : -1;
+		this.monitorRunIndex = foundRun >= 0 ? foundRun : Math.max(0, Math.min(this.monitorRunIndex, Math.max(0, models.length - 1)));
 		const agents = this.selectedMonitor()?.agents ?? [];
 		const found = previousAgent ? agents.findIndex((agent) => agent.id === previousAgent.id) : -1;
 		this.monitorAgentIndex = found >= 0 ? found : Math.min(this.monitorAgentIndex, Math.max(0, agents.length - 1));
@@ -4228,7 +4236,9 @@ class WorkflowDashboard {
 	}
 
 	private selectedMonitor(): WorkflowMonitorModel | undefined {
-		return this.monitorModels.find((model) => model.active) ?? this.monitorModels[0];
+		if (this.monitorModels.length === 0) return undefined;
+		const index = Math.max(0, Math.min(this.monitorRunIndex, this.monitorModels.length - 1));
+		return this.monitorModels[index];
 	}
 
 	private selectedRun(): WorkflowRunRecord | undefined {
@@ -4411,6 +4421,7 @@ class WorkflowDashboard {
 		const run = this.selectedRun();
 		if (!run) return;
 		if (this.tab === "monitor") {
+			if (data === "[" || data === "]") { this.cycleMonitorRun(data === "]" ? 1 : -1); return; }
 			const agent = this.selectedAgent();
 			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
 			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
@@ -4453,6 +4464,15 @@ class WorkflowDashboard {
 		}
 	}
 
+	// Cycle the focused active run in the Monitor (master-detail over all active runs).
+	private cycleMonitorRun(delta: number): void {
+		const n = this.monitorModels.length;
+		if (n <= 1) return;
+		this.monitorRunIndex = (this.monitorRunIndex + delta + n) % n;
+		this.monitorAgentIndex = 0;
+		this.requestRender();
+	}
+
 	private renderHelp(w: number, line: (s: string) => string, accent: (s: string) => string, muted: (s: string) => string): string[] {
 		return [
 			line(accent("Pi Dynamic Workflows — keyboard help")),
@@ -4463,6 +4483,7 @@ class WorkflowDashboard {
 			line("  m Monitor · A Agents · a Activity · s Sessions · w Workflows · p Patterns"),
 			line(accent("Navigate")),
 			line("  ↑ ↓ move · PgUp / PgDn page · Home / End first / last"),
+			line("  [ ] switch active run (Monitor)"),
 			line(accent("Actions")),
 			line("  Enter / o agent output · v run view · g graph"),
 			line("  f next failed agent (Agents tab)"),
@@ -4499,7 +4520,7 @@ class WorkflowDashboard {
 				: this.tab === "sessions"
 					? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • q/esc close"
 					: this.tab === "monitor"
-					? "←→/Tab tabs • ↑↓ agents • Enter/o agent detail • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
+					? "←→/Tab tabs • ↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
 					: this.tab === "agents"
 						? "←→/Tab tabs • ↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
 						: "←→/Tab tabs • ↑↓ navigate • Enter/v view • g graph • c/x cancel active • r rerun • d/delete run • q/esc close";
@@ -4538,7 +4559,20 @@ class WorkflowDashboard {
 		const stateColor = model.state === "completed" ? success : model.state === "running" ? accent : model.state === "stale" ? warning : error;
 		const label = (name: string, value: string) => lines.push(line(`${muted(padRightVisible(`${name}:`, 11))} ${value}`));
 		const statusTail = model.active ? accent("active") : model.stale ? warning("stale") : muted("inactive");
-		const title = model.priority === "active" ? "Active run" : "Latest run";
+		const total = this.monitorModels.length;
+		if (total > 1) {
+			lines.push(line(accent(`Active runs (${total})`) + muted(` • [ ] switch • showing ${this.monitorRunIndex + 1}/${total}`)));
+			for (let i = 0; i < total; i++) {
+				const m = this.monitorModels[i]!;
+				const focused = i === this.monitorRunIndex;
+				const prefix = focused ? accent("› ") : "  ";
+				const glyph = m.state === "completed" ? success("✓") : m.state === "running" ? accent("▶") : m.state === "stale" ? warning("?") : error("✗");
+				const parallel = m.agentConcurrency && m.agentConcurrency > 0 ? `${m.parallelAgents}/${m.agentConcurrency}` : String(m.parallelAgents);
+				lines.push(line(`${prefix}${glyph} ${m.workflow} ${muted(m.runId)} ${m.agentsDone}/${m.agentsStarted} ${muted(`parallel:${parallel}`)}`));
+			}
+			lines.push(line(muted("")));
+		}
+		const title = total > 1 ? `Active run ${this.monitorRunIndex + 1}/${total}` : model.priority === "active" ? "Active run" : "Latest run";
 		lines.push(line(accent(title)));
 		label("workflow", model.workflow);
 		label("state", `${stateColor(getRunStatusLabel(model.run))} ${muted("•")} ${statusTail}`);
