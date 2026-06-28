@@ -90,6 +90,7 @@ import { notify } from "../shared/notify.js";
 import { formatInterval, parseInterval } from "./interval.js";
 import { destructiveReason } from "./gate.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
+import { formatStatus } from "./status.js";
 
 const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";
@@ -1040,15 +1041,6 @@ function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Da
 // ---------------------------------------------------------------------------
 // Command handling
 // ---------------------------------------------------------------------------
-
-function formatStatus(loop: LoopState): string {
-	const eta = loop.status === "running" ? `, next ${formatEta(loop.nextFireAt)}` : "";
-	const mode =
-		loop.mode === "fixed" && loop.intervalMs ? ` every ${formatInterval(Math.round(loop.intervalMs / 1000))}` : "";
-	const auto = loop.autonomous ? " auto" : "";
-	const reason = loop.lastReason ? `, reason: ${loop.lastReason}` : "";
-	return `${loop.loopId} [${loop.status}${auto}]${mode} it ${loop.iteration}/${loop.maxIterations}${eta}${reason} — ${loop.task}`;
-}
 
 async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
 	const trimmed = args.trim();
