@@ -10,7 +10,7 @@
  * there is no runtime cycle. Extracted byte-identically from index.ts.
  */
 import { renderSafeInline } from "./render-utils.js";
-import type { WorkflowGraphFanoutInfo, WorkflowGraphChildCall, WorkflowGraphStep } from "./index.js";
+import type { WorkflowGraphFanoutInfo, WorkflowGraphChildCall, WorkflowGraphStep } from "./workflow-graph.js";
 
 export function mermaidLabel(value: string): string {
 	return (

@@ -35,16 +35,9 @@ import { padRightVisible } from "./render-utils.js";
 import { runProcess } from "./process-spawn.js";
 import { EXTENSION_ROOT, ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./index.js";
 import type { ProcessResult } from "./process-spawn.js";
-import type {
-	WorkflowFile,
-	WorkflowGraphModel,
-	WorkflowGraphStep,
-	WorkflowGraphCall,
-	WorkflowGraphChildCall,
-	WorkflowGraphRenderTheme,
-	WorkflowGraphFanoutUnit,
-	WorkflowGraphFanoutInfo,
-} from "./index.js";
+import type { WorkflowFile } from "./index.js";
+import { WorkflowGraphComponent } from "./workflow-graph-component.js";
+import { notify } from "./notify.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): WorkflowGraphModel {
@@ -608,4 +601,97 @@ export async function makeWorkflowGraphForContext(
 		await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code),
 		120,
 	).join("\n");
+}
+
+/**
+ * Workflow graph model types + the showWorkflowGraph view opener, consolidated here with the
+ * graph builders/renderers that own them. graph-parse.js and workflow-graph-component.js
+ * import these types from here; command handlers open the view via showWorkflowGraph.
+ * Deferred cycle with workflow-graph-component.js (WorkflowGraphComponent used only inside
+ * showWorkflowGraph's body). Moved byte-identically from index.ts.
+ */
+type WorkflowGraphStepKind =
+	"agent" | "artifact" | "barrier" | "fanout" | "file" | "pipeline" | "shell" | "subworkflow";
+
+export type WorkflowGraphFanoutUnit = "agents" | "branches" | "lanes";
+
+export interface WorkflowGraphFanoutInfo {
+	unit: WorkflowGraphFanoutUnit;
+	countLabel: string;
+	count?: number;
+	many: boolean;
+	phaseLabel?: string;
+	concurrency?: string;
+	settle?: boolean;
+	stages?: number;
+}
+
+export interface WorkflowGraphChildCall {
+	method: string;
+	kind: WorkflowGraphStepKind;
+	symbol: string;
+	title: string;
+	label: string;
+	line: number;
+	firstArg?: string;
+}
+
+export interface WorkflowGraphStep {
+	index: number;
+	method: string;
+	kind: WorkflowGraphStepKind;
+	symbol: string;
+	title: string;
+	label: string;
+	line: number;
+	firstArg?: string;
+	children: WorkflowGraphChildCall[];
+	fanout?: WorkflowGraphFanoutInfo;
+	subworkflow?: WorkflowGraphModel;
+	subworkflowError?: string;
+}
+
+export interface WorkflowGraphCall extends WorkflowGraphChildCall {
+	start: number;
+	end: number;
+	snippet: string;
+}
+
+export interface WorkflowGraphModel {
+	workflow: WorkflowFile;
+	steps: WorkflowGraphStep[];
+	notes: string[];
+}
+
+export interface WorkflowGraphRenderTheme {
+	accent(text: string): string;
+	muted(text: string): string;
+	success(text: string): string;
+	warning(text: string): string;
+}
+
+export async function showWorkflowGraph(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<void> {
+	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code);
+	if (ctx.mode === "print") {
+		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));
+		return;
+	}
+	if (ctx.mode === "tui") {
+		const imageAttempt = await renderWorkflowGraphImage(ctx, model).catch((err) => ({
+			warning: err instanceof Error ? err.message : String(err),
+		}));
+		await ctx.ui.custom<void>(
+			(_tui, theme, _keybindings, done) =>
+				new WorkflowGraphComponent(model, theme, () => done(undefined), imageAttempt),
+		);
+		return;
+	}
+	if (ctx.hasUI) {
+		await ctx.ui.editor(
+			`Workflow graph: ${workflow.name}`,
+			renderWorkflowGraphDocumentLines(model, 120).join("\n"),
+		);
+		return;
+	}
+	notify(ctx, renderWorkflowGraphDocumentLines(model, 100).join("\n"), "info");
 }

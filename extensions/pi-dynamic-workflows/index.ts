@@ -62,12 +62,6 @@ import {
 } from "./structured-output.js";
 import { runStreamingAgentProcess } from "./process-spawn.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
-import {
-	buildWorkflowGraphModelWithSubworkflows,
-	renderWorkflowGraphImage,
-	renderWorkflowGraphDocumentLines,
-} from "./workflow-graph.js";
-import { WorkflowGraphComponent } from "./workflow-graph-component.js";
 import { installWorkflowDashboardDownEditor } from "./dashboard-down-editor.js";
 import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
 import type { PiSessionModel } from "./pi-session.js";
@@ -958,92 +952,6 @@ async function executeWorkflowCode(
 			if (!settled && code !== 0) settle(reject, new Error(`Workflow worker exited with code ${code}.`));
 		});
 	});
-}
-
-type WorkflowGraphStepKind =
-	"agent" | "artifact" | "barrier" | "fanout" | "file" | "pipeline" | "shell" | "subworkflow";
-
-export type WorkflowGraphFanoutUnit = "agents" | "branches" | "lanes";
-
-export interface WorkflowGraphFanoutInfo {
-	unit: WorkflowGraphFanoutUnit;
-	countLabel: string;
-	count?: number;
-	many: boolean;
-	phaseLabel?: string;
-	concurrency?: string;
-	settle?: boolean;
-	stages?: number;
-}
-
-export interface WorkflowGraphChildCall {
-	method: string;
-	kind: WorkflowGraphStepKind;
-	symbol: string;
-	title: string;
-	label: string;
-	line: number;
-	firstArg?: string;
-}
-
-export interface WorkflowGraphStep {
-	index: number;
-	method: string;
-	kind: WorkflowGraphStepKind;
-	symbol: string;
-	title: string;
-	label: string;
-	line: number;
-	firstArg?: string;
-	children: WorkflowGraphChildCall[];
-	fanout?: WorkflowGraphFanoutInfo;
-	subworkflow?: WorkflowGraphModel;
-	subworkflowError?: string;
-}
-
-export interface WorkflowGraphCall extends WorkflowGraphChildCall {
-	start: number;
-	end: number;
-	snippet: string;
-}
-
-export interface WorkflowGraphModel {
-	workflow: WorkflowFile;
-	steps: WorkflowGraphStep[];
-	notes: string[];
-}
-
-export interface WorkflowGraphRenderTheme {
-	accent(text: string): string;
-	muted(text: string): string;
-	success(text: string): string;
-	warning(text: string): string;
-}
-
-export async function showWorkflowGraph(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<void> {
-	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code);
-	if (ctx.mode === "print") {
-		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));
-		return;
-	}
-	if (ctx.mode === "tui") {
-		const imageAttempt = await renderWorkflowGraphImage(ctx, model).catch((err) => ({
-			warning: err instanceof Error ? err.message : String(err),
-		}));
-		await ctx.ui.custom<void>(
-			(_tui, theme, _keybindings, done) =>
-				new WorkflowGraphComponent(model, theme, () => done(undefined), imageAttempt),
-		);
-		return;
-	}
-	if (ctx.hasUI) {
-		await ctx.ui.editor(
-			`Workflow graph: ${workflow.name}`,
-			renderWorkflowGraphDocumentLines(model, 120).join("\n"),
-		);
-		return;
-	}
-	notify(ctx, renderWorkflowGraphDocumentLines(model, 100).join("\n"), "info");
 }
 
 export type AgentMonitorState = "running" | "completed" | "failed" | "cached" | "unknown";

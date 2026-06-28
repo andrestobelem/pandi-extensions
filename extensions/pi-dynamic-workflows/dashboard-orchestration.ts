@@ -17,6 +17,7 @@ import { getRunStatusLabel } from "./run-state.js";
 import { notify } from "./notify.js";
 import { stringify } from "./format.js";
 import { showLiveAgentView } from "./agent-view.js";
+import { showWorkflowGraph } from "./workflow-graph.js";
 import { WorkflowDashboard } from "./workflow-dashboard.js";
 import type { WorkflowDashboardTab, DashboardSelection } from "./workflow-dashboard.js";
 import { collectPiSessions, sessionManagerMetadata } from "./pi-session.js";
@@ -40,7 +41,6 @@ import {
 	collectWorkflowAgents,
 	collectWorkflowActivity,
 	listWorkflows,
-	showWorkflowGraph,
 } from "./index.js";
 import {
 	canCancelRun,

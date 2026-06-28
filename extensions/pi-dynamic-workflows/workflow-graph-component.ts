@@ -12,7 +12,7 @@ import * as path from "node:path";
 import { Image as TerminalImage, Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { workflowGraphImageOptions, renderWorkflowGraphDocumentLines } from "./workflow-graph.js";
 import type { WorkflowGraphImageAttempt } from "./workflow-graph.js";
-import type { WorkflowGraphModel } from "./index.js";
+import type { WorkflowGraphModel } from "./workflow-graph.js";
 
 export class WorkflowGraphComponent {
 	private cachedWidth?: number;

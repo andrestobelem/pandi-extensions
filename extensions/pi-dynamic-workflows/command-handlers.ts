@@ -47,9 +47,9 @@ import {
 	maxWorkflowDepth,
 	parsePatternFlag,
 	resolveWorkflow,
-	showWorkflowGraph,
 } from "./index.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
+import { showWorkflowGraph } from "./workflow-graph.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
 import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
