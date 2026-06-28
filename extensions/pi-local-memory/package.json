@@ -1,7 +1,7 @@
 {
   "name": "pi-dynamic-workflows-local-memory",
   "version": "0.1.0",
-  "description": "Pi extension that injects project-local .pi/MEMORY.md into the system prompt.",
+  "description": "Pi extension that injects a project-local .pi/memory/ folder (capped MEMORY.md index plus on-demand topic files) into the system prompt.",
   "license": "MIT",
   "type": "module",
   "keywords": [

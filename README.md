@@ -81,7 +81,7 @@ Comandos humanos:
 
 También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` y la extensión lo transforma en una petición orientada a workflows.
 
-Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza). Otra es `remember`, que deja a Pi persistir notas durables (preferencias estables, convenciones del proyecto, decisiones clave) en una sección auto-gestionada de `.pi/MEMORY.md` —idempotente y sin tocar lo que tú curaste— para tenerlas disponibles en sesiones futuras.
+Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza). Otra es `remember`, que deja a Pi persistir notas durables (preferencias estables, convenciones del proyecto, decisiones clave) en una sección auto-gestionada bajo la carpeta `.pi/memory/` —el índice `MEMORY.md` se inyecta (con tope) y los archivos por tema `.pi/memory/<topic>.md` se leen on demand; idempotente y sin tocar lo que tú curaste— para tenerlas disponibles en sesiones futuras.
 
 ### Ultracode always-on
 
@@ -281,7 +281,7 @@ extensions/<nombre>/
 
 `package.json` publica solo archivos runtime con `files: ["extensions/*/*.ts", ...]`, así los tests quedan colocalizados en el repo pero no entran al tarball npm. `pi.extensions` lista explícitamente los entrypoints que se cargan por defecto; extensiones opcionales pueden existir en la misma convención y cargarse desde settings.
 
-`extensions/pi-local-memory/` carga `.pi/MEMORY.md` si existe. La extensión es parte del paquete; el contenido de memoria sigue siendo privado y gitignored.
+`extensions/pi-local-memory/` carga la carpeta `.pi/memory/` si existe (inyecta el índice `MEMORY.md` con tope de 200 líneas/25 KB y lista los archivos por tema para leerlos on demand; con fallback al `.pi/MEMORY.md` previo). La extensión es parte del paquete; el contenido de memoria sigue siendo privado y gitignored.
 
 ## Verificación local
 
