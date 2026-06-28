@@ -52,10 +52,22 @@ No escribas una introducción larga. Prioriza evidencia accionable y ejemplos re
       includeExtensions: true,
       timeoutMs: agentTimeoutMs,
     })),
-    { concurrency: Math.min(input?.concurrency ?? 3, ctx.limits.concurrency) },
+    { concurrency: Math.min(input?.concurrency ?? 3, ctx.limits.concurrency), settle: true },
   );
 
-  await ctx.writeArtifact("research.json", research);
+  // Keep only the useful assistant text per topic. The full result objects also carry the
+  // raw streaming `stdout` (~230KB each), which would blow the synthesis budget and starve
+  // it down to a single topic. Persist clean findings (synthesis input) + raw (debugging).
+  const findings = research.map((r, i) => ({
+    name: topics[i]?.name ?? `topic-${i + 1}`,
+    ok: !!(r && r.ok !== false && (r.code === undefined || r.code === 0) && r.output),
+    output: r && r.output ? r.output : "(sin salida)",
+  }));
+  const okFindings = findings.filter((f) => f.ok);
+  const failedNames = findings.filter((f) => !f.ok).map((f) => f.name);
+  await ctx.writeArtifact("research.json", findings);
+  await ctx.writeArtifact("research-raw.json", research);
+  await ctx.log("research fan-out complete", { topics: findings.length, ok: okFindings.length, failed: failedNames.length, failedNames });
 
   const synthesis = await ctx.agent(
     `Sintetiza en español los resultados en una guía práctica.
@@ -63,6 +75,8 @@ No escribas una introducción larga. Prioriza evidencia accionable y ejemplos re
 Pregunta: ${question}
 
 Patrón de trabajo: synthesis-as-judge. No hagas promedio de opiniones: deduplica, descarta afirmaciones sin fuente, marca resultados parciales/fallidos y conserva incertidumbre.
+
+Cobertura de research: ${okFindings.length}/${findings.length} subagentes con contenido útil.${failedNames.length ? ` Fallidos/sin salida (NO inventes su contenido): ${failedNames.join(", ")}.` : ""}
 
 Formato obligatorio:
 1. Resumen ejecutivo en 5 bullets.
@@ -72,8 +86,8 @@ Formato obligatorio:
 5. Cómo aplicar estos patrones a workflows dinámicos de Pi.
 6. Fuentes principales con URLs.
 
-Resultados de subagentes (pueden incluir fallos/timeouts; no los ocultes):
-${ctx.compact(research, 70000)}`,
+Resultados de subagentes (solo los que tienen contenido; declara la cobertura parcial si la hay):
+${ctx.compact(okFindings, 200000)}`,
     {
       name: "synthesis",
       tools: ["web_search"],
