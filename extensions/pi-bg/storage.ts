@@ -50,13 +50,17 @@ export function generateJobId(): string {
 	return `bg-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
-export async function lstatPlainDirectory(dir: string): Promise<boolean> {
+async function safeLstat(p: string): Promise<Awaited<ReturnType<typeof fs.lstat>> | undefined> {
 	try {
-		const stat = await fs.lstat(dir);
-		return stat.isDirectory() && !stat.isSymbolicLink();
+		return await fs.lstat(p);
 	} catch {
-		return false;
+		return undefined;
 	}
+}
+
+export async function lstatPlainDirectory(dir: string): Promise<boolean> {
+	const stat = await safeLstat(dir);
+	return stat ? stat.isDirectory() && !stat.isSymbolicLink() : false;
 }
 
 export async function lstatPlainDirectoryChain(baseDir: string, dir: string): Promise<boolean> {
@@ -94,12 +98,8 @@ export async function createRunDir(ctx: ExtensionContext, jobId: string): Promis
 }
 
 export async function isRegularFile(file: string): Promise<boolean> {
-	try {
-		const stat = await fs.lstat(file);
-		return stat.isFile() && stat.size <= MAX_JSON_BYTES;
-	} catch {
-		return false;
-	}
+	const stat = await safeLstat(file);
+	return stat ? stat.isFile() && stat.size <= MAX_JSON_BYTES : false;
 }
 
 export async function readJson(file: string): Promise<Record<string, unknown> | undefined> {
