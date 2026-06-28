@@ -1758,7 +1758,7 @@ function getRunParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel
 	return 0;
 }
 
-function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number | undefined {
+export function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number | undefined {
 	const points: Array<{ t: number; d: number }> = [];
 	for (const agent of agents) {
 		if (agent.state === "cached") continue;
@@ -1769,7 +1769,9 @@ function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number | undef
 		if (Number.isFinite(ended)) points.push({ t: ended, d: -1 });
 	}
 	if (points.length === 0) return undefined;
-	points.sort((a, b) => a.t - b.t || b.d - a.d);
+	// On a timestamp tie, apply ends (-1) before starts (+1) so a hand-off (one agent ends exactly
+	// when the next starts) is not double-counted as concurrent.
+	points.sort((a, b) => a.t - b.t || a.d - b.d);
 	let current = 0;
 	let peak = 0;
 	for (const point of points) {

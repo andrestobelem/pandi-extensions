@@ -531,6 +531,25 @@ async function scenarioStreamingSigkillEscalation(url) {
 	if (result !== TIMED_OUT) check("runStreamingAgentProcess: reports killed", result.killed === true, JSON.stringify(result));
 }
 
+// F43: peak-parallel estimation must not overcount when one agent ends at the exact instant
+// another starts (a +1/-1 tie at the same timestamp must process the -1 first).
+async function scenarioPeakParallelTieAccuracy(url) {
+	const mod = await import(`${url}?pk=${instance++}`);
+	check("peak: estimatePeakParallelAgents exported", typeof mod.estimatePeakParallelAgents === "function", typeof mod.estimatePeakParallelAgents);
+	if (typeof mod.estimatePeakParallelAgents !== "function") return;
+	const est = mod.estimatePeakParallelAgents;
+	const backToBack = [
+		{ state: "completed", startedAt: "2026-01-01T00:00:00.000Z", endedAt: "2026-01-01T00:00:10.000Z" },
+		{ state: "completed", startedAt: "2026-01-01T00:00:10.000Z", endedAt: "2026-01-01T00:00:20.000Z" },
+	];
+	check("peak: back-to-back agents (one ends as next starts) count as 1", est(backToBack) === 1, String(est(backToBack)));
+	const overlapping = [
+		{ state: "completed", startedAt: "2026-01-01T00:00:00.000Z", endedAt: "2026-01-01T00:00:15.000Z" },
+		{ state: "completed", startedAt: "2026-01-01T00:00:10.000Z", endedAt: "2026-01-01T00:00:20.000Z" },
+	];
+	check("peak: genuinely overlapping agents count as 2", est(overlapping) === 2, String(est(overlapping)));
+}
+
 // F14: run resolution must prefer an EXACT id match over a substring match on a different run
 // (otherwise `/workflow delete abc` could delete a run "abc123" instead of "abc").
 async function scenarioResolveRunExactMatchFirst(url) {
@@ -721,6 +740,7 @@ async function main() {
 		await scenarioResolveRunExactMatchFirst(url);
 		await scenarioRunProcessSigkillEscalation(url);
 		await scenarioStreamingSigkillEscalation(url);
+		await scenarioPeakParallelTieAccuracy(url);
 		const templatesUrl = await buildTemplates();
 		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
 		await scenarioScoutTemplateInjectionSafe(templatesMod);
