@@ -84,7 +84,6 @@ import { notify } from "./notify.js";
 import { collectLatestByKey } from "./session-state.js";
 import {
 	GOAL_STATE_TYPE,
-	GOAL_STATUS_KEY,
 	GOAL_DIR,
 	STATE_FILE,
 	DEFAULT_MAX_ITERATIONS,
@@ -101,6 +100,7 @@ import {
 import type { GoalStatus, GoalAssessment, GoalState, ActiveGoal } from "./types.js";
 import { makeGoalIterationPrompt, makeGoalVerificationPrompt } from "./prompts.js";
 import { runIndependentVerifier } from "./verifier.js";
+import { setGoalStatus, clearGoalStatus } from "./status.js";
 
 // Source of truth of "which timers live NOW". Map supports several, but P0 tools
 // resolve the single active goal (S4).
@@ -109,26 +109,6 @@ const activeGoals = new Map<string, ActiveGoal>();
 // ---------------------------------------------------------------------------
 // Status line
 // ---------------------------------------------------------------------------
-
-function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
-	if (!ctx.hasUI) return;
-	const theme = ctx.ui.theme;
-	const phase =
-		goal.gstatus === "verifying" ? " verifying" : goal.gstatus === "verifying-independent" ? " verifying⊥" : "";
-	const eta =
-		(goal.gstatus === "pursuing" || goal.gstatus === "verifying") && goal.nextFireAt
-			? ` next ${formatEta(goal.nextFireAt)}`
-			: "";
-	const reason = goal.lastReason ? ` · ${goal.lastReason}` : "";
-	ctx.ui.setStatus(
-		GOAL_STATUS_KEY,
-		`${theme.fg("accent", "◎ goal")} ${theme.fg("dim", `it ${goal.iteration}/${goal.maxIterations}${phase}${eta}${reason}`)}`,
-	);
-}
-
-function clearGoalStatus(ctx: ExtensionContext): void {
-	if (ctx.hasUI) ctx.ui.setStatus(GOAL_STATUS_KEY, undefined);
-}
 
 /** Refresh status from whatever goal is currently active (pursuing/verifying), if any. */
 function refreshGoalStatus(ctx: ExtensionContext): void {
