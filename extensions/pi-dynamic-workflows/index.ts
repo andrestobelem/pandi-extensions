@@ -5252,7 +5252,10 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	handleInput(data: string): void {
 		const opensMonitor = matchesKey(data, Key.down);
 		const opensAgents = matchesKey(data, Key.left);
-		if (!opensMonitor && !opensAgents) {
+		// Only treat ↓/← as dashboard-open gestures from a genuinely empty editor.
+		// With a composed prompt they must stay normal cursor movements (← at col 0 of
+		// a written prompt used to surprise-open the Agents dashboard).
+		if ((!opensMonitor && !opensAgents) || this.base.getText().trim() !== "") {
 			this.base.handleInput(data);
 			return;
 		}

@@ -294,6 +294,17 @@ async function scenarioLeftMovementDoesNotOpen(url) {
 	check("left that moves cursor does not open dashboard", customCalls.length === 0, `calls=${customCalls.length}`);
 }
 
+async function scenarioLeftWithTextDoesNotOpen(url) {
+	// A composed prompt with the cursor at col 0: ← must stay a normal editor key,
+	// not surprise-open the Agents dashboard (the gesture is for an EMPTY editor).
+	const base = makeBaseEditor({ text: "hello world", cursor: { line: 0, col: 0 } });
+	const { wrapped, customCalls } = await installEditor(url, base);
+	wrapped.handleInput("left");
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	check("left with a non-empty prompt does not open the dashboard", customCalls.length === 0, `calls=${customCalls.length}`);
+	check("left with a non-empty prompt is delegated to the editor", base.handledInputs.includes("left"), JSON.stringify(base.handledInputs));
+}
+
 async function scenarioWorkflowAgentsCommand(url) {
 	const project = await makeProject();
 	const ext = await freshExtension(url);
@@ -366,6 +377,7 @@ async function main() {
 	await scenarioLeftOpensAgents(url);
 	await scenarioDownStillOpensMonitor(url);
 	await scenarioLeftMovementDoesNotOpen(url);
+	await scenarioLeftWithTextDoesNotOpen(url);
 	await scenarioWorkflowAgentsCommand(url);
 	await scenarioWorkflowSessionsCommand(url);
 	await scenarioWorkflowSessionsEnterSwitches(url);
