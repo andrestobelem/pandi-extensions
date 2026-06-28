@@ -58,6 +58,7 @@ import {
 import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import { notify } from "../shared/notify.js";
+import { collectLatestByKey } from "../shared/session-state.js";
 import { blockedReason } from "./gate.js";
 import { makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
 
@@ -292,13 +293,7 @@ function exitPlan(pi: ExtensionAPI, ctx: ExtensionContext, reason: string): bool
  */
 function rehydrate(ctx: ExtensionContext): void {
 	const entries = ctx.sessionManager.getEntries();
-	const latest = new Map<string, PlanState>();
-	for (const entry of entries) {
-		if (entry.type !== "custom" || entry.customType !== PLAN_STATE_TYPE) continue;
-		const data = entry.data as PlanState | undefined;
-		if (!data || typeof data.planId !== "string") continue;
-		latest.set(data.planId, data); // last-wins
-	}
+	const latest = collectLatestByKey<PlanState>(entries, PLAN_STATE_TYPE, (d) => d.planId);
 
 	for (const state of latest.values()) {
 		// Only an ACTIVE plan needs to be restored (its gate must come back up). Terminal

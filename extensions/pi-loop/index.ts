@@ -87,6 +87,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { formatEta } from "../shared/time.js";
 import { notify } from "../shared/notify.js";
+import { collectLatestByKey } from "../shared/session-state.js";
 import { formatInterval, parseInterval } from "./interval.js";
 import { destructiveReason } from "./gate.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
@@ -826,13 +827,7 @@ function newerState(a: LoopState | undefined, b: LoopState | undefined): LoopSta
  */
 async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	const entries = ctx.sessionManager.getEntries();
-	const latestJsonl = new Map<string, LoopState>();
-	for (const entry of entries) {
-		if (entry.type !== "custom" || entry.customType !== LOOP_STATE_TYPE) continue;
-		const data = entry.data as LoopState | undefined;
-		if (!data || typeof data.loopId !== "string") continue;
-		latestJsonl.set(data.loopId, data); // last-wins within the JSONL
-	}
+	const latestJsonl = collectLatestByKey<LoopState>(entries, LOOP_STATE_TYPE, (d) => d.loopId);
 
 	// Resolve each loopId against its sidecar (newer-by-updatedAt wins). Also include
 	// sidecar-only loopIds: the sidecar is specifically the crash-recovery fallback for

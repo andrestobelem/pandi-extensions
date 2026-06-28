@@ -81,6 +81,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { formatEta } from "../shared/time.js";
 import { notify } from "../shared/notify.js";
+import { collectLatestByKey } from "../shared/session-state.js";
 
 const GOAL_STATE_TYPE = "goal-state";
 const GOAL_STATUS_KEY = "goal";
@@ -858,13 +859,7 @@ function activeGoal(): ActiveGoal | undefined {
  */
 function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	const entries = ctx.sessionManager.getEntries();
-	const latest = new Map<string, GoalState>();
-	for (const entry of entries) {
-		if (entry.type !== "custom" || entry.customType !== GOAL_STATE_TYPE) continue;
-		const data = entry.data as GoalState | undefined;
-		if (!data || typeof data.goalId !== "string") continue;
-		latest.set(data.goalId, data); // last-wins
-	}
+	const latest = collectLatestByKey<GoalState>(entries, GOAL_STATE_TYPE, (d) => d.goalId);
 
 	for (const state of latest.values()) {
 		// Recover goals that were live ("pursuing"/"verifying"/"verifying-independent") or
