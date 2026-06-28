@@ -26,12 +26,10 @@
  *   node extensions/pi-dynamic-workflows/tests/integration/prompt-catalog-single-source.test.mjs
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -41,17 +39,14 @@ const CLOSING = "Use these as patterns, not ceremony";
 
 // templates.ts has NO external imports, so it bundles standalone (no stubs needed).
 async function buildTemplates() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-prompt-ssot-"));
-	const src = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "templates.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "templates.mjs");
-	const r = spawnSync(
-		"npx",
-		["--yes", "esbuild", src, "--bundle", "--platform=node", "--format=esm", `--outfile=${out}`],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed: ${r.stderr || r.stdout}`);
-	return pathToFileURL(out).href;
+	// templates.ts has no peer-dependency imports, so no stubs are needed.
+	const { url } = await sharedBuildExtension({
+		name: "pi-dwf-prompt-ssot",
+		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "templates.ts"),
+		outName: "templates.mjs",
+		npx: "--yes",
+	});
+	return url;
 }
 
 /**
