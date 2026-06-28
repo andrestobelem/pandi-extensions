@@ -52,6 +52,7 @@ import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
 import { padRightVisible, renderSafeInline, stripAnsiCodes } from "./render-utils.js";
 import { MAX_TOOL_TEXT, safeJson, stringify, text, truncate } from "./format.js";
 import { appendJournalRecord, computeCallKey, computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId, normalizeBashResultForJournal, normalizeSubagentResultForJournal, stableStringify } from "./journal.js";
+import { getRunDirs, readRunRecord, readRunResult, readRunStatus, writeJsonFile, writeRunStatus } from "./run-store.js";
 import { formatParallelAgents, formatParallelAgentsCompact, getRunAgentConcurrency, getRunCachedCalls, getRunElapsedMs, getRunLogs, getRunParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusIcon, getRunStatusLabel, isResumableState, isRunResult } from "./run-state.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
 
@@ -320,7 +321,7 @@ interface PreparedWorkflowRun {
 	};
 }
 
-interface WorkflowRunStatus {
+export interface WorkflowRunStatus {
 	workflow: string;
 	scope: WorkflowScope;
 	file: string;
@@ -358,7 +359,7 @@ interface ActiveWorkflowRun {
 	promise?: Promise<WorkflowRunResult>;
 }
 
-const activeRuns = new Map<string, ActiveWorkflowRun>();
+export const activeRuns = new Map<string, ActiveWorkflowRun>();
 
 class AsyncMutex {
 	private tail: Promise<void> = Promise.resolve();
@@ -828,7 +829,7 @@ function getRunRoot(ctx: ExtensionContext): string {
 	return getGlobalRunRoot(ctx);
 }
 
-function getRunRoots(ctx: ExtensionContext): string[] {
+export function getRunRoots(ctx: ExtensionContext): string[] {
 	const roots = [getRunRoot(ctx), getGlobalRunRoot(ctx)];
 	return [...new Set(roots)];
 }
@@ -2373,75 +2374,6 @@ async function showWorkflowGraph(ctx: ExtensionContext, workflow: WorkflowFile, 
 		return;
 	}
 	notify(ctx, renderWorkflowGraphDocumentLines(model, 100).join("\n"), "info");
-}
-
-async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
-	const dirs: Array<{ full: string; mtimeMs: number }> = [];
-	for (const root of getRunRoots(ctx)) {
-		if (!existsSync(root)) continue;
-		const entries = await fs.readdir(root, { withFileTypes: true });
-		dirs.push(...await Promise.all(
-			entries
-				.filter((entry) => entry.isDirectory())
-				.map(async (entry) => {
-					const full = path.join(root, entry.name);
-					const stat = await fs.stat(full);
-					return { full, mtimeMs: stat.mtimeMs };
-				}),
-		));
-	}
-	return dirs.sort((a, b) => b.mtimeMs - a.mtimeMs).map((entry) => entry.full);
-}
-
-async function writeJsonFile(file: string, value: unknown): Promise<void> {
-	// Atomic write: write to a unique temp file then rename, so a crash mid-write
-	// never leaves a truncated/corrupt status.json or result.json behind.
-	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
-	await fs.writeFile(temp, `${safeJson(value)}\n`, "utf8");
-	try {
-		await fs.rename(temp, file);
-	} catch (err) {
-		await fs.rm(temp, { force: true }).catch(() => {});
-		throw err;
-	}
-}
-
-async function writeRunStatus(status: WorkflowRunStatus): Promise<void> {
-	await writeJsonFile(path.join(status.runDir, "status.json"), status);
-}
-
-async function readRunResult(runDir: string): Promise<WorkflowRunResult | undefined> {
-	try {
-		return JSON.parse(await fs.readFile(path.join(runDir, "result.json"), "utf8")) as WorkflowRunResult;
-	} catch {
-		return undefined;
-	}
-}
-
-async function readRunStatus(runDir: string): Promise<WorkflowRunStatus | undefined> {
-	try {
-		const status = JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")) as WorkflowRunStatus;
-		if (status.state === "running" && !activeRuns.has(status.runId)) {
-			const now = Date.now();
-			const started = new Date(status.startedAt).getTime();
-			return {
-				...status,
-				state: "stale",
-				active: false,
-				updatedAt: new Date(now).toISOString(),
-				elapsedMs: Number.isFinite(started) ? now - started : status.elapsedMs,
-			};
-		}
-		return { ...status, active: status.state === "running" && activeRuns.has(status.runId) };
-	} catch {
-		return undefined;
-	}
-}
-
-async function readRunRecord(runDir: string): Promise<WorkflowRunRecord | undefined> {
-	const result = await readRunResult(runDir);
-	if (result) return result;
-	return await readRunStatus(runDir);
 }
 
 interface ParsedRunEvents {
