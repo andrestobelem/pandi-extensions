@@ -160,6 +160,11 @@ async function realStartCompletesAndLogs(url) {
 	check("start: returns before release/completion", !existsSync(job.release));
 	let status = await readJson(path.join(job.runDir, "status.json"));
 	check("start: status reaches running before release", status.state === "running", JSON.stringify(status));
+	if (process.platform === "win32") {
+		check("start: process startId capture deferred on win32", status.startId === undefined, JSON.stringify(status));
+	} else {
+		check("start: status records a non-empty process startId", typeof status.startId === "string" && status.startId.length > 0, JSON.stringify(status));
+	}
 	await fs.writeFile(job.release, "go");
 	status = await waitFor("completed status", async () => {
 		const s = await readJson(path.join(job.runDir, "status.json"));
@@ -365,6 +370,27 @@ async function interruptedAndStaleStatesAreDerived(url) {
 	const listMsg = ctx._notes.at(-1)?.msg || "";
 	check("list: reflects interrupted state", /dead-job: interrupted/.test(listMsg), listMsg);
 	check("list: reflects stale fallback state", /nopid-job: stale/.test(listMsg), listMsg);
+}
+
+async function processStartIdCapturesIdentity(url) {
+	const mod = await import(`${url}?startid=${instance++}`);
+	const readStartId = mod.readProcessStartId;
+	check("startid: readProcessStartId is exported", typeof readStartId === "function", typeof readStartId);
+	if (typeof readStartId !== "function") return;
+	check(
+		"startid: invalid pids yield undefined",
+		readStartId(undefined) === undefined && readStartId(0) === undefined && readStartId(-1) === undefined && readStartId(1.5) === undefined,
+	);
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("startid: probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	if (process.platform === "win32") {
+		// Windows identity capture is deferred (graceful degradation to best-effort liveness).
+		check("startid: win32 identity capture is deferred (undefined)", readStartId(process.pid) === undefined, String(readStartId(process.pid)));
+	} else {
+		const self = readStartId(process.pid);
+		check("startid: a live process yields a non-empty identity", typeof self === "string" && self.length > 0, String(self));
+		check("startid: a reaped pid yields undefined", readStartId(dead.pid) === undefined, String(readStartId(dead.pid)));
+	}
 }
 
 async function livenessProbeClassifiesPids(url) {
@@ -699,6 +725,7 @@ async function main() {
 	await orphanedPidIsLabeledNotKilled(url);
 	await interruptedAndStaleStatesAreDerived(url);
 	await livenessProbeClassifiesPids(url);
+	await processStartIdCapturesIdentity(url);
 	await reconcileRewritesDeadRunningJobs(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);

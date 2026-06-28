@@ -6,9 +6,9 @@
  */
 
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import * as crypto from "node:crypto";
-import { createWriteStream, type WriteStream } from "node:fs";
+import { createWriteStream, readFileSync, type WriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
@@ -50,6 +50,7 @@ interface JobStatus {
 	jobId: string;
 	state: JobState;
 	pid?: number;
+	startId?: string;
 	startedAt?: string;
 	updatedAt: string;
 	completedAt?: string;
@@ -108,6 +109,33 @@ type Liveness = "alive" | "dead" | "unknown";
 // included). NOTE: a pid can be reused after the original process is reaped, so
 // "alive" means "some process holds this pid", not "our job is still running" — the
 // reason we only use this to LABEL a read, never to signal a persisted pid.
+// Capture a stable per-process start identity so a later probe can distinguish our
+// job's process from an unrelated one that reused its pid. Best-effort, degrading
+// across platforms: Linux reads /proc (no subprocess); macOS/BSD shell out to
+// `ps -o lstart=`; anything else (e.g. Windows) returns undefined and callers fall
+// back to the existing best-effort liveness label.
+export function readProcessStartId(pid: number | undefined): string | undefined {
+	if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return undefined;
+	try {
+		if (process.platform === "linux") {
+			const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+			// comm can contain spaces/parens, so parse fields after the last ')'. starttime is
+			// field 22 (1-indexed) => index 19 of the post-comm tokens.
+			const afterComm = stat.slice(stat.lastIndexOf(")") + 1).trim().split(/\s+/);
+			const starttime = afterComm[19];
+			return starttime ? `lin:${starttime}` : undefined;
+		}
+		if (process.platform === "darwin" || process.platform.endsWith("bsd")) {
+			const res = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8" });
+			const out = res.status === 0 ? (res.stdout ?? "").trim() : "";
+			return out ? `ps:${out}` : undefined;
+		}
+		return undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 export function probeProcessAlive(pid: number | undefined): Liveness {
 	if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return "unknown";
 	try {
@@ -447,7 +475,8 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 		safeFinalize(runtime, code, signal);
 	});
 
-	await writeStatus(runtime, { state: "running", pid: child.pid });
+	const startId = readProcessStartId(child.pid);
+	await writeStatus(runtime, { state: "running", pid: child.pid, ...(startId ? { startId } : {}) });
 	await appendEvent(runDir, { event: "running", jobId, pid: child.pid });
 
 	return response(
