@@ -20,7 +20,8 @@ import * as path from "node:path";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { activeRuns, getRunRoots } from "./index.js";
+import { activeRuns } from "./index.js";
+import { getRunRoots } from "./workflow-resolve.js";
 import { safeJson } from "./format.js";
 import type { WorkflowRunStatus, WorkflowRunResult, WorkflowRunRecord } from "./index.js";
 

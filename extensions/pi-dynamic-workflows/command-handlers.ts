@@ -40,14 +40,8 @@ import {
 	runWorkflowWithUi,
 	switchToPiSession,
 } from "./dashboard-orchestration.js";
-import {
-	currentWorkflowDepth,
-	ensureDir,
-	listWorkflows,
-	maxWorkflowDepth,
-	parsePatternFlag,
-	resolveWorkflow,
-} from "./index.js";
+import { currentWorkflowDepth, maxWorkflowDepth } from "./index.js";
+import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow } from "./workflow-resolve.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import { showWorkflowGraph } from "./workflow-graph.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";

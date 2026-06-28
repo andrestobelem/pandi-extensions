@@ -33,7 +33,8 @@ import {
 } from "./graph-parse.js";
 import { padRightVisible } from "./render-utils.js";
 import { runProcess } from "./process-spawn.js";
-import { EXTENSION_ROOT, ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./index.js";
+import { EXTENSION_ROOT } from "./index.js";
+import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";
 import type { ProcessResult } from "./process-spawn.js";
 import type { WorkflowFile } from "./index.js";
 import { WorkflowGraphComponent } from "./workflow-graph-component.js";

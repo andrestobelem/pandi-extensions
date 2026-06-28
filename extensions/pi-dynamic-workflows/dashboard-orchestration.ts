@@ -32,7 +32,8 @@ import {
 import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "./config.js";
 import { loadWorkflowPatternCode } from "./templates.js";
 import type { WorkflowPattern } from "./templates.js";
-import { runWorkflow, resolveWorkflow, activeRuns, ensureDir, listWorkflows } from "./index.js";
+import { runWorkflow, activeRuns } from "./index.js";
+import { resolveWorkflow, ensureDir, listWorkflows } from "./workflow-resolve.js";
 import {
 	canCancelRun,
 	clearWorkflowWidget,

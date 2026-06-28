@@ -15,7 +15,8 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import { formatElapsedMs } from "./presentation.js";
 import { writeJsonFile } from "./run-store.js";
-import { activeRuns, ensureDir, projectHash, PI_SESSION_HEARTBEAT_MS } from "./index.js";
+import { activeRuns, PI_SESSION_HEARTBEAT_MS } from "./index.js";
+import { ensureDir, projectHash } from "./workflow-resolve.js";
 import { getAgentDir, CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 

@@ -19,7 +19,8 @@ import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId
 import { buildLimits, limitParamsFromInput } from "./config.js";
 import { notify } from "./notify.js";
 import { runWorkflowWithUi } from "./dashboard-orchestration.js";
-import { runWorkflow, prepareWorkflowRun, resolveWorkflow, activeRuns, ensureDir } from "./index.js";
+import { runWorkflow, prepareWorkflowRun, activeRuns } from "./index.js";
+import { resolveWorkflow, ensureDir } from "./workflow-resolve.js";
 import { refreshActiveWorkflowStatus, formatRunSummary } from "./run-status-ui.js";
 import type {
 	ActiveWorkflowRun,
