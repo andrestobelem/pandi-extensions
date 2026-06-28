@@ -134,11 +134,36 @@ async function belowThresholdNeverCompacts(url) {
 	check("below: no compaction while under threshold", env.state.compactCount === 0, `compactCount=${env.state.compactCount}`);
 }
 
+// Pure unit-level coverage for parseThreshold (named export). Imports the
+// bundled module directly; does not instantiate the extension.
+async function parseThresholdEdgeCases(url) {
+	const mod = await import(`${url}?i=${instance++}`);
+	const parseThreshold = mod.parseThreshold;
+	check("parseThreshold: exported as a function", typeof parseThreshold === "function", `typeof=${typeof parseThreshold}`);
+	if (typeof parseThreshold !== "function") return;
+
+	const cases = [
+		["50", 50],
+		["50%", 50],
+		["0", undefined], // <= 0 rejected
+		["100", undefined], // >= 100 rejected
+		["", undefined],
+		[undefined, undefined],
+		["abc", undefined], // NaN rejected
+		[" 75 ", 75], // trimmed
+	];
+	for (const [input, expected] of cases) {
+		const actual = parseThreshold(input);
+		check(`parseThreshold(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`, actual === expected, `got ${JSON.stringify(actual)}`);
+	}
+}
+
 async function main() {
 	const url = await build();
 	await stuckAboveThresholdDoesNotLoop(url);
 	await genuineRecrossRetriggers(url);
 	await belowThresholdNeverCompacts(url);
+	await parseThresholdEdgeCases(url);
 
 	console.log(`\n${passed} passed, ${failed} failed`);
 	if (failed) {

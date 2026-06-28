@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 const DEFAULT_THRESHOLD_PERCENT = 50;
 
-const parseThreshold = (value: string | undefined): number | undefined => {
+export const parseThreshold = (value: string | undefined): number | undefined => {
 	if (!value) return undefined;
 	const parsed = Number(value.trim().replace(/%$/, ""));
 	if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 100) return undefined;
