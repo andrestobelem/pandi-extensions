@@ -1,0 +1,471 @@
+#!/usr/bin/env node
+/**
+ * Durable behavioral integration test for extensions/pi-typescript-lsp/index.ts.
+ *
+ * Honest + hermetic (no network):
+ * - Unit-tests the pure helpers (parseTscDiagnostics / isTsFile / findNearestTsconfig /
+ *   filterToTouched / formatDiagnostics / shouldRun / diagnosticsKey) directly against
+ *   the same bundle's exports.
+ * - Runs a REAL end-to-end check: a temp project (tsconfig.json + a .ts with a type
+ *   error), driven through the extension's tool_result tracker + agent_end edge, with
+ *   the REAL tsc from this repo (PI_TS_LSP_TSC → node_modules/typescript/lib/tsc.js).
+ *   Reports the error; once the file is fixed, the next edge is clean.
+ * - Verifies: tool + command registered; tracker records only touched .ts files;
+ *   agent_end does NOT run with no TS touched / in an aborted run; advisory feedback
+ *   by default (sendMessage nextTurn) with dedupe; autofix opt-in (followUp +
+ *   triggerTurn) honoring the per-prompt budget.
+ */
+
+import { existsSync } from "node:fs";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REAL_TSC = path.join(REPO_ROOT, "node_modules", "typescript", "lib", "tsc.js");
+
+const { check, counts } = createChecker();
+
+async function buildBundle() {
+	// Stub the SDK (pi-coding-agent) the same way pi-worktree does: index.ts uses it
+	// for TYPES only (erased), but its real runtime drags in cross-spawn's dynamic
+	// require, which breaks an ESM bundle. pi-ai + typebox bundle from node_modules.
+	return await buildExtension({
+		name: "pi-typescript-lsp-build",
+		src: path.join(REPO_ROOT, "extensions", "pi-typescript-lsp", "index.ts"),
+		outName: "typescript-lsp.mjs",
+		stubs: { sdk: 'export const CONFIG_DIR_NAME = ".pi";\n' },
+		npx: "--no-install",
+	});
+}
+
+// --- mocks (calque of pi-worktree's makePi/makeCtx, plus event + message capture) ---
+
+function makePi() {
+	const commands = new Map();
+	const tools = new Map();
+	const handlers = new Map();
+	const messages = [];
+	return {
+		pi: {
+			registerCommand: (name, opts) => commands.set(name, opts),
+			registerTool: (tool) => tools.set(tool.name, tool),
+			on: (event, handler) => handlers.set(event, handler),
+			sendMessage: (message, options) => messages.push({ message, options }),
+		},
+		commands,
+		tools,
+		handlers,
+		messages,
+	};
+}
+
+function makeCtx({ cwd, mode = "tui", idle = true, pending = false, signal } = {}) {
+	const notes = [];
+	const ctx = {
+		mode,
+		hasUI: mode !== "print",
+		cwd,
+		signal,
+		isIdle: () => idle,
+		hasPendingMessages: () => pending,
+		ui: { notify: (msg, type) => notes.push({ msg, type }) },
+	};
+	ctx._notes = notes;
+	return ctx;
+}
+
+function lastNote(ctx) {
+	return ctx._notes.at(-1) ?? { msg: "", type: undefined };
+}
+
+// Load a fresh extension instance. `env` overrides INIT-TIME settings (read once in
+// the default export, e.g. PI_TS_LSP_MODE / PI_TS_LSP_AUTOFIX); they are restored after
+// wiring. PI_TS_LSP_TSC is RUNTIME state (read on every tsc spawn) and is set once,
+// persistently, in main() — never here.
+async function loadExtension(url, env = {}) {
+	const extension = await loadDefault(url);
+	const saved = {};
+	for (const [k, v] of Object.entries(env)) {
+		saved[k] = process.env[k];
+		if (v === undefined) delete process.env[k];
+		else process.env[k] = v;
+	}
+	try {
+		const harness = makePi();
+		extension(harness.pi);
+		return harness;
+	} finally {
+		for (const [k] of Object.entries(env)) {
+			if (saved[k] === undefined) delete process.env[k];
+			else process.env[k] = saved[k];
+		}
+	}
+}
+
+async function makeProject({ content }) {
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-proj-"));
+	await fs.writeFile(
+		path.join(dir, "tsconfig.json"),
+		JSON.stringify({ compilerOptions: { strict: true, noEmit: true, skipLibCheck: true } }),
+		"utf8",
+	);
+	const file = path.join(dir, "sample.ts");
+	await fs.writeFile(file, content, "utf8");
+	return { dir, file };
+}
+
+const BAD_TS = "export const x: string = 123;\n";
+const BAD_TS_2 = "export const y: number = true;\n";
+const GOOD_TS = 'export const x: string = "ok";\n';
+
+function touch(handlers, ctx, filePath, { toolName = "write", isError = false } = {}) {
+	handlers.get("tool_result")({ toolName, isError, input: { path: filePath } }, ctx);
+}
+
+async function fireAgentEnd(handlers, ctx) {
+	await handlers.get("agent_end")({ type: "agent_end", messages: [] }, ctx);
+}
+
+// --- unit blocks: pure helpers tested against the bundle's exports -----------
+
+async function scenarioPureHelpers(url) {
+	const mod = await loadModule(url);
+
+	// isTsFile
+	for (const [p, want] of [
+		["a.ts", true],
+		["a.tsx", true],
+		["a.mts", true],
+		["a.cts", true],
+		["a.d.ts", false],
+		["a.js", false],
+		["", false],
+		["dir/b.TS", true],
+	]) {
+		check(`isTsFile(${JSON.stringify(p)}) === ${want}`, mod.isTsFile(p) === want, p);
+	}
+
+	// parseTscDiagnostics: two diagnostics, CRLF, an indented continuation line,
+	// and a non-indented summary line that must be ignored.
+	const out = [
+		"src/a.ts(1,7): error TS2322: Type 'number' is not assignable to type 'string'.\r",
+		"src/b.ts(10,3): error TS2554: Expected 1 arguments, but got 0.",
+		"    An argument for 'x' was not provided.",
+		"Found 2 errors in 2 files.",
+	].join("\n");
+	const diags = mod.parseTscDiagnostics(out);
+	check("parseTscDiagnostics: two diagnostics", diags.length === 2, String(diags.length));
+	check(
+		"parseTscDiagnostics: fields parsed",
+		diags[0].file === "src/a.ts" &&
+			diags[0].line === 1 &&
+			diags[0].col === 7 &&
+			diags[0].code === "TS2322" &&
+			diags[0].severity === "error",
+		JSON.stringify(diags[0]),
+	);
+	check(
+		"parseTscDiagnostics: CRLF stripped from message",
+		!/\r/.test(diags[0].message),
+		JSON.stringify(diags[0].message),
+	);
+	check(
+		"parseTscDiagnostics: indented continuation folded in",
+		/An argument for 'x'/.test(diags[1].message),
+		JSON.stringify(diags[1].message),
+	);
+	check("parseTscDiagnostics: empty input → []", mod.parseTscDiagnostics("").length === 0);
+
+	// formatDiagnostics: top-N + "(+N más)"
+	const many = Array.from({ length: 25 }, (_, i) => ({
+		file: `f${i}.ts`,
+		line: i + 1,
+		col: 1,
+		code: "TS1",
+		severity: "error",
+		message: "boom",
+	}));
+	const fmt = mod.formatDiagnostics(many, { maxErrors: 20 });
+	check("formatDiagnostics: hasErrors", fmt.hasErrors === true);
+	check(
+		"formatDiagnostics: shows exactly maxErrors lines + overflow note",
+		fmt.text.split("\n").length === 21 && /\(\+5 más\)/.test(fmt.text),
+		fmt.text.split("\n").length + " | " + fmt.text.split("\n").at(-1),
+	);
+	const clean = mod.formatDiagnostics([], {});
+	check("formatDiagnostics: empty → no errors, empty text", !clean.hasErrors && clean.text === "");
+
+	// shouldRun: full truth table around the gate.
+	check(
+		"shouldRun: runs when touched + idle + !aborted + !pending",
+		mod.shouldRun({ touched: 1, aborted: false, idle: true, pending: false }) === true,
+	);
+	check(
+		"shouldRun: no touched → false",
+		mod.shouldRun({ touched: 0, aborted: false, idle: true, pending: false }) === false,
+	);
+	check(
+		"shouldRun: aborted → false",
+		mod.shouldRun({ touched: 1, aborted: true, idle: true, pending: false }) === false,
+	);
+	check(
+		"shouldRun: not idle → false",
+		mod.shouldRun({ touched: 1, aborted: false, idle: false, pending: false }) === false,
+	);
+	check(
+		"shouldRun: pending → false",
+		mod.shouldRun({ touched: 1, aborted: false, idle: true, pending: true }) === false,
+	);
+
+	// diagnosticsKey: stable + order-independent, distinct for distinct diagnostics.
+	const d1 = [
+		{ file: "/x/a.ts", line: 1, col: 1, code: "TS1", severity: "error", message: "a" },
+		{ file: "/x/b.ts", line: 2, col: 2, code: "TS2", severity: "error", message: "b" },
+	];
+	const d2 = [d1[1], d1[0]];
+	check("diagnosticsKey: order-independent", mod.diagnosticsKey(d1) === mod.diagnosticsKey(d2));
+	const d3 = [{ file: "/x/a.ts", line: 9, col: 1, code: "TS1", severity: "error", message: "a" }];
+	check("diagnosticsKey: distinct diagnostics differ", mod.diagnosticsKey(d1) !== mod.diagnosticsKey(d3));
+}
+
+async function scenarioFindNearestTsconfig(url) {
+	const mod = await loadModule(url);
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-find-"));
+	const sub = path.join(root, "a", "b");
+	await fs.mkdir(sub, { recursive: true });
+	const tsconfig = path.join(root, "tsconfig.json");
+	await fs.writeFile(tsconfig, "{}", "utf8");
+	const found = mod.findNearestTsconfig(path.join(sub, "deep.ts"), root);
+	check("findNearestTsconfig: walks up to root tsconfig", found === tsconfig, found);
+
+	const noConfig = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-none-"));
+	const fb = mod.findNearestTsconfig(path.join(noConfig, "x.ts"), noConfig);
+	check("findNearestTsconfig: fallback <cwd>/tsconfig.json", fb === path.join(noConfig, "tsconfig.json"), fb);
+	await fs.rm(root, { recursive: true, force: true });
+	await fs.rm(noConfig, { recursive: true, force: true });
+}
+
+async function scenarioFilterToTouched(url) {
+	const mod = await loadModule(url);
+	const diags = [
+		{ file: "/repo/a.ts", line: 1, col: 1, code: "TS1", severity: "error", message: "m" },
+		{ file: "/repo/a.ts", line: 1, col: 1, code: "TS1", severity: "error", message: "m" }, // dup
+		{ file: "/repo/other.ts", line: 2, col: 1, code: "TS2", severity: "error", message: "n" },
+	];
+	const filtered = mod.filterToTouched(diags, ["/repo/a.ts"]);
+	check("filterToTouched: keeps only touched files", filtered.length === 1, String(filtered.length));
+	check("filterToTouched: dedupes identical diagnostics", filtered[0].file === path.resolve("/repo/a.ts"));
+	check("filterToTouched: drops untouched file", !filtered.some((d) => d.file.endsWith("other.ts")));
+}
+
+// --- behavior blocks --------------------------------------------------------
+
+async function scenarioRegisters(url) {
+	const { commands, tools } = await loadExtension(url);
+	check("/tsc command registered", commands.has("tsc"));
+	check("/tsc has description", /typescript/i.test(commands.get("tsc")?.description || ""));
+	check("typescript_diagnostics tool registered", tools.has("typescript_diagnostics"));
+	const tool = tools.get("typescript_diagnostics");
+	check("tool is sequential", tool?.executionMode === "sequential");
+	check(
+		"tool has prompt guidelines naming the tool",
+		Array.isArray(tool?.promptGuidelines) && tool.promptGuidelines.some((g) => /typescript_diagnostics/.test(g)),
+	);
+	check("tool has promptSnippet", typeof tool?.promptSnippet === "string" && tool.promptSnippet.length > 0);
+	// /tsc subcommand completions
+	const gac = commands.get("tsc").getArgumentCompletions;
+	const sc = gac("sc");
+	check("completions: 'sc' → scope", Array.isArray(sc) && sc.length === 1 && sc[0].value === "scope");
+	check("completions: second token → null", gac("scope ") === null);
+}
+
+async function scenarioTrackerOnlyTs(url) {
+	const { handlers, tools } = await loadExtension(url);
+	const { dir } = await makeProject({ content: GOOD_TS });
+	const ctx = makeCtx({ cwd: dir });
+
+	// A non-.ts write must NOT be tracked → on-demand touched check sees nothing.
+	touch(handlers, ctx, path.join(dir, "note.md"));
+	touch(handlers, ctx, path.join(dir, "script.js"));
+	let res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
+	check(
+		"tracker: ignores non-.ts writes",
+		res.details?.count === 0 && /No TypeScript files have been touched/.test(res.content?.[0]?.text || ""),
+		JSON.stringify(res.details),
+	);
+
+	// An errored tool_result must NOT be tracked either.
+	touch(handlers, ctx, path.join(dir, "sample.ts"), { isError: true });
+	res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
+	check("tracker: ignores errored results", res.details?.count === 0, JSON.stringify(res.details));
+
+	// A real .ts write IS tracked → the on-demand check actually runs tsc (clean here).
+	touch(handlers, ctx, path.join(dir, "sample.ts"));
+	res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
+	check(
+		"tracker: records .ts and runs a clean check",
+		res.details?.hasErrors === false && /clean/i.test(res.content?.[0]?.text || ""),
+		JSON.stringify(res.details),
+	);
+	await fs.rm(dir, { recursive: true, force: true });
+}
+
+async function scenarioAdvisoryE2E(url) {
+	const { handlers, messages } = await loadExtension(url);
+	const { dir, file } = await makeProject({ content: BAD_TS });
+	const ctx = makeCtx({ cwd: dir });
+
+	// Touch the bad file, then fire the coherent edge → advisory feedback.
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("advisory e2e: one message sent", messages.length === 1, String(messages.length));
+	const sent = messages[0];
+	check("advisory e2e: customType is pi-typescript-lsp", sent?.message?.customType === "pi-typescript-lsp");
+	check("advisory e2e: deliverAs nextTurn", sent?.options?.deliverAs === "nextTurn");
+	check("advisory e2e: not a triggerTurn", !sent?.options?.triggerTurn);
+	check("advisory e2e: display true", sent?.message?.display === true);
+	check(
+		"advisory e2e: reports the real TS error",
+		/TS2322/.test(sent?.message?.content || ""),
+		sent?.message?.content,
+	);
+	check(
+		"advisory e2e: details carry diagnostics",
+		sent?.message?.details?.count === 1 && Array.isArray(sent?.message?.details?.diagnostics),
+		JSON.stringify(sent?.message?.details),
+	);
+
+	// Same errors again → dedupe: no new message.
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("advisory e2e: identical report is de-duplicated", messages.length === 1, String(messages.length));
+
+	// Fix the file → next edge is clean, still no new message.
+	await fs.writeFile(file, GOOD_TS, "utf8");
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("advisory e2e: clean after fix → no new message", messages.length === 1, String(messages.length));
+	await fs.rm(dir, { recursive: true, force: true });
+}
+
+async function scenarioGateNoRun(url) {
+	const { handlers, messages } = await loadExtension(url);
+	const { dir, file } = await makeProject({ content: BAD_TS });
+
+	// No TS touched → agent_end is a no-op.
+	const idleCtx = makeCtx({ cwd: dir });
+	await fireAgentEnd(handlers, idleCtx);
+	check("gate: no touched TS → no message", messages.length === 0, String(messages.length));
+
+	// Touched but the run was aborted → no message.
+	const ac = new AbortController();
+	ac.abort();
+	const abortedCtx = makeCtx({ cwd: dir, signal: ac.signal });
+	touch(handlers, abortedCtx, file);
+	await fireAgentEnd(handlers, abortedCtx);
+	check("gate: aborted run → no message", messages.length === 0, String(messages.length));
+	await fs.rm(dir, { recursive: true, force: true });
+}
+
+async function scenarioAutofixBudget(url) {
+	const { handlers, messages } = await loadExtension(url, {
+		PI_TS_LSP_MODE: "autofix",
+		PI_TS_LSP_AUTOFIX: "on",
+	});
+	const { dir, file } = await makeProject({ content: BAD_TS });
+	const ctx = makeCtx({ cwd: dir });
+
+	// Start a prompt (resets the budget), touch the bad file, fire the edge.
+	handlers.get("agent_start")({ type: "agent_start" }, ctx);
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("autofix: one follow-up sent", messages.length === 1, String(messages.length));
+	check("autofix: deliverAs followUp", messages[0]?.options?.deliverAs === "followUp");
+	check("autofix: triggerTurn true", messages[0]?.options?.triggerTurn === true);
+
+	// A DIFFERENT error within the same prompt → budget (1) is exhausted, so even a
+	// non-duplicate report does NOT trigger another fix turn.
+	await fs.writeFile(file, BAD_TS_2, "utf8");
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("autofix: per-prompt budget caps follow-ups", messages.length === 1, String(messages.length));
+
+	// New prompt resets the budget → a fresh follow-up is allowed again.
+	handlers.get("agent_start")({ type: "agent_start" }, ctx);
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("autofix: new prompt re-arms the budget", messages.length === 2, String(messages.length));
+	await fs.rm(dir, { recursive: true, force: true });
+}
+
+async function scenarioCommandRun(url) {
+	const { commands, handlers, messages } = await loadExtension(url);
+	const { dir, file } = await makeProject({ content: BAD_TS });
+	const ctx = makeCtx({ cwd: dir });
+
+	// status
+	await commands.get("tsc").handler("status", ctx);
+	check("cmd status: reports state", /TypeScript diagnostics: on/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+
+	// max <n> rejects junk, accepts a positive int.
+	await commands.get("tsc").handler("max zero", ctx);
+	check("cmd max: rejects non-int", /Usage: \/tsc max/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	await commands.get("tsc").handler("max 5", ctx);
+	check("cmd max: accepts positive int", /max errors: 5/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+
+	// project-scope run reports the error directly via notify (human surface).
+	await commands.get("tsc").handler("scope project", ctx);
+	await commands.get("tsc").handler("run", ctx);
+	check(
+		"cmd run (project): reports the real error",
+		/TS2322/.test(lastNote(ctx).msg) && lastNote(ctx).type === "warning",
+		lastNote(ctx).msg,
+	);
+
+	// off → the coherent edge becomes a no-op even with a touched bad file.
+	await commands.get("tsc").handler("off", ctx);
+	check("cmd off: disabled state acknowledged", /disabled/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("cmd off: agent_end is a no-op when disabled", messages.length === 0, String(messages.length));
+	await fs.rm(dir, { recursive: true, force: true });
+}
+
+async function main() {
+	if (!existsSync(REAL_TSC)) {
+		console.error(`Missing real tsc for e2e: ${REAL_TSC}`);
+		process.exit(2);
+	}
+	// PI_TS_LSP_TSC is runtime state read on every tsc spawn — set it once for the suite.
+	process.env.PI_TS_LSP_TSC = REAL_TSC;
+	const { outDir, url } = await buildBundle();
+	try {
+		await scenarioPureHelpers(url);
+		await scenarioFindNearestTsconfig(url);
+		await scenarioFilterToTouched(url);
+		await scenarioRegisters(url);
+		await scenarioTrackerOnlyTs(url);
+		await scenarioAdvisoryE2E(url);
+		await scenarioGateNoRun(url);
+		await scenarioAutofixBudget(url);
+		await scenarioCommandRun(url);
+	} finally {
+		await fs.rm(outDir, { recursive: true, force: true });
+	}
+
+	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
+	if (counts.failed) {
+		console.log("Failures:");
+		for (const failure of counts.failures) console.log(`- ${failure}`);
+		process.exit(1);
+	}
+}
+
+main().catch((error) => {
+	console.error(error);
+	process.exit(2);
+});
