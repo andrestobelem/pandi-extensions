@@ -101,6 +101,11 @@ const DEFAULT_MAX_WALL_CLOCK_MS = 6 * 60 * 60 * 1000; // 6h absolute deadline by
 const DEFAULT_CONTEXT_PERCENT_CAP = 90; // stop if getContextUsage().percent exceeds this.
 // Fixed-interval bounds (seconds). The model never picks these; the user does via the
 // interval token, so the only purpose is sanity (no zero / no absurdly long period).
+// DELIBERATE: unlike the model-driven dynamic cadence (loop_schedule, clamped to
+// [60,3600]), fixed mode is user-owned and intentionally allows sub-60s periods (e.g.
+// `/loop <task> 30s`, pinned by loop-behavior tests). A too-eager cadence is bounded by
+// the iteration cap, the 6h wall-clock deadline, and FIFO serialization; `0s` is rejected
+// by parseInterval and falls back to the dynamic (clamped) cadence.
 const MIN_FIXED_INTERVAL_SECONDS = 1;
 const MAX_FIXED_INTERVAL_SECONDS = 24 * 60 * 60; // 24h.
 const INTERVAL_RE = /^(\d+)(s|m|h)$/;
