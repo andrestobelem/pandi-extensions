@@ -18,7 +18,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext extensions/*/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
     "lint:md": "markdownlint-cli2",
     "lint:md:fix": "markdownlint-cli2 --fix",
     "test:integration": "node scripts/test/run-all.mjs",
