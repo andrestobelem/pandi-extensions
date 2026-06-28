@@ -463,6 +463,19 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 	check("a healthy refresh clears the failure marker", recovered.includes("updated") && !recovered.includes("refresh failed"), recovered.split("\n").slice(0, 2).join(" | "));
 }
 
+async function scenarioLiveAgentHeaderStatus(url) {
+	// The live agent viewer used to hardcode 'refresh 1s' in its header even after
+	// the agent finished (and kept polling). The header label must reflect state.
+	const mod = await import(url);
+	const fn = mod.liveAgentHeaderStatus;
+	check("liveAgentHeaderStatus is exported", typeof fn === "function", String(typeof fn));
+	if (typeof fn !== "function") return;
+	check("running agent live header advertises 'refresh 1s'", fn("running") === "refresh 1s", String(fn("running")));
+	check("unknown/undefined state keeps the polling label", fn(undefined) === "refresh 1s" && fn("unknown") === "refresh 1s", `${fn(undefined)} | ${fn("unknown")}`);
+	check("completed agent live header shows 'final', not 'refresh 1s'", fn("completed") === "final (completed)", String(fn("completed")));
+	check("failed agent live header shows 'final'", fn("failed") === "final (failed)", String(fn("failed")));
+}
+
 async function main() {
 	const { url } = await buildExtension();
 	await scenarioIdleStatusShowsEntrypoint(url);
@@ -479,6 +492,7 @@ async function main() {
 	await scenarioAgentsJumpToFailed(url);
 	await scenarioMonitorMultiRun(url);
 	await scenarioMonitorHelpGating(url);
+	await scenarioLiveAgentHeaderStatus(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 

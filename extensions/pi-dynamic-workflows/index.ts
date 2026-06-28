@@ -3641,9 +3641,23 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 	].join("\n");
 }
 
+const TERMINAL_AGENT_STATES: ReadonlySet<string> = new Set(["completed", "failed", "cached"]);
+
+function isTerminalAgentState(state: string | undefined): boolean {
+	return state !== undefined && TERMINAL_AGENT_STATES.has(state);
+}
+
+// Header status label for the live agent viewer: keep advertising the 1s poll
+// only while the agent can still change; show a stable "final" marker once it
+// reaches a terminal state (and the poll is stopped).
+export function liveAgentHeaderStatus(state: string | undefined): string {
+	return isTerminalAgentState(state) ? `final (${state})` : "refresh 1s";
+}
+
 class AgentLiveViewComponent {
 	private lines: string[] = ["Loading agent execution…"];
 	private scroll = 0;
+	private agentState: string | undefined;
 
 	constructor(
 		private readonly theme: any,
@@ -3652,8 +3666,9 @@ class AgentLiveViewComponent {
 		private readonly requestRender: () => void = () => {},
 	) {}
 
-	setContent(content: string): void {
+	setContent(content: string, state?: string): void {
 		this.lines = content.split(/\r?\n/);
+		if (state !== undefined) this.agentState = state;
 		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
 	}
 
@@ -3677,7 +3692,7 @@ class AgentLiveViewComponent {
 		const page = this.pageSize();
 		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
 		const line = (textValue: string) => truncateToWidth(textValue, w, "…");
-		const header = this.theme.fg("accent", "Live workflow agent") + this.theme.fg("dim", ` • refresh 1s • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`);
+		const header = this.theme.fg("accent", "Live workflow agent") + this.theme.fg("dim", ` • ${liveAgentHeaderStatus(this.agentState)} • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`);
 		return [
 			line(header),
 			line(this.theme.fg("dim", "─".repeat(Math.min(w, 120)))),
@@ -3718,8 +3733,11 @@ async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, 
 					refreshing = true;
 					try {
 						const latest = await latestAgentForRun(run, agent);
-						component.setContent(await formatAgentView(run, latest));
+						component.setContent(await formatAgentView(run, latest), latest.state);
 						tui.requestRender();
+						// Stop polling once the agent is terminal; the final output stays
+						// on screen until the user closes the view.
+						if (timer && isTerminalAgentState(latest.state)) { clearInterval(timer); timer = undefined; }
 					} finally {
 						refreshing = false;
 					}
