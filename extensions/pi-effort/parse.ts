@@ -19,6 +19,12 @@ export type EffortTarget =
 	| { kind: "ultracode" }
 	| { kind: "invalid"; value: string };
 
+/**
+ * Lightweight prefix/separator words dropped before resolving the final
+ * significant token (e.g. `/effort thinking=high`, `/effort level high`).
+ */
+const PREFIX_WORDS = ["thinking", "think", "level", "effort"];
+
 const LEVEL_ALIASES: Record<string, ThinkingLevel> = {
 	"0": "off",
 	false: "off",
@@ -54,7 +60,7 @@ export function parseEffortTarget(raw: string): EffortTarget {
 		.replace(/[=:,]/g, " ")
 		.split(/\s+/)
 		.filter(Boolean)
-		.filter((token) => !["thinking", "think", "level", "effort"].includes(token));
+		.filter((token) => !PREFIX_WORDS.includes(token));
 	const token = tokens[tokens.length - 1] ?? value;
 	const level = LEVEL_ALIASES[token];
 	if (level) return { kind: "level", level };
