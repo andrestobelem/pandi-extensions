@@ -98,9 +98,12 @@ const SAFETY_NET_DELAY_SECONDS = 1500;
 const DEFAULT_CONTEXT_PERCENT_CAP = 90;
 // How many recent assessments to keep in the progress log (bounded continuity).
 const PROGRESS_LOG_KEEP = 12;
-// How many failed verifications (done → verifying → continue) we tolerate before we
-// stop the goal as blocked. Defends against a "self-declares done, fails the check,
-// keeps going" ping-pong silently burning the whole iteration budget without progress.
+// How many failed SELF completeness checks (done → verifying → continue) we tolerate
+// before we stop the goal as blocked. Defends against a "self-declares done, fails the
+// check, keeps going" ping-pong silently burning the whole iteration budget without
+// progress. DISTINCT from DEFAULT_MAX_INDEPENDENT_VERIFICATIONS below: this caps the
+// model judging ITSELF (verifying); that one caps the independent read-only judge
+// (verifying-independent).
 const MAX_VERIFY_ATTEMPTS = 3;
 
 // --- P1: independent adversarial verification (defaults) ---------------------
@@ -112,7 +115,10 @@ const DEFAULT_VERIFIER_TOOLS = ["read", "grep", "find", "ls"] as const;
 const DEFAULT_VERIFIER_TIMEOUT_MS = 120_000;
 // How many FAILED independent verifications we tolerate before stopping as blocked.
 // Small on purpose: a model that keeps claiming done while an independent judge keeps
-// failing it needs a human, not more turns.
+// failing it needs a human, not more turns. DISTINCT from MAX_VERIFY_ATTEMPTS above:
+// that caps the SELF check (verifying); this caps the independent judge
+// (verifying-independent). Each independent round spawns a separate `pi -p` process,
+// so this gate is not free — keep it small.
 const DEFAULT_MAX_INDEPENDENT_VERIFICATIONS = 2;
 // pi command used to spawn the verifier subagent (mirrors dynamic-workflows.ts).
 const PI_COMMAND = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi";
