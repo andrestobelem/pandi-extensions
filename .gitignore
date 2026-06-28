@@ -29,6 +29,8 @@ examples/.pi/
 **/.pi/chats/
 .pi/plans/
 **/.pi/plans/
+# Stray native /export output (no path) lands a pi-session-*.html in the repo root.
+pi-session-*.html
 
 # Pi git worktrees scratch space (default base for the pi-worktree extension).
 .pi/worktrees/
