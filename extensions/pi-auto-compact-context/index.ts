@@ -536,7 +536,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 
 			// `bar` (toggle), `bar on`, `bar off` — control the footer progress bar.
 			if (trimmed === "bar" || trimmed.startsWith("bar ")) {
-				const arg = trimmed.slice(3).trim();
+				const arg = trimmed.slice("bar ".length).trim();
 				const next = arg === "" ? !showBar : parseBarSetting(arg);
 				if (next === undefined) {
 					notify(ctx, "Usage: /auto-compact-context bar [on|off]", "warning");
