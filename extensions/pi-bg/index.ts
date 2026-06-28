@@ -515,14 +515,11 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 
 function killRuntime(runtime: RuntimeJob, signal: NodeJS.Signals): void {
 	if (isJobFinished(runtime)) return;
-	if (process.platform !== "win32" && runtime.child.pid) {
-		process.kill(-runtime.child.pid, signal);
-		return;
+	if (runtime.child.pid) {
+		signalProcessGroup(runtime.child.pid, signal);
+		if (process.platform !== "win32") return; // a POSIX group signal already covers the children
 	}
-	if (process.platform === "win32" && runtime.child.pid) {
-		spawn("taskkill", ["/pid", String(runtime.child.pid), "/T", ...(signal === "SIGKILL" ? ["/F"] : [])], { stdio: "ignore", windowsHide: true }).on("error", () => undefined);
-	}
-	runtime.child.kill(signal);
+	runtime.child.kill(signal); // win32 belt-and-suspenders, and the no-pid fallback
 }
 
 // Signal a detached job's whole process group by its persisted pid (pgid === pid,
