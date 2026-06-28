@@ -12,8 +12,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { PassThrough, Writable } from "node:stream";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -25,37 +25,14 @@ function shellQuote(value) {
 }
 
 async function buildBg() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-jobs-integration-"));
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-	const src = path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "bg.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--no-install",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for bg: ${r.stderr || r.stdout}`);
-	return { url: pathToFileURL(out).href };
-}
-
-let instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${instance++}`);
-	return mod.default;
+	const { url } = await buildExtension({
+		name: "pi-bg-jobs-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts"),
+		outName: "bg.mjs",
+		stubs: { sdk: (dir) => sdkStub(dir) },
+		npx: "--no-install",
+	});
+	return { url };
 }
 
 function makePi() {
@@ -95,7 +72,7 @@ function makeCtx({ cwd, trusted = true, mode = "tui", hasUI = true } = {}) {
 }
 
 async function loadExtension(url) {
-	const extension = await freshDefault(url);
+	const extension = await loadDefault(url);
 	const { pi, commands, tools } = makePi();
 	extension(pi);
 	return { commands, tools };
@@ -373,7 +350,7 @@ async function interruptedAndStaleStatesAreDerived(url) {
 }
 
 async function processStartIdCapturesIdentity(url) {
-	const mod = await import(`${url}?startid=${instance++}`);
+	const mod = await loadModule(url);
 	const readStartId = mod.readProcessStartId;
 	check("startid: readProcessStartId is exported", typeof readStartId === "function", typeof readStartId);
 	if (typeof readStartId !== "function") return;
@@ -394,7 +371,7 @@ async function processStartIdCapturesIdentity(url) {
 }
 
 async function livenessProbeClassifiesPids(url) {
-	const mod = await import(`${url}?live=${instance++}`);
+	const mod = await loadModule(url);
 	const probe = mod.probeProcessAlive;
 	check("liveness: probeProcessAlive is exported", typeof probe === "function", typeof probe);
 	if (typeof probe !== "function") return;
@@ -413,7 +390,7 @@ async function livenessProbeClassifiesPids(url) {
 }
 
 async function reconcileRewritesDeadRunningJobs(url) {
-	const mod = await import(`${url}?reconcile=${instance++}`);
+	const mod = await loadModule(url);
 	const reconcile = mod.reconcileInterruptedJobs;
 	check("reconcile: reconcileInterruptedJobs is exported", typeof reconcile === "function", typeof reconcile);
 	if (typeof reconcile !== "function") return;
@@ -466,7 +443,7 @@ async function reconcileRewritesDeadRunningJobs(url) {
 }
 
 async function verifyProcessIdentityDetectsReuse(url) {
-	const mod = await import(`${url}?verifyid=${instance++}`);
+	const mod = await loadModule(url);
 	const verify = mod.verifyProcessIdentity;
 	const readStartId = mod.readProcessStartId;
 	check("verify: verifyProcessIdentity is exported", typeof verify === "function", typeof verify);
@@ -484,7 +461,7 @@ async function verifyProcessIdentityDetectsReuse(url) {
 }
 
 async function identityDefeatsPidReuse(url) {
-	const mod = await import(`${url}?identity=${instance++}`);
+	const mod = await loadModule(url);
 	const readStartId = mod.readProcessStartId;
 	const reconcile = mod.reconcileInterruptedJobs;
 	const { commands } = await loadExtension(url);
@@ -533,7 +510,7 @@ async function cancelSignalsVerifiedOrphan(url) {
 		check("cancel-orphan: verified-orphan signaling exercised on POSIX only (skipped on win32)", true);
 		return;
 	}
-	const mod = await import(`${url}?cancelorphan=${instance++}`);
+	const mod = await loadModule(url);
 	const readStartId = mod.readProcessStartId;
 	const { commands } = await loadExtension(url);
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-cancel-orphan-"));
@@ -603,7 +580,7 @@ async function cancelRefusesReusedPid(url) {
 }
 
 async function logStreamErrorsAreContained(url) {
-	const mod = await import(`${url}?guard=${instance++}`);
+	const mod = await loadModule(url);
 	const guard = mod.guardStreamErrors;
 	check("guard: guardStreamErrors is exported", typeof guard === "function", typeof guard);
 	if (typeof guard !== "function") return;
@@ -647,7 +624,7 @@ async function logStreamErrorsAreContained(url) {
 }
 
 async function atomicWriteCleansTempOnRenameFailure(url) {
-	const mod = await import(`${url}?atomic=${instance++}`);
+	const mod = await loadModule(url);
 	const atomicWriteJson = mod.atomicWriteJson;
 	check("atomic: atomicWriteJson is exported", typeof atomicWriteJson === "function", typeof atomicWriteJson);
 	if (typeof atomicWriteJson !== "function") return;
@@ -691,7 +668,7 @@ async function startSurfacesFilesystemErrors(url) {
 }
 
 async function backpressurePausesSource(url) {
-	const mod = await import(`${url}?bp=${instance++}`);
+	const mod = await loadModule(url);
 	const pipe = mod.pipeWithBackpressure;
 	check("backpressure: pipeWithBackpressure is exported", typeof pipe === "function", typeof pipe);
 	if (typeof pipe !== "function") return;
@@ -720,7 +697,7 @@ async function backpressurePausesSource(url) {
 }
 
 async function backpressureRecoversWhenSinkDies(url) {
-	const mod = await import(`${url}?bpd=${instance++}`);
+	const mod = await loadModule(url);
 	const pipe = mod.pipeWithBackpressure;
 	check("backpressure-death: pipeWithBackpressure is exported", typeof pipe === "function", typeof pipe);
 	if (typeof pipe !== "function") return;
@@ -747,7 +724,7 @@ async function backpressureRecoversWhenSinkDies(url) {
 }
 
 async function writeCapStopsAndMarksLog(url) {
-	const mod = await import(`${url}?cap=${instance++}`);
+	const mod = await loadModule(url);
 	const pipe = mod.pipeWithBackpressure;
 	check("write-cap: pipeWithBackpressure is exported", typeof pipe === "function", typeof pipe);
 	if (typeof pipe !== "function") return;
@@ -777,7 +754,7 @@ async function writeCapStopsAndMarksLog(url) {
 }
 
 async function jobFinishedGuardRejectsCancel(url) {
-	const mod = await import(`${url}?finguard=${instance++}`);
+	const mod = await loadModule(url);
 	const isFinished = mod.isJobFinished;
 	check("cancel-guard: isJobFinished is exported", typeof isFinished === "function", typeof isFinished);
 	if (typeof isFinished !== "function") return;
@@ -789,7 +766,7 @@ async function jobFinishedGuardRejectsCancel(url) {
 }
 
 async function finalizeRejectionIsContained(url) {
-	const mod = await import(`${url}?fin=${instance++}`);
+	const mod = await loadModule(url);
 	const finalizeJob = mod.finalizeJob;
 	const safeFinalize = mod.safeFinalize;
 	check("finalize: finalizeJob is exported", typeof finalizeJob === "function", typeof finalizeJob);

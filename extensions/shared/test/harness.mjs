@@ -146,8 +146,41 @@ export async function writeStubs(outDir, spec = {}) {
 }
 
 /**
+ * Create a fresh tempdir and write the requested stubs into it, returning
+ * { outDir, aliases }. Use this when a suite bundles MORE THAN ONE entry that must
+ * share the same outDir/stubs (e.g. a consistent getAgentDir across two extensions);
+ * then call bundle() once per entry with the shared `aliases`.
+ */
+export async function makeBuildDir(name, stubs = {}) {
+	if (!name) throw new Error("makeBuildDir: { name } is required");
+	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), `${name}-`));
+	const aliases = await writeStubs(outDir, stubs);
+	return { outDir, aliases };
+}
+
+/**
+ * esbuild a single entry into <outDir>/<outName> with the given `--alias` map and
+ * return the file:// URL. Throws with esbuild's stderr on failure. Passing an alias
+ * for a module the entry never imports is harmless (esbuild simply ignores it).
+ */
+export async function bundle({ src, outDir, outName, aliases = {}, npx = "--yes" }) {
+	if (!src) throw new Error("bundle: { src } (absolute entry path) is required");
+	if (!outDir) throw new Error("bundle: { outDir } is required");
+	if (!outName) throw new Error("bundle: { outName } is required");
+	if (!existsSync(src)) throw new Error(`bundle: missing source: ${src}`);
+	const out = path.join(outDir, outName);
+	const args = [npx, "esbuild", src, "--bundle", "--platform=node", "--format=esm"];
+	for (const [specifier, file] of Object.entries(aliases)) args.push(`--alias:${specifier}=${file}`);
+	args.push(`--outfile=${out}`);
+	const r = spawnSync("npx", args, { cwd: REPO_ROOT, encoding: "utf8" });
+	if (r.status !== 0) throw new Error(`esbuild failed for ${outName}: ${r.stderr || r.stdout}`);
+	return pathToFileURL(out).href;
+}
+
+/**
  * Bundle a single extension entry to a tempdir ESM file via esbuild and return
- * { outDir, url }. Self-bootstrapping: never imports a stale build.
+ * { outDir, url }. Self-bootstrapping: never imports a stale build. Convenience
+ * wrapper around makeBuildDir + bundle for the common single-entry case.
  *
  * Options:
  *   - name:    tempdir prefix (e.g. "pi-bg-jobs-integration").
@@ -157,17 +190,7 @@ export async function writeStubs(outDir, spec = {}) {
  *   - npx:     "--yes" (default) or "--no-install" — preserved per suite.
  */
 export async function buildExtension({ name, src, outName, stubs = {}, npx = "--yes" }) {
-	if (!name) throw new Error("buildExtension: { name } is required");
-	if (!src) throw new Error("buildExtension: { src } (absolute entry path) is required");
-	if (!outName) throw new Error("buildExtension: { outName } is required");
-	if (!existsSync(src)) throw new Error(`buildExtension: missing source: ${src}`);
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), `${name}-`));
-	const aliases = await writeStubs(outDir, stubs);
-	const out = path.join(outDir, outName);
-	const args = [npx, "esbuild", src, "--bundle", "--platform=node", "--format=esm"];
-	for (const [specifier, file] of Object.entries(aliases)) args.push(`--alias:${specifier}=${file}`);
-	args.push(`--outfile=${out}`);
-	const r = spawnSync("npx", args, { cwd: REPO_ROOT, encoding: "utf8" });
-	if (r.status !== 0) throw new Error(`esbuild failed for ${name}: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
+	const { outDir, aliases } = await makeBuildDir(name, stubs);
+	const url = await bundle({ src, outDir, outName, aliases, npx });
+	return { outDir, url };
 }

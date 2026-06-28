@@ -16,8 +16,8 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -29,63 +29,28 @@ function stableHash(value) {
 }
 
 async function buildBg() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-integration-"));
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id };\nexport default { Type };\n",
-	);
-
-	const planSrc = path.join(REPO_ROOT, "extensions", "pi-plan", "index.ts");
-	if (!existsSync(planSrc)) throw new Error(`missing source: ${planSrc}`);
-	const planOut = path.join(outDir, "plan.mjs");
-	const planBuild = spawnSync(
-		"npx",
-		[
-			"--no-install",
-			"esbuild",
-			planSrc,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:typebox=${typeboxStub}`,
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${planOut}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (planBuild.status !== 0) throw new Error(`esbuild failed for plan: ${planBuild.stderr || planBuild.stdout}`);
-
-	const src = path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "bg.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--no-install",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for bg: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href, planUrl: pathToFileURL(planOut).href, agentDir: path.join(outDir, "agentdir") };
-}
-
-let instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${instance++}`);
-	return mod.default;
+	// pi-plan and pi-bg share ONE outDir + sdk stub so getAgentDir() is consistent
+	// across both bundles. The extra typebox alias is harmless for the bg bundle
+	// (esbuild ignores an alias for a module the entry never imports).
+	const { outDir, aliases } = await makeBuildDir("pi-bg-integration", {
+		typebox: true,
+		sdk: (dir) => sdkStub(dir),
+	});
+	const planUrl = await bundle({
+		src: path.join(REPO_ROOT, "extensions", "pi-plan", "index.ts"),
+		outDir,
+		outName: "plan.mjs",
+		aliases,
+		npx: "--no-install",
+	});
+	const url = await bundle({
+		src: path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts"),
+		outDir,
+		outName: "bg.mjs",
+		aliases,
+		npx: "--no-install",
+	});
+	return { outDir, url, planUrl, agentDir: path.join(outDir, "agentdir") };
 }
 
 function makePi() {
@@ -137,15 +102,15 @@ async function setupJob(runsDir, jobId, { command = "echo hi", state = "complete
 }
 
 async function loadExtension(url) {
-	const extension = await freshDefault(url);
+	const extension = await loadDefault(url);
 	const { pi, commands, tools } = makePi();
 	extension(pi);
 	return { commands, tools };
 }
 
 async function loadPlanAndBg(planUrl, bgUrl) {
-	const planExtension = await freshDefault(planUrl);
-	const bgExtension = await freshDefault(bgUrl);
+	const planExtension = await loadDefault(planUrl);
+	const bgExtension = await loadDefault(bgUrl);
 	const { pi, commands, tools } = makePi();
 	planExtension(pi);
 	bgExtension(pi);
@@ -172,7 +137,7 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 
 	await commands.get("plan").handler("design safely", ctx);
 	// A later same-process plan.ts load must not mask an already-active plan guard.
-	const reloadedPlanExtension = await freshDefault(planUrl);
+	const reloadedPlanExtension = await loadDefault(planUrl);
 	reloadedPlanExtension(makePi().pi);
 	await commands.get("bg").handler("start npm test", ctx);
 	const startMsg = ctx._notes.at(-1)?.msg || "";
@@ -436,7 +401,7 @@ async function planAliasStillPreviews(url) {
 }
 
 async function sessionStartReconcilesInterruptedJobs(url) {
-	const extension = await freshDefault(url);
+	const extension = await loadDefault(url);
 	const handlers = new Map();
 	const tools = new Map();
 	const pi = {
