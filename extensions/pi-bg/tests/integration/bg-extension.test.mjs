@@ -193,7 +193,15 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 	await commands.get("bg").handler("cancel job-1", ctx);
 	const cancelMsg = ctx._notes.at(-1)?.msg || "";
 	check("plan guard: /bg cancel rejected while plan mode active", /Cannot \/bg cancel while plan mode is active/.test(cancelMsg));
-	check("plan guard: still registers no background_job\/bg LLM tools", tools.size === 1 && tools.has("submit_plan"), `registered tools: ${[...tools.keys()].join(",")}`);
+	// bg's mutating surface is human-only slash commands: it must register ZERO LLM tools. The
+	// tools map here holds only what the bundled plan+bg extensions registered, so the invariant
+	// is "no bg/background_job tool" (plan owns submit_plan + enter_plan_mode). Asserted by tool
+	// NAME rather than a frozen count so adding plan tools never silently breaks this guard.
+	check(
+		"plan guard: still registers no background_job\/bg LLM tools",
+		!tools.has("background_job") && !tools.has("bg") && tools.has("submit_plan") && tools.has("enter_plan_mode"),
+		`registered tools: ${[...tools.keys()].join(",")}`,
+	);
 
 	await commands.get("plan").handler("exit", ctx);
 }

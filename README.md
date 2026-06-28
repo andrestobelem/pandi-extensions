@@ -81,6 +81,8 @@ Comandos humanos:
 
 También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` y la extensión lo transforma en una petición orientada a workflows.
 
+Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza).
+
 ### Ultracode always-on
 
 La extensión activa por defecto un router estilo Claude Code `/effort ultracode`: en cada tarea sustantiva Pi evalúa si conviene resolver normalmente o crear/ejecutar un workflow dinámico. No fuerza workflows para tareas simples; solo añade criterio de ruteo al system prompt cuando el tool `dynamic_workflow` está disponible. El router always-on por sí solo no cambia el thinking level para evitar modificar coste/modelo sin una decisión explícita; `/effort ultracode` sí pide `xhigh` explícitamente.

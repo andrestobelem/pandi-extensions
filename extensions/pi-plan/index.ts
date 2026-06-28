@@ -17,12 +17,23 @@
  *      ctx.ui.confirm (≈ Claude's ExitPlanMode). Approve → lift the gate, re-inject
  *      "implement this". Reject → stay gated, return the rejection to the model.
  *
+ * Two ways IN, one way to mutate:
+ *   - HUMAN:  /plan <task>                  (the slash command)
+ *   - MODEL:  enter_plan_mode({ task })     (a model-callable tool, so Pi can decide ON ITS
+ *                                            OWN to plan a risky/multi-step change — "cuando
+ *                                            le parezca"). Same armed/persisted state; the
+ *                                            only difference is delivery of the planning
+ *                                            instruction (command wakes a user message; the
+ *                                            tool returns it as its own result). The model can
+ *                                            ENTER but never APPROVE — approval stays human.
+ *
  * Flow:
- *   /plan <task>
+ *   /plan <task>   (or model: enter_plan_mode({ task }))
  *     → guard mode (print/json → notify + refuse)
- *     → activate plan-mode (in-memory + persisted)
+ *     → activate plan-mode (in-memory + persisted) via createAndArmPlan
  *     → arm read-only GATE (tool_call handler blocks mutations)
- *     → inject the planning instruction (research read-only, then submit_plan)
+ *     → deliver the planning instruction (command: inject a user message; tool: return it as
+ *       the tool result) — research read-only, then submit_plan
  *          ↓ (model researches with read tools only; mutations blocked)
  *     model calls submit_plan({ plan })
  *     → ctx.ui.confirm(title, plan)
@@ -227,6 +238,32 @@ async function handleToolCall(event: ToolCallEvent): Promise<ToolCallEventResult
 // Start / exit
 // ---------------------------------------------------------------------------
 
+/**
+ * Create a fresh plan and ARM the read-only gate (active=true), persist it, and light the
+ * status line. Pure of any DELIVERY decision: it does NOT inject the planning instruction —
+ * the caller chooses how the model receives it. The /plan COMMAND wakes a user message; the
+ * model-callable enter_plan_mode TOOL returns the instruction as its own tool result (so the
+ * model keeps planning in the SAME turn without a second injected message). Assumes the
+ * caller already passed the guards (canPlanInMode, non-empty task, no plan already active).
+ */
+function createAndArmPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanState {
+	const planId = crypto.randomBytes(4).toString("hex");
+	const plan: PlanState = {
+		planId,
+		task,
+		active: true,
+		status: "planning",
+		submissions: 0,
+		rejections: 0,
+		startedAt: Date.now(),
+		updatedAt: new Date().toISOString(),
+	};
+	activePlans.set(planId, plan);
+	persist(pi, plan);
+	setPlanStatus(ctx, plan);
+	return plan;
+}
+
 function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanState | undefined {
 	// Mode gate (HARD RULE): plan mode needs an interactive approval; print/json cannot
 	// deliver it. Refuse to enter.
@@ -244,24 +281,11 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 		return currentPlan();
 	}
 
-	const planId = crypto.randomBytes(4).toString("hex");
-	const plan: PlanState = {
-		planId,
-		task: trimmed,
-		active: true,
-		status: "planning",
-		submissions: 0,
-		rejections: 0,
-		startedAt: Date.now(),
-		updatedAt: new Date().toISOString(),
-	};
-	activePlans.set(planId, plan);
-	persist(pi, plan);
-	setPlanStatus(ctx, plan);
-
-	// Inject the planning instruction (research read-only, then submit_plan when ready).
+	const plan = createAndArmPlan(pi, ctx, trimmed);
+	// Command path: inject the planning instruction as a user message (research read-only,
+	// then submit_plan when ready), because the command runs out-of-band of the model's turn.
 	wake(pi, ctx, makePlanningPrompt(plan));
-	notify(ctx, `Entered plan mode (${planId}). Read-only until you approve a plan. Task: ${trimmed}`, "info");
+	notify(ctx, `Entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`, "info");
 	return plan;
 }
 
@@ -438,6 +462,89 @@ export default function planExtension(pi: ExtensionAPI): void {
 					},
 				],
 				details: { planId: livePlan.planId, status: "rejected", rejections: livePlan.rejections },
+			};
+		},
+	});
+
+	// Model-callable AUTONOMOUS entry into plan mode (≈ Claude requesting plan mode itself).
+	// This is the affordance that lets Pi decide ON ITS OWN to plan before mutating — the gate,
+	// the approval handshake, and exit semantics are all unchanged; only the ENTRY is new. It
+	// reuses createAndArmPlan (the exact armed/persisted state the /plan command produces) and
+	// hands the planning instruction back AS ITS OWN RESULT so the model keeps planning in the
+	// same turn (no wake / second user message). It can ENTER but never APPROVE: the human still
+	// approves via submit_plan + ctx.ui.confirm.
+	pi.registerTool({
+		name: "enter_plan_mode",
+		label: "Enter Plan Mode",
+		description:
+			"Enter read-only plan mode yourself before implementing a non-trivial, multi-step, or risky change. Arms a read-only gate (write/edit and mutating shell commands are hard-blocked) so you research read-only and draft a plan, then present it via submit_plan for the user's explicit approval before any edits. Needs a TUI/RPC session.",
+		promptSnippet: "Enter read-only plan mode to research and present a plan before implementing.",
+		promptGuidelines: [
+			"Use enter_plan_mode on your own initiative when the user's request is non-trivial, multi-step, ambiguous, destructive, or far-reaching (refactors, migrations, schema/architecture changes, anything touching many files) and they have NOT already approved a concrete approach — it arms a read-only gate so you research safely, then you call submit_plan for explicit approval before any edits.",
+			"Do NOT use enter_plan_mode for trivial, single-step, read-only, or already-approved work, for answering questions, or when a plan, /goal, or /loop is already driving the turn — just do those directly.",
+			"enter_plan_mode needs an interactive approval, so it only takes effect in a TUI or RPC session; if it reports it could not enter (non-interactive mode) or that plan mode is already active, do NOT retry — continue the task (or, if already planning, keep researching read-only and call submit_plan).",
+			"After enter_plan_mode you are READ-ONLY: write/edit and mutating shell commands are hard-blocked until the user approves your plan, so finish researching and then call submit_plan — implementation happens only after approval.",
+		],
+		parameters: Type.Object({
+			task: Type.String({
+				minLength: 1,
+				description: "The task you intend to plan before implementing (what you will research and write a plan for).",
+			}),
+		}),
+		executionMode: "sequential",
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			// Mode gate (HARD RULE), identical to the /plan command: plan mode needs an interactive
+			// approval; print/json cannot deliver it. Refuse to arm the gate and tell the model to
+			// proceed normally rather than retry.
+			if (!canPlanInMode(ctx)) {
+				notify(
+					ctx,
+					"Cannot enter plan mode here: this session is not interactive (a TUI or RPC session is required). Proceeding without plan mode.",
+					"warning",
+				);
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: "Plan mode requires a TUI or RPC session and cannot run the approval handshake here. Do not enter plan mode; proceed with the task normally.",
+						},
+					],
+					details: { entered: false, reason: "mode" },
+				};
+			}
+			const trimmed = params.task.trim();
+			if (!trimmed) {
+				return {
+					content: [{ type: "text" as const, text: "enter_plan_mode requires a non-empty task describing what to plan." }],
+					details: { isError: true, entered: false, reason: "empty-task" },
+				};
+			}
+			// Idempotent no-op when a plan is already active (single-plan invariant): do NOT create a
+			// second plan; report the current one so the model keeps planning instead of re-entering.
+			if (planModeActive()) {
+				const current = currentPlan();
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Plan mode is already active${current ? ` (${current.planId})` : ""}. Continue researching read-only, then call submit_plan when your plan is ready.`,
+						},
+					],
+					details: { entered: false, reason: "already-active", planId: current?.planId },
+				};
+			}
+
+			const plan = createAndArmPlan(pi, ctx, trimmed);
+			notify(
+				ctx,
+				`Pi entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`,
+				"info",
+			);
+			// Tool path: hand the planning instruction back as THIS tool's result (no wake), so the
+			// model reads it immediately and keeps planning read-only in the same turn.
+			return {
+				content: [{ type: "text" as const, text: makePlanningPrompt(plan) }],
+				details: { entered: true, planId: plan.planId, status: "planning" },
 			};
 		},
 	});

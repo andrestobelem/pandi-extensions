@@ -640,6 +640,117 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 }
 
 // ===========================================================================
+// SCENARIO 7: AUTONOMOUS ENTRY via the model-callable enter_plan_mode tool.
+//
+// The whole point of this feature: Pi can arm plan mode ITSELF ("cuando le parezca"),
+// not only when a human types /plan. The tool must reach the SAME armed/persisted state
+// as the command, hand the planning instruction back through its OWN result (so the model
+// keeps planning in the same turn — no second user message / double injection), REFUSE in
+// non-interactive modes (no approval handshake possible), be an idempotent no-op when a
+// plan is already active, and then plug into the UNCHANGED submit_plan approval handshake.
+// ===========================================================================
+async function autonomousEntryViaTool(url) {
+	// --- 7a: tui → enter_plan_mode arms the read-only gate + persists planning, and hands
+	//          the planning instruction back AS THE TOOL RESULT (not via a wake message). ---
+	{
+		const planExtension = await freshDefault(url);
+		const { pi, tools, handlers, entries, sentMessages } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true });
+
+		const enter = tools.get("enter_plan_mode");
+		check("enter: enter_plan_mode tool registered", !!enter);
+		check(
+			"enter: tool exposes a non-empty promptSnippet",
+			!!enter && typeof enter.promptSnippet === "string" && enter.promptSnippet.length > 0,
+		);
+		check(
+			"enter: tool exposes non-empty promptGuidelines (so the model learns WHEN to use it)",
+			!!enter && Array.isArray(enter.promptGuidelines) && enter.promptGuidelines.length > 0,
+		);
+
+		// Before entry, a write is ALLOWED (gate not armed).
+		check("enter: write ALLOWED before enter_plan_mode", !(await writeBlocked(handlers, ctx)));
+
+		const res = await enter.execute("tc1", { task: "refactor the auth module" }, undefined, undefined, ctx);
+
+		// Observable: gate ARMED — the same write is now BLOCKED.
+		check("enter: write BLOCKED after enter_plan_mode (gate armed)", await writeBlocked(handlers, ctx));
+		// Observable: persisted ACTIVE planning state (same shape the command produces).
+		const st = latestPlanState(entries);
+		check("enter: persisted active=true", st && st.active === true);
+		check("enter: persisted status=planning", st && st.status === "planning");
+		check("enter: persisted task carried verbatim", st && st.task === "refactor the auth module");
+		// Observable: the tool result reports entered + carries the PLAN MODE instruction to the model.
+		check("enter: tool result details.entered=true", res && res.details && res.details.entered === true);
+		const text = res && res.content && res.content[0] && res.content[0].text;
+		check(
+			"enter: tool result carries the planning instruction (PLAN MODE + submit_plan)",
+			!!text && /PLAN MODE/i.test(text) && /submit_plan/i.test(text),
+		);
+		// Observable: NO extra user message injected — the instruction rides the tool result.
+		check("enter: no user message injected by the tool (no double injection)", sentMessages.length === 0);
+	}
+
+	// --- 7b: print → enter_plan_mode REFUSES; the gate is NEVER armed (no approval possible). ---
+	{
+		const planExtension = await freshDefault(url);
+		const { pi, tools, handlers, entries } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "print", hasUI: false });
+		const logged = [];
+		const origLog = console.log;
+		console.log = (...a) => logged.push(a.join(" "));
+		let res;
+		try {
+			res = await tools.get("enter_plan_mode").execute("tc1", { task: "do a thing" }, undefined, undefined, ctx);
+		} finally {
+			console.log = origLog;
+		}
+		check("enter(print): tool result details.entered=false", res && res.details && res.details.entered === false);
+		check("enter(print): no plan-state persisted", entries.find((e) => e.customType === "plan-state") === undefined);
+		check("enter(print): write ALLOWED (gate never armed)", !(await writeBlocked(handlers, ctx)));
+	}
+
+	// --- 7c: idempotent no-op when a plan is already active (no SECOND plan created). ---
+	{
+		const planExtension = await freshDefault(url);
+		const { pi, commands, tools, entries } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true });
+		await commands.get("plan").handler("first task", ctx);
+		const firstState = latestPlanState(entries);
+		const res = await tools.get("enter_plan_mode").execute("tc1", { task: "second task" }, undefined, undefined, ctx);
+		check("enter(active): tool result details.entered=false", res && res.details && res.details.entered === false);
+		check("enter(active): reason=already-active", res && res.details && res.details.reason === "already-active");
+		const lastState = latestPlanState(entries);
+		check(
+			"enter(active): no second plan created (planId unchanged)",
+			lastState && firstState && lastState.planId === firstState.planId,
+		);
+	}
+
+	// --- 7d: end-to-end — autonomous entry plugs into the UNCHANGED submit_plan handshake. ---
+	{
+		const planExtension = await freshDefault(url);
+		const { pi, tools, handlers, sentMessages } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: true });
+		await tools.get("enter_plan_mode").execute("tc1", { task: "ship the feature" }, undefined, undefined, ctx);
+		check("enter→approve: write BLOCKED while planning", await writeBlocked(handlers, ctx));
+		const planText = "# Plan\n1. step";
+		const res = await tools.get("submit_plan").execute("tc2", { plan: planText }, undefined, undefined, ctx);
+		check("enter→approve: write ALLOWED after approval (gate lifted)", !(await writeBlocked(handlers, ctx)));
+		check("enter→approve: submit_plan status=approved", res && res.details && res.details.status === "approved");
+		const wake = sentMessages[sentMessages.length - 1];
+		check(
+			"enter→approve: implement message injected with the plan text",
+			wake && /Implement now/i.test(wake.content) && wake.content.includes(planText),
+		);
+	}
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildPlan();
 	try {
@@ -649,6 +760,7 @@ async function main() {
 		await submitWithNoActivePlan(url);
 		await rehydrateReArmsActiveOnly(url);
 		await pendingConfirmCannotOverrideCurrentPlan(url);
+		await autonomousEntryViaTool(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

@@ -92,7 +92,7 @@ export function isMutatingBash(command: string): boolean {
  * Always blocked (the built-in mutating tools): write, edit. (notebook-edit is also blocked
  *                                                defensively by name, though it is not a
  *                                                built-in in this SDK — see note below.)
- * Always allowed (read-only built-ins):          read, grep, find, ls, submit_plan.
+ * Always allowed (read-only built-ins):          read, grep, find, ls, submit_plan, enter_plan_mode.
  * bash:                                           blocked iff the command matches the
  *                                                mutating allowlist (above); else allowed.
  * Known mutating custom tools:                    dynamic_workflow is blocked unless its
@@ -114,8 +114,11 @@ export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set(["list", "template", "r
 
 export function blockedReason(event: ToolCallEvent): string | undefined {
 	const name = event.toolName;
-	// submit_plan is the one permitted "output" (writing the plan).
-	if (name === "submit_plan") return undefined;
+	// submit_plan is the one permitted "output" (writing the plan). enter_plan_mode is the
+	// model's autonomous ENTRY into plan mode; it never mutates the workspace (it only arms the
+	// gate), so it is always allowed — calling it while a plan is already active is a harmless
+	// idempotent no-op handled by the tool itself.
+	if (name === "submit_plan" || name === "enter_plan_mode") return undefined;
 	// Structured built-in mutators are ALWAYS blocked. notebook-edit is matched by string
 	// compare (defensive — it is not a built-in tool name in this SDK, but blocking a
 	// non-existent name is inert and future-proofs against a notebook editor being added).
