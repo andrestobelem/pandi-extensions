@@ -2,37 +2,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Type } from "typebox";
-import {
-	composeInjectedMemory,
-	INDEX_FILE,
-	MEMORY_DIR,
-	normalizeNote,
-	slugifyTopic,
-	upsertMemoryNote,
-} from "./memory.js";
-
-/** `.pi/memory/` folder that holds the injected index plus on-demand topic files. */
-function memoryDirOf(cwd: string): string {
-	return join(cwd, ".pi", MEMORY_DIR);
-}
-/** `.pi/memory/MEMORY.md` — the entrypoint injected at startup. */
-function indexPathOf(cwd: string): string {
-	return join(memoryDirOf(cwd), INDEX_FILE);
-}
-/** Pre-folder location; still read as a fallback / migration source. */
-function legacyPathOf(cwd: string): string {
-	return join(cwd, ".pi", "MEMORY.md");
-}
-
-/** Read a file as text, or null when absent OR unreadable (EISDIR/EACCES/TOCTOU). */
-function safeRead(path: string): string | null {
-	try {
-		if (!existsSync(path)) return null;
-		return readFileSync(path, "utf8");
-	} catch {
-		return null;
-	}
-}
+import { composeInjectedMemory, INDEX_FILE, normalizeNote, slugifyTopic, upsertMemoryNote } from "./memory.js";
+import { memoryDirOf, indexPathOf, legacyPathOf, safeRead } from "./paths.js";
 
 /** Build a `remember` tool result with a single text block plus arbitrary details. */
 function result(text: string, details: Record<string, unknown>) {
