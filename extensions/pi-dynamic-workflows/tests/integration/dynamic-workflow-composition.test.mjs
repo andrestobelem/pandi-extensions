@@ -531,6 +531,25 @@ async function scenarioStreamingSigkillEscalation(url) {
 	if (result !== TIMED_OUT) check("runStreamingAgentProcess: reports killed", result.killed === true, JSON.stringify(result));
 }
 
+// F27: settleWithinTimeout must clear its timeout timer so a fast-settling promise (e.g. all
+// active runs aborting quickly at session shutdown) cannot keep the event loop alive ~3s.
+async function scenarioShutdownTimerNoLeak(url) {
+	const mod = await import(`${url}?st=${instance++}`);
+	check("shutdown: settleWithinTimeout exported", typeof mod.settleWithinTimeout === "function", typeof mod.settleWithinTimeout);
+	if (typeof mod.settleWithinTimeout !== "function") return;
+	// Real exit-timing check in a fresh process: with a fast promise vs a 3s timeout, the child
+	// must exit promptly. A leaked (uncleared) timer would hold the loop ~3s.
+	const childScript = `import(${JSON.stringify(url)}).then(async (m) => { await m.settleWithinTimeout(Promise.resolve("x"), 3000); process.stdout.write("SETTLED"); });`;
+	const start = Date.now();
+	const r = spawnSync("node", ["--input-type=module", "-e", childScript], { encoding: "utf8", timeout: 10000 });
+	const elapsed = Date.now() - start;
+	check(
+		"shutdown: settleWithinTimeout clears its timer (child exits promptly, no ~3s hang)",
+		r.status === 0 && /SETTLED/.test(r.stdout || "") && elapsed < 2000,
+		`status=${r.status} elapsed=${elapsed}ms out=${JSON.stringify(r.stdout)} err=${JSON.stringify((r.stderr || "").slice(0, 200))}`,
+	);
+}
+
 // F42: the per-file append mutex map must not grow unboundedly; entries are purged once no
 // writer is using a path, without breaking mutual exclusion for concurrent writers.
 async function scenarioAppendMutexPurge(url) {
@@ -778,6 +797,7 @@ async function main() {
 		await scenarioPeakParallelTieAccuracy(url);
 		await scenarioUltracodeTaskParsing(url);
 		await scenarioAppendMutexPurge(url);
+		await scenarioShutdownTimerNoLeak(url);
 		const templatesUrl = await buildTemplates();
 		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
 		await scenarioScoutTemplateInjectionSafe(templatesMod);

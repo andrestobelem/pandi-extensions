@@ -6417,13 +6417,28 @@ async function deleteWorkflowRun(ctx: ExtensionContext, id: string | undefined):
 	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
 }
 
+// Race a promise against a timeout. The timeout timer is always cleared afterwards so a
+// fast-settling promise can't leave a pending timer keeping the event loop alive (e.g. at
+// session shutdown).
+export async function settleWithinTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<void> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const guard = new Promise<void>((resolve) => {
+		timer = setTimeout(resolve, timeoutMs);
+	});
+	try {
+		await Promise.race([work.then(() => undefined), guard]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+}
+
 async function abortActiveWorkflowRuns(reason: string): Promise<void> {
 	const promises = [...activeRuns.values()].map((run) => {
 		run.controller.abort(reason);
 		return run.promise;
 	}).filter((promise): promise is Promise<WorkflowRunResult> => promise !== undefined);
 	if (promises.length === 0) return;
-	await Promise.race([Promise.allSettled(promises), new Promise((resolve) => setTimeout(resolve, 3000))]);
+	await settleWithinTimeout(Promise.allSettled(promises), 3000);
 	activeRuns.clear();
 }
 
