@@ -42,6 +42,10 @@ examples/.pi/
 .pi/extensions/
 **/.pi/extensions/
 
+# Pi project-local scratch space.
+.pi/tmp/
+**/.pi/tmp/
+
 # Logs and diagnostics
 logs
 *.log

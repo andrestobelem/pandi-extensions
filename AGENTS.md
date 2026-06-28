@@ -28,6 +28,10 @@ For broad, high-confidence, or repo-wide tasks, use the Ultracode router (`/ultr
 - Graph/start workflows in background with explicit `concurrency` and `maxAgents`, then inspect artifacts before trusting conclusions.
 - Subagents get `web_search` and `context7-cli` by default when installed; opt out only when isolation is required.
 
+## Scratch space
+
+Use the gitignored `.pi/tmp/` directory for throwaway temporary files (scratch scripts, previews, ad-hoc experiments). Do not commit them and do not scatter temp files across the repo.
+
 ## Commits
 
 - Use Conventional Commits with an explicit scope, for example `feat(dynamic-workflows): add monitor dashboard`.
