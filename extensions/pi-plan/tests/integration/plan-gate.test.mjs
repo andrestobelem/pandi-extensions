@@ -181,7 +181,7 @@ async function planGate(planUrl) {
 	}
 
 	// BLOCKED: mutating bash.
-	for (const cmd of ["rm -rf x", "mkdir generated", "touch generated.txt", "chmod +x script.sh", "git commit -m wip", "echo x > f", "node test.js 2>err.log", "sed -i 's/a/b/' f", "npm install lodash"]) {
+	for (const cmd of ["rm -rf x", "mkdir generated", "touch generated.txt", "chmod +x script.sh", "git commit -m wip", "echo x > f", "node test.js 2>err.log", "sed -i 's/a/b/' f", "npm install lodash", "cp template.txt config.json", "ln -sf /etc/hosts ./link", "install -m 0755 a b"]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`plan: BLOCKS bash "${cmd}"`, !!r && r.block === true);
 	}

@@ -278,6 +278,9 @@ const MUTATING_BASH_PATTERNS: RegExp[] = [
 	/\brm\b/i,
 	/\brmdir\b/i,
 	/\bmv\b/i,
+	/\bcp\b/i,
+	/\bln\b/i,
+	/\binstall\b/i, // GNU coreutils `install` creates files; also re-covers npm/pip install
 	/\btruncate\b/i,
 	/\bshred\b/i,
 	/\bunlink\b/i,
