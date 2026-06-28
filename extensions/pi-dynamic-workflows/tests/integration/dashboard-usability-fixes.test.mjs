@@ -269,6 +269,31 @@ async function scenarioAgentsSelectionStability(url) {
 	check("agents: delete still targets the selected agent's run after a reorder", dv?.type === "deleteRun" && dv?.run?.runId === "B", JSON.stringify(dv));
 }
 
+async function scenarioListPaging(url) {
+	const { component, getDone } = await openDashboardComponent(url);
+	const runs = Array.from({ length: 25 }, (_, i) => ({ runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 0, background: true, scope: "project" }));
+	component.setRuns(runs);
+	component.handleInput("tab"); // monitor -> agents
+	component.handleInput("tab"); // -> sessions
+	component.handleInput("tab"); // -> runs (index 0)
+
+	component.handleInput("end");
+	component.handleInput("v");
+	check("End jumps to the last run", getDone()?.run?.runId === "r24", JSON.stringify(getDone()));
+
+	component.handleInput("home");
+	component.handleInput("v");
+	check("Home jumps to the first run", getDone()?.run?.runId === "r0", JSON.stringify(getDone()));
+
+	component.handleInput("pageDown");
+	component.handleInput("v");
+	check("PageDown jumps a page (10) down", getDone()?.run?.runId === "r10", JSON.stringify(getDone()));
+
+	component.handleInput("pageUp");
+	component.handleInput("v");
+	check("PageUp jumps a page (10) up", getDone()?.run?.runId === "r0", JSON.stringify(getDone()));
+}
+
 async function scenarioEllipsisOnOverflow(url) {
 	const project = await makeProject();
 	const dash = await bootExtension(url, project, { customInputs: [] });
@@ -284,6 +309,7 @@ async function main() {
 	await scenarioBackspaceVsDelete(url);
 	await scenarioRunsSelectionStability(url);
 	await scenarioAgentsSelectionStability(url);
+	await scenarioListPaging(url);
 	await scenarioEllipsisOnOverflow(url);
 
 	if (failed > 0) {

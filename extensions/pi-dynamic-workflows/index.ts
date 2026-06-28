@@ -4149,6 +4149,45 @@ class WorkflowDashboard {
 		return data === "d" || matchesKey(data, Key.delete);
 	}
 
+	private activeListLength(): number {
+		switch (this.tab) {
+			case "monitor": return this.selectedMonitor()?.agents.length ?? 0;
+			case "agents": return this.agentEntries.length;
+			case "workflows": return this.workflows.length;
+			case "patterns": return WORKFLOW_PATTERN_CATALOG.length;
+			case "sessions": return this.piSessions.length;
+			case "runs": return this.runs.length;
+			case "activity": return this.activity.length;
+			default: return 0;
+		}
+	}
+
+	private getActiveIndex(): number {
+		switch (this.tab) {
+			case "monitor": return this.monitorAgentIndex;
+			case "agents": return this.agentIndex;
+			case "workflows": return this.workflowIndex;
+			case "patterns": return this.patternIndex;
+			case "sessions": return this.sessionIndex;
+			case "runs": return this.runIndex;
+			case "activity": return this.activityIndex;
+			default: return 0;
+		}
+	}
+
+	private setActiveIndex(value: number): void {
+		const clamped = Math.max(0, Math.min(this.activeListLength() - 1, value));
+		switch (this.tab) {
+			case "monitor": this.monitorAgentIndex = clamped; break;
+			case "agents": this.agentIndex = clamped; break;
+			case "workflows": this.workflowIndex = clamped; break;
+			case "patterns": this.patternIndex = clamped; break;
+			case "sessions": this.sessionIndex = clamped; break;
+			case "runs": this.runIndex = clamped; break;
+			case "activity": this.activityIndex = clamped; break;
+		}
+	}
+
 	handleInput(data: string): void {
 		if (matchesKey(data, Key.escape) || data === "q") {
 			this.done(null);
@@ -4216,6 +4255,18 @@ class WorkflowDashboard {
 			else if (this.tab === "runs") this.runIndex = Math.min(Math.max(0, this.runs.length - 1), this.runIndex + 1);
 			else if (this.tab === "activity") this.activityIndex = Math.min(Math.max(0, this.activity.length - 1), this.activityIndex + 1);
 			this.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.pageUp) || matchesKey(data, Key.pageDown) || matchesKey(data, Key.home) || matchesKey(data, Key.end)) {
+			// Page/Home/End jump within the active list, mirroring the live agent view.
+			const page = 10;
+			if (this.activeListLength() > 0) {
+				if (matchesKey(data, Key.pageUp)) this.setActiveIndex(this.getActiveIndex() - page);
+				else if (matchesKey(data, Key.pageDown)) this.setActiveIndex(this.getActiveIndex() + page);
+				else if (matchesKey(data, Key.home)) this.setActiveIndex(0);
+				else this.setActiveIndex(this.activeListLength() - 1);
+				this.requestRender();
+			}
 			return;
 		}
 		if (this.tab === "workflows") {
