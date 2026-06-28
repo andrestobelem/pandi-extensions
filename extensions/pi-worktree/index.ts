@@ -22,6 +22,7 @@ import {
 	buildListArgs,
 	buildPruneArgs,
 	buildRemoveArgs,
+	DEFAULT_GIT_TIMEOUT_MS as GIT_TIMEOUT_MS,
 	describeWorktree,
 	isValidBranchName,
 	parseWorktreeList,
@@ -50,8 +51,6 @@ function notify(ctx: ExtensionContext, message: string, type: "info" | "warning"
 	// Headless without UI: surface problems on stderr instead of silently dropping them.
 	if (type !== "info") console.error(message);
 }
-
-const GIT_TIMEOUT_MS = 30_000;
 
 /** A short, single-line reason from a failed git invocation. */
 function gitError(result: GitResult): string {
