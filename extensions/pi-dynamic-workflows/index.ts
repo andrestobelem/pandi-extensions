@@ -4044,6 +4044,19 @@ async function deriveWorkflowMonitorModels(runs: WorkflowRunRecord[]): Promise<W
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
 type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
 
+// Keep the cursor on the same item when a list is rebuilt/reordered under it
+// (lists are mtime-sorted and refreshed every 1.5s, so a fixed index would
+// silently retarget destructive actions). Falls back to clamped position when
+// the previously-selected item is gone.
+function reselectIndexByKey<T>(previous: T[], previousIndex: number, next: T[], keyOf: (item: T) => string): number {
+	const clamped = Math.min(previousIndex, Math.max(0, next.length - 1));
+	const prev = previous[previousIndex];
+	if (!prev) return clamped;
+	const key = keyOf(prev);
+	const found = next.findIndex((item) => keyOf(item) === key);
+	return found >= 0 ? found : clamped;
+}
+
 class WorkflowDashboard {
 	private tab: WorkflowDashboardTab;
 	private workflowIndex = 0;
@@ -4070,29 +4083,31 @@ class WorkflowDashboard {
 	}
 
 	setRuns(runs: WorkflowRunRecord[]): void {
+		this.runIndex = reselectIndexByKey(this.runs, this.runIndex, runs, (run) => run.runId);
 		this.runs = runs;
-		this.runIndex = Math.min(this.runIndex, Math.max(0, runs.length - 1));
 	}
 
 	setActivity(activity: WorkflowActivityEntry[]): void {
+		this.activityIndex = reselectIndexByKey(this.activity, this.activityIndex, activity, (entry) => `${entry.runId}|${entry.time}|${entry.message}`);
 		this.activity = activity;
-		this.activityIndex = Math.min(this.activityIndex, Math.max(0, activity.length - 1));
 	}
 
 	setPiSessions(sessions: PiSessionModel[]): void {
+		this.sessionIndex = reselectIndexByKey(this.piSessions, this.sessionIndex, sessions, (session) => session.sessionId ?? session.sessionFile ?? session.file ?? String(session.pid));
 		this.piSessions = sessions;
-		this.sessionIndex = Math.min(this.sessionIndex, Math.max(0, sessions.length - 1));
 	}
 
 	setAgentEntries(entries: WorkflowAgentEntry[]): void {
+		this.agentIndex = reselectIndexByKey(this.agentEntries, this.agentIndex, entries, (entry) => `${entry.run.runId}#${entry.agent.id}`);
 		this.agentEntries = entries;
-		this.agentIndex = Math.min(this.agentIndex, Math.max(0, entries.length - 1));
 	}
 
 	setMonitorModels(models: WorkflowMonitorModel[]): void {
+		const previousAgent = this.selectedMonitor()?.agents[this.monitorAgentIndex];
 		this.monitorModels = models;
-		const agentCount = this.selectedMonitor()?.agents.length ?? 0;
-		this.monitorAgentIndex = Math.min(this.monitorAgentIndex, Math.max(0, agentCount - 1));
+		const agents = this.selectedMonitor()?.agents ?? [];
+		const found = previousAgent ? agents.findIndex((agent) => agent.id === previousAgent.id) : -1;
+		this.monitorAgentIndex = found >= 0 ? found : Math.min(this.monitorAgentIndex, Math.max(0, agents.length - 1));
 	}
 
 	invalidate(): void {}

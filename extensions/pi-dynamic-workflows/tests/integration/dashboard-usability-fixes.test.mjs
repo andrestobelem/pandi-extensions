@@ -140,12 +140,15 @@ function makeCtx(cwd, { editorReturns = "use-initial", customInputs = [] } = {})
 			setEditorComponent: () => {},
 			custom: async (factory) => {
 				const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => {} };
-				let doneValue;
-				const component = factory(tui, theme, {}, (value) => { doneValue = value; });
-				while (inputs.length > 0 && typeof component?.handleInput === "function") component.handleInput(inputs.shift());
-				const lines = typeof component?.render === "function" ? component.render(100) : [];
-				customCalls.push({ component, lines, doneValue });
-				return doneValue ?? null;
+				// Live entry: `doneValue` keeps updating if the test drives the captured
+				// component's handleInput after the dashboard has "closed".
+				const entry = { component: null, lines: [], doneValue: undefined };
+				const done = (value) => { entry.doneValue = value; };
+				entry.component = factory(tui, theme, {}, done);
+				while (inputs.length > 0 && typeof entry.component?.handleInput === "function") entry.component.handleInput(inputs.shift());
+				entry.lines = typeof entry.component?.render === "function" ? entry.component.render(100) : [];
+				customCalls.push(entry);
+				return entry.doneValue ?? null;
 			},
 		},
 		sessionManager: {
@@ -228,6 +231,44 @@ async function scenarioBackspaceVsDelete(url) {
 	check("Delete key still triggers delete-workflow", dCall?.doneValue?.type === "deleteWorkflow", JSON.stringify(dCall?.doneValue));
 }
 
+// Drive the captured dashboard component directly to simulate the 1.5s refresh
+// reordering lists under the cursor (lists are mtime-sorted on disk).
+async function openDashboardComponent(url) {
+	const project = await makeProject();
+	const boot = await bootExtension(url, project, { customInputs: [] });
+	await boot.commands.get("workflow").handler("dashboard", boot.ctx);
+	const entry = boot.customCalls[0];
+	return { component: entry.component, getDone: () => entry.doneValue };
+}
+
+async function scenarioRunsSelectionStability(url) {
+	const { component, getDone } = await openDashboardComponent(url);
+	const mkRun = (runId) => ({ runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 0, background: true, scope: "project" });
+	component.setRuns([mkRun("A"), mkRun("B"), mkRun("C")]);
+	component.handleInput("tab"); // monitor -> agents
+	component.handleInput("tab"); // -> sessions
+	component.handleInput("tab"); // -> runs
+	component.handleInput("down"); // select run B (index 1)
+	// A refresh reorders the list (B slides from index 1 to index 2).
+	component.setRuns([mkRun("C"), mkRun("A"), mkRun("B")]);
+	component.handleInput("d"); // delete the *selected* run
+	const dv = getDone();
+	check("runs: delete still targets the selected run after a reorder", dv?.type === "deleteRun" && dv?.run?.runId === "B", JSON.stringify(dv));
+}
+
+async function scenarioAgentsSelectionStability(url) {
+	const { component, getDone } = await openDashboardComponent(url);
+	const mkEntry = (runId, id) => ({ run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 1, background: true, scope: "project" }, agent: { id, name: `a${id}`, state: "running", promptAvailable: true } });
+	component.setAgentEntries([mkEntry("A", 1), mkEntry("B", 1), mkEntry("C", 1)]);
+	component.handleInput("A"); // jump to Agents tab
+	component.handleInput("down"); // select B#1 (index 1)
+	// A refresh reorders entries (B#1 slides from index 1 to index 2).
+	component.setAgentEntries([mkEntry("C", 1), mkEntry("A", 1), mkEntry("B", 1)]);
+	component.handleInput("d"); // delete the selected agent's run
+	const dv = getDone();
+	check("agents: delete still targets the selected agent's run after a reorder", dv?.type === "deleteRun" && dv?.run?.runId === "B", JSON.stringify(dv));
+}
+
 async function scenarioEllipsisOnOverflow(url) {
 	const project = await makeProject();
 	const dash = await bootExtension(url, project, { customInputs: [] });
@@ -241,6 +282,8 @@ async function main() {
 	await scenarioIdleStatusShowsEntrypoint(url);
 	await scenarioPatternsAndMonitorN(url);
 	await scenarioBackspaceVsDelete(url);
+	await scenarioRunsSelectionStability(url);
+	await scenarioAgentsSelectionStability(url);
 	await scenarioEllipsisOnOverflow(url);
 
 	if (failed > 0) {
