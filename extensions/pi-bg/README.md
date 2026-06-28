@@ -55,10 +55,15 @@ Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bu
   projected as `orphaned`/`stale`). Terminalizing only on positive evidence (dead
   pid or proven reuse) keeps the rewrite safe.
 - Started jobs are detached process groups, so a still-running detached job is
-  left orphaned after a restart and must be stopped with OS tools (for example
-  `kill`/`pkill` or `taskkill`).
-- `/bg cancel` only acts on jobs owned by the current Pi process; it never
-  signals a job persisted by another session or a previous run.
+  left orphaned after a restart. A **verified** orphan can be stopped with
+  `/bg cancel` (see below); otherwise use OS tools (for example `kill`/`pkill`
+  or `taskkill`).
+- `/bg cancel` always acts on jobs owned by the current Pi process. For a job
+  persisted by another session it signals the process group **only** when the
+  recorded start identity proves the live pid is still that job's process (a
+  verified orphan): it sends `SIGTERM` to the group and rewrites the job to
+  `cancelled` (reason `cancel-verified-orphan`). A reused pid or one whose
+  identity cannot be read is refused and never signaled — stop it with OS tools.
 - The trust/mode gate protects the project's **context and artifacts**, not the
   command itself: like the rest of Pi's exec, `/bg start` runs whatever the human
   types via `shell:true`.
