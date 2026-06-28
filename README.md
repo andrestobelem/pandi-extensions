@@ -308,6 +308,8 @@ El test actual typecheckea todas las extensiones con `extensions/*/index.ts` y c
 /bg logs <jobId>
 /bg events <jobId>
 /bg cancel <jobId>
+/bg delete <jobId>
+/bg prune [--yes]
 ```
 
 `/bg` es el primo pequeño de `dynamic_workflow`: este último journaliza y permite `resume`; `/bg` es solo-humano, in-memory y **no resumible**. Usa `/bg` para comandos sueltos en background y `dynamic_workflow` para orquestación agentic.
@@ -320,10 +322,11 @@ Comportamiento y límites de M2:
 - `/bg events <jobId>` muestra el tail acotado del journal `events.jsonl` (start/running/cancel-*/finish/reconcile-interrupted/finalize-error): la evidencia de *por qué* un job acabó `failed`/`cancelled`/`interrupted`, que `status.json` por sí solo no lleva.
 - Los artifacts project-local viven en `.pi/bg/runs/<jobId>/`; el fallback global de lectura usa `~/.pi/agent/bg/runs/<hash-del-cwd>/<jobId>/` (en M2 ese root global solo se **lee**: lo poblará BG-1/BG-3). Cada run contiene `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
 - `job.json` y `status.json` se escriben con temp file + rename atómico; los logs son append-only y `/bg logs` lee de forma bounded/truncada.
-- El comando (`job.json`) y su salida (`stdout/stderr/combined.log`) se guardan en **texto plano** y no se redactan: evita pasar secretos en la línea de comando (p. ej. tokens en `curl -H`). En M2 no hay `prune/delete`, así que esos artifacts crecen hasta que los borres a mano.
+- El comando (`job.json`) y su salida (`stdout/stderr/combined.log`) se guardan en **texto plano** y no se redactan: evita pasar secretos en la línea de comando (p. ej. tokens en `curl -H`).
+- `/bg delete <jobId>` (uno) y `/bg prune` (masivo) recuperan espacio de forma segura: borran **solo** jobs terminados — el estado live se re-deriva al podar, así que un job corriendo, activo en la sesión o huérfano verificado-vivo nunca se borra; actúan solo sobre el store project-local (los globales son de solo lectura); son symlink/path-safe (un symlink interno se desvincula, no se sigue); y registran una línea por borrado en `.pi/bg/runs/.audit.jsonl`. `/bg prune` es un preview dry-run salvo que pases `--yes`.
 - `/bg cancel` cancela jobs activos de este proceso Pi y, para un job persistido por otra sesión, señaliza el grupo **solo** si la identidad de inicio verifica que el PID vivo sigue siendo ese job. Para un `status.json` que dice `running`/`starting` pero no es propiedad de esta sesión, el estado se proyecta en tiempo de lectura sondeando el PID registrado (`process.kill(pid, 0)`, sin enviar señal): **`orphaned`** = el PID sigue vivo (proceso huérfano probablemente activo; usa herramientas del SO `kill`/`pkill`/`taskkill` para pararlo), **`interrupted`** = el PID está muerto (Pi murió/reinició antes de finalizar), **`stale`** = no se pudo sondear (sin PID). El sondeo base es best-effort (un PID puede haberse reusado). Para vencerlo, cada job registra una **identidad de inicio** (`startId`: Linux `/proc`, macOS/BSD `ps -o lstart=`, ausente en Windows) y `/bg status` hace una verificación extra: si la identidad coincide es un `orphaned` verificado (`identity: verified`); si difiere, el PID fue reusado y se reporta `interrupted` (`interruptedCause: pid-reused`); si no se puede leer, queda `orphaned` best-effort con `hint`. `/bg list` se queda con el sondeo barato (sin subproceso por job), así que puede mostrar un `orphaned` que `/bg status` refinaría. Un huérfano verificado (`identity: verified`) puede pararse con `/bg cancel` (envía `SIGTERM` al grupo y lo reescribe a `cancelled`, razón `cancel-verified-orphan`); un PID reusado o no verificable se rechaza y nunca se señaliza. La cancelación de jobs activos señaliza por grupo de proceso y, en la ventana exit→close, podría no señalar un PID ya reapeado.
 - Al arrancar una sesión persistente y trusted, `pi-bg` se auto-cura: un job project-local persistido como `running`/`starting` cuyo PID está muerto **o vivo-pero-reusado (identidad de inicio distinta)** se reescribe atómicamente a `interrupted` en disco (así el artefacto deja de decir `running` para siempre). Los de PID verificado-vivo o no sondeable quedan intactos (se siguen proyectando como `orphaned`/`stale`). Terminalizar solo con evidencia positiva (PID muerto o reuso probado) mantiene la reescritura segura.
-- No hay runner Supacode, daemon, rehidratación automática, `prune/delete` ni dashboard de `/bg` en M2.
+- No hay runner Supacode, daemon, rehidratación automática ni dashboard de `/bg` en M2.
 
 ## Background runs
 

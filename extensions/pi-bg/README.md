@@ -25,6 +25,8 @@ pi --no-extensions -e ./extensions/pi-bg
 - `/bg logs <jobId>` — read bounded logs.
 - `/bg events <jobId>` — read the bounded lifecycle journal (`events.jsonl`).
 - `/bg cancel <jobId>` — cancel an active job from the current Pi process.
+- `/bg delete <jobId>` — delete one finished (terminal) job's artifacts.
+- `/bg prune [--yes]` — preview deletable jobs (dry-run by default); `--yes` removes them.
 
 Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bundle of extensions and skills, install the repository root instead.
 
@@ -67,6 +69,14 @@ Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bu
 - The trust/mode gate protects the project's **context and artifacts**, not the
   command itself: like the rest of Pi's exec, `/bg start` runs whatever the human
   types via `shell:true`.
+- `/bg delete <jobId>` and `/bg prune` reclaim disk safely: they remove only
+  **finished** jobs (a job's live state is re-derived at prune time, so a running,
+  session-active, or identity-verified-alive job is never deleted), act on the
+  project-local store only (global-fallback jobs are read-only), are symlink/path
+  safe (an inner symlink is unlinked, not followed), and append one
+  `.pi/bg/runs/.audit.jsonl` line per removal. `/bg prune` is a dry-run preview
+  unless given `--yes`.
 - The command (`job.json`) and its output (`stdout/stderr/combined.log`) are
-  stored in **plaintext** and are not redacted or pruned. Avoid passing secrets
-  on the command line; delete `.pi/bg/runs/<jobId>/` by hand to reclaim space.
+  stored in **plaintext** and are not redacted. Avoid passing secrets on the
+  command line; reclaim space with `/bg prune` (bulk) or `/bg delete <jobId>`
+  (one) — both remove finished jobs only and record an audit line.
