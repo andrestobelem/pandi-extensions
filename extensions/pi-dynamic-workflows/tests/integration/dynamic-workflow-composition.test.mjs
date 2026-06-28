@@ -618,6 +618,29 @@ async function scenarioJudgeEscalateBounded(mod) {
 	check("judge-escalate template: non-numeric maxEscalations terminates at the default bound (no infinite loop)", !threw && judgeCalls === 3, `threw=${threw} judgeCalls=${judgeCalls}`);
 }
 
+// F21 sibling: compose-verify-claims `maxClaims` must fall back to the default, not NaN ->
+// slice(0,NaN) dropping every discovered claim.
+async function scenarioVerifyClaimsMaxClaimsCoercion(mod) {
+	const code = await findScaffold(mod, (c) => /claim-finder/.test(c) && /lib\/verify-claims/.test(c));
+	check("compose-verify-claims template: scaffold found", typeof code === "string", String(code).slice(0, 60));
+	if (typeof code !== "string") return;
+	const workflow = evalScaffold(code);
+	let claimsLen = -1;
+	const ctx = {
+		limits: { concurrency: 8, maxAgents: 8 },
+		log: async () => {},
+		compact: () => "",
+		writeArtifact: async (name, data) => { if (name === "claims.json") claimsLen = data.length; },
+		workflow: async () => ({ verified: [], dropped: [], votes: [], coverage: {} }),
+		agent: async (_p, opts) =>
+			opts?.name === "claim-finder"
+				? { output: JSON.stringify(Array.from({ length: 12 }, (_u, i) => ({ id: `c${i}`, claim: `x${i}`, evidence: "" }))) }
+				: { output: "synth", data: {} },
+	};
+	const res = await workflow(ctx, { topic: "t", maxClaims: "lots" });
+	check("compose-verify-claims template: non-numeric maxClaims falls back to default 8 (not slice(0,NaN)=empty)", claimsLen === 8, `claimsLen=${claimsLen} res=${String(res).slice(0, 40)}`);
+}
+
 async function main() {
 	try {
 		const { outDir, url } = await buildExtension();
@@ -633,6 +656,7 @@ async function main() {
 		await scenarioScoutTemplateInjectionSafe(templatesMod);
 		await scenarioAdversarialInputCoercion(templatesMod);
 		await scenarioJudgeEscalateBounded(templatesMod);
+		await scenarioVerifyClaimsMaxClaimsCoercion(templatesMod);
 		console.log(`\n${passed} passed, ${failed} failed`);
 		if (failed) {
 			console.log(failures.map((f) => `- ${f}`).join("\n"));
