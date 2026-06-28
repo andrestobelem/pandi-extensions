@@ -1087,6 +1087,15 @@ function parseCliJsonOrText(raw: string | undefined, options: { strictJson?: boo
 	}
 }
 
+// The tool-call path can deliver `input` as a JSON string instead of a parsed
+// object (e.g. when tool arguments are marshaled as text). Coerce strings the
+// same way the CLI/editor paths do, so workflows reliably receive an object and
+// `input?.x` fields are honored instead of being silently undefined.
+function normalizeWorkflowInput(input: unknown): unknown {
+	if (typeof input !== "string") return input ?? {};
+	return parseCliJsonOrText(input);
+}
+
 function limitParamsFromInput(input: unknown): Partial<DynamicWorkflowToolParams> {
 	if (!input || typeof input !== "object" || Array.isArray(input)) return {};
 	const record = input as Record<string, unknown>;
@@ -6367,7 +6376,7 @@ async function handleTool(
 
 	if (action === "start" || (action === "run" && shouldLaunchWorkflowInBackground(ctx))) {
 		const workflow = await resolveWorkflow(ctx, params.name, scope);
-		const workflowInput = params.input ?? {};
+		const workflowInput = normalizeWorkflowInput(params.input);
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
 		const status = await startWorkflowBackground(pi, ctx, workflow, workflowInput, limits);
 		return { content: [text(formatBackgroundStart(status))], details: { action, workflow, status } };
@@ -6375,7 +6384,7 @@ async function handleTool(
 
 	if (action === "run") {
 		const workflow = await resolveWorkflow(ctx, params.name, scope);
-		const workflowInput = params.input ?? {};
+		const workflowInput = normalizeWorkflowInput(params.input);
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
 		const result = await runWorkflowWithUi(pi, ctx, workflow, workflowInput, limits, signal, (logs) => {
 			const preview = logs.slice(-8).map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`).join("\n");

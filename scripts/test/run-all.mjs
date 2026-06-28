@@ -43,6 +43,7 @@ const suites = [
 	"extensions/pi-dynamic-workflows/tests/integration/scaffold-synthesis-payload.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/ultracode-border-status.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/ultracode-contract-gate.test.mjs",
+	"extensions/pi-dynamic-workflows/tests/integration/workflow-input-coercion.test.mjs",
 	"extensions/pi-effort/tests/integration/effort-extension.test.mjs",
 	"extensions/pi-goal/tests/integration/goal-rehydrate.test.mjs",
 	"extensions/pi-goal/tests/integration/goal-verifier.test.mjs",
