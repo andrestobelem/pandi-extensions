@@ -135,7 +135,7 @@ export async function createAgentEnvWrapper(envAccess: AgentEnvAccess): Promise<
 	if (envAccess.isolatedEnv) {
 		lines.push(
 			"while IFS='=' read -r name _; do",
-			'  case "$name" in BASH*|EUID|PPID|SHELLOPTS|UID) ;; *) unset "$name" 2>/dev/null || true ;; esac',
+			'  case "$name" in BASH*|EUID|PPID|SHELLOPTS|UID|PI_DYNAMIC_WORKFLOWS_DEPTH) ;; *) unset "$name" 2>/dev/null || true ;; esac',
 			"done < <(env)",
 		);
 	}

@@ -81,6 +81,8 @@ export async function runStreamingAgentProcess(
 		timeoutMs: number;
 		signal: AbortSignal;
 		killGraceMs?: number;
+		/** Child env. Pass the full env (e.g. { ...process.env, ...overrides }); undefined inherits. */
+		env?: NodeJS.ProcessEnv;
 		onStdout?: (chunk: Buffer) => void | Promise<void>;
 		onStderr?: (chunk: Buffer) => void | Promise<void>;
 	},
@@ -98,7 +100,7 @@ export async function runStreamingAgentProcess(
 			const newline = tail.indexOf("\n");
 			return newline >= 0 ? tail.slice(newline + 1) : tail;
 		};
-		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
+		const child = spawn(command, args, { cwd: options.cwd, env: options.env, stdio: ["ignore", "pipe", "pipe"] });
 		let killTimer: ReturnType<typeof setTimeout> | undefined;
 		const kill = () => {
 			killed = true;
