@@ -45,13 +45,10 @@
  * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-goal/tests/integration/ -> repo root is four levels up.
@@ -66,52 +63,20 @@ const { check, counts } = createChecker();
 // Build the current goal extension to ESM in a temp dir, return import URL.
 // (Identical stub strategy to the sibling goal-verifier.test.mjs.)
 // ---------------------------------------------------------------------------
-async function buildExtension(name) {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-goal-rehydrate-integration-"));
-
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id };\nexport default { Type };\n",
-	);
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-
-	const packageDir = name.startsWith("pi-") ? name : `pi-${name}`;
-		const src = path.join(REPO_ROOT, "extensions", packageDir, "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, `${name}.mjs`);
-	const r = spawnSync(
-		"npx",
-		[
-			"--yes",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:typebox=${typeboxStub}`,
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) {
-		throw new Error(`esbuild failed for ${name}: ${r.stderr || r.stdout}`);
-	}
-	return { outDir, url: pathToFileURL(out).href };
+async function buildGoal() {
+	// pi-goal only needs Type.* for tool-schema declaration (never validation) and the SDK
+	// symbols for state-dir resolution.
+	return await buildExtension({
+		name: "pi-goal-rehydrate-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-goal", "index.ts"),
+		outName: "goal.mjs",
+		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
+		npx: "--yes",
+	});
 }
 
-// A module keeps a singleton (activeGoals). Load a FRESH instance per scenario via a
-// cache-busting query so scenarios never leak goal state into each other.
-let _instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${_instance++}`);
-	return mod.default;
-}
+// pi-goal keeps a module singleton (activeGoals). loadDefault's cache-busting query gives
+// each scenario a FRESH instance so scenarios never leak goal state into each other.
 
 // Let fire-and-forget async chains (`void beginIndependentVerification(...)`) AND the
 // rehydrate catch-up tick settle. rehydrate arms the catch-up wake with `setTimeout(fireGoal, 0)`
@@ -215,7 +180,7 @@ function makeCtx(entries, { reason = "startup", mode = "tui" } = {}) {
 
 // Build the extension, register it, fire session_start with the crafted persisted entries.
 async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, mode = "tui" } = {}) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi(execImpl);
 	goalExtension(built.pi);
 	const onStart = built.handlers.get("session_start");
@@ -522,7 +487,7 @@ async function junkEntriesAreIgnored(goalUrl) {
 // catch-up wake happens ONCE, not twice.
 // ===========================================================================
 async function noDoubleFireOnSecondRehydrate(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi();
 	goalExtension(built.pi);
 	const onStart = built.handlers.get("session_start");
@@ -599,7 +564,7 @@ async function nonInteractiveRehydrateIsNoOp(goalUrl) {
 
 // ===========================================================================
 async function main() {
-	const { outDir, url } = await buildExtension("goal");
+	const { outDir, url } = await buildGoal();
 	try {
 		await verifyingIndependentReRunsVerifierAndPasses(url);
 		await verifyingIndependentReRunFailDoesNotClose(url);

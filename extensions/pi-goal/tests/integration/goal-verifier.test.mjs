@@ -36,13 +36,10 @@
  * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-goal/tests/integration/ -> repo root is four levels up.
@@ -56,54 +53,20 @@ const { check, counts } = createChecker();
 // ---------------------------------------------------------------------------
 // Build the current goal extension to ESM in a temp dir, return import URL.
 // ---------------------------------------------------------------------------
-async function buildExtension(name) {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-goal-integration-"));
-
-	// Tiny stubs for the two external peer packages. The exercised paths only need these
-	// symbols for tool-schema declaration + state-dir resolution — never validation.
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id };\nexport default { Type };\n",
-	);
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-
-	const packageDir = name.startsWith("pi-") ? name : `pi-${name}`;
-		const src = path.join(REPO_ROOT, "extensions", packageDir, "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, `${name}.mjs`);
-	const r = spawnSync(
-		"npx",
-		[
-			"--yes",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:typebox=${typeboxStub}`,
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) {
-		throw new Error(`esbuild failed for ${name}: ${r.stderr || r.stdout}`);
-	}
-	return { outDir, url: pathToFileURL(out).href };
+async function buildGoal() {
+	// pi-goal only needs Type.* for tool-schema declaration (never validation) and the SDK
+	// symbols for state-dir resolution.
+	return await buildExtension({
+		name: "pi-goal-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-goal", "index.ts"),
+		outName: "goal.mjs",
+		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
+		npx: "--yes",
+	});
 }
 
-// A module keeps a singleton (activeGoals). Load a FRESH instance per scenario via a
-// cache-busting query so scenarios never leak goal state into each other.
-let _instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${_instance++}`);
-	return mod.default;
-}
+// pi-goal keeps a module singleton (activeGoals). loadDefault's cache-busting query gives
+// each scenario a FRESH instance so scenarios never leak goal state into each other.
 
 // Let fire-and-forget async chains (`void beginIndependentVerification(...)`) settle. The
 // verifier path is: tool.execute -> void beginIndependentVerification -> await
@@ -177,7 +140,7 @@ function lastStatus(states) {
 //   goal_progress({done})     -> verifying-independent -> spawns verifier (pi.exec)
 // Returns the goal_progress tool so callers can keep poking it (for the cap scenarios).
 async function driveToVerifier(goalUrl, execImpl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const ctx = makeCtx();
 	const built = makePi(execImpl);
 	goalExtension(built.pi);
@@ -318,7 +281,7 @@ async function timeoutAndThrowAreFail(goalUrl) {
 // first. This pins that a single `done` can never short-circuit either gate.
 // ===========================================================================
 async function firstDoneNeverClosesNorVerifies(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const ctx = makeCtx();
 	let execCount = 0;
 	const built = makePi(() => {
@@ -385,7 +348,7 @@ async function reentryDuringVerifyIsIgnored(goalUrl) {
 // Pins the single-active-goal invariant the design declares but (pre-fix) did not enforce.
 // ===========================================================================
 async function secondGoalIsRefused(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
 	const notifies = [];
 	const ctx = makeCtx();
@@ -434,7 +397,7 @@ async function verifierArgvIsReadOnly(goalUrl) {
 	// Part 2: EMPTY verifierTools (reachable only via a rehydrated sidecar). An empty list must
 	// DISABLE all tools (--no-tools) — never fall through to the mutating default. We rehydrate a
 	// goal parked in verifying-independent (which re-runs the verifier) with verifierTools: [].
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
 	const ctx = makeCtx();
 	const snap = {
@@ -476,7 +439,7 @@ async function verifierArgvIsReadOnly(goalUrl) {
 // assert that execCount===0 is what distinguishes the two caps.
 // ===========================================================================
 async function selfCheckCapBlocks(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const ctx = makeCtx();
 	let execCount = 0;
 	const built = makePi(() => {
@@ -508,7 +471,7 @@ async function selfCheckCapBlocks(goalUrl) {
 // The observable is the tool's returned details {delaySeconds, clampedFrom}.
 // ===========================================================================
 async function waitSecondsIsClamped(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const ctx = makeCtx();
 	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
 	goalExtension(built.pi);
@@ -544,7 +507,7 @@ async function waitSecondsIsClamped(goalUrl) {
 // ===========================================================================
 async function modeGateRefusesNonInteractive(goalUrl) {
 	for (const mode of ["print", "json"]) {
-		const goalExtension = await freshDefault(goalUrl);
+		const goalExtension = await loadDefault(goalUrl);
 		const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
 		const ctx = { ...makeCtx(), mode, hasUI: false };
 		goalExtension(built.pi);
@@ -560,7 +523,7 @@ async function modeGateRefusesNonInteractive(goalUrl) {
 // ===========================================================================
 async function contextBudgetGate(goalUrl) {
 	const startWithUsage = async (usage) => {
-		const goalExtension = await freshDefault(goalUrl);
+		const goalExtension = await loadDefault(goalUrl);
 		const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
 		const ctx = { ...makeCtx(), getContextUsage: () => usage };
 		goalExtension(built.pi);
@@ -587,7 +550,7 @@ const fireAgentEnd = async (built, ctx) => {
 // defensively re-arm it (a wake stamped with the AUTO reason).
 // ===========================================================================
 async function agentEndReArmsStrandedGoal(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const ctx = makeCtx();
 	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
 	goalExtension(built.pi);
@@ -604,7 +567,7 @@ async function agentEndReArmsStrandedGoal(goalUrl) {
 // would inject a duplicate iteration prompt.
 // ===========================================================================
 async function agentEndDoesNotDoubleArm(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const ctx = makeCtx();
 	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
 	goalExtension(built.pi);
@@ -649,7 +612,7 @@ async function agentEndLeavesIndependentVerificationAlone(goalUrl) {
 // the goal cleanly rather than pay for another turn.
 // ===========================================================================
 async function agentEndBudgetCut(goalUrl) {
-	const goalExtension = await freshDefault(goalUrl);
+	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: FAIL", stderr: "" }));
 	goalExtension(built.pi);
 	built.commands.get("goal").handler("big task -- complete", makeCtx()); // starts pursuing (budget fine)
@@ -670,7 +633,7 @@ async function agentEndBudgetCut(goalUrl) {
 // ===========================================================================
 async function stopStatusObjectiveWithCriteriaStarts(goalUrl) {
 	// "stop ... -- ..." must start a goal (objective begins with the word "stop").
-	const stopExt = await freshDefault(goalUrl);
+	const stopExt = await loadDefault(goalUrl);
 	const stopBuilt = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
 	stopExt(stopBuilt.pi);
 	await stopBuilt.commands.get("goal").handler("stop the flaky retry path -- the tests pass", makeCtx());
@@ -681,7 +644,7 @@ async function stopStatusObjectiveWithCriteriaStarts(goalUrl) {
 	);
 
 	// "status ... -- ..." must likewise start a goal.
-	const statusExt = await freshDefault(goalUrl);
+	const statusExt = await loadDefault(goalUrl);
 	const statusBuilt = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
 	statusExt(statusBuilt.pi);
 	await statusBuilt.commands.get("goal").handler("status page redesign -- ship it", makeCtx());
@@ -692,7 +655,7 @@ async function stopStatusObjectiveWithCriteriaStarts(goalUrl) {
 	);
 
 	// REGRESSION GUARD: bare "/goal stop" (no ` -- `) is still the stop subcommand.
-	const bareExt = await freshDefault(goalUrl);
+	const bareExt = await loadDefault(goalUrl);
 	const bareBuilt = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
 	const notifies = [];
 	const bareCtx = makeCtx();
@@ -705,7 +668,7 @@ async function stopStatusObjectiveWithCriteriaStarts(goalUrl) {
 
 // ===========================================================================
 async function main() {
-	const { outDir, url } = await buildExtension("goal");
+	const { outDir, url } = await buildGoal();
 	try {
 		await passClosesGoal(url);
 		await failIteratesThenBlocks(url);
