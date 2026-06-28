@@ -99,6 +99,11 @@ const LOOP_STATUS_KEY = "loop";
 const LOOP_DIR = "loops";
 const STATE_FILE = "state.json";
 const DEFAULT_MAX_ITERATIONS = 25;
+// Hard ceiling on simultaneously-active loops (running/paused). Bounds unbounded timer/
+// state accumulation from repeated /loop starts — each loop owns a setTimeout, so without
+// this a user could grow activeLoops without limit. New starts past the cap are refused;
+// rehydrate of already-created loops is deliberately exempt (it recovers existing state).
+const MAX_CONCURRENT_LOOPS = 20;
 const MIN_DELAY_SECONDS = 60;
 const MAX_DELAY_SECONDS = 3600;
 // Safety-net cadence when a turn closed without the model calling loop_schedule.
@@ -565,6 +570,14 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		notify(ctx, "Usage: /loop <task> [interval]", "warning");
 		return undefined;
 	}
+	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
+		notify(
+			ctx,
+			`Too many active loops (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Stop one with /loop stop before starting another.`,
+			"error",
+		);
+		return undefined;
+	}
 
 	const loopId = crypto.randomBytes(4).toString("hex");
 	const loop: ActiveLoop = {
@@ -654,6 +667,14 @@ async function startAutonomousLoop(
 	);
 	if (!approved) {
 		notify(ctx, "Autonomous loop not started (not confirmed).", "info");
+		return undefined;
+	}
+	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
+		notify(
+			ctx,
+			`Too many active loops (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Stop one with /loop stop before starting another.`,
+			"error",
+		);
 		return undefined;
 	}
 

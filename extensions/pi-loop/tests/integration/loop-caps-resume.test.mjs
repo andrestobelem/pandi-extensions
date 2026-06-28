@@ -860,6 +860,34 @@ async function rehydrateSidecarOnly(url) {
 }
 
 // ===========================================================================
+// SCENARIO P1: concurrent-loop cap. Starting loops up to MAX_CONCURRENT_LOOPS works; the
+//   next /loop is REFUSED (no new loop created, the user is told) so timers/state cannot
+//   accumulate without bound. The cap value (20) is pinned here as the observable contract.
+// ===========================================================================
+async function concurrentLoopCap(url) {
+	const loopExtension = await loadDefault(url);
+	const { pi, commands, entries } = makePi();
+	loopExtension(pi);
+	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
+
+	const CAP = 20; // mirrors MAX_CONCURRENT_LOOPS in index.ts
+	const started = [];
+	for (let i = 0; i < CAP; i++) {
+		const id = await startLoopCmd(commands, entries, `cap task ${i}`, ctx);
+		if (id) started.push(id);
+	}
+	check(`concurrency: started ${CAP} loops up to the cap`, started.length === CAP, `started=${started.length}`);
+
+	const before = ctx._notes.length;
+	const overflow = await startLoopCmd(commands, entries, "one too many", ctx);
+	check("concurrency: the (cap+1)th /loop is REFUSED (no new loop created)", overflow === undefined, `id=${overflow}`);
+	const refused = ctx._notes
+		.slice(before)
+		.some((n) => (n.type === "error" || n.type === "warning") && /concurrent|max|cap|limit|too many/i.test(n.msg));
+	check("concurrency: the refusal is surfaced to the user", refused, `notes=${JSON.stringify(ctx._notes.slice(before))}`);
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildLoop();
 	TEST_PROJECT_ROOT = path.join(outDir, "project");
@@ -876,6 +904,7 @@ async function main() {
 		await rehydrateRespectsCap(url);
 		await shutdownThenStartupRehydrates(url);
 		await rehydrateSidecarOnly(url);
+		await concurrentLoopCap(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
