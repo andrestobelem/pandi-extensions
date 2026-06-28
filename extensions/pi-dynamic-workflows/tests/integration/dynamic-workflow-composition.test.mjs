@@ -641,6 +641,25 @@ async function scenarioVerifyClaimsMaxClaimsCoercion(mod) {
 	check("compose-verify-claims template: non-numeric maxClaims falls back to default 8 (not slice(0,NaN)=empty)", claimsLen === 8, `claimsLen=${claimsLen} res=${String(res).slice(0, 40)}`);
 }
 
+// F21 sibling (reachable via lib-verify-claims): non-numeric skeptics must fall back to the
+// default, not NaN -> Array.from({length:NaN}) empty jury -> every claim dropped unverified.
+async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
+	const code = await findScaffold(mod, (c) => /requestedSkeptics/.test(c) && /Array\.from\(\{ length: skeptics/.test(c));
+	check("verify-claims-lib template: scaffold found", typeof code === "string", String(code).slice(0, 60));
+	if (typeof code !== "string") return;
+	const workflow = evalScaffold(code);
+	let juryLen = -1;
+	const ctx = {
+		limits: { concurrency: 8, maxAgents: 8 },
+		log: async () => {},
+		writeArtifact: async () => {},
+		agents: async (arr) => { juryLen = arr.length; return arr.map(() => ({ data: { refuted: false, confidence: "high", evidence: "", why: "ok" } })); },
+	};
+	const res = await workflow(ctx, { claims: [{ id: "c1", claim: "x", evidence: "" }], skeptics: "three" });
+	check("verify-claims-lib template: non-numeric skeptics falls back to default 3 (coverage)", res && res.coverage && res.coverage.requestedSkeptics === 3, JSON.stringify(res?.coverage));
+	check("verify-claims-lib template: jury runs default 3 skeptics (not NaN/empty)", juryLen === 3, `juryLen=${juryLen}`);
+}
+
 // Invariant: every embedded scaffold must be reachable from the catalog (no dead templates).
 async function scenarioNoOrphanedTemplates(mod) {
 	const orphans = mod.listOrphanedTemplateKeys();
@@ -663,6 +682,7 @@ async function main() {
 		await scenarioAdversarialInputCoercion(templatesMod);
 		await scenarioJudgeEscalateBounded(templatesMod);
 		await scenarioVerifyClaimsMaxClaimsCoercion(templatesMod);
+		await scenarioVerifyClaimsLibSkepticsCoercion(templatesMod);
 		await scenarioNoOrphanedTemplates(templatesMod);
 		console.log(`\n${passed} passed, ${failed} failed`);
 		if (failed) {

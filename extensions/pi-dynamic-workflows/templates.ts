@@ -867,7 +867,7 @@ const EMBEDDED_WORKFLOW_PATTERN_TEMPLATES: Record<string, string> = {
 		"module.exports = async function workflow(ctx, input) {",
 		"  const claims = Array.isArray(input?.claims) ? input.claims.filter((claim) => claim && claim.claim) : [];",
 		"  if (claims.length === 0) return { verified: [], dropped: [], votes: [], coverage: { claims: 0 } };",
-		"  const requestedSkeptics = Math.max(1, Number(input?.skeptics ?? 3));",
+		"  const requestedSkeptics = Math.max(1, Number.isFinite(+input?.skeptics) ? Math.floor(+input.skeptics) : 3);",
 		"  const skeptics = Math.min(requestedSkeptics, ctx.limits.concurrency);",
 		"  if (skeptics < requestedSkeptics) await ctx.log(\"skeptic cap applied\", { requested: requestedSkeptics, running: skeptics, concurrency: ctx.limits.concurrency });",
 		"",
