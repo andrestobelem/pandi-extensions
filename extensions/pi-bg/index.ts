@@ -525,15 +525,61 @@ function killRuntime(runtime: RuntimeJob, signal: NodeJS.Signals): void {
 	runtime.child.kill(signal);
 }
 
-async function handleCancel(jobId: string): Promise<BgResponse> {
+// Signal a detached job's whole process group by its persisted pid (pgid === pid,
+// since jobs are started detached). POSIX uses a negative pid; Windows uses taskkill.
+function signalProcessGroup(pid: number, signal: NodeJS.Signals): void {
+	if (process.platform === "win32") {
+		spawn("taskkill", ["/pid", String(pid), "/T", ...(signal === "SIGKILL" ? ["/F"] : [])], { stdio: "ignore", windowsHide: true }).on("error", () => undefined);
+		return;
+	}
+	process.kill(-pid, signal);
+}
+
+// Cancel a job this session does not own (persisted by another Pi process/run). The
+// safety rule that the in-session path takes for granted must be earned here: only
+// signal when the live pid is VERIFIED still our process (same start identity). A
+// reused pid or one we cannot verify is never signaled — it is left for OS tools.
+async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
+	const runDir = await findJobDir(ctx, jobId);
+	if (!runDir) return response(`Background job ${jobId} is not active in this session; no process was killed.`, { action: "cancel", jobId, active: false }, "warning");
+	const status = (await readJson(path.join(runDir, "status.json"))) ?? {};
+	const state = asString(status.state);
+	if (!state || !RECONCILABLE_STATES.has(state)) {
+		return response(`Background job ${jobId} has already finished (${state ?? "unknown"}); nothing to cancel.`, { action: "cancel", jobId, active: false, alreadyFinished: true }, "warning");
+	}
+	const pid = asNumber(status.pid);
+	const identity = verifyProcessIdentity(pid, asString(status.startId));
+	if (identity !== "same") {
+		const why = identity === "different" ? `its PID ${pid} was reused by another process` : "its process identity could not be verified";
+		return response(
+			`Refusing to cancel background job ${jobId}: ${why}, so it is not safe to signal. It was started by another Pi session; use OS tools (kill -- -${pid} / taskkill) if it is still running.`,
+			{ action: "cancel", jobId, active: false, signaled: false, identity },
+			"warning",
+		);
+	}
+	await appendEvent(runDir, { event: "cancel-verified-orphan", jobId, pid });
+	let signaled = false;
+	try {
+		signalProcessGroup(pid as number, "SIGTERM");
+		signaled = true;
+	} catch (err) {
+		await appendEvent(runDir, { event: "cancel-orphan-error", jobId, error: (err as Error).message });
+	}
+	const now = nowIso();
+	await atomicWriteJson(path.join(runDir, "status.json"), { ...status, state: "cancelled", cancelRequested: true, completedAt: now, updatedAt: now, reason: "cancel-verified-orphan" });
+	return response(
+		signaled ? `Sent SIGTERM to verified orphan ${jobId} (pid ${pid}) and marked it cancelled.` : `Marked verified orphan ${jobId} cancelled, but signaling pid ${pid} failed.`,
+		{ action: "cancel", jobId, active: false, signaled, identity: "verified" },
+	);
+}
+
+async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const blocked = rejectInPlanMode("cancel");
 	if (blocked) return blocked;
 	const trimmed = jobId.trim();
 	if (!trimmed || !validJobId(trimmed)) return response("Usage: /bg cancel <jobId>", undefined, "warning");
 	const runtime = activeJobs.get(trimmed);
-	if (!runtime) {
-		return response(`Background job ${trimmed} is not active in this session; no process was killed.`, { action: "cancel", jobId: trimmed, active: false }, "warning");
-	}
+	if (!runtime) return await cancelPersistedJob(ctx, trimmed);
 	if (isJobFinished(runtime)) {
 		return response(`Background job ${trimmed} has already finished; nothing to cancel.`, { action: "cancel", jobId: trimmed, active: false, alreadyFinished: true }, "warning");
 	}
@@ -683,7 +729,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 			case "start":
 				return await handleStart(ctx, tail);
 			case "cancel":
-				return await handleCancel(tail.trim());
+				return await handleCancel(ctx, tail.trim());
 			case "list":
 				return await handleList(ctx);
 			case "status":

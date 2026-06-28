@@ -6,7 +6,7 @@
  * stale/non-owned PIDs, mode/trust gates, artifacts, and logs.
  */
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createWriteStream, existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -323,7 +323,7 @@ async function orphanedPidIsLabeledNotKilled(url) {
 	await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: process.pid, updatedAt: new Date().toISOString() }, null, 2));
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
-	check("orphaned: cancel refuses non-owned persisted PID", /not active in this session/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check("orphaned: cancel refuses non-owned persisted PID", /refus/i.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
 	check("orphaned: current process is still alive", process.kill(process.pid, 0));
 	await commands.get("bg").handler(`status ${jobId}`, ctx);
 	const statusMsg = ctx._notes.at(-1)?.msg || "";
@@ -525,6 +525,80 @@ async function identityDefeatsPidReuse(url) {
 		check("identity: reconcile rewrites a reused pid to interrupted", reusedState === "interrupted", reusedState);
 		check("identity: reconcile leaves a verified orphan running", verifiedState === "running", verifiedState);
 		check("identity: reconcile reports rewriting the reused job", n >= 1, String(n));
+	}
+}
+
+async function cancelSignalsVerifiedOrphan(url) {
+	if (process.platform === "win32") {
+		check("cancel-orphan: verified-orphan signaling exercised on POSIX only (skipped on win32)", true);
+		return;
+	}
+	const mod = await import(`${url}?cancelorphan=${instance++}`);
+	const readStartId = mod.readProcessStartId;
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-cancel-orphan-"));
+	const jobId = "verified-orphan";
+	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
+	await fs.mkdir(runDir, { recursive: true });
+	// A real detached process group we own at the OS level but NOT in this bg session.
+	const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { detached: true, stdio: "ignore" });
+	child.unref();
+	await new Promise((r) => setTimeout(r, 200));
+	const startId = readStartId(child.pid);
+	check("cancel-orphan: captured a live start identity for the child", typeof startId === "string" && startId.length > 0, String(startId));
+	try {
+		await fs.writeFile(path.join(runDir, "job.json"), JSON.stringify({ jobId, command: "sleeper", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir }, null, 2));
+		await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: child.pid, startId, updatedAt: new Date().toISOString() }, null, 2));
+		const ctx = makeCtx({ cwd, trusted: true });
+		await commands.get("bg").handler(`cancel ${jobId}`, ctx);
+		const msg = ctx._notes.at(-1)?.msg || "";
+		check("cancel-orphan: reports signaling the verified orphan", /SIGTERM/.test(msg) && /verified orphan/i.test(msg), msg);
+		const dead = await waitFor(
+			"verified orphan process exits after SIGTERM",
+			async () => {
+				try {
+					process.kill(child.pid, 0);
+					return false;
+				} catch {
+					return true;
+				}
+			},
+			{ timeoutMs: 8000 },
+		);
+		check("cancel-orphan: the verified orphan process was actually killed", dead === true);
+		const status = await readJson(path.join(runDir, "status.json"));
+		check("cancel-orphan: status is rewritten to cancelled", status.state === "cancelled" && status.reason === "cancel-verified-orphan", JSON.stringify(status));
+		const events = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8").catch(() => "");
+		check("cancel-orphan: records a cancel-verified-orphan event", /cancel-verified-orphan/.test(events), events.slice(-300));
+	} finally {
+		try {
+			process.kill(-child.pid, "SIGKILL");
+		} catch {}
+		try {
+			process.kill(child.pid, "SIGKILL");
+		} catch {}
+	}
+}
+
+async function cancelRefusesReusedPid(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-cancel-reuse-"));
+	const jobId = "reused-cancel";
+	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
+	await fs.mkdir(runDir, { recursive: true });
+	await fs.writeFile(path.join(runDir, "job.json"), JSON.stringify({ jobId, command: "x", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir }, null, 2));
+	// Live pid (this process) but a stale recorded identity => pid reuse: must NOT be signaled.
+	await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: process.pid, startId: "stale:bogus-identity", updatedAt: new Date().toISOString() }, null, 2));
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("cancel-reuse: current process still alive (never signaled)", process.kill(process.pid, 0));
+	const status = await readJson(path.join(runDir, "status.json"));
+	check("cancel-reuse: status is left running (not cancelled)", status.state === "running", JSON.stringify(status));
+	if (process.platform === "win32") {
+		check("cancel-reuse: win32 refuses (identity unverifiable)", /refus/i.test(msg), msg);
+	} else {
+		check("cancel-reuse: refuses a reused pid and explains why", /refus/i.test(msg) && /reus/i.test(msg), msg);
 	}
 }
 
@@ -792,6 +866,8 @@ async function main() {
 	await reconcileRewritesDeadRunningJobs(url);
 	await verifyProcessIdentityDetectsReuse(url);
 	await identityDefeatsPidReuse(url);
+	await cancelSignalsVerifiedOrphan(url);
+	await cancelRefusesReusedPid(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);
