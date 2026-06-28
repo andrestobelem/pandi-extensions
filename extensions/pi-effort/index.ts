@@ -14,45 +14,14 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { THINKING_LEVELS, parseEffortTarget } from "./parse.js";
+import type { EffortTarget, ThinkingLevel } from "./parse.js";
 
 const EFFORT_STATUS_KEY = "effort";
 // Keep this string in sync with extensions/dynamic-workflows/index.ts. The event is
 // intentionally best-effort: `/effort` still works as a thinking-level command
 // when the dynamic-workflows extension is not loaded.
 const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
-
-const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
-type ThinkingLevel = (typeof THINKING_LEVELS)[number];
-
-type EffortTarget =
-	| { kind: "status" }
-	| { kind: "level"; level: ThinkingLevel }
-	| { kind: "ultracode" }
-	| { kind: "invalid"; value: string };
-
-const LEVEL_ALIASES: Record<string, ThinkingLevel> = {
-	"0": "off",
-	"false": "off",
-	no: "off",
-	none: "off",
-	off: "off",
-	disable: "off",
-	disabled: "off",
-	min: "minimal",
-	minimal: "minimal",
-	low: "low",
-	lo: "low",
-	medium: "medium",
-	med: "medium",
-	normal: "medium",
-	default: "medium",
-	high: "high",
-	hi: "high",
-	max: "xhigh",
-	xhigh: "xhigh",
-	"x-high": "xhigh",
-	extra: "xhigh",
-};
 
 const COMPLETIONS: Array<{ value: string; description: string }> = [
 	{ value: "off", description: "Disable model thinking/reasoning" },
@@ -90,24 +59,6 @@ function notify(ctx: ExtensionContext, message: string, type: "info" | "warning"
 	}
 	// Headless without UI: surface problems on stderr instead of silently dropping them.
 	if (type !== "info") console.error(message);
-}
-
-function parseEffortTarget(raw: string): EffortTarget {
-	const value = raw.trim().toLowerCase();
-	if (!value || value === "status" || value === "show" || value === "current") return { kind: "status" };
-	if (value === "ultracode" || value === "ultra-code") return { kind: "ultracode" };
-
-	// Accept `/effort thinking=high`, `/effort level high`, etc. by using the
-	// final significant token after lightweight separators/prefix words.
-	const tokens = value
-		.replace(/[=:,]/g, " ")
-		.split(/\s+/)
-		.filter(Boolean)
-		.filter((token) => !["thinking", "think", "level", "effort"].includes(token));
-	const token = tokens[tokens.length - 1] ?? value;
-	const level = LEVEL_ALIASES[token];
-	if (level) return { kind: "level", level };
-	return { kind: "invalid", value: raw.trim() };
 }
 
 function usage(current: string): string {
