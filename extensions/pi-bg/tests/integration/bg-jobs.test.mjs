@@ -432,6 +432,36 @@ async function backpressureRecoversWhenSinkDies(url) {
 	source.destroy();
 }
 
+async function writeCapStopsAndMarksLog(url) {
+	const mod = await import(`${url}?cap=${instance++}`);
+	const pipe = mod.pipeWithBackpressure;
+	check("write-cap: pipeWithBackpressure is exported", typeof pipe === "function", typeof pipe);
+	if (typeof pipe !== "function") return;
+
+	const source = new PassThrough();
+	const chunks = [];
+	const sink = new Writable({
+		write(chunk, _enc, cb) {
+			chunks.push(Buffer.from(chunk));
+			cb();
+		},
+	});
+	const cap = 10;
+	pipe(source, [sink], cap);
+	source.write(Buffer.from("a".repeat(8))); // under cap
+	source.write(Buffer.from("b".repeat(8))); // crosses cap -> partial + marker
+	source.write(Buffer.from("c".repeat(8))); // fully dropped once capped
+	await new Promise((r) => setTimeout(r, 30));
+
+	const text = Buffer.concat(chunks).toString("utf8");
+	const payload = text.replace(/\n?\[log capped at 10 bytes\]\n?/g, ""); // strip marker (it contains 'c')
+	check("write-cap: emits exactly one capped marker", (text.match(/\[log capped at 10 bytes\]/g) || []).length === 1, text);
+	check("write-cap: drops payload once capped", !payload.includes("c"), payload);
+	check("write-cap: payload bytes do not exceed the cap", payload.length <= cap, `payloadBytes=${payload.length}`);
+	source.destroy();
+	sink.destroy();
+}
+
 async function jobFinishedGuardRejectsCancel(url) {
 	const mod = await import(`${url}?finguard=${instance++}`);
 	const isFinished = mod.isJobFinished;
@@ -520,6 +550,7 @@ async function main() {
 	await finalizeRejectionIsContained(url);
 	await backpressurePausesSource(url);
 	await backpressureRecoversWhenSinkDies(url);
+	await writeCapStopsAndMarksLog(url);
 	await descriptionListsPlanSubcommand(url);
 	await atomicWriteCleansTempOnRenameFailure(url);
 	await startSurfacesFilesystemErrors(url);

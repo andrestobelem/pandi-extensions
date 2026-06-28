@@ -15,6 +15,7 @@ import * as path from "node:path";
 const BG_DIR = "bg";
 const RUNS_DIR = "runs";
 const MAX_LOG_BYTES = 20_000;
+const MAX_LOG_WRITE_BYTES = 5_000_000;
 const MAX_JSON_BYTES = 1_000_000;
 const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
@@ -324,18 +325,32 @@ export function isJobFinished(runtime: RuntimeJob): boolean {
 // Forward a child stream to one or more log sinks while respecting backpressure:
 // pause the source when any sink buffers, resume only once every sink has drained.
 // Without this, a chatty job can grow the host process memory without bound.
-export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | undefined, sinks: WriteStream[]): void {
+export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | undefined, sinks: WriteStream[], capBytes = MAX_LOG_WRITE_BYTES): void {
 	if (!source) return;
-	// A destroyed/errored sink never emits 'drain'. Treat it as non-blocking so a dead
-	// log sink can never freeze the source (and thus the child) and leave the job stuck.
+	// Bound bytes written per sink so a chatty trusted job cannot fill the user's disk.
+	// Once capped, stop writing payload and append a single marker (mirrors the read cap).
+	const written = sinks.map(() => 0);
+	const capped = sinks.map(() => false);
+	// A destroyed/errored/capped sink never emits 'drain'. Treat it as non-blocking so a
+	// dead or capped log sink can never freeze the source (and thus the child) and leave
+	// the job stuck.
 	const maybeResume = (): void => {
-		if (sinks.every((sink) => sink.destroyed || !sink.writableNeedDrain)) source.resume();
+		if (sinks.every((sink, i) => sink.destroyed || capped[i] || !sink.writableNeedDrain)) source.resume();
 	};
 	source.on("data", (chunk: Buffer) => {
 		let blocked = false;
-		for (const sink of sinks) {
-			if (!sink.destroyed && !sink.write(chunk)) blocked = true;
-		}
+		sinks.forEach((sink, i) => {
+			if (sink.destroyed || capped[i]) return;
+			if (written[i] + chunk.length > capBytes) {
+				const remaining = Math.max(0, capBytes - written[i]);
+				if (remaining > 0) sink.write(chunk.subarray(0, remaining));
+				sink.write(`\n[log capped at ${capBytes} bytes]\n`);
+				capped[i] = true;
+				return;
+			}
+			written[i] += chunk.length;
+			if (!sink.write(chunk)) blocked = true;
+		});
 		if (blocked) source.pause();
 	});
 	for (const sink of sinks) {
