@@ -173,7 +173,7 @@ const runSafetyGate = async (ctx, baseline, { allow, hotFiles }) => {
  * of what the agent claimed.
  *
  * Hard safeguards (baked into prompts and checked before/after verification; this workflow is the guardian):
- *  - NEVER edit a hot/foreign file: `hotFiles` (default extensions/dynamic-workflows/index.ts) or any
+ *  - NEVER edit a hot/foreign file: `hotFiles` (default extensions/pi-dynamic-workflows/index.ts) or any
  *    file with uncommitted changes you did not make (check `git status` + mtime BEFORE editing).
  *    For those, only PROPOSE in docs/.
  *  - Edit ONLY within `allow`. Leave the tree GREEN (verifyCmd + esbuild/node --check/e2e).
@@ -191,13 +191,13 @@ export default async function workflow(ctx, input = {}) {
     "Mejorá este paquete de extensiones Pi: UNA mejora segura de alto valor por iteración hasta que no quede ninguna (dry).";
   const maxPasses = input.maxPasses || 3;
   const logPath = input.logPath || "docs/research/continuous-improvement-log.md";
-  const hotFiles = input.hotFiles || ["extensions/dynamic-workflows/index.ts"];
+  const hotFiles = input.hotFiles || ["extensions/pi-dynamic-workflows/index.ts"];
   const allow = input.allow || [
-    "extensions/loop/**",
-    "extensions/goal/**",
-    "extensions/plan/**",
-    "extensions/bg/**",
-    "extensions/effort/**",
+    "extensions/pi-loop/**",
+    "extensions/pi-goal/**",
+    "extensions/pi-plan/**",
+    "extensions/pi-bg/**",
+    "extensions/pi-effort/**",
     "scripts/test/run-all.mjs",
     "docs/**",
   ];
