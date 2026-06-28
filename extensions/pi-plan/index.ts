@@ -73,13 +73,21 @@ import { collectLatestByKey } from "./session-state.js";
 import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
 import { blockedReason } from "./gate.js";
 import { type PlanFlags, makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
+import {
+	getSessionFlagDefault,
+	parsePlanCommandFlags,
+	parsePlanToggleValue,
+	resetSessionFlagDefaults,
+	resolvePlanFlags,
+	setSessionFlagDefault,
+} from "./flags.js";
+import { clearPlanStatus, formatStatus, setPlanStatus } from "./status.js";
 
 const PLAN_STATE_TYPE = "plan-state";
-const PLAN_STATUS_KEY = "plan";
 
 type PlanStatus = "planning" | "approved" | "rejected" | "exited" | "planned";
 
-interface PlanState {
+export interface PlanState {
 	planId: string;
 	/** The task the user handed to /plan. */
 	task: string;
@@ -157,31 +165,8 @@ function currentPlan(): PlanState | undefined {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Status line
+// Status line — see ./status.ts (setPlanStatus / clearPlanStatus / formatStatus).
 // ---------------------------------------------------------------------------
-
-function planFlagSuffix(plan: PlanState): string {
-	const tags: string[] = [];
-	if (plan.nonInteractive) tags.push("plan-only");
-	if (plan.ultracode) tags.push("uc");
-	if (plan.ultracodeSteps) tags.push("uc-steps");
-	return tags.length ? ` · ${tags.join(" · ")}` : "";
-}
-
-function setPlanStatus(ctx: ExtensionContext, plan: PlanState): void {
-	if (!ctx.hasUI) return;
-	const theme = ctx.ui.theme;
-	const subs = plan.submissions > 0 ? ` · ${plan.submissions} submitted` : "";
-	const rej = plan.rejections > 0 ? `/${plan.rejections} rejected` : "";
-	ctx.ui.setStatus(
-		PLAN_STATUS_KEY,
-		`${theme.fg("accent", "▣ plan")} ${theme.fg("dim", `read-only${subs}${rej}${planFlagSuffix(plan)}`)}`,
-	);
-}
-
-function clearPlanStatus(ctx: ExtensionContext): void {
-	if (ctx.hasUI) ctx.ui.setStatus(PLAN_STATUS_KEY, undefined);
-}
 
 /** Refresh status from the active plan (if any). */
 function refreshPlanStatus(ctx: ExtensionContext): void {
@@ -230,49 +215,10 @@ function canEnterPlanMode(ctx: ExtensionContext, flags: PlanFlags): boolean {
 	return (ctx.mode === "print" || ctx.mode === "json") && flags.nonInteractive === true;
 }
 
-/** A setting is ON when the env var is one of the truthy tokens (1/true/on/yes). */
-function envFlag(name: string): boolean {
-	const value = (process.env[name] ?? "").trim().toLowerCase();
-	return value === "1" || value === "true" || value === "on" || value === "yes";
-}
-
-/**
- * Session-level defaults for the ultracode posture, set by `/plan ultracode on|off` and
- * `/plan steps-ultracode on|off`. They sit BETWEEN an explicit param and the env setting
- * (param -> session toggle -> env -> default) and are reset at every session boundary.
- * nonInteractive is intentionally NOT a session toggle: it only matters in print/json, where
- * the session is one-shot, so it is set per call via param/env.
- */
-const sessionFlagDefaults: { ultracode?: boolean; ultracodeSteps?: boolean } = {};
-
-function resetSessionFlagDefaults(): void {
-	sessionFlagDefaults.ultracode = undefined;
-	sessionFlagDefaults.ultracodeSteps = undefined;
-}
-
-/**
- * Resolve the posture flags with precedence: explicit param -> session toggle -> environment
- * setting -> default (false). This is the "pasar con parámetros o setear" surface: tool/command
- * params win, then `/plan ultracode|steps-ultracode on|off` session defaults, then the PI_PLAN_*
- * env vars, else off. (nonInteractive skips the session-toggle layer.)
- */
-function resolvePlanFlags(params: PlanFlags): Required<PlanFlags> {
-	return {
-		nonInteractive: params.nonInteractive ?? envFlag("PI_PLAN_NONINTERACTIVE"),
-		ultracode: params.ultracode ?? sessionFlagDefaults.ultracode ?? envFlag("PI_PLAN_ULTRACODE"),
-		ultracodeSteps:
-			params.ultracodeSteps ?? sessionFlagDefaults.ultracodeSteps ?? envFlag("PI_PLAN_ULTRACODE_STEPS"),
-	};
-}
-
-/** Parse an on|off|status toggle argument (with common aliases). */
-function parsePlanToggleValue(raw: string): "on" | "off" | "status" | "invalid" {
-	const value = raw.trim().toLowerCase();
-	if (!value || value === "status") return "status";
-	if (["on", "enable", "enabled", "true", "1"].includes(value)) return "on";
-	if (["off", "disable", "disabled", "false", "0"].includes(value)) return "off";
-	return "invalid";
-}
+// ---------------------------------------------------------------------------
+// Plan flags — see ./flags.ts (envFlag, resolvePlanFlags, parse* + the
+// session-default toggle singleton accessed via get/setSessionFlagDefault).
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Wake (re-inject implementation message after approval)
@@ -341,25 +287,6 @@ function createAndArmPlan(
 	persist(pi, plan);
 	setPlanStatus(ctx, plan);
 	return plan;
-}
-
-/**
- * Parse trailing `--ultracode` / `--ultracode-steps` (aliases `--uc` / `--uc-steps`) flags
- * off the /plan argument string. The remaining text is the <task>. The command path is
- * interactive-only, so it does NOT accept --non-interactive (there is no clean way to
- * deliver the planning instruction in print/json from a command; non-interactive entry is
- * the enter_plan_mode tool's job). Returns the cleaned task plus the parsed command flags.
- */
-function parsePlanCommandFlags(args: string): { task: string; flags: PlanFlags } {
-	const flags: PlanFlags = {};
-	const kept: string[] = [];
-	for (const token of args.split(/\s+/)) {
-		const lower = token.toLowerCase();
-		if (lower === "--ultracode" || lower === "--uc") flags.ultracode = true;
-		else if (lower === "--ultracode-steps" || lower === "--uc-steps") flags.ultracodeSteps = true;
-		else if (token.length) kept.push(token);
-	}
-	return { task: kept.join(" "), flags };
 }
 
 function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanState | undefined {
@@ -435,18 +362,6 @@ function rehydrate(ctx: ExtensionContext): void {
 // Command handling
 // ---------------------------------------------------------------------------
 
-function formatStatus(plan: PlanState): string {
-	const gate = plan.active ? "active (read-only gate ARMED)" : `inactive [${plan.status}]`;
-	const counts = ` — ${plan.submissions} plan(s) submitted, ${plan.rejections} rejected`;
-	const tags = [
-		plan.nonInteractive ? "plan-only" : undefined,
-		plan.ultracode ? "ultracode" : undefined,
-		plan.ultracodeSteps ? "ultracode-steps" : undefined,
-	].filter(Boolean);
-	const posture = tags.length ? ` [${tags.join(", ")}]` : "";
-	return `Plan ${plan.planId}: ${gate}${posture}${counts}. Task: ${plan.task}`;
-}
-
 /**
  * Gather every plan in this session for the dashboard: the latest persisted snapshot per
  * planId (history) with the in-memory plans overlaid on top (most current — they carry the
@@ -501,9 +416,9 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 			notify(ctx, `Usage: /plan ${label} [on|off|status]`, "warning");
 			return;
 		}
-		if (action === "on") sessionFlagDefaults[key] = true;
-		else if (action === "off") sessionFlagDefaults[key] = false;
-		const current = sessionFlagDefaults[key];
+		if (action === "on") setSessionFlagDefault(key, true);
+		else if (action === "off") setSessionFlagDefault(key, false);
+		const current = getSessionFlagDefault(key);
 		const state = current === undefined ? "unset (env/param decides)" : current ? "on" : "off";
 		notify(ctx, `/plan ${label} session default: ${state}.`, "info");
 		return;
