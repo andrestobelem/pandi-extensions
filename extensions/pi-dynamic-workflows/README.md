@@ -347,6 +347,12 @@ flowchart LR
 - **Primitivas:** `ctx.parallel`, `ctx.agent(schema)`, voting.
 - **Verifica:** cada finding tiene repro, evidencia concreta o razón de descarte.
 
+## Síntesis position-aware (lost-in-the-middle)
+
+Los modelos atienden mejor al **inicio y al final** del contexto y peor al medio (la curva U de *lost-in-the-middle*; ver `docs/research/2026-06-28-context-engineering-focus.md`). Cuando un paso de síntesis/`judge` recibe un bloque grande de evidencia, las instrucciones que van solo arriba quedan "enterradas" frente a la zona de alta atención del final.
+
+Por eso los scaffolds de síntesis (`fan-out-and-synthesize`, `complex-research`, `bug-hunt-repo-audit`, `plan-review`, etc.) **reafirman la tarea + criterios DESPUÉS de la evidencia** (`ctx.compact(...)`), con un footer corto que pide el formato de salida, lo más importante primero, y notar explícitamente las ramas fallidas/vacías. Así las instrucciones quedan en **ambos extremos** del prompt, no solo arriba. Al escribir tus propios workflows, replica este patrón: tarea/criterios al inicio y al final, evidencia en el medio.
+
 ## Research-backed templates
 
 Map common agent papers/frameworks to Pi workflow design:

@@ -100,6 +100,14 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 	// 2) Must project to textual output before compacting (attribution-friendly).
 	const projects = /\.map\(\s*\(?\s*r\s*\)?\s*=>\s*\(\{[^}]*\boutput:\s*r\.output\b/.test(code);
 	check(`${key}: projects results to {..., output: r.output} for synthesis`, projects, code.slice(0, 0));
+
+	// 3) Position-aware (lost-in-the-middle): the task must be restated AFTER the
+	//    evidence block, so instructions sit at BOTH ends of the synthesis prompt
+	//    rather than only at the top where a long evidence block can bury them.
+	const compactIdx = code.lastIndexOf("ctx.compact(");
+	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";
+	const restated = /Now (produce|do exactly|write|synthesize)/.test(tail);
+	check(`${key}: restates the task AFTER the evidence (both-ends framing)`, restated, tail.slice(0, 140));
 }
 
 console.log(`\n${failures === 0 ? "ALL PASS" : failures + " FAIL"}`);
