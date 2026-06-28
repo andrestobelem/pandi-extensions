@@ -25,6 +25,19 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
   Contract Gate.
 - Compact Claude-style template catalog: six primary templates, compose templates, and use-case templates, with no pattern aliases.
 - JavaScript workflow runtime with `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`, artifacts, resumable journal, and TUI dashboard.
+- Per-call model and reasoning selection: every subagent call can choose its own `model`, `provider`, and `thinking` level (`off|minimal|low|medium|high|xhigh`) — e.g. cheap/fast + `thinking: "low"` for wide scouts and a stronger model + `thinking: "high"`/`"xhigh"` for synthesis or verification. Omitting them inherits the orchestrator's model (`ctx.model`) and session thinking level; `model`/`provider`/`thinking` are part of the cache key, so changing them re-runs that call on resume.
+
+```js
+// Decide model + reasoning per call.
+const notes = await ctx.agents(files.map((f) => ({
+  name: `scout-${f}`, prompt: `Summarize risks in ${f}.`,
+  model: "haiku", thinking: "low", tools: ["read", "grep", "find", "ls"],
+})), { concurrency: 8 });
+const verdict = await ctx.agent(
+  `Synthesize a ranked, evidence-backed verdict.\n\n${ctx.compact(notes, 50000)}`,
+  { name: "synthesis", model: "anthropic/claude-sonnet-4", thinking: "high" },
+);
+```
 
 ## Catálogo de patrones
 

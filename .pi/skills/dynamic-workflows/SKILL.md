@@ -88,6 +88,35 @@ Options: `schemaRetries` (default `2`) retries with validation feedback; `schema
 
 Use `agentType` for persona defaults before cache-key computation: `explore`, `reviewer`, `planner`, `implementer`, `researcher`. Explicit options win; `appendSystemPrompt` is concatenated. Trusted projects may define `.pi/personas/<name>.json` with persona defaults.
 
+## Per-call model and thinking selection
+
+Each subagent call decides, independently, **which model/provider to use and with which thinking (reasoning) level to launch**. Pass these on `ctx.agent`, `ctx.agents`, `ctx.pipeline`, or any per-item spec:
+
+- `model` — model pattern or id, e.g. `"anthropic/claude-sonnet-4"` or just `"haiku"` (pi resolves `provider/id` and an optional `:<thinking>` suffix). Becomes `--model`.
+- `provider` — restrict to a provider, e.g. `"openai"`. Becomes `--provider`. When `provider` is set without `model`, no model is synthesized (pi picks within that provider).
+- `thinking` — reasoning effort, one of `off | minimal | low | medium | high | xhigh`. Becomes `--thinking`.
+
+Defaults inherit the orchestrator: a call with no `model`/`provider` reuses the workflow's own model (`ctx.model`), and a call with no `thinking` reuses the current session thinking level (`pi.getThinkingLevel()`). `agentType` personas set thinking defaults too (`reviewer`/`planner`/`researcher` → `high`, `explore`/`implementer` → `medium`); explicit options override them.
+
+`model`, `provider`, and `thinking` are part of the cache key, so changing them re-runs that call on resume instead of reusing a stale result.
+
+Match cost and capability to the work, deciding per call:
+
+- **Wide, cheap scouting / classification / extraction** → a fast, inexpensive model with `thinking: "low"` (or `"minimal"`/`"off"`).
+- **Synthesis, adversarial verification, planning, hard reasoning** → a stronger model and `thinking: "high"` (or `"xhigh"` for the hardest judge/synthesis step).
+
+```js
+// Cheap parallel scouts, then one strong, high-reasoning synthesis.
+const notes = await ctx.agents(files.map((f) => ({
+  name: `scout-${f}`, prompt: `Summarize risks in ${f}. Cite lines.`,
+  model: "haiku", thinking: "low", tools: ["read", "grep", "find", "ls"],
+})), { concurrency: 8 });
+const verdict = await ctx.agent(
+  `Synthesize the scout notes into a ranked, evidence-backed verdict.\n\n${ctx.compact(notes, 50000)}`,
+  { name: "synthesis", model: "anthropic/claude-sonnet-4", thinking: "high", tools: ["read", "grep", "find", "ls"] },
+);
+```
+
 Per-agent access is explicit: pass `tools`/`excludeTools` to scope Pi tools, `skills: ["/path/to/skill"]` and `extensions: ["/path/to/extension.ts"]` to load needed skill/extension resources, and `keys: ["ENV_VAR_NAME"]` to expose only named environment keys to that subagent in an isolated environment (values are redacted in artifacts). By default, Dynamic Workflows tries to make web search available by loading `pi-codex-web-search` explicitly and appending `web_search` to explicit tool allowlists; opt out with `includeExtensions: false` or `excludeTools: ["web_search"]`. Normal skill discovery stays on, so `context7-cli` is available when installed; explicit skill lists also get `context7-cli` appended when found, unless `includeSkills: false`. Use `includeSkills: true` / `includeExtensions: true` only when you intentionally want normal discovery in addition to explicit paths. Use `env: { NAME: "value" }` only for non-prompt secrets you intentionally inject; prefer env var names and never write secret values into prompts. Cache keys redact credential values, so use `{ cache: false }` when a branch depends on a rotated/exact secret value.
 
 ## Core Tool and Commands
@@ -169,7 +198,7 @@ module.exports = async function workflow(ctx, input) {
 
 Useful helpers:
 
-- `ctx.agent(prompt, options)` — run one Pi subagent; supports `tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `includeExtensions`, `keys`, `env`, `schema`, `schemaRetries`, `schemaOnInvalid`, and `agentType`.
+- `ctx.agent(prompt, options)` — run one Pi subagent; supports `model`, `provider`, `thinking`, `tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `includeExtensions`, `keys`, `env`, `schema`, `schemaRetries`, `schemaOnInvalid`, and `agentType`. `model`/`provider`/`thinking` are chosen per call (see Per-call model and thinking selection).
 - `ctx.agents(items, { concurrency })` — run many subagents with bounded concurrency.
 - `ctx.agents(items, { concurrency, settle: true })` — keep a fan-out running when one branch fails; failed branches return `null` and should be logged/filtered.
 - `ctx.pipeline(items, ...stages)` — multi-stage per-item flow without global barriers; failed items return `null`.
