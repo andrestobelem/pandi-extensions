@@ -3133,6 +3133,18 @@ function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<SubagentRe
 	};
 }
 
+// Live elapsed for an agent: use the recorded value once it ends, otherwise
+// derive it from startedAt while running so the row ticks instead of showing a
+// frozen "elapsed:…" placeholder.
+function getAgentElapsedMs(agent: Pick<AgentMonitorModel, "state" | "startedAt" | "elapsedMs">): number | undefined {
+	if (agent.elapsedMs !== undefined) return agent.elapsedMs;
+	if (agent.state === "running" && agent.startedAt) {
+		const started = new Date(agent.startedAt).getTime();
+		if (Number.isFinite(started)) return Math.max(0, Date.now() - started);
+	}
+	return undefined;
+}
+
 function formatAgentPhase(agent: Pick<AgentMonitorModel, "phaseId" | "phaseIndex" | "phaseTotal" | "phaseLabel">): string | undefined {
 	if (!agent.phaseIndex || !agent.phaseTotal) return undefined;
 	const batch = agent.phaseId ? `P${agent.phaseId} ` : "";
@@ -4441,7 +4453,8 @@ class WorkflowDashboard {
 			const selected = index === this.monitorAgentIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const state = this.agentStateLabel(agent, accent, muted, success, error);
-			const elapsed = agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
+			const agentElapsedMs = getAgentElapsedMs(agent);
+			const elapsed = agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
 			const phase = formatAgentPhase(agent);
 			const code = agent.code === undefined ? "" : agent.code === 0 ? muted(` code:0`) : error(` code:${agent.code}`);
 			const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
@@ -4457,7 +4470,8 @@ class WorkflowDashboard {
 		lines.push(line(muted("")));
 		lines.push(line(accent("Selected agent")));
 		lines.push(line(`agent: #${selected.id} ${formatAgentPhase(selected) ? `${formatAgentPhase(selected)} ` : ""}${selected.name}`));
-		lines.push(line(`state: ${renderSafeInline(selected.state)}${selected.elapsedMs === undefined ? "" : ` • ${formatElapsedMs(selected.elapsedMs)}`}${selected.code === undefined ? "" : ` • code ${selected.code}`}`));
+		const selectedElapsedMs = getAgentElapsedMs(selected);
+		lines.push(line(`state: ${renderSafeInline(selected.state)}${selectedElapsedMs === undefined ? "" : ` • ${formatElapsedMs(selectedElapsedMs)}`}${selected.code === undefined ? "" : ` • code ${selected.code}`}`));
 		if (formatAgentPhase(selected)) lines.push(line(`phase: ${formatAgentPhase(selected)}${selected.phaseLabel ? muted(` • ${selected.phaseLabel}`) : ""}`));
 		lines.push(line(`prompt: ${selected.promptAvailable ? success("available") : warning("not available")} ${selected.artifactPath ? muted(`• ${selected.artifactPath}`) : ""}`));
 		lines.push(line(`tools: ${selected.tools?.length ? selected.tools.join(", ") : "default"}${selected.excludeTools?.length ? ` • exclude: ${selected.excludeTools.join(", ")}` : ""}`));
@@ -4498,7 +4512,8 @@ class WorkflowDashboard {
 			const selected = index === this.agentIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const state = this.agentStateLabel(entry.agent, accent, muted, success, error);
-			const elapsed = entry.agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(entry.agent.elapsedMs)}`;
+			const agentElapsedMs = getAgentElapsedMs(entry.agent);
+			const elapsed = agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
 			const phase = formatAgentPhase(entry.agent);
 			const prompt = entry.agent.promptAvailable ? success("prompt✓") : warning("prompt?");
 			const schema = entry.agent.schemaOk === undefined ? "" : entry.agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
@@ -4518,7 +4533,8 @@ class WorkflowDashboard {
 		lines.push(line(`run: ${run.runId}`));
 		lines.push(line(`parallel: ${formatParallelAgents(run)}`));
 		lines.push(line(`agent: #${agent.id} ${formatAgentPhase(agent) ? `${formatAgentPhase(agent)} ` : ""}${agent.name}`));
-		lines.push(line(`state: ${renderSafeInline(agent.state)}${agent.elapsedMs === undefined ? "" : ` • ${formatElapsedMs(agent.elapsedMs)}`}${agent.code === undefined ? "" : ` • code ${agent.code}`}${agent.schemaOk === undefined ? "" : ` • schema ${agent.schemaOk ? "ok" : "bad"}`}`));
+		const agentDetailElapsedMs = getAgentElapsedMs(agent);
+		lines.push(line(`state: ${renderSafeInline(agent.state)}${agentDetailElapsedMs === undefined ? "" : ` • ${formatElapsedMs(agentDetailElapsedMs)}`}${agent.code === undefined ? "" : ` • code ${agent.code}`}${agent.schemaOk === undefined ? "" : ` • schema ${agent.schemaOk ? "ok" : "bad"}`}`));
 		if (formatAgentPhase(agent)) lines.push(line(`phase: ${formatAgentPhase(agent)}${agent.phaseLabel ? muted(` • ${agent.phaseLabel}`) : ""}`));
 		lines.push(line(`prompt: ${agent.promptAvailable ? success("available") : warning("not available")} ${agent.artifactPath ? muted(`• ${agent.artifactPath}`) : ""}`));
 		lines.push(line(`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`));

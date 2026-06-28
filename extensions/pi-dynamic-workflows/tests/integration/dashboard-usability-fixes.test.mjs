@@ -307,6 +307,16 @@ async function scenarioListPaging(url) {
 	check("PageUp jumps a page (10) up", getDone()?.run?.runId === "r0", JSON.stringify(getDone()));
 }
 
+async function scenarioRunningAgentLiveElapsed(url) {
+	const { component } = await openDashboardComponent(url);
+	const startedAt = new Date(Date.now() - 65000).toISOString();
+	const entries = [{ run: { runId: "A", workflow: "wf", runDir: "/tmp/A", agentCount: 1, background: true, scope: "project" }, agent: { id: 1, name: "a1", state: "running", startedAt, promptAvailable: true } }];
+	component.setAgentEntries(entries);
+	component.handleInput("A"); // -> agents tab
+	const text = component.render(100).join("\n");
+	check("running agent shows live elapsed (not frozen elapsed:…)", /1m\d\ds/.test(text) && !text.includes("elapsed:…"), text.split("\n").find((l) => l.toLowerCase().includes("state:") || l.includes("elapsed")) ?? text.slice(0, 160));
+}
+
 async function scenarioListWindowIndicator(url) {
 	const { component } = await openDashboardComponent(url);
 	const now = new Date().toISOString();
@@ -356,6 +366,7 @@ async function main() {
 	await scenarioAgentsSelectionStability(url);
 	await scenarioListPaging(url);
 	await scenarioFailedRunErrorVisible(url);
+	await scenarioRunningAgentLiveElapsed(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 
