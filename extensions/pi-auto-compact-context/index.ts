@@ -1,6 +1,13 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+	parseThreshold,
+	parseBarSetting,
+	parseSnapshotSetting,
+	parseSnapshotKeep,
+	parseClearSetting,
+} from "./settings.js";
 
 const DEFAULT_THRESHOLD_PERCENT = 30;
 
@@ -26,34 +33,9 @@ const NEAR_RATIO = 0.6;
 const SNAPSHOT_DIR = "compaction-snapshots";
 const DEFAULT_SNAPSHOT_KEEP = 20;
 
-export const parseThreshold = (value: string | undefined): number | undefined => {
-	if (!value) return undefined;
-	const parsed = Number(value.trim().replace(/%$/, ""));
-	if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 100) return undefined;
-	return parsed;
-};
-
-// Parse an on/off-style setting (env var or subcommand argument). Returns
-// undefined for unrecognised input so callers can fall back to a default.
-const parseOnOff = (value: string | undefined): boolean | undefined => {
-	if (value === undefined) return undefined;
-	const v = value.trim().toLowerCase();
-	if (v === "on" || v === "1" || v === "true" || v === "yes" || v === "show") return true;
-	if (v === "off" || v === "0" || v === "false" || v === "no" || v === "hide") return false;
-	return undefined;
-};
-export const parseBarSetting = parseOnOff;
-// Snapshots share the on/off grammar; aliased so callers/tests read intent clearly.
-export const parseSnapshotSetting = parseOnOff;
-
-// Parse the snapshot retention budget (a positive integer); undefined when invalid
-// so the caller falls back to DEFAULT_SNAPSHOT_KEEP.
-export const parseSnapshotKeep = (value: string | undefined): number | undefined => {
-	if (!value) return undefined;
-	const n = Number(value.trim());
-	if (!Number.isInteger(n) || n < 1) return undefined;
-	return n;
-};
+// Setting parsers live in ./settings.ts; re-exported here so the built bundle keeps
+// exporting the public parser names (the integration suite imports them).
+export { parseThreshold, parseBarSetting, parseSnapshotSetting, parseSnapshotKeep, parseClearSetting };
 
 // Replace anything outside a safe file-name set so a session id / timestamp / reason
 // can never escape the snapshot directory. Leading/trailing `._-` are trimmed and an
@@ -110,9 +92,6 @@ export const selectSnapshotsToPrune = (fileNames: string[], keep: number): strin
 	if (keep <= 0) return snaps;
 	return snaps.slice(0, Math.max(0, snaps.length - keep));
 };
-
-// Tool-result clearing shares the on/off grammar (aliased for intent at call sites).
-export const parseClearSetting = parseOnOff;
 
 // Sentinel embedded in elided tool-result text. Detecting it makes clearing idempotent
 // (a re-run never re-clears already-cleared text) and lets humans spot trimmed output.
