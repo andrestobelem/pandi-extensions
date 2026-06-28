@@ -1,4 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const DEFAULT_THRESHOLD_PERCENT = 30;
 
@@ -16,6 +18,14 @@ const BAR_WIDTH = 8;
 // bar warns the user that auto-compaction is approaching.
 const NEAR_RATIO = 0.6;
 
+// Recoverable compaction: the raw entries about to be summarized are persisted
+// BEFORE the lossy summary replaces them, so compaction is recoverable rather
+// than destructive. Snapshots live under <cwd>/.pi/<SNAPSHOT_DIR>/<sessionId>/
+// (gitignored) — deliberately NOT in .pi/memory/, which is for curated, injected
+// facts, not bulky raw transcripts. DEFAULT_SNAPSHOT_KEEP bounds disk growth.
+const SNAPSHOT_DIR = "compaction-snapshots";
+const DEFAULT_SNAPSHOT_KEEP = 20;
+
 export const parseThreshold = (value: string | undefined): number | undefined => {
 	if (!value) return undefined;
 	const parsed = Number(value.trim().replace(/%$/, ""));
@@ -25,12 +35,80 @@ export const parseThreshold = (value: string | undefined): number | undefined =>
 
 // Parse an on/off-style setting (env var or subcommand argument). Returns
 // undefined for unrecognised input so callers can fall back to a default.
-export const parseBarSetting = (value: string | undefined): boolean | undefined => {
+const parseOnOff = (value: string | undefined): boolean | undefined => {
 	if (value === undefined) return undefined;
 	const v = value.trim().toLowerCase();
 	if (v === "on" || v === "1" || v === "true" || v === "yes" || v === "show") return true;
 	if (v === "off" || v === "0" || v === "false" || v === "no" || v === "hide") return false;
 	return undefined;
+};
+export const parseBarSetting = parseOnOff;
+// Snapshots share the on/off grammar; aliased so callers/tests read intent clearly.
+export const parseSnapshotSetting = parseOnOff;
+
+// Parse the snapshot retention budget (a positive integer); undefined when invalid
+// so the caller falls back to DEFAULT_SNAPSHOT_KEEP.
+export const parseSnapshotKeep = (value: string | undefined): number | undefined => {
+	if (!value) return undefined;
+	const n = Number(value.trim());
+	if (!Number.isInteger(n) || n < 1) return undefined;
+	return n;
+};
+
+// Replace anything outside a safe file-name set so a session id / timestamp / reason
+// can never escape the snapshot directory. Leading/trailing `._-` are trimmed and an
+// all-dots result (e.g. "." or "..", which would traverse) falls back to `fallback`.
+const safeSegment = (raw: string, fallback: string): string => {
+	const cleaned = (raw ?? "").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._-]+|[._-]+$/g, "");
+	return cleaned && !/^\.+$/.test(cleaned) ? cleaned : fallback;
+};
+
+/** Per-session snapshot directory: <cwd>/.pi/compaction-snapshots/<sessionId>/. Pure. */
+export const snapshotDirFor = (cwd: string, sessionId: string): string =>
+	join(cwd, ".pi", SNAPSHOT_DIR, safeSegment(sessionId, "session"));
+
+/** Snapshot file name. Timestamp-prefixed so a lexicographic sort is chronological. Pure. */
+export const snapshotFileName = (createdAtIso: string, reason: string): string =>
+	`${safeSegment(createdAtIso, "snapshot")}-${safeSegment(reason, "compact")}.json`;
+
+export interface CompactionSnapshot {
+	version: 1;
+	sessionId: string;
+	createdAt: string;
+	reason: string;
+	willRetry: boolean;
+	entryCount: number;
+	entries: unknown[];
+	/** The lossy summary that replaced `entries`, patched in after compaction completes. */
+	summary?: string;
+}
+
+/** Build the serializable snapshot object from the raw entries being compacted. Pure. */
+export const buildSnapshot = (opts: {
+	sessionId: string;
+	createdAt: string;
+	reason: string;
+	willRetry: boolean;
+	entries: unknown[];
+}): CompactionSnapshot => {
+	const entries = Array.isArray(opts.entries) ? opts.entries : [];
+	return {
+		version: 1,
+		sessionId: opts.sessionId,
+		createdAt: opts.createdAt,
+		reason: opts.reason,
+		willRetry: opts.willRetry,
+		entryCount: entries.length,
+		entries,
+	};
+};
+
+// Given snapshot file names (any order), return the OLDEST beyond `keep`. Names are
+// timestamp-prefixed so a lexicographic sort is chronological. keep<=0 prunes all.
+export const selectSnapshotsToPrune = (fileNames: string[], keep: number): string[] => {
+	const snaps = fileNames.filter((n) => n.endsWith(".json")).sort();
+	if (keep <= 0) return snaps;
+	return snaps.slice(0, Math.max(0, snaps.length - keep));
 };
 
 // Interactive menu shown for a bare `/auto-compact-context` in a UI session. The text
@@ -42,6 +120,9 @@ export const MENU_OPTIONS = [
 	"run — compact context now",
 	"bar on — show the footer progress bar",
 	"bar off — hide the footer progress bar",
+	"snapshot on — keep recoverable pre-compaction snapshots",
+	"snapshot off — stop keeping snapshots",
+	"snapshots — list recent snapshots",
 	"threshold — set the compaction threshold %",
 ];
 
@@ -57,6 +138,10 @@ const ARG_COMPLETIONS: { value: string; label: string; description: string }[] =
 	{ value: "bar", label: "bar", description: "Toggle the footer progress bar" },
 	{ value: "bar on", label: "bar on", description: "Show the footer progress bar" },
 	{ value: "bar off", label: "bar off", description: "Hide the footer progress bar" },
+	{ value: "snapshot", label: "snapshot", description: "Toggle recoverable compaction snapshots" },
+	{ value: "snapshot on", label: "snapshot on", description: "Keep recoverable pre-compaction snapshots" },
+	{ value: "snapshot off", label: "snapshot off", description: "Stop keeping snapshots" },
+	{ value: "snapshots", label: "snapshots", description: "List recent snapshots for this session" },
 	{ value: "20", label: "20%", description: "Set threshold to 20%" },
 	{ value: "30", label: "30%", description: "Set threshold to 30% (default)" },
 	{ value: "40", label: "40%", description: "Set threshold to 40%" },
@@ -131,6 +216,12 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 	let pendingReason: string | undefined;
 	let compacting = false;
 	let showBar = parseBarSetting(process.env.PI_AUTO_COMPACT_BAR) ?? true;
+	// Recoverable-compaction snapshots: on by default; bounded retention per session.
+	let snapshotsEnabled = parseSnapshotSetting(process.env.PI_AUTO_COMPACT_SNAPSHOT) ?? true;
+	const snapshotKeep = parseSnapshotKeep(process.env.PI_AUTO_COMPACT_SNAPSHOT_KEEP) ?? DEFAULT_SNAPSHOT_KEEP;
+	// Path of the snapshot written on the most recent session_before_compact, awaiting
+	// its summary on session_compact. Compaction is never concurrent, so one slot suffices.
+	let pendingSnapshotPath: string | undefined;
 
 	const notify = (ctx: ExtensionContext, message: string, level: "info" | "warning" | "error" = "info") => {
 		if (ctx.hasUI) ctx.ui.notify(message, level);
@@ -197,8 +288,76 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 		pendingReason = `${Math.round(currentPercent)}% >= ${thresholdPercent}%`;
 	};
 
+	// Persist the raw entries about to be summarized, BEFORE the lossy summary replaces
+	// them. Fully fail-safe: any error is surfaced (UI only) and swallowed so a snapshot
+	// failure can never block or cancel compaction.
+	const writeCompactionSnapshot = (
+		ctx: ExtensionContext,
+		event: { branchEntries?: unknown[]; reason?: string; willRetry?: boolean },
+	) => {
+		pendingSnapshotPath = undefined;
+		if (!enabled || !snapshotsEnabled) return;
+		try {
+			const sessionId = ctx.sessionManager?.getSessionId?.() ?? "session";
+			const createdAt = new Date().toISOString();
+			const reason = event.reason ?? "compact";
+			const dir = snapshotDirFor(ctx.cwd, sessionId);
+			const file = join(dir, snapshotFileName(createdAt, reason));
+			const snapshot = buildSnapshot({
+				sessionId,
+				createdAt,
+				reason,
+				willRetry: !!event.willRetry,
+				entries: Array.isArray(event.branchEntries) ? event.branchEntries : [],
+			});
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(file, JSON.stringify(snapshot, null, 2), "utf8");
+			pendingSnapshotPath = file;
+			// Prune oldest beyond the retention budget (the just-written file is newest).
+			try {
+				for (const name of selectSnapshotsToPrune(readdirSync(dir), snapshotKeep)) {
+					try {
+						unlinkSync(join(dir, name));
+					} catch {
+						/* a snapshot we could not delete is harmless; keep going */
+					}
+				}
+			} catch {
+				/* listing failed: skip pruning this round */
+			}
+		} catch (err) {
+			pendingSnapshotPath = undefined;
+			notify(ctx, `Could not save compaction snapshot: ${(err as Error).message}`, "warning");
+		}
+	};
+
+	// After compaction, patch the lossy summary into the snapshot so the artifact shows
+	// exactly what was dropped AND what replaced it, then surface the recoverable path.
+	const finalizeCompactionSnapshot = (ctx: ExtensionContext, event: { compactionEntry?: { summary?: string } }) => {
+		const file = pendingSnapshotPath;
+		pendingSnapshotPath = undefined;
+		if (!file) return;
+		try {
+			const data = JSON.parse(readFileSync(file, "utf8")) as CompactionSnapshot;
+			data.summary = event.compactionEntry?.summary ?? "";
+			writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
+			notify(ctx, `Compaction snapshot saved (recoverable raw context): ${file}`, "info");
+		} catch (err) {
+			notify(ctx, `Could not finalize compaction snapshot: ${(err as Error).message}`, "warning");
+		}
+	};
+
 	pi.on("session_start", (_event, ctx) => {
 		updateStatusBar(ctx);
+	});
+
+	// Snapshot every compaction path (manual /compact, threshold auto-compaction, overflow
+	// recovery, and this extension's own ctx.compact()). Never cancels: returns nothing.
+	pi.on("session_before_compact", (event, ctx) => {
+		writeCompactionSnapshot(ctx, event);
+	});
+	pi.on("session_compact", (event, ctx) => {
+		finalizeCompactionSnapshot(ctx, event);
 	});
 
 	// turn_end can fire between tool calls inside one assistant turn. Only mark
@@ -241,7 +400,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 			if (!trimmed || trimmed === "status") {
 				notify(
 					ctx,
-					`Auto-compaction context is ${enabled ? "enabled" : "disabled"}; threshold: ${thresholdPercent}%; bar: ${showBar ? "on" : "off"}`,
+					`Auto-compaction context is ${enabled ? "enabled" : "disabled"}; threshold: ${thresholdPercent}%; bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (keep ${snapshotKeep})`,
 					"info",
 				);
 				return;
@@ -283,9 +442,48 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 				return;
 			}
 
+			// `snapshots` — list recent recoverable snapshots for this session (read-only).
+			if (trimmed === "snapshots") {
+				try {
+					const dir = snapshotDirFor(ctx.cwd, ctx.sessionManager?.getSessionId?.() ?? "session");
+					const files = existsSync(dir)
+						? readdirSync(dir)
+								.filter((n) => n.endsWith(".json"))
+								.sort()
+								.reverse()
+						: [];
+					if (files.length === 0) {
+						notify(ctx, `No compaction snapshots yet (${dir})`, "info");
+					} else {
+						const top = files.slice(0, 10).map((n) => join(dir, n));
+						notify(ctx, `Recent compaction snapshots:\n${top.join("\n")}`, "info");
+					}
+				} catch (err) {
+					notify(ctx, `Could not list snapshots: ${(err as Error).message}`, "warning");
+				}
+				return;
+			}
+
+			// `snapshot` (toggle), `snapshot on`, `snapshot off` — recoverable-compaction snapshots.
+			if (trimmed === "snapshot" || trimmed.startsWith("snapshot ")) {
+				const arg = trimmed.slice("snapshot".length).trim();
+				const next = arg === "" ? !snapshotsEnabled : parseSnapshotSetting(arg);
+				if (next === undefined) {
+					notify(ctx, "Usage: /auto-compact-context snapshot [on|off]", "warning");
+					return;
+				}
+				snapshotsEnabled = next;
+				notify(ctx, `Auto-compaction context snapshots ${snapshotsEnabled ? "on" : "off"}`, "info");
+				return;
+			}
+
 			const nextThreshold = parseThreshold(trimmed);
 			if (nextThreshold === undefined) {
-				notify(ctx, "Usage: /auto-compact-context [status|on|off|run|bar [on|off]|<1-99 percent>]", "warning");
+				notify(
+					ctx,
+					"Usage: /auto-compact-context [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|<1-99 percent>]",
+					"warning",
+				);
 				return;
 			}
 

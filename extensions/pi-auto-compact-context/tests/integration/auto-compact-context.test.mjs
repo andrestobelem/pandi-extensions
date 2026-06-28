@@ -7,6 +7,8 @@
  * bring usage back below the threshold (the re-compaction loop).
  */
 
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
@@ -46,7 +48,7 @@ async function loadExtension(url) {
  * `setStatus` calls are recorded so footer progress-bar behaviour can be
  * asserted; `theme.fg` is an identity so assertions see the raw bar text.
  */
-function makeEnv({ hasUI = true } = {}) {
+function makeEnv({ hasUI = true, sessionId = "s1", cwd } = {}) {
 	const notes = [];
 	const statuses = []; // { key, text } in call order; text undefined means cleared
 	// Scripted interactive dialogs: tests push responses; calls are recorded.
@@ -55,8 +57,12 @@ function makeEnv({ hasUI = true } = {}) {
 	const selectResponses = [];
 	const inputResponses = [];
 	const state = { percent: 0, compactCount: 0, reduceTo: null };
+	// Per-env temp workspace + session manager so the snapshot path is isolated.
+	const workdir = cwd ?? mkdtempSync(path.join(os.tmpdir(), "ac-snap-"));
 	const ctx = {
 		hasUI,
+		cwd: workdir,
+		sessionManager: { getSessionId: () => sessionId },
 		ui: {
 			notify: (m, l) => notes.push({ m, l }),
 			setStatus: (key, text) => statuses.push({ key, text }),
@@ -79,7 +85,26 @@ function makeEnv({ hasUI = true } = {}) {
 			});
 		},
 	};
-	return { ctx, notes, statuses, state, selectCalls, inputCalls, selectResponses, inputResponses };
+	return { ctx, notes, statuses, state, selectCalls, inputCalls, selectResponses, inputResponses, workdir };
+}
+
+// Recoverable-compaction snapshot helpers ----------------------------------
+// The session_before_compact / session_compact events drive snapshot writing.
+async function fireBeforeCompact(handlers, ctx, { branchEntries = [], reason = "threshold", willRetry = false } = {}) {
+	return handlers.get("session_before_compact")?.({ branchEntries, reason, willRetry }, ctx);
+}
+
+async function fireSessionCompact(handlers, ctx, { summary = "" } = {}) {
+	return handlers.get("session_compact")?.({ compactionEntry: { summary } }, ctx);
+}
+
+// The per-session snapshot directory this extension writes to.
+function snapDir(env, sessionId = "s1") {
+	return path.join(env.workdir, ".pi", "compaction-snapshots", sessionId);
+}
+function snapFiles(env, sessionId = "s1") {
+	const dir = snapDir(env, sessionId);
+	return existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".json")) : [];
 }
 
 // The most recent footer status text (or undefined when last cleared).
@@ -441,6 +466,186 @@ async function bareCommandWithoutUiNeverOpensMenu(url) {
 	check("menu: a non-UI session never opens a menu", env.selectCalls.length === 0, `calls=${env.selectCalls.length}`);
 }
 
+// ---------------------------------------------------------------------------
+// Recoverable compaction: snapshots preserve the raw entries BEFORE the lossy
+// summary replaces them, so compaction is recoverable rather than destructive.
+// ---------------------------------------------------------------------------
+async function snapshotWritesRawEntries(url) {
+	const { handlers } = await loadExtension(url);
+	const env = makeEnv();
+	const entries = [
+		{ type: "message", id: "a", message: { role: "user", content: "hello raw" } },
+		{ type: "message", id: "b", message: { role: "assistant", content: "world raw" } },
+	];
+	await fireBeforeCompact(handlers, env.ctx, { branchEntries: entries, reason: "threshold" });
+	const files = snapFiles(env);
+	check(
+		"snapshot: a JSON snapshot is written on session_before_compact",
+		files.length === 1,
+		`files=${files.length}`,
+	);
+	if (files.length !== 1) return;
+	const snap = JSON.parse(readFileSync(path.join(snapDir(env), files[0]), "utf8"));
+	check(
+		"snapshot: preserves every raw entry + metadata",
+		snap.entryCount === 2 &&
+			Array.isArray(snap.entries) &&
+			snap.entries.length === 2 &&
+			snap.entries[0].id === "a" &&
+			snap.reason === "threshold" &&
+			snap.version === 1,
+		`snap=${JSON.stringify(snap).slice(0, 160)}`,
+	);
+	check(
+		"snapshot: raw is captured before any summary exists",
+		snap.summary === undefined,
+		`summary=${JSON.stringify(snap.summary)}`,
+	);
+}
+
+async function snapshotPatchesSummary(url) {
+	const { handlers } = await loadExtension(url);
+	const env = makeEnv();
+	await fireBeforeCompact(handlers, env.ctx, { branchEntries: [{ type: "message", id: "x" }] });
+	await fireSessionCompact(handlers, env.ctx, { summary: "a lossy summary of x" });
+	const files = snapFiles(env);
+	if (files.length !== 1) {
+		check("snapshot: single file to patch", false, `files=${files.length}`);
+		return;
+	}
+	const snap = JSON.parse(readFileSync(path.join(snapDir(env), files[0]), "utf8"));
+	check(
+		"snapshot: session_compact patches in the produced summary (raw + summary pair)",
+		snap.summary === "a lossy summary of x" && snap.entries[0].id === "x",
+		`snap=${JSON.stringify(snap).slice(0, 160)}`,
+	);
+}
+
+async function snapshotDisabledWritesNothing(url) {
+	const { handlers, commands } = await loadExtension(url);
+	const env = makeEnv();
+	await commands.get("auto-compact-context").handler("snapshot off", env.ctx);
+	await fireBeforeCompact(handlers, env.ctx, { branchEntries: [{ type: "message", id: "z" }] });
+	check("snapshot: disabled -> no file written", snapFiles(env).length === 0, `files=${snapFiles(env).length}`);
+}
+
+async function snapshotIsFailSafe(url) {
+	const { handlers } = await loadExtension(url);
+	const env = makeEnv();
+	// Make session id resolution throw so the whole write path errors out.
+	env.ctx.sessionManager = {
+		getSessionId: () => {
+			throw new Error("boom");
+		},
+	};
+	let threw = false;
+	let result;
+	try {
+		result = await fireBeforeCompact(handlers, env.ctx, { branchEntries: [{ id: "q" }] });
+	} catch {
+		threw = true;
+	}
+	check("snapshot: a write failure never throws out of the hook", !threw);
+	check(
+		"snapshot: the hook never cancels compaction (returns falsy)",
+		!result || result.cancel !== true,
+		`result=${JSON.stringify(result)}`,
+	);
+	check(
+		"snapshot: a failure surfaces a warning",
+		env.notes.some((n) => n.l === "warning" && /snapshot/i.test(n.m)),
+		`notes=${JSON.stringify(env.notes)}`,
+	);
+}
+
+async function snapshotRetentionPrunes(url) {
+	const prev = process.env.PI_AUTO_COMPACT_SNAPSHOT_KEEP;
+	process.env.PI_AUTO_COMPACT_SNAPSHOT_KEEP = "2";
+	try {
+		const { handlers } = await loadExtension(url);
+		const env = makeEnv();
+		for (let i = 0; i < 4; i++) {
+			await fireBeforeCompact(handlers, env.ctx, { branchEntries: [{ id: `e${i}` }] });
+			await new Promise((r) => setTimeout(r, 3)); // distinct ISO ms -> distinct file names
+		}
+		check(
+			"snapshot: retention prunes to the newest keep=2",
+			snapFiles(env).length === 2,
+			`files=${snapFiles(env).length}`,
+		);
+	} finally {
+		if (prev === undefined) delete process.env.PI_AUTO_COMPACT_SNAPSHOT_KEEP;
+		else process.env.PI_AUTO_COMPACT_SNAPSHOT_KEEP = prev;
+	}
+}
+
+// Pure-unit coverage for the exported snapshot helpers.
+async function snapshotPureHelpers(url) {
+	const mod = await loadModule(url);
+	check(
+		"parseSnapshotSetting: shares the on/off grammar",
+		mod.parseSnapshotSetting("on") === true &&
+			mod.parseSnapshotSetting("off") === false &&
+			mod.parseSnapshotSetting("maybe") === undefined,
+	);
+	const keepCases = [
+		["20", 20],
+		["1", 1],
+		["0", undefined],
+		["-5", undefined],
+		["1.5", undefined],
+		["", undefined],
+		[undefined, undefined],
+	];
+	for (const [input, expected] of keepCases) {
+		check(
+			`parseSnapshotKeep(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`,
+			mod.parseSnapshotKeep(input) === expected,
+		);
+	}
+	const base = path.join("/tmp/proj", ".pi", "compaction-snapshots");
+	const dir = mod.snapshotDirFor("/tmp/proj", "sess/../bad id");
+	const seg = path.basename(dir);
+	check(
+		"snapshotDirFor: collapses path separators/spaces into one safe segment under .pi",
+		dir.startsWith(base) && !seg.includes("/") && !seg.includes(" ") && seg !== ".." && seg !== ".",
+		`dir=${dir}`,
+	);
+	check(
+		"snapshotDirFor: an all-dots session id (traversal) falls back to a safe segment",
+		path.basename(mod.snapshotDirFor("/tmp/proj", "..")) === "session" &&
+			path.basename(mod.snapshotDirFor("/tmp/proj", ".")) === "session",
+		`dotdot=${mod.snapshotDirFor("/tmp/proj", "..")}`,
+	);
+	const name = mod.snapshotFileName("2026-06-28T10:04:04.932Z", "threshold");
+	check(
+		"snapshotFileName: timestamp-prefixed, safe, .json",
+		name.endsWith("-threshold.json") && !name.includes(":"),
+		`name=${name}`,
+	);
+	const snap = mod.buildSnapshot({
+		sessionId: "s",
+		createdAt: "t",
+		reason: "manual",
+		willRetry: false,
+		entries: [{ id: 1 }, { id: 2 }],
+	});
+	check(
+		"buildSnapshot: version 1, entryCount matches, summary absent",
+		snap.version === 1 && snap.entryCount === 2 && snap.summary === undefined,
+		`snap=${JSON.stringify(snap)}`,
+	);
+	// Names sort chronologically; keep=2 prunes the 3 oldest of 5.
+	const names = ["5.json", "1.json", "3.json", "2.json", "4.json", "notes.txt"];
+	const pruned = mod.selectSnapshotsToPrune(names, 2);
+	check(
+		"selectSnapshotsToPrune: returns the oldest beyond keep, ignores non-json",
+		JSON.stringify(pruned) === JSON.stringify(["1.json", "2.json", "3.json"]),
+		`pruned=${JSON.stringify(pruned)}`,
+	);
+	check("selectSnapshotsToPrune: keep=0 prunes all json", mod.selectSnapshotsToPrune(names, 0).length === 5);
+}
+
 async function main() {
 	const url = await build();
 	await stuckAboveThresholdDoesNotLoop(url);
@@ -458,6 +663,12 @@ async function main() {
 	await menuThresholdPresetSetsThreshold(url);
 	await menuThresholdCustomUsesInput(url);
 	await bareCommandWithoutUiNeverOpensMenu(url);
+	await snapshotWritesRawEntries(url);
+	await snapshotPatchesSummary(url);
+	await snapshotDisabledWritesNothing(url);
+	await snapshotIsFailSafe(url);
+	await snapshotRetentionPrunes(url);
+	await snapshotPureHelpers(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {
