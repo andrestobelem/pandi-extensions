@@ -84,7 +84,11 @@ export const REDIRECT_TARGET_RE = /(?:^|[^&>=\d-])\d*>>?\s*(?![&>=])("[^"]*"|'[^
 export const TEE_TARGET_RE = /\btee\b\s+(?:-\S+\s+)*("[^"]*"|'[^']*'|[^\s|&;<>]+)/gi;
 
 export function unquote(value: string): string {
-	if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
+	if (
+		value.length >= 2 &&
+		((value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith("'") && value.endsWith("'")))
+	) {
 		return value.slice(1, -1);
 	}
 	return value;
@@ -139,7 +143,9 @@ export function destructiveReason(ctx: ExtensionContext, event: ToolCallEvent): 
 		return undefined;
 	}
 	if (event.toolName === "write" || event.toolName === "edit") {
-		const filePath = (event.input as { file_path?: unknown; path?: unknown }).file_path ?? (event.input as { path?: unknown }).path;
+		const filePath =
+			(event.input as { file_path?: unknown; path?: unknown }).file_path ??
+			(event.input as { path?: unknown }).path;
 		if (isUnsafeWritePath(ctx, filePath)) {
 			return `autopilot blocked a ${event.toolName} outside the project: ${String(filePath).slice(0, 200)}`;
 		}

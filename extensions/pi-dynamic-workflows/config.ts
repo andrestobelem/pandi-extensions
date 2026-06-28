@@ -21,17 +21,22 @@ export const DEFAULT_WORKFLOW_TIMEOUT_MS = 60 * 60_000;
 export const DEFAULT_SYNC_TIMEOUT_MS = 5_000;
 
 function looksLikeJson(value: string): boolean {
-	return /^(?:[\[{\"]|true\b|false\b|null\b|-?\d)/.test(value.trim());
+	return /^(?:[[{"]|true\b|false\b|null\b|-?\d)/.test(value.trim());
 }
 
-export function parseCliJsonOrText(raw: string | undefined, options: { strictJson?: boolean } = {}): unknown {
+export function parseCliJsonOrText(
+	raw: string | undefined,
+	options: { strictJson?: boolean } = {},
+): unknown {
 	const value = raw?.trim();
 	if (!value) return {};
 	try {
 		return JSON.parse(value);
 	} catch (err) {
 		if (options.strictJson || looksLikeJson(value)) {
-			throw new Error(`Invalid JSON input: ${err instanceof Error ? err.message : String(err)}`);
+			throw new Error(`Invalid JSON input: ${err instanceof Error ? err.message : String(err)}`, {
+				cause: err,
+			});
 		}
 		return { text: value };
 	}
@@ -57,8 +62,14 @@ export function limitParamsFromInput(input: unknown): Partial<DynamicWorkflowToo
 }
 
 export function buildLimits(params: Partial<DynamicWorkflowToolParams> = {}): RunLimits {
-	const concurrency = Math.min(Math.max(Math.floor(params.concurrency ?? DEFAULT_CONCURRENCY), 1), HARD_MAX_CONCURRENCY);
-	const maxAgents = Math.min(Math.max(Math.floor(params.maxAgents ?? DEFAULT_MAX_AGENTS), 1), HARD_MAX_AGENTS);
+	const concurrency = Math.min(
+		Math.max(Math.floor(params.concurrency ?? DEFAULT_CONCURRENCY), 1),
+		HARD_MAX_CONCURRENCY,
+	);
+	const maxAgents = Math.min(
+		Math.max(Math.floor(params.maxAgents ?? DEFAULT_MAX_AGENTS), 1),
+		HARD_MAX_AGENTS,
+	);
 	return {
 		concurrency,
 		maxAgents,

@@ -1,36 +1,31 @@
 {
-  "$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/main/schema/markdownlint-cli2-config-schema.json",
+	"$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/main/schema/markdownlint-cli2-config-schema.json",
 
-  // Lint repository Markdown by default. Generated Pi artifacts and dependency
-  // directories are excluded so local agent runs do not affect lint results.
-  "globs": ["**/*.md"],
-  "gitignore": true,
-  "ignores": [
-    "**/node_modules/**",
-    ".cache/**",
-    ".pi/**",
-    "docs/conversaciones/**"
-  ],
+	// Lint repository Markdown by default. Generated Pi artifacts and dependency
+	// directories are excluded so local agent runs do not affect lint results.
+	"globs": ["**/*.md"],
+	"gitignore": true,
+	"ignores": ["**/node_modules/**", ".cache/**", ".pi/**", "docs/conversaciones/**"],
 
-  // Baseline for the current docs. Keep useful structural checks enabled, but
-  // relax rules that conflict with existing research notes, handoffs, and skill
-  // front matter. Tighten these gradually when touching those files.
-  "config": {
-    "default": true,
-    "MD004": false,
-    "MD012": { "maximum": 2 },
-    "MD013": false,
-    "MD022": false,
-    "MD024": { "siblings_only": true },
-    "MD026": false,
-    "MD029": false,
-    "MD031": false,
-    "MD032": false,
-    "MD033": false,
-    "MD034": false,
-    "MD040": false,
-    "MD041": false,
-    "MD047": false,
-    "MD060": false
-  }
+	// Baseline for the current docs. Keep useful structural checks enabled, but
+	// relax rules that conflict with existing research notes, handoffs, and skill
+	// front matter. Tighten these gradually when touching those files.
+	"config": {
+		"default": true,
+		"MD004": false,
+		"MD012": { "maximum": 2 },
+		"MD013": false,
+		"MD022": false,
+		"MD024": { "siblings_only": true },
+		"MD026": false,
+		"MD029": false,
+		"MD031": false,
+		"MD032": false,
+		"MD033": false,
+		"MD034": false,
+		"MD040": false,
+		"MD041": false,
+		"MD047": false,
+		"MD060": false,
+	},
 }

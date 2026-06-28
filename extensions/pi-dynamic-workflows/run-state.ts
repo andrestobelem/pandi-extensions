@@ -11,9 +11,18 @@
  * Bodies moved verbatim from index.ts (behavior-preserving).
  */
 
-import type { WorkflowRunRecord, WorkflowRunResult, WorkflowRunState, WorkflowLogEntry, AgentMonitorModel } from "./index.js";
+import type {
+	WorkflowRunRecord,
+	WorkflowRunResult,
+	WorkflowRunState,
+	WorkflowLogEntry,
+	AgentMonitorModel,
+} from "./index.js";
 
-export function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRunState(run)): number {
+export function getRunElapsedMs(
+	run: WorkflowRunRecord,
+	state: WorkflowRunState = getRunState(run),
+): number {
 	if (state === "running") {
 		const started = new Date(run.startedAt).getTime();
 		if (Number.isFinite(started)) return Date.now() - started;
@@ -22,12 +31,16 @@ export function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState 
 }
 
 export function getRunAgentConcurrency(run: WorkflowRunRecord): number | undefined {
-	return typeof run.agentConcurrency === "number" && Number.isFinite(run.agentConcurrency) ? Math.max(0, Math.floor(run.agentConcurrency)) : undefined;
+	return typeof run.agentConcurrency === "number" && Number.isFinite(run.agentConcurrency)
+		? Math.max(0, Math.floor(run.agentConcurrency))
+		: undefined;
 }
 
 export function getRunParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number {
-	if (typeof run.parallelAgents === "number" && Number.isFinite(run.parallelAgents)) return Math.max(0, Math.floor(run.parallelAgents));
-	if (getRunState(run) === "running" && agents) return agents.filter((agent) => agent.state === "running").length;
+	if (typeof run.parallelAgents === "number" && Number.isFinite(run.parallelAgents))
+		return Math.max(0, Math.floor(run.parallelAgents));
+	if (getRunState(run) === "running" && agents)
+		return agents.filter((agent) => agent.state === "running").length;
 	return 0;
 }
 
@@ -54,8 +67,12 @@ export function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number 
 	return peak;
 }
 
-export function getRunPeakParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number | undefined {
-	if (typeof run.peakParallelAgents === "number" && Number.isFinite(run.peakParallelAgents)) return Math.max(0, Math.floor(run.peakParallelAgents));
+export function getRunPeakParallelAgents(
+	run: WorkflowRunRecord,
+	agents?: AgentMonitorModel[],
+): number | undefined {
+	if (typeof run.peakParallelAgents === "number" && Number.isFinite(run.peakParallelAgents))
+		return Math.max(0, Math.floor(run.peakParallelAgents));
 	return agents ? estimatePeakParallelAgents(agents) : undefined;
 }
 
@@ -68,11 +85,15 @@ export function formatParallelAgents(run: WorkflowRunRecord, agents?: AgentMonit
 	return `${currentText}${peakText}`;
 }
 
-export function formatParallelAgentsCompact(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): string {
+export function formatParallelAgentsCompact(
+	run: WorkflowRunRecord,
+	agents?: AgentMonitorModel[],
+): string {
 	const current = getRunParallelAgents(run, agents);
 	const limit = getRunAgentConcurrency(run);
 	const peak = getRunPeakParallelAgents(run, agents);
-	if (getRunState(run) === "running") return limit && limit > 0 ? `${current}/${limit}` : String(current);
+	if (getRunState(run) === "running")
+		return limit && limit > 0 ? `${current}/${limit}` : String(current);
 	return peak === undefined ? "-" : `peak:${peak}`;
 }
 

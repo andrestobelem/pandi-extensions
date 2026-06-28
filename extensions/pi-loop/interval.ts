@@ -18,7 +18,11 @@ export const MIN_FIXED_INTERVAL_SECONDS = 1;
 export const MAX_FIXED_INTERVAL_SECONDS = 24 * 60 * 60; // 24h.
 export const INTERVAL_RE = /^(\d+)(s|m|h)$/;
 
-export const INTERVAL_UNIT_MS: Record<string, number> = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000 };
+export const INTERVAL_UNIT_MS: Record<string, number> = {
+	s: 1000,
+	m: 60 * 1000,
+	h: 60 * 60 * 1000,
+};
 
 /**
  * Parse a fixed-interval token like "5m", "30s", "2h". Returns the period in ms,
@@ -32,7 +36,10 @@ export function parseInterval(token: string): number | null {
 	if (!Number.isFinite(value) || value <= 0) return null;
 	const unitMs = INTERVAL_UNIT_MS[m[2]];
 	const rawSeconds = (value * unitMs) / 1000;
-	const seconds = Math.min(MAX_FIXED_INTERVAL_SECONDS, Math.max(MIN_FIXED_INTERVAL_SECONDS, rawSeconds));
+	const seconds = Math.min(
+		MAX_FIXED_INTERVAL_SECONDS,
+		Math.max(MIN_FIXED_INTERVAL_SECONDS, rawSeconds),
+	);
 	return seconds * 1000;
 }
 

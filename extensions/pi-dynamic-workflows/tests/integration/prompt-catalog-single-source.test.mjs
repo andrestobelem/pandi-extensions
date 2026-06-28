@@ -59,7 +59,10 @@ function sliceBlock(text) {
 	if (start === -1) return null;
 	let end = -1;
 	for (let i = start; i < lines.length; i++) {
-		if (lines[i].includes(CLOSING)) { end = i; break; }
+		if (lines[i].includes(CLOSING)) {
+			end = i;
+			break;
+		}
 	}
 	if (end === -1) return null;
 	return lines.slice(start, end + 1).join("\n");
@@ -76,7 +79,10 @@ function canonicalize(block) {
 let failures = 0;
 function check(name, ok, detail) {
 	console.log(`${ok ? "PASS" : "FAIL"}: ${name}`);
-	if (!ok) { failures++; if (detail) console.log("   -> " + String(detail).slice(0, 600)); }
+	if (!ok) {
+		failures++;
+		if (detail) console.log("   -> " + String(detail).slice(0, 600));
+	}
 }
 
 async function main() {
@@ -88,7 +94,10 @@ async function main() {
 
 	const canonicalBlock = sliceBlock(mod.formatWorkflowPatternCatalog());
 	check("canonical: block present in formatWorkflowPatternCatalog()", canonicalBlock !== null);
-	if (!canonicalBlock) { console.log(`\nTOTAL: ${failures} failed`); process.exit(1); }
+	if (!canonicalBlock) {
+		console.log(`\nTOTAL: ${failures} failed`);
+		process.exit(1);
+	}
 	const canonical = canonicalize(canonicalBlock);
 
 	const docs = [
@@ -118,9 +127,13 @@ function firstDiff(a, b) {
 	const lb = b.split("\n");
 	const n = Math.max(la.length, lb.length);
 	for (let i = 0; i < n; i++) {
-		if (la[i] !== lb[i]) return `line ${i + 1}:\n  canonical: ${JSON.stringify(la[i])}\n  doc:       ${JSON.stringify(lb[i])}`;
+		if (la[i] !== lb[i])
+			return `line ${i + 1}:\n  canonical: ${JSON.stringify(la[i])}\n  doc:       ${JSON.stringify(lb[i])}`;
 	}
 	return "(no line diff?)";
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+	console.error(err);
+	process.exit(1);
+});

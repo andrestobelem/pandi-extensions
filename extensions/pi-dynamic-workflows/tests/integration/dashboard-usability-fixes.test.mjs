@@ -16,7 +16,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension as sharedBuildExtension,
+	createChecker,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -75,7 +79,11 @@ function makeCtx(cwd, { editorReturns = "use-initial", customInputs = [] } = {})
 	const customCalls = [];
 	const setStatusCalls = [];
 	const inputs = [...customInputs];
-	const theme = { fg: (_color, value) => value, bg: (_color, value) => value, bold: (value) => value };
+	const theme = {
+		fg: (_color, value) => value,
+		bg: (_color, value) => value,
+		bold: (value) => value,
+	};
 	const ctx = {
 		mode: "tui",
 		hasUI: true,
@@ -90,7 +98,8 @@ function makeCtx(cwd, { editorReturns = "use-initial", customInputs = [] } = {})
 			setWidget: () => {},
 			confirm: async () => true,
 			select: async () => undefined,
-			editor: async (_title, initial = "") => (editorReturns === "use-initial" ? initial : editorReturns),
+			editor: async (_title, initial = "") =>
+				editorReturns === "use-initial" ? initial : editorReturns,
 			getEditorComponent: () => undefined,
 			setEditorComponent: () => {},
 			custom: async (factory) => {
@@ -98,10 +107,14 @@ function makeCtx(cwd, { editorReturns = "use-initial", customInputs = [] } = {})
 				// Live entry: `doneValue` keeps updating if the test drives the captured
 				// component's handleInput after the dashboard has "closed".
 				const entry = { component: null, lines: [], doneValue: undefined };
-				const done = (value) => { entry.doneValue = value; };
+				const done = (value) => {
+					entry.doneValue = value;
+				};
 				entry.component = factory(tui, theme, {}, done);
-				while (inputs.length > 0 && typeof entry.component?.handleInput === "function") entry.component.handleInput(inputs.shift());
-				entry.lines = typeof entry.component?.render === "function" ? entry.component.render(100) : [];
+				while (inputs.length > 0 && typeof entry.component?.handleInput === "function")
+					entry.component.handleInput(inputs.shift());
+				entry.lines =
+					typeof entry.component?.render === "function" ? entry.component.render(100) : [];
 				customCalls.push(entry);
 				return entry.doneValue ?? null;
 			},
@@ -134,9 +147,21 @@ async function seedFailedRun(project, { runId = "failrun-1", error = "BOOM_SENTI
 	await fs.mkdir(runDir, { recursive: true });
 	const now = new Date().toISOString();
 	const record = {
-		workflow: "wf", scope: "project", file: path.join(project, ".pi", "workflows", "wf.js"),
-		runId, runDir, ok: false, state: "failed", background: true,
-		startedAt: now, endedAt: now, elapsedMs: 4200, agentCount: 2, logs: [], error, cachedCalls: 0,
+		workflow: "wf",
+		scope: "project",
+		file: path.join(project, ".pi", "workflows", "wf.js"),
+		runId,
+		runDir,
+		ok: false,
+		state: "failed",
+		background: true,
+		startedAt: now,
+		endedAt: now,
+		elapsedMs: 4200,
+		agentCount: 2,
+		logs: [],
+		error,
+		cachedCalls: 0,
 	};
 	await fs.writeFile(path.join(runDir, "result.json"), JSON.stringify(record));
 	return record;
@@ -147,7 +172,8 @@ async function bootExtension(url, project, ctxOptions) {
 	const { pi, handlers, commands } = makePi();
 	ext(pi);
 	const state = makeCtx(project, ctxOptions);
-	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, state.ctx);
+	for (const handler of handlers.get("session_start") ?? [])
+		await handler({ reason: "startup" }, state.ctx);
 	return { ...state, commands };
 }
 
@@ -160,24 +186,47 @@ async function scenarioIdleStatusShowsEntrypoint(url) {
 	const { setStatusCalls } = await bootExtension(url, project);
 	const idle = setStatusCalls.map((c) => String(c.value)).filter((v) => v.includes("wf"));
 	check("idle status is set on session_start", idle.length >= 1, JSON.stringify(setStatusCalls));
-	check("idle status advertises /workflows entrypoint", idle.some((v) => v.includes("/workflows")), JSON.stringify(idle));
+	check(
+		"idle status advertises /workflows entrypoint",
+		idle.some((v) => v.includes("/workflows")),
+		JSON.stringify(idle),
+	);
 }
 
 async function scenarioPatternsAndMonitorN(url) {
 	const project = await makeProject();
 	// Patterns tab: `n` should scaffold a pattern (newPattern), not jump to Agents.
-	const patterns = await bootExtension(url, project, { editorReturns: undefined, customInputs: ["p", "n"] });
+	const patterns = await bootExtension(url, project, {
+		editorReturns: undefined,
+		customInputs: ["p", "n"],
+	});
 	await patterns.commands.get("workflow").handler("dashboard", patterns.ctx);
 	const pCall = patterns.customCalls[0];
-	check("patterns `n` triggers use-pattern", pCall?.doneValue?.type === "newPattern", JSON.stringify(pCall?.doneValue));
-	check("patterns `n` does not jump to Agents", !renderedText(pCall).includes("[Agents]"), renderedText(pCall).split("\n")[0]);
+	check(
+		"patterns `n` triggers use-pattern",
+		pCall?.doneValue?.type === "newPattern",
+		JSON.stringify(pCall?.doneValue),
+	);
+	check(
+		"patterns `n` does not jump to Agents",
+		!renderedText(pCall).includes("[Agents]"),
+		renderedText(pCall).split("\n")[0],
+	);
 
 	// Monitor tab: `n` should still jump to Agents (no regression).
 	const monitor = await bootExtension(url, project, { customInputs: ["n"] });
 	await monitor.commands.get("workflow").handler("dashboard", monitor.ctx);
 	const mCall = monitor.customCalls[0];
-	check("monitor `n` still opens Agents tab", renderedText(mCall).includes("[Agents]"), renderedText(mCall).split("\n")[0]);
-	check("monitor `n` does not trigger an action", mCall?.doneValue == null, JSON.stringify(mCall?.doneValue));
+	check(
+		"monitor `n` still opens Agents tab",
+		renderedText(mCall).includes("[Agents]"),
+		renderedText(mCall).split("\n")[0],
+	);
+	check(
+		"monitor `n` does not trigger an action",
+		mCall?.doneValue == null,
+		JSON.stringify(mCall?.doneValue),
+	);
 }
 
 async function scenarioBackspaceVsDelete(url) {
@@ -188,15 +237,27 @@ async function scenarioBackspaceVsDelete(url) {
 	const back = await bootExtension(url, backProject, { customInputs: ["w", "backspace"] });
 	await back.commands.get("workflow").handler("dashboard", back.ctx);
 	const bCall = back.customCalls[0];
-	check("backspace does not trigger a destructive delete", bCall?.doneValue == null, JSON.stringify(bCall?.doneValue));
-	check("backspace leaves the dashboard open on Workflows", renderedText(bCall).includes("[Workflows]"), renderedText(bCall).split("\n")[0]);
+	check(
+		"backspace does not trigger a destructive delete",
+		bCall?.doneValue == null,
+		JSON.stringify(bCall?.doneValue),
+	);
+	check(
+		"backspace leaves the dashboard open on Workflows",
+		renderedText(bCall).includes("[Workflows]"),
+		renderedText(bCall).split("\n")[0],
+	);
 
 	const delProject = await makeProject();
 	await seedWorkflowFile(delProject);
 	const del = await bootExtension(url, delProject, { customInputs: ["w", "delete"] });
 	await del.commands.get("workflow").handler("dashboard", del.ctx);
 	const dCall = del.customCalls[0];
-	check("Delete key still triggers delete-workflow", dCall?.doneValue?.type === "deleteWorkflow", JSON.stringify(dCall?.doneValue));
+	check(
+		"Delete key still triggers delete-workflow",
+		dCall?.doneValue?.type === "deleteWorkflow",
+		JSON.stringify(dCall?.doneValue),
+	);
 }
 
 // Drive the captured dashboard component directly to simulate the 1.5s refresh
@@ -211,7 +272,14 @@ async function openDashboardComponent(url) {
 
 async function scenarioRunsSelectionStability(url) {
 	const { component, getDone } = await openDashboardComponent(url);
-	const mkRun = (runId) => ({ runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 0, background: true, scope: "project" });
+	const mkRun = (runId) => ({
+		runId,
+		workflow: "wf",
+		runDir: `/tmp/${runId}`,
+		agentCount: 0,
+		background: true,
+		scope: "project",
+	});
 	component.setRuns([mkRun("A"), mkRun("B"), mkRun("C")]);
 	component.handleInput("tab"); // monitor -> agents
 	component.handleInput("tab"); // -> sessions
@@ -221,12 +289,26 @@ async function scenarioRunsSelectionStability(url) {
 	component.setRuns([mkRun("C"), mkRun("A"), mkRun("B")]);
 	component.handleInput("d"); // delete the *selected* run
 	const dv = getDone();
-	check("runs: delete still targets the selected run after a reorder", dv?.type === "deleteRun" && dv?.run?.runId === "B", JSON.stringify(dv));
+	check(
+		"runs: delete still targets the selected run after a reorder",
+		dv?.type === "deleteRun" && dv?.run?.runId === "B",
+		JSON.stringify(dv),
+	);
 }
 
 async function scenarioAgentsSelectionStability(url) {
 	const { component, getDone } = await openDashboardComponent(url);
-	const mkEntry = (runId, id) => ({ run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 1, background: true, scope: "project" }, agent: { id, name: `a${id}`, state: "running", promptAvailable: true } });
+	const mkEntry = (runId, id) => ({
+		run: {
+			runId,
+			workflow: "wf",
+			runDir: `/tmp/${runId}`,
+			agentCount: 1,
+			background: true,
+			scope: "project",
+		},
+		agent: { id, name: `a${id}`, state: "running", promptAvailable: true },
+	});
 	component.setAgentEntries([mkEntry("A", 1), mkEntry("B", 1), mkEntry("C", 1)]);
 	component.handleInput("A"); // jump to Agents tab
 	component.handleInput("down"); // select B#1 (index 1)
@@ -234,12 +316,23 @@ async function scenarioAgentsSelectionStability(url) {
 	component.setAgentEntries([mkEntry("C", 1), mkEntry("A", 1), mkEntry("B", 1)]);
 	component.handleInput("d"); // delete the selected agent's run
 	const dv = getDone();
-	check("agents: delete still targets the selected agent's run after a reorder", dv?.type === "deleteRun" && dv?.run?.runId === "B", JSON.stringify(dv));
+	check(
+		"agents: delete still targets the selected agent's run after a reorder",
+		dv?.type === "deleteRun" && dv?.run?.runId === "B",
+		JSON.stringify(dv),
+	);
 }
 
 async function scenarioListPaging(url) {
 	const { component, getDone } = await openDashboardComponent(url);
-	const runs = Array.from({ length: 25 }, (_, i) => ({ runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 0, background: true, scope: "project" }));
+	const runs = Array.from({ length: 25 }, (_, i) => ({
+		runId: `r${i}`,
+		workflow: "wf",
+		runDir: `/tmp/r${i}`,
+		agentCount: 0,
+		background: true,
+		scope: "project",
+	}));
 	component.setRuns(runs);
 	component.handleInput("tab"); // monitor -> agents
 	component.handleInput("tab"); // -> sessions
@@ -255,7 +348,11 @@ async function scenarioListPaging(url) {
 
 	component.handleInput("pageDown");
 	component.handleInput("v");
-	check("PageDown jumps a page (10) down", getDone()?.run?.runId === "r10", JSON.stringify(getDone()));
+	check(
+		"PageDown jumps a page (10) down",
+		getDone()?.run?.runId === "r10",
+		JSON.stringify(getDone()),
+	);
 
 	component.handleInput("pageUp");
 	component.handleInput("v");
@@ -267,9 +364,17 @@ async function scenarioReopenAfterAction(url) {
 	await seedFailedRun(project, { runId: "delme", error: "x" });
 	const boot = await bootExtension(url, project, { customInputs: ["tab", "tab", "tab", "d"] }); // -> runs tab, delete selected
 	await boot.commands.get("workflow").handler("dashboard", boot.ctx);
-	check("dashboard reopens after a (delete) action instead of exiting", boot.customCalls.length === 2, `customCalls=${boot.customCalls.length}`);
+	check(
+		"dashboard reopens after a (delete) action instead of exiting",
+		boot.customCalls.length === 2,
+		`customCalls=${boot.customCalls.length}`,
+	);
 	const reopened = renderedText(boot.customCalls[boot.customCalls.length - 1]);
-	check("reopened dashboard preserves the active tab (Runs)", reopened.includes("[Runs]"), reopened.split("\n")[0]);
+	check(
+		"reopened dashboard preserves the active tab (Runs)",
+		reopened.includes("[Runs]"),
+		reopened.split("\n")[0],
+	);
 }
 
 async function scenarioHelpOverlay(url) {
@@ -278,43 +383,109 @@ async function scenarioHelpOverlay(url) {
 	const open = await bootExtension(url, project, { customInputs: ["?"] });
 	await open.commands.get("workflow").handler("dashboard", open.ctx);
 	const helpText = renderedText(open.customCalls[0]);
-	check("? opens a keyboard help overlay", helpText.includes("keyboard help") && helpText.includes("PgUp"), helpText.split("\n")[0]);
-	check("help overlay documents close", helpText.toLowerCase().includes("close"), helpText.split("\n").slice(-1)[0]);
+	check(
+		"? opens a keyboard help overlay",
+		helpText.includes("keyboard help") && helpText.includes("PgUp"),
+		helpText.split("\n")[0],
+	);
+	check(
+		"help overlay documents close",
+		helpText.toLowerCase().includes("close"),
+		helpText.split("\n").slice(-1)[0],
+	);
 
 	const dismissed = await bootExtension(url, project, { customInputs: ["?", "x"] });
 	await dismissed.commands.get("workflow").handler("dashboard", dismissed.ctx);
 	const after = renderedText(dismissed.customCalls[0]);
-	check("any key dismisses the help overlay", !after.includes("keyboard help") && after.includes("[Monitor]"), after.split("\n")[0]);
+	check(
+		"any key dismisses the help overlay",
+		!after.includes("keyboard help") && after.includes("[Monitor]"),
+		after.split("\n")[0],
+	);
 
 	const hint = await bootExtension(url, project, { customInputs: [] });
 	await hint.commands.get("workflow").handler("dashboard", hint.ctx);
-	check("dashboard advertises the ? help shortcut", renderedText(hint.customCalls[0]).includes("? help"), renderedText(hint.customCalls[0]).split("\n")[1]);
+	check(
+		"dashboard advertises the ? help shortcut",
+		renderedText(hint.customCalls[0]).includes("? help"),
+		renderedText(hint.customCalls[0]).split("\n")[1],
+	);
 }
 
 async function scenarioRunningAgentLiveElapsed(url) {
 	const { component } = await openDashboardComponent(url);
 	const startedAt = new Date(Date.now() - 65000).toISOString();
-	const entries = [{ run: { runId: "A", workflow: "wf", runDir: "/tmp/A", agentCount: 1, background: true, scope: "project" }, agent: { id: 1, name: "a1", state: "running", startedAt, promptAvailable: true } }];
+	const entries = [
+		{
+			run: {
+				runId: "A",
+				workflow: "wf",
+				runDir: "/tmp/A",
+				agentCount: 1,
+				background: true,
+				scope: "project",
+			},
+			agent: { id: 1, name: "a1", state: "running", startedAt, promptAvailable: true },
+		},
+	];
 	component.setAgentEntries(entries);
 	component.handleInput("A"); // -> agents tab
 	const text = component.render(100).join("\n");
-	check("running agent shows live elapsed (not frozen elapsed:…)", /1m\d\ds/.test(text) && !text.includes("elapsed:…"), text.split("\n").find((l) => l.toLowerCase().includes("state:") || l.includes("elapsed")) ?? text.slice(0, 160));
+	check(
+		"running agent shows live elapsed (not frozen elapsed:…)",
+		/1m\d\ds/.test(text) && !text.includes("elapsed:…"),
+		text.split("\n").find((l) => l.toLowerCase().includes("state:") || l.includes("elapsed")) ??
+			text.slice(0, 160),
+	);
 }
 
 async function scenarioListWindowIndicator(url) {
 	const { component } = await openDashboardComponent(url);
 	const now = new Date().toISOString();
-	const runs = Array.from({ length: 25 }, (_, i) => ({ runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 0, background: true, scope: "project", ok: false, state: "failed", startedAt: now, endedAt: now, elapsedMs: 1000, logs: [] }));
+	const runs = Array.from({ length: 25 }, (_, i) => ({
+		runId: `r${i}`,
+		workflow: "wf",
+		runDir: `/tmp/r${i}`,
+		agentCount: 0,
+		background: true,
+		scope: "project",
+		ok: false,
+		state: "failed",
+		startedAt: now,
+		endedAt: now,
+		elapsedMs: 1000,
+		logs: [],
+	}));
 	component.setRuns(runs);
-	component.handleInput("tab"); component.handleInput("tab"); component.handleInput("tab"); // -> runs
+	component.handleInput("tab");
+	component.handleInput("tab");
+	component.handleInput("tab"); // -> runs
 	const runsText = component.render(100).join("\n");
-	check("runs header shows windowed position (a-b/total)", runsText.includes("/25"), runsText.split("\n").find((l) => l.includes("/25")) ?? runsText.slice(0, 160));
+	check(
+		"runs header shows windowed position (a-b/total)",
+		runsText.includes("/25"),
+		runsText.split("\n").find((l) => l.includes("/25")) ?? runsText.slice(0, 160),
+	);
 
-	const entries = Array.from({ length: 20 }, (_, i) => ({ run: { runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 1, background: true, scope: "project" }, agent: { id: i, name: `a${i}`, state: "running", promptAvailable: true } }));
+	const entries = Array.from({ length: 20 }, (_, i) => ({
+		run: {
+			runId: `r${i}`,
+			workflow: "wf",
+			runDir: `/tmp/r${i}`,
+			agentCount: 1,
+			background: true,
+			scope: "project",
+		},
+		agent: { id: i, name: `a${i}`, state: "running", promptAvailable: true },
+	}));
 	component.setAgentEntries(entries);
 	component.handleInput("A"); // -> agents
 	const agentsText = component.render(100).join("\n");
-	check("agents header shows windowed position (a-b/total)", agentsText.includes("/20"), agentsText.split("\n").find((l) => l.includes("/20")) ?? agentsText.slice(0, 160));
+	check(
+		"agents header shows windowed position (a-b/total)",
+		agentsText.includes("/20"),
+		agentsText.split("\n").find((l) => l.includes("/20")) ?? agentsText.slice(0, 160),
+	);
 }
 
 async function scenarioFailedRunErrorVisible(url) {
@@ -323,14 +494,28 @@ async function scenarioFailedRunErrorVisible(url) {
 	const mon = await bootExtension(url, monProject, { customInputs: [] });
 	await mon.commands.get("workflow").handler("dashboard", mon.ctx);
 	const monText = renderedText(mon.customCalls[0]);
-	check("monitor surfaces the failed-run error inline", monText.includes("BOOM_SENTINEL_ERR"), monText.split("\n").filter((l) => l.toLowerCase().includes("error")).join(" | "));
+	check(
+		"monitor surfaces the failed-run error inline",
+		monText.includes("BOOM_SENTINEL_ERR"),
+		monText
+			.split("\n")
+			.filter((l) => l.toLowerCase().includes("error"))
+			.join(" | "),
+	);
 
 	const runsProject = await makeProject();
 	await seedFailedRun(runsProject, { error: "BOOM_SENTINEL_ERR" });
 	const runs = await bootExtension(url, runsProject, { customInputs: ["tab", "tab", "tab"] });
 	await runs.commands.get("workflow").handler("dashboard", runs.ctx);
 	const runsText = renderedText(runs.customCalls[0]);
-	check("runs tab surfaces the failed-run error inline", runsText.includes("BOOM_SENTINEL_ERR"), runsText.split("\n").filter((l) => l.toLowerCase().includes("error")).join(" | "));
+	check(
+		"runs tab surfaces the failed-run error inline",
+		runsText.includes("BOOM_SENTINEL_ERR"),
+		runsText
+			.split("\n")
+			.filter((l) => l.toLowerCase().includes("error"))
+			.join(" | "),
+	);
 }
 
 async function scenarioEllipsisOnOverflow(url) {
@@ -338,7 +523,11 @@ async function scenarioEllipsisOnOverflow(url) {
 	const dash = await bootExtension(url, project, { customInputs: [] });
 	await dash.commands.get("workflow").handler("dashboard", dash.ctx);
 	const text = renderedText(dash.customCalls[0]);
-	check("overflowing lines render a visible ellipsis marker", text.includes("…"), text.split("\n").slice(0, 2).join(" | "));
+	check(
+		"overflowing lines render a visible ellipsis marker",
+		text.includes("…"),
+		text.split("\n").slice(0, 2).join(" | "),
+	);
 }
 
 async function scenarioMonitorHelpGating(url) {
@@ -347,11 +536,35 @@ async function scenarioMonitorHelpGating(url) {
 	const { component } = await openDashboardComponent(url);
 	const now = new Date().toISOString();
 	const mkModel = (runId, canCancel, canRerun) => ({
-		run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 0, background: true, scope: "project", ok: !canCancel, state: canCancel ? "running" : "completed", startedAt: now, elapsedMs: 1000, logs: [] },
-		runId, runDir: `/tmp/${runId}`, workflow: "wf",
-		state: canCancel ? "running" : "completed", active: canCancel, stale: false, priority: canCancel ? "active" : "latest",
-		elapsedMs: 1000, agentsDone: 0, agentsStarted: 0, parallelAgents: 0, bashDone: 0, artifactCount: 0,
-		agents: [], canCancel, canRerun,
+		run: {
+			runId,
+			workflow: "wf",
+			runDir: `/tmp/${runId}`,
+			agentCount: 0,
+			background: true,
+			scope: "project",
+			ok: !canCancel,
+			state: canCancel ? "running" : "completed",
+			startedAt: now,
+			elapsedMs: 1000,
+			logs: [],
+		},
+		runId,
+		runDir: `/tmp/${runId}`,
+		workflow: "wf",
+		state: canCancel ? "running" : "completed",
+		active: canCancel,
+		stale: false,
+		priority: canCancel ? "active" : "latest",
+		elapsedMs: 1000,
+		agentsDone: 0,
+		agentsStarted: 0,
+		parallelAgents: 0,
+		bashDone: 0,
+		artifactCount: 0,
+		agents: [],
+		canCancel,
+		canRerun,
 	});
 	const helpLine = () => component.render(300)[1];
 
@@ -363,7 +576,11 @@ async function scenarioMonitorHelpGating(url) {
 	component.setMonitorModels([mkModel("DONE", false, true)]); // finished run
 	const done = helpLine();
 	check("monitor help hides cancel for a finished run", !done.includes("cancel"), done);
-	check("monitor help offers rerun + delete for a finished run", done.includes("rerun") && done.includes("delete run"), done);
+	check(
+		"monitor help offers rerun + delete for a finished run",
+		done.includes("rerun") && done.includes("delete run"),
+		done,
+	);
 }
 
 async function scenarioMonitorMultiRun(url) {
@@ -372,34 +589,86 @@ async function scenarioMonitorMultiRun(url) {
 	const { component, getDone } = await openDashboardComponent(url);
 	const now = new Date().toISOString();
 	const mkModel = (runId) => ({
-		run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 0, background: true, scope: "project", ok: false, state: "running", startedAt: now, elapsedMs: 1000, logs: [] },
-		runId, runDir: `/tmp/${runId}`, workflow: "wf",
-		state: "running", active: true, stale: false, priority: "active",
-		elapsedMs: 1000, agentsDone: 0, agentsStarted: 2, agentConcurrency: 2,
-		parallelAgents: 1, peakParallelAgents: 1, bashDone: 0, artifactCount: 0,
-		agents: [], canCancel: true, canRerun: false,
+		run: {
+			runId,
+			workflow: "wf",
+			runDir: `/tmp/${runId}`,
+			agentCount: 0,
+			background: true,
+			scope: "project",
+			ok: false,
+			state: "running",
+			startedAt: now,
+			elapsedMs: 1000,
+			logs: [],
+		},
+		runId,
+		runDir: `/tmp/${runId}`,
+		workflow: "wf",
+		state: "running",
+		active: true,
+		stale: false,
+		priority: "active",
+		elapsedMs: 1000,
+		agentsDone: 0,
+		agentsStarted: 2,
+		agentConcurrency: 2,
+		parallelAgents: 1,
+		peakParallelAgents: 1,
+		bashDone: 0,
+		artifactCount: 0,
+		agents: [],
+		canCancel: true,
+		canRerun: false,
 	});
 	component.setMonitorModels([mkModel("RUN_AAA"), mkModel("RUN_BBB")]);
 	const shown = component.render(120).join("\n");
-	check("monitor lists all active runs, not just one", shown.includes("RUN_AAA") && shown.includes("RUN_BBB"), shown.split("\n").slice(0, 10).join(" | "));
+	check(
+		"monitor lists all active runs, not just one",
+		shown.includes("RUN_AAA") && shown.includes("RUN_BBB"),
+		shown.split("\n").slice(0, 10).join(" | "),
+	);
 
 	component.handleInput("]"); // focus the second active run
 	component.handleInput("v"); // view the focused run
 	const dv = getDone();
-	check("monitor ] switches the focused active run", dv?.type === "view" && dv?.run?.runId === "RUN_BBB", JSON.stringify(dv));
+	check(
+		"monitor ] switches the focused active run",
+		dv?.type === "view" && dv?.run?.runId === "RUN_BBB",
+		JSON.stringify(dv),
+	);
 }
 
 async function scenarioAgentsJumpToFailed(url) {
 	// Agents announces failed:N but, before this, only ↑↓ navigation existed; finding the
 	// failed agents (the reason to open the tab) meant manual scrolling. 'f' should jump.
 	const { component, getDone } = await openDashboardComponent(url);
-	const mk = (runId, id, state) => ({ run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 1, background: true, scope: "project" }, agent: { id, name: `a${id}`, state, promptAvailable: true } });
-	component.setAgentEntries([mk("A", 1, "running"), mk("B", 1, "running"), mk("C", 1, "failed"), mk("D", 1, "running")]);
+	const mk = (runId, id, state) => ({
+		run: {
+			runId,
+			workflow: "wf",
+			runDir: `/tmp/${runId}`,
+			agentCount: 1,
+			background: true,
+			scope: "project",
+		},
+		agent: { id, name: `a${id}`, state, promptAvailable: true },
+	});
+	component.setAgentEntries([
+		mk("A", 1, "running"),
+		mk("B", 1, "running"),
+		mk("C", 1, "failed"),
+		mk("D", 1, "running"),
+	]);
 	component.handleInput("A"); // Agents tab (agentIndex starts at 0)
 	component.handleInput("f"); // jump to the next failed agent
 	component.handleInput("o"); // open the selected agent
 	const dv = getDone();
-	check("agents: 'f' jumps to the next failed agent", dv?.type === "agent" && dv?.agent?.state === "failed" && dv?.run?.runId === "C", JSON.stringify(dv));
+	check(
+		"agents: 'f' jumps to the next failed agent",
+		dv?.type === "agent" && dv?.agent?.state === "failed" && dv?.run?.runId === "C",
+		JSON.stringify(dv),
+	);
 }
 
 async function scenarioRefreshFreshnessAndErrors(url) {
@@ -407,21 +676,40 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 	// (not a silent unhandled rejection) and a healthy refresh must advertise recency.
 	const { component } = await openDashboardComponent(url);
 	const initial = component.render(100).join("\n");
-	check("dashboard header advertises refresh recency", initial.includes("updated") && initial.includes("ago"), initial.split("\n").slice(0, 2).join(" | "));
+	check(
+		"dashboard header advertises refresh recency",
+		initial.includes("updated") && initial.includes("ago"),
+		initial.split("\n").slice(0, 2).join(" | "),
+	);
 
 	component.markRefreshError("BOOM_REFRESH_SENTINEL");
 	const errored = component.render(100).join("\n");
-	check("refresh failure is surfaced in the header", errored.includes("refresh failed") && errored.includes("BOOM_REFRESH_SENTINEL"), errored.split("\n").slice(0, 2).join(" | "));
+	check(
+		"refresh failure is surfaced in the header",
+		errored.includes("refresh failed") && errored.includes("BOOM_REFRESH_SENTINEL"),
+		errored.split("\n").slice(0, 2).join(" | "),
+	);
 
 	component.markRefreshOk();
 	const recovered = component.render(100).join("\n");
-	check("a healthy refresh clears the failure marker", recovered.includes("updated") && !recovered.includes("refresh failed"), recovered.split("\n").slice(0, 2).join(" | "));
+	check(
+		"a healthy refresh clears the failure marker",
+		recovered.includes("updated") && !recovered.includes("refresh failed"),
+		recovered.split("\n").slice(0, 2).join(" | "),
+	);
 }
 
 async function scenarioKeyboardNav(url) {
 	// P3: a direct Runs jump key, vim j/k + G, and Shift+Tab for previous tab.
 	const { component, getDone } = await openDashboardComponent(url);
-	const runs = Array.from({ length: 5 }, (_, i) => ({ runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 0, background: true, scope: "project" }));
+	const runs = Array.from({ length: 5 }, (_, i) => ({
+		runId: `r${i}`,
+		workflow: "wf",
+		runDir: `/tmp/r${i}`,
+		agentCount: 0,
+		background: true,
+		scope: "project",
+	}));
 	component.setRuns(runs);
 
 	component.handleInput("R"); // jump straight to Runs (only tab without a letter before)
@@ -432,7 +720,11 @@ async function scenarioKeyboardNav(url) {
 	component.handleInput("j"); // -> index 2
 	component.handleInput("k"); // vim up -> index 1
 	component.handleInput("v");
-	check("j/k navigate the list (vim down/up)", getDone()?.run?.runId === "r1", JSON.stringify(getDone()));
+	check(
+		"j/k navigate the list (vim down/up)",
+		getDone()?.run?.runId === "r1",
+		JSON.stringify(getDone()),
+	);
 
 	component.handleInput("G"); // jump to last
 	component.handleInput("v");
@@ -450,10 +742,26 @@ async function scenarioLiveAgentHeaderStatus(url) {
 	const fn = mod.liveAgentHeaderStatus;
 	check("liveAgentHeaderStatus is exported", typeof fn === "function", String(typeof fn));
 	if (typeof fn !== "function") return;
-	check("running agent live header advertises 'refresh 1s'", fn("running") === "refresh 1s", String(fn("running")));
-	check("unknown/undefined state keeps the polling label", fn(undefined) === "refresh 1s" && fn("unknown") === "refresh 1s", `${fn(undefined)} | ${fn("unknown")}`);
-	check("completed agent live header shows 'final', not 'refresh 1s'", fn("completed") === "final (completed)", String(fn("completed")));
-	check("failed agent live header shows 'final'", fn("failed") === "final (failed)", String(fn("failed")));
+	check(
+		"running agent live header advertises 'refresh 1s'",
+		fn("running") === "refresh 1s",
+		String(fn("running")),
+	);
+	check(
+		"unknown/undefined state keeps the polling label",
+		fn(undefined) === "refresh 1s" && fn("unknown") === "refresh 1s",
+		`${fn(undefined)} | ${fn("unknown")}`,
+	);
+	check(
+		"completed agent live header shows 'final', not 'refresh 1s'",
+		fn("completed") === "final (completed)",
+		String(fn("completed")),
+	);
+	check(
+		"failed agent live header shows 'final'",
+		fn("failed") === "final (failed)",
+		String(fn("failed")),
+	);
 }
 
 async function main() {

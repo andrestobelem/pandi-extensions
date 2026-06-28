@@ -10,10 +10,20 @@
  * there is no runtime cycle. Extracted byte-identically from index.ts.
  */
 import { renderSafeInline } from "./render-utils.js";
-import type { WorkflowGraphFanoutInfo, WorkflowGraphChildCall, WorkflowGraphStep } from "./index.js";
+import type {
+	WorkflowGraphFanoutInfo,
+	WorkflowGraphChildCall,
+	WorkflowGraphStep,
+} from "./index.js";
 
 export function mermaidLabel(value: string): string {
-	return value.replace(/["<>{}\[\]()|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 90) || "step";
+	return (
+		value
+			.replace(/["<>{}[\]()|]/g, " ")
+			.replace(/\s+/g, " ")
+			.trim()
+			.slice(0, 90) || "step"
+	);
 }
 
 export function graphTextLabel(value: string): string {
@@ -37,7 +47,7 @@ export function isJavaScriptCodePosition(source: string, index: number): boolean
 	let lineComment = false;
 	let blockComment = false;
 	for (let i = 0; i < index; i++) {
-		const char = source[i]!;
+		const char = source[i];
 		const next = source[i + 1];
 		if (lineComment) {
 			if (char === "\n") lineComment = false;
@@ -86,7 +96,7 @@ export function findCallEndIndex(source: string, openParenIndex: number): number
 	let lineComment = false;
 	let blockComment = false;
 	for (let i = openParenIndex; i < source.length; i++) {
-		const char = source[i]!;
+		const char = source[i];
 		const next = source[i + 1];
 		if (lineComment) {
 			if (char === "\n") lineComment = false;
@@ -143,7 +153,7 @@ export function splitTopLevelArguments(source: string): string[] {
 	let lineComment = false;
 	let blockComment = false;
 	for (let i = 0; i < source.length; i++) {
-		const char = source[i]!;
+		const char = source[i];
 		const next = source[i + 1];
 		if (lineComment) {
 			if (char === "\n") lineComment = false;
@@ -207,24 +217,30 @@ function countTopLevelArrayItems(expression: string): number | undefined {
 	return splitTopLevelArguments(inner).length;
 }
 
-function inferCollectionCardinality(expression: string, fallbackLabel: string): Pick<WorkflowGraphFanoutInfo, "count" | "countLabel" | "many"> {
+function inferCollectionCardinality(
+	expression: string,
+	fallbackLabel: string,
+): Pick<WorkflowGraphFanoutInfo, "count" | "countLabel" | "many"> {
 	const trimmed = expression.trim();
 	const literalCount = countTopLevelArrayItems(trimmed);
-	if (literalCount !== undefined) return { count: literalCount, countLabel: String(literalCount), many: literalCount > 1 };
+	if (literalCount !== undefined)
+		return { count: literalCount, countLabel: String(literalCount), many: literalCount > 1 };
 	const mapMatch = /^(.+?)\.map\s*\(/s.exec(trimmed);
 	if (mapMatch) {
-		const source = compactExpressionLabel(mapMatch[1]!, 48);
+		const source = compactExpressionLabel(mapMatch[1], 48);
 		return { countLabel: `${source}.length`, many: true };
 	}
-	if (/\.length\b/.test(trimmed)) return { countLabel: compactExpressionLabel(trimmed, 48), many: true };
-	if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\?\.[A-Za-z_$][\w$]*)*$/.test(trimmed)) return { countLabel: `${trimmed}.length`, many: true };
+	if (/\.length\b/.test(trimmed))
+		return { countLabel: compactExpressionLabel(trimmed, 48), many: true };
+	if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\?\.[A-Za-z_$][\w$]*)*$/.test(trimmed))
+		return { countLabel: `${trimmed}.length`, many: true };
 	return { countLabel: fallbackLabel, many: true };
 }
 
 function extractObjectOptionValue(options: string | undefined, key: string): string | undefined {
 	if (!options) return undefined;
 	const property = new RegExp(`\\b${key}\\s*:\\s*([^,}\\n]+)`).exec(options);
-	if (property) return compactExpressionLabel(property[1]!, 32);
+	if (property) return compactExpressionLabel(property[1], 32);
 	const shorthand = new RegExp(`(?:^|[{,]\\s*)${key}(?:\\s*[,}])`).exec(options);
 	return shorthand ? key : undefined;
 }
@@ -236,7 +252,11 @@ function extractObjectBooleanOption(options: string | undefined, key: string): b
 	return undefined;
 }
 
-export function inferWorkflowGraphFanout(method: string, args: string[], phaseIndex: number | undefined): WorkflowGraphFanoutInfo | undefined {
+export function inferWorkflowGraphFanout(
+	method: string,
+	args: string[],
+	phaseIndex: number | undefined,
+): WorkflowGraphFanoutInfo | undefined {
 	const firstArg = args[0] ?? "";
 	const options = args[1];
 	if (method === "agents") {
@@ -245,8 +265,12 @@ export function inferWorkflowGraphFanout(method: string, args: string[], phaseIn
 			unit: "agents",
 			...cardinality,
 			...(phaseIndex ? { phaseLabel: `P${phaseIndex}` } : {}),
-			...(extractObjectOptionValue(options, "concurrency") ? { concurrency: extractObjectOptionValue(options, "concurrency") } : {}),
-			...(extractObjectBooleanOption(options, "settle") === undefined ? {} : { settle: extractObjectBooleanOption(options, "settle") }),
+			...(extractObjectOptionValue(options, "concurrency")
+				? { concurrency: extractObjectOptionValue(options, "concurrency") }
+				: {}),
+			...(extractObjectBooleanOption(options, "settle") === undefined
+				? {}
+				: { settle: extractObjectBooleanOption(options, "settle") }),
 		};
 	}
 	if (method === "parallel") {
@@ -264,25 +288,49 @@ export function formatWorkflowGraphFanoutSummary(fanout: WorkflowGraphFanoutInfo
 	const parts = [`×${fanout.countLabel} ${fanout.unit}`];
 	if (fanout.phaseLabel) parts.unshift(fanout.phaseLabel);
 	if (fanout.stages !== undefined) parts.push(`${fanout.stages} stages`);
-	if (fanout.concurrency) parts.push(fanout.concurrency === "concurrency" ? "concurrency" : `concurrency=${fanout.concurrency}`);
+	if (fanout.concurrency)
+		parts.push(
+			fanout.concurrency === "concurrency" ? "concurrency" : `concurrency=${fanout.concurrency}`,
+		);
 	if (fanout.settle !== undefined) parts.push(`settle:${fanout.settle}`);
 	return parts.join(" · ");
 }
 
-export function summarizeWorkflowGraphChildren(children: WorkflowGraphChildCall[]): string | undefined {
+export function summarizeWorkflowGraphChildren(
+	children: WorkflowGraphChildCall[],
+): string | undefined {
 	if (children.length === 0) return undefined;
 	const counts = new Map<string, number>();
 	for (const child of children) counts.set(child.method, (counts.get(child.method) ?? 0) + 1);
-	return Array.from(counts.entries()).map(([method, count]) => `${count}× ctx.${method}`).join(", ");
+	return Array.from(counts.entries())
+		.map(([method, count]) => `${count}× ctx.${method}`)
+		.join(", ");
 }
 
-export function workflowGraphMethodInfo(method: string): Omit<WorkflowGraphStep, "index" | "label" | "line" | "firstArg" | "children" | "fanout"> {
-	if (method === "agents") return { method, kind: "fanout", symbol: "◆", title: "fan-out subagents" };
-	if (method === "parallel") return { method, kind: "barrier", symbol: "⧉", title: "parallel barrier" };
-	if (method === "pipeline") return { method, kind: "pipeline", symbol: "▣", title: "pipeline lanes" };
+export function workflowGraphMethodInfo(
+	method: string,
+): Omit<WorkflowGraphStep, "index" | "label" | "line" | "firstArg" | "children" | "fanout"> {
+	if (method === "agents")
+		return { method, kind: "fanout", symbol: "◆", title: "fan-out subagents" };
+	if (method === "parallel")
+		return { method, kind: "barrier", symbol: "⧉", title: "parallel barrier" };
+	if (method === "pipeline")
+		return { method, kind: "pipeline", symbol: "▣", title: "pipeline lanes" };
 	if (method === "agent") return { method, kind: "agent", symbol: "●", title: "subagent" };
-	if (method === "workflow") return { method, kind: "subworkflow", symbol: "◇", title: "sub-workflow" };
+	if (method === "workflow")
+		return { method, kind: "subworkflow", symbol: "◇", title: "sub-workflow" };
 	if (method === "bash") return { method, kind: "shell", symbol: "$", title: "bash" };
-	if (method === "writeArtifact" || method === "appendArtifact") return { method, kind: "artifact", symbol: "▤", title: method === "writeArtifact" ? "write artifact" : "append artifact" };
-	return { method, kind: "file", symbol: "◌", title: method.replace(/[A-Z]/g, (char) => ` ${char.toLowerCase()}`) };
+	if (method === "writeArtifact" || method === "appendArtifact")
+		return {
+			method,
+			kind: "artifact",
+			symbol: "▤",
+			title: method === "writeArtifact" ? "write artifact" : "append artifact",
+		};
+	return {
+		method,
+		kind: "file",
+		symbol: "◌",
+		title: method.replace(/[A-Z]/g, (char) => ` ${char.toLowerCase()}`),
+	};
 }

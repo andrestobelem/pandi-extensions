@@ -32,7 +32,10 @@ export function combineSignal(parent: AbortSignal | undefined, timeoutMs: number
 	if (parent?.aborted) abort(parent.reason);
 	parent?.addEventListener("abort", abortFromParent, { once: true });
 	if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
-		timeout = setTimeout(() => abort(new Error(`Workflow timed out after ${Math.round(timeoutMs / 1000)}s.`)), timeoutMs);
+		timeout = setTimeout(
+			() => abort(new Error(`Workflow timed out after ${Math.round(timeoutMs / 1000)}s.`)),
+			timeoutMs,
+		);
 	}
 	return {
 		signal: controller.signal,
@@ -99,7 +102,7 @@ export async function mapLimit<T, R>(
 				const index = next++;
 				if (index >= items.length) return;
 				try {
-					results[index] = await fn(items[index]!, index);
+					results[index] = await fn(items[index], index);
 				} catch (err) {
 					if (signal.aborted || onError === "throw") throw err;
 					results[index] = null;
@@ -113,7 +116,8 @@ export async function mapLimit<T, R>(
 export function createSemaphore(limit: number, signal: AbortSignal) {
 	let active = 0;
 	let disposed = false;
-	const queue: Array<{ resolve: (release: () => void) => void; reject: (error: Error) => void }> = [];
+	const queue: Array<{ resolve: (release: () => void) => void; reject: (error: Error) => void }> =
+		[];
 
 	const makeRelease = () => {
 		let released = false;

@@ -16,12 +16,31 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { BUILTIN_AGENT_PERSONAS, PERSONA_OPTION_KEYS, DEFAULT_AGENT_WEB_SEARCH_TOOL, DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE, DEFAULT_CONTEXT7_SKILL_NAME } from "./index.js";
+import {
+	BUILTIN_AGENT_PERSONAS,
+	PERSONA_OPTION_KEYS,
+	DEFAULT_AGENT_WEB_SEARCH_TOOL,
+	DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE,
+	DEFAULT_CONTEXT7_SKILL_NAME,
+} from "./index.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AgentOptions } from "./index.js";
 
 const AGENT_ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const BASE_AGENT_ENV_KEYS = ["PATH", "HOME", "SHELL", "TERM", "USER", "LOGNAME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "LC_CTYPE"];
+const BASE_AGENT_ENV_KEYS = [
+	"PATH",
+	"HOME",
+	"SHELL",
+	"TERM",
+	"USER",
+	"LOGNAME",
+	"TMPDIR",
+	"TEMP",
+	"TMP",
+	"LANG",
+	"LC_ALL",
+	"LC_CTYPE",
+];
 
 interface AgentEnvAccess {
 	keyNames: string[];
@@ -74,14 +93,22 @@ export function normalizeAgentEnvAccess(options: AgentOptions): AgentEnvAccess {
 	return { keyNames, missingKeys, values, isolatedEnv, useEnvCommand };
 }
 
-export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: AgentEnvAccess): string {
-	const list = (values: string[] | undefined, fallback = "default") => values && values.length ? values.join(", ") : fallback;
+export function formatAgentAccessMarkdown(
+	options: AgentOptions,
+	envAccess: AgentEnvAccess,
+): string {
+	const list = (values: string[] | undefined, fallback = "default") =>
+		values && values.length ? values.join(", ") : fallback;
 	const skillAccess = options.skills?.length
 		? `${options.skills.join(", ")}${options.includeSkills === true ? " + discovery" : " (explicit only)"}`
-		: options.includeSkills === false ? "disabled" : "default discovery";
+		: options.includeSkills === false
+			? "disabled"
+			: "default discovery";
 	const extensionAccess = options.extensions?.length
 		? `${options.extensions.join(", ")}${options.includeExtensions === true ? " + discovery" : " (explicit only)"}`
-		: options.includeExtensions === true ? "default discovery" : "disabled";
+		: options.includeExtensions === true
+			? "default discovery"
+			: "disabled";
 	return [
 		`- tools: ${list(options.tools)}`,
 		`- excludeTools: ${list(options.excludeTools, "none")}`,
@@ -93,7 +120,9 @@ export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: Agen
 	].join("\n");
 }
 
-export function sanitizeEnvForCache(env: Record<string, string> | undefined): Record<string, string> | undefined {
+export function sanitizeEnvForCache(
+	env: Record<string, string> | undefined,
+): Record<string, string> | undefined {
 	if (!env) return undefined;
 	const out: Record<string, string> = {};
 	for (const key of Object.keys(env).sort()) out[key] = "[set]";
@@ -104,25 +133,29 @@ function shellSingleQuote(value: string): string {
 	return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-export async function createAgentEnvWrapper(envAccess: AgentEnvAccess): Promise<{ path: string; dir: string }> {
+export async function createAgentEnvWrapper(
+	envAccess: AgentEnvAccess,
+): Promise<{ path: string; dir: string }> {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-workflow-agent-env-"));
 	const scriptPath = path.join(dir, "run-agent.sh");
 	const lines = ["#!/usr/bin/env bash", "set -euo pipefail"];
 	if (envAccess.isolatedEnv) {
 		lines.push(
 			"while IFS='=' read -r name _; do",
-			"  case \"$name\" in BASH*|EUID|PPID|SHELLOPTS|UID) ;; *) unset \"$name\" 2>/dev/null || true ;; esac",
+			'  case "$name" in BASH*|EUID|PPID|SHELLOPTS|UID) ;; *) unset "$name" 2>/dev/null || true ;; esac',
 			"done < <(env)",
 		);
 	}
-	for (const key of Object.keys(envAccess.values).sort()) lines.push(`export ${key}=${shellSingleQuote(envAccess.values[key] ?? "")}`);
-	lines.push("exec \"$@\"");
+	for (const key of Object.keys(envAccess.values).sort())
+		lines.push(`export ${key}=${shellSingleQuote(envAccess.values[key] ?? "")}`);
+	lines.push('exec "$@"');
 	await fs.writeFile(scriptPath, `${lines.join("\n")}\n`, { encoding: "utf8", mode: 0o700 });
 	return { path: scriptPath, dir };
 }
 
 function sanitizePersonaOptions(value: unknown): AgentOptions {
-	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Persona files must contain a JSON object.");
+	if (!value || typeof value !== "object" || Array.isArray(value))
+		throw new Error("Persona files must contain a JSON object.");
 	const source = value as Record<string, unknown>;
 	const out: AgentOptions = {};
 	for (const key of PERSONA_OPTION_KEYS) {
@@ -132,7 +165,9 @@ function sanitizePersonaOptions(value: unknown): AgentOptions {
 }
 
 function mergePersonaOptions(persona: AgentOptions, options: AgentOptions): AgentOptions {
-	const appendSystemPrompt = [persona.appendSystemPrompt, options.appendSystemPrompt].filter((part): part is string => typeof part === "string" && part.length > 0).join("\n\n");
+	const appendSystemPrompt = [persona.appendSystemPrompt, options.appendSystemPrompt]
+		.filter((part): part is string => typeof part === "string" && part.length > 0)
+		.join("\n\n");
 	return {
 		...persona,
 		...options,
@@ -142,11 +177,15 @@ function mergePersonaOptions(persona: AgentOptions, options: AgentOptions): Agen
 
 function normalizePersonaName(agentType: string): string {
 	const name = agentType.trim();
-	if (!/^[a-zA-Z0-9._-]+$/.test(name)) throw new Error("agentType may only contain letters, numbers, '.', '_', and '-'.");
+	if (!/^[a-zA-Z0-9._-]+$/.test(name))
+		throw new Error("agentType may only contain letters, numbers, '.', '_', and '-'.");
 	return name;
 }
 
-async function loadProjectPersona(ctx: ExtensionContext, agentType: string): Promise<AgentOptions | undefined> {
+async function loadProjectPersona(
+	ctx: ExtensionContext,
+	agentType: string,
+): Promise<AgentOptions | undefined> {
 	if (!ctx.isProjectTrusted()) return undefined;
 	const name = normalizePersonaName(agentType);
 	const file = path.join(ctx.cwd, CONFIG_DIR_NAME, "personas", `${name}.json`);
@@ -154,11 +193,17 @@ async function loadProjectPersona(ctx: ExtensionContext, agentType: string): Pro
 		return sanitizePersonaOptions(JSON.parse(await fs.readFile(file, "utf8")));
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-		throw new Error(`Failed to load persona ${agentType}: ${err instanceof Error ? err.message : String(err)}`);
+		throw new Error(
+			`Failed to load persona ${agentType}: ${err instanceof Error ? err.message : String(err)}`,
+			{ cause: err },
+		);
 	}
 }
 
-export async function applyPersonaOptions(ctx: ExtensionContext, options: AgentOptions): Promise<AgentOptions> {
+export async function applyPersonaOptions(
+	ctx: ExtensionContext,
+	options: AgentOptions,
+): Promise<AgentOptions> {
 	if (!options.agentType) return { ...options };
 	const name = normalizePersonaName(options.agentType);
 	const projectPersona = await loadProjectPersona(ctx, name);
@@ -190,7 +235,9 @@ function existingRealPath(candidate: string): string | undefined {
 
 async function resolvePiPackageExtensionPaths(packageRoot: string): Promise<string[]> {
 	try {
-		const manifest = JSON.parse(await fs.readFile(path.join(packageRoot, "package.json"), "utf8")) as { pi?: { extensions?: unknown } };
+		const manifest = JSON.parse(
+			await fs.readFile(path.join(packageRoot, "package.json"), "utf8"),
+		) as { pi?: { extensions?: unknown } };
 		const extensions = manifest.pi?.extensions;
 		if (Array.isArray(extensions)) {
 			const resolved = extensions
@@ -202,7 +249,9 @@ async function resolvePiPackageExtensionPaths(packageRoot: string): Promise<stri
 	} catch {
 		// Fall back to conventional entrypoints below.
 	}
-	const fallback = existingRealPath(path.join(packageRoot, "src", "index.ts")) ?? existingRealPath(path.join(packageRoot, "index.ts"));
+	const fallback =
+		existingRealPath(path.join(packageRoot, "src", "index.ts")) ??
+		existingRealPath(path.join(packageRoot, "index.ts"));
 	return fallback ? [fallback] : [];
 }
 
@@ -214,7 +263,7 @@ async function resolveDefaultWebSearchExtensions(ctx: ExtensionContext): Promise
 	const extensions: string[] = [];
 	for (const packageRoot of packageRoots) {
 		if (!existsSync(packageRoot)) continue;
-		extensions.push(...await resolvePiPackageExtensionPaths(packageRoot));
+		extensions.push(...(await resolvePiPackageExtensionPaths(packageRoot)));
 	}
 	return appendUniqueValues(undefined, extensions);
 }
@@ -228,21 +277,31 @@ function resolveDefaultContext7Skill(ctx: ExtensionContext): string | undefined 
 		path.join(os.homedir(), ".pi", "agent", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 	]);
 	for (const skillRoot of skillRoots) {
-		if (existsSync(path.join(skillRoot, "SKILL.md"))) return existingRealPath(skillRoot) ?? skillRoot;
+		if (existsSync(path.join(skillRoot, "SKILL.md")))
+			return existingRealPath(skillRoot) ?? skillRoot;
 	}
 	return undefined;
 }
 
-export async function applyDefaultAgentAccess(ctx: ExtensionContext, options: AgentOptions): Promise<AgentOptions> {
+export async function applyDefaultAgentAccess(
+	ctx: ExtensionContext,
+	options: AgentOptions,
+): Promise<AgentOptions> {
 	const out: AgentOptions = { ...options };
 	let webSearchExtensions: string[] = [];
 	if (out.includeExtensions !== false) {
 		webSearchExtensions = await resolveDefaultWebSearchExtensions(ctx);
-		if (out.includeExtensions !== true && webSearchExtensions.length) out.extensions = appendUniqueValues(out.extensions, webSearchExtensions);
+		if (out.includeExtensions !== true && webSearchExtensions.length)
+			out.extensions = appendUniqueValues(out.extensions, webSearchExtensions);
 	}
 	const hasExplicitToolAllowlist = Array.isArray(out.tools) && out.tools.length > 0;
 	const excludesWebSearch = out.excludeTools?.includes(DEFAULT_AGENT_WEB_SEARCH_TOOL) === true;
-	const webSearchAvailable = out.includeExtensions === true || webSearchExtensions.length > 0 || (out.extensions ?? []).some((extensionPath) => /web[-_]?search|codex-web-search/i.test(extensionPath));
+	const webSearchAvailable =
+		out.includeExtensions === true ||
+		webSearchExtensions.length > 0 ||
+		(out.extensions ?? []).some((extensionPath) =>
+			/web[-_]?search|codex-web-search/i.test(extensionPath),
+		);
 	if (hasExplicitToolAllowlist && webSearchAvailable && !excludesWebSearch) {
 		out.tools = appendUniqueValues(out.tools, [DEFAULT_AGENT_WEB_SEARCH_TOOL]);
 	}

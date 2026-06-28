@@ -30,7 +30,16 @@ const MAX_LOG_WRITE_BYTES = 5_000_000;
 const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
 
-type JobState = "starting" | "running" | "completed" | "failed" | "cancelled" | "orphaned" | "interrupted" | "stale" | "unknown";
+type JobState =
+	| "starting"
+	| "running"
+	| "completed"
+	| "failed"
+	| "cancelled"
+	| "orphaned"
+	| "interrupted"
+	| "stale"
+	| "unknown";
 
 interface PlanModeGuard {
 	isActive(): boolean;
@@ -44,7 +53,6 @@ interface JobSummary {
 	updatedAt?: string;
 	artifactsDir: string;
 }
-
 
 interface JobStatus {
 	jobId: string;
@@ -84,14 +92,18 @@ interface BgResponse {
 
 const activeJobs = new Map<string, RuntimeJob>();
 
-
 function nowIso(): string {
 	return new Date().toISOString();
 }
 
-
 async function appendEvent(runDir: string, event: Record<string, unknown>): Promise<void> {
-	await fs.appendFile(path.join(runDir, "events.jsonl"), `${JSON.stringify({ time: nowIso(), ...event })}\n`, "utf8").catch(() => undefined);
+	await fs
+		.appendFile(
+			path.join(runDir, "events.jsonl"),
+			`${JSON.stringify({ time: nowIso(), ...event })}\n`,
+			"utf8",
+		)
+		.catch(() => undefined);
 }
 
 function asString(value: unknown): string | undefined {
@@ -127,7 +139,10 @@ export function readProcessStartId(pid: number | undefined): string | undefined 
 			const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
 			// comm can contain spaces/parens, so parse fields after the last ')'. starttime is
 			// field 22 (1-indexed) => index 19 of the post-comm tokens.
-			const afterComm = stat.slice(stat.lastIndexOf(")") + 1).trim().split(/\s+/);
+			const afterComm = stat
+				.slice(stat.lastIndexOf(")") + 1)
+				.trim()
+				.split(/\s+/);
 			const starttime = afterComm[19];
 			return starttime ? `lin:${starttime}` : undefined;
 		}
@@ -146,7 +161,10 @@ export function readProcessStartId(pid: number | undefined): string | undefined 
 // to the one recorded at spawn. "same" = verified our process; "different" = the pid
 // was reused (our process is gone); "unknown" = cannot tell (no recorded id, or the
 // current id is unreadable) => callers keep best-effort behavior and never claim reuse.
-export function verifyProcessIdentity(pid: number | undefined, recordedStartId: string | undefined): "same" | "different" | "unknown" {
+export function verifyProcessIdentity(
+	pid: number | undefined,
+	recordedStartId: string | undefined,
+): "same" | "different" | "unknown" {
 	if (!recordedStartId) return "unknown";
 	const current = readProcessStartId(pid);
 	if (current === undefined) return "unknown";
@@ -172,7 +190,11 @@ export function probeProcessAlive(pid: number | undefined): Liveness {
 // distinguish an orphaned-but-alive process from one that died while Pi was down,
 // falling back to `stale` only when the pid is unprobeable. Never persisted, never
 // signals: cancel still refuses any persisted pid.
-function projectState(jobId: string, persisted: string | undefined, pid: number | undefined): { state: JobState; persistedState?: string; hint?: string } {
+function projectState(
+	jobId: string,
+	persisted: string | undefined,
+	pid: number | undefined,
+): { state: JobState; persistedState?: string; hint?: string } {
 	if ((persisted === "starting" || persisted === "running") && !activeJobs.has(jobId)) {
 		const live = probeProcessAlive(pid);
 		if (live === "alive") {
@@ -196,7 +218,10 @@ function deriveState(jobId: string, status: Record<string, unknown> | undefined)
 // identity means the pid was reused (our process is gone => interrupted); a matching
 // identity is verified-alive; unknown stays orphaned (best-effort). Shared by /bg status
 // and classifyForDeletion so the two never diverge.
-function refineOrphanedIdentity(pid: number | undefined, startId: string | undefined): { state: "orphaned" | "interrupted"; verified: boolean } {
+function refineOrphanedIdentity(
+	pid: number | undefined,
+	startId: string | undefined,
+): { state: "orphaned" | "interrupted"; verified: boolean } {
 	const identity = verifyProcessIdentity(pid, startId);
 	if (identity === "different") return { state: "interrupted", verified: false };
 	return { state: "orphaned", verified: identity === "same" };
@@ -238,7 +263,9 @@ async function listJobs(ctx: ExtensionContext): Promise<JobSummary[]> {
 			});
 		}
 	}
-	return jobs.sort((a, b) => (b.updatedAt ?? b.createdAt ?? "").localeCompare(a.updatedAt ?? a.createdAt ?? ""));
+	return jobs.sort((a, b) =>
+		(b.updatedAt ?? b.createdAt ?? "").localeCompare(a.updatedAt ?? a.createdAt ?? ""),
+	);
 }
 
 async function findJobDir(ctx: ExtensionContext, jobId: string): Promise<string | undefined> {
@@ -269,7 +296,9 @@ const DELETABLE_STATES = new Set(["completed", "failed", "cancelled", "interrupt
 // valid, non-symlinked job dir. Shared by reconcile and prune so the trust/symlink/path
 // gating and the .audit.jsonl dotfile skipping (validJobId rejects the leading dot) live in
 // exactly one place. Active-session filtering and state logic stay with each caller.
-async function eachProjectRunDir(ctx: ExtensionContext): Promise<Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }>> {
+async function eachProjectRunDir(
+	ctx: ExtensionContext,
+): Promise<Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }>> {
 	if (!ctx.isProjectTrusted()) return [];
 	const root = path.join(getProjectBgRoot(ctx), RUNS_DIR);
 	if (!(await lstatPlainDirectoryChain(ctx.cwd, root))) return [];
@@ -279,12 +308,17 @@ async function eachProjectRunDir(ctx: ExtensionContext): Promise<Array<{ jobId: 
 	} catch {
 		return [];
 	}
-	const out: Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }> = [];
+	const out: Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }> =
+		[];
 	for (const entry of entries) {
 		if (!entry.isDirectory() || !validJobId(entry.name)) continue;
 		const runDir = path.join(root, entry.name);
 		if (!(await lstatPlainDirectory(runDir))) continue;
-		out.push({ jobId: entry.name, runDir, status: await readJson(path.join(runDir, "status.json")) });
+		out.push({
+			jobId: entry.name,
+			runDir,
+			status: await readJson(path.join(runDir, "status.json")),
+		});
 	}
 	return out;
 }
@@ -300,12 +334,29 @@ export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<n
 		// Dead pid => process gone. Alive but a different start identity => the pid was
 		// reused, so our process is also gone. Both are positive evidence to terminalize;
 		// an alive pid we cannot disprove (same/unknown) stays a read-time orphaned/stale.
-		const cause = live === "dead" ? "pid-dead" : live === "alive" && verifyProcessIdentity(pid, asString(status?.startId)) === "different" ? "pid-reused" : undefined;
+		const cause =
+			live === "dead"
+				? "pid-dead"
+				: live === "alive" && verifyProcessIdentity(pid, asString(status?.startId)) === "different"
+					? "pid-reused"
+					: undefined;
 		if (!cause) continue;
 		const now = nowIso();
 		try {
-			await atomicWriteJson(path.join(runDir, "status.json"), { ...status, state: "interrupted", completedAt: now, updatedAt: now, reason: "session-start-reconcile" });
-			await appendEvent(runDir, { event: "reconcile-interrupted", jobId, pid: pid ?? null, persistedState: state, cause });
+			await atomicWriteJson(path.join(runDir, "status.json"), {
+				...status,
+				state: "interrupted",
+				completedAt: now,
+				updatedAt: now,
+				reason: "session-start-reconcile",
+			});
+			await appendEvent(runDir, {
+				event: "reconcile-interrupted",
+				jobId,
+				pid: pid ?? null,
+				persistedState: state,
+				cause,
+			});
 			reconciled++;
 		} catch {
 			// Best-effort: leave the artifact untouched if the atomic rewrite fails.
@@ -320,7 +371,11 @@ function formatJob(job: JobSummary): string {
 	return `- ${job.jobId}: ${job.state ?? "unknown"}${when ? ` (${when})` : ""}${command}`;
 }
 
-function response(message: string, details?: unknown, type: BgResponse["type"] = "info"): BgResponse {
+function response(
+	message: string,
+	details?: unknown,
+	type: BgResponse["type"] = "info",
+): BgResponse {
 	return { message, details, type };
 }
 
@@ -343,7 +398,11 @@ function planModeActive(): boolean {
 
 function rejectInPlanMode(action: "start" | "cancel" | "delete" | "prune"): BgResponse | undefined {
 	if (!planModeActive()) return undefined;
-	return response(`Cannot /bg ${action} while plan mode is active. Approve or exit /plan first.`, { action, blockedBy: "plan-mode" }, "warning");
+	return response(
+		`Cannot /bg ${action} while plan mode is active. Approve or exit /plan first.`,
+		{ action, blockedBy: "plan-mode" },
+		"warning",
+	);
 }
 
 function canRunInMode(ctx: ExtensionContext): boolean {
@@ -354,7 +413,9 @@ async function writeStatus(runtime: RuntimeJob, patch: Partial<JobStatus>): Prom
 	const nextStatus = { ...runtime.status, ...patch, updatedAt: nowIso() };
 	runtime.status = nextStatus;
 	const previous = runtime.statusWriteChain ?? Promise.resolve();
-	const write = previous.catch(() => undefined).then(() => atomicWriteJson(path.join(runtime.runDir, "status.json"), nextStatus));
+	const write = previous
+		.catch(() => undefined)
+		.then(() => atomicWriteJson(path.join(runtime.runDir, "status.json"), nextStatus));
 	runtime.statusWriteChain = write;
 	await write;
 }
@@ -365,7 +426,8 @@ function closeStreams(runtime: RuntimeJob): void {
 	runtime.combinedStream.end();
 }
 
-type ErrorEmitter = { on(event: "error", listener: (err: Error) => void): unknown } | null | undefined;
+type ErrorEmitter =
+	{ on(event: "error", listener: (err: Error) => void): unknown } | null | undefined;
 
 // Contain stream 'error' events to the job: without a listener, an 'error' on a
 // log WriteStream or child stdout/stderr pipe escalates to uncaughtException and
@@ -373,7 +435,11 @@ type ErrorEmitter = { on(event: "error", listener: (err: Error) => void): unknow
 export function guardStreamErrors(runDir: string, jobId: string, streams: ErrorEmitter[]): void {
 	for (const stream of streams) {
 		stream?.on("error", (err: Error) => {
-			void appendEvent(runDir, { event: "log-stream-error", jobId, error: err?.message ?? String(err) });
+			void appendEvent(runDir, {
+				event: "log-stream-error",
+				jobId,
+				error: err?.message ?? String(err),
+			});
 		});
 	}
 }
@@ -388,7 +454,11 @@ export function isJobFinished(runtime: RuntimeJob): boolean {
 // Forward a child stream to one or more log sinks while respecting backpressure:
 // pause the source when any sink buffers, resume only once every sink has drained.
 // Without this, a chatty job can grow the host process memory without bound.
-export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | undefined, sinks: WriteStream[], capBytes = MAX_LOG_WRITE_BYTES): void {
+export function pipeWithBackpressure(
+	source: NodeJS.ReadableStream | null | undefined,
+	sinks: WriteStream[],
+	capBytes = MAX_LOG_WRITE_BYTES,
+): void {
 	if (!source) return;
 	// Bound bytes written per sink so a chatty trusted job cannot fill the user's disk.
 	// Once capped, stop writing payload and append a single marker (mirrors the read cap).
@@ -398,7 +468,8 @@ export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | unde
 	// dead or capped log sink can never freeze the source (and thus the child) and leave
 	// the job stuck.
 	const maybeResume = (): void => {
-		if (sinks.every((sink, i) => sink.destroyed || capped[i] || !sink.writableNeedDrain)) source.resume();
+		if (sinks.every((sink, i) => sink.destroyed || capped[i] || !sink.writableNeedDrain))
+			source.resume();
 	};
 	source.on("data", (chunk: Buffer) => {
 		let blocked = false;
@@ -423,11 +494,22 @@ export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | unde
 	}
 }
 
-export async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): Promise<void> {
+export async function finalizeJob(
+	runtime: RuntimeJob,
+	exitCode: number | null,
+	signal: NodeJS.Signals | null,
+	error?: Error,
+): Promise<void> {
 	if (runtime.finalized) return;
 	runtime.finalized = true;
 	if (runtime.cancelTimer) clearTimeout(runtime.cancelTimer);
-	const state: JobState = runtime.status.cancelRequested ? "cancelled" : error ? "failed" : exitCode === 0 ? "completed" : "failed";
+	const state: JobState = runtime.status.cancelRequested
+		? "cancelled"
+		: error
+			? "failed"
+			: exitCode === 0
+				? "completed"
+				: "failed";
 	await writeStatus(runtime, {
 		state,
 		completedAt: nowIso(),
@@ -435,7 +517,14 @@ export async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, 
 		signal: signal ?? null,
 		...(error ? { error: error.message } : {}),
 	});
-	await appendEvent(runtime.runDir, { event: "finish", jobId: runtime.jobId, state, exitCode, signal, error: error?.message });
+	await appendEvent(runtime.runDir, {
+		event: "finish",
+		jobId: runtime.jobId,
+		state,
+		exitCode,
+		signal,
+		error: error?.message,
+	});
 	activeJobs.delete(runtime.jobId);
 	closeStreams(runtime);
 }
@@ -444,9 +533,18 @@ export async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, 
 // escape. A failed status write (e.g. status.json rename fails) would otherwise
 // reject the discarded `void finalizeJob(...)` promise and, under Node's default
 // unhandledRejection behavior, crash the host Pi process and every in-flight job.
-export function safeFinalize(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): void {
+export function safeFinalize(
+	runtime: RuntimeJob,
+	exitCode: number | null,
+	signal: NodeJS.Signals | null,
+	error?: Error,
+): void {
 	void finalizeJob(runtime, exitCode, signal, error).catch((err: unknown) => {
-		void appendEvent(runtime.runDir, { event: "finalize-error", jobId: runtime.jobId, error: (err as Error)?.message ?? String(err) });
+		void appendEvent(runtime.runDir, {
+			event: "finalize-error",
+			jobId: runtime.jobId,
+			error: (err as Error)?.message ?? String(err),
+		});
 	});
 }
 
@@ -470,8 +568,18 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 	if (blocked) return blocked;
 	const trimmed = command.trim();
 	if (!trimmed) return response("Usage: /bg start <command>", undefined, "warning");
-	if (!canRunInMode(ctx)) return response("Cannot /bg start outside a persistent TUI/RPC session.", { action: "start", blockedBy: "mode", mode: ctx.mode }, "warning");
-	if (!ctx.isProjectTrusted()) return response("Cannot /bg start in an untrusted project.", { action: "start", blockedBy: "trust" }, "warning");
+	if (!canRunInMode(ctx))
+		return response(
+			"Cannot /bg start outside a persistent TUI/RPC session.",
+			{ action: "start", blockedBy: "mode", mode: ctx.mode },
+			"warning",
+		);
+	if (!ctx.isProjectTrusted())
+		return response(
+			"Cannot /bg start in an untrusted project.",
+			{ action: "start", blockedBy: "trust" },
+			"warning",
+		);
 
 	const jobId = generateJobId();
 	const runDir = await createRunDir(ctx, jobId);
@@ -485,7 +593,13 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 		source: "slash",
 		artifactsDir: runDir,
 	};
-	const initialStatus: JobStatus = { jobId, state: "starting", updatedAt: createdAt, startedAt: createdAt, cancelRequested: false };
+	const initialStatus: JobStatus = {
+		jobId,
+		state: "starting",
+		updatedAt: createdAt,
+		startedAt: createdAt,
+		cancelRequested: false,
+	};
 	await atomicWriteJson(path.join(runDir, "job.json"), job);
 	await atomicWriteJson(path.join(runDir, "status.json"), initialStatus);
 	await appendEvent(runDir, { event: "start", jobId, command: trimmed, cwd: ctx.cwd });
@@ -499,7 +613,13 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 		detached: process.platform !== "win32",
 		stdio: ["ignore", "pipe", "pipe"],
 	});
-	guardStreamErrors(runDir, jobId, [stdoutStream, stderrStream, combinedStream, child.stdout, child.stderr]);
+	guardStreamErrors(runDir, jobId, [
+		stdoutStream,
+		stderrStream,
+		combinedStream,
+		child.stdout,
+		child.stderr,
+	]);
 
 	const runtime: RuntimeJob = {
 		jobId,
@@ -551,7 +671,10 @@ function killRuntime(runtime: RuntimeJob, signal: NodeJS.Signals): void {
 // since jobs are started detached). POSIX uses a negative pid; Windows uses taskkill.
 function signalProcessGroup(pid: number, signal: NodeJS.Signals): void {
 	if (process.platform === "win32") {
-		spawn("taskkill", ["/pid", String(pid), "/T", ...(signal === "SIGKILL" ? ["/F"] : [])], { stdio: "ignore", windowsHide: true }).on("error", () => undefined);
+		spawn("taskkill", ["/pid", String(pid), "/T", ...(signal === "SIGKILL" ? ["/F"] : [])], {
+			stdio: "ignore",
+			windowsHide: true,
+		}).on("error", () => undefined);
 		return;
 	}
 	process.kill(-pid, signal);
@@ -563,16 +686,28 @@ function signalProcessGroup(pid: number, signal: NodeJS.Signals): void {
 // reused pid or one we cannot verify is never signaled — it is left for OS tools.
 async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await findJobDir(ctx, jobId);
-	if (!runDir) return response(`Background job ${jobId} is not active in this session; no process was killed.`, { action: "cancel", jobId, active: false }, "warning");
+	if (!runDir)
+		return response(
+			`Background job ${jobId} is not active in this session; no process was killed.`,
+			{ action: "cancel", jobId, active: false },
+			"warning",
+		);
 	const status = (await readJson(path.join(runDir, "status.json"))) ?? {};
 	const state = asString(status.state);
 	if (!state || !RECONCILABLE_STATES.has(state)) {
-		return response(`Background job ${jobId} has already finished (${state ?? "unknown"}); nothing to cancel.`, { action: "cancel", jobId, active: false, alreadyFinished: true }, "warning");
+		return response(
+			`Background job ${jobId} has already finished (${state ?? "unknown"}); nothing to cancel.`,
+			{ action: "cancel", jobId, active: false, alreadyFinished: true },
+			"warning",
+		);
 	}
 	const pid = asNumber(status.pid);
 	const identity = verifyProcessIdentity(pid, asString(status.startId));
 	if (identity !== "same") {
-		const why = identity === "different" ? `its PID ${pid} was reused by another process` : "its process identity could not be verified";
+		const why =
+			identity === "different"
+				? `its PID ${pid} was reused by another process`
+				: "its process identity could not be verified";
 		return response(
 			`Refusing to cancel background job ${jobId}: ${why}, so it is not safe to signal. It was started by another Pi session; use OS tools (kill -- -${pid} / taskkill) if it is still running.`,
 			{ action: "cancel", jobId, active: false, signaled: false, identity },
@@ -585,12 +720,25 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 		signalProcessGroup(pid as number, "SIGTERM");
 		signaled = true;
 	} catch (err) {
-		await appendEvent(runDir, { event: "cancel-orphan-error", jobId, error: (err as Error).message });
+		await appendEvent(runDir, {
+			event: "cancel-orphan-error",
+			jobId,
+			error: (err as Error).message,
+		});
 	}
 	const now = nowIso();
-	await atomicWriteJson(path.join(runDir, "status.json"), { ...status, state: "cancelled", cancelRequested: true, completedAt: now, updatedAt: now, reason: "cancel-verified-orphan" });
+	await atomicWriteJson(path.join(runDir, "status.json"), {
+		...status,
+		state: "cancelled",
+		cancelRequested: true,
+		completedAt: now,
+		updatedAt: now,
+		reason: "cancel-verified-orphan",
+	});
 	return response(
-		signaled ? `Sent SIGTERM to verified orphan ${jobId} (pid ${pid}) and marked it cancelled.` : `Marked verified orphan ${jobId} cancelled, but signaling pid ${pid} failed.`,
+		signaled
+			? `Sent SIGTERM to verified orphan ${jobId} (pid ${pid}) and marked it cancelled.`
+			: `Marked verified orphan ${jobId} cancelled, but signaling pid ${pid} failed.`,
 		{ action: "cancel", jobId, active: false, signaled, identity: "verified" },
 	);
 }
@@ -599,40 +747,74 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	const blocked = rejectInPlanMode("cancel");
 	if (blocked) return blocked;
 	const trimmed = jobId.trim();
-	if (!trimmed || !validJobId(trimmed)) return response("Usage: /bg cancel <jobId>", undefined, "warning");
+	if (!trimmed || !validJobId(trimmed))
+		return response("Usage: /bg cancel <jobId>", undefined, "warning");
 	const runtime = activeJobs.get(trimmed);
 	if (!runtime) return await cancelPersistedJob(ctx, trimmed);
 	if (isJobFinished(runtime)) {
-		return response(`Background job ${trimmed} has already finished; nothing to cancel.`, { action: "cancel", jobId: trimmed, active: false, alreadyFinished: true }, "warning");
+		return response(
+			`Background job ${trimmed} has already finished; nothing to cancel.`,
+			{ action: "cancel", jobId: trimmed, active: false, alreadyFinished: true },
+			"warning",
+		);
 	}
 	if (runtime.status.cancelRequested) {
-		return response(`Cancellation already requested for background job ${trimmed}.`, { action: "cancel", jobId: trimmed, active: true, duplicate: true }, "warning");
+		return response(
+			`Cancellation already requested for background job ${trimmed}.`,
+			{ action: "cancel", jobId: trimmed, active: true, duplicate: true },
+			"warning",
+		);
 	}
 
 	await writeStatus(runtime, { cancelRequested: true });
-	await appendEvent(runtime.runDir, { event: "cancel-requested", jobId: trimmed, pid: runtime.child.pid });
+	await appendEvent(runtime.runDir, {
+		event: "cancel-requested",
+		jobId: trimmed,
+		pid: runtime.child.pid,
+	});
 	try {
 		killRuntime(runtime, "SIGTERM");
 	} catch (err) {
-		await appendEvent(runtime.runDir, { event: "cancel-sigterm-error", jobId: trimmed, error: (err as Error).message });
+		await appendEvent(runtime.runDir, {
+			event: "cancel-sigterm-error",
+			jobId: trimmed,
+			error: (err as Error).message,
+		});
 	}
 	runtime.cancelTimer = setTimeout(() => {
 		if (runtime.finalized) return;
 		try {
 			killRuntime(runtime, "SIGKILL");
-			void appendEvent(runtime.runDir, { event: "cancel-sigkill", jobId: trimmed, pid: runtime.child.pid });
+			void appendEvent(runtime.runDir, {
+				event: "cancel-sigkill",
+				jobId: trimmed,
+				pid: runtime.child.pid,
+			});
 		} catch (err) {
-			void appendEvent(runtime.runDir, { event: "cancel-sigkill-error", jobId: trimmed, error: (err as Error).message });
+			void appendEvent(runtime.runDir, {
+				event: "cancel-sigkill-error",
+				jobId: trimmed,
+				error: (err as Error).message,
+			});
 		}
 	}, CANCEL_GRACE_MS);
-	return response(`Cancel requested for background job ${trimmed}.`, { action: "cancel", jobId: trimmed, active: true });
+	return response(`Cancel requested for background job ${trimmed}.`, {
+		action: "cancel",
+		jobId: trimmed,
+		active: true,
+	});
 }
 
 // Sum the sizes of regular files under a run dir (lstat-walk via Dirent; an inner symlink
 // is skipped, never followed, so it cannot inflate the total or escape the tree).
 async function dirSizeBytes(dir: string): Promise<number> {
 	let total = 0;
-	let entries: Array<{ name: string; isDirectory(): boolean; isFile(): boolean; isSymbolicLink(): boolean }>;
+	let entries: Array<{
+		name: string;
+		isDirectory(): boolean;
+		isFile(): boolean;
+		isSymbolicLink(): boolean;
+	}>;
 	try {
 		entries = await fs.readdir(dir, { withFileTypes: true });
 	} catch {
@@ -669,8 +851,12 @@ async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 // status.json.state as liveness: re-derives the live state via projectState and refines
 // an orphaned pid by identity. Active (owned) and verified/unverifiable-alive jobs are
 // never deletable; a reused pid refines to `interrupted` and is.
-function classifyForDeletion(jobId: string, status: Record<string, unknown> | undefined): { liveState: string; deletable: boolean; reason?: string } {
-	if (activeJobs.has(jobId)) return { liveState: "running", deletable: false, reason: "it is active in this session" };
+function classifyForDeletion(
+	jobId: string,
+	status: Record<string, unknown> | undefined,
+): { liveState: string; deletable: boolean; reason?: string } {
+	if (activeJobs.has(jobId))
+		return { liveState: "running", deletable: false, reason: "it is active in this session" };
 	const pid = asNumber(status?.pid);
 	let state: string = projectState(jobId, asString(status?.state), pid).state;
 	if (state === "orphaned") state = refineOrphanedIdentity(pid, asString(status?.startId)).state;
@@ -690,14 +876,21 @@ function classifyForDeletion(jobId: string, status: Record<string, unknown> | un
 async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgResponse> {
 	const blocked = rejectInPlanMode("prune");
 	if (blocked) return blocked;
-	if (!ctx.isProjectTrusted()) return response("Cannot /bg prune in an untrusted project.", { action: "prune", blockedBy: "trust" }, "warning");
+	if (!ctx.isProjectTrusted())
+		return response(
+			"Cannot /bg prune in an untrusted project.",
+			{ action: "prune", blockedBy: "trust" },
+			"warning",
+		);
 	const { yes } = parsePruneFlags(tail);
 	const candidates: Array<{ jobId: string; state: string; bytes: number }> = [];
 	const skipped: Array<{ jobId: string; state: string; reason: string }> = [];
 	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
 		const verdict = classifyForDeletion(jobId, status);
-		if (verdict.deletable) candidates.push({ jobId, state: verdict.liveState, bytes: await dirSizeBytes(runDir) });
-		else skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "not deletable" });
+		if (verdict.deletable)
+			candidates.push({ jobId, state: verdict.liveState, bytes: await dirSizeBytes(runDir) });
+		else
+			skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "not deletable" });
 	}
 	const totalBytes = candidates.reduce((sum, c) => sum + c.bytes, 0);
 	if (yes) {
@@ -706,18 +899,43 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 		// skipped) and appends one .audit.jsonl line per removal.
 		const deleted: string[] = [];
 		for (const c of candidates) {
-			if (await removeRunDir(ctx, c.jobId, { verb: "prune", state: c.state, sizeBytes: c.bytes }, (reread) => classifyForDeletion(c.jobId, reread).deletable)) deleted.push(c.jobId);
+			if (
+				await removeRunDir(
+					ctx,
+					c.jobId,
+					{ verb: "prune", state: c.state, sizeBytes: c.bytes },
+					(reread) => classifyForDeletion(c.jobId, reread).deletable,
+				)
+			)
+				deleted.push(c.jobId);
 		}
-		const execLines = [`Pruned ${deleted.length} of ${candidates.length} candidate job(s) (${skipped.length} skipped).`, ...deleted.map((id) => `  deleted ${id}`)];
-		return response(execLines.join("\n"), { action: "prune", dryRun: false, deleted, skipped, totalBytes });
+		const execLines = [
+			`Pruned ${deleted.length} of ${candidates.length} candidate job(s) (${skipped.length} skipped).`,
+			...deleted.map((id) => `  deleted ${id}`),
+		];
+		return response(execLines.join("\n"), {
+			action: "prune",
+			dryRun: false,
+			deleted,
+			skipped,
+			totalBytes,
+		});
 	}
 	const lines = [
 		`Prune preview: ${candidates.length} deletable (${totalBytes} bytes), ${skipped.length} skipped.`,
 		...candidates.map((c) => `  delete ${c.jobId} · ${c.state} · ${c.bytes}B`),
 		...skipped.map((s) => `  skip   ${s.jobId} · ${s.state} · ${s.reason}`),
-		candidates.length ? `Run /bg prune --yes to delete ${candidates.length} job(s).` : "Nothing to prune.",
+		candidates.length
+			? `Run /bg prune --yes to delete ${candidates.length} job(s).`
+			: "Nothing to prune.",
 	];
-	return response(lines.join("\n"), { action: "prune", dryRun: true, candidates, skipped, totalBytes });
+	return response(lines.join("\n"), {
+		action: "prune",
+		dryRun: true,
+		candidates,
+		skipped,
+		totalBytes,
+	});
 }
 
 // Delete one finished job's artifacts, gated on re-derived LIVE state (classifyForDeletion)
@@ -726,32 +944,60 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const blocked = rejectInPlanMode("delete");
 	if (blocked) return blocked;
-	if (!ctx.isProjectTrusted()) return response("Cannot /bg delete in an untrusted project.", { action: "delete", blockedBy: "trust" }, "warning");
+	if (!ctx.isProjectTrusted())
+		return response(
+			"Cannot /bg delete in an untrusted project.",
+			{ action: "delete", blockedBy: "trust" },
+			"warning",
+		);
 	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg delete <jobId>");
 	if (typeof runDir !== "string") return runDir;
 	// Write boundary: only the project-local store is mutable. A global-fallback job
 	// resolves via findJobDir for reads, but delete refuses it (read-only).
 	const projectRuns = path.join(getProjectBgRoot(ctx), RUNS_DIR);
 	if (!path.resolve(runDir).startsWith(path.resolve(projectRuns) + path.sep)) {
-		return response(`Background job ${jobId} lives in the global (read-only) fallback store; /bg delete only removes project-local jobs.`, { action: "delete", jobId, deleted: false, scope: "global" }, "warning");
+		return response(
+			`Background job ${jobId} lives in the global (read-only) fallback store; /bg delete only removes project-local jobs.`,
+			{ action: "delete", jobId, deleted: false, scope: "global" },
+			"warning",
+		);
 	}
 	const status = (await readJson(path.join(runDir, "status.json"))) ?? {};
 	const verdict = classifyForDeletion(jobId, status);
 	if (!verdict.deletable) {
-		return response(`Background job ${jobId} cannot be deleted: ${verdict.reason}.`, { action: "delete", jobId, deleted: false, liveState: verdict.liveState }, "warning");
+		return response(
+			`Background job ${jobId} cannot be deleted: ${verdict.reason}.`,
+			{ action: "delete", jobId, deleted: false, liveState: verdict.liveState },
+			"warning",
+		);
 	}
 	// Re-derive deletability from a fresh status read right before fs.rm (TOCTOU guard).
-	const removed = await removeRunDir(ctx, jobId, { verb: "delete", state: verdict.liveState }, (reread) => classifyForDeletion(jobId, reread).deletable);
-	if (!removed) return response(`Background job not found: ${jobId}`, { action: "delete", jobId, deleted: false }, "warning");
+	const removed = await removeRunDir(
+		ctx,
+		jobId,
+		{ verb: "delete", state: verdict.liveState },
+		(reread) => classifyForDeletion(jobId, reread).deletable,
+	);
+	if (!removed)
+		return response(
+			`Background job not found: ${jobId}`,
+			{ action: "delete", jobId, deleted: false },
+			"warning",
+		);
 	return response(`Background job ${jobId} deleted.`, { action: "delete", jobId, deleted: true });
 }
 
 // Validate a job id and resolve its symlink-safe run directory, or return the
 // shared usage/not-found warning so every read subcommand behaves identically.
-async function resolveRunDir(ctx: ExtensionContext, jobId: string, usage: string): Promise<string | BgResponse> {
+async function resolveRunDir(
+	ctx: ExtensionContext,
+	jobId: string,
+	usage: string,
+): Promise<string | BgResponse> {
 	if (!jobId || !validJobId(jobId)) return response(usage, undefined, "warning");
 	const runDir = await findJobDir(ctx, jobId);
-	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
+	if (!runDir)
+		return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
 	return runDir;
 }
 
@@ -776,7 +1022,12 @@ async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgRes
 			status.hint = `PID ${pid} is verified still running (same start identity). Stop it with kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`;
 		}
 	}
-	return response(JSON.stringify({ jobId, artifactsDir: runDir, job, status }, null, 2), { jobId, artifactsDir: runDir, job, status });
+	return response(JSON.stringify({ jobId, artifactsDir: runDir, job, status }, null, 2), {
+		jobId,
+		artifactsDir: runDir,
+		job,
+		status,
+	});
 }
 
 async function isReadableLogFile(file: string): Promise<boolean> {
@@ -815,7 +1066,13 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 
 // Read a bounded, symlink-safe artifact tail shaped as a /bg response, or undefined
 // when the artifact is absent so callers can fall back to another source.
-async function boundedArtifactResponse(runDir: string, jobId: string, file: string, source: string, emptyText: string): Promise<BgResponse | undefined> {
+async function boundedArtifactResponse(
+	runDir: string,
+	jobId: string,
+	file: string,
+	source: string,
+	emptyText: string,
+): Promise<BgResponse | undefined> {
 	const text = await readBoundedLog(path.join(runDir, file));
 	if (text === undefined) return undefined;
 	return response(text || emptyText, { jobId, source, truncatedTo: MAX_LOG_BYTES });
@@ -824,16 +1081,31 @@ async function boundedArtifactResponse(runDir: string, jobId: string, file: stri
 async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg logs <jobId>");
 	if (typeof runDir !== "string") return runDir;
-	const combined = await boundedArtifactResponse(runDir, jobId, "combined.log", "combined.log", "(empty log)");
+	const combined = await boundedArtifactResponse(
+		runDir,
+		jobId,
+		"combined.log",
+		"combined.log",
+		"(empty log)",
+	);
 	if (combined) return combined;
 	const stdout = await readBoundedLog(path.join(runDir, "stdout.log"));
 	const stderr = await readBoundedLog(path.join(runDir, "stderr.log"));
-	if (stdout === undefined && stderr === undefined) return response(`No logs found for ${jobId}.`, { jobId, found: true, logs: false }, "warning");
-	return response([stdout !== undefined ? `== stdout ==\n${stdout}` : undefined, stderr !== undefined ? `== stderr ==\n${stderr}` : undefined].filter(Boolean).join("\n"), {
-		jobId,
-		source: "stdout/stderr",
-		truncatedTo: MAX_LOG_BYTES,
-	});
+	if (stdout === undefined && stderr === undefined)
+		return response(`No logs found for ${jobId}.`, { jobId, found: true, logs: false }, "warning");
+	return response(
+		[
+			stdout !== undefined ? `== stdout ==\n${stdout}` : undefined,
+			stderr !== undefined ? `== stderr ==\n${stderr}` : undefined,
+		]
+			.filter(Boolean)
+			.join("\n"),
+		{
+			jobId,
+			source: "stdout/stderr",
+			truncatedTo: MAX_LOG_BYTES,
+		},
+	);
 }
 
 // Surface the structured lifecycle journal (start/running/cancel-*/finish/
@@ -843,16 +1115,30 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 async function handleEvents(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg events <jobId>");
 	if (typeof runDir !== "string") return runDir;
-	const events = await boundedArtifactResponse(runDir, jobId, "events.jsonl", "events.jsonl", "(no events)");
+	const events = await boundedArtifactResponse(
+		runDir,
+		jobId,
+		"events.jsonl",
+		"events.jsonl",
+		"(no events)",
+	);
 	if (events) return events;
-	return response(`No events found for ${jobId}.`, { jobId, found: true, events: false }, "warning");
+	return response(
+		`No events found for ${jobId}.`,
+		{ jobId, found: true, events: false },
+		"warning",
+	);
 }
 
 async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgResponse> {
 	try {
 		const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
 		if (!match) {
-			return response("Usage: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]", undefined, "warning");
+			return response(
+				"Usage: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
+				undefined,
+				"warning",
+			);
 		}
 		const subcommand = match[1] ?? "";
 		const tail = match[2] ?? "";
@@ -877,19 +1163,32 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 			case "prune":
 				return await handlePrune(ctx, tail);
 			default:
-				return response(`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events, delete, prune.`, undefined, "warning");
+				return response(
+					`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events, delete, prune.`,
+					undefined,
+					"warning",
+				);
 		}
 	} catch (err) {
-		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
+		return response(
+			`/bg failed: ${(err as Error).message}`,
+			{ error: (err as Error).message },
+			"error",
+		);
 	}
 }
 
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
-		description: "Background jobs: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
+		description:
+			"Background jobs: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
-				{ value: "preview", label: "preview", description: "Dry-run (preview) a background command" },
+				{
+					value: "preview",
+					label: "preview",
+					description: "Dry-run (preview) a background command",
+				},
 				{ value: "start", label: "start", description: "Start a background job" },
 				{ value: "cancel", label: "cancel", description: "Cancel an active background job" },
 				{ value: "list", label: "list", description: "List background job artifacts" },
@@ -897,7 +1196,11 @@ export default function bgExtension(pi: ExtensionAPI): void {
 				{ value: "logs", label: "logs", description: "Read bounded job logs" },
 				{ value: "events", label: "events", description: "Read bounded job lifecycle events" },
 				{ value: "delete", label: "delete", description: "Delete a finished job's artifacts" },
-				{ value: "prune", label: "prune", description: "Preview/prune finished job artifacts (--yes to delete)" },
+				{
+					value: "prune",
+					label: "prune",
+					description: "Preview/prune finished job artifacts (--yes to delete)",
+				},
 			];
 			const prefix = argumentPrefix.trim().toLowerCase();
 			if (!prefix) return items;

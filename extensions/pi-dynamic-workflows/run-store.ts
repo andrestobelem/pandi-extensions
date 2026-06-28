@@ -29,15 +29,17 @@ export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
 	for (const root of getRunRoots(ctx)) {
 		if (!existsSync(root)) continue;
 		const entries = await fs.readdir(root, { withFileTypes: true });
-		dirs.push(...await Promise.all(
-			entries
-				.filter((entry) => entry.isDirectory())
-				.map(async (entry) => {
-					const full = path.join(root, entry.name);
-					const stat = await fs.stat(full);
-					return { full, mtimeMs: stat.mtimeMs };
-				}),
-		));
+		dirs.push(
+			...(await Promise.all(
+				entries
+					.filter((entry) => entry.isDirectory())
+					.map(async (entry) => {
+						const full = path.join(root, entry.name);
+						const stat = await fs.stat(full);
+						return { full, mtimeMs: stat.mtimeMs };
+					}),
+			)),
+		);
 	}
 	return dirs.sort((a, b) => b.mtimeMs - a.mtimeMs).map((entry) => entry.full);
 }
@@ -61,7 +63,9 @@ export async function writeRunStatus(status: WorkflowRunStatus): Promise<void> {
 
 export async function readRunResult(runDir: string): Promise<WorkflowRunResult | undefined> {
 	try {
-		return JSON.parse(await fs.readFile(path.join(runDir, "result.json"), "utf8")) as WorkflowRunResult;
+		return JSON.parse(
+			await fs.readFile(path.join(runDir, "result.json"), "utf8"),
+		) as WorkflowRunResult;
 	} catch {
 		return undefined;
 	}
@@ -69,7 +73,9 @@ export async function readRunResult(runDir: string): Promise<WorkflowRunResult |
 
 export async function readRunStatus(runDir: string): Promise<WorkflowRunStatus | undefined> {
 	try {
-		const status = JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")) as WorkflowRunStatus;
+		const status = JSON.parse(
+			await fs.readFile(path.join(runDir, "status.json"), "utf8"),
+		) as WorkflowRunStatus;
 		if (status.state === "running" && !activeRuns.has(status.runId)) {
 			const now = Date.now();
 			const started = new Date(status.startedAt).getTime();

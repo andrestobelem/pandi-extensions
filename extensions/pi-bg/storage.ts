@@ -8,7 +8,11 @@
  * status derivation) deliberately stay in index.ts.
  */
 
-import { CONFIG_DIR_NAME, getAgentDir, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+	CONFIG_DIR_NAME,
+	getAgentDir,
+	type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -36,9 +40,11 @@ export function getGlobalBgRoot(_ctx: ExtensionContext): string {
 
 export function candidateRunRoots(ctx: ExtensionContext): CandidateRunRoot[] {
 	const roots: CandidateRunRoot[] = [];
-	if (ctx.isProjectTrusted()) roots.push({ root: path.join(getProjectBgRoot(ctx), RUNS_DIR), baseDir: ctx.cwd });
+	if (ctx.isProjectTrusted())
+		roots.push({ root: path.join(getProjectBgRoot(ctx), RUNS_DIR), baseDir: ctx.cwd });
 	const globalRuns = path.join(getGlobalBgRoot(ctx), RUNS_DIR, stableHash(ctx.cwd));
-	if (!roots.some((entry) => entry.root === globalRuns)) roots.push({ root: globalRuns, baseDir: getAgentDir() });
+	if (!roots.some((entry) => entry.root === globalRuns))
+		roots.push({ root: globalRuns, baseDir: getAgentDir() });
 	return roots;
 }
 
@@ -78,7 +84,8 @@ export async function ensurePlainDirectory(dir: string): Promise<void> {
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
 	}
-	if (!(await lstatPlainDirectory(dir))) throw new Error(`Refusing to use non-directory or symlink: ${dir}`);
+	if (!(await lstatPlainDirectory(dir)))
+		throw new Error(`Refusing to use non-directory or symlink: ${dir}`);
 }
 
 export async function createRunDir(ctx: ExtensionContext, jobId: string): Promise<string> {
@@ -106,14 +113,19 @@ export async function readJson(file: string): Promise<Record<string, unknown> | 
 	try {
 		if (!(await isRegularFile(file))) return undefined;
 		const parsed = JSON.parse(await fs.readFile(file, "utf8"));
-		return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
+		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+			? (parsed as Record<string, unknown>)
+			: undefined;
 	} catch {
 		return undefined;
 	}
 }
 
 export async function atomicWriteJson(file: string, value: unknown): Promise<void> {
-	const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.${Date.now()}.${crypto.randomBytes(4).toString("hex")}.tmp`);
+	const tmp = path.join(
+		path.dirname(file),
+		`.${path.basename(file)}.${process.pid}.${Date.now()}.${crypto.randomBytes(4).toString("hex")}.tmp`,
+	);
 	await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 	try {
 		await fs.rename(tmp, file);
@@ -126,10 +138,17 @@ export async function atomicWriteJson(file: string, value: unknown): Promise<voi
 // Best-effort append-only audit of irreversible removals, at .pi/bg/runs/.audit.jsonl.
 // The leading dot means validJobId() rejects it, so every job-enumeration loop skips
 // it for free (no pollution of list/reconcile/prune). Never throws into the caller.
-export async function appendAuditLine(ctx: ExtensionContext, entry: Record<string, unknown>): Promise<void> {
+export async function appendAuditLine(
+	ctx: ExtensionContext,
+	entry: Record<string, unknown>,
+): Promise<void> {
 	const auditFile = path.join(getProjectBgRoot(ctx), RUNS_DIR, ".audit.jsonl");
 	try {
-		await fs.appendFile(auditFile, `${JSON.stringify({ ts: new Date().toISOString(), scope: "project", ...entry })}\n`, "utf8");
+		await fs.appendFile(
+			auditFile,
+			`${JSON.stringify({ ts: new Date().toISOString(), scope: "project", ...entry })}\n`,
+			"utf8",
+		);
 	} catch {
 		// audit is best-effort evidence; it must never block the operation it records
 	}
@@ -152,8 +171,14 @@ export async function removeRunDir(
 	if (!(await lstatPlainDirectory(runDir))) return false;
 	// Edge re-validation: re-read status and let the caller re-derive deletability
 	// immediately before the irreversible fs.rm, closing the classify->remove window.
-	if (revalidate && !(await revalidate(await readJson(path.join(runDir, "status.json"))))) return false;
+	if (revalidate && !(await revalidate(await readJson(path.join(runDir, "status.json")))))
+		return false;
 	await fs.rm(runDir, { recursive: true, force: true });
-	await appendAuditLine(ctx, { verb: audit.verb, jobId, state: audit.state ?? null, sizeBytes: audit.sizeBytes ?? null });
+	await appendAuditLine(ctx, {
+		verb: audit.verb,
+		jobId,
+		state: audit.state ?? null,
+		sizeBytes: audit.sizeBytes ?? null,
+	});
 	return true;
 }

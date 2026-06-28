@@ -55,7 +55,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension,
+	createChecker,
+	loadDefault,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-loop/tests/integration/ -> repo root is four levels up.
@@ -184,21 +189,41 @@ async function fifoSerialization(url) {
 	// not delivered: the engine guarantees a single autopilot turn at a time.
 	await startLoopCmd(commands, entries, "task B", ctx);
 	await startLoopCmd(commands, entries, "task C", ctx);
-	check("fifo: B and C do NOT deliver while A's turn is in flight", sentMessages.length === 1, `delivered=${sentMessages.length}`);
+	check(
+		"fifo: B and C do NOT deliver while A's turn is in flight",
+		sentMessages.length === 1,
+		`delivered=${sentMessages.length}`,
+	);
 
 	// agent_end closes A's turn -> release the gate and drain the NEXT queued wake (B, FIFO).
 	await fireEvent(handlers, "agent_end", {}, ctx);
-	check("fifo: agent_end delivers exactly one more wake (B, FIFO)", sentMessages.length === 2, `delivered=${sentMessages.length}`);
-	check("fifo: the 2nd delivered wake is B (arrival order), not C", /task B/.test(sentMessages[1]?.content || ""), sentMessages[1]?.content?.slice(0, 40));
+	check(
+		"fifo: agent_end delivers exactly one more wake (B, FIFO)",
+		sentMessages.length === 2,
+		`delivered=${sentMessages.length}`,
+	);
+	check(
+		"fifo: the 2nd delivered wake is B (arrival order), not C",
+		/task B/.test(sentMessages[1]?.content || ""),
+		sentMessages[1]?.content?.slice(0, 40),
+	);
 
 	// Next agent_end closes B's turn -> deliver C.
 	await fireEvent(handlers, "agent_end", {}, ctx);
-	check("fifo: 3rd wake is C", sentMessages.length === 3 && /task C/.test(sentMessages[2]?.content || ""), `delivered=${sentMessages.length}`);
+	check(
+		"fifo: 3rd wake is C",
+		sentMessages.length === 3 && /task C/.test(sentMessages[2]?.content || ""),
+		`delivered=${sentMessages.length}`,
+	);
 
 	// Queue now empty; a further agent_end re-arms the safety net but delivers no new wake.
 	const before = sentMessages.length;
 	await fireEvent(handlers, "agent_end", {}, ctx);
-	check("fifo: no extra wake once queue is drained", sentMessages.length === before, `delivered=${sentMessages.length}`);
+	check(
+		"fifo: no extra wake once queue is drained",
+		sentMessages.length === before,
+		`delivered=${sentMessages.length}`,
+	);
 }
 
 // ===========================================================================
@@ -215,12 +240,20 @@ async function noDeliveryWhileBusy(url) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: () => idle });
 
 	await startLoopCmd(commands, entries, "busy task", ctx);
-	check("busy: no wake delivered while agent is busy", sentMessages.length === 0, `delivered=${sentMessages.length}`);
+	check(
+		"busy: no wake delivered while agent is busy",
+		sentMessages.length === 0,
+		`delivered=${sentMessages.length}`,
+	);
 
 	// Human turn ends -> agent_end with the agent now idle -> the queued wake drains.
 	idle = true;
 	await fireEvent(handlers, "agent_end", {}, ctx);
-	check("busy: queued wake drains once idle at agent_end", sentMessages.length === 1, `delivered=${sentMessages.length}`);
+	check(
+		"busy: queued wake drains once idle at agent_end",
+		sentMessages.length === 1,
+		`delivered=${sentMessages.length}`,
+	);
 }
 
 // ===========================================================================
@@ -235,7 +268,10 @@ async function refusesNonInteractiveMode(url) {
 
 	const startedId = await startLoopCmd(commands, entries, "cannot loop here", ctx);
 	check("mode: /loop in print mode starts no loop", startedId === undefined);
-	check("mode: print mode persists no loop-state", entries.find((e) => e.customType === "loop-state") === undefined);
+	check(
+		"mode: print mode persists no loop-state",
+		entries.find((e) => e.customType === "loop-state") === undefined,
+	);
 	check("mode: print mode injects no wake", sentMessages.length === 0);
 }
 
@@ -258,17 +294,43 @@ async function fixedModeAndScheduleNoop(url) {
 	check("fixed: started a loop with a trailing interval token", !!fixedId);
 	const snap = latestSnapshot(entries, fixedId);
 	check("fixed: mode persisted as 'fixed'", snap?.mode === "fixed", `mode=${snap?.mode}`);
-	check("fixed: intervalMs is 300000 (5m)", snap?.intervalMs === 300000, `intervalMs=${snap?.intervalMs}`);
-	check("fixed: task token stripped of the interval", snap?.task === "watch the build", `task=${snap?.task}`);
+	check(
+		"fixed: intervalMs is 300000 (5m)",
+		snap?.intervalMs === 300000,
+		`intervalMs=${snap?.intervalMs}`,
+	);
+	check(
+		"fixed: task token stripped of the interval",
+		snap?.task === "watch the build",
+		`task=${snap?.task}`,
+	);
 
 	// Now the model (autopilot turn in flight) calls loop_schedule on the FIXED loop.
 	const sched = tools.get("loop_schedule");
-	const res = await sched.execute("tc", { delaySeconds: 90, reason: "want sooner" }, undefined, undefined, ctx);
-	check("fixed: loop_schedule reports a NO-OP on a fixed loop", res?.details?.noop === true, JSON.stringify(res?.details));
-	check("fixed: loop_schedule does NOT change the fixed cadence (intervalSeconds=300)", res?.details?.intervalSeconds === 300, JSON.stringify(res?.details));
+	const res = await sched.execute(
+		"tc",
+		{ delaySeconds: 90, reason: "want sooner" },
+		undefined,
+		undefined,
+		ctx,
+	);
+	check(
+		"fixed: loop_schedule reports a NO-OP on a fixed loop",
+		res?.details?.noop === true,
+		JSON.stringify(res?.details),
+	);
+	check(
+		"fixed: loop_schedule does NOT change the fixed cadence (intervalSeconds=300)",
+		res?.details?.intervalSeconds === 300,
+		JSON.stringify(res?.details),
+	);
 	// A no-op must not have persisted a re-arm (no new loop-state snapshot from scheduleWake).
 	const afterSnap = latestSnapshot(entries, fixedId);
-	check("fixed: no-op did not re-arm nextFireAt via loop_schedule", afterSnap?.nextFireAt == null || afterSnap?.nextFireAt === snap?.nextFireAt, `nextFireAt=${afterSnap?.nextFireAt}`);
+	check(
+		"fixed: no-op did not re-arm nextFireAt via loop_schedule",
+		afterSnap?.nextFireAt == null || afterSnap?.nextFireAt === snap?.nextFireAt,
+		`nextFireAt=${afterSnap?.nextFireAt}`,
+	);
 	check("fixed: no-op did not change mode away from fixed", afterSnap?.mode === "fixed");
 
 	// Contrast: a DYNAMIC loop's loop_schedule DOES arm a real delay (clamped). Same tool,
@@ -277,9 +339,23 @@ async function fixedModeAndScheduleNoop(url) {
 	await commands.get("loop").handler(`stop ${fixedId}`, ctx);
 	await startLoopCmd(commands, entries, "dynamic sibling", ctx);
 	await fireEvent(handlers, "agent_end", {}, ctx); // deliver the queued dynamic wake (FIFO)
-	const dres = await sched.execute("tc2", { delaySeconds: 1800, reason: "dynamic re-arm" }, undefined, undefined, ctx);
-	check("dynamic: loop_schedule is NOT a no-op for a dynamic loop", !dres?.details?.noop, JSON.stringify(dres?.details));
-	check("dynamic: loop_schedule arms the clamped delay (1800)", dres?.details?.delaySeconds === 1800, JSON.stringify(dres?.details));
+	const dres = await sched.execute(
+		"tc2",
+		{ delaySeconds: 1800, reason: "dynamic re-arm" },
+		undefined,
+		undefined,
+		ctx,
+	);
+	check(
+		"dynamic: loop_schedule is NOT a no-op for a dynamic loop",
+		!dres?.details?.noop,
+		JSON.stringify(dres?.details),
+	);
+	check(
+		"dynamic: loop_schedule arms the clamped delay (1800)",
+		dres?.details?.delaySeconds === 1800,
+		JSON.stringify(dres?.details),
+	);
 }
 
 // ===========================================================================
@@ -300,13 +376,25 @@ async function terminalLoopsDisappearFromActiveStatus(url) {
 
 	await commands.get("loop").handler(`stop ${id}`, ctx);
 	const stopped = latestSnapshot(entries, id);
-	check("terminal: final stopped snapshot is persisted", stopped?.status === "stopped", `status=${stopped?.status}`);
+	check(
+		"terminal: final stopped snapshot is persisted",
+		stopped?.status === "stopped",
+		`status=${stopped?.status}`,
+	);
 
 	await commands.get("loop").handler("status", ctx);
-	check("terminal: default /loop status no longer lists the stopped loop", ctx._notes.at(-1)?.msg === "No loops.", ctx._notes.at(-1)?.msg);
+	check(
+		"terminal: default /loop status no longer lists the stopped loop",
+		ctx._notes.at(-1)?.msg === "No loops.",
+		ctx._notes.at(-1)?.msg,
+	);
 
 	await commands.get("loop").handler(`status ${id}`, ctx);
-	check("terminal: explicit status id is gone from the live set", ctx._notes.at(-1)?.msg === `No loop with id ${id}.`, ctx._notes.at(-1)?.msg);
+	check(
+		"terminal: explicit status id is gone from the live set",
+		ctx._notes.at(-1)?.msg === `No loop with id ${id}.`,
+		ctx._notes.at(-1)?.msg,
+	);
 }
 
 // ===========================================================================
@@ -332,7 +420,11 @@ async function watchdogHealthyUntouched(url) {
 
 	const s1 = latestSnapshot(entries, id1);
 	const s2 = latestSnapshot(entries, id2);
-	check("watchdog: healthy running loops survive repeated agent_end sweeps", s1?.status === "running" && s2?.status === "running", `s1=${s1?.status} s2=${s2?.status}`);
+	check(
+		"watchdog: healthy running loops survive repeated agent_end sweeps",
+		s1?.status === "running" && s2?.status === "running",
+		`s1=${s1?.status} s2=${s2?.status}`,
+	);
 	// The aged/zombie kill path is exercised in agedRehydrateWatchdog (which can backdate startedAt).
 }
 
@@ -399,19 +491,36 @@ async function agedRehydrateWatchdog(url) {
 	];
 
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
-	ctx.sessionManager.getEntries = () => seed.map((data) => ({ type: "custom", customType: "loop-state", data }));
+	ctx.sessionManager.getEntries = () =>
+		seed.map((data) => ({ type: "custom", customType: "loop-state", data }));
 
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 
 	const zSnap = latestSnapshot(entries, "zombie");
-	check("watchdog: aged RUNNING zombie is force-stopped (done) on rehydrate sweep", zSnap?.status === "done", `status=${zSnap?.status}`);
-	check("watchdog: the stop reason mentions the backstop/watchdog", /watchdog|backstop|deadline/i.test(zSnap?.lastReason || ""), `reason=${zSnap?.lastReason}`);
+	check(
+		"watchdog: aged RUNNING zombie is force-stopped (done) on rehydrate sweep",
+		zSnap?.status === "done",
+		`status=${zSnap?.status}`,
+	);
+	check(
+		"watchdog: the stop reason mentions the backstop/watchdog",
+		/watchdog|backstop|deadline/i.test(zSnap?.lastReason || ""),
+		`reason=${zSnap?.lastReason}`,
+	);
 
 	const pSnap = latestSnapshot(entries, "pausedold");
-	check("watchdog: aged PAUSED loop is SPARED (stays paused, not a zombie)", pSnap == null || pSnap.status === "paused", `status=${pSnap?.status}`);
+	check(
+		"watchdog: aged PAUSED loop is SPARED (stays paused, not a zombie)",
+		pSnap == null || pSnap.status === "paused",
+		`status=${pSnap?.status}`,
+	);
 
 	const hSnap = latestSnapshot(entries, "healthy");
-	check("watchdog: healthy fresh loop is NOT touched by the sweep", hSnap == null || hSnap.status === "running", `status=${hSnap?.status}`);
+	check(
+		"watchdog: healthy fresh loop is NOT touched by the sweep",
+		hSnap == null || hSnap.status === "running",
+		`status=${hSnap?.status}`,
+	);
 
 	// Sanity on the constant we encoded the scenario around (documents the contract).
 	check("watchdog: backstop window encoded as 25h", WATCHDOG_MS === 90000000);
@@ -433,25 +542,55 @@ async function intervalParseAndClamp(url) {
 		return id ? latestSnapshot(entries, id) : undefined;
 	}
 
-	check("interval: '30s' -> fixed 30000ms", (await startAndSnap("do thing 30s"))?.intervalMs === 30000);
-	check("interval: '5m' -> fixed 300000ms", (await startAndSnap("do thing 5m"))?.intervalMs === 300000);
-	check("interval: '2h' -> fixed 7200000ms", (await startAndSnap("do thing 2h"))?.intervalMs === 7200000);
+	check(
+		"interval: '30s' -> fixed 30000ms",
+		(await startAndSnap("do thing 30s"))?.intervalMs === 30000,
+	);
+	check(
+		"interval: '5m' -> fixed 300000ms",
+		(await startAndSnap("do thing 5m"))?.intervalMs === 300000,
+	);
+	check(
+		"interval: '2h' -> fixed 7200000ms",
+		(await startAndSnap("do thing 2h"))?.intervalMs === 7200000,
+	);
 
 	// Clamp DOWN: 48h exceeds the 24h cap -> clamped to 24h = 86400000ms.
-	check("interval: '48h' clamps DOWN to 24h (86400000ms)", (await startAndSnap("do thing 48h"))?.intervalMs === 86400000);
+	check(
+		"interval: '48h' clamps DOWN to 24h (86400000ms)",
+		(await startAndSnap("do thing 48h"))?.intervalMs === 86400000,
+	);
 
 	// A 0-value token does NOT match the parser (value <= 0 rejected) -> dynamic, token kept.
 	const zero = await startAndSnap("do thing 0s");
-	check("interval: '0s' is rejected -> dynamic mode (no busy-spin)", zero?.mode === "dynamic", `mode=${zero?.mode}`);
-	check("interval: '0s' token stays part of the task", zero?.task === "do thing 0s", `task=${zero?.task}`);
+	check(
+		"interval: '0s' is rejected -> dynamic mode (no busy-spin)",
+		zero?.mode === "dynamic",
+		`mode=${zero?.mode}`,
+	);
+	check(
+		"interval: '0s' token stays part of the task",
+		zero?.task === "do thing 0s",
+		`task=${zero?.task}`,
+	);
 
 	// Non-matching tokens -> dynamic, no interval.
 	const dyn1 = await startAndSnap("just a task");
-	check("interval: no trailing token -> dynamic", dyn1?.mode === "dynamic" && dyn1?.intervalMs == null);
+	check(
+		"interval: no trailing token -> dynamic",
+		dyn1?.mode === "dynamic" && dyn1?.intervalMs == null,
+	);
 	const dyn2 = await startAndSnap("refactor module5");
-	check("interval: 'module5' (digit not at start) -> dynamic", dyn2?.mode === "dynamic" && dyn2?.intervalMs == null, `task=${dyn2?.task}`);
+	check(
+		"interval: 'module5' (digit not at start) -> dynamic",
+		dyn2?.mode === "dynamic" && dyn2?.intervalMs == null,
+		`task=${dyn2?.task}`,
+	);
 	const dyn3 = await startAndSnap("do thing 10x");
-	check("interval: '10x' (bad unit) -> dynamic, token kept in task", dyn3?.mode === "dynamic" && dyn3?.task === "do thing 10x");
+	check(
+		"interval: '10x' (bad unit) -> dynamic, token kept in task",
+		dyn3?.mode === "dynamic" && dyn3?.task === "do thing 10x",
+	);
 }
 
 // ===========================================================================

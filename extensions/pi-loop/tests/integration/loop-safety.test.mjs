@@ -13,7 +13,13 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	bundle,
+	createChecker,
+	loadDefault,
+	makeBuildDir,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/<extension>/tests/integration/ -> repo root is four levels up.
@@ -55,7 +61,6 @@ async function buildExtensions(names) {
 // A module keeps a singleton (activeLoops / activePlans). Load a FRESH instance per
 // scenario via a cache-busting query so scenarios never leak state into each other.
 
-
 // ---------------------------------------------------------------------------
 // Mock pi + ctx (shape mirrors the ExtensionAPI / ExtensionContext surface the
 // extensions actually use, learned from the real handlers).
@@ -80,7 +85,13 @@ function makePi() {
 	return { pi, tools, commands, handlers, entries, sentMessages };
 }
 
-function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = TEST_PROJECT_ROOT, entries = [] } = {}) {
+function makeCtx({
+	mode = "tui",
+	hasUI = true,
+	confirmResult = true,
+	cwd = TEST_PROJECT_ROOT,
+	entries = [],
+} = {}) {
 	const ctx = {
 		mode,
 		hasUI,
@@ -102,7 +113,12 @@ function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = TEST_
 }
 
 function toolCallEvent(toolName, input = {}) {
-	return { type: "tool_call", toolCallId: "tc-" + Math.random().toString(16).slice(2), toolName, input };
+	return {
+		type: "tool_call",
+		toolCallId: "tc-" + Math.random().toString(16).slice(2),
+		toolName,
+		input,
+	};
 }
 
 // Run every registered tool_call handler; first blocker wins (mirrors the engine).
@@ -161,20 +177,57 @@ async function loopAutopilotGate(loopUrl) {
 
 	// Non-destructive bash is allowed even under autopilot. In-project redirects and
 	// fd-dups (2>&1) must NOT be mistaken for out-of-project writes.
-	for (const cmd of ["npm test", "git status", "ls -la", "rm foo.txt", "git commit -m x", "echo hi > notes.txt", "node build.js > out.log 2>&1", "cmd 2>&1", "echo ok > /dev/null"]) {
+	for (const cmd of [
+		"npm test",
+		"git status",
+		"ls -la",
+		"rm foo.txt",
+		"git commit -m x",
+		"echo hi > notes.txt",
+		"node build.js > out.log 2>&1",
+		"cmd 2>&1",
+		"echo ok > /dev/null",
+	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`loop(autopilot): ALLOWS bash "${cmd}"`, r === undefined, r ? r.reason : "");
 	}
 
 	// write/edit: blocked only when the path escapes the project root.
-	const outside = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "/etc/passwd", content: "x" }));
-	check("loop(autopilot): BLOCKS write to /etc/passwd (outside project)", !!outside && outside.block === true);
-	const traversal = await runGate(handlers, ctx, toolCallEvent("edit", { file_path: "../../secret" }));
+	const outside = await runGate(
+		handlers,
+		ctx,
+		toolCallEvent("write", { file_path: "/etc/passwd", content: "x" }),
+	);
+	check(
+		"loop(autopilot): BLOCKS write to /etc/passwd (outside project)",
+		!!outside && outside.block === true,
+	);
+	const traversal = await runGate(
+		handlers,
+		ctx,
+		toolCallEvent("edit", { file_path: "../../secret" }),
+	);
 	check("loop(autopilot): BLOCKS edit via .. traversal", !!traversal && traversal.block === true);
-	const inside = await runGate(handlers, ctx, toolCallEvent("write", { file_path: path.join(cwd, "fixtures/x.txt"), content: "x" }));
-	check("loop(autopilot): ALLOWS write inside project", inside === undefined, inside ? inside.reason : "");
-	const relInside = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "fixtures/x.txt", content: "x" }));
-	check("loop(autopilot): ALLOWS relative write inside project", relInside === undefined, relInside ? relInside.reason : "");
+	const inside = await runGate(
+		handlers,
+		ctx,
+		toolCallEvent("write", { file_path: path.join(cwd, "fixtures/x.txt"), content: "x" }),
+	);
+	check(
+		"loop(autopilot): ALLOWS write inside project",
+		inside === undefined,
+		inside ? inside.reason : "",
+	);
+	const relInside = await runGate(
+		handlers,
+		ctx,
+		toolCallEvent("write", { file_path: "fixtures/x.txt", content: "x" }),
+	);
+	check(
+		"loop(autopilot): ALLOWS relative write inside project",
+		relInside === undefined,
+		relInside ? relInside.reason : "",
+	);
 }
 
 // ===========================================================================
@@ -193,7 +246,13 @@ async function loopScheduleClamp(loopUrl) {
 	check("loop_schedule tool registered", !!sched);
 
 	async function delayFor(raw) {
-		const res = await sched.execute("tc", { delaySeconds: raw, reason: "test clamp" }, undefined, undefined, ctx);
+		const res = await sched.execute(
+			"tc",
+			{ delaySeconds: raw, reason: "test clamp" },
+			undefined,
+			undefined,
+			ctx,
+		);
 		return res.details ? res.details.delaySeconds : undefined;
 	}
 
@@ -203,7 +262,10 @@ async function loopScheduleClamp(loopUrl) {
 	check("loop_schedule: 99999 clamps down to 3600", (await delayFor(99999)) === 3600);
 	check("loop_schedule: 60 (lower bound) stays 60", (await delayFor(60)) === 60);
 	check("loop_schedule: 3600 (upper bound) stays 3600", (await delayFor(3600)) === 3600);
-	check("loop_schedule: NaN falls back to safety net (1500)", (await delayFor(Number.NaN)) === 1500);
+	check(
+		"loop_schedule: NaN falls back to safety net (1500)",
+		(await delayFor(Number.NaN)) === 1500,
+	);
 }
 
 // ===========================================================================

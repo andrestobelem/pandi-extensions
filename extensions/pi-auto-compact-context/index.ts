@@ -74,13 +74,18 @@ const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "accent"> =
 
 export default function autoCompactContext(pi: ExtensionAPI) {
 	let enabled = true;
-	let thresholdPercent = parseThreshold(process.env.PI_AUTO_COMPACT_PERCENT) ?? DEFAULT_THRESHOLD_PERCENT;
+	let thresholdPercent =
+		parseThreshold(process.env.PI_AUTO_COMPACT_PERCENT) ?? DEFAULT_THRESHOLD_PERCENT;
 	let previousPercent: number | null | undefined;
 	let pendingReason: string | undefined;
 	let compacting = false;
 	let showBar = parseBarSetting(process.env.PI_AUTO_COMPACT_BAR) ?? true;
 
-	const notify = (ctx: ExtensionContext, message: string, level: "info" | "warning" | "error" = "info") => {
+	const notify = (
+		ctx: ExtensionContext,
+		message: string,
+		level: "info" | "warning" | "error" = "info",
+	) => {
 		if (ctx.hasUI) ctx.ui.notify(message, level);
 	};
 
@@ -137,7 +142,10 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 		const currentPercent = usage?.percent ?? null;
 		if (currentPercent === null) return;
 
-		const crossedThreshold = previousPercent === undefined || previousPercent === null || previousPercent < thresholdPercent;
+		const crossedThreshold =
+			previousPercent === undefined ||
+			previousPercent === null ||
+			previousPercent < thresholdPercent;
 		previousPercent = currentPercent;
 
 		if (!crossedThreshold || currentPercent < thresholdPercent) return;
@@ -174,7 +182,8 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("auto-compact-context", {
-		description: "Show, enable/disable, set, toggle the footer progress bar, or manually trigger relative context auto-compaction (default enabled at 30%)",
+		description:
+			"Show, enable/disable, set, toggle the footer progress bar, or manually trigger relative context auto-compaction (default enabled at 30%)",
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			if (!trimmed || trimmed === "status") {
@@ -224,7 +233,11 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 
 			const nextThreshold = parseThreshold(trimmed);
 			if (nextThreshold === undefined) {
-				notify(ctx, "Usage: /auto-compact-context [status|on|off|run|bar [on|off]|<1-99 percent>]", "warning");
+				notify(
+					ctx,
+					"Usage: /auto-compact-context [status|on|off|run|bar [on|off]|<1-99 percent>]",
+					"warning",
+				);
 				return;
 			}
 

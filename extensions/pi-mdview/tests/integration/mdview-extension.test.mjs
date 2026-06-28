@@ -150,13 +150,28 @@ async function scenarioErrors(url) {
 
 	const noArgCtx = makeCtx({ cwd });
 	await command.handler("", noArgCtx);
-	check("/mdview missing arg does not open UI", noArgCtx._customCalls.length === 0, String(noArgCtx._customCalls.length));
-	check("/mdview missing arg reports usage", /Usage: \/mdview/.test(noArgCtx._notes.at(-1)?.msg || ""));
+	check(
+		"/mdview missing arg does not open UI",
+		noArgCtx._customCalls.length === 0,
+		String(noArgCtx._customCalls.length),
+	);
+	check(
+		"/mdview missing arg reports usage",
+		/Usage: \/mdview/.test(noArgCtx._notes.at(-1)?.msg || ""),
+	);
 
 	const missingCtx = makeCtx({ cwd });
 	await command.handler("missing.md", missingCtx);
-	check("/mdview missing file does not open UI", missingCtx._customCalls.length === 0, String(missingCtx._customCalls.length));
-	check("/mdview missing file reports error", missingCtx._notes.at(-1)?.type === "error", JSON.stringify(missingCtx._notes));
+	check(
+		"/mdview missing file does not open UI",
+		missingCtx._customCalls.length === 0,
+		String(missingCtx._customCalls.length),
+	);
+	check(
+		"/mdview missing file reports error",
+		missingCtx._notes.at(-1)?.type === "error",
+		JSON.stringify(missingCtx._notes),
+	);
 }
 
 async function captureConsole(fn) {
@@ -181,8 +196,16 @@ async function scenarioLargeFileGuard(url) {
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd });
 	await commands.get("mdview").handler("big.md", ctx);
-	check("large-file: does not open the viewer for an oversized file", ctx._customCalls.length === 0, String(ctx._customCalls.length));
-	check("large-file: warns about size", /large/i.test(ctx._notes.at(-1)?.msg || "") && ctx._notes.at(-1)?.type === "warning", JSON.stringify(ctx._notes.at(-1)));
+	check(
+		"large-file: does not open the viewer for an oversized file",
+		ctx._customCalls.length === 0,
+		String(ctx._customCalls.length),
+	);
+	check(
+		"large-file: warns about size",
+		/large/i.test(ctx._notes.at(-1)?.msg || "") && ctx._notes.at(-1)?.type === "warning",
+		JSON.stringify(ctx._notes.at(-1)),
+	);
 }
 
 async function scenarioPrintModeStdout(url) {
@@ -194,15 +217,25 @@ async function scenarioPrintModeStdout(url) {
 	// Unit-level: the handler emits the document via console.log. Under the real
 	// `pi --print` binary that stream is routed to stderr (see scenarioPrintModeRealStdout).
 	check("print: emits document content via console.log", out.includes("plain body"), out);
-	check("print: opens no custom UI", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check(
+		"print: opens no custom UI",
+		ctx._customCalls.length === 0,
+		String(ctx._customCalls.length),
+	);
 }
 
 async function scenarioPrintModeErrorToStderr(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-print-err-"));
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, mode: "print" });
-	const { out, err } = await captureConsole(() => commands.get("mdview").handler("missing.md", ctx));
-	check("print-error: error goes to stderr, not stdout", /Could not read/.test(err) && !/Could not read/.test(out), JSON.stringify({ out, err }));
+	const { out, err } = await captureConsole(() =>
+		commands.get("mdview").handler("missing.md", ctx),
+	);
+	check(
+		"print-error: error goes to stderr, not stdout",
+		/Could not read/.test(err) && !/Could not read/.test(out),
+		JSON.stringify({ out, err }),
+	);
 }
 
 // End-to-end against the real `pi --print` binary so we exercise pi's stdout
@@ -226,7 +259,11 @@ async function scenarioPrintModeRealStdout() {
 	);
 	const stdout = r.stdout || "";
 	const stderr = r.stderr || "";
-	check("print-real: exits cleanly", r.status === 0, JSON.stringify({ status: r.status, err: stderr.slice(0, 200) }));
+	check(
+		"print-real: exits cleanly",
+		r.status === 0,
+		JSON.stringify({ status: r.status, err: stderr.slice(0, 200) }),
+	);
 	// Honest contract: pi reserves real stdout for the model response, so the
 	// document is emitted to the terminal via stderr; `pi /mdview f.md > out.md`
 	// captures nothing. These two checks pin that real routing.

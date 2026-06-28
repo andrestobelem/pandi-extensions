@@ -1,26 +1,26 @@
 {
-  "name": "pi-dynamic-workflows-bg",
-  "version": "0.1.0",
-  "description": "Pi extension with local /bg background job commands and project artifacts.",
-  "license": "MIT",
-  "type": "module",
-  "keywords": [
-    "pi-package",
-    "pi",
-    "pi-extension",
-    "background-jobs"
-  ],
-  "files": [
-    "index.ts",
-    "storage.ts",
-    "README.md"
-  ],
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*"
-  }
+	"name": "pi-dynamic-workflows-bg",
+	"version": "0.1.0",
+	"description": "Pi extension with local /bg background job commands and project artifacts.",
+	"license": "MIT",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"background-jobs"
+	],
+	"files": [
+		"index.ts",
+		"storage.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	}
 }

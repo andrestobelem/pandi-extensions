@@ -22,7 +22,12 @@ export function formatWorkflowList(files: WorkflowFile[]): string {
 	return files.map((file) => `- ${file.name} (${file.scope}) — ${file.relativePath}`).join("\n");
 }
 
-export function workflowProgress(logs: WorkflowLogEntry[]): { agentsStarted: number; agentsDone: number; agentsRunning: number; bashDone: number } {
+export function workflowProgress(logs: WorkflowLogEntry[]): {
+	agentsStarted: number;
+	agentsDone: number;
+	agentsRunning: number;
+	bashDone: number;
+} {
 	let agentsStarted = 0;
 	let agentsDone = 0;
 	let bashDone = 0;
@@ -31,7 +36,12 @@ export function workflowProgress(logs: WorkflowLogEntry[]): { agentsStarted: num
 		if (/^agent \d+ end:/.test(logEntry.message)) agentsDone++;
 		if (/^bash end:/.test(logEntry.message)) bashDone++;
 	}
-	return { agentsStarted, agentsDone, agentsRunning: Math.max(0, agentsStarted - agentsDone), bashDone };
+	return {
+		agentsStarted,
+		agentsDone,
+		agentsRunning: Math.max(0, agentsStarted - agentsDone),
+		bashDone,
+	};
 }
 
 export function workflowDashboardHint(): string {

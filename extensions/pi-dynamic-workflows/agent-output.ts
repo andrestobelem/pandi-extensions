@@ -19,7 +19,11 @@ function extractTextFromMessageContent(content: unknown): string | undefined {
 			if (typeof part === "string") return part;
 			if (part && typeof part === "object") {
 				const record = part as Record<string, unknown>;
-				if ((record.type === "text" || record.type === undefined) && typeof record.text === "string") return record.text;
+				if (
+					(record.type === "text" || record.type === undefined) &&
+					typeof record.text === "string"
+				)
+					return record.text;
 			}
 			return "";
 		});
@@ -27,7 +31,8 @@ function extractTextFromMessageContent(content: unknown): string | undefined {
 	}
 	if (content && typeof content === "object") {
 		const record = content as Record<string, unknown>;
-		if ((record.type === "text" || record.type === undefined) && typeof record.text === "string") return record.text;
+		if ((record.type === "text" || record.type === undefined) && typeof record.text === "string")
+			return record.text;
 	}
 	return undefined;
 }
@@ -39,15 +44,22 @@ function extractAssistantTextFromMessage(message: unknown): string | undefined {
 	return extractTextFromMessageContent(record.content);
 }
 
-export function parsePiJsonModeOutput(stdout: string): { ok: true; output: string } | { ok: false; warning: string } {
+export function parsePiJsonModeOutput(
+	stdout: string,
+): { ok: true; output: string } | { ok: false; warning: string } {
 	return parsePiJsonModeOutputInternal(stdout, false);
 }
 
-export function parsePiJsonModeOutputLenient(stdout: string): { ok: true; output: string } | { ok: false; warning: string } {
+export function parsePiJsonModeOutputLenient(
+	stdout: string,
+): { ok: true; output: string } | { ok: false; warning: string } {
 	return parsePiJsonModeOutputInternal(stdout, true);
 }
 
-function parsePiJsonModeOutputInternal(stdout: string, lenient: boolean): { ok: true; output: string } | { ok: false; warning: string } {
+function parsePiJsonModeOutputInternal(
+	stdout: string,
+	lenient: boolean,
+): { ok: true; output: string } | { ok: false; warning: string } {
 	const lines = stdout.split(/\r?\n/).filter((line) => line.trim());
 	if (lines.length === 0) return { ok: false, warning: "empty JSON event stream" };
 	let lastAssistantText: string | undefined;
@@ -55,13 +67,16 @@ function parsePiJsonModeOutputInternal(stdout: string, lenient: boolean): { ok: 
 	for (let i = 0; i < lines.length; i++) {
 		let event: unknown;
 		try {
-			event = JSON.parse(lines[i]!);
+			event = JSON.parse(lines[i]);
 		} catch (err) {
 			if (lenient) {
 				skippedInvalid++;
 				continue;
 			}
-			return { ok: false, warning: `invalid JSON event line ${i + 1}: ${err instanceof Error ? err.message : String(err)}` };
+			return {
+				ok: false,
+				warning: `invalid JSON event line ${i + 1}: ${err instanceof Error ? err.message : String(err)}`,
+			};
 		}
 		if (!event || typeof event !== "object") continue;
 		const record = event as Record<string, unknown>;
@@ -72,13 +87,22 @@ function parsePiJsonModeOutputInternal(stdout: string, lenient: boolean): { ok: 
 			}
 			continue;
 		}
-		if (record.type === "turn_end" || record.type === "message_end" || record.type === "message_update") {
+		if (
+			record.type === "turn_end" ||
+			record.type === "message_end" ||
+			record.type === "message_update"
+		) {
 			const textValue = extractAssistantTextFromMessage(record.message);
 			if (textValue !== undefined) lastAssistantText = textValue;
 		}
 	}
 	if (lastAssistantText === undefined) {
-		return { ok: false, warning: skippedInvalid ? `no assistant text found in complete JSON events (${skippedInvalid} partial/invalid line(s) ignored)` : "no assistant text found in JSON event stream" };
+		return {
+			ok: false,
+			warning: skippedInvalid
+				? `no assistant text found in complete JSON events (${skippedInvalid} partial/invalid line(s) ignored)`
+				: "no assistant text found in JSON event stream",
+		};
 	}
 	return { ok: true, output: lastAssistantText.trim() };
 }

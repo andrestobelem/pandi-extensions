@@ -122,7 +122,9 @@ export function isPlanModeActive(): boolean {
 	return planModeActive();
 }
 
-const previousPlanModeGuard = (globalThis as Record<symbol, PlanModeGuard | undefined>)[PLAN_MODE_GUARD_SYMBOL];
+const previousPlanModeGuard = (globalThis as Record<symbol, PlanModeGuard | undefined>)[
+	PLAN_MODE_GUARD_SYMBOL
+];
 export const PLAN_MODE_GUARD: PlanModeGuard = {
 	isActive: () => {
 		if (isPlanModeActive()) return true;
@@ -268,7 +270,11 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 	// Mode gate (HARD RULE): plan mode needs an interactive approval; print/json cannot
 	// deliver it. Refuse to enter.
 	if (!canPlanInMode(ctx)) {
-		notify(ctx, "/plan requires a TUI or RPC session (this mode cannot run the approval handshake).", "error");
+		notify(
+			ctx,
+			"/plan requires a TUI or RPC session (this mode cannot run the approval handshake).",
+			"error",
+		);
 		return undefined;
 	}
 	const trimmed = task.trim();
@@ -277,7 +283,11 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 		return undefined;
 	}
 	if (planModeActive()) {
-		notify(ctx, "Plan mode is already active. Use /plan status, or /plan exit to leave it.", "warning");
+		notify(
+			ctx,
+			"Plan mode is already active. Use /plan status, or /plan exit to leave it.",
+			"warning",
+		);
 		return currentPlan();
 	}
 
@@ -285,7 +295,11 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 	// Command path: inject the planning instruction as a user message (research read-only,
 	// then submit_plan when ready), because the command runs out-of-band of the model's turn.
 	wake(pi, ctx, makePlanningPrompt(plan));
-	notify(ctx, `Entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`, "info");
+	notify(
+		ctx,
+		`Entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`,
+		"info",
+	);
 	return plan;
 }
 
@@ -300,7 +314,11 @@ function exitPlan(pi: ExtensionAPI, ctx: ExtensionContext, reason: string): bool
 	plan.status = "exited";
 	persist(pi, plan);
 	refreshPlanStatus(ctx);
-	notify(ctx, `Exited plan mode (${plan.planId}): ${reason}. No implementation was started.`, "info");
+	notify(
+		ctx,
+		`Exited plan mode (${plan.planId}): ${reason}. No implementation was started.`,
+		"info",
+	);
 	return true;
 }
 
@@ -339,7 +357,11 @@ function formatStatus(plan: PlanState): string {
 	return `Plan ${plan.planId}: ${gate}${counts}. Task: ${plan.task}`;
 }
 
-async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
+async function handlePlanCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: ExtensionContext,
+): Promise<void> {
 	const trimmed = args.trim();
 	const firstSpace = trimmed.indexOf(" ");
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
@@ -382,7 +404,8 @@ export default function planExtension(pi: ExtensionAPI): void {
 		parameters: Type.Object({
 			plan: Type.String({
 				minLength: 1,
-				description: "The full implementation plan in Markdown, ready to present to the user for approval.",
+				description:
+					"The full implementation plan in Markdown, ready to present to the user for approval.",
 			}),
 		}),
 		executionMode: "sequential",
@@ -390,7 +413,9 @@ export default function planExtension(pi: ExtensionAPI): void {
 			const plan = currentPlan();
 			if (!plan) {
 				return {
-					content: [{ type: "text" as const, text: "No active plan to submit. Plan mode is not active." }],
+					content: [
+						{ type: "text" as const, text: "No active plan to submit. Plan mode is not active." },
+					],
 					details: { isError: true },
 				};
 			}
@@ -427,7 +452,12 @@ export default function planExtension(pi: ExtensionAPI): void {
 			const livePlan = currentPlan();
 			if (!livePlan || livePlan.planId !== plan.planId || livePlan.submissions !== submission) {
 				return {
-					content: [{ type: "text" as const, text: "Plan approval result is stale; plan mode has changed. No action was taken." }],
+					content: [
+						{
+							type: "text" as const,
+							text: "Plan approval result is stale; plan mode has changed. No action was taken.",
+						},
+					],
 					details: { isError: true, planId: plan.planId, status: "stale" },
 				};
 			}
@@ -440,7 +470,11 @@ export default function planExtension(pi: ExtensionAPI): void {
 				persist(pi, livePlan);
 				refreshPlanStatus(ctx);
 				wake(pi, ctx, makeImplementPrompt(planText));
-				notify(ctx, `Plan ${livePlan.planId} approved. Exiting plan mode and implementing.`, "info");
+				notify(
+					ctx,
+					`Plan ${livePlan.planId} approved. Exiting plan mode and implementing.`,
+					"info",
+				);
 				return {
 					content: [{ type: "text" as const, text: "Plan approved — implementing now." }],
 					details: { planId: livePlan.planId, status: "approved" },
@@ -453,7 +487,11 @@ export default function planExtension(pi: ExtensionAPI): void {
 			livePlan.status = "planning"; // remains active; status reflects we're still planning.
 			persist(pi, livePlan);
 			setPlanStatus(ctx, livePlan);
-			notify(ctx, `Plan ${livePlan.planId} rejected. Still in plan mode; the agent will revise.`, "info");
+			notify(
+				ctx,
+				`Plan ${livePlan.planId} rejected. Still in plan mode; the agent will revise.`,
+				"info",
+			);
 			return {
 				content: [
 					{
@@ -489,7 +527,8 @@ export default function planExtension(pi: ExtensionAPI): void {
 		parameters: Type.Object({
 			task: Type.String({
 				minLength: 1,
-				description: "The task you intend to plan before implementing (what you will research and write a plan for).",
+				description:
+					"The task you intend to plan before implementing (what you will research and write a plan for).",
 			}),
 		}),
 		executionMode: "sequential",
@@ -516,7 +555,12 @@ export default function planExtension(pi: ExtensionAPI): void {
 			const trimmed = params.task.trim();
 			if (!trimmed) {
 				return {
-					content: [{ type: "text" as const, text: "enter_plan_mode requires a non-empty task describing what to plan." }],
+					content: [
+						{
+							type: "text" as const,
+							text: "enter_plan_mode requires a non-empty task describing what to plan.",
+						},
+					],
 					details: { isError: true, entered: false, reason: "empty-task" },
 				};
 			}

@@ -1,5 +1,13 @@
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { Markdown, matchesKey, truncateToWidth, visibleWidth, type Component, type MarkdownTheme, type TUI } from "@earendil-works/pi-tui";
+import {
+	Markdown,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	type Component,
+	type MarkdownTheme,
+	type TUI,
+} from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -9,7 +17,11 @@ const VIEWER_MIN_BODY_LINES = 3;
 const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
 const MAX_MDVIEW_BYTES = 2_000_000; // guard: reading/parsing a huge file blocks the TUI event loop
 
-function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
+function notify(
+	ctx: ExtensionContext,
+	message: string,
+	type: "info" | "warning" | "error" = "info",
+): void {
 	if (ctx.mode === "print") {
 		// In --print/--json mode pi takes over process.stdout (reserving real stdout
 		// for the model response) and routes all console output to stderr. So both
@@ -81,7 +93,9 @@ class MarkdownViewComponent implements Component {
 		content: string,
 		private readonly done: () => void,
 	) {
-		this.markdown = new Markdown(content, 1, 0, createMarkdownTheme(theme), undefined, { preserveOrderedListMarkers: true });
+		this.markdown = new Markdown(content, 1, 0, createMarkdownTheme(theme), undefined, {
+			preserveOrderedListMarkers: true,
+		});
 	}
 
 	handleInput(data: string): void {
@@ -92,7 +106,8 @@ class MarkdownViewComponent implements Component {
 
 		if (matchesKey(data, "down") || data === "j") this.scroll += 1;
 		else if (matchesKey(data, "up") || data === "k") this.scroll -= 1;
-		else if (matchesKey(data, "pageDown") || matchesKey(data, "space")) this.scroll += this.pageSize();
+		else if (matchesKey(data, "pageDown") || matchesKey(data, "space"))
+			this.scroll += this.pageSize();
 		else if (matchesKey(data, "pageUp")) this.scroll -= this.pageSize();
 		else if (matchesKey(data, "home") || data === "g") this.scroll = 0;
 		else if (matchesKey(data, "end") || data === "G") this.scroll = Number.MAX_SAFE_INTEGER;
@@ -120,7 +135,10 @@ class MarkdownViewComponent implements Component {
 		const title = this.theme.fg("accent", this.theme.bold("Markdown"));
 		const relativePath = path.relative(this.cwd, this.filePath) || this.filePath;
 		const location = this.theme.fg("dim", relativePath);
-		const footer = this.theme.fg("dim", `↑/↓ j/k scroll • PgUp/PgDn page • q/Esc close • ${start + 1}-${end}/${bodyLines.length}`);
+		const footer = this.theme.fg(
+			"dim",
+			`↑/↓ j/k scroll • PgUp/PgDn page • q/Esc close • ${start + 1}-${end}/${bodyLines.length}`,
+		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));
 		return [
@@ -154,11 +172,16 @@ type MarkdownLoad =
  */
 async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<MarkdownLoad> {
 	const filePath = resolveMarkdownPath(pathArg, cwd);
-	if (!filePath) return { ok: false, message: "Usage: /mdview <path-to-markdown-file>", level: "warning" };
+	if (!filePath)
+		return { ok: false, message: "Usage: /mdview <path-to-markdown-file>", level: "warning" };
 	try {
 		const stat = await fs.stat(filePath);
 		if (stat.size > MAX_MDVIEW_BYTES) {
-			return { ok: false, message: `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES}).`, level: "warning" };
+			return {
+				ok: false,
+				message: `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES}).`,
+				level: "warning",
+			};
 		}
 		const content = await fs.readFile(filePath, "utf8");
 		return { ok: true, filePath, content, bytes: stat.size };
@@ -169,7 +192,11 @@ async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<Markd
 }
 
 /** Open the interactive scroll viewer; resolves when the user closes it (q/Esc). */
-function openMarkdownViewer(ctx: ExtensionContext, filePath: string, content: string): Promise<void> {
+function openMarkdownViewer(
+	ctx: ExtensionContext,
+	filePath: string,
+	content: string,
+): Promise<void> {
 	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 		return new MarkdownViewComponent(tui, theme, filePath, ctx.cwd, content, () => done(undefined));
 	});
@@ -221,13 +248,21 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const load = await loadMarkdownDocument(params.path, ctx.cwd);
 			if (!load.ok) {
-				return { content: [{ type: "text" as const, text: load.message }], details: { isError: true } };
+				return {
+					content: [{ type: "text" as const, text: load.message }],
+					details: { isError: true },
+				};
 			}
 			const relativePath = path.relative(ctx.cwd, load.filePath) || load.filePath;
 			if (ctx.mode === "tui" && ctx.hasUI) {
 				await openMarkdownViewer(ctx, load.filePath, load.content);
 				return {
-					content: [{ type: "text" as const, text: `Opened ${relativePath} in the Markdown viewer (${load.bytes} bytes).` }],
+					content: [
+						{
+							type: "text" as const,
+							text: `Opened ${relativePath} in the Markdown viewer (${load.bytes} bytes).`,
+						},
+					],
 					details: { path: relativePath, bytes: load.bytes, opened: true },
 				};
 			}

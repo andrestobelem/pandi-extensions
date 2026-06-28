@@ -20,25 +20,28 @@ import {
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { Image as TerminalImage, Key, getCapabilities, matchesKey, truncateToWidth, visibleWidth, type EditorComponent } from "@earendil-works/pi-tui";
+import {
+	Image as TerminalImage,
+	Key,
+	getCapabilities,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+	type EditorComponent,
+} from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { Value } from "typebox/value";
-import { spawn } from "node:child_process";
 import * as crypto from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import {
 	WORKFLOW_PATTERN_CATALOG,
 	WORKFLOW_TEMPLATE,
-	formatWorkflowCompositionPromptGuidance,
 	formatWorkflowCompositionPromptSummary,
 	formatWorkflowPatternCatalog,
 	formatWorkflowPatternKeyList,
-	formatWorkflowPatternPromptCheatSheet,
 	getPatternUseCases,
 	loadWorkflowPatternCode,
 	resolveWorkflowPattern,
@@ -47,18 +50,76 @@ import {
 import { notify } from "./notify.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import { extractJsonCandidate } from "./json-extract.js";
-import { buildLimits, HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
-import { formatElapsedMs, formatWorkflowList, shortWorkflowName, workflowDashboardHint, workflowProgress } from "./presentation.js";
+import {
+	buildLimits,
+	HARD_MAX_AGENTS,
+	HARD_MAX_CONCURRENCY,
+	limitParamsFromInput,
+	normalizeWorkflowInput,
+	parseCliJsonOrText,
+} from "./config.js";
+import {
+	formatElapsedMs,
+	formatWorkflowList,
+	shortWorkflowName,
+	workflowDashboardHint,
+	workflowProgress,
+} from "./presentation.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
 import { padRightVisible, renderSafeInline, stripAnsiCodes } from "./render-utils.js";
-import { phaseEventFields, getAgentElapsedMs, formatAgentPhase, readRunEvents, readRunLogEvents } from "./event-parser.js";
-import { abortReasonMessage, combineSignal, throwIfAborted, sleep, mapLimit, createSemaphore } from "./concurrency-primitives.js";
-import { mermaidLabel, graphTextLabel, extractFirstStringLiteral, extractDirectStringLiteralArgument, isJavaScriptCodePosition, lineNumberAtIndex, findCallEndIndex, splitTopLevelArguments, inferWorkflowGraphFanout, formatWorkflowGraphFanoutSummary, summarizeWorkflowGraphChildren, workflowGraphMethodInfo } from "./graph-parse.js";
-import { normalizeAgentEnvAccess, formatAgentAccessMarkdown, sanitizeEnvForCache, createAgentEnvWrapper, applyPersonaOptions, applyDefaultAgentAccess } from "./agent-env-persona.js";
-import { makeStructuredOutputSystemPrompt, appendSystemPromptOption, validateStructuredData, formatSchemaRetryPrompt } from "./structured-output.js";
+import {
+	phaseEventFields,
+	getAgentElapsedMs,
+	formatAgentPhase,
+	readRunEvents,
+	readRunLogEvents,
+} from "./event-parser.js";
+import {
+	abortReasonMessage,
+	combineSignal,
+	throwIfAborted,
+	sleep,
+	mapLimit,
+	createSemaphore,
+} from "./concurrency-primitives.js";
+import {
+	mermaidLabel,
+	graphTextLabel,
+	extractFirstStringLiteral,
+	extractDirectStringLiteralArgument,
+	isJavaScriptCodePosition,
+	lineNumberAtIndex,
+	findCallEndIndex,
+	splitTopLevelArguments,
+	inferWorkflowGraphFanout,
+	formatWorkflowGraphFanoutSummary,
+	summarizeWorkflowGraphChildren,
+	workflowGraphMethodInfo,
+} from "./graph-parse.js";
+import {
+	normalizeAgentEnvAccess,
+	formatAgentAccessMarkdown,
+	sanitizeEnvForCache,
+	createAgentEnvWrapper,
+	applyPersonaOptions,
+	applyDefaultAgentAccess,
+} from "./agent-env-persona.js";
+import {
+	makeStructuredOutputSystemPrompt,
+	appendSystemPromptOption,
+	validateStructuredData,
+	formatSchemaRetryPrompt,
+} from "./structured-output.js";
 import { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
-import { listRuns, formatRunList, selectRunByKey, resolveRun, listRunFiles, formatRunView } from "./run-view.js";
+import {
+	listRuns,
+	formatRunList,
+	selectRunByKey,
+	resolveRun,
+	listRunFiles,
+	formatRunView,
+} from "./run-view.js";
 export { selectRunByKey } from "./run-view.js";
 export {
 	recordValue,
@@ -74,9 +135,36 @@ export {
 	readRunEvents,
 } from "./event-parser.js";
 import { MAX_TOOL_TEXT, safeJson, stringify, text, truncate } from "./format.js";
-import { appendJournalRecord, computeCallKey, computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId, normalizeBashResultForJournal, normalizeSubagentResultForJournal, stableStringify } from "./journal.js";
-import { getRunDirs, readRunRecord, readRunResult, readRunStatus, writeJsonFile, writeRunStatus } from "./run-store.js";
-import { formatParallelAgents, formatParallelAgentsCompact, getRunAgentConcurrency, getRunCachedCalls, getRunElapsedMs, getRunLogs, getRunParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusIcon, getRunStatusLabel, isResumableState, isRunResult } from "./run-state.js";
+import {
+	appendJournalRecord,
+	computeCallKey,
+	computeCodeHash,
+	loadJournal,
+	maxAgentArtifactNumber,
+	maxJournalAgentId,
+	normalizeBashResultForJournal,
+	normalizeSubagentResultForJournal,
+} from "./journal.js";
+import {
+	getRunDirs,
+	readRunRecord,
+	readRunStatus,
+	writeJsonFile,
+	writeRunStatus,
+} from "./run-store.js";
+import {
+	formatParallelAgents,
+	formatParallelAgentsCompact,
+	getRunAgentConcurrency,
+	getRunCachedCalls,
+	getRunElapsedMs,
+	getRunLogs,
+	getRunParallelAgents,
+	getRunPeakParallelAgents,
+	getRunState,
+	getRunStatusLabel,
+	isResumableState,
+} from "./run-state.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
 
 const WORKFLOW_DIR = "workflows";
@@ -108,7 +196,20 @@ export const MAX_JOURNALED_STREAM = 200_000;
 type WorkflowScope = "project" | "global";
 type WorkflowScopeInput = WorkflowScope | "auto";
 
-const TOOL_ACTIONS = ["list", "template", "read", "write", "run", "start", "resume", "cancel", "delete", "graph", "runs", "view"] as const;
+const TOOL_ACTIONS = [
+	"list",
+	"template",
+	"read",
+	"write",
+	"run",
+	"start",
+	"resume",
+	"cancel",
+	"delete",
+	"graph",
+	"runs",
+	"view",
+] as const;
 const WORKFLOW_SCOPE_INPUTS = ["auto", "project", "global"] as const;
 
 type ToolAction = (typeof TOOL_ACTIONS)[number];
@@ -203,27 +304,32 @@ export const BUILTIN_AGENT_PERSONAS: Record<string, AgentOptions> = {
 	explore: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "medium",
-		systemPrompt: "Explore broadly but stay evidence-based. Prefer read-only inspection, cite files/lines, and call out uncertainty.",
+		systemPrompt:
+			"Explore broadly but stay evidence-based. Prefer read-only inspection, cite files/lines, and call out uncertainty.",
 	},
 	reviewer: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "high",
-		systemPrompt: "Act as a skeptical code reviewer. Look for correctness, security, concurrency, and maintainability risks. Do not edit files; cite concrete evidence.",
+		systemPrompt:
+			"Act as a skeptical code reviewer. Look for correctness, security, concurrency, and maintainability risks. Do not edit files; cite concrete evidence.",
 	},
 	planner: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "high",
-		systemPrompt: "Act as a careful planner. Decompose the task, identify dependencies and risks, and propose a minimal verifiable plan with clear trade-offs.",
+		systemPrompt:
+			"Act as a careful planner. Decompose the task, identify dependencies and risks, and propose a minimal verifiable plan with clear trade-offs.",
 	},
 	implementer: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "medium",
-		systemPrompt: "Act as an implementer designing a concrete patch. Prefer minimal changes, preserve existing behavior, and explain verification steps. Do not edit files unless explicitly allowed by the caller.",
+		systemPrompt:
+			"Act as an implementer designing a concrete patch. Prefer minimal changes, preserve existing behavior, and explain verification steps. Do not edit files unless explicitly allowed by the caller.",
 	},
 	researcher: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "high",
-		systemPrompt: "Act as a researcher. Gather independent evidence, compare alternatives, cite sources or files, and separate facts from assumptions.",
+		systemPrompt:
+			"Act as a researcher. Gather independent evidence, compare alternatives, cite sources or files, and separate facts from assumptions.",
 	},
 };
 
@@ -459,8 +565,14 @@ interface WorkflowRuntimeApi {
 	limits: Readonly<RunLimits>;
 	log(message: string, details?: unknown): Promise<void>;
 	agent(prompt: string, options?: AgentOptions): Promise<SubagentResult>;
-	agents(items: Array<string | AgentSpec>, options?: AgentOptions & { concurrency?: number; settle?: false }): Promise<SubagentResult[]>;
-	agents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle: true }): Promise<Array<SubagentResult | null>>;
+	agents(
+		items: Array<string | AgentSpec>,
+		options?: AgentOptions & { concurrency?: number; settle?: false },
+	): Promise<SubagentResult[]>;
+	agents(
+		items: Array<string | AgentSpec>,
+		options: AgentOptions & { concurrency?: number; settle: true },
+	): Promise<Array<SubagentResult | null>>;
 	workflow(name: string, input?: unknown): Promise<unknown>;
 	bash(command: string, options?: BashOptions): Promise<BashResult>;
 	readFile(filePath: string, encoding?: BufferEncoding): Promise<string>;
@@ -481,7 +593,8 @@ const workflowToolSchema = Type.Object({
 	}),
 	name: Type.Optional(
 		Type.String({
-			description: "Workflow name/path relative to the workflow directory (.js is added when omitted), run id for view/cancel/resume (defaults to latest for resume), or pattern key for action=template.",
+			description:
+				"Workflow name/path relative to the workflow directory (.js is added when omitted), run id for view/cancel/resume (defaults to latest for resume), or pattern key for action=template.",
 		}),
 	),
 	scope: Type.Optional(
@@ -490,18 +603,45 @@ const workflowToolSchema = Type.Object({
 		}),
 	),
 	code: Type.Optional(Type.String({ description: "JavaScript workflow source for action=write." })),
-	input: Type.Optional(Type.Any({ description: "JSON-serializable input passed to action=run/start workflow(ctx, input)." })),
-	background: Type.Optional(Type.Boolean({ description: "Compatibility flag for action=run/resume. In persistent TUI/RPC sessions, workflows always start in background; print/json mode falls back to foreground because no background session stays alive." })),
-	force: Type.Optional(Type.Boolean({ description: "For action=resume, allow resuming an already completed run (re-runs only uncached calls)." })),
+	input: Type.Optional(
+		Type.Any({
+			description: "JSON-serializable input passed to action=run/start workflow(ctx, input).",
+		}),
+	),
+	background: Type.Optional(
+		Type.Boolean({
+			description:
+				"Compatibility flag for action=run/resume. In persistent TUI/RPC sessions, workflows always start in background; print/json mode falls back to foreground because no background session stays alive.",
+		}),
+	),
+	force: Type.Optional(
+		Type.Boolean({
+			description:
+				"For action=resume, allow resuming an already completed run (re-runs only uncached calls).",
+		}),
+	),
 	concurrency: Type.Optional(
-		Type.Integer({ minimum: 1, maximum: HARD_MAX_CONCURRENCY, description: "Default subagent concurrency." }),
+		Type.Integer({
+			minimum: 1,
+			maximum: HARD_MAX_CONCURRENCY,
+			description: "Default subagent concurrency.",
+		}),
 	),
 	maxAgents: Type.Optional(
-		Type.Integer({ minimum: 1, maximum: HARD_MAX_AGENTS, description: "Maximum subagents a workflow may spawn." }),
+		Type.Integer({
+			minimum: 1,
+			maximum: HARD_MAX_AGENTS,
+			description: "Maximum subagents a workflow may spawn.",
+		}),
 	),
-	timeoutMs: Type.Optional(Type.Integer({ minimum: 1_000, description: "Overall workflow timeout in milliseconds." })),
+	timeoutMs: Type.Optional(
+		Type.Integer({ minimum: 1_000, description: "Overall workflow timeout in milliseconds." }),
+	),
 	agentTimeoutMs: Type.Optional(
-		Type.Integer({ minimum: 1_000, description: "Default timeout for each subagent in milliseconds." }),
+		Type.Integer({
+			minimum: 1_000,
+			description: "Default timeout for each subagent in milliseconds.",
+		}),
 	),
 });
 
@@ -518,7 +658,8 @@ function normalizeWorkflowName(input: string): string {
 	const raw = input.trim().replaceAll("\\", "/");
 	if (!raw) throw new Error("Workflow name is required.");
 	if (path.isAbsolute(raw)) throw new Error("Workflow name must be relative, not absolute.");
-	if (raw.split("/").some((part) => part === "..")) throw new Error("Workflow name must not contain '..'.");
+	if (raw.split("/").some((part) => part === ".."))
+		throw new Error("Workflow name must not contain '..'.");
 	if (!/^[a-zA-Z0-9._/-]+$/.test(raw)) {
 		throw new Error("Workflow name may only contain letters, numbers, '.', '_', '-', and '/'.");
 	}
@@ -589,7 +730,8 @@ function getLiveSessionRoot(ctx: ExtensionContext): string {
 
 function getLiveSessionRoots(ctx: ExtensionContext): string[] {
 	const roots = [path.join(getAgentDir(), PI_LIVE_SESSION_DIR, projectHash(ctx.cwd))];
-	if (ctx.isProjectTrusted()) roots.unshift(path.join(ctx.cwd, CONFIG_DIR_NAME, PI_LIVE_SESSION_DIR));
+	if (ctx.isProjectTrusted())
+		roots.unshift(path.join(ctx.cwd, CONFIG_DIR_NAME, PI_LIVE_SESSION_DIR));
 	return [...new Set(roots)];
 }
 
@@ -603,13 +745,21 @@ async function ensureDir(dir: string): Promise<void> {
 	await fs.mkdir(dir, { recursive: true });
 }
 
-async function walkWorkflowFiles(root: string, options: { skipReservedTopLevelDirs?: boolean } = {}): Promise<string[]> {
+async function walkWorkflowFiles(
+	root: string,
+	options: { skipReservedTopLevelDirs?: boolean } = {},
+): Promise<string[]> {
 	if (!existsSync(root)) return [];
 	const out: string[] = [];
 	async function walk(dir: string): Promise<void> {
 		const entries = await fs.readdir(dir, { withFileTypes: true });
 		for (const entry of entries) {
-			if (options.skipReservedTopLevelDirs && dir === root && RESERVED_WORKFLOW_SUBDIRS.has(entry.name)) continue;
+			if (
+				options.skipReservedTopLevelDirs &&
+				dir === root &&
+				RESERVED_WORKFLOW_SUBDIRS.has(entry.name)
+			)
+				continue;
 			const full = path.join(dir, entry.name);
 			if (entry.isDirectory()) {
 				await walk(full);
@@ -628,7 +778,9 @@ async function listWorkflows(ctx: ExtensionContext): Promise<WorkflowFile[]> {
 	const files: WorkflowFile[] = [];
 	for (const location of getLocations(ctx)) {
 		if (!location.trusted) continue;
-		for (const file of await walkWorkflowFiles(location.root, { skipReservedTopLevelDirs: location.kind === "workflow" })) {
+		for (const file of await walkWorkflowFiles(location.root, {
+			skipReservedTopLevelDirs: location.kind === "workflow",
+		})) {
 			const relativePath = path.relative(location.root, file).replaceAll(path.sep, "/");
 			files.push({
 				name: workflowDisplayName(relativePath),
@@ -656,8 +808,18 @@ async function resolveWorkflow(
 		const targetKind: WorkflowLocation["kind"] = forWrite;
 		const location = locations.find((loc) => loc.scope === targetScope && loc.kind === targetKind)!;
 		await ensureDir(location.root);
-		const file = resolveInsideRoot(location.root, path.join(location.root, relativePath), relativePath, "workflow directory");
-		return { name: workflowDisplayName(relativePath), scope: targetScope, path: file, relativePath };
+		const file = resolveInsideRoot(
+			location.root,
+			path.join(location.root, relativePath),
+			relativePath,
+			"workflow directory",
+		);
+		return {
+			name: workflowDisplayName(relativePath),
+			scope: targetScope,
+			path: file,
+			relativePath,
+		};
 	}
 
 	const candidates = scope === "auto" ? locations : locations.filter((loc) => loc.scope === scope);
@@ -666,7 +828,12 @@ async function resolveWorkflow(
 		const file = path.join(location.root, relativePath);
 		if (existsSync(file)) {
 			const safeFile = resolveInsideRoot(location.root, file, relativePath, "workflow directory");
-			return { name: workflowDisplayName(relativePath), scope: location.scope, path: safeFile, relativePath };
+			return {
+				name: workflowDisplayName(relativePath),
+				scope: location.scope,
+				path: safeFile,
+				relativePath,
+			};
 		}
 	}
 
@@ -677,11 +844,17 @@ async function resolveWorkflow(
 function parsePatternFlag(raw: string | undefined): string | undefined {
 	const value = raw?.trim();
 	if (!value) return undefined;
-	const match = /(?:^|\s)--pattern(?:=|\s+)([^\s]+)/.exec(value) ?? /(?:^|\s)--from-pattern(?:=|\s+)([^\s]+)/.exec(value);
-	return match?.[1]?.replace(/^['\"]|['\"]$/g, "");
+	const match =
+		/(?:^|\s)--pattern(?:=|\s+)([^\s]+)/.exec(value) ??
+		/(?:^|\s)--from-pattern(?:=|\s+)([^\s]+)/.exec(value);
+	return match?.[1]?.replace(/^['"]|['"]$/g, "");
 }
 
-async function createRunDirectory(ctx: ExtensionContext, workflowName: string, started: number): Promise<{ runId: string; runDir: string }> {
+async function createRunDirectory(
+	ctx: ExtensionContext,
+	workflowName: string,
+	started: number,
+): Promise<{ runId: string; runDir: string }> {
 	const root = getRunRoot(ctx);
 	await ensureDir(root);
 	const timestamp = new Date(started).toISOString().replace(/[:.]/g, "-");
@@ -698,7 +871,11 @@ async function createRunDirectory(ctx: ExtensionContext, workflowName: string, s
 	throw new Error("Could not create a unique workflow run directory.");
 }
 
-async function prepareWorkflowRun(ctx: ExtensionContext, workflowName: string, background = false): Promise<PreparedWorkflowRun> {
+async function prepareWorkflowRun(
+	ctx: ExtensionContext,
+	workflowName: string,
+	background = false,
+): Promise<PreparedWorkflowRun> {
 	const started = Date.now();
 	const { runId, runDir } = await createRunDirectory(ctx, workflowName, started);
 	await ensureDir(path.join(runDir, "agents"));
@@ -707,10 +884,18 @@ async function prepareWorkflowRun(ctx: ExtensionContext, workflowName: string, b
 
 function isInsidePath(root: string, target: string): boolean {
 	const relative = path.relative(root, target);
-	return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+	return (
+		relative === "" ||
+		(!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative))
+	);
 }
 
-function resolveInsideRoot(rootInput: string, resolvedInput: string, displayPath: string, label: string): string {
+function resolveInsideRoot(
+	rootInput: string,
+	resolvedInput: string,
+	displayPath: string,
+	label: string,
+): string {
 	const root = path.resolve(rootInput);
 	const resolved = path.resolve(resolvedInput);
 	if (!isInsidePath(root, resolved)) throw new Error(`Path escapes ${label}: ${displayPath}`);
@@ -723,13 +908,16 @@ function resolveInsideRoot(rootInput: string, resolvedInput: string, displayPath
 		existing = parent;
 	}
 	const realExisting = realpathSync(existing);
-	if (!isInsidePath(realRoot, realExisting)) throw new Error(`Path escapes ${label} through symlink: ${displayPath}`);
+	if (!isInsidePath(realRoot, realExisting))
+		throw new Error(`Path escapes ${label} through symlink: ${displayPath}`);
 	return existsSync(resolved) ? realpathSync(resolved) : resolved;
 }
 
 function resolveCwdPath(cwd: string, filePath: string): string {
 	const root = path.resolve(cwd);
-	const resolved = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(root, filePath);
+	const resolved = path.isAbsolute(filePath)
+		? path.resolve(filePath)
+		: path.resolve(root, filePath);
 	return resolveInsideRoot(root, resolved, filePath, "workflow cwd");
 }
 
@@ -739,11 +927,12 @@ function resolveArtifactPath(runDir: string, name: string): string {
 	if (path.isAbsolute(normalized) || normalized.split("/").some((part) => part === "..")) {
 		throw new Error("Artifact names must stay inside the workflow run directory.");
 	}
-	return resolveInsideRoot(runDir, path.join(runDir, normalized), normalized, "workflow run directory");
-}
-
-function shellArg(value: string): string {
-	return `'${value.replaceAll("'", "'\\''")}'`;
+	return resolveInsideRoot(
+		runDir,
+		path.join(runDir, normalized),
+		normalized,
+		"workflow run directory",
+	);
 }
 
 function makeModelArg(ctx: ExtensionContext): string | undefined {
@@ -753,7 +942,9 @@ function makeModelArg(ctx: ExtensionContext): string | undefined {
 
 export function transformWorkflowCode(code: string): string {
 	if (/^\s*import\s/m.test(code)) {
-		throw new Error("Static import statements are not supported in workflows. Use ctx helpers instead.");
+		throw new Error(
+			"Static import statements are not supported in workflows. Use ctx helpers instead.",
+		);
 	}
 	let output = code;
 	output = output.replace(
@@ -777,7 +968,9 @@ export function transformWorkflowCode(code: string): string {
 		(_match, nl, indent, expr) => `${nl}${indent}module.exports = ${expr};`,
 	);
 	if (/^\s*export\s/m.test(output)) {
-		throw new Error("Only `export default` is supported. Prefer `module.exports = async function workflow(ctx, input) {}`.");
+		throw new Error(
+			"Only `export default` is supported. Prefer `module.exports = async function workflow(ctx, input) {}`.",
+		);
 	}
 	return output;
 }
@@ -861,12 +1054,22 @@ async function executeWorkflowCode(
 
 			void (async () => {
 				if (settled || signal.aborted) {
-					safePost({ type: "response", id: message.id, ok: false, error: abortReasonMessage(signal) });
+					safePost({
+						type: "response",
+						id: message.id,
+						ok: false,
+						error: abortReasonMessage(signal),
+					});
 					return;
 				}
 				const method = message.method as keyof WorkflowRuntimeApi;
 				if (!allowedMethods.has(method) || typeof api[method] !== "function") {
-					safePost({ type: "response", id: message.id, ok: false, error: `Unsupported workflow API method: ${String(method)}` });
+					safePost({
+						type: "response",
+						id: message.id,
+						ok: false,
+						error: `Unsupported workflow API method: ${String(method)}`,
+					});
 					return;
 				}
 				try {
@@ -885,7 +1088,8 @@ async function executeWorkflowCode(
 
 		worker.on("error", (err) => settle(reject, err));
 		worker.on("exit", (code) => {
-			if (!settled && code !== 0) settle(reject, new Error(`Workflow worker exited with code ${code}.`));
+			if (!settled && code !== 0)
+				settle(reject, new Error(`Workflow worker exited with code ${code}.`));
 		});
 	});
 }
@@ -902,7 +1106,8 @@ function formatRunSummary(result: WorkflowRunResult): string {
 		`Artifacts: ${result.runDir}`,
 	];
 	if (result.error) parts.push(`Error: ${result.error}`);
-	if (result.output !== undefined) parts.push(`\nOutput:\n${stringify(result.output, MAX_TOOL_TEXT)}`);
+	if (result.output !== undefined)
+		parts.push(`\nOutput:\n${stringify(result.output, MAX_TOOL_TEXT)}`);
 	return parts.join("\n");
 }
 
@@ -931,12 +1136,21 @@ function setWorkflowIdleStatus(ctx: ExtensionContext): void {
 	ctx.ui.setStatus(WORKFLOW_STATUS_KEY, ctx.ui.theme.fg("dim", "wf · /workflows"));
 }
 
-function setWorkflowRunningStatus(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[], status?: WorkflowRunStatus): void {
+function setWorkflowRunningStatus(
+	ctx: ExtensionContext,
+	workflowName: string,
+	logs: WorkflowLogEntry[],
+	status?: WorkflowRunStatus,
+): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
 	const { agentsStarted, agentsDone, agentsRunning, bashDone } = workflowProgress(logs);
 	const progress = agentsStarted > 0 ? ` ${agentsDone}/${agentsStarted}` : "";
-	const parallel = status ? formatParallelAgentsCompact(status) : agentsRunning > 0 ? String(agentsRunning) : "";
+	const parallel = status
+		? formatParallelAgentsCompact(status)
+		: agentsRunning > 0
+			? String(agentsRunning)
+			: "";
 	const parallelText = parallel ? ` parallel:${parallel}` : "";
 	const bash = bashDone > 0 ? ` bash:${bashDone}` : "";
 	ctx.ui.setStatus(
@@ -972,31 +1186,58 @@ function refreshActiveWorkflowStatus(ctx: ExtensionContext): void {
 		return;
 	}
 	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(WORKFLOW_STATUS_KEY, `${theme.fg("accent", "▶ wf")} ${theme.fg("dim", `${count} bg ${workflowDashboardHint()}`)}`);
+	ctx.ui.setStatus(
+		WORKFLOW_STATUS_KEY,
+		`${theme.fg("accent", "▶ wf")} ${theme.fg("dim", `${count} bg ${workflowDashboardHint()}`)}`,
+	);
 }
 
 function clearWorkflowWidget(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, undefined);
 }
 
-function formatLiveRunView(logs: WorkflowLogEntry[], workflowName: string, width = 80, status?: WorkflowRunStatus): string[] {
+function formatLiveRunView(
+	logs: WorkflowLogEntry[],
+	workflowName: string,
+	width = 80,
+	status?: WorkflowRunStatus,
+): string[] {
 	if (width <= 0) return [];
 	const w = width;
 	const { agentsStarted, agentsDone, agentsRunning, bashDone } = workflowProgress(logs);
 	const latest = logs.slice(-1)[0];
 	const line = (s: string) => truncateToWidth(s, w, "");
 	const name = renderSafeInline(shortWorkflowName(workflowName));
-	const parallel = status ? formatParallelAgentsCompact(status) : agentsRunning > 0 ? String(agentsRunning) : "0";
+	const parallel = status
+		? formatParallelAgentsCompact(status)
+		: agentsRunning > 0
+			? String(agentsRunning)
+			: "0";
 	return [
-		line(`▶ wf ${name}  agents ${agentsDone}/${agentsStarted}  parallel ${parallel}  bash ${bashDone}  logs ${logs.length}`),
-		line(latest ? `${latest.time.slice(11, 19)} ${renderSafeInline(latest.message)}  •  ${workflowDashboardHint()}` : `Open monitor: ${workflowDashboardHint()}`),
+		line(
+			`▶ wf ${name}  agents ${agentsDone}/${agentsStarted}  parallel ${parallel}  bash ${bashDone}  logs ${logs.length}`,
+		),
+		line(
+			latest
+				? `${latest.time.slice(11, 19)} ${renderSafeInline(latest.message)}  •  ${workflowDashboardHint()}`
+				: `Open monitor: ${workflowDashboardHint()}`,
+		),
 	];
 }
 
-function setWorkflowWidget(ctx: ExtensionContext, workflowName: string, logs: WorkflowLogEntry[], status?: WorkflowRunStatus): void {
+function setWorkflowWidget(
+	ctx: ExtensionContext,
+	workflowName: string,
+	logs: WorkflowLogEntry[],
+	status?: WorkflowRunStatus,
+): void {
 	if (!ctx.hasUI) return;
 	if (ctx.mode !== "tui") {
-		ctx.ui.setWidget(WORKFLOW_WIDGET_KEY, formatLiveRunView(logs, workflowName, undefined, status), { placement: "belowEditor" });
+		ctx.ui.setWidget(
+			WORKFLOW_WIDGET_KEY,
+			formatLiveRunView(logs, workflowName, undefined, status),
+			{ placement: "belowEditor" },
+		);
 		return;
 	}
 	ctx.ui.setWidget(
@@ -1011,7 +1252,8 @@ function setWorkflowWidget(ctx: ExtensionContext, workflowName: string, logs: Wo
 	);
 }
 
-type WorkflowGraphStepKind = "agent" | "artifact" | "barrier" | "fanout" | "file" | "pipeline" | "shell" | "subworkflow";
+type WorkflowGraphStepKind =
+	"agent" | "artifact" | "barrier" | "fanout" | "file" | "pipeline" | "shell" | "subworkflow";
 
 type WorkflowGraphFanoutUnit = "agents" | "branches" | "lanes";
 
@@ -1071,7 +1313,8 @@ interface WorkflowGraphRenderTheme {
 }
 
 function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): WorkflowGraphModel {
-	const regex = /\bctx\.(parallel|pipeline|agents|agent|workflow|bash|writeArtifact|appendArtifact|readFile|writeFile|appendFile|listFiles)\s*\(/g;
+	const regex =
+		/\bctx\.(parallel|pipeline|agents|agent|workflow|bash|writeArtifact|appendArtifact|readFile|writeFile|appendFile|listFiles)\s*\(/g;
 	const calls: WorkflowGraphCall[] = [];
 	let match: RegExpExecArray | null;
 	while ((match = regex.exec(code)) !== null) {
@@ -1081,7 +1324,10 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		const end = findCallEndIndex(code, openParenIndex);
 		const snippet = code.slice(openParenIndex + 1, Math.max(openParenIndex + 1, end - 1));
 		const args = splitTopLevelArguments(snippet);
-		const firstArg = method === "workflow" ? extractDirectStringLiteralArgument(args[0] ?? "") : extractFirstStringLiteral(snippet);
+		const firstArg =
+			method === "workflow"
+				? extractDirectStringLiteralArgument(args[0] ?? "")
+				: extractFirstStringLiteral(snippet);
 		const info = workflowGraphMethodInfo(method);
 		calls.push({
 			...info,
@@ -1101,7 +1347,12 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		let parent: WorkflowGraphCall | undefined;
 		for (const candidate of calls) {
 			if (candidate === call || !orchestrationParents.has(candidate.method)) continue;
-			if (candidate.start < call.start && call.end <= candidate.end && (!parent || candidate.start > parent.start)) parent = candidate;
+			if (
+				candidate.start < call.start &&
+				call.end <= candidate.end &&
+				(!parent || candidate.start > parent.start)
+			)
+				parent = candidate;
 		}
 		if (parent) {
 			const children = childrenByParent.get(parent) ?? [];
@@ -1138,9 +1389,14 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		"Fan-out counts are static expressions; /workflow view shows runtime P1 i/n totals.",
 		"Does not evaluate budget, retries, cache hits, or error paths.",
 	];
-	if (steps.some((step) => step.children.length > 0)) notes.push("Nested ctx.* calls inside ctx.pipeline/ctx.parallel/ctx.agents are grouped under their orchestration step.");
-	if (/\b(for|while)\s*\(/.test(code)) notes.push("Loops detected; repeated calls are shown once in source order.");
-	if (/\bif\s*\(|\?[^\n]+:/.test(code)) notes.push("Branches detected; conditional paths are approximate.");
+	if (steps.some((step) => step.children.length > 0))
+		notes.push(
+			"Nested ctx.* calls inside ctx.pipeline/ctx.parallel/ctx.agents are grouped under their orchestration step.",
+		);
+	if (/\b(for|while)\s*\(/.test(code))
+		notes.push("Loops detected; repeated calls are shown once in source order.");
+	if (/\bif\s*\(|\?[^\n]+:/.test(code))
+		notes.push("Branches detected; conditional paths are approximate.");
 	return { workflow, steps, notes };
 }
 
@@ -1157,7 +1413,9 @@ async function buildWorkflowGraphModelWithSubworkflows(
 	nextSeen.add(currentPath);
 	const subworkflowSteps = model.steps.filter((step) => step.kind === "subworkflow");
 	if (subworkflowSteps.length > 0) {
-		model.notes.push("ctx.workflow() calls with literal names are expanded one level using the referenced workflow file; dynamic names are shown but not resolved.");
+		model.notes.push(
+			"ctx.workflow() calls with literal names are expanded one level using the referenced workflow file; dynamic names are shown but not resolved.",
+		);
 	}
 	for (const step of subworkflowSteps) {
 		if (!step.firstArg) {
@@ -1165,7 +1423,8 @@ async function buildWorkflowGraphModelWithSubworkflows(
 			continue;
 		}
 		if (depth >= 1) {
-			step.subworkflowError = "nested sub-workflows are not expanded; runtime composition depth limit is 1";
+			step.subworkflowError =
+				"nested sub-workflows are not expanded; runtime composition depth limit is 1";
 			continue;
 		}
 		try {
@@ -1176,7 +1435,13 @@ async function buildWorkflowGraphModelWithSubworkflows(
 				continue;
 			}
 			const subCode = await fs.readFile(subWorkflow.path, "utf8");
-			step.subworkflow = await buildWorkflowGraphModelWithSubworkflows(ctx, subWorkflow, subCode, depth + 1, nextSeen);
+			step.subworkflow = await buildWorkflowGraphModelWithSubworkflows(
+				ctx,
+				subWorkflow,
+				subCode,
+				depth + 1,
+				nextSeen,
+			);
 		} catch (err) {
 			step.subworkflowError = err instanceof Error ? err.message : String(err);
 		}
@@ -1188,17 +1453,34 @@ function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
 	const lines: string[] = [];
 	if (step.fanout) {
 		lines.push(`visual: ${formatWorkflowGraphFanoutSummary(step.fanout)}`);
-		if (step.fanout.many) lines.push("diagram: fork → visible workers/lanes → join, with … when the count is large or dynamic");
+		if (step.fanout.many)
+			lines.push(
+				"diagram: fork → visible workers/lanes → join, with … when the count is large or dynamic",
+			);
 	}
-	if (step.kind === "fanout") lines.push("branches: one Pi subagent per item/spec", "join: results array; failed branches may be null with settle:true");
-	else if (step.kind === "barrier") lines.push("branches: async thunks run concurrently", "join: barrier waits for every branch before continuing");
-	else if (step.kind === "pipeline") lines.push("lanes: each item flows through stages", "join: returned array preserves item order");
+	if (step.kind === "fanout")
+		lines.push(
+			"branches: one Pi subagent per item/spec",
+			"join: results array; failed branches may be null with settle:true",
+		);
+	else if (step.kind === "barrier")
+		lines.push(
+			"branches: async thunks run concurrently",
+			"join: barrier waits for every branch before continuing",
+		);
+	else if (step.kind === "pipeline")
+		lines.push(
+			"lanes: each item flows through stages",
+			"join: returned array preserves item order",
+		);
 	else if (step.kind === "subworkflow") {
 		lines.push("delegates to another workflow and returns to this flow");
-		if (step.subworkflow) lines.push(`expands: ${step.subworkflow.workflow.name} (${step.subworkflow.steps.length} steps)`);
+		if (step.subworkflow)
+			lines.push(
+				`expands: ${step.subworkflow.workflow.name} (${step.subworkflow.steps.length} steps)`,
+			);
 		else if (step.subworkflowError) lines.push(`subgraph unavailable: ${step.subworkflowError}`);
-	}
-	else if (step.kind === "agent") lines.push("single Pi subagent call");
+	} else if (step.kind === "agent") lines.push("single Pi subagent call");
 	else if (step.kind === "shell") lines.push("host shell command from workflow cwd");
 	else if (step.kind === "artifact") lines.push("persists run evidence outside chat context");
 	else lines.push("file helper inside workflow cwd");
@@ -1209,52 +1491,83 @@ function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
 
 function workflowGraphStyles(theme?: any): WorkflowGraphRenderTheme {
 	return {
-		accent: (text: string) => theme ? theme.fg("accent", text) : text,
-		muted: (text: string) => theme ? theme.fg("muted", text) : text,
-		success: (text: string) => theme ? theme.fg("success", text) : text,
-		warning: (text: string) => theme ? theme.fg("warning", text) : text,
+		accent: (text: string) => (theme ? theme.fg("accent", text) : text),
+		muted: (text: string) => (theme ? theme.fg("muted", text) : text),
+		success: (text: string) => (theme ? theme.fg("success", text) : text),
+		warning: (text: string) => (theme ? theme.fg("warning", text) : text),
 	};
 }
 
-function renderWorkflowGraphSubworkflowSummaryLines(model: WorkflowGraphModel, depth = 1): string[] {
+function renderWorkflowGraphSubworkflowSummaryLines(
+	model: WorkflowGraphModel,
+	depth = 1,
+): string[] {
 	const indent = "  ".repeat(depth);
-	const lines = [`${indent}↳ sub-workflow graph: ${model.workflow.name} (${model.steps.length} steps)`];
+	const lines = [
+		`${indent}↳ sub-workflow graph: ${model.workflow.name} (${model.steps.length} steps)`,
+	];
 	for (const step of model.steps.slice(0, 12)) {
 		lines.push(`${indent}  ${step.symbol} ${step.label} L${step.line} ctx.${step.method}`);
-		if (step.subworkflow) lines.push(...renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow, depth + 2));
-		else if (step.subworkflowError) lines.push(`${indent}    ↳ subgraph unavailable: ${step.subworkflowError}`);
+		if (step.subworkflow)
+			lines.push(...renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow, depth + 2));
+		else if (step.subworkflowError)
+			lines.push(`${indent}    ↳ subgraph unavailable: ${step.subworkflowError}`);
 	}
 	if (model.steps.length > 12) lines.push(`${indent}  … ${model.steps.length - 12} more steps`);
 	return lines;
 }
 
-function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: number, theme?: any): string[] {
+function renderWorkflowGraphOverviewLines(
+	model: WorkflowGraphModel,
+	width: number,
+	theme?: any,
+): string[] {
 	if (width <= 0) return [];
 	const w = width;
 	const style = workflowGraphStyles(theme);
 	const line = (textValue: string) => truncateToWidth(textValue, w, "");
 	const steps = model.steps;
 	const stats = workflowGraphStats(model);
-	const fanoutCount = steps.filter((step) => step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline").length;
-	const ioCount = steps.filter((step) => step.kind === "artifact" || step.kind === "file" || step.kind === "shell").length;
+	const fanoutCount = steps.filter(
+		(step) => step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline",
+	).length;
+	const ioCount = steps.filter(
+		(step) => step.kind === "artifact" || step.kind === "file" || step.kind === "shell",
+	).length;
 	const lines: string[] = [
 		line(`${style.accent("Workflow topology")} ${style.muted("static preview")}`),
 		line(`${style.muted("name:")} ${model.workflow.name}`),
 		line(`${style.muted("file:")} ${model.workflow.relativePath}`),
-		line(`${style.muted("steps:")} ${steps.length}${stats.steps !== steps.length ? ` (${stats.steps} incl. sub-workflows)` : ""} ${style.muted("• orchestration:")} ${fanoutCount} ${style.muted("• I/O:")} ${ioCount}${stats.subworkflows ? ` ${style.muted("• sub-workflows:")} ${stats.subworkflows}` : ""}`),
-		line(`${style.muted("legend:")} ${style.accent("◆ fan-out ×N")} ${style.muted("|")} ${style.accent("⧉ barrier branches")} ${style.muted("|")} ${style.accent("▣ pipeline lanes")} ${style.muted("|")} ${style.accent("● agent")} ${style.muted("|")} ${style.accent("$ bash")} ${style.muted("|")} ${style.accent("▤ artifact")}`),
+		line(
+			`${style.muted("steps:")} ${steps.length}${stats.steps !== steps.length ? ` (${stats.steps} incl. sub-workflows)` : ""} ${style.muted("• orchestration:")} ${fanoutCount} ${style.muted("• I/O:")} ${ioCount}${stats.subworkflows ? ` ${style.muted("• sub-workflows:")} ${stats.subworkflows}` : ""}`,
+		),
+		line(
+			`${style.muted("legend:")} ${style.accent("◆ fan-out ×N")} ${style.muted("|")} ${style.accent("⧉ barrier branches")} ${style.muted("|")} ${style.accent("▣ pipeline lanes")} ${style.muted("|")} ${style.accent("● agent")} ${style.muted("|")} ${style.accent("$ bash")} ${style.muted("|")} ${style.accent("▤ artifact")}`,
+		),
 		line(""),
 		line(style.accent("Topology")),
 	];
 
 	if (steps.length === 0) {
 		lines.push(line(`  ${style.warning("No ctx.* workflow API calls detected.")}`));
-		lines.push(line(`  ${style.muted("This may be a trivial workflow or the graph heuristic missed dynamic indirection.")}`));
+		lines.push(
+			line(
+				`  ${style.muted("This may be a trivial workflow or the graph heuristic missed dynamic indirection.")}`,
+			),
+		);
 	} else {
-		lines.push(line(`  ${style.success("start")} ${style.muted("→")} ${graphTextLabel(model.workflow.name)}`));
+		lines.push(
+			line(
+				`  ${style.success("start")} ${style.muted("→")} ${graphTextLabel(model.workflow.name)}`,
+			),
+		);
 		for (const step of steps) {
 			lines.push(line(`    ${style.muted("│")}`));
-			lines.push(line(`    ${style.accent(step.symbol)} ${step.label} ${style.muted(`L${step.line} ctx.${step.method}`)}`));
+			lines.push(
+				line(
+					`    ${style.accent(step.symbol)} ${step.label} ${style.muted(`L${step.line} ctx.${step.method}`)}`,
+				),
+			);
 			for (const detail of renderWorkflowGraphStepDetail(step)) {
 				lines.push(line(`    ${style.muted("│")} ${style.muted(detail)}`));
 			}
@@ -1275,12 +1588,21 @@ function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: numb
 	} else {
 		for (const step of steps) {
 			const index = padRightVisible(`${step.index}.`, 4);
-			lines.push(line(`${style.muted(index)}${style.accent(step.symbol)} ${step.label} ${style.muted(`— L${step.line}, ctx.${step.method}`)}`));
+			lines.push(
+				line(
+					`${style.muted(index)}${style.accent(step.symbol)} ${step.label} ${style.muted(`— L${step.line}, ctx.${step.method}`)}`,
+				),
+			);
 			for (const child of step.children) {
-				lines.push(line(`${style.muted("    ↳")} ${style.accent(child.symbol)} ${child.label} ${style.muted(`— L${child.line}, nested ctx.${child.method}`)}`));
+				lines.push(
+					line(
+						`${style.muted("    ↳")} ${style.accent(child.symbol)} ${child.label} ${style.muted(`— L${child.line}, nested ctx.${child.method}`)}`,
+					),
+				);
 			}
 			if (step.subworkflow) {
-				for (const subLine of renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow)) lines.push(line(style.muted(`    ${subLine}`)));
+				for (const subLine of renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow))
+					lines.push(line(style.muted(`    ${subLine}`)));
 			}
 		}
 	}
@@ -1301,13 +1623,20 @@ function workflowGraphVisibleFanoutSlots(fanout: WorkflowGraphFanoutInfo): strin
 	const unit = workflowGraphSingularUnit(fanout.unit);
 	if (fanout.count !== undefined) {
 		if (fanout.count <= 0) return [`no ${fanout.unit}`];
-		if (fanout.count <= 6) return Array.from({ length: fanout.count }, (_, index) => `${unit} ${index + 1}`);
+		if (fanout.count <= 6)
+			return Array.from({ length: fanout.count }, (_, index) => `${unit} ${index + 1}`);
 		return [`${unit} 1`, `${unit} 2`, `${unit} 3`, "…", `${unit} ${fanout.count}`];
 	}
 	return [`${unit} 1`, `${unit} 2`, "…", `${unit} n`];
 }
 
-function appendWorkflowGraphMermaidSteps(lines: string[], model: WorkflowGraphModel, previousExit: string, prefix: string, indent: string): string {
+function appendWorkflowGraphMermaidSteps(
+	lines: string[],
+	model: WorkflowGraphModel,
+	previousExit: string,
+	prefix: string,
+	indent: string,
+): string {
 	let currentExit = previousExit;
 	for (const step of model.steps) {
 		const id = `${prefix}s${step.index}`;
@@ -1319,7 +1648,13 @@ function appendWorkflowGraphMermaidSteps(lines: string[], model: WorkflowGraphMo
 			lines.push(`${indent}subgraph ${groupId}["${label}"]`);
 			lines.push(`${indent}  direction TD`);
 			lines.push(`${indent}  ${subStartId}([${mermaidLabel(step.subworkflow.workflow.name)}])`);
-			const subExit = appendWorkflowGraphMermaidSteps(lines, step.subworkflow, subStartId, `${prefix}s${step.index}_`, `${indent}  `);
+			const subExit = appendWorkflowGraphMermaidSteps(
+				lines,
+				step.subworkflow,
+				subStartId,
+				`${prefix}s${step.index}_`,
+				`${indent}  `,
+			);
 			lines.push(`${indent}  ${subExit} --> ${subDoneId}([return])`);
 			lines.push(`${indent}end`);
 			lines.push(`${indent}${currentExit} --> ${groupId}`);
@@ -1339,9 +1674,10 @@ function appendWorkflowGraphMermaidSteps(lines: string[], model: WorkflowGraphMo
 			const slots = workflowGraphVisibleFanoutSlots(step.fanout);
 			for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
 				const workerId = `${id}_w${slotIndex + 1}`;
-				const workerLabel = step.fanout.unit === "lanes" && step.fanout.stages !== undefined
-					? `${slots[slotIndex]} · ${step.fanout.stages} stages`
-					: slots[slotIndex];
+				const workerLabel =
+					step.fanout.unit === "lanes" && step.fanout.stages !== undefined
+						? `${slots[slotIndex]} · ${step.fanout.stages} stages`
+						: slots[slotIndex];
 				lines.push(`${indent}  ${workerId}["${mermaidLabel(workerLabel)}"]`);
 				lines.push(`${indent}  ${entryId} --> ${workerId}`);
 				lines.push(`${indent}  ${workerId} --> ${exitId}`);
@@ -1351,8 +1687,12 @@ function appendWorkflowGraphMermaidSteps(lines: string[], model: WorkflowGraphMo
 			currentExit = groupId;
 			continue;
 		}
-		const unavailable = step.kind === "subworkflow" && step.subworkflowError ? ` · ${step.subworkflowError}` : "";
-		const shape = step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline" ? `{{${label}}}` : `["${mermaidLabel(`${step.symbol} ${step.label}${unavailable}`)}"]`;
+		const unavailable =
+			step.kind === "subworkflow" && step.subworkflowError ? ` · ${step.subworkflowError}` : "";
+		const shape =
+			step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline"
+				? `{{${label}}}`
+				: `["${mermaidLabel(`${step.symbol} ${step.label}${unavailable}`)}"]`;
 		lines.push(`${indent}${id}${shape}`);
 		lines.push(`${indent}${currentExit} --> ${id}`);
 		currentExit = id;
@@ -1399,14 +1739,21 @@ export interface ProcessResult {
 
 function displayPathFromCwd(cwd: string, file: string): string {
 	const relative = path.relative(cwd, file).replaceAll(path.sep, "/");
-	return relative && !relative.startsWith("../") && relative !== ".." && !path.isAbsolute(relative) ? relative : file;
+	return relative && !relative.startsWith("../") && relative !== ".." && !path.isAbsolute(relative)
+		? relative
+		: file;
 }
 
 function clampWorkflowGraphNumber(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value));
 }
 
-function workflowGraphStats(model: WorkflowGraphModel): { steps: number; fanoutSlots: number; orchestrationGroups: number; subworkflows: number } {
+function workflowGraphStats(model: WorkflowGraphModel): {
+	steps: number;
+	fanoutSlots: number;
+	orchestrationGroups: number;
+	subworkflows: number;
+} {
 	let steps = model.steps.length;
 	let fanoutSlots = 0;
 	let orchestrationGroups = 0;
@@ -1428,14 +1775,32 @@ function workflowGraphStats(model: WorkflowGraphModel): { steps: number; fanoutS
 	return { steps, fanoutSlots, orchestrationGroups, subworkflows };
 }
 
-function workflowGraphImageOptions(model: WorkflowGraphModel): { width: number; height: number; scale: number; maxWidthCells: number; maxHeightCells: number } {
+function workflowGraphImageOptions(model: WorkflowGraphModel): {
+	width: number;
+	height: number;
+	scale: number;
+	maxWidthCells: number;
+	maxHeightCells: number;
+} {
 	const stats = workflowGraphStats(model);
 	return {
-		width: clampWorkflowGraphNumber(2200 + stats.fanoutSlots * 120 + stats.subworkflows * 220, 2200, 3800),
-		height: clampWorkflowGraphNumber(1300 + stats.steps * 130 + stats.orchestrationGroups * 180 + stats.subworkflows * 220, 1300, 3200),
+		width: clampWorkflowGraphNumber(
+			2200 + stats.fanoutSlots * 120 + stats.subworkflows * 220,
+			2200,
+			3800,
+		),
+		height: clampWorkflowGraphNumber(
+			1300 + stats.steps * 130 + stats.orchestrationGroups * 180 + stats.subworkflows * 220,
+			1300,
+			3200,
+		),
 		scale: 2,
 		maxWidthCells: 320,
-		maxHeightCells: clampWorkflowGraphNumber(54 + stats.orchestrationGroups * 8 + stats.subworkflows * 8 + Math.floor(stats.steps / 2), 54, 96),
+		maxHeightCells: clampWorkflowGraphNumber(
+			54 + stats.orchestrationGroups * 8 + stats.subworkflows * 8 + Math.floor(stats.steps / 2),
+			54,
+			96,
+		),
 	};
 }
 
@@ -1443,17 +1808,29 @@ function mmdcBinName(): string {
 	return process.platform === "win32" ? "mmdc.cmd" : "mmdc";
 }
 
-function resolveMmdcInvocation(cwd: string): { command: string; argsPrefix: string[]; display: string } {
+function resolveMmdcInvocation(cwd: string): {
+	command: string;
+	argsPrefix: string[];
+	display: string;
+} {
 	const bin = mmdcBinName();
-	const candidates = [path.join(cwd, "node_modules", ".bin", bin), path.join(process.cwd(), "node_modules", ".bin", bin), path.join(EXTENSION_ROOT, "node_modules", ".bin", bin)];
+	const candidates = [
+		path.join(cwd, "node_modules", ".bin", bin),
+		path.join(process.cwd(), "node_modules", ".bin", bin),
+		path.join(EXTENSION_ROOT, "node_modules", ".bin", bin),
+	];
 	for (const candidate of candidates) {
-		if (existsSync(candidate)) return { command: candidate, argsPrefix: [], display: displayPathFromCwd(cwd, candidate) };
+		if (existsSync(candidate))
+			return { command: candidate, argsPrefix: [], display: displayPathFromCwd(cwd, candidate) };
 	}
 	return { command: "mmdc", argsPrefix: [], display: "mmdc" };
 }
 
 function formatMmdcFailure(command: string, result: ProcessResult): string {
-	const details = [result.error, result.stderr.trim(), result.stdout.trim()].filter(Boolean).join("\n").trim();
+	const details = [result.error, result.stderr.trim(), result.stdout.trim()]
+		.filter(Boolean)
+		.join("\n")
+		.trim();
 	const hint = /Could not find Chrome|Chrome.*not found|browser/i.test(details)
 		? "\nHint: run `npx puppeteer browsers install chrome-headless-shell` if the Puppeteer browser was not installed."
 		: "";
@@ -1461,8 +1838,14 @@ function formatMmdcFailure(command: string, result: ProcessResult): string {
 	return `mmdc failed (${code}) via ${command}.${hint}${details ? `\n${details}` : ""}`;
 }
 
-async function renderWorkflowGraphImage(ctx: ExtensionContext, model: WorkflowGraphModel): Promise<WorkflowGraphImageAttempt> {
-	if (!getCapabilities().images) return { warning: "Terminal image protocol is not available, so inline PNG rendering is disabled." };
+async function renderWorkflowGraphImage(
+	ctx: ExtensionContext,
+	model: WorkflowGraphModel,
+): Promise<WorkflowGraphImageAttempt> {
+	if (!getCapabilities().images)
+		return {
+			warning: "Terminal image protocol is not available, so inline PNG rendering is disabled.",
+		};
 	const root = getGraphRoot(ctx);
 	await ensureDir(root);
 	const base = `${slugify(model.workflow.name)}-${crypto.createHash("sha1").update(model.workflow.path).digest("hex").slice(0, 8)}`;
@@ -1497,13 +1880,30 @@ async function renderWorkflowGraphImage(ctx: ExtensionContext, model: WorkflowGr
 	if (!result.ok) return { warning: formatMmdcFailure(invocation.display, result) };
 	try {
 		const base64 = await fs.readFile(pngPath, "base64");
-		return { image: { base64, pngPath, mmdPath, command: invocation.display, elapsedMs: Date.now() - started, width: imageOptions.width, height: imageOptions.height, scale: imageOptions.scale } };
+		return {
+			image: {
+				base64,
+				pngPath,
+				mmdPath,
+				command: invocation.display,
+				elapsedMs: Date.now() - started,
+				width: imageOptions.width,
+				height: imageOptions.height,
+				scale: imageOptions.scale,
+			},
+		};
 	} catch (err) {
-		return { warning: `mmdc reported success but the PNG could not be read: ${err instanceof Error ? err.message : String(err)}` };
+		return {
+			warning: `mmdc reported success but the PNG could not be read: ${err instanceof Error ? err.message : String(err)}`,
+		};
 	}
 }
 
-function renderWorkflowGraphDocumentLines(model: WorkflowGraphModel, width: number, theme?: any): string[] {
+function renderWorkflowGraphDocumentLines(
+	model: WorkflowGraphModel,
+	width: number,
+	theme?: any,
+): string[] {
 	if (width <= 0) return [];
 	const style = workflowGraphStyles(theme);
 	const line = (textValue: string) => truncateToWidth(textValue, width, "");
@@ -1517,12 +1917,15 @@ function renderWorkflowGraphDocumentLines(model: WorkflowGraphModel, width: numb
 	return lines;
 }
 
-function makeWorkflowGraph(workflow: WorkflowFile, code: string): string {
-	return renderWorkflowGraphDocumentLines(buildWorkflowGraphModel(workflow, code), 120).join("\n");
-}
-
-async function makeWorkflowGraphForContext(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<string> {
-	return renderWorkflowGraphDocumentLines(await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code), 120).join("\n");
+async function makeWorkflowGraphForContext(
+	ctx: ExtensionContext,
+	workflow: WorkflowFile,
+	code: string,
+): Promise<string> {
+	return renderWorkflowGraphDocumentLines(
+		await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code),
+		120,
+	).join("\n");
 }
 
 class WorkflowGraphComponent {
@@ -1538,7 +1941,16 @@ class WorkflowGraphComponent {
 	) {
 		if (imageAttempt.image) {
 			const imageOptions = workflowGraphImageOptions(model);
-			this.imageComponent = new TerminalImage(imageAttempt.image.base64, "image/png", { fallbackColor: (textValue: string) => theme.fg("muted", textValue) }, { filename: path.basename(imageAttempt.image.pngPath), maxWidthCells: imageOptions.maxWidthCells, maxHeightCells: imageOptions.maxHeightCells });
+			this.imageComponent = new TerminalImage(
+				imageAttempt.image.base64,
+				"image/png",
+				{ fallbackColor: (textValue: string) => theme.fg("muted", textValue) },
+				{
+					filename: path.basename(imageAttempt.image.pngPath),
+					maxWidthCells: imageOptions.maxWidthCells,
+					maxHeightCells: imageOptions.maxHeightCells,
+				},
+			);
 		}
 	}
 
@@ -1550,18 +1962,30 @@ class WorkflowGraphComponent {
 		if (this.cachedLines && this.cachedWidth === width) return this.cachedLines;
 		const w = Math.max(1, width);
 		const line = (textValue: string) => truncateToWidth(textValue, w, "");
-		const help = line(this.theme.fg("dim", "enter/q/esc close • mmdc PNG when supported • static graph; use /workflow view for runtime timeline"));
+		const help = line(
+			this.theme.fg(
+				"dim",
+				"enter/q/esc close • mmdc PNG when supported • static graph; use /workflow view for runtime timeline",
+			),
+		);
 		const lines = [help];
 		if (this.imageAttempt.image && this.imageComponent) {
 			const image = this.imageAttempt.image;
-			lines.push(line(`${this.theme.fg("accent", "Mermaid PNG")} ${this.theme.fg("dim", `via ${image.command} • ${image.width}×${image.height} @${image.scale}x • ${image.elapsedMs}ms`)}`));
+			lines.push(
+				line(
+					`${this.theme.fg("accent", "Mermaid PNG")} ${this.theme.fg("dim", `via ${image.command} • ${image.width}×${image.height} @${image.scale}x • ${image.elapsedMs}ms`)}`,
+				),
+			);
 			lines.push(line(this.theme.fg("dim", `png: ${image.pngPath}`)));
 			lines.push(line(this.theme.fg("dim", `mmd: ${image.mmdPath}`)));
 			lines.push(...this.imageComponent.render(w));
 			lines.push(line(""));
 		} else if (this.imageAttempt.warning) {
-			lines.push(line(this.theme.fg("warning", "Mermaid PNG unavailable; falling back to text graph.")));
-			for (const warningLine of this.imageAttempt.warning.split(/\r?\n/).slice(0, 8)) lines.push(line(this.theme.fg("muted", warningLine)));
+			lines.push(
+				line(this.theme.fg("warning", "Mermaid PNG unavailable; falling back to text graph.")),
+			);
+			for (const warningLine of this.imageAttempt.warning.split(/\r?\n/).slice(0, 8))
+				lines.push(line(this.theme.fg("muted", warningLine)));
 			lines.push(line(""));
 		}
 		lines.push(...renderWorkflowGraphDocumentLines(this.model, w, this.theme));
@@ -1576,40 +2000,66 @@ class WorkflowGraphComponent {
 	}
 }
 
-async function showWorkflowGraph(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<void> {
+async function showWorkflowGraph(
+	ctx: ExtensionContext,
+	workflow: WorkflowFile,
+	code: string,
+): Promise<void> {
 	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code);
 	if (ctx.mode === "print") {
 		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));
 		return;
 	}
 	if (ctx.mode === "tui") {
-		const imageAttempt = await renderWorkflowGraphImage(ctx, model).catch((err) => ({ warning: err instanceof Error ? err.message : String(err) }));
-		await ctx.ui.custom<void>((_tui, theme, _keybindings, done) => new WorkflowGraphComponent(model, theme, () => done(undefined), imageAttempt));
+		const imageAttempt = await renderWorkflowGraphImage(ctx, model).catch((err) => ({
+			warning: err instanceof Error ? err.message : String(err),
+		}));
+		await ctx.ui.custom<void>(
+			(_tui, theme, _keybindings, done) =>
+				new WorkflowGraphComponent(model, theme, () => done(undefined), imageAttempt),
+		);
 		return;
 	}
 	if (ctx.hasUI) {
-		await ctx.ui.editor(`Workflow graph: ${workflow.name}`, renderWorkflowGraphDocumentLines(model, 120).join("\n"));
+		await ctx.ui.editor(
+			`Workflow graph: ${workflow.name}`,
+			renderWorkflowGraphDocumentLines(model, 120).join("\n"),
+		);
 		return;
 	}
 	notify(ctx, renderWorkflowGraphDocumentLines(model, 100).join("\n"), "info");
 }
 
-function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
+function resolveAgentArtifactPath(
+	run: WorkflowRunRecord,
+	agent: AgentMonitorModel,
+): string | undefined {
 	if (!agent.artifactPath) return undefined;
-	return path.isAbsolute(agent.artifactPath) ? agent.artifactPath : path.join(run.runDir, agent.artifactPath);
+	return path.isAbsolute(agent.artifactPath)
+		? agent.artifactPath
+		: path.join(run.runDir, agent.artifactPath);
 }
 
-function resolveAgentLiveStreamPath(artifactPath: string | undefined, stream: "stdout" | "stderr"): string | undefined {
+function resolveAgentLiveStreamPath(
+	artifactPath: string | undefined,
+	stream: "stdout" | "stderr",
+): string | undefined {
 	if (!artifactPath) return undefined;
-	return artifactPath.endsWith(".md") ? artifactPath.slice(0, -3) + `.${stream}.log` : `${artifactPath}.${stream}.log`;
+	return artifactPath.endsWith(".md")
+		? artifactPath.slice(0, -3) + `.${stream}.log`
+		: `${artifactPath}.${stream}.log`;
 }
 
 export function extractMarkdownSection(markdown: string, heading: string): string | undefined {
 	const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const knownHeadings = ["Access", "Prompt", "Structured Output", "Stdout", "Stderr"];
-	const nextHeadings = knownHeadings.filter((candidate) => candidate !== heading).map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+	const nextHeadings = knownHeadings
+		.filter((candidate) => candidate !== heading)
+		.map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 	const nextPattern = nextHeadings.length ? `\\n## (?:${nextHeadings.join("|")})\\n` : "$^";
-	const match = new RegExp(`(?:^|\\n)## ${escaped}\\n\\n([\\s\\S]*?)(?=${nextPattern}|$)`).exec(markdown);
+	const match = new RegExp(`(?:^|\\n)## ${escaped}\\n\\n([\\s\\S]*?)(?=${nextPattern}|$)`).exec(
+		markdown,
+	);
 	return match?.[1]?.trim();
 }
 
@@ -1633,15 +2083,23 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 	const prompt = artifactBody ? extractMarkdownSection(artifactBody, "Prompt") : undefined;
 	const stdout = artifactBody ? extractMarkdownSection(artifactBody, "Stdout") : undefined;
 	const stderr = artifactBody ? extractMarkdownSection(artifactBody, "Stderr") : undefined;
-	const structuredOutput = artifactBody ? extractMarkdownSection(artifactBody, "Structured Output") : undefined;
+	const structuredOutput = artifactBody
+		? extractMarkdownSection(artifactBody, "Structured Output")
+		: undefined;
 	const liveStdoutPath = resolveAgentLiveStreamPath(artifactPath, "stdout");
 	const liveStderrPath = resolveAgentLiveStreamPath(artifactPath, "stderr");
 	let liveStdout = "";
 	let liveStderr = "";
-	if (liveStdoutPath && !stdout) liveStdout = await fs.readFile(liveStdoutPath, "utf8").catch(() => "");
-	if (liveStderrPath && !stderr) liveStderr = await fs.readFile(liveStderrPath, "utf8").catch(() => "");
+	if (liveStdoutPath && !stdout)
+		liveStdout = await fs.readFile(liveStdoutPath, "utf8").catch(() => "");
+	if (liveStderrPath && !stderr)
+		liveStderr = await fs.readFile(liveStderrPath, "utf8").catch(() => "");
 	const stdoutForParsing = stdout || liveStdout;
-	const parsedStdout = stdout ? parsePiJsonModeOutput(stdout) : liveStdout ? parsePiJsonModeOutputLenient(liveStdout) : undefined;
+	const parsedStdout = stdout
+		? parsePiJsonModeOutput(stdout)
+		: liveStdout
+			? parsePiJsonModeOutputLenient(liveStdout)
+			: undefined;
 	const modelOutput = agent.output || (parsedStdout?.ok ? parsedStdout.output : undefined);
 	const stdoutNote = stdoutForParsing
 		? parsedStdout?.ok
@@ -1653,7 +2111,16 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 		: agent.promptAvailable
 			? "Prompt artifact exists, but the prompt section could not be parsed."
 			: "Prompt not available for this run/agent.";
-	const stateIcon = agent.state === "completed" ? "✅" : agent.state === "running" ? "▶️" : agent.state === "cached" ? "♻️" : agent.state === "failed" ? "❌" : "?";
+	const stateIcon =
+		agent.state === "completed"
+			? "✅"
+			: agent.state === "running"
+				? "▶️"
+				: agent.state === "cached"
+					? "♻️"
+					: agent.state === "failed"
+						? "❌"
+						: "?";
 	const phase = formatAgentPhase(agent);
 	const outputText = modelOutput
 		? truncate(modelOutput, MAX_TOOL_TEXT)
@@ -1667,7 +2134,9 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 		`- extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`,
 		`- keys: ${agent.keys?.length ? `${agent.keys.join(", ")} (values redacted)` : agent.isolatedEnv ? "none selected" : "default inherited environment"}`,
 		...(agent.missingKeys?.length ? [`- missingKeys: ${agent.missingKeys.join(", ")}`] : []),
-		...(agent.isolatedEnv === undefined ? [] : [`- env: ${agent.isolatedEnv ? "isolated + selected keys" : "process default/inherited"}`]),
+		...(agent.isolatedEnv === undefined
+			? []
+			: [`- env: ${agent.isolatedEnv ? "isolated + selected keys" : "process default/inherited"}`]),
 	].join("\n");
 	const summary = [
 		`- Agent: #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name}`,
@@ -1697,7 +2166,14 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 		"Best available agent text. Raw Pi JSON stdout is hidden when it parses cleanly; otherwise see Diagnostics/artifact.",
 		"",
 		outputText,
-		...(structuredOutput ? ["", "## Structured output", "", fencedBlock(truncate(structuredOutput, MAX_TOOL_TEXT), "text")] : []),
+		...(structuredOutput
+			? [
+					"",
+					"## Structured output",
+					"",
+					fencedBlock(truncate(structuredOutput, MAX_TOOL_TEXT), "text"),
+				]
+			: []),
 		"",
 		"## Prompt sent to this agent",
 		"",
@@ -1712,7 +2188,9 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 		...(stdoutNote ? [`- stdout: ${stdoutNote}`] : ["- stdout: not recorded yet."]),
 		...(liveStdoutPath ? [`- live stdout: ${liveStdoutPath}`] : []),
 		...(liveStderrPath ? [`- live stderr: ${liveStderrPath}`] : []),
-		...(stderr || liveStderr ? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")] : []),
+		...(stderr || liveStderr
+			? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")]
+			: []),
 	].join("\n");
 }
 
@@ -1755,7 +2233,8 @@ class AgentLiveViewComponent {
 		if (matchesKey(data, Key.up)) this.scroll = Math.max(0, this.scroll - 1);
 		else if (matchesKey(data, Key.down)) this.scroll = Math.min(this.maxScroll(), this.scroll + 1);
 		else if (matchesKey(data, Key.pageUp)) this.scroll = Math.max(0, this.scroll - this.pageSize());
-		else if (matchesKey(data, Key.pageDown)) this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
+		else if (matchesKey(data, Key.pageDown))
+			this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
 		else if (matchesKey(data, Key.home)) this.scroll = 0;
 		else if (matchesKey(data, Key.end)) this.scroll = this.maxScroll();
 		// Repaint immediately on scroll instead of waiting for the 1s refresh tick.
@@ -1767,7 +2246,12 @@ class AgentLiveViewComponent {
 		const page = this.pageSize();
 		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
 		const line = (textValue: string) => truncateToWidth(textValue, w, "…");
-		const header = this.theme.fg("accent", "Live workflow agent") + this.theme.fg("dim", ` • ${liveAgentHeaderStatus(this.agentState)} • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`);
+		const header =
+			this.theme.fg("accent", "Live workflow agent") +
+			this.theme.fg(
+				"dim",
+				` • ${liveAgentHeaderStatus(this.agentState)} • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`,
+			);
 		return [
 			line(header),
 			line(this.theme.fg("dim", "─".repeat(Math.min(w, 120)))),
@@ -1786,12 +2270,19 @@ class AgentLiveViewComponent {
 	}
 }
 
-async function latestAgentForRun(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentMonitorModel> {
+async function latestAgentForRun(
+	run: WorkflowRunRecord,
+	agent: AgentMonitorModel,
+): Promise<AgentMonitorModel> {
 	const { agents } = await readRunEvents(run.runDir);
 	return agents.find((candidate) => candidate.id === agent.id) ?? agent;
 }
 
-async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<void> {
+async function showLiveAgentView(
+	ctx: ExtensionContext,
+	run: WorkflowRunRecord,
+	agent: AgentMonitorModel,
+): Promise<void> {
 	if (ctx.mode === "print") {
 		console.log(await formatAgentView(run, await latestAgentForRun(run, agent)));
 		return;
@@ -1802,7 +2293,12 @@ async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, 
 		let component: AgentLiveViewComponent | undefined;
 		try {
 			await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-				component = new AgentLiveViewComponent(theme, () => tui.terminal.rows, () => done(undefined), () => tui.requestRender());
+				component = new AgentLiveViewComponent(
+					theme,
+					() => tui.terminal.rows,
+					() => done(undefined),
+					() => tui.requestRender(),
+				);
 				const refresh = async () => {
 					if (refreshing || !component) return;
 					refreshing = true;
@@ -1812,7 +2308,10 @@ async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, 
 						tui.requestRender();
 						// Stop polling once the agent is terminal; the final output stays
 						// on screen until the user closes the view.
-						if (timer && isTerminalAgentState(latest.state)) { clearInterval(timer); timer = undefined; }
+						if (timer && isTerminalAgentState(latest.state)) {
+							clearInterval(timer);
+							timer = undefined;
+						}
 					} finally {
 						refreshing = false;
 					}
@@ -1827,7 +2326,10 @@ async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, 
 		return;
 	}
 	if (ctx.hasUI) {
-		await ctx.ui.editor(`Workflow agent: ${agent.name}`, await formatAgentView(run, await latestAgentForRun(run, agent)));
+		await ctx.ui.editor(
+			`Workflow agent: ${agent.name}`,
+			await formatAgentView(run, await latestAgentForRun(run, agent)),
+		);
 		return;
 	}
 	notify(ctx, await formatAgentView(run, await latestAgentForRun(run, agent)), "info");
@@ -1866,7 +2368,17 @@ export interface AgentMonitorModel {
 }
 
 interface WorkflowDashboardResult {
-	type: "agent" | "graph" | "run" | "view" | "cancel" | "rerun" | "deleteWorkflow" | "deleteRun" | "newPattern" | "switchSession";
+	type:
+		| "agent"
+		| "graph"
+		| "run"
+		| "view"
+		| "cancel"
+		| "rerun"
+		| "deleteWorkflow"
+		| "deleteRun"
+		| "newPattern"
+		| "switchSession";
 	workflow?: WorkflowFile;
 	run?: WorkflowRunRecord;
 	agent?: AgentMonitorModel;
@@ -1927,7 +2439,11 @@ function isPersistentPiSessionMode(mode: string): boolean {
 	return mode === "tui" || mode === "rpc";
 }
 
-function sessionManagerMetadata(ctx: ExtensionContext): { sessionId?: string; sessionFile?: string; sessionName?: string } {
+function sessionManagerMetadata(ctx: ExtensionContext): {
+	sessionId?: string;
+	sessionFile?: string;
+	sessionName?: string;
+} {
 	const manager = ctx.sessionManager as unknown as {
 		getSessionId?: () => string;
 		getSessionFile?: () => string | undefined;
@@ -1968,7 +2484,10 @@ async function writePiSessionHeartbeat(runtime: LivePiSessionRuntime): Promise<v
 	}
 }
 
-async function startPiSessionHeartbeat(event: { reason: string }, ctx: ExtensionContext): Promise<void> {
+async function startPiSessionHeartbeat(
+	event: { reason: string },
+	ctx: ExtensionContext,
+): Promise<void> {
 	await stopPiSessionHeartbeat();
 	if (!isPersistentPiSessionMode(ctx.mode)) return;
 	const id = `${Date.now().toString(36)}-${process.pid}-${crypto.randomBytes(4).toString("hex")}`;
@@ -2006,8 +2525,14 @@ function isPidAlive(pid: number): boolean {
 function parsePiSessionRecord(value: unknown): PiSessionRecord | undefined {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
 	const record = value as Record<string, unknown>;
-	if (typeof record.id !== "string" || typeof record.cwd !== "string" || typeof record.mode !== "string") return undefined;
-	if (typeof record.startedAt !== "string" || typeof record.updatedAt !== "string") return undefined;
+	if (
+		typeof record.id !== "string" ||
+		typeof record.cwd !== "string" ||
+		typeof record.mode !== "string"
+	)
+		return undefined;
+	if (typeof record.startedAt !== "string" || typeof record.updatedAt !== "string")
+		return undefined;
 	if (typeof record.pid !== "number" || !Number.isInteger(record.pid)) return undefined;
 	return {
 		id: record.id,
@@ -2022,7 +2547,9 @@ function parsePiSessionRecord(value: unknown): PiSessionRecord | undefined {
 		...(typeof record.sessionName === "string" ? { sessionName: record.sessionName } : {}),
 		...(typeof record.trusted === "boolean" ? { trusted: record.trusted } : {}),
 		...(typeof record.idle === "boolean" ? { idle: record.idle } : {}),
-		...(typeof record.activeWorkflowRuns === "number" && Number.isFinite(record.activeWorkflowRuns) ? { activeWorkflowRuns: record.activeWorkflowRuns } : {}),
+		...(typeof record.activeWorkflowRuns === "number" && Number.isFinite(record.activeWorkflowRuns)
+			? { activeWorkflowRuns: record.activeWorkflowRuns }
+			: {}),
 	};
 }
 
@@ -2051,11 +2578,19 @@ async function collectPiSessions(ctx: ExtensionContext): Promise<PiSessionModel[
 			const record = await readPiSessionRecord(file);
 			if (!record || record.cwd !== ctx.cwd || !isPersistentPiSessionMode(record.mode)) continue;
 			const updatedMs = Date.parse(record.updatedAt);
-			const ageMs = Number.isFinite(updatedMs) ? Math.max(0, now - updatedMs) : Number.POSITIVE_INFINITY;
+			const ageMs = Number.isFinite(updatedMs)
+				? Math.max(0, now - updatedMs)
+				: Number.POSITIVE_INFINITY;
 			const pidAlive = isPidAlive(record.pid);
 			const fresh = Number.isFinite(ageMs) && ageMs <= PI_SESSION_STALE_MS;
 			const live = pidAlive && fresh;
-			const staleReason = live ? undefined : !pidAlive ? "pid exited" : !fresh ? "heartbeat stale" : "unknown";
+			const staleReason = live
+				? undefined
+				: !pidAlive
+					? "pid exited"
+					: !fresh
+						? "heartbeat stale"
+						: "unknown";
 			const model: PiSessionModel = {
 				...record,
 				file,
@@ -2079,16 +2614,26 @@ function formatPiSessionList(sessions: PiSessionModel[]): string {
 	if (sessions.length === 0) return "No live Pi TUI/RPC sessions found for this project.";
 	const lines = [`Pi sessions (${sessions.length})`];
 	for (const session of sessions) {
-		const status = session.live ? "live" : `stale${session.staleReason ? `:${session.staleReason}` : ""}`;
-		const age = Number.isFinite(session.ageMs) ? `${formatElapsedMs(session.ageMs)} ago` : "unknown";
-		lines.push(`- ${status} ${session.mode} pid:${session.pid}${session.current ? " this" : ""}${session.sessionName ? ` name:${session.sessionName}` : ""} updated:${age} idle:${session.idle === undefined ? "unknown" : session.idle ? "yes" : "no"} workflows:${session.activeWorkflowRuns ?? 0}`);
+		const status = session.live
+			? "live"
+			: `stale${session.staleReason ? `:${session.staleReason}` : ""}`;
+		const age = Number.isFinite(session.ageMs)
+			? `${formatElapsedMs(session.ageMs)} ago`
+			: "unknown";
+		lines.push(
+			`- ${status} ${session.mode} pid:${session.pid}${session.current ? " this" : ""}${session.sessionName ? ` name:${session.sessionName}` : ""} updated:${age} idle:${session.idle === undefined ? "unknown" : session.idle ? "yes" : "no"} workflows:${session.activeWorkflowRuns ?? 0}`,
+		);
 		lines.push(`  session: ${session.sessionId ?? "unknown"}`);
 		if (session.sessionFile) lines.push(`  file: ${session.sessionFile}`);
 	}
 	return lines.join("\n");
 }
 
-async function collectWorkflowActivity(runs: WorkflowRunRecord[], maxRuns = 12, maxEntries = 80): Promise<WorkflowActivityEntry[]> {
+async function collectWorkflowActivity(
+	runs: WorkflowRunRecord[],
+	maxRuns = 12,
+	maxEntries = 80,
+): Promise<WorkflowActivityEntry[]> {
 	const entries: WorkflowActivityEntry[] = [];
 	for (const run of runs.slice(0, maxRuns)) {
 		const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : await readRunLogEvents(run.runDir);
@@ -2103,7 +2648,9 @@ async function collectWorkflowActivity(runs: WorkflowRunRecord[], maxRuns = 12, 
 			});
 		}
 	}
-	return entries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, maxEntries);
+	return entries
+		.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+		.slice(0, maxEntries);
 }
 
 async function collectWorkflowAgents(runs: WorkflowRunRecord[]): Promise<WorkflowAgentEntry[]> {
@@ -2150,7 +2697,14 @@ interface WorkflowMonitorModel {
 async function countRunArtifacts(runDir: string): Promise<number> {
 	try {
 		const files = await listRunFiles(runDir, 200);
-		const bookkeeping = new Set(["status.json", "result.json", "input.json", "events.jsonl", JOURNAL_FILE, "summary.md"]);
+		const bookkeeping = new Set([
+			"status.json",
+			"result.json",
+			"input.json",
+			"events.jsonl",
+			JOURNAL_FILE,
+			"summary.md",
+		]);
 		return files.filter((file) => !bookkeeping.has(file)).length;
 	} catch {
 		return 0;
@@ -2161,7 +2715,10 @@ function canRerunRun(run: WorkflowRunRecord): boolean {
 	return getRunState(run) !== "running" && !!run.file && existsSync(run.file);
 }
 
-async function deriveWorkflowMonitor(run: WorkflowRunRecord, priority: "active" | "latest"): Promise<WorkflowMonitorModel> {
+async function deriveWorkflowMonitor(
+	run: WorkflowRunRecord,
+	priority: "active" | "latest",
+): Promise<WorkflowMonitorModel> {
 	const state = getRunState(run);
 	const parsedEvents = await readRunEvents(run.runDir);
 	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : parsedEvents.logs;
@@ -2178,10 +2735,18 @@ async function deriveWorkflowMonitor(run: WorkflowRunRecord, priority: "active" 
 		stale: state === "stale" || (state === "running" && !active),
 		elapsedMs: getRunElapsedMs(run, state),
 		agentsStarted: Math.max(agentsStarted, run.agentCount, parsedEvents.agents.length),
-		agentsDone: Math.max(agentsDone, parsedEvents.agents.filter((agent) => agent.state === "completed" || agent.state === "failed" || agent.state === "cached").length),
+		agentsDone: Math.max(
+			agentsDone,
+			parsedEvents.agents.filter(
+				(agent) =>
+					agent.state === "completed" || agent.state === "failed" || agent.state === "cached",
+			).length,
+		),
 		parallelAgents: getRunParallelAgents(run, parsedEvents.agents),
 		...(peakParallelAgents === undefined ? {} : { peakParallelAgents }),
-		...(getRunAgentConcurrency(run) === undefined ? {} : { agentConcurrency: getRunAgentConcurrency(run) }),
+		...(getRunAgentConcurrency(run) === undefined
+			? {}
+			: { agentConcurrency: getRunAgentConcurrency(run) }),
 		bashDone,
 		artifactCount: await countRunArtifacts(run.runDir),
 		agents: parsedEvents.agents,
@@ -2193,17 +2758,28 @@ async function deriveWorkflowMonitor(run: WorkflowRunRecord, priority: "active" 
 	};
 }
 
-async function deriveWorkflowMonitorModels(runs: WorkflowRunRecord[]): Promise<WorkflowMonitorModel[]> {
+async function deriveWorkflowMonitorModels(
+	runs: WorkflowRunRecord[],
+): Promise<WorkflowMonitorModel[]> {
 	// Surface ALL active runs (the header advertises "▶ N active"); fall back to the
 	// latest run only when nothing is active. The Monitor lets the user switch focus.
 	const actives = runs.filter((run) => isActiveRunRecord(run));
-	if (actives.length > 0) return Promise.all(actives.map((run) => deriveWorkflowMonitor(run, "active")));
+	if (actives.length > 0)
+		return Promise.all(actives.map((run) => deriveWorkflowMonitor(run, "active")));
 	const latest = runs[0];
 	if (!latest) return [];
 	return [await deriveWorkflowMonitor(latest, "latest")];
 }
 
-const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
+const WORKFLOW_DASHBOARD_TABS = [
+	"monitor",
+	"agents",
+	"sessions",
+	"runs",
+	"workflows",
+	"patterns",
+	"activity",
+] as const;
 type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
 
 // Keep the cursor on the same item when a list is rebuilt/reordered under it
@@ -2218,7 +2794,12 @@ function windowLabel(total: number, start: number, count: number): string {
 	return ` · ${start + 1}–${end}/${total}`;
 }
 
-function reselectIndexByKey<T>(previous: T[], previousIndex: number, next: T[], keyOf: (item: T) => string): number {
+function reselectIndexByKey<T>(
+	previous: T[],
+	previousIndex: number,
+	next: T[],
+	keyOf: (item: T) => string,
+): number {
 	const clamped = Math.min(previousIndex, Math.max(0, next.length - 1));
 	const prev = previous[previousIndex];
 	if (!prev) return clamped;
@@ -2286,14 +2867,16 @@ class WorkflowDashboard {
 		if (restore) {
 			// Best-effort restore so reopening the dashboard after an action keeps the
 			// user where they were; indices are clamped to the freshly-reloaded lists.
-			const clamp = (value: number, length: number) => Math.max(0, Math.min(value, Math.max(0, length - 1)));
+			const clamp = (value: number, length: number) =>
+				Math.max(0, Math.min(value, Math.max(0, length - 1)));
 			this.workflowIndex = clamp(restore.workflowIndex, workflows.length);
 			this.runIndex = clamp(restore.runIndex, runs.length);
 			this.activityIndex = clamp(restore.activityIndex, activity.length);
 			this.sessionIndex = clamp(restore.sessionIndex, piSessions.length);
 			this.agentIndex = clamp(restore.agentIndex, agentEntries.length);
 			this.patternIndex = clamp(restore.patternIndex, WORKFLOW_PATTERN_CATALOG.length);
-			const monitorAgents = (monitorModels.find((model) => model.active) ?? monitorModels[0])?.agents.length ?? 0;
+			const monitorAgents =
+				(monitorModels.find((model) => model.active) ?? monitorModels[0])?.agents.length ?? 0;
 			this.monitorAgentIndex = clamp(restore.monitorAgentIndex, monitorAgents);
 		}
 	}
@@ -2317,17 +2900,32 @@ class WorkflowDashboard {
 	}
 
 	setActivity(activity: WorkflowActivityEntry[]): void {
-		this.activityIndex = reselectIndexByKey(this.activity, this.activityIndex, activity, (entry) => `${entry.runId}|${entry.time}|${entry.message}`);
+		this.activityIndex = reselectIndexByKey(
+			this.activity,
+			this.activityIndex,
+			activity,
+			(entry) => `${entry.runId}|${entry.time}|${entry.message}`,
+		);
 		this.activity = activity;
 	}
 
 	setPiSessions(sessions: PiSessionModel[]): void {
-		this.sessionIndex = reselectIndexByKey(this.piSessions, this.sessionIndex, sessions, (session) => session.sessionId ?? session.sessionFile ?? session.file ?? String(session.pid));
+		this.sessionIndex = reselectIndexByKey(
+			this.piSessions,
+			this.sessionIndex,
+			sessions,
+			(session) => session.sessionId ?? session.sessionFile ?? session.file ?? String(session.pid),
+		);
 		this.piSessions = sessions;
 	}
 
 	setAgentEntries(entries: WorkflowAgentEntry[]): void {
-		this.agentIndex = reselectIndexByKey(this.agentEntries, this.agentIndex, entries, (entry) => `${entry.run.runId}#${entry.agent.id}`);
+		this.agentIndex = reselectIndexByKey(
+			this.agentEntries,
+			this.agentIndex,
+			entries,
+			(entry) => `${entry.run.runId}#${entry.agent.id}`,
+		);
 		this.agentEntries = entries;
 	}
 
@@ -2336,18 +2934,25 @@ class WorkflowDashboard {
 		const previousAgent = previousModel?.agents[this.monitorAgentIndex];
 		this.monitorModels = models;
 		// Keep the focused run stable across refreshes (the active set can change).
-		const foundRun = previousModel ? models.findIndex((model) => model.runId === previousModel.runId) : -1;
-		this.monitorRunIndex = foundRun >= 0 ? foundRun : Math.max(0, Math.min(this.monitorRunIndex, Math.max(0, models.length - 1)));
+		const foundRun = previousModel
+			? models.findIndex((model) => model.runId === previousModel.runId)
+			: -1;
+		this.monitorRunIndex =
+			foundRun >= 0
+				? foundRun
+				: Math.max(0, Math.min(this.monitorRunIndex, Math.max(0, models.length - 1)));
 		const agents = this.selectedMonitor()?.agents ?? [];
 		const found = previousAgent ? agents.findIndex((agent) => agent.id === previousAgent.id) : -1;
-		this.monitorAgentIndex = found >= 0 ? found : Math.min(this.monitorAgentIndex, Math.max(0, agents.length - 1));
+		this.monitorAgentIndex =
+			found >= 0 ? found : Math.min(this.monitorAgentIndex, Math.max(0, agents.length - 1));
 	}
 
 	invalidate(): void {}
 
 	private moveTab(delta: number): void {
 		const current = WORKFLOW_DASHBOARD_TABS.indexOf(this.tab);
-		const next = (current + delta + WORKFLOW_DASHBOARD_TABS.length) % WORKFLOW_DASHBOARD_TABS.length;
+		const next =
+			(current + delta + WORKFLOW_DASHBOARD_TABS.length) % WORKFLOW_DASHBOARD_TABS.length;
 		this.tab = WORKFLOW_DASHBOARD_TABS[next]!;
 		this.requestRender();
 	}
@@ -2386,40 +2991,70 @@ class WorkflowDashboard {
 
 	private activeListLength(): number {
 		switch (this.tab) {
-			case "monitor": return this.selectedMonitor()?.agents.length ?? 0;
-			case "agents": return this.agentEntries.length;
-			case "workflows": return this.workflows.length;
-			case "patterns": return WORKFLOW_PATTERN_CATALOG.length;
-			case "sessions": return this.piSessions.length;
-			case "runs": return this.runs.length;
-			case "activity": return this.activity.length;
-			default: return 0;
+			case "monitor":
+				return this.selectedMonitor()?.agents.length ?? 0;
+			case "agents":
+				return this.agentEntries.length;
+			case "workflows":
+				return this.workflows.length;
+			case "patterns":
+				return WORKFLOW_PATTERN_CATALOG.length;
+			case "sessions":
+				return this.piSessions.length;
+			case "runs":
+				return this.runs.length;
+			case "activity":
+				return this.activity.length;
+			default:
+				return 0;
 		}
 	}
 
 	private getActiveIndex(): number {
 		switch (this.tab) {
-			case "monitor": return this.monitorAgentIndex;
-			case "agents": return this.agentIndex;
-			case "workflows": return this.workflowIndex;
-			case "patterns": return this.patternIndex;
-			case "sessions": return this.sessionIndex;
-			case "runs": return this.runIndex;
-			case "activity": return this.activityIndex;
-			default: return 0;
+			case "monitor":
+				return this.monitorAgentIndex;
+			case "agents":
+				return this.agentIndex;
+			case "workflows":
+				return this.workflowIndex;
+			case "patterns":
+				return this.patternIndex;
+			case "sessions":
+				return this.sessionIndex;
+			case "runs":
+				return this.runIndex;
+			case "activity":
+				return this.activityIndex;
+			default:
+				return 0;
 		}
 	}
 
 	private setActiveIndex(value: number): void {
 		const clamped = Math.max(0, Math.min(this.activeListLength() - 1, value));
 		switch (this.tab) {
-			case "monitor": this.monitorAgentIndex = clamped; break;
-			case "agents": this.agentIndex = clamped; break;
-			case "workflows": this.workflowIndex = clamped; break;
-			case "patterns": this.patternIndex = clamped; break;
-			case "sessions": this.sessionIndex = clamped; break;
-			case "runs": this.runIndex = clamped; break;
-			case "activity": this.activityIndex = clamped; break;
+			case "monitor":
+				this.monitorAgentIndex = clamped;
+				break;
+			case "agents":
+				this.agentIndex = clamped;
+				break;
+			case "workflows":
+				this.workflowIndex = clamped;
+				break;
+			case "patterns":
+				this.patternIndex = clamped;
+				break;
+			case "sessions":
+				this.sessionIndex = clamped;
+				break;
+			case "runs":
+				this.runIndex = clamped;
+				break;
+			case "activity":
+				this.activityIndex = clamped;
+				break;
 		}
 	}
 
@@ -2491,7 +3126,8 @@ class WorkflowDashboard {
 			return;
 		}
 		if (matchesKey(data, Key.up) || data === "k") {
-			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0) this.monitorAgentIndex = Math.max(0, this.monitorAgentIndex - 1);
+			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0)
+				this.monitorAgentIndex = Math.max(0, this.monitorAgentIndex - 1);
 			else if (this.tab === "agents") this.agentIndex = Math.max(0, this.agentIndex - 1);
 			else if (this.tab === "workflows") this.workflowIndex = Math.max(0, this.workflowIndex - 1);
 			else if (this.tab === "patterns") this.patternIndex = Math.max(0, this.patternIndex - 1);
@@ -2502,17 +3138,45 @@ class WorkflowDashboard {
 			return;
 		}
 		if (matchesKey(data, Key.down) || data === "j") {
-			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0) this.monitorAgentIndex = Math.min(Math.max(0, (this.selectedMonitor()?.agents.length ?? 1) - 1), this.monitorAgentIndex + 1);
-			else if (this.tab === "agents") this.agentIndex = Math.min(Math.max(0, this.agentEntries.length - 1), this.agentIndex + 1);
-			else if (this.tab === "workflows") this.workflowIndex = Math.min(Math.max(0, this.workflows.length - 1), this.workflowIndex + 1);
-			else if (this.tab === "patterns") this.patternIndex = Math.min(Math.max(0, WORKFLOW_PATTERN_CATALOG.length - 1), this.patternIndex + 1);
-			else if (this.tab === "sessions") this.sessionIndex = Math.min(Math.max(0, this.piSessions.length - 1), this.sessionIndex + 1);
-			else if (this.tab === "runs") this.runIndex = Math.min(Math.max(0, this.runs.length - 1), this.runIndex + 1);
-			else if (this.tab === "activity") this.activityIndex = Math.min(Math.max(0, this.activity.length - 1), this.activityIndex + 1);
+			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0)
+				this.monitorAgentIndex = Math.min(
+					Math.max(0, (this.selectedMonitor()?.agents.length ?? 1) - 1),
+					this.monitorAgentIndex + 1,
+				);
+			else if (this.tab === "agents")
+				this.agentIndex = Math.min(Math.max(0, this.agentEntries.length - 1), this.agentIndex + 1);
+			else if (this.tab === "workflows")
+				this.workflowIndex = Math.min(
+					Math.max(0, this.workflows.length - 1),
+					this.workflowIndex + 1,
+				);
+			else if (this.tab === "patterns")
+				this.patternIndex = Math.min(
+					Math.max(0, WORKFLOW_PATTERN_CATALOG.length - 1),
+					this.patternIndex + 1,
+				);
+			else if (this.tab === "sessions")
+				this.sessionIndex = Math.min(
+					Math.max(0, this.piSessions.length - 1),
+					this.sessionIndex + 1,
+				);
+			else if (this.tab === "runs")
+				this.runIndex = Math.min(Math.max(0, this.runs.length - 1), this.runIndex + 1);
+			else if (this.tab === "activity")
+				this.activityIndex = Math.min(
+					Math.max(0, this.activity.length - 1),
+					this.activityIndex + 1,
+				);
 			this.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.pageUp) || matchesKey(data, Key.pageDown) || matchesKey(data, Key.home) || matchesKey(data, Key.end) || data === "G") {
+		if (
+			matchesKey(data, Key.pageUp) ||
+			matchesKey(data, Key.pageDown) ||
+			matchesKey(data, Key.home) ||
+			matchesKey(data, Key.end) ||
+			data === "G"
+		) {
 			// Page/Home/End (and vim G = last) jump within the active list, mirroring the live agent view.
 			const page = 10;
 			if (this.activeListLength() > 0) {
@@ -2535,7 +3199,8 @@ class WorkflowDashboard {
 		if (this.tab === "patterns") {
 			const pattern = WORKFLOW_PATTERN_CATALOG[this.patternIndex];
 			if (!pattern) return;
-			if (matchesKey(data, Key.enter) || data === "n" || data === "u") this.done({ type: "newPattern", pattern });
+			if (matchesKey(data, Key.enter) || data === "n" || data === "u")
+				this.done({ type: "newPattern", pattern });
 			return;
 		}
 		if (this.tab === "sessions") {
@@ -2547,30 +3212,41 @@ class WorkflowDashboard {
 		const run = this.selectedRun();
 		if (!run) return;
 		if (this.tab === "monitor") {
-			if (data === "[" || data === "]") { this.cycleMonitorRun(data === "]" ? 1 : -1); return; }
+			if (data === "[" || data === "]") {
+				this.cycleMonitorRun(data === "]" ? 1 : -1);
+				return;
+			}
 			const agent = this.selectedAgent();
-			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
+			if ((matchesKey(data, Key.enter) || data === "o") && agent)
+				this.done({ type: "agent", run, agent });
 			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
 			else if (data === "g") this.done({ type: "graph", run });
-			else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
+			else if ((data === "c" || data === "x") && canCancelRun(run))
+				this.done({ type: "cancel", run });
 			else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
 			else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 			return;
 		}
 		if (this.tab === "agents") {
-			if (data === "f") { this.jumpToNextFailedAgent(); return; }
+			if (data === "f") {
+				this.jumpToNextFailedAgent();
+				return;
+			}
 			const agent = this.selectedAgent();
-			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
+			if ((matchesKey(data, Key.enter) || data === "o") && agent)
+				this.done({ type: "agent", run, agent });
 			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
 			else if (data === "g") this.done({ type: "graph", run });
-			else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
+			else if ((data === "c" || data === "x") && canCancelRun(run))
+				this.done({ type: "cancel", run });
 			else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
 			else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 			return;
 		}
 		if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
 		else if (data === "g") this.done({ type: "graph", run });
-		else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
+		else if ((data === "c" || data === "x") && canCancelRun(run))
+			this.done({ type: "cancel", run });
 		else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
 		else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 	}
@@ -2599,7 +3275,12 @@ class WorkflowDashboard {
 		this.requestRender();
 	}
 
-	private renderHelp(w: number, line: (s: string) => string, accent: (s: string) => string, muted: (s: string) => string): string[] {
+	private renderHelp(
+		w: number,
+		line: (s: string) => string,
+		accent: (s: string) => string,
+		muted: (s: string) => string,
+	): string[] {
 		return [
 			line(accent("Pi Dynamic Workflows — keyboard help")),
 			line(muted("Press any key to close")),
@@ -2643,8 +3324,16 @@ class WorkflowDashboard {
 		// advertises cancel/rerun/delete keys that the detail row won't honor.
 		const selectedForActions = this.selectedRun();
 		const selectedMonitorModel = this.tab === "monitor" ? this.selectedMonitor() : undefined;
-		const canCancelSelected = selectedMonitorModel ? !!selectedMonitorModel.canCancel : selectedForActions ? canCancelRun(selectedForActions) : false;
-		const canRerunSelected = selectedMonitorModel ? !!selectedMonitorModel.canRerun : selectedForActions ? canRerunRun(selectedForActions) : false;
+		const canCancelSelected = selectedMonitorModel
+			? !!selectedMonitorModel.canCancel
+			: selectedForActions
+				? canCancelRun(selectedForActions)
+				: false;
+		const canRerunSelected = selectedMonitorModel
+			? !!selectedMonitorModel.canRerun
+			: selectedForActions
+				? canRerunRun(selectedForActions)
+				: false;
 		const runActions = (mid: string): string => {
 			const parts = ["←→/Tab tabs", mid];
 			if (canCancelSelected) parts.push("c/x cancel active");
@@ -2653,26 +3342,49 @@ class WorkflowDashboard {
 			parts.push("q/esc close");
 			return parts.join(" • ");
 		};
-		const help = this.tab === "patterns"
-			? "←→/Tab tabs • ↑↓ navigate catalog • Enter/n use pattern • q/esc close"
-			: this.tab === "workflows"
-				? "←→/Tab tabs • ↑↓ navigate • Enter/g graph • r run • d/delete workflow • q/esc close"
-				: this.tab === "sessions"
-					? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • q/esc close"
-					: this.tab === "monitor"
-					? runActions("↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph")
-					: this.tab === "agents"
-						? runActions("↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph")
-						: runActions("↑↓ navigate • Enter/v view • g graph");
+		const help =
+			this.tab === "patterns"
+				? "←→/Tab tabs • ↑↓ navigate catalog • Enter/n use pattern • q/esc close"
+				: this.tab === "workflows"
+					? "←→/Tab tabs • ↑↓ navigate • Enter/g graph • r run • d/delete workflow • q/esc close"
+					: this.tab === "sessions"
+						? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • q/esc close"
+						: this.tab === "monitor"
+							? runActions("↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph")
+							: this.tab === "agents"
+								? runActions(
+										"↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph",
+									)
+								: runActions("↑↓ navigate • Enter/v view • g graph");
 		const lines: string[] = [
-			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + agentsTab + " " + sessionsTab + " " + runsTab + " " + workflowTab + " " + patternsTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
+			line(
+				accent("Pi Dynamic Workflows") +
+					muted("  •  ") +
+					monitorTab +
+					" " +
+					agentsTab +
+					" " +
+					sessionsTab +
+					" " +
+					runsTab +
+					" " +
+					workflowTab +
+					" " +
+					patternsTab +
+					" " +
+					activityTab +
+					(activeCount ? accent(`  ▶ ${activeCount} active`) : ""),
+			),
 			line(muted("? help • ") + this.refreshStatus(muted, error) + muted(" • " + help)),
 			line(muted("─".repeat(Math.min(w, 120)))),
 		];
 
-		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning);
-		else if (this.tab === "agents") this.renderAgents(lines, line, accent, muted, success, error, warning);
-		else if (this.tab === "sessions") this.renderSessions(lines, line, accent, muted, success, warning);
+		if (this.tab === "monitor")
+			this.renderMonitor(lines, line, accent, muted, success, error, warning);
+		else if (this.tab === "agents")
+			this.renderAgents(lines, line, accent, muted, success, error, warning);
+		else if (this.tab === "sessions")
+			this.renderSessions(lines, line, accent, muted, success, warning);
 		else if (this.tab === "runs") this.renderRuns(lines, line, accent, muted, success, error);
 		else if (this.tab === "workflows") this.renderWorkflows(lines, line, accent, muted, warning);
 		else if (this.tab === "patterns") this.renderPatterns(lines, line, accent, muted, warning);
@@ -2692,41 +3404,90 @@ class WorkflowDashboard {
 		const model = this.selectedMonitor();
 		if (!model) {
 			lines.push(line(warning("No workflow runs found.")));
-			lines.push(line(muted("Start one with /workflow start <name> {json} or dynamic_workflow action=start.")));
+			lines.push(
+				line(
+					muted("Start one with /workflow start <name> {json} or dynamic_workflow action=start."),
+				),
+			);
 			return;
 		}
 
-		const stateColor = model.state === "completed" ? success : model.state === "running" ? accent : model.state === "stale" ? warning : error;
-		const label = (name: string, value: string) => lines.push(line(`${muted(padRightVisible(`${name}:`, 11))} ${value}`));
-		const statusTail = model.active ? accent("active") : model.stale ? warning("stale") : muted("inactive");
+		const stateColor =
+			model.state === "completed"
+				? success
+				: model.state === "running"
+					? accent
+					: model.state === "stale"
+						? warning
+						: error;
+		const label = (name: string, value: string) =>
+			lines.push(line(`${muted(padRightVisible(`${name}:`, 11))} ${value}`));
+		const statusTail = model.active
+			? accent("active")
+			: model.stale
+				? warning("stale")
+				: muted("inactive");
 		const total = this.monitorModels.length;
 		if (total > 1) {
-			lines.push(line(accent(`Active runs (${total})`) + muted(` • [ ] switch • showing ${this.monitorRunIndex + 1}/${total}`)));
+			lines.push(
+				line(
+					accent(`Active runs (${total})`) +
+						muted(` • [ ] switch • showing ${this.monitorRunIndex + 1}/${total}`),
+				),
+			);
 			for (let i = 0; i < total; i++) {
 				const m = this.monitorModels[i];
 				const focused = i === this.monitorRunIndex;
 				const prefix = focused ? accent("› ") : "  ";
-				const glyph = m.state === "completed" ? success("✓") : m.state === "running" ? accent("▶") : m.state === "stale" ? warning("?") : error("✗");
-				const parallel = m.agentConcurrency && m.agentConcurrency > 0 ? `${m.parallelAgents}/${m.agentConcurrency}` : String(m.parallelAgents);
-				lines.push(line(`${prefix}${glyph} ${m.workflow} ${muted(m.runId)} ${m.agentsDone}/${m.agentsStarted} ${muted(`parallel:${parallel}`)}`));
+				const glyph =
+					m.state === "completed"
+						? success("✓")
+						: m.state === "running"
+							? accent("▶")
+							: m.state === "stale"
+								? warning("?")
+								: error("✗");
+				const parallel =
+					m.agentConcurrency && m.agentConcurrency > 0
+						? `${m.parallelAgents}/${m.agentConcurrency}`
+						: String(m.parallelAgents);
+				lines.push(
+					line(
+						`${prefix}${glyph} ${m.workflow} ${muted(m.runId)} ${m.agentsDone}/${m.agentsStarted} ${muted(`parallel:${parallel}`)}`,
+					),
+				);
 			}
 			lines.push(line(muted("")));
 		}
-		const title = total > 1 ? `Active run ${this.monitorRunIndex + 1}/${total}` : model.priority === "active" ? "Active run" : "Latest run";
+		const title =
+			total > 1
+				? `Active run ${this.monitorRunIndex + 1}/${total}`
+				: model.priority === "active"
+					? "Active run"
+					: "Latest run";
 		lines.push(line(accent(title)));
 		label("workflow", model.workflow);
 		label("state", `${stateColor(getRunStatusLabel(model.run))} ${muted("•")} ${statusTail}`);
 		label("elapsed", formatElapsedMs(model.elapsedMs));
 		label("agents", `${model.agentsDone}/${model.agentsStarted} done/started`);
-		label("parallel", `${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents} running${model.peakParallelAgents === undefined ? "" : ` • peak:${model.peakParallelAgents}`}`);
+		label(
+			"parallel",
+			`${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents} running${model.peakParallelAgents === undefined ? "" : ` • peak:${model.peakParallelAgents}`}`,
+		);
 		label("bash", `${model.bashDone} done`);
 		label("artifacts", String(model.artifactCount));
 		label("run", model.runId);
 		label("runDir", model.runDir);
-		const last = model.lastLog ? `${model.lastLog.time.slice(11, 19)} ${renderSafeInline(model.lastLog.message)}` : "No logs recorded yet.";
+		const last = model.lastLog
+			? `${model.lastLog.time.slice(11, 19)} ${renderSafeInline(model.lastLog.message)}`
+			: "No logs recorded yet.";
 		label("last", last);
-		if (model.run.error) label("error", error(renderSafeInline(compactInline(model.run.error, 200))));
-		const actions = model.agents.length > 0 ? ["←→ tabs", "↑↓ select agent", "Enter/o agent output", "v run", "g graph"] : ["←→ tabs", "Enter/v view", "g graph"];
+		if (model.run.error)
+			label("error", error(renderSafeInline(compactInline(model.run.error, 200))));
+		const actions =
+			model.agents.length > 0
+				? ["←→ tabs", "↑↓ select agent", "Enter/o agent output", "v run", "g graph"]
+				: ["←→ tabs", "Enter/v view", "g graph"];
 		if (model.canCancel) actions.push("c/x cancel active");
 		if (model.canRerun) actions.push("r rerun (confirm)");
 		if (!model.canCancel) actions.push("d/delete run artifacts");
@@ -2735,7 +3496,13 @@ class WorkflowDashboard {
 		this.renderMonitorAgents(lines, line, model, accent, muted, success, error, warning);
 	}
 
-	private agentStateLabel(agent: AgentMonitorModel, accent: (s: string) => string, muted: (s: string) => string, success: (s: string) => string, error: (s: string) => string): string {
+	private agentStateLabel(
+		agent: AgentMonitorModel,
+		accent: (s: string) => string,
+		muted: (s: string) => string,
+		success: (s: string) => string,
+		error: (s: string) => string,
+	): string {
 		if (agent.state === "completed") return success("✓ done");
 		if (agent.state === "running") return accent("▶ running");
 		if (agent.state === "cached") return muted("♻ cached");
@@ -2757,7 +3524,15 @@ class WorkflowDashboard {
 		lines.push(line(muted("")));
 		const start = Math.max(0, Math.min(this.monitorAgentIndex - 6, model.agents.length - 12));
 		const visible = model.agents.slice(start, start + 12);
-		lines.push(line(accent(`Agents (${model.agents.length})`) + muted(windowLabel(model.agents.length, start, 12)) + muted(` • parallel ${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents}${model.peakParallelAgents === undefined ? "" : ` • peak ${model.peakParallelAgents}`}`)));
+		lines.push(
+			line(
+				accent(`Agents (${model.agents.length})`) +
+					muted(windowLabel(model.agents.length, start, 12)) +
+					muted(
+						` • parallel ${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents}${model.peakParallelAgents === undefined ? "" : ` • peak ${model.peakParallelAgents}`}`,
+					),
+			),
+		);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
 			const agent = visible[i];
@@ -2765,32 +3540,91 @@ class WorkflowDashboard {
 			const prefix = selected ? accent("› ") : "  ";
 			const state = this.agentStateLabel(agent, accent, muted, success, error);
 			const agentElapsedMs = getAgentElapsedMs(agent);
-			const elapsed = agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
+			const elapsed =
+				agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
 			const phase = formatAgentPhase(agent);
-			const code = agent.code === undefined ? "" : agent.code === 0 ? muted(` code:0`) : error(` code:${agent.code}`);
+			const code =
+				agent.code === undefined
+					? ""
+					: agent.code === 0
+						? muted(` code:0`)
+						: error(` code:${agent.code}`);
 			const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-			const schema = agent.schemaOk === undefined ? "" : agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
+			const schema =
+				agent.schemaOk === undefined
+					? ""
+					: agent.schemaOk
+						? muted(` schema:ok`)
+						: error(` schema:bad`);
 			const tools = muted(` tools:${agent.tools?.length ? agent.tools.length : "default"}`);
-			const skills = muted(` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`);
-			const extensions = muted(` ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`);
-			const keys = muted(` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`) + (agent.missingKeys?.length ? warning(` missing:${agent.missingKeys.length}`) : "");
-			lines.push(line(`${prefix}${state} #${agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(agent.name)} ${muted(elapsed)}${code} ${prompt}${schema}${tools}${skills}${extensions}${keys}`));
+			const skills = muted(
+				` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`,
+			);
+			const extensions = muted(
+				` ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`,
+			);
+			const keys =
+				muted(
+					` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`,
+				) + (agent.missingKeys?.length ? warning(` missing:${agent.missingKeys.length}`) : "");
+			lines.push(
+				line(
+					`${prefix}${state} #${agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(agent.name)} ${muted(elapsed)}${code} ${prompt}${schema}${tools}${skills}${extensions}${keys}`,
+				),
+			);
 		}
 		const selected = this.selectedAgent();
 		if (!selected) return;
 		lines.push(line(muted("")));
 		lines.push(line(accent("Selected agent")));
-		lines.push(line(`agent: #${selected.id} ${formatAgentPhase(selected) ? `${formatAgentPhase(selected)} ` : ""}${selected.name}`));
+		lines.push(
+			line(
+				`agent: #${selected.id} ${formatAgentPhase(selected) ? `${formatAgentPhase(selected)} ` : ""}${selected.name}`,
+			),
+		);
 		const selectedElapsedMs = getAgentElapsedMs(selected);
-		lines.push(line(`state: ${renderSafeInline(selected.state)}${selectedElapsedMs === undefined ? "" : ` • ${formatElapsedMs(selectedElapsedMs)}`}${selected.code === undefined ? "" : ` • code ${selected.code}`}`));
-		if (formatAgentPhase(selected)) lines.push(line(`phase: ${formatAgentPhase(selected)}${selected.phaseLabel ? muted(` • ${selected.phaseLabel}`) : ""}`));
-		lines.push(line(`prompt: ${selected.promptAvailable ? success("available") : warning("not available")} ${selected.artifactPath ? muted(`• ${selected.artifactPath}`) : ""}`));
-		lines.push(line(`tools: ${selected.tools?.length ? selected.tools.join(", ") : "default"}${selected.excludeTools?.length ? ` • exclude: ${selected.excludeTools.join(", ")}` : ""}`));
-		lines.push(line(`skills: ${selected.skills?.length ? `${selected.skills.join(", ")}${selected.includeSkills ? " + discovery" : " (explicit only)"}` : selected.includeSkills === false ? "disabled" : "default discovery"}`));
-		lines.push(line(`extensions: ${selected.extensions?.length ? `${selected.extensions.join(", ")}${selected.includeExtensions ? " + discovery" : " (explicit only)"}` : selected.includeExtensions ? "default discovery" : "disabled"}`));
-		lines.push(line(`keys: ${selected.keys?.length ? selected.keys.join(", ") : selected.isolatedEnv ? "none selected" : "default inherited environment"}${selected.missingKeys?.length ? warning(` • missing: ${selected.missingKeys.join(", ")}`) : ""}`));
-		if (selected.promptPreview) lines.push(line(`prompt preview: ${renderSafeInline(compactInline(selected.promptPreview, 220))}`));
-		if (selected.output) lines.push(line(`output: ${renderSafeInline(compactInline(selected.output, 220))}`));
+		lines.push(
+			line(
+				`state: ${renderSafeInline(selected.state)}${selectedElapsedMs === undefined ? "" : ` • ${formatElapsedMs(selectedElapsedMs)}`}${selected.code === undefined ? "" : ` • code ${selected.code}`}`,
+			),
+		);
+		if (formatAgentPhase(selected))
+			lines.push(
+				line(
+					`phase: ${formatAgentPhase(selected)}${selected.phaseLabel ? muted(` • ${selected.phaseLabel}`) : ""}`,
+				),
+			);
+		lines.push(
+			line(
+				`prompt: ${selected.promptAvailable ? success("available") : warning("not available")} ${selected.artifactPath ? muted(`• ${selected.artifactPath}`) : ""}`,
+			),
+		);
+		lines.push(
+			line(
+				`tools: ${selected.tools?.length ? selected.tools.join(", ") : "default"}${selected.excludeTools?.length ? ` • exclude: ${selected.excludeTools.join(", ")}` : ""}`,
+			),
+		);
+		lines.push(
+			line(
+				`skills: ${selected.skills?.length ? `${selected.skills.join(", ")}${selected.includeSkills ? " + discovery" : " (explicit only)"}` : selected.includeSkills === false ? "disabled" : "default discovery"}`,
+			),
+		);
+		lines.push(
+			line(
+				`extensions: ${selected.extensions?.length ? `${selected.extensions.join(", ")}${selected.includeExtensions ? " + discovery" : " (explicit only)"}` : selected.includeExtensions ? "default discovery" : "disabled"}`,
+			),
+		);
+		lines.push(
+			line(
+				`keys: ${selected.keys?.length ? selected.keys.join(", ") : selected.isolatedEnv ? "none selected" : "default inherited environment"}${selected.missingKeys?.length ? warning(` • missing: ${selected.missingKeys.join(", ")}`) : ""}`,
+			),
+		);
+		if (selected.promptPreview)
+			lines.push(
+				line(`prompt preview: ${renderSafeInline(compactInline(selected.promptPreview, 220))}`),
+			);
+		if (selected.output)
+			lines.push(line(`output: ${renderSafeInline(compactInline(selected.output, 220))}`));
 	}
 
 	private renderAgents(
@@ -2804,7 +3638,13 @@ class WorkflowDashboard {
 	): void {
 		if (this.agentEntries.length === 0) {
 			lines.push(line(warning("No workflow agents found yet.")));
-			lines.push(line(muted("Start a workflow with subagents, then return here to inspect prompts, state, artifacts, and output.")));
+			lines.push(
+				line(
+					muted(
+						"Start a workflow with subagents, then return here to inspect prompts, state, artifacts, and output.",
+					),
+				),
+			);
 			return;
 		}
 		const running = this.agentEntries.filter((entry) => entry.agent.state === "running").length;
@@ -2812,11 +3652,19 @@ class WorkflowDashboard {
 		const cached = this.agentEntries.filter((entry) => entry.agent.state === "cached").length;
 		const activeRuns = this.runs.filter((run) => getRunState(run) === "running");
 		const parallelNow = activeRuns.reduce((sum, run) => sum + getRunParallelAgents(run), 0);
-		const parallelLimit = activeRuns.reduce((sum, run) => sum + (getRunAgentConcurrency(run) ?? 0), 0);
-		const parallelText = parallelLimit > 0 ? `${parallelNow}/${parallelLimit}` : String(parallelNow);
+		const parallelLimit = activeRuns.reduce(
+			(sum, run) => sum + (getRunAgentConcurrency(run) ?? 0),
+			0,
+		);
+		const parallelText =
+			parallelLimit > 0 ? `${parallelNow}/${parallelLimit}` : String(parallelNow);
 		const start = Math.max(0, Math.min(this.agentIndex - 7, this.agentEntries.length - 14));
 		const visible = this.agentEntries.slice(start, start + 14);
-		lines.push(line(`${accent("All agents")} ${muted(`(${this.agentEntries.length})`)}${muted(windowLabel(this.agentEntries.length, start, 14))} ${accent(`parallel:${parallelText}`)} ${running ? accent(`running:${running}`) : muted("running:0")} ${failed ? error(`failed:${failed}`) : muted("failed:0")} ${cached ? muted(`cached:${cached}`) : ""}`));
+		lines.push(
+			line(
+				`${accent("All agents")} ${muted(`(${this.agentEntries.length})`)}${muted(windowLabel(this.agentEntries.length, start, 14))} ${accent(`parallel:${parallelText}`)} ${running ? accent(`running:${running}`) : muted("running:0")} ${failed ? error(`failed:${failed}`) : muted("failed:0")} ${cached ? muted(`cached:${cached}`) : ""}`,
+			),
+		);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
 			const entry = visible[i];
@@ -2824,15 +3672,37 @@ class WorkflowDashboard {
 			const prefix = selected ? accent("› ") : "  ";
 			const state = this.agentStateLabel(entry.agent, accent, muted, success, error);
 			const agentElapsedMs = getAgentElapsedMs(entry.agent);
-			const elapsed = agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
+			const elapsed =
+				agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
 			const phase = formatAgentPhase(entry.agent);
 			const prompt = entry.agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-			const schema = entry.agent.schemaOk === undefined ? "" : entry.agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
-			const tools = muted(` tools:${entry.agent.tools?.length ? entry.agent.tools.length : "default"}`);
-			const skills = muted(` skills:${entry.agent.skills?.length ? entry.agent.skills.length : entry.agent.includeSkills === false ? "off" : "default"}`);
-			const extensions = muted(` ext:${entry.agent.extensions?.length ? entry.agent.extensions.length : entry.agent.includeExtensions ? "default" : "off"}`);
-			const keys = muted(` keys:${entry.agent.keys?.length ? entry.agent.keys.length : entry.agent.isolatedEnv ? "none" : "default"}`) + (entry.agent.missingKeys?.length ? warning(` missing:${entry.agent.missingKeys.length}`) : "");
-			lines.push(line(`${prefix}${state} #${entry.agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(entry.agent.name)} ${muted(`— ${entry.run.workflow} ${entry.run.runId.slice(-12)}`)} ${muted(elapsed)} ${prompt}${schema}${tools}${skills}${extensions}${keys}`));
+			const schema =
+				entry.agent.schemaOk === undefined
+					? ""
+					: entry.agent.schemaOk
+						? muted(` schema:ok`)
+						: error(` schema:bad`);
+			const tools = muted(
+				` tools:${entry.agent.tools?.length ? entry.agent.tools.length : "default"}`,
+			);
+			const skills = muted(
+				` skills:${entry.agent.skills?.length ? entry.agent.skills.length : entry.agent.includeSkills === false ? "off" : "default"}`,
+			);
+			const extensions = muted(
+				` ext:${entry.agent.extensions?.length ? entry.agent.extensions.length : entry.agent.includeExtensions ? "default" : "off"}`,
+			);
+			const keys =
+				muted(
+					` keys:${entry.agent.keys?.length ? entry.agent.keys.length : entry.agent.isolatedEnv ? "none" : "default"}`,
+				) +
+				(entry.agent.missingKeys?.length
+					? warning(` missing:${entry.agent.missingKeys.length}`)
+					: "");
+			lines.push(
+				line(
+					`${prefix}${state} #${entry.agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(entry.agent.name)} ${muted(`— ${entry.run.workflow} ${entry.run.runId.slice(-12)}`)} ${muted(elapsed)} ${prompt}${schema}${tools}${skills}${extensions}${keys}`,
+				),
+			);
 		}
 		const selected = this.selectedAgentEntry();
 		if (!selected) return;
@@ -2843,17 +3713,54 @@ class WorkflowDashboard {
 		lines.push(line(`workflow: ${run.workflow}`));
 		lines.push(line(`run: ${run.runId}`));
 		lines.push(line(`parallel: ${formatParallelAgents(run)}`));
-		lines.push(line(`agent: #${agent.id} ${formatAgentPhase(agent) ? `${formatAgentPhase(agent)} ` : ""}${agent.name}`));
+		lines.push(
+			line(
+				`agent: #${agent.id} ${formatAgentPhase(agent) ? `${formatAgentPhase(agent)} ` : ""}${agent.name}`,
+			),
+		);
 		const agentDetailElapsedMs = getAgentElapsedMs(agent);
-		lines.push(line(`state: ${renderSafeInline(agent.state)}${agentDetailElapsedMs === undefined ? "" : ` • ${formatElapsedMs(agentDetailElapsedMs)}`}${agent.code === undefined ? "" : ` • code ${agent.code}`}${agent.schemaOk === undefined ? "" : ` • schema ${agent.schemaOk ? "ok" : "bad"}`}`));
-		if (formatAgentPhase(agent)) lines.push(line(`phase: ${formatAgentPhase(agent)}${agent.phaseLabel ? muted(` • ${agent.phaseLabel}`) : ""}`));
-		lines.push(line(`prompt: ${agent.promptAvailable ? success("available") : warning("not available")} ${agent.artifactPath ? muted(`• ${agent.artifactPath}`) : ""}`));
-		lines.push(line(`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`));
-		lines.push(line(`skills: ${agent.skills?.length ? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}` : agent.includeSkills === false ? "disabled" : "default discovery"}`));
-		lines.push(line(`extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`));
-		lines.push(line(`keys: ${agent.keys?.length ? agent.keys.join(", ") : agent.isolatedEnv ? "none selected" : "default inherited environment"}${agent.missingKeys?.length ? warning(` • missing: ${agent.missingKeys.join(", ")}`) : ""}`));
-		if (agent.promptPreview) lines.push(line(`prompt preview: ${renderSafeInline(compactInline(agent.promptPreview, 260))}`));
-		if (agent.output) lines.push(line(`output: ${renderSafeInline(compactInline(agent.output, 260))}`));
+		lines.push(
+			line(
+				`state: ${renderSafeInline(agent.state)}${agentDetailElapsedMs === undefined ? "" : ` • ${formatElapsedMs(agentDetailElapsedMs)}`}${agent.code === undefined ? "" : ` • code ${agent.code}`}${agent.schemaOk === undefined ? "" : ` • schema ${agent.schemaOk ? "ok" : "bad"}`}`,
+			),
+		);
+		if (formatAgentPhase(agent))
+			lines.push(
+				line(
+					`phase: ${formatAgentPhase(agent)}${agent.phaseLabel ? muted(` • ${agent.phaseLabel}`) : ""}`,
+				),
+			);
+		lines.push(
+			line(
+				`prompt: ${agent.promptAvailable ? success("available") : warning("not available")} ${agent.artifactPath ? muted(`• ${agent.artifactPath}`) : ""}`,
+			),
+		);
+		lines.push(
+			line(
+				`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`,
+			),
+		);
+		lines.push(
+			line(
+				`skills: ${agent.skills?.length ? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}` : agent.includeSkills === false ? "disabled" : "default discovery"}`,
+			),
+		);
+		lines.push(
+			line(
+				`extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`,
+			),
+		);
+		lines.push(
+			line(
+				`keys: ${agent.keys?.length ? agent.keys.join(", ") : agent.isolatedEnv ? "none selected" : "default inherited environment"}${agent.missingKeys?.length ? warning(` • missing: ${agent.missingKeys.join(", ")}`) : ""}`,
+			),
+		);
+		if (agent.promptPreview)
+			lines.push(
+				line(`prompt preview: ${renderSafeInline(compactInline(agent.promptPreview, 260))}`),
+			);
+		if (agent.output)
+			lines.push(line(`output: ${renderSafeInline(compactInline(agent.output, 260))}`));
 		const actions = ["Enter/o opens output+prompt", "v run", "g graph"];
 		if (canCancelRun(run)) actions.push("c/x cancel active");
 		if (canRerunRun(run)) actions.push("r rerun (confirm)");
@@ -2871,12 +3778,22 @@ class WorkflowDashboard {
 	): void {
 		if (this.piSessions.length === 0) {
 			lines.push(line(warning("No live Pi TUI/RPC sessions found.")));
-			lines.push(line(muted("Persistent Pi sessions appear here after this extension starts and writes a heartbeat.")));
+			lines.push(
+				line(
+					muted(
+						"Persistent Pi sessions appear here after this extension starts and writes a heartbeat.",
+					),
+				),
+			);
 			return;
 		}
 		const live = this.piSessions.filter((session) => session.live).length;
 		const stale = this.piSessions.length - live;
-		lines.push(line(`${accent("Pi sessions")} ${muted(`(${this.piSessions.length})`)} ${live ? success(`live:${live}`) : muted("live:0")} ${stale ? warning(`stale:${stale}`) : muted("stale:0")} ${muted(`heartbeat:${formatElapsedMs(PI_SESSION_HEARTBEAT_MS)}`)}`));
+		lines.push(
+			line(
+				`${accent("Pi sessions")} ${muted(`(${this.piSessions.length})`)} ${live ? success(`live:${live}`) : muted("live:0")} ${stale ? warning(`stale:${stale}`) : muted("stale:0")} ${muted(`heartbeat:${formatElapsedMs(PI_SESSION_HEARTBEAT_MS)}`)}`,
+			),
+		);
 		const start = Math.max(0, Math.min(this.sessionIndex - 6, this.piSessions.length - 12));
 		const visible = this.piSessions.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
@@ -2888,19 +3805,43 @@ class WorkflowDashboard {
 			const current = session.current ? accent(" this") : "";
 			const name = session.sessionName ? ` ${renderSafeInline(session.sessionName)}` : "";
 			const idle = session.idle === undefined ? "" : muted(` idle:${session.idle ? "yes" : "no"}`);
-			const workflows = session.activeWorkflowRuns ? accent(` workflows:${session.activeWorkflowRuns}`) : muted(" workflows:0");
-			const age = Number.isFinite(session.ageMs) ? `${formatElapsedMs(session.ageMs)} ago` : "unknown";
-			lines.push(line(`${prefix}${state} ${session.mode} pid:${session.pid}${current}${name} ${muted(`updated:${age}`)}${idle}${workflows}`));
+			const workflows = session.activeWorkflowRuns
+				? accent(` workflows:${session.activeWorkflowRuns}`)
+				: muted(" workflows:0");
+			const age = Number.isFinite(session.ageMs)
+				? `${formatElapsedMs(session.ageMs)} ago`
+				: "unknown";
+			lines.push(
+				line(
+					`${prefix}${state} ${session.mode} pid:${session.pid}${current}${name} ${muted(`updated:${age}`)}${idle}${workflows}`,
+				),
+			);
 		}
 		const selected = this.piSessions[this.sessionIndex];
 		if (!selected) return;
 		lines.push(line(muted("")));
 		lines.push(line(accent("Selected Pi session")));
-		lines.push(line(`status: ${selected.live ? success("live") : warning(`stale${selected.staleReason ? ` • ${selected.staleReason}` : ""}`)}${selected.current ? accent(" • this process") : ""}`));
-		lines.push(line(`mode: ${selected.mode} • pid: ${selected.pid} • idle: ${selected.idle === undefined ? "unknown" : selected.idle ? "yes" : "no"}`));
-		lines.push(line(`session: ${selected.sessionName ? `${selected.sessionName} • ` : ""}${selected.sessionId ?? "unknown"}`));
+		lines.push(
+			line(
+				`status: ${selected.live ? success("live") : warning(`stale${selected.staleReason ? ` • ${selected.staleReason}` : ""}`)}${selected.current ? accent(" • this process") : ""}`,
+			),
+		);
+		lines.push(
+			line(
+				`mode: ${selected.mode} • pid: ${selected.pid} • idle: ${selected.idle === undefined ? "unknown" : selected.idle ? "yes" : "no"}`,
+			),
+		);
+		lines.push(
+			line(
+				`session: ${selected.sessionName ? `${selected.sessionName} • ` : ""}${selected.sessionId ?? "unknown"}`,
+			),
+		);
 		lines.push(line(`started: ${selected.startedAt} • updated: ${selected.updatedAt}`));
-		lines.push(line(`workflows: ${selected.activeWorkflowRuns ?? 0} active • trusted: ${selected.trusted === undefined ? "unknown" : selected.trusted ? "yes" : "no"}`));
+		lines.push(
+			line(
+				`workflows: ${selected.activeWorkflowRuns ?? 0} active • trusted: ${selected.trusted === undefined ? "unknown" : selected.trusted ? "yes" : "no"}`,
+			),
+		);
 		lines.push(line(`cwd: ${selected.cwd}`));
 		lines.push(line(`session file: ${selected.sessionFile ?? "(in-memory or unavailable)"}`));
 		lines.push(line(`registry: ${selected.file}`));
@@ -2910,7 +3851,13 @@ class WorkflowDashboard {
 				? "Enter switches this Pi to the selected session file."
 				: "Enter unavailable: no session file recorded.";
 		lines.push(line(muted(action)));
-		lines.push(line(muted(`Heartbeat records are removed on clean shutdown; stale rows usually mean the Pi process died without cleanup.`)));
+		lines.push(
+			line(
+				muted(
+					`Heartbeat records are removed on clean shutdown; stale rows usually mean the Pi process died without cleanup.`,
+				),
+			),
+		);
 	}
 
 	private renderWorkflows(
@@ -2922,7 +3869,9 @@ class WorkflowDashboard {
 	): void {
 		if (this.workflows.length === 0) {
 			lines.push(line(warning("No workflows found.")));
-			lines.push(line(muted("Create one with /workflow new <name> or dynamic_workflow action=write.")));
+			lines.push(
+				line(muted("Create one with /workflow new <name> or dynamic_workflow action=write.")),
+			);
 			return;
 		}
 		const start = Math.max(0, Math.min(this.workflowIndex - 6, this.workflows.length - 12));
@@ -2933,7 +3882,11 @@ class WorkflowDashboard {
 			const selected = index === this.workflowIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const scope = workflow.scope === "project" ? accent("project") : muted("global");
-			lines.push(line(`${prefix}${workflow.name} ${muted("(")}${scope}${muted(")")} ${muted(workflow.relativePath)}`));
+			lines.push(
+				line(
+					`${prefix}${workflow.name} ${muted("(")}${scope}${muted(")")} ${muted(workflow.relativePath)}`,
+				),
+			);
 		}
 		const selected = this.workflows[this.workflowIndex];
 		if (selected) {
@@ -2942,7 +3895,13 @@ class WorkflowDashboard {
 			lines.push(line(`name: ${selected.name}`));
 			lines.push(line(`scope: ${selected.scope}`));
 			lines.push(line(`path: ${selected.path}`));
-			lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file")));
+			lines.push(
+				line(
+					muted(
+						"Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file",
+					),
+				),
+			);
 		}
 	}
 
@@ -2957,15 +3916,26 @@ class WorkflowDashboard {
 			lines.push(line(warning("No workflow patterns registered.")));
 			return;
 		}
-		lines.push(line(`${accent("Pattern catalog")} ${muted(`(${WORKFLOW_PATTERN_CATALOG.length})`)} ${muted("• choose a scaffold, then edit before saving")}`));
-		const start = Math.max(0, Math.min(this.patternIndex - 6, WORKFLOW_PATTERN_CATALOG.length - 12));
+		lines.push(
+			line(
+				`${accent("Pattern catalog")} ${muted(`(${WORKFLOW_PATTERN_CATALOG.length})`)} ${muted("• choose a scaffold, then edit before saving")}`,
+			),
+		);
+		const start = Math.max(
+			0,
+			Math.min(this.patternIndex - 6, WORKFLOW_PATTERN_CATALOG.length - 12),
+		);
 		const visible = WORKFLOW_PATTERN_CATALOG.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
 			const pattern = visible[i];
 			const selected = index === this.patternIndex;
 			const prefix = selected ? accent("› ") : "  ";
-			lines.push(line(`${prefix}${pattern.key} ${muted("—")} ${pattern.title} ${muted(`(${pattern.primitives.join(" + ")})`)}`));
+			lines.push(
+				line(
+					`${prefix}${pattern.key} ${muted("—")} ${pattern.title} ${muted(`(${pattern.primitives.join(" + ")})`)}`,
+				),
+			);
 		}
 		const selected = WORKFLOW_PATTERN_CATALOG[this.patternIndex];
 		if (!selected) return;
@@ -2983,7 +3953,13 @@ class WorkflowDashboard {
 		lines.push(line(`input: ${selected.inputHint}`));
 		lines.push(line(`primitives: ${selected.primitives.join(", ")}`));
 		lines.push(line(`draft name: ${selected.defaultName}`));
-		lines.push(line(muted("Enter/n creates a project workflow draft from this pattern; you can edit before save.")));
+		lines.push(
+			line(
+				muted(
+					"Enter/n creates a project workflow draft from this pattern; you can edit before save.",
+				),
+			),
+		);
 	}
 
 	private renderRuns(
@@ -3000,20 +3976,35 @@ class WorkflowDashboard {
 		}
 		const start = Math.max(0, Math.min(this.runIndex - 6, this.runs.length - 12));
 		const visible = this.runs.slice(start, start + 12);
-		lines.push(line(`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`));
+		lines.push(
+			line(
+				`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`,
+			),
+		);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
 			const run = visible[i];
 			const selected = index === this.runIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const state = getRunState(run);
-			const status = state === "completed" ? success("✓") : state === "running" ? accent("▶") : state === "stale" ? muted("?") : error(state === "cancelled" ? "■" : "✗");
+			const status =
+				state === "completed"
+					? success("✓")
+					: state === "running"
+						? accent("▶")
+						: state === "stale"
+							? muted("?")
+							: error(state === "cancelled" ? "■" : "✗");
 			const bg = run.background ? " bg" : "";
 			const resumable = isResumableState(state) ? muted(" resumable") : "";
 			const cached = getRunCachedCalls(run) > 0 ? muted(` cached:${getRunCachedCalls(run)}`) : "";
 			const parallelCompact = formatParallelAgentsCompact(run);
 			const parallel = parallelCompact === "-" ? "" : muted(` parallel:${parallelCompact}`);
-			lines.push(line(`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${formatElapsedMs(getRunElapsedMs(run, state))} agents:${run.agentCount}${parallel}${resumable}${cached}`));
+			lines.push(
+				line(
+					`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${formatElapsedMs(getRunElapsedMs(run, state))} agents:${run.agentCount}${parallel}${resumable}${cached}`,
+				),
+			);
 		}
 		const selected = this.runs[this.runIndex];
 		if (selected) {
@@ -3023,8 +4014,16 @@ class WorkflowDashboard {
 			lines.push(line(`run: ${selected.runId}`));
 			lines.push(line(`parallel: ${formatParallelAgents(selected)}`));
 			lines.push(line(`dir: ${selected.runDir}`));
-			if (selected.error) lines.push(line(`${accent("error")}: ${error(renderSafeInline(compactInline(selected.error, 200)))}`));
-			for (const logEntry of getRunLogs(selected).slice(-5)) lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${renderSafeInline(logEntry.message)}`));
+			if (selected.error)
+				lines.push(
+					line(
+						`${accent("error")}: ${error(renderSafeInline(compactInline(selected.error, 200)))}`,
+					),
+				);
+			for (const logEntry of getRunLogs(selected).slice(-5))
+				lines.push(
+					line(`${muted(logEntry.time.slice(11, 19))} ${renderSafeInline(logEntry.message)}`),
+				);
 			const selectedState = getRunState(selected);
 			const actions = ["Enter/v view", "g graph"];
 			if (canCancelRun(selected)) actions.push("c/x cancel active");
@@ -3051,7 +4050,11 @@ class WorkflowDashboard {
 		} else {
 			for (const run of active.slice(0, 5)) {
 				const lastLog = getRunLogs(run).slice(-1)[0];
-				lines.push(line(`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${formatElapsedMs(getRunElapsedMs(run))} agents:${run.agentCount} parallel:${formatParallelAgentsCompact(run)}${lastLog ? muted(` — ${renderSafeInline(lastLog.message)}`) : ""}`));
+				lines.push(
+					line(
+						`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${formatElapsedMs(getRunElapsedMs(run))} agents:${run.agentCount} parallel:${formatParallelAgentsCompact(run)}${lastLog ? muted(` — ${renderSafeInline(lastLog.message)}`) : ""}`,
+					),
+				);
 			}
 		}
 
@@ -3068,9 +4071,23 @@ class WorkflowDashboard {
 			const entry = visible[i];
 			const selected = index === this.activityIndex;
 			const prefix = selected ? accent("› ") : "  ";
-			const status = entry.state === "completed" ? success("✓") : entry.state === "running" ? accent("▶") : entry.state === "stale" ? muted("?") : error(entry.state === "cancelled" ? "■" : "✗");
-			const details = entry.details === undefined ? "" : muted(` — ${renderSafeInline(compactInline(entry.details, 120))}`);
-			lines.push(line(`${prefix}${muted(entry.time.slice(11, 19))} ${status} ${entry.workflow} ${muted(entry.runId.slice(-12))} ${renderSafeInline(entry.message)}${details}`));
+			const status =
+				entry.state === "completed"
+					? success("✓")
+					: entry.state === "running"
+						? accent("▶")
+						: entry.state === "stale"
+							? muted("?")
+							: error(entry.state === "cancelled" ? "■" : "✗");
+			const details =
+				entry.details === undefined
+					? ""
+					: muted(` — ${renderSafeInline(compactInline(entry.details, 120))}`);
+			lines.push(
+				line(
+					`${prefix}${muted(entry.time.slice(11, 19))} ${status} ${entry.workflow} ${muted(entry.runId.slice(-12))} ${renderSafeInline(entry.message)}${details}`,
+				),
+			);
 		}
 		const selected = this.activity[this.activityIndex];
 		if (selected) {
@@ -3104,13 +4121,22 @@ async function runWorkflowWithUi(
 		setWorkflowWidget(ctx, workflow.name, []);
 	}
 	try {
-		const result = await runWorkflow(pi, ctx, workflow, input, limits, signal, (logs, status) => {
-			onProgress?.(logs, status);
-			if (ctx.hasUI) {
-				setWorkflowRunningStatus(ctx, workflow.name, logs, status);
-				setWorkflowWidget(ctx, workflow.name, logs, status);
-			}
-		}, prepared);
+		const result = await runWorkflow(
+			pi,
+			ctx,
+			workflow,
+			input,
+			limits,
+			signal,
+			(logs, status) => {
+				onProgress?.(logs, status);
+				if (ctx.hasUI) {
+					setWorkflowRunningStatus(ctx, workflow.name, logs, status);
+					setWorkflowWidget(ctx, workflow.name, logs, status);
+				}
+			},
+			prepared,
+		);
 		setWorkflowFinishedStatus(ctx, result);
 		return result;
 	} catch (err) {
@@ -3121,7 +4147,12 @@ async function runWorkflowWithUi(
 	}
 }
 
-async function runWorkflowFromUi(pi: ExtensionAPI, ctx: ExtensionContext, workflow: WorkflowFile, input: unknown): Promise<WorkflowRunRecord> {
+async function runWorkflowFromUi(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	workflow: WorkflowFile,
+	input: unknown,
+): Promise<WorkflowRunRecord> {
 	const limits = buildLimits(limitParamsFromInput(input));
 	if (shouldLaunchWorkflowInBackground(ctx)) {
 		const status = await startWorkflowBackground(pi, ctx, workflow, input, limits);
@@ -3133,18 +4164,29 @@ async function runWorkflowFromUi(pi: ExtensionAPI, ctx: ExtensionContext, workfl
 	return result;
 }
 
-async function resolveWorkflowForRun(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<WorkflowFile | undefined> {
+async function resolveWorkflowForRun(
+	ctx: ExtensionContext,
+	run: WorkflowRunRecord,
+): Promise<WorkflowFile | undefined> {
 	try {
 		return await resolveWorkflow(ctx, run.workflow, run.scope);
 	} catch {
 		if (run.file && existsSync(run.file)) {
-			return { name: run.workflow, scope: run.scope, path: run.file, relativePath: path.basename(run.file) };
+			return {
+				name: run.workflow,
+				scope: run.scope,
+				path: run.file,
+				relativePath: path.basename(run.file),
+			};
 		}
 		return undefined;
 	}
 }
 
-async function loadRerunInput(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<{ input: unknown; source: string } | undefined> {
+async function loadRerunInput(
+	ctx: ExtensionContext,
+	run: WorkflowRunRecord,
+): Promise<{ input: unknown; source: string } | undefined> {
 	const inputPath = path.join(run.runDir, "input.json");
 	let textValue: string;
 	let source = inputPath;
@@ -3182,10 +4224,16 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		private getBorderLabel: () => string | undefined = () => undefined,
 	) {
 		const customBase = base as { actionHandlers?: unknown };
-		this.actionHandlers = customBase.actionHandlers instanceof Map ? customBase.actionHandlers as Map<string, () => void> : new Map<string, () => void>();
+		this.actionHandlers =
+			customBase.actionHandlers instanceof Map
+				? (customBase.actionHandlers as Map<string, () => void>)
+				: new Map<string, () => void>();
 	}
 
-	setWorkflowDashboardOpen(openDashboard: DashboardOpener, openAgentsDashboard: DashboardOpener = openDashboard): void {
+	setWorkflowDashboardOpen(
+		openDashboard: DashboardOpener,
+		openAgentsDashboard: DashboardOpener = openDashboard,
+	): void {
 		this.openDashboard = openDashboard;
 		this.openAgentsDashboard = openAgentsDashboard;
 	}
@@ -3259,11 +4307,13 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	}
 
 	get onExtensionShortcut(): ((data: string) => boolean | void) | undefined {
-		return (this.base as { onExtensionShortcut?: (data: string) => boolean | void }).onExtensionShortcut;
+		return (this.base as { onExtensionShortcut?: (data: string) => boolean | void })
+			.onExtensionShortcut;
 	}
 
 	set onExtensionShortcut(handler: ((data: string) => boolean | void) | undefined) {
-		(this.base as { onExtensionShortcut?: (data: string) => boolean | void }).onExtensionShortcut = handler;
+		(this.base as { onExtensionShortcut?: (data: string) => boolean | void }).onExtensionShortcut =
+			handler;
 	}
 
 	render(width: number): string[] {
@@ -3284,7 +4334,8 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		const leftDashes = width - visibleWidth(text) - rightDashes;
 		if (leftDashes < 2) return lines;
 		const decorated = [...lines];
-		decorated[0] = colored("─".repeat(leftDashes)) + colored(text) + colored("─".repeat(rightDashes));
+		decorated[0] =
+			colored("─".repeat(leftDashes)) + colored(text) + colored("─".repeat(rightDashes));
 		return decorated;
 	}
 
@@ -3312,7 +4363,9 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		return this.base.getExpandedText?.() ?? this.base.getText();
 	}
 
-	setAutocompleteProvider(provider: Parameters<NonNullable<EditorComponent["setAutocompleteProvider"]>>[0]): void {
+	setAutocompleteProvider(
+		provider: Parameters<NonNullable<EditorComponent["setAutocompleteProvider"]>>[0],
+	): void {
 		this.base.setAutocompleteProvider?.(provider);
 	}
 
@@ -3390,19 +4443,38 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	}
 }
 
-function sameEditorCursor(a: { line: number; col: number }, b: { line: number; col: number }): boolean {
+function sameEditorCursor(
+	a: { line: number; col: number },
+	b: { line: number; col: number },
+): boolean {
 	return a.line === b.line && a.col === b.col;
 }
 
-function installWorkflowDashboardDownEditor(pi: ExtensionAPI, ctx: ExtensionContext, getBorderLabel: () => string | undefined = () => undefined): void {
+function installWorkflowDashboardDownEditor(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	getBorderLabel: () => string | undefined = () => undefined,
+): void {
 	if (ctx.mode !== "tui") return;
 	const previous = ctx.ui.getEditorComponent?.();
 	ctx.ui.setEditorComponent((tui, theme, keybindings) => {
-		const openMonitor = async (submitCommand?: DashboardCommandSubmitter) => await openWorkflowDashboard(pi, ctx, "monitor", { submitCommand });
-		const openAgents = async (submitCommand?: DashboardCommandSubmitter) => await openWorkflowDashboard(pi, ctx, "agents", { submitCommand });
+		const openMonitor = async (submitCommand?: DashboardCommandSubmitter) =>
+			await openWorkflowDashboard(pi, ctx, "monitor", { submitCommand });
+		const openAgents = async (submitCommand?: DashboardCommandSubmitter) =>
+			await openWorkflowDashboard(pi, ctx, "agents", { submitCommand });
 		const base = previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
-		const existing = base as EditorComponent & { [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER]?: boolean; setWorkflowDashboardOpen?: (openDashboard: DashboardOpener, openAgentsDashboard?: DashboardOpener) => void; setBorderLabelProvider?: (getBorderLabel: () => string | undefined) => void };
-		if (existing[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] && typeof existing.setWorkflowDashboardOpen === "function") {
+		const existing = base as EditorComponent & {
+			[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER]?: boolean;
+			setWorkflowDashboardOpen?: (
+				openDashboard: DashboardOpener,
+				openAgentsDashboard?: DashboardOpener,
+			) => void;
+			setBorderLabelProvider?: (getBorderLabel: () => string | undefined) => void;
+		};
+		if (
+			existing[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] &&
+			typeof existing.setWorkflowDashboardOpen === "function"
+		) {
 			existing.setWorkflowDashboardOpen(openMonitor, openAgents);
 			existing.setBorderLabelProvider?.(getBorderLabel);
 			return existing;
@@ -3411,7 +4483,10 @@ function installWorkflowDashboardDownEditor(pi: ExtensionAPI, ctx: ExtensionCont
 	});
 }
 
-async function createWorkflowDraftFromPattern(ctx: ExtensionContext, pattern: WorkflowPattern): Promise<WorkflowFile | undefined> {
+async function createWorkflowDraftFromPattern(
+	ctx: ExtensionContext,
+	pattern: WorkflowPattern,
+): Promise<WorkflowFile | undefined> {
 	const nameText = await ctx.ui.editor("Workflow name", pattern.defaultName);
 	const name = nameText?.trim();
 	if (!name) return undefined;
@@ -3420,7 +4495,10 @@ async function createWorkflowDraftFromPattern(ctx: ExtensionContext, pattern: Wo
 	if (edited === undefined) return undefined;
 	const workflow = await resolveWorkflow(ctx, name, "project", "draft");
 	if (existsSync(workflow.path)) {
-		const ok = await ctx.ui.confirm("Overwrite existing workflow?", `${workflow.name}\n${workflow.path}`);
+		const ok = await ctx.ui.confirm(
+			"Overwrite existing workflow?",
+			`${workflow.name}\n${workflow.path}`,
+		);
 		if (!ok) return undefined;
 	}
 	await ensureDir(path.dirname(workflow.path));
@@ -3435,7 +4513,11 @@ interface WorkflowDashboardOpenOptions {
 type SwitchableSessionContext = ExtensionContext & {
 	switchSession?: (
 		sessionPath: string,
-		options?: { withSession?: (ctx: { ui: { notify?: (message: string, kind?: "info" | "warning" | "error") => void } }) => Promise<void> | void },
+		options?: {
+			withSession?: (ctx: {
+				ui: { notify?: (message: string, kind?: "info" | "warning" | "error") => void };
+			}) => Promise<void> | void;
+		},
 	) => Promise<{ cancelled: boolean }>;
 };
 
@@ -3457,7 +4539,11 @@ function parseWorkflowCommandArgument(value: string): string | undefined {
 	return trimmed;
 }
 
-async function switchToPiSession(ctx: ExtensionContext, session: PiSessionModel, options: WorkflowDashboardOpenOptions = {}): Promise<void> {
+async function switchToPiSession(
+	ctx: ExtensionContext,
+	session: PiSessionModel,
+	options: WorkflowDashboardOpenOptions = {},
+): Promise<void> {
 	const sessionFile = session.sessionFile;
 	if (!sessionFile) {
 		notify(ctx, "Cannot switch: selected Pi session did not record a session file.", "warning");
@@ -3471,10 +4557,16 @@ async function switchToPiSession(ctx: ExtensionContext, session: PiSessionModel,
 	const switchSession = (ctx as SwitchableSessionContext).switchSession;
 	if (typeof switchSession !== "function") {
 		if (options.submitCommand) {
-			options.submitCommand(`/workflow switch-session ${quoteWorkflowCommandArgument(sessionFile)}`);
+			options.submitCommand(
+				`/workflow switch-session ${quoteWorkflowCommandArgument(sessionFile)}`,
+			);
 			return;
 		}
-		notify(ctx, "Cannot switch from this dashboard context. Open it from the prompt with /workflow sessions.", "warning");
+		notify(
+			ctx,
+			"Cannot switch from this dashboard context. Open it from the prompt with /workflow sessions.",
+			"warning",
+		);
 		return;
 	}
 	if (!existsSync(sessionFile)) {
@@ -3482,8 +4574,14 @@ async function switchToPiSession(ctx: ExtensionContext, session: PiSessionModel,
 		return;
 	}
 	const label = session.sessionName || session.sessionId || path.basename(sessionFile);
-	const activeWarning = activeRuns.size > 0 ? `\n\nWarning: ${activeRuns.size} active workflow run(s) in this Pi will be cancelled by the session switch.` : "";
-	const pidLine = session.pid > 0 ? `\nPID: ${session.pid}${session.live ? " (live)" : session.staleReason ? ` (${session.staleReason})` : ""}` : "";
+	const activeWarning =
+		activeRuns.size > 0
+			? `\n\nWarning: ${activeRuns.size} active workflow run(s) in this Pi will be cancelled by the session switch.`
+			: "";
+	const pidLine =
+		session.pid > 0
+			? `\nPID: ${session.pid}${session.live ? " (live)" : session.staleReason ? ` (${session.staleReason})` : ""}`
+			: "";
 	const ok = await ctx.ui.confirm(
 		"Switch Pi session?",
 		`Target: ${label}\nFile: ${sessionFile}${pidLine}\n\nThis replaces the current conversation view. If another Pi process is still using this file, both processes may append to the same session.${activeWarning}`,
@@ -3497,9 +4595,18 @@ async function switchToPiSession(ctx: ExtensionContext, session: PiSessionModel,
 	if (result.cancelled) notify(ctx, "Session switch cancelled.", "warning");
 }
 
-async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext, initialTab: WorkflowDashboardTab = "monitor", options: WorkflowDashboardOpenOptions = {}): Promise<void> {
+async function openWorkflowDashboard(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	initialTab: WorkflowDashboardTab = "monitor",
+	options: WorkflowDashboardOpenOptions = {},
+): Promise<void> {
 	if (ctx.mode !== "tui") {
-		notify(ctx, "Workflow dashboard requires TUI mode. Use /workflow list, /workflow graph, /workflow runs, or /workflow view.", "warning");
+		notify(
+			ctx,
+			"Workflow dashboard requires TUI mode. Use /workflow list, /workflow graph, /workflow runs, or /workflow view.",
+			"warning",
+		);
 		return;
 	}
 	let currentTab = initialTab;
@@ -3510,39 +4617,64 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext, in
 	for (;;) {
 		const workflows = await listWorkflows(ctx);
 		const runs = await listRuns(ctx);
-		const [activity, piSessions, monitorModels, agentEntries] = await Promise.all([collectWorkflowActivity(runs), collectPiSessions(ctx), deriveWorkflowMonitorModels(runs), collectWorkflowAgents(runs)]);
+		const [activity, piSessions, monitorModels, agentEntries] = await Promise.all([
+			collectWorkflowActivity(runs),
+			collectPiSessions(ctx),
+			deriveWorkflowMonitorModels(runs),
+			collectWorkflowAgents(runs),
+		]);
 		let refreshTimer: NodeJS.Timeout | undefined;
 		let refreshing = false;
 		let dashboard: WorkflowDashboard | undefined;
 		let choice: WorkflowDashboardResult | null = null;
 		try {
-			choice = await ctx.ui.custom<WorkflowDashboardResult | null>((tui, theme, _keybindings, done) => {
-				dashboard = new WorkflowDashboard(workflows, runs, activity, piSessions, monitorModels, agentEntries, theme, () => tui.requestRender(), done, currentTab, restore);
-				const refresh = async () => {
-					if (refreshing || !dashboard) return;
-					refreshing = true;
-					try {
-						const nextRuns = await listRuns(ctx);
-						const [nextActivity, nextPiSessions, nextMonitorModels, nextAgentEntries] = await Promise.all([collectWorkflowActivity(nextRuns), collectPiSessions(ctx), deriveWorkflowMonitorModels(nextRuns), collectWorkflowAgents(nextRuns)]);
-						dashboard.setRuns(nextRuns);
-						dashboard.setActivity(nextActivity);
-						dashboard.setPiSessions(nextPiSessions);
-						dashboard.setMonitorModels(nextMonitorModels);
-						dashboard.setAgentEntries(nextAgentEntries);
-						dashboard.markRefreshOk();
-						tui.requestRender();
-					} catch (err) {
-						// Never let a transient listRuns/read failure become an unhandled
-						// rejection that freezes the dashboard with stale data and no signal.
-						dashboard?.markRefreshError(err instanceof Error ? err.message : String(err));
-						tui.requestRender();
-					} finally {
-						refreshing = false;
-					}
-				};
-				refreshTimer = setInterval(() => void refresh(), 1500);
-				return dashboard;
-			});
+			choice = await ctx.ui.custom<WorkflowDashboardResult | null>(
+				(tui, theme, _keybindings, done) => {
+					dashboard = new WorkflowDashboard(
+						workflows,
+						runs,
+						activity,
+						piSessions,
+						monitorModels,
+						agentEntries,
+						theme,
+						() => tui.requestRender(),
+						done,
+						currentTab,
+						restore,
+					);
+					const refresh = async () => {
+						if (refreshing || !dashboard) return;
+						refreshing = true;
+						try {
+							const nextRuns = await listRuns(ctx);
+							const [nextActivity, nextPiSessions, nextMonitorModels, nextAgentEntries] =
+								await Promise.all([
+									collectWorkflowActivity(nextRuns),
+									collectPiSessions(ctx),
+									deriveWorkflowMonitorModels(nextRuns),
+									collectWorkflowAgents(nextRuns),
+								]);
+							dashboard.setRuns(nextRuns);
+							dashboard.setActivity(nextActivity);
+							dashboard.setPiSessions(nextPiSessions);
+							dashboard.setMonitorModels(nextMonitorModels);
+							dashboard.setAgentEntries(nextAgentEntries);
+							dashboard.markRefreshOk();
+							tui.requestRender();
+						} catch (err) {
+							// Never let a transient listRuns/read failure become an unhandled
+							// rejection that freezes the dashboard with stale data and no signal.
+							dashboard?.markRefreshError(err instanceof Error ? err.message : String(err));
+							tui.requestRender();
+						} finally {
+							refreshing = false;
+						}
+					};
+					refreshTimer = setInterval(() => void refresh(), 1500);
+					return dashboard;
+				},
+			);
 		} finally {
 			if (refreshTimer) clearInterval(refreshTimer);
 		}
@@ -3555,7 +4687,12 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext, in
 	}
 }
 
-async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, choice: WorkflowDashboardResult, options: WorkflowDashboardOpenOptions): Promise<"reopen" | "close"> {
+async function handleDashboardChoice(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	choice: WorkflowDashboardResult,
+	options: WorkflowDashboardOpenOptions,
+): Promise<"reopen" | "close"> {
 	if (choice.type === "switchSession" && choice.session) {
 		await switchToPiSession(ctx, choice.session, options);
 		return "close";
@@ -3563,12 +4700,17 @@ async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, ch
 	if (choice.type === "newPattern" && choice.pattern) {
 		const workflow = await createWorkflowDraftFromPattern(ctx, choice.pattern);
 		if (workflow) {
-			notify(ctx, `Wrote ${workflow.path}\nRun it with /workflow start ${workflow.name} ${choice.pattern.inputHint}`, "info");
+			notify(
+				ctx,
+				`Wrote ${workflow.path}\nRun it with /workflow start ${workflow.name} ${choice.pattern.inputHint}`,
+				"info",
+			);
 		}
 		return "close";
 	}
 	if (choice.type === "graph") {
-		const workflow = choice.workflow ?? (choice.run ? await resolveWorkflowForRun(ctx, choice.run) : undefined);
+		const workflow =
+			choice.workflow ?? (choice.run ? await resolveWorkflowForRun(ctx, choice.run) : undefined);
 		if (!workflow) {
 			notify(ctx, "Cannot open graph: workflow file not found.", "warning");
 			return "reopen";
@@ -3586,7 +4728,10 @@ async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, ch
 		return "reopen";
 	}
 	if (choice.type === "cancel" && choice.run) {
-		const ok = await ctx.ui.confirm("Cancel workflow run?", `Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\n\nThis aborts the active background run. Artifacts already written remain on disk.`);
+		const ok = await ctx.ui.confirm(
+			"Cancel workflow run?",
+			`Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\n\nThis aborts the active background run. Artifacts already written remain on disk.`,
+		);
 		if (ok) {
 			const message = await cancelWorkflowRun(ctx, choice.run.runId);
 			notify(ctx, message, "warning");
@@ -3595,7 +4740,11 @@ async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, ch
 	}
 	if (choice.type === "deleteRun" && choice.run) {
 		if (canCancelRun(choice.run)) {
-			notify(ctx, `Run is still active; cancel it before deleting artifacts: ${choice.run.runId}`, "warning");
+			notify(
+				ctx,
+				`Run is still active; cancel it before deleting artifacts: ${choice.run.runId}`,
+				"warning",
+			);
 			return "reopen";
 		}
 		const ok = await ctx.ui.confirm(
@@ -3609,7 +4758,10 @@ async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, ch
 		return "reopen";
 	}
 	if (choice.type === "deleteWorkflow" && choice.workflow) {
-		const activeForWorkflow = [...activeRuns.values()].filter((run) => run.workflow.path === choice.workflow!.path || run.workflow.name === choice.workflow!.name);
+		const activeForWorkflow = [...activeRuns.values()].filter(
+			(run) =>
+				run.workflow.path === choice.workflow!.path || run.workflow.name === choice.workflow!.name,
+		);
 		const ok = await ctx.ui.confirm(
 			"Delete workflow?",
 			`Workflow: ${choice.workflow.name}\nScope: ${choice.workflow.scope}\nPath: ${choice.workflow.path}\n\nThis deletes only the workflow file, not previous run artifacts.${activeForWorkflow.length ? `\n\nWarning: ${activeForWorkflow.length} active run(s) from this workflow will keep running unless cancelled.` : ""}`,
@@ -3622,7 +4774,11 @@ async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, ch
 	}
 	if (choice.type === "rerun" && choice.run) {
 		if (canCancelRun(choice.run)) {
-			notify(ctx, `Run is still active; cancel or wait before rerunning: ${choice.run.runId}`, "warning");
+			notify(
+				ctx,
+				`Run is still active; cancel or wait before rerunning: ${choice.run.runId}`,
+				"warning",
+			);
 			return "reopen";
 		}
 		const workflow = await resolveWorkflowForRun(ctx, choice.run);
@@ -3644,7 +4800,10 @@ async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, ch
 		const inputText = await ctx.ui.editor("Workflow input JSON", "{}");
 		if (inputText !== undefined) {
 			const input = parseCliJsonOrText(inputText, { strictJson: true });
-			const ok = await ctx.ui.confirm("Run workflow?", `Workflow: ${choice.workflow.name}\n\n${stringify(input, 1200)}`);
+			const ok = await ctx.ui.confirm(
+				"Run workflow?",
+				`Workflow: ${choice.workflow.name}\n\n${stringify(input, 1200)}`,
+			);
 			if (ok) await runWorkflowFromUi(pi, ctx, choice.workflow, input);
 		}
 		return "reopen";
@@ -3721,7 +4880,9 @@ async function runWorkflow(
 			active: statusState === "running" && activeRuns.has(runId),
 			startedAt: new Date(started).toISOString(),
 			updatedAt: new Date(now).toISOString(),
-			...(statusState !== "running" && statusState !== "stale" ? { endedAt: new Date(now).toISOString() } : {}),
+			...(statusState !== "running" && statusState !== "stale"
+				? { endedAt: new Date(now).toISOString() }
+				: {}),
 			elapsedMs: now - started,
 			agentCount,
 			agentConcurrency: runLimits.concurrency,
@@ -3749,7 +4910,11 @@ async function runWorkflow(
 	}
 
 	async function log(message: string, details?: unknown): Promise<void> {
-		const entry: WorkflowLogEntry = { time: new Date().toISOString(), message, ...(details === undefined ? {} : { details }) };
+		const entry: WorkflowLogEntry = {
+			time: new Date().toISOString(),
+			message,
+			...(details === undefined ? {} : { details }),
+		};
 		logs.push(entry);
 		await appendEvent({ type: "log", ...entry });
 		await publishStatus();
@@ -3759,13 +4924,17 @@ async function runWorkflow(
 		throwIfAborted(runSignal.signal);
 		const file = resolveArtifactPath(runDir, name);
 		await ensureDir(path.dirname(file));
-		const body = typeof data === "string" || data instanceof Uint8Array ? data : `${safeJson(data)}\n`;
+		const body =
+			typeof data === "string" || data instanceof Uint8Array ? data : `${safeJson(data)}\n`;
 		await fs.writeFile(file, body);
 		await appendEvent({ type: "artifact", path: file });
 		return { path: file };
 	}
 
-	async function appendArtifact(name: string, data: string | Uint8Array): Promise<{ path: string }> {
+	async function appendArtifact(
+		name: string,
+		data: string | Uint8Array,
+	): Promise<{ path: string }> {
 		throwIfAborted(runSignal.signal);
 		const file = resolveArtifactPath(runDir, name);
 		await ensureDir(path.dirname(file));
@@ -3774,12 +4943,18 @@ async function runWorkflow(
 		return { path: file };
 	}
 
-	async function runSubagent(prompt: string, options: InternalAgentOptions = {}): Promise<SubagentResult> {
+	async function runSubagent(
+		prompt: string,
+		options: InternalAgentOptions = {},
+	): Promise<SubagentResult> {
 		throwIfAborted(runSignal.signal);
-		let effectiveOptions = await applyPersonaOptions(ctx, options) as InternalAgentOptions;
+		let effectiveOptions = (await applyPersonaOptions(ctx, options)) as InternalAgentOptions;
 		effectiveOptions = await applyDefaultAgentAccess(ctx, effectiveOptions);
 		if (effectiveOptions.schema !== undefined) {
-			effectiveOptions = appendSystemPromptOption(effectiveOptions, makeStructuredOutputSystemPrompt(effectiveOptions.schema));
+			effectiveOptions = appendSystemPromptOption(
+				effectiveOptions,
+				makeStructuredOutputSystemPrompt(effectiveOptions.schema),
+			);
 		}
 		const phase = effectiveOptions.__workflowPhase;
 		const envAccess = normalizeAgentEnvAccess(effectiveOptions);
@@ -3794,21 +4969,60 @@ async function runWorkflow(
 			const hit = journalLookup(key, occ) as SubagentResult | undefined;
 			if (hit && "artifactPath" in hit) {
 				cachedCalls++;
-				const cachedPhase = phase ?? (hit.phaseIndex && hit.phaseTotal ? { id: hit.phaseId ?? 0, index: hit.phaseIndex, total: hit.phaseTotal, ...(hit.phaseLabel ? { label: hit.phaseLabel } : {}) } : undefined);
+				const cachedPhase =
+					phase ??
+					(hit.phaseIndex && hit.phaseTotal
+						? {
+								id: hit.phaseId ?? 0,
+								index: hit.phaseIndex,
+								total: hit.phaseTotal,
+								...(hit.phaseLabel ? { label: hit.phaseLabel } : {}),
+							}
+						: undefined);
 				const cachedHit: SubagentResult = {
 					...hit,
-					...(hit.tools?.length || !effectiveOptions.tools?.length ? {} : { tools: effectiveOptions.tools }),
-					...(hit.excludeTools?.length || !effectiveOptions.excludeTools?.length ? {} : { excludeTools: effectiveOptions.excludeTools }),
-					...(hit.skills?.length || !effectiveOptions.skills?.length ? {} : { skills: effectiveOptions.skills }),
+					...(hit.tools?.length || !effectiveOptions.tools?.length
+						? {}
+						: { tools: effectiveOptions.tools }),
+					...(hit.excludeTools?.length || !effectiveOptions.excludeTools?.length
+						? {}
+						: { excludeTools: effectiveOptions.excludeTools }),
+					...(hit.skills?.length || !effectiveOptions.skills?.length
+						? {}
+						: { skills: effectiveOptions.skills }),
 					includeSkills: hit.includeSkills ?? effectiveOptions.includeSkills,
-					...(hit.extensions?.length || !effectiveOptions.extensions?.length ? {} : { extensions: effectiveOptions.extensions }),
+					...(hit.extensions?.length || !effectiveOptions.extensions?.length
+						? {}
+						: { extensions: effectiveOptions.extensions }),
 					includeExtensions: hit.includeExtensions ?? effectiveOptions.includeExtensions,
 					...(hit.keys?.length || !envAccess.keyNames.length ? {} : { keys: envAccess.keyNames }),
-					...(hit.missingKeys?.length || !envAccess.missingKeys.length ? {} : { missingKeys: envAccess.missingKeys }),
+					...(hit.missingKeys?.length || !envAccess.missingKeys.length
+						? {}
+						: { missingKeys: envAccess.missingKeys }),
 					isolatedEnv: hit.isolatedEnv ?? envAccess.isolatedEnv,
 				};
-				await appendEvent({ type: "agent", ...cachedHit, ...phaseEventFields(cachedPhase), state: "cached", promptAvailable: !!cachedHit.artifactPath, stdout: undefined, stderr: undefined, prompt: undefined });
-				await log(`agent cached: ${cachedHit.name}`, { key: key.slice(0, 12), occ, artifactPath: cachedHit.artifactPath, tools: cachedHit.tools, skills: cachedHit.skills, extensions: cachedHit.extensions, keys: cachedHit.keys, missingKeys: cachedHit.missingKeys, isolatedEnv: cachedHit.isolatedEnv, ...phaseEventFields(cachedPhase) });
+				await appendEvent({
+					type: "agent",
+					...cachedHit,
+					...phaseEventFields(cachedPhase),
+					state: "cached",
+					promptAvailable: !!cachedHit.artifactPath,
+					stdout: undefined,
+					stderr: undefined,
+					prompt: undefined,
+				});
+				await log(`agent cached: ${cachedHit.name}`, {
+					key: key.slice(0, 12),
+					occ,
+					artifactPath: cachedHit.artifactPath,
+					tools: cachedHit.tools,
+					skills: cachedHit.skills,
+					extensions: cachedHit.extensions,
+					keys: cachedHit.keys,
+					missingKeys: cachedHit.missingKeys,
+					isolatedEnv: cachedHit.isolatedEnv,
+					...phaseEventFields(cachedPhase),
+				});
 				return cachedHit;
 			}
 		}
@@ -3821,13 +5035,19 @@ async function runWorkflow(
 		const startedAtIso = new Date(startedAt).toISOString();
 		const artifactName = `agents/${String(id).padStart(4, "0")}-${slugify(name)}.md`;
 		const phaseFields = phaseEventFields(phase);
-		const phaseLine = phase?.total ? `\n- phase: P${phase.id} ${phase.index}/${phase.total}${phase.label ? ` (${phase.label})` : ""}` : "";
+		const phaseLine = phase?.total
+			? `\n- phase: P${phase.id} ${phase.index}/${phase.total}${phase.label ? ` (${phase.label})` : ""}`
+			: "";
 		const preliminaryArtifact = await writeArtifact(
 			artifactName,
 			`# ${name}\n\n- state: running\n- startedAt: ${startedAtIso}${phaseLine}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}\n`,
 		);
-		const liveStdoutArtifactName = artifactName.endsWith(".md") ? artifactName.slice(0, -3) + ".stdout.log" : `${artifactName}.stdout.log`;
-		const liveStderrArtifactName = artifactName.endsWith(".md") ? artifactName.slice(0, -3) + ".stderr.log" : `${artifactName}.stderr.log`;
+		const liveStdoutArtifactName = artifactName.endsWith(".md")
+			? artifactName.slice(0, -3) + ".stdout.log"
+			: `${artifactName}.stdout.log`;
+		const liveStderrArtifactName = artifactName.endsWith(".md")
+			? artifactName.slice(0, -3) + ".stderr.log"
+			: `${artifactName}.stderr.log`;
 		const liveStdoutArtifact = await writeArtifact(liveStdoutArtifactName, "");
 		const liveStderrArtifact = await writeArtifact(liveStderrArtifactName, "");
 		let liveWriteTail: Promise<unknown> = Promise.resolve();
@@ -3844,16 +5064,35 @@ async function runWorkflow(
 			promptAvailable: true,
 			...phaseFields,
 			...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
-			...(effectiveOptions.excludeTools?.length ? { excludeTools: effectiveOptions.excludeTools } : {}),
+			...(effectiveOptions.excludeTools?.length
+				? { excludeTools: effectiveOptions.excludeTools }
+				: {}),
 			...(effectiveOptions.skills?.length ? { skills: effectiveOptions.skills } : {}),
-			...(effectiveOptions.includeSkills !== undefined ? { includeSkills: effectiveOptions.includeSkills } : {}),
+			...(effectiveOptions.includeSkills !== undefined
+				? { includeSkills: effectiveOptions.includeSkills }
+				: {}),
 			...(effectiveOptions.extensions?.length ? { extensions: effectiveOptions.extensions } : {}),
-			...(effectiveOptions.includeExtensions !== undefined ? { includeExtensions: effectiveOptions.includeExtensions } : {}),
+			...(effectiveOptions.includeExtensions !== undefined
+				? { includeExtensions: effectiveOptions.includeExtensions }
+				: {}),
 			...(envAccess.keyNames.length ? { keys: envAccess.keyNames } : {}),
 			...(envAccess.missingKeys.length ? { missingKeys: envAccess.missingKeys } : {}),
 			isolatedEnv: envAccess.isolatedEnv,
 		});
-		await log(`agent ${id} start: ${name}`, { artifactPath: preliminaryArtifact.path, liveStdoutPath: liveStdoutArtifact.path, liveStderrPath: liveStderrArtifact.path, tools: effectiveOptions.tools, skills: effectiveOptions.skills, includeSkills: effectiveOptions.includeSkills, extensions: effectiveOptions.extensions, includeExtensions: effectiveOptions.includeExtensions, keys: envAccess.keyNames, missingKeys: envAccess.missingKeys, isolatedEnv: envAccess.isolatedEnv, ...phaseFields });
+		await log(`agent ${id} start: ${name}`, {
+			artifactPath: preliminaryArtifact.path,
+			liveStdoutPath: liveStdoutArtifact.path,
+			liveStderrPath: liveStderrArtifact.path,
+			tools: effectiveOptions.tools,
+			skills: effectiveOptions.skills,
+			includeSkills: effectiveOptions.includeSkills,
+			extensions: effectiveOptions.extensions,
+			includeExtensions: effectiveOptions.includeExtensions,
+			keys: envAccess.keyNames,
+			missingKeys: envAccess.missingKeys,
+			isolatedEnv: envAccess.isolatedEnv,
+			...phaseFields,
+		});
 
 		function buildAgentArgs(attemptPrompt: string): string[] {
 			const args = ["-p", "--no-session", "--mode", "json"];
@@ -3861,20 +5100,28 @@ async function runWorkflow(
 			if (effectiveOptions.includeExtensions !== true) args.push("--no-extensions");
 			for (const extensionPath of explicitExtensions) args.push("--extension", extensionPath);
 			const explicitSkills = effectiveOptions.skills ?? [];
-			if (effectiveOptions.includeSkills === false || (explicitSkills.length > 0 && effectiveOptions.includeSkills !== true)) args.push("--no-skills");
+			if (
+				effectiveOptions.includeSkills === false ||
+				(explicitSkills.length > 0 && effectiveOptions.includeSkills !== true)
+			)
+				args.push("--no-skills");
 			for (const skillPath of explicitSkills) args.push("--skill", skillPath);
 			if (effectiveOptions.approve ?? ctx.isProjectTrusted()) args.push("--approve");
 			else args.push("--no-approve");
 			if (effectiveOptions.useContextFiles === false) args.push("--no-context-files");
 			if (effectiveOptions.provider) args.push("--provider", effectiveOptions.provider);
-			const model = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
+			const model =
+				effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
 			if (model) args.push("--model", model);
 			const thinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
 			if (thinking) args.push("--thinking", String(thinking));
 			if (effectiveOptions.tools?.length) args.push("--tools", effectiveOptions.tools.join(","));
-			if (effectiveOptions.excludeTools?.length) args.push("--exclude-tools", effectiveOptions.excludeTools.join(","));
-			if (effectiveOptions.systemPrompt) args.push("--system-prompt", effectiveOptions.systemPrompt);
-			if (effectiveOptions.appendSystemPrompt) args.push("--append-system-prompt", effectiveOptions.appendSystemPrompt);
+			if (effectiveOptions.excludeTools?.length)
+				args.push("--exclude-tools", effectiveOptions.excludeTools.join(","));
+			if (effectiveOptions.systemPrompt)
+				args.push("--system-prompt", effectiveOptions.systemPrompt);
+			if (effectiveOptions.appendSystemPrompt)
+				args.push("--append-system-prompt", effectiveOptions.appendSystemPrompt);
 			args.push(attemptPrompt);
 			return args;
 		}
@@ -3887,7 +5134,8 @@ async function runWorkflow(
 			return { command: envWrapper.path, args: [piCommand, ...agentArgs] };
 		}
 		const schema = effectiveOptions.schema;
-		const schemaRetries = schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
+		const schemaRetries =
+			schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
 		const schemaOnInvalid = effectiveOptions.schemaOnInvalid ?? "throw";
 		let result: { code: number; killed: boolean; stdout: string; stderr: string } | undefined;
 		let output = "";
@@ -3897,7 +5145,10 @@ async function runWorkflow(
 
 		for (let attempt = 0; attempt <= schemaRetries; attempt++) {
 			const attemptPrompt = attempt === 0 ? prompt : formatSchemaRetryPrompt(prompt, schemaError);
-			if (attempt > 0) await log(`agent ${id} schema retry ${attempt}/${schemaRetries}: ${name}`, { error: schemaError });
+			if (attempt > 0)
+				await log(`agent ${id} schema retry ${attempt}/${schemaRetries}: ${name}`, {
+					error: schemaError,
+				});
 			const release = await agentSemaphore.acquire();
 			parallelAgents++;
 			peakParallelAgents = Math.max(peakParallelAgents, parallelAgents);
@@ -3905,7 +5156,9 @@ async function runWorkflow(
 			let attemptWrapper: { path: string; dir: string } | undefined;
 			try {
 				await publishStatus();
-				attemptWrapper = envAccess.useEnvCommand ? await createAgentEnvWrapper(envAccess) : undefined;
+				attemptWrapper = envAccess.useEnvCommand
+					? await createAgentEnvWrapper(envAccess)
+					: undefined;
 				envWrapper = attemptWrapper;
 				const processSpec = buildAgentProcess(attemptPrompt);
 				result = await runStreamingAgentProcess(processSpec.command, processSpec.args, {
@@ -3918,7 +5171,8 @@ async function runWorkflow(
 				await liveWriteTail;
 			} finally {
 				envWrapper = undefined;
-				if (attemptWrapper) await fs.rm(attemptWrapper.dir, { recursive: true, force: true }).catch(() => {});
+				if (attemptWrapper)
+					await fs.rm(attemptWrapper.dir, { recursive: true, force: true }).catch(() => {});
 				if (countedParallelSlot) {
 					countedParallelSlot = false;
 					parallelAgents = Math.max(0, parallelAgents - 1);
@@ -3928,15 +5182,23 @@ async function runWorkflow(
 			}
 			throwIfAborted(runSignal.signal);
 			const parsedStrictOutput = parsePiJsonModeOutput(result.stdout);
-			const parsedOutput = parsedStrictOutput.ok ? parsedStrictOutput : parsePiJsonModeOutputLenient(result.stdout);
+			const parsedOutput = parsedStrictOutput.ok
+				? parsedStrictOutput
+				: parsePiJsonModeOutputLenient(result.stdout);
 			if (!parsedStrictOutput.ok) {
-				await log(`agent ${id} json output ${parsedOutput.ok ? "recovered" : "fallback"}: ${name}`, {
-					warning: parsedStrictOutput.warning,
-					...(parsedOutput.ok ? {} : { lenientWarning: parsedOutput.warning }),
-					attempt: attempt + 1,
-				});
+				await log(
+					`agent ${id} json output ${parsedOutput.ok ? "recovered" : "fallback"}: ${name}`,
+					{
+						warning: parsedStrictOutput.warning,
+						...(parsedOutput.ok ? {} : { lenientWarning: parsedOutput.warning }),
+						attempt: attempt + 1,
+					},
+				);
 			}
-			output = truncate(parsedOutput.ok ? parsedOutput.output : result.stdout.trim() || result.stderr.trim(), MAX_AGENT_OUTPUT_IN_RESULT);
+			output = truncate(
+				parsedOutput.ok ? parsedOutput.output : result.stdout.trim() || result.stderr.trim(),
+				MAX_AGENT_OUTPUT_IN_RESULT,
+			);
 			if (schema === undefined) break;
 			const extracted = extractJsonCandidate(output);
 			if (!extracted.ok) {
@@ -3956,7 +5218,8 @@ async function runWorkflow(
 
 		if (!result) throw new Error(`Agent did not produce a result: ${name}`);
 		if (schema !== undefined && schemaOk !== true && schemaOnInvalid === "null") schemaData = null;
-		const schemaShouldThrow = schema !== undefined && schemaOk !== true && schemaOnInvalid !== "null";
+		const schemaShouldThrow =
+			schema !== undefined && schemaOk !== true && schemaOnInvalid !== "null";
 		const endedAtIso = new Date().toISOString();
 		const elapsedMs = Date.now() - startedAt;
 		const artifact = await writeArtifact(
@@ -3976,11 +5239,17 @@ async function runWorkflow(
 			stderr: result.stderr,
 			artifactPath: artifact.path,
 			...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
-			...(effectiveOptions.excludeTools?.length ? { excludeTools: effectiveOptions.excludeTools } : {}),
+			...(effectiveOptions.excludeTools?.length
+				? { excludeTools: effectiveOptions.excludeTools }
+				: {}),
 			...(effectiveOptions.skills?.length ? { skills: effectiveOptions.skills } : {}),
-			...(effectiveOptions.includeSkills !== undefined ? { includeSkills: effectiveOptions.includeSkills } : {}),
+			...(effectiveOptions.includeSkills !== undefined
+				? { includeSkills: effectiveOptions.includeSkills }
+				: {}),
 			...(effectiveOptions.extensions?.length ? { extensions: effectiveOptions.extensions } : {}),
-			...(effectiveOptions.includeExtensions !== undefined ? { includeExtensions: effectiveOptions.includeExtensions } : {}),
+			...(effectiveOptions.includeExtensions !== undefined
+				? { includeExtensions: effectiveOptions.includeExtensions }
+				: {}),
 			...(envAccess.keyNames.length ? { keys: envAccess.keyNames } : {}),
 			...(envAccess.missingKeys.length ? { missingKeys: envAccess.missingKeys } : {}),
 			isolatedEnv: envAccess.isolatedEnv,
@@ -4010,8 +5279,22 @@ async function runWorkflow(
 				result: subagent,
 			});
 		}
-		await log(`agent ${id} end: ${name}`, { ok: subagent.ok, code: subagent.code, elapsedMs, tools: subagent.tools, skills: subagent.skills, extensions: subagent.extensions, keys: subagent.keys, missingKeys: subagent.missingKeys, ...phaseFields, ...(schema === undefined ? {} : { schemaOk: subagent.schemaOk }) });
-		if (schemaShouldThrow) throw new Error(`Agent ${name} did not produce valid structured output: ${schemaError || "schema validation failed"}`);
+		await log(`agent ${id} end: ${name}`, {
+			ok: subagent.ok,
+			code: subagent.code,
+			elapsedMs,
+			tools: subagent.tools,
+			skills: subagent.skills,
+			extensions: subagent.extensions,
+			keys: subagent.keys,
+			missingKeys: subagent.missingKeys,
+			...phaseFields,
+			...(schema === undefined ? {} : { schemaOk: subagent.schemaOk }),
+		});
+		if (schemaShouldThrow)
+			throw new Error(
+				`Agent ${name} did not produce valid structured output: ${schemaError || "schema validation failed"}`,
+			);
 		return subagent;
 	}
 
@@ -4021,7 +5304,17 @@ async function runWorkflow(
 	// agents() spreads a spec (which carries prompt) into options, so excluding
 	// it keeps the key dependent on the prompt exactly once.
 	function sanitizeAgentOpts(options: AgentOptions): Record<string, unknown> {
-		const { name: _name, timeoutMs: _timeoutMs, cache: _cache, concurrency: _concurrency, settle: _settle, agentType: _agentType, __workflowPhase: _workflowPhase, env, ...rest } = options as InternalAgentOptions & {
+		const {
+			name: _name,
+			timeoutMs: _timeoutMs,
+			cache: _cache,
+			concurrency: _concurrency,
+			settle: _settle,
+			agentType: _agentType,
+			__workflowPhase: _workflowPhase,
+			env,
+			...rest
+		} = options as InternalAgentOptions & {
 			prompt?: string;
 			concurrency?: number;
 			settle?: boolean;
@@ -4030,21 +5323,49 @@ async function runWorkflow(
 		return { ...rest, ...(env ? { env: sanitizeEnvForCache(env) } : {}) };
 	}
 
-	const agent = (prompt: string, options: InternalAgentOptions = {}) => trackSubagent(runSubagent(prompt, options));
+	const agent = (prompt: string, options: InternalAgentOptions = {}) =>
+		trackSubagent(runSubagent(prompt, options));
 
-	function makeRunAgents(agentRunner: (prompt: string, options?: InternalAgentOptions) => Promise<SubagentResult>): WorkflowRuntimeApi["agents"] {
-		async function runAgents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle?: boolean } = {}): Promise<Array<SubagentResult | null>> {
-			const concurrency = Math.min(Math.max(Math.floor(options.concurrency ?? runLimits.concurrency), 1), runLimits.concurrency);
+	function makeRunAgents(
+		agentRunner: (prompt: string, options?: InternalAgentOptions) => Promise<SubagentResult>,
+	): WorkflowRuntimeApi["agents"] {
+		async function runAgents(
+			items: Array<string | AgentSpec>,
+			options: AgentOptions & { concurrency?: number; settle?: boolean } = {},
+		): Promise<Array<SubagentResult | null>> {
+			const concurrency = Math.min(
+				Math.max(Math.floor(options.concurrency ?? runLimits.concurrency), 1),
+				runLimits.concurrency,
+			);
 			const { concurrency: _concurrency, settle = false, ...sharedOptions } = options;
 			const phaseId = items.length > 0 ? ++agentPhaseCount : 0;
-			const phaseLabel = typeof sharedOptions.name === "string" && sharedOptions.name.trim() ? sharedOptions.name.trim() : `agents-${phaseId}`;
+			const phaseLabel =
+				typeof sharedOptions.name === "string" && sharedOptions.name.trim()
+					? sharedOptions.name.trim()
+					: `agents-${phaseId}`;
 			const runItem = async (item: string | AgentSpec, index: number): Promise<SubagentResult> => {
-				const __workflowPhase: AgentPhaseInfo = { id: phaseId, index: index + 1, total: items.length, label: phaseLabel };
-				if (typeof item === "string") return await agentRunner(item, { ...sharedOptions, __workflowPhase, name: sharedOptions.name ?? `agent-${index + 1}` });
+				const __workflowPhase: AgentPhaseInfo = {
+					id: phaseId,
+					index: index + 1,
+					total: items.length,
+					label: phaseLabel,
+				};
+				if (typeof item === "string")
+					return await agentRunner(item, {
+						...sharedOptions,
+						__workflowPhase,
+						name: sharedOptions.name ?? `agent-${index + 1}`,
+					});
 				const { prompt: itemPrompt, ...itemOptions } = item;
-				return await agentRunner(itemPrompt, { ...sharedOptions, ...itemOptions, __workflowPhase, name: item.name ?? `agent-${index + 1}` });
+				return await agentRunner(itemPrompt, {
+					...sharedOptions,
+					...itemOptions,
+					__workflowPhase,
+					name: item.name ?? `agent-${index + 1}`,
+				});
 			};
-			if (settle) return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
+			if (settle)
+				return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
 			return await mapLimit(items, concurrency, runSignal.signal, runItem);
 		}
 		return runAgents as WorkflowRuntimeApi["agents"];
@@ -4055,13 +5376,25 @@ async function runWorkflow(
 		// bash caching is opt-in: bash(cmd, { cache: true }). occ assigned
 		// synchronously before any await for deterministic ordering.
 		const cacheEnabled = options.cache === true;
-		const key = computeCallKey("bash", [command, { cwd: options.cwd ?? ctx.cwd, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) }]);
+		const key = computeCallKey("bash", [
+			command,
+			{
+				cwd: options.cwd ?? ctx.cwd,
+				...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
+			},
+		]);
 		const occ = nextOcc(key);
 		if (cacheEnabled) {
 			const hit = journalLookup(key, occ);
 			if (hit && !("artifactPath" in hit)) {
 				cachedCalls++;
-				await log(`bash cached: ${command.slice(0, 80)}`, { key: key.slice(0, 12), occ, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) });
+				await log(`bash cached: ${command.slice(0, 80)}`, {
+					key: key.slice(0, 12),
+					occ,
+					...(options.__workflowNamespace
+						? { workflowNamespace: options.__workflowNamespace }
+						: {}),
+				});
 				if (options.throwOnError && !hit.ok) {
 					throw new Error(`Command failed (${hit.code}): ${command}\n${hit.stderr || hit.stdout}`);
 				}
@@ -4069,7 +5402,10 @@ async function runWorkflow(
 			}
 		}
 		const startedAt = Date.now();
-		await log(`bash start: ${command.slice(0, 120)}`, options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : undefined);
+		await log(
+			`bash start: ${command.slice(0, 120)}`,
+			options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : undefined,
+		);
 		const result = await pi.exec("bash", ["-lc", command], {
 			cwd: options.cwd ?? ctx.cwd,
 			timeout: options.timeoutMs ?? runLimits.agentTimeoutMs,
@@ -4085,7 +5421,12 @@ async function runWorkflow(
 			stderr: result.stderr,
 		};
 		const bashResult = cacheEnabled ? normalizeBashResultForJournal(rawBashResult) : rawBashResult;
-		await appendEvent({ type: "bash", command, ...bashResult, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) });
+		await appendEvent({
+			type: "bash",
+			command,
+			...bashResult,
+			...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
+		});
 		if (cacheEnabled) {
 			await appendJournalRecord(runDir, {
 				v: JOURNAL_VERSION,
@@ -4097,9 +5438,15 @@ async function runWorkflow(
 				result: bashResult,
 			});
 		}
-		await log(`bash end: ${command.slice(0, 120)}`, { ok: bashResult.ok, code: bashResult.code, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) });
+		await log(`bash end: ${command.slice(0, 120)}`, {
+			ok: bashResult.ok,
+			code: bashResult.code,
+			...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
+		});
 		if (options.throwOnError && !bashResult.ok) {
-			throw new Error(`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`);
+			throw new Error(
+				`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`,
+			);
 		}
 		return bashResult;
 	}
@@ -4108,30 +5455,82 @@ async function runWorkflow(
 		throwIfAborted(runSignal.signal);
 		const subWorkflow = await resolveWorkflow(ctx, name, "auto");
 		if (path.resolve(subWorkflow.path) === path.resolve(workflowFile.path)) {
-			throw new Error(`ctx.workflow() refused recursive call to ${subWorkflow.name}. Sub-workflows are depth-1 and may not call their parent.`);
+			throw new Error(
+				`ctx.workflow() refused recursive call to ${subWorkflow.name}. Sub-workflows are depth-1 and may not call their parent.`,
+			);
 		}
 		const subCode = await fs.readFile(subWorkflow.path, "utf8");
 		const subCodeHash = computeCodeHash(subCode);
 		const workflowCallKey = computeCallKey("workflow", [subWorkflow.name, workflowInput]);
 		const workflowOcc = nextOcc(workflowCallKey);
 		const namespace = `workflow:${subWorkflow.name}:${subCodeHash.slice(0, 12)}:${workflowOcc}`;
-		await appendEvent({ type: "workflow", phase: "start", name: subWorkflow.name, file: subWorkflow.path, namespace, occ: workflowOcc });
-		await log(`sub-workflow start: ${subWorkflow.name}`, { file: subWorkflow.path, namespace, occ: workflowOcc, remainingAgents: Math.max(0, runLimits.maxAgents - agentCount) });
+		await appendEvent({
+			type: "workflow",
+			phase: "start",
+			name: subWorkflow.name,
+			file: subWorkflow.path,
+			namespace,
+			occ: workflowOcc,
+		});
+		await log(`sub-workflow start: ${subWorkflow.name}`, {
+			file: subWorkflow.path,
+			namespace,
+			occ: workflowOcc,
+			remainingAgents: Math.max(0, runLimits.maxAgents - agentCount),
+		});
 		try {
-			const result = await executeWorkflowCode(subWorkflow, subCode, makeApi(namespace, false, workflowInput), workflowInput, runLimits, runSignal.signal);
-			await appendEvent({ type: "workflow", phase: "end", name: subWorkflow.name, namespace, occ: workflowOcc, ok: true });
-			await log(`sub-workflow end: ${subWorkflow.name}`, { namespace, occ: workflowOcc, remainingAgents: Math.max(0, runLimits.maxAgents - agentCount) });
+			const result = await executeWorkflowCode(
+				subWorkflow,
+				subCode,
+				makeApi(namespace, false, workflowInput),
+				workflowInput,
+				runLimits,
+				runSignal.signal,
+			);
+			await appendEvent({
+				type: "workflow",
+				phase: "end",
+				name: subWorkflow.name,
+				namespace,
+				occ: workflowOcc,
+				ok: true,
+			});
+			await log(`sub-workflow end: ${subWorkflow.name}`, {
+				namespace,
+				occ: workflowOcc,
+				remainingAgents: Math.max(0, runLimits.maxAgents - agentCount),
+			});
 			return result;
 		} catch (err) {
 			const message = err instanceof Error ? err.stack || err.message : String(err);
-			await appendEvent({ type: "workflow", phase: "error", name: subWorkflow.name, namespace, occ: workflowOcc, ok: false, error: message });
-			await log(`sub-workflow failed: ${subWorkflow.name}`, { namespace, occ: workflowOcc, error: message });
+			await appendEvent({
+				type: "workflow",
+				phase: "error",
+				name: subWorkflow.name,
+				namespace,
+				occ: workflowOcc,
+				ok: false,
+				error: message,
+			});
+			await log(`sub-workflow failed: ${subWorkflow.name}`, {
+				namespace,
+				occ: workflowOcc,
+				error: message,
+			});
 			throw err;
 		}
 	}
 
-	function makeApi(workflowNamespace: string | undefined, allowWorkflow: boolean, apiInput: unknown): WorkflowRuntimeApi {
-		const namespacedAgent = (prompt: string, options: InternalAgentOptions = {}) => agent(prompt, { ...options, ...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}) });
+	function makeApi(
+		workflowNamespace: string | undefined,
+		allowWorkflow: boolean,
+		apiInput: unknown,
+	): WorkflowRuntimeApi {
+		const namespacedAgent = (prompt: string, options: InternalAgentOptions = {}) =>
+			agent(prompt, {
+				...options,
+				...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
+			});
 		return {
 			cwd: ctx.cwd,
 			runId,
@@ -4141,11 +5540,20 @@ async function runWorkflow(
 			log,
 			agent: namespacedAgent,
 			agents: makeRunAgents(namespacedAgent),
-			workflow: allowWorkflow ? runSubworkflow : async () => {
-				throw new Error("ctx.workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.");
-			},
-			bash: async (command, options = {}) => await runBash(command, { ...options, ...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}) }),
-			readFile: async (filePath, encoding = "utf8") => await fs.readFile(resolveCwdPath(ctx.cwd, filePath), encoding),
+			workflow: allowWorkflow
+				? runSubworkflow
+				: async () => {
+						throw new Error(
+							"ctx.workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.",
+						);
+					},
+			bash: async (command, options = {}) =>
+				await runBash(command, {
+					...options,
+					...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
+				}),
+			readFile: async (filePath, encoding = "utf8") =>
+				await fs.readFile(resolveCwdPath(ctx.cwd, filePath), encoding),
 			writeFile: async (filePath, data) => {
 				const file = resolveCwdPath(ctx.cwd, filePath);
 				await ensureDir(path.dirname(file));
@@ -4168,7 +5576,8 @@ async function runWorkflow(
 						if (entry.name === "node_modules" || entry.name === ".git") continue;
 						const full = path.join(current, entry.name);
 						if (entry.isDirectory()) await walk(full);
-						else if (entry.isFile()) files.push(path.relative(ctx.cwd, full).replaceAll(path.sep, "/"));
+						else if (entry.isFile())
+							files.push(path.relative(ctx.cwd, full).replaceAll(path.sep, "/"));
 						if (files.length >= maxFiles) return;
 					}
 				}
@@ -4194,7 +5603,11 @@ async function runWorkflow(
 		const code = await fs.readFile(workflowFile.path, "utf8");
 		if (!codeHash) codeHash = computeCodeHash(code);
 		await persistStatus();
-		await log(`workflow start: ${workflowFile.name}`, { file: workflowFile.path, runDir, ...(resumedFrom ? { resumedFrom } : {}) });
+		await log(`workflow start: ${workflowFile.name}`, {
+			file: workflowFile.path,
+			runDir,
+			...(resumedFrom ? { resumedFrom } : {}),
+		});
 		output = await executeWorkflowCode(workflowFile, code, api, input, runLimits, runSignal.signal);
 		state = "completed";
 		await log(`workflow end: ${workflowFile.name}`);
@@ -4211,7 +5624,8 @@ async function runWorkflow(
 	}
 
 	const ended = Date.now();
-	const resultState: Exclude<WorkflowRunState, "running" | "stale"> = state === "completed" || state === "cancelled" ? state : "failed";
+	const resultState: Exclude<WorkflowRunState, "running" | "stale"> =
+		state === "completed" || state === "cancelled" ? state : "failed";
 	const result: WorkflowRunResult = {
 		workflow: workflowFile.name,
 		scope: workflowFile.scope,
@@ -4237,12 +5651,21 @@ async function runWorkflow(
 		...(resumedFrom ? { resumedFrom } : {}),
 	};
 	await writeJsonFile(path.join(runDir, "result.json"), result);
-	await writeRunStatus({ ...makeStatus(resultState, ended), ...(output === undefined ? {} : { output }), ...(error === undefined ? {} : { error }) });
+	await writeRunStatus({
+		...makeStatus(resultState, ended),
+		...(output === undefined ? {} : { output }),
+		...(error === undefined ? {} : { error }),
+	});
 	await fs.writeFile(path.join(runDir, "summary.md"), formatRunSummary(result), "utf8");
 	return result;
 }
 
-function initialRunStatus(workflow: WorkflowFile, prepared: PreparedWorkflowRun, active: boolean, limits?: RunLimits): WorkflowRunStatus {
+function initialRunStatus(
+	workflow: WorkflowFile,
+	prepared: PreparedWorkflowRun,
+	active: boolean,
+	limits?: RunLimits,
+): WorkflowRunStatus {
 	const now = Date.now();
 	return {
 		workflow: workflow.name,
@@ -4257,7 +5680,14 @@ function initialRunStatus(workflow: WorkflowFile, prepared: PreparedWorkflowRun,
 		updatedAt: new Date(now).toISOString(),
 		elapsedMs: now - prepared.started,
 		agentCount: 0,
-		...(limits ? { agentConcurrency: limits.concurrency, maxAgents: limits.maxAgents, parallelAgents: 0, peakParallelAgents: prepared.resume?.previousPeakParallelAgents ?? 0 } : {}),
+		...(limits
+			? {
+					agentConcurrency: limits.concurrency,
+					maxAgents: limits.maxAgents,
+					parallelAgents: 0,
+					peakParallelAgents: prepared.resume?.previousPeakParallelAgents ?? 0,
+				}
+			: {}),
 		logs: [],
 	};
 }
@@ -4286,7 +5716,11 @@ Artifacts: ${result.runDir}
 Please inspect the run with dynamic_workflow action=view name=${result.runId}, read relevant artifacts if needed, and continue the user's task. If the workflow failed, went stale, or produced risks, explain that clearly and propose the next action.`;
 }
 
-function wakeAgentForWorkflowResult(pi: ExtensionAPI, ctx: ExtensionContext, result: WorkflowRunResult): void {
+function wakeAgentForWorkflowResult(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	result: WorkflowRunResult,
+): void {
 	if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
 	if (getRunState(result) === "cancelled") return;
 	const prompt = makeWorkflowWakePrompt(result);
@@ -4314,22 +5748,44 @@ async function startWorkflowBackground(
 	preparedRun?: PreparedWorkflowRun,
 ): Promise<WorkflowRunStatus> {
 	if (!canLaunchWorkflowInBackground(ctx)) {
-		throw new Error("Background workflow runs require a persistent TUI/RPC session. In print/json mode, action=run falls back to foreground because there is no live session to keep a background run alive.");
+		throw new Error(
+			"Background workflow runs require a persistent TUI/RPC session. In print/json mode, action=run falls back to foreground because there is no live session to keep a background run alive.",
+		);
 	}
 	// For resume, preparedRun reuses the existing runDir/runId in place.
 	const prepared = preparedRun ?? (await prepareWorkflowRun(ctx, workflow.name, true));
 	const controller = new AbortController();
-	const active: ActiveWorkflowRun = { runId: prepared.runId, runDir: prepared.runDir, started: prepared.started, workflow, controller };
+	const active: ActiveWorkflowRun = {
+		runId: prepared.runId,
+		runDir: prepared.runDir,
+		started: prepared.started,
+		workflow,
+		controller,
+	};
 	activeRuns.set(prepared.runId, active);
 	const status = initialRunStatus(workflow, prepared, true, limits);
 	await writeRunStatus(status);
 	refreshActiveWorkflowStatus(ctx);
 
-	const promise = runWorkflow(pi, ctx, workflow, input, limits, controller.signal, undefined, prepared)
+	const promise = runWorkflow(
+		pi,
+		ctx,
+		workflow,
+		input,
+		limits,
+		controller.signal,
+		undefined,
+		prepared,
+	)
 		.then((result) => {
 			const resultState = getRunState(result);
-			const type = resultState === "completed" ? "info" : resultState === "cancelled" ? "warning" : "error";
-			notify(ctx, `Background workflow ${getRunStatusLabel(result)}: ${workflow.name}\nRun: ${result.runId}\nArtifacts: ${result.runDir}`, type);
+			const type =
+				resultState === "completed" ? "info" : resultState === "cancelled" ? "warning" : "error";
+			notify(
+				ctx,
+				`Background workflow ${getRunStatusLabel(result)}: ${workflow.name}\nRun: ${result.runId}\nArtifacts: ${result.runDir}`,
+				type,
+			);
 			wakeAgentForWorkflowResult(pi, ctx, result);
 			return result;
 		})
@@ -4357,9 +5813,24 @@ async function startWorkflowBackground(
 				error,
 			};
 			await writeJsonFile(path.join(prepared.runDir, "result.json"), result);
-			await writeRunStatus({ ...initialRunStatus(workflow, prepared, false, limits), state: "failed", endedAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString(), elapsedMs: now - prepared.started, error });
-			await fs.writeFile(path.join(prepared.runDir, "summary.md"), formatRunSummary(result), "utf8");
-			notify(ctx, `Background workflow failed to run: ${workflow.name}\nRun: ${prepared.runId}\nError: ${error}`, "error");
+			await writeRunStatus({
+				...initialRunStatus(workflow, prepared, false, limits),
+				state: "failed",
+				endedAt: new Date(now).toISOString(),
+				updatedAt: new Date(now).toISOString(),
+				elapsedMs: now - prepared.started,
+				error,
+			});
+			await fs.writeFile(
+				path.join(prepared.runDir, "summary.md"),
+				formatRunSummary(result),
+				"utf8",
+			);
+			notify(
+				ctx,
+				`Background workflow failed to run: ${workflow.name}\nRun: ${prepared.runId}\nError: ${error}`,
+				"error",
+			);
 			wakeAgentForWorkflowResult(pi, ctx, result);
 			return result;
 		})
@@ -4384,14 +5855,24 @@ async function resumeWorkflow(
 ): Promise<WorkflowRunRecord> {
 	const record = await resolveRun(ctx, idOrLatest);
 	if (activeRuns.has(record.runId)) {
-		throw new Error(`Workflow run is already active: ${record.runId}. Cancel it first or wait for it to finish.`);
+		throw new Error(
+			`Workflow run is already active: ${record.runId}. Cancel it first or wait for it to finish.`,
+		);
 	}
 	const state = getRunState(record);
-	const resumable = state === "stale" || state === "failed" || state === "cancelled" || (opts.force === true && state === "completed");
+	const resumable =
+		state === "stale" ||
+		state === "failed" ||
+		state === "cancelled" ||
+		(opts.force === true && state === "completed");
 	if (!resumable) {
-		if (state === "running") throw new Error(`Workflow run ${record.runId} is still running. Cancel it before resuming.`);
-		if (state === "completed") throw new Error(`Workflow run ${record.runId} already completed. Use force:true to resume it anyway.`);
-		throw new Error(`Workflow run ${record.runId} cannot be resumed (state: ${state}).`);
+		if (state === "running")
+			throw new Error(`Workflow run ${record.runId} is still running. Cancel it before resuming.`);
+		if (state === "completed")
+			throw new Error(
+				`Workflow run ${record.runId} already completed. Use force:true to resume it anyway.`,
+			);
+		throw new Error(`Workflow run ${record.runId} cannot be resumed (state: ${String(state)}).`);
 	}
 
 	const workflow = await resolveWorkflow(ctx, record.workflow, record.scope);
@@ -4401,7 +5882,10 @@ async function resumeWorkflow(
 	// Start agentCount above the highest id already used (journaled OR on disk),
 	// so freshly re-run subagents can never overwrite an existing agents/NNNN
 	// artifact, even when the journal is non-contiguous or has {cache:false} gaps.
-	const baseAgentCount = Math.max(maxJournalAgentId(journal), await maxAgentArtifactNumber(record.runDir));
+	const baseAgentCount = Math.max(
+		maxJournalAgentId(journal),
+		await maxAgentArtifactNumber(record.runDir),
+	);
 
 	let input: unknown = {};
 	try {
@@ -4413,11 +5897,19 @@ async function resumeWorkflow(
 	const resumeInBackground = shouldLaunchWorkflowInBackground(ctx);
 
 	const prepared: PreparedWorkflowRun = {
-		started: Number.isFinite(new Date(record.startedAt).getTime()) ? new Date(record.startedAt).getTime() : Date.now(),
+		started: Number.isFinite(new Date(record.startedAt).getTime())
+			? new Date(record.startedAt).getTime()
+			: Date.now(),
 		runId: record.runId,
 		runDir: record.runDir,
 		background: resumeInBackground,
-		resume: { journal, baseAgentCount, codeHash, resumedFrom: record.runId, previousPeakParallelAgents: getRunPeakParallelAgents(record) ?? 0 },
+		resume: {
+			journal,
+			baseAgentCount,
+			codeHash,
+			resumedFrom: record.runId,
+			previousPeakParallelAgents: getRunPeakParallelAgents(record) ?? 0,
+		},
 	};
 	await ensureDir(path.join(record.runDir, "agents"));
 	// Remove the stale result.json from the prior (failed/cancelled/completed)
@@ -4449,7 +5941,15 @@ function resolveActiveRun(id: string | undefined): ActiveWorkflowRun | undefined
 	const runs = [...activeRuns.values()].sort((a, b) => b.started - a.started);
 	const key = id?.trim();
 	if (!key || key === "latest") return runs[0];
-	return activeRuns.get(key) ?? selectRunByKey(runs, key, (run) => run.runId, (run) => run.workflow.name);
+	return (
+		activeRuns.get(key) ??
+		selectRunByKey(
+			runs,
+			key,
+			(run) => run.runId,
+			(run) => run.workflow.name,
+		)
+	);
 }
 
 async function cancelWorkflowRun(ctx: ExtensionContext, id: string | undefined): Promise<string> {
@@ -4482,7 +5982,10 @@ async function cancelWorkflowRun(ctx: ExtensionContext, id: string | undefined):
 	return `Cancellation requested for background workflow run: ${active.runId}`;
 }
 
-async function resolveRunForDeletion(ctx: ExtensionContext, id: string | undefined): Promise<{ run: WorkflowRunRecord; runDir: string }> {
+async function resolveRunForDeletion(
+	ctx: ExtensionContext,
+	id: string | undefined,
+): Promise<{ run: WorkflowRunRecord; runDir: string }> {
 	const dirs = await getRunDirs(ctx);
 	const records: Array<{ run: WorkflowRunRecord; runDir: string }> = [];
 	for (const runDir of dirs) {
@@ -4492,14 +5995,20 @@ async function resolveRunForDeletion(ctx: ExtensionContext, id: string | undefin
 	if (records.length === 0) throw new Error("No workflow runs found.");
 	const key = id?.trim() || "latest";
 	if (key === "latest") return records[0];
-	const found = selectRunByKey(records, key, ({ run }) => run.runId, ({ run }) => run.workflow);
+	const found = selectRunByKey(
+		records,
+		key,
+		({ run }) => run.runId,
+		({ run }) => run.workflow,
+	);
 	if (!found) throw new Error(`Workflow run not found: ${key}`);
 	return found;
 }
 
 async function deleteWorkflowRun(ctx: ExtensionContext, id: string | undefined): Promise<string> {
 	const { run, runDir } = await resolveRunForDeletion(ctx, id);
-	if (activeRuns.has(run.runId)) throw new Error(`Workflow run is active; cancel it before deleting artifacts: ${run.runId}`);
+	if (activeRuns.has(run.runId))
+		throw new Error(`Workflow run is active; cancel it before deleting artifacts: ${run.runId}`);
 	await fs.rm(runDir, { recursive: true, force: false });
 	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
 }
@@ -4520,10 +6029,12 @@ export async function settleWithinTimeout<T>(work: Promise<T>, timeoutMs: number
 }
 
 async function abortActiveWorkflowRuns(reason: string): Promise<void> {
-	const promises = [...activeRuns.values()].map((run) => {
-		run.controller.abort(reason);
-		return run.promise;
-	}).filter((promise): promise is Promise<WorkflowRunResult> => promise !== undefined);
+	const promises = [...activeRuns.values()]
+		.map((run) => {
+			run.controller.abort(reason);
+			return run.promise;
+		})
+		.filter((promise): promise is Promise<WorkflowRunResult> => promise !== undefined);
 	if (promises.length === 0) return;
 	await settleWithinTimeout(Promise.allSettled(promises), 3000);
 	activeRuns.clear();
@@ -4542,13 +6053,18 @@ async function handleTool(
 	if (action === "template") {
 		const pattern = params.name ? resolveWorkflowPattern(params.name) : undefined;
 		if (params.name && !pattern) {
-			throw new Error(`Unknown workflow pattern: ${params.name}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`);
+			throw new Error(
+				`Unknown workflow pattern: ${params.name}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`,
+			);
 		}
 		if (pattern) {
 			const template = await loadWorkflowPatternCode(pattern);
 			return { content: [text(template)], details: { action, pattern, template } };
 		}
-		return { content: [text(formatWorkflowPatternCatalog())], details: { action, patterns: WORKFLOW_PATTERN_CATALOG, template: WORKFLOW_TEMPLATE } };
+		return {
+			content: [text(formatWorkflowPatternCatalog())],
+			details: { action, patterns: WORKFLOW_PATTERN_CATALOG, template: WORKFLOW_TEMPLATE },
+		};
 	}
 
 	if (action === "list") {
@@ -4581,7 +6097,10 @@ async function handleTool(
 			{ background: resumeInBackground, force: !!params.force },
 			signal,
 			(logs) => {
-				const preview = logs.slice(-8).map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`).join("\n");
+				const preview = logs
+					.slice(-8)
+					.map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`)
+					.join("\n");
 				onUpdate?.({ content: [text(preview)], details: { action, logCount: logs.length } });
 			},
 		);
@@ -4626,7 +6145,12 @@ async function handleTool(
 		const ok = await ctx.ui.confirm("Delete workflow?", `${workflow.name}\n${workflow.path}`);
 		if (!ok) throw new Error("Workflow deletion cancelled.");
 		await fs.unlink(workflow.path);
-		return { content: [text(`Deleted workflow ${workflow.name} (${workflow.scope}) from ${workflow.path}`)], details: { action, workflow } };
+		return {
+			content: [
+				text(`Deleted workflow ${workflow.name} (${workflow.scope}) from ${workflow.path}`),
+			],
+			details: { action, workflow },
+		};
 	}
 
 	if (action === "start" || (action === "run" && shouldLaunchWorkflowInBackground(ctx))) {
@@ -4634,25 +6158,46 @@ async function handleTool(
 		const workflowInput = normalizeWorkflowInput(params.input);
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
 		const status = await startWorkflowBackground(pi, ctx, workflow, workflowInput, limits);
-		return { content: [text(formatBackgroundStart(status))], details: { action, workflow, status } };
+		return {
+			content: [text(formatBackgroundStart(status))],
+			details: { action, workflow, status },
+		};
 	}
 
 	if (action === "run") {
 		const workflow = await resolveWorkflow(ctx, params.name, scope);
 		const workflowInput = normalizeWorkflowInput(params.input);
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
-		const result = await runWorkflowWithUi(pi, ctx, workflow, workflowInput, limits, signal, (logs) => {
-			const preview = logs.slice(-8).map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`).join("\n");
-			onUpdate?.({ content: [text(preview)], details: { action, workflow, logCount: logs.length } });
-		});
+		const result = await runWorkflowWithUi(
+			pi,
+			ctx,
+			workflow,
+			workflowInput,
+			limits,
+			signal,
+			(logs) => {
+				const preview = logs
+					.slice(-8)
+					.map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`)
+					.join("\n");
+				onUpdate?.({
+					content: [text(preview)],
+					details: { action, workflow, logCount: logs.length },
+				});
+			},
+		);
 		if (!result.ok) throw new Error(formatRunSummary(result));
 		return { content: [text(formatRunSummary(result))], details: { action, workflow, result } };
 	}
 
-	throw new Error(`Unknown dynamic_workflow action: ${action}`);
+	throw new Error(`Unknown dynamic_workflow action: ${String(action)}`);
 }
 
-async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
+async function handleWorkflowCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: ExtensionContext,
+): Promise<void> {
 	const trimmed = args.trim();
 	const actionMatch = /^(\S+)(?:\s+([\s\S]*))?$/.exec(trimmed);
 	const action = (actionMatch?.[1] || "list").toLowerCase();
@@ -4689,9 +6234,13 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 				notify(ctx, "Usage: /workflow switch-session <session-file>", "warning");
 				return;
 			}
-			const resolvedSessionFile = path.isAbsolute(sessionFile) ? sessionFile : path.resolve(ctx.cwd, sessionFile);
+			const resolvedSessionFile = path.isAbsolute(sessionFile)
+				? sessionFile
+				: path.resolve(ctx.cwd, sessionFile);
 			const sessions = await collectPiSessions(ctx);
-			const session = sessions.find((item) => item.sessionFile && path.resolve(item.sessionFile) === resolvedSessionFile) ?? {
+			const session = sessions.find(
+				(item) => item.sessionFile && path.resolve(item.sessionFile) === resolvedSessionFile,
+			) ?? {
 				id: `manual:${resolvedSessionFile}`,
 				pid: 0,
 				mode: "session",
@@ -4746,21 +6295,35 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 				return;
 			}
 			if (!ctx.hasUI) {
-				notify(ctx, "/workflow new requires interactive UI. Use dynamic_workflow action=write in agent mode.", "warning");
+				notify(
+					ctx,
+					"/workflow new requires interactive UI. Use dynamic_workflow action=write in agent mode.",
+					"warning",
+				);
 				return;
 			}
 			const patternKey = parsePatternFlag(trailingText);
 			const pattern = patternKey ? resolveWorkflowPattern(patternKey) : undefined;
 			if (patternKey && !pattern) {
-				notify(ctx, `Unknown workflow pattern: ${patternKey}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`, "warning");
+				notify(
+					ctx,
+					`Unknown workflow pattern: ${patternKey}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`,
+					"warning",
+				);
 				return;
 			}
 			const template = pattern ? await loadWorkflowPatternCode(pattern) : WORKFLOW_TEMPLATE;
-			const edited = await ctx.ui.editor(pattern ? `New workflow: ${name} (${pattern.key})` : `New workflow: ${name}`, template);
+			const edited = await ctx.ui.editor(
+				pattern ? `New workflow: ${name} (${pattern.key})` : `New workflow: ${name}`,
+				template,
+			);
 			if (edited === undefined) return;
 			const workflow = await resolveWorkflow(ctx, name, "project", "workflow");
 			if (existsSync(workflow.path)) {
-				const ok = await ctx.ui.confirm("Overwrite existing workflow?", `${workflow.name}\n${workflow.path}`);
+				const ok = await ctx.ui.confirm(
+					"Overwrite existing workflow?",
+					`${workflow.name}\n${workflow.path}`,
+				);
 				if (!ok) return;
 			}
 			await ensureDir(path.dirname(workflow.path));
@@ -4807,9 +6370,17 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 				return;
 			}
 			let lastLogs: WorkflowLogEntry[] = [];
-			const result = await runWorkflowWithUi(pi, ctx, workflow, input, limits, undefined, (logs) => {
-				lastLogs = logs;
-			});
+			const result = await runWorkflowWithUi(
+				pi,
+				ctx,
+				workflow,
+				input,
+				limits,
+				undefined,
+				(logs) => {
+					lastLogs = logs;
+				},
+			);
 			notify(ctx, formatRunSummary(result), result.ok ? "info" : "error");
 			if (lastLogs.length === 0) notify(ctx, "Workflow produced no logs.", "warning");
 			return;
@@ -4857,11 +6428,19 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 		if (action === "delete-run" || action === "rm-run" || action === "delete-run-artifacts") {
 			const run = await resolveRun(ctx, commandName);
 			if (canCancelRun(run)) {
-				notify(ctx, `Run is still active; cancel it before deleting artifacts: ${run.runId}`, "warning");
+				notify(
+					ctx,
+					`Run is still active; cancel it before deleting artifacts: ${run.runId}`,
+					"warning",
+				);
 				return;
 			}
 			if (!ctx.hasUI) {
-				notify(ctx, "/workflow delete-run requires interactive confirmation; refusing in no-UI mode.", "warning");
+				notify(
+					ctx,
+					"/workflow delete-run requires interactive confirmation; refusing in no-UI mode.",
+					"warning",
+				);
 				return;
 			}
 			const ok = await ctx.ui.confirm(
@@ -4882,7 +6461,11 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 			}
 			const workflow = await resolveWorkflow(ctx, name, "auto");
 			if (!ctx.hasUI) {
-				notify(ctx, "/workflow delete requires interactive confirmation; refusing in no-UI mode.", "warning");
+				notify(
+					ctx,
+					"/workflow delete requires interactive confirmation; refusing in no-UI mode.",
+					"warning",
+				);
 				return;
 			}
 			const ok = await ctx.ui.confirm("Delete workflow?", `${workflow.name}\n${workflow.path}`);
@@ -4892,14 +6475,22 @@ async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: Extens
 			return;
 		}
 
-		notify(ctx, "Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | delete-run [latest|runId] | delete <name>", "warning");
+		notify(
+			ctx,
+			"Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | delete-run [latest|runId] | delete <name>",
+			"warning",
+		);
 	} catch (err) {
 		clearWorkflowWidget(ctx);
 		notify(ctx, err instanceof Error ? err.message : String(err), "error");
 	}
 }
 
-async function handleWorkflowsCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
+async function handleWorkflowsCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: ExtensionContext,
+): Promise<void> {
 	if (args.trim()) {
 		await handleWorkflowCommand(pi, args, ctx);
 		return;
@@ -4918,14 +6509,30 @@ function formatUltracodeContractGatePrompt(taskLabel = "Ultracode tasks"): strin
 }
 
 function formatUltracodeRoutingRules(style: "command" | "always-on"): string {
-	const trivialGate = style === "command" ? "solve conversational, single-step, or few-tool-call tasks directly; do not build a workflow" : "conversational, single-step, or few-tool-call tasks stay single-agent";
-	const scoutGate = style === "command" ? "if the task may be broad, probe cheaply inline to discover the real work-list" : "broad-looking tasks get a cheap inline probe first (git ls-files, diff, rg/glob)";
-	const orchestrateGate = style === "command" ? "use a workflow only for exhaustiveness, confidence, or scale" : "use dynamic_workflow only for exhaustiveness, confidence, or scale";
-	const catalogLine = style === "command"
-		? "Inspect the template catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft."
-		: "Inspect the catalog, then reuse an exact existing fit or write a gitignored .pi/workflows/drafts/<slug>.js draft.";
-	const launchLine = style === "command" ? "Graph/start background runs with explicit concurrency/maxAgents, then inspect artifacts." : "Graph/start in background with explicit concurrency/maxAgents, then inspect artifacts.";
-	const scaleLine = style === "command" ? "Scale concurrency/maxAgents to the discovered work-list and risk; log caps, clamps, skipped work, and failures." : "Scale parallelism to the work-list and risk; log caps, clamps, skipped work, and failed branches.";
+	const trivialGate =
+		style === "command"
+			? "solve conversational, single-step, or few-tool-call tasks directly; do not build a workflow"
+			: "conversational, single-step, or few-tool-call tasks stay single-agent";
+	const scoutGate =
+		style === "command"
+			? "if the task may be broad, probe cheaply inline to discover the real work-list"
+			: "broad-looking tasks get a cheap inline probe first (git ls-files, diff, rg/glob)";
+	const orchestrateGate =
+		style === "command"
+			? "use a workflow only for exhaustiveness, confidence, or scale"
+			: "use dynamic_workflow only for exhaustiveness, confidence, or scale";
+	const catalogLine =
+		style === "command"
+			? "Inspect the template catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft."
+			: "Inspect the catalog, then reuse an exact existing fit or write a gitignored .pi/workflows/drafts/<slug>.js draft.";
+	const launchLine =
+		style === "command"
+			? "Graph/start background runs with explicit concurrency/maxAgents, then inspect artifacts."
+			: "Graph/start in background with explicit concurrency/maxAgents, then inspect artifacts.";
+	const scaleLine =
+		style === "command"
+			? "Scale concurrency/maxAgents to the discovered work-list and risk; log caps, clamps, skipped work, and failures."
+			: "Scale parallelism to the work-list and risk; log caps, clamps, skipped work, and failed branches.";
 	const commandWorkflowPath = `- ${catalogLine}
 - ${launchLine}
 - Use workflow-factory only when a warranted workflow needs complex prompt/contract design.
@@ -4950,13 +6557,19 @@ Reference:
 - ${formatWorkflowCompositionPromptSummary()}`;
 }
 
-function makeUltracodePrompt(task: string, mode: "ultracode" | "deep-research" = "ultracode", contractGateEnabled = true): string {
+function makeUltracodePrompt(
+	task: string,
+	mode: "ultracode" | "deep-research" = "ultracode",
+	contractGateEnabled = true,
+): string {
 	const trimmed = task.trim();
 	const header =
 		mode === "deep-research"
 			? "Use Pi Dynamic Workflows for a source-backed deep-research investigation."
 			: "Use Pi Dynamic Workflows when they are warranted for this task.";
-	const contractGate = contractGateEnabled ? `\n\n${formatUltracodeContractGatePrompt(mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks")}` : "";
+	const contractGate = contractGateEnabled
+		? `\n\n${formatUltracodeContractGatePrompt(mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks")}`
+		: "";
 	return `${header}
 
 Task:
@@ -4968,7 +6581,9 @@ ${formatUltracodeRoutingRules("command")}`;
 }
 
 function makeAlwaysOnUltracodeSystemPrompt(contractGateEnabled = true): string {
-	const contractGate = contractGateEnabled ? `\n\n${formatUltracodeContractGatePrompt("tasks")}` : "";
+	const contractGate = contractGateEnabled
+		? `\n\n${formatUltracodeContractGatePrompt("tasks")}`
+		: "";
 	return `## Always-on Ultracode Router
 
 For substantive tasks, choose the lightest path that can verify the answer.${contractGate}
@@ -4999,7 +6614,10 @@ function ensureDynamicWorkflowToolActive(pi: ExtensionAPI): boolean {
 function setUltracodeStatus(ctx: ExtensionContext, enabled: boolean): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(ULTRACODE_STATUS_KEY, enabled ? theme.fg("accent", "uc:auto") : theme.fg("dim", "uc:off"));
+	ctx.ui.setStatus(
+		ULTRACODE_STATUS_KEY,
+		enabled ? theme.fg("accent", "uc:auto") : theme.fg("dim", "uc:off"),
+	);
 }
 
 function clearUltracodeStatus(ctx: ExtensionContext): void {
@@ -5009,7 +6627,10 @@ function clearUltracodeStatus(ctx: ExtensionContext): void {
 function setUltracodeContractGateStatus(ctx: ExtensionContext, enabled: boolean): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(ULTRACODE_CONTRACT_STATUS_KEY, enabled ? theme.fg("dim", "cg:on") : theme.fg("warning", "cg:off"));
+	ctx.ui.setStatus(
+		ULTRACODE_CONTRACT_STATUS_KEY,
+		enabled ? theme.fg("dim", "cg:on") : theme.fg("warning", "cg:off"),
+	);
 }
 
 function clearUltracodeContractGateStatus(ctx: ExtensionContext): void {
@@ -5020,7 +6641,7 @@ export function extractUltracodeTask(textValue: string): string | undefined {
 	const trimmed = textValue.trim();
 	// Separator after the keyword may be a `:`/`-` (with or without a trailing space) or just
 	// whitespace, so `ultracode:do X`, `ultracode: do X`, and `ultracode do X` all parse.
-	const match = /^(?:ultracode|dynamic\s+workflow)(?:\s*[:\-]\s*|\s+)([\s\S]+)/i.exec(trimmed);
+	const match = /^(?:ultracode|dynamic\s+workflow)(?:\s*[:-]\s*|\s+)([\s\S]+)/i.exec(trimmed);
 	return match?.[1]?.trim();
 }
 
@@ -5060,7 +6681,8 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		label: "Dynamic Workflow",
 		description:
 			"Create, manage, and run Claude-style dynamic workflows: JavaScript orchestration scripts that can spawn parallel Pi subagents and store artifacts outside chat context.",
-		promptSnippet: "Create/list/read/write/run/start JavaScript workflows that orchestrate parallel Pi subagents.",
+		promptSnippet:
+			"Create/list/read/write/run/start JavaScript workflows that orchestrate parallel Pi subagents.",
 		promptGuidelines: [
 			"Step zero before orchestrating: decide whether the task prompt needs improvement. If ambiguity blocks routing or implementation, infer concise success criteria when safe or ask only blocking questions. Use that improved prompt for the routing/scouting decision.",
 			"Decide in three steps before orchestrating. (1) Trivial gate: if the task is conversational, single-step, or solvable with a few direct tool calls, answer normally — do NOT build a workflow. (2) Scout inline first: if it may be large, run a cheap probe inline (git ls-files, read the diff, grep/glob candidates) to discover the real work-list and size. (3) Orchestrate only for exhaustiveness (many independent items), confidence (independent perspectives + adversarial verification), or scale (more context than one window: migrations, audits, broad sweeps).",
@@ -5087,12 +6709,14 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("workflow", {
-		description: "Manage dynamic workflows: /workflow list|dashboard|agents|sessions|patterns|graph|runs|view|new|edit|run|start|resume|cancel|delete-run|delete",
+		description:
+			"Manage dynamic workflows: /workflow list|dashboard|agents|sessions|patterns|graph|runs|view|new|edit|run|start|resume|cancel|delete-run|delete",
 		handler: async (args, ctx) => await handleWorkflowCommand(pi, args, ctx),
 	});
 
 	pi.registerCommand("workflows", {
-		description: "Open the dynamic workflows dashboard (or pass through to /workflow, e.g. /workflows agents)",
+		description:
+			"Open the dynamic workflows dashboard (or pass through to /workflow, e.g. /workflows agents)",
 		handler: async (args, ctx) => await handleWorkflowsCommand(pi, args, ctx),
 	});
 
@@ -5109,21 +6733,40 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				notify(ctx, "Usage: /ultracode <task>", "warning");
 				return;
 			}
-			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; ultracode will only provide routing guidance.", "warning");
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
+			if (!ensureDynamicWorkflowToolActive(pi))
+				notify(
+					ctx,
+					"dynamic_workflow tool is not active; ultracode will only provide routing guidance.",
+					"warning",
+				);
+			sendWorkflowPrompt(
+				pi,
+				ctx,
+				makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled),
+			);
 		},
 	});
 
 	pi.registerCommand("dynamic-workflow", {
-		description: "Alias for /ultracode: solve a complex task using dynamic workflows when warranted",
+		description:
+			"Alias for /ultracode: solve a complex task using dynamic workflows when warranted",
 		handler: async (args, ctx) => {
 			const task = args.trim();
 			if (!task) {
 				notify(ctx, "Usage: /dynamic-workflow <task>", "warning");
 				return;
 			}
-			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; dynamic-workflow will only provide routing guidance.", "warning");
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
+			if (!ensureDynamicWorkflowToolActive(pi))
+				notify(
+					ctx,
+					"dynamic_workflow tool is not active; dynamic-workflow will only provide routing guidance.",
+					"warning",
+				);
+			sendWorkflowPrompt(
+				pi,
+				ctx,
+				makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled),
+			);
 		},
 	});
 
@@ -5135,8 +6778,17 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				notify(ctx, "Usage: /deep-research <research question>", "warning");
 				return;
 			}
-			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; deep-research will only provide routing guidance.", "warning");
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "deep-research", ultracodeContractGateEnabled));
+			if (!ensureDynamicWorkflowToolActive(pi))
+				notify(
+					ctx,
+					"dynamic_workflow tool is not active; deep-research will only provide routing guidance.",
+					"warning",
+				);
+			sendWorkflowPrompt(
+				pi,
+				ctx,
+				makeUltracodePrompt(task, "deep-research", ultracodeContractGateEnabled),
+			);
 		},
 	});
 
@@ -5146,19 +6798,31 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			const value = parseToggleCommandValue(args);
 			if (value === "status") {
 				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-				notify(ctx, `Ultracode Contract Gate is ${ultracodeContractGateEnabled ? "enabled" : "disabled"}.`, "info");
+				notify(
+					ctx,
+					`Ultracode Contract Gate is ${ultracodeContractGateEnabled ? "enabled" : "disabled"}.`,
+					"info",
+				);
 				return;
 			}
 			if (value === "on") {
 				ultracodeContractGateEnabled = true;
 				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-				notify(ctx, "Ultracode Contract Gate enabled: substantive workflow tasks will include task-contract review guidance.", "info");
+				notify(
+					ctx,
+					"Ultracode Contract Gate enabled: substantive workflow tasks will include task-contract review guidance.",
+					"info",
+				);
 				return;
 			}
 			if (value === "off") {
 				ultracodeContractGateEnabled = false;
 				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-				notify(ctx, "Ultracode Contract Gate disabled for this session; workflow routing remains available.", "warning");
+				notify(
+					ctx,
+					"Ultracode Contract Gate disabled for this session; workflow routing remains available.",
+					"warning",
+				);
 				return;
 			}
 			notify(ctx, "Usage: /ultracode-contract [on|off|status]", "warning");
@@ -5171,14 +6835,22 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			const value = parseToggleCommandValue(args);
 			if (value === "status") {
 				setUltracodeStatus(ctx, ultracodeAlwaysOn);
-				notify(ctx, `Ultracode always-on is ${ultracodeAlwaysOn ? "enabled" : "disabled"}.`, "info");
+				notify(
+					ctx,
+					`Ultracode always-on is ${ultracodeAlwaysOn ? "enabled" : "disabled"}.`,
+					"info",
+				);
 				return;
 			}
 			if (value === "on") {
 				ultracodeAlwaysOn = true;
 				ensureDynamicWorkflowToolActive(pi);
 				setUltracodeStatus(ctx, ultracodeAlwaysOn);
-				notify(ctx, "Ultracode always-on enabled: Pi will evaluate each task for workflow routing.", "info");
+				notify(
+					ctx,
+					"Ultracode always-on enabled: Pi will evaluate each task for workflow routing.",
+					"info",
+				);
 				return;
 			}
 			if (value === "off") {
@@ -5196,13 +6868,21 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		const task = extractUltracodeTask(event.text);
 		if (!task) return;
 		ensureDynamicWorkflowToolActive(pi);
-		return { action: "transform" as const, text: makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled), images: event.images };
+		return {
+			action: "transform" as const,
+			text: makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled),
+			images: event.images,
+		};
 	});
 
 	pi.on("before_agent_start", async (event) => {
 		if (!ultracodeAlwaysOn) return;
 		if (isGeneratedUltracodePrompt(event.prompt)) return;
-		if (!dynamicWorkflowToolAvailable(event.systemPromptOptions.selectedTools) && !ensureDynamicWorkflowToolActive(pi)) return;
+		if (
+			!dynamicWorkflowToolAvailable(event.systemPromptOptions.selectedTools) &&
+			!ensureDynamicWorkflowToolActive(pi)
+		)
+			return;
 		return {
 			systemPrompt: `${event.systemPrompt}\n\n${makeAlwaysOnUltracodeSystemPrompt(ultracodeContractGateEnabled)}`,
 		};
@@ -5211,7 +6891,9 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	pi.on("session_start", async (event, ctx) => {
 		currentCtx = ctx;
 		await startPiSessionHeartbeat(event, ctx);
-		installWorkflowDashboardDownEditor(pi, ctx, () => (ultracodeAlwaysOn ? ULTRACODE_BORDER_LABEL : undefined));
+		installWorkflowDashboardDownEditor(pi, ctx, () =>
+			ultracodeAlwaysOn ? ULTRACODE_BORDER_LABEL : undefined,
+		);
 		if (ultracodeAlwaysOn) ensureDynamicWorkflowToolActive(pi);
 		refreshActiveWorkflowStatus(ctx);
 		setUltracodeStatus(ctx, ultracodeAlwaysOn);

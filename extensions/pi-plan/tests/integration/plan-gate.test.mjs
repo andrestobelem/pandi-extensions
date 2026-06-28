@@ -12,7 +12,13 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	bundle,
+	createChecker,
+	loadDefault,
+	makeBuildDir,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/<extension>/tests/integration/ -> repo root is four levels up.
@@ -54,7 +60,6 @@ async function buildExtensions(names) {
 // A module keeps a singleton (activeLoops / activePlans). Load a FRESH instance per
 // scenario via a cache-busting query so scenarios never leak state into each other.
 
-
 // ---------------------------------------------------------------------------
 // Mock pi + ctx (shape mirrors the ExtensionAPI / ExtensionContext surface the
 // extensions actually use, learned from the real handlers).
@@ -79,7 +84,13 @@ function makePi() {
 	return { pi, tools, commands, handlers, entries, sentMessages };
 }
 
-function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = TEST_PROJECT_ROOT, entries = [] } = {}) {
+function makeCtx({
+	mode = "tui",
+	hasUI = true,
+	confirmResult = true,
+	cwd = TEST_PROJECT_ROOT,
+	entries = [],
+} = {}) {
 	const ctx = {
 		mode,
 		hasUI,
@@ -101,7 +112,12 @@ function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = TEST_
 }
 
 function toolCallEvent(toolName, input = {}) {
-	return { type: "tool_call", toolCallId: "tc-" + Math.random().toString(16).slice(2), toolName, input };
+	return {
+		type: "tool_call",
+		toolCallId: "tc-" + Math.random().toString(16).slice(2),
+		toolName,
+		input,
+	};
 }
 
 // Run every registered tool_call handler; first blocker wins (mirrors the engine).
@@ -123,7 +139,11 @@ async function planGate(planUrl) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
 
 	// Before entering plan mode, nothing is gated.
-	const preWrite = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
+	const preWrite = await runGate(
+		handlers,
+		ctx,
+		toolCallEvent("write", { file_path: "a.ts", content: "x" }),
+	);
 	check("plan: write ALLOWED before /plan (gate not armed)", preWrite === undefined);
 
 	// Enter plan mode.
@@ -140,7 +160,20 @@ async function planGate(planUrl) {
 	}
 
 	// BLOCKED: mutating bash.
-	for (const cmd of ["rm -rf x", "mkdir generated", "touch generated.txt", "chmod +x script.sh", "git commit -m wip", "echo x > f", "node test.js 2>err.log", "sed -i 's/a/b/' f", "npm install lodash", "cp template.txt config.json", "ln -sf /etc/hosts ./link", "install -m 0755 a b"]) {
+	for (const cmd of [
+		"rm -rf x",
+		"mkdir generated",
+		"touch generated.txt",
+		"chmod +x script.sh",
+		"git commit -m wip",
+		"echo x > f",
+		"node test.js 2>err.log",
+		"sed -i 's/a/b/' f",
+		"npm install lodash",
+		"cp template.txt config.json",
+		"ln -sf /etc/hosts ./link",
+		"install -m 0755 a b",
+	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`plan: BLOCKS bash "${cmd}"`, !!r && r.block === true);
 	}
@@ -154,12 +187,24 @@ async function planGate(planUrl) {
 	{
 		const cmd = 'grep -rn "len(x) > 0" .';
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
-		check(`plan: documents redirect false positive — BLOCKS bash "${cmd}"`, !!r && r.block === true);
+		check(
+			`plan: documents redirect false positive — BLOCKS bash "${cmd}"`,
+			!!r && r.block === true,
+		);
 	}
 
 	// ALLOWED: read-only bash + read tools + submit_plan. The last four are read-only commands
 	// whose operators (->, >=, =>) must NOT be mistaken for write redirections (F12).
-	for (const cmd of ["git ls-files", "cat package.json", "grep -n foo bar.ts", "git status", 'grep -rn "foo->bar" src', "awk '$3 >= 100' f", 'git log --grep "x -> y"', 'echo "x => y"']) {
+	for (const cmd of [
+		"git ls-files",
+		"cat package.json",
+		"grep -n foo bar.ts",
+		"git status",
+		'grep -rn "foo->bar" src',
+		"awk '$3 >= 100' f",
+		'git log --grep "x -> y"',
+		'echo "x => y"',
+	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`plan: ALLOWS bash "${cmd}"`, r === undefined, r ? r.reason : "");
 	}
@@ -170,7 +215,11 @@ async function planGate(planUrl) {
 
 	// dynamic_workflow: mutating actions blocked, read-only actions allowed, missing action blocked.
 	for (const action of ["write", "run", "start", "resume", undefined]) {
-		const r = await runGate(handlers, ctx, toolCallEvent("dynamic_workflow", action ? { action } : {}));
+		const r = await runGate(
+			handlers,
+			ctx,
+			toolCallEvent("dynamic_workflow", action ? { action } : {}),
+		);
 		check(`plan: BLOCKS dynamic_workflow action=${String(action)}`, !!r && r.block === true);
 	}
 	for (const action of ["list", "template", "read", "graph", "runs", "view"]) {
@@ -197,11 +246,21 @@ async function planGatePrintRefuses(planUrl) {
 	} finally {
 		console.log = origLog;
 	}
-	check("plan(print): no plan-state persisted", entries.find((e) => e.customType === "plan-state") === undefined);
+	check(
+		"plan(print): no plan-state persisted",
+		entries.find((e) => e.customType === "plan-state") === undefined,
+	);
 	check("plan(print): no planning prompt injected", sentMessages.length === 0);
-	const r = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
+	const r = await runGate(
+		handlers,
+		ctx,
+		toolCallEvent("write", { file_path: "a.ts", content: "x" }),
+	);
 	check("plan(print): write ALLOWED (gate never armed)", r === undefined);
-	check("plan(print): refusal mentions TUI or RPC", logged.some((l) => /TUI or RPC/i.test(l)));
+	check(
+		"plan(print): refusal mentions TUI or RPC",
+		logged.some((l) => /TUI or RPC/i.test(l)),
+	);
 }
 
 // ===========================================================================

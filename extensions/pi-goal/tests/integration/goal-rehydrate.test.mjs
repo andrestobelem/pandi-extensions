@@ -48,7 +48,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension,
+	createChecker,
+	loadDefault,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-goal/tests/integration/ -> repo root is four levels up.
@@ -117,7 +122,9 @@ function makePi(execImpl) {
 		sendUserMessage: (prompt, opts) => messages.push({ prompt, opts }),
 		exec: async (cmd, args, opts) => {
 			execCalls.push({ cmd, args, opts });
-			return execImpl ? execImpl(cmd, args, opts) : { code: 0, killed: false, stdout: "", stderr: "" };
+			return execImpl
+				? execImpl(cmd, args, opts)
+				: { code: 0, killed: false, stdout: "", stderr: "" };
 		},
 	};
 	return { pi, tools, commands, handlers, states, execCalls, messages };
@@ -179,7 +186,11 @@ function makeCtx(entries, { reason = "startup", mode = "tui" } = {}) {
 }
 
 // Build the extension, register it, fire session_start with the crafted persisted entries.
-async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, mode = "tui" } = {}) {
+async function rehydrateFrom(
+	goalUrl,
+	entries,
+	{ reason = "startup", execImpl, mode = "tui" } = {},
+) {
 	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi(execImpl);
 	goalExtension(built.pi);
@@ -192,7 +203,8 @@ async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, m
 
 // The last persisted gstatus for a given goalId is its observable disposition.
 function lastStatusFor(states, goalId) {
-	for (let i = states.length - 1; i >= 0; i--) if (states[i].goalId === goalId) return states[i].gstatus;
+	for (let i = states.length - 1; i >= 0; i--)
+		if (states[i].goalId === goalId) return states[i].gstatus;
 	return undefined;
 }
 
@@ -203,7 +215,12 @@ function lastStatusFor(states, goalId) {
 // ===========================================================================
 async function verifyingIndependentReRunsVerifierAndPasses(goalUrl) {
 	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
-	const exec = () => ({ code: 0, killed: false, stdout: "Criterion 1: PASS.\nVERDICT: PASS", stderr: "" });
+	const exec = () => ({
+		code: 0,
+		killed: false,
+		stdout: "Criterion 1: PASS.\nVERDICT: PASS",
+		stderr: "",
+	});
 	const { built } = await rehydrateFrom(goalUrl, [entry(s)], { execImpl: exec });
 	await flush(() => lastStatusFor(built.states, s.goalId) === "done");
 	check(
@@ -221,8 +238,17 @@ async function verifyingIndependentReRunsVerifierAndPasses(goalUrl) {
 // A re-run verifier that FAILs (under the cap) must NOT close the goal; it iterates back to
 // pursuing. (The reload must never produce a false "done".)
 async function verifyingIndependentReRunFailDoesNotClose(goalUrl) {
-	const s = snap({ gstatus: "verifying-independent", nextFireAt: null, independentVerifyAttempts: 0 });
-	const exec = () => ({ code: 0, killed: false, stdout: "Criterion 1: FAIL — no real assertion.\nVERDICT: FAIL", stderr: "" });
+	const s = snap({
+		gstatus: "verifying-independent",
+		nextFireAt: null,
+		independentVerifyAttempts: 0,
+	});
+	const exec = () => ({
+		code: 0,
+		killed: false,
+		stdout: "Criterion 1: FAIL — no real assertion.\nVERDICT: FAIL",
+		stderr: "",
+	});
 	const { built } = await rehydrateFrom(goalUrl, [entry(s)], { execImpl: exec });
 	await flush(() => lastStatusFor(built.states, s.goalId) === "pursuing");
 	check(
@@ -278,20 +304,50 @@ async function verifyingIndependentReloadIgnoresReentry(goalUrl) {
 	const { ctx, built } = await rehydrateFrom(goalUrl, [entry(s)], { execImpl: exec });
 
 	// Re-run launched and gated → goal parked in verifying-independent.
-	check("reload re-spawns the verifier once (in flight)", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
-	check("reloaded goal sits in verifying-independent before re-entry", lastStatusFor(built.states, s.goalId) === "verifying-independent", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check(
+		"reload re-spawns the verifier once (in flight)",
+		built.execCalls.length === 1,
+		`execCalls=${built.execCalls.length}`,
+	);
+	check(
+		"reloaded goal sits in verifying-independent before re-entry",
+		lastStatusFor(built.states, s.goalId) === "verifying-independent",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
 
 	const progress = built.tools.get("goal_progress");
 	if (!progress) throw new Error("goal_progress tool not registered");
-	const r = await progress.execute("tcReload", { status: "done", assessment: "racing the re-run verifier on reload" }, undefined, undefined, ctx);
-	check("re-entrant goal_progress during reloaded verification is ignored", r?.details?.ignored === true, JSON.stringify(r?.details));
-	check("re-entry does NOT change gstatus (stays verifying-independent)", lastStatusFor(built.states, s.goalId) === "verifying-independent", `last=${lastStatusFor(built.states, s.goalId)}`);
-	check("re-entry does NOT spawn a second verifier", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
+	const r = await progress.execute(
+		"tcReload",
+		{ status: "done", assessment: "racing the re-run verifier on reload" },
+		undefined,
+		undefined,
+		ctx,
+	);
+	check(
+		"re-entrant goal_progress during reloaded verification is ignored",
+		r?.details?.ignored === true,
+		JSON.stringify(r?.details),
+	);
+	check(
+		"re-entry does NOT change gstatus (stays verifying-independent)",
+		lastStatusFor(built.states, s.goalId) === "verifying-independent",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
+	check(
+		"re-entry does NOT spawn a second verifier",
+		built.execCalls.length === 1,
+		`execCalls=${built.execCalls.length}`,
+	);
 
 	// Release the gated re-run: its PASS — not the discarded re-entry — closes the goal.
 	release();
 	await flush(() => lastStatusFor(built.states, s.goalId) === "done");
-	check("the reloaded verifier's verdict still closes the goal (done)", lastStatusFor(built.states, s.goalId) === "done", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check(
+		"the reloaded verifier's verdict still closes the goal (done)",
+		lastStatusFor(built.states, s.goalId) === "done",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
 }
 
 // The agent_end safety net must NOT re-arm a reloaded verifying-independent goal: its verifier
@@ -309,20 +365,34 @@ async function verifyingIndependentReloadSurvivesAgentEnd(goalUrl) {
 	};
 	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
 	const { ctx, built } = await rehydrateFrom(goalUrl, [entry(s)], { execImpl: exec });
-	check("reload parks the goal in verifying-independent (verifier in flight)", lastStatusFor(built.states, s.goalId) === "verifying-independent", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check(
+		"reload parks the goal in verifying-independent (verifier in flight)",
+		lastStatusFor(built.states, s.goalId) === "verifying-independent",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
 
 	// Fire the safety net while the re-run verifier is mid-flight.
 	for (const h of built.handlers.get("agent_end") ?? []) await h({}, ctx);
 	check(
 		"agent_end does NOT re-arm a reloaded verifying-independent goal",
-		!built.states.some((st) => st.goalId === s.goalId && st.lastReason === "auto: turn closed without goal_progress"),
+		!built.states.some(
+			(st) => st.goalId === s.goalId && st.lastReason === "auto: turn closed without goal_progress",
+		),
 		"unexpected auto re-arm",
 	);
-	check("agent_end does not spawn a second verifier on reload", built.execCalls.length === 1, `calls=${built.execCalls.length}`);
+	check(
+		"agent_end does not spawn a second verifier on reload",
+		built.execCalls.length === 1,
+		`calls=${built.execCalls.length}`,
+	);
 
 	release();
 	await flush(() => lastStatusFor(built.states, s.goalId) === "done");
-	check("the reloaded verifier's verdict still closes the goal after agent_end (done)", lastStatusFor(built.states, s.goalId) === "done", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check(
+		"the reloaded verifier's verdict still closes the goal after agent_end (done)",
+		lastStatusFor(built.states, s.goalId) === "done",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
 }
 
 // ===========================================================================
@@ -338,14 +408,26 @@ async function staleResumesPursuing(goalUrl) {
 	// Wait for the catch-up setTimeout(...,0) to fire and persist the next iteration.
 	await flush(() => built.states.some((st) => st.goalId === s.goalId && st.iteration > 3));
 	const fired = built.states.find((st) => st.goalId === s.goalId && st.iteration > 3);
-	check("stale snapshot is recovered (catch-up tick fires)", !!fired, `states=${built.states.length}`);
+	check(
+		"stale snapshot is recovered (catch-up tick fires)",
+		!!fired,
+		`states=${built.states.length}`,
+	);
 	check(
 		"stale resumes as pursuing (re-armed goal fires in the pursuing phase)",
 		!!fired && fired.gstatus === "pursuing",
 		`firedStatus=${fired ? fired.gstatus : "<none>"}`,
 	);
-	check("stale resume re-injects exactly one pursuing wake", built.messages.length === 1, `messages=${built.messages.length}`);
-	check("stale resume does NOT spawn a verifier", built.execCalls.length === 0, `execCalls=${built.execCalls.length}`);
+	check(
+		"stale resume re-injects exactly one pursuing wake",
+		built.messages.length === 1,
+		`messages=${built.messages.length}`,
+	);
+	check(
+		"stale resume does NOT spawn a verifier",
+		built.execCalls.length === 0,
+		`execCalls=${built.execCalls.length}`,
+	);
 }
 
 // ===========================================================================
@@ -360,13 +442,21 @@ async function verifyingResumesVerifying(goalUrl) {
 	const { built } = await rehydrateFrom(goalUrl, [entry(s)]);
 	await flush(() => built.states.some((st) => st.goalId === s.goalId && st.iteration > 4));
 	const fired = built.states.find((st) => st.goalId === s.goalId && st.iteration > 4);
-	check("verifying snapshot is recovered (catch-up tick fires)", !!fired, `states=${built.states.length}`);
+	check(
+		"verifying snapshot is recovered (catch-up tick fires)",
+		!!fired,
+		`states=${built.states.length}`,
+	);
 	check(
 		"verifying resumes as verifying (NOT downgraded to pursuing)",
 		!!fired && fired.gstatus === "verifying",
 		`firedStatus=${fired ? fired.gstatus : "<none>"}`,
 	);
-	check("verifying resume re-injects exactly one wake", built.messages.length === 1, `messages=${built.messages.length}`);
+	check(
+		"verifying resume re-injects exactly one wake",
+		built.messages.length === 1,
+		`messages=${built.messages.length}`,
+	);
 	check(
 		"verifying snapshot does NOT spawn the independent verifier on reload",
 		built.execCalls.length === 0,
@@ -416,7 +506,12 @@ async function lastWinsByGoalId(goalUrl) {
 	const id = "deadbeef";
 	// pursuing (early) ... then done (latest): latest is terminal -> NOT recovered.
 	{
-		const early = snap({ goalId: id, gstatus: "pursuing", iteration: 1, nextFireAt: Date.now() + 1000 });
+		const early = snap({
+			goalId: id,
+			gstatus: "pursuing",
+			iteration: 1,
+			nextFireAt: Date.now() + 1000,
+		});
 		const latest = snap({ goalId: id, gstatus: "done", iteration: 5, nextFireAt: null });
 		const { built } = await rehydrateFrom(goalUrl, [entry(early), entry(latest)]);
 		await flush();
@@ -429,9 +524,16 @@ async function lastWinsByGoalId(goalUrl) {
 	// done (early) ... then verifying-independent (latest, goal was restarted): recovered + re-judged.
 	{
 		const early = snap({ goalId: id, gstatus: "done", iteration: 5, nextFireAt: null });
-		const latest = snap({ goalId: id, gstatus: "verifying-independent", iteration: 6, nextFireAt: null });
+		const latest = snap({
+			goalId: id,
+			gstatus: "verifying-independent",
+			iteration: 6,
+			nextFireAt: null,
+		});
 		const exec = () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
-		const { built } = await rehydrateFrom(goalUrl, [entry(early), entry(latest)], { execImpl: exec });
+		const { built } = await rehydrateFrom(goalUrl, [entry(early), entry(latest)], {
+			execImpl: exec,
+		});
 		await flush(() => lastStatusFor(built.states, id) === "done");
 		check(
 			"last-wins: done-then-verifying-independent keeps the LATEST → verifier re-runs",
@@ -451,9 +553,21 @@ async function forkDoesNotMigrateGoal(goalUrl) {
 	const exec = () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	const { built } = await rehydrateFrom(goalUrl, [entry(s)], { reason: "fork", execImpl: exec });
 	await flush();
-	check("fork session_start does NOT re-spawn the verifier", built.execCalls.length === 0, `execCalls=${built.execCalls.length}`);
-	check("fork session_start does NOT re-inject a wake", built.messages.length === 0, `messages=${built.messages.length}`);
-	check("fork session_start persists nothing (no migration)", built.states.length === 0, `states=${built.states.length}`);
+	check(
+		"fork session_start does NOT re-spawn the verifier",
+		built.execCalls.length === 0,
+		`execCalls=${built.execCalls.length}`,
+	);
+	check(
+		"fork session_start does NOT re-inject a wake",
+		built.messages.length === 0,
+		`messages=${built.messages.length}`,
+	);
+	check(
+		"fork session_start persists nothing (no migration)",
+		built.states.length === 0,
+		`states=${built.states.length}`,
+	);
 }
 
 // ===========================================================================

@@ -55,7 +55,18 @@ function makePi({ initialLevel = "medium", allTools = [], activeTools = [], clam
 			emit: (event, data) => emitted.push({ event, data }),
 		},
 	};
-	return { pi, commands, handlers, emitted, get level() { return level; }, get activeTools() { return active; } };
+	return {
+		pi,
+		commands,
+		handlers,
+		emitted,
+		get level() {
+			return level;
+		},
+		get activeTools() {
+			return active;
+		},
+	};
 }
 
 function makeCtx({ mode = "tui", hasUI = true, selectResult } = {}) {
@@ -88,15 +99,32 @@ async function scenarioLevels(url) {
 	check("/effort command registered", !!command);
 	const allCompletions = command.getArgumentCompletions("");
 	check("/effort has completions", Array.isArray(command.getArgumentCompletions("h")));
-	check("/effort autocomplete includes canonical levels", ["off", "minimal", "low", "medium", "high", "xhigh", "ultracode", "status"].every((value) => allCompletions.some((item) => item.value === value)));
-	check("/effort autocomplete includes max alias", command.getArgumentCompletions("ma")?.some((item) => item.value === "max"));
-	check("/effort autocomplete includes ultra-code alias", command.getArgumentCompletions("ultra-")?.some((item) => item.value === "ultra-code"));
+	check(
+		"/effort autocomplete includes canonical levels",
+		["off", "minimal", "low", "medium", "high", "xhigh", "ultracode", "status"].every((value) =>
+			allCompletions.some((item) => item.value === value),
+		),
+	);
+	check(
+		"/effort autocomplete includes max alias",
+		command.getArgumentCompletions("ma")?.some((item) => item.value === "max"),
+	);
+	check(
+		"/effort autocomplete includes ultra-code alias",
+		command.getArgumentCompletions("ultra-")?.some((item) => item.value === "ultra-code"),
+	);
 
 	const ctx = makeCtx();
 	await command.handler("high", ctx);
 	check("/effort high sets high", harness.level === "high", harness.level);
-	check("/effort high notifies", ctx._notes.some((n) => /set to high/i.test(n.msg)));
-	check("/effort high updates status", ctx._statuses.some((s) => s.key === "effort" && s.value === "effort:high"));
+	check(
+		"/effort high notifies",
+		ctx._notes.some((n) => /set to high/i.test(n.msg)),
+	);
+	check(
+		"/effort high updates status",
+		ctx._statuses.some((s) => s.key === "effort" && s.value === "effort:high"),
+	);
 
 	await command.handler("none", ctx);
 	check("/effort none aliases off", harness.level === "off", harness.level);
@@ -107,19 +135,32 @@ async function scenarioLevels(url) {
 
 async function scenarioClampAndInvalid(url) {
 	const effortExtension = await loadDefault(url);
-	const harness = makePi({ initialLevel: "medium", clamp: (next) => (next === "xhigh" ? "high" : next) });
+	const harness = makePi({
+		initialLevel: "medium",
+		clamp: (next) => (next === "xhigh" ? "high" : next),
+	});
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
 	const ctx = makeCtx();
 
 	await command.handler("xhigh", ctx);
 	check("/effort reports clamped active level", harness.level === "high", harness.level);
-	check("/effort clamp warning", ctx._notes.some((n) => n.type === "warning" && /active effort is high/i.test(n.msg)));
+	check(
+		"/effort clamp warning",
+		ctx._notes.some((n) => n.type === "warning" && /active effort is high/i.test(n.msg)),
+	);
 
 	const before = harness.level;
 	await command.handler("banana", ctx);
-	check("/effort invalid does not change level", harness.level === before, `${before} -> ${harness.level}`);
-	check("/effort invalid shows usage", ctx._notes.some((n) => /Unknown effort/i.test(n.msg) && /Usage: \/effort/.test(n.msg)));
+	check(
+		"/effort invalid does not change level",
+		harness.level === before,
+		`${before} -> ${harness.level}`,
+	);
+	check(
+		"/effort invalid shows usage",
+		ctx._notes.some((n) => /Unknown effort/i.test(n.msg) && /Usage: \/effort/.test(n.msg)),
+	);
 }
 
 async function scenarioSelectorAndStatusEvent(url) {
@@ -132,7 +173,12 @@ async function scenarioSelectorAndStatusEvent(url) {
 	await command.handler("", ctx);
 	check("/effort no args uses selector choice", harness.level === "low", harness.level);
 
-	await fire(harness.handlers, "thinking_level_select", { level: "minimal", previousLevel: "low" }, ctx);
+	await fire(
+		harness.handlers,
+		"thinking_level_select",
+		{ level: "minimal", previousLevel: "low" },
+		ctx,
+	);
 	const lastStatus = ctx._statuses[ctx._statuses.length - 1];
 	check(
 		"thinking_level_select shows resolved active level, not requested event.level",
@@ -141,7 +187,10 @@ async function scenarioSelectorAndStatusEvent(url) {
 	);
 
 	await command.handler("status", ctx);
-	check("/effort status reports current", ctx._notes.some((n) => /Current effort: low/i.test(n.msg)));
+	check(
+		"/effort status reports current",
+		ctx._notes.some((n) => /Current effort: low/i.test(n.msg)),
+	);
 }
 
 async function scenarioUltracode(url) {
@@ -153,13 +202,25 @@ async function scenarioUltracode(url) {
 
 	await command.handler("ultracode", ctx);
 	check("/effort ultracode sets xhigh", harness.level === "xhigh", harness.level);
-	check("/effort ultracode activates dynamic_workflow", harness.activeTools.includes("dynamic_workflow"), harness.activeTools.join(","));
+	check(
+		"/effort ultracode activates dynamic_workflow",
+		harness.activeTools.includes("dynamic_workflow"),
+		harness.activeTools.join(","),
+	);
 	check(
 		"/effort ultracode emits router event",
-		harness.emitted.some((e) => e.event === "pi-dynamic-workflows:ultracode-mode" && e.data?.enabled === true && e.data?.source === "/effort"),
+		harness.emitted.some(
+			(e) =>
+				e.event === "pi-dynamic-workflows:ultracode-mode" &&
+				e.data?.enabled === true &&
+				e.data?.source === "/effort",
+		),
 		JSON.stringify(harness.emitted),
 	);
-	check("/effort ultracode notifies", ctx._notes.some((n) => /Ultracode effort enabled/i.test(n.msg)));
+	check(
+		"/effort ultracode notifies",
+		ctx._notes.some((n) => /Ultracode effort enabled/i.test(n.msg)),
+	);
 }
 
 // F50/F51: notify() must not route warnings/errors to stdout in print mode, and must not
@@ -175,8 +236,16 @@ async function scenarioUltracodeToolUnavailable(url) {
 	const ctx = makeCtx();
 
 	await command.handler("ultracode", ctx);
-	check("/effort ultracode still sets xhigh without dynamic_workflow", harness.level === "xhigh", harness.level);
-	check("/effort ultracode does not activate a missing dynamic_workflow", !harness.activeTools.includes("dynamic_workflow"), harness.activeTools.join(","));
+	check(
+		"/effort ultracode still sets xhigh without dynamic_workflow",
+		harness.level === "xhigh",
+		harness.level,
+	);
+	check(
+		"/effort ultracode does not activate a missing dynamic_workflow",
+		!harness.activeTools.includes("dynamic_workflow"),
+		harness.activeTools.join(","),
+	);
 	check(
 		"/effort ultracode warns the router is not available in this session",
 		ctx._notes.some((n) => n.type === "warning" && /not available in this session/i.test(n.msg)),
@@ -220,7 +289,11 @@ async function scenarioNotifyErrorRouting(url) {
 	} finally {
 		console.error = origErr2;
 	}
-	check("headless mode surfaces invalid-effort warning on stderr (not dropped)", hErrs.some((m) => /Unknown effort/i.test(m)), `errs=${JSON.stringify(hErrs)}`);
+	check(
+		"headless mode surfaces invalid-effort warning on stderr (not dropped)",
+		hErrs.some((m) => /Unknown effort/i.test(m)),
+		`errs=${JSON.stringify(hErrs)}`,
+	);
 }
 
 async function main() {

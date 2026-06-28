@@ -9,7 +9,12 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension,
+	createChecker,
+	loadDefault,
+	loadModule,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -70,7 +75,8 @@ function makeEnv() {
 }
 
 // The most recent footer status text (or undefined when last cleared).
-const lastStatus = (env) => (env.statuses.length ? env.statuses[env.statuses.length - 1].text : undefined);
+const lastStatus = (env) =>
+	env.statuses.length ? env.statuses[env.statuses.length - 1].text : undefined;
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -127,7 +133,11 @@ async function belowThresholdNeverCompacts(url) {
 	env.state.percent = 20; // never crosses 30%
 	await fireAgentEnd(handlers, env.ctx);
 	await fireAgentEnd(handlers, env.ctx);
-	check("below: no compaction while under threshold", env.state.compactCount === 0, `compactCount=${env.state.compactCount}`);
+	check(
+		"below: no compaction while under threshold",
+		env.state.compactCount === 0,
+		`compactCount=${env.state.compactCount}`,
+	);
 }
 
 // Pure unit-level coverage for parseThreshold (named export). Imports the
@@ -135,7 +145,11 @@ async function belowThresholdNeverCompacts(url) {
 async function parseThresholdEdgeCases(url) {
 	const mod = await loadModule(url);
 	const parseThreshold = mod.parseThreshold;
-	check("parseThreshold: exported as a function", typeof parseThreshold === "function", `typeof=${typeof parseThreshold}`);
+	check(
+		"parseThreshold: exported as a function",
+		typeof parseThreshold === "function",
+		`typeof=${typeof parseThreshold}`,
+	);
 	if (typeof parseThreshold !== "function") return;
 
 	const cases = [
@@ -150,7 +164,11 @@ async function parseThresholdEdgeCases(url) {
 	];
 	for (const [input, expected] of cases) {
 		const actual = parseThreshold(input);
-		check(`parseThreshold(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`, actual === expected, `got ${JSON.stringify(actual)}`);
+		check(
+			`parseThreshold(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`,
+			actual === expected,
+			`got ${JSON.stringify(actual)}`,
+		);
 	}
 }
 
@@ -158,34 +176,61 @@ async function parseThresholdEdgeCases(url) {
 async function renderContextBarCases(url) {
 	const mod = await loadModule(url);
 	const renderContextBar = mod.renderContextBar;
-	check("renderContextBar: exported as a function", typeof renderContextBar === "function", `typeof=${typeof renderContextBar}`);
+	check(
+		"renderContextBar: exported as a function",
+		typeof renderContextBar === "function",
+		`typeof=${typeof renderContextBar}`,
+	);
 	if (typeof renderContextBar !== "function") return;
 
 	const unknown = renderContextBar({ percent: null, thresholdPercent: 30 });
-	check("renderContextBar: null usage renders nothing", unknown === null, `got ${JSON.stringify(unknown)}`);
+	check(
+		"renderContextBar: null usage renders nothing",
+		unknown === null,
+		`got ${JSON.stringify(unknown)}`,
+	);
 
 	const low = renderContextBar({ percent: 6, thresholdPercent: 30, width: 8 });
-	check("renderContextBar: low usage is idle and labels usage/threshold", low?.level === "idle" && low?.text.includes("6%/30%"), `got ${JSON.stringify(low)}`);
+	check(
+		"renderContextBar: low usage is idle and labels usage/threshold",
+		low?.level === "idle" && low?.text.includes("6%/30%"),
+		`got ${JSON.stringify(low)}`,
+	);
 
 	const near = renderContextBar({ percent: 24, thresholdPercent: 30, width: 8 });
-	check("renderContextBar: 0.8 of threshold is near", near?.level === "near", `got ${JSON.stringify(near)}`);
+	check(
+		"renderContextBar: 0.8 of threshold is near",
+		near?.level === "near",
+		`got ${JSON.stringify(near)}`,
+	);
 
 	const over = renderContextBar({ percent: 60, thresholdPercent: 30, width: 8 });
 	// Fill is clamped at full (8 filled glyphs, 0 empty) and level is over.
 	check(
 		"renderContextBar: usage above threshold clamps to a full bar and over level",
-		over?.level === "over" && over?.text.includes("60%/30%") && (over?.text.match(/\u25B0/g) || []).length === 8 && !over?.text.includes("\u25B1"),
+		over?.level === "over" &&
+			over?.text.includes("60%/30%") &&
+			(over?.text.match(/\u25B0/g) || []).length === 8 &&
+			!over?.text.includes("\u25B1"),
 		`got ${JSON.stringify(over)}`,
 	);
 
 	const busy = renderContextBar({ percent: 10, thresholdPercent: 30, compacting: true });
-	check("renderContextBar: compacting overrides usage", busy?.level === "compacting" && busy?.text.includes("compacting"), `got ${JSON.stringify(busy)}`);
+	check(
+		"renderContextBar: compacting overrides usage",
+		busy?.level === "compacting" && busy?.text.includes("compacting"),
+		`got ${JSON.stringify(busy)}`,
+	);
 }
 
 async function parseBarSettingCases(url) {
 	const mod = await loadModule(url);
 	const parseBarSetting = mod.parseBarSetting;
-	check("parseBarSetting: exported as a function", typeof parseBarSetting === "function", `typeof=${typeof parseBarSetting}`);
+	check(
+		"parseBarSetting: exported as a function",
+		typeof parseBarSetting === "function",
+		`typeof=${typeof parseBarSetting}`,
+	);
 	if (typeof parseBarSetting !== "function") return;
 	const cases = [
 		["on", true],
@@ -199,7 +244,11 @@ async function parseBarSettingCases(url) {
 	];
 	for (const [input, expected] of cases) {
 		const actual = parseBarSetting(input);
-		check(`parseBarSetting(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`, actual === expected, `got ${JSON.stringify(actual)}`);
+		check(
+			`parseBarSetting(${JSON.stringify(input)}) === ${JSON.stringify(expected)}`,
+			actual === expected,
+			`got ${JSON.stringify(actual)}`,
+		);
 	}
 }
 
@@ -211,8 +260,16 @@ async function barReflectsUsageBelowThreshold(url) {
 	env.state.percent = 15; // half of the 30% default threshold -> near
 	await fireTurnEnd(handlers, env.ctx);
 	const text = lastStatus(env);
-	check("bar: shows usage/threshold label on a normal turn", typeof text === "string" && text.includes("15%/30%"), `got ${JSON.stringify(text)}`);
-	check("bar: renders filled/empty glyphs", typeof text === "string" && /[\u25B0\u25B1]/.test(text), `got ${JSON.stringify(text)}`);
+	check(
+		"bar: shows usage/threshold label on a normal turn",
+		typeof text === "string" && text.includes("15%/30%"),
+		`got ${JSON.stringify(text)}`,
+	);
+	check(
+		"bar: renders filled/empty glyphs",
+		typeof text === "string" && /[\u25B0\u25B1]/.test(text),
+		`got ${JSON.stringify(text)}`,
+	);
 }
 
 async function barShowsCompactingState(url) {
@@ -221,8 +278,14 @@ async function barShowsCompactingState(url) {
 	env.state.percent = 60; // crosses threshold -> compaction
 	env.state.reduceTo = 20;
 	await fireAgentEnd(handlers, env.ctx);
-	const sawCompacting = env.statuses.some((s) => typeof s.text === "string" && s.text.includes("compacting"));
-	check("bar: surfaces a compacting state while compaction runs", sawCompacting, `statuses=${JSON.stringify(env.statuses.map((s) => s.text))}`);
+	const sawCompacting = env.statuses.some(
+		(s) => typeof s.text === "string" && s.text.includes("compacting"),
+	);
+	check(
+		"bar: surfaces a compacting state while compaction runs",
+		sawCompacting,
+		`statuses=${JSON.stringify(env.statuses.map((s) => s.text))}`,
+	);
 }
 
 async function barToggleClearsAndRestores(url) {
@@ -231,11 +294,23 @@ async function barToggleClearsAndRestores(url) {
 	const run = (args) => commands.get("auto-compact-context").handler(args, env.ctx);
 	env.state.percent = 15;
 	await fireTurnEnd(handlers, env.ctx);
-	check("bar toggle: visible before turning off", typeof lastStatus(env) === "string", `got ${JSON.stringify(lastStatus(env))}`);
+	check(
+		"bar toggle: visible before turning off",
+		typeof lastStatus(env) === "string",
+		`got ${JSON.stringify(lastStatus(env))}`,
+	);
 	await run("bar off");
-	check("bar toggle: cleared when turned off", lastStatus(env) === undefined, `got ${JSON.stringify(lastStatus(env))}`);
+	check(
+		"bar toggle: cleared when turned off",
+		lastStatus(env) === undefined,
+		`got ${JSON.stringify(lastStatus(env))}`,
+	);
 	await run("bar on");
-	check("bar toggle: restored when turned on", typeof lastStatus(env) === "string" && lastStatus(env).includes("15%/30%"), `got ${JSON.stringify(lastStatus(env))}`);
+	check(
+		"bar toggle: restored when turned on",
+		typeof lastStatus(env) === "string" && lastStatus(env).includes("15%/30%"),
+		`got ${JSON.stringify(lastStatus(env))}`,
+	);
 }
 
 async function barClearedWhenDisabled(url) {
@@ -245,7 +320,11 @@ async function barClearedWhenDisabled(url) {
 	env.state.percent = 15;
 	await fireTurnEnd(handlers, env.ctx);
 	await run("off");
-	check("bar: cleared when auto-compaction is disabled", lastStatus(env) === undefined, `got ${JSON.stringify(lastStatus(env))}`);
+	check(
+		"bar: cleared when auto-compaction is disabled",
+		lastStatus(env) === undefined,
+		`got ${JSON.stringify(lastStatus(env))}`,
+	);
 }
 
 async function main() {

@@ -18,7 +18,13 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { appendJsonLine, transformWorkflowCode, JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./index.js";
+import {
+	appendJsonLine,
+	transformWorkflowCode,
+	JOURNAL_FILE,
+	MAX_AGENT_OUTPUT_IN_RESULT,
+	MAX_JOURNALED_STREAM,
+} from "./index.js";
 import { truncate } from "./format.js";
 import type { JournalCache, JournalRecord, SubagentResult, BashResult } from "./index.js";
 
@@ -32,8 +38,8 @@ export function stableStringify(value: unknown): string {
 	const encode = (current: unknown): string => {
 		if (current === null) return "null";
 		const t = typeof current;
-		if (t === "number") return Number.isFinite(current as number) ? String(current) : "null";
-		if (t === "boolean") return String(current);
+		if (typeof current === "number") return Number.isFinite(current) ? String(current) : "null";
+		if (typeof current === "boolean") return String(current);
 		if (t === "bigint") return JSON.stringify((current as bigint).toString());
 		if (t === "string") return JSON.stringify(current);
 		if (t === "undefined" || t === "function" || t === "symbol") return "null";
@@ -47,10 +53,12 @@ export function stableStringify(value: unknown): string {
 		const obj = current as Record<string, unknown>;
 		if (seen.has(obj)) return '"[Circular]"';
 		seen.add(obj);
-		const keys = Object.keys(obj).filter((key) => {
-			const v = obj[key];
-			return v !== undefined && typeof v !== "function" && typeof v !== "symbol";
-		}).sort();
+		const keys = Object.keys(obj)
+			.filter((key) => {
+				const v = obj[key];
+				return v !== undefined && typeof v !== "function" && typeof v !== "symbol";
+			})
+			.sort();
 		const out = `{${keys.map((key) => `${JSON.stringify(key)}:${encode(obj[key])}`).join(",")}}`;
 		seen.delete(obj);
 		return out;
@@ -59,7 +67,10 @@ export function stableStringify(value: unknown): string {
 }
 
 export function computeCallKey(method: string, args: unknown): string {
-	return crypto.createHash("sha256").update(`${method}\n${stableStringify(args)}`).digest("hex");
+	return crypto
+		.createHash("sha256")
+		.update(`${method}\n${stableStringify(args)}`)
+		.digest("hex");
 }
 
 export function computeCodeHash(code: string): string {
@@ -81,13 +92,13 @@ export async function loadJournal(runDir: string): Promise<JournalCache> {
 	const lines = body.split("\n");
 	let lastContentLine = -1;
 	for (let i = lines.length - 1; i >= 0; i--) {
-		if (lines[i]!.trim()) {
+		if (lines[i].trim()) {
 			lastContentLine = i;
 			break;
 		}
 	}
 	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i]!;
+		const line = lines[i];
 		if (!line.trim()) continue;
 		let record: JournalRecord;
 		try {
@@ -95,10 +106,18 @@ export async function loadJournal(runDir: string): Promise<JournalCache> {
 		} catch {
 			// A crash can leave the final JSONL record torn; tolerate only that case.
 			if (i === lastContentLine) continue;
-			console.warn(`[dynamic-workflows] Ignoring malformed journal line ${i + 1} in ${journalPath}; resume cache may be incomplete.`);
+			console.warn(
+				`[dynamic-workflows] Ignoring malformed journal line ${i + 1} in ${journalPath}; resume cache may be incomplete.`,
+			);
 			continue;
 		}
-		if (!record || typeof record.key !== "string" || typeof record.occ !== "number" || !record.result) continue;
+		if (
+			!record ||
+			typeof record.key !== "string" ||
+			typeof record.occ !== "number" ||
+			!record.result
+		)
+			continue;
 		const slots = cache.get(record.key) ?? [];
 		slots[record.occ] = record.result; // last-wins for a repeated (key, occ)
 		cache.set(record.key, slots);
@@ -159,7 +178,7 @@ export async function maxAgentArtifactNumber(runDir: string): Promise<number> {
 	for (const name of names) {
 		const m = /^(\d{4})-/.exec(name);
 		if (m) {
-			const n = Number.parseInt(m[1]!, 10);
+			const n = Number.parseInt(m[1], 10);
 			if (Number.isFinite(n) && n > max) max = n;
 		}
 	}

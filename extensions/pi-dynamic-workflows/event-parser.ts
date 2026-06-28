@@ -15,7 +15,13 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { renderSafeInline } from "./render-utils.js";
 import { extractMarkdownSection } from "./index.js";
-import type { WorkflowLogEntry, SubagentResult, AgentMonitorModel, AgentMonitorState, AgentPhaseInfo } from "./index.js";
+import type {
+	WorkflowLogEntry,
+	SubagentResult,
+	AgentMonitorModel,
+	AgentMonitorState,
+	AgentPhaseInfo,
+} from "./index.js";
 
 interface ParsedRunEvents {
 	logs: WorkflowLogEntry[];
@@ -23,7 +29,9 @@ interface ParsedRunEvents {
 }
 
 export function recordValue(value: unknown): Record<string, unknown> | undefined {
-	return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: undefined;
 }
 
 export function stringValue(value: unknown): string | undefined {
@@ -51,7 +59,9 @@ export function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<Sub
 // Live elapsed for an agent: use the recorded value once it ends, otherwise
 // derive it from startedAt while running so the row ticks instead of showing a
 // frozen "elapsed:…" placeholder.
-export function getAgentElapsedMs(agent: Pick<AgentMonitorModel, "state" | "startedAt" | "elapsedMs">): number | undefined {
+export function getAgentElapsedMs(
+	agent: Pick<AgentMonitorModel, "state" | "startedAt" | "elapsedMs">,
+): number | undefined {
 	if (agent.elapsedMs !== undefined) return agent.elapsedMs;
 	if (agent.state === "running" && agent.startedAt) {
 		const started = new Date(agent.startedAt).getTime();
@@ -60,7 +70,9 @@ export function getAgentElapsedMs(agent: Pick<AgentMonitorModel, "state" | "star
 	return undefined;
 }
 
-export function formatAgentPhase(agent: Pick<AgentMonitorModel, "phaseId" | "phaseIndex" | "phaseTotal" | "phaseLabel">): string | undefined {
+export function formatAgentPhase(
+	agent: Pick<AgentMonitorModel, "phaseId" | "phaseIndex" | "phaseTotal" | "phaseLabel">,
+): string | undefined {
 	if (!agent.phaseIndex || !agent.phaseTotal) return undefined;
 	const batch = agent.phaseId ? `P${agent.phaseId} ` : "";
 	return `${batch}${agent.phaseIndex}/${agent.phaseTotal}`;
@@ -73,44 +85,91 @@ export function stringArrayValue(value: unknown): string[] | undefined {
 }
 
 export function isAgentMonitorState(value: unknown): value is AgentMonitorState {
-	return value === "running" || value === "completed" || value === "failed" || value === "cached" || value === "unknown";
+	return (
+		value === "running" ||
+		value === "completed" ||
+		value === "failed" ||
+		value === "cached" ||
+		value === "unknown"
+	);
 }
 
-export function mergeAgentMonitor(existing: AgentMonitorModel | undefined, patch: Partial<AgentMonitorModel> & { id: number; name: string }): AgentMonitorModel {
+export function mergeAgentMonitor(
+	existing: AgentMonitorModel | undefined,
+	patch: Partial<AgentMonitorModel> & { id: number; name: string },
+): AgentMonitorModel {
 	const existingState = existing?.state;
 	const patchState = patch.state;
-	const state = existingState && (existingState === "completed" || existingState === "failed" || existingState === "cached") && patchState === "running"
-		? existingState
-		: patchState ?? existingState ?? "unknown";
+	const state =
+		existingState &&
+		(existingState === "completed" || existingState === "failed" || existingState === "cached") &&
+		patchState === "running"
+			? existingState
+			: (patchState ?? existingState ?? "unknown");
 	const artifactPath = patch.artifactPath ?? existing?.artifactPath;
 	return {
 		id: patch.id,
 		name: patch.name || existing?.name || `agent-${patch.id}`,
 		state,
-		...(existing?.startedAt || patch.startedAt ? { startedAt: patch.startedAt ?? existing?.startedAt } : {}),
+		...(existing?.startedAt || patch.startedAt
+			? { startedAt: patch.startedAt ?? existing?.startedAt }
+			: {}),
 		...(existing?.endedAt || patch.endedAt ? { endedAt: patch.endedAt ?? existing?.endedAt } : {}),
-		...(existing?.elapsedMs !== undefined || patch.elapsedMs !== undefined ? { elapsedMs: patch.elapsedMs ?? existing?.elapsedMs } : {}),
-		...(existing?.ok !== undefined || patch.ok !== undefined ? { ok: patch.ok ?? existing?.ok } : {}),
-		...(existing?.code !== undefined || patch.code !== undefined ? { code: patch.code ?? existing?.code } : {}),
-		...(existing?.killed !== undefined || patch.killed !== undefined ? { killed: patch.killed ?? existing?.killed } : {}),
+		...(existing?.elapsedMs !== undefined || patch.elapsedMs !== undefined
+			? { elapsedMs: patch.elapsedMs ?? existing?.elapsedMs }
+			: {}),
+		...(existing?.ok !== undefined || patch.ok !== undefined
+			? { ok: patch.ok ?? existing?.ok }
+			: {}),
+		...(existing?.code !== undefined || patch.code !== undefined
+			? { code: patch.code ?? existing?.code }
+			: {}),
+		...(existing?.killed !== undefined || patch.killed !== undefined
+			? { killed: patch.killed ?? existing?.killed }
+			: {}),
 		...(artifactPath ? { artifactPath } : {}),
 		...(existing?.tools || patch.tools ? { tools: patch.tools ?? existing?.tools } : {}),
-		...(existing?.excludeTools || patch.excludeTools ? { excludeTools: patch.excludeTools ?? existing?.excludeTools } : {}),
+		...(existing?.excludeTools || patch.excludeTools
+			? { excludeTools: patch.excludeTools ?? existing?.excludeTools }
+			: {}),
 		...(existing?.skills || patch.skills ? { skills: patch.skills ?? existing?.skills } : {}),
-		...(existing?.includeSkills !== undefined || patch.includeSkills !== undefined ? { includeSkills: patch.includeSkills ?? existing?.includeSkills } : {}),
-		...(existing?.extensions || patch.extensions ? { extensions: patch.extensions ?? existing?.extensions } : {}),
-		...(existing?.includeExtensions !== undefined || patch.includeExtensions !== undefined ? { includeExtensions: patch.includeExtensions ?? existing?.includeExtensions } : {}),
+		...(existing?.includeSkills !== undefined || patch.includeSkills !== undefined
+			? { includeSkills: patch.includeSkills ?? existing?.includeSkills }
+			: {}),
+		...(existing?.extensions || patch.extensions
+			? { extensions: patch.extensions ?? existing?.extensions }
+			: {}),
+		...(existing?.includeExtensions !== undefined || patch.includeExtensions !== undefined
+			? { includeExtensions: patch.includeExtensions ?? existing?.includeExtensions }
+			: {}),
 		...(existing?.keys || patch.keys ? { keys: patch.keys ?? existing?.keys } : {}),
-		...(existing?.missingKeys || patch.missingKeys ? { missingKeys: patch.missingKeys ?? existing?.missingKeys } : {}),
-		...(existing?.isolatedEnv !== undefined || patch.isolatedEnv !== undefined ? { isolatedEnv: patch.isolatedEnv ?? existing?.isolatedEnv } : {}),
-		...(existing?.phaseId !== undefined || patch.phaseId !== undefined ? { phaseId: patch.phaseId ?? existing?.phaseId } : {}),
-		...(existing?.phaseIndex !== undefined || patch.phaseIndex !== undefined ? { phaseIndex: patch.phaseIndex ?? existing?.phaseIndex } : {}),
-		...(existing?.phaseTotal !== undefined || patch.phaseTotal !== undefined ? { phaseTotal: patch.phaseTotal ?? existing?.phaseTotal } : {}),
-		...(existing?.phaseLabel || patch.phaseLabel ? { phaseLabel: patch.phaseLabel ?? existing?.phaseLabel } : {}),
-		...(existing?.promptPreview || patch.promptPreview ? { promptPreview: patch.promptPreview ?? existing?.promptPreview } : {}),
+		...(existing?.missingKeys || patch.missingKeys
+			? { missingKeys: patch.missingKeys ?? existing?.missingKeys }
+			: {}),
+		...(existing?.isolatedEnv !== undefined || patch.isolatedEnv !== undefined
+			? { isolatedEnv: patch.isolatedEnv ?? existing?.isolatedEnv }
+			: {}),
+		...(existing?.phaseId !== undefined || patch.phaseId !== undefined
+			? { phaseId: patch.phaseId ?? existing?.phaseId }
+			: {}),
+		...(existing?.phaseIndex !== undefined || patch.phaseIndex !== undefined
+			? { phaseIndex: patch.phaseIndex ?? existing?.phaseIndex }
+			: {}),
+		...(existing?.phaseTotal !== undefined || patch.phaseTotal !== undefined
+			? { phaseTotal: patch.phaseTotal ?? existing?.phaseTotal }
+			: {}),
+		...(existing?.phaseLabel || patch.phaseLabel
+			? { phaseLabel: patch.phaseLabel ?? existing?.phaseLabel }
+			: {}),
+		...(existing?.promptPreview || patch.promptPreview
+			? { promptPreview: patch.promptPreview ?? existing?.promptPreview }
+			: {}),
 		...(existing?.output || patch.output ? { output: patch.output ?? existing?.output } : {}),
-		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined ? { schemaOk: patch.schemaOk ?? existing?.schemaOk } : {}),
-		promptAvailable: existing?.promptAvailable === true || patch.promptAvailable === true || !!artifactPath,
+		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined
+			? { schemaOk: patch.schemaOk ?? existing?.schemaOk }
+			: {}),
+		promptAvailable:
+			existing?.promptAvailable === true || patch.promptAvailable === true || !!artifactPath,
 	};
 }
 
@@ -137,13 +196,28 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 		for (const line of body.split("\n")) {
 			if (!line.trim()) continue;
 			try {
-				const event = JSON.parse(line) as { type?: string; time?: string; message?: string; details?: unknown; [key: string]: unknown };
+				const event = JSON.parse(line) as {
+					type?: string;
+					time?: string;
+					message?: string;
+					details?: unknown;
+					[key: string]: unknown;
+				};
 				if (event.type === "log" && event.time && event.message) {
-					const logEntry: WorkflowLogEntry = { time: event.time, message: event.message, ...(event.details === undefined ? {} : { details: event.details }) };
+					const logEntry: WorkflowLogEntry = {
+						time: event.time,
+						message: event.message,
+						...(event.details === undefined ? {} : { details: event.details }),
+					};
 					logs.push(logEntry);
 					const startMatch = /^agent (\d+) start: (.+)$/.exec(event.message);
 					if (startMatch) {
-						upsert({ id: Number.parseInt(startMatch[1]!, 10), name: startMatch[2]!, state: "running", startedAt: event.time });
+						upsert({
+							id: Number.parseInt(startMatch[1], 10),
+							name: startMatch[2],
+							state: "running",
+							startedAt: event.time,
+						});
 						continue;
 					}
 					const endMatch = /^agent (\d+) end: (.+)$/.exec(event.message);
@@ -151,14 +225,20 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 						const details = recordValue(event.details);
 						const ok = booleanValue(details?.ok);
 						upsert({
-							id: Number.parseInt(endMatch[1]!, 10),
-							name: endMatch[2]!,
+							id: Number.parseInt(endMatch[1], 10),
+							name: endMatch[2],
 							state: ok === false ? "failed" : "completed",
 							endedAt: event.time,
 							...(ok === undefined ? {} : { ok }),
-							...(numberValue(details?.code) === undefined ? {} : { code: numberValue(details?.code) }),
-							...(numberValue(details?.elapsedMs) === undefined ? {} : { elapsedMs: numberValue(details?.elapsedMs) }),
-							...(booleanValue(details?.schemaOk) === undefined ? {} : { schemaOk: booleanValue(details?.schemaOk) }),
+							...(numberValue(details?.code) === undefined
+								? {}
+								: { code: numberValue(details?.code) }),
+							...(numberValue(details?.elapsedMs) === undefined
+								? {}
+								: { elapsedMs: numberValue(details?.elapsedMs) }),
+							...(booleanValue(details?.schemaOk) === undefined
+								? {}
+								: { schemaOk: booleanValue(details?.schemaOk) }),
 						});
 					}
 				} else if (event.type === "agent") {
@@ -183,27 +263,42 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							state: explicitState ?? (ok === undefined ? "unknown" : ok ? "completed" : "failed"),
 							...(stringValue(event.startedAt) ? { startedAt: stringValue(event.startedAt) } : {}),
 							...(stringValue(event.endedAt) ? { endedAt: stringValue(event.endedAt) } : {}),
-							...(numberValue(event.elapsedMs) === undefined ? {} : { elapsedMs: numberValue(event.elapsedMs) }),
+							...(numberValue(event.elapsedMs) === undefined
+								? {}
+								: { elapsedMs: numberValue(event.elapsedMs) }),
 							...(ok === undefined ? {} : { ok }),
 							...(numberValue(event.code) === undefined ? {} : { code: numberValue(event.code) }),
-							...(booleanValue(event.killed) === undefined ? {} : { killed: booleanValue(event.killed) }),
-							...(stringValue(event.artifactPath) ? { artifactPath: stringValue(event.artifactPath) } : {}),
+							...(booleanValue(event.killed) === undefined
+								? {}
+								: { killed: booleanValue(event.killed) }),
+							...(stringValue(event.artifactPath)
+								? { artifactPath: stringValue(event.artifactPath) }
+								: {}),
 							...(tools ? { tools } : {}),
 							...(excludeTools ? { excludeTools } : {}),
 							...(skills ? { skills } : {}),
-							...(booleanValue(event.includeSkills) === undefined ? {} : { includeSkills: booleanValue(event.includeSkills) }),
+							...(booleanValue(event.includeSkills) === undefined
+								? {}
+								: { includeSkills: booleanValue(event.includeSkills) }),
 							...(extensions ? { extensions } : {}),
-							...(booleanValue(event.includeExtensions) === undefined ? {} : { includeExtensions: booleanValue(event.includeExtensions) }),
+							...(booleanValue(event.includeExtensions) === undefined
+								? {}
+								: { includeExtensions: booleanValue(event.includeExtensions) }),
 							...(keys ? { keys } : {}),
 							...(missingKeys ? { missingKeys } : {}),
-							...(booleanValue(event.isolatedEnv) === undefined ? {} : { isolatedEnv: booleanValue(event.isolatedEnv) }),
+							...(booleanValue(event.isolatedEnv) === undefined
+								? {}
+								: { isolatedEnv: booleanValue(event.isolatedEnv) }),
 							...(phaseId === undefined ? {} : { phaseId }),
 							...(phaseIndex === undefined ? {} : { phaseIndex }),
 							...(phaseTotal === undefined ? {} : { phaseTotal }),
 							...(phaseLabel ? { phaseLabel } : {}),
 							...(stringValue(event.output) ? { output: stringValue(event.output) } : {}),
-							...(booleanValue(event.schemaOk) === undefined ? {} : { schemaOk: booleanValue(event.schemaOk) }),
-							promptAvailable: booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),
+							...(booleanValue(event.schemaOk) === undefined
+								? {}
+								: { schemaOk: booleanValue(event.schemaOk) }),
+							promptAvailable:
+								booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),
 						});
 					}
 				}
@@ -222,9 +317,9 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 			if (!entry.isFile()) continue;
 			const match = /^(\d{4})-(.+)\.md$/.exec(entry.name);
 			if (!match) continue;
-			const id = Number.parseInt(match[1]!, 10);
+			const id = Number.parseInt(match[1], 10);
 			const file = path.join(agentDir, entry.name);
-			let title = match[2]!.replace(/-/g, " ");
+			let title = match[2].replace(/-/g, " ");
 			let promptAvailable = true;
 			let promptPreview: string | undefined;
 			try {
@@ -237,7 +332,13 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 			} catch {
 				promptAvailable = false;
 			}
-			upsert({ id, name: title, artifactPath: file, promptAvailable, ...(promptPreview ? { promptPreview } : {}) });
+			upsert({
+				id,
+				name: title,
+				artifactPath: file,
+				promptAvailable,
+				...(promptPreview ? { promptPreview } : {}),
+			});
 		}
 	} catch {
 		// Runs without agent artifacts still render their timeline normally.

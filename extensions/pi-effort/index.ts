@@ -47,7 +47,11 @@ const SELECT_ITEMS = [
 	"ultracode — xhigh + dynamic workflow router",
 ];
 
-function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
+function notify(
+	ctx: ExtensionContext,
+	message: string,
+	type: "info" | "warning" | "error" = "info",
+): void {
 	if (ctx.mode === "print") {
 		// stdout carries machine-readable output in print mode; keep warnings/errors on stderr.
 		(type === "info" ? console.log : console.error)(message);
@@ -68,7 +72,7 @@ function usage(current: string): string {
 function safeCurrentLevel(pi: ExtensionAPI): ThinkingLevel | "unknown" {
 	try {
 		const level = pi.getThinkingLevel();
-		return THINKING_LEVELS.includes(level as ThinkingLevel) ? (level as ThinkingLevel) : "unknown";
+		return THINKING_LEVELS.includes(level) ? level : "unknown";
 	} catch {
 		return "unknown";
 	}
@@ -83,7 +87,11 @@ function formatEffortStatus(ctx: ExtensionContext, level: string): string {
 	return text;
 }
 
-function updateEffortStatus(pi: ExtensionAPI, ctx: ExtensionContext, level = safeCurrentLevel(pi)): void {
+function updateEffortStatus(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	level = safeCurrentLevel(pi),
+): void {
 	if (!ctx.hasUI) return;
 	ctx.ui.setStatus(EFFORT_STATUS_KEY, formatEffortStatus(ctx, level));
 }
@@ -109,7 +117,11 @@ function setThinkingEffort(
 		if (actual === level) {
 			notify(ctx, `Thinking effort set to ${actual}.`, "info");
 		} else {
-			notify(ctx, `Requested effort ${level}; active effort is ${actual} (the current model may clamp thinking).`, "warning");
+			notify(
+				ctx,
+				`Requested effort ${level}; active effort is ${actual} (the current model may clamp thinking).`,
+				"warning",
+			);
 		}
 	}
 	return actual;
@@ -143,7 +155,11 @@ function enableUltracodeEffort(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	const routerStatus = workflowToolActive
 		? "dynamic workflow router enabled"
 		: "dynamic workflow router requested, but dynamic_workflow is not available in this session";
-	notify(ctx, `Ultracode effort enabled (${actual}); ${routerStatus}.`, workflowToolActive ? "info" : "warning");
+	notify(
+		ctx,
+		`Ultracode effort enabled (${actual}); ${routerStatus}.`,
+		workflowToolActive ? "info" : "warning",
+	);
 }
 
 function handleEffortTarget(pi: ExtensionAPI, ctx: ExtensionContext, target: EffortTarget): void {
@@ -174,7 +190,13 @@ export default function effortExtension(pi: ExtensionAPI): void {
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = COMPLETIONS.filter((item) => item.value.startsWith(needle));
-			return items.length > 0 ? items.map((item) => ({ value: item.value, label: item.value, description: item.description })) : null;
+			return items.length > 0
+				? items.map((item) => ({
+						value: item.value,
+						label: item.value,
+						description: item.description,
+					}))
+				: null;
 		},
 		handler: async (args, ctx) => {
 			const value = await resolveCommandValue(args, ctx);

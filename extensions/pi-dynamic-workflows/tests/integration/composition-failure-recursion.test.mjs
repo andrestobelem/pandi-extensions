@@ -143,7 +143,12 @@ async function makeProject() {
 }
 
 async function writeWorkflow(project, relativeName, code) {
-	const file = path.join(project, ".pi", "workflows", relativeName.endsWith(".js") ? relativeName : `${relativeName}.js`);
+	const file = path.join(
+		project,
+		".pi",
+		"workflows",
+		relativeName.endsWith(".js") ? relativeName : `${relativeName}.js`,
+	);
 	await fs.mkdir(path.dirname(file), { recursive: true });
 	await fs.writeFile(file, code, "utf8");
 	return file;
@@ -190,12 +195,16 @@ async function runExpectingFailure(tool, ctx, params) {
 async function scenarioDirectSelfRecursion(url) {
 	const project = await makeProject();
 	// The workflow's resolved name (from the .pi/workflows path) is "selfie".
-	await writeWorkflow(project, "selfie", `
+	await writeWorkflow(
+		project,
+		"selfie",
+		`
 module.exports = async function workflow(ctx) {
   // Call ourselves: must be refused BEFORE recursing, with the parent-recursion message.
   return await ctx.workflow("selfie", {});
 };
-`);
+`,
+	);
 
 	const ext = await freshExtension(url);
 	const { pi, tools } = makePi();
@@ -206,7 +215,11 @@ module.exports = async function workflow(ctx) {
 		name: "selfie",
 		timeoutMs: 30_000,
 	});
-	check("self-recursion: run fails (does not loop)", outcome.threw === true, JSON.stringify(outcome).slice(0, 200));
+	check(
+		"self-recursion: run fails (does not loop)",
+		outcome.threw === true,
+		JSON.stringify(outcome).slice(0, 200),
+	);
 	check(
 		"self-recursion: distinct parent-recursion message",
 		/refused recursive call|may not call their parent/i.test(String(outcome.error || "")),
@@ -225,7 +238,10 @@ module.exports = async function workflow(ctx) {
 //     lets the error bubble, so the run fails. ----------------------------------
 async function scenarioChildFailurePropagates(url) {
 	const project = await makeProject();
-	await writeWorkflow(project, "parent-fatal", `
+	await writeWorkflow(
+		project,
+		"parent-fatal",
+		`
 module.exports = async function workflow(ctx) {
   // Positive control: a healthy child first, so we can assert end/ok:true coexists.
   await ctx.workflow("lib/healthy-child", { tag: "ok" });
@@ -233,18 +249,27 @@ module.exports = async function workflow(ctx) {
   await ctx.workflow("lib/throwing-child", {});
   return "unreachable";
 };
-`);
-	await writeWorkflow(project, "lib/healthy-child", `
+`,
+	);
+	await writeWorkflow(
+		project,
+		"lib/healthy-child",
+		`
 module.exports = async function workflow(ctx) {
   await ctx.log("healthy child ran");
   return { ok: true };
 };
-`);
-	await writeWorkflow(project, "lib/throwing-child", `
+`,
+	);
+	await writeWorkflow(
+		project,
+		"lib/throwing-child",
+		`
 module.exports = async function workflow() {
   throw new Error("child-boom-42");
 };
-`);
+`,
+	);
 
 	const ext = await freshExtension(url);
 	const { pi, tools } = makePi();
@@ -255,22 +280,69 @@ module.exports = async function workflow() {
 		name: "parent-fatal",
 		timeoutMs: 30_000,
 	});
-	check("child-failure: uncaught child error fails the run", outcome.threw === true, JSON.stringify(outcome).slice(0, 200));
-	check("child-failure: error surfaces the child's message", /child-boom-42/.test(String(outcome.error || "")), String(outcome.error || ""));
-	check("child-failure: failure surface does not claim the parent return value", !/unreachable/.test(outcome.message), outcome.message.slice(0, 200));
-	check("child-failure: run dir was recoverable from the failure surface", Boolean(outcome.runDir), outcome.message.slice(0, 200));
+	check(
+		"child-failure: uncaught child error fails the run",
+		outcome.threw === true,
+		JSON.stringify(outcome).slice(0, 200),
+	);
+	check(
+		"child-failure: error surfaces the child's message",
+		/child-boom-42/.test(String(outcome.error || "")),
+		String(outcome.error || ""),
+	);
+	check(
+		"child-failure: failure surface does not claim the parent return value",
+		!/unreachable/.test(outcome.message),
+		outcome.message.slice(0, 200),
+	);
+	check(
+		"child-failure: run dir was recoverable from the failure surface",
+		Boolean(outcome.runDir),
+		outcome.message.slice(0, 200),
+	);
 
 	const events = await readEvents(outcome.runDir);
-	const errEvent = events.find((e) => e.type === "workflow" && e.phase === "error" && e.name === "lib/throwing-child");
-	check("child-failure: records a workflow phase:error event for the failing child", Boolean(errEvent), JSON.stringify(events.filter((e) => e.type === "workflow")));
-	check("child-failure: error event is ok:false", errEvent ? errEvent.ok === false : false, JSON.stringify(errEvent));
-	check("child-failure: error event carries the message", errEvent ? /child-boom-42/.test(String(errEvent.error || "")) : false, JSON.stringify(errEvent));
+	const errEvent = events.find(
+		(e) => e.type === "workflow" && e.phase === "error" && e.name === "lib/throwing-child",
+	);
+	check(
+		"child-failure: records a workflow phase:error event for the failing child",
+		Boolean(errEvent),
+		JSON.stringify(events.filter((e) => e.type === "workflow")),
+	);
+	check(
+		"child-failure: error event is ok:false",
+		errEvent ? errEvent.ok === false : false,
+		JSON.stringify(errEvent),
+	);
+	check(
+		"child-failure: error event carries the message",
+		errEvent ? /child-boom-42/.test(String(errEvent.error || "")) : false,
+		JSON.stringify(errEvent),
+	);
 	// Positive control: the healthy child still emits a clean end/ok:true event.
-	const okEvent = events.find((e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/healthy-child" && e.ok === true);
-	check("child-failure: healthy sibling still records phase:end/ok:true", Boolean(okEvent), JSON.stringify(events.filter((e) => e.type === "workflow")));
+	const okEvent = events.find(
+		(e) =>
+			e.type === "workflow" && e.phase === "end" && e.name === "lib/healthy-child" && e.ok === true,
+	);
+	check(
+		"child-failure: healthy sibling still records phase:end/ok:true",
+		Boolean(okEvent),
+		JSON.stringify(events.filter((e) => e.type === "workflow")),
+	);
 	// The failing child must NOT also have an end/ok:true event (would mean it was treated as success).
-	const falseSuccess = events.find((e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/throwing-child" && e.ok === true);
-	check("child-failure: failing child has NO phase:end/ok:true event", !falseSuccess, JSON.stringify(falseSuccess));
+	const falseSuccess = events.find(
+		(e) =>
+			e.type === "workflow" &&
+			e.phase === "end" &&
+			e.name === "lib/throwing-child" &&
+			e.ok === true,
+	);
+	check(
+		"child-failure: failing child has NO phase:end/ok:true event",
+		!falseSuccess,
+		JSON.stringify(falseSuccess),
+	);
 }
 
 // --- Scenario 3: the child failure is a NORMAL JS throw the parent can try/catch,
@@ -278,7 +350,10 @@ module.exports = async function workflow() {
 //     phase:"error" event is STILL recorded for observability. -------------------
 async function scenarioParentRecoversFromChildFailure(url) {
 	const project = await makeProject();
-	await writeWorkflow(project, "parent-recover", `
+	await writeWorkflow(
+		project,
+		"parent-recover",
+		`
 module.exports = async function workflow(ctx) {
   let caught = null;
   try {
@@ -290,12 +365,17 @@ module.exports = async function workflow(ctx) {
   await ctx.writeArtifact("recovered.json", { caught });
   return { recovered: true, caughtMessage: caught };
 };
-`);
-	await writeWorkflow(project, "lib/throwing-child2", `
+`,
+	);
+	await writeWorkflow(
+		project,
+		"lib/throwing-child2",
+		`
 module.exports = async function workflow() {
   throw new Error("recoverable-boom-7");
 };
-`);
+`,
+	);
 
 	const ext = await freshExtension(url);
 	const { pi, tools } = makePi();
@@ -307,13 +387,31 @@ module.exports = async function workflow() {
 		timeoutMs: 30_000,
 	});
 	const result = response.details.result;
-	check("recover: run succeeds after parent catches child failure", result.ok === true, JSON.stringify(result).slice(0, 200));
-	check("recover: parent observed the child's error as a throw", result.output && result.output.recovered === true, JSON.stringify(result.output));
-	check("recover: caught message is the child's message", /recoverable-boom-7/.test(String(result.output && result.output.caughtMessage)), JSON.stringify(result.output));
+	check(
+		"recover: run succeeds after parent catches child failure",
+		result.ok === true,
+		JSON.stringify(result).slice(0, 200),
+	);
+	check(
+		"recover: parent observed the child's error as a throw",
+		result.output && result.output.recovered === true,
+		JSON.stringify(result.output),
+	);
+	check(
+		"recover: caught message is the child's message",
+		/recoverable-boom-7/.test(String(result.output && result.output.caughtMessage)),
+		JSON.stringify(result.output),
+	);
 
 	const events = await readEvents(result.runDir);
-	const errEvent = events.find((e) => e.type === "workflow" && e.phase === "error" && e.name === "lib/throwing-child2");
-	check("recover: error event still recorded even though parent recovered", Boolean(errEvent) && errEvent.ok === false, JSON.stringify(events.filter((e) => e.type === "workflow")));
+	const errEvent = events.find(
+		(e) => e.type === "workflow" && e.phase === "error" && e.name === "lib/throwing-child2",
+	);
+	check(
+		"recover: error event still recorded even though parent recovered",
+		Boolean(errEvent) && errEvent.ok === false,
+		JSON.stringify(events.filter((e) => e.type === "workflow")),
+	);
 }
 
 async function main() {

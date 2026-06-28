@@ -54,7 +54,8 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 		parameters: Type.Object({
 			note: Type.String({
 				minLength: 1,
-				description: "A concise, durable fact to remember for future sessions (one or two sentences).",
+				description:
+					"A concise, durable fact to remember for future sessions (one or two sentences).",
 			}),
 			topic: Type.Optional(
 				Type.String({
@@ -68,7 +69,12 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			const note = normalizeNote(params.note);
 			if (!note) {
 				return {
-					content: [{ type: "text" as const, text: "Nothing to remember: the note was empty after trimming." }],
+					content: [
+						{
+							type: "text" as const,
+							text: "Nothing to remember: the note was empty after trimming.",
+						},
+					],
 					details: { isError: true, remembered: false },
 				};
 			}
@@ -87,7 +93,10 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 				if (!slug) {
 					return {
 						content: [
-							{ type: "text" as const, text: `Invalid topic "${params.topic}": no safe file name could be derived.` },
+							{
+								type: "text" as const,
+								text: `Invalid topic "${params.topic}": no safe file name could be derived.`,
+							},
 						],
 						details: { isError: true, remembered: false },
 					};
@@ -110,7 +119,10 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			} catch {
 				return {
 					content: [
-						{ type: "text" as const, text: `Could not read existing memory at ${targetPath}; nothing was written.` },
+						{
+							type: "text" as const,
+							text: `Could not read existing memory at ${targetPath}; nothing was written.`,
+						},
 					],
 					details: { isError: true, remembered: false, path: targetPath },
 				};
@@ -130,13 +142,18 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			} catch (err) {
 				return {
 					content: [
-						{ type: "text" as const, text: `Failed to write memory at ${targetPath}: ${(err as Error).message}` },
+						{
+							type: "text" as const,
+							text: `Failed to write memory at ${targetPath}: ${(err as Error).message}`,
+						},
 					],
 					details: { isError: true, remembered: false, path: targetPath },
 				};
 			}
 			return {
-				content: [{ type: "text" as const, text: `Remembered (saved to ${targetLabel}): "${note}"` }],
+				content: [
+					{ type: "text" as const, text: `Remembered (saved to ${targetLabel}): "${note}"` },
+				],
 				details: { remembered: true, path: targetPath, topic: rawTopic ? targetLabel : null },
 			};
 		},
@@ -176,7 +193,11 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			}
 		}
 
-		const body = composeInjectedMemory({ indexText: trimmed, topicNames, memoryDirPath: memoryDir });
+		const body = composeInjectedMemory({
+			indexText: trimmed,
+			topicNames,
+			memoryDirPath: memoryDir,
+		});
 		return {
 			systemPrompt: `${event.systemPrompt}\n\n<local_memory path="${shownPath}">\n${body}\n</local_memory>`,
 		};

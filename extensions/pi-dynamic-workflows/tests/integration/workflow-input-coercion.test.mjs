@@ -19,8 +19,13 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 let passed = 0;
 let failed = 0;
 function check(label, cond, detail) {
-	if (cond) { passed += 1; console.log(`PASS: ${label}`); }
-	else { failed += 1; console.log(`FAIL: ${label}${detail ? `  [${String(detail).slice(0, 200)}]` : ""}`); }
+	if (cond) {
+		passed += 1;
+		console.log(`PASS: ${label}`);
+	} else {
+		failed += 1;
+		console.log(`FAIL: ${label}${detail ? `  [${String(detail).slice(0, 200)}]` : ""}`);
+	}
 }
 
 async function buildExtension() {
@@ -43,9 +48,15 @@ function makePi() {
 	const tools = new Map();
 	const pi = {
 		registerTool: (def) => tools.set(def.name, def),
-		registerCommand: () => {}, registerShortcut: () => {}, on: () => {},
-		appendEntry: () => {}, sendUserMessage: () => {}, getThinkingLevel: () => undefined,
-		getActiveTools: () => [], getAllTools: () => [...tools.values()], setActiveTools: () => {},
+		registerCommand: () => {},
+		registerShortcut: () => {},
+		on: () => {},
+		appendEntry: () => {},
+		sendUserMessage: () => {},
+		getThinkingLevel: () => undefined,
+		getActiveTools: () => [],
+		getAllTools: () => [...tools.values()],
+		setActiveTools: () => {},
 		exec: async () => ({ code: 0, killed: false, stdout: "", stderr: "" }),
 	};
 	return { pi, tools };
@@ -53,9 +64,24 @@ function makePi() {
 
 function makeCtx(cwd) {
 	return {
-		mode: "print", hasUI: false, cwd, isIdle: () => true, isProjectTrusted: () => true,
+		mode: "print",
+		hasUI: false,
+		cwd,
+		isIdle: () => true,
+		isProjectTrusted: () => true,
 		getContextUsage: () => undefined,
-		ui: { theme: { fg: (_c, v) => v }, notify: () => {}, setStatus: () => {}, setWidget: () => {}, confirm: async () => true, select: async () => undefined, editor: async (_t, i = "") => i, custom: async () => undefined, getEditorComponent: () => undefined, setEditorComponent: () => {} },
+		ui: {
+			theme: { fg: (_c, v) => v },
+			notify: () => {},
+			setStatus: () => {},
+			setWidget: () => {},
+			confirm: async () => true,
+			select: async () => undefined,
+			editor: async (_t, i = "") => i,
+			custom: async () => undefined,
+			getEditorComponent: () => undefined,
+			setEditorComponent: () => {},
+		},
 		sessionManager: { getEntries: () => [] },
 	};
 }
@@ -87,19 +113,49 @@ const ctx = makeCtx(project);
 
 // 1) input delivered as a JSON STRING -> workflow receives a parsed object.
 {
-	const res = await runTool(tool, ctx, { action: "run", name: "echo-input", input: '{"limit": 3, "concurrency": 2}', timeoutMs: 30_000 });
+	const res = await runTool(tool, ctx, {
+		action: "run",
+		name: "echo-input",
+		input: '{"limit": 3, "concurrency": 2}',
+		timeoutMs: 30_000,
+	});
 	const out = res.details.result.output;
-	check("string JSON input: run succeeds", res.details.result.ok === true, res.details.result.error);
-	check("string JSON input: workflow sees an object, not a string", out?.typeofInput === "object", JSON.stringify(out));
-	check("string JSON input: fields are accessible (limit=3)", out?.input?.limit === 3, JSON.stringify(out));
-	check("string JSON input: fields are accessible (concurrency=2)", out?.input?.concurrency === 2, JSON.stringify(out));
+	check(
+		"string JSON input: run succeeds",
+		res.details.result.ok === true,
+		res.details.result.error,
+	);
+	check(
+		"string JSON input: workflow sees an object, not a string",
+		out?.typeofInput === "object",
+		JSON.stringify(out),
+	);
+	check(
+		"string JSON input: fields are accessible (limit=3)",
+		out?.input?.limit === 3,
+		JSON.stringify(out),
+	);
+	check(
+		"string JSON input: fields are accessible (concurrency=2)",
+		out?.input?.concurrency === 2,
+		JSON.stringify(out),
+	);
 }
 
 // 2) input delivered as an OBJECT -> passed through unchanged (no regression).
 {
-	const res = await runTool(tool, ctx, { action: "run", name: "echo-input", input: { limit: 5 }, timeoutMs: 30_000 });
+	const res = await runTool(tool, ctx, {
+		action: "run",
+		name: "echo-input",
+		input: { limit: 5 },
+		timeoutMs: 30_000,
+	});
 	const out = res.details.result.output;
-	check("object input: workflow still sees an object", out?.typeofInput === "object", JSON.stringify(out));
+	check(
+		"object input: workflow still sees an object",
+		out?.typeofInput === "object",
+		JSON.stringify(out),
+	);
 	check("object input: fields preserved (limit=5)", out?.input?.limit === 5, JSON.stringify(out));
 }
 

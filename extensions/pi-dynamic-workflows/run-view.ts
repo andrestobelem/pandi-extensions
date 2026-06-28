@@ -15,13 +15,23 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { getRunDirs, readRunRecord } from "./run-store.js";
-import { getRunState, isResumableState, getRunCachedCalls, formatParallelAgentsCompact, getRunStatusIcon, getRunStatusLabel, getRunLogs, isRunResult, formatParallelAgents } from "./run-state.js";
+import {
+	getRunState,
+	isResumableState,
+	getRunCachedCalls,
+	formatParallelAgentsCompact,
+	getRunStatusIcon,
+	getRunStatusLabel,
+	getRunLogs,
+	isRunResult,
+	formatParallelAgents,
+} from "./run-state.js";
 import { readRunEvents, formatAgentPhase } from "./event-parser.js";
 import { formatElapsedMs } from "./presentation.js";
 import { stringify, MAX_TOOL_TEXT } from "./format.js";
 import { computeCodeHash } from "./journal.js";
 import { compactInline } from "./index.js";
-import type { WorkflowRunRecord, AgentMonitorModel } from "./index.js";
+import type { WorkflowRunRecord } from "./index.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 export async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord[]> {
@@ -53,16 +63,32 @@ export function formatRunList(runs: WorkflowRunRecord[]): string {
 // Resolve a run by key with EXACT id match taking priority over substring/alias matches, so a
 // short exact id can never be shadowed by a different run whose id merely contains the key
 // (which would otherwise cancel or delete the wrong run).
-export function selectRunByKey<T>(items: T[], key: string, idOf: (item: T) => string, aliasOf?: (item: T) => string | undefined): T | undefined {
-	return items.find((item) => idOf(item) === key) ?? items.find((item) => idOf(item).includes(key) || aliasOf?.(item) === key);
+export function selectRunByKey<T>(
+	items: T[],
+	key: string,
+	idOf: (item: T) => string,
+	aliasOf?: (item: T) => string | undefined,
+): T | undefined {
+	return (
+		items.find((item) => idOf(item) === key) ??
+		items.find((item) => idOf(item).includes(key) || aliasOf?.(item) === key)
+	);
 }
 
-export async function resolveRun(ctx: ExtensionContext, id: string | undefined): Promise<WorkflowRunRecord> {
+export async function resolveRun(
+	ctx: ExtensionContext,
+	id: string | undefined,
+): Promise<WorkflowRunRecord> {
 	const runs = await listRuns(ctx);
 	if (runs.length === 0) throw new Error("No workflow runs found.");
 	const key = id?.trim() || "latest";
 	if (key === "latest") return runs[0];
-	const found = selectRunByKey(runs, key, (run) => run.runId, (run) => run.workflow);
+	const found = selectRunByKey(
+		runs,
+		key,
+		(run) => run.runId,
+		(run) => run.workflow,
+	);
 	if (!found) throw new Error(`Workflow run not found: ${key}`);
 	return found;
 }
@@ -93,11 +119,21 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		return `+${seconds}s ${entry.message}${entry.details === undefined ? "" : ` — ${stringify(entry.details, 500)}`}`;
 	});
 	const state = getRunState(run);
-	const statusEmoji = state === "completed" ? "✅" : state === "running" ? "▶️" : state === "cancelled" ? "🟨" : state === "stale" ? "⚠️" : "❌";
+	const statusEmoji =
+		state === "completed"
+			? "✅"
+			: state === "running"
+				? "▶️"
+				: state === "cancelled"
+					? "🟨"
+					: state === "stale"
+						? "⚠️"
+						: "❌";
 	const cachedCalls = getRunCachedCalls(run);
 	const resumable = isResumableState(state);
 	const agentLines = agents.map((agent) => {
-		const elapsed = agent.elapsedMs === undefined ? "elapsed:?" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
+		const elapsed =
+			agent.elapsedMs === undefined ? "elapsed:?" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
 		const phase = formatAgentPhase(agent);
 		const code = agent.code === undefined ? "" : ` code:${agent.code}`;
 		const schema = agent.schemaOk === undefined ? "" : ` schema:${agent.schemaOk ? "ok" : "bad"}`;
@@ -106,7 +142,9 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		const skills = ` skills:${agent.skills?.length ? agent.skills.join(",") : agent.includeSkills === false ? "disabled" : "default"}`;
 		const extensions = ` extensions:${agent.extensions?.length ? agent.extensions.join(",") : agent.includeExtensions ? "default" : "disabled"}`;
 		const keys = ` keys:${agent.keys?.length ? agent.keys.join(",") : agent.isolatedEnv ? "none" : "default"}${agent.missingKeys?.length ? ` missing:${agent.missingKeys.join(",")}` : ""}`;
-		const preview = agent.promptPreview ? ` — prompt preview: ${compactInline(agent.promptPreview, 180)}` : "";
+		const preview = agent.promptPreview
+			? ` — prompt preview: ${compactInline(agent.promptPreview, 180)}`
+			: "";
 		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
 	});
 
@@ -138,8 +176,14 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		`Directory: ${run.runDir}`,
 		...(state === "running" ? [`Cancel: /workflow cancel ${run.runId}`] : []),
 		...(resumable ? [`Resume: /workflow resume ${run.runId}`] : []),
-		...(state === "stale" ? ["Note: this run was marked running on disk but is not active in this Pi session."] : []),
-		...(codeChanged ? ["Warning: workflow code changed since this run. On resume, calls whose arguments changed will be re-executed (cache miss); unchanged calls stay cached."] : []),
+		...(state === "stale"
+			? ["Note: this run was marked running on disk but is not active in this Pi session."]
+			: []),
+		...(codeChanged
+			? [
+					"Warning: workflow code changed since this run. On resume, calls whose arguments changed will be re-executed (cache miss); unchanged calls stay cached.",
+				]
+			: []),
 		...(run.error ? [`Error: ${run.error}`] : []),
 		"",
 		"## Agents",

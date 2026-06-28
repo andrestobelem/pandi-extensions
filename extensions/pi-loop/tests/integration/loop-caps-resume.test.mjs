@@ -71,7 +71,12 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension,
+	createChecker,
+	loadDefault,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-loop/tests/integration/ -> repo root is four levels up.
@@ -198,7 +203,8 @@ function snap(loopId, over = {}) {
 }
 
 function seedEntries(ctx, snaps) {
-	ctx.sessionManager.getEntries = () => snaps.map((data) => ({ type: "custom", customType: "loop-state", data }));
+	ctx.sessionManager.getEntries = () =>
+		snaps.map((data) => ({ type: "custom", customType: "loop-state", data }));
 }
 
 // A 0ms catch-up timer (setTimeout(fireWake, 0)) is armed by rehydrate for a DUE loop.
@@ -223,10 +229,22 @@ async function maxIterationsCap(url) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
 
 	const id = await startLoopCmd(commands, entries, "burn iterations", ctx);
-	check("maxIter: loop started, first wake delivered (iteration 1)", sentMessages.length === 1, `delivered=${sentMessages.length}`);
+	check(
+		"maxIter: loop started, first wake delivered (iteration 1)",
+		sentMessages.length === 1,
+		`delivered=${sentMessages.length}`,
+	);
 	const s1 = latestSnapshot(entries, id);
-	check("maxIter: iteration advanced to 1 on first wake", s1?.iteration === 1, `it=${s1?.iteration}`);
-	check("maxIter: default maxIterations is 25", s1?.maxIterations === 25, `max=${s1?.maxIterations}`);
+	check(
+		"maxIter: iteration advanced to 1 on first wake",
+		s1?.iteration === 1,
+		`it=${s1?.iteration}`,
+	);
+	check(
+		"maxIter: default maxIterations is 25",
+		s1?.maxIterations === 25,
+		`max=${s1?.maxIterations}`,
+	);
 
 	// Drive the iteration cap via its REAL gate (fireWake). Seed a running snapshot at the
 	// cap AND due, so rehydrate arms a 0ms catch-up tick; fireWake then hits the maxIterations
@@ -250,9 +268,21 @@ async function maxIterationsCap(url) {
 	await fireEvent(h2, "session_start", { reason: "startup" }, ctx2);
 	await tick(); // let the 0ms catch-up fireWake run
 	const cap = latestSnapshot(e2, "atcap");
-	check("maxIter: a DUE loop AT maxIterations is stopped 'done' by the fire gate", cap?.status === "done", `status=${cap?.status}`);
-	check("maxIter: stop reason names maxIterations", /maxIterations/i.test(cap?.lastReason || ""), `reason=${cap?.lastReason}`);
-	check("maxIter: capped loop delivered NO new wake (iteration not advanced)", sent2.length === 0 && cap?.iteration === 3, `delivered=${sent2.length} it=${cap?.iteration}`);
+	check(
+		"maxIter: a DUE loop AT maxIterations is stopped 'done' by the fire gate",
+		cap?.status === "done",
+		`status=${cap?.status}`,
+	);
+	check(
+		"maxIter: stop reason names maxIterations",
+		/maxIterations/i.test(cap?.lastReason || ""),
+		`reason=${cap?.lastReason}`,
+	);
+	check(
+		"maxIter: capped loop delivered NO new wake (iteration not advanced)",
+		sent2.length === 0 && cap?.iteration === 3,
+		`delivered=${sent2.length} it=${cap?.iteration}`,
+	);
 }
 
 // ===========================================================================
@@ -284,10 +314,26 @@ async function wallClockCap(url) {
 
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 	const s = latestSnapshot(entries, "overtime");
-	check("wallclock: loop past its deadline is stopped 'done' on rehydrate", s?.status === "done", `status=${s?.status}`);
-	check("wallclock: stop reason mentions the wall-clock deadline", /wall-clock|deadline/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
-	check("wallclock: NOT mislabeled as an iteration cap", !/maxIterations/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
-	check("wallclock: NO wake delivered for an over-deadline loop", sentMessages.length === 0, `delivered=${sentMessages.length}`);
+	check(
+		"wallclock: loop past its deadline is stopped 'done' on rehydrate",
+		s?.status === "done",
+		`status=${s?.status}`,
+	);
+	check(
+		"wallclock: stop reason mentions the wall-clock deadline",
+		/wall-clock|deadline/i.test(s?.lastReason || ""),
+		`reason=${s?.lastReason}`,
+	);
+	check(
+		"wallclock: NOT mislabeled as an iteration cap",
+		!/maxIterations/i.test(s?.lastReason || ""),
+		`reason=${s?.lastReason}`,
+	);
+	check(
+		"wallclock: NO wake delivered for an over-deadline loop",
+		sentMessages.length === 0,
+		`delivered=${sentMessages.length}`,
+	);
 }
 
 // ===========================================================================
@@ -303,22 +349,43 @@ async function contextPercentCap(url) {
 		const { pi, commands, handlers, entries, sentMessages } = makePi();
 		loopExtension(pi);
 		let pct = 10; // healthy at start
-		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, usage: () => ({ percent: pct }) });
+		const ctx = makeCtx({
+			mode: "tui",
+			hasUI: true,
+			isIdle: true,
+			usage: () => ({ percent: pct }),
+		});
 
 		const id = await startLoopCmd(commands, entries, "fill the context", ctx);
-		check("ctxcap: loop started while context is low", sentMessages.length === 1, `delivered=${sentMessages.length}`);
+		check(
+			"ctxcap: loop started while context is low",
+			sentMessages.length === 1,
+			`delivered=${sentMessages.length}`,
+		);
 
 		// First agent_end while still healthy: must re-arm, NOT stop.
 		await fireEvent(handlers, "agent_end", {}, ctx);
 		const healthy = latestSnapshot(entries, id);
-		check("ctxcap: under the cap (10% < 90%), loop keeps running", healthy?.status === "running", `status=${healthy?.status}`);
+		check(
+			"ctxcap: under the cap (10% < 90%), loop keeps running",
+			healthy?.status === "running",
+			`status=${healthy?.status}`,
+		);
 
 		// Now the context blows past the cap; the next agent_end must stop it "done".
 		pct = 95;
 		await fireEvent(handlers, "agent_end", {}, ctx);
 		const over = latestSnapshot(entries, id);
-		check("ctxcap: over the cap (95% >= 90%), loop is stopped 'done'", over?.status === "done", `status=${over?.status}`);
-		check("ctxcap: stop reason mentions the context budget", /context budget|%/i.test(over?.lastReason || ""), `reason=${over?.lastReason}`);
+		check(
+			"ctxcap: over the cap (95% >= 90%), loop is stopped 'done'",
+			over?.status === "done",
+			`status=${over?.status}`,
+		);
+		check(
+			"ctxcap: stop reason mentions the context budget",
+			/context budget|%/i.test(over?.lastReason || ""),
+			`reason=${over?.lastReason}`,
+		);
 	}
 	// Negative control: usage unavailable (undefined) or percent null must NEVER stop the loop
 	// (best-effort: an absent signal is not a cap hit).
@@ -326,11 +393,20 @@ async function contextPercentCap(url) {
 		const loopExtension = await loadDefault(url);
 		const { pi, commands, handlers, entries } = makePi();
 		loopExtension(pi);
-		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, usage: () => ({ percent: null }) });
+		const ctx = makeCtx({
+			mode: "tui",
+			hasUI: true,
+			isIdle: true,
+			usage: () => ({ percent: null }),
+		});
 		const id = await startLoopCmd(commands, entries, "unknown context", ctx);
 		await fireEvent(handlers, "agent_end", {}, ctx);
 		const s = latestSnapshot(entries, id);
-		check("ctxcap: null context percent is NOT a cap hit (loop stays running)", s?.status === "running", `status=${s?.status}`);
+		check(
+			"ctxcap: null context percent is NOT a cap hit (loop stays running)",
+			s?.status === "running",
+			`status=${s?.status}`,
+		);
 	}
 }
 
@@ -350,36 +426,86 @@ async function pauseResume(url) {
 	const id = await startLoopCmd(commands, entries, "pausable work", ctx);
 	await fireEvent(handlers, "agent_end", {}, ctx);
 	const armed = latestSnapshot(entries, id);
-	check("pause: loop is running with a future nextFireAt before pause", armed?.status === "running" && typeof armed?.nextFireAt === "number" && armed.nextFireAt > Date.now(), `status=${armed?.status} next=${armed?.nextFireAt}`);
+	check(
+		"pause: loop is running with a future nextFireAt before pause",
+		armed?.status === "running" &&
+			typeof armed?.nextFireAt === "number" &&
+			armed.nextFireAt > Date.now(),
+		`status=${armed?.status} next=${armed?.nextFireAt}`,
+	);
 
 	const sentBeforePause = sentMessages.length;
 	await commands.get("loop").handler(`pause ${id}`, ctx);
 	const paused = latestSnapshot(entries, id);
-	check("pause: status persisted as 'paused'", paused?.status === "paused", `status=${paused?.status}`);
-	check("pause: pausing does NOT re-inject a wake", sentMessages.length === sentBeforePause, `delivered=${sentMessages.length}`);
-	check("pause: iteration is preserved across pause (not reset)", paused?.iteration === armed?.iteration, `it=${paused?.iteration} vs ${armed?.iteration}`);
+	check(
+		"pause: status persisted as 'paused'",
+		paused?.status === "paused",
+		`status=${paused?.status}`,
+	);
+	check(
+		"pause: pausing does NOT re-inject a wake",
+		sentMessages.length === sentBeforePause,
+		`delivered=${sentMessages.length}`,
+	);
+	check(
+		"pause: iteration is preserved across pause (not reset)",
+		paused?.iteration === armed?.iteration,
+		`it=${paused?.iteration} vs ${armed?.iteration}`,
+	);
 
 	// A paused loop must NOT fire even though its timer was armed before: pause cleared it.
 	// Pulse agent_end (the safety net only re-arms RUNNING loops): no new wake, still paused.
 	const sentBeforeIdle = sentMessages.length;
 	await fireEvent(handlers, "agent_end", {}, ctx);
 	const stillPaused = latestSnapshot(entries, id);
-	check("pause: paused loop is NOT re-armed by the agent_end safety net", stillPaused?.status === "paused", `status=${stillPaused?.status}`);
-	check("pause: paused loop delivers no wake on agent_end", sentMessages.length === sentBeforeIdle, `delivered=${sentMessages.length}`);
+	check(
+		"pause: paused loop is NOT re-armed by the agent_end safety net",
+		stillPaused?.status === "paused",
+		`status=${stillPaused?.status}`,
+	);
+	check(
+		"pause: paused loop delivers no wake on agent_end",
+		sentMessages.length === sentBeforeIdle,
+		`delivered=${sentMessages.length}`,
+	);
 
 	// Resume: status back to running and a fresh future nextFireAt re-armed.
 	await commands.get("loop").handler(`resume ${id}`, ctx);
 	const resumed = latestSnapshot(entries, id);
-	check("resume: status back to 'running'", resumed?.status === "running", `status=${resumed?.status}`);
-	check("resume: re-arms a future nextFireAt", typeof resumed?.nextFireAt === "number" && resumed.nextFireAt > Date.now(), `next=${resumed?.nextFireAt}`);
-	check("resume: reason notes it was resumed by the user", /resume/i.test(resumed?.lastReason || ""), `reason=${resumed?.lastReason}`);
+	check(
+		"resume: status back to 'running'",
+		resumed?.status === "running",
+		`status=${resumed?.status}`,
+	);
+	check(
+		"resume: re-arms a future nextFireAt",
+		typeof resumed?.nextFireAt === "number" && resumed.nextFireAt > Date.now(),
+		`next=${resumed?.nextFireAt}`,
+	);
+	check(
+		"resume: reason notes it was resumed by the user",
+		/resume/i.test(resumed?.lastReason || ""),
+		`reason=${resumed?.lastReason}`,
+	);
 
 	// No-op guards: resume an already-running loop, pause a non-existent loop.
 	const beforeNoop = entries.length;
 	await commands.get("loop").handler(`resume ${id}`, ctx); // already running
 	const afterResumeNoop = latestSnapshot(entries, id);
-	check("resume: resuming an already-running loop is a no-op (stays running)", afterResumeNoop?.status === "running", `status=${afterResumeNoop?.status}`);
-	check("resume: no-op on running loop persists no spurious 'paused' snapshot", !entries.slice(beforeNoop).some((e) => e.customType === "loop-state" && e.data?.loopId === id && e.data?.status === "paused"));
+	check(
+		"resume: resuming an already-running loop is a no-op (stays running)",
+		afterResumeNoop?.status === "running",
+		`status=${afterResumeNoop?.status}`,
+	);
+	check(
+		"resume: no-op on running loop persists no spurious 'paused' snapshot",
+		!entries
+			.slice(beforeNoop)
+			.some(
+				(e) =>
+					e.customType === "loop-state" && e.data?.loopId === id && e.data?.status === "paused",
+			),
+	);
 }
 
 // ===========================================================================
@@ -394,9 +520,17 @@ async function pauseDropsQueuedWake(url) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
 
 	const idA = await startLoopCmd(commands, entries, "loop A holds turn", ctx);
-	check("pausequeue: A delivered its wake (holds the in-flight turn)", sentMessages.length === 1, `delivered=${sentMessages.length}`);
+	check(
+		"pausequeue: A delivered its wake (holds the in-flight turn)",
+		sentMessages.length === 1,
+		`delivered=${sentMessages.length}`,
+	);
 	const idB = await startLoopCmd(commands, entries, "loop B queues behind A", ctx);
-	check("pausequeue: B's wake is QUEUED, not delivered (one turn at a time)", sentMessages.length === 1, `delivered=${sentMessages.length}`);
+	check(
+		"pausequeue: B's wake is QUEUED, not delivered (one turn at a time)",
+		sentMessages.length === 1,
+		`delivered=${sentMessages.length}`,
+	);
 
 	// Pause B while its wake is still in the FIFO. The queued entry must be dropped so it
 	// never re-injects when A's turn closes.
@@ -406,7 +540,11 @@ async function pauseDropsQueuedWake(url) {
 
 	// Close A's turn: the queue drains. B was dropped, so NO new wake is delivered.
 	await fireEvent(handlers, "agent_end", {}, ctx);
-	check("pausequeue: paused B does NOT fire from the queue after agent_end", !sentMessages.some((m) => /loop B queues behind A/.test(m.content || "")), `delivered=${sentMessages.length}`);
+	check(
+		"pausequeue: paused B does NOT fire from the queue after agent_end",
+		!sentMessages.some((m) => /loop B queues behind A/.test(m.content || "")),
+		`delivered=${sentMessages.length}`,
+	);
 	void idA;
 }
 
@@ -434,15 +572,31 @@ async function rehydrateRevivesNoDoubleFire(url) {
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 	await tick();
 	const s = latestSnapshot(entries, "revive");
-	check("rehydrate: stale snapshot normalized back to 'running'", s?.status === "running", `status=${s?.status}`);
-	check("rehydrate: due catch-up tick delivered exactly ONE wake", sentMessages.length === 1, `delivered=${sentMessages.length}`);
-	check("rehydrate: catch-up advanced iteration (2 -> 3)", s?.iteration === 3, `it=${s?.iteration}`);
+	check(
+		"rehydrate: stale snapshot normalized back to 'running'",
+		s?.status === "running",
+		`status=${s?.status}`,
+	);
+	check(
+		"rehydrate: due catch-up tick delivered exactly ONE wake",
+		sentMessages.length === 1,
+		`delivered=${sentMessages.length}`,
+	);
+	check(
+		"rehydrate: catch-up advanced iteration (2 -> 3)",
+		s?.iteration === 3,
+		`it=${s?.iteration}`,
+	);
 
 	// Second session_start (same process): the loop is already in activeLoops with a live
 	// timer -> rehydrate must SKIP it (no double-fire).
 	const before = sentMessages.length;
 	await fireEvent(handlers, "session_start", { reason: "reload" }, ctx);
-	check("rehydrate: second session_start does NOT double-fire (already live)", sentMessages.length === before, `delivered=${sentMessages.length}`);
+	check(
+		"rehydrate: second session_start does NOT double-fire (already live)",
+		sentMessages.length === before,
+		`delivered=${sentMessages.length}`,
+	);
 }
 
 // ===========================================================================
@@ -459,29 +613,59 @@ async function rehydratePausedTerminalLastWins(url) {
 	const now = Date.now();
 	seedEntries(ctx, [
 		// paused: must stay paused, no wake, no re-arm.
-		snap("paused1", { status: "paused", nextFireAt: null, updatedAt: new Date(now - 5000).toISOString() }),
+		snap("paused1", {
+			status: "paused",
+			nextFireAt: null,
+			updatedAt: new Date(now - 5000).toISOString(),
+		}),
 		// terminal: must be ignored (no recover, no wake).
-		snap("doneone", { status: "done", nextFireAt: null, updatedAt: new Date(now - 5000).toISOString() }),
-		snap("stopd", { status: "stopped", nextFireAt: null, updatedAt: new Date(now - 5000).toISOString() }),
+		snap("doneone", {
+			status: "done",
+			nextFireAt: null,
+			updatedAt: new Date(now - 5000).toISOString(),
+		}),
+		snap("stopd", {
+			status: "stopped",
+			nextFireAt: null,
+			updatedAt: new Date(now - 5000).toISOString(),
+		}),
 		// last-wins: two entries for the SAME loopId; the LATER updatedAt (terminal) must win
 		// over the earlier (running). Order in JSONL is earlier-then-later.
-		snap("lastwins", { status: "running", nextFireAt: now - 1000, updatedAt: new Date(now - 9000).toISOString() }),
-		snap("lastwins", { status: "stopped", nextFireAt: null, updatedAt: new Date(now - 1000).toISOString() }),
+		snap("lastwins", {
+			status: "running",
+			nextFireAt: now - 1000,
+			updatedAt: new Date(now - 9000).toISOString(),
+		}),
+		snap("lastwins", {
+			status: "stopped",
+			nextFireAt: null,
+			updatedAt: new Date(now - 1000).toISOString(),
+		}),
 	]);
 
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 
 	const pausedSnap = latestSnapshot(entries, "paused1");
-	check("rehydrate: paused snapshot stays paused (recovered idle)", pausedSnap == null || pausedSnap.status === "paused", `status=${pausedSnap?.status}`);
+	check(
+		"rehydrate: paused snapshot stays paused (recovered idle)",
+		pausedSnap == null || pausedSnap.status === "paused",
+		`status=${pausedSnap?.status}`,
+	);
 
 	// Terminal loops are not in activeLoops and produce no new snapshot from rehydrate.
-	const newDone = entries.some((e) => e.customType === "loop-state" && e.data?.loopId === "doneone");
+	const newDone = entries.some(
+		(e) => e.customType === "loop-state" && e.data?.loopId === "doneone",
+	);
 	const newStopd = entries.some((e) => e.customType === "loop-state" && e.data?.loopId === "stopd");
 	check("rehydrate: terminal 'done' snapshot is ignored (no persist)", !newDone);
 	check("rehydrate: terminal 'stopped' snapshot is ignored (no persist)", !newStopd);
 
 	// last-wins: the later terminal won, so the loop was NOT revived -> no catch-up wake from it.
-	check("rehydrate: last-wins picks the LATER (terminal) snapshot, so it is not revived", sentMessages.length === 0, `delivered=${sentMessages.length}`);
+	check(
+		"rehydrate: last-wins picks the LATER (terminal) snapshot, so it is not revived",
+		sentMessages.length === 0,
+		`delivered=${sentMessages.length}`,
+	);
 
 	// A second session_start with the directions swapped: the LATER entry is now running ->
 	// it must be revived and fire its due catch-up. (Proves last-wins both directions.)
@@ -491,14 +675,30 @@ async function rehydratePausedTerminalLastWins(url) {
 	loopExtension2(pi2);
 	const now2 = Date.now();
 	seedEntries(ctx2, [
-		snap("lw2", { status: "stopped", nextFireAt: null, updatedAt: new Date(now2 - 9000).toISOString() }),
-		snap("lw2", { status: "running", nextFireAt: now2 - 1000, updatedAt: new Date(now2 - 1000).toISOString() }),
+		snap("lw2", {
+			status: "stopped",
+			nextFireAt: null,
+			updatedAt: new Date(now2 - 9000).toISOString(),
+		}),
+		snap("lw2", {
+			status: "running",
+			nextFireAt: now2 - 1000,
+			updatedAt: new Date(now2 - 1000).toISOString(),
+		}),
 	]);
 	await fireEvent(h2, "session_start", { reason: "startup" }, ctx2);
 	await tick();
 	const lw2 = latestSnapshot(e2, "lw2");
-	check("rehydrate: last-wins (other direction) revives the LATER running snapshot", lw2?.status === "running", `status=${lw2?.status}`);
-	check("rehydrate: revived later-running loop fires its due catch-up wake", sent2.length === 1, `delivered=${sent2.length}`);
+	check(
+		"rehydrate: last-wins (other direction) revives the LATER running snapshot",
+		lw2?.status === "running",
+		`status=${lw2?.status}`,
+	);
+	check(
+		"rehydrate: revived later-running loop fires its due catch-up wake",
+		sent2.length === 1,
+		`delivered=${sent2.length}`,
+	);
 }
 
 // ===========================================================================
@@ -525,9 +725,21 @@ async function rehydrateAutonomousTrustGate(url) {
 		]);
 		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 		const s = latestSnapshot(entries, "autoloop");
-		check("autotrust: autonomous loop in an UNTRUSTED project is retired 'stopped'", s?.status === "stopped", `status=${s?.status}`);
-		check("autotrust: retire reason mentions trust", /trust/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
-		check("autotrust: a retired autonomous loop fires NO wake", sentMessages.length === 0, `delivered=${sentMessages.length}`);
+		check(
+			"autotrust: autonomous loop in an UNTRUSTED project is retired 'stopped'",
+			s?.status === "stopped",
+			`status=${s?.status}`,
+		);
+		check(
+			"autotrust: retire reason mentions trust",
+			/trust/i.test(s?.lastReason || ""),
+			`reason=${s?.lastReason}`,
+		);
+		check(
+			"autotrust: a retired autonomous loop fires NO wake",
+			sentMessages.length === 0,
+			`delivered=${sentMessages.length}`,
+		);
 	}
 	// Trusted: revive and fire the due catch-up (positive control — proves the retire is
 	// caused by the trust revocation, not by autonomous loops being unrecoverable in general).
@@ -548,8 +760,16 @@ async function rehydrateAutonomousTrustGate(url) {
 		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 		await tick();
 		const s = latestSnapshot(entries, "autoloop2");
-		check("autotrust: autonomous loop in a TRUSTED project is revived running", s?.status === "running", `status=${s?.status}`);
-		check("autotrust: trusted autonomous loop fires its due catch-up wake", sentMessages.length === 1, `delivered=${sentMessages.length}`);
+		check(
+			"autotrust: autonomous loop in a TRUSTED project is revived running",
+			s?.status === "running",
+			`status=${s?.status}`,
+		);
+		check(
+			"autotrust: trusted autonomous loop fires its due catch-up wake",
+			sentMessages.length === 1,
+			`delivered=${sentMessages.length}`,
+		);
 	}
 }
 
@@ -580,9 +800,21 @@ async function rehydrateRespectsCap(url) {
 
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 	const s = latestSnapshot(entries, "dueovercap");
-	check("rehydrate-cap: a due-but-over-budget loop is stopped 'done', not re-armed", s?.status === "done", `status=${s?.status}`);
-	check("rehydrate-cap: it fires NO catch-up wake despite being due", sentMessages.length === 0, `delivered=${sentMessages.length}`);
-	check("rehydrate-cap: iteration is NOT advanced (the loop never fired)", s?.iteration === 7, `it=${s?.iteration}`);
+	check(
+		"rehydrate-cap: a due-but-over-budget loop is stopped 'done', not re-armed",
+		s?.status === "done",
+		`status=${s?.status}`,
+	);
+	check(
+		"rehydrate-cap: it fires NO catch-up wake despite being due",
+		sentMessages.length === 0,
+		`delivered=${sentMessages.length}`,
+	);
+	check(
+		"rehydrate-cap: iteration is NOT advanced (the loop never fired)",
+		s?.iteration === 7,
+		`it=${s?.iteration}`,
+	);
 }
 
 // ===========================================================================
@@ -598,19 +830,39 @@ async function shutdownThenStartupRehydrates(url) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
 
 	const id = await startLoopCmd(commands, entries, "survive same-process reload", ctx);
-	check("shutdown-reload: loop started before shutdown", !!id && sentMessages.length === 1, `id=${id} delivered=${sentMessages.length}`);
+	check(
+		"shutdown-reload: loop started before shutdown",
+		!!id && sentMessages.length === 1,
+		`id=${id} delivered=${sentMessages.length}`,
+	);
 
 	await fireEvent(handlers, "session_shutdown", { reason: "reload" }, ctx);
 	const stale = latestSnapshot(entries, id);
-	check("shutdown-reload: shutdown persists running loop as stale", stale?.status === "stale", `status=${stale?.status}`);
+	check(
+		"shutdown-reload: shutdown persists running loop as stale",
+		stale?.status === "stale",
+		`status=${stale?.status}`,
+	);
 
 	ctx.sessionManager.getEntries = () => entries;
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 	await tick();
 	const revived = latestSnapshot(entries, id);
-	check("shutdown-reload: same-process startup rehydrates stale loop", revived?.status === "running", `status=${revived?.status}`);
-	check("shutdown-reload: rehydrated loop delivers a catch-up wake", sentMessages.length === 2, `delivered=${sentMessages.length}`);
-	check("shutdown-reload: rehydrated catch-up advances iteration", revived?.iteration === 2, `it=${revived?.iteration}`);
+	check(
+		"shutdown-reload: same-process startup rehydrates stale loop",
+		revived?.status === "running",
+		`status=${revived?.status}`,
+	);
+	check(
+		"shutdown-reload: rehydrated loop delivers a catch-up wake",
+		sentMessages.length === 2,
+		`delivered=${sentMessages.length}`,
+	);
+	check(
+		"shutdown-reload: rehydrated catch-up advances iteration",
+		revived?.iteration === 2,
+		`it=${revived?.iteration}`,
+	);
 }
 
 // ===========================================================================
@@ -635,14 +887,28 @@ async function rehydrateSidecarOnly(url) {
 		const dir = path.join(cwd, ".pi", "loops", state.loopId);
 		await fs.mkdir(dir, { recursive: true });
 		await fs.writeFile(path.join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`, "utf8");
-		seedEntries(ctx, [snap("jsonl-terminal", { status: "done", updatedAt: new Date(now).toISOString() })]);
+		seedEntries(ctx, [
+			snap("jsonl-terminal", { status: "done", updatedAt: new Date(now).toISOString() }),
+		]);
 
 		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 		await tick();
 		const s = latestSnapshot(entries, "onlysidecar");
-		check("rehydrate: sidecar-only loopId is recovered", s?.status === "running", `status=${s?.status}`);
-		check("rehydrate: sidecar-only due loop fires one catch-up wake", sentMessages.length === 1, `delivered=${sentMessages.length}`);
-		check("rehydrate: sidecar-only catch-up advances iteration", s?.iteration === 5, `it=${s?.iteration}`);
+		check(
+			"rehydrate: sidecar-only loopId is recovered",
+			s?.status === "running",
+			`status=${s?.status}`,
+		);
+		check(
+			"rehydrate: sidecar-only due loop fires one catch-up wake",
+			sentMessages.length === 1,
+			`delivered=${sentMessages.length}`,
+		);
+		check(
+			"rehydrate: sidecar-only catch-up advances iteration",
+			s?.iteration === 5,
+			`it=${s?.iteration}`,
+		);
 	} finally {
 		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
 	}

@@ -110,7 +110,14 @@ export function isMutatingBash(command: string): boolean {
  *                                                another extension/MCP would fall through here
  *                                                (best-effort — we rely on the prompt for those).
  */
-export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set(["list", "template", "read", "graph", "runs", "view"]);
+export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set([
+	"list",
+	"template",
+	"read",
+	"graph",
+	"runs",
+	"view",
+]);
 
 export function blockedReason(event: ToolCallEvent): string | undefined {
 	const name = event.toolName;
@@ -141,7 +148,8 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	// action is missing/unknown we err toward BLOCKING (this is plan mode — no mutation).
 	if (name === "dynamic_workflow") {
 		const action = (event.input as { action?: unknown }).action;
-		if (typeof action === "string" && DYNAMIC_WORKFLOW_READONLY_ACTIONS.has(action)) return undefined;
+		if (typeof action === "string" && DYNAMIC_WORKFLOW_READONLY_ACTIONS.has(action))
+			return undefined;
 		return `plan mode is READ-ONLY: dynamic_workflow "${String(action)}" can write files or spawn mutating subagents and is blocked while planning. Use only read-only actions (list/template/read/graph/runs/view), or submit_plan when your plan is ready.`;
 	}
 	// Unknown / other tools: allow. The hard guarantees above (built-in mutators + bash

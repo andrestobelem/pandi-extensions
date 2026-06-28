@@ -24,12 +24,18 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension as sharedBuildExtension,
+	createChecker,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const RANK_DRIVER_WORKFLOW = "module.exports = async function workflow(ctx, input) {\n  const goal = input?.goal ?? input?.topic ?? input?.question ?? input?.text;\n  if (!goal) throw new Error('Pass { goal: \"what to generate and rank candidates for\" }.');\n  const maxCandidates = Math.max(2, Number(input?.maxCandidates ?? 6));\n\n  // 1) DISCOVER: generate candidate options for the goal (this is the non-reusable,\n  //    goal-specific part that stays in the parent).\n  const generator = await ctx.agent(\n    `Generate up to ${maxCandidates} distinct, concrete candidate options for the goal below. ` +\n      `Return ONLY a JSON array of { id, text }. Make the options genuinely different from each other.\\n\\n` +\n      `Goal: ${goal}`,\n    { name: \"candidate-generator\", agentType: \"researcher\", tools: [\"read\", \"grep\", \"find\", \"ls\"] },\n  );\n\n  let candidates = [];\n  try {\n    candidates = JSON.parse(generator.output);\n  } catch {\n    candidates = [];\n  }\n  candidates = Array.isArray(candidates)\n    ? candidates.filter((cand) => cand && typeof cand.text === \"string\").slice(0, maxCandidates)\n    : [];\n  if (candidates.length === 0) return \"No candidate options were generated to rank.\";\n  if (candidates.length >= maxCandidates) await ctx.log(\"candidate cap applied\", { generated: candidates.length, maxCandidates });\n  await ctx.writeArtifact(\"candidates.json\", candidates);\n\n  // 2) DELEGATE the reusable ranking phase to the lib/ sub-workflow.\n  //    No human/decision gate sits between discovery and ranking, so composition\n  //    (not a separate run) is the right tool: shared run, budget, and cache.\n  const ranking = await ctx.workflow(\"lib/rank-candidates\", {\n    candidates,\n    goal,\n    rubric: input?.rubric,\n    jurors: input?.jurors ?? 3,\n    keepTop: input?.keepTop,\n  });\n  await ctx.writeArtifact(\"ranking.json\", ranking);\n\n  if (!ranking.best) return \"Ranking produced no scorable candidate.\";\n\n  // 3) SYNTHESIZE: explain the winner using the delegated ranking.\n  const synthesis = await ctx.agent(\n    `Explain why the top-ranked candidate won and how it compares to the runners-up. ` +\n      `Cite the juror scores. Note that ranking was delegated to lib/rank-candidates.\\n\\n` +\n      `${ctx.compact(ranking, 50000)}`,\n    { name: \"rank-synthesis\", agentType: \"reviewer\", tools: [\"read\", \"grep\", \"find\", \"ls\"] },\n  );\n  await ctx.writeArtifact(\"best.md\", synthesis.output);\n  return synthesis.output;\n};\n";
-const RANK_CANDIDATES_WORKFLOW = "module.exports = async function workflow(ctx, input) {\n  const raw = Array.isArray(input?.candidates) ? input.candidates : [];\n  const candidates = raw\n    .map((cand, i) => (typeof cand === \"string\" ? { id: `cand-${i}`, text: cand } : cand))\n    .filter((cand) => cand && typeof cand.text === \"string\" && cand.text.trim().length > 0)\n    .map((cand, i) => ({ id: cand.id ?? `cand-${i}`, text: cand.text }));\n  const dropped = raw\n    .map((cand, i) => ({ cand, i }))\n    .filter(({ cand }) => !cand || typeof (typeof cand === \"string\" ? cand : cand.text) !== \"string\" || String(typeof cand === \"string\" ? cand : cand.text).trim().length === 0)\n    .map(({ cand, i }) => ({ id: (cand && cand.id) ?? `cand-${i}`, text: cand && cand.text, reason: \"empty or non-text candidate\" }));\n\n  if (candidates.length === 0) {\n    const empty = { ranked: [], best: null, dropped, coverage: { candidates: 0, jurors: 0, requestedJurors: 0 } };\n    await ctx.writeArtifact(\"rank-candidates-result.json\", empty);\n    return empty;\n  }\n\n  const requestedJurors = Math.max(1, Number(input?.jurors ?? 3));\n  // Never spawn more parallel agents than the run's concurrency budget allows.\n  const jurors = Math.min(requestedJurors, ctx.limits.concurrency);\n  if (jurors < requestedJurors) {\n    await ctx.log(\"juror cap applied\", { requested: requestedJurors, running: jurors, concurrency: ctx.limits.concurrency });\n  }\n\n  const rubric = input?.rubric ?? \"overall quality, clarity, and fitness for the stated goal\";\n  const goal = input?.goal ?? \"n/a\";\n\n  const SCORE = {\n    type: \"object\",\n    additionalProperties: false,\n    required: [\"score\", \"rationale\"],\n    properties: {\n      score: { type: \"number\", description: \"0-10, higher is better\" },\n      rationale: { type: \"string\", description: \"one short sentence justifying the score\" },\n    },\n  };\n\n  const ranked = [];\n  for (let i = 0; i < candidates.length; i++) {\n    const candidate = candidates[i];\n    // Independent jury: each juror scores the candidate against the rubric.\n    // settle:true so one juror erroring/timing-out does not abort the rest.\n    const jury = await ctx.agents(\n      Array.from({ length: jurors }, (_unused, j) => ({\n        name: `rank-${candidate.id}-juror-${j + 1}`,\n        prompt:\n          `You are juror ${j + 1}/${jurors}. Score the candidate below from 0 to 10 against the rubric. ` +\n          `Be calibrated: reserve 9-10 for clearly excellent, 0-3 for clearly poor.\\n\\n` +\n          `Goal: ${goal}\\n` +\n          `Rubric: ${rubric}\\n` +\n          `Candidate: ${candidate.text}\\n\\n` +\n          `Return JSON only matching the schema.`,\n        agentType: \"reviewer\",\n        tools: [\"read\", \"grep\", \"find\", \"ls\"],\n        schema: SCORE,\n        schemaOnInvalid: \"null\",\n      })),\n      { concurrency: jurors, settle: true },\n    );\n    const parsed = jury\n      .filter(Boolean)\n      .map((result) => result.data)\n      .filter((vote) => vote && typeof vote.score === \"number\" && Number.isFinite(vote.score));\n    if (parsed.length === 0) {\n      dropped.push({ id: candidate.id, text: candidate.text, reason: \"no juror returned a valid score\" });\n      await ctx.log(\"candidate unscorable\", { id: candidate.id, failedBranches: jury.length });\n      continue;\n    }\n    // Average juror score; clamp into [0,10] so a stray out-of-range vote cannot dominate.\n    const clamped = parsed.map((vote) => Math.min(10, Math.max(0, vote.score)));\n    const score = clamped.reduce((acc, value) => acc + value, 0) / clamped.length;\n    const rationale = parsed.map((vote) => vote.rationale).filter(Boolean).join(\" | \");\n    ranked.push({ id: candidate.id, text: candidate.text, score, votes: clamped, rationale });\n    await ctx.log(\"candidate scored\", { id: candidate.id, score, jurors: clamped.length, failedBranches: jury.length - parsed.length });\n  }\n\n  // Deterministic best-first order; tie-break by id so the ranking is stable.\n  ranked.sort((a, b) => (b.score - a.score) || String(a.id).localeCompare(String(b.id)));\n\n  const keepTop = Number(input?.keepTop);\n  const finalRanked = Number.isFinite(keepTop) && keepTop > 0 ? ranked.slice(0, keepTop) : ranked;\n\n  // `best` is a SHALLOW COPY of the top entry, not the same object reference, so\n  // serialization (writeArtifact / ctx.compact) does not emit \"[Circular]\" for the\n  // second occurrence of the shared object.\n  const result = {\n    ranked: finalRanked,\n    best: finalRanked[0] ? { ...finalRanked[0] } : null,\n    dropped,\n    coverage: { candidates: candidates.length, jurors, requestedJurors },\n  };\n  await ctx.writeArtifact(\"rank-candidates-result.json\", result);\n  await ctx.log(\"ranking complete\", { ranked: finalRanked.length, dropped: dropped.length, best: result.best?.id ?? null });\n  return result;\n};\n";
+const RANK_DRIVER_WORKFLOW =
+	'module.exports = async function workflow(ctx, input) {\n  const goal = input?.goal ?? input?.topic ?? input?.question ?? input?.text;\n  if (!goal) throw new Error(\'Pass { goal: "what to generate and rank candidates for" }.\');\n  const maxCandidates = Math.max(2, Number(input?.maxCandidates ?? 6));\n\n  // 1) DISCOVER: generate candidate options for the goal (this is the non-reusable,\n  //    goal-specific part that stays in the parent).\n  const generator = await ctx.agent(\n    `Generate up to ${maxCandidates} distinct, concrete candidate options for the goal below. ` +\n      `Return ONLY a JSON array of { id, text }. Make the options genuinely different from each other.\\n\\n` +\n      `Goal: ${goal}`,\n    { name: "candidate-generator", agentType: "researcher", tools: ["read", "grep", "find", "ls"] },\n  );\n\n  let candidates = [];\n  try {\n    candidates = JSON.parse(generator.output);\n  } catch {\n    candidates = [];\n  }\n  candidates = Array.isArray(candidates)\n    ? candidates.filter((cand) => cand && typeof cand.text === "string").slice(0, maxCandidates)\n    : [];\n  if (candidates.length === 0) return "No candidate options were generated to rank.";\n  if (candidates.length >= maxCandidates) await ctx.log("candidate cap applied", { generated: candidates.length, maxCandidates });\n  await ctx.writeArtifact("candidates.json", candidates);\n\n  // 2) DELEGATE the reusable ranking phase to the lib/ sub-workflow.\n  //    No human/decision gate sits between discovery and ranking, so composition\n  //    (not a separate run) is the right tool: shared run, budget, and cache.\n  const ranking = await ctx.workflow("lib/rank-candidates", {\n    candidates,\n    goal,\n    rubric: input?.rubric,\n    jurors: input?.jurors ?? 3,\n    keepTop: input?.keepTop,\n  });\n  await ctx.writeArtifact("ranking.json", ranking);\n\n  if (!ranking.best) return "Ranking produced no scorable candidate.";\n\n  // 3) SYNTHESIZE: explain the winner using the delegated ranking.\n  const synthesis = await ctx.agent(\n    `Explain why the top-ranked candidate won and how it compares to the runners-up. ` +\n      `Cite the juror scores. Note that ranking was delegated to lib/rank-candidates.\\n\\n` +\n      `${ctx.compact(ranking, 50000)}`,\n    { name: "rank-synthesis", agentType: "reviewer", tools: ["read", "grep", "find", "ls"] },\n  );\n  await ctx.writeArtifact("best.md", synthesis.output);\n  return synthesis.output;\n};\n';
+const RANK_CANDIDATES_WORKFLOW =
+	'module.exports = async function workflow(ctx, input) {\n  const raw = Array.isArray(input?.candidates) ? input.candidates : [];\n  const candidates = raw\n    .map((cand, i) => (typeof cand === "string" ? { id: `cand-${i}`, text: cand } : cand))\n    .filter((cand) => cand && typeof cand.text === "string" && cand.text.trim().length > 0)\n    .map((cand, i) => ({ id: cand.id ?? `cand-${i}`, text: cand.text }));\n  const dropped = raw\n    .map((cand, i) => ({ cand, i }))\n    .filter(({ cand }) => !cand || typeof (typeof cand === "string" ? cand : cand.text) !== "string" || String(typeof cand === "string" ? cand : cand.text).trim().length === 0)\n    .map(({ cand, i }) => ({ id: (cand && cand.id) ?? `cand-${i}`, text: cand && cand.text, reason: "empty or non-text candidate" }));\n\n  if (candidates.length === 0) {\n    const empty = { ranked: [], best: null, dropped, coverage: { candidates: 0, jurors: 0, requestedJurors: 0 } };\n    await ctx.writeArtifact("rank-candidates-result.json", empty);\n    return empty;\n  }\n\n  const requestedJurors = Math.max(1, Number(input?.jurors ?? 3));\n  // Never spawn more parallel agents than the run\'s concurrency budget allows.\n  const jurors = Math.min(requestedJurors, ctx.limits.concurrency);\n  if (jurors < requestedJurors) {\n    await ctx.log("juror cap applied", { requested: requestedJurors, running: jurors, concurrency: ctx.limits.concurrency });\n  }\n\n  const rubric = input?.rubric ?? "overall quality, clarity, and fitness for the stated goal";\n  const goal = input?.goal ?? "n/a";\n\n  const SCORE = {\n    type: "object",\n    additionalProperties: false,\n    required: ["score", "rationale"],\n    properties: {\n      score: { type: "number", description: "0-10, higher is better" },\n      rationale: { type: "string", description: "one short sentence justifying the score" },\n    },\n  };\n\n  const ranked = [];\n  for (let i = 0; i < candidates.length; i++) {\n    const candidate = candidates[i];\n    // Independent jury: each juror scores the candidate against the rubric.\n    // settle:true so one juror erroring/timing-out does not abort the rest.\n    const jury = await ctx.agents(\n      Array.from({ length: jurors }, (_unused, j) => ({\n        name: `rank-${candidate.id}-juror-${j + 1}`,\n        prompt:\n          `You are juror ${j + 1}/${jurors}. Score the candidate below from 0 to 10 against the rubric. ` +\n          `Be calibrated: reserve 9-10 for clearly excellent, 0-3 for clearly poor.\\n\\n` +\n          `Goal: ${goal}\\n` +\n          `Rubric: ${rubric}\\n` +\n          `Candidate: ${candidate.text}\\n\\n` +\n          `Return JSON only matching the schema.`,\n        agentType: "reviewer",\n        tools: ["read", "grep", "find", "ls"],\n        schema: SCORE,\n        schemaOnInvalid: "null",\n      })),\n      { concurrency: jurors, settle: true },\n    );\n    const parsed = jury\n      .filter(Boolean)\n      .map((result) => result.data)\n      .filter((vote) => vote && typeof vote.score === "number" && Number.isFinite(vote.score));\n    if (parsed.length === 0) {\n      dropped.push({ id: candidate.id, text: candidate.text, reason: "no juror returned a valid score" });\n      await ctx.log("candidate unscorable", { id: candidate.id, failedBranches: jury.length });\n      continue;\n    }\n    // Average juror score; clamp into [0,10] so a stray out-of-range vote cannot dominate.\n    const clamped = parsed.map((vote) => Math.min(10, Math.max(0, vote.score)));\n    const score = clamped.reduce((acc, value) => acc + value, 0) / clamped.length;\n    const rationale = parsed.map((vote) => vote.rationale).filter(Boolean).join(" | ");\n    ranked.push({ id: candidate.id, text: candidate.text, score, votes: clamped, rationale });\n    await ctx.log("candidate scored", { id: candidate.id, score, jurors: clamped.length, failedBranches: jury.length - parsed.length });\n  }\n\n  // Deterministic best-first order; tie-break by id so the ranking is stable.\n  ranked.sort((a, b) => (b.score - a.score) || String(a.id).localeCompare(String(b.id)));\n\n  const keepTop = Number(input?.keepTop);\n  const finalRanked = Number.isFinite(keepTop) && keepTop > 0 ? ranked.slice(0, keepTop) : ranked;\n\n  // `best` is a SHALLOW COPY of the top entry, not the same object reference, so\n  // serialization (writeArtifact / ctx.compact) does not emit "[Circular]" for the\n  // second occurrence of the shared object.\n  const result = {\n    ranked: finalRanked,\n    best: finalRanked[0] ? { ...finalRanked[0] } : null,\n    dropped,\n    coverage: { candidates: candidates.length, jurors, requestedJurors },\n  };\n  await ctx.writeArtifact("rank-candidates-result.json", result);\n  await ctx.log("ranking complete", { ranked: finalRanked.length, dropped: dropped.length, best: result.best?.id ?? null });\n  return result;\n};\n';
 
 const { check, counts } = createChecker();
 
@@ -115,7 +121,11 @@ async function makeProject() {
 
 // Install fixture workflow files into the project's workflow dir, preserving lib/.
 async function installCompositionFixtures(project, { flattenLib = false } = {}) {
-	await fs.writeFile(path.join(project, ".pi", "workflows", "composition-rank-driver.js"), RANK_DRIVER_WORKFLOW, "utf8");
+	await fs.writeFile(
+		path.join(project, ".pi", "workflows", "composition-rank-driver.js"),
+		RANK_DRIVER_WORKFLOW,
+		"utf8",
+	);
 	const libDest = flattenLib
 		? path.join(project, ".pi", "workflows", "rank-candidates.js") // wrong: not under lib/
 		: path.join(project, ".pi", "workflows", "lib", "rank-candidates.js");
@@ -128,7 +138,10 @@ async function readJson(file) {
 
 async function readEvents(runDir) {
 	const body = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8");
-	return body.split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+	return body
+		.split("\n")
+		.filter((line) => line.trim())
+		.map((line) => JSON.parse(line));
 }
 
 async function runTool(tool, ctx, params) {
@@ -210,20 +223,60 @@ async function scenarioResolvesAndRanks(url, outDir) {
 
 	// Ranking artifact written by the parent after delegating to lib/.
 	const ranking = await readJson(path.join(result.runDir, "ranking.json"));
-	check("coherence: ranked is best-first (Quartz top)", ranking.ranked[0]?.text === "Quartz", JSON.stringify(ranking.ranked.map((r) => [r.text, r.score])));
-	check("coherence: best === ranked[0]", ranking.best && ranking.best.text === ranking.ranked[0].text, JSON.stringify(ranking.best));
-	check("coherence: lowest score ranked last", ranking.ranked[ranking.ranked.length - 1]?.text === "Vague", JSON.stringify(ranking.ranked.map((r) => r.text)));
-	check("coherence: every kept candidate has a numeric score", ranking.ranked.every((r) => typeof r.score === "number" && Number.isFinite(r.score)), JSON.stringify(ranking.ranked));
-	check("coherence: coverage reports candidate + juror counts", ranking.coverage && ranking.coverage.candidates === 3 && ranking.coverage.jurors === 1, JSON.stringify(ranking.coverage));
+	check(
+		"coherence: ranked is best-first (Quartz top)",
+		ranking.ranked[0]?.text === "Quartz",
+		JSON.stringify(ranking.ranked.map((r) => [r.text, r.score])),
+	);
+	check(
+		"coherence: best === ranked[0]",
+		ranking.best && ranking.best.text === ranking.ranked[0].text,
+		JSON.stringify(ranking.best),
+	);
+	check(
+		"coherence: lowest score ranked last",
+		ranking.ranked[ranking.ranked.length - 1]?.text === "Vague",
+		JSON.stringify(ranking.ranked.map((r) => r.text)),
+	);
+	check(
+		"coherence: every kept candidate has a numeric score",
+		ranking.ranked.every((r) => typeof r.score === "number" && Number.isFinite(r.score)),
+		JSON.stringify(ranking.ranked),
+	);
+	check(
+		"coherence: coverage reports candidate + juror counts",
+		ranking.coverage && ranking.coverage.candidates === 3 && ranking.coverage.jurors === 1,
+		JSON.stringify(ranking.coverage),
+	);
 
 	// The lib/ sub-workflow itself wrote its own artifact into the SAME run dir.
 	const libArtifact = await readJson(path.join(result.runDir, "rank-candidates-result.json"));
-	check("resolve: lib/rank-candidates artifact lands in shared runDir", libArtifact.best && libArtifact.best.text === "Quartz", JSON.stringify(libArtifact.best));
+	check(
+		"resolve: lib/rank-candidates artifact lands in shared runDir",
+		libArtifact.best && libArtifact.best.text === "Quartz",
+		JSON.stringify(libArtifact.best),
+	);
 
 	// Composition events prove ctx.workflow("lib/rank-candidates") actually ran.
 	const events = await readEvents(result.runDir);
-	check("resolve: emits sub-workflow start for lib/rank-candidates", events.some((e) => e.type === "workflow" && e.phase === "start" && e.name === "lib/rank-candidates"), "no start event");
-	check("resolve: emits sub-workflow end ok for lib/rank-candidates", events.some((e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/rank-candidates" && e.ok === true), "no ok end event");
+	check(
+		"resolve: emits sub-workflow start for lib/rank-candidates",
+		events.some(
+			(e) => e.type === "workflow" && e.phase === "start" && e.name === "lib/rank-candidates",
+		),
+		"no start event",
+	);
+	check(
+		"resolve: emits sub-workflow end ok for lib/rank-candidates",
+		events.some(
+			(e) =>
+				e.type === "workflow" &&
+				e.phase === "end" &&
+				e.name === "lib/rank-candidates" &&
+				e.ok === true,
+		),
+		"no ok end event",
+	);
 }
 
 async function scenarioDropsUnscorable(url, outDir) {
@@ -266,8 +319,16 @@ async function scenarioDropsUnscorable(url, outDir) {
 	check("dropped: direct lib/ call succeeds", result.ok === true, result.error);
 	if (result.ok !== true) return;
 	const out = result.output;
-	check("dropped: blank candidate is dropped, not ranked", out.dropped.some((d) => d.id === "blank") && out.ranked.every((r) => r.id !== "blank"), JSON.stringify(out));
-	check("dropped: valid candidate is still ranked + is best", out.best && out.best.id === "ok", JSON.stringify(out.best));
+	check(
+		"dropped: blank candidate is dropped, not ranked",
+		out.dropped.some((d) => d.id === "blank") && out.ranked.every((r) => r.id !== "blank"),
+		JSON.stringify(out),
+	);
+	check(
+		"dropped: valid candidate is still ranked + is best",
+		out.best && out.best.id === "ok",
+		JSON.stringify(out.best),
+	);
 }
 
 async function scenarioFlattenedLibDoesNotResolve(url, outDir) {

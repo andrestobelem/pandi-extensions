@@ -17,7 +17,13 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	bundle,
+	createChecker,
+	loadDefault,
+	makeBuildDir,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -89,18 +95,50 @@ function makeCtx({ cwd, trusted = true, mode = "tui", hasUI = true } = {}) {
 	return ctx;
 }
 
-async function setupJob(runsDir, jobId, { command = "echo hi", state = "completed", updatedAt = "2026-06-25T00:00:00.000Z", log, pid, startId } = {}) {
+async function setupJob(
+	runsDir,
+	jobId,
+	{
+		command = "echo hi",
+		state = "completed",
+		updatedAt = "2026-06-25T00:00:00.000Z",
+		log,
+		pid,
+		startId,
+	} = {},
+) {
 	const runDir = path.join(runsDir, jobId);
 	await fs.mkdir(runDir, { recursive: true });
 	await fs.writeFile(
 		path.join(runDir, "job.json"),
-		JSON.stringify({ jobId, command, cwd: "/tmp/project", createdAt: updatedAt, source: "slash", artifactsDir: runDir }, null, 2),
+		JSON.stringify(
+			{
+				jobId,
+				command,
+				cwd: "/tmp/project",
+				createdAt: updatedAt,
+				source: "slash",
+				artifactsDir: runDir,
+			},
+			null,
+			2,
+		),
 	);
 	// pid/startId are optional so liveness/identity rounds can seed an honest job; omitting
 	// them keeps the legacy {jobId,state,updatedAt} shape every existing caller relies on.
 	await fs.writeFile(
 		path.join(runDir, "status.json"),
-		JSON.stringify({ jobId, state, updatedAt, ...(pid !== undefined ? { pid } : {}), ...(startId !== undefined ? { startId } : {}) }, null, 2),
+		JSON.stringify(
+			{
+				jobId,
+				state,
+				updatedAt,
+				...(pid !== undefined ? { pid } : {}),
+				...(startId !== undefined ? { startId } : {}),
+			},
+			null,
+			2,
+		),
 	);
 	if (log !== undefined) await fs.writeFile(path.join(runDir, "combined.log"), log);
 	return runDir;
@@ -118,22 +156,48 @@ async function statusOrphanedRefinementPinned(url) {
 	const liveStartId = readProcessStartId(process.pid);
 	await setupJob(runsRoot, "dead-pid", { state: "running", pid: dead.pid });
 	await setupJob(runsRoot, "no-identity", { state: "running", pid: process.pid });
-	await setupJob(runsRoot, "verified", { state: "running", pid: process.pid, startId: liveStartId });
-	await setupJob(runsRoot, "reused", { state: "running", pid: process.pid, startId: "stale:bogus-identity" });
+	await setupJob(runsRoot, "verified", {
+		state: "running",
+		pid: process.pid,
+		startId: liveStartId,
+	});
+	await setupJob(runsRoot, "reused", {
+		state: "running",
+		pid: process.pid,
+		startId: "stale:bogus-identity",
+	});
 	const ctx = makeCtx({ cwd, trusted: true });
 	const statusOf = async (id) => {
 		await commands.get("bg").handler(`status ${id}`, ctx);
 		return ctx._notes.at(-1)?.msg || "";
 	};
-	check("orphan-refine: a dead pid projects interrupted", /"state": "interrupted"/.test(await statusOf("dead-pid")));
+	check(
+		"orphan-refine: a dead pid projects interrupted",
+		/"state": "interrupted"/.test(await statusOf("dead-pid")),
+	);
 	const noId = await statusOf("no-identity");
-	check("orphan-refine: an alive pid without startId stays best-effort orphaned", /"state": "orphaned"/.test(noId) && !/"identity": "verified"/.test(noId), noId);
+	check(
+		"orphan-refine: an alive pid without startId stays best-effort orphaned",
+		/"state": "orphaned"/.test(noId) && !/"identity": "verified"/.test(noId),
+		noId,
+	);
 	const ver = await statusOf("verified");
 	if (process.platform === "win32") {
-		check("orphan-refine: win32 keeps orphaned (identity unverifiable)", /"state": "orphaned"/.test(ver), ver);
+		check(
+			"orphan-refine: win32 keeps orphaned (identity unverifiable)",
+			/"state": "orphaned"/.test(ver),
+			ver,
+		);
 	} else {
-		check("orphan-refine: a verified identity stays orphaned and is marked verified", /"state": "orphaned"/.test(ver) && /"identity": "verified"/.test(ver), ver);
-		check("orphan-refine: a reused pid (different identity) projects interrupted", /"state": "interrupted"/.test(await statusOf("reused")));
+		check(
+			"orphan-refine: a verified identity stays orphaned and is marked verified",
+			/"state": "orphaned"/.test(ver) && /"identity": "verified"/.test(ver),
+			ver,
+		);
+		check(
+			"orphan-refine: a reused pid (different identity) projects interrupted",
+			/"state": "interrupted"/.test(await statusOf("reused")),
+		);
 	}
 }
 
@@ -147,25 +211,45 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 		await commands.get("bg").handler(line, ctx);
 		return ctx._notes.at(-1)?.msg || "";
 	};
-	const auditLines = async () => (await fs.readFile(path.join(runsRoot, ".audit.jsonl"), "utf8").catch(() => "")).trim().split("\n").filter(Boolean);
+	const auditLines = async () =>
+		(await fs.readFile(path.join(runsRoot, ".audit.jsonl"), "utf8").catch(() => ""))
+			.trim()
+			.split("\n")
+			.filter(Boolean);
 
 	const okDir = await setupJob(runsRoot, "done-job", { state: "completed" });
 	const okMsg = await say("delete done-job");
 	check("delete: a terminal job is removed", !existsSync(okDir), okDir);
 	check("delete: reports the deletion", /deleted/i.test(okMsg), okMsg);
 	const audit = await auditLines();
-	check("delete: appends one audit line for the removal", audit.length === 1 && /"jobId":\s*"done-job"/.test(audit[0]) && /"verb":\s*"delete"/.test(audit[0]), JSON.stringify(audit));
+	check(
+		"delete: appends one audit line for the removal",
+		audit.length === 1 &&
+			/"jobId":\s*"done-job"/.test(audit[0]) &&
+			/"verb":\s*"delete"/.test(audit[0]),
+		JSON.stringify(audit),
+	);
 
 	const travMsg = await say("delete ../escape");
-	check("delete: rejects a path-traversal id with usage", /Usage: \/bg delete/.test(travMsg), travMsg);
+	check(
+		"delete: rejects a path-traversal id with usage",
+		/Usage: \/bg delete/.test(travMsg),
+		travMsg,
+	);
 
 	const realDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-target-"));
-	await fs.writeFile(path.join(realDir, "status.json"), JSON.stringify({ jobId: "linky", state: "completed", updatedAt: "2026-06-25T00:00:00.000Z" }));
+	await fs.writeFile(
+		path.join(realDir, "status.json"),
+		JSON.stringify({ jobId: "linky", state: "completed", updatedAt: "2026-06-25T00:00:00.000Z" }),
+	);
 	await fs.mkdir(runsRoot, { recursive: true });
 	await fs.symlink(realDir, path.join(runsRoot, "linky"));
 	const linkMsg = await say("delete linky");
 	check("delete: refuses a symlinked run dir as not found", /not found/i.test(linkMsg), linkMsg);
-	check("delete: symlink target survives the refusal", existsSync(realDir) && existsSync(path.join(realDir, "status.json")));
+	check(
+		"delete: symlink target survives the refusal",
+		existsSync(realDir) && existsSync(path.join(realDir, "status.json")),
+	);
 }
 
 // R3: /bg delete scope/trust + the blocking inner-symlink escape (fs.rm unlinks an inner
@@ -187,19 +271,30 @@ async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 	await fs.symlink(externalFile, path.join(okDir, "combined.log"));
 	await say("delete symlink-job", makeCtx({ cwd, trusted: true }));
 	check("delete-scope: the run dir with an inner symlink is removed", !existsSync(okDir));
-	check("delete-scope: the external symlink target survives the removal", existsSync(externalFile) && (await fs.readFile(externalFile, "utf8")) === "do not delete me");
+	check(
+		"delete-scope: the external symlink target survives the removal",
+		existsSync(externalFile) && (await fs.readFile(externalFile, "utf8")) === "do not delete me",
+	);
 
 	// (b) Global-fallback job: refused as read-only/out-of-scope; dir intact.
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
 	const globalDir = await setupJob(globalRunsRoot, "global-job", { state: "completed" });
 	const globalMsg = await say("delete global-job", makeCtx({ cwd, trusted: true }));
-	check("delete-scope: refuses a global-fallback job", /global.*read-?only|out of scope/i.test(globalMsg), globalMsg);
+	check(
+		"delete-scope: refuses a global-fallback job",
+		/global.*read-?only|out of scope/i.test(globalMsg),
+		globalMsg,
+	);
 	check("delete-scope: the global job dir is left intact", existsSync(globalDir));
 
 	// (c) Untrusted project: trust-gated no-op; dir intact.
 	const keepDir = await setupJob(runsRoot, "keep-job", { state: "completed" });
 	const untrustedMsg = await say("delete keep-job", makeCtx({ cwd, trusted: false }));
-	check("delete-scope: untrusted project is refused", /untrusted/i.test(untrustedMsg), untrustedMsg);
+	check(
+		"delete-scope: untrusted project is refused",
+		/untrusted/i.test(untrustedMsg),
+		untrustedMsg,
+	);
 	check("delete-scope: untrusted leaves the dir intact", existsSync(keepDir));
 }
 
@@ -210,7 +305,11 @@ async function deleteRejectedInPlanMode(planUrl, bgUrl) {
 	await commands.get("plan").handler("design safely", ctx);
 	await commands.get("bg").handler("delete some-job", ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
-	check("delete-plan: /bg delete rejected while plan mode active", /Cannot \/bg delete while plan mode is active/.test(msg), msg);
+	check(
+		"delete-plan: /bg delete rejected while plan mode active",
+		/Cannot \/bg delete while plan mode is active/.test(msg),
+		msg,
+	);
 	await commands.get("plan").handler("exit", ctx);
 }
 
@@ -219,17 +318,49 @@ async function deleteRejectedInPlanMode(planUrl, bgUrl) {
 async function dispatcherExposesDeleteAndPrune(url) {
 	const { commands, tools } = await loadExtension(url);
 	const bg = commands.get("bg");
-	check("wiring: registers no LLM tools (delete/prune are slash-only)", tools.size === 0, [...tools.keys()].join(","));
-	check("wiring: description advertises delete and prune", /delete/.test(bg.description) && /prune/.test(bg.description), bg.description);
-	check("wiring: description advertises no dashboard", !/dashboard/i.test(bg.description), bg.description);
-	const comp = (prefix) => (bg.getArgumentCompletions ? bg.getArgumentCompletions(prefix) : []).map((i) => i.value);
-	check("wiring: 'del' completes to delete", comp("del").includes("delete"), JSON.stringify(comp("del")));
-	check("wiring: 'pru' completes to prune", comp("pru").includes("prune"), JSON.stringify(comp("pru")));
-	check("wiring: no dashboard completion", !comp("").includes("dashboard"), JSON.stringify(comp("")));
-	const ctx = makeCtx({ cwd: await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-wiring-")), trusted: true });
+	check(
+		"wiring: registers no LLM tools (delete/prune are slash-only)",
+		tools.size === 0,
+		[...tools.keys()].join(","),
+	);
+	check(
+		"wiring: description advertises delete and prune",
+		/delete/.test(bg.description) && /prune/.test(bg.description),
+		bg.description,
+	);
+	check(
+		"wiring: description advertises no dashboard",
+		!/dashboard/i.test(bg.description),
+		bg.description,
+	);
+	const comp = (prefix) =>
+		(bg.getArgumentCompletions ? bg.getArgumentCompletions(prefix) : []).map((i) => i.value);
+	check(
+		"wiring: 'del' completes to delete",
+		comp("del").includes("delete"),
+		JSON.stringify(comp("del")),
+	);
+	check(
+		"wiring: 'pru' completes to prune",
+		comp("pru").includes("prune"),
+		JSON.stringify(comp("pru")),
+	);
+	check(
+		"wiring: no dashboard completion",
+		!comp("").includes("dashboard"),
+		JSON.stringify(comp("")),
+	);
+	const ctx = makeCtx({
+		cwd: await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-wiring-")),
+		trusted: true,
+	});
 	await bg.handler("bogus", ctx);
 	const unknownMsg = ctx._notes.at(-1)?.msg || "";
-	check("wiring: unknown-subcommand help lists delete and prune", /delete/.test(unknownMsg) && /prune/.test(unknownMsg), unknownMsg);
+	check(
+		"wiring: unknown-subcommand help lists delete and prune",
+		/delete/.test(unknownMsg) && /prune/.test(unknownMsg),
+		unknownMsg,
+	);
 }
 
 async function auditDotfileIsInvisibleToList(url) {
@@ -237,7 +368,10 @@ async function auditDotfileIsInvisibleToList(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-dotfile-list-"));
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	await setupJob(runsRoot, "real-job", { state: "completed" });
-	await fs.writeFile(path.join(runsRoot, ".audit.jsonl"), `${JSON.stringify({ ts: "x", verb: "delete", jobId: "real-job" })}\n`);
+	await fs.writeFile(
+		path.join(runsRoot, ".audit.jsonl"),
+		`${JSON.stringify({ ts: "x", verb: "delete", jobId: "real-job" })}\n`,
+	);
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler("list", ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
@@ -268,7 +402,11 @@ async function dryRunHasNoRuntimeWrites(url) {
 	await commands.get("bg").handler("preview npm test", ctx);
 
 	check("dry-run: registers /bg command", commands.has("bg"));
-	check("dry-run: registers no LLM tools", tools.size === 0, `registered tools: ${[...tools.keys()].join(",")}`);
+	check(
+		"dry-run: registers no LLM tools",
+		tools.size === 0,
+		`registered tools: ${[...tools.keys()].join(",")}`,
+	);
 	check("dry-run: reports no job started", /Dry run only/.test(ctx._notes.at(-1)?.msg || ""));
 	check("dry-run: includes planned command", /npm test/.test(ctx._notes.at(-1)?.msg || ""));
 	check("dry-run: creates no project .pi artifacts", !existsSync(path.join(cwd, ".pi")));
@@ -285,19 +423,28 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 	reloadedPlanExtension(makePi().pi);
 	await commands.get("bg").handler("start npm test", ctx);
 	const startMsg = ctx._notes.at(-1)?.msg || "";
-	check("plan guard: /bg start rejected while plan mode active", /Cannot \/bg start while plan mode is active/.test(startMsg));
+	check(
+		"plan guard: /bg start rejected while plan mode active",
+		/Cannot \/bg start while plan mode is active/.test(startMsg),
+	);
 	check("plan guard: /bg start creates no project artifacts", !existsSync(path.join(cwd, ".pi")));
 
 	await commands.get("bg").handler("cancel job-1", ctx);
 	const cancelMsg = ctx._notes.at(-1)?.msg || "";
-	check("plan guard: /bg cancel rejected while plan mode active", /Cannot \/bg cancel while plan mode is active/.test(cancelMsg));
+	check(
+		"plan guard: /bg cancel rejected while plan mode active",
+		/Cannot \/bg cancel while plan mode is active/.test(cancelMsg),
+	);
 	// bg's mutating surface is human-only slash commands: it must register ZERO LLM tools. The
 	// tools map here holds only what the bundled plan+bg extensions registered, so the invariant
 	// is "no bg/background_job tool" (plan owns submit_plan + enter_plan_mode). Asserted by tool
 	// NAME rather than a frozen count so adding plan tools never silently breaks this guard.
 	check(
 		"plan guard: still registers no background_job/bg LLM tools",
-		!tools.has("background_job") && !tools.has("bg") && tools.has("submit_plan") && tools.has("enter_plan_mode"),
+		!tools.has("background_job") &&
+			!tools.has("bg") &&
+			tools.has("submit_plan") &&
+			tools.has("enter_plan_mode"),
 		`registered tools: ${[...tools.keys()].join(",")}`,
 	);
 
@@ -308,7 +455,11 @@ async function listStatusLogsReadExistingArtifacts(url, agentDir) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-project-"));
 	const projectRunsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
-	await setupJob(projectRunsRoot, "project-job", { command: "project cmd", state: "running", updatedAt: "2026-06-25T02:00:00.000Z" });
+	await setupJob(projectRunsRoot, "project-job", {
+		command: "project cmd",
+		state: "running",
+		updatedAt: "2026-06-25T02:00:00.000Z",
+	});
 	await setupJob(globalRunsRoot, "global-job", {
 		command: "global cmd",
 		state: "completed",
@@ -330,7 +481,10 @@ async function listStatusLogsReadExistingArtifacts(url, agentDir) {
 
 	await commands.get("bg").handler("logs global-job", ctx);
 	const logsMsg = ctx._notes.at(-1)?.msg || "";
-	check("logs: truncates oversized combined.log", logsMsg.startsWith("[truncated to last 20000 bytes]"));
+	check(
+		"logs: truncates oversized combined.log",
+		logsMsg.startsWith("[truncated to last 20000 bytes]"),
+	);
 	check("logs: keeps tail of oversized combined.log", logsMsg.includes("TAIL"));
 	check("logs: drops old head of oversized combined.log", !logsMsg.includes("BEGIN"));
 	check("logs: output remains bounded", logsMsg.length <= 20_080, `length=${logsMsg.length}`);
@@ -350,8 +504,16 @@ async function logTailDoesNotSplitUtf8(url) {
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler("logs utf8-job", ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
-	check("utf8: oversized log is truncated", msg.startsWith("[truncated to last 20000 bytes]"), msg.slice(0, 40));
-	check("utf8: tail read does not emit a replacement char", !msg.includes("\uFFFD"), JSON.stringify(msg.slice(0, 40)));
+	check(
+		"utf8: oversized log is truncated",
+		msg.startsWith("[truncated to last 20000 bytes]"),
+		msg.slice(0, 40),
+	);
+	check(
+		"utf8: tail read does not emit a replacement char",
+		!msg.includes("\uFFFD"),
+		JSON.stringify(msg.slice(0, 40)),
+	);
 }
 
 async function emptyAndUntrustedBehavior(url, agentDir) {
@@ -359,12 +521,18 @@ async function emptyAndUntrustedBehavior(url, agentDir) {
 	let loaded = await loadExtension(url);
 	let ctx = makeCtx({ cwd: emptyCwd, trusted: true });
 	await loaded.commands.get("bg").handler("list", ctx);
-	check("empty: missing artifact roots returns empty list", /No background jobs found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"empty: missing artifact roots returns empty list",
+		/No background jobs found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-untrusted-"));
 	const projectRunsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
-	await setupJob(projectRunsRoot, "project-only", { command: "must not be read", state: "running" });
+	await setupJob(projectRunsRoot, "project-only", {
+		command: "must not be read",
+		state: "running",
+	});
 	await setupJob(globalRunsRoot, "global-only", { command: "safe global", state: "completed" });
 
 	loaded = await loadExtension(url);
@@ -375,16 +543,28 @@ async function emptyAndUntrustedBehavior(url, agentDir) {
 	check("untrusted: still inspects global fallback", /global-only/.test(listMsg));
 
 	await loaded.commands.get("bg").handler("status project-only", ctx);
-	check("untrusted: project-local status is not found", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"untrusted: project-local status is not found",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	await loaded.commands.get("bg").handler("status ..", ctx);
-	check("security: path traversal job id is rejected", /Usage: \/bg status/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: path traversal job id is rejected",
+		/Usage: \/bg status/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	const startCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-untrusted-start-"));
 	ctx = makeCtx({ cwd: startCwd, trusted: false });
 	await loaded.commands.get("bg").handler("start npm test", ctx);
-	check("untrusted: /bg start is rejected", /Cannot \/bg start in an untrusted project/.test(ctx._notes.at(-1)?.msg || ""));
-	check("untrusted: /bg start creates no project artifacts", !existsSync(path.join(startCwd, ".pi")));
+	check(
+		"untrusted: /bg start is rejected",
+		/Cannot \/bg start in an untrusted project/.test(ctx._notes.at(-1)?.msg || ""),
+	);
+	check(
+		"untrusted: /bg start creates no project artifacts",
+		!existsSync(path.join(startCwd, ".pi")),
+	);
 }
 
 async function symlinkedRunDirsAreRejected(url, agentDir) {
@@ -392,7 +572,11 @@ async function symlinkedRunDirsAreRejected(url, agentDir) {
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
 	const projectRunsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const outsideRunsRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-outside-"));
-	const outsideRunDir = await setupJob(outsideRunsRoot, "outside", { command: "outside secret", state: "completed", log: "outside log" });
+	const outsideRunDir = await setupJob(outsideRunsRoot, "outside", {
+		command: "outside secret",
+		state: "completed",
+		log: "outside log",
+	});
 	for (const runsRoot of [globalRunsRoot, projectRunsRoot]) {
 		await fs.mkdir(runsRoot, { recursive: true });
 		await fs.symlink(outsideRunDir, path.join(runsRoot, "linked-job"), "dir");
@@ -401,30 +585,52 @@ async function symlinkedRunDirsAreRejected(url, agentDir) {
 	let loaded = await loadExtension(url);
 	let ctx = makeCtx({ cwd, trusted: false });
 	await loaded.commands.get("bg").handler("list", ctx);
-	check("security: global list ignores symlinked run dirs", !/linked-job|outside secret/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: global list ignores symlinked run dirs",
+		!/linked-job|outside secret/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	await loaded.commands.get("bg").handler("status linked-job", ctx);
-	check("security: global status rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: global status rejects symlinked run dirs",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	await loaded.commands.get("bg").handler("logs linked-job", ctx);
-	check("security: global logs rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: global logs rejects symlinked run dirs",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	loaded = await loadExtension(url);
 	ctx = makeCtx({ cwd, trusted: true });
 	await loaded.commands.get("bg").handler("list", ctx);
-	check("security: project list ignores symlinked run dirs", !/linked-job|outside secret/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: project list ignores symlinked run dirs",
+		!/linked-job|outside secret/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	await loaded.commands.get("bg").handler("status linked-job", ctx);
-	check("security: project status rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: project status rejects symlinked run dirs",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	await loaded.commands.get("bg").handler("logs linked-job", ctx);
-	check("security: project logs rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: project logs rejects symlinked run dirs",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 }
 
 async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-rootlink-"));
 	const outsideRunsRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-rootlink-outside-"));
-	await setupJob(outsideRunsRoot, "root-link-job", { command: "outside root secret", state: "completed", log: "outside root log" });
+	await setupJob(outsideRunsRoot, "root-link-job", {
+		command: "outside root secret",
+		state: "completed",
+		log: "outside root log",
+	});
 
 	const projectRunsParent = path.join(cwd, ".pi", "bg");
 	await fs.mkdir(projectRunsParent, { recursive: true });
@@ -433,11 +639,20 @@ async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
 	let loaded = await loadExtension(url);
 	let ctx = makeCtx({ cwd, trusted: true });
 	await loaded.commands.get("bg").handler("list", ctx);
-	check("security: project list ignores symlinked artifact root", !/root-link-job|outside root secret/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: project list ignores symlinked artifact root",
+		!/root-link-job|outside root secret/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 	await loaded.commands.get("bg").handler("status root-link-job", ctx);
-	check("security: project status rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: project status rejects symlinked artifact root",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 	await loaded.commands.get("bg").handler("logs root-link-job", ctx);
-	check("security: project logs rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: project logs rejects symlinked artifact root",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	const globalRunsParent = path.join(agentDir, "bg", "runs");
 	await fs.mkdir(globalRunsParent, { recursive: true });
@@ -446,11 +661,20 @@ async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
 	loaded = await loadExtension(url);
 	ctx = makeCtx({ cwd, trusted: false });
 	await loaded.commands.get("bg").handler("list", ctx);
-	check("security: global list ignores symlinked artifact root", !/root-link-job|outside root secret/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: global list ignores symlinked artifact root",
+		!/root-link-job|outside root secret/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 	await loaded.commands.get("bg").handler("status root-link-job", ctx);
-	check("security: global status rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: global status rejects symlinked artifact root",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 	await loaded.commands.get("bg").handler("logs root-link-job", ctx);
-	check("security: global logs rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: global logs rejects symlinked artifact root",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 }
 
 async function symlinkedArtifactFilesAreIgnored(url, agentDir) {
@@ -460,19 +684,36 @@ async function symlinkedArtifactFilesAreIgnored(url, agentDir) {
 	const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-filelink-outside-"));
 	const outsideJob = path.join(outsideDir, "job.json");
 	const outsideLog = path.join(outsideDir, "combined.log");
-	await fs.writeFile(outsideJob, JSON.stringify({ jobId: "file-link-job", command: "outside secret" }));
+	await fs.writeFile(
+		outsideJob,
+		JSON.stringify({ jobId: "file-link-job", command: "outside secret" }),
+	);
 	await fs.writeFile(outsideLog, "outside log secret");
 	await fs.symlink(outsideJob, path.join(runDir, "job.json"));
-	await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId: "file-link-job", state: "completed", updatedAt: "2026-06-25T00:00:00.000Z" }));
+	await fs.writeFile(
+		path.join(runDir, "status.json"),
+		JSON.stringify({
+			jobId: "file-link-job",
+			state: "completed",
+			updatedAt: "2026-06-25T00:00:00.000Z",
+		}),
+	);
 	await fs.symlink(outsideLog, path.join(runDir, "combined.log"));
 
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, trusted: false });
 	await commands.get("bg").handler("status file-link-job", ctx);
-	check("security: status ignores symlinked job.json files", !/outside secret/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: status ignores symlinked job.json files",
+		!/outside secret/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 
 	await commands.get("bg").handler("logs file-link-job", ctx);
-	check("security: logs ignores symlinked log files", /No logs found/.test(ctx._notes.at(-1)?.msg || "") && !/outside log secret/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: logs ignores symlinked log files",
+		/No logs found/.test(ctx._notes.at(-1)?.msg || "") &&
+			!/outside log secret/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 }
 
 async function corruptArtifactsAreTolerated(url) {
@@ -486,13 +727,25 @@ async function corruptArtifactsAreTolerated(url) {
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler("list", ctx);
-	check("corrupt: list does not crash and shows unknown job", /corrupt-job: unknown/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check(
+		"corrupt: list does not crash and shows unknown job",
+		/corrupt-job: unknown/.test(ctx._notes.at(-1)?.msg || ""),
+		ctx._notes.at(-1)?.msg,
+	);
 
 	await commands.get("bg").handler("status corrupt-job", ctx);
-	check("corrupt: status does not crash", /"jobId": "corrupt-job"/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check(
+		"corrupt: status does not crash",
+		/"jobId": "corrupt-job"/.test(ctx._notes.at(-1)?.msg || ""),
+		ctx._notes.at(-1)?.msg,
+	);
 
 	await commands.get("bg").handler("logs corrupt-job", ctx);
-	check("corrupt: missing logs are reported safely", /No logs found/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check(
+		"corrupt: missing logs are reported safely",
+		/No logs found/.test(ctx._notes.at(-1)?.msg || ""),
+		ctx._notes.at(-1)?.msg,
+	);
 }
 
 async function eventsSubcommandReadsBoundedEvents(url) {
@@ -503,7 +756,13 @@ async function eventsSubcommandReadsBoundedEvents(url) {
 		[
 			{ time: "2026-06-25T00:00:00.000Z", event: "start", jobId: "events-job", command: "echo hi" },
 			{ time: "2026-06-25T00:00:01.000Z", event: "running", jobId: "events-job", pid: 4242 },
-			{ time: "2026-06-25T00:00:02.000Z", event: "finish", jobId: "events-job", state: "completed", exitCode: 0 },
+			{
+				time: "2026-06-25T00:00:02.000Z",
+				event: "finish",
+				jobId: "events-job",
+				state: "completed",
+				exitCode: 0,
+			},
 		]
 			.map((e) => JSON.stringify(e))
 			.join("\n") + "\n";
@@ -514,19 +773,38 @@ async function eventsSubcommandReadsBoundedEvents(url) {
 
 	await commands.get("bg").handler("events events-job", ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
-	check("events: surfaces the lifecycle timeline", /"event":"start"/.test(msg) && /"event":"finish"/.test(msg), msg.slice(0, 120));
+	check(
+		"events: surfaces the lifecycle timeline",
+		/"event":"start"/.test(msg) && /"event":"finish"/.test(msg),
+		msg.slice(0, 120),
+	);
 	check("events: includes the running pid event", /"pid":4242/.test(msg), msg.slice(0, 200));
 
 	await commands.get("bg").handler("events missing-job", ctx);
-	check("events: unknown job reports not found", /not found/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check(
+		"events: unknown job reports not found",
+		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+		ctx._notes.at(-1)?.msg,
+	);
 
 	await commands.get("bg").handler("events ..", ctx);
-	check("events: path traversal job id is rejected", /Usage: \/bg events/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check(
+		"events: path traversal job id is rejected",
+		/Usage: \/bg events/.test(ctx._notes.at(-1)?.msg || ""),
+		ctx._notes.at(-1)?.msg,
+	);
 
 	const desc = commands.get("bg")?.description || "";
 	check("events: command description lists events", /\bevents\b/.test(desc), desc);
-	const completions = commands.get("bg").getArgumentCompletions("ev").map((c) => c.value);
-	check("events: completions include events for prefix 'ev'", completions.includes("events"), completions.join(","));
+	const completions = commands
+		.get("bg")
+		.getArgumentCompletions("ev")
+		.map((c) => c.value);
+	check(
+		"events: completions include events for prefix 'ev'",
+		completions.includes("events"),
+		completions.join(","),
+	);
 }
 
 async function planAliasStillPreviews(url) {
@@ -535,12 +813,22 @@ async function planAliasStillPreviews(url) {
 	const ctx = makeCtx({ cwd, trusted: true });
 	// Backward-compat: the deprecated `plan` verb still maps to the preview dry-run.
 	await commands.get("bg").handler("plan npm test", ctx);
-	check("alias: deprecated /bg plan still previews (dry-run)", /Dry run only/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check(
+		"alias: deprecated /bg plan still previews (dry-run)",
+		/Dry run only/.test(ctx._notes.at(-1)?.msg || ""),
+		ctx._notes.at(-1)?.msg,
+	);
 	check("alias: /bg plan creates no artifacts", !existsSync(path.join(cwd, ".pi")));
-	const all = commands.get("bg").getArgumentCompletions("").map((c) => c.value);
+	const all = commands
+		.get("bg")
+		.getArgumentCompletions("")
+		.map((c) => c.value);
 	check("preview: completions promote preview", all.includes("preview"), all.join(","));
 	check("preview: completions no longer promote plan", !all.includes("plan"), all.join(","));
-	const pre = commands.get("bg").getArgumentCompletions("pre").map((c) => c.value);
+	const pre = commands
+		.get("bg")
+		.getArgumentCompletions("pre")
+		.map((c) => c.value);
 	check("preview: prefix 'pre' completes to preview", pre.includes("preview"), pre.join(","));
 }
 
@@ -557,8 +845,16 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
 	};
 	extension(pi);
-	check("session-start: registers a session_start handler", handlers.has("session_start"), [...handlers.keys()].join(","));
-	check("session-start: still registers no LLM tools", tools.size === 0, [...tools.keys()].join(","));
+	check(
+		"session-start: registers a session_start handler",
+		handlers.has("session_start"),
+		[...handlers.keys()].join(","),
+	);
+	check(
+		"session-start: still registers no LLM tools",
+		tools.size === 0,
+		[...tools.keys()].join(","),
+	);
 	if (!handlers.has("session_start")) return;
 	const handler = handlers.get("session_start");
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
@@ -567,20 +863,36 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-session-start-"));
 		const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 		await fs.mkdir(runDir, { recursive: true });
-		await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: dead.pid, updatedAt: "2026-06-25T00:00:00.000Z" }, null, 2));
+		await fs.writeFile(
+			path.join(runDir, "status.json"),
+			JSON.stringify(
+				{ jobId, state: "running", pid: dead.pid, updatedAt: "2026-06-25T00:00:00.000Z" },
+				null,
+				2,
+			),
+		);
 		return { cwd, runDir };
 	};
-	const readState = async (runDir) => JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")).state;
+	const readState = async (runDir) =>
+		JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")).state;
 
 	// TUI session: a dead running job is reconciled to interrupted on disk.
 	const tui = await seedDeadJob("dead-on-start");
 	await handler({}, makeCtx({ cwd: tui.cwd, trusted: true, mode: "tui" }));
-	check("session-start: dead running job is reconciled to interrupted (tui)", (await readState(tui.runDir)) === "interrupted", await readState(tui.runDir));
+	check(
+		"session-start: dead running job is reconciled to interrupted (tui)",
+		(await readState(tui.runDir)) === "interrupted",
+		await readState(tui.runDir),
+	);
 
 	// Non-persistent json mode: gated off, the artifact is left running.
 	const json = await seedDeadJob("dead-json");
 	await handler({}, makeCtx({ cwd: json.cwd, trusted: true, mode: "json" }));
-	check("session-start: json mode is gated off (no reconcile)", (await readState(json.runDir)) === "running", await readState(json.runDir));
+	check(
+		"session-start: json mode is gated off (no reconcile)",
+		(await readState(json.runDir)) === "running",
+		await readState(json.runDir),
+	);
 }
 
 async function main() {
