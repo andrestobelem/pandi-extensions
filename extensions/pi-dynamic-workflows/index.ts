@@ -46,19 +46,13 @@ import {
 import { notify } from "./notify.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import { extractJsonCandidate } from "./json-extract.js";
+import { buildLimits, HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
 
 const WORKFLOW_DIR = "workflows";
 const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
 const WORKFLOW_RUN_DIR = path.join(WORKFLOW_DIR, "runs");
 const WORKFLOW_GRAPH_DIR = path.join(WORKFLOW_DIR, "graphs");
 const PI_LIVE_SESSION_DIR = "live-sessions";
-const DEFAULT_MAX_AGENTS = 64;
-const HARD_MAX_AGENTS = 1000;
-const DEFAULT_CONCURRENCY = 4;
-const HARD_MAX_CONCURRENCY = 16;
-const DEFAULT_AGENT_TIMEOUT_MS = 10 * 60_000;
-const DEFAULT_WORKFLOW_TIMEOUT_MS = 60 * 60_000;
-const DEFAULT_SYNC_TIMEOUT_MS = 5_000;
 const PI_SESSION_HEARTBEAT_MS = 5_000;
 const PI_SESSION_STALE_MS = 20_000;
 // Grace period after SIGTERM before escalating to SIGKILL for spawned child processes.
@@ -89,7 +83,7 @@ const WORKFLOW_SCOPE_INPUTS = ["auto", "project", "global"] as const;
 
 type ToolAction = (typeof TOOL_ACTIONS)[number];
 
-interface DynamicWorkflowToolParams {
+export interface DynamicWorkflowToolParams {
 	action: ToolAction;
 	name?: string;
 	scope?: WorkflowScopeInput;
@@ -119,7 +113,7 @@ interface WorkflowLocation {
 
 const RESERVED_WORKFLOW_SUBDIRS = new Set(["drafts", "runs", "graphs", "sessions"]);
 
-interface RunLimits {
+export interface RunLimits {
 	concurrency: number;
 	maxAgents: number;
 	timeoutMs: number;
@@ -964,59 +958,11 @@ async function resolveWorkflow(
 	throw new Error(`Workflow not found: ${name}`);
 }
 
-function looksLikeJson(value: string): boolean {
-	return /^(?:[\[{\"]|true\b|false\b|null\b|-?\d)/.test(value.trim());
-}
-
 function parsePatternFlag(raw: string | undefined): string | undefined {
 	const value = raw?.trim();
 	if (!value) return undefined;
 	const match = /(?:^|\s)--pattern(?:=|\s+)([^\s]+)/.exec(value) ?? /(?:^|\s)--from-pattern(?:=|\s+)([^\s]+)/.exec(value);
 	return match?.[1]?.replace(/^['\"]|['\"]$/g, "");
-}
-
-function parseCliJsonOrText(raw: string | undefined, options: { strictJson?: boolean } = {}): unknown {
-	const value = raw?.trim();
-	if (!value) return {};
-	try {
-		return JSON.parse(value);
-	} catch (err) {
-		if (options.strictJson || looksLikeJson(value)) {
-			throw new Error(`Invalid JSON input: ${err instanceof Error ? err.message : String(err)}`);
-		}
-		return { text: value };
-	}
-}
-
-// The tool-call path can deliver `input` as a JSON string instead of a parsed
-// object (e.g. when tool arguments are marshaled as text). Coerce strings the
-// same way the CLI/editor paths do, so workflows reliably receive an object and
-// `input?.x` fields are honored instead of being silently undefined.
-function normalizeWorkflowInput(input: unknown): unknown {
-	if (typeof input !== "string") return input ?? {};
-	return parseCliJsonOrText(input);
-}
-
-function limitParamsFromInput(input: unknown): Partial<DynamicWorkflowToolParams> {
-	if (!input || typeof input !== "object" || Array.isArray(input)) return {};
-	const record = input as Record<string, unknown>;
-	const out: Partial<DynamicWorkflowToolParams> = {};
-	for (const key of ["concurrency", "maxAgents", "timeoutMs", "agentTimeoutMs"] as const) {
-		if (typeof record[key] === "number" && Number.isFinite(record[key])) out[key] = record[key];
-	}
-	return out;
-}
-
-function buildLimits(params: Partial<DynamicWorkflowToolParams> = {}): RunLimits {
-	const concurrency = Math.min(Math.max(Math.floor(params.concurrency ?? DEFAULT_CONCURRENCY), 1), HARD_MAX_CONCURRENCY);
-	const maxAgents = Math.min(Math.max(Math.floor(params.maxAgents ?? DEFAULT_MAX_AGENTS), 1), HARD_MAX_AGENTS);
-	return {
-		concurrency,
-		maxAgents,
-		timeoutMs: Math.max(Math.floor(params.timeoutMs ?? DEFAULT_WORKFLOW_TIMEOUT_MS), 1_000),
-		agentTimeoutMs: Math.max(Math.floor(params.agentTimeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS), 1_000),
-		syncTimeoutMs: DEFAULT_SYNC_TIMEOUT_MS,
-	};
 }
 
 interface CombinedSignal {
