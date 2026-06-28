@@ -545,27 +545,31 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 }
 
 async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgResponse> {
-	const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
-	if (!match) {
-		return response("Usage: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>", undefined, "warning");
-	}
-	const subcommand = match[1] ?? "";
-	const tail = match[2] ?? "";
-	switch (subcommand.toLowerCase()) {
-		case "plan":
-			return await handlePlan(tail);
-		case "start":
-			return await handleStart(ctx, tail);
-		case "cancel":
-			return await handleCancel(tail.trim());
-		case "list":
-			return await handleList(ctx);
-		case "status":
-			return await handleStatus(ctx, tail.trim());
-		case "logs":
-			return await handleLogs(ctx, tail.trim());
-		default:
-			return response(`Unknown /bg subcommand: ${subcommand}. Supported: plan, start, cancel, list, status, logs.`, undefined, "warning");
+	try {
+		const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
+		if (!match) {
+			return response("Usage: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>", undefined, "warning");
+		}
+		const subcommand = match[1] ?? "";
+		const tail = match[2] ?? "";
+		switch (subcommand.toLowerCase()) {
+			case "plan":
+				return await handlePlan(tail);
+			case "start":
+				return await handleStart(ctx, tail);
+			case "cancel":
+				return await handleCancel(tail.trim());
+			case "list":
+				return await handleList(ctx);
+			case "status":
+				return await handleStatus(ctx, tail.trim());
+			case "logs":
+				return await handleLogs(ctx, tail.trim());
+			default:
+				return response(`Unknown /bg subcommand: ${subcommand}. Supported: plan, start, cancel, list, status, logs.`, undefined, "warning");
+		}
+	} catch (err) {
+		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
 	}
 }
 

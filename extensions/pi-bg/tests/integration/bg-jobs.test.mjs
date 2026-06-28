@@ -332,6 +332,24 @@ async function logStreamErrorsAreContained(url) {
 	check("guard: records a log-stream-error event", /"event":"log-stream-error"/.test(events) && /boom-guarded/.test(events), events.slice(0, 200));
 }
 
+async function startSurfacesFilesystemErrors(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-fserror-"));
+	// Make .pi a regular file so createRunDir's ensurePlainDirectory throws mid-start.
+	await fs.writeFile(path.join(cwd, ".pi"), "not a dir");
+	const ctx = makeCtx({ cwd, trusted: true });
+	let threw = false;
+	try {
+		await commands.get("bg").handler("start echo hi", ctx);
+	} catch {
+		threw = true;
+	}
+	const note = ctx._notes.at(-1) || {};
+	check("fs-error: handler does not throw on filesystem error", !threw);
+	check("fs-error: failure surfaced as a clean message", /failed/i.test(note.msg || ""), JSON.stringify(note));
+	check("fs-error: response uses the 'error' type", note.type === "error", JSON.stringify(note));
+}
+
 async function backpressurePausesSource(url) {
 	const mod = await import(`${url}?bp=${instance++}`);
 	const pipe = mod.pipeWithBackpressure;
@@ -393,6 +411,7 @@ async function main() {
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await backpressurePausesSource(url);
+	await startSurfacesFilesystemErrors(url);
 	await modeGateRejectsStart(url);
 
 	console.log(`\n${passed} passed, ${failed} failed`);
