@@ -41,7 +41,7 @@ export function getRunParallelAgents(run: WorkflowRunRecord, agents?: AgentMonit
 }
 
 export function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number | undefined {
-	const points: Array<{ t: number; d: number }> = [];
+	const points: { t: number; d: number }[] = [];
 	for (const agent of agents) {
 		if (agent.state === "cached") continue;
 		const started = agent.startedAt ? new Date(agent.startedAt).getTime() : Number.NaN;

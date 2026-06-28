@@ -25,7 +25,7 @@ import { safeJson } from "./format.js";
 import type { WorkflowRunStatus, WorkflowRunResult, WorkflowRunRecord } from "./index.js";
 
 export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
-	const dirs: Array<{ full: string; mtimeMs: number }> = [];
+	const dirs: { full: string; mtimeMs: number }[] = [];
 	for (const root of getRunRoots(ctx)) {
 		if (!existsSync(root)) continue;
 		const entries = await fs.readdir(root, { withFileTypes: true });

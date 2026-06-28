@@ -83,14 +83,14 @@ export async function mapLimit<T, R>(
 	signal: AbortSignal,
 	fn: (item: T, index: number) => Promise<R>,
 	options: { onError: "null" },
-): Promise<Array<R | null>>;
+): Promise<(R | null)[]>;
 export async function mapLimit<T, R>(
 	items: T[],
 	concurrency: number,
 	signal: AbortSignal,
 	fn: (item: T, index: number) => Promise<R>,
 	options: { onError?: "throw" | "null" } = {},
-): Promise<Array<R | null>> {
+): Promise<(R | null)[]> {
 	const results = new Array<R | null>(items.length);
 	const onError = options.onError ?? "throw";
 	let next = 0;
@@ -116,7 +116,7 @@ export async function mapLimit<T, R>(
 export function createSemaphore(limit: number, signal: AbortSignal) {
 	let active = 0;
 	let disposed = false;
-	const queue: Array<{ resolve: (release: () => void) => void; reject: (error: Error) => void }> = [];
+	const queue: { resolve: (release: () => void) => void; reject: (error: Error) => void }[] = [];
 
 	const makeRelease = () => {
 		let released = false;

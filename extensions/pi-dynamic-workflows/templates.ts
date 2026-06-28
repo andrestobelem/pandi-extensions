@@ -1299,7 +1299,7 @@ export function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG
 		"Use from tool: dynamic_workflow action=template name=<key>",
 		"",
 	];
-	const sections: Array<[WorkflowPattern["category"], string]> = [
+	const sections: [WorkflowPattern["category"], string][] = [
 		["template", "Templates"],
 		["compose", "Compose templates"],
 		["use-case", "Use-case templates"],

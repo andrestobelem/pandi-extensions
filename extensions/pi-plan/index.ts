@@ -422,7 +422,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 
 			const approved = await ctx.ui.confirm("Approve this plan?", planText);
 			const livePlan = currentPlan();
-			if (!livePlan || livePlan.planId !== plan.planId || livePlan.submissions !== submission) {
+			if (livePlan?.planId !== plan.planId || livePlan.submissions !== submission) {
 				return {
 					content: [
 						{

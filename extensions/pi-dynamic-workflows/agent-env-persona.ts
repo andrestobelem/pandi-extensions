@@ -95,7 +95,7 @@ export function normalizeAgentEnvAccess(options: AgentOptions): AgentEnvAccess {
 
 export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: AgentEnvAccess): string {
 	const list = (values: string[] | undefined, fallback = "default") =>
-		values && values.length ? values.join(", ") : fallback;
+		values?.length ? values.join(", ") : fallback;
 	const skillAccess = options.skills?.length
 		? `${options.skills.join(", ")}${options.includeSkills === true ? " + discovery" : " (explicit only)"}`
 		: options.includeSkills === false

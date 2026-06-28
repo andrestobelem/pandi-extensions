@@ -307,7 +307,7 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 				const prefix = await readFilePrefix(file);
 				const heading = /^#\s+(.+)$/m.exec(prefix);
 				if (heading?.[1]) title = heading[1].trim();
-				promptAvailable = /\n## Prompt\n/.test(prefix) || prefix.includes("state: running");
+				promptAvailable = prefix.includes("\n## Prompt\n") || prefix.includes("state: running");
 				const promptSection = extractMarkdownSection(prefix, "Prompt");
 				if (promptSection) promptPreview = renderSafeInline(promptSection).slice(0, 500);
 			} catch {

@@ -23,7 +23,7 @@ const EFFORT_STATUS_KEY = "effort";
 // when the dynamic-workflows extension is not loaded.
 const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
 
-const COMPLETIONS: Array<{ value: string; description: string }> = [
+const COMPLETIONS: { value: string; description: string }[] = [
 	{ value: "off", description: "Disable model thinking/reasoning" },
 	{ value: "minimal", description: "Minimal thinking" },
 	{ value: "low", description: "Low thinking" },

@@ -19,11 +19,11 @@
 
 export type NotifyType = "info" | "warning" | "error";
 
-export type NotifyContext = {
+export interface NotifyContext {
 	mode: string;
 	hasUI: boolean;
 	ui?: { notify(message: string, type?: NotifyType): void };
-};
+}
 
 /**
  * Surface a message to the user.

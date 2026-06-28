@@ -31,7 +31,7 @@ export default tseslint.config(
 		// Type-aware linting for the extension sources. projectService discovers
 		// the root tsconfig.json (which already includes extensions/**/*.ts).
 		files: ["extensions/**/*.ts"],
-		extends: [tseslint.configs.recommendedTypeChecked],
+		extends: [tseslint.configs.recommendedTypeChecked, tseslint.configs.stylisticTypeChecked],
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
@@ -58,6 +58,12 @@ export default tseslint.config(
 			// Several hits are defensive initializers / idempotent cleanup writes
 			// in async orchestration paths; keep them visible without blocking.
 			"no-useless-assignment": "warn",
+			// stylisticTypeChecked: `||`→`??` changes falsy handling at runtime, so
+			// surface as warn (review case-by-case) instead of mass-rewriting.
+			"@typescript-eslint/prefer-nullish-coalescing": "warn",
+			// No-op callbacks (e.g. fire-and-forget `.catch(() => {})`) are
+			// intentional throughout the async orchestration code.
+			"@typescript-eslint/no-empty-function": "off",
 		},
 	},
 	{

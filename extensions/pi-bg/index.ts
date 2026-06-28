@@ -229,7 +229,7 @@ async function listJobs(ctx: ExtensionContext): Promise<JobSummary[]> {
 	const jobs: JobSummary[] = [];
 	for (const { root, baseDir } of candidateRunRoots(ctx)) {
 		if (!(await lstatPlainDirectoryChain(baseDir, root))) continue;
-		let entries: Array<{ name: string; isDirectory(): boolean }>;
+		let entries: { name: string; isDirectory(): boolean }[];
 		try {
 			entries = await fs.readdir(root, { withFileTypes: true });
 		} catch {
@@ -284,17 +284,17 @@ const DELETABLE_STATES = new Set(["completed", "failed", "cancelled", "interrupt
 // exactly one place. Active-session filtering and state logic stay with each caller.
 async function eachProjectRunDir(
 	ctx: ExtensionContext,
-): Promise<Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }>> {
+): Promise<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }[]> {
 	if (!ctx.isProjectTrusted()) return [];
 	const root = path.join(getProjectBgRoot(ctx), RUNS_DIR);
 	if (!(await lstatPlainDirectoryChain(ctx.cwd, root))) return [];
-	let entries: Array<{ name: string; isDirectory(): boolean }>;
+	let entries: { name: string; isDirectory(): boolean }[];
 	try {
 		entries = await fs.readdir(root, { withFileTypes: true });
 	} catch {
 		return [];
 	}
-	const out: Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }> = [];
+	const out: { jobId: string; runDir: string; status: Record<string, unknown> | undefined }[] = [];
 	for (const entry of entries) {
 		if (!entry.isDirectory() || !validJobId(entry.name)) continue;
 		const runDir = path.join(root, entry.name);
@@ -690,7 +690,7 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 	await appendEvent(runDir, { event: "cancel-verified-orphan", jobId, pid });
 	let signaled = false;
 	try {
-		signalProcessGroup(pid as number, "SIGTERM");
+		signalProcessGroup(pid!, "SIGTERM");
 		signaled = true;
 	} catch (err) {
 		await appendEvent(runDir, {
@@ -781,12 +781,12 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 // is skipped, never followed, so it cannot inflate the total or escape the tree).
 async function dirSizeBytes(dir: string): Promise<number> {
 	let total = 0;
-	let entries: Array<{
+	let entries: {
 		name: string;
 		isDirectory(): boolean;
 		isFile(): boolean;
 		isSymbolicLink(): boolean;
-	}>;
+	}[];
 	try {
 		entries = await fs.readdir(dir, { withFileTypes: true });
 	} catch {
@@ -855,8 +855,8 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 			"warning",
 		);
 	const { yes } = parsePruneFlags(tail);
-	const candidates: Array<{ jobId: string; state: string; bytes: number }> = [];
-	const skipped: Array<{ jobId: string; state: string; reason: string }> = [];
+	const candidates: { jobId: string; state: string; bytes: number }[] = [];
+	const skipped: { jobId: string; state: string; reason: string }[] = [];
 	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
 		const verdict = classifyForDeletion(jobId, status);
 		if (verdict.deletable) candidates.push({ jobId, state: verdict.liveState, bytes: await dirSizeBytes(runDir) });

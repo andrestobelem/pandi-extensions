@@ -393,7 +393,7 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		const next = wakeQueue.shift()!;
 		const loop = activeLoops.get(next.loopId);
 		// Drop stale entries: the loop was stopped/paused/removed before its turn came up.
-		if (!loop || loop.status !== "running") continue;
+		if (loop?.status !== "running") continue;
 		// Guards re-checked at delivery (state may have changed while queued).
 		if (loop.iteration >= loop.maxIterations) {
 			stopLoop(pi, ctx, loop.loopId, `reached maxIterations (${loop.maxIterations})`, "done");

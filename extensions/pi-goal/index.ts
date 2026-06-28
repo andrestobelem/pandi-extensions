@@ -178,8 +178,8 @@ const activeGoals = new Map<string, ActiveGoal>();
 
 /** The effective criteria text: user-supplied wins, else model-derived, else none yet. */
 function effectiveCriteria(goal: GoalState): string | undefined {
-	if (goal.successCriteria && goal.successCriteria.trim()) return goal.successCriteria.trim();
-	if (goal.derivedCriteria && goal.derivedCriteria.trim()) return goal.derivedCriteria.trim();
+	if (goal.successCriteria?.trim()) return goal.successCriteria.trim();
+	if (goal.derivedCriteria?.trim()) return goal.derivedCriteria.trim();
 	return undefined;
 }
 
@@ -370,7 +370,7 @@ function parseVerdict(stdout: string): VerifierVerdict {
 	for (let i = lines.length - 1; i >= 0; i--) {
 		const line = lines[i].trim();
 		if (!line) continue;
-		const m = line.match(lineRe);
+		const m = lineRe.exec(line);
 		if (m) {
 			return { pass: m[1].toUpperCase() === "PASS", feedback: text, unparsed: false };
 		}

@@ -34,7 +34,7 @@ export function workflowProgress(logs: WorkflowLogEntry[]): {
 	for (const logEntry of logs) {
 		if (/^agent \d+ start:/.test(logEntry.message)) agentsStarted++;
 		if (/^agent \d+ end:/.test(logEntry.message)) agentsDone++;
-		if (/^bash end:/.test(logEntry.message)) bashDone++;
+		if (logEntry.message.startsWith("bash end:")) bashDone++;
 	}
 	return {
 		agentsStarted,

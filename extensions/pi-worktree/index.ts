@@ -71,7 +71,7 @@ function combinedOutput(result: GitResult): string {
  * worktree). git always emits the literal `--force` flag regardless of language.
  */
 function needsForce(result: GitResult): boolean {
-	return /--force/.test(`${result.stderr}\n${result.stdout}`);
+	return `${result.stderr}\n${result.stdout}`.includes("--force");
 }
 
 /**
