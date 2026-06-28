@@ -6,14 +6,23 @@
  * used to launch agent subprocesses and the mermaid CLI. Highly cohesive leaf.
  *
  * Deferred bidirectional cycle with index.ts: imports MAX_JOURNALED_STREAM and
- * PROCESS_KILL_GRACE_MS (values, read only inside the run* bodies) plus ProcessResult
- * (import type, erased) from ./index.js; index.ts imports both run* functions back and
- * re-exports them for the composition test. spawn comes from node:child_process.
- * Extracted byte-identically from index.ts.
+ * PROCESS_KILL_GRACE_MS (values, read only inside the run* bodies) from ./index.js.
+ * ProcessResult (runProcess's result shape) is defined and exported here; index.ts
+ * imports it back as a type. index.ts imports both run* functions back and re-exports
+ * them for the composition test. spawn comes from node:child_process.
  */
 import { spawn } from "node:child_process";
 import { MAX_JOURNALED_STREAM, PROCESS_KILL_GRACE_MS } from "./index.js";
-import type { ProcessResult } from "./index.js";
+
+export interface ProcessResult {
+	ok: boolean;
+	code: number | null;
+	signal: NodeJS.Signals | null;
+	stdout: string;
+	stderr: string;
+	error?: string;
+	timedOut?: boolean;
+}
 
 export async function runProcess(
 	command: string,

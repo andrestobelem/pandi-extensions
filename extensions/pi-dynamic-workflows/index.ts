@@ -111,6 +111,7 @@ import {
 	formatSchemaRetryPrompt,
 } from "./structured-output.js";
 import { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
+import type { ProcessResult } from "./process-spawn.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 import {
 	listRuns,
@@ -1725,16 +1726,6 @@ interface WorkflowGraphImageRender {
 interface WorkflowGraphImageAttempt {
 	image?: WorkflowGraphImageRender;
 	warning?: string;
-}
-
-export interface ProcessResult {
-	ok: boolean;
-	code: number | null;
-	signal: NodeJS.Signals | null;
-	stdout: string;
-	stderr: string;
-	error?: string;
-	timedOut?: boolean;
 }
 
 function displayPathFromCwd(cwd: string, file: string): string {
