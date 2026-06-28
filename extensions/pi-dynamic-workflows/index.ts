@@ -3370,12 +3370,19 @@ function formatRunList(runs: WorkflowRunRecord[]): string {
 		.join("\n");
 }
 
+// Resolve a run by key with EXACT id match taking priority over substring/alias matches, so a
+// short exact id can never be shadowed by a different run whose id merely contains the key
+// (which would otherwise cancel or delete the wrong run).
+export function selectRunByKey<T>(items: T[], key: string, idOf: (item: T) => string, aliasOf?: (item: T) => string | undefined): T | undefined {
+	return items.find((item) => idOf(item) === key) ?? items.find((item) => idOf(item).includes(key) || aliasOf?.(item) === key);
+}
+
 async function resolveRun(ctx: ExtensionContext, id: string | undefined): Promise<WorkflowRunRecord> {
 	const runs = await listRuns(ctx);
 	if (runs.length === 0) throw new Error("No workflow runs found.");
 	const key = id?.trim() || "latest";
 	if (key === "latest") return runs[0]!;
-	const found = runs.find((run) => run.runId === key || run.runId.includes(key) || run.workflow === key);
+	const found = selectRunByKey(runs, key, (run) => run.runId, (run) => run.workflow);
 	if (!found) throw new Error(`Workflow run not found: ${key}`);
 	return found;
 }
@@ -6234,7 +6241,7 @@ function resolveActiveRun(id: string | undefined): ActiveWorkflowRun | undefined
 	const runs = [...activeRuns.values()].sort((a, b) => b.started - a.started);
 	const key = id?.trim();
 	if (!key || key === "latest") return runs[0];
-	return activeRuns.get(key) ?? runs.find((run) => run.runId.includes(key) || run.workflow.name === key);
+	return activeRuns.get(key) ?? selectRunByKey(runs, key, (run) => run.runId, (run) => run.workflow.name);
 }
 
 async function cancelWorkflowRun(ctx: ExtensionContext, id: string | undefined): Promise<string> {
@@ -6277,7 +6284,7 @@ async function resolveRunForDeletion(ctx: ExtensionContext, id: string | undefin
 	if (records.length === 0) throw new Error("No workflow runs found.");
 	const key = id?.trim() || "latest";
 	if (key === "latest") return records[0]!;
-	const found = records.find(({ run }) => run.runId === key || run.runId.includes(key) || run.workflow === key);
+	const found = selectRunByKey(records, key, ({ run }) => run.runId, ({ run }) => run.workflow);
 	if (!found) throw new Error(`Workflow run not found: ${key}`);
 	return found;
 }

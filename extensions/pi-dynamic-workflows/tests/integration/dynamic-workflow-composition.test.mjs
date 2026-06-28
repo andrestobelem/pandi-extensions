@@ -503,6 +503,20 @@ module.exports = async function workflow(ctx) {
 	check("composition cache: reports cached parent call", resumed.cachedCalls === 1, `cachedCalls=${resumed.cachedCalls}`);
 }
 
+// F14: run resolution must prefer an EXACT id match over a substring match on a different run
+// (otherwise `/workflow delete abc` could delete a run "abc123" instead of "abc").
+async function scenarioResolveRunExactMatchFirst(url) {
+	const mod = await import(`${url}?rk=${instance++}`);
+	check("resolve: selectRunByKey is exported", typeof mod.selectRunByKey === "function", typeof mod.selectRunByKey);
+	if (typeof mod.selectRunByKey !== "function") return;
+	const sel = mod.selectRunByKey;
+	const runs = [{ runId: "abc123", workflow: "alpha" }, { runId: "abc", workflow: "beta" }];
+	check("resolve: exact id wins over a longer id that contains it", sel(runs, "abc", (r) => r.runId, (r) => r.workflow)?.runId === "abc", JSON.stringify(sel(runs, "abc", (r) => r.runId)));
+	check("resolve: falls back to substring when no exact id", sel([{ runId: "abc123", workflow: "x" }], "abc", (r) => r.runId)?.runId === "abc123");
+	check("resolve: falls back to workflow alias", sel([{ runId: "z9", workflow: "build" }], "build", (r) => r.runId, (r) => r.workflow)?.runId === "z9");
+	check("resolve: no match returns undefined", sel(runs, "zzz", (r) => r.runId) === undefined);
+}
+
 // templates.ts is self-contained (zero imports), so it can be bundled on its own.
 async function buildTemplates() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-templates-"));
@@ -676,6 +690,7 @@ async function main() {
 		await scenarioAgentStructuredOutputSurvivesTruncatedJsonEventStream(url, outDir);
 		await scenarioGeneratedDraftLocation(url, outDir);
 		await scenarioChildCodeHashNamespacesResumeCache(url);
+		await scenarioResolveRunExactMatchFirst(url);
 		const templatesUrl = await buildTemplates();
 		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
 		await scenarioScoutTemplateInjectionSafe(templatesMod);
