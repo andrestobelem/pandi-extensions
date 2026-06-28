@@ -169,9 +169,8 @@ export function destructiveReason(ctx: ExtensionContext, event: ToolCallEvent): 
 		return undefined;
 	}
 	if (event.toolName === "write" || event.toolName === "edit") {
-		const filePath =
-			(event.input as { file_path?: unknown; path?: unknown }).file_path ??
-			(event.input as { path?: unknown }).path;
+		const input = event.input as { file_path?: unknown; path?: unknown };
+		const filePath = input.file_path ?? input.path;
 		if (isUnsafeWritePath(ctx, filePath)) {
 			return `autopilot blocked a ${event.toolName} outside the project: ${String(filePath).slice(0, 200)}`;
 		}
