@@ -43,7 +43,7 @@ import {
 	resolveWorkflowPattern,
 	type WorkflowPattern,
 } from "./templates.js";
-import { notify } from "../shared/notify.js";
+import { notify } from "./notify.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import { extractJsonCandidate } from "./json-extract.js";
 

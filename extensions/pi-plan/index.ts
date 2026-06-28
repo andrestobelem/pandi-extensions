@@ -68,7 +68,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import * as crypto from "node:crypto";
-import { notify } from "../shared/notify.js";
+import { notify } from "./notify.js";
 import { collectLatestByKey } from "../shared/session-state.js";
 import { blockedReason } from "./gate.js";
 import { makeImplementPrompt, makePlanningPrompt } from "./prompts.js";

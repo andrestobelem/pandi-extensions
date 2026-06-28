@@ -80,7 +80,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { formatEta } from "./time.js";
-import { notify } from "../shared/notify.js";
+import { notify } from "./notify.js";
 import { collectLatestByKey } from "../shared/session-state.js";
 
 const GOAL_STATE_TYPE = "goal-state";
