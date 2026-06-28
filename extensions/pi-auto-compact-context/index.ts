@@ -14,6 +14,7 @@ import {
 	selectSnapshotsToPrune,
 	snapshotDirFor,
 	snapshotFileName,
+	sortedSnapshotNames,
 	type CompactionSnapshot,
 } from "./snapshots.js";
 import { renderContextBar, type ContextBarLevel } from "./context-bar.js";
@@ -390,12 +391,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 			if (trimmed === "snapshots") {
 				try {
 					const dir = snapshotDirFor(ctx.cwd, ctx.sessionManager?.getSessionId?.() ?? "session");
-					const files = existsSync(dir)
-						? readdirSync(dir)
-								.filter((n) => n.endsWith(".json"))
-								.sort()
-								.reverse()
-						: [];
+					const files = existsSync(dir) ? sortedSnapshotNames(readdirSync(dir)).reverse() : [];
 					if (files.length === 0) {
 						notify(ctx, `No compaction snapshots yet (${dir})`, "info");
 					} else {

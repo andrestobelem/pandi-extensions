@@ -59,8 +59,14 @@ export const buildSnapshot = (opts: {
 
 // Given snapshot file names (any order), return the OLDEST beyond `keep`. Names are
 // timestamp-prefixed so a lexicographic sort is chronological. keep<=0 prunes all.
+// The snapshot files in a directory listing: .json only, oldest-first (lexical sort ==
+// chronological since names are timestamp-prefixed). Shared by prune selection and the
+// `snapshots` listing so both define "a snapshot file" identically.
+export const sortedSnapshotNames = (fileNames: string[]): string[] =>
+	fileNames.filter((n) => n.endsWith(".json")).sort();
+
 export const selectSnapshotsToPrune = (fileNames: string[], keep: number): string[] => {
-	const snaps = fileNames.filter((n) => n.endsWith(".json")).sort();
+	const snaps = sortedSnapshotNames(fileNames);
 	if (keep <= 0) return snaps;
 	return snaps.slice(0, Math.max(0, snaps.length - keep));
 };
