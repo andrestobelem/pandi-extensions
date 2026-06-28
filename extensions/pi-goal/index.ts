@@ -957,7 +957,8 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 
 	// "stop"/"status" are only subcommands when they are the WHOLE first token AND there
 	// is no ` -- ` criteria separator capturing them as part of an objective.
-	if (firstToken === "stop") {
+	const hasCriteriaSeparator = trimmed.includes(" -- ");
+	if (firstToken === "stop" && !hasCriteriaSeparator) {
 		const goal = await resolveGoal(ctx, rest || undefined);
 		if (!goal) {
 			notify(ctx, "No matching goal to stop.", "warning");
@@ -968,7 +969,7 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	if (firstToken === "status") {
+	if (firstToken === "status" && !hasCriteriaSeparator) {
 		if (rest) {
 			const goal = activeGoals.get(rest);
 			notify(ctx, goal ? formatStatus(goal) : `No goal with id ${rest}.`, goal ? "info" : "warning");

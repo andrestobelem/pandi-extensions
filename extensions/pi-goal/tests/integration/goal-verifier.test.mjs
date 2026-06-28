@@ -673,6 +673,48 @@ async function agentEndBudgetCut(goalUrl) {
 }
 
 // ===========================================================================
+// SCENARIO F9: an objective whose FIRST word is "stop"/"status" but that carries a ` -- `
+// criteria separator must START a goal, not be swallowed by the stop/status subcommand
+// routing. The routing comment promised exactly this ("only subcommands ... when there is no
+// ` -- ` criteria separator"), but the code only checked firstToken, so `/goal stop X -- Y`
+// silently failed to launch. Bare `/goal stop` (no ` -- `) must still be the stop subcommand.
+// ===========================================================================
+async function stopStatusObjectiveWithCriteriaStarts(goalUrl) {
+	// "stop ... -- ..." must start a goal (objective begins with the word "stop").
+	const stopExt = await freshDefault(goalUrl);
+	const stopBuilt = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
+	stopExt(stopBuilt.pi);
+	await stopBuilt.commands.get("goal").handler("stop the flaky retry path -- the tests pass", makeCtx());
+	check(
+		"'/goal stop <obj> -- <criteria>' starts a goal (not swallowed by the stop subcommand)",
+		stopBuilt.states.some((s) => s.objective === "stop the flaky retry path"),
+		`objectives=${JSON.stringify(stopBuilt.states.map((s) => s.objective))}`,
+	);
+
+	// "status ... -- ..." must likewise start a goal.
+	const statusExt = await freshDefault(goalUrl);
+	const statusBuilt = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
+	statusExt(statusBuilt.pi);
+	await statusBuilt.commands.get("goal").handler("status page redesign -- ship it", makeCtx());
+	check(
+		"'/goal status <obj> -- <criteria>' starts a goal",
+		statusBuilt.states.some((s) => s.objective === "status page redesign"),
+		`objectives=${JSON.stringify(statusBuilt.states.map((s) => s.objective))}`,
+	);
+
+	// REGRESSION GUARD: bare "/goal stop" (no ` -- `) is still the stop subcommand.
+	const bareExt = await freshDefault(goalUrl);
+	const bareBuilt = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
+	const notifies = [];
+	const bareCtx = makeCtx();
+	bareCtx.ui = { ...bareCtx.ui, notify: (m, t) => notifies.push({ m, t }) };
+	bareExt(bareBuilt.pi);
+	await bareBuilt.commands.get("goal").handler("stop", bareCtx);
+	check("bare '/goal stop' is still the stop subcommand (no goal started)", bareBuilt.states.length === 0, `states=${bareBuilt.states.length}`);
+	check("bare '/goal stop' with no active goal reports no match", notifies.some((n) => /No matching goal to stop/i.test(n.m)), JSON.stringify(notifies));
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildExtension("goal");
 	try {
@@ -694,6 +736,7 @@ async function main() {
 		await agentEndDoesNotDoubleArm(url);
 		await agentEndLeavesIndependentVerificationAlone(url);
 		await agentEndBudgetCut(url);
+		await stopStatusObjectiveWithCriteriaStarts(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
