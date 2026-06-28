@@ -5,9 +5,8 @@
  * trusted projects only for starts, no Supacode runner, and no mutating LLM tool.
  */
 
-import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import * as crypto from "node:crypto";
 import { createWriteStream, readFileSync, type WriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -40,7 +39,7 @@ interface PlanModeGuard {
 interface JobSummary {
 	jobId: string;
 	command?: string;
-	state?: JobState | string;
+	state?: JobState;
 	createdAt?: string;
 	updatedAt?: string;
 	artifactsDir: string;
@@ -189,7 +188,7 @@ function projectState(jobId: string, persisted: string | undefined, pid: number 
 	return { state: (persisted ?? "unknown") as JobState };
 }
 
-function deriveState(jobId: string, status: Record<string, unknown> | undefined): JobState | string {
+function deriveState(jobId: string, status: Record<string, unknown> | undefined): JobState {
 	return projectState(jobId, asString(status?.state) ?? "unknown", asNumber(status?.pid)).state;
 }
 
