@@ -14,7 +14,7 @@ import * as path from "node:path";
 
 const BG_DIR = "bg";
 const RUNS_DIR = "runs";
-const MAX_LOG_CHARS = 20_000;
+const MAX_LOG_BYTES = 20_000;
 const MAX_JSON_BYTES = 1_000_000;
 const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
@@ -520,12 +520,19 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 		if (!(await isReadableLogFile(file))) return undefined;
 		handle = await fs.open(file, "r");
 		const stat = await handle.stat();
-		const bytesToRead = Math.min(stat.size, MAX_LOG_CHARS);
+		const bytesToRead = Math.min(stat.size, MAX_LOG_BYTES);
 		const buffer = Buffer.alloc(bytesToRead);
 		await handle.read(buffer, 0, bytesToRead, Math.max(0, stat.size - bytesToRead));
-		const data = buffer.toString("utf8");
-		if (stat.size <= MAX_LOG_CHARS) return data;
-		return `[truncated to last ${MAX_LOG_CHARS} bytes]\n${data}`;
+		const truncated = stat.size > MAX_LOG_BYTES;
+		// A byte-bounded tail can start mid UTF-8 sequence; drop leading continuation
+		// bytes (0b10xxxxxx) so the first character decodes cleanly instead of as U+FFFD.
+		let start = 0;
+		if (truncated) {
+			while (start < buffer.length && (buffer[start] & 0xc0) === 0x80) start++;
+		}
+		const data = buffer.subarray(start).toString("utf8");
+		if (!truncated) return data;
+		return `[truncated to last ${MAX_LOG_BYTES} bytes]\n${data}`;
 	} catch {
 		return undefined;
 	} finally {
@@ -538,14 +545,14 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 	const runDir = await findJobDir(ctx, jobId);
 	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
 	const combined = await readBoundedLog(path.join(runDir, "combined.log"));
-	if (combined !== undefined) return response(combined || "(empty log)", { jobId, source: "combined.log", truncatedTo: MAX_LOG_CHARS });
+	if (combined !== undefined) return response(combined || "(empty log)", { jobId, source: "combined.log", truncatedTo: MAX_LOG_BYTES });
 	const stdout = await readBoundedLog(path.join(runDir, "stdout.log"));
 	const stderr = await readBoundedLog(path.join(runDir, "stderr.log"));
 	if (stdout === undefined && stderr === undefined) return response(`No logs found for ${jobId}.`, { jobId, found: true, logs: false }, "warning");
 	return response([stdout !== undefined ? `== stdout ==\n${stdout}` : undefined, stderr !== undefined ? `== stderr ==\n${stderr}` : undefined].filter(Boolean).join("\n"), {
 		jobId,
 		source: "stdout/stderr",
-		truncatedTo: MAX_LOG_CHARS,
+		truncatedTo: MAX_LOG_BYTES,
 	});
 }
 

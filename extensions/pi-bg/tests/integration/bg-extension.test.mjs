@@ -230,6 +230,24 @@ async function listStatusLogsReadExistingArtifacts(url, agentDir) {
 	check("logs: output remains bounded", logsMsg.length <= 20_080, `length=${logsMsg.length}`);
 }
 
+async function logTailDoesNotSplitUtf8(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-utf8-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	// Place a 4-byte emoji so the last-20000-bytes window starts on a continuation byte.
+	const head = Buffer.from("A".repeat(10));
+	const emoji = Buffer.from("\u{1F600}");
+	const tail = Buffer.from("A".repeat(19997));
+	const logBuf = Buffer.concat([head, emoji, tail]);
+	await setupJob(runsRoot, "utf8-job", { command: "x", state: "completed", log: logBuf });
+
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("bg").handler("logs utf8-job", ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("utf8: oversized log is truncated", msg.startsWith("[truncated to last 20000 bytes]"), msg.slice(0, 40));
+	check("utf8: tail read does not emit a replacement char", !msg.includes("\uFFFD"), JSON.stringify(msg.slice(0, 40)));
+}
+
 async function emptyAndUntrustedBehavior(url, agentDir) {
 	const emptyCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-empty-"));
 	let loaded = await loadExtension(url);
@@ -376,6 +394,7 @@ async function main() {
 	await dryRunHasNoRuntimeWrites(url);
 	await startCancelRejectInPlanMode(planUrl, url);
 	await listStatusLogsReadExistingArtifacts(url, agentDir);
+	await logTailDoesNotSplitUtf8(url);
 	await emptyAndUntrustedBehavior(url, agentDir);
 	await symlinkedRunDirsAreRejected(url, agentDir);
 	await symlinkedArtifactRootsAreIgnored(url, agentDir);
