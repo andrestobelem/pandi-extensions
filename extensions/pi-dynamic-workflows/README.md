@@ -39,6 +39,38 @@ const verdict = await ctx.agent(
 );
 ```
 
+## Monitor y dashboard
+
+Abrí el dashboard con `/workflows` o `Ctrl+Alt+W`. Desde un editor **vacío**,
+`↓` abre el Monitor y `←` abre Agents (con un prompt escrito, `↓`/`←` siguen
+siendo movimiento normal del cursor). `/workflow agents` y `/workflow sessions`
+abren directamente esas pestañas, y la línea de estado ociosa muestra
+`wf · /workflows` como puerta de entrada.
+
+Pestañas: **Monitor**, **Agents**, **Sessions**, **Runs**, **Workflows**,
+**Patterns**, **Activity**.
+
+Teclado (resumen; `?` abre la ayuda completa como overlay):
+
+- Pestañas: `Tab`/`→` siguiente, `Shift+Tab`/`←` anterior; saltos directos
+  `m` Monitor · `A`/`n` Agents · `a` Activity · `s` Sessions · `w` Workflows ·
+  `p` Patterns · `R` Runs.
+- Listas: `↑`/`↓` o `k`/`j`; `PgUp`/`PgDn` página; `Home`/`End` o `G`
+  primero/último.
+- Acciones: `Enter`/`o` detalle del agente · `v` ver run · `g` graph ·
+  `c`/`x` cancelar run activo · `r` rerun · `d`/`Del` borrar run (con
+  confirmación). En **Agents**, `f` salta al siguiente agente `failed`.
+- **Monitor**: con varios runs activos, `[` y `]` cambian el run enfocado
+  (lista `Active runs (N)` arriba y título `run k/N`). El header muestra
+  `updated Ns ago` en cada refresco, o `⚠ refresh failed: …` si falla.
+- **Visor en vivo** de un agente: `↑↓`/`PgUp`/`PgDn`/`Home`/`End` para
+  scrollear; el header dice `refresh 1s` mientras corre y `final (<estado>)`
+  al terminar (ahí se detiene el polling). `q`/`Esc` cierra.
+
+La ayuda superior solo anuncia las acciones válidas para el run seleccionado
+(por ejemplo, no ofrece `cancel` si el run no está activo). Las acciones
+destructivas (cancelar, borrar, rerun, cambiar de sesión) piden confirmación.
+
 ## Catálogo de patrones
 
 Antes de escribir un workflow, usa `dynamic_workflow action=template` o
