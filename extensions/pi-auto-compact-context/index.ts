@@ -33,6 +33,58 @@ export const parseBarSetting = (value: string | undefined): boolean | undefined 
 	return undefined;
 };
 
+// Interactive menu shown for a bare `/auto-compact-context` in a UI session. The text
+// BEFORE " — " is the canonical command the handler already understands.
+export const MENU_OPTIONS = [
+	"status — show current settings",
+	"on — enable auto-compaction",
+	"off — disable auto-compaction",
+	"run — compact context now",
+	"bar on — show the footer progress bar",
+	"bar off — hide the footer progress bar",
+	"threshold — set the compaction threshold %",
+];
+
+// Threshold presets offered after choosing "threshold"; the last entry opens a text input.
+export const THRESHOLD_OPTIONS = ["20", "30", "40", "50", "60", "70", "80", "custom\u2026"];
+
+// Argument autocomplete items. `value` is inserted into the editor on accept.
+const ARG_COMPLETIONS: { value: string; label: string; description: string }[] = [
+	{ value: "status", label: "status", description: "Show current settings" },
+	{ value: "on", label: "on", description: "Enable auto-compaction" },
+	{ value: "off", label: "off", description: "Disable auto-compaction" },
+	{ value: "run", label: "run", description: "Compact context now" },
+	{ value: "bar", label: "bar", description: "Toggle the footer progress bar" },
+	{ value: "bar on", label: "bar on", description: "Show the footer progress bar" },
+	{ value: "bar off", label: "bar off", description: "Hide the footer progress bar" },
+	{ value: "20", label: "20%", description: "Set threshold to 20%" },
+	{ value: "30", label: "30%", description: "Set threshold to 30% (default)" },
+	{ value: "40", label: "40%", description: "Set threshold to 40%" },
+	{ value: "50", label: "50%", description: "Set threshold to 50%" },
+	{ value: "60", label: "60%", description: "Set threshold to 60%" },
+	{ value: "70", label: "70%", description: "Set threshold to 70%" },
+	{ value: "80", label: "80%", description: "Set threshold to 80%" },
+];
+
+// When invoked bare in a UI session, open a menu to pick a setting (and a second
+// menu/input for the threshold value); otherwise return the typed args unchanged.
+// Returns a string the command handler already understands.
+export async function resolveCommandValue(args: string, ctx: ExtensionContext): Promise<string> {
+	const trimmed = args.trim();
+	if (trimmed || !ctx.hasUI) return trimmed;
+
+	const choice = await ctx.ui.select("Auto-compact context — choose a setting", MENU_OPTIONS);
+	if (!choice) return "status"; // cancelled → harmless no-op (status)
+	const command = choice.split(" — ")[0].trim();
+	if (command !== "threshold") return command;
+
+	const pick = await ctx.ui.select("Compaction threshold % (compact when usage reaches this)", THRESHOLD_OPTIONS);
+	if (!pick) return "status";
+	if (!pick.startsWith("custom")) return pick;
+	const custom = await ctx.ui.input("Custom threshold percent (1\u201399)", "e.g. 35");
+	return (custom ?? "").trim() || "status";
+}
+
 export type ContextBarLevel = "idle" | "near" | "over" | "compacting";
 
 export interface ContextBar {
@@ -176,9 +228,16 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 
 	pi.registerCommand("auto-compact-context", {
 		description:
-			"Show, enable/disable, set, toggle the footer progress bar, or manually trigger relative context auto-compaction (default enabled at 30%)",
+			"Configure relative context auto-compaction (default enabled at 30%). Run bare to pick a setting from a menu, or pass status|on|off|run|bar [on|off]|<1-99 percent>.",
+		getArgumentCompletions: (prefix: string) => {
+			const needle = prefix.trim().toLowerCase();
+			const items = needle
+				? ARG_COMPLETIONS.filter((i) => i.value.toLowerCase().startsWith(needle))
+				: ARG_COMPLETIONS;
+			return items.length > 0 ? items : null;
+		},
 		handler: async (args, ctx) => {
-			const trimmed = args.trim();
+			const trimmed = (await resolveCommandValue(args, ctx)).trim();
 			if (!trimmed || trimmed === "status") {
 				notify(
 					ctx,

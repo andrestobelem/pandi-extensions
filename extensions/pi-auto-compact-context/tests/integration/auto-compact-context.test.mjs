@@ -46,16 +46,29 @@ async function loadExtension(url) {
  * `setStatus` calls are recorded so footer progress-bar behaviour can be
  * asserted; `theme.fg` is an identity so assertions see the raw bar text.
  */
-function makeEnv() {
+function makeEnv({ hasUI = true } = {}) {
 	const notes = [];
 	const statuses = []; // { key, text } in call order; text undefined means cleared
+	// Scripted interactive dialogs: tests push responses; calls are recorded.
+	const selectCalls = [];
+	const inputCalls = [];
+	const selectResponses = [];
+	const inputResponses = [];
 	const state = { percent: 0, compactCount: 0, reduceTo: null };
 	const ctx = {
-		hasUI: true,
+		hasUI,
 		ui: {
 			notify: (m, l) => notes.push({ m, l }),
 			setStatus: (key, text) => statuses.push({ key, text }),
 			theme: { fg: (_color, text) => text },
+			select: async (title, options) => {
+				selectCalls.push({ title, options });
+				return selectResponses.shift();
+			},
+			input: async (title, placeholder) => {
+				inputCalls.push({ title, placeholder });
+				return inputResponses.shift();
+			},
 		},
 		getContextUsage: () => ({ percent: state.percent }),
 		compact: ({ onComplete }) => {
@@ -66,7 +79,7 @@ function makeEnv() {
 			});
 		},
 	};
-	return { ctx, notes, statuses, state };
+	return { ctx, notes, statuses, state, selectCalls, inputCalls, selectResponses, inputResponses };
 }
 
 // The most recent footer status text (or undefined when last cleared).
@@ -311,6 +324,123 @@ async function barClearedWhenDisabled(url) {
 	);
 }
 
+// ---------------------------------------------------------------------------
+// Argument autocomplete: typing `/auto-compact-context <prefix>` offers choices.
+// ---------------------------------------------------------------------------
+async function argumentCompletions(url) {
+	const { commands } = await loadExtension(url);
+	const cmd = commands.get("auto-compact-context");
+	check("autocomplete: getArgumentCompletions is provided", typeof cmd?.getArgumentCompletions === "function");
+	if (typeof cmd?.getArgumentCompletions !== "function") return;
+
+	const all = (await cmd.getArgumentCompletions("")) ?? [];
+	const values = all.map((i) => i.value);
+	check(
+		"autocomplete: empty prefix lists the core subcommands",
+		["status", "on", "off", "run", "bar"].every((v) => values.includes(v)),
+		`got ${JSON.stringify(values)}`,
+	);
+	check(
+		"autocomplete: every item has a string value and label",
+		all.every((i) => typeof i.value === "string" && typeof i.label === "string"),
+	);
+	check(
+		"autocomplete: empty prefix offers at least one percent preset",
+		all.some((i) => /^\d+$/.test(i.value)),
+		`got ${JSON.stringify(values)}`,
+	);
+
+	const bar = (await cmd.getArgumentCompletions("bar")) ?? [];
+	check(
+		"autocomplete: 'bar' prefix surfaces bar on/off",
+		bar.some((i) => i.value === "bar on") && bar.some((i) => i.value === "bar off"),
+		`got ${JSON.stringify(bar.map((i) => i.value))}`,
+	);
+
+	const off = (await cmd.getArgumentCompletions("of")) ?? [];
+	check(
+		"autocomplete: 'of' prefix filters to off",
+		off.length > 0 && off.every((i) => i.value.startsWith("of")) && off.some((i) => i.value === "off"),
+		`got ${JSON.stringify(off.map((i) => i.value))}`,
+	);
+
+	const none = await cmd.getArgumentCompletions("zzz");
+	check(
+		"autocomplete: an unknown prefix returns null (no spurious matches)",
+		none === null,
+		`got ${JSON.stringify(none)}`,
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Interactive menu: a bare `/auto-compact-context` in a UI session opens a
+// select to choose a parameter; choices map onto the existing actions.
+// ---------------------------------------------------------------------------
+async function bareCommandOpensMenuAndDisables(url) {
+	const { handlers, commands } = await loadExtension(url);
+	const env = makeEnv();
+	env.state.percent = 15;
+	await fireTurnEnd(handlers, env.ctx); // bar visible
+	check("menu: bar visible before opening menu", typeof lastStatus(env) === "string");
+
+	env.selectResponses.push("off — disable auto-compaction");
+	await commands.get("auto-compact-context").handler("", env.ctx);
+	check(
+		"menu: a bare command opens exactly one select",
+		env.selectCalls.length === 1,
+		`calls=${env.selectCalls.length}`,
+	);
+	check(
+		"menu: choosing Disable turns auto-compaction off (footer bar cleared)",
+		lastStatus(env) === undefined,
+		`got ${JSON.stringify(lastStatus(env))}`,
+	);
+}
+
+async function menuThresholdPresetSetsThreshold(url) {
+	const { commands } = await loadExtension(url);
+	const env = makeEnv();
+	env.selectResponses.push("threshold — set the compaction threshold %");
+	env.selectResponses.push("50");
+	await commands.get("auto-compact-context").handler("", env.ctx);
+	check(
+		"menu: threshold choice opens a second select for the value",
+		env.selectCalls.length === 2,
+		`calls=${env.selectCalls.length}`,
+	);
+	check(
+		"menu: a preset threshold is applied (notified)",
+		env.notes.some((n) => typeof n.m === "string" && n.m.includes("50%")),
+		`notes=${JSON.stringify(env.notes.map((n) => n.m))}`,
+	);
+}
+
+async function menuThresholdCustomUsesInput(url) {
+	const { commands } = await loadExtension(url);
+	const env = makeEnv();
+	env.selectResponses.push("threshold — set the compaction threshold %");
+	env.selectResponses.push("custom\u2026");
+	env.inputResponses.push("35");
+	await commands.get("auto-compact-context").handler("", env.ctx);
+	check(
+		"menu: custom threshold prompts a text input",
+		env.inputCalls.length === 1,
+		`inputCalls=${env.inputCalls.length}`,
+	);
+	check(
+		"menu: the custom threshold value is applied",
+		env.notes.some((n) => typeof n.m === "string" && n.m.includes("35%")),
+		`notes=${JSON.stringify(env.notes.map((n) => n.m))}`,
+	);
+}
+
+async function bareCommandWithoutUiNeverOpensMenu(url) {
+	const { commands } = await loadExtension(url);
+	const env = makeEnv({ hasUI: false });
+	await commands.get("auto-compact-context").handler("", env.ctx);
+	check("menu: a non-UI session never opens a menu", env.selectCalls.length === 0, `calls=${env.selectCalls.length}`);
+}
+
 async function main() {
 	const url = await build();
 	await stuckAboveThresholdDoesNotLoop(url);
@@ -323,6 +453,11 @@ async function main() {
 	await barShowsCompactingState(url);
 	await barToggleClearsAndRestores(url);
 	await barClearedWhenDisabled(url);
+	await argumentCompletions(url);
+	await bareCommandOpensMenuAndDisables(url);
+	await menuThresholdPresetSetsThreshold(url);
+	await menuThresholdCustomUsesInput(url);
+	await bareCommandWithoutUiNeverOpensMenu(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {
