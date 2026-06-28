@@ -166,7 +166,7 @@ async function runTool(tool, ctx, params) {
 // `Error: <message>`, which is the observable surface the agent/user sees. This
 // helper runs a workflow expected to FAIL and returns the parsed failure surface.
 async function runExpectingFailure(tool, ctx, params) {
-	let message = "";
+	let message;
 	try {
 		const ok = await runTool(tool, ctx, params);
 		// Should not happen for a failing run; surface the unexpected success.

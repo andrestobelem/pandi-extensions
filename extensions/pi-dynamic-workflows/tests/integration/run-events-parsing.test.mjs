@@ -168,8 +168,7 @@ async function scenarioReadRunEvents(mod) {
 
 async function main() {
 	const { url } = await buildExtension();
-	let instance = 0;
-	const mod = await import(`${url}?i=${instance++}`);
+	const mod = await import(`${url}?i=0`);
 
 	scenarioValueCoercers(mod);
 	scenarioDerivations(mod);

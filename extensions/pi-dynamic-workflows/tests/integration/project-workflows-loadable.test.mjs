@@ -51,7 +51,7 @@ async function buildExtension() {
 
 async function listProjectWorkflows() {
 	const dir = path.join(REPO_ROOT, ".pi", "workflows");
-	let entries = [];
+	let entries;
 	try {
 		entries = await fs.readdir(dir, { withFileTypes: true });
 	} catch {

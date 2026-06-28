@@ -550,10 +550,14 @@ async function cancelSignalsVerifiedOrphan(url) {
 	} finally {
 		try {
 			process.kill(-child.pid, "SIGKILL");
-		} catch {}
+		} catch {
+			/* best-effort: the process group may already be gone */
+		}
 		try {
 			process.kill(child.pid, "SIGKILL");
-		} catch {}
+		} catch {
+			/* best-effort: the child may already be gone */
+		}
 	}
 }
 

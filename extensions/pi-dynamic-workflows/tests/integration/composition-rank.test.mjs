@@ -282,7 +282,7 @@ async function scenarioFlattenedLibDoesNotResolve(url, outDir) {
 	// capture either shape. This is the negative control proving the header's lib/
 	// layout instruction is load-bearing.
 	let ok;
-	let errMessage = "";
+	let errMessage;
 	try {
 		const result = await withFakePi(fakePi, async () => {
 			const ext = await freshExtension(url);

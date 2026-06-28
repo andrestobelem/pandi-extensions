@@ -296,7 +296,7 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 	// is "no bg/background_job tool" (plan owns submit_plan + enter_plan_mode). Asserted by tool
 	// NAME rather than a frozen count so adding plan tools never silently breaks this guard.
 	check(
-		"plan guard: still registers no background_job\/bg LLM tools",
+		"plan guard: still registers no background_job/bg LLM tools",
 		!tools.has("background_job") && !tools.has("bg") && tools.has("submit_plan") && tools.has("enter_plan_mode"),
 		`registered tools: ${[...tools.keys()].join(",")}`,
 	);
