@@ -44,6 +44,7 @@ const suites = [
 	"extensions/pi-dynamic-workflows/tests/integration/model-thinking-selection.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/project-workflows-loadable.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/prompt-catalog-single-source.test.mjs",
+	"extensions/pi-dynamic-workflows/tests/integration/run-events-parsing.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/scaffold-synthesis-payload.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/ultracode-border-status.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/ultracode-contract-gate.test.mjs",
