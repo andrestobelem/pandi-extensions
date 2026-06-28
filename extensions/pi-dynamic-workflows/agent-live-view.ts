@@ -9,7 +9,7 @@
  * callback body. Extracted byte-identically (only an added `export ` prefix).
  */
 import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
-import { liveAgentHeaderStatus } from "./index.js";
+import { liveAgentHeaderStatus } from "./agent-view.js";
 
 export class AgentLiveViewComponent {
 	private lines: string[] = ["Loading agent execution…"];

@@ -14,7 +14,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { renderSafeInline } from "./render-utils.js";
-import { extractMarkdownSection } from "./index.js";
+import { extractMarkdownSection } from "./agent-view.js";
 import type {
 	WorkflowLogEntry,
 	SubagentResult,
