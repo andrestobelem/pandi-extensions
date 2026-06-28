@@ -641,6 +641,12 @@ async function scenarioVerifyClaimsMaxClaimsCoercion(mod) {
 	check("compose-verify-claims template: non-numeric maxClaims falls back to default 8 (not slice(0,NaN)=empty)", claimsLen === 8, `claimsLen=${claimsLen} res=${String(res).slice(0, 40)}`);
 }
 
+// Invariant: every embedded scaffold must be reachable from the catalog (no dead templates).
+async function scenarioNoOrphanedTemplates(mod) {
+	const orphans = mod.listOrphanedTemplateKeys();
+	check("templates: no orphaned/unreachable embedded scaffolds", Array.isArray(orphans) && orphans.length === 0, `orphans=${JSON.stringify(orphans)}`);
+}
+
 async function main() {
 	try {
 		const { outDir, url } = await buildExtension();
@@ -657,6 +663,7 @@ async function main() {
 		await scenarioAdversarialInputCoercion(templatesMod);
 		await scenarioJudgeEscalateBounded(templatesMod);
 		await scenarioVerifyClaimsMaxClaimsCoercion(templatesMod);
+		await scenarioNoOrphanedTemplates(templatesMod);
 		console.log(`\n${passed} passed, ${failed} failed`);
 		if (failed) {
 			console.log(failures.map((f) => `- ${f}`).join("\n"));
