@@ -48,6 +48,14 @@ Conventions:
   `plan.ts`); the current layout is `extensions/pi-*/index.ts` + `scripts/test/run-all.mjs`.
 - Where: `docs/research/continuous-improvement-log.md`.
 
+### CI-5 — Re-run agentic-research for a clean 7/7 coverage when `web_search` budget is free
+
+- Status: open
+- Why: the workflow is fixed (per-topic `{name,ok,output}` synthesis input + string-input guard),
+  but three runs capped at 6/7, 3/7 and 4/7 because concurrent sessions exhausted the shared
+  `web_search` budget. Re-run with a single active writer to get clean 7/7 coverage.
+- Where: `.pi/workflows/agentic-workflow-patterns-research.js` (fixed in commits f36226b, 132af53).
+
 ## Deferred (separate plans — `/bg` feature, see `docs/memoria.md` 2026-06-26)
 
 ### BG-1 — Supacode runner
@@ -77,3 +85,19 @@ Conventions:
 
 - Status: human
 - Why: no implicit push; pushing local commits is a deliberate human action.
+
+### H-3 — Decide whether to de-contaminate commit `e2e23b3`
+
+- Status: human
+- Why: a shared `.git/index` race (two agents in one worktree) swept 5 unrelated files
+  (`extensions/pi-dynamic-workflows/index.ts` + `README.md`, `.pi/skills/dynamic-workflows/SKILL.md`,
+  `scripts/test/run-all.mjs`, a test rename) into the pi-bg commit `e2e23b3`. Content is correct;
+  only the grouping is non-atomic. Cleaning needs a rebase rewriting ~33 commits (≈26 foreign) →
+  risky; accepted as-is for now.
+
+### H-4 — Run a single writer per worktree
+
+- Status: human
+- Why: concurrent agent sessions in this worktree caused the `e2e23b3` index contamination,
+  blocked the `e2e23b3` rebase (shared history kept moving), and exhausted the shared `web_search`
+  budget during research re-runs. Use one writer per worktree (or separate worktrees).
