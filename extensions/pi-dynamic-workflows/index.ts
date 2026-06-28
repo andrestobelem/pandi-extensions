@@ -97,6 +97,7 @@ import {
 	makeWorkflowGraphForContext,
 } from "./workflow-graph.js";
 import { WorkflowGraphComponent } from "./workflow-graph-component.js";
+import { AgentLiveViewComponent } from "./agent-live-view.js";
 import { listRuns, formatRunList, selectRunByKey, resolveRun, listRunFiles, formatRunView } from "./run-view.js";
 export { selectRunByKey } from "./run-view.js";
 export {
@@ -1429,69 +1430,6 @@ function isTerminalAgentState(state: string | undefined): boolean {
 // reaches a terminal state (and the poll is stopped).
 export function liveAgentHeaderStatus(state: string | undefined): string {
 	return isTerminalAgentState(state) ? `final (${state})` : "refresh 1s";
-}
-
-class AgentLiveViewComponent {
-	private lines: string[] = ["Loading agent execution…"];
-	private scroll = 0;
-	private agentState: string | undefined;
-
-	constructor(
-		private readonly theme: any,
-		private readonly getHeight: () => number,
-		private readonly close: () => void,
-		private readonly requestRender: () => void = () => {},
-	) {}
-
-	setContent(content: string, state?: string): void {
-		this.lines = content.split(/\r?\n/);
-		if (state !== undefined) this.agentState = state;
-		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
-	}
-
-	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || data === "q") {
-			this.close();
-			return;
-		}
-		if (matchesKey(data, Key.up)) this.scroll = Math.max(0, this.scroll - 1);
-		else if (matchesKey(data, Key.down)) this.scroll = Math.min(this.maxScroll(), this.scroll + 1);
-		else if (matchesKey(data, Key.pageUp)) this.scroll = Math.max(0, this.scroll - this.pageSize());
-		else if (matchesKey(data, Key.pageDown))
-			this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
-		else if (matchesKey(data, Key.home)) this.scroll = 0;
-		else if (matchesKey(data, Key.end)) this.scroll = this.maxScroll();
-		// Repaint immediately on scroll instead of waiting for the 1s refresh tick.
-		this.requestRender();
-	}
-
-	render(width: number): string[] {
-		const w = Math.max(1, width);
-		const page = this.pageSize();
-		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
-		const line = (textValue: string) => truncateToWidth(textValue, w, "…");
-		const header =
-			this.theme.fg("accent", "Live workflow agent") +
-			this.theme.fg(
-				"dim",
-				` • ${liveAgentHeaderStatus(this.agentState)} • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`,
-			);
-		return [
-			line(header),
-			line(this.theme.fg("dim", "─".repeat(Math.min(w, 120)))),
-			...this.lines.slice(this.scroll, this.scroll + page).map(line),
-		];
-	}
-
-	invalidate(): void {}
-
-	private pageSize(): number {
-		return Math.max(5, this.getHeight() - 4);
-	}
-
-	private maxScroll(): number {
-		return Math.max(0, this.lines.length - this.pageSize());
-	}
 }
 
 async function latestAgentForRun(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentMonitorModel> {
