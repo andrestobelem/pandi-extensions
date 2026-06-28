@@ -23,6 +23,7 @@ pi --no-extensions -e ./extensions/pi-bg
 - `/bg list` — list known jobs.
 - `/bg status <jobId>` — inspect a job.
 - `/bg logs <jobId>` — read bounded logs.
+- `/bg events <jobId>` — read the bounded lifecycle journal (`events.jsonl`).
 - `/bg cancel <jobId>` — cancel an active job from the current Pi process.
 
 Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bundle of extensions and skills, install the repository root instead.

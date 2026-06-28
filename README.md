@@ -301,6 +301,7 @@ El test actual typecheckea todas las extensiones con `extensions/*/index.ts` y c
 /bg list
 /bg status <jobId>
 /bg logs <jobId>
+/bg events <jobId>
 /bg cancel <jobId>
 ```
 
@@ -311,6 +312,7 @@ Comportamiento y límites de M2:
 - `/bg start` solo funciona en sesiones persistentes TUI/RPC y en proyectos trusted; en proyectos untrusted se rechaza antes de ejecutar o escribir artifacts. El trust/mode gate protege el **contexto y los artifacts** del proyecto, no el comando en sí: igual que el resto de exec en Pi, `/bg start` corre vía `shell:true` lo que el humano teclee.
 - `/bg start` y `/bg cancel` se bloquean mientras `/plan` está activo.
 - No se registra ningún tool LLM `background_job`; la superficie mutante es solo slash command humano.
+- `/bg events <jobId>` muestra el tail acotado del journal `events.jsonl` (start/running/cancel-*/finish/reconcile-interrupted/finalize-error): la evidencia de *por qué* un job acabó `failed`/`cancelled`/`interrupted`, que `status.json` por sí solo no lleva.
 - Los artifacts project-local viven en `.pi/bg/runs/<jobId>/`; el fallback global de lectura usa `~/.pi/agent/bg/runs/<hash-del-cwd>/<jobId>/` (en M2 ese root global solo se **lee**: lo poblará BG-1/BG-3). Cada run contiene `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
 - `job.json` y `status.json` se escriben con temp file + rename atómico; los logs son append-only y `/bg logs` lee de forma bounded/truncada.
 - El comando (`job.json`) y su salida (`stdout/stderr/combined.log`) se guardan en **texto plano** y no se redactan: evita pasar secretos en la línea de comando (p. ej. tokens en `curl -H`). En M2 no hay `prune/delete`, así que esos artifacts crecen hasta que los borres a mano.
