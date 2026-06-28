@@ -1227,9 +1227,11 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
  *
  * Documented allowlist:
  *  - bash commands matching:
- *      rm recursive AND forced, in ANY flag form: -rf / -fr / -r -f / -r --force /
- *        --recursive --force / -Rf etc. (two independent look-aheads: one for the
- *        recursive flag, one for the force flag — order/separation independent).
+ *      rm RECURSIVE in ANY flag form: -r / -R / -rf / -fr / --recursive (force is
+ *        optional — the recursive flag is the data-loss risk). Single-file rm is not gated.
+ *      find ... -delete and find ... -exec rm (recursive deletion via find)
+ *      truncate / shred (in-place destruction of existing files)
+ *      shell redirections (>, >>) and tee writing OUTSIDE the project cwd
  *      git push --force / -f / push ... --force-with-lease
  *      git reset --hard
  *      git clean -fd / -xfd
@@ -1253,11 +1255,17 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
  * only when the pattern clearly matches one of the above.
  */
 const DESTRUCTIVE_BASH_PATTERNS: RegExp[] = [
-	// rm that is BOTH recursive AND forced, regardless of flag order/separation:
-	// look-ahead 1 = a recursive flag (-…r…, -R…, or --recursive);
-	// look-ahead 2 = a force flag (-…f…, or --force). Covers -rf, -fr, -r -f, -Rf,
-	// -r --force, --recursive --force, etc.
-	/\brm\b(?=[^\n]*(\s-[a-z]*[rR]|\s--recursive\b))(?=[^\n]*(\s-[a-z]*f|\s--force\b))/i,
+	// rm that is RECURSIVE, in ANY flag form (-r, -R, -rf, -fr, --recursive). The
+	// recursive flag is the data-loss risk; force only suppresses prompts, so a bare
+	// `rm -r dir` in a non-interactive autopilot shell still deletes a whole tree.
+	// Single-file `rm foo.txt` is intentionally NOT gated.
+	/\brm\b(?=[^\n]*(\s-[a-z]*[rR]|\s--recursive\b))/i,
+	// find-driven deletion: `find … -delete` and `find … -exec rm …`.
+	/\bfind\b[^\n]*\s-delete\b/i,
+	/\bfind\b[^\n]*-exec\s+rm\b/i,
+	// In-place data destruction of existing files (coreutils truncate, shred).
+	/\btruncate\b/i,
+	/\bshred\b/i,
 	/\bgit\b[^\n]*\bpush\b[^\n]*(--force\b|--force-with-lease\b|\s-f\b)/i,
 	/\bgit\b[^\n]*\breset\b[^\n]*--hard\b/i,
 	/\bgit\b[^\n]*\bclean\b[^\n]*\s-[a-z]*f/i,
@@ -1273,6 +1281,33 @@ const DESTRUCTIVE_BASH_PATTERNS: RegExp[] = [
 /** Is this bash command in the destructive allowlist? */
 function isDestructiveBash(command: string): boolean {
 	return DESTRUCTIVE_BASH_PATTERNS.some((re) => re.test(command));
+}
+
+// Shell redirections that WRITE a file (>, >>, optionally fd-prefixed like 2>log),
+// capturing the target path. Excludes fd-dups (>&, 2>&1) and the operators ->, =>,
+// >= which are not redirections.
+const REDIRECT_TARGET_RE = /(?:^|[^&>=\d-])\d*>>?\s*(?![&>=])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
+// `tee [flags] <file>` also writes a file.
+const TEE_TARGET_RE = /\btee\b\s+(?:-\S+\s+)*("[^"]*"|'[^']*'|[^\s|&;<>]+)/gi;
+
+function unquote(value: string): string {
+	if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
+		return value.slice(1, -1);
+	}
+	return value;
+}
+
+// Return the first shell redirect/tee target that writes OUTSIDE the project, so a
+// bash command cannot evade the same out-of-project guard applied to write/edit.
+function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): string | undefined {
+	const targets: string[] = [];
+	for (const m of command.matchAll(REDIRECT_TARGET_RE)) if (m[1]) targets.push(unquote(m[1]));
+	for (const m of command.matchAll(TEE_TARGET_RE)) if (m[1]) targets.push(unquote(m[1]));
+	for (const target of targets) {
+		if (target.startsWith("/dev/")) continue; // /dev/null and friends are not real writes
+		if (isUnsafeWritePath(ctx, target)) return target;
+	}
+	return undefined;
 }
 
 /** Is this write/edit path unsafe (outside the trusted project cwd, or escaping via "..")? */
@@ -1299,8 +1334,14 @@ function isUnsafeWritePath(ctx: ExtensionContext, filePath: unknown): boolean {
 function destructiveReason(ctx: ExtensionContext, event: ToolCallEvent): string | undefined {
 	if (event.toolName === "bash") {
 		const command = (event.input as { command?: unknown }).command;
-		if (typeof command === "string" && isDestructiveBash(command)) {
-			return `autopilot blocked a destructive shell command: ${command.slice(0, 200)}`;
+		if (typeof command === "string") {
+			if (isDestructiveBash(command)) {
+				return `autopilot blocked a destructive shell command: ${command.slice(0, 200)}`;
+			}
+			const unsafeTarget = unsafeBashWriteTarget(ctx, command);
+			if (unsafeTarget) {
+				return `autopilot blocked a shell write outside the project: ${unsafeTarget.slice(0, 200)}`;
+			}
 		}
 		return undefined;
 	}

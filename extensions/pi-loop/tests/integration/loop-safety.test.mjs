@@ -186,13 +186,23 @@ async function loopAutopilotGate(loopUrl) {
 		"mkfs.ext4 /dev/sdb",
 		"terraform apply -auto-approve",
 		"kubectl delete pod x",
+		// Recursive rm without -f, and find/truncate/shred deletions.
+		"rm -r build",
+		"find . -name '*.sqlite' -delete",
+		"find . -type f -exec rm {} +",
+		"truncate -s 0 important.db",
+		"shred -u secret.key",
+		// Shell redirections / tee writing OUTSIDE the project (parity with write/edit).
+		"echo x > /etc/cron.d/pwn",
+		"echo x | tee /etc/hosts",
 	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`loop(autopilot): BLOCKS bash "${cmd}"`, !!r && r.block === true, r ? "" : "not blocked");
 	}
 
-	// Non-destructive bash is allowed even under autopilot.
-	for (const cmd of ["npm test", "git status", "ls -la", "rm foo.txt", "git commit -m x"]) {
+	// Non-destructive bash is allowed even under autopilot. In-project redirects and
+	// fd-dups (2>&1) must NOT be mistaken for out-of-project writes.
+	for (const cmd of ["npm test", "git status", "ls -la", "rm foo.txt", "git commit -m x", "echo hi > notes.txt", "node build.js > out.log 2>&1", "cmd 2>&1", "echo ok > /dev/null"]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`loop(autopilot): ALLOWS bash "${cmd}"`, r === undefined, r ? r.reason : "");
 	}
