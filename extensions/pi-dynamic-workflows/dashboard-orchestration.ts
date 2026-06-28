@@ -32,16 +32,7 @@ import {
 import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "./config.js";
 import { loadWorkflowPatternCode } from "./templates.js";
 import type { WorkflowPattern } from "./templates.js";
-import {
-	runWorkflow,
-	resolveWorkflow,
-	activeRuns,
-	ensureDir,
-	deriveWorkflowMonitorModels,
-	collectWorkflowAgents,
-	collectWorkflowActivity,
-	listWorkflows,
-} from "./index.js";
+import { runWorkflow, resolveWorkflow, activeRuns, ensureDir, listWorkflows } from "./index.js";
 import {
 	canCancelRun,
 	clearWorkflowWidget,
@@ -60,8 +51,13 @@ import type {
 	RunLimits,
 	WorkflowLogEntry,
 	PreparedWorkflowRun,
-	WorkflowDashboardResult,
 } from "./index.js";
+import {
+	collectWorkflowActivity,
+	collectWorkflowAgents,
+	deriveWorkflowMonitorModels,
+	type WorkflowDashboardResult,
+} from "./dashboard-collectors.js";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 export async function runWorkflowWithUi(

@@ -28,19 +28,18 @@ import { formatAgentPhase, getAgentElapsedMs } from "./event-parser.js";
 import { formatElapsedMs } from "./presentation.js";
 import { padRightVisible, renderSafeInline } from "./render-utils.js";
 import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./templates.js";
-import { canRerunRun, PI_SESSION_HEARTBEAT_MS } from "./index.js";
+import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
 import { compactInline } from "./presentation.js";
 import { canCancelRun } from "./run-status-ui.js";
 import type { PiSessionModel } from "./pi-session.js";
-import type {
-	WorkflowMonitorModel,
-	WorkflowActivityEntry,
-	WorkflowAgentEntry,
-	WorkflowDashboardResult,
-	WorkflowRunRecord,
-	WorkflowFile,
-	AgentMonitorModel,
-} from "./index.js";
+import {
+	canRerunRun,
+	type WorkflowActivityEntry,
+	type WorkflowAgentEntry,
+	type WorkflowDashboardResult,
+	type WorkflowMonitorModel,
+} from "./dashboard-collectors.js";
+import type { WorkflowRunRecord, WorkflowFile, AgentMonitorModel } from "./index.js";
 
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
 export type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];

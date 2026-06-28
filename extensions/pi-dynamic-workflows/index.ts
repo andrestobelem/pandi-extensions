@@ -26,18 +26,13 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
-import {
-	formatWorkflowCompositionPromptSummary,
-	formatWorkflowPatternKeyList,
-	type WorkflowPattern,
-} from "./templates.js";
+import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
 import { notify } from "./notify.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import { extractJsonCandidate } from "./json-extract.js";
 import { HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY } from "./config.js";
-import { workflowProgress } from "./presentation.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
-import { phaseEventFields, readRunEvents, readRunLogEvents } from "./event-parser.js";
+import { phaseEventFields } from "./event-parser.js";
 import {
 	abortReasonMessage,
 	combineSignal,
@@ -64,7 +59,6 @@ import { runStreamingAgentProcess } from "./process-spawn.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 import { installWorkflowDashboardDownEditor } from "./dashboard-down-editor.js";
 import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
-import type { PiSessionModel } from "./pi-session.js";
 import { abortActiveWorkflowRuns } from "./run-lifecycle.js";
 export { settleWithinTimeout } from "./run-lifecycle.js";
 import { openWorkflowDashboard } from "./dashboard-orchestration.js";
@@ -87,15 +81,12 @@ export { liveAgentHeaderStatus } from "./agent-view.js";
 import { appendJsonLine } from "./file-append.js";
 export { appendJsonLine, appendFileMutexCount } from "./file-append.js";
 import {
-	canCancelRun,
 	clearWorkflowWidget,
 	formatRunSummary,
-	isActiveRunRecord,
 	refreshActiveWorkflowStatus,
 	setWorkflowIdleStatus,
 } from "./run-status-ui.js";
 export { extractUltracodeTask } from "./ultracode.js";
-import { listRunFiles } from "./run-view.js";
 export { selectRunByKey } from "./run-view.js";
 export {
 	recordValue,
@@ -119,14 +110,6 @@ import {
 	normalizeSubagentResultForJournal,
 } from "./journal.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
-import {
-	getRunAgentConcurrency,
-	getRunElapsedMs,
-	getRunLogs,
-	getRunParallelAgents,
-	getRunPeakParallelAgents,
-	getRunState,
-} from "./run-state.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
 
 const WORKFLOW_DIR = "workflows";
@@ -984,169 +967,6 @@ export interface AgentMonitorModel {
 	output?: string;
 	schemaOk?: boolean;
 	promptAvailable: boolean;
-}
-
-export interface WorkflowDashboardResult {
-	type:
-		| "agent"
-		| "graph"
-		| "run"
-		| "view"
-		| "cancel"
-		| "rerun"
-		| "deleteWorkflow"
-		| "deleteRun"
-		| "newPattern"
-		| "switchSession";
-	workflow?: WorkflowFile;
-	run?: WorkflowRunRecord;
-	agent?: AgentMonitorModel;
-	pattern?: WorkflowPattern;
-	session?: PiSessionModel;
-}
-
-export interface WorkflowAgentEntry {
-	run: WorkflowRunRecord;
-	agent: AgentMonitorModel;
-}
-
-export interface WorkflowActivityEntry {
-	time: string;
-	workflow: string;
-	runId: string;
-	state: WorkflowRunState;
-	message: string;
-	details?: unknown;
-}
-
-export async function collectWorkflowActivity(
-	runs: WorkflowRunRecord[],
-	maxRuns = 12,
-	maxEntries = 80,
-): Promise<WorkflowActivityEntry[]> {
-	const entries: WorkflowActivityEntry[] = [];
-	for (const run of runs.slice(0, maxRuns)) {
-		const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : await readRunLogEvents(run.runDir);
-		for (const logEntry of logs.slice(-20)) {
-			entries.push({
-				time: logEntry.time,
-				workflow: run.workflow,
-				runId: run.runId,
-				state: getRunState(run),
-				message: logEntry.message,
-				...(logEntry.details === undefined ? {} : { details: logEntry.details }),
-			});
-		}
-	}
-	return entries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, maxEntries);
-}
-
-export async function collectWorkflowAgents(runs: WorkflowRunRecord[]): Promise<WorkflowAgentEntry[]> {
-	const entries: WorkflowAgentEntry[] = [];
-	const runOrder = new Map(runs.map((run, index) => [run.runId, index]));
-	for (const run of runs) {
-		const { agents } = await readRunEvents(run.runDir);
-		for (const agent of agents) entries.push({ run, agent });
-	}
-	return entries.sort((a, b) => {
-		const byRun = (runOrder.get(a.run.runId) ?? 0) - (runOrder.get(b.run.runId) ?? 0);
-		if (byRun !== 0) return byRun;
-		return a.agent.id - b.agent.id;
-	});
-}
-
-export interface WorkflowMonitorModel {
-	run: WorkflowRunRecord;
-	workflow: string;
-	runId: string;
-	state: WorkflowRunState;
-	active: boolean;
-	stale: boolean;
-	elapsedMs: number;
-	agentsStarted: number;
-	agentsDone: number;
-	parallelAgents: number;
-	peakParallelAgents?: number;
-	agentConcurrency?: number;
-	bashDone: number;
-	artifactCount: number;
-	agents: AgentMonitorModel[];
-	lastLog?: WorkflowLogEntry;
-	runDir: string;
-	priority: "active" | "latest";
-	canCancel: boolean;
-	canRerun: boolean;
-}
-
-async function countRunArtifacts(runDir: string): Promise<number> {
-	try {
-		const files = await listRunFiles(runDir, 200);
-		const bookkeeping = new Set([
-			"status.json",
-			"result.json",
-			"input.json",
-			"events.jsonl",
-			JOURNAL_FILE,
-			"summary.md",
-		]);
-		return files.filter((file) => !bookkeeping.has(file)).length;
-	} catch {
-		return 0;
-	}
-}
-
-export function canRerunRun(run: WorkflowRunRecord): boolean {
-	return getRunState(run) !== "running" && !!run.file && existsSync(run.file);
-}
-
-async function deriveWorkflowMonitor(
-	run: WorkflowRunRecord,
-	priority: "active" | "latest",
-): Promise<WorkflowMonitorModel> {
-	const state = getRunState(run);
-	const parsedEvents = await readRunEvents(run.runDir);
-	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : parsedEvents.logs;
-	const { agentsStarted, agentsDone, bashDone } = workflowProgress(logs);
-	const active = isActiveRunRecord(run);
-	const lastLog = logs.slice(-1)[0];
-	const peakParallelAgents = getRunPeakParallelAgents(run, parsedEvents.agents);
-	return {
-		run,
-		workflow: run.workflow,
-		runId: run.runId,
-		state,
-		active,
-		stale: state === "stale" || (state === "running" && !active),
-		elapsedMs: getRunElapsedMs(run, state),
-		agentsStarted: Math.max(agentsStarted, run.agentCount, parsedEvents.agents.length),
-		agentsDone: Math.max(
-			agentsDone,
-			parsedEvents.agents.filter(
-				(agent) => agent.state === "completed" || agent.state === "failed" || agent.state === "cached",
-			).length,
-		),
-		parallelAgents: getRunParallelAgents(run, parsedEvents.agents),
-		...(peakParallelAgents === undefined ? {} : { peakParallelAgents }),
-		...(getRunAgentConcurrency(run) === undefined ? {} : { agentConcurrency: getRunAgentConcurrency(run) }),
-		bashDone,
-		artifactCount: await countRunArtifacts(run.runDir),
-		agents: parsedEvents.agents,
-		...(lastLog ? { lastLog } : {}),
-		runDir: run.runDir,
-		priority,
-		canCancel: canCancelRun(run),
-		canRerun: canRerunRun(run),
-	};
-}
-
-export async function deriveWorkflowMonitorModels(runs: WorkflowRunRecord[]): Promise<WorkflowMonitorModel[]> {
-	// Surface ALL active runs (the header advertises "▶ N active"); fall back to the
-	// latest run only when nothing is active. The Monitor lets the user switch focus.
-	const actives = runs.filter((run) => isActiveRunRecord(run));
-	if (actives.length > 0) return Promise.all(actives.map((run) => deriveWorkflowMonitor(run, "active")));
-	const latest = runs[0];
-	if (!latest) return [];
-	return [await deriveWorkflowMonitor(latest, "latest")];
 }
 
 export async function runWorkflow(
