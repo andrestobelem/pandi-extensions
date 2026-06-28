@@ -417,6 +417,60 @@ async function jobFinishedGuardRejectsCancel(url) {
 	check("cancel-guard: live running job is NOT finished", isFinished({ finalized: false, child: { exitCode: null, signalCode: null } }) === false);
 }
 
+async function finalizeRejectionIsContained(url) {
+	const mod = await import(`${url}?fin=${instance++}`);
+	const finalizeJob = mod.finalizeJob;
+	const safeFinalize = mod.safeFinalize;
+	check("finalize: finalizeJob is exported", typeof finalizeJob === "function", typeof finalizeJob);
+	check("finalize: safeFinalize is exported", typeof safeFinalize === "function", typeof safeFinalize);
+	if (typeof finalizeJob !== "function" || typeof safeFinalize !== "function") return;
+
+	const makeBadRuntime = async (label) => {
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), `pi-bg-finalize-${label}-`));
+		const runDir = path.join(cwd, "run");
+		await fs.mkdir(runDir, { recursive: true });
+		// Make status.json a directory so atomicWriteJson's rename fails -> writeStatus
+		// rejects -> finalizeJob rejects, reproducing the host-crash hazard.
+		await fs.mkdir(path.join(runDir, "status.json"));
+		const noop = () => {};
+		return {
+			jobId: `job-${label}`,
+			runDir,
+			command: "x",
+			child: { exitCode: 0, signalCode: null },
+			status: { jobId: `job-${label}`, state: "running", updatedAt: new Date().toISOString(), cancelRequested: false },
+			stdoutStream: { end: noop },
+			stderrStream: { end: noop },
+			combinedStream: { end: noop },
+			finalized: false,
+		};
+	};
+
+	// Hazard baseline: the raw finalizeJob rejects when the status write fails. An
+	// unguarded `void finalizeJob(...)` in a child lifecycle handler would escalate
+	// this to an unhandledRejection and crash the host Pi process.
+	const bad1 = await makeBadRuntime("raw");
+	let rawRejected = false;
+	await finalizeJob(bad1, 0, null).catch(() => {
+		rawRejected = true;
+	});
+	check("finalize: raw finalizeJob rejects on status-write failure (hazard reproduced)", rawRejected);
+
+	// Fixed behavior: safeFinalize swallows the rejection (no unhandledRejection)
+	// and records it as a finalize-error event for observability.
+	const rejections = [];
+	const onUnhandled = (err) => rejections.push(err);
+	process.on("unhandledRejection", onUnhandled);
+	const bad2 = await makeBadRuntime("safe");
+	const ret = safeFinalize(bad2, 0, null);
+	check("finalize: safeFinalize returns void (does not throw synchronously)", ret === undefined);
+	await new Promise((r) => setTimeout(r, 75));
+	process.off("unhandledRejection", onUnhandled);
+	check("finalize: safeFinalize produces no unhandled rejection", rejections.length === 0, String(rejections.length));
+	const events = await fs.readFile(path.join(bad2.runDir, "events.jsonl"), "utf8").catch(() => "");
+	check("finalize: safeFinalize records a finalize-error event", /finalize-error/.test(events), events.slice(0, 200));
+}
+
 async function modeGateRejectsStart(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-mode-"));
@@ -436,6 +490,7 @@ async function main() {
 	await stalePidIsNotKilled(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
+	await finalizeRejectionIsContained(url);
 	await backpressurePausesSource(url);
 	await descriptionListsPlanSubcommand(url);
 	await atomicWriteCleansTempOnRenameFailure(url);

@@ -339,7 +339,7 @@ export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | unde
 	for (const sink of sinks) sink.on("drain", maybeResume);
 }
 
-async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): Promise<void> {
+export async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): Promise<void> {
 	if (runtime.finalized) return;
 	runtime.finalized = true;
 	if (runtime.cancelTimer) clearTimeout(runtime.cancelTimer);
@@ -354,6 +354,16 @@ async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal:
 	await appendEvent(runtime.runDir, { event: "finish", jobId: runtime.jobId, state, exitCode, signal, error: error?.message });
 	activeJobs.delete(runtime.jobId);
 	closeStreams(runtime);
+}
+
+// Run finalize from a child lifecycle event WITHOUT letting a rejected promise
+// escape. A failed status write (e.g. status.json rename fails) would otherwise
+// reject the discarded `void finalizeJob(...)` promise and, under Node's default
+// unhandledRejection behavior, crash the host Pi process and every in-flight job.
+export function safeFinalize(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): void {
+	void finalizeJob(runtime, exitCode, signal, error).catch((err: unknown) => {
+		void appendEvent(runtime.runDir, { event: "finalize-error", jobId: runtime.jobId, error: (err as Error)?.message ?? String(err) });
+	});
 }
 
 async function handlePlan(command: string): Promise<BgResponse> {
@@ -423,10 +433,10 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 	pipeWithBackpressure(child.stdout, [stdoutStream, combinedStream]);
 	pipeWithBackpressure(child.stderr, [stderrStream, combinedStream]);
 	child.on("error", (err) => {
-		void finalizeJob(runtime, null, null, err);
+		safeFinalize(runtime, null, null, err);
 	});
 	child.on("close", (code, signal) => {
-		void finalizeJob(runtime, code, signal);
+		safeFinalize(runtime, code, signal);
 	});
 
 	await writeStatus(runtime, { state: "running", pid: child.pid });
