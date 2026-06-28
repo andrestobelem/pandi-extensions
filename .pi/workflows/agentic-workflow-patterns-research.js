@@ -1,4 +1,7 @@
 module.exports = async function workflow(ctx, input) {
+  if (typeof input === "string") {
+    try { input = JSON.parse(input); } catch { input = { question: input }; }
+  }
   const question = input?.question ?? "¿Cuáles son los usos prácticos de los patrones de workflows agénticos?";
   const language = input?.language ?? "español";
   const agentTimeoutMs = input?.agentTimeoutMs ?? Math.min(ctx.limits.agentTimeoutMs, 300_000);
