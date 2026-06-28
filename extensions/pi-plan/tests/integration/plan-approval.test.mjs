@@ -219,6 +219,14 @@ async function approveLiftsGate(url) {
 	// The planning prompt was injected on entry (1 message so far).
 	const beforeSubmit = sentMessages.length;
 	check("approve: planning prompt injected on entry", beforeSubmit === 1 && /PLAN MODE/i.test(sentMessages[0].content));
+	// The planning prompt tells the model its PLAN may run dynamic workflows after approval
+	// (so it knows the option exists when designing the implementation, not just that the tool
+	// is read-only while planning).
+	check(
+		"approve: planning prompt advertises dynamic workflows in the plan",
+		/your plan may include running dynamic workflows/i.test(sentMessages[0].content) &&
+			/after (the user )?approv/i.test(sentMessages[0].content),
+	);
 
 	const planText = "# Plan\n1. Do the thing\n2. Verify it";
 	const submit = tools.get("submit_plan");
