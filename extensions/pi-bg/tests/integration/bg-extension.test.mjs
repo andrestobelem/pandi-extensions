@@ -89,16 +89,52 @@ function makeCtx({ cwd, trusted = true, mode = "tui", hasUI = true } = {}) {
 	return ctx;
 }
 
-async function setupJob(runsDir, jobId, { command = "echo hi", state = "completed", updatedAt = "2026-06-25T00:00:00.000Z", log } = {}) {
+async function setupJob(runsDir, jobId, { command = "echo hi", state = "completed", updatedAt = "2026-06-25T00:00:00.000Z", log, pid, startId } = {}) {
 	const runDir = path.join(runsDir, jobId);
 	await fs.mkdir(runDir, { recursive: true });
 	await fs.writeFile(
 		path.join(runDir, "job.json"),
 		JSON.stringify({ jobId, command, cwd: "/tmp/project", createdAt: updatedAt, source: "slash", artifactsDir: runDir }, null, 2),
 	);
-	await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state, updatedAt }, null, 2));
+	// pid/startId are optional so liveness/identity rounds can seed an honest job; omitting
+	// them keeps the legacy {jobId,state,updatedAt} shape every existing caller relies on.
+	await fs.writeFile(
+		path.join(runDir, "status.json"),
+		JSON.stringify({ jobId, state, updatedAt, ...(pid !== undefined ? { pid } : {}), ...(startId !== undefined ? { startId } : {}) }, null, 2),
+	);
 	if (log !== undefined) await fs.writeFile(path.join(runDir, "combined.log"), log);
 	return runDir;
+}
+
+// Characterization: pin the CURRENT handleStatus orphaned refinement (dead -> interrupted;
+// alive+verified -> orphaned/identity:verified; alive+different -> interrupted; alive+no-id
+// -> best-effort orphaned) so R2's extraction of refineOrphanedIdentity cannot silently drift.
+async function statusOrphanedRefinementPinned(url) {
+	const { readProcessStartId } = await import(url);
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-orphan-refine-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	const liveStartId = readProcessStartId(process.pid);
+	await setupJob(runsRoot, "dead-pid", { state: "running", pid: dead.pid });
+	await setupJob(runsRoot, "no-identity", { state: "running", pid: process.pid });
+	await setupJob(runsRoot, "verified", { state: "running", pid: process.pid, startId: liveStartId });
+	await setupJob(runsRoot, "reused", { state: "running", pid: process.pid, startId: "stale:bogus-identity" });
+	const ctx = makeCtx({ cwd, trusted: true });
+	const statusOf = async (id) => {
+		await commands.get("bg").handler(`status ${id}`, ctx);
+		return ctx._notes.at(-1)?.msg || "";
+	};
+	check("orphan-refine: a dead pid projects interrupted", /"state": "interrupted"/.test(await statusOf("dead-pid")));
+	const noId = await statusOf("no-identity");
+	check("orphan-refine: an alive pid without startId stays best-effort orphaned", /"state": "orphaned"/.test(noId) && !/"identity": "verified"/.test(noId), noId);
+	const ver = await statusOf("verified");
+	if (process.platform === "win32") {
+		check("orphan-refine: win32 keeps orphaned (identity unverifiable)", /"state": "orphaned"/.test(ver), ver);
+	} else {
+		check("orphan-refine: a verified identity stays orphaned and is marked verified", /"state": "orphaned"/.test(ver) && /"identity": "verified"/.test(ver), ver);
+		check("orphan-refine: a reused pid (different identity) projects interrupted", /"state": "interrupted"/.test(await statusOf("reused")));
+	}
 }
 
 async function loadExtension(url) {
@@ -442,6 +478,7 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 async function main() {
 	const { url, planUrl, agentDir } = await buildBg();
 	await dryRunHasNoRuntimeWrites(url);
+	await statusOrphanedRefinementPinned(url);
 	await startCancelRejectInPlanMode(planUrl, url);
 	await listStatusLogsReadExistingArtifacts(url, agentDir);
 	await logTailDoesNotSplitUtf8(url);
