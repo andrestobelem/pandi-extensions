@@ -180,6 +180,15 @@ function canonicalize(filePath: string): string {
 }
 
 /**
+ * Stable 5-field dedupe key for a single diagnostic, given its already-canonical
+ * file path. Used by both the touched-file filter and the feedback dedupe so the
+ * key string stays identical in both places.
+ */
+function diagKey(canonicalFile: string, d: Diagnostic): string {
+	return `${canonicalFile}:${d.line}:${d.col}:${d.code}:${d.message}`;
+}
+
+/**
  * Keep only diagnostics whose file is one of `touchedAbsPaths`, normalizing both
  * sides (realpath-aware) so symlinked temp dirs match, and de-duplicating
  * identical diagnostics. Returned diagnostics carry the canonical absolute path.
@@ -191,7 +200,7 @@ export function filterToTouched(diags: Diagnostic[], touchedAbsPaths: string[]):
 	for (const diag of diags) {
 		const file = canonicalize(diag.file);
 		if (!touched.has(file)) continue;
-		const key = `${file}:${diag.line}:${diag.col}:${diag.code}:${diag.message}`;
+		const key = diagKey(file, diag);
 		if (seen.has(key)) continue;
 		seen.add(key);
 		out.push({ ...diag, file });
@@ -247,7 +256,7 @@ export function shouldRun(state: ShouldRunState): boolean {
  */
 export function diagnosticsKey(diags: Diagnostic[]): string {
 	return diags
-		.map((d) => `${canonicalize(d.file)}:${d.line}:${d.col}:${d.code}:${d.message}`)
+		.map((d) => diagKey(canonicalize(d.file), d))
 		.sort()
 		.join("|");
 }
