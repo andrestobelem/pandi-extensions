@@ -41,18 +41,15 @@ import {
 	switchToPiSession,
 } from "./dashboard-orchestration.js";
 import {
-	canCancelRun,
-	clearWorkflowWidget,
 	currentWorkflowDepth,
 	ensureDir,
-	formatRunSummary,
 	listWorkflows,
 	maxWorkflowDepth,
 	parsePatternFlag,
 	resolveWorkflow,
-	showText,
 	showWorkflowGraph,
 } from "./index.js";
+import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
 import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 

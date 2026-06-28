@@ -39,17 +39,19 @@ import {
 	deriveWorkflowMonitorModels,
 	collectWorkflowAgents,
 	collectWorkflowActivity,
-	canCancelRun,
-	formatRunSummary,
 	listWorkflows,
-	clearWorkflowWidget,
-	setWorkflowWidget,
-	setWorkflowRunningStatus,
-	setWorkflowFinishedStatus,
-	setWorkflowErrorStatus,
 	showWorkflowGraph,
-	showText,
 } from "./index.js";
+import {
+	canCancelRun,
+	clearWorkflowWidget,
+	formatRunSummary,
+	setWorkflowErrorStatus,
+	setWorkflowFinishedStatus,
+	setWorkflowRunningStatus,
+	setWorkflowWidget,
+	showText,
+} from "./run-status-ui.js";
 import type {
 	WorkflowFile,
 	WorkflowRunResult,
