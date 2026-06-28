@@ -61,6 +61,13 @@ const FAN_OUT_SYNTHESIS = {
 	"plan-review": "completedCritiques",
 };
 
+// Patterns that ALSO compact an evidence block in a synthesis-as-judge step but do NOT use
+// the {name, output} fan-out projection (they compact rounds/verification arrays). Only the
+// position-aware restatement (check #3) applies to them — not checks #1/#2.
+// ("tournaments" is intentionally excluded: its scaffold is an elimination bracket that
+// returns the champion's text directly, with no synthesis ctx.compact step to anchor.)
+const POSITION_AWARE_EXTRA = ["loop-until-done", "compose-verify-claims"];
+
 const { url } = await buildExtension();
 const mod = await import(url);
 const ext = mod.default;
@@ -104,6 +111,17 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 	// 3) Position-aware (lost-in-the-middle): the task must be restated AFTER the
 	//    evidence block, so instructions sit at BOTH ends of the synthesis prompt
 	//    rather than only at the top where a long evidence block can bury them.
+	const compactIdx = code.lastIndexOf("ctx.compact(");
+	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";
+	const restated = /Now (produce|do exactly|write|synthesize)/.test(tail);
+	check(`${key}: restates the task AFTER the evidence (both-ends framing)`, restated, tail.slice(0, 140));
+}
+
+// Position-aware restatement (check #3 only) for the non-fan-out synthesis patterns, so a
+// regression that drops a footer from these scaffolds is also caught.
+for (const key of POSITION_AWARE_EXTRA) {
+	const res = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
+	const code = res?.content?.[0]?.text ?? "";
 	const compactIdx = code.lastIndexOf("ctx.compact(");
 	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";
 	const restated = /Now (produce|do exactly|write|synthesize)/.test(tail);
