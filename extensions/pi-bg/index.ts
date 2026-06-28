@@ -6,9 +6,9 @@
  */
 
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import * as crypto from "node:crypto";
-import { createWriteStream, type WriteStream } from "node:fs";
+import { createWriteStream, readFileSync, type WriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
@@ -16,9 +16,11 @@ import {
 	candidateRunRoots,
 	createRunDir,
 	generateJobId,
+	getProjectBgRoot,
 	lstatPlainDirectory,
 	lstatPlainDirectoryChain,
 	readJson,
+	RUNS_DIR,
 	validJobId,
 } from "./storage.js";
 export { atomicWriteJson };
@@ -28,7 +30,7 @@ const MAX_LOG_WRITE_BYTES = 5_000_000;
 const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
 
-type JobState = "starting" | "running" | "completed" | "failed" | "cancelled" | "stale" | "unknown";
+type JobState = "starting" | "running" | "completed" | "failed" | "cancelled" | "orphaned" | "interrupted" | "stale" | "unknown";
 
 interface PlanModeGuard {
 	isActive(): boolean;
@@ -48,6 +50,7 @@ interface JobStatus {
 	jobId: string;
 	state: JobState;
 	pid?: number;
+	startId?: string;
 	startedAt?: string;
 	updatedAt: string;
 	completedAt?: string;
@@ -106,8 +109,41 @@ type Liveness = "alive" | "dead" | "unknown";
 // included). NOTE: a pid can be reused after the original process is reaped, so
 // "alive" means "some process holds this pid", not "our job is still running" — the
 // reason we only use this to LABEL a read, never to signal a persisted pid.
+// A pid we can actually probe: a positive integer. Excludes undefined, 0, negatives
+// (e.g. process-group ids), and non-integers.
+function isUsablePid(pid: number | undefined): pid is number {
+	return typeof pid === "number" && Number.isInteger(pid) && pid > 0;
+}
+
+// Capture a stable per-process start identity so a later probe can distinguish our
+// job's process from an unrelated one that reused its pid. Best-effort, degrading
+// across platforms: Linux reads /proc (no subprocess); macOS/BSD shell out to
+// `ps -o lstart=`; anything else (e.g. Windows) returns undefined and callers fall
+// back to the existing best-effort liveness label.
+export function readProcessStartId(pid: number | undefined): string | undefined {
+	if (!isUsablePid(pid)) return undefined;
+	try {
+		if (process.platform === "linux") {
+			const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+			// comm can contain spaces/parens, so parse fields after the last ')'. starttime is
+			// field 22 (1-indexed) => index 19 of the post-comm tokens.
+			const afterComm = stat.slice(stat.lastIndexOf(")") + 1).trim().split(/\s+/);
+			const starttime = afterComm[19];
+			return starttime ? `lin:${starttime}` : undefined;
+		}
+		if (process.platform === "darwin" || process.platform.endsWith("bsd")) {
+			const res = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8" });
+			const out = res.status === 0 ? (res.stdout ?? "").trim() : "";
+			return out ? `ps:${out}` : undefined;
+		}
+		return undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 export function probeProcessAlive(pid: number | undefined): Liveness {
-	if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return "unknown";
+	if (!isUsablePid(pid)) return "unknown";
 	try {
 		process.kill(pid, 0);
 		return "alive";
@@ -119,21 +155,39 @@ export function probeProcessAlive(pid: number | undefined): Liveness {
 	}
 }
 
+// Single read-time projection of the persisted state (the only states a writer can
+// know: starting/running/completed/failed/cancelled). When a job is persisted as
+// starting/running but is NOT owned by this session, probe the recorded pid to
+// distinguish an orphaned-but-alive process from one that died while Pi was down,
+// falling back to `stale` only when the pid is unprobeable. Never persisted, never
+// signals: cancel still refuses any persisted pid.
+function projectState(jobId: string, persisted: string | undefined, pid: number | undefined): { state: JobState; persistedState?: string; hint?: string } {
+	if ((persisted === "starting" || persisted === "running") && !activeJobs.has(jobId)) {
+		const live = probeProcessAlive(pid);
+		if (live === "alive") {
+			return {
+				state: "orphaned",
+				persistedState: persisted,
+				hint: `PID ${pid} may still be running (or the PID was reused). Verify before using kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`,
+			};
+		}
+		if (live === "dead") return { state: "interrupted", persistedState: persisted };
+		return { state: "stale", persistedState: persisted };
+	}
+	return { state: (persisted ?? "unknown") as JobState };
+}
+
 function deriveState(jobId: string, status: Record<string, unknown> | undefined): JobState | string {
-	const state = asString(status?.state) ?? "unknown";
-	if ((state === "starting" || state === "running") && !activeJobs.has(jobId)) return "stale";
-	return state;
+	return projectState(jobId, asString(status?.state) ?? "unknown", asNumber(status?.pid)).state;
 }
 
 function decorateStatus(jobId: string, raw: Record<string, unknown>): Record<string, unknown> {
 	const copy: Record<string, unknown> = { ...raw };
-	const state = asString(copy.state);
-	const active = activeJobs.has(jobId);
-	if ((state === "starting" || state === "running") && !active) {
-		copy.persistedState = state;
-		copy.state = "stale";
-	}
-	copy.active = active;
+	const projected = projectState(jobId, asString(copy.state), asNumber(copy.pid));
+	copy.state = projected.state;
+	if (projected.persistedState !== undefined) copy.persistedState = projected.persistedState;
+	if (projected.hint !== undefined) copy.hint = projected.hint;
+	copy.active = activeJobs.has(jobId);
 	return copy;
 }
 
@@ -174,6 +228,48 @@ async function findJobDir(ctx: ExtensionContext, jobId: string): Promise<string 
 		if (await lstatPlainDirectory(runDir)) return runDir;
 	}
 	return undefined;
+}
+
+const RECONCILABLE_STATES = new Set(["starting", "running"]);
+
+// Session-start self-heal: a fresh Pi process owns no jobs (activeJobs is empty),
+// so any project-local job persisted as starting/running is from a previous run.
+// Probe its recorded pid; a DEAD pid means the process is truly gone (Pi died
+// before finalize), so atomically rewrite the artifact to a terminal `interrupted`
+// state. Live/unprobeable jobs are left untouched (the read-time projection still
+// surfaces orphaned/stale). Writing `interrupted` only on a confirmed-dead pid is
+// what avoids the pid-reuse hazard: a dead pid can never be our live job, so the
+// terminal state is always correct. Project root only (the only root pi-bg writes,
+// and only when trusted); best-effort — never throws into session_start.
+export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<number> {
+	if (!ctx.isProjectTrusted()) return 0;
+	const root = path.join(getProjectBgRoot(ctx), RUNS_DIR);
+	if (!(await lstatPlainDirectoryChain(ctx.cwd, root))) return 0;
+	let entries: Array<{ name: string; isDirectory(): boolean }>;
+	try {
+		entries = await fs.readdir(root, { withFileTypes: true });
+	} catch {
+		return 0;
+	}
+	let reconciled = 0;
+	for (const entry of entries) {
+		if (!entry.isDirectory() || !validJobId(entry.name) || activeJobs.has(entry.name)) continue;
+		const runDir = path.join(root, entry.name);
+		if (!(await lstatPlainDirectory(runDir))) continue;
+		const status = await readJson(path.join(runDir, "status.json"));
+		const state = asString(status?.state);
+		if (!state || !RECONCILABLE_STATES.has(state)) continue;
+		if (probeProcessAlive(asNumber(status?.pid)) !== "dead") continue; // alive/unknown => leave as-is
+		const now = nowIso();
+		try {
+			await atomicWriteJson(path.join(runDir, "status.json"), { ...status, state: "interrupted", completedAt: now, updatedAt: now, reason: "session-start-reconcile" });
+			await appendEvent(runDir, { event: "reconcile-interrupted", jobId: entry.name, pid: asNumber(status?.pid) ?? null, persistedState: state });
+			reconciled++;
+		} catch {
+			// Best-effort: leave the artifact untouched if the atomic rewrite fails.
+		}
+	}
+	return reconciled;
 }
 
 function formatJob(job: JobSummary): string {
@@ -312,18 +408,18 @@ export function safeFinalize(runtime: RuntimeJob, exitCode: number | null, signa
 	});
 }
 
-async function handlePlan(command: string): Promise<BgResponse> {
-	if (!command.trim()) return response("Usage: /bg plan <command>", undefined, "warning");
+async function handlePreview(command: string): Promise<BgResponse> {
+	if (!command.trim()) return response("Usage: /bg preview <command>", undefined, "warning");
 	return response(
 		[
 			"Dry run only — no background job was started.",
 			"",
-			"Planned command:",
+			"Command to run:",
 			command.trim(),
 			"",
 			"Use /bg start <command> in a trusted TUI/RPC session to run it.",
 		].join("\n"),
-		{ action: "plan", command: command.trim(), dryRun: true },
+		{ action: "preview", command: command.trim(), dryRun: true },
 	);
 }
 
@@ -385,7 +481,8 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 		safeFinalize(runtime, code, signal);
 	});
 
-	await writeStatus(runtime, { state: "running", pid: child.pid });
+	const startId = readProcessStartId(child.pid);
+	await writeStatus(runtime, { state: "running", pid: child.pid, ...(startId ? { startId } : {}) });
 	await appendEvent(runDir, { event: "running", jobId, pid: child.pid });
 
 	return response(
@@ -452,10 +549,18 @@ async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	return response(["Background jobs:", ...jobs.map(formatJob)].join("\n"), { jobs });
 }
 
-async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	if (!jobId || !validJobId(jobId)) return response("Usage: /bg status <jobId>", undefined, "warning");
+// Validate a job id and resolve its symlink-safe run directory, or return the
+// shared usage/not-found warning so every read subcommand behaves identically.
+async function resolveRunDir(ctx: ExtensionContext, jobId: string, usage: string): Promise<string | BgResponse> {
+	if (!jobId || !validJobId(jobId)) return response(usage, undefined, "warning");
 	const runDir = await findJobDir(ctx, jobId);
 	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
+	return runDir;
+}
+
+async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
+	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg status <jobId>");
+	if (typeof runDir !== "string") return runDir;
 	const job = (await readJson(path.join(runDir, "job.json"))) ?? {};
 	const rawStatus = (await readJson(path.join(runDir, "status.json"))) ?? {};
 	const status = decorateStatus(jobId, rawStatus);
@@ -496,12 +601,19 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 	}
 }
 
+// Read a bounded, symlink-safe artifact tail shaped as a /bg response, or undefined
+// when the artifact is absent so callers can fall back to another source.
+async function boundedArtifactResponse(runDir: string, jobId: string, file: string, source: string, emptyText: string): Promise<BgResponse | undefined> {
+	const text = await readBoundedLog(path.join(runDir, file));
+	if (text === undefined) return undefined;
+	return response(text || emptyText, { jobId, source, truncatedTo: MAX_LOG_BYTES });
+}
+
 async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	if (!jobId || !validJobId(jobId)) return response("Usage: /bg logs <jobId>", undefined, "warning");
-	const runDir = await findJobDir(ctx, jobId);
-	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
-	const combined = await readBoundedLog(path.join(runDir, "combined.log"));
-	if (combined !== undefined) return response(combined || "(empty log)", { jobId, source: "combined.log", truncatedTo: MAX_LOG_BYTES });
+	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg logs <jobId>");
+	if (typeof runDir !== "string") return runDir;
+	const combined = await boundedArtifactResponse(runDir, jobId, "combined.log", "combined.log", "(empty log)");
+	if (combined) return combined;
 	const stdout = await readBoundedLog(path.join(runDir, "stdout.log"));
 	const stderr = await readBoundedLog(path.join(runDir, "stderr.log"));
 	if (stdout === undefined && stderr === undefined) return response(`No logs found for ${jobId}.`, { jobId, found: true, logs: false }, "warning");
@@ -512,17 +624,30 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 	});
 }
 
+// Surface the structured lifecycle journal (start/running/cancel-*/finish/
+// reconcile-interrupted/finalize-error). It explains WHY a job ended
+// failed/cancelled/interrupted — evidence that status.json alone does not carry.
+// Bounded/symlink-safe via the same readBoundedLog path as /bg logs.
+async function handleEvents(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
+	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg events <jobId>");
+	if (typeof runDir !== "string") return runDir;
+	const events = await boundedArtifactResponse(runDir, jobId, "events.jsonl", "events.jsonl", "(no events)");
+	if (events) return events;
+	return response(`No events found for ${jobId}.`, { jobId, found: true, events: false }, "warning");
+}
+
 async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgResponse> {
 	try {
 		const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
 		if (!match) {
-			return response("Usage: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>", undefined, "warning");
+			return response("Usage: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>", undefined, "warning");
 		}
 		const subcommand = match[1] ?? "";
 		const tail = match[2] ?? "";
 		switch (subcommand.toLowerCase()) {
-			case "plan":
-				return await handlePlan(tail);
+			case "preview":
+			case "plan": // deprecated alias of preview
+				return await handlePreview(tail);
 			case "start":
 				return await handleStart(ctx, tail);
 			case "cancel":
@@ -533,8 +658,10 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 				return await handleStatus(ctx, tail.trim());
 			case "logs":
 				return await handleLogs(ctx, tail.trim());
+			case "events":
+				return await handleEvents(ctx, tail.trim());
 			default:
-				return response(`Unknown /bg subcommand: ${subcommand}. Supported: plan, start, cancel, list, status, logs.`, undefined, "warning");
+				return response(`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events.`, undefined, "warning");
 		}
 	} catch (err) {
 		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
@@ -543,20 +670,34 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
-		description: "Background jobs: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>",
+		description: "Background jobs: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
-				{ value: "plan", label: "plan", description: "Dry-run a background command plan" },
+				{ value: "preview", label: "preview", description: "Dry-run (preview) a background command" },
 				{ value: "start", label: "start", description: "Start a background job" },
 				{ value: "cancel", label: "cancel", description: "Cancel an active background job" },
 				{ value: "list", label: "list", description: "List background job artifacts" },
 				{ value: "status", label: "status", description: "Read job status" },
 				{ value: "logs", label: "logs", description: "Read bounded job logs" },
+				{ value: "events", label: "events", description: "Read bounded job lifecycle events" },
 			];
 			const prefix = argumentPrefix.trim().toLowerCase();
 			if (!prefix) return items;
 			return items.filter((i) => i.value.startsWith(prefix));
 		},
 		handler: async (args, ctx) => notify(ctx, await handleBgCommand(args, ctx)),
+	});
+
+	// Self-heal at startup (only persistent, trusted sessions, where jobs are owned):
+	// rewrite project-local jobs whose recorded pid is dead from a stale `running` to a
+	// terminal `interrupted`, so the on-disk artifact stops claiming `running` forever.
+	// Best-effort; never let it break session start.
+	pi.on("session_start", async (_event, ctx) => {
+		if (!canRunInMode(ctx)) return;
+		try {
+			await reconcileInterruptedJobs(ctx);
+		} catch {
+			// ignore: reconcile is non-critical bookkeeping
+		}
 	});
 }

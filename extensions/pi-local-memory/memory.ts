@@ -3,11 +3,15 @@
  * pi-local-memory. Kept side-effect free (no fs) so the append/dedup policy is
  * trivially testable in isolation; index.ts owns the actual file IO.
  *
+ * Layout (Claude-style): durable notes live under the `.pi/memory/` FOLDER.
+ *   - `.pi/memory/MEMORY.md` is the INDEX/entrypoint, injected at startup (capped).
+ *   - `.pi/memory/<topic>.md` are TOPIC files, read on demand — never auto-injected.
+ *
  * The design constraint: Pi may persist durable notes ON ITS OWN, but it must
  * NEVER clobber human-curated content. So every agent-written note lives inside
  * a single MANAGED BLOCK delimited by HTML-comment markers, always kept at the
- * END of MEMORY.md. Everything outside the markers is the human's and is left
- * byte-for-byte untouched.
+ * END of the target file. Everything outside the markers is the human's and is
+ * left byte-for-byte untouched.
  *
  * Depth-one sibling module imported by index.ts via "./memory.js"; typechecked
  * transitively (tsconfig includes extensions/**\/*.ts).
@@ -73,4 +77,97 @@ export function upsertMemoryNote(
 	const head = existing.slice(0, end).replace(/\s+$/, "");
 	const tail = existing.slice(end); // begins with REMEMBER_END
 	return { content: `${head}\n${bullet}\n${tail}`, added: true };
+}
+
+// ===========================================================================
+// Folder layout helpers (Claude-style): a `.pi/memory/` directory with a single
+// injected INDEX plus on-demand topic files. All pure: callers in index.ts join
+// these against cwd and own the actual fs.
+// ===========================================================================
+
+/** Directory (relative to `.pi/`) that holds the memory index + topic files. */
+export const MEMORY_DIR = "memory";
+/** The injected entrypoint inside the memory folder. */
+export const INDEX_FILE = "MEMORY.md";
+
+/** Injection caps for the index, mirroring Claude: first 200 lines OR 25 KB. */
+export const MAX_INJECT_LINES = 200;
+export const MAX_INJECT_BYTES = 25_000;
+/** Upper bound on a topic slug length, so a runaway title can't make a huge name. */
+export const MAX_SLUG_LENGTH = 64;
+
+/**
+ * Turn a free-form topic title into a SAFE single-segment filename slug.
+ *
+ * Collapses every non-alphanumeric run (including `/`, `\\`, `.`, `..`, spaces) to
+ * a single hyphen, lowercases, trims hyphens, and caps the length. This makes path
+ * traversal structurally impossible: `"../../etc/passwd"` -> `"etc-passwd"`,
+ * `"../"` -> `""`. Returns "" when nothing safe remains (caller must reject).
+ */
+export function slugifyTopic(raw: string): string {
+	return raw
+		.replace(/\.md$/i, "") // tolerate callers passing "debugging.md"
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, MAX_SLUG_LENGTH);
+}
+
+/** Clip a UTF-8 string to at most `maxBytes`, trimming any split-codepoint tail. */
+function clipByBytes(text: string, maxBytes: number): string {
+	if (Buffer.byteLength(text, "utf8") <= maxBytes) return text;
+	return Buffer.from(text, "utf8")
+		.subarray(0, maxBytes)
+		.toString("utf8")
+		.replace(/\uFFFD+$/, ""); // drop a trailing replacement char from a cut multibyte seq
+}
+
+/**
+ * Cap text for injection: first `maxLines` lines, then clamp to `maxBytes` bytes.
+ * Returns the (possibly clipped) text plus whether anything was truncated.
+ */
+export function capForInjection(
+	text: string,
+	maxLines = MAX_INJECT_LINES,
+	maxBytes = MAX_INJECT_BYTES,
+): { text: string; truncated: boolean } {
+	let truncated = false;
+	const lines = text.split("\n");
+	let out = text;
+	if (lines.length > maxLines) {
+		out = lines.slice(0, maxLines).join("\n");
+		truncated = true;
+	}
+	if (Buffer.byteLength(out, "utf8") > maxBytes) {
+		out = clipByBytes(out, maxBytes);
+		truncated = true;
+	}
+	return { text: out, truncated };
+}
+
+/** Escape literal local_memory tags so file content can't break out of the fence. */
+export function escapeLocalMemoryTags(text: string): string {
+	return text.replace(/<\/?local_memory/gi, (match) => match.replace("<", "&lt;"));
+}
+
+/**
+ * Build the fully-escaped BODY injected inside the <local_memory> block: the capped
+ * index, an optional truncation marker, and a listing of on-demand topic files (paths
+ * only — their contents are NOT injected; the agent reads them with its file tools).
+ */
+export function composeInjectedMemory(args: {
+	indexText: string;
+	topicNames: string[];
+	memoryDirPath: string;
+}): string {
+	const { text: capped, truncated } = capForInjection(args.indexText.trim());
+	const parts = [capped];
+	if (truncated) {
+		parts.push("\n… (memory index truncated for injection; open MEMORY.md to read the rest)");
+	}
+	if (args.topicNames.length) {
+		const list = args.topicNames.map((name) => `- ${args.memoryDirPath}/${name}`).join("\n");
+		parts.push(`\n## Topic files (read on demand with your file tools)\n\n${list}`);
+	}
+	return escapeLocalMemoryTags(parts.join("\n"));
 }

@@ -1,19 +1,19 @@
 {
-  "name": "pi-dynamic-workflows-local-memory",
+  "name": "pi-dynamic-workflows-worktree",
   "version": "0.1.0",
-  "description": "Pi extension that injects a project-local .pi/memory/ folder (capped MEMORY.md index plus on-demand topic files) into the system prompt.",
+  "description": "Pi extension to manage git worktrees: a /worktree command and a model-callable git_worktree tool (list/add/remove/prune).",
   "license": "MIT",
   "type": "module",
   "keywords": [
     "pi-package",
     "pi",
     "pi-extension",
-    "memory",
-    "context"
+    "git",
+    "worktree"
   ],
   "files": [
     "index.ts",
-    "memory.ts",
+    "worktree.ts",
     "README.md"
   ],
   "pi": {
@@ -22,6 +22,7 @@
     ]
   },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "typebox": "*"
   }

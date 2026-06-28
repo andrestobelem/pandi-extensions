@@ -49,6 +49,11 @@ import { extractJsonCandidate } from "./json-extract.js";
 import { buildLimits, HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
 import { formatElapsedMs, formatWorkflowList, shortWorkflowName, workflowDashboardHint, workflowProgress } from "./presentation.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
+import { padRightVisible, renderSafeInline, stripAnsiCodes } from "./render-utils.js";
+import { MAX_TOOL_TEXT, safeJson, stringify, text, truncate } from "./format.js";
+import { appendJournalRecord, computeCallKey, computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId, normalizeBashResultForJournal, normalizeSubagentResultForJournal, stableStringify } from "./journal.js";
+import { formatParallelAgents, formatParallelAgentsCompact, getRunAgentConcurrency, getRunCachedCalls, getRunElapsedMs, getRunLogs, getRunParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusIcon, getRunStatusLabel, isResumableState, isRunResult } from "./run-state.js";
+export { estimatePeakParallelAgents } from "./run-state.js";
 
 const WORKFLOW_DIR = "workflows";
 const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
@@ -59,8 +64,7 @@ const PI_SESSION_HEARTBEAT_MS = 5_000;
 const PI_SESSION_STALE_MS = 20_000;
 // Grace period after SIGTERM before escalating to SIGKILL for spawned child processes.
 const PROCESS_KILL_GRACE_MS = 2_000;
-const MAX_TOOL_TEXT = 24_000;
-const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
+export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
@@ -73,9 +77,9 @@ const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
 const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // Resumable / idempotent runs: host-side content-address cache journal.
-const JOURNAL_FILE = "journal.jsonl";
+export const JOURNAL_FILE = "journal.jsonl";
 const JOURNAL_VERSION = 4;
-const MAX_JOURNALED_STREAM = 200_000;
+export const MAX_JOURNALED_STREAM = 200_000;
 
 type WorkflowScope = "project" | "global";
 type WorkflowScopeInput = WorkflowScope | "auto";
@@ -219,7 +223,7 @@ const PERSONA_OPTION_KEYS = new Set<keyof AgentOptions>([
 	"inheritEnv",
 ]);
 
-interface SubagentResult {
+export interface SubagentResult {
 	id: number;
 	name: string;
 	ok: boolean;
@@ -248,7 +252,7 @@ interface SubagentResult {
 	schemaOk?: boolean;
 }
 
-interface BashResult {
+export interface BashResult {
 	ok: boolean;
 	code: number;
 	killed: boolean;
@@ -263,9 +267,9 @@ export interface WorkflowLogEntry {
 	details?: unknown;
 }
 
-type WorkflowRunState = "running" | "completed" | "failed" | "cancelled" | "stale";
+export type WorkflowRunState = "running" | "completed" | "failed" | "cancelled" | "stale";
 
-interface WorkflowRunResult {
+export interface WorkflowRunResult {
 	workflow: string;
 	scope: WorkflowScope;
 	file: string;
@@ -290,7 +294,7 @@ interface WorkflowRunResult {
 	resumedFrom?: string;
 }
 
-interface JournalRecord {
+export interface JournalRecord {
 	v: number;
 	key: string;
 	occ: number;
@@ -300,7 +304,7 @@ interface JournalRecord {
 	result: SubagentResult | BashResult;
 }
 
-type JournalCache = Map<string, Array<SubagentResult | BashResult>>;
+export type JournalCache = Map<string, Array<SubagentResult | BashResult>>;
 
 interface PreparedWorkflowRun {
 	started: number;
@@ -343,7 +347,7 @@ interface WorkflowRunStatus {
 	resumedFrom?: string;
 }
 
-type WorkflowRunRecord = WorkflowRunResult | WorkflowRunStatus;
+export type WorkflowRunRecord = WorkflowRunResult | WorkflowRunStatus;
 
 interface ActiveWorkflowRun {
 	runId: string;
@@ -476,40 +480,6 @@ const workflowToolSchema = Type.Object({
 		Type.Integer({ minimum: 1_000, description: "Default timeout for each subagent in milliseconds." }),
 	),
 });
-
-function text(content: string) {
-	return { type: "text" as const, text: content };
-}
-
-function truncate(value: string, max = MAX_TOOL_TEXT): string {
-	if (value.length <= max) return value;
-	return `${value.slice(0, Math.max(0, max - 120))}\n\n...[truncated ${value.length - max} chars]`;
-}
-
-function safeJson(value: unknown, indent = 2): string {
-	const seen = new WeakSet<object>();
-	return JSON.stringify(
-		value,
-		(_key, current) => {
-			if (typeof current === "bigint") return current.toString();
-			if (typeof current === "object" && current !== null) {
-				if (seen.has(current)) return "[Circular]";
-				seen.add(current);
-			}
-			return current;
-		},
-		indent,
-	);
-}
-
-function stringify(value: unknown, max = MAX_TOOL_TEXT): string {
-	if (typeof value === "string") return truncate(value, max);
-	try {
-		return truncate(safeJson(value), max);
-	} catch (err) {
-		return truncate(String(err), max);
-	}
-}
 
 function makeStructuredOutputSystemPrompt(schema: unknown): string {
 	return [
@@ -1359,97 +1329,12 @@ async function showText(ctx: ExtensionContext, title: string, content: string): 
 	notify(ctx, content, "info");
 }
 
-function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRunState(run)): number {
-	if (state === "running") {
-		const started = new Date(run.startedAt).getTime();
-		if (Number.isFinite(started)) return Date.now() - started;
-	}
-	return run.elapsedMs;
-}
-
-function getRunAgentConcurrency(run: WorkflowRunRecord): number | undefined {
-	return typeof run.agentConcurrency === "number" && Number.isFinite(run.agentConcurrency) ? Math.max(0, Math.floor(run.agentConcurrency)) : undefined;
-}
-
-function getRunParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number {
-	if (typeof run.parallelAgents === "number" && Number.isFinite(run.parallelAgents)) return Math.max(0, Math.floor(run.parallelAgents));
-	if (getRunState(run) === "running" && agents) return agents.filter((agent) => agent.state === "running").length;
-	return 0;
-}
-
-export function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number | undefined {
-	const points: Array<{ t: number; d: number }> = [];
-	for (const agent of agents) {
-		if (agent.state === "cached") continue;
-		const started = agent.startedAt ? new Date(agent.startedAt).getTime() : Number.NaN;
-		if (!Number.isFinite(started)) continue;
-		points.push({ t: started, d: 1 });
-		const ended = agent.endedAt ? new Date(agent.endedAt).getTime() : Number.NaN;
-		if (Number.isFinite(ended)) points.push({ t: ended, d: -1 });
-	}
-	if (points.length === 0) return undefined;
-	// On a timestamp tie, apply ends (-1) before starts (+1) so a hand-off (one agent ends exactly
-	// when the next starts) is not double-counted as concurrent.
-	points.sort((a, b) => a.t - b.t || a.d - b.d);
-	let current = 0;
-	let peak = 0;
-	for (const point of points) {
-		current = Math.max(0, current + point.d);
-		peak = Math.max(peak, current);
-	}
-	return peak;
-}
-
-function getRunPeakParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): number | undefined {
-	if (typeof run.peakParallelAgents === "number" && Number.isFinite(run.peakParallelAgents)) return Math.max(0, Math.floor(run.peakParallelAgents));
-	return agents ? estimatePeakParallelAgents(agents) : undefined;
-}
-
-function formatParallelAgents(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): string {
-	const current = getRunParallelAgents(run, agents);
-	const limit = getRunAgentConcurrency(run);
-	const peak = getRunPeakParallelAgents(run, agents);
-	const currentText = limit && limit > 0 ? `${current}/${limit} running` : `${current} running`;
-	const peakText = peak === undefined ? "" : ` • peak:${peak}`;
-	return `${currentText}${peakText}`;
-}
-
-function formatParallelAgentsCompact(run: WorkflowRunRecord, agents?: AgentMonitorModel[]): string {
-	const current = getRunParallelAgents(run, agents);
-	const limit = getRunAgentConcurrency(run);
-	const peak = getRunPeakParallelAgents(run, agents);
-	if (getRunState(run) === "running") return limit && limit > 0 ? `${current}/${limit}` : String(current);
-	return peak === undefined ? "-" : `peak:${peak}`;
-}
-
 function isActiveRunRecord(run: WorkflowRunRecord): boolean {
 	return getRunState(run) === "running" && activeRuns.has(run.runId);
 }
 
 function canCancelRun(run: WorkflowRunRecord): boolean {
 	return isActiveRunRecord(run);
-}
-
-function padRightVisible(value: string, width: number): string {
-	const maxWidth = Math.max(1, width);
-	const truncated = visibleWidth(value) > maxWidth ? truncateToWidth(value, maxWidth, "") : value;
-	return truncated + " ".repeat(Math.max(0, maxWidth - visibleWidth(truncated)));
-}
-
-function stripAnsiCodes(value: string): string {
-	return value
-		.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
-		.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "");
-}
-
-function renderSafeInline(value: string): string {
-	return value
-		.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
-		.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "")
-		.replace(/[\r\n\t]+/g, " ")
-		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "")
-		.replace(/\s+/g, " ")
-		.trim();
 }
 
 function setWorkflowIdleStatus(ctx: ExtensionContext): void {
@@ -2525,150 +2410,6 @@ async function writeRunStatus(status: WorkflowRunStatus): Promise<void> {
 	await writeJsonFile(path.join(status.runDir, "status.json"), status);
 }
 
-// --- Resumable runs: content-address cache journal ---
-
-// Deterministic JSON: object keys sorted recursively so identical args always
-// produce the same string regardless of key insertion order. undefined values
-// are dropped (mirroring JSON.stringify); arrays keep their order.
-function stableStringify(value: unknown): string {
-	const seen = new WeakSet<object>();
-	const encode = (current: unknown): string => {
-		if (current === null) return "null";
-		const t = typeof current;
-		if (t === "number") return Number.isFinite(current as number) ? String(current) : "null";
-		if (t === "boolean") return String(current);
-		if (t === "bigint") return JSON.stringify((current as bigint).toString());
-		if (t === "string") return JSON.stringify(current);
-		if (t === "undefined" || t === "function" || t === "symbol") return "null";
-		if (Array.isArray(current)) {
-			if (seen.has(current)) return '"[Circular]"';
-			seen.add(current);
-			const out = `[${current.map((item) => encode(item)).join(",")}]`;
-			seen.delete(current);
-			return out;
-		}
-		const obj = current as Record<string, unknown>;
-		if (seen.has(obj)) return '"[Circular]"';
-		seen.add(obj);
-		const keys = Object.keys(obj).filter((key) => {
-			const v = obj[key];
-			return v !== undefined && typeof v !== "function" && typeof v !== "symbol";
-		}).sort();
-		const out = `{${keys.map((key) => `${JSON.stringify(key)}:${encode(obj[key])}`).join(",")}}`;
-		seen.delete(obj);
-		return out;
-	};
-	return encode(value);
-}
-
-function computeCallKey(method: string, args: unknown): string {
-	return crypto.createHash("sha256").update(`${method}\n${stableStringify(args)}`).digest("hex");
-}
-
-function computeCodeHash(code: string): string {
-	return crypto.createHash("sha256").update(transformWorkflowCode(code)).digest("hex");
-}
-
-// Parse journal.jsonl into a key -> array(occ) map (last-wins per (key, occ)).
-// Tolerant of a torn final line (same convention as readRunLogEvents): the last
-// line is discarded if it does not parse, since a crash can truncate it.
-async function loadJournal(runDir: string): Promise<JournalCache> {
-	const cache: JournalCache = new Map();
-	let body: string;
-	try {
-		body = await fs.readFile(path.join(runDir, JOURNAL_FILE), "utf8");
-	} catch {
-		return cache;
-	}
-	const journalPath = path.join(runDir, JOURNAL_FILE);
-	const lines = body.split("\n");
-	let lastContentLine = -1;
-	for (let i = lines.length - 1; i >= 0; i--) {
-		if (lines[i]!.trim()) {
-			lastContentLine = i;
-			break;
-		}
-	}
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i]!;
-		if (!line.trim()) continue;
-		let record: JournalRecord;
-		try {
-			record = JSON.parse(line) as JournalRecord;
-		} catch {
-			// A crash can leave the final JSONL record torn; tolerate only that case.
-			if (i === lastContentLine) continue;
-			console.warn(`[dynamic-workflows] Ignoring malformed journal line ${i + 1} in ${journalPath}; resume cache may be incomplete.`);
-			continue;
-		}
-		if (!record || typeof record.key !== "string" || typeof record.occ !== "number" || !record.result) continue;
-		const slots = cache.get(record.key) ?? [];
-		slots[record.occ] = record.result; // last-wins for a repeated (key, occ)
-		cache.set(record.key, slots);
-	}
-	return cache;
-}
-
-async function appendJournalRecord(runDir: string, record: JournalRecord): Promise<void> {
-	await appendJsonLine(path.join(runDir, JOURNAL_FILE), record);
-}
-
-function normalizeSubagentResultForJournal(result: SubagentResult): SubagentResult {
-	return {
-		...result,
-		output: truncate(result.output, MAX_AGENT_OUTPUT_IN_RESULT),
-		stdout: truncate(result.stdout, MAX_JOURNALED_STREAM),
-		stderr: truncate(result.stderr, MAX_JOURNALED_STREAM),
-	};
-}
-
-function normalizeBashResultForJournal(result: BashResult): BashResult {
-	return {
-		...result,
-		stdout: truncate(result.stdout, MAX_JOURNALED_STREAM),
-		stderr: truncate(result.stderr, MAX_JOURNALED_STREAM),
-	};
-}
-
-// Highest agent id recorded in the journal. A count is NOT safe here: the
-// journal can be non-contiguous (gaps from in-flight/{cache:false} agents that
-// never journaled, or out-of-order completion under concurrency), so resumed
-// runs must start agentCount strictly above the max existing id, never the
-// count, or a fresh agents/NNNN would clobber a cached artifact on disk.
-function maxJournalAgentId(cache: JournalCache): number {
-	let max = 0;
-	for (const slots of cache.values()) {
-		for (const result of slots) {
-			if (result && "artifactPath" in result && typeof result.id === "number" && result.id > max) {
-				max = result.id;
-			}
-		}
-	}
-	return max;
-}
-
-// Highest NNNN prefix among agents/NNNN-*.md artifacts already on disk. This
-// covers ids that were never journaled (e.g. {cache:false} agents from the
-// original run), so resumed agentCount also clears those and never overwrites
-// any existing artifact.
-async function maxAgentArtifactNumber(runDir: string): Promise<number> {
-	let max = 0;
-	let names: string[];
-	try {
-		names = await fs.readdir(path.join(runDir, "agents"));
-	} catch {
-		return 0;
-	}
-	for (const name of names) {
-		const m = /^(\d{4})-/.exec(name);
-		if (m) {
-			const n = Number.parseInt(m[1]!, 10);
-			if (Number.isFinite(n) && n > max) max = n;
-		}
-	}
-	return max;
-}
-
 async function readRunResult(runDir: string): Promise<WorkflowRunResult | undefined> {
 	try {
 		return JSON.parse(await fs.readFile(path.join(runDir, "result.json"), "utf8")) as WorkflowRunResult;
@@ -2701,49 +2442,6 @@ async function readRunRecord(runDir: string): Promise<WorkflowRunRecord | undefi
 	const result = await readRunResult(runDir);
 	if (result) return result;
 	return await readRunStatus(runDir);
-}
-
-function isRunResult(run: WorkflowRunRecord): run is WorkflowRunResult {
-	return "ok" in run;
-}
-
-function getRunState(run: WorkflowRunRecord): WorkflowRunState {
-	if (!isRunResult(run)) return run.state;
-	if (run.state) return run.state;
-	if (run.ok) return "completed";
-	return run.error?.toLowerCase().includes("cancel") ? "cancelled" : "failed";
-}
-
-function getRunLogs(run: WorkflowRunRecord): WorkflowLogEntry[] {
-	return run.logs ?? [];
-}
-
-// A run can be resumed in place when it was interrupted (stale) or ended
-// without completing (failed/cancelled). Completed runs need force.
-function isResumableState(state: WorkflowRunState): boolean {
-	return state === "stale" || state === "failed" || state === "cancelled";
-}
-
-function getRunCachedCalls(run: WorkflowRunRecord): number {
-	return typeof run.cachedCalls === "number" ? run.cachedCalls : 0;
-}
-
-function getRunStatusLabel(run: WorkflowRunRecord): string {
-	const state = getRunState(run);
-	if (state === "completed") return "completed";
-	if (state === "running") return "running";
-	if (state === "cancelled") return "cancelled";
-	if (state === "stale") return "stale";
-	return "failed";
-}
-
-function getRunStatusIcon(run: WorkflowRunRecord): string {
-	const state = getRunState(run);
-	if (state === "completed") return "✓";
-	if (state === "running") return "▶";
-	if (state === "cancelled") return "■";
-	if (state === "stale") return "?";
-	return "✗";
 }
 
 interface ParsedRunEvents {
@@ -3357,7 +3055,7 @@ async function showLiveAgentView(ctx: ExtensionContext, run: WorkflowRunRecord, 
 
 type AgentMonitorState = "running" | "completed" | "failed" | "cached" | "unknown";
 
-interface AgentMonitorModel {
+export interface AgentMonitorModel {
 	id: number;
 	name: string;
 	state: AgentMonitorState;
@@ -6617,7 +6315,6 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		description: "Open the dynamic workflows dashboard (or pass through to /workflow, e.g. /workflows agents)",
 		handler: async (args, ctx) => await handleWorkflowsCommand(pi, args, ctx),
 	});
-
 
 	pi.registerShortcut(Key.ctrlAlt("w"), {
 		description: "Open dynamic workflows dashboard",

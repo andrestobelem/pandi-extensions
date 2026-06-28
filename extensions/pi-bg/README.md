@@ -18,11 +18,12 @@ pi --no-extensions -e ./extensions/pi-bg
 
 ## Provides
 
-- `/bg plan <command>` — preview a background job.
+- `/bg preview <command>` — preview a background job (deprecated alias: `/bg plan`).
 - `/bg start <command>` — start a trusted project-local background job.
 - `/bg list` — list known jobs.
 - `/bg status <jobId>` — inspect a job.
 - `/bg logs <jobId>` — read bounded logs.
+- `/bg events <jobId>` — read the bounded lifecycle journal (`events.jsonl`).
 - `/bg cancel <jobId>` — cancel an active job from the current Pi process.
 
 Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bundle of extensions and skills, install the repository root instead.
@@ -30,9 +31,20 @@ Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bu
 ## Limitations
 
 - Jobs are tracked in memory by the Pi process that started them. They do not
-  survive a restart: after Pi exits or crashes, a previously `running` job is
-  reported as `stale` and cannot be cancelled with `/bg cancel` (it refuses any
-  job not active in the current session).
+  survive a restart: after Pi exits or crashes, a previously `running` job
+  cannot be cancelled with `/bg cancel` (it refuses any job not active in the
+  current session).
+- For such not-owned jobs, `/bg status`/`/bg list` project the state at read time
+  by probing the recorded pid (signal-0, no signal sent): `orphaned` (pid still
+  alive — a detached process likely still running), `interrupted` (pid dead — Pi
+  died before finalizing), or `stale` (no pid to probe). The probe is best-effort
+  (a pid can be reused), so `orphaned` carries a verify-before-kill hint.
+- On session start (persistent, trusted sessions only) pi-bg self-heals: a
+  project-local job persisted as `running`/`starting` whose recorded pid is dead
+  is atomically rewritten to a terminal `interrupted` on disk, so the artifact
+  stops claiming `running` forever. Jobs with a live or unprobeable pid are left
+  untouched (still projected as `orphaned`/`stale`). Writing `interrupted` only
+  on a confirmed-dead pid keeps the rewrite safe against pid reuse.
 - Started jobs are detached process groups, so a still-running detached job is
   left orphaned after a restart and must be stopped with OS tools (for example
   `kill`/`pkill` or `taskkill`).

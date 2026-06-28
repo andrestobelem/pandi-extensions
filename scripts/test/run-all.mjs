@@ -59,6 +59,7 @@ const suites = [
 	"extensions/pi-mdview/tests/integration/mdview-tool.test.mjs",
 	"extensions/pi-plan/tests/integration/plan-approval.test.mjs",
 	"extensions/pi-plan/tests/integration/plan-gate.test.mjs",
+	"extensions/pi-worktree/tests/integration/worktree-extension.test.mjs",
 ];
 
 // Draft suites are intentionally excluded but must be explicit so `run-all` never
@@ -78,6 +79,7 @@ const suiteDirs = [
 	"extensions/pi-local-memory/tests/integration",
 	"extensions/pi-mdview/tests/integration",
 	"extensions/pi-plan/tests/integration",
+	"extensions/pi-worktree/tests/integration",
 ];
 
 for (const suite of suites) {

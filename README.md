@@ -41,6 +41,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `/mdview` | `pi install ./extensions/pi-mdview` |
 | Local memory | `pi install ./extensions/pi-local-memory` |
 | Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
+| `/worktree` | `pi install ./extensions/pi-worktree` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
@@ -74,6 +75,9 @@ Comandos humanos:
 /effort high                           # cambia el thinking effort: off|minimal|low|medium|high|xhigh
 /effort ultracode                      # xhigh + router dinámico estilo Claude Code
 /mdview README.md                      # visualiza un archivo Markdown con scroll en la TUI
+/worktree                              # gestiona git worktrees: list|add|remove|prune
+/worktree add -b feature ../wt-feature # crea un worktree en nueva branch
+/worktree remove ../wt-feature         # elimina un worktree (con confirmación)
 /ultracode-mode status                 # muestra si el router always-on está activo
 /ultracode-mode off                    # desactiva el router en esta sesión
 /ultracode-mode on                     # vuelve a activarlo
@@ -81,7 +85,7 @@ Comandos humanos:
 
 También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` y la extensión lo transforma en una petición orientada a workflows.
 
-Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza). Otra es `remember`, que deja a Pi persistir notas durables (preferencias estables, convenciones del proyecto, decisiones clave) en una sección auto-gestionada de `.pi/MEMORY.md` —idempotente y sin tocar lo que tú curaste— para tenerlas disponibles en sesiones futuras.
+Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza). Otra es `remember`, que deja a Pi persistir notas durables (preferencias estables, convenciones del proyecto, decisiones clave) en una sección auto-gestionada bajo la carpeta `.pi/memory/` —el índice `MEMORY.md` se inyecta (con tope) y los archivos por tema `.pi/memory/<topic>.md` se leen on demand; idempotente y sin tocar lo que tú curaste— para tenerlas disponibles en sesiones futuras. Otra es `git_worktree`, que deja a Pi gestionar git worktrees (`list`/`add`/`remove`/`prune`) invocando `git` con un array de argumentos (nunca shell); `remove` nunca fuerza por defecto (requiere `force: true` explícito para descartar un worktree sucio) y, como el `cwd` de Pi es fijo en la sesión, reporta la ruta del worktree para que abras un nuevo Pi ahí en vez de "cambiarse".
 
 ### Ultracode always-on
 
@@ -281,7 +285,7 @@ extensions/<nombre>/
 
 `package.json` publica solo archivos runtime con `files: ["extensions/*/*.ts", ...]`, así los tests quedan colocalizados en el repo pero no entran al tarball npm. `pi.extensions` lista explícitamente los entrypoints que se cargan por defecto; extensiones opcionales pueden existir en la misma convención y cargarse desde settings.
 
-`extensions/pi-local-memory/` carga `.pi/MEMORY.md` si existe. La extensión es parte del paquete; el contenido de memoria sigue siendo privado y gitignored.
+`extensions/pi-local-memory/` carga la carpeta `.pi/memory/` si existe (inyecta el índice `MEMORY.md` con tope de 200 líneas/25 KB y lista los archivos por tema para leerlos on demand; con fallback al `.pi/MEMORY.md` previo). La extensión es parte del paquete; el contenido de memoria sigue siendo privado y gitignored.
 
 ## Verificación local
 
@@ -301,6 +305,7 @@ El test actual typecheckea todas las extensiones con `extensions/*/index.ts` y c
 /bg list
 /bg status <jobId>
 /bg logs <jobId>
+/bg events <jobId>
 /bg cancel <jobId>
 ```
 
@@ -311,10 +316,12 @@ Comportamiento y límites de M2:
 - `/bg start` solo funciona en sesiones persistentes TUI/RPC y en proyectos trusted; en proyectos untrusted se rechaza antes de ejecutar o escribir artifacts. El trust/mode gate protege el **contexto y los artifacts** del proyecto, no el comando en sí: igual que el resto de exec en Pi, `/bg start` corre vía `shell:true` lo que el humano teclee.
 - `/bg start` y `/bg cancel` se bloquean mientras `/plan` está activo.
 - No se registra ningún tool LLM `background_job`; la superficie mutante es solo slash command humano.
+- `/bg events <jobId>` muestra el tail acotado del journal `events.jsonl` (start/running/cancel-*/finish/reconcile-interrupted/finalize-error): la evidencia de *por qué* un job acabó `failed`/`cancelled`/`interrupted`, que `status.json` por sí solo no lleva.
 - Los artifacts project-local viven en `.pi/bg/runs/<jobId>/`; el fallback global de lectura usa `~/.pi/agent/bg/runs/<hash-del-cwd>/<jobId>/` (en M2 ese root global solo se **lee**: lo poblará BG-1/BG-3). Cada run contiene `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
 - `job.json` y `status.json` se escriben con temp file + rename atómico; los logs son append-only y `/bg logs` lee de forma bounded/truncada.
 - El comando (`job.json`) y su salida (`stdout/stderr/combined.log`) se guardan en **texto plano** y no se redactan: evita pasar secretos en la línea de comando (p. ej. tokens en `curl -H`). En M2 no hay `prune/delete`, así que esos artifacts crecen hasta que los borres a mano.
-- `/bg cancel` solo cancela jobs activos creados por este proceso Pi. Si un `status.json` persistido dice `running` pero no hay job activo en memoria, se muestra como `stale` y no se mata ningún PID persistido. `stale` es una proyección en tiempo de lectura por membresía en memoria (no sondea liveness del PID), así que cubre tanto un job ya terminado mientras Pi estaba caído como un proceso detached aún vivo y huérfano: ante un `stale`, usa herramientas del SO (`kill`/`pkill`/`taskkill`) si sospechas que sigue corriendo. La cancelación señaliza por grupo de proceso y, en la ventana exit→close, podría no señalar un PID ya reapeado.
+- `/bg cancel` solo cancela jobs activos creados por este proceso Pi y nunca señaliza un PID persistido. Para un `status.json` que dice `running`/`starting` pero no es propiedad de esta sesión, el estado se proyecta en tiempo de lectura sondeando el PID registrado (`process.kill(pid, 0)`, sin enviar señal): **`orphaned`** = el PID sigue vivo (proceso huérfano probablemente activo; usa herramientas del SO `kill`/`pkill`/`taskkill` para pararlo), **`interrupted`** = el PID está muerto (Pi murió/reinició antes de finalizar), **`stale`** = no se pudo sondear (sin PID). El sondeo es best-effort: un PID puede haberse reusado, así que `orphaned` incluye un `hint` de verificación; por eso `cancel` jamás señaliza PIDs persistidos. La cancelación de jobs activos señaliza por grupo de proceso y, en la ventana exit→close, podría no señalar un PID ya reapeado.
+- Al arrancar una sesión persistente y trusted, `pi-bg` se auto-cura: un job project-local persistido como `running`/`starting` cuyo PID registrado está muerto se reescribe atómicamente a `interrupted` en disco (así el artefacto deja de decir `running` para siempre). Los de PID vivo o no sondeable quedan intactos (se siguen proyectando como `orphaned`/`stale`). Reescribir `interrupted` solo con un PID confirmado muerto mantiene la reescritura a salvo del reuso de PID.
 - No hay runner Supacode, daemon, rehidratación automática, `prune/delete` ni dashboard de `/bg` en M2.
 
 ## Background runs

@@ -160,6 +160,11 @@ async function realStartCompletesAndLogs(url) {
 	check("start: returns before release/completion", !existsSync(job.release));
 	let status = await readJson(path.join(job.runDir, "status.json"));
 	check("start: status reaches running before release", status.state === "running", JSON.stringify(status));
+	if (process.platform === "win32") {
+		check("start: process startId capture deferred on win32", status.startId === undefined, JSON.stringify(status));
+	} else {
+		check("start: status records a non-empty process startId", typeof status.startId === "string" && status.startId.length > 0, JSON.stringify(status));
+	}
 	await fs.writeFile(job.release, "go");
 	status = await waitFor("completed status", async () => {
 		const s = await readJson(path.join(job.runDir, "status.json"));
@@ -307,22 +312,85 @@ async function cancelEscalatesToSigkill(url) {
 	check("cancel-sigkill: records a cancel-sigkill escalation event", /"event":"cancel-sigkill"/.test(events), events.slice(-300));
 }
 
-async function stalePidIsNotKilled(url) {
+async function orphanedPidIsLabeledNotKilled(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-stale-"));
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-orphan-"));
 	const jobId = "fake-active";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
 	await fs.writeFile(path.join(runDir, "job.json"), JSON.stringify({ jobId, command: "fake", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir }, null, 2));
+	// pid = this live test process, not owned by the bg session => orphaned (alive elsewhere).
 	await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: process.pid, updatedAt: new Date().toISOString() }, null, 2));
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
-	check("stale: cancel refuses non-owned persisted PID", /not active in this session/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
-	check("stale: current process is still alive", process.kill(process.pid, 0));
+	check("orphaned: cancel refuses non-owned persisted PID", /not active in this session/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check("orphaned: current process is still alive", process.kill(process.pid, 0));
 	await commands.get("bg").handler(`status ${jobId}`, ctx);
 	const statusMsg = ctx._notes.at(-1)?.msg || "";
-	check("stale: status is derived as stale", /"state": "stale"/.test(statusMsg), statusMsg);
-	check("stale: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
+	check("orphaned: live persisted PID is derived as orphaned", /"state": "orphaned"/.test(statusMsg), statusMsg);
+	check("orphaned: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
+	check("orphaned: status surfaces a verify-before-kill hint", /"hint":/.test(statusMsg) && /reused/.test(statusMsg), statusMsg);
+	await commands.get("bg").handler("list", ctx);
+	check("orphaned: list reflects orphaned state", /fake-active: orphaned/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+}
+
+async function interruptedAndStaleStatesAreDerived(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-interrupted-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+
+	// (1) Persisted running, recorded pid is dead (reaped) => interrupted.
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("interrupted: probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	const deadJob = "dead-job";
+	const deadDir = path.join(runsRoot, deadJob);
+	await fs.mkdir(deadDir, { recursive: true });
+	await fs.writeFile(path.join(deadDir, "job.json"), JSON.stringify({ jobId: deadJob, command: "gone", cwd, createdAt: new Date().toISOString() }, null, 2));
+	await fs.writeFile(path.join(deadDir, "status.json"), JSON.stringify({ jobId: deadJob, state: "running", pid: dead.pid, updatedAt: new Date().toISOString() }, null, 2));
+
+	// (2) Persisted starting with NO recorded pid => stale fallback (cannot probe).
+	const noPidJob = "nopid-job";
+	const noPidDir = path.join(runsRoot, noPidJob);
+	await fs.mkdir(noPidDir, { recursive: true });
+	await fs.writeFile(path.join(noPidDir, "job.json"), JSON.stringify({ jobId: noPidJob, command: "starting", cwd, createdAt: new Date().toISOString() }, null, 2));
+	await fs.writeFile(path.join(noPidDir, "status.json"), JSON.stringify({ jobId: noPidJob, state: "starting", updatedAt: new Date().toISOString() }, null, 2));
+
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("bg").handler(`status ${deadJob}`, ctx);
+	const deadMsg = ctx._notes.at(-1)?.msg || "";
+	check("interrupted: dead persisted PID is derived as interrupted", /"state": "interrupted"/.test(deadMsg), deadMsg);
+	check("interrupted: persisted running state is reported", /"persistedState": "running"/.test(deadMsg), deadMsg);
+
+	await commands.get("bg").handler(`status ${noPidJob}`, ctx);
+	const noPidMsg = ctx._notes.at(-1)?.msg || "";
+	check("stale: unprobeable (no pid) job falls back to stale", /"state": "stale"/.test(noPidMsg), noPidMsg);
+	check("stale: persisted starting state is reported", /"persistedState": "starting"/.test(noPidMsg), noPidMsg);
+
+	await commands.get("bg").handler("list", ctx);
+	const listMsg = ctx._notes.at(-1)?.msg || "";
+	check("list: reflects interrupted state", /dead-job: interrupted/.test(listMsg), listMsg);
+	check("list: reflects stale fallback state", /nopid-job: stale/.test(listMsg), listMsg);
+}
+
+async function processStartIdCapturesIdentity(url) {
+	const mod = await import(`${url}?startid=${instance++}`);
+	const readStartId = mod.readProcessStartId;
+	check("startid: readProcessStartId is exported", typeof readStartId === "function", typeof readStartId);
+	if (typeof readStartId !== "function") return;
+	check(
+		"startid: invalid pids yield undefined",
+		readStartId(undefined) === undefined && readStartId(0) === undefined && readStartId(-1) === undefined && readStartId(1.5) === undefined,
+	);
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("startid: probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	if (process.platform === "win32") {
+		// Windows identity capture is deferred (graceful degradation to best-effort liveness).
+		check("startid: win32 identity capture is deferred (undefined)", readStartId(process.pid) === undefined, String(readStartId(process.pid)));
+	} else {
+		const self = readStartId(process.pid);
+		check("startid: a live process yields a non-empty identity", typeof self === "string" && self.length > 0, String(self));
+		check("startid: a reaped pid yields undefined", readStartId(dead.pid) === undefined, String(readStartId(dead.pid)));
+	}
 }
 
 async function livenessProbeClassifiesPids(url) {
@@ -342,6 +410,59 @@ async function livenessProbeClassifiesPids(url) {
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 	check("liveness: spawned probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
 	check("liveness: a reaped child pid is dead", probe(dead.pid) === "dead", String(probe(dead.pid)));
+}
+
+async function reconcileRewritesDeadRunningJobs(url) {
+	const mod = await import(`${url}?reconcile=${instance++}`);
+	const reconcile = mod.reconcileInterruptedJobs;
+	check("reconcile: reconcileInterruptedJobs is exported", typeof reconcile === "function", typeof reconcile);
+	if (typeof reconcile !== "function") return;
+
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("reconcile: probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	const write = async (jobId, status) => {
+		const dir = path.join(runsRoot, jobId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "job.json"), JSON.stringify({ jobId, command: jobId, cwd, createdAt: new Date().toISOString() }, null, 2));
+		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify({ jobId, updatedAt: new Date().toISOString(), ...status }, null, 2));
+		return dir;
+	};
+	const deadDir = await write("dead-run", { state: "running", pid: dead.pid });
+	const aliveDir = await write("alive-run", { state: "running", pid: process.pid });
+	const noPidDir = await write("nopid-run", { state: "starting" });
+	const doneDir = await write("done-run", { state: "completed", exitCode: 0 });
+
+	const ctx = makeCtx({ cwd, trusted: true });
+	const n = await reconcile(ctx);
+	check("reconcile: reconciles exactly the one dead running job", n === 1, String(n));
+
+	const deadStatus = await readJson(path.join(deadDir, "status.json"));
+	check("reconcile: dead running job becomes interrupted", deadStatus.state === "interrupted", JSON.stringify(deadStatus));
+	check("reconcile: interrupted job records a reason", deadStatus.reason === "session-start-reconcile", JSON.stringify(deadStatus));
+	check("reconcile: interrupted job records completedAt", typeof deadStatus.completedAt === "string", JSON.stringify(deadStatus));
+
+	const aliveStatus = await readJson(path.join(aliveDir, "status.json"));
+	check("reconcile: live running job is left as running on disk", aliveStatus.state === "running", JSON.stringify(aliveStatus));
+	const noPidStatus = await readJson(path.join(noPidDir, "status.json"));
+	check("reconcile: unprobeable (no pid) job is left untouched", noPidStatus.state === "starting", JSON.stringify(noPidStatus));
+	const doneStatus = await readJson(path.join(doneDir, "status.json"));
+	check("reconcile: terminal job is left untouched", doneStatus.state === "completed", JSON.stringify(doneStatus));
+
+	const n2 = await reconcile(ctx);
+	check("reconcile: idempotent second pass changes nothing", n2 === 0, String(n2));
+	const temps = (await fs.readdir(deadDir)).filter((f) => f.includes(".tmp"));
+	check("reconcile: leaves no temp files behind", temps.length === 0, temps.join(","));
+
+	const untrustedCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-untrusted-"));
+	const uDir = path.join(untrustedCwd, ".pi", "bg", "runs", "dead-untrusted");
+	await fs.mkdir(uDir, { recursive: true });
+	await fs.writeFile(path.join(uDir, "status.json"), JSON.stringify({ jobId: "dead-untrusted", state: "running", pid: dead.pid, updatedAt: new Date().toISOString() }, null, 2));
+	const nUntrusted = await reconcile(makeCtx({ cwd: untrustedCwd, trusted: false }));
+	check("reconcile: untrusted project is not reconciled", nUntrusted === 0, String(nUntrusted));
+	const untrustedStatus = await readJson(path.join(uDir, "status.json"));
+	check("reconcile: untrusted status left as running", untrustedStatus.state === "running", JSON.stringify(untrustedStatus));
 }
 
 async function logStreamErrorsAreContained(url) {
@@ -408,10 +529,10 @@ async function atomicWriteCleansTempOnRenameFailure(url) {
 	check("atomic: no temp file left behind after rename failure", leftoverTemps.length === 0, leftoverTemps.join(","));
 }
 
-async function descriptionListsPlanSubcommand(url) {
+async function descriptionListsPreviewSubcommand(url) {
 	const { commands } = await loadExtension(url);
 	const desc = commands.get("bg")?.description || "";
-	check("description: lists the plan subcommand", /\bplan\b/.test(desc), desc);
+	check("description: lists the preview subcommand", /\bpreview\b/.test(desc), desc);
 }
 
 async function startSurfacesFilesystemErrors(url) {
@@ -601,15 +722,18 @@ async function main() {
 	await commandWhitespaceIsPreserved(url);
 	await cancelStopsActiveJob(url);
 	await cancelEscalatesToSigkill(url);
-	await stalePidIsNotKilled(url);
+	await orphanedPidIsLabeledNotKilled(url);
+	await interruptedAndStaleStatesAreDerived(url);
 	await livenessProbeClassifiesPids(url);
+	await processStartIdCapturesIdentity(url);
+	await reconcileRewritesDeadRunningJobs(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);
 	await backpressurePausesSource(url);
 	await backpressureRecoversWhenSinkDies(url);
 	await writeCapStopsAndMarksLog(url);
-	await descriptionListsPlanSubcommand(url);
+	await descriptionListsPreviewSubcommand(url);
 	await atomicWriteCleansTempOnRenameFailure(url);
 	await startSurfacesFilesystemErrors(url);
 	await modeGateRejectsStart(url);

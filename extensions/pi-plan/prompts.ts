@@ -24,6 +24,9 @@ export function makePlanningPrompt(plan: { planId: string; task: string }): stri
 		"- You may ONLY use read-only actions: read, grep, find, ls, and read-only shell commands (e.g. git ls-files, git status, cat, head, sed -n for viewing). Mutating tools (write, edit) and mutating shell commands (rm, mv, git commit/add/push/reset, redirections >/>>, package installs, etc.) are HARD-BLOCKED and will fail. dynamic_workflow is allowed only for read-only actions (list/template/read/graph/runs/view); write/run/start are blocked while planning.",
 	);
 	lines.push("- Do NOT begin implementing. Implementation happens only AFTER the user approves your plan.");
+	lines.push(
+		"- Your plan MAY include running dynamic workflows (dynamic_workflow action=run/start) as implementation steps — those execute only AFTER approval, so propose them for broad, parallel, or high-confidence work (large audits, migrations, exhaustive sweeps, independent verification, deep research). While planning you can inspect the catalog read-only (dynamic_workflow action=list/template/read) to pick or design the right workflow, then describe it in the plan.",
+	);
 	lines.push("- You may call AskUserQuestion to clarify requirements before finalizing the plan, if needed.");
 	lines.push("");
 	lines.push("WHAT TO DO:");

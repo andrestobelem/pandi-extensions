@@ -156,7 +156,7 @@ async function dryRunHasNoRuntimeWrites(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-project-"));
 	const { commands, tools } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, trusted: true });
-	await commands.get("bg").handler("plan npm test", ctx);
+	await commands.get("bg").handler("preview npm test", ctx);
 
 	check("dry-run: registers /bg command", commands.has("bg"));
 	check("dry-run: registers no LLM tools", tools.size === 0, `registered tools: ${[...tools.keys()].join(",")}`);
@@ -386,6 +386,94 @@ async function corruptArtifactsAreTolerated(url) {
 	check("corrupt: missing logs are reported safely", /No logs found/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
 }
 
+async function eventsSubcommandReadsBoundedEvents(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-events-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const runDir = await setupJob(runsRoot, "events-job", { command: "echo hi", state: "completed" });
+	const events =
+		[
+			{ time: "2026-06-25T00:00:00.000Z", event: "start", jobId: "events-job", command: "echo hi" },
+			{ time: "2026-06-25T00:00:01.000Z", event: "running", jobId: "events-job", pid: 4242 },
+			{ time: "2026-06-25T00:00:02.000Z", event: "finish", jobId: "events-job", state: "completed", exitCode: 0 },
+		]
+			.map((e) => JSON.stringify(e))
+			.join("\n") + "\n";
+	await fs.writeFile(path.join(runDir, "events.jsonl"), events);
+
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, trusted: true });
+
+	await commands.get("bg").handler("events events-job", ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("events: surfaces the lifecycle timeline", /"event":"start"/.test(msg) && /"event":"finish"/.test(msg), msg.slice(0, 120));
+	check("events: includes the running pid event", /"pid":4242/.test(msg), msg.slice(0, 200));
+
+	await commands.get("bg").handler("events missing-job", ctx);
+	check("events: unknown job reports not found", /not found/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+
+	await commands.get("bg").handler("events ..", ctx);
+	check("events: path traversal job id is rejected", /Usage: \/bg events/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+
+	const desc = commands.get("bg")?.description || "";
+	check("events: command description lists events", /\bevents\b/.test(desc), desc);
+	const completions = commands.get("bg").getArgumentCompletions("ev").map((c) => c.value);
+	check("events: completions include events for prefix 'ev'", completions.includes("events"), completions.join(","));
+}
+
+async function planAliasStillPreviews(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-plan-alias-"));
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, trusted: true });
+	// Backward-compat: the deprecated `plan` verb still maps to the preview dry-run.
+	await commands.get("bg").handler("plan npm test", ctx);
+	check("alias: deprecated /bg plan still previews (dry-run)", /Dry run only/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check("alias: /bg plan creates no artifacts", !existsSync(path.join(cwd, ".pi")));
+	const all = commands.get("bg").getArgumentCompletions("").map((c) => c.value);
+	check("preview: completions promote preview", all.includes("preview"), all.join(","));
+	check("preview: completions no longer promote plan", !all.includes("plan"), all.join(","));
+	const pre = commands.get("bg").getArgumentCompletions("pre").map((c) => c.value);
+	check("preview: prefix 'pre' completes to preview", pre.includes("preview"), pre.join(","));
+}
+
+async function sessionStartReconcilesInterruptedJobs(url) {
+	const extension = await freshDefault(url);
+	const handlers = new Map();
+	const tools = new Map();
+	const pi = {
+		registerCommand: () => {},
+		registerTool: (def) => tools.set(def.name, def),
+		on: (event, handler) => handlers.set(event, handler),
+		appendEntry: () => {},
+		sendUserMessage: () => {},
+		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+	};
+	extension(pi);
+	check("session-start: registers a session_start handler", handlers.has("session_start"), [...handlers.keys()].join(","));
+	check("session-start: still registers no LLM tools", tools.size === 0, [...tools.keys()].join(","));
+	if (!handlers.has("session_start")) return;
+	const handler = handlers.get("session_start");
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+
+	const seedDeadJob = async (jobId) => {
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-session-start-"));
+		const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
+		await fs.mkdir(runDir, { recursive: true });
+		await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: dead.pid, updatedAt: "2026-06-25T00:00:00.000Z" }, null, 2));
+		return { cwd, runDir };
+	};
+	const readState = async (runDir) => JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")).state;
+
+	// TUI session: a dead running job is reconciled to interrupted on disk.
+	const tui = await seedDeadJob("dead-on-start");
+	await handler({}, makeCtx({ cwd: tui.cwd, trusted: true, mode: "tui" }));
+	check("session-start: dead running job is reconciled to interrupted (tui)", (await readState(tui.runDir)) === "interrupted", await readState(tui.runDir));
+
+	// Non-persistent json mode: gated off, the artifact is left running.
+	const json = await seedDeadJob("dead-json");
+	await handler({}, makeCtx({ cwd: json.cwd, trusted: true, mode: "json" }));
+	check("session-start: json mode is gated off (no reconcile)", (await readState(json.runDir)) === "running", await readState(json.runDir));
+}
+
 async function main() {
 	const { url, planUrl, agentDir } = await buildBg();
 	await dryRunHasNoRuntimeWrites(url);
@@ -397,6 +485,9 @@ async function main() {
 	await symlinkedArtifactRootsAreIgnored(url, agentDir);
 	await symlinkedArtifactFilesAreIgnored(url, agentDir);
 	await corruptArtifactsAreTolerated(url);
+	await sessionStartReconcilesInterruptedJobs(url);
+	await eventsSubcommandReadsBoundedEvents(url);
+	await planAliasStillPreviews(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {
