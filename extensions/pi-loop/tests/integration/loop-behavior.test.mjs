@@ -52,13 +52,10 @@
  * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-loop/tests/integration/ -> repo root is four levels up.
@@ -77,48 +74,17 @@ const { check, counts } = createChecker();
 // Build the current loop extension to ESM in a temp dir, return the import URL.
 // ---------------------------------------------------------------------------
 async function buildLoop() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-integration-"));
-
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id };\nexport default { Type };\n",
-	);
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-
-	const src = path.join(REPO_ROOT, "extensions", "pi-loop", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "loop.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--yes",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:typebox=${typeboxStub}`,
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for loop: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
+	return await buildExtension({
+		name: "pi-loop-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-loop", "index.ts"),
+		outName: "loop.mjs",
+		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
+		npx: "--yes",
+	});
 }
 
-// The module keeps a singleton activeLoops Map + module-level FIFO wakeQueue. Load a FRESH
-// instance per scenario via a cache-busting query so scenarios never leak state.
-let _instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${_instance++}`);
-	return mod.default;
-}
+// pi-loop keeps a singleton activeLoops Map + module-level FIFO wakeQueue. loadDefault's
+// cache-busting query gives each scenario a FRESH instance so scenarios never leak state.
 
 // ---------------------------------------------------------------------------
 // Mock pi + ctx. Records the SIDE EFFECTS the engine produces: re-injected wake
@@ -204,7 +170,7 @@ async function fireEvent(handlers, event, payload, ctx) {
 //   order. This is the load-bearing guarantee that N loops never race for a single turn.
 // ===========================================================================
 async function fifoSerialization(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -242,7 +208,7 @@ async function fifoSerialization(url) {
 //   HUMAN's own commands). The wake must stay queued until the agent is idle again.
 // ===========================================================================
 async function noDeliveryWhileBusy(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	let idle = false; // agent is BUSY (human turn in progress).
@@ -262,7 +228,7 @@ async function noDeliveryWhileBusy(url) {
 //   nothing is persisted, no wake is injected. (Mirrors canLoopInMode tui/rpc gate.)
 // ===========================================================================
 async function refusesNonInteractiveMode(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "print", hasUI: false });
@@ -281,7 +247,7 @@ async function refusesNonInteractiveMode(url) {
 //   loop where loop_schedule DOES re-arm. We assert the observable difference.
 // ===========================================================================
 async function fixedModeAndScheduleNoop(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, tools, handlers, entries } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -324,7 +290,7 @@ async function fixedModeAndScheduleNoop(url) {
 //   did not disappear.
 // ===========================================================================
 async function terminalLoopsDisappearFromActiveStatus(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, entries } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -351,7 +317,7 @@ async function terminalLoopsDisappearFromActiveStatus(url) {
 //   A healthy running loop is untouched.
 // ===========================================================================
 async function watchdogHealthyUntouched(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, handlers, entries } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -378,7 +344,7 @@ async function watchdogHealthyUntouched(url) {
 //   "paused", must be rehydrated as paused and SPARED. A fresh stale snapshot survives.
 // ===========================================================================
 async function agedRehydrateWatchdog(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, handlers, entries } = makePi();
 	loopExtension(pi);
 
@@ -457,7 +423,7 @@ async function agedRehydrateWatchdog(url) {
 //   Anything else -> dynamic (model-paced), the token treated as part of the task.
 // ===========================================================================
 async function intervalParseAndClamp(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, entries } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });

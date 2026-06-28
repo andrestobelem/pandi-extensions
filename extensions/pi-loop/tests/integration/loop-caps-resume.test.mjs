@@ -67,13 +67,11 @@
  * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-loop/tests/integration/ -> repo root is four levels up.
@@ -92,48 +90,17 @@ const { check, counts } = createChecker();
 // Build the current loop extension to ESM in a temp dir, return the import URL.
 // ---------------------------------------------------------------------------
 async function buildLoop() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-caps-integration-"));
-
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id };\nexport default { Type };\n",
-	);
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-
-	const src = path.join(REPO_ROOT, "extensions", "pi-loop", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "loop.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--yes",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:typebox=${typeboxStub}`,
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for loop: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
+	return await buildExtension({
+		name: "pi-loop-caps-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-loop", "index.ts"),
+		outName: "loop.mjs",
+		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
+		npx: "--yes",
+	});
 }
 
-// The module keeps a singleton activeLoops Map + module-level FIFO wakeQueue. Load a FRESH
-// instance per scenario via a cache-busting query so scenarios never leak state.
-let _instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${_instance++}`);
-	return mod.default;
-}
+// pi-loop keeps a singleton activeLoops Map + module-level FIFO wakeQueue. loadDefault's
+// cache-busting query gives each scenario a FRESH instance so scenarios never leak state.
 
 // ---------------------------------------------------------------------------
 // Mock pi + ctx. Records the SIDE EFFECTS the engine produces: re-injected wake
@@ -250,7 +217,7 @@ function tick() {
 //   We also pin the default maxIterations via a freshly started loop (documents the 25 cap).
 // ===========================================================================
 async function maxIterationsCap(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -266,7 +233,7 @@ async function maxIterationsCap(url) {
 	// guard and stops it "done" rather than firing a (capped) iteration.
 	const ctx2 = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
 	const { pi: pi2, handlers: h2, entries: e2, sentMessages: sent2 } = makePi();
-	const loopExtension2 = await freshDefault(url);
+	const loopExtension2 = await loadDefault(url);
 	loopExtension2(pi2);
 	const now = Date.now();
 	seedEntries(ctx2, [
@@ -296,7 +263,7 @@ async function maxIterationsCap(url) {
 //   must stop it "done" with a wall-clock reason, never re-arm.
 // ===========================================================================
 async function wallClockCap(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -332,7 +299,7 @@ async function wallClockCap(url) {
 async function contextPercentCap(url) {
 	// Over the cap: a running loop must be stopped "done" on agent_end.
 	{
-		const loopExtension = await freshDefault(url);
+		const loopExtension = await loadDefault(url);
 		const { pi, commands, handlers, entries, sentMessages } = makePi();
 		loopExtension(pi);
 		let pct = 10; // healthy at start
@@ -356,7 +323,7 @@ async function contextPercentCap(url) {
 	// Negative control: usage unavailable (undefined) or percent null must NEVER stop the loop
 	// (best-effort: an absent signal is not a cap hit).
 	{
-		const loopExtension = await freshDefault(url);
+		const loopExtension = await loadDefault(url);
 		const { pi, commands, handlers, entries } = makePi();
 		loopExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, usage: () => ({ percent: null }) });
@@ -373,7 +340,7 @@ async function contextPercentCap(url) {
 //   Pause drops a queued wake so a paused loop never re-injects from the FIFO.
 // ===========================================================================
 async function pauseResume(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -421,7 +388,7 @@ async function pauseResume(url) {
 //   behind it. Pause B, then close A's turn: only A's slot drains, B (paused) does not fire.
 // ===========================================================================
 async function pauseDropsQueuedWake(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -449,7 +416,7 @@ async function pauseDropsQueuedWake(url) {
 //   back to "running".
 // ===========================================================================
 async function rehydrateRevivesNoDoubleFire(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -484,7 +451,7 @@ async function rehydrateRevivesNoDoubleFire(url) {
 //   across multiple JSONL entries for the same loopId.
 // ===========================================================================
 async function rehydratePausedTerminalLastWins(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -520,7 +487,7 @@ async function rehydratePausedTerminalLastWins(url) {
 	// it must be revived and fire its due catch-up. (Proves last-wins both directions.)
 	const ctx2 = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
 	const { pi: pi2, handlers: h2, entries: e2, sentMessages: sent2 } = makePi();
-	const loopExtension2 = await freshDefault(url);
+	const loopExtension2 = await loadDefault(url);
 	loopExtension2(pi2);
 	const now2 = Date.now();
 	seedEntries(ctx2, [
@@ -543,7 +510,7 @@ async function rehydratePausedTerminalLastWins(url) {
 async function rehydrateAutonomousTrustGate(url) {
 	// Untrusted: retire.
 	{
-		const loopExtension = await freshDefault(url);
+		const loopExtension = await loadDefault(url);
 		const { pi, handlers, entries, sentMessages } = makePi();
 		loopExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: false });
@@ -565,7 +532,7 @@ async function rehydrateAutonomousTrustGate(url) {
 	// Trusted: revive and fire the due catch-up (positive control — proves the retire is
 	// caused by the trust revocation, not by autonomous loops being unrecoverable in general).
 	{
-		const loopExtension = await freshDefault(url);
+		const loopExtension = await loadDefault(url);
 		const { pi, handlers, entries, sentMessages } = makePi();
 		loopExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: true });
@@ -593,7 +560,7 @@ async function rehydrateAutonomousTrustGate(url) {
 //   collision: the loop is DUE to fire, yet the cap must win.
 // ===========================================================================
 async function rehydrateRespectsCap(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -625,7 +592,7 @@ async function rehydrateRespectsCap(url) {
 // persisted snapshot; a catch-up wake should be armed from the durable state.
 // ===========================================================================
 async function shutdownThenStartupRehydrates(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, commands, handlers, entries, sentMessages } = makePi();
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
@@ -652,7 +619,7 @@ async function shutdownThenStartupRehydrates(url) {
 // the JSONL contains unrelated loop entries.
 // ===========================================================================
 async function rehydrateSidecarOnly(url) {
-	const loopExtension = await freshDefault(url);
+	const loopExtension = await loadDefault(url);
 	const { pi, handlers, entries, sentMessages } = makePi();
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-sidecar-only-"));
 	try {
