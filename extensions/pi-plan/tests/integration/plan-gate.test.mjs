@@ -9,13 +9,10 @@
  *   node extensions/pi-plan/tests/integration/plan-gate.test.mjs
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/<extension>/tests/integration/ -> repo root is four levels up.
@@ -33,57 +30,30 @@ const { check, counts } = createChecker();
 // Build the current extensions to ESM in a temp dir, return import URLs.
 // ---------------------------------------------------------------------------
 async function buildExtensions(names) {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-safety-integration-"));
-
-	// Tiny stubs for the two external peer packages. The exercised gate paths only need
-	// these symbols for tool-schema declaration + state-dir resolution — never validation.
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id };\nexport default { Type };\n",
-	);
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-
+	// The exercised gate paths only need typebox for tool-schema declaration and the SDK
+	// symbols for state-dir resolution — never validation. One shared outDir/stubs keeps
+	// getAgentDir consistent across the bundled extensions.
+	const { outDir, aliases } = await makeBuildDir("pi-safety-integration", {
+		typebox: true,
+		sdk: (dir) => sdkStub(dir),
+	});
 	const urls = {};
 	for (const name of names) {
 		const packageDir = name.startsWith("pi-") ? name : `pi-${name}`;
-		const src = path.join(REPO_ROOT, "extensions", packageDir, "index.ts");
-		if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-		const out = path.join(outDir, `${name}.mjs`);
-		const r = spawnSync(
-			"npx",
-			[
-				"--yes",
-				"esbuild",
-				src,
-				"--bundle",
-				"--platform=node",
-				"--format=esm",
-				`--alias:typebox=${typeboxStub}`,
-				`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-				`--outfile=${out}`,
-			],
-			{ cwd: REPO_ROOT, encoding: "utf8" },
-		);
-		if (r.status !== 0) {
-			throw new Error(`esbuild failed for ${name}: ${r.stderr || r.stdout}`);
-		}
-		urls[name] = pathToFileURL(out).href;
+		urls[name] = await bundle({
+			src: path.join(REPO_ROOT, "extensions", packageDir, "index.ts"),
+			outDir,
+			outName: `${name}.mjs`,
+			aliases,
+			npx: "--yes",
+		});
 	}
 	return { outDir, urls };
 }
 
 // A module keeps a singleton (activeLoops / activePlans). Load a FRESH instance per
 // scenario via a cache-busting query so scenarios never leak state into each other.
-let _instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${_instance++}`);
-	return mod.default;
-}
+
 
 // ---------------------------------------------------------------------------
 // Mock pi + ctx (shape mirrors the ExtensionAPI / ExtensionContext surface the
@@ -147,7 +117,7 @@ async function runGate(handlers, ctx, event) {
 // SCENARIO 1: plan.ts read-only gate (only armed while a plan is active).
 // ===========================================================================
 async function planGate(planUrl) {
-	const planExtension = await freshDefault(planUrl);
+	const planExtension = await loadDefault(planUrl);
 	const { pi, commands, handlers } = makePi();
 	planExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
@@ -214,7 +184,7 @@ async function planGate(planUrl) {
 // handshake there, so /plan refuses to enter and never gates).
 // ===========================================================================
 async function planGatePrintRefuses(planUrl) {
-	const planExtension = await freshDefault(planUrl);
+	const planExtension = await loadDefault(planUrl);
 	const { pi, commands, handlers, entries, sentMessages } = makePi();
 	planExtension(pi);
 	const ctx = makeCtx({ mode: "print", hasUI: false });

@@ -45,13 +45,10 @@
  * Exit code: 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-plan/tests/integration/ -> repo root is four levels up.
@@ -66,50 +63,19 @@ const { check, counts } = createChecker();
 // Build the current extensions/pi-plan/index.ts to ESM in a temp dir, return import URL.
 // ---------------------------------------------------------------------------
 async function buildPlan() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-plan-approval-integration-"));
-
-	// Tiny stubs for the two external peer packages. plan.ts only needs Type.* for tool-schema
-	// declaration (never validation) and CONFIG_DIR_NAME/getAgentDir for parity with the family.
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id };\nexport default { Type };\n",
-	);
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\n`,
-	);
-
-	const src = path.join(REPO_ROOT, "extensions", "pi-plan", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "plan.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--yes",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:typebox=${typeboxStub}`,
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for plan: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
+	// plan.ts only needs Type.* for tool-schema declaration (never validation) and
+	// CONFIG_DIR_NAME/getAgentDir for parity with the family.
+	return await buildExtension({
+		name: "pi-plan-approval-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-plan", "index.ts"),
+		outName: "plan.mjs",
+		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
+		npx: "--yes",
+	});
 }
 
-// plan.ts keeps a module singleton (activePlans). Load a FRESH instance per scenario via a
-// cache-busting query so scenarios never leak state into each other.
-let _instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${_instance++}`);
-	return mod.default;
-}
+// plan.ts keeps a module singleton (activePlans). loadDefault's cache-busting query
+// gives each scenario a FRESH instance so scenarios never leak state into each other.
 
 // ---------------------------------------------------------------------------
 // Mock pi + ctx (shape mirrors the ExtensionAPI / ExtensionContext surface plan.ts uses).
@@ -207,7 +173,7 @@ async function fireSessionStart(handlers, ctx, reason = "resume") {
 // SCENARIO 1: APPROVE lifts the gate, persists approved, and re-injects implement.
 // ===========================================================================
 async function approveLiftsGate(url) {
-	const planExtension = await freshDefault(url);
+	const planExtension = await loadDefault(url);
 	const { pi, commands, tools, handlers, entries, sentMessages } = makePi();
 	planExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: true });
@@ -259,7 +225,7 @@ async function approveLiftsGate(url) {
 // a follow-up APPROVE then works (the revise → resubmit → approve lifecycle).
 // ===========================================================================
 async function rejectKeepsGateThenApprove(url) {
-	const planExtension = await freshDefault(url);
+	const planExtension = await loadDefault(url);
 	const { pi, commands, tools, handlers, entries, sentMessages } = makePi();
 	planExtension(pi);
 	// First confirm REJECT, second confirm APPROVE.
@@ -310,7 +276,7 @@ async function rejectKeepsGateThenApprove(url) {
 // SCENARIO 3: /plan exit aborts — lifts the gate, status=exited, NO implement wake.
 // ===========================================================================
 async function exitAborts(url) {
-	const planExtension = await freshDefault(url);
+	const planExtension = await loadDefault(url);
 	const { pi, commands, handlers, entries, sentMessages } = makePi();
 	planExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
@@ -349,7 +315,7 @@ async function exitAborts(url) {
 // SCENARIO 4: submit_plan with NO active plan → isError, no crash, no state change.
 // ===========================================================================
 async function submitWithNoActivePlan(url) {
-	const planExtension = await freshDefault(url);
+	const planExtension = await loadDefault(url);
 	const { pi, tools, entries, sentMessages } = makePi();
 	planExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
@@ -369,7 +335,7 @@ async function submitWithNoActivePlan(url) {
 async function rehydrateReArmsActiveOnly(url) {
 	// --- 5a: an ACTIVE persisted plan re-arms the gate on reload. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, handlers, sentMessages } = makePi();
 		planExtension(pi);
 		const persisted = [
@@ -400,7 +366,7 @@ async function rehydrateReArmsActiveOnly(url) {
 
 	// --- 5b: a TERMINAL persisted plan (approved) does NOT re-arm the gate. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, handlers } = makePi();
 		planExtension(pi);
 		const persisted = [
@@ -426,7 +392,7 @@ async function rehydrateReArmsActiveOnly(url) {
 
 	// --- 5c: a TERMINAL persisted plan (exited) does NOT re-arm the gate. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, handlers } = makePi();
 		planExtension(pi);
 		const persisted = [
@@ -453,7 +419,7 @@ async function rehydrateReArmsActiveOnly(url) {
 	// --- 5d: last-wins by planId — a later terminal snapshot for the SAME plan beats an
 	//         earlier active one (a plan that was active, then approved, then reloaded). ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, handlers } = makePi();
 		planExtension(pi);
 		const persisted = [
@@ -476,7 +442,7 @@ async function rehydrateReArmsActiveOnly(url) {
 	// --- 5e: last-wins by planId the OTHER direction — a later ACTIVE snapshot for the SAME
 	//         plan beats an earlier terminal one (defensive: would re-arm). ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, handlers } = makePi();
 		planExtension(pi);
 		const persisted = [
@@ -498,7 +464,7 @@ async function rehydrateReArmsActiveOnly(url) {
 
 	// --- 5f: fork is a no-op — an ACTIVE persisted plan is NOT migrated into a forked session. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, handlers } = makePi();
 		planExtension(pi);
 		const persisted = [
@@ -515,7 +481,7 @@ async function rehydrateReArmsActiveOnly(url) {
 
 	// --- 5f2: session_start(fork) also clears any already-live in-memory plan state. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, commands, handlers } = makePi();
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true });
@@ -528,7 +494,7 @@ async function rehydrateReArmsActiveOnly(url) {
 	// --- 5g: junk / foreign / malformed entries are ignored without crashing, and a single
 	//         valid active plan among them still re-arms. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, handlers } = makePi();
 		planExtension(pi);
 		const persisted = [
@@ -554,7 +520,7 @@ async function rehydrateReArmsActiveOnly(url) {
 async function pendingConfirmCannotOverrideCurrentPlan(url) {
 	// --- 6a: /plan exit while confirm is pending wins; late APPROVE does not wake. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, commands, tools, handlers, entries, sentMessages } = makePi();
 		planExtension(pi);
 		const gate = deferred();
@@ -580,7 +546,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 
 	// --- 6b: if a new plan is started while the old confirm is pending, the old result is stale. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, commands, tools, handlers, entries, sentMessages } = makePi();
 		planExtension(pi);
 		const gate = deferred();
@@ -604,7 +570,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 
 	// --- 6c: two overlapping submissions in the same plan: only the latest approval may apply. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, commands, tools, handlers, entries, sentMessages } = makePi();
 		planExtension(pi);
 		const first = deferred();
@@ -650,7 +616,7 @@ async function autonomousEntryViaTool(url) {
 	// --- 7a: tui → enter_plan_mode arms the read-only gate + persists planning, and hands
 	//          the planning instruction back AS THE TOOL RESULT (not via a wake message). ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, tools, handlers, entries, sentMessages } = makePi();
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true });
@@ -691,7 +657,7 @@ async function autonomousEntryViaTool(url) {
 
 	// --- 7b: print → enter_plan_mode REFUSES; the gate is NEVER armed (no approval possible). ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, tools, handlers, entries } = makePi();
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "print", hasUI: false });
@@ -711,7 +677,7 @@ async function autonomousEntryViaTool(url) {
 
 	// --- 7c: idempotent no-op when a plan is already active (no SECOND plan created). ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, commands, tools, entries } = makePi();
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true });
@@ -729,7 +695,7 @@ async function autonomousEntryViaTool(url) {
 
 	// --- 7d: end-to-end — autonomous entry plugs into the UNCHANGED submit_plan handshake. ---
 	{
-		const planExtension = await freshDefault(url);
+		const planExtension = await loadDefault(url);
 		const { pi, tools, handlers, sentMessages } = makePi();
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: true });
