@@ -174,6 +174,19 @@ async function seedWorkflowFile(project) {
 	return file;
 }
 
+async function seedFailedRun(project, { runId = "failrun-1", error = "BOOM_SENTINEL" } = {}) {
+	const runDir = path.join(project, ".pi", "workflows", "runs", runId);
+	await fs.mkdir(runDir, { recursive: true });
+	const now = new Date().toISOString();
+	const record = {
+		workflow: "wf", scope: "project", file: path.join(project, ".pi", "workflows", "wf.js"),
+		runId, runDir, ok: false, state: "failed", background: true,
+		startedAt: now, endedAt: now, elapsedMs: 4200, agentCount: 2, logs: [], error, cachedCalls: 0,
+	};
+	await fs.writeFile(path.join(runDir, "result.json"), JSON.stringify(record));
+	return record;
+}
+
 async function bootExtension(url, project, ctxOptions) {
 	const ext = await freshExtension(url);
 	const { pi, handlers, commands } = makePi();
@@ -294,6 +307,22 @@ async function scenarioListPaging(url) {
 	check("PageUp jumps a page (10) up", getDone()?.run?.runId === "r0", JSON.stringify(getDone()));
 }
 
+async function scenarioFailedRunErrorVisible(url) {
+	const monProject = await makeProject();
+	await seedFailedRun(monProject, { error: "BOOM_SENTINEL_ERR" });
+	const mon = await bootExtension(url, monProject, { customInputs: [] });
+	await mon.commands.get("workflow").handler("dashboard", mon.ctx);
+	const monText = renderedText(mon.customCalls[0]);
+	check("monitor surfaces the failed-run error inline", monText.includes("BOOM_SENTINEL_ERR"), monText.split("\n").filter((l) => l.toLowerCase().includes("error")).join(" | "));
+
+	const runsProject = await makeProject();
+	await seedFailedRun(runsProject, { error: "BOOM_SENTINEL_ERR" });
+	const runs = await bootExtension(url, runsProject, { customInputs: ["tab", "tab", "tab"] });
+	await runs.commands.get("workflow").handler("dashboard", runs.ctx);
+	const runsText = renderedText(runs.customCalls[0]);
+	check("runs tab surfaces the failed-run error inline", runsText.includes("BOOM_SENTINEL_ERR"), runsText.split("\n").filter((l) => l.toLowerCase().includes("error")).join(" | "));
+}
+
 async function scenarioEllipsisOnOverflow(url) {
 	const project = await makeProject();
 	const dash = await bootExtension(url, project, { customInputs: [] });
@@ -310,6 +339,7 @@ async function main() {
 	await scenarioRunsSelectionStability(url);
 	await scenarioAgentsSelectionStability(url);
 	await scenarioListPaging(url);
+	await scenarioFailedRunErrorVisible(url);
 	await scenarioEllipsisOnOverflow(url);
 
 	if (failed > 0) {

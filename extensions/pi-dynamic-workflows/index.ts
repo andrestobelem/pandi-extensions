@@ -4394,6 +4394,7 @@ class WorkflowDashboard {
 		label("runDir", model.runDir);
 		const last = model.lastLog ? `${model.lastLog.time.slice(11, 19)} ${renderSafeInline(model.lastLog.message)}` : "No logs recorded yet.";
 		label("last", last);
+		if (model.run.error) label("error", error(renderSafeInline(compactInline(model.run.error, 200))));
 		const actions = model.agents.length > 0 ? ["←→ tabs", "↑↓ select agent", "Enter/o agent output", "v run", "g graph"] : ["←→ tabs", "Enter/v view", "g graph"];
 		if (model.canCancel) actions.push("c/x cancel active");
 		if (model.canRerun) actions.push("r rerun (confirm)");
@@ -4686,6 +4687,7 @@ class WorkflowDashboard {
 			lines.push(line(`run: ${selected.runId}`));
 			lines.push(line(`parallel: ${formatParallelAgents(selected)}`));
 			lines.push(line(`dir: ${selected.runDir}`));
+			if (selected.error) lines.push(line(`${accent("error")}: ${error(renderSafeInline(compactInline(selected.error, 200)))}`));
 			for (const logEntry of getRunLogs(selected).slice(-5)) lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${renderSafeInline(logEntry.message)}`));
 			const selectedState = getRunState(selected);
 			const actions = ["Enter/v view", "g graph"];
