@@ -46,6 +46,10 @@ examples/.pi/
 .pi/tmp/
 **/.pi/tmp/
 
+# Pi project-local notes.
+.pi/notes/
+**/.pi/notes/
+
 # Logs and diagnostics
 logs
 *.log
