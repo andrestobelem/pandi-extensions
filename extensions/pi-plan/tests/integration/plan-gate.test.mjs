@@ -186,8 +186,9 @@ async function planGate(planUrl) {
 		check(`plan: BLOCKS bash "${cmd}"`, !!r && r.block === true);
 	}
 
-	// ALLOWED: read-only bash + read tools + submit_plan.
-	for (const cmd of ["git ls-files", "cat package.json", "grep -n foo bar.ts", "git status"]) {
+	// ALLOWED: read-only bash + read tools + submit_plan. The last four are read-only commands
+	// whose operators (->, >=, =>) must NOT be mistaken for write redirections (F12).
+	for (const cmd of ["git ls-files", "cat package.json", "grep -n foo bar.ts", "git status", 'grep -rn "foo->bar" src', "awk '$3 >= 100' f", 'git log --grep "x -> y"', 'echo "x => y"']) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`plan: ALLOWS bash "${cmd}"`, r === undefined, r ? r.reason : "");
 	}

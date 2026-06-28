@@ -287,8 +287,9 @@ const MUTATING_BASH_PATTERNS: RegExp[] = [
 	/\bdd\b[^\n]*\b(if|of)=/i,
 	/\bmkfs(\.\w+)?\b/i,
 	// Shell redirections that write a file: >, >>, >|, including numbered-fd
-	// writes like 2>err.log (avoid matching 2>&1 / >&N fd-dups).
-	/(^|[^&>])>>?\s*(?![&>])/,
+	// writes like 2>err.log (avoid matching 2>&1 / >&N fd-dups, and the operators
+	// ->, =>, >= which are not redirections).
+	/(^|[^&>=-])>>?\s*(?![&>=])/,
 	/>\|/,
 	// Git mutations.
 	/\bgit\b[^\n]*\b(commit|add|push|reset|clean|checkout|switch|restore|merge|rebase|stash|apply|rm|mv|tag|cherry-pick|revert)\b/i,
