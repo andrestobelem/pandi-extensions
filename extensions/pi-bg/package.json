@@ -12,6 +12,7 @@
   ],
   "files": [
     "index.ts",
+    "storage.ts",
     "README.md"
   ],
   "pi": {
