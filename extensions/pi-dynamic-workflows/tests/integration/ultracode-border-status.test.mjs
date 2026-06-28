@@ -20,23 +20,12 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createChecker } from "../../../../scripts/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
-let passed = 0;
-let failed = 0;
-const failures = [];
-function check(label, cond, detail) {
-	if (cond) {
-		passed += 1;
-		console.log(`PASS: ${label}`);
-	} else {
-		failed += 1;
-		failures.push(label + (detail ? `  [${detail}]` : ""));
-		console.log(`FAIL: ${label}${detail ? `  [${detail}]` : ""}`);
-	}
-}
+const { check, counts } = createChecker();
 
 async function buildExtension() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-ultracode-border-"));
@@ -242,12 +231,12 @@ async function main() {
 	await scenarioHidesLabelWhenUltracodeOff(url);
 	await scenarioLeavesScrollIndicatorUntouched(url);
 
-	if (failed > 0) {
+	if (counts.failed > 0) {
 		console.error("\nFailures:");
-		for (const failure of failures) console.error(`- ${failure}`);
+		for (const failure of counts.failures) console.error(`- ${failure}`);
 		process.exit(1);
 	}
-	console.log(`\n${passed} checks passed`);
+	console.log(`\n${counts.passed} checks passed`);
 }
 
 main().catch((err) => {

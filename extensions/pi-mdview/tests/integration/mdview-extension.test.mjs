@@ -16,23 +16,12 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createChecker } from "../../../../scripts/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
-let passed = 0;
-let failed = 0;
-const failures = [];
-function check(label, cond, detail) {
-	if (cond) {
-		passed += 1;
-		console.log(`PASS: ${label}`);
-	} else {
-		failed += 1;
-		failures.push(label + (detail ? `  [${detail}]` : ""));
-		console.log(`FAIL: ${label}${detail ? `  [${detail}]` : ""}`);
-	}
-}
+const { check, counts } = createChecker();
 
 async function buildMdview() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-integration-"));
@@ -288,10 +277,10 @@ async function main() {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
 
-	console.log(`\n${passed} passed, ${failed} failed`);
-	if (failed) {
+	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
+	if (counts.failed) {
 		console.log("Failures:");
-		for (const failure of failures) console.log(`- ${failure}`);
+		for (const failure of counts.failures) console.log(`- ${failure}`);
 		process.exit(1);
 	}
 }

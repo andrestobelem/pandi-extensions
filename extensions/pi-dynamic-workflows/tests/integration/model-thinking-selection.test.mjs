@@ -29,6 +29,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createChecker } from "../../../../scripts/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -48,19 +49,7 @@ const WORKFLOW = [
 	"",
 ].join("\n");
 
-let passed = 0;
-let failed = 0;
-const failures = [];
-function check(label, cond, detail) {
-	if (cond) {
-		passed += 1;
-		console.log(`PASS: ${label}`);
-	} else {
-		failed += 1;
-		failures.push(label + (detail ? `  [${detail}]` : ""));
-		console.log(`FAIL: ${label}${detail ? `  [${detail}]` : ""}`);
-	}
-}
+const { check, counts } = createChecker();
 
 async function buildExtension() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-model-thinking-integration-"));
@@ -284,9 +273,9 @@ async function main() {
 }
 
 function finish() {
-	console.log(`\nTOTAL: ${passed} passed, ${failed} failed`);
-	if (failed) {
-		console.log(failures.map((f) => `- ${f}`).join("\n"));
+	console.log(`\nTOTAL: ${counts.passed} passed, ${counts.failed} failed`);
+	if (counts.failed) {
+		console.log(counts.failures.map((f) => `- ${f}`).join("\n"));
 		process.exit(1);
 	}
 	process.exit(0);

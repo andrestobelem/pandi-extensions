@@ -51,6 +51,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createChecker } from "../../../../scripts/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-plan/tests/integration/ -> repo root is four levels up.
@@ -59,19 +60,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 // ---------------------------------------------------------------------------
 // Assertion harness
 // ---------------------------------------------------------------------------
-let passed = 0;
-let failed = 0;
-const failures = [];
-function check(label, cond, detail) {
-	if (cond) {
-		passed += 1;
-		console.log(`PASS: ${label}`);
-	} else {
-		failed += 1;
-		failures.push(label + (detail ? `  [${detail}]` : ""));
-		console.log(`FAIL: ${label}${detail ? `  [${detail}]` : ""}`);
-	}
-}
+const { check, counts } = createChecker();
 
 // ---------------------------------------------------------------------------
 // Build the current extensions/pi-plan/index.ts to ESM in a temp dir, return import URL.
@@ -766,10 +755,10 @@ async function main() {
 	}
 
 	console.log("");
-	console.log(`TOTAL: ${passed} passed, ${failed} failed`);
-	if (failed > 0) {
+	console.log(`TOTAL: ${counts.passed} passed, ${counts.failed} failed`);
+	if (counts.failed > 0) {
 		console.log("FAILURES:");
-		for (const f of failures) console.log(`  - ${f}`);
+		for (const f of counts.failures) console.log(`  - ${f}`);
 		process.exit(1);
 	}
 	process.exit(0);

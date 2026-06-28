@@ -17,23 +17,12 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createChecker } from "../../../../scripts/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
-let passed = 0;
-let failed = 0;
-const failures = [];
-function check(label, cond, detail) {
-	if (cond) {
-		passed += 1;
-		console.log(`PASS: ${label}`);
-	} else {
-		failed += 1;
-		failures.push(label + (detail ? `  [${detail}]` : ""));
-		console.log(`FAIL: ${label}${detail ? `  [${detail}]` : ""}`);
-	}
-}
+const { check, counts } = createChecker();
 
 function stableHash(value) {
 	return crypto.createHash("sha1").update(value).digest("hex").slice(0, 12);
@@ -409,9 +398,9 @@ async function main() {
 	await symlinkedArtifactFilesAreIgnored(url, agentDir);
 	await corruptArtifactsAreTolerated(url);
 
-	console.log(`\n${passed} passed, ${failed} failed`);
-	if (failed) {
-		console.error(failures.join("\n"));
+	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
+	if (counts.failed) {
+		console.error(counts.failures.join("\n"));
 		process.exit(1);
 	}
 }
