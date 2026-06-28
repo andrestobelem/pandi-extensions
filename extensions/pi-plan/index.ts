@@ -70,7 +70,7 @@ import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import { notify } from "./notify.js";
 import { collectLatestByKey } from "./session-state.js";
-import { buildPlanDashboardMarkdown } from "./dashboard.js";
+import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
 import { blockedReason } from "./gate.js";
 import { type PlanFlags, makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
 
@@ -460,9 +460,8 @@ function collectAllPlans(ctx: ExtensionContext): PlanState[] {
 
 /**
  * Open the plan-mode tracking dashboard. In a TUI it shows a scrollable overlay rendered
- * from the Markdown report; in non-interactive modes it prints the report. The overlay is
- * a minimal self-contained component (no pi-tui runtime import) so it never destabilizes
- * the bundled test harness; any overlay failure degrades to a notification.
+ * from the Markdown report; in non-interactive modes it prints the report. The overlay
+ * itself lives in dashboard.ts (`renderPlanDashboardOverlay`).
  */
 async function openPlanDashboard(ctx: ExtensionContext): Promise<void> {
 	const markdown = buildPlanDashboardMarkdown(collectAllPlans(ctx));
@@ -470,62 +469,7 @@ async function openPlanDashboard(ctx: ExtensionContext): Promise<void> {
 		console.log(markdown);
 		return;
 	}
-	try {
-		await ctx.ui.custom<void>((tui, _theme, _keybindings, done) => {
-			const allLines = markdown.split("\n");
-			let scroll = 0;
-			const FIXED = 5; // top border, title, spacer, footer, bottom border
-			const bodyHeight = () => Math.max(3, (tui.terminal.rows || 24) - FIXED);
-			const pad = (text: string, width: number) =>
-				(text.length > width ? text.slice(0, width) : text) + " ".repeat(Math.max(0, width - text.length));
-			return {
-				invalidate(): void {
-					/* no cached render state */
-				},
-				handleInput(data: string): void {
-					if (data === "q" || data === "\u001b") {
-						done(undefined);
-						return;
-					}
-					const page = Math.max(1, bodyHeight() - 1);
-					if (data === "\u001b[B" || data === "j") scroll += 1;
-					else if (data === "\u001b[A" || data === "k") scroll -= 1;
-					else if (data === " " || data === "\u001b[6~") scroll += page;
-					else if (data === "\u001b[5~") scroll -= page;
-					else if (data === "g") scroll = 0;
-					else if (data === "G") scroll = Number.MAX_SAFE_INTEGER;
-					else return;
-					tui.requestRender();
-				},
-				render(width: number): string[] {
-					const safeWidth = Math.max(20, width);
-					const height = bodyHeight();
-					const maxScroll = Math.max(0, allLines.length - height);
-					scroll = Math.min(Math.max(0, scroll), maxScroll);
-					const start = scroll;
-					const end = Math.min(allLines.length, start + height);
-					const visible = allLines.slice(start, end);
-					while (visible.length < height) visible.push("");
-					const border = "─".repeat(safeWidth);
-					const footer = `↑/↓ j/k scroll · PgUp/PgDn page · q/Esc close · ${start + 1}-${end}/${allLines.length}`;
-					return [
-						border,
-						pad("Plan Mode Dashboard", safeWidth),
-						"",
-						...visible.map((line) => pad(line, safeWidth)),
-						pad(footer, safeWidth),
-						border,
-					];
-				},
-			};
-		});
-	} catch (error) {
-		notify(
-			ctx,
-			`Could not open the plan dashboard: ${error instanceof Error ? error.message : String(error)}`,
-			"warning",
-		);
-	}
+	await renderPlanDashboardOverlay(ctx, markdown);
 }
 
 async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
