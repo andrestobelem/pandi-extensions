@@ -85,7 +85,7 @@ import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { formatEta } from "../shared/time.js";
+import { formatEta } from "./time.js";
 import { notify } from "../shared/notify.js";
 import { collectLatestByKey } from "../shared/session-state.js";
 import { formatInterval, parseInterval } from "./interval.js";

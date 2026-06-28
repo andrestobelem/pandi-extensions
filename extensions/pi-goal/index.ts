@@ -79,7 +79,7 @@ import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { formatEta } from "../shared/time.js";
+import { formatEta } from "./time.js";
 import { notify } from "../shared/notify.js";
 import { collectLatestByKey } from "../shared/session-state.js";
 
