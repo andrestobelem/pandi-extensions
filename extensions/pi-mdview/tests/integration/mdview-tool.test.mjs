@@ -16,13 +16,11 @@
  * test a stale bundle, then drives the REAL registered tool.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -30,31 +28,12 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function buildMdview() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-tool-"));
-	const src = path.join(REPO_ROOT, "extensions", "pi-mdview", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "mdview.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--no-install",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for mdview: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
-}
-
-let instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${instance++}`);
-	return mod.default;
+	return await buildExtension({
+		name: "pi-mdview-tool",
+		src: path.join(REPO_ROOT, "extensions", "pi-mdview", "index.ts"),
+		outName: "mdview.mjs",
+		npx: "--no-install",
+	});
 }
 
 function stripAnsi(value) {
@@ -127,7 +106,7 @@ function makeCtx({ cwd, mode = "tui", rows = 12, width = 80 } = {}) {
 }
 
 async function loadTool(url) {
-	const extension = await freshDefault(url);
+	const extension = await loadDefault(url);
 	const { pi, tools } = makePi();
 	extension(pi);
 	return tools.get("view_markdown");

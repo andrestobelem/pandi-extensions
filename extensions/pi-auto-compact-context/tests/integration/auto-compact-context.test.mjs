@@ -7,13 +7,9 @@
  * bring usage back below the threshold (the re-compaction loop).
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -21,28 +17,24 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function build() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-auto-compact-integration-"));
-	const src = path.join(REPO_ROOT, "extensions", "pi-auto-compact-context", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "ac.mjs");
-	const r = spawnSync("npx", ["--no-install", "esbuild", src, "--bundle", "--platform=node", "--format=esm", `--outfile=${out}`], {
-		cwd: REPO_ROOT,
-		encoding: "utf8",
+	const { url } = await buildExtension({
+		name: "pi-auto-compact-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-auto-compact-context", "index.ts"),
+		outName: "ac.mjs",
+		npx: "--no-install",
 	});
-	if (r.status !== 0) throw new Error(`esbuild failed: ${r.stderr || r.stdout}`);
-	return pathToFileURL(out).href;
+	return url;
 }
 
-let instance = 0;
 async function loadExtension(url) {
-	const mod = await import(`${url}?i=${instance++}`);
+	const extension = await loadDefault(url);
 	const handlers = new Map();
 	const commands = new Map();
 	const pi = {
 		on: (event, fn) => handlers.set(event, fn),
 		registerCommand: (name, opts) => commands.set(name, opts),
 	};
-	mod.default(pi);
+	extension(pi);
 	return { handlers, commands };
 }
 
@@ -126,7 +118,7 @@ async function belowThresholdNeverCompacts(url) {
 // Pure unit-level coverage for parseThreshold (named export). Imports the
 // bundled module directly; does not instantiate the extension.
 async function parseThresholdEdgeCases(url) {
-	const mod = await import(`${url}?i=${instance++}`);
+	const mod = await loadModule(url);
 	const parseThreshold = mod.parseThreshold;
 	check("parseThreshold: exported as a function", typeof parseThreshold === "function", `typeof=${typeof parseThreshold}`);
 	if (typeof parseThreshold !== "function") return;

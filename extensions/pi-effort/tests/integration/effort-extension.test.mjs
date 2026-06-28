@@ -11,13 +11,11 @@
  * - thinking_level_select keeps the status line in sync
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -25,31 +23,12 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function buildEffort() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-effort-integration-"));
-	const src = path.join(REPO_ROOT, "extensions", "pi-effort", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "effort.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--yes",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for effort: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
-}
-
-let instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${instance++}`);
-	return mod.default;
+	return await buildExtension({
+		name: "pi-effort-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-effort", "index.ts"),
+		outName: "effort.mjs",
+		npx: "--yes",
+	});
 }
 
 function makePi({ initialLevel = "medium", allTools = [], activeTools = [], clamp } = {}) {
@@ -103,7 +82,7 @@ async function fire(handlers, event, payload, ctx) {
 }
 
 async function scenarioLevels(url) {
-	const effortExtension = await freshDefault(url);
+	const effortExtension = await loadDefault(url);
 	const harness = makePi();
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
@@ -128,7 +107,7 @@ async function scenarioLevels(url) {
 }
 
 async function scenarioClampAndInvalid(url) {
-	const effortExtension = await freshDefault(url);
+	const effortExtension = await loadDefault(url);
 	const harness = makePi({ initialLevel: "medium", clamp: (next) => (next === "xhigh" ? "high" : next) });
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
@@ -145,7 +124,7 @@ async function scenarioClampAndInvalid(url) {
 }
 
 async function scenarioSelectorAndStatusEvent(url) {
-	const effortExtension = await freshDefault(url);
+	const effortExtension = await loadDefault(url);
 	const harness = makePi({ initialLevel: "medium" });
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
@@ -167,7 +146,7 @@ async function scenarioSelectorAndStatusEvent(url) {
 }
 
 async function scenarioUltracode(url) {
-	const effortExtension = await freshDefault(url);
+	const effortExtension = await loadDefault(url);
 	const harness = makePi({ allTools: ["read", "dynamic_workflow"], activeTools: ["read"] });
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
@@ -190,7 +169,7 @@ async function scenarioUltracode(url) {
 // session, /effort ultracode must still raise thinking to xhigh, must NOT activate a tool
 // that doesn't exist, and must warn that the router is unavailable.
 async function scenarioUltracodeToolUnavailable(url) {
-	const effortExtension = await freshDefault(url);
+	const effortExtension = await loadDefault(url);
 	const harness = makePi({ allTools: ["read"], activeTools: ["read"] });
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
@@ -207,7 +186,7 @@ async function scenarioUltracodeToolUnavailable(url) {
 }
 
 async function scenarioNotifyErrorRouting(url) {
-	const effortExtension = await freshDefault(url);
+	const effortExtension = await loadDefault(url);
 	const harness = makePi({ initialLevel: "medium" });
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");

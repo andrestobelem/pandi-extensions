@@ -54,14 +54,17 @@ export function createChecker() {
 }
 
 /**
- * Cache-busting dynamic import of a freshly built ESM module, returning its default
- * export. Each call appends a fresh `?i=` query so re-imports of the same URL within a
- * process always re-evaluate the module (the suites rely on a clean extension instance).
+ * Cache-busting dynamic import of a freshly built ESM module. Each call appends a fresh
+ * `?i=` query so re-imports of the same URL within a process always re-evaluate the
+ * module (the suites rely on a clean extension instance). `loadModule` returns the full
+ * namespace (for suites that read named exports); `loadDefault` returns `.default`.
  */
 let loadCounter = 0;
+export async function loadModule(url) {
+	return await import(`${url}?i=${loadCounter++}`);
+}
 export async function loadDefault(url) {
-	const mod = await import(`${url}?i=${loadCounter++}`);
-	return mod.default;
+	return (await loadModule(url)).default;
 }
 
 /**
