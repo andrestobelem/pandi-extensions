@@ -58,9 +58,12 @@ export default tseslint.config(
 			// Several hits are defensive initializers / idempotent cleanup writes
 			// in async orchestration paths; keep them visible without blocking.
 			"no-useless-assignment": "warn",
-			// stylisticTypeChecked: `||`→`??` changes falsy handling at runtime, so
-			// surface as warn (review case-by-case) instead of mass-rewriting.
-			"@typescript-eslint/prefer-nullish-coalescing": "warn",
+			// Reviewed every flagged site: they intentionally use `||`/`?:` so that
+			// empty/whitespace strings fall back (e.g. `id?.trim() || "latest"`,
+			// env-var defaults, `branch?.trim() || undefined` coercion). `??` would
+			// change that runtime behavior, so this rule is off rather than risk
+			// mass-rewriting correct `||` into subtly buggy `??`.
+			"@typescript-eslint/prefer-nullish-coalescing": "off",
 			// No-op callbacks (e.g. fire-and-forget `.catch(() => {})`) are
 			// intentional throughout the async orchestration code.
 			"@typescript-eslint/no-empty-function": "off",
