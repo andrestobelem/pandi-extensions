@@ -71,6 +71,7 @@ Comandos humanos:
 /workflow delete bug-hunt               # borra un workflow con confirmación
 /workflows
 /ultracode revisa todo el repo buscando bugs de concurrencia
+/dynamic-workflow revisa todo el repo buscando bugs de concurrencia   # alias de /ultracode
 /deep-research investiga opciones para migrar X a Y
 /effort high                           # cambia el thinking effort: off|minimal|low|medium|high|xhigh
 /effort ultracode                      # xhigh + router dinámico estilo Claude Code

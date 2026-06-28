@@ -168,6 +168,26 @@ async function scenarioSlashCommand(url) {
 	assertContractGate("/ultracode prompt", prompt);
 }
 
+async function scenarioDynamicWorkflowAlias(url) {
+	const extension = await freshExtension(url);
+	const harness = makePi();
+	extension(harness.pi);
+	const alias = harness.commands.get("dynamic-workflow");
+	const ultracode = harness.commands.get("ultracode");
+	check("/dynamic-workflow command registered", !!alias);
+	check("/dynamic-workflow command still coexists with /ultracode", !!ultracode);
+
+	await alias.handler("audita este repo", makeCtx());
+	const prompt = harness.messages[0]?.text ?? "";
+	check("/dynamic-workflow activates dynamic_workflow", harness.activeTools.includes("dynamic_workflow"), harness.activeTools.join(","));
+	check("/dynamic-workflow keeps original task", prompt.includes("Task:\naudita este repo"), prompt);
+	assertContractGate("/dynamic-workflow prompt", prompt);
+
+	const notifications = [];
+	await alias.handler("   ", makeCtx({ notifications }));
+	check("/dynamic-workflow with no task shows usage", notifications.at(-1)?.message === "Usage: /dynamic-workflow <task>", JSON.stringify(notifications.at(-1)));
+}
+
 async function scenarioInputTransform(url) {
 	const extension = await freshExtension(url);
 	const harness = makePi();
@@ -308,6 +328,7 @@ async function main() {
 	const { outDir, url } = await buildExtension();
 	try {
 		await scenarioSlashCommand(url);
+		await scenarioDynamicWorkflowAlias(url);
 		await scenarioInputTransform(url);
 		await scenarioAlwaysOn(url);
 		await scenarioContractGateToggle(url);

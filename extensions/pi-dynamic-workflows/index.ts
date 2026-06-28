@@ -4,6 +4,7 @@
  * This extension adds:
  * - `dynamic_workflow` tool for the model to list/read/write/run workflow scripts
  * - `/workflow` and `/workflows` commands for humans
+ * - `/ultracode` (alias `/dynamic-workflow`) and `/deep-research` routing commands
  * - a small JavaScript workflow runtime with parallel Pi subagents and artifacts
  *
  * Workflows are trusted code. They run inside the Pi process (not a security
@@ -2381,23 +2382,23 @@ interface ParsedRunEvents {
 	agents: AgentMonitorModel[];
 }
 
-function recordValue(value: unknown): Record<string, unknown> | undefined {
+export function recordValue(value: unknown): Record<string, unknown> | undefined {
 	return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
-function stringValue(value: unknown): string | undefined {
+export function stringValue(value: unknown): string | undefined {
 	return typeof value === "string" ? value : undefined;
 }
 
-function numberValue(value: unknown): number | undefined {
+export function numberValue(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function booleanValue(value: unknown): boolean | undefined {
+export function booleanValue(value: unknown): boolean | undefined {
 	return typeof value === "boolean" ? value : undefined;
 }
 
-function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<SubagentResult> {
+export function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<SubagentResult> {
 	if (!phase || phase.total <= 0) return {};
 	return {
 		phaseId: phase.id,
@@ -2410,7 +2411,7 @@ function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<SubagentRe
 // Live elapsed for an agent: use the recorded value once it ends, otherwise
 // derive it from startedAt while running so the row ticks instead of showing a
 // frozen "elapsed:…" placeholder.
-function getAgentElapsedMs(agent: Pick<AgentMonitorModel, "state" | "startedAt" | "elapsedMs">): number | undefined {
+export function getAgentElapsedMs(agent: Pick<AgentMonitorModel, "state" | "startedAt" | "elapsedMs">): number | undefined {
 	if (agent.elapsedMs !== undefined) return agent.elapsedMs;
 	if (agent.state === "running" && agent.startedAt) {
 		const started = new Date(agent.startedAt).getTime();
@@ -2419,23 +2420,23 @@ function getAgentElapsedMs(agent: Pick<AgentMonitorModel, "state" | "startedAt" 
 	return undefined;
 }
 
-function formatAgentPhase(agent: Pick<AgentMonitorModel, "phaseId" | "phaseIndex" | "phaseTotal" | "phaseLabel">): string | undefined {
+export function formatAgentPhase(agent: Pick<AgentMonitorModel, "phaseId" | "phaseIndex" | "phaseTotal" | "phaseLabel">): string | undefined {
 	if (!agent.phaseIndex || !agent.phaseTotal) return undefined;
 	const batch = agent.phaseId ? `P${agent.phaseId} ` : "";
 	return `${batch}${agent.phaseIndex}/${agent.phaseTotal}`;
 }
 
-function stringArrayValue(value: unknown): string[] | undefined {
+export function stringArrayValue(value: unknown): string[] | undefined {
 	if (!Array.isArray(value)) return undefined;
 	const values = value.filter((item): item is string => typeof item === "string");
 	return values.length === value.length ? values : undefined;
 }
 
-function isAgentMonitorState(value: unknown): value is AgentMonitorState {
+export function isAgentMonitorState(value: unknown): value is AgentMonitorState {
 	return value === "running" || value === "completed" || value === "failed" || value === "cached" || value === "unknown";
 }
 
-function mergeAgentMonitor(existing: AgentMonitorModel | undefined, patch: Partial<AgentMonitorModel> & { id: number; name: string }): AgentMonitorModel {
+export function mergeAgentMonitor(existing: AgentMonitorModel | undefined, patch: Partial<AgentMonitorModel> & { id: number; name: string }): AgentMonitorModel {
 	const existingState = existing?.state;
 	const patchState = patch.state;
 	const state = existingState && (existingState === "completed" || existingState === "failed" || existingState === "cached") && patchState === "running"
@@ -2484,7 +2485,7 @@ async function readFilePrefix(file: string, maxBytes = 16_000): Promise<string> 
 	}
 }
 
-async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
+export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 	const logs: WorkflowLogEntry[] = [];
 	const agentsById = new Map<number, AgentMonitorModel>();
 	const upsert = (patch: Partial<AgentMonitorModel> & { id: number; name: string }) => {
@@ -6262,6 +6263,19 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; ultracode will only provide routing guidance.", "warning");
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
+		},
+	});
+
+	pi.registerCommand("dynamic-workflow", {
+		description: "Alias for /ultracode: solve a complex task using dynamic workflows when warranted",
+		handler: async (args, ctx) => {
+			const task = args.trim();
+			if (!task) {
+				notify(ctx, "Usage: /dynamic-workflow <task>", "warning");
+				return;
+			}
+			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; dynamic-workflow will only provide routing guidance.", "warning");
 			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
 		},
 	});
