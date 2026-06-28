@@ -16,6 +16,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { THINKING_LEVELS, parseEffortTarget } from "./parse.js";
 import type { EffortTarget, ThinkingLevel } from "./parse.js";
+import { notify } from "./notify.js";
 
 const EFFORT_STATUS_KEY = "effort";
 // Keep this string in sync with extensions/dynamic-workflows/index.ts. The event is
@@ -46,20 +47,6 @@ const SELECT_ITEMS = [
 	"xhigh — extra-high thinking",
 	"ultracode — xhigh + dynamic workflow router",
 ];
-
-function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	if (ctx.mode === "print") {
-		// stdout carries machine-readable output in print mode; keep warnings/errors on stderr.
-		(type === "info" ? console.log : console.error)(message);
-		return;
-	}
-	if (ctx.hasUI) {
-		ctx.ui.notify(message, type);
-		return;
-	}
-	// Headless without UI: surface problems on stderr instead of silently dropping them.
-	if (type !== "info") console.error(message);
-}
 
 function usage(current: string): string {
 	return `Current effort: ${current}. Usage: /effort <off|minimal|low|medium|high|xhigh|ultracode>`;
