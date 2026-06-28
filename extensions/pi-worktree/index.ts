@@ -14,6 +14,9 @@
  * there (`cd <path> && pi`).
  */
 
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
@@ -103,7 +106,7 @@ async function listWorktrees(
 // --------------------------------------------------------------------------
 
 interface ParsedCommand {
-	action: "list" | "add" | "remove" | "prune" | "help";
+	action: "list" | "add" | "open" | "remove" | "prune" | "help";
 	path?: string;
 	newBranch?: string;
 	commitish?: string;
@@ -141,7 +144,7 @@ export function parseCommand(input: string): ParsedCommand {
 		return { action: "prune", dryRun };
 	}
 
-	if (head === "add") {
+	if (head === "add" || head === "open") {
 		const rest = tokens.slice(1);
 		const positionals: string[] = [];
 		let newBranch: string | undefined;
@@ -160,11 +163,15 @@ export function parseCommand(input: string): ParsedCommand {
 			}
 		}
 		const [pathArg, commitish] = positionals;
-		if (!pathArg) return { action: "add", error: "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]" };
+		const usage =
+			head === "open"
+				? "Usage: /worktree open [-b <branch>] <path> [<commit-ish>]"
+				: "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]";
+		if (!pathArg) return { action: head, error: usage };
 		if (newBranch !== undefined && !isValidBranchName(newBranch)) {
-			return { action: "add", error: `Invalid branch name: "${newBranch ?? ""}"` };
+			return { action: head, error: `Invalid branch name: "${newBranch ?? ""}"` };
 		}
-		return { action: "add", path: pathArg, newBranch, commitish, force, detach };
+		return { action: head, path: pathArg, newBranch, commitish, force, detach };
 	}
 
 	if (head === "remove" || head === "rm") {
@@ -182,6 +189,7 @@ const HELP_TEXT = [
 	"Usage:",
 	"  /worktree [list]                       list worktrees",
 	"  /worktree add [-b <branch>] [--detach] [--force] <path> [<commit-ish>]   add a worktree",
+	"  /worktree open [-b <branch>] [--detach] [--force] <path> [<commit-ish>]  create-if-missing, then open Pi in it",
 	"  /worktree remove [--force] <path>      remove a worktree",
 	"  /worktree prune [--dry-run]            prune stale worktree metadata",
 	"",
@@ -233,6 +241,263 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 	const branchNote = parsed.newBranch ? ` (new branch ${parsed.newBranch})` : "";
 	const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
 	notify(ctx, `Added worktree at ${target.path}${branchNote}${locationNote}.`, "info");
+}
+
+// --------------------------------------------------------------------------
+// Open: create-if-missing a worktree and start a new Pi session in it
+// --------------------------------------------------------------------------
+
+// Supacode's CLI acks `tab new` over the controlling TTY (OSC). A child spawned
+// without a TTY never gets that ack and the command times out — EVEN THOUGH the
+// tab is created. So we generate the tab id ourselves (`tab new -n`) and confirm
+// creation via `tab list` (a read that works over the socket), instead of
+// trusting `tab new`'s exit code or stdout.
+const SUPACODE_LIST_TIMEOUT_MS = 5_000;
+const SUPACODE_VERIFY_TIMEOUT_MS = 5_000;
+const SUPACODE_VERIFY_DELAY_MS = 350;
+
+/** True when running inside a Supacode terminal (which can open a new tab). */
+function isSupacode(): boolean {
+	return process.env.TERM_PROGRAM === "supacode" || Boolean(process.env.SUPACODE_SOCKET_PATH);
+}
+
+/** POSIX single-quote a string so it is safe inside a shell command. */
+function shellQuote(value: string): string {
+	return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, ms);
+		signal?.addEventListener(
+			"abort",
+			() => {
+				clearTimeout(timer);
+				resolve();
+			},
+			{ once: true },
+		);
+	});
+}
+
+/**
+ * Run a `supacode` subcommand with an argv array (never a shell string). Never
+ * rejects: spawn failure, non-zero exit, timeout, and abort all resolve to a
+ * typed result. `spawnFailed` flags a missing/broken binary (child 'error') so
+ * callers can tell it apart from the expected ack timeout of `tab new`.
+ */
+function runSupacode(
+	args: string[],
+	timeoutMs: number,
+	signal?: AbortSignal,
+): Promise<{ ok: boolean; stdout: string; spawnFailed: boolean; error?: string }> {
+	return new Promise((resolve) => {
+		let stdout = "";
+		let stderr = "";
+		let settled = false;
+		const child = spawn("supacode", args, { windowsHide: true });
+		const finish = (result: { ok: boolean; stdout: string; spawnFailed: boolean; error?: string }): void => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			if (signal) signal.removeEventListener("abort", onAbort);
+			try {
+				child.kill("SIGKILL");
+			} catch {
+				/* already gone */
+			}
+			resolve(result);
+		};
+		const onAbort = (): void => finish({ ok: false, stdout, spawnFailed: false, error: "aborted" });
+		const timer = setTimeout(
+			() => finish({ ok: false, stdout, spawnFailed: false, error: "supacode timed out" }),
+			timeoutMs,
+		);
+		if (signal) {
+			if (signal.aborted) {
+				onAbort();
+				return;
+			}
+			signal.addEventListener("abort", onAbort);
+		}
+		child.stdout?.on("data", (d) => {
+			stdout += String(d);
+		});
+		child.stderr?.on("data", (d) => {
+			stderr += String(d);
+		});
+		child.on("error", (err) => finish({ ok: false, stdout, spawnFailed: true, error: err.message }));
+		child.on("close", (code) =>
+			finish({
+				ok: code === 0,
+				stdout,
+				spawnFailed: false,
+				error: code === 0 ? undefined : stderr.trim() || `supacode exited with code ${code}`,
+			}),
+		);
+	});
+}
+
+/**
+ * Open a new Pi session in a Supacode tab whose shell starts in `cwd`. The tab id
+ * is generated here and passed via `tab new -n`, then confirmed with `tab list`,
+ * so the result is correct even though `tab new` times out waiting for a TTY ack
+ * it can never receive (the tab is still created). The only shell-evaluated text
+ * is the `-i` input, where the path is single-quoted.
+ */
+async function openSupacodeTab(
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<{ ok: boolean; tabId?: string; error?: string }> {
+	const tabId = randomUUID().toUpperCase();
+	const input = `cd ${shellQuote(cwd)} && exec pi`;
+	// Fire-and-forget: this call hangs ~10s on the missing ack, so we do not await
+	// it. We keep the handle to detect a spawn failure and to kill the straggler
+	// once the tab is confirmed.
+	const create = spawn("supacode", ["tab", "new", "-n", tabId, "-i", input], { windowsHide: true });
+	let spawnError: string | undefined;
+	create.on("error", (err) => {
+		spawnError = err.message;
+	});
+	create.stdout?.resume();
+	create.stderr?.resume();
+	try {
+		const deadline = Date.now() + SUPACODE_VERIFY_TIMEOUT_MS;
+		do {
+			if (signal?.aborted) return { ok: false, error: "aborted" };
+			if (spawnError) return { ok: false, error: spawnError };
+			const list = await runSupacode(["tab", "list"], SUPACODE_LIST_TIMEOUT_MS, signal);
+			if (list.spawnFailed) return { ok: false, error: list.error ?? "could not run supacode" };
+			if (list.ok && list.stdout.toUpperCase().includes(tabId)) return { ok: true, tabId };
+			await delay(SUPACODE_VERIFY_DELAY_MS, signal);
+		} while (Date.now() < deadline);
+		return { ok: false, error: spawnError ?? "supacode did not report the new tab in time" };
+	} finally {
+		try {
+			create.kill("SIGKILL");
+		} catch {
+			/* already gone */
+		}
+	}
+}
+
+interface OpenOptions {
+	path?: string;
+	newBranch?: string;
+	commitish?: string;
+	detach?: boolean;
+	force?: boolean;
+}
+
+interface OpenOutcome {
+	ok: boolean;
+	path: string;
+	created: boolean;
+	opened: boolean;
+	tabId?: string;
+	message: string;
+	isError?: boolean;
+}
+
+/**
+ * Resolve a worktree target, create it when its directory does not exist yet,
+ * then start a NEW Pi session in it (a new Supacode tab when available; otherwise
+ * report the `cd <path> && pi` command). The current session's cwd never changes.
+ * Shared by the /worktree open command and the git_worktree tool.
+ */
+async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: AbortSignal): Promise<OpenOutcome> {
+	const target = resolveWorktreeTarget(opts.path ?? "", ctx.cwd);
+	if (!target) {
+		return {
+			ok: false,
+			path: "",
+			created: false,
+			opened: false,
+			isError: true,
+			message: "open requires a 'path'.",
+		};
+	}
+	if (opts.newBranch !== undefined && !isValidBranchName(opts.newBranch)) {
+		return {
+			ok: false,
+			path: target.path,
+			created: false,
+			opened: false,
+			isError: true,
+			message: `Invalid branch name: "${opts.newBranch}"`,
+		};
+	}
+	let created = false;
+	if (!existsSync(target.path)) {
+		if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
+		const args = buildAddArgs({
+			path: target.path,
+			newBranch: opts.newBranch,
+			commitish: opts.commitish,
+			detach: opts.detach,
+			force: opts.force,
+		});
+		const result = await runGit(args, { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
+		if (!result.ok) {
+			return {
+				ok: false,
+				path: target.path,
+				created: false,
+				opened: false,
+				isError: true,
+				message: `Could not create worktree: ${gitError(result)}`,
+			};
+		}
+		created = true;
+	}
+	const state = created ? "created" : "ready";
+	const openHint = `cd ${target.path} && pi`;
+	if (!isSupacode()) {
+		return {
+			ok: true,
+			path: target.path,
+			created,
+			opened: false,
+			message: `Worktree ${state} at ${target.path}. Open it with: ${openHint}`,
+		};
+	}
+	const tab = await openSupacodeTab(target.path, signal);
+	if (!tab.ok) {
+		return {
+			ok: true,
+			path: target.path,
+			created,
+			opened: false,
+			message: `Worktree ${state} at ${target.path}, but could not open a Supacode tab: ${tab.error}. Open it with: ${openHint}`,
+		};
+	}
+	return {
+		ok: true,
+		path: target.path,
+		created,
+		opened: true,
+		tabId: tab.tabId,
+		message: `Opened Pi in a new Supacode tab${tab.tabId ? ` (${tab.tabId})` : ""} at ${target.path}${created ? " (new worktree)" : ""}.`,
+	};
+}
+
+async function handleOpen(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
+	if (parsed.error) {
+		notify(ctx, parsed.error, "warning");
+		return;
+	}
+	const outcome = await openWorktree(
+		ctx,
+		{
+			path: parsed.path,
+			newBranch: parsed.newBranch,
+			commitish: parsed.commitish,
+			detach: parsed.detach,
+			force: parsed.force,
+		},
+		signal,
+	);
+	notify(ctx, outcome.message, outcome.isError ? "error" : "info");
 }
 
 async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
@@ -400,6 +665,9 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 		case "add":
 			await handleAdd(ctx, parsed, signal);
 			return;
+		case "open":
+			await handleOpen(ctx, parsed, signal);
+			return;
 		case "remove":
 			await handleRemove(ctx, parsed, signal);
 			return;
@@ -413,13 +681,13 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 // Tool: git_worktree (model-callable)
 // --------------------------------------------------------------------------
 
-export type GitWorktreeAction = "list" | "add" | "remove" | "prune";
+export type GitWorktreeAction = "list" | "add" | "open" | "remove" | "prune";
 
-const SUBCOMMANDS = ["list", "add", "remove", "prune", "help"] as const;
+const SUBCOMMANDS = ["list", "add", "open", "remove", "prune", "help"] as const;
 
 export default function worktreeExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("worktree", {
-		description: "Manage git worktrees: list | add | remove | prune",
+		description: "Manage git worktrees: list | add | open | remove | prune",
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/);
 			// Only complete the first token (the subcommand).
@@ -437,19 +705,20 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		name: "git_worktree",
 		label: "Git Worktree",
 		description:
-			"Manage git worktrees in the current repository. Actions: 'list' (enumerate worktrees), 'add' (create a worktree at a path, optionally on a new branch), 'remove' (delete a worktree; refuses a dirty worktree unless force=true), 'prune' (clean stale worktree metadata). git is invoked with an argv array, never a shell.",
-		promptSnippet: "List, add, remove, or prune git worktrees.",
+			"Manage git worktrees in the current repository. Actions: 'list' (enumerate worktrees), 'add' (create a worktree at a path, optionally on a new branch), 'open' (create the worktree if missing, then start a NEW Pi session in it — a new Supacode tab when running under Supacode, otherwise it reports the cd+pi command; the current session's cwd never changes), 'remove' (delete a worktree; refuses a dirty worktree unless force=true), 'prune' (clean stale worktree metadata). git is invoked with an argv array, never a shell.",
+		promptSnippet: "List, add, open, remove, or prune git worktrees.",
 		promptGuidelines: [
-			"Use git_worktree to inspect or manage git worktrees (list/add/remove/prune) instead of hand-writing `git worktree` bash commands.",
+			"Use git_worktree to inspect or manage git worktrees (list/add/open/remove/prune) instead of hand-writing `git worktree` bash commands.",
 			"git_worktree remove never force-deletes by default: only pass force=true when the user explicitly accepts discarding a dirty worktree's changes.",
-			"Pi's cwd is fixed for the session, so git_worktree cannot switch into another worktree — report the worktree path so the user can open a new Pi there.",
+			"Pi's cwd is fixed for the session, so git_worktree cannot switch the CURRENT session into another worktree — report the worktree path so the user can open a new Pi there.",
+			"Use action 'open' when the user wants to start working in a worktree: it creates the worktree if missing and opens a NEW Pi session in it (a new Supacode tab under Supacode; otherwise it returns the `cd <path> && pi` command). It does not move the current session.",
 		],
 		parameters: Type.Object({
-			action: StringEnum(["list", "add", "remove", "prune"] as const),
+			action: StringEnum(["list", "add", "open", "remove", "prune"] as const),
 			path: Type.Optional(
 				Type.String({
 					description:
-						"Worktree location (required for add/remove). A BARE name with no '/' (e.g. \"feature\") is created under <configDir>/worktrees/<name> (gitignored). Use ./x, ../x, /abs, or ~/x to place it literally (relative to cwd / home / absolute).",
+						"Worktree location (required for add/open/remove). A BARE name with no '/' (e.g. \"feature\") is created under <configDir>/worktrees/<name> (gitignored). Use ./x, ../x, /abs, or ~/x to place it literally (relative to cwd / home / absolute).",
 				}),
 			),
 			branch: Type.Optional(
@@ -570,6 +839,32 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 						branch: params.branch ?? null,
 						defaultBase: target.usedDefaultBase,
 					},
+				};
+			}
+
+			if (params.action === "open") {
+				const outcome = await openWorktree(
+					ctx,
+					{
+						path: params.path,
+						newBranch: params.branch,
+						commitish: params.commitish,
+						detach: params.detach,
+						force: params.force,
+					},
+					signal ?? undefined,
+				);
+				return {
+					content: [{ type: "text" as const, text: outcome.message }],
+					details: outcome.isError
+						? { isError: true, action: "open", path: outcome.path || null }
+						: {
+								action: "open",
+								path: outcome.path,
+								created: outcome.created,
+								opened: outcome.opened,
+								tabId: outcome.tabId ?? null,
+							},
 				};
 			}
 

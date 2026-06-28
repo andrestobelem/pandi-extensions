@@ -1,7 +1,7 @@
 {
 	"name": "pi-dynamic-workflows-worktree",
 	"version": "0.1.0",
-	"description": "Pi extension to manage git worktrees: a /worktree command and a model-callable git_worktree tool (list/add/remove/prune).",
+	"description": "Pi extension to manage git worktrees: a /worktree command and a model-callable git_worktree tool (list/add/open/remove/prune).",
 	"license": "MIT",
 	"type": "module",
 	"keywords": [
