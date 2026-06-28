@@ -621,4 +621,17 @@ export default function bgExtension(pi: ExtensionAPI): void {
 		},
 		handler: async (args, ctx) => notify(ctx, await handleBgCommand(args, ctx)),
 	});
+
+	// Self-heal at startup (only persistent, trusted sessions, where jobs are owned):
+	// rewrite project-local jobs whose recorded pid is dead from a stale `running` to a
+	// terminal `interrupted`, so the on-disk artifact stops claiming `running` forever.
+	// Best-effort; never let it break session start.
+	pi.on("session_start", async (_event, ctx) => {
+		if (!canRunInMode(ctx)) return;
+		try {
+			await reconcileInterruptedJobs(ctx);
+		} catch {
+			// ignore: reconcile is non-critical bookkeeping
+		}
+	});
 }

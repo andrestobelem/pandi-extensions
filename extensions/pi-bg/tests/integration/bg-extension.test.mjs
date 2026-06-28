@@ -386,6 +386,45 @@ async function corruptArtifactsAreTolerated(url) {
 	check("corrupt: missing logs are reported safely", /No logs found/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
 }
 
+async function sessionStartReconcilesInterruptedJobs(url) {
+	const extension = await freshDefault(url);
+	const handlers = new Map();
+	const tools = new Map();
+	const pi = {
+		registerCommand: () => {},
+		registerTool: (def) => tools.set(def.name, def),
+		on: (event, handler) => handlers.set(event, handler),
+		appendEntry: () => {},
+		sendUserMessage: () => {},
+		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+	};
+	extension(pi);
+	check("session-start: registers a session_start handler", handlers.has("session_start"), [...handlers.keys()].join(","));
+	check("session-start: still registers no LLM tools", tools.size === 0, [...tools.keys()].join(","));
+	if (!handlers.has("session_start")) return;
+	const handler = handlers.get("session_start");
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+
+	const seedDeadJob = async (jobId) => {
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-session-start-"));
+		const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
+		await fs.mkdir(runDir, { recursive: true });
+		await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: dead.pid, updatedAt: "2026-06-25T00:00:00.000Z" }, null, 2));
+		return { cwd, runDir };
+	};
+	const readState = async (runDir) => JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")).state;
+
+	// TUI session: a dead running job is reconciled to interrupted on disk.
+	const tui = await seedDeadJob("dead-on-start");
+	await handler({}, makeCtx({ cwd: tui.cwd, trusted: true, mode: "tui" }));
+	check("session-start: dead running job is reconciled to interrupted (tui)", (await readState(tui.runDir)) === "interrupted", await readState(tui.runDir));
+
+	// Non-persistent json mode: gated off, the artifact is left running.
+	const json = await seedDeadJob("dead-json");
+	await handler({}, makeCtx({ cwd: json.cwd, trusted: true, mode: "json" }));
+	check("session-start: json mode is gated off (no reconcile)", (await readState(json.runDir)) === "running", await readState(json.runDir));
+}
+
 async function main() {
 	const { url, planUrl, agentDir } = await buildBg();
 	await dryRunHasNoRuntimeWrites(url);
@@ -397,6 +436,7 @@ async function main() {
 	await symlinkedArtifactRootsAreIgnored(url, agentDir);
 	await symlinkedArtifactFilesAreIgnored(url, agentDir);
 	await corruptArtifactsAreTolerated(url);
+	await sessionStartReconcilesInterruptedJobs(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {
