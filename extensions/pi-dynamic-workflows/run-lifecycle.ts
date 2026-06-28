@@ -18,6 +18,7 @@ import { resolveRun, selectRunByKey } from "./run-view.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
 import { buildLimits, limitParamsFromInput } from "./config.js";
 import { notify } from "./notify.js";
+import { runWorkflowWithUi } from "./dashboard-orchestration.js";
 import {
 	runWorkflow,
 	prepareWorkflowRun,
@@ -26,7 +27,6 @@ import {
 	activeRuns,
 	ensureDir,
 	formatRunSummary,
-	runWorkflowWithUi,
 } from "./index.js";
 import type {
 	ActiveWorkflowRun,

@@ -12,8 +12,8 @@
 import { Key, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
 import type { EditorComponent } from "@earendil-works/pi-tui";
 import { stripAnsiCodes } from "./render-utils.js";
-import { openWorkflowDashboard } from "./index.js";
-import type { DashboardCommandSubmitter, DashboardOpener } from "./index.js";
+import { openWorkflowDashboard } from "./dashboard-orchestration.js";
+import type { DashboardCommandSubmitter, DashboardOpener } from "./dashboard-orchestration.js";
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { ExtensionContext, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
