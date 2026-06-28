@@ -81,7 +81,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { formatEta } from "./time.js";
 import { notify } from "./notify.js";
-import { collectLatestByKey } from "../shared/session-state.js";
+import { collectLatestByKey } from "./session-state.js";
 
 const GOAL_STATE_TYPE = "goal-state";
 const GOAL_STATUS_KEY = "goal";

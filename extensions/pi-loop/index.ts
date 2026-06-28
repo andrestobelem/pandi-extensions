@@ -87,7 +87,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { formatEta } from "./time.js";
 import { notify } from "./notify.js";
-import { collectLatestByKey } from "../shared/session-state.js";
+import { collectLatestByKey } from "./session-state.js";
 import { formatInterval, parseInterval } from "./interval.js";
 import { destructiveReason } from "./gate.js";
 import { makeLoopIterationPrompt } from "./prompt.js";

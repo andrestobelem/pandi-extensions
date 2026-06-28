@@ -69,7 +69,7 @@ import {
 import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import { notify } from "./notify.js";
-import { collectLatestByKey } from "../shared/session-state.js";
+import { collectLatestByKey } from "./session-state.js";
 import { blockedReason } from "./gate.js";
 import { makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
 
