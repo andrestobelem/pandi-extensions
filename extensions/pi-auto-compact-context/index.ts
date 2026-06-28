@@ -111,6 +111,79 @@ export const selectSnapshotsToPrune = (fileNames: string[], keep: number): strin
 	return snaps.slice(0, Math.max(0, snaps.length - keep));
 };
 
+// Tool-result clearing shares the on/off grammar (aliased for intent at call sites).
+export const parseClearSetting = parseOnOff;
+
+// Sentinel embedded in elided tool-result text. Detecting it makes clearing idempotent
+// (a re-run never re-clears already-cleared text) and lets humans spot trimmed output.
+export const CLEARED_SENTINEL = "[pi-auto-compact cleared";
+
+export interface ClearToolResultsOptions {
+	/** Keep the most recent N tool results fully intact (recency zone). */
+	keepRecent: number;
+	/** Only elide text blocks longer than this. */
+	minChars: number;
+	/** Characters of the original head to retain. */
+	headChars: number;
+	/** Characters of the original tail to retain (the "decision tail"). */
+	tailChars: number;
+}
+
+// Pure, non-mutating tool-result clearing (research §3b). Returns a NEW array with the
+// bulky TEXT of OLD, consumed tool results elided to head + marker + tail, or null when
+// nothing changed. Preserves message identity for everything it does not touch, keeps
+// toolCallId/toolName/isError and image blocks, KEEPS the last keepRecent results and
+// error results (recovery signal), and is idempotent via CLEARED_SENTINEL. The caller
+// applies this per LLM call only — the session retains the originals, so it is ephemeral
+// and fully recoverable, never destructive.
+export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToolResultsOptions): unknown[] | null => {
+	if (!Array.isArray(messages) || messages.length === 0) return null;
+	const { keepRecent, minChars, headChars, tailChars } = opts;
+	const isToolResult = (m: unknown): m is Record<string, unknown> =>
+		!!m && typeof m === "object" && (m as Record<string, unknown>).role === "toolResult";
+
+	const toolResultIdx: number[] = [];
+	for (let i = 0; i < messages.length; i++) if (isToolResult(messages[i])) toolResultIdx.push(i);
+	if (toolResultIdx.length === 0) return null;
+
+	// Everything except the last keepRecent tool results is clearable.
+	const clearable = toolResultIdx.slice(0, Math.max(0, toolResultIdx.length - Math.max(0, keepRecent)));
+	if (clearable.length === 0) return null;
+	// Never clear unless the head+tail we keep is strictly smaller than the text.
+	const minEffective = Math.max(minChars, headChars + tailChars + 1);
+
+	let changed = false;
+	const out = messages.slice();
+	for (const i of clearable) {
+		const msg = messages[i] as Record<string, unknown>;
+		if (msg.isError === true) continue; // keep failures fully (recovery signal)
+		const content = msg.content;
+		if (!Array.isArray(content)) continue;
+		let blockChanged = false;
+		const newContent = content.map((block: unknown) => {
+			if (!block || typeof block !== "object") return block;
+			const b = block as Record<string, unknown>;
+			if (b.type !== "text" || typeof b.text !== "string") return block;
+			const text = b.text;
+			if (text.length <= minEffective || text.includes(CLEARED_SENTINEL)) return block;
+			const head = text.slice(0, headChars);
+			const tail = text.slice(text.length - tailChars);
+			const removed = text.length - head.length - tail.length;
+			const toolName = typeof msg.toolName === "string" ? msg.toolName : "tool";
+			blockChanged = true;
+			return {
+				...b,
+				text: `${head}\n\u2026${CLEARED_SENTINEL} ${removed} chars of this ${toolName} result to save context; the full output is preserved in the session and can be re-read]\u2026\n${tail}`,
+			};
+		});
+		if (blockChanged) {
+			out[i] = { ...msg, content: newContent };
+			changed = true;
+		}
+	}
+	return changed ? out : null;
+};
+
 // Interactive menu shown for a bare `/auto-compact-context` in a UI session. The text
 // BEFORE " — " is the canonical command the handler already understands.
 export const MENU_OPTIONS = [
@@ -123,6 +196,8 @@ export const MENU_OPTIONS = [
 	"snapshot on — keep recoverable pre-compaction snapshots",
 	"snapshot off — stop keeping snapshots",
 	"snapshots — list recent snapshots",
+	"clear-tools on — elide old large tool outputs (cheaper than compaction)",
+	"clear-tools off — stop eliding old tool outputs",
 	"threshold — set the compaction threshold %",
 ];
 
@@ -142,6 +217,9 @@ const ARG_COMPLETIONS: { value: string; label: string; description: string }[] =
 	{ value: "snapshot on", label: "snapshot on", description: "Keep recoverable pre-compaction snapshots" },
 	{ value: "snapshot off", label: "snapshot off", description: "Stop keeping snapshots" },
 	{ value: "snapshots", label: "snapshots", description: "List recent snapshots for this session" },
+	{ value: "clear-tools", label: "clear-tools", description: "Toggle eliding old large tool outputs" },
+	{ value: "clear-tools on", label: "clear-tools on", description: "Elide old large tool outputs per LLM call" },
+	{ value: "clear-tools off", label: "clear-tools off", description: "Stop eliding old tool outputs" },
 	{ value: "20", label: "20%", description: "Set threshold to 20%" },
 	{ value: "30", label: "30%", description: "Set threshold to 30% (default)" },
 	{ value: "40", label: "40%", description: "Set threshold to 40%" },
@@ -222,6 +300,16 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 	// Path of the snapshot written on the most recent session_before_compact, awaiting
 	// its summary on session_compact. Compaction is never concurrent, so one slot suffices.
 	let pendingSnapshotPath: string | undefined;
+	// Tool-result clearing (research §3b): a cheaper, EPHEMERAL lever than compaction.
+	// Before each LLM call, elide the bulky text of OLD consumed tool results; the session
+	// keeps the originals, so it is non-destructive/recoverable. OFF by default (it changes
+	// what the model sees every call); independent from the compaction trigger.
+	let clearToolResults = parseClearSetting(process.env.PI_AUTO_COMPACT_CLEAR_TOOL_RESULTS) ?? false;
+	// Reused positive-int parser (same semantics as the snapshot budget).
+	const clearKeepRecent = parseSnapshotKeep(process.env.PI_AUTO_COMPACT_CLEAR_KEEP_RECENT) ?? 3;
+	const clearMinChars = parseSnapshotKeep(process.env.PI_AUTO_COMPACT_CLEAR_MIN_CHARS) ?? 2000;
+	const CLEAR_HEAD_CHARS = 200;
+	const CLEAR_TAIL_CHARS = 200;
 
 	const notify = (ctx: ExtensionContext, message: string, level: "info" | "warning" | "error" = "info") => {
 		if (ctx.hasUI) ctx.ui.notify(message, level);
@@ -360,6 +448,24 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 		finalizeCompactionSnapshot(ctx, event);
 	});
 
+	// Tool-result clearing runs before EACH LLM call and only affects that call's payload;
+	// the session retains the originals (ephemeral + recoverable). Fail-safe: never throws,
+	// returns nothing when disabled or when no message changed.
+	pi.on("context", (event) => {
+		if (!clearToolResults) return;
+		try {
+			const next = clearOldToolResults(event.messages, {
+				keepRecent: clearKeepRecent,
+				minChars: clearMinChars,
+				headChars: CLEAR_HEAD_CHARS,
+				tailChars: CLEAR_TAIL_CHARS,
+			});
+			if (next) return { messages: next as typeof event.messages };
+		} catch {
+			/* fail-safe: leave the context unchanged */
+		}
+	});
+
 	// turn_end can fire between tool calls inside one assistant turn. Only mark
 	// compaction as pending here so the active workflow is not interrupted.
 	pi.on("turn_end", (_event, ctx) => {
@@ -400,7 +506,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 			if (!trimmed || trimmed === "status") {
 				notify(
 					ctx,
-					`Auto-compaction context is ${enabled ? "enabled" : "disabled"}; threshold: ${thresholdPercent}%; bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (keep ${snapshotKeep})`,
+					`Auto-compaction context is ${enabled ? "enabled" : "disabled"}; threshold: ${thresholdPercent}%; bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (keep ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (keep ${clearKeepRecent}, >=${clearMinChars} chars)`,
 					"info",
 				);
 				return;
@@ -477,11 +583,24 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 				return;
 			}
 
+			// `clear-tools` (toggle), `clear-tools on`, `clear-tools off` — elide old tool outputs.
+			if (trimmed === "clear-tools" || trimmed.startsWith("clear-tools ")) {
+				const arg = trimmed.slice("clear-tools".length).trim();
+				const next = arg === "" ? !clearToolResults : parseClearSetting(arg);
+				if (next === undefined) {
+					notify(ctx, "Usage: /auto-compact-context clear-tools [on|off]", "warning");
+					return;
+				}
+				clearToolResults = next;
+				notify(ctx, `Auto-compaction context tool-result clearing ${clearToolResults ? "on" : "off"}`, "info");
+				return;
+			}
+
 			const nextThreshold = parseThreshold(trimmed);
 			if (nextThreshold === undefined) {
 				notify(
 					ctx,
-					"Usage: /auto-compact-context [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|<1-99 percent>]",
+					"Usage: /auto-compact-context [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|clear-tools [on|off]|<1-99 percent>]",
 					"warning",
 				);
 				return;

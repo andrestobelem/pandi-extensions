@@ -40,6 +40,18 @@ async function loadExtension(url) {
 	return { handlers, commands };
 }
 
+// Build a tool-result message with a text block of the given size (plus optional extras).
+function toolResult(id, size, { isError = false, toolName = "read", extra = [] } = {}) {
+	return {
+		role: "toolResult",
+		toolCallId: id,
+		toolName,
+		isError,
+		timestamp: 1,
+		content: [{ type: "text", text: "X".repeat(size) }, ...extra],
+	};
+}
+
 /**
  * Fake ExtensionContext. `compact` increments a counter and, on completion,
  * applies `reduceTo` (if set) to the reported usage before invoking onComplete,
@@ -646,6 +658,125 @@ async function snapshotPureHelpers(url) {
 	check("selectSnapshotsToPrune: keep=0 prunes all json", mod.selectSnapshotsToPrune(names, 0).length === 5);
 }
 
+// ---------------------------------------------------------------------------
+// Tool-result clearing (research §3b): a cheaper, EPHEMERAL, non-destructive lever
+// than compaction. clearOldToolResults must elide OLD large tool-result text while
+// keeping recent + error results, never mutate inputs, and be idempotent.
+// ---------------------------------------------------------------------------
+async function clearElidesOldLargeResults(url) {
+	const mod = await loadModule(url);
+	const clear = mod.clearOldToolResults;
+	const opts = { keepRecent: 1, minChars: 500, headChars: 50, tailChars: 50 };
+	const messages = [
+		{ role: "user", content: "go" },
+		toolResult("a", 5000),
+		{ role: "assistant", content: [{ type: "text", text: "thinking" }] },
+		toolResult("b", 300), // recent (kept by keepRecent:1)
+	];
+	const out = clear(messages, opts);
+	check("clear: returns a new array when an old large result is elided", Array.isArray(out) && out !== messages);
+	if (!Array.isArray(out)) return;
+	const clearedText = out[1].content[0].text;
+	check(
+		"clear: old large result text is elided to head+marker+tail (much smaller)",
+		clearedText.length < 400 && clearedText.length < 5000 / 4 && clearedText.includes(mod.CLEARED_SENTINEL),
+		`len=${clearedText.length}`,
+	);
+	check(
+		"clear: preserves toolCallId/toolName/isError on the elided message",
+		out[1].toolCallId === "a" && out[1].toolName === "read" && out[1].isError === false,
+	);
+	check("clear: keeps the most recent result intact (keepRecent)", out[3].content[0].text.length === 300);
+	check(
+		"clear: leaves non-toolResult messages untouched (identity)",
+		out[0] === messages[0] && out[2] === messages[2],
+	);
+}
+
+async function clearSkipsRecentShortAndErrors(url) {
+	const mod = await loadModule(url);
+	const clear = mod.clearOldToolResults;
+	const opts = { keepRecent: 2, minChars: 500, headChars: 50, tailChars: 50 };
+	const short = toolResult("s", 100); // below minChars
+	const err = toolResult("e", 5000, { isError: true }); // error -> keep fully
+	const recent1 = toolResult("r1", 5000);
+	const recent2 = toolResult("r2", 5000);
+	const messages = [short, err, recent1, recent2];
+	const out = clear(messages, opts);
+	// short stays (too small), err stays (error), recent1+recent2 stay (keepRecent:2).
+	check("clear: nothing to elide here returns null (short+error+recent only)", out === null, `out=${out && "array"}`);
+}
+
+async function clearPreservesImagesAndDoesNotMutate(url) {
+	const mod = await loadModule(url);
+	const clear = mod.clearOldToolResults;
+	const opts = { keepRecent: 0, minChars: 500, headChars: 50, tailChars: 50 };
+	const img = { type: "image", data: "base64", mimeType: "image/png" };
+	const original = toolResult("a", 5000, { extra: [img] });
+	const snapshotBefore = JSON.stringify(original);
+	const messages = [original];
+	const out = clear(messages, opts);
+	check(
+		"clear: image block is preserved alongside elided text",
+		!!out && out[0].content.some((b) => b.type === "image"),
+	);
+	check(
+		"clear: does NOT mutate the input message (originals unchanged)",
+		JSON.stringify(original) === snapshotBefore,
+	);
+	check("clear: input array is not mutated", messages[0] === original);
+}
+
+async function clearIsIdempotent(url) {
+	const mod = await loadModule(url);
+	const clear = mod.clearOldToolResults;
+	const opts = { keepRecent: 0, minChars: 500, headChars: 50, tailChars: 50 };
+	const messages = [toolResult("a", 5000)];
+	const once = clear(messages, opts);
+	check("clear: first pass elides", !!once && once[0].content[0].text.includes(mod.CLEARED_SENTINEL));
+	const twice = clear(once, opts);
+	check("clear: second pass is a no-op (idempotent -> null)", twice === null, `twice=${twice && "array"}`);
+}
+
+async function clearFailSafeOnMalformed(url) {
+	const mod = await loadModule(url);
+	const clear = mod.clearOldToolResults;
+	const opts = { keepRecent: 0, minChars: 10, headChars: 50, tailChars: 50 };
+	check("clear: non-array input returns null", clear(null, opts) === null && clear(undefined, opts) === null);
+	check("clear: empty array returns null", clear([], opts) === null);
+	check("clear: no tool results returns null", clear([{ role: "user", content: "hi" }], opts) === null);
+}
+
+// Integration: the `context` hook returns modified messages only when clearing is
+// enabled (default OFF), and never throws.
+async function contextHookGatedByToggle(url) {
+	const { handlers, commands } = await loadExtension(url);
+	const env = makeEnv();
+	const ctxHandler = handlers.get("context");
+	check("context: handler is registered", typeof ctxHandler === "function");
+	if (typeof ctxHandler !== "function") return;
+	// Default keepRecent is 3, so we need >3 tool results for the oldest to be clearable.
+	const event = {
+		type: "context",
+		messages: [toolResult("a", 5000), toolResult("b", 5000), toolResult("c", 5000), toolResult("d", 5000)],
+	};
+
+	const whenOff = await ctxHandler(event, env.ctx);
+	check(
+		"context: disabled by default -> no modification",
+		whenOff === undefined || whenOff == null,
+		`got ${JSON.stringify(whenOff)}`,
+	);
+
+	await commands.get("auto-compact-context").handler("clear-tools on", env.ctx);
+	const whenOn = await ctxHandler(event, env.ctx);
+	check(
+		"context: enabled -> returns { messages } with the old result elided",
+		!!whenOn && Array.isArray(whenOn.messages) && /cleared/.test(whenOn.messages[0].content[0].text),
+		`got ${whenOn && typeof whenOn}`,
+	);
+}
+
 async function main() {
 	const url = await build();
 	await stuckAboveThresholdDoesNotLoop(url);
@@ -669,6 +800,12 @@ async function main() {
 	await snapshotIsFailSafe(url);
 	await snapshotRetentionPrunes(url);
 	await snapshotPureHelpers(url);
+	await clearElidesOldLargeResults(url);
+	await clearSkipsRecentShortAndErrors(url);
+	await clearPreservesImagesAndDoesNotMutate(url);
+	await clearIsIdempotent(url);
+	await clearFailSafeOnMalformed(url);
+	await contextHookGatedByToggle(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

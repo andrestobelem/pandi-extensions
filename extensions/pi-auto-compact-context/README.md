@@ -18,6 +18,7 @@ pi --no-extensions -e ./extensions/pi-auto-compact-context
   - `/auto-compact-context bar [on|off]` — show, hide, or toggle the footer progress bar.
   - `/auto-compact-context snapshot [on|off]` — toggle recoverable pre-compaction snapshots.
   - `/auto-compact-context snapshots` — list recent snapshot paths for the current session.
+  - `/auto-compact-context clear-tools [on|off]` — toggle eliding old large tool outputs per LLM call.
 - Automatic compaction after an agent turn when context usage crosses the configured threshold.
 - A footer **progress bar** that shows how close context usage is to the threshold (`compact ▰▰▱▱▱▱▱▱ 9%/30%`). It fills as usage approaches the threshold, turns to a warning color when near, and shows a `compacting…` state while compaction runs.
 
@@ -30,6 +31,17 @@ Compaction replaces raw conversation history with a **lossy** summary — a fact
 - The directory is under `.pi/` (gitignored) and is **deliberately separate from `.pi/memory/`**, which is for curated, injected facts — not bulky raw transcripts.
 - Snapshotting is fully fail-safe: a write error never blocks or cancels compaction.
 - Recover by reading the JSON path printed after compaction, or list recent ones with `/auto-compact-context snapshots`.
+
+### Tool-result clearing (cheaper than compaction)
+
+A lighter, **ephemeral** lever than full compaction. Before each LLM call, this extension can elide the bulky **text** of *old, already-consumed* tool results — keeping a head/tail snippet plus a marker — so stale tool output stops burning the per-call attention/token budget.
+
+- **Non-destructive / recoverable:** it only rewrites what is sent to the model *for that call* (via the SDK `context` hook); the session keeps the originals, so turning it off restores full content immediately. No cascading-summary risk.
+- **Pairing-safe:** only `toolResult` text is trimmed; `toolCallId`/`toolName`/`isError` and image blocks are preserved, so every tool call keeps its matching result.
+- **Keeps what matters:** the most recent results stay intact (`keepRecent`), **error results are never cleared** (recovery signal), and short text (≤ `minChars`) is left alone. Idempotent and fully fail-safe (never blocks a call).
+- **Independent from compaction:** it reduces per-call tokens/cost/latency and focus-noise, but does not change the compaction trigger (which is based on session usage).
+
+It is **OFF by default** (it changes what the model sees every call); enable it for long, tool-heavy loops with `/auto-compact-context clear-tools on` or `PI_AUTO_COMPACT_CLEAR_TOOL_RESULTS=on`. Tune with `PI_AUTO_COMPACT_CLEAR_KEEP_RECENT=<n>` (default `3`) and `PI_AUTO_COMPACT_CLEAR_MIN_CHARS=<n>` (default `2000`).
 
 Default threshold is `30%`. Override the startup default with `PI_AUTO_COMPACT_PERCENT`.
 The progress bar is on by default; set `PI_AUTO_COMPACT_BAR=off` to hide it at startup.
