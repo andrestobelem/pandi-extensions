@@ -73,6 +73,7 @@ import {
 	sleep,
 	mapLimit,
 	createSemaphore,
+	AsyncMutex,
 } from "./concurrency-primitives.js";
 import {
 	normalizeAgentEnvAccess,
@@ -462,24 +463,6 @@ interface ActiveWorkflowRun {
 }
 
 export const activeRuns = new Map<string, ActiveWorkflowRun>();
-
-class AsyncMutex {
-	private tail: Promise<void> = Promise.resolve();
-
-	async runExclusive<T>(fn: () => Promise<T>): Promise<T> {
-		const previous = this.tail;
-		let release!: () => void;
-		this.tail = new Promise<void>((resolve) => {
-			release = resolve;
-		});
-		await previous;
-		try {
-			return await fn();
-		} finally {
-			release();
-		}
-	}
-}
 
 interface AppendMutexEntry {
 	mutex: AsyncMutex;
