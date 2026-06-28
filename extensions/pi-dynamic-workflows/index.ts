@@ -4515,6 +4515,20 @@ class WorkflowDashboard {
 		const patternsTab = this.tab === "patterns" ? accent("[Patterns]") : muted(" Patterns ");
 		const activityTab = this.tab === "activity" ? accent("[Activity]") : muted(" Activity ");
 		const activeCount = this.runs.filter((run) => canCancelRun(run)).length;
+		// Gate the action-bearing help on the SELECTED run so the banner never
+		// advertises cancel/rerun/delete keys that the detail row won't honor.
+		const selectedForActions = this.selectedRun();
+		const selectedMonitorModel = this.tab === "monitor" ? this.selectedMonitor() : undefined;
+		const canCancelSelected = selectedMonitorModel ? !!selectedMonitorModel.canCancel : selectedForActions ? canCancelRun(selectedForActions) : false;
+		const canRerunSelected = selectedMonitorModel ? !!selectedMonitorModel.canRerun : selectedForActions ? canRerunRun(selectedForActions) : false;
+		const runActions = (mid: string): string => {
+			const parts = ["←→/Tab tabs", mid];
+			if (canCancelSelected) parts.push("c/x cancel active");
+			if (canRerunSelected) parts.push("r rerun");
+			if (!canCancelSelected) parts.push("d/delete run");
+			parts.push("q/esc close");
+			return parts.join(" • ");
+		};
 		const help = this.tab === "patterns"
 			? "←→/Tab tabs • ↑↓ navigate catalog • Enter/n use pattern • q/esc close"
 			: this.tab === "workflows"
@@ -4522,10 +4536,10 @@ class WorkflowDashboard {
 				: this.tab === "sessions"
 					? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • q/esc close"
 					: this.tab === "monitor"
-					? "←→/Tab tabs • ↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
+					? runActions("↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph")
 					: this.tab === "agents"
-						? "←→/Tab tabs • ↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph • c/x cancel active • r rerun • d/delete run • q/esc close"
-						: "←→/Tab tabs • ↑↓ navigate • Enter/v view • g graph • c/x cancel active • r rerun • d/delete run • q/esc close";
+						? runActions("↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph")
+						: runActions("↑↓ navigate • Enter/v view • g graph");
 		const lines: string[] = [
 			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + agentsTab + " " + sessionsTab + " " + runsTab + " " + workflowTab + " " + patternsTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
 			line(muted("? help • ") + this.refreshStatus(muted, error) + muted(" • " + help)),
@@ -4591,7 +4605,7 @@ class WorkflowDashboard {
 		const actions = model.agents.length > 0 ? ["←→ tabs", "↑↓ select agent", "Enter/o agent output", "v run", "g graph"] : ["←→ tabs", "Enter/v view", "g graph"];
 		if (model.canCancel) actions.push("c/x cancel active");
 		if (model.canRerun) actions.push("r rerun (confirm)");
-		actions.push("d/delete run artifacts");
+		if (!model.canCancel) actions.push("d/delete run artifacts");
 		lines.push(line(muted("")));
 		lines.push(line(muted(actions.join(" • "))));
 		this.renderMonitorAgents(lines, line, model, accent, muted, success, error, warning);
@@ -4719,7 +4733,7 @@ class WorkflowDashboard {
 		const actions = ["Enter/o opens output+prompt", "v run", "g graph"];
 		if (canCancelRun(run)) actions.push("c/x cancel active");
 		if (canRerunRun(run)) actions.push("r rerun (confirm)");
-		actions.push("d/delete run artifacts");
+		if (!canCancelRun(run)) actions.push("d/delete run artifacts");
 		lines.push(line(muted(actions.join(" • "))));
 	}
 

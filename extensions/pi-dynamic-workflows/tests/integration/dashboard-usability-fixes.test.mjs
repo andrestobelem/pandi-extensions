@@ -386,6 +386,31 @@ async function scenarioEllipsisOnOverflow(url) {
 	check("overflowing lines render a visible ellipsis marker", text.includes("…"), text.split("\n").slice(0, 2).join(" | "));
 }
 
+async function scenarioMonitorHelpGating(url) {
+	// The top help banner used to advertise 'c/x cancel' and 'r rerun' even when the
+	// selected run could not be cancelled/rerun, contradicting the gated detail row.
+	const { component } = await openDashboardComponent(url);
+	const now = new Date().toISOString();
+	const mkModel = (runId, canCancel, canRerun) => ({
+		run: { runId, workflow: "wf", runDir: `/tmp/${runId}`, agentCount: 0, background: true, scope: "project", ok: !canCancel, state: canCancel ? "running" : "completed", startedAt: now, elapsedMs: 1000, logs: [] },
+		runId, runDir: `/tmp/${runId}`, workflow: "wf",
+		state: canCancel ? "running" : "completed", active: canCancel, stale: false, priority: canCancel ? "active" : "latest",
+		elapsedMs: 1000, agentsDone: 0, agentsStarted: 0, parallelAgents: 0, bashDone: 0, artifactCount: 0,
+		agents: [], canCancel, canRerun,
+	});
+	const helpLine = () => component.render(300)[1];
+
+	component.setMonitorModels([mkModel("ACT", true, false)]); // active run
+	const active = helpLine();
+	check("monitor help advertises cancel for an active run", active.includes("cancel"), active);
+	check("monitor help hides delete for an active run", !active.includes("delete run"), active);
+
+	component.setMonitorModels([mkModel("DONE", false, true)]); // finished run
+	const done = helpLine();
+	check("monitor help hides cancel for a finished run", !done.includes("cancel"), done);
+	check("monitor help offers rerun + delete for a finished run", done.includes("rerun") && done.includes("delete run"), done);
+}
+
 async function scenarioMonitorMultiRun(url) {
 	// The Monitor used to render a single run even when several were active (the
 	// bar shows "▶ N active"). It must expose all active runs and switch focus.
@@ -453,6 +478,7 @@ async function main() {
 	await scenarioRefreshFreshnessAndErrors(url);
 	await scenarioAgentsJumpToFailed(url);
 	await scenarioMonitorMultiRun(url);
+	await scenarioMonitorHelpGating(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 
