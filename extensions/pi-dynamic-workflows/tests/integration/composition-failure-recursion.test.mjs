@@ -35,12 +35,11 @@
  *   node extensions/pi-dynamic-workflows/tests/integration/composition-failure-recursion.test.mjs
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { buildExtension as sharedBuildExtension, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -60,51 +59,19 @@ function check(label, cond, detail) {
 }
 
 async function buildExtension() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-fail-integration-"));
-
-	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
-	await fs.writeFile(
-		typeboxStub,
-		"const id = (x) => x ?? {};\nexport const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id, Integer: id };\nexport default { Type };\n",
-	);
-	const typeboxValueStub = path.join(outDir, "stub-typebox-value.mjs");
-	await fs.writeFile(typeboxValueStub, "export const Value = { Check: () => true, Errors: function* () {} };\nexport default { Value };\n");
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(
-		sdkStub,
-		`export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${JSON.stringify(path.join(outDir, "agentdir"))}; }\nexport class CustomEditor { constructor() {} input() {} render() { return []; } }\n`,
-	);
-	const aiStub = path.join(outDir, "stub-ai.mjs");
-	await fs.writeFile(aiStub, "export function StringEnum(values, opts = {}) { return { ...opts, enum: values }; }\n");
-	const tuiStub = path.join(outDir, "stub-tui.mjs");
-	await fs.writeFile(
-		tuiStub,
-		`export class Image { constructor() {} input() {} render() { return []; } }\nexport const Key = { escape: "escape", enter: "enter", up: "up", down: "down", pageUp: "pageUp", pageDown: "pageDown", home: "home", end: "end", delete: "delete", backspace: "backspace", tab: "tab", left: "left", right: "right", ctrlAlt: (key) => "ctrlAlt:" + key };\nexport function getCapabilities() { return { images: false }; }\nexport function matchesKey(data, key) { return data === key; }\nexport function truncateToWidth(value, width, suffix = "") { const s = String(value); return s.length > width ? s.slice(0, Math.max(0, width - suffix.length)) + suffix : s; }\nexport function visibleWidth(value) { return String(value).length; }\n`,
-	);
-
-	const src = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "dynamic-workflows.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--yes",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:typebox=${typeboxStub}`,
-			`--alias:typebox/value=${typeboxValueStub}`,
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--alias:@earendil-works/pi-ai=${aiStub}`,
-			`--alias:@earendil-works/pi-tui=${tuiStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
+	return await sharedBuildExtension({
+		name: "pi-dwf-fail-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "index.ts"),
+		outName: "dynamic-workflows.mjs",
+		stubs: {
+			typebox: true,
+			typeboxValue: true,
+			ai: true,
+			tui: true,
+			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
+		},
+		npx: "--yes",
+	});
 }
 
 let instance = 0;
