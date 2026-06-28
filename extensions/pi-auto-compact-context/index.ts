@@ -15,22 +15,12 @@ import {
 	snapshotFileName,
 	type CompactionSnapshot,
 } from "./snapshots.js";
+import { renderContextBar, type ContextBarLevel } from "./context-bar.js";
 
 const DEFAULT_THRESHOLD_PERCENT = 30;
 
 // Footer status key. setStatus is keyed so this extension owns exactly one slot.
 const STATUS_KEY = "auto-compact-context";
-
-// Progress-bar glyphs and width. The bar measures progress TOWARD the
-// compaction threshold (usage / threshold), so it fills to 100% exactly when
-// auto-compaction is about to fire — a meaningful "how close am I" gauge rather
-// than a near-empty fraction of the whole context window.
-const BAR_FILLED = "\u25B0";
-const BAR_EMPTY = "\u25B1";
-const BAR_WIDTH = 8;
-// Below this fraction of the threshold the bar is calm (muted); at/above it the
-// bar warns the user that auto-compaction is approaching.
-const NEAR_RATIO = 0.6;
 
 // Snapshot path/shape/prune helpers live in ./snapshots.ts. DEFAULT_SNAPSHOT_KEEP
 // (used by the activate handler) bounds snapshot disk growth.
@@ -179,37 +169,10 @@ export async function resolveCommandValue(args: string, ctx: ExtensionContext): 
 	return (custom ?? "").trim() || "status";
 }
 
-export type ContextBarLevel = "idle" | "near" | "over" | "compacting";
-
-export interface ContextBar {
-	text: string;
-	level: ContextBarLevel;
-}
-
-// Pure renderer for the footer progress bar. Kept free of the theme/ctx so it is
-// trivially unit-testable; the extension applies color based on `level`.
-// Returns null when there is nothing meaningful to show (usage unknown), e.g.
-// right after compaction before the next assistant response reports tokens.
-export const renderContextBar = (opts: {
-	percent: number | null | undefined;
-	thresholdPercent: number;
-	compacting?: boolean;
-	width?: number;
-}): ContextBar | null => {
-	const width = opts.width ?? BAR_WIDTH;
-	if (opts.compacting) {
-		return { text: `compact ${BAR_FILLED.repeat(width)} compacting\u2026`, level: "compacting" };
-	}
-	const { percent, thresholdPercent } = opts;
-	if (percent === null || percent === undefined || !Number.isFinite(percent)) return null;
-	const ratio = thresholdPercent > 0 ? percent / thresholdPercent : 0;
-	const clamped = Math.max(0, Math.min(1, ratio));
-	const filled = Math.round(clamped * width);
-	const bar = BAR_FILLED.repeat(filled) + BAR_EMPTY.repeat(width - filled);
-	const label = `${Math.round(percent)}%/${thresholdPercent}%`;
-	const level: ContextBarLevel = ratio >= 1 ? "over" : ratio >= NEAR_RATIO ? "near" : "idle";
-	return { text: `compact ${bar} ${label}`, level };
-};
+// The footer progress bar renderer + its types live in ./context-bar.ts; re-exported so
+// the bundle keeps exporting renderContextBar (the integration suite imports it).
+export { renderContextBar };
+export type { ContextBar, ContextBarLevel } from "./context-bar.js";
 
 const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "accent"> = {
 	idle: "muted",
