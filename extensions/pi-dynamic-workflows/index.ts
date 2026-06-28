@@ -4086,6 +4086,7 @@ class WorkflowDashboard {
 	private agentIndex = 0;
 	private monitorAgentIndex = 0;
 	private patternIndex = 0;
+	private showHelp = false;
 
 	constructor(
 		private readonly workflows: WorkflowFile[],
@@ -4209,8 +4210,19 @@ class WorkflowDashboard {
 	}
 
 	handleInput(data: string): void {
+		if (this.showHelp) {
+			// The help overlay is a modal hint: any key dismisses it.
+			this.showHelp = false;
+			this.requestRender();
+			return;
+		}
 		if (matchesKey(data, Key.escape) || data === "q") {
 			this.done(null);
+			return;
+		}
+		if (data === "?") {
+			this.showHelp = true;
+			this.requestRender();
 			return;
 		}
 		if (matchesKey(data, Key.tab)) {
@@ -4338,6 +4350,26 @@ class WorkflowDashboard {
 		else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 	}
 
+	private renderHelp(w: number, line: (s: string) => string, accent: (s: string) => string, muted: (s: string) => string): string[] {
+		return [
+			line(accent("Pi Dynamic Workflows — keyboard help")),
+			line(muted("Press any key to close")),
+			line(muted("─".repeat(Math.min(w, 120)))),
+			line(accent("Tabs")),
+			line("  Tab / ← / → cycle tabs"),
+			line("  m Monitor · A Agents · a Activity · s Sessions · w Workflows · p Patterns"),
+			line(accent("Navigate")),
+			line("  ↑ ↓ move · PgUp / PgDn page · Home / End first / last"),
+			line(accent("Actions")),
+			line("  Enter / o agent output · v run view · g graph"),
+			line("  c / x cancel active · r rerun (confirm) · d / Del delete (confirm)"),
+			line("  Patterns: Enter / n / u use pattern · Workflows: Enter / g graph, r run, d delete"),
+			line("  Sessions: Enter switch session"),
+			line(accent("Other")),
+			line("  ? toggle this help · q / Esc close dashboard"),
+		];
+	}
+
 	render(width: number): string[] {
 		if (width <= 0) return [];
 		const w = width;
@@ -4347,6 +4379,7 @@ class WorkflowDashboard {
 		const error = (s: string) => this.theme.fg("error", s);
 		const warning = (s: string) => this.theme.fg("warning", s);
 		const line = (s: string) => truncateToWidth(s, w, "…");
+		if (this.showHelp) return this.renderHelp(w, line, accent, muted);
 		const monitorTab = this.tab === "monitor" ? accent("[Monitor]") : muted(" Monitor ");
 		const agentsTab = this.tab === "agents" ? accent("[Agents]") : muted(" Agents ");
 		const sessionsTab = this.tab === "sessions" ? accent("[Sessions]") : muted(" Sessions ");
@@ -4368,7 +4401,7 @@ class WorkflowDashboard {
 						: "←→/Tab tabs • ↑↓ navigate • Enter/v view • g graph • c/x cancel active • r rerun • d/delete run • q/esc close";
 		const lines: string[] = [
 			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + agentsTab + " " + sessionsTab + " " + runsTab + " " + workflowTab + " " + patternsTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
-			line(muted(help)),
+			line(muted("? help • " + help)),
 			line(muted("─".repeat(Math.min(w, 120)))),
 		];
 
@@ -6713,6 +6746,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			formatWorkflowCompositionPromptSummary(),
 			"Choose primitives by data dependency. Use ctx.agents(items,{concurrency}) for one independent step per item. Use ctx.pipeline(items,...stages) by default for >=2 dependent steps per item with no cross-item merge; include a stable item id/index in prompts generated inside stages. Use ctx.agents(items,{concurrency,settle:true}) for large fan-out or reviewer panels where one branch failure should return null. Use ctx.parallel([async()=>...]) only for a true barrier where a later step needs all branch results at once (dedup/merge, early-exit if total=0, cross-branch ranking). Use ctx.workflow(name,input) for reusable sub-steps with no decision gate; sequence separate runs when a decision depends on prior output.",
 			"Use ctx.agent(prompt,{schema}) when a subagent must return JSON; consume result.data/result.schemaOk and use schemaOnInvalid:'null' when invalid JSON should become a non-throwing branch result. Use agentType:'explore'|'reviewer'|'planner'|'implementer'|'researcher' for persona defaults; explicit options override the persona. Scope each subagent's access with tools/excludeTools, skills/includeSkills, extensions/includeExtensions, and keys/env when it needs specific capabilities; never put secret values in prompts. When writing workflow code, assume subagents get web_search via pi-codex-web-search and context7-cli when installed; include web_search in read-only allowlists when web/docs/current evidence may help, and only use includeExtensions:false/includeSkills:false as an explicit opt-out.",
+			"Decide model and reasoning per call: pass model (e.g. 'haiku' or 'anthropic/claude-sonnet-4'), provider, and thinking (off|minimal|low|medium|high|xhigh) on ctx.agent/ctx.agents/ctx.pipeline or any per-item spec. Use a cheap/fast model + low/minimal thinking for wide scouting, classification, and extraction; use a stronger model + high/xhigh thinking for synthesis, adversarial verification, planning, and hard reasoning. Omitting them inherits the orchestrator model (ctx.model) and session thinking level; agentType personas set thinking defaults (reviewer/planner/researcher=high, explore/implementer=medium) and explicit options win. model/provider/thinking are part of the cache key, so changing them re-runs that call on resume.",
 			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, ctx.log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them.",
 			"Never cap coverage silently. Whenever a workflow uses slice/head/top-N/sampling/no-retry, clamps concurrency to ctx.limits.concurrency, or lowers maxAgents below the discovered work-list, ctx.log() exactly what was excluded, delayed, or clamped.",
 			"When creating a workflow, inspect the pattern catalog first (optionally action=template name=<key> for a scaffold), reuse an existing workflow only when it exactly matches the task, otherwise write a clear gitignored .pi/workflows/drafts/<task-slug>.js project draft and launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If a workflow is warranted for complex workflow/prompt/contract design, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name.",

@@ -307,6 +307,25 @@ async function scenarioListPaging(url) {
 	check("PageUp jumps a page (10) up", getDone()?.run?.runId === "r0", JSON.stringify(getDone()));
 }
 
+async function scenarioHelpOverlay(url) {
+	const project = await makeProject();
+
+	const open = await bootExtension(url, project, { customInputs: ["?"] });
+	await open.commands.get("workflow").handler("dashboard", open.ctx);
+	const helpText = renderedText(open.customCalls[0]);
+	check("? opens a keyboard help overlay", helpText.includes("keyboard help") && helpText.includes("PgUp"), helpText.split("\n")[0]);
+	check("help overlay documents close", helpText.toLowerCase().includes("close"), helpText.split("\n").slice(-1)[0]);
+
+	const dismissed = await bootExtension(url, project, { customInputs: ["?", "x"] });
+	await dismissed.commands.get("workflow").handler("dashboard", dismissed.ctx);
+	const after = renderedText(dismissed.customCalls[0]);
+	check("any key dismisses the help overlay", !after.includes("keyboard help") && after.includes("[Monitor]"), after.split("\n")[0]);
+
+	const hint = await bootExtension(url, project, { customInputs: [] });
+	await hint.commands.get("workflow").handler("dashboard", hint.ctx);
+	check("dashboard advertises the ? help shortcut", renderedText(hint.customCalls[0]).includes("? help"), renderedText(hint.customCalls[0]).split("\n")[1]);
+}
+
 async function scenarioRunningAgentLiveElapsed(url) {
 	const { component } = await openDashboardComponent(url);
 	const startedAt = new Date(Date.now() - 65000).toISOString();
@@ -366,6 +385,7 @@ async function main() {
 	await scenarioAgentsSelectionStability(url);
 	await scenarioListPaging(url);
 	await scenarioFailedRunErrorVisible(url);
+	await scenarioHelpOverlay(url);
 	await scenarioRunningAgentLiveElapsed(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
