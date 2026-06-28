@@ -1193,6 +1193,53 @@ async function scenarioNoOrphanedTemplates(mod) {
 	);
 }
 
+// Parse-coverage FLOOR: every embedded scaffold reachable from the catalog (plus the
+// WORKFLOW_TEMPLATE default) must `new Function`-parse and export a workflow function.
+// The targeted scenarios above only exercise ~5 scaffolds along specific runtime paths,
+// so a syntax error in any of the others (e.g. loop-until-dry, tournament, repo-bug-hunt)
+// would ship silently. This raises the floor to syntax coverage for ALL of them, keyed by
+// the catalog so newly added pattern keys are eval'd automatically.
+async function scenarioAllScaffoldsParse(mod) {
+	const catalog = mod.WORKFLOW_PATTERN_CATALOG ?? [];
+	check(
+		"all scaffolds: catalog is non-empty",
+		Array.isArray(catalog) && catalog.length > 0,
+		`length=${catalog.length}`,
+	);
+
+	let evaled = 0;
+	for (const pattern of catalog) {
+		let ok = false;
+		let detail = "";
+		try {
+			const code = await mod.loadWorkflowPatternCode(pattern);
+			ok = typeof evalScaffold(code) === "function";
+			detail = ok ? "function" : `exports=${typeof evalScaffold(code)}`;
+			evaled++;
+		} catch (err) {
+			detail = err instanceof Error ? err.message : String(err);
+		}
+		check(`all scaffolds: ${pattern.key} parses and exports a workflow function`, ok, detail);
+	}
+	check(
+		"all scaffolds: every catalog key resolved to a parseable scaffold",
+		evaled === catalog.length,
+		`evaled=${evaled}/${catalog.length}`,
+	);
+
+	// Belt-and-suspenders: the default WORKFLOW_TEMPLATE is served when no pattern is given,
+	// so eval it explicitly even though fan-out-and-synthesize aliases onto it.
+	let defaultOk = false;
+	let defaultDetail = "";
+	try {
+		defaultOk = typeof evalScaffold(mod.WORKFLOW_TEMPLATE) === "function";
+		defaultDetail = defaultOk ? "function" : typeof evalScaffold(mod.WORKFLOW_TEMPLATE);
+	} catch (err) {
+		defaultDetail = err instanceof Error ? err.message : String(err);
+	}
+	check("all scaffolds: WORKFLOW_TEMPLATE default parses and exports a workflow function", defaultOk, defaultDetail);
+}
+
 async function main() {
 	try {
 		const { outDir, url } = await buildExtension();
@@ -1218,6 +1265,7 @@ async function main() {
 		await scenarioVerifyClaimsMaxClaimsCoercion(templatesMod);
 		await scenarioVerifyClaimsLibSkepticsCoercion(templatesMod);
 		await scenarioNoOrphanedTemplates(templatesMod);
+		await scenarioAllScaffoldsParse(templatesMod);
 		console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 		if (counts.failed) {
 			console.log(counts.failures.map((f) => `- ${f}`).join("\n"));
