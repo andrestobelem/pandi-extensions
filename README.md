@@ -42,6 +42,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | Local memory | `pi install ./extensions/pi-local-memory` |
 | Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
 | `/worktree` | `pi install ./extensions/pi-worktree` |
+| TypeScript diagnostics | `pi install ./extensions/pi-typescript-lsp` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
