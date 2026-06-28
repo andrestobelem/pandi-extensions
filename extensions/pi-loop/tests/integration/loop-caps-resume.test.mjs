@@ -880,11 +880,19 @@ async function concurrentLoopCap(url) {
 
 	const before = ctx._notes.length;
 	const overflow = await startLoopCmd(commands, entries, "one too many", ctx);
-	check("concurrency: the (cap+1)th /loop is REFUSED (no new loop created)", overflow === undefined, `id=${overflow}`);
+	check(
+		"concurrency: the (cap+1)th /loop is REFUSED (no new loop created)",
+		overflow === undefined,
+		`id=${overflow}`,
+	);
 	const refused = ctx._notes
 		.slice(before)
 		.some((n) => (n.type === "error" || n.type === "warning") && /concurrent|max|cap|limit|too many/i.test(n.msg));
-	check("concurrency: the refusal is surfaced to the user", refused, `notes=${JSON.stringify(ctx._notes.slice(before))}`);
+	check(
+		"concurrency: the refusal is surfaced to the user",
+		refused,
+		`notes=${JSON.stringify(ctx._notes.slice(before))}`,
+	);
 }
 
 // ===========================================================================
@@ -920,8 +928,16 @@ async function rehydrateZeroWallClockSanitized(url) {
 		s?.status === "done",
 		`status=${s?.status}`,
 	);
-	check("sanitize: stop reason mentions the wall-clock deadline", /wall-clock|deadline/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
-	check("sanitize: NO wake delivered for the over-deadline loop", sentMessages.length === 0, `delivered=${sentMessages.length}`);
+	check(
+		"sanitize: stop reason mentions the wall-clock deadline",
+		/wall-clock|deadline/i.test(s?.lastReason || ""),
+		`reason=${s?.lastReason}`,
+	);
+	check(
+		"sanitize: NO wake delivered for the over-deadline loop",
+		sentMessages.length === 0,
+		`delivered=${sentMessages.length}`,
+	);
 }
 
 // ===========================================================================
@@ -957,7 +973,11 @@ async function rehydrateMissingMaxIterationsSanitized(url) {
 		s?.status === "done",
 		`status=${s?.status}`,
 	);
-	check("sanitize: stop reason names maxIterations", /maxIterations/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
+	check(
+		"sanitize: stop reason names maxIterations",
+		/maxIterations/i.test(s?.lastReason || ""),
+		`reason=${s?.lastReason}`,
+	);
 	check("sanitize: capped loop delivered NO new wake", sentMessages.length === 0, `delivered=${sentMessages.length}`);
 }
 
