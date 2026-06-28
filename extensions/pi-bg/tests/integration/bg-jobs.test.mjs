@@ -697,6 +697,37 @@ async function prunePreviewListsCandidatesWithoutDeleting(url) {
 	check("prune-preview: prompts for --yes", /--yes/.test(msg), msg);
 }
 
+// R5 integration: /bg prune --yes removes the deletable set (re-deriving live state), skips
+// a live job, audits one line per removal, and is idempotent.
+async function pruneYesExecutesReDerivesAndAudits(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-prune-yes-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const seed = async (jobId, status) => {
+		const dir = path.join(runsRoot, jobId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "job.json"), JSON.stringify({ jobId, command: jobId, cwd, createdAt: new Date().toISOString() }, null, 2));
+		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify({ jobId, updatedAt: new Date().toISOString(), ...status }, null, 2));
+		return dir;
+	};
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	const doneDir = await seed("done-1", { state: "completed" });
+	const deadRunDir = await seed("dead-run", { state: "running", pid: dead.pid });
+	const aliveDir = await seed("alive-run", { state: "running", pid: process.pid });
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("bg").handler("prune --yes", ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("prune-yes: deletes the completed job", !existsSync(doneDir), msg);
+	check("prune-yes: deletes the dead-pid job (reclassified interrupted)", !existsSync(deadRunDir), msg);
+	check("prune-yes: skips the alive job", existsSync(aliveDir), msg);
+	const audit = (await fs.readFile(path.join(runsRoot, ".audit.jsonl"), "utf8").catch(() => "")).trim().split("\n").filter(Boolean);
+	check("prune-yes: one audit line per removal, verb=prune", audit.length === 2 && audit.every((l) => /"verb":\s*"prune"/.test(l)), JSON.stringify(audit));
+	await commands.get("bg").handler("prune --yes", ctx);
+	const msg2 = ctx._notes.at(-1)?.msg || "";
+	check("prune-yes: a second pass is idempotent (deletes 0)", /Pruned 0 /.test(msg2), msg2);
+	check("prune-yes: idempotent pass writes no new audit lines", (await fs.readFile(path.join(runsRoot, ".audit.jsonl"), "utf8").catch(() => "")).trim().split("\n").filter(Boolean).length === 2);
+}
+
 async function logStreamErrorsAreContained(url) {
 	const mod = await loadModule(url);
 	const guard = mod.guardStreamErrors;
@@ -967,6 +998,7 @@ async function main() {
 	await removeRunDirRevalidatesBeforeRm(url);
 	await pruneFlagAndSizeHelpers(url);
 	await prunePreviewListsCandidatesWithoutDeleting(url);
+	await pruneYesExecutesReDerivesAndAudits(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);

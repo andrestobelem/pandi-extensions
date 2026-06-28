@@ -701,14 +701,24 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 		else skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "not deletable" });
 	}
 	const totalBytes = candidates.reduce((sum, c) => sum + c.bytes, 0);
+	if (yes) {
+		// Remove each candidate via the shared removeRunDir, which re-derives deletability
+		// from a fresh status read right before fs.rm (so a job revived since the scan is
+		// skipped) and appends one .audit.jsonl line per removal.
+		const deleted: string[] = [];
+		for (const c of candidates) {
+			if (await removeRunDir(ctx, c.jobId, { verb: "prune", state: c.state, sizeBytes: c.bytes }, (reread) => classifyForDeletion(c.jobId, reread).deletable)) deleted.push(c.jobId);
+		}
+		const execLines = [`Pruned ${deleted.length} of ${candidates.length} candidate job(s) (${skipped.length} skipped).`, ...deleted.map((id) => `  deleted ${id}`)];
+		return response(execLines.join("\n"), { action: "prune", dryRun: false, deleted, skipped, totalBytes });
+	}
 	const lines = [
 		`Prune preview: ${candidates.length} deletable (${totalBytes} bytes), ${skipped.length} skipped.`,
 		...candidates.map((c) => `  delete ${c.jobId} · ${c.state} · ${c.bytes}B`),
 		...skipped.map((s) => `  skip   ${s.jobId} · ${s.state} · ${s.reason}`),
 		candidates.length ? `Run /bg prune --yes to delete ${candidates.length} job(s).` : "Nothing to prune.",
 	];
-	// R4 is dry-run only; the requested --yes is surfaced for forward-compatibility.
-	return response(lines.join("\n"), { action: "prune", dryRun: true, requestedYes: yes, candidates, skipped, totalBytes });
+	return response(lines.join("\n"), { action: "prune", dryRun: true, candidates, skipped, totalBytes });
 }
 
 // Delete one finished job's artifacts, gated on re-derived LIVE state (classifyForDeletion)
