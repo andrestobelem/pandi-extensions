@@ -109,13 +109,19 @@ type Liveness = "alive" | "dead" | "unknown";
 // included). NOTE: a pid can be reused after the original process is reaped, so
 // "alive" means "some process holds this pid", not "our job is still running" — the
 // reason we only use this to LABEL a read, never to signal a persisted pid.
+// A pid we can actually probe: a positive integer. Excludes undefined, 0, negatives
+// (e.g. process-group ids), and non-integers.
+function isUsablePid(pid: number | undefined): pid is number {
+	return typeof pid === "number" && Number.isInteger(pid) && pid > 0;
+}
+
 // Capture a stable per-process start identity so a later probe can distinguish our
 // job's process from an unrelated one that reused its pid. Best-effort, degrading
 // across platforms: Linux reads /proc (no subprocess); macOS/BSD shell out to
 // `ps -o lstart=`; anything else (e.g. Windows) returns undefined and callers fall
 // back to the existing best-effort liveness label.
 export function readProcessStartId(pid: number | undefined): string | undefined {
-	if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return undefined;
+	if (!isUsablePid(pid)) return undefined;
 	try {
 		if (process.platform === "linux") {
 			const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
@@ -137,7 +143,7 @@ export function readProcessStartId(pid: number | undefined): string | undefined 
 }
 
 export function probeProcessAlive(pid: number | undefined): Liveness {
-	if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return "unknown";
+	if (!isUsablePid(pid)) return "unknown";
 	try {
 		process.kill(pid, 0);
 		return "alive";
