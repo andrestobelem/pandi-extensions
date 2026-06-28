@@ -112,6 +112,16 @@ export function isMutatingBash(command: string): boolean {
  */
 export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set(["list", "template", "read", "graph", "runs", "view"]);
 
+/**
+ * Structured built-in mutators that are ALWAYS blocked while planning. notebook-edit is
+ * included defensively (it is not a built-in tool name in this SDK, but blocking a
+ * non-existent name is inert and future-proofs against a notebook editor being added).
+ */
+const ALWAYS_BLOCKED_BUILTIN_TOOLS = new Set(["write", "edit", "notebook-edit"]);
+
+/** Read-only built-ins that are always allowed while planning. */
+const READONLY_BUILTIN_TOOLS = new Set(["read", "grep", "find", "ls"]);
+
 export function blockedReason(event: ToolCallEvent): string | undefined {
 	const name = event.toolName;
 	// submit_plan is the one permitted "output" (writing the plan). enter_plan_mode is the
@@ -122,11 +132,11 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	// Structured built-in mutators are ALWAYS blocked. notebook-edit is matched by string
 	// compare (defensive — it is not a built-in tool name in this SDK, but blocking a
 	// non-existent name is inert and future-proofs against a notebook editor being added).
-	if (name === "write" || name === "edit" || name === "notebook-edit") {
+	if (ALWAYS_BLOCKED_BUILTIN_TOOLS.has(name)) {
 		return `plan mode is READ-ONLY: the "${name}" tool is blocked while planning. Present your plan via submit_plan; you can edit after the user approves.`;
 	}
 	// Read-only built-ins are always allowed.
-	if (name === "read" || name === "grep" || name === "find" || name === "ls") return undefined;
+	if (READONLY_BUILTIN_TOOLS.has(name)) return undefined;
 	// bash: block only mutating commands; allow read-only ones (cat, git ls-files, grep...).
 	if (name === "bash") {
 		const command = (event.input as { command?: unknown }).command;
