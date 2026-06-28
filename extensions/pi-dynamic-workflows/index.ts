@@ -6860,9 +6860,11 @@ function clearUltracodeContractGateStatus(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_CONTRACT_STATUS_KEY, undefined);
 }
 
-function extractUltracodeTask(textValue: string): string | undefined {
+export function extractUltracodeTask(textValue: string): string | undefined {
 	const trimmed = textValue.trim();
-	const match = /^(?:ultracode|dynamic\s+workflow)\s*[:\-]?\s+([\s\S]+)/i.exec(trimmed);
+	// Separator after the keyword may be a `:`/`-` (with or without a trailing space) or just
+	// whitespace, so `ultracode:do X`, `ultracode: do X`, and `ultracode do X` all parse.
+	const match = /^(?:ultracode|dynamic\s+workflow)(?:\s*[:\-]\s*|\s+)([\s\S]+)/i.exec(trimmed);
 	return match?.[1]?.trim();
 }
 

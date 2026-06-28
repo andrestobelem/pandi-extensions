@@ -531,6 +531,20 @@ async function scenarioStreamingSigkillEscalation(url) {
 	if (result !== TIMED_OUT) check("runStreamingAgentProcess: reports killed", result.killed === true, JSON.stringify(result));
 }
 
+// F49: extractUltracodeTask must accept a `:`/`-` separator with or without a following space
+// (e.g. `ultracode:do X`), not only a whitespace separator.
+async function scenarioUltracodeTaskParsing(url) {
+	const mod = await import(`${url}?uc=${instance++}`);
+	check("ultracode: extractUltracodeTask exported", typeof mod.extractUltracodeTask === "function", typeof mod.extractUltracodeTask);
+	if (typeof mod.extractUltracodeTask !== "function") return;
+	const ex = mod.extractUltracodeTask;
+	check("ultracode: 'ultracode:do X' parses task without a space", ex("ultracode:do X") === "do X", JSON.stringify(ex("ultracode:do X")));
+	check("ultracode: 'ultracode do X' still parses", ex("ultracode do X") === "do X", JSON.stringify(ex("ultracode do X")));
+	check("ultracode: 'ultracode: do X' still parses", ex("ultracode: do X") === "do X", JSON.stringify(ex("ultracode: do X")));
+	check("ultracode: bare 'ultracode:' yields no task", ex("ultracode:") === undefined, JSON.stringify(ex("ultracode:")));
+	check("ultracode: non-command 'ultracoder things' is ignored", ex("ultracoder things") === undefined, JSON.stringify(ex("ultracoder things")));
+}
+
 // F43: peak-parallel estimation must not overcount when one agent ends at the exact instant
 // another starts (a +1/-1 tie at the same timestamp must process the -1 first).
 async function scenarioPeakParallelTieAccuracy(url) {
@@ -741,6 +755,7 @@ async function main() {
 		await scenarioRunProcessSigkillEscalation(url);
 		await scenarioStreamingSigkillEscalation(url);
 		await scenarioPeakParallelTieAccuracy(url);
+		await scenarioUltracodeTaskParsing(url);
 		const templatesUrl = await buildTemplates();
 		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
 		await scenarioScoutTemplateInjectionSafe(templatesMod);
