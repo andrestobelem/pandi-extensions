@@ -205,64 +205,6 @@ interface AgentSpec extends AgentOptions {
 	prompt: string;
 }
 
-export const DEFAULT_AGENT_WEB_SEARCH_TOOL = "web_search";
-export const DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE = "pi-codex-web-search";
-export const DEFAULT_CONTEXT7_SKILL_NAME = "context7-cli";
-const READ_ONLY_AGENT_TOOLS = ["read", "grep", "find", "ls"];
-
-export const BUILTIN_AGENT_PERSONAS: Record<string, AgentOptions> = {
-	explore: {
-		tools: READ_ONLY_AGENT_TOOLS,
-		thinking: "medium",
-		systemPrompt:
-			"Explore broadly but stay evidence-based. Prefer read-only inspection, cite files/lines, and call out uncertainty.",
-	},
-	reviewer: {
-		tools: READ_ONLY_AGENT_TOOLS,
-		thinking: "high",
-		systemPrompt:
-			"Act as a skeptical code reviewer. Look for correctness, security, concurrency, and maintainability risks. Do not edit files; cite concrete evidence.",
-	},
-	planner: {
-		tools: READ_ONLY_AGENT_TOOLS,
-		thinking: "high",
-		systemPrompt:
-			"Act as a careful planner. Decompose the task, identify dependencies and risks, and propose a minimal verifiable plan with clear trade-offs.",
-	},
-	implementer: {
-		tools: READ_ONLY_AGENT_TOOLS,
-		thinking: "medium",
-		systemPrompt:
-			"Act as an implementer designing a concrete patch. Prefer minimal changes, preserve existing behavior, and explain verification steps. Do not edit files unless explicitly allowed by the caller.",
-	},
-	researcher: {
-		tools: READ_ONLY_AGENT_TOOLS,
-		thinking: "high",
-		systemPrompt:
-			"Act as a researcher. Gather independent evidence, compare alternatives, cite sources or files, and separate facts from assumptions.",
-	},
-};
-
-export const PERSONA_OPTION_KEYS = new Set<keyof AgentOptions>([
-	"tools",
-	"excludeTools",
-	"skills",
-	"includeSkills",
-	"extensions",
-	"model",
-	"provider",
-	"thinking",
-	"includeExtensions",
-	"approve",
-	"useContextFiles",
-	"systemPrompt",
-	"appendSystemPrompt",
-	"timeoutMs",
-	"keys",
-	"env",
-	"inheritEnv",
-]);
-
 export const activeRuns = new Map<string, ActiveWorkflowRun>();
 
 interface BashOptions {
