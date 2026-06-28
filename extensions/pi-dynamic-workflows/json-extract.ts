@@ -5,7 +5,7 @@
  * JSON.parse, then any \`\`\`json fenced blocks, then the first brace/bracket-
  * balanced substring. Fully self-contained — no ctx, no node/SDK imports, no
  * shared state, and independent of schema VALIDATION (which couples to safeJson
- * and TypeBox Value and stays in index.ts).
+ * and TypeBox Value and lives in the structured-output.ts sibling).
  *
  * Extracted verbatim from index.ts (behavior-preserving). Depth-one sibling
  * imported via "./json-extract.js"; parseJsonText/balancedJsonCandidate stay
