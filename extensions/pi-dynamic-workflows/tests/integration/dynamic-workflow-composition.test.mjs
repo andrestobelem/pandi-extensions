@@ -531,6 +531,27 @@ async function scenarioStreamingSigkillEscalation(url) {
 	if (result !== TIMED_OUT) check("runStreamingAgentProcess: reports killed", result.killed === true, JSON.stringify(result));
 }
 
+// F42: the per-file append mutex map must not grow unboundedly; entries are purged once no
+// writer is using a path, without breaking mutual exclusion for concurrent writers.
+async function scenarioAppendMutexPurge(url) {
+	const mod = await import(`${url}?am=${instance++}`);
+	check("append: appendJsonLine exported", typeof mod.appendJsonLine === "function", typeof mod.appendJsonLine);
+	check("append: appendFileMutexCount exported", typeof mod.appendFileMutexCount === "function", typeof mod.appendFileMutexCount);
+	if (typeof mod.appendJsonLine !== "function" || typeof mod.appendFileMutexCount !== "function") return;
+	const tmp = path.join(os.tmpdir(), `dwf-append-${process.pid}-${instance++}.jsonl`);
+	try {
+		await mod.appendJsonLine(tmp, { a: 1 });
+		check("append: mutex map purged after a single write", mod.appendFileMutexCount() === 0, String(mod.appendFileMutexCount()));
+		await Promise.all([mod.appendJsonLine(tmp, { b: 2 }), mod.appendJsonLine(tmp, { c: 3 }), mod.appendJsonLine(tmp, { d: 4 })]);
+		check("append: mutex map purged after concurrent writes", mod.appendFileMutexCount() === 0, String(mod.appendFileMutexCount()));
+		const lines = (await fs.readFile(tmp, "utf8")).trim().split("\n").filter(Boolean);
+		const allValid = lines.length === 4 && lines.every((l) => { try { JSON.parse(l); return true; } catch { return false; } });
+		check("append: concurrent writes stay serialized (4 intact JSON lines)", allValid, `lines=${lines.length}`);
+	} finally {
+		await fs.rm(tmp, { force: true });
+	}
+}
+
 // F49: extractUltracodeTask must accept a `:`/`-` separator with or without a following space
 // (e.g. `ultracode:do X`), not only a whitespace separator.
 async function scenarioUltracodeTaskParsing(url) {
@@ -756,6 +777,7 @@ async function main() {
 		await scenarioStreamingSigkillEscalation(url);
 		await scenarioPeakParallelTieAccuracy(url);
 		await scenarioUltracodeTaskParsing(url);
+		await scenarioAppendMutexPurge(url);
 		const templatesUrl = await buildTemplates();
 		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
 		await scenarioScoutTemplateInjectionSafe(templatesMod);
