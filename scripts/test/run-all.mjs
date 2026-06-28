@@ -32,6 +32,7 @@ const SUITE_TIMEOUT_MS = 120_000;
 // session is drafting a new `*.test.mjs` file in a suite directory. Add a suite here
 // once it is expected to be green as part of the durable behavioral suite.
 const suites = [
+	"extensions/pi-auto-compact-context/tests/integration/auto-compact-context.test.mjs",
 	"extensions/pi-bg/tests/integration/bg-extension.test.mjs",
 	"extensions/pi-bg/tests/integration/bg-jobs.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/composition-graph-expansion.test.mjs",
@@ -63,6 +64,7 @@ const ignoredDraftSuites = new Set([
 ]);
 
 const suiteDirs = [
+	"extensions/pi-auto-compact-context/tests/integration",
 	"extensions/pi-bg/tests/integration",
 	"extensions/pi-dynamic-workflows/tests/integration",
 	"extensions/pi-effort/tests/integration",

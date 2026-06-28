@@ -29,7 +29,10 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 		ctx.compact({
 			onComplete: () => {
 				compacting = false;
-				previousPercent = null;
+				// Re-arm the edge-trigger from the POST-compaction usage, not null. If
+				// compaction could not bring usage below the threshold (large pinned/
+				// system content), resetting to null would re-cross every turn and loop.
+				previousPercent = ctx.getContextUsage()?.percent ?? null;
 				notify(ctx, "Auto-compaction completed", "info");
 			},
 			onError: (error) => {
