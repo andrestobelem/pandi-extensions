@@ -17,6 +17,8 @@ examples/.pi/
 **/.pi/workflows/graphs/
 .pi/workflows/drafts/
 **/.pi/workflows/drafts/
+.pi/workflows-archive/
+**/.pi/workflows-archive/
 
 # Pi local chats, sessions, and plans.
 .pi/live-sessions/
