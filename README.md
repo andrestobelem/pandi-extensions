@@ -41,6 +41,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `/mdview` | `pi install ./extensions/pi-mdview` |
 | Local memory | `pi install ./extensions/pi-local-memory` |
 | Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
+| `/worktree` | `pi install ./extensions/pi-worktree` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
@@ -74,6 +75,9 @@ Comandos humanos:
 /effort high                           # cambia el thinking effort: off|minimal|low|medium|high|xhigh
 /effort ultracode                      # xhigh + router dinámico estilo Claude Code
 /mdview README.md                      # visualiza un archivo Markdown con scroll en la TUI
+/worktree                              # gestiona git worktrees: list|add|remove|prune
+/worktree add -b feature ../wt-feature # crea un worktree en nueva branch
+/worktree remove ../wt-feature         # elimina un worktree (con confirmación)
 /ultracode-mode status                 # muestra si el router always-on está activo
 /ultracode-mode off                    # desactiva el router en esta sesión
 /ultracode-mode on                     # vuelve a activarlo
@@ -81,7 +85,7 @@ Comandos humanos:
 
 También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` y la extensión lo transforma en una petición orientada a workflows.
 
-Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza). Otra es `remember`, que deja a Pi persistir notas durables (preferencias estables, convenciones del proyecto, decisiones clave) en una sección auto-gestionada bajo la carpeta `.pi/memory/` —el índice `MEMORY.md` se inyecta (con tope) y los archivos por tema `.pi/memory/<topic>.md` se leen on demand; idempotente y sin tocar lo que tú curaste— para tenerlas disponibles en sesiones futuras.
+Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza). Otra es `remember`, que deja a Pi persistir notas durables (preferencias estables, convenciones del proyecto, decisiones clave) en una sección auto-gestionada bajo la carpeta `.pi/memory/` —el índice `MEMORY.md` se inyecta (con tope) y los archivos por tema `.pi/memory/<topic>.md` se leen on demand; idempotente y sin tocar lo que tú curaste— para tenerlas disponibles en sesiones futuras. Otra es `git_worktree`, que deja a Pi gestionar git worktrees (`list`/`add`/`remove`/`prune`) invocando `git` con un array de argumentos (nunca shell); `remove` nunca fuerza por defecto (requiere `force: true` explícito para descartar un worktree sucio) y, como el `cwd` de Pi es fijo en la sesión, reporta la ruta del worktree para que abras un nuevo Pi ahí en vez de "cambiarse".
 
 ### Ultracode always-on
 
