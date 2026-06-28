@@ -18,7 +18,7 @@ pi --no-extensions -e ./extensions/pi-bg
 
 ## Provides
 
-- `/bg plan <command>` — preview a background job.
+- `/bg preview <command>` — preview a background job (deprecated alias: `/bg plan`).
 - `/bg start <command>` — start a trusted project-local background job.
 - `/bg list` — list known jobs.
 - `/bg status <jobId>` — inspect a job.
