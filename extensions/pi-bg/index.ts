@@ -20,6 +20,7 @@ import {
 	lstatPlainDirectory,
 	lstatPlainDirectoryChain,
 	readJson,
+	removeRunDir,
 	RUNS_DIR,
 	validJobId,
 } from "./storage.js";
@@ -242,6 +243,9 @@ async function findJobDir(ctx: ExtensionContext, jobId: string): Promise<string 
 }
 
 const RECONCILABLE_STATES = new Set(["starting", "running"]);
+// The only states a finished job's artifacts may be deleted in. `starting`/`running`
+// (and read-time `orphaned`/`stale`/`unknown`) are never deletable — see classifyForDeletion.
+const DELETABLE_STATES = new Set(["completed", "failed", "cancelled", "interrupted"]);
 
 // Session-start self-heal: a fresh Pi process owns no jobs (activeJobs is empty),
 // so any project-local job persisted as starting/running is from a previous run.
@@ -316,7 +320,7 @@ function planModeActive(): boolean {
 	}
 }
 
-function rejectInPlanMode(action: "start" | "cancel"): BgResponse | undefined {
+function rejectInPlanMode(action: "start" | "cancel" | "delete"): BgResponse | undefined {
 	if (!planModeActive()) return undefined;
 	return response(`Cannot /bg ${action} while plan mode is active. Approve or exit /plan first.`, { action, blockedBy: "plan-mode" }, "warning");
 }
@@ -609,6 +613,24 @@ async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	return response(["Background jobs:", ...jobs.map(formatJob)].join("\n"), { jobs });
 }
 
+// Delete one finished job's artifacts. R1 gates on the persisted terminal state; R2 will
+// re-derive live state via classifyForDeletion so a running/active/verified-alive job is
+// never deletable. removeRunDir enforces project scope + symlink safety at the edge.
+async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
+	const blocked = rejectInPlanMode("delete");
+	if (blocked) return blocked;
+	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg delete <jobId>");
+	if (typeof runDir !== "string") return runDir;
+	const status = (await readJson(path.join(runDir, "status.json"))) ?? {};
+	const state = asString(status.state);
+	if (!state || !DELETABLE_STATES.has(state)) {
+		return response(`Background job ${jobId} is not in a terminal state (${state ?? "unknown"}); refusing to delete.`, { action: "delete", jobId, deleted: false }, "warning");
+	}
+	const removed = await removeRunDir(ctx, jobId, { verb: "delete", state });
+	if (!removed) return response(`Background job not found: ${jobId}`, { action: "delete", jobId, deleted: false }, "warning");
+	return response(`Background job ${jobId} deleted.`, { action: "delete", jobId, deleted: true });
+}
+
 // Validate a job id and resolve its symlink-safe run directory, or return the
 // shared usage/not-found warning so every read subcommand behaves identically.
 async function resolveRunDir(ctx: ExtensionContext, jobId: string, usage: string): Promise<string | BgResponse> {
@@ -735,8 +757,10 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 				return await handleLogs(ctx, tail.trim());
 			case "events":
 				return await handleEvents(ctx, tail.trim());
+			case "delete":
+				return await handleDelete(ctx, tail.trim());
 			default:
-				return response(`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events.`, undefined, "warning");
+				return response(`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events, delete.`, undefined, "warning");
 		}
 	} catch (err) {
 		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
@@ -755,6 +779,7 @@ export default function bgExtension(pi: ExtensionAPI): void {
 				{ value: "status", label: "status", description: "Read job status" },
 				{ value: "logs", label: "logs", description: "Read bounded job logs" },
 				{ value: "events", label: "events", description: "Read bounded job lifecycle events" },
+				{ value: "delete", label: "delete", description: "Delete a finished job's artifacts" },
 			];
 			const prefix = argumentPrefix.trim().toLowerCase();
 			if (!prefix) return items;

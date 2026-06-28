@@ -137,6 +137,37 @@ async function statusOrphanedRefinementPinned(url) {
 	}
 }
 
+// R1: /bg delete happy path + symlink-safe removal + path-traversal guard.
+async function deleteRemovesTerminalJobsAndGuards(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const ctx = makeCtx({ cwd, trusted: true });
+	const say = async (line) => {
+		await commands.get("bg").handler(line, ctx);
+		return ctx._notes.at(-1)?.msg || "";
+	};
+	const auditLines = async () => (await fs.readFile(path.join(runsRoot, ".audit.jsonl"), "utf8").catch(() => "")).trim().split("\n").filter(Boolean);
+
+	const okDir = await setupJob(runsRoot, "done-job", { state: "completed" });
+	const okMsg = await say("delete done-job");
+	check("delete: a terminal job is removed", !existsSync(okDir), okDir);
+	check("delete: reports the deletion", /deleted/i.test(okMsg), okMsg);
+	const audit = await auditLines();
+	check("delete: appends one audit line for the removal", audit.length === 1 && /"jobId":\s*"done-job"/.test(audit[0]) && /"verb":\s*"delete"/.test(audit[0]), JSON.stringify(audit));
+
+	const travMsg = await say("delete ../escape");
+	check("delete: rejects a path-traversal id with usage", /Usage: \/bg delete/.test(travMsg), travMsg);
+
+	const realDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-target-"));
+	await fs.writeFile(path.join(realDir, "status.json"), JSON.stringify({ jobId: "linky", state: "completed", updatedAt: "2026-06-25T00:00:00.000Z" }));
+	await fs.mkdir(runsRoot, { recursive: true });
+	await fs.symlink(realDir, path.join(runsRoot, "linky"));
+	const linkMsg = await say("delete linky");
+	check("delete: refuses a symlinked run dir as not found", /not found/i.test(linkMsg), linkMsg);
+	check("delete: symlink target survives the refusal", existsSync(realDir) && existsSync(path.join(realDir, "status.json")));
+}
+
 async function loadExtension(url) {
 	const extension = await loadDefault(url);
 	const { pi, commands, tools } = makePi();
@@ -479,6 +510,7 @@ async function main() {
 	const { url, planUrl, agentDir } = await buildBg();
 	await dryRunHasNoRuntimeWrites(url);
 	await statusOrphanedRefinementPinned(url);
+	await deleteRemovesTerminalJobsAndGuards(url);
 	await startCancelRejectInPlanMode(planUrl, url);
 	await listStatusLogsReadExistingArtifacts(url, agentDir);
 	await logTailDoesNotSplitUtf8(url);

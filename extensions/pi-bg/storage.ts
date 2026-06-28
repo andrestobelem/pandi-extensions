@@ -122,3 +122,30 @@ export async function atomicWriteJson(file: string, value: unknown): Promise<voi
 		throw err;
 	}
 }
+
+// Best-effort append-only audit of irreversible removals, at .pi/bg/runs/.audit.jsonl.
+// The leading dot means validJobId() rejects it, so every job-enumeration loop skips
+// it for free (no pollution of list/reconcile/prune). Never throws into the caller.
+export async function appendAuditLine(ctx: ExtensionContext, entry: Record<string, unknown>): Promise<void> {
+	const auditFile = path.join(getProjectBgRoot(ctx), RUNS_DIR, ".audit.jsonl");
+	try {
+		await fs.appendFile(auditFile, `${JSON.stringify({ ts: new Date().toISOString(), scope: "project", ...entry })}\n`, "utf8");
+	} catch {
+		// audit is best-effort evidence; it must never block the operation it records
+	}
+}
+
+// Remove a single project-local run directory, symlink/path-safe. Immediately before
+// fs.rm it re-asserts the jobId and the full path chain (no symlinked component, no
+// escape from the project runs root). fs.rm(recursive) lstats each entry, so a
+// malicious inner symlink (e.g. combined.log -> /etc/...) is unlinked, not followed.
+// Returns false (nothing removed) when the dir is missing, symlinked, or out of scope.
+export async function removeRunDir(ctx: ExtensionContext, jobId: string, audit: { verb: string; state?: string; sizeBytes?: number }): Promise<boolean> {
+	if (!validJobId(jobId)) return false;
+	const runDir = path.join(getProjectBgRoot(ctx), RUNS_DIR, jobId);
+	if (!(await lstatPlainDirectoryChain(ctx.cwd, runDir))) return false;
+	if (!(await lstatPlainDirectory(runDir))) return false;
+	await fs.rm(runDir, { recursive: true, force: true });
+	await appendAuditLine(ctx, { verb: audit.verb, jobId, state: audit.state ?? null, sizeBytes: audit.sizeBytes ?? null });
+	return true;
+}
