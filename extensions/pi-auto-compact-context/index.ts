@@ -8,6 +8,13 @@ import {
 	parseSnapshotKeep,
 	parseClearSetting,
 } from "./settings.js";
+import {
+	buildSnapshot,
+	selectSnapshotsToPrune,
+	snapshotDirFor,
+	snapshotFileName,
+	type CompactionSnapshot,
+} from "./snapshots.js";
 
 const DEFAULT_THRESHOLD_PERCENT = 30;
 
@@ -25,73 +32,18 @@ const BAR_WIDTH = 8;
 // bar warns the user that auto-compaction is approaching.
 const NEAR_RATIO = 0.6;
 
-// Recoverable compaction: the raw entries about to be summarized are persisted
-// BEFORE the lossy summary replaces them, so compaction is recoverable rather
-// than destructive. Snapshots live under <cwd>/.pi/<SNAPSHOT_DIR>/<sessionId>/
-// (gitignored) — deliberately NOT in .pi/memory/, which is for curated, injected
-// facts, not bulky raw transcripts. DEFAULT_SNAPSHOT_KEEP bounds disk growth.
-const SNAPSHOT_DIR = "compaction-snapshots";
+// Snapshot path/shape/prune helpers live in ./snapshots.ts. DEFAULT_SNAPSHOT_KEEP
+// (used by the activate handler) bounds snapshot disk growth.
 const DEFAULT_SNAPSHOT_KEEP = 20;
 
 // Setting parsers live in ./settings.ts; re-exported here so the built bundle keeps
 // exporting the public parser names (the integration suite imports them).
 export { parseThreshold, parseBarSetting, parseSnapshotSetting, parseSnapshotKeep, parseClearSetting };
 
-// Replace anything outside a safe file-name set so a session id / timestamp / reason
-// can never escape the snapshot directory. Leading/trailing `._-` are trimmed and an
-// all-dots result (e.g. "." or "..", which would traverse) falls back to `fallback`.
-const safeSegment = (raw: string, fallback: string): string => {
-	const cleaned = (raw ?? "").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._-]+|[._-]+$/g, "");
-	return cleaned && !/^\.+$/.test(cleaned) ? cleaned : fallback;
-};
-
-/** Per-session snapshot directory: <cwd>/.pi/compaction-snapshots/<sessionId>/. Pure. */
-export const snapshotDirFor = (cwd: string, sessionId: string): string =>
-	join(cwd, ".pi", SNAPSHOT_DIR, safeSegment(sessionId, "session"));
-
-/** Snapshot file name. Timestamp-prefixed so a lexicographic sort is chronological. Pure. */
-export const snapshotFileName = (createdAtIso: string, reason: string): string =>
-	`${safeSegment(createdAtIso, "snapshot")}-${safeSegment(reason, "compact")}.json`;
-
-export interface CompactionSnapshot {
-	version: 1;
-	sessionId: string;
-	createdAt: string;
-	reason: string;
-	willRetry: boolean;
-	entryCount: number;
-	entries: unknown[];
-	/** The lossy summary that replaced `entries`, patched in after compaction completes. */
-	summary?: string;
-}
-
-/** Build the serializable snapshot object from the raw entries being compacted. Pure. */
-export const buildSnapshot = (opts: {
-	sessionId: string;
-	createdAt: string;
-	reason: string;
-	willRetry: boolean;
-	entries: unknown[];
-}): CompactionSnapshot => {
-	const entries = Array.isArray(opts.entries) ? opts.entries : [];
-	return {
-		version: 1,
-		sessionId: opts.sessionId,
-		createdAt: opts.createdAt,
-		reason: opts.reason,
-		willRetry: opts.willRetry,
-		entryCount: entries.length,
-		entries,
-	};
-};
-
-// Given snapshot file names (any order), return the OLDEST beyond `keep`. Names are
-// timestamp-prefixed so a lexicographic sort is chronological. keep<=0 prunes all.
-export const selectSnapshotsToPrune = (fileNames: string[], keep: number): string[] => {
-	const snaps = fileNames.filter((n) => n.endsWith(".json")).sort();
-	if (keep <= 0) return snaps;
-	return snaps.slice(0, Math.max(0, snaps.length - keep));
-};
+// Snapshot path/shape/prune helpers live in ./snapshots.ts; re-exported so the built
+// bundle keeps exporting the names the integration suite imports.
+export { buildSnapshot, selectSnapshotsToPrune, snapshotDirFor, snapshotFileName };
+export type { CompactionSnapshot };
 
 // Sentinel embedded in elided tool-result text. Detecting it makes clearing idempotent
 // (a re-run never re-clears already-cleared text) and lets humans spot trimmed output.
