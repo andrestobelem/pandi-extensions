@@ -38,13 +38,14 @@ Input (all optional):
 - `allow` — editable simple globs (`*`/`**`; default `extensions/loop/**`, `extensions/goal/**`, `extensions/plan/**`, `extensions/bg/**`, `extensions/effort/**`, `scripts/test/run-all.mjs`, `docs/**`). Narrow it (e.g. `["docs/**"]`) for the lowest-risk first test.
 - `hotFiles` — never-edit paths (default `extensions/dynamic-workflows/index.ts`).
 - `verifyCmd` (default `npm test`) — the objective green/red check that gates each pass.
-- `logPath` (default `docs/research/continuous-improvement-log.md`) — the progress log it appends to.
+- `logPath` (default `docs/research/continuous-improvement-log.md`) — the chronological narrative log; each pass appends one short entry (no pending lists).
+- `backlogPath` (default `docs/research/continuous-improvement-backlog.md`) — the canonical, structured list of OPEN pending items the workflow maintains (adds open items, marks resolved ones `done`, with real verified paths). Pending work lives HERE, not buried as prose in the log.
 
 ## What each pass does
 1. **Meta-step (once):** refine the raw objective into a driving prompt (criteria, allowed/hot files, verify commands) by reading the repo, read-only.
 2. **Implement:** pick the single highest value/(cost·risk) safe improvement and apply it, only within `allow`.
 3. **Adversarial review:** two reviewers (correctness/regression + value/safeguards) flag blockers.
-4. **Verify:** the workflow runs a safety gate before `verifyCmd`, runs `verifyCmd`, then runs safety again; a RED check, `HEAD` change, outside-allow edit, or protected-file change forces the pass to `BLOCKED` (it never continues on red). It appends a log entry when the log file was clean/allowed at start.
+4. **Verify:** the workflow runs a safety gate before `verifyCmd`, runs `verifyCmd`, then runs safety again; a RED check, `HEAD` change, outside-allow edit, or protected-file change forces the pass to `BLOCKED` (it never continues on red). It appends a short chronological entry to the log and updates the structured backlog (`backlogPath`) — adding new open items and marking resolved ones `done` — for each file that was clean/allowed at start.
 
 It stops early on `DRY` (nothing safe left) or `BLOCKED` (needs a human), else after `maxPasses`.
 

@@ -191,6 +191,7 @@ export default async function workflow(ctx, input = {}) {
     "Mejorá este paquete de extensiones Pi: UNA mejora segura de alto valor por iteración hasta que no quede ninguna (dry).";
   const maxPasses = input.maxPasses || 3;
   const logPath = input.logPath || "docs/research/continuous-improvement-log.md";
+  const backlogPath = input.backlogPath || "docs/research/continuous-improvement-backlog.md";
   const hotFiles = input.hotFiles || ["extensions/pi-dynamic-workflows/index.ts"];
   const allow = input.allow || [
     "extensions/pi-loop/**",
@@ -227,8 +228,15 @@ export default async function workflow(ctx, input = {}) {
   const canAppendLog =
     matchesAny(normalizedLogPath, allow) && !matchesAny(normalizedLogPath, hotFiles) && !dirtyAtStartSet.has(normalizedLogPath);
   const logInstruction = canAppendLog
-    ? `3) Append una entrada a ${logPath} (fecha, mejora, archivos, verificación, evidencia).`
+    ? `3) Append una entrada BREVE y cronológica a ${logPath} (fecha, mejora, archivos REALES tocados, verificación, evidencia). Solo la narrativa de ESTE pass; los PENDIENTES no van acá, van al backlog.`
     : `3) NO edites ${logPath} (no está permitido, está caliente o ya tenía cambios al iniciar); incluí la entrada de log sugerida en el reporte.`;
+  const normalizedBacklogPath = normalizeRepoPath(backlogPath);
+  const canUpdateBacklog =
+    matchesAny(normalizedBacklogPath, allow) && !matchesAny(normalizedBacklogPath, hotFiles) && !dirtyAtStartSet.has(normalizedBacklogPath);
+  const backlogInstruction = canUpdateBacklog
+    ? `3b) Actualizá el BACKLOG canónico de pendientes en ${backlogPath} (ESTE es el lugar de los pendientes, NO el log): agregá los items nuevos abiertos y marcá DONE los que este pass resolvió, sin duplicar. ` +
+      `Cada item lleva id estable, título, por qué, rutas REALES (verificá con ls/read que existen; no cites rutas viejas) y estado (open/done/human).`
+    : `3b) NO edites ${backlogPath} (no está permitido, está caliente o ya tenía cambios al iniciar); incluí los items de backlog sugeridos en el reporte.`;
 
   const RULES =
     `Mejorás este paquete de extensiones de Pi. SALVAGUARDAS DURAS:\n` +
@@ -246,7 +254,8 @@ export default async function workflow(ctx, input = {}) {
   await ctx.log("continuous-improvement: meta-step — refining the driving prompt");
   const scout0 = await ctx.bash(
     `git status --short; echo '--- recent ---'; git log --oneline -6; echo '--- log tail ---'; ` +
-      `test -f ${JSON.stringify(logPath)} && tail -60 ${JSON.stringify(logPath)} || true`,
+      `test -f ${JSON.stringify(logPath)} && tail -60 ${JSON.stringify(logPath)} || true; ` +
+      `echo '--- backlog (pendientes abiertos) ---'; test -f ${JSON.stringify(backlogPath)} && cat ${JSON.stringify(backlogPath)} || true`,
     { timeoutMs: 60000 },
   );
   const meta = await ctx.agent(
@@ -266,8 +275,8 @@ export default async function workflow(ctx, input = {}) {
   for (let pass = 1; pass <= maxPasses && verdict === "CONTINUE"; pass++) {
     await ctx.log(`continuous-improvement: pass ${pass}/${maxPasses} — implement`);
     const impl = await ctx.agent(
-      `${RULES}\n\nDRIVING PROMPT:\n${drivingPrompt}\n\nPASS ${pass}/${maxPasses}. Scout barato (git status/diff, baseline si hace falta), ` +
-        `elegí la ÚNICA mejora de mayor valor/(costo·riesgo) que respete las salvaguardas, IMPLEMENTALA solo en archivos permitidos ` +
+      `${RULES}\n\nDRIVING PROMPT:\n${drivingPrompt}\n\nPASS ${pass}/${maxPasses}. Scout barato (git status/diff, baseline si hace falta, y los items abiertos del backlog ${backlogPath}), ` +
+        `elegí la ÚNICA mejora de mayor valor/(costo·riesgo) que respete las salvaguardas (preferí un item abierto del backlog si aplica), IMPLEMENTALA solo en archivos permitidos ` +
         `(re-chequeá cada archivo ANTES de tocarlo), y dejá el árbol verde. Si no hay mejora segura de alto valor, NO toques nada y decí 'sin-mejora-segura'. ` +
         `Reportá: mejora elegida, archivos tocados, evidencia.`,
       { name: `implement-${pass}`, tools: ["read", "grep", "find", "ls", "bash", "edit", "write"] },
@@ -311,7 +320,7 @@ export default async function workflow(ctx, input = {}) {
     const verify = await ctx.agent(
       `${RULES}\n\nFINALIZÁ EL PASS. 1) Aplicá los fixes BLOQUEANTES de las revisiones (solo archivos permitidos). ` +
         `2) Dejá el árbol listo para que el orquestador verifique; NO ejecutes ${verifyCmd} ni otros comandos de test aquí. ` +
-        `${logInstruction} 4) NO commitees. ` +
+        `${logInstruction} ${backlogInstruction} 4) NO commitees. ` +
         `REPORTE final y en la ÚLTIMA línea EXACTAMENTE uno de:\n` +
         `VERDICT: CONTINUE  (implementaste una mejora verificada y puede quedar más)\n` +
         `VERDICT: DRY       (no queda mejora segura de alto valor)\n` +
