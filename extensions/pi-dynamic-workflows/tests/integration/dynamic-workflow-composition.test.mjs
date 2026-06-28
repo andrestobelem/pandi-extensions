@@ -503,6 +503,63 @@ module.exports = async function workflow(ctx) {
 	check("composition cache: reports cached parent call", resumed.cachedCalls === 1, `cachedCalls=${resumed.cachedCalls}`);
 }
 
+// templates.ts is self-contained (zero imports), so it can be bundled on its own.
+async function buildTemplates() {
+	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-templates-"));
+	const src = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "templates.ts");
+	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
+	const out = path.join(outDir, "templates.mjs");
+	const r = spawnSync("npx", ["--yes", "esbuild", src, "--bundle", "--platform=node", "--format=esm", `--outfile=${out}`], { cwd: REPO_ROOT, encoding: "utf8" });
+	if (r.status !== 0) throw new Error(`esbuild templates failed: ${r.stderr || r.stdout}`);
+	return pathToFileURL(out).href;
+}
+
+// F1: the scout/classify scaffold must not interpolate input.pattern into a shell command.
+async function scenarioScoutTemplateInjectionSafe() {
+	const url = await buildTemplates();
+	const mod = await import(`${url}?i=${instance++}`);
+	const { WORKFLOW_PATTERN_CATALOG, loadWorkflowPatternCode } = mod;
+
+	// Find the scout/classify scaffold by content (robust to pattern-key renames).
+	let scoutCode;
+	for (const pattern of WORKFLOW_PATTERN_CATALOG ?? []) {
+		let code;
+		try { code = await loadWorkflowPatternCode(pattern); } catch { continue; }
+		if (/git ls-files/.test(code) && /ctx\.pipeline/.test(code)) { scoutCode = code; break; }
+	}
+	check("scout template: scaffold found", typeof scoutCode === "string", String(scoutCode).slice(0, 60));
+	if (typeof scoutCode !== "string") return;
+
+	// (a) Structural: never interpolate input into a single-quoted shell grep.
+	check("scout template: no shell interpolation of pattern into grep", !/grep -E '\$\{/.test(scoutCode), scoutCode.match(/.{0,30}grep -E.{0,30}/)?.[0]);
+
+	// (b) Behavioral: a malicious pattern must never reach the shell. Eval the scaffold with a
+	// mock ctx that records bash commands; the (non-matching) regex must filter to zero files in
+	// JS, hitting the early return without the payload ever appearing in a shell command.
+	const m = { exports: {} };
+	new Function("module", "exports", scoutCode)(m, m.exports);
+	const workflow = m.exports;
+	check("scout template: scaffold exports a workflow function", typeof workflow === "function", typeof workflow);
+	if (typeof workflow !== "function") return;
+
+	const bashCommands = [];
+	const ctx = {
+		bash: async (command) => { bashCommands.push(command); return { stdout: "a.ts\nb.js\nMakefile\n", stderr: "", code: 0 }; },
+		log: async () => {},
+		pipeline: async () => [],
+		agent: async () => ({ output: "SYNTH", data: undefined }),
+		writeArtifact: async () => {},
+		compact: () => "",
+	};
+	const malicious = "x'; touch INJECTED_SENTINEL; echo '";
+	let result;
+	try { result = await workflow(ctx, { pattern: malicious, maxFiles: 40 }); } catch (e) { result = `THREW: ${e?.message ?? e}`; }
+
+	check("scout template: only 'git ls-files' is shelled (no interpolation)", bashCommands.length > 0 && bashCommands.every((c) => c === "git ls-files"), JSON.stringify(bashCommands));
+	check("scout template: injection payload never reaches the shell", !bashCommands.some((c) => /INJECTED_SENTINEL|touch |;/.test(c)), JSON.stringify(bashCommands));
+	check("scout template: non-matching pattern is filtered in JS (zero files)", typeof result === "string" && /No files matched/i.test(result), String(result));
+}
+
 async function main() {
 	try {
 		const { outDir, url } = await buildExtension();
@@ -513,6 +570,7 @@ async function main() {
 		await scenarioAgentStructuredOutputSurvivesTruncatedJsonEventStream(url, outDir);
 		await scenarioGeneratedDraftLocation(url, outDir);
 		await scenarioChildCodeHashNamespacesResumeCache(url);
+		await scenarioScoutTemplateInjectionSafe();
 		console.log(`\n${passed} passed, ${failed} failed`);
 		if (failed) {
 			console.log(failures.map((f) => `- ${f}`).join("\n"));
