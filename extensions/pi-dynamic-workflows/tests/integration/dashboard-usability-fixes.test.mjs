@@ -463,6 +463,31 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 	check("a healthy refresh clears the failure marker", recovered.includes("updated") && !recovered.includes("refresh failed"), recovered.split("\n").slice(0, 2).join(" | "));
 }
 
+async function scenarioKeyboardNav(url) {
+	// P3: a direct Runs jump key, vim j/k + G, and Shift+Tab for previous tab.
+	const { component, getDone } = await openDashboardComponent(url);
+	const runs = Array.from({ length: 5 }, (_, i) => ({ runId: `r${i}`, workflow: "wf", runDir: `/tmp/r${i}`, agentCount: 0, background: true, scope: "project" }));
+	component.setRuns(runs);
+
+	component.handleInput("R"); // jump straight to Runs (only tab without a letter before)
+	let txt = component.render(100).join("\n");
+	check("R jumps to the Runs tab", txt.includes("[Runs]"), txt.split("\n")[0]);
+
+	component.handleInput("j"); // vim down -> index 1
+	component.handleInput("j"); // -> index 2
+	component.handleInput("k"); // vim up -> index 1
+	component.handleInput("v");
+	check("j/k navigate the list (vim down/up)", getDone()?.run?.runId === "r1", JSON.stringify(getDone()));
+
+	component.handleInput("G"); // jump to last
+	component.handleInput("v");
+	check("G jumps to the last item", getDone()?.run?.runId === "r4", JSON.stringify(getDone()));
+
+	component.handleInput("shift+tab"); // previous tab: runs -> sessions
+	txt = component.render(100).join("\n");
+	check("Shift+Tab cycles to the previous tab", txt.includes("[Sessions]"), txt.split("\n")[0]);
+}
+
 async function scenarioLiveAgentHeaderStatus(url) {
 	// The live agent viewer used to hardcode 'refresh 1s' in its header even after
 	// the agent finished (and kept polling). The header label must reflect state.
@@ -493,6 +518,7 @@ async function main() {
 	await scenarioMonitorMultiRun(url);
 	await scenarioMonitorHelpGating(url);
 	await scenarioLiveAgentHeaderStatus(url);
+	await scenarioKeyboardNav(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 

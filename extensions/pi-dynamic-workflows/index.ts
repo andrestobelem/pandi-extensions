@@ -4364,6 +4364,10 @@ class WorkflowDashboard {
 			this.requestRender();
 			return;
 		}
+		if (matchesKey(data, "shift+tab")) {
+			this.moveTab(-1);
+			return;
+		}
 		if (matchesKey(data, Key.tab)) {
 			this.moveTab(1);
 			return;
@@ -4406,7 +4410,12 @@ class WorkflowDashboard {
 			this.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.up)) {
+		if (data === "R") {
+			this.tab = "runs";
+			this.requestRender();
+			return;
+		}
+		if (matchesKey(data, Key.up) || data === "k") {
 			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0) this.monitorAgentIndex = Math.max(0, this.monitorAgentIndex - 1);
 			else if (this.tab === "agents") this.agentIndex = Math.max(0, this.agentIndex - 1);
 			else if (this.tab === "workflows") this.workflowIndex = Math.max(0, this.workflowIndex - 1);
@@ -4417,7 +4426,7 @@ class WorkflowDashboard {
 			this.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.down)) {
+		if (matchesKey(data, Key.down) || data === "j") {
 			if (this.tab === "monitor" && (this.selectedMonitor()?.agents.length ?? 0) > 0) this.monitorAgentIndex = Math.min(Math.max(0, (this.selectedMonitor()?.agents.length ?? 1) - 1), this.monitorAgentIndex + 1);
 			else if (this.tab === "agents") this.agentIndex = Math.min(Math.max(0, this.agentEntries.length - 1), this.agentIndex + 1);
 			else if (this.tab === "workflows") this.workflowIndex = Math.min(Math.max(0, this.workflows.length - 1), this.workflowIndex + 1);
@@ -4428,8 +4437,8 @@ class WorkflowDashboard {
 			this.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.pageUp) || matchesKey(data, Key.pageDown) || matchesKey(data, Key.home) || matchesKey(data, Key.end)) {
-			// Page/Home/End jump within the active list, mirroring the live agent view.
+		if (matchesKey(data, Key.pageUp) || matchesKey(data, Key.pageDown) || matchesKey(data, Key.home) || matchesKey(data, Key.end) || data === "G") {
+			// Page/Home/End (and vim G = last) jump within the active list, mirroring the live agent view.
 			const page = 10;
 			if (this.activeListLength() > 0) {
 				if (matchesKey(data, Key.pageUp)) this.setActiveIndex(this.getActiveIndex() - page);
@@ -4521,10 +4530,10 @@ class WorkflowDashboard {
 			line(muted("Press any key to close")),
 			line(muted("─".repeat(Math.min(w, 120)))),
 			line(accent("Tabs")),
-			line("  Tab / ← / → cycle tabs"),
-			line("  m Monitor · A Agents · a Activity · s Sessions · w Workflows · p Patterns"),
+			line("  Tab / ← / → cycle tabs · Shift+Tab previous"),
+			line("  m Monitor · A Agents · a Activity · s Sessions · w Workflows · p Patterns · R Runs"),
 			line(accent("Navigate")),
-			line("  ↑ ↓ move · PgUp / PgDn page · Home / End first / last"),
+			line("  ↑ ↓ / j k move · PgUp / PgDn page · Home / End / G first / last"),
 			line("  [ ] switch active run (Monitor)"),
 			line(accent("Actions")),
 			line("  Enter / o agent output · v run view · g graph"),
