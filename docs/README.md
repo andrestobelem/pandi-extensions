@@ -5,6 +5,7 @@ This directory stores the project’s work history, decisions, created workflows
 ## Index
 
 - [Memoria de trabajo](./memoria.md)
+- [Loop engineering with our extensions (how-to)](./loop-engineering-with-extensions.md)
 - [Research: ultracode always-on](./research/2026-06-25-ultracode-always-on.md)
 - [Improving prompts for dynamic workflows](./research/2026-06-25-prompt-patterns-workflows.md)
 - [Andrej Karpathy’s recommendations for programming, learning, and using AI](./research/2026-06-25-karpathy-programming-recommendations.md)
@@ -13,6 +14,7 @@ This directory stores the project’s work history, decisions, created workflows
 - [Software engineering principles according to Dave Farley](./research/2026-06-25-dave-farley-modern-software-engineering.md)
 - [Claude Dynamic Workflows: a harness for every task](./research/2026-06-26-claude-dynamic-workflows-harness.md)
 - [Modularización de extensiones — Design Audit y roadmap](./research/2026-06-28-modularizacion-extensiones-design-audit.md)
+- [Research: loop engineering (source-backed)](./research/2026-06-28-loop-engineering.md)
 - [Continuous-improvement backlog](./research/continuous-improvement-backlog.md)
 - [Continuous improvement loop — progress log](./research/continuous-improvement-log.md)
 
