@@ -34,6 +34,18 @@ function safeRead(path: string): string | null {
 	}
 }
 
+/** Build a `remember` tool result with a single text block plus arbitrary details. */
+function result(text: string, details: Record<string, unknown>) {
+	return {
+		content: [{ type: "text" as const, text }],
+		details,
+	};
+}
+/** Build a failed `remember` result: `isError` + `remembered: false` plus any extra details. */
+function errorResult(text: string, details?: Record<string, unknown>) {
+	return result(text, { isError: true, remembered: false, ...details });
+}
+
 export default function localMemoryExtension(pi: ExtensionAPI): void {
 	// Model-callable WRITE path: lets Pi persist a durable note to .pi/memory/ on its own
 	// initiative (the read/inject hook below feeds the index back into future sessions).
@@ -67,15 +79,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const note = normalizeNote(params.note);
 			if (!note) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "Nothing to remember: the note was empty after trimming.",
-						},
-					],
-					details: { isError: true, remembered: false },
-				};
+				return errorResult("Nothing to remember: the note was empty after trimming.");
 			}
 
 			const memoryDir = memoryDirOf(ctx.cwd);
@@ -90,15 +94,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			if (rawTopic) {
 				const slug = slugifyTopic(rawTopic);
 				if (!slug) {
-					return {
-						content: [
-							{
-								type: "text" as const,
-								text: `Invalid topic "${params.topic}": no safe file name could be derived.`,
-							},
-						],
-						details: { isError: true, remembered: false },
-					};
+					return errorResult(`Invalid topic "${params.topic}": no safe file name could be derived.`);
 				}
 				targetPath = join(memoryDir, `${slug}.md`);
 				targetLabel = `.pi/memory/${slug}.md`;
@@ -116,43 +112,33 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 					existing = readFileSync(legacyPath, "utf8");
 				}
 			} catch {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Could not read existing memory at ${targetPath}; nothing was written.`,
-						},
-					],
-					details: { isError: true, remembered: false, path: targetPath },
-				};
+				return errorResult(`Could not read existing memory at ${targetPath}; nothing was written.`, {
+					path: targetPath,
+				});
 			}
 
 			const date = new Date().toISOString().slice(0, 10);
 			const { content, added } = upsertMemoryNote(existing, note, date);
 			if (!added) {
-				return {
-					content: [{ type: "text" as const, text: `Already in memory (no-op): "${note}"` }],
-					details: { remembered: false, duplicate: true, path: targetPath },
-				};
+				return result(`Already in memory (no-op): "${note}"`, {
+					remembered: false,
+					duplicate: true,
+					path: targetPath,
+				});
 			}
 			try {
 				mkdirSync(memoryDir, { recursive: true });
 				writeFileSync(targetPath, content, "utf8");
 			} catch (err) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Failed to write memory at ${targetPath}: ${(err as Error).message}`,
-						},
-					],
-					details: { isError: true, remembered: false, path: targetPath },
-				};
+				return errorResult(`Failed to write memory at ${targetPath}: ${(err as Error).message}`, {
+					path: targetPath,
+				});
 			}
-			return {
-				content: [{ type: "text" as const, text: `Remembered (saved to ${targetLabel}): "${note}"` }],
-				details: { remembered: true, path: targetPath, topic: rawTopic ? targetLabel : null },
-			};
+			return result(`Remembered (saved to ${targetLabel}): "${note}"`, {
+				remembered: true,
+				path: targetPath,
+				topic: rawTopic ? targetLabel : null,
+			});
 		},
 	});
 
