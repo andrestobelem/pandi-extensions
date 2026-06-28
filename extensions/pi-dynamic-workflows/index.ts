@@ -47,6 +47,7 @@ import { notify } from "./notify.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import { extractJsonCandidate } from "./json-extract.js";
 import { buildLimits, HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
+import { formatElapsedMs, formatWorkflowList, shortWorkflowName, workflowDashboardHint, workflowProgress } from "./presentation.js";
 
 const WORKFLOW_DIR = "workflows";
 const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
@@ -97,7 +98,7 @@ export interface DynamicWorkflowToolParams {
 	agentTimeoutMs?: number;
 }
 
-interface WorkflowFile {
+export interface WorkflowFile {
 	name: string;
 	scope: WorkflowScope;
 	path: string;
@@ -255,7 +256,7 @@ interface BashResult {
 	stderr: string;
 }
 
-interface WorkflowLogEntry {
+export interface WorkflowLogEntry {
 	time: string;
 	message: string;
 	details?: unknown;
@@ -1512,13 +1513,6 @@ async function executeWorkflowCode(
 	});
 }
 
-function formatWorkflowList(files: WorkflowFile[]): string {
-	if (files.length === 0) {
-		return "No workflows found. Create one with `/workflow new <name>` or dynamic_workflow action=write.";
-	}
-	return files.map((file) => `- ${file.name} (${file.scope}) — ${file.relativePath}`).join("\n");
-}
-
 function formatRunSummary(result: WorkflowRunResult): string {
 	const status = getRunStatusLabel(result);
 	const parts = [
@@ -1545,36 +1539,6 @@ async function showText(ctx: ExtensionContext, title: string, content: string): 
 		return;
 	}
 	notify(ctx, content, "info");
-}
-
-function workflowProgress(logs: WorkflowLogEntry[]): { agentsStarted: number; agentsDone: number; agentsRunning: number; bashDone: number } {
-	let agentsStarted = 0;
-	let agentsDone = 0;
-	let bashDone = 0;
-	for (const logEntry of logs) {
-		if (/^agent \d+ start:/.test(logEntry.message)) agentsStarted++;
-		if (/^agent \d+ end:/.test(logEntry.message)) agentsDone++;
-		if (/^bash end:/.test(logEntry.message)) bashDone++;
-	}
-	return { agentsStarted, agentsDone, agentsRunning: Math.max(0, agentsStarted - agentsDone), bashDone };
-}
-
-function workflowDashboardHint(): string {
-	return "/workflows ↓ monitor ← agents Ctrl+Alt+W";
-}
-
-function shortWorkflowName(name: string): string {
-	return name.length <= 36 ? name : `${name.slice(0, 33)}…`;
-}
-
-function formatElapsedMs(ms: number): string {
-	const seconds = Math.max(0, Math.round(ms / 1000));
-	if (seconds < 60) return `${seconds}s`;
-	const minutes = Math.floor(seconds / 60);
-	const remainder = seconds % 60;
-	if (minutes < 60) return `${minutes}m${remainder.toString().padStart(2, "0")}s`;
-	const hours = Math.floor(minutes / 60);
-	return `${hours}h${(minutes % 60).toString().padStart(2, "0")}m`;
 }
 
 function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRunState(run)): number {
