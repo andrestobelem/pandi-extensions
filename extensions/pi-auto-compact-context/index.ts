@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-const DEFAULT_THRESHOLD_PERCENT = 50;
+const DEFAULT_THRESHOLD_PERCENT = 30;
 
 export const parseThreshold = (value: string | undefined): number | undefined => {
 	if (!value) return undefined;
@@ -77,7 +77,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("auto-compact-context", {
-		description: "Show, enable/disable, set, or manually trigger relative context auto-compaction threshold (default enabled at 50%)",
+		description: "Show, enable/disable, set, or manually trigger relative context auto-compaction threshold (default enabled at 30%)",
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			if (!trimmed || trimmed === "status") {

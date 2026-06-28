@@ -90,7 +90,7 @@ async function fireAgentEnd(handlers, ctx) {
 async function stuckAboveThresholdDoesNotLoop(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	// Compaction never reduces usage below the 50% default threshold.
+	// Compaction never reduces usage below the 30% default threshold.
 	env.state.percent = 60;
 	env.state.reduceTo = 60;
 
@@ -108,14 +108,14 @@ async function stuckAboveThresholdDoesNotLoop(url) {
 async function genuineRecrossRetriggers(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	// Compaction succeeds: brings usage down to 30% (below threshold).
+	// Compaction succeeds: brings usage down to 20% (below threshold).
 	env.state.percent = 60;
-	env.state.reduceTo = 30;
+	env.state.reduceTo = 20;
 
-	await fireAgentEnd(handlers, env.ctx); // crossing -> compaction #1, now at 30%
-	await fireAgentEnd(handlers, env.ctx); // 30% < 50% -> no compaction
+	await fireAgentEnd(handlers, env.ctx); // crossing -> compaction #1, now at 20%
+	await fireAgentEnd(handlers, env.ctx); // 20% < 30% -> no compaction
 	env.state.percent = 60; // genuine new rise above threshold
-	env.state.reduceTo = 30;
+	env.state.reduceTo = 20;
 	await fireAgentEnd(handlers, env.ctx); // crossing again -> compaction #2
 
 	check(
@@ -128,7 +128,7 @@ async function genuineRecrossRetriggers(url) {
 async function belowThresholdNeverCompacts(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 40; // never crosses 50%
+	env.state.percent = 20; // never crosses 30%
 	await fireAgentEnd(handlers, env.ctx);
 	await fireAgentEnd(handlers, env.ctx);
 	check("below: no compaction while under threshold", env.state.compactCount === 0, `compactCount=${env.state.compactCount}`);
