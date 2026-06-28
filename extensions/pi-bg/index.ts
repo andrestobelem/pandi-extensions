@@ -514,10 +514,18 @@ async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	return response(["Background jobs:", ...jobs.map(formatJob)].join("\n"), { jobs });
 }
 
-async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	if (!jobId || !validJobId(jobId)) return response("Usage: /bg status <jobId>", undefined, "warning");
+// Validate a job id and resolve its symlink-safe run directory, or return the
+// shared usage/not-found warning so every read subcommand behaves identically.
+async function resolveRunDir(ctx: ExtensionContext, jobId: string, usage: string): Promise<string | BgResponse> {
+	if (!jobId || !validJobId(jobId)) return response(usage, undefined, "warning");
 	const runDir = await findJobDir(ctx, jobId);
 	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
+	return runDir;
+}
+
+async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
+	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg status <jobId>");
+	if (typeof runDir !== "string") return runDir;
 	const job = (await readJson(path.join(runDir, "job.json"))) ?? {};
 	const rawStatus = (await readJson(path.join(runDir, "status.json"))) ?? {};
 	const status = decorateStatus(jobId, rawStatus);
@@ -558,12 +566,19 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 	}
 }
 
+// Read a bounded, symlink-safe artifact tail shaped as a /bg response, or undefined
+// when the artifact is absent so callers can fall back to another source.
+async function boundedArtifactResponse(runDir: string, jobId: string, file: string, source: string, emptyText: string): Promise<BgResponse | undefined> {
+	const text = await readBoundedLog(path.join(runDir, file));
+	if (text === undefined) return undefined;
+	return response(text || emptyText, { jobId, source, truncatedTo: MAX_LOG_BYTES });
+}
+
 async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	if (!jobId || !validJobId(jobId)) return response("Usage: /bg logs <jobId>", undefined, "warning");
-	const runDir = await findJobDir(ctx, jobId);
-	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
-	const combined = await readBoundedLog(path.join(runDir, "combined.log"));
-	if (combined !== undefined) return response(combined || "(empty log)", { jobId, source: "combined.log", truncatedTo: MAX_LOG_BYTES });
+	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg logs <jobId>");
+	if (typeof runDir !== "string") return runDir;
+	const combined = await boundedArtifactResponse(runDir, jobId, "combined.log", "combined.log", "(empty log)");
+	if (combined) return combined;
 	const stdout = await readBoundedLog(path.join(runDir, "stdout.log"));
 	const stderr = await readBoundedLog(path.join(runDir, "stderr.log"));
 	if (stdout === undefined && stderr === undefined) return response(`No logs found for ${jobId}.`, { jobId, found: true, logs: false }, "warning");
@@ -579,12 +594,11 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 // failed/cancelled/interrupted — evidence that status.json alone does not carry.
 // Bounded/symlink-safe via the same readBoundedLog path as /bg logs.
 async function handleEvents(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	if (!jobId || !validJobId(jobId)) return response("Usage: /bg events <jobId>", undefined, "warning");
-	const runDir = await findJobDir(ctx, jobId);
-	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
-	const events = await readBoundedLog(path.join(runDir, "events.jsonl"));
-	if (events === undefined) return response(`No events found for ${jobId}.`, { jobId, found: true, events: false }, "warning");
-	return response(events || "(no events)", { jobId, source: "events.jsonl", truncatedTo: MAX_LOG_BYTES });
+	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg events <jobId>");
+	if (typeof runDir !== "string") return runDir;
+	const events = await boundedArtifactResponse(runDir, jobId, "events.jsonl", "events.jsonl", "(no events)");
+	if (events) return events;
+	return response(`No events found for ${jobId}.`, { jobId, found: true, events: false }, "warning");
 }
 
 async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgResponse> {
