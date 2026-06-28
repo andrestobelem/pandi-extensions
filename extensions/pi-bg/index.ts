@@ -24,7 +24,7 @@ import {
 	RUNS_DIR,
 	validJobId,
 } from "./storage.js";
-export { atomicWriteJson, removeRunDir };
+export { atomicWriteJson, removeRunDir, dirSizeBytes, parsePruneFlags };
 
 const MAX_LOG_BYTES = 20_000;
 const MAX_LOG_WRITE_BYTES = 5_000_000;
@@ -266,22 +266,34 @@ const DELETABLE_STATES = new Set(["completed", "failed", "cancelled", "interrupt
 // what avoids the pid-reuse hazard: a dead pid can never be our live job, so the
 // terminal state is always correct. Project root only (the only root pi-bg writes,
 // and only when trusted); best-effort — never throws into session_start.
-export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<number> {
-	if (!ctx.isProjectTrusted()) return 0;
+// Enumerate project-local run dirs (trusted only), yielding {jobId, runDir, status} for each
+// valid, non-symlinked job dir. Shared by reconcile and prune so the trust/symlink/path
+// gating and the .audit.jsonl dotfile skipping (validJobId rejects the leading dot) live in
+// exactly one place. Active-session filtering and state logic stay with each caller.
+async function eachProjectRunDir(ctx: ExtensionContext): Promise<Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }>> {
+	if (!ctx.isProjectTrusted()) return [];
 	const root = path.join(getProjectBgRoot(ctx), RUNS_DIR);
-	if (!(await lstatPlainDirectoryChain(ctx.cwd, root))) return 0;
+	if (!(await lstatPlainDirectoryChain(ctx.cwd, root))) return [];
 	let entries: Array<{ name: string; isDirectory(): boolean }>;
 	try {
 		entries = await fs.readdir(root, { withFileTypes: true });
 	} catch {
-		return 0;
+		return [];
 	}
-	let reconciled = 0;
+	const out: Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }> = [];
 	for (const entry of entries) {
-		if (!entry.isDirectory() || !validJobId(entry.name) || activeJobs.has(entry.name)) continue;
+		if (!entry.isDirectory() || !validJobId(entry.name)) continue;
 		const runDir = path.join(root, entry.name);
 		if (!(await lstatPlainDirectory(runDir))) continue;
-		const status = await readJson(path.join(runDir, "status.json"));
+		out.push({ jobId: entry.name, runDir, status: await readJson(path.join(runDir, "status.json")) });
+	}
+	return out;
+}
+
+export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<number> {
+	let reconciled = 0;
+	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
+		if (activeJobs.has(jobId)) continue;
 		const state = asString(status?.state);
 		if (!state || !RECONCILABLE_STATES.has(state)) continue;
 		const pid = asNumber(status?.pid);
@@ -294,7 +306,7 @@ export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<n
 		const now = nowIso();
 		try {
 			await atomicWriteJson(path.join(runDir, "status.json"), { ...status, state: "interrupted", completedAt: now, updatedAt: now, reason: "session-start-reconcile" });
-			await appendEvent(runDir, { event: "reconcile-interrupted", jobId: entry.name, pid: pid ?? null, persistedState: state, cause });
+			await appendEvent(runDir, { event: "reconcile-interrupted", jobId, pid: pid ?? null, persistedState: state, cause });
 			reconciled++;
 		} catch {
 			// Best-effort: leave the artifact untouched if the atomic rewrite fails.
@@ -330,7 +342,7 @@ function planModeActive(): boolean {
 	}
 }
 
-function rejectInPlanMode(action: "start" | "cancel" | "delete"): BgResponse | undefined {
+function rejectInPlanMode(action: "start" | "cancel" | "delete" | "prune"): BgResponse | undefined {
 	if (!planModeActive()) return undefined;
 	return response(`Cannot /bg ${action} while plan mode is active. Approve or exit /plan first.`, { action, blockedBy: "plan-mode" }, "warning");
 }
@@ -617,6 +629,37 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	return response(`Cancel requested for background job ${trimmed}.`, { action: "cancel", jobId: trimmed, active: true });
 }
 
+// Sum the sizes of regular files under a run dir (lstat-walk via Dirent; an inner symlink
+// is skipped, never followed, so it cannot inflate the total or escape the tree).
+async function dirSizeBytes(dir: string): Promise<number> {
+	let total = 0;
+	let entries: Array<{ name: string; isDirectory(): boolean; isFile(): boolean; isSymbolicLink(): boolean }>;
+	try {
+		entries = await fs.readdir(dir, { withFileTypes: true });
+	} catch {
+		return 0;
+	}
+	for (const entry of entries) {
+		if (entry.isSymbolicLink()) continue;
+		const full = path.join(dir, entry.name);
+		if (entry.isDirectory()) total += await dirSizeBytes(full);
+		else if (entry.isFile()) {
+			try {
+				total += (await fs.lstat(full)).size;
+			} catch {
+				// unreadable entry contributes nothing
+			}
+		}
+	}
+	return total;
+}
+
+// Minimal flag parse for /bg prune: only --yes executes; everything else is ignored (no
+// other flags in BG-4), so a typo like --yse stays a safe dry-run.
+function parsePruneFlags(tail: string): { yes: boolean } {
+	return { yes: tail.trim().split(/\s+/).filter(Boolean).includes("--yes") };
+}
+
 async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	const jobs = await listJobs(ctx);
 	if (jobs.length === 0) return response("No background jobs found.", { jobs: [] });
@@ -640,6 +683,32 @@ function classifyForDeletion(jobId: string, status: Record<string, unknown> | un
 				? "its liveness cannot be proven"
 				: `it is not in a terminal state (${state})`;
 	return { liveState: state, deletable: false, reason };
+}
+
+// Bulk-remove finished jobs. R4 implements the default dry-run preview: list deletable
+// candidates (with size) and the skipped jobs with reasons, never removing anything. R5
+// wires the --yes execution. classifyForDeletion is the single deletability predicate.
+async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgResponse> {
+	const blocked = rejectInPlanMode("prune");
+	if (blocked) return blocked;
+	if (!ctx.isProjectTrusted()) return response("Cannot /bg prune in an untrusted project.", { action: "prune", blockedBy: "trust" }, "warning");
+	const { yes } = parsePruneFlags(tail);
+	const candidates: Array<{ jobId: string; state: string; bytes: number }> = [];
+	const skipped: Array<{ jobId: string; state: string; reason: string }> = [];
+	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
+		const verdict = classifyForDeletion(jobId, status);
+		if (verdict.deletable) candidates.push({ jobId, state: verdict.liveState, bytes: await dirSizeBytes(runDir) });
+		else skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "not deletable" });
+	}
+	const totalBytes = candidates.reduce((sum, c) => sum + c.bytes, 0);
+	const lines = [
+		`Prune preview: ${candidates.length} deletable (${totalBytes} bytes), ${skipped.length} skipped.`,
+		...candidates.map((c) => `  delete ${c.jobId} · ${c.state} · ${c.bytes}B`),
+		...skipped.map((s) => `  skip   ${s.jobId} · ${s.state} · ${s.reason}`),
+		candidates.length ? `Run /bg prune --yes to delete ${candidates.length} job(s).` : "Nothing to prune.",
+	];
+	// R4 is dry-run only; the requested --yes is surfaced for forward-compatibility.
+	return response(lines.join("\n"), { action: "prune", dryRun: true, requestedYes: yes, candidates, skipped, totalBytes });
 }
 
 // Delete one finished job's artifacts, gated on re-derived LIVE state (classifyForDeletion)
@@ -796,8 +865,10 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 				return await handleEvents(ctx, tail.trim());
 			case "delete":
 				return await handleDelete(ctx, tail.trim());
+			case "prune":
+				return await handlePrune(ctx, tail);
 			default:
-				return response(`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events, delete.`, undefined, "warning");
+				return response(`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events, delete, prune.`, undefined, "warning");
 		}
 	} catch (err) {
 		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
@@ -817,6 +888,7 @@ export default function bgExtension(pi: ExtensionAPI): void {
 				{ value: "logs", label: "logs", description: "Read bounded job logs" },
 				{ value: "events", label: "events", description: "Read bounded job lifecycle events" },
 				{ value: "delete", label: "delete", description: "Delete a finished job's artifacts" },
+				{ value: "prune", label: "prune", description: "Preview/prune finished job artifacts (--yes to delete)" },
 			];
 			const prefix = argumentPrefix.trim().toLowerCase();
 			if (!prefix) return items;

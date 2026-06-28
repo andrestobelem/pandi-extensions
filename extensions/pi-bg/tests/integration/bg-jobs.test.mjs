@@ -649,6 +649,54 @@ async function removeRunDirRevalidatesBeforeRm(url) {
 	check("revalidate: a passing re-check removes the dir", removed === true && !existsSync(dir), `removed=${removed}`);
 }
 
+// R4 unit: the --yes-only parser (a typo stays a safe dry-run) and the symlink-skipping
+// lstat-walk size helper.
+async function pruneFlagAndSizeHelpers(url) {
+	const mod = await loadModule(url);
+	const parse = mod.parsePruneFlags;
+	const dirSizeBytes = mod.dirSizeBytes;
+	check("prune-parse: parsePruneFlags is exported", typeof parse === "function", typeof parse);
+	check("prune-size: dirSizeBytes is exported", typeof dirSizeBytes === "function", typeof dirSizeBytes);
+	if (typeof parse !== "function" || typeof dirSizeBytes !== "function") return;
+	check("prune-parse: --yes enables execution", parse("--yes").yes === true);
+	check("prune-parse: absent flag stays dry-run", parse("").yes === false && parse("   ").yes === false);
+	check("prune-parse: a typo'd flag is ignored (safe dry-run)", parse("--yse").yes === false);
+	check("prune-parse: --yes anywhere in args counts", parse("foo --yes bar").yes === true);
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-size-"));
+	await fs.writeFile(path.join(dir, "a.log"), "12345");
+	await fs.writeFile(path.join(dir, "b.log"), "678");
+	const external = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-size-ext-")), "big.bin");
+	await fs.writeFile(external, "x".repeat(10000));
+	await fs.symlink(external, path.join(dir, "link.log"));
+	check("prune-size: sums regular files and skips symlinks", (await dirSizeBytes(dir)) === 8, String(await dirSizeBytes(dir)));
+}
+
+// R4 integration: /bg prune defaults to a dry run — lists terminal candidates, skips a
+// live job with a reason, prompts for --yes, and removes nothing.
+async function prunePreviewListsCandidatesWithoutDeleting(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-prune-preview-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const seed = async (jobId, status, files = {}) => {
+		const dir = path.join(runsRoot, jobId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "job.json"), JSON.stringify({ jobId, command: jobId, cwd, createdAt: new Date().toISOString() }, null, 2));
+		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify({ jobId, updatedAt: new Date().toISOString(), ...status }, null, 2));
+		for (const [name, body] of Object.entries(files)) await fs.writeFile(path.join(dir, name), body);
+		return dir;
+	};
+	const doneDir = await seed("done-1", { state: "completed" }, { "combined.log": "hi" });
+	const failDir = await seed("fail-1", { state: "failed" });
+	const runDir = await seed("run-1", { state: "running", pid: process.pid });
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("bg").handler("prune", ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("prune-preview: deletes nothing on a dry run", existsSync(doneDir) && existsSync(failDir) && existsSync(runDir), msg);
+	check("prune-preview: lists the two terminal jobs as candidates", /delete done-1/.test(msg) && /delete fail-1/.test(msg), msg);
+	check("prune-preview: skips the alive job with a reason", /skip\s+run-1/.test(msg), msg);
+	check("prune-preview: prompts for --yes", /--yes/.test(msg), msg);
+}
+
 async function logStreamErrorsAreContained(url) {
 	const mod = await loadModule(url);
 	const guard = mod.guardStreamErrors;
@@ -917,6 +965,8 @@ async function main() {
 	await cancelRefusesReusedPid(url);
 	await deleteGateReDerivesLiveState(url);
 	await removeRunDirRevalidatesBeforeRm(url);
+	await pruneFlagAndSizeHelpers(url);
+	await prunePreviewListsCandidatesWithoutDeleting(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);
