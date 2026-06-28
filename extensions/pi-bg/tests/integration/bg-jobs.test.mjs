@@ -270,6 +270,54 @@ async function cancelStopsActiveJob(url) {
 	check("cancel: cancelRequested recorded", status.cancelRequested === true, JSON.stringify(status));
 }
 
+async function cancelEscalatesToSigkill(url) {
+	if (process.platform === "win32") {
+		check("cancel-sigkill: skipped on win32 (taskkill path not exercised here)", true);
+		return;
+	}
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-sigkill-"));
+	const script = path.join(cwd, "ignore-sigterm.cjs");
+	const started = path.join(cwd, "sigterm-started");
+	// A child that INSTALLS a SIGTERM handler and keeps running -> it survives the
+	// initial SIGTERM, so finalization only happens once the grace-timer escalates to
+	// SIGKILL. The existing cancel test uses a child without a handler (dies on SIGTERM),
+	// so this is the only coverage of the riskiest cancellation path.
+	await fs.writeFile(
+		script,
+		`const fs = require("node:fs");\n` +
+			`process.on("SIGTERM", () => { /* ignore: survive until SIGKILL */ });\n` +
+			`fs.writeFileSync(process.argv[2], "started");\n` +
+			`console.log("ignoring-sigterm");\n` +
+			`setInterval(() => {}, 1000);\n`,
+	);
+	const ctx = makeCtx({ cwd, trusted: true });
+	const command = `${shellQuote(process.execPath)} ${shellQuote(script)} ${shellQuote(started)}`;
+	await commands.get("bg").handler(`start ${command}`, ctx);
+	const jobId = parseJobId(ctx._notes.at(-1)?.msg || "");
+	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId || "missing");
+	await waitFor("sigterm-ignoring child started", async () => existsSync(started));
+	await waitFor("running status", async () => {
+		const s = await readJson(path.join(runDir, "status.json"));
+		return s.state === "running" ? s : false;
+	});
+
+	const tCancel = Date.now();
+	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
+	const status = await waitFor(
+		"cancelled status after SIGKILL escalation",
+		async () => {
+			const s = await readJson(path.join(runDir, "status.json"));
+			return s.state === "cancelled" ? s : false;
+		},
+		{ timeoutMs: 8000 },
+	);
+	check("cancel-sigkill: final state is cancelled", status.state === "cancelled", JSON.stringify(status));
+	check("cancel-sigkill: died only after the grace period (SIGTERM was ignored)", Date.now() - tCancel >= 700, `elapsed=${Date.now() - tCancel}`);
+	const events = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8").catch(() => "");
+	check("cancel-sigkill: records a cancel-sigkill escalation event", /"event":"cancel-sigkill"/.test(events), events.slice(-300));
+}
+
 async function stalePidIsNotKilled(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-stale-"));
@@ -544,6 +592,7 @@ async function main() {
 	await fastExitDoesNotRegressToRunning(url);
 	await commandWhitespaceIsPreserved(url);
 	await cancelStopsActiveJob(url);
+	await cancelEscalatesToSigkill(url);
 	await stalePidIsNotKilled(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
