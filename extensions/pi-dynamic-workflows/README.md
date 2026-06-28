@@ -39,6 +39,33 @@ const verdict = await ctx.agent(
 );
 ```
 
+## Seguridad y límites
+
+El runtime acota la ejecución en varias capas para que un workflow no pueda
+crecer sin control:
+
+- **`maxAgents`** — tope de subagentes por run (todas las fases, no solo el pico
+  de paralelismo); se clampa a `ctx.limits.maxAgents`.
+- **`concurrency`** — subagentes simultáneos; se clampa a `ctx.limits.concurrency`.
+- **Composición depth‑1** — `ctx.workflow(name, input)` solo invoca sub‑workflows
+  reutilizables a un nivel; una llamada recursiva más profunda se rechaza.
+- **Guard de recursión entre procesos** — cada subagente se spawnea un nivel más
+  profundo (`PI_DYNAMIC_WORKFLOWS_DEPTH = profundidad + 1`). Si un subagente con
+  `includeExtensions: true` tiene la herramienta `dynamic_workflow`, sus acciones
+  `start`/`run`/`resume` se **rechazan** cuando su profundidad alcanza el límite.
+  Así se cierra el vector donde un subagente lanzaría runs top‑level anidados que
+  no cuentan contra el presupuesto del padre.
+
+### Variables de entorno
+
+- `PI_DYNAMIC_WORKFLOWS_DEPTH` — profundidad de anidamiento de la sesión actual
+  (`0` en el Pi top‑level). La fija el runtime al spawnear cada subagente; no
+  hace falta setearla a mano.
+- `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` — límite antes de rechazar `start`/`run`/`resume`
+  (default **`2`**, que permite hasta dos niveles de anidamiento). Subilo para
+  permitir más anidamiento; **`0` apaga todos los runs** (incluido el top‑level),
+  útil como kill‑switch.
+
 ## Monitor y dashboard
 
 Abrí el dashboard con `/workflows` o `Ctrl+Alt+W`. Desde un editor **vacío**,
