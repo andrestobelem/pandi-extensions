@@ -35,6 +35,7 @@ const suites = [
 	"extensions/pi-auto-compact-context/tests/integration/auto-compact-context.test.mjs",
 	"extensions/pi-bg/tests/integration/bg-extension.test.mjs",
 	"extensions/pi-bg/tests/integration/bg-jobs.test.mjs",
+	"extensions/pi-dynamic-workflows/tests/integration/composition-failure-recursion.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/composition-graph-expansion.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/composition-rank.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/dashboard-usability-fixes.test.mjs",
@@ -62,11 +63,11 @@ const suites = [
 ];
 
 // Draft suites are intentionally excluded but must be explicit so `run-all` never
-// silently misses a new durable suite. Remove from this set when the suite is
-// expected to be green in the full behavioral run.
-const ignoredDraftSuites = new Set([
-	"extensions/pi-dynamic-workflows/tests/integration/composition-failure-recursion.test.mjs",
-]);
+// silently misses a new durable suite. Add a suite here (with a reason) only while it
+// is not yet expected to be green; promote it into `suites` once it is reliably green.
+// Currently empty: composition-failure-recursion was promoted to `suites` after it ran
+// green and deterministically in the full behavioral suite.
+const ignoredDraftSuites = new Set([]);
 
 const suiteDirs = [
 	"extensions/pi-auto-compact-context/tests/integration",
