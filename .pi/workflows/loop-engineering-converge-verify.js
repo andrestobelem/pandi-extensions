@@ -44,6 +44,30 @@ module.exports = async function workflow(ctx, input = {}) {
 	const maxRounds = Math.max(1, Math.min(10, Math.trunc(input.maxRounds ?? 6)));
 	const readOnly = ["read", "grep", "find", "ls"];
 
+	// Robust extraction so a finder is NEVER silently dropped. The naive
+	// `JSON.parse(r.output)` discarded prose-wrapped or ```json-fenced arrays — exactly
+	// the "silent cap" failure this workflow is meant to avoid. We deliberately do NOT
+	// put a schema on the finder: a schema turns a slow exploration agent's occasional
+	// empty stream into multi-retry stalls (observed: a single finder spinning for 17m);
+	// a one-shot finder + this extractor is faster and just as robust. Returns the array,
+	// or undefined when the output had no parseable array (the caller logs that count).
+	const extractFindings = (r) => {
+		const text = String((r && r.output) || "");
+		const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+		const candidate = fence ? fence[1] : text;
+		const start = candidate.indexOf("[");
+		const end = candidate.lastIndexOf("]");
+		if (start !== -1 && end > start) {
+			try {
+				const arr = JSON.parse(candidate.slice(start, end + 1));
+				if (Array.isArray(arr)) return arr;
+			} catch {
+				/* fall through to undefined */
+			}
+		}
+		return undefined;
+	};
+
 	const seen = new Set();
 	const all = [];
 	let quiet = 0;
@@ -62,9 +86,11 @@ module.exports = async function workflow(ctx, input = {}) {
 				prompt:
 					`Search ${target} for NEW ${what} NOT already in the list below (dedupe by a short stable id). ` +
 					`Use search angle #${i + 1}, different from the other finders. ` +
-					`Return a JSON array of { id, title, evidence } where evidence MUST cite file:line; return [] if nothing new.\n\n` +
+					`Return ONLY a JSON array of { id, title, evidence } where evidence MUST cite file:line; ` +
+					`use [] if nothing new.\n\n` +
 					`Already found:\n${ctx.compact([...seen], 4000)}`,
 				tools: readOnly,
+				includeExtensions: false, // repo-local audit: no web_search needed (faster, scoped)
 				cache: false, // discovery must re-look each round, never serve a cached hit
 			})),
 			{ concurrency, settle: true },
@@ -72,14 +98,14 @@ module.exports = async function workflow(ctx, input = {}) {
 
 		const failed = batches.filter((b) => b === null).length;
 		let fresh = 0;
+		let unparsed = 0;
 		for (const r of batches.filter(Boolean)) {
-			let arr = [];
-			try {
-				arr = JSON.parse(r.output);
-			} catch {
-				/* tolerate a non-JSON finder rather than sinking the round */
+			const arr = extractFindings(r);
+			if (arr === undefined) {
+				unparsed++; // had output but no parseable array — surfaced below, never silently dropped
+				continue;
 			}
-			for (const item of Array.isArray(arr) ? arr : []) {
+			for (const item of arr) {
 				if (item && item.id && !seen.has(item.id)) {
 					seen.add(item.id);
 					all.push(item);
@@ -87,9 +113,8 @@ module.exports = async function workflow(ctx, input = {}) {
 				}
 			}
 		}
-		await ctx.log(`round ${round}: +${fresh} new (${all.length} total)${failed ? `, ${failed} finder(s) failed` : ""}`, {
-			quiet,
-		});
+		const notes = [failed ? `${failed} failed` : "", unparsed ? `${unparsed} unparsed` : ""].filter(Boolean).join(", ");
+		await ctx.log(`round ${round}: +${fresh} new (${all.length} total)${notes ? ` [${notes}]` : ""}`, { quiet });
 		quiet = fresh === 0 ? quiet + 1 : 0;
 	}
 	if (round >= maxRounds && quiet < quietToStop) {
@@ -104,13 +129,32 @@ module.exports = async function workflow(ctx, input = {}) {
 	}
 
 	// ---- Phase 2: INDEPENDENT per-finding verification (guilty until proven). ----
+	// Bound the verification fan-out to the run's AGENT BUDGET so a large finding count
+	// never blows maxAgents mid-run (a real failure observed in testing). Discovery
+	// already spent `finders * round` agents; reserve 1 for synthesis. No silent caps:
+	// log any deferral so the operator knows to raise maxAgents to verify everything.
+	const agentBudget = Number.isFinite(ctx.limits?.maxAgents) ? ctx.limits.maxAgents : Infinity;
+	const verifyBudget = agentBudget === Infinity ? all.length : Math.max(0, agentBudget - finders * round - 1);
+	const toVerify = all.slice(0, verifyBudget);
+	if (toVerify.length < all.length) {
+		await ctx.log(
+			`verifying ${toVerify.length}/${all.length} findings within agent budget (maxAgents=${agentBudget}); ` +
+				`${all.length - toVerify.length} deferred — raise maxAgents to verify all`,
+		);
+	}
+	if (toVerify.length === 0) {
+		await ctx.log("converge-verify: agent budget exhausted by discovery; reporting candidates unverified");
+		await ctx.writeArtifact("confirmed.json", []);
+		return { findings: all.length, confirmed: 0, rounds: round, note: "agent budget exhausted before verification" };
+	}
+
 	const VERDICT = {
 		type: "object",
 		properties: { refuted: { type: "boolean" }, why: { type: "string" } },
 		required: ["refuted"],
 	};
 	const verified = await ctx.agents(
-		all.map((f, i) => ({
+		toVerify.map((f, i) => ({
 			name: `verify-${i + 1}`,
 			prompt:
 				`You are an INDEPENDENT SKEPTIC. You did NOT find this; try to REFUTE it with evidence from ${target}. ` +
@@ -119,6 +163,7 @@ module.exports = async function workflow(ctx, input = {}) {
 				`Return JSON { refuted: boolean, why: string }; refuted=true means the finding does NOT hold.`,
 			agentType: "reviewer",
 			tools: readOnly,
+			includeExtensions: false, // repo-local: no web_search needed
 			schema: VERDICT,
 			schemaOnInvalid: "null",
 		})),
@@ -126,21 +171,29 @@ module.exports = async function workflow(ctx, input = {}) {
 	);
 
 	const confirmed = [];
-	for (let i = 0; i < all.length; i++) {
+	for (let i = 0; i < toVerify.length; i++) {
 		const v = verified[i];
 		const data = v && v.data;
 		// Conservative: a missing/invalid verdict counts as refuted — never a blind confirm.
-		if (data && data.refuted === false) confirmed.push({ ...all[i], why: data.why || "" });
+		if (data && data.refuted === false) confirmed.push({ ...toVerify[i], why: data.why || "" });
 	}
 	await ctx.writeArtifact("confirmed.json", confirmed);
-	await ctx.log(`converge-verify: ${confirmed.length}/${all.length} findings survived independent verification`);
+	await ctx.log(
+		`converge-verify: ${confirmed.length}/${toVerify.length} verified findings survived (of ${all.length} candidates)`,
+	);
 
 	const synthesis = await ctx.agent(
 		`Synthesis-as-judge. Report ONLY the independently-confirmed findings below, deduplicated and ` +
-			`prioritized by severity, each with its file:line evidence. State how many candidates were refuted.\n\n` +
-			`CONFIRMED:\n${ctx.compact(confirmed, 50000)}\n\nTOTAL CANDIDATES: ${all.length}`,
-		{ name: "synthesis", agentType: "reviewer", tools: readOnly },
+			`prioritized by severity, each with its file:line evidence. State how many candidates were refuted or deferred.\n\n` +
+			`CONFIRMED:\n${ctx.compact(confirmed, 50000)}\n\nCANDIDATES: ${all.length} | VERIFIED: ${toVerify.length}`,
+		{ name: "synthesis", agentType: "reviewer", tools: readOnly, includeExtensions: false },
 	);
 	await ctx.writeArtifact("report.md", synthesis.output || "");
-	return { findings: all.length, confirmed: confirmed.length, rounds: round, report: synthesis.output || "" };
+	return {
+		findings: all.length,
+		verified: toVerify.length,
+		confirmed: confirmed.length,
+		rounds: round,
+		report: synthesis.output || "",
+	};
 };

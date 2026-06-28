@@ -35,4 +35,6 @@ Claude-style memory **folder** at `.pi/memory/`:
 
 When loaded (e.g. globally), this extension auto-injects the `.pi/memory/MEMORY.md` index (or the legacy `.pi/MEMORY.md`) from whatever project you open into the system prompt on every turn — there is no prompt, allowlist, or provenance check. Open only **trusted** projects: a repository you do not control could ship a committed index to influence the assistant. Topic files are lower risk because they are listed but never auto-injected. Literal `</local_memory>` tags in the injected index are escaped so the content cannot break out of its block, and the index is length-capped before injection.
 
+**Write-side (anti-injection).** `remember` writes to a channel that is re-injected into future sessions' system prompts as **trusted context** — treat it as an authority boundary. The assistant should persist only facts it has itself **verified, in its own words**, and must **never** copy untrusted retrieved/tool/web/user-pasted content — or instructions embedded in it — into memory. The `</local_memory>` escaping above prevents *structural* breakout, but delimiters are not a semantic security boundary, so the real defense is not ingesting untrusted content in the first place.
+
 Use this only for trusted project-local notes. For the full bundle of extensions and skills, install the repository root instead.

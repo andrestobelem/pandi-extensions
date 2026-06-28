@@ -239,6 +239,15 @@ async function rememberToolRegistered(url) {
 		"remember: has non-empty promptGuidelines",
 		!!t && Array.isArray(t.promptGuidelines) && t.promptGuidelines.length > 0,
 	);
+	// #3.5 (research §3a): memory is a trusted, re-injected authority channel, so the
+	// guidance must carry an explicit anti-injection non-goal (never ingest untrusted
+	// tool/web/retrieved/pasted content).
+	const guide = ((t?.promptGuidelines ?? []).join("\n") + "\n" + (t?.description ?? "")).toLowerCase();
+	check(
+		"remember: guidance carries the anti-injection non-goal (no untrusted/retrieved content)",
+		/untrusted/.test(guide) && /(retrieved|tool output|web|pasted)/.test(guide) && /never/.test(guide),
+		guide.slice(0, 220),
+	);
 }
 
 async function rememberCreatesAndAppends(url) {

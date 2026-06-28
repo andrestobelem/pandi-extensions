@@ -190,6 +190,15 @@ async function main() {
 			const ext = await freshExtension(url);
 			const { pi, tools } = makePi();
 			ext(pi);
+			// #3.4 (research §3e): the tool must teach a stable KV-cache prompt prefix
+			// (shared framing first, volatile per-item content last) so identical prefixes
+			// reuse the provider prompt/KV cache across calls.
+			const guide = (tools.get("dynamic_workflow").promptGuidelines ?? []).join("\n");
+			check(
+				"promptGuidelines: teaches stable KV-cache prefix (stable framing first, volatile content to the END)",
+				/stable prefix/i.test(guide) && /provider prompt\/KV cache/i.test(guide) && /to the END/.test(guide),
+				guide.slice(0, 240),
+			);
 			const ctx = makeCtx(project);
 			const response = await runTool(tools.get("dynamic_workflow"), ctx, {
 				action: "run",
