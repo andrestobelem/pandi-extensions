@@ -217,7 +217,9 @@ async function scenarioPrintModeStdout(url) {
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, mode: "print" });
 	const { out } = await captureConsole(() => commands.get("mdview").handler("doc.md", ctx));
-	check("print: writes file content to stdout", out.includes("plain body"), out);
+	// Unit-level: the handler emits the document via console.log. Under the real
+	// `pi --print` binary that stream is routed to stderr (see scenarioPrintModeRealStdout).
+	check("print: emits document content via console.log", out.includes("plain body"), out);
 	check("print: opens no custom UI", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 }
 
@@ -227,6 +229,43 @@ async function scenarioPrintModeErrorToStderr(url) {
 	const ctx = makeCtx({ cwd, mode: "print" });
 	const { out, err } = await captureConsole(() => commands.get("mdview").handler("missing.md", ctx));
 	check("print-error: error goes to stderr, not stdout", /Could not read/.test(err) && !/Could not read/.test(out), JSON.stringify({ out, err }));
+}
+
+// End-to-end against the real `pi --print` binary so we exercise pi's stdout
+// takeover (it reserves real stdout for the model response and routes all
+// extension console output to stderr). A mocked console.log can never reveal
+// this, which is exactly why the in-process unit checks gave false confidence.
+async function scenarioPrintModeRealStdout() {
+	const which = spawnSync("bash", ["-lc", "command -v pi"], { encoding: "utf8" });
+	if (which.status !== 0) {
+		console.log("SKIP: print-real: `pi` CLI not on PATH");
+		return;
+	}
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-print-real-"));
+	const docPath = path.join(cwd, "doc.md");
+	await fs.writeFile(docPath, "# Heading\n\nUNIQUE_BODY_TOKEN\n", "utf8");
+	const extPath = path.join(REPO_ROOT, "extensions", "pi-mdview");
+	const r = spawnSync(
+		"pi",
+		["--no-extensions", "-e", extPath, "--no-session", "--print", `/mdview ${docPath}`],
+		{ cwd, encoding: "utf8", timeout: 30000 },
+	);
+	const stdout = r.stdout || "";
+	const stderr = r.stderr || "";
+	check("print-real: exits cleanly", r.status === 0, JSON.stringify({ status: r.status, err: stderr.slice(0, 200) }));
+	// Honest contract: pi reserves real stdout for the model response, so the
+	// document is emitted to the terminal via stderr; `pi /mdview f.md > out.md`
+	// captures nothing. These two checks pin that real routing.
+	check(
+		"print-real: document is emitted to the terminal (stderr)",
+		stderr.includes("UNIQUE_BODY_TOKEN"),
+		JSON.stringify({ stderrLen: stderr.length }),
+	);
+	check(
+		"print-real: stdout carries no document content (reserved for model output)",
+		!stdout.includes("UNIQUE_BODY_TOKEN"),
+		JSON.stringify({ stdoutLen: stdout.length }),
+	);
 }
 
 async function main() {
@@ -239,6 +278,7 @@ async function main() {
 		await scenarioLargeFileGuard(url);
 		await scenarioPrintModeStdout(url);
 		await scenarioPrintModeErrorToStderr(url);
+		await scenarioPrintModeRealStdout();
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}

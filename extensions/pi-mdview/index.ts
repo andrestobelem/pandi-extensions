@@ -10,8 +10,10 @@ const MAX_MDVIEW_BYTES = 2_000_000; // guard: reading/parsing a huge file blocks
 
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
-		// Keep stdout clean for the rendered document: diagnostics go to stderr so a
-		// redirected `pi /mdview f.md > out.md` does not get warnings/errors mixed in.
+		// In --print/--json mode pi takes over process.stdout (reserving real stdout
+		// for the model response) and routes all console output to stderr. So both
+		// branches below surface on the terminal via stderr; the split only keeps
+		// log/error semantics for any caller that inspects the two streams.
 		if (type === "info") console.log(message);
 		else console.error(message);
 		return;
@@ -162,6 +164,9 @@ async function showMarkdown(pathArg: string, ctx: ExtensionCommandContext): Prom
 	}
 
 	if (ctx.mode !== "tui") {
+		// Non-TUI fallback: dump the document for terminal viewing. Under --print pi
+		// has taken over stdout and routes this to stderr, so it is NOT redirectable
+		// to a file (`pi /mdview f.md > out.md` captures nothing); use `cat` for raw text.
 		console.log(content);
 		return;
 	}
