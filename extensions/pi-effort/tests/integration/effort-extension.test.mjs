@@ -190,6 +190,47 @@ async function scenarioUltracode(url) {
 	check("/effort ultracode notifies", ctx._notes.some((n) => /Ultracode effort enabled/i.test(n.msg)));
 }
 
+// F50/F51: notify() must not route warnings/errors to stdout in print mode, and must not
+// silently drop them when headless (no UI, not print).
+async function scenarioNotifyErrorRouting(url) {
+	const effortExtension = await freshDefault(url);
+	const harness = makePi({ initialLevel: "medium" });
+	effortExtension(harness.pi);
+	const command = harness.commands.get("effort");
+
+	// F50: in print mode, stdout carries machine-readable data; warnings/errors belong on stderr.
+	const printCtx = makeCtx({ mode: "print", hasUI: false });
+	const pLogs = [];
+	const pErrs = [];
+	const origLog = console.log;
+	const origErr = console.error;
+	console.log = (m) => pLogs.push(String(m));
+	console.error = (m) => pErrs.push(String(m));
+	try {
+		await command.handler("banana", printCtx);
+	} finally {
+		console.log = origLog;
+		console.error = origErr;
+	}
+	check(
+		"print mode routes invalid-effort warning to stderr, not stdout",
+		pErrs.some((m) => /Unknown effort/i.test(m)) && !pLogs.some((m) => /Unknown effort/i.test(m)),
+		`logs=${JSON.stringify(pLogs)} errs=${JSON.stringify(pErrs)}`,
+	);
+
+	// F51: headless (no UI, not print) must surface warnings/errors on stderr, not drop them.
+	const headlessCtx = makeCtx({ mode: "tui", hasUI: false });
+	const hErrs = [];
+	const origErr2 = console.error;
+	console.error = (m) => hErrs.push(String(m));
+	try {
+		await command.handler("banana", headlessCtx);
+	} finally {
+		console.error = origErr2;
+	}
+	check("headless mode surfaces invalid-effort warning on stderr (not dropped)", hErrs.some((m) => /Unknown effort/i.test(m)), `errs=${JSON.stringify(hErrs)}`);
+}
+
 async function main() {
 	const { outDir, url } = await buildEffort();
 	try {
@@ -197,6 +238,7 @@ async function main() {
 		await scenarioClampAndInvalid(url);
 		await scenarioSelectorAndStatusEvent(url);
 		await scenarioUltracode(url);
+		await scenarioNotifyErrorRouting(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
