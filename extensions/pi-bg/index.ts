@@ -16,9 +16,11 @@ import {
 	candidateRunRoots,
 	createRunDir,
 	generateJobId,
+	getProjectBgRoot,
 	lstatPlainDirectory,
 	lstatPlainDirectoryChain,
 	readJson,
+	RUNS_DIR,
 	validJobId,
 } from "./storage.js";
 export { atomicWriteJson };
@@ -192,6 +194,48 @@ async function findJobDir(ctx: ExtensionContext, jobId: string): Promise<string 
 		if (await lstatPlainDirectory(runDir)) return runDir;
 	}
 	return undefined;
+}
+
+const RECONCILABLE_STATES = new Set(["starting", "running"]);
+
+// Session-start self-heal: a fresh Pi process owns no jobs (activeJobs is empty),
+// so any project-local job persisted as starting/running is from a previous run.
+// Probe its recorded pid; a DEAD pid means the process is truly gone (Pi died
+// before finalize), so atomically rewrite the artifact to a terminal `interrupted`
+// state. Live/unprobeable jobs are left untouched (the read-time projection still
+// surfaces orphaned/stale). Writing `interrupted` only on a confirmed-dead pid is
+// what avoids the pid-reuse hazard: a dead pid can never be our live job, so the
+// terminal state is always correct. Project root only (the only root pi-bg writes,
+// and only when trusted); best-effort — never throws into session_start.
+export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<number> {
+	if (!ctx.isProjectTrusted()) return 0;
+	const root = path.join(getProjectBgRoot(ctx), RUNS_DIR);
+	if (!(await lstatPlainDirectoryChain(ctx.cwd, root))) return 0;
+	let entries: Array<{ name: string; isDirectory(): boolean }>;
+	try {
+		entries = await fs.readdir(root, { withFileTypes: true });
+	} catch {
+		return 0;
+	}
+	let reconciled = 0;
+	for (const entry of entries) {
+		if (!entry.isDirectory() || !validJobId(entry.name) || activeJobs.has(entry.name)) continue;
+		const runDir = path.join(root, entry.name);
+		if (!(await lstatPlainDirectory(runDir))) continue;
+		const status = await readJson(path.join(runDir, "status.json"));
+		const state = asString(status?.state);
+		if (!state || !RECONCILABLE_STATES.has(state)) continue;
+		if (probeProcessAlive(asNumber(status?.pid)) !== "dead") continue; // alive/unknown => leave as-is
+		const now = nowIso();
+		try {
+			await atomicWriteJson(path.join(runDir, "status.json"), { ...status, state: "interrupted", completedAt: now, updatedAt: now, reason: "session-start-reconcile" });
+			await appendEvent(runDir, { event: "reconcile-interrupted", jobId: entry.name, pid: asNumber(status?.pid) ?? null, persistedState: state });
+			reconciled++;
+		} catch {
+			// Best-effort: leave the artifact untouched if the atomic rewrite fails.
+		}
+	}
+	return reconciled;
 }
 
 function formatJob(job: JobSummary): string {

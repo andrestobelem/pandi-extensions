@@ -386,6 +386,59 @@ async function livenessProbeClassifiesPids(url) {
 	check("liveness: a reaped child pid is dead", probe(dead.pid) === "dead", String(probe(dead.pid)));
 }
 
+async function reconcileRewritesDeadRunningJobs(url) {
+	const mod = await import(`${url}?reconcile=${instance++}`);
+	const reconcile = mod.reconcileInterruptedJobs;
+	check("reconcile: reconcileInterruptedJobs is exported", typeof reconcile === "function", typeof reconcile);
+	if (typeof reconcile !== "function") return;
+
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("reconcile: probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	const write = async (jobId, status) => {
+		const dir = path.join(runsRoot, jobId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "job.json"), JSON.stringify({ jobId, command: jobId, cwd, createdAt: new Date().toISOString() }, null, 2));
+		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify({ jobId, updatedAt: new Date().toISOString(), ...status }, null, 2));
+		return dir;
+	};
+	const deadDir = await write("dead-run", { state: "running", pid: dead.pid });
+	const aliveDir = await write("alive-run", { state: "running", pid: process.pid });
+	const noPidDir = await write("nopid-run", { state: "starting" });
+	const doneDir = await write("done-run", { state: "completed", exitCode: 0 });
+
+	const ctx = makeCtx({ cwd, trusted: true });
+	const n = await reconcile(ctx);
+	check("reconcile: reconciles exactly the one dead running job", n === 1, String(n));
+
+	const deadStatus = await readJson(path.join(deadDir, "status.json"));
+	check("reconcile: dead running job becomes interrupted", deadStatus.state === "interrupted", JSON.stringify(deadStatus));
+	check("reconcile: interrupted job records a reason", deadStatus.reason === "session-start-reconcile", JSON.stringify(deadStatus));
+	check("reconcile: interrupted job records completedAt", typeof deadStatus.completedAt === "string", JSON.stringify(deadStatus));
+
+	const aliveStatus = await readJson(path.join(aliveDir, "status.json"));
+	check("reconcile: live running job is left as running on disk", aliveStatus.state === "running", JSON.stringify(aliveStatus));
+	const noPidStatus = await readJson(path.join(noPidDir, "status.json"));
+	check("reconcile: unprobeable (no pid) job is left untouched", noPidStatus.state === "starting", JSON.stringify(noPidStatus));
+	const doneStatus = await readJson(path.join(doneDir, "status.json"));
+	check("reconcile: terminal job is left untouched", doneStatus.state === "completed", JSON.stringify(doneStatus));
+
+	const n2 = await reconcile(ctx);
+	check("reconcile: idempotent second pass changes nothing", n2 === 0, String(n2));
+	const temps = (await fs.readdir(deadDir)).filter((f) => f.includes(".tmp"));
+	check("reconcile: leaves no temp files behind", temps.length === 0, temps.join(","));
+
+	const untrustedCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-untrusted-"));
+	const uDir = path.join(untrustedCwd, ".pi", "bg", "runs", "dead-untrusted");
+	await fs.mkdir(uDir, { recursive: true });
+	await fs.writeFile(path.join(uDir, "status.json"), JSON.stringify({ jobId: "dead-untrusted", state: "running", pid: dead.pid, updatedAt: new Date().toISOString() }, null, 2));
+	const nUntrusted = await reconcile(makeCtx({ cwd: untrustedCwd, trusted: false }));
+	check("reconcile: untrusted project is not reconciled", nUntrusted === 0, String(nUntrusted));
+	const untrustedStatus = await readJson(path.join(uDir, "status.json"));
+	check("reconcile: untrusted status left as running", untrustedStatus.state === "running", JSON.stringify(untrustedStatus));
+}
+
 async function logStreamErrorsAreContained(url) {
 	const mod = await import(`${url}?guard=${instance++}`);
 	const guard = mod.guardStreamErrors;
@@ -646,6 +699,7 @@ async function main() {
 	await orphanedPidIsLabeledNotKilled(url);
 	await interruptedAndStaleStatesAreDerived(url);
 	await livenessProbeClassifiesPids(url);
+	await reconcileRewritesDeadRunningJobs(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);
