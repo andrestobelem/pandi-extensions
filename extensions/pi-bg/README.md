@@ -37,14 +37,23 @@ Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bu
 - For such not-owned jobs, `/bg status`/`/bg list` project the state at read time
   by probing the recorded pid (signal-0, no signal sent): `orphaned` (pid still
   alive — a detached process likely still running), `interrupted` (pid dead — Pi
-  died before finalizing), or `stale` (no pid to probe). The probe is best-effort
-  (a pid can be reused), so `orphaned` carries a verify-before-kill hint.
+  died before finalizing), or `stale` (no pid to probe).
+- To defeat pid reuse, each job also records a process **start identity**
+  (`startId`: Linux `/proc` starttime; macOS/BSD `ps -o lstart=`; absent on
+  Windows). `/bg status` does one identity probe: a live pid whose identity still
+  matches is a verified `orphaned` (`identity: verified`); a live pid whose
+  identity differs means the pid was reused, so it is reported as `interrupted`
+  (`interruptedCause: pid-reused`); when identity can't be read it stays a
+  best-effort `orphaned` with a verify-before-kill hint. `/bg list` keeps only the
+  cheap signal-0 probe (no per-job subprocess), so it can show a best-effort
+  `orphaned` that `/bg status` would refine.
 - On session start (persistent, trusted sessions only) pi-bg self-heals: a
-  project-local job persisted as `running`/`starting` whose recorded pid is dead
-  is atomically rewritten to a terminal `interrupted` on disk, so the artifact
-  stops claiming `running` forever. Jobs with a live or unprobeable pid are left
-  untouched (still projected as `orphaned`/`stale`). Writing `interrupted` only
-  on a confirmed-dead pid keeps the rewrite safe against pid reuse.
+  project-local job persisted as `running`/`starting` is atomically rewritten to a
+  terminal `interrupted` on disk when its pid is dead **or** alive-but-reused (a
+  different start identity), so the artifact stops claiming `running` forever.
+  Jobs whose pid is verified-alive or unprobeable are left untouched (still
+  projected as `orphaned`/`stale`). Terminalizing only on positive evidence (dead
+  pid or proven reuse) keeps the rewrite safe.
 - Started jobs are detached process groups, so a still-running detached job is
   left orphaned after a restart and must be stopped with OS tools (for example
   `kill`/`pkill` or `taskkill`).
