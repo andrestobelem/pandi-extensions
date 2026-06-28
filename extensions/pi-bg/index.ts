@@ -326,17 +326,23 @@ export function isJobFinished(runtime: RuntimeJob): boolean {
 // Without this, a chatty job can grow the host process memory without bound.
 export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | undefined, sinks: WriteStream[]): void {
 	if (!source) return;
+	// A destroyed/errored sink never emits 'drain'. Treat it as non-blocking so a dead
+	// log sink can never freeze the source (and thus the child) and leave the job stuck.
 	const maybeResume = (): void => {
-		if (sinks.every((sink) => !sink.writableNeedDrain)) source.resume();
+		if (sinks.every((sink) => sink.destroyed || !sink.writableNeedDrain)) source.resume();
 	};
 	source.on("data", (chunk: Buffer) => {
 		let blocked = false;
 		for (const sink of sinks) {
-			if (!sink.write(chunk)) blocked = true;
+			if (!sink.destroyed && !sink.write(chunk)) blocked = true;
 		}
 		if (blocked) source.pause();
 	});
-	for (const sink of sinks) sink.on("drain", maybeResume);
+	for (const sink of sinks) {
+		sink.on("drain", maybeResume);
+		sink.on("close", maybeResume);
+		sink.on("error", maybeResume);
+	}
 }
 
 export async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): Promise<void> {

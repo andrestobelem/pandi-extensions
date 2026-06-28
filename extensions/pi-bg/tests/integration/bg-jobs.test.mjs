@@ -405,6 +405,33 @@ async function backpressurePausesSource(url) {
 	slow.destroy();
 }
 
+async function backpressureRecoversWhenSinkDies(url) {
+	const mod = await import(`${url}?bpd=${instance++}`);
+	const pipe = mod.pipeWithBackpressure;
+	check("backpressure-death: pipeWithBackpressure is exported", typeof pipe === "function", typeof pipe);
+	if (typeof pipe !== "function") return;
+
+	const source = new PassThrough();
+	// A sink whose write callback is never invoked -> stays full and never drains.
+	const slow = new Writable({
+		highWaterMark: 1,
+		write() {
+			/* withhold cb: permanently full */
+		},
+	});
+	pipe(source, [slow]);
+	source.write(Buffer.from("a".repeat(4096)));
+	await new Promise((r) => setTimeout(r, 30));
+	check("backpressure-death: source pauses while sink is full", source.isPaused() === true, `isPaused=${source.isPaused()}`);
+
+	// The sink dies without ever draining. The source must resume rather than stay
+	// paused forever (which would block the child and leave the job stuck running).
+	slow.destroy();
+	await new Promise((r) => setTimeout(r, 30));
+	check("backpressure-death: source resumes after the sink dies (no permanent freeze)", source.isPaused() === false, `isPaused=${source.isPaused()}`);
+	source.destroy();
+}
+
 async function jobFinishedGuardRejectsCancel(url) {
 	const mod = await import(`${url}?finguard=${instance++}`);
 	const isFinished = mod.isJobFinished;
@@ -492,6 +519,7 @@ async function main() {
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);
 	await backpressurePausesSource(url);
+	await backpressureRecoversWhenSinkDies(url);
 	await descriptionListsPlanSubcommand(url);
 	await atomicWriteCleansTempOnRenameFailure(url);
 	await startSurfacesFilesystemErrors(url);
