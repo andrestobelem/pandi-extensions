@@ -1055,10 +1055,6 @@ export async function collectWorkflowAgents(runs: WorkflowRunRecord[]): Promise<
 	});
 }
 
-export function compactInline(value: unknown, maxChars = 160): string {
-	return stringify(value, maxChars).replace(/\s+/g, " ").trim();
-}
-
 export interface WorkflowMonitorModel {
 	run: WorkflowRunRecord;
 	workflow: string;

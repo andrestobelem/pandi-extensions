@@ -30,7 +30,7 @@ import { readRunEvents, formatAgentPhase } from "./event-parser.js";
 import { formatElapsedMs } from "./presentation.js";
 import { stringify, MAX_TOOL_TEXT } from "./format.js";
 import { computeCodeHash } from "./journal.js";
-import { compactInline } from "./index.js";
+import { compactInline } from "./presentation.js";
 import type { WorkflowRunRecord } from "./index.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 

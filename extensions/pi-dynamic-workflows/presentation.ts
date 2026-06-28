@@ -13,7 +13,12 @@
  * stringify, getRunState, WorkflowRunRecord), so they are not pure leaves.
  */
 
+import { stringify } from "./format.js";
 import type { WorkflowFile, WorkflowLogEntry } from "./index.js";
+
+export function compactInline(value: unknown, maxChars = 160): string {
+	return stringify(value, maxChars).replace(/\s+/g, " ").trim();
+}
 
 export function formatWorkflowList(files: WorkflowFile[]): string {
 	if (files.length === 0) {
