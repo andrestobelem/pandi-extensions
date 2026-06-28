@@ -38,10 +38,10 @@ import {
 	resolveTscCommand,
 	shouldRun,
 	type Diagnostic,
-	type FormatResult,
 	type TscRunResult,
 } from "./diagnostics.js";
 import { parseMax, parseMode, parseOnOff, parseScope, type FeedbackMode, type Scope } from "./settings.js";
+import { advisoryMessage, autofixMessage } from "./messages.js";
 
 // Re-exported for the integration suite to unit-test the pure helpers directly
 // against the same bundle (an `export … from` re-export creates no local binding,
@@ -525,26 +525,4 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			notify(ctx, "Usage: /tsc [status|on|off|run|scope <touched|project>|autofix <on|off>|max <n>]", "warning");
 		},
 	});
-}
-
-/** Build the advisory feedback body (non-blocking, surfaced next turn). */
-function advisoryMessage(formatted: FormatResult): string {
-	return [
-		"TypeScript diagnostics on the files you just changed:",
-		"",
-		formatted.text,
-		"",
-		"Fix these when you continue; run typescript_diagnostics to re-check.",
-	].join("\n");
-}
-
-/** Build the autofix follow-up body (triggers a turn so the agent fixes them). */
-function autofixMessage(formatted: FormatResult): string {
-	return [
-		"TypeScript diagnostics were found on the files you just changed:",
-		"",
-		formatted.text,
-		"",
-		"Fix these type errors now, then re-run typescript_diagnostics to confirm a clean result.",
-	].join("\n");
 }
