@@ -296,7 +296,7 @@ extensions/<nombre>/
 npm test
 ```
 
-El test actual typecheckea todas las extensiones con `extensions/*/index.ts` y corre las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Para smoke runtime sin gastar subagentes, crea un workflow que use `ctx.parallel`, `ctx.pipeline`, `ctx.bash` y `ctx.writeArtifact`; en sesión TUI/RPC ejecútalo con `dynamic_workflow action=start` (o `action=run`, que también va a background) + `action=view`. En print/json, `action=run` sigue siendo el fallback foreground.
+El gate `npm test` corre, en orden: `tsc` (typecheck de todas las extensiones), `biome check .` (lint + formato de JS/TS/JSON), `markdownlint-cli2` (Markdown) y las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Biome reemplaza a ESLint + Prettier; los tipos siguen verificándose con `tsc` (Biome no sustituye al type-checker). Para smoke runtime sin gastar subagentes, crea un workflow que use `ctx.parallel`, `ctx.pipeline`, `ctx.bash` y `ctx.writeArtifact`; en sesión TUI/RPC ejecútalo con `dynamic_workflow action=start` (o `action=run`, que también va a background) + `action=view`. En print/json, `action=run` sigue siendo el fallback foreground.
 
 ## `/bg` jobs locales
 

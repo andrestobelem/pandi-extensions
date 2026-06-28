@@ -11,7 +11,7 @@
  * sandbox) and can spend model calls by spawning subagents.
  */
 
-import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Key } from "@earendil-works/pi-tui";
 import { Type } from "typebox";

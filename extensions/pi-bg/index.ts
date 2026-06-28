@@ -5,7 +5,7 @@
  * trusted projects only for starts, no Supacode runner, and no mutating LLM tool.
  */
 
-import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
@@ -55,7 +55,15 @@ const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
 
 export type JobState =
-	"starting" | "running" | "completed" | "failed" | "cancelled" | "orphaned" | "interrupted" | "stale" | "unknown";
+	| "starting"
+	| "running"
+	| "completed"
+	| "failed"
+	| "cancelled"
+	| "orphaned"
+	| "interrupted"
+	| "stale"
+	| "unknown";
 
 interface PlanModeGuard {
 	isActive(): boolean;

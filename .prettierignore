@@ -1,8 +1,0 @@
-node_modules
-.pi
-dist
-.cache
-coverage
-package-lock.json
-**/*.md
-pi-session-*.html

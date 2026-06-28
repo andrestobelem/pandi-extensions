@@ -60,11 +60,11 @@
  * patterns (notify, persist via appendEntry, rehydrate, status line, wake) are copied.
  */
 
-import {
-	type ExtensionAPI,
-	type ExtensionContext,
-	type ToolCallEvent,
-	type ToolCallEventResult,
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+	ToolCallEvent,
+	ToolCallEventResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import * as crypto from "node:crypto";

@@ -25,6 +25,7 @@ export function tokenize(input: string): string[] {
 	const tokens: string[] = [];
 	const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
 	let match: RegExpExecArray | null;
+	// biome-ignore lint/suspicious/noAssignInExpressions: idiomatic regex.exec() loop
 	while ((match = re.exec(input)) !== null) {
 		tokens.push(match[1] ?? match[2] ?? match[3] ?? "");
 	}

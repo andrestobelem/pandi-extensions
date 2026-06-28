@@ -5,7 +5,7 @@
 // command handlers that spawn the child and wire these together.
 
 import { spawn } from "node:child_process";
-import { type WriteStream } from "node:fs";
+import type { WriteStream } from "node:fs";
 import * as path from "node:path";
 import { activeJobs, appendEvent, nowIso } from "./runtime-state.js";
 import { atomicWriteJson } from "./storage.js";

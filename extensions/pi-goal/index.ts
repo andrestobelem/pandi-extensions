@@ -69,7 +69,7 @@
  * AUTONOMOUS: this file does not import from extensions/loop/index.ts; patterns are copied.
  */
 
-import { type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import { formatEta } from "./time.js";

@@ -232,7 +232,6 @@ export function parseWorktreeList(porcelain: string): WorktreeEntry[] {
 export function isValidBranchName(name: string): boolean {
 	if (!name || name.length > 255) return false;
 	if (/\s/.test(name)) return false; // no whitespace
-	// eslint-disable-next-line no-control-regex
 	if (/[\x00-\x1f\x7f~^:?*[\\]/.test(name)) return false; // control chars + forbidden set
 	if (name.startsWith("/") || name.endsWith("/")) return false;
 	if (name.startsWith("-")) return false; // would look like a flag

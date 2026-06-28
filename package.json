@@ -19,14 +19,16 @@
 	],
 	"scripts": {
 		"typecheck": "tsc -p tsconfig.json",
-		"lint": "eslint .",
-		"lint:fix": "eslint . --fix",
-		"format": "prettier --write .",
-		"format:check": "prettier --check .",
+		"check": "biome check .",
+		"check:fix": "biome check --write .",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint --write .",
+		"format": "biome format --write .",
+		"format:check": "biome format .",
 		"lint:md": "markdownlint-cli2",
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"test:integration": "node scripts/test/run-all.mjs",
-		"test": "npm run typecheck && npm run lint && npm run format:check && npm run lint:md && npm run test:integration"
+		"test": "npm run typecheck && npm run check && npm run lint:md && npm run test:integration"
 	},
 	"pi": {
 		"extensions": [
@@ -53,15 +55,10 @@
 		"typebox": "*"
 	},
 	"devDependencies": {
-		"@eslint/js": "^10.0.1",
+		"@biomejs/biome": "^2.5.1",
 		"esbuild": "^0.25.12",
-		"eslint": "^10.6.0",
-		"eslint-config-prettier": "^10.1.8",
-		"globals": "^17.7.0",
 		"markdownlint-cli2": "^0.22.1",
-		"prettier": "^3.9.1",
-		"typescript": "^6.0.3",
-		"typescript-eslint": "^8.62.0"
+		"typescript": "^6.0.3"
 	},
 	"optionalDependencies": {
 		"@mermaid-js/mermaid-cli": "^11.15.0"

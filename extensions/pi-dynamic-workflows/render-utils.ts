@@ -11,9 +11,8 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 // This module deliberately matches terminal control/ANSI escape sequences
-// (e.g. \x1b, \x07) in order to strip them, so the control-character regex
-// rule is intentionally disabled for the whole file.
-/* eslint-disable no-control-regex */
+// (e.g. \x1b, \x07) in order to strip them. The noControlCharactersInRegex
+// rule is disabled project-wide in biome.jsonc for exactly this reason.
 
 export function padRightVisible(value: string, width: number): string {
 	const maxWidth = Math.max(1, width);

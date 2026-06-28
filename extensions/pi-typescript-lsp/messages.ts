@@ -1,4 +1,4 @@
-import { type FormatResult } from "./diagnostics.js";
+import type { FormatResult } from "./diagnostics.js";
 
 /** Build the advisory feedback body (non-blocking, surfaced next turn). */
 export function advisoryMessage(formatted: FormatResult): string {

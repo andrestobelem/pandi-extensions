@@ -17,7 +17,7 @@
  * command wiring + plan collection; any overlay failure degrades to a notification.
  */
 
-import { type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "./notify.js";
 
 /** Structural shape of a plan this dashboard renders. Any PlanState satisfies it. */

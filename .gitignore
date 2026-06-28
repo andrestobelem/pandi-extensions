@@ -113,7 +113,6 @@ out
 **/.vitepress/cache
 .vite/
 *.tsbuildinfo
-.eslintcache
 .stylelintcache
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

@@ -46,6 +46,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		/\bctx\.(parallel|pipeline|agents|agent|workflow|bash|writeArtifact|appendArtifact|readFile|writeFile|appendFile|listFiles)\s*\(/g;
 	const calls: WorkflowGraphCall[] = [];
 	let match: RegExpExecArray | null;
+	// biome-ignore lint/suspicious/noAssignInExpressions: idiomatic regex.exec() loop
 	while ((match = regex.exec(code)) !== null) {
 		if (!isJavaScriptCodePosition(code, match.index)) continue;
 		const method = match[1];
@@ -612,7 +613,14 @@ export async function makeWorkflowGraphForContext(
  * showWorkflowGraph's body). Moved byte-identically from index.ts.
  */
 type WorkflowGraphStepKind =
-	"agent" | "artifact" | "barrier" | "fanout" | "file" | "pipeline" | "shell" | "subworkflow";
+	| "agent"
+	| "artifact"
+	| "barrier"
+	| "fanout"
+	| "file"
+	| "pipeline"
+	| "shell"
+	| "subworkflow";
 
 export type WorkflowGraphFanoutUnit = "agents" | "branches" | "lanes";
 

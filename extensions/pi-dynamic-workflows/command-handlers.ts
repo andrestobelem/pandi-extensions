@@ -5,7 +5,7 @@
  *
  * Fully-deferred cycle: every collaborator is called inside a handler body, so index.ts
  * imports the three entry points back and the activate body wires them into
- * registerTool/registerCommand. Imports filled in from the gate (typecheck + eslint).
+ * registerTool/registerCommand. Imports filled in from the gate (typecheck + biome).
  * Extracted byte-identically.
  */
 import { existsSync } from "node:fs";

@@ -137,7 +137,7 @@ export function normalizeAgentEnvAccess(options: AgentOptions): AgentEnvAccess {
 		if (!values.PATH) values.PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
 	}
 	for (const key of keyNames) {
-		if (Object.prototype.hasOwnProperty.call(inlineEnv, key)) values[key] = String(inlineEnv[key]);
+		if (Object.hasOwn(inlineEnv, key)) values[key] = String(inlineEnv[key]);
 		else if (process.env[key] !== undefined) values[key] = process.env[key]!;
 		else missingKeys.push(key);
 	}
