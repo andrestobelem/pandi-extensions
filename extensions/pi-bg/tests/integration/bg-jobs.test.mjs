@@ -503,10 +503,10 @@ async function atomicWriteCleansTempOnRenameFailure(url) {
 	check("atomic: no temp file left behind after rename failure", leftoverTemps.length === 0, leftoverTemps.join(","));
 }
 
-async function descriptionListsPlanSubcommand(url) {
+async function descriptionListsPreviewSubcommand(url) {
 	const { commands } = await loadExtension(url);
 	const desc = commands.get("bg")?.description || "";
-	check("description: lists the plan subcommand", /\bplan\b/.test(desc), desc);
+	check("description: lists the preview subcommand", /\bpreview\b/.test(desc), desc);
 }
 
 async function startSurfacesFilesystemErrors(url) {
@@ -706,7 +706,7 @@ async function main() {
 	await backpressurePausesSource(url);
 	await backpressureRecoversWhenSinkDies(url);
 	await writeCapStopsAndMarksLog(url);
-	await descriptionListsPlanSubcommand(url);
+	await descriptionListsPreviewSubcommand(url);
 	await atomicWriteCleansTempOnRenameFailure(url);
 	await startSurfacesFilesystemErrors(url);
 	await modeGateRejectsStart(url);

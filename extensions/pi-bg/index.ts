@@ -374,18 +374,18 @@ export function safeFinalize(runtime: RuntimeJob, exitCode: number | null, signa
 	});
 }
 
-async function handlePlan(command: string): Promise<BgResponse> {
-	if (!command.trim()) return response("Usage: /bg plan <command>", undefined, "warning");
+async function handlePreview(command: string): Promise<BgResponse> {
+	if (!command.trim()) return response("Usage: /bg preview <command>", undefined, "warning");
 	return response(
 		[
 			"Dry run only — no background job was started.",
 			"",
-			"Planned command:",
+			"Command to run:",
 			command.trim(),
 			"",
 			"Use /bg start <command> in a trusted TUI/RPC session to run it.",
 		].join("\n"),
-		{ action: "plan", command: command.trim(), dryRun: true },
+		{ action: "preview", command: command.trim(), dryRun: true },
 	);
 }
 
@@ -591,13 +591,14 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 	try {
 		const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
 		if (!match) {
-			return response("Usage: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>", undefined, "warning");
+			return response("Usage: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>", undefined, "warning");
 		}
 		const subcommand = match[1] ?? "";
 		const tail = match[2] ?? "";
 		switch (subcommand.toLowerCase()) {
-			case "plan":
-				return await handlePlan(tail);
+			case "preview":
+			case "plan": // deprecated alias of preview
+				return await handlePreview(tail);
 			case "start":
 				return await handleStart(ctx, tail);
 			case "cancel":
@@ -611,7 +612,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 			case "events":
 				return await handleEvents(ctx, tail.trim());
 			default:
-				return response(`Unknown /bg subcommand: ${subcommand}. Supported: plan, start, cancel, list, status, logs, events.`, undefined, "warning");
+				return response(`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events.`, undefined, "warning");
 		}
 	} catch (err) {
 		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
@@ -620,10 +621,10 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
-		description: "Background jobs: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>",
+		description: "Background jobs: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
-				{ value: "plan", label: "plan", description: "Dry-run a background command plan" },
+				{ value: "preview", label: "preview", description: "Dry-run (preview) a background command" },
 				{ value: "start", label: "start", description: "Start a background job" },
 				{ value: "cancel", label: "cancel", description: "Cancel an active background job" },
 				{ value: "list", label: "list", description: "List background job artifacts" },

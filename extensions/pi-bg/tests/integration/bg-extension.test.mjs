@@ -156,7 +156,7 @@ async function dryRunHasNoRuntimeWrites(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-project-"));
 	const { commands, tools } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, trusted: true });
-	await commands.get("bg").handler("plan npm test", ctx);
+	await commands.get("bg").handler("preview npm test", ctx);
 
 	check("dry-run: registers /bg command", commands.has("bg"));
 	check("dry-run: registers no LLM tools", tools.size === 0, `registered tools: ${[...tools.keys()].join(",")}`);
@@ -420,6 +420,21 @@ async function eventsSubcommandReadsBoundedEvents(url) {
 	check("events: completions include events for prefix 'ev'", completions.includes("events"), completions.join(","));
 }
 
+async function planAliasStillPreviews(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-plan-alias-"));
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, trusted: true });
+	// Backward-compat: the deprecated `plan` verb still maps to the preview dry-run.
+	await commands.get("bg").handler("plan npm test", ctx);
+	check("alias: deprecated /bg plan still previews (dry-run)", /Dry run only/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check("alias: /bg plan creates no artifacts", !existsSync(path.join(cwd, ".pi")));
+	const all = commands.get("bg").getArgumentCompletions("").map((c) => c.value);
+	check("preview: completions promote preview", all.includes("preview"), all.join(","));
+	check("preview: completions no longer promote plan", !all.includes("plan"), all.join(","));
+	const pre = commands.get("bg").getArgumentCompletions("pre").map((c) => c.value);
+	check("preview: prefix 'pre' completes to preview", pre.includes("preview"), pre.join(","));
+}
+
 async function sessionStartReconcilesInterruptedJobs(url) {
 	const extension = await freshDefault(url);
 	const handlers = new Map();
@@ -472,6 +487,7 @@ async function main() {
 	await corruptArtifactsAreTolerated(url);
 	await sessionStartReconcilesInterruptedJobs(url);
 	await eventsSubcommandReadsBoundedEvents(url);
+	await planAliasStillPreviews(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {
