@@ -465,6 +465,69 @@ async function reconcileRewritesDeadRunningJobs(url) {
 	check("reconcile: untrusted status left as running", untrustedStatus.state === "running", JSON.stringify(untrustedStatus));
 }
 
+async function verifyProcessIdentityDetectsReuse(url) {
+	const mod = await import(`${url}?verifyid=${instance++}`);
+	const verify = mod.verifyProcessIdentity;
+	const readStartId = mod.readProcessStartId;
+	check("verify: verifyProcessIdentity is exported", typeof verify === "function", typeof verify);
+	if (typeof verify !== "function") return;
+	check("verify: missing recorded identity is unknown", verify(process.pid, undefined) === "unknown", String(verify(process.pid, undefined)));
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("verify: a dead pid cannot be confirmed (unknown)", verify(dead.pid, "anything") === "unknown", String(verify(dead.pid, "anything")));
+	if (process.platform === "win32") {
+		check("verify: win32 cannot verify identity (unknown)", verify(process.pid, "stale:bogus") === "unknown", String(verify(process.pid, "stale:bogus")));
+	} else {
+		const id = readStartId(process.pid);
+		check("verify: matching identity is same", verify(process.pid, id) === "same", String(verify(process.pid, id)));
+		check("verify: stale identity is different (pid reused)", verify(process.pid, "stale:bogus") === "different", String(verify(process.pid, "stale:bogus")));
+	}
+}
+
+async function identityDefeatsPidReuse(url) {
+	const mod = await import(`${url}?identity=${instance++}`);
+	const readStartId = mod.readProcessStartId;
+	const reconcile = mod.reconcileInterruptedJobs;
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-identity-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	const liveId = readStartId(process.pid);
+	const write = async (jobId, status) => {
+		const dir = path.join(runsRoot, jobId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "job.json"), JSON.stringify({ jobId, command: jobId, cwd, createdAt: new Date().toISOString() }, null, 2));
+		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify({ jobId, updatedAt: new Date().toISOString(), ...status }, null, 2));
+		return dir;
+	};
+	// pid alive (this process) but recorded startId is stale => the pid was reused.
+	const reusedDir = await write("reused", { state: "running", pid: process.pid, startId: "stale:bogus-identity" });
+	// pid alive AND recorded startId matches => genuinely our orphaned process.
+	const verifiedDir = await write("verified", { state: "running", pid: process.pid, startId: liveId });
+	const ctx = makeCtx({ cwd, trusted: true });
+	const win32 = process.platform === "win32";
+
+	await commands.get("bg").handler("status reused", ctx);
+	const reusedMsg = ctx._notes.at(-1)?.msg || "";
+	await commands.get("bg").handler("status verified", ctx);
+	const verifiedMsg = ctx._notes.at(-1)?.msg || "";
+	if (win32) {
+		check("identity: win32 status keeps best-effort orphaned", /"state": "orphaned"/.test(reusedMsg), reusedMsg);
+	} else {
+		check("identity: status downgrades a reused pid to interrupted", /"state": "interrupted"/.test(reusedMsg), reusedMsg);
+		check("identity: status keeps a verified orphan as orphaned", /"state": "orphaned"/.test(verifiedMsg) && /"identity": "verified"/.test(verifiedMsg), verifiedMsg);
+	}
+
+	const n = await reconcile(ctx);
+	const reusedState = JSON.parse(await fs.readFile(path.join(reusedDir, "status.json"), "utf8")).state;
+	const verifiedState = JSON.parse(await fs.readFile(path.join(verifiedDir, "status.json"), "utf8")).state;
+	if (win32) {
+		check("identity: win32 reconcile leaves reused pid running", reusedState === "running", reusedState);
+	} else {
+		check("identity: reconcile rewrites a reused pid to interrupted", reusedState === "interrupted", reusedState);
+		check("identity: reconcile leaves a verified orphan running", verifiedState === "running", verifiedState);
+		check("identity: reconcile reports rewriting the reused job", n >= 1, String(n));
+	}
+}
+
 async function logStreamErrorsAreContained(url) {
 	const mod = await import(`${url}?guard=${instance++}`);
 	const guard = mod.guardStreamErrors;
@@ -727,6 +790,8 @@ async function main() {
 	await livenessProbeClassifiesPids(url);
 	await processStartIdCapturesIdentity(url);
 	await reconcileRewritesDeadRunningJobs(url);
+	await verifyProcessIdentityDetectsReuse(url);
+	await identityDefeatsPidReuse(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);
