@@ -26,6 +26,7 @@ import {
 	validJobId,
 } from "./storage.js";
 import { probeProcessAlive, readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
+import { activeJobs, appendEvent, asNumber, asString, nowIso } from "./runtime-state.js";
 export { atomicWriteJson, removeRunDir, dirSizeBytes, parsePruneFlags };
 export { readProcessStartId, verifyProcessIdentity, probeProcessAlive } from "./process-liveness.js";
 
@@ -66,7 +67,7 @@ interface JobStatus {
 	error?: string;
 }
 
-interface RuntimeJob {
+export interface RuntimeJob {
 	jobId: string;
 	runDir: string;
 	command: string;
@@ -84,26 +85,6 @@ interface BgResponse {
 	message: string;
 	details?: unknown;
 	type?: "info" | "warning" | "error";
-}
-
-const activeJobs = new Map<string, RuntimeJob>();
-
-function nowIso(): string {
-	return new Date().toISOString();
-}
-
-async function appendEvent(runDir: string, event: Record<string, unknown>): Promise<void> {
-	await fs
-		.appendFile(path.join(runDir, "events.jsonl"), `${JSON.stringify({ time: nowIso(), ...event })}\n`, "utf8")
-		.catch(() => undefined);
-}
-
-function asString(value: unknown): string | undefined {
-	return typeof value === "string" ? value : undefined;
-}
-
-function asNumber(value: unknown): number | undefined {
-	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 // Single read-time projection of the persisted state (the only states a writer can
