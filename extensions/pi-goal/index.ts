@@ -79,6 +79,7 @@ import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { formatEta } from "../shared/time.js";
 
 const GOAL_STATE_TYPE = "goal-state";
 const GOAL_STATUS_KEY = "goal";
@@ -425,13 +426,6 @@ async function runIndependentVerifier(
 // ---------------------------------------------------------------------------
 // Status line
 // ---------------------------------------------------------------------------
-
-function formatEta(nextFireAt: number | null): string {
-	if (nextFireAt === null) return "now";
-	const secs = Math.max(0, Math.round((nextFireAt - Date.now()) / 1000));
-	if (secs >= 60) return `${Math.round(secs / 60)}m`;
-	return `${secs}s`;
-}
 
 function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
 	if (!ctx.hasUI) return;

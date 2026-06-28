@@ -85,6 +85,7 @@ import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { formatEta } from "../shared/time.js";
 
 const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";
@@ -294,13 +295,6 @@ function formatInterval(seconds: number): string {
 // ---------------------------------------------------------------------------
 // Status line
 // ---------------------------------------------------------------------------
-
-function formatEta(nextFireAt: number | null): string {
-	if (nextFireAt === null) return "now";
-	const secs = Math.max(0, Math.round((nextFireAt - Date.now()) / 1000));
-	if (secs >= 60) return `${Math.round(secs / 60)}m`;
-	return `${secs}s`;
-}
 
 function setLoopStatus(ctx: ExtensionContext, loop: LoopState): void {
 	if (!ctx.hasUI) return;
