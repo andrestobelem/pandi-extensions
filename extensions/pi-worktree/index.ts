@@ -17,14 +17,20 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
+import * as fsp from "node:fs/promises";
+import * as path from "node:path";
 import {
 	buildAddArgs,
 	buildListArgs,
+	buildListIgnoredArgs,
+	buildListUntrackedArgs,
 	buildPruneArgs,
 	buildRemoveArgs,
 	DEFAULT_GIT_TIMEOUT_MS as GIT_TIMEOUT_MS,
 	describeWorktree,
+	filterCopyableEntries,
 	isValidBranchName,
+	parseLsFilesEntries,
 	parseWorktreeList,
 	resolveWorktreeTarget,
 	ensureWorktreesBaseDir,
@@ -36,7 +42,16 @@ import {
 // Re-exported for the integration suite to unit-test the pure helpers directly
 // against the same bundle. Internal use still goes through the import above
 // (an `export … from` re-export creates no local binding, so there is no clash).
-export { buildAddArgs, parseWorktreeList, isValidBranchName, describeWorktree } from "./worktree.js";
+export {
+	buildAddArgs,
+	buildListIgnoredArgs,
+	buildListUntrackedArgs,
+	describeWorktree,
+	filterCopyableEntries,
+	isValidBranchName,
+	parseLsFilesEntries,
+	parseWorktreeList,
+} from "./worktree.js";
 
 function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
@@ -110,6 +125,8 @@ interface ParsedCommand {
 	force?: boolean;
 	detach?: boolean;
 	dryRun?: boolean;
+	copyIgnored?: boolean;
+	copyUntracked?: boolean;
 	error?: string;
 }
 
@@ -147,6 +164,8 @@ export function parseCommand(input: string): ParsedCommand {
 		let newBranch: string | undefined;
 		let force = false;
 		let detach = false;
+		let copyIgnored = false;
+		let copyUntracked = false;
 		for (let i = 0; i < rest.length; i++) {
 			const tok = rest[i];
 			if (tok === "-b" || tok === "--branch") {
@@ -155,6 +174,10 @@ export function parseCommand(input: string): ParsedCommand {
 				force = true;
 			} else if (tok === "--detach" || tok === "-d") {
 				detach = true;
+			} else if (tok === "--copy-ignored") {
+				copyIgnored = true;
+			} else if (tok === "--copy-untracked") {
+				copyUntracked = true;
 			} else {
 				positionals.push(tok);
 			}
@@ -164,7 +187,7 @@ export function parseCommand(input: string): ParsedCommand {
 		if (newBranch !== undefined && !isValidBranchName(newBranch)) {
 			return { action: "add", error: `Invalid branch name: "${newBranch ?? ""}"` };
 		}
-		return { action: "add", path: pathArg, newBranch, commitish, force, detach };
+		return { action: "add", path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
 	}
 
 	if (head === "remove" || head === "rm") {
@@ -181,7 +204,7 @@ export function parseCommand(input: string): ParsedCommand {
 const HELP_TEXT = [
 	"Usage:",
 	"  /worktree [list]                       list worktrees",
-	"  /worktree add [-b <branch>] [--detach] [--force] <path> [<commit-ish>]   add a worktree",
+	"  /worktree add [-b <branch>] [--detach] [--force] [--copy-ignored] [--copy-untracked] <path> [<commit-ish>]   add a worktree",
 	"  /worktree remove [--force] <path>      remove a worktree",
 	"  /worktree prune [--dry-run]            prune stale worktree metadata",
 	"",
@@ -207,6 +230,70 @@ async function handleList(ctx: ExtensionContext, signal?: AbortSignal): Promise<
 	notify(ctx, `Worktrees (${listed.entries.length}):\n${lines.join("\n")}`, "info");
 }
 
+interface CopyFilesOptions {
+	copyIgnored?: boolean;
+	copyUntracked?: boolean;
+}
+
+interface CopyFilesResult {
+	ignored: number;
+	untracked: number;
+	failed: number;
+}
+
+/**
+ * After a NEW worktree is created, optionally copy gitignored and/or untracked
+ * files from the main worktree (ctx.cwd) into it. Best-effort and abortable:
+ * enumeration goes through runGit (argv, never shell); copying uses fs.cp with
+ * verbatimSymlinks so symlinks (e.g. node_modules/.bin) survive. The worktrees
+ * base dir and .git are always excluded (filterCopyableEntries) to prevent a
+ * recursive copy of other worktrees. Never throws into the caller.
+ */
+async function copyFilesToWorktree(
+	ctx: ExtensionContext,
+	destPath: string,
+	opts: CopyFilesOptions,
+	signal?: AbortSignal,
+): Promise<CopyFilesResult> {
+	const result: CopyFilesResult = { ignored: 0, untracked: 0, failed: 0 };
+	const gitOpts = { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS };
+	const copyEntries = async (entries: string[]): Promise<number> => {
+		let copied = 0;
+		for (const entry of entries) {
+			if (signal?.aborted) break;
+			const src = path.join(ctx.cwd, entry);
+			const dst = path.join(destPath, entry);
+			try {
+				await fsp.mkdir(path.dirname(dst), { recursive: true });
+				await fsp.cp(src, dst, { recursive: true, force: true, errorOnExist: false, verbatimSymlinks: true });
+				copied++;
+			} catch {
+				result.failed++;
+			}
+		}
+		return copied;
+	};
+	if (opts.copyIgnored) {
+		const r = await runGit(buildListIgnoredArgs(), gitOpts);
+		if (r.ok) result.ignored = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
+	}
+	if (opts.copyUntracked) {
+		const r = await runGit(buildListUntrackedArgs(), gitOpts);
+		if (r.ok) result.untracked = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
+	}
+	return result;
+}
+
+/** A short " (copied N ignored + M untracked file(s))" suffix; "" when nothing was requested. */
+function copyNote(opts: CopyFilesOptions, r: CopyFilesResult): string {
+	if (!opts.copyIgnored && !opts.copyUntracked) return "";
+	const parts: string[] = [];
+	if (opts.copyIgnored) parts.push(`${r.ignored} ignored`);
+	if (opts.copyUntracked) parts.push(`${r.untracked} untracked`);
+	const failed = r.failed ? `, ${r.failed} failed` : "";
+	return ` (copied ${parts.join(" + ")} file(s)${failed})`;
+}
+
 async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
 	if (parsed.error) {
 		notify(ctx, parsed.error, "warning");
@@ -230,9 +317,11 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 		notify(ctx, `Could not add worktree: ${gitError(result)}`, "error");
 		return;
 	}
+	const copyOpts = { copyIgnored: parsed.copyIgnored, copyUntracked: parsed.copyUntracked };
+	const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal);
 	const branchNote = parsed.newBranch ? ` (new branch ${parsed.newBranch})` : "";
 	const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
-	notify(ctx, `Added worktree at ${target.path}${branchNote}${locationNote}.`, "info");
+	notify(ctx, `Added worktree at ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}.`, "info");
 }
 
 async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
@@ -441,6 +530,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		promptSnippet: "List, add, remove, or prune git worktrees.",
 		promptGuidelines: [
 			"Use git_worktree to inspect or manage git worktrees (list/add/remove/prune) instead of hand-writing `git worktree` bash commands.",
+			"For add, pass copyIgnored:true to copy gitignored files (e.g. node_modules) and/or copyUntracked:true to copy untracked files from the main worktree into the new one (both off by default).",
 			"git_worktree remove never force-deletes by default: only pass force=true when the user explicitly accepts discarding a dirty worktree's changes.",
 			"Pi's cwd is fixed for the session, so git_worktree cannot switch into another worktree — report the worktree path so the user can open a new Pi there.",
 		],
@@ -472,6 +562,17 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			dryRun: Type.Optional(
 				Type.Boolean({
 					description: "For prune: only report what would be pruned without deleting.",
+				}),
+			),
+			copyIgnored: Type.Optional(
+				Type.Boolean({
+					description:
+						"For add: copy gitignored files (e.g. node_modules) from the main worktree into the new one.",
+				}),
+			),
+			copyUntracked: Type.Optional(
+				Type.Boolean({
+					description: "For add: copy untracked files from the main worktree into the new one.",
 				}),
 			),
 		}),
@@ -555,13 +656,15 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 						details: { isError: true, action: "add", path: target.path },
 					};
 				}
+				const copyOpts = { copyIgnored: params.copyIgnored, copyUntracked: params.copyUntracked };
+				const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal ?? undefined);
 				const branchNote = params.branch ? ` (new branch ${params.branch})` : "";
 				const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: `Added worktree at ${target.path}${branchNote}${locationNote}. Open it with: cd ${target.path} && pi`,
+							text: `Added worktree at ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}. Open it with: cd ${target.path} && pi`,
 						},
 					],
 					details: {
@@ -569,6 +672,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 						path: target.path,
 						branch: params.branch ?? null,
 						defaultBase: target.usedDefaultBase,
+						copied: copyRes,
 					},
 				};
 			}

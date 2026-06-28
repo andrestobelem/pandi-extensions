@@ -17,13 +17,18 @@ commands.
 ```text
 /worktree                                  list worktrees (interactive menu in a TUI)
 /worktree list                             list worktrees
-/worktree add [-b <branch>] [--detach] [--force] <path> [<commit-ish>]   add a worktree
+/worktree add [-b <branch>] [--detach] [--force] [--copy-ignored] [--copy-untracked] <path> [<commit-ish>]   add a worktree
 /worktree remove [--force] <path>          remove a worktree (confirms first)
 /worktree prune [--dry-run]                prune stale worktree metadata (previews first)
 ```
 
 - `add -b <branch> <path>` creates a new branch and checks it out in the new
   worktree.
+- On `add`, pass `--copy-ignored` (tool: `copyIgnored: true`) to copy gitignored
+  files (e.g. `node_modules`) from the main worktree into the new one, and/or
+  `--copy-untracked` (tool: `copyUntracked: true`) to copy untracked files. Both
+  are **off by default**; the worktrees base dir and `.git` are never copied, so
+  a new worktree is never recursively filled with other worktrees.
 - A **bare `<name>`** (no path separator) is created under the default base
   `.pi/worktrees/<name>`, which is kept local and gitignored automatically (a
   `.pi/worktrees/.gitignore` containing `*` is written on first use). Use an
@@ -35,7 +40,8 @@ commands.
 ## Tool
 
 The `git_worktree` tool takes an `action` (`list` | `add` | `remove` | `prune`)
-plus `path`, `branch`, `commitish`, `detach`, `force`, and `dryRun`. It returns a
+plus `path`, `branch`, `commitish`, `detach`, `force`, `dryRun`, `copyIgnored`,
+and `copyUntracked`. It returns a
 text summary and structured `details` (the parsed worktree list, the created
 path, etc.). It **never force-deletes by default**: `remove` only discards a
 dirty worktree when `force: true` is passed explicitly.

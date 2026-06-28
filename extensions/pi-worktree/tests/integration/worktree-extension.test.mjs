@@ -584,6 +584,112 @@ async function scenarioInteractiveAdd(url) {
 	await fs.rm(wtPath, { recursive: true, force: true });
 }
 
+// --- copy ignored/untracked files into new worktrees (feature) ---
+
+async function scenarioCopyFilters(url) {
+	const mod = await loadModule(url);
+	check(
+		"buildListIgnoredArgs: ls-files --others --ignored --exclude-standard --directory",
+		JSON.stringify(mod.buildListIgnoredArgs()) ===
+			JSON.stringify(["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"]),
+		JSON.stringify(mod.buildListIgnoredArgs()),
+	);
+	check(
+		"buildListUntrackedArgs: ls-files --others --exclude-standard --directory",
+		JSON.stringify(mod.buildListUntrackedArgs()) ===
+			JSON.stringify(["ls-files", "--others", "--exclude-standard", "--directory"]),
+		JSON.stringify(mod.buildListUntrackedArgs()),
+	);
+	check(
+		"parseLsFilesEntries: splits NUL/newline, trims, drops empties",
+		JSON.stringify(mod.parseLsFilesEntries("node_modules/\n\n.env\0dist/\n")) ===
+			JSON.stringify(["node_modules/", ".env", "dist/"]),
+		JSON.stringify(mod.parseLsFilesEntries("node_modules/\n\n.env\0dist/\n")),
+	);
+	const filtered = mod.filterCopyableEntries(
+		["node_modules/", ".env", ".pi/worktrees/", ".pi/worktrees/other/", ".pi/", ".git", "a/.git", "dist/"],
+		{ configDirName: ".pi" },
+	);
+	check(
+		"filterCopyableEntries: keeps deps, drops worktrees base + ancestor + .git",
+		JSON.stringify(filtered) === JSON.stringify(["node_modules", ".env", "dist"]),
+		JSON.stringify(filtered),
+	);
+}
+
+async function scenarioCopyFilesIntoWorktree(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-worktree-copy-"));
+	git(cwd, ["init", "-q", "-b", "main"]);
+	git(cwd, ["config", "user.email", "test@example.com"]);
+	git(cwd, ["config", "user.name", "Test"]);
+	await fs.writeFile(path.join(cwd, ".gitignore"), "node_modules/\n", "utf8");
+	await fs.writeFile(path.join(cwd, "file.txt"), "hello\n", "utf8");
+	git(cwd, ["add", "."]);
+	git(cwd, ["commit", "-q", "-m", "init"]);
+	// a gitignored dependency file + an untracked scratch file
+	await fs.mkdir(path.join(cwd, "node_modules"), { recursive: true });
+	await fs.writeFile(path.join(cwd, "node_modules", "dep.js"), "module.exports = 1;\n", "utf8");
+	await fs.writeFile(path.join(cwd, "scratch.txt"), "scratch\n", "utf8");
+
+	const { tools } = await loadExtension(url);
+	const tool = tools.get("git_worktree");
+
+	// copyIgnored: gitignored files copied; untracked NOT; worktrees base never recursed.
+	const ig = await tool.execute(
+		"id",
+		{ action: "add", path: "wt-ignored", branch: "b-ig", copyIgnored: true },
+		undefined,
+		undefined,
+		makeCtx({ cwd }),
+	);
+	check("copyIgnored: not an error", !ig.details?.isError, JSON.stringify(ig.details));
+	const igWt = path.join(cwd, ".pi", "worktrees", "wt-ignored");
+	check("copyIgnored: node_modules/dep.js copied", existsSync(path.join(igWt, "node_modules", "dep.js")));
+	check("copyIgnored: untracked scratch.txt NOT copied", !existsSync(path.join(igWt, "scratch.txt")));
+	check("copyIgnored: worktrees base NOT recursed into new wt", !existsSync(path.join(igWt, ".pi", "worktrees")));
+	check(
+		"copyIgnored: result mentions copied count",
+		/copied .*ignored/.test(ig.content?.[0]?.text || ""),
+		ig.content?.[0]?.text,
+	);
+
+	// copyUntracked: untracked files copied; ignored NOT.
+	const un = await tool.execute(
+		"id",
+		{ action: "add", path: "wt-untracked", branch: "b-un", copyUntracked: true },
+		undefined,
+		undefined,
+		makeCtx({ cwd }),
+	);
+	check("copyUntracked: not an error", !un.details?.isError, JSON.stringify(un.details));
+	const unWt = path.join(cwd, ".pi", "worktrees", "wt-untracked");
+	check("copyUntracked: scratch.txt copied", existsSync(path.join(unWt, "scratch.txt")));
+	check("copyUntracked: ignored node_modules NOT copied", !existsSync(path.join(unWt, "node_modules")));
+
+	// default (no flags): neither copied — current behavior is preserved.
+	const none = await tool.execute(
+		"id",
+		{ action: "add", path: "wt-none", branch: "b-none" },
+		undefined,
+		undefined,
+		makeCtx({ cwd }),
+	);
+	check("default: not an error", !none.details?.isError, JSON.stringify(none.details));
+	const noneWt = path.join(cwd, ".pi", "worktrees", "wt-none");
+	check("default: node_modules NOT copied", !existsSync(path.join(noneWt, "node_modules")));
+	check("default: scratch.txt NOT copied", !existsSync(path.join(noneWt, "scratch.txt")));
+
+	// command flags parse into the structured intent.
+	const mod = await loadModule(url);
+	const parsed = mod.parseCommand("add --copy-ignored --copy-untracked wt-cmd");
+	check(
+		"parseCommand: --copy-ignored/--copy-untracked set the flags",
+		parsed.copyIgnored === true && parsed.copyUntracked === true && parsed.path === "wt-cmd",
+		JSON.stringify(parsed),
+	);
+	await fs.rm(cwd, { recursive: true, force: true });
+}
+
 async function main() {
 	const { outDir, url } = await buildBundle();
 	try {
@@ -606,6 +712,8 @@ async function main() {
 		await scenarioOutsideRepo(url);
 		await scenarioBareRepo(url);
 		await scenarioInteractiveAdd(url);
+		await scenarioCopyFilters(url);
+		await scenarioCopyFilesIntoWorktree(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}

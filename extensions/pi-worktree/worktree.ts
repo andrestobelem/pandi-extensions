@@ -340,6 +340,56 @@ export function buildListArgs(): string[] {
 	return ["worktree", "list", "--porcelain"];
 }
 
+/**
+ * Build argv to enumerate GITIGNORED paths in the main worktree, with
+ * fully-ignored directories collapsed to a single entry (e.g. `node_modules/`)
+ * so we copy one dir instead of thousands of files.
+ */
+export function buildListIgnoredArgs(): string[] {
+	return ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"];
+}
+
+/** Build argv to enumerate UNTRACKED (non-ignored) paths, untracked dirs collapsed. */
+export function buildListUntrackedArgs(): string[] {
+	return ["ls-files", "--others", "--exclude-standard", "--directory"];
+}
+
+/** Split `git ls-files` stdout into trimmed relative entries (NUL- or newline-separated). */
+export function parseLsFilesEntries(stdout: string): string[] {
+	return String(stdout)
+		.split(/\0|\n/)
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0);
+}
+
+/**
+ * Drop entries that must NEVER be copied into a new worktree, returning
+ * separator-normalized, de-duplicated, trailing-slash-free paths:
+ * - the worktrees base dir `<configDir>/worktrees/` AND any ancestor of it
+ *   (e.g. a collapsed `.pi/`) — otherwise copy-ignored would recursively copy
+ *   every OTHER worktree into the new one;
+ * - any `.git` dir/file (top-level or nested worktree pointer);
+ * - `.`/`..`/empty.
+ */
+export function filterCopyableEntries(entries: string[], options: { configDirName?: string } = {}): string[] {
+	const configDirName = options.configDirName ?? CONFIG_DIR_NAME;
+	const worktreesBase = `${configDirName}/${WORKTREES_DIR}`.replace(/\\/g, "/").replace(/\/+$/g, "");
+	const norm = (s: string): string => s.replace(/\\/g, "/").replace(/\/+$/g, "");
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const raw of entries) {
+		const e = norm(raw);
+		if (!e || e === "." || e === "..") continue;
+		if (e === ".git" || e.startsWith(".git/") || e.endsWith("/.git") || e.includes("/.git/")) continue;
+		// self, descendant, OR ancestor of the worktrees base (collapsed `.pi/`).
+		if (e === worktreesBase || e.startsWith(`${worktreesBase}/`) || worktreesBase.startsWith(`${e}/`)) continue;
+		if (seen.has(e)) continue;
+		seen.add(e);
+		out.push(e);
+	}
+	return out;
+}
+
 /** Short label describing a worktree entry's checkout state. */
 function worktreeLabel(entry: WorktreeEntry): string {
 	return entry.bare
