@@ -307,22 +307,64 @@ async function cancelEscalatesToSigkill(url) {
 	check("cancel-sigkill: records a cancel-sigkill escalation event", /"event":"cancel-sigkill"/.test(events), events.slice(-300));
 }
 
-async function stalePidIsNotKilled(url) {
+async function orphanedPidIsLabeledNotKilled(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-stale-"));
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-orphan-"));
 	const jobId = "fake-active";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
 	await fs.writeFile(path.join(runDir, "job.json"), JSON.stringify({ jobId, command: "fake", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir }, null, 2));
+	// pid = this live test process, not owned by the bg session => orphaned (alive elsewhere).
 	await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify({ jobId, state: "running", pid: process.pid, updatedAt: new Date().toISOString() }, null, 2));
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
-	check("stale: cancel refuses non-owned persisted PID", /not active in this session/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
-	check("stale: current process is still alive", process.kill(process.pid, 0));
+	check("orphaned: cancel refuses non-owned persisted PID", /not active in this session/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+	check("orphaned: current process is still alive", process.kill(process.pid, 0));
 	await commands.get("bg").handler(`status ${jobId}`, ctx);
 	const statusMsg = ctx._notes.at(-1)?.msg || "";
-	check("stale: status is derived as stale", /"state": "stale"/.test(statusMsg), statusMsg);
-	check("stale: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
+	check("orphaned: live persisted PID is derived as orphaned", /"state": "orphaned"/.test(statusMsg), statusMsg);
+	check("orphaned: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
+	check("orphaned: status surfaces a verify-before-kill hint", /"hint":/.test(statusMsg) && /reused/.test(statusMsg), statusMsg);
+	await commands.get("bg").handler("list", ctx);
+	check("orphaned: list reflects orphaned state", /fake-active: orphaned/.test(ctx._notes.at(-1)?.msg || ""), ctx._notes.at(-1)?.msg);
+}
+
+async function interruptedAndStaleStatesAreDerived(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-interrupted-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+
+	// (1) Persisted running, recorded pid is dead (reaped) => interrupted.
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("interrupted: probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	const deadJob = "dead-job";
+	const deadDir = path.join(runsRoot, deadJob);
+	await fs.mkdir(deadDir, { recursive: true });
+	await fs.writeFile(path.join(deadDir, "job.json"), JSON.stringify({ jobId: deadJob, command: "gone", cwd, createdAt: new Date().toISOString() }, null, 2));
+	await fs.writeFile(path.join(deadDir, "status.json"), JSON.stringify({ jobId: deadJob, state: "running", pid: dead.pid, updatedAt: new Date().toISOString() }, null, 2));
+
+	// (2) Persisted starting with NO recorded pid => stale fallback (cannot probe).
+	const noPidJob = "nopid-job";
+	const noPidDir = path.join(runsRoot, noPidJob);
+	await fs.mkdir(noPidDir, { recursive: true });
+	await fs.writeFile(path.join(noPidDir, "job.json"), JSON.stringify({ jobId: noPidJob, command: "starting", cwd, createdAt: new Date().toISOString() }, null, 2));
+	await fs.writeFile(path.join(noPidDir, "status.json"), JSON.stringify({ jobId: noPidJob, state: "starting", updatedAt: new Date().toISOString() }, null, 2));
+
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("bg").handler(`status ${deadJob}`, ctx);
+	const deadMsg = ctx._notes.at(-1)?.msg || "";
+	check("interrupted: dead persisted PID is derived as interrupted", /"state": "interrupted"/.test(deadMsg), deadMsg);
+	check("interrupted: persisted running state is reported", /"persistedState": "running"/.test(deadMsg), deadMsg);
+
+	await commands.get("bg").handler(`status ${noPidJob}`, ctx);
+	const noPidMsg = ctx._notes.at(-1)?.msg || "";
+	check("stale: unprobeable (no pid) job falls back to stale", /"state": "stale"/.test(noPidMsg), noPidMsg);
+	check("stale: persisted starting state is reported", /"persistedState": "starting"/.test(noPidMsg), noPidMsg);
+
+	await commands.get("bg").handler("list", ctx);
+	const listMsg = ctx._notes.at(-1)?.msg || "";
+	check("list: reflects interrupted state", /dead-job: interrupted/.test(listMsg), listMsg);
+	check("list: reflects stale fallback state", /nopid-job: stale/.test(listMsg), listMsg);
 }
 
 async function livenessProbeClassifiesPids(url) {
@@ -601,7 +643,8 @@ async function main() {
 	await commandWhitespaceIsPreserved(url);
 	await cancelStopsActiveJob(url);
 	await cancelEscalatesToSigkill(url);
-	await stalePidIsNotKilled(url);
+	await orphanedPidIsLabeledNotKilled(url);
+	await interruptedAndStaleStatesAreDerived(url);
 	await livenessProbeClassifiesPids(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);

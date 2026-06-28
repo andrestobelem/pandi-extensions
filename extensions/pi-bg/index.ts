@@ -28,7 +28,7 @@ const MAX_LOG_WRITE_BYTES = 5_000_000;
 const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
 
-type JobState = "starting" | "running" | "completed" | "failed" | "cancelled" | "stale" | "unknown";
+type JobState = "starting" | "running" | "completed" | "failed" | "cancelled" | "orphaned" | "interrupted" | "stale" | "unknown";
 
 interface PlanModeGuard {
 	isActive(): boolean;
@@ -119,21 +119,39 @@ export function probeProcessAlive(pid: number | undefined): Liveness {
 	}
 }
 
+// Single read-time projection of the persisted state (the only states a writer can
+// know: starting/running/completed/failed/cancelled). When a job is persisted as
+// starting/running but is NOT owned by this session, probe the recorded pid to
+// distinguish an orphaned-but-alive process from one that died while Pi was down,
+// falling back to `stale` only when the pid is unprobeable. Never persisted, never
+// signals: cancel still refuses any persisted pid.
+function projectState(jobId: string, persisted: string | undefined, pid: number | undefined): { state: JobState; persistedState?: string; hint?: string } {
+	if ((persisted === "starting" || persisted === "running") && !activeJobs.has(jobId)) {
+		const live = probeProcessAlive(pid);
+		if (live === "alive") {
+			return {
+				state: "orphaned",
+				persistedState: persisted,
+				hint: `PID ${pid} may still be running (or the PID was reused). Verify before using kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`,
+			};
+		}
+		if (live === "dead") return { state: "interrupted", persistedState: persisted };
+		return { state: "stale", persistedState: persisted };
+	}
+	return { state: (persisted ?? "unknown") as JobState };
+}
+
 function deriveState(jobId: string, status: Record<string, unknown> | undefined): JobState | string {
-	const state = asString(status?.state) ?? "unknown";
-	if ((state === "starting" || state === "running") && !activeJobs.has(jobId)) return "stale";
-	return state;
+	return projectState(jobId, asString(status?.state) ?? "unknown", asNumber(status?.pid)).state;
 }
 
 function decorateStatus(jobId: string, raw: Record<string, unknown>): Record<string, unknown> {
 	const copy: Record<string, unknown> = { ...raw };
-	const state = asString(copy.state);
-	const active = activeJobs.has(jobId);
-	if ((state === "starting" || state === "running") && !active) {
-		copy.persistedState = state;
-		copy.state = "stale";
-	}
-	copy.active = active;
+	const projected = projectState(jobId, asString(copy.state), asNumber(copy.pid));
+	copy.state = projected.state;
+	if (projected.persistedState !== undefined) copy.persistedState = projected.persistedState;
+	if (projected.hint !== undefined) copy.hint = projected.hint;
+	copy.active = activeJobs.has(jobId);
 	return copy;
 }
 
