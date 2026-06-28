@@ -325,6 +325,25 @@ async function stalePidIsNotKilled(url) {
 	check("stale: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
 }
 
+async function livenessProbeClassifiesPids(url) {
+	const mod = await import(`${url}?live=${instance++}`);
+	const probe = mod.probeProcessAlive;
+	check("liveness: probeProcessAlive is exported", typeof probe === "function", typeof probe);
+	if (typeof probe !== "function") return;
+	// A signal-0 probe sends no signal; it only asks whether some process holds the pid.
+	check("liveness: current process is alive", probe(process.pid) === "alive", String(probe(process.pid)));
+	check("liveness: undefined pid is unknown", probe(undefined) === "unknown", String(probe(undefined)));
+	check(
+		"liveness: zero/negative/non-integer pid is unknown",
+		probe(0) === "unknown" && probe(-1) === "unknown" && probe(1.5) === "unknown",
+		JSON.stringify([probe(0), probe(-1), probe(1.5)]),
+	);
+	// Spawn a short-lived child and let spawnSync reap it, then probe its now-dead pid.
+	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+	check("liveness: spawned probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	check("liveness: a reaped child pid is dead", probe(dead.pid) === "dead", String(probe(dead.pid)));
+}
+
 async function logStreamErrorsAreContained(url) {
 	const mod = await import(`${url}?guard=${instance++}`);
 	const guard = mod.guardStreamErrors;
@@ -583,6 +602,7 @@ async function main() {
 	await cancelStopsActiveJob(url);
 	await cancelEscalatesToSigkill(url);
 	await stalePidIsNotKilled(url);
+	await livenessProbeClassifiesPids(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await finalizeRejectionIsContained(url);

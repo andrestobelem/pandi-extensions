@@ -99,6 +99,26 @@ function asNumber(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+type Liveness = "alive" | "dead" | "unknown";
+
+// Best-effort, synchronous liveness check. process.kill(pid, 0) sends NO signal; it
+// only asks the OS whether a process with that pid exists. Cross-platform (Windows
+// included). NOTE: a pid can be reused after the original process is reaped, so
+// "alive" means "some process holds this pid", not "our job is still running" — the
+// reason we only use this to LABEL a read, never to signal a persisted pid.
+export function probeProcessAlive(pid: number | undefined): Liveness {
+	if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 0) return "unknown";
+	try {
+		process.kill(pid, 0);
+		return "alive";
+	} catch (err) {
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === "EPERM") return "alive"; // exists but owned by another user
+		if (code === "ESRCH") return "dead"; // no such process
+		return "unknown";
+	}
+}
+
 function deriveState(jobId: string, status: Record<string, unknown> | undefined): JobState | string {
 	const state = asString(status?.state) ?? "unknown";
 	if ((state === "starting" || state === "running") && !activeJobs.has(jobId)) return "stale";
