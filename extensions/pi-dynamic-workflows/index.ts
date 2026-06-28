@@ -49,6 +49,7 @@ import { extractJsonCandidate } from "./json-extract.js";
 import { buildLimits, HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
 import { formatElapsedMs, formatWorkflowList, shortWorkflowName, workflowDashboardHint, workflowProgress } from "./presentation.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
+import { padRightVisible, renderSafeInline, stripAnsiCodes } from "./render-utils.js";
 import { formatParallelAgents, formatParallelAgentsCompact, getRunAgentConcurrency, getRunCachedCalls, getRunElapsedMs, getRunLogs, getRunParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusIcon, getRunStatusLabel, isResumableState, isRunResult } from "./run-state.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
 
@@ -1367,28 +1368,6 @@ function isActiveRunRecord(run: WorkflowRunRecord): boolean {
 
 function canCancelRun(run: WorkflowRunRecord): boolean {
 	return isActiveRunRecord(run);
-}
-
-function padRightVisible(value: string, width: number): string {
-	const maxWidth = Math.max(1, width);
-	const truncated = visibleWidth(value) > maxWidth ? truncateToWidth(value, maxWidth, "") : value;
-	return truncated + " ".repeat(Math.max(0, maxWidth - visibleWidth(truncated)));
-}
-
-function stripAnsiCodes(value: string): string {
-	return value
-		.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
-		.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "");
-}
-
-function renderSafeInline(value: string): string {
-	return value
-		.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
-		.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "")
-		.replace(/[\r\n\t]+/g, " ")
-		.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "")
-		.replace(/\s+/g, " ")
-		.trim();
 }
 
 function setWorkflowIdleStatus(ctx: ExtensionContext): void {
