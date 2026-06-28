@@ -930,7 +930,8 @@ async function scenarioResolveRunExactMatchFirst(url) {
 	check("resolve: no match returns undefined", sel(runs, "zzz", (r) => r.runId) === undefined);
 }
 
-// templates.ts is self-contained (zero imports), so it can be bundled on its own.
+// templates.ts imports its catalog/pattern-format siblings, so esbuild --bundle
+// pulls the whole pattern module graph into one bundle we can import in-process.
 async function buildTemplates() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-templates-"));
 	const src = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "templates.ts");
