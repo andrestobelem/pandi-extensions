@@ -82,46 +82,23 @@ import * as path from "node:path";
 import { formatEta } from "./time.js";
 import { notify } from "./notify.js";
 import { collectLatestByKey } from "./session-state.js";
-
-const GOAL_STATE_TYPE = "goal-state";
-const GOAL_STATUS_KEY = "goal";
-const GOAL_DIR = "goals";
-const STATE_FILE = "state.json";
-const DEFAULT_MAX_ITERATIONS = 30;
-// Optional external-wait bounds (seconds): the model only sets waitSeconds when it is
-// waiting on a real external signal; by default re-injection is immediate (delay 0).
-const MIN_WAIT_SECONDS = 60;
-const MAX_WAIT_SECONDS = 3600;
-// Safety-net cadence when a turn closed without the model calling goal_progress.
-const SAFETY_NET_DELAY_SECONDS = 1500;
-// Best-effort context-usage percent cap (stop if getContextUsage().percent exceeds).
-const DEFAULT_CONTEXT_PERCENT_CAP = 90;
-// How many recent assessments to keep in the progress log (bounded continuity).
-const PROGRESS_LOG_KEEP = 12;
-// How many failed SELF completeness checks (done → verifying → continue) we tolerate
-// before we stop the goal as blocked. Defends against a "self-declares done, fails the
-// check, keeps going" ping-pong silently burning the whole iteration budget without
-// progress. DISTINCT from DEFAULT_MAX_INDEPENDENT_VERIFICATIONS below: this caps the
-// model judging ITSELF (verifying); that one caps the independent read-only judge
-// (verifying-independent).
-const MAX_VERIFY_ATTEMPTS = 3;
-
-// --- P1: independent adversarial verification (defaults) ---------------------
-// The verifier subagent (separate `pi -p` process) gets READ-ONLY tools only: it
-// judges, it never mutates the workspace.
-const DEFAULT_VERIFIER_TOOLS = ["read", "grep", "find", "ls"] as const;
-// Wall-clock budget for one independent verification (ms). Generous: the subagent may
-// read files and run a few greps before emitting its verdict.
-const DEFAULT_VERIFIER_TIMEOUT_MS = 120_000;
-// How many FAILED independent verifications we tolerate before stopping as blocked.
-// Small on purpose: a model that keeps claiming done while an independent judge keeps
-// failing it needs a human, not more turns. DISTINCT from MAX_VERIFY_ATTEMPTS above:
-// that caps the SELF check (verifying); this caps the independent judge
-// (verifying-independent). Each independent round spawns a separate `pi -p` process,
-// so this gate is not free — keep it small.
-const DEFAULT_MAX_INDEPENDENT_VERIFICATIONS = 2;
-// pi command used to spawn the verifier subagent (mirrors dynamic-workflows.ts).
-const PI_COMMAND = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi";
+import {
+	GOAL_STATE_TYPE,
+	GOAL_STATUS_KEY,
+	GOAL_DIR,
+	STATE_FILE,
+	DEFAULT_MAX_ITERATIONS,
+	MIN_WAIT_SECONDS,
+	MAX_WAIT_SECONDS,
+	SAFETY_NET_DELAY_SECONDS,
+	DEFAULT_CONTEXT_PERCENT_CAP,
+	PROGRESS_LOG_KEEP,
+	MAX_VERIFY_ATTEMPTS,
+	DEFAULT_VERIFIER_TOOLS,
+	DEFAULT_VERIFIER_TIMEOUT_MS,
+	DEFAULT_MAX_INDEPENDENT_VERIFICATIONS,
+	PI_COMMAND,
+} from "./constants.js";
 
 type GoalStatus = "pursuing" | "verifying" | "verifying-independent" | "done" | "blocked" | "stopped" | "stale";
 type GoalDecision = "continue" | "done" | "blocked";
