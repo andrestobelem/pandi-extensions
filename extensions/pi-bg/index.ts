@@ -296,6 +296,19 @@ function closeStreams(runtime: RuntimeJob): void {
 	runtime.combinedStream.end();
 }
 
+type ErrorEmitter = { on(event: "error", listener: (err: Error) => void): unknown } | null | undefined;
+
+// Contain stream 'error' events to the job: without a listener, an 'error' on a
+// log WriteStream or child stdout/stderr pipe escalates to uncaughtException and
+// would crash the host Pi process (and every in-flight job).
+export function guardStreamErrors(runDir: string, jobId: string, streams: ErrorEmitter[]): void {
+	for (const stream of streams) {
+		stream?.on("error", (err: Error) => {
+			void appendEvent(runDir, { event: "log-stream-error", jobId, error: err?.message ?? String(err) });
+		});
+	}
+}
+
 async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): Promise<void> {
 	if (runtime.finalized) return;
 	runtime.finalized = true;
@@ -362,6 +375,7 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 		detached: process.platform !== "win32",
 		stdio: ["ignore", "pipe", "pipe"],
 	});
+	guardStreamErrors(runDir, jobId, [stdoutStream, stderrStream, combinedStream, child.stdout, child.stderr]);
 
 	const runtime: RuntimeJob = {
 		jobId,

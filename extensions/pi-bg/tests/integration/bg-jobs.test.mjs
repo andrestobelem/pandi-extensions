@@ -7,7 +7,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -287,6 +287,50 @@ async function stalePidIsNotKilled(url) {
 	check("stale: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
 }
 
+async function logStreamErrorsAreContained(url) {
+	const mod = await import(`${url}?guard=${instance++}`);
+	const guard = mod.guardStreamErrors;
+	check("guard: guardStreamErrors is exported", typeof guard === "function", typeof guard);
+	if (typeof guard !== "function") return;
+
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-streamerr-"));
+	const runDir = path.join(cwd, "run");
+	await fs.mkdir(runDir, { recursive: true });
+
+	// Hazard baseline: an unguarded stream 'error' throws and would crash the host process.
+	const unguarded = createWriteStream(path.join(runDir, "unguarded.log"));
+	let unguardedThrew = false;
+	try {
+		unguarded.emit("error", new Error("boom-unguarded"));
+	} catch {
+		unguardedThrew = true;
+	}
+	unguarded.destroy();
+	check("guard: unguarded stream error throws (hazard reproduced)", unguardedThrew);
+
+	// Fixed behavior: a guarded stream 'error' is contained (no throw) and recorded as an event.
+	const guarded = createWriteStream(path.join(runDir, "stdout.log"));
+	guard(runDir, "job-streamerr", [guarded, null, undefined]);
+	let guardedThrew = false;
+	try {
+		guarded.emit("error", new Error("boom-guarded"));
+	} catch {
+		guardedThrew = true;
+	}
+	guarded.destroy();
+	check("guard: guarded stream error does not throw", !guardedThrew);
+
+	const events = await waitFor("log-stream-error event", async () => {
+		try {
+			const text = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8");
+			return text.includes("log-stream-error") ? text : false;
+		} catch {
+			return false;
+		}
+	});
+	check("guard: records a log-stream-error event", /"event":"log-stream-error"/.test(events) && /boom-guarded/.test(events), events.slice(0, 200));
+}
+
 async function modeGateRejectsStart(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-mode-"));
@@ -304,6 +348,7 @@ async function main() {
 	await commandWhitespaceIsPreserved(url);
 	await cancelStopsActiveJob(url);
 	await stalePidIsNotKilled(url);
+	await logStreamErrorsAreContained(url);
 	await modeGateRejectsStart(url);
 
 	console.log(`\n${passed} passed, ${failed} failed`);
