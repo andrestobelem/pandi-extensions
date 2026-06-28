@@ -386,6 +386,22 @@ async function scenarioEllipsisOnOverflow(url) {
 	check("overflowing lines render a visible ellipsis marker", text.includes("…"), text.split("\n").slice(0, 2).join(" | "));
 }
 
+async function scenarioRefreshFreshnessAndErrors(url) {
+	// The 1.5s dashboard refresh wraps disk reads; a failure must stay visible
+	// (not a silent unhandled rejection) and a healthy refresh must advertise recency.
+	const { component } = await openDashboardComponent(url);
+	const initial = component.render(100).join("\n");
+	check("dashboard header advertises refresh recency", initial.includes("updated") && initial.includes("ago"), initial.split("\n").slice(0, 2).join(" | "));
+
+	component.markRefreshError("BOOM_REFRESH_SENTINEL");
+	const errored = component.render(100).join("\n");
+	check("refresh failure is surfaced in the header", errored.includes("refresh failed") && errored.includes("BOOM_REFRESH_SENTINEL"), errored.split("\n").slice(0, 2).join(" | "));
+
+	component.markRefreshOk();
+	const recovered = component.render(100).join("\n");
+	check("a healthy refresh clears the failure marker", recovered.includes("updated") && !recovered.includes("refresh failed"), recovered.split("\n").slice(0, 2).join(" | "));
+}
+
 async function main() {
 	const { url } = await buildExtension();
 	await scenarioIdleStatusShowsEntrypoint(url);
@@ -398,6 +414,7 @@ async function main() {
 	await scenarioReopenAfterAction(url);
 	await scenarioHelpOverlay(url);
 	await scenarioRunningAgentLiveElapsed(url);
+	await scenarioRefreshFreshnessAndErrors(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 

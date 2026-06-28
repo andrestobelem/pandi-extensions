@@ -4107,6 +4107,25 @@ class WorkflowDashboard {
 	private monitorAgentIndex = 0;
 	private patternIndex = 0;
 	private showHelp = false;
+	// Refresh health: the 1.5s background refresh marks success/failure here so the
+	// header can advertise recency and surface read errors instead of silently
+	// freezing on an unhandled rejection.
+	private lastRefreshAt = Date.now();
+	private lastRefreshError: string | undefined;
+
+	markRefreshOk(): void {
+		this.lastRefreshAt = Date.now();
+		this.lastRefreshError = undefined;
+	}
+
+	markRefreshError(error: string): void {
+		this.lastRefreshError = renderSafeInline(compactInline(error, 80));
+	}
+
+	private refreshStatus(muted: (s: string) => string, error: (s: string) => string): string {
+		if (this.lastRefreshError) return error(`⚠ refresh failed: ${this.lastRefreshError}`);
+		return muted(`updated ${formatElapsedMs(Math.max(0, Date.now() - this.lastRefreshAt))} ago`);
+	}
 
 	constructor(
 		private readonly workflows: WorkflowFile[],
@@ -4448,7 +4467,7 @@ class WorkflowDashboard {
 						: "←→/Tab tabs • ↑↓ navigate • Enter/v view • g graph • c/x cancel active • r rerun • d/delete run • q/esc close";
 		const lines: string[] = [
 			line(accent("Pi Dynamic Workflows") + muted("  •  ") + monitorTab + " " + agentsTab + " " + sessionsTab + " " + runsTab + " " + workflowTab + " " + patternsTab + " " + activityTab + (activeCount ? accent(`  ▶ ${activeCount} active`) : "")),
-			line(muted("? help • " + help)),
+			line(muted("? help • ") + this.refreshStatus(muted, error) + muted(" • " + help)),
 			line(muted("─".repeat(Math.min(w, 120)))),
 		];
 
@@ -5295,6 +5314,12 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext, in
 						dashboard.setPiSessions(nextPiSessions);
 						dashboard.setMonitorModels(nextMonitorModels);
 						dashboard.setAgentEntries(nextAgentEntries);
+						dashboard.markRefreshOk();
+						tui.requestRender();
+					} catch (err) {
+						// Never let a transient listRuns/read failure become an unhandled
+						// rejection that freezes the dashboard with stale data and no signal.
+						dashboard?.markRefreshError(err instanceof Error ? err.message : String(err));
 						tui.requestRender();
 					} finally {
 						refreshing = false;
