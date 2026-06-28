@@ -56,6 +56,8 @@ import { abortReasonMessage, combineSignal, throwIfAborted, sleep, mapLimit, cre
 import { mermaidLabel, graphTextLabel, extractFirstStringLiteral, extractDirectStringLiteralArgument, isJavaScriptCodePosition, lineNumberAtIndex, findCallEndIndex, splitTopLevelArguments, inferWorkflowGraphFanout, formatWorkflowGraphFanoutSummary, summarizeWorkflowGraphChildren, workflowGraphMethodInfo } from "./graph-parse.js";
 import { normalizeAgentEnvAccess, formatAgentAccessMarkdown, sanitizeEnvForCache, createAgentEnvWrapper, applyPersonaOptions, applyDefaultAgentAccess } from "./agent-env-persona.js";
 import { makeStructuredOutputSystemPrompt, appendSystemPromptOption, validateStructuredData, formatSchemaRetryPrompt } from "./structured-output.js";
+import { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
+export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export {
 	recordValue,
 	stringValue,
@@ -83,7 +85,7 @@ const PI_LIVE_SESSION_DIR = "live-sessions";
 const PI_SESSION_HEARTBEAT_MS = 5_000;
 const PI_SESSION_STALE_MS = 20_000;
 // Grace period after SIGTERM before escalating to SIGKILL for spawned child processes.
-const PROCESS_KILL_GRACE_MS = 2_000;
+export const PROCESS_KILL_GRACE_MS = 2_000;
 export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
@@ -1072,7 +1074,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 	let match: RegExpExecArray | null;
 	while ((match = regex.exec(code)) !== null) {
 		if (!isJavaScriptCodePosition(code, match.index)) continue;
-		const method = match[1]!;
+		const method = match[1];
 		const openParenIndex = regex.lastIndex - 1;
 		const end = findCallEndIndex(code, openParenIndex);
 		const snippet = code.slice(openParenIndex + 1, Math.max(openParenIndex + 1, end - 1));
@@ -1337,7 +1339,7 @@ function appendWorkflowGraphMermaidSteps(lines: string[], model: WorkflowGraphMo
 				const workerId = `${id}_w${slotIndex + 1}`;
 				const workerLabel = step.fanout.unit === "lanes" && step.fanout.stages !== undefined
 					? `${slots[slotIndex]} · ${step.fanout.stages} stages`
-					: slots[slotIndex]!;
+					: slots[slotIndex];
 				lines.push(`${indent}  ${workerId}["${mermaidLabel(workerLabel)}"]`);
 				lines.push(`${indent}  ${entryId} --> ${workerId}`);
 				lines.push(`${indent}  ${workerId} --> ${exitId}`);
@@ -1383,7 +1385,7 @@ interface WorkflowGraphImageAttempt {
 	warning?: string;
 }
 
-interface ProcessResult {
+export interface ProcessResult {
 	ok: boolean;
 	code: number | null;
 	signal: NodeJS.Signals | null;
@@ -1446,101 +1448,6 @@ function resolveMmdcInvocation(cwd: string): { command: string; argsPrefix: stri
 		if (existsSync(candidate)) return { command: candidate, argsPrefix: [], display: displayPathFromCwd(cwd, candidate) };
 	}
 	return { command: "mmdc", argsPrefix: [], display: "mmdc" };
-}
-
-export async function runProcess(command: string, args: string[], options: { cwd: string; timeoutMs: number; killGraceMs?: number }): Promise<ProcessResult> {
-	return await new Promise<ProcessResult>((resolve) => {
-		let stdout = "";
-		let stderr = "";
-		let finished = false;
-		let timedOut = false;
-		let killTimer: ReturnType<typeof setTimeout> | undefined;
-		const append = (current: string, chunk: Buffer) => {
-			const next = current + chunk.toString("utf8");
-			return next.length > 20_000 ? next.slice(-20_000) : next;
-		};
-		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
-		const timer = setTimeout(() => {
-			timedOut = true;
-			child.kill("SIGTERM");
-			// Escalate to SIGKILL if the child ignores SIGTERM, so the promise can't hang forever.
-			killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
-		}, options.timeoutMs);
-		const finish = (result: ProcessResult) => {
-			if (finished) return;
-			finished = true;
-			clearTimeout(timer);
-			if (killTimer) clearTimeout(killTimer);
-			resolve(result);
-		};
-		child.stdout?.on("data", (chunk: Buffer) => {
-			stdout = append(stdout, chunk);
-		});
-		child.stderr?.on("data", (chunk: Buffer) => {
-			stderr = append(stderr, chunk);
-		});
-		child.on("error", (err) => finish({ ok: false, code: null, signal: null, stdout, stderr, error: err instanceof Error ? err.message : String(err) }));
-		child.on("close", (code, signal) => finish({ ok: code === 0, code, signal, stdout, stderr, timedOut }));
-	});
-}
-
-export async function runStreamingAgentProcess(
-	command: string,
-	args: string[],
-	options: {
-		cwd: string;
-		timeoutMs: number;
-		signal: AbortSignal;
-		killGraceMs?: number;
-		onStdout?: (chunk: Buffer) => void | Promise<void>;
-		onStderr?: (chunk: Buffer) => void | Promise<void>;
-	},
-): Promise<{ code: number; killed: boolean; stdout: string; stderr: string }> {
-	return await new Promise((resolve, reject) => {
-		let stdout = "";
-		let stderr = "";
-		let killed = false;
-		let finished = false;
-		const append = (current: string, chunk: Buffer, options: { preserveLineBoundary?: boolean } = {}) => {
-			const next = current + chunk.toString("utf8");
-			if (next.length <= MAX_JOURNALED_STREAM) return next;
-			const tail = next.slice(-MAX_JOURNALED_STREAM);
-			if (!options.preserveLineBoundary) return tail;
-			const newline = tail.indexOf("\n");
-			return newline >= 0 ? tail.slice(newline + 1) : tail;
-		};
-		const child = spawn(command, args, { cwd: options.cwd, stdio: ["ignore", "pipe", "pipe"] });
-		let killTimer: ReturnType<typeof setTimeout> | undefined;
-		const kill = () => {
-			killed = true;
-			child.kill("SIGTERM");
-			// Escalate to SIGKILL if the child ignores SIGTERM, so we never leak the process or hold
-			// the agent semaphore indefinitely.
-			if (!killTimer) killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
-		};
-		const timer = setTimeout(kill, options.timeoutMs);
-		const onAbort = () => kill();
-		options.signal.addEventListener("abort", onAbort, { once: true });
-		const finish = (err: Error | undefined, code = 1) => {
-			if (finished) return;
-			finished = true;
-			clearTimeout(timer);
-			if (killTimer) clearTimeout(killTimer);
-			options.signal.removeEventListener("abort", onAbort);
-			if (err) reject(err);
-			else resolve({ code, killed, stdout, stderr });
-		};
-		child.stdout?.on("data", (chunk: Buffer) => {
-			stdout = append(stdout, chunk, { preserveLineBoundary: true });
-			void options.onStdout?.(chunk);
-		});
-		child.stderr?.on("data", (chunk: Buffer) => {
-			stderr = append(stderr, chunk);
-			void options.onStderr?.(chunk);
-		});
-		child.on("error", (err) => finish(err instanceof Error ? err : new Error(String(err))));
-		child.on("close", (code, signal) => finish(undefined, code ?? (signal ? 143 : 1)));
-	});
 }
 
 function formatMmdcFailure(command: string, result: ProcessResult): string {
@@ -1722,7 +1629,7 @@ async function resolveRun(ctx: ExtensionContext, id: string | undefined): Promis
 	const runs = await listRuns(ctx);
 	if (runs.length === 0) throw new Error("No workflow runs found.");
 	const key = id?.trim() || "latest";
-	if (key === "latest") return runs[0]!;
+	if (key === "latest") return runs[0];
 	const found = selectRunByKey(runs, key, (run) => run.runId, (run) => run.workflow);
 	if (!found) throw new Error(`Workflow run not found: ${key}`);
 	return found;
@@ -2931,7 +2838,7 @@ class WorkflowDashboard {
 		if (total > 1) {
 			lines.push(line(accent(`Active runs (${total})`) + muted(` • [ ] switch • showing ${this.monitorRunIndex + 1}/${total}`)));
 			for (let i = 0; i < total; i++) {
-				const m = this.monitorModels[i]!;
+				const m = this.monitorModels[i];
 				const focused = i === this.monitorRunIndex;
 				const prefix = focused ? accent("› ") : "  ";
 				const glyph = m.state === "completed" ? success("✓") : m.state === "running" ? accent("▶") : m.state === "stale" ? warning("?") : error("✗");
@@ -2988,7 +2895,7 @@ class WorkflowDashboard {
 		lines.push(line(accent(`Agents (${model.agents.length})`) + muted(windowLabel(model.agents.length, start, 12)) + muted(` • parallel ${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents}${model.peakParallelAgents === undefined ? "" : ` • peak ${model.peakParallelAgents}`}`)));
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
-			const agent = visible[i]!;
+			const agent = visible[i];
 			const selected = index === this.monitorAgentIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const state = this.agentStateLabel(agent, accent, muted, success, error);
@@ -3047,7 +2954,7 @@ class WorkflowDashboard {
 		lines.push(line(`${accent("All agents")} ${muted(`(${this.agentEntries.length})`)}${muted(windowLabel(this.agentEntries.length, start, 14))} ${accent(`parallel:${parallelText}`)} ${running ? accent(`running:${running}`) : muted("running:0")} ${failed ? error(`failed:${failed}`) : muted("failed:0")} ${cached ? muted(`cached:${cached}`) : ""}`));
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
-			const entry = visible[i]!;
+			const entry = visible[i];
 			const selected = index === this.agentIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const state = this.agentStateLabel(entry.agent, accent, muted, success, error);
@@ -3109,7 +3016,7 @@ class WorkflowDashboard {
 		const visible = this.piSessions.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
-			const session = visible[i]!;
+			const session = visible[i];
 			const selected = index === this.sessionIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const state = session.live ? success("● live") : warning("○ stale");
@@ -3157,7 +3064,7 @@ class WorkflowDashboard {
 		const visible = this.workflows.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
-			const workflow = visible[i]!;
+			const workflow = visible[i];
 			const selected = index === this.workflowIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const scope = workflow.scope === "project" ? accent("project") : muted("global");
@@ -3190,7 +3097,7 @@ class WorkflowDashboard {
 		const visible = WORKFLOW_PATTERN_CATALOG.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
-			const pattern = visible[i]!;
+			const pattern = visible[i];
 			const selected = index === this.patternIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			lines.push(line(`${prefix}${pattern.key} ${muted("—")} ${pattern.title} ${muted(`(${pattern.primitives.join(" + ")})`)}`));
@@ -3231,7 +3138,7 @@ class WorkflowDashboard {
 		lines.push(line(`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`));
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
-			const run = visible[i]!;
+			const run = visible[i];
 			const selected = index === this.runIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const state = getRunState(run);
@@ -3293,7 +3200,7 @@ class WorkflowDashboard {
 		const visible = this.activity.slice(start, start + 14);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
-			const entry = visible[i]!;
+			const entry = visible[i];
 			const selected = index === this.activityIndex;
 			const prefix = selected ? accent("› ") : "  ";
 			const status = entry.state === "completed" ? success("✓") : entry.state === "running" ? accent("▶") : entry.state === "stale" ? muted("?") : error(entry.state === "cancelled" ? "■" : "✗");
@@ -4005,9 +3912,9 @@ async function runWorkflow(
 	async function runSubagent(prompt: string, options: InternalAgentOptions = {}): Promise<SubagentResult> {
 		throwIfAborted(runSignal.signal);
 		let effectiveOptions = await applyPersonaOptions(ctx, options) as InternalAgentOptions;
-		effectiveOptions = await applyDefaultAgentAccess(ctx, effectiveOptions) as InternalAgentOptions;
+		effectiveOptions = await applyDefaultAgentAccess(ctx, effectiveOptions);
 		if (effectiveOptions.schema !== undefined) {
-			effectiveOptions = appendSystemPromptOption(effectiveOptions, makeStructuredOutputSystemPrompt(effectiveOptions.schema)) as InternalAgentOptions;
+			effectiveOptions = appendSystemPromptOption(effectiveOptions, makeStructuredOutputSystemPrompt(effectiveOptions.schema));
 		}
 		const phase = effectiveOptions.__workflowPhase;
 		const envAccess = normalizeAgentEnvAccess(effectiveOptions);
@@ -4263,14 +4170,14 @@ async function runWorkflow(
 	function makeRunAgents(agentRunner: (prompt: string, options?: InternalAgentOptions) => Promise<SubagentResult>): WorkflowRuntimeApi["agents"] {
 		async function runAgents(items: Array<string | AgentSpec>, options: AgentOptions & { concurrency?: number; settle?: boolean } = {}): Promise<Array<SubagentResult | null>> {
 			const concurrency = Math.min(Math.max(Math.floor(options.concurrency ?? runLimits.concurrency), 1), runLimits.concurrency);
-			const { concurrency: _concurrency, settle = false, ...sharedOptions } = options as AgentOptions & { concurrency?: number; settle?: boolean };
+			const { concurrency: _concurrency, settle = false, ...sharedOptions } = options;
 			const phaseId = items.length > 0 ? ++agentPhaseCount : 0;
 			const phaseLabel = typeof sharedOptions.name === "string" && sharedOptions.name.trim() ? sharedOptions.name.trim() : `agents-${phaseId}`;
 			const runItem = async (item: string | AgentSpec, index: number): Promise<SubagentResult> => {
 				const __workflowPhase: AgentPhaseInfo = { id: phaseId, index: index + 1, total: items.length, label: phaseLabel };
-				if (typeof item === "string") return await agentRunner(item, { ...sharedOptions, __workflowPhase, name: sharedOptions.name ?? `agent-${index + 1}` } as InternalAgentOptions);
+				if (typeof item === "string") return await agentRunner(item, { ...sharedOptions, __workflowPhase, name: sharedOptions.name ?? `agent-${index + 1}` });
 				const { prompt: itemPrompt, ...itemOptions } = item;
-				return await agentRunner(itemPrompt, { ...sharedOptions, ...itemOptions, __workflowPhase, name: item.name ?? `agent-${index + 1}` } as InternalAgentOptions);
+				return await agentRunner(itemPrompt, { ...sharedOptions, ...itemOptions, __workflowPhase, name: item.name ?? `agent-${index + 1}` });
 			};
 			if (settle) return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
 			return await mapLimit(items, concurrency, runSignal.signal, runItem);
@@ -4286,7 +4193,7 @@ async function runWorkflow(
 		const key = computeCallKey("bash", [command, { cwd: options.cwd ?? ctx.cwd, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) }]);
 		const occ = nextOcc(key);
 		if (cacheEnabled) {
-			const hit = journalLookup(key, occ) as BashResult | undefined;
+			const hit = journalLookup(key, occ);
 			if (hit && !("artifactPath" in hit)) {
 				cachedCalls++;
 				await log(`bash cached: ${command.slice(0, 80)}`, { key: key.slice(0, 12), occ, ...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}) });
@@ -4719,7 +4626,7 @@ async function resolveRunForDeletion(ctx: ExtensionContext, id: string | undefin
 	}
 	if (records.length === 0) throw new Error("No workflow runs found.");
 	const key = id?.trim() || "latest";
-	if (key === "latest") return records[0]!;
+	if (key === "latest") return records[0];
 	const found = selectRunByKey(records, key, ({ run }) => run.runId, ({ run }) => run.workflow);
 	if (!found) throw new Error(`Workflow run not found: ${key}`);
 	return found;
@@ -5310,7 +5217,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		parameters: workflowToolSchema,
 		executionMode: "sequential",
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			return await handleTool(pi, params as DynamicWorkflowToolParams, signal, onUpdate, ctx);
+			return await handleTool(pi, params, signal, onUpdate, ctx);
 		},
 	});
 
