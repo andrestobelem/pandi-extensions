@@ -142,6 +142,17 @@ export function readProcessStartId(pid: number | undefined): string | undefined 
 	}
 }
 
+// Confirm a live pid still belongs to OUR job by comparing its current start identity
+// to the one recorded at spawn. "same" = verified our process; "different" = the pid
+// was reused (our process is gone); "unknown" = cannot tell (no recorded id, or the
+// current id is unreadable) => callers keep best-effort behavior and never claim reuse.
+export function verifyProcessIdentity(pid: number | undefined, recordedStartId: string | undefined): "same" | "different" | "unknown" {
+	if (!recordedStartId) return "unknown";
+	const current = readProcessStartId(pid);
+	if (current === undefined) return "unknown";
+	return current === recordedStartId ? "same" : "different";
+}
+
 export function probeProcessAlive(pid: number | undefined): Liveness {
 	if (!isUsablePid(pid)) return "unknown";
 	try {
@@ -259,11 +270,17 @@ export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<n
 		const status = await readJson(path.join(runDir, "status.json"));
 		const state = asString(status?.state);
 		if (!state || !RECONCILABLE_STATES.has(state)) continue;
-		if (probeProcessAlive(asNumber(status?.pid)) !== "dead") continue; // alive/unknown => leave as-is
+		const pid = asNumber(status?.pid);
+		const live = probeProcessAlive(pid);
+		// Dead pid => process gone. Alive but a different start identity => the pid was
+		// reused, so our process is also gone. Both are positive evidence to terminalize;
+		// an alive pid we cannot disprove (same/unknown) stays a read-time orphaned/stale.
+		const cause = live === "dead" ? "pid-dead" : live === "alive" && verifyProcessIdentity(pid, asString(status?.startId)) === "different" ? "pid-reused" : undefined;
+		if (!cause) continue;
 		const now = nowIso();
 		try {
 			await atomicWriteJson(path.join(runDir, "status.json"), { ...status, state: "interrupted", completedAt: now, updatedAt: now, reason: "session-start-reconcile" });
-			await appendEvent(runDir, { event: "reconcile-interrupted", jobId: entry.name, pid: asNumber(status?.pid) ?? null, persistedState: state });
+			await appendEvent(runDir, { event: "reconcile-interrupted", jobId: entry.name, pid: pid ?? null, persistedState: state, cause });
 			reconciled++;
 		} catch {
 			// Best-effort: leave the artifact untouched if the atomic rewrite fails.
@@ -564,6 +581,21 @@ async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	const job = (await readJson(path.join(runDir, "job.json"))) ?? {};
 	const rawStatus = (await readJson(path.join(runDir, "status.json"))) ?? {};
 	const status = decorateStatus(jobId, rawStatus);
+	// Refine a best-effort `orphaned` with a single identity probe (one job => one ps on
+	// macOS/BSD; /bg list deliberately does NOT do this to avoid N subprocesses): a reused
+	// pid downgrades to `interrupted`; a verified pid is marked so the operator can trust it.
+	if (status.state === "orphaned") {
+		const pid = asNumber(status.pid);
+		const identity = verifyProcessIdentity(pid, asString(status.startId));
+		if (identity === "different") {
+			status.state = "interrupted";
+			delete status.hint;
+			status.interruptedCause = "pid-reused";
+		} else if (identity === "same") {
+			status.identity = "verified";
+			status.hint = `PID ${pid} is verified still running (same start identity). Stop it with kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`;
+		}
+	}
 	return response(JSON.stringify({ jobId, artifactsDir: runDir, job, status }, null, 2), { jobId, artifactsDir: runDir, job, status });
 }
 
