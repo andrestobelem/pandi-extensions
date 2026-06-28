@@ -35,18 +35,9 @@ import {
 // Re-exported for the integration suite to unit-test the pure helpers directly
 // against the same bundle. Internal use still goes through the import above
 // (an `export … from` re-export creates no local binding, so there is no clash).
-export {
-	buildAddArgs,
-	parseWorktreeList,
-	isValidBranchName,
-	describeWorktree,
-} from "./worktree.js";
+export { buildAddArgs, parseWorktreeList, isValidBranchName, describeWorktree } from "./worktree.js";
 
-function notify(
-	ctx: ExtensionContext,
-	message: string,
-	type: "info" | "warning" | "error" = "info",
-): void {
+function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
 		// stdout carries machine-readable output in print mode; keep warnings/errors on stderr.
 		(type === "info" ? console.log : console.error)(message);
@@ -170,8 +161,7 @@ export function parseCommand(input: string): ParsedCommand {
 			}
 		}
 		const [pathArg, commitish] = positionals;
-		if (!pathArg)
-			return { action: "add", error: "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]" };
+		if (!pathArg) return { action: "add", error: "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]" };
 		if (newBranch !== undefined && !isValidBranchName(newBranch)) {
 			return { action: "add", error: `Invalid branch name: "${newBranch ?? ""}"` };
 		}
@@ -218,11 +208,7 @@ async function handleList(ctx: ExtensionContext, signal?: AbortSignal): Promise<
 	notify(ctx, `Worktrees (${listed.entries.length}):\n${lines.join("\n")}`, "info");
 }
 
-async function handleAdd(
-	ctx: ExtensionContext,
-	parsed: ParsedCommand,
-	signal?: AbortSignal,
-): Promise<void> {
+async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
 	if (parsed.error) {
 		notify(ctx, parsed.error, "warning");
 		return;
@@ -250,11 +236,7 @@ async function handleAdd(
 	notify(ctx, `Added worktree at ${target.path}${branchNote}${locationNote}.`, "info");
 }
 
-async function handleRemove(
-	ctx: ExtensionContext,
-	parsed: ParsedCommand,
-	signal?: AbortSignal,
-): Promise<void> {
+async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
 	if (parsed.error) {
 		notify(ctx, parsed.error, "warning");
 		return;
@@ -268,10 +250,7 @@ async function handleRemove(
 
 	// Confirm in interactive mode — removal deletes the worktree directory.
 	if (ctx.hasUI) {
-		const ok = await ctx.ui.confirm(
-			"Remove worktree?",
-			`This will remove the worktree at:\n${resolved}`,
-		);
+		const ok = await ctx.ui.confirm("Remove worktree?", `This will remove the worktree at:\n${resolved}`);
 		if (!ok) {
 			notify(ctx, "Removal cancelled.", "info");
 			return;
@@ -309,11 +288,7 @@ async function handleRemove(
 	notify(ctx, `Removed worktree at ${resolved}${force ? " (forced)" : ""}.`, "info");
 }
 
-async function handlePrune(
-	ctx: ExtensionContext,
-	parsed: ParsedCommand,
-	signal?: AbortSignal,
-): Promise<void> {
+async function handlePrune(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
 	// Always preview first.
 	const preview = await runGit(buildPruneArgs(true), {
 		cwd: ctx.cwd,
@@ -334,10 +309,7 @@ async function handlePrune(
 		return;
 	}
 	if (ctx.hasUI) {
-		const ok = await ctx.ui.confirm(
-			"Prune worktrees?",
-			`This will prune stale worktree metadata:\n${previewText}`,
-		);
+		const ok = await ctx.ui.confirm("Prune worktrees?", `This will prune stale worktree metadata:\n${previewText}`);
 		if (!ok) {
 			notify(ctx, "Prune cancelled.", "info");
 			return;
@@ -411,11 +383,7 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 
 	let parsed = parseCommand(args);
 	if (parsed.action === "help") {
-		notify(
-			ctx,
-			parsed.error ? `${parsed.error}\n\n${HELP_TEXT}` : HELP_TEXT,
-			parsed.error ? "warning" : "info",
-		);
+		notify(ctx, parsed.error ? `${parsed.error}\n\n${HELP_TEXT}` : HELP_TEXT, parsed.error ? "warning" : "info");
 		return;
 	}
 
@@ -495,9 +463,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 					description: "For add: commit/branch/tag to base the worktree on (start point).",
 				}),
 			),
-			detach: Type.Optional(
-				Type.Boolean({ description: "For add: check out in detached HEAD mode." }),
-			),
+			detach: Type.Optional(Type.Boolean({ description: "For add: check out in detached HEAD mode." })),
 			force: Type.Optional(
 				Type.Boolean({
 					description:
@@ -526,9 +492,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const result = await runGit(buildListArgs(), opts);
 				if (!result.ok) {
 					return {
-						content: [
-							{ type: "text" as const, text: `Could not list worktrees: ${gitError(result)}` },
-						],
+						content: [{ type: "text" as const, text: `Could not list worktrees: ${gitError(result)}` }],
 						details: { isError: true, action: "list" },
 					};
 				}
@@ -547,9 +511,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const result = await runGit(buildPruneArgs(dryRun), opts);
 				if (!result.ok) {
 					return {
-						content: [
-							{ type: "text" as const, text: `Could not prune worktrees: ${gitError(result)}` },
-						],
+						content: [{ type: "text" as const, text: `Could not prune worktrees: ${gitError(result)}` }],
 						details: { isError: true, action: "prune" },
 					};
 				}
@@ -590,9 +552,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const result = await runGit(args, opts);
 				if (!result.ok) {
 					return {
-						content: [
-							{ type: "text" as const, text: `Could not add worktree: ${gitError(result)}` },
-						],
+						content: [{ type: "text" as const, text: `Could not add worktree: ${gitError(result)}` }],
 						details: { isError: true, action: "add", path: target.path },
 					};
 				}

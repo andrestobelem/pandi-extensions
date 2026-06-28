@@ -18,11 +18,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -166,8 +162,7 @@ async function installEditor(url, baseEditor) {
 		await handler({ reason: "startup" }, state.ctx);
 	}
 	const editorFactory = state.getEditorFactory();
-	if (typeof editorFactory !== "function")
-		throw new Error("session_start did not install an editor factory");
+	if (typeof editorFactory !== "function") throw new Error("session_start did not install an editor factory");
 	const wrapped = editorFactory(
 		{ requestRender: () => {}, terminal: { rows: 30, columns: 100 } },
 		state.ctx.ui.theme,
@@ -181,11 +176,7 @@ async function scenarioShowsLabelWhenUltracodeOn(url) {
 	const top = wrapped.render(80)[0];
 	check("top border shows ultracode auto when on", top.includes("ultracode auto"), top);
 	check("top border is still a border (keeps ─)", top.includes("─"), top);
-	check(
-		"ultracode label is colored with the editor border color",
-		top.includes(violet(" ultracode auto ")),
-		top,
-	);
+	check("ultracode label is colored with the editor border color", top.includes(violet(" ultracode auto ")), top);
 }
 
 async function scenarioHidesLabelWhenUltracodeOff(url) {
@@ -201,11 +192,7 @@ async function scenarioLeavesScrollIndicatorUntouched(url) {
 	const { wrapped } = await installEditor(url, makeBorderBaseEditor({ scrolled: true }));
 	const top = wrapped.render(80)[0];
 	check("scrolled top border keeps the scroll hint", top.includes("↑ 3 more"), top);
-	check(
-		"scrolled top border is not decorated with the label",
-		!top.includes("ultracode auto"),
-		top,
-	);
+	check("scrolled top border is not decorated with the label", !top.includes("ultracode auto"), top);
 }
 
 async function main() {

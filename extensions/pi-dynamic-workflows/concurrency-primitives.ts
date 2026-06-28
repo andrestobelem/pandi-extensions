@@ -116,8 +116,7 @@ export async function mapLimit<T, R>(
 export function createSemaphore(limit: number, signal: AbortSignal) {
 	let active = 0;
 	let disposed = false;
-	const queue: Array<{ resolve: (release: () => void) => void; reject: (error: Error) => void }> =
-		[];
+	const queue: Array<{ resolve: (release: () => void) => void; reject: (error: Error) => void }> = [];
 
 	const makeRelease = () => {
 		let released = false;

@@ -19,10 +19,7 @@ function extractTextFromMessageContent(content: unknown): string | undefined {
 			if (typeof part === "string") return part;
 			if (part && typeof part === "object") {
 				const record = part as Record<string, unknown>;
-				if (
-					(record.type === "text" || record.type === undefined) &&
-					typeof record.text === "string"
-				)
+				if ((record.type === "text" || record.type === undefined) && typeof record.text === "string")
 					return record.text;
 			}
 			return "";
@@ -44,9 +41,7 @@ function extractAssistantTextFromMessage(message: unknown): string | undefined {
 	return extractTextFromMessageContent(record.content);
 }
 
-export function parsePiJsonModeOutput(
-	stdout: string,
-): { ok: true; output: string } | { ok: false; warning: string } {
+export function parsePiJsonModeOutput(stdout: string): { ok: true; output: string } | { ok: false; warning: string } {
 	return parsePiJsonModeOutputInternal(stdout, false);
 }
 
@@ -87,11 +82,7 @@ function parsePiJsonModeOutputInternal(
 			}
 			continue;
 		}
-		if (
-			record.type === "turn_end" ||
-			record.type === "message_end" ||
-			record.type === "message_update"
-		) {
+		if (record.type === "turn_end" || record.type === "message_end" || record.type === "message_update") {
 			const textValue = extractAssistantTextFromMessage(record.message);
 			if (textValue !== undefined) lastAssistantText = textValue;
 		}

@@ -17,11 +17,7 @@ const VIEWER_MIN_BODY_LINES = 3;
 const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
 const MAX_MDVIEW_BYTES = 2_000_000; // guard: reading/parsing a huge file blocks the TUI event loop
 
-function notify(
-	ctx: ExtensionContext,
-	message: string,
-	type: "info" | "warning" | "error" = "info",
-): void {
+function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
 		// In --print/--json mode pi takes over process.stdout (reserving real stdout
 		// for the model response) and routes all console output to stderr. So both
@@ -106,8 +102,7 @@ class MarkdownViewComponent implements Component {
 
 		if (matchesKey(data, "down") || data === "j") this.scroll += 1;
 		else if (matchesKey(data, "up") || data === "k") this.scroll -= 1;
-		else if (matchesKey(data, "pageDown") || matchesKey(data, "space"))
-			this.scroll += this.pageSize();
+		else if (matchesKey(data, "pageDown") || matchesKey(data, "space")) this.scroll += this.pageSize();
 		else if (matchesKey(data, "pageUp")) this.scroll -= this.pageSize();
 		else if (matchesKey(data, "home") || data === "g") this.scroll = 0;
 		else if (matchesKey(data, "end") || data === "G") this.scroll = Number.MAX_SAFE_INTEGER;
@@ -172,8 +167,7 @@ type MarkdownLoad =
  */
 async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<MarkdownLoad> {
 	const filePath = resolveMarkdownPath(pathArg, cwd);
-	if (!filePath)
-		return { ok: false, message: "Usage: /mdview <path-to-markdown-file>", level: "warning" };
+	if (!filePath) return { ok: false, message: "Usage: /mdview <path-to-markdown-file>", level: "warning" };
 	try {
 		const stat = await fs.stat(filePath);
 		if (stat.size > MAX_MDVIEW_BYTES) {
@@ -192,11 +186,7 @@ async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<Markd
 }
 
 /** Open the interactive scroll viewer; resolves when the user closes it (q/Esc). */
-function openMarkdownViewer(
-	ctx: ExtensionContext,
-	filePath: string,
-	content: string,
-): Promise<void> {
+function openMarkdownViewer(ctx: ExtensionContext, filePath: string, content: string): Promise<void> {
 	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 		return new MarkdownViewComponent(tui, theme, filePath, ctx.cwd, content, () => done(undefined));
 	});

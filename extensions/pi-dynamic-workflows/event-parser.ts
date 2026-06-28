@@ -86,11 +86,7 @@ export function stringArrayValue(value: unknown): string[] | undefined {
 
 export function isAgentMonitorState(value: unknown): value is AgentMonitorState {
 	return (
-		value === "running" ||
-		value === "completed" ||
-		value === "failed" ||
-		value === "cached" ||
-		value === "unknown"
+		value === "running" || value === "completed" || value === "failed" || value === "cached" || value === "unknown"
 	);
 }
 
@@ -111,19 +107,13 @@ export function mergeAgentMonitor(
 		id: patch.id,
 		name: patch.name || existing?.name || `agent-${patch.id}`,
 		state,
-		...(existing?.startedAt || patch.startedAt
-			? { startedAt: patch.startedAt ?? existing?.startedAt }
-			: {}),
+		...(existing?.startedAt || patch.startedAt ? { startedAt: patch.startedAt ?? existing?.startedAt } : {}),
 		...(existing?.endedAt || patch.endedAt ? { endedAt: patch.endedAt ?? existing?.endedAt } : {}),
 		...(existing?.elapsedMs !== undefined || patch.elapsedMs !== undefined
 			? { elapsedMs: patch.elapsedMs ?? existing?.elapsedMs }
 			: {}),
-		...(existing?.ok !== undefined || patch.ok !== undefined
-			? { ok: patch.ok ?? existing?.ok }
-			: {}),
-		...(existing?.code !== undefined || patch.code !== undefined
-			? { code: patch.code ?? existing?.code }
-			: {}),
+		...(existing?.ok !== undefined || patch.ok !== undefined ? { ok: patch.ok ?? existing?.ok } : {}),
+		...(existing?.code !== undefined || patch.code !== undefined ? { code: patch.code ?? existing?.code } : {}),
 		...(existing?.killed !== undefined || patch.killed !== undefined
 			? { killed: patch.killed ?? existing?.killed }
 			: {}),
@@ -136,9 +126,7 @@ export function mergeAgentMonitor(
 		...(existing?.includeSkills !== undefined || patch.includeSkills !== undefined
 			? { includeSkills: patch.includeSkills ?? existing?.includeSkills }
 			: {}),
-		...(existing?.extensions || patch.extensions
-			? { extensions: patch.extensions ?? existing?.extensions }
-			: {}),
+		...(existing?.extensions || patch.extensions ? { extensions: patch.extensions ?? existing?.extensions } : {}),
 		...(existing?.includeExtensions !== undefined || patch.includeExtensions !== undefined
 			? { includeExtensions: patch.includeExtensions ?? existing?.includeExtensions }
 			: {}),
@@ -158,9 +146,7 @@ export function mergeAgentMonitor(
 		...(existing?.phaseTotal !== undefined || patch.phaseTotal !== undefined
 			? { phaseTotal: patch.phaseTotal ?? existing?.phaseTotal }
 			: {}),
-		...(existing?.phaseLabel || patch.phaseLabel
-			? { phaseLabel: patch.phaseLabel ?? existing?.phaseLabel }
-			: {}),
+		...(existing?.phaseLabel || patch.phaseLabel ? { phaseLabel: patch.phaseLabel ?? existing?.phaseLabel } : {}),
 		...(existing?.promptPreview || patch.promptPreview
 			? { promptPreview: patch.promptPreview ?? existing?.promptPreview }
 			: {}),
@@ -168,8 +154,7 @@ export function mergeAgentMonitor(
 		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined
 			? { schemaOk: patch.schemaOk ?? existing?.schemaOk }
 			: {}),
-		promptAvailable:
-			existing?.promptAvailable === true || patch.promptAvailable === true || !!artifactPath,
+		promptAvailable: existing?.promptAvailable === true || patch.promptAvailable === true || !!artifactPath,
 	};
 }
 
@@ -230,9 +215,7 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							state: ok === false ? "failed" : "completed",
 							endedAt: event.time,
 							...(ok === undefined ? {} : { ok }),
-							...(numberValue(details?.code) === undefined
-								? {}
-								: { code: numberValue(details?.code) }),
+							...(numberValue(details?.code) === undefined ? {} : { code: numberValue(details?.code) }),
 							...(numberValue(details?.elapsedMs) === undefined
 								? {}
 								: { elapsedMs: numberValue(details?.elapsedMs) }),
@@ -268,9 +251,7 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 								: { elapsedMs: numberValue(event.elapsedMs) }),
 							...(ok === undefined ? {} : { ok }),
 							...(numberValue(event.code) === undefined ? {} : { code: numberValue(event.code) }),
-							...(booleanValue(event.killed) === undefined
-								? {}
-								: { killed: booleanValue(event.killed) }),
+							...(booleanValue(event.killed) === undefined ? {} : { killed: booleanValue(event.killed) }),
 							...(stringValue(event.artifactPath)
 								? { artifactPath: stringValue(event.artifactPath) }
 								: {}),

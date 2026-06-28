@@ -111,13 +111,7 @@ export async function loadJournal(runDir: string): Promise<JournalCache> {
 			);
 			continue;
 		}
-		if (
-			!record ||
-			typeof record.key !== "string" ||
-			typeof record.occ !== "number" ||
-			!record.result
-		)
-			continue;
+		if (!record || typeof record.key !== "string" || typeof record.occ !== "number" || !record.result) continue;
 		const slots = cache.get(record.key) ?? [];
 		slots[record.occ] = record.result; // last-wins for a repeated (key, occ)
 		cache.set(record.key, slots);

@@ -44,10 +44,7 @@ export async function runProcess(
 			timedOut = true;
 			child.kill("SIGTERM");
 			// Escalate to SIGKILL if the child ignores SIGTERM, so the promise can't hang forever.
-			killTimer = setTimeout(
-				() => child.kill("SIGKILL"),
-				options.killGraceMs ?? PROCESS_KILL_GRACE_MS,
-			);
+			killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
 		}, options.timeoutMs);
 		const finish = (result: ProcessResult) => {
 			if (finished) return;
@@ -72,9 +69,7 @@ export async function runProcess(
 				error: err instanceof Error ? err.message : String(err),
 			}),
 		);
-		child.on("close", (code, signal) =>
-			finish({ ok: code === 0, code, signal, stdout, stderr, timedOut }),
-		);
+		child.on("close", (code, signal) => finish({ ok: code === 0, code, signal, stdout, stderr, timedOut }));
 	});
 }
 
@@ -95,11 +90,7 @@ export async function runStreamingAgentProcess(
 		let stderr = "";
 		let killed = false;
 		let finished = false;
-		const append = (
-			current: string,
-			chunk: Buffer,
-			options: { preserveLineBoundary?: boolean } = {},
-		) => {
+		const append = (current: string, chunk: Buffer, options: { preserveLineBoundary?: boolean } = {}) => {
 			const next = current + chunk.toString("utf8");
 			if (next.length <= MAX_JOURNALED_STREAM) return next;
 			const tail = next.slice(-MAX_JOURNALED_STREAM);
@@ -115,10 +106,7 @@ export async function runStreamingAgentProcess(
 			// Escalate to SIGKILL if the child ignores SIGTERM, so we never leak the process or hold
 			// the agent semaphore indefinitely.
 			if (!killTimer)
-				killTimer = setTimeout(
-					() => child.kill("SIGKILL"),
-					options.killGraceMs ?? PROCESS_KILL_GRACE_MS,
-				);
+				killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
 		};
 		const timer = setTimeout(kill, options.timeoutMs);
 		const onAbort = () => kill();

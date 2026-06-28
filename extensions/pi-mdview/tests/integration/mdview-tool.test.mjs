@@ -115,17 +115,9 @@ async function loadTool(url) {
 async function scenarioRegistered(url) {
 	const tool = await loadTool(url);
 	check("view_markdown tool registered", !!tool, String(!!tool));
-	check(
-		"view_markdown describes Markdown",
-		/markdown/i.test(tool?.description || ""),
-		tool?.description,
-	);
+	check("view_markdown describes Markdown", /markdown/i.test(tool?.description || ""), tool?.description);
 	const props = tool?.parameters?.properties || {};
-	check(
-		"view_markdown has a `path` parameter",
-		"path" in props,
-		JSON.stringify(Object.keys(props)),
-	);
+	check("view_markdown has a `path` parameter", "path" in props, JSON.stringify(Object.keys(props)));
 	check("view_markdown execute is a function", typeof tool?.execute === "function");
 }
 
@@ -136,21 +128,13 @@ async function scenarioTuiOpensViewer(url) {
 	const ctx = makeCtx({ cwd, mode: "tui", rows: 10, width: 72 });
 
 	const result = await tool.execute("call-1", { path: "doc.md" }, undefined, undefined, ctx);
-	check(
-		"tui: opens the custom viewer exactly once",
-		ctx._customCalls.length === 1,
-		String(ctx._customCalls.length),
-	);
+	check("tui: opens the custom viewer exactly once", ctx._customCalls.length === 1, String(ctx._customCalls.length));
 	const rendered = stripAnsi((ctx._customCalls[0]?.firstRender || []).join("\n"));
 	check("tui: viewer renders the heading", /Tool Heading/.test(rendered), rendered);
 	const text = result?.content?.[0]?.text || "";
 	check("tui: returns an ack mentioning the viewer", /viewer/i.test(text), text);
 	check("tui: ack mentions the relative path", /doc\.md/.test(text), text);
-	check(
-		"tui: details.opened is true",
-		result?.details?.opened === true,
-		JSON.stringify(result?.details),
-	);
+	check("tui: details.opened is true", result?.details?.opened === true, JSON.stringify(result?.details));
 	check("tui: not an error", !result?.details?.isError, JSON.stringify(result?.details));
 }
 
@@ -163,16 +147,8 @@ async function scenarioNonTuiReturnsContent(url) {
 	const result = await tool.execute("call-2", { path: "doc.md" }, undefined, undefined, ctx);
 	check("non-tui: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 	const text = result?.content?.[0]?.text || "";
-	check(
-		"non-tui: returns the document content",
-		text.includes("UNIQUE_BODY_42"),
-		text.slice(0, 120),
-	);
-	check(
-		"non-tui: details.opened is false",
-		result?.details?.opened === false,
-		JSON.stringify(result?.details),
-	);
+	check("non-tui: returns the document content", text.includes("UNIQUE_BODY_42"), text.slice(0, 120));
+	check("non-tui: details.opened is false", result?.details?.opened === false, JSON.stringify(result?.details));
 }
 
 async function scenarioMissingFile(url) {
@@ -182,11 +158,7 @@ async function scenarioMissingFile(url) {
 
 	const result = await tool.execute("call-3", { path: "missing.md" }, undefined, undefined, ctx);
 	check("missing: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
-	check(
-		"missing: returns a tool error",
-		result?.details?.isError === true,
-		JSON.stringify(result?.details),
-	);
+	check("missing: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
 	check(
 		"missing: error mentions read failure",
 		/could not read/i.test(result?.content?.[0]?.text || ""),
@@ -201,16 +173,8 @@ async function scenarioOversized(url) {
 	const ctx = makeCtx({ cwd, mode: "tui" });
 
 	const result = await tool.execute("call-4", { path: "big.md" }, undefined, undefined, ctx);
-	check(
-		"oversized: opens no viewer",
-		ctx._customCalls.length === 0,
-		String(ctx._customCalls.length),
-	);
-	check(
-		"oversized: returns a tool error",
-		result?.details?.isError === true,
-		JSON.stringify(result?.details),
-	);
+	check("oversized: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("oversized: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
 	check(
 		"oversized: error mentions size limit",
 		/too large/i.test(result?.content?.[0]?.text || ""),
@@ -225,11 +189,7 @@ async function scenarioEmptyPath(url) {
 
 	const result = await tool.execute("call-5", { path: "" }, undefined, undefined, ctx);
 	check("empty: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
-	check(
-		"empty: returns a tool error",
-		result?.details?.isError === true,
-		JSON.stringify(result?.details),
-	);
+	check("empty: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
 }
 
 async function main() {

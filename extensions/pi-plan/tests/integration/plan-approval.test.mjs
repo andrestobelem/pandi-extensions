@@ -48,12 +48,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-plan/tests/integration/ -> repo root is four levels up.
@@ -107,13 +102,7 @@ function makePi() {
 
 // confirmResult can be a boolean or a queue (array) consumed FIFO across submit_plan calls,
 // so one scenario can REJECT then APPROVE the next submission (the revise→resubmit path).
-function makeCtx({
-	mode = "tui",
-	hasUI = true,
-	confirmResult = true,
-	cwd = REPO_ROOT,
-	entries = [],
-} = {}) {
+function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = REPO_ROOT, entries = [] } = {}) {
 	const notes = [];
 	const ctx = {
 		mode,
@@ -169,11 +158,7 @@ async function runGate(handlers, ctx, event) {
 
 // Convenience: is a `write` mutation currently BLOCKED by the armed gate?
 async function writeBlocked(handlers, ctx) {
-	const r = await runGate(
-		handlers,
-		ctx,
-		toolCallEvent("write", { file_path: "a.ts", content: "x" }),
-	);
+	const r = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
 	return !!r && r.block === true;
 }
 
@@ -223,10 +208,7 @@ async function approveLiftsGate(url) {
 	const res = await submit.execute("tc1", { plan: planText }, undefined, undefined, ctx);
 
 	// Observable: gate LIFTED — the same write is now ALLOWED.
-	check(
-		"approve: write ALLOWED after approval (gate lifted)",
-		!(await writeBlocked(handlers, ctx)),
-	);
+	check("approve: write ALLOWED after approval (gate lifted)", !(await writeBlocked(handlers, ctx)));
 
 	// Observable: persisted terminal state is approved + inactive.
 	const st = latestPlanState(entries);
@@ -237,24 +219,12 @@ async function approveLiftsGate(url) {
 
 	// Observable: implementation message re-injected, carrying the EXACT plan text.
 	const wake = sentMessages[sentMessages.length - 1];
-	check(
-		"approve: implement message re-injected after approval",
-		sentMessages.length === beforeSubmit + 1,
-	);
-	check(
-		"approve: implement message says 'Implement now'",
-		wake && /Implement now/i.test(wake.content),
-	);
-	check(
-		"approve: implement message contains the plan text verbatim",
-		wake && wake.content.includes(planText),
-	);
+	check("approve: implement message re-injected after approval", sentMessages.length === beforeSubmit + 1);
+	check("approve: implement message says 'Implement now'", wake && /Implement now/i.test(wake.content));
+	check("approve: implement message contains the plan text verbatim", wake && wake.content.includes(planText));
 
 	// Observable: tool result reports approved.
-	check(
-		"approve: tool result details.status=approved",
-		res && res.details && res.details.status === "approved",
-	);
+	check("approve: tool result details.status=approved", res && res.details && res.details.status === "approved");
 	check("approve: tool result is not an error", !(res && res.details && res.details.isError));
 }
 
@@ -278,10 +248,7 @@ async function rejectKeepsGateThenApprove(url) {
 	const rejRes = await submit.execute("tc1", { plan: planV1 }, undefined, undefined, ctx);
 
 	// Observable: gate STILL armed — a write is still blocked.
-	check(
-		"reject: write STILL BLOCKED after rejection (gate not lifted)",
-		await writeBlocked(handlers, ctx),
-	);
+	check("reject: write STILL BLOCKED after rejection (gate not lifted)", await writeBlocked(handlers, ctx));
 	// Observable: NO implementation message was injected by the rejection.
 	check("reject: no implement message injected on rejection", sentMessages.length === afterEntry);
 	// Observable: persisted state stays active and planning, with a rejection counted.
@@ -305,10 +272,7 @@ async function rejectKeepsGateThenApprove(url) {
 	const planV2 = "# Plan v2\nGood idea\n1. step";
 	const okRes = await submit.execute("tc2", { plan: planV2 }, undefined, undefined, ctx);
 
-	check(
-		"reject→approve: write ALLOWED after the eventual approval",
-		!(await writeBlocked(handlers, ctx)),
-	);
+	check("reject→approve: write ALLOWED after the eventual approval", !(await writeBlocked(handlers, ctx)));
 	const stOk = latestPlanState(entries);
 	check("reject→approve: persisted status=approved", stOk && stOk.status === "approved");
 	check("reject→approve: persisted active=false", stOk && stOk.active === false);
@@ -316,14 +280,8 @@ async function rejectKeepsGateThenApprove(url) {
 	check("reject→approve: rejections retained (1)", stOk && stOk.rejections === 1);
 	// Observable: implement message now injected, carrying the SECOND (approved) plan text.
 	const wake = sentMessages[sentMessages.length - 1];
-	check(
-		"reject→approve: implement message injected exactly once",
-		sentMessages.length === afterEntry + 1,
-	);
-	check(
-		"reject→approve: implement message carries the approved (v2) plan",
-		wake && wake.content.includes(planV2),
-	);
+	check("reject→approve: implement message injected exactly once", sentMessages.length === afterEntry + 1);
+	check("reject→approve: implement message carries the approved (v2) plan", wake && wake.content.includes(planV2));
 	check(
 		"reject→approve: implement message does NOT carry the rejected (v1) plan",
 		wake && !wake.content.includes(planV1),
@@ -356,14 +314,8 @@ async function exitAborts(url) {
 	check("exit: persisted status=exited", st && st.status === "exited");
 	check("exit: persisted active=false", st && st.active === false);
 	// Observable (the dangerous direction): exit must NOT re-inject an implementation message.
-	check(
-		"exit: NO implement message injected (no implicit implement)",
-		sentMessages.length === afterEntry,
-	);
-	check(
-		"exit: no message says 'Implement now'",
-		!sentMessages.some((m) => /Implement now/i.test(m.content)),
-	);
+	check("exit: NO implement message injected (no implicit implement)", sentMessages.length === afterEntry);
+	check("exit: no message says 'Implement now'", !sentMessages.some((m) => /Implement now/i.test(m.content)));
 
 	// /plan cancel behaves the same on a freshly re-entered plan (control for the alias).
 	await commands.get("plan").handler("another task", ctx);
@@ -388,10 +340,7 @@ async function submitWithNoActivePlan(url) {
 	const submit = tools.get("submit_plan");
 	const res = await submit.execute("tc", { plan: "# orphan plan" }, undefined, undefined, ctx);
 	check("no-plan: tool result is an error", res && res.details && res.details.isError === true);
-	check(
-		"no-plan: no plan-state persisted",
-		entries.find((e) => e.customType === "plan-state") === undefined,
-	);
+	check("no-plan: no plan-state persisted", entries.find((e) => e.customType === "plan-state") === undefined);
 	check("no-plan: no message injected", sentMessages.length === 0);
 }
 
@@ -424,16 +373,10 @@ async function rehydrateReArmsActiveOnly(url) {
 		];
 		const ctx = makeCtx({ mode: "tui", hasUI: true, entries: persisted });
 		// Before rehydrate, this fresh process has no active plan -> gate inert.
-		check(
-			"rehydrate(active): gate inert before session_start",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("rehydrate(active): gate inert before session_start", !(await writeBlocked(handlers, ctx)));
 		await fireSessionStart(handlers, ctx, "resume");
 		// After rehydrate, the gate is re-armed -> the write is blocked again.
-		check(
-			"rehydrate(active): write BLOCKED after reload (gate re-armed)",
-			await writeBlocked(handlers, ctx),
-		);
+		check("rehydrate(active): write BLOCKED after reload (gate re-armed)", await writeBlocked(handlers, ctx));
 		// Rehydrate must NOT re-inject the planning prompt (the conversation already carries it).
 		check("rehydrate(active): does NOT re-inject planning prompt", sentMessages.length === 0);
 	}
@@ -461,10 +404,7 @@ async function rehydrateReArmsActiveOnly(url) {
 		];
 		const ctx = makeCtx({ mode: "tui", hasUI: true, entries: persisted });
 		await fireSessionStart(handlers, ctx, "resume");
-		check(
-			"rehydrate(terminal-approved): gate stays INERT (write allowed)",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("rehydrate(terminal-approved): gate stays INERT (write allowed)", !(await writeBlocked(handlers, ctx)));
 	}
 
 	// --- 5c: a TERMINAL persisted plan (exited) does NOT re-arm the gate. ---
@@ -490,10 +430,7 @@ async function rehydrateReArmsActiveOnly(url) {
 		];
 		const ctx = makeCtx({ mode: "tui", hasUI: true, entries: persisted });
 		await fireSessionStart(handlers, ctx, "resume");
-		check(
-			"rehydrate(terminal-exited): gate stays INERT (write allowed)",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("rehydrate(terminal-exited): gate stays INERT (write allowed)", !(await writeBlocked(handlers, ctx)));
 	}
 
 	// --- 5d: last-wins by planId — a later terminal snapshot for the SAME plan beats an
@@ -620,15 +557,9 @@ async function rehydrateReArmsActiveOnly(url) {
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true });
 		await commands.get("plan").handler("parent task", ctx);
-		check(
-			"rehydrate(fork live): gate BLOCKED before fork boundary",
-			await writeBlocked(handlers, ctx),
-		);
+		check("rehydrate(fork live): gate BLOCKED before fork boundary", await writeBlocked(handlers, ctx));
 		await fireSessionStart(handlers, ctx, "fork");
-		check(
-			"rehydrate(fork live): gate CLEARED at fork boundary",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("rehydrate(fork live): gate CLEARED at fork boundary", !(await writeBlocked(handlers, ctx)));
 	}
 
 	// --- 5g: junk / foreign / malformed entries are ignored without crashing, and a single
@@ -659,10 +590,7 @@ async function rehydrateReArmsActiveOnly(url) {
 		];
 		const ctx = makeCtx({ mode: "tui", hasUI: true, entries: persisted });
 		await fireSessionStart(handlers, ctx, "resume"); // must not throw
-		check(
-			"rehydrate(junk): valid active plan among junk re-arms the gate",
-			await writeBlocked(handlers, ctx),
-		);
+		check("rehydrate(junk): valid active plan among junk re-arms the gate", await writeBlocked(handlers, ctx));
 	}
 }
 
@@ -680,24 +608,13 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 
 		await commands.get("plan").handler("design a feature", ctx);
 		const afterEntry = sentMessages.length;
-		const pending = tools
-			.get("submit_plan")
-			.execute("tc1", { plan: "# Late plan" }, undefined, undefined, ctx);
-		check(
-			"pending-exit: write BLOCKED while approval is pending",
-			await writeBlocked(handlers, ctx),
-		);
+		const pending = tools.get("submit_plan").execute("tc1", { plan: "# Late plan" }, undefined, undefined, ctx);
+		check("pending-exit: write BLOCKED while approval is pending", await writeBlocked(handlers, ctx));
 
 		await commands.get("plan").handler("exit", ctx);
-		check(
-			"pending-exit: write ALLOWED immediately after /plan exit",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("pending-exit: write ALLOWED immediately after /plan exit", !(await writeBlocked(handlers, ctx)));
 		const exited = latestPlanState(entries);
-		check(
-			"pending-exit: persisted status=exited before late confirm",
-			exited && exited.status === "exited",
-		);
+		check("pending-exit: persisted status=exited before late confirm", exited && exited.status === "exited");
 
 		gate.resolve(true);
 		const res = await pending;
@@ -705,18 +622,12 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 			"pending-exit: late approval returns stale error",
 			res && res.details && res.details.isError === true && res.details.status === "stale",
 		);
-		check(
-			"pending-exit: late approval does NOT inject implement",
-			sentMessages.length === afterEntry,
-		);
+		check("pending-exit: late approval does NOT inject implement", sentMessages.length === afterEntry);
 		check(
 			"pending-exit: no message says 'Implement now'",
 			!sentMessages.some((m) => /Implement now/i.test(m.content)),
 		);
-		check(
-			"pending-exit: gate remains ALLOWED after stale approval",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("pending-exit: gate remains ALLOWED after stale approval", !(await writeBlocked(handlers, ctx)));
 	}
 
 	// --- 6b: if a new plan is started while the old confirm is pending, the old result is stale. ---
@@ -729,9 +640,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 
 		await commands.get("plan").handler("old task", ctx);
 		const afterOldEntry = sentMessages.length;
-		const pending = tools
-			.get("submit_plan")
-			.execute("tc1", { plan: "# Old plan" }, undefined, undefined, ctx);
+		const pending = tools.get("submit_plan").execute("tc1", { plan: "# Old plan" }, undefined, undefined, ctx);
 		await commands.get("plan").handler("cancel", ctx);
 		await commands.get("plan").handler("new task", ctx);
 		check("pending-replaced: new plan re-arms gate", await writeBlocked(handlers, ctx));
@@ -742,19 +651,13 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 			"pending-replaced: old approval returns stale error",
 			res && res.details && res.details.isError === true && res.details.status === "stale",
 		);
-		check(
-			"pending-replaced: old approval does NOT inject implement",
-			sentMessages.length === afterOldEntry + 1,
-		);
+		check("pending-replaced: old approval does NOT inject implement", sentMessages.length === afterOldEntry + 1);
 		const st = latestPlanState(entries);
 		check(
 			"pending-replaced: latest state is the new active plan",
 			st && st.active === true && st.status === "planning" && st.task === "new task",
 		);
-		check(
-			"pending-replaced: gate remains BLOCKED for the new plan",
-			await writeBlocked(handlers, ctx),
-		);
+		check("pending-replaced: gate remains BLOCKED for the new plan", await writeBlocked(handlers, ctx));
 	}
 
 	// --- 6c: two overlapping submissions in the same plan: only the latest approval may apply. ---
@@ -769,34 +672,20 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 
 		await commands.get("plan").handler("design a feature", ctx);
 		const afterEntry = sentMessages.length;
-		const oldPending = tools
-			.get("submit_plan")
-			.execute("tc1", { plan: "# Old plan" }, undefined, undefined, ctx);
+		const oldPending = tools.get("submit_plan").execute("tc1", { plan: "# Old plan" }, undefined, undefined, ctx);
 		const latestPending = tools
 			.get("submit_plan")
 			.execute("tc2", { plan: "# New plan" }, undefined, undefined, ctx);
-		check(
-			"pending-overlap: gate remains BLOCKED while approvals are pending",
-			await writeBlocked(handlers, ctx),
-		);
+		check("pending-overlap: gate remains BLOCKED while approvals are pending", await writeBlocked(handlers, ctx));
 
 		first.resolve(true);
 		const oldRes = await oldPending;
 		check(
 			"pending-overlap: older approval returns stale error",
-			oldRes &&
-				oldRes.details &&
-				oldRes.details.isError === true &&
-				oldRes.details.status === "stale",
+			oldRes && oldRes.details && oldRes.details.isError === true && oldRes.details.status === "stale",
 		);
-		check(
-			"pending-overlap: older approval does NOT inject implement",
-			sentMessages.length === afterEntry,
-		);
-		check(
-			"pending-overlap: gate remains BLOCKED after stale older approval",
-			await writeBlocked(handlers, ctx),
-		);
+		check("pending-overlap: older approval does NOT inject implement", sentMessages.length === afterEntry);
+		check("pending-overlap: gate remains BLOCKED after stale older approval", await writeBlocked(handlers, ctx));
 
 		second.resolve(true);
 		const latestRes = await latestPending;
@@ -804,10 +693,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 			"pending-overlap: latest approval succeeds",
 			latestRes && latestRes.details && latestRes.details.status === "approved",
 		);
-		check(
-			"pending-overlap: latest approval injects implement once",
-			sentMessages.length === afterEntry + 1,
-		);
+		check("pending-overlap: latest approval injects implement once", sentMessages.length === afterEntry + 1);
 		const wake = sentMessages[sentMessages.length - 1];
 		check(
 			"pending-overlap: implementation uses latest plan text",
@@ -818,10 +704,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 			"pending-overlap: latest state approved and inactive",
 			st && st.active === false && st.status === "approved" && st.submissions === 2,
 		);
-		check(
-			"pending-overlap: gate ALLOWED after latest approval",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("pending-overlap: gate ALLOWED after latest approval", !(await writeBlocked(handlers, ctx)));
 	}
 }
 
@@ -858,39 +741,24 @@ async function autonomousEntryViaTool(url) {
 		// Before entry, a write is ALLOWED (gate not armed).
 		check("enter: write ALLOWED before enter_plan_mode", !(await writeBlocked(handlers, ctx)));
 
-		const res = await enter.execute(
-			"tc1",
-			{ task: "refactor the auth module" },
-			undefined,
-			undefined,
-			ctx,
-		);
+		const res = await enter.execute("tc1", { task: "refactor the auth module" }, undefined, undefined, ctx);
 
 		// Observable: gate ARMED — the same write is now BLOCKED.
-		check(
-			"enter: write BLOCKED after enter_plan_mode (gate armed)",
-			await writeBlocked(handlers, ctx),
-		);
+		check("enter: write BLOCKED after enter_plan_mode (gate armed)", await writeBlocked(handlers, ctx));
 		// Observable: persisted ACTIVE planning state (same shape the command produces).
 		const st = latestPlanState(entries);
 		check("enter: persisted active=true", st && st.active === true);
 		check("enter: persisted status=planning", st && st.status === "planning");
 		check("enter: persisted task carried verbatim", st && st.task === "refactor the auth module");
 		// Observable: the tool result reports entered + carries the PLAN MODE instruction to the model.
-		check(
-			"enter: tool result details.entered=true",
-			res && res.details && res.details.entered === true,
-		);
+		check("enter: tool result details.entered=true", res && res.details && res.details.entered === true);
 		const text = res && res.content && res.content[0] && res.content[0].text;
 		check(
 			"enter: tool result carries the planning instruction (PLAN MODE + submit_plan)",
 			!!text && /PLAN MODE/i.test(text) && /submit_plan/i.test(text),
 		);
 		// Observable: NO extra user message injected — the instruction rides the tool result.
-		check(
-			"enter: no user message injected by the tool (no double injection)",
-			sentMessages.length === 0,
-		);
+		check("enter: no user message injected by the tool (no double injection)", sentMessages.length === 0);
 	}
 
 	// --- 7b: print → enter_plan_mode REFUSES; the gate is NEVER armed (no approval possible). ---
@@ -904,16 +772,11 @@ async function autonomousEntryViaTool(url) {
 		console.log = (...a) => logged.push(a.join(" "));
 		let res;
 		try {
-			res = await tools
-				.get("enter_plan_mode")
-				.execute("tc1", { task: "do a thing" }, undefined, undefined, ctx);
+			res = await tools.get("enter_plan_mode").execute("tc1", { task: "do a thing" }, undefined, undefined, ctx);
 		} finally {
 			console.log = origLog;
 		}
-		check(
-			"enter(print): tool result details.entered=false",
-			res && res.details && res.details.entered === false,
-		);
+		check("enter(print): tool result details.entered=false", res && res.details && res.details.entered === false);
 		check(
 			"enter(print): no plan-state persisted",
 			entries.find((e) => e.customType === "plan-state") === undefined,
@@ -932,14 +795,8 @@ async function autonomousEntryViaTool(url) {
 		const res = await tools
 			.get("enter_plan_mode")
 			.execute("tc1", { task: "second task" }, undefined, undefined, ctx);
-		check(
-			"enter(active): tool result details.entered=false",
-			res && res.details && res.details.entered === false,
-		);
-		check(
-			"enter(active): reason=already-active",
-			res && res.details && res.details.reason === "already-active",
-		);
+		check("enter(active): tool result details.entered=false", res && res.details && res.details.entered === false);
+		check("enter(active): reason=already-active", res && res.details && res.details.reason === "already-active");
 		const lastState = latestPlanState(entries);
 		check(
 			"enter(active): no second plan created (planId unchanged)",
@@ -953,22 +810,12 @@ async function autonomousEntryViaTool(url) {
 		const { pi, tools, handlers, sentMessages } = makePi();
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: true });
-		await tools
-			.get("enter_plan_mode")
-			.execute("tc1", { task: "ship the feature" }, undefined, undefined, ctx);
+		await tools.get("enter_plan_mode").execute("tc1", { task: "ship the feature" }, undefined, undefined, ctx);
 		check("enter→approve: write BLOCKED while planning", await writeBlocked(handlers, ctx));
 		const planText = "# Plan\n1. step";
-		const res = await tools
-			.get("submit_plan")
-			.execute("tc2", { plan: planText }, undefined, undefined, ctx);
-		check(
-			"enter→approve: write ALLOWED after approval (gate lifted)",
-			!(await writeBlocked(handlers, ctx)),
-		);
-		check(
-			"enter→approve: submit_plan status=approved",
-			res && res.details && res.details.status === "approved",
-		);
+		const res = await tools.get("submit_plan").execute("tc2", { plan: planText }, undefined, undefined, ctx);
+		check("enter→approve: write ALLOWED after approval (gate lifted)", !(await writeBlocked(handlers, ctx)));
+		check("enter→approve: submit_plan status=approved", res && res.details && res.details.status === "approved");
 		const wake = sentMessages[sentMessages.length - 1];
 		check(
 			"enter→approve: implement message injected with the plan text",

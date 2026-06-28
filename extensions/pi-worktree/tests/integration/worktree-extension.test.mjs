@@ -22,12 +22,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	loadModule,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -93,8 +88,7 @@ function makeCtx({ cwd, mode = "tui", confirm = true, selectValue, inputValues }
 				confirms.push({ title, body });
 				return typeof confirm === "function" ? confirm(title, body) : confirm;
 			},
-			select: async (_title, items) =>
-				typeof selectValue === "function" ? selectValue(items) : selectValue,
+			select: async (_title, items) => (typeof selectValue === "function" ? selectValue(items) : selectValue),
 			input: async (_title, _def) => (inputs.length ? inputs.shift() : ""),
 		},
 	};
@@ -152,10 +146,7 @@ async function scenarioParseHelpers(url) {
 
 	const [main, bare, detached, locked, prunable, nohead] = entries;
 	check("parseWorktreeList: main branchShort", main.branchShort === "main", JSON.stringify(main));
-	check(
-		"parseWorktreeList: main no flags",
-		!main.bare && !main.detached && !main.locked && !main.prunable,
-	);
+	check("parseWorktreeList: main no flags", !main.bare && !main.detached && !main.locked && !main.prunable);
 	check("parseWorktreeList: bare flag", bare.bare === true, JSON.stringify(bare));
 	check(
 		"parseWorktreeList: detached flag + head",
@@ -169,15 +160,10 @@ async function scenarioParseHelpers(url) {
 	);
 	check(
 		"parseWorktreeList: prunable flag + reason",
-		prunable.prunable === true &&
-			prunable.prunableReason === "gitdir file points to non-existent location",
+		prunable.prunable === true && prunable.prunableReason === "gitdir file points to non-existent location",
 		JSON.stringify(prunable),
 	);
-	check(
-		"parseWorktreeList: CRLF stripped from branch",
-		prunable.branchShort === "prune-b",
-		JSON.stringify(prunable),
-	);
+	check("parseWorktreeList: CRLF stripped from branch", prunable.branchShort === "prune-b", JSON.stringify(prunable));
 	check(
 		"parseWorktreeList: record without HEAD still parsed",
 		nohead.head === undefined && nohead.branchShort === "nohead-b",
@@ -185,11 +171,7 @@ async function scenarioParseHelpers(url) {
 	);
 
 	// describeWorktree: representative outputs.
-	check(
-		"describeWorktree: bare label",
-		mod.describeWorktree(bare).includes("(bare)"),
-		mod.describeWorktree(bare),
-	);
+	check("describeWorktree: bare label", mod.describeWorktree(bare).includes("(bare)"), mod.describeWorktree(bare));
 	check(
 		"describeWorktree: detached label",
 		/\(detached 22222222\)/.test(mod.describeWorktree(detached)),
@@ -238,19 +220,12 @@ async function scenarioParseCommand(url) {
 	const add = p("add -b feat ./x main");
 	check(
 		"parseCommand add: shape",
-		add.action === "add" &&
-			add.path === "./x" &&
-			add.newBranch === "feat" &&
-			add.commitish === "main",
+		add.action === "add" && add.path === "./x" && add.newBranch === "feat" && add.commitish === "main",
 		JSON.stringify(add),
 	);
 
 	const quoted = p('add "a b/c"');
-	check(
-		"parseCommand add: quoted path with space",
-		quoted.path === "a b/c",
-		JSON.stringify(quoted),
-	);
+	check("parseCommand add: quoted path with space", quoted.path === "a b/c", JSON.stringify(quoted));
 
 	const rm = p("remove --force ./x");
 	check(
@@ -260,11 +235,7 @@ async function scenarioParseCommand(url) {
 	);
 
 	const prune = p("prune -n");
-	check(
-		"parseCommand prune: dryRun",
-		prune.action === "prune" && prune.dryRun === true,
-		JSON.stringify(prune),
-	);
+	check("parseCommand prune: dryRun", prune.action === "prune" && prune.dryRun === true, JSON.stringify(prune));
 
 	const bogus = p("bogus");
 	check(
@@ -309,11 +280,7 @@ async function scenarioCompletions(url) {
 	check("completions: second token → null", gac("add ") === null, JSON.stringify(gac("add ")));
 	check("completions: no match → null", gac("zzz") === null, JSON.stringify(gac("zzz")));
 	const all = gac("");
-	check(
-		"completions: empty → all five subcommands",
-		Array.isArray(all) && all.length === 5,
-		JSON.stringify(all),
-	);
+	check("completions: empty → all five subcommands", Array.isArray(all) && all.length === 5, JSON.stringify(all));
 }
 
 async function scenarioBareRepo(url) {
@@ -341,26 +308,14 @@ async function scenarioAddDetachAndPlain(url) {
 		makeCtx({ cwd }),
 	);
 	check("add detach: not an error", !det.details?.isError, JSON.stringify(det.details));
-	const listDet = await tool.execute(
-		"id",
-		{ action: "list" },
-		undefined,
-		undefined,
-		makeCtx({ cwd }),
-	);
+	const listDet = await tool.execute("id", { action: "list" }, undefined, undefined, makeCtx({ cwd }));
 	const detEntry = listDet.details?.worktrees?.find((e) => e.path.endsWith("wt-detached"));
 	check("add detach: entry is detached", detEntry?.detached === true, JSON.stringify(detEntry));
 	await fs.rm(detPath, { recursive: true, force: true });
 
 	// Plain add (no -b, attaches HEAD on a new branch named after the path).
 	const plainPath = path.join(cwd, "wt-plain");
-	const plain = await tool.execute(
-		"id",
-		{ action: "add", path: plainPath },
-		undefined,
-		undefined,
-		makeCtx({ cwd }),
-	);
+	const plain = await tool.execute("id", { action: "add", path: plainPath }, undefined, undefined, makeCtx({ cwd }));
 	check("add plain: not an error", !plain.details?.isError, JSON.stringify(plain.details));
 	check("add plain: directory exists", existsSync(plainPath));
 	await fs.rm(plainPath, { recursive: true, force: true });
@@ -372,34 +327,20 @@ async function scenarioRemoveCommandForce(url) {
 	const wtPath = path.join(cwd, "wt-force");
 	await tools
 		.get("git_worktree")
-		.execute(
-			"id",
-			{ action: "add", path: wtPath, branch: "force-b" },
-			undefined,
-			undefined,
-			makeCtx({ cwd }),
-		);
+		.execute("id", { action: "add", path: wtPath, branch: "force-b" }, undefined, undefined, makeCtx({ cwd }));
 	// Make it dirty so git refuses without --force.
 	await fs.writeFile(path.join(wtPath, "file.txt"), "changed\n", "utf8");
 
 	const ctx = makeCtx({ cwd, confirm: true }); // confirm returns true for both prompts
 	await commands.get("worktree").handler(`remove ${wtPath}`, ctx);
-	check(
-		"remove cmd force: prompted twice",
-		ctx._confirms.length === 2,
-		String(ctx._confirms.length),
-	);
+	check("remove cmd force: prompted twice", ctx._confirms.length === 2, String(ctx._confirms.length));
 	check(
 		"remove cmd force: second prompt mentions force/dirty",
 		/Force|dirty or locked/i.test(`${ctx._confirms[1]?.title} ${ctx._confirms[1]?.body}`),
 		JSON.stringify(ctx._confirms[1]),
 	);
 	check("remove cmd force: worktree removed", !existsSync(wtPath));
-	check(
-		"remove cmd force: note says forced",
-		/\(forced\)/.test(lastNote(ctx).msg),
-		lastNote(ctx).msg,
-	);
+	check("remove cmd force: note says forced", /\(forced\)/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 }
 
 async function scenarioRegisters(url) {
@@ -430,9 +371,7 @@ async function scenarioListTool(url) {
 	const cwd = await makeRepo();
 	const { tools } = await loadExtension(url);
 	const ctx = makeCtx({ cwd });
-	const res = await tools
-		.get("git_worktree")
-		.execute("id", { action: "list" }, undefined, undefined, ctx);
+	const res = await tools.get("git_worktree").execute("id", { action: "list" }, undefined, undefined, ctx);
 	check("tool list: not an error", !res.details?.isError, JSON.stringify(res.details));
 	check("tool list: count >= 1", (res.details?.count ?? 0) >= 1, String(res.details?.count));
 	check(
@@ -480,11 +419,7 @@ async function scenarioAddInvalidBranch(url) {
 			undefined,
 			ctx,
 		);
-	check(
-		"add invalid branch: is an error",
-		res.details?.isError === true,
-		JSON.stringify(res.details),
-	);
+	check("add invalid branch: is an error", res.details?.isError === true, JSON.stringify(res.details));
 	check("add invalid branch: did not create a dir", !existsSync(path.join(cwd, "bad")));
 }
 
@@ -502,11 +437,7 @@ async function scenarioRemoveDirtyNeedsForce(url) {
 	const refused = await tools
 		.get("git_worktree")
 		.execute("id", { action: "remove", path: wtPath }, undefined, undefined, ctx);
-	check(
-		"remove dirty no-force: refuses",
-		refused.details?.isError === true,
-		JSON.stringify(refused.details),
-	);
+	check("remove dirty no-force: refuses", refused.details?.isError === true, JSON.stringify(refused.details));
 	check("remove dirty no-force: directory still exists", existsSync(wtPath));
 	check(
 		"remove dirty no-force: hints at force",
@@ -527,13 +458,7 @@ async function scenarioRemoveCommandConfirm(url) {
 	const wtPath = path.join(cwd, "wt-clean");
 	await tools
 		.get("git_worktree")
-		.execute(
-			"id",
-			{ action: "add", path: wtPath, branch: "clean-b" },
-			undefined,
-			undefined,
-			makeCtx({ cwd }),
-		);
+		.execute("id", { action: "add", path: wtPath, branch: "clean-b" }, undefined, undefined, makeCtx({ cwd }));
 
 	// Decline confirmation → worktree stays.
 	const declineCtx = makeCtx({ cwd, confirm: false });
@@ -557,13 +482,7 @@ async function scenarioPruneDryRun(url) {
 	const wtPath = path.join(cwd, "wt-prunable");
 	await tools
 		.get("git_worktree")
-		.execute(
-			"id",
-			{ action: "add", path: wtPath, branch: "prune-b" },
-			undefined,
-			undefined,
-			makeCtx({ cwd }),
-		);
+		.execute("id", { action: "add", path: wtPath, branch: "prune-b" }, undefined, undefined, makeCtx({ cwd }));
 	// Delete the worktree dir behind git's back → its metadata becomes prunable.
 	await fs.rm(wtPath, { recursive: true, force: true });
 
@@ -599,13 +518,7 @@ async function scenarioDefaultBase(url) {
 	const { tools } = await loadExtension(url);
 	const res = await tools
 		.get("git_worktree")
-		.execute(
-			"id",
-			{ action: "add", path: "feature", branch: "feat" },
-			undefined,
-			undefined,
-			makeCtx({ cwd }),
-		);
+		.execute("id", { action: "add", path: "feature", branch: "feat" }, undefined, undefined, makeCtx({ cwd }));
 	check("default base: not an error", !res.details?.isError, JSON.stringify(res.details));
 	const expected = path.join(cwd, ".pi", "worktrees", "feature");
 	check(
@@ -613,11 +526,7 @@ async function scenarioDefaultBase(url) {
 		res.details?.path === expected,
 		`${res.details?.path} vs ${expected}`,
 	);
-	check(
-		"default base: marks defaultBase=true",
-		res.details?.defaultBase === true,
-		JSON.stringify(res.details),
-	);
+	check("default base: marks defaultBase=true", res.details?.defaultBase === true, JSON.stringify(res.details));
 	check("default base: worktree directory exists", existsSync(expected));
 	const giPath = path.join(cwd, ".pi", "worktrees", ".gitignore");
 	check("default base: writes .pi/worktrees/.gitignore", existsSync(giPath));
@@ -626,11 +535,7 @@ async function scenarioDefaultBase(url) {
 	// The whole base must be invisible to the MAIN repo (relies solely on the
 	// self-contained .gitignore — the temp repo has no root ignore entry).
 	const status = git(cwd, ["status", "--porcelain"]);
-	check(
-		"default base: worktree is gitignored (clean status)",
-		!status.includes(".pi/worktrees"),
-		status,
-	);
+	check("default base: worktree is gitignored (clean status)", !status.includes(".pi/worktrees"), status);
 }
 
 async function scenarioExplicitPathEscapesDefault(url) {
@@ -638,28 +543,15 @@ async function scenarioExplicitPathEscapesDefault(url) {
 	const { tools } = await loadExtension(url);
 	const res = await tools
 		.get("git_worktree")
-		.execute(
-			"id",
-			{ action: "add", path: "sub/nested-wt", branch: "nb" },
-			undefined,
-			undefined,
-			makeCtx({ cwd }),
-		);
+		.execute("id", { action: "add", path: "sub/nested-wt", branch: "nb" }, undefined, undefined, makeCtx({ cwd }));
 	const expected = path.join(cwd, "sub", "nested-wt");
 	check(
 		"explicit slash path: literal under cwd",
 		res.details?.path === expected,
 		`${res.details?.path} vs ${expected}`,
 	);
-	check(
-		"explicit slash path: not default base",
-		res.details?.defaultBase === false,
-		JSON.stringify(res.details),
-	);
-	check(
-		"explicit slash path: did not create .pi/worktrees",
-		!existsSync(path.join(cwd, ".pi", "worktrees")),
-	);
+	check("explicit slash path: not default base", res.details?.defaultBase === false, JSON.stringify(res.details));
+	check("explicit slash path: did not create .pi/worktrees", !existsSync(path.join(cwd, ".pi", "worktrees")));
 	await fs.rm(path.join(cwd, "sub"), { recursive: true, force: true });
 }
 
@@ -669,16 +561,10 @@ async function scenarioOutsideRepo(url) {
 
 	const cmdCtx = makeCtx({ cwd });
 	await commands.get("worktree").handler("list", cmdCtx);
-	check(
-		"outside repo cmd: errors",
-		lastNote(cmdCtx).type === "error",
-		JSON.stringify(lastNote(cmdCtx)),
-	);
+	check("outside repo cmd: errors", lastNote(cmdCtx).type === "error", JSON.stringify(lastNote(cmdCtx)));
 
 	const toolCtx = makeCtx({ cwd });
-	const res = await tools
-		.get("git_worktree")
-		.execute("id", { action: "list" }, undefined, undefined, toolCtx);
+	const res = await tools.get("git_worktree").execute("id", { action: "list" }, undefined, undefined, toolCtx);
 	check("outside repo tool: errors", res.details?.isError === true, JSON.stringify(res.details));
 }
 

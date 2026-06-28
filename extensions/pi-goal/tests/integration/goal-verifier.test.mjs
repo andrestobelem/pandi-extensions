@@ -39,12 +39,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-goal/tests/integration/ -> repo root is four levels up.
@@ -186,16 +181,8 @@ async function passClosesGoal(goalUrl) {
 	});
 	const { states, execCalls } = await driveToVerifier(goalUrl, exec);
 	await flush(() => lastStatus(states) === "done");
-	check(
-		"verifier spawned exactly one subprocess",
-		execCalls.length === 1,
-		`calls=${execCalls.length}`,
-	);
-	check(
-		"PASS on final line CLOSES goal (done)",
-		lastStatus(states) === "done",
-		`last=${lastStatus(states)}`,
-	);
+	check("verifier spawned exactly one subprocess", execCalls.length === 1, `calls=${execCalls.length}`);
+	check("PASS on final line CLOSES goal (done)", lastStatus(states) === "done", `last=${lastStatus(states)}`);
 }
 
 // ===========================================================================
@@ -221,30 +208,15 @@ async function failIteratesThenBlocks(goalUrl) {
 	check("first FAIL is never 'done'", !states.some((s) => s.gstatus === "done"));
 
 	// Re-declare done -> verifying -> confirmed done -> second independent FAIL (2/2 = cap) -> blocked.
-	await progress.execute(
-		"tcB1",
-		{ status: "done", assessment: "Re-declaring done." },
-		undefined,
-		undefined,
-		ctx,
-	);
-	await progress.execute(
-		"tcB2",
-		{ status: "done", assessment: "Confirmed again." },
-		undefined,
-		undefined,
-		ctx,
-	);
+	await progress.execute("tcB1", { status: "done", assessment: "Re-declaring done." }, undefined, undefined, ctx);
+	await progress.execute("tcB2", { status: "done", assessment: "Confirmed again." }, undefined, undefined, ctx);
 	await flush(() => lastStatus(states) === "blocked");
 	check(
 		"FAIL at the cap BLOCKS the goal (needs a human)",
 		lastStatus(states) === "blocked",
 		`last=${lastStatus(states)}`,
 	);
-	check(
-		"a FAILing verifier NEVER closes the goal as done",
-		!states.some((s) => s.gstatus === "done"),
-	);
+	check("a FAILing verifier NEVER closes the goal as done", !states.some((s) => s.gstatus === "done"));
 }
 
 // ===========================================================================
@@ -419,24 +391,14 @@ async function firstDoneNeverClosesNorVerifies(goalUrl) {
 	built.commands.get("goal").handler("do the thing -- it works", ctx);
 	const progress = built.tools.get("goal_progress");
 
-	await progress.execute(
-		"tc1",
-		{ status: "done", assessment: "First done." },
-		undefined,
-		undefined,
-		ctx,
-	);
+	await progress.execute("tc1", { status: "done", assessment: "First done." }, undefined, undefined, ctx);
 	await flush();
 	check(
 		"first done -> verifying (NOT done, NOT closed)",
 		lastStatus(built.states) === "verifying",
 		`last=${lastStatus(built.states)}`,
 	);
-	check(
-		"first done does NOT spawn the independent verifier yet",
-		execCount === 0,
-		`execCount=${execCount}`,
-	);
+	check("first done does NOT spawn the independent verifier yet", execCount === 0, `execCount=${execCount}`);
 	check("first done never reaches 'done'", !built.states.some((s) => s.gstatus === "done"));
 }
 
@@ -478,11 +440,7 @@ async function reentryDuringVerifyIsIgnored(goalUrl) {
 		undefined,
 		ctx,
 	);
-	check(
-		"re-entrant done is reported as ignored",
-		r1?.details?.ignored === true,
-		JSON.stringify(r1?.details),
-	);
+	check("re-entrant done is reported as ignored", r1?.details?.ignored === true, JSON.stringify(r1?.details));
 	check(
 		"re-entrant done does NOT change gstatus (stays verifying-independent)",
 		lastStatus(states) === "verifying-independent",
@@ -497,16 +455,8 @@ async function reentryDuringVerifyIsIgnored(goalUrl) {
 		undefined,
 		ctx,
 	);
-	check(
-		"re-entrant continue is also ignored",
-		r2?.details?.ignored === true,
-		JSON.stringify(r2?.details),
-	);
-	check(
-		"re-entry never spawned a second verifier",
-		execCalls.length === 1,
-		`calls=${execCalls.length}`,
-	);
+	check("re-entrant continue is also ignored", r2?.details?.ignored === true, JSON.stringify(r2?.details));
+	check("re-entry never spawned a second verifier", execCalls.length === 1, `calls=${execCalls.length}`);
 
 	// Release the gated verifier: its PASS — NOT the discarded re-entry — closes the goal.
 	release();
@@ -539,11 +489,7 @@ async function secondGoalIsRefused(goalUrl) {
 
 	await goalCmd.handler("goal B -- B is done", ctx); // must be refused: A is still active
 	const distinct = new Set(built.states.map((s) => s.goalId)).size;
-	check(
-		"second concurrent goal is REFUSED (no new goalId persisted)",
-		distinct === 1,
-		`distinct=${distinct}`,
-	);
+	check("second concurrent goal is REFUSED (no new goalId persisted)", distinct === 1, `distinct=${distinct}`);
 	check(
 		"user is warned a goal is already active",
 		notifies.some((n) => n.t === "warning" && /already active/i.test(n.m)),
@@ -574,22 +520,14 @@ async function verifierArgvIsReadOnly(goalUrl) {
 	}));
 	await flush(() => execCalls.length > 0);
 	const args = execCalls[0]?.args ?? [];
-	check(
-		"verifier argv: --no-extensions present",
-		args.includes("--no-extensions"),
-		JSON.stringify(args),
-	);
+	check("verifier argv: --no-extensions present", args.includes("--no-extensions"), JSON.stringify(args));
 	check("verifier argv: --no-approve present", args.includes("--no-approve"), JSON.stringify(args));
 	check(
 		"verifier argv: --tools is the read-only allowlist read,grep,find,ls",
 		argTools(args) === "read,grep,find,ls",
 		`tools=${argTools(args)}`,
 	);
-	check(
-		"verifier argv: default case does NOT pass --no-tools",
-		!args.includes("--no-tools"),
-		JSON.stringify(args),
-	);
+	check("verifier argv: default case does NOT pass --no-tools", !args.includes("--no-tools"), JSON.stringify(args));
 	check(
 		"verifier argv: allowlist has NO mutating tool (write/edit/bash)",
 		!/\b(write|edit|bash)\b/.test(argTools(args) ?? ""),
@@ -630,16 +568,8 @@ async function verifierArgvIsReadOnly(goalUrl) {
 	for (const h of onStart ?? []) await h({ reason: "reload" }, ctx);
 	await flush(() => built.execCalls.length > 0);
 	const a2 = built.execCalls[0]?.args ?? [];
-	check(
-		"verifier argv (empty verifierTools): --no-tools present",
-		a2.includes("--no-tools"),
-		JSON.stringify(a2),
-	);
-	check(
-		"verifier argv (empty verifierTools): does NOT pass --tools",
-		!a2.includes("--tools"),
-		JSON.stringify(a2),
-	);
+	check("verifier argv (empty verifierTools): --no-tools present", a2.includes("--no-tools"), JSON.stringify(a2));
+	check("verifier argv (empty verifierTools): does NOT pass --tools", !a2.includes("--tools"), JSON.stringify(a2));
 }
 
 // ===========================================================================
@@ -690,18 +620,11 @@ async function selfCheckCapBlocks(goalUrl) {
 		lastStatus(built.states) === "blocked",
 		`last=${lastStatus(built.states)}`,
 	);
-	check(
-		"self-check ping-pong never closes as done",
-		!built.states.some((s) => s.gstatus === "done"),
-	);
+	check("self-check ping-pong never closes as done", !built.states.some((s) => s.gstatus === "done"));
 	// Sanity check on the scenario's PREMISE (not a discriminator of the cap logic): every `done`
 	// here comes from `pursuing`, so the independent verifier — spawned only on done-FROM-verifying
 	// — is never invoked. This confirms K exercises the SELF-check cap path, not the independent one.
-	check(
-		"self-check cap sequence never invokes the independent verifier",
-		execCount === 0,
-		`execCount=${execCount}`,
-	);
+	check("self-check cap sequence never invokes the independent verifier", execCount === 0, `execCount=${execCount}`);
 }
 
 // ===========================================================================
@@ -725,16 +648,8 @@ async function waitSecondsIsClamped(goalUrl) {
 		return progress.execute("tcL", params, undefined, undefined, ctx);
 	};
 	const below = await cont(5);
-	check(
-		"waitSeconds 5 clamps UP to 60",
-		below?.details?.delaySeconds === 60,
-		JSON.stringify(below?.details),
-	);
-	check(
-		"waitSeconds 5 reports clampedFrom=5",
-		below?.details?.clampedFrom === 5,
-		JSON.stringify(below?.details),
-	);
+	check("waitSeconds 5 clamps UP to 60", below?.details?.delaySeconds === 60, JSON.stringify(below?.details));
+	check("waitSeconds 5 reports clampedFrom=5", below?.details?.clampedFrom === 5, JSON.stringify(below?.details));
 	const above = await cont(99999);
 	check(
 		"waitSeconds 99999 clamps DOWN to 3600",
@@ -753,11 +668,7 @@ async function waitSecondsIsClamped(goalUrl) {
 		JSON.stringify(mid?.details),
 	);
 	const zero = await cont(0);
-	check(
-		"waitSeconds 0 → immediate (0)",
-		zero?.details?.delaySeconds === 0,
-		JSON.stringify(zero?.details),
-	);
+	check("waitSeconds 0 → immediate (0)", zero?.details?.delaySeconds === 0, JSON.stringify(zero?.details));
 	const nan = await cont(Number.NaN);
 	check(
 		"waitSeconds NaN → immediate (0), never trusted",
@@ -765,11 +676,7 @@ async function waitSecondsIsClamped(goalUrl) {
 		JSON.stringify(nan?.details),
 	);
 	const absent = await cont(undefined);
-	check(
-		"waitSeconds absent → immediate (0)",
-		absent?.details?.delaySeconds === 0,
-		JSON.stringify(absent?.details),
-	);
+	check("waitSeconds absent → immediate (0)", absent?.details?.delaySeconds === 0, JSON.stringify(absent?.details));
 }
 
 // ===========================================================================
@@ -921,11 +828,7 @@ async function agentEndLeavesIndependentVerificationAlone(goalUrl) {
 		"agent_end leaves verifying-independent untouched (no AUTO re-arm)",
 		!states.some((s) => s.lastReason === AUTO_REASON),
 	);
-	check(
-		"agent_end does not spawn a second verifier",
-		execCalls.length === 1,
-		`calls=${execCalls.length}`,
-	);
+	check("agent_end does not spawn a second verifier", execCalls.length === 1, `calls=${execCalls.length}`);
 	check(
 		"goal still in verifying-independent after agent_end",
 		lastStatus(states) === "verifying-independent",
@@ -963,10 +866,7 @@ async function agentEndBudgetCut(goalUrl) {
 		lastStatus(built.states) === "stopped",
 		`last=${lastStatus(built.states)}`,
 	);
-	check(
-		"budget cut at agent_end does NOT auto re-arm",
-		!built.states.some((s) => s.lastReason === AUTO_REASON),
-	);
+	check("budget cut at agent_end does NOT auto re-arm", !built.states.some((s) => s.lastReason === AUTO_REASON));
 }
 
 // ===========================================================================
@@ -981,9 +881,7 @@ async function stopStatusObjectiveWithCriteriaStarts(goalUrl) {
 	const stopExt = await loadDefault(goalUrl);
 	const stopBuilt = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
 	stopExt(stopBuilt.pi);
-	await stopBuilt.commands
-		.get("goal")
-		.handler("stop the flaky retry path -- the tests pass", makeCtx());
+	await stopBuilt.commands.get("goal").handler("stop the flaky retry path -- the tests pass", makeCtx());
 	check(
 		"'/goal stop <obj> -- <criteria>' starts a goal (not swallowed by the stop subcommand)",
 		stopBuilt.states.some((s) => s.objective === "stop the flaky retry path"),

@@ -24,11 +24,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -261,19 +257,13 @@ async function scenarioResolvesAndRanks(url, outDir) {
 	const events = await readEvents(result.runDir);
 	check(
 		"resolve: emits sub-workflow start for lib/rank-candidates",
-		events.some(
-			(e) => e.type === "workflow" && e.phase === "start" && e.name === "lib/rank-candidates",
-		),
+		events.some((e) => e.type === "workflow" && e.phase === "start" && e.name === "lib/rank-candidates"),
 		"no start event",
 	);
 	check(
 		"resolve: emits sub-workflow end ok for lib/rank-candidates",
 		events.some(
-			(e) =>
-				e.type === "workflow" &&
-				e.phase === "end" &&
-				e.name === "lib/rank-candidates" &&
-				e.ok === true,
+			(e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/rank-candidates" && e.ok === true,
 		),
 		"no ok end event",
 	);

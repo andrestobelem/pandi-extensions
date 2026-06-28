@@ -63,9 +63,7 @@ export async function writeRunStatus(status: WorkflowRunStatus): Promise<void> {
 
 export async function readRunResult(runDir: string): Promise<WorkflowRunResult | undefined> {
 	try {
-		return JSON.parse(
-			await fs.readFile(path.join(runDir, "result.json"), "utf8"),
-		) as WorkflowRunResult;
+		return JSON.parse(await fs.readFile(path.join(runDir, "result.json"), "utf8")) as WorkflowRunResult;
 	} catch {
 		return undefined;
 	}
@@ -73,9 +71,7 @@ export async function readRunResult(runDir: string): Promise<WorkflowRunResult |
 
 export async function readRunStatus(runDir: string): Promise<WorkflowRunStatus | undefined> {
 	try {
-		const status = JSON.parse(
-			await fs.readFile(path.join(runDir, "status.json"), "utf8"),
-		) as WorkflowRunStatus;
+		const status = JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")) as WorkflowRunStatus;
 		if (status.state === "running" && !activeRuns.has(status.runId)) {
 			const now = Date.now();
 			const started = new Date(status.startedAt).getTime();

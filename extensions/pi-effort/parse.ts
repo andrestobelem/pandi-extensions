@@ -45,8 +45,7 @@ const LEVEL_ALIASES: Record<string, ThinkingLevel> = {
 
 export function parseEffortTarget(raw: string): EffortTarget {
 	const value = raw.trim().toLowerCase();
-	if (!value || value === "status" || value === "show" || value === "current")
-		return { kind: "status" };
+	if (!value || value === "status" || value === "show" || value === "current") return { kind: "status" };
 	if (value === "ultracode" || value === "ultra-code") return { kind: "ultracode" };
 
 	// Accept `/effort thinking=high`, `/effort level high`, etc. by using the

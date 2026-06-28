@@ -20,11 +20,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -218,9 +214,7 @@ module.exports = async function workflow(ctx, input) {
 	);
 	check(
 		"composition: emits workflow end event",
-		events.some(
-			(e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/child" && e.ok === true,
-		),
+		events.some((e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/child" && e.ok === true),
 	);
 }
 
@@ -244,11 +238,7 @@ module.exports = async function workflow(ctx) {
 };
 `,
 	);
-	await writeWorkflow(
-		project,
-		"lib/grandchild",
-		"module.exports = async () => 'should-not-run';\n",
-	);
+	await writeWorkflow(project, "lib/grandchild", "module.exports = async () => 'should-not-run';\n");
 
 	const ext = await freshExtension(url);
 	const { pi, tools } = makePi();
@@ -329,13 +319,7 @@ module.exports = async function workflow(ctx) {
 
 async function scenarioDefaultAgentAccess(url, outDir) {
 	const project = await makeProject();
-	const webSearchPackage = path.join(
-		outDir,
-		"agentdir",
-		"npm",
-		"node_modules",
-		"pi-codex-web-search",
-	);
+	const webSearchPackage = path.join(outDir, "agentdir", "npm", "node_modules", "pi-codex-web-search");
 	const webSearchExt = path.join(webSearchPackage, "src", "index.ts");
 	await fs.mkdir(path.dirname(webSearchExt), { recursive: true });
 	await fs.writeFile(
@@ -390,11 +374,7 @@ module.exports = async function workflow(ctx) {
 			concurrency: 1,
 			timeoutMs: 30_000,
 		});
-		check(
-			"agent access: workflow succeeds",
-			response.details.result.ok === true,
-			response.details.result.error,
-		);
+		check("agent access: workflow succeeds", response.details.result.ok === true, response.details.result.error);
 	} finally {
 		if (oldCommand === undefined) delete process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
 		else process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND = oldCommand;
@@ -442,8 +422,7 @@ module.exports = async function workflow(ctx) {
 	);
 	check(
 		"agent access: includeExtensions false opts out of web_search default",
-		!toolsFor(optOutCall).includes("web_search") &&
-			valuesFor(optOutCall, "--extension").length === 0,
+		!toolsFor(optOutCall).includes("web_search") && valuesFor(optOutCall, "--extension").length === 0,
 		JSON.stringify(optOutCall),
 	);
 	check(
@@ -503,11 +482,7 @@ module.exports = async function workflow(ctx) {
 			timeoutMs: 30_000,
 		});
 		const result = response.details.result;
-		check(
-			"agent JSON: workflow succeeds with truncated event stream",
-			result.ok === true,
-			result.error,
-		);
+		check("agent JSON: workflow succeeds with truncated event stream", result.ok === true, result.error);
 		check(
 			"agent JSON: parsed output is final assistant text",
 			result.output.output === JSON.stringify(expected),
@@ -515,9 +490,7 @@ module.exports = async function workflow(ctx) {
 		);
 		check(
 			"agent JSON: structured data comes from assistant text",
-			result.output.schemaOk === true &&
-				result.output.data?.ok === true &&
-				result.output.data?.value === "kept",
+			result.output.schemaOk === true && result.output.data?.ok === true && result.output.data?.value === "kept",
 			JSON.stringify(result.output),
 		);
 	} finally {
@@ -542,17 +515,9 @@ async function scenarioGeneratedDraftLocation(url, outDir) {
 	const workflow = write.details.workflow;
 	const expected = path.join(project, ".pi", "workflows", "drafts", "location-check.js");
 	const oldGeneratedPath = path.join(project, ".pi", "workflows", "generated", "location-check.js");
-	check(
-		"workflow drafts: written next to workflows/runs",
-		workflow.path === expected,
-		JSON.stringify(workflow),
-	);
+	check("workflow drafts: written next to workflows/runs", workflow.path === expected, JSON.stringify(workflow));
 	check("workflow drafts: file exists in workflows/drafts", existsSync(expected), expected);
-	check(
-		"workflow drafts: old workflows/generated path is not used",
-		!existsSync(oldGeneratedPath),
-		oldGeneratedPath,
-	);
+	check("workflow drafts: old workflows/generated path is not used", !existsSync(oldGeneratedPath), oldGeneratedPath);
 
 	const run = (
 		await runTool(tools.get("dynamic_workflow"), ctx, {
@@ -678,11 +643,7 @@ module.exports = async function workflow(ctx) {
 			timeoutMs: 30_000,
 		})
 	).details.result;
-	check(
-		"composition cache: first run executes parent + child bash",
-		execCount === 2,
-		`execCount=${execCount}`,
-	);
+	check("composition cache: first run executes parent + child bash", execCount === 2, `execCount=${execCount}`);
 	check(
 		"composition cache: first child version is v1",
 		first.output.child.version === "v1",
@@ -750,8 +711,7 @@ async function scenarioRunProcessSigkillEscalation(url) {
 		result !== TIMED_OUT,
 		"did not resolve within 6s",
 	);
-	if (result !== TIMED_OUT)
-		check("runProcess: reports timedOut", result.timedOut === true, JSON.stringify(result));
+	if (result !== TIMED_OUT) check("runProcess: reports timedOut", result.timedOut === true, JSON.stringify(result));
 }
 
 async function scenarioStreamingSigkillEscalation(url) {
@@ -777,11 +737,7 @@ async function scenarioStreamingSigkillEscalation(url) {
 		"did not resolve within 6s",
 	);
 	if (result !== TIMED_OUT)
-		check(
-			"runStreamingAgentProcess: reports killed",
-			result.killed === true,
-			JSON.stringify(result),
-		);
+		check("runStreamingAgentProcess: reports killed", result.killed === true, JSON.stringify(result));
 }
 
 // F27: settleWithinTimeout must clear its timeout timer so a fast-settling promise (e.g. all
@@ -814,18 +770,13 @@ async function scenarioShutdownTimerNoLeak(url) {
 // writer is using a path, without breaking mutual exclusion for concurrent writers.
 async function scenarioAppendMutexPurge(url) {
 	const mod = await import(`${url}?am=${instance++}`);
-	check(
-		"append: appendJsonLine exported",
-		typeof mod.appendJsonLine === "function",
-		typeof mod.appendJsonLine,
-	);
+	check("append: appendJsonLine exported", typeof mod.appendJsonLine === "function", typeof mod.appendJsonLine);
 	check(
 		"append: appendFileMutexCount exported",
 		typeof mod.appendFileMutexCount === "function",
 		typeof mod.appendFileMutexCount,
 	);
-	if (typeof mod.appendJsonLine !== "function" || typeof mod.appendFileMutexCount !== "function")
-		return;
+	if (typeof mod.appendJsonLine !== "function" || typeof mod.appendFileMutexCount !== "function") return;
 	const tmp = path.join(os.tmpdir(), `dwf-append-${process.pid}-${instance++}.jsonl`);
 	try {
 		await mod.appendJsonLine(tmp, { a: 1 });
@@ -855,11 +806,7 @@ async function scenarioAppendMutexPurge(url) {
 					return false;
 				}
 			});
-		check(
-			"append: concurrent writes stay serialized (4 intact JSON lines)",
-			allValid,
-			`lines=${lines.length}`,
-		);
+		check("append: concurrent writes stay serialized (4 intact JSON lines)", allValid, `lines=${lines.length}`);
 	} finally {
 		await fs.rm(tmp, { force: true });
 	}
@@ -943,22 +890,14 @@ async function scenarioPeakParallelTieAccuracy(url) {
 			endedAt: "2026-01-01T00:00:20.000Z",
 		},
 	];
-	check(
-		"peak: genuinely overlapping agents count as 2",
-		est(overlapping) === 2,
-		String(est(overlapping)),
-	);
+	check("peak: genuinely overlapping agents count as 2", est(overlapping) === 2, String(est(overlapping)));
 }
 
 // F14: run resolution must prefer an EXACT id match over a substring match on a different run
 // (otherwise `/workflow delete abc` could delete a run "abc123" instead of "abc").
 async function scenarioResolveRunExactMatchFirst(url) {
 	const mod = await import(`${url}?rk=${instance++}`);
-	check(
-		"resolve: selectRunByKey is exported",
-		typeof mod.selectRunByKey === "function",
-		typeof mod.selectRunByKey,
-	);
+	check("resolve: selectRunByKey is exported", typeof mod.selectRunByKey === "function", typeof mod.selectRunByKey);
 	if (typeof mod.selectRunByKey !== "function") return;
 	const sel = mod.selectRunByKey;
 	const runs = [
@@ -1028,15 +967,8 @@ function evalScaffold(code) {
 
 // F1: the scout/classify scaffold must not interpolate input.pattern into a shell command.
 async function scenarioScoutTemplateInjectionSafe(mod) {
-	const scoutCode = await findScaffold(
-		mod,
-		(c) => /git ls-files/.test(c) && /ctx\.pipeline/.test(c),
-	);
-	check(
-		"scout template: scaffold found",
-		typeof scoutCode === "string",
-		String(scoutCode).slice(0, 60),
-	);
+	const scoutCode = await findScaffold(mod, (c) => /git ls-files/.test(c) && /ctx\.pipeline/.test(c));
+	check("scout template: scaffold found", typeof scoutCode === "string", String(scoutCode).slice(0, 60));
 	if (typeof scoutCode !== "string") return;
 
 	// (a) Structural: never interpolate input into a single-quoted shell grep.
@@ -1050,11 +982,7 @@ async function scenarioScoutTemplateInjectionSafe(mod) {
 	// mock ctx that records bash commands; the (non-matching) regex must filter to zero files in
 	// JS, hitting the early return without the payload ever appearing in a shell command.
 	const workflow = evalScaffold(scoutCode);
-	check(
-		"scout template: scaffold exports a workflow function",
-		typeof workflow === "function",
-		typeof workflow,
-	);
+	check("scout template: scaffold exports a workflow function", typeof workflow === "function", typeof workflow);
 	if (typeof workflow !== "function") return;
 
 	const bashCommands = [];
@@ -1101,11 +1029,7 @@ async function scenarioAdversarialInputCoercion(mod) {
 		mod,
 		(c) => /skepticsPerFinding/.test(c) && /Array\.from\(\{ length: skeptics/.test(c),
 	);
-	check(
-		"adversarial template: scaffold found",
-		typeof code === "string",
-		String(code).slice(0, 60),
-	);
+	check("adversarial template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	const workflow = evalScaffold(code);
 	const ctx = {
@@ -1150,11 +1074,7 @@ async function scenarioAdversarialInputCoercion(mod) {
 // default instead.
 async function scenarioJudgeEscalateBounded(mod) {
 	const code = await findScaffold(mod, (c) => /maxEscalations/.test(c) && /while \(true\)/.test(c));
-	check(
-		"judge-escalate template: scaffold found",
-		typeof code === "string",
-		String(code).slice(0, 60),
-	);
+	check("judge-escalate template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	const workflow = evalScaffold(code);
 	let judgeCalls = 0;
@@ -1191,15 +1111,8 @@ async function scenarioJudgeEscalateBounded(mod) {
 // F21 sibling: compose-verify-claims `maxClaims` must fall back to the default, not NaN ->
 // slice(0,NaN) dropping every discovered claim.
 async function scenarioVerifyClaimsMaxClaimsCoercion(mod) {
-	const code = await findScaffold(
-		mod,
-		(c) => /claim-finder/.test(c) && /lib\/verify-claims/.test(c),
-	);
-	check(
-		"compose-verify-claims template: scaffold found",
-		typeof code === "string",
-		String(code).slice(0, 60),
-	);
+	const code = await findScaffold(mod, (c) => /claim-finder/.test(c) && /lib\/verify-claims/.test(c));
+	check("compose-verify-claims template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	const workflow = evalScaffold(code);
 	let claimsLen = -1;
@@ -1239,11 +1152,7 @@ async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 		mod,
 		(c) => /requestedSkeptics/.test(c) && /Array\.from\(\{ length: skeptics/.test(c),
 	);
-	check(
-		"verify-claims-lib template: scaffold found",
-		typeof code === "string",
-		String(code).slice(0, 60),
-	);
+	check("verify-claims-lib template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	const workflow = evalScaffold(code);
 	let juryLen = -1;

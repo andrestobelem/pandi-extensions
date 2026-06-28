@@ -12,9 +12,7 @@
  * module-private, only extractJsonCandidate (the sole external caller) is exported.
  */
 
-function parseJsonText(
-	textValue: string,
-): { ok: true; data: unknown } | { ok: false; error: string } {
+function parseJsonText(textValue: string): { ok: true; data: unknown } | { ok: false; error: string } {
 	try {
 		return { ok: true, data: JSON.parse(textValue) };
 	} catch (err) {
@@ -23,9 +21,7 @@ function parseJsonText(
 }
 
 function balancedJsonCandidate(textValue: string): string | undefined {
-	const starts = [textValue.indexOf("{"), textValue.indexOf("[")]
-		.filter((index) => index >= 0)
-		.sort((a, b) => a - b);
+	const starts = [textValue.indexOf("{"), textValue.indexOf("[")].filter((index) => index >= 0).sort((a, b) => a - b);
 	for (const start of starts) {
 		const stack: string[] = [];
 		let inString = false;
@@ -52,9 +48,7 @@ function balancedJsonCandidate(textValue: string): string | undefined {
 	return undefined;
 }
 
-export function extractJsonCandidate(
-	output: string,
-): { ok: true; data: unknown } | { ok: false; error: string } {
+export function extractJsonCandidate(output: string): { ok: true; data: unknown } | { ok: false; error: string } {
 	const trimmed = output.trim();
 	if (!trimmed) return { ok: false, error: "empty output" };
 	const direct = parseJsonText(trimmed);

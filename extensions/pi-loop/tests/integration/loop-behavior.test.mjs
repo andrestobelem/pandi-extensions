@@ -55,12 +55,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-loop/tests/integration/ -> repo root is four levels up.
@@ -240,11 +235,7 @@ async function noDeliveryWhileBusy(url) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: () => idle });
 
 	await startLoopCmd(commands, entries, "busy task", ctx);
-	check(
-		"busy: no wake delivered while agent is busy",
-		sentMessages.length === 0,
-		`delivered=${sentMessages.length}`,
-	);
+	check("busy: no wake delivered while agent is busy", sentMessages.length === 0, `delivered=${sentMessages.length}`);
 
 	// Human turn ends -> agent_end with the agent now idle -> the queued wake drains.
 	idle = true;
@@ -268,10 +259,7 @@ async function refusesNonInteractiveMode(url) {
 
 	const startedId = await startLoopCmd(commands, entries, "cannot loop here", ctx);
 	check("mode: /loop in print mode starts no loop", startedId === undefined);
-	check(
-		"mode: print mode persists no loop-state",
-		entries.find((e) => e.customType === "loop-state") === undefined,
-	);
+	check("mode: print mode persists no loop-state", entries.find((e) => e.customType === "loop-state") === undefined);
 	check("mode: print mode injects no wake", sentMessages.length === 0);
 }
 
@@ -294,26 +282,12 @@ async function fixedModeAndScheduleNoop(url) {
 	check("fixed: started a loop with a trailing interval token", !!fixedId);
 	const snap = latestSnapshot(entries, fixedId);
 	check("fixed: mode persisted as 'fixed'", snap?.mode === "fixed", `mode=${snap?.mode}`);
-	check(
-		"fixed: intervalMs is 300000 (5m)",
-		snap?.intervalMs === 300000,
-		`intervalMs=${snap?.intervalMs}`,
-	);
-	check(
-		"fixed: task token stripped of the interval",
-		snap?.task === "watch the build",
-		`task=${snap?.task}`,
-	);
+	check("fixed: intervalMs is 300000 (5m)", snap?.intervalMs === 300000, `intervalMs=${snap?.intervalMs}`);
+	check("fixed: task token stripped of the interval", snap?.task === "watch the build", `task=${snap?.task}`);
 
 	// Now the model (autopilot turn in flight) calls loop_schedule on the FIXED loop.
 	const sched = tools.get("loop_schedule");
-	const res = await sched.execute(
-		"tc",
-		{ delaySeconds: 90, reason: "want sooner" },
-		undefined,
-		undefined,
-		ctx,
-	);
+	const res = await sched.execute("tc", { delaySeconds: 90, reason: "want sooner" }, undefined, undefined, ctx);
 	check(
 		"fixed: loop_schedule reports a NO-OP on a fixed loop",
 		res?.details?.noop === true,
@@ -376,11 +350,7 @@ async function terminalLoopsDisappearFromActiveStatus(url) {
 
 	await commands.get("loop").handler(`stop ${id}`, ctx);
 	const stopped = latestSnapshot(entries, id);
-	check(
-		"terminal: final stopped snapshot is persisted",
-		stopped?.status === "stopped",
-		`status=${stopped?.status}`,
-	);
+	check("terminal: final stopped snapshot is persisted", stopped?.status === "stopped", `status=${stopped?.status}`);
 
 	await commands.get("loop").handler("status", ctx);
 	check(
@@ -491,8 +461,7 @@ async function agedRehydrateWatchdog(url) {
 	];
 
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
-	ctx.sessionManager.getEntries = () =>
-		seed.map((data) => ({ type: "custom", customType: "loop-state", data }));
+	ctx.sessionManager.getEntries = () => seed.map((data) => ({ type: "custom", customType: "loop-state", data }));
 
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 
@@ -542,18 +511,9 @@ async function intervalParseAndClamp(url) {
 		return id ? latestSnapshot(entries, id) : undefined;
 	}
 
-	check(
-		"interval: '30s' -> fixed 30000ms",
-		(await startAndSnap("do thing 30s"))?.intervalMs === 30000,
-	);
-	check(
-		"interval: '5m' -> fixed 300000ms",
-		(await startAndSnap("do thing 5m"))?.intervalMs === 300000,
-	);
-	check(
-		"interval: '2h' -> fixed 7200000ms",
-		(await startAndSnap("do thing 2h"))?.intervalMs === 7200000,
-	);
+	check("interval: '30s' -> fixed 30000ms", (await startAndSnap("do thing 30s"))?.intervalMs === 30000);
+	check("interval: '5m' -> fixed 300000ms", (await startAndSnap("do thing 5m"))?.intervalMs === 300000);
+	check("interval: '2h' -> fixed 7200000ms", (await startAndSnap("do thing 2h"))?.intervalMs === 7200000);
 
 	// Clamp DOWN: 48h exceeds the 24h cap -> clamped to 24h = 86400000ms.
 	check(
@@ -563,23 +523,12 @@ async function intervalParseAndClamp(url) {
 
 	// A 0-value token does NOT match the parser (value <= 0 rejected) -> dynamic, token kept.
 	const zero = await startAndSnap("do thing 0s");
-	check(
-		"interval: '0s' is rejected -> dynamic mode (no busy-spin)",
-		zero?.mode === "dynamic",
-		`mode=${zero?.mode}`,
-	);
-	check(
-		"interval: '0s' token stays part of the task",
-		zero?.task === "do thing 0s",
-		`task=${zero?.task}`,
-	);
+	check("interval: '0s' is rejected -> dynamic mode (no busy-spin)", zero?.mode === "dynamic", `mode=${zero?.mode}`);
+	check("interval: '0s' token stays part of the task", zero?.task === "do thing 0s", `task=${zero?.task}`);
 
 	// Non-matching tokens -> dynamic, no interval.
 	const dyn1 = await startAndSnap("just a task");
-	check(
-		"interval: no trailing token -> dynamic",
-		dyn1?.mode === "dynamic" && dyn1?.intervalMs == null,
-	);
+	check("interval: no trailing token -> dynamic", dyn1?.mode === "dynamic" && dyn1?.intervalMs == null);
 	const dyn2 = await startAndSnap("refactor module5");
 	check(
 		"interval: 'module5' (digit not at start) -> dynamic",

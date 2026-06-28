@@ -31,15 +31,7 @@ const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
 
 type JobState =
-	| "starting"
-	| "running"
-	| "completed"
-	| "failed"
-	| "cancelled"
-	| "orphaned"
-	| "interrupted"
-	| "stale"
-	| "unknown";
+	"starting" | "running" | "completed" | "failed" | "cancelled" | "orphaned" | "interrupted" | "stale" | "unknown";
 
 interface PlanModeGuard {
 	isActive(): boolean;
@@ -98,11 +90,7 @@ function nowIso(): string {
 
 async function appendEvent(runDir: string, event: Record<string, unknown>): Promise<void> {
 	await fs
-		.appendFile(
-			path.join(runDir, "events.jsonl"),
-			`${JSON.stringify({ time: nowIso(), ...event })}\n`,
-			"utf8",
-		)
+		.appendFile(path.join(runDir, "events.jsonl"), `${JSON.stringify({ time: nowIso(), ...event })}\n`, "utf8")
 		.catch(() => undefined);
 }
 
@@ -263,9 +251,7 @@ async function listJobs(ctx: ExtensionContext): Promise<JobSummary[]> {
 			});
 		}
 	}
-	return jobs.sort((a, b) =>
-		(b.updatedAt ?? b.createdAt ?? "").localeCompare(a.updatedAt ?? a.createdAt ?? ""),
-	);
+	return jobs.sort((a, b) => (b.updatedAt ?? b.createdAt ?? "").localeCompare(a.updatedAt ?? a.createdAt ?? ""));
 }
 
 async function findJobDir(ctx: ExtensionContext, jobId: string): Promise<string | undefined> {
@@ -308,8 +294,7 @@ async function eachProjectRunDir(
 	} catch {
 		return [];
 	}
-	const out: Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }> =
-		[];
+	const out: Array<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }> = [];
 	for (const entry of entries) {
 		if (!entry.isDirectory() || !validJobId(entry.name)) continue;
 		const runDir = path.join(root, entry.name);
@@ -371,11 +356,7 @@ function formatJob(job: JobSummary): string {
 	return `- ${job.jobId}: ${job.state ?? "unknown"}${when ? ` (${when})` : ""}${command}`;
 }
 
-function response(
-	message: string,
-	details?: unknown,
-	type: BgResponse["type"] = "info",
-): BgResponse {
+function response(message: string, details?: unknown, type: BgResponse["type"] = "info"): BgResponse {
 	return { message, details, type };
 }
 
@@ -426,8 +407,7 @@ function closeStreams(runtime: RuntimeJob): void {
 	runtime.combinedStream.end();
 }
 
-type ErrorEmitter =
-	{ on(event: "error", listener: (err: Error) => void): unknown } | null | undefined;
+type ErrorEmitter = { on(event: "error", listener: (err: Error) => void): unknown } | null | undefined;
 
 // Contain stream 'error' events to the job: without a listener, an 'error' on a
 // log WriteStream or child stdout/stderr pipe escalates to uncaughtException and
@@ -468,8 +448,7 @@ export function pipeWithBackpressure(
 	// dead or capped log sink can never freeze the source (and thus the child) and leave
 	// the job stuck.
 	const maybeResume = (): void => {
-		if (sinks.every((sink, i) => sink.destroyed || capped[i] || !sink.writableNeedDrain))
-			source.resume();
+		if (sinks.every((sink, i) => sink.destroyed || capped[i] || !sink.writableNeedDrain)) source.resume();
 	};
 	source.on("data", (chunk: Buffer) => {
 		let blocked = false;
@@ -613,13 +592,7 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 		detached: process.platform !== "win32",
 		stdio: ["ignore", "pipe", "pipe"],
 	});
-	guardStreamErrors(runDir, jobId, [
-		stdoutStream,
-		stderrStream,
-		combinedStream,
-		child.stdout,
-		child.stderr,
-	]);
+	guardStreamErrors(runDir, jobId, [stdoutStream, stderrStream, combinedStream, child.stdout, child.stderr]);
 
 	const runtime: RuntimeJob = {
 		jobId,
@@ -747,8 +720,7 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	const blocked = rejectInPlanMode("cancel");
 	if (blocked) return blocked;
 	const trimmed = jobId.trim();
-	if (!trimmed || !validJobId(trimmed))
-		return response("Usage: /bg cancel <jobId>", undefined, "warning");
+	if (!trimmed || !validJobId(trimmed)) return response("Usage: /bg cancel <jobId>", undefined, "warning");
 	const runtime = activeJobs.get(trimmed);
 	if (!runtime) return await cancelPersistedJob(ctx, trimmed);
 	if (isJobFinished(runtime)) {
@@ -887,10 +859,8 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 	const skipped: Array<{ jobId: string; state: string; reason: string }> = [];
 	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
 		const verdict = classifyForDeletion(jobId, status);
-		if (verdict.deletable)
-			candidates.push({ jobId, state: verdict.liveState, bytes: await dirSizeBytes(runDir) });
-		else
-			skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "not deletable" });
+		if (verdict.deletable) candidates.push({ jobId, state: verdict.liveState, bytes: await dirSizeBytes(runDir) });
+		else skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "not deletable" });
 	}
 	const totalBytes = candidates.reduce((sum, c) => sum + c.bytes, 0);
 	if (yes) {
@@ -925,9 +895,7 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 		`Prune preview: ${candidates.length} deletable (${totalBytes} bytes), ${skipped.length} skipped.`,
 		...candidates.map((c) => `  delete ${c.jobId} · ${c.state} · ${c.bytes}B`),
 		...skipped.map((s) => `  skip   ${s.jobId} · ${s.state} · ${s.reason}`),
-		candidates.length
-			? `Run /bg prune --yes to delete ${candidates.length} job(s).`
-			: "Nothing to prune.",
+		candidates.length ? `Run /bg prune --yes to delete ${candidates.length} job(s).` : "Nothing to prune.",
 	];
 	return response(lines.join("\n"), {
 		action: "prune",
@@ -979,25 +947,16 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 		(reread) => classifyForDeletion(jobId, reread).deletable,
 	);
 	if (!removed)
-		return response(
-			`Background job not found: ${jobId}`,
-			{ action: "delete", jobId, deleted: false },
-			"warning",
-		);
+		return response(`Background job not found: ${jobId}`, { action: "delete", jobId, deleted: false }, "warning");
 	return response(`Background job ${jobId} deleted.`, { action: "delete", jobId, deleted: true });
 }
 
 // Validate a job id and resolve its symlink-safe run directory, or return the
 // shared usage/not-found warning so every read subcommand behaves identically.
-async function resolveRunDir(
-	ctx: ExtensionContext,
-	jobId: string,
-	usage: string,
-): Promise<string | BgResponse> {
+async function resolveRunDir(ctx: ExtensionContext, jobId: string, usage: string): Promise<string | BgResponse> {
 	if (!jobId || !validJobId(jobId)) return response(usage, undefined, "warning");
 	const runDir = await findJobDir(ctx, jobId);
-	if (!runDir)
-		return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
+	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
 	return runDir;
 }
 
@@ -1081,13 +1040,7 @@ async function boundedArtifactResponse(
 async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg logs <jobId>");
 	if (typeof runDir !== "string") return runDir;
-	const combined = await boundedArtifactResponse(
-		runDir,
-		jobId,
-		"combined.log",
-		"combined.log",
-		"(empty log)",
-	);
+	const combined = await boundedArtifactResponse(runDir, jobId, "combined.log", "combined.log", "(empty log)");
 	if (combined) return combined;
 	const stdout = await readBoundedLog(path.join(runDir, "stdout.log"));
 	const stderr = await readBoundedLog(path.join(runDir, "stderr.log"));
@@ -1115,19 +1068,9 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 async function handleEvents(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg events <jobId>");
 	if (typeof runDir !== "string") return runDir;
-	const events = await boundedArtifactResponse(
-		runDir,
-		jobId,
-		"events.jsonl",
-		"events.jsonl",
-		"(no events)",
-	);
+	const events = await boundedArtifactResponse(runDir, jobId, "events.jsonl", "events.jsonl", "(no events)");
 	if (events) return events;
-	return response(
-		`No events found for ${jobId}.`,
-		{ jobId, found: true, events: false },
-		"warning",
-	);
+	return response(`No events found for ${jobId}.`, { jobId, found: true, events: false }, "warning");
 }
 
 async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgResponse> {
@@ -1170,11 +1113,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 				);
 		}
 	} catch (err) {
-		return response(
-			`/bg failed: ${(err as Error).message}`,
-			{ error: (err as Error).message },
-			"error",
-		);
+		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
 	}
 }
 

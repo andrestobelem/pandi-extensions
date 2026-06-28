@@ -90,30 +90,16 @@ const signal = new AbortController().signal;
 const ctx = makeCtx();
 
 for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
-	const res = await tool.execute(
-		"scaffold",
-		{ action: "template", name: key },
-		signal,
-		() => {},
-		ctx,
-	);
+	const res = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
 	const code = res?.content?.[0]?.text ?? "";
 
 	// 1) Must NOT compact the bare raw-results array (metadata footgun).
 	const rawCompact = new RegExp(`ctx\\.compact\\(\\s*${rawVar}\\s*,`);
-	check(
-		`${key}: does not compact raw ${rawVar} array`,
-		!rawCompact.test(code),
-		code.match(rawCompact)?.[0],
-	);
+	check(`${key}: does not compact raw ${rawVar} array`, !rawCompact.test(code), code.match(rawCompact)?.[0]);
 
 	// 2) Must project to textual output before compacting (attribution-friendly).
 	const projects = /\.map\(\s*\(?\s*r\s*\)?\s*=>\s*\(\{[^}]*\boutput:\s*r\.output\b/.test(code);
-	check(
-		`${key}: projects results to {..., output: r.output} for synthesis`,
-		projects,
-		code.slice(0, 0),
-	);
+	check(`${key}: projects results to {..., output: r.output} for synthesis`, projects, code.slice(0, 0));
 }
 
 console.log(`\n${failures === 0 ? "ALL PASS" : failures + " FAIL"}`);

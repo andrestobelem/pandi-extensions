@@ -13,13 +13,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	bundle,
-	createChecker,
-	loadDefault,
-	makeBuildDir,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/<extension>/tests/integration/ -> repo root is four levels up.
@@ -85,13 +79,7 @@ function makePi() {
 	return { pi, tools, commands, handlers, entries, sentMessages };
 }
 
-function makeCtx({
-	mode = "tui",
-	hasUI = true,
-	confirmResult = true,
-	cwd = TEST_PROJECT_ROOT,
-	entries = [],
-} = {}) {
+function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = TEST_PROJECT_ROOT, entries = [] } = {}) {
 	const ctx = {
 		mode,
 		hasUI,
@@ -193,31 +181,16 @@ async function loopAutopilotGate(loopUrl) {
 	}
 
 	// write/edit: blocked only when the path escapes the project root.
-	const outside = await runGate(
-		handlers,
-		ctx,
-		toolCallEvent("write", { file_path: "/etc/passwd", content: "x" }),
-	);
-	check(
-		"loop(autopilot): BLOCKS write to /etc/passwd (outside project)",
-		!!outside && outside.block === true,
-	);
-	const traversal = await runGate(
-		handlers,
-		ctx,
-		toolCallEvent("edit", { file_path: "../../secret" }),
-	);
+	const outside = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "/etc/passwd", content: "x" }));
+	check("loop(autopilot): BLOCKS write to /etc/passwd (outside project)", !!outside && outside.block === true);
+	const traversal = await runGate(handlers, ctx, toolCallEvent("edit", { file_path: "../../secret" }));
 	check("loop(autopilot): BLOCKS edit via .. traversal", !!traversal && traversal.block === true);
 	const inside = await runGate(
 		handlers,
 		ctx,
 		toolCallEvent("write", { file_path: path.join(cwd, "fixtures/x.txt"), content: "x" }),
 	);
-	check(
-		"loop(autopilot): ALLOWS write inside project",
-		inside === undefined,
-		inside ? inside.reason : "",
-	);
+	check("loop(autopilot): ALLOWS write inside project", inside === undefined, inside ? inside.reason : "");
 	const relInside = await runGate(
 		handlers,
 		ctx,
@@ -246,13 +219,7 @@ async function loopScheduleClamp(loopUrl) {
 	check("loop_schedule tool registered", !!sched);
 
 	async function delayFor(raw) {
-		const res = await sched.execute(
-			"tc",
-			{ delaySeconds: raw, reason: "test clamp" },
-			undefined,
-			undefined,
-			ctx,
-		);
+		const res = await sched.execute("tc", { delaySeconds: raw, reason: "test clamp" }, undefined, undefined, ctx);
 		return res.details ? res.details.delaySeconds : undefined;
 	}
 
@@ -262,10 +229,7 @@ async function loopScheduleClamp(loopUrl) {
 	check("loop_schedule: 99999 clamps down to 3600", (await delayFor(99999)) === 3600);
 	check("loop_schedule: 60 (lower bound) stays 60", (await delayFor(60)) === 60);
 	check("loop_schedule: 3600 (upper bound) stays 3600", (await delayFor(3600)) === 3600);
-	check(
-		"loop_schedule: NaN falls back to safety net (1500)",
-		(await delayFor(Number.NaN)) === 1500,
-	);
+	check("loop_schedule: NaN falls back to safety net (1500)", (await delayFor(Number.NaN)) === 1500);
 }
 
 // ===========================================================================

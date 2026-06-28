@@ -212,11 +212,8 @@ function setLoopStatus(ctx: ExtensionContext, loop: LoopState): void {
 	const theme = ctx.ui.theme;
 	const paused = loop.status === "paused" ? " paused" : "";
 	const fixed =
-		loop.mode === "fixed" && loop.intervalMs
-			? ` @${formatInterval(Math.round(loop.intervalMs / 1000))}`
-			: "";
-	const eta =
-		loop.status === "running" && loop.nextFireAt ? ` next ${formatEta(loop.nextFireAt)}` : "";
+		loop.mode === "fixed" && loop.intervalMs ? ` @${formatInterval(Math.round(loop.intervalMs / 1000))}` : "";
+	const eta = loop.status === "running" && loop.nextFireAt ? ` next ${formatEta(loop.nextFireAt)}` : "";
 	const reason = loop.lastReason ? ` · ${loop.lastReason}` : "";
 	ctx.ui.setStatus(
 		LOOP_STATUS_KEY,
@@ -400,11 +397,7 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		// Guards re-checked at delivery (state may have changed while queued).
 		if (loop.iteration >= loop.maxIterations) {
 			stopLoop(pi, ctx, loop.loopId, `reached maxIterations (${loop.maxIterations})`, "done");
-			notify(
-				ctx,
-				`Loop ${loop.loopId} stopped: reached maxIterations (${loop.maxIterations}).`,
-				"warning",
-			);
+			notify(ctx, `Loop ${loop.loopId} stopped: reached maxIterations (${loop.maxIterations}).`, "warning");
 			continue;
 		}
 		const cap = capExceeded(ctx, loop);
@@ -436,12 +429,7 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 }
 
 /** Stop a loop because a cap was hit. Status "done" (a clean, expected end). */
-function stopForCap(
-	pi: ExtensionAPI,
-	ctx: ExtensionContext,
-	loop: ActiveLoop,
-	reason: string,
-): void {
+function stopForCap(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop, reason: string): void {
 	stopLoop(pi, ctx, loop.loopId, reason, "done");
 	notify(ctx, `Loop ${loop.loopId} stopped: ${reason}.`, "warning");
 }
@@ -478,11 +466,7 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 
 	if (loop.iteration >= loop.maxIterations) {
 		stopLoop(pi, ctx, loop.loopId, `reached maxIterations (${loop.maxIterations})`, "done");
-		notify(
-			ctx,
-			`Loop ${loop.loopId} stopped: reached maxIterations (${loop.maxIterations}).`,
-			"warning",
-		);
+		notify(ctx, `Loop ${loop.loopId} stopped: reached maxIterations (${loop.maxIterations}).`, "warning");
 		return;
 	}
 
@@ -610,8 +594,7 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 
 	// Send the first iteration prompt immediately. fireWake handles iteration++/persist/status.
 	fireWake(pi, ctx, loop);
-	const modeLabel =
-		loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
+	const modeLabel = loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
 	notify(ctx, `Started loop ${loopId}${modeLabel}: ${taskText}`, "info");
 	return loop;
 }
@@ -662,11 +645,7 @@ async function startAutonomousLoop(
 	}
 	// Mandatory confirmation: no UI to confirm on → refuse (cannot get consent).
 	if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
-		notify(
-			ctx,
-			"/loop auto requires an interactive confirmation, which this session cannot show.",
-			"error",
-		);
+		notify(ctx, "/loop auto requires an interactive confirmation, which this session cannot show.", "error");
 		return undefined;
 	}
 	const approved = await ctx.ui.confirm(
@@ -706,8 +685,7 @@ async function startAutonomousLoop(
 	persist(pi, ctx, loop);
 
 	fireWake(pi, ctx, loop);
-	const modeLabel =
-		loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
+	const modeLabel = loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
 	notify(ctx, `Started autonomous loop ${loopId}${modeLabel}: ${objective}`, "info");
 	return loop;
 }
@@ -790,8 +768,7 @@ function pauseLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): b
 	}
 	// Preserve the remaining delay as a relative offset so resume can restore it even
 	// across a persist/rehydrate (we re-derive nextFireAt on resume from this).
-	loop.pausedRemainingMs =
-		loop.nextFireAt === null ? null : Math.max(0, loop.nextFireAt - Date.now());
+	loop.pausedRemainingMs = loop.nextFireAt === null ? null : Math.max(0, loop.nextFireAt - Date.now());
 	loop.status = "paused";
 	loop.autopilot = false;
 	// Drop any pending wake so a paused loop never re-injects from the queue.
@@ -875,8 +852,7 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		// "running" = was live in a prior process; "stale" = persisted by a clean
 		// session_shutdown (reload/quit); "paused" = recover and keep paused.
 		// Anything else (stopped/done/failed) is terminal → skip.
-		if (state.status !== "running" && state.status !== "stale" && state.status !== "paused")
-			continue;
+		if (state.status !== "running" && state.status !== "stale" && state.status !== "paused") continue;
 		// Timer still alive in this process → do not re-arm (no double-fire).
 		if (activeLoops.has(state.loopId)) continue;
 		// AUTONOMOUS re-entry gate (P2 security): an autonomous loop acts with no human in
@@ -901,13 +877,7 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 				autopilot: false,
 			};
 			activeLoops.set(retired.loopId, retired);
-			stopLoop(
-				pi,
-				ctx,
-				retired.loopId,
-				"autonomous loop retired: project no longer trusted",
-				"stopped",
-			);
+			stopLoop(pi, ctx, retired.loopId, "autonomous loop retired: project no longer trusted", "stopped");
 			continue;
 		}
 
@@ -964,11 +934,7 @@ function loopStateRoot(ctx: ExtensionContext): string {
 	return path.join(getAgentDir(), LOOP_DIR, projectHash);
 }
 
-const TERMINAL_STATUSES: ReadonlySet<LoopStatus> = new Set<LoopStatus>([
-	"done",
-	"stopped",
-	"failed",
-]);
+const TERMINAL_STATUSES: ReadonlySet<LoopStatus> = new Set<LoopStatus>(["done", "stopped", "failed"]);
 
 /**
  * Sweep old terminal sidecar dirs (P2). For every <root>/<id>/state.json, parse it and
@@ -982,10 +948,7 @@ const TERMINAL_STATUSES: ReadonlySet<LoopStatus> = new Set<LoopStatus>([
  * delete fresh state — and we still require a TERMINAL status, so a live loop is safe even
  * if its state.json is ancient.
  */
-async function gcOldTerminalLoops(
-	ctx: ExtensionContext,
-	now: number = Date.now(),
-): Promise<number> {
+async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Date.now()): Promise<number> {
 	const root = loopStateRoot(ctx);
 	if (!existsSync(root)) return 0;
 	let removed = 0;
@@ -1063,11 +1026,7 @@ function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Da
 // Command handling
 // ---------------------------------------------------------------------------
 
-async function handleLoopCommand(
-	pi: ExtensionAPI,
-	args: string,
-	ctx: ExtensionContext,
-): Promise<void> {
+async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
 	const trimmed = args.trim();
 	const firstSpace = trimmed.indexOf(" ");
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
@@ -1115,11 +1074,7 @@ async function handleLoopCommand(
 	if (firstToken === "status") {
 		if (rest) {
 			const loop = activeLoops.get(rest);
-			notify(
-				ctx,
-				loop ? formatStatus(loop) : `No loop with id ${rest}.`,
-				loop ? "info" : "warning",
-			);
+			notify(ctx, loop ? formatStatus(loop) : `No loop with id ${rest}.`, loop ? "info" : "warning");
 			return;
 		}
 		const all = [...activeLoops.values()];
@@ -1220,8 +1175,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			// with autopilot set. This matters when a fixed and a dynamic loop coexist —
 			// without it, a fixed loop's autopilot turn could reprogram the dynamic loop's
 			// timer. Fall back to a running dynamic loop, then any running loop.
-			const loop =
-				running.find((l) => l.autopilot) ?? running.find((l) => l.mode === "dynamic") ?? running[0];
+			const loop = running.find((l) => l.autopilot) ?? running.find((l) => l.mode === "dynamic") ?? running[0];
 			// Fixed mode: the extension owns the cadence, so loop_schedule is an
 			// informative NO-OP — do not touch the timer or nextFireAt. The model only
 			// decides continue (do nothing) vs stop (loop_stop) on a fixed interval.
@@ -1264,8 +1218,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "loop_stop",
 		label: "Loop Stop",
-		description:
-			"End the active /loop. Call this when the task is complete or no further iterations help.",
+		description: "End the active /loop. Call this when the task is complete or no further iterations help.",
 		promptSnippet: "End the active /loop with a reason.",
 		parameters: Type.Object({
 			reason: Type.String(),
@@ -1380,13 +1333,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 				rearmFixed(pi, ctx, loop);
 			} else {
 				// Dynamic mode: model did not call loop_schedule this turn → defensive re-arm.
-				scheduleWake(
-					pi,
-					ctx,
-					loop,
-					SAFETY_NET_DELAY_SECONDS,
-					"auto: turn closed without loop_schedule",
-				);
+				scheduleWake(pi, ctx, loop, SAFETY_NET_DELAY_SECONDS, "auto: turn closed without loop_schedule");
 			}
 		}
 		// The autopilot turn is over: release the in-flight gate and deliver the NEXT queued

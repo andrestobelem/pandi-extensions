@@ -10,11 +10,7 @@
  * there is no runtime cycle. Extracted byte-identically from index.ts.
  */
 import { renderSafeInline } from "./render-utils.js";
-import type {
-	WorkflowGraphFanoutInfo,
-	WorkflowGraphChildCall,
-	WorkflowGraphStep,
-} from "./index.js";
+import type { WorkflowGraphFanoutInfo, WorkflowGraphChildCall, WorkflowGraphStep } from "./index.js";
 
 export function mermaidLabel(value: string): string {
 	return (
@@ -230,8 +226,7 @@ function inferCollectionCardinality(
 		const source = compactExpressionLabel(mapMatch[1], 48);
 		return { countLabel: `${source}.length`, many: true };
 	}
-	if (/\.length\b/.test(trimmed))
-		return { countLabel: compactExpressionLabel(trimmed, 48), many: true };
+	if (/\.length\b/.test(trimmed)) return { countLabel: compactExpressionLabel(trimmed, 48), many: true };
 	if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\?\.[A-Za-z_$][\w$]*)*$/.test(trimmed))
 		return { countLabel: `${trimmed}.length`, many: true };
 	return { countLabel: fallbackLabel, many: true };
@@ -289,16 +284,12 @@ export function formatWorkflowGraphFanoutSummary(fanout: WorkflowGraphFanoutInfo
 	if (fanout.phaseLabel) parts.unshift(fanout.phaseLabel);
 	if (fanout.stages !== undefined) parts.push(`${fanout.stages} stages`);
 	if (fanout.concurrency)
-		parts.push(
-			fanout.concurrency === "concurrency" ? "concurrency" : `concurrency=${fanout.concurrency}`,
-		);
+		parts.push(fanout.concurrency === "concurrency" ? "concurrency" : `concurrency=${fanout.concurrency}`);
 	if (fanout.settle !== undefined) parts.push(`settle:${fanout.settle}`);
 	return parts.join(" · ");
 }
 
-export function summarizeWorkflowGraphChildren(
-	children: WorkflowGraphChildCall[],
-): string | undefined {
+export function summarizeWorkflowGraphChildren(children: WorkflowGraphChildCall[]): string | undefined {
 	if (children.length === 0) return undefined;
 	const counts = new Map<string, number>();
 	for (const child of children) counts.set(child.method, (counts.get(child.method) ?? 0) + 1);
@@ -310,15 +301,11 @@ export function summarizeWorkflowGraphChildren(
 export function workflowGraphMethodInfo(
 	method: string,
 ): Omit<WorkflowGraphStep, "index" | "label" | "line" | "firstArg" | "children" | "fanout"> {
-	if (method === "agents")
-		return { method, kind: "fanout", symbol: "◆", title: "fan-out subagents" };
-	if (method === "parallel")
-		return { method, kind: "barrier", symbol: "⧉", title: "parallel barrier" };
-	if (method === "pipeline")
-		return { method, kind: "pipeline", symbol: "▣", title: "pipeline lanes" };
+	if (method === "agents") return { method, kind: "fanout", symbol: "◆", title: "fan-out subagents" };
+	if (method === "parallel") return { method, kind: "barrier", symbol: "⧉", title: "parallel barrier" };
+	if (method === "pipeline") return { method, kind: "pipeline", symbol: "▣", title: "pipeline lanes" };
 	if (method === "agent") return { method, kind: "agent", symbol: "●", title: "subagent" };
-	if (method === "workflow")
-		return { method, kind: "subworkflow", symbol: "◇", title: "sub-workflow" };
+	if (method === "workflow") return { method, kind: "subworkflow", symbol: "◇", title: "sub-workflow" };
 	if (method === "bash") return { method, kind: "shell", symbol: "$", title: "bash" };
 	if (method === "writeArtifact" || method === "appendArtifact")
 		return {

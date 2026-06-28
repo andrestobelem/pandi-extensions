@@ -55,6 +55,10 @@ For multi-step tasks, state a brief plan (`1. [Step] → verify: [check]`). Stro
 
 > In this package these principles are operationalized as runtime mechanisms: the `/plan` extension (read-only plan mode until approved) ≈ Think Before Coding; the `/loop` safeguards (touch only your own files, never hot/foreign ones) ≈ Surgical Changes; `/goal` + `/loop` (success criteria + independent verification, loop until done) ≈ Goal-Driven Execution. Behavior integration suites grouped by extension under `tests/<extension>/integration/` (run via `npm test`) keep them honest.
 
+## Scratch space
+
+Use the gitignored `.pi/tmp/` directory for throwaway temporary files (scratch scripts, previews, ad-hoc experiments). Do not commit them and do not scatter temp files across the repo.
+
 ## Commits
 
 - Use Conventional Commits with an explicit scope, for example `feat(dynamic-workflows): add monitor dashboard`.

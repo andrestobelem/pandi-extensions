@@ -15,11 +15,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -174,11 +170,7 @@ async function scenarioDynamicWorkflowAlias(url) {
 		harness.activeTools.includes("dynamic_workflow"),
 		harness.activeTools.join(","),
 	);
-	check(
-		"/dynamic-workflow keeps original task",
-		prompt.includes("Task:\naudita este repo"),
-		prompt,
-	);
+	check("/dynamic-workflow keeps original task", prompt.includes("Task:\naudita este repo"), prompt);
 	assertContractGate("/dynamic-workflow prompt", prompt);
 
 	const notifications = [];
@@ -199,16 +191,8 @@ async function scenarioInputTransform(url) {
 		text: "ultracode audita npm",
 		images: ["image-1"],
 	});
-	check(
-		"input hook transforms ultracode prefix",
-		result?.action === "transform",
-		JSON.stringify(result),
-	);
-	check(
-		"input transform preserves images",
-		result?.images?.[0] === "image-1",
-		JSON.stringify(result?.images),
-	);
+	check("input hook transforms ultracode prefix", result?.action === "transform", JSON.stringify(result));
+	check("input transform preserves images", result?.images?.[0] === "image-1", JSON.stringify(result?.images));
 	check("input transform strips prefix", result?.text?.includes("Task:\naudita npm"), result?.text);
 	assertContractGate("input prompt", result?.text ?? "");
 }
@@ -230,16 +214,11 @@ async function scenarioAlwaysOn(url) {
 	assertContractGate("always-on prompt", result?.systemPrompt ?? "");
 
 	const generated = await fireFirst(harness.handlers, "before_agent_start", {
-		prompt:
-			"Use Pi Dynamic Workflows when they are warranted for this task.\n\nTask:\nx\n\nUltracode rules:\n",
+		prompt: "Use Pi Dynamic Workflows when they are warranted for this task.\n\nTask:\nx\n\nUltracode rules:\n",
 		systemPrompt: "base system",
 		systemPromptOptions: { selectedTools: ["dynamic_workflow"] },
 	});
-	check(
-		"always-on skips generated ultracode prompts",
-		generated === undefined,
-		JSON.stringify(generated),
-	);
+	check("always-on skips generated ultracode prompts", generated === undefined, JSON.stringify(generated));
 }
 
 async function scenarioContractGateToggle(url) {
@@ -323,15 +302,9 @@ async function scenarioContractGateToggle(url) {
 		JSON.stringify(statuses.at(-1)),
 	);
 	await ultracode.handler("audita con fase cero", ctx());
-	assertContractGate(
-		"/ultracode prompt after contract gate on",
-		harness.messages.at(-1)?.text ?? "",
-	);
+	assertContractGate("/ultracode prompt after contract gate on", harness.messages.at(-1)?.text ?? "");
 	await deepResearch.handler("investiga con fase cero", ctx());
-	assertContractGate(
-		"/deep-research prompt after contract gate on",
-		harness.messages.at(-1)?.text ?? "",
-	);
+	assertContractGate("/deep-research prompt after contract gate on", harness.messages.at(-1)?.text ?? "");
 
 	await contractGate.handler("wat", ctx());
 	check(
@@ -350,13 +323,7 @@ async function scenarioTemplateCatalog(url) {
 
 	const ctx = makeCtx();
 	const signal = new AbortController().signal;
-	const catalogResult = await tool.execute(
-		"catalog",
-		{ action: "template" },
-		signal,
-		() => {},
-		ctx,
-	);
+	const catalogResult = await tool.execute("catalog", { action: "template" }, signal, () => {}, ctx);
 	const catalog = catalogResult.content?.[0]?.text ?? "";
 	const requiredTopLevel = [
 		"classify-and-act",
@@ -374,8 +341,7 @@ async function scenarioTemplateCatalog(url) {
 		"plan-review",
 		"claim-bug-verification",
 	];
-	for (const key of requiredTopLevel)
-		check(`catalog exposes ${key}`, catalog.includes(`- ${key} —`), catalog);
+	for (const key of requiredTopLevel) check(`catalog exposes ${key}`, catalog.includes(`- ${key} —`), catalog);
 	for (const oldKey of [
 		"default",
 		"scout-fanout",
@@ -387,30 +353,19 @@ async function scenarioTemplateCatalog(url) {
 		"deep-research",
 		"adversarial-plan-review",
 	]) {
-		check(
-			`catalog demotes old key ${oldKey}`,
-			!new RegExp(`^- ${oldKey} —`, "m").test(catalog),
-			catalog,
-		);
+		check(`catalog demotes old key ${oldKey}`, !new RegExp(`^- ${oldKey} —`, "m").test(catalog), catalog);
 	}
 	check("catalog groups primary templates", catalog.includes("## Templates"), catalog);
 	check("catalog groups composition templates", catalog.includes("## Compose templates"), catalog);
 	check("catalog groups use-case templates", catalog.includes("## Use-case templates"), catalog);
 	check(
 		"catalog includes research-backed templates",
-		catalog.includes("## Research-backed templates") &&
-			catalog.includes("**ReAct** -> scout/observe"),
+		catalog.includes("## Research-backed templates") && catalog.includes("**ReAct** -> scout/observe"),
 		catalog,
 	);
 
 	for (const key of requiredTopLevel) {
-		const scaffold = await tool.execute(
-			"scaffold",
-			{ action: "template", name: key },
-			signal,
-			() => {},
-			ctx,
-		);
+		const scaffold = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
 		check(
 			`scaffold loads for ${key}`,
 			scaffold.details?.pattern?.key === key &&

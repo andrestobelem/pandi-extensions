@@ -215,11 +215,7 @@ module.exports = async function workflow(ctx) {
 		name: "selfie",
 		timeoutMs: 30_000,
 	});
-	check(
-		"self-recursion: run fails (does not loop)",
-		outcome.threw === true,
-		JSON.stringify(outcome).slice(0, 200),
-	);
+	check("self-recursion: run fails (does not loop)", outcome.threw === true, JSON.stringify(outcome).slice(0, 200));
 	check(
 		"self-recursion: distinct parent-recursion message",
 		/refused recursive call|may not call their parent/i.test(String(outcome.error || "")),
@@ -310,11 +306,7 @@ module.exports = async function workflow() {
 		Boolean(errEvent),
 		JSON.stringify(events.filter((e) => e.type === "workflow")),
 	);
-	check(
-		"child-failure: error event is ok:false",
-		errEvent ? errEvent.ok === false : false,
-		JSON.stringify(errEvent),
-	);
+	check("child-failure: error event is ok:false", errEvent ? errEvent.ok === false : false, JSON.stringify(errEvent));
 	check(
 		"child-failure: error event carries the message",
 		errEvent ? /child-boom-42/.test(String(errEvent.error || "")) : false,
@@ -322,8 +314,7 @@ module.exports = async function workflow() {
 	);
 	// Positive control: the healthy child still emits a clean end/ok:true event.
 	const okEvent = events.find(
-		(e) =>
-			e.type === "workflow" && e.phase === "end" && e.name === "lib/healthy-child" && e.ok === true,
+		(e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/healthy-child" && e.ok === true,
 	);
 	check(
 		"child-failure: healthy sibling still records phase:end/ok:true",
@@ -332,17 +323,9 @@ module.exports = async function workflow() {
 	);
 	// The failing child must NOT also have an end/ok:true event (would mean it was treated as success).
 	const falseSuccess = events.find(
-		(e) =>
-			e.type === "workflow" &&
-			e.phase === "end" &&
-			e.name === "lib/throwing-child" &&
-			e.ok === true,
+		(e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/throwing-child" && e.ok === true,
 	);
-	check(
-		"child-failure: failing child has NO phase:end/ok:true event",
-		!falseSuccess,
-		JSON.stringify(falseSuccess),
-	);
+	check("child-failure: failing child has NO phase:end/ok:true event", !falseSuccess, JSON.stringify(falseSuccess));
 }
 
 // --- Scenario 3: the child failure is a NORMAL JS throw the parent can try/catch,

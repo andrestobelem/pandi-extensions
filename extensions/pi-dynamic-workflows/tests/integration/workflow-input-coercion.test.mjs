@@ -120,21 +120,13 @@ const ctx = makeCtx(project);
 		timeoutMs: 30_000,
 	});
 	const out = res.details.result.output;
-	check(
-		"string JSON input: run succeeds",
-		res.details.result.ok === true,
-		res.details.result.error,
-	);
+	check("string JSON input: run succeeds", res.details.result.ok === true, res.details.result.error);
 	check(
 		"string JSON input: workflow sees an object, not a string",
 		out?.typeofInput === "object",
 		JSON.stringify(out),
 	);
-	check(
-		"string JSON input: fields are accessible (limit=3)",
-		out?.input?.limit === 3,
-		JSON.stringify(out),
-	);
+	check("string JSON input: fields are accessible (limit=3)", out?.input?.limit === 3, JSON.stringify(out));
 	check(
 		"string JSON input: fields are accessible (concurrency=2)",
 		out?.input?.concurrency === 2,
@@ -151,11 +143,7 @@ const ctx = makeCtx(project);
 		timeoutMs: 30_000,
 	});
 	const out = res.details.result.output;
-	check(
-		"object input: workflow still sees an object",
-		out?.typeofInput === "object",
-		JSON.stringify(out),
-	);
+	check("object input: workflow still sees an object", out?.typeofInput === "object", JSON.stringify(out));
 	check("object input: fields preserved (limit=5)", out?.input?.limit === 5, JSON.stringify(out));
 }
 

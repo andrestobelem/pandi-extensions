@@ -39,11 +39,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -188,11 +184,7 @@ module.exports = async function workflow(ctx, input) {
 	await writeWorkflow(project, "lib/rank-candidates", RANK_CHILD);
 
 	const graph = await graphOf(url, project, "graph-parent");
-	check(
-		"literal: graph mentions the sub-workflow step",
-		/sub-workflow/i.test(graph),
-		graph.slice(0, 400),
-	);
+	check("literal: graph mentions the sub-workflow step", /sub-workflow/i.test(graph), graph.slice(0, 400));
 	check(
 		"literal: expands the child with step count",
 		/expands:\s*lib\/rank-candidates\s*\(\d+ steps\)/.test(graph),
@@ -209,21 +201,9 @@ module.exports = async function workflow(ctx, input) {
 		/ctx\.agents/.test(graph) && /ctx\.workflow/.test(graph),
 		graph,
 	);
-	check(
-		"literal: child artifact step surfaced in subgraph",
-		/ctx\.writeArtifact/.test(graph),
-		graph,
-	);
-	check(
-		"literal: emits the expansion note",
-		/literal names are expanded one level/i.test(graph),
-		graph,
-	);
-	check(
-		"literal: no 'subgraph unavailable' for the resolvable child",
-		!/subgraph unavailable/.test(graph),
-		graph,
-	);
+	check("literal: child artifact step surfaced in subgraph", /ctx\.writeArtifact/.test(graph), graph);
+	check("literal: emits the expansion note", /literal names are expanded one level/i.test(graph), graph);
+	check("literal: no 'subgraph unavailable' for the resolvable child", !/subgraph unavailable/.test(graph), graph);
 }
 
 // 2. Dynamic name: ctx.workflow(variable) cannot be resolved statically.
@@ -241,11 +221,7 @@ module.exports = async function workflow(ctx, input) {
 `,
 	);
 	const graph = await graphOf(url, project, "graph-dynamic");
-	check(
-		"dynamic: still detected as a sub-workflow step",
-		/sub-workflow/i.test(graph),
-		graph.slice(0, 400),
-	);
+	check("dynamic: still detected as a sub-workflow step", /sub-workflow/i.test(graph), graph.slice(0, 400));
 	check(
 		"dynamic: reports cannot-resolve-statically",
 		/dynamic sub-workflow name; cannot resolve statically/.test(graph),
@@ -276,11 +252,7 @@ module.exports = async function workflow(ctx) {
 };
 `,
 	);
-	await writeWorkflow(
-		project,
-		"lib/depth-grandchild",
-		"module.exports = async () => ({ ok: true });\n",
-	);
+	await writeWorkflow(project, "lib/depth-grandchild", "module.exports = async () => ({ ok: true });\n");
 
 	const graph = await graphOf(url, project, "graph-depth-parent");
 	check("depth: parent expands its direct child", /expands:\s*lib\/depth-child/.test(graph), graph);
@@ -289,11 +261,7 @@ module.exports = async function workflow(ctx) {
 		/nested sub-workflows are not expanded; runtime composition depth limit is 1/.test(graph),
 		graph,
 	);
-	check(
-		"depth: grandchild's own body is NOT inlined",
-		!/depth-grandchild \(\d+ steps\)/.test(graph),
-		graph,
-	);
+	check("depth: grandchild's own body is NOT inlined", !/depth-grandchild \(\d+ steps\)/.test(graph), graph);
 }
 
 // 4. Recursion guard: a workflow that calls ITSELF. At depth 0, the resolved self-path is already
@@ -312,11 +280,7 @@ module.exports = async function workflow(ctx) {
 `,
 	);
 	const graph = await graphOf(url, project, "graph-recur");
-	check(
-		"recursion: self-call detected as a sub-workflow step",
-		/sub-workflow/i.test(graph),
-		graph.slice(0, 400),
-	);
+	check("recursion: self-call detected as a sub-workflow step", /sub-workflow/i.test(graph), graph.slice(0, 400));
 	check(
 		"recursion: self-call is skipped via seen-guard",
 		/recursive sub-workflow skipped: graph-recur/.test(graph),
@@ -324,11 +288,7 @@ module.exports = async function workflow(ctx) {
 	);
 	// Critically NOT the depth-limit message: the seen-guard must win for a depth-0 self-call.
 	check("recursion: not mislabeled as depth-limit", !/depth limit is 1/.test(graph), graph);
-	check(
-		"recursion: does not infinitely inline itself",
-		!/expands:\s*graph-recur/.test(graph),
-		graph,
-	);
+	check("recursion: does not infinitely inline itself", !/expands:\s*graph-recur/.test(graph), graph);
 }
 
 // 5. Unresolvable literal: ctx.workflow("does-not-exist") → resolve throws, caught into subworkflowError.
@@ -344,21 +304,9 @@ module.exports = async function workflow(ctx) {
 `,
 	);
 	const graph = await graphOf(url, project, "graph-missing");
-	check(
-		"unresolvable: detected as a sub-workflow step",
-		/sub-workflow/i.test(graph),
-		graph.slice(0, 400),
-	);
-	check(
-		"unresolvable: surfaces Workflow not found",
-		/Workflow not found: lib\/no-such-workflow/.test(graph),
-		graph,
-	);
-	check(
-		"unresolvable: does NOT claim to expand",
-		!/expands:\s*lib\/no-such-workflow/.test(graph),
-		graph,
-	);
+	check("unresolvable: detected as a sub-workflow step", /sub-workflow/i.test(graph), graph.slice(0, 400));
+	check("unresolvable: surfaces Workflow not found", /Workflow not found: lib\/no-such-workflow/.test(graph), graph);
+	check("unresolvable: does NOT claim to expand", !/expands:\s*lib\/no-such-workflow/.test(graph), graph);
 }
 
 // 6. Comment-ignoring (907f0c2): ctx.workflow(...) inside comments must NOT be graphed.
@@ -382,16 +330,8 @@ module.exports = async function workflow(ctx) {
 	await writeWorkflow(project, "lib/rank-candidates", RANK_CHILD);
 
 	const graph = await graphOf(url, project, "graph-commented");
-	check(
-		"comments: commented ctx.workflow is NOT detected as a sub-workflow",
-		!/sub-workflow/i.test(graph),
-		graph,
-	);
-	check(
-		"comments: does not expand the commented child",
-		!/expands:\s*lib\/rank-candidates/.test(graph),
-		graph,
-	);
+	check("comments: commented ctx.workflow is NOT detected as a sub-workflow", !/sub-workflow/i.test(graph), graph);
+	check("comments: does not expand the commented child", !/expands:\s*lib\/rank-candidates/.test(graph), graph);
 	check("comments: the real ctx.agent step IS present", /ctx\.agent\b/.test(graph), graph);
 
 	// Positive control: an IDENTICAL workflow with the call UNcommented DOES expand → proves the

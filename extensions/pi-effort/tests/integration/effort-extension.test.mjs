@@ -152,11 +152,7 @@ async function scenarioClampAndInvalid(url) {
 
 	const before = harness.level;
 	await command.handler("banana", ctx);
-	check(
-		"/effort invalid does not change level",
-		harness.level === before,
-		`${before} -> ${harness.level}`,
-	);
+	check("/effort invalid does not change level", harness.level === before, `${before} -> ${harness.level}`);
 	check(
 		"/effort invalid shows usage",
 		ctx._notes.some((n) => /Unknown effort/i.test(n.msg) && /Usage: \/effort/.test(n.msg)),
@@ -173,12 +169,7 @@ async function scenarioSelectorAndStatusEvent(url) {
 	await command.handler("", ctx);
 	check("/effort no args uses selector choice", harness.level === "low", harness.level);
 
-	await fire(
-		harness.handlers,
-		"thinking_level_select",
-		{ level: "minimal", previousLevel: "low" },
-		ctx,
-	);
+	await fire(harness.handlers, "thinking_level_select", { level: "minimal", previousLevel: "low" }, ctx);
 	const lastStatus = ctx._statuses[ctx._statuses.length - 1];
 	check(
 		"thinking_level_select shows resolved active level, not requested event.level",
@@ -236,11 +227,7 @@ async function scenarioUltracodeToolUnavailable(url) {
 	const ctx = makeCtx();
 
 	await command.handler("ultracode", ctx);
-	check(
-		"/effort ultracode still sets xhigh without dynamic_workflow",
-		harness.level === "xhigh",
-		harness.level,
-	);
+	check("/effort ultracode still sets xhigh without dynamic_workflow", harness.level === "xhigh", harness.level);
 	check(
 		"/effort ultracode does not activate a missing dynamic_workflow",
 		!harness.activeTools.includes("dynamic_workflow"),

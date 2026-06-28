@@ -109,10 +109,8 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "classify-and-act",
 		title: "Classify and act",
 		category: "template",
-		blurb:
-			"Scout/classify items cheaply, then run targeted follow-ups only for high-signal classes.",
-		useWhen:
-			"Many items need different handling after a cheap classifier, such as code audits or migrations.",
+		blurb: "Scout/classify items cheaply, then run targeted follow-ups only for high-signal classes.",
+		useWhen: "Many items need different handling after a cheap classifier, such as code audits or migrations.",
 		inputHint: '{ "pattern": "\\\\.(ts|tsx|js)$", "maxFiles": 40 }',
 		primitives: ["ctx.bash", "ctx.pipeline", "ctx.agent(schema)"],
 		defaultName: "classify-and-act",
@@ -121,8 +119,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "fan-out-and-synthesize",
 		title: "Fan-out and synthesize",
 		category: "template",
-		blurb:
-			"Split independent work across agents, then synthesize as a judge with evidence and partial-failure notes.",
+		blurb: "Split independent work across agents, then synthesize as a judge with evidence and partial-failure notes.",
 		useWhen: "The task has many independent branches and a final merge/synthesis step.",
 		inputHint: '{ "limit": 12, "concurrency": 4 }',
 		primitives: ["ctx.bash", "ctx.agents(settle)", "ctx.agent"],
@@ -132,8 +129,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "adversarial-verification",
 		title: "Adversarial verification",
 		category: "template",
-		blurb:
-			"Launch skeptics per claim/finding and keep only what survives evidence-backed refutation.",
+		blurb: "Launch skeptics per claim/finding and keep only what survives evidence-backed refutation.",
 		useWhen: "You have findings, claims, or plans and need confidence before acting on them.",
 		inputHint: '{ "findings": [{ "id": "f1", "claim": "..." }], "skeptics": 3 }',
 		primitives: ["ctx.parallel", "ctx.agent(schema)", "voting"],
@@ -143,8 +139,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "generate-and-filter",
 		title: "Generate and filter",
 		category: "template",
-		blurb:
-			"Generate candidates from distinct angles, judge by rubric, and escalate only if confidence is low.",
+		blurb: "Generate candidates from distinct angles, judge by rubric, and escalate only if confidence is low.",
 		useWhen: "You need best-of-N options without trusting one sample or one scalar score.",
 		inputHint: '{ "question": "...", "angles": ["risk-first", "simplicity-first"] }',
 		primitives: ["ctx.parallel", "ctx.agent(schema)", "adaptive loop"],
@@ -154,8 +149,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "tournaments",
 		title: "Tournaments",
 		category: "template",
-		blurb:
-			"Generate or accept candidates and run pairwise judging rounds until one winner remains.",
+		blurb: "Generate or accept candidates and run pairwise judging rounds until one winner remains.",
 		useWhen: "You need comparative ranking, not just independent scoring.",
 		inputHint: '{ "topic": "...", "angles": ["cost", "quality", "risk"] }',
 		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "bracket"],
@@ -165,8 +159,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "loop-until-done",
 		title: "Loop until done",
 		category: "template",
-		blurb:
-			"Repeat discovery or repair rounds until no new findings remain or a hard stop condition fires.",
+		blurb: "Repeat discovery or repair rounds until no new findings remain or a hard stop condition fires.",
 		useWhen:
 			"The work-list size is unknown and progress should stop on quiet rounds, max rounds, budget, or timeout.",
 		inputHint: '{ "finders": 3, "quietRounds": 2, "maxRounds": 8 }',
@@ -177,8 +170,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "compose-verify-claims",
 		title: "Compose: verify claims",
 		category: "compose",
-		blurb:
-			"Discover claims/items, then delegate reusable verification to ctx.workflow('lib/verify-claims').",
+		blurb: "Discover claims/items, then delegate reusable verification to ctx.workflow('lib/verify-claims').",
 		useWhen:
 			"Discovery and reusable verification can run in one parent workflow without a decision gate between them.",
 		inputHint: '{ "topic": "claims to discover and verify" }',
@@ -189,10 +181,8 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "lib-verify-claims",
 		title: "Lib: verify claims",
 		category: "compose",
-		blurb:
-			"Reusable sub-workflow contract: { claims, skeptics? } -> verified/dropped claims with evidence.",
-		useWhen:
-			"You want a shared library workflow under lib/ that parent workflows call with ctx.workflow().",
+		blurb: "Reusable sub-workflow contract: { claims, skeptics? } -> verified/dropped claims with evidence.",
+		useWhen: "You want a shared library workflow under lib/ that parent workflows call with ctx.workflow().",
 		inputHint: '{ "claims": [{ "id": "c1", "claim": "..." }] }',
 		primitives: ["ctx.agents(settle)", "ctx.agent(schema)", "library contract"],
 		defaultName: "lib/verify-claims",
@@ -201,10 +191,8 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "workflow-factory",
 		title: "Workflow factory",
 		category: "compose",
-		blurb:
-			"Meta-workflow that designs prompts/contracts, generates a task-specific draft, and reviews it.",
-		useWhen:
-			"A warranted workflow needs complex prompt/contract design before spending many subagents.",
+		blurb: "Meta-workflow that designs prompts/contracts, generates a task-specific draft, and reviews it.",
+		useWhen: "A warranted workflow needs complex prompt/contract design before spending many subagents.",
 		inputHint: '{ "task": "audit this repo for race conditions", "write": true }',
 		primitives: ["ctx.agent(schema)", "prompt improvement", "ctx.writeFile"],
 		defaultName: "workflow-factory",
@@ -213,8 +201,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "bug-hunt-repo-audit",
 		title: "Bug hunt / repo audit",
 		category: "use-case",
-		blurb:
-			"Scout code files, fan out reviewer agents, and synthesize prioritized bugs with citations.",
+		blurb: "Scout code files, fan out reviewer agents, and synthesize prioritized bugs with citations.",
 		useWhen: "You want a reusable broad bug-hunt workflow rather than a one-off generated audit.",
 		inputHint: '{ "maxFiles": 40, "concurrency": 4 }',
 		primitives: ["ctx.bash", "ctx.agents(settle)", "reviewer synthesis"],
@@ -224,10 +211,8 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "large-migration",
 		title: "Large migration",
 		category: "use-case",
-		blurb:
-			"Scout and classify files, then target migration review/work only where the classifier says it matters.",
-		useWhen:
-			"A migration spans many files and needs capped, evidence-backed coverage before implementation.",
+		blurb: "Scout and classify files, then target migration review/work only where the classifier says it matters.",
+		useWhen: "A migration spans many files and needs capped, evidence-backed coverage before implementation.",
 		inputHint: '{ "pattern": "\\\\.(ts|tsx|js)$", "maxFiles": 80 }',
 		primitives: ["ctx.bash", "ctx.pipeline", "ctx.agent(schema)"],
 		defaultName: "large-migration",
@@ -236,10 +221,8 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "complex-research",
 		title: "Complex research",
 		category: "use-case",
-		blurb:
-			"Run independent research angles, then synthesize with citations/evidence and coverage notes.",
-		useWhen:
-			"You need broad source-backed research, migration analysis, or vendor/architecture comparison.",
+		blurb: "Run independent research angles, then synthesize with citations/evidence and coverage notes.",
+		useWhen: "You need broad source-backed research, migration analysis, or vendor/architecture comparison.",
 		inputHint: '{ "question": "...", "angles": ["docs", "risks", "alternatives"] }',
 		primitives: ["ctx.agents(settle)", "research angles", "synthesis-as-judge"],
 		defaultName: "complex-research",
@@ -248,8 +231,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "plan-review",
 		title: "Plan review",
 		category: "use-case",
-		blurb:
-			"Review a plan from multiple skeptical perspectives and synthesize accepted risks and fixes.",
+		blurb: "Review a plan from multiple skeptical perspectives and synthesize accepted risks and fixes.",
 		useWhen: "Before implementing a risky plan, migration, or architecture change.",
 		inputHint: '{ "plan": "...", "perspectives": ["security", "performance"] }',
 		primitives: ["ctx.agents(settle)", "reviewer panel", "synthesis-as-judge"],
@@ -259,8 +241,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "claim-bug-verification",
 		title: "Claim/bug verification",
 		category: "use-case",
-		blurb:
-			"Verify suspected bugs or factual claims with independent skeptics before reporting or acting.",
+		blurb: "Verify suspected bugs or factual claims with independent skeptics before reporting or acting.",
 		useWhen: "A previous sweep produced claims/findings that need evidence-backed pruning.",
 		inputHint: '{ "findings": [{ "id": "f1", "claim": "..." }], "skeptics": 3 }',
 		primitives: ["ctx.parallel", "ctx.agent(schema)", "voting"],
@@ -1276,26 +1257,19 @@ const EMBEDDED_WORKFLOW_PATTERN_TEMPLATES: Record<string, string> = {
 	].join("\n"),
 };
 
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["classify-and-act"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["classify-and-act"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
 EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["fan-out-and-synthesize"] = WORKFLOW_TEMPLATE;
 EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verification"] =
 	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verify"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["generate-and-filter"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["judge-escalate"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["generate-and-filter"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["judge-escalate"];
 EMBEDDED_WORKFLOW_PATTERN_TEMPLATES.tournaments = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES.tournament;
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-done"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-dry"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-done"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-dry"];
 EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["compose-verify-claims"] =
 	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["composition-driver"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["lib-verify-claims"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["verify-claims-lib"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["bug-hunt-repo-audit"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["repo-bug-hunt"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["large-migration"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["plan-review"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-plan-review"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["lib-verify-claims"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["verify-claims-lib"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["bug-hunt-repo-audit"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["repo-bug-hunt"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["large-migration"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
+EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["plan-review"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-plan-review"];
 EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["claim-bug-verification"] =
 	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verify"];
 
@@ -1331,9 +1305,7 @@ export function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG
 		["use-case", "Use-case templates"],
 	];
 	for (const [category, label] of sections) {
-		const sectionPatterns = patterns.filter(
-			(pattern) => (pattern.category ?? "template") === category,
-		);
+		const sectionPatterns = patterns.filter((pattern) => (pattern.category ?? "template") === category);
 		if (sectionPatterns.length === 0) continue;
 		lines.push(`## ${label}`, "");
 		for (const pattern of sectionPatterns) {
@@ -1370,9 +1342,7 @@ export function formatWorkflowPatternPromptCheatSheet(patterns = WORKFLOW_PATTER
 		"Workflow template catalog (choose from these before writing from scratch; inspect with dynamic_workflow action=template, fetch a scaffold with name=<key>):",
 	];
 	for (const pattern of patterns) {
-		lines.push(
-			`- ${pattern.key}: ${pattern.useWhen} Primitives: ${pattern.primitives.join(", ")}.`,
-		);
+		lines.push(`- ${pattern.key}: ${pattern.useWhen} Primitives: ${pattern.primitives.join(", ")}.`);
 	}
 	return lines.join("\n");
 }

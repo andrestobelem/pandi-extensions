@@ -43,9 +43,7 @@ const ignoredDraftSuites = new Set([]);
 
 // Discover suite directories by convention: extensions/<ext>/tests/integration that exist.
 const extensionsDirAbs = path.join(REPO_ROOT, EXTENSIONS_DIR);
-const suiteDirs = (
-	fs.existsSync(extensionsDirAbs) ? fs.readdirSync(extensionsDirAbs, { withFileTypes: true }) : []
-)
+const suiteDirs = (fs.existsSync(extensionsDirAbs) ? fs.readdirSync(extensionsDirAbs, { withFileTypes: true }) : [])
 	.filter((entry) => entry.isDirectory())
 	.map((entry) => path.posix.join(EXTENSIONS_DIR, entry.name, SUITE_SUBDIR))
 	.filter((dir) => fs.existsSync(path.join(REPO_ROOT, dir)))

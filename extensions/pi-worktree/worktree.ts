@@ -272,10 +272,7 @@ export function resolveWorktreeTarget(
  * use. Best-effort: filesystem errors are swallowed because the subsequent
  * `git worktree add` will surface any real problem with a clear message.
  */
-export function ensureWorktreesBaseDir(
-	cwd: string,
-	configDirName: string = CONFIG_DIR_NAME,
-): string {
+export function ensureWorktreesBaseDir(cwd: string, configDirName: string = CONFIG_DIR_NAME): string {
 	const base = path.join(cwd, configDirName, WORKTREES_DIR);
 	try {
 		mkdirSync(base, { recursive: true });

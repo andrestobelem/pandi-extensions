@@ -100,11 +100,7 @@ async function main() {
 	}
 	const canonical = canonicalize(canonicalBlock);
 
-	const docs = [
-		"extensions/pi-dynamic-workflows/README.md",
-		"README.md",
-		".pi/skills/dynamic-workflows/SKILL.md",
-	];
+	const docs = ["extensions/pi-dynamic-workflows/README.md", "README.md", ".pi/skills/dynamic-workflows/SKILL.md"];
 	for (const rel of docs) {
 		const text = await fs.readFile(path.join(REPO_ROOT, rel), "utf8");
 		const block = sliceBlock(text);

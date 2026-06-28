@@ -9,12 +9,7 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	loadModule,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -75,8 +70,7 @@ function makeEnv() {
 }
 
 // The most recent footer status text (or undefined when last cleared).
-const lastStatus = (env) =>
-	env.statuses.length ? env.statuses[env.statuses.length - 1].text : undefined;
+const lastStatus = (env) => (env.statuses.length ? env.statuses[env.statuses.length - 1].text : undefined);
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -184,11 +178,7 @@ async function renderContextBarCases(url) {
 	if (typeof renderContextBar !== "function") return;
 
 	const unknown = renderContextBar({ percent: null, thresholdPercent: 30 });
-	check(
-		"renderContextBar: null usage renders nothing",
-		unknown === null,
-		`got ${JSON.stringify(unknown)}`,
-	);
+	check("renderContextBar: null usage renders nothing", unknown === null, `got ${JSON.stringify(unknown)}`);
 
 	const low = renderContextBar({ percent: 6, thresholdPercent: 30, width: 8 });
 	check(
@@ -198,11 +188,7 @@ async function renderContextBarCases(url) {
 	);
 
 	const near = renderContextBar({ percent: 24, thresholdPercent: 30, width: 8 });
-	check(
-		"renderContextBar: 0.8 of threshold is near",
-		near?.level === "near",
-		`got ${JSON.stringify(near)}`,
-	);
+	check("renderContextBar: 0.8 of threshold is near", near?.level === "near", `got ${JSON.stringify(near)}`);
 
 	const over = renderContextBar({ percent: 60, thresholdPercent: 30, width: 8 });
 	// Fill is clamped at full (8 filled glyphs, 0 empty) and level is over.
@@ -278,9 +264,7 @@ async function barShowsCompactingState(url) {
 	env.state.percent = 60; // crosses threshold -> compaction
 	env.state.reduceTo = 20;
 	await fireAgentEnd(handlers, env.ctx);
-	const sawCompacting = env.statuses.some(
-		(s) => typeof s.text === "string" && s.text.includes("compacting"),
-	);
+	const sawCompacting = env.statuses.some((s) => typeof s.text === "string" && s.text.includes("compacting"));
 	check(
 		"bar: surfaces a compacting state while compaction runs",
 		sawCompacting,

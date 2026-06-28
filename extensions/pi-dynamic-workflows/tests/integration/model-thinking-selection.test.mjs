@@ -27,11 +27,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -187,11 +183,7 @@ async function main() {
 		const recordDir = path.join(outDir, "argv");
 		await fs.mkdir(recordDir, { recursive: true });
 		const project = await makeProject();
-		await fs.writeFile(
-			path.join(project, ".pi", "workflows", "model-thinking.js"),
-			WORKFLOW,
-			"utf8",
-		);
+		await fs.writeFile(path.join(project, ".pi", "workflows", "model-thinking.js"), WORKFLOW, "utf8");
 		const fakePi = await writeFakePi(outDir, recordDir);
 
 		const result = await withFakePi(fakePi, async () => {
@@ -226,11 +218,7 @@ async function main() {
 			flagValue(a, "--model") === "test-prov/model-a",
 			JSON.stringify(a),
 		);
-		check(
-			"A: explicit thinking passed as --thinking",
-			flagValue(a, "--thinking") === "high",
-			JSON.stringify(a),
-		);
+		check("A: explicit thinking passed as --thinking", flagValue(a, "--thinking") === "high", JSON.stringify(a));
 
 		// CALL_B: provider-only branch -> --provider set, NO --model synthesized.
 		const b = await readArgv("CALL_B");
@@ -239,16 +227,8 @@ async function main() {
 			flagValue(b, "--provider") === "test-prov",
 			JSON.stringify(b),
 		);
-		check(
-			"B: provider-only call omits --model",
-			hasFlag(b, "--model") === false,
-			JSON.stringify(b),
-		);
-		check(
-			"B: explicit thinking passed as --thinking",
-			flagValue(b, "--thinking") === "low",
-			JSON.stringify(b),
-		);
+		check("B: provider-only call omits --model", hasFlag(b, "--model") === false, JSON.stringify(b));
+		check("B: explicit thinking passed as --thinking", flagValue(b, "--thinking") === "low", JSON.stringify(b));
 
 		// CALL_C1: per-spec override inside ctx.agents().
 		const c1 = await readArgv("CALL_C1");

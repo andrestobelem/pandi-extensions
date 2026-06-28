@@ -28,9 +28,7 @@ export function makeStructuredOutputSystemPrompt(schema: unknown): string {
 export function appendSystemPromptOption(options: AgentOptions, addition: string): AgentOptions {
 	return {
 		...options,
-		appendSystemPrompt: options.appendSystemPrompt
-			? `${options.appendSystemPrompt}\n\n${addition}`
-			: addition,
+		appendSystemPrompt: options.appendSystemPrompt ? `${options.appendSystemPrompt}\n\n${addition}` : addition,
 	};
 }
 
@@ -59,10 +57,7 @@ function formatSchemaValidationErrors(schema: unknown, data: unknown): string[] 
 	}
 }
 
-export function validateStructuredData(
-	schema: unknown,
-	data: unknown,
-): { ok: true } | { ok: false; errors: string[] } {
+export function validateStructuredData(schema: unknown, data: unknown): { ok: true } | { ok: false; errors: string[] } {
 	try {
 		const valueApi = Value as unknown as { Check(schema: unknown, value: unknown): boolean };
 		if (valueApi.Check(schema, data)) return { ok: true };

@@ -71,12 +71,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-loop/tests/integration/ -> repo root is four levels up.
@@ -203,8 +198,7 @@ function snap(loopId, over = {}) {
 }
 
 function seedEntries(ctx, snaps) {
-	ctx.sessionManager.getEntries = () =>
-		snaps.map((data) => ({ type: "custom", customType: "loop-state", data }));
+	ctx.sessionManager.getEntries = () => snaps.map((data) => ({ type: "custom", customType: "loop-state", data }));
 }
 
 // A 0ms catch-up timer (setTimeout(fireWake, 0)) is armed by rehydrate for a DUE loop.
@@ -235,16 +229,8 @@ async function maxIterationsCap(url) {
 		`delivered=${sentMessages.length}`,
 	);
 	const s1 = latestSnapshot(entries, id);
-	check(
-		"maxIter: iteration advanced to 1 on first wake",
-		s1?.iteration === 1,
-		`it=${s1?.iteration}`,
-	);
-	check(
-		"maxIter: default maxIterations is 25",
-		s1?.maxIterations === 25,
-		`max=${s1?.maxIterations}`,
-	);
+	check("maxIter: iteration advanced to 1 on first wake", s1?.iteration === 1, `it=${s1?.iteration}`);
+	check("maxIter: default maxIterations is 25", s1?.maxIterations === 25, `max=${s1?.maxIterations}`);
 
 	// Drive the iteration cap via its REAL gate (fireWake). Seed a running snapshot at the
 	// cap AND due, so rehydrate arms a 0ms catch-up tick; fireWake then hits the maxIterations
@@ -428,20 +414,14 @@ async function pauseResume(url) {
 	const armed = latestSnapshot(entries, id);
 	check(
 		"pause: loop is running with a future nextFireAt before pause",
-		armed?.status === "running" &&
-			typeof armed?.nextFireAt === "number" &&
-			armed.nextFireAt > Date.now(),
+		armed?.status === "running" && typeof armed?.nextFireAt === "number" && armed.nextFireAt > Date.now(),
 		`status=${armed?.status} next=${armed?.nextFireAt}`,
 	);
 
 	const sentBeforePause = sentMessages.length;
 	await commands.get("loop").handler(`pause ${id}`, ctx);
 	const paused = latestSnapshot(entries, id);
-	check(
-		"pause: status persisted as 'paused'",
-		paused?.status === "paused",
-		`status=${paused?.status}`,
-	);
+	check("pause: status persisted as 'paused'", paused?.status === "paused", `status=${paused?.status}`);
 	check(
 		"pause: pausing does NOT re-inject a wake",
 		sentMessages.length === sentBeforePause,
@@ -472,11 +452,7 @@ async function pauseResume(url) {
 	// Resume: status back to running and a fresh future nextFireAt re-armed.
 	await commands.get("loop").handler(`resume ${id}`, ctx);
 	const resumed = latestSnapshot(entries, id);
-	check(
-		"resume: status back to 'running'",
-		resumed?.status === "running",
-		`status=${resumed?.status}`,
-	);
+	check("resume: status back to 'running'", resumed?.status === "running", `status=${resumed?.status}`);
 	check(
 		"resume: re-arms a future nextFireAt",
 		typeof resumed?.nextFireAt === "number" && resumed.nextFireAt > Date.now(),
@@ -501,10 +477,7 @@ async function pauseResume(url) {
 		"resume: no-op on running loop persists no spurious 'paused' snapshot",
 		!entries
 			.slice(beforeNoop)
-			.some(
-				(e) =>
-					e.customType === "loop-state" && e.data?.loopId === id && e.data?.status === "paused",
-			),
+			.some((e) => e.customType === "loop-state" && e.data?.loopId === id && e.data?.status === "paused"),
 	);
 }
 
@@ -572,21 +545,13 @@ async function rehydrateRevivesNoDoubleFire(url) {
 	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 	await tick();
 	const s = latestSnapshot(entries, "revive");
-	check(
-		"rehydrate: stale snapshot normalized back to 'running'",
-		s?.status === "running",
-		`status=${s?.status}`,
-	);
+	check("rehydrate: stale snapshot normalized back to 'running'", s?.status === "running", `status=${s?.status}`);
 	check(
 		"rehydrate: due catch-up tick delivered exactly ONE wake",
 		sentMessages.length === 1,
 		`delivered=${sentMessages.length}`,
 	);
-	check(
-		"rehydrate: catch-up advanced iteration (2 -> 3)",
-		s?.iteration === 3,
-		`it=${s?.iteration}`,
-	);
+	check("rehydrate: catch-up advanced iteration (2 -> 3)", s?.iteration === 3, `it=${s?.iteration}`);
 
 	// Second session_start (same process): the loop is already in activeLoops with a live
 	// timer -> rehydrate must SKIP it (no double-fire).
@@ -653,9 +618,7 @@ async function rehydratePausedTerminalLastWins(url) {
 	);
 
 	// Terminal loops are not in activeLoops and produce no new snapshot from rehydrate.
-	const newDone = entries.some(
-		(e) => e.customType === "loop-state" && e.data?.loopId === "doneone",
-	);
+	const newDone = entries.some((e) => e.customType === "loop-state" && e.data?.loopId === "doneone");
 	const newStopd = entries.some((e) => e.customType === "loop-state" && e.data?.loopId === "stopd");
 	check("rehydrate: terminal 'done' snapshot is ignored (no persist)", !newDone);
 	check("rehydrate: terminal 'stopped' snapshot is ignored (no persist)", !newStopd);
@@ -730,11 +693,7 @@ async function rehydrateAutonomousTrustGate(url) {
 			s?.status === "stopped",
 			`status=${s?.status}`,
 		);
-		check(
-			"autotrust: retire reason mentions trust",
-			/trust/i.test(s?.lastReason || ""),
-			`reason=${s?.lastReason}`,
-		);
+		check("autotrust: retire reason mentions trust", /trust/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
 		check(
 			"autotrust: a retired autonomous loop fires NO wake",
 			sentMessages.length === 0,
@@ -810,11 +769,7 @@ async function rehydrateRespectsCap(url) {
 		sentMessages.length === 0,
 		`delivered=${sentMessages.length}`,
 	);
-	check(
-		"rehydrate-cap: iteration is NOT advanced (the loop never fired)",
-		s?.iteration === 7,
-		`it=${s?.iteration}`,
-	);
+	check("rehydrate-cap: iteration is NOT advanced (the loop never fired)", s?.iteration === 7, `it=${s?.iteration}`);
 }
 
 // ===========================================================================
@@ -887,28 +842,18 @@ async function rehydrateSidecarOnly(url) {
 		const dir = path.join(cwd, ".pi", "loops", state.loopId);
 		await fs.mkdir(dir, { recursive: true });
 		await fs.writeFile(path.join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`, "utf8");
-		seedEntries(ctx, [
-			snap("jsonl-terminal", { status: "done", updatedAt: new Date(now).toISOString() }),
-		]);
+		seedEntries(ctx, [snap("jsonl-terminal", { status: "done", updatedAt: new Date(now).toISOString() })]);
 
 		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
 		await tick();
 		const s = latestSnapshot(entries, "onlysidecar");
-		check(
-			"rehydrate: sidecar-only loopId is recovered",
-			s?.status === "running",
-			`status=${s?.status}`,
-		);
+		check("rehydrate: sidecar-only loopId is recovered", s?.status === "running", `status=${s?.status}`);
 		check(
 			"rehydrate: sidecar-only due loop fires one catch-up wake",
 			sentMessages.length === 1,
 			`delivered=${sentMessages.length}`,
 		);
-		check(
-			"rehydrate: sidecar-only catch-up advances iteration",
-			s?.iteration === 5,
-			`it=${s?.iteration}`,
-		);
+		check("rehydrate: sidecar-only catch-up advances iteration", s?.iteration === 5, `it=${s?.iteration}`);
 	} finally {
 		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
 	}

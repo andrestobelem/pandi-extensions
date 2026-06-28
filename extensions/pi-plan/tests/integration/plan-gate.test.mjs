@@ -12,13 +12,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	bundle,
-	createChecker,
-	loadDefault,
-	makeBuildDir,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/<extension>/tests/integration/ -> repo root is four levels up.
@@ -84,13 +78,7 @@ function makePi() {
 	return { pi, tools, commands, handlers, entries, sentMessages };
 }
 
-function makeCtx({
-	mode = "tui",
-	hasUI = true,
-	confirmResult = true,
-	cwd = TEST_PROJECT_ROOT,
-	entries = [],
-} = {}) {
+function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = TEST_PROJECT_ROOT, entries = [] } = {}) {
 	const ctx = {
 		mode,
 		hasUI,
@@ -139,11 +127,7 @@ async function planGate(planUrl) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
 
 	// Before entering plan mode, nothing is gated.
-	const preWrite = await runGate(
-		handlers,
-		ctx,
-		toolCallEvent("write", { file_path: "a.ts", content: "x" }),
-	);
+	const preWrite = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
 	check("plan: write ALLOWED before /plan (gate not armed)", preWrite === undefined);
 
 	// Enter plan mode.
@@ -187,10 +171,7 @@ async function planGate(planUrl) {
 	{
 		const cmd = 'grep -rn "len(x) > 0" .';
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
-		check(
-			`plan: documents redirect false positive — BLOCKS bash "${cmd}"`,
-			!!r && r.block === true,
-		);
+		check(`plan: documents redirect false positive — BLOCKS bash "${cmd}"`, !!r && r.block === true);
 	}
 
 	// ALLOWED: read-only bash + read tools + submit_plan. The last four are read-only commands
@@ -215,11 +196,7 @@ async function planGate(planUrl) {
 
 	// dynamic_workflow: mutating actions blocked, read-only actions allowed, missing action blocked.
 	for (const action of ["write", "run", "start", "resume", undefined]) {
-		const r = await runGate(
-			handlers,
-			ctx,
-			toolCallEvent("dynamic_workflow", action ? { action } : {}),
-		);
+		const r = await runGate(handlers, ctx, toolCallEvent("dynamic_workflow", action ? { action } : {}));
 		check(`plan: BLOCKS dynamic_workflow action=${String(action)}`, !!r && r.block === true);
 	}
 	for (const action of ["list", "template", "read", "graph", "runs", "view"]) {
@@ -246,16 +223,9 @@ async function planGatePrintRefuses(planUrl) {
 	} finally {
 		console.log = origLog;
 	}
-	check(
-		"plan(print): no plan-state persisted",
-		entries.find((e) => e.customType === "plan-state") === undefined,
-	);
+	check("plan(print): no plan-state persisted", entries.find((e) => e.customType === "plan-state") === undefined);
 	check("plan(print): no planning prompt injected", sentMessages.length === 0);
-	const r = await runGate(
-		handlers,
-		ctx,
-		toolCallEvent("write", { file_path: "a.ts", content: "x" }),
-	);
+	const r = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
 	check("plan(print): write ALLOWED (gate never armed)", r === undefined);
 	check(
 		"plan(print): refusal mentions TUI or RPC",

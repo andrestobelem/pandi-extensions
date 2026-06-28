@@ -48,12 +48,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-goal/tests/integration/ -> repo root is four levels up.
@@ -122,9 +117,7 @@ function makePi(execImpl) {
 		sendUserMessage: (prompt, opts) => messages.push({ prompt, opts }),
 		exec: async (cmd, args, opts) => {
 			execCalls.push({ cmd, args, opts });
-			return execImpl
-				? execImpl(cmd, args, opts)
-				: { code: 0, killed: false, stdout: "", stderr: "" };
+			return execImpl ? execImpl(cmd, args, opts) : { code: 0, killed: false, stdout: "", stderr: "" };
 		},
 	};
 	return { pi, tools, commands, handlers, states, execCalls, messages };
@@ -186,11 +179,7 @@ function makeCtx(entries, { reason = "startup", mode = "tui" } = {}) {
 }
 
 // Build the extension, register it, fire session_start with the crafted persisted entries.
-async function rehydrateFrom(
-	goalUrl,
-	entries,
-	{ reason = "startup", execImpl, mode = "tui" } = {},
-) {
+async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, mode = "tui" } = {}) {
 	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi(execImpl);
 	goalExtension(built.pi);
@@ -203,8 +192,7 @@ async function rehydrateFrom(
 
 // The last persisted gstatus for a given goalId is its observable disposition.
 function lastStatusFor(states, goalId) {
-	for (let i = states.length - 1; i >= 0; i--)
-		if (states[i].goalId === goalId) return states[i].gstatus;
+	for (let i = states.length - 1; i >= 0; i--) if (states[i].goalId === goalId) return states[i].gstatus;
 	return undefined;
 }
 
@@ -408,11 +396,7 @@ async function staleResumesPursuing(goalUrl) {
 	// Wait for the catch-up setTimeout(...,0) to fire and persist the next iteration.
 	await flush(() => built.states.some((st) => st.goalId === s.goalId && st.iteration > 3));
 	const fired = built.states.find((st) => st.goalId === s.goalId && st.iteration > 3);
-	check(
-		"stale snapshot is recovered (catch-up tick fires)",
-		!!fired,
-		`states=${built.states.length}`,
-	);
+	check("stale snapshot is recovered (catch-up tick fires)", !!fired, `states=${built.states.length}`);
 	check(
 		"stale resumes as pursuing (re-armed goal fires in the pursuing phase)",
 		!!fired && fired.gstatus === "pursuing",
@@ -442,11 +426,7 @@ async function verifyingResumesVerifying(goalUrl) {
 	const { built } = await rehydrateFrom(goalUrl, [entry(s)]);
 	await flush(() => built.states.some((st) => st.goalId === s.goalId && st.iteration > 4));
 	const fired = built.states.find((st) => st.goalId === s.goalId && st.iteration > 4);
-	check(
-		"verifying snapshot is recovered (catch-up tick fires)",
-		!!fired,
-		`states=${built.states.length}`,
-	);
+	check("verifying snapshot is recovered (catch-up tick fires)", !!fired, `states=${built.states.length}`);
 	check(
 		"verifying resumes as verifying (NOT downgraded to pursuing)",
 		!!fired && fired.gstatus === "verifying",

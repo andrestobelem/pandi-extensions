@@ -54,8 +54,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 		parameters: Type.Object({
 			note: Type.String({
 				minLength: 1,
-				description:
-					"A concise, durable fact to remember for future sessions (one or two sentences).",
+				description: "A concise, durable fact to remember for future sessions (one or two sentences).",
 			}),
 			topic: Type.Optional(
 				Type.String({
@@ -151,9 +150,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 				};
 			}
 			return {
-				content: [
-					{ type: "text" as const, text: `Remembered (saved to ${targetLabel}): "${note}"` },
-				],
+				content: [{ type: "text" as const, text: `Remembered (saved to ${targetLabel}): "${note}"` }],
 				details: { remembered: true, path: targetPath, topic: rawTopic ? targetLabel : null },
 			};
 		},

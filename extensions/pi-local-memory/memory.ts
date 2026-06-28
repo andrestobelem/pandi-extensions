@@ -51,11 +51,7 @@ function bulletNoteText(line: string): string {
  *
  * Pure: returns the new document text; the caller decides whether/where to write it.
  */
-export function upsertMemoryNote(
-	existing: string,
-	note: string,
-	date: string,
-): { content: string; added: boolean } {
+export function upsertMemoryNote(existing: string, note: string, date: string): { content: string; added: boolean } {
 	const bullet = `- ${date}: ${note}`;
 	const begin = existing.indexOf(REMEMBER_BEGIN);
 	const end = existing.indexOf(REMEMBER_END);

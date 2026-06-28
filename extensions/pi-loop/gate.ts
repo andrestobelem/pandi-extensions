@@ -86,8 +86,7 @@ export const TEE_TARGET_RE = /\btee\b\s+(?:-\S+\s+)*("[^"]*"|'[^']*'|[^\s|&;<>]+
 export function unquote(value: string): string {
 	if (
 		value.length >= 2 &&
-		((value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'")))
+		((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
 	) {
 		return value.slice(1, -1);
 	}

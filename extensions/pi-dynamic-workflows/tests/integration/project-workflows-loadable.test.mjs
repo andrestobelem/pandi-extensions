@@ -67,19 +67,11 @@ async function main() {
 	const { url } = await buildExtension();
 	const mod = await import(url);
 	const transformWorkflowCode = mod.transformWorkflowCode;
-	check(
-		"transformWorkflowCode: exported",
-		typeof transformWorkflowCode === "function",
-		typeof transformWorkflowCode,
-	);
+	check("transformWorkflowCode: exported", typeof transformWorkflowCode === "function", typeof transformWorkflowCode);
 	if (typeof transformWorkflowCode !== "function") return;
 
 	const workflows = await listProjectWorkflows();
-	check(
-		"project workflows: at least one .js present",
-		workflows.length > 0,
-		`found ${workflows.length}`,
-	);
+	check("project workflows: at least one .js present", workflows.length > 0, `found ${workflows.length}`);
 	check(
 		"project workflows: continuous-improvement.js present",
 		workflows.some((file) => path.basename(file) === "continuous-improvement.js"),

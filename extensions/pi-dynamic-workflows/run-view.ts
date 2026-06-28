@@ -75,10 +75,7 @@ export function selectRunByKey<T>(
 	);
 }
 
-export async function resolveRun(
-	ctx: ExtensionContext,
-	id: string | undefined,
-): Promise<WorkflowRunRecord> {
+export async function resolveRun(ctx: ExtensionContext, id: string | undefined): Promise<WorkflowRunRecord> {
 	const runs = await listRuns(ctx);
 	if (runs.length === 0) throw new Error("No workflow runs found.");
 	const key = id?.trim() || "latest";
@@ -132,8 +129,7 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 	const cachedCalls = getRunCachedCalls(run);
 	const resumable = isResumableState(state);
 	const agentLines = agents.map((agent) => {
-		const elapsed =
-			agent.elapsedMs === undefined ? "elapsed:?" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
+		const elapsed = agent.elapsedMs === undefined ? "elapsed:?" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
 		const phase = formatAgentPhase(agent);
 		const code = agent.code === undefined ? "" : ` code:${agent.code}`;
 		const schema = agent.schemaOk === undefined ? "" : ` schema:${agent.schemaOk ? "ok" : "bad"}`;
@@ -142,9 +138,7 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		const skills = ` skills:${agent.skills?.length ? agent.skills.join(",") : agent.includeSkills === false ? "disabled" : "default"}`;
 		const extensions = ` extensions:${agent.extensions?.length ? agent.extensions.join(",") : agent.includeExtensions ? "default" : "disabled"}`;
 		const keys = ` keys:${agent.keys?.length ? agent.keys.join(",") : agent.isolatedEnv ? "none" : "default"}${agent.missingKeys?.length ? ` missing:${agent.missingKeys.join(",")}` : ""}`;
-		const preview = agent.promptPreview
-			? ` — prompt preview: ${compactInline(agent.promptPreview, 180)}`
-			: "";
+		const preview = agent.promptPreview ? ` — prompt preview: ${compactInline(agent.promptPreview, 180)}` : "";
 		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
 	});
 

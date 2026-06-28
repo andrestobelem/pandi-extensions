@@ -36,10 +36,7 @@ export function parseInterval(token: string): number | null {
 	if (!Number.isFinite(value) || value <= 0) return null;
 	const unitMs = INTERVAL_UNIT_MS[m[2]];
 	const rawSeconds = (value * unitMs) / 1000;
-	const seconds = Math.min(
-		MAX_FIXED_INTERVAL_SECONDS,
-		Math.max(MIN_FIXED_INTERVAL_SECONDS, rawSeconds),
-	);
+	const seconds = Math.min(MAX_FIXED_INTERVAL_SECONDS, Math.max(MIN_FIXED_INTERVAL_SECONDS, rawSeconds));
 	return seconds * 1000;
 }
 

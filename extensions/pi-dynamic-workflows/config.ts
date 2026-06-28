@@ -24,10 +24,7 @@ function looksLikeJson(value: string): boolean {
 	return /^(?:[[{"]|true\b|false\b|null\b|-?\d)/.test(value.trim());
 }
 
-export function parseCliJsonOrText(
-	raw: string | undefined,
-	options: { strictJson?: boolean } = {},
-): unknown {
+export function parseCliJsonOrText(raw: string | undefined, options: { strictJson?: boolean } = {}): unknown {
 	const value = raw?.trim();
 	if (!value) return {};
 	try {
@@ -66,10 +63,7 @@ export function buildLimits(params: Partial<DynamicWorkflowToolParams> = {}): Ru
 		Math.max(Math.floor(params.concurrency ?? DEFAULT_CONCURRENCY), 1),
 		HARD_MAX_CONCURRENCY,
 	);
-	const maxAgents = Math.min(
-		Math.max(Math.floor(params.maxAgents ?? DEFAULT_MAX_AGENTS), 1),
-		HARD_MAX_AGENTS,
-	);
+	const maxAgents = Math.min(Math.max(Math.floor(params.maxAgents ?? DEFAULT_MAX_AGENTS), 1), HARD_MAX_AGENTS);
 	return {
 		concurrency,
 		maxAgents,

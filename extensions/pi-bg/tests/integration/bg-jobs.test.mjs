@@ -13,13 +13,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension,
-	createChecker,
-	loadDefault,
-	loadModule,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -104,9 +98,7 @@ async function waitFor(label, fn, { timeoutMs = 6000, intervalMs = 25 } = {}) {
 		}
 		await new Promise((resolve) => setTimeout(resolve, intervalMs));
 	}
-	throw new Error(
-		`Timed out waiting for ${label}: ${last instanceof Error ? last.message : JSON.stringify(last)}`,
-	);
+	throw new Error(`Timed out waiting for ${label}: ${last instanceof Error ? last.message : JSON.stringify(last)}`);
 }
 
 async function startControlledJob(commands, cwd, { exitCode = 0 } = {}) {
@@ -144,17 +136,9 @@ async function realStartCompletesAndLogs(url) {
 	await waitFor("child started handshake", async () => existsSync(job.started));
 	check("start: returns before release/completion", !existsSync(job.release));
 	let status = await readJson(path.join(job.runDir, "status.json"));
-	check(
-		"start: status reaches running before release",
-		status.state === "running",
-		JSON.stringify(status),
-	);
+	check("start: status reaches running before release", status.state === "running", JSON.stringify(status));
 	if (process.platform === "win32") {
-		check(
-			"start: process startId capture deferred on win32",
-			status.startId === undefined,
-			JSON.stringify(status),
-		);
+		check("start: process startId capture deferred on win32", status.startId === undefined, JSON.stringify(status));
 	} else {
 		check(
 			"start: status records a non-empty process startId",
@@ -180,11 +164,7 @@ async function realStartCompletesAndLogs(url) {
 		combined,
 	);
 	const leftoverTemps = (await fs.readdir(job.runDir)).filter((name) => name.includes(".tmp"));
-	check(
-		"atomic: no temp JSON files left behind",
-		leftoverTemps.length === 0,
-		leftoverTemps.join(","),
-	);
+	check("atomic: no temp JSON files left behind", leftoverTemps.length === 0, leftoverTemps.join(","));
 }
 
 async function failureIsRecorded(url) {
@@ -213,16 +193,8 @@ async function fastExitDoesNotRegressToRunning(url) {
 		const s = await readJson(path.join(runDir, "status.json"));
 		return ["completed", "failed", "cancelled"].includes(s.state) ? s : false;
 	});
-	check(
-		"fast-exit: terminal state wins over running",
-		status.state === "completed",
-		JSON.stringify(status),
-	);
-	check(
-		"fast-exit: active job is eventually removed",
-		status.state !== "running",
-		JSON.stringify(status),
-	);
+	check("fast-exit: terminal state wins over running", status.state === "completed", JSON.stringify(status));
+	check("fast-exit: active job is eventually removed", status.state !== "running", JSON.stringify(status));
 }
 
 async function commandWhitespaceIsPreserved(url) {
@@ -230,10 +202,7 @@ async function commandWhitespaceIsPreserved(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-command-"));
 	const script = path.join(cwd, "argv.cjs");
 	const out = path.join(cwd, "argv.txt");
-	await fs.writeFile(
-		script,
-		`require("node:fs").writeFileSync(process.argv[2], process.argv[3]);\n`,
-	);
+	await fs.writeFile(script, `require("node:fs").writeFileSync(process.argv[2], process.argv[3]);\n`);
 	const ctx = makeCtx({ cwd, trusted: true });
 	const expected = "alpha  beta";
 	const command = `${shellQuote(process.execPath)} ${shellQuote(script)} ${shellQuote(out)} ${shellQuote(expected)}`;
@@ -245,11 +214,7 @@ async function commandWhitespaceIsPreserved(url) {
 		return s.state === "completed" ? s : false;
 	});
 	const actual = await fs.readFile(out, "utf8");
-	check(
-		"command: quoted whitespace is preserved",
-		actual === expected,
-		JSON.stringify({ expected, actual }),
-	);
+	check("command: quoted whitespace is preserved", actual === expected, JSON.stringify({ expected, actual }));
 }
 
 async function cancelStopsActiveJob(url) {
@@ -285,11 +250,7 @@ async function cancelStopsActiveJob(url) {
 		return s.state === "cancelled" ? s : false;
 	});
 	check("cancel: final state is cancelled", status.state === "cancelled", JSON.stringify(status));
-	check(
-		"cancel: cancelRequested recorded",
-		status.cancelRequested === true,
-		JSON.stringify(status),
-	);
+	check("cancel: cancelRequested recorded", status.cancelRequested === true, JSON.stringify(status));
 }
 
 async function cancelEscalatesToSigkill(url) {
@@ -334,11 +295,7 @@ async function cancelEscalatesToSigkill(url) {
 		},
 		{ timeoutMs: 8000 },
 	);
-	check(
-		"cancel-sigkill: final state is cancelled",
-		status.state === "cancelled",
-		JSON.stringify(status),
-	);
+	check("cancel-sigkill: final state is cancelled", status.state === "cancelled", JSON.stringify(status));
 	check(
 		"cancel-sigkill: died only after the grace period (SIGTERM was ignored)",
 		Date.now() - tCancel >= 700,
@@ -369,11 +326,7 @@ async function orphanedPidIsLabeledNotKilled(url) {
 	// pid = this live test process, not owned by the bg session => orphaned (alive elsewhere).
 	await fs.writeFile(
 		path.join(runDir, "status.json"),
-		JSON.stringify(
-			{ jobId, state: "running", pid: process.pid, updatedAt: new Date().toISOString() },
-			null,
-			2,
-		),
+		JSON.stringify({ jobId, state: "running", pid: process.pid, updatedAt: new Date().toISOString() }, null, 2),
 	);
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
@@ -385,16 +338,8 @@ async function orphanedPidIsLabeledNotKilled(url) {
 	check("orphaned: current process is still alive", process.kill(process.pid, 0));
 	await commands.get("bg").handler(`status ${jobId}`, ctx);
 	const statusMsg = ctx._notes.at(-1)?.msg || "";
-	check(
-		"orphaned: live persisted PID is derived as orphaned",
-		/"state": "orphaned"/.test(statusMsg),
-		statusMsg,
-	);
-	check(
-		"orphaned: persisted running state is reported",
-		/"persistedState": "running"/.test(statusMsg),
-		statusMsg,
-	);
+	check("orphaned: live persisted PID is derived as orphaned", /"state": "orphaned"/.test(statusMsg), statusMsg);
+	check("orphaned: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
 	check(
 		"orphaned: status surfaces a verify-before-kill hint",
 		/"hint":/.test(statusMsg) && /reused/.test(statusMsg),
@@ -425,11 +370,7 @@ async function interruptedAndStaleStatesAreDerived(url) {
 	await fs.mkdir(deadDir, { recursive: true });
 	await fs.writeFile(
 		path.join(deadDir, "job.json"),
-		JSON.stringify(
-			{ jobId: deadJob, command: "gone", cwd, createdAt: new Date().toISOString() },
-			null,
-			2,
-		),
+		JSON.stringify({ jobId: deadJob, command: "gone", cwd, createdAt: new Date().toISOString() }, null, 2),
 	);
 	await fs.writeFile(
 		path.join(deadDir, "status.json"),
@@ -446,47 +387,23 @@ async function interruptedAndStaleStatesAreDerived(url) {
 	await fs.mkdir(noPidDir, { recursive: true });
 	await fs.writeFile(
 		path.join(noPidDir, "job.json"),
-		JSON.stringify(
-			{ jobId: noPidJob, command: "starting", cwd, createdAt: new Date().toISOString() },
-			null,
-			2,
-		),
+		JSON.stringify({ jobId: noPidJob, command: "starting", cwd, createdAt: new Date().toISOString() }, null, 2),
 	);
 	await fs.writeFile(
 		path.join(noPidDir, "status.json"),
-		JSON.stringify(
-			{ jobId: noPidJob, state: "starting", updatedAt: new Date().toISOString() },
-			null,
-			2,
-		),
+		JSON.stringify({ jobId: noPidJob, state: "starting", updatedAt: new Date().toISOString() }, null, 2),
 	);
 
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler(`status ${deadJob}`, ctx);
 	const deadMsg = ctx._notes.at(-1)?.msg || "";
-	check(
-		"interrupted: dead persisted PID is derived as interrupted",
-		/"state": "interrupted"/.test(deadMsg),
-		deadMsg,
-	);
-	check(
-		"interrupted: persisted running state is reported",
-		/"persistedState": "running"/.test(deadMsg),
-		deadMsg,
-	);
+	check("interrupted: dead persisted PID is derived as interrupted", /"state": "interrupted"/.test(deadMsg), deadMsg);
+	check("interrupted: persisted running state is reported", /"persistedState": "running"/.test(deadMsg), deadMsg);
 
 	await commands.get("bg").handler(`status ${noPidJob}`, ctx);
 	const noPidMsg = ctx._notes.at(-1)?.msg || "";
-	check(
-		"stale: unprobeable (no pid) job falls back to stale",
-		/"state": "stale"/.test(noPidMsg),
-		noPidMsg,
-	);
-	check(
-		"stale: persisted starting state is reported",
-		/"persistedState": "starting"/.test(noPidMsg),
-		noPidMsg,
-	);
+	check("stale: unprobeable (no pid) job falls back to stale", /"state": "stale"/.test(noPidMsg), noPidMsg);
+	check("stale: persisted starting state is reported", /"persistedState": "starting"/.test(noPidMsg), noPidMsg);
 
 	await commands.get("bg").handler("list", ctx);
 	const listMsg = ctx._notes.at(-1)?.msg || "";
@@ -497,11 +414,7 @@ async function interruptedAndStaleStatesAreDerived(url) {
 async function processStartIdCapturesIdentity(url) {
 	const mod = await loadModule(url);
 	const readStartId = mod.readProcessStartId;
-	check(
-		"startid: readProcessStartId is exported",
-		typeof readStartId === "function",
-		typeof readStartId,
-	);
+	check("startid: readProcessStartId is exported", typeof readStartId === "function", typeof readStartId);
 	if (typeof readStartId !== "function") return;
 	check(
 		"startid: invalid pids yield undefined",
@@ -544,16 +457,8 @@ async function livenessProbeClassifiesPids(url) {
 	check("liveness: probeProcessAlive is exported", typeof probe === "function", typeof probe);
 	if (typeof probe !== "function") return;
 	// A signal-0 probe sends no signal; it only asks whether some process holds the pid.
-	check(
-		"liveness: current process is alive",
-		probe(process.pid) === "alive",
-		String(probe(process.pid)),
-	);
-	check(
-		"liveness: undefined pid is unknown",
-		probe(undefined) === "unknown",
-		String(probe(undefined)),
-	);
+	check("liveness: current process is alive", probe(process.pid) === "alive", String(probe(process.pid)));
+	check("liveness: undefined pid is unknown", probe(undefined) === "unknown", String(probe(undefined)));
 	check(
 		"liveness: zero/negative/non-integer pid is unknown",
 		probe(0) === "unknown" && probe(-1) === "unknown" && probe(1.5) === "unknown",
@@ -566,21 +471,13 @@ async function livenessProbeClassifiesPids(url) {
 		dead.status === 0,
 		JSON.stringify({ status: dead.status, pid: dead.pid }),
 	);
-	check(
-		"liveness: a reaped child pid is dead",
-		probe(dead.pid) === "dead",
-		String(probe(dead.pid)),
-	);
+	check("liveness: a reaped child pid is dead", probe(dead.pid) === "dead", String(probe(dead.pid)));
 }
 
 async function reconcileRewritesDeadRunningJobs(url) {
 	const mod = await loadModule(url);
 	const reconcile = mod.reconcileInterruptedJobs;
-	check(
-		"reconcile: reconcileInterruptedJobs is exported",
-		typeof reconcile === "function",
-		typeof reconcile,
-	);
+	check("reconcile: reconcileInterruptedJobs is exported", typeof reconcile === "function", typeof reconcile);
 	if (typeof reconcile !== "function") return;
 
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-"));
@@ -643,11 +540,7 @@ async function reconcileRewritesDeadRunningJobs(url) {
 		JSON.stringify(noPidStatus),
 	);
 	const doneStatus = await readJson(path.join(doneDir, "status.json"));
-	check(
-		"reconcile: terminal job is left untouched",
-		doneStatus.state === "completed",
-		JSON.stringify(doneStatus),
-	);
+	check("reconcile: terminal job is left untouched", doneStatus.state === "completed", JSON.stringify(doneStatus));
 
 	const n2 = await reconcile(ctx);
 	check("reconcile: idempotent second pass changes nothing", n2 === 0, String(n2));
@@ -705,11 +598,7 @@ async function verifyProcessIdentityDetectsReuse(url) {
 		);
 	} else {
 		const id = readStartId(process.pid);
-		check(
-			"verify: matching identity is same",
-			verify(process.pid, id) === "same",
-			String(verify(process.pid, id)),
-		);
+		check("verify: matching identity is same", verify(process.pid, id) === "same", String(verify(process.pid, id)));
 		check(
 			"verify: stale identity is different (pid reused)",
 			verify(process.pid, "stale:bogus") === "different",
@@ -759,11 +648,7 @@ async function identityDefeatsPidReuse(url) {
 	await commands.get("bg").handler("status verified", ctx);
 	const verifiedMsg = ctx._notes.at(-1)?.msg || "";
 	if (win32) {
-		check(
-			"identity: win32 status keeps best-effort orphaned",
-			/"state": "orphaned"/.test(reusedMsg),
-			reusedMsg,
-		);
+		check("identity: win32 status keeps best-effort orphaned", /"state": "orphaned"/.test(reusedMsg), reusedMsg);
 	} else {
 		check(
 			"identity: status downgrades a reused pid to interrupted",
@@ -778,39 +663,20 @@ async function identityDefeatsPidReuse(url) {
 	}
 
 	const n = await reconcile(ctx);
-	const reusedState = JSON.parse(
-		await fs.readFile(path.join(reusedDir, "status.json"), "utf8"),
-	).state;
-	const verifiedState = JSON.parse(
-		await fs.readFile(path.join(verifiedDir, "status.json"), "utf8"),
-	).state;
+	const reusedState = JSON.parse(await fs.readFile(path.join(reusedDir, "status.json"), "utf8")).state;
+	const verifiedState = JSON.parse(await fs.readFile(path.join(verifiedDir, "status.json"), "utf8")).state;
 	if (win32) {
-		check(
-			"identity: win32 reconcile leaves reused pid running",
-			reusedState === "running",
-			reusedState,
-		);
+		check("identity: win32 reconcile leaves reused pid running", reusedState === "running", reusedState);
 	} else {
-		check(
-			"identity: reconcile rewrites a reused pid to interrupted",
-			reusedState === "interrupted",
-			reusedState,
-		);
-		check(
-			"identity: reconcile leaves a verified orphan running",
-			verifiedState === "running",
-			verifiedState,
-		);
+		check("identity: reconcile rewrites a reused pid to interrupted", reusedState === "interrupted", reusedState);
+		check("identity: reconcile leaves a verified orphan running", verifiedState === "running", verifiedState);
 		check("identity: reconcile reports rewriting the reused job", n >= 1, String(n));
 	}
 }
 
 async function cancelSignalsVerifiedOrphan(url) {
 	if (process.platform === "win32") {
-		check(
-			"cancel-orphan: verified-orphan signaling exercised on POSIX only (skipped on win32)",
-			true,
-		);
+		check("cancel-orphan: verified-orphan signaling exercised on POSIX only (skipped on win32)", true);
 		return;
 	}
 	const mod = await loadModule(url);
@@ -937,19 +803,11 @@ async function cancelRefusesReusedPid(url) {
 	const msg = ctx._notes.at(-1)?.msg || "";
 	check("cancel-reuse: current process still alive (never signaled)", process.kill(process.pid, 0));
 	const status = await readJson(path.join(runDir, "status.json"));
-	check(
-		"cancel-reuse: status is left running (not cancelled)",
-		status.state === "running",
-		JSON.stringify(status),
-	);
+	check("cancel-reuse: status is left running (not cancelled)", status.state === "running", JSON.stringify(status));
 	if (process.platform === "win32") {
 		check("cancel-reuse: win32 refuses (identity unverifiable)", /refus/i.test(msg), msg);
 	} else {
-		check(
-			"cancel-reuse: refuses a reused pid and explains why",
-			/refus/i.test(msg) && /reus/i.test(msg),
-			msg,
-		);
+		check("cancel-reuse: refuses a reused pid and explains why", /refus/i.test(msg) && /reus/i.test(msg), msg);
 	}
 }
 
@@ -989,12 +847,7 @@ async function deleteGateReDerivesLiveState(url) {
 	});
 	const aliveMsg = await del("alive-orphan");
 	check("delete-gate: refuses a verified-alive orphan", existsSync(aliveDir), aliveMsg);
-	if (!win32)
-		check(
-			"delete-gate: explains the alive refusal",
-			/cannot be deleted|alive/i.test(aliveMsg),
-			aliveMsg,
-		);
+	if (!win32) check("delete-gate: explains the alive refusal", /cannot be deleted|alive/i.test(aliveMsg), aliveMsg);
 
 	const unkDir = await seed("unknown-orphan", { state: "running", pid: process.pid });
 	const unkMsg = await del("unknown-orphan");
@@ -1007,11 +860,7 @@ async function deleteGateReDerivesLiveState(url) {
 	});
 	const reusedMsg = await del("reused-pid");
 	if (win32) {
-		check(
-			"delete-gate: win32 keeps a reused-pid orphan (unverifiable)",
-			existsSync(reusedDir),
-			reusedMsg,
-		);
+		check("delete-gate: win32 keeps a reused-pid orphan (unverifiable)", existsSync(reusedDir), reusedMsg);
 	} else {
 		check(
 			"delete-gate: deletes a reused-pid job (refined to interrupted)",
@@ -1040,22 +889,14 @@ async function deleteGateReDerivesLiveState(url) {
 async function removeRunDirRevalidatesBeforeRm(url) {
 	const mod = await loadModule(url);
 	const removeRunDir = mod.removeRunDir;
-	check(
-		"revalidate: removeRunDir is exported",
-		typeof removeRunDir === "function",
-		typeof removeRunDir,
-	);
+	check("revalidate: removeRunDir is exported", typeof removeRunDir === "function", typeof removeRunDir);
 	if (typeof removeRunDir !== "function") return;
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-revalidate-"));
 	const dir = path.join(cwd, ".pi", "bg", "runs", "guard-job");
 	await fs.mkdir(dir, { recursive: true });
 	await fs.writeFile(
 		path.join(dir, "status.json"),
-		JSON.stringify(
-			{ jobId: "guard-job", state: "completed", updatedAt: new Date().toISOString() },
-			null,
-			2,
-		),
+		JSON.stringify({ jobId: "guard-job", state: "completed", updatedAt: new Date().toISOString() }, null, 2),
 	);
 	const ctx = makeCtx({ cwd, trusted: true });
 	const aborted = await removeRunDir(ctx, "guard-job", { verb: "delete" }, async () => false);
@@ -1065,11 +906,7 @@ async function removeRunDirRevalidatesBeforeRm(url) {
 		`aborted=${aborted}`,
 	);
 	const removed = await removeRunDir(ctx, "guard-job", { verb: "delete" }, async () => true);
-	check(
-		"revalidate: a passing re-check removes the dir",
-		removed === true && !existsSync(dir),
-		`removed=${removed}`,
-	);
+	check("revalidate: a passing re-check removes the dir", removed === true && !existsSync(dir), `removed=${removed}`);
 }
 
 // R4 unit: the --yes-only parser (a typo stays a safe dry-run) and the symlink-skipping
@@ -1079,26 +916,16 @@ async function pruneFlagAndSizeHelpers(url) {
 	const parse = mod.parsePruneFlags;
 	const dirSizeBytes = mod.dirSizeBytes;
 	check("prune-parse: parsePruneFlags is exported", typeof parse === "function", typeof parse);
-	check(
-		"prune-size: dirSizeBytes is exported",
-		typeof dirSizeBytes === "function",
-		typeof dirSizeBytes,
-	);
+	check("prune-size: dirSizeBytes is exported", typeof dirSizeBytes === "function", typeof dirSizeBytes);
 	if (typeof parse !== "function" || typeof dirSizeBytes !== "function") return;
 	check("prune-parse: --yes enables execution", parse("--yes").yes === true);
-	check(
-		"prune-parse: absent flag stays dry-run",
-		parse("").yes === false && parse("   ").yes === false,
-	);
+	check("prune-parse: absent flag stays dry-run", parse("").yes === false && parse("   ").yes === false);
 	check("prune-parse: a typo'd flag is ignored (safe dry-run)", parse("--yse").yes === false);
 	check("prune-parse: --yes anywhere in args counts", parse("foo --yes bar").yes === true);
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-size-"));
 	await fs.writeFile(path.join(dir, "a.log"), "12345");
 	await fs.writeFile(path.join(dir, "b.log"), "678");
-	const external = path.join(
-		await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-size-ext-")),
-		"big.bin",
-	);
+	const external = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-size-ext-")), "big.bin");
 	await fs.writeFile(external, "x".repeat(10000));
 	await fs.symlink(external, path.join(dir, "link.log"));
 	check(
@@ -1125,8 +952,7 @@ async function prunePreviewListsCandidatesWithoutDeleting(url) {
 			path.join(dir, "status.json"),
 			JSON.stringify({ jobId, updatedAt: new Date().toISOString(), ...status }, null, 2),
 		);
-		for (const [name, body] of Object.entries(files))
-			await fs.writeFile(path.join(dir, name), body);
+		for (const [name, body] of Object.entries(files)) await fs.writeFile(path.join(dir, name), body);
 		return dir;
 	};
 	const doneDir = await seed("done-1", { state: "completed" }, { "combined.log": "hi" });
@@ -1176,11 +1002,7 @@ async function pruneYesExecutesReDerivesAndAudits(url) {
 	await commands.get("bg").handler("prune --yes", ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
 	check("prune-yes: deletes the completed job", !existsSync(doneDir), msg);
-	check(
-		"prune-yes: deletes the dead-pid job (reclassified interrupted)",
-		!existsSync(deadRunDir),
-		msg,
-	);
+	check("prune-yes: deletes the dead-pid job (reclassified interrupted)", !existsSync(deadRunDir), msg);
 	check("prune-yes: skips the alive job", existsSync(aliveDir), msg);
 	const audit = (await fs.readFile(path.join(runsRoot, ".audit.jsonl"), "utf8").catch(() => ""))
 		.trim()
@@ -1254,11 +1076,7 @@ async function logStreamErrorsAreContained(url) {
 async function atomicWriteCleansTempOnRenameFailure(url) {
 	const mod = await loadModule(url);
 	const atomicWriteJson = mod.atomicWriteJson;
-	check(
-		"atomic: atomicWriteJson is exported",
-		typeof atomicWriteJson === "function",
-		typeof atomicWriteJson,
-	);
+	check("atomic: atomicWriteJson is exported", typeof atomicWriteJson === "function", typeof atomicWriteJson);
 	if (typeof atomicWriteJson !== "function") return;
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-atomic-"));
 	// Make the target an existing directory so rename(tmp, target) fails (EISDIR).
@@ -1272,11 +1090,7 @@ async function atomicWriteCleansTempOnRenameFailure(url) {
 	}
 	check("atomic: rename failure is rethrown", threw);
 	const leftoverTemps = (await fs.readdir(dir)).filter((name) => name.includes(".tmp"));
-	check(
-		"atomic: no temp file left behind after rename failure",
-		leftoverTemps.length === 0,
-		leftoverTemps.join(","),
-	);
+	check("atomic: no temp file left behind after rename failure", leftoverTemps.length === 0, leftoverTemps.join(","));
 }
 
 async function descriptionListsPreviewSubcommand(url) {
@@ -1299,11 +1113,7 @@ async function startSurfacesFilesystemErrors(url) {
 	}
 	const note = ctx._notes.at(-1) || {};
 	check("fs-error: handler does not throw on filesystem error", !threw);
-	check(
-		"fs-error: failure surfaced as a clean message",
-		/failed/i.test(note.msg || ""),
-		JSON.stringify(note),
-	);
+	check("fs-error: failure surfaced as a clean message", /failed/i.test(note.msg || ""), JSON.stringify(note));
 	check("fs-error: response uses the 'error' type", note.type === "error", JSON.stringify(note));
 }
 
@@ -1347,11 +1157,7 @@ async function backpressurePausesSource(url) {
 async function backpressureRecoversWhenSinkDies(url) {
 	const mod = await loadModule(url);
 	const pipe = mod.pipeWithBackpressure;
-	check(
-		"backpressure-death: pipeWithBackpressure is exported",
-		typeof pipe === "function",
-		typeof pipe,
-	);
+	check("backpressure-death: pipeWithBackpressure is exported", typeof pipe === "function", typeof pipe);
 	if (typeof pipe !== "function") return;
 
 	const source = new PassThrough();
@@ -1412,11 +1218,7 @@ async function writeCapStopsAndMarksLog(url) {
 		text,
 	);
 	check("write-cap: drops payload once capped", !payload.includes("c"), payload);
-	check(
-		"write-cap: payload bytes do not exceed the cap",
-		payload.length <= cap,
-		`payloadBytes=${payload.length}`,
-	);
+	check("write-cap: payload bytes do not exceed the cap", payload.length <= cap, `payloadBytes=${payload.length}`);
 	source.destroy();
 	sink.destroy();
 }
@@ -1424,11 +1226,7 @@ async function writeCapStopsAndMarksLog(url) {
 async function jobFinishedGuardRejectsCancel(url) {
 	const mod = await loadModule(url);
 	const isFinished = mod.isJobFinished;
-	check(
-		"cancel-guard: isJobFinished is exported",
-		typeof isFinished === "function",
-		typeof isFinished,
-	);
+	check("cancel-guard: isJobFinished is exported", typeof isFinished === "function", typeof isFinished);
 	if (typeof isFinished !== "function") return;
 	// A finished job must not be re-signalled (avoids mislabel + stray signal to a reaped PID).
 	check(
@@ -1454,11 +1252,7 @@ async function finalizeRejectionIsContained(url) {
 	const finalizeJob = mod.finalizeJob;
 	const safeFinalize = mod.safeFinalize;
 	check("finalize: finalizeJob is exported", typeof finalizeJob === "function", typeof finalizeJob);
-	check(
-		"finalize: safeFinalize is exported",
-		typeof safeFinalize === "function",
-		typeof safeFinalize,
-	);
+	check("finalize: safeFinalize is exported", typeof safeFinalize === "function", typeof safeFinalize);
 	if (typeof finalizeJob !== "function" || typeof safeFinalize !== "function") return;
 
 	const makeBadRuntime = async (label) => {
@@ -1495,10 +1289,7 @@ async function finalizeRejectionIsContained(url) {
 	await finalizeJob(bad1, 0, null).catch(() => {
 		rawRejected = true;
 	});
-	check(
-		"finalize: raw finalizeJob rejects on status-write failure (hazard reproduced)",
-		rawRejected,
-	);
+	check("finalize: raw finalizeJob rejects on status-write failure (hazard reproduced)", rawRejected);
 
 	// Fixed behavior: safeFinalize swallows the rejection (no unhandledRejection)
 	// and records it as a finalize-error event for observability.
@@ -1510,17 +1301,9 @@ async function finalizeRejectionIsContained(url) {
 	check("finalize: safeFinalize returns void (does not throw synchronously)", ret === undefined);
 	await new Promise((r) => setTimeout(r, 75));
 	process.off("unhandledRejection", onUnhandled);
-	check(
-		"finalize: safeFinalize produces no unhandled rejection",
-		rejections.length === 0,
-		String(rejections.length),
-	);
+	check("finalize: safeFinalize produces no unhandled rejection", rejections.length === 0, String(rejections.length));
 	const events = await fs.readFile(path.join(bad2.runDir, "events.jsonl"), "utf8").catch(() => "");
-	check(
-		"finalize: safeFinalize records a finalize-error event",
-		/finalize-error/.test(events),
-		events.slice(0, 200),
-	);
+	check("finalize: safeFinalize records a finalize-error event", /finalize-error/.test(events), events.slice(0, 200));
 }
 
 async function modeGateRejectsStart(url) {

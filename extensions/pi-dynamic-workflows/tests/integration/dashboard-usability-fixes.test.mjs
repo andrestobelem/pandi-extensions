@@ -16,11 +16,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -98,8 +94,7 @@ function makeCtx(cwd, { editorReturns = "use-initial", customInputs = [] } = {})
 			setWidget: () => {},
 			confirm: async () => true,
 			select: async () => undefined,
-			editor: async (_title, initial = "") =>
-				editorReturns === "use-initial" ? initial : editorReturns,
+			editor: async (_title, initial = "") => (editorReturns === "use-initial" ? initial : editorReturns),
 			getEditorComponent: () => undefined,
 			setEditorComponent: () => {},
 			custom: async (factory) => {
@@ -113,8 +108,7 @@ function makeCtx(cwd, { editorReturns = "use-initial", customInputs = [] } = {})
 				entry.component = factory(tui, theme, {}, done);
 				while (inputs.length > 0 && typeof entry.component?.handleInput === "function")
 					entry.component.handleInput(inputs.shift());
-				entry.lines =
-					typeof entry.component?.render === "function" ? entry.component.render(100) : [];
+				entry.lines = typeof entry.component?.render === "function" ? entry.component.render(100) : [];
 				customCalls.push(entry);
 				return entry.doneValue ?? null;
 			},
@@ -172,8 +166,7 @@ async function bootExtension(url, project, ctxOptions) {
 	const { pi, handlers, commands } = makePi();
 	ext(pi);
 	const state = makeCtx(project, ctxOptions);
-	for (const handler of handlers.get("session_start") ?? [])
-		await handler({ reason: "startup" }, state.ctx);
+	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, state.ctx);
 	return { ...state, commands };
 }
 
@@ -222,11 +215,7 @@ async function scenarioPatternsAndMonitorN(url) {
 		renderedText(mCall).includes("[Agents]"),
 		renderedText(mCall).split("\n")[0],
 	);
-	check(
-		"monitor `n` does not trigger an action",
-		mCall?.doneValue == null,
-		JSON.stringify(mCall?.doneValue),
-	);
+	check("monitor `n` does not trigger an action", mCall?.doneValue == null, JSON.stringify(mCall?.doneValue));
 }
 
 async function scenarioBackspaceVsDelete(url) {
@@ -348,11 +337,7 @@ async function scenarioListPaging(url) {
 
 	component.handleInput("pageDown");
 	component.handleInput("v");
-	check(
-		"PageDown jumps a page (10) down",
-		getDone()?.run?.runId === "r10",
-		JSON.stringify(getDone()),
-	);
+	check("PageDown jumps a page (10) down", getDone()?.run?.runId === "r10", JSON.stringify(getDone()));
 
 	component.handleInput("pageUp");
 	component.handleInput("v");
@@ -370,11 +355,7 @@ async function scenarioReopenAfterAction(url) {
 		`customCalls=${boot.customCalls.length}`,
 	);
 	const reopened = renderedText(boot.customCalls[boot.customCalls.length - 1]);
-	check(
-		"reopened dashboard preserves the active tab (Runs)",
-		reopened.includes("[Runs]"),
-		reopened.split("\n")[0],
-	);
+	check("reopened dashboard preserves the active tab (Runs)", reopened.includes("[Runs]"), reopened.split("\n")[0]);
 }
 
 async function scenarioHelpOverlay(url) {
@@ -388,11 +369,7 @@ async function scenarioHelpOverlay(url) {
 		helpText.includes("keyboard help") && helpText.includes("PgUp"),
 		helpText.split("\n")[0],
 	);
-	check(
-		"help overlay documents close",
-		helpText.toLowerCase().includes("close"),
-		helpText.split("\n").slice(-1)[0],
-	);
+	check("help overlay documents close", helpText.toLowerCase().includes("close"), helpText.split("\n").slice(-1)[0]);
 
 	const dismissed = await bootExtension(url, project, { customInputs: ["?", "x"] });
 	await dismissed.commands.get("workflow").handler("dashboard", dismissed.ctx);
@@ -434,8 +411,7 @@ async function scenarioRunningAgentLiveElapsed(url) {
 	check(
 		"running agent shows live elapsed (not frozen elapsed:…)",
 		/1m\d\ds/.test(text) && !text.includes("elapsed:…"),
-		text.split("\n").find((l) => l.toLowerCase().includes("state:") || l.includes("elapsed")) ??
-			text.slice(0, 160),
+		text.split("\n").find((l) => l.toLowerCase().includes("state:") || l.includes("elapsed")) ?? text.slice(0, 160),
 	);
 }
 
@@ -720,11 +696,7 @@ async function scenarioKeyboardNav(url) {
 	component.handleInput("j"); // -> index 2
 	component.handleInput("k"); // vim up -> index 1
 	component.handleInput("v");
-	check(
-		"j/k navigate the list (vim down/up)",
-		getDone()?.run?.runId === "r1",
-		JSON.stringify(getDone()),
-	);
+	check("j/k navigate the list (vim down/up)", getDone()?.run?.runId === "r1", JSON.stringify(getDone()));
 
 	component.handleInput("G"); // jump to last
 	component.handleInput("v");
@@ -742,11 +714,7 @@ async function scenarioLiveAgentHeaderStatus(url) {
 	const fn = mod.liveAgentHeaderStatus;
 	check("liveAgentHeaderStatus is exported", typeof fn === "function", String(typeof fn));
 	if (typeof fn !== "function") return;
-	check(
-		"running agent live header advertises 'refresh 1s'",
-		fn("running") === "refresh 1s",
-		String(fn("running")),
-	);
+	check("running agent live header advertises 'refresh 1s'", fn("running") === "refresh 1s", String(fn("running")));
 	check(
 		"unknown/undefined state keeps the polling label",
 		fn(undefined) === "refresh 1s" && fn("unknown") === "refresh 1s",
@@ -757,11 +725,7 @@ async function scenarioLiveAgentHeaderStatus(url) {
 		fn("completed") === "final (completed)",
 		String(fn("completed")),
 	);
-	check(
-		"failed agent live header shows 'final'",
-		fn("failed") === "final (failed)",
-		String(fn("failed")),
-	);
+	check("failed agent live header shows 'final'", fn("failed") === "final (failed)", String(fn("failed")));
 }
 
 async function main() {

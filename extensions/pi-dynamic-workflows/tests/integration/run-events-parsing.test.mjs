@@ -22,11 +22,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	buildExtension as sharedBuildExtension,
-	createChecker,
-	sdkStub,
-} from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -50,40 +46,17 @@ async function buildExtension() {
 }
 
 function scenarioValueCoercers(mod) {
-	const {
-		recordValue,
-		stringValue,
-		numberValue,
-		booleanValue,
-		stringArrayValue,
-		isAgentMonitorState,
-	} = mod;
+	const { recordValue, stringValue, numberValue, booleanValue, stringArrayValue, isAgentMonitorState } = mod;
 
 	// recordValue: plain non-null non-array object -> itself; everything else -> undefined.
-	check(
-		"recordValue keeps a plain object",
-		recordValue({ a: 1 })?.a === 1,
-		JSON.stringify(recordValue({ a: 1 })),
-	);
+	check("recordValue keeps a plain object", recordValue({ a: 1 })?.a === 1, JSON.stringify(recordValue({ a: 1 })));
 	check("recordValue rejects null", recordValue(null) === undefined, String(recordValue(null)));
-	check(
-		"recordValue rejects arrays",
-		recordValue([1, 2]) === undefined,
-		String(recordValue([1, 2])),
-	);
-	check(
-		"recordValue rejects primitives",
-		recordValue("x") === undefined && recordValue(5) === undefined,
-		"x/5",
-	);
+	check("recordValue rejects arrays", recordValue([1, 2]) === undefined, String(recordValue([1, 2])));
+	check("recordValue rejects primitives", recordValue("x") === undefined && recordValue(5) === undefined, "x/5");
 
 	// stringValue / numberValue / booleanValue: strict typeof, finite for numbers.
 	check("stringValue keeps a string", stringValue("hi") === "hi", String(stringValue("hi")));
-	check(
-		"stringValue rejects non-strings",
-		stringValue(5) === undefined && stringValue(null) === undefined,
-		"5/null",
-	);
+	check("stringValue rejects non-strings", stringValue(5) === undefined && stringValue(null) === undefined, "5/null");
 	check(
 		"numberValue keeps a finite number incl. 0",
 		numberValue(5) === 5 && numberValue(0) === 0,
@@ -91,9 +64,7 @@ function scenarioValueCoercers(mod) {
 	);
 	check(
 		"numberValue rejects NaN/Infinity/strings",
-		numberValue(NaN) === undefined &&
-			numberValue(Infinity) === undefined &&
-			numberValue("5") === undefined,
+		numberValue(NaN) === undefined && numberValue(Infinity) === undefined && numberValue("5") === undefined,
 		"NaN/Inf/'5'",
 	);
 	check(
@@ -123,21 +94,11 @@ function scenarioValueCoercers(mod) {
 		Array.isArray(stringArrayValue([])) && stringArrayValue([]).length === 0,
 		JSON.stringify(stringArrayValue([])),
 	);
-	check(
-		"stringArrayValue rejects non-arrays",
-		stringArrayValue("a") === undefined,
-		String(stringArrayValue("a")),
-	);
+	check("stringArrayValue rejects non-arrays", stringArrayValue("a") === undefined, String(stringArrayValue("a")));
 
 	// isAgentMonitorState: exactly the five known states.
-	const good = ["running", "completed", "failed", "cached", "unknown"].every(
-		(s) => isAgentMonitorState(s) === true,
-	);
-	check(
-		"isAgentMonitorState accepts the five known states",
-		good,
-		"running/completed/failed/cached/unknown",
-	);
+	const good = ["running", "completed", "failed", "cached", "unknown"].every((s) => isAgentMonitorState(s) === true);
+	check("isAgentMonitorState accepts the five known states", good, "running/completed/failed/cached/unknown");
 	check(
 		"isAgentMonitorState rejects others",
 		isAgentMonitorState("nope") === false && isAgentMonitorState(undefined) === false,
@@ -233,10 +194,7 @@ function scenarioMergeAgentMonitor(mod) {
 	});
 	check(
 		"merge: new agent keeps id/name/state/startedAt",
-		fresh.id === 1 &&
-			fresh.name === "alpha" &&
-			fresh.state === "running" &&
-			fresh.startedAt === "T1",
+		fresh.id === 1 && fresh.name === "alpha" && fresh.state === "running" && fresh.startedAt === "T1",
 		JSON.stringify(fresh),
 	);
 	check(
@@ -244,11 +202,7 @@ function scenarioMergeAgentMonitor(mod) {
 		fresh.promptAvailable === false,
 		JSON.stringify(fresh),
 	);
-	check(
-		"merge: new running agent has no endedAt",
-		fresh.endedAt === undefined,
-		JSON.stringify(fresh),
-	);
+	check("merge: new running agent has no endedAt", fresh.endedAt === undefined, JSON.stringify(fresh));
 
 	const finishedToRunning = mergeAgentMonitor(
 		{ id: 1, name: "alpha", state: "completed" },
@@ -294,8 +248,7 @@ function scenarioMergeAgentMonitor(mod) {
 	});
 	check(
 		"merge: an artifactPath makes promptAvailable=true",
-		withArtifact.promptAvailable === true &&
-			withArtifact.artifactPath === "/runs/agents/0001-alpha.md",
+		withArtifact.promptAvailable === true && withArtifact.artifactPath === "/runs/agents/0001-alpha.md",
 		JSON.stringify(withArtifact),
 	);
 	const keepsPrompt = mergeAgentMonitor(

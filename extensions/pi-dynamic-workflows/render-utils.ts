@@ -22,9 +22,7 @@ export function padRightVisible(value: string, width: number): string {
 }
 
 export function stripAnsiCodes(value: string): string {
-	return value
-		.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
-		.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "");
+	return value.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "").replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "");
 }
 
 export function renderSafeInline(value: string): string {
