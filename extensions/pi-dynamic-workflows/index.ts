@@ -50,6 +50,7 @@ import { buildLimits, HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY, limitParamsFromInpu
 import { formatElapsedMs, formatWorkflowList, shortWorkflowName, workflowDashboardHint, workflowProgress } from "./presentation.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
 import { padRightVisible, renderSafeInline, stripAnsiCodes } from "./render-utils.js";
+import { MAX_TOOL_TEXT, safeJson, stringify, text, truncate } from "./format.js";
 import { formatParallelAgents, formatParallelAgentsCompact, getRunAgentConcurrency, getRunCachedCalls, getRunElapsedMs, getRunLogs, getRunParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusIcon, getRunStatusLabel, isResumableState, isRunResult } from "./run-state.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
 
@@ -62,7 +63,6 @@ const PI_SESSION_HEARTBEAT_MS = 5_000;
 const PI_SESSION_STALE_MS = 20_000;
 // Grace period after SIGTERM before escalating to SIGKILL for spawned child processes.
 const PROCESS_KILL_GRACE_MS = 2_000;
-const MAX_TOOL_TEXT = 24_000;
 const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
@@ -479,40 +479,6 @@ const workflowToolSchema = Type.Object({
 		Type.Integer({ minimum: 1_000, description: "Default timeout for each subagent in milliseconds." }),
 	),
 });
-
-function text(content: string) {
-	return { type: "text" as const, text: content };
-}
-
-function truncate(value: string, max = MAX_TOOL_TEXT): string {
-	if (value.length <= max) return value;
-	return `${value.slice(0, Math.max(0, max - 120))}\n\n...[truncated ${value.length - max} chars]`;
-}
-
-function safeJson(value: unknown, indent = 2): string {
-	const seen = new WeakSet<object>();
-	return JSON.stringify(
-		value,
-		(_key, current) => {
-			if (typeof current === "bigint") return current.toString();
-			if (typeof current === "object" && current !== null) {
-				if (seen.has(current)) return "[Circular]";
-				seen.add(current);
-			}
-			return current;
-		},
-		indent,
-	);
-}
-
-function stringify(value: unknown, max = MAX_TOOL_TEXT): string {
-	if (typeof value === "string") return truncate(value, max);
-	try {
-		return truncate(safeJson(value), max);
-	} catch (err) {
-		return truncate(String(err), max);
-	}
-}
 
 function makeStructuredOutputSystemPrompt(schema: unknown): string {
 	return [
