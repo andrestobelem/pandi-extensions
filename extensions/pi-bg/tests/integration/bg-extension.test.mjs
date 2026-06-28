@@ -214,6 +214,37 @@ async function deleteRejectedInPlanMode(planUrl, bgUrl) {
 	await commands.get("plan").handler("exit", ctx);
 }
 
+// R6: delete/prune are fully wired (description, completions, unknown-subcommand help) and
+// remain slash-only (no LLM tool); no dashboard verb leaked in.
+async function dispatcherExposesDeleteAndPrune(url) {
+	const { commands, tools } = await loadExtension(url);
+	const bg = commands.get("bg");
+	check("wiring: registers no LLM tools (delete/prune are slash-only)", tools.size === 0, [...tools.keys()].join(","));
+	check("wiring: description advertises delete and prune", /delete/.test(bg.description) && /prune/.test(bg.description), bg.description);
+	check("wiring: description advertises no dashboard", !/dashboard/i.test(bg.description), bg.description);
+	const comp = (prefix) => (bg.getArgumentCompletions ? bg.getArgumentCompletions(prefix) : []).map((i) => i.value);
+	check("wiring: 'del' completes to delete", comp("del").includes("delete"), JSON.stringify(comp("del")));
+	check("wiring: 'pru' completes to prune", comp("pru").includes("prune"), JSON.stringify(comp("pru")));
+	check("wiring: no dashboard completion", !comp("").includes("dashboard"), JSON.stringify(comp("")));
+	const ctx = makeCtx({ cwd: await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-wiring-")), trusted: true });
+	await bg.handler("bogus", ctx);
+	const unknownMsg = ctx._notes.at(-1)?.msg || "";
+	check("wiring: unknown-subcommand help lists delete and prune", /delete/.test(unknownMsg) && /prune/.test(unknownMsg), unknownMsg);
+}
+
+async function auditDotfileIsInvisibleToList(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-dotfile-list-"));
+	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
+	await setupJob(runsRoot, "real-job", { state: "completed" });
+	await fs.writeFile(path.join(runsRoot, ".audit.jsonl"), `${JSON.stringify({ ts: "x", verb: "delete", jobId: "real-job" })}\n`);
+	const ctx = makeCtx({ cwd, trusted: true });
+	await commands.get("bg").handler("list", ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	check("audit-list: /bg list shows the real job", /real-job/.test(msg), msg);
+	check("audit-list: /bg list never surfaces the .audit.jsonl dotfile", !/\.audit/.test(msg), msg);
+}
+
 async function loadExtension(url) {
 	const extension = await loadDefault(url);
 	const { pi, commands, tools } = makePi();
@@ -559,6 +590,8 @@ async function main() {
 	await deleteRemovesTerminalJobsAndGuards(url);
 	await deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir);
 	await deleteRejectedInPlanMode(planUrl, url);
+	await dispatcherExposesDeleteAndPrune(url);
+	await auditDotfileIsInvisibleToList(url);
 	await startCancelRejectInPlanMode(planUrl, url);
 	await listStatusLogsReadExistingArtifacts(url, agentDir);
 	await logTailDoesNotSplitUtf8(url);

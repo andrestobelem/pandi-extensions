@@ -853,7 +853,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 	try {
 		const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
 		if (!match) {
-			return response("Usage: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>", undefined, "warning");
+			return response("Usage: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]", undefined, "warning");
 		}
 		const subcommand = match[1] ?? "";
 		const tail = match[2] ?? "";
@@ -887,7 +887,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
-		description: "Background jobs: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId>",
+		description: "Background jobs: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "preview", label: "preview", description: "Dry-run (preview) a background command" },
