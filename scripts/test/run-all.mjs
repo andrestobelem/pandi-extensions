@@ -2,6 +2,12 @@
 /**
  * Run all durable Pi package integration suites sequentially.
  *
+ * Source of truth = DISCOVERY by convention: every
+ * `extensions/<ext>/tests/integration/*.test.mjs` is run. Each extension brings its own
+ * suites, so adding one needs no edit here — this runner only orchestrates + aggregates.
+ * A suite that is not yet expected to be green is excluded ONLY by listing it explicitly
+ * in `ignoredDraftSuites` (with a reason); nothing is ever skipped silently.
+ *
  * `npm test` delegates here after typecheck. You can also run the behavioral
  * suite directly while iterating:
  *
@@ -27,83 +33,35 @@ if (unknownArgs.length) {
 }
 
 const SUITE_TIMEOUT_MS = 120_000;
+const EXTENSIONS_DIR = "extensions";
+const SUITE_SUBDIR = path.posix.join("tests", "integration");
 
-// Explicit manifest by design: this runner should be stable even while another
-// session is drafting a new `*.test.mjs` file in a suite directory. Add a suite here
-// once it is expected to be green as part of the durable behavioral suite.
-const suites = [
-	"extensions/pi-auto-compact-context/tests/integration/auto-compact-context.test.mjs",
-	"extensions/pi-bg/tests/integration/bg-extension.test.mjs",
-	"extensions/pi-bg/tests/integration/bg-jobs.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/composition-failure-recursion.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/composition-graph-expansion.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/composition-rank.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/dashboard-usability-fixes.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/dynamic-workflow-composition.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/editor-left-agents.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/model-thinking-selection.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/project-workflows-loadable.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/prompt-catalog-single-source.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/run-events-parsing.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/scaffold-synthesis-payload.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/ultracode-border-status.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/ultracode-contract-gate.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/workflow-input-coercion.test.mjs",
-	"extensions/pi-effort/tests/integration/effort-extension.test.mjs",
-	"extensions/pi-goal/tests/integration/goal-rehydrate.test.mjs",
-	"extensions/pi-goal/tests/integration/goal-verifier.test.mjs",
-	"extensions/pi-loop/tests/integration/loop-behavior.test.mjs",
-	"extensions/pi-loop/tests/integration/loop-caps-resume.test.mjs",
-	"extensions/pi-loop/tests/integration/loop-safety.test.mjs",
-	"extensions/pi-local-memory/tests/integration/local-memory.test.mjs",
-	"extensions/pi-mdview/tests/integration/mdview-extension.test.mjs",
-	"extensions/pi-mdview/tests/integration/mdview-tool.test.mjs",
-	"extensions/pi-plan/tests/integration/plan-approval.test.mjs",
-	"extensions/pi-plan/tests/integration/plan-gate.test.mjs",
-	"extensions/pi-worktree/tests/integration/worktree-extension.test.mjs",
-];
-
-// Draft suites are intentionally excluded but must be explicit so `run-all` never
-// silently misses a new durable suite. Add a suite here (with a reason) only while it
-// is not yet expected to be green; promote it into `suites` once it is reliably green.
-// Currently empty: composition-failure-recursion was promoted to `suites` after it ran
-// green and deterministically in the full behavioral suite.
+// Draft suites are excluded but must be EXPLICIT (with a reason), so a not-yet-green
+// suite is never run AND a green suite is never skipped silently. Promote a suite out
+// of here once it is reliably green. Currently empty.
 const ignoredDraftSuites = new Set([]);
 
-const suiteDirs = [
-	"extensions/pi-auto-compact-context/tests/integration",
-	"extensions/pi-bg/tests/integration",
-	"extensions/pi-dynamic-workflows/tests/integration",
-	"extensions/pi-effort/tests/integration",
-	"extensions/pi-goal/tests/integration",
-	"extensions/pi-loop/tests/integration",
-	"extensions/pi-local-memory/tests/integration",
-	"extensions/pi-mdview/tests/integration",
-	"extensions/pi-plan/tests/integration",
-	"extensions/pi-worktree/tests/integration",
-];
+// Discover suite directories by convention: extensions/<ext>/tests/integration that exist.
+const extensionsDirAbs = path.join(REPO_ROOT, EXTENSIONS_DIR);
+const suiteDirs = (fs.existsSync(extensionsDirAbs)
+	? fs.readdirSync(extensionsDirAbs, { withFileTypes: true })
+	: [])
+	.filter((entry) => entry.isDirectory())
+	.map((entry) => path.posix.join(EXTENSIONS_DIR, entry.name, SUITE_SUBDIR))
+	.filter((dir) => fs.existsSync(path.join(REPO_ROOT, dir)))
+	.sort();
 
-for (const suite of suites) {
-	if (!fs.existsSync(path.join(REPO_ROOT, suite))) {
-		console.error(`Missing integration suite from manifest: ${suite}`);
-		process.exit(1);
-	}
-}
+// Discover suites: every *.test.mjs under those directories.
+const discoveredSuites = suiteDirs
+	.flatMap((dir) =>
+		fs
+			.readdirSync(path.join(REPO_ROOT, dir))
+			.filter((name) => name.endsWith(".test.mjs"))
+			.map((name) => path.posix.join(dir, name)),
+	)
+	.sort();
 
-const discoveredSuites = suiteDirs.flatMap((dir) => {
-	const abs = path.join(REPO_ROOT, dir);
-	if (!fs.existsSync(abs)) return [];
-	return fs
-		.readdirSync(abs)
-		.filter((name) => name.endsWith(".test.mjs"))
-		.map((name) => path.posix.join(dir, name));
-}).sort();
-const unlistedSuites = discoveredSuites.filter((suite) => !suites.includes(suite) && !ignoredDraftSuites.has(suite));
-if (unlistedSuites.length) {
-	console.error("Unlisted integration suite(s) found. Add them to `suites` or `ignoredDraftSuites` with a reason:");
-	for (const suite of unlistedSuites) console.error(`- ${suite}`);
-	process.exit(1);
-}
+const suites = discoveredSuites.filter((suite) => !ignoredDraftSuites.has(suite));
 
 if (args.has("--list")) {
 	for (const suite of suites) console.log(suite);
@@ -114,7 +72,7 @@ if (args.has("--list")) {
 }
 
 if (suites.length === 0) {
-	console.error("No integration suites found in the manifest");
+	console.error("No integration suites discovered under extensions/*/tests/integration");
 	process.exit(1);
 }
 

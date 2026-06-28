@@ -66,7 +66,7 @@ let TEST_PROJECT_ROOT = REPO_ROOT;
 let TEST_CTX_SEQ = 0;
 
 // ---------------------------------------------------------------------------
-// Assertion harness (shared: scripts/test/harness.mjs)
+// Assertion harness (shared: extensions/shared/test/harness.mjs)
 // ---------------------------------------------------------------------------
 const { check, counts } = createChecker();
 
