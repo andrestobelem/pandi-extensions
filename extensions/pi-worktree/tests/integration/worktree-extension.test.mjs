@@ -21,8 +21,8 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -47,38 +47,17 @@ async function makeRepo() {
 }
 
 async function buildBundle() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-worktree-build-"));
 	// Stub the SDK so esbuild does not pull the real @earendil-works/pi-coding-agent
-	// runtime (it transitively requires cross-spawn, which uses a dynamic require
-	// that breaks an ESM bundle). worktree.ts only needs CONFIG_DIR_NAME as a value;
-	// index.ts uses the package for types only (erased). Same approach as pi-bg.
-	const sdkStub = path.join(outDir, "stub-sdk.mjs");
-	await fs.writeFile(sdkStub, `export const CONFIG_DIR_NAME = ".pi";\n`);
-	const src = path.join(REPO_ROOT, "extensions", "pi-worktree", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "worktree.mjs");
-	const r = spawnSync(
-		"npx",
-		[
-			"--no-install",
-			"esbuild",
-			src,
-			"--bundle",
-			"--platform=node",
-			"--format=esm",
-			`--alias:@earendil-works/pi-coding-agent=${sdkStub}`,
-			`--outfile=${out}`,
-		],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild failed for worktree: ${r.stderr || r.stdout}`);
-	return { outDir, url: pathToFileURL(out).href };
-}
-
-let instance = 0;
-async function freshDefault(url) {
-	const mod = await import(`${url}?i=${instance++}`);
-	return mod.default;
+	// runtime (it transitively requires cross-spawn, which uses a dynamic require that
+	// breaks an ESM bundle). worktree.ts only needs CONFIG_DIR_NAME as a value; index.ts
+	// uses the package for types only (erased). Same approach as pi-bg.
+	return await buildExtension({
+		name: "pi-worktree-build",
+		src: path.join(REPO_ROOT, "extensions", "pi-worktree", "index.ts"),
+		outName: "worktree.mjs",
+		stubs: { sdk: 'export const CONFIG_DIR_NAME = ".pi";\n' },
+		npx: "--no-install",
+	});
 }
 
 function makePi() {
@@ -123,7 +102,7 @@ function lastNote(ctx) {
 }
 
 async function loadExtension(url) {
-	const extension = await freshDefault(url);
+	const extension = await loadDefault(url);
 	const { pi, commands, tools } = makePi();
 	extension(pi);
 	return { commands, tools };
@@ -132,7 +111,7 @@ async function loadExtension(url) {
 // --- unit blocks: pure helpers + parser, tested against the bundle's exports ---
 
 async function scenarioParseHelpers(url) {
-	const mod = await import(`${url}?i=${instance++}`);
+	const mod = await loadModule(url);
 
 	// parseWorktreeList: synthetic multi-record porcelain covering every flag,
 	// a locked reason, a prunable reason, CRLF line endings, and a HEAD-less record.
@@ -197,7 +176,7 @@ async function scenarioParseHelpers(url) {
 }
 
 async function scenarioParseCommand(url) {
-	const mod = await import(`${url}?i=${instance++}`);
+	const mod = await loadModule(url);
 	const p = mod.parseCommand;
 
 	check("tokenize: honors quotes", JSON.stringify(mod.tokenize('add "a b" c')) === JSON.stringify(["add", "a b", "c"]), JSON.stringify(mod.tokenize('add "a b" c')));
@@ -219,7 +198,7 @@ async function scenarioParseCommand(url) {
 }
 
 async function scenarioBuildAddArgs(url) {
-	const mod = await import(`${url}?i=${instance++}`);
+	const mod = await loadModule(url);
 	const full = mod.buildAddArgs({ path: "/p", newBranch: "b", commitish: "main", detach: true, force: true });
 	check(
 		"buildAddArgs: full order (--force → --detach → -b → -- → path → commitish)",
