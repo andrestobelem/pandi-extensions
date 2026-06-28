@@ -87,7 +87,7 @@ La extensión activa por defecto un router estilo Claude Code `/effort ultracode
 
 Ultracode inyecta un recordatorio corto: reglas de decisión, claves de plantillas y composición. El catálogo detallado queda en `dynamic_workflow action=template`; antes de escribir un workflow debe inspeccionarlo, reutilizar un workflow existente solo si coincide exactamente o elegir el scaffold más cercano.
 
-También incluye una Fase 0 de prompt engineering adversarial: para tareas Ultracode sustantivas que sobreviven el trivial gate, Pi debe lanzar un workflow read-only pequeño que sintetice `improvedTask`, criterios de éxito, supuestos, no-objetivos y plan de verificación antes del scout/orquestación normal.
+También incluye un Contract Gate de revisión del contrato de tarea: para tareas Ultracode sustantivas que sobreviven el trivial gate, Pi debe lanzar un workflow read-only pequeño que sintetice `improvedTask`, criterios de éxito, supuestos, no-objetivos y plan de verificación antes del scout/orquestación normal.
 
 Úsalo sin prefijos: pide una tarea y Pi decidirá. Para controlar el modo durante la sesión:
 
