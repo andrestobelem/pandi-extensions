@@ -86,6 +86,7 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { formatEta } from "../shared/time.js";
+import { notify } from "../shared/notify.js";
 
 const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";
@@ -419,14 +420,6 @@ async function discoverSidecarLoopIds(ctx: ExtensionContext): Promise<string[]> 
 	} catch {
 		return [];
 	}
-}
-
-function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	if (ctx.mode === "print") {
-		console.log(message);
-		return;
-	}
-	if (ctx.hasUI) ctx.ui.notify(message, type);
 }
 
 // ---------------------------------------------------------------------------

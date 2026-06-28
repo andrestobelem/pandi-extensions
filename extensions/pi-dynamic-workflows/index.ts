@@ -43,6 +43,7 @@ import {
 	resolveWorkflowPattern,
 	type WorkflowPattern,
 } from "./templates.js";
+import { notify } from "../shared/notify.js";
 
 const WORKFLOW_DIR = "workflows";
 const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
@@ -1710,14 +1711,6 @@ function formatRunSummary(result: WorkflowRunResult): string {
 	if (result.error) parts.push(`Error: ${result.error}`);
 	if (result.output !== undefined) parts.push(`\nOutput:\n${stringify(result.output, MAX_TOOL_TEXT)}`);
 	return parts.join("\n");
-}
-
-function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	if (ctx.mode === "print") {
-		console.log(message);
-		return;
-	}
-	if (ctx.hasUI) ctx.ui.notify(message, type);
 }
 
 async function showText(ctx: ExtensionContext, title: string, content: string): Promise<void> {

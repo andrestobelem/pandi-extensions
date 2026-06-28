@@ -57,6 +57,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import * as crypto from "node:crypto";
+import { notify } from "../shared/notify.js";
 
 const PLAN_STATE_TYPE = "plan-state";
 const PLAN_STATUS_KEY = "plan";
@@ -204,14 +205,6 @@ function refreshPlanStatus(ctx: ExtensionContext): void {
 function persist(pi: ExtensionAPI, plan: PlanState): void {
 	plan.updatedAt = new Date().toISOString();
 	pi.appendEntry<PlanState>(PLAN_STATE_TYPE, { ...plan });
-}
-
-function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	if (ctx.mode === "print") {
-		console.log(message);
-		return;
-	}
-	if (ctx.hasUI) ctx.ui.notify(message, type);
 }
 
 // ---------------------------------------------------------------------------
