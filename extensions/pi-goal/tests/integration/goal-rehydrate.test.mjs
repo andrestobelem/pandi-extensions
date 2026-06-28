@@ -191,11 +191,11 @@ function snap(overrides = {}) {
 	};
 }
 
-function makeCtx(entries, { reason = "startup" } = {}) {
+function makeCtx(entries, { reason = "startup", mode = "tui" } = {}) {
 	return {
 		event: { reason },
 		ctx: {
-			mode: "tui",
+			mode,
 			hasUI: true,
 			cwd: REPO_ROOT,
 			isIdle: () => true,
@@ -214,13 +214,13 @@ function makeCtx(entries, { reason = "startup" } = {}) {
 }
 
 // Build the extension, register it, fire session_start with the crafted persisted entries.
-async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl } = {}) {
+async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, mode = "tui" } = {}) {
 	const goalExtension = await freshDefault(goalUrl);
 	const built = makePi(execImpl);
 	goalExtension(built.pi);
 	const onStart = built.handlers.get("session_start");
 	if (!onStart || onStart.length === 0) throw new Error("no session_start handler registered");
-	const { event, ctx } = makeCtx(entries, { reason });
+	const { event, ctx } = makeCtx(entries, { reason, mode });
 	for (const h of onStart) await h(event, ctx);
 	return { ctx, built };
 }
@@ -543,6 +543,61 @@ async function noDoubleFireOnSecondRehydrate(goalUrl) {
 }
 
 // ===========================================================================
+// SCENARIO I: NON-INTERACTIVE rehydrate (print / json) is a NO-OP. A /goal can only be
+// sustained in tui/rpc — startGoal() already refuses to START one in print/json. The same
+// gate must hold on the RELOAD path: rehydrate must not re-arm a catch-up timer NOR spawn the
+// independent verifier subprocess in a one-shot/non-interactive session that can never advance
+// the goal. wake() being mode-gated only suppresses the prompt RE-INJECTION; it does NOT stop
+// rehydrate from (a) launching a heavyweight `pi -p` verifier for a verifying-independent
+// snapshot or (b) firing a due catch-up tick that bumps the iteration and persists a fresh
+// snapshot. Both are side effects a non-interactive session must not produce; the persisted
+// state must be left untouched so a later tui/rpc session recovers it intact.
+// ===========================================================================
+async function nonInteractiveRehydrateIsNoOp(goalUrl) {
+	for (const mode of ["print", "json"]) {
+		// (a) The heavyweight path: a verifying-independent snapshot must NOT spawn the verifier.
+		{
+			const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
+			const exec = () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
+			const { built } = await rehydrateFrom(goalUrl, [entry(s)], { mode, execImpl: exec });
+			await flush();
+			check(
+				`[${mode}] verifying-independent reload does NOT spawn the verifier subprocess`,
+				built.execCalls.length === 0,
+				`execCalls=${built.execCalls.length}`,
+			);
+			check(
+				`[${mode}] verifying-independent reload persists nothing (state left intact)`,
+				built.states.length === 0,
+				`states=${built.states.length}`,
+			);
+			check(
+				`[${mode}] verifying-independent reload never closes the goal as done`,
+				!built.states.some((st) => st.goalId === s.goalId && st.gstatus === "done"),
+				"unexpected done",
+			);
+		}
+		// (b) The timer path: a DUE stale snapshot must NOT fire a catch-up tick (no iteration
+		// bump, no persisted snapshot, no wake) — the goal cannot run in this mode at all.
+		{
+			const s = snap({ gstatus: "stale", iteration: 3, nextFireAt: Date.now() - 1000 });
+			const { built } = await rehydrateFrom(goalUrl, [entry(s)], { mode });
+			await flush();
+			check(
+				`[${mode}] stale reload does NOT re-inject a wake`,
+				built.messages.length === 0,
+				`messages=${built.messages.length}`,
+			);
+			check(
+				`[${mode}] stale reload does NOT bump the iteration / persist a snapshot`,
+				built.states.length === 0,
+				`states=${built.states.length}`,
+			);
+		}
+	}
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildExtension("goal");
 	try {
@@ -558,6 +613,7 @@ async function main() {
 		await forkDoesNotMigrateGoal(url);
 		await junkEntriesAreIgnored(url);
 		await noDoubleFireOnSecondRehydrate(url);
+		await nonInteractiveRehydrateIsNoOp(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

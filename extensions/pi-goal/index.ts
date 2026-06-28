@@ -858,6 +858,14 @@ function activeGoal(): ActiveGoal | undefined {
  * process), skip. Only a SINGLE catch-up tick — no replay of N missed wakes.
  */
 function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
+	// Mode gate (mirrors startGoal): a /goal can only be sustained in tui/rpc. In a
+	// non-interactive session (print one-shot, json) the goal can never advance, so the
+	// reload path must be a NO-OP: do not re-arm a catch-up timer (fireGoal would bump the
+	// iteration and persist while wake() no-ops) and — crucially — do not spawn the
+	// independent verifier subprocess for a verifying-independent snapshot. wake() already
+	// suppresses the prompt RE-INJECTION, but only refusing rehydrate here stops those side
+	// effects. Leaving the persisted state untouched lets a later tui/rpc session recover it.
+	if (!canGoalInMode(ctx)) return;
 	const entries = ctx.sessionManager.getEntries();
 	const latest = collectLatestByKey<GoalState>(entries, GOAL_STATE_TYPE, (d) => d.goalId);
 
