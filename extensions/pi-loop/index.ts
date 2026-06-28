@@ -91,6 +91,7 @@ import { formatInterval, parseInterval } from "./interval.js";
 import { destructiveReason } from "./gate.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
 import { formatStatus } from "./status.js";
+import { capExceeded } from "./caps.js";
 
 const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";
@@ -423,25 +424,6 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 	persist(pi, ctx, loop);
 	setLoopStatus(ctx, loop);
 	wake(pi, ctx, makeLoopIterationPrompt(loop));
-}
-
-/**
- * Caps gate (P1). Returns a stop-reason string if a hard cap (wall-clock deadline)
- * or a best-effort budget cap (context-usage percent) is exceeded, else undefined.
- * Checked BEFORE re-arming so a loop never schedules another iteration past a cap.
- * maxIterations stays a separate gate inside fireWake (unchanged from P0).
- */
-function capExceeded(ctx: ExtensionContext, loop: ActiveLoop): string | undefined {
-	const elapsed = Date.now() - loop.startedAt;
-	if (loop.maxWallClockMs > 0 && elapsed >= loop.maxWallClockMs) {
-		return `reached wall-clock deadline (${Math.round(loop.maxWallClockMs / 60000)}m)`;
-	}
-	// Best-effort: getContextUsage may be unavailable (undefined) or unknown (percent null).
-	const usage = ctx.getContextUsage?.();
-	if (usage && usage.percent !== null && usage.percent >= loop.contextPercentCap) {
-		return `reached context budget (${Math.round(usage.percent)}% ≥ ${loop.contextPercentCap}%)`;
-	}
-	return undefined;
 }
 
 /** Stop a loop because a cap was hit. Status "done" (a clean, expected end). */
