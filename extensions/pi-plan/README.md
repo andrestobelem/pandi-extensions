@@ -63,9 +63,17 @@ to enter (unchanged back-compat). This is what lets a **dynamic-workflow subagen
 const { output } = await ctx.agent("Plan the migration, then output the full plan.", {
   includeExtensions: true, // load pi-plan in the subagent
   env: { PI_PLAN_NONINTERACTIVE: "1", PI_PLAN_ULTRACODE_STEPS: "1" },
-  tools: ["read", "grep", "find", "ls", "enter_plan_mode", "submit_plan", "dynamic_workflow"],
+  // NOTE: do NOT give the planner `dynamic_workflow` run/start power. The plan should NAME the
+  // workflows; the ORCHESTRATOR runs them. This keeps the composition non-recursive.
+  tools: ["read", "grep", "find", "ls", "enter_plan_mode", "submit_plan"],
 });
 ```
+
+**Avoiding recursion.** Plan-only keeps the read-only gate armed for the whole session, so even
+if a subagent had `dynamic_workflow` it could not `run`/`start` workflows while planning (only the
+read-only catalog actions). The safe pattern is one-directional: a workflow spawns a plan-only
+subagent that *produces* a plan naming the workflows to run, and the **orchestrator** (not the
+subagent) executes them — never a subagent that spawns subagents that spawn workflows.
 
 ## Read-only gate
 

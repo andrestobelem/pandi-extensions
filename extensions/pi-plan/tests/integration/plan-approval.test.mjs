@@ -1031,6 +1031,51 @@ async function sessionToggles(url) {
 }
 
 // ===========================================================================
+// SCENARIO 12: nonInteractive is IGNORED in interactive (tui/rpc) sessions — it must NEVER
+// bypass the human approval handshake. A stray param or an exported PI_PLAN_NONINTERACTIVE
+// in a TUI must still go through approve/implement, not the plan-only deliverable path.
+// ===========================================================================
+async function nonInteractiveIgnoredInTui(url) {
+	// --- 12a: explicit param nonInteractive:true in TUI is clamped off. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools, handlers, entries, sentMessages } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: true });
+		const enterRes = await tools
+			.get("enter_plan_mode")
+			.execute("tc1", { task: "x", nonInteractive: true }, undefined, undefined, ctx);
+		check("nonInteractive-tui: entered", enterRes && enterRes.details && enterRes.details.entered === true);
+		const st0 = latestPlanState(entries);
+		check("nonInteractive-tui: nonInteractive clamped to false in TUI", st0 && !st0.nonInteractive);
+		const res = await tools.get("submit_plan").execute("tc2", { plan: "# P\n1. step" }, undefined, undefined, ctx);
+		check(
+			"nonInteractive-tui: submit uses interactive approval (status=approved, NOT plan-only)",
+			res && res.details && res.details.status === "approved",
+		);
+		check("nonInteractive-tui: gate LIFTED after approval", !(await writeBlocked(handlers, ctx)));
+		const wake = sentMessages[sentMessages.length - 1];
+		check("nonInteractive-tui: implement message injected", wake && /Implement now/i.test(wake.content));
+	}
+
+	// --- 12b: an exported PI_PLAN_NONINTERACTIVE=1 is also ignored in TUI. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools, entries } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: true });
+		process.env.PI_PLAN_NONINTERACTIVE = "1";
+		try {
+			await tools.get("enter_plan_mode").execute("tc1", { task: "y" }, undefined, undefined, ctx);
+			const st = latestPlanState(entries);
+			check("nonInteractive-tui: env=1 ignored in TUI (plan stays interactive)", st && !st.nonInteractive);
+		} finally {
+			delete process.env.PI_PLAN_NONINTERACTIVE;
+		}
+	}
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildPlan();
 	try {
@@ -1045,6 +1090,7 @@ async function main() {
 		await ultracodePromptKnobs(url);
 		await planDashboardReport(url);
 		await sessionToggles(url);
+		await nonInteractiveIgnoredInTui(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

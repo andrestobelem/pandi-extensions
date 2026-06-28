@@ -758,6 +758,11 @@ export default function planExtension(pi: ExtensionAPI): void {
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const flags = resolvePlanFlags(params);
+			// CONSISTENCY: nonInteractive (plan-only) only makes sense where approval CANNOT run.
+			// In tui/rpc the human approval handshake is available, so force it off there — otherwise
+			// a stray param or an exported PI_PLAN_NONINTERACTIVE would silently bypass approval and
+			// never implement. This keeps plan-only confined to print/json (e.g. workflow subagents).
+			if (canApproveInMode(ctx)) flags.nonInteractive = false;
 			// Mode gate (HARD RULE): interactive sessions can always enter. A non-interactive session
 			// (print/json) can enter ONLY in plan-only mode (nonInteractive) — there the plan is the
 			// deliverable and nothing is approved or implemented, so no handshake is needed.
