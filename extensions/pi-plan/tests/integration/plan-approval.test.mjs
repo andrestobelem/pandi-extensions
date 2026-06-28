@@ -825,6 +825,212 @@ async function autonomousEntryViaTool(url) {
 }
 
 // ===========================================================================
+// SCENARIO 8: NON-INTERACTIVE plan-only mode (print/json — e.g. a workflow subagent).
+// Opt-in via the nonInteractive param OR PI_PLAN_NONINTERACTIVE=1. The gate arms,
+// submit_plan returns the plan as the DELIVERABLE, the gate STAYS armed (never lifts
+// without a human), and NO implement message is injected. Param beats env; default off.
+// ===========================================================================
+async function nonInteractivePlanOnly(url) {
+	// --- 8a: enter via env in json mode → arms gate; submit_plan is plan-only. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools, handlers, entries, sentMessages } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "json", hasUI: false });
+		process.env.PI_PLAN_NONINTERACTIVE = "1";
+		try {
+			const enterRes = await tools
+				.get("enter_plan_mode")
+				.execute("tc1", { task: "plan via workflow subagent" }, undefined, undefined, ctx);
+			check(
+				"plan-only(env): entered=true in json mode",
+				enterRes && enterRes.details && enterRes.details.entered === true,
+			);
+			check("plan-only(env): write BLOCKED after entry (gate armed)", await writeBlocked(handlers, ctx));
+			const st0 = latestPlanState(entries);
+			check("plan-only(env): persisted nonInteractive=true", st0 && st0.nonInteractive === true);
+			check(
+				"plan-only(env): planning prompt marks NON-INTERACTIVE",
+				/NON-INTERACTIVE/i.test(enterRes.content[0].text),
+			);
+
+			const planText = "# Plan\n1. do X\n2. verify";
+			const submitRes = await tools
+				.get("submit_plan")
+				.execute("tc2", { plan: planText }, undefined, undefined, ctx);
+			check(
+				"plan-only(env): submit details.status=plan-only",
+				submitRes && submitRes.details && submitRes.details.status === "plan-only",
+			);
+			check(
+				"plan-only(env): submit returns the plan text as the deliverable",
+				submitRes.content[0].text.includes(planText),
+			);
+			check(
+				"plan-only(env): write STILL BLOCKED after submit (gate not lifted)",
+				await writeBlocked(handlers, ctx),
+			);
+			check("plan-only(env): NO implement message injected", sentMessages.length === 0);
+			const st = latestPlanState(entries);
+			check("plan-only(env): persisted status=planned", st && st.status === "planned");
+			check("plan-only(env): persisted active=true (gate persists for the session)", st && st.active === true);
+		} finally {
+			delete process.env.PI_PLAN_NONINTERACTIVE;
+		}
+	}
+
+	// --- 8b: explicit param wins over env — nonInteractive:false in json REFUSES. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools, handlers, entries } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "json", hasUI: false });
+		process.env.PI_PLAN_NONINTERACTIVE = "1";
+		try {
+			const res = await tools
+				.get("enter_plan_mode")
+				.execute("tc1", { task: "x", nonInteractive: false }, undefined, undefined, ctx);
+			check(
+				"plan-only(precedence): param false beats env=1 → refuses",
+				res && res.details && res.details.entered === false && res.details.reason === "mode",
+			);
+			check("plan-only(precedence): gate NOT armed", !(await writeBlocked(handlers, ctx)));
+			check(
+				"plan-only(precedence): no plan-state persisted",
+				entries.find((e) => e.customType === "plan-state") === undefined,
+			);
+		} finally {
+			delete process.env.PI_PLAN_NONINTERACTIVE;
+		}
+	}
+
+	// --- 8c: default OFF — json without the flag still REFUSES (back-compat). ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools, handlers } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "json", hasUI: false });
+		const res = await tools.get("enter_plan_mode").execute("tc1", { task: "x" }, undefined, undefined, ctx);
+		check(
+			"plan-only(default-off): json refuses without the flag",
+			res && res.details && res.details.entered === false,
+		);
+		check("plan-only(default-off): gate NOT armed", !(await writeBlocked(handlers, ctx)));
+	}
+}
+
+// ===========================================================================
+// SCENARIO 9: ULTRACODE posture knobs tune the planning + implement wording.
+// ===========================================================================
+async function ultracodePromptKnobs(url) {
+	// --- 9a: enter_plan_mode with ultracode/ultracodeSteps injects the guidance. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true });
+		const res = await tools
+			.get("enter_plan_mode")
+			.execute("tc1", { task: "ship", ultracode: true, ultracodeSteps: true }, undefined, undefined, ctx);
+		const text = res.content[0].text;
+		check("ultracode: planning prompt mentions ULTRACODE", /ULTRACODE:/i.test(text));
+		check("ultracode: planning prompt mentions ULTRACODE STEPS", /ULTRACODE STEPS/i.test(text));
+	}
+	// --- 9b: no flags → no ultracode wording (characterization of the default). ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true });
+		const res = await tools.get("enter_plan_mode").execute("tc1", { task: "ship" }, undefined, undefined, ctx);
+		check("ultracode(off): no ULTRACODE STEPS wording by default", !/ULTRACODE STEPS/i.test(res.content[0].text));
+	}
+	// --- 9c: ultracodeSteps reaches the post-approval implement message. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, tools, sentMessages } = makePi();
+		planExtension(pi);
+		const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: true });
+		await tools
+			.get("enter_plan_mode")
+			.execute("tc1", { task: "ship", ultracodeSteps: true }, undefined, undefined, ctx);
+		await tools.get("submit_plan").execute("tc2", { plan: "# Plan\n1. step" }, undefined, undefined, ctx);
+		const wake = sentMessages[sentMessages.length - 1];
+		check(
+			"ultracode-steps: implement message tells to run steps via dynamic_workflow",
+			wake && /dynamic_workflow/i.test(wake.content),
+		);
+	}
+}
+
+// ===========================================================================
+// SCENARIO 10: /plan dashboard renders a tracking report (non-UI prints the Markdown).
+// ===========================================================================
+async function planDashboardReport(url) {
+	const planExtension = await loadDefault(url);
+	const { pi, commands } = makePi();
+	planExtension(pi);
+	const tuiCtx = makeCtx({ mode: "tui", hasUI: true });
+	// Start a plan (with a posture flag) so the dashboard has something to track. The active
+	// plan lives in the module's in-memory map, which the dashboard overlays regardless of
+	// the (decoupled) session entries in this harness.
+	await commands.get("plan").handler("design the dashboard --ultracode-steps", tuiCtx);
+
+	const logged = [];
+	const origLog = console.log;
+	console.log = (...a) => logged.push(a.join(" "));
+	try {
+		const printCtx = makeCtx({ mode: "print", hasUI: false });
+		await commands.get("plan").handler("dashboard", printCtx);
+	} finally {
+		console.log = origLog;
+	}
+	const out = logged.join("\n");
+	check("dashboard: prints the dashboard title", /Plan Mode Dashboard/.test(out));
+	check("dashboard: lists the active plan task", /design the dashboard/.test(out));
+	check("dashboard: shows the ultracode-steps posture", /ultracode-steps/.test(out));
+	check("dashboard: renders the History table header", /\| Plan \| Status \| Posture \|/.test(out));
+}
+
+// ===========================================================================
+// SCENARIO 11: SESSION TOGGLES — /plan ultracode|steps-ultracode on|off|status set the
+// in-memory posture default (param -> toggle -> env -> off) for flagless /plan entries.
+// ===========================================================================
+async function sessionToggles(url) {
+	const planExtension = await loadDefault(url);
+	const { pi, commands, sentMessages } = makePi();
+	planExtension(pi);
+	const ctx = makeCtx({ mode: "tui", hasUI: true });
+
+	// Turn both ON, then a FLAGLESS /plan must inherit the ultracode posture.
+	await commands.get("plan").handler("ultracode on", ctx);
+	check(
+		"toggle: /plan ultracode on is acknowledged",
+		ctx._notes.some((n) => /ultracode session default: on/i.test(n.msg)),
+	);
+	await commands.get("plan").handler("steps-ultracode on", ctx);
+	await commands.get("plan").handler("build the thing", ctx);
+	const prompt = sentMessages[sentMessages.length - 1].content;
+	check("toggle: session ultracode applies to a flagless /plan", /ULTRACODE:/i.test(prompt));
+	check("toggle: session ultracode-steps applies to a flagless /plan", /ULTRACODE STEPS/i.test(prompt));
+
+	// Exit, turn OFF, then a fresh flagless /plan must have NO ultracode wording.
+	await commands.get("plan").handler("exit", ctx);
+	await commands.get("plan").handler("ultracode off", ctx);
+	await commands.get("plan").handler("steps-ultracode off", ctx);
+	await commands.get("plan").handler("another thing", ctx);
+	const prompt2 = sentMessages[sentMessages.length - 1].content;
+	check("toggle: ultracode off → no ULTRACODE wording", !/ULTRACODE/i.test(prompt2));
+
+	// status reports the current default.
+	await commands.get("plan").handler("ultracode status", ctx);
+	check(
+		"toggle: ultracode status reports off",
+		ctx._notes.some((n) => /ultracode session default: off/i.test(n.msg)),
+	);
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildPlan();
 	try {
@@ -835,6 +1041,10 @@ async function main() {
 		await rehydrateReArmsActiveOnly(url);
 		await pendingConfirmCannotOverrideCurrentPlan(url);
 		await autonomousEntryViaTool(url);
+		await nonInteractivePlanOnly(url);
+		await ultracodePromptKnobs(url);
+		await planDashboardReport(url);
+		await sessionToggles(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

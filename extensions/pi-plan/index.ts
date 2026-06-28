@@ -70,13 +70,14 @@ import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import { notify } from "./notify.js";
 import { collectLatestByKey } from "./session-state.js";
+import { buildPlanDashboardMarkdown } from "./dashboard.js";
 import { blockedReason } from "./gate.js";
-import { makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
+import { type PlanFlags, makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
 
 const PLAN_STATE_TYPE = "plan-state";
 const PLAN_STATUS_KEY = "plan";
 
-type PlanStatus = "planning" | "approved" | "rejected" | "exited";
+type PlanStatus = "planning" | "approved" | "rejected" | "exited" | "planned";
 
 interface PlanState {
 	planId: string;
@@ -91,6 +92,14 @@ interface PlanState {
 	rejections: number;
 	/** The last plan text the model submitted (for status + approval re-injection). */
 	lastPlan?: string;
+	/**
+	 * Posture flags resolved at entry (param -> env -> default). They tune the prompt
+	 * wording and, for nonInteractive, the submit_plan lifecycle (plan-only: no approval,
+	 * no implementation, gate never lifts). Persisted so the dashboard/status reflect them.
+	 */
+	nonInteractive?: boolean;
+	ultracode?: boolean;
+	ultracodeSteps?: boolean;
 	startedAt: number;
 	/** ISO timestamp of the last write (kept for parity with the loop/goal family). */
 	updatedAt: string;
@@ -151,12 +160,23 @@ function currentPlan(): PlanState | undefined {
 // Status line
 // ---------------------------------------------------------------------------
 
+function planFlagSuffix(plan: PlanState): string {
+	const tags: string[] = [];
+	if (plan.nonInteractive) tags.push("plan-only");
+	if (plan.ultracode) tags.push("uc");
+	if (plan.ultracodeSteps) tags.push("uc-steps");
+	return tags.length ? ` · ${tags.join(" · ")}` : "";
+}
+
 function setPlanStatus(ctx: ExtensionContext, plan: PlanState): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
 	const subs = plan.submissions > 0 ? ` · ${plan.submissions} submitted` : "";
 	const rej = plan.rejections > 0 ? `/${plan.rejections} rejected` : "";
-	ctx.ui.setStatus(PLAN_STATUS_KEY, `${theme.fg("accent", "▣ plan")} ${theme.fg("dim", `read-only${subs}${rej}`)}`);
+	ctx.ui.setStatus(
+		PLAN_STATUS_KEY,
+		`${theme.fg("accent", "▣ plan")} ${theme.fg("dim", `read-only${subs}${rej}${planFlagSuffix(plan)}`)}`,
+	);
 }
 
 function clearPlanStatus(ctx: ExtensionContext): void {
@@ -191,13 +211,67 @@ function persist(pi: ExtensionAPI, plan: PlanState): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Plan mode needs an INTERACTIVE approval (ctx.ui.confirm) plus the ability to re-inject
- * an implementation message and resume on its own — only TUI and RPC can do that. "print"
- * is one-shot and "json" is non-interactive (hasUI is true only in tui/rpc), so neither
- * can sustain the approval handshake or the wake re-injection. Mirrors canLoopInMode.
+ * Can this session run the INTERACTIVE approval handshake (ctx.ui.confirm) and the wake
+ * re-injection? Only TUI and RPC can: "print" is one-shot and "json" is non-interactive
+ * (hasUI is true only in tui/rpc). Gates the approval path and the wake. Mirrors canLoopInMode.
  */
-function canPlanInMode(ctx: ExtensionContext): boolean {
+function canApproveInMode(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
+}
+
+/**
+ * Can plan mode be ENTERED here? Interactive sessions always can. A non-interactive session
+ * (print/json — e.g. a dynamic-workflow subagent) can ONLY enter when the nonInteractive
+ * (plan-only) flag is set: it produces a plan as its deliverable and never implements, so the
+ * absence of an approval handshake is by design (the read-only gate never lifts there).
+ */
+function canEnterPlanMode(ctx: ExtensionContext, flags: PlanFlags): boolean {
+	if (canApproveInMode(ctx)) return true;
+	return (ctx.mode === "print" || ctx.mode === "json") && flags.nonInteractive === true;
+}
+
+/** A setting is ON when the env var is one of the truthy tokens (1/true/on/yes). */
+function envFlag(name: string): boolean {
+	const value = (process.env[name] ?? "").trim().toLowerCase();
+	return value === "1" || value === "true" || value === "on" || value === "yes";
+}
+
+/**
+ * Session-level defaults for the ultracode posture, set by `/plan ultracode on|off` and
+ * `/plan steps-ultracode on|off`. They sit BETWEEN an explicit param and the env setting
+ * (param -> session toggle -> env -> default) and are reset at every session boundary.
+ * nonInteractive is intentionally NOT a session toggle: it only matters in print/json, where
+ * the session is one-shot, so it is set per call via param/env.
+ */
+const sessionFlagDefaults: { ultracode?: boolean; ultracodeSteps?: boolean } = {};
+
+function resetSessionFlagDefaults(): void {
+	sessionFlagDefaults.ultracode = undefined;
+	sessionFlagDefaults.ultracodeSteps = undefined;
+}
+
+/**
+ * Resolve the posture flags with precedence: explicit param -> session toggle -> environment
+ * setting -> default (false). This is the "pasar con parámetros o setear" surface: tool/command
+ * params win, then `/plan ultracode|steps-ultracode on|off` session defaults, then the PI_PLAN_*
+ * env vars, else off. (nonInteractive skips the session-toggle layer.)
+ */
+function resolvePlanFlags(params: PlanFlags): Required<PlanFlags> {
+	return {
+		nonInteractive: params.nonInteractive ?? envFlag("PI_PLAN_NONINTERACTIVE"),
+		ultracode: params.ultracode ?? sessionFlagDefaults.ultracode ?? envFlag("PI_PLAN_ULTRACODE"),
+		ultracodeSteps:
+			params.ultracodeSteps ?? sessionFlagDefaults.ultracodeSteps ?? envFlag("PI_PLAN_ULTRACODE_STEPS"),
+	};
+}
+
+/** Parse an on|off|status toggle argument (with common aliases). */
+function parsePlanToggleValue(raw: string): "on" | "off" | "status" | "invalid" {
+	const value = raw.trim().toLowerCase();
+	if (!value || value === "status") return "status";
+	if (["on", "enable", "enabled", "true", "1"].includes(value)) return "on";
+	if (["off", "disable", "disabled", "false", "0"].includes(value)) return "off";
+	return "invalid";
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +284,7 @@ function canPlanInMode(ctx: ExtensionContext): boolean {
  * tui/rpc (defends rehydrate paths too).
  */
 function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
-	if (!canPlanInMode(ctx)) return;
+	if (!canApproveInMode(ctx)) return;
 	if (ctx.isIdle()) pi.sendUserMessage(prompt);
 	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 }
@@ -243,7 +317,12 @@ async function handleToolCall(event: ToolCallEvent): Promise<ToolCallEventResult
  * model keeps planning in the SAME turn without a second injected message). Assumes the
  * caller already passed the guards (canPlanInMode, non-empty task, no plan already active).
  */
-function createAndArmPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanState {
+function createAndArmPlan(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	task: string,
+	flags: Required<PlanFlags>,
+): PlanState {
 	const planId = crypto.randomBytes(4).toString("hex");
 	const plan: PlanState = {
 		planId,
@@ -252,6 +331,9 @@ function createAndArmPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string)
 		status: "planning",
 		submissions: 0,
 		rejections: 0,
+		nonInteractive: flags.nonInteractive,
+		ultracode: flags.ultracode,
+		ultracodeSteps: flags.ultracodeSteps,
 		startedAt: Date.now(),
 		updatedAt: new Date().toISOString(),
 	};
@@ -261,16 +343,39 @@ function createAndArmPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string)
 	return plan;
 }
 
+/**
+ * Parse trailing `--ultracode` / `--ultracode-steps` (aliases `--uc` / `--uc-steps`) flags
+ * off the /plan argument string. The remaining text is the <task>. The command path is
+ * interactive-only, so it does NOT accept --non-interactive (there is no clean way to
+ * deliver the planning instruction in print/json from a command; non-interactive entry is
+ * the enter_plan_mode tool's job). Returns the cleaned task plus the parsed command flags.
+ */
+function parsePlanCommandFlags(args: string): { task: string; flags: PlanFlags } {
+	const flags: PlanFlags = {};
+	const kept: string[] = [];
+	for (const token of args.split(/\s+/)) {
+		const lower = token.toLowerCase();
+		if (lower === "--ultracode" || lower === "--uc") flags.ultracode = true;
+		else if (lower === "--ultracode-steps" || lower === "--uc-steps") flags.ultracodeSteps = true;
+		else if (token.length) kept.push(token);
+	}
+	return { task: kept.join(" "), flags };
+}
+
 function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanState | undefined {
-	// Mode gate (HARD RULE): plan mode needs an interactive approval; print/json cannot
-	// deliver it. Refuse to enter.
-	if (!canPlanInMode(ctx)) {
+	const { task: cleanedTask, flags: commandFlags } = parsePlanCommandFlags(task);
+	// The command path is interactive-only: non-interactive (plan-only) entry is the
+	// enter_plan_mode tool's job, so resolve flags WITHOUT non-interactive here.
+	const flags = resolvePlanFlags({ ...commandFlags, nonInteractive: false });
+	// Mode gate (HARD RULE): the /plan command needs an interactive approval; print/json
+	// cannot deliver it. Refuse to enter.
+	if (!canApproveInMode(ctx)) {
 		notify(ctx, "/plan requires a TUI or RPC session (this mode cannot run the approval handshake).", "error");
 		return undefined;
 	}
-	const trimmed = task.trim();
+	const trimmed = cleanedTask.trim();
 	if (!trimmed) {
-		notify(ctx, "Usage: /plan <task>", "warning");
+		notify(ctx, "Usage: /plan [--ultracode] [--ultracode-steps] <task>", "warning");
 		return undefined;
 	}
 	if (planModeActive()) {
@@ -278,7 +383,7 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 		return currentPlan();
 	}
 
-	const plan = createAndArmPlan(pi, ctx, trimmed);
+	const plan = createAndArmPlan(pi, ctx, trimmed, flags);
 	// Command path: inject the planning instruction as a user message (research read-only,
 	// then submit_plan when ready), because the command runs out-of-band of the model's turn.
 	wake(pi, ctx, makePlanningPrompt(plan));
@@ -333,7 +438,94 @@ function rehydrate(ctx: ExtensionContext): void {
 function formatStatus(plan: PlanState): string {
 	const gate = plan.active ? "active (read-only gate ARMED)" : `inactive [${plan.status}]`;
 	const counts = ` — ${plan.submissions} plan(s) submitted, ${plan.rejections} rejected`;
-	return `Plan ${plan.planId}: ${gate}${counts}. Task: ${plan.task}`;
+	const tags = [
+		plan.nonInteractive ? "plan-only" : undefined,
+		plan.ultracode ? "ultracode" : undefined,
+		plan.ultracodeSteps ? "ultracode-steps" : undefined,
+	].filter(Boolean);
+	const posture = tags.length ? ` [${tags.join(", ")}]` : "";
+	return `Plan ${plan.planId}: ${gate}${posture}${counts}. Task: ${plan.task}`;
+}
+
+/**
+ * Gather every plan in this session for the dashboard: the latest persisted snapshot per
+ * planId (history) with the in-memory plans overlaid on top (most current — they carry the
+ * freshest counts/lastPlan before the next persist). Pure read; no mutation.
+ */
+function collectAllPlans(ctx: ExtensionContext): PlanState[] {
+	const latest = collectLatestByKey<PlanState>(ctx.sessionManager.getEntries(), PLAN_STATE_TYPE, (d) => d.planId);
+	for (const plan of activePlans.values()) latest.set(plan.planId, plan);
+	return [...latest.values()];
+}
+
+/**
+ * Open the plan-mode tracking dashboard. In a TUI it shows a scrollable overlay rendered
+ * from the Markdown report; in non-interactive modes it prints the report. The overlay is
+ * a minimal self-contained component (no pi-tui runtime import) so it never destabilizes
+ * the bundled test harness; any overlay failure degrades to a notification.
+ */
+async function openPlanDashboard(ctx: ExtensionContext): Promise<void> {
+	const markdown = buildPlanDashboardMarkdown(collectAllPlans(ctx));
+	if (ctx.mode !== "tui" || !ctx.hasUI) {
+		console.log(markdown);
+		return;
+	}
+	try {
+		await ctx.ui.custom<void>((tui, _theme, _keybindings, done) => {
+			const allLines = markdown.split("\n");
+			let scroll = 0;
+			const FIXED = 5; // top border, title, spacer, footer, bottom border
+			const bodyHeight = () => Math.max(3, (tui.terminal.rows || 24) - FIXED);
+			const pad = (text: string, width: number) =>
+				(text.length > width ? text.slice(0, width) : text) + " ".repeat(Math.max(0, width - text.length));
+			return {
+				invalidate(): void {
+					/* no cached render state */
+				},
+				handleInput(data: string): void {
+					if (data === "q" || data === "\u001b") {
+						done(undefined);
+						return;
+					}
+					const page = Math.max(1, bodyHeight() - 1);
+					if (data === "\u001b[B" || data === "j") scroll += 1;
+					else if (data === "\u001b[A" || data === "k") scroll -= 1;
+					else if (data === " " || data === "\u001b[6~") scroll += page;
+					else if (data === "\u001b[5~") scroll -= page;
+					else if (data === "g") scroll = 0;
+					else if (data === "G") scroll = Number.MAX_SAFE_INTEGER;
+					else return;
+					tui.requestRender();
+				},
+				render(width: number): string[] {
+					const safeWidth = Math.max(20, width);
+					const height = bodyHeight();
+					const maxScroll = Math.max(0, allLines.length - height);
+					scroll = Math.min(Math.max(0, scroll), maxScroll);
+					const start = scroll;
+					const end = Math.min(allLines.length, start + height);
+					const visible = allLines.slice(start, end);
+					while (visible.length < height) visible.push("");
+					const border = "─".repeat(safeWidth);
+					const footer = `↑/↓ j/k scroll · PgUp/PgDn page · q/Esc close · ${start + 1}-${end}/${allLines.length}`;
+					return [
+						border,
+						pad("Plan Mode Dashboard", safeWidth),
+						"",
+						...visible.map((line) => pad(line, safeWidth)),
+						pad(footer, safeWidth),
+						border,
+					];
+				},
+			};
+		});
+	} catch (error) {
+		notify(
+			ctx,
+			`Could not open the plan dashboard: ${error instanceof Error ? error.message : String(error)}`,
+			"warning",
+		);
+	}
 }
 
 async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
@@ -341,11 +533,35 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	const firstSpace = trimmed.indexOf(" ");
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
 
-	// "status"/"exit"/"cancel" are subcommands only when they are the WHOLE first token
-	// (mirrors goal's handleGoalCommand dispatch). Otherwise the whole arg string is <task>.
+	// "status"/"dashboard"/"exit"/"cancel" are subcommands only when they are the WHOLE first
+	// token (mirrors goal's handleGoalCommand dispatch). Otherwise the whole arg string is <task>.
 	if (firstSpace === -1 && firstToken === "status") {
 		const plan = currentPlan() ?? [...activePlans.values()].pop();
 		notify(ctx, plan ? formatStatus(plan) : "Plan mode is not active.", "info");
+		return;
+	}
+	if (firstSpace === -1 && (firstToken === "dashboard" || firstToken === "tui")) {
+		await openPlanDashboard(ctx);
+		return;
+	}
+	// Session-default toggles: `/plan ultracode on|off|status` and `/plan steps-ultracode ...`.
+	// These set the in-memory ultracode posture defaults (param -> THIS -> env -> off). A first
+	// token of "ultracode"/"steps-ultracode" is always a toggle, never a task (mirrors how
+	// "status" cannot be a task) — use the `--ultracode` flag form for a one-off on a real task.
+	if (firstToken === "ultracode" || firstToken === "steps-ultracode") {
+		const key = firstToken === "ultracode" ? "ultracode" : "ultracodeSteps";
+		const label = firstToken === "ultracode" ? "ultracode" : "steps-ultracode";
+		const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1);
+		const action = parsePlanToggleValue(rest);
+		if (action === "invalid") {
+			notify(ctx, `Usage: /plan ${label} [on|off|status]`, "warning");
+			return;
+		}
+		if (action === "on") sessionFlagDefaults[key] = true;
+		else if (action === "off") sessionFlagDefaults[key] = false;
+		const current = sessionFlagDefaults[key];
+		const state = current === undefined ? "unset (env/param decides)" : current ? "on" : "off";
+		notify(ctx, `/plan ${label} session default: ${state}.`, "info");
 		return;
 	}
 	if (firstSpace === -1 && (firstToken === "exit" || firstToken === "cancel")) {
@@ -399,10 +615,36 @@ export default function planExtension(pi: ExtensionAPI): void {
 			persist(pi, plan);
 			setPlanStatus(ctx, plan);
 
+			// NON-INTERACTIVE (plan-only): no human approval and no implementation. The plan IS the
+			// deliverable. We DELIBERATELY keep the gate armed (active stays true): the gate never
+			// lifts without a human, so mutation is impossible in this one-shot/--no-session session.
+			// No confirm, no wake, no implement re-injection. The caller (a human reading stdout, or
+			// the orchestrator of a dynamic workflow) decides what to do with the returned plan.
+			if (plan.nonInteractive) {
+				plan.status = "planned"; // active stays true on purpose; the read-only gate persists.
+				persist(pi, plan);
+				setPlanStatus(ctx, plan);
+				notify(
+					ctx,
+					`Plan ${plan.planId} recorded (plan-only, non-interactive). No approval or implementation here — the plan is the deliverable.`,
+					"info",
+				);
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Plan recorded (plan-only mode). This is a non-interactive session: there is no approval or implementation step, and the read-only gate stays armed. Output the FULL plan below as your final answer; do NOT implement.\n\n${planText}`,
+						},
+					],
+					details: { planId: plan.planId, status: "plan-only", approved: false },
+				};
+			}
+
 			// Approval handshake. Without an interactive confirm we CANNOT approve — degrade and
 			// warn (do NOT auto-approve: that would defeat the whole approval gate). This branch
-			// is effectively unreachable given the print/json gate already refused entry, but it
-			// is retained defensively, exactly as loop retains its confirm fallback.
+			// is effectively unreachable given the print/json gate already refused entry (unless
+			// plan-only above handled it), but it is retained defensively, exactly as loop retains
+			// its confirm fallback.
 			if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
 				notify(
 					ctx,
@@ -441,7 +683,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 				livePlan.status = "approved";
 				persist(pi, livePlan);
 				refreshPlanStatus(ctx);
-				wake(pi, ctx, makeImplementPrompt(planText));
+				wake(pi, ctx, makeImplementPrompt(planText, { ultracodeSteps: livePlan.ultracodeSteps }));
 				notify(ctx, `Plan ${livePlan.planId} approved. Exiting plan mode and implementing.`, "info");
 				return {
 					content: [{ type: "text" as const, text: "Plan approved — implementing now." }],
@@ -494,23 +736,42 @@ export default function planExtension(pi: ExtensionAPI): void {
 				description:
 					"The task you intend to plan before implementing (what you will research and write a plan for).",
 			}),
+			nonInteractive: Type.Optional(
+				Type.Boolean({
+					description:
+						"Plan-only: enter even in a non-interactive (print/json) session, e.g. a dynamic-workflow subagent. There is no approval or implementation; the plan is the deliverable and the read-only gate never lifts. Defaults from PI_PLAN_NONINTERACTIVE.",
+				}),
+			),
+			ultracode: Type.Optional(
+				Type.Boolean({
+					description:
+						"Tell the planner to research/design the plan using dynamic workflows (ultracode). Defaults from PI_PLAN_ULTRACODE.",
+				}),
+			),
+			ultracodeSteps: Type.Optional(
+				Type.Boolean({
+					description:
+						"Tell the planner/implementer to execute the plan's STEPS via dynamic workflows when warranted. Defaults from PI_PLAN_ULTRACODE_STEPS.",
+				}),
+			),
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			// Mode gate (HARD RULE), identical to the /plan command: plan mode needs an interactive
-			// approval; print/json cannot deliver it. Refuse to arm the gate and tell the model to
-			// proceed normally rather than retry.
-			if (!canPlanInMode(ctx)) {
+			const flags = resolvePlanFlags(params);
+			// Mode gate (HARD RULE): interactive sessions can always enter. A non-interactive session
+			// (print/json) can enter ONLY in plan-only mode (nonInteractive) — there the plan is the
+			// deliverable and nothing is approved or implemented, so no handshake is needed.
+			if (!canEnterPlanMode(ctx, flags)) {
 				notify(
 					ctx,
-					"Cannot enter plan mode here: this session is not interactive (a TUI or RPC session is required). Proceeding without plan mode.",
+					"Cannot enter plan mode here: this session is not interactive. Pass nonInteractive (or set PI_PLAN_NONINTERACTIVE) for a plan-only session, or proceed without plan mode.",
 					"warning",
 				);
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: "Plan mode requires a TUI or RPC session and cannot run the approval handshake here. Do not enter plan mode; proceed with the task normally.",
+							text: "Plan mode requires a TUI or RPC session to run the approval handshake. For a non-interactive session, pass nonInteractive:true (plan-only: produce a plan, no implementation) or set PI_PLAN_NONINTERACTIVE=1. Otherwise do not enter plan mode; proceed with the task normally.",
 						},
 					],
 					details: { entered: false, reason: "mode" },
@@ -543,10 +804,12 @@ export default function planExtension(pi: ExtensionAPI): void {
 				};
 			}
 
-			const plan = createAndArmPlan(pi, ctx, trimmed);
+			const plan = createAndArmPlan(pi, ctx, trimmed, flags);
 			notify(
 				ctx,
-				`Pi entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`,
+				plan.nonInteractive
+					? `Pi entered plan mode (${plan.planId}, plan-only). Read-only; the plan is the deliverable. Task: ${trimmed}`
+					: `Pi entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`,
 				"info",
 			);
 			// Tool path: hand the planning instruction back as THIS tool's result (no wake), so the
@@ -560,10 +823,23 @@ export default function planExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("plan", {
 		description:
-			"Enter read-only plan mode: /plan <task> — research read-only, write a plan, submit it for approval, then implement. /plan status | /plan exit | /plan cancel.",
+			"Enter read-only plan mode: /plan [--ultracode] [--ultracode-steps] <task> — research read-only, write a plan, submit it for approval, then implement. /plan status | /plan dashboard | /plan exit | /plan cancel.",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "status", label: "status", description: "Show plan-mode status" },
+				{ value: "dashboard", label: "dashboard", description: "Open the plan-mode tracking dashboard" },
+				{ value: "--ultracode", label: "--ultracode", description: "Plan using dynamic workflows" },
+				{
+					value: "--ultracode-steps",
+					label: "--ultracode-steps",
+					description: "Execute the plan's steps via dynamic workflows",
+				},
+				{ value: "ultracode", label: "ultracode", description: "Toggle session default: on|off|status" },
+				{
+					value: "steps-ultracode",
+					label: "steps-ultracode",
+					description: "Toggle steps-via-workflows session default: on|off|status",
+				},
 				{ value: "exit", label: "exit", description: "Leave plan mode without implementing" },
 				{ value: "cancel", label: "cancel", description: "Leave plan mode without implementing" },
 			];
@@ -580,6 +856,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 	pi.on("session_start", async (event, ctx) => {
 		// Session boundaries must not inherit in-memory plan state from another session.
 		activePlans.clear();
+		resetSessionFlagDefaults();
 		// Do NOT migrate plan mode into a forked session: a fork inherits the parent's
 		// "plan-state" entries, but plan mode must keep running only in the parent.
 		if (event.reason === "fork") return;

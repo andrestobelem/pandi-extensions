@@ -14,18 +14,58 @@ pi --no-extensions -e ./extensions/pi-plan
 
 ## Provides
 
-- `/plan <task>` — enter read-only plan mode for a task.
-- `/plan status` — inspect the active plan.
+- `/plan [--ultracode] [--ultracode-steps] <task>` — enter read-only plan mode for a task.
+- `/plan status` — inspect the active plan (status, posture flags, counts).
+- `/plan dashboard` — open the plan-mode tracking dashboard (scrollable in a TUI; printed
+  Markdown otherwise). Shows session totals, the active plan's posture/counts/last plan, and a
+  history table of every plan in the session.
 - `/plan exit|cancel` — leave plan mode without implementing.
 - `enter_plan_mode` model tool: lets Pi enter plan mode **on its own** before a non-trivial,
   multi-step, or risky change (not only when a human types `/plan`). It arms the same read-only
-  gate and hands the planning instruction back as its result; the human still approves.
+  gate and hands the planning instruction back as its result; the human still approves. Accepts
+  `nonInteractive`, `ultracode`, and `ultracodeSteps` booleans (see below).
 - `submit_plan` model tool for submitting a plan artifact for explicit approval.
 
 While plan mode is active, mutating tools are blocked until the user approves the submitted plan.
-The model can *enter* plan mode (`enter_plan_mode`) but can never *approve* a plan: approval is
-always an explicit human confirmation. In non-interactive (`print`/`json`) sessions both entry
-paths refuse, since the approval handshake cannot run there.
+The model can *enter* plan mode (`enter_plan_mode`) but can never *approve* a plan: in an
+interactive session approval is always an explicit human confirmation.
+
+## Posture flags (pass with parameters or set with env)
+
+Three orthogonal, composable knobs tune plan mode. Each resolves with precedence
+**explicit param → environment setting → default (off)**:
+
+| Flag | `enter_plan_mode` param | `/plan` flag | Env setting | Effect |
+| --- | --- | --- | --- | --- |
+| Non-interactive | `nonInteractive` | (tool/env only) | `PI_PLAN_NONINTERACTIVE` | Plan-only: enter even in `print`/`json` (e.g. a workflow subagent) |
+| Ultracode | `ultracode` | `--ultracode` | `PI_PLAN_ULTRACODE` | Tell the planner to research/design the plan **with dynamic workflows** |
+| Ultracode steps | `ultracodeSteps` | `--ultracode-steps` | `PI_PLAN_ULTRACODE_STEPS` | Tell the planner/implementer to execute the plan's **steps via dynamic workflows** |
+
+The `/plan` command is interactive-only and so does not take `--non-interactive`; non-interactive
+entry is the `enter_plan_mode` tool's job (it returns the planning instruction as its own result,
+so a one-shot/`--no-session` subagent keeps planning in the same turn).
+
+**Session toggles.** `/plan ultracode on|off|status` and `/plan steps-ultracode on|off|status` set
+an in-memory default for the rest of the session, so a flagless `/plan <task>` inherits it. They
+sit between an explicit param and the env var (param → session toggle → env → off) and reset at
+every session boundary.
+
+### Non-interactive (plan-only) mode
+
+In `print`/`json` sessions there is no human to approve, so plan mode runs **plan-only**: it arms
+the read-only gate, you research and call `submit_plan`, and the plan is **returned as the
+deliverable** — there is **no approval and no implementation**, and the gate **never lifts**
+(mutation stays impossible for the whole session). Without the flag, `print`/`json` still refuses
+to enter (unchanged back-compat). This is what lets a **dynamic-workflow subagent** produce a plan:
+
+```js
+// inside a workflow: get a plan back from a sandboxed, read-only subagent
+const { output } = await ctx.agent("Plan the migration, then output the full plan.", {
+  includeExtensions: true, // load pi-plan in the subagent
+  env: { PI_PLAN_NONINTERACTIVE: "1", PI_PLAN_ULTRACODE_STEPS: "1" },
+  tools: ["read", "grep", "find", "ls", "enter_plan_mode", "submit_plan", "dynamic_workflow"],
+});
+```
 
 ## Read-only gate
 

@@ -234,6 +234,35 @@ async function planGatePrintRefuses(planUrl) {
 }
 
 // ===========================================================================
+// SCENARIO 3: NON-INTERACTIVE plan-only entry (json + PI_PLAN_NONINTERACTIVE=1) ARMS the
+// gate and KEEPS it armed across a plan-only submit_plan (the gate never lifts without a
+// human). This is the path a dynamic-workflow subagent uses.
+// ===========================================================================
+async function planGateNonInteractiveArms(planUrl) {
+	const planExtension = await loadDefault(planUrl);
+	const { pi, tools, handlers } = makePi();
+	planExtension(pi);
+	const ctx = makeCtx({ mode: "json", hasUI: false });
+	process.env.PI_PLAN_NONINTERACTIVE = "1";
+	try {
+		const pre = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
+		check("plan(non-interactive): write ALLOWED before entry", pre === undefined);
+		const res = await tools
+			.get("enter_plan_mode")
+			.execute("tc1", { task: "plan inside a subagent" }, undefined, undefined, ctx);
+		check("plan(non-interactive): entered=true in json mode", !!res && res.details && res.details.entered === true);
+		const post = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
+		check("plan(non-interactive): write BLOCKED after entry (gate armed)", !!post && post.block === true);
+		// A plan-only submit_plan must NOT lift the gate (no human approval here).
+		await tools.get("submit_plan").execute("tc2", { plan: "# Plan\n1. step" }, undefined, undefined, ctx);
+		const after = await runGate(handlers, ctx, toolCallEvent("edit", { file_path: "a.ts" }));
+		check("plan(non-interactive): edit STILL BLOCKED after plan-only submit", !!after && after.block === true);
+	} finally {
+		delete process.env.PI_PLAN_NONINTERACTIVE;
+	}
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, urls } = await buildExtensions(["plan"]);
 	TEST_PROJECT_ROOT = path.join(outDir, "project");
@@ -241,6 +270,7 @@ async function main() {
 	try {
 		await planGate(urls.plan);
 		await planGatePrintRefuses(urls.plan);
+		await planGateNonInteractiveArms(urls.plan);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
