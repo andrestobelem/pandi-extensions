@@ -76,9 +76,18 @@ Principles it demonstrates:
 - **Convergence (quiet rounds)** — stops after `quietRounds` rounds with no new finding.
 - **Actuator clamp** — `finders` / `quietRounds` / `maxRounds` saturated; concurrency
   clamped to `ctx.limits` (and the clamp is logged).
+- **Budget-aware fan-out** — the verification phase verifies at most
+  `maxAgents - findersUsed - 1` findings so a large finding count never blows the
+  run's agent budget mid-flight; deferred findings are logged, never dropped.
 - **Independent critique** — a per-finding skeptic (reviewer), not the finder.
 - **Conservative verdict** — a missing/invalid skeptic verdict counts as refuted.
-- **No silent caps** — logs the `maxRounds` stop, failed finders, and the clamp.
+- **No silent caps** — logs the `maxRounds` stop, failed/unparsed finders, the clamp,
+  and any budget deferral.
+
+Finder output is parsed with a tolerant extractor (recovers bare or ```json-fenced
+arrays) rather than a schema: a schema on a slow exploration agent turned occasional
+empty streams into multi-retry stalls in testing. Audit subagents run with
+`includeExtensions: false` (read-only repo work needs no web search).
 
 ## How these relate to the catalog templates
 
@@ -99,8 +108,12 @@ explicit.
 ## Validation
 
 Both files were statically validated with `dynamic_workflow action=graph`
-(topology parses; no syntax errors). They were **not** executed here because a
-run spawns real subagents — run them yourself from the repo root.
+(topology parses; no syntax errors) and exercised end-to-end with small smoke runs.
+`verified-refine` converged on an independent PASS in one round; `converge-verify`
+was hardened through real runs that surfaced three robustness bugs (silently dropped
+prose-wrapped JSON, schema retry stalls, and a `maxAgents` overflow), all fixed and
+re-verified. Re-run them yourself from the repo root; size `maxAgents` for
+`finders × maxRounds + findingsToVerify + 1`.
 
 ## See also
 
