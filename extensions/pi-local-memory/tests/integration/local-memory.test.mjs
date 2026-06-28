@@ -10,13 +10,12 @@
  * tool writes the index by default and a .pi/memory/<slug>.md file when given a topic.
  */
 
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../../scripts/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { buildExtension, createChecker, loadDefault } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -24,41 +23,37 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function build() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-local-memory-integration-"));
-	const src = path.join(REPO_ROOT, "extensions", "pi-local-memory", "index.ts");
-	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "lm.mjs");
-	const r = spawnSync("npx", ["--no-install", "esbuild", src, "--bundle", "--platform=node", "--format=esm", `--outfile=${out}`], {
-		cwd: REPO_ROOT,
-		encoding: "utf8",
+	const { url } = await buildExtension({
+		name: "pi-local-memory-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-local-memory", "index.ts"),
+		outName: "lm.mjs",
+		npx: "--no-install",
 	});
-	if (r.status !== 0) throw new Error(`esbuild failed: ${r.stderr || r.stdout}`);
-	return pathToFileURL(out).href;
+	return url;
 }
 
-let instance = 0;
 async function loadHandler(url) {
-	const mod = await import(`${url}?i=${instance++}`);
+	const extension = await loadDefault(url);
 	let handler;
 	const pi = {
 		on: (event, fn) => { if (event === "before_agent_start") handler = fn; },
 		registerTool: () => {},
 	};
-	mod.default(pi);
+	extension(pi);
 	return handler;
 }
 
 // Capture BOTH the before_agent_start reader and the registered tools, so the remember
 // tool can be driven directly and its written note observed flowing back into the prompt.
 async function loadExtension(url) {
-	const mod = await import(`${url}?i=${instance++}`);
+	const extension = await loadDefault(url);
 	let handler;
 	const tools = new Map();
 	const pi = {
 		on: (event, fn) => { if (event === "before_agent_start") handler = fn; },
 		registerTool: (def) => tools.set(def.name, def),
 	};
-	mod.default(pi);
+	extension(pi);
 	return { handler, tools };
 }
 
