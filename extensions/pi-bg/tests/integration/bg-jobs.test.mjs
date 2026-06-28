@@ -11,6 +11,7 @@ import { createWriteStream, existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import { PassThrough, Writable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -331,6 +332,35 @@ async function logStreamErrorsAreContained(url) {
 	check("guard: records a log-stream-error event", /"event":"log-stream-error"/.test(events) && /boom-guarded/.test(events), events.slice(0, 200));
 }
 
+async function backpressurePausesSource(url) {
+	const mod = await import(`${url}?bp=${instance++}`);
+	const pipe = mod.pipeWithBackpressure;
+	check("backpressure: pipeWithBackpressure is exported", typeof pipe === "function", typeof pipe);
+	if (typeof pipe !== "function") return;
+
+	const source = new PassThrough();
+	let release;
+	const gate = new Promise((resolve) => {
+		release = resolve;
+	});
+	// A sink whose write callback is withheld -> stays full and never drains until released.
+	const slow = new Writable({
+		highWaterMark: 1,
+		write(_chunk, _enc, cb) {
+			gate.then(() => cb());
+		},
+	});
+	pipe(source, [slow]);
+	source.write(Buffer.from("a".repeat(4096)));
+	await new Promise((r) => setTimeout(r, 30));
+	check("backpressure: source pauses while sink is full", source.isPaused() === true, `isPaused=${source.isPaused()}`);
+	release();
+	await new Promise((r) => setTimeout(r, 30));
+	check("backpressure: source resumes after sink drains", source.isPaused() === false, `isPaused=${source.isPaused()}`);
+	source.destroy();
+	slow.destroy();
+}
+
 async function jobFinishedGuardRejectsCancel(url) {
 	const mod = await import(`${url}?finguard=${instance++}`);
 	const isFinished = mod.isJobFinished;
@@ -362,6 +392,7 @@ async function main() {
 	await stalePidIsNotKilled(url);
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
+	await backpressurePausesSource(url);
 	await modeGateRejectsStart(url);
 
 	console.log(`\n${passed} passed, ${failed} failed`);

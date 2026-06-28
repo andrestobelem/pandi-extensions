@@ -316,6 +316,24 @@ export function isJobFinished(runtime: RuntimeJob): boolean {
 	return runtime.finalized || runtime.child.exitCode !== null || runtime.child.signalCode !== null;
 }
 
+// Forward a child stream to one or more log sinks while respecting backpressure:
+// pause the source when any sink buffers, resume only once every sink has drained.
+// Without this, a chatty job can grow the host process memory without bound.
+export function pipeWithBackpressure(source: NodeJS.ReadableStream | null | undefined, sinks: WriteStream[]): void {
+	if (!source) return;
+	const maybeResume = (): void => {
+		if (sinks.every((sink) => !sink.writableNeedDrain)) source.resume();
+	};
+	source.on("data", (chunk: Buffer) => {
+		let blocked = false;
+		for (const sink of sinks) {
+			if (!sink.write(chunk)) blocked = true;
+		}
+		if (blocked) source.pause();
+	});
+	for (const sink of sinks) sink.on("drain", maybeResume);
+}
+
 async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): Promise<void> {
 	if (runtime.finalized) return;
 	runtime.finalized = true;
@@ -397,14 +415,8 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 	};
 	activeJobs.set(jobId, runtime);
 
-	child.stdout?.on("data", (chunk: Buffer) => {
-		stdoutStream.write(chunk);
-		combinedStream.write(chunk);
-	});
-	child.stderr?.on("data", (chunk: Buffer) => {
-		stderrStream.write(chunk);
-		combinedStream.write(chunk);
-	});
+	pipeWithBackpressure(child.stdout, [stdoutStream, combinedStream]);
+	pipeWithBackpressure(child.stderr, [stderrStream, combinedStream]);
 	child.on("error", (err) => {
 		void finalizeJob(runtime, null, null, err);
 	});
