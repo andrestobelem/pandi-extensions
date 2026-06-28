@@ -41,6 +41,27 @@ export interface RunGitOptions {
 }
 
 /**
+ * Accumulate child output as UTF-8 text, byte-bounded to MAX_GIT_OUTPUT_BYTES so a
+ * runaway git can't flood memory or the transcript. Mutable sink: append each chunk and
+ * read `.text`. Factors out the two identical stdout/stderr accumulators in runGit.
+ */
+function createBoundedSink(): { append(chunk: Buffer): void; readonly text: string } {
+	let text = "";
+	let bytes = 0;
+	return {
+		append(chunk: Buffer): void {
+			if (bytes >= MAX_GIT_OUTPUT_BYTES) return;
+			bytes += chunk.length;
+			text += chunk.toString("utf8");
+			if (bytes > MAX_GIT_OUTPUT_BYTES) text = text.slice(0, MAX_GIT_OUTPUT_BYTES);
+		},
+		get text(): string {
+			return text;
+		},
+	};
+}
+
+/**
  * Run `git <args>` in `cwd` and resolve with a typed result. NEVER rejects: a
  * spawn failure, non-zero exit, timeout, or abort all come back as a GitResult so
  * callers can branch without try/catch. Output is byte-bounded to keep a runaway
@@ -49,10 +70,8 @@ export interface RunGitOptions {
 export function runGit(args: string[], options: RunGitOptions): Promise<GitResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_GIT_TIMEOUT_MS } = options;
 	return new Promise<GitResult>((resolve) => {
-		let stdout = "";
-		let stderr = "";
-		let stdoutBytes = 0;
-		let stderrBytes = 0;
+		const stdoutSink = createBoundedSink();
+		const stderrSink = createBoundedSink();
 		let settled = false;
 		let timedOut = false;
 
@@ -72,7 +91,14 @@ export function runGit(args: string[], options: RunGitOptions): Promise<GitResul
 			} catch {
 				/* already gone */
 			}
-			finish({ ok: false, exitCode: null, stdout, stderr, signal: "SIGTERM", timedOut: false });
+			finish({
+				ok: false,
+				exitCode: null,
+				stdout: stdoutSink.text,
+				stderr: stderrSink.text,
+				signal: "SIGTERM",
+				timedOut: false,
+			});
 		};
 
 		const timer = setTimeout(() => {
@@ -94,25 +120,15 @@ export function runGit(args: string[], options: RunGitOptions): Promise<GitResul
 			signal.addEventListener("abort", onAbort, { once: true });
 		}
 
-		child.stdout?.on("data", (chunk: Buffer) => {
-			if (stdoutBytes >= MAX_GIT_OUTPUT_BYTES) return;
-			stdoutBytes += chunk.length;
-			stdout += chunk.toString("utf8");
-			if (stdoutBytes > MAX_GIT_OUTPUT_BYTES) stdout = stdout.slice(0, MAX_GIT_OUTPUT_BYTES);
-		});
-		child.stderr?.on("data", (chunk: Buffer) => {
-			if (stderrBytes >= MAX_GIT_OUTPUT_BYTES) return;
-			stderrBytes += chunk.length;
-			stderr += chunk.toString("utf8");
-			if (stderrBytes > MAX_GIT_OUTPUT_BYTES) stderr = stderr.slice(0, MAX_GIT_OUTPUT_BYTES);
-		});
+		child.stdout?.on("data", (chunk: Buffer) => stdoutSink.append(chunk));
+		child.stderr?.on("data", (chunk: Buffer) => stderrSink.append(chunk));
 
 		child.on("error", (err) => {
 			finish({
 				ok: false,
 				exitCode: null,
-				stdout,
-				stderr,
+				stdout: stdoutSink.text,
+				stderr: stderrSink.text,
 				signal: null,
 				timedOut,
 				spawnError: err.message,
@@ -122,8 +138,8 @@ export function runGit(args: string[], options: RunGitOptions): Promise<GitResul
 			finish({
 				ok: code === 0 && !timedOut,
 				exitCode: code,
-				stdout,
-				stderr,
+				stdout: stdoutSink.text,
+				stderr: stderrSink.text,
 				signal: sig,
 				timedOut,
 			});
