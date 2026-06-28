@@ -332,6 +332,26 @@ async function logStreamErrorsAreContained(url) {
 	check("guard: records a log-stream-error event", /"event":"log-stream-error"/.test(events) && /boom-guarded/.test(events), events.slice(0, 200));
 }
 
+async function atomicWriteCleansTempOnRenameFailure(url) {
+	const mod = await import(`${url}?atomic=${instance++}`);
+	const atomicWriteJson = mod.atomicWriteJson;
+	check("atomic: atomicWriteJson is exported", typeof atomicWriteJson === "function", typeof atomicWriteJson);
+	if (typeof atomicWriteJson !== "function") return;
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-atomic-"));
+	// Make the target an existing directory so rename(tmp, target) fails (EISDIR).
+	const target = path.join(dir, "target");
+	await fs.mkdir(target);
+	let threw = false;
+	try {
+		await atomicWriteJson(target, { a: 1 });
+	} catch {
+		threw = true;
+	}
+	check("atomic: rename failure is rethrown", threw);
+	const leftoverTemps = (await fs.readdir(dir)).filter((name) => name.includes(".tmp"));
+	check("atomic: no temp file left behind after rename failure", leftoverTemps.length === 0, leftoverTemps.join(","));
+}
+
 async function descriptionListsPlanSubcommand(url) {
 	const { commands } = await loadExtension(url);
 	const desc = commands.get("bg")?.description || "";
@@ -418,6 +438,7 @@ async function main() {
 	await jobFinishedGuardRejectsCancel(url);
 	await backpressurePausesSource(url);
 	await descriptionListsPlanSubcommand(url);
+	await atomicWriteCleansTempOnRenameFailure(url);
 	await startSurfacesFilesystemErrors(url);
 	await modeGateRejectsStart(url);
 

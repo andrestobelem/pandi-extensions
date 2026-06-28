@@ -170,10 +170,15 @@ async function readJson(file: string): Promise<Record<string, unknown> | undefin
 	}
 }
 
-async function atomicWriteJson(file: string, value: unknown): Promise<void> {
+export async function atomicWriteJson(file: string, value: unknown): Promise<void> {
 	const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.${Date.now()}.${crypto.randomBytes(4).toString("hex")}.tmp`);
 	await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-	await fs.rename(tmp, file);
+	try {
+		await fs.rename(tmp, file);
+	} catch (err) {
+		await fs.rm(tmp, { force: true }).catch(() => undefined);
+		throw err;
+	}
 }
 
 async function appendEvent(runDir: string, event: Record<string, unknown>): Promise<void> {
