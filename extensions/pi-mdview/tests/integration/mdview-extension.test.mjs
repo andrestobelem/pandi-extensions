@@ -64,11 +64,16 @@ async function freshDefault(url) {
 
 function makePi() {
 	const commands = new Map();
+	const tools = new Map();
 	return {
 		pi: {
 			registerCommand: (name, opts) => commands.set(name, opts),
+			// The extension also registers a model-callable `view_markdown` tool; this
+			// suite only exercises the /mdview COMMAND, so capture tools without asserting.
+			registerTool: (tool) => tools.set(tool.name, tool),
 		},
 		commands,
+		tools,
 	};
 }
 

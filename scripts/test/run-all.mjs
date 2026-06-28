@@ -54,6 +54,7 @@ const suites = [
 	"extensions/pi-loop/tests/integration/loop-safety.test.mjs",
 	"extensions/pi-local-memory/tests/integration/local-memory.test.mjs",
 	"extensions/pi-mdview/tests/integration/mdview-extension.test.mjs",
+	"extensions/pi-mdview/tests/integration/mdview-tool.test.mjs",
 	"extensions/pi-plan/tests/integration/plan-approval.test.mjs",
 	"extensions/pi-plan/tests/integration/plan-gate.test.mjs",
 ];

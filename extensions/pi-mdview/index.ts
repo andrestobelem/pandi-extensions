@@ -1,5 +1,6 @@
-import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Markdown, matchesKey, truncateToWidth, visibleWidth, type Component, type MarkdownTheme, type TUI } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -8,7 +9,7 @@ const VIEWER_MIN_BODY_LINES = 3;
 const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
 const MAX_MDVIEW_BYTES = 2_000_000; // guard: reading/parsing a huge file blocks the TUI event loop
 
-function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
+function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
 		// In --print/--json mode pi takes over process.stdout (reserving real stdout
 		// for the model response) and routes all console output to stderr. So both
@@ -142,24 +143,42 @@ class MarkdownViewComponent implements Component {
 	}
 }
 
-async function showMarkdown(pathArg: string, ctx: ExtensionCommandContext): Promise<void> {
-	const filePath = resolveMarkdownPath(pathArg, ctx.cwd);
-	if (!filePath) {
-		notify(ctx, "Usage: /mdview <path-to-markdown-file>", "warning");
-		return;
-	}
+type MarkdownLoad =
+	| { ok: true; filePath: string; content: string; bytes: number }
+	| { ok: false; message: string; level: "warning" | "error" };
 
-	let content: string;
+/**
+ * Resolve + size-guard + read a Markdown file. Shared by the `/mdview` command and the
+ * model-callable `view_markdown` tool so both apply the SAME validation and limits.
+ * Pure of UI: callers decide how to surface success (viewer / content) and errors.
+ */
+async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<MarkdownLoad> {
+	const filePath = resolveMarkdownPath(pathArg, cwd);
+	if (!filePath) return { ok: false, message: "Usage: /mdview <path-to-markdown-file>", level: "warning" };
 	try {
 		const stat = await fs.stat(filePath);
 		if (stat.size > MAX_MDVIEW_BYTES) {
-			notify(ctx, `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES}).`, "warning");
-			return;
+			return { ok: false, message: `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES}).`, level: "warning" };
 		}
-		content = await fs.readFile(filePath, "utf8");
+		const content = await fs.readFile(filePath, "utf8");
+		return { ok: true, filePath, content, bytes: stat.size };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		notify(ctx, `Could not read Markdown file: ${message}`, "error");
+		return { ok: false, message: `Could not read Markdown file: ${message}`, level: "error" };
+	}
+}
+
+/** Open the interactive scroll viewer; resolves when the user closes it (q/Esc). */
+function openMarkdownViewer(ctx: ExtensionContext, filePath: string, content: string): Promise<void> {
+	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+		return new MarkdownViewComponent(tui, theme, filePath, ctx.cwd, content, () => done(undefined));
+	});
+}
+
+async function showMarkdown(pathArg: string, ctx: ExtensionContext): Promise<void> {
+	const load = await loadMarkdownDocument(pathArg, ctx.cwd);
+	if (!load.ok) {
+		notify(ctx, load.message, load.level);
 		return;
 	}
 
@@ -167,13 +186,11 @@ async function showMarkdown(pathArg: string, ctx: ExtensionCommandContext): Prom
 		// Non-TUI fallback: dump the document for terminal viewing. Under --print pi
 		// has taken over stdout and routes this to stderr, so it is NOT redirectable
 		// to a file (`pi /mdview f.md > out.md` captures nothing); use `cat` for raw text.
-		console.log(content);
+		console.log(load.content);
 		return;
 	}
 
-	await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-		return new MarkdownViewComponent(tui, theme, filePath, ctx.cwd, content, () => done(undefined));
-	});
+	await openMarkdownViewer(ctx, load.filePath, load.content);
 }
 
 export default function markdownViewExtension(pi: ExtensionAPI): void {
@@ -181,6 +198,43 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 		description: "View a Markdown file in Pi's TUI",
 		handler: async (args, ctx) => {
 			await showMarkdown(args, ctx);
+		},
+	});
+
+	// Model-callable counterpart of `/mdview`. The command is user-only (the agent cannot
+	// type a slash command), so this TOOL lets the agent itself show Markdown: it opens the
+	// same scroll viewer in a TUI, and returns the raw content in non-interactive modes
+	// (where it renders in the transcript).
+	pi.registerTool({
+		name: "view_markdown",
+		label: "View Markdown",
+		description:
+			"Open a Markdown file for the user. In a TUI it opens Pi's scrollable Markdown viewer; in non-interactive modes it returns the file's Markdown content. Use when the user asks to show, open, or view a Markdown (.md) file.",
+		promptSnippet: "Show or open a Markdown file for the user.",
+		parameters: Type.Object({
+			path: Type.String({
+				minLength: 1,
+				description: "Path to the Markdown file: relative to the cwd, ~-expanded, or absolute.",
+			}),
+		}),
+		executionMode: "sequential",
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const load = await loadMarkdownDocument(params.path, ctx.cwd);
+			if (!load.ok) {
+				return { content: [{ type: "text" as const, text: load.message }], details: { isError: true } };
+			}
+			const relativePath = path.relative(ctx.cwd, load.filePath) || load.filePath;
+			if (ctx.mode === "tui" && ctx.hasUI) {
+				await openMarkdownViewer(ctx, load.filePath, load.content);
+				return {
+					content: [{ type: "text" as const, text: `Opened ${relativePath} in the Markdown viewer (${load.bytes} bytes).` }],
+					details: { path: relativePath, bytes: load.bytes, opened: true },
+				};
+			}
+			return {
+				content: [{ type: "text" as const, text: load.content }],
+				details: { path: relativePath, bytes: load.bytes, opened: false },
+			};
 		},
 	});
 }
