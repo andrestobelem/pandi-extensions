@@ -4077,6 +4077,17 @@ function reselectIndexByKey<T>(previous: T[], previousIndex: number, next: T[], 
 	return found >= 0 ? found : clamped;
 }
 
+interface DashboardSelection {
+	tab: WorkflowDashboardTab;
+	workflowIndex: number;
+	runIndex: number;
+	activityIndex: number;
+	sessionIndex: number;
+	agentIndex: number;
+	monitorAgentIndex: number;
+	patternIndex: number;
+}
+
 class WorkflowDashboard {
 	private tab: WorkflowDashboardTab;
 	private workflowIndex = 0;
@@ -4099,8 +4110,35 @@ class WorkflowDashboard {
 		private readonly requestRender: () => void,
 		private readonly done: (result: WorkflowDashboardResult | null) => void,
 		initialTab: WorkflowDashboardTab = "monitor",
+		restore?: DashboardSelection,
 	) {
-		this.tab = initialTab;
+		this.tab = restore?.tab ?? initialTab;
+		if (restore) {
+			// Best-effort restore so reopening the dashboard after an action keeps the
+			// user where they were; indices are clamped to the freshly-reloaded lists.
+			const clamp = (value: number, length: number) => Math.max(0, Math.min(value, Math.max(0, length - 1)));
+			this.workflowIndex = clamp(restore.workflowIndex, workflows.length);
+			this.runIndex = clamp(restore.runIndex, runs.length);
+			this.activityIndex = clamp(restore.activityIndex, activity.length);
+			this.sessionIndex = clamp(restore.sessionIndex, piSessions.length);
+			this.agentIndex = clamp(restore.agentIndex, agentEntries.length);
+			this.patternIndex = clamp(restore.patternIndex, WORKFLOW_PATTERN_CATALOG.length);
+			const monitorAgents = (monitorModels.find((model) => model.active) ?? monitorModels[0])?.agents.length ?? 0;
+			this.monitorAgentIndex = clamp(restore.monitorAgentIndex, monitorAgents);
+		}
+	}
+
+	getSelection(): DashboardSelection {
+		return {
+			tab: this.tab,
+			workflowIndex: this.workflowIndex,
+			runIndex: this.runIndex,
+			activityIndex: this.activityIndex,
+			sessionIndex: this.sessionIndex,
+			agentIndex: this.agentIndex,
+			monitorAgentIndex: this.monitorAgentIndex,
+			patternIndex: this.patternIndex,
+		};
 	}
 
 	setRuns(runs: WorkflowRunRecord[]): void {
@@ -5221,88 +5259,105 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext, in
 		notify(ctx, "Workflow dashboard requires TUI mode. Use /workflow list, /workflow graph, /workflow runs, or /workflow view.", "warning");
 		return;
 	}
-	const workflows = await listWorkflows(ctx);
-	const runs = await listRuns(ctx);
-	const [activity, piSessions, monitorModels, agentEntries] = await Promise.all([collectWorkflowActivity(runs), collectPiSessions(ctx), deriveWorkflowMonitorModels(runs), collectWorkflowAgents(runs)]);
-	let refreshTimer: NodeJS.Timeout | undefined;
-	let refreshing = false;
-	let dashboard: WorkflowDashboard | undefined;
-	let choice: WorkflowDashboardResult | null = null;
-	try {
-		choice = await ctx.ui.custom<WorkflowDashboardResult | null>((tui, theme, _keybindings, done) => {
-			dashboard = new WorkflowDashboard(workflows, runs, activity, piSessions, monitorModels, agentEntries, theme, () => tui.requestRender(), done, initialTab);
-			const refresh = async () => {
-				if (refreshing || !dashboard) return;
-				refreshing = true;
-				try {
-					const nextRuns = await listRuns(ctx);
-					const [nextActivity, nextPiSessions, nextMonitorModels, nextAgentEntries] = await Promise.all([collectWorkflowActivity(nextRuns), collectPiSessions(ctx), deriveWorkflowMonitorModels(nextRuns), collectWorkflowAgents(nextRuns)]);
-					dashboard.setRuns(nextRuns);
-					dashboard.setActivity(nextActivity);
-					dashboard.setPiSessions(nextPiSessions);
-					dashboard.setMonitorModels(nextMonitorModels);
-					dashboard.setAgentEntries(nextAgentEntries);
-					tui.requestRender();
-				} finally {
-					refreshing = false;
-				}
-			};
-			refreshTimer = setInterval(() => void refresh(), 1500);
-			return dashboard;
-		});
-	} finally {
-		if (refreshTimer) clearInterval(refreshTimer);
+	let currentTab = initialTab;
+	let restore: DashboardSelection | undefined;
+	// Reopen loop: non-terminal actions (view/graph/agent/cancel/delete/rerun/run)
+	// return to the dashboard on the same tab/selection instead of dropping to the
+	// editor. Only switching session, creating a pattern draft, or q/esc exit.
+	for (;;) {
+		const workflows = await listWorkflows(ctx);
+		const runs = await listRuns(ctx);
+		const [activity, piSessions, monitorModels, agentEntries] = await Promise.all([collectWorkflowActivity(runs), collectPiSessions(ctx), deriveWorkflowMonitorModels(runs), collectWorkflowAgents(runs)]);
+		let refreshTimer: NodeJS.Timeout | undefined;
+		let refreshing = false;
+		let dashboard: WorkflowDashboard | undefined;
+		let choice: WorkflowDashboardResult | null = null;
+		try {
+			choice = await ctx.ui.custom<WorkflowDashboardResult | null>((tui, theme, _keybindings, done) => {
+				dashboard = new WorkflowDashboard(workflows, runs, activity, piSessions, monitorModels, agentEntries, theme, () => tui.requestRender(), done, currentTab, restore);
+				const refresh = async () => {
+					if (refreshing || !dashboard) return;
+					refreshing = true;
+					try {
+						const nextRuns = await listRuns(ctx);
+						const [nextActivity, nextPiSessions, nextMonitorModels, nextAgentEntries] = await Promise.all([collectWorkflowActivity(nextRuns), collectPiSessions(ctx), deriveWorkflowMonitorModels(nextRuns), collectWorkflowAgents(nextRuns)]);
+						dashboard.setRuns(nextRuns);
+						dashboard.setActivity(nextActivity);
+						dashboard.setPiSessions(nextPiSessions);
+						dashboard.setMonitorModels(nextMonitorModels);
+						dashboard.setAgentEntries(nextAgentEntries);
+						tui.requestRender();
+					} finally {
+						refreshing = false;
+					}
+				};
+				refreshTimer = setInterval(() => void refresh(), 1500);
+				return dashboard;
+			});
+		} finally {
+			if (refreshTimer) clearInterval(refreshTimer);
+		}
+		if (!choice) return;
+		const savedSelection = dashboard?.getSelection();
+		const action = await handleDashboardChoice(pi, ctx, choice, options);
+		if (action === "close") return;
+		currentTab = savedSelection?.tab ?? currentTab;
+		restore = savedSelection;
 	}
-	if (!choice) return;
+}
+
+async function handleDashboardChoice(pi: ExtensionAPI, ctx: ExtensionContext, choice: WorkflowDashboardResult, options: WorkflowDashboardOpenOptions): Promise<"reopen" | "close"> {
 	if (choice.type === "switchSession" && choice.session) {
 		await switchToPiSession(ctx, choice.session, options);
-		return;
+		return "close";
 	}
 	if (choice.type === "newPattern" && choice.pattern) {
 		const workflow = await createWorkflowDraftFromPattern(ctx, choice.pattern);
 		if (workflow) {
 			notify(ctx, `Wrote ${workflow.path}\nRun it with /workflow start ${workflow.name} ${choice.pattern.inputHint}`, "info");
 		}
-		return;
+		return "close";
 	}
 	if (choice.type === "graph") {
 		const workflow = choice.workflow ?? (choice.run ? await resolveWorkflowForRun(ctx, choice.run) : undefined);
 		if (!workflow) {
 			notify(ctx, "Cannot open graph: workflow file not found.", "warning");
-			return;
+			return "reopen";
 		}
 		const code = await fs.readFile(workflow.path, "utf8");
 		await showWorkflowGraph(ctx, workflow, code);
-		return;
+		return "reopen";
 	}
 	if (choice.type === "agent" && choice.run && choice.agent) {
 		await showLiveAgentView(ctx, choice.run, choice.agent);
-		return;
+		return "reopen";
 	}
 	if (choice.type === "view" && choice.run) {
 		await showText(ctx, `Workflow run: ${choice.run.runId}`, await formatRunView(choice.run));
-		return;
+		return "reopen";
 	}
 	if (choice.type === "cancel" && choice.run) {
 		const ok = await ctx.ui.confirm("Cancel workflow run?", `Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\n\nThis aborts the active background run. Artifacts already written remain on disk.`);
-		if (!ok) return;
-		const message = await cancelWorkflowRun(ctx, choice.run.runId);
-		notify(ctx, message, "warning");
-		return;
+		if (ok) {
+			const message = await cancelWorkflowRun(ctx, choice.run.runId);
+			notify(ctx, message, "warning");
+		}
+		return "reopen";
 	}
 	if (choice.type === "deleteRun" && choice.run) {
 		if (canCancelRun(choice.run)) {
 			notify(ctx, `Run is still active; cancel it before deleting artifacts: ${choice.run.runId}`, "warning");
-			return;
+			return "reopen";
 		}
 		const ok = await ctx.ui.confirm(
 			"Delete workflow run artifacts?",
 			`Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\nState: ${getRunStatusLabel(choice.run)}\nDirectory: ${choice.run.runDir}\n\nThis permanently deletes this run directory and its artifacts. The workflow file is not deleted.`,
 		);
-		if (!ok) return;
-		const message = await deleteWorkflowRun(ctx, choice.run.runId);
-		notify(ctx, message, "warning");
-		return;
+		if (ok) {
+			const message = await deleteWorkflowRun(ctx, choice.run.runId);
+			notify(ctx, message, "warning");
+		}
+		return "reopen";
 	}
 	if (choice.type === "deleteWorkflow" && choice.workflow) {
 		const activeForWorkflow = [...activeRuns.values()].filter((run) => run.workflow.path === choice.workflow!.path || run.workflow.name === choice.workflow!.name);
@@ -5310,39 +5365,42 @@ async function openWorkflowDashboard(pi: ExtensionAPI, ctx: ExtensionContext, in
 			"Delete workflow?",
 			`Workflow: ${choice.workflow.name}\nScope: ${choice.workflow.scope}\nPath: ${choice.workflow.path}\n\nThis deletes only the workflow file, not previous run artifacts.${activeForWorkflow.length ? `\n\nWarning: ${activeForWorkflow.length} active run(s) from this workflow will keep running unless cancelled.` : ""}`,
 		);
-		if (!ok) return;
-		await fs.unlink(choice.workflow.path);
-		notify(ctx, `Deleted workflow ${choice.workflow.name}: ${choice.workflow.path}`, "info");
-		return;
+		if (ok) {
+			await fs.unlink(choice.workflow.path);
+			notify(ctx, `Deleted workflow ${choice.workflow.name}: ${choice.workflow.path}`, "info");
+		}
+		return "reopen";
 	}
 	if (choice.type === "rerun" && choice.run) {
 		if (canCancelRun(choice.run)) {
 			notify(ctx, `Run is still active; cancel or wait before rerunning: ${choice.run.runId}`, "warning");
-			return;
+			return "reopen";
 		}
 		const workflow = await resolveWorkflowForRun(ctx, choice.run);
 		if (!workflow) {
 			notify(ctx, "Cannot rerun: workflow file not found.", "warning");
-			return;
+			return "reopen";
 		}
 		const loaded = await loadRerunInput(ctx, choice.run);
-		if (!loaded) return;
-		const ok = await ctx.ui.confirm(
-			"Rerun workflow?",
-			`Workflow: ${workflow.name}\nFrom run: ${choice.run.runId}\nInput: ${loaded.source}\n\n${stringify(loaded.input, 1200)}`,
-		);
-		if (!ok) return;
-		await runWorkflowFromUi(pi, ctx, workflow, loaded.input);
-		return;
+		if (loaded) {
+			const ok = await ctx.ui.confirm(
+				"Rerun workflow?",
+				`Workflow: ${workflow.name}\nFrom run: ${choice.run.runId}\nInput: ${loaded.source}\n\n${stringify(loaded.input, 1200)}`,
+			);
+			if (ok) await runWorkflowFromUi(pi, ctx, workflow, loaded.input);
+		}
+		return "reopen";
 	}
 	if (choice.type === "run" && choice.workflow) {
 		const inputText = await ctx.ui.editor("Workflow input JSON", "{}");
-		if (inputText === undefined) return;
-		const input = parseCliJsonOrText(inputText, { strictJson: true });
-		const ok = await ctx.ui.confirm("Run workflow?", `Workflow: ${choice.workflow.name}\n\n${stringify(input, 1200)}`);
-		if (!ok) return;
-		await runWorkflowFromUi(pi, ctx, choice.workflow, input);
+		if (inputText !== undefined) {
+			const input = parseCliJsonOrText(inputText, { strictJson: true });
+			const ok = await ctx.ui.confirm("Run workflow?", `Workflow: ${choice.workflow.name}\n\n${stringify(input, 1200)}`);
+			if (ok) await runWorkflowFromUi(pi, ctx, choice.workflow, input);
+		}
+		return "reopen";
 	}
+	return "close";
 }
 
 async function runWorkflow(

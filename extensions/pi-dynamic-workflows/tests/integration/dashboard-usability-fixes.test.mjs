@@ -307,6 +307,16 @@ async function scenarioListPaging(url) {
 	check("PageUp jumps a page (10) up", getDone()?.run?.runId === "r0", JSON.stringify(getDone()));
 }
 
+async function scenarioReopenAfterAction(url) {
+	const project = await makeProject();
+	await seedFailedRun(project, { runId: "delme", error: "x" });
+	const boot = await bootExtension(url, project, { customInputs: ["tab", "tab", "tab", "d"] }); // -> runs tab, delete selected
+	await boot.commands.get("workflow").handler("dashboard", boot.ctx);
+	check("dashboard reopens after a (delete) action instead of exiting", boot.customCalls.length === 2, `customCalls=${boot.customCalls.length}`);
+	const reopened = renderedText(boot.customCalls[boot.customCalls.length - 1]);
+	check("reopened dashboard preserves the active tab (Runs)", reopened.includes("[Runs]"), reopened.split("\n")[0]);
+}
+
 async function scenarioHelpOverlay(url) {
 	const project = await makeProject();
 
@@ -385,6 +395,7 @@ async function main() {
 	await scenarioAgentsSelectionStability(url);
 	await scenarioListPaging(url);
 	await scenarioFailedRunErrorVisible(url);
+	await scenarioReopenAfterAction(url);
 	await scenarioHelpOverlay(url);
 	await scenarioRunningAgentLiveElapsed(url);
 	await scenarioListWindowIndicator(url);
