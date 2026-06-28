@@ -18,7 +18,7 @@ Apply what we learned about agentic workflow patterns to the prompts used by our
 
 ## Updated workflows
 
-- `.pi/workflows/agentic-workflow-patterns-research.js`
+- `.pi/workflows/drafts/agentic-workflow-patterns-research.js`
 - `.pi/workflows/background-workflow-implementation-plan.js`
 - `.pi/workflows/review-dynamic-workflows.js`
 - `.pi/workflows/revisar-estado-actual.js`

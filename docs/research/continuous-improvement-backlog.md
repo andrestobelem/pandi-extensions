@@ -54,7 +54,7 @@ Conventions:
 - Why: the workflow is fixed (per-topic `{name,ok,output}` synthesis input + string-input guard),
   but three runs capped at 6/7, 3/7 and 4/7 because concurrent sessions exhausted the shared
   `web_search` budget. Re-run with a single active writer to get clean 7/7 coverage.
-- Where: `.pi/workflows/agentic-workflow-patterns-research.js` (fixed in commits f36226b, 132af53).
+- Where: `.pi/workflows/drafts/agentic-workflow-patterns-research.js` (fixed in commits f36226b, 132af53; later demoted to draft).
 
 ### CI-6 — Monitor height budget (adaptive windowing that keeps the detail visible)
 
