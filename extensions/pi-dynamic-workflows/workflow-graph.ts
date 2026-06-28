@@ -128,10 +128,8 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		notes.push(
 			"Nested ctx.* calls inside ctx.pipeline/ctx.parallel/ctx.agents are grouped under their orchestration step.",
 		);
-	if (/\b(for|while)\s*\(/.test(code))
-		notes.push("Loops detected; repeated calls are shown once in source order.");
-	if (/\bif\s*\(|\?[^\n]+:/.test(code))
-		notes.push("Branches detected; conditional paths are approximate.");
+	if (/\b(for|while)\s*\(/.test(code)) notes.push("Loops detected; repeated calls are shown once in source order.");
+	if (/\bif\s*\(|\?[^\n]+:/.test(code)) notes.push("Branches detected; conditional paths are approximate.");
 	return { workflow, steps, notes };
 }
 
@@ -158,8 +156,7 @@ export async function buildWorkflowGraphModelWithSubworkflows(
 			continue;
 		}
 		if (depth >= 1) {
-			step.subworkflowError =
-				"nested sub-workflows are not expanded; runtime composition depth limit is 1";
+			step.subworkflowError = "nested sub-workflows are not expanded; runtime composition depth limit is 1";
 			continue;
 		}
 		try {
@@ -189,9 +186,7 @@ function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
 	if (step.fanout) {
 		lines.push(`visual: ${formatWorkflowGraphFanoutSummary(step.fanout)}`);
 		if (step.fanout.many)
-			lines.push(
-				"diagram: fork → visible workers/lanes → join, with … when the count is large or dynamic",
-			);
+			lines.push("diagram: fork → visible workers/lanes → join, with … when the count is large or dynamic");
 	}
 	if (step.kind === "fanout")
 		lines.push(
@@ -199,21 +194,13 @@ function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
 			"join: results array; failed branches may be null with settle:true",
 		);
 	else if (step.kind === "barrier")
-		lines.push(
-			"branches: async thunks run concurrently",
-			"join: barrier waits for every branch before continuing",
-		);
+		lines.push("branches: async thunks run concurrently", "join: barrier waits for every branch before continuing");
 	else if (step.kind === "pipeline")
-		lines.push(
-			"lanes: each item flows through stages",
-			"join: returned array preserves item order",
-		);
+		lines.push("lanes: each item flows through stages", "join: returned array preserves item order");
 	else if (step.kind === "subworkflow") {
 		lines.push("delegates to another workflow and returns to this flow");
 		if (step.subworkflow)
-			lines.push(
-				`expands: ${step.subworkflow.workflow.name} (${step.subworkflow.steps.length} steps)`,
-			);
+			lines.push(`expands: ${step.subworkflow.workflow.name} (${step.subworkflow.steps.length} steps)`);
 		else if (step.subworkflowError) lines.push(`subgraph unavailable: ${step.subworkflowError}`);
 	} else if (step.kind === "agent") lines.push("single Pi subagent call");
 	else if (step.kind === "shell") lines.push("host shell command from workflow cwd");
@@ -233,30 +220,19 @@ function workflowGraphStyles(theme?: any): WorkflowGraphRenderTheme {
 	};
 }
 
-function renderWorkflowGraphSubworkflowSummaryLines(
-	model: WorkflowGraphModel,
-	depth = 1,
-): string[] {
+function renderWorkflowGraphSubworkflowSummaryLines(model: WorkflowGraphModel, depth = 1): string[] {
 	const indent = "  ".repeat(depth);
-	const lines = [
-		`${indent}↳ sub-workflow graph: ${model.workflow.name} (${model.steps.length} steps)`,
-	];
+	const lines = [`${indent}↳ sub-workflow graph: ${model.workflow.name} (${model.steps.length} steps)`];
 	for (const step of model.steps.slice(0, 12)) {
 		lines.push(`${indent}  ${step.symbol} ${step.label} L${step.line} ctx.${step.method}`);
-		if (step.subworkflow)
-			lines.push(...renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow, depth + 2));
-		else if (step.subworkflowError)
-			lines.push(`${indent}    ↳ subgraph unavailable: ${step.subworkflowError}`);
+		if (step.subworkflow) lines.push(...renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow, depth + 2));
+		else if (step.subworkflowError) lines.push(`${indent}    ↳ subgraph unavailable: ${step.subworkflowError}`);
 	}
 	if (model.steps.length > 12) lines.push(`${indent}  … ${model.steps.length - 12} more steps`);
 	return lines;
 }
 
-function renderWorkflowGraphOverviewLines(
-	model: WorkflowGraphModel,
-	width: number,
-	theme?: any,
-): string[] {
+function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: number, theme?: any): string[] {
 	if (width <= 0) return [];
 	const w = width;
 	const style = workflowGraphStyles(theme);
@@ -291,11 +267,7 @@ function renderWorkflowGraphOverviewLines(
 			),
 		);
 	} else {
-		lines.push(
-			line(
-				`  ${style.success("start")} ${style.muted("→")} ${graphTextLabel(model.workflow.name)}`,
-			),
-		);
+		lines.push(line(`  ${style.success("start")} ${style.muted("→")} ${graphTextLabel(model.workflow.name)}`));
 		for (const step of steps) {
 			lines.push(line(`    ${style.muted("│")}`));
 			lines.push(
@@ -358,8 +330,7 @@ function workflowGraphVisibleFanoutSlots(fanout: WorkflowGraphFanoutInfo): strin
 	const unit = workflowGraphSingularUnit(fanout.unit);
 	if (fanout.count !== undefined) {
 		if (fanout.count <= 0) return [`no ${fanout.unit}`];
-		if (fanout.count <= 6)
-			return Array.from({ length: fanout.count }, (_, index) => `${unit} ${index + 1}`);
+		if (fanout.count <= 6) return Array.from({ length: fanout.count }, (_, index) => `${unit} ${index + 1}`);
 		return [`${unit} 1`, `${unit} 2`, `${unit} 3`, "…", `${unit} ${fanout.count}`];
 	}
 	return [`${unit} 1`, `${unit} 2`, "…", `${unit} n`];
@@ -422,8 +393,7 @@ function appendWorkflowGraphMermaidSteps(
 			currentExit = groupId;
 			continue;
 		}
-		const unavailable =
-			step.kind === "subworkflow" && step.subworkflowError ? ` · ${step.subworkflowError}` : "";
+		const unavailable = step.kind === "subworkflow" && step.subworkflowError ? ` · ${step.subworkflowError}` : "";
 		const shape =
 			step.kind === "fanout" || step.kind === "barrier" || step.kind === "pipeline"
 				? `{{${label}}}`
@@ -464,9 +434,7 @@ export interface WorkflowGraphImageAttempt {
 
 function displayPathFromCwd(cwd: string, file: string): string {
 	const relative = path.relative(cwd, file).replaceAll(path.sep, "/");
-	return relative && !relative.startsWith("../") && relative !== ".." && !path.isAbsolute(relative)
-		? relative
-		: file;
+	return relative && !relative.startsWith("../") && relative !== ".." && !path.isAbsolute(relative) ? relative : file;
 }
 
 function clampWorkflowGraphNumber(value: number, min: number, max: number): number {
@@ -509,11 +477,7 @@ export function workflowGraphImageOptions(model: WorkflowGraphModel): {
 } {
 	const stats = workflowGraphStats(model);
 	return {
-		width: clampWorkflowGraphNumber(
-			2200 + stats.fanoutSlots * 120 + stats.subworkflows * 220,
-			2200,
-			3800,
-		),
+		width: clampWorkflowGraphNumber(2200 + stats.fanoutSlots * 120 + stats.subworkflows * 220, 2200, 3800),
 		height: clampWorkflowGraphNumber(
 			1300 + stats.steps * 130 + stats.orchestrationGroups * 180 + stats.subworkflows * 220,
 			1300,
@@ -552,10 +516,7 @@ function resolveMmdcInvocation(cwd: string): {
 }
 
 function formatMmdcFailure(command: string, result: ProcessResult): string {
-	const details = [result.error, result.stderr.trim(), result.stdout.trim()]
-		.filter(Boolean)
-		.join("\n")
-		.trim();
+	const details = [result.error, result.stderr.trim(), result.stdout.trim()].filter(Boolean).join("\n").trim();
 	const hint = /Could not find Chrome|Chrome.*not found|browser/i.test(details)
 		? "\nHint: run `npx puppeteer browsers install chrome-headless-shell` if the Puppeteer browser was not installed."
 		: "";
@@ -624,11 +585,7 @@ export async function renderWorkflowGraphImage(
 	}
 }
 
-export function renderWorkflowGraphDocumentLines(
-	model: WorkflowGraphModel,
-	width: number,
-	theme?: any,
-): string[] {
+export function renderWorkflowGraphDocumentLines(model: WorkflowGraphModel, width: number, theme?: any): string[] {
 	if (width <= 0) return [];
 	const style = workflowGraphStyles(theme);
 	const line = (textValue: string) => truncateToWidth(textValue, width, "");
