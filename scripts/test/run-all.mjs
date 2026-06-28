@@ -38,7 +38,7 @@ const suites = [
 	"extensions/pi-dynamic-workflows/tests/integration/composition-rank.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/dynamic-workflow-composition.test.mjs",
 	"extensions/pi-dynamic-workflows/tests/integration/editor-left-agents.test.mjs",
-	"extensions/pi-dynamic-workflows/tests/integration/ultracode-phase0.test.mjs",
+	"extensions/pi-dynamic-workflows/tests/integration/ultracode-contract-gate.test.mjs",
 	"extensions/pi-effort/tests/integration/effort-extension.test.mjs",
 	"extensions/pi-goal/tests/integration/goal-rehydrate.test.mjs",
 	"extensions/pi-goal/tests/integration/goal-verifier.test.mjs",

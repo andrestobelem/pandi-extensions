@@ -332,6 +332,12 @@ async function logStreamErrorsAreContained(url) {
 	check("guard: records a log-stream-error event", /"event":"log-stream-error"/.test(events) && /boom-guarded/.test(events), events.slice(0, 200));
 }
 
+async function descriptionListsPlanSubcommand(url) {
+	const { commands } = await loadExtension(url);
+	const desc = commands.get("bg")?.description || "";
+	check("description: lists the plan subcommand", /\bplan\b/.test(desc), desc);
+}
+
 async function startSurfacesFilesystemErrors(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-fserror-"));
@@ -411,6 +417,7 @@ async function main() {
 	await logStreamErrorsAreContained(url);
 	await jobFinishedGuardRejectsCancel(url);
 	await backpressurePausesSource(url);
+	await descriptionListsPlanSubcommand(url);
 	await startSurfacesFilesystemErrors(url);
 	await modeGateRejectsStart(url);
 

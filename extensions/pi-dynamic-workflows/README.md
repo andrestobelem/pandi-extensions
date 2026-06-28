@@ -16,8 +16,8 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
 
 - `dynamic_workflow` model tool for listing, templating, reading, writing, running, resuming, cancelling, graphing, and viewing workflows.
 - `/workflow` and `/workflows` human commands.
-- `/ultracode`, `/deep-research`, `/ultracode-mode`, and `/ultracode-phase0` routing commands.
-- Ultracode Phase 0 guidance for a small read-only adversarial prompt-engineering workflow before broad scout/orchestration; disable it per session with `/ultracode-phase0 off`.
+- `/ultracode`, `/deep-research`, `/ultracode-mode`, and `/ultracode-contract` routing commands.
+- Ultracode Contract Gate guidance for a small read-only task-contract review workflow before broad scout/orchestration; disable it per session with `/ultracode-contract off`.
 - Compact Claude-style template catalog: six primary templates, compose templates, and use-case templates, with no pattern aliases.
 - JavaScript workflow runtime with `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`, artifacts, resumable journal, and TUI dashboard.
 

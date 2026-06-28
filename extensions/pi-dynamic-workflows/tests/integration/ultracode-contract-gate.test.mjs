@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Behavioral regression test for Ultracode Phase 0 prompt engineering.
+ * Behavioral regression test for the Ultracode Contract Gate.
  *
  * Observable contract:
- *   - /ultracode prompts include an explicit adversarial prompt-engineering
- *     Phase 0 before normal scout/orchestration guidance.
+ *   - /ultracode prompts include an explicit task-contract review before normal
+ *     scout/orchestration guidance.
  *   - Text input starting with `ultracode ...` uses the same transformation.
- *   - The always-on Ultracode router advertises the same lightweight Phase 0
+ *   - The always-on Ultracode router advertises the same lightweight Contract Gate
  *     contract without double-injecting generated /ultracode prompts.
- *   - /ultracode-phase0 can disable and re-enable Phase 0 without disabling
- *     Ultracode routing.
+ *   - /ultracode-contract can disable and re-enable the Contract Gate without
+ *     disabling Ultracode routing.
  */
 
 import { spawnSync } from "node:child_process";
@@ -37,7 +37,7 @@ function check(label, cond, detail) {
 }
 
 async function buildExtension() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-ultracode-phase0-"));
+	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-ultracode-contract-"));
 
 	const typeboxStub = path.join(outDir, "stub-typebox.mjs");
 	await fs.writeFile(
@@ -151,17 +151,17 @@ async function fireFirst(handlers, event, payload) {
 	return undefined;
 }
 
-function assertPhase0Contract(label, prompt) {
-	check(`${label} includes phase 0 heading`, prompt.includes("Phase 0: adversarial prompt engineering"));
-	check(`${label} requires a workflow`, /adversarial prompt-engineering workflow/i.test(prompt));
+function assertContractGate(label, prompt) {
+	check(`${label} includes contract gate heading`, prompt.includes("Contract Gate"));
+	check(`${label} requires a workflow`, /task-contract review workflow/i.test(prompt));
 	check(`${label} preserves trivial gate`, /survive the trivial gate/i.test(prompt));
 	check(`${label} names improved task output`, prompt.includes("improvedTask"));
 	check(`${label} feeds improved task forward`, /Use the improved task/i.test(prompt));
 }
 
-function assertNoPhase0Contract(label, prompt) {
-	check(`${label} omits phase 0 heading`, !prompt.includes("Phase 0: adversarial prompt engineering"), prompt);
-	check(`${label} omits prompt-engineering workflow requirement`, !/adversarial prompt-engineering workflow/i.test(prompt), prompt);
+function assertNoContractGate(label, prompt) {
+	check(`${label} omits contract gate heading`, !prompt.includes("Contract Gate"), prompt);
+	check(`${label} omits task-contract review workflow requirement`, !/task-contract review workflow/i.test(prompt), prompt);
 	check(`${label} keeps ultracode rules`, prompt.includes("Ultracode rules:") || prompt.includes("## Always-on Ultracode Router"), prompt);
 }
 
@@ -176,7 +176,7 @@ async function scenarioSlashCommand(url) {
 	const prompt = harness.messages[0]?.text ?? "";
 	check("/ultracode activates dynamic_workflow", harness.activeTools.includes("dynamic_workflow"), harness.activeTools.join(","));
 	check("/ultracode keeps original task", prompt.includes("Task:\naudita este repo"), prompt);
-	assertPhase0Contract("/ultracode prompt", prompt);
+	assertContractGate("/ultracode prompt", prompt);
 }
 
 async function scenarioInputTransform(url) {
@@ -187,7 +187,7 @@ async function scenarioInputTransform(url) {
 	check("input hook transforms ultracode prefix", result?.action === "transform", JSON.stringify(result));
 	check("input transform preserves images", result?.images?.[0] === "image-1", JSON.stringify(result?.images));
 	check("input transform strips prefix", result?.text?.includes("Task:\naudita npm"), result?.text);
-	assertPhase0Contract("input prompt", result?.text ?? "");
+	assertContractGate("input prompt", result?.text ?? "");
 }
 
 async function scenarioAlwaysOn(url) {
@@ -200,7 +200,7 @@ async function scenarioAlwaysOn(url) {
 		systemPromptOptions: { selectedTools: [] },
 	});
 	check("always-on injects router guidance", result?.systemPrompt?.startsWith("base system\n\n## Always-on Ultracode Router"), result?.systemPrompt);
-	assertPhase0Contract("always-on prompt", result?.systemPrompt ?? "");
+	assertContractGate("always-on prompt", result?.systemPrompt ?? "");
 
 	const generated = await fireFirst(harness.handlers, "before_agent_start", {
 		prompt: "Use Pi Dynamic Workflows when they are warranted for this task.\n\nTask:\nx\n\nUltracode rules:\n",
@@ -210,57 +210,57 @@ async function scenarioAlwaysOn(url) {
 	check("always-on skips generated ultracode prompts", generated === undefined, JSON.stringify(generated));
 }
 
-async function scenarioPhase0Toggle(url) {
+async function scenarioContractGateToggle(url) {
 	const extension = await freshExtension(url);
 	const harness = makePi();
 	const statuses = [];
 	const notifications = [];
 	const ctx = () => makeCtx({ statuses, notifications });
 	extension(harness.pi);
-	const phase0 = harness.commands.get("ultracode-phase0");
+	const contractGate = harness.commands.get("ultracode-contract");
 	const ultracode = harness.commands.get("ultracode");
 	const deepResearch = harness.commands.get("deep-research");
-	check("/ultracode-phase0 command registered", !!phase0);
+	check("/ultracode-contract command registered", !!contractGate);
 	check("/ultracode command still registered", !!ultracode);
 	check("/deep-research command still registered", !!deepResearch);
 
-	await phase0.handler("status", ctx());
-	check("/ultracode-phase0 status reports on", notifications.at(-1)?.message === "Ultracode Phase 0 is enabled.", JSON.stringify(notifications.at(-1)));
-	check("/ultracode-phase0 status writes p0:on", statuses.at(-1)?.value === "p0:on", JSON.stringify(statuses.at(-1)));
+	await contractGate.handler("status", ctx());
+	check("/ultracode-contract status reports on", notifications.at(-1)?.message === "Ultracode Contract Gate is enabled.", JSON.stringify(notifications.at(-1)));
+	check("/ultracode-contract status writes cg:on", statuses.at(-1)?.value === "cg:on", JSON.stringify(statuses.at(-1)));
 
-	await phase0.handler("disable", ctx());
-	check("/ultracode-phase0 disable alias writes p0:off", statuses.at(-1)?.value === "p0:off", JSON.stringify(statuses.at(-1)));
+	await contractGate.handler("disable", ctx());
+	check("/ultracode-contract disable alias writes cg:off", statuses.at(-1)?.value === "cg:off", JSON.stringify(statuses.at(-1)));
 	await ultracode.handler("audita sin fase cero", ctx());
 	const prompt = harness.messages.at(-1)?.text ?? "";
-	check("/ultracode still routes when phase 0 is off", prompt.includes("Task:\naudita sin fase cero"), prompt);
-	assertNoPhase0Contract("/ultracode prompt after phase0 off", prompt);
+	check("/ultracode still routes when the Contract Gate is off", prompt.includes("Task:\naudita sin fase cero"), prompt);
+	assertNoContractGate("/ultracode prompt after contract gate off", prompt);
 
 	const input = await fireFirst(harness.handlers, "input", { source: "user", text: "ultracode revisa npm", images: [] });
-	check("input transform still works when phase 0 is off", input?.action === "transform", JSON.stringify(input));
-	assertNoPhase0Contract("input prompt after phase0 off", input?.text ?? "");
+	check("input transform still works when the Contract Gate is off", input?.action === "transform", JSON.stringify(input));
+	assertNoContractGate("input prompt after contract gate off", input?.text ?? "");
 
 	const alwaysOn = await fireFirst(harness.handlers, "before_agent_start", {
 		prompt: "audita este repo",
 		systemPrompt: "base system",
 		systemPromptOptions: { selectedTools: [] },
 	});
-	check("always-on still injects router when phase 0 is off", alwaysOn?.systemPrompt?.includes("## Always-on Ultracode Router"), alwaysOn?.systemPrompt);
-	assertNoPhase0Contract("always-on prompt after phase0 off", alwaysOn?.systemPrompt ?? "");
+	check("always-on still injects router when the Contract Gate is off", alwaysOn?.systemPrompt?.includes("## Always-on Ultracode Router"), alwaysOn?.systemPrompt);
+	assertNoContractGate("always-on prompt after contract gate off", alwaysOn?.systemPrompt ?? "");
 
 	await deepResearch.handler("investiga sin fase cero", ctx());
 	const deepPromptOff = harness.messages.at(-1)?.text ?? "";
-	check("/deep-research still routes when phase 0 is off", deepPromptOff.includes("Task:\ninvestiga sin fase cero"), deepPromptOff);
-	assertNoPhase0Contract("/deep-research prompt after phase0 off", deepPromptOff);
+	check("/deep-research still routes when the Contract Gate is off", deepPromptOff.includes("Task:\ninvestiga sin fase cero"), deepPromptOff);
+	assertNoContractGate("/deep-research prompt after contract gate off", deepPromptOff);
 
-	await phase0.handler("enable", ctx());
-	check("/ultracode-phase0 enable alias writes p0:on", statuses.at(-1)?.value === "p0:on", JSON.stringify(statuses.at(-1)));
+	await contractGate.handler("enable", ctx());
+	check("/ultracode-contract enable alias writes cg:on", statuses.at(-1)?.value === "cg:on", JSON.stringify(statuses.at(-1)));
 	await ultracode.handler("audita con fase cero", ctx());
-	assertPhase0Contract("/ultracode prompt after phase0 on", harness.messages.at(-1)?.text ?? "");
+	assertContractGate("/ultracode prompt after contract gate on", harness.messages.at(-1)?.text ?? "");
 	await deepResearch.handler("investiga con fase cero", ctx());
-	assertPhase0Contract("/deep-research prompt after phase0 on", harness.messages.at(-1)?.text ?? "");
+	assertContractGate("/deep-research prompt after contract gate on", harness.messages.at(-1)?.text ?? "");
 
-	await phase0.handler("wat", ctx());
-	check("/ultracode-phase0 invalid shows usage", notifications.at(-1)?.message === "Usage: /ultracode-phase0 [on|off|status]", JSON.stringify(notifications.at(-1)));
+	await contractGate.handler("wat", ctx());
+	check("/ultracode-contract invalid shows usage", notifications.at(-1)?.message === "Usage: /ultracode-contract [on|off|status]", JSON.stringify(notifications.at(-1)));
 }
 
 async function scenarioTemplateCatalog(url) {
@@ -321,7 +321,7 @@ async function main() {
 		await scenarioSlashCommand(url);
 		await scenarioInputTransform(url);
 		await scenarioAlwaysOn(url);
-		await scenarioPhase0Toggle(url);
+		await scenarioContractGateToggle(url);
 		await scenarioTemplateCatalog(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });

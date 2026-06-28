@@ -63,7 +63,10 @@ const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
-const ULTRACODE_PHASE0_STATUS_KEY = "dynamic-workflows-ultracode-phase0";
+const ULTRACODE_CONTRACT_STATUS_KEY = "dynamic-workflows-ultracode-contract";
+// Label embedded in the editor's top border (the violet prompt line) while
+// always-on Ultracode routing is active, so the router state is visible there too.
+const ULTRACODE_BORDER_LABEL = "ultracode auto";
 // Best-effort inter-extension hook used by extensions/effort/index.ts for `/effort ultracode`.
 const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
 const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1799,6 +1802,12 @@ function padRightVisible(value: string, width: number): string {
 	const maxWidth = Math.max(1, width);
 	const truncated = visibleWidth(value) > maxWidth ? truncateToWidth(value, maxWidth, "") : value;
 	return truncated + " ".repeat(Math.max(0, maxWidth - visibleWidth(truncated)));
+}
+
+function stripAnsiCodes(value: string): string {
+	return value
+		.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, "")
+		.replace(/(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]/g, "");
 }
 
 function renderSafeInline(value: string): string {
@@ -4761,6 +4770,7 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		private readonly base: EditorComponent,
 		private openDashboard: DashboardOpener,
 		private openAgentsDashboard: DashboardOpener = openDashboard,
+		private getBorderLabel: () => string | undefined = () => undefined,
 	) {
 		const customBase = base as { actionHandlers?: unknown };
 		this.actionHandlers = customBase.actionHandlers instanceof Map ? customBase.actionHandlers as Map<string, () => void> : new Map<string, () => void>();
@@ -4769,6 +4779,10 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	setWorkflowDashboardOpen(openDashboard: DashboardOpener, openAgentsDashboard: DashboardOpener = openDashboard): void {
 		this.openDashboard = openDashboard;
 		this.openAgentsDashboard = openAgentsDashboard;
+	}
+
+	setBorderLabelProvider(getBorderLabel: () => string | undefined): void {
+		this.getBorderLabel = getBorderLabel;
 	}
 
 	get focused(): boolean {
@@ -4844,7 +4858,25 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	}
 
 	render(width: number): string[] {
-		return this.base.render(width);
+		return this.decorateTopBorder(this.base.render(width), width);
+	}
+
+	// Embed a short status label into the editor's top border (the violet prompt
+	// line) without disturbing the base layout. Only a plain, full-width border is
+	// decorated, so scroll hints like "↑ N more" are left untouched.
+	private decorateTopBorder(lines: string[], width: number): string[] {
+		if (lines.length === 0 || width <= 0) return lines;
+		const label = this.getBorderLabel();
+		if (!label) return lines;
+		if (!/^─+$/.test(stripAnsiCodes(lines[0]))) return lines;
+		const colored = this.base.borderColor ?? ((s: string) => s);
+		const text = ` ${label} `;
+		const rightDashes = 2;
+		const leftDashes = width - visibleWidth(text) - rightDashes;
+		if (leftDashes < 2) return lines;
+		const decorated = [...lines];
+		decorated[0] = colored("─".repeat(leftDashes)) + colored(text) + colored("─".repeat(rightDashes));
+		return decorated;
 	}
 
 	invalidate(): void {
@@ -4950,19 +4982,20 @@ function sameEditorCursor(a: { line: number; col: number }, b: { line: number; c
 	return a.line === b.line && a.col === b.col;
 }
 
-function installWorkflowDashboardDownEditor(pi: ExtensionAPI, ctx: ExtensionContext): void {
+function installWorkflowDashboardDownEditor(pi: ExtensionAPI, ctx: ExtensionContext, getBorderLabel: () => string | undefined = () => undefined): void {
 	if (ctx.mode !== "tui") return;
 	const previous = ctx.ui.getEditorComponent?.();
 	ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 		const openMonitor = async (submitCommand?: DashboardCommandSubmitter) => await openWorkflowDashboard(pi, ctx, "monitor", { submitCommand });
 		const openAgents = async (submitCommand?: DashboardCommandSubmitter) => await openWorkflowDashboard(pi, ctx, "agents", { submitCommand });
 		const base = previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
-		const existing = base as EditorComponent & { [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER]?: boolean; setWorkflowDashboardOpen?: (openDashboard: DashboardOpener, openAgentsDashboard?: DashboardOpener) => void };
+		const existing = base as EditorComponent & { [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER]?: boolean; setWorkflowDashboardOpen?: (openDashboard: DashboardOpener, openAgentsDashboard?: DashboardOpener) => void; setBorderLabelProvider?: (getBorderLabel: () => string | undefined) => void };
 		if (existing[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] && typeof existing.setWorkflowDashboardOpen === "function") {
 			existing.setWorkflowDashboardOpen(openMonitor, openAgents);
+			existing.setBorderLabelProvider?.(getBorderLabel);
 			return existing;
 		}
-		return new WorkflowDashboardDownEditor(base, openMonitor, openAgents);
+		return new WorkflowDashboardDownEditor(base, openMonitor, openAgents, getBorderLabel);
 	});
 }
 
@@ -6421,14 +6454,14 @@ async function handleWorkflowsCommand(pi: ExtensionAPI, args: string, ctx: Exten
 	await openWorkflowDashboard(pi, ctx);
 }
 
-function formatUltracodePhaseZeroPrompt(taskLabel = "Ultracode tasks"): string {
-	return `Phase 0: adversarial prompt engineering
+function formatUltracodeContractGatePrompt(taskLabel = "Ultracode tasks"): string {
+	return `Contract Gate
 
-- For substantive ${taskLabel} that survive the trivial gate, run a small read-only adversarial prompt-engineering workflow before normal scout/orchestration.
-- If ambiguity blocks even the phase-0 contract, ask only blocking questions; otherwise let the workflow infer safe assumptions and non-goals.
-- Keep it cheap and inspectable: 3-4 independent prompt reviewers plus synthesis, explicit concurrency/maxAgents, artifacts under the run directory, and no file edits.
+- For substantive ${taskLabel} that survive the trivial gate, run a small read-only task-contract review workflow before normal scout/orchestration.
+- If ambiguity blocks even the task contract, ask only blocking questions; otherwise let the workflow infer safe assumptions and non-goals.
+- Keep it cheap and inspectable: 3-4 independent contract reviewers plus synthesis, explicit concurrency/maxAgents, artifacts under the run directory, and no file edits.
 - Required synthesis fields: improvedTask, successCriteria, assumptions, nonGoals, routingHints, verificationPlan, blockers.
-- Use the improved task for the routing/scouting decision and mention whether Phase 0 ran, was skipped as trivial, or was blocked.`;
+- Use the improved task for the routing/scouting decision and mention whether the Contract Gate ran, was skipped as trivial, or was blocked.`;
 }
 
 function formatUltracodeRoutingRules(style: "command" | "always-on"): string {
@@ -6464,28 +6497,28 @@ Reference:
 - ${formatWorkflowCompositionPromptSummary()}`;
 }
 
-function makeUltracodePrompt(task: string, mode: "ultracode" | "deep-research" = "ultracode", phase0Enabled = true): string {
+function makeUltracodePrompt(task: string, mode: "ultracode" | "deep-research" = "ultracode", contractGateEnabled = true): string {
 	const trimmed = task.trim();
 	const header =
 		mode === "deep-research"
 			? "Use Pi Dynamic Workflows for a source-backed deep-research investigation."
 			: "Use Pi Dynamic Workflows when they are warranted for this task.";
-	const phase0 = phase0Enabled ? `\n\n${formatUltracodePhaseZeroPrompt(mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks")}` : "";
+	const contractGate = contractGateEnabled ? `\n\n${formatUltracodeContractGatePrompt(mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks")}` : "";
 	return `${header}
 
 Task:
-${trimmed}${phase0}
+${trimmed}${contractGate}
 
 Ultracode rules:
 
 ${formatUltracodeRoutingRules("command")}`;
 }
 
-function makeAlwaysOnUltracodeSystemPrompt(phase0Enabled = true): string {
-	const phase0 = phase0Enabled ? `\n\n${formatUltracodePhaseZeroPrompt("tasks")}` : "";
+function makeAlwaysOnUltracodeSystemPrompt(contractGateEnabled = true): string {
+	const contractGate = contractGateEnabled ? `\n\n${formatUltracodeContractGatePrompt("tasks")}` : "";
 	return `## Always-on Ultracode Router
 
-For substantive tasks, choose the lightest path that can verify the answer.${phase0}
+For substantive tasks, choose the lightest path that can verify the answer.${contractGate}
 
 ${formatUltracodeRoutingRules("always-on")}
 
@@ -6520,14 +6553,14 @@ function clearUltracodeStatus(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_STATUS_KEY, undefined);
 }
 
-function setUltracodePhase0Status(ctx: ExtensionContext, enabled: boolean): void {
+function setUltracodeContractGateStatus(ctx: ExtensionContext, enabled: boolean): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(ULTRACODE_PHASE0_STATUS_KEY, enabled ? theme.fg("dim", "p0:on") : theme.fg("warning", "p0:off"));
+	ctx.ui.setStatus(ULTRACODE_CONTRACT_STATUS_KEY, enabled ? theme.fg("dim", "cg:on") : theme.fg("warning", "cg:off"));
 }
 
-function clearUltracodePhase0Status(ctx: ExtensionContext): void {
-	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_PHASE0_STATUS_KEY, undefined);
+function clearUltracodeContractGateStatus(ctx: ExtensionContext): void {
+	if (ctx.hasUI) ctx.ui.setStatus(ULTRACODE_CONTRACT_STATUS_KEY, undefined);
 }
 
 function extractUltracodeTask(textValue: string): string | undefined {
@@ -6557,7 +6590,7 @@ function sendWorkflowPrompt(pi: ExtensionAPI, ctx: ExtensionContext, prompt: str
 
 export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	let ultracodeAlwaysOn = true;
-	let ultracodePhase0Enabled = true;
+	let ultracodeContractGateEnabled = true;
 	let currentCtx: ExtensionContext | undefined;
 
 	pi.events?.on?.(ULTRACODE_MODE_EVENT, (data) => {
@@ -6622,7 +6655,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; ultracode will only provide routing guidance.", "warning");
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodePhase0Enabled));
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
 		},
 	});
 
@@ -6635,32 +6668,32 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			if (!ensureDynamicWorkflowToolActive(pi)) notify(ctx, "dynamic_workflow tool is not active; deep-research will only provide routing guidance.", "warning");
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "deep-research", ultracodePhase0Enabled));
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "deep-research", ultracodeContractGateEnabled));
 		},
 	});
 
-	pi.registerCommand("ultracode-phase0", {
-		description: "Show or toggle Ultracode Phase 0 prompt-engineering for this session",
+	pi.registerCommand("ultracode-contract", {
+		description: "Show or toggle the Ultracode Contract Gate for this session",
 		handler: async (args, ctx) => {
 			const value = parseToggleCommandValue(args);
 			if (value === "status") {
-				setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
-				notify(ctx, `Ultracode Phase 0 is ${ultracodePhase0Enabled ? "enabled" : "disabled"}.`, "info");
+				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
+				notify(ctx, `Ultracode Contract Gate is ${ultracodeContractGateEnabled ? "enabled" : "disabled"}.`, "info");
 				return;
 			}
 			if (value === "on") {
-				ultracodePhase0Enabled = true;
-				setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
-				notify(ctx, "Ultracode Phase 0 enabled: substantive workflow tasks will include prompt-engineering review guidance.", "info");
+				ultracodeContractGateEnabled = true;
+				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
+				notify(ctx, "Ultracode Contract Gate enabled: substantive workflow tasks will include task-contract review guidance.", "info");
 				return;
 			}
 			if (value === "off") {
-				ultracodePhase0Enabled = false;
-				setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
-				notify(ctx, "Ultracode Phase 0 disabled for this session; workflow routing remains available.", "warning");
+				ultracodeContractGateEnabled = false;
+				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
+				notify(ctx, "Ultracode Contract Gate disabled for this session; workflow routing remains available.", "warning");
 				return;
 			}
-			notify(ctx, "Usage: /ultracode-phase0 [on|off|status]", "warning");
+			notify(ctx, "Usage: /ultracode-contract [on|off|status]", "warning");
 		},
 	});
 
@@ -6695,7 +6728,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		const task = extractUltracodeTask(event.text);
 		if (!task) return;
 		ensureDynamicWorkflowToolActive(pi);
-		return { action: "transform" as const, text: makeUltracodePrompt(task, "ultracode", ultracodePhase0Enabled), images: event.images };
+		return { action: "transform" as const, text: makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled), images: event.images };
 	});
 
 	pi.on("before_agent_start", async (event) => {
@@ -6703,18 +6736,18 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		if (isGeneratedUltracodePrompt(event.prompt)) return;
 		if (!dynamicWorkflowToolAvailable(event.systemPromptOptions.selectedTools) && !ensureDynamicWorkflowToolActive(pi)) return;
 		return {
-			systemPrompt: `${event.systemPrompt}\n\n${makeAlwaysOnUltracodeSystemPrompt(ultracodePhase0Enabled)}`,
+			systemPrompt: `${event.systemPrompt}\n\n${makeAlwaysOnUltracodeSystemPrompt(ultracodeContractGateEnabled)}`,
 		};
 	});
 
 	pi.on("session_start", async (event, ctx) => {
 		currentCtx = ctx;
 		await startPiSessionHeartbeat(event, ctx);
-		installWorkflowDashboardDownEditor(pi, ctx);
+		installWorkflowDashboardDownEditor(pi, ctx, () => (ultracodeAlwaysOn ? ULTRACODE_BORDER_LABEL : undefined));
 		if (ultracodeAlwaysOn) ensureDynamicWorkflowToolActive(pi);
 		refreshActiveWorkflowStatus(ctx);
 		setUltracodeStatus(ctx, ultracodeAlwaysOn);
-		setUltracodePhase0Status(ctx, ultracodePhase0Enabled);
+		setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
@@ -6723,7 +6756,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		clearWorkflowWidget(ctx);
 		setWorkflowIdleStatus(ctx);
 		clearUltracodeStatus(ctx);
-		clearUltracodePhase0Status(ctx);
+		clearUltracodeContractGateStatus(ctx);
 		currentCtx = undefined;
 	});
 }

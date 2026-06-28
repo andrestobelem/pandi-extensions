@@ -575,7 +575,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
-		description: "Background jobs: /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>",
+		description: "Background jobs: /bg plan <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId>",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "plan", label: "plan", description: "Dry-run a background command plan" },

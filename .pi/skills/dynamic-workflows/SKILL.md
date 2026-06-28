@@ -15,7 +15,7 @@ Use this skill when a task is too large or valuable for a single linear agent tu
 
 Work through step zero and then the three gates in order. Most tasks stop early.
 
-0. **Prompt-quality gate.** Decide whether ambiguity blocks routing or implementation. If it does, infer concise success criteria when safe or ask only blocking questions; use that improved prompt as the task for the routing/scouting decision.
+0. **Contract Gate.** Convert the raw request into an inspectable task contract. Decide whether ambiguity blocks routing or implementation; if it does, infer concise success criteria when safe or ask only blocking questions. Use the improved task, success criteria, assumptions, non-goals, routing hints, verification plan, and blockers for the routing/scouting decision.
 1. **Trivial gate.** Conversational, single-step, or a handful of direct tool calls -> just do it. A workflow spends many model calls; don't pay that for a quick edit, lookup, or one-file change.
 2. **Scout inline first.** When a task *might* be large, probe it cheaply, inline, in the current turn: `git ls-files`, read the PR diff, `grep`/glob candidates, list channels. This reveals the real work-list and its size. You don't need the shape before the *task*, only before the *orchestration step*.
 3. **Orchestrate only for a real reason.** After scouting, build a workflow only when one holds: **Exhaustiveness** (many independent items to cover in parallel), **Confidence** (high-stakes; independent perspectives + adversarial verification *before* you commit), **Scale** (more context than one window holds: repo-wide audits, large migrations, broad sweeps with artifacts/checkpoints). If none hold, stay single-agent.
@@ -116,7 +116,7 @@ If a run was interrupted (state `stale`, `failed`, or `cancelled`), resume it in
 
 Typical loop:
 
-0. Evaluate prompt quality. If ambiguity blocks routing or implementation, infer concise success criteria when safe or ask only blocking questions; then route from that improved task.
+0. Run the Contract Gate. Convert the raw request into an inspectable task contract; if ambiguity blocks routing or implementation, infer concise success criteria when safe or ask only blocking questions. Then route from the improved task.
 1. `dynamic_workflow({ action: "template" })` to inspect the pattern catalog (or `action:"template", name:"<key>"` for one scaffold).
 2. Dynamically write a task-specific project workflow with `action: "write"`, usually under the gitignored `.pi/workflows/drafts/<task-slug>.js` project draft path (`name: "<task-slug>"`). Use existing workflows/examples only as references unless one exactly matches the task.
 3. Launch it in background with `action: "start"` and explicit `input`, `concurrency`, and `maxAgents` chosen from the discovered work-list and constraints, not from a fixed low default (in TUI/RPC, `action:"run"` is also backgrounded; in print/json it is the foreground fallback).
