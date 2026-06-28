@@ -309,6 +309,13 @@ export function guardStreamErrors(runDir: string, jobId: string, streams: ErrorE
 	}
 }
 
+// A job is finished once finalize ran or the child has exited/been signalled.
+// Cancelling such a job would mislabel a completed run as "cancelled" and could
+// signal a PID that the OS has already reaped (possibly reused).
+export function isJobFinished(runtime: RuntimeJob): boolean {
+	return runtime.finalized || runtime.child.exitCode !== null || runtime.child.signalCode !== null;
+}
+
 async function finalizeJob(runtime: RuntimeJob, exitCode: number | null, signal: NodeJS.Signals | null, error?: Error): Promise<void> {
 	if (runtime.finalized) return;
 	runtime.finalized = true;
@@ -420,6 +427,7 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 }
 
 function killRuntime(runtime: RuntimeJob, signal: NodeJS.Signals): void {
+	if (isJobFinished(runtime)) return;
 	if (process.platform !== "win32" && runtime.child.pid) {
 		process.kill(-runtime.child.pid, signal);
 		return;
@@ -438,6 +446,9 @@ async function handleCancel(jobId: string): Promise<BgResponse> {
 	const runtime = activeJobs.get(trimmed);
 	if (!runtime) {
 		return response(`Background job ${trimmed} is not active in this session; no process was killed.`, { action: "cancel", jobId: trimmed, active: false }, "warning");
+	}
+	if (isJobFinished(runtime)) {
+		return response(`Background job ${trimmed} has already finished; nothing to cancel.`, { action: "cancel", jobId: trimmed, active: false, alreadyFinished: true }, "warning");
 	}
 	if (runtime.status.cancelRequested) {
 		return response(`Cancellation already requested for background job ${trimmed}.`, { action: "cancel", jobId: trimmed, active: true, duplicate: true }, "warning");

@@ -331,6 +331,18 @@ async function logStreamErrorsAreContained(url) {
 	check("guard: records a log-stream-error event", /"event":"log-stream-error"/.test(events) && /boom-guarded/.test(events), events.slice(0, 200));
 }
 
+async function jobFinishedGuardRejectsCancel(url) {
+	const mod = await import(`${url}?finguard=${instance++}`);
+	const isFinished = mod.isJobFinished;
+	check("cancel-guard: isJobFinished is exported", typeof isFinished === "function", typeof isFinished);
+	if (typeof isFinished !== "function") return;
+	// A finished job must not be re-signalled (avoids mislabel + stray signal to a reaped PID).
+	check("cancel-guard: finalized job is finished", isFinished({ finalized: true, child: { exitCode: null, signalCode: null } }) === true);
+	check("cancel-guard: exited job (exitCode set) is finished", isFinished({ finalized: false, child: { exitCode: 0, signalCode: null } }) === true);
+	check("cancel-guard: signalled job is finished", isFinished({ finalized: false, child: { exitCode: null, signalCode: "SIGTERM" } }) === true);
+	check("cancel-guard: live running job is NOT finished", isFinished({ finalized: false, child: { exitCode: null, signalCode: null } }) === false);
+}
+
 async function modeGateRejectsStart(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-mode-"));
@@ -349,6 +361,7 @@ async function main() {
 	await cancelStopsActiveJob(url);
 	await stalePidIsNotKilled(url);
 	await logStreamErrorsAreContained(url);
+	await jobFinishedGuardRejectsCancel(url);
 	await modeGateRejectsStart(url);
 
 	console.log(`\n${passed} passed, ${failed} failed`);
