@@ -16,6 +16,11 @@ pi --no-extensions -e ./extensions/pi-local-memory
 
 - Reads `.pi/MEMORY.md` from the current project when present.
 - Appends that memory as a tagged block to the per-turn system prompt.
+- `remember` model tool: lets Pi persist a durable note to `.pi/MEMORY.md` **on its own
+  initiative** (stable preferences, project conventions, key decisions). It appends only to a
+  managed block (`<!-- pi:remember:begin -->` … `<!-- pi:remember:end -->`) so human-curated
+  notes are never touched, is idempotent (re-saving the same note is a no-op), and fails safe
+  on read/write errors. The note flows back into your context next session via the reader above.
 
 ## Trust boundary
 

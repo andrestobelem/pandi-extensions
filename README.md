@@ -81,7 +81,7 @@ Comandos humanos:
 
 También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` y la extensión lo transforma en una petición orientada a workflows.
 
-Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza).
+Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (no son slash commands humanos): por ejemplo `enter_plan_mode`, que deja a Pi entrar en plan mode read-only por iniciativa propia antes de un cambio no trivial, multi-paso o riesgoso, investigar sin mutar y luego presentar el plan con `submit_plan` para tu aprobación explícita. Pi puede *entrar* en plan mode, pero solo tú *apruebas* (en sesiones TUI/RPC; en `print`/`json` la entrada se rechaza). Otra es `remember`, que deja a Pi persistir notas durables (preferencias estables, convenciones del proyecto, decisiones clave) en una sección auto-gestionada de `.pi/MEMORY.md` —idempotente y sin tocar lo que tú curaste— para tenerlas disponibles en sesiones futuras.
 
 ### Ultracode always-on
 
