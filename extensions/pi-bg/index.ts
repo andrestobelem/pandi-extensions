@@ -269,15 +269,6 @@ const RECONCILABLE_STATES = new Set(["starting", "running"]);
 // (and read-time `orphaned`/`stale`/`unknown`) are never deletable — see classifyForDeletion.
 const DELETABLE_STATES = new Set(["completed", "failed", "cancelled", "interrupted"]);
 
-// Session-start self-heal: a fresh Pi process owns no jobs (activeJobs is empty),
-// so any project-local job persisted as starting/running is from a previous run.
-// Probe its recorded pid; a DEAD pid means the process is truly gone (Pi died
-// before finalize), so atomically rewrite the artifact to a terminal `interrupted`
-// state. Live/unprobeable jobs are left untouched (the read-time projection still
-// surfaces orphaned/stale). Writing `interrupted` only on a confirmed-dead pid is
-// what avoids the pid-reuse hazard: a dead pid can never be our live job, so the
-// terminal state is always correct. Project root only (the only root pi-bg writes,
-// and only when trusted); best-effort — never throws into session_start.
 // Enumerate project-local run dirs (trusted only), yielding {jobId, runDir, status} for each
 // valid, non-symlinked job dir. Shared by reconcile and prune so the trust/symlink/path
 // gating and the .audit.jsonl dotfile skipping (validJobId rejects the leading dot) live in
@@ -308,6 +299,15 @@ async function eachProjectRunDir(
 	return out;
 }
 
+// Session-start self-heal: a fresh Pi process owns no jobs (activeJobs is empty),
+// so any project-local job persisted as starting/running is from a previous run.
+// Probe its recorded pid; a DEAD pid means the process is truly gone (Pi died
+// before finalize), so atomically rewrite the artifact to a terminal `interrupted`
+// state. Live/unprobeable jobs are left untouched (the read-time projection still
+// surfaces orphaned/stale). Writing `interrupted` only on a confirmed-dead pid is
+// what avoids the pid-reuse hazard: a dead pid can never be our live job, so the
+// terminal state is always correct. Project root only (the only root pi-bg writes,
+// and only when trusted); best-effort — never throws into session_start.
 export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<number> {
 	let reconciled = 0;
 	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
