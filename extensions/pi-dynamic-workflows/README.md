@@ -26,6 +26,7 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
 - Compact Claude-style template catalog: six primary templates, compose templates, and use-case templates, with no pattern aliases.
 - JavaScript workflow runtime with `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`, artifacts, resumable journal, and TUI dashboard.
 - Per-call model and reasoning selection: every subagent call can choose its own `model`, `provider`, and `thinking` level (`off|minimal|low|medium|high|xhigh`) — e.g. cheap/fast + `thinking: "low"` for wide scouts and a stronger model + `thinking: "high"`/`"xhigh"` for synthesis or verification. Omitting them inherits the orchestrator's model (`ctx.model`) and session thinking level; `model`/`provider`/`thinking` are part of the cache key, so changing them re-runs that call on resume.
+- Stable KV-cache prefix: build subagent prompts with the shared/stable framing (role, task, success criteria, output format) first and the volatile per-item content (the item, ids, retrieved snippets) last, so identical prefixes reuse the provider prompt/KV cache across calls. Avoid `Date.now()`/`Math.random()` inside prompts — they bust that cache and make the resume journal miss, re-running the call.
 
 ```js
 // Decide model + reasoning per call.

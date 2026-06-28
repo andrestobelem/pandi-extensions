@@ -100,6 +100,8 @@ Defaults inherit the orchestrator: a call with no `model`/`provider` reuses the 
 
 `model`, `provider`, and `thinking` are part of the cache key, so changing them re-runs that call on resume instead of reusing a stale result.
 
+Build prompts with a **stable prefix**: put shared/stable framing (role, task, success criteria, output format) first and push volatile per-item content (the item, ids, retrieved snippets) to the end. Identical prefixes reuse the provider prompt/KV cache across calls (cheaper, faster, steadier focus); avoid `Date.now()`/`Math.random()` or other nondeterministic values inside prompts, which bust that cache and also make the resume journal miss.
+
 Match cost and capability to the work, deciding per call:
 
 - **Wide, cheap scouting / classification / extraction** → a fast, inexpensive model with `thinking: "low"` (or `"minimal"`/`"off"`).
