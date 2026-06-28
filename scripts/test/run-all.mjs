@@ -43,9 +43,9 @@ const ignoredDraftSuites = new Set([]);
 
 // Discover suite directories by convention: extensions/<ext>/tests/integration that exist.
 const extensionsDirAbs = path.join(REPO_ROOT, EXTENSIONS_DIR);
-const suiteDirs = (fs.existsSync(extensionsDirAbs)
-	? fs.readdirSync(extensionsDirAbs, { withFileTypes: true })
-	: [])
+const suiteDirs = (
+	fs.existsSync(extensionsDirAbs) ? fs.readdirSync(extensionsDirAbs, { withFileTypes: true }) : []
+)
 	.filter((entry) => entry.isDirectory())
 	.map((entry) => path.posix.join(EXTENSIONS_DIR, entry.name, SUITE_SUBDIR))
 	.filter((dir) => fs.existsSync(path.join(REPO_ROOT, dir)))
@@ -92,7 +92,9 @@ for (const suite of suites) {
 	const timedOut = result.error?.code === "ETIMEDOUT";
 	const status = typeof result.status === "number" ? result.status : 1;
 	results.push({ suite: relative, status, elapsedMs, signal: result.signal, timedOut });
-	console.log(`=== ${relative}: ${status === 0 ? "PASS" : timedOut ? "TIMEOUT" : "FAIL"} (${Math.round(elapsedMs / 1000)}s) ===`);
+	console.log(
+		`=== ${relative}: ${status === 0 ? "PASS" : timedOut ? "TIMEOUT" : "FAIL"} (${Math.round(elapsedMs / 1000)}s) ===`,
+	);
 	if (result.error) console.error(result.error);
 }
 

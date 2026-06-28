@@ -31,7 +31,12 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /** Absolute repo root, derived from this file's location (extensions/shared/test/). */
-export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+export const REPO_ROOT = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"..",
+	"..",
+	"..",
+);
 
 /**
  * Create an isolated PASS/FAIL reporter. Returns the `check` function plus a live
@@ -77,7 +82,8 @@ export const STUB_SOURCES = {
 		"const id = (x) => x ?? {};\n" +
 		"export const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id, Integer: id };\n" +
 		"export default { Type };\n",
-	typeboxValue: "export const Value = { Check: () => true, Errors: function* () {} };\nexport default { Value };\n",
+	typeboxValue:
+		"export const Value = { Check: () => true, Errors: function* () {} };\nexport default { Value };\n",
 	ai: "export function StringEnum(values, opts = {}) { return { ...opts, enum: values }; }\n",
 	tui:
 		"export class Image { constructor() {} input() {} render() { return []; } }\n" +
@@ -100,7 +106,8 @@ export function sdkStub(outDir, { customEditor } = {}) {
 	if (customEditor === "render") {
 		source += "export class CustomEditor { constructor() {} input() {} render() { return []; } }\n";
 	} else if (customEditor === "full") {
-		source += "export class CustomEditor { constructor() {} getText() { return \"\"; } setText() {} handleInput() {} render() { return []; } invalidate() {} }\n";
+		source +=
+			'export class CustomEditor { constructor() {} getText() { return ""; } setText() {} handleInput() {} render() { return []; } invalidate() {} }\n';
 	}
 	return source;
 }
@@ -170,7 +177,8 @@ export async function bundle({ src, outDir, outName, aliases = {}, npx = "--yes"
 	if (!existsSync(src)) throw new Error(`bundle: missing source: ${src}`);
 	const out = path.join(outDir, outName);
 	const args = [npx, "esbuild", src, "--bundle", "--platform=node", "--format=esm"];
-	for (const [specifier, file] of Object.entries(aliases)) args.push(`--alias:${specifier}=${file}`);
+	for (const [specifier, file] of Object.entries(aliases))
+		args.push(`--alias:${specifier}=${file}`);
 	args.push(`--outfile=${out}`);
 	const r = spawnSync("npx", args, { cwd: REPO_ROOT, encoding: "utf8" });
 	if (r.status !== 0) throw new Error(`esbuild failed for ${outName}: ${r.stderr || r.stdout}`);

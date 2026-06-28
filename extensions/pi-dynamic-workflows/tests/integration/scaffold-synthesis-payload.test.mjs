@@ -11,8 +11,6 @@
  * branch's `output` (and ideally its `name`), not the bare `completed*` array.
  */
 
-import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension as sharedBuildExtension, sdkStub } from "../../../shared/test/harness.mjs";

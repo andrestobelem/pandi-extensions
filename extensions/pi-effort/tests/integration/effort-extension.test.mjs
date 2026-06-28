@@ -12,7 +12,6 @@
  */
 
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadDefault } from "../../../shared/test/harness.mjs";
