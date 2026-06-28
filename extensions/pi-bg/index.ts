@@ -27,6 +27,7 @@ import {
 } from "./storage.js";
 import { probeProcessAlive, readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
 import { activeJobs, appendEvent, asNumber, asString, nowIso } from "./runtime-state.js";
+import { projectState, deriveState, refineOrphanedIdentity, decorateStatus } from "./job-state.js";
 export { atomicWriteJson, removeRunDir, dirSizeBytes, parsePruneFlags };
 export { readProcessStartId, verifyProcessIdentity, probeProcessAlive } from "./process-liveness.js";
 
@@ -35,7 +36,7 @@ const MAX_LOG_WRITE_BYTES = 5_000_000;
 const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
 
-type JobState =
+export type JobState =
 	"starting" | "running" | "completed" | "failed" | "cancelled" | "orphaned" | "interrupted" | "stale" | "unknown";
 
 interface PlanModeGuard {
@@ -87,58 +88,9 @@ interface BgResponse {
 	type?: "info" | "warning" | "error";
 }
 
-// Single read-time projection of the persisted state (the only states a writer can
-// know: starting/running/completed/failed/cancelled). When a job is persisted as
-// starting/running but is NOT owned by this session, probe the recorded pid to
-// distinguish an orphaned-but-alive process from one that died while Pi was down,
-// falling back to `stale` only when the pid is unprobeable. Never persisted, never
-// signals: cancel still refuses any persisted pid.
-function projectState(
-	jobId: string,
-	persisted: string | undefined,
-	pid: number | undefined,
-): { state: JobState; persistedState?: string; hint?: string } {
-	if ((persisted === "starting" || persisted === "running") && !activeJobs.has(jobId)) {
-		const live = probeProcessAlive(pid);
-		if (live === "alive") {
-			return {
-				state: "orphaned",
-				persistedState: persisted,
-				hint: `PID ${pid} may still be running (or the PID was reused). Verify before using kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`,
-			};
-		}
-		if (live === "dead") return { state: "interrupted", persistedState: persisted };
-		return { state: "stale", persistedState: persisted };
-	}
-	return { state: (persisted ?? "unknown") as JobState };
-}
-
-function deriveState(jobId: string, status: Record<string, unknown> | undefined): JobState {
-	return projectState(jobId, asString(status?.state) ?? "unknown", asNumber(status?.pid)).state;
-}
-
-// Refine a read-time `orphaned` projection with one identity probe: a different start
-// identity means the pid was reused (our process is gone => interrupted); a matching
-// identity is verified-alive; unknown stays orphaned (best-effort). Shared by /bg status
-// and classifyForDeletion so the two never diverge.
-function refineOrphanedIdentity(
-	pid: number | undefined,
-	startId: string | undefined,
-): { state: "orphaned" | "interrupted"; verified: boolean } {
-	const identity = verifyProcessIdentity(pid, startId);
-	if (identity === "different") return { state: "interrupted", verified: false };
-	return { state: "orphaned", verified: identity === "same" };
-}
-
-function decorateStatus(jobId: string, raw: Record<string, unknown>): Record<string, unknown> {
-	const copy: Record<string, unknown> = { ...raw };
-	const projected = projectState(jobId, asString(copy.state), asNumber(copy.pid));
-	copy.state = projected.state;
-	if (projected.persistedState !== undefined) copy.persistedState = projected.persistedState;
-	if (projected.hint !== undefined) copy.hint = projected.hint;
-	copy.active = activeJobs.has(jobId);
-	return copy;
-}
+// Read-time job-state projection (projectState/deriveState/refineOrphanedIdentity/
+// decorateStatus) lives in ./job-state.ts; imported here and used by the listing,
+// status, and deletion paths. Internal (not part of the public surface).
 
 async function listJobs(ctx: ExtensionContext): Promise<JobSummary[]> {
 	const jobs: JobSummary[] = [];
