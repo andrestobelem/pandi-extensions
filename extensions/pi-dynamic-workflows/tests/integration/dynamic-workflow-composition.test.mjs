@@ -514,19 +514,25 @@ async function buildTemplates() {
 	return pathToFileURL(out).href;
 }
 
-// F1: the scout/classify scaffold must not interpolate input.pattern into a shell command.
-async function scenarioScoutTemplateInjectionSafe() {
-	const url = await buildTemplates();
-	const mod = await import(`${url}?i=${instance++}`);
-	const { WORKFLOW_PATTERN_CATALOG, loadWorkflowPatternCode } = mod;
-
-	// Find the scout/classify scaffold by content (robust to pattern-key renames).
-	let scoutCode;
-	for (const pattern of WORKFLOW_PATTERN_CATALOG ?? []) {
+// Find an embedded scaffold by content (robust to pattern-key renames).
+async function findScaffold(mod, pred) {
+	for (const pattern of mod.WORKFLOW_PATTERN_CATALOG ?? []) {
 		let code;
-		try { code = await loadWorkflowPatternCode(pattern); } catch { continue; }
-		if (/git ls-files/.test(code) && /ctx\.pipeline/.test(code)) { scoutCode = code; break; }
+		try { code = await mod.loadWorkflowPatternCode(pattern); } catch { continue; }
+		if (pred(code)) return code;
 	}
+	return undefined;
+}
+
+function evalScaffold(code) {
+	const m = { exports: {} };
+	new Function("module", "exports", code)(m, m.exports);
+	return m.exports;
+}
+
+// F1: the scout/classify scaffold must not interpolate input.pattern into a shell command.
+async function scenarioScoutTemplateInjectionSafe(mod) {
+	const scoutCode = await findScaffold(mod, (c) => /git ls-files/.test(c) && /ctx\.pipeline/.test(c));
 	check("scout template: scaffold found", typeof scoutCode === "string", String(scoutCode).slice(0, 60));
 	if (typeof scoutCode !== "string") return;
 
@@ -536,9 +542,7 @@ async function scenarioScoutTemplateInjectionSafe() {
 	// (b) Behavioral: a malicious pattern must never reach the shell. Eval the scaffold with a
 	// mock ctx that records bash commands; the (non-matching) regex must filter to zero files in
 	// JS, hitting the early return without the payload ever appearing in a shell command.
-	const m = { exports: {} };
-	new Function("module", "exports", scoutCode)(m, m.exports);
-	const workflow = m.exports;
+	const workflow = evalScaffold(scoutCode);
 	check("scout template: scaffold exports a workflow function", typeof workflow === "function", typeof workflow);
 	if (typeof workflow !== "function") return;
 
@@ -560,6 +564,60 @@ async function scenarioScoutTemplateInjectionSafe() {
 	check("scout template: non-matching pattern is filtered in JS (zero files)", typeof result === "string" && /No files matched/i.test(result), String(result));
 }
 
+// F21: non-numeric counts must fall back to defaults, not NaN -> Array.from({length:NaN}) = empty
+// jury (every finding silently "survives" unreviewed) or slice(0,NaN) = no findings.
+async function scenarioAdversarialInputCoercion(mod) {
+	const code = await findScaffold(mod, (c) => /skepticsPerFinding/.test(c) && /Array\.from\(\{ length: skeptics/.test(c));
+	check("adversarial template: scaffold found", typeof code === "string", String(code).slice(0, 60));
+	if (typeof code !== "string") return;
+	const workflow = evalScaffold(code);
+	const ctx = {
+		limits: { concurrency: 8, maxAgents: 8 },
+		log: async () => {},
+		json: (x) => JSON.stringify(x),
+		writeArtifact: async () => {},
+		// One vote per thunk: jury size is observable, refuted:false keeps findings alive.
+		parallel: async (arr) => arr.map(() => ({ refuted: false, why: "ok" })),
+		agent: async (_p, opts) =>
+			opts?.name === "finder"
+				? { data: Array.from({ length: 12 }, (_u, i) => ({ id: `f${i}`, claim: `c${i}`, evidence: "" })), output: "" }
+				: { data: [], output: "[]" },
+		compact: () => "",
+	};
+	const res = await workflow(ctx, { findings: [{ id: "a", claim: "x", evidence: "" }], skeptics: "three" });
+	check("adversarial template: non-numeric skeptics falls back to default 3 (not NaN/empty jury)", res && res.skepticsPerFinding === 3, JSON.stringify(res?.skepticsPerFinding));
+	const res2 = await workflow(ctx, { topic: "t", maxFindings: "lots" });
+	check("adversarial template: non-numeric maxFindings falls back to default 8 (not slice(0,NaN)=empty)", res2 && res2.totalFindings === 8, JSON.stringify(typeof res2 === "string" ? res2 : res2?.totalFindings));
+}
+
+// F22: a non-numeric maxEscalations made `escalation >= maxEscalations` always false, so the
+// while(true) loop only stopped on a 'high' verdict -> unbounded spend. It must bound at the
+// default instead.
+async function scenarioJudgeEscalateBounded(mod) {
+	const code = await findScaffold(mod, (c) => /maxEscalations/.test(c) && /while \(true\)/.test(c));
+	check("judge-escalate template: scaffold found", typeof code === "string", String(code).slice(0, 60));
+	if (typeof code !== "string") return;
+	const workflow = evalScaffold(code);
+	let judgeCalls = 0;
+	let totalAgent = 0;
+	const ctx = {
+		limits: { concurrency: 4, maxAgents: 8 },
+		log: async () => {},
+		writeArtifact: async () => {},
+		compact: () => "",
+		parallel: async (arr) => arr.map(() => ({ output: "candidate" })),
+		agent: async (_p, opts) => {
+			totalAgent += 1;
+			if (totalAgent > 25) throw new Error("infinite-loop-guard tripped");
+			if (String(opts?.name).startsWith("judge-")) { judgeCalls += 1; return { data: { winner: 1, confidence: "medium", why: "" } }; }
+			return { output: "final" }; // synthesis after the loop
+		},
+	};
+	let threw = false;
+	try { await workflow(ctx, { question: "q", maxEscalations: "abc" }); } catch { threw = true; }
+	check("judge-escalate template: non-numeric maxEscalations terminates at the default bound (no infinite loop)", !threw && judgeCalls === 3, `threw=${threw} judgeCalls=${judgeCalls}`);
+}
+
 async function main() {
 	try {
 		const { outDir, url } = await buildExtension();
@@ -570,7 +628,11 @@ async function main() {
 		await scenarioAgentStructuredOutputSurvivesTruncatedJsonEventStream(url, outDir);
 		await scenarioGeneratedDraftLocation(url, outDir);
 		await scenarioChildCodeHashNamespacesResumeCache(url);
-		await scenarioScoutTemplateInjectionSafe();
+		const templatesUrl = await buildTemplates();
+		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
+		await scenarioScoutTemplateInjectionSafe(templatesMod);
+		await scenarioAdversarialInputCoercion(templatesMod);
+		await scenarioJudgeEscalateBounded(templatesMod);
 		console.log(`\n${passed} passed, ${failed} failed`);
 		if (failed) {
 			console.log(failures.map((f) => `- ${f}`).join("\n"));
