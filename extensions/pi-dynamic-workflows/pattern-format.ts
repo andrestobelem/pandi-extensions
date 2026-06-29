@@ -66,10 +66,10 @@ export function formatWorkflowPatternPromptCheatSheet(patterns = WORKFLOW_PATTER
 export function formatWorkflowCompositionPromptGuidance(): string {
 	return [
 		"Workflow composition rules:",
-		'- Use ctx.workflow("lib/<name>", args) for a reusable sub-step with no human/agent decision gate between parent and child; keep one shared run, concurrency pool, maxAgents budget, abort signal, runDir, and resume/cache journal.',
+		'- Use workflow("lib/<name>", args) for a reusable sub-step with no human/agent decision gate between parent and child; keep one shared run, concurrency pool, maxAgents budget, abort signal, runDir, and resume/cache journal.',
 		"- Store reusable contracts under lib/<name>.js, accept one args object, validate inputs, return stable JSON-serializable results, and document the contract in a header comment.",
-		"- Depth is 1: a sub-workflow must not call ctx.workflow() again; if the next phase depends on inspecting child output, run separate workflows sequentially and inspect artifacts between runs.",
-		'- Prefer compose-verify-claims plus lib-verify-claims as the reference pattern for discovery -> reusable verification; graph literal ctx.workflow("...") calls when reviewing structure.',
+		"- Depth is 1: a sub-workflow must not call workflow() again; if the next phase depends on inspecting child output, run separate workflows sequentially and inspect artifacts between runs.",
+		'- Prefer compose-verify-claims plus lib-verify-claims as the reference pattern for discovery -> reusable verification; graph literal workflow("...") calls when reviewing structure.',
 	].join("\n");
 }
 
@@ -79,5 +79,5 @@ export function formatWorkflowPatternKeyList(patterns = WORKFLOW_PATTERN_CATALOG
 }
 
 export function formatWorkflowCompositionPromptSummary(): string {
-	return 'Composition: use ctx.workflow("lib/<name>", args) only for reusable sub-steps with no decision gate; depth is 1; inspect child output in a separate workflow run before changing course.';
+	return 'Composition: use workflow("lib/<name>", args) only for reusable sub-steps with no decision gate; depth is 1; inspect child output in a separate workflow run before changing course.';
 }
