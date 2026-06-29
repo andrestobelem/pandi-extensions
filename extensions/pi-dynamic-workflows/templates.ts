@@ -23,40 +23,18 @@ export {
 	formatWorkflowPatternPromptCheatSheet,
 } from "./pattern-format.js";
 
-export const WORKFLOW_TEMPLATE = EMBEDDED_SCAFFOLD_SOURCES.default;
+// Default template served by `/workflow new` (no --pattern) and the Patterns tab: the
+// base scatter-gather pattern.
+export const WORKFLOW_TEMPLATE = EMBEDDED_SCAFFOLD_SOURCES["fan-out-and-synthesize"];
 
-// The executable scaffolds live as real files under scaffolds/*.js and are inlined
-// into EMBEDDED_SCAFFOLD_SOURCES by scripts/gen-scaffolds.mjs (npm run generate), so
-// the code ships inside the package as data with no runtime filesystem dependency.
-const EMBEDDED_WORKFLOW_PATTERN_TEMPLATES: Record<string, string> = {
-	"scout-fanout": EMBEDDED_SCAFFOLD_SOURCES["scout-fanout"],
-	"loop-until-dry": EMBEDDED_SCAFFOLD_SOURCES["loop-until-dry"],
-	"adversarial-verify": EMBEDDED_SCAFFOLD_SOURCES["adversarial-verify"],
-	"judge-escalate": EMBEDDED_SCAFFOLD_SOURCES["judge-escalate"],
-	tournament: EMBEDDED_SCAFFOLD_SOURCES.tournament,
-	"workflow-factory": EMBEDDED_SCAFFOLD_SOURCES["workflow-factory"],
-	"composition-driver": EMBEDDED_SCAFFOLD_SOURCES["composition-driver"],
-	"verify-claims-lib": EMBEDDED_SCAFFOLD_SOURCES["verify-claims-lib"],
-	"complex-research": EMBEDDED_SCAFFOLD_SOURCES["complex-research"],
-	"repo-bug-hunt": EMBEDDED_SCAFFOLD_SOURCES["repo-bug-hunt"],
-	"adversarial-plan-review": EMBEDDED_SCAFFOLD_SOURCES["adversarial-plan-review"],
-};
-
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["classify-and-act"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["fan-out-and-synthesize"] = WORKFLOW_TEMPLATE;
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verification"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verify"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["generate-and-filter"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["judge-escalate"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES.tournaments = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES.tournament;
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-done"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["loop-until-dry"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["compose-verify-claims"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["composition-driver"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["lib-verify-claims"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["verify-claims-lib"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["bug-hunt-repo-audit"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["repo-bug-hunt"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["large-migration"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["scout-fanout"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["plan-review"] = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-plan-review"];
-EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["claim-bug-verification"] =
-	EMBEDDED_WORKFLOW_PATTERN_TEMPLATES["adversarial-verify"];
+// The executable scaffolds live as real files under scaffolds/*.js and are inlined into
+// EMBEDDED_SCAFFOLD_SOURCES by scripts/gen-scaffolds.mjs (npm run generate), so the code ships
+// inside the package as data with no runtime filesystem dependency. Catalog keys ARE the scaffold
+// names, so every pattern maps 1:1 to its embedded source (no aliases) and the orphan invariant
+// below is trivially satisfied.
+const EMBEDDED_WORKFLOW_PATTERN_TEMPLATES: Record<string, string> = Object.fromEntries(
+	WORKFLOW_PATTERN_CATALOG.map((pattern) => [pattern.key, EMBEDDED_SCAFFOLD_SOURCES[pattern.key]]),
+);
 
 export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
 	const template = EMBEDDED_WORKFLOW_PATTERN_TEMPLATES[pattern.key];

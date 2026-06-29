@@ -53,20 +53,20 @@ function check(name, ok, detail) {
 	}
 }
 
-// scaffold key -> the raw filtered-results identifier it currently compacts.
+// scaffold key -> the raw filtered-results identifier it must NOT compact bare.
 const FAN_OUT_SYNTHESIS = {
 	"fan-out-and-synthesize": "completedReviews",
 	"complex-research": "completedResearch",
-	"bug-hunt-repo-audit": "completedReviews",
-	"plan-review": "completedCritiques",
+	"repo-bug-hunt": "completedReviews",
+	"adversarial-plan-review": "completedCritiques",
 };
 
 // Patterns that ALSO compact an evidence block in a synthesis-as-judge step but do NOT use
 // the {name, output} fan-out projection (they compact rounds/verification arrays). Only the
 // position-aware restatement (check #3) applies to them — not checks #1/#2.
-// ("tournaments" is intentionally excluded: its scaffold is an elimination bracket that
-// returns the champion's text directly, with no synthesis ctx.compact step to anchor.)
-const POSITION_AWARE_EXTRA = ["loop-until-done", "compose-verify-claims"];
+// ("tournament" is intentionally excluded: its scaffold is an elimination bracket that
+// returns the champion's text directly, with no synthesis compact() step to anchor.)
+const POSITION_AWARE_EXTRA = ["loop-until-dry", "composition-driver"];
 
 const { url } = await buildExtension();
 const mod = await import(url);
@@ -101,7 +101,7 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 	const code = res?.content?.[0]?.text ?? "";
 
 	// 1) Must NOT compact the bare raw-results array (metadata footgun).
-	const rawCompact = new RegExp(`ctx\\.compact\\(\\s*${rawVar}\\s*,`);
+	const rawCompact = new RegExp(`\\bcompact\\(\\s*${rawVar}\\s*,`);
 	check(`${key}: does not compact raw ${rawVar} array`, !rawCompact.test(code), code.match(rawCompact)?.[0]);
 
 	// 2) Must project to textual output before compacting (attribution-friendly).
@@ -111,7 +111,7 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 	// 3) Position-aware (lost-in-the-middle): the task must be restated AFTER the
 	//    evidence block, so instructions sit at BOTH ends of the synthesis prompt
 	//    rather than only at the top where a long evidence block can bury them.
-	const compactIdx = code.lastIndexOf("ctx.compact(");
+	const compactIdx = code.lastIndexOf("compact(");
 	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";
 	const restated = /Now (produce|do exactly|write|synthesize)/.test(tail);
 	check(`${key}: restates the task AFTER the evidence (both-ends framing)`, restated, tail.slice(0, 140));
@@ -122,7 +122,7 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 for (const key of POSITION_AWARE_EXTRA) {
 	const res = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
 	const code = res?.content?.[0]?.text ?? "";
-	const compactIdx = code.lastIndexOf("ctx.compact(");
+	const compactIdx = code.lastIndexOf("compact(");
 	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";
 	const restated = /Now (produce|do exactly|write|synthesize)/.test(tail);
 	check(`${key}: restates the task AFTER the evidence (both-ends framing)`, restated, tail.slice(0, 140));

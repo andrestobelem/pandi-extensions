@@ -22,8 +22,12 @@ function main() {
 	const sources = readSources();
 	const keys = Object.keys(sources);
 
-	check("scaffolds: sources discovered", keys.length >= 12, `count=${keys.length}`);
-	check("scaffolds: default scaffold present (WORKFLOW_TEMPLATE source)", keys.includes("default"), keys.join(","));
+	check("scaffolds: sources discovered", keys.length >= 25, `count=${keys.length}`);
+	check(
+		"scaffolds: base scatter-gather scaffold present (WORKFLOW_TEMPLATE source)",
+		keys.includes("fan-out-and-synthesize"),
+		keys.join(","),
+	);
 
 	const committed = fs.existsSync(OUT_FILE) ? fs.readFileSync(OUT_FILE, "utf8") : "";
 	const regenerated = render(sources);

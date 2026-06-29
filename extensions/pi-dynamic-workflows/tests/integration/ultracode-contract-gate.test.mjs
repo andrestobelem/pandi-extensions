@@ -316,34 +316,51 @@ async function scenarioTemplateCatalog(url) {
 	const signal = new AbortController().signal;
 	const catalogResult = await tool.execute("catalog", { action: "template" }, signal, () => {}, ctx);
 	const catalog = catalogResult.content?.[0]?.text ?? "";
+	// The single-interface catalog: keys ARE the scaffold names (meta.name) of the 25 workflows.
 	const requiredTopLevel = [
-		"classify-and-act",
+		"contract-gate",
+		"guardrails",
+		"router",
+		"orchestrator-workers",
+		"composition-driver",
+		"verify-claims-lib",
+		"workflow-factory",
+		"recursive-compose",
 		"fan-out-and-synthesize",
+		"scout-fanout",
+		"repo-bug-hunt",
+		"loop-until-dry",
+		"react-scout",
+		"complex-research",
+		"adversarial-verify",
+		"bug-verify",
+		"adversarial-plan-review",
+		"judge-escalate",
+		"tournament",
+		"self-consistency",
+		"tree-of-thoughts",
+		"self-refine",
+		"reflexion",
+		"large-migration",
+		"map-reduce",
+	];
+	for (const key of requiredTopLevel) check(`catalog exposes ${key}`, catalog.includes(`- ${key} —`), catalog);
+	// Old abstract pattern keys retired by the single-interface refactor.
+	const retiredKeys = [
+		"default",
+		"deep-research",
+		"classify-and-act",
 		"adversarial-verification",
 		"generate-and-filter",
 		"tournaments",
 		"loop-until-done",
 		"compose-verify-claims",
 		"lib-verify-claims",
-		"workflow-factory",
 		"bug-hunt-repo-audit",
-		"large-migration",
-		"complex-research",
 		"plan-review",
 		"claim-bug-verification",
 	];
-	for (const key of requiredTopLevel) check(`catalog exposes ${key}`, catalog.includes(`- ${key} —`), catalog);
-	for (const oldKey of [
-		"default",
-		"scout-fanout",
-		"loop-until-dry",
-		"adversarial-verify",
-		"judge-escalate",
-		"tournament",
-		"repo-bug-hunt",
-		"deep-research",
-		"adversarial-plan-review",
-	]) {
+	for (const oldKey of retiredKeys) {
 		check(`catalog demotes old key ${oldKey}`, !new RegExp(`^- ${oldKey} —`, "m").test(catalog), catalog);
 	}
 	check("catalog groups primary templates", catalog.includes("## Templates"), catalog);
@@ -359,25 +376,12 @@ async function scenarioTemplateCatalog(url) {
 		const scaffold = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
 		check(
 			`scaffold loads for ${key}`,
-			scaffold.details?.pattern?.key === key &&
-				/(?:export default|module\.exports\s*=)\s*async function workflow/.test(scaffold.content?.[0]?.text ?? ""),
+			scaffold.details?.pattern?.key === key && /export const meta\s*=/.test(scaffold.content?.[0]?.text ?? ""),
 			JSON.stringify(scaffold.details?.pattern),
 		);
 	}
 
-	for (const oldKey of [
-		"default",
-		"scout-fanout",
-		"loop-until-dry",
-		"adversarial-verify",
-		"judge-escalate",
-		"tournament",
-		"repo-bug-hunt",
-		"deep-research",
-		"adversarial-plan-review",
-		"composition-driver",
-		"verify-claims-lib",
-	]) {
+	for (const oldKey of retiredKeys) {
 		let rejected = false;
 		try {
 			await tool.execute("alias", { action: "template", name: oldKey }, signal, () => {}, ctx);
