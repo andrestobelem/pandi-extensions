@@ -25,10 +25,10 @@
 			"!package-lock.json",
 			"!pi-session-*.html",
 			"!**/*.md",
-			// Authored scaffold sources keep their own 2-space style and exact bytes
-			// (they are emitted verbatim to users); the generated map is auto-built.
-			// node --check + the in-sync test guard them instead of Biome.
-			"!extensions/pi-dynamic-workflows/scaffolds",
+			// The auto-generated scaffold map is emitted by scripts/gen-scaffolds.mjs
+			// (render()), so its formatting is owned by the codegen, not Biome; the
+			// in-sync test guards it. The authored scaffold SOURCES under scaffolds/*.js
+			// ARE linted/formatted by Biome (regenerate the map after formatting).
 			"!extensions/pi-dynamic-workflows/scaffolds.generated.ts"
 		]
 	},

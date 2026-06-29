@@ -21,6 +21,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildExtension as sharedBuildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
+import { readSources } from "../../../../scripts/gen-scaffolds.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -1028,7 +1029,8 @@ async function scenarioScoutTemplateInjectionSafe(mod) {
 async function scenarioAdversarialInputCoercion(mod) {
 	const code = await findScaffold(
 		mod,
-		(c) => /skepticsPerFinding/.test(c) && /Array\.from\(\{ length: skeptics/.test(c),
+		// Locator is formatting-agnostic: Biome may break `Array.from(` onto its own line.
+		(c) => /skepticsPerFinding/.test(c) && /Array\.from\(\s*\{ length: skeptics/.test(c),
 	);
 	check("adversarial template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
@@ -1151,7 +1153,7 @@ async function scenarioVerifyClaimsMaxClaimsCoercion(mod) {
 async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 	const code = await findScaffold(
 		mod,
-		(c) => /requestedSkeptics/.test(c) && /Array\.from\(\{ length: skeptics/.test(c),
+		(c) => /requestedSkeptics/.test(c) && /Array\.from\(\s*\{ length: skeptics/.test(c),
 	);
 	check("verify-claims-lib template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
@@ -1241,6 +1243,51 @@ async function scenarioAllScaffoldsParse(mod) {
 	check("all scaffolds: WORKFLOW_TEMPLATE default parses and exports a workflow function", defaultOk, defaultDetail);
 }
 
+// Orphan/parse gate over the FULL embedded set (every scaffolds/*.js inlined into
+// EMBEDDED_SCAFFOLD_SOURCES), not just the catalog-reachable ones scenarioAllScaffoldsParse
+// covers. readSources() is the exact set the generator inlines (the sync test pins it to the
+// committed map); buildTemplates() gives the public runtime resolution. This closes the
+// review's M1/M2: a scaffolds/foo.js added without a templates.ts alias is globbed into the
+// shipped map but is otherwise unlinted/untyped/unparsed/unreachable -- dead or broken code
+// that ships with zero failing gates. Each source must (a) parse + export a workflow function
+// and (b) be reachable from the public catalog (or be the default), so an orphan fails here.
+async function scenarioNoOrphanScaffold(mod) {
+	const sources = readSources();
+	const keys = Object.keys(sources);
+	check("orphan guard: embedded scaffold sources discovered", keys.length > 0, `count=${keys.length}`);
+
+	// Every string the public catalog can serve, plus the no-pattern default template.
+	const reachable = new Set();
+	for (const pattern of mod.WORKFLOW_PATTERN_CATALOG ?? []) {
+		try {
+			reachable.add(await mod.loadWorkflowPatternCode(pattern));
+		} catch {
+			/* parse/resolution failures are asserted by scenarioAllScaffoldsParse */
+		}
+	}
+	reachable.add(mod.WORKFLOW_TEMPLATE);
+
+	for (const key of keys) {
+		const code = sources[key];
+		// (a) M2: every embedded source parses and exports a workflow function.
+		let parses = false;
+		let detail = "";
+		try {
+			parses = typeof evalScaffold(code) === "function";
+			detail = parses ? "function" : `exports=${typeof evalScaffold(code)}`;
+		} catch (err) {
+			detail = err instanceof Error ? err.message : String(err);
+		}
+		check(`orphan guard: scaffold ${key} parses and exports a workflow function`, parses, detail);
+		// (b) M1: every embedded source is reachable from the catalog (no orphan/dead file).
+		check(
+			`orphan guard: scaffold ${key} is reachable from the catalog (not orphaned)`,
+			reachable.has(code),
+			"no catalog key (or the default) serves this scaffold file",
+		);
+	}
+}
+
 async function main() {
 	try {
 		const { outDir, url } = await buildExtension();
@@ -1267,6 +1314,7 @@ async function main() {
 		await scenarioVerifyClaimsLibSkepticsCoercion(templatesMod);
 		await scenarioNoOrphanedTemplates(templatesMod);
 		await scenarioAllScaffoldsParse(templatesMod);
+		await scenarioNoOrphanScaffold(templatesMod);
 		console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 		if (counts.failed) {
 			console.log(counts.failures.map((f) => `- ${f}`).join("\n"));
