@@ -13,8 +13,9 @@
  *
  * Every applied name is a slug. The current name is shown as an inverted-color pill
  * embedded in the editor's top border (the violet prompt line), right where
- * dynamic-workflows shows "ultracode auto" — composing as "ultracode auto -- <slug>"
- * (existing label first, name last) when both are present. pi-rename wraps
+ * dynamic-workflows shows "ultracode auto" — composing as "ultracode auto ── <slug>"
+ * (existing label first, name last, joined by the border line) when both are present.
+ * pi-rename wraps
  * the editor with its own outer layer (delegating everything but render), so it neither
  * imports nor depends on dynamic-workflows. Naming logic is deterministic and lives in
  * ./derive-name; the border math lives in ./border-label.

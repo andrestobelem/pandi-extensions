@@ -23,8 +23,9 @@ pi --no-extensions -e ./extensions/pi-rename
 
 The current name is shown as an inverted-color "pill" (foreground/background swapped)
 embedded in the editor's **top border** (the violet prompt line) — right where the
-dynamic-workflows router shows `ultracode auto`, composing as `ultracode auto -- <slug>`
-(existing label first, name last) when both are present. This mirrors Claude Code's
+dynamic-workflows router shows `ultracode auto`, with the border line continuing into
+the name pill as `ultracode auto ── <slug>` (existing label first, name last) when both
+are present. This mirrors Claude Code's
 `/rename [name]`, which renames the current conversation, shows the name on the prompt
 bar, and auto-generates one from history when none is given.
 
