@@ -19,9 +19,14 @@ import type { AgentMonitorModel, WorkflowRunRecord } from "./index.js";
 import { notify } from "./notify.js";
 import { formatElapsedMs } from "./presentation.js";
 
-function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
+export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
-	return path.isAbsolute(agent.artifactPath) ? agent.artifactPath : path.join(run.runDir, agent.artifactPath);
+	// artifactPath originates from untrusted events.jsonl; contain it within runDir
+	// so a crafted absolute path or "../" traversal cannot read arbitrary files.
+	const resolved = path.resolve(run.runDir, agent.artifactPath);
+	const base = path.resolve(run.runDir);
+	if (resolved !== base && !resolved.startsWith(base + path.sep)) return undefined;
+	return resolved;
 }
 
 function resolveAgentLiveStreamPath(artifactPath: string | undefined, stream: "stdout" | "stderr"): string | undefined {
