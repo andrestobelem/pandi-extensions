@@ -1,4 +1,12 @@
-export default async function workflow(ctx, input) {
+export default async function main() {
+	const input = (() => {
+		try {
+			return typeof args === "string" ? JSON.parse(args) || {} : args || {};
+		} catch {
+			return {};
+		}
+	})();
+
 	const raw = Array.isArray(input?.candidates) ? input.candidates : [];
 	const candidates = raw
 		.map((cand, i) => (typeof cand === "string" ? { id: `cand-${i}`, text: cand } : cand))
@@ -28,18 +36,18 @@ export default async function workflow(ctx, input) {
 
 	if (candidates.length === 0) {
 		const empty = { ranked: [], best: null, dropped, coverage: { candidates: 0, jurors: 0, requestedJurors: 0 } };
-		await ctx.writeArtifact("rank-candidates-result.json", empty);
+		await writeArtifact("rank-candidates-result.json", empty);
 		return empty;
 	}
 
 	const requestedJurors = Math.max(1, Number(input?.jurors ?? 3));
 	// Never spawn more parallel agents than the run's concurrency budget allows.
-	const jurors = Math.min(requestedJurors, ctx.limits.concurrency);
+	const jurors = Math.min(requestedJurors, limits.concurrency);
 	if (jurors < requestedJurors) {
-		await ctx.log("juror cap applied", {
+		await log("juror cap applied", {
 			requested: requestedJurors,
 			running: jurors,
-			concurrency: ctx.limits.concurrency,
+			concurrency: limits.concurrency,
 		});
 	}
 
@@ -61,7 +69,7 @@ export default async function workflow(ctx, input) {
 		const candidate = candidates[i];
 		// Independent jury: each juror scores the candidate against the rubric.
 		// settle:true so one juror erroring/timing-out does not abort the rest.
-		const jury = await ctx.agents(
+		const jury = await agents(
 			Array.from({ length: jurors }, (_unused, j) => ({
 				name: `rank-${candidate.id}-juror-${j + 1}`,
 				prompt:
@@ -84,7 +92,7 @@ export default async function workflow(ctx, input) {
 			.filter((vote) => vote && typeof vote.score === "number" && Number.isFinite(vote.score));
 		if (parsed.length === 0) {
 			dropped.push({ id: candidate.id, text: candidate.text, reason: "no juror returned a valid score" });
-			await ctx.log("candidate unscorable", { id: candidate.id, failedBranches: jury.length });
+			await log("candidate unscorable", { id: candidate.id, failedBranches: jury.length });
 			continue;
 		}
 		// Average juror score; clamp into [0,10] so a stray out-of-range vote cannot dominate.
@@ -95,7 +103,7 @@ export default async function workflow(ctx, input) {
 			.filter(Boolean)
 			.join(" | ");
 		ranked.push({ id: candidate.id, text: candidate.text, score, votes: clamped, rationale });
-		await ctx.log("candidate scored", {
+		await log("candidate scored", {
 			id: candidate.id,
 			score,
 			jurors: clamped.length,
@@ -118,8 +126,8 @@ export default async function workflow(ctx, input) {
 		dropped,
 		coverage: { candidates: candidates.length, jurors, requestedJurors },
 	};
-	await ctx.writeArtifact("rank-candidates-result.json", result);
-	await ctx.log("ranking complete", {
+	await writeArtifact("rank-candidates-result.json", result);
+	await log("ranking complete", {
 		ranked: finalRanked.length,
 		dropped: dropped.length,
 		best: result.best?.id ?? null,
