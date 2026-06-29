@@ -5,6 +5,14 @@ examples/.pi/
 # Claude Code project-local state (workflows/skills/scripts it creates); not tracked or linted.
 .claude/
 **/.claude/
+# ...except the curated skills, workflows, and scripts we DO track.
+!.claude/
+!.claude/skills/
+!.claude/skills/**
+!.claude/workflows/
+!.claude/workflows/**
+!.claude/scripts/
+!.claude/scripts/**
 
 # Pi background jobs and automation state.
 .pi/bg/
