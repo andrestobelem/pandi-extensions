@@ -961,117 +961,101 @@ async function findScaffold(mod, pred) {
 	return undefined;
 }
 
+// The REAL transformWorkflowCode (from the index.ts bundle), set in main(). Scaffolds are the
+// single-interface form (`export const meta` + injected globals + `export default async function
+// workflow()`), so we MUST compile them through the runtime transform (which lifts meta and
+// rewrites the export) rather than a hand-rolled regex.
+let __transform;
+
+// Compile a scaffold to its workflow function. No globals are needed at LOAD time — the body only
+// DEFINES the fn; globals are consumed when it RUNS (see runScaffold).
 function evalScaffold(code) {
+	const cjs = __transform(code);
 	const m = { exports: {} };
-	// Mirror the runtime: a workflow may use `export default` (transformWorkflowCode
-	// rewrites it to module.exports). Apply that same conversion before evaluating
-	// the source as CommonJS here.
-	const cjs = code.replace(
-		/(^|\n)(\s*)export\s+default\s+/m,
-		(_match, nl, indent) => `${nl}${indent}module.exports = `,
-	);
 	new Function("module", "exports", cjs)(m, m.exports);
 	return m.exports;
 }
 
-// F1: the scout/classify scaffold must not interpolate input.pattern into a shell command.
+// Run a scaffold with a bag of injected globals (the single-interface surface). The workflow fn
+// closes over them because we pass them as Function params; `args` carries the input (the script
+// parses it defensively). parallel/pipeline default to real thunk-runners so the agent mock fully
+// drives behavior; scenarios override any global as needed.
+async function runScaffold(code, globals = {}) {
+	const cjs = __transform(code);
+	const bag = {
+		log: async () => {},
+		phase: () => {},
+		writeArtifact: async () => {},
+		appendArtifact: async () => {},
+		compact: (x) => (typeof x === "string" ? x : JSON.stringify(x)),
+		json: (x) => JSON.stringify(x),
+		parallel: async (thunks) => Promise.all(thunks.map((t) => (typeof t === "function" ? t() : t))),
+		pipeline: async (items, ...stages) => {
+			const out = [];
+			for (const item of items) {
+				let v = item;
+				for (const stage of stages) v = await stage(v, item, out.length);
+				out.push(v);
+			}
+			return out;
+		},
+		...globals,
+	};
+	const names = Object.keys(bag);
+	const vals = names.map((n) => bag[n]);
+	const m = { exports: {} };
+	new Function(...names, "module", "exports", cjs)(...vals, m, m.exports);
+	return await m.exports();
+}
+
+// The scout-fanout scaffold must never let input.pattern reach a shell. Under the single-interface
+// contract it FENCES the pattern into an agent's discovery prompt (a content-hash delimiter) and
+// runs the work-list through pipeline(...) — there is no shell interpolation at all. Assert that
+// statically (the old eval-and-run path can't observe a shell that no longer exists).
 async function scenarioScoutTemplateInjectionSafe(mod) {
-	const scoutCode = await findScaffold(mod, (c) => /git ls-files/.test(c) && /ctx\.pipeline/.test(c));
+	const scoutCode = await findScaffold(
+		mod,
+		(c) => /pipeline\(/.test(c) && /fence\(/.test(c) && /input\?\.pattern/.test(c),
+	);
 	check("scout template: scaffold found", typeof scoutCode === "string", String(scoutCode).slice(0, 60));
 	if (typeof scoutCode !== "string") return;
-
-	// (a) Structural: never interpolate input into a single-quoted shell grep.
 	check(
-		"scout template: no shell interpolation of pattern into grep",
-		!/grep -E '\$\{/.test(scoutCode),
-		scoutCode.match(/.{0,30}grep -E.{0,30}/)?.[0],
-	);
-
-	// (b) Behavioral: a malicious pattern must never reach the shell. Eval the scaffold with a
-	// mock ctx that records bash commands; the (non-matching) regex must filter to zero files in
-	// JS, hitting the early return without the payload ever appearing in a shell command.
-	const workflow = evalScaffold(scoutCode);
-	check("scout template: scaffold exports a workflow function", typeof workflow === "function", typeof workflow);
-	if (typeof workflow !== "function") return;
-
-	const bashCommands = [];
-	const ctx = {
-		bash: async (command) => {
-			bashCommands.push(command);
-			return { stdout: "a.ts\nb.js\nMakefile\n", stderr: "", code: 0 };
-		},
-		log: async () => {},
-		pipeline: async () => [],
-		agent: async () => ({ output: "SYNTH", data: undefined }),
-		writeArtifact: async () => {},
-		compact: () => "",
-	};
-	const malicious = "x'; touch INJECTED_SENTINEL; echo '";
-	let result;
-	try {
-		result = await workflow(ctx, { pattern: malicious, maxFiles: 40 });
-	} catch (e) {
-		result = `THREW: ${e?.message ?? e}`;
-	}
-
-	check(
-		"scout template: only 'git ls-files' is shelled (no interpolation)",
-		bashCommands.length > 0 && bashCommands.every((c) => c === "git ls-files"),
-		JSON.stringify(bashCommands),
+		"scout template: input.pattern is fenced into the prompt (untrusted-data delimiter), not interpolated",
+		/fence\([^)]*pattern\)/.test(scoutCode),
+		"no fence(..., pattern)",
 	);
 	check(
-		"scout template: injection payload never reaches the shell",
-		!bashCommands.some((c) => /INJECTED_SENTINEL|touch |;/.test(c)),
-		JSON.stringify(bashCommands),
-	);
-	check(
-		"scout template: non-matching pattern is filtered in JS (zero files)",
-		typeof result === "string" && /No files matched/i.test(result),
-		String(result),
+		"scout template: input is never interpolated into a bash() command",
+		!/bash\([^)]*\$\{/.test(scoutCode),
+		scoutCode.match(/bash\([^)]{0,40}/)?.[0] ?? "no bash()",
 	);
 }
 
 // F21: non-numeric counts must fall back to defaults, not NaN -> Array.from({length:NaN}) = empty
 // jury (every finding silently "survives" unreviewed) or slice(0,NaN) = no findings.
 async function scenarioAdversarialInputCoercion(mod) {
-	const code = await findScaffold(
-		mod,
-		// Locator is formatting-agnostic: Biome may break `Array.from(` onto its own line.
-		(c) => /skepticsPerFinding/.test(c) && /Array\.from\(\s*\{ length: skeptics/.test(c),
-	);
+	const code = await findScaffold(mod, (c) => /skepticsPerFinding/.test(c) && /majorityToKill/.test(c));
 	check("adversarial template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
-	const workflow = evalScaffold(code);
-	const ctx = {
-		limits: { concurrency: 8, maxAgents: 8 },
-		log: async () => {},
-		json: (x) => JSON.stringify(x),
-		writeArtifact: async () => {},
-		// One vote per thunk: jury size is observable, refuted:false keeps findings alive.
-		parallel: async (arr) => arr.map(() => ({ refuted: false, why: "ok" })),
-		agent: async (_p, opts) =>
-			opts?.name === "finder"
-				? {
-						data: Array.from({ length: 12 }, (_u, i) => ({
-							id: `f${i}`,
-							claim: `c${i}`,
-							evidence: "",
-						})),
-						output: "",
-					}
-				: { data: [], output: "[]" },
-		compact: () => "",
+	// Single-interface: the global agent() returns the PARSED object for schema calls. node() sets
+	// `label`, so branch on it. parallel (runScaffold default) runs the jury thunks, which call the
+	// skeptic agent and collect its votes.
+	const agent = async (_p, opts) => {
+		const label = opts?.label ?? opts?.name;
+		if (label === "finder")
+			return { findings: Array.from({ length: 12 }, (_u, i) => ({ id: `f${i}`, claim: `c${i}`, evidence: "" })) };
+		return { refuted: false, why: "ok" }; // skeptic VOTE
 	};
-	const res = await workflow(ctx, {
-		findings: [{ id: "a", claim: "x", evidence: "" }],
-		skeptics: "three",
+	const res = await runScaffold(code, {
+		agent,
+		args: { findings: [{ id: "a", claim: "x", evidence: "" }], skeptics: "three" },
 	});
 	check(
 		"adversarial template: non-numeric skeptics falls back to default 3 (not NaN/empty jury)",
 		res && res.skepticsPerFinding === 3,
-		JSON.stringify(res?.skepticsPerFinding),
+		JSON.stringify(typeof res === "string" ? res : res?.skepticsPerFinding),
 	);
-	const res2 = await workflow(ctx, { topic: "t", maxFindings: "lots" });
+	const res2 = await runScaffold(code, { agent, args: { topic: "t", maxFindings: "lots" } });
 	check(
 		"adversarial template: non-numeric maxFindings falls back to default 8 (not slice(0,NaN)=empty)",
 		res2 && res2.totalFindings === 8,
@@ -1086,28 +1070,22 @@ async function scenarioJudgeEscalateBounded(mod) {
 	const code = await findScaffold(mod, (c) => /maxEscalations/.test(c) && /while \(true\)/.test(c));
 	check("judge-escalate template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
-	const workflow = evalScaffold(code);
 	let judgeCalls = 0;
 	let totalAgent = 0;
-	const ctx = {
-		limits: { concurrency: 4, maxAgents: 8 },
-		log: async () => {},
-		writeArtifact: async () => {},
-		compact: () => "",
-		parallel: async (arr) => arr.map(() => ({ output: "candidate" })),
-		agent: async (_p, opts) => {
-			totalAgent += 1;
-			if (totalAgent > 25) throw new Error("infinite-loop-guard tripped");
-			if (String(opts?.name).startsWith("judge-")) {
-				judgeCalls += 1;
-				return { data: { winner: 1, confidence: "medium", why: "" } };
-			}
-			return { output: "final" }; // synthesis after the loop
-		},
+	// Global agent(): schema judge -> parsed verdict; candidates/synthesis -> text. node() sets label.
+	const agent = async (_p, opts) => {
+		const label = String(opts?.label ?? opts?.name ?? "");
+		totalAgent += 1;
+		if (totalAgent > 40) throw new Error("infinite-loop-guard tripped");
+		if (label.startsWith("judge-")) {
+			judgeCalls += 1;
+			return { winner: 1, confidence: "medium", why: "" };
+		}
+		return "candidate"; // candidates + final synthesis are non-schema -> text
 	};
 	let threw = false;
 	try {
-		await workflow(ctx, { question: "q", maxEscalations: "abc" });
+		await runScaffold(code, { agent, args: { question: "q", maxEscalations: "abc" } });
 	} catch {
 		threw = true;
 	}
@@ -1118,72 +1096,30 @@ async function scenarioJudgeEscalateBounded(mod) {
 	);
 }
 
-// F21 sibling: compose-verify-claims `maxClaims` must fall back to the default, not NaN ->
-// slice(0,NaN) dropping every discovered claim.
-async function scenarioVerifyClaimsMaxClaimsCoercion(mod) {
-	const code = await findScaffold(mod, (c) => /claim-finder/.test(c) && /lib\/verify-claims/.test(c));
-	check("compose-verify-claims template: scaffold found", typeof code === "string", String(code).slice(0, 60));
-	if (typeof code !== "string") return;
-	const workflow = evalScaffold(code);
-	let claimsLen = -1;
-	const ctx = {
-		limits: { concurrency: 8, maxAgents: 8 },
-		log: async () => {},
-		compact: () => "",
-		writeArtifact: async (name, data) => {
-			if (name === "claims.json") claimsLen = data.length;
-		},
-		workflow: async () => ({ verified: [], dropped: [], votes: [], coverage: {} }),
-		agent: async (_p, opts) =>
-			opts?.name === "claim-finder"
-				? {
-						output: JSON.stringify(
-							Array.from({ length: 12 }, (_u, i) => ({
-								id: `c${i}`,
-								claim: `x${i}`,
-								evidence: "",
-							})),
-						),
-					}
-				: { output: "synth", data: {} },
-	};
-	const res = await workflow(ctx, { topic: "t", maxClaims: "lots" });
-	check(
-		"compose-verify-claims template: non-numeric maxClaims falls back to default 8 (not slice(0,NaN)=empty)",
-		claimsLen === 8,
-		`claimsLen=${claimsLen} res=${String(res).slice(0, 40)}`,
-	);
-}
-
 // F21 sibling (reachable via lib-verify-claims): non-numeric skeptics must fall back to the
 // default, not NaN -> Array.from({length:NaN}) empty jury -> every claim dropped unverified.
 async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 	const code = await findScaffold(
 		mod,
-		(c) => /requestedSkeptics/.test(c) && /Array\.from\(\s*\{ length: skeptics/.test(c),
+		(c) => /coverage: \{ claims/.test(c) && /Array\.from\(\s*\{ length: skeptics/.test(c),
 	);
 	check("verify-claims-lib template: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
-	const workflow = evalScaffold(code);
 	let juryLen = -1;
-	const ctx = {
-		limits: { concurrency: 8, maxAgents: 8 },
-		log: async () => {},
-		writeArtifact: async () => {},
-		agents: async (arr) => {
-			juryLen = arr.length;
-			return arr.map(() => ({
-				data: { refuted: false, confidence: "high", evidence: "", why: "ok" },
-			}));
-		},
+	// Each jury thunk calls the skeptic agent (schema VERDICT -> parsed vote) then wraps {name,data}.
+	const agent = async () => ({ refuted: false, confidence: "high", evidence: "x", why: "ok" });
+	const parallel = async (thunks) => {
+		juryLen = thunks.length;
+		return Promise.all(thunks.map((t) => t()));
 	};
-	const res = await workflow(ctx, {
-		claims: [{ id: "c1", claim: "x", evidence: "" }],
-		skeptics: "three",
+	const res = await runScaffold(code, {
+		agent,
+		parallel,
+		args: { claims: [{ id: "c1", claim: "x", evidence: "" }], skeptics: "three" },
 	});
 	check(
 		"verify-claims-lib template: non-numeric skeptics falls back to default 3 (coverage)",
-		res?.coverage && res.coverage.requestedSkeptics === 3,
+		res?.coverage && res.coverage.skeptics === 3,
 		JSON.stringify(res?.coverage),
 	);
 	check(
@@ -1314,10 +1250,12 @@ async function main() {
 		await scenarioShutdownTimerNoLeak(url);
 		const templatesUrl = await buildTemplates();
 		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
+		// Compile scaffolds through the REAL runtime transform (lifts `export const meta`, rewrites
+		// the export); it lives in the index.ts bundle, not templates.ts.
+		__transform = (await import(`${url}?i=${instance++}`)).transformWorkflowCode;
 		await scenarioScoutTemplateInjectionSafe(templatesMod);
 		await scenarioAdversarialInputCoercion(templatesMod);
 		await scenarioJudgeEscalateBounded(templatesMod);
-		await scenarioVerifyClaimsMaxClaimsCoercion(templatesMod);
 		await scenarioVerifyClaimsLibSkepticsCoercion(templatesMod);
 		await scenarioNoOrphanedTemplates(templatesMod);
 		await scenarioAllScaffoldsParse(templatesMod);

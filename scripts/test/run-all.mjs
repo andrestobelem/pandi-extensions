@@ -39,13 +39,7 @@ const SUITE_SUBDIR = path.posix.join("tests", "integration");
 // Draft suites are excluded but must be EXPLICIT (with a reason), so a not-yet-green
 // suite is never run AND a green suite is never skipped silently. Promote a suite out
 // of here once it is reliably green. Currently empty.
-const ignoredDraftSuites = new Set([
-	// Temporarily excluded during the single-interface (Workflow-tool contract) refactor: its
-	// evalScaffold helper + ~6 scaffold-eval scenarios are wired to the OLD ctx.*/shell internals
-	// of the replaced scaffolds. Tracked for immediate migration to the new globals contract
-	// (evalScaffold via transformWorkflowCode + a globals bag; updated predicates/assertions).
-	"extensions/pi-dynamic-workflows/tests/integration/dynamic-workflow-composition.test.mjs",
-]);
+const ignoredDraftSuites = new Set([]);
 
 // Discover suite directories by convention: extensions/<ext>/tests/integration that exist.
 const extensionsDirAbs = path.join(REPO_ROOT, EXTENSIONS_DIR);
