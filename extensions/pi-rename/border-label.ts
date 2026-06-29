@@ -28,7 +28,7 @@ export interface ComposeDeps {
 /**
  * Right-align the name label into a top-border line. Any existing right-aligned label
  * (e.g. "ultracode auto") is kept and placed FIRST, with the name last:
- * ` <existing> · <label> `. The name is styled with labelColor (its own pill), the rest
+ * ` <existing> - <label> `. The name is styled with labelColor (its own pill), the rest
  * with color. Returns the rebuilt line, or null when the line is not a decoratable border
  * — a left-aligned hint such as a scroll indicator ("↑ N more") or anything that does not
  * parse as a border is left untouched, and null is returned when there is not enough room.
@@ -52,8 +52,8 @@ export function composeTopBorder(line0: string, width: number, label: string, de
 	}
 
 	const pill = ` ${label} `;
-	const visibleMiddle = existing ? ` ${existing} ·${pill}` : pill;
-	const styledMiddle = existing ? color(` ${existing} ·`) + labelColor(pill) : labelColor(pill);
+	const visibleMiddle = existing ? ` ${existing} -${pill}` : pill;
+	const styledMiddle = existing ? color(` ${existing} -`) + labelColor(pill) : labelColor(pill);
 
 	const rightDashes = 2;
 	const leftDashes = width - visibleWidth(visibleMiddle) - rightDashes;

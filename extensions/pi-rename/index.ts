@@ -9,12 +9,11 @@
  *
  *   /rename Refactor auth   -> pi.setSessionName("refactor-auth")
  *   /rename "Hello World!"  -> pi.setSessionName("hello-world")
- *   /rename                 -> derive a slug from history; in a TUI, prefill an input
- *                              dialog to confirm/edit; headless, apply it directly.
+ *   /rename                 -> invent a slug from history and apply it directly (no dialog).
  *
  * Every applied name is a slug. The current name is shown as an inverted-color pill
  * embedded in the editor's top border (the violet prompt line), right where
- * dynamic-workflows shows "ultracode auto" — composing as "ultracode auto · <slug>"
+ * dynamic-workflows shows "ultracode auto" — composing as "ultracode auto - <slug>"
  * (existing label first, name last) when both are present. pi-rename wraps
  * the editor with its own outer layer (delegating everything but render), so it neither
  * imports nor depends on dynamic-workflows. Naming logic is deterministic and lives in
@@ -144,28 +143,10 @@ export default function renameExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("rename", {
 		description: "Rename the current session to a slug. With no argument, suggests one from the conversation.",
 		handler: async (args, ctx) => {
+			// With a name, use it; with no name, invent one from the conversation.
+			// Never opens an input dialog.
 			const trimmed = args.trim();
-			if (trimmed) {
-				applyName(pi, ctx, trimmed);
-				return;
-			}
-
-			// No argument: auto-generate a deterministic slug from history.
-			const suggestion = suggestName(ctx);
-
-			if (ctx.hasUI) {
-				const entered = await ctx.ui.input("Rename session (slug)", suggestion);
-				if (entered === undefined) {
-					notify(ctx, "Rename cancelled.", "info");
-					return;
-				}
-				// Empty submit accepts the suggestion; otherwise use what the user typed.
-				applyName(pi, ctx, entered.trim() || suggestion);
-				return;
-			}
-
-			// Headless: apply the suggestion directly.
-			applyName(pi, ctx, suggestion);
+			applyName(pi, ctx, trimmed || suggestName(ctx));
 		},
 	});
 

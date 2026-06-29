@@ -8,8 +8,8 @@
  *   capped at MAX_NAME_WORDS (4) words
  * - /rename <name> slugifies and sets the session name
  * - /rename with no arg, headless, derives a slug from the first user message
- * - /rename with no arg + UI prefills an input dialog: edit applies, empty accepts the
- *   suggestion, cancel (undefined) leaves the name unchanged
+ * - /rename with no arg never opens a dialog: it invents a slug from history and applies
+ *   it directly, whether or not UI is available
  * - empty/whitespace history falls back to a default name
  * - setSessionName failures are reported, not thrown
  * - the current name is shown as a label embedded in the editor's top border, composing
@@ -319,39 +319,16 @@ async function scenarioNoArgUI(url) {
 	const command = (h) => h.commands.get("rename");
 	const entries = [userEntry("Build the rename extension")];
 
-	// User edits the suggestion.
+	// Even with UI available, no-arg invents the name and NEVER opens an input dialog.
 	const h1 = makePi();
 	renameExtension(h1.pi);
-	const ctx1 = makeCtx({ hasUI: true, entries, inputResult: "My Custom Title" });
+	const ctx1 = makeCtx({ hasUI: true, entries, inputResult: "Should Be Ignored" });
 	await command(h1).handler("", ctx1);
-	check("/rename UI edit applies a slug of the typed name", h1.sessionName === "my-custom-title", h1.sessionName);
+	check("/rename no-arg with UI invents the name", h1.sessionName === "build-the-rename-extension", h1.sessionName);
 	check(
-		"/rename UI prefills slug suggestion as placeholder",
-		ctx1._inputCalls.length === 1 && ctx1._inputCalls[0].placeholder === "build-the-rename-extension",
+		"/rename no-arg with UI does NOT open an input dialog",
+		ctx1._inputCalls.length === 0,
 		JSON.stringify(ctx1._inputCalls),
-	);
-
-	// User submits empty -> accept suggestion.
-	const h2 = makePi();
-	renameExtension(h2.pi);
-	const ctx2 = makeCtx({ hasUI: true, entries, inputResult: "" });
-	await command(h2).handler("", ctx2);
-	check(
-		"/rename UI empty submit accepts the slug suggestion",
-		h2.sessionName === "build-the-rename-extension",
-		h2.sessionName,
-	);
-
-	// User cancels (undefined) -> no change.
-	const h3 = makePi();
-	renameExtension(h3.pi);
-	const ctx3 = makeCtx({ hasUI: true, entries, inputResult: undefined });
-	await command(h3).handler("", ctx3);
-	check("/rename UI cancel leaves name unchanged", h3.sessionName === undefined, String(h3.sessionName));
-	check(
-		"/rename UI cancel notifies cancellation",
-		ctx3._notes.some((n) => /cancel/i.test(n.msg)),
-		JSON.stringify(ctx3._notes),
 	);
 }
 

@@ -18,13 +18,12 @@ pi --no-extensions -e ./extensions/pi-rename
   a **slug**: lowercase, ASCII alphanumerics separated by single hyphens, diacritics
   stripped, capped at 4 words (e.g. `Refactor Auth Module!` → `refactor-auth-module`,
   `Café` → `cafe`).
-- `/rename` — auto-generate a slug from the conversation. In a TUI it opens an input
-  dialog with the suggestion as placeholder so you can confirm or edit it; headless it
-  applies the suggestion directly.
+- `/rename` — invent a slug from the conversation and apply it directly. It never opens
+  an input dialog: pass a name to use it, or pass nothing to have one invented.
 
 The current name is shown as an inverted-color "pill" (foreground/background swapped)
 embedded in the editor's **top border** (the violet prompt line) — right where the
-dynamic-workflows router shows `ultracode auto`, composing as `ultracode auto · <slug>`
+dynamic-workflows router shows `ultracode auto`, composing as `ultracode auto - <slug>`
 (existing label first, name last) when both are present. This mirrors Claude Code's
 `/rename [name]`, which renames the current conversation, shows the name on the prompt
 bar, and auto-generates one from history when none is given.
@@ -50,5 +49,4 @@ overrides it — use whichever verb you prefer.
   derived from the first non-empty user message — leading slash-command dropped, then
   slugified and truncated on a word boundary.
 - Fallbacks: empty history or no usable text falls back to a default name
-  (`session`); cancelling the input dialog leaves the name unchanged; if
-  `setSessionName` fails it reports an error instead of crashing.
+  (`session`); if `setSessionName` fails it reports an error instead of crashing.
