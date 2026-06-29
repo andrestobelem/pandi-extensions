@@ -109,14 +109,12 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 	}
 
 	const notes = [
-		"Static preview inferred from source-order ctx.* calls; runtime data can differ.",
+		"Static preview inferred from source-order global calls (agent/agents/parallel/pipeline/workflow); runtime data can differ.",
 		"Fan-out counts are static expressions; /workflow view shows runtime P1 i/n totals.",
 		"Does not evaluate budget, retries, cache hits, or error paths.",
 	];
 	if (steps.some((step) => step.children.length > 0))
-		notes.push(
-			"Nested ctx.* calls inside ctx.pipeline/ctx.parallel/ctx.agents are grouped under their orchestration step.",
-		);
+		notes.push("Nested calls inside pipeline/parallel/agents are grouped under their orchestration step.");
 	if (/\b(for|while)\s*\(/.test(code)) notes.push("Loops detected; repeated calls are shown once in source order.");
 	if (/\bif\s*\(|\?[^\n]+:/.test(code)) notes.push("Branches detected; conditional paths are approximate.");
 	return { workflow, steps, notes };
@@ -136,7 +134,7 @@ export async function buildWorkflowGraphModelWithSubworkflows(
 	const subworkflowSteps = model.steps.filter((step) => step.kind === "subworkflow");
 	if (subworkflowSteps.length > 0) {
 		model.notes.push(
-			"ctx.workflow() calls with literal names are expanded one level using the referenced workflow file; dynamic names are shown but not resolved.",
+			"workflow() calls with literal names are expanded one level using the referenced workflow file; dynamic names are shown but not resolved.",
 		);
 	}
 	for (const step of subworkflowSteps) {

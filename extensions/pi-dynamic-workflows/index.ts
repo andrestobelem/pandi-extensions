@@ -1201,7 +1201,7 @@ export async function runWorkflow(
 		const subWorkflow = await resolveWorkflow(ctx, name, "auto");
 		if (path.resolve(subWorkflow.path) === path.resolve(workflowFile.path)) {
 			throw new Error(
-				`ctx.workflow() refused recursive call to ${subWorkflow.name}. Sub-workflows are depth-1 and may not call their parent.`,
+				`workflow() refused recursive call to ${subWorkflow.name}. Sub-workflows are depth-1 and may not call their parent.`,
 			);
 		}
 		const subCode = await fs.readFile(subWorkflow.path, "utf8");
@@ -1289,7 +1289,7 @@ export async function runWorkflow(
 				? runSubworkflow
 				: async () => {
 						throw new Error(
-							"ctx.workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.",
+							"workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.",
 						);
 					},
 			bash: async (command, options = {}) =>

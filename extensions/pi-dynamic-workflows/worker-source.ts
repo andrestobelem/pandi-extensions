@@ -224,7 +224,7 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
       if (typeof maybeMain === "function") exported = maybeMain;
     }
     if (typeof exported !== "function") {
-      throw new Error("Workflow must export a function: module.exports = async function workflow(ctx, input) { ... }.");
+      throw new Error("Workflow must export a function: use export default async function main() { ... }, or a top-level script that ends in return.");
     }
 
     sandbox.__workflow = exported;
