@@ -35,26 +35,26 @@ Do not treat low defaults as a ceiling. After the inline scout reveals the work-
 - Raise them for many independent, read-only, low-risk branches: repo/file audits, call-site sweeps, broad research angles, independent reviewers, or verification panels.
 - Keep them low for side effects, expensive models, shared-state edits, sequential dependencies, flaky/rate-limited providers, or tasks where one branch's output changes the next branch's prompt.
 - Size `maxAgents` for the total planned branch budget across all phases, not just peak parallelism. Size `concurrency` for safe simultaneous work.
-- Clamp to `ctx.limits.concurrency` and `ctx.limits.maxAgents`, but log requested vs effective values and what is delayed, skipped, sampled, or excluded.
-- A fallback like `Math.min(4, items.length, ctx.limits.concurrency)` is acceptable for small/uncertain work; for large independent read-only sweeps, consider 8-12+ if limits and provider budget allow.
+- Clamp to `limits.concurrency` and `limits.maxAgents`, but log requested vs effective values and what is delayed, skipped, sampled, or excluded.
+- A fallback like `Math.min(4, items.length, limits.concurrency)` is acceptable for small/uncertain work; for large independent read-only sweeps, consider 8-12+ if limits and provider budget allow.
 
 Unknown size -> prefer a loop-until-done pattern over a fixed count.
 
 ### No silent caps
 
-If you bound coverage (top-N, sampling, no-retry, clamping to `ctx.limits.concurrency`), `ctx.log()` what was excluded ("reviewed 40 of 213 matching files; skipped generated/ and vendored paths") so the cap is inspectable.
+If you bound coverage (top-N, sampling, no-retry, clamping to `limits.concurrency`), `log()` what was excluded ("reviewed 40 of 213 matching files; skipped generated/ and vendored paths") so the cap is inspectable.
 
 ## Choosing a primitive (pipeline vs agents vs parallel)
 
 Pick by data dependency, not by aesthetics.
 
-1. **One independent step per item?** `ctx.agents(items, { concurrency })` — bounded parallel map.
-2. **Two or more dependent steps PER item, with no cross-item merge?** `ctx.pipeline(items, ...stages)` — default for multi-stage work. Each item flows through all stages independently; failed items return `null`. Stage callbacks receive `(prevResult, originalItem, index)`.
-3. **Large fan-out or reviewer panel where one branch may fail?** `ctx.agents(items, { concurrency, settle: true })` — returns `null` for a failed branch instead of failing the whole batch. Filter nulls and `ctx.log()` how many failed.
-4. **A later step needs ALL branch results at once?** `ctx.parallel([async () => ..., async () => ...])` — a barrier over async thunks, locally bounded by `ctx.limits.concurrency`; failed thunks return `null`. Use only for global dedup/merge, early-exit when the total is zero, cross-branch ranking, or other true barriers.
-5. **Reusable sub-step with no decision gate?** `ctx.workflow(name, input)` — compose a sub-workflow inline, depth 1, sharing this run's `runDir`, agent budget, concurrency, abort signal, and resume journal/cache. Use `lib/<name>` for reusable contracts like claim verification. If you must inspect results before deciding the next phase, run separate workflows sequentially instead.
+1. **One independent step per item?** `agents(items, { concurrency })` — bounded parallel map.
+2. **Two or more dependent steps PER item, with no cross-item merge?** `pipeline(items, ...stages)` — default for multi-stage work. Each item flows through all stages independently; failed items return `null`. Stage callbacks receive `(prevResult, originalItem, index)`.
+3. **Large fan-out or reviewer panel where one branch may fail?** `agents(items, { concurrency, settle: true })` — returns `null` for a failed branch instead of failing the whole batch. Filter nulls and `log()` how many failed.
+4. **A later step needs ALL branch results at once?** `parallel([() => ..., () => ...])` — a barrier over async thunks, locally bounded by `limits.concurrency`; failed thunks return `null`. Use only for global dedup/merge, early-exit when the total is zero, cross-branch ranking, or other true barriers.
+5. **Reusable sub-step with no decision gate?** `workflow(name, args)` — compose a sub-workflow inline, depth 1, sharing this run's `runDir`, agent budget, concurrency, abort signal, and resume journal/cache. Use `lib/<name>` for reusable contracts like claim verification. If you must inspect results before deciding the next phase, run separate workflows sequentially instead.
 
-**Barrier smell test:** `parallel -> transform-with-no-cross-item-dependency -> parallel` should be one `ctx.pipeline`. `map`/`filter`/formatting alone do not justify a barrier; dedup, merge, early-exit, and compare-against-others do.
+**Barrier smell test:** `parallel -> transform-with-no-cross-item-dependency -> parallel` should be one `pipeline`. `map`/`filter`/formatting alone do not justify a barrier; dedup, merge, early-exit, and compare-against-others do.
 
 **Resume/cache note for pipeline:** include a stable item id or `index` in prompts generated by stages. Two items with identical prompts can otherwise race for the same cache occurrence.
 
@@ -78,44 +78,46 @@ Use these as patterns, not ceremony: every branch needs a reason, a contract, an
 
 ## Structured output and personas
 
-Use `ctx.agent(prompt, { schema })` when a branch must return machine-readable JSON. The result includes:
+Use `agent(prompt, { schema })` when a branch must return machine-readable JSON. The singular `agent()` global **unwraps** the result: with `{ schema }` it returns the parsed JSON object directly (or `null` when the subagent fails or never validates); without a schema it returns the assistant text string.
+
+When you need the full result envelope, use the plural `agents([...])` / `parallel` / `pipeline`, which return `SubagentResult` objects (`null` per failed branch under `settle`):
 
 - `result.output` — assistant text, reconstructed from Pi JSON event mode.
 - `result.data` — parsed JSON value when it matches the schema.
 - `result.schemaOk` — `true` on validation success, `false` when `schemaOnInvalid: "null"` allows an invalid result to return.
 
-Options: `schemaRetries` (default `2`) retries with validation feedback; `schemaOnInvalid: "throw" | "null"` controls whether invalid output throws or returns `{ schemaOk:false, data:null }`.
+Options passed through to the subagent: `schemaRetries` (default `2`) retries with validation feedback; `schemaOnInvalid: "throw" | "null"` controls whether invalid output throws or resolves to a non-throwing result.
 
 Use `agentType` for persona defaults before cache-key computation: `explore`, `reviewer`, `planner`, `implementer`, `researcher`. Explicit options win; `appendSystemPrompt` is concatenated. Trusted projects may define `.pi/personas/<name>.json` with persona defaults.
 
-## Per-call model and thinking selection
+## Per-call model and effort selection
 
-Each subagent call decides, independently, **which model/provider to use and with which thinking (reasoning) level to launch**. Pass these on `ctx.agent`, `ctx.agents`, `ctx.pipeline`, or any per-item spec:
+Each subagent call decides, independently, **which model/provider to use and with which reasoning effort to launch**. Pass these on `agent`, `agents`, `pipeline`, or any per-item spec:
 
-- `model` — model pattern or id, e.g. `"anthropic/claude-sonnet-4"` or just `"haiku"` (pi resolves `provider/id` and an optional `:<thinking>` suffix). Becomes `--model`.
+- `model` — model pattern or id, e.g. `"sonnet"`/`"haiku"`/`"opus"` or a full `"provider/id"` (pi resolves `provider/id` and an optional `:<effort>` suffix). Becomes `--model`.
 - `provider` — restrict to a provider, e.g. `"openai"`. Becomes `--provider`. When `provider` is set without `model`, no model is synthesized (pi picks within that provider).
-- `thinking` — reasoning effort, one of `off | minimal | low | medium | high | xhigh`. Becomes `--thinking`.
+- `effort` — reasoning effort, one of `low | medium | high | xhigh | max` (`max` maps to the engine's `xhigh`). Sets the subagent's reasoning level.
 
-Defaults inherit the orchestrator: a call with no `model`/`provider` reuses the workflow's own model (`ctx.model`), and a call with no `thinking` reuses the current session thinking level (`pi.getThinkingLevel()`). `agentType` personas set thinking defaults too (`reviewer`/`planner`/`researcher` → `high`, `explore`/`implementer` → `medium`); explicit options override them.
+Defaults inherit the orchestrator: a call with no `model`/`provider` reuses the workflow's own model, and a call with no `effort` reuses the current session reasoning level. `agentType` personas set effort defaults too (`reviewer`/`planner`/`researcher` → `high`, `explore`/`implementer` → `medium`); explicit options override them.
 
-`model`, `provider`, and `thinking` are part of the cache key, so changing them re-runs that call on resume instead of reusing a stale result.
+`model`, `provider`, and `effort` are part of the cache key, so changing them re-runs that call on resume instead of reusing a stale result.
 
 Build prompts with a **stable prefix**: put shared/stable framing (role, task, success criteria, output format) first and push volatile per-item content (the item, ids, retrieved snippets) to the end. Identical prefixes reuse the provider prompt/KV cache across calls (cheaper, faster, steadier focus); avoid `Date.now()`/`Math.random()` or other nondeterministic values inside prompts, which bust that cache and also make the resume journal miss.
 
 Match cost and capability to the work, deciding per call:
 
-- **Wide, cheap scouting / classification / extraction** → a fast, inexpensive model with `thinking: "low"` (or `"minimal"`/`"off"`).
-- **Synthesis, adversarial verification, planning, hard reasoning** → a stronger model and `thinking: "high"` (or `"xhigh"` for the hardest judge/synthesis step).
+- **Wide, cheap scouting / classification / extraction** → a fast, inexpensive model with `effort: "low"`.
+- **Synthesis, adversarial verification, planning, hard reasoning** → a stronger model and `effort: "high"` (or `"xhigh"`/`"max"` for the hardest judge/synthesis step).
 
 ```js
 // Cheap parallel scouts, then one strong, high-reasoning synthesis.
-const notes = await ctx.agents(files.map((f) => ({
-  name: `scout-${f}`, prompt: `Summarize risks in ${f}. Cite lines.`,
-  model: "haiku", thinking: "low", tools: ["read", "grep", "find", "ls"],
+const notes = await agents(files.map((f) => ({
+  label: `scout-${f}`, prompt: `Summarize risks in ${f}. Cite lines.`,
+  model: "haiku", effort: "low", tools: ["read", "grep", "find", "ls"],
 })), { concurrency: 8 });
-const verdict = await ctx.agent(
-  `Synthesize the scout notes into a ranked, evidence-backed verdict.\n\n${ctx.compact(notes, 50000)}`,
-  { name: "synthesis", model: "anthropic/claude-sonnet-4", thinking: "high", tools: ["read", "grep", "find", "ls"] },
+const verdict = await agent(
+  `Synthesize the scout notes into a ranked, evidence-backed verdict.\n\n${compact(notes, 50000)}`,
+  { label: "synthesis", model: "sonnet", effort: "high", tools: ["read", "grep", "find", "ls"] },
 );
 ```
 
@@ -143,7 +145,7 @@ Dashboard and catalog:
 - Monitor/Agents show current parallel agent count, peak, live agent details, and `P<phase> 1/n` phase markers. Use `c`/`x` to cancel active runs with confirmation and `d`/Delete to delete inactive run artifacts or workflow files.
 - `/workflow patterns` opens or prints the catalog. `/workflow graph <name>` renders Mermaid/PNG when available, with text fallback.
 
-If a run was interrupted (state `stale`, `failed`, or `cancelled`), resume it in place with `dynamic_workflow({ action: "resume", name: "<runId>" })` (or `/workflow resume <runId>`). Completed subagent and bash calls are read from the run journal and are not re-executed, so resuming is cheap. `ctx.agent()` is cached by default (opt out with `{ cache: false }`); `ctx.bash()` is cached only with `{ cache: true }`. Calls whose arguments depend on `Date.now()`/`Math.random()` will not match the cache and will re-run on resume.
+If a run was interrupted (state `stale`, `failed`, or `cancelled`), resume it in place with `dynamic_workflow({ action: "resume", name: "<runId>" })` (or `/workflow resume <runId>`). Completed subagent and bash calls are read from the run journal and are not re-executed, so resuming is cheap. `agent()` is cached by default (opt out with `{ cache: false }`); `bash()` is cached only with `{ cache: true }`. Calls whose arguments depend on `Date.now()`/`Math.random()` will not match the cache and will re-run on resume.
 
 Typical loop:
 
@@ -162,10 +164,10 @@ Dynamic workflows should be generated for the concrete task after scouting. Do n
 
 The pattern catalog is visible in TUI (`/workflows` → Patterns or `/workflow patterns`) and from the tool (`dynamic_workflow action=template`). It lists concrete patterns and use cases, without pattern aliases. The visible catalog is compact and Claude-style: templates (`classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`), compose templates (`compose-verify-claims`, `lib-verify-claims`, `workflow-factory`), and use-cases (`bug-hunt-repo-audit`, `large-migration`, `complex-research`, `plan-review`, `claim-bug-verification`). Legacy intents `deep-research` and `default` live as skills that route to `complex-research` and `fan-out-and-synthesize` respectively.
 
-Ultracode prompts carry only a short key list for this catalog. Before hand-writing a workflow, inspect `dynamic_workflow action=template`, choose the closest scaffold, or explicitly say why no template fits; for composition, prefer `ctx.workflow("lib/<name>", args)` only for reusable sub-steps with no decision gate, keep `lib/` contracts stable and JSON-serializable, and sequence separate runs when the next phase depends on inspecting previous artifacts.
+Ultracode prompts carry only a short key list for this catalog. Before hand-writing a workflow, inspect `dynamic_workflow action=template`, choose the closest scaffold, or explicitly say why no template fits; for composition, prefer `workflow("lib/<name>", args)` only for reusable sub-steps with no decision gate, keep `lib/` contracts stable and JSON-serializable, and sequence separate runs when the next phase depends on inspecting previous artifacts.
 
 - **Workflow factory / meta-workflow**: for complex workflow/prompt/contract design tasks where a workflow is warranted, first run `workflow-factory` with `{ task, write:true }`; it designs prompts/contracts, generates a task-specific workflow draft under the gitignored `.pi/workflows/drafts/<slug>.js` path, reviews it, and leaves inspectable artifacts.
-- **Composition**: use `compose-verify-claims` + `lib-verify-claims` as examples of `ctx.workflow("lib/verify-claims", args)` when a reusable sub-step needs no decision gate.
+- **Composition**: use `compose-verify-claims` + `lib-verify-claims` as examples of `workflow("lib/verify-claims", args)` when a reusable sub-step needs no decision gate.
 - **Fan-out and synthesize**: split files/topics among subagents, then run a synthesis subagent.
 - **Classify and act**: classify many items, then run targeted follow-ups only on high-signal items.
 - **Adversarial verification**: have independent agents critique/verify a plan or patch.
@@ -179,7 +181,7 @@ Use prompts that make the orchestration pattern explicit:
 
 - **Independent fan-out prompts**: tell each subagent its perspective must be complete even if others fail.
 - **Evidence contracts**: require file/line citations, URLs, commands, or `INSUFFICIENT_EVIDENCE` / `NO_FINDINGS`.
-- **Structured output**: prefer `ctx.agent(prompt, { schema })` for JSON objects; otherwise ask for fixed sections such as Verdict, Findings, Evidence, Risks, Fixes, and Verification gaps.
+- **Structured output**: prefer `agent(prompt, { schema })` for JSON objects; otherwise ask for fixed sections such as Verdict, Findings, Evidence, Risks, Fixes, and Verification gaps.
 - **Synthesis-as-judge**: the final agent should deduplicate, discard unsupported claims, preserve uncertainty, and choose a concrete recommendation instead of averaging opinions.
 - **Adversarial review**: give critics an explicit goal to reduce scope, find edge cases, and identify accepted risks.
 - **Partial failure handling**: synthesis prompts should mention failed, empty, stale, or timed-out agents instead of hiding them.
@@ -187,30 +189,36 @@ Use prompts that make the orchestration pattern explicit:
 
 ## Workflow API Reminders
 
-Workflow files export:
+A workflow is authored with injected **globals** (no `ctx`, no `import`/`require`): an optional `export const meta` plus `export default async function main()`, or a top-level script that ends in `return`. Read input from the `args` global.
 
 ```js
-module.exports = async function workflow(ctx, input) {
-  await ctx.log("start", { input });
-  const result = await ctx.agent("Do a focused task", { tools: ["read", "grep", "find", "ls"] });
-  await ctx.writeArtifact("result.json", result);
-  return result.output;
-};
+export const meta = { name: "focused-task", description: "One focused subagent + artifact" };
+
+export default async function main() {
+  await log("start", { args });
+  // agent() unwraps: text (no schema) / parsed object (schema) / null on failure.
+  const result = await agent("Do a focused task", { tools: ["read", "grep", "find", "ls"] });
+  await writeArtifact("result.json", result);
+  return result;
+}
 ```
 
-Useful helpers:
+Injected globals (never name your own function or variables after these — e.g. naming a function `workflow` shadows the composition helper):
 
-- `ctx.agent(prompt, options)` — run one Pi subagent; supports `model`, `provider`, `thinking`, `tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `includeExtensions`, `keys`, `env`, `schema`, `schemaRetries`, `schemaOnInvalid`, and `agentType`. `model`/`provider`/`thinking` are chosen per call (see Per-call model and thinking selection).
-- `ctx.agents(items, { concurrency })` — run many subagents with bounded concurrency.
-- `ctx.agents(items, { concurrency, settle: true })` — keep a fan-out running when one branch fails; failed branches return `null` and should be logged/filtered.
-- `ctx.pipeline(items, ...stages)` — multi-stage per-item flow without global barriers; failed items return `null`.
-- `ctx.parallel([async () => ...])` — worker-side barrier for arbitrary async branches; bounded by `ctx.limits.concurrency`, returns `null` per failed thunk.
-- `ctx.workflow(name, input)` — compose a reusable sub-workflow inline (depth 1, shared limits/abort/cache/runDir); emits workflow events.
-- `ctx.bash(command)` — run shell commands.
-- `ctx.readFile`, `ctx.writeFile`, `ctx.appendFile`, `ctx.listFiles` — file helpers confined to the workflow cwd.
-- `ctx.writeArtifact(name, data)` — persist intermediate state in the run directory.
-- `ctx.compact(value, maxChars)` — JSON/stringify and truncate large results.
-- `ctx.limits` — read-only effective limits; clamp workflow concurrency to `ctx.limits.concurrency`.
+- `agent(prompt, options)` — run one Pi subagent and **unwrap** the result: text without a schema, the parsed object with `{ schema }`, or `null` on a failed/invalid branch. Supports `label`, `model`, `provider`, `effort`, `tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `includeExtensions`, `keys`, `env`, `schema`, `schemaRetries`, `schemaOnInvalid`, `cache`, and `agentType` (see Per-call model and effort selection).
+- `agents(items, { concurrency })` / `agents(items, { concurrency, settle: true })` — bounded parallel map returning `SubagentResult[]` (`.output`/`.data`/`.ok`); `settle` returns `null` per failed branch instead of failing the batch.
+- `pipeline(items, ...stages)` — multi-stage per-item flow without global barriers; failed items return `null`.
+- `parallel([() => ...])` — worker-side barrier for arbitrary async branches; bounded by `limits.concurrency`, returns `null` per failed thunk.
+- `workflow(name, args)` — compose a reusable sub-workflow inline (depth 1, shared limits/abort/cache/runDir); emits workflow events.
+- `phase(label)` — mark the current phase for the dashboard/observability.
+- `log(message, data?)` — append a structured run log line.
+- `bash(command, options?)` — run shell commands (cache with `{ cache: true }`).
+- `readFile`, `writeFile`, `appendFile`, `listFiles` — file helpers confined to the workflow cwd.
+- `writeArtifact(name, data)` / `appendArtifact(name, data)` — persist intermediate state in the run directory.
+- `compact(value, maxChars)` — JSON/stringify and truncate large results.
+- `args` — the parsed `input` passed to the run (JSON-serializable; validate defensively).
+- `limits` — read-only effective limits; clamp workflow concurrency to `limits.concurrency`.
+- `runId`, `runDir`, `cwd` — read-only run identity and paths.
 
 ## Safety and Cost
 
