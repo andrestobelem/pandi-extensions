@@ -21,7 +21,10 @@ function parseJsonText(textValue: string): { ok: true; data: unknown } | { ok: f
 }
 
 function balancedJsonCandidate(textValue: string): string | undefined {
-	const starts = [textValue.indexOf("{"), textValue.indexOf("[")].filter((index) => index >= 0).sort((a, b) => a - b);
+	const starts: number[] = [];
+	for (let i = 0; i < textValue.length; i++) {
+		if (textValue[i] === "{" || textValue[i] === "[") starts.push(i);
+	}
 	for (const start of starts) {
 		const stack: string[] = [];
 		let inString = false;
@@ -41,7 +44,11 @@ function balancedJsonCandidate(textValue: string): string | undefined {
 			if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]");
 			else if (ch === "}" || ch === "]") {
 				if (stack.pop() !== ch) break;
-				if (stack.length === 0) return textValue.slice(start, i + 1);
+				if (stack.length === 0) {
+					const candidate = textValue.slice(start, i + 1);
+					if (parseJsonText(candidate).ok) return candidate;
+					break;
+				}
 			}
 		}
 	}
