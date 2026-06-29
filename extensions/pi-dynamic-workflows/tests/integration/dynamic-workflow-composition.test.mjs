@@ -931,19 +931,19 @@ async function scenarioResolveRunExactMatchFirst(url) {
 	check("resolve: no match returns undefined", sel(runs, "zzz", (r) => r.runId) === undefined);
 }
 
-// templates.ts imports its catalog/pattern-format siblings, so esbuild --bundle
+// pattern-scaffolds.ts imports its catalog/pattern-format siblings, so esbuild --bundle
 // pulls the whole pattern module graph into one bundle we can import in-process.
-async function buildTemplates() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-templates-"));
-	const src = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "templates.ts");
+async function buildScaffolds() {
+	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-scaffolds-"));
+	const src = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "pattern-scaffolds.ts");
 	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "templates.mjs");
+	const out = path.join(outDir, "pattern-scaffolds.mjs");
 	const r = spawnSync(
 		"npx",
 		["--yes", "esbuild", src, "--bundle", "--platform=node", "--format=esm", `--outfile=${out}`],
 		{ cwd: REPO_ROOT, encoding: "utf8" },
 	);
-	if (r.status !== 0) throw new Error(`esbuild templates failed: ${r.stderr || r.stdout}`);
+	if (r.status !== 0) throw new Error(`esbuild pattern-scaffolds failed: ${r.stderr || r.stdout}`);
 	return pathToFileURL(out).href;
 }
 
@@ -1012,20 +1012,20 @@ async function runScaffold(code, globals = {}) {
 // contract it FENCES the pattern into an agent's discovery prompt (a content-hash delimiter) and
 // runs the work-list through pipeline(...) — there is no shell interpolation at all. Assert that
 // statically (the old eval-and-run path can't observe a shell that no longer exists).
-async function scenarioScoutTemplateInjectionSafe(mod) {
+async function scenarioScoutScaffoldInjectionSafe(mod) {
 	const scoutCode = await findScaffold(
 		mod,
 		(c) => /pipeline\(/.test(c) && /fence\(/.test(c) && /input\?\.pattern/.test(c),
 	);
-	check("scout template: scaffold found", typeof scoutCode === "string", String(scoutCode).slice(0, 60));
+	check("scout scaffold: scaffold found", typeof scoutCode === "string", String(scoutCode).slice(0, 60));
 	if (typeof scoutCode !== "string") return;
 	check(
-		"scout template: input.pattern is fenced into the prompt (untrusted-data delimiter), not interpolated",
+		"scout scaffold: input.pattern is fenced into the prompt (untrusted-data delimiter), not interpolated",
 		/fence\([^)]*pattern\)/.test(scoutCode),
 		"no fence(..., pattern)",
 	);
 	check(
-		"scout template: input is never interpolated into a bash() command",
+		"scout scaffold: input is never interpolated into a bash() command",
 		!/bash\([^)]*\$\{/.test(scoutCode),
 		scoutCode.match(/bash\([^)]{0,40}/)?.[0] ?? "no bash()",
 	);
@@ -1035,7 +1035,7 @@ async function scenarioScoutTemplateInjectionSafe(mod) {
 // jury (every finding silently "survives" unreviewed) or slice(0,NaN) = no findings.
 async function scenarioAdversarialInputCoercion(mod) {
 	const code = await findScaffold(mod, (c) => /skepticsPerFinding/.test(c) && /majorityToKill/.test(c));
-	check("adversarial template: scaffold found", typeof code === "string", String(code).slice(0, 60));
+	check("adversarial scaffold: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	// Single-interface: the global agent() returns the PARSED object for schema calls. node() sets
 	// `label`, so branch on it. parallel (runScaffold default) runs the jury thunks, which call the
@@ -1051,13 +1051,13 @@ async function scenarioAdversarialInputCoercion(mod) {
 		args: { findings: [{ id: "a", claim: "x", evidence: "" }], skeptics: "three" },
 	});
 	check(
-		"adversarial template: non-numeric skeptics falls back to default 3 (not NaN/empty jury)",
+		"adversarial scaffold: non-numeric skeptics falls back to default 3 (not NaN/empty jury)",
 		res && res.skepticsPerFinding === 3,
 		JSON.stringify(typeof res === "string" ? res : res?.skepticsPerFinding),
 	);
 	const res2 = await runScaffold(code, { agent, args: { topic: "t", maxFindings: "lots" } });
 	check(
-		"adversarial template: non-numeric maxFindings falls back to default 8 (not slice(0,NaN)=empty)",
+		"adversarial scaffold: non-numeric maxFindings falls back to default 8 (not slice(0,NaN)=empty)",
 		res2 && res2.totalFindings === 8,
 		JSON.stringify(typeof res2 === "string" ? res2 : res2?.totalFindings),
 	);
@@ -1068,7 +1068,7 @@ async function scenarioAdversarialInputCoercion(mod) {
 // default instead.
 async function scenarioJudgeEscalateBounded(mod) {
 	const code = await findScaffold(mod, (c) => /maxEscalations/.test(c) && /while \(true\)/.test(c));
-	check("judge-escalate template: scaffold found", typeof code === "string", String(code).slice(0, 60));
+	check("judge-escalate scaffold: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	let judgeCalls = 0;
 	let totalAgent = 0;
@@ -1090,7 +1090,7 @@ async function scenarioJudgeEscalateBounded(mod) {
 		threw = true;
 	}
 	check(
-		"judge-escalate template: non-numeric maxEscalations terminates at the default bound (no infinite loop)",
+		"judge-escalate scaffold: non-numeric maxEscalations terminates at the default bound (no infinite loop)",
 		!threw && judgeCalls === 3,
 		`threw=${threw} judgeCalls=${judgeCalls}`,
 	);
@@ -1103,7 +1103,7 @@ async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 		mod,
 		(c) => /coverage: \{ claims/.test(c) && /Array\.from\(\s*\{ length: skeptics/.test(c),
 	);
-	check("verify-claims-lib template: scaffold found", typeof code === "string", String(code).slice(0, 60));
+	check("verify-claims-lib scaffold: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	let juryLen = -1;
 	// Each jury thunk calls the skeptic agent (schema VERDICT -> parsed vote) then wraps {name,data}.
@@ -1118,29 +1118,29 @@ async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 		args: { claims: [{ id: "c1", claim: "x", evidence: "" }], skeptics: "three" },
 	});
 	check(
-		"verify-claims-lib template: non-numeric skeptics falls back to default 3 (coverage)",
+		"verify-claims-lib scaffold: non-numeric skeptics falls back to default 3 (coverage)",
 		res?.coverage && res.coverage.skeptics === 3,
 		JSON.stringify(res?.coverage),
 	);
 	check(
-		"verify-claims-lib template: jury runs default 3 skeptics (not NaN/empty)",
+		"verify-claims-lib scaffold: jury runs default 3 skeptics (not NaN/empty)",
 		juryLen === 3,
 		`juryLen=${juryLen}`,
 	);
 }
 
-// Invariant: every embedded scaffold must be reachable from the catalog (no dead templates).
-async function scenarioNoOrphanedTemplates(mod) {
-	const orphans = mod.listOrphanedTemplateKeys();
+// Invariant: every embedded scaffold must be reachable from the catalog (no dead scaffolds).
+async function scenarioNoOrphanedScaffolds(mod) {
+	const orphans = mod.listOrphanedScaffoldKeys();
 	check(
-		"templates: no orphaned/unreachable embedded scaffolds",
+		"scaffolds: no orphaned/unreachable embedded scaffolds",
 		Array.isArray(orphans) && orphans.length === 0,
 		`orphans=${JSON.stringify(orphans)}`,
 	);
 }
 
 // Parse-coverage FLOOR: every embedded scaffold reachable from the catalog (plus the
-// WORKFLOW_TEMPLATE default) must `new Function`-parse and export a workflow function.
+// WORKFLOW_SCAFFOLD default) must `new Function`-parse and export a workflow function.
 // The targeted scenarios above only exercise ~5 scaffolds along specific runtime paths,
 // so a syntax error in any of the others (e.g. loop-until-dry, tournament, repo-bug-hunt)
 // would ship silently. This raises the floor to syntax coverage for ALL of them, keyed by
@@ -1173,24 +1173,24 @@ async function scenarioAllScaffoldsParse(mod) {
 		`evaled=${evaled}/${catalog.length}`,
 	);
 
-	// Belt-and-suspenders: the default WORKFLOW_TEMPLATE is served when no pattern is given,
+	// Belt-and-suspenders: the default WORKFLOW_SCAFFOLD is served when no pattern is given,
 	// so eval it explicitly even though fan-out-and-synthesize aliases onto it.
 	let defaultOk = false;
 	let defaultDetail = "";
 	try {
-		defaultOk = typeof evalScaffold(mod.WORKFLOW_TEMPLATE) === "function";
-		defaultDetail = defaultOk ? "function" : typeof evalScaffold(mod.WORKFLOW_TEMPLATE);
+		defaultOk = typeof evalScaffold(mod.WORKFLOW_SCAFFOLD) === "function";
+		defaultDetail = defaultOk ? "function" : typeof evalScaffold(mod.WORKFLOW_SCAFFOLD);
 	} catch (err) {
 		defaultDetail = err instanceof Error ? err.message : String(err);
 	}
-	check("all scaffolds: WORKFLOW_TEMPLATE default parses and exports a workflow function", defaultOk, defaultDetail);
+	check("all scaffolds: WORKFLOW_SCAFFOLD default parses and exports a workflow function", defaultOk, defaultDetail);
 }
 
 // Orphan/parse gate over the FULL embedded set (every scaffolds/*.js inlined into
 // EMBEDDED_SCAFFOLD_SOURCES), not just the catalog-reachable ones scenarioAllScaffoldsParse
 // covers. readSources() is the exact set the generator inlines (the sync test pins it to the
-// committed map); buildTemplates() gives the public runtime resolution. This closes the
-// review's M1/M2: a scaffolds/foo.js added without a templates.ts alias is globbed into the
+// committed map); buildScaffolds() gives the public runtime resolution. This closes the
+// review's M1/M2: a scaffolds/foo.js added without a pattern-scaffolds.ts alias is globbed into the
 // shipped map but is otherwise unlinted/untyped/unparsed/unreachable -- dead or broken code
 // that ships with zero failing gates. Each source must (a) parse + export a workflow function
 // and (b) be reachable from the public catalog (or be the default), so an orphan fails here.
@@ -1199,7 +1199,7 @@ async function scenarioNoOrphanScaffold(mod) {
 	const keys = Object.keys(sources);
 	check("orphan guard: embedded scaffold sources discovered", keys.length > 0, `count=${keys.length}`);
 
-	// Every string the public catalog can serve, plus the no-pattern default template.
+	// Every string the public catalog can serve, plus the no-pattern default scaffold.
 	const reachable = new Set();
 	for (const pattern of mod.WORKFLOW_PATTERN_CATALOG ?? []) {
 		try {
@@ -1208,7 +1208,7 @@ async function scenarioNoOrphanScaffold(mod) {
 			/* parse/resolution failures are asserted by scenarioAllScaffoldsParse */
 		}
 	}
-	reachable.add(mod.WORKFLOW_TEMPLATE);
+	reachable.add(mod.WORKFLOW_SCAFFOLD);
 
 	for (const key of keys) {
 		const code = sources[key];
@@ -1248,18 +1248,18 @@ async function main() {
 		await scenarioUltracodeTaskParsing(url);
 		await scenarioAppendMutexPurge(url);
 		await scenarioShutdownTimerNoLeak(url);
-		const templatesUrl = await buildTemplates();
-		const templatesMod = await import(`${templatesUrl}?i=${instance++}`);
+		const scaffoldsUrl = await buildScaffolds();
+		const scaffoldsMod = await import(`${scaffoldsUrl}?i=${instance++}`);
 		// Compile scaffolds through the REAL runtime transform (lifts `export const meta`, rewrites
-		// the export); it lives in the index.ts bundle, not templates.ts.
+		// the export); it lives in the index.ts bundle, not pattern-scaffolds.ts.
 		__transform = (await import(`${url}?i=${instance++}`)).transformWorkflowCode;
-		await scenarioScoutTemplateInjectionSafe(templatesMod);
-		await scenarioAdversarialInputCoercion(templatesMod);
-		await scenarioJudgeEscalateBounded(templatesMod);
-		await scenarioVerifyClaimsLibSkepticsCoercion(templatesMod);
-		await scenarioNoOrphanedTemplates(templatesMod);
-		await scenarioAllScaffoldsParse(templatesMod);
-		await scenarioNoOrphanScaffold(templatesMod);
+		await scenarioScoutScaffoldInjectionSafe(scaffoldsMod);
+		await scenarioAdversarialInputCoercion(scaffoldsMod);
+		await scenarioJudgeEscalateBounded(scaffoldsMod);
+		await scenarioVerifyClaimsLibSkepticsCoercion(scaffoldsMod);
+		await scenarioNoOrphanedScaffolds(scaffoldsMod);
+		await scenarioAllScaffoldsParse(scaffoldsMod);
+		await scenarioNoOrphanScaffold(scaffoldsMod);
 		console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 		if (counts.failed) {
 			console.log(counts.failures.map((f) => `- ${f}`).join("\n"));

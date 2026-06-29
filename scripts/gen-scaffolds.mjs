@@ -5,7 +5,7 @@
  * Source of truth: extensions/pi-dynamic-workflows/scaffolds/*.js (real, lintable,
  * node --check-able workflow files). This script reads each file's exact source
  * text and emits extensions/pi-dynamic-workflows/scaffolds.generated.ts, whose
- * EMBEDDED_SCAFFOLD_SOURCES map templates.ts imports at runtime — so the scaffold
+ * EMBEDDED_SCAFFOLD_SOURCES map pattern-scaffolds.ts imports at runtime — so the scaffold
  * code ships INSIDE the package as data (no runtime filesystem dependency) while
  * being authored as ordinary files.
  *

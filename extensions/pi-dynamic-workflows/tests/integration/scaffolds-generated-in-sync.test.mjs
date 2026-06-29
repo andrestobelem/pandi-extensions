@@ -24,7 +24,7 @@ function main() {
 
 	check("scaffolds: sources discovered", keys.length >= 25, `count=${keys.length}`);
 	check(
-		"scaffolds: base scatter-gather scaffold present (WORKFLOW_TEMPLATE source)",
+		"scaffolds: base scatter-gather scaffold present (WORKFLOW_SCAFFOLD source)",
 		keys.includes("fan-out-and-synthesize"),
 		keys.join(","),
 	);

@@ -14,6 +14,7 @@ import type {
 	WorkflowRunState,
 } from "./index.js";
 import { JOURNAL_FILE } from "./index.js";
+import type { WorkflowPattern } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { workflowProgress } from "./presentation.js";
 import {
@@ -26,7 +27,6 @@ import {
 } from "./run-state.js";
 import { canCancelRun, isActiveRunRecord } from "./run-status-ui.js";
 import { listRunFiles } from "./run-view.js";
-import type { WorkflowPattern } from "./templates.js";
 
 export interface WorkflowDashboardResult {
 	type:

@@ -97,7 +97,7 @@ const signal = new AbortController().signal;
 const ctx = makeCtx();
 
 for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
-	const res = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
+	const res = await tool.execute("scaffold", { action: "scaffold", name: key }, signal, () => {}, ctx);
 	const code = res?.content?.[0]?.text ?? "";
 
 	// 1) Must NOT compact the bare raw-results array (metadata footgun).
@@ -120,7 +120,7 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 // Position-aware restatement (check #3 only) for the non-fan-out synthesis patterns, so a
 // regression that drops a footer from these scaffolds is also caught.
 for (const key of POSITION_AWARE_EXTRA) {
-	const res = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
+	const res = await tool.execute("scaffold", { action: "scaffold", name: key }, signal, () => {}, ctx);
 	const code = res?.content?.[0]?.text ?? "";
 	const compactIdx = code.lastIndexOf("compact(");
 	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";

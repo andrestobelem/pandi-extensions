@@ -314,7 +314,7 @@ async function scenarioTemplateCatalog(url) {
 
 	const ctx = makeCtx();
 	const signal = new AbortController().signal;
-	const catalogResult = await tool.execute("catalog", { action: "template" }, signal, () => {}, ctx);
+	const catalogResult = await tool.execute("catalog", { action: "scaffold" }, signal, () => {}, ctx);
 	const catalog = catalogResult.content?.[0]?.text ?? "";
 	// The single-interface catalog: keys ARE the scaffold names (meta.name) of the 25 workflows.
 	const requiredTopLevel = [
@@ -363,9 +363,9 @@ async function scenarioTemplateCatalog(url) {
 	for (const oldKey of retiredKeys) {
 		check(`catalog demotes old key ${oldKey}`, !new RegExp(`^- ${oldKey} —`, "m").test(catalog), catalog);
 	}
-	check("catalog groups primary templates", catalog.includes("## Templates"), catalog);
-	check("catalog groups composition templates", catalog.includes("## Compose templates"), catalog);
-	check("catalog groups use-case templates", catalog.includes("## Use-case templates"), catalog);
+	check("catalog groups primary scaffolds", catalog.includes("## Scaffolds"), catalog);
+	check("catalog groups composition scaffolds", catalog.includes("## Compose scaffolds"), catalog);
+	check("catalog groups use-case scaffolds", catalog.includes("## Use-case scaffolds"), catalog);
 	check(
 		"catalog includes research-backed templates",
 		catalog.includes("## Research-backed templates") && catalog.includes("**ReAct** -> scout/observe"),
@@ -373,7 +373,7 @@ async function scenarioTemplateCatalog(url) {
 	);
 
 	for (const key of requiredTopLevel) {
-		const scaffold = await tool.execute("scaffold", { action: "template", name: key }, signal, () => {}, ctx);
+		const scaffold = await tool.execute("scaffold", { action: "scaffold", name: key }, signal, () => {}, ctx);
 		check(
 			`scaffold loads for ${key}`,
 			scaffold.details?.pattern?.key === key && /export const meta\s*=/.test(scaffold.content?.[0]?.text ?? ""),
@@ -384,7 +384,7 @@ async function scenarioTemplateCatalog(url) {
 	for (const oldKey of retiredKeys) {
 		let rejected = false;
 		try {
-			await tool.execute("alias", { action: "template", name: oldKey }, signal, () => {}, ctx);
+			await tool.execute("alias", { action: "scaffold", name: oldKey }, signal, () => {}, ctx);
 		} catch (err) {
 			rejected = err instanceof Error && err.message.includes("Unknown workflow pattern");
 		}

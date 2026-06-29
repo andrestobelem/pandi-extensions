@@ -14,7 +14,7 @@
 	],
 	"files": [
 		"index.ts",
-		"templates.ts",
+		"pattern-scaffolds.ts",
 		"catalog.ts",
 		"pattern-format.ts",
 		"scaffolds.generated.ts",

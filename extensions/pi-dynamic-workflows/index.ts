@@ -47,6 +47,7 @@ import {
 } from "./focus-metrics.js";
 import { extractJsonCandidate } from "./json-extract.js";
 import { notify } from "./notify.js";
+import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./pattern-scaffolds.js";
 import { runStreamingAgentProcess } from "./process-spawn.js";
 import {
 	appendSystemPromptOption,
@@ -54,7 +55,6 @@ import {
 	makeStructuredOutputSystemPrompt,
 	validateStructuredData,
 } from "./structured-output.js";
-import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
 
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
@@ -186,7 +186,7 @@ export const MAX_JOURNALED_STREAM = 200_000;
 
 const TOOL_ACTIONS = [
 	"list",
-	"template",
+	"scaffold",
 	"read",
 	"write",
 	"run",
@@ -267,12 +267,12 @@ interface WorkflowRuntimeApi {
 const workflowToolSchema = Type.Object({
 	action: StringEnum(TOOL_ACTIONS, {
 		description:
-			"Workflow operation to perform: list/template/read/write/run/start/resume/cancel/delete/graph/runs/view. template with no name lists the pattern catalog; template with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed.",
+			"Workflow operation to perform: list/scaffold/read/write/run/start/resume/cancel/delete/graph/runs/view. scaffold with no name lists the pattern catalog; scaffold with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed.",
 	}),
 	name: Type.Optional(
 		Type.String({
 			description:
-				"Workflow name/path relative to the workflow directory (.js is added when omitted), run id for view/cancel/resume (defaults to latest for resume), or pattern key for action=template.",
+				"Workflow name/path relative to the workflow directory (.js is added when omitted), run id for view/cancel/resume (defaults to latest for resume), or pattern key for action=scaffold.",
 		}),
 	),
 	scope: Type.Optional(
@@ -1522,7 +1522,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			"Decide model and reasoning per call: pass model ('haiku'|'sonnet'|'opus' or a full 'provider/id') and effort (low|medium|high|xhigh|max) on agent/agents/pipeline calls or any per-item spec (the node(role,extra) helper threads input.models/efforts/toolsByRole per role). Use a cheap/fast model + low effort for wide scouting, classification, and extraction; a stronger model + high/xhigh effort for synthesis, adversarial verification, planning, and hard reasoning. Omitting them inherits the orchestrator model and session reasoning level; agentType personas set defaults (reviewer/planner/researcher=high, explore/implementer=medium) and explicit options win. model and effort are part of the cache key, so changing them re-runs that call on resume.",
 			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them. In synthesis/judge prompts, restate the task + success criteria at BOTH the start and the end (after the evidence block), most-important findings first, to counter lost-in-the-middle.",
 			"Never cap coverage silently. Whenever a workflow uses slice/head/top-N/sampling/no-retry, clamps concurrency to limits.concurrency, or lowers maxAgents below the discovered work-list, log() exactly what was excluded, delayed, or clamped.",
-			"When creating a workflow, inspect the pattern catalog first (optionally action=template name=<key> for a scaffold), reuse an existing workflow only when it exactly matches the task, otherwise write a clear gitignored .pi/workflows/drafts/<task-slug>.js project draft and launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If a workflow is warranted for complex workflow/prompt/contract design, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name.",
+			"When creating a workflow, inspect the pattern catalog first (optionally action=scaffold name=<key> for a scaffold), reuse an existing workflow only when it exactly matches the task, otherwise write a clear gitignored .pi/workflows/drafts/<task-slug>.js project draft and launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If a workflow is warranted for complex workflow/prompt/contract design, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name.",
 			"Workflows in persistent TUI/RPC sessions always run in background: use dynamic_workflow action=start (or action=run, which the extension backgrounds there), then inspect with action=runs/view and stop with action=cancel if needed.",
 			"If a run was interrupted (state stale/failed/cancelled), use dynamic_workflow action=resume name=<runId> to continue it in place; completed subagent/bash calls are reused from the run journal and are not re-executed, so resuming is cheap. agent() output is cached by default (opt out with {cache:false}); bash() is cached only with {cache:true}. Calls whose arguments depend on Date.now()/Math.random() will not be cached and will re-run on resume.",
 			"Build subagent prompts with a stable prefix: put shared/stable framing (role, task, success criteria, output format) FIRST and push volatile per-item content (the item text, ids, retrieved snippets) to the END, so identical prefixes reuse the provider prompt/KV cache across calls. Avoid Date.now()/Math.random() or other nondeterministic values inside prompts \u2014 they bust that cache and make the resume journal miss, re-running the call.",

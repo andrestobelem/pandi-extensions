@@ -22,6 +22,7 @@ import {
 import { formatAgentPhase, getAgentElapsedMs } from "./event-parser.js";
 import type { AgentMonitorModel, WorkflowFile, WorkflowRunRecord } from "./index.js";
 import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
+import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { compactInline, formatElapsedMs } from "./presentation.js";
 import { padRightVisible, renderSafeInline } from "./render-utils.js";
@@ -38,7 +39,6 @@ import {
 	isResumableState,
 } from "./run-state.js";
 import { canCancelRun } from "./run-status-ui.js";
-import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./templates.js";
 
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
 export type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];

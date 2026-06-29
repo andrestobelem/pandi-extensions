@@ -33,6 +33,8 @@ import type {
 } from "./index.js";
 import { activeRuns, runWorkflow } from "./index.js";
 import { notify } from "./notify.js";
+import type { WorkflowPattern } from "./pattern-scaffolds.js";
+import { loadWorkflowPatternCode } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { collectPiSessions, sessionManagerMetadata } from "./pi-session.js";
 import {
@@ -54,8 +56,6 @@ import {
 	showText,
 } from "./run-status-ui.js";
 import { formatRunView, listRuns } from "./run-view.js";
-import type { WorkflowPattern } from "./templates.js";
-import { loadWorkflowPatternCode } from "./templates.js";
 import type { DashboardSelection, WorkflowDashboardTab } from "./workflow-dashboard.js";
 import { WorkflowDashboard } from "./workflow-dashboard.js";
 import { showWorkflowGraph } from "./workflow-graph.js";

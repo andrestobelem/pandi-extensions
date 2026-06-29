@@ -139,10 +139,10 @@ try {
 		check(`depth=2: ${action} refused by recursion guard`, !!msg && /recursion guard/i.test(msg), msg);
 	}
 
-	// 2) A read-only action (template) is NEVER refused, even at/over the limit.
+	// 2) A read-only action (scaffold) is NEVER refused, even at/over the limit.
 	{
-		const msg = await expectThrow(tool, ctx, { action: "template" });
-		check("depth=2: read-only template is NOT refused", msg === undefined, msg);
+		const msg = await expectThrow(tool, ctx, { action: "scaffold" });
+		check("depth=2: read-only scaffold is NOT refused", msg === undefined, msg);
 	}
 
 	// 3) Below the limit (depth=1) a run proceeds past the guard (executes the noop workflow).

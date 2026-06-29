@@ -96,7 +96,7 @@ export function isMutatingBash(command: string): boolean {
  * bash:                                           blocked iff the command matches the
  *                                                mutating allowlist (above); else allowed.
  * Known mutating custom tools:                    dynamic_workflow is blocked unless its
- *                                                action is read-only (list/template/read/
+ *                                                action is read-only (list/scaffold/read/
  *                                                graph/runs/view). It can write files to the
  *                                                workspace and spawn subagents that run
  *                                                write/edit/bash, and those subagent tool
@@ -110,7 +110,7 @@ export function isMutatingBash(command: string): boolean {
  *                                                another extension/MCP would fall through here
  *                                                (best-effort — we rely on the prompt for those).
  */
-export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set(["list", "template", "read", "graph", "runs", "view"]);
+export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set(["list", "scaffold", "read", "graph", "runs", "view"]);
 
 /**
  * Structured built-in mutators that are ALWAYS blocked while planning. notebook-edit is
@@ -152,7 +152,7 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	if (name === "dynamic_workflow") {
 		const action = (event.input as { action?: unknown }).action;
 		if (typeof action === "string" && DYNAMIC_WORKFLOW_READONLY_ACTIONS.has(action)) return undefined;
-		return `plan mode is READ-ONLY: dynamic_workflow "${String(action)}" can write files or spawn mutating subagents and is blocked while planning. Use only read-only actions (list/template/read/graph/runs/view), or submit_plan when your plan is ready.`;
+		return `plan mode is READ-ONLY: dynamic_workflow "${String(action)}" can write files or spawn mutating subagents and is blocked while planning. Use only read-only actions (list/scaffold/read/graph/runs/view), or submit_plan when your plan is ready.`;
 	}
 	// Unknown / other tools: allow. The hard guarantees above (built-in mutators + bash
 	// heuristic + the known custom-tool block) are best-effort; an unknown custom mutating

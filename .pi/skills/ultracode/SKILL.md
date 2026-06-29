@@ -192,15 +192,17 @@ The Claude catalog ships a `fence(kind, data)` helper (beside `compact()`) in ev
 
 ## Research-backed templates
 
-Use as patterns, not ceremony — every branch needs a reason, a contract, and a stop condition.
+Map common agent papers/frameworks to Pi workflow design:
 
-- **ReAct** → scout/observe with tools before fan-out; keep reasoning tied to evidence.
-- **Self-consistency** → sample independent paths, select by consensus/evidence, not one path.
-- **Reflexion / Self-Refine** → generate → critique → refine, bounded by rounds, quiet stops, budget.
-- **Tree of Thoughts** → branch alternatives, score/prune with a judge, commit to one.
-- **Multi-agent debate** → adversarial reviewers + synthesis-as-judge; drop unsupported claims.
-- **AutoGen / CAMEL / MetaGPT** → explicit roles, stable artifacts, clear handoff contracts.
-- **SWE-agent / DSPy** → interfaces matter: narrow tools, schemas/fixed formats, reproducible checks.
+- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.
+- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.
+- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.
+- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.
+- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.
+- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.
+- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.
+
+Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
 
 ## The pattern catalog (by family)
 
@@ -288,7 +290,7 @@ call via `model`/`provider`. It is *not* "Codex"; Codex is just one of the provi
 - **Invoke / run:**
 
 ```js
-dynamic_workflow({ action: 'template' })                    // inspect the pattern catalog
+dynamic_workflow({ action: 'scaffold' })                    // inspect the pattern catalog
 dynamic_workflow({ action: 'write', name: 'task-slug' })    // draft under .pi/workflows/drafts/
 dynamic_workflow({ action: 'start', name: 'task-slug', input: {…}, concurrency: 8, maxAgents: 40 })
 dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { action: 'resume', name: runId }
@@ -299,6 +301,15 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
   <name>`. Clamp to `limits.concurrency` / `limits.maxAgents`.
 - **Depth:** 2 by default, configurable to 3 via `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`. **Resume** is
   cheap (journaled): `agent()` is cached by default, `bash()` only with `{ cache: true }`.
+- **Structured output:** `agent(prompt, { schema })` returns the parsed object (or `null` on a
+  failed/invalid branch); the plural `agents`/`pipeline`/`parallel` return `SubagentResult` envelopes
+  (`.output` text, `.data` parsed, `.schemaOk`), `null` per failed branch under `settle`. Tune with
+  `schemaRetries` (default 2) and `schemaOnInvalid: "throw" | "null"`.
+- **Access defaults:** restrict audits to read-only `tools: ["read","grep","find","ls"]`. `web_search`
+  (via `pi-codex-web-search`) and `context7-cli` are auto-added when installed; opt out with
+  `includeExtensions: false` / `excludeTools: ["web_search"]` / `includeSkills: false`. File helpers
+  `readFile`/`writeFile`/`appendFile`/`listFiles` and `writeArtifact`/`appendArtifact` are confined to
+  the run cwd/runDir; `keys`/`env` expose only named secrets (values redacted in artifacts).
 
 ### Cheat-sheet
 
@@ -309,7 +320,7 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
 | Budget knobs | `model` · `effort` (low…max) | `model`/`provider` · `effort` (low…max → off…xhigh) |
 | Models | `haiku`/`sonnet`/`opus` (`fable` disabled) | Anthropic ids OR `openai-codex/gpt-5.x` |
 | Per-role | `node(role)` helper / inline / `models`+`efforts` | per-call + `agentType` personas |
-| Catalog | `~/.claude/workflows/` + README | `dynamic_workflow action=template` |
+| Catalog | `~/.claude/workflows/` + README | `dynamic_workflow action=scaffold` |
 | Depth | 1 | 2 (→3) |
 | Preview | render HTML + `open` (required) | `/workflow graph`, `/workflows` dashboard |
 

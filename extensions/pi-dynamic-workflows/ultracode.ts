@@ -9,7 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
+import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./pattern-scaffolds.js";
 
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
 const ULTRACODE_CONTRACT_STATUS_KEY = "dynamic-workflows-ultracode-contract";
@@ -39,7 +39,7 @@ function formatUltracodeRoutingRules(style: "command" | "always-on"): string {
 			: "use dynamic_workflow only for exhaustiveness, confidence, or scale";
 	const catalogLine =
 		style === "command"
-			? "Inspect the template catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft."
+			? "Inspect the scaffold catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft."
 			: "Inspect the catalog, then reuse an exact existing fit or write a gitignored .pi/workflows/drafts/<slug>.js draft.";
 	const launchLine =
 		style === "command"

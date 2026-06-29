@@ -89,7 +89,7 @@ While planning, the gate (see `gate.ts`) hard-blocks mutation and allows only re
 
 `dynamic_workflow` is gated by **action**:
 
-- **Allowed while planning (read-only):** `list`, `template`, `read`, `graph`, `runs`, `view` —
+- **Allowed while planning (read-only):** `list`, `scaffold`, `read`, `graph`, `runs`, `view` —
   use them to inspect the catalog and design the right workflow.
 - **Blocked while planning:** `run`, `start`, `resume`, `write`, `cancel`, `delete` (they can
   write files or spawn mutating subagents whose tool calls bypass this gate). A missing/unknown

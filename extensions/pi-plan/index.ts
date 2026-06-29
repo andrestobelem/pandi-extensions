@@ -587,7 +587,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 			"Do NOT use enter_plan_mode for trivial, single-step, read-only, or already-approved work, for answering questions, or when a plan, /goal, or /loop is already driving the turn — just do those directly.",
 			"enter_plan_mode needs an interactive approval, so it only takes effect in a TUI or RPC session; if it reports it could not enter (non-interactive mode) or that plan mode is already active, do NOT retry — continue the task (or, if already planning, keep researching read-only and call submit_plan).",
 			"After enter_plan_mode you are READ-ONLY: write/edit and mutating shell commands are hard-blocked until the user approves your plan, so finish researching and then call submit_plan — implementation happens only after approval.",
-			"Your plan MAY include running dynamic workflows (dynamic_workflow action=run/start) as post-approval implementation steps for broad, parallel, or high-confidence work (large audits, migrations, exhaustive sweeps, independent verification, deep research); while planning you can inspect the catalog read-only (dynamic_workflow action=list/template/read) to pick or design the right one and describe it in the plan.",
+			"Your plan MAY include running dynamic workflows (dynamic_workflow action=run/start) as post-approval implementation steps for broad, parallel, or high-confidence work (large audits, migrations, exhaustive sweeps, independent verification, deep research); while planning you can inspect the catalog read-only (dynamic_workflow action=list/scaffold/read) to pick or design the right one and describe it in the plan.",
 		],
 		parameters: Type.Object({
 			task: Type.String({

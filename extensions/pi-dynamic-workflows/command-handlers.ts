@@ -23,6 +23,13 @@ import { text } from "./format.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
 import { currentWorkflowDepth, maxWorkflowDepth } from "./index.js";
 import { notify } from "./notify.js";
+import {
+	formatWorkflowPatternCatalog,
+	loadWorkflowPatternCode,
+	resolveWorkflowPattern,
+	WORKFLOW_PATTERN_CATALOG,
+	WORKFLOW_SCAFFOLD,
+} from "./pattern-scaffolds.js";
 import { collectPiSessions, formatPiSessionList } from "./pi-session.js";
 import { formatWorkflowList } from "./presentation.js";
 import {
@@ -36,13 +43,6 @@ import {
 import { getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun } from "./run-view.js";
-import {
-	formatWorkflowPatternCatalog,
-	loadWorkflowPatternCode,
-	resolveWorkflowPattern,
-	WORKFLOW_PATTERN_CATALOG,
-	WORKFLOW_TEMPLATE,
-} from "./templates.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow } from "./workflow-resolve.js";
 
@@ -68,7 +68,7 @@ export async function handleTool(
 		);
 	}
 
-	if (action === "template") {
+	if (action === "scaffold") {
 		const pattern = params.name ? resolveWorkflowPattern(params.name) : undefined;
 		if (params.name && !pattern) {
 			throw new Error(
@@ -76,12 +76,12 @@ export async function handleTool(
 			);
 		}
 		if (pattern) {
-			const template = await loadWorkflowPatternCode(pattern);
-			return { content: [text(template)], details: { action, pattern, template } };
+			const scaffold = await loadWorkflowPatternCode(pattern);
+			return { content: [text(scaffold)], details: { action, pattern, scaffold } };
 		}
 		return {
 			content: [text(formatWorkflowPatternCatalog())],
-			details: { action, patterns: WORKFLOW_PATTERN_CATALOG, template: WORKFLOW_TEMPLATE },
+			details: { action, patterns: WORKFLOW_PATTERN_CATALOG, scaffold: WORKFLOW_SCAFFOLD },
 		};
 	}
 
@@ -261,7 +261,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 			return;
 		}
 
-		if (action === "patterns" || action === "catalog" || action === "templates") {
+		if (action === "patterns" || action === "catalog" || action === "scaffolds") {
 			if (ctx.mode === "tui") await openWorkflowDashboard(pi, ctx, "patterns");
 			else await showText(ctx, "Workflow pattern catalog", formatWorkflowPatternCatalog());
 			return;
@@ -314,10 +314,10 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 				);
 				return;
 			}
-			const template = pattern ? await loadWorkflowPatternCode(pattern) : WORKFLOW_TEMPLATE;
+			const scaffold = pattern ? await loadWorkflowPatternCode(pattern) : WORKFLOW_SCAFFOLD;
 			const edited = await ctx.ui.editor(
 				pattern ? `New workflow: ${name} (${pattern.key})` : `New workflow: ${name}`,
-				template,
+				scaffold,
 			);
 			if (edited === undefined) return;
 			const workflow = await resolveWorkflow(ctx, name, "project", "workflow");

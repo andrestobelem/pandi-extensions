@@ -1,9 +1,9 @@
 /**
  * Workflow pattern catalog metadata + key resolution for dynamic-workflows.
  *
- * Pure data + lookup helpers, split out of templates.ts for cohesion. Catalog keys ARE the
+ * Pure data + lookup helpers, split out of pattern-scaffolds.ts for cohesion. Catalog keys ARE the
  * scaffold filenames / `meta.name` of extensions/pi-dynamic-workflows/scaffolds/*.js, so
- * templates.ts maps each key 1:1 to its embedded source. Content mirrors the authoring
+ * pattern-scaffolds.ts maps each key 1:1 to its embedded source. Content mirrors the authoring
  * reference in scaffolds/README.md (§6 "the 25 workflows by family").
  */
 
@@ -15,7 +15,7 @@ export interface WorkflowPattern {
 	inputHint: string;
 	primitives: string[];
 	defaultName: string;
-	category?: "template" | "compose" | "use-case";
+	category?: "scaffold" | "compose" | "use-case";
 	useCases?: string[];
 }
 
@@ -138,11 +138,11 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		],
 	},
 
-	// ── Discover & fan-out / generate & select / iterate & refine (category: template) ──
+	// ── Discover & fan-out / generate & select / iterate & refine (category: scaffold) ──
 	{
 		key: "fan-out-and-synthesize",
 		title: "Fan-out and synthesize",
-		category: "template",
+		category: "scaffold",
 		blurb: "Scatter-gather: scout a work-list, one reviewer per item (parallel, settle), synthesize-as-judge with coverage/failure notes.",
 		useWhen: "You need broad independent coverage of a known-ish work-list.",
 		inputHint: '{ "lens": "security", "limit": 20 }',
@@ -157,7 +157,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "scout-fanout",
 		title: "Scout → adaptive fan-out",
-		category: "template",
+		category: "scaffold",
 		blurb: "Scout then adaptive-depth pipeline: risk-classify every file cheaply, deep-review only high/medium; low-risk short-circuits.",
 		useWhen: "You want coverage but only want to pay for the risky items.",
 		inputHint: '{ "pattern": "config", "lens": "security", "maxFiles": 40 }',
@@ -179,7 +179,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "loop-until-dry",
 		title: "Loop until dry",
-		category: "template",
+		category: "scaffold",
 		blurb: "Keep fanning out finders until K consecutive quiet rounds or maxRounds.",
 		useWhen: "The set you're discovering is unknown-size and you want exhaustiveness.",
 		inputHint: '{ "target": "all places we parse SSE chunks", "quietRounds": 2, "maxRounds": 8 }',
@@ -190,7 +190,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "react-scout",
 		title: "ReAct scout (grounded)",
-		category: "template",
+		category: "scaffold",
 		blurb: "ReAct reason → act → observe loop: each step grounds a thought in a real read-only observation before the next.",
 		useWhen: "You need an evidence-grounded scout before committing or fanning out.",
 		inputHint: '{ "question": "Where does the WASM decoder get fed bytes?" }',
@@ -216,7 +216,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "adversarial-verify",
 		title: "Adversarial verify (jury)",
-		category: "template",
+		category: "scaffold",
 		blurb: "Per-finding skeptic jury that prunes by majority refutation; default-to-doubt.",
 		useWhen: "You have findings/claims and want only the ones that survive refutation.",
 		inputHint: '{ "topic": "security claims about our token flow", "skeptics": 5 }',
@@ -249,7 +249,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "judge-escalate",
 		title: "Judge + escalate",
-		category: "template",
+		category: "scaffold",
 		blurb: "Generate candidates from distinct angles, typed judge, escalate only when confidence is low.",
 		useWhen: "Best-of-N where you'd rather deepen than commit to a weak winner.",
 		inputHint: '{ "question": "Best rollback strategy for the gate?" }',
@@ -260,7 +260,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "tournament",
 		title: "Tournament (bracket)",
-		category: "template",
+		category: "scaffold",
 		blurb: "Single-elimination bracket: pairwise judge rounds until one candidate survives.",
 		useWhen: "Absolute scoring is unreliable but pairwise comparison is easy.",
 		inputHint: '{ "candidates": ["a", "b", "c", "d"] }',
@@ -271,7 +271,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "self-consistency",
 		title: "Self-consistency (vote)",
-		category: "template",
+		category: "scaffold",
 		blurb: "Sample N independent reasoning paths, pick by consensus (vote), tie-broken by an evidence-weighing judge.",
 		useWhen: "A single chain might be wrong and agreement is the signal you trust.",
 		inputHint: '{ "question": "Does this code path leak the handle?", "samples": 7 }',
@@ -286,7 +286,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "tree-of-thoughts",
 		title: "Tree of thoughts",
-		category: "template",
+		category: "scaffold",
 		blurb: "Beam search over partial solutions: expand K thoughts, judge-score, prune to top-B, recurse to depth, commit.",
 		useWhen: "The problem has intermediate steps worth exploring, not just final candidates.",
 		inputHint: '{ "problem": "Design the gate rollout in 4 staged steps.", "branching": 3, "beam": 2 }',
@@ -297,7 +297,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "self-refine",
 		title: "Self-refine",
-		category: "template",
+		category: "scaffold",
 		blurb: "Bounded in-place generate → critique → refine with verbal memory; quiet-stop when the critic is satisfied.",
 		useWhen: "You want to polish one artifact and the critique can be intrinsic.",
 		inputHint: '{ "task": "Write the migration guide section.", "useJury": true }',
@@ -308,7 +308,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "reflexion",
 		title: "Reflexion (trial loop)",
-		category: "template",
+		category: "scaffold",
 		blurb: "Verbal-RL outer trial loop: re-attempt each trial carrying self-reflections; evaluator can be externally grounded (verifyCmd).",
 		useWhen: "A fresh re-attempt beats editing in place, and you have an objective oracle.",
 		inputHint: '{ "task": "Make the failing decoder test pass.", "verifyCmd": "npm test -- decoder" }',
@@ -330,7 +330,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 	{
 		key: "map-reduce",
 		title: "Map-reduce (hierarchical)",
-		category: "template",
+		category: "scaffold",
 		blurb: "Hierarchical map-reduce: per-chunk map under an evidence contract, reduce in bounded batches to one summary-of-summaries.",
 		useWhen: "The input is bigger than one context window.",
 		inputHint: '{ "instruction": "Extract every breaking API change", "content": "..." }',

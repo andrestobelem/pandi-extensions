@@ -1,7 +1,7 @@
 /**
  * Presentation helpers that render the workflow pattern catalog into the
  * prompt/cheat-sheet strings shown to humans and the model. Split out of
- * templates.ts for cohesion; pure formatters over catalog.ts data.
+ * pattern-scaffolds.ts for cohesion; pure formatters over catalog.ts data.
  */
 
 import type { WorkflowPattern } from "./catalog.js";
@@ -12,16 +12,16 @@ export function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG
 		"Workflow pattern catalog",
 		"Use in TUI: /workflows → Patterns tab, then Enter/n to create a project workflow draft.",
 		"Use from command line: /workflow new <name> --pattern=<key>",
-		"Use from tool: dynamic_workflow action=template name=<key>",
+		"Use from tool: dynamic_workflow action=scaffold name=<key>",
 		"",
 	];
 	const sections: [WorkflowPattern["category"], string][] = [
-		["template", "Templates"],
-		["compose", "Compose templates"],
-		["use-case", "Use-case templates"],
+		["scaffold", "Scaffolds"],
+		["compose", "Compose scaffolds"],
+		["use-case", "Use-case scaffolds"],
 	];
 	for (const [category, label] of sections) {
-		const sectionPatterns = patterns.filter((pattern) => (pattern.category ?? "template") === category);
+		const sectionPatterns = patterns.filter((pattern) => (pattern.category ?? "scaffold") === category);
 		if (sectionPatterns.length === 0) continue;
 		lines.push(`## ${label}`, "");
 		for (const pattern of sectionPatterns) {
@@ -55,7 +55,7 @@ export function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG
 
 export function formatWorkflowPatternPromptCheatSheet(patterns = WORKFLOW_PATTERN_CATALOG): string {
 	const lines = [
-		"Workflow template catalog (choose from these before writing from scratch; inspect with dynamic_workflow action=template, fetch a scaffold with name=<key>):",
+		"Workflow scaffold catalog (choose from these before writing from scratch; inspect with dynamic_workflow action=scaffold, fetch a scaffold with name=<key>):",
 	];
 	for (const pattern of patterns) {
 		lines.push(`- ${pattern.key}: ${pattern.useWhen} Primitives: ${pattern.primitives.join(", ")}.`);
@@ -75,7 +75,7 @@ export function formatWorkflowCompositionPromptGuidance(): string {
 
 export function formatWorkflowPatternKeyList(patterns = WORKFLOW_PATTERN_CATALOG): string {
 	const keys = patterns.map((pattern) => pattern.key).join(", ");
-	return `Workflow templates: ${keys}. Inspect details with dynamic_workflow action=template; fetch a scaffold with name=<key>.`;
+	return `Workflow scaffolds: ${keys}. Inspect details with dynamic_workflow action=scaffold; fetch a scaffold with name=<key>.`;
 }
 
 export function formatWorkflowCompositionPromptSummary(): string {
