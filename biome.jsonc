@@ -52,6 +52,7 @@
 			"!.cache",
 			"!coverage",
 			"!package-lock.json",
+			"!skills-lock.json",
 			"!pi-session-*.html",
 			"!**/*.md"
 		]
