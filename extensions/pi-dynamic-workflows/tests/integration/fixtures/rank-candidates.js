@@ -4,6 +4,14 @@ module.exports = async function workflow(ctx, input) {
 		.map((cand, i) => (typeof cand === "string" ? { id: `cand-${i}`, text: cand } : cand))
 		.filter((cand) => cand && typeof cand.text === "string" && cand.text.trim().length > 0)
 		.map((cand, i) => ({ id: cand.id ?? `cand-${i}`, text: cand.text }));
+	// Preserves `obj && obj.key` semantics (returns obj itself when falsy) WITHOUT
+	// the `obj && obj.key` pattern, which biome's useOptionalChain would rewrite to
+	// obj?.key — unsafe here because a dropped candidate can be "" / 0 (falsy but
+	// not nullish), which would change the result.
+	const truthyProp = (obj, key) => {
+		if (!obj) return obj;
+		return obj[key];
+	};
 	const dropped = raw
 		.map((cand, i) => ({ cand, i }))
 		.filter(
@@ -13,8 +21,8 @@ module.exports = async function workflow(ctx, input) {
 				String(typeof cand === "string" ? cand : cand.text).trim().length === 0,
 		)
 		.map(({ cand, i }) => ({
-			id: (cand && cand.id) ?? `cand-${i}`,
-			text: cand && cand.text,
+			id: truthyProp(cand, "id") ?? `cand-${i}`,
+			text: truthyProp(cand, "text"),
 			reason: "empty or non-text candidate",
 		}));
 
