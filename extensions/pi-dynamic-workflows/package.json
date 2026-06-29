@@ -17,6 +17,7 @@
 		"templates.ts",
 		"catalog.ts",
 		"pattern-format.ts",
+		"scaffolds.generated.ts",
 		"README.md"
 	],
 	"pi": {

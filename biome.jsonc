@@ -24,7 +24,12 @@
 			"!coverage",
 			"!package-lock.json",
 			"!pi-session-*.html",
-			"!**/*.md"
+			"!**/*.md",
+			// Authored scaffold sources keep their own 2-space style and exact bytes
+			// (they are emitted verbatim to users); the generated map is auto-built.
+			// node --check + the in-sync test guard them instead of Biome.
+			"!extensions/pi-dynamic-workflows/scaffolds",
+			"!extensions/pi-dynamic-workflows/scaffolds.generated.ts"
 		]
 	},
 

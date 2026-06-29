@@ -27,6 +27,7 @@
 		"format:check": "biome format .",
 		"lint:md": "markdownlint-cli2",
 		"lint:md:fix": "markdownlint-cli2 --fix",
+		"generate": "node scripts/gen-scaffolds.mjs",
 		"test:integration": "node scripts/test/run-all.mjs",
 		"test": "npm run typecheck && npm run check && npm run lint:md && npm run test:integration"
 	},
