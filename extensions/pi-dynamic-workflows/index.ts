@@ -4,7 +4,7 @@
  * This extension adds:
  * - `dynamic_workflow` tool for the model to list/read/write/run workflow scripts
  * - `/workflow` and `/workflows` commands for humans
- * - `/ultracode` (alias `/dynamic-workflow`) and `/deep-research` routing commands
+ * - `/dynamic-workflow` and `/deep-research` routing commands
  * - a small JavaScript workflow runtime with parallel Pi subagents and artifacts
  *
  * Workflows are trusted code. They run inside the Pi process (not a security
@@ -1407,26 +1407,8 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		handler: async (ctx) => await openWorkflowDashboard(pi, ctx),
 	});
 
-	pi.registerCommand("ultracode", {
-		description: "Ask Pi to solve a complex task using dynamic workflows when warranted",
-		handler: async (args, ctx) => {
-			const task = args.trim();
-			if (!task) {
-				notify(ctx, "Usage: /ultracode <task>", "warning");
-				return;
-			}
-			if (!ensureDynamicWorkflowToolActive(pi))
-				notify(
-					ctx,
-					"dynamic_workflow tool is not active; ultracode will only provide routing guidance.",
-					"warning",
-				);
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
-		},
-	});
-
 	pi.registerCommand("dynamic-workflow", {
-		description: "Alias for /ultracode: solve a complex task using dynamic workflows when warranted",
+		description: "Ask Pi to solve a complex task using dynamic workflows when warranted",
 		handler: async (args, ctx) => {
 			const task = args.trim();
 			if (!task) {

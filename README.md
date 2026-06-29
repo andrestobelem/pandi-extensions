@@ -71,8 +71,7 @@ Comandos humanos:
 /workflow delete-run latest             # borra artifacts/directorio de una corrida ya inactiva
 /workflow delete bug-hunt               # borra un workflow con confirmación
 /workflows
-/ultracode revisa todo el repo buscando bugs de concurrencia
-/dynamic-workflow revisa todo el repo buscando bugs de concurrencia   # alias de /ultracode
+/dynamic-workflow revisa todo el repo buscando bugs de concurrencia
 /deep-research investiga opciones para migrar X a Y
 /effort high                           # cambia el thinking effort: off|minimal|low|medium|high|xhigh
 /effort ultracode                      # xhigh + router dinámico estilo Claude Code
@@ -229,7 +228,7 @@ Durante runs activos en background (default en TUI/RPC), Pi muestra el estado en
 El camino normal es crear un workflow dinámicamente para la tarea concreta:
 
 ```text
-/ultracode auditá este repo buscando bugs de concurrencia y proponé fixes verificados
+/dynamic-workflow auditá este repo buscando bugs de concurrencia y proponé fixes verificados
 ```
 
 O desde el tool:
@@ -259,7 +258,7 @@ Al promover, conviene generalizar inputs (`maxFiles`, `paths`, `angles`, `concur
 
 ### Troubleshooting rápido
 
-Si `/ultracode`, `/workflow`, `/workflows` o el dashboard no aparecen:
+Si `/dynamic-workflow`, `/workflow`, `/workflows` o el dashboard no aparecen:
 
 - Verificá que el paquete esté cargado en el cwd actual:
 

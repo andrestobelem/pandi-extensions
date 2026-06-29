@@ -1,6 +1,6 @@
 /**
  * Ultracode router — the always-on prompt builders (routing rules, contract-gate, system
- * prompt), the dynamic-workflow tool activation helpers, the /ultracode + contract-gate
+ * prompt), the dynamic-workflow tool activation helpers, the /ultracode-mode + contract-gate
  * status widgets, and the toggle-command parser. The router brain behind the activate hooks.
  *
  * All functions take pi/ctx as parameters and hold no module state, so index.ts imports the

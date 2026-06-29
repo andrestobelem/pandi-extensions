@@ -3,11 +3,12 @@
  * Behavioral regression test for the Ultracode Contract Gate.
  *
  * Observable contract:
- *   - /ultracode prompts include an explicit task-contract review before normal
+ *   - /dynamic-workflow prompts include an explicit task-contract review before normal
  *     scout/orchestration guidance.
  *   - Text input starting with `ultracode ...` uses the same transformation.
  *   - The always-on Ultracode router advertises the same lightweight Contract Gate
- *     contract without double-injecting generated /ultracode prompts.
+ *     contract without double-injecting generated /dynamic-workflow prompts.
+ *   - The legacy /ultracode slash command is removed; /dynamic-workflow is the primary command.
  *   - /ultracode-contract can disable and re-enable the Contract Gate without
  *     disabling Ultracode routing.
  */
@@ -140,30 +141,10 @@ async function scenarioSlashCommand(url) {
 	const extension = await freshExtension(url);
 	const harness = makePi();
 	extension(harness.pi);
-	const command = harness.commands.get("ultracode");
-	check("/ultracode command registered", !!command);
+	const command = harness.commands.get("dynamic-workflow");
+	check("/dynamic-workflow command registered", !!command);
 
 	await command.handler("audita este repo", makeCtx());
-	const prompt = harness.messages[0]?.text ?? "";
-	check(
-		"/ultracode activates dynamic_workflow",
-		harness.activeTools.includes("dynamic_workflow"),
-		harness.activeTools.join(","),
-	);
-	check("/ultracode keeps original task", prompt.includes("Task:\naudita este repo"), prompt);
-	assertContractGate("/ultracode prompt", prompt);
-}
-
-async function scenarioDynamicWorkflowAlias(url) {
-	const extension = await freshExtension(url);
-	const harness = makePi();
-	extension(harness.pi);
-	const alias = harness.commands.get("dynamic-workflow");
-	const ultracode = harness.commands.get("ultracode");
-	check("/dynamic-workflow command registered", !!alias);
-	check("/dynamic-workflow command still coexists with /ultracode", !!ultracode);
-
-	await alias.handler("audita este repo", makeCtx());
 	const prompt = harness.messages[0]?.text ?? "";
 	check(
 		"/dynamic-workflow activates dynamic_workflow",
@@ -172,9 +153,19 @@ async function scenarioDynamicWorkflowAlias(url) {
 	);
 	check("/dynamic-workflow keeps original task", prompt.includes("Task:\naudita este repo"), prompt);
 	assertContractGate("/dynamic-workflow prompt", prompt);
+}
+
+async function scenarioUltracodeCommandRemoved(url) {
+	const extension = await freshExtension(url);
+	const harness = makePi();
+	extension(harness.pi);
+	const dynamicWorkflow = harness.commands.get("dynamic-workflow");
+	const ultracode = harness.commands.get("ultracode");
+	check("/dynamic-workflow command registered", !!dynamicWorkflow);
+	check("/ultracode slash command removed (no longer registered)", !ultracode, String(ultracode));
 
 	const notifications = [];
-	await alias.handler("   ", makeCtx({ notifications }));
+	await dynamicWorkflow.handler("   ", makeCtx({ notifications }));
 	check(
 		"/dynamic-workflow with no task shows usage",
 		notifications.at(-1)?.message === "Usage: /dynamic-workflow <task>",
@@ -229,10 +220,10 @@ async function scenarioContractGateToggle(url) {
 	const ctx = () => makeCtx({ statuses, notifications });
 	extension(harness.pi);
 	const contractGate = harness.commands.get("ultracode-contract");
-	const ultracode = harness.commands.get("ultracode");
+	const dynamicWorkflow = harness.commands.get("dynamic-workflow");
 	const deepResearch = harness.commands.get("deep-research");
 	check("/ultracode-contract command registered", !!contractGate);
-	check("/ultracode command still registered", !!ultracode);
+	check("/dynamic-workflow command still registered", !!dynamicWorkflow);
 	check("/deep-research command still registered", !!deepResearch);
 
 	await contractGate.handler("status", ctx());
@@ -253,14 +244,14 @@ async function scenarioContractGateToggle(url) {
 		statuses.at(-1)?.value === "cg:off",
 		JSON.stringify(statuses.at(-1)),
 	);
-	await ultracode.handler("audita sin fase cero", ctx());
+	await dynamicWorkflow.handler("audita sin fase cero", ctx());
 	const prompt = harness.messages.at(-1)?.text ?? "";
 	check(
-		"/ultracode still routes when the Contract Gate is off",
+		"/dynamic-workflow still routes when the Contract Gate is off",
 		prompt.includes("Task:\naudita sin fase cero"),
 		prompt,
 	);
-	assertNoContractGate("/ultracode prompt after contract gate off", prompt);
+	assertNoContractGate("/dynamic-workflow prompt after contract gate off", prompt);
 
 	const input = await fireFirst(harness.handlers, "input", {
 		source: "user",
@@ -301,8 +292,8 @@ async function scenarioContractGateToggle(url) {
 		statuses.at(-1)?.value === "cg:on",
 		JSON.stringify(statuses.at(-1)),
 	);
-	await ultracode.handler("audita con fase cero", ctx());
-	assertContractGate("/ultracode prompt after contract gate on", harness.messages.at(-1)?.text ?? "");
+	await dynamicWorkflow.handler("audita con fase cero", ctx());
+	assertContractGate("/dynamic-workflow prompt after contract gate on", harness.messages.at(-1)?.text ?? "");
 	await deepResearch.handler("investiga con fase cero", ctx());
 	assertContractGate("/deep-research prompt after contract gate on", harness.messages.at(-1)?.text ?? "");
 
@@ -401,7 +392,7 @@ async function main() {
 	const { outDir, url } = await buildExtension();
 	try {
 		await scenarioSlashCommand(url);
-		await scenarioDynamicWorkflowAlias(url);
+		await scenarioUltracodeCommandRemoved(url);
 		await scenarioInputTransform(url);
 		await scenarioAlwaysOn(url);
 		await scenarioContractGateToggle(url);
