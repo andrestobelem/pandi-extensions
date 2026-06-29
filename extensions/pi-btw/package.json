@@ -1,0 +1,30 @@
+{
+	"name": "pi-dynamic-workflows-btw",
+	"version": "0.1.0",
+	"description": "Pi extension that adds a Claude-style /btw command: ask a quick side question about the current conversation, answered with no tools and never added to history.",
+	"license": "MIT",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"btw",
+		"side-question"
+	],
+	"files": [
+		"index.ts",
+		"build-btw-context.ts",
+		"answer-overlay.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	}
+}

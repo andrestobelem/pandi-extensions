@@ -43,6 +43,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
 | `/worktree` | `pi install ./extensions/pi-worktree` |
 | TypeScript diagnostics | `pi install ./extensions/pi-typescript-lsp` |
+| `/btw` | `pi install ./extensions/pi-btw` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
@@ -76,6 +77,7 @@ Comandos humanos:
 /effort high                           # cambia el thinking effort: off|minimal|low|medium|high|xhigh
 /effort ultracode                      # xhigh + router dinámico estilo Claude Code
 /mdview README.md                      # visualiza un archivo Markdown con scroll en la TUI
+/btw ¿qué decidimos sobre auth?         # pregunta lateral rápida sobre la conversación (sin tools, no se guarda en el historial)
 /worktree                              # gestiona git worktrees: list|add|open|remove|prune
 /worktree add -b feature ../wt-feature # crea un worktree en nueva branch
 /worktree open -b feature feature      # crea (si falta) y abre Pi en el worktree (tab nueva en supacode)
