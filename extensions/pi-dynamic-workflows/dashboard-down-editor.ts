@@ -16,9 +16,16 @@ import type { EditorComponent } from "@earendil-works/pi-tui";
 import { Key, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
 import type { DashboardCommandSubmitter, DashboardOpener } from "./dashboard-orchestration.js";
 import { openWorkflowDashboard } from "./dashboard-orchestration.js";
+import { type ColorMode, colorizeKeyword, detectColorMode } from "./rainbow.js";
 import { stripAnsiCodes } from "./render-utils.js";
 
 const WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER = "__dynamicWorkflowDashboardDownEditor";
+// ~8 fps: smooth enough for a scrolling rainbow without flooding the renderer. The timer
+// only triggers a re-render while the prompt holds the keyword AND is focused, so an idle
+// or keyword-free prompt costs nothing beyond one boolean check per tick.
+const RAINBOW_INTERVAL_MS = 120;
+// The typed word that gets the animated multicolor effect (case-insensitive).
+const RAINBOW_KEYWORD = "ultracode";
 
 class WorkflowDashboardDownEditor implements EditorComponent {
 	readonly [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] = true;
@@ -30,12 +37,48 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		private openDashboard: DashboardOpener,
 		private openAgentsDashboard: DashboardOpener = openDashboard,
 		private getBorderLabel: () => string | undefined = () => undefined,
+		private readonly requestRender: () => void = () => {},
 	) {
 		const customBase = base as { actionHandlers?: unknown };
 		this.actionHandlers =
 			customBase.actionHandlers instanceof Map
 				? (customBase.actionHandlers as Map<string, () => void>)
 				: new Map<string, () => void>();
+		if (this.rainbowColorMode !== "none") {
+			this.rainbowTimer = setInterval(() => this.tickRainbow(), RAINBOW_INTERVAL_MS);
+			// Never let the animation keep the Node process alive on its own.
+			this.rainbowTimer.unref?.();
+		}
+	}
+
+	private rainbowPhase = 0;
+	private rainbowTimer?: ReturnType<typeof setInterval>;
+	private readonly rainbowColorMode: ColorMode = detectColorMode();
+
+	// Advance the rainbow band and repaint, but only while the prompt actually contains the
+	// keyword and is focused — so the effect animates as you type "ultracode" and pauses (no
+	// wasted renders) when the word is gone, a dashboard/modal is up, or color is unsupported.
+	private tickRainbow(): void {
+		if (this.rainbowColorMode === "none" || !this.focused || !this.textHasKeyword()) return;
+		this.advanceRainbow();
+		this.requestRender();
+	}
+
+	private textHasKeyword(): boolean {
+		return this.base.getText().toLowerCase().includes(RAINBOW_KEYWORD);
+	}
+
+	/** Bump the rainbow phase one step (exposed for deterministic tests). */
+	advanceRainbow(): void {
+		this.rainbowPhase = (this.rainbowPhase + 1) % 1_000_000;
+	}
+
+	/** Stop the animation timer. Best-effort hygiene; the timer is also unref'd. */
+	dispose(): void {
+		if (this.rainbowTimer) {
+			clearInterval(this.rainbowTimer);
+			this.rainbowTimer = undefined;
+		}
 	}
 
 	setWorkflowDashboardOpen(
@@ -123,7 +166,16 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	}
 
 	render(width: number): string[] {
-		return this.decorateTopBorder(this.base.render(width), width);
+		const lines = this.decorateTopBorder(this.base.render(width), width);
+		if (this.rainbowColorMode === "none") return lines;
+		// Paint the typed keyword with the animated rainbow on the content lines. Line 0 is the
+		// top border (its own color + the optional "ultracode auto" label), left untouched so the
+		// effect belongs to what you write, not the always-on mode indicator.
+		return lines.map((line, index) =>
+			index === 0
+				? line
+				: colorizeKeyword(line, RAINBOW_KEYWORD, this.rainbowPhase, { mode: this.rainbowColorMode }),
+		);
 	}
 
 	// Embed a short status label into the editor's top border (the violet prompt
@@ -273,6 +325,6 @@ export function installWorkflowDashboardDownEditor(
 			existing.setBorderLabelProvider?.(getBorderLabel);
 			return existing;
 		}
-		return new WorkflowDashboardDownEditor(base, openMonitor, openAgents, getBorderLabel);
+		return new WorkflowDashboardDownEditor(base, openMonitor, openAgents, getBorderLabel, () => tui.requestRender());
 	});
 }

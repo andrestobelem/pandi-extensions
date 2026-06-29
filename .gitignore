@@ -2,6 +2,10 @@
 # Keep examples free of project-local Pi state; run example workflows from repo root or temp projects.
 examples/.pi/
 
+# Claude Code project-local state (workflows/skills/scripts it creates); not tracked or linted.
+.claude/
+**/.claude/
+
 # Pi background jobs and automation state.
 .pi/bg/
 **/.pi/bg/
