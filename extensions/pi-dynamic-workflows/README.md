@@ -24,19 +24,19 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
   line shows `uc:auto`/`uc:off` for routing plus `cg:on`/`cg:off` for the
   Contract Gate.
 - Compact Claude-style template catalog: six primary templates, compose templates, and use-case templates, with no pattern aliases.
-- JavaScript workflow runtime with `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`, artifacts, resumable journal, and TUI dashboard.
-- Per-call model and reasoning selection: every subagent call can choose its own `model`, `provider`, and `thinking` level (`off|minimal|low|medium|high|xhigh`) — e.g. cheap/fast + `thinking: "low"` for wide scouts and a stronger model + `thinking: "high"`/`"xhigh"` for synthesis or verification. Omitting them inherits the orchestrator's model (`ctx.model`) and session thinking level; `model`/`provider`/`thinking` are part of the cache key, so changing them re-runs that call on resume.
+- JavaScript workflow runtime with injected globals `agent`, `agents`, `pipeline`, `parallel`, `workflow`, `phase`, `log`, `args` (+ read-only `limits`/`runId`/`runDir`/`cwd`), artifacts, resumable journal, and TUI dashboard.
+- Per-call model and reasoning selection: every subagent call can choose its own `model`, `provider`, and `effort` (`low|medium|high|xhigh|max`, mapped onto the engine reasoning scale) — e.g. cheap/fast + `effort: "low"` for wide scouts and a stronger model + `effort: "high"`/`"xhigh"` for synthesis or verification. Omitting them inherits the orchestrator's model and session reasoning level; `model`/`provider`/`effort` are part of the cache key, so changing them re-runs that call on resume.
 - Stable KV-cache prefix: build subagent prompts with the shared/stable framing (role, task, success criteria, output format) first and the volatile per-item content (the item, ids, retrieved snippets) last, so identical prefixes reuse the provider prompt/KV cache across calls. Avoid `Date.now()`/`Math.random()` inside prompts — they bust that cache and make the resume journal miss, re-running the call.
 
 ```js
 // Decide model + reasoning per call.
-const notes = await ctx.agents(files.map((f) => ({
-  name: `scout-${f}`, prompt: `Summarize risks in ${f}.`,
-  model: "haiku", thinking: "low", tools: ["read", "grep", "find", "ls"],
+const notes = await agents(files.map((f) => ({
+  label: `scout-${f}`, prompt: `Summarize risks in ${f}.`,
+  model: "haiku", effort: "low", tools: ["read", "grep", "find", "ls"],
 })), { concurrency: 8 });
-const verdict = await ctx.agent(
-  `Synthesize a ranked, evidence-backed verdict.\n\n${ctx.compact(notes, 50000)}`,
-  { name: "synthesis", model: "anthropic/claude-sonnet-4", thinking: "high" },
+const verdict = await agent(
+  `Synthesize a ranked, evidence-backed verdict.\n\n${compact(notes, 50000)}`,
+  { label: "synthesis", model: "sonnet", effort: "high" },
 );
 ```
 
@@ -46,9 +46,9 @@ El runtime acota la ejecución en varias capas para que un workflow no pueda
 crecer sin control:
 
 - **`maxAgents`** — tope de subagentes por run (todas las fases, no solo el pico
-  de paralelismo); se clampa a `ctx.limits.maxAgents`.
-- **`concurrency`** — subagentes simultáneos; se clampa a `ctx.limits.concurrency`.
-- **Composición depth‑1** — `ctx.workflow(name, input)` solo invoca sub‑workflows
+  de paralelismo); se clampa a `limits.maxAgents`.
+- **`concurrency`** — subagentes simultáneos; se clampa a `limits.concurrency`.
+- **Composición depth‑1** — `workflow(name, args)` solo invoca sub‑workflows
   reutilizables a un nivel; una llamada recursiva más profunda se rechaza.
 - **Guard de recursión entre procesos** — cada subagente se spawnea un nivel más
   profundo (`PI_DYNAMIC_WORKFLOWS_DEPTH = profundidad + 1`). Si un subagente con
@@ -133,7 +133,7 @@ flowchart LR
   clasificación barata.
 - **Elígelo cuando:** una auditoría, review de PR o migración solo debe gastar
   agentes caros en archivos de riesgo medio/alto.
-- **Primitivas:** `ctx.bash`, `ctx.pipeline`, `ctx.agent(schema)`.
+- **Primitivas:** `bash`, `pipeline`, `agent(schema)`.
 - **Verifica:** artifact con clasificación completa, conteo de items omitidos y
   evidencia de cada follow-up.
 
@@ -152,7 +152,7 @@ flowchart LR
 - **Uso:** trabajo independiente con una reducción final.
 - **Elígelo cuando:** puedes dividir por archivos, temas, módulos o perspectivas
   y necesitas una síntesis que descarte hallazgos sin evidencia.
-- **Primitivas:** `ctx.bash`, `ctx.agents({ settle:true })`, `ctx.agent`.
+- **Primitivas:** `bash`, `agents({ settle:true })`, `agent`.
 - **Verifica:** reporta cobertura, ramas fallidas, caps y hallazgos con citas.
 
 ### `adversarial-verification` — verificación adversarial
@@ -170,7 +170,7 @@ flowchart LR
 
 - **Uso:** podar claims, bugs sospechados o planes antes de actuar.
 - **Elígelo cuando:** el coste de aceptar un falso positivo es alto.
-- **Primitivas:** `ctx.parallel`, `ctx.agent(schema)`, voting.
+- **Primitivas:** `parallel`, `agent(schema)`, voting.
 - **Verifica:** cada claim queda en `verified` o `dropped` con razón y evidencia.
 
 ### `generate-and-filter` — generar opciones y filtrar
@@ -189,7 +189,7 @@ flowchart LR
 - **Uso:** diseñar varias soluciones y elegir por una rúbrica explícita.
 - **Elígelo cuando:** necesitas best-of-N para arquitectura, prompts o estrategia,
   no una única respuesta generada.
-- **Primitivas:** `ctx.parallel`, `ctx.agent(schema)`, bucle adaptativo.
+- **Primitivas:** `parallel`, `agent(schema)`, bucle adaptativo.
 - **Verifica:** guarda candidatos, rúbrica, puntuación y motivo de descarte.
 
 ### `tournaments` — ranking por torneo
@@ -206,7 +206,7 @@ flowchart LR
 - **Uso:** comparar alternativas cuando el ranking relativo importa más que una
   puntuación absoluta.
 - **Elígelo cuando:** hay diseños, prompts o planes que deben competir cara a cara.
-- **Primitivas:** `ctx.agents({ settle:true })`, `ctx.agent(schema)`, bracket.
+- **Primitivas:** `agents({ settle:true })`, `agent(schema)`, bracket.
 - **Verifica:** conserva matriz/llaves, criterios de comparación y explicación del ganador.
 
 ### `loop-until-done` — iterar hasta terminar
@@ -222,7 +222,7 @@ flowchart LR
 
 - **Uso:** discovery o repair cuando no conoces el tamaño real del trabajo.
 - **Elígelo cuando:** debes repetir hasta rondas quietas, `maxRounds`, budget o timeout.
-- **Primitivas:** `ctx.agents({ settle:true })`, loop, `ctx.log`.
+- **Primitivas:** `agents({ settle:true })`, loop, `log`.
 - **Verifica:** log de rondas, criterio de parada y lista deduplicada de hallazgos.
 
 ### `compose-verify-claims` — componer verificación reutilizable
@@ -230,13 +230,13 @@ flowchart LR
 ```mermaid
 flowchart LR
   A[Workflow padre] --> B[Descubrir claims]
-  B --> C[ctx.workflow lib/verify-claims]
+  B --> C[workflow lib/verify-claims]
   C --> D[Síntesis padre]
 ```
 
 - **Uso:** combinar descubrimiento local con una librería de verificación estable.
 - **Elígelo cuando:** no necesitas una decisión humana entre descubrir y verificar.
-- **Primitivas:** `ctx.workflow`, `ctx.agent`, sub-workflow.
+- **Primitivas:** `workflow`, `agent`, sub-workflow.
 - **Verifica:** contrato JSON serializable entre padre e hijo y artifacts de ambos.
 
 ### `lib-verify-claims` — librería para verificar claims
@@ -250,7 +250,7 @@ flowchart LR
 
 - **Uso:** sub-workflow compartido para fact-checking o pruning de claims.
 - **Elígelo cuando:** varios workflows necesitan la misma verificación sin copiar prompts.
-- **Primitivas:** `ctx.agents({ settle:true })`, `ctx.agent(schema)`, contrato de librería.
+- **Primitivas:** `agents({ settle:true })`, `agent(schema)`, contrato de librería.
 - **Verifica:** entrada `{ claims, skeptics? }`, salida estable y manejo explícito de fallos.
 
 ### `workflow-factory` — meta-workflow de diseño
@@ -266,7 +266,7 @@ flowchart LR
 - **Uso:** crear un workflow específico cuando el diseño de prompts/contratos también
   merece revisión.
 - **Elígelo cuando:** la orquestación es compleja antes de gastar muchos subagentes.
-- **Primitivas:** `ctx.agent(schema)`, prompt improvement, `ctx.writeFile`.
+- **Primitivas:** `agent(schema)`, prompt improvement, `writeFile`.
 - **Verifica:** draft bajo `.pi/workflows/drafts/`, review y artifacts de decisión.
 
 ### `bug-hunt-repo-audit` — auditoría de bugs en repo
@@ -280,7 +280,7 @@ flowchart LR
 
 - **Uso:** encontrar bugs probables a través de muchos archivos.
 - **Elígelo cuando:** quieres un audit broad reutilizable, no un one-off manual.
-- **Primitivas:** `ctx.bash`, `ctx.agents({ settle:true })`, reviewer synthesis.
+- **Primitivas:** `bash`, `agents({ settle:true })`, reviewer synthesis.
 - **Verifica:** cobertura de archivos, hallazgos priorizados y citas archivo/línea.
 
 ### `large-migration` — migración grande
@@ -294,7 +294,7 @@ flowchart LR
 
 - **Uso:** planear o ejecutar migraciones que cruzan muchos archivos.
 - **Elígelo cuando:** debes descubrir blockers, riesgos y caps antes de editar.
-- **Primitivas:** `ctx.bash`, `ctx.pipeline`, `ctx.agent(schema)`.
+- **Primitivas:** `bash`, `pipeline`, `agent(schema)`.
 - **Verifica:** inventario de candidatos, clasificación de riesgo y checklist de migración.
 
 ### `complex-research` — investigación compleja
@@ -311,7 +311,7 @@ flowchart LR
 
 - **Uso:** investigación amplia con fuentes, comparativas o análisis de migración.
 - **Elígelo cuando:** necesitas perspectivas independientes y citas, no una respuesta rápida.
-- **Primitivas:** `ctx.agents({ settle:true })`, research angles, synthesis-as-judge.
+- **Primitivas:** `agents({ settle:true })`, research angles, synthesis-as-judge.
 - **Verifica:** fuentes por claim, cobertura de ángulos y límites de investigación.
 
 ### `plan-review` — revisión de plan
@@ -328,7 +328,7 @@ flowchart LR
 
 - **Uso:** panel escéptico antes de implementar una decisión riesgosa.
 - **Elígelo cuando:** un plan necesita críticas desde varias perspectivas.
-- **Primitivas:** `ctx.agents({ settle:true })`, reviewer panel, synthesis-as-judge.
+- **Primitivas:** `agents({ settle:true })`, reviewer panel, synthesis-as-judge.
 - **Verifica:** riesgos aceptados, cambios recomendados y huecos de verificación.
 
 ### `claim-bug-verification` — verificar bugs o claims
@@ -345,14 +345,14 @@ flowchart LR
 - **Uso:** confirmar hallazgos de un sweep antes de reportarlos o cambiar código.
 - **Elígelo cuando:** tienes una lista de bugs/claims sospechosos y quieres separar
   evidencia real de alucinaciones.
-- **Primitivas:** `ctx.parallel`, `ctx.agent(schema)`, voting.
+- **Primitivas:** `parallel`, `agent(schema)`, voting.
 - **Verifica:** cada finding tiene repro, evidencia concreta o razón de descarte.
 
 ## Síntesis position-aware (lost-in-the-middle)
 
 Los modelos atienden mejor al **inicio y al final** del contexto y peor al medio (la curva U de *lost-in-the-middle*; ver `docs/research/2026-06-28-context-engineering-focus.md`). Cuando un paso de síntesis/`judge` recibe un bloque grande de evidencia, las instrucciones que van solo arriba quedan "enterradas" frente a la zona de alta atención del final.
 
-Por eso los scaffolds de síntesis (`fan-out-and-synthesize`, `complex-research`, `bug-hunt-repo-audit`, `plan-review`, etc.) **reafirman la tarea + criterios DESPUÉS de la evidencia** (`ctx.compact(...)`), con un footer corto que pide el formato de salida, lo más importante primero, y notar explícitamente las ramas fallidas/vacías. Así las instrucciones quedan en **ambos extremos** del prompt, no solo arriba. Al escribir tus propios workflows, replica este patrón: tarea/criterios al inicio y al final, evidencia en el medio.
+Por eso los scaffolds de síntesis (`fan-out-and-synthesize`, `complex-research`, `bug-hunt-repo-audit`, `plan-review`, etc.) **reafirman la tarea + criterios DESPUÉS de la evidencia** (`compact(...)`), con un footer corto que pide el formato de salida, lo más importante primero, y notar explícitamente las ramas fallidas/vacías. Así las instrucciones quedan en **ambos extremos** del prompt, no solo arriba. Al escribir tus propios workflows, replica este patrón: tarea/criterios al inicio y al final, evidencia en el medio.
 
 ## Research-backed templates
 
