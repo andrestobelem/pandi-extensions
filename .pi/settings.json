@@ -13,7 +13,8 @@
     "../extensions/pi-worktree",
     "../extensions/pi-typescript-lsp",
     "../extensions/pi-rename",
-    "../extensions/pi-btw"
+    "../extensions/pi-btw",
+    "../extensions/pi-pandi"
   ],
   "extensions": []
 }

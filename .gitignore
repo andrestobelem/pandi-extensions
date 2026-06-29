@@ -51,6 +51,9 @@ pi-session-*.html
 .pi/extensions/
 **/.pi/extensions/
 
+# pi-pandi runtime state (chosen face style), not shipped/tracked.
+extensions/pi-pandi/*.local.json
+
 # Pi project-local scratch space.
 .pi/tmp/
 **/.pi/tmp/
