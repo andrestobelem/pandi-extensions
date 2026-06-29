@@ -64,7 +64,7 @@ export const meta = {
 	phases: [{ title: "Plan" }, { title: "Execute" }, { title: "Integrate" }],
 };
 
-export default async function workflow() {
+export default async function main() {
 	const input = (() => {
 		try {
 			return typeof args === "string" ? JSON.parse(args) || {} : args || {};

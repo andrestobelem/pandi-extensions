@@ -81,7 +81,7 @@ export const meta = {
 	],
 };
 
-export default async function workflow() {
+export default async function main() {
 	// Defensive args parse (verbatim convention): args arrives JSON-stringified.
 	const input = (() => {
 		try {

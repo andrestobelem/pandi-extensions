@@ -29,7 +29,7 @@ export const meta = {
 	phases: [{ title: "Sample" }, { title: "Tally" }, { title: "Decide" }],
 };
 
-export default async function workflow() {
+export default async function main() {
 	const input = (() => {
 		try {
 			return typeof args === "string" ? JSON.parse(args) || {} : args || {};

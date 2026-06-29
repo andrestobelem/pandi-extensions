@@ -14,7 +14,7 @@ export const meta = {
 	phases: [{ title: "Verify Claims" }],
 };
 
-export default async function workflow() {
+export default async function main() {
 	const input = (() => {
 		try {
 			return typeof args === "string" ? JSON.parse(args) || {} : args || {};
