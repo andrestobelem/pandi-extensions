@@ -12,17 +12,26 @@
  *   /rename                 -> derive a slug from history; in a TUI, prefill an input
  *                              dialog to confirm/edit; headless, apply it directly.
  *
- * Every applied name is a slug. The current name is shown as a persistent label in the
- * footer/status bar (mirroring Claude Code's prompt-bar name). The naming logic is
- * deterministic and lives in ./derive-name (no LLM, no network), so it is fully
- * unit-testable; index.ts only orchestrates the Pi API and the UI.
+ * Every applied name is a slug. The current name is shown as a label embedded in the
+ * editor's top border (the violet prompt line), right where dynamic-workflows shows
+ * "ultracode auto" — composing with that label when both are present. pi-rename wraps
+ * the editor with its own outer layer (delegating everything but render), so it neither
+ * imports nor depends on dynamic-workflows. Naming logic is deterministic and lives in
+ * ./derive-name; the border math lives in ./border-label.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { CustomEditor } from "@earendil-works/pi-coding-agent";
+import type { EditorComponent } from "@earendil-works/pi-tui";
+import { composeTopBorder } from "./border-label.js";
 import { DEFAULT_SESSION_NAME, deriveSessionName, slugify } from "./derive-name.js";
 import { notify } from "./notify.js";
 
-const NAME_STATUS_KEY = "session-name";
+const NAME_EDITOR_MARKER = "__piRenameNameBorderEditor";
+const SET_PROVIDER = "__piRenameSetBorderProvider";
+
+/** The most recently created wrapped editor, nudged to repaint after a rename. */
+let latestEditor: { invalidate?: () => void } | undefined;
 
 function readEntries(ctx: ExtensionCommandContext): unknown[] {
 	try {
@@ -44,16 +53,10 @@ function safeName(pi: ExtensionAPI): string | undefined {
 	}
 }
 
-function formatNameStatus(ctx: ExtensionContext, name: string): string {
-	const text = `⌗ ${name}`;
-	const theme = ctx.ui?.theme;
-	return theme?.fg ? theme.fg("accent", text) : text;
-}
-
-/** Reflect the current session name in the footer/status bar (no-op without UI). */
-function updateNameStatus(pi: ExtensionAPI, ctx: ExtensionContext, name = safeName(pi)): void {
-	if (!ctx.hasUI) return;
-	ctx.ui.setStatus(NAME_STATUS_KEY, name ? formatNameStatus(ctx, name) : undefined);
+/** The border label for the current session name, or undefined when unnamed. */
+function borderLabel(pi: ExtensionAPI): string | undefined {
+	const name = safeName(pi);
+	return name ? `⌗ ${name}` : undefined;
 }
 
 /** Slugify and apply a name via pi.setSessionName, reporting success/failure. */
@@ -62,13 +65,77 @@ function applyName(pi: ExtensionAPI, ctx: ExtensionCommandContext, rawName: stri
 	try {
 		pi.setSessionName(finalName);
 		notify(ctx, `Session renamed to "${finalName}".`, "info");
-		updateNameStatus(pi, ctx, finalName);
+		// Nudge the editor so the border label updates immediately.
+		latestEditor?.invalidate?.();
 		return true;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		notify(ctx, `Failed to rename session: ${message}`, "error");
 		return false;
 	}
+}
+
+/**
+ * Wrap an editor with a transparent outer layer that only overrides render(), adding the
+ * session-name label to the top border. Everything else delegates to the base editor, so
+ * the underlying behavior (typing, submit, dynamic-workflows' Down-key dashboard) is
+ * preserved. A marker + provider setter let install reuse this layer across reloads.
+ */
+function wrapEditorWithNameBorder(
+	base: EditorComponent,
+	holder: { provider: () => string | undefined },
+): EditorComponent {
+	return new Proxy(base as object, {
+		get(target, prop) {
+			if (prop === NAME_EDITOR_MARKER) return true;
+			if (prop === SET_PROVIDER) {
+				return (next: () => string | undefined) => {
+					holder.provider = next;
+				};
+			}
+			if (prop === "render") {
+				return (width: number): string[] => {
+					const lines = (target as EditorComponent).render(width);
+					const label = holder.provider();
+					if (!label || lines.length === 0) return lines;
+					const color = (target as { borderColor?: (value: string) => string }).borderColor;
+					const decorated = composeTopBorder(lines[0], width, label, { color });
+					if (decorated == null) return lines;
+					const out = [...lines];
+					out[0] = decorated;
+					return out;
+				};
+			}
+			const value = Reflect.get(target, prop, target);
+			return typeof value === "function" ? value.bind(target) : value;
+		},
+		set(target, prop, value) {
+			return Reflect.set(target, prop, value, target);
+		},
+	}) as unknown as EditorComponent;
+}
+
+/** Install (or reuse) the outer editor layer that shows the name in the top border. */
+function installNameBorderLabel(pi: ExtensionAPI, ctx: ExtensionContext): void {
+	if (ctx.mode !== "tui" || typeof ctx.ui.setEditorComponent !== "function") return;
+	const holder = { provider: () => borderLabel(pi) };
+	const previous = ctx.ui.getEditorComponent?.();
+	ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+		const base = previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
+		const existing = base as {
+			[NAME_EDITOR_MARKER]?: boolean;
+			[SET_PROVIDER]?: (next: () => string | undefined) => void;
+		};
+		// Reuse our own layer across reloads instead of stacking another proxy.
+		if (existing[NAME_EDITOR_MARKER]) {
+			existing[SET_PROVIDER]?.(holder.provider);
+			latestEditor = base as { invalidate?: () => void };
+			return base as EditorComponent;
+		}
+		const wrapped = wrapEditorWithNameBorder(base as EditorComponent, holder);
+		latestEditor = wrapped as unknown as { invalidate?: () => void };
+		return wrapped;
+	});
 }
 
 export default function renameExtension(pi: ExtensionAPI): void {
@@ -100,11 +167,8 @@ export default function renameExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	// Keep the footer label in sync with the current name across the session lifecycle.
+	// Show the current name in the editor's top border (TUI only).
 	pi.on("session_start", async (_event, ctx) => {
-		updateNameStatus(pi, ctx);
-	});
-	pi.on("session_shutdown", async (_event, ctx) => {
-		if (ctx.hasUI) ctx.ui.setStatus(NAME_STATUS_KEY, undefined);
+		installNameBorderLabel(pi, ctx);
 	});
 }

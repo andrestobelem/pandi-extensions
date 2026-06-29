@@ -1,25 +1,27 @@
 #!/usr/bin/env node
 /**
  * Durable behavioral integration test for extensions/pi-rename/index.ts and its pure
- * helper extensions/pi-rename/derive-name.ts.
+ * helpers (derive-name.ts, border-label.ts).
  *
  * Pins the public /rename contract:
- * - every applied name is a slug (lowercase, hyphen-separated, diacritics stripped)
+ * - every applied name is a slug (lowercase, hyphen-separated, diacritics stripped),
+ *   capped at MAX_NAME_WORDS (4) words
  * - /rename <name> slugifies and sets the session name
  * - /rename with no arg, headless, derives a slug from the first user message
  * - /rename with no arg + UI prefills an input dialog: edit applies, empty accepts the
  *   suggestion, cancel (undefined) leaves the name unchanged
  * - empty/whitespace history falls back to a default name
  * - setSessionName failures are reported, not thrown
- * - the current name is shown as a persistent footer status label, kept in sync on
- *   session_start and cleared on session_shutdown
- * - the deterministic slug helpers behave correctly in isolation
+ * - the current name is shown as a label embedded in the editor's top border, composing
+ *   with an existing right-aligned label (e.g. "ultracode auto") and leaving scroll
+ *   hints untouched; the outer editor layer delegates all other behavior and does not
+ *   stack across reloads
  */
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -31,15 +33,16 @@ async function buildRename() {
 		name: "pi-rename-integration",
 		src: path.join(REPO_ROOT, "extensions", "pi-rename", "index.ts"),
 		outName: "rename.mjs",
+		stubs: { sdk: (dir) => sdkStub(dir, { customEditor: "render" }) },
 		npx: "--yes",
 	});
 }
 
-async function buildDeriveName() {
+async function buildPureModule(file, outName, name) {
 	return await buildExtension({
-		name: "pi-rename-derive",
-		src: path.join(REPO_ROOT, "extensions", "pi-rename", "derive-name.ts"),
-		outName: "derive.mjs",
+		name,
+		src: path.join(REPO_ROOT, "extensions", "pi-rename", file),
+		outName,
 		npx: "--yes",
 	});
 }
@@ -50,6 +53,14 @@ function userEntry(content) {
 
 function assistantEntry(text) {
 	return { type: "message", message: { role: "assistant", content: [{ type: "text", text }] } };
+}
+
+function stripAnsi(value) {
+	return value.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function violet(value) {
+	return `\x1b[35m${value}\x1b[0m`;
 }
 
 function makePi({ throwOnSet = false, initialName } = {}) {
@@ -81,27 +92,64 @@ function makePi({ throwOnSet = false, initialName } = {}) {
 function makeCtx({ hasUI = false, entries = [], inputResult, mode = "tui" } = {}) {
 	const notes = [];
 	const inputCalls = [];
-	const statuses = [];
 	const ctx = {
 		mode,
 		hasUI,
 		ui: {
-			theme: { fg: (_color, text) => text },
 			notify: (msg, type) => notes.push({ msg, type }),
-			setStatus: (key, value) => statuses.push({ key, value }),
 			input: async (title, placeholder) => {
 				inputCalls.push({ title, placeholder });
 				return inputResult;
 			},
 		},
-		sessionManager: {
-			getEntries: () => entries,
-		},
+		sessionManager: { getEntries: () => entries },
 	};
 	ctx._notes = notes;
 	ctx._inputCalls = inputCalls;
-	ctx._statuses = statuses;
 	return ctx;
+}
+
+// A ctx that supports the editor-component install path (mirrors the host wiring).
+function makeEditorCtx(baseFactory) {
+	let currentFactory = baseFactory;
+	const ctx = {
+		mode: "tui",
+		hasUI: true,
+		ui: {
+			notify: () => {},
+			input: async () => undefined,
+			getEditorComponent: () => currentFactory,
+			setEditorComponent: (factory) => {
+				currentFactory = factory;
+			},
+		},
+		sessionManager: { getEntries: () => [] },
+	};
+	return { ctx, getFactory: () => currentFactory };
+}
+
+// Minimal base editor producing a plain (or pre-decorated) violet top border.
+function makeFakeEditor({ topLine } = {}) {
+	const calls = { handleInput: [], invalidate: 0 };
+	return {
+		calls,
+		borderColor: violet,
+		focused: false,
+		getText: () => "base-text",
+		setText: () => {},
+		handleInput: (data) => calls.handleInput.push(data),
+		invalidate: () => {
+			calls.invalidate += 1;
+		},
+		render: (width) => [topLine ? topLine(width) : violet("─".repeat(width)), "prompt", violet("─".repeat(width))],
+	};
+}
+
+function borderWithLabel(label, width, color = violet) {
+	const text = ` ${label} `;
+	const right = 2;
+	const left = width - text.length - right;
+	return color("─".repeat(left) + text + "─".repeat(right));
 }
 
 async function fire(handlers, event, payload, ctx) {
@@ -109,18 +157,20 @@ async function fire(handlers, event, payload, ctx) {
 }
 
 async function scenarioSlugifyUnit(url) {
-	const { slugify, deriveSessionName, DEFAULT_SESSION_NAME } = await loadModule(url);
+	const { slugify, deriveSessionName, DEFAULT_SESSION_NAME, MAX_NAME_WORDS } = await loadModule(url);
 
+	check("MAX_NAME_WORDS is 4", MAX_NAME_WORDS === 4);
 	check("slugify trims", slugify("  hi  ") === "hi");
 	check("slugify lowercases and hyphenates words", slugify("Refactor Auth Module") === "refactor-auth-module");
 	check("slugify drops punctuation", slugify('"Hello World!"') === "hello-world");
-	check("slugify collapses non-alnum runs", slugify("a   b\tc\nd--e") === "a-b-c-d-e");
+	check("slugify collapses non-alnum runs", slugify("a   b\tc--d") === "a-b-c-d");
 	check("slugify strips diacritics", slugify("Café déjà vu") === "cafe-deja-vu");
 	check("slugify empty stays empty", slugify("   ") === "");
 	check("slugify non-ascii-only yields empty", slugify("日本語") === "");
 	check("slugify is idempotent on a slug", slugify("refactor-auth") === "refactor-auth");
+	check("slugify default caps at 4 words", slugify("alpha beta gamma delta epsilon") === "alpha-beta-gamma-delta");
 	check(
-		"slugify respects maxWords",
+		"slugify respects explicit maxWords",
 		slugify("alpha beta gamma delta", { maxWords: 2, maxChars: 100 }) === "alpha-beta",
 	);
 	check(
@@ -154,23 +204,48 @@ async function scenarioSlugifyUnit(url) {
 		deriveSessionName([userEntry("/explain the cache layer")]) === "the-cache-layer",
 	);
 	check(
-		"deriveSessionName strips markdown markers via slug",
-		deriveSessionName([userEntry("## **Important** task")]) === "important-task",
-	);
-	check(
-		"deriveSessionName respects maxWords",
-		deriveSessionName([userEntry("alpha beta gamma delta")], { maxWords: 2, maxChars: 100 }) === "alpha-beta",
+		"deriveSessionName caps a long first message at 4 words",
+		deriveSessionName([userEntry("Investigate the flaky CI pipeline failures")]) === "investigate-the-flaky-ci",
 	);
 	check(
 		"deriveSessionName skips empty user messages",
-		deriveSessionName([userEntry("   "), userEntry("Real content here")]) === "real-content-here",
+		deriveSessionName([userEntry("   "), userEntry("Real content here now")]) === "real-content-here-now",
 	);
 	check("deriveSessionName falls back to default on empty history", deriveSessionName([]) === DEFAULT_SESSION_NAME);
-	check(
-		"deriveSessionName falls back to custom default",
-		deriveSessionName([assistantEntry("only assistant")], { defaultName: "untitled" }) === "untitled",
-	);
 	check("deriveSessionName tolerates non-array input", deriveSessionName(null) === DEFAULT_SESSION_NAME);
+}
+
+async function scenarioBorderLabelUnit(url) {
+	const { composeTopBorder } = await loadModule(url);
+
+	const plain80 = "─".repeat(80);
+	const named = composeTopBorder(plain80, 80, "⌗ my-task");
+	check("composeTopBorder adds the label on a plain border", named?.includes("⌗ my-task") === true, named);
+	check("composeTopBorder keeps the border glyphs", named?.includes("─") === true, named);
+	check("composeTopBorder keeps the line width", named?.length === 80, String(named?.length));
+
+	const withUltra = composeTopBorder(
+		borderWithLabel("ultracode auto", 80, (s) => s),
+		80,
+		"⌗ my-task",
+		{
+			color: (s) => s,
+		},
+	);
+	check(
+		"composeTopBorder composes with an existing right-aligned label",
+		withUltra?.includes("⌗ my-task") === true && withUltra?.includes("ultracode auto") === true,
+		withUltra,
+	);
+
+	const scrolled = `─── ↑ 3 more ${"─".repeat(80 - 13)}`;
+	check(
+		"composeTopBorder leaves a scroll hint untouched (returns null)",
+		composeTopBorder(scrolled, 80, "⌗ x") === null,
+	);
+	check("composeTopBorder bails on a non-border line", composeTopBorder("hello world", 80, "⌗ x") === null);
+	check("composeTopBorder bails when there is no room", composeTopBorder("─".repeat(6), 6, "⌗ a long label") === null);
+	check("composeTopBorder bails with an empty label", composeTopBorder(plain80, 80, "") === null);
 }
 
 async function scenarioExplicitName(url) {
@@ -190,16 +265,12 @@ async function scenarioExplicitName(url) {
 		JSON.stringify(ctx._notes),
 	);
 	check("/rename <name> does not open the input dialog", ctx._inputCalls.length === 0);
-	check(
-		"/rename <name> sets a footer status label with the slug",
-		ctx._statuses.some(
-			(s) => s.key === "session-name" && typeof s.value === "string" && s.value.includes("refactor-auth"),
-		),
-		JSON.stringify(ctx._statuses),
-	);
 
 	await command.handler('  "  Hello   World!  "  ', ctx);
 	check("/rename slugifies quotes and punctuation", harness.sessionName === "hello-world", harness.sessionName);
+
+	await command.handler("one two three four five", ctx);
+	check("/rename caps an explicit name at 4 words", harness.sessionName === "one-two-three-four", harness.sessionName);
 }
 
 async function scenarioNoArgHeadless(url) {
@@ -216,7 +287,6 @@ async function scenarioNoArgHeadless(url) {
 		harness.sessionName,
 	);
 	check("/rename no-arg headless does not open input dialog", ctx._inputCalls.length === 0);
-	check("/rename headless sets no footer status (no UI)", ctx._statuses.length === 0);
 
 	// whitespace-only argument is treated as no-arg.
 	const harness2 = makePi();
@@ -270,31 +340,86 @@ async function scenarioNoArgUI(url) {
 		ctx3._notes.some((n) => /cancel/i.test(n.msg)),
 		JSON.stringify(ctx3._notes),
 	);
-	check("/rename UI cancel sets no footer status", ctx3._statuses.length === 0);
 }
 
-async function scenarioStatusLifecycle(url) {
+async function scenarioBorderEditor(url) {
 	const renameExtension = await loadDefault(url);
 
-	// session_start reflects an existing name in the footer.
-	const h1 = makePi({ initialName: "existing-slug" });
+	// Name shown in the top border once installed.
+	const h1 = makePi({ initialName: "my-task" });
 	renameExtension(h1.pi);
-	const ctx1 = makeCtx({ hasUI: true });
-	await fire(h1.handlers, "session_start", {}, ctx1);
+	const fake1 = makeFakeEditor();
+	const e1 = makeEditorCtx(() => fake1);
+	await fire(h1.handlers, "session_start", {}, e1.ctx);
+	const factory1 = e1.getFactory();
+	check("session_start installs an editor factory", typeof factory1 === "function");
+	const wrapped1 = factory1({ requestRender() {} }, {}, {});
+	const top1 = stripAnsi(wrapped1.render(80)[0]);
+	check("top border shows the session name", top1.includes("⌗ my-task"), top1);
+	check("top border keeps border glyphs", top1.includes("─"), top1);
+	check("wrapped editor carries the reuse marker", wrapped1.__piRenameNameBorderEditor === true);
+
+	// Delegates non-render behavior to the base editor.
+	check("wrapped editor delegates getText", wrapped1.getText() === "base-text");
+	wrapped1.handleInput("x");
+	check("wrapped editor delegates handleInput", fake1.calls.handleInput.includes("x"));
+
+	// Composes with an existing right-aligned label (ultracode auto).
+	const h2 = makePi({ initialName: "my-task" });
+	renameExtension(h2.pi);
+	const fake2 = makeFakeEditor({ topLine: (w) => borderWithLabel("ultracode auto", w) });
+	const e2 = makeEditorCtx(() => fake2);
+	await fire(h2.handlers, "session_start", {}, e2.ctx);
+	const top2 = stripAnsi(
+		e2
+			.getFactory()({ requestRender() {} }, {}, {})
+			.render(80)[0],
+	);
 	check(
-		"session_start shows the existing name as a footer label",
-		ctx1._statuses.some((s) => s.key === "session-name" && String(s.value).includes("existing-slug")),
-		JSON.stringify(ctx1._statuses),
+		"border composes name with ultracode label",
+		top2.includes("⌗ my-task") && top2.includes("ultracode auto"),
+		top2,
 	);
 
-	// session_shutdown clears the footer label.
-	const ctx2 = makeCtx({ hasUI: true });
-	await fire(h1.handlers, "session_shutdown", {}, ctx2);
-	check(
-		"session_shutdown clears the footer label",
-		ctx2._statuses.some((s) => s.key === "session-name" && s.value === undefined),
-		JSON.stringify(ctx2._statuses),
+	// Leaves a scroll hint untouched.
+	const h3 = makePi({ initialName: "my-task" });
+	renameExtension(h3.pi);
+	const fake3 = makeFakeEditor({ topLine: (w) => violet(`─── ↑ 3 more ${"─".repeat(w - 13)}`) });
+	const e3 = makeEditorCtx(() => fake3);
+	await fire(h3.handlers, "session_start", {}, e3.ctx);
+	const top3 = stripAnsi(
+		e3
+			.getFactory()({ requestRender() {} }, {}, {})
+			.render(80)[0],
 	);
+	check("scroll hint left untouched (no name injected)", top3.includes("↑ 3 more") && !top3.includes("⌗"), top3);
+
+	// Unnamed session: border passes through unchanged.
+	const h4 = makePi();
+	renameExtension(h4.pi);
+	const fake4 = makeFakeEditor();
+	const e4 = makeEditorCtx(() => fake4);
+	await fire(h4.handlers, "session_start", {}, e4.ctx);
+	const top4 = stripAnsi(
+		e4
+			.getFactory()({ requestRender() {} }, {}, {})
+			.render(80)[0],
+	);
+	check("unnamed session leaves the border plain", !top4.includes("⌗"), top4);
+
+	// Reloading session_start must not stack another layer.
+	const h5 = makePi({ initialName: "my-task" });
+	renameExtension(h5.pi);
+	const fake5 = makeFakeEditor();
+	const e5 = makeEditorCtx(() => fake5);
+	await fire(h5.handlers, "session_start", {}, e5.ctx);
+	await fire(h5.handlers, "session_start", {}, e5.ctx);
+	const top5 = stripAnsi(
+		e5
+			.getFactory()({ requestRender() {} }, {}, {})
+			.render(80)[0],
+	);
+	check("reload does not double-wrap the label", (top5.match(/⌗ my-task/g) || []).length === 1, top5);
 }
 
 async function scenarioFallbacksAndErrors(url) {
@@ -327,11 +452,18 @@ async function scenarioFallbacksAndErrors(url) {
 }
 
 async function main() {
-	const derive = await buildDeriveName();
+	const derive = await buildPureModule("derive-name.ts", "derive.mjs", "pi-rename-derive");
 	try {
 		await scenarioSlugifyUnit(derive.url);
 	} finally {
 		await fs.rm(derive.outDir, { recursive: true, force: true });
+	}
+
+	const border = await buildPureModule("border-label.ts", "border.mjs", "pi-rename-border");
+	try {
+		await scenarioBorderLabelUnit(border.url);
+	} finally {
+		await fs.rm(border.outDir, { recursive: true, force: true });
 	}
 
 	const ext = await buildRename();
@@ -339,7 +471,7 @@ async function main() {
 		await scenarioExplicitName(ext.url);
 		await scenarioNoArgHeadless(ext.url);
 		await scenarioNoArgUI(ext.url);
-		await scenarioStatusLifecycle(ext.url);
+		await scenarioBorderEditor(ext.url);
 		await scenarioFallbacksAndErrors(ext.url);
 	} finally {
 		await fs.rm(ext.outDir, { recursive: true, force: true });

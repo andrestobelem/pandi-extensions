@@ -15,7 +15,7 @@ export const DEFAULT_SESSION_NAME = "session";
 
 /** Baseline limits for a slug. Tunable; pinned by the test suite. */
 export const MAX_NAME_CHARS = 60;
-export const MAX_NAME_WORDS = 8;
+export const MAX_NAME_WORDS = 4;
 
 export interface SlugOptions {
 	maxChars?: number;

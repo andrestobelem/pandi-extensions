@@ -16,14 +16,17 @@ pi --no-extensions -e ./extensions/pi-rename
 
 - `/rename <name>` — set the current session display name. The name is always stored as
   a **slug**: lowercase, ASCII alphanumerics separated by single hyphens, diacritics
-  stripped (e.g. `Refactor Auth!` → `refactor-auth`, `Café` → `cafe`).
+  stripped, capped at 4 words (e.g. `Refactor Auth Module!` → `refactor-auth-module`,
+  `Café` → `cafe`).
 - `/rename` — auto-generate a slug from the conversation. In a TUI it opens an input
   dialog with the suggestion as placeholder so you can confirm or edit it; headless it
   applies the suggestion directly.
 
-The current name is shown as a persistent label in the footer/status bar (`⌗ <slug>`),
-mirroring Claude Code's `/rename [name]`, which renames the current conversation, shows
-the name on the prompt bar, and auto-generates one from history when none is given.
+The current name is shown as a label embedded in the editor's **top border** (the violet
+prompt line) as `⌗ <slug>` — right where the dynamic-workflows router shows
+`ultracode auto`, composing as `⌗ <slug> · ultracode auto` when both are present. This
+mirrors Claude Code's `/rename [name]`, which renames the current conversation, shows the
+name on the prompt bar, and auto-generates one from history when none is given.
 
 ## Relationship to the native `/name`
 
@@ -37,7 +40,10 @@ overrides it — use whichever verb you prefer.
 - The name shown by `/resume` (and tooling) is the session display name, set via the
   same channel as `/name` (`pi.setSessionName`).
 - Both the explicit and auto-generated names are slugified, so the stored name and the
-  footer label are always a clean slug.
+  border label are always a clean slug of at most 4 words.
+- The border label is added by a thin outer editor layer that delegates everything but
+  rendering, so it works without importing or depending on dynamic-workflows, composes
+  with that extension's `ultracode auto` label, and leaves scroll hints untouched.
 - The auto-generated suggestion is **deterministic** (no LLM, no network): it is
   derived from the first non-empty user message — leading slash-command dropped, then
   slugified and truncated on a word boundary.
