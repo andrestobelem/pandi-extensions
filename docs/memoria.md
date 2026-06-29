@@ -40,7 +40,7 @@ Fecha inicial: 2026-06-25
 ## Registro 2026-06-25
 
 - Se agregó `npm test` como typecheck de las extensiones publicadas (`dynamic-workflows`, `loop`, `goal`) y pasó localmente.
-- Se smokeó `dynamic_workflow` creando un workflow generado de prueba; `action=run` completó con `ctx.parallel` (incluyendo rama fallida → `null`), `ctx.pipeline`, `ctx.bash` y artifact `smoke-result.json`.
+- Se smokeó `dynamic_workflow` creando un workflow generado de prueba; `action=run` completó con `parallel` (incluyendo rama fallida → `null`), `pipeline`, `bash` y artifact `smoke-result.json`.
 - Se smokeó `action=start` en sesión persistente/RPC para el mismo workflow; el run background completó y `action=view` mostró `Background: yes`, timeline y artifacts.
 - Se actualizó `extensions/dynamic-workflows.ts` para que en sesiones TUI/RPC los workflows lanzados con `run`, `start` o `resume` vayan siempre en background; `run` foreground queda solo como fallback print/json.
 - Se recuperó `.pi/workflows/karpathy-programming-recommendations-research.js` desde git y se integró la síntesis en `docs/research/2026-06-25-karpathy-programming-recommendations.md`.

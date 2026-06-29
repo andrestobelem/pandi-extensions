@@ -147,25 +147,25 @@ Cuando lanzás un workflow (`/workflow run`/`start` o `dynamic_workflow action=r
 1. **Resuelve el workflow** por nombre, buscando en workflows de proyecto y globales.
 2. **Crea un run** con `runId` y directorio propio bajo `.pi/workflows/runs/<run-id>/` o el root global equivalente.
 3. **Persiste estado inicial**: `input.json`, `status.json`, `events.jsonl`, `codeHash` y carpeta `agents/`.
-4. **Ejecuta el JS en un Worker** con una API `ctx` controlada. El workflow no necesita importar Pi: llama helpers como `ctx.agent`, `ctx.agents`, `ctx.bash`, `ctx.writeArtifact` y `ctx.log`.
-5. **Lanza subagentes**: cada `ctx.agent()` ejecuta un proceso `pi -p --no-session --mode json` con prompt, tools, skills, extensiones, keys/env, modelo, thinking y timeouts configurables.
+4. **Ejecuta el JS en un Worker** con **globals inyectados** (sin `ctx`, sin `import`/`require`). El workflow no necesita importar Pi: llama helpers como `agent`, `agents`, `bash`, `writeArtifact` y `log`, y lee la entrada del global `args`.
+5. **Lanza subagentes**: cada `agent()` ejecuta un proceso `pi -p --no-session --mode json` con prompt, tools, skills, extensiones, keys/env, modelo, effort y timeouts configurables.
 6. **Aplica límites**: `concurrency` limita cuántos subagentes corren a la vez; `maxAgents` limita cuántos subagentes totales puede gastar el run; los timeouts cortan agentes o workflows colgados.
 7. **Guarda progreso y artifacts**: logs en `events.jsonl`, estado en `status.json`, outputs de subagentes en `agents/*.md` y artifacts definidos por el workflow.
 8. **Devuelve resultado final**: el valor retornado por el workflow se guarda en `result.json` y se muestra como resumen.
 
-### API mental del `ctx`
+### API mental: globals inyectados
 
-- `ctx.agent(prompt, opts)` — ejecuta un subagente Pi. Es la unidad cara: una llamada `pi -p`; `opts` puede definir `tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `includeExtensions`, `keys`, `env`, modelo, schema y persona.
-- `ctx.agents(items, opts)` — fan-out paralelo con concurrencia limitada.
-- `ctx.agents(items, { settle: true })` — no tumba todo el batch si falla una rama; devuelve `null` para ramas fallidas.
-- `ctx.pipeline(items, ...stages)` — flujo multi-etapa por item sin barrera global; útil cuando cada item necesita varios pasos encadenados.
-- `ctx.parallel([async () => ...])` — barrera explícita cuando un paso posterior necesita todos los resultados juntos.
-- `ctx.workflow(name, input)` — compone un sub-workflow reusable inline (profundidad 1) compartiendo el mismo run, límites, abort y cache/journal.
-- `ctx.bash(command, opts)` — ejecuta shell desde el cwd del workflow; cacheable solo con `{ cache: true }`.
-- `ctx.writeArtifact(name, data)` — persiste datos del run fuera del chat.
-- `ctx.log(message, details)` — registra progreso visible en dashboard, status line y `events.jsonl`.
-- `ctx.compact(value, maxChars)` — serializa y trunca resultados grandes para pasarlos a una síntesis.
-- `ctx.limits` — límites efectivos read-only (`concurrency`, `maxAgents`, timeouts).
+- `agent(prompt, opts)` — ejecuta un subagente Pi y **desenvuelve** el resultado: texto sin schema, el objeto parseado con `{ schema }`, o `null` si la rama falla. Es la unidad cara (una llamada `pi -p`); `opts` puede definir `tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `includeExtensions`, `keys`, `env`, `model`, `effort`, schema y persona.
+- `agents(items, opts)` — fan-out paralelo con concurrencia limitada; devuelve `SubagentResult[]` (`.output`/`.data`/`.ok`).
+- `agents(items, { settle: true })` — no tumba todo el batch si falla una rama; devuelve `null` para ramas fallidas.
+- `pipeline(items, ...stages)` — flujo multi-etapa por item sin barrera global; útil cuando cada item necesita varios pasos encadenados.
+- `parallel([async () => ...])` — barrera explícita cuando un paso posterior necesita todos los resultados juntos.
+- `workflow(name, args)` — compone un sub-workflow reusable inline (profundidad 1) compartiendo el mismo run, límites, abort y cache/journal.
+- `bash(command, opts)` — ejecuta shell desde el cwd del workflow; cacheable solo con `{ cache: true }`.
+- `writeArtifact(name, data)` — persiste datos del run fuera del chat.
+- `log(message, details)` — registra progreso visible en dashboard, status line y `events.jsonl`.
+- `compact(value, maxChars)` — serializa y trunca resultados grandes para pasarlos a una síntesis.
+- `limits` — límites efectivos read-only (`concurrency`, `maxAgents`, timeouts).
 
 Acceso por subagente: `tools`/`excludeTools` limitan tools de Pi; por defecto los allowlists explícitos reciben además `web_search` cuando está disponible el paquete `pi-codex-web-search` (opt-out: `includeExtensions: false` o `excludeTools: ["web_search"]`). `skills: ["path/to/skill"]` carga skills explícitas (`includeSkills: true` las suma al discovery, `includeSkills: false` desactiva discovery); el discovery normal deja disponible `context7-cli` y, si usás una lista explícita de skills, Dynamic Workflows agrega `context7-cli` si lo encuentra (opt-out: `includeSkills: false`). `extensions: ["path/to/ext.ts"]` carga extensiones explícitas (`includeExtensions: true` habilita discovery); y `keys: ["GITHUB_TOKEN"]` expone solo esas variables de entorno al agente en un entorno aislado (los valores se redactan en artifacts/dashboard). Usa `env: { NAME: "value" }` solo cuando quieras inyectar explícitamente un valor; nunca escribas secretos en prompts.
 
@@ -177,8 +177,8 @@ Acceso por subagente: `tools`/`excludeTools` limitan tools de Pi; por defecto lo
 
 El resume funciona con un `journal.jsonl` content-addressed:
 
-- `ctx.agent()` se cachea por defecto.
-- `ctx.bash()` se cachea solo si se llama con `{ cache: true }`.
+- `agent()` se cachea por defecto.
+- `bash()` se cachea solo si se llama con `{ cache: true }`.
 - Una llamada cacheada no ejecuta `pi -p`, no consume slot de concurrencia y no cuenta contra `maxAgents`.
 - Una llamada en vuelo durante un crash no queda journaled, por lo tanto se reejecuta de forma segura.
 
@@ -202,12 +202,12 @@ El tab `Patterns` y `/workflow patterns` muestran todos los scaffolds registrado
 
 Los nombres anteriores ya no se resuelven como aliases de patrones. Las intenciones legacy `deep-research` y `default` viven como skills que enrutan a `complex-research` y `fan-out-and-synthesize` respectivamente.
 
-Smell test de composición: si no hay decisión humana/externa entre dos sub-pasos, usa `ctx.workflow()` dentro de un solo run; si necesitás leer resultados y decidir la siguiente fase, secuencia runs separados con `action=start/run` y `action=view`.
+Smell test de composición: si no hay decisión humana/externa entre dos sub-pasos, usa `workflow()` dentro de un solo run; si necesitás leer resultados y decidir la siguiente fase, secuencia runs separados con `action=start/run` y `action=view`.
 
 ### Seguridad y coste
 
 - Los workflows son **código confiable**, no un sandbox de seguridad fuerte.
-- Pueden ejecutar JavaScript, `fetch`, `ctx.bash`, leer/escribir archivos del cwd y gastar muchas llamadas de modelo.
+- Pueden ejecutar JavaScript, `fetch`, `bash`, leer/escribir archivos del cwd y gastar muchas llamadas de modelo.
 - Para auditorías, preferí tools read-only: `tools: ["read", "grep", "find", "ls"]`.
 - Para capacidades, otorga por subagente solo las tools, skills, extensiones y keys/env vars necesarias; el dashboard muestra nombres/rutas y faltantes, nunca valores secretos.
 - Siempre pasá límites explícitos en tareas grandes: `concurrency`, `maxAgents`, `timeoutMs`, `agentTimeoutMs`.
@@ -223,7 +223,7 @@ Los borradores task-specific generados se guardan al lado de los runs, en `.pi/w
 
 Los resultados/artifacts se guardan en `.pi/workflows/runs/<run-id>/` cuando el proyecto está trusted. En proyectos no confiados se usa un directorio global bajo `~/.pi/agent/workflows/runs/<hash>/`. Los PNG/Mermaid generados por `/workflow graph` se guardan en `.pi/workflows/graphs/` o en el root global equivalente. La extensión también lee `.pi` global (`~/.pi/agent/workflows/{drafts,runs,sessions}/`) como fallback para drafts, runs y sesiones.
 
-Durante runs activos en background (default en TUI/RPC), Pi muestra el estado en la status line (`▶ wf ... /workflows ↓ monitor ← agents Ctrl+Alt+W`) y el dashboard es la torre de control. En print/json no hay TUI persistente: `run` bloquea como fallback y después se inspecciona con `/workflow view`/`dynamic_workflow action=view`. En modo interactivo, `/workflows`, `Ctrl+Alt+W` o `↓` cuando el editor ya no puede bajar más abre un dashboard TUI en tab `Monitor` por defecto; `←` cuando el editor ya no puede moverse más a la izquierda abre el mismo dashboard directamente en tab `Agents`, con tabs `Monitor`, `Agents`, `Sessions`, `Runs`, `Workflows`, `Patterns` y `Activity`. El tab `Patterns` muestra el catálogo compacto (`classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, etc.) con cuándo usar cada uno, input esperado y primitivas; `Enter`/`n` crea un borrador de workflow de proyecto desde el scaffold seleccionado para editar antes de guardar. El Monitor prioriza el run activo o, si no hay ninguno, el último run; muestra workflow, estado, elapsed, active/stale, cantidad de agentes ejecutándose en paralelo (`actual/concurrency`) y pico, bash, artifacts, último log y `runDir`. Cuando hay subagentes, muestra una lista con estado, duración, código de salida, schema, tools, skills, extensiones, keys y disponibilidad/preview del prompt; los agentes lanzados por la misma llamada `ctx.agents(...)` se marcan como `P<fase> 1/n`, `P<fase> 2/n`, etc.; `↑`/`↓` seleccionan agente, `Enter`/`o` abre una vista live del agente (refresco cada 1s, output parseado, prompt y acceso; sin volcar el stdout JSON crudo) y `←`/`→` cambian de tab. El tab `Agents` lista todos los agentes registrados en los runs, agrupados por runs recientes, con el total paralelo actual arriba; `↑`/`↓` selecciona cualquiera y el panel inferior muestra estado, fase `1/n`, artifact, tools, skills, extensiones, keys, prompt preview y output preview antes de abrir el detalle live con `Enter`/`o`. El tab `Sessions` muestra las sesiones Pi TUI/RPC vivas para el proyecto mediante heartbeat (pid, modo, idle, session file y workflows activos), marcando filas stale si el proceso murió sin limpiar; `Enter` cambia la sesión actual a la seleccionada cuando hay `session file` disponible. Atajos dentro del dashboard: `v` abre el run completo, `g` abre el graph TUI (Mermaid PNG inline grande vía `mmdc` cuando el terminal soporta imágenes; el diagrama agrupa fan-outs `ctx.agents(...)` como `P1 ×items.length` con nodos visibles de agentes/ellipsis/join, además de lanes de `ctx.pipeline(...)` y branches de `ctx.parallel(...)`; fallback topología ASCII width-safe + export Mermaid), `c`/`x` cancela runs activos con confirmación, `r` rerun con confirmación usando `input.json` (o editor JSON si falta), en tabs `Monitor`/`Agents`/`Runs`/`Activity` `d`/Delete borra artifacts/directorio del run seleccionado si ya no está activo, en tab `Workflows` `d`/Delete borra el workflow seleccionado con confirmación, `q`/`esc` cierra. Las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran. Después de cualquier ejecución puedes usar `/workflow view latest`, que también incluye una sección `Agents` y `Parallel agents`.
+Durante runs activos en background (default en TUI/RPC), Pi muestra el estado en la status line (`▶ wf ... /workflows ↓ monitor ← agents Ctrl+Alt+W`) y el dashboard es la torre de control. En print/json no hay TUI persistente: `run` bloquea como fallback y después se inspecciona con `/workflow view`/`dynamic_workflow action=view`. En modo interactivo, `/workflows`, `Ctrl+Alt+W` o `↓` cuando el editor ya no puede bajar más abre un dashboard TUI en tab `Monitor` por defecto; `←` cuando el editor ya no puede moverse más a la izquierda abre el mismo dashboard directamente en tab `Agents`, con tabs `Monitor`, `Agents`, `Sessions`, `Runs`, `Workflows`, `Patterns` y `Activity`. El tab `Patterns` muestra el catálogo compacto (`classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, etc.) con cuándo usar cada uno, input esperado y primitivas; `Enter`/`n` crea un borrador de workflow de proyecto desde el scaffold seleccionado para editar antes de guardar. El Monitor prioriza el run activo o, si no hay ninguno, el último run; muestra workflow, estado, elapsed, active/stale, cantidad de agentes ejecutándose en paralelo (`actual/concurrency`) y pico, bash, artifacts, último log y `runDir`. Cuando hay subagentes, muestra una lista con estado, duración, código de salida, schema, tools, skills, extensiones, keys y disponibilidad/preview del prompt; los agentes lanzados por la misma llamada `agents(...)` se marcan como `P<fase> 1/n`, `P<fase> 2/n`, etc.; `↑`/`↓` seleccionan agente, `Enter`/`o` abre una vista live del agente (refresco cada 1s, output parseado, prompt y acceso; sin volcar el stdout JSON crudo) y `←`/`→` cambian de tab. El tab `Agents` lista todos los agentes registrados en los runs, agrupados por runs recientes, con el total paralelo actual arriba; `↑`/`↓` selecciona cualquiera y el panel inferior muestra estado, fase `1/n`, artifact, tools, skills, extensiones, keys, prompt preview y output preview antes de abrir el detalle live con `Enter`/`o`. El tab `Sessions` muestra las sesiones Pi TUI/RPC vivas para el proyecto mediante heartbeat (pid, modo, idle, session file y workflows activos), marcando filas stale si el proceso murió sin limpiar; `Enter` cambia la sesión actual a la seleccionada cuando hay `session file` disponible. Atajos dentro del dashboard: `v` abre el run completo, `g` abre el graph TUI (Mermaid PNG inline grande vía `mmdc` cuando el terminal soporta imágenes; el diagrama agrupa fan-outs `agents(...)` como `P1 ×items.length` con nodos visibles de agentes/ellipsis/join, además de lanes de `pipeline(...)` y branches de `parallel(...)`; fallback topología ASCII width-safe + export Mermaid), `c`/`x` cancela runs activos con confirmación, `r` rerun con confirmación usando `input.json` (o editor JSON si falta), en tabs `Monitor`/`Agents`/`Runs`/`Activity` `d`/Delete borra artifacts/directorio del run seleccionado si ya no está activo, en tab `Workflows` `d`/Delete borra el workflow seleccionado con confirmación, `q`/`esc` cierra. Las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran. Después de cualquier ejecución puedes usar `/workflow view latest`, que también incluye una sección `Agents` y `Parallel agents`.
 
 El camino normal es crear un workflow dinámicamente para la tarea concreta:
 
@@ -295,7 +295,7 @@ extensions/<nombre>/
 npm test
 ```
 
-El gate `npm test` corre, en orden: `tsc` (typecheck de todas las extensiones), `biome check .` (lint + formato de JS/TS/JSON), `markdownlint-cli2` (Markdown) y las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Biome reemplaza a ESLint + Prettier; los tipos siguen verificándose con `tsc` (Biome no sustituye al type-checker). Para smoke runtime sin gastar subagentes, crea un workflow que use `ctx.parallel`, `ctx.pipeline`, `ctx.bash` y `ctx.writeArtifact`; en sesión TUI/RPC ejecútalo con `dynamic_workflow action=start` (o `action=run`, que también va a background) + `action=view`. En print/json, `action=run` sigue siendo el fallback foreground.
+El gate `npm test` corre, en orden: `tsc` (typecheck de todas las extensiones), `biome check .` (lint + formato de JS/TS/JSON), `markdownlint-cli2` (Markdown) y las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Biome reemplaza a ESLint + Prettier; los tipos siguen verificándose con `tsc` (Biome no sustituye al type-checker). Para smoke runtime sin gastar subagentes, crea un workflow que use `parallel`, `pipeline`, `bash` y `writeArtifact`; en sesión TUI/RPC ejecútalo con `dynamic_workflow action=start` (o `action=run`, que también va a background) + `action=view`. En print/json, `action=run` sigue siendo el fallback foreground.
 
 ## `/bg` jobs locales
 
@@ -373,11 +373,11 @@ Desde el tool del modelo:
 Cómo funciona:
 
 - El run se reanuda **in-place**: mismo `runId` y mismo directorio. Estados reanudables: `stale`, `failed`, `cancelled`. Un run `completed` requiere `force:true`.
-- Cada run mantiene un `journal.jsonl` host-side con las llamadas completadas. La clave de caché es **content-address**: `sha256(method + args normalizados)`, con un contador de ocurrencia por clave; es correcta bajo concurrencia (`ctx.agents`) porque no depende de ids host-side no deterministas.
-- `ctx.agent()` se cachea **por defecto**; desactívalo por llamada con `ctx.agent(prompt, { cache: false })`.
+- Cada run mantiene un `journal.jsonl` host-side con las llamadas completadas. La clave de caché es **content-address**: `sha256(method + args normalizados)`, con un contador de ocurrencia por clave; es correcta bajo concurrencia (`agents`) porque no depende de ids host-side no deterministas.
+- `agent()` se cachea **por defecto**; desactívalo por llamada con `agent(prompt, { cache: false })`.
 - Para no filtrar secretos, la caché registra solo nombres de `keys` y `env` redactado (`[set]`), no valores; si el resultado depende del valor exacto/rotado de una credencial, usa `{ cache: false }`.
-- `ctx.bash()` se cachea solo **opt-in** con `ctx.bash(cmd, { cache: true })` (úsalo únicamente para comandos deterministas, sin efectos secundarios relevantes).
-- `ctx.writeArtifact`/`ctx.writeFile` no se cachean: se re-ejecutan, y reescribir es idempotente. `ctx.log`/`ctx.sleep` nunca se cachean.
+- `bash()` se cachea solo **opt-in** con `bash(cmd, { cache: true })` (úsalo únicamente para comandos deterministas, sin efectos secundarios relevantes).
+- `writeArtifact`/`writeFile` no se cachean: se re-ejecutan, y reescribir es idempotente. `log`/`sleep` nunca se cachean.
 - Una llamada cacheada (HIT) **no** gasta `pi -p` ni cuenta contra `maxAgents`.
 - Una llamada que estaba **en vuelo** cuando murió la sesión no tiene record en el journal: se re-ejecuta (coste: 1 llamada). Una llamada ya completada nunca se duplica.
 - **Determinismo**: el cache de una llamada depende exactamente de sus argumentos. Si construyes el prompt o el comando con `Date.now()` o `Math.random()`, esa llamada cambia de argumentos en cada intento y se re-ejecuta al reanudar (cache miss). Es una degradación segura: nunca devuelve un resultado incorrecto, solo re-corre.
@@ -388,29 +388,30 @@ Cómo funciona:
 ## Ejemplo mínimo
 
 ```js
-function chooseConcurrency(ctx, input, items) {
-  if (Number.isFinite(input?.concurrency)) {
-    return Math.min(Math.max(Math.floor(input.concurrency), 1), ctx.limits.concurrency, items.length);
+function chooseConcurrency(items) {
+  if (Number.isFinite(args?.concurrency)) {
+    return Math.min(Math.max(Math.floor(args.concurrency), 1), limits.concurrency, items.length);
   }
-  return Math.min(items.length <= 2 ? items.length : 4, ctx.limits.concurrency);
+  return Math.min(items.length <= 2 ? items.length : 4, limits.concurrency);
 }
 
-export default async function workflow(ctx, input) {
-  await ctx.log("start", { input });
+// El export default NO debe llamarse `workflow` (eso sombrea el global de composición): usa `main`.
+export default async function main() {
+  await log("start", { args });
 
   const items = [
-    { name: "a", prompt: "Review src/a.ts", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
-    { name: "b", prompt: "Review src/b.ts", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
+    { label: "a", prompt: "Review src/a.ts", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
+    { label: "b", prompt: "Review src/b.ts", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
   ];
-  const concurrency = chooseConcurrency(ctx, input, items);
-  await ctx.log("fan-out selected", { items: items.length, concurrency });
+  const concurrency = chooseConcurrency(items);
+  await log("fan-out selected", { items: items.length, concurrency });
 
-  const reviews = await ctx.agents(items, { concurrency, settle: true });
+  const reviews = await agents(items, { concurrency, settle: true });
   const completedReviews = reviews.filter(Boolean);
-  await ctx.log("review fan-out complete", { total: reviews.length, failed: reviews.length - completedReviews.length });
+  await log("review fan-out complete", { total: reviews.length, failed: reviews.length - completedReviews.length });
 
-  await ctx.writeArtifact("reviews.json", reviews);
-  return ctx.compact(completedReviews, 20000);
+  await writeArtifact("reviews.json", reviews);
+  return compact(completedReviews, 20000);
 }
 ```
 
@@ -440,8 +441,8 @@ Que el default sea `4` **no significa que los workflows deban hardcodear 4**. Lo
 La decisión queda en capas:
 
 - **Usuario/agente al lanzar el run**: puede pasar `concurrency` explícita si conoce presupuesto, provider o urgencia.
-- **Runtime**: impone el límite efectivo (`ctx.limits.concurrency`) y el hard cap global para evitar valores peligrosos.
-- **Workflow**: decide una concurrencia local según cantidad de items, riesgo, coste y tipo de tarea, sin superar `ctx.limits.concurrency`.
+- **Runtime**: impone el límite efectivo (`limits.concurrency`) y el hard cap global para evitar valores peligrosos.
+- **Workflow**: decide una concurrencia local según cantidad de items, riesgo, coste y tipo de tarea, sin superar `limits.concurrency`.
 
 Criterios para elegir dinámicamente:
 
@@ -454,17 +455,17 @@ Criterios para elegir dinámicamente:
 Ejemplo de selección dinámica:
 
 ```js
-function chooseConcurrency(ctx, input, items, opts = {}) {
-  if (Number.isFinite(input?.concurrency)) {
-    return Math.min(Math.max(Math.floor(input.concurrency), 1), ctx.limits.concurrency);
+function chooseConcurrency(items, opts = {}) {
+  if (Number.isFinite(args?.concurrency)) {
+    return Math.min(Math.max(Math.floor(args.concurrency), 1), limits.concurrency);
   }
 
   const count = items.length;
   if (count <= 1) return 1;
-  if (opts.sideEffects) return Math.min(2, count, ctx.limits.concurrency);
-  if (opts.expensiveModel) return Math.min(2, count, ctx.limits.concurrency);
-  if (opts.readOnlyAudit && count >= 30) return Math.min(8, count, ctx.limits.concurrency);
-  return Math.min(4, count, ctx.limits.concurrency);
+  if (opts.sideEffects) return Math.min(2, count, limits.concurrency);
+  if (opts.expensiveModel) return Math.min(2, count, limits.concurrency);
+  if (opts.readOnlyAudit && count >= 30) return Math.min(8, count, limits.concurrency);
+  return Math.min(4, count, limits.concurrency);
 }
 ```
 
@@ -474,16 +475,16 @@ Cómo se aplica:
 
 ```js
 const concurrency = Math.min(
-  input?.concurrency ?? ctx.limits.concurrency,
-  ctx.limits.concurrency,
+  args?.concurrency ?? limits.concurrency,
+  limits.concurrency,
 );
 
-const reviews = await ctx.agents(items, { concurrency, settle: true });
+const reviews = await agents(items, { concurrency, settle: true });
 ```
 
-- `ctx.limits.concurrency` es el límite efectivo del run y es read-only.
-- `ctx.agents(..., { concurrency })` además lo vuelve a clamplear para no superar el límite del run.
-- `ctx.pipeline()` y `ctx.parallel()` también usan `ctx.limits.concurrency` como límite local.
+- `limits.concurrency` es el límite efectivo del run y es read-only.
+- `agents(..., { concurrency })` además lo vuelve a clamplear para no superar el límite del run.
+- `pipeline()` y `parallel()` también usan `limits.concurrency` como límite local.
 - Las llamadas cacheadas al reanudar (`journal.jsonl` HIT) no ejecutan `pi -p`, por lo tanto no consumen slots de concurrencia ni cuentan contra `maxAgents`.
 
 Regla práctica:
@@ -495,33 +496,33 @@ Regla práctica:
 
 ## API del workflow
 
-- `ctx.agent(prompt, opts)` — ejecuta un subagente Pi (`pi -p --no-session`). Se cachea por defecto para resume; desactívalo con `{ cache: false }`. Usa `tools`/`excludeTools`, `skills`/`includeSkills`, `extensions`/`includeExtensions` y `keys`/`env` para definir accesos por agente.
-- `ctx.agent(prompt, { schema })` — pide JSON validado; devuelve `result.data` y `result.schemaOk` (reintenta con `schemaRetries`, default `2`).
-- `ctx.agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`, `implementer`, `researcher`); las opciones explícitas ganan.
-- `ctx.agents(items, opts)` — ejecuta muchos subagentes con concurrencia limitada.
-- `ctx.agents(items, { concurrency, settle: true })` — devuelve `Array<SubagentResult | null>`: los fallos de ramas individuales son `null`, las demás ramas siguen.
-- `ctx.pipeline(items, ...stages)` — flujo multi-etapa por item sin barrera global; cada stage recibe `(prev, item, index)` y los items fallidos devuelven `null`.
-- `ctx.parallel([async () => ...])` — ejecuta thunks async con barrera y concurrencia local limitada; cada thunk fallido produce `null`. Usalo solo cuando un paso posterior necesita todos los resultados juntos.
-- `ctx.workflow(name, input)` — ejecuta un sub-workflow reusable inline dentro del mismo run (profundidad 1). Comparte `runDir`, `maxAgents`, concurrencia, abort y journal/cache; emite eventos `workflow` para auditabilidad. Úsalo para librerías como `lib/verify-claims`, no para fases que requieren una decisión humana entre medio.
-- `ctx.bash(command, opts)` — ejecuta shell. Opt-in al cache de resume con `{ cache: true }` (solo comandos deterministas).
-- `ctx.readFile/writeFile/appendFile/listFiles` — helpers de archivos confinados al cwd del workflow.
-- `ctx.writeArtifact/appendArtifact` — persiste datos en el directorio del run (idempotente; no se cachea, se reescribe al reanudar).
-- `ctx.log` — progreso visible y `events.jsonl`.
-- `ctx.compact(value, maxChars)` — serializa y trunca resultados grandes.
-- `ctx.json(value, maxChars)` — alias de `compact` (misma serialización/truncado).
-- `ctx.limits` — límites efectivos del run (`concurrency`, `maxAgents`, timeouts); es read-only.
+- `agent(prompt, opts)` — ejecuta un subagente Pi (`pi -p --no-session`). Se cachea por defecto para resume; desactívalo con `{ cache: false }`. Usa `tools`/`excludeTools`, `skills`/`includeSkills`, `extensions`/`includeExtensions` y `keys`/`env` para definir accesos por agente.
+- `agent(prompt, { schema })` — pide JSON validado y **devuelve el objeto parseado directamente** (o `null` si falla o nunca valida); reintenta con `schemaRetries` (default `2`). Para el envelope completo (`output`/`data`/`schemaOk`) usá el plural `agents([...])`.
+- `agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`, `implementer`, `researcher`); las opciones explícitas ganan.
+- `agents(items, opts)` — ejecuta muchos subagentes con concurrencia limitada.
+- `agents(items, { concurrency, settle: true })` — devuelve `Array<SubagentResult | null>`: los fallos de ramas individuales son `null`, las demás ramas siguen.
+- `pipeline(items, ...stages)` — flujo multi-etapa por item sin barrera global; cada stage recibe `(prev, item, index)` y los items fallidos devuelven `null`.
+- `parallel([async () => ...])` — ejecuta thunks async con barrera y concurrencia local limitada; cada thunk fallido produce `null`. Usalo solo cuando un paso posterior necesita todos los resultados juntos.
+- `workflow(name, args)` — ejecuta un sub-workflow reusable inline dentro del mismo run (profundidad 1). Comparte `runDir`, `maxAgents`, concurrencia, abort y journal/cache; emite eventos `workflow` para auditabilidad. Úsalo para librerías como `lib/verify-claims`, no para fases que requieren una decisión humana entre medio.
+- `bash(command, opts)` — ejecuta shell. Opt-in al cache de resume con `{ cache: true }` (solo comandos deterministas).
+- `readFile/writeFile/appendFile/listFiles` — helpers de archivos confinados al cwd del workflow.
+- `writeArtifact/appendArtifact` — persiste datos en el directorio del run (idempotente; no se cachea, se reescribe al reanudar).
+- `log` — progreso visible y `events.jsonl`.
+- `compact(value, maxChars)` — serializa y trunca resultados grandes.
+- `json(value, maxChars)` — alias de `compact` (misma serialización/truncado).
+- `limits` — límites efectivos del run (`concurrency`, `maxAgents`, timeouts); es read-only.
 
 Opciones habituales de subagente:
 
 ```js
 {
-  name: "review-auth",
+  label: "review-auth",
   tools: ["read", "grep", "find", "ls"],
   skills: ["/path/to/skill"],
   extensions: ["/path/to/extension.ts"],
   keys: ["GITHUB_TOKEN"], // valores redacted; missing keys quedan visibles en dashboard/artifacts
   timeoutMs: 300000,
-  thinking: "high",
+  effort: "high",
   agentType: "reviewer",
   schema: { type: "object", required: ["verdict"], properties: { verdict: { type: "string" } } },
   schemaOnInvalid: "throw"
@@ -534,7 +535,7 @@ Los workflows funcionan mejor cuando cada prompt declara explícitamente el patr
 
 - **Fan-out independiente**: cada subagente debe producir un reporte útil aunque otros fallen.
 - **Contrato de evidencia**: pedir archivo/línea, URL, comando observado o `INSUFFICIENT_EVIDENCE` / `NO_FINDINGS`.
-- **Formato fijo**: preferí `ctx.agent(prompt, { schema })` para JSON; si no, secciones `Veredicto`, `Hallazgos`, `Evidencia`, `Riesgos`, `Fix`, `Verificación`.
+- **Formato fijo**: preferí `agent(prompt, { schema })` para JSON; si no, secciones `Veredicto`, `Hallazgos`, `Evidencia`, `Riesgos`, `Fix`, `Verificación`.
 - **Synthesis-as-judge**: el agente final deduplica, descarta claims sin evidencia, preserva incertidumbre y elige una ruta concreta.
 - **Crítica adversarial**: reviewers con objetivo explícito de encontrar edge cases, reducir scope y marcar riesgos aceptados.
 - **Fallas parciales visibles**: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o con timeout.
@@ -542,7 +543,7 @@ Los workflows funcionan mejor cuando cada prompt declara explícitamente el patr
 
 ## Seguridad y coste
 
-**Workflows son código confiable, no un sandbox de seguridad.** Pueden ejecutar JavaScript, usar `fetch`, llamar `ctx.bash`, leer/escribir archivos del cwd y disparar muchas llamadas a modelos mediante subagentes.
+**Workflows son código confiable, no un sandbox de seguridad.** Pueden ejecutar JavaScript, usar `fetch`, llamar `bash`, leer/escribir archivos del cwd y disparar muchas llamadas a modelos mediante subagentes.
 
 Buenas prácticas:
 
