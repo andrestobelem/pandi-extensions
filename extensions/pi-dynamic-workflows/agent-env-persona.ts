@@ -15,8 +15,8 @@ import { existsSync, realpathSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { AgentOptions } from "./index.js";
 
 export const DEFAULT_AGENT_WEB_SEARCH_TOOL = "web_search";
@@ -145,8 +145,7 @@ export function normalizeAgentEnvAccess(options: AgentOptions): AgentEnvAccess {
 }
 
 export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: AgentEnvAccess): string {
-	const list = (values: string[] | undefined, fallback = "default") =>
-		values?.length ? values.join(", ") : fallback;
+	const list = (values: string[] | undefined, fallback = "default") => (values?.length ? values.join(", ") : fallback);
 	const skillAccess = options.skills?.length
 		? `${options.skills.join(", ")}${options.includeSkills === true ? " + discovery" : " (explicit only)"}`
 		: options.includeSkills === false

@@ -10,14 +10,14 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { formatAgentPhase, readRunEvents } from "./event-parser.js";
-import { formatElapsedMs } from "./presentation.js";
-import { truncate, MAX_TOOL_TEXT } from "./format.js";
-import { notify } from "./notify.js";
-import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
-import { AgentLiveViewComponent } from "./agent-live-view.js";
-import type { AgentMonitorModel, WorkflowRunRecord } from "./index.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { AgentLiveViewComponent } from "./agent-live-view.js";
+import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
+import { formatAgentPhase, readRunEvents } from "./event-parser.js";
+import { MAX_TOOL_TEXT, truncate } from "./format.js";
+import type { AgentMonitorModel, WorkflowRunRecord } from "./index.js";
+import { notify } from "./notify.js";
+import { formatElapsedMs } from "./presentation.js";
 
 function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
@@ -26,9 +26,7 @@ function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorMod
 
 function resolveAgentLiveStreamPath(artifactPath: string | undefined, stream: "stdout" | "stderr"): string | undefined {
 	if (!artifactPath) return undefined;
-	return artifactPath.endsWith(".md")
-		? `${artifactPath.slice(0, -3)}.${stream}.log`
-		: `${artifactPath}.${stream}.log`;
+	return artifactPath.endsWith(".md") ? `${artifactPath.slice(0, -3)}.${stream}.log` : `${artifactPath}.${stream}.log`;
 }
 
 export function extractMarkdownSection(markdown: string, heading: string): string | undefined {

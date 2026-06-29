@@ -9,8 +9,8 @@
  * are type-only and erased at build time.
  */
 
-import type { ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 import * as path from "node:path";
+import type { ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 
 /**
  * Conservative allowlist of destructive operations that require confirmation when an

@@ -57,8 +57,7 @@ export function resolvePlanFlags(params: PlanFlags): Required<PlanFlags> {
 	return {
 		nonInteractive: params.nonInteractive ?? envFlag("PI_PLAN_NONINTERACTIVE"),
 		ultracode: params.ultracode ?? sessionFlagDefaults.ultracode ?? envFlag("PI_PLAN_ULTRACODE"),
-		ultracodeSteps:
-			params.ultracodeSteps ?? sessionFlagDefaults.ultracodeSteps ?? envFlag("PI_PLAN_ULTRACODE_STEPS"),
+		ultracodeSteps: params.ultracodeSteps ?? sessionFlagDefaults.ultracodeSteps ?? envFlag("PI_PLAN_ULTRACODE_STEPS"),
 	};
 }
 

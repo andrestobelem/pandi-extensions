@@ -7,8 +7,9 @@
  * entry points back (used only inside the activate body and handlers) and re-exports
  * extractUltracodeTask for the composition test. Extracted byte-identically.
  */
-import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
+
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
 
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
 const ULTRACODE_CONTRACT_STATUS_KEY = "dynamic-workflows-ultracode-contract";

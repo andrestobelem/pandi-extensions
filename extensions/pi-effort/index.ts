@@ -14,9 +14,9 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { THINKING_LEVELS, parseEffortTarget } from "./parse.js";
-import type { EffortTarget, ThinkingLevel } from "./parse.js";
 import { notify } from "./notify.js";
+import type { EffortTarget, ThinkingLevel } from "./parse.js";
+import { parseEffortTarget, THINKING_LEVELS } from "./parse.js";
 
 const EFFORT_STATUS_KEY = "effort";
 // Keep this string in sync with extensions/dynamic-workflows/index.ts. The event is

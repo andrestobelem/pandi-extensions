@@ -40,12 +40,8 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 	lines.push("");
 	if (plan.nonInteractive) {
 		lines.push("NON-INTERACTIVE (plan-only) SESSION:");
-		lines.push(
-			"- There is NO human approval and NO implementation here. Your only deliverable is the PLAN itself.",
-		);
-		lines.push(
-			"- The read-only gate stays armed for the WHOLE session; write/edit and mutating shell stay blocked.",
-		);
+		lines.push("- There is NO human approval and NO implementation here. Your only deliverable is the PLAN itself.");
+		lines.push("- The read-only gate stays armed for the WHOLE session; write/edit and mutating shell stay blocked.");
 		lines.push(
 			"- When the plan is ready, call submit_plan({ plan }) to record it, then RETURN THE FULL PLAN as your final answer. Do NOT attempt to implement.",
 		);

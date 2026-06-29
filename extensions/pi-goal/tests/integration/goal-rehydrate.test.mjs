@@ -363,9 +363,7 @@ async function verifyingIndependentReloadSurvivesAgentEnd(goalUrl) {
 	for (const h of built.handlers.get("agent_end") ?? []) await h({}, ctx);
 	check(
 		"agent_end does NOT re-arm a reloaded verifying-independent goal",
-		!built.states.some(
-			(st) => st.goalId === s.goalId && st.lastReason === "auto: turn closed without goal_progress",
-		),
+		!built.states.some((st) => st.goalId === s.goalId && st.lastReason === "auto: turn closed without goal_progress"),
 		"unexpected auto re-arm",
 	);
 	check(
@@ -407,11 +405,7 @@ async function staleResumesPursuing(goalUrl) {
 		built.messages.length === 1,
 		`messages=${built.messages.length}`,
 	);
-	check(
-		"stale resume does NOT spawn a verifier",
-		built.execCalls.length === 0,
-		`execCalls=${built.execCalls.length}`,
-	);
+	check("stale resume does NOT spawn a verifier", built.execCalls.length === 0, `execCalls=${built.execCalls.length}`);
 }
 
 // ===========================================================================

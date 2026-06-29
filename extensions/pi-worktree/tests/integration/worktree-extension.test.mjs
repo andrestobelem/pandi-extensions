@@ -316,11 +316,7 @@ async function scenarioOpenFallback(url) {
 		check("open tool: not an error", !res.details?.isError, JSON.stringify(res.details));
 		check("open tool: created=false for existing", res.details?.created === false, JSON.stringify(res.details));
 		check("open tool: opened=false in fallback", res.details?.opened === false, JSON.stringify(res.details));
-		check(
-			"open tool: text mentions cd+pi",
-			/cd .* && pi/.test(res.content?.[0]?.text || ""),
-			res.content?.[0]?.text,
-		);
+		check("open tool: text mentions cd+pi", /cd .* && pi/.test(res.content?.[0]?.text || ""), res.content?.[0]?.text);
 
 		// Tool: invalid branch name is a bounded error, no directory created.
 		const bad = await tools
@@ -457,11 +453,7 @@ async function scenarioAddCreatesBranch(url) {
 	check("add: worktree directory exists", existsSync(res.details?.path), String(res.details?.path));
 	const branches = git(cwd, ["branch", "--list", "feature-x"]);
 	check("add: created the new branch", /feature-x/.test(branches), branches);
-	check(
-		"add: text mentions how to open it",
-		/cd .* && pi/.test(res.content?.[0]?.text || ""),
-		res.content?.[0]?.text,
-	);
+	check("add: text mentions how to open it", /cd .* && pi/.test(res.content?.[0]?.text || ""), res.content?.[0]?.text);
 	await fs.rm(wtPath, { recursive: true, force: true });
 }
 

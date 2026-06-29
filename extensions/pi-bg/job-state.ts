@@ -3,9 +3,9 @@
 // probe — they never persist and never signal. Pure projection (no fs); the I/O scanning
 // (listJobs/eachProjectRunDir/reconcileInterruptedJobs) stays in index.ts and feeds these.
 
-import { activeJobs, asNumber, asString } from "./runtime-state.js";
-import { probeProcessAlive, verifyProcessIdentity } from "./process-liveness.js";
 import type { JobState } from "./index.js";
+import { probeProcessAlive, verifyProcessIdentity } from "./process-liveness.js";
+import { activeJobs, asNumber, asString } from "./runtime-state.js";
 
 // Single read-time projection of the persisted state (the only states a writer can
 // know: starting/running/completed/failed/cancelled). When a job is persisted as

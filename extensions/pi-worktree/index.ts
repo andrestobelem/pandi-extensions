@@ -19,9 +19,19 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { type ParsedCommand, parseCommand } from "./command.js";
+import {
+	combinedOutput,
+	ensureGitRepo,
+	gitError,
+	listWorktrees,
+	needsForce,
+	notify,
+	repoError,
+} from "./git-context.js";
 import {
 	buildAddArgs,
 	buildListArgs,
@@ -29,27 +39,23 @@ import {
 	buildListUntrackedArgs,
 	buildPruneArgs,
 	buildRemoveArgs,
-	DEFAULT_GIT_TIMEOUT_MS as GIT_TIMEOUT_MS,
 	describeWorktree,
+	ensureWorktreesBaseDir,
 	filterCopyableEntries,
+	DEFAULT_GIT_TIMEOUT_MS as GIT_TIMEOUT_MS,
 	isValidBranchName,
 	parseLsFilesEntries,
 	parseWorktreeList,
 	resolveWorktreeTarget,
-	ensureWorktreesBaseDir,
 	runGit,
 } from "./worktree.js";
-import {
-	notify,
-	gitError,
-	combinedOutput,
-	needsForce,
-	ensureGitRepo,
-	repoError,
-	listWorktrees,
-} from "./git-context.js";
-import { parseCommand, type ParsedCommand } from "./command.js";
 
+// --------------------------------------------------------------------------
+// Command argument parsing
+// --------------------------------------------------------------------------
+// ParsedCommand + tokenize + parseCommand live in ./command.ts; tokenize/parseCommand
+// are re-exported so the built bundle keeps the names the integration suite imports.
+export { parseCommand, tokenize } from "./command.js";
 // Re-exported for the integration suite to unit-test the pure helpers directly
 // against the same bundle. Internal use still goes through the import above
 // (an `export … from` re-export creates no local binding, so there is no clash).
@@ -63,13 +69,6 @@ export {
 	parseLsFilesEntries,
 	parseWorktreeList,
 } from "./worktree.js";
-
-// --------------------------------------------------------------------------
-// Command argument parsing
-// --------------------------------------------------------------------------
-// ParsedCommand + tokenize + parseCommand live in ./command.ts; tokenize/parseCommand
-// are re-exported so the built bundle keeps the names the integration suite imports.
-export { tokenize, parseCommand } from "./command.js";
 
 const HELP_TEXT = [
 	"Usage:",
@@ -711,8 +710,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			),
 			copyUntracked: Type.Optional(
 				Type.Boolean({
-					description:
-						"For add/open: copy untracked files from the main worktree into the newly created one.",
+					description: "For add/open: copy untracked files from the main worktree into the newly created one.",
 				}),
 			),
 		}),
@@ -737,9 +735,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 					};
 				}
 				const entries = parseWorktreeList(result.stdout);
-				const text = entries.length
-					? entries.map((e) => describeWorktree(e)).join("\n")
-					: "No worktrees found.";
+				const text = entries.length ? entries.map((e) => describeWorktree(e)).join("\n") : "No worktrees found.";
 				return {
 					content: [{ type: "text" as const, text }],
 					details: { action: "list", count: entries.length, worktrees: entries },

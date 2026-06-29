@@ -5,6 +5,17 @@
  * stays foundational in index.ts and crosses here as an import type. Extracted byte-identically.
  */
 import { existsSync } from "node:fs";
+import { readRunEvents, readRunLogEvents } from "./event-parser.js";
+import type {
+	AgentMonitorModel,
+	WorkflowFile,
+	WorkflowLogEntry,
+	WorkflowRunRecord,
+	WorkflowRunState,
+} from "./index.js";
+import { JOURNAL_FILE } from "./index.js";
+import type { PiSessionModel } from "./pi-session.js";
+import { workflowProgress } from "./presentation.js";
 import {
 	getRunAgentConcurrency,
 	getRunElapsedMs,
@@ -13,20 +24,9 @@ import {
 	getRunPeakParallelAgents,
 	getRunState,
 } from "./run-state.js";
-import { readRunEvents, readRunLogEvents } from "./event-parser.js";
-import { listRunFiles } from "./run-view.js";
 import { canCancelRun, isActiveRunRecord } from "./run-status-ui.js";
-import { workflowProgress } from "./presentation.js";
-import { JOURNAL_FILE } from "./index.js";
+import { listRunFiles } from "./run-view.js";
 import type { WorkflowPattern } from "./templates.js";
-import type { PiSessionModel } from "./pi-session.js";
-import type {
-	AgentMonitorModel,
-	WorkflowFile,
-	WorkflowLogEntry,
-	WorkflowRunRecord,
-	WorkflowRunState,
-} from "./index.js";
 
 export interface WorkflowDashboardResult {
 	type:

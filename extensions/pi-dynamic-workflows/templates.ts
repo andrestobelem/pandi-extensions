@@ -5,16 +5,16 @@
  * not depend on examples/ or any project-local files being present.
  */
 
-import { WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
 import type { WorkflowPattern } from "./catalog.js";
+import { WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
 import { EMBEDDED_SCAFFOLD_SOURCES } from "./scaffolds.generated.js";
 
+export type { WorkflowPattern } from "./catalog.js";
 export {
 	getPatternUseCases,
 	resolveWorkflowPattern,
 	WORKFLOW_PATTERN_CATALOG,
 } from "./catalog.js";
-export type { WorkflowPattern } from "./catalog.js";
 export {
 	formatWorkflowCompositionPromptGuidance,
 	formatWorkflowCompositionPromptSummary,

@@ -9,9 +9,9 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { GoalState, ActiveGoal } from "./types.js";
-import { effectiveCriteria, formatProgressLog } from "./prompts.js";
 import { PI_COMMAND } from "./constants.js";
+import { effectiveCriteria, formatProgressLog } from "./prompts.js";
+import type { ActiveGoal, GoalState } from "./types.js";
 
 export interface VerifierVerdict {
 	pass: boolean;

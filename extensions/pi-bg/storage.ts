@@ -8,10 +8,10 @@
  * status derivation) deliberately stay in index.ts.
  */
 
-import { CONFIG_DIR_NAME, getAgentDir, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { CONFIG_DIR_NAME, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
 
 export const BG_DIR = "bg";
 export const RUNS_DIR = "runs";

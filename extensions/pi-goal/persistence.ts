@@ -6,17 +6,17 @@
  * then rename), same swallow-on-error semantics.
  */
 
-import {
-	CONFIG_DIR_NAME,
-	getAgentDir,
-	type ExtensionAPI,
-	type ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { GOAL_STATE_TYPE, GOAL_DIR, STATE_FILE, PROGRESS_LOG_KEEP } from "./constants.js";
-import type { GoalState, ActiveGoal } from "./types.js";
+import {
+	CONFIG_DIR_NAME,
+	type ExtensionAPI,
+	type ExtensionContext,
+	getAgentDir,
+} from "@earendil-works/pi-coding-agent";
+import { GOAL_DIR, GOAL_STATE_TYPE, PROGRESS_LOG_KEEP, STATE_FILE } from "./constants.js";
+import type { ActiveGoal, GoalState } from "./types.js";
 
 export function snapshot(goal: ActiveGoal): GoalState {
 	return {

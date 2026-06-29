@@ -28,8 +28,7 @@ function extractTextFromMessageContent(content: unknown): string | undefined {
 	}
 	if (content && typeof content === "object") {
 		const record = content as Record<string, unknown>;
-		if ((record.type === "text" || record.type === undefined) && typeof record.text === "string")
-			return record.text;
+		if ((record.type === "text" || record.type === undefined) && typeof record.text === "string") return record.text;
 	}
 	return undefined;
 }

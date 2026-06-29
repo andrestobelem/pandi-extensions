@@ -12,11 +12,11 @@
  */
 
 import type {
+	AgentMonitorModel,
+	WorkflowLogEntry,
 	WorkflowRunRecord,
 	WorkflowRunResult,
 	WorkflowRunState,
-	WorkflowLogEntry,
-	AgentMonitorModel,
 } from "./index.js";
 
 export function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRunState(run)): number {

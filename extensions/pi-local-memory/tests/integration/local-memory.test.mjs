@@ -348,10 +348,7 @@ async function rememberTopicSlugIsSafe(url) {
 	const res = await tools
 		.get("remember")
 		.execute("tc1", { note: "x", topic: "../../etc/passwd" }, undefined, undefined, { cwd });
-	check(
-		"slug: traversal topic still remembered (sanitized)",
-		!!res && res.details && res.details.remembered === true,
-	);
+	check("slug: traversal topic still remembered (sanitized)", !!res && res.details && res.details.remembered === true);
 	const memDir = path.join(cwd, ".pi", "memory");
 	check("slug: written path stays inside .pi/memory/", !!res && res.details.path.startsWith(memDir + path.sep));
 	check(
@@ -380,10 +377,7 @@ async function rememberIsIdempotent(url) {
 		!!res2 && res2.details && res2.details.remembered === false,
 	);
 	const mem = await readMem(cwd);
-	check(
-		"remember: duplicate note stored only once",
-		(mem.match(/- \d{4}-\d{2}-\d{2}: dup note/g) || []).length === 1,
-	);
+	check("remember: duplicate note stored only once", (mem.match(/- \d{4}-\d{2}-\d{2}: dup note/g) || []).length === 1);
 }
 
 async function rememberFailsSafeOnDirectory(url) {
@@ -398,10 +392,7 @@ async function rememberFailsSafeOnDirectory(url) {
 		threw = true;
 	}
 	check("remember: does not throw when index is a directory", !threw);
-	check(
-		"remember: reports an error result instead of crashing",
-		!!res && res.details && res.details.isError === true,
-	);
+	check("remember: reports an error result instead of crashing", !!res && res.details && res.details.isError === true);
 }
 
 async function main() {

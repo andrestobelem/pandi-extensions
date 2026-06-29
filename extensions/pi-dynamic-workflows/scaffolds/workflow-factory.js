@@ -32,17 +32,7 @@ module.exports = async function workflow(ctx, input) {
 	const PLAN = {
 		type: "object",
 		additionalProperties: false,
-		required: [
-			"name",
-			"pattern",
-			"why",
-			"inputs",
-			"scout",
-			"primitives",
-			"promptContracts",
-			"verification",
-			"risks",
-		],
+		required: ["name", "pattern", "why", "inputs", "scout", "primitives", "promptContracts", "verification", "risks"],
 		properties: {
 			name: { type: "string" },
 			pattern: { type: "string" },

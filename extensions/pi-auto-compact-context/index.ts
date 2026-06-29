@@ -1,24 +1,24 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { ARG_COMPLETIONS, resolveCommandValue } from "./command-menu.js";
+import { type ContextBarLevel, renderContextBar } from "./context-bar.js";
 import {
-	parseThreshold,
 	parseBarSetting,
-	parseSnapshotSetting,
-	parseSnapshotKeep,
 	parseClearSetting,
+	parseSnapshotKeep,
+	parseSnapshotSetting,
+	parseThreshold,
 	resolveToggle,
 } from "./settings.js";
 import {
 	buildSnapshot,
+	type CompactionSnapshot,
 	selectSnapshotsToPrune,
 	snapshotDirFor,
 	snapshotFileName,
 	sortedSnapshotNames,
-	type CompactionSnapshot,
 } from "./snapshots.js";
-import { renderContextBar, type ContextBarLevel } from "./context-bar.js";
-import { ARG_COMPLETIONS, resolveCommandValue } from "./command-menu.js";
 
 const DEFAULT_THRESHOLD_PERCENT = 30;
 
@@ -29,14 +29,22 @@ const STATUS_KEY = "auto-compact-context";
 // (used by the activate handler) bounds snapshot disk growth.
 const DEFAULT_SNAPSHOT_KEEP = 20;
 
+export type { CompactionSnapshot };
 // Setting parsers live in ./settings.ts; re-exported here so the built bundle keeps
 // exporting the public parser names (the integration suite imports them).
-export { parseThreshold, parseBarSetting, parseSnapshotSetting, parseSnapshotKeep, parseClearSetting };
-
 // Snapshot path/shape/prune helpers live in ./snapshots.ts; re-exported so the built
 // bundle keeps exporting the names the integration suite imports.
-export { buildSnapshot, selectSnapshotsToPrune, snapshotDirFor, snapshotFileName };
-export type { CompactionSnapshot };
+export {
+	buildSnapshot,
+	parseBarSetting,
+	parseClearSetting,
+	parseSnapshotKeep,
+	parseSnapshotSetting,
+	parseThreshold,
+	selectSnapshotsToPrune,
+	snapshotDirFor,
+	snapshotFileName,
+};
 
 // Sentinel embedded in elided tool-result text. Detecting it makes clearing idempotent
 // (a re-run never re-clears already-cleared text) and lets humans spot trimmed output.
@@ -108,16 +116,14 @@ export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToo
 	return changed ? out : null;
 };
 
+export { MENU_OPTIONS, THRESHOLD_OPTIONS } from "./command-menu.js";
+export type { ContextBar, ContextBarLevel } from "./context-bar.js";
 // The interactive `/auto-compact-context` menu (MENU_OPTIONS/THRESHOLD_OPTIONS/
 // ARG_COMPLETIONS) and resolveCommandValue live in ./command-menu.ts; MENU_OPTIONS/
 // THRESHOLD_OPTIONS/resolveCommandValue are re-exported to preserve the bundle surface.
-export { resolveCommandValue };
-export { MENU_OPTIONS, THRESHOLD_OPTIONS } from "./command-menu.js";
-
 // The footer progress bar renderer + its types live in ./context-bar.ts; re-exported so
 // the bundle keeps exporting renderContextBar (the integration suite imports it).
-export { renderContextBar };
-export type { ContextBar, ContextBarLevel } from "./context-bar.js";
+export { renderContextBar, resolveCommandValue };
 
 const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "accent"> = {
 	idle: "muted",

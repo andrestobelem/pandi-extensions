@@ -13,33 +13,33 @@
  * functions back and WorkflowGraphImageAttempt as a type.
  */
 import * as crypto from "node:crypto";
-import * as fs from "node:fs/promises";
 import { existsSync } from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getCapabilities, truncateToWidth } from "@earendil-works/pi-tui";
 import {
-	mermaidLabel,
-	graphTextLabel,
-	extractFirstStringLiteral,
 	extractDirectStringLiteralArgument,
+	extractFirstStringLiteral,
+	findCallEndIndex,
+	formatWorkflowGraphFanoutSummary,
+	graphTextLabel,
+	inferWorkflowGraphFanout,
 	isJavaScriptCodePosition,
 	lineNumberAtIndex,
-	findCallEndIndex,
+	mermaidLabel,
 	splitTopLevelArguments,
-	inferWorkflowGraphFanout,
-	formatWorkflowGraphFanoutSummary,
 	summarizeWorkflowGraphChildren,
 	workflowGraphMethodInfo,
 } from "./graph-parse.js";
-import { padRightVisible } from "./render-utils.js";
-import { runProcess } from "./process-spawn.js";
-import { EXTENSION_ROOT } from "./index.js";
-import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";
-import type { ProcessResult } from "./process-spawn.js";
 import type { WorkflowFile } from "./index.js";
-import { WorkflowGraphComponent } from "./workflow-graph-component.js";
+import { EXTENSION_ROOT } from "./index.js";
 import { notify } from "./notify.js";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ProcessResult } from "./process-spawn.js";
+import { runProcess } from "./process-spawn.js";
+import { padRightVisible } from "./render-utils.js";
+import { WorkflowGraphComponent } from "./workflow-graph-component.js";
+import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";
 
 function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): WorkflowGraphModel {
 	const regex =
@@ -55,9 +55,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		const snippet = code.slice(openParenIndex + 1, Math.max(openParenIndex + 1, end - 1));
 		const args = splitTopLevelArguments(snippet);
 		const firstArg =
-			method === "workflow"
-				? extractDirectStringLiteralArgument(args[0] ?? "")
-				: extractFirstStringLiteral(snippet);
+			method === "workflow" ? extractDirectStringLiteralArgument(args[0] ?? "") : extractFirstStringLiteral(snippet);
 		const info = workflowGraphMethodInfo(method);
 		calls.push({
 			...info,
@@ -77,11 +75,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		let parent: WorkflowGraphCall | undefined;
 		for (const candidate of calls) {
 			if (candidate === call || !orchestrationParents.has(candidate.method)) continue;
-			if (
-				candidate.start < call.start &&
-				call.end <= candidate.end &&
-				(!parent || candidate.start > parent.start)
-			)
+			if (candidate.start < call.start && call.end <= candidate.end && (!parent || candidate.start > parent.start))
 				parent = candidate;
 		}
 		if (parent) {
@@ -257,18 +251,14 @@ function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: numb
 	if (steps.length === 0) {
 		lines.push(line(`  ${style.warning("No ctx.* workflow API calls detected.")}`));
 		lines.push(
-			line(
-				`  ${style.muted("This may be a trivial workflow or the graph heuristic missed dynamic indirection.")}`,
-			),
+			line(`  ${style.muted("This may be a trivial workflow or the graph heuristic missed dynamic indirection.")}`),
 		);
 	} else {
 		lines.push(line(`  ${style.success("start")} ${style.muted("→")} ${graphTextLabel(model.workflow.name)}`));
 		for (const step of steps) {
 			lines.push(line(`    ${style.muted("│")}`));
 			lines.push(
-				line(
-					`    ${style.accent(step.symbol)} ${step.label} ${style.muted(`L${step.line} ctx.${step.method}`)}`,
-				),
+				line(`    ${style.accent(step.symbol)} ${step.label} ${style.muted(`L${step.line} ctx.${step.method}`)}`),
 			);
 			for (const detail of renderWorkflowGraphStepDetail(step)) {
 				lines.push(line(`    ${style.muted("│")} ${style.muted(detail)}`));
@@ -696,10 +686,7 @@ export async function showWorkflowGraph(ctx: ExtensionContext, workflow: Workflo
 		return;
 	}
 	if (ctx.hasUI) {
-		await ctx.ui.editor(
-			`Workflow graph: ${workflow.name}`,
-			renderWorkflowGraphDocumentLines(model, 120).join("\n"),
-		);
+		await ctx.ui.editor(`Workflow graph: ${workflow.name}`, renderWorkflowGraphDocumentLines(model, 120).join("\n"));
 		return;
 	}
 	notify(ctx, renderWorkflowGraphDocumentLines(model, 100).join("\n"), "info");

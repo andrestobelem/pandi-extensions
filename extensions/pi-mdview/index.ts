@@ -1,15 +1,15 @@
+import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import {
+	type Component,
 	Markdown,
+	type MarkdownTheme,
 	matchesKey,
+	type TUI,
 	truncateToWidth,
 	visibleWidth,
-	type Component,
-	type MarkdownTheme,
-	type TUI,
 } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import * as path from "node:path";
 import { loadMarkdownDocument } from "./document.js";
 
 export { resolveMarkdownPath } from "./document.js";

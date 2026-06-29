@@ -37,8 +37,7 @@ export class AgentLiveViewComponent {
 		if (matchesKey(data, Key.up)) this.scroll = Math.max(0, this.scroll - 1);
 		else if (matchesKey(data, Key.down)) this.scroll = Math.min(this.maxScroll(), this.scroll + 1);
 		else if (matchesKey(data, Key.pageUp)) this.scroll = Math.max(0, this.scroll - this.pageSize());
-		else if (matchesKey(data, Key.pageDown))
-			this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
+		else if (matchesKey(data, Key.pageDown)) this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
 		else if (matchesKey(data, Key.home)) this.scroll = 0;
 		else if (matchesKey(data, Key.end)) this.scroll = this.maxScroll();
 		// Repaint immediately on scroll instead of waiting for the 1s refresh tick.

@@ -22,14 +22,15 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import {
 	buildTscArgs,
-	diagnosticsKey,
 	DEFAULT_MAX_ERRORS,
 	DEFAULT_TSC_TIMEOUT_MS,
+	type Diagnostic,
+	diagnosticsKey,
 	filterToTouched,
 	findNearestTsconfig,
 	formatDiagnostics,
@@ -37,11 +38,10 @@ import {
 	parseTscDiagnostics,
 	resolveTscCommand,
 	shouldRun,
-	type Diagnostic,
 	type TscRunResult,
 } from "./diagnostics.js";
-import { parseMax, parseMode, parseOnOff, parseScope, type FeedbackMode, type Scope } from "./settings.js";
 import { advisoryMessage, autofixMessage } from "./messages.js";
+import { type FeedbackMode, parseMax, parseMode, parseOnOff, parseScope, type Scope } from "./settings.js";
 
 // Re-exported for the integration suite to unit-test the pure helpers directly
 // against the same bundle (an `export … from` re-export creates no local binding,
@@ -499,8 +499,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			}
 
 			if (head === "run") {
-				const diags =
-					scope === "project" ? await runProjectCheck(ctx) : await runTouchedCheck(ctx, [...touched]);
+				const diags = scope === "project" ? await runProjectCheck(ctx) : await runTouchedCheck(ctx, [...touched]);
 				if (diags === null) {
 					notify(
 						ctx,

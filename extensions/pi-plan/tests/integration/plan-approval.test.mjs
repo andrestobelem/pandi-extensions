@@ -538,10 +538,7 @@ async function rehydrateReArmsActiveOnly(url) {
 		];
 		const ctx = makeCtx({ mode: "tui", hasUI: true, entries: persisted });
 		await fireSessionStart(handlers, ctx, "fork");
-		check(
-			"rehydrate(fork): gate NOT armed (plan mode not migrated to a fork)",
-			!(await writeBlocked(handlers, ctx)),
-		);
+		check("rehydrate(fork): gate NOT armed (plan mode not migrated to a fork)", !(await writeBlocked(handlers, ctx)));
 	}
 
 	// --- 5f2: session_start(fork) also clears any already-live in-memory plan state. ---
@@ -667,9 +664,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 		await commands.get("plan").handler("design a feature", ctx);
 		const afterEntry = sentMessages.length;
 		const oldPending = tools.get("submit_plan").execute("tc1", { plan: "# Old plan" }, undefined, undefined, ctx);
-		const latestPending = tools
-			.get("submit_plan")
-			.execute("tc2", { plan: "# New plan" }, undefined, undefined, ctx);
+		const latestPending = tools.get("submit_plan").execute("tc2", { plan: "# New plan" }, undefined, undefined, ctx);
 		check("pending-overlap: gate remains BLOCKED while approvals are pending", await writeBlocked(handlers, ctx));
 
 		first.resolve(true);
@@ -683,10 +678,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 
 		second.resolve(true);
 		const latestRes = await latestPending;
-		check(
-			"pending-overlap: latest approval succeeds",
-			latestRes?.details && latestRes.details.status === "approved",
-		);
+		check("pending-overlap: latest approval succeeds", latestRes?.details && latestRes.details.status === "approved");
 		check("pending-overlap: latest approval injects implement once", sentMessages.length === afterEntry + 1);
 		const wake = sentMessages[sentMessages.length - 1];
 		check(
@@ -771,10 +763,7 @@ async function autonomousEntryViaTool(url) {
 			console.log = origLog;
 		}
 		check("enter(print): tool result details.entered=false", res?.details && res.details.entered === false);
-		check(
-			"enter(print): no plan-state persisted",
-			entries.find((e) => e.customType === "plan-state") === undefined,
-		);
+		check("enter(print): no plan-state persisted", entries.find((e) => e.customType === "plan-state") === undefined);
 		check("enter(print): write ALLOWED (gate never armed)", !(await writeBlocked(handlers, ctx)));
 	}
 
@@ -786,9 +775,7 @@ async function autonomousEntryViaTool(url) {
 		const ctx = makeCtx({ mode: "tui", hasUI: true });
 		await commands.get("plan").handler("first task", ctx);
 		const firstState = latestPlanState(entries);
-		const res = await tools
-			.get("enter_plan_mode")
-			.execute("tc1", { task: "second task" }, undefined, undefined, ctx);
+		const res = await tools.get("enter_plan_mode").execute("tc1", { task: "second task" }, undefined, undefined, ctx);
 		check("enter(active): tool result details.entered=false", res?.details && res.details.entered === false);
 		check("enter(active): reason=already-active", res?.details && res.details.reason === "already-active");
 		const lastState = latestPlanState(entries);
@@ -846,9 +833,7 @@ async function nonInteractivePlanOnly(url) {
 			);
 
 			const planText = "# Plan\n1. do X\n2. verify";
-			const submitRes = await tools
-				.get("submit_plan")
-				.execute("tc2", { plan: planText }, undefined, undefined, ctx);
+			const submitRes = await tools.get("submit_plan").execute("tc2", { plan: planText }, undefined, undefined, ctx);
 			check(
 				"plan-only(env): submit details.status=plan-only",
 				submitRes?.details && submitRes.details.status === "plan-only",
@@ -857,10 +842,7 @@ async function nonInteractivePlanOnly(url) {
 				"plan-only(env): submit returns the plan text as the deliverable",
 				submitRes.content[0].text.includes(planText),
 			);
-			check(
-				"plan-only(env): write STILL BLOCKED after submit (gate not lifted)",
-				await writeBlocked(handlers, ctx),
-			);
+			check("plan-only(env): write STILL BLOCKED after submit (gate not lifted)", await writeBlocked(handlers, ctx));
 			check("plan-only(env): NO implement message injected", sentMessages.length === 0);
 			const st = latestPlanState(entries);
 			check("plan-only(env): persisted status=planned", st && st.status === "planned");

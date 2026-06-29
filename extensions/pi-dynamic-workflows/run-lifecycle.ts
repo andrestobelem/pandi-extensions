@@ -12,27 +12,27 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getRunDirs, readRunRecord, readRunStatus, writeJsonFile, writeRunStatus } from "./run-store.js";
-import { formatParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusLabel } from "./run-state.js";
-import { resolveRun, selectRunByKey } from "./run-view.js";
-import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput } from "./config.js";
-import { notify } from "./notify.js";
 import { runWorkflowWithUi } from "./dashboard-orchestration.js";
-import { runWorkflow, prepareWorkflowRun, activeRuns } from "./index.js";
-import { resolveWorkflow, ensureDir } from "./workflow-resolve.js";
-import { refreshActiveWorkflowStatus, formatRunSummary } from "./run-status-ui.js";
 import type {
 	ActiveWorkflowRun,
-	WorkflowRunStatus,
-	WorkflowRunResult,
-	WorkflowRunRecord,
-	WorkflowFile,
 	PreparedWorkflowRun,
 	RunLimits,
+	WorkflowFile,
 	WorkflowLogEntry,
+	WorkflowRunRecord,
+	WorkflowRunResult,
+	WorkflowRunStatus,
 } from "./index.js";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { activeRuns, prepareWorkflowRun, runWorkflow } from "./index.js";
+import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
+import { notify } from "./notify.js";
+import { formatParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusLabel } from "./run-state.js";
+import { formatRunSummary, refreshActiveWorkflowStatus } from "./run-status-ui.js";
+import { getRunDirs, readRunRecord, readRunStatus, writeJsonFile, writeRunStatus } from "./run-store.js";
+import { resolveRun, selectRunByKey } from "./run-view.js";
+import { ensureDir, resolveWorkflow } from "./workflow-resolve.js";
 
 function initialRunStatus(
 	workflow: WorkflowFile,

@@ -13,15 +13,15 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { renderSafeInline } from "./render-utils.js";
 import { extractMarkdownSection } from "./agent-view.js";
 import type {
-	WorkflowLogEntry,
-	SubagentResult,
 	AgentMonitorModel,
 	AgentMonitorState,
 	AgentPhaseInfo,
+	SubagentResult,
+	WorkflowLogEntry,
 } from "./index.js";
+import { renderSafeInline } from "./render-utils.js";
 
 interface ParsedRunEvents {
 	logs: WorkflowLogEntry[];
@@ -246,15 +246,11 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							state: explicitState ?? (ok === undefined ? "unknown" : ok ? "completed" : "failed"),
 							...(stringValue(event.startedAt) ? { startedAt: stringValue(event.startedAt) } : {}),
 							...(stringValue(event.endedAt) ? { endedAt: stringValue(event.endedAt) } : {}),
-							...(numberValue(event.elapsedMs) === undefined
-								? {}
-								: { elapsedMs: numberValue(event.elapsedMs) }),
+							...(numberValue(event.elapsedMs) === undefined ? {} : { elapsedMs: numberValue(event.elapsedMs) }),
 							...(ok === undefined ? {} : { ok }),
 							...(numberValue(event.code) === undefined ? {} : { code: numberValue(event.code) }),
 							...(booleanValue(event.killed) === undefined ? {} : { killed: booleanValue(event.killed) }),
-							...(stringValue(event.artifactPath)
-								? { artifactPath: stringValue(event.artifactPath) }
-								: {}),
+							...(stringValue(event.artifactPath) ? { artifactPath: stringValue(event.artifactPath) } : {}),
 							...(tools ? { tools } : {}),
 							...(excludeTools ? { excludeTools } : {}),
 							...(skills ? { skills } : {}),
@@ -275,11 +271,8 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							...(phaseTotal === undefined ? {} : { phaseTotal }),
 							...(phaseLabel ? { phaseLabel } : {}),
 							...(stringValue(event.output) ? { output: stringValue(event.output) } : {}),
-							...(booleanValue(event.schemaOk) === undefined
-								? {}
-								: { schemaOk: booleanValue(event.schemaOk) }),
-							promptAvailable:
-								booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),
+							...(booleanValue(event.schemaOk) === undefined ? {} : { schemaOk: booleanValue(event.schemaOk) }),
+							promptAvailable: booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),
 						});
 					}
 				}

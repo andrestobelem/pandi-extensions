@@ -60,6 +60,7 @@
  * patterns (notify, persist via appendEntry, rehydrate, status line, wake) are copied.
  */
 
+import * as crypto from "node:crypto";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -67,12 +68,7 @@ import type {
 	ToolCallEventResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import * as crypto from "node:crypto";
-import { notify } from "./notify.js";
-import { collectLatestByKey } from "./session-state.js";
 import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
-import { blockedReason } from "./gate.js";
-import { type PlanFlags, makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
 import {
 	getSessionFlagDefault,
 	parsePlanCommandFlags,
@@ -81,6 +77,10 @@ import {
 	resolvePlanFlags,
 	setSessionFlagDefault,
 } from "./flags.js";
+import { blockedReason } from "./gate.js";
+import { notify } from "./notify.js";
+import { makeImplementPrompt, makePlanningPrompt, type PlanFlags } from "./prompts.js";
+import { collectLatestByKey } from "./session-state.js";
 import { clearPlanStatus, formatStatus, setPlanStatus } from "./status.js";
 
 const PLAN_STATE_TYPE = "plan-state";

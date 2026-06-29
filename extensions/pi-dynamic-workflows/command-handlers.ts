@@ -11,7 +11,20 @@
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
+import {
+	openWorkflowDashboard,
+	parseWorkflowCommandArgument,
+	runWorkflowWithUi,
+	switchToPiSession,
+} from "./dashboard-orchestration.js";
+import { text } from "./format.js";
+import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
+import { currentWorkflowDepth, maxWorkflowDepth } from "./index.js";
+import { notify } from "./notify.js";
+import { collectPiSessions, formatPiSessionList } from "./pi-session.js";
+import { formatWorkflowList } from "./presentation.js";
 import {
 	cancelWorkflowRun,
 	deleteWorkflowRun,
@@ -20,9 +33,9 @@ import {
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "./run-lifecycle.js";
-import { collectPiSessions, formatPiSessionList } from "./pi-session.js";
+import { getRunStatusLabel } from "./run-state.js";
+import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun } from "./run-view.js";
-import { formatWorkflowList } from "./presentation.js";
 import {
 	formatWorkflowPatternCatalog,
 	loadWorkflowPatternCode,
@@ -30,22 +43,8 @@ import {
 	WORKFLOW_PATTERN_CATALOG,
 	WORKFLOW_TEMPLATE,
 } from "./templates.js";
-import { getRunStatusLabel } from "./run-state.js";
-import { makeWorkflowGraphForContext } from "./workflow-graph.js";
-import { notify } from "./notify.js";
-import { text } from "./format.js";
-import {
-	openWorkflowDashboard,
-	parseWorkflowCommandArgument,
-	runWorkflowWithUi,
-	switchToPiSession,
-} from "./dashboard-orchestration.js";
-import { currentWorkflowDepth, maxWorkflowDepth } from "./index.js";
+import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow } from "./workflow-resolve.js";
-import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
-import { showWorkflowGraph } from "./workflow-graph.js";
-import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
-import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 export async function handleTool(
 	pi: ExtensionAPI,
@@ -424,11 +423,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 				return;
 			}
 			if (!ctx.hasUI) {
-				notify(
-					ctx,
-					"/workflow delete-run requires interactive confirmation; refusing in no-UI mode.",
-					"warning",
-				);
+				notify(ctx, "/workflow delete-run requires interactive confirmation; refusing in no-UI mode.", "warning");
 				return;
 			}
 			const ok = await ctx.ui.confirm(

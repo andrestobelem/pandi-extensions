@@ -9,16 +9,17 @@
  * (invoked only in the session_start/session_end handlers and the dashboard body). Extracted
  * byte-identically (cluster + the four live-session symbols that were its sole users).
  */
+
+import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as crypto from "node:crypto";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { activeRuns, PI_SESSION_HEARTBEAT_MS } from "./index.js";
 import { formatElapsedMs } from "./presentation.js";
 import { writeJsonFile } from "./run-store.js";
-import { activeRuns, PI_SESSION_HEARTBEAT_MS } from "./index.js";
 import { ensureDir, projectHash } from "./workflow-resolve.js";
-import { getAgentDir, CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const PI_LIVE_SESSION_DIR = "live-sessions";
 const PI_SESSION_STALE_MS = 20_000;

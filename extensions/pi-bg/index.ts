@@ -5,11 +5,23 @@
  * trusted projects only for starts, no Supacode runner, and no mutating LLM tool.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+	guardStreamErrors,
+	isJobFinished,
+	killRuntime,
+	pipeWithBackpressure,
+	safeFinalize,
+	signalProcessGroup,
+	writeStatus,
+} from "./job-runtime.js";
+import { decorateStatus, deriveState, projectState, refineOrphanedIdentity } from "./job-state.js";
+import { probeProcessAlive, readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
+import { activeJobs, appendEvent, asNumber, asString, nowIso } from "./runtime-state.js";
 import {
 	atomicWriteJson,
 	candidateRunRoots,
@@ -20,35 +32,24 @@ import {
 	lstatPlainDirectory,
 	lstatPlainDirectoryChain,
 	parsePruneFlags,
+	RUNS_DIR,
 	readJson,
 	removeRunDir,
-	RUNS_DIR,
 	validJobId,
 } from "./storage.js";
-import { probeProcessAlive, readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
-import { activeJobs, appendEvent, asNumber, asString, nowIso } from "./runtime-state.js";
-import { projectState, deriveState, refineOrphanedIdentity, decorateStatus } from "./job-state.js";
-import {
-	guardStreamErrors,
-	isJobFinished,
-	killRuntime,
-	pipeWithBackpressure,
-	safeFinalize,
-	signalProcessGroup,
-	writeStatus,
-} from "./job-runtime.js";
-export { atomicWriteJson, removeRunDir, dirSizeBytes, parsePruneFlags };
-export { readProcessStartId, verifyProcessIdentity, probeProcessAlive } from "./process-liveness.js";
+
 // Child-process + log-stream lifecycle lives in ./job-runtime.ts; these are re-exported
 // because the integration suite imports them from the built bundle.
 export {
-	writeStatus,
+	finalizeJob,
 	guardStreamErrors,
 	isJobFinished,
 	pipeWithBackpressure,
 	safeFinalize,
-	finalizeJob,
+	writeStatus,
 } from "./job-runtime.js";
+export { probeProcessAlive, readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
+export { atomicWriteJson, dirSizeBytes, parsePruneFlags, removeRunDir };
 
 const MAX_LOG_BYTES = 20_000;
 const CANCEL_GRACE_MS = 750;
@@ -313,11 +314,7 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 			"warning",
 		);
 	if (!ctx.isProjectTrusted())
-		return response(
-			"Cannot /bg start in an untrusted project.",
-			{ action: "start", blockedBy: "trust" },
-			"warning",
-		);
+		return response("Cannot /bg start in an untrusted project.", { action: "start", blockedBy: "trust" }, "warning");
 
 	const jobId = generateJobId();
 	const runDir = await createRunDir(ctx, jobId);
@@ -528,8 +525,7 @@ function classifyForDeletion(
 	jobId: string,
 	status: Record<string, unknown> | undefined,
 ): { liveState: string; deletable: boolean; reason?: string } {
-	if (activeJobs.has(jobId))
-		return { liveState: "running", deletable: false, reason: "it is active in this session" };
+	if (activeJobs.has(jobId)) return { liveState: "running", deletable: false, reason: "it is active in this session" };
 	const pid = asNumber(status?.pid);
 	let state: string = projectState(jobId, asString(status?.state), pid).state;
 	if (state === "orphaned") state = refineOrphanedIdentity(pid, asString(status?.startId)).state;
@@ -550,11 +546,7 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 	const blocked = rejectInPlanMode("prune");
 	if (blocked) return blocked;
 	if (!ctx.isProjectTrusted())
-		return response(
-			"Cannot /bg prune in an untrusted project.",
-			{ action: "prune", blockedBy: "trust" },
-			"warning",
-		);
+		return response("Cannot /bg prune in an untrusted project.", { action: "prune", blockedBy: "trust" }, "warning");
 	const { yes } = parsePruneFlags(tail);
 	const candidates: { jobId: string; state: string; bytes: number }[] = [];
 	const skipped: { jobId: string; state: string; reason: string }[] = [];

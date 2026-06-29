@@ -98,9 +98,7 @@ module.exports = async function workflow(ctx, input) {
 
 		// A null thunk (crashed skeptic) counts as a refute — fail closed, stay adversarial.
 		const cast = votes.map((v) =>
-			v && typeof v.refuted === "boolean"
-				? v
-				: { refuted: true, why: "skeptic failed/invalid -> default refuted" },
+			v && typeof v.refuted === "boolean" ? v : { refuted: true, why: "skeptic failed/invalid -> default refuted" },
 		);
 		const refutes = cast.filter((v) => v.refuted).length;
 		const survived = refutes < majority;

@@ -6,8 +6,8 @@
  * index.ts. Depth-one sibling imported via "./status.js".
  */
 
-import { formatEta } from "./time.js";
 import { formatInterval } from "./interval.js";
+import { formatEta } from "./time.js";
 
 /** Structural subset of LoopState that formatStatus reads. A full LoopState satisfies it. */
 export interface LoopStatusInput {

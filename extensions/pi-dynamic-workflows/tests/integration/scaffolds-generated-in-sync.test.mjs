@@ -13,8 +13,8 @@
  *   node extensions/pi-dynamic-workflows/tests/integration/scaffolds-generated-in-sync.test.mjs
  */
 import * as fs from "node:fs";
-import { createChecker } from "../../../shared/test/harness.mjs";
 import { OUT_FILE, readSources, render } from "../../../../scripts/gen-scaffolds.mjs";
+import { createChecker } from "../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

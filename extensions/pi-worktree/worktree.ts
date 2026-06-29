@@ -272,8 +272,7 @@ export function resolveWorktreeTarget(
 	const requested = stripWrappingQuotes(rawPath);
 	if (!requested) return undefined;
 	if (requested === "~") return { path: os.homedir(), usedDefaultBase: false };
-	if (requested.startsWith("~/"))
-		return { path: path.join(os.homedir(), requested.slice(2)), usedDefaultBase: false };
+	if (requested.startsWith("~/")) return { path: path.join(os.homedir(), requested.slice(2)), usedDefaultBase: false };
 	if (path.isAbsolute(requested)) return { path: requested, usedDefaultBase: false };
 	if (requested.includes("/") || requested.includes("\\"))
 		return { path: path.resolve(cwd, requested), usedDefaultBase: false };

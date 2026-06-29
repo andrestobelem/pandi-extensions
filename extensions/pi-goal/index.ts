@@ -69,29 +69,29 @@
  * AUTONOMOUS: this file does not import from extensions/loop/index.ts; patterns are copied.
  */
 
+import * as crypto from "node:crypto";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import * as crypto from "node:crypto";
-import { formatEta } from "./time.js";
-import { notify } from "./notify.js";
-import { collectLatestByKey } from "./session-state.js";
 import {
-	GOAL_STATE_TYPE,
-	DEFAULT_MAX_ITERATIONS,
-	MIN_WAIT_SECONDS,
-	MAX_WAIT_SECONDS,
-	SAFETY_NET_DELAY_SECONDS,
 	DEFAULT_CONTEXT_PERCENT_CAP,
-	MAX_VERIFY_ATTEMPTS,
-	DEFAULT_VERIFIER_TOOLS,
-	DEFAULT_VERIFIER_TIMEOUT_MS,
 	DEFAULT_MAX_INDEPENDENT_VERIFICATIONS,
+	DEFAULT_MAX_ITERATIONS,
+	DEFAULT_VERIFIER_TIMEOUT_MS,
+	DEFAULT_VERIFIER_TOOLS,
+	GOAL_STATE_TYPE,
+	MAX_VERIFY_ATTEMPTS,
+	MAX_WAIT_SECONDS,
+	MIN_WAIT_SECONDS,
+	SAFETY_NET_DELAY_SECONDS,
 } from "./constants.js";
-import type { GoalStatus, GoalAssessment, GoalState, ActiveGoal } from "./types.js";
+import { notify } from "./notify.js";
 import { persist } from "./persistence.js";
 import { makeGoalIterationPrompt, makeGoalVerificationPrompt } from "./prompts.js";
+import { collectLatestByKey } from "./session-state.js";
+import { clearGoalStatus, setGoalStatus } from "./status.js";
+import { formatEta } from "./time.js";
+import type { ActiveGoal, GoalAssessment, GoalState, GoalStatus } from "./types.js";
 import { runIndependentVerifier } from "./verifier.js";
-import { setGoalStatus, clearGoalStatus } from "./status.js";
 
 // Source of truth of "which timers live NOW". Map supports several, but P0 tools
 // resolve the single active goal (S4).
@@ -597,8 +597,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 		],
 		parameters: Type.Object({
 			status: Type.Union([Type.Literal("continue"), Type.Literal("done"), Type.Literal("blocked")], {
-				description:
-					"continue = keep iterating; done = you believe all criteria are met; blocked = need a human.",
+				description: "continue = keep iterating; done = you believe all criteria are met; blocked = need a human.",
 			}),
 			assessment: Type.String({
 				minLength: 3,

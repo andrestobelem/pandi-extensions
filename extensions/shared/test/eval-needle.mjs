@@ -110,8 +110,7 @@ export function lexicalOverlap(a, b) {
 export function buildNeedleEval(spec = {}) {
 	const query = typeof spec.query === "string" ? spec.query : "";
 	const needleSentence = typeof spec.needleSentence === "string" ? spec.needleSentence : "";
-	const needleAnswer =
-		typeof spec.needleAnswer === "string" && spec.needleAnswer ? spec.needleAnswer : needleSentence;
+	const needleAnswer = typeof spec.needleAnswer === "string" && spec.needleAnswer ? spec.needleAnswer : needleSentence;
 	const distractors = Array.isArray(spec.distractors) ? spec.distractors.filter((s) => typeof s === "string") : [];
 	const filler = Array.isArray(spec.filler) ? spec.filler.filter((s) => typeof s === "string") : [];
 	const accept = Array.isArray(spec.accept) ? spec.accept.filter((s) => typeof s === "string" && s) : [];

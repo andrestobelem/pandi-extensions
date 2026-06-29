@@ -313,13 +313,7 @@ async function fixedModeAndScheduleNoop(url) {
 	await commands.get("loop").handler(`stop ${fixedId}`, ctx);
 	await startLoopCmd(commands, entries, "dynamic sibling", ctx);
 	await fireEvent(handlers, "agent_end", {}, ctx); // deliver the queued dynamic wake (FIFO)
-	const dres = await sched.execute(
-		"tc2",
-		{ delaySeconds: 1800, reason: "dynamic re-arm" },
-		undefined,
-		undefined,
-		ctx,
-	);
+	const dres = await sched.execute("tc2", { delaySeconds: 1800, reason: "dynamic re-arm" }, undefined, undefined, ctx);
 	check(
 		"dynamic: loop_schedule is NOT a no-op for a dynamic loop",
 		!dres?.details?.noop,

@@ -343,11 +343,7 @@ async function contextPercentCap(url) {
 		});
 
 		const id = await startLoopCmd(commands, entries, "fill the context", ctx);
-		check(
-			"ctxcap: loop started while context is low",
-			sentMessages.length === 1,
-			`delivered=${sentMessages.length}`,
-		);
+		check("ctxcap: loop started while context is low", sentMessages.length === 1, `delivered=${sentMessages.length}`);
 
 		// First agent_end while still healthy: must re-arm, NOT stop.
 		await fireEvent(handlers, "agent_end", {}, ctx);
@@ -880,11 +876,7 @@ async function concurrentLoopCap(url) {
 
 	const before = ctx._notes.length;
 	const overflow = await startLoopCmd(commands, entries, "one too many", ctx);
-	check(
-		"concurrency: the (cap+1)th /loop is REFUSED (no new loop created)",
-		overflow === undefined,
-		`id=${overflow}`,
-	);
+	check("concurrency: the (cap+1)th /loop is REFUSED (no new loop created)", overflow === undefined, `id=${overflow}`);
 	const refused = ctx._notes
 		.slice(before)
 		.some((n) => (n.type === "error" || n.type === "warning") && /concurrent|max|cap|limit|too many/i.test(n.msg));

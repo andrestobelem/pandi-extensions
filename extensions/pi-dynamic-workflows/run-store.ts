@@ -19,11 +19,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-
+import { safeJson } from "./format.js";
+import type { WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
 import { activeRuns } from "./index.js";
 import { getRunRoots } from "./workflow-resolve.js";
-import { safeJson } from "./format.js";
-import type { WorkflowRunStatus, WorkflowRunResult, WorkflowRunRecord } from "./index.js";
 
 export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
 	const dirs: { full: string; mtimeMs: number }[] = [];

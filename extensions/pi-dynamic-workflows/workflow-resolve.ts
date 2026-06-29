@@ -7,14 +7,15 @@
  * Deferred value imports from index.ts (the path-segment consts, used only inside bodies);
  * record/scope types cross as import type. Extracted byte-identically.
  */
+
+import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as crypto from "node:crypto";
-import { WORKFLOW_DIR, WORKFLOW_DRAFT_DIR, WORKFLOW_RUN_DIR, WORKFLOW_GRAPH_DIR } from "./index.js";
-import { resolveInsideRoot } from "./path-safety.js";
+import { CONFIG_DIR_NAME, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { WorkflowFile, WorkflowLocation, WorkflowScope, WorkflowScopeInput } from "./index.js";
-import { getAgentDir, CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { WORKFLOW_DIR, WORKFLOW_DRAFT_DIR, WORKFLOW_GRAPH_DIR, WORKFLOW_RUN_DIR } from "./index.js";
+import { resolveInsideRoot } from "./path-safety.js";
 
 const RESERVED_WORKFLOW_SUBDIRS = new Set(["drafts", "runs", "graphs", "sessions"]);
 

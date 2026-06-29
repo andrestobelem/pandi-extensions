@@ -8,9 +8,7 @@ import * as path from "node:path";
 
 function isInsidePath(root: string, target: string): boolean {
 	const relative = path.relative(root, target);
-	return (
-		relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative))
-	);
+	return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
 }
 
 export function resolveInsideRoot(

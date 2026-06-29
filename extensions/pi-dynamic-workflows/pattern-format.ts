@@ -3,8 +3,9 @@
  * prompt/cheat-sheet strings shown to humans and the model. Split out of
  * templates.ts for cohesion; pure formatters over catalog.ts data.
  */
-import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
+
 import type { WorkflowPattern } from "./catalog.js";
+import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
 
 export function formatWorkflowPatternCatalog(patterns = WORKFLOW_PATTERN_CATALOG): string {
 	const lines = [

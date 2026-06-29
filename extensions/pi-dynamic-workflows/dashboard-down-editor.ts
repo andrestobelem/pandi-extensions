@@ -9,13 +9,14 @@
  * session_start handler). The Dashboard* function types stay in index.ts (shared with
  * openWorkflowDashboard) and cross as import type. Extracted byte-identically.
  */
-import { Key, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
-import type { EditorComponent } from "@earendil-works/pi-tui";
-import { stripAnsiCodes } from "./render-utils.js";
-import { openWorkflowDashboard } from "./dashboard-orchestration.js";
-import type { DashboardCommandSubmitter, DashboardOpener } from "./dashboard-orchestration.js";
+
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
-import type { ExtensionContext, ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { EditorComponent } from "@earendil-works/pi-tui";
+import { Key, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
+import type { DashboardCommandSubmitter, DashboardOpener } from "./dashboard-orchestration.js";
+import { openWorkflowDashboard } from "./dashboard-orchestration.js";
+import { stripAnsiCodes } from "./render-utils.js";
 
 const WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER = "__dynamicWorkflowDashboardDownEditor";
 
@@ -267,10 +268,7 @@ export function installWorkflowDashboardDownEditor(
 			setWorkflowDashboardOpen?: (openDashboard: DashboardOpener, openAgentsDashboard?: DashboardOpener) => void;
 			setBorderLabelProvider?: (getBorderLabel: () => string | undefined) => void;
 		};
-		if (
-			existing[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] &&
-			typeof existing.setWorkflowDashboardOpen === "function"
-		) {
+		if (existing[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] && typeof existing.setWorkflowDashboardOpen === "function") {
 			existing.setWorkflowDashboardOpen(openMonitor, openAgents);
 			existing.setBorderLabelProvider?.(getBorderLabel);
 			return existing;

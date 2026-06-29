@@ -13,6 +13,19 @@
  */
 import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import {
+	canRerunRun,
+	type WorkflowActivityEntry,
+	type WorkflowAgentEntry,
+	type WorkflowDashboardResult,
+	type WorkflowMonitorModel,
+} from "./dashboard-collectors.js";
+import { formatAgentPhase, getAgentElapsedMs } from "./event-parser.js";
+import type { AgentMonitorModel, WorkflowFile, WorkflowRunRecord } from "./index.js";
+import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
+import type { PiSessionModel } from "./pi-session.js";
+import { compactInline, formatElapsedMs } from "./presentation.js";
+import { padRightVisible, renderSafeInline } from "./render-utils.js";
+import {
 	formatParallelAgents,
 	formatParallelAgentsCompact,
 	getRunAgentConcurrency,
@@ -24,22 +37,8 @@ import {
 	getRunStatusLabel,
 	isResumableState,
 } from "./run-state.js";
-import { formatAgentPhase, getAgentElapsedMs } from "./event-parser.js";
-import { formatElapsedMs } from "./presentation.js";
-import { padRightVisible, renderSafeInline } from "./render-utils.js";
-import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./templates.js";
-import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
-import { compactInline } from "./presentation.js";
 import { canCancelRun } from "./run-status-ui.js";
-import type { PiSessionModel } from "./pi-session.js";
-import {
-	canRerunRun,
-	type WorkflowActivityEntry,
-	type WorkflowAgentEntry,
-	type WorkflowDashboardResult,
-	type WorkflowMonitorModel,
-} from "./dashboard-collectors.js";
-import type { WorkflowRunRecord, WorkflowFile, AgentMonitorModel } from "./index.js";
+import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./templates.js";
 
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
 export type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
@@ -400,8 +399,7 @@ export class WorkflowDashboard {
 				this.patternIndex = Math.min(Math.max(0, WORKFLOW_PATTERN_CATALOG.length - 1), this.patternIndex + 1);
 			else if (this.tab === "sessions")
 				this.sessionIndex = Math.min(Math.max(0, this.piSessions.length - 1), this.sessionIndex + 1);
-			else if (this.tab === "runs")
-				this.runIndex = Math.min(Math.max(0, this.runs.length - 1), this.runIndex + 1);
+			else if (this.tab === "runs") this.runIndex = Math.min(Math.max(0, this.runs.length - 1), this.runIndex + 1);
 			else if (this.tab === "activity")
 				this.activityIndex = Math.min(Math.max(0, this.activity.length - 1), this.activityIndex + 1);
 			this.requestRender();
@@ -583,9 +581,7 @@ export class WorkflowDashboard {
 						: this.tab === "monitor"
 							? runActions("↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph")
 							: this.tab === "agents"
-								? runActions(
-										"↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph",
-									)
+								? runActions("↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph")
 								: runActions("↑↓ navigate • Enter/v view • g graph");
 		const lines: string[] = [
 			line(
@@ -651,8 +647,7 @@ export class WorkflowDashboard {
 		if (total > 1) {
 			lines.push(
 				line(
-					accent(`Active runs (${total})`) +
-						muted(` • [ ] switch • showing ${this.monitorRunIndex + 1}/${total}`),
+					accent(`Active runs (${total})`) + muted(` • [ ] switch • showing ${this.monitorRunIndex + 1}/${total}`),
 				),
 			);
 			for (let i = 0; i < total; i++) {
@@ -764,8 +759,7 @@ export class WorkflowDashboard {
 			const code =
 				agent.code === undefined ? "" : agent.code === 0 ? muted(` code:0`) : error(` code:${agent.code}`);
 			const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-			const schema =
-				agent.schemaOk === undefined ? "" : agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
+			const schema = agent.schemaOk === undefined ? "" : agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
 			const tools = muted(` tools:${agent.tools?.length ? agent.tools.length : "default"}`);
 			const skills = muted(
 				` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`,
@@ -878,11 +872,7 @@ export class WorkflowDashboard {
 			const phase = formatAgentPhase(entry.agent);
 			const prompt = entry.agent.promptAvailable ? success("prompt✓") : warning("prompt?");
 			const schema =
-				entry.agent.schemaOk === undefined
-					? ""
-					: entry.agent.schemaOk
-						? muted(` schema:ok`)
-						: error(` schema:bad`);
+				entry.agent.schemaOk === undefined ? "" : entry.agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
 			const tools = muted(` tools:${entry.agent.tools?.length ? entry.agent.tools.length : "default"}`);
 			const skills = muted(
 				` skills:${entry.agent.skills?.length ? entry.agent.skills.length : entry.agent.includeSkills === false ? "off" : "default"}`,
@@ -1015,9 +1005,7 @@ export class WorkflowDashboard {
 			),
 		);
 		lines.push(
-			line(
-				`session: ${selected.sessionName ? `${selected.sessionName} • ` : ""}${selected.sessionId ?? "unknown"}`,
-			),
+			line(`session: ${selected.sessionName ? `${selected.sessionName} • ` : ""}${selected.sessionId ?? "unknown"}`),
 		);
 		lines.push(line(`started: ${selected.startedAt} • updated: ${selected.updatedAt}`));
 		lines.push(
@@ -1074,9 +1062,7 @@ export class WorkflowDashboard {
 			lines.push(line(`name: ${selected.name}`));
 			lines.push(line(`scope: ${selected.scope}`));
 			lines.push(line(`path: ${selected.path}`));
-			lines.push(
-				line(muted("Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file")),
-			);
+			lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file")));
 		}
 	}
 
@@ -1125,9 +1111,7 @@ export class WorkflowDashboard {
 		lines.push(line(`input: ${selected.inputHint}`));
 		lines.push(line(`primitives: ${selected.primitives.join(", ")}`));
 		lines.push(line(`draft name: ${selected.defaultName}`));
-		lines.push(
-			line(muted("Enter/n creates a project workflow draft from this pattern; you can edit before save.")),
-		);
+		lines.push(line(muted("Enter/n creates a project workflow draft from this pattern; you can edit before save.")));
 	}
 
 	private renderRuns(
@@ -1145,9 +1129,7 @@ export class WorkflowDashboard {
 		const start = Math.max(0, Math.min(this.runIndex - 6, this.runs.length - 12));
 		const visible = this.runs.slice(start, start + 12);
 		lines.push(
-			line(
-				`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`,
-			),
+			line(`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`),
 		);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;

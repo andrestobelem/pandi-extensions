@@ -7,9 +7,9 @@
 import { spawn } from "node:child_process";
 import type { WriteStream } from "node:fs";
 import * as path from "node:path";
+import type { JobState, JobStatus, RuntimeJob } from "./index.js";
 import { activeJobs, appendEvent, nowIso } from "./runtime-state.js";
 import { atomicWriteJson } from "./storage.js";
-import type { JobState, JobStatus, RuntimeJob } from "./index.js";
 
 // Bound bytes written per job log sink so a chatty trusted job cannot fill the user's disk.
 const MAX_LOG_WRITE_BYTES = 5_000_000;

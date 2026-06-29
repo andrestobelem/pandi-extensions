@@ -11,73 +11,79 @@
  * sandbox) and can spend model calls by spawning subagents.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { StringEnum } from "@earendil-works/pi-ai";
-import { Key } from "@earendil-works/pi-tui";
-import { Type } from "typebox";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
-import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
-import { notify } from "./notify.js";
-import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
+import { StringEnum } from "@earendil-works/pi-ai";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Key } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
 import {
-	aggregateRunFocusMetrics,
-	formatFocusMetricsMarkdown,
-	parseAgentFocusMetrics,
-	type AgentFocusMetrics,
-} from "./focus-metrics.js";
-import { extractJsonCandidate } from "./json-extract.js";
-import { HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY } from "./config.js";
-import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
-import { phaseEventFields } from "./event-parser.js";
+	applyDefaultAgentAccess,
+	applyPersonaOptions,
+	createAgentEnvWrapper,
+	formatAgentAccessMarkdown,
+	normalizeAgentEnvAccess,
+	sanitizeEnvForCache,
+} from "./agent-env-persona.js";
+import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import {
 	abortReasonMessage,
 	combineSignal,
-	throwIfAborted,
-	sleep,
-	mapLimit,
 	createSemaphore,
+	mapLimit,
+	sleep,
+	throwIfAborted,
 } from "./concurrency-primitives.js";
+import { HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY } from "./config.js";
+import { phaseEventFields } from "./event-parser.js";
 import {
-	normalizeAgentEnvAccess,
-	formatAgentAccessMarkdown,
-	sanitizeEnvForCache,
-	createAgentEnvWrapper,
-	applyPersonaOptions,
-	applyDefaultAgentAccess,
-} from "./agent-env-persona.js";
-import {
-	makeStructuredOutputSystemPrompt,
-	appendSystemPromptOption,
-	validateStructuredData,
-	formatSchemaRetryPrompt,
-} from "./structured-output.js";
+	type AgentFocusMetrics,
+	aggregateRunFocusMetrics,
+	formatFocusMetricsMarkdown,
+	parseAgentFocusMetrics,
+} from "./focus-metrics.js";
+import { extractJsonCandidate } from "./json-extract.js";
+import { notify } from "./notify.js";
 import { runStreamingAgentProcess } from "./process-spawn.js";
+import {
+	appendSystemPromptOption,
+	formatSchemaRetryPrompt,
+	makeStructuredOutputSystemPrompt,
+	validateStructuredData,
+} from "./structured-output.js";
+import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./templates.js";
+import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
+
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
+
 import { installWorkflowDashboardDownEditor } from "./dashboard-down-editor.js";
 import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
 import { abortActiveWorkflowRuns } from "./run-lifecycle.js";
+
 export { settleWithinTimeout } from "./run-lifecycle.js";
+
+import { handleTool, handleWorkflowCommand, handleWorkflowsCommand } from "./command-handlers.js";
 import { openWorkflowDashboard } from "./dashboard-orchestration.js";
 import {
-	makeUltracodePrompt,
-	makeAlwaysOnUltracodeSystemPrompt,
+	clearUltracodeContractGateStatus,
+	clearUltracodeStatus,
 	dynamicWorkflowToolAvailable,
 	ensureDynamicWorkflowToolActive,
-	setUltracodeStatus,
-	clearUltracodeStatus,
-	setUltracodeContractGateStatus,
-	clearUltracodeContractGateStatus,
 	extractUltracodeTask,
 	isGeneratedUltracodePrompt,
+	makeAlwaysOnUltracodeSystemPrompt,
+	makeUltracodePrompt,
 	parseToggleCommandValue,
 	sendWorkflowPrompt,
+	setUltracodeContractGateStatus,
+	setUltracodeStatus,
 } from "./ultracode.js";
-import { handleTool, handleWorkflowCommand, handleWorkflowsCommand } from "./command-handlers.js";
+
 export { liveAgentHeaderStatus } from "./agent-view.js";
-import { resolveCwdPath, resolveArtifactPath } from "./path-safety.js";
+
+import { resolveArtifactPath, resolveCwdPath } from "./path-safety.js";
 import type {
 	ActiveWorkflowRun,
 	AgentOptions,
@@ -93,52 +99,58 @@ import type {
 	WorkflowRunStatus,
 	WorkflowScopeInput,
 } from "./types.js";
+
 export type {
-	WorkflowScope,
-	WorkflowScopeInput,
+	ActiveWorkflowRun,
+	AgentMonitorModel,
+	AgentMonitorState,
+	AgentOptions,
+	AgentPhaseInfo,
+	BashResult,
+	JournalCache,
+	JournalRecord,
+	PreparedWorkflowRun,
+	RunLimits,
+	SubagentResult,
 	WorkflowFile,
 	WorkflowLocation,
-	RunLimits,
-	AgentPhaseInfo,
-	AgentOptions,
-	SubagentResult,
-	BashResult,
 	WorkflowLogEntry,
-	WorkflowRunState,
-	WorkflowRunResult,
-	JournalRecord,
-	JournalCache,
-	PreparedWorkflowRun,
-	WorkflowRunStatus,
 	WorkflowRunRecord,
-	ActiveWorkflowRun,
-	AgentMonitorState,
-	AgentMonitorModel,
+	WorkflowRunResult,
+	WorkflowRunState,
+	WorkflowRunStatus,
+	WorkflowScope,
+	WorkflowScopeInput,
 } from "./types.js";
-import { slugify, ensureDir, resolveWorkflow, createRunDirectory } from "./workflow-resolve.js";
+
 import { appendJsonLine } from "./file-append.js";
-export { appendJsonLine, appendFileMutexCount } from "./file-append.js";
+import { createRunDirectory, ensureDir, resolveWorkflow, slugify } from "./workflow-resolve.js";
+
+export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
+
 import {
 	clearWorkflowWidget,
 	formatRunSummary,
 	refreshActiveWorkflowStatus,
 	setWorkflowIdleStatus,
 } from "./run-status-ui.js";
-export { extractUltracodeTask } from "./ultracode.js";
-export { selectRunByKey } from "./run-view.js";
+
 export {
-	recordValue,
-	stringValue,
-	numberValue,
 	booleanValue,
-	stringArrayValue,
+	formatAgentPhase,
+	getAgentElapsedMs,
 	isAgentMonitorState,
 	mergeAgentMonitor,
+	numberValue,
 	phaseEventFields,
-	getAgentElapsedMs,
-	formatAgentPhase,
 	readRunEvents,
+	recordValue,
+	stringArrayValue,
+	stringValue,
 } from "./event-parser.js";
+export { selectRunByKey } from "./run-view.js";
+export { extractUltracodeTask } from "./ultracode.js";
+
 import { MAX_TOOL_TEXT, safeJson, stringify, truncate } from "./format.js";
 import {
 	appendJournalRecord,
@@ -148,6 +160,7 @@ import {
 	normalizeSubagentResultForJournal,
 } from "./journal.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
+
 export { estimatePeakParallelAgents } from "./run-state.js";
 
 export const WORKFLOW_DIR = "workflows";
@@ -297,9 +310,7 @@ const workflowToolSchema = Type.Object({
 			description: "Maximum subagents a workflow may spawn.",
 		}),
 	),
-	timeoutMs: Type.Optional(
-		Type.Integer({ minimum: 1_000, description: "Overall workflow timeout in milliseconds." }),
-	),
+	timeoutMs: Type.Optional(Type.Integer({ minimum: 1_000, description: "Overall workflow timeout in milliseconds." })),
 	agentTimeoutMs: Type.Optional(
 		Type.Integer({
 			minimum: 1_000,
@@ -644,9 +655,7 @@ export async function runWorkflow(
 					...(hit.excludeTools?.length || !effectiveOptions.excludeTools?.length
 						? {}
 						: { excludeTools: effectiveOptions.excludeTools }),
-					...(hit.skills?.length || !effectiveOptions.skills?.length
-						? {}
-						: { skills: effectiveOptions.skills }),
+					...(hit.skills?.length || !effectiveOptions.skills?.length ? {} : { skills: effectiveOptions.skills }),
 					includeSkills: hit.includeSkills ?? effectiveOptions.includeSkills,
 					...(hit.extensions?.length || !effectiveOptions.extensions?.length
 						? {}
@@ -832,9 +841,7 @@ export async function runWorkflow(
 			}
 			throwIfAborted(runSignal.signal);
 			const parsedStrictOutput = parsePiJsonModeOutput(result.stdout);
-			const parsedOutput = parsedStrictOutput.ok
-				? parsedStrictOutput
-				: parsePiJsonModeOutputLenient(result.stdout);
+			const parsedOutput = parsedStrictOutput.ok ? parsedStrictOutput : parsePiJsonModeOutputLenient(result.stdout);
 			if (!parsedStrictOutput.ok) {
 				await log(`agent ${id} json output ${parsedOutput.ok ? "recovered" : "fallback"}: ${name}`, {
 					warning: parsedStrictOutput.warning,
@@ -1092,9 +1099,7 @@ export async function runWorkflow(
 			...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
 		});
 		if (options.throwOnError && !bashResult.ok) {
-			throw new Error(
-				`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`,
-			);
+			throw new Error(`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`);
 		}
 		return bashResult;
 	}
@@ -1462,11 +1467,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			const value = parseToggleCommandValue(args);
 			if (value === "status") {
 				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-				notify(
-					ctx,
-					`Ultracode Contract Gate is ${ultracodeContractGateEnabled ? "enabled" : "disabled"}.`,
-					"info",
-				);
+				notify(ctx, `Ultracode Contract Gate is ${ultracodeContractGateEnabled ? "enabled" : "disabled"}.`, "info");
 				return;
 			}
 			if (value === "on") {

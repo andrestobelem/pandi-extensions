@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Tests for the NoLiMa-style non-lexical eval primitive (research §4 / §3.7).
  *
@@ -9,15 +10,15 @@
  * the lure).
  */
 
-import { createChecker } from "../../../shared/test/harness.mjs";
 import {
-	tokenize,
-	lexicalOverlap,
-	buildNeedleEval,
 	assertNonLexicalDesign,
-	literalGrade,
+	buildNeedleEval,
 	gradeNonLexical,
+	lexicalOverlap,
+	literalGrade,
+	tokenize,
 } from "../../../shared/test/eval-needle.mjs";
+import { createChecker } from "../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

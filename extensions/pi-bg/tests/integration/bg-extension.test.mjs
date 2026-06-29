@@ -284,11 +284,7 @@ async function deleteRejectedInPlanMode(planUrl, bgUrl) {
 async function dispatcherExposesDeleteAndPrune(url) {
 	const { commands, tools } = await loadExtension(url);
 	const bg = commands.get("bg");
-	check(
-		"wiring: registers no LLM tools (delete/prune are slash-only)",
-		tools.size === 0,
-		[...tools.keys()].join(","),
-	);
+	check("wiring: registers no LLM tools (delete/prune are slash-only)", tools.size === 0, [...tools.keys()].join(","));
 	check(
 		"wiring: description advertises delete and prune",
 		/delete/.test(bg.description) && /prune/.test(bg.description),
@@ -444,11 +440,7 @@ async function logTailDoesNotSplitUtf8(url) {
 	await commands.get("bg").handler("logs utf8-job", ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
 	check("utf8: oversized log is truncated", msg.startsWith("[truncated to last 20000 bytes]"), msg.slice(0, 40));
-	check(
-		"utf8: tail read does not emit a replacement char",
-		!msg.includes("\uFFFD"),
-		JSON.stringify(msg.slice(0, 40)),
-	);
+	check("utf8: tail read does not emit a replacement char", !msg.includes("\uFFFD"), JSON.stringify(msg.slice(0, 40)));
 }
 
 async function emptyAndUntrustedBehavior(url, agentDir) {

@@ -73,26 +73,26 @@
  * - never re-inject outside tui/rpc.
  */
 
-import {
-	CONFIG_DIR_NAME,
-	getAgentDir,
-	type ExtensionAPI,
-	type ExtensionContext,
-	type ToolCallEvent,
-} from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
 import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { formatEta } from "./time.js";
-import { notify } from "./notify.js";
-import { collectLatestByKey } from "./session-state.js";
-import { formatInterval, parseInterval } from "./interval.js";
-import { destructiveReason } from "./gate.js";
-import { makeLoopIterationPrompt } from "./prompt.js";
-import { formatStatus } from "./status.js";
+import {
+	CONFIG_DIR_NAME,
+	type ExtensionAPI,
+	type ExtensionContext,
+	getAgentDir,
+	type ToolCallEvent,
+} from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { capExceeded } from "./caps.js";
+import { destructiveReason } from "./gate.js";
+import { formatInterval, parseInterval } from "./interval.js";
+import { notify } from "./notify.js";
+import { makeLoopIterationPrompt } from "./prompt.js";
+import { collectLatestByKey } from "./session-state.js";
+import { formatStatus } from "./status.js";
+import { formatEta } from "./time.js";
 
 const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";

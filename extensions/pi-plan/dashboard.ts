@@ -59,9 +59,7 @@ function clip(text: string, max: number): string {
 export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 	const lines: string[] = ["# Plan Mode Dashboard", ""];
 	if (plans.length === 0) {
-		lines.push(
-			"No plans recorded in this session yet. Start one with `/plan <task>` or the `enter_plan_mode` tool.",
-		);
+		lines.push("No plans recorded in this session yet. Start one with `/plan <task>` or the `enter_plan_mode` tool.");
 		return lines.join("\n");
 	}
 

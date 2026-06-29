@@ -12,28 +12,37 @@
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { formatRunView, listRuns } from "./run-view.js";
-import { getRunStatusLabel } from "./run-state.js";
-import { notify } from "./notify.js";
-import { stringify } from "./format.js";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { showLiveAgentView } from "./agent-view.js";
-import { showWorkflowGraph } from "./workflow-graph.js";
-import { WorkflowDashboard } from "./workflow-dashboard.js";
-import type { WorkflowDashboardTab, DashboardSelection } from "./workflow-dashboard.js";
-import { collectPiSessions, sessionManagerMetadata } from "./pi-session.js";
-import type { PiSessionModel } from "./pi-session.js";
+import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "./config.js";
 import {
-	startWorkflowBackground,
-	shouldLaunchWorkflowInBackground,
+	collectWorkflowActivity,
+	collectWorkflowAgents,
+	deriveWorkflowMonitorModels,
+	type WorkflowDashboardResult,
+} from "./dashboard-collectors.js";
+import { stringify } from "./format.js";
+import type {
+	PreparedWorkflowRun,
+	RunLimits,
+	WorkflowFile,
+	WorkflowLogEntry,
+	WorkflowRunRecord,
+	WorkflowRunResult,
+	WorkflowRunStatus,
+} from "./index.js";
+import { activeRuns, runWorkflow } from "./index.js";
+import { notify } from "./notify.js";
+import type { PiSessionModel } from "./pi-session.js";
+import { collectPiSessions, sessionManagerMetadata } from "./pi-session.js";
+import {
 	cancelWorkflowRun,
 	deleteWorkflowRun,
 	formatBackgroundStart,
+	shouldLaunchWorkflowInBackground,
+	startWorkflowBackground,
 } from "./run-lifecycle.js";
-import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "./config.js";
-import { loadWorkflowPatternCode } from "./templates.js";
-import type { WorkflowPattern } from "./templates.js";
-import { runWorkflow, activeRuns } from "./index.js";
-import { resolveWorkflow, ensureDir, listWorkflows } from "./workflow-resolve.js";
+import { getRunStatusLabel } from "./run-state.js";
 import {
 	canCancelRun,
 	clearWorkflowWidget,
@@ -44,22 +53,13 @@ import {
 	setWorkflowWidget,
 	showText,
 } from "./run-status-ui.js";
-import type {
-	WorkflowFile,
-	WorkflowRunResult,
-	WorkflowRunStatus,
-	WorkflowRunRecord,
-	RunLimits,
-	WorkflowLogEntry,
-	PreparedWorkflowRun,
-} from "./index.js";
-import {
-	collectWorkflowActivity,
-	collectWorkflowAgents,
-	deriveWorkflowMonitorModels,
-	type WorkflowDashboardResult,
-} from "./dashboard-collectors.js";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { formatRunView, listRuns } from "./run-view.js";
+import type { WorkflowPattern } from "./templates.js";
+import { loadWorkflowPatternCode } from "./templates.js";
+import type { DashboardSelection, WorkflowDashboardTab } from "./workflow-dashboard.js";
+import { WorkflowDashboard } from "./workflow-dashboard.js";
+import { showWorkflowGraph } from "./workflow-graph.js";
+import { ensureDir, listWorkflows, resolveWorkflow } from "./workflow-resolve.js";
 
 export async function runWorkflowWithUi(
 	pi: ExtensionAPI,

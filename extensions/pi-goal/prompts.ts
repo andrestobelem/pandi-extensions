@@ -8,8 +8,8 @@
  * index.ts and reuses effectiveCriteria/formatProgressLog imported from here.
  */
 
-import type { GoalState } from "./types.js";
 import { PROGRESS_LOG_KEEP } from "./constants.js";
+import type { GoalState } from "./types.js";
 
 /** The effective criteria text: user-supplied wins, else model-derived, else none yet. */
 export function effectiveCriteria(goal: GoalState): string | undefined {

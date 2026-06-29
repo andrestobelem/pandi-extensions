@@ -9,9 +9,9 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	buildListArgs,
 	DEFAULT_GIT_TIMEOUT_MS as GIT_TIMEOUT_MS,
+	type GitResult,
 	parseWorktreeList,
 	runGit,
-	type GitResult,
 	type WorktreeEntry,
 } from "./worktree.js";
 

@@ -374,11 +374,7 @@ async function interruptedAndStaleStatesAreDerived(url) {
 	);
 	await fs.writeFile(
 		path.join(deadDir, "status.json"),
-		JSON.stringify(
-			{ jobId: deadJob, state: "running", pid: dead.pid, updatedAt: new Date().toISOString() },
-			null,
-			2,
-		),
+		JSON.stringify({ jobId: deadJob, state: "running", pid: dead.pid, updatedAt: new Date().toISOString() }, null, 2),
 	);
 
 	// (2) Persisted starting with NO recorded pid => stale fallback (cannot probe).
@@ -777,11 +773,7 @@ async function cancelRefusesReusedPid(url) {
 	await fs.mkdir(runDir, { recursive: true });
 	await fs.writeFile(
 		path.join(runDir, "job.json"),
-		JSON.stringify(
-			{ jobId, command: "x", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir },
-			null,
-			2,
-		),
+		JSON.stringify({ jobId, command: "x", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir }, null, 2),
 	);
 	// Live pid (this process) but a stale recorded identity => pid reuse: must NOT be signaled.
 	await fs.writeFile(
@@ -1138,11 +1130,7 @@ async function backpressurePausesSource(url) {
 	pipe(source, [slow]);
 	source.write(Buffer.from("a".repeat(4096)));
 	await new Promise((r) => setTimeout(r, 30));
-	check(
-		"backpressure: source pauses while sink is full",
-		source.isPaused() === true,
-		`isPaused=${source.isPaused()}`,
-	);
+	check("backpressure: source pauses while sink is full", source.isPaused() === true, `isPaused=${source.isPaused()}`);
 	release();
 	await new Promise((r) => setTimeout(r, 30));
 	check(

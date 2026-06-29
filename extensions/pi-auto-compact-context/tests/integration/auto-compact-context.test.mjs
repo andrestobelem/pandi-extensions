@@ -491,11 +491,7 @@ async function snapshotWritesRawEntries(url) {
 	];
 	await fireBeforeCompact(handlers, env.ctx, { branchEntries: entries, reason: "threshold" });
 	const files = snapFiles(env);
-	check(
-		"snapshot: a JSON snapshot is written on session_before_compact",
-		files.length === 1,
-		`files=${files.length}`,
-	);
+	check("snapshot: a JSON snapshot is written on session_before_compact", files.length === 1, `files=${files.length}`);
 	if (files.length !== 1) return;
 	const snap = JSON.parse(readFileSync(path.join(snapDir(env), files[0]), "utf8"));
 	check(
@@ -720,10 +716,7 @@ async function clearPreservesImagesAndDoesNotMutate(url) {
 		"clear: image block is preserved alongside elided text",
 		!!out && out[0].content.some((b) => b.type === "image"),
 	);
-	check(
-		"clear: does NOT mutate the input message (originals unchanged)",
-		JSON.stringify(original) === snapshotBefore,
-	);
+	check("clear: does NOT mutate the input message (originals unchanged)", JSON.stringify(original) === snapshotBefore);
 	check("clear: input array is not mutated", messages[0] === original);
 }
 

@@ -7,9 +7,9 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { GoalState } from "./types.js";
 import { GOAL_STATUS_KEY } from "./constants.js";
 import { formatEta } from "./time.js";
+import type { GoalState } from "./types.js";
 
 export function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
 	if (!ctx.hasUI) return;

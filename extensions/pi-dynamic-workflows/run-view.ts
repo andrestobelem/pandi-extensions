@@ -14,25 +14,24 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getRunDirs, readRunRecord } from "./run-store.js";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { formatAgentPhase, readRunEvents } from "./event-parser.js";
+import { MAX_TOOL_TEXT, stringify } from "./format.js";
+import type { WorkflowRunRecord } from "./index.js";
+import { computeCodeHash } from "./journal.js";
+import { compactInline, formatElapsedMs } from "./presentation.js";
 import {
-	getRunState,
-	isResumableState,
-	getRunCachedCalls,
+	formatParallelAgents,
 	formatParallelAgentsCompact,
+	getRunCachedCalls,
+	getRunLogs,
+	getRunState,
 	getRunStatusIcon,
 	getRunStatusLabel,
-	getRunLogs,
+	isResumableState,
 	isRunResult,
-	formatParallelAgents,
 } from "./run-state.js";
-import { readRunEvents, formatAgentPhase } from "./event-parser.js";
-import { formatElapsedMs } from "./presentation.js";
-import { stringify, MAX_TOOL_TEXT } from "./format.js";
-import { computeCodeHash } from "./journal.js";
-import { compactInline } from "./presentation.js";
-import type { WorkflowRunRecord } from "./index.js";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { getRunDirs, readRunRecord } from "./run-store.js";
 
 export async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord[]> {
 	const runs: WorkflowRunRecord[] = [];
@@ -170,9 +169,7 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		`Directory: ${run.runDir}`,
 		...(state === "running" ? [`Cancel: /workflow cancel ${run.runId}`] : []),
 		...(resumable ? [`Resume: /workflow resume ${run.runId}`] : []),
-		...(state === "stale"
-			? ["Note: this run was marked running on disk but is not active in this Pi session."]
-			: []),
+		...(state === "stale" ? ["Note: this run was marked running on disk but is not active in this Pi session."] : []),
 		...(codeChanged
 			? [
 					"Warning: workflow code changed since this run. On resume, calls whose arguments changed will be re-executed (cache miss); unchanged calls stay cached.",

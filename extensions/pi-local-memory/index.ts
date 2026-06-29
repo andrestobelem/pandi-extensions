@@ -1,9 +1,9 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { composeInjectedMemory, INDEX_FILE, normalizeNote, slugifyTopic, upsertMemoryNote } from "./memory.js";
-import { memoryDirOf, indexPathOf, legacyPathOf, safeRead } from "./paths.js";
+import { indexPathOf, legacyPathOf, memoryDirOf, safeRead } from "./paths.js";
 
 /** Build a `remember` tool result with a single text block plus arbitrary details. */
 function result(text: string, details: Record<string, unknown>) {
