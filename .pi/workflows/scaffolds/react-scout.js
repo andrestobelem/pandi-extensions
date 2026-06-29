@@ -22,6 +22,7 @@
  */
 export const meta = {
   name: 'react-scout',
+  basedOn: [{ name: 'arXiv:2210.03629', role: 'paper (ReAct)' }],
   description: 'ReAct reason->act->observe loop: ground each step in tool observations before committing/fanning out (arXiv:2210.03629)',
   phases: [
     { title: 'Reason' },

@@ -2,8 +2,9 @@
 name: ultracode
 description: >-
   Orchestrate a task with dynamic multi-agent workflows instead of doing it inline — on BOTH
-  Claude Code (Anthropic, the Workflow tool) and pi (Codex, the dynamic_workflow tool). Trigger
-  when the user says "ultracode", OR when a task is large/valuable enough to justify
+  Claude Code (Anthropic, the Workflow tool) and pi (the dynamic_workflow tool, runs on Anthropic or Codex). Trigger
+  when the user says "ultracode" or "workflow" (as a request to orchestrate — not when merely
+  asking about an existing workflow), OR when a task is large/valuable enough to justify
   orchestration: repo-wide audit or bug-hunt, code migration or codemod, deep/multi-source
   research, adversarial verification of claims or findings, generate-and-filter / best-of-N,
   tournament ranking, loop-until-done discovery, decompose-an-open-goal, or processing a corpus
@@ -15,7 +16,7 @@ description: >-
 
 Decide whether to orchestrate, design the workflow, then run it. This skill is **self-contained
 and dual-platform**: the *concepts* (when to orchestrate, primitives, prompting, security) are
-shared; the concrete *API* differs between **Claude Code (Anthropic)** and **pi (Codex)** — see
+shared; the concrete *API* differs between **Claude Code (Anthropic)** and **pi** (one runtime, runs on Anthropic OR OpenAI/Codex) — see
 [Platform reference](#platform-reference) for each one's tool, helpers, and invocation.
 
 A Claude-side catalog is bundled at `reference/catalog-README.md` (snapshot of the live
@@ -104,10 +105,18 @@ Claude effort scale: `low | medium | high | xhigh | max`. pi thinking scale:
 `off | minimal | low | medium | high | xhigh` (no `max`). On both, `model`/`effort`(`thinking`) are
 part of the cache key, so changing them re-runs that call on resume.
 
-### pi · OpenAI / Codex models
+### pi · provider models
 
-pi resolves `provider/id[:thinking]`, so the same knobs can target **OpenAI Codex** instead of
-Anthropic. Models in the Codex `/model` picker (provider `openai-codex`):
+pi has **both providers defined** and resolves `provider/id[:thinking]` (or a bare pattern alias on
+whichever provider is active), so the same knobs target **Anthropic OR OpenAI/Codex** per call.
+
+**Anthropic** — the same Claude family as the Claude Code runtime, addressed as `anthropic/…`:
+
+- `anthropic/claude-opus-4-8` · `anthropic/claude-sonnet-4-6`
+- `anthropic/claude-haiku-4-5-20251001`  (`anthropic/claude-fable-5` exists but is **currently disabled**)
+- pattern aliases `opus` / `sonnet` / `haiku` resolve to the current id.
+
+**OpenAI / Codex** — provider `openai-codex` (from the Codex `/model` picker):
 
 - `openai-codex/gpt-5.5`
 - `openai-codex/gpt-5.4` · `openai-codex/gpt-5.4-mini`
@@ -134,7 +143,7 @@ await ctx.agent(prompt, { model: "openai-codex/gpt-5.5:high" });   // suffix sho
 ```
 
 Codex ids apply only under the pi runtime; the Claude Code runtime is Claude-only
-(`haiku`/`sonnet`/`opus`/`fable`).
+(`haiku`/`sonnet`/`opus`; `fable` currently disabled).
 
 ## Stable prefix (prompt cache)
 
@@ -263,7 +272,10 @@ open <out.html>
   Pass the same `argsJson` the run will use; use the absolute path (cwd resets). Render + open, then
   call `Workflow` immediately with the same `name`/`scriptPath` and `args` — don't block on a question.
 
-### pi (Codex)
+### pi
+
+pi is **one runtime with two providers** — it runs on **Anthropic** OR **OpenAI/Codex**, chosen per
+call via `model`/`provider`. It is *not* "Codex"; Codex is just one of the providers it supports.
 
 - **Tool:** `dynamic_workflow`. **Script API:** `module.exports = async function (ctx, input) {…}`
   with `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`, `ctx.bash`,
@@ -289,12 +301,12 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
 
 ### Cheat-sheet
 
-| Aspect | Claude Code (Anthropic) | pi (Codex) |
+| Aspect | Claude Code (Anthropic) | pi (Anthropic or Codex) |
 | --- | --- | --- |
 | Tool | `Workflow` | `dynamic_workflow` |
 | Script API | helper globals (`agent`, `parallel`, …) | `(ctx, input)` + `ctx.*` |
 | Budget knobs | `model` · `effort` (low…max) | `model`/`provider` · `thinking` (off…xhigh) |
-| Models | `haiku`/`sonnet`/`opus`/`fable` | Anthropic ids OR `openai-codex/gpt-5.x` |
+| Models | `haiku`/`sonnet`/`opus` (`fable` disabled) | Anthropic ids OR `openai-codex/gpt-5.x` |
 | Per-role | `node(role)` helper / inline / `models`+`efforts` | per-call + `agentType` personas |
 | Catalog | `~/.claude/workflows/` + README | `dynamic_workflow action=template` |
 | Depth | 1 | 2 (→3) |
@@ -302,9 +314,13 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
 
 ## Author a new workflow
 
-Prefer **`workflow-factory`** (catalog-aware: reuses/specializes the closest scaffold, writes a draft)
-over hand-rolling. Conventions (both platforms):
+**Base every new workflow on the closest existing scaffold(s) — never reinvent.** Prefer
+**`workflow-factory`** (catalog-aware: reuses/specializes the closest scaffold, writes a draft) over
+hand-rolling. Conventions (both platforms):
 
+- **Declare provenance: set `meta.basedOn` to an array of `{ name, role }` literals — one per scaffold
+  you reused, specialized, or composed via `workflow()`.** This fills the artifact's Based-on tab; omit
+  it (or `[]`) only when truly built from scratch. `meta` stays a pure literal (no vars/calls/spreads).
 - Parse args/input defensively (`args` may arrive JSON-stringified on Claude).
 - Set `model`/`effort` (or `thinking`) per call; keep role names stable.
 - Bound every loop on both ends; `log()` whenever you clamp or drop.

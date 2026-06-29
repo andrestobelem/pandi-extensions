@@ -68,6 +68,7 @@
  */
 export const meta = {
   name: 'reflexion',
+  basedOn: [{ name: 'arXiv:2303.11366', role: 'paper (Reflexion)' }],
   description: 'Reflexion verbal-RL: re-attempt the whole task each trial with a distinct (optionally bash-grounded, evidence-checked) evaluator and a bounded episodic memory of self-reflections (arXiv:2303.11366)',
   phases: [
     { title: 'Act' },

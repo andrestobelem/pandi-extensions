@@ -24,6 +24,7 @@
  */
 export const meta = {
   name: 'self-consistency',
+  basedOn: [{ name: 'arXiv:2203.11171', role: 'paper (Self-Consistency)' }],
   description: 'Sample N independent reasoning paths and select the answer by consensus, not a single path (arXiv:2203.11171)',
   phases: [
     { title: 'Sample' },

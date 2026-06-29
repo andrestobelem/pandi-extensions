@@ -28,6 +28,7 @@
  */
 export const meta = {
   name: 'self-refine',
+  basedOn: [{ name: 'arXiv:2303.17651', role: 'paper (Self-Refine)' }, { name: 'adversarial-verify', role: 'composed-via (optional jury critic)' }],
   description: 'Bounded in-place generate->critique->refine loop with verbal memory; optional adversarial-verify jury as critic (arXiv:2303.17651)',
   phases: [
     { title: 'Generate' },
