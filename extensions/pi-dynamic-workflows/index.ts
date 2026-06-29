@@ -362,7 +362,7 @@ export function transformWorkflowCode(code: string): string {
 	);
 	if (/^\s*export\s/m.test(output)) {
 		throw new Error(
-			"Only `export default` is supported. Prefer `module.exports = async function workflow(ctx, input) {}`.",
+			"Only `export default` is supported. Use `export default async function workflow(ctx, input) {}` (or `module.exports = ...`).",
 		);
 	}
 	return output;

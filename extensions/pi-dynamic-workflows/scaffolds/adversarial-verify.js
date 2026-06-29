@@ -12,7 +12,7 @@
  * Uses: ctx.agent (finder), ctx.parallel([thunks]) per finding (jury barrier),
  * ctx.agent({ schema }) for typed skeptic verdicts, result-driven survival.
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const safeParse = (s) => {
 		try {
 			return JSON.parse(s);
@@ -118,4 +118,4 @@ module.exports = async function workflow(ctx, input) {
 		skepticsPerFinding: skeptics,
 		majorityToKill: majority,
 	};
-};
+}

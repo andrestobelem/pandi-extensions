@@ -7,7 +7,7 @@
  *
  * Input: { topic: "...", maxClaims?: 8, skeptics?: 3 }
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const topic = input?.topic ?? input?.question ?? input?.text;
 	if (!topic) throw new Error('Pass { topic: "claims to discover and verify" }.');
 	const maxClaims = Math.max(1, Number.isFinite(+input?.maxClaims) ? Math.floor(+input.maxClaims) : 8);
@@ -44,4 +44,4 @@ module.exports = async function workflow(ctx, input) {
 	);
 	await ctx.writeArtifact("summary.md", synthesis.output);
 	return synthesis.output;
-};
+}

@@ -10,7 +10,7 @@
  * - The generated workflow is a draft: inspect/edit before trusting it for high
  *   cost or mutating work.
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const task = input?.task ?? input?.request ?? input?.text;
 	if (!task) throw new Error('Pass { task: "what the workflow should accomplish" }.');
 
@@ -67,7 +67,7 @@ module.exports = async function workflow(ctx, input) {
 			`Task:\n${task}\n\n` +
 			`Design plan:\n${ctx.compact(plan, 12000)}\n\n` +
 			`Hard requirements:\n` +
-			`- module.exports = async function workflow(ctx, input) { ... }\n` +
+			`- export default async function workflow(ctx, input) { ... }\n` +
 			`- No import/require. Use only ctx helpers and plain JS.\n` +
 			`- Choose concurrency from input/ctx.limits; never silently cap coverage.\n` +
 			`- Use read-only subagent tools unless the task explicitly requires mutation; include web_search when web/docs/current evidence may help.\n` +
@@ -111,4 +111,4 @@ module.exports = async function workflow(ctx, input) {
 		`Why: ${plan.why ?? "n/a"}`,
 		"Next: inspect/edit the generated workflow, then run it with explicit concurrency/maxAgents.",
 	].join("\n");
-};
+}

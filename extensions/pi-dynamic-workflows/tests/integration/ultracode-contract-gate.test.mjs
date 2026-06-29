@@ -369,7 +369,7 @@ async function scenarioTemplateCatalog(url) {
 		check(
 			`scaffold loads for ${key}`,
 			scaffold.details?.pattern?.key === key &&
-				/module\.exports\s*=\s*async function workflow/.test(scaffold.content?.[0]?.text ?? ""),
+				/(?:export default|module\.exports\s*=)\s*async function workflow/.test(scaffold.content?.[0]?.text ?? ""),
 			JSON.stringify(scaffold.details?.pattern),
 		);
 	}

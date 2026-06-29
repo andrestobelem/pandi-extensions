@@ -963,7 +963,14 @@ async function findScaffold(mod, pred) {
 
 function evalScaffold(code) {
 	const m = { exports: {} };
-	new Function("module", "exports", code)(m, m.exports);
+	// Mirror the runtime: a workflow may use `export default` (transformWorkflowCode
+	// rewrites it to module.exports). Apply that same conversion before evaluating
+	// the source as CommonJS here.
+	const cjs = code.replace(
+		/(^|\n)(\s*)export\s+default\s+/m,
+		(_match, nl, indent) => `${nl}${indent}module.exports = `,
+	);
+	new Function("module", "exports", cjs)(m, m.exports);
 	return m.exports;
 }
 

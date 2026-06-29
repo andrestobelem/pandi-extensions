@@ -1,4 +1,4 @@
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const raw = Array.isArray(input?.candidates) ? input.candidates : [];
 	const candidates = raw
 		.map((cand, i) => (typeof cand === "string" ? { id: `cand-${i}`, text: cand } : cand))
@@ -125,4 +125,4 @@ module.exports = async function workflow(ctx, input) {
 		best: result.best?.id ?? null,
 	});
 	return result;
-};
+}

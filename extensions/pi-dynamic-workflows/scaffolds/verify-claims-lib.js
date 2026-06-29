@@ -7,7 +7,7 @@
  * This file is intended to live at `.pi/workflows/lib/verify-claims.js` and be
  * called from parent workflows with ctx.workflow("lib/verify-claims", args).
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const claims = Array.isArray(input?.claims) ? input.claims.filter((claim) => claim?.claim) : [];
 	if (claims.length === 0) return { verified: [], dropped: [], votes: [], coverage: { claims: 0 } };
 	const requestedSkeptics = Math.max(1, Number.isFinite(+input?.skeptics) ? Math.floor(+input.skeptics) : 3);
@@ -87,4 +87,4 @@ module.exports = async function workflow(ctx, input) {
 	const result = { verified, dropped, votes, coverage: { claims: claims.length, skeptics, requestedSkeptics } };
 	await ctx.writeArtifact("verify-claims-result.json", result);
 	return result;
-};
+}

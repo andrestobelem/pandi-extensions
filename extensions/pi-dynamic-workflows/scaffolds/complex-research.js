@@ -8,7 +8,7 @@ function chooseConcurrency(ctx, input, items, opts = {}) {
 	return Math.min(4, items.length, ctx.limits.concurrency); // small/safe fallback, not a default ceiling
 }
 
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const question = input?.question ?? input?.q ?? input?.text;
 	if (!question) throw new Error('Pass { question: "..." } as workflow input.');
 
@@ -92,4 +92,4 @@ ${ctx.compact(
 
 	await ctx.writeArtifact("synthesis.md", synthesis.output);
 	return synthesis.output;
-};
+}

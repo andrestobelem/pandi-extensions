@@ -396,7 +396,7 @@ function chooseConcurrency(ctx, input, items) {
   return Math.min(items.length <= 2 ? items.length : 4, ctx.limits.concurrency);
 }
 
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
   await ctx.log("start", { input });
 
   const items = [
@@ -412,7 +412,7 @@ module.exports = async function workflow(ctx, input) {
 
   await ctx.writeArtifact("reviews.json", reviews);
   return ctx.compact(completedReviews, 20000);
-};
+}
 ```
 
 ## Concurrencia: por qué el default es 4

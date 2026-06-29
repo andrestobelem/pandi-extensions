@@ -10,7 +10,7 @@ function chooseConcurrency(ctx, input, items, opts = {}) {
 	return Math.min(4, items.length, ctx.limits.concurrency); // small/safe fallback, not a default ceiling
 }
 
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const maxFiles = input?.maxFiles ?? 40;
 
 	await ctx.log("Collecting candidate files", { maxFiles });
@@ -91,4 +91,4 @@ ${ctx.compact(
 
 	await ctx.writeArtifact("summary.md", synthesis.output);
 	return synthesis.output;
-};
+}

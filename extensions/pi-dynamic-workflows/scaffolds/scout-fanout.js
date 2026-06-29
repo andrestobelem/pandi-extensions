@@ -9,7 +9,7 @@
  * Uses: ctx.bash (scout), ctx.pipeline(items, ...stages) with stage
  * (value, originalItem, index), ctx.agent({ schema }) for a typed verdict.
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const safeParse = (s) => {
 		try {
 			return JSON.parse(s);
@@ -75,4 +75,4 @@ module.exports = async function workflow(ctx, input) {
 		{ name: "synthesis", agentType: "reviewer", tools: ["read", "grep", "find", "ls"] },
 	);
 	return synthesis.output;
-};
+}

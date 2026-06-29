@@ -8,7 +8,7 @@
  * Uses: ctx.parallel([thunks]) (barrier: judge all together),
  * ctx.agent({ schema }) for a structured verdict, a result-driven while loop.
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const safeParse = (s) => {
 		try {
 			return JSON.parse(s);
@@ -87,4 +87,4 @@ module.exports = async function workflow(ctx, input) {
 		{ name: "synthesis", agentType: "researcher", tools: ["read", "grep", "find", "ls", "bash"] },
 	);
 	return synthesis.output;
-};
+}

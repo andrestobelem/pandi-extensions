@@ -5,7 +5,7 @@ function chooseConcurrency(ctx, input, items) {
 	return Math.min(4, items.length, ctx.limits.concurrency); // small/safe fallback for bounded reviewer panels
 }
 
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const plan = input?.plan ?? input?.text;
 	if (!plan) throw new Error('Pass { plan: "..." } as workflow input.');
 
@@ -107,4 +107,4 @@ ${ctx.compact(
 
 	await ctx.writeArtifact("revised-plan.md", synthesis.output);
 	return synthesis.output;
-};
+}

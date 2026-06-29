@@ -8,7 +8,7 @@
  * Uses: ctx.agents({ settle:true }) (one crashed finder doesn't sink the round),
  * a dedupe Set keyed by a stable id, and ctx.log so the cap is never silent.
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const quietToStop = input?.quietRounds ?? 2;
 	const maxRounds = input?.maxRounds ?? 8;
 	const finders = input?.finders ?? 3;
@@ -65,4 +65,4 @@ module.exports = async function workflow(ctx, input) {
 		{ name: "synthesis", agentType: "reviewer", tools: ["read", "grep", "find", "ls"] },
 	);
 	return synthesis.output;
-};
+}

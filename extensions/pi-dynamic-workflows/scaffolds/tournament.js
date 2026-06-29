@@ -14,7 +14,7 @@
  * ctx.agent({ schema }) for structured pairwise verdicts, ctx.log so the bracket
  * size / byes / round count are never a silent cap.
  */
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const safeParse = (s) => {
 		try {
 			return JSON.parse(s);
@@ -127,4 +127,4 @@ module.exports = async function workflow(ctx, input) {
 	});
 
 	return champion?.text ?? "";
-};
+}

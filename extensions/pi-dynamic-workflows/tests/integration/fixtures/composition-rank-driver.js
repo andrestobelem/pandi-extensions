@@ -1,4 +1,4 @@
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	const goal = input?.goal ?? input?.topic ?? input?.question ?? input?.text;
 	if (!goal) throw new Error('Pass { goal: "what to generate and rank candidates for" }.');
 	const maxCandidates = Math.max(2, Number(input?.maxCandidates ?? 6));
@@ -49,4 +49,4 @@ module.exports = async function workflow(ctx, input) {
 	);
 	await ctx.writeArtifact("best.md", synthesis.output);
 	return synthesis.output;
-};
+}

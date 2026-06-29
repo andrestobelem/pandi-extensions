@@ -37,7 +37,7 @@ function chooseConcurrency(ctx, input, items, opts = {}) {
 	return Math.min(4, items.length, ctx.limits.concurrency); // small/safe fallback, not a default ceiling
 }
 
-module.exports = async function workflow(ctx, input) {
+export default async function workflow(ctx, input) {
 	await ctx.log("Starting workflow", { input });
 
 	const files = await ctx.bash("git ls-files", { throwOnError: true });
@@ -92,4 +92,4 @@ module.exports = async function workflow(ctx, input) {
 
 	await ctx.writeArtifact("summary.md", synthesis.output);
 	return synthesis.output;
-};
+}
