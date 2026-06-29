@@ -189,9 +189,15 @@ export async function bundle({ src, outDir, outName, aliases = {}, npx = "--yes"
  *   - outName: output filename inside the tempdir (e.g. "bg.mjs").
  *   - stubs:   spec passed to writeStubs (default {} = no aliases).
  *   - npx:     "--yes" (default) or "--no-install" — preserved per suite.
+ *   - copyDirs: { destName: absSrcDir } — sibling asset dirs copied into the tempdir next to the
+ *               bundle, for entries that read files at runtime relative to import.meta.url
+ *               (e.g. pi-dynamic-workflows reads scaffolds/*.js beside its module).
  */
-export async function buildExtension({ name, src, outName, stubs = {}, npx = "--yes" }) {
+export async function buildExtension({ name, src, outName, stubs = {}, npx = "--yes", copyDirs = {} }) {
 	const { outDir, aliases } = await makeBuildDir(name, stubs);
+	for (const [dest, srcDir] of Object.entries(copyDirs)) {
+		await fs.cp(srcDir, path.join(outDir, dest), { recursive: true });
+	}
 	const url = await bundle({ src, outDir, outName, aliases, npx });
 	return { outDir, url };
 }

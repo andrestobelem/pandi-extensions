@@ -25,10 +25,10 @@ import { currentWorkflowDepth, maxWorkflowDepth } from "./index.js";
 import { notify } from "./notify.js";
 import {
 	formatWorkflowPatternCatalog,
+	getDefaultScaffold,
 	loadWorkflowPatternCode,
 	resolveWorkflowPattern,
 	WORKFLOW_PATTERN_CATALOG,
-	WORKFLOW_SCAFFOLD,
 } from "./pattern-scaffolds.js";
 import { collectPiSessions, formatPiSessionList } from "./pi-session.js";
 import { formatWorkflowList } from "./presentation.js";
@@ -81,7 +81,7 @@ export async function handleTool(
 		}
 		return {
 			content: [text(formatWorkflowPatternCatalog())],
-			details: { action, patterns: WORKFLOW_PATTERN_CATALOG, scaffold: WORKFLOW_SCAFFOLD },
+			details: { action, patterns: WORKFLOW_PATTERN_CATALOG, scaffold: getDefaultScaffold() },
 		};
 	}
 
@@ -314,7 +314,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 				);
 				return;
 			}
-			const scaffold = pattern ? await loadWorkflowPatternCode(pattern) : WORKFLOW_SCAFFOLD;
+			const scaffold = pattern ? await loadWorkflowPatternCode(pattern) : getDefaultScaffold();
 			const edited = await ctx.ui.editor(
 				pattern ? `New workflow: ${name} (${pattern.key})` : `New workflow: ${name}`,
 				scaffold,

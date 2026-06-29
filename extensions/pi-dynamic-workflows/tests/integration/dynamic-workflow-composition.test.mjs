@@ -15,16 +15,26 @@
 
 import { spawnSync } from "node:child_process";
 import * as crypto from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { readSources } from "../../../../scripts/gen-scaffolds.mjs";
 import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "scaffolds");
+
+// Read the full scaffold source set straight from disk — the exact set pattern-scaffolds.ts
+// serves at runtime (replaces the deleted gen-scaffolds.mjs readSources()).
+function readSources() {
+	const map = {};
+	for (const file of readdirSync(SCAFFOLDS_DIR)) {
+		if (file.endsWith(".js")) map[file.slice(0, -3)] = readFileSync(path.join(SCAFFOLDS_DIR, file), "utf8");
+	}
+	return map;
+}
 
 const { check, counts } = createChecker();
 
@@ -944,6 +954,9 @@ async function buildScaffolds() {
 		{ cwd: REPO_ROOT, encoding: "utf8" },
 	);
 	if (r.status !== 0) throw new Error(`esbuild pattern-scaffolds failed: ${r.stderr || r.stdout}`);
+	// The bundled module reads scaffolds/*.js relative to its own import.meta.url (= outDir),
+	// so copy the sources beside the bundle. Production (unbundled) reads them in place.
+	await fs.cp(SCAFFOLDS_DIR, path.join(outDir, "scaffolds"), { recursive: true });
 	return pathToFileURL(out).href;
 }
 
@@ -1178,26 +1191,41 @@ async function scenarioAllScaffoldsParse(mod) {
 	let defaultOk = false;
 	let defaultDetail = "";
 	try {
-		defaultOk = typeof evalScaffold(mod.WORKFLOW_SCAFFOLD) === "function";
-		defaultDetail = defaultOk ? "function" : typeof evalScaffold(mod.WORKFLOW_SCAFFOLD);
+		defaultOk = typeof evalScaffold(mod.getDefaultScaffold()) === "function";
+		defaultDetail = defaultOk ? "function" : typeof evalScaffold(mod.getDefaultScaffold());
 	} catch (err) {
 		defaultDetail = err instanceof Error ? err.message : String(err);
 	}
 	check("all scaffolds: WORKFLOW_SCAFFOLD default parses and exports a workflow function", defaultOk, defaultDetail);
 }
 
-// Orphan/parse gate over the FULL embedded set (every scaffolds/*.js inlined into
-// EMBEDDED_SCAFFOLD_SOURCES), not just the catalog-reachable ones scenarioAllScaffoldsParse
-// covers. readSources() is the exact set the generator inlines (the sync test pins it to the
-// committed map); buildScaffolds() gives the public runtime resolution. This closes the
-// review's M1/M2: a scaffolds/foo.js added without a pattern-scaffolds.ts alias is globbed into the
-// shipped map but is otherwise unlinted/untyped/unparsed/unreachable -- dead or broken code
-// that ships with zero failing gates. Each source must (a) parse + export a workflow function
-// and (b) be reachable from the public catalog (or be the default), so an orphan fails here.
+// Orphan/parse gate over the FULL scaffold set (every scaffolds/*.js shipped in the package),
+// not just the catalog-reachable ones scenarioAllScaffoldsParse covers. readSources() reads the
+// sources straight from disk (the exact set pattern-scaffolds.ts serves at runtime);
+// buildScaffolds() gives the public runtime resolution. This closes the review's M1/M2: a
+// scaffolds/foo.js added without a catalog entry still ships but is otherwise unparsed/unreachable
+// -- dead or broken code that ships with zero failing gates. Each source must (a) parse + export a
+// workflow function and (b) be reachable from the public catalog (or be the default), so an orphan
+// fails here.
 async function scenarioNoOrphanScaffold(mod) {
 	const sources = readSources();
 	const keys = Object.keys(sources);
-	check("orphan guard: embedded scaffold sources discovered", keys.length > 0, `count=${keys.length}`);
+	check("orphan guard: scaffold sources discovered", keys.length > 0, `count=${keys.length}`);
+
+	// Packaging invariant: the .js sources must ship (no codegen copy anymore).
+	const extPkg = JSON.parse(
+		readFileSync(path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "package.json"), "utf8"),
+	);
+	check(
+		"packaging: files[] ships the scaffolds/ dir",
+		(extPkg.files ?? []).includes("scaffolds"),
+		JSON.stringify(extPkg.files),
+	);
+	check(
+		"packaging: files[] no longer ships scaffolds.generated.ts",
+		!(extPkg.files ?? []).includes("scaffolds.generated.ts"),
+		JSON.stringify(extPkg.files),
+	);
 
 	// Every string the public catalog can serve, plus the no-pattern default scaffold.
 	const reachable = new Set();
@@ -1208,7 +1236,7 @@ async function scenarioNoOrphanScaffold(mod) {
 			/* parse/resolution failures are asserted by scenarioAllScaffoldsParse */
 		}
 	}
-	reachable.add(mod.WORKFLOW_SCAFFOLD);
+	reachable.add(mod.getDefaultScaffold());
 
 	for (const key of keys) {
 		const code = sources[key];

@@ -23,6 +23,7 @@ async function buildExtension() {
 		name: "pi-dwf-scaffold-payload",
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "index.ts"),
 		outName: "dynamic-workflows.mjs",
+		copyDirs: { scaffolds: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "scaffolds") },
 		stubs: {
 			typebox: true,
 			typeboxValue: true,

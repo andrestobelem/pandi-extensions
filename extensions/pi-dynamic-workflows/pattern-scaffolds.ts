@@ -1,13 +1,35 @@
 /**
- * Workflow pattern catalog and embedded scaffolds for dynamic-workflows.
+ * Workflow pattern catalog and scaffold sources for dynamic-workflows.
  *
- * Keep these scaffolds self-contained in the package so runtime scaffold lookup does
- * not depend on examples/ or any project-local files being present.
+ * The executable scaffolds are authored as real files under scaffolds/*.js and read from disk
+ * lazily on first use (relative to this module via import.meta.url) — so the .js files ARE the
+ * shipped artifact: no codegen, no derived copy, tested == shipped by construction. The read is
+ * lazy (not at import time) so merely loading the extension never touches the filesystem; only an
+ * actual scaffold request does (this keeps bundled/relocated loads that never serve a scaffold
+ * working). package.json files[] ships the scaffolds/ directory and pi loads the extension as
+ * on-disk source, so the sibling lookup holds in both dev and installed layouts.
  */
 
+import { readdirSync, readFileSync } from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { WorkflowPattern } from "./catalog.js";
 import { WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
-import { EMBEDDED_SCAFFOLD_SOURCES } from "./scaffolds.generated.js";
+
+const SCAFFOLDS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "scaffolds");
+
+let scaffoldSourcesCache: Record<string, string> | null = null;
+// Read every scaffolds/<key>.js into a name->source map, once and lazily (cached). Sync IO is
+// fine: it runs at most once over ~25 tiny files, and only when a scaffold is first requested.
+function scaffoldSources(): Record<string, string> {
+	if (scaffoldSourcesCache) return scaffoldSourcesCache;
+	const map: Record<string, string> = {};
+	for (const file of readdirSync(SCAFFOLDS_DIR)) {
+		if (file.endsWith(".js")) map[file.slice(0, -3)] = readFileSync(path.join(SCAFFOLDS_DIR, file), "utf8");
+	}
+	scaffoldSourcesCache = map;
+	return map;
+}
 
 export type { WorkflowPattern } from "./catalog.js";
 export {
@@ -23,37 +45,35 @@ export {
 	formatWorkflowPatternPromptCheatSheet,
 } from "./pattern-format.js";
 
-// Default scaffold served by `/workflow new` (no --pattern) and the Patterns tab: the
-// base scatter-gather pattern.
-export const WORKFLOW_SCAFFOLD = EMBEDDED_SCAFFOLD_SOURCES["fan-out-and-synthesize"];
-
-// The executable scaffolds live as real files under scaffolds/*.js and are inlined into
-// EMBEDDED_SCAFFOLD_SOURCES by scripts/gen-scaffolds.mjs (npm run generate), so the code ships
-// inside the package as data with no runtime filesystem dependency. Catalog keys ARE the scaffold
-// names, so every pattern maps 1:1 to its embedded source (no aliases) and the orphan invariant
-// below is trivially satisfied.
-const EMBEDDED_WORKFLOW_PATTERN_SCAFFOLDS: Record<string, string> = Object.fromEntries(
-	WORKFLOW_PATTERN_CATALOG.map((pattern) => [pattern.key, EMBEDDED_SCAFFOLD_SOURCES[pattern.key]]),
-);
+// Default scaffold served by `/workflow new` (no --pattern) and the Patterns tab: the base
+// scatter-gather pattern. A function (not a const) so the disk read stays lazy.
+export function getDefaultScaffold(): string {
+	return scaffoldSources()["fan-out-and-synthesize"];
+}
 
 export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
-	const scaffold = EMBEDDED_WORKFLOW_PATTERN_SCAFFOLDS[pattern.key];
+	// Catalog keys ARE the scaffold filenames (1:1, no aliases), so the key maps to scaffolds/<key>.js.
+	const scaffold = scaffoldSources()[pattern.key];
 	if (scaffold === undefined) {
-		throw new Error(`Embedded workflow scaffold missing for pattern ${pattern.key}`);
+		throw new Error(`Workflow scaffold missing for pattern ${pattern.key} (expected scaffolds/${pattern.key}.js)`);
 	}
 	return scaffold;
 }
 
-// An embedded scaffold is only reachable when a catalog pattern's key maps to its code
-// (directly or via the alias assignments above). Any embedded scaffold served by no catalog
-// pattern is dead code; this invariant keeps new orphans from creeping in.
+// A catalog pattern maps 1:1 to scaffolds/<key>.js. This guard keeps the catalog-keyed map free of
+// dead entries; the full orphan check (a scaffolds/*.js with no catalog key) lives in the
+// composition integration test, which reads the whole directory.
 export function listOrphanedScaffoldKeys(): string[] {
+	const sources = scaffoldSources();
+	const patternScaffolds: Record<string, string> = Object.fromEntries(
+		WORKFLOW_PATTERN_CATALOG.map((pattern) => [pattern.key, sources[pattern.key]]),
+	);
 	const reachable = new Set<string>();
 	for (const pattern of WORKFLOW_PATTERN_CATALOG) {
-		const code = EMBEDDED_WORKFLOW_PATTERN_SCAFFOLDS[pattern.key];
+		const code = patternScaffolds[pattern.key];
 		if (code !== undefined) reachable.add(code);
 	}
-	return Object.entries(EMBEDDED_WORKFLOW_PATTERN_SCAFFOLDS)
+	return Object.entries(patternScaffolds)
 		.filter(([, code]) => !reachable.has(code))
 		.map(([key]) => key)
 		.sort();
