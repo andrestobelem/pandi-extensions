@@ -5,36 +5,52 @@
  * always return the same name. The extension's index.ts is the only orchestration
  * layer (reads the session, talks to the UI); all naming logic lives here so it can
  * be unit-tested in isolation.
+ *
+ * Every name produced here is a slug: lowercase, ASCII alphanumerics separated by
+ * single hyphens, no leading/trailing/repeated hyphens.
  */
 
 /** Default name used when nothing usable can be derived from the conversation. */
 export const DEFAULT_SESSION_NAME = "session";
 
-/** Baseline limits for an auto-derived name. Tunable; pinned by the test suite. */
+/** Baseline limits for a slug. Tunable; pinned by the test suite. */
 export const MAX_NAME_CHARS = 60;
 export const MAX_NAME_WORDS = 8;
 
-export interface DeriveOptions {
+export interface SlugOptions {
 	maxChars?: number;
 	maxWords?: number;
+}
+
+export interface DeriveOptions extends SlugOptions {
 	defaultName?: string;
 }
 
 /**
- * Normalize a user-supplied or derived name: trim, drop a single layer of wrapping
- * matching quotes, and collapse all internal whitespace (newlines/tabs included) to
- * single spaces. Legitimate internal spaces are preserved.
+ * Convert arbitrary text into a slug: strip diacritics, lowercase, split on every run
+ * of non-alphanumeric characters, and join the words with hyphens. Truncates to at most
+ * maxWords words and maxChars chars without splitting a word (a single oversized word is
+ * hard-truncated so the result is never empty when there was content). Returns "" when
+ * there is nothing slug-able.
  */
-export function normalizeName(raw: string): string {
-	let value = (raw ?? "").trim();
-	if (value.length >= 2) {
-		const first = value[0];
-		const last = value[value.length - 1];
-		if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-			value = value.slice(1, -1).trim();
-		}
+export function slugify(raw: string, opts: SlugOptions = {}): string {
+	const maxChars = opts.maxChars ?? MAX_NAME_CHARS;
+	const maxWords = opts.maxWords ?? MAX_NAME_WORDS;
+	const base = (raw ?? "")
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "") // drop combining diacritical marks
+		.toLowerCase();
+	let words = base.split(/[^a-z0-9]+/).filter(Boolean);
+	if (maxWords > 0) words = words.slice(0, maxWords);
+	let slug = "";
+	for (const word of words) {
+		const candidate = slug ? `${slug}-${word}` : word;
+		if (candidate.length > maxChars) break;
+		slug = candidate;
 	}
-	return value.replace(/\s+/g, " ").trim();
+	// A single first word longer than maxChars: hard-truncate so we still return a slug.
+	if (!slug && words.length > 0) slug = words[0].slice(0, Math.max(0, maxChars));
+	return slug;
 }
 
 /** Extract the joined text content of a `user` message entry (ignores image blocks). */
@@ -57,48 +73,21 @@ function extractUserText(entry: unknown): string {
 	return "";
 }
 
-/** Strip leading slash-command tokens and simple markdown markers, collapse whitespace. */
-function stripChrome(text: string): string {
-	let value = text.replace(/\s+/g, " ").trim();
-	// Drop a leading slash-command token, e.g. "/rename foo" -> "foo".
-	value = value.replace(/^\/[a-zA-Z][\w-]*\s*/, "");
-	// Strip simple markdown emphasis/heading/quote/code markers.
-	value = value
-		.replace(/[`*_#>]+/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-	return value;
-}
-
-/** Truncate to at most maxWords words and maxChars chars without splitting a word. */
-function truncateWords(text: string, maxChars: number, maxWords: number): string {
-	const words = text.split(" ").filter(Boolean).slice(0, Math.max(0, maxWords));
-	let out = "";
-	for (const word of words) {
-		const candidate = out ? `${out} ${word}` : word;
-		if (candidate.length > maxChars) break;
-		out = candidate;
-	}
-	// A single first word longer than maxChars: hard-truncate it so we still return something.
-	if (!out && words.length > 0) out = words[0].slice(0, Math.max(0, maxChars));
-	return out;
-}
-
 /**
- * Derive a concise session name from the conversation history. Walks entries in order,
- * uses the first non-empty `user` message, cleans it up, and truncates. Returns the
- * default name when no usable text exists.
+ * Derive a slug session name from the conversation history. Walks entries in order,
+ * uses the first `user` message that yields a non-empty slug (a leading slash-command
+ * token is dropped first), and returns the default name when none does.
  */
 export function deriveSessionName(entries: unknown, opts: DeriveOptions = {}): string {
-	const maxChars = opts.maxChars ?? MAX_NAME_CHARS;
-	const maxWords = opts.maxWords ?? MAX_NAME_WORDS;
 	const fallback = opts.defaultName ?? DEFAULT_SESSION_NAME;
 	const list = Array.isArray(entries) ? entries : [];
 	for (const entry of list) {
 		const raw = extractUserText(entry);
 		if (!raw) continue;
-		const name = normalizeName(truncateWords(stripChrome(raw), maxChars, maxWords));
-		if (name) return name;
+		// Drop a leading slash-command token, e.g. "/explain the cache" -> "the cache".
+		const cleaned = raw.replace(/^\s*\/[a-zA-Z][\w-]*\s*/, "");
+		const slug = slugify(cleaned, opts);
+		if (slug) return slug;
 	}
 	return fallback;
 }
