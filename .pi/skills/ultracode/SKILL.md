@@ -3,8 +3,9 @@ name: ultracode
 description: >-
   Orchestrate a task with dynamic multi-agent workflows instead of doing it inline — on BOTH
   Claude Code (Anthropic, the Workflow tool) and pi (the dynamic_workflow tool, runs on Anthropic or Codex). Trigger
-  when the user says "ultracode" or "workflow" (as a request to orchestrate — not when merely
-  asking about an existing workflow), OR when a task is large/valuable enough to justify
+  when the user writes "ultracode" or "workflow" anywhere in a message — even mid-prompt, not only
+  as a leading prefix — as a request to orchestrate (not when merely asking about an existing
+  workflow), OR when a task is large/valuable enough to justify
   orchestration: repo-wide audit or bug-hunt, code migration or codemod, deep/multi-source
   research, adversarial verification of claims or findings, generate-and-filter / best-of-N,
   tournament ranking, loop-until-done discovery, decompose-an-open-goal, or processing a corpus
@@ -65,19 +66,17 @@ fan-out from the *actual* shape of the task:
 
 ## Choosing a primitive
 
-Pick by data dependency, not aesthetics. (Names below: **Claude** / **pi**.)
+Pick by data dependency, not aesthetics. (Same injected-globals API on both runtimes.)
 
-1. **One independent step per item** → `parallel([...])` / `ctx.agents(items, { concurrency })` —
-   bounded parallel map.
-2. **Two+ dependent steps per item, no cross-item merge** → `pipeline(items, ...stages)` /
-   `ctx.pipeline(...)`. The default for multi-stage work; each item flows independently, failed
-   items become `null`. **This is usually right — not a barrier.**
-3. **A later step needs ALL branch results at once** → `parallel([...])` (Claude) /
-   `ctx.parallel([...])` (pi) — a barrier. Use only for global dedup/merge, early-exit when the
-   total is zero, or cross-branch ranking.
-4. **Reusable sub-step with no decision gate** → `workflow(name, args)` / `ctx.workflow(name, input)`
-   — compose a sub-workflow inline. If you must inspect results before the next phase, run separate
-   workflows sequentially instead.
+1. **One independent step per item** → `agents(items, { concurrency })` — bounded parallel map.
+2. **Two+ dependent steps per item, no cross-item merge** → `pipeline(items, ...stages)`. The default
+   for multi-stage work; each item flows independently, failed items become `null`. **This is usually
+   right — not a barrier.**
+3. **A later step needs ALL branch results at once** → `parallel([...])` — a barrier. Use only for
+   global dedup/merge, early-exit when the total is zero, or cross-branch ranking.
+4. **Reusable sub-step with no decision gate** → `workflow(name, args)` — compose a sub-workflow
+   inline. If you must inspect results before the next phase, run separate workflows sequentially
+   instead.
 
 **Barrier smell test:** `parallel → transform-with-no-cross-item-dependency → parallel` should be one
 `pipeline`. `map`/`filter`/formatting alone do not justify a barrier; dedup, merge, early-exit, and
@@ -95,15 +94,15 @@ Decide model and reasoning effort **per call** — don't let every node inherit 
 - **Synthesis, adversarial verification, planning, hard reasoning** → a strong model at high effort
   (the highest tier only for the hardest judge/synthesis step).
 
-| Tier | Claude (`model` · `effort`) | pi · Anthropic (`model` · `thinking`) |
+| Tier | Claude (`model` · `effort`) | pi · Anthropic (`model` · `effort`) |
 | --- | --- | --- |
 | cheap | `haiku` · `low` | `haiku` · `low` (or `minimal`/`off`) |
 | balanced | `sonnet` · `medium` | `anthropic/claude-sonnet-4-6` · `medium` |
 | deep | `opus` · `high` (`xhigh`/`max` hardest) | strong model · `high` (`xhigh` hardest) |
 
-Claude effort scale: `low | medium | high | xhigh | max`. pi thinking scale:
-`off | minimal | low | medium | high | xhigh` (no `max`). On both, `model`/`effort`(`thinking`) are
-part of the cache key, so changing them re-runs that call on resume.
+Both runtimes take `effort: low | medium | high | xhigh | max` on `agent()`. Under pi, `effort` maps
+onto the engine reasoning scale (`max` → `xhigh`; `minimal`/`off` also pass through for finer control).
+On both, `model`/`effort` are part of the cache key, so changing them re-runs that call on resume.
 
 ### pi · provider models
 
@@ -134,12 +133,12 @@ Codex uses the same `thinking` scale as pi; the level sets the thinking-token bu
 | `high` | deep | ~16k tokens |
 | `xhigh` | maximum | ~32k tokens |
 
-`medium` is the daily driver; `xhigh` is the ceiling (no separate `max`). Pass it per call, or use
-the `:thinking` suffix:
+`medium` is the daily driver; `xhigh` is the ceiling (`max` maps onto it). Pass `effort` per call, or
+use the `:effort` suffix:
 
 ```js
-await ctx.agent(prompt, { model: "openai-codex/gpt-5.5", thinking: "xhigh" });
-await ctx.agent(prompt, { model: "openai-codex/gpt-5.5:high" });   // suffix shorthand
+await agent(prompt, { model: "openai-codex/gpt-5.5", effort: "xhigh" });
+await agent(prompt, { model: "openai-codex/gpt-5.5:high" });   // suffix shorthand
 ```
 
 Codex ids apply only under the pi runtime; the Claude Code runtime is Claude-only
@@ -277,13 +276,15 @@ open <out.html>
 pi is **one runtime with two providers** — it runs on **Anthropic** OR **OpenAI/Codex**, chosen per
 call via `model`/`provider`. It is *not* "Codex"; Codex is just one of the providers it supports.
 
-- **Tool:** `dynamic_workflow`. **Script API:** `module.exports = async function (ctx, input) {…}`
-  with `ctx.agent`, `ctx.agents`, `ctx.pipeline`, `ctx.parallel`, `ctx.workflow`, `ctx.bash`,
-  `ctx.log`, `ctx.writeArtifact`, `ctx.compact`, `ctx.limits`.
-- **Per-node budget** is per call: `model` (pattern or `provider/id`, optional `:<thinking>`),
-  `provider`, `thinking` (`off…xhigh`). `agentType` personas set defaults (`reviewer`/`planner`/
-  `researcher` → high; `explore`/`implementer` → medium). Scope access with `tools`/`excludeTools`,
-  `skills`, `extensions`, `keys`, `env`. Targets Anthropic OR OpenAI/Codex (see above).
+- **Tool:** `dynamic_workflow`. **Script API:** the same injected globals as Claude — `export default
+  async function main() {…}` (or a top-level `return`-script) using `agent`, `agents`, `pipeline`,
+  `parallel`, `workflow`, `phase`, `log`, `args`, `bash`, `writeArtifact`, `compact`, `limits`,
+  `runId`, `runDir`, `cwd` — no `import`/`require`/`ctx.*`.
+- **Per-node budget** is per call: `model` (pattern or `provider/id`, optional `:<effort>`),
+  `provider`, `effort` (`low…max`, mapped onto the engine reasoning scale). `agentType` personas set
+  defaults (`reviewer`/`planner`/`researcher` → high; `explore`/`implementer` → medium). Scope access
+  with `tools`/`excludeTools`, `skills`, `extensions`, `keys`, `env`. Targets Anthropic OR OpenAI/Codex
+  (see above).
 - **Invoke / run:**
 
 ```js
@@ -295,17 +296,17 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
 
 - **Commands:** `/ultracode <task>`, `/deep-research <q>`, `/ultracode-mode status|on|off`,
   `/workflow view|runs|resume`, `/workflows` (dashboard), `/workflow patterns`, `/workflow graph
-  <name>`. Clamp to `ctx.limits.concurrency` / `ctx.limits.maxAgents`.
+  <name>`. Clamp to `limits.concurrency` / `limits.maxAgents`.
 - **Depth:** 2 by default, configurable to 3 via `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`. **Resume** is
-  cheap (journaled): `ctx.agent()` is cached by default, `ctx.bash()` only with `{ cache: true }`.
+  cheap (journaled): `agent()` is cached by default, `bash()` only with `{ cache: true }`.
 
 ### Cheat-sheet
 
 | Aspect | Claude Code (Anthropic) | pi (Anthropic or Codex) |
 | --- | --- | --- |
 | Tool | `Workflow` | `dynamic_workflow` |
-| Script API | helper globals (`agent`, `parallel`, …) | `(ctx, input)` + `ctx.*` |
-| Budget knobs | `model` · `effort` (low…max) | `model`/`provider` · `thinking` (off…xhigh) |
+| Script API | helper globals (`agent`, `parallel`, …) | same helper globals (`agent`, `parallel`, …) |
+| Budget knobs | `model` · `effort` (low…max) | `model`/`provider` · `effort` (low…max → off…xhigh) |
 | Models | `haiku`/`sonnet`/`opus` (`fable` disabled) | Anthropic ids OR `openai-codex/gpt-5.x` |
 | Per-role | `node(role)` helper / inline / `models`+`efforts` | per-call + `agentType` personas |
 | Catalog | `~/.claude/workflows/` + README | `dynamic_workflow action=template` |
