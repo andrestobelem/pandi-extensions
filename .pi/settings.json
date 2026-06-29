@@ -12,7 +12,8 @@
     "../extensions/pi-auto-compact-context",
     "../extensions/pi-worktree",
     "../extensions/pi-typescript-lsp",
-    "../extensions/pi-rename"
+    "../extensions/pi-rename",
+    "../extensions/pi-btw"
   ],
   "extensions": []
 }
