@@ -169,16 +169,24 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	render(width: number): string[] {
 		const lines = this.decorateTopBorder(this.base.render(width), width);
 		if (this.rainbowColorMode === "none") return lines;
-		// Paint each typed keyword with the animated rainbow on the content lines. Line 0 is the
-		// top border (its own color + the optional "ultracode auto" label), left untouched so the
-		// effect belongs to what you write, not the always-on mode indicator.
+		// The base editor renders as [top border, ...typed input, bottom border, ...autocomplete].
+		// Paint the keyword ONLY on the typed-input lines (strictly between the two borders), so
+		// the effect lands where you write and never on the border label or the slash-command /
+		// autocomplete dropdown that follows the bottom border.
+		let bottomBorder = lines.length;
+		for (let i = 1; i < lines.length; i++) {
+			if (isBorderLine(lines[i])) {
+				bottomBorder = i;
+				break;
+			}
+		}
 		return lines.map((line, index) =>
-			index === 0
-				? line
-				: RAINBOW_KEYWORDS.reduce(
+			index >= 1 && index < bottomBorder
+				? RAINBOW_KEYWORDS.reduce(
 						(acc, keyword) => colorizeKeyword(acc, keyword, this.rainbowPhase, { mode: this.rainbowColorMode }),
 						line,
-					),
+					)
+				: line,
 		);
 	}
 
@@ -304,6 +312,16 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 
 function sameEditorCursor(a: { line: number; col: number }, b: { line: number; col: number }): boolean {
 	return a.line === b.line && a.col === b.col;
+}
+
+// A horizontal editor border: the ─ rule, optionally carrying a scroll hint ("↑/↓ N more").
+// Used to bound the typed-input region (between the top and bottom borders) so the keyword
+// rainbow never bleeds into the autocomplete dropdown rendered after the bottom border.
+function isBorderLine(line: string): boolean {
+	const stripped = stripAnsiCodes(line);
+	if (!stripped.includes("─")) return false;
+	const remainder = stripped.replace(/[─↑↓\s]/g, "");
+	return remainder === "" || /^\d+more$/i.test(remainder);
 }
 
 export function installWorkflowDashboardDownEditor(

@@ -109,6 +109,16 @@ function makeContentBaseEditor(promptLine) {
 	};
 }
 
+// A base editor that renders like the real one when the slash-command menu is open:
+// [top border, typed input, bottom border, ...autocomplete suggestions]. The suggestion
+// lines deliberately contain the keywords so we can prove they are NOT recolored.
+function makeAutocompleteBaseEditor(promptLine, suggestionLines) {
+	const base = makeContentBaseEditor(promptLine);
+	base.isShowingAutocomplete = () => true;
+	base.render = (width) => [violet("─".repeat(width)), promptLine, violet("─".repeat(width)), ...suggestionLines];
+	return base;
+}
+
 function makeCtx(cwd, baseFactory) {
 	let editorFactory;
 	const theme = { fg: (_c, v) => v, bg: (_c, v) => v, bold: (v) => v };
@@ -229,6 +239,21 @@ async function scenarioLeavesKeywordlessTextUntouched(url) {
 	check("prompt without the keyword is unchanged", line === "> hello world", JSON.stringify(line));
 }
 
+async function scenarioNeverColorsAutocompleteDropdown(url) {
+	const suggestions = ["ultracode-mode   toggle ultracode workflow routing", "skill:ultracode  run a workflow"];
+	const { wrapped } = await installEditor(url, makeAutocompleteBaseEditor("> ultracode", suggestions));
+	const rendered = wrapped.render(80);
+	const input = rendered[1];
+	const dropdown = rendered.slice(3).join("\n");
+	check("typed input line is still recolored", input.includes("\x1b[38;2;"), input);
+	check("autocomplete dropdown is NOT recolored", !dropdown.includes("\x1b[38;2;"), dropdown);
+	check(
+		"dropdown keeps its plain keyword text",
+		dropdown.includes("ultracode") && dropdown.includes("workflow"),
+		dropdown,
+	);
+}
+
 async function scenarioNeverColorsTopBorder(url) {
 	const { wrapped } = await installEditor(url, makeContentBaseEditor("> ultracode do X"));
 	const top = wrapped.render(80)[0];
@@ -244,6 +269,7 @@ async function main() {
 	await scenarioPreservesCursorMarker(url);
 	await scenarioAnimatesOverTime(url);
 	await scenarioLeavesKeywordlessTextUntouched(url);
+	await scenarioNeverColorsAutocompleteDropdown(url);
 	await scenarioNeverColorsTopBorder(url);
 
 	if (counts.failed > 0) {
