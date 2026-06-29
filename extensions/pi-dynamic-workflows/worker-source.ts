@@ -165,9 +165,48 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
     crypto: globalThis.crypto,
   };
 
+  // Single authoring interface: workflows call injected GLOBALS (no ctx.*). The agent() global is a
+  // thin wrapper over the host bridge that (1) maps effort->thinking and label->name, (2) returns the
+  // parsed object for schema calls / the text output otherwise, and (3) yields null on a failed
+  // subagent (ok:false) so parallel()/pipeline() settle semantics and partial-failure accounting stay
+  // honest. phase(label) is a lightweight observability marker.
+  const mapEffort = (e) => (e === "max" ? "xhigh" : e);
+  const agentGlobal = async (prompt, options) => {
+    const opts = Object.assign({}, options || {});
+    if (opts.label != null && opts.name == null) opts.name = opts.label;
+    delete opts.label;
+    if (opts.effort != null && opts.thinking == null) opts.thinking = mapEffort(opts.effort);
+    delete opts.effort;
+    delete opts.phase;
+    const res = await hostCall("agent", [prompt, opts]);
+    if (res == null || res.ok === false) return null;
+    return opts.schema !== undefined ? (res.data != null ? res.data : null) : res.output;
+  };
+  let currentPhaseLabel = null;
+  const phase = (label) => {
+    currentPhaseLabel = label == null ? null : String(label);
+    if (currentPhaseLabel) void hostCall("log", ["phase: " + currentPhaseLabel]);
+  };
+
   try {
+    sandbox.agent = agentGlobal;
+    sandbox.agents = ctx.agents;
     sandbox.parallel = ctx.parallel;
     sandbox.pipeline = ctx.pipeline;
+    sandbox.workflow = ctx.workflow;
+    sandbox.log = ctx.log;
+    sandbox.phase = phase;
+    sandbox.bash = ctx.bash;
+    sandbox.readFile = ctx.readFile;
+    sandbox.writeFile = ctx.writeFile;
+    sandbox.appendFile = ctx.appendFile;
+    sandbox.listFiles = ctx.listFiles;
+    sandbox.writeArtifact = ctx.writeArtifact;
+    sandbox.appendArtifact = ctx.appendArtifact;
+    sandbox.sleep = ctx.sleep;
+    sandbox.json = ctx.json;
+    sandbox.compact = ctx.compact;
+    sandbox.args = workerData.input;
     const context = vm.createContext(sandbox, { name: "pi-workflow:" + workerData.workflowName });
     const script = new vm.Script(workerData.code, { filename: workerData.filePath });
     script.runInContext(context, { timeout: limits.syncTimeoutMs });
