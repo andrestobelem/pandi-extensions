@@ -163,7 +163,9 @@ async function loopAutopilotGate(loopUrl) {
 		// must be treated as out-of-project writes.
 		"echo pwn >> ~/.bashrc",
 		"echo pwn > $HOME/.profile",
-		"echo pwn > ${HOME}/.evil",
+		// Template literal + escaped `\${` keeps the literal ${HOME} text (same value)
+		// without tripping noTemplateCurlyInString on a regular string.
+		`echo pwn > \${HOME}/.evil`,
 		"echo pwn | tee ~/.ssh/authorized_keys",
 		// L2: a `cd`/`pushd` to a dir we cannot prove is in-project makes a RELATIVE
 		// redirect target unsafe (it no longer resolves under ctx.cwd).

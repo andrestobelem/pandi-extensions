@@ -3,11 +3,11 @@
 
 	// Aligned with the house config in ../pandi-code/biome.json: same formatter
 	// (tabs, indentWidth 3, lineWidth 120) and the same permissive rule set.
-	// Two things stay repo-specific because pandi-code's values do not apply here:
+	// One thing stays repo-specific because pandi-code's values do not apply here:
 	//   - files.includes + vcs: pandi-code uses a monorepo `packages/*` allowlist;
 	//     our sources live under extensions/, so we include ** and exclude noise.
-	//   - suspicious.noTemplateCurlyInString: off — our workflow/agent prompt
-	//     strings legitimately contain literal `${...}`; pandi-code has no prompts.
+	// (Workflow prompts use template literals — in scaffolds/*.js and test fixtures —
+	// so the recommended noTemplateCurlyInString rule stays ON, matching pandi-code.)
 	// Markdown stays with markdownlint-cli2 and types stay with `tsc`.
 
 	"vcs": {
@@ -30,8 +30,7 @@
 			"suspicious": {
 				"noExplicitAny": "off",
 				"noControlCharactersInRegex": "off",
-				"noEmptyInterface": "off",
-				"noTemplateCurlyInString": "off"
+				"noEmptyInterface": "off"
 			}
 		}
 	},
