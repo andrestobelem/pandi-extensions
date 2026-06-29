@@ -22,11 +22,12 @@ pi --no-extensions -e ./extensions/pi-rename
   dialog with the suggestion as placeholder so you can confirm or edit it; headless it
   applies the suggestion directly.
 
-The current name is shown as a label embedded in the editor's **top border** (the violet
-prompt line) as `⌗ <slug>` — right where the dynamic-workflows router shows
-`ultracode auto`, composing as `⌗ <slug> · ultracode auto` when both are present. This
-mirrors Claude Code's `/rename [name]`, which renames the current conversation, shows the
-name on the prompt bar, and auto-generates one from history when none is given.
+The current name is shown as an inverted-color "pill" (foreground/background swapped)
+embedded in the editor's **top border** (the violet prompt line) — right where the
+dynamic-workflows router shows `ultracode auto`, composing as `ultracode auto · <slug>`
+(existing label first, name last) when both are present. This mirrors Claude Code's
+`/rename [name]`, which renames the current conversation, shows the name on the prompt
+bar, and auto-generates one from history when none is given.
 
 ## Relationship to the native `/name`
 
@@ -43,7 +44,8 @@ overrides it — use whichever verb you prefer.
   border label are always a clean slug of at most 4 words.
 - The border label is added by a thin outer editor layer that delegates everything but
   rendering, so it works without importing or depending on dynamic-workflows, composes
-  with that extension's `ultracode auto` label, and leaves scroll hints untouched.
+  with that extension's `ultracode auto` label (placed first), and leaves scroll hints
+  untouched. The name is rendered with reverse video (inverted fg/bg) as a pill.
 - The auto-generated suggestion is **deterministic** (no LLM, no network): it is
   derived from the first non-empty user message — leading slash-command dropped, then
   slugified and truncated on a word boundary.

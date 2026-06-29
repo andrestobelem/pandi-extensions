@@ -219,32 +219,45 @@ async function scenarioBorderLabelUnit(url) {
 	const { composeTopBorder } = await loadModule(url);
 
 	const plain80 = "─".repeat(80);
-	const named = composeTopBorder(plain80, 80, "⌗ my-task");
-	check("composeTopBorder adds the label on a plain border", named?.includes("⌗ my-task") === true, named);
+	const named = composeTopBorder(plain80, 80, "my-task");
+	check("composeTopBorder adds the label on a plain border", named?.includes("my-task") === true, named);
 	check("composeTopBorder keeps the border glyphs", named?.includes("─") === true, named);
 	check("composeTopBorder keeps the line width", named?.length === 80, String(named?.length));
+	check("composeTopBorder does not add a cardinal", named?.includes("⌗") === false, named);
+
+	const pillNamed = composeTopBorder(plain80, 80, "my-task", { color: (s) => s, labelColor: (s) => `[${s}]` });
+	check(
+		"composeTopBorder styles the name with labelColor (pill)",
+		pillNamed?.includes("[ my-task ]") === true,
+		pillNamed,
+	);
 
 	const withUltra = composeTopBorder(
 		borderWithLabel("ultracode auto", 80, (s) => s),
 		80,
-		"⌗ my-task",
+		"my-task",
 		{
 			color: (s) => s,
 		},
 	);
 	check(
 		"composeTopBorder composes with an existing right-aligned label",
-		withUltra?.includes("⌗ my-task") === true && withUltra?.includes("ultracode auto") === true,
+		withUltra?.includes("my-task") === true && withUltra?.includes("ultracode auto") === true,
+		withUltra,
+	);
+	check(
+		"composeTopBorder puts the existing label first and the name last (inverted order)",
+		withUltra != null && withUltra.indexOf("ultracode auto") < withUltra.indexOf("my-task"),
 		withUltra,
 	);
 
 	const scrolled = `─── ↑ 3 more ${"─".repeat(80 - 13)}`;
 	check(
 		"composeTopBorder leaves a scroll hint untouched (returns null)",
-		composeTopBorder(scrolled, 80, "⌗ x") === null,
+		composeTopBorder(scrolled, 80, "x") === null,
 	);
-	check("composeTopBorder bails on a non-border line", composeTopBorder("hello world", 80, "⌗ x") === null);
-	check("composeTopBorder bails when there is no room", composeTopBorder("─".repeat(6), 6, "⌗ a long label") === null);
+	check("composeTopBorder bails on a non-border line", composeTopBorder("hello world", 80, "x") === null);
+	check("composeTopBorder bails when there is no room", composeTopBorder("─".repeat(6), 6, "a long label") === null);
 	check("composeTopBorder bails with an empty label", composeTopBorder(plain80, 80, "") === null);
 }
 
@@ -354,9 +367,12 @@ async function scenarioBorderEditor(url) {
 	const factory1 = e1.getFactory();
 	check("session_start installs an editor factory", typeof factory1 === "function");
 	const wrapped1 = factory1({ requestRender() {} }, {}, {});
-	const top1 = stripAnsi(wrapped1.render(80)[0]);
-	check("top border shows the session name", top1.includes("⌗ my-task"), top1);
+	const raw1 = wrapped1.render(80)[0];
+	const top1 = stripAnsi(raw1);
+	check("top border shows the session name", top1.includes("my-task"), top1);
 	check("top border keeps border glyphs", top1.includes("─"), top1);
+	check("top border drops the cardinal", !top1.includes("⌗"), top1);
+	check("name renders as an inverted pill (reverse video)", raw1.includes("\x1b[7m"), JSON.stringify(raw1));
 	check("wrapped editor carries the reuse marker", wrapped1.__piRenameNameBorderEditor === true);
 
 	// Delegates non-render behavior to the base editor.
@@ -377,7 +393,7 @@ async function scenarioBorderEditor(url) {
 	);
 	check(
 		"border composes name with ultracode label",
-		top2.includes("⌗ my-task") && top2.includes("ultracode auto"),
+		top2.includes("my-task") && top2.indexOf("ultracode auto") < top2.indexOf("my-task"),
 		top2,
 	);
 
@@ -392,7 +408,7 @@ async function scenarioBorderEditor(url) {
 			.getFactory()({ requestRender() {} }, {}, {})
 			.render(80)[0],
 	);
-	check("scroll hint left untouched (no name injected)", top3.includes("↑ 3 more") && !top3.includes("⌗"), top3);
+	check("scroll hint left untouched (no name injected)", top3.includes("↑ 3 more") && !top3.includes("my-task"), top3);
 
 	// Unnamed session: border passes through unchanged.
 	const h4 = makePi();
@@ -405,7 +421,7 @@ async function scenarioBorderEditor(url) {
 			.getFactory()({ requestRender() {} }, {}, {})
 			.render(80)[0],
 	);
-	check("unnamed session leaves the border plain", !top4.includes("⌗"), top4);
+	check("unnamed session leaves the border plain", !top4.includes("my-task") && /^─+$/.test(top4), top4);
 
 	// Reloading session_start must not stack another layer.
 	const h5 = makePi({ initialName: "my-task" });
@@ -419,7 +435,7 @@ async function scenarioBorderEditor(url) {
 			.getFactory()({ requestRender() {} }, {}, {})
 			.render(80)[0],
 	);
-	check("reload does not double-wrap the label", (top5.match(/⌗ my-task/g) || []).length === 1, top5);
+	check("reload does not double-wrap the label", (top5.match(/my-task/g) || []).length === 1, top5);
 }
 
 async function scenarioFallbacksAndErrors(url) {

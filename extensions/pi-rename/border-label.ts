@@ -19,20 +19,24 @@ export function visibleWidth(value: string): number {
 }
 
 export interface ComposeDeps {
-	/** Wrap the rebuilt line in the editor's border color (defaults to identity). */
+	/** Wrap dashes (and any existing label) in the editor's border color. Default: identity. */
 	color?: (value: string) => string;
+	/** Style the name label itself, e.g. inverted fg/bg "pill". Default: same as color. */
+	labelColor?: (value: string) => string;
 }
 
 /**
- * Right-align ` <label> ` into a top-border line, preserving any existing right-aligned
- * label (e.g. "ultracode auto") as ` <label> · <existing> `. Returns the rebuilt line,
- * or null when the line is not a decoratable border — a left-aligned hint such as a
- * scroll indicator ("↑ N more") or anything that does not parse as a border is left
- * untouched, and null is returned when there is not enough room.
+ * Right-align the name label into a top-border line. Any existing right-aligned label
+ * (e.g. "ultracode auto") is kept and placed FIRST, with the name last:
+ * ` <existing> · <label> `. The name is styled with labelColor (its own pill), the rest
+ * with color. Returns the rebuilt line, or null when the line is not a decoratable border
+ * — a left-aligned hint such as a scroll indicator ("↑ N more") or anything that does not
+ * parse as a border is left untouched, and null is returned when there is not enough room.
  */
 export function composeTopBorder(line0: string, width: number, label: string, deps: ComposeDeps = {}): string | null {
 	if (!line0 || width <= 0 || !label) return null;
 	const color = deps.color ?? ((value: string) => value);
+	const labelColor = deps.labelColor ?? color;
 	const plain = stripAnsi(line0);
 
 	let existing = "";
@@ -47,10 +51,12 @@ export function composeTopBorder(line0: string, width: number, label: string, de
 		existing = match[2].trim();
 	}
 
-	const combined = existing ? `${label} · ${existing}` : label;
-	const text = ` ${combined} `;
+	const pill = ` ${label} `;
+	const visibleMiddle = existing ? ` ${existing} ·${pill}` : pill;
+	const styledMiddle = existing ? color(` ${existing} ·`) + labelColor(pill) : labelColor(pill);
+
 	const rightDashes = 2;
-	const leftDashes = width - visibleWidth(text) - rightDashes;
+	const leftDashes = width - visibleWidth(visibleMiddle) - rightDashes;
 	if (leftDashes < 2) return null;
-	return color(DASH.repeat(leftDashes) + text + DASH.repeat(rightDashes));
+	return color(DASH.repeat(leftDashes)) + styledMiddle + color(DASH.repeat(rightDashes));
 }

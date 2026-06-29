@@ -12,9 +12,10 @@
  *   /rename                 -> derive a slug from history; in a TUI, prefill an input
  *                              dialog to confirm/edit; headless, apply it directly.
  *
- * Every applied name is a slug. The current name is shown as a label embedded in the
- * editor's top border (the violet prompt line), right where dynamic-workflows shows
- * "ultracode auto" — composing with that label when both are present. pi-rename wraps
+ * Every applied name is a slug. The current name is shown as an inverted-color pill
+ * embedded in the editor's top border (the violet prompt line), right where
+ * dynamic-workflows shows "ultracode auto" — composing as "ultracode auto · <slug>"
+ * (existing label first, name last) when both are present. pi-rename wraps
  * the editor with its own outer layer (delegating everything but render), so it neither
  * imports nor depends on dynamic-workflows. Naming logic is deterministic and lives in
  * ./derive-name; the border math lives in ./border-label.
@@ -55,8 +56,7 @@ function safeName(pi: ExtensionAPI): string | undefined {
 
 /** The border label for the current session name, or undefined when unnamed. */
 function borderLabel(pi: ExtensionAPI): string | undefined {
-	const name = safeName(pi);
-	return name ? `⌗ ${name}` : undefined;
+	return safeName(pi) || undefined;
 }
 
 /** Slugify and apply a name via pi.setSessionName, reporting success/failure. */
@@ -98,8 +98,10 @@ function wrapEditorWithNameBorder(
 					const lines = (target as EditorComponent).render(width);
 					const label = holder.provider();
 					if (!label || lines.length === 0) return lines;
-					const color = (target as { borderColor?: (value: string) => string }).borderColor;
-					const decorated = composeTopBorder(lines[0], width, label, { color });
+					const color = (target as { borderColor?: (value: string) => string }).borderColor ?? ((s) => s);
+					// The name renders as a "pill": inverted fg/bg (reverse video) over the border color.
+					const labelColor = (value: string) => `\x1b[7m${color(value)}\x1b[27m`;
+					const decorated = composeTopBorder(lines[0], width, label, { color, labelColor });
 					if (decorated == null) return lines;
 					const out = [...lines];
 					out[0] = decorated;
