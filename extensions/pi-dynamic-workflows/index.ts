@@ -29,6 +29,7 @@ import {
 } from "./agent-env-persona.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import {
+	AsyncMutex,
 	abortReasonMessage,
 	combineSignal,
 	createSemaphore,
@@ -611,6 +612,15 @@ export async function runWorkflow(
 	const resumedFrom = preparedRun.resume?.resumedFrom;
 	const journal = preparedRun.resume?.journal;
 	const occCounters = new Map<string, number>();
+	// Serializes the occ-assignment prologue (persona/access resolution + key + nextOcc).
+	// runExclusive chains its queue synchronously at call time, so wrapping the prologue
+	// in it pins occ assignment to synchronous emission order — independent of how the
+	// persona/access fs awaits interleave under ctx.agents/parallel/pipeline concurrency.
+	// This is what makes occ (and therefore resume-cache lookups) deterministic.
+	const occAssignMutex = new AsyncMutex();
+	// Per-artifact-path append locks: concurrent agents appending to the same shared
+	// artifact must not interleave/corrupt each other's bytes (see appendArtifact).
+	const appendArtifactMutexes = new Map<string, AsyncMutex>();
 	let cachedCalls = 0;
 	// Focus observability (research §4): per-agent metrics folded from each freshly-run
 	// subagent's JSON-mode stdout, aggregated into metrics.json/metrics.md at run end.
@@ -703,30 +713,42 @@ export async function runWorkflow(
 		throwIfAborted(runSignal.signal);
 		const file = resolveArtifactPath(runDir, name);
 		await ensureDir(path.dirname(file));
-		await fs.appendFile(file, data);
+		// Serialize per-path so concurrent agents appending to a shared artifact never
+		// interleave a partial write and corrupt it.
+		let mutex = appendArtifactMutexes.get(file);
+		if (!mutex) {
+			mutex = new AsyncMutex();
+			appendArtifactMutexes.set(file, mutex);
+		}
+		await mutex.runExclusive(() => fs.appendFile(file, data));
 		await appendEvent({ type: "artifact_append", path: file });
 		return { path: file };
 	}
 
 	async function runSubagent(prompt: string, options: InternalAgentOptions = {}): Promise<SubagentResult> {
 		throwIfAborted(runSignal.signal);
-		let effectiveOptions = (await applyPersonaOptions(ctx, options)) as InternalAgentOptions;
-		effectiveOptions = await applyDefaultAgentAccess(ctx, effectiveOptions);
-		if (effectiveOptions.schema !== undefined) {
-			effectiveOptions = appendSystemPromptOption(
-				effectiveOptions,
-				makeStructuredOutputSystemPrompt(effectiveOptions.schema),
-			);
-		}
+		// Resolve options and assign the cache occurrence index under occAssignMutex. The
+		// mutex queue is chained synchronously at call time, so even though persona/access
+		// resolution awaits the filesystem, occ is assigned strictly in synchronous emission
+		// order. Content-address cache: same key (identical args) -> occ 0,1,2,...; the
+		// journal is keyed by (key, occ), so this ordering is what keeps resume lookups
+		// correct under ctx.agents/parallel/pipeline concurrency. agent() is cached by
+		// default; opt out with { cache: false }.
+		const prologue = await occAssignMutex.runExclusive(async () => {
+			let resolved = (await applyPersonaOptions(ctx, options)) as InternalAgentOptions;
+			resolved = await applyDefaultAgentAccess(ctx, resolved);
+			if (resolved.schema !== undefined) {
+				resolved = appendSystemPromptOption(resolved, makeStructuredOutputSystemPrompt(resolved.schema));
+			}
+			const computedKey = computeCallKey("agent", [prompt, sanitizeAgentOpts(resolved)]);
+			return { effectiveOptions: resolved, key: computedKey, occ: nextOcc(computedKey) };
+		});
+		const effectiveOptions = prologue.effectiveOptions;
+		const { key, occ } = prologue;
 		const phase = effectiveOptions.__workflowPhase;
 		const envAccess = normalizeAgentEnvAccess(effectiveOptions);
 		const accessMarkdown = formatAgentAccessMarkdown(effectiveOptions, envAccess);
-		// Content-address cache. occ is assigned synchronously, in emission order,
-		// before any await, so it is deterministic under ctx.agents/mapLimit
-		// concurrency. agent() is cached by default; opt out with { cache: false }.
 		const cacheEnabled = effectiveOptions.cache !== false;
-		const key = computeCallKey("agent", [prompt, sanitizeAgentOpts(effectiveOptions)]);
-		const occ = nextOcc(key);
 		if (cacheEnabled) {
 			const hit = journalLookup(key, occ) as SubagentResult | undefined;
 			if (hit && "artifactPath" in hit) {
@@ -785,7 +807,23 @@ export async function runWorkflow(
 			}
 		}
 		if (agentCount >= runLimits.maxAgents) {
-			throw new Error(`Workflow exceeded maxAgents=${runLimits.maxAgents}.`);
+			// Leave a journal/event + log trace before throwing: under agents({settle:true})
+			// the rejection is swallowed into a null branch result, so without this record
+			// a maxAgents-exceeded drop would be invisible.
+			const capMessage = `Workflow exceeded maxAgents=${runLimits.maxAgents}.`;
+			await appendEvent({
+				type: "agent",
+				name: effectiveOptions.name ?? "agent",
+				state: "skipped",
+				error: capMessage,
+				...phaseEventFields(phase),
+			});
+			await log(`agent skipped (maxAgents=${runLimits.maxAgents} reached): ${effectiveOptions.name ?? "agent"}`, {
+				maxAgents: runLimits.maxAgents,
+				agentCount,
+				...phaseEventFields(phase),
+			});
+			throw new Error(capMessage);
 		}
 		const id = ++agentCount;
 		const name = effectiveOptions.name ?? `agent-${id}`;
@@ -809,8 +847,15 @@ export async function runWorkflow(
 		const liveStdoutArtifact = await writeArtifact(liveStdoutArtifactName, "");
 		const liveStderrArtifact = await writeArtifact(liveStderrArtifactName, "");
 		let liveWriteTail: Promise<unknown> = Promise.resolve();
+		// Keep the first live-write failure so it is traceable instead of silently dropped;
+		// surfaced via log() once the attempt settles (see after `await liveWriteTail`).
+		let liveWriteError: unknown;
 		const appendLive = (file: string, chunk: Buffer) => {
-			liveWriteTail = liveWriteTail.then(() => fs.appendFile(file, chunk)).catch(() => {});
+			liveWriteTail = liveWriteTail
+				.then(() => fs.appendFile(file, chunk))
+				.catch((err) => {
+					if (liveWriteError === undefined) liveWriteError = err;
+				});
 		};
 		await appendEvent({
 			type: "agent",
@@ -921,6 +966,11 @@ export async function runWorkflow(
 					onStderr: (chunk) => appendLive(liveStderrArtifact.path, chunk),
 				});
 				await liveWriteTail;
+				if (liveWriteError !== undefined) {
+					await log(`agent ${id} live output write error: ${name}`, {
+						error: liveWriteError instanceof Error ? liveWriteError.message : String(liveWriteError),
+					});
+				}
 			} finally {
 				envWrapper = undefined;
 				if (attemptWrapper) await fs.rm(attemptWrapper.dir, { recursive: true, force: true }).catch(() => {});
@@ -941,12 +991,14 @@ export async function runWorkflow(
 					attempt: attempt + 1,
 				});
 			}
-			output = truncate(
-				parsedOutput.ok ? parsedOutput.output : result.stdout.trim() || result.stderr.trim(),
-				MAX_AGENT_OUTPUT_IN_RESULT,
-			);
+			// Full (untruncated) text. Schema extraction/validation must run on this so a
+			// long-but-valid JSON payload is not silently cut by the display truncation
+			// below, which would misattribute a length failure to a schema mismatch and
+			// trigger a wasted, misleading retry. `output` (returned/displayed) stays bounded.
+			const fullOutput = parsedOutput.ok ? parsedOutput.output : result.stdout.trim() || result.stderr.trim();
+			output = truncate(fullOutput, MAX_AGENT_OUTPUT_IN_RESULT);
 			if (schema === undefined) break;
-			const extracted = extractJsonCandidate(output);
+			const extracted = extractJsonCandidate(fullOutput);
 			if (!extracted.ok) {
 				schemaOk = false;
 				schemaError = extracted.error;
