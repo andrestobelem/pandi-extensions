@@ -207,6 +207,12 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
     sandbox.json = ctx.json;
     sandbox.compact = ctx.compact;
     sandbox.args = workerData.input;
+    // Read-only run context as flat globals (superset of the helper-globals): a top-level
+    // workflow script reaches the run's limits/ids without a ctx object.
+    sandbox.limits = limits;
+    sandbox.runId = ctx.runId;
+    sandbox.runDir = ctx.runDir;
+    sandbox.cwd = ctx.cwd;
     const context = vm.createContext(sandbox, { name: "pi-workflow:" + workerData.workflowName });
     const script = new vm.Script(workerData.code, { filename: workerData.filePath });
     script.runInContext(context, { timeout: limits.syncTimeoutMs });
