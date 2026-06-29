@@ -188,12 +188,12 @@ async function seedOtherPiSession(project) {
 	await fs.mkdir(path.dirname(sessionFile), { recursive: true });
 	await fs.writeFile(
 		sessionFile,
-		JSON.stringify({
+		`${JSON.stringify({
 			type: "session",
 			id: "other-session-id",
 			timestamp: "2026-01-01T00:00:00.000Z",
 			cwd: project,
-		}) + "\n",
+		})}\n`,
 	);
 	const liveRoot = path.join(project, ".pi", "live-sessions");
 	await fs.mkdir(liveRoot, { recursive: true });

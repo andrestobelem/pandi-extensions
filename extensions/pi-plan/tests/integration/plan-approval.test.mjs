@@ -141,7 +141,7 @@ function deferred() {
 function toolCallEvent(toolName, input = {}) {
 	return {
 		type: "tool_call",
-		toolCallId: "tc-" + Math.random().toString(16).slice(2),
+		toolCallId: `tc-${Math.random().toString(16).slice(2)}`,
 		toolName,
 		input,
 	};
@@ -151,7 +151,7 @@ function toolCallEvent(toolName, input = {}) {
 async function runGate(handlers, ctx, event) {
 	for (const h of handlers.get("tool_call") || []) {
 		const res = await h(event, ctx);
-		if (res && res.block) return res;
+		if (res?.block) return res;
 	}
 	return undefined;
 }
@@ -221,11 +221,11 @@ async function approveLiftsGate(url) {
 	const wake = sentMessages[sentMessages.length - 1];
 	check("approve: implement message re-injected after approval", sentMessages.length === beforeSubmit + 1);
 	check("approve: implement message says 'Implement now'", wake && /Implement now/i.test(wake.content));
-	check("approve: implement message contains the plan text verbatim", wake && wake.content.includes(planText));
+	check("approve: implement message contains the plan text verbatim", wake?.content.includes(planText));
 
 	// Observable: tool result reports approved.
-	check("approve: tool result details.status=approved", res && res.details && res.details.status === "approved");
-	check("approve: tool result is not an error", !(res && res.details && res.details.isError));
+	check("approve: tool result details.status=approved", res?.details && res.details.status === "approved");
+	check("approve: tool result is not an error", !res?.details?.isError);
 }
 
 // ===========================================================================
@@ -258,11 +258,8 @@ async function rejectKeepsGateThenApprove(url) {
 	check("reject: rejections counted (1)", stRej && stRej.rejections === 1);
 	check("reject: submissions counted (1)", stRej && stRej.submissions === 1);
 	// Observable: tool result reports rejected and returns guidance to the model.
-	check(
-		"reject: tool result details.status=rejected",
-		rejRes && rejRes.details && rejRes.details.status === "rejected",
-	);
-	const rejText = rejRes && rejRes.content && rejRes.content[0] && rejRes.content[0].text;
+	check("reject: tool result details.status=rejected", rejRes?.details && rejRes.details.status === "rejected");
+	const rejText = rejRes?.content?.[0]?.text;
 	check(
 		"reject: tool result tells model to revise + resubmit",
 		!!rejText && /revise/i.test(rejText) && /submit_plan/i.test(rejText),
@@ -281,15 +278,12 @@ async function rejectKeepsGateThenApprove(url) {
 	// Observable: implement message now injected, carrying the SECOND (approved) plan text.
 	const wake = sentMessages[sentMessages.length - 1];
 	check("reject→approve: implement message injected exactly once", sentMessages.length === afterEntry + 1);
-	check("reject→approve: implement message carries the approved (v2) plan", wake && wake.content.includes(planV2));
+	check("reject→approve: implement message carries the approved (v2) plan", wake?.content.includes(planV2));
 	check(
 		"reject→approve: implement message does NOT carry the rejected (v1) plan",
 		wake && !wake.content.includes(planV1),
 	);
-	check(
-		"reject→approve: tool result details.status=approved",
-		okRes && okRes.details && okRes.details.status === "approved",
-	);
+	check("reject→approve: tool result details.status=approved", okRes?.details && okRes.details.status === "approved");
 }
 
 // ===========================================================================
@@ -339,7 +333,7 @@ async function submitWithNoActivePlan(url) {
 
 	const submit = tools.get("submit_plan");
 	const res = await submit.execute("tc", { plan: "# orphan plan" }, undefined, undefined, ctx);
-	check("no-plan: tool result is an error", res && res.details && res.details.isError === true);
+	check("no-plan: tool result is an error", res?.details && res.details.isError === true);
 	check("no-plan: no plan-state persisted", entries.find((e) => e.customType === "plan-state") === undefined);
 	check("no-plan: no message injected", sentMessages.length === 0);
 }
@@ -620,7 +614,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 		const res = await pending;
 		check(
 			"pending-exit: late approval returns stale error",
-			res && res.details && res.details.isError === true && res.details.status === "stale",
+			res?.details && res.details.isError === true && res.details.status === "stale",
 		);
 		check("pending-exit: late approval does NOT inject implement", sentMessages.length === afterEntry);
 		check(
@@ -649,7 +643,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 		const res = await pending;
 		check(
 			"pending-replaced: old approval returns stale error",
-			res && res.details && res.details.isError === true && res.details.status === "stale",
+			res?.details && res.details.isError === true && res.details.status === "stale",
 		);
 		check("pending-replaced: old approval does NOT inject implement", sentMessages.length === afterOldEntry + 1);
 		const st = latestPlanState(entries);
@@ -682,7 +676,7 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 		const oldRes = await oldPending;
 		check(
 			"pending-overlap: older approval returns stale error",
-			oldRes && oldRes.details && oldRes.details.isError === true && oldRes.details.status === "stale",
+			oldRes?.details && oldRes.details.isError === true && oldRes.details.status === "stale",
 		);
 		check("pending-overlap: older approval does NOT inject implement", sentMessages.length === afterEntry);
 		check("pending-overlap: gate remains BLOCKED after stale older approval", await writeBlocked(handlers, ctx));
@@ -691,13 +685,13 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 		const latestRes = await latestPending;
 		check(
 			"pending-overlap: latest approval succeeds",
-			latestRes && latestRes.details && latestRes.details.status === "approved",
+			latestRes?.details && latestRes.details.status === "approved",
 		);
 		check("pending-overlap: latest approval injects implement once", sentMessages.length === afterEntry + 1);
 		const wake = sentMessages[sentMessages.length - 1];
 		check(
 			"pending-overlap: implementation uses latest plan text",
-			wake && wake.content.includes("# New plan") && !wake.content.includes("# Old plan"),
+			wake?.content.includes("# New plan") && !wake.content.includes("# Old plan"),
 		);
 		const st = latestPlanState(entries);
 		check(
@@ -751,8 +745,8 @@ async function autonomousEntryViaTool(url) {
 		check("enter: persisted status=planning", st && st.status === "planning");
 		check("enter: persisted task carried verbatim", st && st.task === "refactor the auth module");
 		// Observable: the tool result reports entered + carries the PLAN MODE instruction to the model.
-		check("enter: tool result details.entered=true", res && res.details && res.details.entered === true);
-		const text = res && res.content && res.content[0] && res.content[0].text;
+		check("enter: tool result details.entered=true", res?.details && res.details.entered === true);
+		const text = res?.content?.[0]?.text;
 		check(
 			"enter: tool result carries the planning instruction (PLAN MODE + submit_plan)",
 			!!text && /PLAN MODE/i.test(text) && /submit_plan/i.test(text),
@@ -776,7 +770,7 @@ async function autonomousEntryViaTool(url) {
 		} finally {
 			console.log = origLog;
 		}
-		check("enter(print): tool result details.entered=false", res && res.details && res.details.entered === false);
+		check("enter(print): tool result details.entered=false", res?.details && res.details.entered === false);
 		check(
 			"enter(print): no plan-state persisted",
 			entries.find((e) => e.customType === "plan-state") === undefined,
@@ -795,8 +789,8 @@ async function autonomousEntryViaTool(url) {
 		const res = await tools
 			.get("enter_plan_mode")
 			.execute("tc1", { task: "second task" }, undefined, undefined, ctx);
-		check("enter(active): tool result details.entered=false", res && res.details && res.details.entered === false);
-		check("enter(active): reason=already-active", res && res.details && res.details.reason === "already-active");
+		check("enter(active): tool result details.entered=false", res?.details && res.details.entered === false);
+		check("enter(active): reason=already-active", res?.details && res.details.reason === "already-active");
 		const lastState = latestPlanState(entries);
 		check(
 			"enter(active): no second plan created (planId unchanged)",
@@ -815,7 +809,7 @@ async function autonomousEntryViaTool(url) {
 		const planText = "# Plan\n1. step";
 		const res = await tools.get("submit_plan").execute("tc2", { plan: planText }, undefined, undefined, ctx);
 		check("enter→approve: write ALLOWED after approval (gate lifted)", !(await writeBlocked(handlers, ctx)));
-		check("enter→approve: submit_plan status=approved", res && res.details && res.details.status === "approved");
+		check("enter→approve: submit_plan status=approved", res?.details && res.details.status === "approved");
 		const wake = sentMessages[sentMessages.length - 1];
 		check(
 			"enter→approve: implement message injected with the plan text",
@@ -842,10 +836,7 @@ async function nonInteractivePlanOnly(url) {
 			const enterRes = await tools
 				.get("enter_plan_mode")
 				.execute("tc1", { task: "plan via workflow subagent" }, undefined, undefined, ctx);
-			check(
-				"plan-only(env): entered=true in json mode",
-				enterRes && enterRes.details && enterRes.details.entered === true,
-			);
+			check("plan-only(env): entered=true in json mode", enterRes?.details && enterRes.details.entered === true);
 			check("plan-only(env): write BLOCKED after entry (gate armed)", await writeBlocked(handlers, ctx));
 			const st0 = latestPlanState(entries);
 			check("plan-only(env): persisted nonInteractive=true", st0 && st0.nonInteractive === true);
@@ -860,7 +851,7 @@ async function nonInteractivePlanOnly(url) {
 				.execute("tc2", { plan: planText }, undefined, undefined, ctx);
 			check(
 				"plan-only(env): submit details.status=plan-only",
-				submitRes && submitRes.details && submitRes.details.status === "plan-only",
+				submitRes?.details && submitRes.details.status === "plan-only",
 			);
 			check(
 				"plan-only(env): submit returns the plan text as the deliverable",
@@ -892,7 +883,7 @@ async function nonInteractivePlanOnly(url) {
 				.execute("tc1", { task: "x", nonInteractive: false }, undefined, undefined, ctx);
 			check(
 				"plan-only(precedence): param false beats env=1 → refuses",
-				res && res.details && res.details.entered === false && res.details.reason === "mode",
+				res?.details && res.details.entered === false && res.details.reason === "mode",
 			);
 			check("plan-only(precedence): gate NOT armed", !(await writeBlocked(handlers, ctx)));
 			check(
@@ -911,10 +902,7 @@ async function nonInteractivePlanOnly(url) {
 		planExtension(pi);
 		const ctx = makeCtx({ mode: "json", hasUI: false });
 		const res = await tools.get("enter_plan_mode").execute("tc1", { task: "x" }, undefined, undefined, ctx);
-		check(
-			"plan-only(default-off): json refuses without the flag",
-			res && res.details && res.details.entered === false,
-		);
+		check("plan-only(default-off): json refuses without the flag", res?.details && res.details.entered === false);
 		check("plan-only(default-off): gate NOT armed", !(await writeBlocked(handlers, ctx)));
 	}
 }
@@ -1045,13 +1033,13 @@ async function nonInteractiveIgnoredInTui(url) {
 		const enterRes = await tools
 			.get("enter_plan_mode")
 			.execute("tc1", { task: "x", nonInteractive: true }, undefined, undefined, ctx);
-		check("nonInteractive-tui: entered", enterRes && enterRes.details && enterRes.details.entered === true);
+		check("nonInteractive-tui: entered", enterRes?.details && enterRes.details.entered === true);
 		const st0 = latestPlanState(entries);
 		check("nonInteractive-tui: nonInteractive clamped to false in TUI", st0 && !st0.nonInteractive);
 		const res = await tools.get("submit_plan").execute("tc2", { plan: "# P\n1. step" }, undefined, undefined, ctx);
 		check(
 			"nonInteractive-tui: submit uses interactive approval (status=approved, NOT plan-only)",
-			res && res.details && res.details.status === "approved",
+			res?.details && res.details.status === "approved",
 		);
 		check("nonInteractive-tui: gate LIFTED after approval", !(await writeBlocked(handlers, ctx)));
 		const wake = sentMessages[sentMessages.length - 1];
@@ -1106,6 +1094,6 @@ async function main() {
 }
 
 main().catch((err) => {
-	console.error("INTEGRATION TEST CRASH:", err && err.stack ? err.stack : err);
+	console.error("INTEGRATION TEST CRASH:", err?.stack ? err.stack : err);
 	process.exit(2);
 });

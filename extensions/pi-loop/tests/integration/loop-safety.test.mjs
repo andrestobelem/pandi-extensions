@@ -103,7 +103,7 @@ function makeCtx({ mode = "tui", hasUI = true, confirmResult = true, cwd = TEST_
 function toolCallEvent(toolName, input = {}) {
 	return {
 		type: "tool_call",
-		toolCallId: "tc-" + Math.random().toString(16).slice(2),
+		toolCallId: `tc-${Math.random().toString(16).slice(2)}`,
 		toolName,
 		input,
 	};
@@ -113,7 +113,7 @@ function toolCallEvent(toolName, input = {}) {
 async function runGate(handlers, ctx, event) {
 	for (const h of handlers.get("tool_call") || []) {
 		const res = await h(event, ctx);
-		if (res && res.block) return res;
+		if (res?.block) return res;
 	}
 	return undefined;
 }
@@ -276,6 +276,6 @@ async function main() {
 }
 
 main().catch((err) => {
-	console.error("INTEGRATION TEST CRASH:", err && err.stack ? err.stack : err);
+	console.error("INTEGRATION TEST CRASH:", err?.stack ? err.stack : err);
 	process.exit(2);
 });

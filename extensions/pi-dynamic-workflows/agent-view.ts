@@ -27,7 +27,7 @@ function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorMod
 function resolveAgentLiveStreamPath(artifactPath: string | undefined, stream: "stdout" | "stderr"): string | undefined {
 	if (!artifactPath) return undefined;
 	return artifactPath.endsWith(".md")
-		? artifactPath.slice(0, -3) + `.${stream}.log`
+		? `${artifactPath.slice(0, -3)}.${stream}.log`
 		: `${artifactPath}.${stream}.log`;
 }
 

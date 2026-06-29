@@ -49,7 +49,7 @@ function check(name, ok, detail) {
 	console.log(`${ok ? "PASS" : "FAIL"}: ${name}`);
 	if (!ok) {
 		failures++;
-		if (detail) console.log("   -> " + String(detail).slice(0, 300));
+		if (detail) console.log(`   -> ${String(detail).slice(0, 300)}`);
 	}
 }
 
@@ -128,5 +128,5 @@ for (const key of POSITION_AWARE_EXTRA) {
 	check(`${key}: restates the task AFTER the evidence (both-ends framing)`, restated, tail.slice(0, 140));
 }
 
-console.log(`\n${failures === 0 ? "ALL PASS" : failures + " FAIL"}`);
+console.log(`\n${failures === 0 ? "ALL PASS" : `${failures} FAIL`}`);
 process.exit(failures === 0 ? 0 : 1);

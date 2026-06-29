@@ -194,7 +194,7 @@ async function scenarioPureHelpers(url) {
 	check(
 		"formatDiagnostics: shows exactly maxErrors lines + overflow note",
 		fmt.text.split("\n").length === 21 && /\(\+5 más\)/.test(fmt.text),
-		fmt.text.split("\n").length + " | " + fmt.text.split("\n").at(-1),
+		`${fmt.text.split("\n").length} | ${fmt.text.split("\n").at(-1)}`,
 	);
 	const clean = mod.formatDiagnostics([], {});
 	check("formatDiagnostics: empty → no errors, empty text", !clean.hasErrors && clean.text === "");

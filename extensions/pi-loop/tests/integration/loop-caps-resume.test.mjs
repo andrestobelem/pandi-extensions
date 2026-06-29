@@ -1018,6 +1018,6 @@ async function main() {
 }
 
 main().catch((err) => {
-	console.error("INTEGRATION TEST CRASH:", err && err.stack ? err.stack : err);
+	console.error("INTEGRATION TEST CRASH:", err?.stack ? err.stack : err);
 	process.exit(2);
 });

@@ -560,7 +560,7 @@ async function snapshotIsFailSafe(url) {
 	check("snapshot: a write failure never throws out of the hook", !threw);
 	check(
 		"snapshot: the hook never cancels compaction (returns falsy)",
-		!result || result.cancel !== true,
+		result?.cancel !== true,
 		`result=${JSON.stringify(result)}`,
 	);
 	check(

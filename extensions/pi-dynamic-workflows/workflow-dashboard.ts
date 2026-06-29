@@ -606,7 +606,7 @@ export class WorkflowDashboard {
 					activityTab +
 					(activeCount ? accent(`  ▶ ${activeCount} active`) : ""),
 			),
-			line(muted("? help • ") + this.refreshStatus(muted, error) + muted(" • " + help)),
+			line(muted("? help • ") + this.refreshStatus(muted, error) + muted(` • ${help}`)),
 			line(muted("─".repeat(Math.min(w, 120)))),
 		];
 

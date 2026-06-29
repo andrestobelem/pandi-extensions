@@ -449,7 +449,7 @@ async function scenarioAddCreatesBranch(url) {
 	const cwd = await makeRepo();
 	const { tools } = await loadExtension(url);
 	const ctx = makeCtx({ cwd });
-	const wtPath = path.join(cwd, "..", path.basename(cwd) + "-feature");
+	const wtPath = path.join(cwd, "..", `${path.basename(cwd)}-feature`);
 	const res = await tools
 		.get("git_worktree")
 		.execute("id", { action: "add", path: wtPath, branch: "feature-x" }, undefined, undefined, ctx);

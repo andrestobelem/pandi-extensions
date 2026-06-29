@@ -1174,7 +1174,7 @@ async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 	});
 	check(
 		"verify-claims-lib template: non-numeric skeptics falls back to default 3 (coverage)",
-		res && res.coverage && res.coverage.requestedSkeptics === 3,
+		res?.coverage && res.coverage.requestedSkeptics === 3,
 		JSON.stringify(res?.coverage),
 	);
 	check(

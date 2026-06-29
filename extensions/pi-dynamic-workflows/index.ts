@@ -700,10 +700,10 @@ export async function runWorkflow(
 			`# ${name}\n\n- state: running\n- startedAt: ${startedAtIso}${phaseLine}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}\n`,
 		);
 		const liveStdoutArtifactName = artifactName.endsWith(".md")
-			? artifactName.slice(0, -3) + ".stdout.log"
+			? `${artifactName.slice(0, -3)}.stdout.log`
 			: `${artifactName}.stdout.log`;
 		const liveStderrArtifactName = artifactName.endsWith(".md")
-			? artifactName.slice(0, -3) + ".stderr.log"
+			? `${artifactName.slice(0, -3)}.stderr.log`
 			: `${artifactName}.stderr.log`;
 		const liveStdoutArtifact = await writeArtifact(liveStdoutArtifactName, "");
 		const liveStderrArtifact = await writeArtifact(liveStderrArtifactName, "");

@@ -113,12 +113,12 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		(this.base as { onPasteImage?: () => void }).onPasteImage = handler;
 	}
 
-	get onExtensionShortcut(): ((data: string) => boolean | void) | undefined {
-		return (this.base as { onExtensionShortcut?: (data: string) => boolean | void }).onExtensionShortcut;
+	get onExtensionShortcut(): ((data: string) => boolean | undefined) | undefined {
+		return (this.base as { onExtensionShortcut?: (data: string) => boolean | undefined }).onExtensionShortcut;
 	}
 
-	set onExtensionShortcut(handler: ((data: string) => boolean | void) | undefined) {
-		(this.base as { onExtensionShortcut?: (data: string) => boolean | void }).onExtensionShortcut = handler;
+	set onExtensionShortcut(handler: ((data: string) => boolean | undefined) | undefined) {
+		(this.base as { onExtensionShortcut?: (data: string) => boolean | undefined }).onExtensionShortcut = handler;
 	}
 
 	render(width: number): string[] {

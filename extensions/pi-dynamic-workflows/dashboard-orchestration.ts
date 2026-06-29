@@ -425,7 +425,7 @@ async function handleDashboardChoice(
 	}
 	if (choice.type === "deleteWorkflow" && choice.workflow) {
 		const activeForWorkflow = [...activeRuns.values()].filter(
-			(run) => run.workflow.path === choice.workflow!.path || run.workflow.name === choice.workflow!.name,
+			(run) => run.workflow.path === choice.workflow?.path || run.workflow.name === choice.workflow?.name,
 		);
 		const ok = await ctx.ui.confirm(
 			"Delete workflow?",

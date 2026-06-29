@@ -382,7 +382,7 @@ module.exports = async function workflow() {
 	);
 	check(
 		"recover: caught message is the child's message",
-		/recoverable-boom-7/.test(String(result.output && result.output.caughtMessage)),
+		/recoverable-boom-7/.test(String(result.output?.caughtMessage)),
 		JSON.stringify(result.output),
 	);
 

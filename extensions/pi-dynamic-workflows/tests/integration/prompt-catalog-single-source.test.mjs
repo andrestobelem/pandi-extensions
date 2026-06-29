@@ -81,7 +81,7 @@ function check(name, ok, detail) {
 	console.log(`${ok ? "PASS" : "FAIL"}: ${name}`);
 	if (!ok) {
 		failures++;
-		if (detail) console.log("   -> " + String(detail).slice(0, 600));
+		if (detail) console.log(`   -> ${String(detail).slice(0, 600)}`);
 	}
 }
 
@@ -114,7 +114,7 @@ async function main() {
 		);
 	}
 
-	console.log(`\nTOTAL: ${failures === 0 ? "all passed" : failures + " failed"}`);
+	console.log(`\nTOTAL: ${failures === 0 ? "all passed" : `${failures} failed`}`);
 	process.exit(failures === 0 ? 0 : 1);
 }
 

@@ -85,7 +85,7 @@ async function main() {
 		try {
 			transformWorkflowCode(code);
 		} catch (err) {
-			error = err && err.message ? err.message : String(err);
+			error = err?.message ? err.message : String(err);
 		}
 		check(`loads under runtime rule: ${rel}`, !error, error);
 	}
@@ -97,6 +97,6 @@ main()
 		process.exit(failed === 0 ? 0 : 1);
 	})
 	.catch((err) => {
-		console.error(err && err.stack ? err.stack : String(err));
+		console.error(err?.stack ? err.stack : String(err));
 		process.exit(1);
 	});

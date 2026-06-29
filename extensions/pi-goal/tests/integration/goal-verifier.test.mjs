@@ -75,7 +75,7 @@ async function buildGoal() {
 async function flush(predicate, tries = 50) {
 	for (let i = 0; i < tries; i++) {
 		await new Promise((r) => setImmediate(r));
-		if (predicate && predicate()) return;
+		if (predicate?.()) return;
 	}
 }
 
@@ -1090,6 +1090,6 @@ async function main() {
 }
 
 main().catch((err) => {
-	console.error("INTEGRATION TEST CRASH:", err && err.stack ? err.stack : err);
+	console.error("INTEGRATION TEST CRASH:", err?.stack ? err.stack : err);
 	process.exit(2);
 });

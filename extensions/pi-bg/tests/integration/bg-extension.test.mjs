@@ -647,20 +647,19 @@ async function eventsSubcommandReadsBoundedEvents(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-events-"));
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const runDir = await setupJob(runsRoot, "events-job", { command: "echo hi", state: "completed" });
-	const events =
-		[
-			{ time: "2026-06-25T00:00:00.000Z", event: "start", jobId: "events-job", command: "echo hi" },
-			{ time: "2026-06-25T00:00:01.000Z", event: "running", jobId: "events-job", pid: 4242 },
-			{
-				time: "2026-06-25T00:00:02.000Z",
-				event: "finish",
-				jobId: "events-job",
-				state: "completed",
-				exitCode: 0,
-			},
-		]
-			.map((e) => JSON.stringify(e))
-			.join("\n") + "\n";
+	const events = `${[
+		{ time: "2026-06-25T00:00:00.000Z", event: "start", jobId: "events-job", command: "echo hi" },
+		{ time: "2026-06-25T00:00:01.000Z", event: "running", jobId: "events-job", pid: 4242 },
+		{
+			time: "2026-06-25T00:00:02.000Z",
+			event: "finish",
+			jobId: "events-job",
+			state: "completed",
+			exitCode: 0,
+		},
+	]
+		.map((e) => JSON.stringify(e))
+		.join("\n")}\n`;
 	await fs.writeFile(path.join(runDir, "events.jsonl"), events);
 
 	const { commands } = await loadExtension(url);
