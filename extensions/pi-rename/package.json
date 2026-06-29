@@ -1,0 +1,28 @@
+{
+	"name": "pi-dynamic-workflows-rename",
+	"version": "0.1.0",
+	"description": "Pi extension that adds a Claude-style /rename command to rename the current session, auto-generating a name from history when none is given.",
+	"license": "MIT",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"rename",
+		"session"
+	],
+	"files": [
+		"index.ts",
+		"derive-name.ts",
+		"notify.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	}
+}
