@@ -202,6 +202,27 @@ async function scenarioAnimatesOverTime(url) {
 	check("animated frame keeps the visible word", stripAll(frame1).includes("ultracode"), frame1);
 }
 
+async function scenarioColorsWorkflowKeyword(url) {
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> run the workflow now"));
+	const line = wrapped.render(80)[1];
+	check("typed workflow is recolored (truecolor escapes present)", line.includes("\x1b[38;2;"), line);
+	check("workflow visible text is preserved", stripAll(line).includes("run the workflow now"), stripAll(line));
+	check("workflow keyword is no longer plain/contiguous", !line.includes("workflow"), line);
+	check("non-keyword words around workflow stay plain", line.includes("run the ") && line.includes(" now"), line);
+}
+
+async function scenarioColorsBothKeywordsInOneLine(url) {
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> ultracode build a workflow"));
+	const line = wrapped.render(80)[1];
+	check(
+		"both ultracode and workflow recolored in one line",
+		stripAll(line).includes("ultracode build a workflow"),
+		line,
+	);
+	check("neither keyword remains plain/contiguous", !line.includes("ultracode") && !line.includes("workflow"), line);
+	check("the word between keywords stays plain", line.includes(" build a "), line);
+}
+
 async function scenarioLeavesKeywordlessTextUntouched(url) {
 	const { wrapped } = await installEditor(url, makeContentBaseEditor("> hello world"));
 	const line = wrapped.render(80)[1];
@@ -217,6 +238,8 @@ async function scenarioNeverColorsTopBorder(url) {
 async function main() {
 	const { url } = await buildExtension();
 	await scenarioColorsTypedKeyword(url);
+	await scenarioColorsWorkflowKeyword(url);
+	await scenarioColorsBothKeywordsInOneLine(url);
 	await scenarioCaseInsensitiveAndMultiple(url);
 	await scenarioPreservesCursorMarker(url);
 	await scenarioAnimatesOverTime(url);

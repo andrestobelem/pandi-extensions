@@ -24,8 +24,8 @@ const WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER = "__dynamicWorkflowDashboardDownEdi
 // only triggers a re-render while the prompt holds the keyword AND is focused, so an idle
 // or keyword-free prompt costs nothing beyond one boolean check per tick.
 const RAINBOW_INTERVAL_MS = 120;
-// The typed word that gets the animated multicolor effect (case-insensitive).
-const RAINBOW_KEYWORD = "ultracode";
+// The typed words that get the animated multicolor effect (case-insensitive).
+const RAINBOW_KEYWORDS = ["ultracode", "workflow"];
 
 class WorkflowDashboardDownEditor implements EditorComponent {
 	readonly [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] = true;
@@ -65,7 +65,8 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	}
 
 	private textHasKeyword(): boolean {
-		return this.base.getText().toLowerCase().includes(RAINBOW_KEYWORD);
+		const text = this.base.getText().toLowerCase();
+		return RAINBOW_KEYWORDS.some((keyword) => text.includes(keyword));
 	}
 
 	/** Bump the rainbow phase one step (exposed for deterministic tests). */
@@ -168,13 +169,16 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	render(width: number): string[] {
 		const lines = this.decorateTopBorder(this.base.render(width), width);
 		if (this.rainbowColorMode === "none") return lines;
-		// Paint the typed keyword with the animated rainbow on the content lines. Line 0 is the
+		// Paint each typed keyword with the animated rainbow on the content lines. Line 0 is the
 		// top border (its own color + the optional "ultracode auto" label), left untouched so the
 		// effect belongs to what you write, not the always-on mode indicator.
 		return lines.map((line, index) =>
 			index === 0
 				? line
-				: colorizeKeyword(line, RAINBOW_KEYWORD, this.rainbowPhase, { mode: this.rainbowColorMode }),
+				: RAINBOW_KEYWORDS.reduce(
+						(acc, keyword) => colorizeKeyword(acc, keyword, this.rainbowPhase, { mode: this.rainbowColorMode }),
+						line,
+					),
 		);
 	}
 
