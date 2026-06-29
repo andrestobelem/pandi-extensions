@@ -92,7 +92,7 @@ unknown, so do not rely on it alone.
 ### `loop-until-done` — convergence by quiet rounds
 
 When the goal is exhaustiveness rather than a single `done` (audits, repo-wide
-searches), use the `loop-until-done` workflow template. It runs parallel finders
+searches), use the `loop-until-done` workflow scaffold. It runs parallel finders
 each round and stops when **no new findings appear for K consecutive rounds** — a
 settle-to-tolerance detector, not a single transient-quiet flip.
 
@@ -103,7 +103,7 @@ dynamic_workflow action=run name=loop-until-done \
 
 - `quietRounds` (default 2) is a debounce/deadband, not a proven fixed point.
 - `maxRounds` (default 8) is the hard brake; when it stops there, it says so
-  out loud (`extensions/pi-dynamic-workflows/templates.ts:392-394`) — no silent
+  out loud (`extensions/pi-dynamic-workflows/pattern-scaffolds.ts:392-394`) — no silent
   caps.
 
 ### Ultracode + Contract Gate — bound the scope first

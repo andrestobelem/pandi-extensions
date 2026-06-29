@@ -23,7 +23,7 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
   plain border so scroll hints like `↑ N more` stay untouched), and the status
   line shows `uc:auto`/`uc:off` for routing plus `cg:on`/`cg:off` for the
   Contract Gate.
-- Compact Claude-style template catalog: six primary templates, compose templates, and use-case templates, with no pattern aliases.
+- Compact Claude-style scaffold catalog: six primary scaffolds, compose scaffolds, and use-case scaffolds, with no pattern aliases.
 - JavaScript workflow runtime with injected globals `agent`, `agents`, `pipeline`, `parallel`, `workflow`, `phase`, `log`, `args` (+ read-only `limits`/`runId`/`runDir`/`cwd`), artifacts, resumable journal, and TUI dashboard.
 - Per-call model and reasoning selection: every subagent call can choose its own `model`, `provider`, and `effort` (`low|medium|high|xhigh|max`, mapped onto the engine reasoning scale) — e.g. cheap/fast + `effort: "low"` for wide scouts and a stronger model + `effort: "high"`/`"xhigh"` for synthesis or verification. Omitting them inherits the orchestrator's model and session reasoning level; `model`/`provider`/`effort` are part of the cache key, so changing them re-runs that call on resume.
 - Stable KV-cache prefix: build subagent prompts with the shared/stable framing (role, task, success criteria, output format) first and the volatile per-item content (the item, ids, retrieved snippets) last, so identical prefixes reuse the provider prompt/KV cache across calls. Avoid `Date.now()`/`Math.random()` inside prompts — they bust that cache and make the resume journal miss, re-running the call.
@@ -101,7 +101,7 @@ destructivas (cancelar, borrar, rerun, cambiar de sesión) piden confirmación.
 
 ## Catálogo de patrones
 
-Antes de escribir un workflow, usa `dynamic_workflow action=template` o
+Antes de escribir un workflow, usa `dynamic_workflow action=scaffold` o
 `/workflow new <name> --pattern=<key>` para inspeccionar el scaffold más cercano.
 Los patrones son piezas de diseño: elige el más simple que produzca evidencia,
 registra límites/caps y deja artifacts verificables.

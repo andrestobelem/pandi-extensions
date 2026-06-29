@@ -95,7 +95,7 @@ Algunas extensiones exponen además tools que **Pi decide usar por su cuenta** (
 
 La extensión activa por defecto un router estilo Claude Code `/effort ultracode`: en cada tarea sustantiva Pi evalúa si conviene resolver normalmente o crear/ejecutar un workflow dinámico. No fuerza workflows para tareas simples; solo añade criterio de ruteo al system prompt cuando el tool `dynamic_workflow` está disponible. El router always-on por sí solo no cambia el thinking level para evitar modificar coste/modelo sin una decisión explícita; `/effort ultracode` sí pide `xhigh` explícitamente.
 
-Ultracode inyecta un recordatorio corto: reglas de decisión, claves de plantillas y composición. El catálogo detallado queda en `dynamic_workflow action=template`; antes de escribir un workflow debe inspeccionarlo, reutilizar un workflow existente solo si coincide exactamente o elegir el scaffold más cercano.
+Ultracode inyecta un recordatorio corto: reglas de decisión, claves de scaffolds y composición. El catálogo detallado queda en `dynamic_workflow action=scaffold`; antes de escribir un workflow debe inspeccionarlo, reutilizar un workflow existente solo si coincide exactamente o elegir el scaffold más cercano.
 
 También incluye un Contract Gate de revisión del contrato de tarea: para tareas Ultracode sustantivas que sobreviven el trivial gate, Pi debe lanzar un workflow read-only pequeño que sintetice `improvedTask`, criterios de éxito, supuestos, no-objetivos y plan de verificación antes del scout/orquestación normal.
 
@@ -109,7 +109,7 @@ También incluye un Contract Gate de revisión del contrato de tarea: para tarea
 /ultracode-mode on
 ```
 
-Tool para el modelo: `dynamic_workflow` con acciones `list`, `template`, `read`, `write`, `run`, `start`, `resume`, `cancel`, `delete`, `graph`, `runs`, `view`. `template` sin `name` lista el catálogo de patrones; `template` con `name=<key>` devuelve el scaffold de ese patrón. En sesiones TUI/RPC persistentes, `run`, `start` y `resume` se lanzan **siempre en background** y devuelven enseguida un `runId`; `run` solo bloquea como fallback en print/json, donde no hay sesión viva para sostener un background run. `resume` reutiliza las llamadas ya completadas (ver "Runs reanudables").
+Tool para el modelo: `dynamic_workflow` con acciones `list`, `scaffold`, `read`, `write`, `run`, `start`, `resume`, `cancel`, `delete`, `graph`, `runs`, `view`. `scaffold` sin `name` lista el catálogo de patrones; `scaffold` con `name=<key>` devuelve el scaffold de ese patrón. En sesiones TUI/RPC persistentes, `run`, `start` y `resume` se lanzan **siempre en background** y devuelven enseguida un `runId`; `run` solo bloquea como fallback en print/json, donde no hay sesión viva para sostener un background run. `resume` reutiliza las llamadas ya completadas (ver "Runs reanudables").
 
 ## Cómo funcionan nuestros Dynamic Workflows
 
@@ -198,8 +198,8 @@ No los uses para tareas triviales: una edición chica, una pregunta simple o poc
 
 El tab `Patterns` y `/workflow patterns` muestran todos los scaffolds registrados y casos de uso. Los scaffolds están embebidos en la extensión, así que el paquete no depende de archivos bajo `examples/workflows/`. El catálogo visible queda reducido a nombres estilo Claude:
 
-- **Templates**: `classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`.
-- **Compose templates**: `compose-verify-claims`, `lib-verify-claims`, `workflow-factory`.
+- **Scaffolds**: `classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`.
+- **Compose scaffolds**: `compose-verify-claims`, `lib-verify-claims`, `workflow-factory`.
 - **Use-cases**: `bug-hunt-repo-audit`, `large-migration`, `complex-research`, `plan-review`, `claim-bug-verification`.
 
 Los nombres anteriores ya no se resuelven como aliases de patrones. Las intenciones legacy `deep-research` y `default` viven como skills que enrutan a `complex-research` y `fan-out-and-synthesize` respectivamente.
@@ -236,7 +236,7 @@ El camino normal es crear un workflow dinámicamente para la tarea concreta:
 O desde el tool:
 
 ```json
-{ "action": "template" }
+{ "action": "scaffold" }
 { "action": "write", "name": "audit-concurrency-<slug>", "scope": "project", "code": "...workflow JS generado para esta tarea..." }
 { "action": "start", "name": "audit-concurrency-<slug>", "input": { "maxAgents": 20, "concurrency": 4 } }
 ```
@@ -557,4 +557,4 @@ Buenas prácticas:
 - Evita `bash` salvo que el workflow realmente lo necesite.
 - Revisa workflows antes de ejecutarlos, especialmente si vienen de terceros.
 
-Para ver los scaffolds disponibles, usá `/workflow patterns` o `dynamic_workflow action=template`; los runs reales deberían crear workflows task-specific dinámicamente.
+Para ver los scaffolds disponibles, usá `/workflow patterns` o `dynamic_workflow action=scaffold`; los runs reales deberían crear workflows task-specific dinámicamente.

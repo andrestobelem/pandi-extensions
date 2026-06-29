@@ -5,7 +5,7 @@ Date: 2026-06-28
 Two committed, runnable dynamic workflows that operationalize the
 [loop-engineering investigation](../research/2026-06-28-loop-engineering.md)
 (usage how-to in [loop-engineering-with-extensions.md](../loop-engineering-with-extensions.md)).
-They are example **templates** — pattern references you can run as-is, copy, or
+They are example **scaffolds** — pattern references you can run as-is, copy, or
 adapt — not canned jobs.
 
 Both encode the same one-line lesson on two different shapes:
@@ -89,10 +89,10 @@ arrays) rather than a schema: a schema on a slow exploration agent turned occasi
 empty streams into multi-retry stalls in testing. Audit subagents run with
 `includeExtensions: false` (read-only repo work needs no web search).
 
-## How these relate to the catalog templates
+## How these relate to the catalog scaffolds
 
 These examples are deliberately **distinct** from the built-in pattern catalog
-(`dynamic_workflow action=template`):
+(`dynamic_workflow action=scaffold`):
 
 - `loop-until-done` converges on quiet rounds but has **no** per-finding
   independent gate; `converge-verify` adds one.
@@ -101,7 +101,7 @@ These examples are deliberately **distinct** from the built-in pattern catalog
 - The catalog has no bounded **refine** loop closed by an independent verifier;
   `verified-refine` fills that gap (the workflow analogue of `/goal`).
 
-Use the catalog templates for the common shapes; reach for these when you want
+Use the catalog scaffolds for the common shapes; reach for these when you want
 the loop-engineering guarantees (bounded + independent verification) made
 explicit.
 
