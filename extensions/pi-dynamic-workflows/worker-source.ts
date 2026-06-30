@@ -35,10 +35,15 @@ function compact(value, maxChars = 24000) {
   return text.slice(0, Math.max(0, maxChars - 120)) + "\n\n...[truncated " + (text.length - maxChars) + " chars]";
 }
 
-function hostCall(method, args) {
+function hostCallTracked(method, args) {
   const id = nextCallId++;
+  const promise = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
   parentPort.postMessage({ type: "call", id, method, args });
-  return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+  return { id, promise };
+}
+
+function hostCall(method, args) {
+  return hostCallTracked(method, args).promise;
 }
 
 parentPort.on("message", (message) => {
@@ -112,6 +117,47 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
   return results;
 }
 
+// race(thunks, { accept? }) -> { winner, index, status }. Fans out N branches and, the moment one
+// produces an ACCEPTED value (default: != null), aborts the in-flight losers via the AbortSignal each
+// thunk receives. Pure in-worker: cancellation rides the per-call hostCall id (agentGlobal posts
+// abort-call when its signal fires). Every branch has a rejection handler so a cancelled loser never
+// surfaces as an unhandled rejection.
+async function race(thunks, options) {
+  if (!Array.isArray(thunks) || thunks.length === 0)
+    throw new Error("race(thunks) expects a non-empty array of functions.");
+  if (!thunks.every((t) => typeof t === "function"))
+    throw new Error("race() thunks must be functions: (signal) => Promise.");
+  const accept = (options && options.accept) || ((v) => v != null);
+  const controller = new AbortController();
+  // Synchronous fan-out (map, not chained then) so each thunk's first hostCall posts in emission
+  // order -> deterministic occ assignment under the host occ mutex.
+  const promises = thunks.map((thunk) => {
+    try { return Promise.resolve(thunk(controller.signal)); }
+    catch (e) { return Promise.reject(e); }
+  });
+  return await new Promise((resolve) => {
+    let settled = false;
+    let remaining = thunks.length;
+    const finish = (index, winner, status) => {
+      if (settled) return;
+      settled = true;
+      controller.abort(); // signals every in-flight loser -> abort-call per id (cross-thread)
+      resolve({ winner, index, status });
+    };
+    promises.forEach((p, index) => p.then(
+      (value) => {
+        if (settled) return;
+        if (accept(value, index)) finish(index, value, "won");
+        else if (--remaining === 0) finish(-1, null, "empty");
+      },
+      () => {
+        if (settled) return;
+        if (--remaining === 0) finish(-1, null, "empty");
+      },
+    ));
+  });
+}
+
 (async () => {
   const moduleObj = { exports: {} };
   const limits = Object.freeze({ ...workerData.limits });
@@ -127,6 +173,7 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
     workflow: (name, input) => hostCall("workflow", [name, input]),
     parallel: (thunks) => parallel(thunks, limits.concurrency),
     pipeline: (items, ...stages) => pipeline(items, limits.concurrency, ...stages),
+    race: (thunks, options) => race(thunks, options),
     bash: (command, options) => hostCall("bash", [command, options]),
     readFile: (filePath, encoding) => hostCall("readFile", [filePath, encoding]),
     writeFile: (filePath, data) => hostCall("writeFile", [filePath, data]),
@@ -173,12 +220,24 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
   const mapEffort = (e) => (e === "max" ? "xhigh" : e);
   const agentGlobal = async (prompt, options) => {
     const opts = Object.assign({}, options || {});
+    const sig = opts.signal; // never serialize an AbortSignal -> DataCloneError
+    delete opts.signal;
     if (opts.label != null && opts.name == null) opts.name = opts.label;
     delete opts.label;
     if (opts.effort != null && opts.thinking == null) opts.thinking = mapEffort(opts.effort);
     delete opts.effort;
     delete opts.phase;
-    const res = await hostCall("agent", [prompt, opts]);
+    const { id, promise } = hostCallTracked("agent", [prompt, opts]);
+    // The "call" message is posted (inside hostCallTracked) BEFORE this listener attaches, so an
+    // abort-call can never reach the host before its call -> the host always registers the per-id
+    // controller first. An already-aborted signal posts abort-call immediately.
+    if (sig) {
+      if (sig.aborted) { try { parentPort.postMessage({ type: "abort-call", id }); } catch {} }
+      else sig.addEventListener("abort", () => {
+        try { parentPort.postMessage({ type: "abort-call", id }); } catch {}
+      }, { once: true });
+    }
+    const res = await promise;
     if (res == null || res.ok === false) return null;
     return opts.schema !== undefined ? (res.data != null ? res.data : null) : res.output;
   };
@@ -193,6 +252,7 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
     sandbox.agents = ctx.agents;
     sandbox.parallel = ctx.parallel;
     sandbox.pipeline = ctx.pipeline;
+    sandbox.race = ctx.race;
     sandbox.workflow = ctx.workflow;
     sandbox.log = ctx.log;
     sandbox.phase = phase;

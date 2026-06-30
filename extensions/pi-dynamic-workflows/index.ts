@@ -11,6 +11,7 @@
  * sandbox) and can spend model calls by spawning subagents.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +32,7 @@ import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-out
 import {
 	AsyncMutex,
 	abortReasonMessage,
+	type CombinedSignal,
 	combineSignal,
 	createSemaphore,
 	mapLimit,
@@ -461,6 +463,13 @@ export function transformWorkflowCode(code: string): string {
 	return output;
 }
 
+// Bridges a per-call AbortSignal from the worker dispatcher into the agent closure without
+// touching WorkflowRuntimeApi. runSubagent captures it synchronously at entry so it survives the
+// occAssignMutex/semaphore awaits; ALS context is per async chain, so concurrent agent() calls
+// never cross-talk. Set only for method==="agent" calls; everything else sees undefined and falls
+// back to the run signal.
+const callSignal = new AsyncLocalStorage<AbortSignal>();
+
 async function executeWorkflowCode(
 	workflowFile: WorkflowFile,
 	code: string,
@@ -500,11 +509,16 @@ async function executeWorkflowCode(
 
 	return await new Promise<unknown>((resolve, reject) => {
 		let settled = false;
+		// Per-call abort handles for in-flight agent() calls, keyed by worker message id. An
+		// abort-call message (a race() loser) aborts exactly one; cleanup disposes the rest.
+		const callControllers = new Map<number, CombinedSignal>();
 
 		const cleanup = () => {
 			signal.removeEventListener("abort", onAbort);
 			worker.removeAllListeners();
 			void worker.terminate();
+			for (const c of callControllers.values()) c.dispose();
+			callControllers.clear();
 		};
 
 		const settle = (fn: (value?: unknown) => void, value?: unknown) => {
@@ -536,6 +550,10 @@ async function executeWorkflowCode(
 				settle(reject, new Error(message.error || "Workflow failed."));
 				return;
 			}
+			if (message.type === "abort-call") {
+				callControllers.get(message.id)?.abort(new Error("Call cancelled (race lost)."));
+				return;
+			}
 			if (message.type !== "call") return;
 
 			void (async () => {
@@ -559,8 +577,25 @@ async function executeWorkflowCode(
 					return;
 				}
 				try {
-					const result = await (api[method] as any)(...(message.args ?? []));
-					safePost({ type: "response", id: message.id, ok: true, result });
+					if (method === "agent") {
+						// Per-call signal: aborts on run abort OR an abort-call (race loser). timeoutMs 0
+						// => parent-only. Registered synchronously before any await, so an abort-call
+						// can never arrive before its controller exists. The store is read by runSubagent.
+						const combined = combineSignal(signal, 0);
+						callControllers.set(message.id, combined);
+						try {
+							const result = await callSignal.run(combined.signal, () =>
+								(api[method] as any)(...(message.args ?? [])),
+							);
+							safePost({ type: "response", id: message.id, ok: true, result });
+						} finally {
+							combined.dispose();
+							callControllers.delete(message.id);
+						}
+					} else {
+						const result = await (api[method] as any)(...(message.args ?? []));
+						safePost({ type: "response", id: message.id, ok: true, result });
+					}
 				} catch (err) {
 					safePost({
 						type: "response",
@@ -727,6 +762,10 @@ export async function runWorkflow(
 
 	async function runSubagent(prompt: string, options: InternalAgentOptions = {}): Promise<SubagentResult> {
 		throwIfAborted(runSignal.signal);
+		// Captured synchronously at entry so it survives the occAssignMutex/semaphore awaits. For a
+		// race() loser this is the per-call signal that an abort-call aborts; for everything else it is
+		// the run signal (the dispatcher wraps every agent() call, so a normal call is unchanged).
+		const effectiveSignal = callSignal.getStore() ?? runSignal.signal;
 		// Resolve options and assign the cache occurrence index under occAssignMutex. The
 		// mutex queue is chained synchronously at call time, so even though persona/access
 		// resolution awaits the filesystem, occ is assigned strictly in synchronous emission
@@ -951,6 +990,10 @@ export async function runWorkflow(
 			let countedParallelSlot = true;
 			let attemptWrapper: { path: string; dir: string } | undefined;
 			try {
+				// (B1) A loser aborted DURING setup (resume cache-hit winner, or concurrency<branches)
+				// throws here BEFORE spawning -> no token spend. First statement inside the try so the
+				// finally still releases the semaphore (acquire is outside the try).
+				throwIfAborted(effectiveSignal);
 				await publishStatus();
 				attemptWrapper = envAccess.useEnvCommand ? await createAgentEnvWrapper(envAccess) : undefined;
 				envWrapper = attemptWrapper;
@@ -958,7 +1001,7 @@ export async function runWorkflow(
 				result = await runStreamingAgentProcess(processSpec.command, processSpec.args, {
 					cwd: effectiveOptions.cwd ?? ctx.cwd,
 					timeoutMs: effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs,
-					signal: runSignal.signal,
+					signal: effectiveSignal,
 					// Recursion guard: stamp the child one level deeper so a nested dynamic_workflow
 					// start/run/resume is refused once it hits maxWorkflowDepth().
 					env: { ...process.env, [WORKFLOW_DEPTH_ENV]: String(currentWorkflowDepth() + 1) },
@@ -981,7 +1024,7 @@ export async function runWorkflow(
 				}
 				release();
 			}
-			throwIfAborted(runSignal.signal);
+			throwIfAborted(effectiveSignal);
 			const parsedStrictOutput = parsePiJsonModeOutput(result.stdout);
 			const parsedOutput = parsedStrictOutput.ok ? parsedStrictOutput : parsePiJsonModeOutputLenient(result.stdout);
 			if (!parsedStrictOutput.ok) {
@@ -1060,6 +1103,11 @@ export async function runWorkflow(
 			...(schema === undefined ? {} : { data: schemaData, schemaOk: schemaOk === true }),
 		};
 		const subagent = cacheEnabled ? normalizeSubagentResultForJournal(rawSubagent) : rawSubagent;
+		// A loser whose abort ARRIVED produces a hole, never a record or a phantom "completed" event.
+		// (A loser that completed before the abort round-tripped still journals -> B2, accepted.)
+		if (effectiveSignal.aborted && !runSignal.signal.aborted)
+			await log("agent cancelled (race lost)", { key: key.slice(0, 12), occ });
+		throwIfAborted(effectiveSignal);
 		await appendEvent({
 			type: "agent",
 			...subagent,

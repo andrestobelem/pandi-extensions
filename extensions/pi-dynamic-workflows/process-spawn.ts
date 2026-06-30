@@ -113,6 +113,11 @@ export async function runStreamingAgentProcess(
 		const timer = setTimeout(kill, options.timeoutMs);
 		const onAbort = () => kill();
 		options.signal.addEventListener("abort", onAbort, { once: true });
+		// A signal already aborted BEFORE the listener attached never fires "abort"
+		// (e.g. a race() loser whose abort propagated during setup). Kill explicitly so
+		// the loser's token spend stops instead of running to completion. kill() is
+		// idempotent (guards the SIGKILL timer), so the close handler stays correct.
+		if (options.signal.aborted) kill();
 		const finish = (err: Error | undefined, code = 1) => {
 			if (finished) return;
 			finished = true;

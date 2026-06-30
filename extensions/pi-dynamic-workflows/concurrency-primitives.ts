@@ -9,7 +9,7 @@
  * Extracted byte-identically from index.ts.
  */
 
-interface CombinedSignal {
+export interface CombinedSignal {
 	signal: AbortSignal;
 	abort(reason?: unknown): void;
 	dispose(): void;
