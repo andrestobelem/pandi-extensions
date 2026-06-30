@@ -10,7 +10,7 @@
  */
 import { Key, Markdown, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { liveAgentHeaderStatus } from "./agent-view.js";
-import { createMarkdownTheme } from "./markdown-view.js";
+import { createMarkdownTheme, formatViewerHints, scrollDelta } from "./markdown-view.js";
 
 export class AgentLiveViewComponent {
 	// The agent view body is Markdown (formatAgentView output): render it RICH via pi-tui's
@@ -45,12 +45,11 @@ export class AgentLiveViewComponent {
 			return;
 		}
 		// Scroll is clamped in render() once the body height is known for the active width.
-		if (matchesKey(data, Key.up)) this.scroll -= 1;
-		else if (matchesKey(data, Key.down)) this.scroll += 1;
-		else if (matchesKey(data, Key.pageUp)) this.scroll -= this.pageSize();
-		else if (matchesKey(data, Key.pageDown)) this.scroll += this.pageSize();
-		else if (matchesKey(data, Key.home)) this.scroll = 0;
-		else if (matchesKey(data, Key.end)) this.scroll = Number.MAX_SAFE_INTEGER;
+		const delta = scrollDelta(data, this.pageSize());
+		if (delta === null) return;
+		if (delta === "top") this.scroll = 0;
+		else if (delta === "bottom") this.scroll = Number.MAX_SAFE_INTEGER;
+		else this.scroll += delta;
 		// Repaint immediately on scroll instead of waiting for the 1s refresh tick.
 		this.requestRender();
 	}
@@ -63,13 +62,15 @@ export class AgentLiveViewComponent {
 		this.scroll = Math.max(0, Math.min(this.scroll, maxScroll));
 		const line = (textValue: string) => truncateToWidth(textValue, w, "…");
 		const end = Math.min(bodyLines.length, this.scroll + page);
-		const filesHint = this.canOpenFiles ? "f files • " : "";
+		const hints = formatViewerHints({
+			canOpenFiles: this.canOpenFiles,
+			start: this.scroll + 1,
+			end,
+			total: bodyLines.length,
+		});
 		const header =
 			this.theme.fg("accent", "Live workflow agent") +
-			this.theme.fg(
-				"dim",
-				` • ${liveAgentHeaderStatus(this.agentState)} • ↑↓/PgUp/PgDn scroll • ${filesHint}q/esc close • ${this.scroll + 1}-${end}/${bodyLines.length}`,
-			);
+			this.theme.fg("dim", ` • ${liveAgentHeaderStatus(this.agentState)} • ${hints}`);
 		return [
 			line(header),
 			line(this.theme.fg("border", "─".repeat(Math.min(w, 120)))),

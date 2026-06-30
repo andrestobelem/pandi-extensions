@@ -31,6 +31,26 @@ export function pickViewerForPath(filePath: string): "markdown" | "text" {
 	return lower.endsWith(".md") || lower.endsWith(".markdown") ? "markdown" : "text";
 }
 
+// Shared viewer chrome (one source of truth for the run view AND the live agent view):
+// the navigation/close/position hint string and the scroll-key mapping, so both viewers
+// advertise and honor the SAME keys.
+export function formatViewerHints(opts: { canOpenFiles: boolean; start: number; end: number; total: number }): string {
+	const filesHint = opts.canOpenFiles ? "f files • " : "";
+	return `↑/↓ j/k scroll • PgUp/PgDn page • ${filesHint}q/Esc close • ${opts.start}-${opts.end}/${opts.total}`;
+}
+
+// Map an input key to a scroll action shared by both viewers: a line delta (±1), a page delta
+// (±page), "top"/"bottom" jumps, or null when the key is not a scroll key.
+export function scrollDelta(data: string, page: number): number | "top" | "bottom" | null {
+	if (matchesKey(data, "down") || data === "j") return 1;
+	if (matchesKey(data, "up") || data === "k") return -1;
+	if (matchesKey(data, "pageDown") || matchesKey(data, "space")) return page;
+	if (matchesKey(data, "pageUp")) return -page;
+	if (matchesKey(data, "home") || data === "g") return "top";
+	if (matchesKey(data, "end") || data === "G") return "bottom";
+	return null;
+}
+
 function padToWidth(text: string, width: number): string {
 	return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
 }
@@ -91,13 +111,11 @@ export class WorkflowMarkdownViewComponent implements Component {
 			this.done("openFiles");
 			return;
 		}
-		if (matchesKey(data, "down") || data === "j") this.scroll += 1;
-		else if (matchesKey(data, "up") || data === "k") this.scroll -= 1;
-		else if (matchesKey(data, "pageDown") || matchesKey(data, "space")) this.scroll += this.pageSize();
-		else if (matchesKey(data, "pageUp")) this.scroll -= this.pageSize();
-		else if (matchesKey(data, "home") || data === "g") this.scroll = 0;
-		else if (matchesKey(data, "end") || data === "G") this.scroll = Number.MAX_SAFE_INTEGER;
-		else return;
+		const delta = scrollDelta(data, this.pageSize());
+		if (delta === null) return;
+		if (delta === "top") this.scroll = 0;
+		else if (delta === "bottom") this.scroll = Number.MAX_SAFE_INTEGER;
+		else this.scroll += delta;
 		this.tui.requestRender();
 	}
 
@@ -118,10 +136,9 @@ export class WorkflowMarkdownViewComponent implements Component {
 		while (visibleBody.length < bodyHeight) visibleBody.push("");
 
 		const title = this.theme.fg("accent", this.theme.bold(this.title));
-		const filesHint = this.canOpenFiles ? "f files • " : "";
 		const footer = this.theme.fg(
 			"dim",
-			`↑/↓ j/k scroll • PgUp/PgDn page • ${filesHint}q/Esc close • ${start + 1}-${end}/${bodyLines.length}`,
+			formatViewerHints({ canOpenFiles: this.canOpenFiles, start: start + 1, end, total: bodyLines.length }),
 		);
 		const border = this.theme.fg("border", "─".repeat(safeWidth));
 		return [
