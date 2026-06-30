@@ -25,7 +25,7 @@ import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
 import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { compactInline, formatElapsedMs } from "./presentation.js";
-import { padRightVisible, renderSafeInline } from "./render-utils.js";
+import { padRightVisible, renderMeter, renderSafeInline } from "./render-utils.js";
 import {
 	formatParallelAgents,
 	formatParallelAgentsCompact,
@@ -572,11 +572,17 @@ export class WorkflowDashboard {
 	render(width: number): string[] {
 		if (width <= 0) return [];
 		const w = width;
+		// Color hierarchy (all semantic theme tokens → adapt to dark/light/auto; no hardcoded
+		// colors anywhere): accent = primary/titles/selection; success|warning|error = state;
+		// muted = secondary labels; dim = tertiary (ids, paths, hints, chip labels);
+		// border = horizontal rules/separators.
 		const accent = (s: string) => this.theme.fg("accent", s);
 		const muted = (s: string) => this.theme.fg("muted", s);
 		const success = (s: string) => this.theme.fg("success", s);
 		const error = (s: string) => this.theme.fg("error", s);
 		const warning = (s: string) => this.theme.fg("warning", s);
+		const dim = (s: string) => this.theme.fg("dim", s);
+		const border = (s: string) => this.theme.fg("border", s);
 		const line = (s: string) => truncateToWidth(s, w, "…");
 		if (this.showHelp) return this.renderHelp(w, line, accent, muted);
 		const monitorTab = this.tab === "monitor" ? accent("[Monitor]") : muted(" Monitor ");
@@ -641,11 +647,11 @@ export class WorkflowDashboard {
 					(activeCount ? accent(`  ▶ ${activeCount} active`) : ""),
 			),
 			line(muted("? help • ") + this.refreshStatus(muted, error) + muted(` • ${help}`)),
-			line(muted("─".repeat(Math.min(w, 120)))),
+			line(border("─".repeat(Math.min(w, 120)))),
 		];
 
-		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning);
-		else if (this.tab === "agents") this.renderAgents(lines, line, accent, muted, success, error, warning);
+		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning, dim);
+		else if (this.tab === "agents") this.renderAgents(lines, line, accent, muted, success, error, warning, dim);
 		else if (this.tab === "sessions") this.renderSessions(lines, line, accent, muted, success, warning);
 		else if (this.tab === "runs") this.renderRuns(lines, line, accent, muted, success, error);
 		else if (this.tab === "workflows") this.renderWorkflows(lines, line, accent, muted, warning);
@@ -662,7 +668,13 @@ export class WorkflowDashboard {
 		success: (s: string) => string,
 		error: (s: string) => string,
 		warning: (s: string) => string,
+		dim: (s: string) => string,
 	): void {
+		// Blank line + dim caption: groups the dense label block into readable sections.
+		const section = (caption: string) => {
+			lines.push(line(""));
+			lines.push(line(dim(caption)));
+		};
 		const model = this.selectedMonitor();
 		if (!model) {
 			lines.push(line(warning("No workflow runs found.")));
@@ -704,9 +716,13 @@ export class WorkflowDashboard {
 					m.agentConcurrency && m.agentConcurrency > 0
 						? `${m.parallelAgents}/${m.agentConcurrency}`
 						: String(m.parallelAgents);
+				const rowMeter = renderMeter(m.agentsStarted > 0 ? m.agentsDone / m.agentsStarted : 0, 8, {
+					fill: success,
+					empty: muted,
+				});
 				lines.push(
 					line(
-						`${prefix}${glyph} ${m.workflow} ${muted(m.runId)} ${m.agentsDone}/${m.agentsStarted} ${muted(`parallel:${parallel}`)}`,
+						`${prefix}${glyph} ${m.workflow} ${muted(m.runId)} ${rowMeter} ${m.agentsDone}/${m.agentsStarted} ${muted(`parallel:${parallel}`)}`,
 					),
 				);
 			}
@@ -722,30 +738,40 @@ export class WorkflowDashboard {
 		label("workflow", model.workflow);
 		label("state", `${stateColor(getRunStatusLabel(model.run))} ${muted("•")} ${statusTail}`);
 		label("elapsed", formatElapsedMs(model.elapsedMs));
-		label("agents", `${model.agentsDone}/${model.agentsStarted} done/started`);
+
+		section("Progress");
+		const progressFrac = model.agentsStarted > 0 ? model.agentsDone / model.agentsStarted : 0;
+		const progressMeter = renderMeter(progressFrac, 14, { fill: success, empty: muted });
+		label(
+			"agents",
+			`${model.agentsDone}/${model.agentsStarted} done/started ${progressMeter} ${muted(`${Math.round(progressFrac * 100)}%`)}`,
+		);
+		const hasConcurrency = !!(model.agentConcurrency && model.agentConcurrency > 0);
+		const parallelText = hasConcurrency
+			? `${model.parallelAgents}/${model.agentConcurrency}`
+			: `${model.parallelAgents}`;
+		const utilMeter = hasConcurrency
+			? ` ${renderMeter(model.parallelAgents / (model.agentConcurrency as number), 14, { fill: accent, empty: muted })}`
+			: "";
 		label(
 			"parallel",
-			`${model.agentConcurrency && model.agentConcurrency > 0 ? `${model.parallelAgents}/${model.agentConcurrency}` : model.parallelAgents} running${model.peakParallelAgents === undefined ? "" : ` • peak:${model.peakParallelAgents}`}`,
+			`${parallelText} running${utilMeter}${model.peakParallelAgents === undefined ? "" : ` • peak:${model.peakParallelAgents}`}`,
 		);
 		label("bash", `${model.bashDone} done`);
 		label("artifacts", String(model.artifactCount));
+
+		section("Location");
 		label("run", model.runId);
-		label("runDir", model.runDir);
+		label("runDir", dim(model.runDir));
+
+		section("Activity");
 		const last = model.lastLog
 			? `${model.lastLog.time.slice(11, 19)} ${renderSafeInline(model.lastLog.message)}`
 			: "No logs recorded yet.";
 		label("last", last);
 		if (model.run.error) label("error", error(renderSafeInline(compactInline(model.run.error, 200))));
-		const actions =
-			model.agents.length > 0
-				? ["←→ tabs", "↑↓ select agent", "Enter/o agent output", "v run", "g graph"]
-				: ["←→ tabs", "Enter/v view", "g graph"];
-		if (model.canCancel) actions.push("c/x cancel active");
-		if (model.canRerun) actions.push("r rerun (confirm)");
-		if (!model.canCancel) actions.push("d/delete run artifacts");
-		lines.push(line(muted("")));
-		lines.push(line(muted(actions.join(" • "))));
-		this.renderMonitorAgents(lines, line, model, accent, muted, success, error, warning);
+		// Action hints live on the gated header banner (render line 1); no redundant footer here.
+		this.renderMonitorAgents(lines, line, model, accent, muted, success, error, warning, dim);
 	}
 
 	private agentStateLabel(
@@ -776,6 +802,7 @@ export class WorkflowDashboard {
 		muted: (s: string) => string,
 		success: (s: string) => string,
 		warning: (s: string) => string,
+		dim: (s: string) => string,
 		options: { headerLines?: string[]; includeSchemaInState: boolean; compactWidth: number },
 	): void {
 		lines.push(line(muted("")));
@@ -802,6 +829,8 @@ export class WorkflowDashboard {
 				`prompt: ${agent.promptAvailable ? success("available") : warning("not available")} ${agent.artifactPath ? muted(`• ${agent.artifactPath}`) : ""}`,
 			),
 		);
+		lines.push(line(""));
+		lines.push(line(dim("config")));
 		lines.push(
 			line(
 				`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`,
@@ -822,6 +851,10 @@ export class WorkflowDashboard {
 				`keys: ${agent.keys?.length ? agent.keys.join(", ") : agent.isolatedEnv ? "none selected" : "default inherited environment"}${agent.missingKeys?.length ? warning(` • missing: ${agent.missingKeys.join(", ")}`) : ""}`,
 			),
 		);
+		if (agent.promptPreview || agent.output) {
+			lines.push(line(""));
+			lines.push(line(dim("i/o")));
+		}
 		if (agent.promptPreview)
 			lines.push(
 				line(`prompt preview: ${renderSafeInline(compactInline(agent.promptPreview, options.compactWidth))}`),
@@ -840,20 +873,24 @@ export class WorkflowDashboard {
 		success: (s: string) => string,
 		error: (s: string) => string,
 		warning: (s: string) => string,
+		dim: (s: string) => string,
 	): string {
-		const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-		const schema = agent.schemaOk === undefined ? "" : agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
-		const tools = muted(` tools:${agent.tools?.length ? agent.tools.length : "default"}`);
-		const skills = muted(
-			` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`,
+		// Chips joined by a ` · ` divider so the row breathes; chip LABELS use dim so the
+		// state-bearing chips (prompt✓ / schema:bad / missing) stay the eye-catchers.
+		const chips: string[] = [agent.promptAvailable ? success("prompt✓") : warning("prompt?")];
+		if (agent.schemaOk !== undefined) chips.push(agent.schemaOk ? muted("schema:ok") : error("schema:bad"));
+		chips.push(dim(`tools:${agent.tools?.length ? agent.tools.length : "default"}`));
+		chips.push(
+			dim(
+				`skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`,
+			),
 		);
-		const extensions = muted(
-			` ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`,
+		chips.push(
+			dim(`ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`),
 		);
-		const keys =
-			muted(` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`) +
-			(agent.missingKeys?.length ? warning(` missing:${agent.missingKeys.length}`) : "");
-		return `${prompt}${schema}${tools}${skills}${extensions}${keys}`;
+		chips.push(dim(`keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`));
+		if (agent.missingKeys?.length) chips.push(warning(`missing:${agent.missingKeys.length}`));
+		return chips.join(" · ");
 	}
 
 	private renderMonitorAgents(
@@ -865,6 +902,7 @@ export class WorkflowDashboard {
 		success: (s: string) => string,
 		error: (s: string) => string,
 		warning: (s: string) => string,
+		dim: (s: string) => string,
 	): void {
 		if (model.agents.length === 0) return;
 		lines.push(line(muted("")));
@@ -890,7 +928,7 @@ export class WorkflowDashboard {
 			const phase = formatAgentPhase(agent);
 			const code =
 				agent.code === undefined ? "" : agent.code === 0 ? muted(` code:0`) : error(` code:${agent.code}`);
-			const meta = this.renderAgentRowMeta(agent, muted, success, error, warning);
+			const meta = this.renderAgentRowMeta(agent, muted, success, error, warning, dim);
 			lines.push(
 				line(
 					`${prefix}${state} #${agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(agent.name)} ${muted(elapsed)}${code} ${meta}`,
@@ -899,7 +937,7 @@ export class WorkflowDashboard {
 		}
 		const selected = this.selectedAgent();
 		if (!selected) return;
-		this.renderSelectedAgentDetail(lines, line, selected, accent, muted, success, warning, {
+		this.renderSelectedAgentDetail(lines, line, selected, accent, muted, success, warning, dim, {
 			includeSchemaInState: false,
 			compactWidth: 220,
 		});
@@ -913,6 +951,7 @@ export class WorkflowDashboard {
 		success: (s: string) => string,
 		error: (s: string) => string,
 		warning: (s: string) => string,
+		dim: (s: string) => string,
 	): void {
 		if (this.agentEntries.length === 0) {
 			lines.push(line(warning("No workflow agents found yet.")));
@@ -949,7 +988,7 @@ export class WorkflowDashboard {
 			const agentElapsedMs = getAgentElapsedMs(entry.agent);
 			const elapsed = agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
 			const phase = formatAgentPhase(entry.agent);
-			const meta = this.renderAgentRowMeta(entry.agent, muted, success, error, warning);
+			const meta = this.renderAgentRowMeta(entry.agent, muted, success, error, warning, dim);
 			lines.push(
 				line(
 					`${prefix}${state} #${entry.agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(entry.agent.name)} ${muted(`— ${entry.run.workflow} ${entry.run.runId.slice(-12)}`)} ${muted(elapsed)} ${meta}`,
@@ -960,16 +999,12 @@ export class WorkflowDashboard {
 		if (!selected) return;
 		const agent = selected.agent;
 		const run = selected.run;
-		this.renderSelectedAgentDetail(lines, line, agent, accent, muted, success, warning, {
+		this.renderSelectedAgentDetail(lines, line, agent, accent, muted, success, warning, dim, {
 			headerLines: [`workflow: ${run.workflow}`, `run: ${run.runId}`, `parallel: ${formatParallelAgents(run)}`],
 			includeSchemaInState: true,
 			compactWidth: 260,
 		});
-		const actions = ["Enter/o opens output+prompt", "v run", "g graph"];
-		if (canCancelRun(run)) actions.push("c/x cancel active");
-		if (canRerunRun(run)) actions.push("r rerun (confirm)");
-		if (!canCancelRun(run)) actions.push("d/delete run artifacts");
-		lines.push(line(muted(actions.join(" • "))));
+		// Action hints live on the gated header banner (render line 1); no redundant footer here.
 	}
 
 	private renderSessions(
@@ -1189,18 +1224,15 @@ export class WorkflowDashboard {
 			lines.push(line(`status: ${getRunStatusLabel(selected)}`));
 			lines.push(line(`run: ${selected.runId}`));
 			lines.push(line(`parallel: ${formatParallelAgents(selected)}`));
-			lines.push(line(`dir: ${selected.runDir}`));
+			lines.push(line(`dir: ${this.theme.fg("dim", selected.runDir)}`));
 			if (selected.error)
 				lines.push(line(`${accent("error")}: ${error(renderSafeInline(compactInline(selected.error, 200)))}`));
 			for (const logEntry of getRunLogs(selected).slice(-5))
 				lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${renderSafeInline(logEntry.message)}`));
-			const selectedState = getRunState(selected);
-			const actions = ["Enter/v view", "g graph"];
-			if (canCancelRun(selected)) actions.push("c/x cancel active");
-			if (canRerunRun(selected)) actions.push("r rerun (confirm)");
-			if (!canCancelRun(selected)) actions.push("d/delete run artifacts");
-			if (isResumableState(selectedState)) actions.push(`/workflow resume ${selected.runId}`);
-			lines.push(line(muted(actions.join(" • "))));
+			// Action verbs live on the gated header banner; only the unique resume COMMAND
+			// (not shown in the header) earns a footer line here.
+			if (isResumableState(getRunState(selected)))
+				lines.push(line(this.theme.fg("dim", `/workflow resume ${selected.runId}`)));
 		}
 	}
 
@@ -1265,12 +1297,7 @@ export class WorkflowDashboard {
 			lines.push(line(`workflow: ${selected.workflow}`));
 			lines.push(line(`run: ${selected.runId}`));
 			lines.push(line(`time: ${selected.time}`));
-			const run = this.runs.find((candidate) => candidate.runId === selected.runId);
-			const actions = ["Enter/v opens full run timeline", "g graph"];
-			if (run && canCancelRun(run)) actions.push("c/x cancel active");
-			if (run && canRerunRun(run)) actions.push("r rerun (confirm)");
-			if (run && !canCancelRun(run)) actions.push("d/delete run artifacts");
-			lines.push(line(muted(actions.join(" • "))));
+			// Action hints live on the gated header banner (render line 1); no redundant footer here.
 		}
 	}
 }

@@ -19,6 +19,8 @@ import { formatAgentPhase, readRunEvents } from "./event-parser.js";
 import { MAX_TOOL_TEXT, stringify } from "./format.js";
 import type { WorkflowRunRecord } from "./index.js";
 import { computeCodeHash } from "./journal.js";
+import { pickViewerForPath, showMarkdown } from "./markdown-view.js";
+import { notify } from "./notify.js";
 import { compactInline, formatElapsedMs } from "./presentation.js";
 import {
 	formatParallelAgents,
@@ -31,6 +33,7 @@ import {
 	isResumableState,
 	isRunResult,
 } from "./run-state.js";
+import { showText } from "./run-status-ui.js";
 import { getRunDirs, readRunRecord } from "./run-store.js";
 
 export async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord[]> {
@@ -194,4 +197,49 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 				? ["", "## Output", "", "Output not available until completion."]
 				: []),
 	].join("\n");
+}
+
+// Open a single run artifact in the viewer that fits it: `.md`/`.markdown` render as rich
+// Markdown, everything else as text. The path is contained within runDir so a crafted
+// relative path cannot read arbitrary files off disk.
+export async function openRunArtifact(ctx: ExtensionContext, runDir: string, relPath: string): Promise<void> {
+	const resolved = path.resolve(runDir, relPath);
+	const base = path.resolve(runDir);
+	if (resolved !== base && !resolved.startsWith(base + path.sep)) {
+		notify(ctx, `Artifact path escapes the run directory: ${relPath}`, "warning");
+		return;
+	}
+	let content: string;
+	try {
+		content = await fs.readFile(resolved, "utf8");
+	} catch (err) {
+		notify(ctx, `Cannot read artifact ${relPath}: ${err instanceof Error ? err.message : String(err)}`, "warning");
+		return;
+	}
+	if (pickViewerForPath(relPath) === "markdown") await showMarkdown(ctx, relPath, content);
+	else await showText(ctx, relPath, content);
+}
+
+// Let the user pick one of a run's artifacts and open it in the viewer that fits it. Shared
+// by the run view and the live agent view so the `f` affordance behaves identically in both.
+export async function pickAndOpenRunArtifact(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<void> {
+	const files = await listRunFiles(run.runDir);
+	if (files.length === 0) {
+		notify(ctx, "No artifacts found for this run.", "info");
+		return;
+	}
+	const choice = await ctx.ui.select(`Open run artifact (${files.length})`, files);
+	if (choice) await openRunArtifact(ctx, run.runDir, choice);
+}
+
+// The run-view SCREEN: render the run as rich Markdown and, in a TUI, let the user press
+// `f` to open one of its artifacts (the chosen file routes to the Markdown or text viewer),
+// then return to the run view — the same open→action→reopen loop the dashboard uses.
+export async function showRunView(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<void> {
+	for (;;) {
+		const canOpenFiles = ctx.mode === "tui" && ctx.hasUI;
+		const intent = await showMarkdown(ctx, `Workflow run: ${run.runId}`, await formatRunView(run), { canOpenFiles });
+		if (intent !== "openFiles") return;
+		await pickAndOpenRunArtifact(ctx, run);
+	}
 }

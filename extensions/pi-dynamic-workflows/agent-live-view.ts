@@ -8,38 +8,49 @@
  * (erased-safe at load); index.ts imports the class back as a value used only in that
  * callback body. Extracted byte-identically (only an added `export ` prefix).
  */
-import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import { Key, Markdown, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { liveAgentHeaderStatus } from "./agent-view.js";
+import { createMarkdownTheme } from "./markdown-view.js";
 
 export class AgentLiveViewComponent {
-	private lines: string[] = ["Loading agent execution…"];
+	// The agent view body is Markdown (formatAgentView output): render it RICH via pi-tui's
+	// Markdown component, the same renderer the run view and pi-mdview use, so headings/code
+	// blocks/lists look right instead of a flat line dump. Rebuilt on each setContent tick.
+	private markdown: Markdown | undefined;
 	private scroll = 0;
 	private agentState: string | undefined;
 
 	constructor(
 		private readonly theme: any,
 		private readonly getHeight: () => number,
-		private readonly close: () => void,
+		private readonly done: (intent?: "openFiles") => void,
 		private readonly requestRender: () => void = () => {},
+		private readonly canOpenFiles = false,
 	) {}
 
 	setContent(content: string, state?: string): void {
-		this.lines = content.split(/\r?\n/);
+		this.markdown = new Markdown(content, 1, 0, createMarkdownTheme(this.theme), undefined, {
+			preserveOrderedListMarkers: true,
+		});
 		if (state !== undefined) this.agentState = state;
-		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
 	}
 
 	handleInput(data: string): void {
 		if (matchesKey(data, Key.escape) || data === "q") {
-			this.close();
+			this.done(undefined);
 			return;
 		}
-		if (matchesKey(data, Key.up)) this.scroll = Math.max(0, this.scroll - 1);
-		else if (matchesKey(data, Key.down)) this.scroll = Math.min(this.maxScroll(), this.scroll + 1);
-		else if (matchesKey(data, Key.pageUp)) this.scroll = Math.max(0, this.scroll - this.pageSize());
-		else if (matchesKey(data, Key.pageDown)) this.scroll = Math.min(this.maxScroll(), this.scroll + this.pageSize());
+		if (this.canOpenFiles && data === "f") {
+			this.done("openFiles");
+			return;
+		}
+		// Scroll is clamped in render() once the body height is known for the active width.
+		if (matchesKey(data, Key.up)) this.scroll -= 1;
+		else if (matchesKey(data, Key.down)) this.scroll += 1;
+		else if (matchesKey(data, Key.pageUp)) this.scroll -= this.pageSize();
+		else if (matchesKey(data, Key.pageDown)) this.scroll += this.pageSize();
 		else if (matchesKey(data, Key.home)) this.scroll = 0;
-		else if (matchesKey(data, Key.end)) this.scroll = this.maxScroll();
+		else if (matchesKey(data, Key.end)) this.scroll = Number.MAX_SAFE_INTEGER;
 		// Repaint immediately on scroll instead of waiting for the 1s refresh tick.
 		this.requestRender();
 	}
@@ -47,28 +58,30 @@ export class AgentLiveViewComponent {
 	render(width: number): string[] {
 		const w = Math.max(1, width);
 		const page = this.pageSize();
-		this.scroll = Math.max(0, Math.min(this.scroll, this.maxScroll()));
+		const bodyLines = this.markdown ? this.markdown.render(w) : ["Loading agent execution…"];
+		const maxScroll = Math.max(0, bodyLines.length - page);
+		this.scroll = Math.max(0, Math.min(this.scroll, maxScroll));
 		const line = (textValue: string) => truncateToWidth(textValue, w, "…");
+		const end = Math.min(bodyLines.length, this.scroll + page);
+		const filesHint = this.canOpenFiles ? "f files • " : "";
 		const header =
 			this.theme.fg("accent", "Live workflow agent") +
 			this.theme.fg(
 				"dim",
-				` • ${liveAgentHeaderStatus(this.agentState)} • ↑↓/PgUp/PgDn scroll • q/esc close • ${this.scroll + 1}-${Math.min(this.lines.length, this.scroll + page)}/${this.lines.length}`,
+				` • ${liveAgentHeaderStatus(this.agentState)} • ↑↓/PgUp/PgDn scroll • ${filesHint}q/esc close • ${this.scroll + 1}-${end}/${bodyLines.length}`,
 			);
 		return [
 			line(header),
-			line(this.theme.fg("dim", "─".repeat(Math.min(w, 120)))),
-			...this.lines.slice(this.scroll, this.scroll + page).map(line),
+			line(this.theme.fg("border", "─".repeat(Math.min(w, 120)))),
+			...bodyLines.slice(this.scroll, end).map(line),
 		];
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.markdown?.invalidate();
+	}
 
 	private pageSize(): number {
 		return Math.max(5, this.getHeight() - 4);
-	}
-
-	private maxScroll(): number {
-		return Math.max(0, this.lines.length - this.pageSize());
 	}
 }

@@ -85,7 +85,8 @@ export const STUB_SOURCES = {
 		"export function getCapabilities() { return { images: false }; }\n" +
 		"export function matchesKey(data, key) { return data === key; }\n" +
 		'export function truncateToWidth(value, width, suffix = "") { const s = String(value); return s.length > width ? s.slice(0, Math.max(0, width - suffix.length)) + suffix : s; }\n' +
-		"export function visibleWidth(value) { return String(value).length; }\n",
+		"export function visibleWidth(value) { return String(value).length; }\n" +
+		'export class Markdown { constructor(text) { this.text = String(text == null ? "" : text); } render() { return this.text.split(/\\r?\\n/); } invalidate() {} }\n',
 };
 
 /**

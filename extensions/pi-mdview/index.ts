@@ -38,6 +38,10 @@ function boundedLine(text: string, width: number): string {
 	return padToWidth(truncateToWidth(text, Math.max(1, width)), width);
 }
 
+// Build the Markdown theme from the runtime `theme` object (a value passed into the
+// ctx.ui.custom callback) using ONLY type-only SDK imports. We deliberately do NOT import
+// the SDK's getMarkdownTheme() as a value: that pulls the whole coding-agent runtime
+// (cross-spawn/child_process) into the bundle and breaks the self-contained extension load.
 function createMarkdownTheme(theme: Theme): MarkdownTheme {
 	return {
 		heading: (text) => theme.fg("mdHeading", theme.bold(text)),

@@ -42,7 +42,7 @@ import {
 } from "./run-lifecycle.js";
 import { getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
-import { formatRunList, formatRunView, listRuns, resolveRun } from "./run-view.js";
+import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from "./run-view.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow } from "./workflow-resolve.js";
 
@@ -286,7 +286,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 
 		if (action === "view") {
 			const run = await resolveRun(ctx, commandName);
-			await showText(ctx, `Workflow run: ${run.runId}`, await formatRunView(run));
+			await showRunView(ctx, run);
 			return;
 		}
 

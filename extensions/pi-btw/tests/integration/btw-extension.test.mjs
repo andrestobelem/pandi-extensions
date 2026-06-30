@@ -391,7 +391,8 @@ async function testTuiOverlay(url) {
 async function main() {
 	const { outDir, aliases } = await makeBuildDir("pi-btw-integration", {
 		sdk: (dir) => sdkStub(dir),
-		tui: `${STUB_SOURCES.tui}export class Markdown { constructor() {} render() { return []; } invalidate() {} }\n`,
+		// Markdown is provided by the shared tui stub (STUB_SOURCES.tui).
+		tui: STUB_SOURCES.tui,
 	});
 
 	// index.ts imports convertToLlm from the SDK at runtime; the stub identity is enough.

@@ -18,6 +18,7 @@ import { MAX_TOOL_TEXT, truncate } from "./format.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "./index.js";
 import { notify } from "./notify.js";
 import { formatElapsedMs } from "./presentation.js";
+import { pickAndOpenRunArtifact } from "./run-view.js";
 
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
@@ -195,42 +196,50 @@ export async function showLiveAgentView(
 		return;
 	}
 	if (ctx.mode === "tui") {
-		let timer: NodeJS.Timeout | undefined;
-		let refreshing = false;
-		let component: AgentLiveViewComponent | undefined;
-		try {
-			await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-				component = new AgentLiveViewComponent(
-					theme,
-					() => tui.terminal.rows,
-					() => done(undefined),
-					() => tui.requestRender(),
-				);
-				const refresh = async () => {
-					if (refreshing || !component) return;
-					refreshing = true;
-					try {
-						const latest = await latestAgentForRun(run, agent);
-						component.setContent(await formatAgentView(run, latest), latest.state);
-						tui.requestRender();
-						// Stop polling once the agent is terminal; the final output stays
-						// on screen until the user closes the view.
-						if (timer && isTerminalAgentState(latest.state)) {
-							clearInterval(timer);
-							timer = undefined;
+		// open→action→reopen loop: `f` lets the user open one of the run's artifacts in the
+		// right viewer (.md → Markdown, else text), then returns to the live agent view — the
+		// same affordance the run view has, so the agent screen "fits together" with it.
+		for (;;) {
+			let timer: NodeJS.Timeout | undefined;
+			let refreshing = false;
+			let component: AgentLiveViewComponent | undefined;
+			let intent: "openFiles" | undefined;
+			try {
+				intent = await ctx.ui.custom<"openFiles" | undefined>((tui, theme, _keybindings, done) => {
+					component = new AgentLiveViewComponent(
+						theme,
+						() => tui.terminal.rows,
+						done,
+						() => tui.requestRender(),
+						true,
+					);
+					const refresh = async () => {
+						if (refreshing || !component) return;
+						refreshing = true;
+						try {
+							const latest = await latestAgentForRun(run, agent);
+							component.setContent(await formatAgentView(run, latest), latest.state);
+							tui.requestRender();
+							// Stop polling once the agent is terminal; the final output stays
+							// on screen until the user closes the view.
+							if (timer && isTerminalAgentState(latest.state)) {
+								clearInterval(timer);
+								timer = undefined;
+							}
+						} finally {
+							refreshing = false;
 						}
-					} finally {
-						refreshing = false;
-					}
-				};
-				timer = setInterval(() => void refresh(), 1000);
-				void refresh();
-				return component;
-			});
-		} finally {
-			if (timer) clearInterval(timer);
+					};
+					timer = setInterval(() => void refresh(), 1000);
+					void refresh();
+					return component;
+				});
+			} finally {
+				if (timer) clearInterval(timer);
+			}
+			if (intent !== "openFiles") return;
+			await pickAndOpenRunArtifact(ctx, run);
 		}
-		return;
 	}
 	if (ctx.hasUI) {
 		await ctx.ui.editor(

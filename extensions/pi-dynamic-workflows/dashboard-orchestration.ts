@@ -53,9 +53,8 @@ import {
 	setWorkflowFinishedStatus,
 	setWorkflowRunningStatus,
 	setWorkflowWidget,
-	showText,
 } from "./run-status-ui.js";
-import { formatRunView, listRuns } from "./run-view.js";
+import { listRuns, showRunView } from "./run-view.js";
 import type { DashboardSelection, WorkflowDashboardTab } from "./workflow-dashboard.js";
 import { WorkflowDashboard } from "./workflow-dashboard.js";
 import { showWorkflowGraph } from "./workflow-graph.js";
@@ -394,7 +393,7 @@ async function handleDashboardChoice(
 		return "reopen";
 	}
 	if (choice.type === "view" && choice.run) {
-		await showText(ctx, `Workflow run: ${choice.run.runId}`, await formatRunView(choice.run));
+		await showRunView(ctx, choice.run);
 		return "reopen";
 	}
 	if (choice.type === "cancel" && choice.run) {
