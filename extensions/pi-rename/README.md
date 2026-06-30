@@ -18,8 +18,11 @@ pi --no-extensions -e ./extensions/pi-rename
   a **slug**: lowercase, ASCII alphanumerics separated by single hyphens, diacritics
   stripped, capped at 4 words (e.g. `Refactor Auth Module!` → `refactor-auth-module`,
   `Café` → `cafe`).
-- `/rename` — invent a slug from the conversation and apply it directly. It never opens
-  an input dialog: pass a name to use it, or pass nothing to have one invented.
+- `/rename` — invent a slug from your **most recent activity** and apply it directly. It
+  reads the latest user message (skipping a bare `/rename` or an empty turn), so calling
+  it again as the conversation evolves produces a fresh, current name and replaces the
+  previous one instead of being stuck on how the session opened. It never opens an input
+  dialog: pass a name to use it, or pass nothing to have one invented.
 
 The current name is shown as an inverted-color "pill" (foreground/background swapped)
 embedded in the editor's **top border** (the violet prompt line) — right where the
@@ -46,8 +49,10 @@ overrides it — use whichever verb you prefer.
   rendering, so it works without importing or depending on dynamic-workflows, composes
   with that extension's `ultracode auto` label (placed first), and leaves scroll hints
   untouched. The name is rendered with reverse video (inverted fg/bg) as a pill.
-- The auto-generated suggestion is **deterministic** (no LLM, no network): it is
-  derived from the first non-empty user message — leading slash-command dropped, then
-  slugified and truncated on a word boundary.
+- The auto-generated suggestion is **deterministic** (no LLM, no network): it is derived
+  from the most recent non-empty user message (walking the history backward) — leading
+  slash-command dropped, then slugified and truncated on a word boundary. Reading the
+  latest message (rather than the first) is what lets a repeated `/rename` track what you
+  are doing now.
 - Fallbacks: empty history or no usable text falls back to a default name
   (`session`); if `setSessionName` fails it reports an error instead of crashing.

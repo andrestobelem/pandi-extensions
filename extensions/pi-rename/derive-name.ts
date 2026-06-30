@@ -156,15 +156,20 @@ function extractUserText(entry: unknown): string {
 }
 
 /**
- * Derive a slug session name from the conversation history. Walks entries in order,
- * uses the first `user` message that yields a non-empty slug (a leading slash-command
- * token is dropped first), and returns the default name when none does.
+ * Derive a slug session name from the conversation history, reflecting what the user is
+ * doing NOW. Walks entries from the MOST RECENT backward and uses the latest `user`
+ * message that yields a non-empty slug (a leading slash-command token is dropped first,
+ * so a bare `/rename` invocation or an empty turn is skipped and the previous real
+ * instruction wins). Because it reads the latest activity rather than the first message,
+ * calling `/rename` again as the conversation evolves produces a fresh, current name
+ * instead of being stuck on how the session opened. Returns the default name when no
+ * user message yields a slug.
  */
 export function deriveSessionName(entries: unknown, opts: DeriveOptions = {}): string {
 	const fallback = opts.defaultName ?? DEFAULT_SESSION_NAME;
 	const list = Array.isArray(entries) ? entries : [];
-	for (const entry of list) {
-		const raw = extractUserText(entry);
+	for (let i = list.length - 1; i >= 0; i--) {
+		const raw = extractUserText(list[i]);
 		if (!raw) continue;
 		// Drop a leading slash-command token, e.g. "/explain the cache" -> "the cache".
 		const cleaned = raw.replace(/^\s*\/[a-zA-Z][\w-]*\s*/, "");

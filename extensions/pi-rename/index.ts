@@ -9,7 +9,8 @@
  *
  *   /rename Refactor auth   -> pi.setSessionName("refactor-auth")
  *   /rename "Hello World!"  -> pi.setSessionName("hello-world")
- *   /rename                 -> invent a slug from history and apply it directly (no dialog).
+ *   /rename                 -> invent a slug from the MOST RECENT activity and apply it
+ *                              directly (no dialog); re-running it tracks current work.
  *
  * Every applied name is a slug. The current name is shown as an inverted-color pill
  * embedded in the editor's top border (the violet prompt line), right where
@@ -142,10 +143,11 @@ function installNameBorderLabel(pi: ExtensionAPI, ctx: ExtensionContext): void {
 
 export default function renameExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("rename", {
-		description: "Rename the current session to a slug. With no argument, suggests one from the conversation.",
+		description:
+			"Rename the current session to a slug. With no argument, suggests one from your most recent activity.",
 		handler: async (args, ctx) => {
-			// With a name, use it; with no name, invent one from the conversation.
-			// Never opens an input dialog.
+			// With a name, use it; with no name, invent one from the most recent user message
+			// (so a repeated /rename tracks current work). Never opens an input dialog.
 			const trimmed = args.trim();
 			applyName(pi, ctx, trimmed || suggestName(ctx));
 		},

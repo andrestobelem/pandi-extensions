@@ -8,7 +8,7 @@
  *   capped at MAX_NAME_WORDS (4) words, and never ending on a dangling connector word
  *   (trailing articles/prepositions/conjunctions are trimmed so it reads as a name)
  * - /rename <name> slugifies and sets the session name
- * - /rename with no arg, headless, derives a slug from the first user message
+ * - /rename with no arg, headless, derives a slug from the most recent user message
  * - /rename with no arg never opens a dialog: it invents a slug from history and applies
  *   it directly, whether or not UI is available
  * - empty/whitespace history falls back to a default name
@@ -219,9 +219,24 @@ async function scenarioSlugifyUnit(url) {
 	);
 
 	check(
-		"deriveSessionName slugs the first user message",
-		deriveSessionName([assistantEntry("ignored"), userEntry("Fix the login bug"), userEntry("second")]) ===
-			"fix-the-login-bug",
+		"deriveSessionName slugs the MOST RECENT user message (tracks current work)",
+		deriveSessionName([assistantEntry("ignored"), userEntry("Fix the login bug"), userEntry("now do the cache")]) ===
+			"now-do-the-cache",
+	);
+	check(
+		"deriveSessionName walks back past a trailing /rename invocation and empty turns",
+		deriveSessionName([
+			userEntry("Initial task"),
+			userEntry("Harden the loop gate"),
+			userEntry("/rename"),
+			userEntry("   "),
+		]) === "harden-the-loop-gate",
+		deriveSessionName([
+			userEntry("Initial task"),
+			userEntry("Harden the loop gate"),
+			userEntry("/rename"),
+			userEntry("   "),
+		]),
 	);
 	check(
 		"deriveSessionName joins text blocks and ignores images",
@@ -237,7 +252,7 @@ async function scenarioSlugifyUnit(url) {
 		deriveSessionName([userEntry("/explain the cache layer")]) === "the-cache-layer",
 	);
 	check(
-		"deriveSessionName caps a long first message at 4 words",
+		"deriveSessionName caps a long message at 4 words",
 		deriveSessionName([userEntry("Investigate the flaky CI pipeline failures")]) === "investigate-the-flaky-ci",
 	);
 	check(
@@ -246,8 +261,8 @@ async function scenarioSlugifyUnit(url) {
 		deriveSessionName([userEntry("arreglar el bug de login cuando el usuario no tiene")]),
 	);
 	check(
-		"deriveSessionName skips empty user messages",
-		deriveSessionName([userEntry("   "), userEntry("Real content here now")]) === "real-content-here-now",
+		"deriveSessionName skips empty user messages (most recent non-empty wins)",
+		deriveSessionName([userEntry("Real content here now"), userEntry("   ")]) === "real-content-here-now",
 	);
 	check("deriveSessionName falls back to default on empty history", deriveSessionName([]) === DEFAULT_SESSION_NAME);
 	check("deriveSessionName tolerates non-array input", deriveSessionName(null) === DEFAULT_SESSION_NAME);
@@ -330,10 +345,13 @@ async function scenarioNoArgHeadless(url) {
 	renameExtension(harness.pi);
 	const command = harness.commands.get("rename");
 
-	const ctx = makeCtx({ hasUI: false, entries: [userEntry("Investigate flaky CI pipeline")] });
+	const ctx = makeCtx({
+		hasUI: false,
+		entries: [userEntry("Set up the project"), userEntry("Investigate flaky CI pipeline")],
+	});
 	await command.handler("", ctx);
 	check(
-		"/rename no-arg headless derives a slug from the first user message",
+		"/rename no-arg headless derives a slug from the most recent user message",
 		harness.sessionName === "investigate-flaky-ci-pipeline",
 		harness.sessionName,
 	);
