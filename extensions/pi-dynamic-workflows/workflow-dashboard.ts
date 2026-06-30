@@ -450,13 +450,7 @@ export class WorkflowDashboard {
 				this.cycleMonitorRun(data === "]" ? 1 : -1);
 				return;
 			}
-			const agent = this.selectedAgent();
-			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
-			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
-			else if (data === "g") this.done({ type: "graph", run });
-			else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
-			else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
-			else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
+			this.handleRunSelectionInput(data, run, this.selectedAgent());
 			return;
 		}
 		if (this.tab === "agents") {
@@ -464,16 +458,21 @@ export class WorkflowDashboard {
 				this.jumpToNextFailedAgent();
 				return;
 			}
-			const agent = this.selectedAgent();
-			if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
-			else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
-			else if (data === "g") this.done({ type: "graph", run });
-			else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
-			else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
-			else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
+			this.handleRunSelectionInput(data, run, this.selectedAgent());
 			return;
 		}
-		if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
+		this.handleRunSelectionInput(data, run);
+	}
+
+	// Single source of truth for the run-action shortcuts shared by every
+	// run-bearing tab (monitor, agents, runs, activity): Enter/o agent output,
+	// v run view, g graph, c/x cancel (gated), r rerun (gated), d/Del delete.
+	// `agent` is only passed where a sub-agent row is selectable (monitor/agents);
+	// without it Enter/o falls through to the run view, matching prior behavior.
+	// Extracted from three byte-identical branches to stop them drifting apart.
+	private handleRunSelectionInput(data: string, run: WorkflowRunRecord, agent?: AgentMonitorModel): void {
+		if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
+		else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
 		else if (data === "g") this.done({ type: "graph", run });
 		else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
 		else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });

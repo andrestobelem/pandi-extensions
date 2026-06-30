@@ -671,6 +671,81 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 	);
 }
 
+async function scenarioRunActionsConsistentAcrossTabs(url) {
+	// SIMPLICITY contract: the run-action shortcuts (g graph, v view, d delete) are
+	// handled by a single shared helper, so they must resolve to the SAME selection
+	// on every run-bearing tab (monitor, agents, runs, activity). This anchors the
+	// de-duplicated handler against drift between the previously-copied branches.
+	const { component, getDone } = await openDashboardComponent(url);
+	const run = {
+		runId: "SHARED",
+		workflow: "wf",
+		runDir: "/tmp/SHARED",
+		agentCount: 1,
+		background: true,
+		scope: "project",
+		ok: true,
+		state: "completed",
+	};
+	component.setRuns([run]);
+	component.setActivity([
+		{ runId: "SHARED", workflow: "wf", time: new Date().toISOString(), message: "done", state: "completed" },
+	]);
+	component.setAgentEntries([{ run, agent: { id: 1, name: "a1", state: "completed", promptAvailable: true } }]);
+	component.setMonitorModels([
+		{
+			run,
+			runId: "SHARED",
+			runDir: "/tmp/SHARED",
+			workflow: "wf",
+			state: "completed",
+			active: false,
+			stale: false,
+			priority: "latest",
+			elapsedMs: 1,
+			agentsDone: 1,
+			agentsStarted: 1,
+			parallelAgents: 0,
+			bashDone: 0,
+			artifactCount: 0,
+			agents: [],
+			canCancel: false,
+			canRerun: true,
+		},
+	]);
+
+	const tabs = [
+		{ key: "m", name: "monitor" },
+		{ key: "A", name: "agents" },
+		{ key: "R", name: "runs" },
+		{ key: "a", name: "activity" },
+	];
+	for (const tab of tabs) {
+		component.handleInput(tab.key);
+		component.handleInput("g");
+		const g = getDone();
+		check(
+			`${tab.name}: g resolves graph for the selected run`,
+			g?.type === "graph" && g?.run?.runId === "SHARED",
+			JSON.stringify(g),
+		);
+		component.handleInput("v");
+		const v = getDone();
+		check(
+			`${tab.name}: v resolves view for the selected run`,
+			v?.type === "view" && v?.run?.runId === "SHARED",
+			JSON.stringify(v),
+		);
+		component.handleInput("d");
+		const d = getDone();
+		check(
+			`${tab.name}: d resolves deleteRun for the selected run`,
+			d?.type === "deleteRun" && d?.run?.runId === "SHARED",
+			JSON.stringify(d),
+		);
+	}
+}
+
 async function scenarioKeyboardNav(url) {
 	// P3: a direct Runs jump key, vim j/k + G, and Shift+Tab for previous tab.
 	const { component, getDone } = await openDashboardComponent(url);
@@ -742,6 +817,7 @@ async function main() {
 	await scenarioMonitorHelpGating(url);
 	await scenarioLiveAgentHeaderStatus(url);
 	await scenarioKeyboardNav(url);
+	await scenarioRunActionsConsistentAcrossTabs(url);
 	await scenarioListWindowIndicator(url);
 	await scenarioEllipsisOnOverflow(url);
 
