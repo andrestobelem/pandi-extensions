@@ -43,7 +43,9 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
 | `/worktree` | `pi install ./extensions/pi-worktree` |
 | TypeScript diagnostics | `pi install ./extensions/pi-typescript-lsp` |
+| `/rename` | `pi install ./extensions/pi-rename` |
 | `/btw` | `pi install ./extensions/pi-btw` |
+| `/pandi` | `pi install ./extensions/pi-pandi` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
@@ -78,6 +80,7 @@ Comandos humanos:
 /effort ultracode                      # xhigh + router dinámico estilo Claude Code
 /mdview README.md                      # visualiza un archivo Markdown con scroll en la TUI
 /btw ¿qué decidimos sobre auth?         # pregunta lateral rápida sobre la conversación (sin tools, no se guarda en el historial)
+/rename Refactor auth                   # renombra la conversación (slug); sin argumento inventa el nombre desde el historial
 /worktree                              # gestiona git worktrees: list|add|open|remove|prune
 /worktree add -b feature ../wt-feature # crea un worktree en nueva branch
 /worktree open -b feature feature      # crea (si falta) y abre Pi en el worktree (tab nueva en supacode)
@@ -85,6 +88,7 @@ Comandos humanos:
 /ultracode-mode status                 # muestra si el router always-on está activo
 /ultracode-mode off                    # desactiva el router en esta sesión
 /ultracode-mode on                     # vuelve a activarlo
+/pandi                                 # estado + saludo del panda; /pandi art|face|on|off ajusta el splash y el indicador
 ```
 
 También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` y la extensión lo transforma en una petición orientada a workflows.
