@@ -43,6 +43,11 @@ import { canCancelRun } from "./run-status-ui.js";
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
 export type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
 
+// Single source of truth for the "how do I create the first run?" guidance so
+// every empty run-bearing list (Monitor, Runs, Agents, Activity) gives a
+// first-time user the exact command instead of a dead-end "nothing here" line.
+const START_WORKFLOW_HINT = "Start one with /workflow start <name> {json} or dynamic_workflow action=start.";
+
 // Keep the cursor on the same item when a list is rebuilt/reordered under it
 // (lists are mtime-sorted and refreshed every 1.5s, so a fixed index would
 // silently retarget destructive actions). Falls back to clamped position when
@@ -627,7 +632,7 @@ export class WorkflowDashboard {
 		const model = this.selectedMonitor();
 		if (!model) {
 			lines.push(line(warning("No workflow runs found.")));
-			lines.push(line(muted("Start one with /workflow start <name> {json} or dynamic_workflow action=start.")));
+			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}
 
@@ -844,6 +849,7 @@ export class WorkflowDashboard {
 					),
 				),
 			);
+			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}
 		const running = this.agentEntries.filter((entry) => entry.agent.state === "running").length;
@@ -1123,6 +1129,7 @@ export class WorkflowDashboard {
 	): void {
 		if (this.runs.length === 0) {
 			lines.push(line(muted("No workflow runs found.")));
+			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}
 		const start = Math.max(0, Math.min(this.runIndex - 6, this.runs.length - 12));
@@ -1205,6 +1212,7 @@ export class WorkflowDashboard {
 		lines.push(line(accent("Recent activity")));
 		if (this.activity.length === 0) {
 			lines.push(line(warning("No workflow activity yet.")));
+			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}
 		const start = Math.max(0, Math.min(this.activityIndex - 7, this.activity.length - 14));
