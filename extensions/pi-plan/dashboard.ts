@@ -8,6 +8,10 @@
  * TUI scroll overlay live in index.ts (the overlay needs a live TUI we cannot
  * exercise from the bundled integration harness).
  *
+ * For the active plan it also renders a Claude-style CHECKLIST parsed from the
+ * latest submitted plan text by `extractPlanChecklist` (also pure): GFM task-list
+ * state is preserved, otherwise steps are derived from the plan's lists/headings.
+ *
  * Decoupled from index.ts's PlanState by a minimal STRUCTURAL `PlanSnapshot`
  * (mirrors session-state.ts's PersistedEntry approach); any real PlanState
  * satisfies it. Depth-one sibling imported via "./dashboard.js".
@@ -51,6 +55,58 @@ function clip(text: string, max: number): string {
 	return oneLine.length <= max ? oneLine : `${oneLine.slice(0, Math.max(0, max - 1))}…`;
 }
 
+/** One Claude-style checklist step parsed out of a plan's Markdown. */
+export interface ChecklistItem {
+	text: string;
+	checked: boolean;
+}
+
+const CHECKLIST_TEXT_MAX = 120;
+
+/**
+ * Parse a submitted plan's Markdown into a Claude-style checklist of steps. PURE
+ * and deterministic (no I/O, no Date.now), so it is trivially unit-testable.
+ *
+ * Strategy, in priority order (the FIRST kind that yields any item wins, so a plan
+ * that already uses GFM task lists keeps its checked/unchecked state):
+ *   1. GFM task-list items: `- [ ]` / `- [x]` (also `*`/`+` bullets and `1.`/`1)`
+ *      ordered prefixes). `[x]`/`[X]` => checked.
+ *   2. Ordered-list items (`1. step`) => unchecked steps.
+ *   3. Bullet-list items (`- step`) => unchecked steps.
+ *   4. `##`..`######` headings => unchecked steps (when the plan has no lists).
+ * Returns [] when nothing structured is found.
+ */
+export function extractPlanChecklist(markdown: string): ChecklistItem[] {
+	const taskItems: ChecklistItem[] = [];
+	const ordered: ChecklistItem[] = [];
+	const bullets: ChecklistItem[] = [];
+	const headings: ChecklistItem[] = [];
+	for (const raw of String(markdown).split("\n")) {
+		const line = raw.trim();
+		const task = line.match(/^(?:[-*+]|\d+[.)])\s+\[([ xX])\]\s+(.*\S)/);
+		if (task) {
+			taskItems.push({ text: clip(task[2], CHECKLIST_TEXT_MAX), checked: task[1].toLowerCase() === "x" });
+			continue;
+		}
+		const ord = line.match(/^\d+[.)]\s+(.*\S)/);
+		if (ord) {
+			ordered.push({ text: clip(ord[1], CHECKLIST_TEXT_MAX), checked: false });
+			continue;
+		}
+		const bul = line.match(/^[-*+]\s+(.*\S)/);
+		if (bul) {
+			bullets.push({ text: clip(bul[1], CHECKLIST_TEXT_MAX), checked: false });
+			continue;
+		}
+		const head = line.match(/^#{2,6}\s+(.*\S)/);
+		if (head) headings.push({ text: clip(head[1], CHECKLIST_TEXT_MAX), checked: false });
+	}
+	if (taskItems.length) return taskItems;
+	if (ordered.length) return ordered;
+	if (bullets.length) return bullets;
+	return headings;
+}
+
 /**
  * Render the plan-mode dashboard as Markdown: a header with session totals, an
  * "Active" detail section for any armed plan (posture, counts, last submitted
@@ -84,6 +140,15 @@ export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 				`- **Task:** ${clip(p.task, 200)}`,
 			);
 			if (p.lastPlan) {
+				// Claude-style checklist derived from the latest submitted plan.
+				const steps = extractPlanChecklist(p.lastPlan);
+				if (steps.length) {
+					const done = steps.filter((s) => s.checked).length;
+					lines.push("", `#### Checklist (${done}/${steps.length} done)`);
+					for (const s of steps) lines.push(`- [${s.checked ? "x" : " "}] ${s.text}`);
+				} else {
+					lines.push("", "_No checklist steps parsed from the latest plan._");
+				}
 				lines.push("", "<details><summary>Last submitted plan</summary>", "", p.lastPlan, "", "</details>");
 			}
 		}
