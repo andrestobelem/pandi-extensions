@@ -61,10 +61,15 @@ _None currently open in the allow-set._
 
 ## Ideas requiring hot files (propose only — do NOT implement in autopilot)
 
-- **DW-DASH-H3 — Jump-to-next-active-run shortcut in Runs/Activity** · `human`
-  - Why: a keybinding to jump to the next active run would speed monitoring, but wiring
-    a new key/command likely touches the hot `index.ts` (command/keymap registration),
-    which is outside the allow-set. Propose here; implement only with explicit human
-    approval to edit `index.ts`.
-  - Paths: `extensions/pi-dynamic-workflows/index.ts` (hot — do not edit),
-    `extensions/pi-dynamic-workflows/workflow-dashboard.ts` (input handling).
+- **DW-DASH-H3 — Jump-to-next-active-run shortcut in Runs/Activity** · `done`
+  - Why: a keybinding to jump to the next active run speeds monitoring of long lists.
+  - Resolution: implemented WITHOUT touching the hot `index.ts`. The dashboard owns all
+    in-component navigation in `workflow-dashboard.ts handleInput` (`index.ts` only
+    registers `Ctrl+Alt+W` to open it), so the original "likely touches index.ts"
+    assumption was wrong. `]` / `[` now jump selection to the next/previous **running**
+    run on the Runs tab and the next/previous running entry on the Activity tab (wrapping;
+    no-op when nothing is running), mirroring the Monitor's `[` / `]` cycling and the
+    Agents tab's `f`. Anchored by `dashboard-jump-active-run.test.mjs` (9 checks); help
+    overlay + per-tab help bar updated.
+  - Paths: `extensions/pi-dynamic-workflows/workflow-dashboard.ts`,
+    `extensions/pi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs`.
