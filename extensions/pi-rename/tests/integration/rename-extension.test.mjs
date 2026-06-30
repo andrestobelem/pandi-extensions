@@ -5,7 +5,8 @@
  *
  * Pins the public /rename contract:
  * - every applied name is a slug (lowercase, hyphen-separated, diacritics stripped),
- *   capped at MAX_NAME_WORDS (4) words
+ *   capped at MAX_NAME_WORDS (4) words, and never ending on a dangling connector word
+ *   (trailing articles/prepositions/conjunctions are trimmed so it reads as a name)
  * - /rename <name> slugifies and sets the session name
  * - /rename with no arg, headless, derives a slug from the first user message
  * - /rename with no arg never opens a dialog: it invents a slug from history and applies
@@ -185,6 +186,38 @@ async function scenarioSlugifyUnit(url) {
 		slugify("supercalifragilistic", { maxChars: 5 }) === "super",
 	);
 
+	// A name should never end on a dangling connector (article/preposition/conjunction).
+	check(
+		"slugify drops a trailing connector word (es)",
+		slugify("arreglar el bug de") === "arreglar-el-bug",
+		slugify("arreglar el bug de"),
+	);
+	check(
+		"slugify drops a trailing connector word (en)",
+		slugify("cache invalidation strategy for", { maxWords: 8, maxChars: 100 }) === "cache-invalidation-strategy",
+		slugify("cache invalidation strategy for", { maxWords: 8, maxChars: 100 }),
+	);
+	check(
+		"slugify drops multiple trailing connectors",
+		slugify("save the cache for the", { maxWords: 8, maxChars: 100 }) === "save-the-cache",
+		slugify("save the cache for the", { maxWords: 8, maxChars: 100 }),
+	);
+	check(
+		"slugify keeps a meaningful trailing word",
+		slugify("refactor the auth module") === "refactor-the-auth-module",
+		slugify("refactor the auth module"),
+	);
+	check(
+		"slugify does not empty an all-connector slug",
+		slugify("the of and", { maxWords: 8, maxChars: 100 }) === "the",
+		slugify("the of and", { maxWords: 8, maxChars: 100 }),
+	);
+	check(
+		"slugify trailing-connector trim respects the word cap first (stays a short name)",
+		slugify("arreglar el bug de login cuando el usuario") === "arreglar-el-bug",
+		slugify("arreglar el bug de login cuando el usuario"),
+	);
+
 	check(
 		"deriveSessionName slugs the first user message",
 		deriveSessionName([assistantEntry("ignored"), userEntry("Fix the login bug"), userEntry("second")]) ===
@@ -206,6 +239,11 @@ async function scenarioSlugifyUnit(url) {
 	check(
 		"deriveSessionName caps a long first message at 4 words",
 		deriveSessionName([userEntry("Investigate the flaky CI pipeline failures")]) === "investigate-the-flaky-ci",
+	);
+	check(
+		"deriveSessionName does not leave a dangling connector after the word cap",
+		deriveSessionName([userEntry("arreglar el bug de login cuando el usuario no tiene")]) === "arreglar-el-bug",
+		deriveSessionName([userEntry("arreglar el bug de login cuando el usuario no tiene")]),
 	);
 	check(
 		"deriveSessionName skips empty user messages",

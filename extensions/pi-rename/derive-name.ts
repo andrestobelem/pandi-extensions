@@ -17,6 +17,36 @@ export const DEFAULT_SESSION_NAME = "session";
 export const MAX_NAME_CHARS = 60;
 export const MAX_NAME_WORDS = 4;
 
+/**
+ * Connector words (articles, prepositions, conjunctions) a session NAME should not end
+ * on. The point is to describe the session in a few words without leaving the slug
+ * dangling mid-phrase (e.g. "arreglar-el-bug-de" -> "arreglar-el-bug"). Spanish + English
+ * function words only; content words are never trimmed. Lowercase, ASCII, matching the
+ * post-slugify tokens.
+ */
+const TRAILING_CONNECTORS = new Set<string>([
+	// Spanish
+	"el", "la", "los", "las", "un", "una", "unos", "unas", "lo", "al", "del",
+	"de", "a", "en", "con", "por", "para", "sin", "sobre", "entre", "hasta",
+	"hacia", "desde", "ante", "tras", "y", "o", "u", "e", "ni", "que", "se",
+	"su", "sus", "mi", "tu",
+	// English
+	"the", "an", "of", "to", "for", "in", "on", "at", "by", "and", "or",
+	"with", "from", "as", "is", "this", "that", "into", "onto",
+]);
+
+/**
+ * Drop trailing connector segments from a hyphenated slug so a name never ends on a
+ * dangling article/preposition/conjunction. Always keeps at least one segment, so an
+ * all-connector slug is left non-empty rather than collapsing to "".
+ */
+function trimTrailingConnectors(slug: string): string {
+	if (!slug) return slug;
+	const parts = slug.split("-");
+	while (parts.length > 1 && TRAILING_CONNECTORS.has(parts[parts.length - 1])) parts.pop();
+	return parts.join("-");
+}
+
 export interface SlugOptions {
 	maxChars?: number;
 	maxWords?: number;
@@ -30,8 +60,10 @@ export interface DeriveOptions extends SlugOptions {
  * Convert arbitrary text into a slug: strip diacritics, lowercase, split on every run
  * of non-alphanumeric characters, and join the words with hyphens. Truncates to at most
  * maxWords words and maxChars chars without splitting a word (a single oversized word is
- * hard-truncated so the result is never empty when there was content). Returns "" when
- * there is nothing slug-able.
+ * hard-truncated so the result is never empty when there was content), then drops any
+ * trailing connector words so the slug reads as a short name and never ends mid-phrase
+ * on a dangling article/preposition/conjunction. Returns "" when there is nothing
+ * slug-able.
  */
 export function slugify(raw: string, opts: SlugOptions = {}): string {
 	const maxChars = opts.maxChars ?? MAX_NAME_CHARS;
@@ -50,7 +82,8 @@ export function slugify(raw: string, opts: SlugOptions = {}): string {
 	}
 	// A single first word longer than maxChars: hard-truncate so we still return a slug.
 	if (!slug && words.length > 0) slug = words[0].slice(0, Math.max(0, maxChars));
-	return slug;
+	// Keep the name short but never ending on a dangling connector word.
+	return trimTrailingConnectors(slug);
 }
 
 /** Extract the joined text content of a `user` message entry (ignores image blocks). */
