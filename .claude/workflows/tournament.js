@@ -31,7 +31,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -118,7 +118,7 @@ if (Array.isArray(entrants) && entrants.length > MAX_ENTRANTS) {
 	entrants = entrants.slice(0, MAX_ENTRANTS);
 }
 if (entrants.length < 2) {
-	log("only one entrant — no tournament needed " + JSON.stringify({ entrants: entrants.length }));
+	log(`only one entrant — no tournament needed ${JSON.stringify({ entrants: entrants.length })}`);
 	return entrants[0] ?? "";
 }
 
@@ -219,6 +219,6 @@ while (survivors.length > 1) {
 
 const champion = survivors[0];
 log(`champion after ${round} rounds: ${champion?.id}`);
-log("tournament.json " + compact({ entrants: entrants.length, rounds: round, transcript, championId: champion?.id }));
+log(`tournament.json ${compact({ entrants: entrants.length, rounds: round, transcript, championId: champion?.id })}`);
 
 return champion?.text ?? "";

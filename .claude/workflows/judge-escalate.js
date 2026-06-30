@@ -25,7 +25,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -139,7 +139,13 @@ while (true) {
 			candidates
 				.map((c, i) => `### Candidate ${i + 1} (${c.angle})\n${fence("candidate", compact(c.text, 8000))}`)
 				.join("\n\n"),
-		node("judge", { model: "opus", effort: "high", label: `judge-e${escalation}`, schema: VERDICT, phase: "Judge" }),
+		node("judge", {
+			model: "opus",
+			effort: "high",
+			label: `judge-e${escalation}`,
+			schema: VERDICT,
+			phase: "Judge",
+		}),
 	);
 	const confidence = String(verdict?.confidence ?? "")
 		.trim()
@@ -151,7 +157,7 @@ while (true) {
 	escalation++;
 }
 
-log("candidates collected " + JSON.stringify({ candidateCount: candidates.length, verdict }));
+log(`candidates collected ${JSON.stringify({ candidateCount: candidates.length, verdict })}`);
 const winnerIdx = (verdict?.winner ?? 1) - 1;
 if (!(winnerIdx >= 0 && winnerIdx < candidates.length)) {
 	log(`judge winner=${verdict?.winner} out of range [1, ${candidates.length}]; falling back to candidate 1`);

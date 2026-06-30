@@ -29,7 +29,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -129,9 +129,9 @@ if (!findings) {
 		node("finder", { model: "haiku", effort: "low", schema: FINDINGS, phase: "Find" }),
 	);
 	findings = (Array.isArray(found?.findings) ? found.findings : []).slice(0, maxFind);
-	log(`finder produced ${findings.length} findings (cap ${maxFind}) ` + JSON.stringify({ topic }));
+	log(`finder produced ${findings.length} findings (cap ${maxFind}) ${JSON.stringify({ topic })}`);
 }
-if (findings.length === 0) return 'No findings to verify.';
+if (findings.length === 0) return "No findings to verify.";
 
 // Normalize to { id, claim, evidence } so prompts and reporting are stable.
 const itemsRequested = findings.map((f, i) => {
@@ -166,7 +166,7 @@ const VOTE = {
 };
 
 const majority = Math.floor(skeptics / 2) + 1; // strict majority needed to kill a finding
-log(`verifying ${items.length} findings ` + JSON.stringify({ skeptics, majority }));
+log(`verifying ${items.length} findings ${JSON.stringify({ skeptics, majority })}`);
 
 // 2) Per finding, run an independent jury of skeptics (barrier per finding).
 const verified = [];
@@ -216,9 +216,9 @@ log(
 log(compact(verified));
 
 return {
-  survivors: survivors.map(({ votes, ...keep }) => keep),
-  killedCount: killed,
-  totalFindings: verified.length,
-  skepticsPerFinding: skeptics,
-  majorityToKill: majority,
+	survivors: survivors.map(({ votes, ...keep }) => keep),
+	killedCount: killed,
+	totalFindings: verified.length,
+	skepticsPerFinding: skeptics,
+	majorityToKill: majority,
 };

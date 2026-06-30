@@ -26,6 +26,7 @@
  */
 export const meta = {
 	name: "tree-of-thoughts",
+	basedOn: [{ name: "arXiv:2305.10601", role: "paper (Tree of Thoughts)" }],
 	description:
 		"Beam-search over partial solutions: expand K thoughts, judge-score, prune to top-B, recurse to depth, commit (arXiv:2305.10601)",
 	phases: [{ title: "Expand" }, { title: "Evaluate" }, { title: "Commit" }],

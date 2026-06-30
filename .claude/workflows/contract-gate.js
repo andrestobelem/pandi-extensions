@@ -93,7 +93,7 @@ const input = (() => {
 // Identical compact truncation helper (verbatim convention): bound large blobs.
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -152,7 +152,7 @@ const improvePrompt = input?.improvePrompt !== false;
 const requestedReviewers = Number.isFinite(+input?.reviewers) ? Math.floor(+input.reviewers) : 3;
 const reviewers = Math.max(1, Math.min(5, requestedReviewers));
 if (requestedReviewers !== reviewers) {
-	log("reviewers clamped " + JSON.stringify({ requested: requestedReviewers, clampedTo: reviewers, band: "1..5" }));
+	log(`reviewers clamped ${JSON.stringify({ requested: requestedReviewers, clampedTo: reviewers, band: "1..5" })}`);
 }
 // planResources (default true): when routing recommends a dynamic workflow, ALSO emit a
 // suggested per-node model+effort budget for THAT pattern, scaled to the task's stakes —
@@ -283,7 +283,10 @@ const CONTRACT = {
 						type: "string",
 						description: "The gap phrased as a question; for blocking ones, offer concrete options/defaults.",
 					},
-					blocking: { type: "boolean", description: "true only when impact is HIGH and no safe default exists." },
+					blocking: {
+						type: "boolean",
+						description: "true only when impact is HIGH and no safe default exists.",
+					},
 					rationale: {
 						type: "string",
 						description: "One line: decision impact vs inferability (value-of-information vs cost).",
@@ -405,7 +408,7 @@ if (blockingAll.length > 0) {
 		return true;
 	});
 	if (deduped.length > maxQuestions) {
-		log("blocking-question cap applied " + JSON.stringify({ found: deduped.length, maxQuestions }));
+		log(`blocking-question cap applied ${JSON.stringify({ found: deduped.length, maxQuestions })}`);
 	}
 	const questions = deduped.slice(0, maxQuestions).map((a) => ({
 		question: a.question,
@@ -418,25 +421,25 @@ if (blockingAll.length > 0) {
 			JSON.stringify({ count: questions.length, totalBlocking: blockingAll.length }),
 	);
 	return {
-    status: 'NEEDS_CLARIFICATION',
-    verdict: 'BLOCKED',
-    contract: { ...contract, verdict: 'BLOCKED' },
-    questions,
-    rewrittenPrompt: null,
-    routing: contract?.routingHint ?? null,
-  };
+		status: "NEEDS_CLARIFICATION",
+		verdict: "BLOCKED",
+		contract: { ...contract, verdict: "BLOCKED" },
+		questions,
+		rewrittenPrompt: null,
+		routing: contract?.routingHint ?? null,
+	};
 }
 
 // PROCEED path: fold safe assumptions in and log each so they are inspectable.
-nonBlocking.forEach((a) =>
+nonBlocking.forEach((a) => {
 	log(
 		"safe-assumption folded " +
 			JSON.stringify({
 				for: a.question,
 				assume: a.safeAssumptionIfNonBlocking,
 			}),
-	),
-);
+	);
+});
 log(
 	"contract-gate PROCEED " +
 		JSON.stringify({ foldedAssumptions: nonBlocking.length, criteria: (contract?.successCriteria || []).length }),
@@ -465,7 +468,7 @@ if (improvePrompt) {
 	// Guard the REWRITE output: an empty prompt must NEVER be handed to the factory.
 	if (!rewrittenPrompt)
 		throw new Error("REWRITE produced an empty prompt; verdict was PROCEED but the contract was not serializable.");
-	log("rewritten prompt produced " + JSON.stringify({ length: rewrittenPrompt.length }));
+	log(`rewritten prompt produced ${JSON.stringify({ length: rewrittenPrompt.length })}`);
 } else {
 	// improvePrompt=false: skip the LLM rewrite; forward the raw request + the contract as
 	// structured context so the gate's triage value is preserved without re-authoring the ask.
@@ -481,7 +484,7 @@ const routingNote = routing
 			? "stay single-agent — one agent suffices; the factory should not run"
 			: `dynamic-workflow recommended — pattern=${routing.pattern}, maxAgents~${routing.maxAgents}, concurrency=${routing.concurrency}`
 	: "no routing hint produced";
-log("routing hint " + JSON.stringify({ shape: routing?.shape, pattern: routing?.pattern, note: routingNote }));
+log(`routing hint ${JSON.stringify({ shape: routing?.shape, pattern: routing?.pattern, note: routingNote })}`);
 
 // === RESOURCE PLAN (advisory): the gate decides the downstream per-node model+effort =====
 // Only when routing recommends a dynamic workflow. Produces a budget for THAT pattern's
@@ -514,7 +517,7 @@ if (planResources && routing && routing.shape === "dynamic-workflow" && routing.
 	};
 	const planned = await agent(
 		`Recommend a per-node model + reasoning-effort budget for RUNNING the workflow "${routing.pattern}" on the task described by the contract below.\n` +
-			`First read ~/.claude/workflows/${routing.pattern}.js and extract its node('<role>', …) role keys; emit ONE plan entry per role. If that file does not exist, infer sensible role names from the pattern and say so in rationale.\n` +
+			`First read ~/.claude/workflows/${routing.pattern}.js (or the project ./.claude/workflows/${routing.pattern}.js) and extract its node('<role>', …) role keys; emit ONE plan entry per role. If that file does not exist, infer sensible role names from the pattern and say so in rationale.\n` +
 			`Choose a tier scaled to STAKES (from the contract): economy (low-stakes/throwaway → cheaper models + lower effort), balanced (default), or premium (high-stakes / irreversible / expensive-to-be-wrong → stronger models + higher effort, especially on judge/verify/synthesis/reflect nodes).\n` +
 			`Models ladder cheap→strong: haiku < sonnet < opus. Effort: low < medium < high < xhigh < max. Keep cheap scout/extract/mechanical roles cheap even at premium; spend the budget on reasoning/judging/verifying/synthesis roles.\n\n` +
 			`CONTRACT (stakes / complexity / scope):\n${compact(contract, 16000)}`,
@@ -524,7 +527,7 @@ if (planResources && routing && routing.shape === "dynamic-workflow" && routing.
 		const modelsOut = {},
 			effortsOut = {};
 		for (const p of planned.plan) {
-			if (p && p.role) {
+			if (p?.role) {
 				if (p.model) modelsOut[p.role] = p.model;
 				if (p.effort) effortsOut[p.role] = p.effort;
 			}
@@ -538,7 +541,11 @@ if (planResources && routing && routing.shape === "dynamic-workflow" && routing.
 		};
 		log(
 			"resourcePlan " +
-				JSON.stringify({ tier: resourcePlan.tier, pattern: resourcePlan.pattern, roles: Object.keys(modelsOut) }),
+				JSON.stringify({
+					tier: resourcePlan.tier,
+					pattern: resourcePlan.pattern,
+					roles: Object.keys(modelsOut),
+				}),
 		);
 	} else {
 		log("resourcePlan skipped — planner returned no usable plan");
@@ -568,7 +575,7 @@ if (generate) {
 		phase("Handoff");
 		const write = input?.write !== false; // caller's write flag, default true
 		const name = slug(input?.name ?? contract?.improvedTask ?? request);
-		log("composing workflow-factory " + JSON.stringify({ name, write, promptLength: rewrittenPrompt.length }));
+		log(`composing workflow-factory ${JSON.stringify({ name, write, promptLength: rewrittenPrompt.length })}`);
 		let factoryOut;
 		try {
 			factoryOut = await workflow("workflow-factory", {
@@ -585,16 +592,16 @@ if (generate) {
 				handed_off: false,
 				reason:
 					"nested workflow() unavailable one level deep; returning rewrittenPrompt for manual handoff: " +
-					String((e && e.message) || e),
+					String(e?.message || e),
 			};
-			log("workflow-factory composition failed — degrading to rewrittenPrompt " + JSON.stringify({ name, write }));
+			log(`workflow-factory composition failed — degrading to rewrittenPrompt ${JSON.stringify({ name, write })}`);
 		}
 		// Guard the inner output: a null factory return (skipped/subagent died) must NOT be
 		// forwarded as handed_off:true with the literal string "null".
 		if (generated == null) {
 			if (factoryOut == null) {
 				generated = { handed_off: false, reason: "workflow-factory returned null (skipped or subagent died)" };
-				log("workflow-factory returned null — not handed off " + JSON.stringify({ name, write }));
+				log(`workflow-factory returned null — not handed off ${JSON.stringify({ name, write })}`);
 			} else {
 				generated = {
 					handed_off: true,
@@ -606,7 +613,7 @@ if (generate) {
 					// durable handoff artifact.
 					output: compact(factoryOut, 60000),
 				};
-				log("workflow-factory composition complete " + JSON.stringify({ name, write }));
+				log(`workflow-factory composition complete ${JSON.stringify({ name, write })}`);
 			}
 		}
 	}
@@ -617,13 +624,13 @@ if (generate) {
 }
 
 return {
-  status: 'PROCEED',
-  verdict: 'PROCEED',
-  contract: { ...contract, verdict: 'PROCEED' },
-  rewrittenPrompt,
-  routing: routing ? { ...routing, note: routingNote } : null,
-  // Advisory per-node budget for the recommended pattern (null if not a dynamic-workflow
-  // route or planResources:false). Splat resourcePlan.models / .efforts when running it.
-  resourcePlan,
-  generated,
+	status: "PROCEED",
+	verdict: "PROCEED",
+	contract: { ...contract, verdict: "PROCEED" },
+	rewrittenPrompt,
+	routing: routing ? { ...routing, note: routingNote } : null,
+	// Advisory per-node budget for the recommended pattern (null if not a dynamic-workflow
+	// route or planResources:false). Splat resourcePlan.models / .efforts when running it.
+	resourcePlan,
+	generated,
 };

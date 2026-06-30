@@ -55,7 +55,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 const task = input?.task ?? input?.request ?? input?.text;
@@ -69,21 +69,30 @@ let gate;
 try {
 	gate = await workflow("contract-gate", { request: task, context: input?.context, generate: false });
 } catch (err) {
-	return { status: 'DEPTH_BLOCKED', stage: 'gate', error: String(err?.message ?? err),
-    note: 'The Phase-0 nested call was refused by the runtime recursion guard. Run at the top level, or on pi with PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=2.' };
+	return {
+		status: "DEPTH_BLOCKED",
+		stage: "gate",
+		error: String(err?.message ?? err),
+		note: "The Phase-0 nested call was refused by the runtime recursion guard. Run at the top level, or on pi with PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=2.",
+	};
 }
 if (gate?.status !== "PROCEED") {
-	log("gate did not PROCEED " + JSON.stringify({ status: gate?.status }));
-	return { status: 'NEEDS_CLARIFICATION', questions: gate?.questions ?? [], gate };
+	log(`gate did not PROCEED ${JSON.stringify({ status: gate?.status })}`);
+	return { status: "NEEDS_CLARIFICATION", questions: gate?.questions ?? [], gate };
 }
 const routing = gate?.routing ?? null;
 log(
 	"gate PROCEED " +
 		JSON.stringify({ shape: routing?.shape, pattern: routing?.pattern, tier: gate?.resourcePlan?.tier }),
 );
-if (!routing || routing.shape !== "dynamic-workflow") {
+if (routing?.shape !== "dynamic-workflow") {
 	// Trivial / single-agent: there is nothing to compose deeper — return the scoped prompt.
-	return { status: 'NO_COMPOSE', reason: `routing is ${routing?.shape ?? 'unknown'} — no dynamic workflow to dispatch`, rewrittenPrompt: gate.rewrittenPrompt, gate };
+	return {
+		status: "NO_COMPOSE",
+		reason: `routing is ${routing?.shape ?? "unknown"} — no dynamic workflow to dispatch`,
+		rewrittenPrompt: gate.rewrittenPrompt,
+		gate,
+	};
 }
 
 // depth 1 → 2 (→ 3) — DISPATCH the recommended scaffold via router (router runs the choice at
@@ -103,14 +112,18 @@ try {
 		args: dispatchArgs,
 	});
 } catch (err) {
-	return { status: 'DEPTH_BLOCKED', stage: 'dispatch', error: String(err?.message ?? err),
-    note: 'router → chosen workflow exceeded the runtime nesting depth. Claude Code is depth-1; run on pi with PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=2 (<=3 covers this chain).',
-    gate: { improvedTask: gate?.contract?.improvedTask, routing } };
+	return {
+		status: "DEPTH_BLOCKED",
+		stage: "dispatch",
+		error: String(err?.message ?? err),
+		note: "router → chosen workflow exceeded the runtime nesting depth. Claude Code is depth-1; run on pi with PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=2 (<=3 covers this chain).",
+		gate: { improvedTask: gate?.contract?.improvedTask, routing },
+	};
 }
-log("dispatched " + JSON.stringify({ selected: dispatched?.selected, dispatched: dispatched?.dispatched }));
+log(`dispatched ${JSON.stringify({ selected: dispatched?.selected, dispatched: dispatched?.dispatched })}`);
 
 return {
-  status: 'DONE',
-  gate: { improvedTask: gate?.contract?.improvedTask, routing, resourcePlan: gate?.resourcePlan ?? null },
-  dispatched,
+	status: "DONE",
+	gate: { improvedTask: gate?.contract?.improvedTask, routing, resourcePlan: gate?.resourcePlan ?? null },
+	dispatched,
 };

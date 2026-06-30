@@ -27,7 +27,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -142,8 +142,8 @@ if (Array.isArray(input?.files) && input.files.length) {
 	}
 	files = scoutedFiles.slice(0, maxFiles);
 }
-log("scouted " + files.length + " files " + JSON.stringify({ pattern }));
-if (files.length === 0) return 'No files matched; nothing to review.';
+log(`scouted ${files.length} files ${JSON.stringify({ pattern })}`);
+if (files.length === 0) return "No files matched; nothing to review.";
 
 const VERDICT = {
 	type: "object",
@@ -184,7 +184,7 @@ const failedCount = reviewed.length - settled.length;
 const skippedCount = settled.filter((c) => c.deep && c.deep.skipped === true).length;
 const failedDeep = settled.filter((c) => c.deep && c.deep.failed === true).length;
 const findings = settled.filter((c) => typeof c.deep === "string" && !/NO_FINDINGS/.test(c.deep));
-log("deep-reviewed " + findings.length + "/" + files.length + " (rest were low-risk or clean)");
+log(`deep-reviewed ${findings.length}/${files.length} (rest were low-risk or clean)`);
 
 const coverage = `Coverage: ${files.length} files total, ${findings.length} deep-reviewed with findings, ${skippedCount} low-risk/clean skipped, ${failedCount + failedDeep} failed branch(es).`;
 const synthesis = await agent(

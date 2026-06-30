@@ -38,7 +38,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -88,7 +88,7 @@ const question = input?.question ?? input?.q ?? input?.text ?? input?.topic;
 if (!question) throw new Error('Pass { question: "..." } as workflow input.');
 const rawSteps = Number.isFinite(+input?.maxSteps) ? Math.floor(+input.maxSteps) : 6;
 const maxSteps = Math.max(1, Math.min(50, rawSteps));
-if (maxSteps !== rawSteps) log("maxSteps clamped to " + maxSteps);
+if (maxSteps !== rawSteps) log(`maxSteps clamped to ${maxSteps}`);
 // Read-only by default: ReAct's "act" here is observation, not mutation.
 const tools = Array.isArray(input?.tools) ? input.tools : ["read", "grep", "find", "ls", "web_search"];
 
@@ -118,8 +118,8 @@ const trace = []; // [{ step, thought, action, query, observation }]
 const traceForPrompt = (n = 12000) => {
 	const s = JSON.stringify(trace);
 	if (s.length <= n) return s;
-	log("trace truncated for reason prompt: " + s.length + " -> " + n + " chars (kept most recent)");
-	return "…[earlier steps truncated] " + s.slice(s.length - n);
+	log(`trace truncated for reason prompt: ${s.length} -> ${n} chars (kept most recent)`);
+	return `…[earlier steps truncated] ${s.slice(s.length - n)}`;
 };
 let step = 0;
 let done = false;
@@ -142,7 +142,13 @@ while (!done && step < maxSteps) {
 				`Set done=true ONLY when the trace already lets you answer with cited evidence.\n\n` +
 				`Question:\n${fence("topic", question)}\n\n` +
 				`Trace so far (${trace.length} observations):\n${fence("trace", trace.length ? traceForPrompt(12000) : "(empty)")}`,
-			node("reason", { model: "sonnet", effort: "medium", label: `reason-${step}`, schema: STEP, phase: "Reason" }),
+			node("reason", {
+				model: "sonnet",
+				effort: "medium",
+				label: `reason-${step}`,
+				schema: STEP,
+				phase: "Reason",
+			}),
 		);
 	} catch (err) {
 		trace.push({
@@ -150,10 +156,10 @@ while (!done && step < maxSteps) {
 			thought: "",
 			action: "none",
 			query: "",
-			observation: `(reason failed: ${String((err && err.message) || err)})`,
+			observation: `(reason failed: ${String(err?.message || err)})`,
 			uncited: false,
 		});
-		log(`step ${step}: reason failed -> ${String((err && err.message) || err)}`);
+		log(`step ${step}: reason failed -> ${String(err?.message || err)}`);
 		break; // converged stays false: a reason failure is not convergence
 	}
 
@@ -198,8 +204,8 @@ while (!done && step < maxSteps) {
 		);
 	} catch (err) {
 		// Don't lose the trace: record a sentinel and keep looping so a final answer is still synthesized.
-		observation = `(observation failed: ${String((err && err.message) || err)})`;
-		log(`step ${step}: observe failed -> ${String((err && err.message) || err)}`);
+		observation = `(observation failed: ${String(err?.message || err)})`;
+		log(`step ${step}: observe failed -> ${String(err?.message || err)}`);
 	}
 	// A schemaless observer returns null on user-skip (no throw): record a sentinel
 	// so a dead/skipped observer isn't mislabeled as uncited evidence.
@@ -210,14 +216,21 @@ while (!done && step < maxSteps) {
 	// Mark uncited evidence so the reason/answer steps can discount it.
 	const nothing = /NO_FINDINGS/.test(observation) || /^\(observation (failed|skipped)/.test(observation);
 	const uncited = !nothing && !hasCitation(observation);
-	trace.push({ step, thought: decided.thought, action: decided.action, query: decided.query, observation, uncited });
+	trace.push({
+		step,
+		thought: decided.thought,
+		action: decided.action,
+		query: decided.query,
+		observation,
+		uncited,
+	});
 	log(
 		`step ${step}: ${decided.action} "${compact(decided.query, 80)}" -> ${nothing ? "nothing" : uncited ? "evidence (UNCITED)" : "evidence"}`,
 	);
 }
 
 if (!done) log(`stopped at step budget (not converged) ${JSON.stringify({ maxSteps })}`);
-log("react trace complete " + JSON.stringify({ steps: trace.length }));
+log(`react trace complete ${JSON.stringify({ steps: trace.length })}`);
 
 phase("Answer");
 const answer = await agent(

@@ -36,6 +36,10 @@
  */
 export const meta = {
 	name: "recursive-compose",
+	basedOn: [
+		{ name: "contract-gate", role: "composed-via (re-gate)" },
+		{ name: "router", role: "composed-via (dispatch)" },
+	],
 	description:
 		"REFERENCE (pi, depth<=3): a node re-gates a task via Phase-0 contract-gate then dispatches the recommended scaffold via router — bounded recursive composition (recursive-compose)",
 	phases: [{ title: "Gate" }, { title: "Dispatch" }],

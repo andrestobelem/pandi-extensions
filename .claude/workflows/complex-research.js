@@ -42,7 +42,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -103,7 +103,7 @@ const rawAngles =
 const angles = rawAngles.slice(0, 64);
 if (rawAngles.length > 64) log(`complex-research: clamping ${rawAngles.length} angles -> 64`);
 
-log("Starting deep research " + JSON.stringify({ question, angles }));
+log(`Starting deep research ${JSON.stringify({ question, angles })}`);
 
 const research = await parallel(
 	angles.map((angle, index) => () => {
@@ -148,7 +148,7 @@ log(
 
 if (completedResearch.length === 0) {
 	log("all research branches failed/empty; skipping synthesis");
-	return 'All research branches failed/empty; no synthesis produced. Re-run or narrow the question.';
+	return "All research branches failed/empty; no synthesis produced. Re-run or narrow the question.";
 }
 
 const synthesis = await agent(

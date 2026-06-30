@@ -39,7 +39,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -158,7 +158,7 @@ if (deduped.length > maxBugs) {
 	log(`received ${deduped.length} bugs, capping to ${maxBugs} (dropped ${deduped.length - maxBugs})`);
 }
 const items = deduped.slice(0, maxBugs);
-if (items.length === 0) return 'No suspected bugs to verify.';
+if (items.length === 0) return "No suspected bugs to verify.";
 if (!verifyCmd) log("no verifyCmd provided — agent will improvise a targeted repro command per bug");
 
 // 2) REPRODUCE each bug sequentially (shared tree + installed deps; no parallel races).
@@ -229,7 +229,7 @@ for (let i = 0; i < items.length; i++) {
 			model: "sonnet",
 			effort: "medium",
 			schema: VERDICT,
-			label: "repro:" + it.id,
+			label: `repro:${it.id}`,
 			phase: "Reproduce",
 		}),
 	);
@@ -238,14 +238,14 @@ for (let i = 0; i < items.length; i++) {
 	if (attemptFix) {
 		const after = await agent(
 			`Run \`git status --porcelain\` at the repo root and return its EXACT stdout (empty string if clean). Do not modify anything.`,
-			node("tree-check", { model: "haiku", effort: "low", label: "tree-check:" + it.id, phase: "Reproduce" }),
+			node("tree-check", { model: "haiku", effort: "low", label: `tree-check:${it.id}`, phase: "Reproduce" }),
 		);
 		const afterStatus = typeof after === "string" ? after.trim() : compact(after, 4000);
 		treeDirty = afterStatus !== baselineStatus;
 		if (treeDirty) log(`${it.id}: WARNING working tree dirty after attemptFix (revert may have failed)`);
 	}
 	results.push({ ...it, ...rec, id: it.id, ...(treeDirty != null ? { treeDirty } : {}) });
-	log(`${it.id}: ${rec.status}` + (attemptFix && rec.fixVerified != null ? ` (fixVerified=${rec.fixVerified})` : ""));
+	log(`${it.id}: ${rec.status}${attemptFix && rec.fixVerified != null ? ` (fixVerified=${rec.fixVerified})` : ""}`);
 }
 
 const confirmed = results.filter((r) => r.status === "reproduced");
@@ -253,15 +253,15 @@ const notReproduced = results.filter((r) => r.status === "not-reproduced");
 const inconclusive = results.filter((r) => r.status === "inconclusive");
 
 return {
-  confirmed,
-  counts: {
-    total: items.length,
-    reproduced: confirmed.length,
-    notReproduced: notReproduced.length,
-    inconclusive: inconclusive.length,
-    fixVerified: confirmed.filter((r) => r.fixVerified === true).length,
-  },
-  attemptFix,
-  results,
-  coverage: { bugs: items.length },
+	confirmed,
+	counts: {
+		total: items.length,
+		reproduced: confirmed.length,
+		notReproduced: notReproduced.length,
+		inconclusive: inconclusive.length,
+		fixVerified: confirmed.filter((r) => r.fixVerified === true).length,
+	},
+	attemptFix,
+	results,
+	coverage: { bugs: items.length },
 };

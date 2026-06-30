@@ -9,6 +9,7 @@
  */
 export const meta = {
 	name: "composition-driver",
+	basedOn: [{ name: "verify-claims-lib", role: "composed-via (delegated verifier)" }],
 	description:
 		"Parent workflow: discover claims, then delegate verification to the verify-claims-lib sub-workflow (compose-verify-claims)",
 	phases: [{ title: "Discover" }, { title: "Verify" }, { title: "Synthesize" }],

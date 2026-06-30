@@ -84,7 +84,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -214,7 +214,7 @@ let passed = false;
 let groundedAny = false; // did ANY trial achieve real, evidence-backed grounding?
 let best = { trial: 0, attempt: "", score: -1, feedback: "" };
 
-log("reflexion start " + JSON.stringify({ maxTrials, memoryCap, verifyCmd: !!verifyCmd }));
+log(`reflexion start ${JSON.stringify({ maxTrials, memoryCap, verifyCmd: !!verifyCmd })}`);
 if (!verifyCmd)
 	log(
 		"no verifyCmd provided — Evaluator falls back to an INDEPENDENT evaluator agent (ungrounded; intrinsic-only signal per arXiv:2310.01798 (https://arxiv.org/abs/2310.01798) is weaker)",
@@ -330,7 +330,7 @@ while (trial < maxTrials) {
 	if (pass && !acceptablePass) {
 		log(`trial ${trial}: pass CLAIMED but NOT grounded under verifyCmd — refusing as success, continuing trials`);
 	}
-	log(`trial ${trial}: ${acceptablePass ? "PASS" : "FAIL"} ` + JSON.stringify({ score, grounded, claimedPass: pass }));
+	log(`trial ${trial}: ${acceptablePass ? "PASS" : "FAIL"} ${JSON.stringify({ score, grounded, claimedPass: pass })}`);
 
 	// Tie-break to the LATER attempt (>=): among equal-scoring failures the most recent one
 	// incorporated more reflections, so it is the preferable fallback `best` on budget exhaustion.
@@ -404,7 +404,7 @@ while (trial < maxTrials) {
 
 // Non-silent brake: distinguish budget exhaustion from a genuine success.
 if (passed) {
-	log("reflexion stopped on SUCCESS " + JSON.stringify({ trial, trials: trial, grounded: groundedAny }));
+	log(`reflexion stopped on SUCCESS ${JSON.stringify({ trial, trials: trial, grounded: groundedAny })}`);
 } else {
 	log(
 		"stopped at maxTrials (no passing trial) " +
@@ -417,17 +417,17 @@ if (passed) {
 const finalAttempt = passed ? history[history.length - 1].attempt : best.attempt;
 
 return {
-  result: finalAttempt,
-  passed,
-  trials: trial,
-  maxTrials,
-  // `verifyCmd` reports whether grounding was REQUESTED; `grounded` reports whether the run
-  // was ACTUALLY execution-grounded (evidence-backed on at least one trial). These are
-  // distinct — we never overclaim grounding from mere command presence (the old bug).
-  verifyCmd: !!verifyCmd,
-  grounded: groundedAny,
-  bestTrial: best.trial,
-  bestScore: best.score,
-  lessons: memory.slice(),
-  history,
+	result: finalAttempt,
+	passed,
+	trials: trial,
+	maxTrials,
+	// `verifyCmd` reports whether grounding was REQUESTED; `grounded` reports whether the run
+	// was ACTUALLY execution-grounded (evidence-backed on at least one trial). These are
+	// distinct — we never overclaim grounding from mere command presence (the old bug).
+	verifyCmd: !!verifyCmd,
+	grounded: groundedAny,
+	bestTrial: best.trial,
+	bestScore: best.score,
+	lessons: memory.slice(),
+	history,
 };

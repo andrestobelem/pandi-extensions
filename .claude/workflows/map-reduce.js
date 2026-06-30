@@ -88,7 +88,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -139,7 +139,12 @@ const node = (role, extra = {}) => {
 const instruction = typeof input?.instruction === "string" ? input.instruction.trim() : "";
 if (!instruction) {
 	log("ABORT: missing required `instruction`");
-	return { result: 'ERROR: `instruction` is required (what to extract/produce from the corpus).', chunks: 0, mapCount: 0, reduceRounds: 0 };
+	return {
+		result: "ERROR: `instruction` is required (what to extract/produce from the corpus).",
+		chunks: 0,
+		mapCount: 0,
+		reduceRounds: 0,
+	};
 }
 
 const context = typeof input?.context === "string" && input.context.trim() ? input.context.trim() : "";
@@ -160,7 +165,7 @@ let source; // 'items' | 'content'
 if (Array.isArray(input?.items) && input.items.length) {
 	units = input.items;
 	source = "items";
-	log("source=items " + JSON.stringify({ count: units.length }));
+	log(`source=items ${JSON.stringify({ count: units.length })}`);
 } else if (typeof input?.content === "string" && input.content.length) {
 	// Split the big blob into ~chunkChars pieces, preferring paragraph/newline
 	// boundaries near the target so chunks don't slice mid-sentence.
@@ -187,7 +192,12 @@ if (Array.isArray(input?.items) && input.items.length) {
 	);
 } else {
 	log("ABORT: neither `items` nor `content` provided");
-	return { result: 'ERROR: provide either `items` (array) or `content` (string) as the corpus.', chunks: 0, mapCount: 0, reduceRounds: 0 };
+	return {
+		result: "ERROR: provide either `items` (array) or `content` (string) as the corpus.",
+		chunks: 0,
+		mapCount: 0,
+		reduceRounds: 0,
+	};
 }
 
 const totalUnits = units.length;
@@ -209,7 +219,7 @@ const chunks = work.length;
 
 if (chunks === 0) {
 	log("ABORT: corpus produced zero chunks");
-	return { result: 'ERROR: corpus produced zero chunks.', chunks: 0, mapCount: 0, reduceRounds: 0 };
+	return { result: "ERROR: corpus produced zero chunks.", chunks: 0, mapCount: 0, reduceRounds: 0 };
 }
 
 // ---- MAP: one cheap extractor per chunk/item, parallel + settle, evidence contract. ----
@@ -256,15 +266,19 @@ log(
 
 if (findings.length === 0) {
 	return {
-    result: 'NO_FINDINGS: no chunk produced content relevant to the instruction'
-      + (failedChunks.length ? ` (and ${failedChunks.length} map branch(es) failed: chunks ${JSON.stringify(failedChunks)})` : '') + '.',
-    chunks,
-    mapCount,
-    reduceRounds: 0,
-  };
+		result:
+			"NO_FINDINGS: no chunk produced content relevant to the instruction" +
+			(failedChunks.length
+				? ` (and ${failedChunks.length} map branch(es) failed: chunks ${JSON.stringify(failedChunks)})`
+				: "") +
+			".",
+		chunks,
+		mapCount,
+		reduceRounds: 0,
+	};
 }
 
-const coverageNote = `Coverage: ${chunks} chunk(s) total, ${mapCount} mapped, ${findings.length} with findings, ${failedChunks.length} failed branch(es)${failedChunks.length ? " (chunks " + JSON.stringify(failedChunks) + ")" : ""}. Do NOT treat skipped/failed chunks as empty — note the gap.`;
+const coverageNote = `Coverage: ${chunks} chunk(s) total, ${mapCount} mapped, ${findings.length} with findings, ${failedChunks.length} failed branch(es)${failedChunks.length ? ` (chunks ${JSON.stringify(failedChunks)})` : ""}. Do NOT treat skipped/failed chunks as empty — note the gap.`;
 
 // ---- REDUCE: hierarchical merge in batches until ONE result remains. ----
 // Bounded loop: adaptive round cap + stuck detector + strictly-incrementing round guard.
@@ -336,7 +350,13 @@ const runRound = async (level) => {
 		);
 	log(
 		"reduce round " +
-			JSON.stringify({ round: reduceRounds, in: inCount, out: next.length, batches: batches.length, failedBatches }),
+			JSON.stringify({
+				round: reduceRounds,
+				in: inCount,
+				out: next.length,
+				batches: batches.length,
+				failedBatches,
+			}),
 	);
 	return next;
 };
@@ -387,7 +407,7 @@ if (level.length > 1) {
 		level = await runRound(level);
 		if (level.length >= inCount) {
 			log(
-				"forced drain STUCK: no progress " + JSON.stringify({ pass: drainPasses, in: inCount, out: level.length }),
+				`forced drain STUCK: no progress ${JSON.stringify({ pass: drainPasses, in: inCount, out: level.length })}`,
 			);
 			break;
 		}
@@ -397,7 +417,7 @@ if (level.length > 1) {
 const result =
 	level.length >= 1 && level[0] != null
 		? level[0]
-		: "ERROR: reduce produced no result; " + level.length + " unmerged partial(s) remain (see logs).";
+		: `ERROR: reduce produced no result; ${level.length} unmerged partial(s) remain (see logs).`;
 
 log(
 	"map-reduce done " +

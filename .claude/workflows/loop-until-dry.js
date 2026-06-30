@@ -27,7 +27,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -107,7 +107,7 @@ const finders = Math.min(Math.max(1, reqFinders), 6);
 if (finders !== reqFinders) log(`finders clamped ${reqFinders} -> ${finders} (allowed 1..6)`);
 const target = input?.target ?? input?.scope ?? input?.task;
 if (!target) throw new Error("loop-until-dry requires a `target` (what to search/audit)");
-log("effective params " + JSON.stringify({ finders, maxRounds, quietToStop }));
+log(`effective params ${JSON.stringify({ finders, maxRounds, quietToStop })}`);
 const seen = new Set();
 const all = [];
 let quiet = 0;
@@ -141,7 +141,7 @@ while (quiet < quietToStop && round < maxRounds) {
 	if (failed > 0) log(`round ${round}: ${failed}/${finders} finder(s) failed/skipped (null result)`);
 	for (const r of ok) {
 		for (const item of r.items) {
-			if (item && item.id && !seen.has(item.id)) {
+			if (item?.id && !seen.has(item.id)) {
 				seen.add(item.id);
 				all.push(item);
 				fresh++;
@@ -160,10 +160,10 @@ while (quiet < quietToStop && round < maxRounds) {
 
 if (round >= maxRounds && quiet < quietToStop) {
 	// No silent caps: say we stopped on the round budget, not because we ran dry.
-	log("stopped at maxRounds (not dry) " + JSON.stringify({ maxRounds, total: all.length }));
+	log(`stopped at maxRounds (not dry) ${JSON.stringify({ maxRounds, total: all.length })}`);
 }
 
-log("findings collected " + JSON.stringify({ total: all.length }));
+log(`findings collected ${JSON.stringify({ total: all.length })}`);
 
 phase("Synthesize");
 const synthesis = await agent(

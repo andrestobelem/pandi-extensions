@@ -40,7 +40,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -128,14 +128,14 @@ const drawn = await parallel(
 					cache: false,
 				}),
 			).then((s) =>
-				s && s.answer ? { i: i + 1, answer: String(s.answer).trim(), reasoning: s.reasoning ?? "" } : null,
+				s?.answer ? { i: i + 1, answer: String(s.answer).trim(), reasoning: s.reasoning ?? "" } : null,
 			),
 	),
 );
 
 const valid = drawn.filter(Boolean);
 const failed = samples - valid.length;
-if (valid.length === 0) return 'All samples failed; no consensus possible.';
+if (valid.length === 0) return "All samples failed; no consensus possible.";
 if (failed) log(`note: ${failed}/${samples} samples failed (counted as no vote)`);
 
 phase("Tally");
@@ -199,10 +199,10 @@ if (tied.length === 1) {
 	decision = { answer: chosen, votes: top.votes, method: "judge-tiebreak", tiedAmong: tied.map((t) => t.answer) };
 }
 
-log("consensus " + JSON.stringify(decision));
+log(`consensus ${JSON.stringify(decision)}`);
 return {
-  ...decision,
-  totalSamples: samples,
-  counted: valid.length,
-  distribution: ranked.map((r) => ({ answer: r.answer, votes: r.votes, samples: r.samples })),
+	...decision,
+	totalSamples: samples,
+	counted: valid.length,
+	distribution: ranked.map((r) => ({ answer: r.answer, votes: r.votes, samples: r.samples })),
 };

@@ -47,7 +47,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -97,7 +97,7 @@ const task = input?.task ?? input?.question ?? input?.text;
 if (!task) throw new Error('Pass { task: "..." } as workflow input.');
 const reqRounds = Number.isFinite(+input?.maxRounds) ? Math.floor(+input.maxRounds) : 4;
 const maxRounds = Math.max(1, Math.min(8, reqRounds)); // upper bound: paper notes returns diminish past ~4
-if (maxRounds !== reqRounds) log("clamped maxRounds " + JSON.stringify({ requested: reqRounds, used: maxRounds }));
+if (maxRounds !== reqRounds) log(`clamped maxRounds ${JSON.stringify({ requested: reqRounds, used: maxRounds })}`);
 const useJury = input?.useJury === true; // COMPOSITION: use adversarial-verify as the critic
 
 const CRITIQUE = {
@@ -134,7 +134,7 @@ let draft = await agent(
 );
 if (draft == null) {
 	log("self-refine: initial draft was skipped/failed — nothing to refine");
-	return { result: null, rounds: 0, satisfied: false, critiques: [], failure: 'initial draft null' };
+	return { result: null, rounds: 0, satisfied: false, critiques: [], failure: "initial draft null" };
 }
 
 const memory = []; // verbal memory: every prior round's critique, prepended to the next refine
@@ -218,7 +218,7 @@ while (round < maxRounds) {
 				log(`self-refine ${failureNote} — returning last good draft`);
 				break;
 			}
-			log(`round ${round}: ${critique?.satisfied ? "satisfied" : (critique?.issues?.length ?? 0) + " issues"}`);
+			log(`round ${round}: ${critique?.satisfied ? "satisfied" : `${critique?.issues?.length ?? 0} issues`}`);
 		}
 
 		if (critique?.satisfied || !critique?.issues?.length) {
@@ -247,6 +247,12 @@ while (round < maxRounds) {
 }
 
 if (!satisfied) log(`stopped at maxRounds (not yet satisfied) ${JSON.stringify({ maxRounds })}`);
-log("self-refine complete " + JSON.stringify({ rounds: round, satisfied, useJury, failed: !!failureNote }));
+log(`self-refine complete ${JSON.stringify({ rounds: round, satisfied, useJury, failed: !!failureNote })}`);
 
-return { result: draft, rounds: round, satisfied, critiques: memory, ...(failureNote ? { failure: failureNote } : {}) };
+return {
+	result: draft,
+	rounds: round,
+	satisfied,
+	critiques: memory,
+	...(failureNote ? { failure: failureNote } : {}),
+};

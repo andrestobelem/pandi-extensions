@@ -42,7 +42,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -100,7 +100,7 @@ const FILE_LIST = {
 const rawMaxFiles = input?.maxFiles;
 const maxFiles = Math.max(1, Math.min(4096, Math.trunc(Number(rawMaxFiles)) || 40));
 if (rawMaxFiles != null && maxFiles !== Math.trunc(Number(rawMaxFiles))) {
-	log("maxFiles invalid; using fallback " + JSON.stringify({ provided: rawMaxFiles, effective: maxFiles }));
+	log(`maxFiles invalid; using fallback ${JSON.stringify({ provided: rawMaxFiles, effective: maxFiles })}`);
 }
 const PATTERNS = {
 	code: "\\.(ts|tsx|js|jsx|py|go|rs)$",
@@ -122,7 +122,7 @@ const LENSES = {
 const lens =
 	LENSES[input?.lens] ?? (typeof input?.lens === "string" && input.lens.trim() ? input.lens.trim() : LENSES.code);
 
-log("Collecting candidate files " + JSON.stringify({ maxFiles }));
+log(`Collecting candidate files ${JSON.stringify({ maxFiles })}`);
 
 // Discover the candidate work-list with a scout agent (replaces the
 // `git ls-files | grep` shell scout). The extension filter lives in the
@@ -153,16 +153,16 @@ if (files.length < allFiles.length) {
 }
 
 if (files.length === 0) {
-	log("bug-hunt found no candidate files " + JSON.stringify({ pattern }));
+	log(`bug-hunt found no candidate files ${JSON.stringify({ pattern })}`);
 	return `No candidate files found for pattern ${pattern}. Check the working directory and pattern, or pass an explicit files[] list.`;
 }
 
 const rawConcurrency = input?.concurrency;
 const concurrency = Math.max(1, Math.min(files.length, Math.trunc(Number(rawConcurrency)) || 6));
 if (rawConcurrency != null && concurrency !== Math.trunc(Number(rawConcurrency))) {
-	log("concurrency invalid; using fallback " + JSON.stringify({ provided: rawConcurrency, effective: concurrency }));
+	log(`concurrency invalid; using fallback ${JSON.stringify({ provided: rawConcurrency, effective: concurrency })}`);
 }
-log("bug-hunt fan-out selected " + JSON.stringify({ files: files.length, concurrency }));
+log(`bug-hunt fan-out selected ${JSON.stringify({ files: files.length, concurrency })}`);
 
 // Fan out one independent bug reviewer per file. settle semantics: a failed
 // branch becomes null and never rejects, so we filter(Boolean) afterward.
@@ -201,7 +201,7 @@ ${fence("file", file)}`,
 const completedReviews = reviews.filter(Boolean);
 const failed = reviews.length - completedReviews.length;
 log(
-	"bug-hunt fan-out complete " + JSON.stringify({ total: reviews.length, completed: completedReviews.length, failed }),
+	`bug-hunt fan-out complete ${JSON.stringify({ total: reviews.length, completed: completedReviews.length, failed })}`,
 );
 
 const synthesis = await agent(

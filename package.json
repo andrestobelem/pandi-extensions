@@ -25,7 +25,8 @@
 		"lint:fix": "biome lint --write .",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
-		"format:claude": "bash .claude/scripts/format-workflows.sh",
+		"format:claude": "node .claude/scripts/generate-claude-workflows.mjs",
+		"format:claude:check": "node .claude/scripts/generate-claude-workflows.mjs --check",
 		"lint:md": "markdownlint-cli2",
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
@@ -66,6 +67,7 @@
 		"@biomejs/biome": "^2.5.1",
 		"esbuild": "^0.25.12",
 		"markdownlint-cli2": "^0.22.1",
+		"prettier": "^3.8.4",
 		"typescript": "^6.0.3"
 	},
 	"optionalDependencies": {

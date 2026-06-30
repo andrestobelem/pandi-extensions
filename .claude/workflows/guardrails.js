@@ -47,7 +47,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -182,9 +182,15 @@ if (!protect) {
 	const checks = outputRules.length ? outputRules : inputRules.length ? inputRules : rules;
 	const res = await runGuards("output", "output-guard", content, checks);
 	if (res.tripped.length) {
-		return { status: 'TRIPPED', stage: 'validate', tripped: res.tripped, checks: res.ran, content: compact(content, 20000) };
+		return {
+			status: "TRIPPED",
+			stage: "validate",
+			tripped: res.tripped,
+			checks: res.ran,
+			content: compact(content, 20000),
+		};
 	}
-	return { status: 'PASS', stage: 'validate', checks: res.ran };
+	return { status: "PASS", stage: "validate", checks: res.ran };
 }
 
 // ============================ WRAPPER MODE =================================
@@ -197,24 +203,29 @@ const inGuards = await runGuards(
 	inputRules.length ? inputRules : rules,
 );
 if (inGuards.tripped.length) {
-	log("INPUT tripwire fired — NOT running " + JSON.stringify({ protect: protect.name }));
-	return { status: 'TRIPPED', stage: 'input', protect: protect.name, tripped: inGuards.tripped, ranWork: false };
+	log(`INPUT tripwire fired — NOT running ${JSON.stringify({ protect: protect.name })}`);
+	return { status: "TRIPPED", stage: "input", protect: protect.name, tripped: inGuards.tripped, ranWork: false };
 }
 
 // 2) RUN the protected workflow (the only place we spend real budget).
 phase("Run");
-log("input guards clear — running protected workflow " + JSON.stringify({ protect: protect.name }));
+log(`input guards clear — running protected workflow ${JSON.stringify({ protect: protect.name })}`);
 let output;
 try {
 	output = await workflow(protect.name, protect.args ?? { request: content });
 } catch (err) {
-	log("protected workflow threw " + JSON.stringify({ protect: protect.name, error: err?.message ?? String(err) }));
-	return { status: 'ERROR', stage: 'run', protect: protect.name, error: err?.message ?? String(err) };
+	log(`protected workflow threw ${JSON.stringify({ protect: protect.name, error: err?.message ?? String(err) })}`);
+	return { status: "ERROR", stage: "run", protect: protect.name, error: err?.message ?? String(err) };
 }
 
 if (output == null) {
 	log("protected workflow returned no output");
-	return { status: 'ERROR', stage: 'run', protect: protect.name, error: 'protected workflow produced null (skipped or died)' };
+	return {
+		status: "ERROR",
+		stage: "run",
+		protect: protect.name,
+		error: "protected workflow produced null (skipped or died)",
+	};
 }
 
 // 3) OUTPUT guardrails — validate the result before trusting/returning it.
@@ -222,12 +233,12 @@ phase("Output");
 const outText = typeof output === "string" ? output : compact(output, 40000);
 const outGuards = await runGuards("output", "output-guard", outText, outputRules);
 if (outGuards.tripped.length) {
-	log("OUTPUT tripwire fired on " + JSON.stringify({ protect: protect.name }));
-	return { status: 'TRIPPED', stage: 'output', protect: protect.name, tripped: outGuards.tripped, output };
+	log(`OUTPUT tripwire fired on ${JSON.stringify({ protect: protect.name })}`);
+	return { status: "TRIPPED", stage: "output", protect: protect.name, tripped: outGuards.tripped, output };
 }
 
 log(
 	"guardrails PASS " +
 		JSON.stringify({ protect: protect.name, inputChecks: inGuards.ran, outputChecks: outGuards.ran }),
 );
-return { status: 'PASS', protect: protect.name, inputChecks: inGuards.ran, outputChecks: outGuards.ran, output };
+return { status: "PASS", protect: protect.name, inputChecks: inGuards.ran, outputChecks: outGuards.ran, output };

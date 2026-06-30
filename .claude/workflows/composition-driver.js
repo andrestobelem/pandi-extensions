@@ -25,7 +25,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -97,7 +97,7 @@ if (!topic) throw new Error('Pass { topic: "claims to discover and verify" }.');
 const requestedMaxClaims = Math.max(1, Number.isFinite(+input?.maxClaims) ? Math.floor(+input.maxClaims) : 8);
 const maxClaims = Math.min(20, requestedMaxClaims);
 if (maxClaims !== requestedMaxClaims)
-	log("maxClaims clamped " + JSON.stringify({ requested: requestedMaxClaims, effective: maxClaims }));
+	log(`maxClaims clamped ${JSON.stringify({ requested: requestedMaxClaims, effective: maxClaims })}`);
 
 phase("Discover");
 const finder = await agent(
@@ -108,15 +108,15 @@ const finder = await agent(
 	node("claim-finder", { model: "haiku", effort: "low", schema: CLAIMS, phase: "Discover" }),
 );
 
-const found = Array.isArray(finder?.claims) ? finder.claims.filter((claim) => claim && claim.claim) : [];
+const found = Array.isArray(finder?.claims) ? finder.claims.filter((claim) => claim?.claim) : [];
 const claims = found.slice(0, maxClaims);
-if (claims.length === 0) return 'No falsifiable claims found to verify.';
-if (found.length > maxClaims) log("claim cap applied " + JSON.stringify({ found: found.length, kept: maxClaims }));
+if (claims.length === 0) return "No falsifiable claims found to verify.";
+if (found.length > maxClaims) log(`claim cap applied ${JSON.stringify({ found: found.length, kept: maxClaims })}`);
 
 phase("Verify");
 const skeptics = Math.max(1, Math.min(8, Math.floor(Number(input?.skeptics) || 3)));
 if (skeptics !== (input?.skeptics ?? 3))
-	log("skeptics clamped " + JSON.stringify({ requested: input?.skeptics, effective: skeptics }));
+	log(`skeptics clamped ${JSON.stringify({ requested: input?.skeptics, effective: skeptics })}`);
 let verification;
 try {
 	verification = await workflow("verify-claims-lib", {
@@ -125,7 +125,7 @@ try {
 		topic,
 	});
 } catch (e) {
-	log("nested workflow unavailable, degrading: " + String(e));
+	log(`nested workflow unavailable, degrading: ${String(e)}`);
 	verification = { verified: claims, note: "verification skipped (nesting depth exceeded)" };
 }
 

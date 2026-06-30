@@ -24,7 +24,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s && s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s && s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -70,12 +70,12 @@ const node = (role, extra = {}) => {
 	return o;
 };
 
-const claims = Array.isArray(input?.claims) ? input.claims.filter((claim) => claim && claim.claim) : [];
+const claims = Array.isArray(input?.claims) ? input.claims.filter((claim) => claim?.claim) : [];
 if (claims.length === 0) return { verified: [], dropped: [], votes: [], coverage: { claims: 0 } };
 const skepticsRequested = Number.isFinite(+input?.skeptics) ? Math.floor(+input.skeptics) : 3;
 const skeptics = Math.min(64, Math.max(1, skepticsRequested));
 if (skepticsRequested > skeptics)
-	log("skeptics clamped down " + JSON.stringify({ requested: skepticsRequested, used: skeptics, max: 64 }));
+	log(`skeptics clamped down ${JSON.stringify({ requested: skepticsRequested, used: skeptics, max: 64 })}`);
 
 const VERDICT = {
 	type: "object",
@@ -126,7 +126,7 @@ for (let i = 0; i < claims.length; i++) {
 	// never make survival easier. Ties survive (a strict majority is required to kill).
 	const majority = Math.floor(skeptics / 2) + 1;
 	const cast = jury.map((r) =>
-		r && r.data && typeof r.data.refuted === "boolean"
+		r?.data && typeof r.data.refuted === "boolean"
 			? r.data
 			: { refuted: true, confidence: "low", evidence: "", why: "skeptic failed/invalid -> default refuted" },
 	);
@@ -135,7 +135,7 @@ for (let i = 0; i < claims.length; i++) {
 	const record = {
 		claim,
 		parsedVotes: cast,
-		failedBranches: jury.filter((r) => !(r && r.data && typeof r.data.refuted === "boolean")).length,
+		failedBranches: jury.filter((r) => !(r?.data && typeof r.data.refuted === "boolean")).length,
 		refutations,
 		survived,
 	};

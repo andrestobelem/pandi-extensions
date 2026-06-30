@@ -39,7 +39,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -129,7 +129,7 @@ const reviewers = [
 	},
 ];
 
-log("adversarial review fan-out selected " + JSON.stringify({ reviewers: reviewers.length }));
+log(`adversarial review fan-out selected ${JSON.stringify({ reviewers: reviewers.length })}`);
 
 // Fan out one independent reviewer per angle. settle semantics: a failed branch
 // becomes null and never rejects, so we filter(Boolean) afterward. Each thunk
@@ -163,7 +163,7 @@ log(
 
 if (completedCritiques.length === 0) {
 	log("adversarial review aborted: all reviewers failed/empty, skipping synthesis");
-	return 'INSUFFICIENT_EVIDENCE: all reviewers failed or returned empty; no revised plan produced. Re-run or simplify the plan.';
+	return "INSUFFICIENT_EVIDENCE: all reviewers failed or returned empty; no revised plan produced. Re-run or simplify the plan.";
 }
 
 const critiquesRaw = JSON.stringify(completedCritiques.map((r) => ({ name: r.name, output: r.output })));

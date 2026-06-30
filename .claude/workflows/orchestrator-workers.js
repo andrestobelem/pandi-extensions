@@ -74,7 +74,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -188,14 +188,14 @@ const planResult = await agent(
 	node("planner", { model: "opus", effort: "high", schema: PLAN, phase: "Plan" }),
 );
 
-let subtasks = Array.isArray(planResult?.subtasks) ? planResult.subtasks.filter((s) => s && s.id && s.description) : [];
+let subtasks = Array.isArray(planResult?.subtasks) ? planResult.subtasks.filter((s) => s?.id && s.description) : [];
 
 // Dedupe ids defensively (a duplicate id would corrupt the dependency map).
 const seenIds = new Set();
 subtasks = subtasks.filter((s) => {
 	const id = String(s.id);
 	if (seenIds.has(id)) {
-		log("dropping subtask with duplicate id " + JSON.stringify({ id }));
+		log(`dropping subtask with duplicate id ${JSON.stringify({ id })}`);
 		return false;
 	}
 	seenIds.add(id);
@@ -222,10 +222,10 @@ subtasks = subtasks.map((s) => {
 	const raw = Array.isArray(s.dependsOn) ? s.dependsOn.map(String) : [];
 	const deps = Array.from(new Set(raw.filter((d) => d !== String(s.id) && idSet.has(d))));
 	const dangling = raw.filter((d) => d !== String(s.id) && !idSet.has(d));
-	if (dangling.length) log("dropping dangling deps " + JSON.stringify({ id: s.id, dangling }));
+	if (dangling.length) log(`dropping dangling deps ${JSON.stringify({ id: s.id, dangling })}`);
 	return { id: String(s.id), description: String(s.description), dependsOn: deps };
 });
-log("plan ready " + JSON.stringify({ subtasks: subtasks.length, ids: subtasks.map((s) => s.id) }));
+log(`plan ready ${JSON.stringify({ subtasks: subtasks.length, ids: subtasks.map((s) => s.id) })}`);
 
 // ---- Phase 2: EXECUTE (leveled, Kahn-style, bounded) ------------------------
 phase("Execute");
@@ -242,7 +242,7 @@ while (done.size < subtasks.length) {
 		// Unreachable under the per-level progress invariant (each non-break iteration
 		// marks >=1 task done); kept as cheap insurance against future edits.
 		stopReason = "level-cap";
-		log("level cap reached, stopping " + JSON.stringify({ maxLevels, done: done.size, total: subtasks.length }));
+		log(`level cap reached, stopping ${JSON.stringify({ maxLevels, done: done.size, total: subtasks.length })}`);
 		break;
 	}
 
@@ -255,11 +255,11 @@ while (done.size < subtasks.length) {
 			.filter((s) => !done.has(s.id))
 			.map((s) => ({ id: s.id, waitingOn: s.dependsOn.filter((d) => !done.has(d)) }));
 		stopReason = "stuck-or-cycle";
-		log("no ready subtasks while " + stuck.length + " remain (cycle/stuck) — stopping " + JSON.stringify({ stuck }));
+		log(`no ready subtasks while ${stuck.length} remain (cycle/stuck) — stopping ${JSON.stringify({ stuck })}`);
 		break;
 	}
 
-	log("level " + levelIndex + " running " + JSON.stringify({ ids: ready.map((s) => s.id) }));
+	log(`level ${levelIndex} running ${JSON.stringify({ ids: ready.map((s) => s.id) })}`);
 	levels.push(ready.map((s) => s.id));
 
 	// Fan out this level's workers in parallel (settle: a failed worker -> null).
@@ -302,8 +302,14 @@ while (done.size < subtasks.length) {
 				output: r.output,
 			});
 		} else {
-			log("worker produced no usable output " + JSON.stringify({ id: s.id }));
-			records.push({ id: s.id, description: s.description, dependsOn: s.dependsOn, status: "failed", output: null });
+			log(`worker produced no usable output ${JSON.stringify({ id: s.id })}`);
+			records.push({
+				id: s.id,
+				description: s.description,
+				dependsOn: s.dependsOn,
+				status: "failed",
+				output: null,
+			});
 		}
 		done.add(s.id); // failure still unblocks dependents (they are told the dep failed)
 	});
@@ -315,7 +321,13 @@ while (done.size < subtasks.length) {
 // level-cap) are recorded distinctly from tasks that ran but produced no output.
 subtasks.forEach((s) => {
 	if (!done.has(s.id)) {
-		records.push({ id: s.id, description: s.description, dependsOn: s.dependsOn, status: "unreached", output: null });
+		records.push({
+			id: s.id,
+			description: s.description,
+			dependsOn: s.dependsOn,
+			status: "unreached",
+			output: null,
+		});
 	}
 });
 
@@ -347,12 +359,14 @@ const planMeta = {
 if (completed.length === 0) {
 	// Stable { result, plan, workers } contract even when nothing completed.
 	return {
-    result: 'No subtasks completed successfully — nothing to integrate. Stop reason: ' + stopReason +
-      (unreached.length ? '. Unreached subtasks: ' + JSON.stringify(unreached) : '') +
-      (failed.length ? '. Failed subtasks: ' + JSON.stringify(failed.map((r) => r.id)) : ''),
-    plan: planMeta,
-    workers: records,
-  };
+		result:
+			"No subtasks completed successfully — nothing to integrate. Stop reason: " +
+			stopReason +
+			(unreached.length ? `. Unreached subtasks: ${JSON.stringify(unreached)}` : "") +
+			(failed.length ? `. Failed subtasks: ${JSON.stringify(failed.map((r) => r.id))}` : ""),
+		plan: planMeta,
+		workers: records,
+	};
 }
 
 // ---- Phase 3: INTEGRATE -----------------------------------------------------
@@ -366,7 +380,7 @@ const gaps = [
 		? "Failed subtasks (ran, no usable output): " +
 			JSON.stringify(failed.map((r) => ({ id: r.id, description: compact(r.description, 200) })))
 		: "",
-	unreached.length ? "Unreached subtasks (deps unsatisfied / cycle / cap): " + JSON.stringify(unreached) : "",
+	unreached.length ? `Unreached subtasks (deps unsatisfied / cycle / cap): ${JSON.stringify(unreached)}` : "",
 ]
 	.filter(Boolean)
 	.join("\n");
@@ -392,7 +406,7 @@ const integration = await agent(
 );
 
 return {
-  result: integration ?? ('Integrator produced no output. ' + coverage),
-  plan: planMeta,
-  workers: records,
+	result: integration ?? `Integrator produced no output. ${coverage}`,
+	plan: planMeta,
+	workers: records,
 };

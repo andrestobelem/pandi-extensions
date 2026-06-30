@@ -41,7 +41,7 @@ const input = (() => {
 
 const compact = (d, n = 60000) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
-	return s.length > n ? s.slice(0, n) + " …[truncated]" : s;
+	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
 // Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
@@ -102,10 +102,10 @@ const pattern =
 const verifyCmd = typeof input?.verifyCmd === "string" && input.verifyCmd.trim() ? input.verifyCmd.trim() : null;
 const maxRepairs = Number.isFinite(+input?.maxRepairs) ? Math.max(0, Math.floor(+input.maxRepairs)) : 2;
 if (Number.isFinite(+input?.maxRepairs) && Math.floor(+input.maxRepairs) !== maxRepairs)
-	log("maxRepairs coerced " + JSON.stringify({ requested: +input.maxRepairs, effective: maxRepairs }));
+	log(`maxRepairs coerced ${JSON.stringify({ requested: +input.maxRepairs, effective: maxRepairs })}`);
 const maxFiles = Number.isFinite(+input?.maxFiles) ? Math.max(1, Math.min(4096, Math.floor(+input.maxFiles))) : 50;
 if (Number.isFinite(+input?.maxFiles) && Math.floor(+input.maxFiles) !== maxFiles)
-	log("maxFiles coerced " + JSON.stringify({ requested: +input.maxFiles, effective: maxFiles }));
+	log(`maxFiles coerced ${JSON.stringify({ requested: +input.maxFiles, effective: maxFiles })}`);
 const triage = input?.triage !== false;
 const dryRun = input?.dryRun === true;
 
@@ -147,8 +147,8 @@ if (Array.isArray(input?.files) && input.files.length) {
 	totalMatched = Number.isFinite(+scouted?.totalMatched) ? +scouted.totalMatched : allFiles.length;
 }
 const files = allFiles.slice(0, maxFiles);
-if (files.length === 0) return 'No files matched; nothing to migrate.';
-if (files.length < totalMatched) log("file cap applied " + JSON.stringify({ migrating: files.length, totalMatched }));
+if (files.length === 0) return "No files matched; nothing to migrate.";
+if (files.length < totalMatched) log(`file cap applied ${JSON.stringify({ migrating: files.length, totalMatched })}`);
 
 // 2) GREEN BASELINE — refuse to migrate on a red tree (Amazon Q-style baseline gate).
 phase("Baseline");
@@ -160,9 +160,9 @@ if (verifyCmd) {
 			"Return { green, evidence } where evidence quotes the decisive pass/fail output. Do NOT edit any files.",
 		node("baseline", { model: "haiku", effort: "low", schema: VERIFY, phase: "Baseline" }),
 	);
-	log("baseline " + JSON.stringify(base));
+	log(`baseline ${JSON.stringify(base)}`);
 	if (!base?.green) {
-		return { aborted: true, reason: 'baseline is not green — refusing to migrate on a red tree', baseline: base };
+		return { aborted: true, reason: "baseline is not green — refusing to migrate on a red tree", baseline: base };
 	}
 } else {
 	log("WARNING: no verifyCmd provided — migrating WITHOUT a build/test gate; changes will NOT be verified");
@@ -212,8 +212,8 @@ for (let i = 0; i < files.length; i++) {
 
 	// Between-files integrity check: never migrate file N+1 on top of a red tree.
 	if (i > 0 && verifyCmd && !dryRun) {
-		const between = await recheck("integrity-check:" + file);
-		log("integrity check before " + file + " " + JSON.stringify(between));
+		const between = await recheck(`integrity-check:${file}`);
+		log(`integrity check before ${file} ${JSON.stringify(between)}`);
 		if (!between?.green) {
 			aborted = {
 				reason:
@@ -253,7 +253,7 @@ for (let i = 0; i < files.length; i++) {
 			model: "sonnet",
 			effort: "medium",
 			schema: RESULT,
-			label: "migrate:" + file,
+			label: `migrate:${file}`,
 			phase: "Migrate",
 		}),
 	);
@@ -271,7 +271,7 @@ for (let i = 0; i < files.length; i++) {
 	// tree is actually red, downgrade the status and surface the mismatch instead
 	// of trusting the self-report.
 	if (verifyCmd && !dryRun && rec.status === "migrated") {
-		const gate = await recheck("verify-gate:" + file);
+		const gate = await recheck(`verify-gate:${file}`);
 		rec.verified = !!gate?.green;
 		if (!gate?.green) {
 			rec.status = "verify-mismatch-not-rolled-back";
@@ -294,27 +294,27 @@ for (let i = 0; i < files.length; i++) {
 let finalVerify = null;
 if (verifyCmd && !dryRun) {
 	finalVerify = await agent(
-		"Run `" + verifyCmd + "` once more at the repo root and report { green, evidence }. Do NOT edit files.",
+		`Run \`${verifyCmd}\` once more at the repo root and report { green, evidence }. Do NOT edit files.`,
 		node("final-verify", { model: "haiku", effort: "low", schema: VERIFY, phase: "Migrate" }),
 	);
-	log("final verify " + JSON.stringify(finalVerify));
+	log(`final verify ${JSON.stringify(finalVerify)}`);
 }
 
 const by = (s) => results.filter((r) => r.status === s).length;
 return {
-  instruction,
-  dryRun,
-  aborted: aborted || undefined,
-  counts: {
-    total: files.length,
-    processed: results.length,
-    migrated: by('migrated'),
-    failedRolledBack: by('failed-rolled-back'),
-    verifyMismatchNotRolledBack: by('verify-mismatch-not-rolled-back'),
-    skipped: by('skipped'),
-    appliedUnverified: by('applied-unverified'),
-    dryRunPreview: by('dry-run-preview'),
-  },
-  finalVerify,
-  results,
+	instruction,
+	dryRun,
+	aborted: aborted || undefined,
+	counts: {
+		total: files.length,
+		processed: results.length,
+		migrated: by("migrated"),
+		failedRolledBack: by("failed-rolled-back"),
+		verifyMismatchNotRolledBack: by("verify-mismatch-not-rolled-back"),
+		skipped: by("skipped"),
+		appliedUnverified: by("applied-unverified"),
+		dryRunPreview: by("dry-run-preview"),
+	},
+	finalVerify,
+	results,
 };
