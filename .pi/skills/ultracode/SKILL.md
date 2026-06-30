@@ -96,7 +96,7 @@ Decide model and reasoning effort **per call** — don't let every node inherit 
 
 | Tier | Claude (`model` · `effort`) | pi · Anthropic (`model` · `effort`) |
 | --- | --- | --- |
-| cheap | `haiku` · `low` | `haiku` · `low` (or `minimal`/`off`) |
+| cheap | `haiku` · `low` | `anthropic/claude-haiku-4-5` · `low` (or `minimal`/`off`) |
 | balanced | `sonnet` · `medium` | `anthropic/claude-sonnet-4-6` · `medium` |
 | deep | `opus` · `high` (`xhigh`/`max` hardest) | strong model · `high` (`xhigh` hardest) |
 
@@ -113,7 +113,11 @@ whichever provider is active), so the same knobs target **Anthropic OR OpenAI/Co
 
 - `anthropic/claude-opus-4-8` · `anthropic/claude-sonnet-4-6`
 - `anthropic/claude-haiku-4-5-20251001`  (`anthropic/claude-fable-5` exists but is **currently disabled**)
-- pattern aliases `opus` / `sonnet` / `haiku` resolve to the current id.
+- pattern aliases `opus` / `sonnet` / `haiku` resolve through pi's **provider routing**, which may pick a
+  provider you have **not** authenticated (e.g. `amazon-bedrock` → the run fails fast with `No API key
+  found for <provider>`). They only "resolve to the current id" when that provider has a key. **Prefer a
+  provider-qualified `anthropic/…` id** (above) — or **omit `model`** to inherit the session model — so a
+  workflow never silently routes to an unauthenticated provider. Qualified ids are also more cache-stable.
 
 **OpenAI / Codex** — provider `openai-codex` (from the Codex `/model` picker):
 
