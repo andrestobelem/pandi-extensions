@@ -796,6 +796,32 @@ export class WorkflowDashboard {
 			lines.push(line(`output: ${renderSafeInline(compactInline(agent.output, options.compactWidth))}`));
 	}
 
+	// Common per-row chip suffix (`prompt schema tools skills extensions keys`)
+	// shared byte-for-byte by the Monitor and Agents tabs. Callers keep their own
+	// prefix/state/elapsed and the tab-specific segments (Monitor's `code:` chip,
+	// Agents' `— <workflow> <runId>` segment) outside this helper.
+	private renderAgentRowMeta(
+		agent: AgentMonitorModel,
+		muted: (s: string) => string,
+		success: (s: string) => string,
+		error: (s: string) => string,
+		warning: (s: string) => string,
+	): string {
+		const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
+		const schema = agent.schemaOk === undefined ? "" : agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
+		const tools = muted(` tools:${agent.tools?.length ? agent.tools.length : "default"}`);
+		const skills = muted(
+			` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`,
+		);
+		const extensions = muted(
+			` ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`,
+		);
+		const keys =
+			muted(` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`) +
+			(agent.missingKeys?.length ? warning(` missing:${agent.missingKeys.length}`) : "");
+		return `${prompt}${schema}${tools}${skills}${extensions}${keys}`;
+	}
+
 	private renderMonitorAgents(
 		lines: string[],
 		line: (s: string) => string,
@@ -830,21 +856,10 @@ export class WorkflowDashboard {
 			const phase = formatAgentPhase(agent);
 			const code =
 				agent.code === undefined ? "" : agent.code === 0 ? muted(` code:0`) : error(` code:${agent.code}`);
-			const prompt = agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-			const schema = agent.schemaOk === undefined ? "" : agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
-			const tools = muted(` tools:${agent.tools?.length ? agent.tools.length : "default"}`);
-			const skills = muted(
-				` skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`,
-			);
-			const extensions = muted(
-				` ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`,
-			);
-			const keys =
-				muted(` keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`) +
-				(agent.missingKeys?.length ? warning(` missing:${agent.missingKeys.length}`) : "");
+			const meta = this.renderAgentRowMeta(agent, muted, success, error, warning);
 			lines.push(
 				line(
-					`${prefix}${state} #${agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(agent.name)} ${muted(elapsed)}${code} ${prompt}${schema}${tools}${skills}${extensions}${keys}`,
+					`${prefix}${state} #${agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(agent.name)} ${muted(elapsed)}${code} ${meta}`,
 				),
 			);
 		}
@@ -900,23 +915,10 @@ export class WorkflowDashboard {
 			const agentElapsedMs = getAgentElapsedMs(entry.agent);
 			const elapsed = agentElapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agentElapsedMs)}`;
 			const phase = formatAgentPhase(entry.agent);
-			const prompt = entry.agent.promptAvailable ? success("prompt✓") : warning("prompt?");
-			const schema =
-				entry.agent.schemaOk === undefined ? "" : entry.agent.schemaOk ? muted(` schema:ok`) : error(` schema:bad`);
-			const tools = muted(` tools:${entry.agent.tools?.length ? entry.agent.tools.length : "default"}`);
-			const skills = muted(
-				` skills:${entry.agent.skills?.length ? entry.agent.skills.length : entry.agent.includeSkills === false ? "off" : "default"}`,
-			);
-			const extensions = muted(
-				` ext:${entry.agent.extensions?.length ? entry.agent.extensions.length : entry.agent.includeExtensions ? "default" : "off"}`,
-			);
-			const keys =
-				muted(
-					` keys:${entry.agent.keys?.length ? entry.agent.keys.length : entry.agent.isolatedEnv ? "none" : "default"}`,
-				) + (entry.agent.missingKeys?.length ? warning(` missing:${entry.agent.missingKeys.length}`) : "");
+			const meta = this.renderAgentRowMeta(entry.agent, muted, success, error, warning);
 			lines.push(
 				line(
-					`${prefix}${state} #${entry.agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(entry.agent.name)} ${muted(`— ${entry.run.workflow} ${entry.run.runId.slice(-12)}`)} ${muted(elapsed)} ${prompt}${schema}${tools}${skills}${extensions}${keys}`,
+					`${prefix}${state} #${entry.agent.id}${phase ? ` ${accent(phase)}` : ""} ${renderSafeInline(entry.agent.name)} ${muted(`— ${entry.run.workflow} ${entry.run.runId.slice(-12)}`)} ${muted(elapsed)} ${meta}`,
 				),
 			);
 		}
