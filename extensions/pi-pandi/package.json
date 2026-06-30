@@ -13,6 +13,8 @@
 	],
 	"files": [
 		"index.ts",
+		"face.ts",
+		"moods.ts",
 		"README.md"
 	],
 	"pi": {

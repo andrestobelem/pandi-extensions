@@ -1,9 +1,11 @@
 /**
  * Pandi 🐼💎 — un personaje panda para pi
  *
- * Cara de panda en block-art, pintada en blanco/negro real, mostrada en la
- * PANTALLA DE PRESENTACIÓN (header de arranque) con el texto al lado — como el
- * splash de Claude Code, pero panda. Además: indicador animado mientras pi piensa.
+ * Cara de panda en block-art, con una paleta que se ADAPTA al tema (claro/oscuro) para
+ * que las dos tintas — la cara clara y los parches oscuros — sigan visibles en cualquier
+ * fondo de terminal. Se muestra en la PANTALLA DE PRESENTACIÓN (header de arranque) con
+ * el texto al lado — como el splash de Claude Code, pero panda. Además: indicador
+ * animado mientras pi piensa.
  *
  * Qué hace:
  *   - Splash en el header de arranque: panda + nombre + frase (toggle /pandi art).
@@ -26,6 +28,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext, Theme, WorkingIndicatorOptions } from "@earendil-works/pi-coding-agent";
+import { colorizeFace, FACE_WIDTH, modeFromTextColor, PANDA_FACE, pandaPalette } from "./face.js";
 import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
 
 const STATUS_KEY = "pandi";
@@ -35,42 +38,15 @@ const ORANGE = "\x1b[38;2;217;119;87m";
 const RESET_FG = "\x1b[39m";
 const orange = (s: string) => `${ORANGE}${s}${RESET_FG}`;
 
-// Blanco y negro del panda (bloques sólidos coloreados, se ven igual en cualquier terminal).
-const BLACK = "\x1b[38;2;28;30;34m";
-const WHITE = "\x1b[38;2;237;237;232m";
-const RESET = "\x1b[0m";
-
-// La cara de panda (block-art). ░ = blanco, █ = negro.
-const PANDA_FACE = [
-	"████    ████",
-	"░░░░░░░░░░░░░░░░",
-	"░░████░░░░████░░",
-	"░░░░░░████░░░░░░",
-	"░░░░░░░░░░░░░░░░",
-	"██░░░░░░░░░░░░██",
-	"██░░░░░░░░░░░░██",
-	"  ░░░░░░░░░░░░  ",
-	"  ████    ████",
-];
-const FACE_W = Math.max(...PANDA_FACE.map((l) => l.length));
-
-// Pinta █→negro y ░→blanco como bloques sólidos; deja los espacios transparentes.
-function colorizeFace(line: string): string {
-	let out = "";
-	for (const ch of line) {
-		if (ch === "█") out += `${BLACK}█${RESET}`;
-		else if (ch === "░") out += `${WHITE}█${RESET}`;
-		else out += " ";
-	}
-	return out;
-}
-
-// El splash: panda a la izquierda, nombre + frase a la derecha (centrado vertical).
+// El splash: panda a la izquierda, nombre + frase a la derecha (centrado vertical). La
+// paleta del panda se adapta al tema (claro/oscuro) para que las dos tintas — la cara
+// clara y los parches oscuros — sigan visibles en cualquier fondo de terminal.
 function splashLines(theme: Theme): string[] {
+	const palette = pandaPalette(modeFromTextColor(theme.getFgAnsi("text")));
 	const title = [theme.fg("accent", "Pandi 🐼"), theme.fg("dim", PANDI_QUOTE[0]), theme.fg("dim", PANDI_QUOTE[1])];
 	const top = Math.floor((PANDA_FACE.length - title.length) / 2);
 	const body = PANDA_FACE.map((line, i) => {
-		const left = colorizeFace(line.padEnd(FACE_W, " "));
+		const left = colorizeFace(line.padEnd(FACE_WIDTH, " "), palette);
 		const t = i >= top && i < top + title.length ? `   ${title[i - top]}` : "";
 		return left + t;
 	});

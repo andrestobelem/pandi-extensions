@@ -15,8 +15,10 @@ pi --no-extensions -e ./extensions/pi-pandi
 
 ## Provides
 
-- Splash en el header de arranque: cara de panda en block-art (blanco/negro) con
-  el nombre y la frase al lado, estilo la pantalla de presentación de Claude Code.
+- Splash en el header de arranque: cara de panda en block-art con el nombre y la
+  frase al lado, estilo la pantalla de presentación de Claude Code. La paleta se
+  adapta al tema (claro/oscuro) para que la cara clara y los parches oscuros sigan
+  visibles en cualquier fondo de terminal.
 - Indicador animado mientras Pi piensa, con dos estilos de carita:
   kaomoji `ʕ•ᴥ•ʔ` ↔ Claude `(●  ●)` (con ojos `◆`).
 - Verbo juguetón rotativo por turno + un easter egg con la frase del meme.
