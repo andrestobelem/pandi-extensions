@@ -31,7 +31,16 @@ const argsObj = process.argv[4] ? JSON.parse(process.argv[4]) : {
   maxTrials: 1, depth: 1, branching: 2, beam: 1, maxClaims: 1, maxSubtasks: 2, generate: false,
 };
 
-const transformed = raw.replace(/export\s+const\s+meta\s*=/, "globalThis.__meta =");
+// Support BOTH harness styles:
+//  - Claude-style top-level scripts: `export const meta = …` + top-level agent() calls; the body runs
+//    inline and the stubs record nodes as it executes (it usually ends in a top-level `return`).
+//  - export-default workflows: Pi ctx-style `export default async function workflow(ctx, input)` OR
+//    globals-style `export default async function main()` (and arrow forms). For these the body only
+//    DEFINES the entry, so we capture it as globalThis.__default and CALL it after the body runs,
+//    passing a recording `ctx` whose methods alias the same stubs (so ctx.agent(...) is recorded too).
+const transformed = raw
+  .replace(/export\s+const\s+meta\s*=/, "globalThis.__meta =")
+  .replace(/export\s+default\s+/, "globalThis.__default = ");
 const stubs = `
   globalThis.__nodes = []; globalThis.__composes = []; globalThis.__phases = []; globalThis.__pipeErr = null;
   // Object-target proxy so \`typeof result === 'object'\` checks pass; lenient on every access.
@@ -48,9 +57,16 @@ const stubs = `
   const phase = (t) => { if (t && !globalThis.__phases.includes(t)) globalThis.__phases.push(String(t)); };
   const log = () => {};
   const agent = async (prompt, opts = {}) => {
-    globalThis.__nodes.push({ prompt: String(prompt ?? ''), label: opts.label, phase: opts.phase,
+    globalThis.__nodes.push({ prompt: String(prompt ?? ''), label: opts.label || opts.name, phase: opts.phase,
       schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills });
     return lenient();
+  };
+  // ctx-style workflows fan out with agents(items, …); record one representative node, return lenient rows.
+  const agents = async (items, opts = {}) => {
+    const arr = Array.isArray(items) ? items : [];
+    if (arr.length) globalThis.__nodes.push({ prompt: '‹per-item agents() fan-out›', label: opts.label || opts.name,
+      phase: opts.phase, schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills });
+    return arr.map(() => lenient());
   };
   const parallel = async (thunks) => Promise.all((thunks || []).map(async (t) => { try { return await t(); } catch { return null; } }));
   const pipeline = async (items, ...stages) => {
@@ -63,10 +79,36 @@ const stubs = `
   const workflow = async (name, a) => { if (name) globalThis.__composes.push(String(name)); return lenient(); };
   const args = ${JSON.stringify(argsObj)};
   const budget = { total: null, spent: () => 0, remaining: () => Infinity };
+  globalThis.__default = null; globalThis.__defaultErr = null;
+  // CommonJS ctx-style workflows export via module.exports = async function workflow(ctx, input);
+  // provide a module stub so the body assigns here instead of throwing 'module is not defined', and
+  // pick it up below. (Scaffolds never declare a local const module, so this cannot collide.)
+  const module = { exports: null };
+  // Recording ctx for export-default ctx-style workflows; methods alias the global stubs / inline no-ops
+  // so a body that calls ctx.agent(...)/ctx.parallel(...)/ctx.bash(...) is captured identically. Helpers
+  // stay INSIDE this object (not standalone consts) so they never collide with scaffolds that declare
+  // their own top-level const compact etc.
+  const ctx = {
+    runId: 'preview', runDir: '/preview', cwd: '.', limits: { concurrency: 3, maxAgents: 60 },
+    agent, agents, parallel, pipeline, workflow, phase, log, args, budget,
+    compact: (d, n = 60000) => { const s = typeof d === 'string' ? d : JSON.stringify(d); return s.length > n ? s.slice(0, n) + ' …' : s; },
+    bash: async () => ({ ok: true, code: 0, stdout: '', stderr: '' }),
+    writeArtifact: async (name) => ({ path: '/preview/' + String(name ?? 'artifact') }),
+    writeFile: async () => {}, appendFile: async () => {}, readFile: async () => '', listFiles: async () => [],
+    sleep: async () => {}, json: (x) => x,
+  };
+  // Reachable only when the body did NOT already return at top level (i.e. export-default workflows);
+  // Claude-style top-level scripts return first, so this is a no-op for them.
+  globalThis.__runDefault = async () => {
+    const entry = (typeof globalThis.__default === 'function') ? globalThis.__default
+      : (typeof module.exports === 'function') ? module.exports : null;
+    try { if (entry) await entry(ctx, args); } catch (e) { globalThis.__defaultErr = String((e && e.stack) || e); }
+  };
 `;
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 let runErr = null;
-try { await new AsyncFunction(stubs + "\n" + transformed)(); } catch (e) { runErr = e; }
+try { await new AsyncFunction(stubs + "\n" + transformed + "\n;await globalThis.__runDefault();")(); } catch (e) { runErr = e; }
+if (!runErr && globalThis.__defaultErr) runErr = new Error(globalThis.__defaultErr);
 
 const meta = globalThis.__meta || { name: scriptPath.split("/").pop().replace(/\.js$/, ""), description: "", phases: [] };
 

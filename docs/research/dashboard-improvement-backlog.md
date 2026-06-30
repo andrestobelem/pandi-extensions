@@ -30,19 +30,20 @@ paths (verified to exist), status (`open` / `done` / `human`).
 
 ## Open (in allow-set; safe to pick up next)
 
-- **DW-TOOL-001 — Fix the workflow HTML previewer for ctx-style workflows** · `open`
-  - Why: `.pi/scripts/build-workflow-artifact.mjs` only introspects *globals-style*
-    workflows (`export default async function main()` calling the injected `agent()`).
-    For *ctx-style* workflows (`export default async function workflow(ctx, input)`
-    calling `ctx.agent(...)`, e.g. `continuous-improvement.js`) it errors with
-    "Unexpected token 'export'" and captures 0 agent nodes — the HTML preview comes out
-    empty. Workaround used this pass: a throwaway adapter at
-    `.pi/tmp/build-ctx-workflow-html.mjs` that imports the workflow as an ES module and
-    runs it against recording `ctx` stubs (5 roles captured). The builder should support
-    BOTH styles (detect `export default`, import the module, and inject a recording
-    `ctx` whose methods alias the stubbed globals).
-  - Paths: `.pi/scripts/build-workflow-artifact.mjs` (the shared previewer to fix),
-    `.pi/tmp/build-ctx-workflow-html.mjs` (throwaway reference adapter).
+_None currently open in the allow-set._
+
+- **DW-TOOL-001 — Make the workflow HTML previewer compatible with BOTH harnesses** · `done`
+  - Why: `build-workflow-artifact.mjs` (identical in `.pi/scripts/` and `.claude/scripts/`)
+    only handled Claude-style top-level scripts; ctx-style / export-default / CommonJS
+    workflows errored ("Unexpected token 'export'" / "module is not defined") and captured
+    0 nodes, so the HTML preview was empty for `.pi/workflows/*.js`.
+  - Resolution: the builder now rewrites `export default …` → `globalThis.__default`, provides
+    a CommonJS `module` stub, and after the body runs CALLS the captured entry with a recording
+    `ctx` whose methods alias the same stubs (helpers kept inside the `ctx` object so they never
+    collide with scaffolds' own `const compact`). Verified: `continuous-improvement` 0→5 nodes,
+    `loop-engineering-*` now run, all Claude scaffolds unchanged (no regression), both copies
+    kept byte-identical. The throwaway adapter `.pi/tmp/build-ctx-workflow-html.mjs` was removed.
+  - Paths: `.pi/scripts/build-workflow-artifact.mjs`, `.claude/scripts/build-workflow-artifact.mjs`.
 
 ## Human (needs a decision; not auto-fixable in allow-set)
 
