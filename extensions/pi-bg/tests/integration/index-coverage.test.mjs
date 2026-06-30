@@ -340,7 +340,7 @@ async function main() {
 
 	console.log(`${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed > 0) {
-		console.log("Failures:\n" + counts.failures.map((f) => `  - ${f}`).join("\n"));
+		console.log(`Failures:\n${counts.failures.map((f) => `  - ${f}`).join("\n")}`);
 		process.exit(1);
 	}
 }

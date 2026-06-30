@@ -426,7 +426,7 @@ function isAlive(pid) {
 }
 
 async function waitDead(pid) {
-	return waitFor(`pid ${pid} dead`, async () => (isAlive(pid) ? false : true), { timeoutMs: 8000 });
+	return waitFor(`pid ${pid} dead`, async () => !isAlive(pid), { timeoutMs: 8000 });
 }
 
 async function waitFor(label, fn, { timeoutMs = 6000, intervalMs = 25 } = {}) {
