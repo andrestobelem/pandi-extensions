@@ -428,6 +428,13 @@ export class WorkflowDashboard {
 			}
 			return;
 		}
+		if ((data === "[" || data === "]") && (this.tab === "runs" || this.tab === "activity")) {
+			// Mirror the Monitor's [ ] run cycling on the flat lists: jump selection to the
+			// next/previous running item so a long Runs/Activity list can be triaged to the
+			// in-progress runs with one key.
+			this.jumpToActiveRun(data === "]" ? 1 : -1);
+			return;
+		}
 		if (this.tab === "workflows") {
 			const workflow = this.workflows[this.workflowIndex];
 			if (!workflow) return;
@@ -499,6 +506,33 @@ export class WorkflowDashboard {
 		}
 	}
 
+	// Jump selection to the next/previous RUNNING run (Runs tab) or running activity entry
+	// (Activity tab), wrapping. Turns the ▶ running glyph into one-key triage on the flat
+	// lists, the same way `f` jumps to the next failed agent. No-op when nothing is running.
+	private jumpToActiveRun(delta: number): void {
+		if (this.tab === "runs") {
+			const n = this.runs.length;
+			for (let step = 1; step <= n; step++) {
+				const index = (((this.runIndex + delta * step) % n) + n) % n;
+				if (getRunState(this.runs[index]!) === "running") {
+					this.runIndex = index;
+					this.requestRender();
+					return;
+				}
+			}
+		} else if (this.tab === "activity") {
+			const n = this.activity.length;
+			for (let step = 1; step <= n; step++) {
+				const index = (((this.activityIndex + delta * step) % n) + n) % n;
+				if (this.activity[index]?.state === "running") {
+					this.activityIndex = index;
+					this.requestRender();
+					return;
+				}
+			}
+		}
+	}
+
 	// Cycle the focused active run in the Monitor (master-detail over all active runs).
 	private cycleMonitorRun(delta: number): void {
 		const n = this.monitorModels.length;
@@ -523,7 +557,7 @@ export class WorkflowDashboard {
 			line("  m Monitor · A Agents · a Activity · s Sessions · w Workflows · p Patterns · R Runs"),
 			line(accent("Navigate")),
 			line("  ↑ ↓ / j k move · PgUp / PgDn page · Home / End / G first / last"),
-			line("  [ ] switch active run (Monitor)"),
+			line("  [ ] active run — Monitor: cycle focus · Runs/Activity: jump to next/prev running"),
 			line(accent("Actions")),
 			line("  Enter / o agent output · v run view · g graph"),
 			line("  f next failed agent (Agents tab)"),
@@ -586,7 +620,7 @@ export class WorkflowDashboard {
 							? runActions("↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph")
 							: this.tab === "agents"
 								? runActions("↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph")
-								: runActions("↑↓ navigate • Enter/v view • g graph");
+								: runActions("↑↓ navigate • [ ] next running • Enter/v view • g graph");
 		const lines: string[] = [
 			line(
 				accent("Pi Dynamic Workflows") +
