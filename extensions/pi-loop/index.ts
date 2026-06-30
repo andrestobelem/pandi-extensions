@@ -134,7 +134,6 @@ type LoopStatus = "running" | "paused" | "stopped" | "done" | "failed" | "stale"
 interface LoopState {
 	loopId: string;
 	task: string;
-	prompt: string;
 	mode: LoopMode;
 	/** Fixed-mode period in ms (0/undefined for dynamic). The extension owns this. */
 	intervalMs?: number;
@@ -266,7 +265,6 @@ function snapshot(loop: ActiveLoop): LoopState {
 	return {
 		loopId: loop.loopId,
 		task: loop.task,
-		prompt: loop.prompt,
 		mode: loop.mode,
 		intervalMs: loop.intervalMs,
 		iteration: loop.iteration,
@@ -613,7 +611,6 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	const loop: ActiveLoop = {
 		loopId,
 		task: taskText,
-		prompt: "",
 		mode: intervalMs ? "fixed" : "dynamic",
 		intervalMs,
 		iteration: 0,
@@ -631,12 +628,12 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		rearmedThisTurn: false,
 		autopilot: false,
 	};
-	loop.prompt = makeLoopIterationPrompt(loop);
-
 	activeLoops.set(loopId, loop);
 	persist(pi, ctx, loop);
 
 	// Send the first iteration prompt immediately. fireWake handles iteration++/persist/status.
+	// deliverWake builds the prompt fresh via makeLoopIterationPrompt(loop), so it is never
+	// stored on the loop — it would only ever be stale by the time it was read.
 	fireWake(pi, ctx, loop);
 	const modeLabel = loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
 	const uc = ultracode ? " [ultracode]" : "";
@@ -715,7 +712,6 @@ async function startAutonomousLoop(
 	const loop: ActiveLoop = {
 		loopId,
 		task: objective,
-		prompt: "",
 		mode: intervalMs ? "fixed" : "dynamic",
 		intervalMs,
 		iteration: 0,
@@ -734,8 +730,6 @@ async function startAutonomousLoop(
 		rearmedThisTurn: false,
 		autopilot: false,
 	};
-	loop.prompt = makeLoopIterationPrompt(loop);
-
 	activeLoops.set(loopId, loop);
 	persist(pi, ctx, loop);
 
