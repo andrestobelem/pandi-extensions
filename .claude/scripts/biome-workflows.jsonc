@@ -1,0 +1,29 @@
+{
+	// Dedicated biome config to FORMAT .claude/workflows/*.js to pi's house style
+	// (tabs, indentWidth 3, lineWidth 120, double quotes). NOT used by the normal
+	// `biome check` gate — invoke it only via .claude/scripts/format-workflows.sh
+	// (which passes --config-path here).
+	//
+	// WHY this exists separately from the root biome.jsonc (which excludes `.claude`):
+	//   The Claude-Code scaffolds under .claude/workflows are TOP-LEVEL scripts —
+	//   `export const meta = {…}` followed by a top-level `return`. That is invalid as
+	//   an ES module, so biome's parser raises "Illegal return statement outside of a
+	//   function" and exits non-zero. There is NO biome parser option to allow
+	//   top-level return (JsParserConfiguration only has gritMetavariables /
+	//   jsxEverywhere / unsafeParameterDecoratorsEnabled), so these files can never join
+	//   a clean `biome check`. `formatWithErrors: true` lets the FORMATTER proceed
+	//   despite the parse error; the non-zero exit + parse-error noise are EXPECTED.
+	//   Verified empirically: a biome-reformatted top-level script still runs in
+	//   Claude Code's Workflow tool (returned the expected value).
+	"$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+	"linter": { "enabled": false },
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": true,
+		"indentStyle": "tab",
+		"indentWidth": 3,
+		"lineWidth": 120
+	},
+	"javascript": { "formatter": { "quoteStyle": "double" } },
+	"files": { "includes": [".claude/workflows/**/*.js"] }
+}

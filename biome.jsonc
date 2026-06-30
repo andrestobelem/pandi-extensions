@@ -52,6 +52,10 @@
 			// it holds dynamic-workflow SCAFFOLDS (top-level `return` + template-literal
 			// prompts => not parseable as standalone modules) and their generator script.
 			// Lint the maintained sources under extensions/ instead, like `.pi`.
+			// To keep .claude/workflows/*.js cosmetically aligned with the pi scaffolds
+			// (tabs, double quotes, 120 cols) WITHOUT joining this gate (biome can't parse
+			// their top-level `return`), run `.claude/scripts/format-workflows.sh`
+			// (biome --config .claude/scripts/biome-workflows.jsonc, formatWithErrors).
 			"!.claude",
 			"!dist",
 			"!.cache",
