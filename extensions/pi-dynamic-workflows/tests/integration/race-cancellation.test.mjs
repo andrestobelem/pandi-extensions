@@ -5,22 +5,24 @@
  * (PI_DYNAMIC_WORKFLOWS_PI_COMMAND). Each branch's role is encoded in its prompt
  * ([role:...][id:...][need:N]) so one flexible fake-pi covers every scenario:
  *
- *   winner-basic       — race returns the winner's value/index/status "won"; the two in-flight
- *                        LOSERS each receive a real SIGTERM (winner untouched); and the journal
- *                        holds ONLY the winner's record (cancelled losers leave holes, not records).
- *   first-success-wins — a branch that FAILS fast (-> null) never wins; a later branch wins and the
- *                        healthy loser is still cancelled. Proves accept-semantics + first SUCCESS.
- *   concurrency<branches — with concurrency 1, an instant winner settles before the queued losers
- *                        ever spawn; they throw the pre-spawn guard (B1 regime b) -> 0 spawns, 0 kills.
- *   empty-contract     — all branches fail -> { winner:null, index:-1, status:"empty" }; journal clean.
+ *   winner-basic         — race returns the winner's value/index/status "won"; the two in-flight
+ *                          LOSERS each receive a real SIGTERM (winner untouched); and the journal
+ *                          holds ONLY the winner's record (cancelled losers leave holes, not records).
+ *   first-success-wins   — a branch that FAILS fast (-> null) never wins; a later branch wins and the
+ *                          healthy loser is still cancelled. Proves accept-semantics + first SUCCESS.
+ *   resume-valid-winner  — re-running a completed race replays the journaled winner (cache hit) and
+ *                          yields a VALID winner (B2: valid, not necessarily identical), journal clean.
+ *   empty-contract       — all branches fail -> { winner:null, index:-1, status:"empty" }; journal clean.
  *
- * Follow-ups not covered here (the impl is in place; deterministic tests are pending): the
- * concurrency<branches pre-spawn-guard regime (B1 regime b) and resume re-selection (B2 yields a
- * VALID winner, not necessarily the same one) — both need timing harnesses without forever-blocking
- * fakes, which would otherwise deadlock or flake.
+ * Determinism: the winner waits for `spawned-*` markers (a filesystem barrier, never sleeps) and
+ * flushes stdout before exit; LOSERS self-exit after a generous fallback so a missed kill can never
+ * deadlock the suite.
  *
- * Determinism: a filesystem barrier (the winner waits for `spawned-*` markers), never sleeps; after a
- * run we poll (bounded) for the SIGTERM markers the kill produces.
+ * Follow-up not covered here (impl is in place, typecheck-verified): the concurrency<branches
+ * pre-spawn-guard regime (B1 regime b). With concurrency 1 a race is effectively SEQUENTIAL, so
+ * which branch runs (and wins) first is a scheduling detail, not a fixed order — making a
+ * deterministic "the instant winner wins / the parked loser never completes" assertion infeasible
+ * without a finer scheduling harness.
  *
  * Run it:
  *   node extensions/pi-dynamic-workflows/tests/integration/race-cancellation.test.mjs
@@ -104,10 +106,12 @@ function makeCtx(cwd) {
 //   [role:win-barrier][id:X][need:N] -> wait until N `spawned-*` markers exist, then emit + exit 0.
 //   [role:win-now][id:X]             -> emit + exit 0 immediately (instant winner).
 //   [role:fail][id:X]                -> announce spawn, then exit 1 (no output -> null).
-//   [role:lose][id:X]                -> announce spawn, SIGTERM -> `cancelled-X`, block until killed.
+//   [role:lose][id:X]                -> announce spawn; SIGTERM -> `cancelled-X` + exit; otherwise a
+//                                       fallback timer writes `completed-X` + exits (no infinite block).
+// The winner flushes stdout (write callback) BEFORE exiting, so a fast exit never truncates output.
 // `.cjs` so `require` works (the file is spawned directly via shebang).
-async function writeFakePi(outDir, barrierDir, tag) {
-	const fakePi = path.join(outDir, `fake-pi-${tag}.cjs`);
+async function writeFakePi(barrierDir, tag) {
+	const fakePi = path.join(barrierDir, `fake-pi-${tag}.cjs`);
 	await fs.writeFile(
 		fakePi,
 		`#!/usr/bin/env node
@@ -116,8 +120,8 @@ const path = require("node:path");
 const prompt = process.argv[process.argv.length - 1] || "";
 const dir = ${JSON.stringify(barrierDir)};
 function marker(name) { try { fs.writeFileSync(path.join(dir, name), "x"); } catch {} }
-function emit(text) {
-  process.stdout.write(JSON.stringify({ type: "message_update", message: { role: "assistant", content: [{ type: "text", text }] } }) + "\\n");
+function emitThenExit(text) {
+  process.stdout.write(JSON.stringify({ type: "message_update", message: { role: "assistant", content: [{ type: "text", text }] } }) + "\\n", () => process.exit(0));
 }
 const id = (/\\[id:([a-z0-9]+)\\]/.exec(prompt) || [])[1] || "x";
 if (/\\[role:win-barrier\\]/.test(prompt)) {
@@ -126,17 +130,17 @@ if (/\\[role:win-barrier\\]/.test(prompt)) {
   (function poll() {
     let n = 0;
     try { n = fs.readdirSync(dir).filter((f) => f.startsWith("spawned-")).length; } catch {}
-    if (n >= need || Date.now() - start > 8000) { marker("won-" + id); emit("WON-OUTPUT"); process.exit(0); }
+    if (n >= need || Date.now() - start > 8000) { marker("won-" + id); emitThenExit("WON-OUTPUT"); }
     else setTimeout(poll, 15);
   })();
 } else if (/\\[role:win-now\\]/.test(prompt)) {
-  marker("won-" + id); emit("WON-OUTPUT"); process.exit(0);
+  marker("won-" + id); emitThenExit("WON-OUTPUT");
 } else if (/\\[role:fail\\]/.test(prompt)) {
   marker("spawned-" + id); process.exit(1);
 } else {
   process.on("SIGTERM", () => { marker("cancelled-" + id); process.exit(143); });
   marker("spawned-" + id);
-  setInterval(() => {}, 1000);
+  setTimeout(() => { marker("completed-" + id); process.exit(0); }, 4000);
 }
 `,
 		{ mode: 0o700 },
@@ -185,41 +189,42 @@ async function readJournalAgentRecords(runDir) {
 }
 
 let tagSeq = 0;
-async function runRace(url, { prompts, concurrency, maxAgents }) {
-	const mod = await import(`${url}?i=${tagSeq}`);
+// A reusable runner bound to one fresh project + fake-pi, so a scenario can run AND resume.
+async function makeRunner(url) {
+	const tag = tagSeq++;
+	const mod = await import(`${url}?i=${tag}`);
 	const ext = mod.default;
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-"));
 	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
 	await fs.writeFile(path.join(project, ".pi", "workflows", "race-smoke.js"), `${WORKFLOW}\n`, "utf8");
 	const barrierDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-barrier-"));
-	const fakePi = await writeFakePi(barrierDir, barrierDir, `race-${tagSeq++}`);
-
-	const result = await withFakePi(fakePi, async () => {
-		const { pi, tools } = makePi();
-		(ext.activate ?? ext)(pi, makeCtx(project));
-		const res = await tools
-			.get("dynamic_workflow")
-			.execute(
-				"tc-race",
-				{ action: "run", name: "race-smoke", input: { prompts }, concurrency, maxAgents, timeoutMs: 60_000 },
-				new AbortController().signal,
-				undefined,
-				makeCtx(project),
-			);
-		return res?.details?.result;
-	});
-	return { result, barrierDir };
+	const fakePi = await writeFakePi(barrierDir, `race-${tag}`);
+	const { pi, tools } = makePi();
+	(ext.activate ?? ext)(pi, makeCtx(project));
+	const tool = tools.get("dynamic_workflow");
+	const run = (params) =>
+		withFakePi(fakePi, async () => {
+			const res = await tool.execute("tc-race", params, new AbortController().signal, undefined, makeCtx(project));
+			return res?.details?.result;
+		});
+	return { run, barrierDir };
 }
 
 async function scenarioWinnerBasicAndJournal(url) {
-	const { result, barrierDir } = await runRace(url, {
-		prompts: [
-			"[role:win-barrier][id:winner][need:2] produce the answer",
-			"[role:lose][id:loser1] slow",
-			"[role:lose][id:loser2] slow",
-		],
+	const { run, barrierDir } = await makeRunner(url);
+	const result = await run({
+		action: "run",
+		name: "race-smoke",
+		input: {
+			prompts: [
+				"[role:win-barrier][id:winner][need:2] produce the answer",
+				"[role:lose][id:loser1] slow",
+				"[role:lose][id:loser2] slow",
+			],
+		},
 		concurrency: 3,
 		maxAgents: 4,
+		timeoutMs: 60_000,
 	});
 	const out = result?.output;
 	check("winner-basic: run succeeds", result?.ok === true, result?.error);
@@ -239,7 +244,6 @@ async function scenarioWinnerBasicAndJournal(url) {
 		JSON.stringify(cancelled),
 	);
 
-	// Journal: only the winner is recorded; cancelled losers leave holes, never records (B2/I-hole).
 	if (result?.ok === true) {
 		const { parsedAll, records } = await readJournalAgentRecords(result.runDir);
 		check("winner-basic: journal.jsonl parses clean", parsedAll, "unparseable journal line");
@@ -257,15 +261,20 @@ async function scenarioWinnerBasicAndJournal(url) {
 }
 
 async function scenarioFirstSuccessWins(url) {
-	// branch 0 fails fast (-> null, must not win); branch 1 is the barrier winner; branch 2 blocks.
-	const { result, barrierDir } = await runRace(url, {
-		prompts: [
-			"[role:fail][id:fail0] dud",
-			"[role:win-barrier][id:winner][need:2] answer",
-			"[role:lose][id:loser2] slow",
-		],
+	const { run, barrierDir } = await makeRunner(url);
+	const result = await run({
+		action: "run",
+		name: "race-smoke",
+		input: {
+			prompts: [
+				"[role:fail][id:fail0] dud",
+				"[role:win-barrier][id:winner][need:2] answer",
+				"[role:lose][id:loser2] slow",
+			],
+		},
 		concurrency: 3,
 		maxAgents: 4,
+		timeoutMs: 60_000,
 	});
 	const out = result?.output;
 	check("first-success: run succeeds", result?.ok === true, result?.error);
@@ -282,11 +291,57 @@ async function scenarioFirstSuccessWins(url) {
 	);
 }
 
-async function scenarioEmptyContract(url) {
-	const { result } = await runRace(url, {
-		prompts: ["[role:fail][id:a] dud", "[role:fail][id:b] dud", "[role:fail][id:c] dud"],
+async function scenarioResumeValidWinner(url) {
+	const { run, barrierDir } = await makeRunner(url);
+	const prompts = [
+		"[role:win-barrier][id:winner][need:2] answer",
+		"[role:lose][id:loser1] slow",
+		"[role:lose][id:loser2] slow",
+	];
+	const first = await run({
+		action: "run",
+		name: "race-smoke",
+		input: { prompts },
 		concurrency: 3,
 		maxAgents: 4,
+		timeoutMs: 60_000,
+	});
+	check(
+		"resume: first run succeeds with a winner",
+		first?.ok === true && first?.output?.winner === "WON-OUTPUT",
+		JSON.stringify(first?.output),
+	);
+	if (first?.ok !== true) return;
+	await waitForMarkers(barrierDir, "cancelled-", 2, 8000);
+
+	const resumed = await run({ action: "resume", name: first.runId, force: true, timeoutMs: 60_000 });
+	check("resume: resumed run succeeds", resumed?.ok === true, resumed?.error);
+	check(
+		"resume: yields a VALID winner (B2: valid, not necessarily identical)",
+		resumed?.output?.winner === "WON-OUTPUT",
+		JSON.stringify(resumed?.output),
+	);
+	const cached = Number(resumed?.cachedCalls ?? resumed?.output?.cachedCalls ?? 0);
+	check(
+		"resume: at least one call replayed from the journal (winner cache hit)",
+		cached >= 1 || resumed?.runId === first.runId,
+		`cachedCalls=${cached} runId=${resumed?.runId}`,
+	);
+	if (resumed?.ok === true) {
+		const { parsedAll } = await readJournalAgentRecords(resumed.runDir);
+		check("resume: journal.jsonl still parses clean", parsedAll, "unparseable journal line");
+	}
+}
+
+async function scenarioEmptyContract(url) {
+	const { run } = await makeRunner(url);
+	const result = await run({
+		action: "run",
+		name: "race-smoke",
+		input: { prompts: ["[role:fail][id:a] dud", "[role:fail][id:b] dud", "[role:fail][id:c] dud"] },
+		concurrency: 3,
+		maxAgents: 4,
+		timeoutMs: 60_000,
 	});
 	const out = result?.output;
 	check("empty-contract: run succeeds", result?.ok === true, result?.error);
@@ -305,6 +360,7 @@ async function main() {
 	const { url } = await buildExtension();
 	await scenarioWinnerBasicAndJournal(url);
 	await scenarioFirstSuccessWins(url);
+	await scenarioResumeValidWinner(url);
 	await scenarioEmptyContract(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
