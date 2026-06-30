@@ -24,7 +24,9 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
   line shows `uc:auto`/`uc:off` for routing plus `cg:on`/`cg:off` for the
   Contract Gate.
 - Compact Claude-style scaffold catalog: six primary scaffolds, compose scaffolds, and use-case scaffolds, with no pattern aliases.
-- JavaScript workflow runtime with injected globals `agent`, `agents`, `pipeline`, `parallel`, `workflow`, `phase`, `log`, `args` (+ read-only `limits`/`runId`/`runDir`/`cwd`), artifacts, resumable journal, and TUI dashboard.
+- JavaScript workflow runtime with injected globals `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`, `workflow`, `phase`, `log`, `args` (+ read-only `limits`/`runId`/`runDir`/`cwd`), artifacts, resumable journal, and TUI dashboard.
+  - `race(thunks, { accept? })` — first accepted branch wins and the in-flight losers are cancelled (real SIGTERM via each thunk's `AbortSignal`); returns `{ winner, index, status }`.
+  - `ask(question, opts?)` — pause a branch to ask a human via Pi's UI (`input`/`confirm`/`select`); resume-safe (the answer is journaled and replayed, never re-asked), headless-honest (`opts.default` or a clear error, never hangs), and cancellable inside `race()`.
 - Per-call model and reasoning selection: every subagent call can choose its own `model`, `provider`, and `effort` (`low|medium|high|xhigh|max`, mapped onto the engine reasoning scale) — e.g. cheap/fast + `effort: "low"` for wide scouts and a stronger model + `effort: "high"`/`"xhigh"` for synthesis or verification. Omitting them inherits the orchestrator's model and session reasoning level; `model`/`provider`/`effort` are part of the cache key, so changing them re-runs that call on resume.
 - Stable KV-cache prefix: build subagent prompts with the shared/stable framing (role, task, success criteria, output format) first and the volatile per-item content (the item, ids, retrieved snippets) last, so identical prefixes reuse the provider prompt/KV cache across calls. Avoid `Date.now()`/`Math.random()` inside prompts — they bust that cache and make the resume journal miss, re-running the call.
 

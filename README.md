@@ -166,6 +166,8 @@ Cuando lanzás un workflow (`/workflow run`/`start` o `dynamic_workflow action=r
 - `agents(items, { settle: true })` — no tumba todo el batch si falla una rama; devuelve `null` para ramas fallidas.
 - `pipeline(items, ...stages)` — flujo multi-etapa por item sin barrera global; útil cuando cada item necesita varios pasos encadenados.
 - `parallel([async () => ...])` — barrera explícita cuando un paso posterior necesita todos los resultados juntos.
+- `race(thunks, { accept? })` — abre N ramas y, en cuanto una produce un valor aceptado (default `!= null`), **cancela las perdedoras en vuelo** (SIGTERM real al subproceso, vía el `AbortSignal` que recibe cada thunk); devuelve `{ winner, index, status }` (`status: "won" | "empty"`). Forma típica: `race(items.map((s) => (signal) => agent(prompt, { signal })))`.
+- `ask(question, opts?)` — pausa una rama para preguntarle a un humano vía la UI de Pi (`kind: "input" | "confirm" | "select"`, inferido por `choices`/`default`); devuelve la respuesta (`string`/`boolean`). **Resume-safe**: la respuesta se journalea y al reanudar se **reusa sin volver a preguntar**. En modo headless (`hasUI=false`) devuelve `opts.default` o lanza un error claro; nunca cuelga. Cancelable dentro de `race()` vía `{ signal }`.
 - `workflow(name, args)` — compone un sub-workflow reusable inline (profundidad 1) compartiendo el mismo run, límites, abort y cache/journal.
 - `bash(command, opts)` — ejecuta shell desde el cwd del workflow; cacheable solo con `{ cache: true }`.
 - `writeArtifact(name, data)` — persiste datos del run fuera del chat.

@@ -66,7 +66,8 @@ fan-out from the *actual* shape of the task:
 
 ## Choosing a primitive
 
-Pick by data dependency, not aesthetics. (Same injected-globals API on both runtimes.)
+Pick by data dependency, not aesthetics. (The `agent`/`agents`/`pipeline`/`parallel`/`workflow` core is
+the same on both runtimes; `race`/`ask` below are **pi-runtime primitives** — see the runtime note.)
 
 1. **One independent step per item** → `agents(items, { concurrency })` — bounded parallel map.
 2. **Two+ dependent steps per item, no cross-item merge** → `pipeline(items, ...stages)`. The default
@@ -77,6 +78,18 @@ Pick by data dependency, not aesthetics. (Same injected-globals API on both runt
 4. **Reusable sub-step with no decision gate** → `workflow(name, args)` — compose a sub-workflow
    inline. If you must inspect results before the next phase, run separate workflows sequentially
    instead.
+5. **First good answer wins, cancel the rest** → `race(thunks, { accept? })` (pi runtime) — fans out N
+   branches and, the moment one yields an accepted value (default `!= null`), **cancels the in-flight
+   losers** (real SIGTERM via each thunk's `AbortSignal`). Returns `{ winner, index, status }`
+   (`status: "won" | "empty"`). Shape: `race(items.map((s) => (signal) => agent(prompt, { signal })))`.
+6. **A human decision/approval mid-run** → `ask(question, opts?)` (pi runtime) — pauses a branch and
+   asks via Pi's UI (`kind: input | confirm | select`, inferred from `choices`/`default`). **Resume-safe**
+   (the answer is journaled and replayed, never re-asked), **headless-honest** (`opts.default` or a clear
+   error in `hasUI=false`; never hangs), and cancellable inside `race()` via `{ signal }`.
+
+**Runtime note:** `race`/`ask` are implemented in the **pi** `dynamic_workflow` runtime. Do NOT assume
+they exist on the Claude Code Workflow tool — keep cross-runtime scaffolds to the shared core, and use
+`race`/`ask` only in pi-targeted workflows (or behind a capability check).
 
 **Barrier smell test:** `parallel → transform-with-no-cross-item-dependency → parallel` should be one
 `pipeline`. `map`/`filter`/formatting alone do not justify a barrier; dedup, merge, early-exit, and
