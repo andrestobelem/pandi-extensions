@@ -72,6 +72,8 @@ extensions/pi-pandi/*.local.json
 
 # Logs and diagnostics
 logs
+.logs/
+**/.logs/
 *.log
 npm-debug.log*
 yarn-debug.log*

@@ -18,9 +18,11 @@ This directory stores the project’s work history, decisions, created workflows
 - [Research: loop engineering (source-backed)](./research/2026-06-28-loop-engineering.md)
 - [Continuous-improvement backlog](./research/continuous-improvement-backlog.md)
 - [Continuous improvement loop — progress log](./research/continuous-improvement-log.md)
+- [Handbooks (durable project reference)](./handbooks/README.md)
 
 ## Convention
 
+- `docs/handbooks/`: durable project reference (conventions, onboarding, playbooks).
 - `docs/workflows/`: technical documentation for workflows and runs.
 - `docs/conversaciones/`: summarized log of conversations and decisions.
 - `docs/research/`: research notes, consulted sources, and implementation decisions.
