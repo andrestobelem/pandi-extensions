@@ -30,7 +30,19 @@ paths (verified to exist), status (`open` / `done` / `human`).
 
 ## Open (in allow-set; safe to pick up next)
 
-_None currently open in the allow-set._
+- **DW-TOOL-001 — Fix the workflow HTML previewer for ctx-style workflows** · `open`
+  - Why: `.pi/scripts/build-workflow-artifact.mjs` only introspects *globals-style*
+    workflows (`export default async function main()` calling the injected `agent()`).
+    For *ctx-style* workflows (`export default async function workflow(ctx, input)`
+    calling `ctx.agent(...)`, e.g. `continuous-improvement.js`) it errors with
+    "Unexpected token 'export'" and captures 0 agent nodes — the HTML preview comes out
+    empty. Workaround used this pass: a throwaway adapter at
+    `.pi/tmp/build-ctx-workflow-html.mjs` that imports the workflow as an ES module and
+    runs it against recording `ctx` stubs (5 roles captured). The builder should support
+    BOTH styles (detect `export default`, import the module, and inject a recording
+    `ctx` whose methods alias the stubbed globals).
+  - Paths: `.pi/scripts/build-workflow-artifact.mjs` (the shared previewer to fix),
+    `.pi/tmp/build-ctx-workflow-html.mjs` (throwaway reference adapter).
 
 ## Human (needs a decision; not auto-fixable in allow-set)
 
