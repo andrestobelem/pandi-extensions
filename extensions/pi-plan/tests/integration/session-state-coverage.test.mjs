@@ -90,7 +90,10 @@ async function main() {
 				planEntry({ planId: "p1", status: "approved" }),
 			];
 			const m = collectLatestByKey(entries, "plan-state", (d) => d.planId);
-			check("filter(non-custom): message entry ignored, only custom kept", m.size === 1 && m.get("p1")?.status === "approved");
+			check(
+				"filter(non-custom): message entry ignored, only custom kept",
+				m.size === 1 && m.get("p1")?.status === "approved",
+			);
 		}
 
 		// --- Filter: a mismatched customType is skipped. ---
@@ -103,18 +106,20 @@ async function main() {
 			check("filter(customType): foreign customType ignored", m.size === 1 && m.get("p1")?.status === "planning");
 			// And asking for the OTHER customType picks only that one.
 			const loops = collectLatestByKey(entries, "loop-state", (d) => d.planId);
-			check("filter(customType): selecting loop-state returns only the loop entry", loops.size === 1 && loops.get("p1")?.status === "running");
+			check(
+				"filter(customType): selecting loop-state returns only the loop entry",
+				loops.size === 1 && loops.get("p1")?.status === "running",
+			);
 		}
 
 		// --- Filter: falsy data (null/undefined) is skipped without throwing. ---
 		{
-			const entries = [
-				planEntry(null),
-				planEntry(undefined),
-				planEntry({ planId: "p1", status: "planning" }),
-			];
+			const entries = [planEntry(null), planEntry(undefined), planEntry({ planId: "p1", status: "planning" })];
 			const m = collectLatestByKey(entries, "plan-state", (d) => d.planId);
-			check("filter(falsy-data): null/undefined data skipped, valid kept", m.size === 1 && m.get("p1")?.status === "planning");
+			check(
+				"filter(falsy-data): null/undefined data skipped, valid kept",
+				m.size === 1 && m.get("p1")?.status === "planning",
+			);
 		}
 
 		// --- Filter: a non-string extracted key is skipped. ---
@@ -161,7 +166,10 @@ async function main() {
 				yield planEntry({ planId: "p1", status: "approved" });
 			}
 			const m = collectLatestByKey(gen(), "plan-state", (d) => d.planId);
-			check("iterable: generator input honored, last-wins still applies", m.size === 1 && m.get("p1")?.status === "approved");
+			check(
+				"iterable: generator input honored, last-wins still applies",
+				m.size === 1 && m.get("p1")?.status === "approved",
+			);
 		}
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});

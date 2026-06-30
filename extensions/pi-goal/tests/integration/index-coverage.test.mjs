@@ -196,7 +196,11 @@ async function stopsAtMaxIterations(goalUrl) {
 		`reason=${last?.lastReason}`,
 	);
 	check("maxIterations cap → a warning notify fired", warned(env.notifies, /maxIterations \(1\)/), "no warning");
-	check("maxIterations cap → did NOT re-inject a wake", built.messages.length === 0, `messages=${built.messages.length}`);
+	check(
+		"maxIterations cap → did NOT re-inject a wake",
+		built.messages.length === 0,
+		`messages=${built.messages.length}`,
+	);
 }
 
 // ===========================================================================
@@ -211,13 +215,21 @@ async function agentEndReArmsStrandedPursuing(goalUrl) {
 	const before = built.states.length;
 	await fireAgentEnd(built, env);
 	const rearm = built.states.find((st) => st.lastReason === "auto: turn closed without goal_progress");
-	check("agent_end re-armed a stranded pursuing goal (auto reason persisted)", !!rearm, `states=${built.states.length}`);
+	check(
+		"agent_end re-armed a stranded pursuing goal (auto reason persisted)",
+		!!rearm,
+		`states=${built.states.length}`,
+	);
 	check(
 		"agent_end re-arm set a future nextFireAt (timer scheduled)",
 		!!rearm && typeof rearm.nextFireAt === "number" && rearm.nextFireAt > Date.now(),
 		`nextFireAt=${rearm?.nextFireAt}`,
 	);
-	check("agent_end re-arm persisted exactly one new snapshot", built.states.length === before + 1, `+${built.states.length - before}`);
+	check(
+		"agent_end re-arm persisted exactly one new snapshot",
+		built.states.length === before + 1,
+		`+${built.states.length - before}`,
+	);
 }
 
 // agent_end must NOT double-arm: a second agent_end in the same turn (rearmedThisTurn=true
@@ -249,7 +261,11 @@ async function goalProgressNoActiveGoal(goalUrl) {
 		/No active goal/.test(r?.content?.[0]?.text || ""),
 		r?.content?.[0]?.text,
 	);
-	check("goal_progress with no active goal persists nothing", built.states.length === 0, `states=${built.states.length}`);
+	check(
+		"goal_progress with no active goal persists nothing",
+		built.states.length === 0,
+		`states=${built.states.length}`,
+	);
 }
 
 // ===========================================================================
@@ -277,7 +293,11 @@ async function verifierStoppedMidFlightDiscardsVerdict(goalUrl) {
 	);
 	// Stop the goal while the verifier is gated mid-flight.
 	await runCommand(built, `stop ${s.goalId}`, env);
-	check("goal is stopped while verifier in flight", lastStatusFor(built.states, s.goalId) === "stopped", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check(
+		"goal is stopped while verifier in flight",
+		lastStatusFor(built.states, s.goalId) === "stopped",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
 	// Release the gated PASS: it must be discarded (goal already stopped).
 	release();
 	await flush(() => false, 40);
@@ -286,7 +306,11 @@ async function verifierStoppedMidFlightDiscardsVerdict(goalUrl) {
 		!built.states.some((st) => st.goalId === s.goalId && st.gstatus === "done"),
 		"unexpected done",
 	);
-	check("goal stays stopped after the late verdict", lastStatusFor(built.states, s.goalId) === "stopped", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check(
+		"goal stays stopped after the late verdict",
+		lastStatusFor(built.states, s.goalId) === "stopped",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
 	check("no second verifier was spawned", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
 }
 
@@ -297,7 +321,11 @@ async function goalProgressBlocked(goalUrl) {
 	const built = await register(goalUrl);
 	const env = makeEnv();
 	await runCommand(built, "deploy to prod", env);
-	const r = await runProgress(built, { status: "blocked", assessment: "cannot proceed", blocker: "need prod creds" }, env);
+	const r = await runProgress(
+		built,
+		{ status: "blocked", assessment: "cannot proceed", blocker: "need prod creds" },
+		env,
+	);
 	check("blocked → tool reports details.status blocked", r?.details?.status === "blocked", JSON.stringify(r?.details));
 	const last = lastSnapFor(built.states, r?.details?.goalId);
 	check("blocked → final gstatus blocked", last?.gstatus === "blocked", `last=${last?.gstatus}`);
@@ -326,7 +354,11 @@ async function rehydrateVerifierOnceNoDoubleFire(goalUrl) {
 	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
 	const env = makeEnv([entry(s)]);
 	await fireStart(built, env);
-	check("verifying-independent reload spawns exactly one verifier", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
+	check(
+		"verifying-independent reload spawns exactly one verifier",
+		built.execCalls.length === 1,
+		`execCalls=${built.execCalls.length}`,
+	);
 	// Second session_start while the goal is already live (timer/in-flight): no re-launch.
 	await fireStart(built, env);
 	check(
@@ -336,7 +368,11 @@ async function rehydrateVerifierOnceNoDoubleFire(goalUrl) {
 	);
 	release();
 	await flush(() => lastStatusFor(built.states, s.goalId) === "done");
-	check("released verifier PASS closes the goal (done)", lastStatusFor(built.states, s.goalId) === "done", `last=${lastStatusFor(built.states, s.goalId)}`);
+	check(
+		"released verifier PASS closes the goal (done)",
+		lastStatusFor(built.states, s.goalId) === "done",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
 }
 
 // ===========================================================================
@@ -349,7 +385,11 @@ async function shutdownPursuingBecomesStale(goalUrl) {
 	await runCommand(built, "ship it", env);
 	const gid = lastSnapFor(built.states, undefined)?.goalId ?? built.states[0]?.goalId;
 	await fireShutdown(built, env);
-	check("session_shutdown: pursuing goal persists as stale", lastStatusFor(built.states, gid) === "stale", `last=${lastStatusFor(built.states, gid)}`);
+	check(
+		"session_shutdown: pursuing goal persists as stale",
+		lastStatusFor(built.states, gid) === "stale",
+		`last=${lastStatusFor(built.states, gid)}`,
+	);
 }
 
 async function shutdownVerifyingStaysVerifying(goalUrl) {
@@ -386,7 +426,11 @@ async function stopSubcommandResolvesGoal(goalUrl) {
 	await fireStart(built, env);
 	// `/goal stop` with no id → two candidates → ui.select picks aaaa1111.
 	await runCommand(built, "stop", env);
-	check("`/goal stop` (no id) stops the ui.select-chosen goal", lastStatusFor(built.states, "aaaa1111") === "stopped", `a=${lastStatusFor(built.states, "aaaa1111")}`);
+	check(
+		"`/goal stop` (no id) stops the ui.select-chosen goal",
+		lastStatusFor(built.states, "aaaa1111") === "stopped",
+		`a=${lastStatusFor(built.states, "aaaa1111")}`,
+	);
 	check(
 		"`/goal stop` (no id) leaves the unchosen goal untouched",
 		!built.states.some((st) => st.goalId === "bbbb2222" && st.gstatus === "stopped"),
@@ -394,7 +438,11 @@ async function stopSubcommandResolvesGoal(goalUrl) {
 	);
 	// `/goal stop <id>` stops exactly that id.
 	await runCommand(built, "stop bbbb2222", env);
-	check("`/goal stop <id>` stops exactly that id", lastStatusFor(built.states, "bbbb2222") === "stopped", `b=${lastStatusFor(built.states, "bbbb2222")}`);
+	check(
+		"`/goal stop <id>` stops exactly that id",
+		lastStatusFor(built.states, "bbbb2222") === "stopped",
+		`b=${lastStatusFor(built.states, "bbbb2222")}`,
+	);
 }
 
 // A `/goal stop` with no matching goal warns and persists nothing.
@@ -402,8 +450,16 @@ async function stopNoMatchWarns(goalUrl) {
 	const built = await register(goalUrl);
 	const env = makeEnv();
 	await runCommand(built, "stop", env);
-	check("`/goal stop` with no active goal warns 'No matching goal'", warned(env.notifies, /No matching goal/), "no warning");
-	check("`/goal stop` with no active goal persists nothing", built.states.length === 0, `states=${built.states.length}`);
+	check(
+		"`/goal stop` with no active goal warns 'No matching goal'",
+		warned(env.notifies, /No matching goal/),
+		"no warning",
+	);
+	check(
+		"`/goal stop` with no active goal persists nothing",
+		built.states.length === 0,
+		`states=${built.states.length}`,
+	);
 }
 
 // ===========================================================================

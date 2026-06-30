@@ -35,14 +35,14 @@ async function buildLiveness() {
 	const cpStub = path.join(outDir, "stub-cp.mjs");
 	await fs.writeFile(
 		fsStub,
-		'export function readFileSync(...args) {\n' +
+		"export function readFileSync(...args) {\n" +
 			'\tif (typeof globalThis.__bgReadFileSync === "function") return globalThis.__bgReadFileSync(...args);\n' +
 			'\tthrow new Error("readFileSync not stubbed in this test");\n' +
 			"}\n",
 	);
 	await fs.writeFile(
 		cpStub,
-		'export function spawnSync(...args) {\n' +
+		"export function spawnSync(...args) {\n" +
 			'\tif (typeof globalThis.__bgSpawnSync === "function") return globalThis.__bgSpawnSync(...args);\n' +
 			'\tthrow new Error("spawnSync not stubbed in this test");\n' +
 			"}\n",

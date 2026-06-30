@@ -161,10 +161,7 @@ function snapshotCopiesAllFields(mod) {
 	check("snapshot() maps every persisted GoalState field exactly", equal, detail);
 	check(
 		"snapshot() drops runtime-only fields (timer/controller/rearmedThisTurn/verifierInFlight)",
-		!("timer" in snap) &&
-			!("controller" in snap) &&
-			!("rearmedThisTurn" in snap) &&
-			!("verifierInFlight" in snap),
+		!("timer" in snap) && !("controller" in snap) && !("rearmedThisTurn" in snap) && !("verifierInFlight" in snap),
 		`keys=${Object.keys(snap).length}`,
 	);
 }
@@ -251,7 +248,11 @@ async function persistSwallowsSidecarError(mod) {
 		threw = true;
 	}
 	check("persist() does not throw when the sidecar write will fail", !threw);
-	check("persist() still appended the JSONL entry despite sidecar failure", entries.length === 1, `n=${entries.length}`);
+	check(
+		"persist() still appended the JSONL entry despite sidecar failure",
+		entries.length === 1,
+		`n=${entries.length}`,
+	);
 	// Let the rejected sidecar promise settle; the source's .catch(() => {}) must swallow it
 	// (any unhandled rejection here would crash the process with exit 2 via main()'s handler).
 	await flush(() => false, 30);
@@ -278,14 +279,22 @@ async function sidecarAtomicWriteTrustedRoot(mod) {
 	if (existsSync(file)) {
 		const raw = await fs.readFile(file, "utf8");
 		const parsed = JSON.parse(raw);
-		check("writeSidecar() state.json parses to the snapshot", parsed.goalId === "trusted-goal-1", `id=${parsed.goalId}`);
+		check(
+			"writeSidecar() state.json parses to the snapshot",
+			parsed.goalId === "trusted-goal-1",
+			`id=${parsed.goalId}`,
+		);
 		check(
 			"writeSidecar() writes pretty-printed JSON (2-space indent) with a trailing newline",
 			raw.endsWith("\n") && raw.includes('\n  "goalId"'),
 			JSON.stringify(raw.slice(0, 24)),
 		);
 		const leftovers = (await fs.readdir(dir)).filter((f) => f.endsWith(".tmp"));
-		check("writeSidecar() leaves no orphaned *.tmp file after a successful rename", leftovers.length === 0, leftovers.join(","));
+		check(
+			"writeSidecar() leaves no orphaned *.tmp file after a successful rename",
+			leftovers.length === 0,
+			leftovers.join(","),
+		);
 	}
 	await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
 }

@@ -85,22 +85,19 @@ function planningPromptTests(mod) {
 		check("planning(default): offers AskUserQuestion (interactive)", /AskUserQuestion/.test(out));
 		check("planning(default): has the WHAT TO DO section", /WHAT TO DO:/.test(out));
 		check("planning(default): mentions submit_plan for approval", /submit_plan/.test(out));
-		check(
-			"planning(default): interactive step3 mentions approval",
-			/presents it to the user for approval/.test(out),
-		);
+		check("planning(default): interactive step3 mentions approval", /presents it to the user for approval/.test(out));
 	}
 
 	// --- nonInteractive flag ---
 	{
 		const out = makePlanningPrompt({ planId: "p2", task: "t", nonInteractive: true });
-		check("planning(nonInteractive): includes NON-INTERACTIVE block", /NON-INTERACTIVE \(plan-only\) SESSION:/.test(out));
+		check(
+			"planning(nonInteractive): includes NON-INTERACTIVE block",
+			/NON-INTERACTIVE \(plan-only\) SESSION:/.test(out),
+		);
 		check("planning(nonInteractive): says NO human approval", /NO human approval/.test(out));
 		check("planning(nonInteractive): drops AskUserQuestion", !/AskUserQuestion/.test(out));
-		check(
-			"planning(nonInteractive): step3 says the plan IS the result",
-			/The plan IS the result/.test(out),
-		);
+		check("planning(nonInteractive): step3 says the plan IS the result", /The plan IS the result/.test(out));
 	}
 
 	// --- ultracode flag ---
@@ -113,7 +110,10 @@ function planningPromptTests(mod) {
 	// --- ultracodeSteps flag ---
 	{
 		const out = makePlanningPrompt({ planId: "p4", task: "t", ultracodeSteps: true });
-		check("planning(ultracodeSteps): includes 'ULTRACODE STEPS' guidance", /ULTRACODE STEPS: structure the plan/.test(out));
+		check(
+			"planning(ultracodeSteps): includes 'ULTRACODE STEPS' guidance",
+			/ULTRACODE STEPS: structure the plan/.test(out),
+		);
 	}
 
 	// --- both ultracode posture knobs together ---
@@ -142,8 +142,14 @@ function implementPromptTests(mod) {
 	{
 		const planText = "# Plan\n1. do X & verify *carefully*";
 		const out = makeImplementPrompt(planText);
-		check("implement(base): starts with 'Plan approved. Implement now:'", out.startsWith("Plan approved. Implement now:"));
-		check("implement(base): plan text follows a blank line, verbatim", out === `Plan approved. Implement now:\n\n${planText}`);
+		check(
+			"implement(base): starts with 'Plan approved. Implement now:'",
+			out.startsWith("Plan approved. Implement now:"),
+		);
+		check(
+			"implement(base): plan text follows a blank line, verbatim",
+			out === `Plan approved. Implement now:\n\n${planText}`,
+		);
 		check("implement(base): no ultracode suffix by default", !/dynamic_workflow/.test(out));
 	}
 
@@ -158,8 +164,14 @@ function implementPromptTests(mod) {
 	{
 		const planText = "# Plan\nstep";
 		const out = makeImplementPrompt(planText, { ultracodeSteps: true });
-		check("implement(steps=true): keeps the base prefix", out.startsWith(`Plan approved. Implement now:\n\n${planText}`));
-		check("implement(steps=true): appends dynamic_workflow guidance", /Execute the steps marked for ultracode via dynamic_workflow/.test(out));
+		check(
+			"implement(steps=true): keeps the base prefix",
+			out.startsWith(`Plan approved. Implement now:\n\n${planText}`),
+		);
+		check(
+			"implement(steps=true): appends dynamic_workflow guidance",
+			/Execute the steps marked for ultracode via dynamic_workflow/.test(out),
+		);
 		check("implement(steps=true): mentions concurrency/maxAgents", /concurrency\/maxAgents/.test(out));
 		check("implement(steps=true): plan text still present verbatim", out.includes(planText));
 	}

@@ -47,8 +47,15 @@ async function scenarioPrompts(url) {
 		await loadModule(url);
 
 	// effectiveCriteria: user criteria win; else derived; else undefined; whitespace trimmed.
-	check("effectiveCriteria prefers successCriteria", effectiveCriteria(baseGoal({ successCriteria: "  ship it  ", derivedCriteria: "x" })) === "ship it");
-	check("effectiveCriteria falls back to derivedCriteria", effectiveCriteria(baseGoal({ successCriteria: "   ", derivedCriteria: " done when tests pass " })) === "done when tests pass");
+	check(
+		"effectiveCriteria prefers successCriteria",
+		effectiveCriteria(baseGoal({ successCriteria: "  ship it  ", derivedCriteria: "x" })) === "ship it",
+	);
+	check(
+		"effectiveCriteria falls back to derivedCriteria",
+		effectiveCriteria(baseGoal({ successCriteria: "   ", derivedCriteria: " done when tests pass " })) ===
+			"done when tests pass",
+	);
 	check("effectiveCriteria undefined when neither", effectiveCriteria(baseGoal()) === undefined);
 
 	// formatProgressLog: empty → []; otherwise header + bounded last-N lines, oldest dropped.
@@ -60,29 +67,57 @@ async function scenarioPrompts(url) {
 		nextStep: `do ${i + 1}`,
 	}));
 	const log = formatProgressLog(baseGoal({ assessments: many }));
-	check("formatProgressLog has header + exactly PROGRESS_LOG_KEEP lines", log.length === PROGRESS_LOG_KEEP + 1 && log[0] === "PROGRESS LOG (most recent last):");
-	check("formatProgressLog keeps the most recent (last) assessment", log[log.length - 1].includes(`it ${PROGRESS_LOG_KEEP + 5}`));
+	check(
+		"formatProgressLog has header + exactly PROGRESS_LOG_KEEP lines",
+		log.length === PROGRESS_LOG_KEEP + 1 && log[0] === "PROGRESS LOG (most recent last):",
+	);
+	check(
+		"formatProgressLog keeps the most recent (last) assessment",
+		log[log.length - 1].includes(`it ${PROGRESS_LOG_KEEP + 5}`),
+	);
 	check("formatProgressLog drops the oldest assessment", !log.some((l) => l.includes("it 1 ")));
-	check("formatProgressLog omits 'next:' when nextStep is absent", formatProgressLog(baseGoal({ assessments: [{ iteration: 1, status: "done", assessment: "ok" }] }))[1] === "- it 1 [done] ok");
+	check(
+		"formatProgressLog omits 'next:' when nextStep is absent",
+		formatProgressLog(baseGoal({ assessments: [{ iteration: 1, status: "done", assessment: "ok" }] }))[1] ===
+			"- it 1 [done] ok",
+	);
 
 	// makeGoalIterationPrompt: criteria-present vs absent branch.
 	const withCriteria = makeGoalIterationPrompt(baseGoal({ successCriteria: "all tests pass" }));
 	check("iteration prompt includes objective verbatim", withCriteria.includes("Make the build green"));
-	check("iteration prompt shows definition-of-done when criteria present", withCriteria.includes("SUCCESS CRITERIA (definition-of-done):") && withCriteria.includes("all tests pass"));
+	check(
+		"iteration prompt shows definition-of-done when criteria present",
+		withCriteria.includes("SUCCESS CRITERIA (definition-of-done):") && withCriteria.includes("all tests pass"),
+	);
 	const noCriteria = makeGoalIterationPrompt(baseGoal());
-	check("iteration prompt 'none were provided' when no criteria", noCriteria.includes("SUCCESS CRITERIA: none were provided."));
-	check("iteration prompt asks to derive 2-5 criteria", /derive 2-5 concrete, VERIFIABLE success criteria/.test(noCriteria));
+	check(
+		"iteration prompt 'none were provided' when no criteria",
+		noCriteria.includes("SUCCESS CRITERIA: none were provided."),
+	);
+	check(
+		"iteration prompt asks to derive 2-5 criteria",
+		/derive 2-5 concrete, VERIFIABLE success criteria/.test(noCriteria),
+	);
 	check("iteration prompt shows iteration N/max", noCriteria.includes("This is iteration 1/8."));
 	check("iteration prompt omits ULTRACODE by default", !noCriteria.includes("ULTRACODE:"));
-	check("iteration prompt includes ULTRACODE when enabled", makeGoalIterationPrompt(baseGoal({ ultracode: true })).includes("ULTRACODE:"));
-	check("iteration prompt includes previous decision when set", makeGoalIterationPrompt(baseGoal({ lastReason: "waiting on CI" })).includes("Previous decision: waiting on CI"));
+	check(
+		"iteration prompt includes ULTRACODE when enabled",
+		makeGoalIterationPrompt(baseGoal({ ultracode: true })).includes("ULTRACODE:"),
+	);
+	check(
+		"iteration prompt includes previous decision when set",
+		makeGoalIterationPrompt(baseGoal({ lastReason: "waiting on CI" })).includes("Previous decision: waiting on CI"),
+	);
 
 	// makeGoalVerificationPrompt: adversarial completeness check.
 	const verify = makeGoalVerificationPrompt(baseGoal({ successCriteria: "tests pass" }));
 	check("verification prompt has COMPLETENESS CHECK header", verify.includes("COMPLETENESS CHECK for /goal g1."));
 	check("verification prompt includes objective verbatim", verify.includes("Make the build green"));
 	check("verification prompt instructs adversarial verification", verify.includes("VERIFY adversarially:"));
-	check("verification prompt has the done-to-CONFIRM path", /status:"done"/.test(verify) && verify.includes("CONFIRM"));
+	check(
+		"verification prompt has the done-to-CONFIRM path",
+		/status:"done"/.test(verify) && verify.includes("CONFIRM"),
+	);
 }
 
 async function scenarioSessionState(url) {

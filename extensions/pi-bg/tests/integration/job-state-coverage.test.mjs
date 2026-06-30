@@ -33,7 +33,7 @@ async function buildJobState() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-job-state-"));
 	await fs.writeFile(
 		path.join(outDir, "runtime-state.js"),
-		'export const activeJobs = new Map();\n' +
+		"export const activeJobs = new Map();\n" +
 			'export const asString = (v) => (typeof v === "string" ? v : undefined);\n' +
 			'export const asNumber = (v) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);\n',
 	);
@@ -70,14 +70,22 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 
 	// A reaped pid: spawnSync waits for exit, so this pid is dead by the time we probe it.
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
-	check("setup: probe child exited cleanly", dead.status === 0, JSON.stringify({ status: dead.status, pid: dead.pid }));
+	check(
+		"setup: probe child exited cleanly",
+		dead.status === 0,
+		JSON.stringify({ status: dead.status, pid: dead.pid }),
+	);
 
 	const jobId = "owned-job";
 	activeJobs.set(jobId, {});
 	try {
 		const owned = projectState(jobId, "running", dead.pid);
 		check("owned: persisted running passes through unchanged", owned.state === "running", JSON.stringify(owned));
-		check("owned: no persistedState attached (probe skipped)", owned.persistedState === undefined, JSON.stringify(owned));
+		check(
+			"owned: no persistedState attached (probe skipped)",
+			owned.persistedState === undefined,
+			JSON.stringify(owned),
+		);
 		check("owned: no verify-before-kill hint attached", owned.hint === undefined, JSON.stringify(owned));
 
 		// Contrast: the SAME dead pid, NOT owned, takes the probe branch -> not 'running'.
@@ -90,18 +98,33 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 
 		// decorateStatus mirrors the short-circuit and stamps active=true for an owned job.
 		const decorated = decorateStatus(jobId, { state: "running", pid: dead.pid });
-		check("owned: decorateStatus keeps running and marks active", decorated.state === "running" && decorated.active === true, JSON.stringify(decorated));
-		check("owned: decorateStatus attaches no persistedState/hint", decorated.persistedState === undefined && decorated.hint === undefined, JSON.stringify(decorated));
+		check(
+			"owned: decorateStatus keeps running and marks active",
+			decorated.state === "running" && decorated.active === true,
+			JSON.stringify(decorated),
+		);
+		check(
+			"owned: decorateStatus attaches no persistedState/hint",
+			decorated.persistedState === undefined && decorated.hint === undefined,
+			JSON.stringify(decorated),
+		);
 
 		// deriveState is the thin .state accessor over projectState — owned passthrough too.
-		check("owned: deriveState returns the passthrough state", deriveState(jobId, { state: "running", pid: dead.pid }) === "running");
+		check(
+			"owned: deriveState returns the passthrough state",
+			deriveState(jobId, { state: "running", pid: dead.pid }) === "running",
+		);
 	} finally {
 		activeJobs.delete(jobId);
 	}
 
 	// A terminal persisted state is a passthrough regardless of ownership (never probed).
 	const terminal = projectState("terminal-job", "completed", dead.pid);
-	check("terminal: completed passes through with no probe metadata", terminal.state === "completed" && terminal.persistedState === undefined && terminal.hint === undefined, JSON.stringify(terminal));
+	check(
+		"terminal: completed passes through with no probe metadata",
+		terminal.state === "completed" && terminal.persistedState === undefined && terminal.hint === undefined,
+		JSON.stringify(terminal),
+	);
 }
 
 // Gap 2: decorateStatus sets `active` from activeJobs membership and returns a NON-mutating
@@ -109,7 +132,11 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 async function decorateStatusIsNonMutatingAndSetsActive(moduleUrl, runtimeStateUrl) {
 	const { decorateStatus } = await loadModule(moduleUrl);
 	const { activeJobs } = await import(runtimeStateUrl);
-	check("setup: registry starts without the probed job", !activeJobs.has("frozen-job"), String([...activeJobs.keys()]));
+	check(
+		"setup: registry starts without the probed job",
+		!activeJobs.has("frozen-job"),
+		String([...activeJobs.keys()]),
+	);
 
 	const raw = Object.freeze({ state: "completed", pid: 12345, extra: "keep-me" });
 	let threw = false;
@@ -123,7 +150,11 @@ async function decorateStatusIsNonMutatingAndSetsActive(moduleUrl, runtimeStateU
 	check("non-mutating: result.active is false for an unowned job", result?.active === false, JSON.stringify(result));
 	check("non-mutating: original raw.state is unchanged", raw.state === "completed");
 	check("non-mutating: original raw was not given an active flag", !("active" in raw));
-	check("non-mutating: unrelated fields are carried onto the copy", result?.extra === "keep-me" && result?.pid === 12345, JSON.stringify(result));
+	check(
+		"non-mutating: unrelated fields are carried onto the copy",
+		result?.extra === "keep-me" && result?.pid === 12345,
+		JSON.stringify(result),
+	);
 	check("non-mutating: returned object is a distinct copy", result !== raw);
 }
 

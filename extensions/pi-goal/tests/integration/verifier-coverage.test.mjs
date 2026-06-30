@@ -101,7 +101,11 @@ async function fallbackLastMatchWins(mod) {
 		verdict.pass === true,
 		`pass=${verdict.pass}`,
 	);
-	check("fallback PASS is a parsed verdict (unparsed=false)", verdict.unparsed === false, `unparsed=${verdict.unparsed}`);
+	check(
+		"fallback PASS is a parsed verdict (unparsed=false)",
+		verdict.unparsed === false,
+		`unparsed=${verdict.unparsed}`,
+	);
 }
 
 // Companion: when the FINAL non-empty line DOES carry a verdict, that line wins over any
@@ -130,7 +134,11 @@ async function noVerdictIsConservativeFail(mod) {
 // ===========================================================================
 async function promptNoCriteriaBranch(mod) {
 	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
-	await mod.runIndependentVerifier(pi, makeCtx(), makeGoal({ successCriteria: undefined, derivedCriteria: undefined }));
+	await mod.runIndependentVerifier(
+		pi,
+		makeCtx(),
+		makeGoal({ successCriteria: undefined, derivedCriteria: undefined }),
+	);
 	const prompt = capturedPrompt(calls);
 	check(
 		"no-criteria prompt contains 'none were stated explicitly'",
@@ -197,8 +205,16 @@ async function execWiring(mod) {
 	);
 	// The argv guarantees a read-only, sessionless judge run.
 	const args = calls[0].args;
-	check("argv requests a one-shot sessionless run (-p --no-session)", args.includes("-p") && args.includes("--no-session"), JSON.stringify(args.slice(0, 4)));
-	check("argv passes the read-only --tools allowlist", args.includes("--tools") && args.includes("read,grep,find,ls"), JSON.stringify(args));
+	check(
+		"argv requests a one-shot sessionless run (-p --no-session)",
+		args.includes("-p") && args.includes("--no-session"),
+		JSON.stringify(args.slice(0, 4)),
+	);
+	check(
+		"argv passes the read-only --tools allowlist",
+		args.includes("--tools") && args.includes("read,grep,find,ls"),
+		JSON.stringify(args),
+	);
 }
 
 // Empty verifierTools must DISABLE tools (--no-tools), never fall through to a mutating default.
@@ -206,7 +222,11 @@ async function emptyToolsDisablesTools(mod) {
 	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	await mod.runIndependentVerifier(pi, makeCtx(), makeGoal({ verifierTools: [] }));
 	const args = calls[0].args;
-	check("empty verifierTools → --no-tools (never a mutating default)", args.includes("--no-tools") && !args.includes("--tools"), JSON.stringify(args));
+	check(
+		"empty verifierTools → --no-tools (never a mutating default)",
+		args.includes("--no-tools") && !args.includes("--tools"),
+		JSON.stringify(args),
+	);
 }
 
 // ===========================================================================
@@ -224,7 +244,11 @@ async function nonZeroExitWithPassIsFail(mod) {
 	const { pi } = makePi({ code: 1, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal());
 	check("non-zero exit + PASS line is contradictory → FAIL", verdict.pass === false, `pass=${verdict.pass}`);
-	check("non-zero-exit override is a parsed verdict (unparsed=false)", verdict.unparsed === false, `unparsed=${verdict.unparsed}`);
+	check(
+		"non-zero-exit override is a parsed verdict (unparsed=false)",
+		verdict.unparsed === false,
+		`unparsed=${verdict.unparsed}`,
+	);
 }
 
 async function thrownExecIsConservativeFail(mod) {

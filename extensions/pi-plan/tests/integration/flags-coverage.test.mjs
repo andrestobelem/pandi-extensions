@@ -46,7 +46,7 @@ async function buildFlags() {
 
 // Run `fn` with process.env[name] set to `value` (or deleted if value===null), restoring after.
 function withEnv(name, value, fn) {
-	const had = Object.prototype.hasOwnProperty.call(process.env, name);
+	const had = Object.hasOwn(process.env, name);
 	const prev = process.env[name];
 	try {
 		if (value === null) delete process.env[name];
@@ -76,7 +76,10 @@ async function envFlagTokens(url) {
 		);
 	}
 	// Unset var → false.
-	check("envFlag: unset var → false", withEnv("PI_PLAN_TEST_FLAG", null, () => envFlag("PI_PLAN_TEST_FLAG")) === false);
+	check(
+		"envFlag: unset var → false",
+		withEnv("PI_PLAN_TEST_FLAG", null, () => envFlag("PI_PLAN_TEST_FLAG")) === false,
+	);
 }
 
 // ===========================================================================

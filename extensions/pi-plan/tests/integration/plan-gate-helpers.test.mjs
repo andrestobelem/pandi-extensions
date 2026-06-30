@@ -74,7 +74,12 @@ async function scenarioGateHelpers(url) {
 	];
 	for (const cmd of readOnly) check(`isMutatingBash allows: ${cmd}`, isMutatingBash(cmd) === false, cmd);
 
-	check("MUTATING_BASH_PATTERNS is a non-empty RegExp array", Array.isArray(MUTATING_BASH_PATTERNS) && MUTATING_BASH_PATTERNS.length > 0 && MUTATING_BASH_PATTERNS.every((r) => r instanceof RegExp));
+	check(
+		"MUTATING_BASH_PATTERNS is a non-empty RegExp array",
+		Array.isArray(MUTATING_BASH_PATTERNS) &&
+			MUTATING_BASH_PATTERNS.length > 0 &&
+			MUTATING_BASH_PATTERNS.every((r) => r instanceof RegExp),
+	);
 
 	// --- blockedReason: structured built-ins ---
 	const ev = (toolName, input = {}) => ({ toolName, input });
@@ -89,17 +94,31 @@ async function scenarioGateHelpers(url) {
 	// --- blockedReason: bash depends on the command ---
 	check("blockedReason allows read-only bash", blockedReason(ev("bash", { command: "git status" })) === undefined);
 	check("blockedReason blocks mutating bash", typeof blockedReason(ev("bash", { command: "rm -rf x" })) === "string");
-	check("blockedReason allows bash with non-string command", blockedReason(ev("bash", { command: 123 })) === undefined);
+	check(
+		"blockedReason allows bash with non-string command",
+		blockedReason(ev("bash", { command: 123 })) === undefined,
+	);
 
 	// --- blockedReason: dynamic_workflow read-only allowlist ---
 	for (const action of ["list", "scaffold", "read", "graph", "runs", "view"]) {
-		check(`blockedReason allows dynamic_workflow ${action}`, blockedReason(ev("dynamic_workflow", { action })) === undefined, action);
+		check(
+			`blockedReason allows dynamic_workflow ${action}`,
+			blockedReason(ev("dynamic_workflow", { action })) === undefined,
+			action,
+		);
 		check(`DYNAMIC_WORKFLOW_READONLY_ACTIONS has ${action}`, DYNAMIC_WORKFLOW_READONLY_ACTIONS.has(action));
 	}
 	for (const action of ["run", "start", "resume", "write", "cancel", "delete"]) {
-		check(`blockedReason blocks dynamic_workflow ${action}`, typeof blockedReason(ev("dynamic_workflow", { action })) === "string", action);
+		check(
+			`blockedReason blocks dynamic_workflow ${action}`,
+			typeof blockedReason(ev("dynamic_workflow", { action })) === "string",
+			action,
+		);
 	}
-	check("blockedReason blocks dynamic_workflow with missing action", typeof blockedReason(ev("dynamic_workflow", {})) === "string");
+	check(
+		"blockedReason blocks dynamic_workflow with missing action",
+		typeof blockedReason(ev("dynamic_workflow", {})) === "string",
+	);
 
 	// --- blockedReason: unknown tool falls through (allowed, best-effort) ---
 	check("blockedReason allows an unknown tool", blockedReason(ev("some_other_tool")) === undefined);

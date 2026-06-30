@@ -53,7 +53,10 @@ async function scenarioStorage(url) {
 
 		check("lstatPlainDirectory true for a real dir", (await lstatPlainDirectory(realDir)) === true);
 		check("lstatPlainDirectory false for a regular file", (await lstatPlainDirectory(regularFile)) === false);
-		check("lstatPlainDirectory false for a missing path (ENOENT swallowed)", (await lstatPlainDirectory(missing)) === false);
+		check(
+			"lstatPlainDirectory false for a missing path (ENOENT swallowed)",
+			(await lstatPlainDirectory(missing)) === false,
+		);
 		if (symlinkOk) {
 			check("lstatPlainDirectory false for a symlink-to-dir", (await lstatPlainDirectory(symlinkToDir)) === false);
 		} else {
@@ -61,15 +64,30 @@ async function scenarioStorage(url) {
 		}
 
 		// chain: true only when every component is a real, non-symlinked dir under base.
-		check("lstatPlainDirectoryChain true for nested real dirs under base", (await lstatPlainDirectoryChain(realDir, nested)) === true);
-		check("lstatPlainDirectoryChain false for a target outside base ('..')", (await lstatPlainDirectoryChain(realDir, path.join(tmp, "elsewhere"))) === false);
-		check("lstatPlainDirectoryChain false for an absolute escape", (await lstatPlainDirectoryChain(realDir, "/")) === false);
+		check(
+			"lstatPlainDirectoryChain true for nested real dirs under base",
+			(await lstatPlainDirectoryChain(realDir, nested)) === true,
+		);
+		check(
+			"lstatPlainDirectoryChain false for a target outside base ('..')",
+			(await lstatPlainDirectoryChain(realDir, path.join(tmp, "elsewhere"))) === false,
+		);
+		check(
+			"lstatPlainDirectoryChain false for an absolute escape",
+			(await lstatPlainDirectoryChain(realDir, "/")) === false,
+		);
 		// base === target yields an empty relative, which the guard rejects (the chain is only
 		// ever asked about a CHILD of base; same-dir is treated as out of scope → false).
-		check("lstatPlainDirectoryChain false for base === target (empty relative rejected)", (await lstatPlainDirectoryChain(realDir, realDir)) === false);
+		check(
+			"lstatPlainDirectoryChain false for base === target (empty relative rejected)",
+			(await lstatPlainDirectoryChain(realDir, realDir)) === false,
+		);
 		if (symlinkOk) {
 			const throughLink = path.join(symlinkToDir, "a");
-			check("lstatPlainDirectoryChain false when a component is symlinked", (await lstatPlainDirectoryChain(tmp, throughLink)) === false);
+			check(
+				"lstatPlainDirectoryChain false when a component is symlinked",
+				(await lstatPlainDirectoryChain(tmp, throughLink)) === false,
+			);
 		} else {
 			check("lstatPlainDirectoryChain symlink-component case skipped", true);
 		}
@@ -114,11 +132,26 @@ async function scenarioRuntimeState(url) {
 	const { asNumber, asString } = await loadModule(url);
 
 	check("asNumber returns finite numbers", asNumber(42) === 42 && asNumber(0) === 0 && asNumber(-3.5) === -3.5);
-	check("asNumber rejects NaN/Infinity", asNumber(NaN) === undefined && asNumber(Infinity) === undefined && asNumber(-Infinity) === undefined);
-	check("asNumber rejects non-numbers", asNumber("42") === undefined && asNumber(null) === undefined && asNumber(undefined) === undefined && asNumber({}) === undefined);
+	check(
+		"asNumber rejects NaN/Infinity",
+		asNumber(NaN) === undefined && asNumber(Infinity) === undefined && asNumber(-Infinity) === undefined,
+	);
+	check(
+		"asNumber rejects non-numbers",
+		asNumber("42") === undefined &&
+			asNumber(null) === undefined &&
+			asNumber(undefined) === undefined &&
+			asNumber({}) === undefined,
+	);
 
 	check("asString returns strings", asString("hi") === "hi" && asString("") === "");
-	check("asString rejects non-strings", asString(42) === undefined && asString(null) === undefined && asString(undefined) === undefined && asString({}) === undefined);
+	check(
+		"asString rejects non-strings",
+		asString(42) === undefined &&
+			asString(null) === undefined &&
+			asString(undefined) === undefined &&
+			asString({}) === undefined,
+	);
 }
 
 async function main() {

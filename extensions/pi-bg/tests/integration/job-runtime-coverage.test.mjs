@@ -86,9 +86,17 @@ async function writeStatusSerializes(mod) {
 
 	check("writeStatus: updatedAt is monotonic across queued writes", u2 >= u1, JSON.stringify({ u1, u2 }));
 	const onDisk = await readJson(path.join(runDir, "status.json"));
-	check("writeStatus: last queued patch wins on disk (chain serialized)", onDisk.state === "running", JSON.stringify(onDisk));
+	check(
+		"writeStatus: last queued patch wins on disk (chain serialized)",
+		onDisk.state === "running",
+		JSON.stringify(onDisk),
+	);
 	check("writeStatus: merges existing fields not in the patch", onDisk.exitCode === 5, JSON.stringify(onDisk));
-	check("writeStatus: stamps a fresh updatedAt", typeof onDisk.updatedAt === "string" && onDisk.updatedAt > new Date(0).toISOString(), onDisk.updatedAt);
+	check(
+		"writeStatus: stamps a fresh updatedAt",
+		typeof onDisk.updatedAt === "string" && onDisk.updatedAt > new Date(0).toISOString(),
+		onDisk.updatedAt,
+	);
 }
 
 // --- pipeWithBackpressure: null/undefined source short-circuits ---
@@ -110,7 +118,11 @@ async function pipeNullSourceShortCircuits(mod) {
 		threw = true;
 	}
 	check("pipe-null: returns without throwing on null/undefined source", !threw);
-	check("pipe-null: attaches no drain listener to the sink (no wiring)", sink.listenerCount("drain") === 0, String(sink.listenerCount("drain")));
+	check(
+		"pipe-null: attaches no drain listener to the sink (no wiring)",
+		sink.listenerCount("drain") === 0,
+		String(sink.listenerCount("drain")),
+	);
 	check("pipe-null: no writes occur", writes === 0, String(writes));
 	sink.destroy();
 }
@@ -137,15 +149,27 @@ async function pipeMultiSinkCoordination(mod) {
 	pipe(source, [slowA, slowB]);
 	source.write(Buffer.from("a".repeat(4096)));
 	await tick();
-	check("pipe-multi: source pauses while both sinks are full", source.isPaused() === true, `isPaused=${source.isPaused()}`);
+	check(
+		"pipe-multi: source pauses while both sinks are full",
+		source.isPaused() === true,
+		`isPaused=${source.isPaused()}`,
+	);
 	// Release only slowA -> the other sink still needs drain, so the source stays paused.
 	if (cbA) cbA();
 	await tick();
-	check("pipe-multi: still paused after only one sink drains", source.isPaused() === true, `isPaused=${source.isPaused()}`);
+	check(
+		"pipe-multi: still paused after only one sink drains",
+		source.isPaused() === true,
+		`isPaused=${source.isPaused()}`,
+	);
 	// Release slowB -> every sink has drained, source resumes.
 	if (cbB) cbB();
 	await tick();
-	check("pipe-multi: resumes only after EVERY sink drains", source.isPaused() === false, `isPaused=${source.isPaused()}`);
+	check(
+		"pipe-multi: resumes only after EVERY sink drains",
+		source.isPaused() === false,
+		`isPaused=${source.isPaused()}`,
+	);
 	source.destroy();
 	slowA.destroy();
 	slowB.destroy();
@@ -181,7 +205,12 @@ async function pipeIndependentCaps(mod) {
 	const markers = (t) => (t.match(/\[log capped at 10 bytes\]/g) || []).length;
 	check("pipe-caps: sink A gets exactly one cap marker", markers(textA) === 1, textA);
 	check("pipe-caps: sink B gets exactly one cap marker (independent)", markers(textB) === 1, textB);
-	check("pipe-caps: payload bytes per sink do not exceed the cap", textA.replace(/\n?\[log capped at 10 bytes\]\n?/g, "").length <= cap && textB.replace(/\n?\[log capped at 10 bytes\]\n?/g, "").length <= cap, JSON.stringify({ a: textA.length, b: textB.length }));
+	check(
+		"pipe-caps: payload bytes per sink do not exceed the cap",
+		textA.replace(/\n?\[log capped at 10 bytes\]\n?/g, "").length <= cap &&
+			textB.replace(/\n?\[log capped at 10 bytes\]\n?/g, "").length <= cap,
+		JSON.stringify({ a: textA.length, b: textB.length }),
+	);
 	source.destroy();
 	sinkA.destroy();
 	sinkB.destroy();
@@ -198,9 +227,17 @@ async function finalizeStateDerivation(mod) {
 	await finalizeJob(errRt, null, null, new Error("spawn EACCES"));
 	const errStatus = await readJson(path.join(errDir, "status.json"));
 	check("finalize-derive: error -> state failed", errStatus.state === "failed", JSON.stringify(errStatus));
-	check("finalize-derive: error message recorded on status", errStatus.error === "spawn EACCES", JSON.stringify(errStatus));
+	check(
+		"finalize-derive: error message recorded on status",
+		errStatus.error === "spawn EACCES",
+		JSON.stringify(errStatus),
+	);
 	const errEvents = await fs.readFile(path.join(errDir, "events.jsonl"), "utf8");
-	check("finalize-derive: finish event includes the error message", /"event":"finish"/.test(errEvents) && /spawn EACCES/.test(errEvents), errEvents.slice(-200));
+	check(
+		"finalize-derive: finish event includes the error message",
+		/"event":"finish"/.test(errEvents) && /spawn EACCES/.test(errEvents),
+		errEvents.slice(-200),
+	);
 
 	// exitCode 0, no error, not cancelled -> completed
 	const okDir = await makeRunDir("ok");
@@ -214,14 +251,22 @@ async function finalizeStateDerivation(mod) {
 	const failRt = makeRuntime("fail", failDir);
 	await finalizeJob(failRt, 7, null);
 	const failStatus = await readJson(path.join(failDir, "status.json"));
-	check("finalize-derive: non-zero exit -> failed", failStatus.state === "failed" && failStatus.exitCode === 7, JSON.stringify(failStatus));
+	check(
+		"finalize-derive: non-zero exit -> failed",
+		failStatus.state === "failed" && failStatus.exitCode === 7,
+		JSON.stringify(failStatus),
+	);
 
 	// cancelRequested wins even on exit 0
 	const cancelDir = await makeRunDir("cancel");
 	const cancelRt = makeRuntime("cancel", cancelDir, { cancelRequested: true });
 	await finalizeJob(cancelRt, 0, null);
 	const cancelStatus = await readJson(path.join(cancelDir, "status.json"));
-	check("finalize-derive: cancelRequested overrides exit 0 -> cancelled", cancelStatus.state === "cancelled", JSON.stringify(cancelStatus));
+	check(
+		"finalize-derive: cancelRequested overrides exit 0 -> cancelled",
+		cancelStatus.state === "cancelled",
+		JSON.stringify(cancelStatus),
+	);
 }
 
 // --- finalizeJob: idempotency + cancelTimer cleared ---
@@ -240,7 +285,11 @@ async function finalizeIdempotentAndClearsTimer(mod) {
 	await finalizeJob(rt, 7, null); // must be a no-op
 
 	const status = await readJson(path.join(runDir, "status.json"));
-	check("finalize-idem: status stays completed after a second call", status.state === "completed" && status.exitCode === 0, JSON.stringify(status));
+	check(
+		"finalize-idem: status stays completed after a second call",
+		status.state === "completed" && status.exitCode === 0,
+		JSON.stringify(status),
+	);
 	const events = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8");
 	const finishCount = (events.match(/"event":"finish"/g) || []).length;
 	check("finalize-idem: exactly one finish event written", finishCount === 1, String(finishCount));
@@ -261,7 +310,11 @@ async function killRuntimeBranches(mod) {
 		child: { exitCode: 0, signalCode: null, pid: 999999, kill: (s) => (finishedSig = s) },
 	};
 	killRuntime(finished, "SIGTERM");
-	check("kill: finished job is not re-signalled (child.kill untouched)", finishedSig === "untouched", String(finishedSig));
+	check(
+		"kill: finished job is not re-signalled (child.kill untouched)",
+		finishedSig === "untouched",
+		String(finishedSig),
+	);
 
 	// Live job with no pid -> falls back to child.kill(signal).
 	let noPidSig = null;
@@ -291,7 +344,11 @@ async function killRuntimePosixGroup(mod) {
 	};
 	try {
 		killRuntime(rt, "SIGTERM");
-		check("kill-posix: child.kill NOT called after group signal (no double kill)", directKillSig === null, String(directKillSig));
+		check(
+			"kill-posix: child.kill NOT called after group signal (no double kill)",
+			directKillSig === null,
+			String(directKillSig),
+		);
 		const dead = await waitDead(child.pid);
 		check("kill-posix: the detached group was actually signalled", dead === true);
 	} finally {
@@ -315,7 +372,8 @@ async function signalProcessGroupPosix(mod) {
 		return;
 	}
 	const signalProcessGroup = mod.signalProcessGroup;
-	if (typeof signalProcessGroup !== "function") return check("group-posix: exported", false, typeof signalProcessGroup);
+	if (typeof signalProcessGroup !== "function")
+		return check("group-posix: exported", false, typeof signalProcessGroup);
 	// A detached leader that forks a grandchild in the SAME process group; both must die
 	// from a single negative-pid group signal (distinguishing it from process.kill(pid)).
 	const code =
@@ -332,7 +390,11 @@ async function signalProcessGroupPosix(mod) {
 		return Number.isInteger(n) && n > 0 ? n : false;
 	});
 	try {
-		check("group-posix: both child and grandchild are alive before signal", isAlive(child.pid) && isAlive(grandPid), JSON.stringify({ c: child.pid, g: grandPid }));
+		check(
+			"group-posix: both child and grandchild are alive before signal",
+			isAlive(child.pid) && isAlive(grandPid),
+			JSON.stringify({ c: child.pid, g: grandPid }),
+		);
 		signalProcessGroup(child.pid, "SIGTERM");
 		const childDead = await waitDead(child.pid);
 		const grandDead = await waitDead(grandPid);

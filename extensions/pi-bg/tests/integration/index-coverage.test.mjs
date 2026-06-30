@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Characterization coverage for index.ts command-dispatch branches that the
  * primary bg-jobs suite does not exercise: the top-level try/catch error
@@ -14,11 +15,11 @@
  * record its CURRENT behavior.
  */
 
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadDefault, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
@@ -175,7 +176,8 @@ async function duplicateCancelIsReported(url) {
 	} finally {
 		await waitFor(
 			"dup-cancel job terminal",
-			async () => ["cancelled", "completed", "failed"].includes((await readJson(path.join(job.runDir, "status.json"))).state),
+			async () =>
+				["cancelled", "completed", "failed"].includes((await readJson(path.join(job.runDir, "status.json"))).state),
 			{ timeoutMs: 8000 },
 		).catch(() => {});
 	}
@@ -197,7 +199,13 @@ async function cancelPersistedRefusesReusedIdentity(url) {
 	await fs.writeFile(
 		path.join(runDir, "status.json"),
 		JSON.stringify(
-			{ jobId, state: "running", pid: process.pid, startId: "stale:bogus-identity", updatedAt: new Date().toISOString() },
+			{
+				jobId,
+				state: "running",
+				pid: process.pid,
+				startId: "stale:bogus-identity",
+				updatedAt: new Date().toISOString(),
+			},
 			null,
 			2,
 		),
@@ -309,7 +317,8 @@ async function reconcileSkipsActiveSessionJob(url) {
 		await job.cleanup();
 		await waitFor(
 			"reconcile-active job terminal",
-			async () => ["cancelled", "completed", "failed"].includes((await readJson(path.join(job.runDir, "status.json"))).state),
+			async () =>
+				["cancelled", "completed", "failed"].includes((await readJson(path.join(job.runDir, "status.json"))).state),
 			{ timeoutMs: 8000 },
 		).catch(() => {});
 	}

@@ -158,13 +158,18 @@ async function submitNoUiDegrades(url) {
 	// Submit through a degraded ctx: hasUI=true but ctx.ui.confirm is missing.
 	const degraded = makeCtx({ mode: "tui", hasUI: true, confirm: "omit" });
 	check("no-ui: degraded ctx really has no confirm", typeof degraded.ui.confirm !== "function");
-	const res = await tools.get("submit_plan").execute("tc1", { plan: "# Plan\n1. step" }, undefined, undefined, degraded);
+	const res = await tools
+		.get("submit_plan")
+		.execute("tc1", { plan: "# Plan\n1. step" }, undefined, undefined, degraded);
 
 	check("no-ui: tool result details.reason='no-ui'", res?.details && res.details.reason === "no-ui");
 	check("no-ui: tool result details.status='planning'", res?.details && res.details.status === "planning");
 	check("no-ui: tool result approved=false", res?.details && res.details.approved === false);
 	check("no-ui: tool result is NOT an error (degraded, not crash)", !res?.details?.isError);
-	check("no-ui: warned via notify", degraded._notes.some((n) => n.type === "warning" && /approval dialog/i.test(n.msg)));
+	check(
+		"no-ui: warned via notify",
+		degraded._notes.some((n) => n.type === "warning" && /approval dialog/i.test(n.msg)),
+	);
 
 	// Did NOT auto-approve: the gate stays armed and no implement message was injected.
 	check("no-ui: write STILL BLOCKED after submit (gate not lifted)", await writeBlocked(handlers, degraded));
@@ -312,7 +317,10 @@ async function wakeDelivery(url) {
 		await tools.get("submit_plan").execute("tc1", { plan: "# Plan\n1. step" }, undefined, undefined, ctx);
 		const wake = sentMessages[sentMessages.length - 1];
 		check("wake(idle): implement message injected", wake && /Implement now/i.test(wake.content));
-		check("wake(idle): NO deliverAs option (steered, not followUp)", !wake?.options || wake.options.deliverAs === undefined);
+		check(
+			"wake(idle): NO deliverAs option (steered, not followUp)",
+			!wake?.options || wake.options.deliverAs === undefined,
+		);
 	}
 
 	// --- 5c: the degraded no-UI submit path never wakes (no implement message at all). ---
