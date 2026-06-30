@@ -67,10 +67,20 @@ async function scenarioMoodsUnit(url) {
 		check(`mood is trimmed: ${JSON.stringify(mood)}`, mood === mood.trim());
 		check(`mood ends with the ellipsis char "…": ${JSON.stringify(mood)}`, mood.endsWith("…"));
 		check(`mood does not end with ascii "...": ${JSON.stringify(mood)}`, !mood.endsWith("..."));
-		check(`mood starts lowercase: ${JSON.stringify(mood)}`, mood[0] === mood[0].toLowerCase() && mood[0] !== mood[0].toUpperCase());
-		// Reads cleanly in BOTH templates the indicator uses.
-		check(`mood renders in "Pandi ${"${mood}"}": ${JSON.stringify(mood)}`, `Pandi ${mood}`.startsWith("Pandi ") && `Pandi ${mood}`.endsWith("…"));
 		check(
+			`mood starts lowercase: ${JSON.stringify(mood)}`,
+			mood[0] === mood[0].toLowerCase() && mood[0] !== mood[0].toUpperCase(),
+		);
+		// Reads cleanly in BOTH templates the indicator uses. The `"${mood}"` substrings are
+		// INTENTIONAL literal `${mood}` text (documenting the indicator's template), not a
+		// forgotten template literal — hence the targeted biome-ignore before each template.
+		check(
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` shown in the assertion label on purpose
+			`mood renders in "Pandi ${"${mood}"}": ${JSON.stringify(mood)}`,
+			`Pandi ${mood}`.startsWith("Pandi ") && `Pandi ${mood}`.endsWith("…"),
+		);
+		check(
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` shown in the assertion label on purpose
 			`mood renders in "Pandi despierto y ${"${mood}"}": ${JSON.stringify(mood)}`,
 			`Pandi despierto y ${mood}`.startsWith("Pandi despierto y ") && `Pandi despierto y ${mood}`.endsWith("…"),
 		);

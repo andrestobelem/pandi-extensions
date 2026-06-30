@@ -48,6 +48,11 @@
 			"**",
 			"!node_modules",
 			"!.pi",
+			// `.claude` is Claude Code's project config/tooling dir (analogous to `.pi`):
+			// it holds dynamic-workflow SCAFFOLDS (top-level `return` + template-literal
+			// prompts => not parseable as standalone modules) and their generator script.
+			// Lint the maintained sources under extensions/ instead, like `.pi`.
+			"!.claude",
 			"!dist",
 			"!.cache",
 			"!coverage",

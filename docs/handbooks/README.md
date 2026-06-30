@@ -22,4 +22,4 @@ up to date as the project evolves.
 
 <!-- Add handbook pages here as they are created. -->
 
-_(empty for now)_
+No handbook pages yet.

@@ -158,7 +158,6 @@ function pandaFrames(theme: Theme, style: FaceStyle): WorkingIndicatorOptions {
 	return style === "kaomoji" ? framesKaomoji(theme) : framesClaude(theme);
 }
 
-
 export default function (pi: ExtensionAPI) {
 	let enabled = true;
 	let artVisible = true;
