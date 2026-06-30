@@ -14,7 +14,9 @@
     "../extensions/pi-typescript-lsp",
     "../extensions/pi-rename",
     "../extensions/pi-btw",
-    "../extensions/pi-pandi"
+    "../extensions/pi-pandi",
+    "../extensions/pi-exit",
+    "../extensions/pi-clear"
   ],
   "extensions": []
 }

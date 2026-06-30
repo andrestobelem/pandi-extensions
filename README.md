@@ -46,6 +46,8 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `/rename` | `pi install ./extensions/pi-rename` |
 | `/btw` | `pi install ./extensions/pi-btw` |
 | `/pandi` | `pi install ./extensions/pi-pandi` |
+| `/exit` (alias de `/quit`) | `pi install ./extensions/pi-exit` |
+| `/clear` (alias de `/new`) | `pi install ./extensions/pi-clear` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
@@ -89,6 +91,8 @@ Comandos humanos:
 /ultracode-mode off                    # desactiva el router en esta sesión
 /ultracode-mode on                     # vuelve a activarlo
 /pandi                                 # estado + saludo del panda; /pandi art|face|on|off ajusta el splash y el indicador
+/exit                                  # sale de Pi de forma limpia (alias estilo-Claude de /quit)
+/clear                                 # empieza una sesión nueva, limpiando la conversación (alias estilo-Claude de /new)
 ```
 
 También puedes empezar un mensaje con `ultracode ...` o `dynamic workflow ...` y la extensión lo transforma en una petición orientada a workflows.

@@ -1,0 +1,26 @@
+{
+	"name": "pi-dynamic-workflows-clear",
+	"version": "0.1.0",
+	"description": "Pi extension that adds a Claude-style /clear command as an alias for the native /new (start a fresh session).",
+	"license": "MIT",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"clear",
+		"new"
+	],
+	"files": [
+		"index.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	}
+}

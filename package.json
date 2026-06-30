@@ -46,7 +46,9 @@
 			"./extensions/pi-typescript-lsp/index.ts",
 			"./extensions/pi-rename/index.ts",
 			"./extensions/pi-btw/index.ts",
-			"./extensions/pi-pandi/index.ts"
+			"./extensions/pi-pandi/index.ts",
+			"./extensions/pi-exit/index.ts",
+			"./extensions/pi-clear/index.ts"
 		],
 		"skills": [
 			"./.pi/skills"
