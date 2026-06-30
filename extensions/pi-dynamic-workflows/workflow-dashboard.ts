@@ -728,6 +728,74 @@ export class WorkflowDashboard {
 		return muted("? unknown");
 	}
 
+	/**
+	 * Render the shared "Selected agent" detail block used by both the Monitor and
+	 * Agents tabs. The two callers only differ in: optional header lines
+	 * (workflow/run/parallel), whether the `state:` line includes the schema
+	 * suffix, and the `compactInline` width for prompt preview / output.
+	 */
+	private renderSelectedAgentDetail(
+		lines: string[],
+		line: (s: string) => string,
+		agent: AgentMonitorModel,
+		accent: (s: string) => string,
+		muted: (s: string) => string,
+		success: (s: string) => string,
+		warning: (s: string) => string,
+		options: { headerLines?: string[]; includeSchemaInState: boolean; compactWidth: number },
+	): void {
+		lines.push(line(muted("")));
+		lines.push(line(accent("Selected agent")));
+		for (const header of options.headerLines ?? []) lines.push(line(header));
+		lines.push(
+			line(`agent: #${agent.id} ${formatAgentPhase(agent) ? `${formatAgentPhase(agent)} ` : ""}${agent.name}`),
+		);
+		const elapsedMs = getAgentElapsedMs(agent);
+		const schemaSuffix = options.includeSchemaInState
+			? `${agent.schemaOk === undefined ? "" : ` • schema ${agent.schemaOk ? "ok" : "bad"}`}`
+			: "";
+		lines.push(
+			line(
+				`state: ${renderSafeInline(agent.state)}${elapsedMs === undefined ? "" : ` • ${formatElapsedMs(elapsedMs)}`}${agent.code === undefined ? "" : ` • code ${agent.code}`}${schemaSuffix}`,
+			),
+		);
+		if (formatAgentPhase(agent))
+			lines.push(
+				line(`phase: ${formatAgentPhase(agent)}${agent.phaseLabel ? muted(` • ${agent.phaseLabel}`) : ""}`),
+			);
+		lines.push(
+			line(
+				`prompt: ${agent.promptAvailable ? success("available") : warning("not available")} ${agent.artifactPath ? muted(`• ${agent.artifactPath}`) : ""}`,
+			),
+		);
+		lines.push(
+			line(
+				`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`,
+			),
+		);
+		lines.push(
+			line(
+				`skills: ${agent.skills?.length ? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}` : agent.includeSkills === false ? "disabled" : "default discovery"}`,
+			),
+		);
+		lines.push(
+			line(
+				`extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`,
+			),
+		);
+		lines.push(
+			line(
+				`keys: ${agent.keys?.length ? agent.keys.join(", ") : agent.isolatedEnv ? "none selected" : "default inherited environment"}${agent.missingKeys?.length ? warning(` • missing: ${agent.missingKeys.join(", ")}`) : ""}`,
+			),
+		);
+		if (agent.promptPreview)
+			lines.push(
+				line(`prompt preview: ${renderSafeInline(compactInline(agent.promptPreview, options.compactWidth))}`),
+			);
+		if (agent.output)
+			lines.push(line(`output: ${renderSafeInline(compactInline(agent.output, options.compactWidth))}`));
+	}
+
 	private renderMonitorAgents(
 		lines: string[],
 		line: (s: string) => string,
@@ -782,53 +850,10 @@ export class WorkflowDashboard {
 		}
 		const selected = this.selectedAgent();
 		if (!selected) return;
-		lines.push(line(muted("")));
-		lines.push(line(accent("Selected agent")));
-		lines.push(
-			line(
-				`agent: #${selected.id} ${formatAgentPhase(selected) ? `${formatAgentPhase(selected)} ` : ""}${selected.name}`,
-			),
-		);
-		const selectedElapsedMs = getAgentElapsedMs(selected);
-		lines.push(
-			line(
-				`state: ${renderSafeInline(selected.state)}${selectedElapsedMs === undefined ? "" : ` • ${formatElapsedMs(selectedElapsedMs)}`}${selected.code === undefined ? "" : ` • code ${selected.code}`}`,
-			),
-		);
-		if (formatAgentPhase(selected))
-			lines.push(
-				line(
-					`phase: ${formatAgentPhase(selected)}${selected.phaseLabel ? muted(` • ${selected.phaseLabel}`) : ""}`,
-				),
-			);
-		lines.push(
-			line(
-				`prompt: ${selected.promptAvailable ? success("available") : warning("not available")} ${selected.artifactPath ? muted(`• ${selected.artifactPath}`) : ""}`,
-			),
-		);
-		lines.push(
-			line(
-				`tools: ${selected.tools?.length ? selected.tools.join(", ") : "default"}${selected.excludeTools?.length ? ` • exclude: ${selected.excludeTools.join(", ")}` : ""}`,
-			),
-		);
-		lines.push(
-			line(
-				`skills: ${selected.skills?.length ? `${selected.skills.join(", ")}${selected.includeSkills ? " + discovery" : " (explicit only)"}` : selected.includeSkills === false ? "disabled" : "default discovery"}`,
-			),
-		);
-		lines.push(
-			line(
-				`extensions: ${selected.extensions?.length ? `${selected.extensions.join(", ")}${selected.includeExtensions ? " + discovery" : " (explicit only)"}` : selected.includeExtensions ? "default discovery" : "disabled"}`,
-			),
-		);
-		lines.push(
-			line(
-				`keys: ${selected.keys?.length ? selected.keys.join(", ") : selected.isolatedEnv ? "none selected" : "default inherited environment"}${selected.missingKeys?.length ? warning(` • missing: ${selected.missingKeys.join(", ")}`) : ""}`,
-			),
-		);
-		if (selected.promptPreview)
-			lines.push(line(`prompt preview: ${renderSafeInline(compactInline(selected.promptPreview, 220))}`));
-		if (selected.output) lines.push(line(`output: ${renderSafeInline(compactInline(selected.output, 220))}`));
+		this.renderSelectedAgentDetail(lines, line, selected, accent, muted, success, warning, {
+			includeSchemaInState: false,
+			compactWidth: 220,
+		});
 	}
 
 	private renderAgents(
@@ -899,52 +924,11 @@ export class WorkflowDashboard {
 		if (!selected) return;
 		const agent = selected.agent;
 		const run = selected.run;
-		lines.push(line(muted("")));
-		lines.push(line(accent("Selected agent")));
-		lines.push(line(`workflow: ${run.workflow}`));
-		lines.push(line(`run: ${run.runId}`));
-		lines.push(line(`parallel: ${formatParallelAgents(run)}`));
-		lines.push(
-			line(`agent: #${agent.id} ${formatAgentPhase(agent) ? `${formatAgentPhase(agent)} ` : ""}${agent.name}`),
-		);
-		const agentDetailElapsedMs = getAgentElapsedMs(agent);
-		lines.push(
-			line(
-				`state: ${renderSafeInline(agent.state)}${agentDetailElapsedMs === undefined ? "" : ` • ${formatElapsedMs(agentDetailElapsedMs)}`}${agent.code === undefined ? "" : ` • code ${agent.code}`}${agent.schemaOk === undefined ? "" : ` • schema ${agent.schemaOk ? "ok" : "bad"}`}`,
-			),
-		);
-		if (formatAgentPhase(agent))
-			lines.push(
-				line(`phase: ${formatAgentPhase(agent)}${agent.phaseLabel ? muted(` • ${agent.phaseLabel}`) : ""}`),
-			);
-		lines.push(
-			line(
-				`prompt: ${agent.promptAvailable ? success("available") : warning("not available")} ${agent.artifactPath ? muted(`• ${agent.artifactPath}`) : ""}`,
-			),
-		);
-		lines.push(
-			line(
-				`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`,
-			),
-		);
-		lines.push(
-			line(
-				`skills: ${agent.skills?.length ? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}` : agent.includeSkills === false ? "disabled" : "default discovery"}`,
-			),
-		);
-		lines.push(
-			line(
-				`extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`,
-			),
-		);
-		lines.push(
-			line(
-				`keys: ${agent.keys?.length ? agent.keys.join(", ") : agent.isolatedEnv ? "none selected" : "default inherited environment"}${agent.missingKeys?.length ? warning(` • missing: ${agent.missingKeys.join(", ")}`) : ""}`,
-			),
-		);
-		if (agent.promptPreview)
-			lines.push(line(`prompt preview: ${renderSafeInline(compactInline(agent.promptPreview, 260))}`));
-		if (agent.output) lines.push(line(`output: ${renderSafeInline(compactInline(agent.output, 260))}`));
+		this.renderSelectedAgentDetail(lines, line, agent, accent, muted, success, warning, {
+			headerLines: [`workflow: ${run.workflow}`, `run: ${run.runId}`, `parallel: ${formatParallelAgents(run)}`],
+			includeSchemaInState: true,
+			compactWidth: 260,
+		});
 		const actions = ["Enter/o opens output+prompt", "v run", "g graph"];
 		if (canCancelRun(run)) actions.push("c/x cancel active");
 		if (canRerunRun(run)) actions.push("r rerun (confirm)");
