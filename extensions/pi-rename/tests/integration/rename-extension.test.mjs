@@ -268,6 +268,145 @@ async function scenarioSlugifyUnit(url) {
 	check("deriveSessionName tolerates non-array input", deriveSessionName(null) === DEFAULT_SESSION_NAME);
 }
 
+async function scenarioSummarizeUnit(url) {
+	const { buildSummaryPrompt, slugFromSummaryOutput, summarizeSessionName } = await loadModule(url);
+
+	const prompt = buildSummaryPrompt([
+		userEntry("Set up the project"),
+		assistantEntry("Created the scaffold"),
+		userEntry("now harden the loop gate"),
+	]);
+	check("buildSummaryPrompt includes the most recent message", prompt.includes("now harden the loop gate"), prompt);
+	check("buildSummaryPrompt asks for a short title", /title/i.test(prompt), prompt);
+	check("buildSummaryPrompt is empty with no conversation", buildSummaryPrompt([]) === "");
+
+	check(
+		"slugFromSummaryOutput slugifies a quoted title",
+		slugFromSummaryOutput('"Refactor Auth Module"') === "refactor-auth-module",
+		slugFromSummaryOutput('"Refactor Auth Module"'),
+	);
+	check(
+		"slugFromSummaryOutput takes the first line and drops markdown",
+		slugFromSummaryOutput("# Loop Gate Hardening\nignored second line") === "loop-gate-hardening",
+		slugFromSummaryOutput("# Loop Gate Hardening\nignored second line"),
+	);
+	check("slugFromSummaryOutput empty stays empty", slugFromSummaryOutput("   ") === "");
+
+	const ok = await summarizeSessionName({
+		entries: [userEntry("anything")],
+		runSummary: async () => "Harden the loop gate",
+	});
+	check(
+		"summarizeSessionName uses the LLM summary",
+		ok.name === "harden-the-loop-gate" && ok.fellBack === false,
+		JSON.stringify(ok),
+	);
+
+	const thrown = await summarizeSessionName({
+		entries: [userEntry("Fix the cache layer")],
+		runSummary: async () => {
+			throw new Error("offline");
+		},
+	});
+	check(
+		"summarizeSessionName falls back to the deterministic name when the runner throws",
+		thrown.name === "fix-the-cache-layer" && thrown.fellBack === true,
+		JSON.stringify(thrown),
+	);
+
+	const empty = await summarizeSessionName({
+		entries: [userEntry("Fix the cache layer")],
+		runSummary: async () => "   ",
+	});
+	check(
+		"summarizeSessionName falls back on empty model output",
+		empty.name === "fix-the-cache-layer" && empty.fellBack === true,
+		JSON.stringify(empty),
+	);
+
+	let called = false;
+	const noHistory = await summarizeSessionName({
+		entries: [],
+		runSummary: async () => {
+			called = true;
+			return "should not run";
+		},
+	});
+	check(
+		"summarizeSessionName skips the LLM with no history (default name, no spawn)",
+		noHistory.name === "session" && noHistory.fellBack === true && called === false,
+		JSON.stringify(noHistory),
+	);
+}
+
+async function scenarioSpawnArgsUnit(url) {
+	const { buildPiSummaryArgs } = await loadModule(url);
+	const withModel = buildPiSummaryArgs("THE PROMPT", { model: "anthropic/claude" });
+	check(
+		"buildPiSummaryArgs uses print mode and isolates the subprocess",
+		withModel.includes("-p") &&
+			withModel.includes("--no-extensions") &&
+			withModel.includes("--no-skills") &&
+			withModel.includes("--no-context-files"),
+		JSON.stringify(withModel),
+	);
+	check(
+		"buildPiSummaryArgs passes the model when given",
+		withModel.includes("--model") && withModel.includes("anthropic/claude"),
+	);
+	check("buildPiSummaryArgs puts the prompt last", withModel[withModel.length - 1] === "THE PROMPT");
+	const noModel = buildPiSummaryArgs("P", {});
+	check(
+		"buildPiSummaryArgs omits --model when not given",
+		!noModel.includes("--model") && noModel[noModel.length - 1] === "P",
+	);
+}
+
+async function scenarioNoArgSummary(url) {
+	const renameExtension = await loadDefault(url);
+	const outDir = path.dirname(fileURLToPath(url));
+
+	// Success: a fake `pi` prints a title; the no-arg path slugifies it.
+	const fakePiOk = path.join(outDir, "fake-pi-ok.mjs");
+	await fs.writeFile(fakePiOk, "#!/usr/bin/env node\nprocess.stdout.write('Harden The Loop Gate\\n');\n", {
+		mode: 0o755,
+	});
+	const prev = process.env.PI_RENAME_PI_COMMAND;
+	try {
+		process.env.PI_RENAME_PI_COMMAND = fakePiOk;
+		const h = makePi();
+		renameExtension(h.pi);
+		const ctx = makeCtx({ hasUI: true, entries: [userEntry("set up project"), userEntry("work on the gate")] });
+		await h.commands.get("rename").handler("", ctx);
+		check("/rename no-arg applies the LLM-summarized slug", h.sessionName === "harden-the-loop-gate", h.sessionName);
+	} finally {
+		if (prev === undefined) delete process.env.PI_RENAME_PI_COMMAND;
+		else process.env.PI_RENAME_PI_COMMAND = prev;
+		await fs.rm(fakePiOk, { force: true });
+	}
+
+	// Failure: the spawn errors -> deterministic fallback from the most recent message.
+	const prev2 = process.env.PI_RENAME_PI_COMMAND;
+	try {
+		process.env.PI_RENAME_PI_COMMAND = path.join(outDir, "definitely-not-a-real-pi-binary");
+		const h = makePi();
+		renameExtension(h.pi);
+		const ctx = makeCtx({
+			hasUI: false,
+			entries: [userEntry("set up project"), userEntry("Investigate flaky CI pipeline")],
+		});
+		await h.commands.get("rename").handler("", ctx);
+		check(
+			"/rename no-arg falls back to the deterministic name when the LLM spawn fails",
+			h.sessionName === "investigate-flaky-ci-pipeline",
+			h.sessionName,
+		);
+	} finally {
+		if (prev2 === undefined) delete process.env.PI_RENAME_PI_COMMAND;
+		else process.env.PI_RENAME_PI_COMMAND = prev2;
+	}
+}
+
 async function scenarioBorderLabelUnit(url) {
 	const { composeTopBorder } = await loadModule(url);
 
@@ -341,33 +480,41 @@ async function scenarioExplicitName(url) {
 
 async function scenarioNoArgHeadless(url) {
 	const renameExtension = await loadDefault(url);
-	const harness = makePi();
-	renameExtension(harness.pi);
-	const command = harness.commands.get("rename");
+	// Force the LLM spawn to fail so we exercise the DETERMINISTIC fallback (latest message).
+	const prev = process.env.PI_RENAME_PI_COMMAND;
+	process.env.PI_RENAME_PI_COMMAND = "definitely-not-a-real-pi-binary";
+	try {
+		const harness = makePi();
+		renameExtension(harness.pi);
+		const command = harness.commands.get("rename");
 
-	const ctx = makeCtx({
-		hasUI: false,
-		entries: [userEntry("Set up the project"), userEntry("Investigate flaky CI pipeline")],
-	});
-	await command.handler("", ctx);
-	check(
-		"/rename no-arg headless derives a slug from the most recent user message",
-		harness.sessionName === "investigate-flaky-ci-pipeline",
-		harness.sessionName,
-	);
-	check("/rename no-arg headless does not open input dialog", ctx._inputCalls.length === 0);
+		const ctx = makeCtx({
+			hasUI: false,
+			entries: [userEntry("Set up the project"), userEntry("Investigate flaky CI pipeline")],
+		});
+		await command.handler("", ctx);
+		check(
+			"/rename no-arg headless fallback derives a slug from the most recent user message",
+			harness.sessionName === "investigate-flaky-ci-pipeline",
+			harness.sessionName,
+		);
+		check("/rename no-arg headless does not open input dialog", ctx._inputCalls.length === 0);
 
-	// whitespace-only argument is treated as no-arg.
-	const harness2 = makePi();
-	renameExtension(harness2.pi);
-	const command2 = harness2.commands.get("rename");
-	const ctx2 = makeCtx({ hasUI: false, entries: [userEntry("Spaces only arg path")] });
-	await command2.handler("    ", ctx2);
-	check(
-		"/rename whitespace-only arg falls to the no-arg derive path",
-		harness2.sessionName === "spaces-only-arg-path",
-		harness2.sessionName,
-	);
+		// whitespace-only argument is treated as no-arg.
+		const harness2 = makePi();
+		renameExtension(harness2.pi);
+		const command2 = harness2.commands.get("rename");
+		const ctx2 = makeCtx({ hasUI: false, entries: [userEntry("Spaces only arg path")] });
+		await command2.handler("    ", ctx2);
+		check(
+			"/rename whitespace-only arg falls to the no-arg derive path",
+			harness2.sessionName === "spaces-only-arg-path",
+			harness2.sessionName,
+		);
+	} finally {
+		if (prev === undefined) delete process.env.PI_RENAME_PI_COMMAND;
+		else process.env.PI_RENAME_PI_COMMAND = prev;
+	}
 }
 
 async function scenarioNoArgUI(url) {
@@ -376,16 +523,24 @@ async function scenarioNoArgUI(url) {
 	const entries = [userEntry("Build the rename extension")];
 
 	// Even with UI available, no-arg invents the name and NEVER opens an input dialog.
-	const h1 = makePi();
-	renameExtension(h1.pi);
-	const ctx1 = makeCtx({ hasUI: true, entries, inputResult: "Should Be Ignored" });
-	await command(h1).handler("", ctx1);
-	check("/rename no-arg with UI invents the name", h1.sessionName === "build-the-rename-extension", h1.sessionName);
-	check(
-		"/rename no-arg with UI does NOT open an input dialog",
-		ctx1._inputCalls.length === 0,
-		JSON.stringify(ctx1._inputCalls),
-	);
+	// Force the LLM spawn to fail so the name comes from the deterministic fallback.
+	const prev = process.env.PI_RENAME_PI_COMMAND;
+	process.env.PI_RENAME_PI_COMMAND = "definitely-not-a-real-pi-binary";
+	try {
+		const h1 = makePi();
+		renameExtension(h1.pi);
+		const ctx1 = makeCtx({ hasUI: true, entries, inputResult: "Should Be Ignored" });
+		await command(h1).handler("", ctx1);
+		check("/rename no-arg with UI invents the name", h1.sessionName === "build-the-rename-extension", h1.sessionName);
+		check(
+			"/rename no-arg with UI does NOT open an input dialog",
+			ctx1._inputCalls.length === 0,
+			JSON.stringify(ctx1._inputCalls),
+		);
+	} finally {
+		if (prev === undefined) delete process.env.PI_RENAME_PI_COMMAND;
+		else process.env.PI_RENAME_PI_COMMAND = prev;
+	}
 }
 
 async function scenarioBorderEditor(url) {
@@ -515,11 +670,26 @@ async function main() {
 		await fs.rm(border.outDir, { recursive: true, force: true });
 	}
 
+	const summarize = await buildPureModule("summarize-name.ts", "summarize.mjs", "pi-rename-summarize");
+	try {
+		await scenarioSummarizeUnit(summarize.url);
+	} finally {
+		await fs.rm(summarize.outDir, { recursive: true, force: true });
+	}
+
+	const spawnMod = await buildPureModule("spawn-summary.ts", "spawn-summary.mjs", "pi-rename-spawn");
+	try {
+		await scenarioSpawnArgsUnit(spawnMod.url);
+	} finally {
+		await fs.rm(spawnMod.outDir, { recursive: true, force: true });
+	}
+
 	const ext = await buildRename();
 	try {
 		await scenarioExplicitName(ext.url);
 		await scenarioNoArgHeadless(ext.url);
 		await scenarioNoArgUI(ext.url);
+		await scenarioNoArgSummary(ext.url);
 		await scenarioBorderEditor(ext.url);
 		await scenarioFallbacksAndErrors(ext.url);
 	} finally {

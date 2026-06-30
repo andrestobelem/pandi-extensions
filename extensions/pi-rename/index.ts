@@ -26,8 +26,10 @@ import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@e
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { EditorComponent } from "@earendil-works/pi-tui";
 import { composeTopBorder } from "./border-label.js";
-import { DEFAULT_SESSION_NAME, deriveSessionName, slugify } from "./derive-name.js";
+import { DEFAULT_SESSION_NAME, slugify } from "./derive-name.js";
 import { notify } from "./notify.js";
+import { runPiSummary } from "./spawn-summary.js";
+import { summarizeSessionName } from "./summarize-name.js";
 
 const NAME_EDITOR_MARKER = "__piRenameNameBorderEditor";
 const SET_PROVIDER = "__piRenameSetBorderProvider";
@@ -41,10 +43,6 @@ function readEntries(ctx: ExtensionCommandContext): unknown[] {
 	} catch {
 		return [];
 	}
-}
-
-function suggestName(ctx: ExtensionCommandContext): string {
-	return deriveSessionName(readEntries(ctx), { defaultName: DEFAULT_SESSION_NAME });
 }
 
 function safeName(pi: ExtensionAPI): string | undefined {
@@ -144,12 +142,25 @@ function installNameBorderLabel(pi: ExtensionAPI, ctx: ExtensionContext): void {
 export default function renameExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("rename", {
 		description:
-			"Rename the current session to a slug. With no argument, suggests one from your most recent activity.",
+			"Rename the current session to a slug. With no argument, summarizes your most recent activity via the LLM.",
 		handler: async (args, ctx) => {
-			// With a name, use it; with no name, invent one from the most recent user message
-			// (so a repeated /rename tracks current work). Never opens an input dialog.
+			// With a name, use it directly (instant, no LLM). Never opens an input dialog.
 			const trimmed = args.trim();
-			applyName(pi, ctx, trimmed || suggestName(ctx));
+			if (trimmed) {
+				applyName(pi, ctx, trimmed);
+				return;
+			}
+			// No argument: summarize the MOST RECENT part of the conversation into a name via
+			// `pi -p`, falling back to a deterministic slug of the latest message if the LLM is
+			// unavailable (offline, no key, timeout). The handler is already async.
+			notify(ctx, "Generating a name from the recent conversation\u2026", "info");
+			const { name, fellBack } = await summarizeSessionName({
+				entries: readEntries(ctx),
+				runSummary: (prompt) => runPiSummary(prompt, { cwd: ctx.cwd }),
+				defaultName: DEFAULT_SESSION_NAME,
+			});
+			applyName(pi, ctx, name);
+			if (fellBack) notify(ctx, "Used a deterministic name (conversation summary unavailable).", "info");
 		},
 	});
 
