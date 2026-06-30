@@ -46,6 +46,19 @@ function hostCall(method, args) {
   return hostCallTracked(method, args).promise;
 }
 
+// Bridge a per-call AbortSignal to the host: posting abort-call lets the host abort exactly this
+// call's CombinedSignal (used by race() losers). Shared by agent() and ask() (same file, intentional).
+function bridgeAbortToHost(sig, id) {
+  if (!sig) return;
+  if (sig.aborted) {
+    try { parentPort.postMessage({ type: "abort-call", id }); } catch {}
+    return;
+  }
+  sig.addEventListener("abort", () => {
+    try { parentPort.postMessage({ type: "abort-call", id }); } catch {}
+  }, { once: true });
+}
+
 parentPort.on("message", (message) => {
   if (!message || message.type !== "response") return;
   const handler = pending.get(message.id);
@@ -174,6 +187,7 @@ async function race(thunks, options) {
     parallel: (thunks) => parallel(thunks, limits.concurrency),
     pipeline: (items, ...stages) => pipeline(items, limits.concurrency, ...stages),
     race: (thunks, options) => race(thunks, options),
+    ask: (question, options) => hostCall("ask", [question, options]),
     bash: (command, options) => hostCall("bash", [command, options]),
     readFile: (filePath, encoding) => hostCall("readFile", [filePath, encoding]),
     writeFile: (filePath, data) => hostCall("writeFile", [filePath, data]),
@@ -231,15 +245,23 @@ async function race(thunks, options) {
     // The "call" message is posted (inside hostCallTracked) BEFORE this listener attaches, so an
     // abort-call can never reach the host before its call -> the host always registers the per-id
     // controller first. An already-aborted signal posts abort-call immediately.
-    if (sig) {
-      if (sig.aborted) { try { parentPort.postMessage({ type: "abort-call", id }); } catch {} }
-      else sig.addEventListener("abort", () => {
-        try { parentPort.postMessage({ type: "abort-call", id }); } catch {}
-      }, { once: true });
-    }
+    bridgeAbortToHost(sig, id);
     const res = await promise;
     if (res == null || res.ok === false) return null;
     return opts.schema !== undefined ? (res.data != null ? res.data : null) : res.output;
+  };
+  // ask(question, options?) -> the human's answer (string for input/select, boolean for confirm).
+  // Mirrors agentGlobal's per-call signal bridge so a race() loser's ask dialog is dismissed: the
+  // signal is stripped before posting (never serialize an AbortSignal) and an abort posts abort-call
+  // for this id. Unlike agentGlobal it does NOT swallow ok:false -> a host error (e.g. headless with
+  // no default, or an aborted dialog) rejects, surfacing as a thrown error in the workflow.
+  const askGlobal = async (question, options) => {
+    const opts = Object.assign({}, options || {});
+    const sig = opts.signal;
+    delete opts.signal;
+    const { id, promise } = hostCallTracked("ask", [question, opts]);
+    bridgeAbortToHost(sig, id);
+    return await promise;
   };
   let currentPhaseLabel = null;
   const phase = (label) => {
@@ -253,6 +275,7 @@ async function race(thunks, options) {
     sandbox.parallel = ctx.parallel;
     sandbox.pipeline = ctx.pipeline;
     sandbox.race = ctx.race;
+    sandbox.ask = askGlobal;
     sandbox.workflow = ctx.workflow;
     sandbox.log = ctx.log;
     sandbox.phase = phase;

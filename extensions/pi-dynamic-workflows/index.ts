@@ -91,6 +91,7 @@ import type {
 	ActiveWorkflowRun,
 	AgentOptions,
 	AgentPhaseInfo,
+	AskResult,
 	BashResult,
 	PreparedWorkflowRun,
 	RunLimits,
@@ -237,6 +238,16 @@ interface BashOptions {
 	__workflowNamespace?: string;
 }
 
+interface AskOptions {
+	kind?: "input" | "confirm" | "select";
+	choices?: string[];
+	placeholder?: string;
+	default?: string | boolean;
+	timeoutMs?: number;
+	cache?: boolean;
+	__workflowNamespace?: string;
+}
+
 interface WorkflowRuntimeApi {
 	cwd: string;
 	runId: string;
@@ -254,6 +265,7 @@ interface WorkflowRuntimeApi {
 		options: AgentOptions & { concurrency?: number; settle: true },
 	): Promise<(SubagentResult | null)[]>;
 	workflow(name: string, input?: unknown): Promise<unknown>;
+	ask(question: string, options?: AskOptions): Promise<string | boolean>;
 	bash(command: string, options?: BashOptions): Promise<BashResult>;
 	readFile(filePath: string, encoding?: BufferEncoding): Promise<string>;
 	writeFile(filePath: string, data: string | Uint8Array): Promise<{ path: string }>;
@@ -484,6 +496,7 @@ async function executeWorkflowCode(
 		"agent",
 		"agents",
 		"workflow",
+		"ask",
 		"bash",
 		"readFile",
 		"writeFile",
@@ -577,10 +590,10 @@ async function executeWorkflowCode(
 					return;
 				}
 				try {
-					if (method === "agent") {
+					if (method === "agent" || method === "ask") {
 						// Per-call signal: aborts on run abort OR an abort-call (race loser). timeoutMs 0
 						// => parent-only. Registered synchronously before any await, so an abort-call
-						// can never arrive before its controller exists. The store is read by runSubagent.
+						// can never arrive before its controller exists. The store is read by runSubagent/runAsk.
 						const combined = combineSignal(signal, 0);
 						callControllers.set(message.id, combined);
 						try {
@@ -670,7 +683,7 @@ export async function runWorkflow(
 		return occ;
 	}
 
-	function journalLookup(key: string, occ: number): SubagentResult | BashResult | undefined {
+	function journalLookup(key: string, occ: number): SubagentResult | BashResult | AskResult | undefined {
 		return journal?.get(key)?.[occ];
 	}
 
@@ -1235,7 +1248,9 @@ export async function runWorkflow(
 		const occ = nextOcc(key);
 		if (cacheEnabled) {
 			const hit = journalLookup(key, occ);
-			if (hit && !("artifactPath" in hit)) {
+			// "code" present + no artifactPath => BashResult (not a SubagentResult or AskResult). Keys never
+			// collide across methods (computeCallKey namespaces by method), so this only narrows the type.
+			if (hit && "code" in hit && !("artifactPath" in hit)) {
 				cachedCalls++;
 				await log(`bash cached: ${command.slice(0, 80)}`, {
 					key: key.slice(0, 12),
@@ -1294,6 +1309,135 @@ export async function runWorkflow(
 			throw new Error(`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`);
 		}
 		return bashResult;
+	}
+
+	// ask(question, options?) -> the human's answer via ctx.ui. Resume-safe: cached by default and
+	// journaled by (key, occ) with method "ask", so a resumed run REPLAYS the recorded answer and never
+	// re-prompts. Cancellation reuses the race() per-call signal bridge: the dispatcher wraps ask in the
+	// callSignal ALS, so an abort-call (race loser) or run-abort dismisses the dialog via { signal } and
+	// the post-abort guard throws WITHOUT journaling (leaving a hole, consistent with race semantics).
+	async function runAsk(question: string, options: AskOptions = {}): Promise<string | boolean> {
+		const effectiveSignal = callSignal.getStore() ?? runSignal.signal;
+		throwIfAborted(effectiveSignal);
+		// Eager validation (cheap synchronous guards inside ask()'s own surface) before any UI/journal:
+		const hasChoices = options.choices !== undefined;
+		if (options.kind === undefined && hasChoices && typeof options.default === "boolean") {
+			throw new Error(
+				"ask(): ambiguous kind — both choices and a boolean default were given; pass options.kind explicitly.",
+			);
+		}
+		const kind: "input" | "confirm" | "select" =
+			options.kind ?? (hasChoices ? "select" : typeof options.default === "boolean" ? "confirm" : "input");
+		if (kind === "select" && (!Array.isArray(options.choices) || options.choices.length === 0)) {
+			throw new Error("ask(): kind 'select' requires a non-empty options.choices array.");
+		}
+		const hasDefault = options.default !== undefined;
+		if (kind === "select" && hasDefault && !(options.choices as string[]).includes(options.default as string)) {
+			throw new Error("ask(): options.default for a select must be one of options.choices.");
+		}
+		const cacheEnabled = options.cache !== false;
+		const namespace = options.__workflowNamespace;
+		const key = computeCallKey("ask", [
+			question,
+			{
+				kind,
+				choices: kind === "select" ? (options.choices ?? []) : undefined,
+				placeholder: options.placeholder,
+				default: options.default,
+				...(namespace ? { workflowNamespace: namespace } : {}),
+			},
+		]);
+		const occ = nextOcc(key);
+		if (cacheEnabled) {
+			const hit = journalLookup(key, occ) as AskResult | undefined;
+			if (hit && "answer" in hit) {
+				cachedCalls++;
+				await appendEvent({
+					type: "ask",
+					kind: hit.kind,
+					question,
+					answer: hit.answer,
+					state: "cached",
+					...(namespace ? { workflowNamespace: namespace } : {}),
+				});
+				await log(`ask cached: ${question.slice(0, 80)}`, { key: key.slice(0, 12), occ, answer: hit.answer });
+				return hit.answer;
+			}
+		}
+		const startedAt = Date.now();
+		const dialogOpts = {
+			signal: effectiveSignal,
+			...(typeof options.timeoutMs === "number" ? { timeout: options.timeoutMs } : {}),
+		};
+		await log(`ask: ${question.slice(0, 120)}`, { kind, ...(namespace ? { workflowNamespace: namespace } : {}) });
+
+		let answer: string | boolean;
+		let dismissed = false;
+		let defaulted = false;
+		if (!ctx.hasUI) {
+			if (!hasDefault) {
+				throw new Error(
+					`ask() needs a human but no UI is available (mode=${ctx.mode}); pass options.default to proceed headlessly.`,
+				);
+			}
+			answer = options.default as string | boolean;
+			defaulted = true;
+		} else {
+			let res: string | boolean | undefined;
+			if (kind === "confirm") {
+				res = await ctx.ui.confirm(
+					question,
+					typeof options.placeholder === "string" ? options.placeholder : "",
+					dialogOpts,
+				);
+			} else if (kind === "select") {
+				res = await ctx.ui.select(question, options.choices ?? [], dialogOpts);
+			} else {
+				res = await ctx.ui.input(question, options.placeholder, dialogOpts);
+			}
+			// Post-abort guard: a race loser / run abort dismisses the dialog -> throw WITHOUT journaling.
+			throwIfAborted(effectiveSignal);
+			if (res === undefined) {
+				// confirm never returns undefined; input/select return undefined on dismiss/timeout.
+				if (!hasDefault)
+					throw new Error(`ask() was dismissed and no options.default was provided: ${question.slice(0, 80)}`);
+				answer = options.default as string | boolean;
+				dismissed = true;
+				defaulted = true;
+			} else {
+				answer = res;
+			}
+		}
+		throwIfAborted(effectiveSignal);
+		const result: AskResult = {
+			kind,
+			answer,
+			...(dismissed ? { dismissed: true } : {}),
+			...(defaulted ? { defaulted: true } : {}),
+			elapsedMs: Date.now() - startedAt,
+		};
+		await appendEvent({
+			type: "ask",
+			kind,
+			question,
+			answer,
+			...(dismissed ? { dismissed: true } : {}),
+			...(defaulted ? { defaulted: true } : {}),
+			...(namespace ? { workflowNamespace: namespace } : {}),
+		});
+		if (cacheEnabled) {
+			await appendJournalRecord(runDir, {
+				v: JOURNAL_VERSION,
+				key,
+				occ,
+				method: "ask",
+				codeHash,
+				ts: new Date().toISOString(),
+				result,
+			});
+		}
+		await log(`ask answered: ${question.slice(0, 80)}`, { answer, defaulted });
+		return answer;
 	}
 
 	async function runSubworkflow(name: string, workflowInput: unknown = {}): Promise<unknown> {
@@ -1392,6 +1536,11 @@ export async function runWorkflow(
 							"workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.",
 						);
 					},
+			ask: async (question, options = {}) =>
+				await runAsk(question, {
+					...options,
+					...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
+				}),
 			bash: async (command, options = {}) =>
 				await runBash(command, {
 					...options,

@@ -104,6 +104,16 @@ export interface BashResult {
 	stderr: string;
 }
 
+// Result of an ask() human-in-the-loop call. Journaled by (key, occ) like agent/bash so a resumed
+// run replays the recorded answer instead of re-prompting the human.
+export interface AskResult {
+	kind: "input" | "confirm" | "select";
+	answer: string | boolean;
+	dismissed?: boolean;
+	defaulted?: boolean;
+	elapsedMs: number;
+}
+
 export interface WorkflowLogEntry {
 	time: string;
 	message: string;
@@ -141,13 +151,13 @@ export interface JournalRecord {
 	v: number;
 	key: string;
 	occ: number;
-	method: "agent" | "bash";
+	method: "agent" | "bash" | "ask";
 	codeHash: string;
 	ts: string;
-	result: SubagentResult | BashResult;
+	result: SubagentResult | BashResult | AskResult;
 }
 
-export type JournalCache = Map<string, (SubagentResult | BashResult)[]>;
+export type JournalCache = Map<string, (SubagentResult | BashResult | AskResult)[]>;
 
 export interface PreparedWorkflowRun {
 	started: number;
