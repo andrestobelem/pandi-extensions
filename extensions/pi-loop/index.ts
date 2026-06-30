@@ -195,7 +195,6 @@ const activeLoops = new Map<string, ActiveLoop>();
  */
 interface PendingWake {
 	loopId: string;
-	prompt: string;
 }
 
 // Module-level FIFO of wakes waiting to be delivered. Order = arrival order.
@@ -495,8 +494,11 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 
 	// Enqueue this loop's wake (dedup: never queue the same loop twice concurrently) and
 	// attempt delivery. deliverWake does iteration++/autopilot/persist/re-inject.
+	// Only the loopId is queued: deliverWake rebuilds the prompt fresh via
+	// makeLoopIterationPrompt(loop) at delivery (reflecting the just-incremented iteration),
+	// so carrying a prompt string on the queue entry would be dead, stale data.
 	if (!wakeQueue.some((w) => w.loopId === loop.loopId)) {
-		wakeQueue.push({ loopId: loop.loopId, prompt: loop.prompt });
+		wakeQueue.push({ loopId: loop.loopId });
 	}
 	drainWakeQueue(pi, ctx);
 }
