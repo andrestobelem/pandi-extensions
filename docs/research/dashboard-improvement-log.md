@@ -3,6 +3,43 @@
 Chronological, append-only narrative of `/workflow` TUI dashboard improvement passes.
 Pending work lives in `dashboard-improvement-backlog.md`, not here.
 
+## 2026-06-30 — DW-DASH-003: collapse the duplicated per-row agent meta suffix
+
+- **Mejora (pass):** El sufijo de chips por-fila de agente
+  (`prompt schema tools skills extensions keys`) se construía byte-idéntico en
+  `renderMonitorAgents` y `renderAgents`, con expresiones
+  `muted(...)`/`success(...)`/`warning(...)`/`error(...)` duplicadas. Se extrajo un
+  helper privado behavior-preserving `renderAgentRowMeta(agent, muted, success, error,
+  warning)` que devuelve esa cadena común, invocado desde ambos render paths. Quedan
+  FUERA del helper, en cada caller, las dos diferencias intencionales: el chip `code:`
+  de Monitor (entre `elapsed:` y el meta) y el segmento `— <workflow> <runId>` de Agents
+  (antes de `elapsed:`). Sin renombres ni reordenamientos; salida renderizada idéntica
+  byte-a-byte a la anterior en ambos tabs.
+- **Archivos REALES tocados (pass):**
+  - `extensions/pi-dynamic-workflows/workflow-dashboard.ts` — nuevo helper privado
+    `renderAgentRowMeta` (def. antes de `renderMonitorAgents`); ambos callers reemplazan
+    los ~6 `const` de chips por `const meta = this.renderAgentRowMeta(...)`.
+  - `extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs`
+    — test behavioral nuevo (patrón `buildExtension` + `loadModule` +
+    `WorkflowDashboard.render(WIDTH)`): para un mismo agente verifica que el meta
+    suffix (`prompt…keys`) es byte-idéntico entre la fila de Monitor y la de Agents, y
+    que persisten las dos divergencias (`code:` solo en Monitor; `— <workflow> <runId>`
+    solo en Agents). Autodescubierto por `scripts/test/run-all.mjs` (convención
+    `tests/integration/*.test.mjs`) — manifest sin tocar.
+  - `docs/research/dashboard-improvement-backlog.md` — DW-DASH-003 → Done; H1/H2 marcados
+    resueltos al baseline `da0a449`.
+- **Verificación (verde):** `tsc -p tsconfig.json --noEmit` · `biome check
+  extensions/pi-dynamic-workflows` (98 files, sin errores) · bucle
+  `for f in tests/integration/*.test.mjs` (todas las suites PASS, incl. la nueva con 9
+  checks) · esbuild de `workflow-dashboard.ts` a `.pi/tmp/wfdash.check.mjs` OK (artefacto
+  borrado) · `node --check` de la `.mjs` nueva OK.
+- **Verificación adversarial:** mutando SOLO el caller de Agents (append `stray:1` tras
+  `${meta}`) el test FALLA (`per-row meta suffix … byte-identical` → exit 1), probando
+  que ancla la divergencia por-caller; revertido y re-verificado verde.
+- **Gate:** baseline `da0a449`, working tree limpio al iniciar; cambios solo dentro del
+  allow-set (`workflow-dashboard.ts`, `tests/integration/**`, `docs/research/**`).
+  Sin tocar `index.ts` ni otros archivos calientes. Sin commit (lo hace el humano).
+
 ## 2026-06-30 — Collapse duplicated "Selected agent" detail block (finalize: gate tripped)
 
 - **Mejora (pass):** El bloque de detalle "Selected agent" estaba duplicado casi
