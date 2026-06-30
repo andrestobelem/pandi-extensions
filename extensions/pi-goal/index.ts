@@ -316,17 +316,35 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 // ---------------------------------------------------------------------------
 
 /**
+ * Strip a `--ultracode` / `--uc` posture flag off the args (anywhere in the string).
+ * Returns the cleaned text plus whether the flag was present. Parsed BEFORE the ` -- `
+ * criteria split so a flag placed after the criteria is still honored.
+ */
+function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean } {
+	let ultracode = false;
+	const kept: string[] = [];
+	for (const token of args.split(/\s+/)) {
+		const lower = token.toLowerCase();
+		if (lower === "--ultracode" || lower === "--uc") ultracode = true;
+		else if (token.length) kept.push(token);
+	}
+	return { rest: kept.join(" "), ultracode };
+}
+
+/**
  * Parse `/goal` start args. Convention: if the text contains the ` -- ` separator, the
  * left side is the objective and the right side is the success criteria (free text).
- * Without it, the whole text is the objective (the model derives criteria, S2).
+ * Without it, the whole text is the objective (the model derives criteria, S2). A
+ * `--ultracode`/`--uc` flag (anywhere) sets the ultracode posture and is removed first.
  */
-function parseGoalArgs(args: string): { objective: string; successCriteria?: string } {
+function parseGoalArgs(args: string): { objective: string; successCriteria?: string; ultracode: boolean } {
+	const { rest, ultracode } = extractUltracodeFlag(args);
 	const SEP = " -- ";
-	const idx = args.indexOf(SEP);
-	if (idx === -1) return { objective: args.trim() };
-	const objective = args.slice(0, idx).trim();
-	const successCriteria = args.slice(idx + SEP.length).trim();
-	return { objective, successCriteria: successCriteria || undefined };
+	const idx = rest.indexOf(SEP);
+	if (idx === -1) return { objective: rest.trim(), ultracode };
+	const objective = rest.slice(0, idx).trim();
+	const successCriteria = rest.slice(idx + SEP.length).trim();
+	return { objective, successCriteria: successCriteria || undefined, ultracode };
 }
 
 function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): ActiveGoal | undefined {
@@ -347,9 +365,9 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 		);
 		return undefined;
 	}
-	const { objective, successCriteria } = parseGoalArgs(args);
+	const { objective, successCriteria, ultracode } = parseGoalArgs(args);
 	if (!objective) {
-		notify(ctx, "Usage: /goal <objective> [-- <success criteria>]", "warning");
+		notify(ctx, "Usage: /goal [--ultracode] <objective> [-- <success criteria>]", "warning");
 		return undefined;
 	}
 
@@ -359,6 +377,7 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 		objective,
 		successCriteria,
 		derivedCriteria: undefined,
+		ultracode,
 		iteration: 0,
 		maxIterations: DEFAULT_MAX_ITERATIONS,
 		contextPercentCap: DEFAULT_CONTEXT_PERCENT_CAP,
@@ -385,7 +404,8 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 	// Send the first iteration prompt immediately. fireGoal handles iteration++/persist/status.
 	fireGoal(pi, ctx, goal);
 	const crit = successCriteria ? " (with criteria)" : " (model will derive criteria)";
-	notify(ctx, `Started goal ${goalId}${crit}: ${objective}`, "info");
+	const uc = ultracode ? " [ultracode]" : "";
+	notify(ctx, `Started goal ${goalId}${crit}${uc}: ${objective}`, "info");
 	return goal;
 }
 
@@ -786,11 +806,12 @@ export default function goalExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("goal", {
 		description:
-			"Pursue an objective until verified done: /goal <objective> [-- <criteria>] | /goal stop [id] | /goal status [id]",
+			"Pursue an objective until verified done: /goal [--ultracode] <objective> [-- <criteria>] | /goal stop [id] | /goal status [id]",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "stop", label: "stop", description: "Stop an active goal" },
 				{ value: "status", label: "status", description: "Show goal status" },
+				{ value: "--ultracode", label: "--ultracode", description: "Pursue the goal via dynamic workflows" },
 			];
 			for (const goal of activeGoals.values()) {
 				if (

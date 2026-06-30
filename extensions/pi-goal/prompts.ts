@@ -60,6 +60,11 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 
 	lines.push(`This is iteration ${goal.iteration}/${goal.maxIterations}.`);
 	if (goal.lastReason) lines.push(`Previous decision: ${goal.lastReason}`);
+	if (goal.ultracode) {
+		lines.push(
+			"ULTRACODE: prefer driving this work via dynamic workflows when it earns its cost. Scout inline first with cheap read-only probes; orchestrate (dynamic_workflow action=start) only for exhaustiveness, independent confidence, or scale, with explicit concurrency/maxAgents. Inspect the catalog (dynamic_workflow action=scaffold) and reuse an exact-fit workflow or write a gitignored .pi/workflows/drafts/<slug>.js draft.",
+		);
+	}
 	lines.push("");
 	lines.push(
 		"Do work toward the objective now. THEN self-evaluate against the success criteria and call goal_progress:",

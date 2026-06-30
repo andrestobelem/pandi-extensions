@@ -24,6 +24,8 @@ export interface GoalState {
 	successCriteria?: string;
 	/** Criteria DERIVED by the model in iteration 1 when the user gave none (S2). */
 	derivedCriteria?: string;
+	/** Ultracode posture: lean on dynamic workflows to drive the work (prompt-injection only). */
+	ultracode?: boolean;
 	iteration: number;
 	maxIterations: number;
 	/** Best-effort context-usage percent cap. */

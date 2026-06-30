@@ -24,6 +24,7 @@ export function snapshot(goal: ActiveGoal): GoalState {
 		objective: goal.objective,
 		successCriteria: goal.successCriteria,
 		derivedCriteria: goal.derivedCriteria,
+		ultracode: goal.ultracode,
 		iteration: goal.iteration,
 		maxIterations: goal.maxIterations,
 		contextPercentCap: goal.contextPercentCap,
