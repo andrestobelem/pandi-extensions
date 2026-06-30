@@ -21,6 +21,7 @@ commands.
 /worktree open [-b <branch>] [--detach] [--force] [--copy-ignored] [--copy-untracked] <path> [<commit-ish>]  create-if-missing, then open Pi in it
 /worktree remove [--force] <path>          remove a worktree (confirms first)
 /worktree prune [--dry-run]                prune stale worktree metadata (previews first)
+/worktree set [copy-ignored|copy-untracked] [on|off|status]   set the session copy default
 ```
 
 - `add -b <branch> <path>` creates a new branch and checks it out in the new
@@ -32,9 +33,20 @@ commands.
 - On `add`/`open`, pass `--copy-ignored` (tool: `copyIgnored: true`) to copy
   gitignored files (e.g. `node_modules`) from the main worktree into the new
   one, and/or `--copy-untracked` (tool: `copyUntracked: true`) to copy untracked
-  files. Both are **off by default** and run only when the worktree is newly
-  created; the worktrees base dir and `.git` are never copied, so a new worktree
-  is never recursively filled with other worktrees.
+  files. They run only when the worktree is newly created; the worktrees base dir
+  and `.git` are never copied, so a new worktree is never recursively filled with
+  other worktrees.
+- **Pass per call OR set a default.** Each copy option resolves with precedence
+  **explicit per-call flag → session default → environment → off**:
+  - Per call, `--copy-ignored`/`--copy-untracked` force copy ON and
+    `--no-copy-ignored`/`--no-copy-untracked` force it OFF (overriding an ON
+    default). The tool's `copyIgnored`/`copyUntracked` are tri-state: `true`,
+    `false`, or omitted (fall through).
+  - Set a **session default** with `/worktree set copy-ignored on|off` and
+    `/worktree set copy-untracked on|off`; `/worktree set` (or `… status`) reports
+    the current resolution. Session defaults reset at each session boundary.
+  - Set an **environment default** with `PI_WORKTREE_COPY_IGNORED` /
+    `PI_WORKTREE_COPY_UNTRACKED` (truthy tokens: `1`/`true`/`on`/`yes`).
 - A **bare `<name>`** (no path separator) is created under the default base
   `.pi/worktrees/<name>`, which is kept local and gitignored automatically (a
   `.pi/worktrees/.gitignore` containing `*` is written on first use). Use an

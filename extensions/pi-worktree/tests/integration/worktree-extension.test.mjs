@@ -63,13 +63,16 @@ async function buildBundle() {
 function makePi() {
 	const commands = new Map();
 	const tools = new Map();
+	const events = new Map();
 	return {
 		pi: {
 			registerCommand: (name, opts) => commands.set(name, opts),
 			registerTool: (tool) => tools.set(tool.name, tool),
+			on: (event, handler) => events.set(event, handler),
 		},
 		commands,
 		tools,
+		events,
 	};
 }
 
@@ -280,7 +283,13 @@ async function scenarioCompletions(url) {
 	check("completions: second token → null", gac("add ") === null, JSON.stringify(gac("add ")));
 	check("completions: no match → null", gac("zzz") === null, JSON.stringify(gac("zzz")));
 	const all = gac("");
-	check("completions: empty → all six subcommands", Array.isArray(all) && all.length === 6, JSON.stringify(all));
+	check("completions: empty → all seven subcommands", Array.isArray(all) && all.length === 7, JSON.stringify(all));
+	const setc = gac("se");
+	check(
+		"completions: 'se' → set",
+		Array.isArray(setc) && setc.length === 1 && setc[0].value === "set",
+		JSON.stringify(setc),
+	);
 	const op = gac("op");
 	check(
 		"completions: 'op' → open",
@@ -741,6 +750,122 @@ async function scenarioCopyFilesIntoWorktree(url) {
 	await fs.rm(cwd, { recursive: true, force: true });
 }
 
+// --- copy-default "set" surface (pass-per-call OR session/env default) ---
+
+async function scenarioCopyPrefsResolution(url) {
+	const mod = await loadModule(url);
+
+	// precedence: explicit param -> session default -> env -> false.
+	mod.resetSessionCopyDefaults();
+	const base = mod.resolveCopyPrefs({});
+	check(
+		"resolveCopyPrefs: defaults off",
+		base.copyIgnored === false && base.copyUntracked === false,
+		JSON.stringify(base),
+	);
+
+	const paramOn = mod.resolveCopyPrefs({ copyIgnored: true });
+	check("resolveCopyPrefs: explicit param wins (on)", paramOn.copyIgnored === true, JSON.stringify(paramOn));
+
+	mod.setSessionCopyDefault("copyIgnored", true);
+	const sessionOn = mod.resolveCopyPrefs({});
+	check("resolveCopyPrefs: session default applies", sessionOn.copyIgnored === true, JSON.stringify(sessionOn));
+	const paramOffOverridesSession = mod.resolveCopyPrefs({ copyIgnored: false });
+	check(
+		"resolveCopyPrefs: explicit false overrides session default",
+		paramOffOverridesSession.copyIgnored === false,
+		JSON.stringify(paramOffOverridesSession),
+	);
+	mod.resetSessionCopyDefaults();
+	const afterReset = mod.resolveCopyPrefs({});
+	check(
+		"resolveCopyPrefs: reset clears session default",
+		afterReset.copyIgnored === false,
+		JSON.stringify(afterReset),
+	);
+
+	// parseCopyToggleValue
+	check("parseCopyToggleValue: on", mod.parseCopyToggleValue("on") === "on");
+	check("parseCopyToggleValue: off alias", mod.parseCopyToggleValue("disable") === "off");
+	check("parseCopyToggleValue: empty -> status", mod.parseCopyToggleValue("") === "status");
+	check("parseCopyToggleValue: bogus -> invalid", mod.parseCopyToggleValue("x") === "invalid");
+
+	// parser: negation flags make copy tri-state; set subcommand.
+	const noIg = mod.parseCommand("add --no-copy-ignored wt");
+	check("parseCommand: --no-copy-ignored => false", noIg.copyIgnored === false, JSON.stringify(noIg));
+	const plain = mod.parseCommand("add wt");
+	check("parseCommand: no copy flag => undefined", plain.copyIgnored === undefined, JSON.stringify(plain));
+	const setOn = mod.parseCommand("set copy-ignored on");
+	check(
+		"parseCommand: set copy-ignored on",
+		setOn.action === "set" && setOn.setTarget === "copy-ignored" && setOn.setValue === "on",
+		JSON.stringify(setOn),
+	);
+	const setStatus = mod.parseCommand("set");
+	check(
+		"parseCommand: bare set => status",
+		setStatus.action === "set" && !setStatus.setTarget,
+		JSON.stringify(setStatus),
+	);
+	const setBogus = mod.parseCommand("set bogus on");
+	check("parseCommand: set bogus => error", setBogus.action === "set" && !!setBogus.error, JSON.stringify(setBogus));
+}
+
+async function scenarioCopyPrefsSetCommand(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-worktree-setpref-"));
+	git(cwd, ["init", "-q", "-b", "main"]);
+	git(cwd, ["config", "user.email", "test@example.com"]);
+	git(cwd, ["config", "user.name", "Test"]);
+	await fs.writeFile(path.join(cwd, ".gitignore"), "node_modules/\n", "utf8");
+	await fs.writeFile(path.join(cwd, "file.txt"), "hello\n", "utf8");
+	git(cwd, ["add", "."]);
+	git(cwd, ["commit", "-q", "-m", "init"]);
+	await fs.mkdir(path.join(cwd, "node_modules"), { recursive: true });
+	await fs.writeFile(path.join(cwd, "node_modules", "dep.js"), "module.exports = 1;\n", "utf8");
+
+	// One extension instance so the command handler + tool share the session default singleton.
+	const { commands, tools } = await loadExtension(url);
+	const handler = commands.get("worktree").handler;
+	const tool = tools.get("git_worktree");
+
+	// set the session default ON, then a plain add (no flag) must copy node_modules.
+	const setCtx = makeCtx({ cwd });
+	await handler("set copy-ignored on", setCtx);
+	check(
+		"set: note confirms on",
+		/copy-ignored/.test(lastNote(setCtx).msg) && setCtx._notes.length > 0,
+		lastNote(setCtx).msg,
+	);
+
+	const added = await tool.execute(
+		"id",
+		{ action: "add", path: "wt-default-on", branch: "b-on" },
+		undefined,
+		undefined,
+		makeCtx({ cwd }),
+	);
+	check("set default-on: not an error", !added.details?.isError, JSON.stringify(added.details));
+	const onWt = path.join(cwd, ".pi", "worktrees", "wt-default-on");
+	check(
+		"set default-on: node_modules copied via session default",
+		existsSync(path.join(onWt, "node_modules", "dep.js")),
+	);
+
+	// per-call false overrides the ON session default.
+	const overridden = await tool.execute(
+		"id",
+		{ action: "add", path: "wt-override-off", branch: "b-off", copyIgnored: false },
+		undefined,
+		undefined,
+		makeCtx({ cwd }),
+	);
+	check("override-off: not an error", !overridden.details?.isError, JSON.stringify(overridden.details));
+	const offWt = path.join(cwd, ".pi", "worktrees", "wt-override-off");
+	check("override-off: node_modules NOT copied", !existsSync(path.join(offWt, "node_modules")));
+
+	await fs.rm(cwd, { recursive: true, force: true });
+}
+
 async function main() {
 	const { outDir, url } = await buildBundle();
 	try {
@@ -766,6 +891,8 @@ async function main() {
 		await scenarioInteractiveAdd(url);
 		await scenarioCopyFilters(url);
 		await scenarioCopyFilesIntoWorktree(url);
+		await scenarioCopyPrefsResolution(url);
+		await scenarioCopyPrefsSetCommand(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}

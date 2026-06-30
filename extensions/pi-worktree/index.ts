@@ -23,6 +23,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { type ParsedCommand, parseCommand } from "./command.js";
+import { type CopyPrefKey, resetSessionCopyDefaults, resolveCopyPrefs, setSessionCopyDefault } from "./copy-prefs.js";
 import {
 	combinedOutput,
 	ensureGitRepo,
@@ -56,6 +57,14 @@ import {
 // ParsedCommand + tokenize + parseCommand live in ./command.ts; tokenize/parseCommand
 // are re-exported so the built bundle keeps the names the integration suite imports.
 export { parseCommand, tokenize } from "./command.js";
+// Re-exported so the integration suite can unit-test the copy-default resolution
+// + parsing directly against the same bundle.
+export {
+	parseCopyToggleValue,
+	resetSessionCopyDefaults,
+	resolveCopyPrefs,
+	setSessionCopyDefault,
+} from "./copy-prefs.js";
 // Re-exported for the integration suite to unit-test the pure helpers directly
 // against the same bundle. Internal use still goes through the import above
 // (an `export … from` re-export creates no local binding, so there is no clash).
@@ -77,6 +86,10 @@ const HELP_TEXT = [
 	"  /worktree open [-b <branch>] [--detach] [--force] <path> [<commit-ish>]  create-if-missing, then open Pi in it",
 	"  /worktree remove [--force] <path>      remove a worktree",
 	"  /worktree prune [--dry-run]            prune stale worktree metadata",
+	"  /worktree set [copy-ignored|copy-untracked] [on|off|status]   set the session copy default",
+	"",
+	"Pass --copy-ignored/--copy-untracked (or --no-copy-ignored/--no-copy-untracked) to override per call.",
+	"Or set a session default with `set` (also via PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED env vars).",
 	"",
 	"A bare <name> (no slash) is created under .pi/worktrees/<name> (gitignored).",
 	"Use ./x, ../x, /abs, or ~/x for an explicit location.",
@@ -164,6 +177,32 @@ function copyNote(opts: CopyFilesOptions, r: CopyFilesResult): string {
 	return ` (copied ${parts.join(" + ")} file(s)${failed})`;
 }
 
+/** One-line summary of the resolved copy defaults (session/env, no per-call params). */
+function describeCopyDefaults(): string {
+	const r = resolveCopyPrefs({});
+	return `copy-ignored ${r.copyIgnored ? "on" : "off"}, copy-untracked ${r.copyUntracked ? "on" : "off"}`;
+}
+
+/** `/worktree set [copy-ignored|copy-untracked] [on|off|status]` — manage the session copy default. */
+function handleSet(ctx: ExtensionContext, parsed: ParsedCommand): void {
+	if (parsed.error) {
+		notify(ctx, parsed.error, "warning");
+		return;
+	}
+	// No target, or an explicit `status`: just report the current resolution.
+	if (!parsed.setTarget || parsed.setValue === "status") {
+		notify(ctx, `Worktree copy defaults: ${describeCopyDefaults()}.`, "info");
+		return;
+	}
+	if (parsed.setValue === "invalid") {
+		notify(ctx, `Usage: /worktree set ${parsed.setTarget} [on|off|status]`, "warning");
+		return;
+	}
+	const key: CopyPrefKey = parsed.setTarget === "copy-ignored" ? "copyIgnored" : "copyUntracked";
+	setSessionCopyDefault(key, parsed.setValue === "on");
+	notify(ctx, `Set ${parsed.setTarget} ${parsed.setValue} for this session: ${describeCopyDefaults()}.`, "info");
+}
+
 async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
 	if (parsed.error) {
 		notify(ctx, parsed.error, "warning");
@@ -187,7 +226,7 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 		notify(ctx, `Could not add worktree: ${gitError(result)}`, "error");
 		return;
 	}
-	const copyOpts = { copyIgnored: parsed.copyIgnored, copyUntracked: parsed.copyUntracked };
+	const copyOpts = resolveCopyPrefs({ copyIgnored: parsed.copyIgnored, copyUntracked: parsed.copyUntracked });
 	const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal);
 	const branchNote = parsed.newBranch ? ` (new branch ${parsed.newBranch})` : "";
 	const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
@@ -403,7 +442,7 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 			};
 		}
 		created = true;
-		const copyOpts = { copyIgnored: opts.copyIgnored, copyUntracked: opts.copyUntracked };
+		const copyOpts = resolveCopyPrefs({ copyIgnored: opts.copyIgnored, copyUntracked: opts.copyUntracked });
 		copySuffix = copyNote(copyOpts, await copyFilesToWorktree(ctx, target.path, copyOpts, signal));
 	}
 	const state = created ? "created" : "ready";
@@ -626,6 +665,9 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 		case "open":
 			await handleOpen(ctx, parsed, signal);
 			return;
+		case "set":
+			handleSet(ctx, parsed);
+			return;
 		case "remove":
 			await handleRemove(ctx, parsed, signal);
 			return;
@@ -641,9 +683,15 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 
 export type GitWorktreeAction = "list" | "add" | "open" | "remove" | "prune";
 
-const SUBCOMMANDS = ["list", "add", "open", "remove", "prune", "help"] as const;
+const SUBCOMMANDS = ["list", "add", "open", "remove", "prune", "set", "help"] as const;
 
 export default function worktreeExtension(pi: ExtensionAPI): void {
+	// Session-default copy toggles live in-memory; clear them at every session boundary
+	// (mirrors pi-plan resetting its ultracode posture toggles on session_start).
+	pi.on("session_start", () => {
+		resetSessionCopyDefaults();
+	});
+
 	pi.registerCommand("worktree", {
 		description: "Manage git worktrees: list | add | open | remove | prune",
 		getArgumentCompletions: (prefix: string) => {
@@ -667,7 +715,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		promptSnippet: "List, add, open, remove, or prune git worktrees.",
 		promptGuidelines: [
 			"Use git_worktree to inspect or manage git worktrees (list/add/open/remove/prune) instead of hand-writing `git worktree` bash commands.",
-			"For add/open, pass copyIgnored:true to copy gitignored files (e.g. node_modules) and/or copyUntracked:true to copy untracked files from the main worktree into the new one (both off by default; only when the worktree is newly created).",
+			"For add/open, pass copyIgnored:true to copy gitignored files (e.g. node_modules) and/or copyUntracked:true to copy untracked files from the main worktree into the new one (only when the worktree is newly created). Each is tri-state: true forces copy, false forces skip, and OMITTING it falls through to the session default (set via the /worktree set command) then the PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED env vars, else off.",
 			"git_worktree remove never force-deletes by default: only pass force=true when the user explicitly accepts discarding a dirty worktree's changes.",
 			"Pi's cwd is fixed for the session, so git_worktree cannot switch the CURRENT session into another worktree — report the worktree path so the user can open a new Pi there.",
 			"Use action 'open' when the user wants to start working in a worktree: it creates the worktree if missing and opens a NEW Pi session in it (a new Supacode tab under Supacode; otherwise it returns the `cd <path> && pi` command). It does not move the current session.",
@@ -705,12 +753,13 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			copyIgnored: Type.Optional(
 				Type.Boolean({
 					description:
-						"For add/open: copy gitignored files (e.g. node_modules) from the main worktree into the newly created one.",
+						"For add/open: copy gitignored files (e.g. node_modules) from the main worktree into the newly created one. Omit to fall through to the session default / PI_WORKTREE_COPY_IGNORED env var (else off).",
 				}),
 			),
 			copyUntracked: Type.Optional(
 				Type.Boolean({
-					description: "For add/open: copy untracked files from the main worktree into the newly created one.",
+					description:
+						"For add/open: copy untracked files from the main worktree into the newly created one. Omit to fall through to the session default / PI_WORKTREE_COPY_UNTRACKED env var (else off).",
 				}),
 			),
 		}),
@@ -792,7 +841,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 						details: { isError: true, action: "add", path: target.path },
 					};
 				}
-				const copyOpts = { copyIgnored: params.copyIgnored, copyUntracked: params.copyUntracked };
+				const copyOpts = resolveCopyPrefs({ copyIgnored: params.copyIgnored, copyUntracked: params.copyUntracked });
 				const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal ?? undefined);
 				const branchNote = params.branch ? ` (new branch ${params.branch})` : "";
 				const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
