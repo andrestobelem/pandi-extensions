@@ -1,0 +1,31 @@
+{
+	"name": "pi-dynamic-workflows-container",
+	"version": "0.1.0",
+	"description": "Pi extension to manage Apple `container` sandboxes (Linux micro-VMs): a /container command and a model-callable container_sandbox tool (status/list/create/run/stop/remove).",
+	"license": "MIT",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"apple-container",
+		"sandbox",
+		"virtualization"
+	],
+	"files": [
+		"index.ts",
+		"container.ts",
+		"notify.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"typebox": "*"
+	}
+}

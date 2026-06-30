@@ -42,6 +42,7 @@
 			"./extensions/pi-local-memory/index.ts",
 			"./extensions/pi-auto-compact-context/index.ts",
 			"./extensions/pi-worktree/index.ts",
+			"./extensions/pi-container/index.ts",
 			"./extensions/pi-typescript-lsp/index.ts",
 			"./extensions/pi-rename/index.ts",
 			"./extensions/pi-btw/index.ts",
