@@ -18,6 +18,7 @@ export interface LoopIterationPromptInput {
 	maxIterations: number;
 	lastReason?: string;
 	autonomous?: boolean;
+	ultracode?: boolean;
 }
 
 /** Molde estable de prompt de iteración (cf. makeWorkflowWakePrompt). */
@@ -46,6 +47,11 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 	lines.push(`This is iteration ${loop.iteration}/${loop.maxIterations}.`);
 	if (loop.lastReason) {
 		lines.push(`Previous decision: ${loop.lastReason}`);
+	}
+	if (loop.ultracode) {
+		lines.push(
+			"ULTRACODE: prefer driving this work via dynamic workflows when it earns its cost. Scout inline first with cheap read-only probes; orchestrate (dynamic_workflow action=start) only for exhaustiveness, independent confidence, or scale, with explicit concurrency/maxAgents. Inspect the catalog (dynamic_workflow action=scaffold) and reuse an exact-fit workflow or write a gitignored .pi/workflows/drafts/<slug>.js draft.",
+		);
 	}
 	lines.push("");
 	lines.push("Do EXACTLY ONE iteration of the task now, then decide whether to continue:");

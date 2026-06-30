@@ -154,6 +154,8 @@ interface LoopState {
 	 * Start requires trust + an explicit confirm. Persisted so it survives a reload.
 	 */
 	autonomous?: boolean;
+	/** Ultracode posture: lean on dynamic workflows to drive the work (prompt-injection only). */
+	ultracode?: boolean;
 	/** ISO timestamp of the last write; used to resolve JSONL-vs-sidecar conflicts. */
 	updatedAt: string;
 }
@@ -277,6 +279,7 @@ function snapshot(loop: ActiveLoop): LoopState {
 		lastReason: loop.lastReason,
 		status: loop.status,
 		autonomous: loop.autonomous,
+		ultracode: loop.ultracode,
 		updatedAt: loop.updatedAt,
 	};
 }
@@ -549,15 +552,32 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 // Start / stop
 // ---------------------------------------------------------------------------
 
+/**
+ * Strip a `--ultracode` / `--uc` posture flag off the args (anywhere in the string).
+ * Returns the cleaned text plus whether the flag was present. Parsed BEFORE the trailing
+ * interval token so the flag is never mistaken for an interval.
+ */
+function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean } {
+	let ultracode = false;
+	const kept: string[] = [];
+	for (const token of args.split(/\s+/)) {
+		const lower = token.toLowerCase();
+		if (lower === "--ultracode" || lower === "--uc") ultracode = true;
+		else if (token.length) kept.push(token);
+	}
+	return { rest: kept.join(" "), ultracode };
+}
+
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Mode gate: only TUI/RPC can sustain a persistent looping session.
 	if (!canLoopInMode(ctx)) {
 		notify(ctx, "/loop requires a TUI or RPC session (this mode cannot loop).", "error");
 		return undefined;
 	}
-	const trimmed = task.trim();
+	const { rest: withoutFlag, ultracode } = extractUltracodeFlag(task);
+	const trimmed = withoutFlag.trim();
 	if (!trimmed) {
-		notify(ctx, "Usage: /loop <task> [interval]", "warning");
+		notify(ctx, "Usage: /loop [--ultracode] <task> [interval]", "warning");
 		return undefined;
 	}
 
@@ -602,6 +622,7 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		nextFireAt: null,
 		lastReason: undefined,
 		status: "running",
+		ultracode,
 		updatedAt: new Date().toISOString(),
 		timer: null,
 		controller: new AbortController(),
@@ -616,7 +637,8 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	// Send the first iteration prompt immediately. fireWake handles iteration++/persist/status.
 	fireWake(pi, ctx, loop);
 	const modeLabel = loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
-	notify(ctx, `Started loop ${loopId}${modeLabel}: ${taskText}`, "info");
+	const uc = ultracode ? " [ultracode]" : "";
+	notify(ctx, `Started loop ${loopId}${modeLabel}${uc}: ${taskText}`, "info");
 	return loop;
 }
 
@@ -644,9 +666,10 @@ async function startAutonomousLoop(
 		notify(ctx, "/loop auto requires a trusted project. Run /trust first, then retry.", "error");
 		return undefined;
 	}
-	const trimmed = rawArgs.trim();
+	const { rest: withoutFlag, ultracode } = extractUltracodeFlag(rawArgs);
+	const trimmed = withoutFlag.trim();
 	if (!trimmed) {
-		notify(ctx, "Usage: /loop auto <objective> [interval]", "warning");
+		notify(ctx, "Usage: /loop auto [--ultracode] <objective> [interval]", "warning");
 		return undefined;
 	}
 	// Strip an optional trailing interval token, same parser as startLoop.
@@ -702,6 +725,7 @@ async function startAutonomousLoop(
 		lastReason: undefined,
 		status: "running",
 		autonomous: true,
+		ultracode,
 		updatedAt: new Date().toISOString(),
 		timer: null,
 		controller: new AbortController(),
@@ -1282,7 +1306,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("loop", {
 		description:
-			"Run a task iteratively: /loop <task> [interval] | /loop auto <objective> [interval] | /loop stop [id] | /loop pause [id] | /loop resume [id] | /loop status [id]. Interval (e.g. 5m, 30s, 2h) runs on a fixed cadence; omit it for model-paced. 'auto' starts an autonomous loop (requires a trusted project + confirmation).",
+			"Run a task iteratively: /loop [--ultracode] <task> [interval] | /loop auto [--ultracode] <objective> [interval] | /loop stop [id] | /loop pause [id] | /loop resume [id] | /loop status [id]. Interval (e.g. 5m, 30s, 2h) runs on a fixed cadence; omit it for model-paced. 'auto' starts an autonomous loop (requires a trusted project + confirmation). --ultracode drives iterations via dynamic workflows.",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "auto", label: "auto", description: "Start an autonomous loop (trust + confirm)" },
@@ -1290,6 +1314,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 				{ value: "pause", label: "pause", description: "Pause a running loop" },
 				{ value: "resume", label: "resume", description: "Resume a paused loop" },
 				{ value: "status", label: "status", description: "Show loop status" },
+				{ value: "--ultracode", label: "--ultracode", description: "Run loop iterations via dynamic workflows" },
 			];
 			for (const loop of activeLoops.values()) {
 				if (loop.status === "running" || loop.status === "paused") {
