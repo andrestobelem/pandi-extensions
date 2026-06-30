@@ -24,12 +24,16 @@ import type { ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-
  *        optional — the recursive flag is the data-loss risk). Single-file rm is not gated.
  *      find ... -delete and find ... -exec rm (recursive deletion via find)
  *      truncate / shred (in-place destruction of existing files)
- *      shell redirections (>, >>) and tee writing OUTSIDE the project cwd, including
- *        targets that escape via a leading ~ (home), an unexpanded $VAR/${VAR}, or a
- *        relative target reached after a `cd`/`pushd` into a dir outside the project
- *      git push --force / -f / push ... --force-with-lease
+ *      shell redirections (>, >>, the `>|`/`>>|` clobber form, and the `&>`/`&>>`
+ *        combined-redirect operator) and tee writing OUTSIDE the project cwd, including
+ *        targets that escape via a leading ~ (home), an unexpanded $VAR/${VAR}, a command
+ *        substitution ($(...) / `...`), or a relative target reached after a `cd`/`pushd`
+ *        into a dir outside the project
+ *      git push --force / -f / push ... --force-with-lease / push ... +refspec (force
+ *        via a leading `+` on the refspec)
  *      git reset --hard
  *      git clean -fd / -xfd
+ *      git filter-branch (history rewrite) and git stash clear / stash drop (stash loss)
  *      DROP TABLE/DATABASE/SCHEMA (SQL drops)
  *      TRUNCATE TABLE
  *      kubectl apply|delete / terraform apply|destroy / helm upgrade|install|uninstall
@@ -48,6 +52,16 @@ import type { ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-
  *
  * Conservative bias: when unsure, DO NOT block — only autopilot turns are gated, and
  * only when the pattern clearly matches one of the above.
+ *
+ * ACCEPTED LIMITATIONS (by design — this is defense-in-depth, NOT a security boundary;
+ * the load-bearing controls are project trust + the autopilot confirm/block). A regex
+ * allowlist cannot catch destruction expressed through a general-purpose interpreter or
+ * runtime indirection, and gating those would false-positive on ordinary work. So these
+ * intentionally PASS: interpreter-driven deletion (`perl -e unlink`, `python -c
+ * shutil.rmtree`), deletion via `xargs rm` (non-recursive), flags assembled from a shell
+ * variable (`R=-rf; rm $R d`), encoded execution (`… | base64 -d | sh`), and destructive
+ * verbs behind generic one-letter aliases (`k delete …`) or tools not on the structured
+ * list (most `docker`/cloud-CLI subcommands).
  */
 export const DESTRUCTIVE_BASH_PATTERNS: RegExp[] = [
 	// rm that is RECURSIVE, in ANY flag form (-r, -R, -rf, -fr, --recursive). The
@@ -62,8 +76,16 @@ export const DESTRUCTIVE_BASH_PATTERNS: RegExp[] = [
 	/\btruncate\b/i,
 	/\bshred\b/i,
 	/\bgit\b[^\n]*\bpush\b[^\n]*(--force\b|--force-with-lease\b|\s-f\b)/i,
+	// Force-push via a `+` refspec (e.g. `git push origin +master`): a leading `+` on the
+	// refspec force-updates the remote ref WITHOUT any --force/-f flag, so the flag-based
+	// pattern above misses it. The `\s\+\S` anchors on a whitespace-led `+<ref>` token.
+	/\bgit\b[^\n]*\bpush\b[^\n]*\s\+[^\s]/i,
 	/\bgit\b[^\n]*\breset\b[^\n]*--hard\b/i,
 	/\bgit\b[^\n]*\bclean\b[^\n]*\s-[a-z]*f/i,
+	// git history rewrite (filter-branch) and stash destruction (stash clear/drop) are
+	// irreversible — same destructive-git family as reset --hard / clean -fd above.
+	/\bgit\b[^\n]*\bfilter-branch\b/i,
+	/\bgit\b[^\n]*\bstash\b[^\n]*\b(clear|drop)\b/i,
 	/\bdrop\s+(table|database|schema)\b/i,
 	/\btruncate\s+table\b/i,
 	/\b(kubectl)\b[^\n]*\b(delete|apply)\b/i,
@@ -78,10 +100,15 @@ export function isDestructiveBash(command: string): boolean {
 	return DESTRUCTIVE_BASH_PATTERNS.some((re) => re.test(command));
 }
 
-// Shell redirections that WRITE a file (>, >>, optionally fd-prefixed like 2>log),
-// capturing the target path. Excludes fd-dups (>&, 2>&1) and the operators ->, =>,
-// >= which are not redirections.
-export const REDIRECT_TARGET_RE = /(?:^|[^&>=\d-])\d*>>?\s*(?![&>=])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
+// Shell redirections that WRITE a file (>, >>, the `>|` clobber-override form, optionally
+// fd-prefixed like 2>log), capturing the target path. Excludes fd-dups (>&, 2>&1) and the
+// operators ->, =>, >= which are not redirections. The `\|?` after `>>?` catches `>|`/`>>|`,
+// which set noclobber-override and otherwise slip past (the `|` is not a valid target char).
+export const REDIRECT_TARGET_RE = /(?:^|[^&>=\d-])\d*>>?\|?\s*(?![&>=])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
+// `&>` / `&>>` redirect BOTH stdout+stderr to a file (bash). REDIRECT_TARGET_RE deliberately
+// rejects a `&` immediately before `>` (to skip fd-dups like 2>&1 / >&2), so the combined-
+// redirect operator needs its own pattern: `&` at a command-ish position, then `>`/`>>`.
+export const AMP_REDIRECT_TARGET_RE = /(?:^|[\s;|&(])&>>?\s*(?![&>=])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
 // `tee [flags] <file>` also writes a file.
 export const TEE_TARGET_RE = /\btee\b\s+(?:-\S+\s+)*("[^"]*"|'[^']*'|[^\s|&;<>]+)/gi;
 // `cd`/`pushd` at COMMAND position (start, or after a ;/&&/||/|/newline/`(` separator),
@@ -116,8 +143,9 @@ export function unquote(value: string): string {
 // bash command cannot evade the same out-of-project guard applied to write/edit.
 export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): string | undefined {
 	const targets: string[] = [];
-	for (const m of command.matchAll(REDIRECT_TARGET_RE)) if (m[1]) targets.push(unquote(m[1]));
-	for (const m of command.matchAll(TEE_TARGET_RE)) if (m[1]) targets.push(unquote(m[1]));
+	for (const re of [REDIRECT_TARGET_RE, AMP_REDIRECT_TARGET_RE, TEE_TARGET_RE]) {
+		for (const m of command.matchAll(re)) if (m[1]) targets.push(unquote(m[1]));
+	}
 	const leftProject = commandChangesToUnsafeDir(ctx, command);
 	for (const target of targets) {
 		if (target.startsWith("/dev/")) continue; // /dev/null and friends are not real writes
@@ -131,11 +159,13 @@ export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): s
 /** Is this write/edit path unsafe (outside the trusted project cwd, or escaping via "..")? */
 export function isUnsafeWritePath(ctx: ExtensionContext, filePath: unknown): boolean {
 	if (typeof filePath !== "string" || filePath.length === 0) return false;
-	// A leading ~ (home) or an unexpanded shell variable ($VAR / ${VAR}) cannot be proven
-	// to resolve inside the project: the shell expands them at runtime, path.normalize does
-	// not. Treat them as out-of-project rather than as innocuous relative names.
+	// A leading ~ (home), an unexpanded shell variable ($VAR / ${VAR}), a command
+	// substitution ($(...) or `...`) cannot be proven to resolve inside the project: the
+	// shell expands them at runtime, path.normalize does not. Treat them as out-of-project
+	// rather than as innocuous relative names.
 	if (filePath.startsWith("~")) return true;
-	if (/\$[\w{]/.test(filePath)) return true;
+	if (/\$[\w{(]/.test(filePath)) return true;
+	if (filePath.includes("`")) return true;
 	// Reject any path that climbs out of cwd via "..".
 	const normalized = path.normalize(filePath);
 	if (normalized.split(path.sep).includes("..")) return true;

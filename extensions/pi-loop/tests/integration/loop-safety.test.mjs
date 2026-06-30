@@ -174,6 +174,21 @@ async function loopAutopilotGate(loopUrl) {
 		"cd ~ && echo x > .bashrc",
 		"cd && echo x > .bashrc",
 		"cd .. && echo x > escaped.txt",
+		// HARDENING: evasions of the gate's EXISTING intent that previously slipped through.
+		// git force-push via a `+` refspec (no --force/-f flag).
+		"git push origin +master",
+		"git push origin +refs/heads/main",
+		// `>|` clobber operator and `&>` combined redirect writing OUTSIDE the project.
+		"echo x >| /etc/cron.d/pwn",
+		"echo x &> /etc/hosts",
+		"echo x &>> /etc/hosts",
+		// Redirect target that is a command substitution: cannot be proven in-project, so
+		// it is treated as unsafe (consistent with the existing $VAR/${VAR} treatment).
+		"echo x > $(getconf DARWIN_USER_DIR)/p",
+		// git history / stash destruction (irreversible) — same family as the existing git gates.
+		"git filter-branch --force --all",
+		"git stash clear",
+		"git stash drop",
 	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`loop(autopilot): BLOCKS bash "${cmd}"`, !!r && r.block === true, r ? "" : "not blocked");
@@ -196,6 +211,13 @@ async function loopAutopilotGate(loopUrl) {
 		"cd build && echo x > out.log",
 		"cat src/cd/file > out.txt",
 		"cd /etc && echo ok > /dev/null",
+		// HARDENING false-positive guards: an ordinary (non-force) push, an IN-PROJECT `&>`
+		// and `>|` clobber, and a `git stash` (no clear/drop) must all stay ALLOWED.
+		"git push origin main",
+		"node build.js &> out.log",
+		"echo x >| local.txt",
+		"git stash",
+		"git stash pop",
 	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`loop(autopilot): ALLOWS bash "${cmd}"`, r === undefined, r ? r.reason : "");
