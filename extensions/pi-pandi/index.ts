@@ -26,6 +26,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext, Theme, WorkingIndicatorOptions } from "@earendil-works/pi-coding-agent";
+import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
 
 const STATUS_KEY = "pandi";
 
@@ -38,9 +39,6 @@ const orange = (s: string) => `${ORANGE}${s}${RESET_FG}`;
 const BLACK = "\x1b[38;2;28;30;34m";
 const WHITE = "\x1b[38;2;237;237;232m";
 const RESET = "\x1b[0m";
-
-// La frase (el meme — grafía intencional, no la corrijas 🐼).
-const PANDI_QUOTE = ["Pobres pandas, toda la vida masticando bambú…", "…lo que es yo, yo quiero todo el menú."];
 
 // La cara de panda (block-art). ░ = blanco, █ = negro.
 const PANDA_FACE = [
@@ -117,22 +115,6 @@ const FACE = {
 	error: PANDA.llorando,
 } as const;
 
-// Verbos juguetones que rotan por turno.
-const MOODS = [
-	"rumiando bambú…",
-	"masticando bambú…",
-	"masticando ideas…",
-	"pensando…",
-	"tramando algo…",
-	"haciendo cálculos pandescos…",
-	"consultando al bosque de bambú…",
-	"queriendo todo el menú…",
-	"meditando bajo un árbol…",
-	"estirándose y pensando…",
-	"buscando la mejor rama…",
-	"acomodando los bytes…",
-];
-
 /** Estilo "claude": carita `(● ●)` con ojos que a veces brillan con el rombo ◆. */
 function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	const eye = (c: string) => (c === "◆" ? orange("◆") : c);
@@ -176,7 +158,6 @@ function pandaFrames(theme: Theme, style: FaceStyle): WorkingIndicatorOptions {
 	return style === "kaomoji" ? framesKaomoji(theme) : framesClaude(theme);
 }
 
-const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 
 export default function (pi: ExtensionAPI) {
 	let enabled = true;
