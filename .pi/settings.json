@@ -11,6 +11,7 @@
     "../extensions/pi-local-memory",
     "../extensions/pi-auto-compact-context",
     "../extensions/pi-worktree",
+    "../extensions/pi-container",
     "../extensions/pi-typescript-lsp",
     "../extensions/pi-rename",
     "../extensions/pi-btw",
