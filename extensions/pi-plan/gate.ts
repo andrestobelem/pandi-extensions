@@ -27,9 +27,9 @@ import type { ToolCallEvent } from "@earendil-works/pi-coding-agent";
  *   - In-place / writing tooling: sed -i, tee, dd, mkfs
  *   - Shell redirections that WRITE a file: >, >>, >|, including numbered-fd
  *     writes like 2>err.log (but NOT fd duplications like 2>&1)
- *   - Git mutations: commit, add, push, reset, clean, checkout, switch, restore, merge,
+ *   - Git mutations: commit, add, push, pull, clone, fetch, reset, clean, checkout, switch, restore, merge,
  *     rebase, stash, apply, rm, mv, tag, branch -D/-d, cherry-pick, revert
- *   - Package installs: npm/pnpm/yarn install|add|ci, npx -y, pip/pipx install, poetry add,
+ *   - Package manager mutations: npm/pnpm/yarn/bun install|add|ci|uninstall|remove|update|upgrade|prune, npx -y, pip/pipx install, poetry add,
  *     cargo add, go get, gem install, brew install, bun add/install
  *   - Infra/build that writes: make, kubectl apply/delete, terraform apply/destroy,
  *     helm upgrade/install/uninstall
@@ -61,10 +61,10 @@ export const MUTATING_BASH_PATTERNS: RegExp[] = [
 	/(^|[^&>=-])>>?\s*(?![&>=])/,
 	/>\|/,
 	// Git mutations.
-	/\bgit\b[^\n]*\b(commit|add|push|reset|clean|checkout|switch|restore|merge|rebase|stash|apply|rm|mv|tag|cherry-pick|revert)\b/i,
+	/\bgit\b[^\n]*\b(commit|add|push|pull|clone|fetch|reset|clean|checkout|switch|restore|merge|rebase|stash|apply|rm|mv|tag|cherry-pick|revert)\b/i,
 	/\bgit\b[^\n]*\bbranch\b[^\n]*\s-[dD]\b/i,
 	// Package installs.
-	/\b(npm|pnpm|yarn|bun)\b[^\n]*\b(install|add|ci)\b/i,
+	/\b(npm|pnpm|yarn|bun)\b[^\n]*\b(install|add|ci|uninstall|remove|update|upgrade|prune)\b/i,
 	/\bnpx\b[^\n]*\s-y\b/i,
 	/\b(pip|pip3|pipx)\b[^\n]*\binstall\b/i,
 	/\bpoetry\b[^\n]*\badd\b/i,
