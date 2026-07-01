@@ -46,7 +46,9 @@ import {
 	nextFaceStyle,
 	PANDA_FACE,
 	pandaPalette,
+	pandaPaletteFromInk,
 	parseFaceStyle,
+	parseFgRgb,
 } from "./face.js";
 import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
 import { pandiPersonaBlock } from "./persona.js";
@@ -58,11 +60,16 @@ const ORANGE = fgAnsi(CLAUDE_ORANGE);
 const RESET_FG = "\x1b[39m";
 const orange = (s: string) => `${ORANGE}${s}${RESET_FG}`;
 
-// El splash: panda a la izquierda, nombre + frase a la derecha (centrado vertical). La
-// paleta del panda se adapta al tema (claro/oscuro) para que las dos tintas — la cara
-// clara y los parches oscuros — sigan visibles en cualquier fondo de terminal.
+// El splash: panda a la izquierda, nombre + frase a la derecha (centrado vertical). Las dos
+// tintas del panda — la cara clara y los parches oscuros — se DERIVAN de la tinta del tema
+// (el color `text`): usa el blanco/negro propio del tema y deriva el tono opuesto del mismo
+// matiz, para que Pandi tome los colores del tema sin dejar de ser un panda monocromo. Si el
+// tema no es truecolor (256-color, sin RGB parseable) cae a la paleta fija por modo.
 function splashLines(theme: Theme): string[] {
-	const palette = pandaPalette(modeFromTextColor(theme.getFgAnsi("text")));
+	const textAnsi = theme.getFgAnsi("text");
+	const mode = modeFromTextColor(textAnsi);
+	const ink = parseFgRgb(textAnsi);
+	const palette = ink ? pandaPaletteFromInk(ink, mode) : pandaPalette(mode);
 	const title = [theme.fg("accent", "Pandi 🐼"), theme.fg("dim", PANDI_QUOTE[0]), theme.fg("dim", PANDI_QUOTE[1])];
 	const top = Math.floor((PANDA_FACE.length - title.length) / 2);
 	const body = PANDA_FACE.map((line, i) => {

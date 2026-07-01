@@ -53,6 +53,29 @@ export function pandaPalette(mode: TerminalMode): PandaPalette {
 		: { face: [237, 237, 232], patch: [70, 74, 82] };
 }
 
+/** Blend an RGB triple toward black (t<1) or white via `blendTo`; each channel rounded + clamped. */
+function blend([r, g, b]: Rgb, target: number, t: number): Rgb {
+	const mix = (c: number) => Math.max(0, Math.min(255, Math.round(c + (target - c) * t)));
+	return [mix(r), mix(g), mix(b)];
+}
+
+/**
+ * Derive Pandi's two tones from the THEME's ink (the `text` color). Themes expose no explicit
+ * black/white role, so we use the ONE extreme the theme gives us — its ink — for the tone that
+ * matches the mode, and derive the opposite tone by blending that same ink (preserving its hue,
+ * so a tinted theme yields a tinted-but-monochrome panda):
+ * - dark theme (light ink): face = the ink itself (the theme's white); patch = ink blended 70%
+ *   toward black (a dark, same-hue version that survives a dark background).
+ * - light theme (dark ink): patch = the ink itself (the theme's black); face = ink blended 60%
+ *   toward white (a light, same-hue version distinct from a light background).
+ * The mode threshold (text luminance ≥ 0.5 ⇒ dark) guarantees ≥ 0.3 face/patch contrast either way.
+ */
+export function pandaPaletteFromInk(ink: Rgb, mode: TerminalMode): PandaPalette {
+	return mode === "light"
+		? { face: blend(ink, 255, 0.6), patch: [ink[0], ink[1], ink[2]] }
+		: { face: [ink[0], ink[1], ink[2]], patch: blend(ink, 0, 0.7) };
+}
+
 const RESET = "\x1b[0m";
 
 /** Build a truecolor foreground SGR escape for an RGB triple. */

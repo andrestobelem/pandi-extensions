@@ -40,6 +40,7 @@ async function scenarioFaceUnit(url) {
 		PANDA_FACE,
 		FACE_WIDTH,
 		pandaPalette,
+		pandaPaletteFromInk,
 		colorizeFace,
 		fgAnsi,
 		parseFgRgb,
@@ -109,6 +110,36 @@ async function scenarioFaceUnit(url) {
 			luminance(pal.face) - luminance(pal.patch) >= 0.3,
 			(luminance(pal.face) - luminance(pal.patch)).toFixed(3),
 		);
+	}
+
+	// --- pandaPaletteFromInk (theme-derived black & white) -------------------------
+	// Instead of fixed cream/gray, derive Pandi's two tones from the THEME's ink (the `text`
+	// color). The theme has no explicit black/white role, so: the light tone reuses the
+	// theme's own light ink and the dark tone is that same ink scaled down (same hue), and
+	// vice-versa in light mode. This makes Pandi pick up the theme's exact white/black while
+	// staying a recognizable, hue-consistent panda.
+	check("pandaPaletteFromInk is exported", typeof pandaPaletteFromInk === "function");
+	if (typeof pandaPaletteFromInk === "function") {
+		const whiteInk = [237, 237, 232]; // a dark theme's near-white `text`
+		const blackInk = [28, 30, 34]; // a light theme's near-black `text`
+		const tintInk = [230, 215, 245]; // a purple-tinted dark-theme white
+		const d = pandaPaletteFromInk(whiteInk, "dark");
+		const l = pandaPaletteFromInk(blackInk, "light");
+		const t = pandaPaletteFromInk(tintInk, "dark");
+
+		check("pandaPaletteFromInk returns face + patch RGB triples", isRgb(d.face) && isRgb(d.patch));
+		// Dark mode: the panda's WHITE is the theme's own light ink; the black is derived from it.
+		check("dark ink: face IS the theme's light ink (uses the theme white)", deepEq(d.face, whiteInk));
+		check("dark ink: face lighter than patch (still a panda)", luminance(d.face) > luminance(d.patch));
+		check("dark ink: strong face/patch contrast (>= 0.3)", luminance(d.face) - luminance(d.patch) >= 0.3);
+		check("dark ink: patch stays visible on dark bg (lum >= 0.15)", luminance(d.patch) >= 0.15, lum(d.patch));
+		// Light mode: the panda's BLACK is the theme's own dark ink; the white is derived from it.
+		check("light ink: patch IS the theme's dark ink (uses the theme black)", deepEq(l.patch, blackInk));
+		check("light ink: face lighter than patch", luminance(l.face) > luminance(l.patch));
+		check("light ink: strong face/patch contrast (>= 0.3)", luminance(l.face) - luminance(l.patch) >= 0.3);
+		check("light ink: patch stays dark on light bg (lum <= 0.25)", luminance(l.patch) <= 0.25, lum(l.patch));
+		// Tint preservation: a purple-tinted ink yields a purple-tinted (not gray) derived tone.
+		check("tinted ink: derived patch keeps the ink's dominant channel", argmax(t.patch) === argmax(tintInk));
 	}
 
 	// --- colorizeFace --------------------------------------------------------------
@@ -188,6 +219,11 @@ function deepEq(a, b) {
 }
 function lum(rgb) {
 	return (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+}
+function argmax(rgb) {
+	let best = 0;
+	for (let i = 1; i < rgb.length; i++) if (rgb[i] > rgb[best]) best = i;
+	return best;
 }
 
 async function main() {
