@@ -16,7 +16,7 @@ import type { EditorComponent } from "@earendil-works/pi-tui";
 import { Key, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
 import type { DashboardCommandSubmitter, DashboardOpener } from "./dashboard-orchestration.js";
 import { openWorkflowDashboard } from "./dashboard-orchestration.js";
-import { type ColorMode, colorizeKeyword, detectColorMode } from "./rainbow.js";
+import { type ColorMode, colorizeKeyword, containsKeywordToken, detectColorMode } from "./rainbow.js";
 import { stripAnsiCodes } from "./render-utils.js";
 
 const WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER = "__dynamicWorkflowDashboardDownEditor";
@@ -65,8 +65,8 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	}
 
 	private textHasKeyword(): boolean {
-		const text = this.base.getText().toLowerCase();
-		return RAINBOW_KEYWORDS.some((keyword) => text.includes(keyword));
+		const text = this.base.getText();
+		return RAINBOW_KEYWORDS.some((keyword) => containsKeywordToken(text, keyword));
 	}
 
 	/** Bump the rainbow phase one step (exposed for deterministic tests). */

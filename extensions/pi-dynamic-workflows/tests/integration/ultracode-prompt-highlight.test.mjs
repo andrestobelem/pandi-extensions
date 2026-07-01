@@ -239,6 +239,36 @@ async function scenarioLeavesKeywordlessTextUntouched(url) {
 	check("prompt without the keyword is unchanged", line === "> hello world", JSON.stringify(line));
 }
 
+// The keyword only colorizes as a standalone token: bounded left by start/space/slash and right
+// by end/space. A keyword glued to a larger word ("workflows", "myultracode") must NOT recolor.
+async function scenarioDoesNotColorSubstringInsideLargerWord(url) {
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> run the workflows now"));
+	const line = wrapped.render(80)[1];
+	check("keyword as a substring of a larger word is NOT recolored", !line.includes("\x1b[38;2;"), line);
+	check("text with an embedded keyword is byte-unchanged", line === "> run the workflows now", JSON.stringify(line));
+}
+
+async function scenarioDoesNotColorKeywordGluedToPrecedingWord(url) {
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> myultracode rocks"));
+	const line = wrapped.render(80)[1];
+	check("keyword glued to a preceding word is NOT recolored", !line.includes("\x1b[38;2;"), line);
+	check("glued-keyword text is byte-unchanged", line === "> myultracode rocks", JSON.stringify(line));
+}
+
+async function scenarioColorsSlashPrefixedKeyword(url) {
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> /ultracode do X"));
+	const line = wrapped.render(80)[1];
+	check("slash-prefixed keyword is recolored", line.includes("\x1b[38;2;"), line);
+	check("slash + visible text preserved", stripAll(line).includes("/ultracode do X"), stripAll(line));
+}
+
+async function scenarioColorsKeywordAtEndOfLine(url) {
+	// Option A: end-of-text is a valid right boundary, so a just-typed word colorizes immediately.
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> /ultracode"));
+	const line = wrapped.render(80)[1];
+	check("keyword at end of line (no trailing space) is recolored", line.includes("\x1b[38;2;"), line);
+}
+
 async function scenarioNeverColorsAutocompleteDropdown(url) {
 	const suggestions = ["ultracode-mode   toggle ultracode workflow routing", "skill:ultracode  run a workflow"];
 	const { wrapped } = await installEditor(url, makeAutocompleteBaseEditor("> ultracode", suggestions));
@@ -269,6 +299,10 @@ async function main() {
 	await scenarioPreservesCursorMarker(url);
 	await scenarioAnimatesOverTime(url);
 	await scenarioLeavesKeywordlessTextUntouched(url);
+	await scenarioDoesNotColorSubstringInsideLargerWord(url);
+	await scenarioDoesNotColorKeywordGluedToPrecedingWord(url);
+	await scenarioColorsSlashPrefixedKeyword(url);
+	await scenarioColorsKeywordAtEndOfLine(url);
 	await scenarioNeverColorsAutocompleteDropdown(url);
 	await scenarioNeverColorsTopBorder(url);
 

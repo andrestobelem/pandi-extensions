@@ -88,6 +88,27 @@ export function rainbowText(text: string, phase = 0, options: RainbowOptions = {
 // and other single-char escapes. They carry zero visible width and must be preserved in place.
 const CONTROL_SEQUENCE = /^(?:\x1b\[[0-9;?]*[A-Za-z]|\x1b_[^\x07]*\x07|\x1b[@-Z\\-_])/;
 
+// A keyword only counts as a standalone trigger token: bounded on the LEFT by start-of-text, a
+// space, or a `/` (so `/ultracode` and ` ultracode ` count) and on the RIGHT by end-of-text or a
+// space. Substrings glued to a larger word (`workflows`, `myultracode`) are NOT tokens.
+const isKeywordLeftBoundary = (text: string, at: number): boolean =>
+	at === 0 || text[at - 1] === " " || text[at - 1] === "/";
+const isKeywordRightBoundary = (text: string, at: number): boolean => at === text.length || text[at] === " ";
+
+/**
+ * True when `text` contains `keyword` (case-insensitive) as a standalone token per the boundary
+ * rule above. Substrings inside larger words do not count.
+ */
+export function containsKeywordToken(text: string, keyword: string): boolean {
+	if (!keyword) return false;
+	const lower = text.toLowerCase();
+	const key = keyword.toLowerCase();
+	for (let from = lower.indexOf(key); from >= 0; from = lower.indexOf(key, from + 1)) {
+		if (isKeywordLeftBoundary(lower, from) && isKeywordRightBoundary(lower, from + key.length)) return true;
+	}
+	return false;
+}
+
 /**
  * Recolor every visible occurrence of `keyword` (case-insensitive) inside an already-rendered
  * line with the animated rainbow, leaving all other characters and every control sequence
@@ -125,6 +146,8 @@ export function colorizeKeyword(line: string, keyword: string, phase = 0, option
 	const lower = visible.toLowerCase();
 	const offsetInMatch = new Array<number>(visible.length).fill(-1);
 	for (let from = lower.indexOf(key); from >= 0; from = lower.indexOf(key, from + key.length)) {
+		// Only recolor standalone keyword tokens; skip substrings glued to a larger word.
+		if (!isKeywordLeftBoundary(lower, from) || !isKeywordRightBoundary(lower, from + key.length)) continue;
 		for (let k = 0; k < key.length; k++) offsetInMatch[from + k] = k;
 	}
 
