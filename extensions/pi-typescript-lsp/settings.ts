@@ -1,6 +1,6 @@
 /**
  * pi-typescript-lsp settings: the small, pure setting parsers (env + subcommand
- * share these — mirrors pi-auto-compact-context) plus the feedback-mode/scope
+ * share these — mirrors pi-auto-compact) plus the feedback-mode/scope
  * value types they produce.
  *
  * Like diagnostics.ts, this module is deliberately free of pi's ExtensionContext

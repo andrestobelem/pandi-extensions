@@ -1,5 +1,4 @@
 {
-  "sessionDir": ".pi/sessions",
   "packages": [
     "../extensions/pi-dynamic-workflows",
     "../extensions/pi-loop",
@@ -9,7 +8,7 @@
     "../extensions/pi-effort",
     "../extensions/pi-mdview",
     "../extensions/pi-local-memory",
-    "../extensions/pi-auto-compact-context",
+    "../extensions/pi-auto-compact",
     "../extensions/pi-worktree",
     "../extensions/pi-container",
     "../extensions/pi-typescript-lsp",
@@ -17,7 +16,8 @@
     "../extensions/pi-btw",
     "../extensions/pi-pandi",
     "../extensions/pi-exit",
-    "../extensions/pi-clear"
+    "../extensions/pi-clear",
+    "../extensions/pi-ask"
   ],
   "extensions": []
 }

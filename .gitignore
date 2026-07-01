@@ -50,7 +50,7 @@ examples/.pi/
 **/.pi/chats/
 .pi/plans/
 **/.pi/plans/
-# Raw transcript snapshots written before auto-compaction (pi-auto-compact-context #3.1).
+# Raw transcript snapshots written before auto-compaction (pi-auto-compact #3.1).
 .pi/compaction-snapshots/
 **/.pi/compaction-snapshots/
 # Stray native /export output (no path) lands a pi-session-*.html in the repo root.

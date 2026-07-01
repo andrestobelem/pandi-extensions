@@ -1,6 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-// Interactive menu shown for a bare `/auto-compact-context` in a UI session. The text
+// Interactive menu shown for a bare `/auto-compact` in a UI session. The text
 // BEFORE " — " is the canonical command the handler already understands.
 export const MENU_OPTIONS = [
 	"status — show current settings",

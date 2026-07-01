@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Behavioral integration test for pi-auto-compact-context.
+ * Behavioral integration test for pi-auto-compact.
  *
  * Focus: the edge-triggered compaction must fire ONCE on a genuine threshold
  * crossing and must NOT re-fire every turn when a completed compaction failed to
@@ -21,7 +21,7 @@ const { check, counts } = createChecker();
 async function build() {
 	const { url } = await buildExtension({
 		name: "pi-auto-compact-integration",
-		src: path.join(REPO_ROOT, "extensions", "pi-auto-compact-context", "index.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pi-auto-compact", "index.ts"),
 		outName: "ac.mjs",
 		npx: "--no-install",
 	});
@@ -325,7 +325,7 @@ async function barShowsCompactingState(url) {
 async function barToggleClearsAndRestores(url) {
 	const { handlers, commands } = await loadExtension(url);
 	const env = makeEnv();
-	const run = (args) => commands.get("auto-compact-context").handler(args, env.ctx);
+	const run = (args) => commands.get("auto-compact").handler(args, env.ctx);
 	env.state.percent = 15;
 	await fireTurnEnd(handlers, env.ctx);
 	check(
@@ -350,7 +350,7 @@ async function barToggleClearsAndRestores(url) {
 async function barClearedWhenDisabled(url) {
 	const { handlers, commands } = await loadExtension(url);
 	const env = makeEnv();
-	const run = (args) => commands.get("auto-compact-context").handler(args, env.ctx);
+	const run = (args) => commands.get("auto-compact").handler(args, env.ctx);
 	env.state.percent = 15;
 	await fireTurnEnd(handlers, env.ctx);
 	await run("off");
@@ -362,11 +362,11 @@ async function barClearedWhenDisabled(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Argument autocomplete: typing `/auto-compact-context <prefix>` offers choices.
+// Argument autocomplete: typing `/auto-compact <prefix>` offers choices.
 // ---------------------------------------------------------------------------
 async function argumentCompletions(url) {
 	const { commands } = await loadExtension(url);
-	const cmd = commands.get("auto-compact-context");
+	const cmd = commands.get("auto-compact");
 	check("autocomplete: getArgumentCompletions is provided", typeof cmd?.getArgumentCompletions === "function");
 	if (typeof cmd?.getArgumentCompletions !== "function") return;
 
@@ -410,7 +410,7 @@ async function argumentCompletions(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Interactive menu: a bare `/auto-compact-context` in a UI session opens a
+// Interactive menu: a bare `/auto-compact` in a UI session opens a
 // select to choose a parameter; choices map onto the existing actions.
 // ---------------------------------------------------------------------------
 async function bareCommandOpensMenuAndDisables(url) {
@@ -421,7 +421,7 @@ async function bareCommandOpensMenuAndDisables(url) {
 	check("menu: bar visible before opening menu", typeof lastStatus(env) === "string");
 
 	env.selectResponses.push("off — disable auto-compaction");
-	await commands.get("auto-compact-context").handler("", env.ctx);
+	await commands.get("auto-compact").handler("", env.ctx);
 	check(
 		"menu: a bare command opens exactly one select",
 		env.selectCalls.length === 1,
@@ -439,7 +439,7 @@ async function menuThresholdPresetSetsThreshold(url) {
 	const env = makeEnv();
 	env.selectResponses.push("threshold — set the compaction threshold %");
 	env.selectResponses.push("50");
-	await commands.get("auto-compact-context").handler("", env.ctx);
+	await commands.get("auto-compact").handler("", env.ctx);
 	check(
 		"menu: threshold choice opens a second select for the value",
 		env.selectCalls.length === 2,
@@ -458,7 +458,7 @@ async function menuThresholdCustomUsesInput(url) {
 	env.selectResponses.push("threshold — set the compaction threshold %");
 	env.selectResponses.push("custom\u2026");
 	env.inputResponses.push("35");
-	await commands.get("auto-compact-context").handler("", env.ctx);
+	await commands.get("auto-compact").handler("", env.ctx);
 	check(
 		"menu: custom threshold prompts a text input",
 		env.inputCalls.length === 1,
@@ -474,7 +474,7 @@ async function menuThresholdCustomUsesInput(url) {
 async function bareCommandWithoutUiNeverOpensMenu(url) {
 	const { commands } = await loadExtension(url);
 	const env = makeEnv({ hasUI: false });
-	await commands.get("auto-compact-context").handler("", env.ctx);
+	await commands.get("auto-compact").handler("", env.ctx);
 	check("menu: a non-UI session never opens a menu", env.selectCalls.length === 0, `calls=${env.selectCalls.length}`);
 }
 
@@ -532,7 +532,7 @@ async function snapshotPatchesSummary(url) {
 async function snapshotDisabledWritesNothing(url) {
 	const { handlers, commands } = await loadExtension(url);
 	const env = makeEnv();
-	await commands.get("auto-compact-context").handler("snapshot off", env.ctx);
+	await commands.get("auto-compact").handler("snapshot off", env.ctx);
 	await fireBeforeCompact(handlers, env.ctx, { branchEntries: [{ type: "message", id: "z" }] });
 	check("snapshot: disabled -> no file written", snapFiles(env).length === 0, `files=${snapFiles(env).length}`);
 }
@@ -761,7 +761,7 @@ async function contextHookGatedByToggle(url) {
 		`got ${JSON.stringify(whenOff)}`,
 	);
 
-	await commands.get("auto-compact-context").handler("clear-tools on", env.ctx);
+	await commands.get("auto-compact").handler("clear-tools on", env.ctx);
 	const whenOn = await ctxHandler(event, env.ctx);
 	check(
 		"context: enabled -> returns { messages } with the old result elided",

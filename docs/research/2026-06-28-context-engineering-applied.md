@@ -34,7 +34,7 @@ The value is (a) recognizing that explicitly and (b) closing six or seven target
 | Recitation / re-anchor the goal (§3e, Manus) | `pi-goal` + `pi-loop` | Stable mold re-injected each iteration; `successCriteria` recorded ONCE as definition-of-done; progress log **bounded** (anti self-mimicry) |
 | Trajectory + adversarial eval (§4, τ-bench) | `pi-goal` independent verifier | Skeptical read-only verifier judges against criteria with evidence, not intuition |
 | Architecture-to-topology, not fashion (§3d) | Ultracode router + Contract Gate | Trivial gate avoids over-orchestration; Contract Gate synthesizes a contract before escalating |
-| Near-threshold compaction (§3b) | `pi-auto-compact-context` | Relative edge-trigger at 30%; re-arms from post-compaction % to avoid looping; footer bar = budget gauge |
+| Near-threshold compaction (§3b) | `pi-auto-compact` | Relative edge-trigger at 30%; re-arms from post-compaction % to avoid looping; footer bar = budget gauge |
 | Authority separation (§3a) | `pi-local-memory` | Durable directives go to the system channel (trusted content, written by `remember`/human) |
 
 ---
@@ -43,7 +43,7 @@ The value is (a) recognizing that explicitly and (b) closing six or seven target
 
 ### 3.1 Recoverable compaction — the strongest gap (§3b)
 
-`pi-auto-compact-context` fires `ctx.compact()` (a harness summary) **without coupling to
+`pi-auto-compact` fires `ctx.compact()` (a harness summary) **without coupling to
 memory/artifacts**. The paper is explicit: recursive summarization can drop a fact you later
 need; *preserve the raw externally so compaction is recoverable, not destructive.* The 30%
 threshold is aggressive and good for the attention budget, but it amplifies cascading-error
@@ -95,7 +95,7 @@ not literal matches.
 The two highest-ROI, low-risk items are **3.1 (recoverable compaction)** and **3.3
 (position-aware synthesis)** — they attack the paper's two central failure modes (compaction
 cascade + lost-in-the-middle) with surgical changes to extensions that are already well
-understood. Suggested order: plan 3.1 first (it spans `pi-auto-compact-context` + memory/
+understood. Suggested order: plan 3.1 first (it spans `pi-auto-compact` + memory/
 artifacts and deserves a design pass), then do 3.3 as a contained follow-up.
 
 ---

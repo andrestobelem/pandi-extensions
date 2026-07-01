@@ -1,4 +1,4 @@
-// pi-auto-compact-context recoverable-compaction snapshots: the raw entries about to be
+// pi-auto-compact recoverable-compaction snapshots: the raw entries about to be
 // summarized are persisted BEFORE the lossy summary replaces them, so compaction is
 // recoverable rather than destructive. Snapshots live under <cwd>/.pi/<SNAPSHOT_DIR>/
 // <sessionId>/ (gitignored) — deliberately NOT in .pi/memory/, which is for curated,

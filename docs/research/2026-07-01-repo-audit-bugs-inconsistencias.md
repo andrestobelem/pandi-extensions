@@ -135,7 +135,7 @@ Tras salir vacías repetidamente en los workflows, se auditaron a mano:
   sesión (`index.ts:38,68`); `slice(-MAX)` conserva la cola pero el slug toma la
   primera línea (`spawn-summary.ts:66`); `borderColor` lookup siempre `undefined`
   (`index.ts:100`, dead code).
-- **pi-auto-compact-context**: `PI_AUTO_COMPACT_CLEAR_MIN_CHARS=0` se rechaza en
+- **pi-auto-compact**: `PI_AUTO_COMPACT_CLEAR_MIN_CHARS=0` se rechaza en
   silencio (`index.ts:154-155`).
 - **pi-mdview**: footer `1-0/0` para documento vacío (`index.ts:120`).
 - **Otros** (corrida 2, deduplicados por el juez): `runProcess` reporta

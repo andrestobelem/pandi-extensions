@@ -1,4 +1,4 @@
-// pi-auto-compact-context footer progress bar. The bar measures progress TOWARD the
+// pi-auto-compact footer progress bar. The bar measures progress TOWARD the
 // compaction threshold (usage / threshold), so it fills to 100% exactly when
 // auto-compaction is about to fire — a meaningful "how close am I" gauge rather than a
 // near-empty fraction of the whole context window. Pure (no theme/ctx) so it is trivially

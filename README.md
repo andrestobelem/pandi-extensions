@@ -117,7 +117,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `/effort` | `pi install ./extensions/pi-effort` |
 | `/mdview` | `pi install ./extensions/pi-mdview` |
 | Local memory | `pi install ./extensions/pi-local-memory` |
-| Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
+| Auto-compact context | `pi install ./extensions/pi-auto-compact` |
 | `/worktree` | `pi install ./extensions/pi-worktree` |
 | `/container` (sandboxes Linux) | `pi install ./extensions/pi-container` |
 | TypeScript diagnostics | `pi install ./extensions/pi-typescript-lsp` |
@@ -126,6 +126,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `/pandi` | `pi install ./extensions/pi-pandi` |
 | `/exit` (alias de `/quit`) | `pi install ./extensions/pi-exit` |
 | `/clear` (alias de `/new`) | `pi install ./extensions/pi-clear` |
+| `ask_choice` / `ask_confirm` (tools: selector/confirm TUI interactivo) | `pi install ./extensions/pi-ask` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
@@ -141,7 +142,7 @@ Todas se cargan por defecto desde el campo `pi.extensions` del `package.json` al
 | **pi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Plan mode read-only con mutaciones bloqueadas hasta tu aprobación explícita del plan. | TUI/RPC (o `PI_PLAN_NONINTERACTIVE=1`) |
 | **pi-effort** | `/effort status\|off\|minimal\|low\|medium\|high\|xhigh\|ultracode` | Cambia el thinking level estilo Claude; `ultracode` activa el router de workflows. | `ultracode` requiere el core cargado |
 | **pi-local-memory** | `remember` | Memoria local en `.pi/memory/`: índice auto-inyectado + archivos por tema on-demand. | ⚠ auto-inyecta memoria: solo proyectos confiables |
-| **pi-auto-compact-context** | `/auto-compact-context [bar\|snapshot\|snapshots\|clear-tools]` | Auto-compacta el contexto al cruzar un umbral, con snapshots recuperables y barra de progreso. | configurable vía `PI_AUTO_COMPACT_*` |
+| **pi-auto-compact** | `/auto-compact [bar\|snapshot\|snapshots\|clear-tools]` | Auto-compacta el contexto al cruzar un umbral, con snapshots recuperables y barra de progreso. | configurable vía `PI_AUTO_COMPACT_*` |
 | **pi-typescript-lsp** | `/tsc` · `typescript_diagnostics` | Feedback de `tsc --noEmit` acotado a los archivos tocados en el turno; no bloqueante. | `tsconfig.json` en el proyecto |
 | **pi-worktree** | `/worktree` · `git_worktree` | Gestiona git worktrees desde Pi; abre sesiones nuevas, nunca cambia el cwd. | git + repo git |
 | **pi-container** | `/container` · `container_sandbox` | Corre comandos Linux aislados en micro-VMs de Apple `container`, sin tocar el host. | macOS Apple Silicon + `container` |

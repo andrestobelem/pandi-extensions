@@ -55,7 +55,7 @@
 			"./extensions/pi-effort/index.ts",
 			"./extensions/pi-mdview/index.ts",
 			"./extensions/pi-local-memory/index.ts",
-			"./extensions/pi-auto-compact-context/index.ts",
+			"./extensions/pi-auto-compact/index.ts",
 			"./extensions/pi-worktree/index.ts",
 			"./extensions/pi-container/index.ts",
 			"./extensions/pi-typescript-lsp/index.ts",
@@ -63,7 +63,8 @@
 			"./extensions/pi-btw/index.ts",
 			"./extensions/pi-pandi/index.ts",
 			"./extensions/pi-exit/index.ts",
-			"./extensions/pi-clear/index.ts"
+			"./extensions/pi-clear/index.ts",
+			"./extensions/pi-ask/index.ts"
 		],
 		"skills": [
 			"./.pi/skills"

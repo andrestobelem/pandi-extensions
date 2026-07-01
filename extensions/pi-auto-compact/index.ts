@@ -23,7 +23,7 @@ import {
 const DEFAULT_THRESHOLD_PERCENT = 30;
 
 // Footer status key. setStatus is keyed so this extension owns exactly one slot.
-const STATUS_KEY = "auto-compact-context";
+const STATUS_KEY = "auto-compact";
 
 // Snapshot path/shape/prune helpers live in ./snapshots.ts. DEFAULT_SNAPSHOT_KEEP
 // (used by the activate handler) bounds snapshot disk growth.
@@ -118,7 +118,7 @@ export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToo
 
 export { MENU_OPTIONS, THRESHOLD_OPTIONS } from "./command-menu.js";
 export type { ContextBar, ContextBarLevel } from "./context-bar.js";
-// The interactive `/auto-compact-context` menu (MENU_OPTIONS/THRESHOLD_OPTIONS/
+// The interactive `/auto-compact` menu (MENU_OPTIONS/THRESHOLD_OPTIONS/
 // ARG_COMPLETIONS) and resolveCommandValue live in ./command-menu.ts; MENU_OPTIONS/
 // THRESHOLD_OPTIONS/resolveCommandValue are re-exported to preserve the bundle surface.
 // The footer progress bar renderer + its types live in ./context-bar.ts; re-exported so
@@ -135,7 +135,7 @@ export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "err
 	compacting: "error",
 };
 
-export default function autoCompactContext(pi: ExtensionAPI) {
+export default function autoCompact(pi: ExtensionAPI) {
 	let enabled = true;
 	let thresholdPercent = parseThreshold(process.env.PI_AUTO_COMPACT_PERCENT) ?? DEFAULT_THRESHOLD_PERCENT;
 	let previousPercent: number | null | undefined;
@@ -339,7 +339,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 		triggerCompaction(ctx, reason);
 	});
 
-	pi.registerCommand("auto-compact-context", {
+	pi.registerCommand("auto-compact", {
 		description:
 			"Configure relative context auto-compaction (default enabled at 30%). Run bare to pick a setting from a menu, or pass status|on|off|run|bar [on|off]|<1-99 percent>.",
 		getArgumentCompletions: (prefix: string) => {
@@ -387,7 +387,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 				const arg = trimmed.slice("bar ".length).trim();
 				const next = resolveToggle(arg, showBar, parseBarSetting);
 				if (next === undefined) {
-					notify(ctx, "Usage: /auto-compact-context bar [on|off]", "warning");
+					notify(ctx, "Usage: /auto-compact bar [on|off]", "warning");
 					return;
 				}
 				showBar = next;
@@ -418,7 +418,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 				const arg = trimmed.slice("snapshot".length).trim();
 				const next = resolveToggle(arg, snapshotsEnabled, parseSnapshotSetting);
 				if (next === undefined) {
-					notify(ctx, "Usage: /auto-compact-context snapshot [on|off]", "warning");
+					notify(ctx, "Usage: /auto-compact snapshot [on|off]", "warning");
 					return;
 				}
 				snapshotsEnabled = next;
@@ -431,7 +431,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 				const arg = trimmed.slice("clear-tools".length).trim();
 				const next = resolveToggle(arg, clearToolResults, parseClearSetting);
 				if (next === undefined) {
-					notify(ctx, "Usage: /auto-compact-context clear-tools [on|off]", "warning");
+					notify(ctx, "Usage: /auto-compact clear-tools [on|off]", "warning");
 					return;
 				}
 				clearToolResults = next;
@@ -443,7 +443,7 @@ export default function autoCompactContext(pi: ExtensionAPI) {
 			if (nextThreshold === undefined) {
 				notify(
 					ctx,
-					"Usage: /auto-compact-context [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|clear-tools [on|off]|<1-99 percent>]",
+					"Usage: /auto-compact [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|clear-tools [on|off]|<1-99 percent>]",
 					"warning",
 				);
 				return;

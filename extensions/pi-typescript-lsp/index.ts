@@ -8,7 +8,7 @@
  * relevant project(s), keep only the touched files' errors, and surface a bounded
  * top-N report. It is non-blocking by design (never `block`s a tool call).
  *
- * Surfaces (the project convention — see pi-worktree / pi-auto-compact-context):
+ * Surfaces (the project convention — see pi-worktree / pi-auto-compact):
  *   - automatic feedback on `agent_end` (advisory by default; opt-in autofix)
  *   - `typescript_diagnostics`  model-callable tool (pull, on-demand)
  *   - `/tsc`                    human slash command (status/on/off/run/scope/…)

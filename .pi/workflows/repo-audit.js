@@ -91,7 +91,7 @@ export default async function main() {
 		),
 		reviewItem(
 			"context-effort",
-			"extensions/pi-effort, extensions/pi-local-memory, extensions/pi-auto-compact-context, extensions/pi-btw. Review each *.ts (skip tests/). Focus on env-var parsing/defaults, memory injection safety, compaction/snapshot correctness, and no-tools guarantees.",
+			"extensions/pi-effort, extensions/pi-local-memory, extensions/pi-auto-compact, extensions/pi-btw. Review each *.ts (skip tests/). Focus on env-var parsing/defaults, memory injection safety, compaction/snapshot correctness, and no-tools guarantees.",
 		),
 		reviewItem(
 			"devtools",

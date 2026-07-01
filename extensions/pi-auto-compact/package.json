@@ -1,5 +1,5 @@
 {
-	"name": "pi-dynamic-workflows-auto-compact-context",
+	"name": "pi-dynamic-workflows-auto-compact",
 	"version": "0.1.0",
 	"description": "Pi extension that auto-compacts context when usage crosses a configurable threshold.",
 	"license": "MIT",

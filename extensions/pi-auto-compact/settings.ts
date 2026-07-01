@@ -1,4 +1,4 @@
-// Setting parsers for pi-auto-compact-context. Env vars and `/auto-compact-context`
+// Setting parsers for pi-auto-compact. Env vars and `/auto-compact`
 // subcommand arguments share this on/off + threshold grammar. Pure, no extension state;
 // re-exported from index.ts so the built bundle keeps exporting the public parser names.
 
@@ -34,7 +34,7 @@ export const parseSnapshotKeep = (value: string | undefined): number | undefined
 // Tool-result clearing shares the on/off grammar (aliased for intent at call sites).
 export const parseClearSetting = parseOnOff;
 
-// Resolve a `/auto-compact-context <toggle> [on|off]` argument: an empty arg flips the
+// Resolve a `/auto-compact <toggle> [on|off]` argument: an empty arg flips the
 // current value, otherwise parse the explicit on/off token (undefined => unrecognised, so
 // the caller shows usage). Shared by the bar/snapshot/clear-tools subcommands.
 export const resolveToggle = (
