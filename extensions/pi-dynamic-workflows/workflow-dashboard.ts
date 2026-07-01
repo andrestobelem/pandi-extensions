@@ -453,6 +453,7 @@ export class WorkflowDashboard {
 			const session = this.piSessions[this.sessionIndex];
 			if (!session) return;
 			if (matchesKey(data, Key.enter)) this.done({ type: "switchSession", session });
+			else if (data === "C") this.done({ type: "cleanup", cleanupTarget: "sessions" });
 			return;
 		}
 		const run = this.selectedRun();
@@ -488,6 +489,7 @@ export class WorkflowDashboard {
 		else if (data === "g") this.done({ type: "graph", run });
 		else if ((data === "c" || data === "x") && canCancelRun(run)) this.done({ type: "cancel", run });
 		else if (data === "r" && canRerunRun(run)) this.done({ type: "rerun", run });
+		else if (data === "C") this.done({ type: "cleanup", cleanupTarget: "runs" });
 		else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 	}
 
@@ -562,8 +564,9 @@ export class WorkflowDashboard {
 			line("  Enter / o agent output · v run view · g graph"),
 			line("  f next failed agent (Agents tab)"),
 			line("  c / x cancel active · r rerun (confirm) · d / Del delete (confirm)"),
+			line("  C clean up (Runs: terminal runs · Sessions: stale session files) — confirm"),
 			line("  Patterns: Enter / n / u use pattern · Workflows: Enter / g graph, r run, d delete"),
-			line("  Sessions: Enter switch session"),
+			line("  Sessions: Enter switch session · C clean up stale session files"),
 			line(accent("Other")),
 			line("  ? toggle this help · q / Esc close dashboard"),
 		];
@@ -612,6 +615,7 @@ export class WorkflowDashboard {
 			if (canCancelSelected) parts.push("c/x cancel active");
 			if (canRerunSelected) parts.push("r rerun");
 			if (!canCancelSelected) parts.push("d/delete run");
+			parts.push("C cleanup");
 			parts.push("q/esc close");
 			return parts.join(" • ");
 		};
@@ -621,7 +625,7 @@ export class WorkflowDashboard {
 				: this.tab === "workflows"
 					? "←→/Tab tabs • ↑↓ navigate • Enter/g graph • r run • d/delete workflow • q/esc close"
 					: this.tab === "sessions"
-						? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • q/esc close"
+						? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • C cleanup • q/esc close"
 						: this.tab === "monitor"
 							? runActions("↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph")
 							: this.tab === "agents"

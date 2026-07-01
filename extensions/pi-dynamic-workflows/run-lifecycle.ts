@@ -369,6 +369,10 @@ export async function deleteWorkflowRun(ctx: ExtensionContext, id: string | unde
 	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
 }
 
+// Default number of most-recent workflow runs `/workflow cleanup` retains. Single source
+// of truth for the retention policy (re-exported by command-handlers.ts for the CLI parser).
+export const DEFAULT_CLEANUP_KEEP = 20;
+
 // Bulk cleanup: select the terminal runs safe to delete (never running/active, retaining
 // the `keep` most-recent) and remove their run directories. `dryRun` returns the selection
 // without deleting so callers can preview. selectRunsForCleanup (run-state.ts) owns the
@@ -379,7 +383,8 @@ export async function cleanupWorkflowRuns(
 ): Promise<{ removed: string[]; kept: number }> {
 	const runs = await listRuns(ctx);
 	const activeIds = new Set(activeRuns.keys());
-	const selected = selectRunsForCleanup(runs, { keep: opts.keep, states: opts.states, activeIds });
+	const keep = opts.keep ?? DEFAULT_CLEANUP_KEEP;
+	const selected = selectRunsForCleanup(runs, { keep, states: opts.states, activeIds });
 	const kept = runs.length - selected.length;
 	if (opts.dryRun) return { removed: selected.map((run) => run.runId), kept };
 	const removed: string[] = [];

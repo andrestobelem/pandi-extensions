@@ -38,6 +38,7 @@ export interface WorkflowDashboardResult {
 		| "rerun"
 		| "deleteWorkflow"
 		| "deleteRun"
+		| "cleanup"
 		| "newPattern"
 		| "switchSession";
 	workflow?: WorkflowFile;
@@ -45,6 +46,7 @@ export interface WorkflowDashboardResult {
 	agent?: AgentMonitorModel;
 	pattern?: WorkflowPattern;
 	session?: PiSessionModel;
+	cleanupTarget?: "sessions" | "runs";
 }
 
 export interface WorkflowAgentEntry {

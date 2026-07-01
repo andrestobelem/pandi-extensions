@@ -36,9 +36,11 @@ import { notify } from "./notify.js";
 import type { WorkflowPattern } from "./pattern-scaffolds.js";
 import { loadWorkflowPatternCode } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
-import { collectPiSessions, sessionManagerMetadata } from "./pi-session.js";
+import { collectPiSessions, prunePiSessionFiles, sessionManagerMetadata } from "./pi-session.js";
 import {
 	cancelWorkflowRun,
+	cleanupWorkflowRuns,
+	DEFAULT_CLEANUP_KEEP,
 	deleteWorkflowRun,
 	formatBackgroundStart,
 	shouldLaunchWorkflowInBackground,
@@ -404,6 +406,39 @@ async function handleDashboardChoice(
 		if (ok) {
 			const message = await cancelWorkflowRun(ctx, choice.run.runId);
 			notify(ctx, message, "warning");
+		}
+		return "reopen";
+	}
+	if (choice.type === "cleanup") {
+		const target = choice.cleanupTarget ?? "runs";
+		if (target === "sessions") {
+			const preview = await prunePiSessionFiles(ctx, { dryRun: true });
+			if (preview.removed.length === 0) {
+				notify(ctx, "No stale session files to clean up.", "info");
+				return "reopen";
+			}
+			const ok = await ctx.ui.confirm(
+				"Clean up stale session files?",
+				`This removes ${preview.removed.length} stale Pi session file(s) whose process has exited. Live and current sessions are never touched.`,
+			);
+			if (ok) {
+				const res = await prunePiSessionFiles(ctx);
+				notify(ctx, `Removed ${res.removed.length} stale session file(s); kept ${res.kept}.`, "info");
+			}
+			return "reopen";
+		}
+		const preview = await cleanupWorkflowRuns(ctx, { dryRun: true });
+		if (preview.removed.length === 0) {
+			notify(ctx, `No terminal runs to clean up (keeping the ${DEFAULT_CLEANUP_KEEP} most recent).`, "info");
+			return "reopen";
+		}
+		const ok = await ctx.ui.confirm(
+			"Clean up terminal workflow runs?",
+			`This permanently deletes ${preview.removed.length} terminal run director(ies), keeping the ${DEFAULT_CLEANUP_KEEP} most recent. Running and active runs are never touched.`,
+		);
+		if (ok) {
+			const res = await cleanupWorkflowRuns(ctx);
+			notify(ctx, `Removed ${res.removed.length} terminal run(s); kept ${res.kept}.`, "info");
 		}
 		return "reopen";
 	}

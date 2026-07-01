@@ -35,6 +35,7 @@ import { formatWorkflowList } from "./presentation.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowRuns,
+	DEFAULT_CLEANUP_KEEP,
 	deleteWorkflowRun,
 	formatBackgroundStart,
 	resumeWorkflow,
@@ -202,8 +203,9 @@ export async function handleTool(
 	throw new Error(`Unknown dynamic_workflow action: ${String(action)}`);
 }
 
-// Default number of most-recent workflow runs `/workflow cleanup` retains.
-export const DEFAULT_CLEANUP_KEEP = 20;
+// Re-exported from run-lifecycle.ts (single source of truth for the retention default) so
+// the CLI parser and its test can reference it without reaching across modules.
+export { DEFAULT_CLEANUP_KEEP };
 
 export interface CleanupArgs {
 	target: "sessions" | "runs" | "both";
