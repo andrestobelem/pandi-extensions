@@ -26,6 +26,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { join, basename } from "node:path";
+import { homedir } from "node:os";
 
 // ── CLI: <workflow.js> <out.html> [argsJson] plus optional flags ─────────────────────────
 const argv = process.argv.slice(2);
@@ -110,7 +111,7 @@ const stubs = `
   const log = () => {};
   const agent = async (prompt, opts = {}) => {
     globalThis.__nodes.push({ prompt: String(prompt ?? ''), label: opts.label || opts.name, phase: opts.phase,
-      schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills });
+      schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills, extensions: opts.extensions });
     return lenient();
   };
   // ctx-style workflows fan out with agents(items, …); record one representative node, return lenient rows.
@@ -122,7 +123,7 @@ const stubs = `
     const rep = arr.length && arr[0] && typeof arr[0] === 'object' ? arr[0] : {};
     if (arr.length) globalThis.__nodes.push({ prompt: '‹per-item agents() fan-out›', label: opts.label || opts.name || rep.label || rep.name,
       phase: opts.phase ?? rep.phase, schema: opts.schema ?? rep.schema, model: opts.model ?? rep.model,
-      effort: opts.effort ?? rep.effort, tools: opts.tools ?? rep.tools, skills: opts.skills ?? rep.skills });
+      effort: opts.effort ?? rep.effort, tools: opts.tools ?? rep.tools, skills: opts.skills ?? rep.skills, extensions: opts.extensions ?? rep.extensions });
     return arr.map(() => lenient());
   };
   const parallel = async (thunks) => Promise.all((thunks || []).map(async (t) => { try { return await t(); } catch { return null; } }));
@@ -220,8 +221,42 @@ const baseNodes = [...byKey.values()].map((n) => ({
   model: n.model || "inherited",
   effort: n.effort || "inherited",
   tools: Array.isArray(n.tools) ? n.tools.join(", ") : "inherited",
+  skills: Array.isArray(n.skills) ? n.skills : (typeof n.skills === "string" && n.skills ? [n.skills] : []),
+  extensions: Array.isArray(n.extensions) ? n.extensions.join(", ") : (typeof n.extensions === "string" ? n.extensions : (n.extensions === false ? "none (opted out)" : "inherited")),
   prompt: n.prompt,
 }));
+
+// Resolve each declared skill to its on-disk home + reference files (reference/ or references/),
+// so the artifact can show WHICH skills (and their reference docs) each agent loads.
+function resolveSkillRefs(names) {
+  const bases = [".pi/skills", join(homedir(), ".pi/agent/skills"), join(homedir(), ".agents/skills"), ".claude/skills"];
+  const out = {};
+  for (const name of names) {
+    let found = null;
+    for (const base of bases) {
+      const dir = join(base, name);
+      if (!existsSync(join(dir, "SKILL.md"))) continue;
+      const references = [];
+      for (const rd of ["reference", "references"]) {
+        const rdir = join(dir, rd);
+        if (!existsSync(rdir)) continue;
+        try {
+          for (const e of readdirSync(rdir, { recursive: true, withFileTypes: true })) {
+            if (!e.isFile() || !e.name.endsWith(".md")) continue;
+            const parent = e.parentPath || e.path || rdir;
+            const sub = String(parent).slice(rdir.length).replace(/^[\\/]+/, "");
+            references.push(rd + "/" + (sub ? sub + "/" : "") + e.name);
+          }
+        } catch { /* unreadable reference dir — skip */ }
+      }
+      found = { base, references: references.sort() };
+      break;
+    }
+    out[name] = found || { missing: true, references: [] };
+  }
+  return out;
+}
+const skillRefs = resolveSkillRefs([...new Set(baseNodes.flatMap((n) => n.skills || []))]);
 
 // unique schemas
 const schemas = {};
@@ -336,7 +371,7 @@ function mergeNodes(runData) {
     nodes.push({
       id: role + (g.count > 1 ? ` ×${g.count}` : ""), role, phase,
       schema: "— (free text)", schemaObj: null,
-      model: d.model || "inherited", effort: d.effort || "inherited", tools: "inherited",
+      model: d.model || "inherited", effort: d.effort || "inherited", tools: "inherited", skills: [], extensions: "inherited",
       prompt: g.prompt || "‹ recorded at runtime — see artifact ›",
       runtimeOnly: true, run: rg(g),
     });
@@ -393,7 +428,7 @@ function build(runData) {
     meta, phases, composes, __mm: mm,
     provenance, scaffolds, source: scriptPath,
     args: argsJson ? "(provided)" : "(kitchen-sink defaults for extraction)",
-    schemas, nodes, script: raw, run,
+    schemas, nodes, skillRefs, script: raw, run,
     results: runData ? runData.results : null,
     warn: fidelityNotes.length ? fidelityNotes.join(" · ") : null,
   };
@@ -429,6 +464,9 @@ function build(runData) {
   .card .body{display:none;border-top:1px solid var(--line);} .card.open .body{display:block;}
   .caret{color:var(--muted);transition:transform .15s;} .card.open .caret{transform:rotate(90deg);}
   .meta-row{display:flex;gap:18px;flex-wrap:wrap;padding:12px 16px;background:#fbfaf7;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink2);} .meta-row b{color:var(--ink);}
+  .skrow{padding:10px 16px;background:#fbfaf7;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink2);display:flex;gap:6px;align-items:center;flex-wrap:wrap;} .skrow b{color:var(--ink);margin-right:4px;} .skill{font-size:11.5px;padding:3px 9px;border-radius:6px;background:#e8f0e8;border:1px solid #cfe0cf;color:#2f6b3c;font-family:ui-monospace,Menlo,monospace;}
+  .skref{font-size:11px;color:var(--muted);} .skref code{background:#f3efe7;padding:1px 5px;border-radius:4px;font-size:10.5px;} .skmiss{color:#8a2f16;font-size:11px;}
+  .card.warn-skills{box-shadow:inset 4px 0 0 #d9822b;} .warnbadge{font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:6px;background:#f7e6cf;color:#8a5314;border:1px solid #e6c48f;white-space:nowrap;}
   .rout{white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55;padding:12px 16px;color:#33312d;background:#f7faf8;border-bottom:1px solid var(--line);} .rout .lbl{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;} .rart{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted);padding:8px 16px;border-bottom:1px solid var(--line);word-break:break-all;}
   .prompt{white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.6;padding:16px;color:#33312d;}
   .copy{float:right;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--paper);border-radius:7px;padding:4px 10px;cursor:pointer;color:var(--ink2);}
