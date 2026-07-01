@@ -50,6 +50,16 @@ const stubs = `
       if (p === Symbol.iterator) return Array.prototype[Symbol.iterator].bind([]);
       if (p === Symbol.toPrimitive || p === 'toString' || p === 'valueOf') return () => '‹runtime value›';
       if (['map','filter','flatMap','forEach','slice','sort','join','reduce','some','every','find','concat','keys','values','entries'].includes(p)) return () => [];
+      // String methods a workflow may call on agent TEXT output. Without these, a bare property access
+      // falls through to the non-callable lenient() below and throws ("x.match is not a function"),
+      // aborting the trace as PARTIAL. Return correctly-typed values so chains like
+      // text.match(re) ? m[1].trim() : text.split('\\n') never throw.
+      if (p === 'match' || p === 'matchAll') return () => null;
+      if (p === 'split') return () => [];
+      if (['replace','replaceAll','trim','trimStart','trimEnd','trimLeft','trimRight','toLowerCase','toUpperCase','toLocaleLowerCase','toLocaleUpperCase','padStart','padEnd','repeat','substring','substr','charAt','at','normalize'].includes(p)) return () => '‹runtime value›';
+      if (['includes','startsWith','endsWith','test'].includes(p)) return () => false;
+      if (['indexOf','lastIndexOf','search'].includes(p)) return () => -1;
+      if (['charCodeAt','codePointAt','localeCompare'].includes(p)) return () => 0;
       if (p === 'length') return 0;
       return lenient();
     },
