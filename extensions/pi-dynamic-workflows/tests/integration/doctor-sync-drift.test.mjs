@@ -79,6 +79,8 @@ function main() {
 	const driftLine = (driftRun.stdout || "").split("\n").find((l) => SYNC_LINE.test(l)) || "";
 	check("drift dest reports a warning (⚠)", driftLine.includes("⚠"), `line: ${driftLine.trim()}`);
 	check("drift dest does NOT report OK (✓)", !driftLine.includes("✓"), `line: ${driftLine.trim()}`);
+	// Actionable count: exactly one file was tampered, so the line must name that count.
+	check("drift line reports the file count (1 archivo)", /\(1 archivo\)/.test(driftLine), `line: ${driftLine.trim()}`);
 
 	fs.rmSync(dest, { recursive: true, force: true });
 	finish();

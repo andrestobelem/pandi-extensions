@@ -178,18 +178,26 @@ if (process.platform === "darwin" && process.arch === "arm64") {
 // Delegamos en el propio script (fuente de verdad del "qué es drift") vía --check; hereda
 // CLAUDE_GLOBAL_DIR, así que doctor y sync miran exactamente el mismo destino. Opcional a
 // propósito: en un clon fresco sin sync previo esto avisa, no rompe el doctor.
-const globalDir = process.env.CLAUDE_GLOBAL_DIR || path.join(os.homedir(), ".claude");
-const shortDir = globalDir.startsWith(os.homedir()) ? globalDir.replace(os.homedir(), "~") : globalDir;
+const home = os.homedir();
+const globalDir = process.env.CLAUDE_GLOBAL_DIR || path.join(home, ".claude");
+// Sólo colapsá a "~" en el borde de segmento, no por prefijo textual (/Users/foo vs /Users/foobar).
+const shortDir = globalDir === home || globalDir.startsWith(home + path.sep) ? globalDir.replace(home, "~") : globalDir;
 const syncScript = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
+const syncLabel = `sync Claude global (${shortDir})`;
 if (existsSync(syncScript)) {
 	const sync = spawnSync("node", [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
-	const inSync = sync.status === 0;
-	report(
-		"optional",
-		inSync ? OK : WARN,
-		`sync Claude global (${shortDir})`,
-		inSync ? "espejo al día del repo" : "hay drift — corré `npm run sync:claude:global`",
-	);
+	if (sync.error || typeof sync.status !== "number") {
+		// El check no pudo correr (spawn falló / timeout): no afirmes "drift", decí que no se verificó.
+		report("optional", WARN, syncLabel, "no se pudo verificar — corré `npm run sync:claude:global:check`");
+	} else if (sync.status === 0) {
+		report("optional", OK, syncLabel, "espejo al día del repo");
+	} else {
+		// --check imprime "N file(s) out of sync" en stderr; mostrá el conteo para que sea accionable.
+		const m = `${sync.stderr || ""}${sync.stdout || ""}`.match(/(\d+) file\(s\) out of sync/);
+		const n = m ? Number(m[1]) : 0;
+		const count = n > 0 ? ` (${n} archivo${n === 1 ? "" : "s"})` : "";
+		report("optional", WARN, syncLabel, `desincronizado${count} — corré \`npm run sync:claude:global\``);
+	}
 } else {
 	report("optional", WARN, "sync Claude global", "ausente — scripts/sync-claude-global.mjs no encontrado");
 }
