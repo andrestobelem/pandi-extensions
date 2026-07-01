@@ -1,8 +1,8 @@
 # Handbooks
 
-Stable reference guides for working in this project: conventions, workflows-of-work,
-onboarding, and "how we do things here". Unlike `docs/research/` (point-in-time notes)
-or handoffs (transient context transfer), handbook pages are **durable** and kept
+Stable reference guides for working in this project: conventions, workflows, onboarding,
+and "how we do things here". Unlike `docs/research/` (point-in-time notes)
+or session handoffs (transient context), handbook pages are **durable** and kept
 up to date as the project evolves.
 
 ## What belongs here

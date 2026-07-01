@@ -12,21 +12,28 @@ Farley, y (5) aplicar los mismos conceptos (DRY / single-source) a los prompts.
 ## Procedencia
 
 - **Contract Gate** (4 reviewers read-only + síntesis): contrato de tarea, sin blockers.
+
 - **Design Audit** (9 analizadores por extensión + 4 transversales + síntesis-as-judge),
-  ejecutado como dynamic workflow read-only. Artefactos del run:
-  `.pi/workflows/drafts/modularizar-extensiones-design-audit.js` →
-  `.pi/workflows/runs/2026-06-28T06-02-42-987Z-drafts-modularizar-extensiones-design-audit-a6e2980c/`
-  (`design-audit.md`, `roadmap.json`, `scout-evidence.md`, `analyzer-*.json`).
-- **Limitación conocida:** 1 de 9 analizadores por extensión (pi-goal) falló validación de
-  schema; la síntesis usó 8 ext + 4 transversales. La salida de síntesis se truncó al final
-  de §7 (la fila 3.17 quedó cortada); el roadmap máquina-legible completo está en
-  `roadmap.json` y las secciones §8/§9 se restauran abajo desde el plan de verificación del
-  contrato.
+  ejecutado como dynamic workflow read-only.
+
+  Artefactos del run:
+  - `.pi/workflows/drafts/modularizar-extensiones-design-audit.js` →
+  - `.pi/workflows/runs/2026-06-28T06-02-42-987Z-drafts-modularizar-extensiones-design-audit-a6e2980c/`
+  - `design-audit.md`, `roadmap.json`, `scout-evidence.md`, `analyzer-*.json`
+
+- **Limitación conocida:**
+  - 1 de 9 analizadores por extensión (`pi-goal`) falló validación de schema; la síntesis usó 8 ext + 4 transversales.
+  - La salida de síntesis se truncó al final de §7 (la fila 3.17 quedó cortada).
+  - El roadmap máquina-legible completo está en `roadmap.json`.
+  - Las secciones §8/§9 se restauran abajo desde el plan de verificación del contrato.
 
 ## Estado de implementación (sesión 2026-06-28)
 
-Rondas ejecutadas (todas: Conventional Commit atómico, `npm test` verde 23/23 + typecheck,
-move-only / behavior-preserving). Baseline previo verde registrado.
+Rondas ejecutadas con las siguientes garantías:
+- Conventional Commit atómico por ronda
+- `npm test` verde 23/23 + typecheck validado
+- Move-only / behavior-preserving (sin cambios de comportamiento)
+- Baseline previo verde registrado
 
 | Ronda | Commit | Qué | Verificación |
 |---|---|---|---|
@@ -35,23 +42,66 @@ move-only / behavior-preserving). Baseline previo verde registrado.
 | 3.1 | `refactor(effort): parse.ts` | parsing puro (THINKING_LEVELS/EffortTarget/LEVEL_ALIASES/parseEffortTarget) → `pi-effort/parse.ts` | npm test 23/23 |
 | 3.5 | `refactor(plan): gate.ts` | gate read-only puro (MUTATING_BASH_PATTERNS/isMutatingBash/blockedReason) → `pi-plan/gate.ts` (diff: byte-idéntico + export) | npm test 23/23 (incl. plan-gate 45 asserts) |
 
-**Validado empíricamente:** el seam `extensions/shared/*.ts` importado vía `../shared/x.js`
-se empaqueta (files glob) y se typechequea transitivamente (tsc sigue imports) y bundlea en
-los tests (esbuild reescribe `.js`→`.ts`). Lección Karpathy: un glob `*/` dentro de un
-comentario JSDoc cierra el bloque — inspecciona el dato (corregido en `time.ts`).
+**Validado empíricamente:** el seam `extensions/shared/*.ts` importado vía `../shared/x.js` se empaqueta (files glob), se typechequea transitivamente (tsc sigue imports), y se bundlea en los tests (esbuild reescribe `.js`→`.ts`).
 
-**Decisión de diseño (skip consciente):** Ronda 2.2 `projectHash` se OMITIÓ. No es una
-función compartida limpia sino una expresión inline (`crypto.createHash("sha1")...slice(0,12)`)
-en loop/goal; consolidarla fuerza shadowing de nombres por ~1 línea de ahorro. "Make
-complexity earn its place": el costo supera el payoff.
+*Lección Karpathy:* un glob `*/` dentro de un comentario JSDoc cierra el bloque — inspecciona el dato (corregido en `time.ts`).
 
-> Artefacto de DESIGN-AUDIT (synthesis-as-judge). Fuente de verdad: únicamente los analizadores verificados (8 por extensión + 4 transversales). Cobertura: `ext=8 válidos`, `cross=4 válidos`, `1 analizador por extensión fallido` (ver §9). Toda afirmación de hecho lleva cita `file:line`; lo que no la tiene se marca como inferencia o se omite. Restricción rectora: refactor incremental, **sin cambio de comportamiento observable**, módulos a **profundidad uno**, `index.ts` como agregador delgado, `npm test` verde antes/después de cada commit, Conventional Commits atómicos, Kent Beck tidy-first (todo aquí es estructural), Dave Farley (cohesión + fast feedback), sin big-bang.
+**Decisión de diseño (skip consciente):** Ronda 2.2 `projectHash` se OMITIÓ.
+- No es una función compartida limpia sino una expresión inline: `crypto.createHash("sha1")...slice(0,12)`
+- Consolidarla en loop/goal fuerza shadowing de nombres por ~1 línea de ahorro.
+- Principio: "Make complexity earn its place" — el costo supera el payoff.
+
+> **Artefacto de DESIGN-AUDIT (synthesis-as-judge)**
+>
+> - **Fuente de verdad:** únicamente los analizadores verificados (8 por extensión + 4 transversales).
+> - **Cobertura:** `ext=8 válidos`, `cross=4 válidos`, `1 analizador por extensión fallido` (ver §9).
+> - **Citas:** toda afirmación de hecho lleva cita `file:line`; lo que no la tiene se marca como inferencia o se omite.
+> - **Restricción rectora:** refactor incremental, **sin cambio de comportamiento observable**, módulos a **profundidad uno**, `index.ts` como agregador delgado, `npm test` verde antes/después de cada commit, Conventional Commits atómicos, Kent Beck tidy-first (todo aquí es estructural), Dave Farley (cohesión + fast feedback), sin big-bang.
 
 ---
 
 ## 1. Veredicto ejecutivo
 
-El conjunto es sano en su mayoría: seis de las nueve extensiones son pequeñas y cohesivas (`pi-local-memory` 31 LOC, `pi-auto-compact` 120, `pi-mdview` 181, `pi-effort` 247, `pi-bg` 637, `pi-plan` 656) y dos son monolitos genuinos que concentran ~13–16 concerns cada uno (`pi-dynamic-workflows` 7143 LOC, `pi-loop` 1599 LOC). La mayor oportunidad de DRY transversal es estrecha y de alta calidad: solo `notify()` (4 copias byte-idénticas + 2 variantes endurecidas), `formatEta()` (2 copias byte-idénticas) y el trío `projectHash`/`writeSidecar` atómico/`dual-root state dir` (variantes near-identical) justifican un módulo compartido; el resto que "parece" duplicado (cuerpos de `persist`/`rehydrate`/`formatStatus`, esquemas TypeBox, prompts de Ultracode) son **shapes y paráfrasis deliberadas, no código compartible**, y fusionarlos acoplaría máquinas de estado divergentes con riesgo High. En prompts hay **un único** duplicado byte-a-byte real (el bloque "Research-backed templates" en 4 sitios); lo demás ya está centralizado en funciones `format*` de `templates.ts`, que es el patrón positivo a replicar. La deuda más cara y mejor aislada vive en los tests: el bootstrap esbuild se reimplementa ~24 veces (~1000–1400 LOC) con flags y stubs divergentes, lo que también infla las suites grandes (>500 LOC). El mejor ratio valor/riesgo es empezar por guardianes de prompts (Fase 1, Low, cero cambio de wording) y por las extracciones puras compartidas (`formatEta`, `projectHash`), seguir validando el patrón de descomposición en las extensiones pequeñas antes de tocar los monolitos, y dejar `runtime.ts`/`worker-source` de `pi-dynamic-workflows` y el `state.ts` compartido de `pi-loop` para el final, solo detrás de tests de caracterización. El riesgo dominante en toda la operación no es la mecánica de mover archivos sino el **estado mutable compartido** (`activeRuns`/`appendFileMutexes`, `activeLoops`/`wakeQueue`/`autopilotTurnInFlight`, `activePlans`/`PLAN_MODE_GUARD`, `activeJobs`) y los contratos cross-extension por `Symbol.for`/evento.
+### Estado general de salud
+
+El conjunto es sano en su mayoría:
+- **Pequeñas y cohesivas (6 extensiones):** `pi-local-memory` 31 LOC, `pi-auto-compact` 120, `pi-mdview` 181, `pi-effort` 247, `pi-bg` 637, `pi-plan` 656
+- **Monolitos genuinos (2 extensiones):** `pi-dynamic-workflows` 7143 LOC, `pi-loop` 1599 LOC (~13–16 concerns cada uno)
+
+### Oportunidades de DRY transversal
+
+Estrecha y de alta calidad:
+- `notify()` — 4 copias byte-idénticas + 2 variantes endurecidas
+- `formatEta()` — 2 copias byte-idénticas
+- Trío `projectHash`/`writeSidecar` atómico/`dual-root state dir` — variantes near-identical
+
+Justifican un módulo compartido. El resto que "parece" duplicado (cuerpos de `persist`/`rehydrate`/`formatStatus`, esquemas TypeBox, prompts de Ultracode) son **shapes y paráfrasis deliberadas, no código compartible**. Fusionarlos acoplaría máquinas de estado divergentes con riesgo High.
+
+### Duplicación de prompts
+
+Hay **un único** duplicado byte-a-byte real: el bloque "Research-backed templates" en 4 sitios. Lo demás ya está centralizado en funciones `format*` de `templates.ts`, que es el patrón positivo a replicar.
+
+### Deuda técnica en tests
+
+La más cara y mejor aislada vive en los tests: el bootstrap esbuild se reimplementa ~24 veces (~1000–1400 LOC) con flags y stubs divergentes, lo que también infla las suites grandes (>500 LOC).
+
+### Estrategia recomendada
+
+Mejor ratio valor/riesgo:
+1. Empezar por guardianes de prompts (Fase 1, Low, cero cambio de wording)
+2. Extracciones puras compartidas (`formatEta`, `projectHash`)
+3. Validar el patrón de descomposición en extensiones pequeñas antes de tocar los monolitos
+4. Dejar `runtime.ts`/`worker-source` de `pi-dynamic-workflows` y el `state.ts` compartido de `pi-loop` para el final, tras tests de caracterización
+
+### Riesgo dominante
+
+No es la mecánica de mover archivos sino el **estado mutable compartido:**
+- `activeRuns`/`appendFileMutexes` (dynamic-workflows)
+- `activeLoops`/`wakeQueue`/`autopilotTurnInFlight` (loop)
+- `activePlans`/`PLAN_MODE_GUARD` (plan)
+- `activeJobs` (bg)
+
+También contratos cross-extension por `Symbol.for`/evento.
 
 ---
 
@@ -129,10 +179,25 @@ Queda en `index.ts`: única `piExtension`, comando `/plan`, tool `submit_plan`, 
 Queda en `index.ts`: comando `/bg`, completions, wiring; **re-exportar** helpers que los tests importan (`atomicWriteJson`,`guardStreamErrors`,`isJobFinished`,`pipeWithBackpressure`,`finalizeJob`,`safeFinalize`). Riesgo: `Symbol.for` plan-mode guard y `activeJobs`.
 
 ### Extensiones "verificar, no forzar"
-- **pi-effort (247):** único módulo justificado `parse.ts` (`index.ts:24-57,99-117`, ~55 LOC). El resto queda en `index.ts`. No relocalizar `ULTRACODE_MODE_EVENT`/`dynamic_workflow` (`index.ts:16,203`).
-- **pi-auto-compact (120):** opcional `threshold.ts` (`index.ts:3-11`, ~12 LOC) **re-exportando** `parseThreshold`/`DEFAULT_THRESHOLD_PERCENT`. Mayor valor: extraer decisión pura `decideCompaction` para tests rápidos, sin file-split obligatorio.
-- **pi-mdview (181):** opcional `path-resolve.ts` (`index.ts:23-40`, ~20) y `viewer-component.ts` (`index.ts:42-148`, ~110). Value-neutral en runtime; solo si se añaden tests de caracterización primero.
-- **pi-local-memory (31):** **NO modularizar.** Cohesivo, un hook `before_agent_start`. Solo consolidar opcionalmente el `TAG` y añadir 2 tests de escaping (mayúsculas/open-tag).
+
+#### pi-effort (247 LOC)
+- Módulo único justificado: `parse.ts` (`index.ts:24-57,99-117`, ~55 LOC)
+- El resto queda en `index.ts`
+- No relocalizar `ULTRACODE_MODE_EVENT`/`dynamic_workflow` (`index.ts:16,203`)
+
+#### pi-auto-compact (120 LOC)
+- Módulo opcional: `threshold.ts` (`index.ts:3-11`, ~12 LOC)
+- **Re-exportar:** `parseThreshold`/`DEFAULT_THRESHOLD_PERCENT`
+- Mayor valor: extraer decisión pura `decideCompaction` para tests rápidos, sin file-split obligatorio
+
+#### pi-mdview (181 LOC)
+- Módulos opcionales: `path-resolve.ts` (`index.ts:23-40`, ~20 LOC) y `viewer-component.ts` (`index.ts:42-148`, ~110 LOC)
+- Value-neutral en runtime; solo si se añaden tests de caracterización primero
+
+#### pi-local-memory (31 LOC)
+- **NO modularizar**
+- Cohesivo: un hook `before_agent_start`
+- Mejora opcional: consolidar el `TAG` y añadir 2 tests de escaping (mayúsculas/open-tag)
 
 ---
 
@@ -152,16 +217,43 @@ Regla general: el único trabajo de prompts en Fase 1 es **añadir guardianes** 
 
 ## 5. Plan de modularización de tests
 
-Estado verificado: **no existe** harness compartido; cada una de las 24 suites reimplementa el bootstrap esbuild→tempdir→`pathToFileURL`, con variantes incompatibles (`npx --no-install esbuild` en `auto-compact.test.mjs:39`/`local-memory.test.mjs:39`; `npx esbuild` plano en effort/mdview/bg/plan; `npx --yes esbuild` con 2 alias en `goal-verifier.test.mjs:94-100`; con 5 alias en `composition-rank.test.mjs:79-87`).
+**Estado verificado:** **no existe** harness compartido; cada una de las 24 suites reimplementa el bootstrap esbuild→tempdir→`pathToFileURL` con variantes incompatibles:
+- `npx --no-install esbuild`: auto-compact.test.mjs:39, local-memory.test.mjs:39
+- `npx esbuild` plano: effort, mdview, bg, plan
+- `npx --yes esbuild` con 2 alias: goal-verifier.test.mjs:94-100
+- `npx --yes esbuild` con 5 alias: composition-rank.test.mjs:79-87
 
-Harness/fixtures compartidos (todos en `.mjs` bajo `scripts/test/harness/`, **fuera** de `extensions/` y de `suiteDirs`):
-- `build-extension.mjs` → `buildExtension(packageDir,{stubs})`, **parametrizado** por set de alias y por flag `--yes`/`--no-install` (no fusionar comportamientos). Payoff ~1000–1400 LOC.
-- `stubs.mjs` → factorías nombradas `typeboxStub`/`typeboxValueStub`/`sdkStub`/`aiStub`/`tuiStub`; conservar la variante typebox **con/sin `Integer`** (goal omite `Integer` en `goal-verifier.test.mjs:78`, dynamic-workflows lo incluye en `composition-rank.test.mjs:54`).
-- `fake-pi.mjs` → `makePi()` base + `makeCtx(overrides)`; las suites mantienen sus diferencias como overrides (`confirmResult` plan-gate:123, `trusted` bg-jobs:89, `isIdle/usage` loop-caps-resume:175, `rows/width` mdview:92).
+**Harness/fixtures compartidos** (todos en `.mjs` bajo `scripts/test/harness/`, **fuera** de `extensions/` y de `suiteDirs`):
 
-División de suites grandes (>500 LOC), **solo después** de extraer el harness (dividir antes multiplicaría copias): `dynamic-workflow-composition.test.mjs:820`, `goal-verifier.test.mjs:759`, `loop-caps-resume.test.mjs:731`, `plan-approval.test.mjs:669`, `bg-jobs.test.mjs:618`, `goal-rehydrate.test.mjs:591`, `dashboard-usability-fixes.test.mjs:536`, `loop-behavior.test.mjs:535`. Partir por concern observable (p.ej. goal-verifier → veredicto / caps / persistencia), **moviendo escenarios completos sin reescribir aserciones**.
+**`build-extension.mjs`** → `buildExtension(packageDir,{stubs})`
+- Parametrizado por set de alias y por flag `--yes`/`--no-install` (no fusionar comportamientos)
+- Payoff ~1000–1400 LOC
 
-Lockstep con `scripts/test/run-all.mjs`: mantener el guard existente (`run-all.mjs:96-101` aborta con exit 1 si una `*.test.mjs` en `suiteDirs` no está en `suites` ni en `ignoredDraftSuites`). El harness debe vivir fuera de `suiteDirs` para que `readdirSync(...).endsWith('.test.mjs')` no lo confunda con suite. Al partir: añadir cada archivo nuevo a `suites` (`run-all.mjs:36-59`) **en el mismo commit**; usar `ignoredDraftSuites` (`:65-69`) solo para drafts con razón.
+**`stubs.mjs`** → factorías nombradas
+- `typeboxStub`/`typeboxValueStub`/`sdkStub`/`aiStub`/`tuiStub`
+- Conservar variante typebox **con/sin `Integer`** (goal omite en `goal-verifier.test.mjs:78`, dynamic-workflows lo incluye en `composition-rank.test.mjs:54`)
+
+**`fake-pi.mjs`** → `makePi()` base + `makeCtx(overrides)`
+- Las suites mantienen sus diferencias como overrides
+- Ejemplos: `confirmResult` plan-gate:123, `trusted` bg-jobs:89, `isIdle/usage` loop-caps-resume:175, `rows/width` mdview:92
+
+**División de suites grandes (>500 LOC)** — **solo después** de extraer el harness (dividir antes multiplicaría copias):
+- dynamic-workflow-composition.test.mjs: 820 LOC
+- goal-verifier.test.mjs: 759 LOC
+- loop-caps-resume.test.mjs: 731 LOC
+- plan-approval.test.mjs: 669 LOC
+- bg-jobs.test.mjs: 618 LOC
+- goal-rehydrate.test.mjs: 591 LOC
+- dashboard-usability-fixes.test.mjs: 536 LOC
+- loop-behavior.test.mjs: 535 LOC
+
+Partir por concern observable (p.ej. goal-verifier → veredicto / caps / persistencia), **moviendo escenarios completos sin reescribir aserciones**.
+
+**Sincronización con `scripts/test/run-all.mjs`:**
+- Mantener el guard existente (`run-all.mjs:96-101` aborta con exit 1 si una `*.test.mjs` en `suiteDirs` no está en `suites` ni en `ignoredDraftSuites`).
+- El harness debe vivir fuera de `suiteDirs` para que `readdirSync(...).endsWith('.test.mjs')` no lo confunda con suite.
+- Al partir: añadir cada archivo nuevo a `suites` (`run-all.mjs:36-59`) **en el mismo commit**.
+- Usar `ignoredDraftSuites` (`:65-69`) solo para drafts con razón.
 
 ---
 
@@ -169,25 +261,26 @@ Lockstep con `scripts/test/run-all.mjs`: mantener el guard existente (`run-all.m
 
 ### DO
 
-- Colocar todo módulo nuevo a **profundidad uno**: `extensions/<dir>/<name>.ts` o `extensions/shared/<name>.ts` (ambos casan con `files: extensions/*/*.ts`, `package.json:14-15`).
+- Colocar todo módulo nuevo a **profundidad uno:** `extensions/<dir>/<name>.ts` o `extensions/shared/<name>.ts` (ambos casan con `files: extensions/*/*.ts`, `package.json:14-15`).
 - Importar con specifier `.js` explícito bajo NodeNext (`./mod.js`, `../shared/mod.js`), como `index.ts:45` → `./templates.js`. Exports nombrados + `export type` (patrón de `templates.ts`, isolatedModules-safe).
 - Garantizar que cada sibling sea alcanzado por al menos un `index.ts` listado (typecheck root = `extensions/*/index.ts`, `package.json:21`), o nombrarlo `extensions/shared/index.ts` para ser root directo.
 - Re-exportar desde `index.ts` todo símbolo que tests/otras extensiones ya importan (evita cambio de superficie).
 - Verificar con `npm pack --dry-run` cualquier layout cross-dir (`../shared/*.js` no está probado hoy en el repo; solo existe `./templates.js` intra-dir).
 
 ### DON'T
-- Crear `extensions/<dir>/<subdir>/<name>.ts` (profundidad dos): **typechea y pasa tests locales pero se cae del tarball** → module-not-found tras publish. **Riesgo más alto de packaging.**
-- Dejar un `.ts` que no sea `index.ts` y que nadie importe: **se empaqueta pero NO se typechea** (módulo huérfano; errores de tipo invisibles hasta la próxima edición). Riesgo Medium.
+
+- Crear `extensions/<dir>/<subdir>/<name>.ts` (profundidad dos) — **typechea y pasa tests locales pero se cae del tarball** → module-not-found tras publish (**Riesgo más alto de packaging**).
+- Dejar un `.ts` que no sea `index.ts` y que nadie importe — **se empaqueta pero NO se typechea** (módulo huérfano; errores de tipo invisibles hasta la próxima edición) (Riesgo Medium).
 - Añadir `extensions/shared/index.ts` a `pi.extensions` (`package.json:29-37`): es librería, no extensión.
 - Renombrar/relocalizar contratos cross-extension: `ULTRACODE_MODE_EVENT`, tool `dynamic_workflow`, `PLAN_MODE_GUARD_SYMBOL`.
 
-Prueba positiva en repo: `templates.ts` (1325 LOC) es la evidencia empírica de sibling depth-one empaquetado + typecheck transitivo + import `.js` (`index.ts:33-45`). Es el molde de referencia.
+**Prueba positiva en repo:** `templates.ts` (1325 LOC) es la evidencia empírica de sibling depth-one empaquetado + typecheck transitivo + import `.js` (`index.ts:33-45`). Es el molde de referencia.
 
 ---
 
-## 7. ROADMAP incremental priorizado
+## 7. Roadmap incremental priorizado
 
-> Cada ronda = 1 Conventional Commit atómico, todo estructural (tidy-first), `npm test` verde antes/después. Empezar Low/alto-payoff.
+Cada ronda = 1 Conventional Commit atómico, todo estructural (tidy-first), `npm test` verde antes/después. Empezar Low/alto-payoff.
 
 ### Fase 1 — Guardianes de prompts (Low, cero cambio de wording)
 
@@ -233,7 +326,7 @@ Prueba positiva en repo: `templates.ts` (1325 LOC) es la evidencia empírica de 
 
 ---
 
-## 8. Plan de verificación y métricas (restaurado)
+## 8. Plan de verificación y métricas
 
 - **Baseline:** `npm test` verde antes de tocar nada (typecheck + 23 suites de integración,
   ~20s); registrar LOC por archivo, #copias de funciones (`notify`×7, `formatEta`×2, etc.) y
@@ -250,9 +343,9 @@ Prueba positiva en repo: `templates.ts` (1325 LOC) es la evidencia empírica de 
 - **Métricas de mejora:** LOC por archivo y #clusters de código/prompt eliminados
   (grep/jscpd) antes/después.
 
-## 9. Notas / limitaciones (restaurado)
+## 9. Notas y limitaciones
 
-- Analizadores: 8/9 por extensión válidos (pi-goal falló schema) + 4/4 transversales.
+- Analizadores: 8/9 por extensión válidos (`pi-goal` falló schema) + 4/4 transversales.
 - La síntesis se truncó al final de §7; `roadmap.json` tiene el roadmap completo (fases 1-3).
 - Fase 4 (modularización de tests: harness/fixtures esbuild compartidos, ~1000-1400 LOC dup)
   está descrita en §5 pero aún NO ejecutada — es el mayor payoff pendiente y debe ir DESPUÉS

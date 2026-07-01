@@ -1,6 +1,10 @@
 # Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico
 
-> **Status: FINAL.** Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud. La evidencia primaria proviene de `okf/SPEC.md` y `okf/README.md` del repo `GoogleCloudPlatform/knowledge-catalog`, leídos directamente vía `raw.githubusercontent.com` y la API de GitHub. Las **5 lagunas** iniciales (blog de anuncio, mecánica de ingestión en Knowledge Catalog, validadores, taxonomía de `type`, adopción de terceros) fueron **cerradas** con búsqueda dirigida (ver §8); los hechos verificados en esa segunda pasada se marcan **[VERIFICADO]**. Las afirmaciones aún dependientes de resúmenes de búsqueda o interpretación se marcan *[no verificado directamente]*.
+> **Status: FINAL.** Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud:
+
+- Evidencia primaria: `okf/SPEC.md` y `okf/README.md` de `GoogleCloudPlatform/knowledge-catalog`, leídos directamente vía `raw.githubusercontent.com` y la API de GitHub.
+- Lagunas iniciales: 5 (blog de anuncio, ingestión en Knowledge Catalog, validadores, taxonomía de `type`, adopción de terceros) → **cerradas** con búsqueda dirigida (§8).
+- Marcado: hechos verificados en 2ª pasada → **[VERIFICADO]**; afirmaciones dependientes de búsqueda o interpretación → *[no verificado directamente]*.
 
 ---
 
@@ -10,13 +14,13 @@ El **Open Knowledge Format (OKF)** es una **especificación abierta en estado bo
 
 La propuesta de valor es que el conocimiento organizativo (definiciones de tablas, métricas, runbooks, descripciones de APIs, rutas de join) se vuelva **legible, parseable, diffeable y portable**: "si puedes hacer `cat` a un archivo, puedes leer OKF; si puedes hacer `git clone` a un repo, puedes distribuirlo" (README de OKF). Sirve como una **capa durable de conocimiento/contexto** que tanto humanos como agentes de IA pueden consumir, frente a otros artefactos del ecosistema agentico que resuelven capas distintas (descubrimiento de agentes, protocolos de runtime, instrucciones de repo).
 
-Puntos clave:
+**Puntos clave:**
 
 - Unidad de distribución: el **Knowledge Bundle** (árbol de directorios Markdown UTF-8).
 - Único campo de frontmatter **obligatorio**: `type`.
 - **Conformidad muy permisiva**: los consumidores no deben rechazar bundles por campos faltantes, tipos desconocidos, claves extra o enlaces rotos.
 - Mantenido por **Google bajo Apache-2.0**, con el descargo explícito de que **"no es un producto oficial de Google"**.
-- **[VERIFICADO]** Anunciado el **12 de junio de 2026** en el blog de Google Cloud ("Introducing the Open Knowledge Format"), por **Sam McVeety** (Tech Lead, Data Analytics) y **Amir Hormati** (Tech Lead, BigQuery), ambos de Data Cloud, Google Cloud.
+- **[VERIFICADO]** Anunciado el **12 de junio de 2026** en Google Cloud Blog en el artículo "Introducing the Open Knowledge Format" por **Sam McVeety** (Tech Lead, Data Analytics) y **Amir Hormati** (Tech Lead, BigQuery), ambos de Data Cloud.
 
 ---
 
@@ -51,7 +55,7 @@ my_bundle/
 
 Un **Concept** es una unidad única de conocimiento = un archivo Markdown. El **Concept ID** es la ruta del archivo dentro del bundle sin el sufijo `.md` (p. ej., `tables/users.md` → `tables/users`).
 
-Cada concepto tiene dos partes: un bloque de **frontmatter** YAML delimitado por líneas `---`, y un **cuerpo** Markdown libre.
+Cada concepto consta de: un bloque de **frontmatter** YAML (delimitado por `---`) y un **cuerpo** Markdown libre.
 
 ### 2.3 Campos del frontmatter (§4.1) — requeridos vs. opcionales
 
@@ -138,7 +142,7 @@ Un enlace afirma una **relación no tipada** (arista dirigida); el *tipo* de rel
 * [Title 1](relative-url-1) - short description of item 1
 ```
 
-> **Tensión interna señalada por la investigación:** §6 dice que los `index.md` "no contienen frontmatter", pero §11 permite `okf_version` solo en el `index.md` raíz. Cómo deben reconciliar esto los consumidores estrictos queda *no especificado* — marcar como incertidumbre.
+> **Tensión señalada por la investigación:** §6 dice que los `index.md` "no contienen frontmatter", pero §11 permite `okf_version` solo en el `index.md` raíz. Cómo deben reconciliar esto los consumidores estrictos queda *no especificado* — marcar como incertidumbre.
 
 ### 2.9 Log files (§7)
 
@@ -172,7 +176,7 @@ Esquema `<major>.<minor>`: minor = adiciones retrocompatibles; major = cambios d
 
 ## 3. Repositorio y tooling (`knowledge-catalog`)
 
-**Repositorio:** `GoogleCloudPlatform/knowledge-catalog`, **Apache-2.0**. Metadatos (API de GitHub): creado **2026-05-04**, último push 2026-06-21, ~5.777 estrellas, 91 issues abiertos en el momento de la consulta. Lleva el descargo: **"This repository and its contents are not an official Google product."** Contribuir requiere el **Google CLA**.
+**Repositorio:** `GoogleCloudPlatform/knowledge-catalog`, **Apache-2.0**. Metadatos (API de GitHub): creado **2026-05-04**, último push 2026-06-21, ~5.777 estrellas, 91 issues abiertos en el momento de la consulta. Descargo: **"This repository and its contents are not an official Google product."** Contribuir requiere el **Google CLA**.
 
 **Layout raíz (verificado vía API):** `okf/`, `samples/`, `toolbox/`, más `LICENSE.md`, `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`.
 
@@ -188,7 +192,7 @@ Esquema `<major>.<minor>`: minor = adiciones retrocompatibles; major = cambios d
 Dos pasadas:
 
 - **Pasada BQ**: escribe un documento OKF por concepto anunciado, a partir de metadatos de BigQuery.
-- **Pasada web**: el LLM actúa como crawler sobre URLs semilla (vía una herramienta `fetch_url`), y luego enriquece conceptos existentes, acuña documentos `references/<slug>`, o se salta. Guardarraíles: `--web-max-pages` (límite), `--web-allowed-host` (filtro mismo-dominio), `--no-web` (omitir).
+- **Pasada web**: el LLM actúa como crawler sobre URLs semilla (vía herramienta `fetch_url`), luego enriquece conceptos, acuña documentos `references/<slug>`, o se salta. Guardarraíles: `--web-max-pages` (límite), `--web-allowed-host` (filtro mismo-dominio), `--no-web` (omitir).
 
 CLI:
 
@@ -214,12 +218,12 @@ Emite un `viz.html` autocontenido: grafo force-directed con **Cytoscape.js**, re
 
 ### 3.5 `toolbox/` y `samples/` (preocupación *separada* de la spec OKF)
 
-- `toolbox/`: **"Metadata as Code"** — `mdcode/` (`kcmd`: CLI/librería/**servidor MCP**, con `toolbox/mdcode/src/tool/mcp.ts`) y un agente de enriquecimiento (`enrichment/` / `kcagent`). Estas son herramientas de **Knowledge Catalog**, no estrictamente de OKF.
-- `samples/enrichment/`: flujo del agente de enriquecimiento de Knowledge Catalog (descargar metadatos de BigQuery → enriquecer Markdown local → revisar diffs → publicar de vuelta). Incluye `samples/enrichment/sample/config/mcp.json` que define un servidor MCP `fileskb` (un Python `tools/fileskb/main.py --dir <docs>`).
+- `toolbox/`: **"Metadata as Code"** — `mdcode/` (`kcmd`: CLI/librería/servidor MCP con `toolbox/mdcode/src/tool/mcp.ts`) y agente de enriquecimiento (`enrichment/` / `kcagent`). Estas son herramientas de **Knowledge Catalog**, no de la spec OKF.
+- `samples/enrichment/`: flujo del agente de enriquecimiento de Knowledge Catalog (descargar metadatos de BigQuery → enriquecer Markdown local → revisar diffs → publicar de vuelta). Incluye `samples/enrichment/sample/config/mcp.json` que define servidor MCP `fileskb` (un Python `tools/fileskb/main.py --dir <docs>`).
 
 > **Hallazgo relevante:** MCP aparece en el repositorio como **transporte operativo** para exponer una base de conocimiento basada en ficheros (servidor `fileskb`, servidor MCP de `kcmd`), **no como parte de la especificación OKF**.
 >
-> **Validadores:** Google **no** publica un validador oficial de conformidad; los tests del repo son de pytest para el reference agent/visualizador. **[VERIFICADO]** Sí existen validadores **de comunidad** que aplican las reglas de §9, notablemente la *OKF Conformance Suite* de WitsCode (`node validator/okf-validate.mjs ./bundle`, con modo JSON/strict y exit codes para CI).
+> **Validadores:** Google **no** publica un validador oficial de conformidad; los tests del repo son de pytest para el reference agent/visualizador. **[VERIFICADO]** Existen validadores **de comunidad** que aplican las reglas de §9, notablemente la *OKF Conformance Suite* de WitsCode (`node validator/okf-validate.mjs ./bundle`, modo JSON/strict y exit codes para CI).
 
 ---
 
@@ -271,7 +275,7 @@ El demo OKF mapea cada `.md` a una **entry** de Knowledge Catalog usando el **Do
 - **OKF vs MCP (el más complementario):** MCP es *cómo* obtener/actuar en runtime; OKF es *qué* se sirve. Un bundle OKF puede ser **servido/buscado/expuesto vía un servidor MCP** — de hecho `kcmd` y el servidor `fileskb` del repo son servidores MCP. Las URIs `resource` de OKF mapean naturalmente sobre los `resources` de MCP.
 - **OKF vs A2A Agent Card (el de menor solapamiento):** el Agent Card es un *manifiesto de capacidades del agente* (skills, interfaces, auth); OKF describe *conocimiento sobre datos/activos*, no la superficie invocable de un agente.
 
-**Stack combinado plausible (interpretación):** AGENTS.md indica a un agente de código cómo operar → llms.txt apunta a docs públicos → OKF empaqueta conocimiento tipado profundo → MCP sirve/busca esos bundles y expone tools → los A2A Agent Cards permiten que agentes independientes se anuncien e invoquen entre sí. Cada uno ocupa una ranura distinta; **son complementarios, no competidores**, y OKF no reemplaza a ninguno.
+**Stack complementario (interpretación):** AGENTS.md orienta a un agente de código → llms.txt apunta a docs públicos → OKF empaqueta conocimiento tipado profundo → MCP sirve/busca esos bundles y expone tools → los A2A Agent Cards permiten que agentes independientes se anuncien e invoquen entre sí. Cada uno ocupa una ranura distinta; **son complementarios, no competidores**, y OKF no reemplaza a ninguno.
 
 **Linaje (verificado):** Google enmarca OKF como una formalización del patrón "LLM wiki" (bases de conocimiento Markdown persistentes e interconectadas, mantenidas por agentes), explícitamente asociado al gist "LLM-wiki" de Andrej Karpathy.
 
@@ -300,35 +304,34 @@ El demo OKF mapea cada `.md` a una **entry** de Knowledge Catalog usando el **Do
 
 ## 7. Fuentes (URLs primarias)
 
-**Evidencia primaria verificada (leída directamente):**
+### Evidencia primaria verificada (leída directamente)
 
 - OKF v0.1 SPEC (normativo): https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md · raw: https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md
 - OKF README (reference agent, visualizador, samples, credenciales): https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/README.md
-- README raíz del repositorio (framing de Knowledge Catalog/Dataplex, descargo): https://github.com/GoogleCloudPlatform/knowledge-catalog · raw: https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/README.md
+- README raíz del repositorio (Knowledge Catalog/Dataplex, descargo): https://github.com/GoogleCloudPlatform/knowledge-catalog · raw: https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/README.md
 - Licencia (Apache-2.0): https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/LICENSE.md
 - README de toolbox (`kcmd`/`kcagent`, "Metadata as Code"): https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/toolbox/README.md
 - Config MCP de muestra (servidor `fileskb`): https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/samples/enrichment/sample/config/mcp.json
 - Estructura del repo (API de contenidos/árboles de GitHub): `okf/`, `samples/`, `toolbox/`; subdirectorios verificados de `okf/src/reference_agent`, `okf/tests`, `okf/bundles/ga4`.
 
-**Evidencia verificada en 2ª pasada (búsqueda dirigida, fuentes primarias):**
+### Evidencia verificada en 2ª pasada (búsqueda dirigida, fuentes primarias)
 
 - Anuncio de Google Cloud "Introducing the Open Knowledge Format" (12-jun-2026; autores Sam McVeety, Amir Hormati; afirma que Knowledge Catalog ingiere OKF): https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing
 - `kcmd` "Metadata as Code" (ruta de ingestión `push`/`pull`, EntryGroup): https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode
 - Demo OKF Wiki (mapeo `.md` → entry, aspecto `overview`, fallback `generic`): https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode/demo
 - Knowledge Catalog = Dataplex Universal Catalog (renombre 10-abr-2026): https://docs.cloud.google.com/dataplex/docs/introduction
-
-**Ecosistema de comunidad (tooling/adopción de terceros):**
+### Ecosistema de comunidad (tooling/adopción de terceros)
 
 - OKF Conformance Suite (validador): https://witscode.com/okf-conformance
 - Data Product SDK v0.2.5 (soporte OKF): https://blog.opendataproducts.org/open-knowledge-format-support-in-data-product-sdk-v0-2-5-3a4f5b3e4c3a
 - Skills/validador/visualizador OKF: https://github.com/scaccogatto/okf-skills
-- Author/convert/validate OKF: (parkscloud/okf-author)
+- Author/convert/validate OKF: https://github.com/parkscloud/okf-author
 
-**Fuente primaria aún no recuperada vía HTML directo:**
+### Fuente primaria aún no recuperada vía HTML directo
 
 - Producto Knowledge Catalog: https://cloud.google.com/products/knowledge-catalog
 
-**Fuentes primarias de formatos comparados (para §5):**
+### Fuentes primarias de formatos comparados (para §5)
 
 - A2A: https://github.com/a2aproject/A2A/blob/main/docs/specification.md · AgentCard: https://a2a-protocol.org/latest/specification/#441-agentcard
 - MCP: https://modelcontextprotocol.io/docs/getting-started/intro

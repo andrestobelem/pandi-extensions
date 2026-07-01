@@ -5,10 +5,11 @@ Date: 2026-06-30
 [Gondolin](https://github.com/earendil-works/gondolin) is pi's local Linux
 micro-VM. The `pi-coding-agent` package ships it as an **example extension**
 (`<pi>/examples/extensions/gondolin/`) that routes pi's built-in tools and `!`
-commands into the VM. It is **not part of this repo's published package** — we
-keep it opt-in because it needs a heavy, platform-specific native dependency
-(`@earendil-works/gondolin`) that would bloat the lockfile and only runs on a
-couple of platforms.
+commands into the VM.
+
+It is **not part of this repo's published package**. We keep it opt-in because
+it requires a heavy, platform-specific native dependency (`@earendil-works/gondolin`)
+that would bloat the lockfile and only runs on a couple of platforms.
 
 ## What it isolates (and what it does not)
 
@@ -16,8 +17,8 @@ couple of platforms.
   `ls` tools and user `!` commands run inside the VM. Your host cwd is mounted at
   `/workspace`; writes under `/workspace` pass through to the host.
 - **NOT isolated:** dynamic-workflow **subagents** spawn child `pi`/`codex`
-  processes on the **host** (extensions run where `pi` runs). So Gondolin does
-  not hide the `node → pi/codex → /bin/bash` process lineage. For full isolation
+  processes on the **host** (extensions run where `pi` runs). So Gondolin does not
+  hide the `node → pi/codex → /bin/bash` process lineage. For full isolation
   of the whole orchestrator, run all of `pi` inside Docker instead (see pi's
   `docs/containerization.md`).
 

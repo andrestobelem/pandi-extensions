@@ -1,7 +1,6 @@
 # Workflow catalog (quick reference)
 
-**Date:** 2026-07-01 · **Status:** durable reference · **Scope:** the 25 dynamic-workflow scaffolds
-shipped by `pi-dynamic-workflows`.
+**Date:** 2026-07-01 | **Status:** durable reference | **Scope:** 25 dynamic-workflow scaffolds in `pi-dynamic-workflows`
 
 ## What this is
 
@@ -11,20 +10,15 @@ running a workflow.
 
 **Source of truth (do not hand-maintain the list against these):**
 
-- Live catalog: `dynamic_workflow action=scaffold` (or `/workflow patterns`); fetch one with
-  `action=scaffold name=<key>`.
-- Scaffold code: `extensions/pi-dynamic-workflows/scaffolds/*.js` (pi) and `.claude/workflows/*.js`
-  (Claude Code) — 25 each.
+- Live catalog: `dynamic_workflow action=scaffold` (or `/workflow patterns`); fetch one with `action=scaffold name=<key>`.
+- Scaffold code: `extensions/pi-dynamic-workflows/scaffolds/*.js` (pi) and `.claude/workflows/*.js` (Claude Code) — 25 each.
 - The `ultracode` skill (`.pi/skills/ultracode/SKILL.md`) carries the same catalog by family.
 
-**Completeness check (2026-07-01):** 25 pi scaffolds = 25 Claude workflows = 25 in the skill's
-bundled reference; the skill's "pattern catalog" section mentions all 25 with no extra names.
+**Completeness check (2026-07-01):** 25 pi scaffolds, 25 Claude workflows, 25 in the skill's bundled reference. The skill's "pattern catalog" section names all 25 with no extras.
 
 ## How to choose
 
-Walk the gates first (most tasks stop early): **Contract Gate → Trivial → Scout inline → Orchestrate
-only for exhaustiveness, confidence, or scale.** A single agent call beats a workflow for almost
-everything. Then pick a primitive by data dependency, and a pattern below by intent.
+Walk the gates first (most tasks stop early): **Contract Gate → Trivial → Scout inline → Orchestrate only for exhaustiveness, confidence, or scale.** A single agent call beats a workflow for almost everything. Then pick a primitive by data dependency, and a pattern below by intent.
 
 ---
 
@@ -33,7 +27,7 @@ everything. Then pick a primitive by data dependency, and a pattern below by int
 | Workflow | What it does | Use cases |
 | --- | --- | --- |
 | `contract-gate` | Turn a vague ask into an inspectable contract (improved task, success criteria, assumptions, non-goals) and decide *ask-now vs proceed-on-a-recorded-assumption*. | Scope a fuzzy ticket; gate before a costly multi-agent run; rewrite a raw ask into a clean spec. |
-| `guardrails` | Cheap input/output tripwire that **HALTS** on a clear violation; can wrap any workflow via `protect:{name,args}`. | Scope/safety gate before an agent; PII/secret check on an output; wrap a chosen workflow with tripwires. |
+| `guardrails` | Cheap input/output tripwire that **HALTS** on a clear violation; can wrap any workflow via `protect:{name,args}`. | Scope/safety gate before an agent; PII/secret check on an output; wrap a workflow with tripwires. |
 
 ## 🧭 Route & orchestrate
 
@@ -97,7 +91,5 @@ everything. Then pick a primitive by data dependency, and a pattern below by int
 
 ## Next steps
 
-- Keep this in sync when scaffolds are added/removed: re-run `dynamic_workflow action=scaffold` and
-  diff the names against `extensions/pi-dynamic-workflows/scaffolds/*.js`.
-- For per-workflow input shapes and primitives, see the live catalog output (each entry lists a
-  sample `Input` and `Primitives`).
+- Keep this in sync when scaffolds are added/removed: re-run `dynamic_workflow action=scaffold` and diff the names against `extensions/pi-dynamic-workflows/scaffolds/*.js`.
+- For per-workflow input shapes and primitives, see the live catalog output (each entry lists a sample `Input` and `Primitives`).

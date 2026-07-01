@@ -3,7 +3,7 @@
 Canonical list of pending/closed items for the `/workflow` TUI dashboard improvement
 loop. Narrative of each pass lives in `dashboard-improvement-log.md`; this file is the
 single source of truth for what's still open. Each item: stable id, title, why, real
-paths (verified to exist), status (`open` / `done` / `human`).
+paths (verified to exist), and status (`open` / `done` / `human`).
 
 ## Done
 
@@ -27,11 +27,6 @@ paths (verified to exist), status (`open` / `done` / `human`).
   - Paths: `extensions/pi-dynamic-workflows/workflow-dashboard.ts`
     (`renderAgentRowMeta`, used in `renderMonitorAgents` and `renderAgents`),
     `extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs`.
-
-## Open (in allow-set; safe to pick up next)
-
-_None currently open in the allow-set._
-
 - **DW-TOOL-001 — Make the workflow HTML previewer compatible with BOTH harnesses** · `done`
   - Why: `build-workflow-artifact.mjs` (identical in `.pi/scripts/` and `.claude/scripts/`)
     only handled Claude-style top-level scripts; ctx-style / export-default / CommonJS
@@ -44,9 +39,6 @@ _None currently open in the allow-set._
     `loop-engineering-*` now run, all Claude scaffolds unchanged (no regression), both copies
     kept byte-identical. The throwaway adapter `.pi/tmp/build-ctx-workflow-html.mjs` was removed.
   - Paths: `.pi/scripts/build-workflow-artifact.mjs`, `.claude/scripts/build-workflow-artifact.mjs`.
-
-## Human (needs a decision; not auto-fixable in allow-set)
-
 - **DW-DASH-H1 — Confirm the new gate baseline (HEAD moved)** · `done` (resolved)
   - Resolution: the gate baseline is now pinned at `HEAD == da0a449` with a clean
     working tree and no foreign dirty files. The earlier `fad9875`/`9010157` concern no
@@ -58,9 +50,6 @@ _None currently open in the allow-set._
     auto-discovered verify loop and passes `biome check`; no further human decision is
     needed.
   - Paths: `extensions/pi-dynamic-workflows/tests/integration/dashboard-collectors-contract.test.mjs`.
-
-## Ideas requiring hot files (propose only — do NOT implement in autopilot)
-
 - **DW-DASH-H3 — Jump-to-next-active-run shortcut in Runs/Activity** · `done`
   - Why: a keybinding to jump to the next active run speeds monitoring of long lists.
   - Resolution: implemented WITHOUT touching the hot `index.ts`. The dashboard owns all
@@ -73,3 +62,15 @@ _None currently open in the allow-set._
     overlay + per-tab help bar updated.
   - Paths: `extensions/pi-dynamic-workflows/workflow-dashboard.ts`,
     `extensions/pi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs`.
+
+## Open (in allow-set; safe to pick up next)
+
+_None currently._
+
+## Human (needs a decision; not auto-fixable in allow-set)
+
+_None currently._
+
+## Ideas requiring hot files (propose only — do NOT implement in autopilot)
+
+_None currently._

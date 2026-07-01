@@ -27,9 +27,9 @@ both at once.
 | Surface | Question it answers | Reach for it when | Principle it embodies |
 | --- | --- | --- | --- |
 | `/goal` | *What state am I in?* | The work has a verifiable `done` | Independent verification (strongest) |
-| `/loop` | *When do I wake up?* | Recurring watch with no "finish" | Bounded cadence, never trust the model |
-| `loop-until-done` workflow | *Has it converged yet?* | Parallel sweep until no new findings | Convergence by quiet rounds |
-| `/effort ultracode` + Contract Gate | *What does "done" even mean?* | Before orchestrating broad work | Bound and verify the scope first |
+| `/loop` | *When do I wake up?* | Recurring tasks with no finish state | Bounded cadence, never trust the model |
+| `loop-until-done` workflow | *Has it converged yet?* | Exhaustive searches needing convergence | Convergence by quiet rounds |
+| `/effort ultracode` + Contract Gate | *What does "done" even mean?* | Vague or broad orchestration tasks | Bound and verify the scope first |
 
 ## The four loop surfaces
 
@@ -84,17 +84,13 @@ Choose the cadence regime deliberately:
 - Do not poll work the harness already tracks (subagents, workflows) — use a long
   fallback and let it report back.
 
-Defense in depth: wall-clock + iteration + best-effort context-budget caps
-(`extensions/pi-loop/caps.ts:28-37`), plus a watchdog backstop above the deadline.
-Note the context-budget cap is a **soft sensor** — it silently no-ops when usage is
-unknown, so do not rely on it alone.
+Defense in depth: Layered caps include wall-clock, iteration count, and best-effort context-budget (see `extensions/pi-loop/caps.ts:28-37`), plus a watchdog backstop above the deadline. Note the context-budget cap is a **soft sensor** — it silently no-ops when usage is unknown, so do not rely on it alone.
 
 ### `loop-until-done` — convergence by quiet rounds
 
 When the goal is exhaustiveness rather than a single `done` (audits, repo-wide
 searches), use the `loop-until-done` workflow scaffold. It runs parallel finders
-each round and stops when **no new findings appear for K consecutive rounds** — a
-settle-to-tolerance detector, not a single transient-quiet flip.
+each round and stops when **no new findings appear for `quietRounds` consecutive rounds** — a settle-to-tolerance detector, not a single transient-quiet flip.
 
 ```text
 dynamic_workflow action=run name=loop-until-done \

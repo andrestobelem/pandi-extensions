@@ -1,3 +1,4 @@
+---
 # Context Engineering, Applied: Mapping the Research onto Our Extensions
 
 > **Status: ANALYSIS.** Companion to `2026-06-28-context-engineering-focus.md`. Reframes
@@ -66,9 +67,9 @@ codifying in synthesis prompts and pattern scaffolds — cheap, directly counter
 ### 3.4 Stable KV-cache prefix in workflows (§3e, Manus + prompt caching)
 
 Keep subagent prompt prefixes stable, push volatile/per-item content to the end, and avoid
-`Date.now()`/`Math.random()` early. This matters twice here: it protects the provider cache
-AND determines whether a call is cached for `resume` (the content-address cache journal).
-Codify "stable prefix" guidance in prompt construction.
+`Date.now()`/`Math.random()` early. This matters for two reasons: it protects the provider
+cache, and it determines whether a call is cached for `resume` (the content-address cache
+journal). Codify "stable prefix" guidance in prompt construction.
 
 ### 3.5 Authority guard on memory (§3a, anti-injection)
 
@@ -78,9 +79,10 @@ delimiters are not a security boundary.
 
 ### 3.6 Focus observability (§4: token growth, tool-error rate, trajectory)
 
-The auto-compact bar (budget gauge) and the goal progress log already exist. The gap: extend
-observability to **workflow runs** — per-step token growth, tool-error rate, retries — as
-artifacts, in the spirit of OpenTelemetry GenAI spans. This is the paper's "measure focus live."
+The auto-compact bar (budget gauge) and the goal progress log already exist. **The gap:**
+extend observability to **workflow runs** — capture per-step token growth, tool-error rate,
+and retries as artifacts, in the spirit of OpenTelemetry GenAI spans. This is the paper's
+"measure focus live."
 
 ### 3.7 NoLiMa-style evals (§4: do not rely on literal NIAH)
 

@@ -4,7 +4,7 @@ Date: 2026-06-25
 
 ## Request
 
-The user asked Pi to evaluate each task by default and decide whether it should be solved through a dynamic workflow, inspired by Claude Code’s `ultracode` mode, and to keep it always active.
+The user asked Pi to evaluate each task by default and decide whether it should be solved through a dynamic workflow, inspired by Claude Code's `ultracode` mode, and to keep it always active.
 
 ## Findings about Claude Code
 
@@ -14,10 +14,10 @@ According to public Claude Code and Anthropic documentation:
 - They are used for large audits, migrations, deep research, cross-checking, and tasks with independent branches.
 - They can be triggered by requesting a workflow or using the word `ultracode`.
 - The `/effort ultracode` mode makes Claude Code automatically decide whether a substantive task should be turned into dynamic workflows.
-- `ultracode` is not just a model effort level: it combines high reasoning (`xhigh`) with automatic workflow orchestration.
+- `ultracode` combines high reasoning (`xhigh`) with automatic workflow orchestration—it is not just a model effort level.
 - Workflows can have potentially high cost, so the documentation recommends explicit limits, workflow review, and conscious use.
 
-Sources consulted:
+### Sources consulted
 
 - Claude Code Docs — Dynamic workflows: https://code.claude.com/docs/en/workflows
 - Claude Code Docs — Model configuration / effort ultracode: https://code.claude.com/docs/en/model-config
@@ -56,6 +56,8 @@ We implemented an always-on router in the `pi-dynamic-workflows` extension:
 
 ## Validations performed
 
+### Extension initialization without model prompt
+
 We verified that Pi can explicitly initialize the extension without sending a prompt to the model:
 
 ```bash
@@ -63,6 +65,8 @@ pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_
 ```
 
 Result: exit code `0`.
+
+### Command registration in print mode
 
 We verified that the new command is registered and responds in print mode:
 
@@ -76,7 +80,9 @@ Result:
 Ultracode always-on is enabled.
 ```
 
-Validation limitation: the repo does not have TypeScript installed or `typecheck` scripts; `npx tsc` was not available.
+### Validation limitation
+
+The repo does not have TypeScript installed or `typecheck` scripts; `npx tsc` was not available.
 
 ## Scope note
 

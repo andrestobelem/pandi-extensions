@@ -29,7 +29,7 @@ Software development is an activity of exploration, discovery, and design, not a
 
 ### 2. Optimize for managing complexity
 
-Because real systems cannot fit entirely in one person’s head, engineering must control technical and organizational complexity. Farley highlights:
+Because real systems cannot fit entirely in one person's head, engineering must control technical and organizational complexity. Farley highlights:
 
 - Modularity: divide the system into understandable and modifiable parts.
 - High cohesion: group together what changes for the same reasons.
@@ -66,14 +66,5 @@ Modern software engineering consists of applying practical science to developmen
 ## Sources Consulted
 
 - InformIT/Pearson: _Modern Software Engineering: Doing What Works to Build Better Software Faster_. https://www.informit.com/store/modern-software-engineering-doing-what-works-to-build-9780137314911
-- InformIT/Pearson: sample chapter “Software Engineering Fundamentals”. https://www.informit.com/articles/article.aspx?p=3129276
-- Dave Farley: “What is Modern Software Engineering?”. https://www.davefarley.net/?p=352
-
-## Affected Files
-
-- `docs/research/2026-06-25-dave-farley-modern-software-engineering.md`
-
-## Possible Next Steps
-
-- Expand this note with practical examples applied to the project.
-- Turn the principles into a design/review checklist for dynamic workflows.
+- InformIT/Pearson: sample chapter "Software Engineering Fundamentals". https://www.informit.com/articles/article.aspx?p=3129276
+- Dave Farley: "What is Modern Software Engineering?". https://www.davefarley.net/?p=352

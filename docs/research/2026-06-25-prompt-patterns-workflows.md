@@ -14,25 +14,30 @@ Apply what we learned about agentic workflow patterns to the prompts used by our
 - **Synthesis-as-judge**: synthesis agents must deduplicate, discard claims without evidence, preserve uncertainty, and choose a concrete recommendation.
 - **Adversarial critique**: reviewers have an explicit goal of finding edge cases, reducing scope, and marking accepted risks.
 - **Partial failure handling**: synthesis must mention failed, empty, canceled, or timed-out agents.
-- **Security by default**: for audits, “do not edit files” is reinforced and tools remain read-only.
+- **Security by default**: for audits, "do not edit files" is reinforced and tools remain read-only.
 
 ## Updated workflows
 
+Internal drafts and implementation:
 - `.pi/workflows/drafts/agentic-workflow-patterns-research.js`
 - `.pi/workflows/background-workflow-implementation-plan.js`
+
+Core workflows:
 - `.pi/workflows/review-dynamic-workflows.js`
 - `.pi/workflows/revisar-estado-actual.js`
 - `.pi/workflows/inventar-mejor-tui-workflows.js`
 - `.pi/workflows/inventar-mejor-tui-workflows-lite.js`
 - `.pi/workflows/karpathy-programming-recommendations-research.js`
+
+Examples:
 - `examples/workflows/adversarial-plan-review.js`
 - `examples/workflows/deep-research.js`
 - `examples/workflows/repo-bug-hunt.js`
 
 ## Updated docs
 
-- `README.md`: “Recommended prompt patterns” section.
-- `.pi/skills/dynamic-workflows/SKILL.md`: “Prompting Patterns” section.
+- `README.md`: "Recommended prompt patterns" section.
+- `.pi/skills/dynamic-workflows/SKILL.md`: "Prompting Patterns" section.
 - `docs/memoria.md`: persistent preference.
 - `docs/research/2026-06-25-karpathy-programming-recommendations.md`: synthesis retrieved from Karpathy as prompt/workflow criteria.
 
@@ -45,4 +50,4 @@ Apply what we learned about agentic workflow patterns to the prompts used by our
 ## Expected validation
 
 - `node --check` on all JS workflows.
-- Extension load with `pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__`.
+- Extension load: `pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__`.

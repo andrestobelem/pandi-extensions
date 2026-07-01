@@ -78,7 +78,7 @@ Antes de correr un workflow, Claude Code muestra una aprobación con fases plane
 
 La prompt depende del permission mode. En modos no interactivos (`claude -p`, SDK, bypass permissions) puede arrancar sin prompt.
 
-Punto importante: los subagentes corren con `acceptEdits` e heredan el tool allowlist de la sesión. Las ediciones de archivos se autoaprueban, pero shell, web fetches y MCP tools fuera del allowlist todavía pueden pedir permiso durante el run.
+**Punto importante:** los subagentes corren con `acceptEdits` e heredan el tool allowlist de la sesión. Las ediciones de archivos se autoaprueban, pero shell, web fetches y MCP tools fuera del allowlist todavía pueden pedir permiso durante el run.
 
 ## Guardado y reutilización
 
@@ -110,7 +110,7 @@ Gestión de runs:
 - Vista de progreso muestra fases, agentes, tokens y elapsed.
 - Se puede pausar/reanudar (`p`), detener (`x`), reiniciar agentes (`r`) y guardar script (`s`).
 - Si se pausa un run, al reanudar los agentes completados devuelven resultados cacheados y el resto corre live.
-- La reanudación oficial funciona dentro de la misma sesión; si se cierra Claude Code mientras un workflow corre, la siguiente sesión arranca el workflow de cero.
+- La reanudación dentro de la misma sesión restaura estado. Si se cierra Claude Code durante un run, la siguiente sesión arranca de cero.
 
 ## Patrones nombrados por Anthropic
 
@@ -144,42 +144,44 @@ Lo que ya está alineado:
 - Templates equivalentes: scout-fanout, adversarial-verify, tournament, loop-until-dry, self-consistency, deep-research, repo-bug-hunt.
 - Resume más fuerte que Claude en un punto: este repo persiste un journal content-addressed para reanudar runs stale/failed/cancelled in-place entre sesiones Pi, reutilizando llamadas completadas.
 
-Deltas o ideas para acercarse más a Claude:
+## Deltas o ideas para acercarse más a Claude
 
-1. **Aprobación pre-run con fases y raw script**.
+1. **Aprobación pre-run con fases y raw script**
    - Claude muestra fases planeadas y deja ver/editar el script antes de ejecutar.
-   - En Pi, se podría añadir un modo humano de aprobación para workflows generados por el agente, especialmente si tienen tools mutantes.
+   - En Pi: agregar modo de aprobación humano para workflows generados, especialmente con tools mutantes.
 
-2. **Guardar run como slash command directo**.
-   - Claude permite `s` en `/workflows` y luego invocar `/<name>`.
-   - Pi ya tiene `/workflow run <name>`, pero podría generar comandos dinámicos o una UX equivalente para saved workflows.
+2. **Guardar run como slash command directo**
+   - Claude permite `s` en `/workflows` e invocar `/<name>` después.
+   - En Pi: ya existe `/workflow run <name>`, pero generar comandos dinámicos o UX equivalente mejoraría el flujo.
 
-3. **Input natural a workflows guardados**.
-   - Claude usa un global `args` estructurado inferido del prompt.
-   - Pi usa `input` JSON explícito. Una mejora sería aceptar `/workflow run name <texto>` y pedirle al modelo estructurar `input`, o crear aliases con schema.
+3. **Input natural a workflows guardados**
+   - Claude usa `args` estructurado inferido del prompt.
+   - En Pi: aceptar `/workflow run name <texto>` y pedirle al modelo estructurar `input`, o crear aliases con schema.
 
-4. **Métricas de tokens por fase/agente**.
+4. **Métricas de tokens por fase/agente**
    - Claude muestra token totals en la vista de progreso.
-   - El README actual de Pi indica que métricas no persistidas como tokens/coste/model/toolCalls no se muestran.
+   - En Pi: las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran actualmente; documentar estado o agregar soporte.
 
-5. **Pause/restart agent desde dashboard**.
-   - Claude documenta pause/resume de run, stop de agente/run y restart de agente.
-   - Pi tiene cancel/resume de run; podría sumar pausa y restart granular.
+5. **Pause/restart granular desde dashboard**
+   - Claude ofrece pause/resume de run, stop de agente/run y restart de agente.
+   - En Pi: se tiene cancel/resume; agregar pausa y restart por agente para más control.
 
-6. **Modelo de permisos por agente**.
-   - Claude separa aprobación del run y permisos de subagente según allowlist.
-   - Pi ya permite tools/keys/env por agente; convendría documentar y reforzar presets read-only/mutating.
+6. **Modelo de permisos por agente**
+   - Claude separa aprobación del run y permisos de subagente por allowlist.
+   - En Pi: ya permite tools/keys/env por agente; documentar y reforzar presets read-only/mutating.
 
-7. **Modo coordinador sin shell/filesystem directo**.
-   - Claude restringe el script: el workflow coordina y los agentes actúan.
-   - Pi permite `ctx.bash`, `readFile`, `writeFile` y artifacts. Es más potente, pero menos aislado. Podría existir un modo de runtime restringido para workflows no confiables o compartibles.
+7. **Modo coordinador restringido (sin shell/filesystem directo)**
+   - Claude restringe el script: solo coordina, los agentes actúan.
+   - En Pi: se permite `ctx.bash`, `readFile`, `writeFile` y artifacts (más potente, pero menos aislado). Podría existir modo restringido para workflows no confiables o compartibles.
 
 ## Recomendación para Pi
 
-Mantener la ventaja actual de Pi: workflows como código confiable, composable y resumable. Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reusabilidad:
+Mantener la ventaja actual de Pi: workflows como código confiable, composable y resumable.
+
+Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reusabilidad:
 
 1. **Pre-run approval para workflows generados**: mostrar nombre, fases, límites, tools mutantes y raw script.
 2. **Save-as-command**: promover desde run/draft a comando invocable sin recordar `/workflow run`.
 3. **Args ergonómicos**: permitir input estructurado o natural para workflows guardados.
 
-El siguiente slice seguro sería documentar estos deltas como roadmap y después implementar primero `save-as-command`, porque es de bajo riesgo: no cambia el runtime, solo la capa de descubrimiento/invocación.
+El siguiente slice seguro sería documentar estos deltas como roadmap e implementar primero `save-as-command`, porque es bajo riesgo: no cambia el runtime, solo la capa de descubrimiento/invocación.

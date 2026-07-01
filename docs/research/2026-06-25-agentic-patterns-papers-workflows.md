@@ -15,7 +15,7 @@ Consolidate what we learned about agentic workflows and relevant papers to impro
 - **Tree of Thoughts: Deliberate Problem Solving with Large Language Models** — arXiv:2305.10601. Useful idea: branch/evaluate/prune; in workflows, generate parallel alternatives, evaluate them by rubric, and prune before implementing.
 - **Improving Factuality and Reasoning in Language Models through Multiagent Debate** — arXiv:2305.14325. Useful idea: multi-agent debate improves factuality; in workflows, independent reviewers and a judge that discards unsupported claims.
 - **AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation** — arXiv:2308.08155. Useful idea: programmable multi-agent conversation patterns; in workflows, explicit roles, output contracts, and tool scopes.
-- **CAMEL: Communicative Agents for “Mind” Exploration of Large Language Model Society** — arXiv:2303.17760. Useful idea: role-play cooperation with defined roles; in workflows, `agentType` and non-overlapping responsibilities.
+- **CAMEL: Communicative Agents for "Mind" Exploration of Large Language Model Society** — arXiv:2303.17760. Useful idea: role-play cooperation with defined roles; in workflows, `agentType` and non-overlapping responsibilities.
 - **MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework** — arXiv:2308.00352. Useful idea: encode human workflows into roles and artifacts; in workflows, stable artifacts and explicit phases.
 - **AgentVerse: Facilitating Multi-Agent Collaboration and Exploring Emergent Behaviors** — arXiv:2308.10848. Useful idea: dynamically adjust group composition; in workflows, choose the number/type of agents after scouting.
 - **SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering** — arXiv:2405.15793. Useful idea: the agent-computer interface matters; in workflows, restricted tools, prompts with paths/commands, and inspectable artifacts.
@@ -65,7 +65,7 @@ Consolidate what we learned about agentic workflows and relevant papers to impro
 - `dynamic-workflows` skill: strengthened decision rules, patterns, and partial failure.
 - Base template: now scouts, logs caps, chooses concurrency dynamically, and uses `settle:true`.
 - Examples: `repo-bug-hunt`, `deep-research`, and `adversarial-plan-review` now choose concurrency dynamically, log partial failures, and use personas/settling.
-- Explicit Ultracode: `/ultracode` now forces a more operational instruction (“create a task-specific workflow dynamically with `dynamic_workflow` in this turn if it passes the gate”), prefers `generated/<task-slug>` as a draft, and activates the `dynamic_workflow` tool if it was inactive.
+- Explicit Ultracode: `/ultracode` now forces a more operational instruction ("create a task-specific workflow dynamically with `dynamic_workflow` in this turn if it passes the gate"), prefers `generated/<task-slug>` as a draft, and activates the `dynamic_workflow` tool if it was inactive.
 - TUI/widget: hardened rendering for `width <= 0` and sanitize log messages before rendering.
 - Updated policy: `examples/` must not contain `.pi`; open Pi from the repo root or copy examples to a temporary project.
 
@@ -89,4 +89,4 @@ PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-session -p "/workflow list"
 
 - Add pattern scaffolds: `judge-panel`, `adversarial-verify`, `loop-until-dry`, `multi-modal-sweep`, `pipeline`.
 - Add pre-run linting to detect silent caps and hardcoded concurrency.
-- Improve always-on `/ultracode` so it distinguishes “decide workflow” from “force workflow” and logs the decision when it affects cost/latency.
+- Improve always-on `/ultracode` so it distinguishes "decide workflow" from "force workflow" and logs the decision when it affects cost/latency.
