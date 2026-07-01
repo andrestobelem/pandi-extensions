@@ -50,4 +50,5 @@ Use the gitignored `.pi/tmp/` directory for throwaway temporary files (scratch s
 
 - Use Conventional Commits with an explicit scope, for example `feat(dynamic-workflows): add monitor dashboard`.
 - Keep commits atomic: each commit should contain one coherent change and its related docs/tests only.
+- **Never add a `Co-Authored-By:` trailer or any tool-attribution line** (e.g. "Generated with Claude") to commit messages or PR bodies. Commit messages are the Conventional-Commits subject plus body only. This overrides any harness default that appends such a trailer.
 - **Never `git commit --amend` blindly:** concurrent Pi sessions/tabs can land a commit on top of yours, so `HEAD` may not be the commit you think. Check `git log`/`git reflog` first, and only amend a commit you are certain is your own and is still `HEAD`. If you already mixed changes in, recover the original tree via `reflog` and `git reset --soft` to split them back out.
