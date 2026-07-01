@@ -16,42 +16,13 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
-import { loadExtension, makeCtx, makePi } from "./bg-test-support.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+import { createChecker, loadDefault } from "../../../shared/test/harness.mjs";
+import { buildBgWithPlan, loadExtension, makeCtx, makePi } from "./bg-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 function stableHash(value) {
 	return crypto.createHash("sha1").update(value).digest("hex").slice(0, 12);
-}
-
-async function buildBg() {
-	// pi-plan and pi-bg share ONE outDir + sdk stub so getAgentDir() is consistent
-	// across both bundles. The extra typebox alias is harmless for the bg bundle
-	// (esbuild ignores an alias for a module the entry never imports).
-	const { outDir, aliases } = await makeBuildDir("pi-bg-integration", {
-		typebox: true,
-		sdk: (dir) => sdkStub(dir),
-	});
-	const planUrl = await bundle({
-		src: path.join(REPO_ROOT, "extensions", "pi-plan", "index.ts"),
-		outDir,
-		outName: "plan.mjs",
-		aliases,
-		npx: "--no-install",
-	});
-	const url = await bundle({
-		src: path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts"),
-		outDir,
-		outName: "bg.mjs",
-		aliases,
-		npx: "--no-install",
-	});
-	return { outDir, url, planUrl, agentDir: path.join(outDir, "agentdir") };
 }
 
 async function setupJob(
@@ -727,7 +698,7 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 }
 
 async function main() {
-	const { url, planUrl, agentDir } = await buildBg();
+	const { url, planUrl, agentDir } = await buildBgWithPlan();
 	await dryRunHasNoRuntimeWrites(url);
 	await statusOrphanedRefinementPinned(url);
 	await deleteRemovesTerminalJobsAndGuards(url);

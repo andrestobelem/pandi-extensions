@@ -1,5 +1,43 @@
 import * as fs from "node:fs/promises";
-import { loadDefault } from "../../../shared/test/harness.mjs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildExtension, bundle, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+
+export async function buildBg({ name = "pi-bg-integration" } = {}) {
+	const { url } = await buildExtension({
+		name,
+		src: path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts"),
+		outName: "bg.mjs",
+		stubs: { sdk: (dir) => sdkStub(dir) },
+		npx: "--no-install",
+	});
+	return { url };
+}
+
+export async function buildBgWithPlan({ name = "pi-bg-integration" } = {}) {
+	const { outDir, aliases } = await makeBuildDir(name, {
+		typebox: true,
+		sdk: (dir) => sdkStub(dir),
+	});
+	const planUrl = await bundle({
+		src: path.join(REPO_ROOT, "extensions", "pi-plan", "index.ts"),
+		outDir,
+		outName: "plan.mjs",
+		aliases,
+		npx: "--no-install",
+	});
+	const url = await bundle({
+		src: path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts"),
+		outDir,
+		outName: "bg.mjs",
+		aliases,
+		npx: "--no-install",
+	});
+	return { outDir, url, planUrl, agentDir: path.join(outDir, "agentdir") };
+}
 
 export function shellQuote(value) {
 	return JSON.stringify(value);

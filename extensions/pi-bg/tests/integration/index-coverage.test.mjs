@@ -20,27 +20,21 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
-import { loadExtension, makeCtx, makePi, parseJobId, readJson, shellQuote, waitFor } from "./bg-test-support.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import {
+	buildBg,
+	loadExtension,
+	makeCtx,
+	makePi,
+	parseJobId,
+	readJson,
+	shellQuote,
+	waitFor,
+} from "./bg-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 const skipped = [];
-
-async function buildBg() {
-	const { url } = await buildExtension({
-		name: "pi-bg-index-coverage",
-		src: path.join(REPO_ROOT, "extensions", "pi-bg", "index.ts"),
-		outName: "bg.mjs",
-		stubs: { sdk: (dir) => sdkStub(dir) },
-		npx: "--no-install",
-	});
-	return { url };
-}
 
 // Start a child that runs until killed; returns { jobId, runDir, cleanup }.
 async function startLongJob(commands, cwd) {
