@@ -1767,6 +1767,27 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		},
 	});
 
+	// Alias of /dynamic-workflow so `/ultracode <task>` autocompletes in the command palette
+	// (the bare word "ultracode" also triggers via the input transform below, but that never
+	// registered a command). Keep the prompt byte-identical to /dynamic-workflow.
+	pi.registerCommand("ultracode", {
+		description: "Ask Pi to solve a complex task using dynamic workflows when warranted (alias of /dynamic-workflow)",
+		handler: async (args, ctx) => {
+			const task = args.trim();
+			if (!task) {
+				notify(ctx, "Usage: /ultracode <task>", "warning");
+				return;
+			}
+			if (!ensureDynamicWorkflowToolActive(pi))
+				notify(
+					ctx,
+					"dynamic_workflow tool is not active; ultracode will only provide routing guidance.",
+					"warning",
+				);
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
+		},
+	});
+
 	pi.registerCommand("deep-research", {
 		description: "Ask Pi to create/run a dynamic workflow for deep research",
 		handler: async (args, ctx) => {
