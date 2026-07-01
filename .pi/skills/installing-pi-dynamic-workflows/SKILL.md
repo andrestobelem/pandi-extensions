@@ -103,6 +103,7 @@ Per-extension installs (instead of the whole bundle) are listed in the README's
 - **A command isn't available after install** → open Pi in the target project, `/trust`, then
   `/reload` (or restart). Project-scoped workflows need trust.
 - **`pi` not found** → step 1 didn't complete or global npm bin isn't on `PATH`.
-- **Node too old / `npm test` fails on engines** → `nvm use` (must be ≥ 22.19.0; Gondolin ≥ 23.6.0).
+- **Node too old** → `nvm use` (must be ≥ 22.19.0; Gondolin ≥ 23.6.0). The gate is `npm run doctor`,
+  which exits non-zero on old Node; the repo declares no `engines` field, so `npm install` won't block.
 - **Anything unclear** → re-run `npm run doctor` and re-read the README "Quickstart"; treat those as
   authoritative over this summary.
