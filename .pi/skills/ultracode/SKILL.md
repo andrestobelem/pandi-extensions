@@ -335,7 +335,8 @@ call via `model`/`provider`. It is *not* "Codex"; Codex is just one of the provi
   bundled under [`reference/primitives/`](reference/primitives/).
 - **Per-node budget** is per call: `model` (pattern or `provider/id`, optional `:<effort>`),
   `provider`, `effort` (`low…max`, mapped onto the engine reasoning scale). `agentType` personas set
-  defaults (`reviewer`/`planner`/`researcher` → high; `explore`/`implementer` → medium). Scope access
+  defaults (`reviewer`/`planner`/`architect`/`researcher` → high; `explore`/`implementer` → medium; full
+  catalog + when-to-use in [`reference/personas.md`](reference/personas.md)). Scope access
   with `tools`/`excludeTools`, `skills`, `extensions`, `keys`, `env`. Targets Anthropic OR OpenAI/Codex
   (see above).
 - **Invoke / run:**
