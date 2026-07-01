@@ -1,0 +1,23 @@
+{
+  "$comment": "Plantilla de settings de Pi para este repo. Copiá a .pi/settings.json si el tuyo no existe o querés resetearlo. NO pongas secretos ni rutas absolutas con tu usuario acá: los secretos van por entorno (ver .env.example) y este archivo se commitea. Los paths de packages son relativos a .pi/, por eso apuntan a ../extensions/*.",
+  "sessionDir": ".pi/sessions",
+  "packages": [
+    "../extensions/pi-dynamic-workflows",
+    "../extensions/pi-loop",
+    "../extensions/pi-goal",
+    "../extensions/pi-plan",
+    "../extensions/pi-bg",
+    "../extensions/pi-effort",
+    "../extensions/pi-mdview",
+    "../extensions/pi-local-memory",
+    "../extensions/pi-auto-compact-context",
+    "../extensions/pi-worktree",
+    "../extensions/pi-typescript-lsp",
+    "../extensions/pi-rename",
+    "../extensions/pi-btw",
+    "../extensions/pi-pandi",
+    "../extensions/pi-exit",
+    "../extensions/pi-clear"
+  ],
+  "extensions": []
+}

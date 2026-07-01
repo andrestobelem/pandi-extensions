@@ -19,7 +19,7 @@ This skill is based on the project research distilled from Dave Farley’s _Mode
 Modern software engineering is practical science applied to software development:
 
 1. **Optimize for learning.** Treat each change as a hypothesis and seek the fastest high-quality feedback.
-2. **Use TDD for behavior changes.** Start with a failing executable check, make it pass with the smallest change, then refactor while preserving green tests.
+2. **Use TDD for behavior changes.** Start with a failing executable check, make it pass with the smallest change, refactor while preserving green tests, then land it as an atomic Conventional Commit with an explicit scope.
 3. **Manage complexity.** Keep systems understandable enough to change safely.
 4. **Use evidence.** Prefer tests, CI output, runtime observations, and preserved artifacts over fashion, authority, intuition, or AI consensus.
 5. **Judge by stability and throughput.** A practice is useful when it improves quality/reliability/recovery and/or frequent efficient delivery without hurting the other dimension.
@@ -33,6 +33,7 @@ For behavior-changing work, prefer TDD as the first learning mechanism:
 3. **Green:** make the smallest implementation change that passes.
 4. **Refactor:** improve names, boundaries, cohesion, coupling, duplication, and clarity while tests stay green.
 5. **Verify:** run the relevant local checks and CI signal; capture the exact command/result when possible.
+6. **Commit:** land the change as an atomic commit using Conventional Commits with an explicit scope (e.g. `fix(pi-goal): …`). One coherent change per commit, with the pinning test in the SAME commit as the code it covers.
 
 If TDD is not the right tool for the task, say why and name the replacement evidence: spike result, CI signal, runtime observation, user feedback, metric, or other executable check.
 

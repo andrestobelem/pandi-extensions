@@ -356,12 +356,141 @@ async function scenarioEmptyContract(url) {
 	}
 }
 
+// Run-level cancellation: when the WHOLE run signal aborts (user cancel) with a subagent call
+// still in-flight, cleanup() must SIGTERM the child, not leave it running until its own timeout.
+// The bug: onAbort (run signal) fired first and cleanup disposed each per-call combined signal
+// BEFORE that signal's own abort listener ran, so the child was never killed.
+async function scenarioRunAbortCancelsInflight(url) {
+	const tag = tagSeq++;
+	const mod = await import(`${url}?i=${tag}`);
+	const ext = mod.default;
+	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-"));
+	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
+	await fs.writeFile(
+		path.join(project, ".pi", "workflows", "hang.js"),
+		"await agent(args.prompt);\nreturn 'done';\n",
+		"utf8",
+	);
+	const barrierDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-barrier-"));
+	const fakePi = await writeFakePi(barrierDir, `abort-${tag}`);
+	const { pi, tools } = makePi();
+	(ext.activate ?? ext)(pi, makeCtx(project));
+	const tool = tools.get("dynamic_workflow");
+	const rc = new AbortController();
+	const done = withFakePi(fakePi, async () => {
+		try {
+			return await tool.execute(
+				"tc-abort",
+				{
+					action: "run",
+					name: "hang",
+					input: { prompt: "[role:lose][id:hang] slow" },
+					concurrency: 1,
+					maxAgents: 2,
+					timeoutMs: 60_000,
+				},
+				rc.signal,
+				undefined,
+				makeCtx(project),
+			);
+		} catch (e) {
+			return { threw: String(e?.message ?? e) };
+		}
+	});
+	// Wait until the child has spawned (call in-flight), then abort the whole run.
+	const spawned = await waitForMarkers(barrierDir, "spawned-", 1, 8000);
+	check(
+		"run-abort: the subagent child spawned (in-flight before abort)",
+		spawned.length === 1,
+		JSON.stringify(spawned),
+	);
+	rc.abort(new Error("user cancelled the run"));
+	await done;
+	const cancelled = await waitForMarkers(barrierDir, "cancelled-", 1, 6000);
+	const completed = await listMarkers(barrierDir, "completed-");
+	check(
+		"run-abort: the in-flight child received SIGTERM (cancelled), not run to completion",
+		cancelled.length === 1 && completed.length === 0,
+		`cancelled=${JSON.stringify(cancelled)} completed=${JSON.stringify(completed)}`,
+	);
+}
+
+// A race() loser that fans out via agents({ signal }) must have its in-flight children CANCELLED
+// when it loses, like agent()/ask() losers do. The worker must bridge the per-call abort to the
+// host (post abort-call) AND the host must honor that signal in the agents fan-out; otherwise the
+// losing agents branch's children run to their own timeout. (Note: in Node >=20 postMessage can
+// structured-clone an AbortSignal, so this is a cancellation gap, not a DataCloneError crash.)
+async function scenarioRaceAgentsLosersCancelled(url) {
+	const tag = tagSeq++;
+	const mod = await import(`${url}?i=${tag}`);
+	const ext = mod.default;
+	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-"));
+	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
+	await fs.writeFile(
+		path.join(project, ".pi", "workflows", "race-agents.js"),
+		[
+			"const result = await race([",
+			"  (signal) => agents(args.losers, { signal, concurrency: 2 }),",
+			"  (signal) => agent(args.winner, { signal }),",
+			"]);",
+			// Keep the run alive AFTER the race resolves so run-end cleanup does not mask whether the
+			// losing agents() branch was cancelled AT RACE-LOSS (the real gap) vs only at run end.
+			"await sleep(3000);",
+			"return result;",
+		].join("\n"),
+		"utf8",
+	);
+	const barrierDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-barrier-"));
+	const fakePi = await writeFakePi(barrierDir, `ragts-${tag}`);
+	const { pi, tools } = makePi();
+	(ext.activate ?? ext)(pi, makeCtx(project));
+	const tool = tools.get("dynamic_workflow");
+	// Start the run WITHOUT awaiting: the winner blocks on the 2 loser spawns, then wins; the
+	// workflow then sleeps 3s. We observe the losers' state DURING that sleep window.
+	const runPromise = withFakePi(fakePi, async () => {
+		const res = await tool.execute(
+			"tc-ragts",
+			{
+				action: "run",
+				name: "race-agents",
+				input: {
+					losers: ["[role:lose][id:al1] slow", "[role:lose][id:al2] slow"],
+					winner: "[role:win-barrier][id:win][need:2] go",
+				},
+				concurrency: 3,
+				maxAgents: 4,
+				timeoutMs: 60_000,
+			},
+			new AbortController().signal,
+			undefined,
+			makeCtx(project),
+		);
+		return res?.details?.result;
+	});
+	// The winner writes won-win when it wins => the race has resolved and the losing agents branch
+	// has lost. If losers are cancelled AT RACE-LOSS they get SIGTERM within ~ms; if only at run end
+	// they stay alive through the 3s sleep. Give a tight window that ends well before run end.
+	await waitForMarkers(barrierDir, "won-", 1, 8000);
+	const cancelledAtLoss = await waitForMarkers(barrierDir, "cancelled-", 2, 1500);
+	const completedAtLoss = await listMarkers(barrierDir, "completed-");
+	const result = await runPromise;
+	check("race-agents: run succeeds", result?.ok === true, result?.error);
+	check("race-agents: the agent branch wins (index 1)", result?.output?.index === 1, JSON.stringify(result?.output));
+	check(
+		"race-agents: both agents()-branch losers are cancelled AT RACE-LOSS (not deferred to run end)",
+		cancelledAtLoss.length === 2 && completedAtLoss.length === 0,
+		`cancelledAtLoss=${JSON.stringify(cancelledAtLoss)} completedAtLoss=${JSON.stringify(completedAtLoss)}`,
+	);
+}
+
 async function main() {
 	const { url } = await buildExtension();
 	await scenarioWinnerBasicAndJournal(url);
 	await scenarioFirstSuccessWins(url);
 	await scenarioResumeValidWinner(url);
 	await scenarioEmptyContract(url);
+	await scenarioRunAbortCancelsInflight(url);
+	await scenarioRaceAgentsLosersCancelled(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

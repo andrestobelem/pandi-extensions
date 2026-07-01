@@ -16,6 +16,8 @@ examples/.pi/
 
 # Third-party skill installed LOCALLY (via the skill installer) but intentionally NOT
 # vendored into this repo. Keep it usable on this machine without tracking ~4.8M of it.
+# Reinstall globally (Pi auto-discovers it from ~/.agents/skills in any project) with:
+#   ctx7 skills install /openprose/prose open-prose --global
 .claude/skills/open-prose/
 **/.claude/skills/open-prose/
 .agents/skills/open-prose/

@@ -42,7 +42,8 @@ const WORKFLOW = [
 	"    { name: 'c1', prompt: 'CALL_C1 synth', model: 'test-prov/model-c1', thinking: 'xhigh', tools: ['read'] },",
 	"    { name: 'c2', prompt: 'CALL_C2 inherit', tools: ['read'] },",
 	"  ], { concurrency: 2 });",
-	"  return { a: a.output, b: b.output, c: c.map((r) => (r ? r.output : null)) };",
+	"  const d = await ctx.agent('CALL_D bare-alias', { name: 'd', model: 'sonnet', thinking: 'medium', tools: ['read'] });",
+	"  return { a: a.output, b: b.output, c: c.map((r) => (r ? r.output : null)), d: d.output };",
 	"};",
 	"",
 ].join("\n");
@@ -250,6 +251,20 @@ async function main() {
 			"C2: inherits session thinking level (getThinkingLevel)",
 			flagValue(c2, "--thinking") === "medium",
 			JSON.stringify(c2),
+		);
+
+		// CALL_A: a provider-qualified model (has a "/") must NOT get a synthesized --provider.
+		check("A: qualified model does not add --provider", hasFlag(a, "--provider") === false, JSON.stringify(a));
+
+		// CALL_D: a BARE pattern alias ("sonnet", no "provider/") must be pinned to the session
+		// provider via --provider, so pi does not route it to an UNauthenticated provider
+		// (e.g. amazon-bedrock -> "No API key found"). The alias itself is forwarded unchanged.
+		const d = await readArgv("CALL_D");
+		check("D: bare alias forwarded as --model", flagValue(d, "--model") === "sonnet", JSON.stringify(d));
+		check(
+			"D: bare alias pinned to session provider via --provider",
+			flagValue(d, "--provider") === "ctx-prov",
+			JSON.stringify(d),
 		);
 
 		// #3.6 focus observability: the completed run must write focus-metrics artifacts

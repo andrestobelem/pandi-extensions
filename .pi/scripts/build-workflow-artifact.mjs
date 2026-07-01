@@ -49,8 +49,14 @@ const stubs = `
       if (p === 'then') return undefined;
       if (p === Symbol.iterator) return Array.prototype[Symbol.iterator].bind([]);
       if (p === Symbol.toPrimitive || p === 'toString' || p === 'valueOf') return () => '‹runtime value›';
-      if (['map','filter','flatMap','forEach','slice','sort','join','reduce','some','every','find','concat','keys','values','entries'].includes(p)) return () => [];
+      if (['map','filter','flatMap','forEach','slice','sort','join','reduce','some','every','find','concat','keys','values','entries','split'].includes(p)) return () => [];
       if (p === 'length') return 0;
+      // String-ish methods return benign scalars so bodies that post-process agent TEXT output
+      // (.match/.indexOf/.replace/… on a runtime value) don't throw and the preview stays complete.
+      if (p === 'match') return () => null;
+      if (['indexOf','lastIndexOf','search'].includes(p)) return () => -1;
+      if (['includes','startsWith','endsWith','test'].includes(p)) return () => false;
+      if (['replace','replaceAll','trim','trimStart','trimEnd','toLowerCase','toUpperCase','padStart','padEnd','substring','substr','repeat','charAt','normalize'].includes(p)) return () => '';
       return lenient();
     },
   });
@@ -61,11 +67,19 @@ const stubs = `
       schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills });
     return lenient();
   };
-  // ctx-style workflows fan out with agents(items, …); record one representative node, return lenient rows.
+  // agents(items, …) fan-out. When items carry per-item specs (prompt/model/effort/label — the
+  // orchestrator-workers style), record ONE node per item so the preview shows each agent's own
+  // model/effort/tools; otherwise record a single representative node (ctx-style string items).
   const agents = async (items, opts = {}) => {
     const arr = Array.isArray(items) ? items : [];
-    if (arr.length) globalThis.__nodes.push({ prompt: '‹per-item agents() fan-out›', label: opts.label || opts.name,
-      phase: opts.phase, schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills });
+    const specced = arr.filter((it) => it && typeof it === 'object' && (it.prompt || it.model || it.label || it.name));
+    if (specced.length) {
+      for (const it of specced) globalThis.__nodes.push({ prompt: String(it.prompt ?? ''), label: it.label || it.name || opts.label,
+        phase: it.phase || opts.phase, schema: it.schema || opts.schema, model: it.model || opts.model, effort: it.effort || opts.effort, tools: it.tools || opts.tools, skills: it.skills || opts.skills });
+    } else if (arr.length) {
+      globalThis.__nodes.push({ prompt: '‹per-item agents() fan-out›', label: opts.label || opts.name,
+        phase: opts.phase, schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills });
+    }
     return arr.map(() => lenient());
   };
   const parallel = async (thunks) => Promise.all((thunks || []).map(async (t) => { try { return await t(); } catch { return null; } }));
@@ -97,6 +111,21 @@ const stubs = `
     writeFile: async () => {}, appendFile: async () => {}, readFile: async () => '', listFiles: async () => [],
     sleep: async () => {}, json: (x) => x,
   };
+  // Extra injected globals so globals-style \`export default async function main()\` bodies that use
+  // writeArtifact/compact/limits/bash/race/ask/… as BARE identifiers resolve them. Assigned on
+  // globalThis (NOT const) so a scaffold that declares its own \`const compact\` lexically shadows
+  // these without a redeclaration SyntaxError.
+  Object.assign(globalThis, {
+    writeArtifact: ctx.writeArtifact, writeFile: ctx.writeFile, appendFile: ctx.appendFile,
+    readFile: ctx.readFile, listFiles: ctx.listFiles, sleep: ctx.sleep, json: ctx.json,
+    bash: ctx.bash, compact: ctx.compact, limits: ctx.limits, runId: ctx.runId, runDir: ctx.runDir, cwd: ctx.cwd,
+    race: async (thunks, opts = {}) => {
+      const arr = Array.isArray(thunks) ? thunks : []; const accept = (opts && opts.accept) || ((v) => v != null);
+      for (let i = 0; i < arr.length; i++) { try { const v = await arr[i](); if (accept(v)) return { winner: v, index: i, status: 'won' }; } catch {} }
+      return { winner: null, index: -1, status: 'empty' };
+    },
+    ask: async (_q, opts = {}) => (opts && opts.default !== undefined ? opts.default : ''),
+  });
   // Reachable only when the body did NOT already return at top level (i.e. export-default workflows);
   // Claude-style top-level scripts return first, so this is a no-op for them.
   globalThis.__runDefault = async () => {

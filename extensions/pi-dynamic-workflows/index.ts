@@ -245,6 +245,8 @@ interface AskOptions {
 	default?: string | boolean;
 	timeoutMs?: number;
 	cache?: boolean;
+	/** The answer is a secret: never persist it (events/journal) or replay it on resume. */
+	secret?: boolean;
 	__workflowNamespace?: string;
 }
 
@@ -530,7 +532,15 @@ async function executeWorkflowCode(
 			signal.removeEventListener("abort", onAbort);
 			worker.removeAllListeners();
 			void worker.terminate();
-			for (const c of callControllers.values()) c.dispose();
+			// Abort each in-flight call's combined signal BEFORE disposing it. onAbort (on the run
+			// signal) fires before the per-call abortFromParent listeners registered later on the
+			// same signal, so disposing here (which removes those listeners) would strand them and
+			// leave subagent children running until agentTimeoutMs. Aborting first drives each
+			// child's SIGTERM synchronously; combineSignal.abort is idempotent.
+			for (const c of callControllers.values()) {
+				c.abort(new Error(abortReasonMessage(signal)));
+				c.dispose();
+			}
 			callControllers.clear();
 		};
 
@@ -590,10 +600,12 @@ async function executeWorkflowCode(
 					return;
 				}
 				try {
-					if (method === "agent" || method === "ask") {
+					if (method === "agent" || method === "ask" || method === "agents") {
 						// Per-call signal: aborts on run abort OR an abort-call (race loser). timeoutMs 0
 						// => parent-only. Registered synchronously before any await, so an abort-call
-						// can never arrive before its controller exists. The store is read by runSubagent/runAsk.
+						// can never arrive before its controller exists. The store is read by
+						// runSubagent/runAsk and by runAgents' fan-out (so an agents() race loser is
+						// cancelled at race-loss, not only at run end).
 						const combined = combineSignal(signal, 0);
 						callControllers.set(message.id, combined);
 						try {
@@ -960,8 +972,16 @@ export async function runWorkflow(
 			if (effectiveOptions.approve ?? ctx.isProjectTrusted()) args.push("--approve");
 			else args.push("--no-approve");
 			if (effectiveOptions.useContextFiles === false) args.push("--no-context-files");
-			if (effectiveOptions.provider) args.push("--provider", effectiveOptions.provider);
 			const model = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
+			// A BARE pattern alias ("sonnet"/"opus"/"haiku" — no "provider/") resolves through pi's provider
+			// routing and can land on an UNauthenticated provider (e.g. amazon-bedrock -> "No API key found"),
+			// which silently kills the subagent. Pin a bare alias to the session's provider so the shared
+			// dual-platform scaffolds (which use bare aliases for Claude Code) resolve within the authenticated
+			// provider on pi. An explicit provider always wins; qualified ids ("provider/id") and omitted models
+			// (already qualified by makeModelArg) are left untouched.
+			const provider =
+				effectiveOptions.provider ?? (model && !model.includes("/") ? ctx.model?.provider : undefined);
+			if (provider) args.push("--provider", provider);
 			if (model) args.push("--model", model);
 			const thinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
 			if (thinking) args.push("--thinking", String(thinking));
@@ -1227,8 +1247,12 @@ export async function runWorkflow(
 					name: item.name ?? `agent-${index + 1}`,
 				});
 			};
-			if (settle) return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
-			return await mapLimit(items, concurrency, runSignal.signal, runItem);
+			// Fan out under the per-call signal when present (agents() dispatched inside callSignal),
+			// so an abort-call for this agents() call (a race loser) cancels the whole fan-out; falls
+			// back to the run signal for a bare agents() call.
+			const fanoutSignal = callSignal.getStore() ?? runSignal.signal;
+			if (settle) return await mapLimit(items, concurrency, fanoutSignal, runItem, { onError: "null" });
+			return await mapLimit(items, concurrency, fanoutSignal, runItem);
 		}
 		return runAgents as WorkflowRuntimeApi["agents"];
 	}
@@ -1335,7 +1359,12 @@ export async function runWorkflow(
 		if (kind === "select" && hasDefault && !(options.choices as string[]).includes(options.default as string)) {
 			throw new Error("ask(): options.default for a select must be one of options.choices.");
 		}
-		const cacheEnabled = options.cache !== false;
+		const secret = options.secret === true;
+		// A secret answer must never touch disk: force-disable the journal so it is neither written
+		// to journal.jsonl nor replayed on resume, and redact it in the live event + log below. The
+		// real value is still returned to the workflow.
+		const cacheEnabled = !secret && options.cache !== false;
+		const redactedAnswer = secret ? "[redacted]" : undefined;
 		const namespace = options.__workflowNamespace;
 		const key = computeCallKey("ask", [
 			question,
@@ -1420,7 +1449,7 @@ export async function runWorkflow(
 			type: "ask",
 			kind,
 			question,
-			answer,
+			answer: redactedAnswer ?? answer,
 			...(dismissed ? { dismissed: true } : {}),
 			...(defaulted ? { defaulted: true } : {}),
 			...(namespace ? { workflowNamespace: namespace } : {}),
@@ -1436,7 +1465,7 @@ export async function runWorkflow(
 				result,
 			});
 		}
-		await log(`ask answered: ${question.slice(0, 80)}`, { answer, defaulted });
+		await log(`ask answered: ${question.slice(0, 80)}`, { answer: redactedAnswer ?? answer, defaulted });
 		return answer;
 	}
 
@@ -1774,6 +1803,27 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("ultracode", {
 		description: "Alias for /dynamic-workflow: solve a complex task using dynamic workflows when warranted",
 		handler: makeWorkflowRoutingHandler("ultracode"),
+	});
+
+	// Alias of /dynamic-workflow so `/ultracode <task>` autocompletes in the command palette
+	// (the bare word "ultracode" also triggers via the input transform below, but that never
+	// registered a command). Keep the prompt byte-identical to /dynamic-workflow.
+	pi.registerCommand("ultracode", {
+		description: "Ask Pi to solve a complex task using dynamic workflows when warranted (alias of /dynamic-workflow)",
+		handler: async (args, ctx) => {
+			const task = args.trim();
+			if (!task) {
+				notify(ctx, "Usage: /ultracode <task>", "warning");
+				return;
+			}
+			if (!ensureDynamicWorkflowToolActive(pi))
+				notify(
+					ctx,
+					"dynamic_workflow tool is not active; ultracode will only provide routing guidance.",
+					"warning",
+				);
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
+		},
 	});
 
 	pi.registerCommand("deep-research", {
