@@ -12,13 +12,14 @@ For agentic work, treat prompts, context, tools, memory, artifacts, and evaluati
 
 Use the installed `karpathy-guidelines` skill when writing, reviewing, or refactoring code. It contains the community Karpathy-inspired rules for thinking before coding, keeping solutions simple, making surgical changes, and driving work with verifiable goals.
 
-Use the project `modern-software-engineering` skill for architecture, refactoring, code review, test strategy, delivery/process improvements, and dynamic workflow design. It distills Dave Farley-style Modern Software Engineering: default to TDD for behavior changes (Red → Green → Refactor), optimize for fast evidence, manage complexity deliberately, and judge changes by stability plus throughput.
+Use the project `modern-software-engineering` skill for architecture, refactoring, code review, test strategy, delivery/process improvements, and dynamic workflow design. It distills Dave Farley-style Modern Software Engineering: default to TDD for behavior changes (Red → Green → Refactor → Commit), optimize for fast evidence, manage complexity deliberately, and judge changes by stability plus throughput.
 
 Honor every TDD step, not just the easy two:
 
 - **Red first.** Write the failing test BEFORE the implementation; test-after is not TDD. If you genuinely cannot go test-first, say so explicitly rather than labelling test-after as TDD.
 - **Never silently skip Refactor.** After Green, always do the Refactor pass and NARRATE its outcome — even when the conclusion is "nothing to change", state that and why. The passing tests are the safety net that makes refactoring cheap; not using them is the miss.
 - **The Refactor step is bounded by the self-contained-extension rule.** Pi loads each extension self-contained (a single file or its own dir via jiti filesystem resolution), so a `../shared/` runtime import only resolves while the whole monorepo is present and breaks when the extension is installed standalone. Therefore per-extension duplication is INTENTIONAL (see `pi-*/notify.ts`, `time.ts`, `session-state.ts`, and small per-extension flag parsers/prompt strings). Do NOT "DRY" runtime code across extensions into a shared module during Refactor; `extensions/shared/` is for TEST harness code only. Dedup only WITHIN a single extension/package.
+- **Commit is the final TDD phase.** Once Refactor stays green, land the change as an atomic commit using Conventional Commits with an explicit scope (e.g. `fix(pi-goal): clear terminated goals`). Keep each commit one coherent change, with the pinning test in the SAME commit as the code it covers.
 
 Source/reference: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills). These guidelines are derived from Andrej Karpathy's notes on LLM coding pitfalls; they are not authored by him.
 
