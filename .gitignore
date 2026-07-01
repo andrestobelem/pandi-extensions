@@ -84,6 +84,10 @@ extensions/pi-pandi/*.local.json
 .pi/notes/
 **/.pi/notes/
 
+# Pi project-local persona backups (copies saved before overwriting a .pi/personas/*.json).
+.pi/personas/backups/
+**/.pi/personas/backups/
+
 # Logs and diagnostics
 logs
 .logs/
