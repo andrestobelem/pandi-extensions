@@ -14,6 +14,13 @@ examples/.pi/
 !.claude/scripts/
 !.claude/scripts/**
 
+# Third-party skill installed LOCALLY (via the skill installer) but intentionally NOT
+# vendored into this repo. Keep it usable on this machine without tracking ~4.8M of it.
+.claude/skills/open-prose/
+**/.claude/skills/open-prose/
+.agents/skills/open-prose/
+**/.agents/skills/open-prose/
+
 # Pi background jobs and automation state.
 .pi/bg/
 **/.pi/bg/

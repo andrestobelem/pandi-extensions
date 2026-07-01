@@ -6,12 +6,6 @@
       "sourceType": "github",
       "skillPath": "skills/karpathy-guidelines/SKILL.md",
       "computedHash": "41e8ca055bbde13d240776a14a076a59614057200340c243130a76ba4e64cac8"
-    },
-    "open-prose": {
-      "source": "openprose/prose",
-      "sourceType": "github",
-      "skillPath": "skills/open-prose/SKILL.md",
-      "computedHash": "d73b87fcaac0250d14cdd1864bcaf0c7edbed89d2437d6e2219c3760dd1422bc"
     }
   }
 }
