@@ -960,8 +960,16 @@ export async function runWorkflow(
 			if (effectiveOptions.approve ?? ctx.isProjectTrusted()) args.push("--approve");
 			else args.push("--no-approve");
 			if (effectiveOptions.useContextFiles === false) args.push("--no-context-files");
-			if (effectiveOptions.provider) args.push("--provider", effectiveOptions.provider);
 			const model = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
+			// A BARE pattern alias ("sonnet"/"opus"/"haiku" — no "provider/") resolves through pi's provider
+			// routing and can land on an UNauthenticated provider (e.g. amazon-bedrock -> "No API key found"),
+			// which silently kills the subagent. Pin a bare alias to the session's provider so the shared
+			// dual-platform scaffolds (which use bare aliases for Claude Code) resolve within the authenticated
+			// provider on pi. An explicit provider always wins; qualified ids ("provider/id") and omitted models
+			// (already qualified by makeModelArg) are left untouched.
+			const provider =
+				effectiveOptions.provider ?? (model && !model.includes("/") ? ctx.model?.provider : undefined);
+			if (provider) args.push("--provider", provider);
 			if (model) args.push("--model", model);
 			const thinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
 			if (thinking) args.push("--thinking", String(thinking));
