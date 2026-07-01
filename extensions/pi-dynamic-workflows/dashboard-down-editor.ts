@@ -25,7 +25,7 @@ const WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER = "__dynamicWorkflowDashboardDownEdi
 // or keyword-free prompt costs nothing beyond one boolean check per tick.
 const RAINBOW_INTERVAL_MS = 120;
 // The typed words that get the animated multicolor effect (case-insensitive).
-const RAINBOW_KEYWORDS = ["ultracode", "workflow"];
+const RAINBOW_KEYWORDS = ["ultracode", "workflow", "workflows"];
 
 class WorkflowDashboardDownEditor implements EditorComponent {
 	readonly [WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] = true;

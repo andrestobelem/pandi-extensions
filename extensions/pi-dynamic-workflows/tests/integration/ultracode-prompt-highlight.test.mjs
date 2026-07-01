@@ -221,6 +221,15 @@ async function scenarioColorsWorkflowKeyword(url) {
 	check("non-keyword words around workflow stay plain", line.includes("run the ") && line.includes(" now"), line);
 }
 
+async function scenarioColorsWorkflowsKeyword(url) {
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> run the workflows now"));
+	const line = wrapped.render(80)[1];
+	check("typed workflows is recolored (truecolor escapes present)", line.includes("\x1b[38;2;"), line);
+	check("workflows visible text is preserved", stripAll(line).includes("run the workflows now"), stripAll(line));
+	check("workflows keyword is no longer plain/contiguous", !line.includes("workflows"), line);
+	check("non-keyword words around workflows stay plain", line.includes("run the ") && line.includes(" now"), line);
+}
+
 async function scenarioColorsBothKeywordsInOneLine(url) {
 	const { wrapped } = await installEditor(url, makeContentBaseEditor("> ultracode build a workflow"));
 	const line = wrapped.render(80)[1];
@@ -240,12 +249,12 @@ async function scenarioLeavesKeywordlessTextUntouched(url) {
 }
 
 // The keyword only colorizes as a standalone token: bounded left by start/space/slash and right
-// by end/space. A keyword glued to a larger word ("workflows", "myultracode") must NOT recolor.
+// by end/space. A keyword glued to a larger word ("workflowing", "myultracode") must NOT recolor.
 async function scenarioDoesNotColorSubstringInsideLargerWord(url) {
-	const { wrapped } = await installEditor(url, makeContentBaseEditor("> run the workflows now"));
+	const { wrapped } = await installEditor(url, makeContentBaseEditor("> run the workflowing now"));
 	const line = wrapped.render(80)[1];
 	check("keyword as a substring of a larger word is NOT recolored", !line.includes("\x1b[38;2;"), line);
-	check("text with an embedded keyword is byte-unchanged", line === "> run the workflows now", JSON.stringify(line));
+	check("text with an embedded keyword is byte-unchanged", line === "> run the workflowing now", JSON.stringify(line));
 }
 
 async function scenarioDoesNotColorKeywordGluedToPrecedingWord(url) {
@@ -294,6 +303,7 @@ async function main() {
 	const { url } = await buildExtension();
 	await scenarioColorsTypedKeyword(url);
 	await scenarioColorsWorkflowKeyword(url);
+	await scenarioColorsWorkflowsKeyword(url);
 	await scenarioColorsBothKeywordsInOneLine(url);
 	await scenarioCaseInsensitiveAndMultiple(url);
 	await scenarioPreservesCursorMarker(url);
