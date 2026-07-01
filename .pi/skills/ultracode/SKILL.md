@@ -99,6 +99,36 @@ compare-against-others do.
 filter nulls and `log()` how many failed; synthesis prompts must mention failed/empty/stale branches
 instead of hiding them.
 
+### Injected globals (full reference)
+
+Workflow scripts call these as **bare globals** — no `import`/`require`/`ctx.*`. This is the full set
+injected by the pi runtime (the source of truth is `sandbox.<name> = …` in
+`extensions/pi-dynamic-workflows/worker-source.ts`). Per-primitive docs — signature, returns, when to
+use, gotchas, example — live in `extensions/pi-dynamic-workflows/primitives/` (one `<name>.md` each,
+kept 1:1 with the runtime by `primitives-parity.test.mjs`). The core is shared with Claude Code; the
+rest are pi-runtime globals.
+
+| Group | Primitive | One line | Runtime |
+| --- | --- | --- | --- |
+| Subagents & composition | `agent` | one subagent; parsed obj with `{schema}`, else text; `null` on fail | shared |
+| | `agents` | bounded parallel map, one step per item (`concurrency`, `settle`) | shared |
+| | `parallel` | barrier: run branches, use ALL results at once | shared |
+| | `pipeline` | dependent stages per item; failed items → `null` | shared |
+| | `race` | first accepted value wins, cancels in-flight losers | pi |
+| | `workflow` | compose a reusable sub-workflow inline (depth-bounded) | shared |
+| Human & observability | `ask` | human-in-the-loop (input/confirm/select); resume-safe | pi |
+| | `phase` | mark the current phase for dashboard/log | shared |
+| | `log` | append a line to the run log (log every cap/clamp/skip) | shared |
+| Filesystem & shell (in `cwd`) | `bash` | run a shell command; caching opt-in (`{cache:true}`) | pi |
+| | `readFile` / `writeFile` / `appendFile` | read / write / append a file under `cwd` | pi |
+| | `listFiles` | recursive list (skips `node_modules`/`.git`, `maxFiles`) | pi |
+| Artifacts (under `runDir`) | `writeArtifact` / `appendArtifact` | write / append a run-scoped inspectable artifact (append is concurrency-safe) | pi |
+| Utilities | `sleep` | abortable delay | pi |
+| | `json` / `compact` | bounded, safe stringify (use `compact` for prompts) | `compact` shared |
+| | `args` | the workflow input (parse defensively; JSON-stringified on Claude) | shared |
+| Run context (read-only) | `limits` | `{ concurrency, maxAgents, … }` caps (clamp + `log()`) | pi |
+| | `runId` / `runDir` / `cwd` | run id / run dir (artifacts) / working dir | pi |
+
 ## Per-call model & effort
 
 Decide model and reasoning effort **per call** — don't let every node inherit the session model.
@@ -295,10 +325,13 @@ open <out.html>
 pi is **one runtime with two providers** — it runs on **Anthropic** OR **OpenAI/Codex**, chosen per
 call via `model`/`provider`. It is *not* "Codex"; Codex is just one of the providers it supports.
 
-- **Tool:** `dynamic_workflow`. **Script API:** the same injected globals as Claude — `export default
-  async function main() {…}` (or a top-level `return`-script) using `agent`, `agents`, `pipeline`,
-  `parallel`, `workflow`, `phase`, `log`, `args`, `bash`, `writeArtifact`, `compact`, `limits`,
-  `runId`, `runDir`, `cwd` — no `import`/`require`/`ctx.*`.
+- **Tool:** `dynamic_workflow`. **Script API:** injected globals — `export default async function
+  main() {…}` (or a top-level `return`-script), no `import`/`require`/`ctx.*`. The composition core
+  (`agent`, `agents`, `pipeline`, `parallel`, `workflow`, `phase`, `log`, `args`, `compact`) matches
+  Claude; pi adds `race`, `ask`, `bash`, `readFile`/`writeFile`/`appendFile`/`listFiles`,
+  `writeArtifact`/`appendArtifact`, `sleep`, `json`, `limits`, `runId`, `runDir`, `cwd`. See
+  [Injected globals (full reference)](#injected-globals-full-reference) and the per-primitive docs in
+  `extensions/pi-dynamic-workflows/primitives/`.
 - **Per-node budget** is per call: `model` (pattern or `provider/id`, optional `:<effort>`),
   `provider`, `effort` (`low…max`, mapped onto the engine reasoning scale). `agentType` personas set
   defaults (`reviewer`/`planner`/`researcher` → high; `explore`/`implementer` → medium). Scope access

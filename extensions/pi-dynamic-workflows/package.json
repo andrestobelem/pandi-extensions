@@ -18,6 +18,7 @@
 		"catalog.ts",
 		"pattern-format.ts",
 		"scaffolds",
+		"primitives",
 		"README.md"
 	],
 	"pi": {
