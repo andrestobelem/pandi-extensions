@@ -79,6 +79,23 @@ const stubs = `
   const workflow = async (name, a) => { if (name) globalThis.__composes.push(String(name)); return lenient(); };
   const args = ${JSON.stringify(argsObj)};
   const budget = { total: null, spent: () => 0, remaining: () => Infinity };
+  // pi-runtime globals (bare, no ctx.*) so a GLOBALS-style workflow that calls bash()/readFile()/
+  // writeArtifact()/sleep()/race()/ask()/… traces without a ReferenceError. Names that scaffolds
+  // commonly redeclare locally (compact/fence) are deliberately NOT declared here to avoid a
+  // redeclaration SyntaxError; ctx.compact below still serves ctx-style bodies.
+  const bash = async () => ({ ok: true, code: 0, stdout: '', stderr: '' });
+  const readFile = async () => '';
+  const writeFile = async () => {};
+  const appendFile = async () => {};
+  const listFiles = async () => [];
+  const writeArtifact = async (name) => ({ path: '/preview/' + String(name ?? 'artifact') });
+  const appendArtifact = async () => {};
+  const sleep = async () => {};
+  const ask = async (_q, opts = {}) => (opts && Object.prototype.hasOwnProperty.call(opts, 'default') ? opts.default : '');
+  const race = async (thunks) => { for (const t of (thunks || [])) { try { const v = await t(() => {}); if (v != null) return { winner: v, index: 0, status: 'won' }; } catch {} } return { winner: null, index: -1, status: 'empty' }; };
+  const json = (x) => (typeof x === 'string' ? x : JSON.stringify(x));
+  const limits = { concurrency: 3, maxAgents: 60 };
+  const runId = 'preview'; const runDir = '/preview'; const cwd = '.';
   globalThis.__default = null; globalThis.__defaultErr = null;
   // CommonJS ctx-style workflows export via module.exports = async function workflow(ctx, input);
   // provide a module stub so the body assigns here instead of throwing 'module is not defined', and
@@ -89,13 +106,10 @@ const stubs = `
   // stay INSIDE this object (not standalone consts) so they never collide with scaffolds that declare
   // their own top-level const compact etc.
   const ctx = {
-    runId: 'preview', runDir: '/preview', cwd: '.', limits: { concurrency: 3, maxAgents: 60 },
+    runId, runDir, cwd, limits,
     agent, agents, parallel, pipeline, workflow, phase, log, args, budget,
+    race, ask, bash, readFile, writeFile, appendFile, listFiles, writeArtifact, appendArtifact, sleep, json,
     compact: (d, n = 60000) => { const s = typeof d === 'string' ? d : JSON.stringify(d); return s.length > n ? s.slice(0, n) + ' …' : s; },
-    bash: async () => ({ ok: true, code: 0, stdout: '', stderr: '' }),
-    writeArtifact: async (name) => ({ path: '/preview/' + String(name ?? 'artifact') }),
-    writeFile: async () => {}, appendFile: async () => {}, readFile: async () => '', listFiles: async () => [],
-    sleep: async () => {}, json: (x) => x,
   };
   // Reachable only when the body did NOT already return at top level (i.e. export-default workflows);
   // Claude-style top-level scripts return first, so this is a no-op for them.
