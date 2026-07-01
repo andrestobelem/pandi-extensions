@@ -158,7 +158,7 @@ report(
 	"optional",
 	context7Skill ? OK : WARN,
 	"skill context7-cli",
-	context7Skill ? "instalado" : "ausente — ctx7 skills install ...",
+	context7Skill ? "instalado" : "ausente — npx ctx7 setup --cli",
 );
 
 // Apple container: solo relevante en macOS Apple Silicon.
