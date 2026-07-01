@@ -183,6 +183,26 @@ function pandaFrames(theme: Theme, style: FaceStyle): WorkingIndicatorOptions {
 	}
 }
 
+/** Opciones del selector de `/pandi menu` (el primer token mapea al subcomando existente). */
+export const PANDI_SELECT_ITEMS = [
+	"on — despertar a Pandi",
+	"off — mandar a Pandi a dormir",
+	"art — mostrar/ocultar el splash del panda",
+	"face — cambiar la carita del indicador",
+];
+
+/**
+ * Resuelve el argumento de `/pandi`. Solo `/pandi menu` (explícito) abre el selector
+ * interactivo cuando hay UI; el `/pandi` pelado conserva su saludo/estado y cualquier
+ * otro subcomando pasa sin tocarse. Nada regresa fuera de la TUI.
+ */
+export async function resolvePandiInput(input: string, ctx: ExtensionContext): Promise<string> {
+	const trimmed = input.trim();
+	if (trimmed.toLowerCase() !== "menu" || !ctx.hasUI || typeof ctx.ui?.select !== "function") return trimmed;
+	const choice = await ctx.ui.select("Pandi 🐼", PANDI_SELECT_ITEMS);
+	return choice?.split(/\s+/)[0] ?? "";
+}
+
 export default function (pi: ExtensionAPI) {
 	let enabled = true;
 	let artVisible = true;
@@ -246,9 +266,9 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("pandi", {
-		description: "Pandi 🐼 — estado / art / face / on / off",
+		description: "Pandi 🐼 — estado / menu / art / face / on / off",
 		handler: async (args, ctx) => {
-			const cmd = args.trim().toLowerCase();
+			const cmd = (await resolvePandiInput(args, ctx)).trim().toLowerCase();
 			const f = pandaFaces(ctx.ui.theme);
 
 			if (cmd === "off") {
