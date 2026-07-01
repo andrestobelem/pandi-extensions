@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 /**
- * Behavioral test: `/pandi menu` opens an interactive selector (when the session has a
- * UI) so the user can pick on|off|art|face from a list instead of memorizing them.
+ * Behavioral test: bare `/pandi` (no argument) opens an interactive selector when the
+ * session has a UI, so the user picks status|on|off|art|face from a list instead of
+ * memorizing them — the consistent "no args → interactive menu" rule shared by
+ * /ultracode-mode and /container.
  *
  * Observable contract (via the exported pure resolver `resolvePandiInput`):
- *   - `/pandi menu` + hasUI  → calls ctx.ui.select once with the on/off/art/face options
- *     and resolves to the chosen subcommand token.
- *   - bare `/pandi` NEVER opens the selector (it keeps its greeting/status).
- *   - an explicit subcommand (`/pandi on`) passes through untouched.
- *   - headless (no UI) never opens the selector.
- *   - cancelling the selector resolves to "" (bare greeting), no crash.
+ *   - bare `/pandi` + hasUI  → calls ctx.ui.select once with status/on/off/art/face and
+ *     resolves to the chosen subcommand token ("status" maps back to the greeting = "").
+ *   - an explicit subcommand (`/pandi on`) passes through untouched (no selector).
+ *   - headless (no UI) never opens the selector; bare stays the greeting ("").
+ *   - cancelling the selector resolves to "" (greeting), no crash.
  */
 
 import * as fs from "node:fs/promises";
@@ -42,23 +43,26 @@ function makeCtx({ hasUI = true, selectResult } = {}) {
 async function scenario(url) {
 	const mod = await loadModule(url);
 
-	// /pandi menu + UI → opens selector, resolves to the chosen subcommand
+	// bare /pandi + UI → opens selector, resolves to the chosen subcommand
 	{
 		const { ctx, selectCalls } = makeCtx({ selectResult: "off — mandar a Pandi a dormir" });
-		const out = await mod.resolvePandiInput("menu", ctx);
-		check("/pandi menu + UI opens the selector once", selectCalls.length === 1, `calls=${selectCalls.length}`);
+		const out = await mod.resolvePandiInput("", ctx);
+		check("bare /pandi + UI opens the selector once", selectCalls.length === 1, `calls=${selectCalls.length}`);
 		const items = selectCalls[0]?.items ?? [];
 		const has = (v) => items.some((i) => String(i).toLowerCase().startsWith(v));
-		check("selector offers on / off / art / face", ["on", "off", "art", "face"].every(has), JSON.stringify(items));
+		check(
+			"selector offers status / on / off / art / face",
+			["status", "on", "off", "art", "face"].every(has),
+			JSON.stringify(items),
+		);
 		check("resolves to the chosen subcommand token", out === "off", String(out));
 	}
 
-	// bare /pandi → never opens the selector (keeps its greeting)
+	// picking "status" maps back to the greeting (empty subcommand)
 	{
-		const { ctx, selectCalls } = makeCtx({ selectResult: "off" });
+		const { ctx } = makeCtx({ selectResult: "status — estado + saludo de Pandi" });
 		const out = await mod.resolvePandiInput("", ctx);
-		check("bare /pandi never opens the selector", selectCalls.length === 0, `calls=${selectCalls.length}`);
-		check("bare /pandi passes through empty", out === "", JSON.stringify(out));
+		check("picking status maps back to the greeting", out === "", JSON.stringify(out));
 	}
 
 	// explicit subcommand → passes through untouched
@@ -68,17 +72,18 @@ async function scenario(url) {
 		check("explicit subcommand bypasses the selector", selectCalls.length === 0 && out === "on", String(out));
 	}
 
-	// headless /pandi menu → never opens the selector
+	// headless bare /pandi → never opens the selector; stays the greeting
 	{
 		const { ctx, selectCalls } = makeCtx({ hasUI: false, selectResult: "off" });
-		await mod.resolvePandiInput("menu", ctx);
-		check("headless /pandi menu never opens the selector", selectCalls.length === 0, `calls=${selectCalls.length}`);
+		const out = await mod.resolvePandiInput("", ctx);
+		check("headless bare never opens the selector", selectCalls.length === 0, `calls=${selectCalls.length}`);
+		check("headless bare stays the greeting", out === "", JSON.stringify(out));
 	}
 
-	// cancelling the selector → "" (bare greeting), no crash
+	// cancelling the selector → "" (greeting), no crash
 	{
 		const { ctx } = makeCtx({ selectResult: undefined });
-		const out = await mod.resolvePandiInput("menu", ctx);
+		const out = await mod.resolvePandiInput("", ctx);
 		check("cancelling the selector resolves to empty", out === "", JSON.stringify(out));
 	}
 }
