@@ -1,0 +1,28 @@
+{
+	"name": "pi-dynamic-workflows-doctor",
+	"version": "0.1.0",
+	"description": "Pi extension that adds /doctor: an in-session run of the pi-dynamic-workflows environment check (scripts/doctor.mjs).",
+	"license": "MIT",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"doctor",
+		"diagnostics"
+	],
+	"files": [
+		"index.ts",
+		"doctor.ts",
+		"notify.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	}
+}

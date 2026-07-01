@@ -17,7 +17,8 @@
     "../extensions/pi-pandi",
     "../extensions/pi-exit",
     "../extensions/pi-clear",
-    "../extensions/pi-ask"
+    "../extensions/pi-ask",
+    "../extensions/pi-doctor"
   ],
   "extensions": []
 }

@@ -66,7 +66,8 @@
 			"./extensions/pi-pandi/index.ts",
 			"./extensions/pi-exit/index.ts",
 			"./extensions/pi-clear/index.ts",
-			"./extensions/pi-ask/index.ts"
+			"./extensions/pi-ask/index.ts",
+			"./extensions/pi-doctor/index.ts"
 		],
 		"skills": [
 			"./.pi/skills"
