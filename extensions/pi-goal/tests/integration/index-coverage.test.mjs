@@ -463,6 +463,34 @@ async function stopNoMatchWarns(goalUrl) {
 }
 
 // ===========================================================================
+// A stopped/terminal goal must be removed from the in-memory activeGoals map (mirrors
+// pi-loop's stopLoop -> activeLoops.delete). The leak is observable via `/goal status`
+// (no id), which lists [...activeGoals.values()]: after a stop it must report "No goals.",
+// not keep listing the dead terminal goal forever.
+// ===========================================================================
+async function stoppedGoalRemovedFromActiveMap(goalUrl) {
+	const built = await register(goalUrl);
+	const s = snap({ goalId: "cccc3333", gstatus: "pursuing", nextFireAt: Date.now() + 100000 });
+	const env = makeEnv([entry(s)]);
+	await fireStart(built, env);
+	await runCommand(built, `stop ${s.goalId}`, env);
+	check(
+		"precondition: goal is stopped",
+		lastStatusFor(built.states, s.goalId) === "stopped",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
+	// Isolate the notify emitted by `/goal status` from the stop notify.
+	env.notifies.length = 0;
+	await runCommand(built, "status", env);
+	const last = env.notifies[env.notifies.length - 1];
+	check(
+		"`/goal status` after stop reports no active goals (terminal goal removed from activeGoals)",
+		/No goals\./.test(last?.message ?? ""),
+		`last notify=${JSON.stringify(last)}`,
+	);
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildGoal();
 	try {
@@ -477,6 +505,7 @@ async function main() {
 		await shutdownVerifyingStaysVerifying(url);
 		await stopSubcommandResolvesGoal(url);
 		await stopNoMatchWarns(url);
+		await stoppedGoalRemovedFromActiveMap(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

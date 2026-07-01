@@ -452,6 +452,11 @@ function stopGoal(
 	goal.nextFireAt = null;
 	goal.lastReason = reason;
 	persist(pi, ctx, goal);
+	// Terminal goals are no longer active: keep the persisted final snapshot for
+	// audit/rehydrate, but drop the in-memory entry immediately (mirrors pi-loop's
+	// stopLoop -> activeLoops.delete) so agent_end/activeGoal()/scan and `/goal status`
+	// only ever traverse live goals instead of accumulating dead ones for the session.
+	activeGoals.delete(goalId);
 	refreshGoalStatus(ctx);
 	return true;
 }
