@@ -29,6 +29,7 @@ export const meta = {
 	description:
 		"Apply a code migration file-by-file with a green-baseline gate, per-file build/test verify, bounded repair, and rollback on failure (no broken file left behind).",
 	phases: [{ title: "Discover" }, { title: "Baseline" }, { title: "Migrate" }],
+	basedOn: [{ name: "scout-fanout", role: "applier variant (mutates the tree instead of auditing)" }],
 };
 
 const input = (() => {

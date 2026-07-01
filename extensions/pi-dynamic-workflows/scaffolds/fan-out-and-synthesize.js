@@ -27,6 +27,7 @@ export const meta = {
 	description:
 		"Scout a work-list, fan out independent reviewers, synthesize as judge with evidence and partial-failure notes (fan-out-and-synthesize)",
 	phases: [{ title: "Scout" }, { title: "Review" }, { title: "Synthesize" }],
+	basedOn: [{ name: "Anthropic: Building Effective Agents", role: "pattern (parallelization / scatter-gather)" }],
 };
 
 export default async function main() {

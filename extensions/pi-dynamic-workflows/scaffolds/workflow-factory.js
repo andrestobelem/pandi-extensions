@@ -40,6 +40,7 @@ export const meta = {
 		{ title: "Refine" },
 		{ title: "Write" },
 	],
+	basedOn: [],
 };
 
 export default async function main() {

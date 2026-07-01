@@ -30,6 +30,7 @@ export const meta = {
 	description:
 		"Independent research angles with web search, synthesized as judge with citations and coverage notes (complex-research)",
 	phases: [{ title: "Research" }, { title: "Synthesis" }],
+	basedOn: [{ name: "fan-out-and-synthesize", role: "scatter-gather base (independent research angles)" }],
 };
 
 export default async function main() {

@@ -76,6 +76,7 @@ export const meta = {
 	description:
 		"Map-reduce with hierarchical (recursive) reduce: cheap per-chunk map under an evidence contract, then merge map outputs in batches round-by-round until one summary-of-summaries remains — scales past a single context window (map-reduce)",
 	phases: [{ title: "Source" }, { title: "Map" }, { title: "Reduce" }],
+	basedOn: [{ name: "MapReduce (Dean & Ghemawat, Google)", role: "pattern (map/reduce over chunks)" }],
 };
 
 export default async function main() {

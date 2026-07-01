@@ -62,6 +62,7 @@ export const meta = {
 	description:
 		"Orchestrator–Workers: a planner decomposes an open goal into a dependency graph of subtasks, workers execute it in robustness-bounded levels (Kahn-style, cycle/stuck detection), an integrator merges results (orchestrator-workers)",
 	phases: [{ title: "Plan" }, { title: "Execute" }, { title: "Integrate" }],
+	basedOn: [{ name: "Anthropic: Building Effective Agents", role: "pattern (orchestrator-workers)" }],
 };
 
 export default async function main() {

@@ -12,6 +12,7 @@ export const meta = {
 	description:
 		"Reusable sub-workflow: verify {claims, skeptics?} with skeptic juries, return verified/dropped/votes/coverage (lib-verify-claims)",
 	phases: [{ title: "Verify Claims" }],
+	basedOn: [{ name: "adversarial-verify", role: "library form (skeptic juries)" }],
 };
 
 const input = (() => {

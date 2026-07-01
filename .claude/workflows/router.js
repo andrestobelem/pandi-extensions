@@ -71,6 +71,7 @@ export const meta = {
 	description:
 		"Routing / dispatch: discover the workflow catalog, route the request to the single best workflow, then optionally dispatch it via workflow() and return its output, or just recommend (router)",
 	phases: [{ title: "Discover" }, { title: "Route" }, { title: "Dispatch" }],
+	basedOn: [{ name: "Anthropic: Building Effective Agents", role: "pattern (routing / dispatch)" }],
 };
 
 const input = (() => {

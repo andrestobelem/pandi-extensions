@@ -15,6 +15,7 @@ export const meta = {
 	description:
 		"Scout then dynamic fan-out via pipeline: cheap risk-classify every file, deep-review only high/medium (also classify-and-act and large-migration)",
 	phases: [{ title: "Scout" }, { title: "Classify" }, { title: "Deep Review" }, { title: "Synthesis" }],
+	basedOn: [{ name: "fan-out-and-synthesize", role: "scatter-gather base (adds per-item pipeline depth)" }],
 };
 
 const input = (() => {

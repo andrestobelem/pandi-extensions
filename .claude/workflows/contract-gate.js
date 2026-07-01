@@ -79,6 +79,7 @@ export const meta = {
 		{ title: "Plan Resources" },
 		{ title: "Handoff" },
 	],
+	basedOn: [],
 };
 
 // Defensive args parse (verbatim convention): args arrives JSON-stringified.

@@ -27,6 +27,7 @@ export const meta = {
 	description:
 		"Verify suspected code bugs by REPRODUCTION (build+run a failing test/case), confirming only those that actually fail on current code; optional FAIL->PASS fix check and minimization.",
 	phases: [{ title: "Source" }, { title: "Reproduce" }],
+	basedOn: [{ name: "adversarial-verify", role: "sibling (execution oracle, not citation)" }],
 };
 
 const input = (() => {

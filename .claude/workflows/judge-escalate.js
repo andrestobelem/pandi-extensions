@@ -13,6 +13,7 @@ export const meta = {
 	description:
 		"Generate candidates from distinct angles, judge with a typed verdict, adaptively escalate only when confidence is low (generate-and-filter)",
 	phases: [{ title: "Generate" }, { title: "Judge" }, { title: "Synthesize" }],
+	basedOn: [],
 };
 
 const input = (() => {

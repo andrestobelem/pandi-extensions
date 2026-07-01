@@ -79,6 +79,7 @@ export const meta = {
 		{ title: "Plan Resources" },
 		{ title: "Handoff" },
 	],
+	basedOn: [],
 };
 
 export default async function main() {

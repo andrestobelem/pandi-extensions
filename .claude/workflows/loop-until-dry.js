@@ -15,6 +15,7 @@ export const meta = {
 	description:
 		"Loop-until-dry discovery: keep fanning out finders until K consecutive quiet rounds or maxRounds (loop-until-done)",
 	phases: [{ title: "Discover" }, { title: "Synthesize" }],
+	basedOn: [],
 };
 
 const input = (() => {

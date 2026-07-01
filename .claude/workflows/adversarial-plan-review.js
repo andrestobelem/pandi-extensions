@@ -27,6 +27,7 @@ export const meta = {
 	description:
 		"Review a plan from correctness/security/maintainability/scope angles, synthesize a revised plan (plan-review)",
 	phases: [{ title: "Review" }, { title: "Synthesize" }],
+	basedOn: [{ name: "fan-out-and-synthesize", role: "scatter-gather base (adversarial reviewer angles)" }],
 };
 
 const input = (() => {

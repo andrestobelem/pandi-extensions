@@ -17,6 +17,7 @@ export const meta = {
 	description:
 		"Per-finding skeptic jury that prunes claims by majority refutation, default-to-doubt (adversarial-verification and claim-bug-verification)",
 	phases: [{ title: "Find" }, { title: "Verify" }],
+	basedOn: [],
 };
 
 export default async function main() {

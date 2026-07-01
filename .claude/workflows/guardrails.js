@@ -35,6 +35,7 @@ export const meta = {
 	description:
 		"Cheap input/output guardrails with a tripwire that HALTS; wrap any workflow via protect:{name,args} or validate a single artifact (guardrails)",
 	phases: [{ title: "Input" }, { title: "Run" }, { title: "Output" }],
+	basedOn: [{ name: "OpenAI Agents SDK", role: "pattern (input/output guardrails)" }],
 };
 
 const input = (() => {

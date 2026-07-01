@@ -30,6 +30,10 @@ export const meta = {
 	description:
 		"Scout code files, fan out per-file bug reviewers, synthesize prioritized findings with citations (bug-hunt-repo-audit)",
 	phases: [{ title: "Scout" }, { title: "Review" }, { title: "Synthesis" }],
+	basedOn: [
+		{ name: "fan-out-and-synthesize", role: "scatter-gather base" },
+		{ name: "scout-fanout", role: "scout discovery" },
+	],
 };
 
 const input = (() => {

@@ -19,6 +19,7 @@ export const meta = {
 	name: "tournament",
 	description: "Single-elimination bracket: pairwise judge rounds until one candidate survives (tournaments)",
 	phases: [{ title: "Seed" }, { title: "Bracket" }],
+	basedOn: [],
 };
 
 export default async function main() {
