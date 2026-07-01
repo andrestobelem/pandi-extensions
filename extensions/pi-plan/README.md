@@ -24,7 +24,11 @@ pi --no-extensions -e ./extensions/pi-plan
   multi-step, or risky change (not only when a human types `/plan`). It arms the same read-only
   gate and hands the planning instruction back as its result; the human still approves. Accepts
   `nonInteractive`, `ultracode`, and `ultracodeSteps` booleans (see below).
-- `submit_plan` model tool for submitting a plan artifact for explicit approval.
+- `submit_plan` model tool for submitting a plan artifact for explicit approval. In an
+  interactive TUI the plan is presented in a scrollable, Markdown-rendered approval overlay
+  (mdview-style: `↑/↓ j/k` scroll, `PgUp/PgDn` page; `y`/`Enter` approve, `n`/`Esc`/`q` reject) —
+  a dismiss is a *reject*, never an implicit approval. When a custom component can't be shown it
+  degrades to a plain `confirm` dialog.
 
 While plan mode is active, mutating tools are blocked until the user approves the submitted plan.
 The model can *enter* plan mode (`enter_plan_mode`) but can never *approve* a plan: in an

@@ -13,9 +13,11 @@
  *   2. The plan as an ARTIFACT — the model emits the plan through a registered tool
  *      (submit_plan), exactly as /loop emits via loop_schedule and /goal via
  *      goal_progress. The plan text is the payload.
- *   3. EXPLICIT approval before any mutation — submit_plan shows the plan via
- *      ctx.ui.confirm (≈ Claude's ExitPlanMode). Approve → lift the gate, re-inject
- *      "implement this". Reject → stay gated, return the rejection to the model.
+ *   3. EXPLICIT approval before any mutation — submit_plan presents the plan in a
+ *      scrollable, Markdown-rendered approval OVERLAY (mdview-style; see approval-view.ts),
+ *      degrading to ctx.ui.confirm when a custom component can't be shown (≈ Claude's
+ *      ExitPlanMode). Approve → lift the gate, re-inject "implement this". Reject → stay
+ *      gated, return the rejection to the model.
  *
  * Two ways IN, one way to mutate:
  *   - HUMAN:  /plan <task>                  (the slash command)
@@ -36,7 +38,7 @@
  *       the tool result) — research read-only, then submit_plan
  *          ↓ (model researches with read tools only; mutations blocked)
  *     model calls submit_plan({ plan })
- *     → ctx.ui.confirm(title, plan)
+ *     → present the plan for approval (Markdown overlay, or ctx.ui.confirm fallback)
  *          ├─ APPROVE → deactivate, lift gate, persist,
  *          │            wake "Plan approved. Implement now:\n<plan>"
  *          └─ REJECT  → stay in plan-mode, return to model to revise + resubmit
@@ -52,7 +54,7 @@
  * - print/json gate: ctx.mode must be tui/rpc; print/json → notify + refuse to enter
  *   (plan mode needs an interactive approval; print is one-shot and cannot deliver it).
  * - never re-inject outside tui/rpc.
- * - no new deps (typebox already present).
+ * - deps: typebox + @earendil-works/pi-tui (the approval overlay renders Markdown, like pi-mdview).
  * - on "fork" do NOT migrate the plan-mode.
  * - the read-only allowlist is BEST-EFFORT and documented (see blockedReason).
  *
@@ -68,6 +70,7 @@ import type {
 	ToolCallEventResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { renderPlanApprovalOverlay } from "./approval-view.js";
 import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
 import {
 	getSessionFlagDefault,
@@ -438,6 +441,25 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 // Extension entrypoint
 // ---------------------------------------------------------------------------
 
+/**
+ * Present the plan for the human's explicit approval and return their decision.
+ *
+ * Prefers the mdview-style Markdown OVERLAY (rendered headings/lists/code + scroll + inline
+ * approve/reject) when the session can show a custom component; otherwise degrades to the plain
+ * ctx.ui.confirm dialog. An overlay failure also degrades to confirm, so approval is never lost.
+ * The caller has already established hasUI + a usable confirm (submit_plan's no-UI guard).
+ */
+async function presentPlanForApproval(ctx: ExtensionContext, planText: string, planId: string): Promise<boolean> {
+	if (ctx.hasUI && typeof ctx.ui.custom === "function") {
+		try {
+			return await renderPlanApprovalOverlay(ctx, planText, planId);
+		} catch {
+			// Fall through to the confirm dialog below — a broken overlay must not lose the approval.
+		}
+	}
+	return await ctx.ui.confirm("Approve this plan?", planText);
+}
+
 export default function planExtension(pi: ExtensionAPI): void {
 	// The plan artifact tool (≈ ExitPlanMode). The ONLY way to present a plan + exit the mode.
 	pi.registerTool({
@@ -521,7 +543,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 				};
 			}
 
-			const approved = await ctx.ui.confirm("Approve this plan?", planText);
+			const approved = await presentPlanForApproval(ctx, planText, plan.planId);
 			const livePlan = currentPlan();
 			if (livePlan?.planId !== plan.planId || livePlan.submissions !== submission) {
 				return {
