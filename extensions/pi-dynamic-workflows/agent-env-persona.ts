@@ -294,7 +294,11 @@ async function resolvePiPackageExtensionPaths(packageRoot: string): Promise<stri
 async function resolveDefaultWebSearchExtensions(ctx: ExtensionContext): Promise<string[]> {
 	const packageRoots = appendUniqueValues(undefined, [
 		path.join(getAgentDir(), "npm", "node_modules", DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE),
-		path.join(ctx.cwd, "node_modules", DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE),
+		// The cwd entry loads code from the project directory into every subagent, so it is
+		// gated behind project trust just like loadProjectPersona — an untrusted cwd must not
+		// be able to drop node_modules/pi-codex-web-search and get it auto-attached. The global
+		// agent-dir entry above stays ungated.
+		...(ctx.isProjectTrusted() ? [path.join(ctx.cwd, "node_modules", DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE)] : []),
 	]);
 	const extensions: string[] = [];
 	for (const packageRoot of packageRoots) {
