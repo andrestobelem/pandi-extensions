@@ -142,10 +142,14 @@ if (!runErr && globalThis.__defaultErr) runErr = new Error(globalThis.__defaultE
 const meta = globalThis.__meta || { name: scriptPath.split("/").pop().replace(/\.js$/, ""), description: "", phases: [] };
 
 // "Based on" tab: a one-line provenance + (optionally) the scaffolds this workflow is based on.
-// meta.basedOn may be a STRING (provenance line) or an ARRAY of {name, role?, desc?} scaffold cards.
+// Two sources, in priority order:
+//   1. meta.basedOn (also meta.paper / meta.source): a STRING (provenance line) OR an
+//      ARRAY of {name, role?, desc?} scaffold cards. This is the reliable, preferred path.
+//   2. Fallback: a leading `Paper:` / `Based on:` / `Source:` comment in the first 1500 chars,
+//      as a `//` line comment OR a ` *` block-comment line (both prefixes accepted).
 const paperFromComment = (() => {
   const head = raw.slice(0, 1500);
-  const m = head.match(/^\s*\*?\s*(?:Paper|Based on|Source)\s*:\s*(.+?)\s*$/im);
+  const m = head.match(/^\s*(?:\/\/|\*)?\s*(?:Paper|Based on|Source)\s*:\s*(.+?)\s*$/im);
   return m ? m[1].replace(/\.*\s*$/, "").trim() : null;
 })();
 const basedOnRaw = (meta && (meta.basedOn ?? meta.paper ?? meta.source)) ?? null;
