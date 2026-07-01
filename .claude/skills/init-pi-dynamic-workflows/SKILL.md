@@ -79,9 +79,11 @@ Inside Pi:
 ```text
 /effort status        # ultracode router present
 /workflows            # the TUI dashboard   (or:  /workflow patterns)
+/doctor               # in-session env check (same as `npm run doctor`, once loaded)
 ```
 
-Also good signals: `npm run doctor` all-green for mandatory items, and `npm test` passing.
+Also good signals: the in-session `/doctor` (or `npm run doctor` before install) all-green for
+mandatory items, and `npm test` passing.
 
 ## Working INSIDE this repo (no install needed)
 This checkout already wires every extension via its own `.pi/settings.json` (`packages: [...]`).
