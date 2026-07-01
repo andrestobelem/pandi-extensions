@@ -30,7 +30,7 @@ El corazón del repo es **Dynamic Workflows / Ultracode**: scripts JavaScript co
 | Sandboxes Linux (`pi-container`) | Apple `container` (macOS Apple Silicon) | `brew install container && container system kernel set --recommended && container system start` |
 | Aislamiento micro-VM (Gondolin) | `@earendil-works/gondolin` (darwin-arm64 / linux-x64, Node ≥ 23.6.0) | `npm run setup:gondolin`, luego `pi -e .pi/tools/gondolin` |
 
-> Todo el toolchain de dev (`biome`, `tsc`, `esbuild`, `markdownlint-cli2`, `prettier`, `@mermaid-js/mermaid-cli`, `ctx7`) son **devDependencies**: se instalan con `npm install` y corren vía `npm run …`/`npx`, sin instalación global. Lo único que se instala globalmente es el **CLI de Pi**. Verificá tu entorno con `npm run doctor`.
+> Todo el toolchain de dev (`biome`, `tsc`, `esbuild`, `markdownlint-cli2`, `prettier`, `ctx7`) son **devDependencies**; `@mermaid-js/mermaid-cli` es una **optionalDependency** (tiene fallback ASCII, y así un fallo al bajar su Chromium no rompe el install). Todos se instalan con `npm install` (las opcionales salvo `--omit=optional`) y corren vía `npm run …`/`npx`, sin instalación global. Lo único que se instala globalmente es el **CLI de Pi**. Verificá tu entorno con `npm run doctor`.
 
 ## Quickstart (de cero a tu primer workflow)
 

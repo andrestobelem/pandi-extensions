@@ -44,7 +44,7 @@ nvm install && nvm use            # or: brew install node / distro node >= 22.19
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 pi --version
 
-# 2. Dev toolchain (biome, tsc, esbuild, markdownlint, prettier, mmdc, ctx7 — all devDeps)
+# 2. Dev toolchain (biome, tsc, esbuild, markdownlint, prettier, ctx7 = devDeps; mmdc = optionalDependency — all pulled by `npm install`, opt out with --omit=optional)
 npm install
 
 # 3. Verify the environment (mandatory + optional capabilities)
