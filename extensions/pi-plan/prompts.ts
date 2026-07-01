@@ -66,7 +66,9 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 		);
 	}
 	if (!plan.nonInteractive) {
-		lines.push("- You may call AskUserQuestion to clarify requirements before finalizing the plan, if needed.");
+		lines.push(
+			"- To clarify requirements before finalizing the plan, you may ask the user a BLOCKING question with the interactive tools when available — ask_choice / ask_confirm (pi, from pi-ask) or AskUserQuestion (Claude Code) — otherwise ask in plain text. Keep it to genuinely blocking questions.",
+		);
 	}
 	lines.push("");
 	lines.push("WHAT TO DO:");

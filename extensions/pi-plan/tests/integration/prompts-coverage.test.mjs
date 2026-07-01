@@ -83,6 +83,7 @@ function planningPromptTests(mod) {
 		check("planning(default): NO non-interactive block", !/NON-INTERACTIVE/.test(out));
 		check("planning(default): NO ULTRACODE wording", !/ULTRACODE/.test(out));
 		check("planning(default): offers AskUserQuestion (interactive)", /AskUserQuestion/.test(out));
+		check("planning(default): offers pi-ask interactive tools", /ask_choice/.test(out) && /ask_confirm/.test(out));
 		check("planning(default): has the WHAT TO DO section", /WHAT TO DO:/.test(out));
 		check("planning(default): mentions submit_plan for approval", /submit_plan/.test(out));
 		check("planning(default): interactive step3 mentions approval", /presents it to the user for approval/.test(out));
@@ -97,6 +98,7 @@ function planningPromptTests(mod) {
 		);
 		check("planning(nonInteractive): says NO human approval", /NO human approval/.test(out));
 		check("planning(nonInteractive): drops AskUserQuestion", !/AskUserQuestion/.test(out));
+		check("planning(nonInteractive): drops ask_choice/ask_confirm", !/ask_choice/.test(out));
 		check("planning(nonInteractive): step3 says the plan IS the result", /The plan IS the result/.test(out));
 	}
 
