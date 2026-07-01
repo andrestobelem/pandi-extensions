@@ -117,7 +117,7 @@ export default async function main() {
 				tools: ["read", "write", "edit", "bash"],
 			},
 		})),
-		{ concurrency: 4, settle: true },
+		{ concurrency: Math.min(4, limits.concurrency), settle: true },
 	);
 
 	const out = [];

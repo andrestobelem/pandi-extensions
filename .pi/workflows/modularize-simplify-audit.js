@@ -144,6 +144,8 @@ module.exports = async function workflow(ctx, input) {
     try { input = JSON.parse(input); } catch { input = {}; }
   }
   const scope = typeof input?.scope === "string" && input.scope ? input.scope : "extensions";
+  // scope is interpolated into a git ls-files glob inside single quotes; a stray quote would break out.
+  if (!/^[\w./-]+$/.test(scope)) throw new Error(`unsafe scope (path segments only, letters/digits/./-/_): ${scope}`);
   const largeThreshold = Number.isFinite(input?.largeFileThreshold) ? Math.floor(input.largeFileThreshold) : 600;
   const hugeThreshold = Number.isFinite(input?.hugeFileThreshold) ? Math.floor(input.hugeFileThreshold) : 2400;
   const chunkLoc = Number.isFinite(input?.chunkLoc) ? Math.floor(input.chunkLoc) : 2200;

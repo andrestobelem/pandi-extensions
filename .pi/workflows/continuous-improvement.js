@@ -278,10 +278,12 @@ export default async function workflow(ctx, input = {}) {
 
   // ---- META-STEP (phase 0): refine the raw objective into a sharp driving prompt. ----
   await ctx.log("continuous-improvement: meta-step — refining the driving prompt");
+  // POSIX single-quote escape: JSON.stringify would double-quote the path, leaving $(…)/backticks live.
+  const shq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
   const scout0 = await ctx.bash(
     `git status --short; echo '--- recent ---'; git log --oneline -6; echo '--- log tail ---'; ` +
-      `test -f ${JSON.stringify(logPath)} && tail -60 ${JSON.stringify(logPath)} || true; ` +
-      `echo '--- backlog (pendientes abiertos) ---'; test -f ${JSON.stringify(backlogPath)} && cat ${JSON.stringify(backlogPath)} || true`,
+      `test -f ${shq(logPath)} && tail -60 ${shq(logPath)} || true; ` +
+      `echo '--- backlog (pendientes abiertos) ---'; test -f ${shq(backlogPath)} && cat ${shq(backlogPath)} || true`,
     { timeoutMs: 60000 },
   );
   const meta = await ctx.agent(

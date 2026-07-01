@@ -125,7 +125,7 @@ export default async function main() {
 				tools: ["read", "bash"],
 			}),
 		})),
-		{ concurrency: 8, settle: true },
+		{ concurrency: Math.min(8, limits.concurrency), settle: true },
 	);
 
 	const reports = [];
@@ -174,7 +174,7 @@ export default async function main() {
 				...node("planner", { effort: "high", label: `plan-${ext}`, phase: "Plan" }),
 			};
 		}),
-		{ concurrency: 4, settle: true },
+		{ concurrency: Math.min(4, limits.concurrency), settle: true },
 	);
 
 	const planOut = [];
