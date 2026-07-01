@@ -468,6 +468,50 @@ async function scenarioTimeoutPassthrough(url) {
 	);
 }
 
+// A secret answer must reach the workflow but NEVER be persisted (events.jsonl/journal.jsonl)
+// or replayed on resume — otherwise an API key collected via ask() lands in plaintext on disk.
+async function scenarioSecretRedaction(url) {
+	const { run } = await makeRunner(url, ASK_WORKFLOW, "ask-smoke");
+	const SENTINEL = "sk-LIVE-SECRET-123";
+	const result = await run(
+		{
+			action: "run",
+			name: "ask-smoke",
+			input: { question: "API key?", options: { kind: "input", secret: true } },
+			timeoutMs: 30_000,
+		},
+		{ ui: { input: async () => SENTINEL } },
+	);
+	check("secret: run succeeds", result?.ok === true, result?.error);
+	check(
+		"secret: the workflow still receives the real answer",
+		result?.output?.answer === SENTINEL,
+		JSON.stringify(result?.output),
+	);
+	if (result?.ok === true) {
+		const events = await fs.readFile(path.join(result.runDir, "events.jsonl"), "utf8");
+		check(
+			"secret: the raw secret is NOT written to events.jsonl",
+			!events.includes(SENTINEL),
+			"sentinel leaked to events.jsonl",
+		);
+		let journal = "";
+		try {
+			journal = await fs.readFile(path.join(result.runDir, "journal.jsonl"), "utf8");
+		} catch {}
+		check(
+			"secret: the raw secret is NOT written to journal.jsonl",
+			!journal.includes(SENTINEL),
+			"sentinel leaked to journal.jsonl",
+		);
+		check(
+			"secret: no method:'ask' answer is journaled for replay (cache disabled)",
+			!/"method":"ask"/.test(journal),
+			"an ask journal record was written for a secret ask",
+		);
+	}
+}
+
 async function main() {
 	const { url } = await buildExtension();
 	await scenarioInput(url);
@@ -478,6 +522,7 @@ async function main() {
 	await scenarioValidationGuards(url);
 	await scenarioRaceCancellation(url);
 	await scenarioTimeoutPassthrough(url);
+	await scenarioSecretRedaction(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

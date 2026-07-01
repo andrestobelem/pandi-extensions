@@ -245,6 +245,8 @@ interface AskOptions {
 	default?: string | boolean;
 	timeoutMs?: number;
 	cache?: boolean;
+	/** The answer is a secret: never persist it (events/journal) or replay it on resume. */
+	secret?: boolean;
 	__workflowNamespace?: string;
 }
 
@@ -1343,7 +1345,12 @@ export async function runWorkflow(
 		if (kind === "select" && hasDefault && !(options.choices as string[]).includes(options.default as string)) {
 			throw new Error("ask(): options.default for a select must be one of options.choices.");
 		}
-		const cacheEnabled = options.cache !== false;
+		const secret = options.secret === true;
+		// A secret answer must never touch disk: force-disable the journal so it is neither written
+		// to journal.jsonl nor replayed on resume, and redact it in the live event + log below. The
+		// real value is still returned to the workflow.
+		const cacheEnabled = !secret && options.cache !== false;
+		const redactedAnswer = secret ? "[redacted]" : undefined;
 		const namespace = options.__workflowNamespace;
 		const key = computeCallKey("ask", [
 			question,
@@ -1428,7 +1435,7 @@ export async function runWorkflow(
 			type: "ask",
 			kind,
 			question,
-			answer,
+			answer: redactedAnswer ?? answer,
 			...(dismissed ? { dismissed: true } : {}),
 			...(defaulted ? { defaulted: true } : {}),
 			...(namespace ? { workflowNamespace: namespace } : {}),
@@ -1444,7 +1451,7 @@ export async function runWorkflow(
 				result,
 			});
 		}
-		await log(`ask answered: ${question.slice(0, 80)}`, { answer, defaulted });
+		await log(`ask answered: ${question.slice(0, 80)}`, { answer: redactedAnswer ?? answer, defaulted });
 		return answer;
 	}
 
