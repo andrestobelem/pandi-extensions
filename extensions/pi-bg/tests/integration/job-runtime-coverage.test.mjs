@@ -20,6 +20,7 @@ import * as path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
+import { readJson, waitFor } from "./bg-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -63,10 +64,6 @@ function makeRuntime(label, runDir, { child, cancelRequested = false } = {}) {
 		combinedStream: { end: noop },
 		finalized: false,
 	};
-}
-
-async function readJson(file) {
-	return JSON.parse(await fs.readFile(file, "utf8"));
 }
 
 // --- writeStatus: merges patch + updatedAt, serializes via statusWriteChain ---
@@ -459,17 +456,6 @@ function isAlive(pid) {
 
 async function waitDead(pid) {
 	return waitFor(`pid ${pid} dead`, async () => !isAlive(pid), { timeoutMs: 8000 });
-}
-
-async function waitFor(label, fn, { timeoutMs = 6000, intervalMs = 25 } = {}) {
-	const deadline = Date.now() + timeoutMs;
-	let last;
-	while (Date.now() < deadline) {
-		last = await fn();
-		if (last) return last;
-		await tick(intervalMs);
-	}
-	throw new Error(`Timed out waiting for ${label}`);
 }
 
 async function main() {

@@ -18,6 +18,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
+import { loadExtension, makeCtx, makePi } from "./bg-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -51,42 +52,6 @@ async function buildBg() {
 		npx: "--no-install",
 	});
 	return { outDir, url, planUrl, agentDir: path.join(outDir, "agentdir") };
-}
-
-function makePi() {
-	const commands = new Map();
-	const tools = new Map();
-	return {
-		pi: {
-			registerCommand: (name, opts) => commands.set(name, opts),
-			registerTool: (def) => tools.set(def.name, def),
-			on: () => {},
-			appendEntry: () => {},
-			sendUserMessage: () => {},
-			exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
-		},
-		commands,
-		tools,
-	};
-}
-
-function makeCtx({ cwd, trusted = true, mode = "tui", hasUI = true } = {}) {
-	const notes = [];
-	const ctx = {
-		mode,
-		hasUI,
-		cwd,
-		isProjectTrusted: () => trusted,
-		isIdle: () => true,
-		ui: {
-			notify: (msg, type) => notes.push({ msg, type }),
-			setStatus: () => {},
-			theme: { fg: (_c, s) => s },
-		},
-		sessionManager: { getEntries: () => [] },
-	};
-	ctx._notes = notes;
-	return ctx;
 }
 
 async function setupJob(
@@ -322,13 +287,6 @@ async function auditDotfileIsInvisibleToList(url) {
 	const msg = ctx._notes.at(-1)?.msg || "";
 	check("audit-list: /bg list shows the real job", /real-job/.test(msg), msg);
 	check("audit-list: /bg list never surfaces the .audit.jsonl dotfile", !/\.audit/.test(msg), msg);
-}
-
-async function loadExtension(url) {
-	const extension = await loadDefault(url);
-	const { pi, commands, tools } = makePi();
-	extension(pi);
-	return { commands, tools };
 }
 
 async function loadPlanAndBg(planUrl, bgUrl) {
