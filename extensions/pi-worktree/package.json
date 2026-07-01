@@ -12,8 +12,7 @@
 		"worktree"
 	],
 	"files": [
-		"index.ts",
-		"worktree.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {

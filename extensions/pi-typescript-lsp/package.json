@@ -13,8 +13,7 @@
 		"tsc"
 	],
 	"files": [
-		"index.ts",
-		"diagnostics.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {

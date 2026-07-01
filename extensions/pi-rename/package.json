@@ -12,9 +12,7 @@
 		"session"
 	],
 	"files": [
-		"index.ts",
-		"derive-name.ts",
-		"notify.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {

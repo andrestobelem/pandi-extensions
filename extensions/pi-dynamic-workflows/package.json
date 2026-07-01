@@ -13,10 +13,7 @@
 		"ultracode"
 	],
 	"files": [
-		"index.ts",
-		"pattern-scaffolds.ts",
-		"catalog.ts",
-		"pattern-format.ts",
+		"*.ts",
 		"scaffolds",
 		"primitives",
 		"README.md"

@@ -12,7 +12,7 @@
 		"automation"
 	],
 	"files": [
-		"index.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {
