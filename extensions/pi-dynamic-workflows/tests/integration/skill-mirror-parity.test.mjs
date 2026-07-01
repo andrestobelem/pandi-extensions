@@ -45,11 +45,11 @@ function main() {
 		`exit=${res.status} ${(res.stderr || res.stdout || "").trim().split("\n").slice(-2).join(" | ")}`,
 	);
 
-	// The installing skill is the concrete mirrored pair we shipped: assert byte-identity directly.
-	const piSkill = path.join(REPO_ROOT, ".pi", "skills", "installing-pi-dynamic-workflows", "SKILL.md");
-	const claudeSkill = path.join(REPO_ROOT, ".claude", "skills", "installing-pi-dynamic-workflows", "SKILL.md");
-	check("installing skill exists in .pi (source of truth)", fs.existsSync(piSkill));
-	check("installing skill exists in .claude (mirror)", fs.existsSync(claudeSkill));
+	// The init skill is the concrete mirrored pair we shipped: assert byte-identity directly.
+	const piSkill = path.join(REPO_ROOT, ".pi", "skills", "init-pi-dynamic-workflows", "SKILL.md");
+	const claudeSkill = path.join(REPO_ROOT, ".claude", "skills", "init-pi-dynamic-workflows", "SKILL.md");
+	check("init skill exists in .pi (source of truth)", fs.existsSync(piSkill));
+	check("init skill exists in .claude (mirror)", fs.existsSync(claudeSkill));
 	if (fs.existsSync(piSkill) && fs.existsSync(claudeSkill)) {
 		const a = fs.readFileSync(piSkill, "utf8");
 		const b = fs.readFileSync(claudeSkill, "utf8");

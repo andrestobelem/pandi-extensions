@@ -38,7 +38,7 @@ const SYNC = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
 const REQUIRED_SKILLS = [
 	"ultracode",
 	"modern-software-engineering",
-	"installing-pi-dynamic-workflows",
+	"init-pi-dynamic-workflows",
 	"ai-assisted-engineering",
 ];
 // Local-only skills (e.g. open-prose is intentionally gitignored): synced best-effort when present

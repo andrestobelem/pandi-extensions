@@ -1,5 +1,5 @@
 ---
-name: installing-pi-dynamic-workflows
+name: init-pi-dynamic-workflows
 description: >-
   Use when someone has freshly CLONED this pi-dynamic-workflows repo and wants to install it,
   set it up, or onboard — i.e. get the Pi (or Claude Code) extensions, skills, and dynamic

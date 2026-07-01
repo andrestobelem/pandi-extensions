@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Skills that must be byte-identical in .pi/skills AND .claude/skills.
-const MIRRORED = ["installing-pi-dynamic-workflows", "ai-assisted-engineering", "modern-software-engineering"];
+const MIRRORED = ["init-pi-dynamic-workflows", "ai-assisted-engineering", "modern-software-engineering"];
 
 const checkOnly = process.argv.includes("--check");
 

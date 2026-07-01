@@ -10,7 +10,7 @@ For agentic work, treat prompts, context, tools, memory, artifacts, and evaluati
 
 ## Coding guidelines
 
-Use the installed `karpathy-guidelines` skill when writing, reviewing, or refactoring code. It contains the community Karpathy-inspired rules for thinking before coding, keeping solutions simple, making surgical changes, and driving work with verifiable goals. This is an EXTERNAL skill — it is not vendored in this repo; install it globally from upstream (see the README Quickstart / the `installing-pi-dynamic-workflows` skill), and `npm run doctor` reports whether it is present.
+Use the installed `karpathy-guidelines` skill when writing, reviewing, or refactoring code. It contains the community Karpathy-inspired rules for thinking before coding, keeping solutions simple, making surgical changes, and driving work with verifiable goals. This is an EXTERNAL skill — it is not vendored in this repo; install it globally from upstream (see the README Quickstart / the `init-pi-dynamic-workflows` skill), and `npm run doctor` reports whether it is present.
 
 Use the project `modern-software-engineering` skill for architecture, refactoring, code review, test strategy, delivery/process improvements, and dynamic workflow design. It distills Dave Farley-style Modern Software Engineering: default to TDD for behavior changes (Red → Green → Refactor → Commit), optimize for fast evidence, manage complexity deliberately, and judge changes by stability plus throughput.
 

@@ -37,7 +37,7 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT_SKILLS = [
 	"ultracode",
 	"modern-software-engineering",
-	"installing-pi-dynamic-workflows",
+	"init-pi-dynamic-workflows",
 	"ai-assisted-engineering",
 	"open-prose",
 ];
