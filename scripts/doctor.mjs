@@ -161,6 +161,23 @@ report(
 	context7Skill ? "instalado" : "ausente — npx ctx7 setup --cli",
 );
 
+// skill karpathy-guidelines: skill EXTERNO (multica-ai/andrej-karpathy-skills). No se vendoriza en
+// el repo; el onboarding lo instala global para pi (~/.agents/skills) y Claude Code (~/.claude/skills).
+const karpathySkillPaths = [
+	path.join(os.homedir(), ".agents", "skills", "karpathy-guidelines"),
+	path.join(os.homedir(), ".pi", "agent", "skills", "karpathy-guidelines"),
+	path.join(os.homedir(), ".claude", "skills", "karpathy-guidelines"),
+];
+const karpathySkill = karpathySkillPaths.some(existsSync);
+report(
+	"optional",
+	karpathySkill ? OK : WARN,
+	"skill karpathy-guidelines",
+	karpathySkill
+		? "instalado (global, externo)"
+		: "ausente — instalalo global desde multica-ai/andrej-karpathy-skills (ver Quickstart)",
+);
+
 // Apple container: solo relevante en macOS Apple Silicon.
 if (process.platform === "darwin" && process.arch === "arm64") {
 	const container = probe("container");

@@ -32,10 +32,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const SYNC = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
 
-// Committed skills the sync must always publish.
+// Committed skills the sync must always publish. EXTERNAL skills (e.g. karpathy-guidelines, from
+// multica-ai/andrej-karpathy-skills) are intentionally NOT here — they are not vendored in this repo
+// and the onboarding installs them globally from upstream instead of republishing them.
 const REQUIRED_SKILLS = [
 	"ultracode",
-	"karpathy-guidelines",
 	"modern-software-engineering",
 	"installing-pi-dynamic-workflows",
 	"ai-assisted-engineering",

@@ -32,9 +32,10 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // Project-owned Claude skills to publish globally. Global-only skills (e.g. supacode-cli) are NOT
 // listed and are left untouched. A skill missing on disk is skipped, not an error — so local-only,
 // gitignored skills (e.g. open-prose) are synced best-effort when present and simply absent on CI.
+// EXTERNAL skills (e.g. karpathy-guidelines, from multica-ai/andrej-karpathy-skills) are NOT
+// vendored here — the onboarding installs them globally from upstream, so they are not republished.
 const PROJECT_SKILLS = [
 	"ultracode",
-	"karpathy-guidelines",
 	"modern-software-engineering",
 	"installing-pi-dynamic-workflows",
 	"ai-assisted-engineering",

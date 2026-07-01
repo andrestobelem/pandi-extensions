@@ -69,6 +69,14 @@ cd /tu/proyecto && pi
 # 8. (Opcional) capacidades extra
 npm install -g @openai/codex && pi install npm:pi-codex-web-search   # web_search
 npx puppeteer browsers install chrome-headless-shell                 # gráficos PNG
+
+# 8b. Skill EXTERNO karpathy-guidelines (no se vendoriza en el repo; AGENTS.md lo espera instalado).
+#     Se baja de upstream a tus skills globales: pi lee ~/.agents/skills, Claude Code ~/.claude/skills.
+for d in ~/.agents/skills ~/.claude/skills; do
+  mkdir -p "$d/karpathy-guidelines"
+  curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
+    -o "$d/karpathy-guidelines/SKILL.md"
+done
 ```
 
 ## Instalación
