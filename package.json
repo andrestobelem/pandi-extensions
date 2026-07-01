@@ -33,6 +33,8 @@
 		"format:claude:check": "node .claude/scripts/generate-claude-workflows.mjs --check",
 		"sync:skills": "node scripts/sync-skill-mirrors.mjs",
 		"sync:skills:check": "node scripts/sync-skill-mirrors.mjs --check",
+		"sync:claude:global": "node scripts/sync-claude-global.mjs",
+		"sync:claude:global:check": "node scripts/sync-claude-global.mjs --check",
 		"lint:md": "markdownlint-cli2",
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"doctor": "node scripts/doctor.mjs",
