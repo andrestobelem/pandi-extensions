@@ -112,7 +112,9 @@ whichever provider is active), so the same knobs target **Anthropic OR OpenAI/Co
 
 - `anthropic/claude-opus-4-8` · `anthropic/claude-sonnet-4-6`
 - `anthropic/claude-haiku-4-5`  (`anthropic/claude-fable-5` exists but is **currently disabled**)
-- pattern aliases `opus` / `sonnet` / `haiku` resolve to the current id.
+- pattern aliases `opus` / `sonnet` / `haiku` resolve to the current id (on pi, the dynamic-workflows
+  runtime pins a bare alias to the session provider on spawn, so it never routes to an unauthenticated
+  provider).
 
 **OpenAI / Codex** — provider `openai-codex` (from the Codex `/model` picker):
 

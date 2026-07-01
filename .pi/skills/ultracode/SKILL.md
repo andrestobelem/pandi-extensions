@@ -158,11 +158,13 @@ whichever provider is active), so the same knobs target **Anthropic OR OpenAI/Co
 
 - `anthropic/claude-opus-4-8` · `anthropic/claude-sonnet-4-6`
 - `anthropic/claude-haiku-4-5`  (`anthropic/claude-fable-5` exists but is **currently disabled**)
-- pattern aliases `opus` / `sonnet` / `haiku` resolve through pi's **provider routing**, which may pick a
-  provider you have **not** authenticated (e.g. `amazon-bedrock` → the run fails fast with `No API key
-  found for <provider>`). They only "resolve to the current id" when that provider has a key. **Prefer a
-  provider-qualified `anthropic/…` id** (above) — or **omit `model`** to inherit the session model — so a
-  workflow never silently routes to an unauthenticated provider. Qualified ids are also more cache-stable.
+- pattern aliases `opus` / `sonnet` / `haiku` resolve through pi's **provider routing**, which on its own
+  can pick a provider you have **not** authenticated (e.g. `amazon-bedrock` → `No API key found for
+  <provider>`). **The dynamic-workflows runtime mitigates this: a bare alias is pinned to the session's
+  provider on spawn** (`--provider <session provider> --model <alias>`), so it resolves within your
+  authenticated provider on pi (an explicit `provider`, or a qualified `provider/id`, always wins). Even
+  so, **prefer a provider-qualified `anthropic/…` id** (above) — or **omit `model`** to inherit the
+  session model — for cross-provider clarity, and because qualified ids are more cache-stable.
 
 **OpenAI / Codex** — provider `openai-codex` (from the Codex `/model` picker):
 
