@@ -356,12 +356,72 @@ async function scenarioEmptyContract(url) {
 	}
 }
 
+// Run-level cancellation: when the WHOLE run signal aborts (user cancel) with a subagent call
+// still in-flight, cleanup() must SIGTERM the child, not leave it running until its own timeout.
+// The bug: onAbort (run signal) fired first and cleanup disposed each per-call combined signal
+// BEFORE that signal's own abort listener ran, so the child was never killed.
+async function scenarioRunAbortCancelsInflight(url) {
+	const tag = tagSeq++;
+	const mod = await import(`${url}?i=${tag}`);
+	const ext = mod.default;
+	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-"));
+	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
+	await fs.writeFile(
+		path.join(project, ".pi", "workflows", "hang.js"),
+		"await agent(args.prompt);\nreturn 'done';\n",
+		"utf8",
+	);
+	const barrierDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-race-barrier-"));
+	const fakePi = await writeFakePi(barrierDir, `abort-${tag}`);
+	const { pi, tools } = makePi();
+	(ext.activate ?? ext)(pi, makeCtx(project));
+	const tool = tools.get("dynamic_workflow");
+	const rc = new AbortController();
+	const done = withFakePi(fakePi, async () => {
+		try {
+			return await tool.execute(
+				"tc-abort",
+				{
+					action: "run",
+					name: "hang",
+					input: { prompt: "[role:lose][id:hang] slow" },
+					concurrency: 1,
+					maxAgents: 2,
+					timeoutMs: 60_000,
+				},
+				rc.signal,
+				undefined,
+				makeCtx(project),
+			);
+		} catch (e) {
+			return { threw: String(e?.message ?? e) };
+		}
+	});
+	// Wait until the child has spawned (call in-flight), then abort the whole run.
+	const spawned = await waitForMarkers(barrierDir, "spawned-", 1, 8000);
+	check(
+		"run-abort: the subagent child spawned (in-flight before abort)",
+		spawned.length === 1,
+		JSON.stringify(spawned),
+	);
+	rc.abort(new Error("user cancelled the run"));
+	await done;
+	const cancelled = await waitForMarkers(barrierDir, "cancelled-", 1, 6000);
+	const completed = await listMarkers(barrierDir, "completed-");
+	check(
+		"run-abort: the in-flight child received SIGTERM (cancelled), not run to completion",
+		cancelled.length === 1 && completed.length === 0,
+		`cancelled=${JSON.stringify(cancelled)} completed=${JSON.stringify(completed)}`,
+	);
+}
+
 async function main() {
 	const { url } = await buildExtension();
 	await scenarioWinnerBasicAndJournal(url);
 	await scenarioFirstSuccessWins(url);
 	await scenarioResumeValidWinner(url);
 	await scenarioEmptyContract(url);
+	await scenarioRunAbortCancelsInflight(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

@@ -532,7 +532,15 @@ async function executeWorkflowCode(
 			signal.removeEventListener("abort", onAbort);
 			worker.removeAllListeners();
 			void worker.terminate();
-			for (const c of callControllers.values()) c.dispose();
+			// Abort each in-flight call's combined signal BEFORE disposing it. onAbort (on the run
+			// signal) fires before the per-call abortFromParent listeners registered later on the
+			// same signal, so disposing here (which removes those listeners) would strand them and
+			// leave subagent children running until agentTimeoutMs. Aborting first drives each
+			// child's SIGTERM synchronously; combineSignal.abort is idempotent.
+			for (const c of callControllers.values()) {
+				c.abort(new Error(abortReasonMessage(signal)));
+				c.dispose();
+			}
 			callControllers.clear();
 		};
 
