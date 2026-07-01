@@ -112,6 +112,7 @@ export default async function main() {
 			agentType: driver.agentType,
 			model: "anthropic/claude-sonnet-4-5",
 			effort: "medium",
+			excludeTools: ["web_search"], // pairing on repo code, not web research — keep turns focused & fast
 			label: `r${r}-drive-${driver.key}`,
 			phase: "Pairing",
 		});
@@ -123,6 +124,7 @@ export default async function main() {
 			agentType: navigator.agentType,
 			model: "anthropic/claude-sonnet-4-5",
 			effort: "medium",
+			excludeTools: ["web_search"],
 			label: `r${r}-nav-${navigator.key}`,
 			phase: "Pairing",
 		});
@@ -158,7 +160,17 @@ export default async function main() {
 			"",
 			`Now produce that joint deliverable for the task: ${task}`,
 		].join("\n"),
-		{ label: "synthesis", phase: "Synthesize", model: "anthropic/claude-opus-4-8", effort: "high", tools: ["read", "grep", "find", "ls"] },
+		{
+			label: "synthesis",
+			phase: "Synthesize",
+			model: "anthropic/claude-opus-4-8",
+			effort: "high",
+			tools: ["read", "grep", "find", "ls"],
+			excludeTools: ["web_search"],
+			// Opus synthesis over a full transcript + real code can be slow; give it a generous
+			// per-call budget so it is not cut off by a tighter run-level agentTimeoutMs.
+			timeoutMs: 600000,
+		},
 	);
 
 	await writeArtifact("deliverable.md", synthesis || "# Deliverable\n\nSynthesis failed.\n");
