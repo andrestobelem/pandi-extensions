@@ -547,8 +547,9 @@ The values above are for the **Claude Code Workflow runtime**, where `model` is 
 - ✅ `parallel([thunks])` is a barrier; use **settle** semantics so one crashed branch resolves to `null` instead of sinking the round.
 - ✅ Every loop is **bounded on both ends** (hard cap + a quiet/satisfied stop). **No silent caps** — `log()` whenever you clamp or drop.
 - ✅ `meta.name` must equal the filename; keep `meta` a pure literal.
+- ✅ **Base it on the closest scaffold(s) and declare that provenance** — `meta.basedOn` is an array of `{ name, role }` literals, one per scaffold reused/specialized/composed (e.g. `meta.basedOn = [{ name: 'fan-out-and-synthesize', role: 'scatter-gather base' }]`). This fills the artifact **Based-on** tab (it reads `meta.basedOn` as a string or `[{name, role?, desc?}]` array, else a leading `Paper:/Based on:/Source:` comment); set `[]` only if truly built from scratch.
 
-**Authoring a new one:** don't hand-roll it — run **`workflow-factory`** with a `task`. It reads the catalog, prefers reusing/specializing the closest scaffold, composes reusable sub-steps via `workflow()`, and writes a draft to `.claude/workflows/drafts/<slug>.js`. Inspect/edit the draft, then symlink or rename it into `~/.claude/workflows/` and start a new session so it resolves by `name`.
+**Authoring a new one:** **base it on the closest existing scaffold(s) — never reinvent — and record that in `meta.basedOn`.** Don't hand-roll it — run **`workflow-factory`** with a `task`. It reads the catalog, prefers reusing/specializing the closest scaffold, composes reusable sub-steps via `workflow()`, and writes a draft to `.claude/workflows/drafts/<slug>.js`. Inspect/edit the draft, then symlink or rename it into `~/.claude/workflows/` and start a new session so it resolves by `name`.
 
 ```mermaid
 flowchart LR

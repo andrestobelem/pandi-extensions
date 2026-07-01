@@ -103,11 +103,16 @@ instead of hiding them.
 
 Workflow scripts call these as **bare globals** — no `import`/`require`/`ctx.*`. This is the full set
 injected by the pi runtime (the source of truth is `sandbox.<name> = …` in
-`extensions/pi-dynamic-workflows/worker-source.ts`). Per-primitive docs — signature, returns, when to
-use, gotchas, example — are bundled with this skill under [`reference/primitives/`](reference/primitives/)
-(one `<name>.md` each; a byte-identical mirror of the canonical
-`extensions/pi-dynamic-workflows/primitives/`, kept 1:1 with the runtime by
-`primitives-parity.test.mjs`). The core is shared with Claude Code; the rest are pi-runtime globals.
+`extensions/pi-dynamic-workflows/worker-source.ts`). Each `Primitive` in the table below is a doc
+file — the cell is the file stem (e.g. `agent` → `agent.md`):
+
+- **canonical source of truth:** `extensions/pi-dynamic-workflows/primitives/<name>.md` (24 primitive
+  docs + a `README.md` index).
+- **bundled with this skill:** [`reference/primitives/<name>.md`](reference/primitives/) — a
+  byte-identical mirror kept 1:1 with the runtime by `primitives-parity.test.mjs`.
+
+Each doc has signature, returns, when to use, gotchas, and an example. The core is shared with Claude
+Code; the rest are pi-runtime globals.
 
 | Group | Primitive | One line | Runtime |
 | --- | --- | --- | --- |
@@ -255,25 +260,53 @@ Map common agent papers/frameworks to Pi workflow design:
 
 Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
 
+Several of these ship as concrete **scaffold** files under
+`extensions/pi-dynamic-workflows/scaffolds/` (Claude-runtime mirror in
+[`reference/claude-workflows/`](reference/claude-workflows/)): `self-consistency` →
+`self-consistency.js`, Reflexion / Self-Refine → `reflexion.js` / `self-refine.js`, Tree of Thoughts →
+`tree-of-thoughts.js`, ReAct → `react-scout.js`, multiagent debate → `adversarial-verify.js`. The rest
+(AutoGen / CAMEL / MetaGPT, SWE-agent / DSPy) are design principles, not standalone files.
+
 ## The pattern catalog (by family)
 
-Concept-level; each platform has concrete scaffolds (see [Platform reference](#platform-reference)).
-All 25 Claude scaffolds are covered below.
+Each `pattern` below is a **scaffold** — a runnable `.js` file, not just a concept. The `Pattern`
+column is the file stem (e.g. `contract-gate` → `contract-gate.js`), so the 25 files are:
 
-- **Gate & guard** — `contract-gate` (scope a vague/high-stakes ask), `guardrails` (input/output
-  tripwire that HALTS).
-- **Route & orchestrate** — `router` (dispatch to the best workflow), `orchestrator-workers` (open
-  goal → subtask graph → integrate), `map-reduce` (bigger than one window), `workflow-factory` (write
-  a new workflow), `recursive-compose` (REFERENCE, pi depth ≤3: re-gate a sub-task via contract-gate,
-  then re-route via router — the Phase-0-from-inside pattern).
-- **Discover & fan-out** — `fan-out-and-synthesize`, `scout-fanout` (adaptive depth), `repo-bug-hunt`,
-  `loop-until-dry`, `react-scout`, `complex-research`.
-- **Verify** — `adversarial-verify` (skeptic jury), `bug-verify` (confirm by reproduction),
-  `verify-claims-lib` (reusable), `adversarial-plan-review`.
-- **Generate & select** — `judge-escalate`, `tournament`, `self-consistency`, `tree-of-thoughts`.
-- **Iterate & refine** — `self-refine`, `reflexion`.
-- **Migrate** — `large-migration` (green-baseline gate, per-file apply→verify→repair, rollback).
-- **Compose & meta** — `composition-driver` (discover → delegate to a `*-lib` verifier).
+- **pi source of truth:** `extensions/pi-dynamic-workflows/scaffolds/<pattern>.js` (25 files). Fetch
+  one at runtime with `dynamic_workflow action=scaffold name=<pattern>`.
+- **Claude-runtime versions** bundled with this skill:
+  [`reference/claude-workflows/<pattern>.js`](reference/claude-workflows/) (25 files; the two runtimes
+  differ, so these are NOT byte-identical to the pi scaffolds).
+
+All 25 scaffolds are covered below (see also [Platform reference](#platform-reference)).
+
+| Family | Pattern | What it does |
+| --- | --- | --- |
+| Gate & guard | `contract-gate` | scope a vague/high-stakes ask |
+| | `guardrails` | input/output tripwire that HALTS |
+| Route & orchestrate | `router` | dispatch to the best workflow |
+| | `orchestrator-workers` | open goal → subtask graph → integrate |
+| | `map-reduce` | bigger than one window |
+| | `workflow-factory` | write a new workflow |
+| | `recursive-compose` | REFERENCE, pi depth ≤3: re-gate via contract-gate, then re-route via router (Phase-0-from-inside) |
+| Discover & fan-out | `fan-out-and-synthesize` | independent finders → synthesis |
+| | `scout-fanout` | adaptive depth |
+| | `repo-bug-hunt` | repo-wide bug sweep |
+| | `loop-until-dry` | repeat until K quiet rounds |
+| | `react-scout` | scout/observe with tools first |
+| | `complex-research` | deep/multi-source research |
+| Verify | `adversarial-verify` | skeptic jury |
+| | `bug-verify` | confirm by reproduction |
+| | `verify-claims-lib` | reusable claim verifier |
+| | `adversarial-plan-review` | adversarial review of a plan |
+| Generate & select | `judge-escalate` | escalate to a stronger judge |
+| | `tournament` | bracket-rank candidates |
+| | `self-consistency` | sample branches, select by consistency |
+| | `tree-of-thoughts` | branch, evaluate/prune, commit |
+| Iterate & refine | `self-refine` | generate → critique → refine |
+| | `reflexion` | reflect on failures across rounds |
+| Migrate | `large-migration` | green-baseline gate, per-file apply→verify→repair, rollback |
+| Compose & meta | `composition-driver` | discover → delegate to a `*-lib` verifier |
 
 ## PHASE 0 — contract-gate (always, for substantive runs)
 
