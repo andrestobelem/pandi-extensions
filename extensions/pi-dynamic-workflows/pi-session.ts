@@ -243,3 +243,88 @@ export function formatPiSessionList(sessions: PiSessionModel[]): string {
 	}
 	return lines.join("\n");
 }
+
+export interface SessionPruneEntry {
+	file: string;
+	record: unknown;
+}
+
+// Pure prune policy for `/workflow cleanup sessions`. Given the on-disk live-session files
+// (each with its raw parsed record), decide which are safe to delete. `now` and isPidAlive
+// are injected so this is pure and offline. Safe by default:
+//   - unparseable record        → keep (never delete what we can't classify)
+//   - the current session's file → keep, always (defensive: never delete our own)
+//   - pid exited                 → remove (definitively safe)
+//   - pid alive + fresh (live)   → keep
+//   - pid alive + stale heartbeat→ keep unless includeHeartbeatStale (a live pid may be paused)
+export function classifySessionFilesForPrune(
+	entries: SessionPruneEntry[],
+	opts: { now: number; isPidAlive: (pid: number) => boolean; currentId?: string; includeHeartbeatStale?: boolean },
+): { remove: string[]; keep: string[] } {
+	const remove: string[] = [];
+	const keep: string[] = [];
+	for (const entry of entries) {
+		const record = parsePiSessionRecord(entry.record);
+		if (!record || (opts.currentId && record.id === opts.currentId)) {
+			keep.push(entry.file);
+			continue;
+		}
+		if (!opts.isPidAlive(record.pid)) {
+			remove.push(entry.file);
+			continue;
+		}
+		const updatedMs = Date.parse(record.updatedAt);
+		const ageMs = Number.isFinite(updatedMs) ? Math.max(0, opts.now - updatedMs) : Number.POSITIVE_INFINITY;
+		const fresh = ageMs <= PI_SESSION_STALE_MS;
+		if (!fresh && opts.includeHeartbeatStale) remove.push(entry.file);
+		else keep.push(entry.file);
+	}
+	return { remove, keep };
+}
+
+// IO wrapper: enumerate this project's live-session files, classify them, and unlink the
+// removable ones. Only touches files for ctx.cwd (other projects' sessions are left alone).
+export async function prunePiSessionFiles(
+	ctx: ExtensionContext,
+	opts: { includeHeartbeatStale?: boolean; dryRun?: boolean } = {},
+): Promise<{ removed: string[]; kept: number }> {
+	const now = Date.now();
+	const entries: SessionPruneEntry[] = [];
+	const seen = new Set<string>();
+	for (const root of getLiveSessionRoots(ctx)) {
+		if (!existsSync(root)) continue;
+		let dirents: import("node:fs").Dirent[];
+		try {
+			dirents = await fs.readdir(root, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+		for (const dirent of dirents) {
+			if (!dirent.isFile() || !dirent.name.endsWith(".json")) continue;
+			const file = path.join(root, dirent.name);
+			if (seen.has(file)) continue;
+			seen.add(file);
+			const record = await readPiSessionRecord(file);
+			// Skip records that clearly belong to another project cwd / non-persistent mode.
+			if (record && (record.cwd !== ctx.cwd || !isPersistentPiSessionMode(record.mode))) continue;
+			entries.push({ file, record });
+		}
+	}
+	const { remove } = classifySessionFilesForPrune(entries, {
+		now,
+		isPidAlive,
+		currentId: livePiSession?.id,
+		includeHeartbeatStale: opts.includeHeartbeatStale,
+	});
+	if (opts.dryRun) return { removed: [...remove], kept: entries.length - remove.length };
+	const removed: string[] = [];
+	for (const file of remove) {
+		try {
+			await fs.unlink(file);
+			removed.push(file);
+		} catch {
+			// Already gone or lost a race — nothing to clean up.
+		}
+	}
+	return { removed, kept: entries.length - removed.length };
+}
