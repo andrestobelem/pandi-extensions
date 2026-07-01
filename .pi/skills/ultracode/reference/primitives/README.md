@@ -1,12 +1,14 @@
 # Dynamic-workflow primitives (injected globals)
 
 This folder is the **canonical, per-primitive reference** for the globals a
-dynamic-workflow script can call — the analog of `../scaffolds/` for patterns.
+dynamic-workflow script can call — the analog of
+`extensions/pi-dynamic-workflows/scaffolds/` for patterns.
 
 The **source of truth** for *which* primitives exist is the runtime itself: the
 `sandbox.<name> = …` assignments in
-[`../worker-source.ts`](../worker-source.ts). A parity test
-(`../tests/integration/primitives-parity.test.mjs`) keeps this folder 1:1 with
+`extensions/pi-dynamic-workflows/worker-source.ts`. A parity test
+(`extensions/pi-dynamic-workflows/tests/integration/primitives-parity.test.mjs`)
+keeps this folder 1:1 with
 that list — add or remove a global there and the test fails until the matching
 `<name>.md` is added or removed here.
 
