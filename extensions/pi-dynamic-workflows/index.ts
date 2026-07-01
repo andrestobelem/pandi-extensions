@@ -163,6 +163,7 @@ import {
 	normalizeBashResultForJournal,
 	normalizeSubagentResultForJournal,
 } from "./journal.js";
+import { OccurrenceCounter } from "./occurrence-counter.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
 
 export { estimatePeakParallelAgents } from "./run-state.js";
@@ -671,8 +672,8 @@ export async function runWorkflow(
 	let codeHash = preparedRun.resume?.codeHash ?? "";
 	const resumedFrom = preparedRun.resume?.resumedFrom;
 	const journal = preparedRun.resume?.journal;
-	const occCounters = new Map<string, number>();
-	// Serializes the occ-assignment prologue (persona/access resolution + key + nextOcc).
+	const occurrences = new OccurrenceCounter();
+	// Serializes the occ-assignment prologue (persona/access resolution + key + occ assignment).
 	// runExclusive chains its queue synchronously at call time, so wrapping the prologue
 	// in it pins occ assignment to synchronous emission order — independent of how the
 	// persona/access fs awaits interleave under ctx.agents/parallel/pipeline concurrency.
@@ -686,14 +687,6 @@ export async function runWorkflow(
 	// subagent's JSON-mode stdout, aggregated into metrics.json/metrics.md at run end.
 	// Cached/resumed calls (served from the journal) are not re-run, so they are excluded.
 	const focusByAgent: AgentFocusMetrics[] = [];
-
-	// Assign the occurrence index for a key synchronously, in emission order.
-	// Same key (identical args) -> 0, 1, 2, ...; distinct args -> distinct key.
-	function nextOcc(key: string): number {
-		const occ = occCounters.get(key) ?? 0;
-		occCounters.set(key, occ + 1);
-		return occ;
-	}
 
 	function journalLookup(key: string, occ: number): SubagentResult | BashResult | AskResult | undefined {
 		return journal?.get(key)?.[occ];
@@ -805,7 +798,7 @@ export async function runWorkflow(
 				resolved = appendSystemPromptOption(resolved, makeStructuredOutputSystemPrompt(resolved.schema));
 			}
 			const computedKey = computeCallKey("agent", [prompt, sanitizeAgentOpts(resolved)]);
-			return { effectiveOptions: resolved, key: computedKey, occ: nextOcc(computedKey) };
+			return { effectiveOptions: resolved, key: computedKey, occ: occurrences.next(computedKey) };
 		});
 		const effectiveOptions = prologue.effectiveOptions;
 		const { key, occ } = prologue;
@@ -1269,7 +1262,7 @@ export async function runWorkflow(
 				...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
 			},
 		]);
-		const occ = nextOcc(key);
+		const occ = occurrences.next(key);
 		if (cacheEnabled) {
 			const hit = journalLookup(key, occ);
 			// "code" present + no artifactPath => BashResult (not a SubagentResult or AskResult). Keys never
@@ -1376,7 +1369,7 @@ export async function runWorkflow(
 				...(namespace ? { workflowNamespace: namespace } : {}),
 			},
 		]);
-		const occ = nextOcc(key);
+		const occ = occurrences.next(key);
 		if (cacheEnabled) {
 			const hit = journalLookup(key, occ) as AskResult | undefined;
 			if (hit && "answer" in hit) {
@@ -1480,7 +1473,7 @@ export async function runWorkflow(
 		const subCode = await fs.readFile(subWorkflow.path, "utf8");
 		const subCodeHash = computeCodeHash(subCode);
 		const workflowCallKey = computeCallKey("workflow", [subWorkflow.name, workflowInput]);
-		const workflowOcc = nextOcc(workflowCallKey);
+		const workflowOcc = occurrences.next(workflowCallKey);
 		const namespace = `workflow:${subWorkflow.name}:${subCodeHash.slice(0, 12)}:${workflowOcc}`;
 		await appendEvent({
 			type: "workflow",
