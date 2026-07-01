@@ -35,7 +35,7 @@ For broad, high-confidence, or repo-wide tasks, use the Ultracode router (`/dyna
 - Prefer fresh task-specific drafts under the gitignored `.pi/workflows/drafts/<slug>.js`, next to `.pi/workflows/runs/`; reuse an existing workflow only when it exactly matches the task.
 - Graph/start workflows in background with explicit `concurrency` and `maxAgents`, then inspect artifacts before trusting conclusions.
 - Subagents get `web_search` and `context7-cli` by default when installed; opt out only when isolation is required.
-- **`web_search` budget:** fast mode allows only ~10 sub-queries and each `web_search` call can fan out into several, so issue ONE narrow query per turn — do NOT fire multiple searches in parallel or add a `deep` call in the same turn, or the budget is exhausted and results fail. A single focused query often closes several evidence gaps at once.
+- **`web_search` budget (READ THIS before searching):** the tool counts REAL web queries per turn, and each `web_search` call can fan out into SEVERAL sub-queries internally. `fast` mode allows only **10** queries/turn (the 11th fails with `exceeded the fast search budget 11/10`); `deep` allows **24**. The counter is CUMULATIVE within the turn/session — once exhausted, retries in the same turn keep failing until a fresh turn/session. Therefore: issue ONE narrow, focused query per turn; do NOT fire multiple `web_search` calls in parallel or mix a `fast` and a `deep` call in the same turn. If you need more headroom, use `mode=deep` ONCE rather than retrying `fast`. A single well-aimed query usually closes several evidence gaps at once. Full reference: the global `web-search` skill (`~/.agents/skills/web-search/SKILL.md`) documents modes, freshness, and `/web-search-settings`.
 
 ## Scratch space
 
