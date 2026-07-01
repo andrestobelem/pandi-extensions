@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension, bundle, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
@@ -37,6 +38,10 @@ export async function buildBgWithPlan({ name = "pi-bg-integration" } = {}) {
 		npx: "--no-install",
 	});
 	return { outDir, url, planUrl, agentDir: path.join(outDir, "agentdir") };
+}
+
+export async function createBgTestDir(prefix) {
+	return fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
 
 export function shellQuote(value) {

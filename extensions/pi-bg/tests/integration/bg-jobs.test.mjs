@@ -13,7 +13,16 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
-import { buildBg, loadExtension, makeCtx, parseJobId, readJson, shellQuote, waitFor } from "./bg-test-support.mjs";
+import {
+	buildBg,
+	createBgTestDir,
+	loadExtension,
+	makeCtx,
+	parseJobId,
+	readJson,
+	shellQuote,
+	waitFor,
+} from "./bg-test-support.mjs";
 
 const { check, counts } = createChecker();
 
@@ -43,7 +52,7 @@ async function startControlledJob(commands, cwd, { exitCode = 0 } = {}) {
 
 async function realStartCompletesAndLogs(url) {
 	const { commands, tools } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-real-start-"));
+	const cwd = await createBgTestDir("pi-bg-real-start-");
 	const job = await startControlledJob(commands, cwd);
 	check("start: registers no LLM tools", tools.size === 0, `tools=${[...tools.keys()].join(",")}`);
 	check("start: artifacts directory exists immediately", existsSync(job.runDir), job.runDir);
@@ -85,7 +94,7 @@ async function realStartCompletesAndLogs(url) {
 
 async function failureIsRecorded(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-fail-"));
+	const cwd = await createBgTestDir("pi-bg-fail-");
 	const job = await startControlledJob(commands, cwd, { exitCode: 7 });
 	await waitFor("failing child started", async () => existsSync(job.started));
 	await fs.writeFile(job.release, "fail");
@@ -99,7 +108,7 @@ async function failureIsRecorded(url) {
 
 async function fastExitDoesNotRegressToRunning(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-fast-exit-"));
+	const cwd = await createBgTestDir("pi-bg-fast-exit-");
 	const ctx = makeCtx({ cwd, trusted: true });
 	const command = `${shellQuote(process.execPath)} -e ${shellQuote("process.exit(0)")}`;
 	await commands.get("bg").handler(`start ${command}`, ctx);
@@ -115,7 +124,7 @@ async function fastExitDoesNotRegressToRunning(url) {
 
 async function commandWhitespaceIsPreserved(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-command-"));
+	const cwd = await createBgTestDir("pi-bg-command-");
 	const script = path.join(cwd, "argv.cjs");
 	const out = path.join(cwd, "argv.txt");
 	await fs.writeFile(script, `require("node:fs").writeFileSync(process.argv[2], process.argv[3]);\n`);
@@ -135,7 +144,7 @@ async function commandWhitespaceIsPreserved(url) {
 
 async function cancelStopsActiveJob(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-cancel-"));
+	const cwd = await createBgTestDir("pi-bg-cancel-");
 	const script = path.join(cwd, "long.cjs");
 	const started = path.join(cwd, "long-started");
 	await fs.writeFile(
@@ -175,7 +184,7 @@ async function cancelEscalatesToSigkill(url) {
 		return;
 	}
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-sigkill-"));
+	const cwd = await createBgTestDir("pi-bg-sigkill-");
 	const script = path.join(cwd, "ignore-sigterm.cjs");
 	const started = path.join(cwd, "sigterm-started");
 	// A child that INSTALLS a SIGTERM handler and keeps running -> it survives the
@@ -227,7 +236,7 @@ async function cancelEscalatesToSigkill(url) {
 
 async function orphanedPidIsLabeledNotKilled(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-orphan-"));
+	const cwd = await createBgTestDir("pi-bg-orphan-");
 	const jobId = "fake-active";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
@@ -271,7 +280,7 @@ async function orphanedPidIsLabeledNotKilled(url) {
 
 async function interruptedAndStaleStatesAreDerived(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-interrupted-"));
+	const cwd = await createBgTestDir("pi-bg-interrupted-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 
 	// (1) Persisted running, recorded pid is dead (reaped) => interrupted.
@@ -392,7 +401,7 @@ async function reconcileRewritesDeadRunningJobs(url) {
 	check("reconcile: reconcileInterruptedJobs is exported", typeof reconcile === "function", typeof reconcile);
 	if (typeof reconcile !== "function") return;
 
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-"));
+	const cwd = await createBgTestDir("pi-bg-reconcile-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 	check(
@@ -459,7 +468,7 @@ async function reconcileRewritesDeadRunningJobs(url) {
 	const temps = (await fs.readdir(deadDir)).filter((f) => f.includes(".tmp"));
 	check("reconcile: leaves no temp files behind", temps.length === 0, temps.join(","));
 
-	const untrustedCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-untrusted-"));
+	const untrustedCwd = await createBgTestDir("pi-bg-reconcile-untrusted-");
 	const uDir = path.join(untrustedCwd, ".pi", "bg", "runs", "dead-untrusted");
 	await fs.mkdir(uDir, { recursive: true });
 	await fs.writeFile(
@@ -524,7 +533,7 @@ async function identityDefeatsPidReuse(url) {
 	const readStartId = mod.readProcessStartId;
 	const reconcile = mod.reconcileInterruptedJobs;
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-identity-"));
+	const cwd = await createBgTestDir("pi-bg-identity-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const liveId = readStartId(process.pid);
 	const write = async (jobId, status) => {
@@ -594,7 +603,7 @@ async function cancelSignalsVerifiedOrphan(url) {
 	const mod = await loadModule(url);
 	const readStartId = mod.readProcessStartId;
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-cancel-orphan-"));
+	const cwd = await createBgTestDir("pi-bg-cancel-orphan-");
 	const jobId = "verified-orphan";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
@@ -683,7 +692,7 @@ async function cancelSignalsVerifiedOrphan(url) {
 
 async function cancelRefusesReusedPid(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-cancel-reuse-"));
+	const cwd = await createBgTestDir("pi-bg-cancel-reuse-");
 	const jobId = "reused-cancel";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
@@ -726,7 +735,7 @@ async function deleteGateReDerivesLiveState(url) {
 	const mod = await loadModule(url);
 	const readStartId = mod.readProcessStartId;
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-gate-"));
+	const cwd = await createBgTestDir("pi-bg-delete-gate-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const ctx = makeCtx({ cwd, trusted: true });
 	const win32 = process.platform === "win32";
@@ -799,7 +808,7 @@ async function removeRunDirRevalidatesBeforeRm(url) {
 	const removeRunDir = mod.removeRunDir;
 	check("revalidate: removeRunDir is exported", typeof removeRunDir === "function", typeof removeRunDir);
 	if (typeof removeRunDir !== "function") return;
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-revalidate-"));
+	const cwd = await createBgTestDir("pi-bg-revalidate-");
 	const dir = path.join(cwd, ".pi", "bg", "runs", "guard-job");
 	await fs.mkdir(dir, { recursive: true });
 	await fs.writeFile(
@@ -830,10 +839,10 @@ async function pruneFlagAndSizeHelpers(url) {
 	check("prune-parse: absent flag stays dry-run", parse("").yes === false && parse("   ").yes === false);
 	check("prune-parse: a typo'd flag is ignored (safe dry-run)", parse("--yse").yes === false);
 	check("prune-parse: --yes anywhere in args counts", parse("foo --yes bar").yes === true);
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-size-"));
+	const dir = await createBgTestDir("pi-bg-size-");
 	await fs.writeFile(path.join(dir, "a.log"), "12345");
 	await fs.writeFile(path.join(dir, "b.log"), "678");
-	const external = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-size-ext-")), "big.bin");
+	const external = path.join(await createBgTestDir("pi-bg-size-ext-"), "big.bin");
 	await fs.writeFile(external, "x".repeat(10000));
 	await fs.symlink(external, path.join(dir, "link.log"));
 	check(
@@ -847,7 +856,7 @@ async function pruneFlagAndSizeHelpers(url) {
 // live job with a reason, prompts for --yes, and removes nothing.
 async function prunePreviewListsCandidatesWithoutDeleting(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-prune-preview-"));
+	const cwd = await createBgTestDir("pi-bg-prune-preview-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const seed = async (jobId, status, files = {}) => {
 		const dir = path.join(runsRoot, jobId);
@@ -887,7 +896,7 @@ async function prunePreviewListsCandidatesWithoutDeleting(url) {
 // a live job, audits one line per removal, and is idempotent.
 async function pruneYesExecutesReDerivesAndAudits(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-prune-yes-"));
+	const cwd = await createBgTestDir("pi-bg-prune-yes-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const seed = async (jobId, status) => {
 		const dir = path.join(runsRoot, jobId);
@@ -939,7 +948,7 @@ async function logStreamErrorsAreContained(url) {
 	check("guard: guardStreamErrors is exported", typeof guard === "function", typeof guard);
 	if (typeof guard !== "function") return;
 
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-streamerr-"));
+	const cwd = await createBgTestDir("pi-bg-streamerr-");
 	const runDir = path.join(cwd, "run");
 	await fs.mkdir(runDir, { recursive: true });
 
@@ -986,7 +995,7 @@ async function atomicWriteCleansTempOnRenameFailure(url) {
 	const atomicWriteJson = mod.atomicWriteJson;
 	check("atomic: atomicWriteJson is exported", typeof atomicWriteJson === "function", typeof atomicWriteJson);
 	if (typeof atomicWriteJson !== "function") return;
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-atomic-"));
+	const dir = await createBgTestDir("pi-bg-atomic-");
 	// Make the target an existing directory so rename(tmp, target) fails (EISDIR).
 	const target = path.join(dir, "target");
 	await fs.mkdir(target);
@@ -1009,7 +1018,7 @@ async function descriptionListsPreviewSubcommand(url) {
 
 async function startSurfacesFilesystemErrors(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-fserror-"));
+	const cwd = await createBgTestDir("pi-bg-fserror-");
 	// Make .pi a regular file so createRunDir's ensurePlainDirectory throws mid-start.
 	await fs.writeFile(path.join(cwd, ".pi"), "not a dir");
 	const ctx = makeCtx({ cwd, trusted: true });
@@ -1212,7 +1221,7 @@ async function finalizeRejectionIsContained(url) {
 
 async function modeGateRejectsStart(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-mode-"));
+	const cwd = await createBgTestDir("pi-bg-mode-");
 	const ctx = makeCtx({ cwd, trusted: true, mode: "json", hasUI: true });
 	await commands.get("bg").handler("start echo nope", ctx);
 	check(

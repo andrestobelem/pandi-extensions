@@ -18,11 +18,11 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
 import {
 	buildBg,
+	createBgTestDir,
 	loadExtension,
 	makeCtx,
 	makePi,
@@ -83,7 +83,7 @@ async function topLevelCatchReturnsErrorResponse(url) {
 // ── Gap 2: handleCancel duplicate-request branch ─────────────────────────────
 async function duplicateCancelIsReported(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-dup-cancel-"));
+	const cwd = await createBgTestDir("pi-bg-dup-cancel-");
 	const job = await startLongJob(commands, cwd);
 	try {
 		await commands.get("bg").handler(`cancel ${job.jobId}`, job.ctx);
@@ -111,7 +111,7 @@ async function duplicateCancelIsReported(url) {
 // ── Gap 4: cancelPersistedJob reused/unknown identity refusal ────────────────
 async function cancelPersistedRefusesReusedIdentity(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-persist-reuse-"));
+	const cwd = await createBgTestDir("pi-bg-persist-reuse-");
 	const jobId = "reused-persisted";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
@@ -152,7 +152,7 @@ async function cancelPersistedRefusesReusedIdentity(url) {
 // ── Gap 5: handleDelete non-deletable (live/orphaned) refusal ────────────────
 async function deleteRefusesLiveOrphan(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-live-"));
+	const cwd = await createBgTestDir("pi-bg-delete-live-");
 	const jobId = "live-orphan";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
@@ -179,7 +179,7 @@ async function pruneUntrustedAndPlanModeRejected(url) {
 	const { commands } = await loadExtension(url);
 
 	// Untrusted project: prune is refused with a trust message.
-	const untrustedCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-prune-untrusted-"));
+	const untrustedCwd = await createBgTestDir("pi-bg-prune-untrusted-");
 	const untrustedCtx = makeCtx({ cwd: untrustedCwd, trusted: false });
 	await commands.get("bg").handler("prune", untrustedCtx);
 	const untrustedMsg = untrustedCtx._notes.at(-1)?.msg || "";
@@ -195,7 +195,7 @@ async function pruneUntrustedAndPlanModeRejected(url) {
 	const prev = globalThis[planSym];
 	globalThis[planSym] = { isActive: () => true };
 	try {
-		const planCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-prune-plan-"));
+		const planCwd = await createBgTestDir("pi-bg-prune-plan-");
 		const planCtx = makeCtx({ cwd: planCwd, trusted: true });
 		await commands.get("bg").handler("prune", planCtx);
 		const planMsg = planCtx._notes.at(-1)?.msg || "";
@@ -219,7 +219,7 @@ async function reconcileSkipsActiveSessionJob(url) {
 	check("reconcile-active: reconcileInterruptedJobs is exported", typeof reconcile === "function", typeof reconcile);
 	if (typeof reconcile !== "function") return;
 
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-reconcile-active-"));
+	const cwd = await createBgTestDir("pi-bg-reconcile-active-");
 	const job = await startLongJob(commands, cwd);
 	try {
 		// Tamper this live, in-session job's status to look like a dead-pid running job.

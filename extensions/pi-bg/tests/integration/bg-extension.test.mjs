@@ -14,10 +14,9 @@ import { spawnSync } from "node:child_process";
 import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { createChecker, loadDefault } from "../../../shared/test/harness.mjs";
-import { buildBgWithPlan, loadExtension, makeCtx, makePi } from "./bg-test-support.mjs";
+import { buildBgWithPlan, createBgTestDir, loadExtension, makeCtx, makePi } from "./bg-test-support.mjs";
 
 const { check, counts } = createChecker();
 
@@ -73,7 +72,7 @@ async function setupJob(
 async function statusOrphanedRefinementPinned(url) {
 	const { readProcessStartId } = await import(url);
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-orphan-refine-"));
+	const cwd = await createBgTestDir("pi-bg-orphan-refine-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 	const liveStartId = readProcessStartId(process.pid);
@@ -120,7 +119,7 @@ async function statusOrphanedRefinementPinned(url) {
 // R1: /bg delete happy path + symlink-safe removal + path-traversal guard.
 async function deleteRemovesTerminalJobsAndGuards(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-"));
+	const cwd = await createBgTestDir("pi-bg-delete-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const ctx = makeCtx({ cwd, trusted: true });
 	const say = async (line) => {
@@ -147,7 +146,7 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 	const travMsg = await say("delete ../escape");
 	check("delete: rejects a path-traversal id with usage", /Usage: \/bg delete/.test(travMsg), travMsg);
 
-	const realDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-target-"));
+	const realDir = await createBgTestDir("pi-bg-delete-target-");
 	await fs.writeFile(
 		path.join(realDir, "status.json"),
 		JSON.stringify({ jobId: "linky", state: "completed", updatedAt: "2026-06-25T00:00:00.000Z" }),
@@ -166,7 +165,7 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 // symlink instead of following it, so an external target survives the removal).
 async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-scope-"));
+	const cwd = await createBgTestDir("pi-bg-delete-scope-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const say = async (line, c) => {
 		await commands.get("bg").handler(line, c);
@@ -175,7 +174,7 @@ async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 
 	// (a) Inner symlink escape: deleting the job dir unlinks combined.log, never the target.
 	const okDir = await setupJob(runsRoot, "symlink-job", { state: "completed" });
-	const external = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-external-"));
+	const external = await createBgTestDir("pi-bg-external-");
 	const externalFile = path.join(external, "precious.txt");
 	await fs.writeFile(externalFile, "do not delete me");
 	await fs.symlink(externalFile, path.join(okDir, "combined.log"));
@@ -201,7 +200,7 @@ async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 }
 
 async function deleteRejectedInPlanMode(planUrl, bgUrl) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-delete-plan-"));
+	const cwd = await createBgTestDir("pi-bg-delete-plan-");
 	const { commands } = await loadPlanAndBg(planUrl, bgUrl);
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("plan").handler("design safely", ctx);
@@ -232,7 +231,7 @@ async function dispatcherExposesDeleteAndPrune(url) {
 	check("wiring: 'pru' completes to prune", comp("pru").includes("prune"), JSON.stringify(comp("pru")));
 	check("wiring: no dashboard completion", !comp("").includes("dashboard"), JSON.stringify(comp("")));
 	const ctx = makeCtx({
-		cwd: await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-wiring-")),
+		cwd: await createBgTestDir("pi-bg-wiring-"),
 		trusted: true,
 	});
 	await bg.handler("bogus", ctx);
@@ -246,7 +245,7 @@ async function dispatcherExposesDeleteAndPrune(url) {
 
 async function auditDotfileIsInvisibleToList(url) {
 	const { commands } = await loadExtension(url);
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-dotfile-list-"));
+	const cwd = await createBgTestDir("pi-bg-dotfile-list-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	await setupJob(runsRoot, "real-job", { state: "completed" });
 	await fs.writeFile(
@@ -270,7 +269,7 @@ async function loadPlanAndBg(planUrl, bgUrl) {
 }
 
 async function dryRunHasNoRuntimeWrites(url) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-project-"));
+	const cwd = await createBgTestDir("pi-bg-project-");
 	const { commands, tools } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler("preview npm test", ctx);
@@ -283,7 +282,7 @@ async function dryRunHasNoRuntimeWrites(url) {
 }
 
 async function startCancelRejectInPlanMode(planUrl, bgUrl) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-plan-guard-"));
+	const cwd = await createBgTestDir("pi-bg-plan-guard-");
 	const { commands, tools } = await loadPlanAndBg(planUrl, bgUrl);
 	const ctx = makeCtx({ cwd, trusted: true });
 
@@ -319,7 +318,7 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 }
 
 async function listStatusLogsReadExistingArtifacts(url, agentDir) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-project-"));
+	const cwd = await createBgTestDir("pi-bg-project-");
 	const projectRunsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
 	await setupJob(projectRunsRoot, "project-job", {
@@ -355,7 +354,7 @@ async function listStatusLogsReadExistingArtifacts(url, agentDir) {
 }
 
 async function logTailDoesNotSplitUtf8(url) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-utf8-"));
+	const cwd = await createBgTestDir("pi-bg-utf8-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	// Place a 4-byte emoji so the last-20000-bytes window starts on a continuation byte.
 	const head = Buffer.from("A".repeat(10));
@@ -373,7 +372,7 @@ async function logTailDoesNotSplitUtf8(url) {
 }
 
 async function emptyAndUntrustedBehavior(url, agentDir) {
-	const emptyCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-empty-"));
+	const emptyCwd = await createBgTestDir("pi-bg-empty-");
 	let loaded = await loadExtension(url);
 	let ctx = makeCtx({ cwd: emptyCwd, trusted: true });
 	await loaded.commands.get("bg").handler("list", ctx);
@@ -382,7 +381,7 @@ async function emptyAndUntrustedBehavior(url, agentDir) {
 		/No background jobs found/.test(ctx._notes.at(-1)?.msg || ""),
 	);
 
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-untrusted-"));
+	const cwd = await createBgTestDir("pi-bg-untrusted-");
 	const projectRunsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
 	await setupJob(projectRunsRoot, "project-only", {
@@ -404,7 +403,7 @@ async function emptyAndUntrustedBehavior(url, agentDir) {
 	await loaded.commands.get("bg").handler("status ..", ctx);
 	check("security: path traversal job id is rejected", /Usage: \/bg status/.test(ctx._notes.at(-1)?.msg || ""));
 
-	const startCwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-untrusted-start-"));
+	const startCwd = await createBgTestDir("pi-bg-untrusted-start-");
 	ctx = makeCtx({ cwd: startCwd, trusted: false });
 	await loaded.commands.get("bg").handler("start npm test", ctx);
 	check(
@@ -415,10 +414,10 @@ async function emptyAndUntrustedBehavior(url, agentDir) {
 }
 
 async function symlinkedRunDirsAreRejected(url, agentDir) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-symlink-"));
+	const cwd = await createBgTestDir("pi-bg-symlink-");
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
 	const projectRunsRoot = path.join(cwd, ".pi", "bg", "runs");
-	const outsideRunsRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-outside-"));
+	const outsideRunsRoot = await createBgTestDir("pi-bg-outside-");
 	const outsideRunDir = await setupJob(outsideRunsRoot, "outside", {
 		command: "outside secret",
 		state: "completed",
@@ -459,8 +458,8 @@ async function symlinkedRunDirsAreRejected(url, agentDir) {
 }
 
 async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-rootlink-"));
-	const outsideRunsRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-rootlink-outside-"));
+	const cwd = await createBgTestDir("pi-bg-rootlink-");
+	const outsideRunsRoot = await createBgTestDir("pi-bg-rootlink-outside-");
 	await setupJob(outsideRunsRoot, "root-link-job", {
 		command: "outside root secret",
 		state: "completed",
@@ -501,10 +500,10 @@ async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
 }
 
 async function symlinkedArtifactFilesAreIgnored(url, agentDir) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-filelink-"));
+	const cwd = await createBgTestDir("pi-bg-filelink-");
 	const runDir = path.join(agentDir, "bg", "runs", stableHash(cwd), "file-link-job");
 	await fs.mkdir(runDir, { recursive: true });
-	const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-filelink-outside-"));
+	const outsideDir = await createBgTestDir("pi-bg-filelink-outside-");
 	const outsideJob = path.join(outsideDir, "job.json");
 	const outsideLog = path.join(outsideDir, "combined.log");
 	await fs.writeFile(outsideJob, JSON.stringify({ jobId: "file-link-job", command: "outside secret" }));
@@ -533,7 +532,7 @@ async function symlinkedArtifactFilesAreIgnored(url, agentDir) {
 }
 
 async function corruptArtifactsAreTolerated(url) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-corrupt-"));
+	const cwd = await createBgTestDir("pi-bg-corrupt-");
 	const runDir = path.join(cwd, ".pi", "bg", "runs", "corrupt-job");
 	await fs.mkdir(runDir, { recursive: true });
 	await fs.writeFile(path.join(runDir, "job.json"), "{not-json");
@@ -565,7 +564,7 @@ async function corruptArtifactsAreTolerated(url) {
 }
 
 async function eventsSubcommandReadsBoundedEvents(url) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-events-"));
+	const cwd = await createBgTestDir("pi-bg-events-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 	const runDir = await setupJob(runsRoot, "events-job", { command: "echo hi", state: "completed" });
 	const events = `${[
@@ -619,7 +618,7 @@ async function eventsSubcommandReadsBoundedEvents(url) {
 }
 
 async function planAliasStillPreviews(url) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-plan-alias-"));
+	const cwd = await createBgTestDir("pi-bg-plan-alias-");
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, trusted: true });
 	// Backward-compat: the deprecated `plan` verb still maps to the preview dry-run.
@@ -667,7 +666,7 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 
 	const seedDeadJob = async (jobId) => {
-		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-session-start-"));
+		const cwd = await createBgTestDir("pi-bg-session-start-");
 		const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 		await fs.mkdir(runDir, { recursive: true });
 		await fs.writeFile(
