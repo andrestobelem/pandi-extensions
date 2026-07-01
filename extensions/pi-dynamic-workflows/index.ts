@@ -110,6 +110,7 @@ export type {
 	AgentMonitorState,
 	AgentOptions,
 	AgentPhaseInfo,
+	AskResult,
 	BashResult,
 	JournalCache,
 	JournalRecord,
@@ -160,6 +161,7 @@ import {
 	appendJournalRecord,
 	computeCallKey,
 	computeCodeHash,
+	lookupJournalRecord,
 	normalizeBashResultForJournal,
 	normalizeSubagentResultForJournal,
 } from "./journal.js";
@@ -688,10 +690,6 @@ export async function runWorkflow(
 	// Cached/resumed calls (served from the journal) are not re-run, so they are excluded.
 	const focusByAgent: AgentFocusMetrics[] = [];
 
-	function journalLookup(key: string, occ: number): SubagentResult | BashResult | AskResult | undefined {
-		return journal?.get(key)?.[occ];
-	}
-
 	function trackSubagent<T>(promise: Promise<T>): Promise<T> {
 		const tracked = promise.finally(() => trackedSubagents.delete(tracked));
 		trackedSubagents.add(tracked);
@@ -807,7 +805,7 @@ export async function runWorkflow(
 		const accessMarkdown = formatAgentAccessMarkdown(effectiveOptions, envAccess);
 		const cacheEnabled = effectiveOptions.cache !== false;
 		if (cacheEnabled) {
-			const hit = journalLookup(key, occ) as SubagentResult | undefined;
+			const hit = lookupJournalRecord(journal, key, occ) as SubagentResult | undefined;
 			if (hit && "artifactPath" in hit) {
 				cachedCalls++;
 				const cachedPhase =
@@ -1264,7 +1262,7 @@ export async function runWorkflow(
 		]);
 		const occ = occurrences.next(key);
 		if (cacheEnabled) {
-			const hit = journalLookup(key, occ);
+			const hit = lookupJournalRecord(journal, key, occ);
 			// "code" present + no artifactPath => BashResult (not a SubagentResult or AskResult). Keys never
 			// collide across methods (computeCallKey namespaces by method), so this only narrows the type.
 			if (hit && "code" in hit && !("artifactPath" in hit)) {
@@ -1371,7 +1369,7 @@ export async function runWorkflow(
 		]);
 		const occ = occurrences.next(key);
 		if (cacheEnabled) {
-			const hit = journalLookup(key, occ) as AskResult | undefined;
+			const hit = lookupJournalRecord(journal, key, occ) as AskResult | undefined;
 			if (hit && "answer" in hit) {
 				cachedCalls++;
 				await appendEvent({

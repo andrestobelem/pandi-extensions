@@ -19,7 +19,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { appendJsonLine } from "./file-append.js";
 import { truncate } from "./format.js";
-import type { BashResult, JournalCache, JournalRecord, SubagentResult } from "./index.js";
+import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "./index.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM, transformWorkflowCode } from "./index.js";
 
 // --- Resumable runs: content-address cache journal ---
@@ -111,6 +111,18 @@ export async function loadJournal(runDir: string): Promise<JournalCache> {
 		cache.set(record.key, slots);
 	}
 	return cache;
+}
+
+// Read a cached result for (key, occ) from a loaded journal cache. Returns undefined when
+// absent: unknown key, occ past the recorded slots, or a fresh non-resumed run (no cache).
+// Pure read counterpart to loadJournal/appendJournalRecord — the caller owns the JournalCache
+// and the serialization; this never mutates.
+export function lookupJournalRecord(
+	cache: JournalCache | undefined,
+	key: string,
+	occ: number,
+): SubagentResult | BashResult | AskResult | undefined {
+	return cache?.get(key)?.[occ];
 }
 
 export async function appendJournalRecord(runDir: string, record: JournalRecord): Promise<void> {
