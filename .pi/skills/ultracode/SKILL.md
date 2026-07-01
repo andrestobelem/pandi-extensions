@@ -104,9 +104,10 @@ instead of hiding them.
 Workflow scripts call these as **bare globals** — no `import`/`require`/`ctx.*`. This is the full set
 injected by the pi runtime (the source of truth is `sandbox.<name> = …` in
 `extensions/pi-dynamic-workflows/worker-source.ts`). Per-primitive docs — signature, returns, when to
-use, gotchas, example — live in `extensions/pi-dynamic-workflows/primitives/` (one `<name>.md` each,
-kept 1:1 with the runtime by `primitives-parity.test.mjs`). The core is shared with Claude Code; the
-rest are pi-runtime globals.
+use, gotchas, example — are bundled with this skill under [`reference/primitives/`](reference/primitives/)
+(one `<name>.md` each; a byte-identical mirror of the canonical
+`extensions/pi-dynamic-workflows/primitives/`, kept 1:1 with the runtime by
+`primitives-parity.test.mjs`). The core is shared with Claude Code; the rest are pi-runtime globals.
 
 | Group | Primitive | One line | Runtime |
 | --- | --- | --- | --- |
@@ -330,8 +331,8 @@ call via `model`/`provider`. It is *not* "Codex"; Codex is just one of the provi
   (`agent`, `agents`, `pipeline`, `parallel`, `workflow`, `phase`, `log`, `args`, `compact`) matches
   Claude; pi adds `race`, `ask`, `bash`, `readFile`/`writeFile`/`appendFile`/`listFiles`,
   `writeArtifact`/`appendArtifact`, `sleep`, `json`, `limits`, `runId`, `runDir`, `cwd`. See
-  [Injected globals (full reference)](#injected-globals-full-reference) and the per-primitive docs in
-  `extensions/pi-dynamic-workflows/primitives/`.
+  [Injected globals (full reference)](#injected-globals-full-reference) and the per-primitive docs
+  bundled under [`reference/primitives/`](reference/primitives/).
 - **Per-node budget** is per call: `model` (pattern or `provider/id`, optional `:<effort>`),
   `provider`, `effort` (`low…max`, mapped onto the engine reasoning scale). `agentType` personas set
   defaults (`reviewer`/`planner`/`researcher` → high; `explore`/`implementer` → medium). Scope access

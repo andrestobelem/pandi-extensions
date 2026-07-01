@@ -27,6 +27,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const WORKER = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "worker-source.ts");
 const PRIM_DIR = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "primitives");
+// Self-contained skill mirror: a byte-identical copy so the ultracode skill works standalone
+// (installed without the extension). Kept in sync here — stricter than the claude-workflows snapshot.
+const MIRROR_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode", "reference", "primitives");
 
 const { check, counts } = createChecker();
 
@@ -81,6 +84,31 @@ function main() {
 		const firstHeading = (doc.split(/\r?\n/).find((l) => l.trim().length > 0) ?? "").trim();
 		const shapeOk = firstHeading.startsWith("# ") && /\*\*Runtime:\*\*/.test(doc) && /^##+\s+Example/m.test(doc);
 		check(`${name}.md has the required shape (# heading, **Runtime:**, ## Example)`, shapeOk, firstHeading);
+	}
+
+	// Skill mirror: byte-identical copy of the whole canonical folder (README.md included).
+	const mirrorExists = fs.existsSync(MIRROR_DIR) && fs.statSync(MIRROR_DIR).isDirectory();
+	check("skill mirror reference/primitives/ exists", mirrorExists, MIRROR_DIR);
+	if (mirrorExists) {
+		const canon = fs
+			.readdirSync(PRIM_DIR)
+			.filter((f) => f.endsWith(".md"))
+			.sort();
+		const mirror = fs
+			.readdirSync(MIRROR_DIR)
+			.filter((f) => f.endsWith(".md"))
+			.sort();
+		check(
+			"skill mirror has the same file set as canonical",
+			canon.join(",") === mirror.join(","),
+			`canon=${canon.length} mirror=${mirror.length}`,
+		);
+		const differ = canon.filter(
+			(f) =>
+				!mirror.includes(f) ||
+				fs.readFileSync(path.join(PRIM_DIR, f), "utf8") !== fs.readFileSync(path.join(MIRROR_DIR, f), "utf8"),
+		);
+		check("skill mirror is byte-identical to canonical", differ.length === 0, `drifted: ${differ.join(", ")}`);
 	}
 
 	finish();
