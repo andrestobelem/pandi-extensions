@@ -278,6 +278,62 @@ async function scenarioHandlers(url) {
 	}
 }
 
+async function scenarioBareActionSelector(url) {
+	const mod = await loadModule(url);
+	const makeCtx = ({ hasUI = true, selectResult } = {}) => {
+		const selectCalls = [];
+		return {
+			ctx: {
+				hasUI,
+				ui: {
+					select: async (title, items) => {
+						selectCalls.push({ title, items });
+						return selectResult;
+					},
+				},
+			},
+			selectCalls,
+		};
+	};
+
+	// bare + UI → opens the action selector and returns the chosen action token
+	{
+		const { ctx, selectCalls } = makeCtx({ selectResult: "stop \u2014 stop a machine" });
+		const out = await mod.resolveContainerInput("", ctx);
+		check("bare + UI opens the action selector once", selectCalls.length === 1, `calls=${selectCalls.length}`);
+		const items = selectCalls[0]?.items ?? [];
+		const has = (v) => items.some((i) => String(i).toLowerCase().startsWith(v));
+		check(
+			"selector offers all six actions",
+			["status", "list", "create", "run", "stop", "remove"].every(has),
+			JSON.stringify(items),
+		);
+		check("returns the chosen action token", out === "stop", String(out));
+	}
+
+	// headless (no UI) → never opens the selector; passes the (empty) input through unchanged
+	{
+		const { ctx, selectCalls } = makeCtx({ hasUI: false, selectResult: "stop" });
+		const out = await mod.resolveContainerInput("", ctx);
+		check("headless bare never opens the selector", selectCalls.length === 0, `calls=${selectCalls.length}`);
+		check("headless bare passes through empty input", out === "", JSON.stringify(out));
+	}
+
+	// explicit argument → bypasses the selector entirely
+	{
+		const { ctx, selectCalls } = makeCtx({ selectResult: "stop" });
+		const out = await mod.resolveContainerInput("list", ctx);
+		check("explicit arg bypasses the selector", selectCalls.length === 0 && out === "list", String(out));
+	}
+
+	// cancelling the selector → empty string (runCommand then shows help), no crash
+	{
+		const { ctx } = makeCtx({ selectResult: undefined });
+		const out = await mod.resolveContainerInput("", ctx);
+		check("cancelling the selector yields empty input", out === "", JSON.stringify(out));
+	}
+}
+
 async function scenarioRealSpawnMissingCli(url) {
 	const mod = await loadModule(url);
 	// REAL spawn of a guaranteed-absent binary → spawnError is real, message is bounded.
@@ -296,6 +352,7 @@ async function main() {
 	await scenarioPureHelpers(url);
 	await scenarioArgBuilders(url);
 	await scenarioHandlers(url);
+	await scenarioBareActionSelector(url);
 	await scenarioRealSpawnMissingCli(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);

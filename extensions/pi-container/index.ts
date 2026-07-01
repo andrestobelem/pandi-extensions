@@ -73,6 +73,29 @@ const HELP_TEXT = [
 
 const PLATFORM_MSG = "Apple `container` requires macOS on Apple Silicon (arm64); this host is not supported.";
 
+/** Human-labelled options for the bare `/container` action selector (first token is the value). */
+export const CONTAINER_SELECT_ITEMS = [
+	"status — subsystem + machine overview",
+	"list — list container machines",
+	"create — create a machine from an OCI image",
+	"run — run a command in a machine or an ephemeral container",
+	"stop — stop a machine",
+	"remove — delete a machine (asks for confirmation)",
+];
+
+/**
+ * Resolve the `/container` argument, opening an interactive action selector when the
+ * command is invoked bare in a session with a UI. Headless (no UI) and explicit args
+ * keep the unchanged behavior, so nothing regresses off-TUI. Cancelling returns "",
+ * which `runCommand` renders as the help text.
+ */
+export async function resolveContainerInput(input: string, ctx: ExtensionContext): Promise<string> {
+	const trimmed = input.trim();
+	if (trimmed || !ctx.hasUI || typeof ctx.ui?.select !== "function") return trimmed;
+	const choice = await ctx.ui.select("Container action", CONTAINER_SELECT_ITEMS);
+	return choice?.split(/\s+/)[0] ?? "";
+}
+
 // --------------------------------------------------------------------------
 // Command parsing (tiny, local — no shared runtime imports)
 // --------------------------------------------------------------------------
@@ -108,7 +131,7 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 		notify(ctx, PLATFORM_MSG, "error");
 		return;
 	}
-	const { action, rest, command } = parseContainerCommand(input);
+	const { action, rest, command } = parseContainerCommand(await resolveContainerInput(input, ctx));
 	const opts = { cwd: ctx.cwd, signal: ctx.signal ?? undefined };
 
 	if (action === "help" || action === "-h" || action === "--help") {
