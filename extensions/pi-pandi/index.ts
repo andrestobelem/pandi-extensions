@@ -50,7 +50,7 @@ import {
 	parseFaceStyle,
 	parseFgRgb,
 } from "./face.js";
-import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
+import { greetingText, MOODS, PANDI_QUOTE, pick } from "./moods.js";
 import { pandiPersonaBlock } from "./persona.js";
 
 const STATUS_KEY = "pandi";
@@ -218,7 +218,9 @@ export default function (pi: ExtensionAPI) {
 		if (enabled) {
 			const f = pandaFaces(ctx.ui.theme);
 			const greet = Math.random() < 0.1 ? f.gatuno : f.happy; // easter egg gatuno-panda
-			ctx.ui.notify(`${greet} Pandi listo. ${PANDI_QUOTE[0]} ${PANDI_QUOTE[1]}`, "info");
+			// No repitas la frase principal si el splash ya la muestra (artVisible); solo la
+			// llevamos en el saludo cuando el splash está oculto.
+			ctx.ui.notify(`${greet} ${greetingText(artVisible)}`, "info");
 		}
 	});
 

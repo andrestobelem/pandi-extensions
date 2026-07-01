@@ -48,3 +48,12 @@ export const MOODS = [
 
 /** Pick a uniformly-random element. Always returns a member of a non-empty array. */
 export const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
+
+/**
+ * Text of the start greeting (the part after the animated face). The two-line PANDI_QUOTE is
+ * the SPLASH's job, so when the splash art is visible we must NOT repeat it here — the
+ * greeting is just "Pandi listo.". When the splash is hidden (`/pandi art` off) the greeting
+ * carries the quote so the meme still appears somewhere.
+ */
+export const greetingText = (splashVisible: boolean): string =>
+	splashVisible ? "Pandi listo." : `Pandi listo. ${PANDI_QUOTE[0]} ${PANDI_QUOTE[1]}`;

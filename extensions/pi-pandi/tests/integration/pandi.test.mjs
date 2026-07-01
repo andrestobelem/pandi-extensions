@@ -57,7 +57,7 @@ function fold(value) {
 }
 
 async function scenarioMoodsUnit(url) {
-	const { MOODS, PANDI_QUOTE, pick } = await loadModule(url);
+	const { MOODS, PANDI_QUOTE, pick, greetingText } = await loadModule(url);
 
 	check("MOODS is a non-empty array", Array.isArray(MOODS) && MOODS.length > 0, String(MOODS?.length));
 	check("MOODS has no duplicates", new Set(MOODS).size === MOODS.length);
@@ -108,6 +108,29 @@ async function scenarioMoodsUnit(url) {
 	check(
 		"PANDI_QUOTE lines are non-empty strings",
 		PANDI_QUOTE.every((line) => typeof line === "string" && line.trim().length > 0),
+	);
+
+	// The start greeting must NOT repeat the splash's main phrase when the splash is visible
+	// (the two-line PANDI_QUOTE is the splash's job). When the splash is hidden the greeting
+	// carries the quote so the meme still appears somewhere.
+	check("greetingText is a function", typeof greetingText === "function");
+	const withSplash = greetingText(true);
+	const withoutSplash = greetingText(false);
+	check("greetingText(splashVisible=true) says 'Pandi listo.'", withSplash.includes("Pandi listo."));
+	check(
+		`greetingText(splashVisible=true) does NOT repeat the main phrase: ${JSON.stringify(withSplash)}`,
+		!withSplash.includes(PANDI_QUOTE[0]) && !withSplash.includes(PANDI_QUOTE[1]),
+	);
+	check(
+		"greetingText(splashVisible=false) DOES carry the main phrase",
+		withoutSplash.includes(PANDI_QUOTE[0]) && withoutSplash.includes(PANDI_QUOTE[1]),
+	);
+	check(
+		"greetingText returns a trimmed, non-empty string in both modes",
+		withSplash.trim() === withSplash &&
+			withSplash.length > 0 &&
+			withoutSplash.trim() === withoutSplash &&
+			withoutSplash.length > 0,
 	);
 }
 
