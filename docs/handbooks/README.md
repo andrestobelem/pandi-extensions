@@ -20,6 +20,4 @@ up to date as the project evolves.
 
 ## Index
 
-<!-- Add handbook pages here as they are created. -->
-
-No handbook pages yet.
+- [Workflow catalog (quick reference)](./workflow-catalog.md) — the 25 dynamic-workflow scaffolds by family, with descriptions and use cases.
