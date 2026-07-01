@@ -25,10 +25,12 @@ El corazón del repo es **Dynamic Workflows / Ultracode**: scripts JavaScript co
 | Capacidad | Requisito | Instalación |
 | --- | --- | --- |
 | Búsqueda web para subagentes (`web_search`) | extensión `pi-codex-web-search` + CLI `codex` | `pi install npm:pi-codex-web-search` y `brew install codex` (o `npm install -g @openai/codex`) |
-| Docs de librerías on-demand (Context7) | skill `context7-cli` (CLI `ctx7`) | `npm install -g ctx7@latest`, luego `ctx7 skills install ...` |
+| Docs de librerías on-demand (Context7) | skill `context7-cli` (**ya vendorizado**) + CLI `ctx7` | `ctx7` es devDependency: corre con `npx ctx7` tras `npm install` (o global: `npm i -g ctx7@latest`) |
 | Gráficos PNG de `/workflow graph` | `@mermaid-js/mermaid-cli` (`mmdc`) + Chrome de Puppeteer | se instala solo con `npm install`; si falla el render: `npx puppeteer browsers install chrome-headless-shell` |
 | Sandboxes Linux (`pi-container`) | Apple `container` (macOS Apple Silicon) | `brew install container && container system kernel set --recommended && container system start` |
 | Aislamiento micro-VM (Gondolin) | `@earendil-works/gondolin` (darwin-arm64 / linux-x64, Node ≥ 23.6.0) | `npm run setup:gondolin`, luego `pi -e .pi/tools/gondolin` |
+
+> Todo el toolchain de dev (`biome`, `tsc`, `esbuild`, `markdownlint-cli2`, `prettier`, `@mermaid-js/mermaid-cli`, `ctx7`) son **devDependencies**: se instalan con `npm install` y corren vía `npm run …`/`npx`, sin instalación global. Lo único que se instala globalmente es el **CLI de Pi**. Verificá tu entorno con `npm run doctor`.
 
 ## Quickstart (de cero a tu primer workflow)
 
@@ -44,8 +46,11 @@ pi --version                        # verificar
 git clone https://github.com/andrestobelem/pi-dynamic-workflows.git
 cd pi-dynamic-workflows
 
-# 3. Instalá el toolchain de dev (+ mmdc opcional)
+# 3. Instalá el toolchain de dev (biome, tsc, esbuild, markdownlint, prettier, mmdc, ctx7)
 npm install
+
+# 3b. Chequeá tu entorno: requisitos obligatorios + capacidades opcionales
+npm run doctor
 
 # 4. Corré el gate completo (typecheck + biome + markdownlint + tests de integración)
 npm test
@@ -145,7 +150,7 @@ Todas se cargan por defecto desde el campo `pi.extensions` del `package.json` al
 ## Capacidades opcionales y cómo activarlas
 
 - **Búsqueda web (`web_search`) para subagentes** — instalá `pi install npm:pi-codex-web-search` (paquete separado, repo `github.com/ayagmar/pi-codex-web-search`) y el CLI `codex` (`brew install codex` o `npm install -g @openai/codex`). Cuando el runtime encuentra la extensión (en `~/.pi/agent/npm/node_modules/` o `./node_modules/`), agrega `web_search` a la tool list de cada subagente automáticamente. Si `codex` no está en el PATH, apuntalo con `CODEX_PATH`. Opt-out por subagente: `excludeTools: ["web_search"]` o `includeExtensions: false`.
-- **Context7 (docs de librerías)** — `npm install -g ctx7@latest`, luego instalá el skill `context7-cli` con `ctx7 skills install ...`. El runtime lo autodescubre en `.agents/skills/`, `.pi/skills/`, `~/.pi/agent/skills/` o `~/.agents/skills/` y lo agrega a los subagentes. Opt-out: `includeSkills: false`.
+- **Context7 (docs de librerías)** — el skill `context7-cli` ya viene **vendorizado** en este repo (`.pi/skills/context7-cli/`, shippeado vía `pi.skills`), así que el runtime lo autodescubre y lo agrega a los subagentes sin instalar nada aparte. Solo necesitás el CLI `ctx7`, que viene como **devDependency**: corre con `npx ctx7` tras `npm install` (o global con `npm i -g ctx7@latest`). El skill es un snapshot; refrescalo con `ctx7 skills install ...` cuando quieras. Opt-out por subagente: `includeSkills: false`.
 - **Gráficos de `/workflow graph`** — `mmdc` se instala solo con `npm install` (optionalDependency `@mermaid-js/mermaid-cli`). El PNG inline necesita un terminal con protocolo de imágenes (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi lo desactiva bajo tmux). Si `mmdc` falla por Chrome/Puppeteer: `npx puppeteer browsers install chrome-headless-shell`. Sin `mmdc`: fallback a topología ASCII + export Mermaid.
 - **Sandboxes Linux (`pi-container`)** — solo macOS Apple Silicon: `brew install container && container system kernel set --recommended && container system start`. En hosts no soportados la extensión devuelve un mensaje acotado, no crashea.
 - **Aislamiento Gondolin (micro-VM)** — `npm run setup:gondolin` copia el ejemplo que trae Pi a `.pi/tools/gondolin/` (gitignoreado, no auto-descubierto) e instala sus deps con `--ignore-scripts`; cargalo on-demand con `pi -e .pi/tools/gondolin`. Requiere darwin-arm64/linux-x64 y Node ≥ 23.6.0. No aísla los spawns de subagentes de dynamic-workflows (ver `docs/gondolin-isolation.md`).
