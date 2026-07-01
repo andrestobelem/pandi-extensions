@@ -8,7 +8,8 @@
  *   - Text input starting with `ultracode ...` uses the same transformation.
  *   - The always-on Ultracode router advertises the same lightweight Contract Gate
  *     contract without double-injecting generated /dynamic-workflow prompts.
- *   - The legacy /ultracode slash command is removed; /dynamic-workflow is the primary command.
+ *   - /ultracode is registered as a faithful alias of /dynamic-workflow (its behavior is pinned
+ *     separately in ultracode-command-alias.test.mjs; here we only assert it exists).
  *   - /ultracode-contract can disable and re-enable the Contract Gate without
  *     disabling Ultracode routing.
  */
@@ -156,14 +157,16 @@ async function scenarioSlashCommand(url) {
 	assertContractGate("/dynamic-workflow prompt", prompt);
 }
 
-async function scenarioUltracodeCommandRemoved(url) {
+async function scenarioDynamicWorkflowCommand(url) {
 	const extension = await freshExtension(url);
 	const harness = makePi();
 	extension(harness.pi);
 	const dynamicWorkflow = harness.commands.get("dynamic-workflow");
 	const ultracode = harness.commands.get("ultracode");
 	check("/dynamic-workflow command registered", !!dynamicWorkflow);
-	check("/ultracode slash command removed (no longer registered)", !ultracode, String(ultracode));
+	// /ultracode is a registered alias of /dynamic-workflow (full alias behavior lives in
+	// ultracode-command-alias.test.mjs); assert only that it is registered.
+	check("/ultracode is registered as an alias of /dynamic-workflow", !!ultracode, String(ultracode));
 
 	const notifications = [];
 	await dynamicWorkflow.handler("   ", makeCtx({ notifications }));
@@ -397,7 +400,7 @@ async function main() {
 	const { outDir, url } = await buildExtension();
 	try {
 		await scenarioSlashCommand(url);
-		await scenarioUltracodeCommandRemoved(url);
+		await scenarioDynamicWorkflowCommand(url);
 		await scenarioInputTransform(url);
 		await scenarioAlwaysOn(url);
 		await scenarioContractGateToggle(url);
