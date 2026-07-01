@@ -1,6 +1,70 @@
 # pi-dynamic-workflows
 
-Implementación para **Pi** de workflows dinámicos estilo Claude Code: scripts JavaScript que orquestan subagentes de Pi en paralelo, guardan artefactos fuera del contexto del chat y devuelven una síntesis coordinada.
+**Suite de 17 extensiones para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de codificación agentic `@earendil-works/pi-coding-agent` — que le trae a Pi la ergonomía y las capacidades de Claude Code: **workflows dinámicos multi-agente** (la pieza central), más `/loop`, `/goal`, `/plan`, memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios alias/atajos de UX.
+
+El corazón del repo es **Dynamic Workflows / Ultracode**: scripts JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, guardar artefactos fuera del contexto del chat y devolver una síntesis coordinada. El resto de las extensiones son piezas independientes que podés instalar sueltas o todas juntas.
+
+- **Licencia:** MIT · **Repo:** <https://github.com/andrestobelem/pi-dynamic-workflows>
+- **Requisito mínimo:** Node.js ≥ 22.19.0 + el CLI de Pi + git.
+
+## Requisitos
+
+### Obligatorios
+
+| Requisito | Para qué | Instalación |
+| --- | --- | --- |
+| **Node.js ≥ 22.19.0** | Runtime (lo exige `@earendil-works/pi-coding-agent`; el repo fija `22` en `.nvmrc`). | `nvm install 22 && nvm use 22` — o `brew install node` |
+| **Pi CLI** (`@earendil-works/pi-coding-agent`) | Host que carga extensiones, TUI/RPC, `pi install` y el spawner de subagentes. | `npm install -g --ignore-scripts @earendil-works/pi-coding-agent` (verificá con `pi --version`) |
+| **npm** | Instala el toolchain de dev y corre `npm test`. Viene con Node. | (incluido en Node) |
+| **git** | Lo usan `pi-worktree` y los scouts de los workflows. | `xcode-select --install` o `brew install git` |
+
+> Node 22 es el piso. Para la extensión opcional Gondolin necesitás Node ≥ 23.6.0.
+
+### Opcionales (cada uno activa una capacidad; sin él, esa capacidad simplemente no está)
+
+| Capacidad | Requisito | Instalación |
+| --- | --- | --- |
+| Búsqueda web para subagentes (`web_search`) | extensión `pi-codex-web-search` + CLI `codex` | `pi install npm:pi-codex-web-search` y `brew install codex` (o `npm install -g @openai/codex`) |
+| Docs de librerías on-demand (Context7) | skill `context7-cli` (CLI `ctx7`) | `npm install -g ctx7@latest`, luego `ctx7 skills install ...` |
+| Gráficos PNG de `/workflow graph` | `@mermaid-js/mermaid-cli` (`mmdc`) + Chrome de Puppeteer | se instala solo con `npm install`; si falla el render: `npx puppeteer browsers install chrome-headless-shell` |
+| Sandboxes Linux (`pi-container`) | Apple `container` (macOS Apple Silicon) | `brew install container && container system kernel set --recommended && container system start` |
+| Aislamiento micro-VM (Gondolin) | `@earendil-works/gondolin` (darwin-arm64 / linux-x64, Node ≥ 23.6.0) | `npm run setup:gondolin`, luego `pi -e .pi/tools/gondolin` |
+
+## Quickstart (de cero a tu primer workflow)
+
+```bash
+# 0. Node >= 22.19.0 (nvm recomendado; el repo trae .nvmrc)
+nvm install && nvm use              # lee .nvmrc (22)
+
+# 1. Instalá el runtime de Pi globalmente
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+pi --version                        # verificar
+
+# 2. Cloná el repo
+git clone https://github.com/andrestobelem/pi-dynamic-workflows.git
+cd pi-dynamic-workflows
+
+# 3. Instalá el toolchain de dev (+ mmdc opcional)
+npm install
+
+# 4. Corré el gate completo (typecheck + biome + markdownlint + tests de integración)
+npm test
+
+# 5. Instalá TODAS las extensiones + skills en Pi (global para tu usuario)
+pi install ./                       # local al proyecto: pi install -l ./
+
+# 6. Abrí Pi en tu proyecto y confialo
+cd /tu/proyecto && pi
+#   dentro de Pi:  /trust   y luego   /reload
+
+# 7. Smoke test: confirmá que cargó
+#   /effort status      (router ultracode)
+#   /workflows          (dashboard TUI)  o  /workflow patterns
+
+# 8. (Opcional) capacidades extra
+npm install -g @openai/codex && pi install npm:pi-codex-web-search   # web_search
+npx puppeteer browsers install chrome-headless-shell                 # gráficos PNG
+```
 
 ## Instalación
 
@@ -42,6 +106,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | Local memory | `pi install ./extensions/pi-local-memory` |
 | Auto-compact context | `pi install ./extensions/pi-auto-compact-context` |
 | `/worktree` | `pi install ./extensions/pi-worktree` |
+| `/container` (sandboxes Linux) | `pi install ./extensions/pi-container` |
 | TypeScript diagnostics | `pi install ./extensions/pi-typescript-lsp` |
 | `/rename` | `pi install ./extensions/pi-rename` |
 | `/btw` | `pi install ./extensions/pi-btw` |
@@ -50,6 +115,55 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `/clear` (alias de `/new`) | `pi install ./extensions/pi-clear` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
+
+## Catálogo de extensiones
+
+Todas se cargan por defecto desde el campo `pi.extensions` del `package.json` al hacer `pi install ./`. Cada una es también instalable suelta (tabla anterior).
+
+| Extensión | Superficie (humano · modelo) | Qué hace | Requisitos extra |
+| --- | --- | --- | --- |
+| **pi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | Runtime de workflows JS para orquestación multi-agente con ejecución paralela, artefactos y resume idempotente. | opcional: mmdc, web_search, Context7 |
+| **pi-loop** | `/loop` · `loop_schedule`, `loop_stop` | Loop iterativo con cadencia dinámica o fija, controlada por el modelo o la extensión. | TUI/RPC; autopilot requiere trust |
+| **pi-goal** | `/goal` · `goal_progress` | Loop dirigido a objetivo con chequeo de completitud obligatorio y verificador independiente opcional. | TUI/RPC |
+| **pi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Plan mode read-only con mutaciones bloqueadas hasta tu aprobación explícita del plan. | TUI/RPC (o `PI_PLAN_NONINTERACTIVE=1`) |
+| **pi-effort** | `/effort status\|off\|minimal\|low\|medium\|high\|xhigh\|ultracode` | Cambia el thinking level estilo Claude; `ultracode` activa el router de workflows. | `ultracode` requiere el core cargado |
+| **pi-local-memory** | `remember` | Memoria local en `.pi/memory/`: índice auto-inyectado + archivos por tema on-demand. | ⚠ auto-inyecta memoria: solo proyectos confiables |
+| **pi-auto-compact-context** | `/auto-compact-context [bar\|snapshot\|snapshots\|clear-tools]` | Auto-compacta el contexto al cruzar un umbral, con snapshots recuperables y barra de progreso. | configurable vía `PI_AUTO_COMPACT_*` |
+| **pi-typescript-lsp** | `/tsc` · `typescript_diagnostics` | Feedback de `tsc --noEmit` acotado a los archivos tocados en el turno; no bloqueante. | `tsconfig.json` en el proyecto |
+| **pi-worktree** | `/worktree` · `git_worktree` | Gestiona git worktrees desde Pi; abre sesiones nuevas, nunca cambia el cwd. | git + repo git |
+| **pi-container** | `/container` · `container_sandbox` | Corre comandos Linux aislados en micro-VMs de Apple `container`, sin tocar el host. | macOS Apple Silicon + `container` |
+| **pi-bg** | `/bg` | Jobs en background in-memory para comandos sueltos del humano; no resumible (primo chico de `dynamic_workflow`). | trust para `start` |
+| **pi-mdview** | `/mdview` | Abre un Markdown en la TUI de Pi con scroll. | — |
+| **pi-btw** | `/btw` | Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial. | — |
+| **pi-rename** | `/rename` | Renombra la sesión o autogenera el nombre desde el historial (estilo Claude). | opcional: `PI_RENAME_*` |
+| **pi-pandi** | `/pandi [art\|face\|off\|on]` | Personaje panda: splash animado, indicador, verbos y ánimo. | TUI para el efecto completo |
+| **pi-exit** | `/exit` | Alias estilo Claude de `/quit` para salir limpio. | — |
+| **pi-clear** | `/clear` | Alias estilo Claude de `/new` para empezar sesión nueva. | — |
+
+> Las 17 filas de arriba son exactamente las extensiones registradas en `pi.extensions` y se cargan con `pi install ./`. `extensions/shared/` no es una extensión: es código de harness para tests, no se publica ni se carga.
+
+## Capacidades opcionales y cómo activarlas
+
+- **Búsqueda web (`web_search`) para subagentes** — instalá `pi install npm:pi-codex-web-search` (paquete separado, repo `github.com/ayagmar/pi-codex-web-search`) y el CLI `codex` (`brew install codex` o `npm install -g @openai/codex`). Cuando el runtime encuentra la extensión (en `~/.pi/agent/npm/node_modules/` o `./node_modules/`), agrega `web_search` a la tool list de cada subagente automáticamente. Si `codex` no está en el PATH, apuntalo con `CODEX_PATH`. Opt-out por subagente: `excludeTools: ["web_search"]` o `includeExtensions: false`.
+- **Context7 (docs de librerías)** — `npm install -g ctx7@latest`, luego instalá el skill `context7-cli` con `ctx7 skills install ...`. El runtime lo autodescubre en `.agents/skills/`, `.pi/skills/`, `~/.pi/agent/skills/` o `~/.agents/skills/` y lo agrega a los subagentes. Opt-out: `includeSkills: false`.
+- **Gráficos de `/workflow graph`** — `mmdc` se instala solo con `npm install` (optionalDependency `@mermaid-js/mermaid-cli`). El PNG inline necesita un terminal con protocolo de imágenes (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi lo desactiva bajo tmux). Si `mmdc` falla por Chrome/Puppeteer: `npx puppeteer browsers install chrome-headless-shell`. Sin `mmdc`: fallback a topología ASCII + export Mermaid.
+- **Sandboxes Linux (`pi-container`)** — solo macOS Apple Silicon: `brew install container && container system kernel set --recommended && container system start`. En hosts no soportados la extensión devuelve un mensaje acotado, no crashea.
+- **Aislamiento Gondolin (micro-VM)** — `npm run setup:gondolin` copia el ejemplo que trae Pi a `.pi/tools/gondolin/` (gitignoreado, no auto-descubierto) e instala sus deps con `--ignore-scripts`; cargalo on-demand con `pi -e .pi/tools/gondolin`. Requiere darwin-arm64/linux-x64 y Node ≥ 23.6.0. No aísla los spawns de subagentes de dynamic-workflows (ver `docs/gondolin-isolation.md`).
+
+## Configuración (variables de entorno)
+
+Todas las extensiones traen defaults sensatos; no necesitás configurar nada para empezar. Para ajustar comportamiento, exportá variables de entorno — la lista completa con defaults está en **`.env.example`**. Las más usadas:
+
+| Variable | Extensión | Default | Para qué |
+| --- | --- | --- | --- |
+| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | core | `2` | Profundidad máxima de anidación de workflows; `0` = kill-switch total. |
+| `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` | core, goal | `pi` | Binario de Pi para spawnear subagentes. |
+| `PI_AUTO_COMPACT_PERCENT` | auto-compact | `30` | % de contexto que dispara la compactación. |
+| `PI_TS_LSP` / `PI_TS_LSP_MODE` | typescript-lsp | `on` / `advisory` | Habilita el feedback de tsc y su modo (`advisory`/`autofix`). |
+| `PI_PLAN_NONINTERACTIVE` | plan | (off) | Permite plan mode en print/json (subagentes). |
+| `CODEX_PATH` | web-search | (PATH) | Ruta al binario `codex` si no está en el PATH. |
+
+`.env` está gitignoreado; `.env.example` se commitea. Este repo no carga `.env` automáticamente: exportá las variables en tu shell o usá `direnv`/`dotenvx`.
 
 ## Uso
 
@@ -568,3 +682,7 @@ Buenas prácticas:
 - Revisa workflows antes de ejecutarlos, especialmente si vienen de terceros.
 
 Para ver los scaffolds disponibles, usá `/workflow patterns` o `dynamic_workflow action=scaffold`; los runs reales deberían crear workflows task-specific dinámicamente.
+
+## Licencia
+
+MIT — ver [`LICENSE`](./LICENSE).
