@@ -55,8 +55,8 @@ regexes → tracks the source.
 - `node examples/e2e/safety-gates.e2e.mjs` → `TOTAL: 61 passed, 0 failed`, EXIT 0.
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/safety-gates.e2e.mjs`
-- NEW (this log): `/Users/andrestobelem/ws/at/pi-dynamic-workflows/docs/research/continuous-improvement-log.md`
+- NEW: `examples/e2e/safety-gates.e2e.mjs`
+- NEW (this log): `docs/research/continuous-improvement-log.md`
 
 **Type of change:** REAL (new file, behavior verified and fault-injected). Not a proposal.
 
@@ -133,8 +133,8 @@ real regressions at the safety point.
 - `node examples/e2e/safety-gates.e2e.mjs` → 61/61 (no regression).
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/goal-verifier.e2e.mjs`
-- THIS log: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/docs/research/continuous-improvement-log.md`
+- NEW: `examples/e2e/goal-verifier.e2e.mjs`
+- THIS log: `docs/research/continuous-improvement-log.md`
 
 **Type of change:** REAL (new file, behavior verified and fault-injected). Not a proposal.
 **loop-until-dry counter:** 0 (this pass DID commit a high-value improvement). Passes used: 2/8.
@@ -243,8 +243,8 @@ junk/foreign/malformed ignored without crash; no-double-fire on second session_s
 
 **Files touched (absolute paths):**
 
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/goal-rehydrate.e2e.mjs`
-- THIS log: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/docs/research/continuous-improvement-log.md`
+- NEW: `examples/e2e/goal-rehydrate.e2e.mjs`
+- THIS log: `docs/research/continuous-improvement-log.md`
 
 **Type of change:** REAL (new file, verified and fault-injected behavior). Not a proposal.
 **loop-until-dry counter:** 0 (this pass DID commit a high-value improvement). Passes used: 3/8.
@@ -354,9 +354,9 @@ paused-spared + healthy-untouched via rehydrate, interval parser/clamp (30s/5m/2
 - `node examples/e2e/goal-rehydrate.e2e.mjs` → **31/31, EXIT 0** (no regression).
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/loop-behavior.e2e.mjs`
+- NEW: `examples/e2e/loop-behavior.e2e.mjs`
 
-- THIS log: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/docs/research/continuous-improvement-log.md`
+- THIS log: `docs/research/continuous-improvement-log.md`
 
 **Change type:** REAL (new file, behavior verified and fault-injected x3). Not a proposal.
 **loop-until-dry counter:** 0 (this pass DID deliver a high-value improvement). Passes used: 4/8.
@@ -470,9 +470,9 @@ control:** if the `lib/` path is flattened (file at the root instead of under `l
   31/31, loop-behavior 37/37 — all EXIT 0.
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/workflows/lib/rank-candidates.js`
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/workflows/composition-rank-driver.js`
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/composition-rank.e2e.mjs`
+- NEW: `examples/workflows/lib/rank-candidates.js`
+- NEW: `examples/workflows/composition-rank-driver.js`
+- NEW: `examples/e2e/composition-rank.e2e.mjs`
 - THIS log.
 
 **Type of change:** REAL (3 new files; own defect found+fixed; behavior verified and fault-injected x2). Not a proposal. **Deferred proposal (not edited):** add the second lib/driver to the core `dynamic-workflows.ts` recipes catalog (`composition-driver` currently only cites `lib/verify-claims`).
@@ -547,7 +547,7 @@ runDir reads `events.jsonl`. This is exactly what a real tool consumer faces.
   goal-rehydrate 31/31, loop-behavior 37/37 — all EXIT 0.
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/composition-failure-recursion.e2e.mjs`
+- NEW: `examples/e2e/composition-failure-recursion.e2e.mjs`
 - THIS log.
 
 **Type of change:** REAL (new file; design finding found+fixed; behavior verified and
@@ -578,7 +578,7 @@ Artifacts: workflow run `2026-06-25T13-34-47-683Z-generated-goal-pass1-improveme
 **Chosen improvement:** add `examples/e2e/run-all.mjs`, an explicit sequential runner for the durable e2e suite. Rationale: high value and low risk, new owned file, does not touch core or `package.json`, makes the existing behavioral verification observable in a single command.
 
 **Implementation:**
-- New: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- New: `examples/e2e/run-all.mjs`
 - Explicit manifest of green suites: `composition-rank`, `dynamic-workflow-composition`, `goal-rehydrate`, `goal-verifier`, `loop-behavior`, `safety-gates`.
 - `--list` prints suites and ignored drafts.
 - Validation of unknown args.
@@ -702,7 +702,7 @@ the OBSERVABLE graph text (not copies of internals). Extra cross-cutting check: 
 - `node examples/e2e/composition-graph-expansion.e2e.mjs` → 31/31, EXIT 0.
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/composition-graph-expansion.e2e.mjs`
+- NEW: `examples/e2e/composition-graph-expansion.e2e.mjs`
 - THIS log.
 
 **Type of change:** REAL (new file; design finding found+fixed; behavior verified and
@@ -742,7 +742,7 @@ to move even if it passes today, and leaving it there is inert (the guard only r
 - `npm test` → EXIT 0.
 
 **Files touched (absolute paths):**
-- EDITED (single additive line, justified above): `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- EDITED (single additive line, justified above): `examples/e2e/run-all.mjs`
 - THIS log.
 
 **Type of change:** REAL (blocking fix for the regression introduced in Pass 7; integrates the new suite into the
@@ -850,8 +850,8 @@ previous goal. `run-all.mjs` mtime 10:57:37 stable, no concurrent edit during th
 - `node examples/e2e/run-all.mjs` → **8/8 suites passed, EXIT 0** (no regression).
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/plan-approval.e2e.mjs`
-- EDITED (1 additive line, justified above): `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- NEW: `examples/e2e/plan-approval.e2e.mjs`
+- EDITED (1 additive line, justified above): `examples/e2e/run-all.mjs`
 - THIS log.
 
 **Change type:** REAL (new file; honest finding documented; behavior verified and fault-injected
@@ -961,8 +961,8 @@ of the previous goal and IMPROVEMENT A (pass 7).
 - `node examples/e2e/run-all.mjs` → **9/9 suites passed, EXIT 0** (no regression).
 
 **Files touched (absolute paths):**
-- NEW: `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/loop-caps-resume.e2e.mjs`
-- EDITED (1 additive line, justified above): `/Users/andrestobelem/ws/at/pi-dynamic-workflows/examples/e2e/run-all.mjs`
+- NEW: `examples/e2e/loop-caps-resume.e2e.mjs`
+- EDITED (1 additive line, justified above): `examples/e2e/run-all.mjs`
 - THIS log.
 
 **Change type:** REAL (new file; 2 honest findings documented; behavior verified and fault-injected

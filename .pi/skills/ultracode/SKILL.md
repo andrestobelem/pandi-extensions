@@ -314,7 +314,7 @@ Workflow({
   approval** (the user watches the opened artifact and the live run, and interrupts if needed):
 
 ```sh
-node /Users/andrestobelem/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>'
+node ~/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>'
 open <out.html>
 ```
 
