@@ -263,6 +263,19 @@ async function race(thunks, options) {
     bridgeAbortToHost(sig, id);
     return await promise;
   };
+  // agents(items, options?) -> array of SubagentResult|null. Mirrors agentGlobal's per-call signal
+  // bridge so a race() loser that fans out via agents() has its in-flight children cancelled AT
+  // race-loss (not just at run end): strip the signal before posting (never serialize an
+  // AbortSignal) and post abort-call for this id on abort. All other options (model/effort/schema/
+  // label/concurrency/settle) pass through untouched -> the HOST's runAgents maps them per item.
+  const agentsGlobal = (items, options) => {
+    const opts = Object.assign({}, options || {});
+    const sig = opts.signal;
+    delete opts.signal;
+    const { id, promise } = hostCallTracked("agents", [items, opts]);
+    bridgeAbortToHost(sig, id);
+    return promise;
+  };
   let currentPhaseLabel = null;
   const phase = (label) => {
     currentPhaseLabel = label == null ? null : String(label);
@@ -271,7 +284,7 @@ async function race(thunks, options) {
 
   try {
     sandbox.agent = agentGlobal;
-    sandbox.agents = ctx.agents;
+    sandbox.agents = agentsGlobal;
     sandbox.parallel = ctx.parallel;
     sandbox.pipeline = ctx.pipeline;
     sandbox.race = ctx.race;

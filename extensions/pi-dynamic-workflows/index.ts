@@ -600,10 +600,12 @@ async function executeWorkflowCode(
 					return;
 				}
 				try {
-					if (method === "agent" || method === "ask") {
+					if (method === "agent" || method === "ask" || method === "agents") {
 						// Per-call signal: aborts on run abort OR an abort-call (race loser). timeoutMs 0
 						// => parent-only. Registered synchronously before any await, so an abort-call
-						// can never arrive before its controller exists. The store is read by runSubagent/runAsk.
+						// can never arrive before its controller exists. The store is read by
+						// runSubagent/runAsk and by runAgents' fan-out (so an agents() race loser is
+						// cancelled at race-loss, not only at run end).
 						const combined = combineSignal(signal, 0);
 						callControllers.set(message.id, combined);
 						try {
@@ -1245,8 +1247,12 @@ export async function runWorkflow(
 					name: item.name ?? `agent-${index + 1}`,
 				});
 			};
-			if (settle) return await mapLimit(items, concurrency, runSignal.signal, runItem, { onError: "null" });
-			return await mapLimit(items, concurrency, runSignal.signal, runItem);
+			// Fan out under the per-call signal when present (agents() dispatched inside callSignal),
+			// so an abort-call for this agents() call (a race loser) cancels the whole fan-out; falls
+			// back to the run signal for a bare agents() call.
+			const fanoutSignal = callSignal.getStore() ?? runSignal.signal;
+			if (settle) return await mapLimit(items, concurrency, fanoutSignal, runItem, { onError: "null" });
+			return await mapLimit(items, concurrency, fanoutSignal, runItem);
 		}
 		return runAgents as WorkflowRuntimeApi["agents"];
 	}
