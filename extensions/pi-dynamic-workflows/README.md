@@ -16,7 +16,7 @@ pi --no-extensions -e ./extensions/pi-dynamic-workflows
 
 - `dynamic_workflow` model tool for listing, templating, reading, writing, running, resuming, cancelling, graphing, and viewing workflows.
 - `/workflow` and `/workflows` human commands.
-- `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, and `/ultracode-contract` routing commands.
+- `/dynamic-workflow` (alias `/ultracode`), `/deep-research`, `/ultracode-mode`, and `/ultracode-contract` routing commands.
 - Ultracode Contract Gate guidance for a small read-only task-contract review workflow before broad scout/orchestration; disable it per session with `/ultracode-contract off`.
 - Visual state indicators when always-on routing is enabled: the prompt's top
   border embeds an `ultracode auto` label (using the border color, and only on a

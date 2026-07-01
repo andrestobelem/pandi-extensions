@@ -347,7 +347,7 @@ dynamic_workflow({ action: 'start', name: 'task-slug', input: {…}, concurrency
 dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { action: 'resume', name: runId }
 ```
 
-- **Commands:** `/ultracode <task>`, `/deep-research <q>`, `/ultracode-mode status|on|off`,
+- **Commands:** `/dynamic-workflow <task>` (alias `/ultracode <task>`), `/deep-research <q>`, `/ultracode-mode status|on|off`,
   `/workflow view|runs|resume`, `/workflows` (dashboard), `/workflow patterns`, `/workflow graph
   <name>`. Clamp to `limits.concurrency` / `limits.maxAgents`.
 - **Depth:** 2 by default, configurable to 3 via `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`. **Resume** is

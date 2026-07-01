@@ -1749,22 +1749,31 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		handler: async (ctx) => await openWorkflowDashboard(pi, ctx),
 	});
 
+	// /dynamic-workflow is the primary command; /ultracode is a working slash alias with identical
+	// behavior. Both route the task through the ultracode Contract Gate + workflow guidance.
+	const makeWorkflowRoutingHandler = (commandName: string) => async (args: string, ctx: ExtensionContext) => {
+		const task = args.trim();
+		if (!task) {
+			notify(ctx, `Usage: /${commandName} <task>`, "warning");
+			return;
+		}
+		if (!ensureDynamicWorkflowToolActive(pi))
+			notify(
+				ctx,
+				`dynamic_workflow tool is not active; ${commandName} will only provide routing guidance.`,
+				"warning",
+			);
+		sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
+	};
+
 	pi.registerCommand("dynamic-workflow", {
 		description: "Ask Pi to solve a complex task using dynamic workflows when warranted",
-		handler: async (args, ctx) => {
-			const task = args.trim();
-			if (!task) {
-				notify(ctx, "Usage: /dynamic-workflow <task>", "warning");
-				return;
-			}
-			if (!ensureDynamicWorkflowToolActive(pi))
-				notify(
-					ctx,
-					"dynamic_workflow tool is not active; dynamic-workflow will only provide routing guidance.",
-					"warning",
-				);
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
-		},
+		handler: makeWorkflowRoutingHandler("dynamic-workflow"),
+	});
+
+	pi.registerCommand("ultracode", {
+		description: "Alias for /dynamic-workflow: solve a complex task using dynamic workflows when warranted",
+		handler: makeWorkflowRoutingHandler("ultracode"),
 	});
 
 	pi.registerCommand("deep-research", {

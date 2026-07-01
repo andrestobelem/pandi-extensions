@@ -26,7 +26,7 @@ In this package, those principles are also operationalized as runtime mechanisms
 
 ## Ultracode / dynamic workflows
 
-For broad, high-confidence, or repo-wide tasks, use the Ultracode router (`/dynamic-workflow`, `/effort ultracode`, or `dynamic_workflow`) only when it earns its cost:
+For broad, high-confidence, or repo-wide tasks, use the Ultracode router (`/dynamic-workflow` (alias `/ultracode`), `/effort ultracode`, or `dynamic_workflow`) only when it earns its cost:
 
 - Scout inline first with cheap read-only probes to discover the real work-list.
 - Use dynamic workflows for scale, exhaustiveness, independent verification, or more context than one window.

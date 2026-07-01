@@ -8,7 +8,7 @@
  *   - Text input starting with `ultracode ...` uses the same transformation.
  *   - The always-on Ultracode router advertises the same lightweight Contract Gate
  *     contract without double-injecting generated /dynamic-workflow prompts.
- *   - The legacy /ultracode slash command is removed; /dynamic-workflow is the primary command.
+ *   - /dynamic-workflow is the primary command; /ultracode is a working slash alias with identical behavior.
  *   - /ultracode-contract can disable and re-enable the Contract Gate without
  *     disabling Ultracode routing.
  */
@@ -156,20 +156,30 @@ async function scenarioSlashCommand(url) {
 	assertContractGate("/dynamic-workflow prompt", prompt);
 }
 
-async function scenarioUltracodeCommandRemoved(url) {
+async function scenarioUltracodeCommandAlias(url) {
 	const extension = await freshExtension(url);
 	const harness = makePi();
 	extension(harness.pi);
 	const dynamicWorkflow = harness.commands.get("dynamic-workflow");
 	const ultracode = harness.commands.get("ultracode");
 	check("/dynamic-workflow command registered", !!dynamicWorkflow);
-	check("/ultracode slash command removed (no longer registered)", !ultracode, String(ultracode));
+	check("/ultracode slash alias registered", !!ultracode, String(ultracode));
+
+	await ultracode.handler("audita este repo", makeCtx());
+	const prompt = harness.messages[0]?.text ?? "";
+	check(
+		"/ultracode activates dynamic_workflow",
+		harness.activeTools.includes("dynamic_workflow"),
+		harness.activeTools.join(","),
+	);
+	check("/ultracode keeps original task", prompt.includes("Task:\naudita este repo"), prompt);
+	assertContractGate("/ultracode prompt", prompt);
 
 	const notifications = [];
-	await dynamicWorkflow.handler("   ", makeCtx({ notifications }));
+	await ultracode.handler("   ", makeCtx({ notifications }));
 	check(
-		"/dynamic-workflow with no task shows usage",
-		notifications.at(-1)?.message === "Usage: /dynamic-workflow <task>",
+		"/ultracode with no task shows usage",
+		notifications.at(-1)?.message === "Usage: /ultracode <task>",
 		JSON.stringify(notifications.at(-1)),
 	);
 }
@@ -397,7 +407,7 @@ async function main() {
 	const { outDir, url } = await buildExtension();
 	try {
 		await scenarioSlashCommand(url);
-		await scenarioUltracodeCommandRemoved(url);
+		await scenarioUltracodeCommandAlias(url);
 		await scenarioInputTransform(url);
 		await scenarioAlwaysOn(url);
 		await scenarioContractGateToggle(url);
