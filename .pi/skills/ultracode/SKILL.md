@@ -125,7 +125,8 @@ use, gotchas, example — are bundled with this skill under [`reference/primitiv
 | | `listFiles` | recursive list (skips `node_modules`/`.git`, `maxFiles`) | pi |
 | Artifacts (under `runDir`) | `writeArtifact` / `appendArtifact` | write / append a run-scoped inspectable artifact (append is concurrency-safe) | pi |
 | Utilities | `sleep` | abortable delay | pi |
-| | `json` / `compact` | bounded, safe stringify (use `compact` for prompts) | `compact` shared |
+| | `json` | bounded, safe JSON stringify | pi |
+| | `compact` | bounded, safe stringify (use for prompts); Claude Code scaffolds carry a local copy, not an injected global | shared |
 | | `args` | the workflow input (parse defensively; JSON-stringified on Claude) | shared |
 | Run context (read-only) | `limits` | `{ concurrency, maxAgents, … }` caps (clamp + `log()`) | pi |
 | | `runId` / `runDir` / `cwd` | run id / run dir (artifacts) / working dir | pi |
@@ -156,7 +157,7 @@ whichever provider is active), so the same knobs target **Anthropic OR OpenAI/Co
 **Anthropic** — the same Claude family as the Claude Code runtime, addressed as `anthropic/…`:
 
 - `anthropic/claude-opus-4-8` · `anthropic/claude-sonnet-4-6`
-- `anthropic/claude-haiku-4-5-20251001`  (`anthropic/claude-fable-5` exists but is **currently disabled**)
+- `anthropic/claude-haiku-4-5`  (`anthropic/claude-fable-5` exists but is **currently disabled**)
 - pattern aliases `opus` / `sonnet` / `haiku` resolve through pi's **provider routing**, which may pick a
   provider you have **not** authenticated (e.g. `amazon-bedrock` → the run fails fast with `No API key
   found for <provider>`). They only "resolve to the current id" when that provider has a key. **Prefer a
@@ -220,7 +221,7 @@ Any value that is **not** part of your trusted prompt — the user request, file
 - It is **one layer** of defense-in-depth — fences stop breakout, not in-context persuasion. Combine
   with read-only tools for audits, least-privilege tool/skill/key grants, and conservative judges.
 
-The Claude catalog ships a `fence(kind, data)` helper (beside `compact()`) in every scaffold.
+The Claude catalog ships a `fence(kind, data)` helper (beside `compact()`) in every scaffold that handles untrusted data (24 of 25 — `recursive-compose` delegates to sub-workflows and fences nothing itself).
 
 ## Prompting patterns
 
@@ -347,7 +348,8 @@ dynamic_workflow({ action: 'start', name: 'task-slug', input: {…}, concurrency
 dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { action: 'resume', name: runId }
 ```
 
-- **Commands:** `/ultracode <task>`, `/deep-research <q>`, `/ultracode-mode status|on|off`,
+- **Commands:** `/ultracode <task>` (alias of `/dynamic-workflow <task>`), `/dynamic-workflow <task>`,
+  `/deep-research <q>`, `/ultracode-mode status|on|off`, `/ultracode-contract status|on|off`,
   `/workflow view|runs|resume`, `/workflows` (dashboard), `/workflow patterns`, `/workflow graph
   <name>`. Clamp to `limits.concurrency` / `limits.maxAgents`.
 - **Depth:** 2 by default, configurable to 3 via `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`. **Resume** is
@@ -368,7 +370,7 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
 | --- | --- | --- |
 | Tool | `Workflow` | `dynamic_workflow` |
 | Script API | helper globals (`agent`, `parallel`, …) | same helper globals (`agent`, `parallel`, …) |
-| Budget knobs | `model` · `effort` (low…max) | `model`/`provider` · `effort` (low…max → off…xhigh) |
+| Budget knobs | `model` · `effort` (low…max) | `model`/`provider` · `effort` (`off\|minimal\|low\|medium\|high\|xhigh`; `max`→`xhigh`) |
 | Models | `haiku`/`sonnet`/`opus` (`fable` disabled) | Anthropic ids OR `openai-codex/gpt-5.x` |
 | Per-role | `node(role)` helper / inline / `models`+`efforts` | per-call + `agentType` personas |
 | Catalog | `~/.claude/workflows/` + README | `dynamic_workflow action=scaffold` |
