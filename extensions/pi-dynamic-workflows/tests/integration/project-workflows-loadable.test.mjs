@@ -72,11 +72,6 @@ async function main() {
 
 	const workflows = await listProjectWorkflows();
 	check("project workflows: at least one .js present", workflows.length > 0, `found ${workflows.length}`);
-	check(
-		"project workflows: continuous-improvement.js present",
-		workflows.some((file) => path.basename(file) === "continuous-improvement.js"),
-		workflows.map((file) => path.basename(file)).join(", "),
-	);
 
 	for (const file of workflows) {
 		const rel = path.relative(REPO_ROOT, file);

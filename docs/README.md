@@ -15,8 +15,6 @@ This directory stores the project’s work history, decisions, created workflows
 - [Claude Dynamic Workflows: a harness for every task](./research/2026-06-26-claude-dynamic-workflows-harness.md)
 - [Modularización de extensiones — Design Audit y roadmap](./research/2026-06-28-modularizacion-extensiones-design-audit.md)
 - [Research: loop engineering (source-backed)](./research/2026-06-28-loop-engineering.md)
-- [Continuous-improvement backlog](./research/continuous-improvement-backlog.md)
-- [Continuous improvement loop — progress log](./research/continuous-improvement-log.md)
 - [Handbooks (durable project reference)](./handbooks/README.md)
 
 ## Convention
