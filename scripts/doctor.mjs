@@ -174,6 +174,26 @@ if (process.platform === "darwin" && process.arch === "arm64") {
 	report("optional", dim("·"), "Apple container", "N/A (solo macOS Apple Silicon)");
 }
 
+// sync Claude global: ¿el home global de Claude (default ~/.claude) es un espejo al día del repo?
+// Delegamos en el propio script (fuente de verdad del "qué es drift") vía --check; hereda
+// CLAUDE_GLOBAL_DIR, así que doctor y sync miran exactamente el mismo destino. Opcional a
+// propósito: en un clon fresco sin sync previo esto avisa, no rompe el doctor.
+const globalDir = process.env.CLAUDE_GLOBAL_DIR || path.join(os.homedir(), ".claude");
+const shortDir = globalDir.startsWith(os.homedir()) ? globalDir.replace(os.homedir(), "~") : globalDir;
+const syncScript = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
+if (existsSync(syncScript)) {
+	const sync = spawnSync("node", [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
+	const inSync = sync.status === 0;
+	report(
+		"optional",
+		inSync ? OK : WARN,
+		`sync Claude global (${shortDir})`,
+		inSync ? "espejo al día del repo" : "hay drift — corré `npm run sync:claude:global`",
+	);
+} else {
+	report("optional", WARN, "sync Claude global", "ausente — scripts/sync-claude-global.mjs no encontrado");
+}
+
 // ── Salida ──────────────────────────────────────────────────────────────────
 console.log(bold("\npi-dynamic-workflows doctor\n"));
 console.log(bold("Obligatorios:"));
