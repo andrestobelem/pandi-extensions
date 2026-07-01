@@ -4,7 +4,7 @@
 > `~/.claude/workflows` catalog (the global `.claude/` is gitignored, so it is
 > mirrored here for the git record and human reference). pi does **not** load
 > these: pi's own scaffolds live in `extensions/pi-dynamic-workflows/scaffolds/`
-> (embedded via `scaffolds.generated.ts`, served by `dynamic_workflow
+> (read from disk on demand via `import.meta.url`, served by `dynamic_workflow
 > action=scaffold`). These use Claude paths and the top-level-`return` form.
 
 **What these are.** Each `*.js` file here is an **orchestration script** run by the **Workflow tool**. A script is plain JavaScript that calls a few injected **helper-globals** (`agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, plus `args`) to fan out subagents, loop, verify, and compose — there is no `import`, no `require`, no `ctx.*`. You pass a JSON `args` object; the script returns a value. This catalog has **25** workflows.
