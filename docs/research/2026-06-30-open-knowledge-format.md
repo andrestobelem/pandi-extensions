@@ -1,6 +1,6 @@
 # Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico
 
-> **Status: FINAL.** Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud. La evidencia primaria proviene de `okf/SPEC.md` y `okf/README.md` del repo `GoogleCloudPlatform/knowledge-catalog`, leídos directamente vía `raw.githubusercontent.com` y la API de GitHub. Las lagunas iniciales sobre el **blog de anuncio** (fecha/autores) y la **mecánica de ingestión en Knowledge Catalog** fueron cerradas después con búsqueda dirigida (ver §8); los hechos verificados en esa segunda pasada se marcan **[VERIFICADO]**. Las afirmaciones aún dependientes de resúmenes de búsqueda o interpretación se marcan *[no verificado directamente]*.
+> **Status: FINAL.** Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud. La evidencia primaria proviene de `okf/SPEC.md` y `okf/README.md` del repo `GoogleCloudPlatform/knowledge-catalog`, leídos directamente vía `raw.githubusercontent.com` y la API de GitHub. Las **5 lagunas** iniciales (blog de anuncio, mecánica de ingestión en Knowledge Catalog, validadores, taxonomía de `type`, adopción de terceros) fueron **cerradas** con búsqueda dirigida (ver §8); los hechos verificados en esa segunda pasada se marcan **[VERIFICADO]**. Las afirmaciones aún dependientes de resúmenes de búsqueda o interpretación se marcan *[no verificado directamente]*.
 
 ---
 
@@ -219,7 +219,7 @@ Emite un `viz.html` autocontenido: grafo force-directed con **Cytoscape.js**, re
 
 > **Hallazgo relevante:** MCP aparece en el repositorio como **transporte operativo** para exponer una base de conocimiento basada en ficheros (servidor `fileskb`, servidor MCP de `kcmd`), **no como parte de la especificación OKF**.
 >
-> **No confirmado:** no se halló un validador/linter de conformidad OKF dedicado ("okf-validate") que aplique las reglas de §9; solo existen los tests de pytest, el agente de referencia y el visualizador.
+> **Validadores:** Google **no** publica un validador oficial de conformidad; los tests del repo son de pytest para el reference agent/visualizador. **[VERIFICADO]** Sí existen validadores **de comunidad** que aplican las reglas de §9, notablemente la *OKF Conformance Suite* de WitsCode (`node validator/okf-validate.mjs ./bundle`, con modo JSON/strict y exit codes para CI).
 
 ---
 
@@ -294,7 +294,7 @@ El demo OKF mapea cada `.md` a una **entry** de Knowledge Catalog usando el **Do
 5. **Sin modelo de seguridad/confianza/procedencia** en la spec — las citas son convención; no hay firma, integridad ni control de acceso. Los bundles generados por agentes (el reference agent usa un crawler LLM) plantean dudas de confianza en el contenido.
 6. **Tooling de referencia explícitamente PoC**, con sabor BigQuery+Gemini; productores/consumidores/validadores de producción quedan a cargo de los adoptantes.
 
-**Adopción.** No hay evidencia de uso en producción por terceros: Collibra, Unity Catalog, etc. se *nombran como posibilidades* en el README, no como integraciones que ya envían.
+**Adopción.** **[VERIFICADO]** Adopción temprana pero real fuera de Google: **Data Product SDK v0.2.5** (Open Data Products) añadió soporte OKF; herramientas de comunidad como `scaccogatto/okf-skills`, `parkscloud/okf-author` y la *OKF Conformance Suite* de WitsCode. En cambio, Collibra/Unity Catalog solo se *nombran como posibilidades* en el README, sin integración confirmada.
 
 ---
 
@@ -317,6 +317,13 @@ El demo OKF mapea cada `.md` a una **entry** de Knowledge Catalog usando el **Do
 - Demo OKF Wiki (mapeo `.md` → entry, aspecto `overview`, fallback `generic`): https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode/demo
 - Knowledge Catalog = Dataplex Universal Catalog (renombre 10-abr-2026): https://docs.cloud.google.com/dataplex/docs/introduction
 
+**Ecosistema de comunidad (tooling/adopción de terceros):**
+
+- OKF Conformance Suite (validador): https://witscode.com/okf-conformance
+- Data Product SDK v0.2.5 (soporte OKF): https://blog.opendataproducts.org/open-knowledge-format-support-in-data-product-sdk-v0-2-5-3a4f5b3e4c3a
+- Skills/validador/visualizador OKF: https://github.com/scaccogatto/okf-skills
+- Author/convert/validate OKF: (parkscloud/okf-author)
+
 **Fuente primaria aún no recuperada vía HTML directo:**
 
 - Producto Knowledge Catalog: https://cloud.google.com/products/knowledge-catalog
@@ -337,6 +344,6 @@ El demo OKF mapea cada `.md` a una **entry** de Knowledge Catalog usando el **Do
 
 1. ~~**HTML del blog no recuperado.**~~ **[CERRADA]** Verificado vía búsqueda dirigida: blog publicado el **12-jun-2026** por **Sam McVeety** y **Amir Hormati**; confirma que **Knowledge Catalog fue actualizado para ingerir OKF y servirlo a agentes**. *(Pendiente menor: si el blog menciona explícitamente AGENTS.md/MCP/A2A no se confirmó palabra por palabra.)*
 2. ~~**Mecánica de ingestión OKF → Knowledge Catalog.**~~ **[CERRADA]** Verificado: vía `kcmd push` a un EntryGroup, Documents Layout, cuerpo Markdown en aspecto `overview`, fallback `dataplex-types.global.generic` para `type` custom (ver §4). *(Pendiente menor: si la ingestión está en GA o preview.)*
-3. **[ABIERTA] Ausencia de validador de conformidad.** No se localizó un linter/validador `okf-validate` dedicado que aplique §9; solo tests de pytest, el reference agent y el visualizador. La búsqueda de confirmación externa quedó limitada por presupuesto de búsqueda en esta sesión.
-4. **[ABIERTA] Taxonomía de `type`.** No hay registro central de valores `type`; sin confirmar si Google publica una lista recomendada. Limitada por presupuesto de búsqueda.
-5. **[ABIERTA] Adopción por terceros.** Sin evidencia de export/import real de OKF por Collibra/Unity Catalog u otros más allá de menciones aspiracionales en el README. Limitada por presupuesto de búsqueda.
+3. **[CERRADA] Validador de conformidad.** No hay validador **oficial** de Google, pero existen validadores **de comunidad**: *OKF Conformance Suite* de WitsCode (`okf-validate.mjs`, Node 18+, sin dependencias, salida JSON + exit codes para CI), y tooling de `scaccogatto/okf-skills` y `parkscloud/okf-author`.
+4. **[CERRADA] Taxonomía de `type`.** Confirmado: **no hay registro central** de valores `type`. El campo es obligatorio pero los valores los define el productor; la spec solo da ejemplos (`BigQuery Table`, `BigQuery Dataset`, `API Endpoint`, `Metric`, `Playbook`, `Reference`) y los consumidores deben tolerar tipos desconocidos.
+5. **[CERRADA] Adopción por terceros.** Adopción temprana pero real: **Open Data Products / Data Product SDK v0.2.5** añadió soporte OKF como capa de contexto de conocimiento; `scaccogatto/okf-skills` (skills OKF para Claude Code/Codex + validador/visualizador); `parkscloud/okf-author` (author/convert/validate); WitsCode publica la suite de conformidad. *(No verificado: soporte real en Collibra/Unity Catalog — solo mencionados aspiracionalmente en el README de Google.)*
