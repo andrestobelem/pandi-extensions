@@ -19,8 +19,10 @@ pi --no-extensions -e ./extensions/pi-pandi
   frase al lado, estilo la pantalla de presentación de Claude Code. La paleta se
   adapta al tema (claro/oscuro) para que la cara clara y los parches oscuros sigan
   visibles en cualquier fondo de terminal.
-- Indicador animado mientras Pi piensa, con dos estilos de carita:
-  kaomoji `ʕ•ᴥ•ʔ` ↔ Claude `(●  ●)` (con ojos `◆`).
+- Indicador animado mientras Pi piensa, con **5 estilos de carita** que se ciclan con
+  `/pandi face`: `claude` `(●  ●)` (con ojos `◆`), `kaomoji` `ʕ•ᴥ•ʔ`, `ojitos`
+  `ʕ◕ᴥ◕ʔ`, `decidido` `ʕ•̀ᴥ•́ʔ` y `gatuno` `(=◕ᴥ◕=)`. Los ojos se pintan con colores
+  de la **paleta del tema** (theme-adaptive), semánticos: `ojitos`→`success`, resto→`accent`.
 - Verbo juguetón rotativo por turno + un easter egg con la frase del meme.
 - Estado `◆ Pandi` en el footer.
 - Persona en el system prompt: mientras Pandi está encendido, se appendea al final
@@ -31,7 +33,7 @@ pi --no-extensions -e ./extensions/pi-pandi
 
 - `/pandi` — estado + saludo.
 - `/pandi art` — mostrar/ocultar el splash del panda.
-- `/pandi face` — alternar la carita del indicador (se guarda entre sesiones).
+- `/pandi face` — ciclar al siguiente de los 5 estilos de carita del indicador (se guarda entre sesiones).
 - `/pandi off` — apagar Pandi y restaurar el header y el spinner por defecto.
 - `/pandi on` — volver a encender Pandi.
 

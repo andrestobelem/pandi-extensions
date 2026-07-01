@@ -47,6 +47,9 @@ async function scenarioFaceUnit(url) {
 		modeFromTextColor,
 		glintEye,
 		FACE_EYE_ROLE,
+		FACE_STYLES,
+		parseFaceStyle,
+		nextFaceStyle,
 	} = await loadModule(url);
 
 	// --- Art shape -----------------------------------------------------------------
@@ -143,6 +146,27 @@ async function scenarioFaceUnit(url) {
 	check(
 		"FACE_EYE_ROLE values are all non-empty strings",
 		Object.values(FACE_EYE_ROLE).every((v) => typeof v === "string" && v.length > 0),
+	);
+
+	// --- FACE_STYLES + cycling (/pandi face) ---------------------------------------
+	// /pandi face cycles through an ORDERED list of 5 indicator styles; the persisted style
+	// is validated on load (junk falls back to claude) and cycling wraps around.
+	check(
+		"FACE_STYLES has 5 indicator styles",
+		Array.isArray(FACE_STYLES) && FACE_STYLES.length === 5,
+		String(FACE_STYLES?.length),
+	);
+	check("FACE_STYLES are unique", new Set(FACE_STYLES).size === FACE_STYLES.length);
+	check("FACE_STYLES includes claude + kaomoji", FACE_STYLES.includes("claude") && FACE_STYLES.includes("kaomoji"));
+	check("parseFaceStyle keeps a valid style", parseFaceStyle("gatuno") === "gatuno");
+	check(
+		"parseFaceStyle falls back to claude on junk/undefined",
+		parseFaceStyle("nope") === "claude" && parseFaceStyle(undefined) === "claude",
+	);
+	check("nextFaceStyle advances to the next style", nextFaceStyle(FACE_STYLES[0]) === FACE_STYLES[1]);
+	check(
+		"nextFaceStyle wraps around at the end",
+		nextFaceStyle(FACE_STYLES[FACE_STYLES.length - 1]) === FACE_STYLES[0],
 	);
 
 	check("luminance(black) is 0", luminance([0, 0, 0]) === 0);

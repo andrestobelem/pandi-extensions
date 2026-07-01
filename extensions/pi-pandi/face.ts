@@ -84,6 +84,26 @@ export const FACE_EYE_ROLE = {
 } as const;
 
 /**
+ * Estilos del indicador animado, EN ORDEN DE CICLADO: `/pandi face` avanza al siguiente y
+ * envuelve al final. El orquestador (index.ts) mapea cada uno a sus frames.
+ */
+export const FACE_STYLES = ["claude", "kaomoji", "ojitos", "decidido", "gatuno"] as const;
+
+/** El estilo de carita del indicador. */
+export type FaceStyle = (typeof FACE_STYLES)[number];
+
+/** Valida un estilo persistido (viene de JSON de disco); default "claude" si no matchea. */
+export function parseFaceStyle(raw: unknown): FaceStyle {
+	return FACE_STYLES.includes(raw as FaceStyle) ? (raw as FaceStyle) : "claude";
+}
+
+/** El siguiente estilo en el ciclo, con wrap-around al principio. */
+export function nextFaceStyle(current: FaceStyle): FaceStyle {
+	const i = FACE_STYLES.indexOf(current);
+	return FACE_STYLES[(i + 1) % FACE_STYLES.length];
+}
+
+/**
  * Paint one face row: █→patch block, ░→face block (both as solid █ so the face is opaque),
  * spaces left transparent. Each ink cell is reset so colors never bleed.
  */

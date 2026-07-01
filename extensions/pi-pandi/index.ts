@@ -27,17 +27,26 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ExtensionAPI, ExtensionContext, Theme, WorkingIndicatorOptions } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+	Theme,
+	ThemeColor,
+	WorkingIndicatorOptions,
+} from "@earendil-works/pi-coding-agent";
 import {
 	CLAUDE_ORANGE,
 	colorizeFace,
 	FACE_EYE_ROLE,
 	FACE_WIDTH,
+	type FaceStyle,
 	fgAnsi,
 	glintEye,
 	modeFromTextColor,
+	nextFaceStyle,
 	PANDA_FACE,
 	pandaPalette,
+	parseFaceStyle,
 } from "./face.js";
 import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
 import { pandiPersonaBlock } from "./persona.js";
@@ -65,15 +74,12 @@ function splashLines(theme: Theme): string[] {
 }
 
 // Estilo de carita del indicador (persistido entre /reload).
-type FaceStyle = "claude" | "kaomoji";
 function styleFile(): string {
 	return join(dirname(fileURLToPath(import.meta.url)), "pandi-style.local.json");
 }
 function loadStyle(): FaceStyle {
 	try {
-		return (JSON.parse(readFileSync(styleFile(), "utf8")) as { face?: string }).face === "kaomoji"
-			? "kaomoji"
-			: "claude";
+		return parseFaceStyle((JSON.parse(readFileSync(styleFile(), "utf8")) as { face?: unknown }).face);
 	} catch {
 		return "claude";
 	}
@@ -124,30 +130,50 @@ function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	};
 }
 
-/** Estilo "kaomoji": el oso `ʕ•ᴥ•ʔ` que parpadea, con los ojos brillando en naranja. */
-function framesKaomoji(theme: Theme): WorkingIndicatorOptions {
-	const face = (eyes: string) => {
-		const eye = glintEye(eyes, theme.getFgAnsi("accent"));
-		return `${theme.fg("accent", "ʕ ")}${eye}${theme.fg("accent", "ᴥ")}${eye}${theme.fg("accent", " ʔ")}`;
-	};
+/**
+ * Estilo kaomoji genérico: el oso `ʕ ojo ᴥ ojo ʔ` (o el gatuno `(= … =)`) que parpadea, con
+ * los ojos coloreados desde la PALETA DEL TEMA. Los estilos concretos difieren solo en los
+ * corchetes, los ojos (pueden ser asimétricos, p. ej. el "decidido") y el rol de color.
+ */
+function framesKaomoji(
+	theme: Theme,
+	spec: { l: string; r: string; eyeL: string; eyeR: string; role: ThemeColor },
+): WorkingIndicatorOptions {
+	const fg = theme.getFgAnsi(spec.role);
+	const face = (a: string, b: string) =>
+		`${theme.fg("accent", spec.l)}${glintEye(a, fg)}${theme.fg("accent", "ᴥ")}${glintEye(b, fg)}${theme.fg("accent", spec.r)}`;
 	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
+	const { eyeL, eyeR } = spec;
 	return {
 		frames: [
-			face("•") + dots(0),
-			face("•") + dots(1),
-			face("•") + dots(2),
-			face("•") + dots(3),
-			face("-") + dots(3), // parpadeo
-			face("·") + dots(2),
-			face("•") + dots(1),
-			face("^") + dots(0), // ojito feliz
+			face(eyeL, eyeR) + dots(0),
+			face(eyeL, eyeR) + dots(1),
+			face(eyeL, eyeR) + dots(2),
+			face(eyeL, eyeR) + dots(3),
+			face("-", "-") + dots(3), // parpadeo
+			face("·", "·") + dots(2),
+			face(eyeL, eyeR) + dots(1),
+			face("^", "^") + dots(0), // ojito feliz
 		],
 		intervalMs: 180,
 	};
 }
 
+// Cada estilo del indicador → sus frames. claude tiene su propia animación (◆); los otros
+// cuatro son variantes kaomoji (corchetes/ojos/color).
 function pandaFrames(theme: Theme, style: FaceStyle): WorkingIndicatorOptions {
-	return style === "kaomoji" ? framesKaomoji(theme) : framesClaude(theme);
+	switch (style) {
+		case "kaomoji":
+			return framesKaomoji(theme, { l: "ʕ ", r: " ʔ", eyeL: "•", eyeR: "•", role: "accent" });
+		case "ojitos":
+			return framesKaomoji(theme, { l: "ʕ ", r: " ʔ", eyeL: "◕", eyeR: "◕", role: "success" });
+		case "decidido":
+			return framesKaomoji(theme, { l: "ʕ ", r: " ʔ", eyeL: "•̀", eyeR: "•́", role: "accent" });
+		case "gatuno":
+			return framesKaomoji(theme, { l: "(=", r: "=)", eyeL: "◕", eyeR: "◕", role: "accent" });
+		default:
+			return framesClaude(theme);
+	}
 }
 
 export default function (pi: ExtensionAPI) {
@@ -245,16 +271,12 @@ export default function (pi: ExtensionAPI) {
 					ctx.ui.notify(`${f.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
 					return;
 				}
-				faceStyle = faceStyle === "kaomoji" ? "claude" : "kaomoji";
+				faceStyle = nextFaceStyle(faceStyle);
 				saveStyle(faceStyle);
-				ctx.ui.setWorkingIndicator(pandaFrames(ctx.ui.theme, faceStyle));
-				const accentDiamond = ctx.ui.theme.fg("accent", "◆");
-				ctx.ui.notify(
-					faceStyle === "kaomoji"
-						? `${f.basico} Estilo kaomoji (guardado).`
-						: `(${accentDiamond} ᴗ ${accentDiamond}) Estilo Claude (guardado).`,
-					"info",
-				);
+				const frames = pandaFrames(ctx.ui.theme, faceStyle);
+				ctx.ui.setWorkingIndicator(frames);
+				// Muestro el primer frame como sample en vivo del estilo recién elegido.
+				ctx.ui.notify(`${frames.frames?.[0] ?? ""} Estilo ${faceStyle} (guardado).`, "info");
 				return;
 			}
 
