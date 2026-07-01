@@ -323,8 +323,17 @@ async function resolveDefaultWebSearchExtensions(ctx: ExtensionContext): Promise
 
 function resolveDefaultContext7Skill(ctx: ExtensionContext): string | undefined {
 	const skillRoots = appendUniqueValues(undefined, [
-		path.join(ctx.cwd, ".agents", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
-		path.join(ctx.cwd, CONFIG_DIR_NAME, "skills", DEFAULT_CONTEXT7_SKILL_NAME),
+		// The cwd-relative roots load a skill (attacker-controllable SKILL.md instructions)
+		// from the project directory into every subagent, so they are gated behind project
+		// trust just like loadProjectPersona and resolveDefaultWebSearchExtensions — an
+		// untrusted cwd must not be able to drop .agents/skills/context7-cli and get it
+		// auto-attached before /trust runs. The global agent-dir / home roots stay ungated.
+		...(ctx.isProjectTrusted()
+			? [
+					path.join(ctx.cwd, ".agents", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
+					path.join(ctx.cwd, CONFIG_DIR_NAME, "skills", DEFAULT_CONTEXT7_SKILL_NAME),
+				]
+			: []),
 		path.join(getAgentDir(), "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 		path.join(os.homedir(), ".agents", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 		path.join(os.homedir(), ".pi", "agent", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
