@@ -64,8 +64,13 @@ const stubs = `
   // ctx-style workflows fan out with agents(items, …); record one representative node, return lenient rows.
   const agents = async (items, opts = {}) => {
     const arr = Array.isArray(items) ? items : [];
-    if (arr.length) globalThis.__nodes.push({ prompt: '‹per-item agents() fan-out›', label: opts.label || opts.name,
-      phase: opts.phase, schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills });
+    // Per-item specs commonly carry phase/label/model/schema (not the top-level opts), so fall back
+    // to the first spec object when the top-level opts omit them — otherwise the fan-out node lands
+    // with no phase and its declared phase box renders empty.
+    const rep = arr.length && arr[0] && typeof arr[0] === 'object' ? arr[0] : {};
+    if (arr.length) globalThis.__nodes.push({ prompt: '‹per-item agents() fan-out›', label: opts.label || opts.name || rep.label || rep.name,
+      phase: opts.phase ?? rep.phase, schema: opts.schema ?? rep.schema, model: opts.model ?? rep.model,
+      effort: opts.effort ?? rep.effort, tools: opts.tools ?? rep.tools, skills: opts.skills ?? rep.skills });
     return arr.map(() => lenient());
   };
   const parallel = async (thunks) => Promise.all((thunks || []).map(async (t) => { try { return await t(); } catch { return null; } }));
