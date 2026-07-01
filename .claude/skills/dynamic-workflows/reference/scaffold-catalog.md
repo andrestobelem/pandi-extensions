@@ -164,6 +164,7 @@ flowchart TD
 | `generate` | `false` | On PROCEED **and** `routing=dynamic-workflow`, hand off to `workflow-factory` |
 | `planResources` | `true` | Emit `resourcePlan` (suggested per-node model·effort for the recommended workflow, scaled to stakes) |
 | `maxQuestions` | `4` → clamped to **1..3** | Cap on blocking questions |
+| `context` | `""` | Optional extra context attached to the analysis + rewrite |
 | `name`, `write` | — / `true` | Passed to `workflow-factory` on handoff |
 
 **Returns:** `{ status, verdict, contract, rewrittenPrompt, questions?, routing, resourcePlan?, generated? }` where `verdict ∈ {PROCEED, BLOCKED}` and `status` mirrors it (`PROCEED` / `NEEDS_CLARIFICATION`).
@@ -256,7 +257,7 @@ Composition can **recurse**: a composed workflow may itself compose another — 
 
 Beyond the limit the runtime refuses with a **recursion guard**. Design within the depth budget; for deeper work, let the orchestrator run the sub-workflows.
 
-> **Worked reference — `recursive-compose.js`.** Chains exactly this: `contract-gate` (re-scope, depth 1) → `router` dispatch (depth 2) → the chosen scaffold's own sub-call (depth 3). It's **pi-only** and caps at depth 3, so `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH<=3` covers it; on the Claude Code depth-1 runtime it returns `DEPTH_BLOCKED` instead of crashing. It also forwards the gate's `resourcePlan` (per-node model/effort) into the dispatched run.
+> **Worked reference — `recursive-compose.js`.** Chains exactly this: `contract-gate` (re-scope, depth 1) → `router` dispatch (depth 2) → the chosen scaffold's own sub-call (depth 3). It's **pi-only** and caps at depth 3, so `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=3` covers it; on the Claude Code depth-1 runtime it returns `DEPTH_BLOCKED` instead of crashing. It also forwards the gate's `resourcePlan` (per-node model/effort) into the dispatched run.
 
 ---
 
@@ -344,7 +345,7 @@ Each entry: **purpose** · **use when** · **key params (defaults)** · **exampl
 
 **`react-scout`** — ReAct reason→act→observe loop: each step grounds a thought in a **real read-only observation** before the next.
 - *Use when:* you need an evidence-grounded scout before committing or fanning out.
-- *Params:* `question` (req; aliases `q`/`text`/`topic`) · `tools=['read','grep','find','ls','web_search']`.
+- *Params:* `question` (req; aliases `q`/`text`/`topic`) · `maxSteps=6` (clamp 1..50) · `tools=['read','grep','find','ls','web_search']`.
 - *Example:* `Workflow({ name:'react-scout', args:{ question:'Where does the WASM decoder get fed bytes?' } });`
 - *Use cases:* grounded investigation; produce `result.trace` to hand to a fan-out.
 
@@ -410,7 +411,7 @@ Each entry: **purpose** · **use when** · **key params (defaults)** · **exampl
 
 **`self-refine`** — bounded in-place generate→critique→refine with verbal memory; quiet-stop when the critic is satisfied.
 - *Use when:* you want to polish **one** artifact and the critique can be intrinsic.
-- *Params:* `task` (req; aliases `question`/`text`) · `maxRounds=4` · `useJury=false` (swap the critic for the `adversarial-verify` jury — a stronger independent signal).
+- *Params:* `task` (req; aliases `question`/`text`) · `maxRounds=4` · `useJury=false` (swap the critic for the `adversarial-verify` jury — a stronger independent signal) · `skeptics=3` (jury size, used when `useJury`).
 - *Example:* `Workflow({ name:'self-refine', args:{ task:'Write the migration guide section.', useJury:true } });`
 - *Use cases:* doc/spec/code polish where returns diminish fast.
 
@@ -454,7 +455,7 @@ Each entry: **purpose** · **use when** · **key params (defaults)** · **exampl
 
 - `model` / `effort` — **global defaults** applied to every node (e.g. `{ "effort": "low" }`).
 - `models` / `efforts` — **per-role overrides** keyed by the role name (e.g. `{ "models": { "synthesis": "opus" } }`).
-- `tools` / `skills` / `excludeTools` — **global** allowlists (arrays) applied to every node.
+- `tools` / `skills` — **global** allowlists, and `excludeTools` a **global** denylist (arrays) applied to every node.
 - `toolsByRole` / `skillsByRole` / `excludeByRole` — **per-role overrides** (maps `role → array`).
 - **Precedence (all knobs):** per-role override > global default > the call-site default baked into the file.
 - `effort ∈ low | medium | high | xhigh | max`; `model ∈ haiku | sonnet | opus | fable` or a full model id.
@@ -540,7 +541,7 @@ The values above are for the **Claude Code Workflow runtime**, where `model` is 
 
 **Conventions checklist:**
 - ✅ Helper-globals only: `agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`. **No** `import` / `require` / `ctx.*` / Node globals.
-- ✅ `agent(promptString, opts)` — **string first**, then options (`{ label, phase, effort, schema, cache, model, tools }`). Never `agent({ prompt })`.
+- ✅ `agent(promptString, opts)` — **string first**, then options (`{ label, phase, effort, schema, cache, model, tools, skills, excludeTools }`). Never `agent({ prompt })`.
 - ✅ With `{ schema }` → returns the **parsed object**; without → the **text string**.
 - ✅ `args` arrives **JSON-stringified** — parse it defensively: `typeof args === "string" ? JSON.parse(args) : (args || {})`.
 - ✅ `agent({ schema })` top-level type **MUST be `object`** — wrap arrays in an object.
