@@ -44,6 +44,46 @@ export async function createBgTestDir(prefix) {
 	return fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
 
+export async function setupJob(
+	runsDir,
+	jobId,
+	{ command = "echo hi", state = "completed", updatedAt = "2026-06-25T00:00:00.000Z", log, pid, startId } = {},
+) {
+	const runDir = path.join(runsDir, jobId);
+	await fs.mkdir(runDir, { recursive: true });
+	await fs.writeFile(
+		path.join(runDir, "job.json"),
+		JSON.stringify(
+			{
+				jobId,
+				command,
+				cwd: "/tmp/project",
+				createdAt: updatedAt,
+				source: "slash",
+				artifactsDir: runDir,
+			},
+			null,
+			2,
+		),
+	);
+	await fs.writeFile(
+		path.join(runDir, "status.json"),
+		JSON.stringify(
+			{
+				jobId,
+				state,
+				updatedAt,
+				...(pid !== undefined ? { pid } : {}),
+				...(startId !== undefined ? { startId } : {}),
+			},
+			null,
+			2,
+		),
+	);
+	if (log !== undefined) await fs.writeFile(path.join(runDir, "combined.log"), log);
+	return runDir;
+}
+
 export function shellQuote(value) {
 	return JSON.stringify(value);
 }

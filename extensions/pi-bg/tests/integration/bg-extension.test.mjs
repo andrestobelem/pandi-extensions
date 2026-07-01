@@ -16,54 +16,12 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { createChecker, loadDefault } from "../../../shared/test/harness.mjs";
-import { buildBgWithPlan, createBgTestDir, loadExtension, makeCtx, makePi } from "./bg-test-support.mjs";
+import { buildBgWithPlan, createBgTestDir, loadExtension, makeCtx, makePi, setupJob } from "./bg-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 function stableHash(value) {
 	return crypto.createHash("sha1").update(value).digest("hex").slice(0, 12);
-}
-
-async function setupJob(
-	runsDir,
-	jobId,
-	{ command = "echo hi", state = "completed", updatedAt = "2026-06-25T00:00:00.000Z", log, pid, startId } = {},
-) {
-	const runDir = path.join(runsDir, jobId);
-	await fs.mkdir(runDir, { recursive: true });
-	await fs.writeFile(
-		path.join(runDir, "job.json"),
-		JSON.stringify(
-			{
-				jobId,
-				command,
-				cwd: "/tmp/project",
-				createdAt: updatedAt,
-				source: "slash",
-				artifactsDir: runDir,
-			},
-			null,
-			2,
-		),
-	);
-	// pid/startId are optional so liveness/identity rounds can seed an honest job; omitting
-	// them keeps the legacy {jobId,state,updatedAt} shape every existing caller relies on.
-	await fs.writeFile(
-		path.join(runDir, "status.json"),
-		JSON.stringify(
-			{
-				jobId,
-				state,
-				updatedAt,
-				...(pid !== undefined ? { pid } : {}),
-				...(startId !== undefined ? { startId } : {}),
-			},
-			null,
-			2,
-		),
-	);
-	if (log !== undefined) await fs.writeFile(path.join(runDir, "combined.log"), log);
-	return runDir;
 }
 
 // Characterization: pin the CURRENT handleStatus orphaned refinement (dead -> interrupted;
