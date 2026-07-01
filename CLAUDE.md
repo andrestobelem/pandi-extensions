@@ -33,6 +33,7 @@ For broad, high-confidence, or repo-wide tasks, use the Ultracode router (`/dyna
 - Prefer fresh task-specific drafts under the gitignored `.pi/workflows/drafts/<slug>.js`, next to `.pi/workflows/runs/`; reuse an existing workflow only when it exactly matches the task.
 - Graph/start workflows in background with explicit `concurrency` and `maxAgents`, then inspect artifacts before trusting conclusions.
 - Subagents get `web_search` and `context7-cli` by default when installed; opt out only when isolation is required.
+- **`web_search` budget:** fast mode allows only ~10 sub-queries and each `web_search` call can fan out into several, so issue ONE narrow query per turn — do NOT fire multiple searches in parallel or add a `deep` call in the same turn, or the budget is exhausted and results fail. A single focused query often closes several evidence gaps at once.
 
 ## Scratch space
 
@@ -42,3 +43,4 @@ Use the gitignored `.pi/tmp/` directory for throwaway temporary files (scratch s
 
 - Use Conventional Commits with an explicit scope, for example `feat(dynamic-workflows): add monitor dashboard`.
 - Keep commits atomic: each commit should contain one coherent change and its related docs/tests only.
+- **Never `git commit --amend` blindly:** concurrent Pi sessions/tabs can land a commit on top of yours, so `HEAD` may not be the commit you think. Check `git log`/`git reflog` first, and only amend a commit you are certain is your own and is still `HEAD`. If you already mixed changes in, recover the original tree via `reflog` and `git reset --soft` to split them back out.
