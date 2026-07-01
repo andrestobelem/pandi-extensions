@@ -11,6 +11,7 @@
  * as import type (erased). CONFIG_DIR_NAME/getAgentDir/ExtensionContext come from the
  * framework package (no cycle). Extracted byte-identically from index.ts.
  */
+import { createHash } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -170,7 +171,13 @@ export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: Agen
 export function sanitizeEnvForCache(env: Record<string, string> | undefined): Record<string, string> | undefined {
 	if (!env) return undefined;
 	const out: Record<string, string> = {};
-	for (const key of Object.keys(env).sort()) out[key] = "[set]";
+	// The cache/journal key is written to disk, so never put raw env values (possible secrets)
+	// in it — but DO distinguish different values so two different values of the same var don't
+	// collide onto one key and replay a stale journaled result on resume. Hash the value.
+	for (const key of Object.keys(env).sort())
+		out[key] = `sha256:${createHash("sha256")
+			.update(env[key] ?? "")
+			.digest("hex")}`;
 	return out;
 }
 
