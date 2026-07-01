@@ -21,6 +21,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle, createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { clearStubs, withKill, withPlatform } from "./platform-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -55,33 +56,6 @@ async function buildLiveness() {
 		npx: "--no-install",
 	});
 	return url;
-}
-
-// Run `fn` with process.platform forced, then restore the original descriptor.
-function withPlatform(value, fn) {
-	const original = Object.getOwnPropertyDescriptor(process, "platform");
-	Object.defineProperty(process, "platform", { value, configurable: true });
-	try {
-		return fn();
-	} finally {
-		Object.defineProperty(process, "platform", original);
-	}
-}
-
-// Run `fn` with process.kill replaced, then restore.
-function withKill(impl, fn) {
-	const original = process.kill;
-	process.kill = impl;
-	try {
-		return fn();
-	} finally {
-		process.kill = original;
-	}
-}
-
-function clearStubs() {
-	globalThis.__bgReadFileSync = undefined;
-	globalThis.__bgSpawnSync = undefined;
 }
 
 // --- probeProcessAlive error-code branches -------------------------------------------
