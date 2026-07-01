@@ -1717,6 +1717,25 @@ export function maxWorkflowDepth(): number {
 	return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_MAX_WORKFLOW_DEPTH;
 }
 
+/** Human-labelled options for the bare `/ultracode-mode` selector (first token is the value). */
+const ULTRACODE_MODE_SELECT_ITEMS = [
+	"on — route every task through the dynamic workflow router",
+	"off — disable always-on routing for this session",
+	"status — show the current always-on state",
+];
+
+/**
+ * Resolve the `/ultracode-mode` argument, opening an interactive selector when the
+ * command is invoked bare in a session with a UI. Headless (no UI) and explicit
+ * args keep the unchanged behavior (bare = "status"), so nothing regresses off-TUI.
+ */
+async function resolveUltracodeModeValue(args: string, ctx: ExtensionContext): Promise<string> {
+	const trimmed = args.trim();
+	if (trimmed || !ctx.hasUI || typeof ctx.ui.select !== "function") return trimmed;
+	const choice = await ctx.ui.select("Ultracode always-on", ULTRACODE_MODE_SELECT_ITEMS);
+	return choice?.split(/\s+/)[0] ?? "status";
+}
+
 export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	let ultracodeAlwaysOn = true;
 	let ultracodeContractGateEnabled = true;
@@ -1880,7 +1899,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("ultracode-mode", {
 		description: "Show or toggle always-on ultracode workflow routing for this session",
 		handler: async (args, ctx) => {
-			const value = parseToggleCommandValue(args);
+			const value = parseToggleCommandValue(await resolveUltracodeModeValue(args, ctx));
 			if (value === "status") {
 				setUltracodeStatus(ctx, ultracodeAlwaysOn);
 				notify(ctx, `Ultracode always-on is ${ultracodeAlwaysOn ? "enabled" : "disabled"}.`, "info");
