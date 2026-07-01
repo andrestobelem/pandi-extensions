@@ -14,6 +14,8 @@ Use the installed `karpathy-guidelines` skill when writing, reviewing, or refact
 
 Use the project `modern-software-engineering` skill for architecture, refactoring, code review, test strategy, delivery/process improvements, and dynamic workflow design. It distills Dave Farley-style Modern Software Engineering: default to TDD for behavior changes (Red → Green → Refactor), optimize for fast evidence, manage complexity deliberately, and judge changes by stability plus throughput.
 
+Use the project `ai-assisted-engineering` skill when the task is about *using AI or agents to build software* — deciding how much to delegate, whether generated output can be trusted, and especially how to design/orchestrate dynamic workflows. It is the AI-era companion to `modern-software-engineering` (that one supplies the TDD/complexity discipline; this one supplies the discipline for where AI fits inside it). Apply the three by role: `ai-assisted-engineering` is the **orchestrator's** lens (classify prototype vs. production, set the delegation boundary, scout + simple baseline before a large fan-out, treat prompts/context/tools as the program, verify with executable evidence), while `karpathy-guidelines` + `modern-software-engineering` apply inside the **workers** that actually write and verify code. Do not load all three into every subagent — match the skill to the role, honoring "smallest inspectable slice".
+
 Honor every TDD step, not just the easy two:
 
 - **Red first.** Write the failing test BEFORE the implementation; test-after is not TDD. If you genuinely cannot go test-first, say so explicitly rather than labelling test-after as TDD.
