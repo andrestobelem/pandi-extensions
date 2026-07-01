@@ -203,6 +203,13 @@ export default function autoCompact(pi: ExtensionAPI) {
 			},
 			onError: (error) => {
 				compacting = false;
+				// Re-arm the edge-trigger: a failed compaction did NOT reduce usage, so
+				// leaving previousPercent at its crossed (>= threshold) value would keep
+				// crossedThreshold false forever and silently disable auto-compaction for
+				// the rest of the session. null re-arms so the next above-threshold turn
+				// retries; unlike onComplete this cannot tight-loop (paced by agent_end,
+				// and it self-heals once the transient error clears).
+				previousPercent = null;
 				notify(ctx, `Auto-compaction failed: ${error.message}`, "error");
 				updateStatusBar(ctx);
 			},

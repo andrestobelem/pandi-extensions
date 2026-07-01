@@ -68,7 +68,7 @@ function makeEnv({ hasUI = true, sessionId = "s1", cwd } = {}) {
 	const inputCalls = [];
 	const selectResponses = [];
 	const inputResponses = [];
-	const state = { percent: 0, compactCount: 0, reduceTo: null };
+	const state = { percent: 0, compactCount: 0, reduceTo: null, failCompaction: false };
 	// Per-env temp workspace + session manager so the snapshot path is isolated.
 	const workdir = cwd ?? mkdtempSync(path.join(os.tmpdir(), "ac-snap-"));
 	const ctx = {
@@ -89,9 +89,16 @@ function makeEnv({ hasUI = true, sessionId = "s1", cwd } = {}) {
 			},
 		},
 		getContextUsage: () => ({ percent: state.percent }),
-		compact: ({ onComplete }) => {
+		compact: ({ onComplete, onError }) => {
 			state.compactCount += 1;
 			queueMicrotask(() => {
+				// A failing compaction (LLM/network error) invokes onError WITHOUT
+				// reducing usage, modelling a transient failure that leaves the
+				// context untouched and still above threshold.
+				if (state.failCompaction) {
+					onError?.(new Error("compaction boom"));
+					return;
+				}
 				if (state.reduceTo !== null) state.percent = state.reduceTo;
 				onComplete?.();
 			});
@@ -147,6 +154,26 @@ async function stuckAboveThresholdDoesNotLoop(url) {
 	check(
 		"loop: compaction fires exactly once while usage stays above threshold",
 		env.state.compactCount === 1,
+		`compactCount=${env.state.compactCount}`,
+	);
+}
+
+// A FAILED compaction (onError) must re-arm the edge-trigger so a subsequent
+// above-threshold turn retries — otherwise a single transient failure silently
+// disables auto-compaction for the rest of the session (the "onError never
+// re-arms" bug). Distinct from stuckAboveThresholdDoesNotLoop, where compaction
+// SUCCEEDS but cannot reduce usage (there we must NOT loop).
+async function failedCompactionReArmsAndRetriggers(url) {
+	const { handlers } = await loadExtension(url);
+	const env = makeEnv();
+	env.state.percent = 60; // above the 30% default threshold
+	env.state.failCompaction = true;
+
+	await fireAgentEnd(handlers, env.ctx); // crossing -> compaction #1 attempted, fails
+	await fireAgentEnd(handlers, env.ctx); // still 60% after failure -> MUST retry
+	check(
+		"failure: a failed compaction re-arms so the next above-threshold turn retries",
+		env.state.compactCount === 2,
 		`compactCount=${env.state.compactCount}`,
 	);
 }
@@ -787,6 +814,7 @@ async function barLevelColorCases(url) {
 async function main() {
 	const url = await build();
 	await stuckAboveThresholdDoesNotLoop(url);
+	await failedCompactionReArmsAndRetriggers(url);
 	await genuineRecrossRetriggers(url);
 	await belowThresholdNeverCompacts(url);
 	await parseThresholdEdgeCases(url);
