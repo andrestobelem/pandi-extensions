@@ -38,6 +38,7 @@ const REQUIRED_SKILLS = [
 	"karpathy-guidelines",
 	"modern-software-engineering",
 	"installing-pi-dynamic-workflows",
+	"ai-assisted-engineering",
 ];
 // Local-only skills (e.g. open-prose is intentionally gitignored): synced best-effort when present
 // on disk, so this assertion must be conditional or it goes red on a fresh clone / CI.

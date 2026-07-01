@@ -37,6 +37,7 @@ const PROJECT_SKILLS = [
 	"karpathy-guidelines",
 	"modern-software-engineering",
 	"installing-pi-dynamic-workflows",
+	"ai-assisted-engineering",
 	"open-prose",
 ];
 
