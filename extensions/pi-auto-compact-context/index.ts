@@ -125,11 +125,14 @@ export type { ContextBar, ContextBarLevel } from "./context-bar.js";
 // the bundle keeps exporting renderContextBar (the integration suite imports it).
 export { renderContextBar, resolveCommandValue };
 
-const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "accent"> = {
+// Footer bar level -> theme token. The urgent states (over threshold / compacting) use
+// `error` so they read as an alert; `accent` was too easily confused with selection/logo.
+// Exported so the integration suite can pin the mapping.
+export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "error"> = {
 	idle: "muted",
 	near: "warning",
-	over: "accent",
-	compacting: "accent",
+	over: "error",
+	compacting: "error",
 };
 
 export default function autoCompactContext(pi: ExtensionAPI) {

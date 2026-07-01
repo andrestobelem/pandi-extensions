@@ -770,6 +770,20 @@ async function contextHookGatedByToggle(url) {
 	);
 }
 
+// Pinea el mapeo nivel → token de tema del footer bar (BAR_LEVEL_COLOR, named export).
+// El estado urgente (over/compacting) debe usar `error` para leerse como alerta, no `accent`
+// (que se comparte con selección/logo y no comunica peligro).
+async function barLevelColorCases(url) {
+	const mod = await loadModule(url);
+	const map = mod.BAR_LEVEL_COLOR;
+	check("BAR_LEVEL_COLOR: exported", map && typeof map === "object", `typeof=${typeof map}`);
+	if (!map) return;
+	check("BAR_LEVEL_COLOR: idle → muted", map.idle === "muted", `got ${map.idle}`);
+	check("BAR_LEVEL_COLOR: near → warning", map.near === "warning", `got ${map.near}`);
+	check("BAR_LEVEL_COLOR: over → error (urgent)", map.over === "error", `got ${map.over}`);
+	check("BAR_LEVEL_COLOR: compacting → error (urgent)", map.compacting === "error", `got ${map.compacting}`);
+}
+
 async function main() {
 	const url = await build();
 	await stuckAboveThresholdDoesNotLoop(url);
@@ -777,6 +791,7 @@ async function main() {
 	await belowThresholdNeverCompacts(url);
 	await parseThresholdEdgeCases(url);
 	await renderContextBarCases(url);
+	await barLevelColorCases(url);
 	await parseBarSettingCases(url);
 	await barReflectsUsageBelowThreshold(url);
 	await barShowsCompactingState(url);
