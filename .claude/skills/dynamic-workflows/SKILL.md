@@ -1,5 +1,5 @@
 ---
-name: ultracode
+name: dynamic-workflows
 description: >-
   Orchestrate a task with dynamic multi-agent workflows instead of doing it inline — on BOTH
   Claude Code (Anthropic, the Workflow tool) and pi (the dynamic_workflow tool, runs on Anthropic or Codex). Trigger
@@ -13,7 +13,7 @@ description: >-
   right workflow (router), author a new one (workflow-factory), or compose/guard a multi-agent run.
 ---
 
-# ultracode
+# dynamic-workflows
 
 Decide whether to orchestrate, design the workflow, then run it. This skill is **self-contained
 and dual-platform**: the *concepts* (when to orchestrate, primitives, prompting, security) are

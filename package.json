@@ -38,6 +38,8 @@
 		"sync:agents:check": "node scripts/sync-agent-guides.mjs --check",
 		"sync:claude:global": "node scripts/sync-claude-global.mjs",
 		"sync:claude:global:check": "node scripts/sync-claude-global.mjs --check",
+		"sync:claude:ultracode": "node scripts/generate-claude-ultracode-skills.mjs",
+		"sync:claude:ultracode:check": "node scripts/generate-claude-ultracode-skills.mjs --check",
 		"lint:md": "markdownlint-cli2",
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"doctor": "node scripts/doctor.mjs",
