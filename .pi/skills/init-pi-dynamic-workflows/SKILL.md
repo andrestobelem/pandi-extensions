@@ -9,9 +9,9 @@ description: >-
   NOT for authoring new extensions, nor for a generic `npm install` of unrelated packages.
 ---
 
-# Installing this harness (pi-dynamic-workflows)
+# Initialize this harness (pi-dynamic-workflows)
 
-Bring a **fresh clone** of `pi-dynamic-workflows` to a working install: the Pi extensions
+Bring a **fresh clone** of `pi-dynamic-workflows` to a working setup: the Pi extensions
 (`/workflow`, `/goal`, `/loop`, `/plan`, `/effort`, `/mdview`, …), the project skills, and the
 dynamic-workflow catalog — usable from Pi and from Claude Code.
 
