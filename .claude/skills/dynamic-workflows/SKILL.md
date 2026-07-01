@@ -20,7 +20,7 @@ and dual-platform**: the *concepts* (when to orchestrate, primitives, prompting,
 shared; the concrete *API* differs between **Claude Code (Anthropic)** and **pi** (one runtime, runs on Anthropic OR OpenAI/Codex) — see
 [Platform reference](#platform-reference) for each one's tool, helpers, and invocation.
 
-A Claude-side catalog is bundled at `reference/catalog-README.md` (snapshot of the live
+A Claude-side catalog is bundled at `reference/scaffold-catalog.md` (snapshot of the live
 `~/.claude/workflows/README.md`) for the full per-workflow detail.
 
 ## WHEN to orchestrate (gates, in order)
@@ -342,7 +342,7 @@ Workflow({
 
 - Precedence: per-role map > global > call-site default. `name` resolves only if the workflow existed
   at **session start** (snapshot, not recursive); new/`drafts/` files need an absolute `scriptPath`.
-- **Catalog:** `~/.claude/workflows/` (bundled here as `reference/catalog-README.md`). **Depth:** 1
+- **Catalog:** `~/.claude/workflows/` (bundled here as `reference/scaffold-catalog.md`). **Depth:** 1
   (a child's `workflow()` throws; only the top level composes). **Concurrency:** auto, ~`min(16,
   cores-2)`.
 - **SHOW, THEN LAUNCH (required):** always render an authored/specialized script to a self-contained
