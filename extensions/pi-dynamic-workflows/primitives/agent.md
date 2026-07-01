@@ -7,7 +7,7 @@
 Run a single subagent. The prompt is a string (string-first on Claude). Options
 set the per-call budget and access: `model`, `effort` (`low…max`) / `thinking`,
 `schema`, `name`/`label`, `agentType` (`explore`/`reviewer`/`planner`/
-`implementer`/`researcher`), `tools`/`excludeTools`, `skills`, `extensions`,
+`architect`/`implementer`/`researcher`), `tools`/`excludeTools`, `skills`, `extensions`,
 `keys`, `env`, and `signal` (for cancellation inside `race()`).
 
 **Returns:**

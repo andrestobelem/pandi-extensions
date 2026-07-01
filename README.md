@@ -630,7 +630,7 @@ Regla práctica:
 
 - `agent(prompt, opts)` — ejecuta un subagente Pi (`pi -p --no-session`). Se cachea por defecto para resume; desactívalo con `{ cache: false }`. Usa `tools`/`excludeTools`, `skills`/`includeSkills`, `extensions`/`includeExtensions` y `keys`/`env` para definir accesos por agente.
 - `agent(prompt, { schema })` — pide JSON validado y **devuelve el objeto parseado directamente** (o `null` si falla o nunca valida); reintenta con `schemaRetries` (default `2`). Para el envelope completo (`output`/`data`/`schemaOk`) usá el plural `agents([...])`.
-- `agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`, `implementer`, `researcher`); las opciones explícitas ganan.
+- `agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`, `architect`, `implementer`, `researcher`); las opciones explícitas ganan.
 - `agents(items, opts)` — ejecuta muchos subagentes con concurrencia limitada.
 - `agents(items, { concurrency, settle: true })` — devuelve `Array<SubagentResult | null>`: los fallos de ramas individuales son `null`, las demás ramas siguen.
 - `pipeline(items, ...stages)` — flujo multi-etapa por item sin barrera global; cada stage recibe `(prev, item, index)` y los items fallidos devuelven `null`.

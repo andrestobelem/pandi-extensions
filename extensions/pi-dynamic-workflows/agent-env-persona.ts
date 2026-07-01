@@ -43,6 +43,12 @@ export const BUILTIN_AGENT_PERSONAS: Record<string, AgentOptions> = {
 		systemPrompt:
 			"Act as a careful planner. Decompose the task, identify dependencies and risks, and propose a minimal verifiable plan with clear trade-offs.",
 	},
+	architect: {
+		tools: READ_ONLY_AGENT_TOOLS,
+		thinking: "high",
+		systemPrompt:
+			"Act as a software architect. Shape the solution design: define components, interfaces, boundaries, and data flow; weigh trade-offs and constraints; and justify the design against requirements. Do not edit files; cite concrete evidence.",
+	},
 	implementer: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "medium",
