@@ -165,63 +165,6 @@ async function scenarioMoodsUnit(url) {
 	);
 }
 
-async function scenarioKaomojiUnit(url) {
-	const { KAOMOJI_PANDAS, KAOMOJI_SEQUENCE } = await loadModule(url);
-
-	const faces = Object.values(KAOMOJI_PANDAS ?? {});
-	check("KAOMOJI_PANDAS is a non-empty face dictionary", faces.length > 0, String(faces.length));
-	for (const face of faces) {
-		check(
-			`kaomoji face is a panda (non-empty string with the "ᴥ" snout): ${JSON.stringify(face)}`,
-			typeof face === "string" && face.length > 1 && face.includes("ᴥ"),
-		);
-	}
-
-	check("KAOMOJI_SEQUENCE is a non-empty array", Array.isArray(KAOMOJI_SEQUENCE) && KAOMOJI_SEQUENCE.length > 0);
-	for (const frame of KAOMOJI_SEQUENCE ?? []) {
-		check(
-			`frame.face is a panda face: ${JSON.stringify(frame?.face)}`,
-			typeof frame?.face === "string" && frame.face.includes("ᴥ"),
-		);
-		check(
-			`frame.dots is an integer in [0, 3]: ${JSON.stringify(frame?.dots)}`,
-			Number.isInteger(frame?.dots) && frame.dots >= 0 && frame.dots <= 3,
-		);
-	}
-
-	// The whole point: the MOVING indicator must actually change expression, not render one
-	// face forever. Pin that at least 3 distinct designed faces rotate through the animation.
-	const distinctFaces = new Set((KAOMOJI_SEQUENCE ?? []).map((frame) => frame.face));
-	check(
-		`the animated sequence cycles >=3 distinct faces (it changes): ${distinctFaces.size}`,
-		distinctFaces.size >= 3,
-		String(distinctFaces.size),
-	);
-
-	// Robust terminal rendering of the faces. A face with combining marks (\p{M}) composes an
-	// accent onto a base glyph — fragile across terminals when the base is not a letter (it can
-	// tofu or shift a cell). Forbid them so every face is a run of standalone, width-1 glyphs.
-	for (const face of faces) {
-		const combining = [...face].filter((ch) => /\p{M}/u.test(ch));
-		check(
-			`kaomoji face has no fragile combining marks: ${JSON.stringify(face)}`,
-			combining.length === 0,
-			`${combining.length} combining`,
-		);
-	}
-
-	// Anti-jitter invariant: every frame the MOVING indicator renders must occupy the SAME
-	// number of display columns, or the carita visibly jumps as it animates. With no combining
-	// marks (checked above) and no wide/ambiguous-forced glyphs, display width == code points.
-	const widthOf = (s) => [...s].filter((ch) => !/\p{M}/u.test(ch)).length;
-	const frameWidths = new Set((KAOMOJI_SEQUENCE ?? []).map((frame) => widthOf(frame.face)));
-	check(
-		`all animation frames share one display width (no jitter): ${[...frameWidths].join(",")}`,
-		frameWidths.size === 1,
-		`${frameWidths.size} distinct widths`,
-	);
-}
-
 async function main() {
 	const built = await buildExtension({
 		name: "pi-pandi-moods",
@@ -233,18 +176,6 @@ async function main() {
 		await scenarioMoodsUnit(built.url);
 	} finally {
 		await fs.rm(built.outDir, { recursive: true, force: true });
-	}
-
-	const builtKaomoji = await buildExtension({
-		name: "pi-pandi-kaomoji",
-		src: path.join(REPO_ROOT, "extensions", "pi-pandi", "kaomoji.ts"),
-		outName: "kaomoji.mjs",
-		npx: "--yes",
-	});
-	try {
-		await scenarioKaomojiUnit(builtKaomoji.url);
-	} finally {
-		await fs.rm(builtKaomoji.outDir, { recursive: true, force: true });
 	}
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
