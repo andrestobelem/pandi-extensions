@@ -62,11 +62,26 @@ export const fgAnsi = ([r, g, b]: Rgb): string => `\x1b[38;2;${r};${g};${b}m`;
 export const CLAUDE_ORANGE: Rgb = [217, 119, 87];
 
 /**
- * Pinta un glifo de "ojo" en el naranja-coral de Claude y resetea el color después, para
- * que las caritas kaomoji también BRILLEN (como los ◆ del estilo claude) en lugar de ser
- * de un solo tono plano. Preserva glifos con acento combinante (p. ej. "•̀").
+ * Pinta un glifo de "ojo" en el escape de color DADO y resetea el color después, para que
+ * las caritas BRILLEN sin ser de un tono plano. El color lo elige el orquestador desde la
+ * paleta del tema (theme.getFgAnsi(rol)) — no hay color hardcodeado acá. Preserva glifos
+ * con acento combinante (p. ej. "•̀").
  */
-export const glintEye = (glyph: string): string => `${fgAnsi(CLAUDE_ORANGE)}${glyph}${RESET}`;
+export const glintEye = (glyph: string, fg: string): string => `${fg}${glyph}${RESET}`;
+
+/**
+ * Rol de color de la PALETA DEL TEMA para los ojos de cada carita (theme-adaptive), elegido
+ * semánticamente: happy=success (verde), error=error (rojo), el resto=accent. Son nombres de
+ * `ThemeColor` válidos; el orquestador los resuelve con theme.getFgAnsi(rol). Se mantiene
+ * SDK-free (as const) para que este módulo siga siendo puro y testeable en aislamiento.
+ */
+export const FACE_EYE_ROLE = {
+	thinking: "accent",
+	happy: "success",
+	error: "error",
+	basico: "accent",
+	gatuno: "accent",
+} as const;
 
 /**
  * Paint one face row: █→patch block, ░→face block (both as solid █ so the face is opaque),

@@ -31,6 +31,7 @@ import type { ExtensionAPI, ExtensionContext, Theme, WorkingIndicatorOptions } f
 import {
 	CLAUDE_ORANGE,
 	colorizeFace,
+	FACE_EYE_ROLE,
 	FACE_WIDTH,
 	fgAnsi,
 	glintEye,
@@ -85,27 +86,27 @@ function saveStyle(face: FaceStyle): void {
 	}
 }
 
-// Los pandas kaomoji. Los ojos BRILLAN en el naranja-coral de Claude (glintEye) para que
-// estas caritas tengan color como el estilo claude, no un solo tono plano.
-const kao = (left: string, right: string): string => `ʕ ${glintEye(left)}ᴥ${glintEye(right)} ʔ`;
-const PANDA = {
-	basico: kao("•", "•"), // panda básico
-	ojitos: kao("◕", "◕"), // ojitos grandes
-	llorando: kao("╥", "╥"), // llorando
-	decidido: kao("•̀", "•́"), // decidido
-	gatuno: `(=${glintEye("◕")}ᴥ${glintEye("◕")}=)`, // gatuno-panda
-} as const;
-
-// Carita por estado.
-const FACE = {
-	thinking: PANDA.decidido,
-	happy: PANDA.ojitos,
-	error: PANDA.llorando,
-} as const;
+// Las caritas kaomoji con ojos coloreados desde la PALETA DEL TEMA (theme-adaptive) según
+// FACE_EYE_ROLE (happy=success, error=error, el resto=accent). Se construyen por-llamada
+// porque necesitan el theme; todos los call-sites (notify) tienen ctx.ui.theme.
+function pandaFaces(theme: Theme) {
+	const kao = (role: keyof typeof FACE_EYE_ROLE, left: string, right: string): string => {
+		const fg = theme.getFgAnsi(FACE_EYE_ROLE[role]);
+		return `ʕ ${glintEye(left, fg)}ᴥ${glintEye(right, fg)} ʔ`;
+	};
+	const gatunoFg = theme.getFgAnsi(FACE_EYE_ROLE.gatuno);
+	return {
+		basico: kao("basico", "•", "•"), // panda básico
+		thinking: kao("thinking", "•̀", "•́"), // decidido
+		happy: kao("happy", "◕", "◕"), // ojitos grandes
+		error: kao("error", "╥", "╥"), // llorando
+		gatuno: `(=${glintEye("◕", gatunoFg)}ᴥ${glintEye("◕", gatunoFg)}=)`, // gatuno-panda
+	};
+}
 
 /** Estilo "claude": carita `(● ●)` con ojos que a veces brillan con el rombo ◆. */
 function framesClaude(theme: Theme): WorkingIndicatorOptions {
-	const eye = (c: string) => (c === "◆" ? orange("◆") : c);
+	const eye = (c: string) => (c === "◆" ? theme.fg("accent", "◆") : c);
 	const face = (l: string, r: string) => `${theme.fg("dim", "(")}${eye(l)}  ${eye(r)}${theme.fg("dim", ")")}`;
 	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
 	return {
@@ -125,8 +126,10 @@ function framesClaude(theme: Theme): WorkingIndicatorOptions {
 
 /** Estilo "kaomoji": el oso `ʕ•ᴥ•ʔ` que parpadea, con los ojos brillando en naranja. */
 function framesKaomoji(theme: Theme): WorkingIndicatorOptions {
-	const face = (eyes: string) =>
-		`${theme.fg("accent", "ʕ ")}${glintEye(eyes)}${theme.fg("accent", "ᴥ")}${glintEye(eyes)}${theme.fg("accent", " ʔ")}`;
+	const face = (eyes: string) => {
+		const eye = glintEye(eyes, theme.getFgAnsi("accent"));
+		return `${theme.fg("accent", "ʕ ")}${eye}${theme.fg("accent", "ᴥ")}${eye}${theme.fg("accent", " ʔ")}`;
+	};
 	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
 	return {
 		frames: [
@@ -180,7 +183,8 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		apply(ctx);
 		if (enabled) {
-			const greet = Math.random() < 0.1 ? PANDA.gatuno : FACE.happy; // easter egg gatuno-panda
+			const f = pandaFaces(ctx.ui.theme);
+			const greet = Math.random() < 0.1 ? f.gatuno : f.happy; // easter egg gatuno-panda
 			ctx.ui.notify(`${greet} Pandi listo. ${PANDI_QUOTE[0]} ${PANDI_QUOTE[1]}`, "info");
 		}
 	});
@@ -209,44 +213,46 @@ export default function (pi: ExtensionAPI) {
 		description: "Pandi 🐼 — estado / art / face / on / off",
 		handler: async (args, ctx) => {
 			const cmd = args.trim().toLowerCase();
+			const f = pandaFaces(ctx.ui.theme);
 
 			if (cmd === "off") {
 				enabled = false;
 				restoreDefaults(ctx);
-				ctx.ui.notify(`${FACE.thinking} Pandi se fue a dormir (header y spinner default restaurados).`, "info");
+				ctx.ui.notify(`${f.thinking} Pandi se fue a dormir (header y spinner default restaurados).`, "info");
 				return;
 			}
 
 			if (cmd === "on") {
 				enabled = true;
 				apply(ctx);
-				ctx.ui.notify(`${FACE.happy} ¡Pandi volvió!`, "info");
+				ctx.ui.notify(`${f.happy} ¡Pandi volvió!`, "info");
 				return;
 			}
 
 			if (cmd === "art") {
 				if (!enabled) {
-					ctx.ui.notify(`${FACE.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
+					ctx.ui.notify(`${f.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
 					return;
 				}
 				artVisible = !artVisible;
 				setSplash(ctx);
-				ctx.ui.notify(artVisible ? `${FACE.happy} Splash del panda activado.` : "Splash oculto.", "info");
+				ctx.ui.notify(artVisible ? `${f.happy} Splash del panda activado.` : "Splash oculto.", "info");
 				return;
 			}
 
 			if (cmd === "face") {
 				if (!enabled) {
-					ctx.ui.notify(`${FACE.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
+					ctx.ui.notify(`${f.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
 					return;
 				}
 				faceStyle = faceStyle === "kaomoji" ? "claude" : "kaomoji";
 				saveStyle(faceStyle);
 				ctx.ui.setWorkingIndicator(pandaFrames(ctx.ui.theme, faceStyle));
+				const accentDiamond = ctx.ui.theme.fg("accent", "◆");
 				ctx.ui.notify(
 					faceStyle === "kaomoji"
-						? `${ctx.ui.theme.fg("accent", PANDA.basico)} Estilo kaomoji (guardado).`
-						: `(${orange("◆")} ᴗ ${orange("◆")}) Estilo Claude (guardado).`,
+						? `${f.basico} Estilo kaomoji (guardado).`
+						: `(${accentDiamond} ᴗ ${accentDiamond}) Estilo Claude (guardado).`,
 					"info",
 				);
 				return;
@@ -256,8 +262,8 @@ export default function (pi: ExtensionAPI) {
 			apply(ctx);
 			ctx.ui.notify(
 				enabled
-					? `${FACE.happy} Pandi despierto y ${pick(MOODS)}`
-					: `${FACE.thinking} Pandi dormido. Usá /pandi on para despertarlo.`,
+					? `${f.happy} Pandi despierto y ${pick(MOODS)}`
+					: `${f.thinking} Pandi dormido. Usá /pandi on para despertarlo.`,
 				"info",
 			);
 		},

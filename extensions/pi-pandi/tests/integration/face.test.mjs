@@ -45,8 +45,8 @@ async function scenarioFaceUnit(url) {
 		parseFgRgb,
 		luminance,
 		modeFromTextColor,
-		CLAUDE_ORANGE,
 		glintEye,
+		FACE_EYE_ROLE,
 	} = await loadModule(url);
 
 	// --- Art shape -----------------------------------------------------------------
@@ -123,15 +123,27 @@ async function scenarioFaceUnit(url) {
 	check("parseFgRgb rejects a 256-color escape", parseFgRgb("\x1b[38;5;200m") === undefined);
 	check("parseFgRgb rejects garbage", parseFgRgb("not-an-escape") === undefined);
 
-	// --- glintEye (colored kaomoji eyes) -------------------------------------------
-	// The claude indicator "glints" because its ◆ eyes are painted in Claude's coral-orange.
-	// glintEye is the pure helper that gives the OTHER (kaomoji) faces the same colored eyes.
-	// The real risks: the color must RESET after the eye (or it bleeds into the rest of the
-	// line) and combining-accent eyes (the "decidido" face "•̀") must survive intact.
-	const glint = glintEye("•");
-	check("glintEye wraps the eye in the Claude orange fg escape", glint.startsWith(fgAnsi(CLAUDE_ORANGE)));
+	// --- glintEye (theme-colored eyes) ---------------------------------------------
+	// glintEye paints an eye glyph in a GIVEN fg escape (the orchestrator passes a theme
+	// palette color via theme.getFgAnsi(role) — no hardcoded color lives here). The real
+	// risks: the color must RESET after the eye (or it bleeds into the rest of the line) and
+	// combining-accent eyes (the "decidido" face "•̀") must survive intact.
+	const someFg = fgAnsi([12, 34, 56]);
+	const glint = glintEye("•", someFg);
+	check("glintEye wraps the eye in the GIVEN fg escape", glint.startsWith(someFg));
 	check("glintEye resets color after the eye", glint.endsWith("\x1b[0m"));
-	check("glintEye preserves a combining-accent eye glyph (decidido)", glintEye("•̀").includes("•̀"));
+	check("glintEye preserves a combining-accent eye glyph (decidido)", glintEye("•̀", someFg).includes("•̀"));
+
+	// --- FACE_EYE_ROLE (semantic theme palette per face) ---------------------------
+	// The faces' eyes are colored from the THEME palette, semantically: happy=success (green),
+	// error=error (red), the rest=accent. This pins that intent against regressions.
+	check("FACE_EYE_ROLE.happy uses the theme success role", FACE_EYE_ROLE.happy === "success");
+	check("FACE_EYE_ROLE.error uses the theme error role", FACE_EYE_ROLE.error === "error");
+	check("FACE_EYE_ROLE.thinking uses the theme accent role", FACE_EYE_ROLE.thinking === "accent");
+	check(
+		"FACE_EYE_ROLE values are all non-empty strings",
+		Object.values(FACE_EYE_ROLE).every((v) => typeof v === "string" && v.length > 0),
+	);
 
 	check("luminance(black) is 0", luminance([0, 0, 0]) === 0);
 	check("luminance(white) is ~1", Math.abs(luminance([255, 255, 255]) - 1) < 1e-9);
