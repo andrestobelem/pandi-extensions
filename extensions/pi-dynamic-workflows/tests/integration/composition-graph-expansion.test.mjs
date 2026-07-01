@@ -355,10 +355,59 @@ module.exports = async function workflow(ctx) {
 	);
 }
 
+// A globals-style child library workflow (export default main() + injected globals, no ctx.*).
+const RANK_CHILD_GLOBALS = `
+export default async function main() {
+  const scored = await agents(args.candidates.map((c) => ({ prompt: "score " + c })), { name: "juror" });
+  await writeArtifact("ranked.json", { scored });
+  return { ranked: scored };
+};
+`;
+
+// Globals-style parent: bare agent()/agents()/workflow()/writeArtifact() calls (no ctx.*). The
+// graph parser must detect these exactly like ctx.* calls; previously it only matched `ctx.<m>(`,
+// so a globals-style workflow rendered an EMPTY graph ("No ... workflow API calls detected").
+async function scenarioGlobalsStyleDetected(url) {
+	const project = await makeProject();
+	await writeWorkflow(
+		project,
+		"graph-globals",
+		`
+export default async function main() {
+  const candidates = await agent("brainstorm options");
+  const ranked = await workflow("lib/rank-globals", { candidates });
+  const scored = await agents(["a", "b"].map((c) => ({ prompt: "score " + c })), { concurrency: 4 });
+  await writeArtifact("out.json", { scored });
+  return { best: ranked.ranked[0] };
+};
+`,
+	);
+	await writeWorkflow(project, "lib/rank-globals", RANK_CHILD_GLOBALS);
+
+	const graph = await graphOf(url, project, "graph-globals");
+	check(
+		"globals: parser detects calls (graph is NOT the empty message)",
+		!/workflow API calls detected/i.test(graph),
+		graph.slice(0, 500),
+	);
+	check("globals: fan-out subagents step detected", /fan-out subagents/i.test(graph), graph);
+	check("globals: bare agent() subagent step detected", /\bsubagent\b/i.test(graph), graph);
+	check("globals: sub-workflow compose detected", /sub-workflow/i.test(graph), graph);
+	check(
+		"globals: literal child expanded one level",
+		/expands:\s*lib\/rank-globals\s*\(\d+ steps\)/.test(graph),
+		graph,
+	);
+	// Accuracy: globals-style calls (parent AND child are globals here) must NOT be mislabeled with a
+	// `ctx.` prefix in the rendered step lines.
+	check("globals: steps are NOT mislabeled with a ctx. prefix", !/ctx\./.test(graph), graph);
+}
+
 async function main() {
 	try {
 		const { url } = await buildExtension();
 		await scenarioLiteralExpansion(url);
+		await scenarioGlobalsStyleDetected(url);
 		await scenarioDynamicName(url);
 		await scenarioDepthLimit(url);
 		await scenarioRecursionGuard(url);

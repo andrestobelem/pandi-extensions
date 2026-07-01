@@ -292,9 +292,12 @@ export function formatWorkflowGraphFanoutSummary(fanout: WorkflowGraphFanoutInfo
 export function summarizeWorkflowGraphChildren(children: WorkflowGraphChildCall[]): string | undefined {
 	if (children.length === 0) return undefined;
 	const counts = new Map<string, number>();
-	for (const child of children) counts.set(child.method, (counts.get(child.method) ?? 0) + 1);
+	for (const child of children) {
+		const display = `${child.prefix ?? "ctx."}${child.method}`;
+		counts.set(display, (counts.get(display) ?? 0) + 1);
+	}
 	return Array.from(counts.entries())
-		.map(([method, count]) => `${count}× ctx.${method}`)
+		.map(([display, count]) => `${count}× ${display}`)
 		.join(", ");
 }
 

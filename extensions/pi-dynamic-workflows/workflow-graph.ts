@@ -42,14 +42,22 @@ import { WorkflowGraphComponent } from "./workflow-graph-component.js";
 import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";
 
 function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): WorkflowGraphModel {
+	// Detect BOTH authoring styles the runtime supports: the ctx-legacy form (`ctx.agents(...)`) and
+	// the globals form (bare `agents(...)`, no ctx.*). `(?<![\w.])` rejects a method glued to another
+	// identifier or a property access on a different object (`fs.readFile`, `myagents(`); the optional
+	// `(ctx\.)` capture records which style was used so labels are not mislabeled.
 	const regex =
-		/\bctx\.(parallel|pipeline|agents|agent|workflow|bash|writeArtifact|appendArtifact|readFile|writeFile|appendFile|listFiles)\s*\(/g;
+		/(?<![\w.])(ctx\.)?(parallel|pipeline|agents|agent|workflow|bash|writeArtifact|appendArtifact|readFile|writeFile|appendFile|listFiles)\s*\(/g;
 	const calls: WorkflowGraphCall[] = [];
 	let match: RegExpExecArray | null;
 	// biome-ignore lint/suspicious/noAssignInExpressions: idiomatic regex.exec() loop
 	while ((match = regex.exec(code)) !== null) {
 		if (!isJavaScriptCodePosition(code, match.index)) continue;
-		const method = match[1];
+		const prefix = match[1] ? "ctx." : "";
+		const method = match[2];
+		// Skip a bare `function <method>(…)` DECLARATION (e.g. `async function workflow(ctx, input)`),
+		// which is the entry function, not a composition call.
+		if (!prefix && /\bfunction\*?\s*$/.test(code.slice(0, match.index))) continue;
 		const openParenIndex = regex.lastIndex - 1;
 		const end = findCallEndIndex(code, openParenIndex);
 		const snippet = code.slice(openParenIndex + 1, Math.max(openParenIndex + 1, end - 1));
@@ -59,6 +67,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		const info = workflowGraphMethodInfo(method);
 		calls.push({
 			...info,
+			prefix,
 			start: match.index,
 			end,
 			snippet,
@@ -96,6 +105,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		const children = childrenByParent.get(call) ?? [];
 		steps.push({
 			method: call.method,
+			prefix: call.prefix,
 			kind: call.kind,
 			symbol: call.symbol,
 			title: call.title,
@@ -211,7 +221,7 @@ function renderWorkflowGraphSubworkflowSummaryLines(model: WorkflowGraphModel, d
 	const indent = "  ".repeat(depth);
 	const lines = [`${indent}↳ sub-workflow graph: ${model.workflow.name} (${model.steps.length} steps)`];
 	for (const step of model.steps.slice(0, 12)) {
-		lines.push(`${indent}  ${step.symbol} ${step.label} L${step.line} ctx.${step.method}`);
+		lines.push(`${indent}  ${step.symbol} ${step.label} L${step.line} ${step.prefix ?? "ctx."}${step.method}`);
 		if (step.subworkflow) lines.push(...renderWorkflowGraphSubworkflowSummaryLines(step.subworkflow, depth + 2));
 		else if (step.subworkflowError) lines.push(`${indent}    ↳ subgraph unavailable: ${step.subworkflowError}`);
 	}
@@ -247,7 +257,7 @@ function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: numb
 	];
 
 	if (steps.length === 0) {
-		lines.push(line(`  ${style.warning("No ctx.* workflow API calls detected.")}`));
+		lines.push(line(`  ${style.warning("No workflow API calls detected.")}`));
 		lines.push(
 			line(`  ${style.muted("This may be a trivial workflow or the graph heuristic missed dynamic indirection.")}`),
 		);
@@ -256,7 +266,9 @@ function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: numb
 		for (const step of steps) {
 			lines.push(line(`    ${style.muted("│")}`));
 			lines.push(
-				line(`    ${style.accent(step.symbol)} ${step.label} ${style.muted(`L${step.line} ctx.${step.method}`)}`),
+				line(
+					`    ${style.accent(step.symbol)} ${step.label} ${style.muted(`L${step.line} ${step.prefix ?? "ctx."}${step.method}`)}`,
+				),
 			);
 			for (const detail of renderWorkflowGraphStepDetail(step)) {
 				lines.push(line(`    ${style.muted("│")} ${style.muted(detail)}`));
@@ -280,13 +292,13 @@ function renderWorkflowGraphOverviewLines(model: WorkflowGraphModel, width: numb
 			const index = padRightVisible(`${step.index}.`, 4);
 			lines.push(
 				line(
-					`${style.muted(index)}${style.accent(step.symbol)} ${step.label} ${style.muted(`— L${step.line}, ctx.${step.method}`)}`,
+					`${style.muted(index)}${style.accent(step.symbol)} ${step.label} ${style.muted(`— L${step.line}, ${step.prefix ?? "ctx."}${step.method}`)}`,
 				),
 			);
 			for (const child of step.children) {
 				lines.push(
 					line(
-						`${style.muted("    ↳")} ${style.accent(child.symbol)} ${child.label} ${style.muted(`— L${child.line}, nested ctx.${child.method}`)}`,
+						`${style.muted("    ↳")} ${style.accent(child.symbol)} ${child.label} ${style.muted(`— L${child.line}, nested ${child.prefix ?? "ctx."}${child.method}`)}`,
 					),
 				);
 			}
@@ -625,6 +637,8 @@ export interface WorkflowGraphFanoutInfo {
 
 export interface WorkflowGraphChildCall {
 	method: string;
+	/** Call-syntax prefix used in source: "ctx." for ctx-legacy calls, "" for globals-style. */
+	prefix?: string;
 	kind: WorkflowGraphStepKind;
 	symbol: string;
 	title: string;
@@ -636,6 +650,8 @@ export interface WorkflowGraphChildCall {
 export interface WorkflowGraphStep {
 	index: number;
 	method: string;
+	/** Call-syntax prefix used in source: "ctx." for ctx-legacy calls, "" for globals-style. */
+	prefix?: string;
 	kind: WorkflowGraphStepKind;
 	symbol: string;
 	title: string;
