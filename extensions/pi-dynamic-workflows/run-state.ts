@@ -107,6 +107,35 @@ export function isResumableState(state: WorkflowRunState): boolean {
 	return state === "stale" || state === "failed" || state === "cancelled";
 }
 
+// A run is terminal (safe to delete) when it is no longer running: completed, failed,
+// cancelled, or stale. This is the complement of "running".
+export function isTerminalRunState(state: WorkflowRunState): boolean {
+	return state !== "running";
+}
+
+// Pure selection policy for `/workflow cleanup runs`. Returns the run records that are safe
+// to delete: only TERMINAL runs (never running), never a run tracked as active in-memory
+// (activeIds), optionally filtered to a set of states, and always retaining the `keep`
+// most-recent runs (by startedAt desc) so a bulk cleanup can't wipe the freshest history.
+// The IO wrapper (run-lifecycle.ts, cleanupWorkflowRuns) does the actual fs.rm.
+export function selectRunsForCleanup(
+	runs: WorkflowRunRecord[],
+	opts: { keep?: number; states?: WorkflowRunState[]; activeIds: Set<string> },
+): WorkflowRunRecord[] {
+	const keep = Math.max(0, Math.floor(opts.keep ?? 0));
+	const stateFilter = opts.states ? new Set(opts.states) : undefined;
+	const candidates = runs
+		.filter((run) => {
+			const state = getRunState(run);
+			if (!isTerminalRunState(state)) return false;
+			if (opts.activeIds.has(run.runId)) return false;
+			if (stateFilter && !stateFilter.has(state)) return false;
+			return true;
+		})
+		.sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+	return candidates.slice(keep);
+}
+
 export function getRunCachedCalls(run: WorkflowRunRecord): number {
 	return typeof run.cachedCalls === "number" ? run.cachedCalls : 0;
 }
