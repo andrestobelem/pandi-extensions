@@ -229,6 +229,33 @@ async function testNoModel(url) {
 	check("no model does not call the model", (globalThis.__btwCalls ?? []).length === 0);
 }
 
+// In json/headless mode (mode !== "print", hasUI === false) there is no overlay
+// and no print-stream branch, so notify() must fall back to the console —
+// otherwise every error/warning (no model, auth failure, model error) is
+// silently dropped and a failure is indistinguishable from a hang.
+async function testJsonModeNotifyReachesConsole(url) {
+	resetModelCalls();
+	const ext = await loadDefault(url);
+	const { pi, commands } = makePi();
+	ext(pi);
+	// model:null drives notify() with an error; json mode has no UI.
+	const { ctx } = makeCtx({ mode: "json", hasUI: false, model: null });
+
+	const errOut = [];
+	const origErr = console.error;
+	console.error = (m) => errOut.push(String(m));
+	try {
+		await commands.get("btw").handler("what file was that?", ctx);
+	} finally {
+		console.error = origErr;
+	}
+	check(
+		"json mode: an error notify is written to the console (not silently dropped)",
+		errOut.some((m) => /no model/i.test(m)),
+		JSON.stringify(errOut),
+	);
+}
+
 async function testAuthFailure(url) {
 	resetModelCalls();
 	const ext = await loadDefault(url);
@@ -424,6 +451,7 @@ async function main() {
 		await testRegistration(url);
 		await testEmptyQuestion(url);
 		await testNoModel(url);
+		await testJsonModeNotifyReachesConsole(url);
 		await testAuthFailure(url);
 		await testHappyPathContract(url);
 		await testReasoningModel(url);

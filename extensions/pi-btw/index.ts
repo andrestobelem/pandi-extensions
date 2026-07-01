@@ -37,12 +37,16 @@ const STATUS_KEY = "btw";
 
 /** Notify the user, degrading gracefully outside the TUI (mirrors pi-mdview's helper). */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	if (ctx.mode === "print") {
-		if (type === "info") console.log(message);
-		else console.error(message);
+	// The overlay/notify surface only exists in an interactive (TUI/RPC) session. In print
+	// AND json (headless, hasUI=false) modes there is no UI, so fall back to the console —
+	// otherwise errors/warnings are silently dropped in json mode (a failure then looks
+	// indistinguishable from a hang).
+	if (ctx.mode !== "print" && ctx.hasUI) {
+		ctx.ui.notify(message, type);
 		return;
 	}
-	if (ctx.hasUI) ctx.ui.notify(message, type);
+	if (type === "info") console.log(message);
+	else console.error(message);
 }
 
 async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
