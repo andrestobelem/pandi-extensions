@@ -57,7 +57,7 @@ function fold(value) {
 }
 
 async function scenarioMoodsUnit(url) {
-	const { MOODS, PANDI_QUOTE, pick, greetingText } = await loadModule(url);
+	const { MOODS, GREETINGS, PANDI_QUOTE, pick, greetingText } = await loadModule(url);
 
 	check("MOODS is a non-empty array", Array.isArray(MOODS) && MOODS.length > 0, String(MOODS?.length));
 	check("MOODS has no duplicates", new Set(MOODS).size === MOODS.length);
@@ -110,13 +110,44 @@ async function scenarioMoodsUnit(url) {
 		PANDI_QUOTE.every((line) => typeof line === "string" && line.trim().length > 0),
 	);
 
+	// GREETINGS: tierno/zen "otra cosa" shown after "Pandi listo." when the splash is visible,
+	// so we never repeat the splash's main phrase. Complete sentences, not the MOOD gerunds.
+	check("GREETINGS is a non-empty array", Array.isArray(GREETINGS) && GREETINGS.length > 0, String(GREETINGS?.length));
+	check("GREETINGS has no duplicates", new Set(GREETINGS).size === GREETINGS.length);
+	for (const g of GREETINGS) {
+		check(`greeting is a non-empty string: ${JSON.stringify(g)}`, typeof g === "string" && g.length > 1);
+		check(`greeting is trimmed: ${JSON.stringify(g)}`, g === g.trim());
+		check(
+			`greeting starts uppercase (a sentence): ${JSON.stringify(g)}`,
+			g[0] === g[0].toUpperCase() && g[0] !== g[0].toLowerCase(),
+		);
+		check(`greeting ends with sentence punctuation: ${JSON.stringify(g)}`, /[.…]$/.test(g));
+		check(
+			`greeting never repeats the splash phrase: ${JSON.stringify(g)}`,
+			!g.includes(PANDI_QUOTE[0]) && !g.includes(PANDI_QUOTE[1]),
+		);
+	}
+	const greetInField = GREETINGS.filter((g) => FIELD_VOCAB.some((word) => fold(g).includes(word)));
+	check(
+		`a strong majority of greetings are in the bamboo-forest field (>=60%): ${greetInField.length}/${GREETINGS.length}`,
+		greetInField.length / GREETINGS.length >= 0.6,
+		`${greetInField.length}/${GREETINGS.length}`,
+	);
+
 	// The start greeting must NOT repeat the splash's main phrase when the splash is visible
-	// (the two-line PANDI_QUOTE is the splash's job). When the splash is hidden the greeting
-	// carries the quote so the meme still appears somewhere.
+	// (the two-line PANDI_QUOTE is the splash's job): instead it says "Pandi listo." + a
+	// tierno/zen flavor line. When the splash is hidden the greeting carries the quote so the
+	// meme still appears somewhere. Randomness lives at the call-site (pick), so greetingText
+	// takes the chosen flavor and stays deterministic/testable.
 	check("greetingText is a function", typeof greetingText === "function");
-	const withSplash = greetingText(true);
-	const withoutSplash = greetingText(false);
+	const flavor = GREETINGS[0];
+	const withSplash = greetingText(true, flavor);
+	const withoutSplash = greetingText(false, flavor);
 	check("greetingText(splashVisible=true) says 'Pandi listo.'", withSplash.includes("Pandi listo."));
+	check(
+		`greetingText(splashVisible=true) includes the flavor line: ${JSON.stringify(withSplash)}`,
+		withSplash.includes(flavor),
+	);
 	check(
 		`greetingText(splashVisible=true) does NOT repeat the main phrase: ${JSON.stringify(withSplash)}`,
 		!withSplash.includes(PANDI_QUOTE[0]) && !withSplash.includes(PANDI_QUOTE[1]),

@@ -46,14 +46,34 @@ export const MOODS = [
 	"enroscado entre las ramas…",
 ] as const;
 
+/**
+ * Tierno/zen "otra cosa" lines shown after "Pandi listo." on start WHEN the splash is
+ * visible — so the greeting never repeats the splash's main phrase (PANDI_QUOTE). Tone: soft
+ * bamboo-forest calm, complete sentences (unlike the MOOD gerunds), each ending in "." or
+ * "…". Never restate PANDI_QUOTE here.
+ */
+export const GREETINGS = [
+	"El bosque respira tranquilo.",
+	"Todo en calma en el bambudal.",
+	"Sin apuro, como el bambú al crecer.",
+	"Acá estoy, entre las ramas.",
+	"Respirá hondo; empezamos cuando quieras.",
+	"Que el bosque nos guíe hoy.",
+	"Un brote fresco y a rumiar ideas.",
+	"La brisa del bambudal nos acompaña.",
+	"Paso a paso, hoja por hoja.",
+	"Enroscados y en paz, listos para pensar.",
+] as const;
+
 /** Pick a uniformly-random element. Always returns a member of a non-empty array. */
 export const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 
 /**
  * Text of the start greeting (the part after the animated face). The two-line PANDI_QUOTE is
  * the SPLASH's job, so when the splash art is visible we must NOT repeat it here — the
- * greeting is just "Pandi listo.". When the splash is hidden (`/pandi art` off) the greeting
- * carries the quote so the meme still appears somewhere.
+ * greeting is "Pandi listo." + a tierno/zen `flavor` line (pick one from GREETINGS at the
+ * call-site so this helper stays deterministic). When the splash is hidden (`/pandi art`
+ * off) the greeting carries the quote so the meme still appears somewhere.
  */
-export const greetingText = (splashVisible: boolean): string =>
-	splashVisible ? "Pandi listo." : `Pandi listo. ${PANDI_QUOTE[0]} ${PANDI_QUOTE[1]}`;
+export const greetingText = (splashVisible: boolean, flavor: string): string =>
+	splashVisible ? `Pandi listo. ${flavor}` : `Pandi listo. ${PANDI_QUOTE[0]} ${PANDI_QUOTE[1]}`;
