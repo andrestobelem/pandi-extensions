@@ -11,12 +11,15 @@
     "../extensions/pi-local-memory",
     "../extensions/pi-auto-compact",
     "../extensions/pi-worktree",
+    "../extensions/pi-container",
     "../extensions/pi-typescript-lsp",
     "../extensions/pi-rename",
     "../extensions/pi-btw",
     "../extensions/pi-pandi",
     "../extensions/pi-exit",
-    "../extensions/pi-clear"
+    "../extensions/pi-clear",
+    "../extensions/pi-ask",
+    "../extensions/pi-doctor"
   ],
   "extensions": []
 }
