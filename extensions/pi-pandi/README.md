@@ -20,7 +20,9 @@ pi --no-extensions -e ./extensions/pi-pandi
   adapta al tema (claro/oscuro) para que la cara clara y los parches oscuros sigan
   visibles en cualquier fondo de terminal.
 - Indicador animado mientras Pi piensa, con dos estilos de carita:
-  kaomoji `ʕ•ᴥ•ʔ` ↔ Claude `(●  ●)` (con ojos `◆`).
+  kaomoji `ʕ•ᴥ•ʔ` ↔ Claude `(●  ●)` (con ojos `◆`). El estilo kaomoji va
+  **rotando de expresión** (básico, ojitos, decidido, gatuno, feliz…), no solo
+  parpadea.
 - Verbo juguetón rotativo por turno + un easter egg con la frase del meme.
 - Estado `◆ Pandi` en el footer.
 

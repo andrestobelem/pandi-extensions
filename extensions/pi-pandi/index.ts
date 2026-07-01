@@ -29,6 +29,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext, Theme, WorkingIndicatorOptions } from "@earendil-works/pi-coding-agent";
 import { colorizeFace, FACE_WIDTH, modeFromTextColor, PANDA_FACE, pandaPalette } from "./face.js";
+import { KAOMOJI_SEQUENCE, KAOMOJI_PANDAS as PANDA } from "./kaomoji.js";
 import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
 
 const STATUS_KEY = "pandi";
@@ -75,16 +76,7 @@ function saveStyle(face: FaceStyle): void {
 	}
 }
 
-// Los pandas kaomoji.
-const PANDA = {
-	basico: "ʕ •ᴥ• ʔ", // panda básico
-	ojitos: "ʕ ◕ᴥ◕ ʔ", // ojitos grandes
-	llorando: "ʕ ╥ᴥ╥ ʔ", // llorando
-	decidido: "ʕ •̀ᴥ•́ ʔ", // decidido
-	gatuno: "(=◕ᴥ◕=)", // gatuno-panda
-} as const;
-
-// Carita por estado.
+// Carita por estado (reutiliza el diccionario de kaomoji.ts).
 const FACE = {
 	thinking: PANDA.decidido,
 	happy: PANDA.ojitos,
@@ -111,21 +103,11 @@ function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	};
 }
 
-/** Estilo "kaomoji": el oso `ʕ•ᴥ•ʔ` que parpadea. */
+/** Estilo "kaomoji": el oso `ʕ•ᴥ•ʔ` que va cambiando de carita mientras piensa. */
 function framesKaomoji(theme: Theme): WorkingIndicatorOptions {
-	const face = (eyes: string) => theme.fg("accent", `ʕ ${eyes}ᴥ${eyes} ʔ`);
 	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
 	return {
-		frames: [
-			face("•") + dots(0),
-			face("•") + dots(1),
-			face("•") + dots(2),
-			face("•") + dots(3),
-			face("-") + dots(3), // parpadeo
-			face("·") + dots(2),
-			face("•") + dots(1),
-			face("^") + dots(0), // ojito feliz
-		],
+		frames: KAOMOJI_SEQUENCE.map(({ face, dots: n }) => theme.fg("accent", face) + dots(n)),
 		intervalMs: 180,
 	};
 }

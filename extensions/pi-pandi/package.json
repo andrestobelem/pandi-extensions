@@ -14,6 +14,7 @@
 	"files": [
 		"index.ts",
 		"face.ts",
+		"kaomoji.ts",
 		"moods.ts",
 		"README.md"
 	],
