@@ -252,9 +252,13 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 	const verdict = await runIndependentVerifier(pi, ctx, goal);
 	goal.verifierInFlight = false;
 
-	// The goal may have been stopped (user /goal stop, shutdown) while the verifier ran.
+	// The goal may have been stopped (user /goal stop, shutdown) while the verifier ran. A user stop
+	// removes it from activeGoals; a session_shutdown keeps it (persisted verbatim so rehydrate
+	// re-runs the verifier) but ABORTS its controller — so also bail when the controller is aborted,
+	// otherwise a late verdict would finalize the goal (done/blocked), clobber the persisted
+	// verifying-independent snapshot, and message a dead session.
 	const live = activeGoals.get(goal.goalId);
-	if (!live || live !== goal || goal.gstatus !== "verifying-independent") return;
+	if (!live || live !== goal || goal.gstatus !== "verifying-independent" || goal.controller.signal.aborted) return;
 
 	const at = new Date().toISOString();
 	if (verdict.pass) {

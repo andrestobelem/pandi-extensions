@@ -463,6 +463,54 @@ async function stopNoMatchWarns(goalUrl) {
 }
 
 // ===========================================================================
+// session_shutdown while an INDEPENDENT verifier is mid-flight: the goal is persisted verbatim
+// as verifying-independent (so rehydrate re-runs the verifier), and the aborted verifier's late
+// verdict must be DISCARDED — it must not finalize the goal (done/blocked) or message the dead
+// session. The post-await guard has to notice the controller was aborted by shutdown.
+// ===========================================================================
+async function shutdownDuringIndependentVerifyDiscardsVerdict(goalUrl) {
+	let release;
+	const gate = new Promise((r) => {
+		release = r;
+	});
+	const exec = async () => {
+		await gate;
+		return { code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" };
+	};
+	const built = await register(goalUrl, exec);
+	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
+	const env = makeEnv([entry(s)]);
+	await fireStart(built, env);
+	check("verifier launched once (in flight)", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
+	// Shut down while the verifier is gated mid-flight.
+	await fireShutdown(built, env);
+	check(
+		"shutdown persists the goal as verifying-independent (rehydrate re-runs the verifier)",
+		lastStatusFor(built.states, s.goalId) === "verifying-independent",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
+	const msgsBefore = built.messages.length;
+	// Release the gated PASS: it arrives AFTER shutdown and must be discarded.
+	release();
+	await flush(() => false, 40);
+	check(
+		"post-shutdown PASS is discarded (no done snapshot appended)",
+		!built.states.some((st) => st.goalId === s.goalId && st.gstatus === "done"),
+		"unexpected done after shutdown",
+	);
+	check(
+		"goal's final persisted status stays verifying-independent",
+		lastStatusFor(built.states, s.goalId) === "verifying-independent",
+		`last=${lastStatusFor(built.states, s.goalId)}`,
+	);
+	check(
+		"no user message sent on the dead session after shutdown",
+		built.messages.length === msgsBefore,
+		`messages delta=${built.messages.length - msgsBefore}`,
+	);
+}
+
+// ===========================================================================
 // A stopped/terminal goal must be removed from the in-memory activeGoals map (mirrors
 // pi-loop's stopLoop -> activeLoops.delete). The leak is observable via `/goal status`
 // (no id), which lists [...activeGoals.values()]: after a stop it must report "No goals.",
@@ -506,6 +554,7 @@ async function main() {
 		await stopSubcommandResolvesGoal(url);
 		await stopNoMatchWarns(url);
 		await stoppedGoalRemovedFromActiveMap(url);
+		await shutdownDuringIndependentVerifyDiscardsVerdict(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
