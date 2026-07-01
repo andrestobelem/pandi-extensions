@@ -498,6 +498,7 @@ const node = (role, extra = {}) => {
 | `map-reduce` | `mapper` (haiku·low), `reducer` (sonnet·medium) |
 | `orchestrator-workers` | `planner` (opus·high), `worker` (sonnet·medium), `integrator` (opus·high) |
 | `react-scout` | `reason` (sonnet·medium), `observe` (haiku·low), `answer` (opus·high) |
+| `recursive-compose` | *(no own role keys — bounded recursive composition; delegates to `contract-gate`/`router`, whose rows apply)* |
 | `reflexion` | `actor` (sonnet·medium), `evaluator` (opus·high), `reflection` (opus·high) — also `actorModel`/`evaluatorModel` |
 | `repo-bug-hunt` | `scout` (haiku·low), `bug-hunt` (sonnet·medium), `synthesis` (opus·high) |
 | `router` | `catalog-scan` (haiku·low), `route` (opus·high) |
