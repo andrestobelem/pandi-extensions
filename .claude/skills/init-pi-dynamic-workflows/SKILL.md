@@ -55,6 +55,14 @@ npm test
 
 # 5. Install ALL extensions + skills into Pi (global for your user)
 pi install ./                     # project-local instead: pi install -l ./
+
+# 6. External skill karpathy-guidelines (community, not vendored) — install globally from upstream.
+#    Pi reads ~/.agents/skills; Claude Code reads ~/.claude/skills. AGENTS.md expects it installed.
+for d in ~/.agents/skills ~/.claude/skills; do
+  mkdir -p "$d/karpathy-guidelines"
+  curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
+    -o "$d/karpathy-guidelines/SKILL.md"
+done
 ```
 
 Then, **in the project where you want to use them** (not necessarily this repo):
@@ -82,24 +90,14 @@ only for making the extensions available in your OTHER projects. To try one exte
 installing: `pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts` (or `-e .` for the
 whole bundle).
 
-## External skill: karpathy-guidelines (install globally from upstream)
+## About step 6: karpathy-guidelines (external skill)
 `karpathy-guidelines` is an EXTERNAL, community skill (from
 [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)) — this
-repo does **not** vendor it. AGENTS.md expects it *installed*, so drop its `SKILL.md` into your
-global skill dirs (idempotent — safe to re-run). Pi reads `~/.agents/skills/`; Claude Code reads
-`~/.claude/skills/`:
-
-```bash
-for d in ~/.agents/skills ~/.claude/skills; do
-  mkdir -p "$d/karpathy-guidelines"
-  curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
-    -o "$d/karpathy-guidelines/SKILL.md"
-done
-```
-
-(Claude Code users can instead use the upstream plugin: `/plugin marketplace add
-multica-ai/andrej-karpathy-skills` then `/plugin install andrej-karpathy-skills`.) `npm run doctor`
-reports whether the skill is present.
+repo does **not** vendor it, but AGENTS.md expects it *installed*, which is why **step 6** fetches
+it into your global skill dirs (Pi reads `~/.agents/skills/`, Claude Code reads `~/.claude/skills/`;
+idempotent — safe to re-run). Claude Code users can instead use the upstream plugin: `/plugin
+marketplace add multica-ai/andrej-karpathy-skills` then `/plugin install andrej-karpathy-skills`.
+`npm run doctor` reports whether the skill is present.
 
 ## Optional capabilities (install only if asked / needed)
 Check `npm run doctor` for which are missing, then:
