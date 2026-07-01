@@ -39,6 +39,7 @@ import {
 	pandaPalette,
 } from "./face.js";
 import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
+import { pandiPersonaBlock } from "./persona.js";
 
 const STATUS_KEY = "pandi";
 
@@ -182,6 +183,14 @@ export default function (pi: ExtensionAPI) {
 			const greet = Math.random() < 0.1 ? PANDA.gatuno : FACE.happy; // easter egg gatuno-panda
 			ctx.ui.notify(`${greet} Pandi listo. ${PANDI_QUOTE[0]} ${PANDI_QUOTE[1]}`, "info");
 		}
+	});
+
+	// System append: mientras Pandi está encendido, sumá su persona (tierno/zen + firma 🐼)
+	// al final del system prompt. /pandi off la quita (no devolvemos nada). Nunca pisamos el
+	// prompt original: appendeamos a event.systemPrompt.
+	pi.on("before_agent_start", async (event) => {
+		if (!enabled) return;
+		return { systemPrompt: `${event.systemPrompt}\n\n${pandiPersonaBlock()}` };
 	});
 
 	pi.on("turn_start", async (_event, ctx) => {

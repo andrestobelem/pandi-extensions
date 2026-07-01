@@ -23,6 +23,9 @@ pi --no-extensions -e ./extensions/pi-pandi
   kaomoji `ʕ•ᴥ•ʔ` ↔ Claude `(●  ●)` (con ojos `◆`).
 - Verbo juguetón rotativo por turno + un easter egg con la frase del meme.
 - Estado `◆ Pandi` en el footer.
+- Persona en el system prompt: mientras Pandi está encendido, se appendea al final
+  del system prompt un bloque `<pandi_persona>` (tono tierno/zen + la firma 🐼 ocasional).
+  `/pandi off` lo quita y restaura la persona por defecto.
 
 ## Commands
 
