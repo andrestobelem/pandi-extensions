@@ -269,6 +269,38 @@ async function finalizeStateDerivation(mod) {
 	);
 }
 
+// --- finalizeJob: cleanup runs even when a status/event write throws ---
+// finalizeJob sets finalized=true, then awaits writeStatus + appendEvent, then
+// removes the job from activeJobs and closes the log streams. If a write throws
+// (disk full, FD limit, missing runDir), the cleanup must STILL run — otherwise
+// the job stays half-finalized: stream fds leak and the run is stuck. Both
+// cleanup steps share one finally; closing the streams is the observable pin.
+async function finalizeClosesStreamsWhenWriteFails(mod) {
+	const finalizeJob = mod.finalizeJob;
+	if (typeof finalizeJob !== "function") return check("finalize-cleanup: exported", false, typeof finalizeJob);
+
+	// A runDir that does NOT exist makes atomicWriteJson (writeStatus) throw ENOENT.
+	const badRunDir = path.join(os.tmpdir(), "pi-bg-finalize-nonexistent-dir-xyz", "run");
+	const ended = { stdout: false, stderr: false, combined: false };
+	const rt = makeRuntime("cleanup", badRunDir, {});
+	rt.stdoutStream = { end: () => (ended.stdout = true) };
+	rt.stderrStream = { end: () => (ended.stderr = true) };
+	rt.combinedStream = { end: () => (ended.combined = true) };
+
+	let threw = false;
+	try {
+		await finalizeJob(rt, 0, null);
+	} catch {
+		threw = true;
+	}
+	check("finalize-cleanup: a failing status write still rejects the promise", threw === true);
+	check(
+		"finalize-cleanup: all log streams are closed despite the write failure (no fd leak)",
+		ended.stdout && ended.stderr && ended.combined,
+		JSON.stringify(ended),
+	);
+}
+
 // --- finalizeJob: idempotency + cancelTimer cleared ---
 async function finalizeIdempotentAndClearsTimer(mod) {
 	const finalizeJob = mod.finalizeJob;
@@ -448,6 +480,7 @@ async function main() {
 	await pipeMultiSinkCoordination(mod);
 	await pipeIndependentCaps(mod);
 	await finalizeStateDerivation(mod);
+	await finalizeClosesStreamsWhenWriteFails(mod);
 	await finalizeIdempotentAndClearsTimer(mod);
 	await killRuntimeBranches(mod);
 	await killRuntimePosixGroup(mod);

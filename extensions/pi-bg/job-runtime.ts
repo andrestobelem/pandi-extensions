@@ -113,23 +113,30 @@ export async function finalizeJob(
 			: exitCode === 0
 				? "completed"
 				: "failed";
-	await writeStatus(runtime, {
-		state,
-		completedAt: nowIso(),
-		exitCode,
-		signal: signal ?? null,
-		...(error ? { error: error.message } : {}),
-	});
-	await appendEvent(runtime.runDir, {
-		event: "finish",
-		jobId: runtime.jobId,
-		state,
-		exitCode,
-		signal,
-		error: error?.message,
-	});
-	activeJobs.delete(runtime.jobId);
-	closeStreams(runtime);
+	// Cleanup (registry removal + stream close) runs in finally so a throwing
+	// status/event write (disk full, FD limit, vanished runDir) cannot leave the
+	// job half-finalized — stuck in activeJobs with leaked stream fds. The write
+	// error still propagates for safeFinalize to log.
+	try {
+		await writeStatus(runtime, {
+			state,
+			completedAt: nowIso(),
+			exitCode,
+			signal: signal ?? null,
+			...(error ? { error: error.message } : {}),
+		});
+		await appendEvent(runtime.runDir, {
+			event: "finish",
+			jobId: runtime.jobId,
+			state,
+			exitCode,
+			signal,
+			error: error?.message,
+		});
+	} finally {
+		activeJobs.delete(runtime.jobId);
+		closeStreams(runtime);
+	}
 }
 
 // Run finalize from a child lifecycle event WITHOUT letting a rejected promise
