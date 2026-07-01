@@ -28,13 +28,22 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext, Theme, WorkingIndicatorOptions } from "@earendil-works/pi-coding-agent";
-import { colorizeFace, FACE_WIDTH, modeFromTextColor, PANDA_FACE, pandaPalette } from "./face.js";
+import {
+	CLAUDE_ORANGE,
+	colorizeFace,
+	FACE_WIDTH,
+	fgAnsi,
+	glintEye,
+	modeFromTextColor,
+	PANDA_FACE,
+	pandaPalette,
+} from "./face.js";
 import { MOODS, PANDI_QUOTE, pick } from "./moods.js";
 
 const STATUS_KEY = "pandi";
 
-// Naranja-coral de Anthropic/Claude (el ◆ "ADN de Claude").
-const ORANGE = "\x1b[38;2;217;119;87m";
+// Naranja-coral de Anthropic/Claude (el ◆ "ADN de Claude"). Mismo RGB que face.CLAUDE_ORANGE.
+const ORANGE = fgAnsi(CLAUDE_ORANGE);
 const RESET_FG = "\x1b[39m";
 const orange = (s: string) => `${ORANGE}${s}${RESET_FG}`;
 
@@ -75,13 +84,15 @@ function saveStyle(face: FaceStyle): void {
 	}
 }
 
-// Los pandas kaomoji.
+// Los pandas kaomoji. Los ojos BRILLAN en el naranja-coral de Claude (glintEye) para que
+// estas caritas tengan color como el estilo claude, no un solo tono plano.
+const kao = (left: string, right: string): string => `ʕ ${glintEye(left)}ᴥ${glintEye(right)} ʔ`;
 const PANDA = {
-	basico: "ʕ •ᴥ• ʔ", // panda básico
-	ojitos: "ʕ ◕ᴥ◕ ʔ", // ojitos grandes
-	llorando: "ʕ ╥ᴥ╥ ʔ", // llorando
-	decidido: "ʕ •̀ᴥ•́ ʔ", // decidido
-	gatuno: "(=◕ᴥ◕=)", // gatuno-panda
+	basico: kao("•", "•"), // panda básico
+	ojitos: kao("◕", "◕"), // ojitos grandes
+	llorando: kao("╥", "╥"), // llorando
+	decidido: kao("•̀", "•́"), // decidido
+	gatuno: `(=${glintEye("◕")}ᴥ${glintEye("◕")}=)`, // gatuno-panda
 } as const;
 
 // Carita por estado.
@@ -111,9 +122,10 @@ function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	};
 }
 
-/** Estilo "kaomoji": el oso `ʕ•ᴥ•ʔ` que parpadea. */
+/** Estilo "kaomoji": el oso `ʕ•ᴥ•ʔ` que parpadea, con los ojos brillando en naranja. */
 function framesKaomoji(theme: Theme): WorkingIndicatorOptions {
-	const face = (eyes: string) => theme.fg("accent", `ʕ ${eyes}ᴥ${eyes} ʔ`);
+	const face = (eyes: string) =>
+		`${theme.fg("accent", "ʕ ")}${glintEye(eyes)}${theme.fg("accent", "ᴥ")}${glintEye(eyes)}${theme.fg("accent", " ʔ")}`;
 	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
 	return {
 		frames: [

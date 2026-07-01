@@ -58,6 +58,16 @@ const RESET = "\x1b[0m";
 /** Build a truecolor foreground SGR escape for an RGB triple. */
 export const fgAnsi = ([r, g, b]: Rgb): string => `\x1b[38;2;${r};${g};${b}m`;
 
+/** Naranja-coral de Anthropic/Claude — el color del ◆ que es el "ADN de Claude". */
+export const CLAUDE_ORANGE: Rgb = [217, 119, 87];
+
+/**
+ * Pinta un glifo de "ojo" en el naranja-coral de Claude y resetea el color después, para
+ * que las caritas kaomoji también BRILLEN (como los ◆ del estilo claude) en lugar de ser
+ * de un solo tono plano. Preserva glifos con acento combinante (p. ej. "•̀").
+ */
+export const glintEye = (glyph: string): string => `${fgAnsi(CLAUDE_ORANGE)}${glyph}${RESET}`;
+
 /**
  * Paint one face row: █→patch block, ░→face block (both as solid █ so the face is opaque),
  * spaces left transparent. Each ink cell is reset so colors never bleed.

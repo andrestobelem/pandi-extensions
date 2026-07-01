@@ -36,8 +36,18 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function scenarioFaceUnit(url) {
-	const { PANDA_FACE, FACE_WIDTH, pandaPalette, colorizeFace, fgAnsi, parseFgRgb, luminance, modeFromTextColor } =
-		await loadModule(url);
+	const {
+		PANDA_FACE,
+		FACE_WIDTH,
+		pandaPalette,
+		colorizeFace,
+		fgAnsi,
+		parseFgRgb,
+		luminance,
+		modeFromTextColor,
+		CLAUDE_ORANGE,
+		glintEye,
+	} = await loadModule(url);
 
 	// --- Art shape -----------------------------------------------------------------
 	check("PANDA_FACE is a non-empty array", Array.isArray(PANDA_FACE) && PANDA_FACE.length > 0);
@@ -112,6 +122,16 @@ async function scenarioFaceUnit(url) {
 	check("parseFgRgb reads a truecolor fg escape", deepEq(parseFgRgb("\x1b[38;2;10;20;30m"), [10, 20, 30]));
 	check("parseFgRgb rejects a 256-color escape", parseFgRgb("\x1b[38;5;200m") === undefined);
 	check("parseFgRgb rejects garbage", parseFgRgb("not-an-escape") === undefined);
+
+	// --- glintEye (colored kaomoji eyes) -------------------------------------------
+	// The claude indicator "glints" because its ◆ eyes are painted in Claude's coral-orange.
+	// glintEye is the pure helper that gives the OTHER (kaomoji) faces the same colored eyes.
+	// The real risks: the color must RESET after the eye (or it bleeds into the rest of the
+	// line) and combining-accent eyes (the "decidido" face "•̀") must survive intact.
+	const glint = glintEye("•");
+	check("glintEye wraps the eye in the Claude orange fg escape", glint.startsWith(fgAnsi(CLAUDE_ORANGE)));
+	check("glintEye resets color after the eye", glint.endsWith("\x1b[0m"));
+	check("glintEye preserves a combining-accent eye glyph (decidido)", glintEye("•̀").includes("•̀"));
 
 	check("luminance(black) is 0", luminance([0, 0, 0]) === 0);
 	check("luminance(white) is ~1", Math.abs(luminance([255, 255, 255]) - 1) < 1e-9);
