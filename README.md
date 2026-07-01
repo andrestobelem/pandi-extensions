@@ -127,7 +127,7 @@ Todas se cargan por defecto desde el campo `pi.extensions` del `package.json` al
 
 | Extensión | Superficie (humano · modelo) | Qué hace | Requisitos extra |
 | --- | --- | --- | --- |
-| **pi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | Runtime de workflows JS para orquestación multi-agente con ejecución paralela, artefactos y resume idempotente. | opcional: mmdc, web_search, Context7 |
+| **pi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/ultracode`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | Runtime de workflows JS para orquestación multi-agente con ejecución paralela, artefactos y resume idempotente. | opcional: mmdc, web_search, Context7 |
 | **pi-loop** | `/loop` · `loop_schedule`, `loop_stop` | Loop iterativo con cadencia dinámica o fija, controlada por el modelo o la extensión. | TUI/RPC; autopilot requiere trust |
 | **pi-goal** | `/goal` · `goal_progress` | Loop dirigido a objetivo con chequeo de completitud obligatorio y verificador independiente opcional. | TUI/RPC |
 | **pi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Plan mode read-only con mutaciones bloqueadas hasta tu aprobación explícita del plan. | TUI/RPC (o `PI_PLAN_NONINTERACTIVE=1`) |
@@ -195,6 +195,7 @@ Comandos humanos:
 /workflow delete-run latest             # borra artifacts/directorio de una corrida ya inactiva
 /workflow delete bug-hunt               # borra un workflow con confirmación
 /workflows
+/ultracode revisa todo el repo buscando bugs de concurrencia   # alias de /dynamic-workflow (autocompleta)
 /dynamic-workflow revisa todo el repo buscando bugs de concurrencia
 /deep-research investiga opciones para migrar X a Y
 /effort high                           # cambia el thinking effort: off|minimal|low|medium|high|xhigh
