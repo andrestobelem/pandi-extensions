@@ -17,6 +17,7 @@
 	],
 	"files": [
 		"extensions/*/*.ts",
+		"extensions/pi-dynamic-workflows/scaffolds/*.js",
 		".pi/skills",
 		"README.md",
 		"LICENSE"
