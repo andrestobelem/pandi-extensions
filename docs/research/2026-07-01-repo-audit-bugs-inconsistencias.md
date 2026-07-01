@@ -82,6 +82,47 @@ Gate determinista en cada corrida: `tsc --noEmit` limpio, `biome check` limpio
    no está scopeado por sesión (`activePlans` module-level; `session_start` hace
    `clear()`), así que una sesión puede bloquear o limpiar el gate de otra.
 
+## core-dispatch (parte B) — dispatcher, journal, resume (corrida 4, opus)
+
+- **Secretos en disco vía `ask()`** — `index.ts:1418-1437`. **[verificado]** `runAsk`
+  escribe la respuesta humana verbatim en `events.jsonl` y `journal.jsonl` sin
+  redacción, y la replay-ea en resume (`index.ts:1367`). Si `ask()` se usa para
+  recoger un secreto/API key, queda persistido en texto plano. Fix: opción de
+  redacción para `ask()` sensible, o no journalizar la respuesta.
+- **Colisión de cache key por env** — `agent-env-persona.ts:170-174`.
+  **[verificado]** `sanitizeEnvForCache` mapea TODO valor a `"[set]"`, así que dos
+  valores distintos de la misma env var producen la misma cache key: en resume se
+  replay-ea el resultado journalizado stale en vez de re-ejecutar. Fix: incluir un
+  hash del valor (no el valor) en la key.
+- **Agujero de journal se re-ejecuta en silencio** — `journal.ts:99-108`. Una
+  línea no-final malformada se saltea con solo un `console.warn`; ese slot
+  `(key,occ)` queda hueco y en resume la llamada cacheada RE-CORRE (re-gasta
+  tokens / repite side effects) sin aparecer en el status. **[low]**
+- **`bash()` en rama perdedora de `race()` no se cancela** — `index.ts:593,1279`.
+  El dispatcher instala `callSignal` solo para `agent`/`ask`; `bash` cae al else
+  y usa `runSignal.signal`, así que un `bash()` de un perdedor corre hasta el
+  final y journaliza — inconsistente con `agent`/`ask`. **[low]** (mismo patrón
+  que el HIGH 6 de `agents()`).
+- **Error de live-write descartado en path de throw** — `index.ts:1032-1037`.
+  `liveWriteError` solo se reporta al llegar a `await liveWriteTail`; si
+  `runStreamingAgentProcess` lanza antes (timeout/abort), el error de escritura
+  del log en vivo se pierde. **[low]**
+
+## devtools-a y docs-consistency (auditado inline — sin hallazgos)
+
+Tras salir vacías repetidamente en los workflows, se auditaron a mano:
+
+- **pi-bg / pi-typescript-lsp**: sin defectos evidentes. `process-liveness.ts`
+  maneja con cuidado el reuso de PID (usa `process.kill(pid,0)` solo para
+  etiquetar, captura un start-id para distinguir pids reusados); `tsc` se
+  spawnea con argv (nunca shell); el único `shell:true` es en `/bg` para el
+  comando del propio usuario (by design); el único `ctx.ui.notify` está guardado
+  por `if (ctx.hasUI)` (`pi-bg/index.ts:262`).
+- **README vs código**: sin drift en el spot-check — env vars coinciden con
+  `.env.example` (`MAX_DEPTH=2`, `PERCENT=30`, `SNAPSHOT_KEEP=20`,
+  `TS_LSP_MAX=20`) y los 13 comandos slash documentados coinciden con las
+  extensiones registradas.
+
 ## Medium / Low destacados (verificados en corrida 1)
 
 - **pi-pandi**: ~13 llamadas `ctx.ui.*` sin guard `ctx.hasUI`
@@ -114,11 +155,13 @@ Gate determinista en cada corrida: `tsc --noEmit` limpio, `biome check` limpio
 | pi-plan, pi-goal, devtools-b (worktree, container) | cubierto |
 | config-manifest | cubierto |
 | core-dispatch (parte A: signal/dispatcher/wrap/workflow) | cubierto |
-| core-dispatch (parte B: journal/runSubagent/runBash/makeApi/handleTool) | **sin cubrir** |
-| devtools-a (pi-typescript-lsp, pi-bg) | **sin cubrir** |
-| docs-consistency (README vs código) | **sin cubrir** |
+| core-dispatch (parte B: journal/runSubagent/runBash/makeApi/handleTool) | cubierto (corrida 4, opus) |
+| devtools-a (pi-typescript-lsp, pi-bg) | cubierto (auditoría inline) |
+| docs-consistency (README vs código) | cubierto (auditoría inline) |
 
-Las áreas sin cubrir volvieron vacías de forma repetida.
+Cobertura completa. Las áreas que volvían vacías en los workflows se cerraron
+con opus (core-dispatch-b) o con auditoría manual (devtools-a, docs-consistency),
+sin hallazgos nuevos en estas dos últimas.
 
 ## Lecciones de fiabilidad de los workflows
 
@@ -126,12 +169,12 @@ Las áreas sin cubrir volvieron vacías de forma repetida.
   generan hallazgos muy verbosos cuyo JSON excede el presupuesto de tokens y se
   corta a mitad → parse falla → rama descartada. Mitigación: shards chicos, tope
   de verbosidad (`issue`/`evidence` cortos, máx. ~8 hallazgos), parse tolerante.
-- **`empty JSON event stream` (v2/v3).** Los subagentes **codex**
-  (`gpt-5.5`/`gpt-5.4`) en modo-JSON sobre tareas con mucho tool-use devuelven un
-  mensaje final vacío de forma **persistente** (ni el retry con `cache:false` lo
-  arregla); los shards **anthropic** (opus/sonnet) sobre los mismos prompts
-  fueron fiables. Recomendación: usar anthropic para shards de salida
-  estructurada.
+- **`empty JSON event stream` (v2/v3/v4).** En modo-JSON sobre tareas con mucho
+  tool-use, tanto los subagentes **codex** (`gpt-5.5`/`gpt-5.4`) como
+  **`claude-sonnet-4-6`** devuelven un mensaje final vacío de forma persistente
+  (ni el retry con `cache:false` lo arregla); **`claude-opus-4-8` fue el único
+  fiable**. Recomendación: usar opus para shards de salida estructurada tool-heavy,
+  o auditar inline las áreas chicas que insistan en salir vacías.
 - **`maxAgents` debe contemplar los reintentos.** v3 lanza `N` shards + hasta
   `N` reintentos + 1 síntesis; con `maxAgents` justo, el retry consume el
   presupuesto y la síntesis se bloquea (la corrida "falla" aunque el fan-out ya
