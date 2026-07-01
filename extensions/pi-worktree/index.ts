@@ -681,8 +681,6 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 // Tool: git_worktree (model-callable)
 // --------------------------------------------------------------------------
 
-export type GitWorktreeAction = "list" | "add" | "open" | "remove" | "prune";
-
 const SUBCOMMANDS = ["list", "add", "open", "remove", "prune", "set", "help"] as const;
 
 export default function worktreeExtension(pi: ExtensionAPI): void {

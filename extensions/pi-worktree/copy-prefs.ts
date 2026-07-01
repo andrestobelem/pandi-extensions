@@ -16,7 +16,7 @@
  *
  * `sessionCopyDefaults` is module-mutable state. Its ES-singleton identity lives
  * HERE (one object, mutated only through the functions below). index.ts must NOT
- * re-declare it — it reads/writes through get/set/resetSessionCopyDefault(s).
+ * re-declare it — it writes/reads through set/reset/resolveCopyPrefs below.
  * Depth-one sibling module imported by index.ts/command.ts via "./copy-prefs.js".
  */
 
@@ -45,11 +45,6 @@ const sessionCopyDefaults: CopyPrefs = {};
 export function resetSessionCopyDefaults(): void {
 	sessionCopyDefaults.copyIgnored = undefined;
 	sessionCopyDefaults.copyUntracked = undefined;
-}
-
-/** Read a session-default toggle (undefined = unset, env/param decides). */
-export function getSessionCopyDefault(key: CopyPrefKey): boolean | undefined {
-	return sessionCopyDefaults[key];
 }
 
 /** Set a session-default toggle (true/false). */
