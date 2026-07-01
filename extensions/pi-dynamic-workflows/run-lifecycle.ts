@@ -23,15 +23,22 @@ import type {
 	WorkflowLogEntry,
 	WorkflowRunRecord,
 	WorkflowRunResult,
+	WorkflowRunState,
 	WorkflowRunStatus,
 } from "./index.js";
 import { activeRuns, prepareWorkflowRun, runWorkflow } from "./index.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
 import { notify } from "./notify.js";
-import { formatParallelAgents, getRunPeakParallelAgents, getRunState, getRunStatusLabel } from "./run-state.js";
+import {
+	formatParallelAgents,
+	getRunPeakParallelAgents,
+	getRunState,
+	getRunStatusLabel,
+	selectRunsForCleanup,
+} from "./run-state.js";
 import { formatRunSummary, refreshActiveWorkflowStatus } from "./run-status-ui.js";
 import { getRunDirs, readRunRecord, readRunStatus, writeJsonFile, writeRunStatus } from "./run-store.js";
-import { resolveRun, selectRunByKey } from "./run-view.js";
+import { listRuns, resolveRun, selectRunByKey } from "./run-view.js";
 import { ensureDir, resolveWorkflow } from "./workflow-resolve.js";
 
 function initialRunStatus(
@@ -360,6 +367,32 @@ export async function deleteWorkflowRun(ctx: ExtensionContext, id: string | unde
 		throw new Error(`Workflow run is active; cancel it before deleting artifacts: ${run.runId}`);
 	await fs.rm(runDir, { recursive: true, force: false });
 	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
+}
+
+// Bulk cleanup: select the terminal runs safe to delete (never running/active, retaining
+// the `keep` most-recent) and remove their run directories. `dryRun` returns the selection
+// without deleting so callers can preview. selectRunsForCleanup (run-state.ts) owns the
+// pure policy; this wraps it with the live activeRuns set and the fs.rm IO.
+export async function cleanupWorkflowRuns(
+	ctx: ExtensionContext,
+	opts: { keep?: number; states?: WorkflowRunState[]; dryRun?: boolean } = {},
+): Promise<{ removed: string[]; kept: number }> {
+	const runs = await listRuns(ctx);
+	const activeIds = new Set(activeRuns.keys());
+	const selected = selectRunsForCleanup(runs, { keep: opts.keep, states: opts.states, activeIds });
+	const kept = runs.length - selected.length;
+	if (opts.dryRun) return { removed: selected.map((run) => run.runId), kept };
+	const removed: string[] = [];
+	for (const run of selected) {
+		if (activeRuns.has(run.runId)) continue;
+		try {
+			await fs.rm(run.runDir, { recursive: true, force: false });
+			removed.push(run.runId);
+		} catch {
+			// Already gone or lost a race — skip it.
+		}
+	}
+	return { removed, kept: runs.length - removed.length };
 }
 
 // Race a promise against a timeout. The timeout timer is always cleared afterwards so a

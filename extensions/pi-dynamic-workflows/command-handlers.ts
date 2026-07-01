@@ -30,10 +30,11 @@ import {
 	resolveWorkflowPattern,
 	WORKFLOW_PATTERN_CATALOG,
 } from "./pattern-scaffolds.js";
-import { collectPiSessions, formatPiSessionList } from "./pi-session.js";
+import { collectPiSessions, formatPiSessionList, prunePiSessionFiles } from "./pi-session.js";
 import { formatWorkflowList } from "./presentation.js";
 import {
 	cancelWorkflowRun,
+	cleanupWorkflowRuns,
 	deleteWorkflowRun,
 	formatBackgroundStart,
 	resumeWorkflow,
@@ -199,6 +200,44 @@ export async function handleTool(
 	}
 
 	throw new Error(`Unknown dynamic_workflow action: ${String(action)}`);
+}
+
+// Default number of most-recent workflow runs `/workflow cleanup` retains.
+export const DEFAULT_CLEANUP_KEEP = 20;
+
+export interface CleanupArgs {
+	target: "sessions" | "runs" | "both";
+	keep: number;
+	includeHeartbeatStale: boolean;
+	dryRun: boolean;
+	yes: boolean;
+}
+
+// Pure parser for `/workflow cleanup [sessions|runs|both] [--keep=N] [--all-stale] [--dry-run|-n] [--yes|-y]`.
+// Order-independent; unknown tokens are ignored (target stays "both"). Safe defaults: both
+// targets, keep the DEFAULT_CLEANUP_KEEP most-recent runs, leave heartbeat-stale sessions,
+// and neither preview nor auto-confirm.
+export function parseCleanupArgs(afterAction: string): CleanupArgs {
+	const result: CleanupArgs = {
+		target: "both",
+		keep: DEFAULT_CLEANUP_KEEP,
+		includeHeartbeatStale: false,
+		dryRun: false,
+		yes: false,
+	};
+	for (const token of afterAction.trim().split(/\s+/).filter(Boolean)) {
+		if (token === "sessions" || token === "session") result.target = "sessions";
+		else if (token === "runs" || token === "run") result.target = "runs";
+		else if (token === "both" || token === "all") result.target = "both";
+		else if (token === "--all-stale") result.includeHeartbeatStale = true;
+		else if (token === "--dry-run" || token === "-n") result.dryRun = true;
+		else if (token === "--yes" || token === "-y") result.yes = true;
+		else if (token.startsWith("--keep=")) {
+			const value = Number.parseInt(token.slice("--keep=".length), 10);
+			if (Number.isFinite(value)) result.keep = Math.max(0, value);
+		}
+	}
+	return result;
 }
 
 export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
@@ -416,6 +455,65 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 			return;
 		}
 
+		if (action === "cleanup" || action === "prune" || action === "gc") {
+			const opts = parseCleanupArgs(afterAction);
+			const doSessions = opts.target === "sessions" || opts.target === "both";
+			const doRuns = opts.target === "runs" || opts.target === "both";
+
+			// Dry-run: preview via the pure selectors without deleting anything.
+			if (opts.dryRun) {
+				const lines = ["/workflow cleanup --dry-run — nothing was deleted."];
+				if (doSessions) {
+					const preview = await prunePiSessionFiles(ctx, {
+						includeHeartbeatStale: opts.includeHeartbeatStale,
+						dryRun: true,
+					});
+					lines.push(`Stale session files to remove: ${preview.removed.length} (keeping ${preview.kept})`);
+					for (const file of preview.removed) lines.push(`  - ${file}`);
+				}
+				if (doRuns) {
+					const preview = await cleanupWorkflowRuns(ctx, { keep: opts.keep, dryRun: true });
+					lines.push(
+						`Terminal runs to remove: ${preview.removed.length} (keeping ${preview.kept}, keep=${opts.keep})`,
+					);
+					for (const runId of preview.removed) lines.push(`  - ${runId}`);
+				}
+				await showText(ctx, "Workflow cleanup (dry run)", lines.join("\n"));
+				return;
+			}
+
+			// Destructive: require interactive confirmation, or an explicit --yes in no-UI mode.
+			if (!ctx.hasUI && !opts.yes) {
+				notify(ctx, "/workflow cleanup is destructive; pass --yes (or --dry-run) in no-UI mode.", "warning");
+				return;
+			}
+			if (ctx.hasUI && !opts.yes) {
+				const scope = [
+					doSessions ? "stale session files" : "",
+					doRuns ? `terminal runs (keep last ${opts.keep})` : "",
+				]
+					.filter(Boolean)
+					.join(" and ");
+				const ok = await ctx.ui.confirm(
+					"Run workflow cleanup?",
+					`This permanently deletes ${scope}${opts.includeHeartbeatStale ? " (including heartbeat-stale sessions)" : ""}.\n\nActive runs and the current session are never touched. Use --dry-run to preview.`,
+				);
+				if (!ok) return;
+			}
+
+			const summary: string[] = [];
+			if (doSessions) {
+				const res = await prunePiSessionFiles(ctx, { includeHeartbeatStale: opts.includeHeartbeatStale });
+				summary.push(`Removed ${res.removed.length} stale session file(s); kept ${res.kept}.`);
+			}
+			if (doRuns) {
+				const res = await cleanupWorkflowRuns(ctx, { keep: opts.keep });
+				summary.push(`Removed ${res.removed.length} terminal run(s); kept ${res.kept} (keep=${opts.keep}).`);
+			}
+			notify(ctx, summary.join("\n"), "info");
+			return;
+		}
+
 		if (action === "delete-run" || action === "rm-run" || action === "delete-run-artifacts") {
 			const run = await resolveRun(ctx, commandName);
 			if (canCancelRun(run)) {
@@ -456,7 +554,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 
 		notify(
 			ctx,
-			"Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | delete-run [latest|runId] | delete <name>",
+			"Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | cleanup [sessions|runs] [--keep=N] [--all-stale] [--dry-run] [--yes] | delete-run [latest|runId] | delete <name>",
 			"warning",
 		);
 	} catch (err) {

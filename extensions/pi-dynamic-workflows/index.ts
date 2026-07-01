@@ -1735,7 +1735,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("workflow", {
 		description:
-			"Manage dynamic workflows: /workflow list|dashboard|agents|sessions|patterns|graph|runs|view|new|edit|run|start|resume|cancel|delete-run|delete",
+			"Manage dynamic workflows: /workflow list|dashboard|agents|sessions|patterns|graph|runs|view|new|edit|run|start|resume|cancel|cleanup|delete-run|delete",
 		handler: async (args, ctx) => await handleWorkflowCommand(pi, args, ctx),
 	});
 
