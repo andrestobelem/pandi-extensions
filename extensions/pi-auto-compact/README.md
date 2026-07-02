@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-auto-compact
+# @pandi-coding-agent/auto-compact
 
 Individual Pi package for the `auto-compact` extension.
 

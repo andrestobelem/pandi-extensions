@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-goal
+# @pandi-coding-agent/goal
 
 Individual Pi package for the `/goal` extension.
 

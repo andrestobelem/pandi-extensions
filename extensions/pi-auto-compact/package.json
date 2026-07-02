@@ -1,8 +1,13 @@
 {
-	"name": "pi-dynamic-workflows-auto-compact",
+	"name": "@pandi-coding-agent/auto-compact",
 	"version": "0.1.0",
 	"description": "Pi extension that auto-compacts context when usage crosses a configurable threshold.",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pi-dynamic-workflows.git",
+		"directory": "extensions/pi-auto-compact"
+	},
 	"type": "module",
 	"keywords": [
 		"pi-package",

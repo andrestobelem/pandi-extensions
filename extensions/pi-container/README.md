@@ -1,4 +1,4 @@
-# pi-container
+# @pandi-coding-agent/container
 
 Manage [Apple `container`](https://github.com/apple/container) sandboxes — Linux
 environments running in lightweight **micro-VMs** (Virtualization.framework) — from

@@ -1,4 +1,4 @@
-# pi-btw
+# @pandi-coding-agent/btw
 
 A Pi extension that adds a Claude-style `/btw` command: ask a quick **side question**
 about the current conversation, get a single answer with **no tool access**, shown in a

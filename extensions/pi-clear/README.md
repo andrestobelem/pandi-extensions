@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-clear
+# @pandi-coding-agent/clear
 
 Individual Pi package for the `/clear` extension.
 

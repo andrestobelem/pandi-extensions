@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-plan
+# @pandi-coding-agent/plan
 
 Individual Pi package for the `/plan` extension.
 

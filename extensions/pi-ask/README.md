@@ -1,4 +1,4 @@
-# pi-ask
+# @pandi-coding-agent/ask
 
 Interactive **decision tools** the model can call to ask *you* — instead of printing a
 plain-text numbered menu. The assistant produces text and tool calls; it cannot pop a TUI

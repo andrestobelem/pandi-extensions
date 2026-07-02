@@ -1,8 +1,13 @@
 {
-	"name": "pi-dynamic-workflows-exit",
+	"name": "@pandi-coding-agent/exit",
 	"version": "0.1.0",
 	"description": "Pi extension that adds a Claude-style /exit command as an alias for the native /quit (clean shutdown).",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pi-dynamic-workflows.git",
+		"directory": "extensions/pi-exit"
+	},
 	"type": "module",
 	"keywords": [
 		"pi-package",

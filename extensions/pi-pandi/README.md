@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-pandi
+# @pandi-coding-agent/pandi
 
 Pandi 🐼 — un personaje panda para Pi, en el espíritu del personaje/indicador de
 Claude Code, pero como oso panda.

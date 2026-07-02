@@ -1,4 +1,4 @@
-# pi-typescript-lsp
+# @pandi-coding-agent/typescript-lsp
 
 TypeScript **diagnostics feedback** from inside a Pi session. After the agent
 finishes a turn that wrote or edited TypeScript, this extension runs

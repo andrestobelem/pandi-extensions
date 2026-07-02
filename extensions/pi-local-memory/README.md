@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-local-memory
+# @pandi-coding-agent/local-memory
 
 Individual Pi package for the local memory extension.
 

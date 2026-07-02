@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-rename
+# @pandi-coding-agent/rename
 
 Individual Pi package for the `/rename` extension.
 

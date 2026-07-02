@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-pandi-theme
+# @pandi-coding-agent/pandi-theme
 
 Temas Panda Syntax para Pi 🐼 — el compañero visual del mascota Pandi
 (`pi-pandi`). Un port a la TUI de Pi del clásico tema

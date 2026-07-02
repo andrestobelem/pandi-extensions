@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-bg
+# @pandi-coding-agent/bg
 
 Individual Pi package for the `/bg` local background jobs extension.
 

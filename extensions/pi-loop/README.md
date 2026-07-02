@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-loop
+# @pandi-coding-agent/loop
 
 Individual Pi package for the `/loop` extension.
 

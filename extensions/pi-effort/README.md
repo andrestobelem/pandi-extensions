@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-effort
+# @pandi-coding-agent/effort
 
 Individual Pi package for the `/effort` extension.
 

@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-core
+# @pandi-coding-agent/dynamic-workflows
 
 Individual Pi package for the core Dynamic Workflows extension.
 

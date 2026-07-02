@@ -1,4 +1,4 @@
-# pi-worktree
+# @pandi-coding-agent/worktree
 
 Manage [git worktrees](https://git-scm.com/docs/git-worktree) from inside a Pi
 session. Two surfaces:

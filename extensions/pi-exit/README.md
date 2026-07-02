@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-exit
+# @pandi-coding-agent/exit
 
 Individual Pi package for the `/exit` extension.
 

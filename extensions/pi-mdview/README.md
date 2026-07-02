@@ -1,4 +1,4 @@
-# pi-dynamic-workflows-mdview
+# @pandi-coding-agent/mdview
 
 Individual Pi package for the `/mdview` Markdown viewer extension.
 

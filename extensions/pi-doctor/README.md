@@ -1,4 +1,4 @@
-# pi-doctor
+# @pandi-coding-agent/doctor
 
 Adds a `/doctor` command that runs the pi-dynamic-workflows **environment check**
 (`scripts/doctor.mjs`) from inside a Pi session and shows the report — the same
