@@ -127,6 +127,7 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `/exit` (alias de `/quit`) | `pi install ./extensions/pi-exit` |
 | `/clear` (alias de `/new`) | `pi install ./extensions/pi-clear` |
 | `ask_choice` / `ask_confirm` (tools: selector/confirm TUI interactivo) | `pi install ./extensions/pi-ask` |
+| Temas `panda-syntax-dark` / `panda-syntax-light` | `pi install ./extensions/pi-pandi-theme` |
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
@@ -154,7 +155,7 @@ Todas se cargan por defecto desde el campo `pi.extensions` del `package.json` al
 | **pi-exit** | `/exit` | Alias estilo Claude de `/quit` para salir limpio. | — |
 | **pi-clear** | `/clear` | Alias estilo Claude de `/new` para empezar sesión nueva. | — |
 
-> Las 17 filas de arriba son exactamente las extensiones registradas en `pi.extensions` y se cargan con `pi install ./`. `extensions/shared/` no es una extensión: es código de harness para tests, no se publica ni se carga.
+> Las 17 filas de arriba son exactamente las extensiones registradas en `pi.extensions` y se cargan con `pi install ./`. `extensions/shared/` no es una extensión: es código de harness para tests, no se publica ni se carga. `extensions/pi-pandi-theme/` tampoco aparece en la tabla porque no aporta código: es un paquete solo de temas (`pi.themes`) con las variantes `panda-syntax-dark`/`panda-syntax-light`, compañero visual de **pi-pandi**; se carga con `pi install ./` y se activa vía `/settings` o `"theme": "panda-syntax-light/panda-syntax-dark"`.
 
 ## Capacidades opcionales y cómo activarlas
 

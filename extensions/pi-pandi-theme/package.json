@@ -1,0 +1,26 @@
+{
+	"name": "pi-dynamic-workflows-pandi-theme",
+	"version": "0.1.0",
+	"description": "Pi theme package with Panda Syntax dark and light themes, the visual companion to the Pandi mascot.",
+	"license": "MIT",
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-theme",
+		"theme",
+		"panda"
+	],
+	"files": [
+		"themes",
+		"README.md"
+	],
+	"pi": {
+		"themes": [
+			"./themes"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	}
+}

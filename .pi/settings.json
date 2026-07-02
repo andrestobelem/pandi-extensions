@@ -18,7 +18,8 @@
     "../extensions/pi-exit",
     "../extensions/pi-clear",
     "../extensions/pi-ask",
-    "../extensions/pi-doctor"
+    "../extensions/pi-doctor",
+    "../extensions/pi-pandi-theme"
   ],
   "extensions": []
 }

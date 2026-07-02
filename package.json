@@ -17,6 +17,7 @@
 	],
 	"files": [
 		"extensions/*/*.ts",
+		"extensions/pi-pandi-theme/themes/*.json",
 		"extensions/pi-dynamic-workflows/scaffolds/*.js",
 		".pi/skills",
 		"README.md",
@@ -71,6 +72,9 @@
 		],
 		"skills": [
 			"./.pi/skills"
+		],
+		"themes": [
+			"./extensions/pi-pandi-theme/themes"
 		]
 	},
 	"peerDependencies": {
