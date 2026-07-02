@@ -131,6 +131,24 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
+### Distribución: canales y regla de una sola identidad
+
+La suite se distribuye por tres canales; **elegí uno por máquina/scope** — pi dedup-lica
+paquetes por identidad (nombre npm / URL git / path local resuelto), así que dos canales
+distintos conviviendo cargan cada recurso dos veces (`npm run doctor` lo detecta y avisa):
+
+| Canal | Cómo | Cuándo |
+| --- | --- | --- |
+| **Git bundle pinneado** | `pi install git:github.com/andrestobelem/pi-dynamic-workflows@v0.2.0` | Consumidores: todo el suite, versión estable. |
+| **Working tree (paths locales)** | clonar + `pi install ./` (o los paths por extensión) | Desarrollo/dogfooding: los cambios aplican con `/reload`. |
+| **npm scoped `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/<ext>` | À la carte por extensión — *próximamente* (requiere publicar la org npm). |
+
+Cada `extensions/pi-<ext>/package.json` ya lleva su identidad pública `@pandi-coding-agent/<ext>`
+(workspaces npm; `npm pack -w @pandi-coding-agent/<ext>` para probar el tarball). El manifiesto
+`pi` del root se **genera** desde los sub-paquetes (`npm run sync:manifest`); un test de paridad
+falla si driftea. Horizonte: **Pandi** como distro sobre pi (extensiones + tema + persona), no
+como fork del CLI.
+
 ## Catálogo de extensiones
 
 Todas se cargan por defecto desde el campo `pi.extensions` del `package.json` al hacer `pi install ./`. Cada una es también instalable suelta (tabla anterior).
