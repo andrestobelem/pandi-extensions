@@ -1,5 +1,4 @@
 {
-  "theme": "panda-syntax-light/panda-syntax-dark",
   "packages": [
     "../extensions/pi-dynamic-workflows",
     "../extensions/pi-loop",
