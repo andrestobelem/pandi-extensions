@@ -20,6 +20,9 @@
  * doctor.mjs is spawned with an ARGV array (never a shell string).
  */
 
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
@@ -198,6 +201,34 @@ async function scenarioRealSpawnMissingBin(url) {
 	);
 }
 
+function scenarioStandaloneDoctor() {
+	// Copy ONLY the vendored script to a temp dir outside the repo (like an npm
+	// install of @pandi-coding-agent/doctor) and run it for REAL from a non-repo
+	// cwd: it must degrade gracefully, not assume the suite repo exists.
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-standalone-"));
+	try {
+		const extDir = path.join(tmp, "ext");
+		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
+		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
+		const agentDir = path.join(tmp, "agent"); // empty seam: host settings must not leak in
+		fs.mkdirSync(agentDir, { recursive: true });
+		const r = spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
+			cwd: tmp,
+			encoding: "utf8",
+			timeout: 60000,
+			env: { ...process.env, NO_COLOR: "1", PI_DOCTOR_AGENT_DIR: agentDir },
+		});
+		const out = `${r.stdout || ""}${r.stderr || ""}`;
+		check("standalone: exits 0/1 without crashing", r.status === 0 || r.status === 1, `status=${r.status}`);
+		check("standalone: prints the doctor report", out.includes("pi-dynamic-workflows doctor"), out.slice(0, 200));
+		const syncLine = out.split("\n").find((l) => l.includes("sync Claude global")) ?? "";
+		check("standalone: sync Claude global is N/A outside the repo", syncLine.includes("N/A"), syncLine);
+		check("standalone: no reference to this repo's path", !out.includes(REPO_ROOT), out.slice(0, 400));
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+}
+
 async function scenarioHandlerEndToEnd(url) {
 	const extension = await loadDefault(url);
 	const { pi, commands } = makePi();
@@ -227,6 +258,7 @@ async function main() {
 	await scenarioResolver(url);
 	await scenarioCheckLogic(url);
 	await scenarioRealSpawnMissingBin(url);
+	scenarioStandaloneDoctor();
 	await scenarioHandlerEndToEnd(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);

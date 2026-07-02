@@ -40,11 +40,18 @@ function findSuiteRoot(startDir) {
 	}
 }
 
-const SUITE_ROOT = findSuiteRoot(process.cwd());
-// Fallback: script-relative (<ext>/scripts → repo root in a working tree). Keeps
-// in-repo behavior identical even when run from outside; a proper standalone
-// degradation lands separately.
-const REPO_ROOT = SUITE_ROOT ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+/** Script-relative fallback: <ext>/scripts → repo root, but only if it really IS the suite. */
+function suiteRootFromScriptLocation() {
+	const candidate = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+	return findSuiteRoot(candidate) === candidate ? candidate : null;
+}
+
+// null ⇒ standalone install (e.g. npm:@pandi-coding-agent/doctor): repo-only
+// checks degrade to N/A instead of false warnings.
+const SUITE_ROOT = findSuiteRoot(process.cwd()) ?? suiteRootFromScriptLocation();
+// Project dir for project-level lookups (node_modules, .agents/.pi skills,
+// .pi/settings.json): the suite root when inside the repo, else the cwd.
+const PROJECT_DIR = SUITE_ROOT ?? process.cwd();
 const MIN_NODE = "22.19.0"; // engines.node de @earendil-works/pi-coding-agent
 const GONDOLIN_NODE = "23.6.0"; // piso extra para la extensión opcional Gondolin
 
@@ -134,7 +141,7 @@ report(
 
 // ── Opcionales ──────────────────────────────────────────────────────────────
 // mmdc: gráficos PNG de /workflow graph (probamos node_modules local y PATH).
-const localMmdc = path.join(REPO_ROOT, "node_modules", ".bin", process.platform === "win32" ? "mmdc.cmd" : "mmdc");
+const localMmdc = path.join(PROJECT_DIR, "node_modules", ".bin", process.platform === "win32" ? "mmdc.cmd" : "mmdc");
 const mmdc = existsSync(localMmdc) ? probe(localMmdc) : probe("mmdc");
 report(
 	"optional",
@@ -155,7 +162,7 @@ report(
 // pi-codex-web-search: la extensión que expone web_search.
 const webSearchPaths = [
 	path.join(os.homedir(), ".pi", "agent", "npm", "node_modules", "pi-codex-web-search"),
-	path.join(REPO_ROOT, "node_modules", "pi-codex-web-search"),
+	path.join(PROJECT_DIR, "node_modules", "pi-codex-web-search"),
 ];
 const webSearch = webSearchPaths.some(existsSync);
 report(
@@ -166,7 +173,7 @@ report(
 );
 
 // ctx7 + skill context7-cli. Preferimos el binario local (devDependency, corre con npx).
-const localCtx7 = path.join(REPO_ROOT, "node_modules", ".bin", process.platform === "win32" ? "ctx7.cmd" : "ctx7");
+const localCtx7 = path.join(PROJECT_DIR, "node_modules", ".bin", process.platform === "win32" ? "ctx7.cmd" : "ctx7");
 const ctx7 = existsSync(localCtx7) ? probe(localCtx7) : probe("ctx7");
 report(
 	"optional",
@@ -175,8 +182,8 @@ report(
 	ctx7.found ? "Context7 docs (npx ctx7)" : "ausente — `npm install` (devDep) o npm i -g ctx7@latest",
 );
 const context7SkillPaths = [
-	path.join(REPO_ROOT, ".agents", "skills", "context7-cli"),
-	path.join(REPO_ROOT, ".pi", "skills", "context7-cli"),
+	path.join(PROJECT_DIR, ".agents", "skills", "context7-cli"),
+	path.join(PROJECT_DIR, ".pi", "skills", "context7-cli"),
 	path.join(os.homedir(), ".pi", "agent", "skills", "context7-cli"),
 	path.join(os.homedir(), ".agents", "skills", "context7-cli"),
 ];
@@ -226,9 +233,13 @@ const home = os.homedir();
 const globalDir = process.env.CLAUDE_GLOBAL_DIR || path.join(home, ".claude");
 // Sólo colapsá a "~" en el borde de segmento, no por prefijo textual (/Users/foo vs /Users/foobar).
 const shortDir = globalDir === home || globalDir.startsWith(home + path.sep) ? globalDir.replace(home, "~") : globalDir;
-const syncScript = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
+const syncScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "sync-claude-global.mjs") : null;
 const syncLabel = `sync Claude global (${shortDir})`;
-if (existsSync(syncScript)) {
+if (!SUITE_ROOT) {
+	// Standalone install: the mirror is a dev concern of the suite repo, not of
+	// this machine — N/A, not a false "out of sync" warning.
+	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pi-dynamic-workflows)");
+} else if (existsSync(syncScript)) {
 	const sync = spawnSync("node", [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
 	if (sync.error || typeof sync.status !== "number") {
 		// El check no pudo correr (spawn falló / timeout): no afirmes "drift", decí que no se verificó.
@@ -263,9 +274,9 @@ const readPackageSources = (file) => {
 };
 const packageEntries = [
 	...readPackageSources(path.join(agentDir, "settings.json")).map((src) => ({ src, base: agentDir })),
-	...readPackageSources(path.join(REPO_ROOT, ".pi", "settings.json")).map((src) => ({
+	...readPackageSources(path.join(PROJECT_DIR, ".pi", "settings.json")).map((src) => ({
 		src,
-		base: path.join(REPO_ROOT, ".pi"),
+		base: path.join(PROJECT_DIR, ".pi"),
 	})),
 ];
 const isRemote = (src) => /^(git:|npm:|https?:\/\/|ssh:\/\/)/.test(src);
@@ -273,9 +284,10 @@ const foreignCopies = packageEntries.filter(
 	({ src }) => isRemote(src) && (src.includes("pi-dynamic-workflows") || src.includes("@pandi-coding-agent/")),
 );
 const workingTreeEntries = packageEntries.filter(({ src, base }) => {
-	if (isRemote(src)) return false;
+	// Without a suite working tree there is nothing to double-load against.
+	if (!SUITE_ROOT || isRemote(src)) return false;
 	const resolved = path.resolve(base, src);
-	return resolved === REPO_ROOT || resolved.startsWith(REPO_ROOT + path.sep);
+	return resolved === SUITE_ROOT || resolved.startsWith(SUITE_ROOT + path.sep);
 });
 if (foreignCopies.length && workingTreeEntries.length) {
 	const sources = foreignCopies.map((e) => e.src).join(", ");
