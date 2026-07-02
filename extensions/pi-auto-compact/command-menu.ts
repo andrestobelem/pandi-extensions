@@ -20,9 +20,7 @@ export const MENU_OPTIONS = [
 
 // Threshold presets offered after choosing "threshold"; derived so the current default
 // is always present (and marked below). The last entry opens a text input.
-const THRESHOLD_PRESETS = [...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT])].sort(
-	(a, b) => a - b,
-);
+const THRESHOLD_PRESETS = [...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT])].sort((a, b) => a - b);
 export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "custom\u2026"];
 
 // Argument autocomplete items. `value` is inserted into the editor on accept.
