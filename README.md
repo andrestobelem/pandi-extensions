@@ -173,7 +173,7 @@ Todas las extensiones traen defaults sensatos; no necesitás configurar nada par
 | --- | --- | --- | --- |
 | `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | core | `2` | Profundidad máxima de anidación de workflows; `0` = kill-switch total. |
 | `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` | core, goal | `pi` | Binario de Pi para spawnear subagentes. |
-| `PI_AUTO_COMPACT_PERCENT` | auto-compact | `30` | % de contexto que dispara la compactación. |
+| `PI_AUTO_COMPACT_PERCENT` | auto-compact | `35` | % de contexto que dispara la compactación. |
 | `PI_TS_LSP` / `PI_TS_LSP_MODE` | typescript-lsp | `on` / `advisory` | Habilita el feedback de tsc y su modo (`advisory`/`autofix`). |
 | `PI_PLAN_NONINTERACTIVE` | plan | (off) | Permite plan mode en print/json (subagentes). |
 | `CODEX_PATH` | web-search | (PATH) | Ruta al binario `codex` si no está en el PATH. |
