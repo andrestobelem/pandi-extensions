@@ -37,6 +37,8 @@
 		"format:check": "biome format .",
 		"format:claude": "node .claude/scripts/generate-claude-workflows.mjs",
 		"format:claude:check": "node .claude/scripts/generate-claude-workflows.mjs --check",
+		"sync:manifest": "node scripts/sync-root-manifest.mjs",
+		"sync:manifest:check": "node scripts/sync-root-manifest.mjs --check",
 		"sync:skills": "node scripts/sync-skill-mirrors.mjs",
 		"sync:skills:check": "node scripts/sync-skill-mirrors.mjs --check",
 		"sync:agents": "node scripts/sync-agent-guides.mjs",
