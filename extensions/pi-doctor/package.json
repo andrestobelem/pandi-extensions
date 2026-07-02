@@ -20,6 +20,7 @@
 		"index.ts",
 		"doctor.ts",
 		"notify.ts",
+		"scripts",
 		"README.md"
 	],
 	"pi": {

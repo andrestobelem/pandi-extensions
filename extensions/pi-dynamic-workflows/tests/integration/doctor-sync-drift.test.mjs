@@ -1,5 +1,5 @@
 /**
- * Durable test for the sync-drift check added to scripts/doctor.mjs.
+ * Durable test for the sync-drift check added to extensions/pi-doctor/scripts/doctor.mjs.
  *
  * doctor is a read-only environment reporter. This pins ONE new behavior: doctor surfaces
  * whether the global Claude home (default ~/.claude) is in sync with this repo, delegating to
@@ -31,7 +31,7 @@ import { createChecker } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const DOCTOR = path.join(REPO_ROOT, "scripts", "doctor.mjs");
+const DOCTOR = path.join(REPO_ROOT, "extensions", "pi-doctor", "scripts", "doctor.mjs");
 const SYNC = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
 
 const { check, counts } = createChecker();

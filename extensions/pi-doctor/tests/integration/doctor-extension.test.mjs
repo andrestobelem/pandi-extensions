@@ -2,11 +2,14 @@
 /**
  * Durable behavioral integration test for extensions/pi-doctor/index.ts.
  *
- * `/doctor` is a thin in-session convenience that spawns the repo's read-only
- * environment check (scripts/doctor.mjs) and shows its report. Honest evidence:
+ * `/doctor` is a thin in-session convenience that spawns the extension's vendored
+ * read-only environment check (extensions/pi-doctor/scripts/doctor.mjs) and shows
+ * its report. Honest evidence:
  *   - the /doctor command is actually registered;
- *   - resolveDoctorScript walks up from a cwd to find scripts/doctor.mjs, and
- *     returns null when neither cwd nor the extension-relative fallback resolves;
+ *   - resolveDoctorScript walks up from a cwd to find the working-tree copy of
+ *     extensions/pi-doctor/scripts/doctor.mjs, falls back to the extension's own
+ *     vendored copy (<extDir>/scripts/doctor.mjs), and returns null when neither
+ *     resolves;
  *   - runDoctorCheck (driven by an INJECTED fake runner) maps ok/exit/spawnError
  *     to the right notify text + type, deterministically;
  *   - the missing-binary path is exercised with a REAL spawn of a guaranteed-absent
@@ -26,6 +29,9 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const EXT_DIR = path.resolve(__dirname, "..", "..");
 
 const { check, counts } = createChecker();
+
+/** Where the vendored doctor script lives, relative to a suite/working-tree root. */
+const VENDORED_REL = path.join("extensions", "pi-doctor", "scripts", "doctor.mjs");
 
 async function buildBundle() {
 	// index.ts uses the SDK for types only (erased); stub it so esbuild does not pull
@@ -65,13 +71,16 @@ async function loadExtension(url) {
 /** A fake runner matching runDoctor's signature; records calls, returns canned results. */
 function fakeRunner(scripted = []) {
 	const calls = [];
+	const opts = [];
 	let i = 0;
-	const run = async (scriptPath, _opts) => {
+	const run = async (scriptPath, runOpts) => {
 		calls.push(scriptPath);
+		opts.push(runOpts);
 		const result = typeof scripted === "function" ? scripted(scriptPath) : scripted[i++];
 		return result ?? { ok: true, stdout: "", stderr: "", exitCode: 0 };
 	};
 	run.calls = calls;
+	run.opts = opts;
 	return run;
 }
 
@@ -85,11 +94,11 @@ async function scenarioRegistration(url) {
 async function scenarioResolver(url) {
 	const mod = await loadModule(url);
 
-	// From the repo root, walking up finds scripts/doctor.mjs.
+	// From the repo root, walking up finds the vendored extensions/pi-doctor/scripts/doctor.mjs.
 	const fromRoot = mod.resolveDoctorScript(REPO_ROOT, "/nonexistent/ext");
 	check(
-		"resolveDoctorScript: finds scripts/doctor.mjs from repo root",
-		typeof fromRoot === "string" && fromRoot.endsWith(path.join("scripts", "doctor.mjs")),
+		"resolveDoctorScript: finds the vendored script from repo root",
+		typeof fromRoot === "string" && fromRoot.endsWith(VENDORED_REL),
 		String(fromRoot),
 	);
 
@@ -97,15 +106,15 @@ async function scenarioResolver(url) {
 	const fromSubdir = mod.resolveDoctorScript(path.join(REPO_ROOT, "extensions", "pi-doctor"), "/nonexistent/ext");
 	check(
 		"resolveDoctorScript: finds it from a nested subdir",
-		typeof fromSubdir === "string" && fromSubdir.endsWith(path.join("scripts", "doctor.mjs")),
+		typeof fromSubdir === "string" && fromSubdir.endsWith(VENDORED_REL),
 		String(fromSubdir),
 	);
 
-	// Extension-relative fallback: cwd is unrelated, but extDir points into the repo ext.
+	// Extension-relative fallback: cwd is unrelated, but extDir carries its own copy.
 	const fromFallback = mod.resolveDoctorScript(path.parse(REPO_ROOT).root, EXT_DIR);
 	check(
-		"resolveDoctorScript: falls back to extension-relative script",
-		typeof fromFallback === "string" && fromFallback.endsWith(path.join("scripts", "doctor.mjs")),
+		"resolveDoctorScript: falls back to the extension's own scripts/doctor.mjs",
+		typeof fromFallback === "string" && fromFallback === path.join(EXT_DIR, "scripts", "doctor.mjs"),
 		String(fromFallback),
 	);
 
@@ -128,9 +137,18 @@ async function scenarioCheckLogic(url) {
 		);
 		check(
 			"runDoctorCheck: spawns the resolved doctor.mjs",
-			String(run.calls[0]).endsWith(path.join("scripts", "doctor.mjs")),
+			String(run.calls[0]).endsWith(VENDORED_REL),
 			String(run.calls[0]),
 		);
+	}
+
+	// The runner receives the SESSION cwd (doctor.mjs discovers the suite root from
+	// there), not the script's grandparent directory.
+	{
+		const nestedCwd = path.join(REPO_ROOT, "extensions");
+		const run = fakeRunner([{ ok: true, stdout: "ok", stderr: "", exitCode: 0 }]);
+		await mod.runDoctorCheck(run, { cwd: nestedCwd, extDir: EXT_DIR });
+		check("runDoctorCheck: spawns with the session cwd", run.opts[0]?.cwd === nestedCwd, JSON.stringify(run.opts[0]));
 	}
 
 	// exit 1 (mandatory missing) → error.

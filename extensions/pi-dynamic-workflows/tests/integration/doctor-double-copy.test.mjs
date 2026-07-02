@@ -1,5 +1,5 @@
 /**
- * Durable test for the double-copy check added to scripts/doctor.mjs.
+ * Durable test for the double-copy check added to extensions/pi-doctor/scripts/doctor.mjs.
  *
  * The dev setup loads this suite from the WORKING TREE (local path entries in project
  * and/or global settings). Installing a SECOND copy of the suite under a different pi
@@ -36,7 +36,7 @@ import { createChecker } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const DOCTOR = path.join(REPO_ROOT, "scripts", "doctor.mjs");
+const DOCTOR = path.join(REPO_ROOT, "extensions", "pi-doctor", "scripts", "doctor.mjs");
 const LABEL = "instalación sin doble copia";
 
 const { check, counts } = createChecker();

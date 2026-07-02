@@ -9,7 +9,7 @@
  *   `<bin> --version` (spawn con argv array, nunca shell) y prueba rutas conocidas.
  * - Sale con código 1 si falta algún requisito OBLIGATORIO; los opcionales solo avisan.
  *
- * Uso:  node scripts/doctor.mjs   (o: npm run doctor)
+ * Uso:  node extensions/pi-doctor/scripts/doctor.mjs   (o: npm run doctor)
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -17,7 +17,34 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+/**
+ * Walk up from `startDir` to find the pi-dynamic-workflows suite root (the repo
+ * package.json). The script now lives INSIDE the pi-doctor extension, so it can
+ * run from any install location; the suite root is a property of the CWD, not of
+ * where the script file sits.
+ */
+function findSuiteRoot(startDir) {
+	let dir = startDir;
+	for (;;) {
+		const pkg = path.join(dir, "package.json");
+		if (existsSync(pkg)) {
+			try {
+				if (JSON.parse(readFileSync(pkg, "utf8")).name === "pi-dynamic-workflows") return dir;
+			} catch {
+				// unreadable/invalid package.json: keep walking up.
+			}
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) return null;
+		dir = parent;
+	}
+}
+
+const SUITE_ROOT = findSuiteRoot(process.cwd());
+// Fallback: script-relative (<ext>/scripts → repo root in a working tree). Keeps
+// in-repo behavior identical even when run from outside; a proper standalone
+// degradation lands separately.
+const REPO_ROOT = SUITE_ROOT ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const MIN_NODE = "22.19.0"; // engines.node de @earendil-works/pi-coding-agent
 const GONDOLIN_NODE = "23.6.0"; // piso extra para la extensión opcional Gondolin
 

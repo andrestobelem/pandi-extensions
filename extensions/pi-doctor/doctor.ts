@@ -4,10 +4,12 @@
  *   - `runDoctor` spawns `node <scripts/doctor.mjs>` with an ARGV array (never a
  *     shell string). Spawn failure, non-zero exit, timeout, or abort all come back
  *     as a DoctorResult (never throws), mirroring pi-container's runContainer.
- *   - `resolveDoctorScript` locates the repo's read-only env check WITHOUT importing
- *     it (an import of ../../scripts/doctor.mjs would break standalone loading), by
- *     walking up from the session cwd, then falling back to the extension-relative
- *     path. Returns null when neither resolves.
+ *   - `resolveDoctorScript` locates the read-only env check WITHOUT importing it
+ *     (a static import would break bundling), preferring the WORKING-TREE copy
+ *     (walk up from the session cwd to extensions/pi-doctor/scripts/doctor.mjs, so
+ *     in-repo dev always runs the freshest version), then falling back to the
+ *     extension's own vendored `<extDir>/scripts/doctor.mjs` — which ships in the
+ *     npm tarball, so a standalone install still resolves. Null when neither does.
  *   - `runDoctorCheck` is the injectable high-level step the command handler calls;
  *     `formatDoctorOutput` maps a DoctorResult to notify text + severity.
  */
@@ -40,7 +42,7 @@ export const DEFAULT_DOCTOR_TIMEOUT_MS = 120_000;
 export type RunDoctor = (scriptPath: string, options?: RunDoctorOptions) => Promise<DoctorResult>;
 
 /**
- * Spawn `node <scriptPath>` (the repo's scripts/doctor.mjs). Spawn failure, non-zero
+ * Spawn `node <scriptPath>` (the vendored scripts/doctor.mjs). Spawn failure, non-zero
  * exit, timeout, or abort all resolve to a DoctorResult (never throws).
  */
 export function runDoctor(scriptPath: string, options: RunDoctorOptions = {}): Promise<DoctorResult> {
@@ -95,22 +97,27 @@ export function runDoctor(scriptPath: string, options: RunDoctorOptions = {}): P
 	});
 }
 
+/** Where the vendored doctor script lives, relative to a suite/working-tree root. */
+const VENDORED_SCRIPT_REL = join("extensions", "pi-doctor", "scripts", "doctor.mjs");
+
 /**
- * Locate scripts/doctor.mjs by walking up from `startCwd`; fall back to the
- * extension-relative path (`<extDir>/../../scripts/doctor.mjs`). Returns null when
- * neither exists — so a `/doctor` run outside the repo degrades to a friendly hint.
+ * Locate the doctor script: walk up from `startCwd` looking for a working-tree
+ * copy (`<root>/extensions/pi-doctor/scripts/doctor.mjs` — in-repo dev wins even
+ * when the extension loaded from another install identity), then fall back to the
+ * extension's own vendored copy (`<extDir>/scripts/doctor.mjs`, shipped in the npm
+ * tarball). Returns null when neither exists — `/doctor` degrades to a hint.
  */
 export function resolveDoctorScript(startCwd: string, extDir: string): string | null {
 	let dir = startCwd;
 	// Walk up to the filesystem root.
 	for (;;) {
-		const candidate = join(dir, "scripts", "doctor.mjs");
+		const candidate = join(dir, VENDORED_SCRIPT_REL);
 		if (existsSync(candidate)) return candidate;
 		const parent = dirname(dir);
 		if (parent === dir) break;
 		dir = parent;
 	}
-	const fallback = join(extDir, "..", "..", "scripts", "doctor.mjs");
+	const fallback = join(extDir, "scripts", "doctor.mjs");
 	if (existsSync(fallback)) return fallback;
 	return null;
 }
@@ -140,7 +147,8 @@ export async function runDoctorCheck(
 ): Promise<{ ok: boolean; text: string; type: "info" | "warning" | "error" }> {
 	const script = resolveDoctorScript(opts.cwd, opts.extDir);
 	if (!script) return { ok: false, text: NOT_IN_REPO_HINT, type: "warning" };
-	const result = await run(script, { cwd: dirname(dirname(script)), signal: opts.signal });
+	// Spawn with the SESSION cwd: doctor.mjs discovers the suite root from there.
+	const result = await run(script, { cwd: opts.cwd, signal: opts.signal });
 	const { text, type } = formatDoctorOutput(result);
 	return { ok: result.ok, text, type };
 }

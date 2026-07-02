@@ -21,6 +21,7 @@
 	],
 	"files": [
 		"extensions/*/*.ts",
+		"extensions/pi-doctor/scripts/*.mjs",
 		"extensions/pi-pandi-theme/themes/*.json",
 		"extensions/pi-dynamic-workflows/scaffolds/*.js",
 		".pi/skills",
@@ -49,7 +50,7 @@
 		"sync:claude:ultracode:check": "node scripts/generate-claude-ultracode-skills.mjs --check",
 		"lint:md": "markdownlint-cli2",
 		"lint:md:fix": "markdownlint-cli2 --fix",
-		"doctor": "node scripts/doctor.mjs",
+		"doctor": "node extensions/pi-doctor/scripts/doctor.mjs",
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
 		"test:integration": "node scripts/test/run-all.mjs",
 		"test": "npm run typecheck && npm run check && npm run lint:md && npm run test:integration"
