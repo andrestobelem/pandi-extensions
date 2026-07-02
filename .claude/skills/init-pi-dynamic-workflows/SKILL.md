@@ -15,7 +15,7 @@ Bring a **fresh clone** of `pi-dynamic-workflows` to a working setup: the Pi ext
 (`/workflow`, `/goal`, `/loop`, `/plan`, `/effort`, `/mdview`, …), the project skills, and the
 dynamic-workflow catalog — usable from Pi and from Claude Code.
 
-**Source of truth:** the README **"Quickstart"** section and `scripts/doctor.mjs`. This skill is the
+**Source of truth:** the README **"Quickstart"** section and `extensions/pi-doctor/scripts/doctor.mjs`. This skill is the
 ordered procedure + judgment; when in doubt, run `npm run doctor` and follow the README rather than
 guessing. Do not invent versions or steps — read them from `.nvmrc`, `package.json`, and the README.
 
