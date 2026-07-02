@@ -143,7 +143,7 @@ async function fireTurnEnd(handlers, ctx) {
 async function stuckAboveThresholdDoesNotLoop(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	// Compaction never reduces usage below the 30% default threshold.
+	// Compaction never reduces usage below the 35% default threshold.
 	env.state.percent = 60;
 	env.state.reduceTo = 60;
 
@@ -166,7 +166,7 @@ async function stuckAboveThresholdDoesNotLoop(url) {
 async function failedCompactionReArmsAndRetriggers(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 60; // above the 30% default threshold
+	env.state.percent = 60; // above the 35% default threshold
 	env.state.failCompaction = true;
 
 	await fireAgentEnd(handlers, env.ctx); // crossing -> compaction #1 attempted, fails
@@ -186,7 +186,7 @@ async function genuineRecrossRetriggers(url) {
 	env.state.reduceTo = 20;
 
 	await fireAgentEnd(handlers, env.ctx); // crossing -> compaction #1, now at 20%
-	await fireAgentEnd(handlers, env.ctx); // 20% < 30% -> no compaction
+	await fireAgentEnd(handlers, env.ctx); // 20% < 35% -> no compaction
 	env.state.percent = 60; // genuine new rise above threshold
 	env.state.reduceTo = 20;
 	await fireAgentEnd(handlers, env.ctx); // crossing again -> compaction #2
@@ -201,7 +201,7 @@ async function genuineRecrossRetriggers(url) {
 async function belowThresholdNeverCompacts(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 20; // never crosses 30%
+	env.state.percent = 20; // never crosses 35%
 	await fireAgentEnd(handlers, env.ctx);
 	await fireAgentEnd(handlers, env.ctx);
 	check(
@@ -320,12 +320,12 @@ async function parseBarSettingCases(url) {
 async function barReflectsUsageBelowThreshold(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 15; // half of the 30% default threshold -> near
+	env.state.percent = 15; // under the 35% default threshold
 	await fireTurnEnd(handlers, env.ctx);
 	const text = lastStatus(env);
 	check(
 		"bar: shows usage/threshold label on a normal turn",
-		typeof text === "string" && text.includes("15%/30%"),
+		typeof text === "string" && text.includes("15%/35%"),
 		`got ${JSON.stringify(text)}`,
 	);
 	check(
@@ -369,7 +369,7 @@ async function barToggleClearsAndRestores(url) {
 	await run("bar on");
 	check(
 		"bar toggle: restored when turned on",
-		typeof lastStatus(env) === "string" && lastStatus(env).includes("15%/30%"),
+		typeof lastStatus(env) === "string" && lastStatus(env).includes("15%/35%"),
 		`got ${JSON.stringify(lastStatus(env))}`,
 	);
 }
@@ -391,6 +391,30 @@ async function barClearedWhenDisabled(url) {
 // ---------------------------------------------------------------------------
 // Argument autocomplete: typing `/auto-compact <prefix>` offers choices.
 // ---------------------------------------------------------------------------
+// Pins the default-threshold contract: the exported constant, the derived preset
+// list (which must contain the default), and a single "(default)" marker on it.
+async function defaultThresholdContract(url) {
+	const mod = await loadModule(url);
+	check(
+		"default: DEFAULT_THRESHOLD_PERCENT is 35",
+		mod.DEFAULT_THRESHOLD_PERCENT === 35,
+		`got ${mod.DEFAULT_THRESHOLD_PERCENT}`,
+	);
+	check(
+		"default: THRESHOLD_OPTIONS includes the default preset",
+		Array.isArray(mod.THRESHOLD_OPTIONS) && mod.THRESHOLD_OPTIONS.includes("35"),
+		`got ${JSON.stringify(mod.THRESHOLD_OPTIONS)}`,
+	);
+	const markers = (mod.ARG_COMPLETIONS ?? []).filter(
+		(i) => typeof i.description === "string" && i.description.includes("(default)"),
+	);
+	check(
+		"default: exactly the default preset is marked (default)",
+		markers.length === 1 && markers[0]?.value === "35",
+		`got ${JSON.stringify(markers)}`,
+	);
+}
+
 async function argumentCompletions(url) {
 	const { commands } = await loadExtension(url);
 	const cmd = commands.get("auto-compact");
@@ -825,6 +849,7 @@ async function main() {
 	await barShowsCompactingState(url);
 	await barToggleClearsAndRestores(url);
 	await barClearedWhenDisabled(url);
+	await defaultThresholdContract(url);
 	await argumentCompletions(url);
 	await bareCommandOpensMenuAndDisables(url);
 	await menuThresholdPresetSetsThreshold(url);

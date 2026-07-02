@@ -1,4 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
 
 // Interactive menu shown for a bare `/auto-compact` in a UI session. The text
 // BEFORE " — " is the canonical command the handler already understands.
@@ -17,8 +18,12 @@ export const MENU_OPTIONS = [
 	"threshold — set the compaction threshold %",
 ];
 
-// Threshold presets offered after choosing "threshold"; the last entry opens a text input.
-export const THRESHOLD_OPTIONS = ["20", "30", "40", "50", "60", "70", "80", "custom\u2026"];
+// Threshold presets offered after choosing "threshold"; derived so the current default
+// is always present (and marked below). The last entry opens a text input.
+const THRESHOLD_PRESETS = [...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT])].sort(
+	(a, b) => a - b,
+);
+export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "custom\u2026"];
 
 // Argument autocomplete items. `value` is inserted into the editor on accept.
 export const ARG_COMPLETIONS: { value: string; label: string; description: string }[] = [
@@ -36,13 +41,11 @@ export const ARG_COMPLETIONS: { value: string; label: string; description: strin
 	{ value: "clear-tools", label: "clear-tools", description: "Toggle eliding old large tool outputs" },
 	{ value: "clear-tools on", label: "clear-tools on", description: "Elide old large tool outputs per LLM call" },
 	{ value: "clear-tools off", label: "clear-tools off", description: "Stop eliding old tool outputs" },
-	{ value: "20", label: "20%", description: "Set threshold to 20%" },
-	{ value: "30", label: "30%", description: "Set threshold to 30% (default)" },
-	{ value: "40", label: "40%", description: "Set threshold to 40%" },
-	{ value: "50", label: "50%", description: "Set threshold to 50%" },
-	{ value: "60", label: "60%", description: "Set threshold to 60%" },
-	{ value: "70", label: "70%", description: "Set threshold to 70%" },
-	{ value: "80", label: "80%", description: "Set threshold to 80%" },
+	...THRESHOLD_PRESETS.map((p) => ({
+		value: String(p),
+		label: `${p}%`,
+		description: `Set threshold to ${p}%${p === DEFAULT_THRESHOLD_PERCENT ? " (default)" : ""}`,
+	})),
 ];
 
 // When invoked bare in a UI session, open a menu to pick a setting (and a second
@@ -60,6 +63,6 @@ export async function resolveCommandValue(args: string, ctx: ExtensionContext): 
 	const pick = await ctx.ui.select("Compaction threshold % (compact when usage reaches this)", THRESHOLD_OPTIONS);
 	if (!pick) return "status";
 	if (!pick.startsWith("custom")) return pick;
-	const custom = await ctx.ui.input("Custom threshold percent (1\u201399)", "e.g. 35");
+	const custom = await ctx.ui.input("Custom threshold percent (1\u201399)", "e.g. 45");
 	return (custom ?? "").trim() || "status";
 }

@@ -2,6 +2,11 @@
 // subcommand arguments share this on/off + threshold grammar. Pure, no extension state;
 // re-exported from index.ts so the built bundle keeps exporting the public parser names.
 
+// Compaction fires when relative context usage reaches this percent. Single source of
+// truth: index.ts (runtime default + command description) and command-menu.ts (presets,
+// "(default)" marker) all derive from it. Override at startup with PI_AUTO_COMPACT_PERCENT.
+export const DEFAULT_THRESHOLD_PERCENT = 35;
+
 export const parseThreshold = (value: string | undefined): number | undefined => {
 	if (!value) return undefined;
 	const parsed = Number(value.trim().replace(/%$/, ""));

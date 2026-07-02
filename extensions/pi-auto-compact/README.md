@@ -20,7 +20,7 @@ pi --no-extensions -e ./extensions/pi-auto-compact
   - `/auto-compact snapshots` — list recent snapshot paths for the current session.
   - `/auto-compact clear-tools [on|off]` — toggle eliding old large tool outputs per LLM call.
 - Automatic compaction after an agent turn when context usage crosses the configured threshold.
-- A footer **progress bar** that shows how close context usage is to the threshold (`compact ▰▰▱▱▱▱▱▱ 9%/30%`). It fills as usage approaches the threshold, turns to a warning color when near, and shows a `compacting…` state while compaction runs.
+- A footer **progress bar** that shows how close context usage is to the threshold (`compact ▰▰▱▱▱▱▱▱ 9%/35%`). It fills as usage approaches the threshold, turns to a warning color when near, and shows a `compacting…` state while compaction runs.
 
 ### Recoverable compaction
 
@@ -43,7 +43,7 @@ A lighter, **ephemeral** lever than full compaction. Before each LLM call, this 
 
 It is **OFF by default** (it changes what the model sees every call); enable it for long, tool-heavy loops with `/auto-compact clear-tools on` or `PI_AUTO_COMPACT_CLEAR_TOOL_RESULTS=on`. Tune with `PI_AUTO_COMPACT_CLEAR_KEEP_RECENT=<n>` (default `3`) and `PI_AUTO_COMPACT_CLEAR_MIN_CHARS=<n>` (default `2000`).
 
-Default threshold is `30%`. Override the startup default with `PI_AUTO_COMPACT_PERCENT`.
+Default threshold is `35%`. Override the startup default with `PI_AUTO_COMPACT_PERCENT`.
 The progress bar is on by default; set `PI_AUTO_COMPACT_BAR=off` to hide it at startup.
 Snapshots are on by default; set `PI_AUTO_COMPACT_SNAPSHOT=off` to disable them, and `PI_AUTO_COMPACT_SNAPSHOT_KEEP=<n>` to change the per-session retention budget (default `20`).
 

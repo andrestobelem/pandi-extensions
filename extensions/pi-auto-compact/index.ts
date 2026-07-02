@@ -4,6 +4,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { ARG_COMPLETIONS, resolveCommandValue } from "./command-menu.js";
 import { type ContextBarLevel, renderContextBar } from "./context-bar.js";
 import {
+	DEFAULT_THRESHOLD_PERCENT,
 	parseBarSetting,
 	parseClearSetting,
 	parseSnapshotKeep,
@@ -20,8 +21,6 @@ import {
 	sortedSnapshotNames,
 } from "./snapshots.js";
 
-const DEFAULT_THRESHOLD_PERCENT = 30;
-
 // Footer status key. setStatus is keyed so this extension owns exactly one slot.
 const STATUS_KEY = "auto-compact";
 
@@ -36,6 +35,7 @@ export type { CompactionSnapshot };
 // bundle keeps exporting the names the integration suite imports.
 export {
 	buildSnapshot,
+	DEFAULT_THRESHOLD_PERCENT,
 	parseBarSetting,
 	parseClearSetting,
 	parseSnapshotKeep,
@@ -116,7 +116,7 @@ export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToo
 	return changed ? out : null;
 };
 
-export { MENU_OPTIONS, THRESHOLD_OPTIONS } from "./command-menu.js";
+export { ARG_COMPLETIONS, MENU_OPTIONS, THRESHOLD_OPTIONS } from "./command-menu.js";
 export type { ContextBar, ContextBarLevel } from "./context-bar.js";
 // The interactive `/auto-compact` menu (MENU_OPTIONS/THRESHOLD_OPTIONS/
 // ARG_COMPLETIONS) and resolveCommandValue live in ./command-menu.ts; MENU_OPTIONS/
@@ -347,8 +347,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("auto-compact", {
-		description:
-			"Configure relative context auto-compaction (default enabled at 30%). Run bare to pick a setting from a menu, or pass status|on|off|run|bar [on|off]|<1-99 percent>.",
+		description: `Configure relative context auto-compaction (default enabled at ${DEFAULT_THRESHOLD_PERCENT}%). Run bare to pick a setting from a menu, or pass status|on|off|run|bar [on|off]|<1-99 percent>.`,
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = needle
