@@ -2,6 +2,9 @@
 	"name": "pi-dynamic-workflows",
 	"version": "0.1.0",
 	"private": true,
+	"workspaces": [
+		"extensions/pi-*"
+	],
 	"description": "Claude-style dynamic workflows for Pi: JavaScript orchestration scripts with parallel Pi subagents.",
 	"license": "MIT",
 	"repository": {
