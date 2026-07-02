@@ -12,7 +12,7 @@
  * Uso:  node scripts/doctor.mjs   (o: npm run doctor)
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -217,6 +217,54 @@ if (existsSync(syncScript)) {
 	}
 } else {
 	report("optional", WARN, "sync Claude global", "ausente — scripts/sync-claude-global.mjs no encontrado");
+}
+
+// Doble copia: el dev setup carga la suite desde el WORKING TREE (paths locales en settings
+// de proyecto y/o global). Una SEGUNDA copia bajo otra identidad de pi (clon git: o paquete
+// npm:@pandi-coding-agent/…) NO se dedup-lica (la identidad difiere) → cada extensión/comando/
+// tema cargaría dos veces. Avisamos ANTES de que muerda. Seam de test: PI_DOCTOR_AGENT_DIR.
+const agentDir = process.env.PI_DOCTOR_AGENT_DIR || path.join(home, ".pi", "agent");
+const readPackageSources = (file) => {
+	try {
+		const settings = JSON.parse(readFileSync(file, "utf8"));
+		return (Array.isArray(settings.packages) ? settings.packages : [])
+			.map((p) => (typeof p === "string" ? p : p?.source))
+			.filter((s) => typeof s === "string");
+	} catch {
+		return [];
+	}
+};
+const packageEntries = [
+	...readPackageSources(path.join(agentDir, "settings.json")).map((src) => ({ src, base: agentDir })),
+	...readPackageSources(path.join(REPO_ROOT, ".pi", "settings.json")).map((src) => ({
+		src,
+		base: path.join(REPO_ROOT, ".pi"),
+	})),
+];
+const isRemote = (src) => /^(git:|npm:|https?:\/\/|ssh:\/\/)/.test(src);
+const foreignCopies = packageEntries.filter(
+	({ src }) => isRemote(src) && (src.includes("pi-dynamic-workflows") || src.includes("@pandi-coding-agent/")),
+);
+const workingTreeEntries = packageEntries.filter(({ src, base }) => {
+	if (isRemote(src)) return false;
+	const resolved = path.resolve(base, src);
+	return resolved === REPO_ROOT || resolved.startsWith(REPO_ROOT + path.sep);
+});
+if (foreignCopies.length && workingTreeEntries.length) {
+	const sources = foreignCopies.map((e) => e.src).join(", ");
+	report(
+		"optional",
+		WARN,
+		"instalación sin doble copia",
+		`conviven el working tree y otra copia de la suite (${sources}) — desinstalá una o desactivá sus recursos con \`pi config\``,
+	);
+} else {
+	report(
+		"optional",
+		OK,
+		"instalación sin doble copia",
+		foreignCopies.length ? "copia remota sin working tree en settings" : "la suite se carga de una sola identidad",
+	);
 }
 
 // ── Salida ──────────────────────────────────────────────────────────────────
