@@ -83,6 +83,36 @@ function main() {
 		check("vendored copy restored to in-sync after the negative control", runCheck().status === 0);
 	}
 
+	// 3) BEHAVIOR invariants the vendoring exists for (not just byte parity). These are the two
+	// comment-only promises the design rests on; pin them so a config edit can't silently break them.
+	//   (a) The extension SHIPS its skills: package.json files[] carries "skills" and pi.skills points
+	//       at "./skills", so `pi install ./extensions/pi-dynamic-workflows` includes + loads them.
+	//   (b) In-repo does NOT double-load: the pi-dynamic-workflows entry in .pi/settings.json is
+	//       object-form with skills:[] (the repo already loads these via .pi/skills auto-discovery).
+	const extPkgPath = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "package.json");
+	const extPkg = JSON.parse(fs.readFileSync(extPkgPath, "utf8"));
+	check(
+		'extension package.json files[] includes "skills" (vendored tree ships in the tarball)',
+		Array.isArray(extPkg.files) && extPkg.files.includes("skills"),
+		`files=${JSON.stringify(extPkg.files)}`,
+	);
+	check(
+		'extension pi.skills includes "./skills" (Pi loads the vendored tree when installed standalone)',
+		Array.isArray(extPkg.pi?.skills) && extPkg.pi.skills.includes("./skills"),
+		`pi.skills=${JSON.stringify(extPkg.pi?.skills)}`,
+	);
+
+	const settingsPath = path.join(REPO_ROOT, ".pi", "settings.json");
+	const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+	const dwEntry = (Array.isArray(settings.packages) ? settings.packages : []).find(
+		(p) => typeof p === "object" && p !== null && String(p.source || "").endsWith("pi-dynamic-workflows"),
+	);
+	check(
+		"in-repo .pi/settings.json filters pi-dynamic-workflows skills:[] (no double-load with .pi/skills)",
+		!!dwEntry && Array.isArray(dwEntry.skills) && dwEntry.skills.length === 0,
+		`entry=${JSON.stringify(dwEntry)}`,
+	);
+
 	if (counts.failed > 0) {
 		console.error("\nFailures:");
 		for (const failure of counts.failures) console.error(`- ${failure}`);
