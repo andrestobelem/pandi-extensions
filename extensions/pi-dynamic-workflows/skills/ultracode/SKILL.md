@@ -367,6 +367,22 @@ open <out.html>
 
   Pass the same `argsJson` the run will use; use the absolute path (cwd resets). Render + open, then
   call `Workflow` immediately with the same `name`/`scriptPath` and `args` — don't block on a question.
+- **RE-RENDER WHEN THE RUN ENDS (required):** the pre-launch render is only the *plan* — its Results
+  tab is empty and agent outputs are stubbed, because the run data does not exist yet. Once the run
+  completes (or to follow it live), rebuild the SAME HTML with the real run overlaid (`status.json` +
+  `events.jsonl` + `result.json` + run-root artifacts) and re-open it. Never present the pre-launch
+  HTML as the run's outcome:
+
+```sh
+# final render, once the run is done — Results tab populated from the run dir:
+node ~/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>' --run <runDir>
+open <out.html>
+# or follow the run live: re-renders on status.json changes, re-opens at the terminal state:
+node ~/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>' --run <runDir> --watch --open
+```
+
+  `--run latest` resolves the newest `.pi/workflows/runs/<id>` under the cwd (add `--match <substr>`
+  to pin one); otherwise pass the explicit run directory.
 
 ### pi
 
@@ -400,6 +416,11 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
   `status.json` or repeated `action=view`). Let it report back and inspect **once** when notified (or
   when the user asks); do other useful work while it runs. If you must wait on an *external* signal
   (a deploy, a CI run) rather than the run itself, use the harness wait cadence, not a tight loop.
+- **Final HTML render (when the info exists):** when the completion notice arrives, rebuild the
+  artifact HTML with the run overlaid — `node ~/.claude/scripts/build-workflow-artifact.mjs
+  <script.js> <out.html> '<argsJson>' --run latest` (`--match <substr>` pins a specific run) — and
+  `open` it, so Results shows the real per-role outputs, return value, and artifacts. The pre-launch
+  render is plan-only; do not treat it as the outcome.
 
 - **Commands:** `/dynamic-workflow <task>` (alias `/ultracode <task>`), `/deep-research <q>`,
   `/ultracode-mode status|on|off`, `/ultracode-contract status|on|off`,
@@ -428,7 +449,7 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
 | Per-role | `node(role)` helper / inline / `models`+`efforts` | per-call + `agentType` personas |
 | Catalog | `~/.claude/workflows/` + README | `dynamic_workflow action=scaffold` |
 | Depth | 1 | 2 (→3) |
-| Preview | render HTML + `open` (required) | `/workflow graph`, `/workflows` dashboard |
+| Preview / results | pre-launch HTML + `open`, then `--run` re-render at run end (both required) | `/workflow graph`, `/workflows` dashboard, final HTML `--run latest` |
 
 ## Author a new workflow
 
