@@ -157,15 +157,6 @@ async function listMarkers(dir, prefix) {
 	return (await fs.readdir(dir)).filter((f) => f.startsWith(prefix));
 }
 
-async function waitForMarkers(dir, prefix, want, timeoutMs) {
-	const start = Date.now();
-	while (Date.now() - start < timeoutMs) {
-		if ((await listMarkers(dir, prefix)).length >= want) break;
-		await new Promise((r) => setTimeout(r, 25));
-	}
-	return await listMarkers(dir, prefix);
-}
-
 let tagSeq = 0;
 async function makeRunner(url, workflowName, workflowBody) {
 	const tag = tagSeq++;

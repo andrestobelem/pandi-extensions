@@ -112,7 +112,11 @@ async function main() {
 	check("workflow ran", out != null && typeof out === "object", JSON.stringify(res?.details?.result?.error ?? out));
 
 	// Existing semantics preserved.
-	check("won: status won, winner surfaced", out?.won?.status === "won" && out?.won?.winner === "yes", JSON.stringify(out?.won));
+	check(
+		"won: status won, winner surfaced",
+		out?.won?.status === "won" && out?.won?.winner === "yes",
+		JSON.stringify(out?.won),
+	);
 	check("bugged: still status empty", out?.bugged?.status === "empty", JSON.stringify(out?.bugged));
 	check("clean: still status empty", out?.clean?.status === "empty", JSON.stringify(out?.clean));
 
