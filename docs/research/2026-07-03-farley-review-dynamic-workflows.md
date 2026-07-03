@@ -92,7 +92,7 @@ gap de TDD es exactamente donde están los defectos.
 | 1 | Race de resume duplicado | ✅ `e218115` + `resume-duplicate-race.test.mjs` |
 | 2 | `latest` por mtime | ✅ `715a2e1` + `run-latest-by-started-at.test.mjs` |
 | 3 | Foco del Monitor se resetea | ✅ `2db52f9` + `dashboard-monitor-focus-restore.test.mjs` |
-| 4 | `agents()` fail-fast huérfanos | ⏸ requiere un seam para stubbear el spawn de subagentes en el harness; sin test ejecutable no se toca el core de concurrencia |
+| 4 | `agents()` fail-fast huérfanos | ✅ `6168a79` + `agents-failfast-cancels-siblings.test.mjs` (el seam ya existía: `PI_DYNAMIC_WORKFLOWS_PI_COMMAND`) |
 | 5 | `race()` traga errores | ✅ `e316186` + `race-surfaces-errors.test.mjs` (campo aditivo `errors[]`) |
 | 6 | `/ultracode` duplicado | ✅ `5348f3e` + `command-registration-unique.test.mjs` |
 | 7 | Param `background` no-op | ❌ descartado: by-design (el schema lo documenta como flag de compatibilidad) |
@@ -104,11 +104,20 @@ progreso auto-derivado `Review 5/16` (`a501094`), y **resume ignoraba los
 límites explícitos** — hallazgo en vivo, `a7db180` +
 `resume-honors-limit-params.test.mjs`.
 
-### Único pendiente real
+### Cierre de #4 (mismo día)
 
-- **#4:** diseñar primero el seam de spawn testeable (inyectar el runner de
-  subagentes en el harness); recién entonces abortar hermanos in-flight en el
-  camino fail-fast de `agents()`.
+El seam "faltante" ya existía: `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` fakea el binario
+de subagentes end-to-end (patrón de `race-cancellation.test.mjs`). El Red mostró
+el bug completo — hermanos in-flight corriendo a término Y workers ociosos
+tomando items NUEVOS tras el fallo — y además aclaró la semántica: un subagente
+que sale ≠0 RESUELVE con `ok:false`; el rechazo fail-fast viene de throws reales
+(schema `throw`, presupuesto `maxAgents`, abort). Fix: `mapLimit` estructurado
+(el primer rechazo aborta una señal scoped, ningún item encolado arranca, el
+error original se relanza tras el wind-down) + el fan-out de `agents()` corre
+cada item bajo esa señal vía `callSignal`. El `parallel`/`pipeline` del worker
+son settling (nunca rechazan), así que no comparten el bug.
+
+Con esto, los 10 hallazgos materiales de la revisión quedan cerrados.
 
 Runs: `2026-07-03T01-36-13-315Z-…farley-2560a7c6` (fallido ×2),
 `2026-07-03T02-27-27-539Z-…farley-core-125c92cf` (ok). Reseñas recuperadas:
