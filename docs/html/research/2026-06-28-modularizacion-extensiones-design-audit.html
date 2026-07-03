@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Modularización de extensiones — Design Audit y roadmap</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Modularización de extensiones — Design Audit y roadmap</h1>
+	</header>
+	<main>
+<p>Date: 2026-06-28</p>
+<h2>Objetivo</h2>
+<p>Auditar el diseño del monorepo de 9 extensiones Pi y producir un plan incremental,
+<strong>behavior-preserving</strong>, para: (1) modularizar el código, (2) sacar duplicación a módulos
+compartidos, (3) modularizar los tests, (4) revisar el diseño con lente Kent Beck / Dave
+Farley, y (5) aplicar los mismos conceptos (DRY / single-source) a los prompts.</p>
+<h2>Procedencia</h2>
+<ul>
+<li><p><strong>Contract Gate</strong> (4 reviewers read-only + síntesis): contrato de tarea, sin blockers.</p>
+</li>
+<li><p><strong>Design Audit</strong> (9 analizadores por extensión + 4 transversales + síntesis-as-judge),
+ejecutado como dynamic workflow read-only.</p>
+<p>Artefactos del run:</p>
+<ul>
+<li><code>.pi/workflows/drafts/modularizar-extensiones-design-audit.js</code> →</li>
+<li><code>.pi/workflows/runs/2026-06-28T06-02-42-987Z-drafts-modularizar-extensiones-design-audit-a6e2980c/</code></li>
+<li><code>design-audit.md</code>, <code>roadmap.json</code>, <code>scout-evidence.md</code>, <code>analyzer-*.json</code></li>
+</ul>
+</li>
+<li><p><strong>Limitación conocida:</strong></p>
+<ul>
+<li>1 de 9 analizadores por extensión (<code>pi-goal</code>) falló validación de schema; la síntesis usó 8 ext + 4 transversales.</li>
+<li>La salida de síntesis se truncó al final de §7 (la fila 3.17 quedó cortada).</li>
+<li>El roadmap máquina-legible completo está en <code>roadmap.json</code>.</li>
+<li>Las secciones §8/§9 se restauran abajo desde el plan de verificación del contrato.</li>
+</ul>
+</li>
+</ul>
+<h2>Estado de implementación (sesión 2026-06-28)</h2>
+<p>Rondas ejecutadas con las siguientes garantías:</p>
+<ul>
+<li>Conventional Commit atómico por ronda</li>
+<li><code>npm test</code> verde 23/23 + typecheck validado</li>
+<li>Move-only / behavior-preserving (sin cambios de comportamiento)</li>
+<li>Baseline previo verde registrado</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Ronda</th>
+<th>Commit</th>
+<th>Qué</th>
+<th>Verificación</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2.1</td>
+<td><code>refactor(shared): extract formatEta</code></td>
+<td><code>formatEta</code> byte-idéntico (loop+goal) → <code>extensions/shared/time.ts</code></td>
+<td>npm test 23/23</td>
+</tr>
+<tr>
+<td>2.4</td>
+<td><code>refactor(shared): extract notify</code></td>
+<td><code>notify</code> byte-idéntico (plan/loop/goal/dynamic-workflows, mismo md5) → <code>extensions/shared/notify.ts</code> (NotifyContext estructural)</td>
+<td>npm test 23/23</td>
+</tr>
+<tr>
+<td>3.1</td>
+<td><code>refactor(effort): parse.ts</code></td>
+<td>parsing puro (THINKING_LEVELS/EffortTarget/LEVEL_ALIASES/parseEffortTarget) → <code>pi-effort/parse.ts</code></td>
+<td>npm test 23/23</td>
+</tr>
+<tr>
+<td>3.5</td>
+<td><code>refactor(plan): gate.ts</code></td>
+<td>gate read-only puro (MUTATING_BASH_PATTERNS/isMutatingBash/blockedReason) → <code>pi-plan/gate.ts</code> (diff: byte-idéntico + export)</td>
+<td>npm test 23/23 (incl. plan-gate 45 asserts)</td>
+</tr>
+</tbody></table>
+<p><strong>Validado empíricamente:</strong> el seam <code>extensions/shared/*.ts</code> importado vía <code>../shared/x.js</code> se empaqueta (files glob), se typechequea transitivamente (tsc sigue imports), y se bundlea en los tests (esbuild reescribe <code>.js</code>→<code>.ts</code>).</p>
+<p><em>Lección Karpathy:</em> un glob <code>*/</code> dentro de un comentario JSDoc cierra el bloque — inspecciona el dato (corregido en <code>time.ts</code>).</p>
+<p><strong>Decisión de diseño (skip consciente):</strong> Ronda 2.2 <code>projectHash</code> se OMITIÓ.</p>
+<ul>
+<li>No es una función compartida limpia sino una expresión inline: <code>crypto.createHash(&quot;sha1&quot;)...slice(0,12)</code></li>
+<li>Consolidarla en loop/goal fuerza shadowing de nombres por ~1 línea de ahorro.</li>
+<li>Principio: &quot;Make complexity earn its place&quot; — el costo supera el payoff.</li>
+</ul>
+<blockquote>
+<p><strong>Artefacto de DESIGN-AUDIT (synthesis-as-judge)</strong></p>
+<ul>
+<li><strong>Fuente de verdad:</strong> únicamente los analizadores verificados (8 por extensión + 4 transversales).</li>
+<li><strong>Cobertura:</strong> <code>ext=8 válidos</code>, <code>cross=4 válidos</code>, <code>1 analizador por extensión fallido</code> (ver §9).</li>
+<li><strong>Citas:</strong> toda afirmación de hecho lleva cita <code>file:line</code>; lo que no la tiene se marca como inferencia o se omite.</li>
+<li><strong>Restricción rectora:</strong> refactor incremental, <strong>sin cambio de comportamiento observable</strong>, módulos a <strong>profundidad uno</strong>, <code>index.ts</code> como agregador delgado, <code>npm test</code> verde antes/después de cada commit, Conventional Commits atómicos, Kent Beck tidy-first (todo aquí es estructural), Dave Farley (cohesión + fast feedback), sin big-bang.</li>
+</ul>
+</blockquote>
+<hr>
+<h2>1. Veredicto ejecutivo</h2>
+<h3>Estado general de salud</h3>
+<p>El conjunto es sano en su mayoría:</p>
+<ul>
+<li><strong>Pequeñas y cohesivas (6 extensiones):</strong> <code>pi-local-memory</code> 31 LOC, <code>pi-auto-compact</code> 120, <code>pi-mdview</code> 181, <code>pi-effort</code> 247, <code>pi-bg</code> 637, <code>pi-plan</code> 656</li>
+<li><strong>Monolitos genuinos (2 extensiones):</strong> <code>pi-dynamic-workflows</code> 7143 LOC, <code>pi-loop</code> 1599 LOC (~13–16 concerns cada uno)</li>
+</ul>
+<h3>Oportunidades de DRY transversal</h3>
+<p>Estrecha y de alta calidad:</p>
+<ul>
+<li><code>notify()</code> — 4 copias byte-idénticas + 2 variantes endurecidas</li>
+<li><code>formatEta()</code> — 2 copias byte-idénticas</li>
+<li>Trío <code>projectHash</code>/<code>writeSidecar</code> atómico/<code>dual-root state dir</code> — variantes near-identical</li>
+</ul>
+<p>Justifican un módulo compartido. El resto que &quot;parece&quot; duplicado (cuerpos de <code>persist</code>/<code>rehydrate</code>/<code>formatStatus</code>, esquemas TypeBox, prompts de Ultracode) son <strong>shapes y paráfrasis deliberadas, no código compartible</strong>. Fusionarlos acoplaría máquinas de estado divergentes con riesgo High.</p>
+<h3>Duplicación de prompts</h3>
+<p>Hay <strong>un único</strong> duplicado byte-a-byte real: el bloque &quot;Research-backed templates&quot; en 4 sitios. Lo demás ya está centralizado en funciones <code>format*</code> de <code>templates.ts</code>, que es el patrón positivo a replicar.</p>
+<h3>Deuda técnica en tests</h3>
+<p>La más cara y mejor aislada vive en los tests: el bootstrap esbuild se reimplementa ~24 veces (~1000–1400 LOC) con flags y stubs divergentes, lo que también infla las suites grandes (&gt;500 LOC).</p>
+<h3>Estrategia recomendada</h3>
+<p>Mejor ratio valor/riesgo:</p>
+<ol>
+<li>Empezar por guardianes de prompts (Fase 1, Low, cero cambio de wording)</li>
+<li>Extracciones puras compartidas (<code>formatEta</code>, <code>projectHash</code>)</li>
+<li>Validar el patrón de descomposición en extensiones pequeñas antes de tocar los monolitos</li>
+<li>Dejar <code>runtime.ts</code>/<code>worker-source</code> de <code>pi-dynamic-workflows</code> y el <code>state.ts</code> compartido de <code>pi-loop</code> para el final, tras tests de caracterización</li>
+</ol>
+<h3>Riesgo dominante</h3>
+<p>No es la mecánica de mover archivos sino el <strong>estado mutable compartido:</strong></p>
+<ul>
+<li><code>activeRuns</code>/<code>appendFileMutexes</code> (dynamic-workflows)</li>
+<li><code>activeLoops</code>/<code>wakeQueue</code>/<code>autopilotTurnInFlight</code> (loop)</li>
+<li><code>activePlans</code>/<code>PLAN_MODE_GUARD</code> (plan)</li>
+<li><code>activeJobs</code> (bg)</li>
+</ul>
+<p>También contratos cross-extension por <code>Symbol.for</code>/evento.</p>
+<hr>
+<h2>2. Mapa de duplicación (cross-extension)</h2>
+<table>
+<thead>
+<tr>
+<th>Cluster</th>
+<th>Qué</th>
+<th>Copias (file:line)</th>
+<th>Idéntico / Variante</th>
+<th>Módulo compartido propuesto</th>
+<th>Consumidores</th>
+<th>Riesgo</th>
+<th>Payoff (LOC)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C1 notify</td>
+<td>Helper de notificación UI/print</td>
+<td><code>pi-plan/index.ts:209</code>, <code>pi-loop/index.ts:430</code>, <code>pi-goal/index.ts:533</code>, <code>pi-dynamic-workflows/index.ts:1715</code> (idénticas); <code>pi-effort/index.ts:81</code>, <code>pi-mdview/index.ts:11</code> (endurecidas stderr)</td>
+<td>4 byte-idénticas + 2 variantes (effort/mdview enrutan error→stderr; mdview usa <code>ExtensionCommandContext</code>)</td>
+<td><code>extensions/shared/notify.ts</code> con flag <code>{stderrOnError?}</code> por defecto preservando comportamiento; <code>ctx</code> tipado estructural <code>{mode;hasUI;ui?}</code></td>
+<td>plan, loop, goal, dynamic-workflows (+ effort/mdview como variante)</td>
+<td>Low (4 idénticas) / Medium (si se pliegan effort+mdview por el tipo de ctx y stderr)</td>
+<td>~30</td>
+</tr>
+<tr>
+<td>C2 formatEta</td>
+<td>Formateo de tiempo relativo</td>
+<td><code>pi-loop/index.ts:298</code>, <code>pi-goal/index.ts:429</code></td>
+<td>2 byte-idénticas</td>
+<td><code>extensions/shared/time.ts</code> (<code>formatEta</code>; <code>formatInterval</code> solo si se confirma idéntico)</td>
+<td>loop, goal</td>
+<td>Low (pura, sin ctx)</td>
+<td>~10</td>
+</tr>
+<tr>
+<td>C3 state-store</td>
+<td>Write atómico sidecar + dual-root dir + <code>projectHash</code> + JSONL append</td>
+<td><code>writeSidecar</code> <code>pi-loop:393</code> vs <code>pi-goal:519</code>; dir <code>pi-loop:386</code> vs <code>pi-goal:512</code>; <code>projectHash</code> <code>pi-loop:388,1054</code>, <code>pi-goal:514</code>, <code>pi-dynamic-workflows:975</code>, <code>pi-bg:81</code>; append <code>pi-bg:185</code> vs <code>pi-dynamic-workflows:5633→407</code></td>
+<td>Near-identical (difieren tipo de estado y <code>LOOP_DIR/GOAL_DIR</code>); <code>projectHash</code> idéntico; <code>appendEvent</code> <strong>divergente</strong></td>
+<td><code>extensions/shared/state-store.ts</code> (<code>projectHash</code>, <code>stateDir</code>, <code>writeSidecarAtomic&lt;T&gt;</code>) + <code>extensions/shared/jsonl.ts</code> (<code>appendJsonLine</code> con mutex como canónico)</td>
+<td>loop, goal, dynamic-workflows, bg</td>
+<td>Low (<code>projectHash</code>/write atómico) / Medium (plegar <code>bg.appendEvent</code> que <strong>traga errores y NO usa mutex</strong> → cambio de concurrencia)</td>
+<td>~60–80</td>
+</tr>
+<tr>
+<td>C4 persist/rehydrate/formatStatus</td>
+<td>&quot;Shape&quot; de stateful command extension</td>
+<td>persist <code>pi-plan:204</code>, <code>pi-loop:371</code>, <code>pi-goal:500</code>; rehydrate <code>pi-plan:464</code>, <code>pi-loop:950</code>, <code>pi-goal:872</code>; formatStatus <code>pi-plan:488</code>, <code>pi-loop:1150</code>, <code>pi-goal:940</code></td>
+<td><strong>Variantes, NO duplicados</strong> (plan sin sidecar; loop merge por <code>updatedAt</code> + gate autónomo; goal backfills P1; tres <code>formatStatus</code> distintos)</td>
+<td><strong>NO extraer cuerpos.</strong> Solo el kernel puro <code>collectLatestByKey&lt;T&gt;(entries,type,keyOf)</code> en <code>extensions/shared/session-state.ts</code></td>
+<td>plan, loop, goal</td>
+<td>High si se fusionan cuerpos / Low si solo el colector</td>
+<td>~15–25 (solo colector)</td>
+</tr>
+<tr>
+<td>C5 TypeBox builders</td>
+<td>Esquemas de parámetros de tool</td>
+<td><code>pi-plan:534</code>, <code>pi-goal:1012</code>, <code>pi-loop:1413,1480</code>, <code>pi-dynamic-workflows:450</code></td>
+<td>Idioma compartido, contenido domain-specific distinto</td>
+<td><strong>No extraer</strong> (false-DRY; acoplaría contratos no relacionados)</td>
+<td>plan, goal, loop, dynamic-workflows</td>
+<td>Low (no-acción)</td>
+<td>~0</td>
+</tr>
+</tbody></table>
+<p>Notas duras del transversal de packaging: <code>extensions/shared/*.ts</code> SÍ casa con el glob <code>files: extensions/*/*.ts</code> y se empaqueta; NodeNext exige specifiers <code>.js</code> (p.ej. <code>../shared/notify.js</code>). <strong>Antes de fusionar cualquier par, diff a nivel de cuerpo</strong>: el analizador de packaging advierte explícitamente que los nombres iguales (notify×7, walk×3, etc.) pueden tener cuerpos divergentes; toda consolidación es condicional a que un diff pruebe equivalencia.</p>
+<hr>
+<h2>3. Límites de módulos por extensión</h2>
+<h3>pi-dynamic-workflows (7143 LOC) — monolito, descomponer último y con tests</h3>
+<table>
+<thead>
+<tr>
+<th>Módulo</th>
+<th>Responsabilidad</th>
+<th>movesFrom</th>
+<th>approxLoc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>util.ts</code></td>
+<td>mutex/json/signals/mapLimit/semaphore/path/<code>runProcess</code></td>
+<td><code>index.ts:360-520,1145-1365,2659-2753</code></td>
+<td>450</td>
+</tr>
+<tr>
+<td><code>workflow-files.ts</code></td>
+<td>discovery, name/scope/path resolution, trust gating</td>
+<td><code>index.ts:921-1090</code></td>
+<td>200</td>
+</tr>
+<tr>
+<td><code>ultracode.ts</code></td>
+<td>routing/contract-gate/always-on prompts, task extraction</td>
+<td><code>index.ts:6835-6965</code></td>
+<td>140</td>
+</tr>
+<tr>
+<td><code>status-format.ts</code></td>
+<td>formatters status/widget/run/agent (presentación)</td>
+<td><code>index.ts:1692-1942,3394-3644</code></td>
+<td>450</td>
+</tr>
+<tr>
+<td><code>worker-source.ts</code></td>
+<td>blob <code>WORKFLOW_WORKER_SOURCE</code> + <code>transformWorkflowCode</code></td>
+<td><code>index.ts:1370-1583</code></td>
+<td>215</td>
+</tr>
+<tr>
+<td><code>agents.ts</code></td>
+<td>personas, access resolution, schema validation/retry</td>
+<td><code>index.ts:170-222,586-920</code></td>
+<td>420</td>
+</tr>
+<tr>
+<td><code>graph.ts</code></td>
+<td>modelo de grafo + render text/mermaid/image</td>
+<td><code>index.ts:1943-2895</code></td>
+<td>950</td>
+</tr>
+<tr>
+<td><code>runs.ts</code></td>
+<td>journal/run IO, events.jsonl, monitor model</td>
+<td><code>index.ts:2896-3650</code></td>
+<td>750</td>
+</tr>
+<tr>
+<td><code>lifecycle.ts</code></td>
+<td>prepare/start-bg/resume/cancel/delete, active-run registry</td>
+<td><code>index.ts:1300-1360,6170-6456</code></td>
+<td>360</td>
+</tr>
+<tr>
+<td><code>dashboard.ts</code></td>
+<td>TUI <code>WorkflowDashboard</code>, down-editor, live view</td>
+<td><code>index.ts:3653-3760,4016-5580</code></td>
+<td>1500</td>
+</tr>
+<tr>
+<td><code>runtime.ts</code></td>
+<td>engine: ctx API, subagent/bash, journal cache, semáforo, artifacts, worker</td>
+<td><code>index.ts:1584-1691,5580-6170</code></td>
+<td>700</td>
+</tr>
+</tbody></table>
+<p>Queda en <code>index.ts</code>: registro del tool <code>dynamic_workflow</code>, comandos <code>/workflow</code>,<code>/workflows</code>,<code>/ultracode</code>,<code>/deep-research</code>,<code>/ultracode-contract</code>,<code>/ultracode-mode</code>, atajo <code>ctrl-alt-w</code>, hooks <code>input/before_agent_start/session_start/session_shutdown</code>, evento <code>ULTRACODE_MODE_EVENT</code>, y claves de status/widget (<code>index.ts:6971-7143</code>). <strong>Más riesgosos (al final, con caracterización):</strong> <code>runtime.ts</code> (singletons <code>activeRuns</code>/<code>appendFileMutexes</code> y la invariante de occurrence-cache) y <code>worker-source.ts</code> (debe quedar byte-compatible).</p>
+<h3>pi-loop (1599 LOC) — monolito, descomponer tras pi-plan/pi-bg</h3>
+<table>
+<thead>
+<tr>
+<th>Módulo</th>
+<th>Responsabilidad</th>
+<th>movesFrom</th>
+<th>approxLoc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>state.ts</code></td>
+<td>tipos+constantes + globals mutables (<code>activeLoops</code>,<code>wakeQueue</code>,<code>autopilotTurnInFlight</code>) + <code>resetState()</code></td>
+<td><code>index.ts:89-205</code></td>
+<td>120</td>
+</tr>
+<tr>
+<td><code>prompt.ts</code></td>
+<td><code>makeLoopIterationPrompt</code> (puro)</td>
+<td><code>index.ts:207-266</code></td>
+<td>60</td>
+</tr>
+<tr>
+<td><code>interval.ts</code></td>
+<td>parse/clamp/format intervalos+ETA + <code>splitTaskAndInterval</code></td>
+<td><code>index.ts:269-301</code></td>
+<td>40</td>
+</tr>
+<tr>
+<td><code>status.ts</code></td>
+<td>render status-line + <code>formatStatus</code></td>
+<td><code>index.ts:305-343,1150-1157</code></td>
+<td>60</td>
+</tr>
+<tr>
+<td><code>persistence.ts</code></td>
+<td>snapshot + JSONL + sidecar atómico dual-root + <code>newerState</code> + notify</td>
+<td><code>index.ts:345-437,935-948,1052-1056</code></td>
+<td>160</td>
+</tr>
+<tr>
+<td><code>guard.ts</code></td>
+<td>gate destructivo (regex allowlist, redirect/tee, path-escape)</td>
+<td><code>index.ts:1262-1396</code></td>
+<td>150</td>
+</tr>
+<tr>
+<td><code>commands.ts</code></td>
+<td>routing <code>/loop</code> subcomandos</td>
+<td><code>index.ts:1159-1223</code></td>
+<td>70</td>
+</tr>
+<tr>
+<td><code>scheduler.ts</code></td>
+<td>wake/drain/FIFO/fire/rearm + cap gating</td>
+<td><code>index.ts:448-652</code></td>
+<td>230</td>
+</tr>
+<tr>
+<td><code>lifecycle.ts</code></td>
+<td>start/auto-start/resolve/stop/pause/resume + <code>makeActiveLoop</code></td>
+<td><code>index.ts:654-933</code></td>
+<td>250</td>
+</tr>
+<tr>
+<td><code>recovery.ts</code></td>
+<td>rehydrate + GC terminal + watchdog</td>
+<td><code>index.ts:950-1148</code></td>
+<td>190</td>
+</tr>
+</tbody></table>
+<p>Queda en <code>index.ts</code> (~210): tools <code>loop_schedule</code>/<code>loop_stop</code> + promptGuidelines, comando <code>/loop</code> + completions, handlers <code>tool_call/session_start/session_shutdown/agent_end</code>. <strong>Invariante crítica:</strong> todos importan <strong>un solo</strong> <code>state.ts</code>; <code>autopilotTurnInFlight</code> debe ser una celda compartida (no copiada) o se rompen serialización/seguridad.</p>
+<h3>pi-plan (656 LOC) — descomposición opcional, value-driven</h3>
+<table>
+<thead>
+<tr>
+<th>Módulo</th>
+<th>Responsabilidad</th>
+<th>movesFrom</th>
+<th>approxLoc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>gate.ts</code></td>
+<td>política read-only pura (<code>MUTATING_BASH_PATTERNS</code>,<code>isMutatingBash</code>,allowlist,<code>blockedReason</code>)</td>
+<td><code>index.ts:259-386</code></td>
+<td>130</td>
+</tr>
+<tr>
+<td><code>prompts.ts</code></td>
+<td><code>makePlanningPrompt</code>/<code>makeImplementPrompt</code> + reglas read-only canónicas</td>
+<td><code>index.ts:133-165</code></td>
+<td>40</td>
+</tr>
+<tr>
+<td><code>state.ts</code></td>
+<td>tipos + <code>activePlans</code> + <code>PLAN_MODE_GUARD</code> chain + persist + rehydrate</td>
+<td><code>index.ts:61-130,204-207,464-486</code></td>
+<td>140</td>
+</tr>
+<tr>
+<td><code>ui.ts</code></td>
+<td>status-line + notify + formatStatus</td>
+<td><code>index.ts:171-200,209-222,488-492</code></td>
+<td>60</td>
+</tr>
+</tbody></table>
+<p>Queda en <code>index.ts</code>: única <code>piExtension</code>, comando <code>/plan</code>, tool <code>submit_plan</code>, eventos, y <strong>re-export</strong> de <code>isPlanModeActive</code>/<code>PLAN_MODE_GUARD</code>/<code>PLAN_MODE_GUARD_SYMBOL</code> (<code>index.ts:88-122</code>) que otras extensiones consumen vía <code>globalThis</code>. Mejor ganancia: <code>gate.ts</code> + <code>prompts.ts</code>.</p>
+<h3>pi-bg (637 LOC) — cohesiva; preferir solo <code>storage.ts</code> primero</h3>
+<table>
+<thead>
+<tr>
+<th>Módulo</th>
+<th>Responsabilidad</th>
+<th>movesFrom</th>
+<th>approxLoc</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>storage.ts</code></td>
+<td>layout de rutas + safety fs + bounded read + write atómico + append</td>
+<td><code>index.ts:90-208,427-460</code></td>
+<td>130</td>
+</tr>
+<tr>
+<td><code>runner.ts</code></td>
+<td>spawn, backpressure, finalize/kill, <code>activeJobs</code> registry</td>
+<td><code>index.ts:76,233-393,476-510</code></td>
+<td>180</td>
+</tr>
+<tr>
+<td><code>jobs.ts</code></td>
+<td>id/validación, discovery, <code>deriveState</code>/<code>decorateStatus</code></td>
+<td><code>index.ts:79-111,155-230</code></td>
+<td>90</td>
+</tr>
+<tr>
+<td><code>commands.ts</code></td>
+<td>subcomandos + dispatch + gating plan/mode/trust + format</td>
+<td><code>index.ts:236-589</code></td>
+<td>230</td>
+</tr>
+</tbody></table>
+<p>Queda en <code>index.ts</code>: comando <code>/bg</code>, completions, wiring; <strong>re-exportar</strong> helpers que los tests importan (<code>atomicWriteJson</code>,<code>guardStreamErrors</code>,<code>isJobFinished</code>,<code>pipeWithBackpressure</code>,<code>finalizeJob</code>,<code>safeFinalize</code>). Riesgo: <code>Symbol.for</code> plan-mode guard y <code>activeJobs</code>.</p>
+<h3>Extensiones &quot;verificar, no forzar&quot;</h3>
+<h4>pi-effort (247 LOC)</h4>
+<ul>
+<li>Módulo único justificado: <code>parse.ts</code> (<code>index.ts:24-57,99-117</code>, ~55 LOC)</li>
+<li>El resto queda en <code>index.ts</code></li>
+<li>No relocalizar <code>ULTRACODE_MODE_EVENT</code>/<code>dynamic_workflow</code> (<code>index.ts:16,203</code>)</li>
+</ul>
+<h4>pi-auto-compact (120 LOC)</h4>
+<ul>
+<li>Módulo opcional: <code>threshold.ts</code> (<code>index.ts:3-11</code>, ~12 LOC)</li>
+<li><strong>Re-exportar:</strong> <code>parseThreshold</code>/<code>DEFAULT_THRESHOLD_PERCENT</code></li>
+<li>Mayor valor: extraer decisión pura <code>decideCompaction</code> para tests rápidos, sin file-split obligatorio</li>
+</ul>
+<h4>pi-mdview (181 LOC)</h4>
+<ul>
+<li>Módulos opcionales: <code>path-resolve.ts</code> (<code>index.ts:23-40</code>, ~20 LOC) y <code>viewer-component.ts</code> (<code>index.ts:42-148</code>, ~110 LOC)</li>
+<li>Value-neutral en runtime; solo si se añaden tests de caracterización primero</li>
+</ul>
+<h4>pi-local-memory (31 LOC)</h4>
+<ul>
+<li><strong>NO modularizar</strong></li>
+<li>Cohesivo: un hook <code>before_agent_start</code></li>
+<li>Mejora opcional: consolidar el <code>TAG</code> y añadir 2 tests de escaping (mayúsculas/open-tag)</li>
+</ul>
+<hr>
+<h2>4. Plan single-source-of-truth de prompts</h2>
+<table>
+<thead>
+<tr>
+<th>Prompt / instrucción</th>
+<th>Ubicación canónica propuesta</th>
+<th>Copias a reconciliar</th>
+<th>Cómo verificar igualdad</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bloque &quot;Research-backed templates&quot;</td>
+<td><code>templates.ts:1229</code> (<code>formatWorkflowPatternCatalog</code>, derivado de <code>WORKFLOW_PATTERN_CATALOG</code>) — <strong>única byte-idéntica real</strong></td>
+<td><code>.pi/skills/dynamic-workflows/SKILL.md:65-77</code>, <code>README.md:119-131</code> (raíz), <code>extensions/pi-dynamic-workflows/README.md:323-335</code></td>
+<td>Test de integración que extrae la sección entre <code>Research-backed templates</code> y la línea de cierre, canonicaliza (trim por línea, normalizar prefijo <code>##</code>/<code>###</code>, join <code>\n</code>) y compara byte-a-byte contra la subcadena de <code>formatWorkflowPatternCatalog()</code></td>
+</tr>
+<tr>
+<td>Claves de catálogo / resumen de composición</td>
+<td><code>templates.ts:1295,1300,1275,1285</code> (ya SSOT)</td>
+<td>— (no hay copias divergentes)</td>
+<td>Test que verifica que <code>makeUltracodePrompt</code>/<code>makeAlwaysOnUltracodeSystemPrompt</code> contienen exactamente <code>formatWorkflowPatternKeyList()</code></td>
+</tr>
+<tr>
+<td>Reglas Ultracode / Contract Gate</td>
+<td><strong>NO unificar.</strong> Runtime SSOT: <code>index.ts:6835</code> (<code>formatUltracodeContractGatePrompt</code>) + <code>index.ts:6845</code> (<code>formatUltracodeRoutingRules</code>); SKILL/README son derivados conceptuales</td>
+<td><code>index.ts:6989-7012</code> promptGuidelines, <code>SKILL.md:18-21,128-163</code>, <code>README.md:84-99</code></td>
+<td>Documentar capa canónica; <strong>único</strong> acoplamiento blindable = claves del catálogo (test de §4 fila 2). Fusionar wording = riesgo High (rompe <code>ultracode-contract-gate.test.mjs</code>, <code>model-thinking-selection.test.mjs</code>)</td>
+</tr>
+<tr>
+<td>Personas system prompts</td>
+<td><code>index.ts:179-199</code> (ya SSOT, sin copias en docs)</td>
+<td>— (grep confirma solo en <code>index.ts</code>)</td>
+<td>Test ligero opcional que verifica que <code>makeAgentOptions</code> usa la constante (<code>index.ts:178</code>)</td>
+</tr>
+<tr>
+<td>promptGuidelines loop/goal/plan</td>
+<td>SSOT local por extensión (<code>pi-goal:1002</code>, <code>pi-loop:1405</code>, <code>pi-plan:529</code>)</td>
+<td>READMEs parafrasean en prosa (no copias)</td>
+<td><strong>No DRY cruzado</strong>: packaging (profundidad uno, sin carpeta común en <code>files</code> para README) lo desaconseja</td>
+</tr>
+</tbody></table>
+<p>Regla general: el único trabajo de prompts en Fase 1 es <strong>añadir guardianes</strong> (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde <code>formatWorkflowPatternCatalog()</code> en un paso de build, dejando los <code>.md</code> como artefactos derivados.</p>
+<hr>
+<h2>5. Plan de modularización de tests</h2>
+<p><strong>Estado verificado:</strong> <strong>no existe</strong> harness compartido; cada una de las 24 suites reimplementa el bootstrap esbuild→tempdir→<code>pathToFileURL</code> con variantes incompatibles:</p>
+<ul>
+<li><code>npx --no-install esbuild</code>: auto-compact.test.mjs:39, local-memory.test.mjs:39</li>
+<li><code>npx esbuild</code> plano: effort, mdview, bg, plan</li>
+<li><code>npx --yes esbuild</code> con 2 alias: goal-verifier.test.mjs:94-100</li>
+<li><code>npx --yes esbuild</code> con 5 alias: composition-rank.test.mjs:79-87</li>
+</ul>
+<p><strong>Harness/fixtures compartidos</strong> (todos en <code>.mjs</code> bajo <code>scripts/test/harness/</code>, <strong>fuera</strong> de <code>extensions/</code> y de <code>suiteDirs</code>):</p>
+<p><strong><code>build-extension.mjs</code></strong> → <code>buildExtension(packageDir,{stubs})</code></p>
+<ul>
+<li>Parametrizado por set de alias y por flag <code>--yes</code>/<code>--no-install</code> (no fusionar comportamientos)</li>
+<li>Payoff ~1000–1400 LOC</li>
+</ul>
+<p><strong><code>stubs.mjs</code></strong> → factorías nombradas</p>
+<ul>
+<li><code>typeboxStub</code>/<code>typeboxValueStub</code>/<code>sdkStub</code>/<code>aiStub</code>/<code>tuiStub</code></li>
+<li>Conservar variante typebox <strong>con/sin <code>Integer</code></strong> (goal omite en <code>goal-verifier.test.mjs:78</code>, dynamic-workflows lo incluye en <code>composition-rank.test.mjs:54</code>)</li>
+</ul>
+<p><strong><code>fake-pi.mjs</code></strong> → <code>makePi()</code> base + <code>makeCtx(overrides)</code></p>
+<ul>
+<li>Las suites mantienen sus diferencias como overrides</li>
+<li>Ejemplos: <code>confirmResult</code> plan-gate:123, <code>trusted</code> bg-jobs:89, <code>isIdle/usage</code> loop-caps-resume:175, <code>rows/width</code> mdview:92</li>
+</ul>
+<p><strong>División de suites grandes (&gt;500 LOC)</strong> — <strong>solo después</strong> de extraer el harness (dividir antes multiplicaría copias):</p>
+<ul>
+<li>dynamic-workflow-composition.test.mjs: 820 LOC</li>
+<li>goal-verifier.test.mjs: 759 LOC</li>
+<li>loop-caps-resume.test.mjs: 731 LOC</li>
+<li>plan-approval.test.mjs: 669 LOC</li>
+<li>bg-jobs.test.mjs: 618 LOC</li>
+<li>goal-rehydrate.test.mjs: 591 LOC</li>
+<li>dashboard-usability-fixes.test.mjs: 536 LOC</li>
+<li>loop-behavior.test.mjs: 535 LOC</li>
+</ul>
+<p>Partir por concern observable (p.ej. goal-verifier → veredicto / caps / persistencia), <strong>moviendo escenarios completos sin reescribir aserciones</strong>.</p>
+<p><strong>Sincronización con <code>scripts/test/run-all.mjs</code>:</strong></p>
+<ul>
+<li>Mantener el guard existente (<code>run-all.mjs:96-101</code> aborta con exit 1 si una <code>*.test.mjs</code> en <code>suiteDirs</code> no está en <code>suites</code> ni en <code>ignoredDraftSuites</code>).</li>
+<li>El harness debe vivir fuera de <code>suiteDirs</code> para que <code>readdirSync(...).endsWith(&#39;.test.mjs&#39;)</code> no lo confunda con suite.</li>
+<li>Al partir: añadir cada archivo nuevo a <code>suites</code> (<code>run-all.mjs:36-59</code>) <strong>en el mismo commit</strong>.</li>
+<li>Usar <code>ignoredDraftSuites</code> (<code>:65-69</code>) solo para drafts con razón.</li>
+</ul>
+<hr>
+<h2>6. Restricciones de packaging / typecheck</h2>
+<h3>DO</h3>
+<ul>
+<li>Colocar todo módulo nuevo a <strong>profundidad uno:</strong> <code>extensions/&lt;dir&gt;/&lt;name&gt;.ts</code> o <code>extensions/shared/&lt;name&gt;.ts</code> (ambos casan con <code>files: extensions/*/*.ts</code>, <code>package.json:14-15</code>).</li>
+<li>Importar con specifier <code>.js</code> explícito bajo NodeNext (<code>./mod.js</code>, <code>../shared/mod.js</code>), como <code>index.ts:45</code> → <code>./templates.js</code>. Exports nombrados + <code>export type</code> (patrón de <code>templates.ts</code>, isolatedModules-safe).</li>
+<li>Garantizar que cada sibling sea alcanzado por al menos un <code>index.ts</code> listado (typecheck root = <code>extensions/*/index.ts</code>, <code>package.json:21</code>), o nombrarlo <code>extensions/shared/index.ts</code> para ser root directo.</li>
+<li>Re-exportar desde <code>index.ts</code> todo símbolo que tests/otras extensiones ya importan (evita cambio de superficie).</li>
+<li>Verificar con <code>npm pack --dry-run</code> cualquier layout cross-dir (<code>../shared/*.js</code> no está probado hoy en el repo; solo existe <code>./templates.js</code> intra-dir).</li>
+</ul>
+<h3>DON&#39;T</h3>
+<ul>
+<li>Crear <code>extensions/&lt;dir&gt;/&lt;subdir&gt;/&lt;name&gt;.ts</code> (profundidad dos) — <strong>typechea y pasa tests locales pero se cae del tarball</strong> → module-not-found tras publish (<strong>Riesgo más alto de packaging</strong>).</li>
+<li>Dejar un <code>.ts</code> que no sea <code>index.ts</code> y que nadie importe — <strong>se empaqueta pero NO se typechea</strong> (módulo huérfano; errores de tipo invisibles hasta la próxima edición) (Riesgo Medium).</li>
+<li>Añadir <code>extensions/shared/index.ts</code> a <code>pi.extensions</code> (<code>package.json:29-37</code>): es librería, no extensión.</li>
+<li>Renombrar/relocalizar contratos cross-extension: <code>ULTRACODE_MODE_EVENT</code>, tool <code>dynamic_workflow</code>, <code>PLAN_MODE_GUARD_SYMBOL</code>.</li>
+</ul>
+<p><strong>Prueba positiva en repo:</strong> <code>templates.ts</code> (1325 LOC) es la evidencia empírica de sibling depth-one empaquetado + typecheck transitivo + import <code>.js</code> (<code>index.ts:33-45</code>). Es el molde de referencia.</p>
+<hr>
+<h2>7. Roadmap incremental priorizado</h2>
+<p>Cada ronda = 1 Conventional Commit atómico, todo estructural (tidy-first), <code>npm test</code> verde antes/después. Empezar Low/alto-payoff.</p>
+<h3>Fase 1 — Guardianes de prompts (Low, cero cambio de wording)</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Scope</th>
+<th>Archivos</th>
+<th>Qué se mueve/extrae</th>
+<th>Verificación</th>
+<th>Riesgo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1.1</td>
+<td><code>test(dynamic-workflows)</code></td>
+<td>nueva <code>*.test.mjs</code> + <code>run-all.mjs:36</code></td>
+<td>Test guardián byte-a-byte del bloque &quot;Research-backed templates&quot; (canonicaliza <code>##</code>/<code>###</code>, trim por línea) vs <code>formatWorkflowPatternCatalog()</code></td>
+<td>nueva suite + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>1.2</td>
+<td><code>test(dynamic-workflows)</code></td>
+<td>nueva <code>*.test.mjs</code> + <code>run-all.mjs:36</code></td>
+<td>Test que ata las claves inyectadas en <code>makeUltracodePrompt</code>/<code>makeAlwaysOnUltracodeSystemPrompt</code> a <code>formatWorkflowPatternKeyList()</code></td>
+<td>nueva suite + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+</tbody></table>
+<h3>Fase 2 — Código compartido (Low→Medium, default-preserving, body-diff obligatorio)</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Scope</th>
+<th>Archivos</th>
+<th>Qué se mueve/extrae</th>
+<th>Verificación</th>
+<th>Riesgo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2.1</td>
+<td><code>refactor(shared)</code></td>
+<td><code>extensions/shared/time.ts</code>, <code>pi-loop/index.ts</code>, <code>pi-goal/index.ts</code></td>
+<td><code>formatEta</code> (pura, byte-idéntica) → import desde shared</td>
+<td>loop-<em>+ goal-</em> suites + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>2.2</td>
+<td><code>refactor(shared)</code></td>
+<td><code>extensions/shared/state-store.ts</code>, loop/goal/dynamic-workflows/bg</td>
+<td><code>projectHash</code> (idéntica en 4 sitios) → shared</td>
+<td>todas las suites afectadas + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>2.3</td>
+<td><code>refactor(shared)</code></td>
+<td><code>extensions/shared/state-store.ts</code>, <code>pi-loop</code>, <code>pi-goal</code></td>
+<td><code>writeSidecarAtomic&lt;T&gt;</code> + <code>stateDir</code> dual-root (near-identical)</td>
+<td>loop-caps-resume + goal-rehydrate + <code>npm test</code></td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>2.4</td>
+<td><code>refactor(shared)</code></td>
+<td><code>extensions/shared/notify.ts</code>, plan/loop/goal/dynamic-workflows</td>
+<td><code>notify</code> 4 copias byte-idénticas (flag <code>stderrOnError</code> default off)</td>
+<td>suites de las 4 + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>2.5</td>
+<td><code>refactor(shared)</code></td>
+<td><code>extensions/shared/session-state.ts</code>, plan/loop/goal</td>
+<td>Solo kernel <code>collectLatestByKey</code> (NO cuerpos persist/rehydrate)</td>
+<td>plan-approval + loop-caps-resume + goal-rehydrate + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>Excluido deliberadamente de Fase 2: plegar <code>bg.appendEvent</code> al <code>appendJsonLine</code> con mutex (cambia concurrencia/error-handling — <code>bg-jobs.test.mjs</code>), folding de effort/mdview en <code>notify</code> (tipo de ctx distinto), cuerpos de C4 y esquemas C5.</p>
+</blockquote>
+<h3>Fase 3 — Descomposición de monolitos (validar patrón en pequeñas → grandes)</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Scope</th>
+<th>Archivos</th>
+<th>Qué se mueve/extrae</th>
+<th>Verificación</th>
+<th>Riesgo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>3.1</td>
+<td><code>refactor(effort)</code></td>
+<td><code>pi-effort/parse.ts</code> + <code>index.ts</code> (re-export)</td>
+<td><code>parseEffortTarget</code> + aliases (puro)</td>
+<td>effort-extension.test.mjs + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.2</td>
+<td><code>refactor(auto-compact)</code></td>
+<td><code>pi-auto-compact/threshold.ts</code> + <code>index.ts</code></td>
+<td><code>parseThreshold</code>/<code>DEFAULT_THRESHOLD_PERCENT</code> (re-export para test <code>:122</code>)</td>
+<td>auto-compact.test.mjs + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.3</td>
+<td><code>refactor(mdview)</code></td>
+<td><code>pi-mdview/path-resolve.ts</code> + <code>index.ts</code></td>
+<td><code>stripWrappingQuotes</code>/<code>resolveMarkdownPath</code> (puro) — solo tras test de <code>~</code> expansion</td>
+<td>mdview-extension.test.mjs + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.4</td>
+<td><code>refactor(mdview)</code></td>
+<td><code>pi-mdview/viewer-component.ts</code> + <code>index.ts</code></td>
+<td><code>MarkdownViewComponent</code> + <code>padToWidth</code>/<code>boundedLine</code>/<code>createMarkdownTheme</code> + <code>VIEWER_*</code></td>
+<td>mdview-extension.test.mjs + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.5</td>
+<td><code>refactor(plan)</code></td>
+<td><code>pi-plan/gate.ts</code> + <code>index.ts</code></td>
+<td>gate puro (<code>isMutatingBash</code>,<code>blockedReason</code>,allowlist)</td>
+<td>plan-gate.test.mjs (incl. caso false-positive) + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.6</td>
+<td><code>refactor(plan)</code></td>
+<td><code>pi-plan/prompts.ts</code> + <code>index.ts</code></td>
+<td><code>makePlanningPrompt</code>/<code>makeImplementPrompt</code> + reglas canónicas (mata triple wording)</td>
+<td>plan-approval.test.mjs + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.7</td>
+<td><code>refactor(plan)</code></td>
+<td><code>pi-plan/state.ts</code>, <code>ui.ts</code> + <code>index.ts</code> (re-export guard)</td>
+<td><code>activePlans</code>/<code>PLAN_MODE_GUARD</code>/persist/rehydrate + UI</td>
+<td>plan-approval esc.5+6 + <code>npm test</code></td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>3.8</td>
+<td><code>refactor(bg)</code></td>
+<td><code>pi-bg/storage.ts</code> + <code>index.ts</code> (re-export <code>atomicWriteJson</code>)</td>
+<td>fs helpers puros (lowest risk)</td>
+<td>bg-jobs + bg-extension + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.9</td>
+<td><code>refactor(bg)</code></td>
+<td><code>pi-bg/jobs.ts</code>, <code>runner.ts</code>, <code>commands.ts</code> + <code>index.ts</code></td>
+<td>id/discovery/<code>JobRegistry</code>/dispatch (tras tests de <code>activeJobs</code>/<code>Symbol.for</code>)</td>
+<td>bg suites + <code>npm test</code></td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>3.10</td>
+<td><code>refactor(loop)</code></td>
+<td><code>pi-loop/interval.ts</code>,<code>prompt.ts</code>,<code>guard.ts</code>,<code>status.ts</code></td>
+<td>leaf/puros primero (+ <code>splitTaskAndInterval</code>, <code>makeActiveLoop</code>)</td>
+<td>loop-safety + loop-behavior + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.11</td>
+<td><code>refactor(loop)</code></td>
+<td><code>pi-loop/state.ts</code> + todos los módulos</td>
+<td>globals (<code>activeLoops</code>/<code>wakeQueue</code>/<code>autopilotTurnInFlight</code>) + <code>resetState()</code> — <strong>single owner</strong></td>
+<td>3 suites loop + <code>npm test</code></td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>3.12</td>
+<td><code>refactor(loop)</code></td>
+<td><code>pi-loop/persistence.ts</code>,<code>scheduler.ts</code>,<code>lifecycle.ts</code>,<code>recovery.ts</code> + <code>index.ts</code></td>
+<td>resto, en ese orden</td>
+<td>loop-caps-resume + <code>npm test</code></td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>3.13</td>
+<td><code>refactor(dynamic-workflows)</code></td>
+<td><code>util.ts</code>,<code>workflow-files.ts</code>,<code>ultracode.ts</code>,<code>status-format.ts</code></td>
+<td>extracciones puras low-risk (probar la seam)</td>
+<td>suites dynamic-workflows + <code>npm test</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>3.14</td>
+<td><code>refactor(dynamic-workflows)</code></td>
+<td><code>agents.ts</code>,<code>graph.ts</code>,<code>runs.ts</code>,<code>lifecycle.ts</code></td>
+<td>concerns medianos</td>
+<td>composition-* + <code>npm test</code></td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>3.15</td>
+<td><code>refactor(dynamic-workflows)</code></td>
+<td><code>dashboard.ts</code></td>
+<td>God class TUI</td>
+<td>dashboard-usability-fixes + editor-left-agents + <code>npm test</code></td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>3.16</td>
+<td><code>refactor(dynamic-workflows)</code></td>
+<td><code>worker-source.ts</code></td>
+<td>blob (debe quedar byte-compatible; tras smoke test del worker)</td>
+<td>composition + smoke worker + <code>npm test</code></td>
+<td>High</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>La síntesis se truncó tras la ronda 3.16 (la 3.17 <code>runtime.ts</code> quedó cortada). El roadmap completo está en <code>roadmap.json</code> del run; la Fase 4 (tests) se describe en §5.</p>
+</blockquote>
+<hr>
+<h2>8. Plan de verificación y métricas</h2>
+<ul>
+<li><strong>Baseline:</strong> <code>npm test</code> verde antes de tocar nada (typecheck + 23 suites de integración,
+~20s); registrar LOC por archivo, #copias de funciones (<code>notify</code>×7, <code>formatEta</code>×2, etc.) y
+#copias de prompts (ver <code>scout-evidence.md</code>).</li>
+<li><strong>Por ronda:</strong> re-correr la suite afectada y luego <code>npm test</code> completo; exigir verde antes
+de commitear. Si una ronda no se mantiene verde con un paso pequeño, revertir/bisectar y
+re-slice.</li>
+<li><strong>Move-only / byte-identical:</strong> para extracciones puras, confirmar con <code>diff</code> que el código
+movido es idéntico (sólo <code>export</code>/import añadidos), como se hizo en 3.5.</li>
+<li><strong>Typecheck real de módulos nuevos:</strong> confirmar que cada sibling es alcanzado por un
+<code>index.ts</code> (tsc sólo globa <code>extensions/*/index.ts</code>); marcar módulos huérfanos.</li>
+<li><strong>Packaging:</strong> <code>npm pack --dry-run</code> para confirmar que cada módulo nuevo casa con
+<code>extensions/*/*.ts</code> y nada escapa a profundidad uno; <code>pi.extensions</code> sin cambios.</li>
+<li><strong>Métricas de mejora:</strong> LOC por archivo y #clusters de código/prompt eliminados
+(grep/jscpd) antes/después.</li>
+</ul>
+<h2>9. Notas y limitaciones</h2>
+<ul>
+<li>Analizadores: 8/9 por extensión válidos (<code>pi-goal</code> falló schema) + 4/4 transversales.</li>
+<li>La síntesis se truncó al final de §7; <code>roadmap.json</code> tiene el roadmap completo (fases 1-3).</li>
+<li>Fase 4 (modularización de tests: harness/fixtures esbuild compartidos, ~1000-1400 LOC dup)
+está descrita en §5 pero aún NO ejecutada — es el mayor payoff pendiente y debe ir DESPUÉS
+del harness compartido para no multiplicar copias.</li>
+<li>Fase 1 (guardianes de prompts: el único duplicado byte-a-byte real es el bloque
+&quot;Research-backed templates&quot; en templates.ts + 3 docs) aún NO ejecutada.</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

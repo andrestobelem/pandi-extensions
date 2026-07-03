@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Checklist de code review — extensiones pi (pi-dynamic-workflows)</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs</div>
+		<h1>Checklist de code review — extensiones pi (pi-dynamic-workflows)</h1>
+	</header>
+	<main>
+<p>Fuentes: <code>AGENTS.md</code>, <code>docs/principios-ingenieria.md</code>, <code>package.json</code>, <code>extensions/*/package.json</code>,
+<code>scripts/test/run-all.mjs</code>. Cada ítem indica qué mirar y el comando que lo verifica.</p>
+<h2>1. Contrato y alcance</h2>
+<ul>
+<li><input disabled="" type="checkbox"> El PR/commit toca solo lo que el pedido exige (<code>git diff --stat</code>); sin &quot;mejoras&quot;
+adyacentes no pedidas ni refactors fuera de alcance.</li>
+<li><input disabled="" type="checkbox"> Extensión nueva: vive en <code>extensions/&lt;pi-ext&gt;/</code> con su propio <code>package.json</code> (no
+colgada de otra extensión ni de <code>extensions/shared/</code>).</li>
+<li><input disabled="" type="checkbox"> Si toca <code>extensions/shared/</code>, el contenido agregado vive bajo <code>extensions/shared/test/</code>
+(harness/fixtures), no runtime: <code>ls extensions/shared/</code> solo debe listar <code>test/</code>.</li>
+</ul>
+<h2>2. Diseño y duplicación intencional</h2>
+<ul>
+<li><input disabled="" type="checkbox"> Ningún import runtime cruza el límite de la extensión (ni siquiera hacia
+<code>../shared</code>, solo válido en tests): <code>grep -rn &quot;from \&quot;\.\./&quot; extensions/*/*.ts</code> sale
+vacío (self-contained, jiti). Supone <code>.ts</code> plano en <code>extensions/&lt;ext&gt;/</code>; con
+subdirs usar <code>git grep &#39;from &quot;\.\./&#39; -- &#39;extensions/*/**.ts&#39; &#39;:!*/tests/*&#39;</code>
+(cubre depth-1 y subcarpetas por igual).</li>
+<li><input disabled="" type="checkbox"> Si el cambio &quot;DRYifica&quot; <code>notify.ts</code>/<code>time.ts</code>/<code>session-state.ts</code>/parsers de flags
+extrayéndolo a un módulo COMPARTIDO entre extensiones, es anti-patrón: revertir
+y dejar la duplicación intra-repo (intencional). Dedup solo dentro de la misma extensión.</li>
+<li><input disabled="" type="checkbox"> Toda abstracción/config/flag nueva (incluidas ramas de un solo uso) tiene ≥1
+llamador o test real que la ejerza (<code>grep</code> del símbolo nuevo dentro del diff/PR);
+si es de un solo uso o no hay caso real que la use, inlinear o cortar.</li>
+</ul>
+<h2>3. Tests (TDD completo)</h2>
+<ul>
+<li><input disabled="" type="checkbox"> El test que fija el bug/feature se escribió ANTES del código (Red primero); si no se
+puede verificar test-first, el PR lo declara explícitamente en vez de llamarlo TDD.</li>
+<li><input disabled="" type="checkbox"> El test vive en <code>extensions/&lt;ext&gt;/tests/integration/*.test.mjs</code> (convención de
+descubrimiento): <code>node scripts/test/run-all.mjs --list</code> lo lista.</li>
+<li><input disabled="" type="checkbox"> La suite corre en verde: <code>node scripts/test/run-all.mjs</code>.</li>
+<li><input disabled="" type="checkbox"> El PR narra el paso de Refactor explícitamente (qué se simplificó o &quot;nada que
+cambiar, porque X&quot;) — no puede estar ausente ni implícito.</li>
+<li><input disabled="" type="checkbox"> Suites excluidas del runner están listadas con motivo en <code>ignoredDraftSuites</code>
+(<code>scripts/test/run-all.mjs</code>) — nunca se saltan en silencio.</li>
+</ul>
+<h2>4. Código</h2>
+<ul>
+<li><input disabled="" type="checkbox"> Tipos correctos, sin <code>any</code> innecesario: <code>npm run typecheck</code> (<code>tsc -p tsconfig.json</code>,
+<code>include: extensions/**/*.ts</code>) pasa sin errores.</li>
+<li><input disabled="" type="checkbox"> Estilo/lint conforme al repo: <code>npm run check</code> (biome, <code>biome.jsonc</code>) pasa sin
+warnings nuevos. Para corregir, NO usar <code>npm run check:fix</code> (reescribe todo el
+repo vía <code>biome check --write .</code>); usar <code>npx biome check --write &lt;archivos-tocados&gt;</code>
+y confirmar con <code>git diff --stat</code> que solo cambiaron los archivos esperados.</li>
+<li><input disabled="" type="checkbox"> Todo <code>try/catch</code>/rama de error/<code>if</code> defensivo nuevo tiene aserción en el
+<code>*-coverage.test.mjs</code> de la extensión (p.ej.
+<code>extensions/pi-goal/tests/integration/index-coverage.test.mjs</code>); sin caso real
+que la dispare, eliminar la rama.</li>
+<li><input disabled="" type="checkbox"> Markdown tocado (README, skills, docs) pasa <code>npm run lint:md</code> (markdownlint-cli2).</li>
+</ul>
+<h2>5. Empaquetado (publish standalone)</h2>
+<ul>
+<li><input disabled="" type="checkbox"> <code>files[]</code> cubre TODOS los <code>.ts</code> importados por <code>index.ts</code> directa o transitivamente
+(siblings se importan con <code>.js</code>, resuelve al <code>.ts</code> real vía jiti). Supone <code>.ts</code> plano
+en <code>extensions/&lt;ext&gt;/</code>; con subdirs usar la misma forma <code>git grep</code> de 2.1:
+<code>git grep -hoE &#39;from &quot;\./[A-Za-z0-9_-]+\.(js|ts)&quot;&#39; -- &#39;extensions/&lt;ext&gt;/**.ts&#39; &#39;:!*/tests/*&#39; | sed &#39;s/\.js&quot;/.ts&quot;/&#39;</code> — cada <code>.ts</code> resultante debe estar en <code>files[]</code>.</li>
+<li><input disabled="" type="checkbox"> Subcarpetas referenciadas (<code>scripts/</code>, <code>themes/</code>, <code>primitives/</code>, <code>skills/</code>) están
+declaradas en <code>files[]</code> (ver <code>pi-doctor</code>→<code>scripts</code>, <code>pi-dynamic-workflows</code>→
+<code>scaffolds</code>/<code>primitives</code>/<code>skills</code>, <code>pi-pandi-theme</code>→<code>themes</code>).</li>
+<li><input disabled="" type="checkbox"> <code>pi.extensions</code> del <code>package.json</code> de la extensión apunta al entrypoint real y
+coincide con el manifiesto root.</li>
+<li><input disabled="" type="checkbox"> Manifiesto root regenerado, no editado a mano, si cambió el catálogo:
+<code>npm run sync:manifest:check</code>.</li>
+<li><input disabled="" type="checkbox"> Skills/guías vendorizadas por la extensión, si aplica, no driftan:
+<code>npm run sync:skills:check</code>, <code>npm run sync:agents:check</code>, <code>npm run doctor</code>.</li>
+<li><input disabled="" type="checkbox"> Tarball real: <code>npm pack -w extensions/&lt;ext&gt; --dry-run</code> (por RUTA; el nombre npm
+omite <code>pi-</code>, ej. <code>pi-goal</code>→<code>@pandi-coding-agent/goal</code>) incluye todos los archivos
+runtime, no solo <code>index.ts</code>.</li>
+</ul>
+<h2>6. Suite completa y commit</h2>
+<ul>
+<li><input disabled="" type="checkbox"> <code>npm test</code> (typecheck + biome check + lint:md + <code>test:integration</code>) pasa completo,
+no solo la suite de la extensión tocada.</li>
+<li><input disabled="" type="checkbox"> Commit atómico: un cambio coherente, con el test de fijación en el MISMO commit
+que el código (<code>git show --stat HEAD</code> confirma ambos juntos).</li>
+<li><input disabled="" type="checkbox"> Mensaje Conventional Commits con scope explícito de la extensión, p.ej.
+<code>fix(pi-goal): clear terminated goals</code> — sin scope genérico <code>fix: ...</code>.</li>
+<li><input disabled="" type="checkbox"> Sin <code>Co-Authored-By:</code> ni atribución a herramienta/IA:
+<code>git log -1 --format=%B | grep -i &quot;co-authored-by\|generated with&quot;</code> no matchea nada.</li>
+<li><input disabled="" type="checkbox"> Antes de amendar: <code>git log</code>/<code>git reflog</code> confirma que <code>HEAD</code> es el commit propio
+(sesiones concurrentes pueden haber commiteado encima).</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

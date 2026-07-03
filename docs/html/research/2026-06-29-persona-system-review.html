@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sistema de Personas (agentType) — Code Review</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Sistema de Personas (agentType) — Code Review</h1>
+	</header>
+	<main>
+<p>Date: 2026-06-29</p>
+<h2>Objetivo</h2>
+<p>Revisar el subsistema de <strong>Personas</strong> de <code>pi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene. Lente: skeptical code reviewer, read-only, con cita <code>file:line</code>.</p>
+<h2>Dónde vive</h2>
+<ul>
+<li><strong>Definición:</strong> <code>extensions/pi-dynamic-workflows/agent-env-persona.ts</code>
+— <code>BUILTIN_AGENT_PERSONAS</code> (5 personas, líneas 27–58) + resolución/merge/carga.</li>
+<li><strong>Personas de proyecto:</strong> archivos <code>.pi/personas/&lt;name&gt;.json</code> (<code>loadProjectPersona</code>, línea 228).
+Hoy <strong>no hay ninguna</strong> en el repo.</li>
+<li><strong>Aplicación:</strong> <code>index.ts:713</code> → <code>applyPersonaOptions</code> (antes de <code>applyDefaultAgentAccess</code>).</li>
+<li><strong>Uso real:</strong> <code>.pi/workflows/*.js</code> (loop-engineering, modularize-audit) + tests + README.
+Las 5 personas: <code>explore·medium</code>, <code>reviewer·high</code>, <code>planner·high</code>, <code>implementer·medium</code>,
+<code>researcher·high</code> — coinciden exacto con el README raíz y el skill <code>ultracode</code>.</li>
+</ul>
+<h2>Lo que está bien (no tocar)</h2>
+<ul>
+<li><p><strong>Gate de confianza</strong> (<code>agent-env-persona.ts:229</code>): proyecto no-confiable → ignora
+<code>.pi/personas/*</code> y cae a built-in. Correcto: una persona puede setear <code>env</code>/<code>keys</code>/<code>tools</code>/
+<code>systemPrompt</code>, todos poderosos.</p>
+</li>
+<li><p><strong>Path traversal bloqueado</strong>: el regex <code>/^[a-zA-Z0-9._-]+$/</code> (línea 223) prohíbe <code>/</code> y <code>\</code>, así
+que <code>${name}.json</code> no escapa del directorio de personas.</p>
+</li>
+<li><p><code>sanitizePersonaOptions</code> (línea 199) <strong>no</strong> copia <code>agentType</code> → un JSON de proyecto no puede
+re-disparar la resolución (sin recursión) ni inyectar <code>schema</code>/<code>prompt</code>.</p>
+</li>
+<li><p><code>appendSystemPrompt</code> se concatena de forma determinista (línea 211); merge determinista; los
+niveles de <code>thinking</code> respetan el contrato documentado.</p>
+</li>
+</ul>
+<h2>Hallazgos (por peso)</h2>
+<h3>1. <code>systemPrompt</code> se pisa, <code>appendSystemPrompt</code> se fusiona — asimetría</h3>
+<p><code>mergePersonaOptions</code> (líneas 210–219) hace <code>{...persona, ...options}</code>. La <strong>identidad</strong> de cada
+persona (lo que hace que <code>reviewer</code> sea escéptico) vive en <code>systemPrompt</code>, que es un campo
+pisable: si el caller pasa su propio <code>systemPrompt</code>, <strong>borra entero</strong> el de la persona y sólo
+<code>appendSystemPrompt</code> sobrevive (concatenado).</p>
+<p>Resultado: podés pedir <code>agentType:&quot;reviewer&quot;</code> y, si además pasás <code>systemPrompt</code>, la reviewer-ness
+desaparece en silencio. Es coherente con &quot;lo explícito gana&quot;, pero el comportamiento identitario
+quedó en el campo clobbereable.</p>
+<p><strong>Fix:</strong> si las personas deben ser <em>defaults pegajosos</em>, mover su prompt de identidad a
+<code>appendSystemPrompt</code>; si no, documentar explícitamente el clobber. <strong>Es el punto más sustantivo.</strong></p>
+<h3>2. Resolución case-insensitive para built-in, case-sensitive para proyecto</h3>
+<p>Built-in: <code>BUILTIN_AGENT_PERSONAS[name.toLowerCase()]</code> (línea 246). Proyecto: <code>${name}.json</code> con
+case preservado (líneas 230–231). En sistemas de archivos case-sensitive (Linux/CI), <code>agentType:&quot;Reviewer&quot;</code>
+<strong>no</strong> encuentra <code>Reviewer.json</code> pero <strong>sí</strong> el built-in <code>reviewer</code> → usa el built-in en silencio aunque
+hubiera un override de proyecto.</p>
+<p>En macOS el comportamiento del sistema de archivos lo tapa.</p>
+<p><strong>Fix de 1 línea:</strong> bajar a minúscula en ambos lados (o en ninguno) para que built-in y proyecto
+resuelvan igual.</p>
+<h3>3. <code>sanitizePersonaOptions</code> valida claves pero no tipos</h3>
+<p><code>agent-env-persona.ts:199–208</code> copia las claves whitelisteadas tal cual. Un <code>Reviewer.json</code> con
+<code>tools:&quot;read&quot;</code> (string en vez de array) pasa derecho; <code>applyDefaultAgentAccess</code> sólo se cubre con
+<code>Array.isArray(out.tools)</code> (línea 329), otros consumidores asumen array.</p>
+<p><strong>Riesgo:</strong> bajo (gateado por confianza). <strong>Fix:</strong> chequeo de tipo por clave al sanitizar.</p>
+<h3>4. <code>implementer</code>: el prompt promete editar, los tools no dejan</h3>
+<p><code>agent-env-persona.ts:46–51</code>: el <code>systemPrompt</code> dice &quot;Do not edit files unless explicitly allowed
+by the caller&quot;, pero el default es <code>READ_ONLY_AGENT_TOOLS</code>. &quot;Allowed&quot; exige que el caller
+<strong>también</strong> override <code>tools</code> (con <code>approve</code> solo no alcanza).</p>
+<p>El comportamiento es seguro y conservador; sólo la redacción induce a error.</p>
+<p><strong>Fix:</strong> aclarar en el prompt que editar requiere que el caller provea tools de escritura.</p>
+<h3>5. Los scaffolds publicados NO usan personas (0/25)</h3>
+<p><code>agentType</code> aparece en <code>.pi/workflows/</code> (ejemplos), tests y README — pero ningún archivo de
+<code>scaffolds/</code> lo usa; ahí se rutea todo por <code>node(role)</code> + mapas <code>models{}</code>/<code>efforts{}</code>.</p>
+<p>Conviven dos mecanismos: <strong>persona</strong> (<code>systemPrompt</code> + <code>thinking</code>) vs <strong>node-role</strong> (<code>model</code>/<code>effort</code>).
+No es bug, pero los scaffolds hoy sólo heredan model/effort, no la <strong>identidad</strong> (el <code>systemPrompt</code>
+escéptico, etc.). Decisión pendiente: ¿adoptar <code>agentType</code> en los scaffolds?</p>
+<h3>6. Doc gap (menor)</h3>
+<p>El README de la extensión (<code>extensions/pi-dynamic-workflows/README.md</code>) no menciona personas; sí
+lo hacen el README raíz (líneas 158, 402, 500, 525) y el skill.</p>
+<h2>Orden sugerido de arreglo</h2>
+<ol>
+<li><strong>#2</strong> — bug real cross-plataforma, fix de 1 línea.</li>
+<li><strong>#1</strong> — decisión de diseño: mover identidad a <code>appendSystemPrompt</code> o documentar el clobber.</li>
+<li>#3 / #4 / #6 — hardening + claridad, bajo riesgo.</li>
+<li>#5 — decisión de producto, no urgente.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

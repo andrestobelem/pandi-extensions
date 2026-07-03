@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico</h1>
+	</header>
+	<main>
+<blockquote>
+<p><strong>Status: FINAL.</strong> Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud:</p>
+</blockquote>
+<ul>
+<li>Evidencia primaria: <code>okf/SPEC.md</code> y <code>okf/README.md</code> de <code>GoogleCloudPlatform/knowledge-catalog</code>, leídos directamente vía <code>raw.githubusercontent.com</code> y la API de GitHub.</li>
+<li>Lagunas iniciales: 5 (blog de anuncio, ingestión en Knowledge Catalog, validadores, taxonomía de <code>type</code>, adopción de terceros) → <strong>cerradas</strong> con búsqueda dirigida (§8).</li>
+<li>Marcado: hechos verificados en 2ª pasada → <strong>[VERIFICADO]</strong>; afirmaciones dependientes de búsqueda o interpretación → <em>[no verificado directamente]</em>.</li>
+</ul>
+<hr>
+<h2>1. Resumen ejecutivo</h2>
+<p>El <strong>Open Knowledge Format (OKF)</strong> es una <strong>especificación abierta en estado borrador (v0.1 — Draft)</strong> de Google Cloud para representar <em>conocimiento</em>: &quot;los metadatos, el contexto y la perspectiva curada que rodean a los datos y los sistemas&quot; (SPEC.md). Su tesis central es ser <strong>un formato, no una plataforma</strong>: &quot;un directorio de archivos markdown con frontmatter YAML. No hay registro de esquemas, ni autoridad central, ni herramientas obligatorias&quot; (SPEC.md).</p>
+<p>La propuesta de valor es que el conocimiento organizativo (definiciones de tablas, métricas, runbooks, descripciones de APIs, rutas de join) se vuelva <strong>legible, parseable, diffeable y portable</strong>: &quot;si puedes hacer <code>cat</code> a un archivo, puedes leer OKF; si puedes hacer <code>git clone</code> a un repo, puedes distribuirlo&quot; (README de OKF). Sirve como una <strong>capa durable de conocimiento/contexto</strong> que tanto humanos como agentes de IA pueden consumir, frente a otros artefactos del ecosistema agentico que resuelven capas distintas (descubrimiento de agentes, protocolos de runtime, instrucciones de repo).</p>
+<p><strong>Puntos clave:</strong></p>
+<ul>
+<li>Unidad de distribución: el <strong>Knowledge Bundle</strong> (árbol de directorios Markdown UTF-8).</li>
+<li>Único campo de frontmatter <strong>obligatorio</strong>: <code>type</code>.</li>
+<li><strong>Conformidad muy permisiva</strong>: los consumidores no deben rechazar bundles por campos faltantes, tipos desconocidos, claves extra o enlaces rotos.</li>
+<li>Mantenido por <strong>Google bajo Apache-2.0</strong>, con el descargo explícito de que <strong>&quot;no es un producto oficial de Google&quot;</strong>.</li>
+<li><strong>[VERIFICADO]</strong> Anunciado el <strong>12 de junio de 2026</strong> en Google Cloud Blog en el artículo &quot;Introducing the Open Knowledge Format&quot; por <strong>Sam McVeety</strong> (Tech Lead, Data Analytics) y <strong>Amir Hormati</strong> (Tech Lead, BigQuery), ambos de Data Cloud.</li>
+</ul>
+<hr>
+<h2>2. Anatomía del formato</h2>
+<h3>2.1 Bundles (unidad de distribución, §3)</h3>
+<p>Un <strong>Knowledge Bundle</strong> es un árbol de directorios de archivos Markdown UTF-8 y es &quot;la unidad de distribución&quot;. PUEDE enviarse como:</p>
+<ul>
+<li>un repositorio git (recomendado),</li>
+<li>un tarball/zip, o</li>
+<li>un subdirectorio dentro de un repositorio mayor.</li>
+</ul>
+<p>El layout de directorios es independiente del dominio: los productores organizan los conceptos como prefieran.</p>
+<p><strong>Layout mínimo (Apéndice A del SPEC, verificado y coincidente con el bundle <code>ga4</code> real):</strong></p>
+<pre><code>my_bundle/
+├── index.md            # único lugar donde se permite frontmatter okf_version: &quot;0.1&quot;
+├── log.md              # opcional; historial con cabeceras de fecha ISO 8601
+├── datasets/
+│   ├── index.md
+│   └── sales.md
+└── tables/
+    ├── index.md
+    ├── orders.md
+    └── customers.md
+</code></pre>
+<h3>2.2 Concept documents (§2, §4)</h3>
+<p>Un <strong>Concept</strong> es una unidad única de conocimiento = un archivo Markdown. El <strong>Concept ID</strong> es la ruta del archivo dentro del bundle sin el sufijo <code>.md</code> (p. ej., <code>tables/users.md</code> → <code>tables/users</code>).</p>
+<p>Cada concepto consta de: un bloque de <strong>frontmatter</strong> YAML (delimitado por <code>---</code>) y un <strong>cuerpo</strong> Markdown libre.</p>
+<h3>2.3 Campos del frontmatter (§4.1) — requeridos vs. opcionales</h3>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Estado</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>type</code></td>
+<td><strong>REQUERIDO</strong></td>
+<td>Cadena corta que identifica el tipo de concepto. Ejemplos: <code>BigQuery Table</code>, <code>BigQuery Dataset</code>, <code>API Endpoint</code>, <code>Metric</code>, <code>Playbook</code>, <code>Reference</code>. <strong>No registrado centralmente</strong>; los consumidores DEBEN tolerar tipos desconocidos (tratarlos como conceptos genéricos).</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>Recomendado</td>
+<td>Nombre para mostrar; los consumidores PUEDEN derivarlo del nombre de archivo si falta.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Recomendado</td>
+<td>Resumen de una sola frase.</td>
+</tr>
+<tr>
+<td><code>resource</code></td>
+<td>Recomendado</td>
+<td>URI que identifica de forma única el activo subyacente; ausente en conceptos abstractos.</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>Recomendado</td>
+<td>Lista YAML de cadenas cortas.</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>Recomendado</td>
+<td>Datetime ISO 8601 del último cambio significativo.</td>
+</tr>
+</tbody></table>
+<p><strong>Extensiones:</strong> los productores PUEDEN añadir claves arbitrarias; los consumidores DEBERÍAN preservar las claves desconocidas en round-trip y NO DEBEN rechazar documentos por campos no reconocidos.</p>
+<p><strong>Plantilla de frontmatter (§4.1, verbatim):</strong></p>
+<pre><code class="language-yaml">---
+type: &lt;Type name&gt;                  # REQUERIDO
+title: &lt;Optional display name&gt;
+description: &lt;Optional one-line summary&gt;
+resource: &lt;Optional canonical URI for the underlying asset&gt;
+tags: [&lt;tag&gt;, &lt;tag&gt;, …]            # Opcional
+timestamp: &lt;ISO 8601 datetime&gt;     # Opcional, última modificación
+# … otros pares clave/valor definidos por el productor
+---
+</code></pre>
+<h3>2.4 Convenciones del cuerpo (§4.2)</h3>
+<p>Se prefiere markdown estructural. Tres cabeceras <strong>convencionales</strong> (no requeridas): <code># Schema</code>, <code># Examples</code>, <code># Citations</code>. En el ejemplo trabajado del SPEC también aparece <code># Joins</code>, útil para documentar rutas de join.</p>
+<h3>2.5 Ejemplo concreto: concepto ligado a un recurso (§4.3)</h3>
+<pre><code class="language-markdown">---
+type: BigQuery Table
+title: Customer Orders
+description: One row per completed customer order across all channels.
+resource: https://console.cloud.google.com/bigquery?p=acme&amp;d=sales&amp;t=orders
+tags: [sales, orders, revenue]
+timestamp: 2026-05-28T14:30:00Z
+---
+
+# Schema
+| Column | Type | Description |
+|--------|------|-------------|
+| `order_id` | STRING | Globally unique order identifier. |
+| `customer_id` | STRING | Foreign key into [customers](/tables/customers.md). |
+
+# Joins
+Joined with [customers](/tables/customers.md) on `customer_id`.
+
+# Citations
+[1] [BigQuery table schema](https://console.cloud.google.com/bigquery?p=acme&amp;d=sales&amp;t=orders)
+</code></pre>
+<p>Un <strong>concepto abstracto</strong> (§4.4) no lleva <code>resource</code>: p. ej. un <code>type: Playbook</code> con secciones <code># Trigger</code> / <code># Steps</code>.</p>
+<h3>2.6 Reserved filenames (§3.1)</h3>
+<p>Solo <strong>dos</strong> nombres reservados en cualquier nivel de jerarquía, prohibidos como nombres de concepto:</p>
+<ul>
+<li><code>index.md</code> — listado de directorio para <em>progressive disclosure</em> (§6).</li>
+<li><code>log.md</code> — historial de actualizaciones (§7).</li>
+</ul>
+<p>Cualquier otro archivo <code>.md</code> es un concepto. OKF <strong>no</strong> define un formato de archivo por-tag; las tags son únicamente un campo del frontmatter.</p>
+<h3>2.7 Cross-linking (§5)</h3>
+<p>Enlaces Markdown estándar, en dos formas:</p>
+<ul>
+<li><strong>Absolutos/relativos-al-bundle</strong> (empiezan con <code>/</code>, p. ej. <code>/tables/customers.md</code>) — recomendados por estabilidad.</li>
+<li><strong>Relativos</strong> (<code>./other.md</code>).</li>
+</ul>
+<p>Un enlace afirma una <strong>relación no tipada</strong> (arista dirigida); el <em>tipo</em> de relación (joins-with, depends-on) vive en la prosa circundante, no en el enlace. Los consumidores DEBEN tolerar enlaces rotos (pueden representar &quot;conocimiento aún no escrito&quot;).</p>
+<h3>2.8 Index files (§6)</h3>
+<p><code>index.md</code> puede aparecer en cualquier directorio para progressive disclosure. Los archivos index <strong>no llevan frontmatter</strong> (única excepción: la declaración de versión en el index raíz). El cuerpo son secciones de enlaces con viñetas y descripciones cortas:</p>
+<pre><code class="language-markdown"># Section / Group Heading
+* [Title 1](relative-url-1) - short description of item 1
+</code></pre>
+<blockquote>
+<p><strong>Tensión señalada por la investigación:</strong> §6 dice que los <code>index.md</code> &quot;no contienen frontmatter&quot;, pero §11 permite <code>okf_version</code> solo en el <code>index.md</code> raíz. Cómo deben reconciliar esto los consumidores estrictos queda <em>no especificado</em> — marcar como incertidumbre.</p>
+</blockquote>
+<h3>2.9 Log files (§7)</h3>
+<p><code>log.md</code> opcional, con lo más reciente primero, agrupado por fecha con cabeceras ISO <code>YYYY-MM-DD</code>. Las palabras en negrita iniciales (<code>**Update**</code>, <code>**Creation**</code>, <code>**Deprecation**</code>) son convención, no requisito.</p>
+<pre><code class="language-markdown"># Directory Update Log
+## 2026-05-22
+* **Update**: Added new BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
+</code></pre>
+<h3>2.10 Citations (§8)</h3>
+<p>Las afirmaciones con fuente DEBERÍAN listarse bajo una cabecera <code># Citations</code> al final, numeradas. Los enlaces PUEDEN ser URLs absolutas, rutas relativas al bundle, o rutas hacia un subdirectorio <code>references/</code> que refleja material externo como conceptos de primera clase.</p>
+<h3>2.11 Conformance (§9) — un único nivel, no escalonado</h3>
+<p>Un bundle es conforme con OKF v0.1 si:</p>
+<ol>
+<li>todo archivo <code>.md</code> no reservado tiene un bloque de frontmatter YAML parseable;</li>
+<li>todo frontmatter tiene un <code>type</code> no vacío;</li>
+<li><code>index.md</code>/<code>log.md</code> siguen §6/§7 cuando están presentes.</li>
+</ol>
+<p>Los consumidores <strong>NO DEBEN</strong> rechazar un bundle por: campos opcionales faltantes, valores <code>type</code> desconocidos, claves extra desconocidas, enlaces rotos, o <code>index.md</code> ausente. <strong>No existen niveles de conformidad con nombre</strong> (no hay &quot;core/strict&quot;) en v0.1.</p>
+<h3>2.12 Versioning (§11)</h3>
+<p>Esquema <code>&lt;major&gt;.&lt;minor&gt;</code>: minor = adiciones retrocompatibles; major = cambios disruptivos. Un bundle PUEDE declarar su versión objetivo con <code>okf_version: &quot;0.1&quot;</code> en el frontmatter del <code>index.md</code> <strong>raíz del bundle</strong> — &quot;el único lugar donde se permite frontmatter en un <code>index.md</code>&quot;. Versiones declaradas desconocidas → consumo de mejor esfuerzo.</p>
+<hr>
+<h2>3. Repositorio y tooling (<code>knowledge-catalog</code>)</h2>
+<p><strong>Repositorio:</strong> <code>GoogleCloudPlatform/knowledge-catalog</code>, <strong>Apache-2.0</strong>. Metadatos (API de GitHub): creado <strong>2026-05-04</strong>, último push 2026-06-21, ~5.777 estrellas, 91 issues abiertos en el momento de la consulta. Descargo: <strong>&quot;This repository and its contents are not an official Google product.&quot;</strong> Contribuir requiere el <strong>Google CLA</strong>.</p>
+<p><strong>Layout raíz (verificado vía API):</strong> <code>okf/</code>, <code>samples/</code>, <code>toolbox/</code>, más <code>LICENSE.md</code>, <code>README.md</code>, <code>CONTRIBUTING.md</code>, <code>CODE_OF_CONDUCT.md</code>.</p>
+<h3>3.1 Directorio <code>okf/</code></h3>
+<ul>
+<li><code>SPEC.md</code>, <code>README.md</code>, <code>LICENSE.md</code>, <code>pyproject.toml</code>, <code>src/</code>, <code>tests/</code>, <code>samples/</code>, <code>bundles/</code>.</li>
+<li><code>okf/src/reference_agent/</code>: <code>__main__.py</code>, <code>agent.py</code>, <code>cli.py</code>, <code>runner.py</code> y subpaquetes <code>bundle/</code>, <code>prompts/</code>, <code>sources/</code>, <code>tools/</code>, <code>viewer/</code>, <code>web/</code>.</li>
+<li><code>okf/tests/</code>: tests de pytest — <code>test_bigquery_source.py</code>, <code>test_bundle_tools.py</code>, <code>test_document.py</code>, <code>test_index.py</code>, <code>test_viewer.py</code>, <code>test_web_fetcher.py</code>, <code>test_web_tools.py</code>.</li>
+<li><code>okf/bundles/</code>: tres bundles de ejemplo listos para navegar — <code>ga4/</code>, <code>stackoverflow/</code>, <code>crypto_bitcoin/</code>, cada uno con un <code>viz.html</code> incluido.</li>
+</ul>
+<h3>3.2 Reference enrichment agent (PoC de <em>productor</em>)</h3>
+<p>Dos pasadas:</p>
+<ul>
+<li><strong>Pasada BQ</strong>: escribe un documento OKF por concepto anunciado, a partir de metadatos de BigQuery.</li>
+<li><strong>Pasada web</strong>: el LLM actúa como crawler sobre URLs semilla (vía herramienta <code>fetch_url</code>), luego enriquece conceptos, acuña documentos <code>references/&lt;slug&gt;</code>, o se salta. Guardarraíles: <code>--web-max-pages</code> (límite), <code>--web-allowed-host</code> (filtro mismo-dominio), <code>--no-web</code> (omitir).</li>
+</ul>
+<p>CLI:</p>
+<pre><code class="language-bash">python -m reference_agent enrich \
+  --source bq --dataset &lt;project&gt;.&lt;dataset&gt; \
+  --web-seed-file &lt;seeds.txt&gt; --out ./bundles/&lt;name&gt;
+</code></pre>
+<h3>3.3 Visualizer (PoC de <em>consumidor</em>)</h3>
+<pre><code class="language-bash">python -m reference_agent visualize --bundle ./bundles/&lt;name&gt;
+</code></pre>
+<p>Emite un <code>viz.html</code> autocontenido: grafo force-directed con <strong>Cytoscape.js</strong>, render de markdown con <strong>marked</strong> (ambos desde CDN); backlinks/&quot;Cited by&quot;, búsqueda, filtro por tipo, cambio de layout. Ningún dato sale de la página.</p>
+<h3>3.4 Instalación y credenciales</h3>
+<ul>
+<li><code>python3.13 -m venv .venv</code> + <code>pip install -e .[dev]</code>; tests con <code>.venv/bin/pytest</code>.</li>
+<li>BigQuery vía ADC (<code>gcloud auth application-default login</code>) + proyecto de facturación.</li>
+<li>Gemini vía <code>GEMINI_API_KEY</code> (AI Studio) <strong>o</strong> Vertex AI (<code>GOOGLE_GENAI_USE_VERTEXAI=true</code>, <code>GOOGLE_CLOUD_PROJECT</code>, <code>GOOGLE_CLOUD_LOCATION</code>).</li>
+</ul>
+<h3>3.5 <code>toolbox/</code> y <code>samples/</code> (preocupación <em>separada</em> de la spec OKF)</h3>
+<ul>
+<li><code>toolbox/</code>: <strong>&quot;Metadata as Code&quot;</strong> — <code>mdcode/</code> (<code>kcmd</code>: CLI/librería/servidor MCP con <code>toolbox/mdcode/src/tool/mcp.ts</code>) y agente de enriquecimiento (<code>enrichment/</code> / <code>kcagent</code>). Estas son herramientas de <strong>Knowledge Catalog</strong>, no de la spec OKF.</li>
+<li><code>samples/enrichment/</code>: flujo del agente de enriquecimiento de Knowledge Catalog (descargar metadatos de BigQuery → enriquecer Markdown local → revisar diffs → publicar de vuelta). Incluye <code>samples/enrichment/sample/config/mcp.json</code> que define servidor MCP <code>fileskb</code> (un Python <code>tools/fileskb/main.py --dir &lt;docs&gt;</code>).</li>
+</ul>
+<blockquote>
+<p><strong>Hallazgo relevante:</strong> MCP aparece en el repositorio como <strong>transporte operativo</strong> para exponer una base de conocimiento basada en ficheros (servidor <code>fileskb</code>, servidor MCP de <code>kcmd</code>), <strong>no como parte de la especificación OKF</strong>.</p>
+<p><strong>Validadores:</strong> Google <strong>no</strong> publica un validador oficial de conformidad; los tests del repo son de pytest para el reference agent/visualizador. <strong>[VERIFICADO]</strong> Existen validadores <strong>de comunidad</strong> que aplican las reglas de §9, notablemente la <em>OKF Conformance Suite</em> de WitsCode (<code>node validator/okf-validate.mjs ./bundle</code>, modo JSON/strict y exit codes para CI).</p>
+</blockquote>
+<hr>
+<h2>4. Casos de uso y consumo por agentes</h2>
+<p><strong>Modelo productor → consumidor (README de OKF):</strong></p>
+<ul>
+<li><strong>Productores</strong>: humanos a mano; agentes sobre cualquier framework (Google ADK, LangChain, custom); pipelines de exportación desde catálogos existentes (Dataplex/Knowledge Catalog, Unity Catalog, Collibra); o scripts que recorren una base de datos.</li>
+<li><strong>Consumidores</strong>: servidores de ficheros estáticos; UIs de conocimiento (Obsidian, Notion, MkDocs, Hugo, Jekyll); un LLM cargando ficheros en contexto; índices de búsqueda; o visores de grafos.</li>
+</ul>
+<p><strong>Bundles de ejemplo reales (verificados):</strong></p>
+<ul>
+<li><code>bundles/ga4/</code> — e-commerce de GA4 (contiene <code>index.md</code>, <code>datasets/</code>, <code>tables/</code>, <code>references/</code>, <code>viz.html</code>).</li>
+<li><code>bundles/stackoverflow/</code> — dataset público de Stack Overflow.</li>
+<li><code>bundles/crypto_bitcoin/</code> — bloques/transacciones de Bitcoin, ejercitando relaciones FK entre tablas en prosa.</li>
+</ul>
+<p>Cada ejemplo empareja una <strong>receta</strong> reproducible (<code>samples/&lt;name&gt;/</code>: semillas + comando <code>enrich</code> exacto) con el <strong>bundle producido</strong> (<code>bundles/&lt;name&gt;/</code>).</p>
+<p><strong>Integración con Google Cloud:</strong> el README raíz describe <strong>Knowledge Catalog</strong> (antes Dataplex Universal Catalog) como &quot;un catálogo de datos potenciado por IA… un grafo de conocimiento dinámico… para aportar semántica y contexto de negocio a los agentes de IA&quot;. <strong>[VERIFICADO]</strong> El blog de anuncio confirma que <strong>Knowledge Catalog fue actualizado para ingerir OKF y servirlo a los agentes</strong>.</p>
+<p><strong>[VERIFICADO] Mecánica de ingestión (vía <code>kcmd</code>, &quot;Metadata as Code&quot;):</strong> la ruta práctica que muestra el repo es:</p>
+<ol>
+<li>crear/targetear un <strong>EntryGroup</strong> de Dataplex/Knowledge Catalog,</li>
+<li>colocar el bundle OKF bajo <code>catalog/</code>,</li>
+<li>ejecutar <strong><code>kcmd push</code></strong>.</li>
+</ol>
+<p>El demo OKF mapea cada <code>.md</code> a una <strong>entry</strong> de Knowledge Catalog usando el <strong>Documents Layout</strong>: deriva el nombre de la entry de la ruta del fichero, guarda el cuerpo Markdown en el aspecto global <strong><code>overview</code></strong>, y hace <em>fallback</em> a <strong><code>dataplex-types.global.generic</code></strong> para valores de <code>type</code> OKF personalizados que no son type-refs válidos de Dataplex. <code>kcmd</code> soporta sync bidireccional (<code>pull</code>/<code>push</code>). <em>(Fuentes: <code>toolbox/mdcode</code> y <code>toolbox/mdcode/demo</code>.)</em></p>
+<p><strong>Casos de uso para agentes:</strong> cargar contexto curado de tablas/métricas en la ventana de contexto de un LLM; resolver rutas de join (sección <code># Joins</code>); navegar el grafo de conceptos vía backlinks; enriquecer iterativamente conocimiento generado parcialmente por agentes (la conformidad permisiva mantiene válidos los bundles parciales).</p>
+<hr>
+<h2>5. OKF vs A2A vs MCP vs AGENTS.md vs llms.txt</h2>
+<blockquote>
+<p><strong>Advertencia importante de evidencia.</strong> Se verificó por grep que <strong>A2A, MCP, AGENTS.md, llms.txt, &quot;Agent Card&quot; y &quot;Model Context&quot; NO aparecen en <code>SPEC.md</code> ni en <code>okf/README.md</code></strong>. El §10 del SPEC (&quot;Relationship to other formats&quot;) solo nombra tres comparadores: <strong>repositorios &quot;wiki&quot; para LLM</strong>, <strong>herramientas de conocimiento personal (Obsidian/Notion)</strong> y <strong>&quot;metadata as code&quot;</strong>, afirmando que OKF &quot;difiere principalmente en estar <em>especificado</em>&quot;. Por tanto, <strong>la comparativa siguiente es síntesis/interpretación</strong> a partir de las fuentes primarias de cada formato, <strong>no texto normativo de OKF</strong>.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Formato</th>
+<th>Capa</th>
+<th>Artefacto</th>
+<th>Pregunta que responde</th>
+<th>Estructura requerida</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>OKF</strong></td>
+<td>Conocimiento/contenido</td>
+<td>Árbol de directorios Markdown + frontmatter YAML</td>
+<td>&quot;¿Qué conocimiento curado existe sobre estos activos?&quot;</td>
+<td><code>type</code> requerido; recomendados <code>title</code>/<code>description</code>/<code>resource</code>/<code>tags</code>/<code>timestamp</code></td>
+</tr>
+<tr>
+<td><strong>A2A Agent Card</strong></td>
+<td>Descubrimiento/manifiesto de capacidades de un agente</td>
+<td>Un único JSON en <code>/.well-known/agent-card.json</code></td>
+<td>&quot;¿Qué puede hacer este <em>agente</em> y cómo lo invoco?&quot;</td>
+<td><code>name</code>, <code>description</code>, <code>version</code>, <code>supportedInterfaces</code>, <code>capabilities</code>, <code>defaultInputModes</code>, <code>defaultOutputModes</code>, <code>skills</code></td>
+</tr>
+<tr>
+<td><strong>MCP</strong></td>
+<td>Protocolo de runtime</td>
+<td>Conexiones cliente/servidor JSON-RPC 2.0</td>
+<td>&quot;¿Cómo se conecta una app a tools/data/prompts en tiempo de ejecución?&quot;</td>
+<td>Servidores exponen <code>resources</code>, <code>prompts</code>, <code>tools</code></td>
+</tr>
+<tr>
+<td><strong>AGENTS.md</strong></td>
+<td>Guía operativa de proyecto</td>
+<td>Un único Markdown en el repo</td>
+<td>&quot;¿Cómo debe trabajar un <em>agente de código</em> en este codebase?&quot;</td>
+<td>Markdown libre, sin campos requeridos</td>
+</tr>
+<tr>
+<td><strong>llms.txt</strong></td>
+<td>Descubrimiento/guía de sitio web</td>
+<td>Un único Markdown en la raíz del sitio (<code>/llms.txt</code>)</td>
+<td>&quot;¿Qué contenido público/docs debería leer un LLM?&quot;</td>
+<td>H1 requerido; opcional blockquote-resumen, guía, listas de enlaces H2</td>
+</tr>
+</tbody></table>
+<p><strong>Solapamientos y límites (interpretación):</strong></p>
+<ul>
+<li><strong>OKF vs llms.txt:</strong> ambos Markdown-first. llms.txt es un <em>único fichero índice</em> en la raíz de un sitio para consumo <em>web en inferencia</em>; OKF es un <em>bundle multi-fichero, tipado, cross-enlazado y versionado</em> (más cercano a una wiki que a un índice raíz plano).</li>
+<li><strong>OKF vs AGENTS.md:</strong> AGENTS.md son <em>instrucciones operativas imperativas</em> (setup, tests, convenciones) acotadas a un repo; OKF es <em>conocimiento declarativo</em> sobre activos, independiente de cualquier codebase. AGENTS.md no tiene esquema; OKF exige <code>type</code>.</li>
+<li><strong>OKF vs MCP (el más complementario):</strong> MCP es <em>cómo</em> obtener/actuar en runtime; OKF es <em>qué</em> se sirve. Un bundle OKF puede ser <strong>servido/buscado/expuesto vía un servidor MCP</strong> — de hecho <code>kcmd</code> y el servidor <code>fileskb</code> del repo son servidores MCP. Las URIs <code>resource</code> de OKF mapean naturalmente sobre los <code>resources</code> de MCP.</li>
+<li><strong>OKF vs A2A Agent Card (el de menor solapamiento):</strong> el Agent Card es un <em>manifiesto de capacidades del agente</em> (skills, interfaces, auth); OKF describe <em>conocimiento sobre datos/activos</em>, no la superficie invocable de un agente.</li>
+</ul>
+<p><strong>Stack complementario (interpretación):</strong> AGENTS.md orienta a un agente de código → llms.txt apunta a docs públicos → OKF empaqueta conocimiento tipado profundo → MCP sirve/busca esos bundles y expone tools → los A2A Agent Cards permiten que agentes independientes se anuncien e invoquen entre sí. Cada uno ocupa una ranura distinta; <strong>son complementarios, no competidores</strong>, y OKF no reemplaza a ninguno.</p>
+<p><strong>Linaje (verificado):</strong> Google enmarca OKF como una formalización del patrón &quot;LLM wiki&quot; (bases de conocimiento Markdown persistentes e interconectadas, mantenidas por agentes), explícitamente asociado al gist &quot;LLM-wiki&quot; de Andrej Karpathy.</p>
+<hr>
+<h2>6. Madurez, gobernanza, adopción y riesgos</h2>
+<p><strong>Madurez/estado.</strong> Etiquetado explícitamente <strong>&quot;Version 0.1 — Draft&quot;</strong>. Es etapa temprana: una versión publicada de la spec, un productor PoC (reference agent), un consumidor PoC (visualizador HTML) y tres bundles de ejemplo. Repo creado 2026-05-04.</p>
+<p><strong>Gobernanza.</strong> Mantenido por <strong>Google Cloud</strong> bajo el org <code>GoogleCloudPlatform</code>, <strong>Apache-2.0</strong>, con descargo de <strong>&quot;no es un producto oficial de Google&quot;</strong>. Las contribuciones requieren el <strong>Google CLA</strong>; todos los PRs requieren revisión. <strong>No hay fundación independiente, organismo de estándares ni comité multi-vendor</strong> — la gobernanza es de un solo proveedor (Google), aunque el <em>formato</em> se posicione como neutral respecto al proveedor. Contexto de producto: <strong>[VERIFICADO]</strong> Knowledge Catalog es el renombre de <strong>Dataplex Universal Catalog</strong> (efectivo el <strong>10 de abril de 2026</strong> según la doc oficial de Dataplex); las APIs, librerías cliente, comandos <code>gcloud dataplex</code> y nombres IAM permanecen sin cambios.</p>
+<p><strong>Neutralidad de proveedor (y su matiz).</strong> El <em>formato</em> (Markdown + YAML) es genuinamente portable y sin lock-in. Pero la <em>gobernanza, autoría de la spec, herramientas de referencia y valores de ejemplo</em> son Google-céntricos (los <code>type</code> por defecto son <code>BigQuery Table</code>/<code>BigQuery Dataset</code>; el reference agent enriquece desde BigQuery + Gemini/Vertex). <strong>La neutralidad es una propiedad de diseño, no aún una realidad de gobernanza.</strong></p>
+<p><strong>Riesgos/limitaciones para adoptantes:</strong></p>
+<ol>
+<li><strong>Borrador, gobernanza de un solo proveedor</strong> — sin organismo neutral; posibles cambios disruptivos en saltos de versión mayor; &quot;no es producto oficial&quot;.</li>
+<li><strong>Conformidad extremadamente permisiva</strong> — solo <code>type</code> es obligatorio; <strong>garantías de validación casi nulas</strong>: dos bundles &quot;conformes&quot; pueden ser muy inconsistentes.</li>
+<li><strong>Relaciones no tipadas</strong> — los enlaces afirman relaciones pero su <em>tipo</em> vive en prosa, no en metadatos legibles por máquina; los consumidores de grafo solo ven aristas dirigidas no tipadas.</li>
+<li><strong>Sin taxonomía registrada de <code>type</code></strong> — valores de cadena libre, así que la interoperabilidad semántica entre organizaciones es solo por convención.</li>
+<li><strong>Sin modelo de seguridad/confianza/procedencia</strong> en la spec — las citas son convención; no hay firma, integridad ni control de acceso. Los bundles generados por agentes (el reference agent usa un crawler LLM) plantean dudas de confianza en el contenido.</li>
+<li><strong>Tooling de referencia explícitamente PoC</strong>, con sabor BigQuery+Gemini; productores/consumidores/validadores de producción quedan a cargo de los adoptantes.</li>
+</ol>
+<p><strong>Adopción.</strong> <strong>[VERIFICADO]</strong> Adopción temprana pero real fuera de Google: <strong>Data Product SDK v0.2.5</strong> (Open Data Products) añadió soporte OKF; herramientas de comunidad como <code>scaccogatto/okf-skills</code>, <code>parkscloud/okf-author</code> y la <em>OKF Conformance Suite</em> de WitsCode. En cambio, Collibra/Unity Catalog solo se <em>nombran como posibilidades</em> en el README, sin integración confirmada.</p>
+<hr>
+<h2>7. Fuentes (URLs primarias)</h2>
+<h3>Evidencia primaria verificada (leída directamente)</h3>
+<ul>
+<li>OKF v0.1 SPEC (normativo): <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md">https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md</a> · raw: <a href="https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md">https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md</a></li>
+<li>OKF README (reference agent, visualizador, samples, credenciales): <a href="https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/README.md">https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/README.md</a></li>
+<li>README raíz del repositorio (Knowledge Catalog/Dataplex, descargo): <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog">https://github.com/GoogleCloudPlatform/knowledge-catalog</a> · raw: <a href="https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/README.md">https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/README.md</a></li>
+<li>Licencia (Apache-2.0): <a href="https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/LICENSE.md">https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/LICENSE.md</a></li>
+<li>README de toolbox (<code>kcmd</code>/<code>kcagent</code>, &quot;Metadata as Code&quot;): <a href="https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/toolbox/README.md">https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/toolbox/README.md</a></li>
+<li>Config MCP de muestra (servidor <code>fileskb</code>): <a href="https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/samples/enrichment/sample/config/mcp.json">https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/samples/enrichment/sample/config/mcp.json</a></li>
+<li>Estructura del repo (API de contenidos/árboles de GitHub): <code>okf/</code>, <code>samples/</code>, <code>toolbox/</code>; subdirectorios verificados de <code>okf/src/reference_agent</code>, <code>okf/tests</code>, <code>okf/bundles/ga4</code>.</li>
+</ul>
+<h3>Evidencia verificada en 2ª pasada (búsqueda dirigida, fuentes primarias)</h3>
+<ul>
+<li>Anuncio de Google Cloud &quot;Introducing the Open Knowledge Format&quot; (12-jun-2026; autores Sam McVeety, Amir Hormati; afirma que Knowledge Catalog ingiere OKF): <a href="https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing">https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing</a></li>
+<li><code>kcmd</code> &quot;Metadata as Code&quot; (ruta de ingestión <code>push</code>/<code>pull</code>, EntryGroup): <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode">https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode</a></li>
+<li>Demo OKF Wiki (mapeo <code>.md</code> → entry, aspecto <code>overview</code>, fallback <code>generic</code>): <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode/demo">https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode/demo</a></li>
+<li>Knowledge Catalog = Dataplex Universal Catalog (renombre 10-abr-2026): <a href="https://docs.cloud.google.com/dataplex/docs/introduction">https://docs.cloud.google.com/dataplex/docs/introduction</a></li>
+</ul>
+<h3>Ecosistema de comunidad (tooling/adopción de terceros)</h3>
+<ul>
+<li>OKF Conformance Suite (validador): <a href="https://witscode.com/okf-conformance">https://witscode.com/okf-conformance</a></li>
+<li>Data Product SDK v0.2.5 (soporte OKF): <a href="https://blog.opendataproducts.org/open-knowledge-format-support-in-data-product-sdk-v0-2-5-3a4f5b3e4c3a">https://blog.opendataproducts.org/open-knowledge-format-support-in-data-product-sdk-v0-2-5-3a4f5b3e4c3a</a></li>
+<li>Skills/validador/visualizador OKF: <a href="https://github.com/scaccogatto/okf-skills">https://github.com/scaccogatto/okf-skills</a></li>
+<li>Author/convert/validate OKF: <a href="https://github.com/parkscloud/okf-author">https://github.com/parkscloud/okf-author</a></li>
+</ul>
+<h3>Fuente primaria aún no recuperada vía HTML directo</h3>
+<ul>
+<li>Producto Knowledge Catalog: <a href="https://cloud.google.com/products/knowledge-catalog">https://cloud.google.com/products/knowledge-catalog</a></li>
+</ul>
+<h3>Fuentes primarias de formatos comparados (para §5)</h3>
+<ul>
+<li>A2A: <a href="https://github.com/a2aproject/A2A/blob/main/docs/specification.md">https://github.com/a2aproject/A2A/blob/main/docs/specification.md</a> · AgentCard: <a href="https://a2a-protocol.org/latest/specification/#441-agentcard">https://a2a-protocol.org/latest/specification/#441-agentcard</a></li>
+<li>MCP: <a href="https://modelcontextprotocol.io/docs/getting-started/intro">https://modelcontextprotocol.io/docs/getting-started/intro</a></li>
+<li>AGENTS.md: <a href="https://agents.md/">https://agents.md/</a></li>
+<li>llms.txt: <a href="https://llmstxt.org/">https://llmstxt.org/</a> · <a href="https://llmstxt.org/core.html">https://llmstxt.org/core.html</a></li>
+<li>Gist LLM-wiki de Karpathy: <a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f</a></li>
+</ul>
+<hr>
+<h2>8. Lagunas de cobertura y qué verificar después</h2>
+<p><strong>Ramas fallidas o vacías: 0</strong> (5 de 5 ángulos completados). Estado de las lagunas tras la 2ª pasada de verificación:</p>
+<ol>
+<li><del><strong>HTML del blog no recuperado.</strong></del> <strong>[CERRADA]</strong> Verificado vía búsqueda dirigida: blog publicado el <strong>12-jun-2026</strong> por <strong>Sam McVeety</strong> y <strong>Amir Hormati</strong>; confirma que <strong>Knowledge Catalog fue actualizado para ingerir OKF y servirlo a agentes</strong>. <em>(Pendiente menor: si el blog menciona explícitamente AGENTS.md/MCP/A2A no se confirmó palabra por palabra.)</em></li>
+<li><del><strong>Mecánica de ingestión OKF → Knowledge Catalog.</strong></del> <strong>[CERRADA]</strong> Verificado: vía <code>kcmd push</code> a un EntryGroup, Documents Layout, cuerpo Markdown en aspecto <code>overview</code>, fallback <code>dataplex-types.global.generic</code> para <code>type</code> custom (ver §4). <em>(Pendiente menor: si la ingestión está en GA o preview.)</em></li>
+<li><strong>[CERRADA] Validador de conformidad.</strong> No hay validador <strong>oficial</strong> de Google, pero existen validadores <strong>de comunidad</strong>: <em>OKF Conformance Suite</em> de WitsCode (<code>okf-validate.mjs</code>, Node 18+, sin dependencias, salida JSON + exit codes para CI), y tooling de <code>scaccogatto/okf-skills</code> y <code>parkscloud/okf-author</code>.</li>
+<li><strong>[CERRADA] Taxonomía de <code>type</code>.</strong> Confirmado: <strong>no hay registro central</strong> de valores <code>type</code>. El campo es obligatorio pero los valores los define el productor; la spec solo da ejemplos (<code>BigQuery Table</code>, <code>BigQuery Dataset</code>, <code>API Endpoint</code>, <code>Metric</code>, <code>Playbook</code>, <code>Reference</code>) y los consumidores deben tolerar tipos desconocidos.</li>
+<li><strong>[CERRADA] Adopción por terceros.</strong> Adopción temprana pero real: <strong>Open Data Products / Data Product SDK v0.2.5</strong> añadió soporte OKF como capa de contexto de conocimiento; <code>scaccogatto/okf-skills</code> (skills OKF para Claude Code/Codex + validador/visualizador); <code>parkscloud/okf-author</code> (author/convert/validate); WitsCode publica la suite de conformidad. <em>(No verificado: soporte real en Collibra/Unity Catalog — solo mencionados aspiracionalmente en el README de Google.)</em></li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

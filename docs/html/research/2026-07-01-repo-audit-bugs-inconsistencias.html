@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auditoría del repo — errores e inconsistencias (2026-07-01)</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Auditoría del repo — errores e inconsistencias (2026-07-01)</h1>
+	</header>
+	<main>
+<p>Informe consolidado de una auditoría read-only del monorepo de extensiones
+<code>pi-dynamic-workflows</code>, ejecutada con workflows dinámicos multi-agente. Recoge
+solo hallazgos con cita concreta <code>archivo:línea</code>; los marcados <strong>[verificado]</strong>
+fueron re-chequeados a mano contra el archivo, los <strong>[plausible]</strong> quedan
+pendientes de verificación fina.</p>
+<h2>Método</h2>
+<p>Tres corridas sucesivas (workflows <code>.pi/workflows/repo-audit{,-2,-3}.js</code>), cada
+una read-only con <code>tools: [read, grep, find, ls]</code> y un juez de síntesis:</p>
+<ul>
+<li><strong>v1</strong> — 7 reviewers por área + salida con schema estricto + juez opus.</li>
+<li><strong>v2</strong> — shards chicos por extensión, sin schema estricto (parse tolerante de
+bloque JSON), tope de verbosidad y roster <strong>cross-provider</strong> (anthropic +
+openai-codex), con doble review en las 3 áreas core.</li>
+<li><strong>v3</strong> — re-corrida dirigida de las áreas que salieron vacías; <code>index.ts</code> se
+parte en shards por función (grep + lecturas dirigidas, nunca el archivo
+entero) y los shards vacíos se reintentan una vez con <code>cache:false</code>.</li>
+</ul>
+<p>Gate determinista en cada corrida: <code>tsc --noEmit</code> limpio, <code>biome check</code> limpio
+(255 archivos), <code>markdownlint</code> 0 errores.</p>
+<h2>Hallazgos de alto impacto (HIGH)</h2>
+<ol>
+<li><p><strong>Los 25 scaffolds no se empaquetan</strong> — <code>package.json:17</code>. <strong>[verificado]</strong>
+<code>files: [&quot;extensions/*/*.ts&quot;, …]</code>: el glob <code>*/*.ts</code> matchea un solo nivel y
+solo <code>.ts</code>, así que excluye <code>extensions/pi-dynamic-workflows/scaffolds/*.js</code>
+(dos niveles, <code>.js</code>). <code>pattern-scaffolds.ts</code> los lee de disco en runtime
+(<code>readdirSync</code>) y <strong>lanza</strong> si faltan (<code>throw</code> en la resolución del patrón);
+su propio comentario afirma que <code>files[]</code> los envía. Un paquete publicado a
+npm rompería en cualquier pedido de scaffold. Impacto real solo si se
+distribuye vía npm; nulo si se usa <code>pi install ./</code> desde el repo.
+Fix: agregar <code>extensions/pi-dynamic-workflows/scaffolds/</code> (o <code>**/scaffolds/*.js</code>)
+a <code>files</code>.</p>
+</li>
+<li><p><strong><code>web_search</code> cargado desde un <code>cwd</code> no confiable</strong> —
+<code>agent-env-persona.ts:294-327</code>. Resuelve la extensión por defecto en
+<code>path.join(ctx.cwd, &quot;node_modules&quot;, …)</code> y la agrega a los subagentes <strong>sin</strong>
+<code>ctx.isProjectTrusted()</code> (a diferencia de las personas). Un <code>cwd</code> malicioso
+puede colocar <code>node_modules/pi-codex-web-search</code> y lograr ejecución de código
+en cada subagente. Fix: gatear la búsqueda en <code>cwd</code> tras <code>isProjectTrusted()</code>.</p>
+</li>
+<li><p><strong>pi-goal: entradas muertas y sesión muerta</strong> — <code>pi-goal/index.ts</code>.</p>
+<ul>
+<li><code>stopGoal</code> (437-456) nunca hace <code>activeGoals.delete(goalId)</code>; pi-loop sí
+(<code>stopLoop</code>, línea 795). Los goals terminales se acumulan y cada
+<code>agent_end</code>/scan recorre entradas muertas. <strong>[verificado]</strong></li>
+<li><code>session_shutdown</code> (839-860) aborta el controller pero no cambia el
+<code>gstatus</code> de goals <code>verifying-independent</code>; la continuación post-await
+llama <code>advanceGoal</code>/<code>wake</code> → <code>sendUserMessage</code> sobre una sesión ya muerta.</li>
+</ul>
+</li>
+<li><p><strong>pi-loop: bypass del gate de acciones irreversibles</strong> —
+<code>pi-loop/index.ts</code> (<code>stopLoop</code>, <code>inFlightOwnerAlive</code>, <code>agent_end</code>).
+<strong>[plausible]</strong> <code>stopLoop</code> borra el loop de <code>activeLoops</code> pero no limpia el
+flag module-level <code>autopilotTurnInFlight</code>; en la ventana entre idle y
+<code>agent_end</code>, un <code>fireWake</code> de otro loop puede colar un turno con el gate de
+confirmación bypasseado.</p>
+</li>
+<li><p><strong>Gate de plan-mode incompleto</strong> — <code>pi-plan/gate.ts:64</code>. <strong>[verificado
+parcial]</strong> La regex de mutación git cubre <code>commit|add|push|reset|…</code> pero
+<strong>no</strong> <code>pull</code>, <code>clone</code>, <code>fetch</code> → pasan como permitidos en modo plan (rompe
+la garantía read-only; <code>git pull</code> muta el working tree). Igual patrón con
+package managers (<code>npm uninstall|update</code>, <code>pnpm remove</code>, <code>yarn upgrade</code>).
+Nota: <code>git worktree add</code> <strong>sí</strong> queda atrapado por la palabra <code>add</code> (el
+subagente se equivocó al listarlo). Fix: default-deny de subcomandos git/PM
+salvo allowlist read-only.</p>
+</li>
+<li><p><strong><code>agents()</code> no puentea <code>signal</code></strong> — <code>worker-source.ts:237</code>. <code>race()</code> promete
+cancelar a todos los perdedores, pero solo <code>agent()</code>/<code>ask()</code> bridgean
+abort-call; además <code>agents(items, { signal })</code> reenvía el <code>AbortSignal</code>
+verbatim → <code>DataCloneError</code> al serializar en <code>postMessage</code>. Fix: wrapper de
+<code>agents</code> que borre <code>signal</code> y postee abort-call.</p>
+</li>
+<li><p><strong>Teardown de cancelación en el core</strong> — <code>index.ts:~533-551</code>. <strong>[plausible]</strong>
+<code>cleanup()</code> dispone los <code>callControllers</code> (y sus combined-signals) durante el
+mismo dispatch de <code>abort</code>; los listeners aún no invocados se remueven antes de
+dispararse, así que los hijos de subagente no se matan al cancelar y el
+teardown bloquea hasta <code>agentTimeoutMs</code>.</p>
+</li>
+<li><p><strong>Gate de plan-mode process-global</strong> — <code>pi-plan/index.ts</code>. El estado del gate
+no está scopeado por sesión (<code>activePlans</code> module-level; <code>session_start</code> hace
+<code>clear()</code>), así que una sesión puede bloquear o limpiar el gate de otra.</p>
+</li>
+</ol>
+<h2>core-dispatch (parte B) — dispatcher, journal, resume (corrida 4, opus)</h2>
+<ul>
+<li><strong>Secretos en disco vía <code>ask()</code></strong> — <code>index.ts:1418-1437</code>. <strong>[verificado]</strong> <code>runAsk</code>
+escribe la respuesta humana verbatim en <code>events.jsonl</code> y <code>journal.jsonl</code> sin
+redacción, y la replay-ea en resume (<code>index.ts:1367</code>). Si <code>ask()</code> se usa para
+recoger un secreto/API key, queda persistido en texto plano. Fix: opción de
+redacción para <code>ask()</code> sensible, o no journalizar la respuesta.</li>
+<li><strong>Colisión de cache key por env</strong> — <code>agent-env-persona.ts:170-174</code>.
+<strong>[verificado]</strong> <code>sanitizeEnvForCache</code> mapea TODO valor a <code>&quot;[set]&quot;</code>, así que dos
+valores distintos de la misma env var producen la misma cache key: en resume se
+replay-ea el resultado journalizado stale en vez de re-ejecutar. Fix: incluir un
+hash del valor (no el valor) en la key.</li>
+<li><strong>Agujero de journal se re-ejecuta en silencio</strong> — <code>journal.ts:99-108</code>. Una
+línea no-final malformada se saltea con solo un <code>console.warn</code>; ese slot
+<code>(key,occ)</code> queda hueco y en resume la llamada cacheada RE-CORRE (re-gasta
+tokens / repite side effects) sin aparecer en el status. <strong>[low]</strong></li>
+<li><strong><code>bash()</code> en rama perdedora de <code>race()</code> no se cancela</strong> — <code>index.ts:593,1279</code>.
+El dispatcher instala <code>callSignal</code> solo para <code>agent</code>/<code>ask</code>; <code>bash</code> cae al else
+y usa <code>runSignal.signal</code>, así que un <code>bash()</code> de un perdedor corre hasta el
+final y journaliza — inconsistente con <code>agent</code>/<code>ask</code>. <strong>[low]</strong> (mismo patrón
+que el HIGH 6 de <code>agents()</code>).</li>
+<li><strong>Error de live-write descartado en path de throw</strong> — <code>index.ts:1032-1037</code>.
+<code>liveWriteError</code> solo se reporta al llegar a <code>await liveWriteTail</code>; si
+<code>runStreamingAgentProcess</code> lanza antes (timeout/abort), el error de escritura
+del log en vivo se pierde. <strong>[low]</strong></li>
+</ul>
+<h2>devtools-a y docs-consistency (auditado inline — sin hallazgos)</h2>
+<p>Tras salir vacías repetidamente en los workflows, se auditaron a mano:</p>
+<ul>
+<li><strong>pi-bg / pi-typescript-lsp</strong>: sin defectos evidentes. <code>process-liveness.ts</code>
+maneja con cuidado el reuso de PID (usa <code>process.kill(pid,0)</code> solo para
+etiquetar, captura un start-id para distinguir pids reusados); <code>tsc</code> se
+spawnea con argv (nunca shell); el único <code>shell:true</code> es en <code>/bg</code> para el
+comando del propio usuario (by design); el único <code>ctx.ui.notify</code> está guardado
+por <code>if (ctx.hasUI)</code> (<code>pi-bg/index.ts:262</code>).</li>
+<li><strong>README vs código</strong>: sin drift en el spot-check — env vars coinciden con
+<code>.env.example</code> (<code>MAX_DEPTH=2</code>, <code>PERCENT=30</code>, <code>SNAPSHOT_KEEP=20</code>,
+<code>TS_LSP_MAX=20</code>) y los 13 comandos slash documentados coinciden con las
+extensiones registradas.</li>
+</ul>
+<h2>Medium / Low destacados (verificados en corrida 1)</h2>
+<ul>
+<li><strong>pi-pandi</strong>: ~13 llamadas <code>ctx.ui.*</code> sin guard <code>ctx.hasUI</code>
+(<code>pi-pandi/index.ts:143-236</code>) → posible crash en <code>--print</code>/headless; todas las
+extensiones hermanas sí lo checkean.</li>
+<li><strong>pi-local-memory</strong>: atributo XML <code>path=&quot;${shownPath}&quot;</code> sin escapar
+(<code>index.ts:157</code>); path con <code>/</code> hardcodeado en vez de <code>path.join</code>
+(<code>memory.ts:165</code>, Windows).</li>
+<li><strong>pi-rename</strong>: <code>latestEditor</code> module-level puede repintar el editor de otra
+sesión (<code>index.ts:38,68</code>); <code>slice(-MAX)</code> conserva la cola pero el slug toma la
+primera línea (<code>spawn-summary.ts:66</code>); <code>borderColor</code> lookup siempre <code>undefined</code>
+(<code>index.ts:100</code>, dead code).</li>
+<li><strong>pi-auto-compact</strong>: <code>PI_AUTO_COMPACT_CLEAR_MIN_CHARS=0</code> se rechaza en
+silencio (<code>index.ts:154-155</code>).</li>
+<li><strong>pi-mdview</strong>: footer <code>1-0/0</code> para documento vacío (<code>index.ts:120</code>).</li>
+<li><strong>Otros</strong> (corrida 2, deduplicados por el juez): <code>runProcess</code> reporta
+<code>ok:true</code> tras timeout; <code>mapLimit</code> no corta otros workers al primer throw;
+callbacks de streaming fire-and-forget; spawn-antes-de-abort en worktree y
+container (severidad baja: SIGTERM en el mismo tick); &quot;open hint&quot; de worktree
+con path crudo (LOW, es un string mostrado, no ejecutado); varios casts sin
+validar sobre <code>event.input</code> en el gate.</li>
+</ul>
+<h2>Cobertura y límites</h2>
+<table>
+<thead>
+<tr>
+<th>Área</th>
+<th>Estado</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>context-effort (pi-effort, pi-btw, pi-auto-compact, pi-local-memory)</td>
+<td>cubierto</td>
+</tr>
+<tr>
+<td>ux-aliases (pi-rename, pi-pandi, pi-mdview)</td>
+<td>cubierto</td>
+</tr>
+<tr>
+<td>core-primitives, core-env-resume</td>
+<td>cubierto (doble modelo)</td>
+</tr>
+<tr>
+<td>pi-plan, pi-goal, devtools-b (worktree, container)</td>
+<td>cubierto</td>
+</tr>
+<tr>
+<td>config-manifest</td>
+<td>cubierto</td>
+</tr>
+<tr>
+<td>core-dispatch (parte A: signal/dispatcher/wrap/workflow)</td>
+<td>cubierto</td>
+</tr>
+<tr>
+<td>core-dispatch (parte B: journal/runSubagent/runBash/makeApi/handleTool)</td>
+<td>cubierto (corrida 4, opus)</td>
+</tr>
+<tr>
+<td>devtools-a (pi-typescript-lsp, pi-bg)</td>
+<td>cubierto (auditoría inline)</td>
+</tr>
+<tr>
+<td>docs-consistency (README vs código)</td>
+<td>cubierto (auditoría inline)</td>
+</tr>
+</tbody></table>
+<p>Cobertura completa. Las áreas que volvían vacías en los workflows se cerraron
+con opus (core-dispatch-b) o con auditoría manual (devtools-a, docs-consistency),
+sin hallazgos nuevos en estas dos últimas.</p>
+<h2>Lecciones de fiabilidad de los workflows</h2>
+<ul>
+<li><strong>Truncamiento de salida (v1).</strong> Reviewers pesados con schema estricto
+generan hallazgos muy verbosos cuyo JSON excede el presupuesto de tokens y se
+corta a mitad → parse falla → rama descartada. Mitigación: shards chicos, tope
+de verbosidad (<code>issue</code>/<code>evidence</code> cortos, máx. ~8 hallazgos), parse tolerante.</li>
+<li><strong><code>empty JSON event stream</code> (v2/v3/v4).</strong> En modo-JSON sobre tareas con mucho
+tool-use, tanto los subagentes <strong>codex</strong> (<code>gpt-5.5</code>/<code>gpt-5.4</code>) como
+<strong><code>claude-sonnet-4-6</code></strong> devuelven un mensaje final vacío de forma persistente
+(ni el retry con <code>cache:false</code> lo arregla); <strong><code>claude-opus-4-8</code> fue el único
+fiable</strong>. Recomendación: usar opus para shards de salida estructurada tool-heavy,
+o auditar inline las áreas chicas que insistan en salir vacías.</li>
+<li><strong><code>maxAgents</code> debe contemplar los reintentos.</strong> v3 lanza <code>N</code> shards + hasta
+<code>N</code> reintentos + 1 síntesis; con <code>maxAgents</code> justo, el retry consume el
+presupuesto y la síntesis se bloquea (la corrida &quot;falla&quot; aunque el fan-out ya
+haya escrito los findings). Lanzar con <code>maxAgents ≥ 2·shards + 1</code>.</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Setup — requirements, optional capabilities, configuration, distribution</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs</div>
+		<h1>Setup — requirements, optional capabilities, configuration, distribution</h1>
+	</header>
+	<main>
+<p>Full setup reference for the <code>pi-dynamic-workflows</code> suite. The root <a href="index.html"><code>README.md</code></a> has the condensed quickstart.</p>
+<h2>Requirements</h2>
+<h3>Mandatory</h3>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Purpose</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Node.js ≥ 22.19.0</strong></td>
+<td>Runtime (required by <code>@earendil-works/pi-coding-agent</code>; the repo pins <code>22</code> in <code>.nvmrc</code>).</td>
+<td><code>nvm install 22 &amp;&amp; nvm use 22</code> — or <code>brew install node</code></td>
+</tr>
+<tr>
+<td><strong>Pi CLI</strong> (<code>@earendil-works/pi-coding-agent</code>)</td>
+<td>Host that loads extensions, TUI/RPC, <code>pi install</code>, and the subagent spawner.</td>
+<td><code>npm install -g --ignore-scripts @earendil-works/pi-coding-agent</code> (verify with <code>pi --version</code>)</td>
+</tr>
+<tr>
+<td><strong>npm</strong></td>
+<td>Installs the dev toolchain and runs <code>npm test</code>. Ships with Node.</td>
+<td>(included with Node)</td>
+</tr>
+<tr>
+<td><strong>git</strong></td>
+<td>Used by <code>pi-worktree</code> and workflow scouts.</td>
+<td><code>xcode-select --install</code> or <code>brew install git</code></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>Node 22 is the floor. The optional Gondolin extension needs Node ≥ 23.6.0.</p>
+</blockquote>
+<h3>Optional (each unlocks one capability; without it, that capability is simply absent)</h3>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Requirement</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Web search for subagents (<code>web_search</code>)</td>
+<td><code>pi-codex-web-search</code> extension + <code>codex</code> CLI</td>
+<td><code>pi install npm:pi-codex-web-search</code> and <code>brew install codex</code> (or <code>npm install -g @openai/codex</code>)</td>
+</tr>
+<tr>
+<td>On-demand library docs (Context7)</td>
+<td><code>context7-cli</code> skill (optional) + <code>ctx7</code> CLI</td>
+<td>Configure Context7 with <code>npx ctx7 setup --cli</code> (&quot;CLI + Skills&quot; mode; successor of the deprecated <code>ctx7 skills install</code>). The <code>ctx7</code> CLI is a devDependency: run it with <code>npx ctx7</code> after <code>npm install</code> (or globally: <code>npm i -g ctx7@latest</code>)</td>
+</tr>
+<tr>
+<td>PNG graphs for <code>/workflow graph</code></td>
+<td><code>@mermaid-js/mermaid-cli</code> (<code>mmdc</code>) + Puppeteer&#39;s Chrome</td>
+<td>Installs automatically with <code>npm install</code>; if rendering fails: <code>npx puppeteer browsers install chrome-headless-shell</code></td>
+</tr>
+<tr>
+<td>Linux sandboxes (<code>pi-container</code>)</td>
+<td>Apple <code>container</code> (macOS Apple Silicon)</td>
+<td><code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code></td>
+</tr>
+<tr>
+<td>Micro-VM isolation (Gondolin)</td>
+<td><code>@earendil-works/gondolin</code> (darwin-arm64 / linux-x64, Node ≥ 23.6.0)</td>
+<td><code>npm run setup:gondolin</code>, then <code>pi -e .pi/tools/gondolin</code></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>The whole dev toolchain (<code>biome</code>, <code>tsc</code>, <code>esbuild</code>, <code>markdownlint-cli2</code>, <code>prettier</code>, <code>ctx7</code>) consists of <strong>devDependencies</strong>; <code>@mermaid-js/mermaid-cli</code> is an <strong>optionalDependency</strong> (it has an ASCII fallback, so a failed Chromium download does not break the install). Everything installs with <code>npm install</code> (optional ones unless <code>--omit=optional</code>) and runs via <code>npm run …</code>/<code>npx</code>, with no global installation. The only global install is the <strong>Pi CLI</strong>. Verify your environment with <code>npm run doctor</code>.</p>
+</blockquote>
+<h2>Installation variants</h2>
+<p>From this repo, globally for your user:</p>
+<pre><code class="language-bash">pi install ./
+</code></pre>
+<p>Local to the current project:</p>
+<pre><code class="language-bash">pi install -l ./
+</code></pre>
+<p>Try without installing:</p>
+<pre><code class="language-bash">pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts
+# or load the whole package:
+pi --no-extensions -e .
+</code></pre>
+<p>To use project workflows in <code>.pi/workflows/</code>, trust the project with <code>/trust</code> and restart or run <code>/reload</code>.</p>
+<h3>External skill: karpathy-guidelines</h3>
+<p>The <code>karpathy-guidelines</code> skill is <strong>not vendored</strong> in the repo; <code>AGENTS.md</code> expects it installed. Fetch it from upstream into your global skills (Pi reads <code>~/.agents/skills</code>, Claude Code <code>~/.claude/skills</code>):</p>
+<pre><code class="language-bash">for d in ~/.agents/skills ~/.claude/skills; do
+  mkdir -p &quot;$d/karpathy-guidelines&quot;
+  curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
+    -o &quot;$d/karpathy-guidelines/SKILL.md&quot;
+done
+</code></pre>
+<h3>Vendored skills</h3>
+<p>The <code>pi-dynamic-workflows</code> package <strong>vendors its own skills</strong> (<code>ultracode</code>, <code>deep-research</code>, <code>default</code>) in <code>extensions/pi-dynamic-workflows/skills/</code>, so they travel when installing only that extension. They are a generated mirror of the canonical <code>.pi/skills/</code> source (regenerate with <code>npm run sync:skills:vendor</code>; the parity test and <code>npm run doctor</code> flag drift). In-repo they are not duplicated: that extension&#39;s entry in <code>.pi/settings.json</code> filters <code>skills: []</code> because the repo already loads them via <code>.pi/skills/</code> auto-discovery.</p>
+<h2>Optional capabilities in detail</h2>
+<ul>
+<li><strong>Web search (<code>web_search</code>) for subagents</strong> — install <code>pi install npm:pi-codex-web-search</code> (separate package, repo <code>github.com/ayagmar/pi-codex-web-search</code>) and the <code>codex</code> CLI (<code>brew install codex</code> or <code>npm install -g @openai/codex</code>). When the runtime finds the extension (in <code>~/.pi/agent/npm/node_modules/</code> or <code>./node_modules/</code>), it adds <code>web_search</code> to every subagent&#39;s tool list automatically. If <code>codex</code> is not on the PATH, point at it with <code>CODEX_PATH</code>. Per-subagent opt-out: <code>excludeTools: [&quot;web_search&quot;]</code> or <code>includeExtensions: false</code>.</li>
+<li><strong>Context7 (library docs)</strong> — the <code>context7-cli</code> skill is <strong>not</strong> vendored in the repo. Configure it with <code>npx ctx7 setup --cli</code> (&quot;CLI + Skills&quot; mode; successor of the deprecated <code>ctx7 skills install</code>, which stops working in the next major). Pi auto-discovers the skill from the global scope (<code>~/.agents/skills/</code> or <code>~/.pi/agent/skills/</code>) in any project and adds it to subagents. The <code>ctx7</code> CLI ships as a <strong>devDependency</strong>: run it with <code>npx ctx7</code> after <code>npm install</code> (or globally with <code>npm i -g ctx7@latest</code>). Per-subagent opt-out: <code>includeSkills: false</code>.</li>
+<li><strong><code>/workflow graph</code> visuals</strong> — <code>mmdc</code> installs automatically with <code>npm install</code> (optionalDependency <code>@mermaid-js/mermaid-cli</code>). Inline PNG needs a terminal with an image protocol (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi disables it under tmux). If <code>mmdc</code> fails on Chrome/Puppeteer: <code>npx puppeteer browsers install chrome-headless-shell</code>. Without <code>mmdc</code>: ASCII topology fallback + Mermaid export.</li>
+<li><strong>Linux sandboxes (<code>pi-container</code>)</strong> — macOS Apple Silicon only: <code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code>. On unsupported hosts the extension returns a bounded message, it does not crash.</li>
+<li><strong>Gondolin isolation (micro-VM)</strong> — <code>npm run setup:gondolin</code> copies the example shipped with Pi into <code>.pi/tools/gondolin/</code> (gitignored, not auto-discovered) and installs its deps with <code>--ignore-scripts</code>; load it on demand with <code>pi -e .pi/tools/gondolin</code>. Requires darwin-arm64/linux-x64 and Node ≥ 23.6.0. It does not isolate dynamic-workflows subagent spawns (see <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</li>
+</ul>
+<h2>Configuration (environment variables)</h2>
+<p>All extensions ship sensible defaults; nothing needs configuring to start. To tune behavior, export environment variables — the full list with defaults lives in <strong><code>.env.example</code></strong>. The most used:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Extension</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code></td>
+<td>core</td>
+<td><code>2</code></td>
+<td>Max workflow nesting depth; <code>0</code> = full kill-switch.</td>
+</tr>
+<tr>
+<td><code>PI_DYNAMIC_WORKFLOWS_PI_COMMAND</code></td>
+<td>core, goal</td>
+<td><code>pi</code></td>
+<td>Pi binary used to spawn subagents.</td>
+</tr>
+<tr>
+<td><code>PI_AUTO_COMPACT_PERCENT</code></td>
+<td>auto-compact</td>
+<td><code>35</code></td>
+<td>Context % that triggers compaction.</td>
+</tr>
+<tr>
+<td><code>PI_TS_LSP</code> / <code>PI_TS_LSP_MODE</code></td>
+<td>typescript-lsp</td>
+<td><code>on</code> / <code>advisory</code></td>
+<td>Enables tsc feedback and its mode (<code>advisory</code>/<code>autofix</code>).</td>
+</tr>
+<tr>
+<td><code>PI_PLAN_NONINTERACTIVE</code></td>
+<td>plan</td>
+<td>(off)</td>
+<td>Allows plan mode in print/json (subagents).</td>
+</tr>
+<tr>
+<td><code>CODEX_PATH</code></td>
+<td>web-search</td>
+<td>(PATH)</td>
+<td>Path to the <code>codex</code> binary when not on the PATH.</td>
+</tr>
+</tbody></table>
+<p><code>.env</code> is gitignored; <code>.env.example</code> is committed. This repo does not load <code>.env</code> automatically: export the variables in your shell or use <code>direnv</code>/<code>dotenvx</code>.</p>
+<h2>Distribution: channels and the single-identity rule</h2>
+<p>The suite is distributed through three channels; <strong>pick one per machine/scope</strong> — Pi dedupes packages by identity (npm name / git URL / resolved local path), so two different channels living together load every resource twice (<code>npm run doctor</code> detects and warns):</p>
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>How</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Pinned git bundle</strong></td>
+<td><code>pi install git:github.com/andrestobelem/pi-dynamic-workflows@v0.2.0</code></td>
+<td>Consumers: the whole suite, stable version.</td>
+</tr>
+<tr>
+<td><strong>Working tree (local paths)</strong></td>
+<td>clone + <code>pi install ./</code> (or the per-extension paths)</td>
+<td>Development/dogfooding: changes apply with <code>/reload</code>.</td>
+</tr>
+<tr>
+<td><strong>npm scoped <code>@pandi-coding-agent/*</code></strong></td>
+<td><code>pi install npm:@pandi-coding-agent/&lt;ext&gt;</code></td>
+<td>À la carte per extension — all 20 packages published on npmjs (versioned independently per semver; e.g. <code>dynamic-workflows</code>/<code>doctor</code> at 0.2.0, the rest at 0.1.x). With <code>min-release-age</code> set, freshly published versions only become installable after that window.</td>
+</tr>
+</tbody></table>
+<p>Every <code>extensions/pi-&lt;ext&gt;/package.json</code> already carries its public identity <code>@pandi-coding-agent/&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/&lt;ext&gt;</code> to test the tarball). The root <code>pi</code> manifest is <strong>generated</strong> from the sub-packages (<code>npm run sync:manifest</code>); a parity test fails on drift. Horizon: <strong>Pandi</strong> as a distro on top of Pi (extensions + theme + persona), not a CLI fork.</p>
+<h2>Repository layout (extensions)</h2>
+<p>Each extension lives as a mini npm package under <code>extensions/&lt;name&gt;/</code>:</p>
+<pre><code class="language-text">extensions/&lt;name&gt;/
+  index.ts              # Pi entrypoint
+  *.ts                  # runtime helpers for that extension
+  tests/unit/           # fast tests, where applicable
+  tests/integration/    # durable behavior suites
+</code></pre>
+<p><code>package.json</code> publishes only runtime files with <code>files: [&quot;extensions/*/*.ts&quot;, ...]</code>, so tests stay colocated in the repo but out of the npm tarball. <code>pi.extensions</code> explicitly lists the entrypoints loaded by default; optional extensions can follow the same convention and be loaded from settings.</p>
+<p><code>extensions/pi-local-memory/</code> loads the <code>.pi/memory/</code> folder when present (injects the <code>MEMORY.md</code> index capped at 200 lines/25 KB and lists topic files for on-demand reading; falls back to the older <code>.pi/MEMORY.md</code>). The extension ships with the package; memory content stays private and gitignored.</p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

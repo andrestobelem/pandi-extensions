@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memoria de trabajo</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs</div>
+		<h1>Memoria de trabajo</h1>
+	</header>
+	<main>
+<p>Fecha inicial: 2026-06-25</p>
+<h2>Cómo trabajamos</h2>
+<ul>
+<li>Hablamos en español, de forma directa y práctica.</li>
+<li>Antes de tocar archivos, inspeccionamos el estado del repo y leemos lo relevante.</li>
+<li>Para tareas no triviales usamos workflows dinámicos: subagentes paralelos o secuenciales, límites explícitos de recursos, y artefactos persistidos como evidencia.</li>
+<li>Todo lo importante se documenta en <code>docs/</code>: decisiones, workflows, runs, conversaciones y próximos pasos.</li>
+<li>Preferimos cambios pequeños, verificables y con rutas de archivo claras.</li>
+<li>Validamos lo que se pueda con comandos concretos (<code>node --check</code>, tests, lint, typecheck, etc.).</li>
+<li>Si algo queda colgado o <code>stale</code>, lo registramos y proponemos una versión más liviana o un plan de corrección.</li>
+<li>Distinguimos hechos, riesgos y suposiciones; no inventamos estado que no esté verificado.</li>
+<li>Dejamos próximos pasos accionables al cierre de cada bloque de trabajo.</li>
+</ul>
+<h2>Convenciones del proyecto</h2>
+<ul>
+<li><code>docs/README.md</code>: índice general.</li>
+<li><code>docs/workflows/</code>: documentación de workflows y ejecuciones.</li>
+<li><code>docs/conversaciones/</code>: resumen de conversaciones y decisiones.</li>
+<li><code>.pi/workflows/</code>: workflows locales/proyecto para automatizar revisiones o investigación.</li>
+</ul>
+<h2>Preferencias actuales</h2>
+<ul>
+<li>Guardar en <code>docs/</code> todo lo realizado y las conversaciones relevantes.</li>
+<li>Mantener registro del estado de los workflows, incluyendo runs fallidos, <code>stale</code> o en background.</li>
+<li>Priorizar continuidad: cada sesión debe poder retomarse leyendo <code>docs/README.md</code> y esta memoria.</li>
+<li>Pi debe funcionar por defecto en modo ultracode always-on: ante cada tarea sustantiva, evaluar si conviene usar workflow dinámico; proceder inline si es simple.</li>
+<li>Los workflows se lanzan siempre en background en sesiones persistentes TUI/RPC (<code>run</code>, <code>start</code>, <code>resume</code>). Foreground queda solo como fallback en print/json donde no hay sesión viva.</li>
+<li>Los workflows en background deben despertar al agente al completar o fallar, enviando un follow-up automático para inspeccionar artifacts y continuar.</li>
+<li>Compaction: se volvió al comportamiento original de Pi. <code>.pi/settings.json</code> no define <code>compaction</code>, por lo que Pi usa sus defaults (<code>reserveTokens: 16384</code>, <code>keepRecentTokens: 20000</code>) salvo configuración global externa.</li>
+<li>Prompts de workflows: usar contratos explícitos basados en patrones agénticos—fan-out independiente, evidencia obligatoria, formato fijo, synthesis-as-judge, crítica adversarial, fallas parciales visibles y seguridad por defecto.</li>
+<li>Workflows dinámicos y task-specific: para cada tarea compleja se escribe un workflow nuevo (usando ejemplos solo como referencia), idealmente bajo <code>generated/&lt;task-slug&gt;</code> como borrador.<ul>
+<li>Hacer scout de la tarea y medir la work-list.</li>
+<li>Elegir concurrencia/fan-out según tamaño, coste, riesgo y profundidad; no hardcodear <code>4</code> salvo como fallback seguro.</li>
+<li>Si al usuario le gustó, ofrecer guardarlo/promoverlo a un nombre estable y reusable.</li>
+</ul>
+</li>
+<li>Karpathy en el proyecto: aprender/construir desde implementaciones pequeñas y legibles; usar IA agresivamente para prototipar, pero en trabajo serio exigir especificación, revisión humana, tests/evals, seguridad y evidencia.</li>
+<li>Commits: mantener atomicidad incluso si el usuario pide &quot;commiteá todo&quot;. Separar cambios heterogéneos por unidad coherente (feat/docs/tests/chore) antes de commitear; nunca mezclar lockfile, docs, e2e, helpers y cambios de extensión en un único commit paraguas salvo instrucción explícita.</li>
+<li>Push: después de reescribir/splitear commits locales, no pushear implícitamente sin confirmación del usuario. Reportar qué quedó local vs remoto.</li>
+<li>Autopiloto/workflows: el workflow de mejora continua puede terminar <code>BLOCKED</code> aun con verde porque deja revisión/commit al humano. Antes de commitear, inspecciona diff y staged set; no asumas que todo el working tree pertenece al run.</li>
+</ul>
+<h2>Registro 2026-06-25</h2>
+<ul>
+<li>Se agregó <code>npm test</code> como typecheck de las extensiones publicadas (<code>dynamic-workflows</code>, <code>loop</code>, <code>goal</code>) y pasó localmente.</li>
+<li>Se smokeó <code>dynamic_workflow</code> creando un workflow generado de prueba; <code>action=run</code> completó con <code>parallel</code> (incluyendo rama fallida → <code>null</code>), <code>pipeline</code>, <code>bash</code> y artifact <code>smoke-result.json</code>.</li>
+<li>Se smokeó <code>action=start</code> en sesión persistente/RPC para el mismo workflow; el run background completó y <code>action=view</code> mostró <code>Background: yes</code>, timeline y artifacts.</li>
+<li>Se actualizó <code>extensions/dynamic-workflows.ts</code> para que en sesiones TUI/RPC los workflows lanzados con <code>run</code>, <code>start</code> o <code>resume</code> vayan siempre en background; <code>run</code> foreground queda solo como fallback print/json.</li>
+<li>Se recuperó <code>.pi/workflows/karpathy-programming-recommendations-research.js</code> desde git y se integró la síntesis en <code>docs/research/2026-06-25-karpathy-programming-recommendations.md</code>.</li>
+</ul>
+<h2>Registro 2026-06-26</h2>
+<ul>
+<li>Se implementó <code>/bg</code> M2a como runner local slash-only: <code>/bg start</code>, <code>/bg cancel</code>, <code>/bg list</code>, <code>/bg status</code>, <code>/bg logs</code>, con start solo en proyectos trusted/TUI-RPC, bloqueo en <code>/plan</code>, artifacts atómicos bajo <code>.pi/bg/runs/&lt;jobId&gt;/</code>, logs bounded y cancelación solo de jobs activos de la sesión.</li>
+<li>Se agregó <code>tests/bg/integration/bg-jobs.test.mjs</code> para start/completion/failure/cancel/stale/mode gates y se incluyó en <code>scripts/test/run-all.mjs</code>.</li>
+<li>La auditoría <code>generated/bg-m2a-final-audit</code> completó con síntesis ruidosa; se tomaron los findings de reviewers como accionables y se corrigieron symlink roots, race fast-exit→running, preservación de whitespace en comandos, cancelación Windows vía <code>taskkill</code>, y determinismo de tests de integración con <code>esbuild</code> devDependency. <code>npm test</code> quedó verde.</li>
+<li>Se mantienen diferidos para planes separados: runner Supacode, tool LLM <code>background_job</code>, daemon/rehydrate automático, prune/delete y dashboard <code>/bg</code>.</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard improvement backlog</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Dashboard improvement backlog</h1>
+	</header>
+	<main>
+<p>Canonical list of pending/closed items for the <code>/workflow</code> TUI dashboard improvement
+loop. Narrative of each pass lives in <code>dashboard-improvement-log.md</code>; this file is the
+single source of truth for what&#39;s still open. Each item: stable id, title, why, real
+paths (verified to exist), and status (<code>open</code> / <code>done</code> / <code>human</code>).</p>
+<h2>Done</h2>
+<ul>
+<li><strong>DW-DASH-001 — Extract shared &quot;Selected agent&quot; detail helper</strong> · <code>done</code><ul>
+<li>Why: the detail block was duplicated near-identically in two render paths, so any
+field-format edit risked silent divergence between Monitor and Agents.</li>
+<li>Paths: <code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code>
+(<code>renderSelectedAgentDetail</code>), <code>extensions/pi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code>.</li>
+</ul>
+</li>
+<li><strong>DW-DASH-002 — Pin switch-session arg quoting/parsing round-trip</strong> · <code>done</code><ul>
+<li>Why: <code>parseWorkflowCommandArgument</code> (the <code>switch-session</code> arg path) had zero
+coverage; a naive quote-strip would break session paths containing spaces/unicode.</li>
+<li>Paths: <code>extensions/pi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code>,
+<code>extensions/pi-dynamic-workflows/dashboard-orchestration.ts</code> (exports the helper).</li>
+</ul>
+</li>
+<li><strong>DW-DASH-003 — Collapse the duplicated per-row agent line formatting</strong> · <code>done</code><ul>
+<li>Why: <code>renderMonitorAgents</code> and <code>renderAgents</code> built the per-row chip suffix
+<code>prompt schema tools skills extensions keys</code> byte-for-byte identically with
+duplicated <code>muted(...)</code>/<code>success(...)</code>/<code>warning(...)</code>/<code>error(...)</code> expressions;
+only the prefix label/elapsed-vs-workflow segment and Monitor&#39;s <code>code:</code> chip
+differed. Extracted a behavior-preserving private helper <code>renderAgentRowMeta(...)</code>
+invoked from both render paths so the common chip string is built in one place.</li>
+<li>Paths: <code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code>
+(<code>renderAgentRowMeta</code>, used in <code>renderMonitorAgents</code> and <code>renderAgents</code>),
+<code>extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code>.</li>
+</ul>
+</li>
+<li><strong>DW-TOOL-001 — Make the workflow HTML previewer compatible with BOTH harnesses</strong> · <code>done</code><ul>
+<li>Why: <code>build-workflow-artifact.mjs</code> (identical in <code>.pi/scripts/</code> and <code>.claude/scripts/</code>)
+only handled Claude-style top-level scripts; ctx-style / export-default / CommonJS
+workflows errored (&quot;Unexpected token &#39;export&#39;&quot; / &quot;module is not defined&quot;) and captured
+0 nodes, so the HTML preview was empty for <code>.pi/workflows/*.js</code>.</li>
+<li>Resolution: the builder now rewrites <code>export default …</code> → <code>globalThis.__default</code>, provides
+a CommonJS <code>module</code> stub, and after the body runs CALLS the captured entry with a recording
+<code>ctx</code> whose methods alias the same stubs (helpers kept inside the <code>ctx</code> object so they never
+collide with scaffolds&#39; own <code>const compact</code>). Verified: <code>continuous-improvement</code> 0→5 nodes,
+<code>loop-engineering-*</code> now run, all Claude scaffolds unchanged (no regression), both copies
+kept byte-identical. The throwaway adapter <code>.pi/tmp/build-ctx-workflow-html.mjs</code> was removed.</li>
+<li>Paths: <code>.pi/scripts/build-workflow-artifact.mjs</code>, <code>.claude/scripts/build-workflow-artifact.mjs</code>.</li>
+</ul>
+</li>
+<li><strong>DW-DASH-H1 — Confirm the new gate baseline (HEAD moved)</strong> · <code>done</code> (resolved)<ul>
+<li>Resolution: the gate baseline is now pinned at <code>HEAD == da0a449</code> with a clean
+working tree and no foreign dirty files. The earlier <code>fad9875</code>/<code>9010157</code> concern no
+longer applies; this item is moot at the current baseline.</li>
+<li>Paths: <code>.git/refs/heads/main</code> (current <code>da0a449</code>).</li>
+</ul>
+</li>
+<li><strong>DW-DASH-H2 — Own/format/keep the collectors contract test</strong> · <code>done</code> (resolved)<ul>
+<li>Resolution: <code>dashboard-collectors-contract.test.mjs</code> is now tracked and committed
+(not untracked), so the provenance concern is gone. It runs green in the
+auto-discovered verify loop and passes <code>biome check</code>; no further human decision is
+needed.</li>
+<li>Paths: <code>extensions/pi-dynamic-workflows/tests/integration/dashboard-collectors-contract.test.mjs</code>.</li>
+</ul>
+</li>
+<li><strong>DW-DASH-H3 — Jump-to-next-active-run shortcut in Runs/Activity</strong> · <code>done</code><ul>
+<li>Why: a keybinding to jump to the next active run speeds monitoring of long lists.</li>
+<li>Resolution: implemented WITHOUT touching the hot <code>index.ts</code>. The dashboard owns all
+in-component navigation in <code>workflow-dashboard.ts handleInput</code> (<code>index.ts</code> only
+registers <code>Ctrl+Alt+W</code> to open it), so the original &quot;likely touches index.ts&quot;
+assumption was wrong. <code>]</code> / <code>[</code> now jump selection to the next/previous <strong>running</strong>
+run on the Runs tab and the next/previous running entry on the Activity tab (wrapping;
+no-op when nothing is running), mirroring the Monitor&#39;s <code>[</code> / <code>]</code> cycling and the
+Agents tab&#39;s <code>f</code>. Anchored by <code>dashboard-jump-active-run.test.mjs</code> (9 checks); help
+overlay + per-tab help bar updated.</li>
+<li>Paths: <code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code>,
+<code>extensions/pi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs</code>.</li>
+</ul>
+</li>
+</ul>
+<h2>Open (in allow-set; safe to pick up next)</h2>
+<p><em>None currently.</em></p>
+<h2>Human (needs a decision; not auto-fixable in allow-set)</h2>
+<p><em>None currently.</em></p>
+<h2>Ideas requiring hot files (propose only — do NOT implement in autopilot)</h2>
+<p><em>None currently.</em></p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

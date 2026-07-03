@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Research: ultracode always-on</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Research: ultracode always-on</h1>
+	</header>
+	<main>
+<p>Date: 2026-06-25</p>
+<h2>Request</h2>
+<p>The user asked Pi to evaluate each task by default and decide whether it should be solved through a dynamic workflow, inspired by Claude Code&#39;s <code>ultracode</code> mode, and to keep it always active.</p>
+<h2>Findings about Claude Code</h2>
+<p>According to public Claude Code and Anthropic documentation:</p>
+<ul>
+<li>Dynamic workflows are JavaScript scripts that Claude writes/runs to orchestrate subagents in parallel.</li>
+<li>They are used for large audits, migrations, deep research, cross-checking, and tasks with independent branches.</li>
+<li>They can be triggered by requesting a workflow or using the word <code>ultracode</code>.</li>
+<li>The <code>/effort ultracode</code> mode makes Claude Code automatically decide whether a substantive task should be turned into dynamic workflows.</li>
+<li><code>ultracode</code> combines high reasoning (<code>xhigh</code>) with automatic workflow orchestration—it is not just a model effort level.</li>
+<li>Workflows can have potentially high cost, so the documentation recommends explicit limits, workflow review, and conscious use.</li>
+</ul>
+<h3>Sources consulted</h3>
+<ul>
+<li>Claude Code Docs — Dynamic workflows: <a href="https://code.claude.com/docs/en/workflows">https://code.claude.com/docs/en/workflows</a></li>
+<li>Claude Code Docs — Model configuration / effort ultracode: <a href="https://code.claude.com/docs/en/model-config">https://code.claude.com/docs/en/model-config</a></li>
+<li>Anthropic Blog — Introducing dynamic workflows in Claude Code: <a href="https://claude.com/blog/introducing-dynamic-workflows-in-claude-code">https://claude.com/blog/introducing-dynamic-workflows-in-claude-code</a></li>
+<li>Claude Code Docs — Subagents: <a href="https://code.claude.com/docs/en/sub-agents">https://code.claude.com/docs/en/sub-agents</a></li>
+<li>Claude Code Settings: <a href="https://docs.anthropic.com/en/docs/claude-code/settings">https://docs.anthropic.com/en/docs/claude-code/settings</a></li>
+</ul>
+<h2>Implementation decision for Pi</h2>
+<p>We implemented an always-on router in the <code>pi-dynamic-workflows</code> extension:</p>
+<ul>
+<li>A short system prompt section is injected in <code>before_agent_start</code>.</li>
+<li>The extension tries to enable the <code>dynamic_workflow</code> tool so the router is available.</li>
+<li>The router asks Pi to silently evaluate each substantive task before deciding on an approach.</li>
+<li>For simple tasks, Pi should proceed normally.</li>
+<li>For potentially broad tasks, Pi should run a cheap inline scout before orchestrating.</li>
+<li>Pi should create/reuse/run workflows only when there is a clear reason: completeness, confidence, or scale, with explicit limits.</li>
+<li>For long-running work, it should prefer background (<code>start</code>) and then inspect with <code>runs/view</code>.</li>
+</ul>
+<h2>Modified files</h2>
+<ul>
+<li><code>extensions/dynamic-workflows.ts</code></li>
+<li><code>README.md</code></li>
+<li><code>.pi/skills/dynamic-workflows/SKILL.md</code></li>
+<li><code>docs/README.md</code></li>
+<li><code>docs/memoria.md</code></li>
+<li><code>docs/conversaciones/2026-06-25-revisar-estado-actual.md</code></li>
+</ul>
+<h2>New commands</h2>
+<pre><code class="language-text">/ultracode-mode status
+/ultracode-mode off
+/ultracode-mode on
+</code></pre>
+<h2>Validations performed</h2>
+<h3>Extension initialization without model prompt</h3>
+<p>We verified that Pi can explicitly initialize the extension without sending a prompt to the model:</p>
+<pre><code class="language-bash">pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__
+</code></pre>
+<p>Result: exit code <code>0</code>.</p>
+<h3>Command registration in print mode</h3>
+<p>We verified that the new command is registered and responds in print mode:</p>
+<pre><code class="language-bash">pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p &quot;/ultracode-mode status&quot;
+</code></pre>
+<p>Result:</p>
+<pre><code class="language-text">Ultracode always-on is enabled.
+</code></pre>
+<h3>Validation limitation</h3>
+<p>The repo does not have TypeScript installed or <code>typecheck</code> scripts; <code>npx tsc</code> was not available.</p>
+<h2>Scope note</h2>
+<p>This implementation replicates the automatic routing behavior. For now, it does not force the thinking level to <code>xhigh</code> to avoid unexpectedly changing cost/model behavior; the main requested criterion was to decide by default whether to use a workflow.</p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

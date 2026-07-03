@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visualization of agentic patterns in Dynamic Workflows</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Visualization of agentic patterns in Dynamic Workflows</h1>
+	</header>
+	<main>
+<p>Date: 2026-06-25</p>
+<h2>Objective</h2>
+<p>Improve <code>/workflow graph</code> so it no longer looks like a linear list of calls and instead shows relevant agentic patterns: fan-out of many subagents per step, pipelines by lanes/stages, parallel barriers, synthesis/judge, and approximate loops. Explicit requirement: if a step launches many agents, that must be visible in the diagram; the inline PNG must appear larger.</p>
+<h2>Sources reviewed</h2>
+<p><strong>Documentation and frameworks:</strong></p>
+<ul>
+<li>Anthropic, <strong>Building effective agents</strong>: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer.</li>
+<li>LangGraph, <strong>Workflows and agents</strong>: Mermaid/graph rendering of workflows, parallelization, routing, orchestrator-worker, evaluator-optimizer.</li>
+<li>Mermaid, <strong>Flowchart syntax</strong>: <code>subgraph</code>, local direction, edges to/from subgraphs, labels and shapes.</li>
+<li>Mermaid CLI (<code>mmdc</code>): flags <code>-w/--width</code>, <code>-H/--height</code>, <code>-s/--scale</code>, <code>-t</code>, <code>-b</code>, JSON config.</li>
+</ul>
+<p><strong>Academic papers:</strong></p>
+<ul>
+<li>ReAct (arXiv:2210.03629)</li>
+<li>Self-Consistency (arXiv:2203.11171)</li>
+<li>Reflexion (arXiv:2303.11366)</li>
+<li>Self-Refine (arXiv:2303.17651)</li>
+<li>Tree of Thoughts (arXiv:2305.10601)</li>
+<li>Multiagent Debate (arXiv:2305.14325)</li>
+</ul>
+<p><strong>Local research:</strong></p>
+<ul>
+<li>Workflow <code>generated/agentic-viz-patterns-research</code></li>
+<li>Run <code>2026-06-25T10-17-20-913Z-generated-agentic-viz-patterns-research-ef06f94c</code></li>
+<li>Artifacts in project <code>.pi/workflow-runs/...</code> directory</li>
+</ul>
+<h2>Recommended visual grammar</h2>
+<ul>
+<li><strong>◆ fan-out:</strong> <code>ctx.agents(...)</code>; show <code>P1 ×items.length agents</code>, <code>concurrency</code>, <code>settle:true</code>, fork, visible workers, and join.</li>
+<li><strong>▣ pipeline:</strong> <code>ctx.pipeline(items, ...stages)</code>; show <code>×items.length lanes</code> and number of stages.</li>
+<li><strong>⧉ barrier:</strong> <code>ctx.parallel([...])</code>; show concurrent branches and join/barrier.</li>
+<li><strong>● agent:</strong> an individual Pi subagent.</li>
+<li><strong>◇ workflow:</strong> delegated sub-workflow.</li>
+<li><strong>▤ artifact:</strong> evidence persisted outside the chat.</li>
+<li><strong>$ bash:</strong> host command.</li>
+<li><strong>Feedback loops:</strong> ReAct/Reflexion/Self-Refine patterns; marked as loops with a stop condition when <code>for</code>/<code>while</code> are detected.</li>
+</ul>
+<h2>Decisions implemented</h2>
+<ol>
+<li><p><strong>Enriched graph model</strong></p>
+<ul>
+<li><code>WorkflowGraphStep</code> can now carry <code>fanout</code> and <code>children</code>.</li>
+<li>Conservative static cardinality is inferred: <code>angles.map(...)</code> → <code>angles.length</code>; literal arrays → number; unknown → <code>dynamic</code>.</li>
+<li><code>concurrency</code>, <code>settle:true</code>, and number of stages are extracted when they appear in arguments.</li>
+</ul>
+</li>
+<li><p><strong>Grouping nested calls</strong></p>
+<ul>
+<li><code>ctx.agent</code>/helper calls inside <code>ctx.pipeline</code>, <code>ctx.parallel</code>, or <code>ctx.agents</code> are shown as children of the orchestration step, not as independent serial steps.</li>
+</ul>
+</li>
+<li><p><strong>Mermaid with subgraphs</strong></p>
+<ul>
+<li>Fan-outs/pipelines/barriers are rendered as <code>subgraph</code> with <code>direction LR</code>.</li>
+<li>For many agents, representative workers are drawn: <code>agent 1</code>, <code>agent 2</code>, <code>…</code>, <code>agent n</code>, or <code>agent N</code>.</li>
+<li>External connections point to the subgraph, not to internal nodes, so Mermaid&#39;s local direction is not broken.</li>
+</ul>
+</li>
+<li><p><strong>Larger PNG</strong></p>
+<ul>
+<li>Dynamic render: <code>width 2200..3600</code>, <code>height 1300..2800</code>, <code>scale=2</code>.</li>
+<li>Larger inline TUI: up to <code>320</code> columns and <code>54..88</code> rows depending on complexity.</li>
+<li>The UI shows generated dimensions (<code>WIDTH×HEIGHT @2x</code>) next to the PNG/MMD path.</li>
+</ul>
+</li>
+<li><p><strong>Documentation</strong></p>
+<ul>
+<li>README and skill document that <code>/workflow graph</code> now shows fan-out <code>×N</code>, lanes/branches, and a large inline PNG.</li>
+</ul>
+</li>
+</ol>
+<h2>Accepted limitations</h2>
+<ul>
+<li>The graph is still a static view: it does not execute JS or know the real value of <code>files.length</code> before the run.</li>
+<li>Real post-run counts exist in <code>phaseTotal</code>/<code>phaseIndex</code>/<code>phaseLabel</code> for <code>ctx.agents(...)</code>; a future run-aware improvement can combine the static graph with run events.</li>
+<li>Regex-based inference is still heuristic; an AST would be more robust, but this improvement avoids the most visible false serializations while keeping cost/dependencies low.</li>
+<li>Huge fan-outs are collapsed with ellipses for readability; the PNG shows that there are many agents without trying to draw hundreds by default.</li>
+</ul>
+<h2>Validation</h2>
+<p>Test the implementation:</p>
+<pre><code class="language-bash">npm test
+PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p &quot;/workflow graph generated/agentic-viz-patterns-research&quot;
+./node_modules/.bin/mmdc -q -i /tmp/subgraph-id-edge.mmd -o /tmp/subgraph-id-edge.png -e png -t dark -b transparent -w 2600 -H 1800 -s 2
+</code></pre>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

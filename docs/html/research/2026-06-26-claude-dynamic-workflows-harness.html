@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Dynamic Workflows: _A harness for every task_</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Claude Dynamic Workflows: _A harness for every task_</h1>
+	</header>
+	<main>
+<h2>Fuentes revisadas</h2>
+<ul>
+<li>Anthropic blog: <a href="https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code"><em>A harness for every task: dynamic workflows in Claude Code</em></a>, Thariq Shihipar y Sid Bidasaria, 2026-06-02.</li>
+<li>Anthropic blog: <a href="https://claude.com/blog/introducing-dynamic-workflows-in-claude-code"><em>Introducing dynamic workflows in Claude Code</em></a>, 2026-05-28.</li>
+<li>Claude Code docs: <a href="https://code.claude.com/docs/en/workflows">Orchestrate subagents at scale with dynamic workflows</a>.</li>
+<li>Claude Code docs: <a href="https://code.claude.com/docs/en/model-config">Model configuration</a> para <code>ultracode</code>.</li>
+<li>Claude Code docs: <a href="https://code.claude.com/docs/en/settings">Settings</a> para deshabilitar workflows.</li>
+<li>Claude Code docs: <a href="https://code.claude.com/docs/en/glossary">Glossary</a> para la definición de agentic harness.</li>
+<li>Claude Code changelog: v2.1.154 introduce dynamic workflows.</li>
+<li>InfoQ: cobertura independiente del lanzamiento de Dynamic Workflows.</li>
+</ul>
+<h2>Tesis del post</h2>
+<p>El punto central de <em>A harness for every task</em> es que, para tareas grandes o inciertas, el agente no debería intentar coordinar todo dentro de una sola conversación. En su lugar, Claude Code genera un <strong>harness</strong> específico para la tarea: un script JavaScript que codifica la orquestación, lanza subagentes, guarda estado intermedio fuera del contexto principal y devuelve una síntesis final.</p>
+<p>La idea no es solamente &quot;más subagentes&quot;. Es mover la estrategia de ejecución a código inspeccionable para que el sistema pueda:</p>
+<ul>
+<li>paralelizar trabajo independiente;</li>
+<li>preservar resultados intermedios sin llenar el contexto principal;</li>
+<li>aplicar patrones de calidad repetibles;</li>
+<li>reanudar o gestionar runs desde una vista de workflows;</li>
+<li>verificar hallazgos antes de reportarlos.</li>
+</ul>
+<h2>Qué es un Dynamic Workflow en Claude Code</h2>
+<p>Según la documentación oficial, un workflow dinámico es un script JavaScript que Claude escribe para la tarea descrita por el usuario y que un runtime ejecuta en background. El script actúa como coordinador: mantiene loops, branching, variables intermedias y reglas de reducción, mientras los subagentes hacen el trabajo concreto.</p>
+<p>Diferencia principal frente a otras capacidades:</p>
+<table>
+<thead>
+<tr>
+<th>Mecanismo</th>
+<th>Quién sostiene el plan</th>
+<th>Dónde quedan resultados intermedios</th>
+<th>Escala típica</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Subagents</td>
+<td>Claude, turno por turno</td>
+<td>Contexto de Claude</td>
+<td>Pocas delegaciones por turno</td>
+</tr>
+<tr>
+<td>Skills</td>
+<td>Instrucciones que Claude sigue</td>
+<td>Contexto de Claude</td>
+<td>Similar a subagents</td>
+</tr>
+<tr>
+<td>Agent teams</td>
+<td>Un agente líder supervisa peers</td>
+<td>Task list compartida</td>
+<td>Algunos peers persistentes</td>
+</tr>
+<tr>
+<td>Workflows</td>
+<td>Un script ejecutado por runtime</td>
+<td>Variables/artifacts del script</td>
+<td>Decenas a cientos de agentes</td>
+</tr>
+</tbody></table>
+<p>Claude recomienda workflows cuando una tarea necesita más agentes de los que una conversación puede coordinar bien, o cuando conviene que la orquestación quede codificada y se pueda leer/reusar.</p>
+<p>Ejemplos oficiales:</p>
+<ul>
+<li>barrido de bugs en todo un codebase;</li>
+<li>migración de cientos de archivos;</li>
+<li>investigación que requiere cruzar fuentes;</li>
+<li>plan difícil que conviene evaluar desde varios ángulos antes de implementar.</li>
+</ul>
+<h2>Triggers y UX en Claude Code</h2>
+<p>Claude Code ofrece tres entradas principales:</p>
+<ol>
+<li><p><strong>Workflow bundled</strong>: <code>/deep-research &lt;question&gt;</code>.</p>
+<ul>
+<li>Hace fan-out de búsquedas web por ángulos.</li>
+<li>Descarga y cruza fuentes.</li>
+<li>Vota o filtra claims.</li>
+<li>Devuelve un reporte citado.</li>
+</ul>
+</li>
+<li><p><strong>Pedido explícito</strong>.</p>
+<ul>
+<li>Incluir <code>ultracode</code> en el prompt.</li>
+<li>O pedir en lenguaje natural: &quot;use a workflow&quot;, &quot;run a workflow&quot;.</li>
+<li>Claude escribe un script para esa tarea y lo ejecuta.</li>
+</ul>
+</li>
+<li><p><strong><code>/effort ultracode</code></strong>.</p>
+<ul>
+<li>Combina <code>xhigh</code> reasoning effort con orquestación automática.</li>
+<li>Claude decide cuándo una tarea sustantiva merece uno o más workflows.</li>
+<li>Puede encadenar workflows: entender → modificar → verificar.</li>
+<li>Es por sesión y se resetea al iniciar una nueva.</li>
+</ul>
+</li>
+</ol>
+<h2>Approval, permisos y seguridad</h2>
+<p>Antes de correr un workflow, Claude Code muestra una aprobación con fases planeadas. Opciones documentadas:</p>
+<ul>
+<li>correr una vez;</li>
+<li>correr y no volver a preguntar para ese workflow en ese proyecto;</li>
+<li>ver el script crudo;</li>
+<li>cancelar;</li>
+<li>abrir el script en editor con <code>Ctrl+G</code>.</li>
+</ul>
+<p>La prompt depende del permission mode. En modos no interactivos (<code>claude -p</code>, SDK, bypass permissions) puede arrancar sin prompt.</p>
+<p><strong>Punto importante:</strong> los subagentes corren con <code>acceptEdits</code> e heredan el tool allowlist de la sesión. Las ediciones de archivos se autoaprueban, pero shell, web fetches y MCP tools fuera del allowlist todavía pueden pedir permiso durante el run.</p>
+<h2>Guardado y reutilización</h2>
+<p>Si un run funciona, se puede guardar como comando desde <code>/workflows</code> con <code>s</code>.</p>
+<p>Ubicaciones documentadas:</p>
+<ul>
+<li><code>.claude/workflows/</code> en el proyecto, compartible con el repo;</li>
+<li><code>~/.claude/workflows/</code> en home, personal/global.</li>
+</ul>
+<p>Los workflows guardados se invocan como slash commands (<code>/&lt;name&gt;</code>). También pueden recibir input vía un global <code>args</code>, para pasar preguntas, paths, issue numbers o configuración estructurada sin editar el script.</p>
+<p>Claude Code carga workflows de <code>.claude/workflows/</code> a lo largo del path del proyecto; si hay nombres duplicados, gana el más cercano al cwd. Los workflows de proyecto ganan sobre los personales.</p>
+<h2>Runtime y límites oficiales</h2>
+<p>Restricciones documentadas del runtime:</p>
+<table>
+<thead>
+<tr>
+<th>Restricción</th>
+<th>Razón</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>No user input a mitad del run</td>
+<td>Para sign-off entre etapas, correr workflows separados</td>
+</tr>
+<tr>
+<td>El workflow no tiene acceso directo a filesystem/shell</td>
+<td>Los agentes leen, escriben y ejecutan; el script coordina</td>
+</tr>
+<tr>
+<td>Hasta 16 agentes concurrentes</td>
+<td>Limitar recursos locales</td>
+</tr>
+<tr>
+<td>Hasta 1,000 agentes por run</td>
+<td>Evitar loops descontrolados</td>
+</tr>
+</tbody></table>
+<p>Gestión de runs:</p>
+<ul>
+<li><code>/workflows</code> lista runs activos y completados.</li>
+<li>Vista de progreso muestra fases, agentes, tokens y elapsed.</li>
+<li>Se puede pausar/reanudar (<code>p</code>), detener (<code>x</code>), reiniciar agentes (<code>r</code>) y guardar script (<code>s</code>).</li>
+<li>Si se pausa un run, al reanudar los agentes completados devuelven resultados cacheados y el resto corre live.</li>
+<li>La reanudación dentro de la misma sesión restaura estado. Si se cierra Claude Code durante un run, la siguiente sesión arranca de cero.</li>
+</ul>
+<h2>Patrones nombrados por Anthropic</h2>
+<p>Los patrones destacados en la cobertura del blog y docs son:</p>
+<ul>
+<li><strong>Classify-and-act</strong>: clasificar items y elegir acción por clase.</li>
+<li><strong>Fan-out-and-synthesize</strong>: dividir trabajo independiente y sintetizar.</li>
+<li><strong>Adversarial verification</strong>: agentes escépticos verifican claims o hallazgos.</li>
+<li><strong>Generate-and-filter</strong>: producir muchas opciones y filtrar por criterios.</li>
+<li><strong>Tournaments</strong>: comparar candidatos en rondas o jurados.</li>
+<li><strong>Loop-until-done</strong>: iterar con una condición de salida observable.</li>
+</ul>
+<h2>Costo y cuándo no usarlo</h2>
+<p>Anthropic advierte que un workflow puede gastar muchos más tokens que resolver la tarea conversacionalmente, porque dispara muchos subagentes. Recomendación oficial: probar primero con un slice pequeño, por ejemplo un directorio en vez de todo el repo, o una pregunta estrecha en vez de un tema amplio.</p>
+<p>No conviene usar workflows para tareas normales de edición o preguntas simples. El criterio fuerte es si hay escala, independencia, verificación cruzada o necesidad de reusar la orquestación.</p>
+<h2>Comparación con este repo Pi Dynamic Workflows</h2>
+<p>Lo que ya está alineado:</p>
+<ul>
+<li>Scripts JavaScript task-specific.</li>
+<li><code>dynamic_workflow</code> para listar, templar, escribir, correr, resumir y ver workflows.</li>
+<li>Background por defecto en TUI/RPC.</li>
+<li>Dashboard <code>/workflows</code>.</li>
+<li><code>ctx.agent</code>, <code>ctx.agents</code>, <code>ctx.pipeline</code>, <code>ctx.parallel</code>, <code>ctx.workflow</code>.</li>
+<li>Límites similares: <code>concurrency</code> hard cap 16 y <code>maxAgents</code> hard cap 1000.</li>
+<li>Drafts y artifacts fuera del contexto conversacional.</li>
+<li><code>ultracode</code>/router always-on y <code>/effort ultracode</code>.</li>
+<li>Templates equivalentes: scout-fanout, adversarial-verify, tournament, loop-until-dry, self-consistency, deep-research, repo-bug-hunt.</li>
+<li>Resume más fuerte que Claude en un punto: este repo persiste un journal content-addressed para reanudar runs stale/failed/cancelled in-place entre sesiones Pi, reutilizando llamadas completadas.</li>
+</ul>
+<h2>Deltas o ideas para acercarse más a Claude</h2>
+<ol>
+<li><p><strong>Aprobación pre-run con fases y raw script</strong></p>
+<ul>
+<li>Claude muestra fases planeadas y deja ver/editar el script antes de ejecutar.</li>
+<li>En Pi: agregar modo de aprobación humano para workflows generados, especialmente con tools mutantes.</li>
+</ul>
+</li>
+<li><p><strong>Guardar run como slash command directo</strong></p>
+<ul>
+<li>Claude permite <code>s</code> en <code>/workflows</code> e invocar <code>/&lt;name&gt;</code> después.</li>
+<li>En Pi: ya existe <code>/workflow run &lt;name&gt;</code>, pero generar comandos dinámicos o UX equivalente mejoraría el flujo.</li>
+</ul>
+</li>
+<li><p><strong>Input natural a workflows guardados</strong></p>
+<ul>
+<li>Claude usa <code>args</code> estructurado inferido del prompt.</li>
+<li>En Pi: aceptar <code>/workflow run name &lt;texto&gt;</code> y pedirle al modelo estructurar <code>input</code>, o crear aliases con schema.</li>
+</ul>
+</li>
+<li><p><strong>Métricas de tokens por fase/agente</strong></p>
+<ul>
+<li>Claude muestra token totals en la vista de progreso.</li>
+<li>En Pi: las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran actualmente; documentar estado o agregar soporte.</li>
+</ul>
+</li>
+<li><p><strong>Pause/restart granular desde dashboard</strong></p>
+<ul>
+<li>Claude ofrece pause/resume de run, stop de agente/run y restart de agente.</li>
+<li>En Pi: se tiene cancel/resume; agregar pausa y restart por agente para más control.</li>
+</ul>
+</li>
+<li><p><strong>Modelo de permisos por agente</strong></p>
+<ul>
+<li>Claude separa aprobación del run y permisos de subagente por allowlist.</li>
+<li>En Pi: ya permite tools/keys/env por agente; documentar y reforzar presets read-only/mutating.</li>
+</ul>
+</li>
+<li><p><strong>Modo coordinador restringido (sin shell/filesystem directo)</strong></p>
+<ul>
+<li>Claude restringe el script: solo coordina, los agentes actúan.</li>
+<li>En Pi: se permite <code>ctx.bash</code>, <code>readFile</code>, <code>writeFile</code> y artifacts (más potente, pero menos aislado). Podría existir modo restringido para workflows no confiables o compartibles.</li>
+</ul>
+</li>
+</ol>
+<h2>Recomendación para Pi</h2>
+<p>Mantener la ventaja actual de Pi: workflows como código confiable, composable y resumable.</p>
+<p>Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reusabilidad:</p>
+<ol>
+<li><strong>Pre-run approval para workflows generados</strong>: mostrar nombre, fases, límites, tools mutantes y raw script.</li>
+<li><strong>Save-as-command</strong>: promover desde run/draft a comando invocable sin recordar <code>/workflow run</code>.</li>
+<li><strong>Args ergonómicos</strong>: permitir input estructurado o natural para workflows guardados.</li>
+</ol>
+<p>El siguiente slice seguro sería documentar estos deltas como roadmap e implementar primero <code>save-as-command</code>, porque es bajo riesgo: no cambia el runtime, solo la capa de descubrimiento/invocación.</p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loop engineering with our extensions</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs</div>
+		<h1>Loop engineering with our extensions</h1>
+	</header>
+	<main>
+<p>Date: 2026-06-28</p>
+<p>A practical how-to that turns the
+<a href="research/2026-06-28-loop-engineering.html">loop-engineering investigation</a>
+into concrete usage of the extensions in this repo. The research explains <em>what</em>
+loop engineering is and <em>why</em> the repo&#39;s mechanisms work; this guide explains
+<em>which extension to reach for</em> and <em>how to drive it</em> in a loop-engineered way.</p>
+<blockquote>
+<p><strong>Definition (from the research).</strong> <em>Loop engineering</em> is the discipline of
+<strong>designing, bounding, and verifying</strong> iterative/feedback loops so a loop makes
+measurable progress toward a goal and <strong>stops on evidence</strong> (<code>done</code> / <code>quiet</code> /
+<code>blocked</code>) rather than on a timer, a self-declaration, or never.</p>
+</blockquote>
+<h2>The principle in one line</h2>
+<blockquote>
+<p>Bound the loop <strong>and</strong> keep the critique signal independent and unbiased.</p>
+</blockquote>
+<p>That is the decisive lesson behind every mechanism here: a model judging its own
+work is unreliable (Huang et al., arXiv:2310.01798), so a trustworthy loop needs
+both an explicit brake and an external check. <code>/goal</code> is the surface that enforces
+both at once.</p>
+<h2>TL;DR — pick the right loop surface</h2>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Question it answers</th>
+<th>Reach for it when</th>
+<th>Principle it embodies</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/goal</code></td>
+<td><em>What state am I in?</em></td>
+<td>The work has a verifiable <code>done</code></td>
+<td>Independent verification (strongest)</td>
+</tr>
+<tr>
+<td><code>/loop</code></td>
+<td><em>When do I wake up?</em></td>
+<td>Recurring tasks with no finish state</td>
+<td>Bounded cadence, never trust the model</td>
+</tr>
+<tr>
+<td><code>loop-until-done</code> workflow</td>
+<td><em>Has it converged yet?</em></td>
+<td>Exhaustive searches needing convergence</td>
+<td>Convergence by quiet rounds</td>
+</tr>
+<tr>
+<td><code>/effort ultracode</code> + Contract Gate</td>
+<td><em>What does &quot;done&quot; even mean?</em></td>
+<td>Vague or broad orchestration tasks</td>
+<td>Bound and verify the scope first</td>
+</tr>
+</tbody></table>
+<h2>The four loop surfaces</h2>
+<h3><code>/goal</code> — closed-loop with independent verification</h3>
+<p>Use <code>/goal</code> whenever there is a concrete, checkable definition of done. It runs
+<code>pursuing → verifying → verifying-independent → done | blocked</code>: a self
+completeness check, then a <strong>separate read-only adversarial subagent</strong> that emits
+<code>VERDICT: PASS | FAIL</code>. Only an independent <code>PASS</code> closes the goal
+(<code>extensions/pi-goal/index.ts:362-386</code>). This is the repo&#39;s direct architectural
+answer to the self-correction-is-unreliable result.</p>
+<pre><code class="language-bash"># Objective -- success criteria after the `--`
+/goal migrate tests to vitest -- all tests pass; no jest imports remain
+/goal status
+/goal stop
+</code></pre>
+<p>Guardrails you inherit for free:</p>
+<ul>
+<li>Never an infinite loop; bounded rounds and caps (<code>pi-goal/index.ts:51</code>).</li>
+<li>A claim without verifiable evidence is a <code>FAIL</code> (<code>pi-goal/index.ts:319</code>).</li>
+<li>Oscillation guard: <code>maxIndependentVerifications</code> (default 2) flips a thrashing
+goal to <code>blocked</code> instead of looping forever (<code>pi-goal/index.ts:116</code>).</li>
+</ul>
+<h3><code>/loop</code> — bounded cadence, never trust the model</h3>
+<p>Use <code>/loop</code> for recurring work that has no binary &quot;done&quot;: monitoring, polling,
+autopilot. The model proposes a wake delay; the extension <strong>saturates it</strong> to a
+safe band of <code>[60, 3600]s</code> so a bad value can never destabilize the loop
+(<code>extensions/pi-loop/index.ts:103</code>, <code>:1186-1188</code>).</p>
+<pre><code class="language-bash"># Fixed cadence (last token is the interval)
+/loop check whether CI went green 10m
+
+# Dynamic cadence (the model picks the delay; it is clamped)
+/loop watch the deploy and report when it stabilizes
+
+# Trusted autonomous loop (requires /trust first)
+/loop auto keep the docs index in sync with docs/ 1h
+
+/loop status   /loop pause   /loop resume   /loop stop
+</code></pre>
+<p>Choose the cadence regime deliberately:</p>
+<ul>
+<li>Short poll (<code>&lt; 300s</code>, never exactly 300) for fast external state (CI, deploy)
+while keeping a warm cache.</li>
+<li>Long fallback (<code>1200–1800s</code>) when idle with no concrete signal.</li>
+<li>Do not poll work the harness already tracks (subagents, workflows) — use a long
+fallback and let it report back.</li>
+</ul>
+<p>Defense in depth: Layered caps include wall-clock, iteration count, and best-effort context-budget (see <code>extensions/pi-loop/caps.ts:28-37</code>), plus a watchdog backstop above the deadline. Note the context-budget cap is a <strong>soft sensor</strong> — it silently no-ops when usage is unknown, so do not rely on it alone.</p>
+<h3><code>loop-until-done</code> — convergence by quiet rounds</h3>
+<p>When the goal is exhaustiveness rather than a single <code>done</code> (audits, repo-wide
+searches), use the <code>loop-until-done</code> workflow scaffold. It runs parallel finders
+each round and stops when <strong>no new findings appear for <code>quietRounds</code> consecutive rounds</strong> — a settle-to-tolerance detector, not a single transient-quiet flip.</p>
+<pre><code class="language-text">dynamic_workflow action=run name=loop-until-done \
+  input={&quot;finders&quot;:4,&quot;quietRounds&quot;:2,&quot;maxRounds&quot;:8}
+</code></pre>
+<ul>
+<li><code>quietRounds</code> (default 2) is a debounce/deadband, not a proven fixed point.</li>
+<li><code>maxRounds</code> (default 8) is the hard brake; when it stops there, it says so
+out loud (<code>extensions/pi-dynamic-workflows/pattern-scaffolds.ts:392-394</code>) — no silent
+caps.</li>
+</ul>
+<h3>Ultracode + Contract Gate — bound the scope first</h3>
+<p>Before orchestrating broad or repo-wide work, let the Contract Gate pin down what
+&quot;done&quot; means. It runs a small read-only task-contract review and emits
+<code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>, <code>nonGoals</code>, <code>routingHints</code>,
+<code>verificationPlan</code>, and <code>blockers</code> — so the loop optimizes against an agreed
+target instead of a vague prompt.</p>
+<pre><code class="language-bash">/effort ultracode          # request xhigh + enable always-on routing
+/ultracode-contract off    # disable the Contract Gate for this session
+/ultracode-mode off        # turn the router off (lowering effort does not)
+</code></pre>
+<h2>The eight principles → knobs you control</h2>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>What it means in practice</th>
+<th>Where to set it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bounded termination</td>
+<td>Never loop forever on a task with a goal</td>
+<td>Use <code>/goal</code> instead of <code>/loop</code></td>
+</tr>
+<tr>
+<td>Layered caps</td>
+<td>Wall-clock + iterations + budget</td>
+<td><code>/loop</code> defaults; <code>maxRounds</code> in workflows</td>
+</tr>
+<tr>
+<td>Cadence clamp</td>
+<td>The model&#39;s delay is saturated, not trusted</td>
+<td><code>/loop</code> clamps to <code>[60, 3600]s</code></td>
+</tr>
+<tr>
+<td>Convergence</td>
+<td>Stop when findings stay at ~0</td>
+<td><code>quietRounds</code> in <code>loop-until-done</code></td>
+</tr>
+<tr>
+<td>Resumability</td>
+<td>Rehydrate without a burst of catch-up</td>
+<td><code>dynamic_workflow action=resume</code></td>
+</tr>
+<tr>
+<td>Destructive gating</td>
+<td>Gate risky actions on autopilot only</td>
+<td><code>/loop auto</code> after <code>/trust</code></td>
+</tr>
+<tr>
+<td>Independent verification</td>
+<td>Close on an external signal, not self-claim</td>
+<td><code>/goal</code> independent verifier</td>
+</tr>
+<tr>
+<td>No silent caps</td>
+<td>Stopping at a budget must be reported</td>
+<td>Keep the &quot;stopped at maxRounds&quot; log</td>
+</tr>
+</tbody></table>
+<h2>Recipes</h2>
+<p>Run different work in parallel (they do not compose — see below):</p>
+<pre><code class="language-bash">/goal implement feature X -- criteria ...   # iterates until verified
+/loop watch the X deploy 5m                 # repeats on a cadence
+</code></pre>
+<p>Manage each independently — they keep separate state and IDs:</p>
+<pre><code class="language-bash">/goal status     /goal stop [id]
+/loop status     /loop pause [id]   /loop resume [id]   /loop stop [id]
+</code></pre>
+<h2>Anti-patterns</h2>
+<ul>
+<li><strong>Do not</strong> use <code>/loop</code> on a task that has a verifiable <code>done</code>; that is what
+<code>/goal</code> is for. <code>/loop</code> has no notion of &quot;finished&quot;.</li>
+<li><strong>Do not</strong> drive the <em>same</em> task with both <code>/goal</code> and <code>/loop</code> expecting the
+goal to set the loop&#39;s cadence. They are independent extensions with separate
+state and do <strong>not</strong> compose; only <code>ctx.isIdle()</code> keeps them from injecting into
+an in-flight turn. Pick one surface per task.</li>
+<li><strong>Do not</strong> trust the context-budget cap as a hard guarantee — it is best-effort
+and can silently no-op.</li>
+<li><strong>Do not</strong> report <code>done</code> when a loop merely hit its cap. Surface the cap.</li>
+</ul>
+<h2>Provenance and sources</h2>
+<p>This guide operationalizes the source-backed investigation in
+<a href="research/2026-06-28-loop-engineering.html"><code>docs/research/2026-06-28-loop-engineering.md</code></a>,
+which carries the external citations (ReAct, Reflexion, Self-Refine, Huang et al.,
+control/feedback theory) and the verified <code>file:line</code> grounding for every
+mechanism referenced above. See also the broader
+<a href="research/2026-06-25-agentic-patterns-papers-workflows.html">agentic patterns map</a>
+and the side-by-side <code>/loop</code> vs <code>/goal</code> note in <code>.pi/notes/loop-y-goal.md</code>.</p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

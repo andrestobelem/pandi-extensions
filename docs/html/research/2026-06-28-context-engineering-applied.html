@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2026-06-28-context-engineering-applied.md</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>2026-06-28-context-engineering-applied.md</h1>
+	</header>
+	<main>
+<hr>
+<h1>Context Engineering, Applied: Mapping the Research onto Our Extensions</h1>
+<blockquote>
+<p><strong>Status: ANALYSIS.</strong> Companion to <code>2026-06-28-context-engineering-focus.md</code>. Reframes
+that research as a concrete audit of the extensions in this package: what each lever
+already implements, where the gaps are, and which fixes earn their place. No code is
+changed by this document; it is the &quot;think deeply&quot; deliverable that precedes any plan.</p>
+</blockquote>
+<hr>
+<h2>1. The core reframe</h2>
+<p>The research reframes context as a <strong>finite attention budget</strong>, not a bucket to fill. Four
+concrete failure modes drive everything else:</p>
+<ul>
+<li><strong>Lost in the middle</strong> — models attend to the start/end of context, neglect the middle (U-curve).</li>
+<li><strong>Context rot</strong> — reliability decays as raw input grows, even on trivial tasks.</li>
+<li><strong>Distraction</strong> — a single off-topic-but-similar sentence pulls attention off task.</li>
+<li><strong>Instruction-following decay</strong> — obedience to rules falls with length, separable from retrieval.</li>
+</ul>
+<p>The striking finding for <em>this</em> package: <strong>most of the paper&#39;s mitigations already exist here
+as runtime mechanisms.</strong> The architecture is, in effect, &quot;context engineering operationalized.&quot;
+The value is (a) recognizing that explicitly and (b) closing six or seven targeted gaps.</p>
+<hr>
+<h2>2. What is already implemented (research lever → extension)</h2>
+<table>
+<thead>
+<tr>
+<th>Research lever</th>
+<th>Where it lives</th>
+<th>Evidence in code</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>External memory / offloading (§3b, MemGPT)</td>
+<td><code>pi-local-memory</code></td>
+<td>Injects <code>MEMORY.md</code> capped (200 lines/25 KB); topic files are <strong>listed but read on demand</strong> = textbook just-in-time</td>
+</tr>
+<tr>
+<td>Just-in-time retrieval (§3c)</td>
+<td><code>pi-dynamic-workflows</code> + memory</td>
+<td>Cheap scout (<code>git ls-files</code>/grep/glob), references + on-demand load, <code>writeArtifact</code> moves bulk out of chat</td>
+</tr>
+<tr>
+<td>Small tool budget (§3d, LongFuncEval 7–85%)</td>
+<td>workflow personas</td>
+<td><code>READ_ONLY_AGENT_TOOLS = [read, grep, find, ls]</code> + <code>--no-extensions</code> by default (unless <code>includeExtensions:true</code>)</td>
+</tr>
+<tr>
+<td>Isolate-for-read / single-thread-for-write (§3d, Cognition↔Anthropic)</td>
+<td>read-only personas + synthesis-as-judge</td>
+<td>explore/reviewer/researcher are read-only; the orchestrator compresses findings</td>
+</tr>
+<tr>
+<td>Recitation / re-anchor the goal (§3e, Manus)</td>
+<td><code>pi-goal</code> + <code>pi-loop</code></td>
+<td>Stable mold re-injected each iteration; <code>successCriteria</code> recorded ONCE as definition-of-done; progress log <strong>bounded</strong> (anti self-mimicry)</td>
+</tr>
+<tr>
+<td>Trajectory + adversarial eval (§4, τ-bench)</td>
+<td><code>pi-goal</code> independent verifier</td>
+<td>Skeptical read-only verifier judges against criteria with evidence, not intuition</td>
+</tr>
+<tr>
+<td>Architecture-to-topology, not fashion (§3d)</td>
+<td>Ultracode router + Contract Gate</td>
+<td>Trivial gate avoids over-orchestration; Contract Gate synthesizes a contract before escalating</td>
+</tr>
+<tr>
+<td>Near-threshold compaction (§3b)</td>
+<td><code>pi-auto-compact</code></td>
+<td>Relative edge-trigger at 30%; re-arms from post-compaction % to avoid looping; footer bar = budget gauge</td>
+</tr>
+<tr>
+<td>Authority separation (§3a)</td>
+<td><code>pi-local-memory</code></td>
+<td>Durable directives go to the system channel (trusted content, written by <code>remember</code>/human)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>3. Highest-value gaps (prioritized)</h2>
+<h3>3.1 Recoverable compaction — the strongest gap (§3b)</h3>
+<p><code>pi-auto-compact</code> fires <code>ctx.compact()</code> (a harness summary) <strong>without coupling to
+memory/artifacts</strong>. The paper is explicit: recursive summarization can drop a fact you later
+need; <em>preserve the raw externally so compaction is recoverable, not destructive.</em> The 30%
+threshold is aggressive and good for the attention budget, but it amplifies cascading-error
+risk. Fix: snapshot key state to <code>.pi/memory</code> or a run artifact before compacting (or prompt
+the agent to do so).</p>
+<h3>3.2 Tool-result clearing as a cheaper lever than full compaction (§3b)</h3>
+<p>The paper distinguishes <em>tool-result clearing</em> (drop bulky consumed payloads, keep the
+decision) from full <em>compaction</em>. We only have compaction at 30%. An intermediate lever that
+clears digested tool outputs would relieve pressure without the cascade risk of summarization.
+Complementary to 3.1.</p>
+<h3>3.3 Position-aware synthesis prompts (§2, lost-in-the-middle)</h3>
+<p>When a workflow&#39;s synthesis step receives N branch outputs, put <strong>task + criteria at the start
+AND the end</strong> of the synthesis prompt, and reorder the strongest evidence to the edges. Worth
+codifying in synthesis prompts and pattern scaffolds — cheap, directly counters the U-curve.</p>
+<h3>3.4 Stable KV-cache prefix in workflows (§3e, Manus + prompt caching)</h3>
+<p>Keep subagent prompt prefixes stable, push volatile/per-item content to the end, and avoid
+<code>Date.now()</code>/<code>Math.random()</code> early. This matters for two reasons: it protects the provider
+cache, and it determines whether a call is cached for <code>resume</code> (the content-address cache
+journal). Codify &quot;stable prefix&quot; guidance in prompt construction.</p>
+<h3>3.5 Authority guard on memory (§3a, anti-injection)</h3>
+<p><code>remember</code> writes to the system channel (currently trusted). Add an explicit <strong>non-goal</strong>:
+never ingest untrusted tool/retrieved content into <code>.pi/memory</code>. Cheap defense-in-depth;
+delimiters are not a security boundary.</p>
+<h3>3.6 Focus observability (§4: token growth, tool-error rate, trajectory)</h3>
+<p>The auto-compact bar (budget gauge) and the goal progress log already exist. <strong>The gap:</strong>
+extend observability to <strong>workflow runs</strong> — capture per-step token growth, tool-error rate,
+and retries as artifacts, in the spirit of OpenTelemetry GenAI spans. This is the paper&#39;s
+&quot;measure focus live.&quot;</p>
+<h3>3.7 NoLiMa-style evals (§4: do not rely on literal NIAH)</h3>
+<p>Integration suites verify behavior; the goal verifier is already evidence-based (non-lexical).
+Minor opportunity: when adding context evals, gate on <strong>non-lexical needles + distractors</strong>,
+not literal matches.</p>
+<hr>
+<h2>4. Recommendation</h2>
+<p>The two highest-ROI, low-risk items are <strong>3.1 (recoverable compaction)</strong> and <strong>3.3
+(position-aware synthesis)</strong> — they attack the paper&#39;s two central failure modes (compaction
+cascade + lost-in-the-middle) with surgical changes to extensions that are already well
+understood. Suggested order: plan 3.1 first (it spans <code>pi-auto-compact</code> + memory/
+artifacts and deserves a design pass), then do 3.3 as a contained follow-up.</p>
+<hr>
+<h2>5. Implementation status</h2>
+<blockquote>
+<p><strong>Status: IMPLEMENTED.</strong> All seven prioritized gaps shipped as separate atomic commits,
+each verified against the full <code>npm test</code> gate (typecheck + eslint + prettier + markdownlint</p>
+<ul>
+<li>integration). Each change is surgical and additive — no breaking change to a public
+contract — in line with the &quot;complexity must earn its place&quot; ethos.</li>
+</ul>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>What shipped</th>
+<th>Commit</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>3.1</td>
+<td>Recoverable compaction: snapshot raw transcript before <code>ctx.compact()</code> (hooks <code>session_before_compact</code>/<code>session_compact</code>), pruning + <code>snapshot</code>/<code>snapshots</code> subcommands, env <code>PI_AUTO_COMPACT_SNAPSHOT[_KEEP]</code></td>
+<td><code>9caf486</code></td>
+</tr>
+<tr>
+<td>3.2</td>
+<td>Opt-in tool-result clearing (<code>clearOldToolResults</code>) on the <code>context</code> hook — cheaper than compaction, ephemeral, fail-safe, default off</td>
+<td><code>ee01db5</code></td>
+</tr>
+<tr>
+<td>3.3</td>
+<td>Position-aware synthesis: restate task + criteria at BOTH ends of synthesis scaffolds; both-ends router guidance</td>
+<td><code>56d1140</code></td>
+</tr>
+<tr>
+<td>3.4</td>
+<td>Stable KV-cache prefix guidance in subagent prompt construction (guidance/docs only)</td>
+<td><code>51c318a</code></td>
+</tr>
+<tr>
+<td>3.5</td>
+<td>Authority guard on <code>remember</code>: anti-injection non-goal (never ingest untrusted content; delimiters are not a security boundary)</td>
+<td><code>0d2d18e</code></td>
+</tr>
+<tr>
+<td>3.6</td>
+<td>Per-run focus-metrics artifacts (<code>metrics.json</code>/<code>metrics.md</code>): token growth, tool-error rate, retries — folded from each subagent&#39;s JSON-mode stdout</td>
+<td><code>8fe6c8a</code></td>
+</tr>
+<tr>
+<td>3.7</td>
+<td>NoLiMa-style non-lexical eval primitive (<code>eval-needle.mjs</code>): non-lexical needle + lexical-lure distractors, never gate on the literal needle string</td>
+<td><code>900650b</code></td>
+</tr>
+</tbody></table>
+<p>Supporting change: a chat-export helper (<code>scripts/export-chat.mjs</code>, commit <code>2f56776</code>) writes
+session HTML into <code>.pi/chats/</code>, and <code>.gitignore</code>/<code>.prettierignore</code> now ignore stray root
+<code>pi-session-*.html</code> exports so the format gate stays green.</p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

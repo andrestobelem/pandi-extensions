@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Software Engineering Principles According to Dave Farley</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Software Engineering Principles According to Dave Farley</h1>
+	</header>
+	<main>
+<p>Date: 2026-06-25</p>
+<h2>Context</h2>
+<p>Brief research on the software engineering principles Dave Farley presents in <em>Modern Software Engineering: Doing What Works to Build Better Software Faster</em>.</p>
+<h2>Executive Summary</h2>
+<p>For Farley, modern software engineering is not more bureaucracy or heavier process. It is applying scientific, empirical, and pragmatic thinking to create better software faster.</p>
+<p>The discipline is organized around two core competencies:</p>
+<ol>
+<li>Being experts at learning.</li>
+<li>Being experts at managing complexity.</li>
+</ol>
+<h2>Main Principles</h2>
+<h3>1. Optimize for learning</h3>
+<p>Software development is an activity of exploration, discovery, and design, not a production line. That is why Farley proposes:</p>
+<ul>
+<li>Work iteratively: move forward in short cycles to discover misunderstandings early.</li>
+<li>Seek fast, high-quality feedback: tests, continuous integration, user feedback, design review.</li>
+<li>Work incrementally: small, reversible, safe changes.</li>
+<li>Be experimental: formulate hypotheses, measure results, and control variables.</li>
+<li>Be empirical: decide based on evidence, not fashion, authority, or intuition.</li>
+</ul>
+<h3>2. Optimize for managing complexity</h3>
+<p>Because real systems cannot fit entirely in one person&#39;s head, engineering must control technical and organizational complexity. Farley highlights:</p>
+<ul>
+<li>Modularity: divide the system into understandable and modifiable parts.</li>
+<li>High cohesion: group together what changes for the same reasons.</li>
+<li>Separation of responsibilities: isolate distinct concerns.</li>
+<li>Information hiding and abstraction: expose simple interfaces and hide internal details.</li>
+<li>Low coupling: reduce dependencies that make the system costly to change.</li>
+</ul>
+<h3>3. Measure with useful criteria</h3>
+<p>Farley uses two dimensions aligned with <em>Accelerate</em> as an evaluation yardstick:</p>
+<ul>
+<li>Stability: quality, reliability, low failure rate, and fast recovery.</li>
+<li>Throughput: the ability to deliver changes frequently and efficiently.</li>
+</ul>
+<p>A practice, tool, or process should be adopted if it improves —or at least does not worsen— those two dimensions.</p>
+<h3>4. Tools in service of engineering</h3>
+<p>For Farley, the important tools are not only languages or frameworks, but practices that enable learning and complexity control:</p>
+<ul>
+<li>automated testing,</li>
+<li>TDD,</li>
+<li>continuous integration,</li>
+<li>continuous delivery,</li>
+<li>deployability,</li>
+<li>testability,</li>
+<li>small changes,</li>
+<li>fast pipelines.</li>
+</ul>
+<h2>Condensed Thesis</h2>
+<p>Modern software engineering consists of applying practical science to development, optimizing the work system to learn quickly and control complexity, using evidence instead of faith, fashion, or intuition.</p>
+<h2>Sources Consulted</h2>
+<ul>
+<li>InformIT/Pearson: <em>Modern Software Engineering: Doing What Works to Build Better Software Faster</em>. <a href="https://www.informit.com/store/modern-software-engineering-doing-what-works-to-build-9780137314911">https://www.informit.com/store/modern-software-engineering-doing-what-works-to-build-9780137314911</a></li>
+<li>InformIT/Pearson: sample chapter &quot;Software Engineering Fundamentals&quot;. <a href="https://www.informit.com/articles/article.aspx?p=3129276">https://www.informit.com/articles/article.aspx?p=3129276</a></li>
+<li>Dave Farley: &quot;What is Modern Software Engineering?&quot;. <a href="https://www.davefarley.net/?p=352">https://www.davefarley.net/?p=352</a></li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

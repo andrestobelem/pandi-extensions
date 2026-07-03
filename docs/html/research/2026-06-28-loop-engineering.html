@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loop engineering — a source-backed investigation</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Loop engineering — a source-backed investigation</h1>
+	</header>
+	<main>
+<p>Date: 2026-06-28</p>
+<p><strong>Provenance of record.</strong> Generated by the <code>loop-engineering-deep-research</code> dynamic workflow (run <code>2026-06-28T10-08-08-680Z-drafts-loop-engineering-deep-research-ebc0fa72</code>), routed by a read-only Contract Gate (interpretation C) and confirmed by an independent read-only citation/traceability verifier (verdict PASS). No source code was modified. Per-branch evidence and the verifier report live under that run directory in <code>.pi/workflows/runs/</code>.</p>
+<blockquote>
+<p><strong>Provenance &amp; honesty note.</strong> The task header reported &quot;Branches: 5 / Completed: 5 / Failed: 0&quot;, but the actual branch payloads show <strong>only 2 of 5 branches returned content</strong>: <code>research-reflexion-self-refine</code> and <code>research-control-feedback-theory</code>. Three branches returned <strong>empty output</strong>: <code>research-react-observe-act</code>, <code>research-bounding-failure-modes-term</code>, <code>research-repo-grounding</code>.</p>
+<p>To avoid inventing coverage, the synthesizer <strong>independently re-read every repo file in the grounding read-list</strong> (all <code>file:line</code> below were verified this run) and <strong>ran its own web search</strong> to settle the term question. Control-theory external URLs are <strong>preserved from branch 3</strong> and were <em>not</em> re-fetched in synthesis (flagged in §8). External agent-loop papers cited by branch 2 (Reflexion, Self-Refine, Huang et al.) were fetched by that branch; ReAct was <em>not</em> independently fetched by any branch (flagged INSUFFICIENT_EVIDENCE).</p>
+</blockquote>
+<p><strong>Update — source-verification pass (2026-06-28).</strong> A targeted follow-up closed the main <code>INSUFFICIENT_EVIDENCE</code> items via direct web search: ReAct (arXiv:2210.03629) is now primary-source-confirmed (Yao et al., ICLR 2023); the self-correction-debate counterpoints (arXiv:2405.14092 <em>ProCo</em>; arXiv:2406.15673) were read rather than cited by-title; Self-Refine&#39;s experimental cap is <strong>4 iterations</strong>; and the Reflexion-paper-cited repo <code>github.com/noahshinn024/reflexion</code> now hosts an <strong>unrelated</strong> &quot;Bugbounty POC&quot; project (original code no longer at that URL). The §3 and §8 entries below reflect this pass.</p>
+<h2>1. Executive summary</h2>
+<p><strong>&quot;Loop engineering&quot; is a real, recently-coined industry term (mid-2026), not a settled academic discipline.</strong> It names an older pattern: designing the system that repeatedly prompts an agent to <em>act → observe → verify → continue</em> until an evidence-based stop condition fires. Key sources: <a href="https://addyosmani.com/blog/loop-engineering/">Addy Osmani</a>, <a href="https://www.langchain.com/blog/the-art-of-loop-engineering">LangChain</a>, <a href="https://code.claude.com/docs/en/how-claude-code-works">Claude Code docs</a>, and <a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">The Register, 2026-06-24</a> (skeptical coverage).</p>
+<p>The literature converges on one hard lesson: <strong>an iterative self-improvement loop is only as trustworthy as (a) the independence/quality of its critique signal and (b) its bounds.</strong></p>
+<p>Purely intrinsic self-correction can <em>degrade</em> outputs when there is no external/oracle signal (<a href="https://arxiv.org/abs/2310.01798">Huang et al., arXiv:2310.01798</a>). Both Reflexion and Self-Refine ship explicit termination bounds (<a href="https://arxiv.org/abs/2303.11366">arXiv:2303.11366</a>; <a href="https://arxiv.org/abs/2303.17651">arXiv:2303.17651</a>).</p>
+<p><strong>This repo operationalizes that lesson well.</strong> Across three loop surfaces it consistently implements bounded termination, never-trust-the-model clamping, explicit (non-silent) caps, and — most notably — an <em>independent, read-only adversarial verifier</em> that refuses to close a goal on the model&#39;s self-declaration (<code>extensions/pi-goal/index.ts:36-51</code>, <code>:362-386</code>). The strongest design choice is pi-goal&#39;s separation of self-check (<code>verifying</code>) from independent judgment (<code>verifying-independent</code>), a direct architectural answer to Huang et al.</p>
+<p><strong>Main gaps are limitations, not defects:</strong></p>
+<ul>
+<li>The context-budget cap is best-effort and silently no-ops if usage is unknown (<code>caps.ts:33-37</code>).</li>
+<li>&quot;Quiet rounds&quot; is an empirical convergence heuristic, not a proven fixed-point criterion.</li>
+<li>The read-list&#39;s claim that the dynamic-cadence clamp lives in <code>interval.ts</code> is <strong>inaccurate</strong> — it lives in <code>index.ts</code> (<code>:103</code>, <code>:1186-1188</code>).</li>
+</ul>
+<h2>2. What &quot;loop engineering&quot; means (and is it an established term?)</h2>
+<p><strong>Verdict: established as an emerging industry term (CONFIRMED via web search this run), but not a standardized academic discipline.</strong> Define it on first use.</p>
+<p>Evidence found:</p>
+<ul>
+<li><strong>Addy Osmani</strong> frames loop engineering as <em>designing the system that prompts an agent</em> — automation, worktrees, skills, connectors, subagents, and external state. <a href="https://addyosmani.com/blog/loop-engineering/">addyosmani.com/blog/loop-engineering</a></li>
+<li><strong>LangChain</strong> (&quot;The Art of Loop Engineering&quot;) frames agents as tool-calling loops, expanded into verification loops and event-driven loops. <a href="https://www.langchain.com/blog/the-art-of-loop-engineering">langchain.com/blog/the-art-of-loop-engineering</a></li>
+<li><strong>Claude Code docs</strong> describe the agentic loop as <em>gather context → take action → verify results → repeat until complete</em>. <a href="https://code.claude.com/docs/en/how-claude-code-works">code.claude.com/docs/en/how-claude-code-works</a></li>
+<li><strong>OpenAI</strong> (agent improvement loop cookbook) notes the area is still evolving; the durable idea is connecting feedback, testing, and implementation in one loop. <a href="https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop">developers.openai.com/.../agent_improvement_loop</a></li>
+<li><strong>The Register (2026-06-24)</strong> characterizes it as a <em>new AI buzzword</em> and cautions automation still needs cost controls and humans in the loop. <a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">theregister.com/.../loop_engineering...</a></li>
+</ul>
+<p><strong>Synthesized working definition (this artifact):</strong> <em>loop engineering</em> is the discipline of <strong>designing, bounding, and verifying</strong> iterative/feedback loops around agentic and software systems. A loop must make measurable progress toward a goal and <strong>stop on evidence</strong> (done/quiet/blocked) rather than on a timer, a self-declaration, or never. This is the umbrella framing the repo already practices under different names: <code>/loop</code>, <code>loop-until-done</code>, <code>/goal</code>.</p>
+<h2>3. Foundations &amp; prior art — with citations</h2>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Core idea</th>
+<th>Primary source</th>
+<th>Verification status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>ReAct</strong></td>
+<td>Interleave reasoning traces with actions/tool calls (reason → act → observe), enabling dynamic planning + external tool use.</td>
+<td>arXiv:2210.03629 — <code>https://arxiv.org/abs/2210.03629</code> · official site <code>https://react-lm.github.io/</code></td>
+<td><strong>CONFIRMED (source-verification pass, 2026-06-28).</strong> Yao, Zhao, Yu, Du, Shafran, Narasimhan, Cao; v3 = <strong>ICLR 2023</strong> camera-ready. Interleaves reasoning traces, actions, and environment observations; evaluated on HotpotQA, FEVER, ALFWorld, WebShop.</td>
+</tr>
+<tr>
+<td><strong>Reflexion</strong></td>
+<td>Inference-time loop: Actor attempts → Evaluator scores → Self-Reflection writes verbal lessons into a <strong>bounded episodic memory (≈1–3 entries)</strong> prepended to the next trial. No weight updates. HumanEval pass@1 91.0 vs 80.1 baseline; <strong>no formal convergence guarantee, can hit local minima</strong>.</td>
+<td>arXiv:2303.11366 — abstract <code>https://arxiv.org/abs/2303.11366</code> · PDF <code>https://arxiv.org/pdf/2303.11366</code></td>
+<td>Fetched by branch 2.</td>
+</tr>
+<tr>
+<td><strong>Self-Refine</strong></td>
+<td>Same model: generate <code>y0</code> → <strong>actionable, localized</strong> critique → refine; stop at a <strong>fixed iteration limit</strong> or a task-specific stop signal; history retained. Generic/absent feedback performs worse.</td>
+<td>arXiv:2303.17651 — <code>https://arxiv.org/abs/2303.17651</code> · <code>https://selfrefine.info/</code> · code <code>https://github.com/madaan/self-refine</code></td>
+<td>Fetched by branch 2.</td>
+</tr>
+<tr>
+<td><strong>Self-correction is unreliable (counter-evidence)</strong></td>
+<td>Intrinsic self-correction often depends on oracle/external feedback; remove it and models (GPT-3.5/4/4-Turbo, Llama-2) <strong>fail to improve and sometimes get worse</strong>, flipping correct answers to wrong. Multi-round critique should be benchmarked against equal-cost self-consistency.</td>
+<td>Huang et al., arXiv:2310.01798 (ICLR 2024) — <code>https://arxiv.org/abs/2310.01798</code></td>
+<td>Fetched by branch 2; <strong>counterpoints read (2026-06-28).</strong> (i) arXiv:2405.14092 (Wu et al., EMNLP 2024, <em>ProCo</em> — &quot;…Key Condition Verification&quot;) shows <em>structured</em> intrinsic self-correction (mask a key condition → verify → re-solve) beats plain self-correct (+6.8 EM open-domain QA, +14.1 arithmetic, +9.6 commonsense on GPT-3.5-Turbo-1106); (ii) arXiv:2406.15673 (Liu et al., &quot;LLMs have Intrinsic Self-Correction Ability&quot;) rebuts 2310.01798 <em>conditionally</em> — gains hold at <strong>temperature 0 with unbiased prompts</strong>, while biased &quot;find problems&quot; prompts flip correct answers (limits: 4 models, 2 datasets, no error bars). Net: Huang et al. holds for <em>naive/biased</em> intrinsic loops; structured verification or unbiased/low-temp prompting can recover gains.</td>
+</tr>
+<tr>
+<td><strong>Control / feedback theory</strong></td>
+<td>Open-loop applies a command without measuring output (cannot self-correct disturbances); closed-loop measures the process variable, compares to a setpoint, drives on the error. Stability = bounded response that decays (pole locations); excessive gain → overshoot/oscillation/instability; damping governs ringing; hysteresis = deliberate switching deadband.</td>
+<td>Åström &amp; Murray <em>Feedback Systems</em> (MIT) <code>https://introcontrol.mit.edu/_static/fall21/extras/Feedback%20Systems%20Murray.pdf</code>; MathWorks <code>https://www.mathworks.com/help/mcb/gs/open-loop-and-closed-loop-control.html</code>; ISA <code>https://www.isa.org/intech-home/2023/june-2023/features/fundamentals-pid-control</code>; NI <code>https://www.ni.com/en/shop/labview/pid-theory-explained.html</code>; MIT pole-zero <code>https://web.mit.edu/2.14/www/Handouts/PoleZero.pdf</code></td>
+<td>Preserved from branch 3; <strong>not re-fetched in synthesis</strong> (see §8).</td>
+</tr>
+</tbody></table>
+<p>The repo&#39;s own internal index already maps these papers to workflow practices, including &quot;loops with an explicit brake … must have a stop condition: max rounds, quiet rounds, maxAgents, timeout, or budget&quot; (<code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md:51-52</code>, derived-principle 6).</p>
+<h2>4. Core loop-engineering principles</h2>
+<p>Synthesized from the sources above and verified against the repo (§6). Each principle pairs a literature/theory anchor with the repo mechanism.</p>
+<ol>
+<li><strong>Bounded termination (no infinite loops).</strong> Every loop needs a stop condition. Reflexion bounds memory; Self-Refine bounds iterations (<a href="https://arxiv.org/abs/2303.11366">2303.11366</a>, <a href="https://arxiv.org/abs/2303.17651">2303.17651</a>). Repo: pi-goal states &quot;Never an infinite loop&quot; (<code>pi-goal/index.ts:51</code>).</li>
+<li><strong>Iteration / time / budget caps (defense in depth).</strong> Multiple independent brakes: a hard wall-clock deadline, an iteration count, and a best-effort context-budget cap (<code>caps.ts:28-37</code>; <code>pi-loop/index.ts:397-398</code>, <code>:466-468</code>), plus a watchdog &quot;zombie backstop&quot; above the deadline (<code>pi-loop/index.ts:980-1012</code>).</li>
+<li><strong>Cadence clamping (&quot;never trust the model&quot;).</strong> The model&#39;s chosen actuator value (delay) is <em>saturated</em> to a safe band — the agent-loop analogue of actuator-limiting to avoid destabilizing gain (<a href="https://www.ni.com/en/shop/labview/pid-theory-explained.html">NI PID</a>). Repo: dynamic cadence clamped to <code>[60,3600]s</code> (<code>pi-loop/index.ts:103</code>, <code>:1186-1188</code>); fixed interval clamped to <code>[1s,24h]</code> with <code>0s</code> rejected (<code>interval.ts:20-21</code>, <code>:33-35</code>).</li>
+<li><strong>Convergence / quiet-rounds (settle-to-tolerance).</strong> Stop when the measured &quot;error&quot; (new findings) stays ≈0 for K consecutive samples — a discrete settling detector, the closed-loop analogue of a damped response settling within tolerance (<a href="https://web.mit.edu/2.14/www/Handouts/PoleZero.pdf">MIT pole-zero</a>). Repo: <code>loop-until-done</code> <code>quietRounds</code> default 2, <code>maxRounds</code> default 8 (<code>templates.ts:351-359</code>).</li>
+<li><strong>Resumability.</strong> Persisted, rehydratable loop/goal state with a <em>single</em> catch-up tick (no burst of missed wakes) (<code>pi-loop/index.ts:905</code>; <code>pi-goal/index.ts:865-914</code>).</li>
+<li><strong>Destructive-action gating.</strong> Autopilot (wake-triggered) turns gate clearly irreversible/high-blast-radius actions; human turns are never gated; bias = &quot;when unsure, do not block&quot; (<code>gate.ts:52-83</code>, <code>:55-56</code>).</li>
+<li><strong>Progress + INDEPENDENT verification.</strong> The decisive lesson from Huang et al.: a model judging its own reasoning is unreliable, so close loops on an <em>external</em> signal. Repo: two-stage verification — a SELF completeness check (<code>verifying</code>), then a separate read-only adversarial subagent emitting <code>VERDICT: PASS|FAIL</code> (<code>verifying-independent</code>); only an independent PASS closes the goal (<code>pi-goal/index.ts:36-51</code>, <code>:362-386</code>).</li>
+<li><strong>No silent caps.</strong> A loop that stops at its budget but reports &quot;done&quot; hides incompleteness. Repo logs <code>&quot;stopped at maxRounds (not dry)&quot;</code> (<code>templates.ts:392-394</code>).</li>
+</ol>
+<h2>5. Failure modes &amp; mitigations</h2>
+<table>
+<thead>
+<tr>
+<th>Failure mode</th>
+<th>Mechanism / source</th>
+<th>Repo mitigation (file:line)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Runaway / token-burn</strong></td>
+<td>Unbounded loop on a flawed evaluator; Reflexion gives no convergence guarantee (<a href="https://arxiv.org/abs/2303.11366">2303.11366</a>).</td>
+<td>Wall-clock + iteration + context caps <code>caps.ts:28-37</code>, <code>pi-loop/index.ts:397-398</code>; watchdog backstop <code>:980-1012</code>; <code>maxRounds</code> <code>templates.ts:352</code>.</td>
+</tr>
+<tr>
+<td><strong>Oscillation / limit cycle</strong> (self-declares done → rejected → repeats)</td>
+<td>Marginal/sustained oscillation absent damping (<a href="https://web.mit.edu/2.14/www/Handouts/PoleZero.pdf">MIT pole-zero</a>); needs a hard switch count, not better tuning.</td>
+<td><code>maxIndependentVerifications</code> (default 2) → <code>blocked</code> <code>pi-goal/index.ts:116</code>, <code>:692-693</code>; self-check cap <code>MAX_VERIFY_ATTEMPTS=3</code> <code>:104</code>.</td>
+</tr>
+<tr>
+<td><strong>No-progress / livelock</strong></td>
+<td>Quiet/empty rounds that never converge.</td>
+<td>Quiet-round detector + <code>maxRounds</code> cap <code>templates.ts:359</code>, <code>:389-394</code>.</td>
+</tr>
+<tr>
+<td><strong>Premature stop (false settling)</strong></td>
+<td>A single transient-quiet round flips the state.</td>
+<td>Requires <strong>two</strong> quiet rounds (deadband) before stopping <code>templates.ts:351</code>; conservative-FAIL-on-ambiguity <code>pi-goal/index.ts:381-382</code>.</td>
+</tr>
+<tr>
+<td><strong>Overlap / reentrancy</strong></td>
+<td>Concurrent wakes racing for the turn.</td>
+<td>FIFO serialization of non-overlapping wakeups <code>pi-loop/index.ts:172-177</code>, <code>:437-440</code>; single catch-up tick <code>:905</code>; past-timestamp clamp-to-0 <code>time.ts:30</code>.</td>
+</tr>
+<tr>
+<td><strong>Critique-gaming / reward-hacking</strong> (actor == critic)</td>
+<td>Intrinsic self-correction can degrade outputs (<a href="https://arxiv.org/abs/2310.01798">Huang et al., 2310.01798</a>).</td>
+<td>INDEPENDENT read-only verifier; &quot;a claim without verifiable evidence is a FAIL&quot; <code>pi-goal/index.ts:319</code>; verdict anchored to last non-empty line so a PASS can&#39;t be forged by echoing the prompt <code>:355-360</code>; non-zero exit + PASS treated as FAIL <code>:413-417</code>.</td>
+</tr>
+</tbody></table>
+<h2>6. Grounding in this repo</h2>
+<p>All <code>file:line</code> verified this run. <strong>Alignment</strong> = mechanism matches the principle; <strong>Gap</strong> = limitation/discrepancy.</p>
+<table>
+<thead>
+<tr>
+<th>Principle / failure</th>
+<th>Repo surface (file:line)</th>
+<th>Alignment vs gap</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bounded termination</td>
+<td><code>pi-goal/index.ts:51</code> (&quot;Never an infinite loop&quot;); <code>templates.ts:359</code> (<code>while quiet&lt;… &amp;&amp; round&lt;…</code>)</td>
+<td><strong>Aligned.</strong></td>
+</tr>
+<tr>
+<td>Wall-clock + budget caps, checked before re-arming</td>
+<td><code>caps.ts:22-37</code> (doc + <code>capExceeded</code>); called at <code>pi-loop/index.ts:402</code>, <code>:473</code>, <code>:898</code></td>
+<td><strong>Aligned.</strong> Best-effort budget cap <strong>silently no-ops</strong> when <code>getContextUsage()</code> is undefined or <code>percent</code> null (<code>caps.ts:33-37</code>) → <strong>partial gap</strong> (soft sensor, not a guarantee).</td>
+</tr>
+<tr>
+<td>Iteration cap (separate gate)</td>
+<td><code>pi-loop/index.ts:397-398</code>, <code>:466-468</code>; default <code>maxIterations=25</code> (docstring <code>:72</code>); pi-goal default 30 (<code>pi-goal/index.ts:88</code>)</td>
+<td><strong>Aligned</strong> — cap is a distinct gate from <code>capExceeded</code>, as the read-list states.</td>
+</tr>
+<tr>
+<td>Cadence clamp <code>[60,3600]s</code> (dynamic)</td>
+<td><code>pi-loop/index.ts:103</code> (<code>MAX_DELAY_SECONDS=3600</code>), clamp <code>:1186-1188</code></td>
+<td><strong>Aligned, but read-list inaccurate:</strong> this clamp is in <code>index.ts</code>, <strong>not</strong> <code>interval.ts</code>.</td>
+</tr>
+<tr>
+<td>Fixed-interval clamp <code>[1s,24h]</code>, reject <code>0s</code></td>
+<td><code>interval.ts:20-21</code>, <code>:33-35</code></td>
+<td><strong>Aligned.</strong></td>
+</tr>
+<tr>
+<td>Quiet-rounds convergence</td>
+<td><code>templates.ts:351</code> (<code>quietToStop=2</code>), <code>:389</code> (<code>quiet = fresh===0 ? quiet+1 : 0</code>)</td>
+<td><strong>Aligned</strong>, but empirical heuristic, not proven convergence (see §7).</td>
+</tr>
+<tr>
+<td>No silent caps</td>
+<td><code>templates.ts:392-394</code> (<code>&quot;stopped at maxRounds (not dry)&quot;</code>)</td>
+<td><strong>Aligned.</strong></td>
+</tr>
+<tr>
+<td>Resumability / single catch-up</td>
+<td><code>pi-loop/index.ts:905</code>; <code>pi-goal/index.ts:865-914</code> (rehydrate, re-run verifier on a <code>verifying-independent</code> snapshot)</td>
+<td><strong>Aligned.</strong></td>
+</tr>
+<tr>
+<td>Reentrancy / serialization</td>
+<td><code>pi-loop/index.ts:172-177</code>, <code>:437-440</code>; <code>time.ts:30</code></td>
+<td><strong>Aligned.</strong></td>
+</tr>
+<tr>
+<td>Destructive-action gating (autopilot only)</td>
+<td><code>gate.ts:52-83</code> (allowlist), <code>:55-56</code> (&quot;when unsure, do not block&quot;), <code>isUnsafeWritePath</code> <code>:116-133</code></td>
+<td><strong>Aligned.</strong> Conservative bias is deliberate; symmetric risk = over-permissiveness on novel destructive commands not in the allowlist (see §7).</td>
+</tr>
+<tr>
+<td>Independent verification closes the goal</td>
+<td><code>pi-goal/index.ts:36-51</code>, <code>:362-386</code>, <code>:653-693</code> (state <code>verifying-independent</code>, <code>runIndependentVerifier</code>, PASS→done / FAIL-under-cap→continue / FAIL-at-cap→blocked)</td>
+<td><strong>Aligned — strongest surface.</strong> Directly answers Huang et al.</td>
+</tr>
+<tr>
+<td>Conservative verdict parsing</td>
+<td><code>pi-goal/index.ts:355-360</code> (anchor last non-empty line), <code>:381-382</code> (no verdict → FAIL), <code>:413-417</code> (exit≠0 + PASS → FAIL)</td>
+<td><strong>Aligned.</strong></td>
+</tr>
+<tr>
+<td>State machine</td>
+<td><code>pi-goal/index.ts:7-9</code>, <code>:30</code>, <code>:54</code> (<code>pursuing → verifying → verifying-independent → done|blocked</code>)</td>
+<td><strong>Aligned</strong> with the read-list description.</td>
+</tr>
+<tr>
+<td>Repo&#39;s own loop principle index</td>
+<td><code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md:51-52</code> (&quot;Loops with an explicit brake&quot;), <code>:9-12</code> (paper→pattern map)</td>
+<td><strong>Aligned</strong>; ReAct/Reflexion/Self-Refine mapped. ReAct independently re-verified in the 2026-06-28 source pass (Yao et al., ICLR 2023, arXiv:2210.03629).</td>
+</tr>
+</tbody></table>
+<h2>7. Gaps, limitations, and OPTIONAL observations (no diffs)</h2>
+<p>Observation-only; no code changes proposed.</p>
+<p><strong>Update — observations applied (2026-06-28).</strong> A follow-up applied the safe, surgical items below: <strong>#3</strong> (read-list inaccuracy) was corrected in the research workflow&#39;s grounding read-list and reviewer prompts (<code>.pi/workflows/drafts/loop-engineering-deep-research.js</code>) so a re-run no longer misattributes the <code>[60,3600]s</code> dynamic clamp to <code>interval.ts</code>; <strong>#6</strong> (two distinct verify caps) and <strong>#5</strong> (independent-verifier cost) were addressed with cross-reference comments on <code>MAX_VERIFY_ATTEMPTS</code> and <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS</code> in <code>extensions/pi-goal/index.ts</code>. <strong>#1</strong> was left as-is: <code>caps.ts</code> already documents the best-effort/silent no-op in its docstring. <strong>#2</strong> (eval sweep of <code>quietRounds</code>/<code>maxRounds</code>) and <strong>#4</strong> (finite destructive-gate allowlist) remain open by design — the former needs data, the latter is a deliberate accepted asymmetry. The practical how-to derived from this investigation lives in <a href="../loop-engineering-with-extensions.html"><code>docs/loop-engineering-with-extensions.md</code></a>.</p>
+<ol>
+<li><strong>Best-effort budget cap is a soft sensor.</strong>
+When <code>getContextUsage()</code> is unavailable, only wall-clock + iteration brakes remain (<code>caps.ts:33-37</code>). <em>Optional observation:</em> consider documenting (already partially done in the docstring) that the context cap may silently no-op, so operators don&#39;t over-rely on it.</li>
+<li><strong>Quiet-rounds ≠ proven convergence.</strong>
+<code>quiet===2</code> is a debounce/deadband, not a fixed-point/contraction guarantee; transient quiet (finders searching the wrong place) can trigger a false settle (<code>templates.ts:351</code>, <code>:389</code>). <em>Optional:</em> the precision-vs-cost tradeoff of <code>quietRounds</code>/<code>maxRounds</code> defaults appears rationale-based, not data-based — an eval sweep would convert assumption into evidence.</li>
+<li><strong>Read-list inaccuracy (documentation gap, not a code bug).</strong>
+The grounding read-list attributes the <code>[60,3600]s</code> dynamic clamp to <code>interval.ts</code>; it actually lives in <code>index.ts:103</code>, <code>:1186-1188</code>. Only the fixed <code>[1s,24h]</code> clamp is in <code>interval.ts</code>. <em>Optional:</em> correct the read-list/comments for future readers.</li>
+<li><strong>Destructive-gate allowlist is finite.</strong> <code>gate.ts</code> enumerates known-dangerous patterns with a &quot;when unsure, do not block&quot; bias (<code>:55-56</code>); a novel destructive command outside the allowlist passes on autopilot. This is a deliberate accepted asymmetry, not a defect.</li>
+<li><strong>Independent verifier cost.</strong>
+Each <code>verifying-independent</code> step spawns a separate <code>pi -p</code> process (<code>pi-goal/index.ts:391-424</code>). Huang et al. caution multi-round critique should be benchmarked against cheaper baselines (e.g., self-consistency). <em>Optional:</em> a note that more verification rounds are not free.</li>
+<li><strong>Two distinct verify caps could confuse readers.</strong>
+<code>MAX_VERIFY_ATTEMPTS=3</code> (self completeness check) vs <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS=2</code> (independent) are different gates (<code>pi-goal/index.ts:104</code>, <code>:116</code>). Correct and intentional, but worth a one-line cross-reference for maintainers.</li>
+</ol>
+<h2>8. Coverage gaps &amp; what to verify next</h2>
+<p><strong>Failed/empty branches (honest accounting):</strong></p>
+<ul>
+<li><code>research-react-observe-act</code> — <strong>EMPTY in the original run; RESOLVED 2026-06-28.</strong> ReAct (arXiv:2210.03629) is now primary-source-confirmed: Yao, Zhao, Yu, Du, Shafran, Narasimhan, Cao; v3 = <strong>ICLR 2023</strong> camera-ready; interleaves reasoning traces, actions, and environment observations; evaluated on HotpotQA, FEVER, ALFWorld, WebShop (<a href="https://arxiv.org/abs/2210.03629">abstract</a>, <a href="https://react-lm.github.io/">official site</a>).</li>
+<li><code>research-bounding-failure-modes-term</code> — <strong>EMPTY.</strong> Synthesizer backfilled the term question via its own web search (§2, 5 sources). <em>Verify next:</em> a dedicated failure-mode taxonomy pass for parity with the other branches.</li>
+<li><code>research-repo-grounding</code> — <strong>EMPTY.</strong> Synthesizer backfilled by reading every read-list file directly (all <code>file:line</code> here verified this run).</li>
+</ul>
+<p><strong>Other items to verify:</strong></p>
+<ul>
+<li><strong>Control-theory URLs are preserved from branch 3 and were NOT re-fetched in synthesis</strong> (synthesis web budget was spent on the term question). Treat F1–F7 mappings as <em>interpretation grounded in branch-3 citations</em>, pending an independent re-fetch of Åström &amp; Murray / MathWorks / ISA / NI / MIT.</li>
+<li><strong>No peer-reviewed control-theoretic formalization of LLM loops was found.</strong> The &quot;quiet rounds = settling/deadband&quot; and &quot;clamp = actuator saturation&quot; mappings are <strong>analogies (INTERPRETATION)</strong>, not proven contraction/fixed-point results. <em>Verify next:</em> search for work modeling iterative refinement as a contraction mapping with a convergence bound.</li>
+<li><strong>Self-correction debate — counterpoints now read (RESOLVED 2026-06-28).</strong> Huang et al. (<a href="https://arxiv.org/abs/2310.01798">2310.01798</a>) holds for <em>naive/biased</em> intrinsic loops. <a href="https://arxiv.org/abs/2405.14092">arXiv:2405.14092</a> (Wu et al., EMNLP 2024 — <em>ProCo</em>) shows structured intrinsic self-correction (mask a key condition → verify → re-solve) beats plain self-correct (+6.8 EM QA / +14.1 arithmetic / +9.6 commonsense, GPT-3.5-Turbo-1106); <a href="https://arxiv.org/abs/2406.15673">arXiv:2406.15673</a> (Liu et al.) reports intrinsic self-correction works at <strong>temperature 0 with unbiased prompts</strong>, while biased &quot;find problems&quot; prompts flip correct answers (limits: 4 models, 2 datasets, no error bars). Takeaway: bound the loop <em>and</em> keep the critique signal independent/unbiased — exactly what pi-goal&#39;s external verifier enforces.</li>
+<li><strong>Self-Refine iteration cap &amp; Reflexion repo (RESOLVED 2026-06-28).</strong> Self-Refine runs to a task stop signal <strong>capped at 4 iterations</strong> in the paper&#39;s experiments (§3.1; Fig 4 shows diminishing returns after ~3 iterations) (<a href="https://arxiv.org/pdf/2303.17651">arXiv:2303.17651</a>). ⚠️ The Reflexion-paper-cited repo <code>https://github.com/noahshinn024/reflexion</code> <strong>no longer hosts the original code</strong> — it currently shows an unrelated &quot;Bugbounty POC&quot; project (~2 commits); treat that URL as a stale or repurposed citation and prefer the paper PDF (<a href="https://arxiv.org/pdf/2303.11366">arXiv:2303.11366</a>).</li>
+</ul>
+<hr>
+<p><em>No source-code files were edited. Every external claim carries a URL; every repo claim carries <code>file:line</code> verified this run; unverifiable items are tagged INSUFFICIENT_EVIDENCE or INTERPRETATION.</em></p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

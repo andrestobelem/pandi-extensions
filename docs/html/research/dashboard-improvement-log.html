@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard improvement log</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>Dashboard improvement log</h1>
+	</header>
+	<main>
+<p>Chronological, append-only narrative of <code>/workflow</code> TUI dashboard improvement passes.
+Pending work lives in <code>dashboard-improvement-backlog.md</code>, not here.</p>
+<h2>2026-06-30 — DW-DASH-003: collapse the duplicated per-row agent meta suffix</h2>
+<ul>
+<li><p><strong>Mejora (pass):</strong></p>
+<ul>
+<li>El sufijo de chips por-fila de agente (<code>prompt schema tools skills extensions keys</code>) se construía byte-idéntico en <code>renderMonitorAgents</code> y <code>renderAgents</code>, con expresiones <code>muted(...)</code>/<code>success(...)</code>/<code>warning(...)</code>/<code>error(...)</code> duplicadas.</li>
+<li>Se extrajo un helper privado behavior-preserving <code>renderAgentRowMeta(agent, muted, success, error, warning)</code> que devuelve esa cadena común, invocado desde ambos render paths.</li>
+<li>Quedan FUERA del helper, en cada caller, las dos diferencias intencionales:<ul>
+<li>El chip <code>code:</code> de Monitor (entre <code>elapsed:</code> y el meta)</li>
+<li>El segmento <code>— &lt;workflow&gt; &lt;runId&gt;</code> de Agents (antes de <code>elapsed:</code>)</li>
+</ul>
+</li>
+<li>Sin renombres ni reordenamientos; salida renderizada idéntica byte-a-byte a la anterior en ambos tabs.</li>
+</ul>
+</li>
+<li><p><strong>Archivos REALES tocados (pass):</strong></p>
+<ul>
+<li><code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code> — nuevo helper privado <code>renderAgentRowMeta</code> (def. antes de <code>renderMonitorAgents</code>); ambos callers reemplazan los ~6 <code>const</code> de chips por <code>const meta = this.renderAgentRowMeta(...)</code>.</li>
+<li><code>extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code> — test behavioral nuevo (patrón <code>buildExtension</code> + <code>loadModule</code> + <code>WorkflowDashboard.render(WIDTH)</code>): para un mismo agente verifica que el meta suffix (<code>prompt…keys</code>) es byte-idéntico entre la fila de Monitor y la de Agents, y que persisten las dos divergencias (<code>code:</code> solo en Monitor; <code>— &lt;workflow&gt; &lt;runId&gt;</code> solo en Agents). Autodescubierto por <code>scripts/test/run-all.mjs</code> (convención <code>tests/integration/*.test.mjs</code>) — manifest sin tocar.</li>
+<li><code>docs/research/dashboard-improvement-backlog.md</code> — DW-DASH-003 → Done; H1/H2 marcados resueltos al baseline <code>da0a449</code>.</li>
+</ul>
+</li>
+<li><p><strong>Verificación (verde):</strong></p>
+<ul>
+<li><code>tsc -p tsconfig.json --noEmit</code></li>
+<li><code>biome check extensions/pi-dynamic-workflows</code> (98 files, sin errores)</li>
+<li>Bucle <code>for f in tests/integration/*.test.mjs</code> (todas las suites PASS, incl. la nueva con 9 checks)</li>
+<li>esbuild de <code>workflow-dashboard.ts</code> a <code>.pi/tmp/wfdash.check.mjs</code> OK (artefacto borrado)</li>
+<li><code>node --check</code> de la <code>.mjs</code> nueva OK</li>
+</ul>
+</li>
+<li><p><strong>Verificación adversarial:</strong> mutando SOLO el caller de Agents (append <code>stray:1</code> tras <code>${meta}</code>) el test FALLA (<code>per-row meta suffix … byte-identical</code> → exit 1), probando que ancla la divergencia por-caller; revertido y re-verificado verde.</p>
+</li>
+<li><p><strong>Gate:</strong> baseline <code>da0a449</code>, working tree limpio al iniciar; cambios solo dentro del allow-set (<code>workflow-dashboard.ts</code>, <code>tests/integration/**</code>, <code>docs/research/**</code>). Sin tocar <code>index.ts</code> ni otros archivos calientes. Sin commit (lo hace el humano).</p>
+</li>
+</ul>
+<h2>2026-06-30 — Collapse duplicated &quot;Selected agent&quot; detail block (finalize: gate tripped)</h2>
+<ul>
+<li><p><strong>Mejora (pass):</strong></p>
+<ul>
+<li>El bloque de detalle &quot;Selected agent&quot; estaba duplicado casi idéntico en <code>renderMonitorAgents</code> y <code>renderAgents</code>.</li>
+<li>Se extrajo a un helper privado compartido <code>renderSelectedAgentDetail(...)</code>, parametrizado SOLO por las tres diferencias reales:<ul>
+<li><code>headerLines</code> (workflow/run/parallel, solo Agents)</li>
+<li><code>includeSchemaInState</code> (sufijo <code>• schema …</code> solo Agents)</li>
+<li><code>compactWidth</code> (220 Monitor vs 260 Agents)</li>
+</ul>
+</li>
+<li>La línea de acciones de Agents queda fuera del helper.</li>
+<li>Behavior-preserving: ambos tabs renderizan las mismas líneas de detalle para una entrada equivalente.</li>
+</ul>
+</li>
+<li><p><strong>Archivos REALES tocados (pass):</strong></p>
+<ul>
+<li><code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code> — helper <code>renderSelectedAgentDetail</code> (def. ~L737; usado en Monitor ~L853 y Agents ~L927).</li>
+<li><code>extensions/pi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code> — ancla el contrato: líneas compartidas byte-idénticas entre ambos tabs + las tres diferencias intencionales (header / schema suffix / ancho 220 vs 260).</li>
+<li><code>extensions/pi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code> — fija el round-trip de quoting↔parsing de <code>parseWorkflowCommandArgument</code> para el comando <code>switch-session</code> (ruta antes sin cobertura).</li>
+</ul>
+</li>
+<li><p><strong>Finalize (esta corrida):</strong></p>
+<ul>
+<li>Solo se agregaron los docs de <code>docs/research/</code> (este log + backlog).</li>
+<li>No se editó código ni se corrió verificación (lo hace el orquestador).</li>
+<li>No se tocaron archivos calientes ni el test ajeno <code>dashboard-collectors-contract.test.mjs</code>.</li>
+</ul>
+</li>
+<li><p><strong>Verificación:</strong> DIFERIDA al orquestador (el gate prohíbe ejecutarla aquí). Plan esperado en verde:</p>
+<ul>
+<li><code>tsc --noEmit</code></li>
+<li><code>biome check extensions/pi-dynamic-workflows</code></li>
+<li>Bucle <code>for f in tests/integration/*.test.mjs</code></li>
+<li>esbuild de la ext</li>
+<li><code>node --check</code></li>
+</ul>
+</li>
+<li><p><strong>Evidencia / estado:</strong></p>
+<ul>
+<li>GATE DURO DISPARADO.</li>
+<li>HEAD esperado por el driving prompt = <code>fad9875</code>; HEAD real = <code>9010157</code> (commits humanos <code>1c356e8</code>, <code>251c2c2</code>, <code>9010157</code> absorbieron los archivos sucios ajenos del inicio).</li>
+<li>Por la salvaguarda dura (&quot;si cambia HEAD → BLOCKED&quot;) no se re-baseliza en autopiloto: requiere confirmación humana del nuevo baseline antes de seguir.</li>
+<li>El trabajo del pass queda intacto en el working tree (allow-set) y documentado; pendientes → backlog.</li>
+</ul>
+</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

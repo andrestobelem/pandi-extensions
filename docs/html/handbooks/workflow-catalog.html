@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workflow catalog (quick reference)</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/handbooks</div>
+		<h1>Workflow catalog (quick reference)</h1>
+	</header>
+	<main>
+<p><strong>Date:</strong> 2026-07-01 | <strong>Status:</strong> durable reference | <strong>Scope:</strong> 25 dynamic-workflow scaffolds in <code>pi-dynamic-workflows</code></p>
+<h2>What this is</h2>
+<p>A human-readable index of every built-in workflow scaffold, grouped by family, with a one-line
+description and the use cases it targets. Use it to pick the right pattern before authoring or
+running a workflow.</p>
+<p><strong>Source of truth (do not hand-maintain the list against these):</strong></p>
+<ul>
+<li>Live catalog: <code>dynamic_workflow action=scaffold</code> (or <code>/workflow patterns</code>); fetch one with <code>action=scaffold name=&lt;key&gt;</code>.</li>
+<li>Scaffold code: <code>extensions/pi-dynamic-workflows/scaffolds/*.js</code> (pi) and <code>.claude/workflows/*.js</code> (Claude Code) — 25 each.</li>
+<li>The <code>ultracode</code> skill (<code>.pi/skills/ultracode/SKILL.md</code>) carries the same catalog by family.</li>
+</ul>
+<p><strong>Completeness check (2026-07-01):</strong> 25 pi scaffolds, 25 Claude workflows, 25 in the skill&#39;s bundled reference. The skill&#39;s &quot;pattern catalog&quot; section names all 25 with no extras.</p>
+<h2>How to choose</h2>
+<p>Walk the gates first (most tasks stop early): <strong>Contract Gate → Trivial → Scout inline → Orchestrate only for exhaustiveness, confidence, or scale.</strong> A single agent call beats a workflow for almost everything. Then pick a primitive by data dependency, and a pattern below by intent.</p>
+<hr>
+<h2>🚪 Gate &amp; guard — frame and protect</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>contract-gate</code></td>
+<td>Turn a vague ask into an inspectable contract (improved task, success criteria, assumptions, non-goals) and decide <em>ask-now vs proceed-on-a-recorded-assumption</em>.</td>
+<td>Scope a fuzzy ticket; gate before a costly multi-agent run; rewrite a raw ask into a clean spec.</td>
+</tr>
+<tr>
+<td><code>guardrails</code></td>
+<td>Cheap input/output tripwire that <strong>HALTS</strong> on a clear violation; can wrap any workflow via <code>protect:{name,args}</code>.</td>
+<td>Scope/safety gate before an agent; PII/secret check on an output; wrap a workflow with tripwires.</td>
+</tr>
+</tbody></table>
+<h2>🧭 Route &amp; orchestrate</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>router</code></td>
+<td>Classify a request and dispatch to the single best catalog workflow (or recommend-only).</td>
+<td>A single front door for raw tasks; map a task to the right specialist; preview the pick with <code>runSelected:false</code>.</td>
+</tr>
+<tr>
+<td><code>orchestrator-workers</code></td>
+<td>A planner decomposes an open goal into a <code>dependsOn</code> subtask graph; workers execute level-by-level; an integrator merges.</td>
+<td>Multi-part deliverables; research/build goals with interdependencies.</td>
+</tr>
+<tr>
+<td><code>map-reduce</code></td>
+<td>Hierarchical map-reduce: per-chunk map under an evidence contract, reduce in bounded batches to one summary-of-summaries.</td>
+<td>Input bigger than one context window: huge doc/log, hundreds of tickets.</td>
+</tr>
+<tr>
+<td><code>workflow-factory</code></td>
+<td>Meta-workflow: catalog → plan → generate → review → refine, then write <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</td>
+<td>No existing workflow fits and you want a task-specific one; specialize the closest scaffold.</td>
+</tr>
+<tr>
+<td><code>recursive-compose</code></td>
+<td>Reference (pi, depth ≤ 3): a node re-gates a sub-task via <code>contract-gate</code>, then dispatches via <code>router</code> — bounded recursion.</td>
+<td>Self-similar gate→compose pipelines; carry the gate&#39;s resource plan into a deeper run.</td>
+</tr>
+</tbody></table>
+<h2>🔍 Discover &amp; fan-out</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fan-out-and-synthesize</code></td>
+<td>Scatter-gather: scout a work-list, one reviewer per item (parallel, settle), synthesize-as-judge with coverage/failure notes.</td>
+<td>Broad independent coverage of a known-ish work-list; multi-angle synthesis.</td>
+</tr>
+<tr>
+<td><code>scout-fanout</code></td>
+<td>Scout + adaptive-depth pipeline: risk-classify every file cheaply, deep-review only high/medium; low-risk short-circuits.</td>
+<td>Triage-then-review a large tree; spend budget only where it pays.</td>
+</tr>
+<tr>
+<td><code>repo-bug-hunt</code></td>
+<td>Scout files, per-file bug reviewers, judge dedupes + prioritizes with citations. Findings are <strong>leads</strong>, not confirmed bugs.</td>
+<td>Repo audit; pre-review sweep (then confirm with <code>bug-verify</code>).</td>
+</tr>
+<tr>
+<td><code>loop-until-dry</code></td>
+<td>Keep fanning out finders until K consecutive quiet rounds or <code>maxRounds</code>.</td>
+<td>Unknown-size set you want to exhaust: &quot;find all call-sites / edge-cases&quot;.</td>
+</tr>
+<tr>
+<td><code>react-scout</code></td>
+<td>ReAct reason → act → observe loop: each step grounds a thought in a real read-only observation.</td>
+<td>Evidence-grounded investigation before committing or fanning out.</td>
+</tr>
+<tr>
+<td><code>complex-research</code></td>
+<td>Independent research angles (each runs web search), synthesized as judge with citations and coverage gaps.</td>
+<td>Cited answer to an external question: tech comparisons, landscape scans.</td>
+</tr>
+</tbody></table>
+<h2>✅ Verify</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>adversarial-verify</code></td>
+<td>Per-finding skeptic jury that prunes by majority refutation; default-to-doubt.</td>
+<td>Prune a noisy findings list; drop hallucinated findings before acting.</td>
+</tr>
+<tr>
+<td><code>bug-verify</code></td>
+<td>Confirm suspected bugs by <strong>reproduction</strong>: real only if a run fails on current code; optional FAIL→PASS fix check + minimization. Sequential.</td>
+<td>Confirm <code>repo-bug-hunt</code> leads; reproduce-and-fix loop.</td>
+</tr>
+<tr>
+<td><code>verify-claims-lib</code></td>
+<td>Reusable sub-workflow: verify <code>{claims, skeptics?}</code> with skeptic juries; returns verified/dropped/votes/coverage.</td>
+<td>A verification building block for a parent workflow.</td>
+</tr>
+<tr>
+<td><code>adversarial-plan-review</code></td>
+<td>N fixed-angle reviewers (correctness, security, maintainability, scope) synthesize a revised plan.</td>
+<td>Design/RFC review; pre-implementation gate.</td>
+</tr>
+</tbody></table>
+<h2>🎯 Generate &amp; select</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>judge-escalate</code></td>
+<td>Generate candidates from distinct angles, typed judge, escalate only when confidence is low.</td>
+<td>Best-of-N where you&#39;d rather deepen than commit to a weak winner.</td>
+</tr>
+<tr>
+<td><code>tournament</code></td>
+<td>Single-elimination bracket: pairwise judge rounds until one candidate survives.</td>
+<td>Pick the best of several drafts/designs when absolute scoring is unreliable but pairwise is easy.</td>
+</tr>
+<tr>
+<td><code>self-consistency</code></td>
+<td>Sample N independent reasoning paths, pick by consensus (vote), tie-broken by an evidence-weighing judge.</td>
+<td>High-variance reasoning/math/judgment; report the consensus margin.</td>
+</tr>
+<tr>
+<td><code>tree-of-thoughts</code></td>
+<td>Beam search over partial solutions: expand K thoughts, judge-score, prune to top-B, recurse to depth, commit.</td>
+<td>Multi-step planning/design search; explore a solution space.</td>
+</tr>
+</tbody></table>
+<h2>🔁 Iterate &amp; refine</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>self-refine</code></td>
+<td>Bounded in-place generate → critique → refine with verbal memory; quiet-stop when the critic is satisfied.</td>
+<td>Polish one artifact (doc/spec/code) to quality.</td>
+</tr>
+<tr>
+<td><code>reflexion</code></td>
+<td>Verbal-RL outer trial loop: re-attempt each trial carrying self-reflections; evaluator can be externally grounded (<code>verifyCmd</code>).</td>
+<td>Code-with-tests; tasks with a pass/fail oracle; reset-and-re-attempt vs edit-in-place.</td>
+</tr>
+</tbody></table>
+<h2>🚚 Migrate</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>large-migration</code></td>
+<td>A real applier: green-baseline gate, per-file apply → verify → bounded-repair, rollback on failure. Sequential.</td>
+<td>API/codemod rollouts; framework upgrades; capped, evidence-backed migration.</td>
+</tr>
+</tbody></table>
+<h2>🧩 Compose &amp; meta</h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>What it does</th>
+<th>Use cases</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>composition-driver</code></td>
+<td>Parent workflow: discover claims, delegate verification to <code>verify-claims-lib</code>, then synthesize.</td>
+<td>Fact-check a document; the canonical discover→verify composition reference.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Next steps</h2>
+<ul>
+<li>Keep this in sync when scaffolds are added/removed: re-run <code>dynamic_workflow action=scaffold</code> and diff the names against <code>extensions/pi-dynamic-workflows/scaffolds/*.js</code>.</li>
+<li>For per-workflow input shapes and primitives, see the live catalog output (each entry lists a sample <code>Input</code> and <code>Primitives</code>).</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

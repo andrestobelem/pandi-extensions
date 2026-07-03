@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pi-dynamic-workflows</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">pi-dynamic-workflows</div>
+		<h1>pi-dynamic-workflows</h1>
+	</header>
+	<main>
+<p><strong>A suite of 17 extensions for <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — the <code>@earendil-works/pi-coding-agent</code> agentic coding CLI — that brings Claude Code&#39;s ergonomics and capabilities to Pi: <strong>dynamic multi-agent workflows</strong> (the centerpiece), plus <code>/loop</code>, <code>/goal</code>, <code>/plan</code>, local memory, context auto-compaction, TypeScript diagnostics, git worktrees, Linux sandboxes, and several UX aliases/shortcuts.</p>
+<p>The heart of the repo is <strong>Dynamic Workflows / Ultracode</strong>: trusted JavaScript scripts that Pi executes to orchestrate parallel subagents, persist artifacts outside the chat context, and return a coordinated synthesis. The other extensions are independent pieces you can install one by one or all together.</p>
+<ul>
+<li><strong>License:</strong> MIT · <strong>Repo:</strong> <a href="https://github.com/andrestobelem/pi-dynamic-workflows">https://github.com/andrestobelem/pi-dynamic-workflows</a></li>
+<li><strong>Minimum requirements:</strong> Node.js ≥ 22.19.0 + the Pi CLI + git. Full requirements and optional capabilities: <a href="setup.html"><code>docs/setup.md</code></a>.</li>
+</ul>
+<h2>Quickstart</h2>
+<pre><code class="language-bash"># 0. Node &gt;= 22.19.0 (nvm recommended; the repo ships .nvmrc)
+nvm install &amp;&amp; nvm use
+
+# 1. Install the Pi runtime globally
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+pi --version
+
+# 2. Clone and install the dev toolchain
+git clone https://github.com/andrestobelem/pi-dynamic-workflows.git
+cd pi-dynamic-workflows
+npm install
+
+# 3. Check your environment, then run the full gate
+npm run doctor
+npm test
+
+# 4. Install ALL extensions + skills into Pi (global for your user)
+pi install ./                       # project-local: pi install -l ./
+
+# 5. Open Pi in your project, trust it, and smoke test
+cd /your/project &amp;&amp; pi
+#   inside Pi:  /trust  then  /reload
+#   /effort status      (ultracode router)
+#   /workflows          (TUI dashboard)  or  /workflow patterns
+</code></pre>
+<p>Optional extras (web search for subagents, Context7 docs, PNG graphs, Apple <code>container</code> sandboxes, Gondolin micro-VMs) and the external <code>karpathy-guidelines</code> skill are covered in <a href="setup.html"><code>docs/setup.md</code></a>.</p>
+<h2>Extension catalog</h2>
+<p>All 17 extensions load by default from the <code>pi.extensions</code> field of <code>package.json</code> when you run <code>pi install ./</code>. Each one is also installable on its own with <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>Surface (human · model)</th>
+<th>What it does</th>
+<th>Extra requirements</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>pi-dynamic-workflows</strong> (core)</td>
+<td><code>/workflow</code>, <code>/workflows</code>, <code>/ultracode</code>, <code>/dynamic-workflow</code>, <code>/deep-research</code>, <code>/ultracode-mode</code>, <code>/ultracode-contract</code> · <code>dynamic_workflow</code></td>
+<td>JS workflow runtime for multi-agent orchestration with parallel execution, artifacts, and idempotent resume.</td>
+<td>optional: mmdc, web_search, Context7</td>
+</tr>
+<tr>
+<td><strong>pi-loop</strong></td>
+<td><code>/loop</code> · <code>loop_schedule</code>, <code>loop_stop</code></td>
+<td>Iterative loop with dynamic or fixed cadence, driven by the model or the extension.</td>
+<td>TUI/RPC; autopilot requires trust</td>
+</tr>
+<tr>
+<td><strong>pi-goal</strong></td>
+<td><code>/goal</code> · <code>goal_progress</code></td>
+<td>Goal-driven loop with a mandatory completion check and optional independent verifier.</td>
+<td>TUI/RPC</td>
+</tr>
+<tr>
+<td><strong>pi-plan</strong></td>
+<td><code>/plan</code> · <code>enter_plan_mode</code>, <code>submit_plan</code></td>
+<td>Read-only plan mode with mutations blocked until you explicitly approve the plan.</td>
+<td>TUI/RPC (or <code>PI_PLAN_NONINTERACTIVE=1</code>)</td>
+</tr>
+<tr>
+<td><strong>pi-effort</strong></td>
+<td><code>/effort status|off|minimal|low|medium|high|xhigh|ultracode</code></td>
+<td>Claude-style thinking-level switch; <code>ultracode</code> enables the workflow router.</td>
+<td><code>ultracode</code> needs the core loaded</td>
+</tr>
+<tr>
+<td><strong>pi-local-memory</strong></td>
+<td><code>remember</code></td>
+<td>Local memory in <code>.pi/memory/</code>: auto-injected index + on-demand topic files.</td>
+<td>⚠ auto-injects memory: trusted projects only</td>
+</tr>
+<tr>
+<td><strong>pi-auto-compact</strong></td>
+<td><code>/auto-compact [bar|snapshot|snapshots|clear-tools]</code></td>
+<td>Auto-compacts context past a threshold, with recoverable snapshots and a progress bar.</td>
+<td>configurable via <code>PI_AUTO_COMPACT_*</code></td>
+</tr>
+<tr>
+<td><strong>pi-typescript-lsp</strong></td>
+<td><code>/tsc</code> · <code>typescript_diagnostics</code></td>
+<td><code>tsc --noEmit</code> feedback scoped to the files touched this turn; non-blocking.</td>
+<td>project <code>tsconfig.json</code></td>
+</tr>
+<tr>
+<td><strong>pi-worktree</strong></td>
+<td><code>/worktree</code> · <code>git_worktree</code></td>
+<td>Manages git worktrees from Pi; opens new sessions, never changes the cwd.</td>
+<td>git + a git repo</td>
+</tr>
+<tr>
+<td><strong>pi-container</strong></td>
+<td><code>/container</code> · <code>container_sandbox</code></td>
+<td>Runs isolated Linux commands in Apple <code>container</code> micro-VMs, without touching the host.</td>
+<td>macOS Apple Silicon + <code>container</code></td>
+</tr>
+<tr>
+<td><strong>pi-bg</strong></td>
+<td><code>/bg</code></td>
+<td>In-memory background jobs for one-off human commands; not resumable (the small sibling of <code>dynamic_workflow</code>).</td>
+<td>trust for <code>start</code></td>
+</tr>
+<tr>
+<td><strong>pi-mdview</strong></td>
+<td><code>/mdview</code></td>
+<td>Opens a Markdown file in Pi&#39;s scrollable TUI viewer.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>pi-btw</strong></td>
+<td><code>/btw</code></td>
+<td>Quick side question about the current conversation, tool-free, in an overlay; not saved to history.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>pi-rename</strong></td>
+<td><code>/rename</code></td>
+<td>Renames the session or auto-generates the name from history (Claude-style).</td>
+<td>optional: <code>PI_RENAME_*</code></td>
+</tr>
+<tr>
+<td><strong>pi-pandi</strong></td>
+<td><code>/pandi [art|face|off|on]</code></td>
+<td>Panda character: animated splash, indicator, verbs, and mood.</td>
+<td>TUI for the full effect</td>
+</tr>
+<tr>
+<td><strong>pi-exit</strong></td>
+<td><code>/exit</code></td>
+<td>Claude-style alias of <code>/quit</code> for a clean exit.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>pi-clear</strong></td>
+<td><code>/clear</code></td>
+<td>Claude-style alias of <code>/new</code> to start a fresh session.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>pi-ask</strong></td>
+<td>· <code>ask_choice</code>, <code>ask_confirm</code></td>
+<td>Interactive TUI selector/confirm tools for model-driven decision points.</td>
+<td>TUI/RPC</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><code>extensions/shared/</code> is not an extension: it is test-harness code, never published or loaded. <code>extensions/pi-pandi-theme/</code> ships no code either: it is a themes-only package (<code>pi.themes</code>) with the <code>panda-syntax-dark</code>/<code>panda-syntax-light</code> variants, the visual companion of <strong>pi-pandi</strong>; it loads with <code>pi install ./</code> and is enabled via <code>/settings</code> or <code>&quot;theme&quot;</code>.</p>
+</blockquote>
+<h2>Dynamic Workflows in 60 seconds</h2>
+<p>A Dynamic Workflow is a <strong>trusted JavaScript script</strong> that Pi runs to orchestrate big work with subagents — mentally, a <strong>MapReduce with agents</strong>: scout the real work-list cheaply, fan out independent branches with evidence contracts, persist artifacts outside the chat, and let a final synthesis-as-judge deduplicate and prioritize.</p>
+<pre><code class="language-js">export default async function main() {
+  const items = [
+    { label: &quot;a&quot;, prompt: &quot;Review src/a.ts&quot;, tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;], agentType: &quot;reviewer&quot; },
+    { label: &quot;b&quot;, prompt: &quot;Review src/b.ts&quot;, tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;], agentType: &quot;reviewer&quot; },
+  ];
+  const reviews = await agents(items, { concurrency: 2, settle: true });
+  await writeArtifact(&quot;reviews.json&quot;, reviews);
+  return compact(reviews.filter(Boolean), 20000);
+}
+</code></pre>
+<p>Key points:</p>
+<ul>
+<li><strong>Injected globals, no imports</strong>: <code>agent</code>/<code>agents</code>, <code>pipeline</code>, <code>parallel</code>, <code>race</code>, <code>ask</code>, <code>workflow</code>, <code>bash</code>, <code>readFile</code>/<code>writeArtifact</code>, <code>log</code>, <code>compact</code>, plus read-only <code>args</code> and <code>limits</code>.</li>
+<li><strong>Personas</strong>: <code>agentType: &quot;explore&quot; | &quot;reviewer&quot; | &quot;planner&quot; | &quot;architect&quot; | &quot;implementer&quot; | &quot;researcher&quot;</code> applies role defaults (all read-only by default); explicit options win.</li>
+<li><strong>Background by default</strong> in TUI/RPC sessions, with a live dashboard (<code>/workflows</code>) and per-run artifacts under <code>.pi/workflows/runs/&lt;run-id&gt;/</code>.</li>
+<li><strong>Idempotent resume</strong>: completed <code>agent()</code> calls are journaled and never re-run; <code>/workflow resume &lt;runId&gt;</code> continues an interrupted run in place.</li>
+<li><strong>Ultracode always-on</strong>: a Claude Code-style router that weighs, per substantive task, whether to answer inline or orchestrate a workflow (<code>/effort ultracode</code>, <code>/ultracode-mode</code>).</li>
+</ul>
+<p>Full guide — execution cycle, complete API, concurrency, resume journal, pattern catalog, security: <a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a>.</p>
+<h3>Research-backed templates</h3>
+<p>Map common agent papers/frameworks to Pi workflow design:</p>
+<ul>
+<li><strong>ReAct</strong> -&gt; scout/observe with tools before fan-out; keep reasoning tied to evidence.</li>
+<li><strong>Self-consistency</strong> -&gt; sample independent branches, then select by consistency/evidence rather than trusting one path.</li>
+<li><strong>Reflexion / Self-Refine</strong> -&gt; generate -&gt; critique -&gt; refine loops, always bounded by rounds, quiet stops, <code>maxAgents</code>, and timeout.</li>
+<li><strong>Tree of Thoughts</strong> -&gt; branch alternatives, evaluate/prune with a judge, then commit to one path.</li>
+<li><strong>Multiagent debate</strong> -&gt; adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.</li>
+<li><strong>AutoGen / CAMEL / MetaGPT</strong> -&gt; explicit roles, stable artifacts, and clear handoff contracts.</li>
+<li><strong>SWE-agent / DSPy</strong> -&gt; interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.</li>
+</ul>
+<p>Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.</p>
+<h2>Everyday commands</h2>
+<pre><code class="language-text">/workflows                              # TUI dashboard (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
+/workflow run bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:6,&quot;maxAgents&quot;:16}
+/workflow view latest                   # timeline + artifacts of the latest run
+/workflow resume latest                 # resume an interrupted run without re-running finished agents
+/ultracode audit the whole repo for concurrency bugs
+/deep-research research options to migrate X to Y
+/effort ultracode                       # xhigh thinking + Claude-style workflow router
+/plan                                   # read-only plan mode, mutations blocked until approval
+/loop fix the failing tests             # iterative loop with dynamic cadence
+/goal make npm test pass                # goal loop with independent verification
+/bg start npm test                      # one-off human background job (see extensions/pi-bg/README.md)
+</code></pre>
+<p>Some extensions also expose tools that <strong>Pi decides to use on its own</strong> (not human slash commands): <code>enter_plan_mode</code>/<code>submit_plan</code> (plan before risky changes; only you approve), <code>remember</code> (persist durable notes under <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code>, and <code>goal_progress</code>. Each extension&#39;s README documents its surface.</p>
+<h2>Documentation</h2>
+<ul>
+<li><a href="setup.html"><code>docs/setup.md</code></a> — full requirements, optional capabilities, env-var configuration, distribution channels, repo layout.</li>
+<li><a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a> — the deep Dynamic Workflows guide: execution cycle, globals API, background &amp; resume, concurrency, pattern catalog, prompts, security.</li>
+<li><a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a> — developing extensions in this self-hosted repo without breaking your session.</li>
+<li><a href="extensions"><code>extensions/&lt;name&gt;/README.md</code></a> — per-extension docs (e.g. <a href="extensions/pi-dynamic-workflows/README.md"><code>pi-dynamic-workflows</code></a>, <a href="extensions/pi-bg/README.md"><code>pi-bg</code></a>).</li>
+</ul>
+<h2>Verification</h2>
+<pre><code class="language-bash">npm test
+</code></pre>
+<p>The gate runs, in order: <code>tsc</code> (typecheck of all extensions), <code>biome check .</code> (JS/TS/JSON lint + format), <code>markdownlint-cli2</code> (Markdown), and the colocated integration suites via <code>scripts/test/run-all.mjs</code>. Check your environment first with <code>npm run doctor</code>.</p>
+<h2>Issue tracking</h2>
+<p>Work is tracked in the GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pi-dynamic-workflows</a></strong> (v2 board).</p>
+<ul>
+<li>Stories, tasks, and bugs are repo <a href="https://github.com/andrestobelem/pi-dynamic-workflows/issues">Issues</a>, labelled <code>story</code> / <code>task</code> / <code>bug</code> / <code>tests</code> / <code>tech-debt</code>.</li>
+<li>The board groups them by <strong>Status</strong> (Todo / In Progress / Done); a parent story links its sub-tasks in the body.</li>
+<li>Finishing work? Put <code>Closes #N</code> in the commit so the issue and its board card close automatically.</li>
+<li>Managed from the terminal with the <a href="https://cli.github.com/"><code>gh</code></a> CLI (e.g. <code>gh issue create</code>, <code>gh project item-add 4 --owner andrestobelem</code>).</li>
+</ul>
+<h2>License</h2>
+<p>MIT — see <a href="./LICENSE"><code>LICENSE</code></a>.</p>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>
