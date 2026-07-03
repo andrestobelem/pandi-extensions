@@ -15,8 +15,9 @@
  *   node scripts/test/run-all.mjs --list
  */
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,15 +25,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
-const allowedArgs = new Set(["--list"]);
+const allowedArgs = new Set(["--list", "--serial"]);
 const unknownArgs = rawArgs.filter((arg) => !allowedArgs.has(arg));
 if (unknownArgs.length) {
 	console.error(`Unknown argument(s): ${unknownArgs.join(", ")}`);
-	console.error("Usage: node scripts/test/run-all.mjs [--list]");
+	console.error("Usage: node scripts/test/run-all.mjs [--list] [--serial]");
 	process.exit(1);
 }
 
 const SUITE_TIMEOUT_MS = 120_000;
+const SUITE_KILL_GRACE_MS = 5_000;
+// Suites are process-isolated (own tempdir + child + cache-busted import), so they run in a bounded
+// parallel pool for fast feedback. Cap conservatively (default min(cpus,4)) to limit CPU contention
+// that could destabilize the few timing-sensitive suites; override with TEST_CONCURRENCY or --serial.
+const CONCURRENCY = args.has("--serial")
+	? 1
+	: Math.max(1, Number(process.env.TEST_CONCURRENCY) || Math.min(4, os.cpus().length || 4));
 const EXTENSIONS_DIR = "extensions";
 const SUITE_SUBDIR = path.posix.join("tests", "integration");
 
@@ -74,27 +82,54 @@ if (suites.length === 0) {
 	process.exit(1);
 }
 
-const results = [];
-for (const suite of suites) {
-	const relative = suite;
-	console.log(`\n=== ${relative} ===`);
-	const started = Date.now();
-	const result = spawnSync(process.execPath, [path.join(REPO_ROOT, suite)], {
-		cwd: REPO_ROOT,
-		stdio: "inherit",
-		env: process.env,
-		timeout: SUITE_TIMEOUT_MS,
-		killSignal: "SIGTERM",
+// Run one suite in a child process, buffering its output (parallel-safe, unlike live `inherit`).
+// Preserves the timeout+SIGTERM semantics of the old spawnSync path, with a SIGKILL fallback.
+function runSuite(suite) {
+	return new Promise((resolve) => {
+		const started = Date.now();
+		let out = "";
+		let timedOut = false;
+		let killTimer = null;
+		const child = spawn(process.execPath, [path.join(REPO_ROOT, suite)], { cwd: REPO_ROOT, env: process.env });
+		const timer = setTimeout(() => {
+			timedOut = true;
+			child.kill("SIGTERM");
+			killTimer = setTimeout(() => child.kill("SIGKILL"), SUITE_KILL_GRACE_MS);
+		}, SUITE_TIMEOUT_MS);
+		child.stdout.on("data", (d) => {
+			out += d;
+		});
+		child.stderr.on("data", (d) => {
+			out += d;
+		});
+		const done = (status, signal, errText) => {
+			clearTimeout(timer);
+			if (killTimer) clearTimeout(killTimer);
+			resolve({ suite, status, elapsedMs: Date.now() - started, signal, timedOut, out: out + (errText || "") });
+		};
+		child.on("close", (code, signal) => done(typeof code === "number" ? code : 1, signal));
+		child.on("error", (err) => done(1, null, `\n${err}`));
 	});
-	const elapsedMs = Date.now() - started;
-	const timedOut = result.error?.code === "ETIMEDOUT";
-	const status = typeof result.status === "number" ? result.status : 1;
-	results.push({ suite: relative, status, elapsedMs, signal: result.signal, timedOut });
-	console.log(
-		`=== ${relative}: ${status === 0 ? "PASS" : timedOut ? "TIMEOUT" : "FAIL"} (${Math.round(elapsedMs / 1000)}s) ===`,
-	);
-	if (result.error) console.error(result.error);
 }
+
+// Bounded worker pool: at most CONCURRENCY suites in flight; results kept in suite order.
+const results = new Array(suites.length);
+let nextIndex = 0;
+async function worker() {
+	while (nextIndex < suites.length) {
+		const i = nextIndex++;
+		const suite = suites[i];
+		const result = await runSuite(suite);
+		results[i] = result;
+		const label = result.status === 0 ? "PASS" : result.timedOut ? "TIMEOUT" : "FAIL";
+		// Print each suite's buffered output as one coherent block when it finishes.
+		process.stdout.write(`\n=== ${suite}: ${label} (${Math.round(result.elapsedMs / 1000)}s) ===\n`);
+		if (result.out) process.stdout.write(result.out.endsWith("\n") ? result.out : `${result.out}\n`);
+	}
+}
+
+console.log(`Running ${suites.length} suites, concurrency ${CONCURRENCY}...`);
+await Promise.all(Array.from({ length: Math.min(CONCURRENCY, suites.length) }, () => worker()));
 
 const failed = results.filter((result) => result.status !== 0);
 console.log("\n=== integration summary ===");
