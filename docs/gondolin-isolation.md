@@ -7,6 +7,10 @@ micro-VM. The `pi-coding-agent` package ships it as an **example extension**
 (`<pi>/examples/extensions/gondolin/`) that routes pi's built-in tools and `!`
 commands into the VM.
 
+This is the **execution-isolation** axis of
+[`developing-extensions.md`](./developing-extensions.md) (eje 3) — it sandboxes
+*where tools run*, not the develop/reload loop.
+
 It is **not part of this repo's published package**. We keep it opt-in because
 it requires a heavy, platform-specific native dependency (`@earendil-works/gondolin`)
 that would bloat the lockfile and only runs on a couple of platforms.

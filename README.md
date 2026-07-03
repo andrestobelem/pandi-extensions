@@ -458,6 +458,8 @@ npm test
 
 El gate `npm test` corre, en orden: `tsc` (typecheck de todas las extensiones), `biome check .` (lint + formato de JS/TS/JSON), `markdownlint-cli2` (Markdown) y las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Biome reemplaza a ESLint + Prettier; los tipos siguen verificándose con `tsc` (Biome no sustituye al type-checker). Para smoke runtime sin gastar subagentes, crea un workflow que use `parallel`, `pipeline`, `bash` y `writeArtifact`; en sesión TUI/RPC ejecútalo con `dynamic_workflow action=start` (o `action=run`, que también va a background) + `action=view`. En print/json, `action=run` sigue siendo el fallback foreground.
 
+Para el flujo completo de **desarrollar una extensión y probarla sin romper tu sesión** (este repo es auto-hospedado: `/reload` corre tus edits sin commitear al instante), ver [`docs/developing-extensions.md`](docs/developing-extensions.md) — separa los tres ejes: corrección (tests aislados), seguridad de sesión (worktree + segunda instancia) y aislamiento de ejecución (gondolin/container).
+
 ## `/bg` jobs locales
 
 `/bg` provee un runner local mínimo para comandos humanos en background:

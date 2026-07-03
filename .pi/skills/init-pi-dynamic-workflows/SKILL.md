@@ -92,6 +92,12 @@ only for making the extensions available in your OTHER projects. To try one exte
 installing: `pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts` (or `-e .` for the
 whole bundle).
 
+Because this checkout is **self-hosted** (the global install can point back at this repo, and pi
+loads extension TS from disk), a `/reload` runs your uncommitted edits instantly and a broken edit
+can kill your working session. For the full develop-and-test loop (isolated tests first; live smoke
+in a separate worktree/instance; when to use sandboxing) see
+[`docs/developing-extensions.md`](../../../docs/developing-extensions.md).
+
 ## About step 6: karpathy-guidelines (external skill)
 `karpathy-guidelines` is an EXTERNAL, community skill (from
 [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)) — this
