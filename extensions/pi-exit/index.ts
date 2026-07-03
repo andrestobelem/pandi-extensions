@@ -8,17 +8,33 @@
  *
  *   /exit   -> ctx.shutdown()   (same clean shutdown as /quit)
  *
- * Arguments are ignored — exiting takes no parameters. ctx.shutdown() is deferred by the
- * host until the agent is idle, so it is safe to call from the command handler.
+ * Arguments are ignored — exiting takes no parameters. ctx.shutdown() defers the actual
+ * shutdown until the agent is idle, but it delegates to a mode-provided shutdownHandler
+ * that CAN throw synchronously — so it is guarded like pi-clear guards ctx.newSession(),
+ * reporting the failure instead of leaking a generic extension error.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+
+/** Notify the user, degrading gracefully outside the TUI (mirrors the sibling extensions). */
+function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
+	if (ctx.mode === "print") {
+		if (type === "info") console.log(message);
+		else console.error(message);
+		return;
+	}
+	if (ctx.hasUI) ctx.ui.notify(message, type);
+}
 
 export default function exitExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("exit", {
 		description: "Exit pi cleanly (Claude-style alias for /quit).",
 		handler: async (_args, ctx) => {
-			ctx.shutdown();
+			try {
+				ctx.shutdown();
+			} catch (error) {
+				notify(ctx, `exit failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+			}
 		},
 	});
 }

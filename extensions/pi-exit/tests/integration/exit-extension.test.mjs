@@ -6,6 +6,10 @@
  * - registers a slash command named "exit" with a non-empty description
  * - the handler triggers a clean shutdown via ctx.shutdown() exactly once
  * - the handler ignores any arguments and still shuts down
+ * - registers EXACTLY one command (the README promises /exit coexists with the
+ *   native /quit and never overrides it) (issue #13)
+ * - a throwing ctx.shutdown() is reported as an error note and never propagates,
+ *   mirroring pi-clear's guarded ctx.newSession() (issue #13)
  */
 
 import * as fs from "node:fs/promises";
@@ -24,17 +28,20 @@ function makePi() {
 	return { pi, commands };
 }
 
-function makeCtx() {
+function makeCtx({ throwOnShutdown = false } = {}) {
 	const calls = { shutdown: 0 };
+	const notes = [];
 	const ctx = {
 		mode: "tui",
 		hasUI: true,
-		ui: { notify: () => {} },
+		ui: { notify: (msg, type) => notes.push({ msg, type }) },
 		shutdown: () => {
 			calls.shutdown += 1;
+			if (throwOnShutdown) throw new Error("shutdown-refused");
 		},
 	};
 	ctx._calls = calls;
+	ctx._notes = notes;
 	return ctx;
 }
 
@@ -51,6 +58,11 @@ async function main() {
 		exitExtension(h.pi);
 		const cmd = h.commands.get("exit");
 		check("/exit command registered", !!cmd);
+		check(
+			"/exit registers EXACTLY one command (never overrides /quit)",
+			h.commands.size === 1,
+			JSON.stringify([...h.commands.keys()]),
+		);
 		check("/exit has a description", typeof cmd?.description === "string" && cmd.description.length > 0);
 
 		const ctx = makeCtx();
@@ -60,6 +72,26 @@ async function main() {
 		const ctx2 = makeCtx();
 		await cmd.handler("  some ignored args  ", ctx2);
 		check("/exit ignores args and still shuts down once", ctx2._calls.shutdown === 1, String(ctx2._calls.shutdown));
+
+		// A throwing shutdown (the mode-provided shutdownHandler can throw) is reported
+		// as an error note and never propagates — same contract as pi-clear's guarded
+		// ctx.newSession().
+		const ctxThrow = makeCtx({ throwOnShutdown: true });
+		let threw = false;
+		try {
+			await cmd.handler("", ctxThrow);
+		} catch {
+			threw = true;
+		}
+		check("/exit does not crash when shutdown throws", !threw);
+		check(
+			"/exit reports a shutdown failure as an error note",
+			ctxThrow._notes.some((n) => n.type === "error" && /exit failed/.test(n.msg) && /shutdown-refused/.test(n.msg)),
+			JSON.stringify(ctxThrow._notes),
+		);
+
+		// Success stays strictly silent.
+		check("/exit is silent on success", ctx._notes.length === 0 && ctx2._notes.length === 0);
 	} finally {
 		await fs.rm(ext.outDir, { recursive: true, force: true });
 	}
