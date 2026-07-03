@@ -72,6 +72,18 @@ test("escapes HTML inside code fences", () => {
 	assert.doesNotMatch(html, /<script>alert/);
 });
 
+test("mermaid fences become pandi-themed diagrams; plain docs stay JS-free", () => {
+	const withDiagram = renderMarkdownToHtml("# T\n\n```mermaid\nflowchart LR\n  A --> B\n```\n", {});
+	assert.match(withDiagram, /<pre class="mermaid">/);
+	assert.match(withDiagram, /flowchart LR/);
+	assert.match(withDiagram, /mermaid(@|\.min)/); // CDN script present
+	assert.match(withDiagram, /themeVariables/);
+	assert.match(withDiagram, /#FF75B5/); // pandi accent wired into the mermaid theme
+	// A document without mermaid must stay a no-JS artifact.
+	const plain = renderMarkdownToHtml("# T\n\n```js\nconst a = 1;\n```\n", {});
+	assert.doesNotMatch(plain, /<script/);
+});
+
 test("CLI converts a .md file to a sibling .html", () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-md2html-"));
 	try {

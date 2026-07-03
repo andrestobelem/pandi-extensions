@@ -102,6 +102,12 @@ Working markup + CSS for all of these: [`reference/template.html`](./reference/t
 5. Surface partial failure: failed/skipped/clamped work gets a warn or error
    callout near the top, not a footnote.
 6. Footer line in `--muted` 12.5px: generator + palette attribution.
+7. Mermaid diagrams must use the pandi palette too: mermaid `base` theme with
+   `themeVariables` mapped from the tokens (background/mainBkg/primaryColor from the
+   surfaces, text from the inks, `titleColor` from the accent, lines from `--muted`).
+   Reference implementation: `mermaidThemeVariables()` in
+   [`scripts/md-to-html.mjs`](./scripts/md-to-html.mjs) — copy it instead of inventing
+   a new mapping.
 
 ## Converting Markdown to styled HTML
 
@@ -118,6 +124,10 @@ node .pi/skills/pandi-artifact-style/scripts/md-to-html.mjs in.md -o out.html --
 - GitHub alerts (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`) become pandi callouts.
 - Prose typography: `h2`/`h3`/`h4` are real ink headings (20/16/14px) and body text
   is justified — the uppercase label style stays dashboard-only (`h2.sec` in the template).
+- ` ```mermaid ` fences render as diagrams themed with the pandi palette (mermaid `base`
+  theme + `themeVariables` parsed at runtime from the tokens file; dark/light follows
+  `prefers-color-scheme`). The CDN script is injected only when a diagram exists —
+  diagram-free documents stay JS-free.
 - Tokens are read at runtime from [`reference/pandi-tokens.css`](./reference/pandi-tokens.css) —
   no duplication; output is a single self-contained file with no JS.
 - Pinning tests: `scripts/test/unit/md-to-html.test.mjs` (`npm run test:unit`).

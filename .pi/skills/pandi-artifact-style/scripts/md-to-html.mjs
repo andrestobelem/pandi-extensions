@@ -13,7 +13,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { marked } from "marked";
+import { Marked } from "marked";
 
 const SKILL_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TOKENS_CSS_PATH = path.join(SKILL_DIR, "reference", "pandi-tokens.css");
@@ -50,6 +50,7 @@ code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--c
 pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
 pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
@@ -70,6 +71,67 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 `;
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Markdown engine: GFM + a code renderer that turns ```mermaid fences into diagram
+// containers (mermaid reads textContent, so entity-escaping stays correct and safe).
+const engine = new Marked({
+	gfm: true,
+	renderer: {
+		code(token) {
+			if ((token.lang || "").trim() === "mermaid") return `<pre class="mermaid">${escapeHtml(token.text)}</pre>\n`;
+			return false; // fall back to the default code renderer
+		},
+	},
+});
+
+// Parse the CSS custom properties out of pandi-tokens.css (dark = first :root block,
+// light = the prefers-color-scheme block), so mermaid theming shares the single source
+// of truth instead of duplicating hex values.
+function parseTokenVariants(tokensCss) {
+	let split = tokensCss.search(/@media[^{]*prefers-color-scheme:\s*light/);
+	if (split < 0) split = tokensCss.length; // no light block: reuse dark for both
+	const grab = (css) => {
+		const vars = {};
+		for (const m of css.matchAll(/--([\w-]+):\s*(#[0-9A-Fa-f]{6})/g)) vars[m[1]] = m[2];
+		return vars;
+	};
+	return { dark: grab(tokensCss.slice(0, split)), light: grab(tokensCss.slice(split)) };
+}
+
+// Map pandi tokens to mermaid `base` themeVariables (same semantic roles as the manual).
+function mermaidThemeVariables(vars) {
+	return {
+		background: vars.bg,
+		mainBkg: vars.paper,
+		primaryColor: vars.raised,
+		primaryTextColor: vars.ink,
+		primaryBorderColor: vars["line-strong"],
+		lineColor: vars.muted,
+		secondaryColor: vars["info-bg"],
+		tertiaryColor: vars.raised,
+		textColor: vars.ink2,
+		titleColor: vars.accent,
+		nodeTextColor: vars.ink,
+		edgeLabelBackground: vars.bg,
+		clusterBkg: vars["info-bg"],
+		clusterBorder: vars.line,
+		fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif',
+	};
+}
+
+function mermaidScript(tokensCss) {
+	const { dark, light } = parseTokenVariants(tokensCss);
+	const themes = JSON.stringify({ dark: mermaidThemeVariables(dark), light: mermaidThemeVariables(light) });
+	return `<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = ${themes};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>`;
+}
 
 // Extract the first top-level `# heading` as the page title and drop it from the body.
 function splitTitle(md) {
@@ -104,7 +166,8 @@ export function renderMarkdownToHtml(md, opts = {}) {
 	const kicker = opts.kicker ?? "Pandi artifact";
 	const { title: docTitle, body } = splitTitle(md);
 	const title = docTitle ?? opts.title ?? "Untitled";
-	const rendered = alertsToCallouts(marked.parse(body, { gfm: true, async: false }));
+	const rendered = alertsToCallouts(engine.parse(body, { async: false }));
+	const mermaidBlock = rendered.includes('<pre class="mermaid">') ? `${mermaidScript(tokensCss)}\n` : "";
 
 	return `<!doctype html>
 <html lang="en">
@@ -126,7 +189,7 @@ ${BODY_CSS}</style>
 ${rendered}	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>
-</body>
+${mermaidBlock}</body>
 </html>
 `;
 }
