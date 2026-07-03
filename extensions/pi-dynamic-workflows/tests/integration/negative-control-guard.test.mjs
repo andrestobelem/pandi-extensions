@@ -14,6 +14,9 @@
  *   2. Throw-safety: if fn throws, the file is still restored (finally) and the throw propagates.
  *   3. Crash-safety (the point): a child process SIGTERM'd mid-mutation still restores the file,
  *      via the registered signal handler — proven with a real child, not a mock.
+ *   4. Atomicity (issue #8): every replacement lands via rename (new inode on POSIX), never by
+ *      truncating the live file — a concurrent reader (esbuild resolving the REAL root
+ *      package.json while a parity suite mutates it) must never observe a truncated file.
  *
  * Run it:
  *   node extensions/pi-dynamic-workflows/tests/integration/negative-control-guard.test.mjs
@@ -98,6 +101,41 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 		afterKill === ORIGINAL,
 		`after=${JSON.stringify(afterKill)}`,
 	);
+
+	// 4) Atomicity (issue #8): suites run in a parallel pool and esbuild (cwd = repo root)
+	// resolves the REAL root package.json while the parity suites mutate it in place. In-place
+	// fs.writeFileSync truncates before writing, so a parallel reader can observe an EMPTY file
+	// (CI: "Unexpected end of file in JSON — package.json:1:0"). Pin the atomic mechanism
+	// deterministically: each replacement must land via rename — a NEW inode on POSIX — never
+	// by truncating the live inode.
+	if (process.platform !== "win32") {
+		const g = path.join(dir, "atomic-target.txt");
+		fs.writeFileSync(g, ORIGINAL);
+		const inoBefore = fs.statSync(g).ino;
+		let inoDuring = null;
+		await withMutatedFile(g, "ATOMIC-MUTATED", () => {
+			inoDuring = fs.statSync(g).ino;
+		});
+		const inoAfter = fs.statSync(g).ino;
+		check(
+			"mutation lands via rename, not in-place truncate (new inode)",
+			inoDuring !== null && inoDuring !== inoBefore,
+			`before=${inoBefore} during=${inoDuring}`,
+		);
+		check(
+			"restore lands via rename, not in-place truncate (new inode)",
+			inoAfter !== inoDuring,
+			`during=${inoDuring} after=${inoAfter}`,
+		);
+		check(
+			"no temp sibling left behind next to the target",
+			fs.readdirSync(dir).filter((n) => n.startsWith("atomic-target.txt.")).length === 0,
+			fs.readdirSync(dir).join(","),
+		);
+		check("content byte-restored after atomic mutate+restore", fs.readFileSync(g, "utf8") === ORIGINAL);
+	} else {
+		check("atomicity pin skipped on win32 (inode semantics)", true);
+	}
 
 	fs.rmSync(dir, { recursive: true, force: true });
 

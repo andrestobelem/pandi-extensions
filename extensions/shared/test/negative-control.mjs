@@ -16,6 +16,27 @@
 
 import * as fs from "node:fs";
 
+// Replace `file` in ONE atomic step: write a temp sibling, then rename(2) over the target.
+// Suites run in a parallel pool and mutate REAL tracked files that sibling suites read
+// concurrently (issue #8: esbuild, cwd = repo root, resolved the root package.json mid-
+// truncate → "Unexpected end of file in JSON"). In-place writeFileSync opens with O_TRUNC,
+// so a parallel reader can see an empty file; rename is atomic on POSIX, so readers always
+// see either the old or the new content. Same-dir temp keeps the rename on one filesystem.
+function atomicWriteFileSync(file, content) {
+	const tmp = `${file}.negctl-${process.pid}.tmp`;
+	fs.writeFileSync(tmp, content);
+	try {
+		fs.renameSync(tmp, file);
+	} catch (err) {
+		try {
+			fs.rmSync(tmp, { force: true });
+		} catch {
+			// best-effort temp cleanup; the rename error is the one worth surfacing.
+		}
+		throw err;
+	}
+}
+
 // path -> original content still owed a restore. A Map so nested/parallel mutations each restore.
 const pending = new Map();
 let guardsInstalled = false;
@@ -23,7 +44,7 @@ let guardsInstalled = false;
 function restoreAll() {
 	for (const [file, original] of pending) {
 		try {
-			fs.writeFileSync(file, original);
+			atomicWriteFileSync(file, original);
 		} catch {
 			// best-effort on the way out; nothing useful to do if this fails during shutdown.
 		}
@@ -61,10 +82,10 @@ export async function withMutatedFile(filePath, mutate, fn) {
 	pending.set(filePath, original);
 	try {
 		const next = typeof mutate === "function" ? mutate(original) : mutate;
-		fs.writeFileSync(filePath, next);
+		atomicWriteFileSync(filePath, next);
 		return await fn(original);
 	} finally {
-		fs.writeFileSync(filePath, original);
+		atomicWriteFileSync(filePath, original);
 		pending.delete(filePath);
 	}
 }
