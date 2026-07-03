@@ -223,7 +223,54 @@ function scenarioStandaloneDoctor() {
 		check("standalone: prints the doctor report", out.includes("pi-dynamic-workflows doctor"), out.slice(0, 200));
 		const syncLine = out.split("\n").find((l) => l.includes("sync Claude global")) ?? "";
 		check("standalone: sync Claude global is N/A outside the repo", syncLine.includes("N/A"), syncLine);
+		const hookLine = out.split("\n").find((l) => l.includes("hook pre-commit")) ?? "";
+		check("standalone: hook pre-commit is N/A outside the repo", hookLine.includes("N/A"), hookLine);
 		check("standalone: no reference to this repo's path", !out.includes(REPO_ROOT), out.slice(0, 400));
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+}
+
+function scenarioPreCommitHookCheck() {
+	// Inside a suite-like git repo, doctor must report whether the versioned
+	// pre-commit hook (scripts/git-hooks + core.hooksPath) is installed:
+	// WARN when missing, OK once `git config core.hooksPath scripts/git-hooks`
+	// points at an existing hook file.
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-hook-"));
+	try {
+		spawnSync("git", ["init", "-q"], { cwd: tmp, encoding: "utf8", timeout: 10000 });
+		fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ name: "pi-dynamic-workflows" }));
+		const extDir = path.join(tmp, "ext");
+		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
+		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
+		const agentDir = path.join(tmp, "agent"); // empty seam: host settings must not leak in
+		fs.mkdirSync(agentDir, { recursive: true });
+		const runDoctorHere = () =>
+			spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
+				cwd: tmp,
+				encoding: "utf8",
+				timeout: 60000,
+				env: { ...process.env, NO_COLOR: "1", PI_DOCTOR_AGENT_DIR: agentDir },
+			});
+
+		const before = `${runDoctorHere().stdout || ""}`;
+		const beforeLine = before.split("\n").find((l) => l.includes("hook pre-commit")) ?? "";
+		check("hook check: reported when not installed", beforeLine.length > 0, before.slice(0, 400));
+		check("hook check: WARN + actionable hint when not installed", /⚠/.test(beforeLine), beforeLine);
+
+		// Install: versioned hook file + core.hooksPath, exactly like `npm install` (prepare) does.
+		const hooksDir = path.join(tmp, "scripts", "git-hooks");
+		fs.mkdirSync(hooksDir, { recursive: true });
+		fs.writeFileSync(path.join(hooksDir, "pre-commit"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+		spawnSync("git", ["config", "core.hooksPath", "scripts/git-hooks"], {
+			cwd: tmp,
+			encoding: "utf8",
+			timeout: 10000,
+		});
+
+		const after = `${runDoctorHere().stdout || ""}`;
+		const afterLine = after.split("\n").find((l) => l.includes("hook pre-commit")) ?? "";
+		check("hook check: OK once hooksPath + hook file are in place", /✓/.test(afterLine), afterLine);
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
@@ -259,6 +306,7 @@ async function main() {
 	await scenarioCheckLogic(url);
 	await scenarioRealSpawnMissingBin(url);
 	scenarioStandaloneDoctor();
+	scenarioPreCommitHookCheck();
 	await scenarioHandlerEndToEnd(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);

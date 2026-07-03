@@ -1,0 +1,23 @@
+#!/bin/sh
+# Versioned pre-commit gate for pi-dynamic-workflows (issue #7).
+#
+# Runs the FAST subset of `npm test` (< 4s total): typecheck + biome + markdownlint.
+# Integration suites stay out on purpose (up to 120s each) — CI runs the full gate.
+#
+# Installed via `git config core.hooksPath scripts/git-hooks`, automated by the
+# `prepare` npm script (scripts/install-git-hooks.mjs) on every `npm install`.
+#
+# Note: like `npm test`, this checks the WHOLE tree, not just staged files.
+# Explicit escape hatch (discouraged): git commit --no-verify
+
+fail() {
+	echo "" >&2
+	echo "pre-commit: BLOQUEADO — falló: $1" >&2
+	echo "  fix rápido: npm run check:fix / npm run lint:md:fix, revisá y re-stageá." >&2
+	echo "  escape explícito (no recomendado): git commit --no-verify" >&2
+	exit 1
+}
+
+npm run --silent typecheck || fail "typecheck (tsc)"
+npm run --silent check || fail "biome check ."
+npm run --silent lint:md || fail "markdownlint-cli2"

@@ -278,6 +278,31 @@ if (!SUITE_ROOT) {
 	report("optional", WARN, vendorLabel, "ausente — scripts/vendor-extension-skills.mjs no encontrado");
 }
 
+// hook pre-commit: ¿core.hooksPath apunta al dir versionado scripts/git-hooks y el hook existe?
+// Es el gate rápido local (typecheck + biome + markdownlint) que evita commits rotos en main.
+// Opcional a propósito: avisa, no rompe el doctor. Standalone (fuera del repo) no aplica.
+const hookLabel = "hook pre-commit (git)";
+if (!SUITE_ROOT) {
+	report("optional", dim("·"), hookLabel, "N/A (fuera del repo pi-dynamic-workflows)");
+} else {
+	const hooksPathCfg = spawnSync("git", ["config", "core.hooksPath"], {
+		cwd: SUITE_ROOT,
+		encoding: "utf8",
+		timeout: 8000,
+	});
+	const configured = `${hooksPathCfg.stdout || ""}`.trim();
+	const hookFile = path.join(SUITE_ROOT, "scripts", "git-hooks", "pre-commit");
+	const installed = configured === "scripts/git-hooks" && existsSync(hookFile);
+	report(
+		"optional",
+		installed ? OK : WARN,
+		hookLabel,
+		installed
+			? "gate rápido activo (typecheck + biome + markdownlint)"
+			: "no instalado — corré `npm install` (prepare) o `git config core.hooksPath scripts/git-hooks`",
+	);
+}
+
 // Doble copia: el dev setup carga la suite desde el WORKING TREE (paths locales en settings
 // de proyecto y/o global). Una SEGUNDA copia bajo otra identidad de pi (clon git: o paquete
 // npm:@pandi-coding-agent/…) NO se dedup-lica (la identidad difiere) → cada extensión/comando/

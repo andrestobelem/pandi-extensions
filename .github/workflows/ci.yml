@@ -1,0 +1,23 @@
+# CI gate (issue #7): red commits must not land on main.
+# Runs the FULL `npm test` (typecheck + biome + markdownlint + integration suites).
+# The suites are hermetic: esbuild-bundled extensions with local stubs and a fake
+# `pi` binary via PI_DYNAMIC_WORKFLOWS_PI_COMMAND — no network, no API keys.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test

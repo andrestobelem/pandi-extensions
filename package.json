@@ -29,6 +29,7 @@
 		"LICENSE"
 	],
 	"scripts": {
+		"prepare": "node scripts/install-git-hooks.mjs",
 		"typecheck": "tsc -p tsconfig.json",
 		"check": "biome check .",
 		"check:fix": "biome check --write .",
