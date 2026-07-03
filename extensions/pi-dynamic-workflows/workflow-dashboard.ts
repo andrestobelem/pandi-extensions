@@ -77,6 +77,7 @@ export interface DashboardSelection {
 	sessionIndex: number;
 	agentIndex: number;
 	monitorAgentIndex: number;
+	monitorRunIndex: number;
 	patternIndex: number;
 }
 
@@ -135,7 +136,11 @@ export class WorkflowDashboard {
 			this.sessionIndex = clamp(restore.sessionIndex, piSessions.length);
 			this.agentIndex = clamp(restore.agentIndex, agentEntries.length);
 			this.patternIndex = clamp(restore.patternIndex, WORKFLOW_PATTERN_CATALOG.length);
-			const monitorAgents = (monitorModels.find((model) => model.active) ?? monitorModels[0])?.agents.length ?? 0;
+			// Restore the focused RUN first, then clamp the agent index against THAT
+			// run's agents (not the active/first run's) so both halves of the Monitor
+			// master-detail come back where the user left them.
+			this.monitorRunIndex = clamp(restore.monitorRunIndex ?? 0, monitorModels.length);
+			const monitorAgents = monitorModels[this.monitorRunIndex]?.agents.length ?? 0;
 			this.monitorAgentIndex = clamp(restore.monitorAgentIndex, monitorAgents);
 		}
 	}
@@ -149,6 +154,7 @@ export class WorkflowDashboard {
 			sessionIndex: this.sessionIndex,
 			agentIndex: this.agentIndex,
 			monitorAgentIndex: this.monitorAgentIndex,
+			monitorRunIndex: this.monitorRunIndex,
 			patternIndex: this.patternIndex,
 		};
 	}
