@@ -206,6 +206,14 @@ export async function startWorkflowBackground(
 	return status;
 }
 
+// Synchronous reservation for in-flight resumes: resumeWorkflow awaits several
+// reads between its activeRuns guard and the moment startWorkflowBackground /
+// runWorkflowWithUi registers the run, so two resumes fired in the same tick
+// would BOTH pass the guard and drive runWorkflow against the same runDir and
+// journal (duplicate agents, artifact clobbering). The Set is reserved in the
+// same synchronous block as the guard check and released in finally.
+const resumingRuns = new Set<string>();
+
 // Resume an interrupted run in place (same runDir/runId), reusing the journal so
 // already-completed subagent/bash calls are not re-executed.
 export async function resumeWorkflow(
@@ -217,7 +225,7 @@ export async function resumeWorkflow(
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 ): Promise<WorkflowRunRecord> {
 	const record = await resolveRun(ctx, idOrLatest);
-	if (activeRuns.has(record.runId)) {
+	if (activeRuns.has(record.runId) || resumingRuns.has(record.runId)) {
 		throw new Error(`Workflow run is already active: ${record.runId}. Cancel it first or wait for it to finish.`);
 	}
 	const state = getRunState(record);
@@ -234,6 +242,24 @@ export async function resumeWorkflow(
 		throw new Error(`Workflow run ${record.runId} cannot be resumed (state: ${String(state)}).`);
 	}
 
+	// Reserve in the SAME synchronous block as the guard above (no await between),
+	// so a concurrent resume of the same runId rejects instead of double-running.
+	resumingRuns.add(record.runId);
+	try {
+		return await resumeReservedRun(pi, ctx, record, signal, onProgress);
+	} finally {
+		resumingRuns.delete(record.runId);
+	}
+}
+
+// The body of resumeWorkflow after validation+reservation (unchanged behavior).
+async function resumeReservedRun(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	record: WorkflowRunRecord,
+	signal?: AbortSignal,
+	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
+): Promise<WorkflowRunRecord> {
 	const workflow = await resolveWorkflow(ctx, record.workflow, record.scope);
 	const code = await fs.readFile(workflow.path, "utf8");
 	const codeHash = computeCodeHash(code);
