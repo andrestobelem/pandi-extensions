@@ -114,7 +114,10 @@ export async function handleTool(
 			pi,
 			ctx,
 			params.name,
-			{ background: resumeInBackground, force: !!params.force },
+			// limitParamsFromInput extracts only the explicitly-passed numeric limit
+			// knobs (concurrency/maxAgents/timeoutMs/agentTimeoutMs) from params, so
+			// resume honors them like start does instead of silently ignoring them.
+			{ background: resumeInBackground, force: !!params.force, limits: limitParamsFromInput(params) },
 			signal,
 			(logs) => {
 				const preview = logs

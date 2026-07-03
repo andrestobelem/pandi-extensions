@@ -17,6 +17,7 @@ import { buildLimits, limitParamsFromInput } from "./config.js";
 import { runWorkflowWithUi } from "./dashboard-orchestration.js";
 import type {
 	ActiveWorkflowRun,
+	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,
 	RunLimits,
 	WorkflowFile,
@@ -220,7 +221,7 @@ export async function resumeWorkflow(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	idOrLatest: string | undefined,
-	opts: { background?: boolean; force?: boolean } = {},
+	opts: { background?: boolean; force?: boolean; limits?: Partial<DynamicWorkflowToolParams> } = {},
 	signal?: AbortSignal,
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 ): Promise<WorkflowRunRecord> {
@@ -246,7 +247,7 @@ export async function resumeWorkflow(
 	// so a concurrent resume of the same runId rejects instead of double-running.
 	resumingRuns.add(record.runId);
 	try {
-		return await resumeReservedRun(pi, ctx, record, signal, onProgress);
+		return await resumeReservedRun(pi, ctx, record, signal, onProgress, opts.limits);
 	} finally {
 		resumingRuns.delete(record.runId);
 	}
@@ -259,6 +260,7 @@ async function resumeReservedRun(
 	record: WorkflowRunRecord,
 	signal?: AbortSignal,
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
+	limitOverrides?: Partial<DynamicWorkflowToolParams>,
 ): Promise<WorkflowRunRecord> {
 	const workflow = await resolveWorkflow(ctx, record.workflow, record.scope);
 	const code = await fs.readFile(workflow.path, "utf8");
@@ -275,7 +277,12 @@ async function resumeReservedRun(
 	} catch {
 		input = {};
 	}
-	const limits = buildLimits(limitParamsFromInput(input));
+	// Explicit limit params passed to action=resume override the input.json-derived
+	// ones (matching the start branch's {...limitParamsFromInput(input), ...params}
+	// precedence); previously they were silently ignored and the resumed run fell
+	// back to defaults — e.g. resume with maxAgents=150 re-running into the same
+	// DEFAULT_MAX_AGENTS=64 wall it was resumed to escape.
+	const limits = buildLimits({ ...limitParamsFromInput(input), ...(limitOverrides ?? {}) });
 	const resumeInBackground = shouldLaunchWorkflowInBackground(ctx);
 
 	const prepared: PreparedWorkflowRun = {
