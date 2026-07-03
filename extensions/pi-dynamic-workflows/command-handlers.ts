@@ -11,7 +11,12 @@
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+	type AgentToolUpdateCallback,
+	CONFIG_DIR_NAME,
+	type ExtensionAPI,
+	type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
 import {
 	openWorkflowDashboard,
@@ -21,7 +26,7 @@ import {
 } from "./dashboard-orchestration.js";
 import { text } from "./format.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
-import { currentWorkflowDepth, maxWorkflowDepth, transformWorkflowCode } from "./index.js";
+import { currentWorkflowDepth, maxWorkflowDepth, transformWorkflowCode, WORKFLOW_DRAFT_DIR } from "./index.js";
 import { notify } from "./notify.js";
 import {
 	formatWorkflowPatternCatalog,
@@ -31,7 +36,7 @@ import {
 	WORKFLOW_PATTERN_CATALOG,
 } from "./pattern-scaffolds.js";
 import { collectPiSessions, formatPiSessionList, prunePiSessionFiles } from "./pi-session.js";
-import { formatWorkflowList } from "./presentation.js";
+import { formatDraftUsageIndex, formatWorkflowList } from "./presentation.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowRuns,
@@ -42,7 +47,7 @@ import {
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "./run-lifecycle.js";
-import { getRunStatusLabel } from "./run-state.js";
+import { getRunState, getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from "./run-view.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
@@ -270,6 +275,29 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 	try {
 		if (action === "list" || action === "ls") {
 			notify(ctx, formatWorkflowList(await listWorkflows(ctx)), "info");
+			return;
+		}
+
+		if (action === "index") {
+			const draftsRoot = path.join(ctx.cwd, CONFIG_DIR_NAME, WORKFLOW_DRAFT_DIR);
+			// Project drafts only: the index lives in the project drafts dir and the runs
+			// store is project-scoped. Drafts are recognized by location (their names are
+			// short; the drafts/ prefix is only the invocation form).
+			const draftNames = (await listWorkflows(ctx))
+				.filter((file) => file.path.startsWith(draftsRoot + path.sep))
+				.map((file) => file.name);
+			const markdown = formatDraftUsageIndex(
+				draftNames,
+				(await listRuns(ctx)).map((run) => ({
+					workflow: run.workflow,
+					state: getRunState(run),
+					startedAt: run.startedAt,
+				})),
+			);
+			await ensureDir(draftsRoot);
+			const indexPath = path.join(draftsRoot, "INDEX.md");
+			await fs.writeFile(indexPath, `${markdown}\n`, "utf8");
+			notify(ctx, `Draft usage index written: ${indexPath}`, "info");
 			return;
 		}
 

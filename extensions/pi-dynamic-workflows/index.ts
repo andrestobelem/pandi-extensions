@@ -1783,6 +1783,7 @@ async function resolveUltracodeModeValue(args: string, ctx: ExtensionContext): P
  */
 const WORKFLOW_MENU_ITEMS = [
 	"list — list saved workflows",
+	"index — write the draft usage index (drafts/INDEX.md)",
 	"patterns — browse the pattern scaffold catalog",
 	"dashboard — open the interactive dashboard",
 	"agents — open the dashboard on the agents view",
@@ -1852,7 +1853,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("workflow", {
 		description:
-			"Manage dynamic workflows: /workflow list|dashboard|agents|sessions|patterns|graph|runs|view|new|edit|run|start|resume|cancel|cleanup|delete-run|delete",
+			"Manage dynamic workflows: /workflow list|index|dashboard|agents|sessions|patterns|graph|runs|view|new|edit|run|start|resume|cancel|cleanup|delete-run|delete",
 		handler: async (args, ctx) => await handleWorkflowCommand(pi, await resolveWorkflowMenu(args, ctx), ctx),
 	});
 
