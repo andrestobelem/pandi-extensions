@@ -42,7 +42,16 @@ export async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord
 		const record = await readRunRecord(runDir);
 		if (record) runs.push(record);
 	}
-	return runs;
+	// Order by startedAt (newest first), NOT by getRunDirs's directory mtime:
+	// status.json is rewritten on every log()/resume/status refresh, so any write
+	// in an OLD run dir bumps its mtime above newer runs — and "latest" is the
+	// default target for resume/view/cancel/delete. Matches cleanup's ordering
+	// (run-state.ts). Stable sort: undated records keep mtime order, after dated.
+	const startedMs = (run: WorkflowRunRecord): number => {
+		const t = Date.parse(run.startedAt ?? "");
+		return Number.isFinite(t) ? t : Number.NEGATIVE_INFINITY;
+	};
+	return runs.sort((a, b) => startedMs(b) - startedMs(a));
 }
 
 export function formatRunList(runs: WorkflowRunRecord[]): string {
