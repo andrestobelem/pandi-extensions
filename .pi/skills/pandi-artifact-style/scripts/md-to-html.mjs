@@ -40,6 +40,7 @@ header h1 { margin:6px 0; font-size:28px; }
 main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
 main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
 main li { margin:3px 0; }
 a { color:var(--link); }
