@@ -74,42 +74,64 @@ export async function mapLimit<T, R>(
 	items: T[],
 	concurrency: number,
 	signal: AbortSignal,
-	fn: (item: T, index: number) => Promise<R>,
+	fn: (item: T, index: number, signal: AbortSignal) => Promise<R>,
 	options?: { onError?: "throw" },
 ): Promise<R[]>;
 export async function mapLimit<T, R>(
 	items: T[],
 	concurrency: number,
 	signal: AbortSignal,
-	fn: (item: T, index: number) => Promise<R>,
+	fn: (item: T, index: number, signal: AbortSignal) => Promise<R>,
 	options: { onError: "null" },
 ): Promise<(R | null)[]>;
 export async function mapLimit<T, R>(
 	items: T[],
 	concurrency: number,
 	signal: AbortSignal,
-	fn: (item: T, index: number) => Promise<R>,
+	fn: (item: T, index: number, signal: AbortSignal) => Promise<R>,
 	options: { onError?: "throw" | "null" } = {},
 ): Promise<(R | null)[]> {
 	const results = new Array<R | null>(items.length);
 	const onError = options.onError ?? "throw";
+	// Fail-fast structured fan-out (onError "throw"): the FIRST rejection aborts a
+	// scoped signal — handed to fn as its third argument — so in-flight siblings
+	// can cancel and no queued item ever starts. Previously siblings kept running
+	// (and idle workers kept picking up NEW items) as unobserved orphans. The
+	// original error is rethrown after every worker has wound down.
+	const scoped = combineSignal(signal, 0);
+	let failed = false;
+	let firstError: unknown;
 	let next = 0;
 	const workerCount = Math.min(Math.max(1, concurrency), items.length || 1);
-	await Promise.all(
-		Array.from({ length: workerCount }, async () => {
-			while (true) {
-				throwIfAborted(signal);
-				const index = next++;
-				if (index >= items.length) return;
-				try {
-					results[index] = await fn(items[index], index);
-				} catch (err) {
-					if (signal.aborted || onError === "throw") throw err;
-					results[index] = null;
+	try {
+		await Promise.all(
+			Array.from({ length: workerCount }, async () => {
+				while (true) {
+					throwIfAborted(signal);
+					if (failed) return;
+					const index = next++;
+					if (index >= items.length) return;
+					try {
+						results[index] = await fn(items[index], index, scoped.signal);
+					} catch (err) {
+						if (signal.aborted) throw err;
+						if (onError === "throw") {
+							if (!failed) {
+								failed = true;
+								firstError = err;
+								scoped.abort(err instanceof Error ? err : new Error(String(err)));
+							}
+							return;
+						}
+						results[index] = null;
+					}
 				}
-			}
-		}),
-	);
+			}),
+		);
+	} finally {
+		scoped.dispose();
+	}
+	if (failed) throw firstError;
 	return results;
 }
 
