@@ -97,7 +97,6 @@ function makeCtx(cwd) {
 	};
 }
 
-
 async function main() {
 	// ---------------------------------------------------------- 1) Pure formatter
 	const presentation = await buildPresentation();
@@ -113,7 +112,11 @@ async function main() {
 			{ workflow: "other-workflow", state: "completed", startedAt: "2026-07-01T00:00:00.000Z" },
 		];
 		const md = formatDraftUsageIndex(draftNames, runs);
-		check("pure: renders a markdown table with the usage columns", /\| draft \| runs \| ok \| failed \| last run \| last state \|/.test(md), md);
+		check(
+			"pure: renders a markdown table with the usage columns",
+			/\| draft \| runs \| ok \| failed \| last run \| last state \|/.test(md),
+			md,
+		);
 		check(
 			"pure: aggregates runs per draft (postmortem: 2 runs, 1 ok, 1 failed, last = newest)",
 			/\| postmortem \| 2 \| 1 \| 1 \| 2026-07-03T07:00:00\.000Z \| completed \|/.test(md),
@@ -121,11 +124,7 @@ async function main() {
 		);
 		check("pure: never-run drafts appear with zeroes", /\| unused \| 0 \| 0 \| 0 \| — \| — \|/.test(md), md);
 		check("pure: non-draft workflows are excluded", !md.includes("other-workflow"), md);
-		check(
-			"pure: sorted by recency, never-run last",
-			md.indexOf("| postmortem |") < md.indexOf("| unused |"),
-			md,
-		);
+		check("pure: sorted by recency, never-run last", md.indexOf("| postmortem |") < md.indexOf("| unused |"), md);
 		const empty = formatDraftUsageIndex([], []);
 		check("pure: no drafts → explicit empty message", /no draft workflows/i.test(empty), empty);
 	}
