@@ -46,6 +46,15 @@ For broad, high-confidence, or repo-wide tasks, use the Ultracode router (`/dyna
 
 Use the gitignored `.pi/tmp/` directory for throwaway temporary files (scratch scripts, previews, ad-hoc experiments). Do not commit them and do not scatter temp files across the repo.
 
+## Issue tracking
+
+Work on this repo is tracked in the **GitHub Project v2 "pi-dynamic-workflows"** ([#4](https://github.com/users/andrestobelem/projects/4), owner user `andrestobelem`), managed from the terminal with the `gh` CLI (the authenticated token carries the `project` scope).
+
+- **Stories/tasks/bugs are repo Issues**, labelled `story` / `task` / `bug` / `tests` / `tech-debt`. Create with `gh issue create`, add to the board with `gh project item-add 4 --owner andrestobelem --url <issue-url>`.
+- The Project groups items by **Status** (`Todo` / `In Progress` / `Done`); move an item with `gh project item-edit`.
+- **Close items from commits**: put `Closes #N` in the commit that finishes the work, so the issue (and its board card) closes automatically.
+- A parent story links its sub-tasks in the body (e.g. `Part of #1`); keep sub-tasks small and independently closeable.
+
 ## Commits
 
 - Use Conventional Commits with an explicit scope, for example `feat(dynamic-workflows): add monitor dashboard`.

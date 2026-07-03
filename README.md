@@ -138,6 +138,15 @@ npm test
 
 The gate runs, in order: `tsc` (typecheck of all extensions), `biome check .` (JS/TS/JSON lint + format), `markdownlint-cli2` (Markdown), and the colocated integration suites via `scripts/test/run-all.mjs`. Check your environment first with `npm run doctor`.
 
+## Issue tracking
+
+Work is tracked in the GitHub Project **[pi-dynamic-workflows](https://github.com/users/andrestobelem/projects/4)** (v2 board).
+
+- Stories, tasks, and bugs are repo [Issues](https://github.com/andrestobelem/pi-dynamic-workflows/issues), labelled `story` / `task` / `bug` / `tests` / `tech-debt`.
+- The board groups them by **Status** (Todo / In Progress / Done); a parent story links its sub-tasks in the body.
+- Finishing work? Put `Closes #N` in the commit so the issue and its board card close automatically.
+- Managed from the terminal with the [`gh`](https://cli.github.com/) CLI (e.g. `gh issue create`, `gh project item-add 4 --owner andrestobelem`).
+
 ## License
 
 MIT — see [`LICENSE`](./LICENSE).
