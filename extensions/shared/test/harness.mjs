@@ -165,7 +165,7 @@ export async function makeBuildDir(name, stubs = {}) {
  * return the file:// URL. Throws with esbuild's stderr on failure. Passing an alias
  * for a module the entry never imports is harmless (esbuild simply ignores it).
  */
-export async function bundle({ src, outDir, outName, aliases = {}, npx = "--yes" }) {
+export async function bundle({ src, outDir, outName, aliases = {}, npx = "--no-install" }) {
 	if (!src) throw new Error("bundle: { src } (absolute entry path) is required");
 	if (!outDir) throw new Error("bundle: { outDir } is required");
 	if (!outName) throw new Error("bundle: { outName } is required");
@@ -189,12 +189,13 @@ export async function bundle({ src, outDir, outName, aliases = {}, npx = "--yes"
  *   - src:     absolute path to the entry (e.g. <repo>/extensions/pi-bg/index.ts).
  *   - outName: output filename inside the tempdir (e.g. "bg.mjs").
  *   - stubs:   spec passed to writeStubs (default {} = no aliases).
- *   - npx:     "--yes" (default) or "--no-install" — preserved per suite.
+ *   - npx:     "--no-install" (default; esbuild is a pinned devDependency, so no network is
+ *              needed and the run stays offline-deterministic) or "--yes" — preserved per suite.
  *   - copyDirs: { destName: absSrcDir } — sibling asset dirs copied into the tempdir next to the
  *               bundle, for entries that read files at runtime relative to import.meta.url
  *               (e.g. pi-dynamic-workflows reads scaffolds/*.js beside its module).
  */
-export async function buildExtension({ name, src, outName, stubs = {}, npx = "--yes", copyDirs = {} }) {
+export async function buildExtension({ name, src, outName, stubs = {}, npx = "--no-install", copyDirs = {} }) {
 	const { outDir, aliases } = await makeBuildDir(name, stubs);
 	for (const [dest, srcDir] of Object.entries(copyDirs)) {
 		await fs.cp(srcDir, path.join(outDir, dest), { recursive: true });
