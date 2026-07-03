@@ -997,6 +997,14 @@ export async function runWorkflow(
 		const schemaRetries = schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
 		const schemaOnInvalid = effectiveOptions.schemaOnInvalid ?? "throw";
 		let result: { code: number; killed: boolean; stdout: string; stderr: string } | undefined;
+		// The COMPLETE stdout of the latest attempt, read back from the on-disk live
+		// artifact. The in-memory result.stdout is a bounded tail (MAX_JOURNALED_STREAM)
+		// whose line-boundary trim can even come back EMPTY when the final JSON event
+		// line alone exceeds the cap (giant agent_end replays on long conversations),
+		// so every decision (output extraction, schema validation, focus metrics) must
+		// run on the disk copy; the memory tail is only the fallback when the live
+		// write failed.
+		let attemptStdout = "";
 		let output = "";
 		let schemaData: unknown;
 		let schemaOk: boolean | undefined;
@@ -1013,6 +1021,9 @@ export async function runWorkflow(
 			peakParallelAgents = Math.max(peakParallelAgents, parallelAgents);
 			let countedParallelSlot = true;
 			let attemptWrapper: { path: string; dir: string } | undefined;
+			// Schema-retry attempts APPEND to the same live artifact, so remember where
+			// this attempt starts to read back exactly its bytes afterwards.
+			let attemptStdoutStart = 0;
 			try {
 				// (B1) A loser aborted DURING setup (resume cache-hit winner, or concurrency<branches)
 				// throws here BEFORE spawning -> no token spend. First statement inside the try so the
@@ -1021,6 +1032,10 @@ export async function runWorkflow(
 				await publishStatus();
 				attemptWrapper = envAccess.useEnvCommand ? await createAgentEnvWrapper(envAccess) : undefined;
 				envWrapper = attemptWrapper;
+				attemptStdoutStart = await fs
+					.stat(liveStdoutArtifact.path)
+					.then((s) => s.size)
+					.catch(() => 0);
 				const processSpec = buildAgentProcess(attemptPrompt);
 				result = await runStreamingAgentProcess(processSpec.command, processSpec.args, {
 					cwd: effectiveOptions.cwd ?? ctx.cwd,
@@ -1049,8 +1064,18 @@ export async function runWorkflow(
 				release();
 			}
 			throwIfAborted(effectiveSignal);
-			const parsedStrictOutput = parsePiJsonModeOutput(result.stdout);
-			const parsedOutput = parsedStrictOutput.ok ? parsedStrictOutput : parsePiJsonModeOutputLenient(result.stdout);
+			attemptStdout = result.stdout;
+			if (liveWriteError === undefined) {
+				try {
+					attemptStdout = (await fs.readFile(liveStdoutArtifact.path))
+						.subarray(attemptStdoutStart)
+						.toString("utf8");
+				} catch {
+					attemptStdout = result.stdout;
+				}
+			}
+			const parsedStrictOutput = parsePiJsonModeOutput(attemptStdout);
+			const parsedOutput = parsedStrictOutput.ok ? parsedStrictOutput : parsePiJsonModeOutputLenient(attemptStdout);
 			if (!parsedStrictOutput.ok) {
 				await log(`agent ${id} json output ${parsedOutput.ok ? "recovered" : "fallback"}: ${name}`, {
 					warning: parsedStrictOutput.warning,
@@ -1062,7 +1087,7 @@ export async function runWorkflow(
 			// long-but-valid JSON payload is not silently cut by the display truncation
 			// below, which would misattribute a length failure to a schema mismatch and
 			// trigger a wasted, misleading retry. `output` (returned/displayed) stays bounded.
-			const fullOutput = parsedOutput.ok ? parsedOutput.output : result.stdout.trim() || result.stderr.trim();
+			const fullOutput = parsedOutput.ok ? parsedOutput.output : attemptStdout.trim() || result.stderr.trim();
 			output = truncate(fullOutput, MAX_AGENT_OUTPUT_IN_RESULT);
 			if (schema === undefined) break;
 			const extracted = extractJsonCandidate(fullOutput);
@@ -1088,17 +1113,20 @@ export async function runWorkflow(
 		const elapsedMs = Date.now() - startedAt;
 		// Fold this agent's JSON-mode stdout into focus metrics (tokens, tool-error rate,
 		// retries) for the per-run observability artifact. Pure + fail-safe; never throws.
-		const focus = parseAgentFocusMetrics(result.stdout, {
+		const focus = parseAgentFocusMetrics(attemptStdout, {
 			id,
 			name,
 			ok: result.code === 0 && !result.killed,
 			elapsedMs,
 		});
 		focusByAgent.push(focus);
+		// Bounded head of the authoritative disk stdout for the .md embed and the
+		// journaled result; the complete copy stays in the adjacent .stdout.log.
+		const boundedStdout = truncate(attemptStdout, MAX_JOURNALED_STREAM);
 		const focusLine = `\n- focus: ${focus.turns} turns, peakInput ${focus.inputTokensPeak} tok, out ${focus.outputTokensTotal} tok, tools ${focus.toolCalls} (${focus.toolErrors} err), retries ${focus.autoRetries}`;
 		const artifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${focusLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${result.stdout}\n\n## Stderr\n\n${result.stderr}\n`,
+			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${focusLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
 		);
 		const rawSubagent: SubagentResult = {
 			id,
@@ -1109,7 +1137,7 @@ export async function runWorkflow(
 			elapsedMs,
 			prompt,
 			output,
-			stdout: result.stdout,
+			stdout: boundedStdout,
 			stderr: result.stderr,
 			artifactPath: artifact.path,
 			...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
@@ -1217,26 +1245,36 @@ export async function runWorkflow(
 				typeof sharedOptions.name === "string" && sharedOptions.name.trim()
 					? sharedOptions.name.trim()
 					: `agents-${phaseId}`;
-			const runItem = async (item: string | AgentSpec, index: number): Promise<SubagentResult> => {
+			const runItem = async (
+				item: string | AgentSpec,
+				index: number,
+				fanSignal?: AbortSignal,
+			): Promise<SubagentResult> => {
 				const __workflowPhase: AgentPhaseInfo = {
 					id: phaseId,
 					index: index + 1,
 					total: items.length,
 					label: phaseLabel,
 				};
-				if (typeof item === "string")
-					return await agentRunner(item, {
+				const invoke = () => {
+					if (typeof item === "string")
+						return agentRunner(item, {
+							...sharedOptions,
+							__workflowPhase,
+							name: sharedOptions.name ?? `agent-${index + 1}`,
+						});
+					const { prompt: itemPrompt, ...itemOptions } = item;
+					return agentRunner(itemPrompt, {
 						...sharedOptions,
+						...itemOptions,
 						__workflowPhase,
-						name: sharedOptions.name ?? `agent-${index + 1}`,
+						name: item.name ?? `agent-${index + 1}`,
 					});
-				const { prompt: itemPrompt, ...itemOptions } = item;
-				return await agentRunner(itemPrompt, {
-					...sharedOptions,
-					...itemOptions,
-					__workflowPhase,
-					name: item.name ?? `agent-${index + 1}`,
-				});
+				};
+				// Run under mapLimit's fan-out-scoped signal (parented on fanoutSignal) so a
+				// fail-fast abort cancels this in-flight subagent — runSubagent captures
+				// callSignal.getStore() at entry.
+				return fanSignal ? await callSignal.run(fanSignal, invoke) : await invoke();
 			};
 			// Fan out under the per-call signal when present (agents() dispatched inside callSignal),
 			// so an abort-call for this agents() call (a race loser) cancels the whole fan-out; falls
