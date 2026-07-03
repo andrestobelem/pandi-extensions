@@ -52,11 +52,13 @@
 		"sync:claude:ultracode": "node scripts/generate-claude-ultracode-skills.mjs",
 		"sync:claude:ultracode:check": "node scripts/generate-claude-ultracode-skills.mjs --check",
 		"lint:md": "markdownlint-cli2",
+		"md:html": "node .pi/skills/pandi-artifact-style/scripts/md-to-html.mjs",
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"doctor": "node extensions/pi-doctor/scripts/doctor.mjs",
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
+		"test:unit": "node --test \"scripts/test/unit/*.test.mjs\"",
 		"test:integration": "node scripts/test/run-all.mjs",
-		"test": "npm run typecheck && npm run check && npm run lint:md && npm run test:integration"
+		"test": "npm run typecheck && npm run check && npm run lint:md && npm run test:unit && npm run test:integration"
 	},
 	"pi": {
 		"extensions": [
@@ -98,6 +100,7 @@
 		"ctx7": "^0.5.3",
 		"esbuild": "^0.25.12",
 		"markdownlint-cli2": "^0.22.1",
+		"marked": "^18.0.5",
 		"prettier": "^3.8.4",
 		"typescript": "^6.0.3"
 	},

@@ -103,6 +103,23 @@ Working markup + CSS for all of these: [`reference/template.html`](./reference/t
    callout near the top, not a footnote.
 6. Footer line in `--muted` 12.5px: generator + palette attribution.
 
+## Converting Markdown to styled HTML
+
+Use the bundled converter instead of hand-writing the shell:
+
+```bash
+npm run md:html -- docs/research/example.md            # writes example.html next to it
+node .pi/skills/pandi-artifact-style/scripts/md-to-html.mjs in.md -o out.html --kicker "Informe"
+```
+
+- Accepts multiple `.md` inputs (each writes a sibling `.html`); `-o` only with one.
+- The first `# h1` becomes the page title/header; `--kicker` sets the kicker
+  (default `Pandi artifact`).
+- GitHub alerts (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`) become pandi callouts.
+- Tokens are read at runtime from [`reference/pandi-tokens.css`](./reference/pandi-tokens.css) —
+  no duplication; output is a single self-contained file with no JS.
+- Pinning tests: `scripts/test/unit/md-to-html.test.mjs` (`npm run test:unit`).
+
 ## Rules for Markdown reports (informes)
 
 - Follow `docs/` conventions: include date, context, affected files, and next
