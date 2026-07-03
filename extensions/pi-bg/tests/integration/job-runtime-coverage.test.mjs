@@ -327,20 +327,23 @@ async function finalizeIdempotentAndClearsTimer(mod) {
 	check("finalize-idem: cancelTimer was cleared (callback never fired)", fired === false);
 }
 
-// --- killRuntime: finished job is a no-op; no-pid live job falls back to child.kill ---
+// --- killRuntime: finalized job is a no-op; no-pid live job falls back to child.kill ---
 async function killRuntimeBranches(mod) {
 	const killRuntime = mod.killRuntime;
 	if (typeof killRuntime !== "function") return check("kill: exported", false, typeof killRuntime);
 
-	// Finished child (exitCode set) -> returns early, never signals.
+	// FINALIZED job -> returns early, never signals (its pid may be reaped/reused).
+	// NOTE: exitCode alone must NOT trigger this branch — with shell:true the direct
+	// child can be just the shell while its group lives on (issue #9); that live-group
+	// case is pinned by killRuntimeExitedShellSignalsSurvivors below.
 	let finishedSig = "untouched";
 	const finished = {
-		finalized: false,
+		finalized: true,
 		child: { exitCode: 0, signalCode: null, pid: 999999, kill: (s) => (finishedSig = s) },
 	};
 	killRuntime(finished, "SIGTERM");
 	check(
-		"kill: finished job is not re-signalled (child.kill untouched)",
+		"kill: finalized job is not re-signalled (child.kill untouched)",
 		finishedSig === "untouched",
 		String(finishedSig),
 	);
@@ -353,6 +356,60 @@ async function killRuntimeBranches(mod) {
 	};
 	killRuntime(noPid, "SIGKILL");
 	check("kill: no-pid live job falls back to child.kill(signal)", noPidSig === "SIGKILL", String(noPidSig));
+}
+
+// --- killRuntime (POSIX): an exited direct child does NOT block the group signal (issue #9) ---
+async function killRuntimeExitedShellSignalsSurvivors(mod) {
+	if (process.platform === "win32") {
+		check("kill-exited-shell: POSIX group semantics (skipped on win32)", true);
+		return;
+	}
+	const killRuntime = mod.killRuntime;
+	if (typeof killRuntime !== "function") return check("kill-exited-shell: exported", false, typeof killRuntime);
+	// A detached leader forks a survivor into its process group and EXITS — mirroring
+	// dash under shell:true forking the real work (issue #9): the runtime's direct
+	// child has exitCode set while a group member lives on.
+	const code =
+		"const cp=require('node:child_process');" +
+		"const g=cp.spawn(process.execPath,['-e','setTimeout(()=>{},60000)'],{stdio:'ignore'});" +
+		"g.unref();" + // the child handle must not keep the leader's event loop alive: the leader EXITS
+		"process.stdout.write(String(g.pid));";
+	const child = spawn(process.execPath, ["-e", code], { detached: true, stdio: ["ignore", "pipe", "ignore"] });
+	child.unref();
+	let gpidText = "";
+	child.stdout.on("data", (d) => (gpidText += d.toString()));
+	const grandPid = await waitFor("group survivor pid", async () => {
+		const n = Number.parseInt(gpidText, 10);
+		return Number.isInteger(n) && n > 0 ? n : false;
+	});
+	try {
+		await waitFor("leader exited", async () => !isAlive(child.pid));
+		check("kill-exited-shell: survivor alive after the leader exited", isAlive(grandPid));
+		let directKillSig = null;
+		const rt = {
+			finalized: false,
+			child: { exitCode: 0, signalCode: null, pid: child.pid, kill: (s) => (directKillSig = s) },
+		};
+		killRuntime(rt, "SIGKILL");
+		check(
+			"kill-exited-shell: child.kill NOT called (group signal path)",
+			directKillSig === null,
+			String(directKillSig),
+		);
+		const dead = await waitDead(grandPid);
+		check("kill-exited-shell: the group survivor was signalled (issue #9)", dead === true);
+	} finally {
+		try {
+			process.kill(-child.pid, "SIGKILL");
+		} catch {
+			/* group already gone */
+		}
+		try {
+			process.kill(grandPid, "SIGKILL");
+		} catch {
+			/* survivor already gone */
+		}
+	}
 }
 
 // --- killRuntime (POSIX): a real pid signals the group then returns (no double kill) ---
@@ -469,6 +526,7 @@ async function main() {
 	await finalizeClosesStreamsWhenWriteFails(mod);
 	await finalizeIdempotentAndClearsTimer(mod);
 	await killRuntimeBranches(mod);
+	await killRuntimeExitedShellSignalsSurvivors(mod);
 	await killRuntimePosixGroup(mod);
 	await signalProcessGroupPosix(mod);
 
