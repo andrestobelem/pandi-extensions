@@ -170,7 +170,6 @@ async function main() {
 		name: "pi-pandi-moods",
 		src: path.join(REPO_ROOT, "extensions", "pi-pandi", "moods.ts"),
 		outName: "moods.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioMoodsUnit(built.url);

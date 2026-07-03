@@ -61,7 +61,6 @@ async function buildGoal() {
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "index.ts"),
 		outName: "goal.mjs",
 		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
-		npx: "--yes",
 	});
 }
 

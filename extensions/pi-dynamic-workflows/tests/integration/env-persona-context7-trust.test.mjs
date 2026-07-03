@@ -35,7 +35,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "agent-env-persona.ts"),
 		outName: "agent-env-persona-c7.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
-		npx: "--yes",
 	});
 	const mod = await import(url);
 	const { applyDefaultAgentAccess, DEFAULT_CONTEXT7_SKILL_NAME } = mod;

@@ -70,7 +70,6 @@ async function buildPlan() {
 		src: path.join(REPO_ROOT, "extensions", "pi-plan", "index.ts"),
 		outName: "plan.mjs",
 		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
-		npx: "--yes",
 	});
 }
 

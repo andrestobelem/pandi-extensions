@@ -41,7 +41,6 @@ async function buildSessionState() {
 		src: path.join(REPO_ROOT, "extensions", "pi-plan", "session-state.ts"),
 		outName: "session-state.mjs",
 		stubs: {},
-		npx: "--yes",
 	});
 }
 

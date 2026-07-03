@@ -40,7 +40,6 @@ async function loadModule() {
 			tui: true,
 			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
 		},
-		npx: "--yes",
 	});
 	return await import(url);
 }

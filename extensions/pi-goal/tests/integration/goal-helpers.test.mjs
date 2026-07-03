@@ -183,7 +183,6 @@ async function main() {
 		name: "pi-goal-prompts-helpers",
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "prompts.ts"),
 		outName: "prompts.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioPrompts(prompts.url);
@@ -195,7 +194,6 @@ async function main() {
 		name: "pi-goal-session-state-helpers",
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "session-state.ts"),
 		outName: "session-state.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioSessionState(sessionState.url);
@@ -207,7 +205,6 @@ async function main() {
 		name: "pi-goal-time-helpers",
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "time.ts"),
 		outName: "time.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioTime(time.url);

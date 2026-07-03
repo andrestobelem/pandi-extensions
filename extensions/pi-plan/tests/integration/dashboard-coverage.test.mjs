@@ -44,7 +44,6 @@ async function buildDashboard() {
 		src: path.join(REPO_ROOT, "extensions", "pi-plan", "dashboard.ts"),
 		outName: "dashboard.mjs",
 		stubs: {},
-		npx: "--yes",
 	});
 }
 

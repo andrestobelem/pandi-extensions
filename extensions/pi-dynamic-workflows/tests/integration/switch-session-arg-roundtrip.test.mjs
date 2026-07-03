@@ -49,7 +49,6 @@ async function loadRuntime() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "dashboard-orchestration.ts"),
 		outName: "dashboard-orchestration.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
-		npx: "--yes",
 	});
 	return await loadModule(url);
 }

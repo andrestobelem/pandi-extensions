@@ -41,7 +41,6 @@ async function buildPrompts() {
 		name: "pi-plan-prompts-coverage",
 		src: path.join(REPO_ROOT, "extensions", "pi-plan", "prompts.ts"),
 		outName: "prompts.mjs",
-		npx: "--yes",
 	});
 }
 

@@ -47,7 +47,6 @@ async function buildVerifier() {
 		name: "pi-goal-verifier-coverage",
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "verifier.ts"),
 		outName: "verifier.mjs",
-		npx: "--yes",
 	});
 }
 

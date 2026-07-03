@@ -35,7 +35,6 @@ async function buildNotify() {
 		src: path.join(REPO_ROOT, "extensions", "pi-plan", "notify.ts"),
 		outName: "notify.mjs",
 		stubs: {},
-		npx: "--yes",
 	});
 }
 

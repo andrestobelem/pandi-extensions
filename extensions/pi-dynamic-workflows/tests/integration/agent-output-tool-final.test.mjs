@@ -44,7 +44,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "agent-output.ts"),
 		outName: "agent-output.mjs",
 		stubs: { tui: true },
-		npx: "--yes",
 	});
 	const { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } = await loadModule(url);
 	check("parsePiJsonModeOutput exported", typeof parsePiJsonModeOutput === "function");

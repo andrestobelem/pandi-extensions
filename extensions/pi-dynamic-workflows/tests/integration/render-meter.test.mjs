@@ -33,7 +33,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "render-utils.ts"),
 		outName: "render-utils.mjs",
 		stubs: { tui: true },
-		npx: "--yes",
 	});
 	const { renderMeter } = await loadModule(url);
 	check("renderMeter is exported", typeof renderMeter === "function");

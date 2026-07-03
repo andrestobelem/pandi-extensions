@@ -122,7 +122,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "workflow-dashboard.ts"),
 		outName: "workflow-dashboard.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
-		npx: "--yes",
 	});
 	const { WorkflowDashboard } = await loadModule(url);
 	check("WorkflowDashboard class is exported", typeof WorkflowDashboard === "function");

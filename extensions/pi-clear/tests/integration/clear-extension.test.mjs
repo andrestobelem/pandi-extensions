@@ -48,7 +48,6 @@ async function main() {
 		name: "pi-clear-integration",
 		src: path.join(REPO_ROOT, "extensions", "pi-clear", "index.ts"),
 		outName: "clear.mjs",
-		npx: "--yes",
 	});
 	try {
 		const clearExtension = await loadDefault(ext.url);

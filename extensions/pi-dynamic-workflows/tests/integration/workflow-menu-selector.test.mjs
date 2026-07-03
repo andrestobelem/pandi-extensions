@@ -39,7 +39,6 @@ async function buildExtension() {
 			tui: true,
 			sdk: (dir) => sdkStub(dir, { customEditor: "full" }),
 		},
-		npx: "--yes",
 	});
 }
 

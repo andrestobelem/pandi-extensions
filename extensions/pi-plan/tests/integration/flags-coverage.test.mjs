@@ -40,7 +40,6 @@ async function buildFlags() {
 		src: path.join(REPO_ROOT, "extensions", "pi-plan", "flags.ts"),
 		outName: "flags.mjs",
 		stubs: {},
-		npx: "--yes",
 	});
 }
 

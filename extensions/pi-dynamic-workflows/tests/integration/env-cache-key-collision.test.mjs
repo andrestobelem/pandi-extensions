@@ -29,7 +29,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "agent-env-persona.ts"),
 		outName: "agent-env-persona.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
-		npx: "--yes",
 	});
 	const { sanitizeEnvForCache } = await import(url);
 

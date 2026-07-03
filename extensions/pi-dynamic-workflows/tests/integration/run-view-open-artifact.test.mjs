@@ -63,7 +63,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "run-view.ts"),
 		outName: "run-view.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
-		npx: "--yes",
 	});
 	const { openRunArtifact } = await loadModule(url);
 	check("openRunArtifact is exported", typeof openRunArtifact === "function");

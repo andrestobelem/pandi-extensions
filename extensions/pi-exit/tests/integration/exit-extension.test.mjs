@@ -43,7 +43,6 @@ async function main() {
 		name: "pi-exit-integration",
 		src: path.join(REPO_ROOT, "extensions", "pi-exit", "index.ts"),
 		outName: "exit.mjs",
-		npx: "--yes",
 	});
 	try {
 		const exitExtension = await loadDefault(ext.url);

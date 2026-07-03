@@ -250,7 +250,6 @@ async function main() {
 			tui: true,
 			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
 		},
-		npx: "--yes",
 	});
 	await scenarioFailFastCancelsSiblings(url);
 	await scenarioSettleUnaffected(url);

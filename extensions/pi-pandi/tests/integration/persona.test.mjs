@@ -56,7 +56,6 @@ async function main() {
 		name: "pi-pandi-persona",
 		src: path.join(REPO_ROOT, "extensions", "pi-pandi", "persona.ts"),
 		outName: "persona.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioPersonaUnit(built.url);

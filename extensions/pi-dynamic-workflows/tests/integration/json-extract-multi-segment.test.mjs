@@ -22,7 +22,6 @@ async function loadRuntime() {
 		name: "pi-dw-json-extract",
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "json-extract.ts"),
 		outName: "json-extract.mjs",
-		npx: "--yes",
 	});
 	return await loadModule(url);
 }

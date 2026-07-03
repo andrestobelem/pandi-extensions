@@ -160,7 +160,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-bg", "storage.ts"),
 		outName: "storage.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
-		npx: "--yes",
 	});
 	try {
 		await scenarioStorage(storage.url);
@@ -172,7 +171,6 @@ async function main() {
 		name: "pi-bg-runtime-state-helpers",
 		src: path.join(REPO_ROOT, "extensions", "pi-bg", "runtime-state.ts"),
 		outName: "runtime-state.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioRuntimeState(runtimeState.url);

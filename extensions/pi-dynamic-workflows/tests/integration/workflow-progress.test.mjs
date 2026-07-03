@@ -53,7 +53,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "presentation.ts"),
 		outName: "presentation.mjs",
 		stubs: { tui: true },
-		npx: "--yes",
 	});
 	const mod = await loadModule(url);
 	const { workflowProgress, workflowProgressLabel } = mod;

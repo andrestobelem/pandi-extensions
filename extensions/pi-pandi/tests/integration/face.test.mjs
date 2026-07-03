@@ -231,7 +231,6 @@ async function main() {
 		name: "pi-pandi-face",
 		src: path.join(REPO_ROOT, "extensions", "pi-pandi", "face.ts"),
 		outName: "face.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioFaceUnit(built.url);

@@ -31,7 +31,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "agent-live-view.ts"),
 		outName: "agent-live-view.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
-		npx: "--yes",
 	});
 	const { AgentLiveViewComponent } = await loadModule(url);
 	check("AgentLiveViewComponent is exported", typeof AgentLiveViewComponent === "function");

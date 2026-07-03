@@ -33,7 +33,6 @@ async function buildEffort() {
 		name: "pi-effort-integration",
 		src: path.join(REPO_ROOT, "extensions", "pi-effort", "index.ts"),
 		outName: "effort.mjs",
-		npx: "--yes",
 	});
 }
 

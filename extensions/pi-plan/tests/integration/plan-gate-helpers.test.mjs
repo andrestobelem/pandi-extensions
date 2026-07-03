@@ -136,7 +136,6 @@ async function main() {
 		name: "pi-plan-gate-helpers",
 		src: path.join(REPO_ROOT, "extensions", "pi-plan", "gate.ts"),
 		outName: "gate.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioGateHelpers(built.url);

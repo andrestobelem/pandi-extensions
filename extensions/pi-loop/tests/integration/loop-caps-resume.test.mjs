@@ -95,7 +95,6 @@ async function buildLoop() {
 		src: path.join(REPO_ROOT, "extensions", "pi-loop", "index.ts"),
 		outName: "loop.mjs",
 		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
-		npx: "--yes",
 	});
 }
 

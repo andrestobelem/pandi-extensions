@@ -26,7 +26,6 @@ async function loadModule() {
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "run-state.ts"),
 		outName: "run-state.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
-		npx: "--yes",
 	});
 	return await import(url);
 }

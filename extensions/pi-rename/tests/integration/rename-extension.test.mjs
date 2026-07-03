@@ -35,7 +35,6 @@ async function buildRename() {
 		src: path.join(REPO_ROOT, "extensions", "pi-rename", "index.ts"),
 		outName: "rename.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir, { customEditor: "render" }) },
-		npx: "--yes",
 	});
 }
 
@@ -44,7 +43,6 @@ async function buildPureModule(file, outName, name) {
 		name,
 		src: path.join(REPO_ROOT, "extensions", "pi-rename", file),
 		outName,
-		npx: "--yes",
 	});
 }
 

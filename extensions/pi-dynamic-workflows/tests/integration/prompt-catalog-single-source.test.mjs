@@ -45,7 +45,6 @@ async function buildTemplates() {
 		name: "pi-dwf-prompt-ssot",
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "pattern-scaffolds.ts"),
 		outName: "pattern-scaffolds.mjs",
-		npx: "--yes",
 	});
 	return url;
 }

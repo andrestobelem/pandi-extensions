@@ -55,7 +55,6 @@ async function main() {
 		name: "pi-dw-occurrence-counter",
 		src: path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "occurrence-counter.ts"),
 		outName: "occurrence-counter.mjs",
-		npx: "--yes",
 	});
 	try {
 		await scenarioCounterUnit(built.url);

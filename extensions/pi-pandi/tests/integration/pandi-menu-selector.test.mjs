@@ -94,7 +94,6 @@ async function main() {
 		src: path.join(REPO_ROOT, "extensions", "pi-pandi", "index.ts"),
 		outName: "pandi.mjs",
 		stubs: { sdk: "export {};\n" },
-		npx: "--yes",
 	});
 	try {
 		await scenario(built.url);

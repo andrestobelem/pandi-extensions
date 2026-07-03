@@ -46,7 +46,6 @@ async function buildExtensions(names) {
 			outDir,
 			outName: `${name}.mjs`,
 			aliases,
-			npx: "--yes",
 		});
 	}
 	return { outDir, urls };

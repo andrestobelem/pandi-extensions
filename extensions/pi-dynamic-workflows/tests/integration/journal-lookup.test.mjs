@@ -57,7 +57,6 @@ async function main() {
 			tui: true,
 			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
 		},
-		npx: "--yes",
 	});
 	try {
 		await scenarioLookup(built.url);

@@ -59,7 +59,6 @@ async function buildPersistence() {
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "persistence.ts"),
 		outName: "persistence.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
-		npx: "--yes",
 	});
 }
 
