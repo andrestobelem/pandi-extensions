@@ -105,24 +105,22 @@ function planningPromptTests(mod) {
 	// --- ultracode flag ---
 	{
 		const out = makePlanningPrompt({ planId: "p3", task: "t", ultracode: true });
-		check("planning(ultracode): includes 'ULTRACODE:' guidance", /ULTRACODE: lean on dynamic workflows/.test(out));
+		// Pin that the ULTRACODE block is PRESENT (the load-bearing branch), not the connective wording.
+		check("planning(ultracode): includes 'ULTRACODE:' guidance", /ULTRACODE:/.test(out));
 		check("planning(ultracode): does NOT include ULTRACODE STEPS", !/ULTRACODE STEPS/.test(out));
 	}
 
 	// --- ultracodeSteps flag ---
 	{
 		const out = makePlanningPrompt({ planId: "p4", task: "t", ultracodeSteps: true });
-		check(
-			"planning(ultracodeSteps): includes 'ULTRACODE STEPS' guidance",
-			/ULTRACODE STEPS: structure the plan/.test(out),
-		);
+		check("planning(ultracodeSteps): includes 'ULTRACODE STEPS' guidance", /ULTRACODE STEPS/.test(out));
 	}
 
 	// --- both ultracode posture knobs together ---
 	{
 		const out = makePlanningPrompt({ planId: "p5", task: "t", ultracode: true, ultracodeSteps: true });
-		check("planning(both): includes ULTRACODE:", /ULTRACODE: lean on dynamic workflows/.test(out));
-		check("planning(both): includes ULTRACODE STEPS:", /ULTRACODE STEPS: structure the plan/.test(out));
+		check("planning(both): includes ULTRACODE:", /ULTRACODE:/.test(out));
+		check("planning(both): includes ULTRACODE STEPS:", /ULTRACODE STEPS/.test(out));
 	}
 
 	// --- result is a joined string of lines (no array leakage) ---

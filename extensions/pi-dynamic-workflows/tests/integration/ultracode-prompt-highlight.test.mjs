@@ -192,7 +192,17 @@ async function scenarioColorsTypedKeyword(url) {
 async function scenarioCaseInsensitiveAndMultiple(url) {
 	const { wrapped } = await installEditor(url, makeContentBaseEditor("> ULTRAcode then ultracode"));
 	const line = wrapped.render(80)[1];
-	check("matches case-insensitively and twice", (line.match(/\x1b\[38;2;/g) ?? []).length >= 18, line);
+	// Behavior, not technique: both spellings (mixed-case + lowercase) get recolored so neither stays
+	// plain/contiguous, some color escape is present, and the visible text is preserved — WITHOUT pinning
+	// the per-character truecolor escape count (a refactor to 256-color or coalesced runs stays valid).
+	check("some color escape is emitted", /\x1b\[/.test(line), line);
+	check("case-insensitive match colored the mixed-case keyword", !line.includes("ULTRAcode"), line);
+	check("match colored the lowercase keyword too (twice)", !line.includes("ultracode"), line);
+	check(
+		"visible text preserved across both matches",
+		stripAll(line).includes("ULTRAcode then ultracode"),
+		stripAll(line),
+	);
 	check("plain words between matches remain", line.includes(" then "), line);
 }
 
