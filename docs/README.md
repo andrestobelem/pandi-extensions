@@ -5,6 +5,7 @@ This directory stores the project's work history, decisions, created workflows, 
 ## Quick reference
 
 - [Setup](./setup.md) — requirements, optional capabilities, configuration, distribution
+- [Configuración de kitty](./kitty.md) — terminal usado para desarrollo (config activa + tema)
 - [Dynamic Workflows — the full guide](./dynamic-workflows.md) — execution cycle, globals API, background & resume, concurrency, patterns, security
 - [Handbooks (durable project reference)](./handbooks/README.md) — conventions, onboarding, and playbooks
 - [Memoria de trabajo](./memoria.md) — work log and decisions
