@@ -24,7 +24,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -153,9 +153,30 @@ export async function writeStubs(outDir, spec = {}) {
  * share the same outDir/stubs (e.g. a consistent getAgentDir across two extensions);
  * then call bundle() once per entry with the shared `aliases`.
  */
+// Every makeBuildDir tempdir is registered here and removed on process exit, so suites no longer
+// leak esbuild output + copied assets into the OS temp dir (only ~3 of ~90 call sites cleaned up
+// by hand). Cleanup is at-exit (not eager), so the dir is available for the whole test run.
+const buildDirs = new Set();
+let buildDirCleanupInstalled = false;
+function registerBuildDirForCleanup(dir) {
+	buildDirs.add(dir);
+	if (buildDirCleanupInstalled) return;
+	buildDirCleanupInstalled = true;
+	process.once("exit", () => {
+		for (const d of buildDirs) {
+			try {
+				rmSync(d, { recursive: true, force: true });
+			} catch {
+				// best-effort on the way out.
+			}
+		}
+	});
+}
+
 export async function makeBuildDir(name, stubs = {}) {
 	if (!name) throw new Error("makeBuildDir: { name } is required");
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), `${name}-`));
+	registerBuildDirForCleanup(outDir);
 	const aliases = await writeStubs(outDir, stubs);
 	return { outDir, aliases };
 }
