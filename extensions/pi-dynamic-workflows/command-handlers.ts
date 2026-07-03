@@ -21,7 +21,7 @@ import {
 } from "./dashboard-orchestration.js";
 import { text } from "./format.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
-import { currentWorkflowDepth, maxWorkflowDepth } from "./index.js";
+import { currentWorkflowDepth, maxWorkflowDepth, transformWorkflowCode } from "./index.js";
 import { notify } from "./notify.js";
 import {
 	formatWorkflowPatternCatalog,
@@ -150,6 +150,19 @@ export async function handleTool(
 
 	if (action === "write") {
 		if (params.code === undefined) throw new Error("dynamic_workflow action=write requires code.");
+		// Validate the authoring contract AND syntax BEFORE persisting, so invalid
+		// code fails here with the transform's instructive error instead of round-
+		// tripping through write and only failing much later at run/start (Farley
+		// review 2026-07-03 finding #8). new Function() parses the compiled CJS
+		// body without executing it.
+		const compiled = transformWorkflowCode(params.code);
+		try {
+			new Function(compiled);
+		} catch (err) {
+			throw new Error(
+				`Workflow code has a syntax error (fix it before writing): ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
 		const workflow = await resolveWorkflow(ctx, params.name, scope, "draft");
 		await ensureDir(path.dirname(workflow.path));
 		await fs.writeFile(workflow.path, params.code, "utf8");
