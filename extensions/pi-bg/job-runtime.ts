@@ -48,11 +48,17 @@ export function guardStreamErrors(runDir: string, jobId: string, streams: ErrorE
 	}
 }
 
-// A job is finished once finalize ran or the child has exited/been signalled.
-// Cancelling such a job would mislabel a completed run as "cancelled" and could
-// signal a PID that the OS has already reaped (possibly reused).
+// A job is finished once finalize ran — NOT merely once the direct child exited.
+// With shell:true the direct child is often just the shell: on Linux (dash) it can
+// fork the real work and exit, setting child.exitCode/signalCode while the process
+// GROUP lives on holding the log pipes (issue #9). Treating that as "finished"
+// skipped both cancel and the SIGKILL escalation, leaving the job stuck forever
+// with an orphaned survivor. Group signals stay valid until finalize ('close' fires
+// only after the group released the pipes), pgid === child.pid via detached spawn,
+// and every signal path is try/catch-contained, so ESRCH on an already-reaped
+// group is harmless.
 export function isJobFinished(runtime: RuntimeJob): boolean {
-	return runtime.finalized || runtime.child.exitCode !== null || runtime.child.signalCode !== null;
+	return runtime.finalized;
 }
 
 // Forward a child stream to one or more log sinks while respecting backpressure:

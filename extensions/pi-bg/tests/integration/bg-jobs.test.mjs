@@ -234,6 +234,64 @@ async function cancelEscalatesToSigkill(url) {
 	);
 }
 
+async function cancelReachesGroupSurvivorsAfterShellExit(url) {
+	if (process.platform === "win32") {
+		check("cancel-survivors: skipped on win32 (POSIX group semantics)", true);
+		return;
+	}
+	// Issue #9 shape: the DIRECT child (the shell) exits at once after backgrounding
+	// the real work, while the survivor ignores SIGTERM and keeps the log pipes open.
+	// On Linux CI this same tree shape arises WITHOUT '&' (dash forks instead of
+	// exec'ing the command), and it left jobs stuck forever: child.exitCode was set,
+	// so the finished-guard skipped both the cancel and the SIGKILL escalation.
+	// A job must count as live until FINALIZED, and escalation must hit the GROUP.
+	const { commands } = await loadExtension(url);
+	const cwd = await createBgTestDir("pi-bg-survivor-");
+	const script = path.join(cwd, "ignore-sigterm.cjs");
+	const started = path.join(cwd, "survivor-started");
+	await fs.writeFile(
+		script,
+		`const fs = require("node:fs");\n` +
+			`process.on("SIGTERM", () => { /* ignore: survive until SIGKILL */ });\n` +
+			`fs.writeFileSync(process.argv[2], String(process.pid));\n` +
+			`setInterval(() => {}, 1000);\n`,
+	);
+	const ctx = makeCtx({ cwd, trusted: true });
+	// `... &`: the shell backgrounds the worker (same process group, job control off)
+	// and exits 0 immediately -> exitCode set on the runtime while the group lives on.
+	const command = `${shellQuote(process.execPath)} ${shellQuote(script)} ${shellQuote(started)} &`;
+	await commands.get("bg").handler(`start ${command}`, ctx);
+	const jobId = parseJobId(ctx._notes.at(-1)?.msg || "");
+	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId || "missing");
+	await waitFor("group survivor started", async () => existsSync(started));
+
+	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
+	check(
+		"cancel-survivors: cancel is accepted (job is live until finalized)",
+		/Cancel requested/.test(ctx._notes.at(-1)?.msg || ""),
+		ctx._notes.at(-1)?.msg,
+	);
+	const status = await waitFor(
+		"cancelled status after shell exit + SIGKILL escalation",
+		async () => {
+			const s = await readJson(path.join(runDir, "status.json"));
+			return s.state === "cancelled" ? s : false;
+		},
+		{ timeoutMs: 8000 },
+	);
+	check("cancel-survivors: final state is cancelled", status.state === "cancelled", JSON.stringify(status));
+	const survivorPid = Number(await fs.readFile(started, "utf8").catch(() => "0"));
+	await waitFor("group survivor reaped after SIGKILL", async () => {
+		try {
+			process.kill(survivorPid, 0);
+			return false; // still alive
+		} catch {
+			return true;
+		}
+	});
+	check("cancel-survivors: no orphaned group member is left running", true);
+}
+
 async function orphanedPidIsLabeledNotKilled(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-orphan-");
@@ -1141,18 +1199,20 @@ async function jobFinishedGuardRejectsCancel(url) {
 	const isFinished = mod.isJobFinished;
 	check("cancel-guard: isJobFinished is exported", typeof isFinished === "function", typeof isFinished);
 	if (typeof isFinished !== "function") return;
-	// A finished job must not be re-signalled (avoids mislabel + stray signal to a reaped PID).
+	// A FINALIZED job must not be re-signalled — but a job whose direct child exited
+	// is still live: with shell:true the shell can exit while its process group keeps
+	// working (issue #9), so exitCode/signalCode alone must NOT count as finished.
 	check(
 		"cancel-guard: finalized job is finished",
 		isFinished({ finalized: true, child: { exitCode: null, signalCode: null } }) === true,
 	);
 	check(
-		"cancel-guard: exited job (exitCode set) is finished",
-		isFinished({ finalized: false, child: { exitCode: 0, signalCode: null } }) === true,
+		"cancel-guard: exited shell with a live group is NOT finished",
+		isFinished({ finalized: false, child: { exitCode: 0, signalCode: null } }) === false,
 	);
 	check(
-		"cancel-guard: signalled job is finished",
-		isFinished({ finalized: false, child: { exitCode: null, signalCode: "SIGTERM" } }) === true,
+		"cancel-guard: signalled shell with a live group is NOT finished",
+		isFinished({ finalized: false, child: { exitCode: null, signalCode: "SIGTERM" } }) === false,
 	);
 	check(
 		"cancel-guard: live running job is NOT finished",
@@ -1240,6 +1300,7 @@ async function main() {
 	await commandWhitespaceIsPreserved(url);
 	await cancelStopsActiveJob(url);
 	await cancelEscalatesToSigkill(url);
+	await cancelReachesGroupSurvivorsAfterShellExit(url);
 	await orphanedPidIsLabeledNotKilled(url);
 	await interruptedAndStaleStatesAreDerived(url);
 	await livenessProbeClassifiesPids(url);
