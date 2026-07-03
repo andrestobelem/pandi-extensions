@@ -889,9 +889,31 @@ export async function runWorkflow(
 		const phaseLine = phase?.total
 			? `\n- phase: P${phase.id} ${phase.index}/${phase.total}${phase.label ? ` (${phase.label})` : ""}`
 			: "";
+		// Resolve model/provider/thinking ONCE, up front, so the start/end events, the .md
+		// artifact, and the SubagentResult all record what this subagent ACTUALLY runs with
+		// (the monitor renders these), and buildAgentArgs consumes the same resolved values.
+		// A BARE pattern alias ("sonnet"/"opus"/"haiku" — no "provider/") resolves through pi's provider
+		// routing and can land on an UNauthenticated provider (e.g. amazon-bedrock -> "No API key found"),
+		// which silently kills the subagent. Pin a bare alias to the session's provider so the shared
+		// dual-platform scaffolds (which use bare aliases for Claude Code) resolve within the authenticated
+		// provider on pi. An explicit provider always wins; qualified ids ("provider/id") and omitted models
+		// (already qualified by makeModelArg) are left untouched.
+		const resolvedModel = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
+		const resolvedProvider =
+			effectiveOptions.provider ?? (resolvedModel && !resolvedModel.includes("/") ? ctx.model?.provider : undefined);
+		const rawThinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
+		const resolvedThinking = rawThinking ? String(rawThinking) : undefined;
+		// Recorded (display) form: qualify a bare model with the pinned provider so the
+		// monitor shows the same fully-resolved id the subagent runs with.
+		const recordedModel =
+			resolvedModel && resolvedProvider && !resolvedModel.includes("/")
+				? `${resolvedProvider}/${resolvedModel}`
+				: resolvedModel;
+		const modelLine = recordedModel ? `\n- model: ${recordedModel}` : "";
+		const thinkingLine = resolvedThinking ? `\n- thinking: ${resolvedThinking}` : "";
 		const preliminaryArtifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- state: running\n- startedAt: ${startedAtIso}${phaseLine}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}\n`,
+			`# ${name}\n\n- state: running\n- startedAt: ${startedAtIso}${modelLine}${thinkingLine}${phaseLine}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}\n`,
 		);
 		const liveStdoutArtifactName = artifactName.endsWith(".md")
 			? `${artifactName.slice(0, -3)}.stdout.log`
@@ -921,6 +943,8 @@ export async function runWorkflow(
 			artifactPath: preliminaryArtifact.path,
 			promptAvailable: true,
 			...phaseFields,
+			...(recordedModel ? { model: recordedModel } : {}),
+			...(resolvedThinking ? { thinking: resolvedThinking } : {}),
 			...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
 			...(effectiveOptions.excludeTools?.length ? { excludeTools: effectiveOptions.excludeTools } : {}),
 			...(effectiveOptions.skills?.length ? { skills: effectiveOptions.skills } : {}),
@@ -937,6 +961,8 @@ export async function runWorkflow(
 			artifactPath: preliminaryArtifact.path,
 			liveStdoutPath: liveStdoutArtifact.path,
 			liveStderrPath: liveStderrArtifact.path,
+			model: recordedModel,
+			thinking: resolvedThinking,
 			tools: effectiveOptions.tools,
 			skills: effectiveOptions.skills,
 			includeSkills: effectiveOptions.includeSkills,
@@ -963,19 +989,11 @@ export async function runWorkflow(
 			if (effectiveOptions.approve ?? ctx.isProjectTrusted()) args.push("--approve");
 			else args.push("--no-approve");
 			if (effectiveOptions.useContextFiles === false) args.push("--no-context-files");
-			const model = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
-			// A BARE pattern alias ("sonnet"/"opus"/"haiku" — no "provider/") resolves through pi's provider
-			// routing and can land on an UNauthenticated provider (e.g. amazon-bedrock -> "No API key found"),
-			// which silently kills the subagent. Pin a bare alias to the session's provider so the shared
-			// dual-platform scaffolds (which use bare aliases for Claude Code) resolve within the authenticated
-			// provider on pi. An explicit provider always wins; qualified ids ("provider/id") and omitted models
-			// (already qualified by makeModelArg) are left untouched.
-			const provider =
-				effectiveOptions.provider ?? (model && !model.includes("/") ? ctx.model?.provider : undefined);
-			if (provider) args.push("--provider", provider);
-			if (model) args.push("--model", model);
-			const thinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
-			if (thinking) args.push("--thinking", String(thinking));
+			// model/provider/thinking are resolved once above (see resolvedModel) so the run
+			// records exactly what is passed here.
+			if (resolvedProvider) args.push("--provider", resolvedProvider);
+			if (resolvedModel) args.push("--model", resolvedModel);
+			if (resolvedThinking) args.push("--thinking", resolvedThinking);
 			if (effectiveOptions.tools?.length) args.push("--tools", effectiveOptions.tools.join(","));
 			if (effectiveOptions.excludeTools?.length)
 				args.push("--exclude-tools", effectiveOptions.excludeTools.join(","));
@@ -1134,7 +1152,7 @@ export async function runWorkflow(
 		const focusLine = `\n- focus: ${focus.turns} turns, peakInput ${focus.inputTokensPeak} tok, out ${focus.outputTokensTotal} tok, tools ${focus.toolCalls} (${focus.toolErrors} err), retries ${focus.autoRetries}`;
 		const artifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${queuedLine}${timeoutLine}${focusLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
+			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${queuedLine}${timeoutLine}${focusLine}${modelLine}${thinkingLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
 		);
 		const rawSubagent: SubagentResult = {
 			id,
@@ -1150,6 +1168,8 @@ export async function runWorkflow(
 			stdout: boundedStdout,
 			stderr: result.stderr,
 			artifactPath: artifact.path,
+			...(recordedModel ? { model: recordedModel } : {}),
+			...(resolvedThinking ? { thinking: resolvedThinking } : {}),
 			...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
 			...(effectiveOptions.excludeTools?.length ? { excludeTools: effectiveOptions.excludeTools } : {}),
 			...(effectiveOptions.skills?.length ? { skills: effectiveOptions.skills } : {}),

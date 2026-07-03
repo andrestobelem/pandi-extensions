@@ -843,6 +843,11 @@ export class WorkflowDashboard {
 		lines.push(line(dim("config")));
 		lines.push(
 			line(
+				`model: ${agent.model ? renderSafeInline(agent.model) : "default"} • effort: ${agent.thinking ? renderSafeInline(agent.thinking) : "default"}`,
+			),
+		);
+		lines.push(
+			line(
 				`tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}${agent.excludeTools?.length ? ` • exclude: ${agent.excludeTools.join(", ")}` : ""}`,
 			),
 		);
@@ -889,6 +894,10 @@ export class WorkflowDashboard {
 		// state-bearing chips (prompt✓ / schema:bad / missing) stay the eye-catchers.
 		const chips: string[] = [agent.promptAvailable ? success("prompt✓") : warning("prompt?")];
 		if (agent.schemaOk !== undefined) chips.push(agent.schemaOk ? muted("schema:ok") : error("schema:bad"));
+		// model/effort chips: short model id (last path segment) to keep the row compact;
+		// omitted entirely when unknown (runs recorded before these fields existed).
+		if (agent.model) chips.push(dim(`model:${renderSafeInline(agent.model.split("/").pop() ?? agent.model)}`));
+		if (agent.thinking) chips.push(dim(`effort:${renderSafeInline(agent.thinking)}`));
 		chips.push(dim(`tools:${agent.tools?.length ? agent.tools.length : "default"}`));
 		chips.push(
 			dim(

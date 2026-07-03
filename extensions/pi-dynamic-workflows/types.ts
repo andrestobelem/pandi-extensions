@@ -82,6 +82,10 @@ export interface SubagentResult {
 	stdout: string;
 	stderr: string;
 	artifactPath: string;
+	/** Resolved model actually passed to the subagent (qualified provider/id when known). */
+	model?: string;
+	/** Resolved thinking/effort level actually passed to the subagent. */
+	thinking?: string;
 	tools?: string[];
 	excludeTools?: string[];
 	skills?: string[];
@@ -228,6 +232,10 @@ export interface AgentMonitorModel {
 	code?: number;
 	killed?: boolean;
 	artifactPath?: string;
+	/** Resolved model the subagent ran with (qualified provider/id when known). */
+	model?: string;
+	/** Resolved thinking/effort level the subagent ran with. */
+	thinking?: string;
 	tools?: string[];
 	excludeTools?: string[];
 	skills?: string[];

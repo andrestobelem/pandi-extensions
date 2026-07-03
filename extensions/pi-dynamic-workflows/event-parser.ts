@@ -118,6 +118,8 @@ export function mergeAgentMonitor(
 			? { killed: patch.killed ?? existing?.killed }
 			: {}),
 		...(artifactPath ? { artifactPath } : {}),
+		...(existing?.model || patch.model ? { model: patch.model ?? existing?.model } : {}),
+		...(existing?.thinking || patch.thinking ? { thinking: patch.thinking ?? existing?.thinking } : {}),
 		...(existing?.tools || patch.tools ? { tools: patch.tools ?? existing?.tools } : {}),
 		...(existing?.excludeTools || patch.excludeTools
 			? { excludeTools: patch.excludeTools ?? existing?.excludeTools }
@@ -251,6 +253,8 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							...(numberValue(event.code) === undefined ? {} : { code: numberValue(event.code) }),
 							...(booleanValue(event.killed) === undefined ? {} : { killed: booleanValue(event.killed) }),
 							...(stringValue(event.artifactPath) ? { artifactPath: stringValue(event.artifactPath) } : {}),
+							...(stringValue(event.model) ? { model: stringValue(event.model) } : {}),
+							...(stringValue(event.thinking) ? { thinking: stringValue(event.thinking) } : {}),
 							...(tools ? { tools } : {}),
 							...(excludeTools ? { excludeTools } : {}),
 							...(skills ? { skills } : {}),
