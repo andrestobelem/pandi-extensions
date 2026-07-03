@@ -112,6 +112,27 @@ async function main() {
 	const mixed = parseAgentFocusMetrics(["{bad", msgEnd(200, 5, 205, 0.001), "also bad"].join("\n"), META);
 	check("failsafe: valid lines still counted amid invalid ones", mixed.turns === 1 && mixed.inputTokensPeak === 200);
 
+	// 2b) Prompt caching: providers report cached prompt tokens in cacheRead/cacheWrite,
+	// leaving usage.input tiny (~2 tok observed in production with Anthropic caching).
+	// The REAL per-call context pressure is input + cacheRead + cacheWrite.
+	const cached = parseAgentFocusMetrics(
+		[
+			msgEnd(2, 54, 7470, 0.095, { cacheRead: 0, cacheWrite: 7414 }),
+			msgEnd(2, 100, 110002, 0.1, { cacheRead: 100000, cacheWrite: 10000 }),
+		].join("\n"),
+		META,
+	);
+	check(
+		"cache-aware: inputTokensPeak includes cacheRead+cacheWrite (real context pressure)",
+		cached.inputTokensPeak === 110002,
+		`peak=${cached.inputTokensPeak}`,
+	);
+	check(
+		"cache-aware: cache totals still summed separately",
+		cached.cacheReadTotal === 100000 && cached.cacheWriteTotal === 17414,
+		`read=${cached.cacheReadTotal} write=${cached.cacheWriteTotal}`,
+	);
+
 	// 3) Aggregate across agents: rollup + tool-error rate + ordered trajectory.
 	const a2 = parseAgentFocusMetrics(msgEnd(500, 10, 510, 0.002), { id: 2, name: "synth", ok: false, elapsedMs: 50 });
 	const agg = aggregateRunFocusMetrics([a2, m]); // pass out of order to test sorting by id

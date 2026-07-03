@@ -12,7 +12,10 @@
  * JSON parsing that skips partial/invalid lines and never throws.
  *
  * Token accounting (from AssistantMessage.usage on message_end/turn_end/agent_end):
- *   - inputTokensPeak  = max usage.input  → peak context-window pressure (the focus signal)
+ *   - inputTokensPeak  = max per-call (input + cacheRead + cacheWrite) → peak
+ *     context-window pressure (the focus signal). Cache-aware: with prompt caching
+ *     providers report the cached prompt in cacheRead/cacheWrite and usage.input is
+ *     only the uncached remainder (~2 tok observed), so input alone lies.
  *   - outputTokensTotal= sum usage.output → total generation
  *   - cost/cacheRead/cacheWrite are summed (each is per-API-call)
  * Tool-error rate comes from tool_execution_end {isError}; retries from auto_retry_end.
@@ -25,7 +28,7 @@ export interface AgentFocusMetrics {
 	elapsedMs: number;
 	/** Assistant turns observed (counted from message_end events only — see parseAgentFocusMetrics). */
 	turns: number;
-	/** Peak per-call input tokens = peak context pressure for this agent. */
+	/** Peak per-call prompt size (input + cacheRead + cacheWrite) = peak context pressure. */
 	inputTokensPeak: number;
 	/** Summed generated tokens across the agent's API calls. */
 	outputTokensTotal: number;
@@ -154,7 +157,9 @@ function accumulateUsage(
 	metrics: AgentFocusMetrics,
 	usage: { input: number; output: number; total: number; cacheRead: number; cacheWrite: number; cost: number },
 ): void {
-	metrics.inputTokensPeak = Math.max(metrics.inputTokensPeak, usage.input);
+	// Cache-aware prompt size: cached tokens ARE input the model attends to; usage.input
+	// alone is only the uncached remainder under prompt caching.
+	metrics.inputTokensPeak = Math.max(metrics.inputTokensPeak, usage.input + usage.cacheRead + usage.cacheWrite);
 	metrics.totalTokens = Math.max(metrics.totalTokens, usage.total);
 	metrics.outputTokensTotal += usage.output;
 	metrics.cacheReadTotal += usage.cacheRead;
