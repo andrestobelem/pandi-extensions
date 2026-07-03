@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pandi artifact template</title>
+<style>
+  /* ===== Pandi tokens (see reference/pandi-tokens.css; source of truth:
+     extensions/pi-pandi-theme/themes/panda-syntax-{dark,light}.json) ===== */
+  :root {
+    --bg:#242526; --paper:#292A2B; --info-bg:#2E2A33; --raised:#31353A;
+    --ink:#E6E6E6; --ink2:#BBBBBB; --muted:#757575; --line:#3E4250; --line-strong:#676B79;
+    --accent:#FF75B5; --accent-soft:#FF9AC1; --link:#6FC1FF; --info:#45A9F9;
+    --success:#19F9D8; --warning:#FFCC95; --error:#FF4B82; --code:#19F9D8; --purple:#BCAAFE;
+    --success-bg:#1E2E2B; --error-bg:#2E1E24; --warning-bg:#2E2A33;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:#ECECEC; --paper:#F2F1F1; --info-bg:#EDE4F8; --raised:#E6DBCB;
+      --ink:#222223; --ink2:#676B79; --muted:#8D8D8D; --line:#C9C9C9; --line-strong:#676B79;
+      --accent:#FF0077; --accent-soft:#FF629E; --link:#0091FF; --info:#0091FF;
+      --success:#12B69D; --warning:#FF8400; --error:#FF4B82; --code:#12B69D; --purple:#B084EB;
+      --success-bg:#DCEEEA; --error-bg:#F7DCE4; --warning-bg:#EDE4F8;
+    }
+  }
+
+  /* ===== Claude-design base layout ===== */
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+  .container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+
+  header { padding:40px 0 8px; }
+  header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                   color:var(--accent); font-weight:600; }
+  header h1 { margin:6px 0; font-size:28px; }
+  header p { margin:0; color:var(--ink2); max-width:74ch; }
+
+  h2.sec { font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+           color:var(--muted); margin:32px 0 14px; }
+
+  a { color:var(--link); }
+
+  /* Chips & pills */
+  .chips { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { font-size:12px; padding:4px 10px; border-radius:999px;
+          background:var(--raised); border:1px solid var(--line); color:var(--ink2); }
+  .rpill { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .rpill.ok   { background:var(--success-bg); color:var(--success); border:1px solid var(--success); }
+  .rpill.run  { background:var(--info-bg);    color:var(--info);    border:1px solid var(--info); }
+  .rpill.fail { background:var(--error-bg);   color:var(--error);   border:1px solid var(--error); }
+
+  /* Cards */
+  .card { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+          margin-bottom:12px; overflow:hidden; }
+  .card > .head { padding:14px 16px; display:flex; align-items:center; gap:10px; cursor:pointer; }
+  .card > .head:hover { background:var(--raised); }
+  .card .body { display:none; border-top:1px solid var(--line); padding:16px; color:var(--ink2); }
+  .card.open .body { display:block; }
+  .caret { color:var(--muted); transition:transform .15s; }
+  .card.open .caret { transform:rotate(90deg); }
+  .nid { font-family:ui-monospace,Menlo,monospace; font-size:13.5px; font-weight:600; color:var(--info); }
+
+  /* Callouts */
+  .callout { margin:10px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+             border:1px solid var(--line); background:var(--paper); color:var(--ink2); }
+  .callout.info    { background:var(--info-bg);    border-color:var(--purple);  color:var(--ink); }
+  .callout.success { background:var(--success-bg); border-color:var(--success); color:var(--ink); }
+  .callout.warn    { background:var(--warning-bg); border-color:var(--warning); color:var(--ink); }
+  .callout.error   { background:var(--error-bg);   border-color:var(--error);   color:var(--ink); }
+  .callout b { color:var(--ink); }
+
+  /* Tables */
+  table { border-collapse:collapse; margin:8px 0; width:100%; background:var(--paper);
+          border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+  th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+       background:var(--raised); }
+  tr:last-child td { border-bottom:none; }
+
+  /* Code */
+  code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+         background:var(--raised); padding:1px 6px; border-radius:5px; }
+  pre.block { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+              padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+  pre.block code { background:none; padding:0; color:var(--ink); }
+  pre.block .kw { color:var(--accent); } pre.block .fn { color:var(--info); }
+  pre.block .str { color:var(--success); } pre.block .cm { color:var(--line-strong); }
+  pre.block .num { color:var(--warning); }
+
+  blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+  hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="kicker">Pandi artifact · style template</div>
+    <h1>Report title goes here</h1>
+    <p>One-paragraph summary of what this artifact contains, who produced it, and why.
+       Keep it under ~74ch of measure for comfortable reading.</p>
+    <div class="chips">
+      <span class="chip">2026-07-03</span>
+      <span class="chip">run: demo-123</span>
+      <span class="chip">agents: 5</span>
+      <span class="rpill ok">ok 4</span>
+      <span class="rpill run">running 1</span>
+      <span class="rpill fail">fail 0</span>
+    </div>
+  </header>
+
+  <h2 class="sec">Callouts</h2>
+  <div class="callout info"><b>Info.</b> Purple-tinted surface (theme <code>export.infoBg</code>) for neutral notes.</div>
+  <div class="callout success"><b>Success.</b> Panda green — verification passed, tests green.</div>
+  <div class="callout warn"><b>Warning.</b> Orange — coverage caps, clamped concurrency, skipped work.</div>
+  <div class="callout error"><b>Error.</b> Red — failed branches, blocked criteria. Never hide these.</div>
+
+  <h2 class="sec">Cards — click to expand</h2>
+  <div class="card open">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <span class="caret">▶</span>
+      <span class="nid">finding-01</span>
+      <span style="color:var(--ink2)">Example collapsible card with evidence</span>
+      <span class="rpill ok" style="margin-left:auto">verified</span>
+    </div>
+    <div class="body">
+      Body copy uses secondary ink. Cite evidence with paths like
+      <code>extensions/pi-pandi-theme/themes/panda-syntax-dark.json</code> and keep each card
+      to one finding, one claim, one verification.
+    </div>
+  </div>
+
+  <h2 class="sec">Table</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Scout phase</td><td><span class="rpill ok">done</span></td><td>12 files probed</td></tr>
+      <tr><td>Fan-out</td><td><span class="rpill run">running</span></td><td>3/5 branches settled</td></tr>
+      <tr><td>Synthesis</td><td><span class="rpill fail">failed</span></td><td>1 branch timed out — retried</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sec">Code</h2>
+  <p>Inline code like <code>writeArtifact("report.html", html)</code> uses panda green.</p>
+  <pre class="block"><code><span class="cm">// Panda Syntax accents on the paper surface</span>
+<span class="kw">const</span> <span class="fn">summarize</span> = (findings) =&gt; findings
+  .filter(Boolean)
+  .slice(<span class="num">0</span>, <span class="num">10</span>)
+  .map((f) =&gt; <span class="str">`- ${f.title}`</span>)
+  .join(<span class="str">"\n"</span>);</code></pre>
+
+  <h2 class="sec">Quote</h2>
+  <blockquote>Make the workflow observable: keep steps small, preserve evidence, expose
+  uncertainty, verify outputs, and prefer inspectable artifacts over hidden magic.</blockquote>
+
+  <hr>
+  <p style="color:var(--muted);font-size:12.5px">Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</p>
+</div>
+</body>
+</html>
