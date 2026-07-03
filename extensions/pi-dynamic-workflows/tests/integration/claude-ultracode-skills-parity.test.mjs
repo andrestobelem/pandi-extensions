@@ -27,6 +27,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
+import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -40,7 +41,7 @@ function runCheck() {
 	return spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
-function main() {
+async function main() {
 	check("generate-claude-ultracode-skills.mjs exists", fs.existsSync(GEN));
 
 	// 1) Both generated skills are in sync with the canonical .pi source.
@@ -92,13 +93,13 @@ function main() {
 	}
 
 	// 5) Sensitivity: mutate a generated file, confirm --check catches it, then revert.
-	const original = fs.readFileSync(dwSkill, "utf8");
-	try {
-		fs.writeFileSync(dwSkill, `${original}\n<!-- drift -->\n`);
-		check("a one-line tweak to a generated skill is detected as drift (exit 1)", runCheck().status === 1);
-	} finally {
-		fs.writeFileSync(dwSkill, original);
-	}
+	await withMutatedFile(
+		dwSkill,
+		(orig) => `${orig}\n<!-- drift -->\n`,
+		() => {
+			check("a one-line tweak to a generated skill is detected as drift (exit 1)", runCheck().status === 1);
+		},
+	);
 	check("generated skill restored to in-sync after the negative control", runCheck().status === 0);
 
 	if (counts.failed > 0) {
@@ -109,4 +110,4 @@ function main() {
 	console.log(`\n${counts.passed} checks passed`);
 }
 
-main();
+await main();

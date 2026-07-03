@@ -28,6 +28,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
+import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -39,7 +40,7 @@ function runCheck() {
 	return spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
-function main() {
+async function main() {
 	check("vendor-extension-skills.mjs exists", fs.existsSync(GEN));
 
 	// 1) All vendored skills in sync.
@@ -67,18 +68,19 @@ function main() {
 
 	// 2) Sensitivity: mutate a vendored copy by one char and confirm --check catches it, then revert.
 	if (fs.existsSync(vendoredSkill)) {
-		const original = fs.readFileSync(vendoredSkill, "utf8");
-		try {
-			fs.writeFileSync(vendoredSkill, `${original}\n<!-- drift -->\n`);
-			const drifted = runCheck();
-			check(
-				"a one-line tweak to a vendored copy is detected as drift (exit 1)",
-				drifted.status === 1,
-				`exit=${drifted.status}`,
-			);
-		} finally {
-			fs.writeFileSync(vendoredSkill, original);
-		}
+		// withMutatedFile keeps the in-place mutation the real --check needs, but restores on SIGTERM/exit.
+		await withMutatedFile(
+			vendoredSkill,
+			(orig) => `${orig}\n<!-- drift -->\n`,
+			() => {
+				const drifted = runCheck();
+				check(
+					"a one-line tweak to a vendored copy is detected as drift (exit 1)",
+					drifted.status === 1,
+					`exit=${drifted.status}`,
+				);
+			},
+		);
 		// Confirm the revert restored sync (guards against leaving the tree dirty).
 		check("vendored copy restored to in-sync after the negative control", runCheck().status === 0);
 	}
@@ -121,4 +123,4 @@ function main() {
 	console.log(`\n${counts.passed} checks passed`);
 }
 
-main();
+await main();

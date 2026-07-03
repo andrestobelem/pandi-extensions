@@ -23,6 +23,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
+import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -34,7 +35,7 @@ function runCheck() {
 	return spawnSync("node", [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
-function main() {
+async function main() {
 	check("sync-skill-mirrors.mjs exists", fs.existsSync(SYNC));
 
 	// 1) All mirrored skills in sync.
@@ -61,18 +62,19 @@ function main() {
 	}
 
 	// 2) Sensitivity: mutate a mirror by one char and confirm --check catches it, then revert.
-	const original = fs.readFileSync(claudeSkill, "utf8");
-	try {
-		fs.writeFileSync(claudeSkill, `${original}\n<!-- drift -->\n`);
-		const drifted = runCheck();
-		check(
-			"a one-line tweak to a mirror is detected as drift (exit 1)",
-			drifted.status === 1,
-			`exit=${drifted.status}`,
-		);
-	} finally {
-		fs.writeFileSync(claudeSkill, original);
-	}
+	// withMutatedFile keeps the in-place mutation the real --check needs, but restores on SIGTERM/exit.
+	await withMutatedFile(
+		claudeSkill,
+		(orig) => `${orig}\n<!-- drift -->\n`,
+		() => {
+			const drifted = runCheck();
+			check(
+				"a one-line tweak to a mirror is detected as drift (exit 1)",
+				drifted.status === 1,
+				`exit=${drifted.status}`,
+			);
+		},
+	);
 	// Confirm the revert restored sync (guards against leaving the tree dirty).
 	check("mirror restored to in-sync after the negative control", runCheck().status === 0);
 
@@ -84,4 +86,4 @@ function main() {
 	console.log(`\n${counts.passed} checks passed`);
 }
 
-main();
+await main();

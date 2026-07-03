@@ -26,6 +26,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
+import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -35,7 +36,7 @@ const OUT_DIR = path.join(REPO_ROOT, ".claude", "workflows");
 
 const { check, counts } = createChecker();
 
-function main() {
+async function main() {
 	// 1) Generated == committed for all scaffolds.
 	const res = spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 	check(
@@ -84,17 +85,14 @@ function main() {
 	const sample = outNames[0];
 	const samplePath = path.join(OUT_DIR, sample);
 	const original = fs.readFileSync(samplePath, "utf8");
-	try {
-		fs.writeFileSync(samplePath, `${original}\nconst __drift_probe__ = 1;\n`);
+	await withMutatedFile(samplePath, `${original}\nconst __drift_probe__ = 1;\n`, () => {
 		const tweaked = spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 		check(
 			`negative control: a hand-edit to ${sample} is detected as drift (--check exits non-zero)`,
 			tweaked.status !== 0,
 			`exit=${tweaked.status}`,
 		);
-	} finally {
-		fs.writeFileSync(samplePath, original); // always restore
-	}
+	});
 	check(`negative control restored ${sample} byte-for-byte`, fs.readFileSync(samplePath, "utf8") === original);
 
 	console.log(`\nTOTAL: ${counts.passed} passed, ${counts.failed} failed`);
@@ -105,4 +103,4 @@ function main() {
 	process.exit(0);
 }
 
-main();
+await main();

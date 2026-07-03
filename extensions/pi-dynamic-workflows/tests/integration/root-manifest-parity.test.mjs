@@ -23,6 +23,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
+import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -35,7 +36,7 @@ function runCheck() {
 	return spawnSync("node", [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
-function main() {
+async function main() {
 	check("sync-root-manifest.mjs exists", fs.existsSync(SYNC));
 
 	// 1) Root manifest in sync with the derivation from sub-packages.
@@ -70,16 +71,15 @@ function main() {
 	}
 
 	// 3) Sensitivity: drop the last root pi.extensions entry and confirm --check catches it.
-	const original = fs.readFileSync(ROOT_PKG, "utf8");
-	try {
-		const mutated = JSON.parse(original);
+	const dropLastExtension = (orig) => {
+		const mutated = JSON.parse(orig);
 		mutated.pi.extensions = mutated.pi.extensions.slice(0, -1);
-		fs.writeFileSync(ROOT_PKG, `${JSON.stringify(mutated, null, "\t")}\n`);
+		return `${JSON.stringify(mutated, null, "\t")}\n`;
+	};
+	await withMutatedFile(ROOT_PKG, dropLastExtension, () => {
 		const drifted = runCheck();
 		check("a dropped root entry is detected as drift (exit 1)", drifted.status === 1, `exit=${drifted.status}`);
-	} finally {
-		fs.writeFileSync(ROOT_PKG, original);
-	}
+	});
 	// Confirm the revert restored sync (guards against leaving the tree dirty).
 	check("root manifest restored to in-sync after the negative control", runCheck().status === 0);
 
@@ -91,4 +91,4 @@ function main() {
 	console.log(`\n${counts.passed} checks passed`);
 }
 
-main();
+await main();

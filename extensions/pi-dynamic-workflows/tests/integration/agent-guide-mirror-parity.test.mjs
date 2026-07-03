@@ -20,6 +20,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
+import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -33,7 +34,7 @@ function runCheck() {
 	return spawnSync("node", [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
-function main() {
+async function main() {
 	check("sync-agent-guides.mjs exists", fs.existsSync(SYNC));
 	check("AGENTS.md exists (source of truth)", fs.existsSync(AGENTS));
 	check("CLAUDE.md exists (mirror)", fs.existsSync(CLAUDE));
@@ -56,18 +57,18 @@ function main() {
 	}
 
 	// 2) Sensitivity: mutate the mirror by one line and confirm --check catches it, then revert.
-	const original = fs.readFileSync(CLAUDE, "utf8");
-	try {
-		fs.writeFileSync(CLAUDE, `${original}\n<!-- drift -->\n`);
-		const drifted = runCheck();
-		check(
-			"a one-line tweak to CLAUDE.md is detected as drift (exit 1)",
-			drifted.status === 1,
-			`exit=${drifted.status}`,
-		);
-	} finally {
-		fs.writeFileSync(CLAUDE, original);
-	}
+	await withMutatedFile(
+		CLAUDE,
+		(orig) => `${orig}\n<!-- drift -->\n`,
+		() => {
+			const drifted = runCheck();
+			check(
+				"a one-line tweak to CLAUDE.md is detected as drift (exit 1)",
+				drifted.status === 1,
+				`exit=${drifted.status}`,
+			);
+		},
+	);
 	check("mirror restored to in-sync after the negative control", runCheck().status === 0);
 
 	if (counts.failed > 0) {
@@ -78,4 +79,4 @@ function main() {
 	console.log(`\n${counts.passed} checks passed`);
 }
 
-main();
+await main();
