@@ -9,7 +9,7 @@ para trabajar en este repo (correr Pi, Supacode, y los dynamic workflows).
   [`config/kitty/current-theme.conf`](../config/kitty/current-theme.conf)
 
 Se versiona **solo lo que está activo**. El `kitty.conf` real generado por kitty
-trae ~3000 líneas de defaults comentados; acá guardamos únicamente los 18 ajustes
+trae ~3000 líneas de defaults comentados; acá guardamos únicamente los 19 ajustes
 que cambiamos, para que sea legible y reproducible. Todo lo demás usa los defaults
 de kitty.
 
@@ -36,6 +36,7 @@ de kitty.
 | `active_tab_font_style` | bold | Resalta la pestaña activa. |
 | `background_opacity` / `background_blur` | 0.88 / 5 | Fondo semitransparente con desenfoque. |
 | `allow_remote_control` + `listen_on` | yes / `unix:/tmp/kitty` | Control remoto para Supacode y scripting (`kitty @ ...`). |
+| `map cmd+t` | `new_tab_with_cwd` | Las tabs nuevas heredan el cwd de la ventana actual. |
 
 ## Tema
 
