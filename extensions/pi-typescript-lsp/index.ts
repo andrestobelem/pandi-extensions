@@ -83,8 +83,11 @@ interface RunTscOptions {
  * typed result. NEVER rejects: spawn failure, non-zero exit, timeout, or abort
  * all come back as a TscRunResult. Output is byte-bounded so a runaway tsc cannot
  * flood memory.
+ *
+ * Exported for the integration suite (mirrors pi-container's runContainer): the
+ * timeout/abort/spawn-error mechanics are pinned against REAL spawns there.
  */
-function runTsc(command: string, args: string[], options: RunTscOptions): Promise<TscRunResult> {
+export function runTsc(command: string, args: string[], options: RunTscOptions): Promise<TscRunResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_TSC_TIMEOUT_MS } = options;
 	return new Promise<TscRunResult>((resolve) => {
 		let stdout = "";

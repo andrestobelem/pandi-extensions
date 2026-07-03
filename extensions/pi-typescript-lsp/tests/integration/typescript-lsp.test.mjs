@@ -14,6 +14,12 @@
  *   agent_end does NOT run with no TS touched / in an aborted run; advisory feedback
  *   by default (sendMessage nextTurn) with dedupe; autofix opt-in (followUp +
  *   triggerTurn) honoring the per-prompt budget.
+ * - P4 additions (issue #4, mutation-verified non-vacuous): resolveTscCommand
+ *   resolution order (env/local/npx), REAL runTsc mechanics (timeout, exit-0-after-
+ *   timeout still not ok, abort, spawnError, byte-bounded output), no-engine paths
+ *   (no tsconfig; tsc absent via PATH sabotage) warning once per session, tool
+ *   project scope + multi-tsconfig grouping, and /tsc command branch edges.
+ *   How a timed-out run is SURFACED upstream is a known bug (tracked separately).
  */
 
 import { existsSync } from "node:fs";
@@ -435,6 +441,260 @@ async function scenarioCommandRun(url) {
 	await fs.rm(dir, { recursive: true, force: true });
 }
 
+// resolveTscCommand resolution order (issue #4): env override → nearest local
+// node_modules tsc → npx fallback.
+async function scenarioResolveTscCommand(url) {
+	const mod = await loadModule(url);
+
+	const viaEnv = mod.resolveTscCommand("/anywhere", { PI_TS_LSP_TSC: "/custom/tsc.js" });
+	check(
+		"resolve: env override wins (kind env, run with node)",
+		viaEnv.kind === "env" && viaEnv.command === process.execPath && viaEnv.args[0] === "/custom/tsc.js",
+		JSON.stringify(viaEnv),
+	);
+
+	const viaLocal = mod.resolveTscCommand(REPO_ROOT, {});
+	check(
+		"resolve: nearest node_modules tsc (kind local)",
+		viaLocal.kind === "local" && viaLocal.args[0]?.includes(path.join("node_modules", "typescript")),
+		JSON.stringify(viaLocal),
+	);
+
+	const bare = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-npx-"));
+	try {
+		const viaNpx = mod.resolveTscCommand(bare, {});
+		check(
+			"resolve: no env, no local → npx fallback",
+			viaNpx.kind === "npx" && viaNpx.command === "npx",
+			JSON.stringify(viaNpx),
+		);
+	} finally {
+		await fs.rm(bare, { recursive: true, force: true });
+	}
+}
+
+// runTsc mechanics (issue #4 "timeouts"), against REAL spawns: a hung tsc is
+// SIGTERM'd at timeoutMs (timedOut, ok=false), an aborted signal resolves without
+// crashing, a missing binary reports spawnError, and output is byte-bounded.
+// NOTE: how a TIMED-OUT run is SURFACED upstream (today: parsed-empty → "clean")
+// is tracked separately as a behavior bug — these pins cover the runner contract.
+async function scenarioRunTscMechanics(url) {
+	const mod = await loadModule(url);
+	check("runTsc is exported for the suite", typeof mod.runTsc === "function", typeof mod.runTsc);
+	if (typeof mod.runTsc !== "function") return;
+
+	const hung = await mod.runTsc(process.execPath, ["-e", "setTimeout(() => {}, 10000)"], {
+		cwd: os.tmpdir(),
+		timeoutMs: 300,
+	});
+	check(
+		"runTsc: timeout → ok=false + timedOut=true",
+		hung.ok === false && hung.timedOut === true,
+		JSON.stringify(hung),
+	);
+
+	// A child that IGNORES SIGTERM and then exits 0 AFTER the timeout fired: exit
+	// code alone says success, but a timed-out run must NEVER count as ok — this is
+	// the `!timedOut` half of the ok derivation (exit-0-after-timeout).
+	const lateOk = await mod.runTsc(
+		process.execPath,
+		["-e", 'process.on("SIGTERM", () => {}); setTimeout(() => process.exit(0), 600)'],
+		{ cwd: os.tmpdir(), timeoutMs: 200 },
+	);
+	check(
+		"runTsc: exit 0 AFTER timeout still ok=false (timedOut wins)",
+		lateOk.ok === false && lateOk.timedOut === true && lateOk.exitCode === 0,
+		JSON.stringify(lateOk),
+	);
+
+	const controller = new AbortController();
+	const pending = mod.runTsc(process.execPath, ["-e", "setTimeout(() => {}, 10000)"], {
+		cwd: os.tmpdir(),
+		signal: controller.signal,
+		timeoutMs: 30000,
+	});
+	setTimeout(() => controller.abort(), 100);
+	const aborted = await pending;
+	check(
+		"runTsc: abort → resolves ok=false, SIGTERM",
+		aborted.ok === false && aborted.signal === "SIGTERM",
+		JSON.stringify(aborted),
+	);
+
+	const missing = await mod.runTsc("tsc-does-not-exist-xyz", ["--version"], { cwd: os.tmpdir(), timeoutMs: 5000 });
+	check(
+		"runTsc: missing binary → spawnError set",
+		missing.ok === false && typeof missing.spawnError === "string" && missing.spawnError.length > 0,
+		JSON.stringify(missing),
+	);
+
+	const noisy = await mod.runTsc(process.execPath, ["-e", "process.stdout.write(Buffer.alloc(3_000_000, 97))"], {
+		cwd: os.tmpdir(),
+		timeoutMs: 30000,
+	});
+	check(
+		"runTsc: stdout is byte-bounded (runaway output cannot flood memory)",
+		noisy.stdout.length <= 2_000_000,
+		`len=${noisy.stdout.length}`,
+	);
+}
+
+// No-engine branches (issue #4 "tsc absent" / "project without tsconfig").
+async function scenarioNoEngine(url) {
+	// A) Project without tsconfig: the coherent edge warns ONCE per session, the
+	// tool returns a bounded isError result for both scopes.
+	const { handlers, tools, messages } = await loadExtension(url);
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-nocfg-"));
+	const file = path.join(dir, "sample.ts");
+	await fs.writeFile(file, BAD_TS, "utf8");
+	const ctx = makeCtx({ cwd: dir });
+
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("no tsconfig: no feedback message", messages.length === 0, String(messages.length));
+	check(
+		"no tsconfig: advisory warning surfaced",
+		ctx._notes.some((n) => n.type === "warning" && /no tsconfig\.json or tsc found/i.test(n.msg)),
+		JSON.stringify(ctx._notes),
+	);
+	const warnsBefore = ctx._notes.length;
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check(
+		"no tsconfig: warns only ONCE per session",
+		ctx._notes.length === warnsBefore,
+		`${warnsBefore} -> ${ctx._notes.length}`,
+	);
+
+	touch(handlers, ctx, file);
+	const resTouched = await tools
+		.get("typescript_diagnostics")
+		.execute("id", { scope: "touched" }, undefined, undefined, ctx);
+	check(
+		"no tsconfig: tool touched scope → isError",
+		resTouched.details?.isError === true &&
+			/No tsconfig\.json or tsc found/i.test(resTouched.content?.[0]?.text || ""),
+		JSON.stringify(resTouched),
+	);
+	const resProject = await tools
+		.get("typescript_diagnostics")
+		.execute("id", { scope: "project" }, undefined, undefined, ctx);
+	check(
+		"no tsconfig: tool project scope → isError",
+		resProject.details?.isError === true,
+		JSON.stringify(resProject.details),
+	);
+	await fs.rm(dir, { recursive: true, force: true });
+
+	// B) tsc ABSENT (tsconfig present, no env override, no local tsc, npx unreachable):
+	// spawn fails → same no-engine surfacing, never a crash.
+	const { handlers: h2, messages: m2 } = await loadExtension(url);
+	const { dir: dir2, file: file2 } = await makeProject({ content: BAD_TS });
+	const ctx2 = makeCtx({ cwd: dir2 });
+	const savedTsc = process.env.PI_TS_LSP_TSC;
+	const savedPath = process.env.PATH;
+	delete process.env.PI_TS_LSP_TSC;
+	process.env.PATH = "";
+	try {
+		touch(h2, ctx2, file2);
+		await fireAgentEnd(h2, ctx2);
+		check("tsc absent: no feedback message", m2.length === 0, String(m2.length));
+		check(
+			"tsc absent: advisory no-engine warning",
+			ctx2._notes.some((n) => n.type === "warning" && /no tsconfig\.json or tsc found/i.test(n.msg)),
+			JSON.stringify(ctx2._notes),
+		);
+	} finally {
+		if (savedTsc === undefined) delete process.env.PI_TS_LSP_TSC;
+		else process.env.PI_TS_LSP_TSC = savedTsc;
+		process.env.PATH = savedPath;
+		await fs.rm(dir2, { recursive: true, force: true });
+	}
+}
+
+// Tool project scope with real errors + multi-tsconfig grouping (issue #4
+// "touched-vs-project scope branches").
+async function scenarioScopesAndGrouping(url) {
+	// Tool scope=project surfaces the project's error even with nothing touched.
+	const { tools } = await loadExtension(url);
+	const { dir } = await makeProject({ content: BAD_TS });
+	const ctx = makeCtx({ cwd: dir });
+	const res = await tools.get("typescript_diagnostics").execute("id", { scope: "project" }, undefined, undefined, ctx);
+	check(
+		"tool project scope: reports the real error with nothing touched",
+		res.details?.hasErrors === true && /TS2322/.test(res.content?.[0]?.text || ""),
+		JSON.stringify(res.details),
+	);
+	await fs.rm(dir, { recursive: true, force: true });
+
+	// Two sibling projects (own tsconfigs), both touched → ONE advisory carrying both
+	// errors: runTouchedCheck groups by nearest tsconfig and runs tsc per group.
+	const { handlers, messages } = await loadExtension(url);
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-multi-"));
+	const mk = async (name, content) => {
+		const d = path.join(root, name);
+		await fs.mkdir(d, { recursive: true });
+		await fs.writeFile(
+			path.join(d, "tsconfig.json"),
+			JSON.stringify({ compilerOptions: { strict: true, noEmit: true, skipLibCheck: true } }),
+			"utf8",
+		);
+		const f = path.join(d, "sample.ts");
+		await fs.writeFile(f, content, "utf8");
+		return f;
+	};
+	const fa = await mk("proj-a", BAD_TS);
+	const fb = await mk("proj-b", BAD_TS_2);
+	const mctx = makeCtx({ cwd: root });
+	touch(handlers, mctx, fa);
+	touch(handlers, mctx, fb);
+	await fireAgentEnd(handlers, mctx);
+	check("grouping: one advisory for both projects", messages.length === 1, String(messages.length));
+	const content = messages[0]?.message?.content || "";
+	check(
+		"grouping: carries both projects' diagnostics (TS2322 + TS2322/TS2322-bool)",
+		/proj-a/.test(content) && /proj-b/.test(content),
+		content,
+	);
+	await fs.rm(root, { recursive: true, force: true });
+}
+
+// /tsc command branch edges: scope usage/accepted, autofix usage/accepted, unknown
+// subcommand, and `run` with nothing touched (its distinct message).
+async function scenarioCommandEdges(url) {
+	const { commands } = await loadExtension(url);
+	const { dir } = await makeProject({ content: GOOD_TS });
+	const ctx = makeCtx({ cwd: dir });
+	const cmd = commands.get("tsc");
+
+	await cmd.handler("scope banana", ctx);
+	check("cmd scope: rejects junk with usage", /Usage: \/tsc scope/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	await cmd.handler("scope touched", ctx);
+	check("cmd scope: accepts touched", /scope: touched/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+
+	await cmd.handler("autofix banana", ctx);
+	check("cmd autofix: rejects junk with usage", /Usage: \/tsc autofix/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	await cmd.handler("autofix on", ctx);
+	await cmd.handler("status", ctx);
+	check(
+		"cmd autofix on: status reflects autofix mode",
+		/mode: autofix/.test(lastNote(ctx).msg) && /autofix: on/.test(lastNote(ctx).msg),
+		lastNote(ctx).msg,
+	);
+
+	await cmd.handler("frobnicate", ctx);
+	check("cmd unknown: usage warning", /Usage: \/tsc \[status/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+
+	// `run` with scope touched and nothing touched → its OWN message (not no-engine).
+	await cmd.handler("run", ctx);
+	check(
+		"cmd run: nothing touched → dedicated message",
+		/No TypeScript files touched this turn/.test(lastNote(ctx).msg),
+		lastNote(ctx).msg,
+	);
+	await fs.rm(dir, { recursive: true, force: true });
+}
+
 async function main() {
 	if (!existsSync(REAL_TSC)) {
 		console.error(`Missing real tsc for e2e: ${REAL_TSC}`);
@@ -453,6 +713,11 @@ async function main() {
 		await scenarioGateNoRun(url);
 		await scenarioAutofixBudget(url);
 		await scenarioCommandRun(url);
+		await scenarioResolveTscCommand(url);
+		await scenarioRunTscMechanics(url);
+		await scenarioNoEngine(url);
+		await scenarioScopesAndGrouping(url);
+		await scenarioCommandEdges(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
