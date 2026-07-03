@@ -25,6 +25,7 @@ This directory stores the project's work history, decisions, created workflows, 
 
 ## Directory structure
 
+- `docs/html/` — GENERATED pandi-styled HTML mirror of the docs (do not hand-edit; regenerate with `npm run sync:docs:html` — `npm test` fails on drift)
 - `docs/handbooks/` — durable project reference (conventions, onboarding, playbooks)
 - `docs/research/` — research notes, consulted sources, and implementation decisions
 - `docs/workflows/` — technical documentation for workflows and runs

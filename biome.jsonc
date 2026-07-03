@@ -62,6 +62,10 @@
 			// scaffolds with top-level `return` (not parseable as modules), same as .claude —
 			// lint the canonical source, not the generated copy.
 			"!extensions/*/skills",
+			// docs/html is the GENERATED pandi-styled HTML mirror of the docs
+			// (scripts/sync-docs-html.mjs; `npm test` runs its --check). Generated
+			// artifact like .claude/workflows — do not lint, do not hand-edit.
+			"!docs/html",
 			"!dist",
 			"!.cache",
 			"!coverage",
