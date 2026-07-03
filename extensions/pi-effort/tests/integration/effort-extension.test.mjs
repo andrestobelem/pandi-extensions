@@ -9,6 +9,13 @@
  * - `ultracode` sets xhigh, activates dynamic_workflow when present, and emits the
  *   inter-extension event consumed by dynamic-workflows.ts
  * - thinking_level_select keeps the status line in sync
+ * - degradation branches (issue #2, mutation-verified non-vacuous): setThinkingLevel
+ *   throw is contained (error notify, pre-call level reported), safeCurrentLevel maps
+ *   throw/out-of-vocabulary to "unknown", a throwing getActiveTools degrades ultracode
+ *   to "router not available", headless no-args never opens the selector (usage on
+ *   stdout in print mode), a cancelled selector falls back to status, bare `max` /
+ *   `ultra-code` aliases resolve end-to-end, and session_start/shutdown paint/clear
+ *   the status line (never without a UI)
  */
 
 import * as fs from "node:fs/promises";
@@ -283,6 +290,193 @@ async function scenarioNotifyErrorRouting(url) {
 	);
 }
 
+// setThinkingLevel throwing (provider/model rejects the change) must be contained:
+// error notify, level report falls back to the pre-call level, and no success notify.
+async function scenarioSetLevelThrows(url) {
+	const effortExtension = await loadDefault(url);
+	const harness = makePi({ initialLevel: "medium" });
+	harness.pi.setThinkingLevel = () => {
+		throw new Error("model rejects thinking");
+	};
+	effortExtension(harness.pi);
+	const command = harness.commands.get("effort");
+	const ctx = makeCtx();
+
+	await command.handler("high", ctx);
+	check("setLevel throw: level unchanged", harness.level === "medium", harness.level);
+	check(
+		"setLevel throw: error notify carries the failure",
+		ctx._notes.some((n) => n.type === "error" && /Failed to set effort high: model rejects thinking/.test(n.msg)),
+		JSON.stringify(ctx._notes),
+	);
+	check(
+		"setLevel throw: no success notify",
+		!ctx._notes.some((n) => /set to/i.test(n.msg)),
+		JSON.stringify(ctx._notes),
+	);
+}
+
+// safeCurrentLevel degradation: a throwing or out-of-vocabulary getThinkingLevel must
+// surface as "unknown" in the status usage line, never crash the handler.
+async function scenarioUnknownCurrentLevel(url) {
+	const effortExtension = await loadDefault(url);
+	const throwing = makePi();
+	throwing.pi.getThinkingLevel = () => {
+		throw new Error("no session");
+	};
+	effortExtension(throwing.pi);
+	const ctx = makeCtx();
+	await throwing.commands.get("effort").handler("status", ctx);
+	check(
+		"getThinkingLevel throw: status reports 'unknown'",
+		ctx._notes.some((n) => /Current effort: unknown/.test(n.msg)),
+		JSON.stringify(ctx._notes),
+	);
+
+	const weird = makePi({ initialLevel: "banana" });
+	effortExtension(weird.pi);
+	const ctx2 = makeCtx();
+	await weird.commands.get("effort").handler("status", ctx2);
+	check(
+		"out-of-vocabulary level: status reports 'unknown'",
+		ctx2._notes.some((n) => /Current effort: unknown/.test(n.msg)),
+		JSON.stringify(ctx2._notes),
+	);
+}
+
+// ensureToolActive containment: a throwing getActiveTools must degrade to "router not
+// available" (warning), never crash /effort ultracode; and an ALREADY-active router
+// must not be re-activated (no setActiveTools call) yet still report enabled.
+async function scenarioUltracodeToolProbeDegradation(url) {
+	const effortExtension = await loadDefault(url);
+	const throwing = makePi({ allTools: ["dynamic_workflow"], activeTools: [] });
+	throwing.pi.getActiveTools = () => {
+		throw new Error("tools unavailable");
+	};
+	effortExtension(throwing.pi);
+	const ctx = makeCtx();
+	await throwing.commands.get("effort").handler("ultracode", ctx);
+	check("tool probe throw: still sets xhigh", throwing.level === "xhigh", throwing.level);
+	check(
+		"tool probe throw: warns router not available",
+		ctx._notes.some((n) => n.type === "warning" && /not available in this session/i.test(n.msg)),
+		JSON.stringify(ctx._notes),
+	);
+
+	const alreadyActive = makePi({ allTools: ["dynamic_workflow"], activeTools: ["dynamic_workflow"] });
+	let setCalls = 0;
+	const origSet = alreadyActive.pi.setActiveTools;
+	alreadyActive.pi.setActiveTools = (names) => {
+		setCalls += 1;
+		origSet(names);
+	};
+	effortExtension(alreadyActive.pi);
+	const ctx2 = makeCtx();
+	await alreadyActive.commands.get("effort").handler("ultracode", ctx2);
+	check("already-active router: no redundant setActiveTools", setCalls === 0, `setCalls=${setCalls}`);
+	check(
+		"already-active router: reports enabled (info)",
+		ctx2._notes.some((n) => n.type === "info" && /router enabled/i.test(n.msg)),
+		JSON.stringify(ctx2._notes),
+	);
+}
+
+// resolveCommandValue edges: headless no-args must NOT open a selector (usage instead);
+// a cancelled selector (undefined) must fall back to status, changing nothing.
+async function scenarioNoArgsEdges(url) {
+	const effortExtension = await loadDefault(url);
+	const headless = makePi({ initialLevel: "medium" });
+	effortExtension(headless.pi);
+	let selectCalls = 0;
+	// print mode + no UI: the usage/status line must land on stdout (headless info is
+	// otherwise dropped by design — see notify.ts), and the selector must never open.
+	const ctx = makeCtx({ mode: "print", hasUI: false });
+	ctx.ui.select = async () => {
+		selectCalls += 1;
+		return "high — high thinking";
+	};
+	const logs = [];
+	const origLog = console.log;
+	console.log = (m) => logs.push(String(m));
+	try {
+		await headless.commands.get("effort").handler("", ctx);
+	} finally {
+		console.log = origLog;
+	}
+	check("headless no-args: selector never opens", selectCalls === 0, `selectCalls=${selectCalls}`);
+	check("headless no-args: level unchanged", headless.level === "medium", headless.level);
+	check(
+		"headless no-args: reports status/usage on stdout (print mode)",
+		logs.some((m) => /Current effort: medium/.test(m)),
+		JSON.stringify(logs),
+	);
+
+	const cancelled = makePi({ initialLevel: "medium" });
+	effortExtension(cancelled.pi);
+	const ctx2 = makeCtx({ selectResult: undefined });
+	await cancelled.commands.get("effort").handler("", ctx2);
+	check("cancelled selector: level unchanged", cancelled.level === "medium", cancelled.level);
+	check(
+		"cancelled selector: falls back to status/usage",
+		ctx2._notes.some((n) => /Current effort: medium/.test(n.msg)),
+		JSON.stringify(ctx2._notes),
+	);
+}
+
+// Alias handling end-to-end (not just autocomplete): bare `max` -> xhigh, and the
+// `ultra-code` alias -> the full ultracode path (event + router).
+async function scenarioAliasHandling(url) {
+	const effortExtension = await loadDefault(url);
+	const harness = makePi({ allTools: ["dynamic_workflow"], activeTools: [] });
+	effortExtension(harness.pi);
+	const command = harness.commands.get("effort");
+	const ctx = makeCtx();
+
+	await command.handler("max", ctx);
+	check("/effort max aliases xhigh", harness.level === "xhigh", harness.level);
+
+	await command.handler("ultra-code", ctx);
+	check(
+		"/effort ultra-code runs the ultracode path (router event emitted)",
+		harness.emitted.some((e) => e.event === "pi-dynamic-workflows:ultracode-mode" && e.data?.enabled === true),
+		JSON.stringify(harness.emitted),
+	);
+	check(
+		"/effort ultra-code activates the router tool",
+		harness.activeTools.includes("dynamic_workflow"),
+		harness.activeTools.join(","),
+	);
+}
+
+// Session lifecycle: session_start paints the status, session_shutdown clears it
+// (undefined), and neither touches the status line without a UI.
+async function scenarioSessionLifecycle(url) {
+	const effortExtension = await loadDefault(url);
+	const harness = makePi({ initialLevel: "high" });
+	effortExtension(harness.pi);
+	const ctx = makeCtx();
+
+	await fire(harness.handlers, "session_start", {}, ctx);
+	check(
+		"session_start paints the current effort status",
+		ctx._statuses.some((s) => s.key === "effort" && s.value === "effort:high"),
+		JSON.stringify(ctx._statuses),
+	);
+
+	await fire(harness.handlers, "session_shutdown", {}, ctx);
+	const last = ctx._statuses[ctx._statuses.length - 1];
+	check(
+		"session_shutdown clears the effort status",
+		last && last.key === "effort" && last.value === undefined,
+		JSON.stringify(last),
+	);
+
+	const noUi = makeCtx({ hasUI: false });
+	await fire(harness.handlers, "session_start", {}, noUi);
+	await fire(harness.handlers, "session_shutdown", {}, noUi);
+	check("no-UI lifecycle never touches the status line", noUi._statuses.length === 0, JSON.stringify(noUi._statuses));
+}
+
 async function main() {
 	const { outDir, url } = await buildEffort();
 	try {
@@ -292,6 +486,12 @@ async function main() {
 		await scenarioUltracode(url);
 		await scenarioUltracodeToolUnavailable(url);
 		await scenarioNotifyErrorRouting(url);
+		await scenarioSetLevelThrows(url);
+		await scenarioUnknownCurrentLevel(url);
+		await scenarioUltracodeToolProbeDegradation(url);
+		await scenarioNoArgsEdges(url);
+		await scenarioAliasHandling(url);
+		await scenarioSessionLifecycle(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
