@@ -74,6 +74,14 @@ fan-out from the *actual* shape of the task:
   produced and then lost to validation. For large or open-ended review units, return free-form
   PROSE and let a synthesis-as-judge consume it — reserve `schema` for small, extraction-shaped
   outputs. Split huge files into focused scopes (engine vs dispatch) instead of one giant unit.
+- **The default agent timeout kills productive large-scope agents.** Each subagent gets
+  `agentTimeoutMs` ≈ 10 min by default; a reviewer told to "read every file fully" over a big scope
+  dies mid-work at exactly that budget (post-mortem: 3 reviewers SIGTERMed at 61–89 productive
+  turns), and retrying with the SAME budget doubles the cost for the same failure. For long
+  tool-heavy roles (reviewers, implementers, migration workers) pass an explicit per-agent
+  `timeoutMs` sized to the scope — or narrow the scope. Timed-out agents report
+  `timedOut: true (timeoutMs N)` in results/artifacts with `queuedMs` (semaphore wait) separated
+  from runtime; never retry a `timedOut` failure without raising the budget or shrinking the scope.
 
 ## Choosing a primitive
 
