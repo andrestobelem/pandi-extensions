@@ -1,6 +1,6 @@
 {
   "packages": [
-    "../extensions/pi-dynamic-workflows",
+    { "source": "../extensions/pi-dynamic-workflows", "skills": [] },
     "../extensions/pi-loop",
     "../extensions/pi-goal",
     "../extensions/pi-plan",

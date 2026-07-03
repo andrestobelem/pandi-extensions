@@ -42,6 +42,8 @@
 		"sync:manifest:check": "node scripts/sync-root-manifest.mjs --check",
 		"sync:skills": "node scripts/sync-skill-mirrors.mjs",
 		"sync:skills:check": "node scripts/sync-skill-mirrors.mjs --check",
+		"sync:skills:vendor": "node scripts/vendor-extension-skills.mjs",
+		"sync:skills:vendor:check": "node scripts/vendor-extension-skills.mjs --check",
 		"sync:agents": "node scripts/sync-agent-guides.mjs",
 		"sync:agents:check": "node scripts/sync-agent-guides.mjs --check",
 		"sync:claude:global": "node scripts/sync-claude-global.mjs",

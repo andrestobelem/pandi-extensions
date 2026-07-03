@@ -257,6 +257,27 @@ if (!SUITE_ROOT) {
 	report("optional", WARN, "sync Claude global", "ausente — scripts/sync-claude-global.mjs no encontrado");
 }
 
+// vendor skills (extensión): ¿los skills que pi-dynamic-workflows vendoriza en su propio dir
+// (extensions/pi-dynamic-workflows/skills/) siguen byte-idénticos a la fuente .pi/skills? Delegamos
+// en el propio generador vía --check. Opcional a propósito: avisa, no rompe el doctor. Standalone
+// (fuera del repo) no aplica: el árbol vendorizado ya viene fijado en el paquete instalado.
+const vendorScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "vendor-extension-skills.mjs") : null;
+const vendorLabel = "vendor skills (extensión)";
+if (!SUITE_ROOT) {
+	report("optional", dim("·"), vendorLabel, "N/A (fuera del repo pi-dynamic-workflows)");
+} else if (existsSync(vendorScript)) {
+	const vendor = spawnSync("node", [vendorScript, "--check"], { encoding: "utf8", timeout: 20000 });
+	if (vendor.error || typeof vendor.status !== "number") {
+		report("optional", WARN, vendorLabel, "no se pudo verificar — corré `npm run sync:skills:vendor:check`");
+	} else if (vendor.status === 0) {
+		report("optional", OK, vendorLabel, "espejo al día de .pi/skills");
+	} else {
+		report("optional", WARN, vendorLabel, "desincronizado — corré `npm run sync:skills:vendor`");
+	}
+} else {
+	report("optional", WARN, vendorLabel, "ausente — scripts/vendor-extension-skills.mjs no encontrado");
+}
+
 // Doble copia: el dev setup carga la suite desde el WORKING TREE (paths locales en settings
 // de proyecto y/o global). Una SEGUNDA copia bajo otra identidad de pi (clon git: o paquete
 // npm:@pandi-coding-agent/…) NO se dedup-lica (la identidad difiere) → cada extensión/comando/

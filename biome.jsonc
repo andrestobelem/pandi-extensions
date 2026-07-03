@@ -57,6 +57,11 @@
 			// do not hand-edit them — the claude-parity test guards them. They are
 			// prettier-formatted (biome can't parse their top-level `return`).
 			"!.claude",
+			// extensions/*/skills/ are GENERATED vendored mirrors of the canonical .pi/skills/
+			// (scripts/vendor-extension-skills.mjs; parity-guarded). Their reference/*.js are
+			// scaffolds with top-level `return` (not parseable as modules), same as .claude —
+			// lint the canonical source, not the generated copy.
+			"!extensions/*/skills",
 			"!dist",
 			"!.cache",
 			"!coverage",

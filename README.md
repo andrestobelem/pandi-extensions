@@ -129,6 +129,13 @@ Además del bundle raíz, cada directorio bajo `extensions/` es un Pi package in
 | `ask_choice` / `ask_confirm` (tools: selector/confirm TUI interactivo) | `pi install ./extensions/pi-ask` |
 | Temas `panda-syntax-dark` / `panda-syntax-light` | `pi install ./extensions/pi-pandi-theme` |
 
+El paquete `pi-dynamic-workflows` **vendoriza sus propios skills** (`ultracode`, `deep-research`,
+`default`) en `extensions/pi-dynamic-workflows/skills/`, así que viajan al instalar solo esa
+extensión. Son un espejo generado desde la fuente canónica `.pi/skills/` (regeneralos con
+`npm run sync:skills:vendor`; el parity test y `npm run doctor` avisan si driftan). In-repo no
+se duplican: la entrada de esa extensión en `.pi/settings.json` filtra `skills: []` porque el
+repo ya los carga por auto-discovery de `.pi/skills/`.
+
 Usa `pi install -l <ruta>` para instalación local al proyecto o `pi --no-extensions -e <ruta>` para probar sin instalar.
 
 ### Distribución: canales y regla de una sola identidad

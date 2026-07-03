@@ -21,11 +21,15 @@
 		"*.ts",
 		"scaffolds",
 		"primitives",
+		"skills",
 		"README.md"
 	],
 	"pi": {
 		"extensions": [
 			"./index.ts"
+		],
+		"skills": [
+			"./skills"
 		]
 	},
 	"peerDependencies": {
