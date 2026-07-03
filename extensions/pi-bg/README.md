@@ -30,6 +30,29 @@ pi --no-extensions -e ./extensions/pi-bg
 
 Artifacts are written under `.pi/bg/runs/` for trusted projects. For the full bundle of extensions and skills, install the repository root instead.
 
+## Behavior and artifacts (M2)
+
+- `/bg start` only works in persistent TUI/RPC sessions and trusted projects; in
+  untrusted projects it is refused before executing or writing artifacts. The
+  trust/mode gate protects the project's **context and artifacts**, not the
+  command itself: like the rest of Pi's exec, `/bg start` runs whatever the human
+  types via `shell:true`.
+- `/bg start` and `/bg cancel` are blocked while `/plan` is active.
+- No `background_job` LLM tool is registered; the mutating surface is
+  human-only slash commands.
+- `/bg events <jobId>` shows the bounded tail of the `events.jsonl` journal
+  (start/running/cancel-*/finish/reconcile-interrupted/finalize-error): the
+  evidence for *why* a job ended `failed`/`cancelled`/`interrupted`, which
+  `status.json` alone does not carry.
+- Project-local artifacts live in `.pi/bg/runs/<jobId>/`; the global read
+  fallback uses `~/.pi/agent/bg/runs/<cwd-hash>/<jobId>/` (in M2 that global root
+  is **read-only**). Each run contains `job.json`, `status.json`, `events.jsonl`,
+  `stdout.log`, `stderr.log`, `combined.log`.
+- `job.json` and `status.json` are written with temp file + atomic rename; logs
+  are append-only and `/bg logs` reads them bounded/truncated.
+- There is no Supacode runner, daemon, automatic rehydration, or `/bg`
+  dashboard in M2.
+
 ## Limitations
 
 - Jobs are tracked in memory by the Pi process that started them. They do not
