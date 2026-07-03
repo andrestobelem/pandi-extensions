@@ -27,26 +27,80 @@ export function formatWorkflowList(files: WorkflowFile[]): string {
 	return files.map((file) => `- ${file.name} (${file.scope}) — ${file.relativePath}`).join("\n");
 }
 
-export function workflowProgress(logs: WorkflowLogEntry[]): {
+/** Auto-derived progress of the CURRENT agents() batch ("¿por dónde va?"). */
+export interface WorkflowBatchProgress {
+	label: string;
+	done: number;
+	started: number;
+	total: number;
+}
+
+export interface WorkflowProgressCounts {
 	agentsStarted: number;
 	agentsDone: number;
 	agentsRunning: number;
 	bashDone: number;
-} {
+	/** Present when the run's agents came from agents() (phase fields on the log details). */
+	batch?: WorkflowBatchProgress;
+}
+
+export function workflowProgress(logs: WorkflowLogEntry[]): WorkflowProgressCounts {
 	let agentsStarted = 0;
 	let agentsDone = 0;
 	let bashDone = 0;
+	// agents() threads AgentPhaseInfo per item and both `agent N start:`/`agent N end:`
+	// log details carry {phaseId, phaseIndex, phaseTotal, phaseLabel}. Aggregate per
+	// phaseId so the CURRENT batch (highest id) can report done/total — done over the
+	// batch TOTAL, not over started (done/started reads "5/5" while 11 of 16 items
+	// have not even started).
+	const phases = new Map<number, WorkflowBatchProgress>();
 	for (const logEntry of logs) {
-		if (/^agent \d+ start:/.test(logEntry.message)) agentsStarted++;
-		if (/^agent \d+ end:/.test(logEntry.message)) agentsDone++;
+		const isStart = /^agent \d+ start:/.test(logEntry.message);
+		const isEnd = /^agent \d+ end:/.test(logEntry.message);
+		if (isStart) agentsStarted++;
+		if (isEnd) agentsDone++;
 		if (logEntry.message.startsWith("bash end:")) bashDone++;
+		if (!isStart && !isEnd) continue;
+		const details = logEntry.details as Record<string, unknown> | undefined;
+		const phaseId = typeof details?.phaseId === "number" ? details.phaseId : undefined;
+		const phaseTotal = typeof details?.phaseTotal === "number" ? details.phaseTotal : undefined;
+		if (phaseId === undefined || phaseTotal === undefined || phaseTotal <= 0) continue;
+		const entry = phases.get(phaseId) ?? {
+			label:
+				typeof details?.phaseLabel === "string" && details.phaseLabel.trim()
+					? details.phaseLabel.trim()
+					: `agents-${phaseId}`,
+			done: 0,
+			started: 0,
+			total: phaseTotal,
+		};
+		if (isStart) entry.started++;
+		else entry.done++;
+		entry.total = phaseTotal;
+		phases.set(phaseId, entry);
+	}
+	let batch: WorkflowBatchProgress | undefined;
+	if (phases.size > 0) {
+		const currentId = Math.max(...phases.keys());
+		const current = phases.get(currentId);
+		if (current) batch = { ...current };
 	}
 	return {
 		agentsStarted,
 		agentsDone,
 		agentsRunning: Math.max(0, agentsStarted - agentsDone),
 		bashDone,
+		...(batch ? { batch } : {}),
 	};
+}
+
+/**
+ * Human text for the status line / monitor header: prefers the semantic batch
+ * ("Review 5/16") over the legacy done/started fallback ("1/2"); "" when idle.
+ */
+export function workflowProgressLabel(progress: WorkflowProgressCounts): string {
+	if (progress.batch) return `${progress.batch.label} ${progress.batch.done}/${progress.batch.total}`;
+	return progress.agentsStarted > 0 ? `${progress.agentsDone}/${progress.agentsStarted}` : "";
 }
 
 export function workflowDashboardHint(): string {

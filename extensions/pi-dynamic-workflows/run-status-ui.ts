@@ -16,7 +16,7 @@ import { MAX_TOOL_TEXT, stringify } from "./format.js";
 import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
 import { activeRuns } from "./index.js";
 import { notify } from "./notify.js";
-import { shortWorkflowName, workflowDashboardHint, workflowProgress } from "./presentation.js";
+import { shortWorkflowName, workflowDashboardHint, workflowProgress, workflowProgressLabel } from "./presentation.js";
 import { renderSafeInline } from "./render-utils.js";
 import { formatParallelAgents, formatParallelAgentsCompact, getRunState, getRunStatusLabel } from "./run-state.js";
 
@@ -72,8 +72,10 @@ export function setWorkflowRunningStatus(
 ): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
-	const { agentsStarted, agentsDone, agentsRunning, bashDone } = workflowProgress(logs);
-	const progress = agentsStarted > 0 ? ` ${agentsDone}/${agentsStarted}` : "";
+	const counts = workflowProgress(logs);
+	const { agentsRunning, bashDone } = counts;
+	const progressText = workflowProgressLabel(counts);
+	const progress = progressText ? ` ${progressText}` : "";
 	const parallel = status ? formatParallelAgentsCompact(status) : agentsRunning > 0 ? String(agentsRunning) : "";
 	const parallelText = parallel ? ` parallel:${parallel}` : "";
 	const bash = bashDone > 0 ? ` bash:${bashDone}` : "";
@@ -128,14 +130,16 @@ function formatLiveRunView(
 ): string[] {
 	if (width <= 0) return [];
 	const w = width;
-	const { agentsStarted, agentsDone, agentsRunning, bashDone } = workflowProgress(logs);
+	const counts = workflowProgress(logs);
+	const { agentsStarted, agentsDone, agentsRunning, bashDone } = counts;
 	const latest = logs.slice(-1)[0];
 	const line = (s: string) => truncateToWidth(s, w, "");
 	const name = renderSafeInline(shortWorkflowName(workflowName));
 	const parallel = status ? formatParallelAgentsCompact(status) : agentsRunning > 0 ? String(agentsRunning) : "0";
+	const batchText = counts.batch ? `  ${renderSafeInline(workflowProgressLabel(counts))}` : "";
 	return [
 		line(
-			`▶ wf ${name}  agents ${agentsDone}/${agentsStarted}  parallel ${parallel}  bash ${bashDone}  logs ${logs.length}`,
+			`▶ wf ${name}${batchText}  agents ${agentsDone}/${agentsStarted}  parallel ${parallel}  bash ${bashDone}  logs ${logs.length}`,
 		),
 		line(
 			latest
