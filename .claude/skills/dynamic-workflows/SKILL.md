@@ -384,6 +384,12 @@ dynamic_workflow({ action: 'start', name: 'task-slug', input: {…}, concurrency
 dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { action: 'resume', name: runId }
 ```
 
+- **Monitor without polling:** a backgrounded run is tracked by the harness, which injects a
+  completion notice when it finishes — do **not** busy-poll it (no `sleep`/loop re-checking
+  `status.json` or repeated `action=view`). Let it report back and inspect **once** when notified (or
+  when the user asks); do other useful work while it runs. If you must wait on an *external* signal
+  (a deploy, a CI run) rather than the run itself, use the harness wait cadence, not a tight loop.
+
 - **Commands:** `/dynamic-workflow <task>` (alias `/ultracode <task>`), `/deep-research <q>`,
   `/ultracode-mode status|on|off`, `/ultracode-contract status|on|off`,
   `/workflow view|runs|resume`, `/workflows` (dashboard), `/workflow patterns`, `/workflow graph
