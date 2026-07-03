@@ -2,7 +2,7 @@
 
 **Runtime:** pi runtime (not on the Claude Code Workflow tool)
 
-**Signature:** `race(thunks, { accept? }) → Promise<{ winner, index, status }>`
+**Signature:** `race(thunks, { accept? }) → Promise<{ winner, index, status, errors? }>`
 
 Fan out N branches and, the moment one produces an **accepted** value, **cancel
 the in-flight losers** (a real SIGTERM via each thunk's `AbortSignal`). Each
@@ -13,6 +13,9 @@ losers are actually aborted. `accept` decides what counts as a win (default:
 **Returns:** `{ winner, index, status }`:
 
 - `status: "won"` → `winner` is the accepted value, `index` its position.
+- `errors?: [{ index, error }]` → present when one or more branches REJECTED
+  (threw); a genuine thunk bug is debuggable instead of looking like a clean
+  all-decline. A plain decline (resolved `null`) reports no errors.
 - `status: "empty"` → no branch was accepted; `winner` is `null`, `index` is
   `-1`.
 

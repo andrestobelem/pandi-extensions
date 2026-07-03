@@ -85,14 +85,30 @@ gap de TDD es exactamente donde están los defectos.
 - **No cubierto:** catálogo de 25 scaffolds a nivel por-archivo (muestreo del run
   grande sin síntesis).
 
-## Próximos pasos sugeridos (TDD, slice mínimo cada uno)
+## Estado (loop-until-dry 2026-07-03, misma sesión)
 
-1. Fix #1 (lock sincrónico de resume) + test de caracterización.
-2. Fix #2 (`startedAt` en `getRunDirs`) + test.
-3. Fix #6/#7 (dead code + param no-op): borrado quirúrgico + pin del contrato.
-4. #8: `action=write` corre `transformWorkflowCode` y devuelve el error temprano.
-5. Meta #9/#10: nota en el skill ultracode/scaffolds (budget derivado, prosa
-   para unidades grandes, síntesis degradada en vez de fail).
+| # | Hallazgo | Estado |
+|---|---|---|
+| 1 | Race de resume duplicado | ✅ `e218115` + `resume-duplicate-race.test.mjs` |
+| 2 | `latest` por mtime | ✅ `715a2e1` + `run-latest-by-started-at.test.mjs` |
+| 3 | Foco del Monitor se resetea | ✅ `2db52f9` + `dashboard-monitor-focus-restore.test.mjs` |
+| 4 | `agents()` fail-fast huérfanos | ⏸ requiere un seam para stubbear el spawn de subagentes en el harness; sin test ejecutable no se toca el core de concurrencia |
+| 5 | `race()` traga errores | ✅ `e316186` + `race-surfaces-errors.test.mjs` (campo aditivo `errors[]`) |
+| 6 | `/ultracode` duplicado | ✅ `5348f3e` + `command-registration-unique.test.mjs` |
+| 7 | Param `background` no-op | ❌ descartado: by-design (el schema lo documenta como flag de compatibilidad) |
+| 8 | `write` no valida | ✅ `92d3e40` + `write-validates-code.test.mjs` |
+| 9/10 | Meta jurado/schema | ✅ `c59da95` (notas en el skill ultracode + mirrors) |
+
+Bonus de la misma revisión: output tool-only pisaba la respuesta (`9fb6b50`),
+progreso auto-derivado `Review 5/16` (`a501094`), y **resume ignoraba los
+límites explícitos** — hallazgo en vivo, `a7db180` +
+`resume-honors-limit-params.test.mjs`.
+
+### Único pendiente real
+
+- **#4:** diseñar primero el seam de spawn testeable (inyectar el runner de
+  subagentes en el harness); recién entonces abortar hermanos in-flight en el
+  camino fail-fast de `agents()`.
 
 Runs: `2026-07-03T01-36-13-315Z-…farley-2560a7c6` (fallido ×2),
 `2026-07-03T02-27-27-539Z-…farley-core-125c92cf` (ok). Reseñas recuperadas:
