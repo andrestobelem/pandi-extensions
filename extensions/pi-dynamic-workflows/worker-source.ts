@@ -151,11 +151,16 @@ async function race(thunks, options) {
   return await new Promise((resolve) => {
     let settled = false;
     let remaining = thunks.length;
+    // Rejections are collected (not discarded): a genuine thunk bug used to be
+    // indistinguishable from "every branch declined" — both returned a bare
+    // status:"empty". The additive errors[] field keeps an all-rejected race
+    // debuggable without changing the winner/index/status semantics.
+    const errors = [];
     const finish = (index, winner, status) => {
       if (settled) return;
       settled = true;
       controller.abort(); // signals every in-flight loser -> abort-call per id (cross-thread)
-      resolve({ winner, index, status });
+      resolve(errors.length ? { winner, index, status, errors } : { winner, index, status });
     };
     promises.forEach((p, index) => p.then(
       (value) => {
@@ -163,8 +168,9 @@ async function race(thunks, options) {
         if (accept(value, index)) finish(index, value, "won");
         else if (--remaining === 0) finish(-1, null, "empty");
       },
-      () => {
+      (err) => {
         if (settled) return;
+        errors.push({ index, error: err && err.message ? err.message : String(err) });
         if (--remaining === 0) finish(-1, null, "empty");
       },
     ));
