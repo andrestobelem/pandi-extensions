@@ -63,6 +63,17 @@ fan-out from the *actual* shape of the task:
 - **No silent caps.** If you bound coverage (top-N, sampling, no-retry, clamping), `log()` what was
   excluded ("reviewed 40 of 213 files; skipped generated/ and vendored") so the cap is inspectable.
 - **Unknown size** → prefer a loop-until-done pattern (stop after K quiet rounds) over a fixed count.
+- **Result-driven fan-out is unpredictable — budget for the worst case.** A per-finding jury
+  (adversarial-verify style, 3 skeptics × N findings) makes the total agent count a function of the
+  RESULTS, not the work-list: `maxAgents` blows up at the END of the run and the step it starves is
+  the synthesis — the deliverable. Derive the budget from the worst case (reviewers + jury×max
+  findings + synthesis), bound the jury (cap findings per unit, or 1 skeptic), and prefer degrading
+  (synthesize what exists, log what was skipped) over failing the whole run.
+- **Strict JSON schemas break on large scopes.** Reviewers pointed at big files/units with a strict
+  `schema` produce `schema:bad` retries and timeouts (long tool-heavy sessions); the review text is
+  produced and then lost to validation. For large or open-ended review units, return free-form
+  PROSE and let a synthesis-as-judge consume it — reserve `schema` for small, extraction-shaped
+  outputs. Split huge files into focused scopes (engine vs dispatch) instead of one giant unit.
 
 ## Choosing a primitive
 
