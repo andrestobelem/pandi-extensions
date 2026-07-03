@@ -173,25 +173,34 @@ export function runTsc(command: string, args: string[], options: RunTscOptions):
 
 /**
  * Run tsc for a single tsconfig and return the parsed diagnostics with their file
- * paths resolved to absolute (tsc emits paths relative to its cwd). Returns
- * `null` only when tsc could not be spawned at all, so callers can warn once.
+ * paths resolved to absolute (tsc emits paths relative to its cwd).
+ *
+ * Outcome-typed so "no engine" and "timed out" are DISTINCT from "clean": a run
+ * that never finished must never be surfaced as a clean check (#10). The wall
+ * budget is read per spawn from PI_TS_LSP_TIMEOUT_MS (like PI_TS_LSP_TSC), so
+ * the suite can force a real timeout.
  */
-async function checkProject(
-	tsconfigPath: string,
-	signal: AbortSignal | undefined,
-	timeoutMs: number,
-): Promise<Diagnostic[] | null> {
+type CheckOutcome = { status: "ok"; diags: Diagnostic[] } | { status: "no-engine" } | { status: "timeout" };
+
+async function checkProject(tsconfigPath: string, signal: AbortSignal | undefined): Promise<CheckOutcome> {
 	const dir = path.dirname(tsconfigPath);
 	const cmd = resolveTscCommand(dir, process.env);
 	const args = [...cmd.args, ...buildTscArgs(tsconfigPath)];
+	const timeoutMs = parseMax(process.env.PI_TS_LSP_TIMEOUT_MS) ?? DEFAULT_TSC_TIMEOUT_MS;
 	const result = await runTsc(cmd.command, args, { cwd: dir, signal, timeoutMs });
-	if (result.spawnError) return null;
+	if (result.spawnError) return { status: "no-engine" };
+	if (result.timedOut) return { status: "timeout" };
 	const parsed = parseTscDiagnostics(`${result.stdout}\n${result.stderr}`);
-	return parsed.map((d) => ({
-		...d,
-		file: path.isAbsolute(d.file) ? d.file : path.resolve(dir, d.file),
-	}));
+	return {
+		status: "ok",
+		diags: parsed.map((d) => ({
+			...d,
+			file: path.isAbsolute(d.file) ? d.file : path.resolve(dir, d.file),
+		})),
+	};
 }
+
+const TIMEOUT_MESSAGE = "TypeScript check timed out — results inconclusive.";
 
 // --------------------------------------------------------------------------
 // Extension
@@ -240,10 +249,11 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 
 	/**
 	 * Group `files` by nearest tsconfig, run tsc per group, and return diagnostics
-	 * filtered to those files. `null` means there was no engine to run (no tsconfig
-	 * found, or tsc could not be spawned) — distinct from "clean" (empty array).
+	 * filtered to those files. "no-engine" (no tsconfig found / tsc unspawnable) and
+	 * "timeout" (ANY group timed out — partial results would be a lie) are distinct
+	 * from "clean" (ok with an empty array).
 	 */
-	const runTouchedCheck = async (ctx: ExtensionContext, files: string[]): Promise<Diagnostic[] | null> => {
+	const runTouchedCheck = async (ctx: ExtensionContext, files: string[]): Promise<CheckOutcome> => {
 		const groups = new Map<string, string[]>();
 		for (const file of files) {
 			const tsconfig = findNearestTsconfig(file, ctx.cwd);
@@ -252,24 +262,25 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			list.push(file);
 			groups.set(tsconfig, list);
 		}
-		if (groups.size === 0) return null;
+		if (groups.size === 0) return { status: "no-engine" };
 
 		const all: Diagnostic[] = [];
 		let spawned = false;
 		for (const [tsconfig, groupFiles] of groups) {
-			const diags = await checkProject(tsconfig, ctx.signal, DEFAULT_TSC_TIMEOUT_MS);
-			if (diags === null) continue;
+			const outcome = await checkProject(tsconfig, ctx.signal);
+			if (outcome.status === "timeout") return outcome;
+			if (outcome.status === "no-engine") continue;
 			spawned = true;
-			all.push(...filterToTouched(diags, groupFiles));
+			all.push(...filterToTouched(outcome.diags, groupFiles));
 		}
-		return spawned ? all : null;
+		return spawned ? { status: "ok", diags: all } : { status: "no-engine" };
 	};
 
 	/** Run a whole-project check against `<cwd>/tsconfig.json` (no touched filter). */
-	const runProjectCheck = async (ctx: ExtensionContext): Promise<Diagnostic[] | null> => {
+	const runProjectCheck = async (ctx: ExtensionContext): Promise<CheckOutcome> => {
 		const tsconfig = path.join(ctx.cwd, "tsconfig.json");
-		if (!existsSync(tsconfig)) return null;
-		return checkProject(tsconfig, ctx.signal, DEFAULT_TSC_TIMEOUT_MS);
+		if (!existsSync(tsconfig)) return { status: "no-engine" };
+		return checkProject(tsconfig, ctx.signal);
 	};
 
 	// --- tracker: record touched TS files. NEVER check here. ----------------
@@ -314,11 +325,18 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		running = true;
 		try {
 			const files = [...touched];
-			const diags = await runTouchedCheck(ctx, files);
-			if (diags === null) {
+			const outcome = await runTouchedCheck(ctx, files);
+			if (outcome.status === "no-engine") {
 				warnNoEngine(ctx);
 				return;
 			}
+			if (outcome.status === "timeout") {
+				// Nothing was verified: keep lastKey so an already-surfaced report is
+				// not re-sent once tsc works again, and say so instead of staying mute.
+				notify(ctx, `pi-typescript-lsp: ${TIMEOUT_MESSAGE}`, "warning");
+				return;
+			}
+			const diags = outcome.diags;
 			const formatted = formatDiagnostics(diags, { maxErrors });
 			if (!formatted.hasErrors) {
 				lastKey = undefined;
@@ -386,9 +404,9 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			const requested = parseScope(params.scope) ?? scope;
 			const effectiveCtx: ExtensionContext = { ...ctx, signal: signal ?? ctx.signal };
 
-			let diags: Diagnostic[] | null;
+			let outcome: CheckOutcome;
 			if (requested === "project") {
-				diags = await runProjectCheck(effectiveCtx);
+				outcome = await runProjectCheck(effectiveCtx);
 			} else {
 				if (touched.size === 0) {
 					return {
@@ -396,10 +414,10 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 						details: { scope: "touched", count: 0, diagnostics: [] },
 					};
 				}
-				diags = await runTouchedCheck(effectiveCtx, [...touched]);
+				outcome = await runTouchedCheck(effectiveCtx, [...touched]);
 			}
 
-			if (diags === null) {
+			if (outcome.status === "no-engine") {
 				return {
 					content: [
 						{
@@ -410,7 +428,14 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 					details: { isError: true, scope: requested },
 				};
 			}
+			if (outcome.status === "timeout") {
+				return {
+					content: [{ type: "text" as const, text: TIMEOUT_MESSAGE }],
+					details: { isError: true, timedOut: true, scope: requested },
+				};
+			}
 
+			const diags = outcome.diags;
 			const formatted = formatDiagnostics(diags, { maxErrors });
 			const text = formatted.hasErrors
 				? `TypeScript diagnostics (${diags.length}):\n${formatted.text}`
@@ -502,8 +527,8 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			}
 
 			if (head === "run") {
-				const diags = scope === "project" ? await runProjectCheck(ctx) : await runTouchedCheck(ctx, [...touched]);
-				if (diags === null) {
+				const outcome = scope === "project" ? await runProjectCheck(ctx) : await runTouchedCheck(ctx, [...touched]);
+				if (outcome.status === "no-engine") {
 					notify(
 						ctx,
 						scope === "touched" && touched.size === 0
@@ -513,11 +538,15 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 					);
 					return;
 				}
-				const formatted = formatDiagnostics(diags, { maxErrors });
+				if (outcome.status === "timeout") {
+					notify(ctx, TIMEOUT_MESSAGE, "warning");
+					return;
+				}
+				const formatted = formatDiagnostics(outcome.diags, { maxErrors });
 				notify(
 					ctx,
 					formatted.hasErrors
-						? `TypeScript diagnostics (${diags.length}):\n${formatted.text}`
+						? `TypeScript diagnostics (${outcome.diags.length}):\n${formatted.text}`
 						: "No TypeScript diagnostics — clean.",
 					formatted.hasErrors ? "warning" : "info",
 				);

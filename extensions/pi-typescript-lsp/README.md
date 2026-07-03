@@ -82,6 +82,10 @@ single advisory warning.
 | `PI_TS_LSP_MAX`   | max diagnostics surfaced (positive int)  | `20`       |
 | `PI_TS_LSP_AUTOFIX` | `on` / `off` — opt into autofix turns  | `off`      |
 | `PI_TS_LSP_TSC`   | absolute path to a `tsc.js` to run       | (auto)     |
+| `PI_TS_LSP_TIMEOUT_MS` | wall budget per `tsc` run (positive int, ms) | `60000` |
+
+A run that exceeds the budget is surfaced as **inconclusive** ("timed out") —
+never as a clean check — and does not disturb the advisory dedupe state.
 
 ## Install
 

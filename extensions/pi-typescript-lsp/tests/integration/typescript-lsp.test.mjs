@@ -19,7 +19,9 @@
  *   timeout still not ok, abort, spawnError, byte-bounded output), no-engine paths
  *   (no tsconfig; tsc absent via PATH sabotage) warning once per session, tool
  *   project scope + multi-tsconfig grouping, and /tsc command branch edges.
- *   How a timed-out run is SURFACED upstream is a known bug (tracked separately).
+ * - #10: a TIMED-OUT run is surfaced as INCONCLUSIVE on every surface (tool
+ *   isError+timedOut, /tsc run warning, advisory-edge warning) — never as
+ *   "clean" — and preserves the advisory dedupe key (nothing was verified).
  */
 
 import { existsSync } from "node:fs";
@@ -659,6 +661,91 @@ async function scenarioScopesAndGrouping(url) {
 	await fs.rm(root, { recursive: true, force: true });
 }
 
+// Issue #10: a TIMED-OUT tsc run must be surfaced as inconclusive — never as
+// "clean" — and must not disturb dedupe state. Uses the runtime seams
+// PI_TS_LSP_TSC (hanging script) and PI_TS_LSP_TIMEOUT_MS (short budget),
+// both read on every spawn.
+async function scenarioTimeoutInconclusive(url) {
+	const hangDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-hang-"));
+	const hangScript = path.join(hangDir, "hang.js");
+	await fs.writeFile(hangScript, "setTimeout(() => {}, 30000);\n", "utf8");
+
+	const { commands, handlers, tools, messages } = await loadExtension(url);
+	const { dir, file } = await makeProject({ content: BAD_TS });
+	const ctx = makeCtx({ cwd: dir });
+
+	// Step 1 (real tsc): advisory surfaces the error and arms the dedupe key.
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("timeout: baseline advisory sent (dedupe armed)", messages.length === 1, String(messages.length));
+
+	const savedTsc = process.env.PI_TS_LSP_TSC;
+	const savedTimeout = process.env.PI_TS_LSP_TIMEOUT_MS;
+	process.env.PI_TS_LSP_TSC = hangScript;
+	process.env.PI_TS_LSP_TIMEOUT_MS = "300";
+	try {
+		// Tool, project scope: a timed-out check is an ERROR result, not "clean".
+		const res = await tools
+			.get("typescript_diagnostics")
+			.execute("id", { scope: "project" }, undefined, undefined, ctx);
+		const text = res.content?.[0]?.text || "";
+		check("timeout: tool never claims clean", !/clean/i.test(text), text);
+		check(
+			"timeout: tool → isError + timedOut + inconclusive text",
+			res.details?.isError === true && res.details?.timedOut === true && /timed out/i.test(text),
+			JSON.stringify(res),
+		);
+
+		// Tool, touched scope: same inconclusive surfacing.
+		touch(handlers, ctx, file);
+		const resTouched = await tools
+			.get("typescript_diagnostics")
+			.execute("id", { scope: "touched" }, undefined, undefined, ctx);
+		check(
+			"timeout: touched scope inconclusive too",
+			resTouched.details?.timedOut === true && /timed out/i.test(resTouched.content?.[0]?.text || ""),
+			JSON.stringify(resTouched),
+		);
+
+		// /tsc run: warning, not an "all clean" info.
+		await commands.get("tsc").handler("scope project", ctx);
+		await commands.get("tsc").handler("run", ctx);
+		check(
+			"timeout: /tsc run warns inconclusive",
+			lastNote(ctx).type === "warning" && /timed out/i.test(lastNote(ctx).msg),
+			JSON.stringify(lastNote(ctx)),
+		);
+
+		// Step 2 (advisory edge with hanging tsc): no message, no no-engine warning,
+		// a timeout warning instead — and the dedupe key must SURVIVE.
+		const notesBefore = ctx._notes.length;
+		touch(handlers, ctx, file);
+		await fireAgentEnd(handlers, ctx);
+		check("timeout: advisory edge sends no message", messages.length === 1, String(messages.length));
+		const newNotes = ctx._notes.slice(notesBefore);
+		check(
+			"timeout: advisory edge warns 'timed out' (not no-engine)",
+			newNotes.some((n) => n.type === "warning" && /timed out/i.test(n.msg)) &&
+				!newNotes.some((n) => /no tsconfig/i.test(n.msg)),
+			JSON.stringify(newNotes),
+		);
+	} finally {
+		if (savedTsc === undefined) delete process.env.PI_TS_LSP_TSC;
+		else process.env.PI_TS_LSP_TSC = savedTsc;
+		if (savedTimeout === undefined) delete process.env.PI_TS_LSP_TIMEOUT_MS;
+		else process.env.PI_TS_LSP_TIMEOUT_MS = savedTimeout;
+	}
+
+	// Step 3 (real tsc again, SAME error): if the timeout had cleared lastKey the
+	// identical report would be re-sent — it must still be de-duplicated.
+	touch(handlers, ctx, file);
+	await fireAgentEnd(handlers, ctx);
+	check("timeout: dedupe key survives a timed-out run", messages.length === 1, String(messages.length));
+
+	await fs.rm(hangDir, { recursive: true, force: true });
+	await fs.rm(dir, { recursive: true, force: true });
+}
+
 // /tsc command branch edges: scope usage/accepted, autofix usage/accepted, unknown
 // subcommand, and `run` with nothing touched (its distinct message).
 async function scenarioCommandEdges(url) {
@@ -717,6 +804,7 @@ async function main() {
 		await scenarioRunTscMechanics(url);
 		await scenarioNoEngine(url);
 		await scenarioScopesAndGrouping(url);
+		await scenarioTimeoutInconclusive(url);
 		await scenarioCommandEdges(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
