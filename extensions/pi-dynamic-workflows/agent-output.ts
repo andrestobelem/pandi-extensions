@@ -74,16 +74,21 @@ function parsePiJsonModeOutputInternal(
 		}
 		if (!event || typeof event !== "object") continue;
 		const record = event as Record<string, unknown>;
+		// Only NON-EMPTY text may become the final output: a tool-call-only or
+		// thinking-only assistant message extracts as "" (its parts map to "" and
+		// join), and letting that overwrite earlier real text silently loses the
+		// whole answer (ok:true, output:"") — seen with long tool-heavy reviewers
+		// whose final message was a tool call (2026-07-03 revisar-dw-farley-core).
 		if (record.type === "agent_end" && Array.isArray(record.messages)) {
 			for (const message of record.messages) {
 				const textValue = extractAssistantTextFromMessage(message);
-				if (textValue !== undefined) lastAssistantText = textValue;
+				if (textValue !== undefined && textValue.trim() !== "") lastAssistantText = textValue;
 			}
 			continue;
 		}
 		if (record.type === "turn_end" || record.type === "message_end" || record.type === "message_update") {
 			const textValue = extractAssistantTextFromMessage(record.message);
-			if (textValue !== undefined) lastAssistantText = textValue;
+			if (textValue !== undefined && textValue.trim() !== "") lastAssistantText = textValue;
 		}
 	}
 	if (lastAssistantText === undefined) {
