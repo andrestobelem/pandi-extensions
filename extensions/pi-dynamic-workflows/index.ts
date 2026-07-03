@@ -996,7 +996,12 @@ export async function runWorkflow(
 		const schema = effectiveOptions.schema;
 		const schemaRetries = schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
 		const schemaOnInvalid = effectiveOptions.schemaOnInvalid ?? "throw";
-		let result: { code: number; killed: boolean; stdout: string; stderr: string } | undefined;
+		let result: { code: number; killed: boolean; timedOut: boolean; stdout: string; stderr: string } | undefined;
+		const agentTimeoutMs = effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs;
+		// Semaphore wait before the FIRST spawn. elapsedMs spans queue + all attempts, so
+		// without this the tell-tale "every agent dies at exactly agentTimeoutMs" pattern
+		// is invisible under high queueing (seen: 10-min kills reported as 23-31 min).
+		let queuedMs: number | undefined;
 		// The COMPLETE stdout of the latest attempt, read back from the on-disk live
 		// artifact. The in-memory result.stdout is a bounded tail (MAX_JOURNALED_STREAM)
 		// whose line-boundary trim can even come back EMPTY when the final JSON event
@@ -1017,6 +1022,7 @@ export async function runWorkflow(
 					error: schemaError,
 				});
 			const release = await agentSemaphore.acquire();
+			if (queuedMs === undefined) queuedMs = Date.now() - startedAt;
 			parallelAgents++;
 			peakParallelAgents = Math.max(peakParallelAgents, parallelAgents);
 			let countedParallelSlot = true;
@@ -1039,7 +1045,7 @@ export async function runWorkflow(
 				const processSpec = buildAgentProcess(attemptPrompt);
 				result = await runStreamingAgentProcess(processSpec.command, processSpec.args, {
 					cwd: effectiveOptions.cwd ?? ctx.cwd,
-					timeoutMs: effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs,
+					timeoutMs: agentTimeoutMs,
 					signal: effectiveSignal,
 					// Recursion guard: stamp the child one level deeper so a nested dynamic_workflow
 					// start/run/resume is refused once it hits maxWorkflowDepth().
@@ -1123,10 +1129,12 @@ export async function runWorkflow(
 		// Bounded head of the authoritative disk stdout for the .md embed and the
 		// journaled result; the complete copy stays in the adjacent .stdout.log.
 		const boundedStdout = truncate(attemptStdout, MAX_JOURNALED_STREAM);
+		const timeoutLine = result.timedOut ? `\n- timedOut: true (timeoutMs ${agentTimeoutMs})` : "";
+		const queuedLine = `\n- queuedMs: ${queuedMs ?? 0}`;
 		const focusLine = `\n- focus: ${focus.turns} turns, peakInput ${focus.inputTokensPeak} tok, out ${focus.outputTokensTotal} tok, tools ${focus.toolCalls} (${focus.toolErrors} err), retries ${focus.autoRetries}`;
 		const artifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${focusLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
+			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${queuedLine}${timeoutLine}${focusLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
 		);
 		const rawSubagent: SubagentResult = {
 			id,
@@ -1134,7 +1142,9 @@ export async function runWorkflow(
 			ok: result.code === 0 && !result.killed,
 			code: result.code,
 			killed: result.killed,
+			...(result.timedOut ? { timedOut: true } : {}),
 			elapsedMs,
+			queuedMs: queuedMs ?? 0,
 			prompt,
 			output,
 			stdout: boundedStdout,
@@ -1185,6 +1195,7 @@ export async function runWorkflow(
 		await log(`agent ${id} end: ${name}`, {
 			ok: subagent.ok,
 			code: subagent.code,
+			...(result.timedOut ? { timedOut: true, timeoutMs: agentTimeoutMs } : {}),
 			elapsedMs,
 			tools: subagent.tools,
 			skills: subagent.skills,

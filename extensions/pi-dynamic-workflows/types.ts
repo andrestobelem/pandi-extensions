@@ -72,7 +72,11 @@ export interface SubagentResult {
 	ok: boolean;
 	code: number;
 	killed: boolean;
+	/** True when the agent's timeoutMs budget killed it (not an abort/race loss). */
+	timedOut?: boolean;
 	elapsedMs: number;
+	/** Semaphore queue wait before the first spawn; elapsedMs includes it. */
+	queuedMs?: number;
 	prompt: string;
 	output: string;
 	stdout: string;

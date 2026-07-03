@@ -86,11 +86,14 @@ export async function runStreamingAgentProcess(
 		onStdout?: (chunk: Buffer) => void | Promise<void>;
 		onStderr?: (chunk: Buffer) => void | Promise<void>;
 	},
-): Promise<{ code: number; killed: boolean; stdout: string; stderr: string }> {
+): Promise<{ code: number; killed: boolean; timedOut: boolean; stdout: string; stderr: string }> {
 	return await new Promise((resolve, reject) => {
 		let stdout = "";
 		let stderr = "";
 		let killed = false;
+		// True only when the TIMEOUT killed the child (not an abort/race loss), so
+		// callers can name the budget in artifacts instead of a mute exit code.
+		let timedOut = false;
 		let finished = false;
 		const append = (current: string, chunk: Buffer, options: { preserveLineBoundary?: boolean } = {}) => {
 			const next = current + chunk.toString("utf8");
@@ -110,7 +113,10 @@ export async function runStreamingAgentProcess(
 			if (!killTimer)
 				killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
 		};
-		const timer = setTimeout(kill, options.timeoutMs);
+		const timer = setTimeout(() => {
+			timedOut = true;
+			kill();
+		}, options.timeoutMs);
 		const onAbort = () => kill();
 		options.signal.addEventListener("abort", onAbort, { once: true });
 		// A signal already aborted BEFORE the listener attached never fires "abort"
@@ -125,7 +131,7 @@ export async function runStreamingAgentProcess(
 			if (killTimer) clearTimeout(killTimer);
 			options.signal.removeEventListener("abort", onAbort);
 			if (err) reject(err);
-			else resolve({ code, killed, stdout, stderr });
+			else resolve({ code, killed, timedOut, stdout, stderr });
 		};
 		child.stdout?.on("data", (chunk: Buffer) => {
 			stdout = append(stdout, chunk, { preserveLineBoundary: true });
