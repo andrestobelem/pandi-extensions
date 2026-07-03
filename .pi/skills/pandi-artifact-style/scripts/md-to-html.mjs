@@ -37,11 +37,10 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:28px; }
-main h2 { font-size:13px; letter-spacing:.08em; text-transform:uppercase;
-          color:var(--muted); margin:32px 0 14px; font-weight:600; }
-main h3 { font-size:16px; margin:22px 0 8px; }
-main h4 { font-size:14px; margin:18px 0 6px; }
-main p, main li { color:var(--ink2); max-width:74ch; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
 main li { margin:3px 0; }
 a { color:var(--link); }
 strong { color:var(--ink); }

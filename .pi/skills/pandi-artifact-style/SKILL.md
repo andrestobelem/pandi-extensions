@@ -116,6 +116,8 @@ node .pi/skills/pandi-artifact-style/scripts/md-to-html.mjs in.md -o out.html --
 - The first `# h1` becomes the page title/header; `--kicker` sets the kicker
   (default `Pandi artifact`).
 - GitHub alerts (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`) become pandi callouts.
+- Prose typography: `h2`/`h3`/`h4` are real ink headings (20/16/14px) and body text
+  is justified — the uppercase label style stays dashboard-only (`h2.sec` in the template).
 - Tokens are read at runtime from [`reference/pandi-tokens.css`](./reference/pandi-tokens.css) —
   no duplication; output is a single self-contained file with no JS.
 - Pinning tests: `scripts/test/unit/md-to-html.test.mjs` (`npm run test:unit`).

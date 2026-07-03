@@ -37,6 +37,16 @@ test("falls back to opts.title when the document has no h1", () => {
 	assert.match(html, /Just a paragraph\./);
 });
 
+test("prose typography: body justified, h2 is a real heading above h3 (no uppercase label style)", () => {
+	const html = renderMarkdownToHtml("# T\n\n## Section\n\ntext\n", {});
+	assert.match(html, /text-align:\s*justify/);
+	const h2Rule = /main h2 \{([^}]*)\}/.exec(html)?.[1] ?? "";
+	const h3Rule = /main h3 \{([^}]*)\}/.exec(html)?.[1] ?? "";
+	assert.doesNotMatch(h2Rule, /text-transform:\s*uppercase/);
+	const px = (rule) => Number(/font-size:\s*([\d.]+)px/.exec(rule)?.[1] ?? 0);
+	assert.ok(px(h2Rule) > px(h3Rule), `h2 (${px(h2Rule)}px) must be larger than h3 (${px(h3Rule)}px)`);
+});
+
 test("renders GFM tables", () => {
 	const html = renderMarkdownToHtml("# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n", {});
 	assert.match(html, /<table>/);
