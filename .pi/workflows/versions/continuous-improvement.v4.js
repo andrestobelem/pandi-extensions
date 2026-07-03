@@ -114,8 +114,7 @@ export default async function main() {
 	phase("Generate");
 	let draft = await agent(
 		`Produce a first complete attempt at the task below. Aim for correct and concrete; it will be critiqued and refined. ` +
-			`Honor any EXPLICIT measurable or format constraints stated in the task (e.g. line/word caps, length limits, required sections/structure, output location) and self-check them before returning — do not exceed a stated cap on the first draft. ` +
-			`If the task requires that any commands, regexes, or code you produce actually RUN or be verifiable, and you have shell tools, execute them against real inputs and fix what fails before returning — do not ship a command you have not run.\n\nTask: ${task}`,
+			`Honor any EXPLICIT measurable or format constraints stated in the task (e.g. line/word caps, length limits, required sections/structure, output location) and self-check them before returning — do not exceed a stated cap on the first draft.\n\nTask: ${task}`,
 		node("draft", { model: "sonnet", effort: "medium", label: "draft-0", phase: "Generate" }),
 	);
 
@@ -208,27 +207,15 @@ export default async function main() {
 			memory.push({ round, issues: critique.issues });
 
 			phase("Refine");
-			const refinePrompt =
+			const next = await agent(
 				`Revise the attempt to resolve the critiques. Keep what works; change only what the critiques call out. ` +
-				`Address ALL listed issues; do not introduce new problems. ` +
-				`When a critique supplies a concrete fix — a shell command, regex, glob, or path — apply that suggested form VERBATIM instead of paraphrasing it; paraphrase silently drifts (e.g. swapping a verified \`git grep … **.ts\` for a plain \`grep … **.ts\` that no longer recurses), which makes the same issue recur round after round without ever being fixed. If you have shell tools, RUN every command/regex/glob you add or edit against the concrete example the critique cites and confirm it produces the expected output BEFORE treating that issue as resolved. ` +
-				`When a fix merges, fuses, compresses, or reorders text, re-read the edited span end-to-end to confirm it still reads cleanly (no dangling clauses or garbled grammar) and preserves the original meaning; and re-verify any measurable constraint (e.g. line/word count) the task or a critique cites.\n\n` +
-				`Task: ${task}\n\nCritiques so far (oldest first):\n${compact(memory, 16000)}\n\nCurrent attempt:\n${compact(draft)}`;
-			let next = await agent(
-				refinePrompt,
+					`Address ALL listed issues; do not introduce new problems. ` +
+					`When a fix merges, fuses, compresses, or reorders text, re-read the edited span end-to-end to confirm it still reads cleanly (no dangling clauses or garbled grammar) and preserves the original meaning; and re-verify any measurable constraint (e.g. line/word count) the task or a critique cites.\n\n` +
+					`Task: ${task}\n\nCritiques so far (oldest first):\n${compact(memory, 16000)}\n\nCurrent attempt:\n${compact(draft)}`,
 				node("refine", { model: "sonnet", effort: "medium", label: `refine-${round}`, phase: "Refine" }),
 			);
 			if (next == null) {
-				// A single null is usually a transient model hiccup, not a dead end; retry ONCE before
-				// discarding still-actionable critiques and aborting (observed failure: "refiner returned null").
-				log(`round ${round}: refiner returned null — retrying once`);
-				next = await agent(
-					refinePrompt,
-					node("refine", { model: "sonnet", effort: "medium", label: `refine-${round}-retry`, phase: "Refine" }),
-				);
-			}
-			if (next == null) {
-				failureNote = `round ${round}: refiner returned null (after retry)`;
+				failureNote = `round ${round}: refiner returned null`;
 				break;
 			}
 			draft = next;
