@@ -56,6 +56,8 @@
 		"sync:docs:html": "node scripts/sync-docs-html.mjs",
 		"sync:docs:html:check": "node scripts/sync-docs-html.mjs --check",
 		"lint:md:fix": "markdownlint-cli2 --fix",
+		"publish:npm": "node scripts/publish-npm.mjs",
+		"publish:npm:go": "node scripts/publish-npm.mjs --publish",
 		"doctor": "node extensions/pi-doctor/scripts/doctor.mjs",
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
 		"test:unit": "node --test \"scripts/test/unit/*.test.mjs\"",
