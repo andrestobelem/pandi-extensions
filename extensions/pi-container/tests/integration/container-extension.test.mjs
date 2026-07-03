@@ -15,6 +15,14 @@
  *
  * `container` is always spawned with an ARGV array (never a shell string), so
  * image refs / machine names / commands cannot inject shell.
+ *
+ * P4 additions (issue #3, mutation-verified non-vacuous): runStatus not-booted /
+ * running / degraded-ls branches, create/stop/exec validation + describeError
+ * normalization (stderr detail, exit-code fallback, timed-out), parseContainerCommand,
+ * REAL runContainer timeout + abort, and outside-in command/tool paths — each platform
+ * pins its real branch (linux CI: the platform guard; macOS/arm64: help/unknown/remove
+ * gates, including confirmed-remove threading force:true to the CLI, kept harmless via
+ * a guaranteed-absent machine name).
  */
 
 import * as path from "node:path";
@@ -346,6 +354,294 @@ async function scenarioRealSpawnMissingCli(url) {
 	);
 }
 
+// runStatus branches (issue #3 "not booted"): a failing `system status` must surface
+// the CLI detail; a running subsystem lists machines; a failing machine-ls degrades
+// to an empty list instead of failing the whole status.
+async function scenarioStatusHandler(url) {
+	const mod = await loadModule(url);
+
+	{
+		const run = fakeRunner([
+			{
+				ok: false,
+				stdout: "",
+				stderr: "apiserver is not running; start with `container system start`",
+				exitCode: 1,
+			},
+		]);
+		const res = await mod.runStatus(run, {});
+		check("runStatus not booted: ok=false", res.ok === false, JSON.stringify(res));
+		check("runStatus not booted: surfaces the CLI detail", /apiserver is not running/.test(res.text), res.text);
+		check("runStatus not booted: no machine-ls after the failure", run.calls.length === 1, String(run.calls.length));
+	}
+
+	{
+		const run = fakeRunner([
+			{ ok: true, stdout: "{}", stderr: "", exitCode: 0 },
+			{ ok: true, stdout: REAL_MACHINE_JSON, stderr: "", exitCode: 0 },
+		]);
+		const res = await mod.runStatus(run, {});
+		check("runStatus running: ok + machine listed", res.ok === true && /dev/.test(res.text), res.text);
+	}
+
+	{
+		const run = fakeRunner([
+			{ ok: true, stdout: "{}", stderr: "", exitCode: 0 },
+			{ ok: false, stdout: "", stderr: "boom", exitCode: 1 },
+		]);
+		const res = await mod.runStatus(run, {});
+		check(
+			"runStatus with failing ls: still ok, empty machine list",
+			res.ok === true && /No container machines/.test(res.text),
+			res.text,
+		);
+	}
+}
+
+// create/stop/exec error edges (issue #3 "run failure"): argument validation refuses
+// BEFORE spawning; CLI failures normalize through describeError (stderr detail,
+// exit-code fallback, timed-out).
+async function scenarioHandlerErrorEdges(url) {
+	const mod = await loadModule(url);
+
+	// create: missing image / invalid name → refused, no spawn
+	{
+		const run = fakeRunner();
+		const res = await mod.runCreate(run, { image: "" }, {});
+		check("runCreate: missing image refused, no spawn", res.ok === false && run.calls.length === 0, res.text);
+		const res2 = await mod.runCreate(run, { image: "alpine:latest", name: "bad name" }, {});
+		check("runCreate: invalid name refused, no spawn", res2.ok === false && run.calls.length === 0, res2.text);
+	}
+	// create: CLI failure → normalized error; success → confirmation text
+	{
+		const run = fakeRunner([{ ok: false, stdout: "", stderr: "kernel not configured", exitCode: 1 }]);
+		const res = await mod.runCreate(run, { image: "alpine:latest", name: "dev" }, {});
+		check(
+			"runCreate: CLI failure carries stderr detail",
+			res.ok === false && /kernel not configured/.test(res.text),
+			res.text,
+		);
+		const run2 = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
+		const res2 = await mod.runCreate(run2, { image: "alpine:latest", name: "dev" }, {});
+		check(
+			"runCreate: success confirms machine + image",
+			res2.ok === true && /dev.*alpine:latest/.test(res2.text),
+			res2.text,
+		);
+	}
+
+	// stop: invalid name refused; empty-output failure falls back to the exit code; default name
+	{
+		const run = fakeRunner();
+		const res = await mod.runStop(run, { name: "a;b" }, {});
+		check("runStop: invalid name refused, no spawn", res.ok === false && run.calls.length === 0, res.text);
+		const run2 = fakeRunner([{ ok: false, stdout: "", stderr: "", exitCode: 7 }]);
+		const res2 = await mod.runStop(run2, { name: "dev" }, {});
+		check(
+			"runStop: empty-detail failure reports the exit code",
+			res2.ok === false && /exit 7/.test(res2.text),
+			res2.text,
+		);
+		const run3 = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
+		const res3 = await mod.runStop(run3, {}, {});
+		check("runStop: no name stops the default machine", res3.ok === true && /\(default\)/.test(res3.text), res3.text);
+	}
+
+	// exec: invalid machine name refused before spawning; empty stdout → explicit marker; timeout → timed-out text
+	{
+		const run = fakeRunner();
+		const res = await mod.runExec(run, { machine: "a b", command: ["true"] }, {});
+		check("runExec: invalid machine name refused, no spawn", res.ok === false && run.calls.length === 0, res.text);
+		const run2 = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
+		const res2 = await mod.runExec(run2, { machine: "dev", command: ["true"] }, {});
+		check("runExec: empty stdout reports '(no output)'", res2.ok === true && /no output/i.test(res2.text), res2.text);
+		const run3 = fakeRunner([{ ok: false, stdout: "", stderr: "", timedOut: true }]);
+		const res3 = await mod.runExec(run3, { machine: "dev", command: ["sleep", "99"] }, {});
+		check("runExec: timeout normalizes to 'timed out'", res3.ok === false && /timed out/i.test(res3.text), res3.text);
+	}
+}
+
+// parseContainerCommand (pure): `--` argv separator, defaults, case-insensitivity.
+async function scenarioParseContainerCommand(url) {
+	const mod = await loadModule(url);
+	const p = mod.parseContainerCommand;
+
+	const full = p("run dev -- echo hi there");
+	check(
+		"parse: '--' splits argv command",
+		full.action === "run" && full.rest[0] === "dev" && JSON.stringify(full.command) === '["echo","hi","there"]',
+		JSON.stringify(full),
+	);
+	check("parse: empty input defaults to status", p("").action === "status", JSON.stringify(p("")));
+	check("parse: action is lowercased", p("LIST").action === "list", JSON.stringify(p("LIST")));
+	check(
+		"parse: no '--' means empty command",
+		p("stop dev").command.length === 0 && p("stop dev").rest[0] === "dev",
+		JSON.stringify(p("stop dev")),
+	);
+}
+
+// runContainer real process edges: a hung child is SIGTERM'd at timeoutMs (timedOut,
+// ok=false), and an abort signal kills it the same way — real spawns, not mocks.
+async function scenarioRealTimeoutAndAbort(url) {
+	const mod = await loadModule(url);
+
+	const hung = await mod.runContainer(["-e", "setTimeout(() => {}, 10000)"], {
+		bin: process.execPath,
+		timeoutMs: 300,
+	});
+	check(
+		"runContainer: timeout → ok=false + timedOut",
+		hung.ok === false && hung.timedOut === true,
+		JSON.stringify(hung),
+	);
+
+	const controller = new AbortController();
+	const pending = mod.runContainer(["-e", "setTimeout(() => {}, 10000)"], {
+		bin: process.execPath,
+		signal: controller.signal,
+		timeoutMs: 30000,
+	});
+	setTimeout(() => controller.abort(), 100);
+	const aborted = await pending;
+	check(
+		"runContainer: abort → ok=false + timedOut flag",
+		aborted.ok === false && aborted.timedOut === true,
+		JSON.stringify(aborted),
+	);
+}
+
+// Outside-in (issue #3): drive the REAL /container command handler and the
+// container_sandbox tool. The runner is not injectable at this level, so only
+// no-spawn paths are pinned — and each platform pins its real branch: on
+// unsupported hosts (linux CI) every call must short-circuit with the platform
+// message; on macOS/arm64 the help/unknown/remove-gate paths run (none spawns).
+async function scenarioCommandAndToolOutsideIn(url) {
+	const mod = await loadModule(url);
+	const { commands, tools } = await loadExtension(url);
+	const command = commands.get("container");
+	const tool = tools.get("container_sandbox");
+
+	const makeCtx = ({ hasUI = true, confirmResult = false } = {}) => {
+		const notes = [];
+		const confirms = [];
+		const ctx = {
+			mode: "tui",
+			hasUI,
+			cwd: REPO_ROOT,
+			ui: {
+				notify: (msg, type) => notes.push({ msg, type }),
+				confirm: async (title, message) => {
+					confirms.push({ title, message });
+					return confirmResult;
+				},
+				select: async () => undefined,
+			},
+		};
+		return { ctx, notes, confirms };
+	};
+
+	if (!mod.isSupportedPlatform()) {
+		// Unsupported host (linux CI): the guard must fire for BOTH surfaces, before any spawn.
+		const { ctx, notes } = makeCtx();
+		await command.handler("status", ctx);
+		check(
+			"unsupported host: /container reports the platform requirement",
+			notes.some((n) => n.type === "error" && /Apple Silicon/i.test(n.msg)),
+			JSON.stringify(notes),
+		);
+		const res = await tool.execute("t1", { action: "status" }, undefined, undefined, ctx);
+		check(
+			"unsupported host: tool reports the platform requirement",
+			res.details?.isError === true && /Apple Silicon/i.test(res.content[0]?.text ?? ""),
+			JSON.stringify(res),
+		);
+		return;
+	}
+
+	// Supported host (macOS/arm64): pin the no-spawn command paths.
+	{
+		const { ctx, notes } = makeCtx();
+		await command.handler("help", ctx);
+		check(
+			"/container help prints usage",
+			notes.some((n) => n.type === "info" && /Usage:/.test(n.msg)),
+			JSON.stringify(notes.map((n) => n.type)),
+		);
+	}
+	{
+		const { ctx, notes } = makeCtx();
+		await command.handler("frobnicate", ctx);
+		check(
+			"/container unknown subcommand warns + shows usage",
+			notes.some(
+				(n) => n.type === "warning" && /Unknown subcommand: frobnicate/.test(n.msg) && /Usage:/.test(n.msg),
+			),
+			JSON.stringify(notes.map((n) => n.type)),
+		);
+	}
+	{
+		// remove via the command: declining the confirm must refuse WITHOUT spawning.
+		const { ctx, notes, confirms } = makeCtx({ confirmResult: false });
+		await command.handler("remove dev", ctx);
+		check("/container remove asks for confirmation", confirms.length === 1, `confirms=${confirms.length}`);
+		check(
+			"/container remove declined → refuses (needs force)",
+			notes.some((n) => n.type === "error" && /Refusing to delete/i.test(n.msg)),
+			JSON.stringify(notes),
+		);
+	}
+	{
+		// headless remove: no UI to confirm → force stays false → refuses, no spawn.
+		const { ctx, notes, confirms } = makeCtx({ hasUI: false });
+		ctx.mode = "print";
+		const errs = [];
+		const origErr = console.error;
+		console.error = (m) => errs.push(String(m));
+		try {
+			await command.handler("remove dev", ctx);
+		} finally {
+			console.error = origErr;
+		}
+		check("headless remove: never confirms", confirms.length === 0, `confirms=${confirms.length}`);
+		check(
+			"headless remove: refuses on stderr",
+			errs.some((m) => /Refusing to delete/i.test(m)),
+			JSON.stringify({ errs, notes }),
+		);
+	}
+	{
+		// remove CONFIRMED: the confirm result must thread through as force:true, so the
+		// request reaches the CLI instead of the needsForce gate. A valid-shaped but
+		// guaranteed-absent machine keeps this harmless: the CLI errors (machine not
+		// found / not installed / not booted) — anything BUT the "Refusing" refusal.
+		const { ctx, notes, confirms } = makeCtx({ confirmResult: true });
+		await command.handler("remove pi-test-absent-machine-xyz", ctx);
+		check("/container remove confirmed: confirm was asked", confirms.length === 1, `confirms=${confirms.length}`);
+		check(
+			"/container remove confirmed: force threads through (no needsForce refusal)",
+			notes.length > 0 && !notes.some((n) => /Refusing to delete/i.test(n.msg)),
+			JSON.stringify(notes),
+		);
+	}
+	{
+		// Tool surface, no-spawn paths: remove without force refuses; defensive unknown action.
+		const { ctx } = makeCtx();
+		const refused = await tool.execute("t2", { action: "remove", name: "dev" }, undefined, undefined, ctx);
+		check(
+			"tool remove without force refuses (needsForce)",
+			refused.details?.isError === true && refused.details?.needsForce === true,
+			JSON.stringify(refused.details),
+		);
+		const bogus = await tool.execute("t3", { action: "bogus" }, undefined, undefined, ctx);
+		check(
+			"tool unknown action → bounded error result",
+			bogus.details?.isError === true && /Unknown action/.test(bogus.content[0]?.text ?? ""),
+			JSON.stringify(bogus),
+		);
+	}
+}
+
 async function main() {
 	const { url } = await buildBundle();
 	await scenarioRegistration(url);
@@ -354,6 +650,11 @@ async function main() {
 	await scenarioHandlers(url);
 	await scenarioBareActionSelector(url);
 	await scenarioRealSpawnMissingCli(url);
+	await scenarioStatusHandler(url);
+	await scenarioHandlerErrorEdges(url);
+	await scenarioParseContainerCommand(url);
+	await scenarioRealTimeoutAndAbort(url);
+	await scenarioCommandAndToolOutsideIn(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed > 0) {
