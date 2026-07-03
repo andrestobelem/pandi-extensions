@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/typescript-lsp",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Pi extension for TypeScript diagnostics feedback: runs tsc --noEmit on the coherent edge (agent_end) over touched files, plus a typescript_diagnostics tool and a /tsc command. Not a full LSP (no hover/go-to-def).",
 	"license": "MIT",
 	"repository": {

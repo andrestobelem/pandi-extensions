@@ -98,7 +98,7 @@ The suite is distributed through three channels; **pick one per machine/scope** 
 | --- | --- | --- |
 | **Pinned git bundle** | `pi install git:github.com/andrestobelem/pi-dynamic-workflows@v0.2.0` | Consumers: the whole suite, stable version. |
 | **Working tree (local paths)** | clone + `pi install ./` (or the per-extension paths) | Development/dogfooding: changes apply with `/reload`. |
-| **npm scoped `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/<ext>` | À la carte per extension — all 20 packages published on npmjs (v0.1.0). With `min-release-age` set, freshly published versions only become installable after that window. |
+| **npm scoped `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/<ext>` | À la carte per extension — all 20 packages published on npmjs (versioned independently per semver; e.g. `dynamic-workflows`/`doctor` at 0.2.0, the rest at 0.1.x). With `min-release-age` set, freshly published versions only become installable after that window. |
 
 Every `extensions/pi-<ext>/package.json` already carries its public identity `@pandi-coding-agent/<ext>` (npm workspaces; `npm pack -w @pandi-coding-agent/<ext>` to test the tarball). The root `pi` manifest is **generated** from the sub-packages (`npm run sync:manifest`); a parity test fails on drift. Horizon: **Pandi** as a distro on top of Pi (extensions + theme + persona), not a CLI fork.
 
