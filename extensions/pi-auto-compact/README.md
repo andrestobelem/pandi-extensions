@@ -1,29 +1,26 @@
 # @pandi-coding-agent/auto-compact
 
-Automatically compacts Pi's context when usage crosses a configurable threshold — with a footer progress bar, recoverable pre-compaction snapshots, and an optional lighter lever that elides old bulky tool outputs.
+Long Pi sessions eventually run out of context, and a plain `/compact` can quietly lose
+facts you needed. This extension watches context usage and compacts automatically once
+it crosses a threshold (default `35%`), with a footer gauge so you see it coming and a
+disk snapshot so a lossy summary is never unrecoverable.
 
-## What you get
-
-- Automatic compaction after an agent turn once context usage crosses the threshold (default `35%`).
-- A footer progress bar (`compact ▰▰▱▱▱▱▱▱ 9%/35%`) that fills as usage approaches the threshold, warns when near, and shows `compacting…` while compaction runs.
-- Recoverable snapshots: the raw entries a compaction is about to summarize are saved to disk first, so a lossy summary never silently destroys facts.
-- Optional tool-result clearing: elide the text of old, already-consumed tool results per LLM call — cheaper and non-destructive compared to full compaction.
-
-## Install
-
-From npm:
+## Quickstart
 
 ```bash
 pi install npm:@pandi-coding-agent/auto-compact
 ```
 
-From this repository:
-
-```bash
-pi install ./extensions/pi-auto-compact          # global (your user)
-pi install -l ./extensions/pi-auto-compact       # project-local
-pi --no-extensions -e ./extensions/pi-auto-compact   # one-off trial, nothing else loaded
+```text
+/auto-compact                 # open the interactive menu (UI session)
+/auto-compact status          # show threshold, bar, snapshot, clear-tools state
+/auto-compact 50              # compact once usage crosses 50% instead of 35%
+/auto-compact clear-tools on  # also elide old tool output on every LLM call
 ```
+
+Other install modes: `pi install ./extensions/pi-auto-compact` (global), add `-l`
+(project-local), or `pi --no-extensions -e ./extensions/pi-auto-compact` (one-off trial).
+Compaction itself runs automatically after an agent turn once usage crosses the threshold.
 
 ## Commands
 
@@ -34,36 +31,28 @@ pi --no-extensions -e ./extensions/pi-auto-compact   # one-off trial, nothing el
 | `/auto-compact on\|off` | Enable or disable auto-compaction (`enable`/`disable` also work). |
 | `/auto-compact run` | Compact context now (`compact` also works). |
 | `/auto-compact <1-99>` | Set the compaction threshold percent. |
-| `/auto-compact bar [on\|off]` | Show, hide, or toggle the footer progress bar. |
+| `/auto-compact bar [on\|off]` | Show, hide, or toggle the footer progress bar, e.g. `compact ▰▰▱▱▱▱▱▱ 9%/35%`. |
 | `/auto-compact snapshot [on\|off]` | Toggle recoverable pre-compaction snapshots. |
 | `/auto-compact snapshots` | List recent snapshot paths for the current session. |
 | `/auto-compact clear-tools [on\|off]` | Toggle eliding old large tool outputs per LLM call. |
 
 ## How it works
 
-**Recoverable snapshots.** Compaction replaces raw history with a lossy summary, so a fact you later need can disappear. To make that recoverable:
+**Snapshots** (fail-safe, gitignored): on any compaction path (manual, threshold,
+overflow recovery), raw entries are written to
+`<cwd>/.pi/compaction-snapshots/<sessionId>/<timestamp>-<reason>.json`, then patched with
+the summary afterward — a write error never blocks compaction. Separate from
+`.pi/memory/` (curated facts, not raw transcripts).
 
-- On every compaction path (manual `/compact`, threshold auto-compaction, overflow recovery, and this extension's own compaction) the raw entries are written to `<cwd>/.pi/compaction-snapshots/<sessionId>/<timestamp>-<reason>.json` before the summary replaces them.
-- After compaction, the produced summary is patched into the same file, so each snapshot shows what was dropped and what replaced it.
-- Recover by reading the JSON path printed after compaction, or list recent ones with `/auto-compact snapshots`.
-
-**Tool-result clearing.** Before each LLM call, the extension can elide the bulky text of old, already-consumed tool results — keeping a head/tail snippet plus a marker — so stale output stops burning the per-call token budget.
-
-- Ephemeral and non-destructive: only what is sent to the model for that call is rewritten; the session keeps the originals, so turning it off restores full content immediately.
-- Pairing-safe: only `toolResult` text is trimmed; `toolCallId`/`toolName`/`isError` and image blocks are preserved.
-- Keeps what matters: the most recent results stay intact, error results are never cleared, and short text is left alone. Idempotent and fail-safe.
-- Independent from compaction: it reduces per-call tokens and noise but does not change the compaction trigger, which is based on session usage.
-
-## Limitations & safety notes
-
-- Compaction is **lossy**: the summary replaces raw history. Snapshots exist precisely so that loss is recoverable — keep them on unless you have a reason not to.
-- Snapshots live under `.pi/compaction-snapshots/` (gitignored), deliberately separate from `.pi/memory/`, which is for curated, injected facts — not bulky raw transcripts.
-- Snapshotting is fail-safe: a write error never blocks or cancels compaction.
-- Tool-result clearing is **off by default** because it changes what the model sees every call. Enable it for long, tool-heavy loops.
+**Tool-result clearing** (off by default, ephemeral, non-destructive, cheaper than full
+compaction): before each LLM call, elides bulky text of old, consumed tool results,
+keeping a head/tail snippet. Only `toolResult` text is touched (`toolCallId`/`toolName`/
+`isError`/images preserved); recent and error results are never cleared; toggling off
+restores full originals immediately, independent of the compaction threshold.
 
 ## Details
 
-Startup defaults come from environment variables:
+Startup defaults, overridable via environment variables:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |

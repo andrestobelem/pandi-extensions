@@ -1,11 +1,12 @@
 // pi-auto-compact recoverable-compaction snapshots: the raw entries about to be
 // summarized are persisted BEFORE the lossy summary replaces them, so compaction is
-// recoverable rather than destructive. Snapshots live under <cwd>/.pi/<SNAPSHOT_DIR>/
-// <sessionId>/ (gitignored) — deliberately NOT in .pi/memory/, which is for curated,
+// recoverable rather than destructive. Snapshots live under <cwd>/<configDir>/<SNAPSHOT_DIR>/
+// <sessionId>/ (gitignored) — deliberately NOT in the memory folder, which is for curated,
 // injected facts, not bulky raw transcripts. Pure path/shape/prune helpers; re-exported
 // from index.ts so the built bundle keeps exporting the names the integration suite uses.
 
 import { join } from "node:path";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const SNAPSHOT_DIR = "compaction-snapshots";
 
@@ -17,9 +18,9 @@ const safeSegment = (raw: string, fallback: string): string => {
 	return cleaned && !/^\.+$/.test(cleaned) ? cleaned : fallback;
 };
 
-/** Per-session snapshot directory: <cwd>/.pi/compaction-snapshots/<sessionId>/. Pure. */
+/** Per-session snapshot directory: <cwd>/<configDir>/compaction-snapshots/<sessionId>/. Pure. */
 export const snapshotDirFor = (cwd: string, sessionId: string): string =>
-	join(cwd, ".pi", SNAPSHOT_DIR, safeSegment(sessionId, "session"));
+	join(cwd, CONFIG_DIR_NAME, SNAPSHOT_DIR, safeSegment(sessionId, "session"));
 
 /** Snapshot file name. Timestamp-prefixed so a lexicographic sort is chronological. Pure. */
 export const snapshotFileName = (createdAtIso: string, reason: string): string =>

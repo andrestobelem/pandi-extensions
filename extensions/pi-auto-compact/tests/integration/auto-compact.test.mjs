@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -24,6 +24,8 @@ async function build() {
 		src: path.join(REPO_ROOT, "extensions", "pi-auto-compact", "index.ts"),
 		outName: "ac.mjs",
 		npx: "--no-install",
+		// snapshots.ts imports CONFIG_DIR_NAME from the SDK, so the bundle needs the stub.
+		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	return url;
 }
