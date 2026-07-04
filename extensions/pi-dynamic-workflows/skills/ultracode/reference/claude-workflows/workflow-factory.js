@@ -251,9 +251,18 @@ const implement = await agent(
 		`${fence("request", task)}\n` +
 		`${fence("plan", compact(plan, 12000))}\n` +
 		`EXISTING WORKFLOW CATALOG — compose these by name with workflow("<name>", args) wherever they fit (especially *-lib reusable sub-steps), instead of re-implementing their logic:\n${fence("candidate", catalogText)}`,
-	node("workflow-codegen", { model: "sonnet", effort: "medium", phase: "Generate" }),
+	node("workflow-codegen", { model: "sonnet", effort: "medium", phase: "Generate", timeoutMs: 20 * 60_000 }),
 );
 let code = extractJs(implement);
+if (!code) {
+	// Never let a timed-out or null codegen result reach Review: extractJs() degrades a
+	// null/empty agent() return to an empty string, and an empty code block flowing into
+	// the review prompt buries the real timeout under a wasted review turn (#28).
+	throw new Error(
+		`workflow-factory codegen produced empty output (implement=${JSON.stringify(String(implement ?? "").slice(0, 200))}). ` +
+			"This usually means the workflow-codegen agent hit its timeout budget and returned null/empty; raise its timeoutMs or narrow the task — an empty codegen result must never flow into Review.",
+	);
+}
 
 const REVIEW = {
 	type: "object",
@@ -315,7 +324,7 @@ if (reviewApproved) {
 			`${fence("request", task)}\n` +
 			`${fence("findings", compact(review, 12000))}\n` +
 			`${fence("candidate", code)}`,
-		node("workflow-refine", { model: "sonnet", effort: "medium", phase: "Refine" }),
+		node("workflow-refine", { model: "sonnet", effort: "medium", phase: "Refine", timeoutMs: 20 * 60_000 }),
 	);
 	code = extractJs(refine);
 }
