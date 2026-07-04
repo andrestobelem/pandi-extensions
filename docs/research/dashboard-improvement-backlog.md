@@ -36,9 +36,15 @@ paths (verified to exist), and status (`open` / `done` / `human`).
     a CommonJS `module` stub, and after the body runs CALLS the captured entry with a recording
     `ctx` whose methods alias the same stubs (helpers kept inside the `ctx` object so they never
     collide with scaffolds' own `const compact`). Verified: `continuous-improvement` 0→5 nodes,
-    `loop-engineering-*` now run, all Claude scaffolds unchanged (no regression), both copies
-    kept byte-identical. The throwaway adapter `.pi/tmp/build-ctx-workflow-html.mjs` was removed.
-  - Paths: `.pi/scripts/build-workflow-artifact.mjs`, `.claude/scripts/build-workflow-artifact.mjs`.
+    `loop-engineering-*` now run, all Claude scaffolds unchanged (no regression). The two copies
+    have since intentionally diverged: `.claude/scripts/build-workflow-artifact.mjs` is now a
+    thin CLI wrapper over `.claude/scripts/lib/artifact.mjs` adding `--run`/`--watch`/`--match`/
+    `--open`/`--interval` for live monitoring, while `.pi/scripts/build-workflow-artifact.mjs`
+    remains the single-file pre-launch builder (per the self-contained-extension rule, no runtime
+    code is shared between them); the split is by design and the two are not re-synced. The throwaway
+    adapter `.pi/tmp/build-ctx-workflow-html.mjs` was removed.
+  - Paths: `.pi/scripts/build-workflow-artifact.mjs`, `.claude/scripts/build-workflow-artifact.mjs`,
+    `.claude/scripts/lib/artifact.mjs`.
 - **DW-DASH-H1 — Confirm the new gate baseline (HEAD moved)** · `done` (resolved)
   - Resolution: the gate baseline is now pinned at `HEAD == da0a449` with a clean
     working tree and no foreign dirty files. The earlier `fad9875`/`9010157` concern no
