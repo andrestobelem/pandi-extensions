@@ -438,11 +438,11 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
   `status.json` or repeated `action=view`). Let it report back and inspect **once** when notified (or
   when the user asks); do other useful work while it runs. If you must wait on an *external* signal
   (a deploy, a CI run) rather than the run itself, use the harness wait cadence, not a tight loop.
-- **Final HTML render (when the info exists):** when the completion notice arrives, rebuild the
-  artifact HTML with the run overlaid — `node ~/.claude/scripts/build-workflow-artifact.mjs
-  <script.js> <out.html> '<argsJson>' --run latest` (`--match <substr>` pins a specific run) — and
-  `open` it, so Results shows the real per-role outputs, return value, and artifacts. The pre-launch
-  render is plan-only; do not treat it as the outcome.
+- **Final HTML render (when the info exists):** when the completion notice arrives, render the run
+  report — `/workflow report <runId|latest>` or `dynamic_workflow action="report" name=<runId>` —
+  and `open` the emitted `<runDir>/report.html`: a self-contained pandi-styled page (light+dark,
+  zero scripts) with the real per-agent outputs, phase timeline, metrics/cost, and artifact links.
+  The pre-launch render is plan-only; do not treat it as the outcome.
 
 - **Commands:** `/dynamic-workflow <task>` (alias `/ultracode <task>`), `/deep-research <q>`,
   `/ultracode-mode status|on|off`, `/ultracode-contract status|on|off`,
