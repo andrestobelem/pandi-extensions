@@ -54,6 +54,7 @@ Work on this repo is tracked in the **GitHub Project v2 "pi-dynamic-workflows"**
 - The Project groups items by **Status** (`Todo` / `In Progress` / `Done`); move an item with `gh project item-edit`.
 - **Close items from commits**: put `Closes #N` in the commit that finishes the work, so the issue (and its board card) closes automatically.
 - A parent story links its sub-tasks in the body (e.g. `Part of #1`); keep sub-tasks small and independently closeable.
+- Exact command recipes + verified board/field IDs live in the **`github-project` skill** (`.pi/skills/github-project/SKILL.md`) — use it instead of re-deriving them.
 
 ## Commits
 
