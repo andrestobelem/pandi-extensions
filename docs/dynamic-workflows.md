@@ -36,7 +36,7 @@ Run it (in a persistent TUI/RPC session this launches in **background** and retu
 /workflow view latest
 ```
 
-That is the whole loop: **scout → fan out → synthesize → persist artifacts**. The rest of this guide fills in the concepts, the full primitive reference, and the operational details.
+That's the whole loop — **scout → fan out → synthesize → persist artifacts**. Everything else here just fills in the concepts, the primitive reference, and the operational details.
 
 ## The typical shape
 

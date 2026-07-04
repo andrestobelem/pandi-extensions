@@ -2,7 +2,7 @@
 
 This is the **exhaustive** setup reference for `pi-dynamic-workflows`: every mandatory/optional requirement, environment variable, and distribution channel. Just cloned the repo? Run the condensed [Quickstart in the root README](../README.md#quickstart) instead — come back here for a specific detail (an env var, an optional capability, which distribution channel to pick).
 
-Fastest path from a clean machine:
+Fastest path from a clean machine — four commands and you're set:
 
 ```bash
 nvm install && nvm use                                             # Node >= 22.19.0

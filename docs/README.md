@@ -1,6 +1,6 @@
 # Project documentation
 
-This directory stores the project's work history, decisions, created workflows, and relevant conversations to serve as a durable reference and audit trail.
+This directory holds the project's work history, decisions, created workflows, and relevant conversations — a durable reference and audit trail you can always come back to. 🐼
 
 ## Quick reference
 

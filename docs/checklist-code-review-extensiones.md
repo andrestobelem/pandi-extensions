@@ -1,5 +1,8 @@
 # Checklist de code review — extensiones pi (pi-dynamic-workflows)
 
+Una pasada de review, seis frentes: alcance, diseño, tests, código, empaquetado y commit.
+Cada ítem trae el comando que lo verifica, así el review no depende de memoria.
+
 Fuentes: `AGENTS.md`, `docs/principios-ingenieria.md`, `package.json`, `extensions/*/package.json`,
 `scripts/test/run-all.mjs`. Cada ítem indica qué mirar y el comando que lo verifica.
 

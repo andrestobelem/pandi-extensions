@@ -56,7 +56,7 @@ cp config/kitty/kitty.conf         ~/.config/kitty/kitty.conf
 cp config/kitty/current-theme.conf ~/.config/kitty/current-theme.conf
 ```
 
-Recargá la configuración con `ctrl+shift+F5` (o reiniciá kitty).
+Recargá la configuración con `ctrl+shift+F5` (o reiniciá kitty) y listo 🐼.
 
 ## Actualizar esta copia
 
