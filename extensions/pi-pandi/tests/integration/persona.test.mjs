@@ -49,6 +49,19 @@ async function scenarioPersonaUnit(url) {
 		"persona frames the 🐼 as occasional, not every message",
 		/cada tanto|no en cada|de vez en cuando|ocasional/i.test(inner),
 	);
+	// Character traits: creativo, didáctico y conciso (asked 2026-07-04). The persona must
+	// carry all three — and honor "conciso" itself: the whole block stays a garnish, not an
+	// essay (guard against trait-creep bloating the system prompt).
+	check("persona carries the creative trait", /creativ/i.test(inner), inner);
+	check("persona carries the didactic trait", /didáctic/i.test(inner), inner);
+	check("persona carries the concise trait", /concis/i.test(inner), inner);
+	check(
+		"persona still guards accuracy over style (condimento rule)",
+		/condimento|nunca sacrifiques/i.test(inner),
+		inner,
+	);
+	check(`persona stays concise itself (≤ 7 lines, got ${inner.split("\n").length})`, inner.split("\n").length <= 7);
+	check(`persona stays concise itself (≤ 600 chars, got ${inner.length})`, inner.length <= 600);
 }
 
 async function main() {

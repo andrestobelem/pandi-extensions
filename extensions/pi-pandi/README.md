@@ -1,14 +1,20 @@
 # @pandi-coding-agent/pandi
 
-Pandi 🐼 — a panda mascot for Pi, in the spirit of Claude Code's character/indicator, but as a panda.
+Pandi 🐼 is a panda mascot for Pi: a themed splash header, an animated "thinking" indicator, and a gentle persona — in the spirit of Claude Code's character, but as a panda. Reach for it when you want your terminal session to feel more alive without changing how Pi actually works.
+
+```text
+/pandi face
+```
+
+That cycles the working indicator to the next of 5 panda faces (persisted across sessions) and shows a live sample, e.g. `ʕ ◕ᴥ◕ ʔ Estilo ojitos (guardado).`
 
 ## What you get
 
 - Startup splash header: a block-art panda face with name and tagline beside it. The palette adapts to your theme (light/dark) so the face stays visible on any terminal background.
-- Animated working indicator while Pi thinks, with 5 face styles cycled via `/pandi face`: `claude` `(●  ●)` (with `◆` eyes), `kaomoji` `ʕ•ᴥ•ʔ`, `ojitos` `ʕ◕ᴥ◕ʔ`, `decidido` `ʕ•̀ᴥ•́ʔ`, and `gatuno` `(=◕ᴥ◕=)`. Eyes use semantic theme colors (`ojitos`→`success`, the rest→`accent`).
+- Animated working indicator while Pi thinks, with 5 face styles cycled via `/pandi face`: `claude` `(●  ●)` (with `◆` eyes), `kaomoji` `ʕ •ᴥ• ʔ`, `ojitos` `ʕ ◕ᴥ◕ ʔ`, `decidido` `ʕ •̀ᴥ•́ ʔ`, and `gatuno` `(=◕ᴥ◕=)`. Eyes use semantic theme colors (`ojitos`→`success`, the rest→`accent`).
 - A playful verb that rotates each turn, plus an occasional meme-quote easter egg.
 - A `◆ Pandi` status entry in the footer.
-- A persona in the system prompt: while Pandi is on, a `<pandi_persona>` block (gentle/zen tone plus an occasional 🐼 signature) is appended to the system prompt. `/pandi off` removes it and restores the default persona.
+- A persona in the system prompt: while Pandi is on, a `<pandi_persona>` block (gentle/zen tone; creative, didactic and concise character; an occasional 🐼 signature) is appended to the system prompt. `/pandi off` removes it and restores the default persona.
 
 ## Install
 
