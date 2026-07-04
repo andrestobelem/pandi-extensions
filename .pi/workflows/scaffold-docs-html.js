@@ -46,9 +46,11 @@ export default async function main() {
 		`Fuentes (leelas con tus tools de lectura):\n` +
 		`- El código fuente del scaffold: ${SCAFFOLDS_DIR}/<key>.js (leelo ENTERO; es la fuente de verdad).\n` +
 		`- Su entrada en el catálogo (blurb + use cases): ${CATALOG}.\n\n` +
-		`Estructura EXACTA del Markdown (usá estos encabezados):\n` +
+		`Estructura EXACTA del Markdown (usá estos encabezados; es el shape requerido por el contrato didáctico para páginas de scaffolds):\n` +
 		`# <key>\n` +
 		`> blurb de una línea (del catálogo, traducido)\n\n` +
+		`## En 30 segundos\n2-3 frases llanas: qué hace y cuándo lo elegirías.\n\n` +
+		`## Cómo lanzarlo\nComandos /workflow ejecutables: \`/workflow new mi-run --pattern=<key>\` + un input JSON típico (verificalo contra el shape real del input en el código).\n\n` +
 		`## Diagrama\n` +
 		"Un fence ```mermaid con un flowchart TD que refleje FIELMENTE la estructura del scaffold: fases, agentes/fan-outs (mostrá paralelismo con subgraphs o nodos worker), pipelines, loops, gates de decisión y síntesis. Derivalo del código real, no del nombre. Sintaxis mermaid válida (etiquetas entre comillas si tienen caracteres especiales; sin paréntesis sueltos en labels).\n\n" +
 		`## Qué hace\n2-4 párrafos.\n\n` +
