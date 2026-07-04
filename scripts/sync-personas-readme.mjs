@@ -1,11 +1,16 @@
 #!/usr/bin/env node
-// sync-personas-readme.mjs — mirror the project personas (.pi/personas/*.json) into a
-// COMMITTED, human-readable .pi/personas/README.md. Same generator + --check shape as the
-// other sync-*.mjs scripts: the README is a GENERATED artifact — do not hand-edit it; edit
-// the JSON (the source of truth, injected at spawn) and re-run this.
+// sync-personas-readme.mjs — mirror the project personas (.pi/personas/*.json) into
+// COMMITTED, human-readable .pi/personas/README.md + README.html (pandi-styled via the
+// pi-docs converter). Same generator + --check shape as the other sync-*.mjs scripts:
+// both mirrors are GENERATED artifacts — do not hand-edit them; edit the JSON (the
+// source of truth, injected at spawn) and re-run this.
+//
+// The prompts are rendered readable but VERBATIM: "(N)" checklists become ordered lists
+// and prose becomes sentence paragraphs; stripping the markdown scaffolding reconstructs
+// the source string exactly (pinned by the lossless roundtrip test).
 //
 // Usage:
-//   node scripts/sync-personas-readme.mjs           # write/refresh the mirror
+//   node scripts/sync-personas-readme.mjs           # write/refresh the mirrors
 //   node scripts/sync-personas-readme.mjs --check   # verify only; exit 1 on drift (no writes)
 
 import * as fs from "node:fs";
@@ -13,9 +18,68 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const CONVERTER = path.join(REPO, "extensions", "pi-docs", "scripts", "markdown-to-html.mjs");
+const { renderMarkdownToHtml } = await import(pathToFileURL(CONVERTER).href);
 
 // Long prompt strings get their own readable sections instead of one-line meta entries.
 const PROMPT_KEYS = ["systemPrompt", "appendSystemPrompt"];
+
+// Sentence splitter for prompt prose: break on ". " before a capital (or "("), but never
+// after common abbreviations and never on "?"/"!" (question runs stay in one paragraph).
+const ABBREV_TAIL = /\b(?:e\.g|i\.e|vs|etc|cf)\.$/;
+function splitSentences(text) {
+	const out = [];
+	let start = 0;
+	const re = /\. (?=[A-Z(])/g;
+	let m = re.exec(text);
+	for (; m !== null; m = re.exec(text)) {
+		const candidate = text.slice(start, m.index + 1);
+		if (ABBREV_TAIL.test(candidate.trimEnd())) continue;
+		out.push(candidate.trim());
+		start = m.index + 2;
+	}
+	const tail = text.slice(start).trim();
+	if (tail) out.push(tail);
+	return out;
+}
+
+// "Fear check — name it." -> "**Fear check** — name it." (presentation only).
+const boldLead = (item) => item.replace(/^(.{2,80}?) — /, "**$1** — ");
+
+// Render one prompt string as readable-but-verbatim Markdown: "(1) … (2) …" checklists
+// become ordered lists (overflow prose after an item drops back to paragraphs); everything
+// else becomes sentence paragraphs. Markers must ascend from 1 to count as a checklist, so
+// stray "(3)" citations stay untouched.
+export function renderPromptMarkdown(text) {
+	const source = String(text).trim();
+	const parts = source.split(/\s*\((\d+)\)\s+/);
+	const numbers = [];
+	for (let i = 1; i < parts.length; i += 2) numbers.push(Number(parts[i]));
+	const isChecklist = numbers.length > 0 && numbers.every((n, i) => n === i + 1);
+
+	const blocks = [];
+	const pushProse = (chunk) => {
+		for (const s of splitSentences(chunk)) blocks.push({ type: "p", text: s });
+	};
+	if (!isChecklist) pushProse(source);
+	else {
+		if (parts[0].trim()) pushProse(parts[0].trim());
+		for (let i = 1; i < parts.length; i += 2) {
+			const sentences = splitSentences(parts[i + 1].trim());
+			blocks.push({ type: "li", n: Number(parts[i]), text: sentences[0] ?? "" });
+			for (const s of sentences.slice(1)) blocks.push({ type: "p", text: s });
+		}
+	}
+
+	let md = "";
+	for (let i = 0; i < blocks.length; i++) {
+		const b = blocks[i];
+		const rendered = b.type === "li" ? `${b.n}. ${boldLead(b.text)}` : b.text;
+		if (i === 0) md = rendered;
+		else md += (blocks[i - 1].type === "li" && b.type === "li" ? "\n" : "\n\n") + rendered;
+	}
+	return md;
+}
 
 // Pure render: [{ name, data }] (already sorted) -> the full README Markdown.
 export function renderPersonasReadme(personas) {
@@ -32,7 +96,18 @@ export function renderPersonasReadme(personas) {
 		"",
 	];
 	if (!personas.length) lines.push("_No personas defined._", "");
-	for (const { name, data } of personas) {
+	else {
+		lines.push("| Persona | thinking | skills | prompts |", "| --- | --- | --- | --- |");
+		for (const { name, data } of personas) {
+			const skills = Array.isArray(data.skills) && data.skills.length ? data.skills.join(", ") : "—";
+			const chars = PROMPT_KEYS.map((k) => (typeof data[k] === "string" ? data[k].length : 0));
+			lines.push(`| [${name}](#${name}) | ${data.thinking ?? "—"} | ${skills} | ${chars[0]} + ${chars[1]} chars |`);
+		}
+		lines.push("");
+	}
+	for (let i = 0; i < personas.length; i++) {
+		const { name, data } = personas[i];
+		if (i > 0) lines.push("---", "");
 		lines.push(`## ${name}`, "");
 		for (const [key, value] of Object.entries(data)) {
 			if (PROMPT_KEYS.includes(key)) continue;
@@ -40,7 +115,7 @@ export function renderPersonasReadme(personas) {
 		}
 		for (const key of PROMPT_KEYS) {
 			if (typeof data[key] !== "string") continue;
-			lines.push("", `### ${key} (${data[key].length} chars)`, "", data[key]);
+			lines.push("", `### ${key} (${data[key].length} chars)`, "", renderPromptMarkdown(data[key]));
 		}
 		lines.push("");
 	}
@@ -60,18 +135,27 @@ export function loadPersonas(dir) {
 		}));
 }
 
-// Sync the README under <root>/.pi/personas/. check:true never writes.
+// Sync README.md + README.html under <root>/.pi/personas/. check:true never writes.
 export function syncPersonasReadme(root, { check = false } = {}) {
 	const dir = path.join(root, ".pi", "personas");
-	const readme = path.join(dir, "README.md");
-	const content = renderPersonasReadme(loadPersonas(dir));
-	const have = fs.existsSync(readme) ? fs.readFileSync(readme, "utf8") : null;
-	if (have === content) return { changed: false };
-	if (!check) {
-		fs.mkdirSync(dir, { recursive: true });
-		fs.writeFileSync(readme, content);
+	const md = renderPersonasReadme(loadPersonas(dir));
+	// The pandi header wants the H1 as the first non-blank line; the GENERATED comments
+	// only matter in the Markdown source, so strip them before converting.
+	const html = renderMarkdownToHtml(md.replace(/^(?:<!--[^\n]*-->\n)+/, ""), { kicker: ".pi/personas" });
+	let changed = false;
+	for (const [file, content] of [
+		[path.join(dir, "README.md"), md],
+		[path.join(dir, "README.html"), html],
+	]) {
+		const have = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
+		if (have === content) continue;
+		changed = true;
+		if (!check) {
+			fs.mkdirSync(dir, { recursive: true });
+			fs.writeFileSync(file, content);
+		}
 	}
-	return { changed: true };
+	return { changed };
 }
 
 const isMain = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
@@ -87,7 +171,9 @@ if (isMain) {
 		console.log("[sync-personas-readme] ✓ .pi/personas/README.md is in sync");
 	} else {
 		console.log(
-			changed ? "[sync-personas-readme] wrote .pi/personas/README.md" : "[sync-personas-readme] already in sync",
+			changed
+				? "[sync-personas-readme] wrote .pi/personas/README.md + README.html"
+				: "[sync-personas-readme] already in sync",
 		);
 	}
 }

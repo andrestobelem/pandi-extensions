@@ -10,7 +10,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SCRIPT = path.join(REPO, "scripts", "sync-personas-readme.mjs");
-const { renderPersonasReadme, loadPersonas, syncPersonasReadme } = await import(pathToFileURL(SCRIPT).href);
+const { renderPersonasReadme, renderPromptMarkdown, loadPersonas, syncPersonasReadme } = await import(
+	pathToFileURL(SCRIPT).href
+);
 
 const persona = (over = {}) => ({
 	tools: ["read", "grep", "find", "ls"],
@@ -41,6 +43,67 @@ test("renderPersonasReadme renders header, meta, and prompts verbatim in name or
 	assert.ok(md.endsWith("\n"));
 });
 
+test("renderPromptMarkdown turns (N) markers into an ordered list with bolded leads", () => {
+	const text =
+		"Do the frame: (1) Fear check — name it. (2) Step — keep it green; commit. Name and refuse: dogma. Keep it lean.";
+	const md = renderPromptMarkdown(text);
+	assert.match(md, /^Do the frame:$/m);
+	assert.match(md, /^1\. \*\*Fear check\*\* — name it\.$/m);
+	assert.match(md, /^2\. \*\*Step\*\* — keep it green; commit\.$/m);
+	// Overflow prose after the last item becomes paragraphs, not list content.
+	assert.match(md, /^Name and refuse: dogma\.$/m);
+	assert.match(md, /^Keep it lean\.$/m);
+});
+
+test("renderPromptMarkdown keeps prose as sentence paragraphs, guarding abbreviations and questions", () => {
+	const text = "First idea. Second idea holds, e.g. this case stays. What now? Still same paragraph.";
+	assert.equal(
+		renderPromptMarkdown(text),
+		"First idea.\n\nSecond idea holds, e.g. this case stays.\n\nWhat now? Still same paragraph.",
+	);
+});
+
+test("renderPromptMarkdown leaves non-checklist parenthesised numbers alone", () => {
+	assert.equal(
+		renderPromptMarkdown("See item (3) in the appendix. Next sentence."),
+		"See item (3) in the appendix.\n\nNext sentence.",
+	);
+});
+
+// The mirror must stay VERBATIM: stripping the markdown scaffolding (list markers,
+// bold, paragraph breaks) from the rendered prompt must reconstruct the source string.
+const reconstruct = (md) =>
+	md
+		.split("\n")
+		.map((l) => l.replace(/^(\d+)\. /, "($1) "))
+		.filter((l) => l.trim() !== "")
+		.join(" ")
+		.replace(/\*\*/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+const collapse = (s) => s.replace(/\s+/g, " ").trim();
+
+test("renderPromptMarkdown is lossless over the real committed personas", () => {
+	const dir = path.join(REPO, ".pi", "personas");
+	for (const { name, data } of loadPersonas(dir)) {
+		for (const key of ["systemPrompt", "appendSystemPrompt"]) {
+			if (typeof data[key] !== "string") continue;
+			assert.equal(reconstruct(renderPromptMarkdown(data[key])), collapse(data[key]), `${name}.${key} not verbatim`);
+		}
+	}
+});
+
+test("renderPersonasReadme includes a linked index table and separators", () => {
+	const md = renderPersonasReadme([
+		{ name: "alpha", data: persona() },
+		{ name: "beta", data: persona({ skills: ["a-skill"] }) },
+	]);
+	assert.match(md, /\| Persona \| thinking \| skills \| prompts \|/);
+	assert.match(md, /\| \[alpha\]\(#alpha\) \| high \| — \| \d+ \+ \d+ chars \|/);
+	assert.match(md, /\| \[beta\]\(#beta\) \| high \| a-skill \| \d+ \+ \d+ chars \|/);
+	assert.match(md, /\n---\n/);
+});
+
 test("renderPersonasReadme notes an empty persona set", () => {
 	assert.match(renderPersonasReadme([]), /_No personas defined\._/);
 });
@@ -63,25 +126,37 @@ test("loadPersonas reads *.json sorted by name and ignores other files", () => {
 	}
 });
 
-test("syncPersonasReadme writes the mirror, is idempotent, and check never writes", () => {
+test("syncPersonasReadme writes MD + HTML mirrors, is idempotent, and check never writes", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "personas-sync-"));
 	try {
 		const dir = path.join(root, ".pi", "personas");
 		fs.mkdirSync(dir, { recursive: true });
 		fs.writeFileSync(path.join(dir, "solo.json"), JSON.stringify(persona()));
 		const readme = path.join(dir, "README.md");
+		const html = path.join(dir, "README.html");
 
-		// First pass writes; second pass is a no-op.
+		// First pass writes both mirrors; second pass is a no-op.
 		assert.equal(syncPersonasReadme(root, {}).changed, true);
 		assert.ok(fs.existsSync(readme));
+		assert.ok(fs.existsSync(html));
+		const rendered = fs.readFileSync(html, "utf8");
+		assert.match(rendered, /^<!doctype html>/);
+		// The H1 lands in the pandi header (leading GENERATED comments stripped pre-render).
+		assert.match(rendered, /<h1>Project personas<\/h1>/);
+		assert.match(rendered, /solo/);
 		assert.equal(syncPersonasReadme(root, {}).changed, false);
 
-		// Hand-edit drifts: check reports it WITHOUT writing; sync restores.
+		// Hand-edit on either mirror drifts: check reports it WITHOUT writing; sync restores.
 		fs.writeFileSync(readme, "hand-edited\n");
 		assert.equal(syncPersonasReadme(root, { check: true }).changed, true);
 		assert.equal(fs.readFileSync(readme, "utf8"), "hand-edited\n");
 		assert.equal(syncPersonasReadme(root, {}).changed, true);
 		assert.match(fs.readFileSync(readme, "utf8"), /## solo/);
+		fs.writeFileSync(html, "<!doctype html>hand-edited");
+		assert.equal(syncPersonasReadme(root, { check: true }).changed, true);
+		assert.equal(fs.readFileSync(html, "utf8"), "<!doctype html>hand-edited");
+		assert.equal(syncPersonasReadme(root, {}).changed, true);
+		assert.match(fs.readFileSync(html, "utf8"), /<h1>Project personas<\/h1>/);
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}
