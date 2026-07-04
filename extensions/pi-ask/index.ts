@@ -51,7 +51,10 @@ export default function askExtension(pi: ExtensionAPI) {
 				return textResult(NO_UI_MESSAGE, { cancelled: true, reason: "no-ui" });
 			}
 			if (options.length === 0) {
-				return textResult("Error: no options provided.", { cancelled: true, reason: "no-options" });
+				return textResult("Error: no options provided — pass at least one option to ask_choice.", {
+					cancelled: true,
+					reason: "no-options",
+				});
 			}
 			const choice = await ctx.ui.select(params.question, options);
 			if (choice == null) {
