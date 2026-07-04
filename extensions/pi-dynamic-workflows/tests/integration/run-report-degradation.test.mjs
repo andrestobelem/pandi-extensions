@@ -185,6 +185,33 @@ async function main() {
 		);
 	}
 
+	// 10) RELATIVE runDir (how humans invoke it from the repo root): hrefs must still be
+	// run-dir-relative — the agents/ scan records cwd-relative artifact paths in that case.
+	{
+		const rel = path.join(".pi", "tmp", `run-report-relative-${process.pid}`);
+		const dir = path.join(REPO_ROOT, rel);
+		await fs.mkdir(path.join(dir, "agents"), { recursive: true });
+		try {
+			await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(baseStatus(dir)));
+			await fs.writeFile(path.join(dir, "agents", "0001-worker.md"), "# worker\n\n## Prompt\n\nhi\n");
+			const prevCwd = process.cwd();
+			process.chdir(REPO_ROOT);
+			try {
+				const model = await mod.collectRunReport(rel, { generatedAt: "2026-01-02T00:00:00.000Z" });
+				const agent = model.agents.find((a) => a.id === 1);
+				check(
+					"relative runDir yields run-dir-relative href",
+					agent?.artifactHref === "agents/0001-worker.md",
+					String(agent?.artifactHref),
+				);
+			} finally {
+				process.chdir(prevCwd);
+			}
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	}
+
 	if (counts.failed > 0) {
 		console.error(`\n${counts.failed} checks FAILED:`);
 		for (const failure of counts.failures) console.error(`- ${failure}`);

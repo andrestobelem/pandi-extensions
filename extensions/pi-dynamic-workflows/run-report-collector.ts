@@ -110,11 +110,16 @@ function boundedText(value: string, max: number): RunReportText {
 	return value.length > max ? { text: value.slice(0, max), truncated: true } : { text: value, truncated: false };
 }
 
-/** Recompute a recorded (untrusted, possibly absolute) path relative to the run dir. */
+/**
+ * Recompute a recorded (untrusted) path relative to the run dir. Recorded paths are
+ * either absolute (events.jsonl) or cwd-relative (the agents/ dir scan when the
+ * caller passed a relative runDir), so candidates resolve against the CWD — never
+ * against the run dir, which would double the prefix for relative candidates.
+ */
 function containedRelative(runDir: string, candidate: string | undefined): string | undefined {
 	if (!candidate) return undefined;
 	const resolvedRoot = path.resolve(runDir);
-	const resolved = path.resolve(resolvedRoot, candidate);
+	const resolved = path.resolve(candidate);
 	if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) return undefined;
 	const rel = path.relative(resolvedRoot, resolved);
 	if (!rel || rel.startsWith("..")) return undefined;
