@@ -16,23 +16,14 @@
 //   node scripts/sync-skill-mirrors.mjs --check    # verify only; exit 1 on drift (no writes)
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-
-// Skills that must be byte-identical in .pi/skills AND .claude/skills.
-const MIRRORED = [
-	"init-pi-dynamic-workflows",
-	"ai-assisted-engineering",
-	"modern-software-engineering",
-	"empirical-software-design",
-	"clean-craftsmanship",
-	"github-project",
-	"pi-cante-releasing",
-];
+import { dirname, join } from "node:path";
+import { discoverSkillClassification, REPO, reportUnclassifiedSkills } from "./skill-classification.mjs";
 
 const checkOnly = process.argv.includes("--check");
+const classification = discoverSkillClassification();
+const MIRRORED = classification.mirrored;
+
+if (checkOnly && reportUnclassifiedSkills("sync-skill-mirrors", classification) > 0) process.exit(1);
 
 async function readMaybe(file) {
 	try {

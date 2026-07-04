@@ -17,22 +17,15 @@
 //   node scripts/vendor-extension-skills.mjs --check   # verify only; exit 1 on drift (no writes)
 
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join, relative } from "node:path";
+import { discoverSkillClassification, REPO, reportUnclassifiedSkills } from "./skill-classification.mjs";
 
-const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILLS_SRC = join(REPO, ".pi", "skills");
-
-// Ownership map: which skills each extension vendors. A skill is owned by the extension it is
-// useless without (e.g. the ultracode/router skills need the dynamic-workflows engine).
-const VENDOR = {
-	"pandi-dynamic-workflows": ["ultracode", "deep-research", "default"],
-	// pi-docs renders Markdown with the pandi tokens; the skill carries the canonical
-	// tokens/template the converter reads at runtime, so the extension vendors it.
-	"pandi-docs": ["pandi-artifact-style"],
-};
-
 const checkOnly = process.argv.includes("--check");
+const classification = discoverSkillClassification();
+const VENDOR = classification.vendoredByExtension;
+
+if (checkOnly && reportUnclassifiedSkills("vendor-extension-skills", classification) > 0) process.exit(1);
 
 // Recursively list files under `dir` as paths relative to `dir` (sorted, POSIX-ish).
 async function listFilesRec(dir, base = dir) {

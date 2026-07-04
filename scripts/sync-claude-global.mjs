@@ -27,21 +27,18 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { discoverSkillClassification, reportUnclassifiedSkills } from "./skill-classification.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const classification = discoverSkillClassification();
 
-// Project-owned Claude skills to publish globally. Global-only skills (e.g. supacode-cli) are NOT
-// listed and are left untouched. A skill missing on disk is skipped, not an error — so local-only,
-// gitignored skills (e.g. open-prose) are synced best-effort when present and simply absent on CI.
-// EXTERNAL skills (e.g. karpathy-guidelines, from multica-ai/andrej-karpathy-skills) are NOT
-// vendored here — the onboarding installs them globally from upstream, so they are not republished.
-const PROJECT_SKILLS = [
-	"ultracode",
-	"modern-software-engineering",
-	"init-pi-dynamic-workflows",
-	"ai-assisted-engineering",
-	"open-prose",
-];
+// Project-owned Claude skills to publish globally. The repo-owned set comes from the shared skill
+// classification; local-only, gitignored skills (e.g. open-prose) remain best-effort extras that
+// are synced when present on disk and simply absent on CI. Global-only skills (e.g. supacode-cli)
+// are left untouched. EXTERNAL skills (e.g. karpathy-guidelines, from
+// multica-ai/andrej-karpathy-skills) are NOT vendored here — the onboarding installs them globally
+// from upstream, so they are not republished.
+const PROJECT_SKILLS = [...classification.global, ...classification.optionalClaudeGlobalSkills];
 
 function parseArgs(argv) {
 	const checkOnly = argv.includes("--check");
@@ -93,6 +90,7 @@ function planPairs(dest) {
 
 function main() {
 	const { checkOnly, dest } = parseArgs(process.argv.slice(2));
+	if (checkOnly && reportUnclassifiedSkills("sync-claude-global", classification) > 0) process.exit(1);
 	const pairs = planPairs(dest);
 
 	if (pairs.length === 0) {
