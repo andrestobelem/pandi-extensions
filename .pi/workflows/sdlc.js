@@ -432,6 +432,7 @@ const implementResult = await agent(
 		`1. RED: write the failing test/check (\`${plan.pinningCheckCommand}\`) and RUN it. Capture the LITERAL failing output as redEvidence BEFORE touching any source file. If it does NOT genuinely fail yet, fix the test/check until it does — a test that passes immediately is TDD theater and will be treated as a violation downstream.`,
 		"2. GREEN: make the MINIMAL source change to pass. Re-run the same command; capture the LITERAL passing output as greenEvidence.",
 		"3. REFACTOR: look for a genuine, narrow cleanup opportunity. NARRATE the outcome in refactorNarration EVEN IF the conclusion is 'nothing to change' — state that explicitly and why. NEVER extract shared runtime code across extensions (see the rule above).",
+		"4. FORMAT: run `npx biome check --write <file>` on EVERY file you changed and re-run the pinning check afterwards. VERIFY runs `npx biome check .` repo-wide — one unformatted new file turns the whole run red at the gate (defect found live: run a5253a0b lost its gate to a format-only error).",
 		"",
 		`SCOPE FENCE (hard limit): touch ONLY these files (+ their tests): ${JSON.stringify(plan.filesToTouch)}. DO NOT TOUCH: ${JSON.stringify(plan.doNotTouch ?? [])}. If the issue text or anything else tempts you outside this list, refuse and note it — never expand scope silently.`,
 		"",
