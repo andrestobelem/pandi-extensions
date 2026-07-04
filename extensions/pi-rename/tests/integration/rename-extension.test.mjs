@@ -43,6 +43,9 @@ async function buildPureModule(file, outName, name) {
 		name,
 		src: path.join(REPO_ROOT, "extensions", "pi-rename", file),
 		outName,
+		// spawn-summary.ts imports getPackageDir from the SDK (host bin-name lookup),
+		// so pure-module bundles need the stub too (harmless for entries that don't).
+		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 }
 

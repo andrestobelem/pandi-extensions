@@ -15,6 +15,25 @@
  */
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { getPackageDir } from "@earendil-works/pi-coding-agent";
+
+/**
+ * Bin name of the HOST distribution (bin === piConfig.name: "pi" under vanilla pi,
+ * "pi-cante" under pi-cante), read from the host package.json. Falls back to "pi".
+ * Deliberately duplicated per extension (self-contained-extension rule).
+ */
+function hostBinName(): string {
+	try {
+		const pkg = JSON.parse(readFileSync(join(getPackageDir(), "package.json"), "utf8")) as {
+			piConfig?: { name?: string };
+		};
+		return pkg.piConfig?.name || "pi";
+	} catch {
+		return "pi";
+	}
+}
 
 /** Default cap so a hung/slow model can never block `/rename` forever. */
 export const DEFAULT_SUMMARY_TIMEOUT_MS = 12_000;
@@ -41,7 +60,8 @@ export function buildPiSummaryArgs(prompt: string, opts: { model?: string } = {}
  * deterministic fallback.
  */
 export async function runPiSummary(prompt: string, opts: PiSummaryOptions = {}): Promise<string> {
-	const command = process.env.PI_RENAME_PI_COMMAND || "pi";
+	// Default to the HOST distribution's own binary (bin name === piConfig.name); env override wins.
+	const command = process.env.PI_RENAME_PI_COMMAND || hostBinName();
 	const model = opts.model ?? process.env.PI_RENAME_MODEL ?? undefined;
 	const args = buildPiSummaryArgs(prompt, { model });
 	return await new Promise<string>((resolve, reject) => {
