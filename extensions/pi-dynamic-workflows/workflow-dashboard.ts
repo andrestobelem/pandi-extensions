@@ -567,7 +567,8 @@ export class WorkflowDashboard {
 			line("  ↑ ↓ / j k move · PgUp / PgDn page · Home / End / G first / last"),
 			line("  [ ] active run — Monitor: cycle focus · Runs/Activity: jump to next/prev running"),
 			line(accent("Actions")),
-			line("  Enter / o agent output · v run view · g graph"),
+			line("  Enter / o agent detail — sub-tabs: Card · Prompt · Output · Definition · Run (←→/1-5)"),
+			line("  v run view · g graph"),
 			line("  f next failed agent (Agents tab)"),
 			line("  c / x cancel active · r rerun (confirm) · d / Del delete (confirm)"),
 			line("  C clean up (Runs: terminal runs · Sessions: stale session files) — confirm"),
@@ -633,9 +634,9 @@ export class WorkflowDashboard {
 					: this.tab === "sessions"
 						? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • C cleanup • q/esc close"
 						: this.tab === "monitor"
-							? runActions("↑↓ agents • [ ] switch run • Enter/o agent detail • v run • g graph")
+							? runActions("↑↓ agents • [ ] switch run • Enter/o detail (tabs) • v run • g graph")
 							: this.tab === "agents"
-								? runActions("↑↓ select agent • f next failed • Enter/o detail+prompt • v run • g graph")
+								? runActions("↑↓ select agent • f next failed • Enter/o detail (tabs) • v run • g graph")
 								: runActions("↑↓ navigate • [ ] next running • Enter/v view • g graph");
 		const lines: string[] = [
 			line(

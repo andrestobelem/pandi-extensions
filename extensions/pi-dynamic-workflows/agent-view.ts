@@ -16,9 +16,10 @@ import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-out
 import { formatAgentPhase, readRunEvents } from "./event-parser.js";
 import { MAX_TOOL_TEXT, truncate } from "./format.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "./index.js";
+import { computeCodeHash } from "./journal.js";
 import { notify } from "./notify.js";
 import { formatElapsedMs } from "./presentation.js";
-import { pickAndOpenRunArtifact } from "./run-view.js";
+import { formatRunView, pickAndOpenRunArtifact } from "./run-view.js";
 
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
@@ -51,7 +52,16 @@ function fencedBlock(content: string, lang = "text"): string {
 	return `${fence}${lang}\n${content}\n${fence}`;
 }
 
-async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<string> {
+// The agent detail document split into the sub-tab views (Card / Prompt / Output) plus
+// the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
+interface AgentViewParts {
+	card: string;
+	prompt: string;
+	output: string;
+	full: string;
+}
+
+async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentViewParts> {
 	const artifactPath = resolveAgentArtifactPath(run, agent);
 	let artifactBody = "";
 	let artifactError = "";
@@ -106,20 +116,62 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 		: agent.state === "running"
 			? "Agent is still running. The parsed answer will appear here when it finishes."
 			: "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
-	const accessFallback = [
-		`- tools: ${agent.tools?.length ? agent.tools.join(", ") : "default"}`,
-		`- excludeTools: ${agent.excludeTools?.length ? agent.excludeTools.join(", ") : "none"}`,
-		`- skills: ${agent.skills?.length ? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}` : agent.includeSkills === false ? "disabled" : "default discovery"}`,
-		`- extensions: ${agent.extensions?.length ? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}` : agent.includeExtensions ? "default discovery" : "disabled"}`,
-		`- keys: ${agent.keys?.length ? `${agent.keys.join(", ")} (values redacted)` : agent.isolatedEnv ? "none selected" : "default inherited environment"}`,
-		...(agent.missingKeys?.length ? [`- missingKeys: ${agent.missingKeys.join(", ")}`] : []),
-		...(agent.isolatedEnv === undefined
-			? []
-			: [`- env: ${agent.isolatedEnv ? "isolated + selected keys" : "process default/inherited"}`]),
+	// Full structured configuration: EVERY resolved runtime knob for this agent, always
+	// rendered (never conditional on the artifact), as a Markdown table so the Enter
+	// detail view is scannable/navigable. "default" means the option was not set and the
+	// subagent inherited the orchestrator/session value.
+	const configRows: [string, string][] = [
+		["Model", agent.model ?? "default (inherited from orchestrator)"],
+		["Effort / thinking", agent.thinking ?? "default (inherited session level)"],
+		["Tools", agent.tools?.length ? agent.tools.join(", ") : "default (full toolset)"],
+		["Excluded tools", agent.excludeTools?.length ? agent.excludeTools.join(", ") : "none"],
+		[
+			"Skills",
+			agent.skills?.length
+				? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}`
+				: agent.includeSkills === false
+					? "disabled"
+					: "default discovery",
+		],
+		[
+			"Extensions",
+			agent.extensions?.length
+				? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}`
+				: agent.includeExtensions
+					? "default discovery"
+					: "disabled",
+		],
+		[
+			"Env keys",
+			agent.keys?.length
+				? `${agent.keys.join(", ")} (values redacted)`
+				: agent.isolatedEnv
+					? "none selected"
+					: "default inherited environment",
+		],
+		...(agent.missingKeys?.length ? [["Missing keys", `⚠ ${agent.missingKeys.join(", ")}`] as [string, string]] : []),
+		[
+			"Environment",
+			agent.isolatedEnv === undefined
+				? "unknown"
+				: agent.isolatedEnv
+					? "isolated + selected keys"
+					: "process default/inherited",
+		],
+		...(agent.schemaOk !== undefined
+			? [["Structured schema", agent.schemaOk ? "ok" : "❌ validation failed"] as [string, string]]
+			: []),
+	];
+	const escapeCell = (value: string) => value.replace(/\|/g, "\\|").replace(/\n/g, " ");
+	const configTable = [
+		"| Setting | Value |",
+		"| --- | --- |",
+		...configRows.map(([key, value]) => `| ${escapeCell(key)} | ${escapeCell(value)} |`),
 	].join("\n");
 	const summary = [
 		`- Agent: #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name}`,
 		`- State: ${stateIcon} ${agent.state}`,
+		`- Model: ${agent.model ?? "default"} • effort: ${agent.thinking ?? "default"}`,
 		...(phase ? [`- Phase: ${phase}${agent.phaseLabel ? ` (${agent.phaseLabel})` : ""}`] : []),
 		`- Workflow: ${run.workflow}`,
 		`- Run: ${run.runId}`,
@@ -133,13 +185,21 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 		`- Artifact: ${artifactPath ?? "unavailable"}`,
 		...(artifactError ? [`- Artifact read error: ${artifactError}`] : []),
 	];
-	return [
-		`# Agent #${agent.id}${phase ? ` ${phase}` : ""}: ${agent.name}`,
+	const titleLine = `# Agent #${agent.id}${phase ? ` ${phase}` : ""}: ${agent.name}`;
+	const cardLines = [
+		titleLine,
 		"",
 		"## Summary",
 		"",
 		...summary,
 		"",
+		"## Configuration",
+		"",
+		"Resolved runtime configuration for this agent (model, effort, tools, skills, extensions, keys, env).",
+		"",
+		configTable,
+	];
+	const outputLines = [
 		"## Agent answer",
 		"",
 		"Best available agent text. Raw Pi JSON stdout is hidden when it parses cleanly; otherwise see Diagnostics/artifact.",
@@ -149,14 +209,6 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 			? ["", "## Structured output", "", fencedBlock(truncate(structuredOutput, MAX_TOOL_TEXT), "text")]
 			: []),
 		"",
-		"## Prompt sent to this agent",
-		"",
-		prompt ? fencedBlock(promptText, "text") : promptText,
-		"",
-		"## Runtime access",
-		"",
-		access ? truncate(access, 6000) : accessFallback,
-		"",
 		"## Diagnostics",
 		"",
 		...(stdoutNote ? [`- stdout: ${stdoutNote}`] : ["- stdout: not recorded yet."]),
@@ -165,6 +217,56 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 		...(stderr || liveStderr
 			? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")]
 			: []),
+	];
+	const promptLines = [
+		"## Prompt sent to this agent",
+		"",
+		prompt ? fencedBlock(promptText, "text") : promptText,
+		...(access ? ["", "## Runtime access (recorded in artifact)", "", truncate(access, 6000)] : []),
+	];
+	// `full` preserves the legacy single-document section order exactly: card, answer,
+	// structured output, prompt, access, diagnostics.
+	const diagnosticsIndex = outputLines.indexOf("## Diagnostics");
+	const answerAndStructured = outputLines.slice(0, diagnosticsIndex - 1);
+	const diagnostics = outputLines.slice(diagnosticsIndex);
+	const full = [...cardLines, "", ...answerAndStructured, "", ...promptLines, "", ...diagnostics].join("\n");
+	return {
+		card: cardLines.join("\n"),
+		prompt: promptLines.join("\n"),
+		output: outputLines.join("\n"),
+		full,
+	};
+}
+
+async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<string> {
+	return (await buildAgentViewParts(run, agent)).full;
+}
+
+// The Definition sub-tab: the workflow source this run executed, as a fenced code block,
+// with a resume-cache warning when the file changed since the run (same hash check the
+// run view does).
+async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string> {
+	const header = [`# Workflow definition: ${run.workflow}`, "", `File: ${run.file ?? "unknown"}`];
+	if (!run.file) return [...header, "", "No workflow file was recorded for this run."].join("\n");
+	let code: string;
+	try {
+		code = await fs.readFile(run.file, "utf8");
+	} catch (err) {
+		return [...header, "", `Cannot read workflow file: ${err instanceof Error ? err.message : String(err)}`].join(
+			"\n",
+		);
+	}
+	const codeChanged = run.codeHash !== undefined && computeCodeHash(code) !== run.codeHash;
+	return [
+		...header,
+		...(codeChanged
+			? [
+					"",
+					"⚠ Warning: this file changed since the run started. On resume, calls whose arguments changed will re-execute (cache miss); unchanged calls stay cached.",
+				]
+			: []),
+		"",
+		fencedBlock(truncate(code, 60_000), "js"),
 	].join("\n");
 }
 
@@ -199,6 +301,10 @@ export async function showLiveAgentView(
 		// open→action→reopen loop: `f` lets the user open one of the run's artifacts in the
 		// right viewer (.md → Markdown, else text), then returns to the live agent view — the
 		// same affordance the run view has, so the agent screen "fits together" with it.
+		// The detail screen is a SUB-TABBED viewer (Card / Prompt / Output / Definition / Run)
+		// so the user can move between the agent card, its prompt, its output, the workflow
+		// source, and the full run view without bouncing back to the dashboard.
+		let definitionCache: string | undefined; // static per run: load once, reuse across tabs/refreshes
 		for (;;) {
 			let timer: NodeJS.Timeout | undefined;
 			let refreshing = false;
@@ -206,30 +312,63 @@ export async function showLiveAgentView(
 			let intent: "openFiles" | undefined;
 			try {
 				intent = await ctx.ui.custom<"openFiles" | undefined>((tui, theme, _keybindings, done) => {
-					component = new AgentLiveViewComponent(
-						theme,
-						() => tui.terminal.rows,
-						done,
-						() => tui.requestRender(),
-						true,
-					);
+					let pending = false;
 					const refresh = async () => {
-						if (refreshing || !component) return;
+						if (!component) return;
+						if (refreshing) {
+							// A tab switch during an in-flight refresh must not be dropped: the new
+							// tab would stay on "Loading…" forever once the terminal-state poll stops.
+							pending = true;
+							return;
+						}
 						refreshing = true;
 						try {
 							const latest = await latestAgentForRun(run, agent);
-							component.setContent(await formatAgentView(run, latest), latest.state);
+							component.setState(latest.state);
+							const active = component.getActiveTab();
+							if (active === "card" || active === "prompt" || active === "output") {
+								// One artifact read yields all three agent sections; fill them together.
+								const parts = await buildAgentViewParts(run, latest);
+								component.setTabContent("card", parts.card);
+								component.setTabContent("prompt", parts.prompt);
+								component.setTabContent("output", parts.output);
+							} else if (active === "definition") {
+								definitionCache ??= await formatWorkflowDefinition(run);
+								component.setTabContent("definition", definitionCache);
+							} else if (active === "run") {
+								component.setTabContent("run", await formatRunView(run));
+							}
 							tui.requestRender();
-							// Stop polling once the agent is terminal; the final output stays
-							// on screen until the user closes the view.
+							// Stop polling once the agent is terminal; the final output stays on
+							// screen until the user closes the view. Tab switches still refresh
+							// on demand via onTabChange below.
 							if (timer && isTerminalAgentState(latest.state)) {
 								clearInterval(timer);
 								timer = undefined;
 							}
 						} finally {
 							refreshing = false;
+							if (pending) {
+								pending = false;
+								void refresh();
+							}
 						}
 					};
+					component = new AgentLiveViewComponent(
+						theme,
+						() => tui.terminal.rows,
+						done,
+						() => tui.requestRender(),
+						true,
+						[
+							{ key: "card", label: "Card" },
+							{ key: "prompt", label: "Prompt" },
+							{ key: "output", label: "Output" },
+							{ key: "definition", label: "Definition" },
+							{ key: "run", label: "Run" },
+						],
+						() => void refresh(), // load the newly-focused tab immediately
+					);
 					timer = setInterval(() => void refresh(), 1000);
 					void refresh();
 					return component;
