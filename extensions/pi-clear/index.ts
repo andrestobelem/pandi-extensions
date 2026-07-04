@@ -32,7 +32,11 @@ export default function clearExtension(pi: ExtensionAPI): void {
 			try {
 				await ctx.newSession();
 			} catch (error) {
-				notify(ctx, `clear failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+				notify(
+					ctx,
+					`clear failed: ${error instanceof Error ? error.message : String(error)} — try /new instead.`,
+					"error",
+				);
 			}
 		},
 	});
