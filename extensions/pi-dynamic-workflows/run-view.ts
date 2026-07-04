@@ -101,22 +101,21 @@ export async function resolveRun(ctx: ExtensionContext, id: string | undefined):
 	return found;
 }
 
-export async function listRunFiles(runDir: string, maxFiles = 80): Promise<string[]> {
+export async function listRunFiles(runDir: string, maxFiles = 80): Promise<{ files: string[]; omitted: number }> {
 	const out: string[] = [];
 	async function walk(dir: string): Promise<void> {
 		for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-			if (out.length >= maxFiles) return;
 			const full = path.join(dir, entry.name);
 			if (entry.isDirectory()) await walk(full);
 			else if (entry.isFile()) out.push(path.relative(runDir, full).replaceAll(path.sep, "/"));
 		}
 	}
 	await walk(runDir);
-	return out;
+	return { files: out.slice(0, maxFiles), omitted: Math.max(0, out.length - maxFiles) };
 }
 
 export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
-	const files = await listRunFiles(run.runDir);
+	const { files, omitted } = await listRunFiles(run.runDir);
 	const parsedEvents = await readRunEvents(run.runDir);
 	const started = new Date(run.startedAt).getTime();
 	const logs = getRunLogs(run).length > 0 ? getRunLogs(run) : parsedEvents.logs;
@@ -200,6 +199,7 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		"## Files / artifacts",
 		"",
 		...(files.length ? files.map((file) => `- ${file}`) : ["No files found."]),
+		...(omitted > 0 ? [`${omitted} more files not listed.`] : []),
 		...(isRunResult(run) && run.output !== undefined
 			? ["", "## Output", "", stringify(run.output, MAX_TOOL_TEXT)]
 			: state === "running"
@@ -232,7 +232,7 @@ export async function openRunArtifact(ctx: ExtensionContext, runDir: string, rel
 // Let the user pick one of a run's artifacts and open it in the viewer that fits it. Shared
 // by the run view and the live agent view so the `f` affordance behaves identically in both.
 export async function pickAndOpenRunArtifact(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<void> {
-	const files = await listRunFiles(run.runDir);
+	const { files } = await listRunFiles(run.runDir);
 	if (files.length === 0) {
 		notify(ctx, "No artifacts found for this run.", "info");
 		return;

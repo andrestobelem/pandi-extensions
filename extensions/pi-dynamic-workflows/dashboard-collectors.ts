@@ -126,7 +126,7 @@ export interface WorkflowMonitorModel {
 // never a run artifact, so writing report.html must not change the artifact count.
 export async function countRunArtifacts(runDir: string): Promise<number> {
 	try {
-		const files = await listRunFiles(runDir, 200);
+		const { files } = await listRunFiles(runDir, 200);
 		const bookkeeping = new Set([
 			"status.json",
 			"result.json",
