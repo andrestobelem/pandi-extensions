@@ -1,6 +1,26 @@
 # @pandi-coding-agent/local-memory
 
-Give Pi a project-local memory folder (`.pi/memory/`): a capped `MEMORY.md` index is injected into the system prompt every turn, and Pi can persist durable notes on its own with a `remember` tool.
+Give Pi a project-local memory folder (`.pi/memory/`) that survives across sessions. Without it, every new session starts from zero and has to rediscover your conventions and past decisions; with it, a capped `MEMORY.md` index is injected into the system prompt every turn, and Pi can persist durable notes on its own with a `remember` tool. Reach for this when you want stable preferences, conventions, and decisions to stick without hand-editing files.
+
+## Example
+
+Pi calls `remember` on its own when something is worth keeping:
+
+```json
+{ "note": "This repo uses pnpm, not npm." }
+```
+
+That appends a dated bullet inside a managed block of `.pi/memory/MEMORY.md`:
+
+```md
+<!-- pi:remember:begin -->
+## Agent memory (auto-managed by the remember tool)
+
+- 2026-07-04: This repo uses pnpm, not npm.
+<!-- pi:remember:end -->
+```
+
+Next session, this file is injected into the system prompt automatically — no extra step.
 
 ## What you get
 
@@ -43,7 +63,7 @@ pi --no-extensions -e ./extensions/pi-local-memory   # one-off trial, nothing el
 
 - **Trusted projects only.** When loaded (e.g. globally), the extension auto-injects `.pi/memory/MEMORY.md` (or the legacy `.pi/MEMORY.md`) from whatever project you open — no prompt, allowlist, or provenance check. A repository you do not control could ship a committed index to influence the assistant.
 - Topic files are lower risk: they are listed but never auto-injected.
-- Literal `</local_memory>` tags in the index are escaped, and the index is length-capped, so injected content cannot break out of its block structurally.
+- Literal `</local_memory>` tags in the index are escaped, and the index is length-capped, so the injected body cannot break out of its block structurally. This does not cover the whole tag, though: the `path="${shownPath}"` attribute of the opening `<local_memory path="...">` tag is built from `ctx.cwd` (via `indexPathOf`/`legacyPathOf`) and is not escaped (`extensions/pi-local-memory/index.ts:157`), so a crafted project path could break out of the attribute value structurally.
 - **Write-side (anti-injection).** `remember` writes to a channel re-injected into future sessions' system prompts as trusted context — an authority boundary. The assistant should persist only facts it has itself verified, in its own words, and never copy untrusted retrieved/tool/web/user-pasted content (or instructions embedded in it) into memory. Delimiters are not a semantic security boundary; the real defense is not ingesting untrusted content in the first place.
 - Use this only for trusted project-local notes.
 

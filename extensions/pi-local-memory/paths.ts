@@ -4,19 +4,20 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { INDEX_FILE, MEMORY_DIR } from "./memory.js";
 
-/** `.pi/memory/` folder that holds the injected index plus on-demand topic files. */
+/** `<configDir>/memory/` folder that holds the injected index plus on-demand topic files. */
 export function memoryDirOf(cwd: string): string {
-	return join(cwd, ".pi", MEMORY_DIR);
+	return join(cwd, CONFIG_DIR_NAME, MEMORY_DIR);
 }
-/** `.pi/memory/MEMORY.md` — the entrypoint injected at startup. */
+/** `<configDir>/memory/MEMORY.md` — the entrypoint injected at startup. */
 export function indexPathOf(cwd: string): string {
 	return join(memoryDirOf(cwd), INDEX_FILE);
 }
 /** Pre-folder location; still read as a fallback / migration source. */
 export function legacyPathOf(cwd: string): string {
-	return join(cwd, ".pi", "MEMORY.md");
+	return join(cwd, CONFIG_DIR_NAME, "MEMORY.md");
 }
 
 /** Read a file as text, or null when absent OR unreadable (EISDIR/EACCES/TOCTOU). */

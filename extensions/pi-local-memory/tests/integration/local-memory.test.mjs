@@ -15,7 +15,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -28,6 +28,8 @@ async function build() {
 		src: path.join(REPO_ROOT, "extensions", "pi-local-memory", "index.ts"),
 		outName: "lm.mjs",
 		npx: "--no-install",
+		// paths.ts/index.ts import CONFIG_DIR_NAME from the SDK, so the bundle needs the stub.
+		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	return url;
 }
