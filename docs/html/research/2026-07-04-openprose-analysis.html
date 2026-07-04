@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenProse ("Prose") — analysis and comparison with Dynamic Workflows</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/research</div>
+		<h1>OpenProse ("Prose") — analysis and comparison with Dynamic Workflows</h1>
+	</header>
+	<main>
+<p>Date: 2026-07-04</p>
+<h2>Objective</h2>
+<p>Understand what OpenProse is (the &quot;programming language for AI sessions&quot; behind
+the locally installed <code>open-prose</code> skill), how its declarative contract model
+works, and how it compares to this repo&#39;s imperative dynamic workflows — so we
+can borrow what helps and be explicit about the trade-offs.</p>
+<h2>Sources reviewed</h2>
+<ul>
+<li><strong>prose.md / openprose.ai</strong> (official site; openprose.ai 301-redirects to
+prose.md) — declarative model, primitives, &quot;Prose Complete&quot; harness list.
+<a href="https://prose.md/">https://prose.md/</a></li>
+<li><strong>Turing Post — &quot;OpenProse: A Language for Reliable AI Agent Workflows&quot;</strong>
+(guest post by creator Raymond Weitekamp, June 2026) — motivation, receipts,
+ProseScript, honest limitations.
+<a href="https://www.turingpost.com/p/openprose-a-language-for-reliable-agents">https://www.turingpost.com/p/openprose-a-language-for-reliable-agents</a></li>
+<li><strong>DEV Community — &quot;OpenProse: A Programming Language for AI Sessions&quot;</strong>
+(Steven Gonsalvez) — syntax example, Forme contract resolution, debugging
+critique.
+<a href="https://dev.to/stevengonsalvez/openprose-a-programming-language-for-ai-sessions-d84">https://dev.to/stevengonsalvez/openprose-a-programming-language-for-ai-sessions-d84</a></li>
+<li><strong>Sean Weldon — &quot;Recursive Coding Agents&quot; (interview with Raymond
+Weitekamp, 2026-06-27)</strong> — context on recursive/self-hosting usage.
+<a href="https://www.sean-weldon.com/blog/2026-06-27-recursive-coding-agents-raymond-weitekamp-openprose">https://www.sean-weldon.com/blog/2026-06-27-recursive-coding-agents-raymond-weitekamp-openprose</a></li>
+<li><strong>Local skill</strong> <code>~/.agents/skills/open-prose/</code> (v0.15.0, also installed at
+<code>~/.claude/skills/open-prose/</code>) — SKILL.md, five load-bearing pieces,
+activation contract.</li>
+</ul>
+<h2>What OpenProse is</h2>
+<p>OpenProse (Raymond Weitekamp, open source) treats an AI session as a
+Turing-complete virtual machine. Programs are Markdown files (<code>*.prose.md</code>)
+with YAML frontmatter; the coding agent itself is the compiler and runtime —
+there is no external server or orchestration framework. It runs on any
+&quot;Prose Complete&quot; harness: Claude Code, OpenCode, Amp, Codex.</p>
+<p>The problem it targets is trust and reuse, not model capability: successful
+agent sessions vanish into chat history, forcing developers to babysit agents
+instead of replaying proven flows. OpenProse converts those flows into
+versionable contracts, and each run leaves an audit trail (&quot;receipts&quot;).</p>
+<h2>Execution model</h2>
+<ul>
+<li><strong>Declarative contracts.</strong> A unit of work (a <em>responsibility</em>) declares
+<code>### Requires</code> (preconditions/inputs), <code>### Ensures</code>
+(postconditions/outputs), and preferred strategies. There is no explicit
+sequencing: if step A <em>ensures</em> what step B <em>requires</em>, A runs first;
+independent steps parallelize automatically.</li>
+<li><strong>Forme</strong> is the semantic dependency-injection container that wires
+responsibilities by matching their contracts.</li>
+<li><strong>ProseScript</strong> is the optional imperative layer for pinned choreography —
+explicit order, loops, conditionals, retries, and parallel blocks inside a
+<code>### Execution</code> block.</li>
+<li><strong>In-session execution.</strong> Unlike LangChain/CrewAI/AutoGen (external
+orchestration) or BAML/DSPy (external harness), the agent reads the Markdown
+and becomes the VM, spawning subagents and persisting run state under an
+OpenProse root.</li>
+<li>Also supports persistent agents (state across invocations), pipelines, and
+intermediate variables.</li>
+</ul>
+<p>Minimal step example (from the DEV article):</p>
+<pre><code class="language-markdown">---
+requires: [codebase_analysis]
+ensures: [test_plan]
+---
+
+Review the codebase analysis and create a comprehensive test plan
+covering all edge cases for the authentication module.
+</code></pre>
+<h2>Local skill (v0.15.0)</h2>
+<p>The installed <code>open-prose</code> skill documents five load-bearing pieces:</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Contract Markdown</td>
+<td><code>contract-markdown.md</code></td>
+<td>Human-readable <code>*.prose.md</code> source format</td>
+</tr>
+<tr>
+<td>Forme</td>
+<td><code>forme.md</code></td>
+<td>Semantic DI container that wires contracts</td>
+</tr>
+<tr>
+<td>Prose VM</td>
+<td><code>prose.md</code></td>
+<td>Execution engine for responsibilities/functions</td>
+</tr>
+<tr>
+<td>ProseScript</td>
+<td><code>prosescript.md</code></td>
+<td>Imperative layer for <code>### Execution</code> blocks</td>
+</tr>
+<tr>
+<td>Responsibility Runtime</td>
+<td><code>responsibility-runtime.md</code></td>
+<td>Standing goals, Reactor, compile/serve doctrine</td>
+</tr>
+</tbody></table>
+<p>Activation: typing <code>prose ...</code>, opening a <code>.prose.md</code> with <code>kind:</code>
+frontmatter, or asking for reusable multi-agent orchestration; <code>prose run</code> is
+an in-session instruction (the agent embodies the VM — no <code>prose</code> binary).</p>
+<h2>Strengths and limitations</h2>
+<p>Strengths: portable across harnesses, zero external dependencies, programs
+improve for free as models improve, Markdown+YAML is readable and
+git-friendly, automatic parallelization from contracts.</p>
+<p>Limitations (the creator states them himself): it does <strong>not</strong> turn an LLM
+into deterministic infrastructure — runs remain non-deterministic, contracts
+must be well designed, and it works best with frontier models. Debugging is
+the sharpest trade-off: when the runtime decides execution order, explaining
+<em>why</em> it ran in that order requires understanding the contract-resolution
+algorithm.</p>
+<h2>Comparison with this repo&#39;s dynamic workflows</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>OpenProse</th>
+<th>pi-dynamic-workflows</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Paradigm</td>
+<td>Declarative contracts (Requires/Ensures)</td>
+<td>Imperative JavaScript (<code>pipeline()</code>, <code>parallel()</code>)</td>
+</tr>
+<tr>
+<td>Who decides order</td>
+<td>Forme (semantic contract matching)</td>
+<td>The script, explicitly</td>
+</tr>
+<tr>
+<td>Escape hatch</td>
+<td>ProseScript for pinned choreography</td>
+<td>n/a (order is always pinned)</td>
+</tr>
+<tr>
+<td>Determinism of control flow</td>
+<td>Model-resolved, non-deterministic</td>
+<td>Deterministic script</td>
+</tr>
+<tr>
+<td>Observability / debugging</td>
+<td>Receipts; order requires understanding resolution</td>
+<td>Runs, artifacts, journal; order is readable in code</td>
+</tr>
+<tr>
+<td>Portability</td>
+<td>Any &quot;Prose Complete&quot; harness</td>
+<td>Claude Code (Workflow) and pi (<code>dynamic_workflow</code>)</td>
+</tr>
+</tbody></table>
+<p>Same goal (reusable multi-agent orchestration), inverse bet: OpenProse
+optimizes expressiveness and intent reuse; this repo optimizes deterministic
+control flow and inspectable evidence — exactly the property the project
+instructions call &quot;observable workflows, inspectable artifacts over hidden
+magic&quot;.</p>
+<h2>Possible next steps</h2>
+<ul>
+<li>Read the local examples (<code>~/.agents/skills/open-prose/examples/</code>,
+e.g. <code>session-to-prose</code>) to see a full responsibility in practice.</li>
+<li>Evaluate whether a Requires/Ensures-style contract header would improve our
+workflow drafts&#39; self-documentation without giving up scripted order.</li>
+<li>Compare <code>workflow-factory</code> against OpenProse&#39;s session-to-prose flow (both
+convert a successful ad-hoc session into a reusable artifact).</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>
