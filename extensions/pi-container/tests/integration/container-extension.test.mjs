@@ -642,6 +642,168 @@ async function scenarioCommandAndToolOutsideIn(url) {
 	}
 }
 
+// Size tiers (named cpu/memory presets): the tier table is pinned EXACTLY, the pure
+// resolver honors explicit-cpus/memory-over-tier precedence, argv builders emit the
+// resolved flags (ephemeral run gains --cpus/--memory), an unknown tier is refused
+// BEFORE any spawn, and tiers never apply to run-inside-an-existing-machine (its
+// resources are fixed at creation by the upstream CLI).
+async function scenarioSizeTiers(url) {
+	const mod = await loadModule(url);
+	const eq = (label, got, want) => check(label, JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got));
+
+	// tier table pinned exactly (not snapshot-fuzzy)
+	eq("TIER_PRESETS: pinned values", mod.TIER_PRESETS, {
+		micro: { cpus: 1, memory: "512M" },
+		tiny: { cpus: 2, memory: "1G" },
+		small: { cpus: 2, memory: "2G" },
+		medium: { cpus: 4, memory: "4G" },
+		large: { cpus: 8, memory: "8G" },
+	});
+	eq("TIER_NAMES: ordered ladder", mod.TIER_NAMES, ["micro", "tiny", "small", "medium", "large"]);
+
+	// pure resolver: tier alone, explicit-over-tier per field, neither, unknown
+	eq("resolveSize: tier only", mod.resolveSize({ tier: "small" }), { ok: true, cpus: 2, memory: "2G" });
+	eq("resolveSize: explicit cpus wins over tier", mod.resolveSize({ tier: "small", cpus: 6 }), {
+		ok: true,
+		cpus: 6,
+		memory: "2G",
+	});
+	eq("resolveSize: explicit memory wins over tier", mod.resolveSize({ tier: "small", memory: "16G" }), {
+		ok: true,
+		cpus: 2,
+		memory: "16G",
+	});
+	eq("resolveSize: neither tier nor sizes → empty (CLI default)", mod.resolveSize({}), { ok: true });
+	{
+		const bad = mod.resolveSize({ tier: "xl" });
+		check(
+			"resolveSize: unknown tier → ok:false listing valid tiers",
+			bad.ok === false && /micro/.test(bad.error) && /large/.test(bad.error),
+			JSON.stringify(bad),
+		);
+	}
+
+	// ephemeral run argv now carries the resolved flags (today it silently drops them)
+	eq(
+		"buildEphemeralRunArgs: emits --cpus/--memory before image",
+		mod.buildEphemeralRunArgs({ image: "alpine:latest", cpus: 2, memory: "2G", command: ["pwd"] }),
+		["run", "--rm", "--cpus", "2", "--memory", "2G", "alpine:latest", "pwd"],
+	);
+
+	// create: tier resolves into --cpus/--memory; explicit values override; bad tier never spawns
+	{
+		const run = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
+		const res = await mod.runCreate(run, { image: "alpine:latest", name: "dev", tier: "small" }, {});
+		check("runCreate: tier accepted", res.ok === true, JSON.stringify(res));
+		eq("runCreate: tier → resolved argv", run.calls[0], [
+			"machine",
+			"create",
+			"-n",
+			"dev",
+			"--cpus",
+			"2",
+			"--memory",
+			"2G",
+			"alpine:latest",
+		]);
+	}
+	{
+		const run = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
+		await mod.runCreate(run, { image: "alpine:latest", tier: "small", cpus: 6 }, {});
+		eq("runCreate: explicit cpus overrides tier in argv", run.calls[0], [
+			"machine",
+			"create",
+			"--cpus",
+			"6",
+			"--memory",
+			"2G",
+			"alpine:latest",
+		]);
+	}
+	{
+		const run = fakeRunner();
+		const res = await mod.runCreate(run, { image: "alpine:latest", tier: "xl" }, {});
+		check(
+			"runCreate: unknown tier refused, no spawn",
+			res.ok === false && run.calls.length === 0 && /micro/.test(res.text),
+			JSON.stringify(res),
+		);
+	}
+
+	// run: tier applies to the EPHEMERAL path only; with an existing machine it is refused
+	{
+		const run = fakeRunner([{ ok: true, stdout: "ok\n", stderr: "", exitCode: 0 }]);
+		const res = await mod.runExec(run, { image: "alpine:latest", tier: "small", command: ["pwd"] }, {});
+		check("runExec ephemeral: tier accepted", res.ok === true, JSON.stringify(res));
+		eq("runExec ephemeral: tier → resolved argv", run.calls[0], [
+			"run",
+			"--rm",
+			"--cpus",
+			"2",
+			"--memory",
+			"2G",
+			"alpine:latest",
+			"pwd",
+		]);
+	}
+	{
+		const run = fakeRunner();
+		const res = await mod.runExec(run, { machine: "dev", tier: "small", command: ["pwd"] }, {});
+		check(
+			"runExec: tier with existing machine refused, no spawn",
+			res.ok === false && run.calls.length === 0 && /fixed at creation/i.test(res.text),
+			JSON.stringify(res),
+		);
+	}
+	{
+		const run = fakeRunner();
+		const res = await mod.runExec(run, { image: "alpine:latest", tier: "xl", command: ["pwd"] }, {});
+		check(
+			"runExec ephemeral: unknown tier refused, no spawn",
+			res.ok === false && run.calls.length === 0,
+			JSON.stringify(res),
+		);
+	}
+
+	// /container create flag parsing (pure): --size extracted from the token list
+	eq("parseSizeFlag: extracts --size", mod.parseSizeFlag(["alpine:latest", "dev", "--size", "small"]), {
+		tokens: ["alpine:latest", "dev"],
+		tier: "small",
+	});
+	eq("parseSizeFlag: no flag passes through", mod.parseSizeFlag(["alpine:latest"]), { tokens: ["alpine:latest"] });
+	{
+		const bad = mod.parseSizeFlag(["alpine:latest", "--size"]);
+		check("parseSizeFlag: dangling --size → error", typeof bad.error === "string", JSON.stringify(bad));
+	}
+
+	// tool schema + help parity
+	{
+		const { commands, tools } = await loadExtension(url);
+		const tool = tools.get("container_sandbox");
+		const tierSchema = JSON.stringify(tool?.parameters?.properties?.tier ?? "");
+		check(
+			"tool schema exposes tier enum (micro..large)",
+			tierSchema.includes("micro") && tierSchema.includes("large"),
+			tierSchema,
+		);
+		if (mod.isSupportedPlatform()) {
+			const notes = [];
+			const ctx = {
+				mode: "tui",
+				hasUI: true,
+				cwd: REPO_ROOT,
+				ui: { notify: (msg, type) => notes.push({ msg, type }) },
+			};
+			await commands.get("container").handler("help", ctx);
+			check(
+				"/container help documents --size tiers",
+				notes.some((n) => /--size/.test(n.msg) && /micro/.test(n.msg)),
+				JSON.stringify(notes.map((n) => n.msg.slice(0, 80))),
+			);
+		}
+	}
+}
+
 async function main() {
 	const { url } = await buildBundle();
 	await scenarioRegistration(url);
@@ -653,6 +815,7 @@ async function main() {
 	await scenarioStatusHandler(url);
 	await scenarioHandlerErrorEdges(url);
 	await scenarioParseContainerCommand(url);
+	await scenarioSizeTiers(url);
 	await scenarioRealTimeoutAndAbort(url);
 	await scenarioCommandAndToolOutsideIn(url);
 

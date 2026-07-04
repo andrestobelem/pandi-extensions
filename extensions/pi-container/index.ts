@@ -18,6 +18,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import {
+	describeTiers,
 	type HandlerResult,
 	isSupportedPlatform,
 	runContainer,
@@ -27,6 +28,7 @@ import {
 	runRemove,
 	runStatus,
 	runStop,
+	TIER_NAMES,
 } from "./container.js";
 import { notify } from "./notify.js";
 
@@ -41,10 +43,12 @@ export {
 	buildStatusArgs,
 	buildStopArgs,
 	describeMachine,
+	describeTiers,
 	formatMachineList,
 	humanBytes,
 	isSupportedPlatform,
 	parseMachineList,
+	resolveSize,
 	runContainer,
 	runCreate,
 	runExec,
@@ -52,6 +56,8 @@ export {
 	runRemove,
 	runStatus,
 	runStop,
+	TIER_NAMES,
+	TIER_PRESETS,
 	validateMachineName,
 } from "./container.js";
 
@@ -61,10 +67,13 @@ const HELP_TEXT = [
 	"Usage:",
 	"  /container [status]                         subsystem + machine overview",
 	"  /container list                            list container machines",
-	"  /container create <image> [name]           create a machine (e.g. alpine:latest dev)",
+	"  /container create <image> [name] [--size <tier>]   create a machine (e.g. alpine:latest dev --size small)",
 	"  /container run <machine> -- <cmd...>       run a command inside a machine",
 	"  /container stop [name]                     stop a machine (default if omitted)",
 	"  /container remove <name>                   delete a machine (confirms first)",
+	"",
+	`Size tiers: ${describeTiers()}.`,
+	"Without a size, the CLI defaults memory to HALF of the host RAM (v1.0.0).",
 	"",
 	"Apple `container` needs macOS on Apple Silicon, `brew install container`, a",
 	"configured kernel (`container system kernel set --recommended`), and a booted",
@@ -99,6 +108,29 @@ export async function resolveContainerInput(input: string, ctx: ExtensionContext
 // --------------------------------------------------------------------------
 // Command parsing (tiny, local — no shared runtime imports)
 // --------------------------------------------------------------------------
+
+/**
+ * Extract a `--size <tier>` (alias `--tier <tier>`) flag from a token list (pure).
+ * Returns the remaining tokens plus the tier; a dangling flag yields a bounded error.
+ */
+export function parseSizeFlag(tokens: string[]): { tokens: string[]; tier?: string; error?: string } {
+	const out: string[] = [];
+	let tier: string | undefined;
+	for (let i = 0; i < tokens.length; i++) {
+		const token = tokens[i];
+		if (token === "--size" || token === "--tier") {
+			const next = tokens[i + 1];
+			if (!next || next.startsWith("--")) {
+				return { tokens: out, error: `--size requires a tier name. Valid tiers: ${describeTiers()}.` };
+			}
+			tier = next;
+			i += 1;
+		} else {
+			out.push(token);
+		}
+	}
+	return tier != null ? { tokens: out, tier } : { tokens: out };
+}
 
 /** Split a command line into the subcommand and the rest, honoring a `--` argv separator. */
 export function parseContainerCommand(input: string): {
@@ -148,9 +180,19 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 		case "ls":
 			result = await runList(runContainer, opts);
 			break;
-		case "create":
-			result = await runCreate(runContainer, { image: rest[0] ?? "", name: rest[1] }, opts);
+		case "create": {
+			const parsed = parseSizeFlag(rest);
+			if (parsed.error) {
+				notify(ctx, parsed.error, "error");
+				return;
+			}
+			result = await runCreate(
+				runContainer,
+				{ image: parsed.tokens[0] ?? "", name: parsed.tokens[1], tier: parsed.tier },
+				opts,
+			);
 			break;
+		}
 		case "run":
 		case "exec":
 			result = await runExec(runContainer, { machine: rest[0], command }, opts);
@@ -195,7 +237,16 @@ export default function containerExtension(pi: ExtensionAPI): void {
 		description: "Manage Apple container sandboxes: status | list | create | run | stop | remove",
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/);
-			if (tokens.length > 1) return null;
+			if (tokens.length > 1) {
+				// `create … --size <tier>`: complete the tier names.
+				const prev = tokens[tokens.length - 2];
+				if (tokens[0] === "create" && (prev === "--size" || prev === "--tier")) {
+					const needle = (tokens[tokens.length - 1] ?? "").toLowerCase();
+					const tiers = TIER_NAMES.filter((t) => t.startsWith(needle));
+					return tiers.length > 0 ? tiers.map((t) => ({ value: t, label: t })) : null;
+				}
+				return null;
+			}
 			const needle = (tokens[0] ?? "").toLowerCase();
 			const items = SUBCOMMANDS.filter((sub) => sub.startsWith(needle));
 			return items.length > 0 ? items.map((sub) => ({ value: sub, label: sub })) : null;
@@ -215,6 +266,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 			"Use container_sandbox to run untrusted or isolated Linux commands inside Apple `container` micro-VMs instead of running them directly on the host.",
 			"For action 'run', pass 'command' as an argv array (e.g. [\"uname\",\"-a\"]) plus either 'machine' (an existing machine) or 'image' (ephemeral container). Never embed a shell string.",
 			"container_sandbox 'remove' never deletes by default: only pass force:true when the user explicitly accepts deleting the machine.",
+			"Prefer a named size tier (micro/tiny/small/medium/large) for 'create' and ephemeral 'run': without one the CLI defaults machine memory to HALF of the host RAM. Explicit cpus/memory override the tier; tiers never apply to a run inside an existing machine.",
 			"Apple `container` needs macOS on Apple Silicon, `brew install container`, a configured kernel, and a booted subsystem; surface the install/start guidance instead of retrying blindly.",
 		],
 		parameters: Type.Object({
@@ -230,8 +282,16 @@ export default function containerExtension(pi: ExtensionAPI): void {
 				Type.String({ description: "For run: existing machine to run inside (else ephemeral via image)." }),
 			),
 			workdir: Type.Optional(Type.String({ description: "For run: working directory inside the container." })),
-			cpus: Type.Optional(Type.Number({ description: "For create: number of virtual CPUs." })),
-			memory: Type.Optional(Type.String({ description: "For create: memory allocation, e.g. 8G." })),
+			tier: Type.Optional(
+				StringEnum(TIER_NAMES, {
+					description:
+						"For create or ephemeral run: named size preset (micro 1cpu/512M, tiny 2cpu/1G, small 2cpu/2G, medium 4cpu/4G, large 8cpu/8G). Explicit cpus/memory override it.",
+				}),
+			),
+			cpus: Type.Optional(Type.Number({ description: "For create or ephemeral run: number of virtual CPUs." })),
+			memory: Type.Optional(
+				Type.String({ description: "For create or ephemeral run: memory allocation, e.g. 8G." }),
+			),
 			homeMount: Type.Optional(StringEnum(["ro", "rw", "none"] as const)),
 			setDefault: Type.Optional(Type.Boolean({ description: "For create: set this machine as the default." })),
 			force: Type.Optional(Type.Boolean({ description: "For remove: confirm deleting the machine." })),
@@ -257,6 +317,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 							{
 								image: params.image ?? "",
 								name: params.name,
+								tier: params.tier,
 								cpus: params.cpus,
 								memory: params.memory,
 								homeMount: params.homeMount,
@@ -274,6 +335,9 @@ export default function containerExtension(pi: ExtensionAPI): void {
 								machine: params.machine ?? params.name,
 								image: params.image,
 								workdir: params.workdir,
+								tier: params.tier,
+								cpus: params.cpus,
+								memory: params.memory,
 							},
 							opts,
 						),

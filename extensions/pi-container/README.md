@@ -31,7 +31,7 @@ pi --no-extensions -e ./extensions/pi-container   # one-off trial, nothing else 
 | `/container` | Bare invocation opens an interactive action selector (falls back to `status` off-TUI). |
 | `/container status` | Show subsystem + machine overview. |
 | `/container list` | List container machines. |
-| `/container create <image> [name]` | Create a machine (e.g. `alpine:latest dev`). |
+| `/container create <image> [name] [--size <tier>]` | Create a machine (e.g. `alpine:latest dev --size small`). |
 | `/container run <machine> -- <cmd...>` | Run a command inside a machine, e.g. `/container run dev -- uname -a`. |
 | `/container stop [name]` | Stop a machine (the default machine if omitted). |
 | `/container remove <name>` | Delete a machine; asks for confirmation in a TUI first. |
@@ -47,7 +47,8 @@ The `container_sandbox` tool takes an `action` plus:
 | `image` | OCI image (create, or ephemeral run), e.g. `alpine:latest`. |
 | `command` | Argv array for `run`, e.g. `["uname","-a"]`. |
 | `machine` | Existing machine to run inside (else ephemeral via `image`). |
-| `workdir`, `cpus`, `memory`, `homeMount` (`ro`\|`rw`\|`none`), `setDefault` | Run/create tuning. |
+| `tier` | Named size preset for `create` or ephemeral `run` — see [Size tiers](#size-tiers). |
+| `workdir`, `cpus`, `memory`, `homeMount` (`ro`\|`rw`\|`none`), `setDefault` | Run/create tuning. Explicit `cpus`/`memory` override `tier`. |
 | `force` | Required for `remove`. |
 
 It returns a text summary plus structured `details` (the parsed machine list, the created name, the run target/exit code, etc.).
@@ -63,6 +64,32 @@ Two run modes:
 ```
 
 A persistent machine mirrors your macOS home/cwd into Linux (edit on macOS, run in Linux); an ephemeral container is a one-shot `container run --rm`.
+
+## Size tiers
+
+Apple `container` v1.0.0 defaults `machine create --memory` to **half of the host's RAM** (e.g. ~18G on a 36GB machine) and leaves the `--cpus` default undocumented (`container machine create --help`); ephemeral `run`'s `-c`/`-m` defaults are likewise undocumented. Half the host RAM is a lot for a sandbox, so the extension ships named presets:
+
+| Tier | CPUs | Memory |
+| --- | --- | --- |
+| `micro` | 1 | 512M |
+| `tiny` | 2 | 1G |
+| `small` | 2 | 2G |
+| `medium` | 4 | 4G |
+| `large` | 8 | 8G |
+
+- **Opt-in**: with no `tier` and no explicit `cpus`/`memory`, no flags are emitted and the CLI keeps its own defaults (identical behavior to before tiers existed).
+- **Precedence**: explicit `cpus`/`memory` override the tier, field by field.
+- **Scope**: tiers apply to `create` (machine) and to ephemeral image `run`s only. They do **not** apply to `run` inside an existing machine — its resources are fixed at creation by the upstream CLI.
+
+```jsonc
+// tool: create a small machine
+{ "action": "create", "image": "alpine:latest", "name": "dev", "tier": "small" }
+
+// tool: ephemeral run with a tier (emits --cpus 2 --memory 2G)
+{ "action": "run", "image": "alpine:latest", "tier": "small", "command": ["uname", "-a"] }
+```
+
+Command equivalent: `/container create alpine:latest dev --size small` (alias `--tier`).
 
 ## Limitations & safety notes
 

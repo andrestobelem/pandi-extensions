@@ -178,6 +178,64 @@ export function formatMachineList(entries: MachineEntry[]): string {
 }
 
 // --------------------------------------------------------------------------
+// Size tiers (named cpu/memory presets)
+// --------------------------------------------------------------------------
+
+/**
+ * Named size presets for sandbox micro-VMs. Opt-in: when the caller passes neither
+ * a tier nor explicit cpus/memory, no flags are emitted and the `container` CLI
+ * applies its own defaults (as of v1.0.0: `machine create --memory` defaults to
+ * HALF of the host's RAM, `--cpus` is undocumented) — huge for a sandbox, which is
+ * exactly why these presets exist. Tiers apply to `machine create` and ephemeral
+ * image runs only; a persistent machine's resources are fixed at creation upstream.
+ */
+export const TIER_NAMES = ["micro", "tiny", "small", "medium", "large"] as const;
+
+export type TierName = (typeof TIER_NAMES)[number];
+
+export const TIER_PRESETS: Record<TierName, { cpus: number; memory: string }> = {
+	micro: { cpus: 1, memory: "512M" },
+	tiny: { cpus: 2, memory: "1G" },
+	small: { cpus: 2, memory: "2G" },
+	medium: { cpus: 4, memory: "4G" },
+	large: { cpus: 8, memory: "8G" },
+};
+
+function isTierName(tier: string): tier is TierName {
+	return (TIER_NAMES as readonly string[]).includes(tier);
+}
+
+/** One-line human list of the valid tiers with their sizes (for errors + help). */
+export function describeTiers(): string {
+	return TIER_NAMES.map((t) => `${t} (${TIER_PRESETS[t].cpus}cpu/${TIER_PRESETS[t].memory})`).join(", ");
+}
+
+export interface SizeResolution {
+	ok: boolean;
+	cpus?: number;
+	memory?: string;
+	error?: string;
+}
+
+/**
+ * Resolve a tier + explicit cpus/memory into the final sizes (pure).
+ * Explicit cpus/memory always win over the tier, field by field (least surprise,
+ * backward compatible). No tier and no explicit sizes → empty resolution, so the
+ * CLI keeps applying its own defaults exactly as before.
+ */
+export function resolveSize(opts: { tier?: string; cpus?: number; memory?: string }): SizeResolution {
+	const { tier, cpus, memory } = opts;
+	if (tier != null && tier !== "") {
+		if (!isTierName(tier)) {
+			return { ok: false, error: `Unknown size tier "${tier}". Valid tiers: ${describeTiers()}.` };
+		}
+		const preset = TIER_PRESETS[tier];
+		return { ok: true, cpus: cpus ?? preset.cpus, memory: memory ?? preset.memory };
+	}
+	return { ok: true, cpus, memory };
+}
+
+// --------------------------------------------------------------------------
 // Argv builders (pure)
 // --------------------------------------------------------------------------
 
@@ -192,6 +250,8 @@ export function buildMachineListArgs(): string[] {
 export interface CreateOptions {
 	image: string;
 	name?: string;
+	/** Named size preset; resolved to cpus/memory in runCreate (explicit values win). */
+	tier?: string;
 	cpus?: number;
 	memory?: string;
 	homeMount?: "ro" | "rw" | "none";
@@ -226,11 +286,15 @@ export function buildMachineExecArgs(opts: ExecMachineOptions): string[] {
 export interface EphemeralRunOptions {
 	image: string;
 	workdir?: string;
+	cpus?: number;
+	memory?: string;
 	command: string[];
 }
 
 export function buildEphemeralRunArgs(opts: EphemeralRunOptions): string[] {
 	const args = ["run", "--rm"];
+	if (opts.cpus != null) args.push("--cpus", String(opts.cpus));
+	if (opts.memory) args.push("--memory", opts.memory);
 	if (opts.workdir) args.push("-w", opts.workdir);
 	args.push(opts.image, ...opts.command); // image is positional BEFORE args
 	return args;
@@ -320,7 +384,11 @@ export async function runCreate(run: RunContainer, params: CreateOptions, opts: 
 			details: { isError: true, action: "create" },
 		};
 	}
-	const result = await run(buildMachineCreateArgs(params), opts);
+	const size = resolveSize({ tier: params.tier, cpus: params.cpus, memory: params.memory });
+	if (!size.ok) {
+		return { ok: false, text: size.error ?? "Invalid size tier.", details: { isError: true, action: "create" } };
+	}
+	const result = await run(buildMachineCreateArgs({ ...params, cpus: size.cpus, memory: size.memory }), opts);
 	if (!result.ok) {
 		return { ok: false, text: describeError(result, "machine create"), details: { isError: true, action: "create" } };
 	}
@@ -337,6 +405,10 @@ export interface ExecParams {
 	machine?: string;
 	image?: string;
 	workdir?: string;
+	/** Named size preset; ephemeral (image) runs only — machine resources are fixed at creation. */
+	tier?: string;
+	cpus?: number;
+	memory?: string;
 }
 
 export async function runExec(run: RunContainer, params: ExecParams, opts: HandlerOpts): Promise<HandlerResult> {
@@ -361,9 +433,29 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 			details: { isError: true, action: "run" },
 		};
 	}
-	const args = params.machine
-		? buildMachineExecArgs({ name: params.machine, workdir: params.workdir, command: params.command })
-		: buildEphemeralRunArgs({ image: params.image as string, workdir: params.workdir, command: params.command });
+	if (params.machine && params.tier) {
+		return {
+			ok: false,
+			text: `Size tiers do not apply to a run inside existing machine "${params.machine}" — its resources are fixed at creation. Use a tier on 'create' or on an ephemeral image run.`,
+			details: { isError: true, action: "run" },
+		};
+	}
+	let args: string[];
+	if (params.machine) {
+		args = buildMachineExecArgs({ name: params.machine, workdir: params.workdir, command: params.command });
+	} else {
+		const size = resolveSize({ tier: params.tier, cpus: params.cpus, memory: params.memory });
+		if (!size.ok) {
+			return { ok: false, text: size.error ?? "Invalid size tier.", details: { isError: true, action: "run" } };
+		}
+		args = buildEphemeralRunArgs({
+			image: params.image as string,
+			workdir: params.workdir,
+			cpus: size.cpus,
+			memory: size.memory,
+			command: params.command,
+		});
+	}
 	const result = await run(args, opts);
 	const target = params.machine ? `machine ${params.machine}` : `ephemeral ${params.image}`;
 	if (!result.ok) {
