@@ -85,6 +85,31 @@ function main() {
 		fs.existsSync(path.join(dest, "scripts", "build-workflow-artifact.mjs")),
 	);
 
+	// 3b) Its lib/ dependency tree landed too, byte-identically — otherwise the globally-synced
+	// CLI's `import ./lib/artifact.mjs` cannot resolve once installed standalone.
+	const srcLib = path.join(REPO_ROOT, ".claude", "scripts", "lib");
+	const wantLib = fs
+		.readdirSync(srcLib)
+		.filter((f) => f.endsWith(".mjs") || f.endsWith(".js"))
+		.sort();
+	const dstLib = path.join(dest, "scripts", "lib");
+	const gotLib = fs.existsSync(dstLib)
+		? fs
+				.readdirSync(dstLib)
+				.filter((f) => f.endsWith(".mjs") || f.endsWith(".js"))
+				.sort()
+		: [];
+	check(
+		"all scripts/lib/ modules landed",
+		wantLib.length > 0 && wantLib.join(",") === gotLib.join(","),
+		`want=${wantLib.length} got=${gotLib.length}`,
+	);
+	const libDrift = wantLib.filter(
+		(f) =>
+			!gotLib.includes(f) || !fs.readFileSync(path.join(srcLib, f)).equals(fs.readFileSync(path.join(dstLib, f))),
+	);
+	check("scripts/lib/ modules are byte-identical to source", libDrift.length === 0, `drift: ${libDrift.join(", ")}`);
+
 	// 4) Project skills landed. Required ones must; optional (local-only) ones only if present in source.
 	for (const s of REQUIRED_SKILLS) {
 		check(`skill '${s}' landed`, fs.existsSync(path.join(dest, "skills", s, "SKILL.md")));

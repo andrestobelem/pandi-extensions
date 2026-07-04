@@ -9,6 +9,7 @@
 // Managed set (repo -> <dest>):
 //   - .claude/workflows/*                      -> <dest>/workflows/         (all .js + README)
 //   - .claude/scripts/build-workflow-artifact.mjs -> <dest>/scripts/        (Claude runtime helper)
+//   - .claude/scripts/lib/*                    -> <dest>/scripts/lib/     (its runtime dependencies)
 //   - .claude/skills/<PROJECT_SKILLS>/         -> <dest>/skills/<name>/      (recursive)
 //   - .pi/skills/ultracode/reference/primitives/* -> <dest>/skills/ultracode/reference/primitives/
 //         (canonical primitives docs; each carries **Runtime:** so a Claude reader sees which are
@@ -71,9 +72,12 @@ function planPairs(dest) {
 	// workflows (flat: *.js + README)
 	addTree(join(REPO, ".claude", "workflows"), join(dest, "workflows"));
 
-	// runtime helper script (single file)
+	// runtime helper script (single file) plus its lib/ dependency tree — the CLI imports
+	// ./lib/artifact.mjs etc., so both must land together for the global copy to resolve.
 	const rtScript = join(REPO, ".claude", "scripts", "build-workflow-artifact.mjs");
 	if (existsSync(rtScript)) pairs.push({ src: rtScript, dst: join(dest, "scripts", "build-workflow-artifact.mjs") });
+	const rtLib = join(REPO, ".claude", "scripts", "lib");
+	if (existsSync(rtLib)) addTree(rtLib, join(dest, "scripts", "lib"));
 
 	// project skills (recursive)
 	for (const name of PROJECT_SKILLS) addTree(join(REPO, ".claude", "skills", name), join(dest, "skills", name));
