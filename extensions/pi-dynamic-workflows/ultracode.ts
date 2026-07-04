@@ -8,7 +8,7 @@
  * extractUltracodeTask for the composition test. Extracted byte-identically.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./pattern-scaffolds.js";
 
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
@@ -39,8 +39,8 @@ function formatUltracodeRoutingRules(style: "command" | "always-on"): string {
 			: "use dynamic_workflow only for exhaustiveness, confidence, or scale";
 	const catalogLine =
 		style === "command"
-			? "Inspect the scaffold catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored .pi/workflows/drafts/<slug>.js draft."
-			: "Inspect the catalog, then reuse an exact existing fit or write a gitignored .pi/workflows/drafts/<slug>.js draft.";
+			? `Inspect the scaffold catalog before writing code.\n- Reuse an existing workflow only on an exact task match; otherwise write a gitignored ${CONFIG_DIR_NAME}/workflows/drafts/<slug>.js draft.`
+			: `Inspect the catalog, then reuse an exact existing fit or write a gitignored ${CONFIG_DIR_NAME}/workflows/drafts/<slug>.js draft.`;
 	const launchLine =
 		style === "command"
 			? "Graph/start background runs with explicit concurrency/maxAgents, then inspect artifacts."

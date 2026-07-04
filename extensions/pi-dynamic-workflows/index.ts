@@ -12,12 +12,18 @@
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import { StringEnum } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+	CONFIG_DIR_NAME,
+	type ExtensionAPI,
+	type ExtensionContext,
+	getPackageDir,
+} from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
@@ -181,6 +187,21 @@ export const PROCESS_KILL_GRACE_MS = 2_000;
 export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 // Label embedded in the editor's top border (the violet prompt line) while
 // always-on Ultracode routing is active, so the router state is visible there too.
+/**
+ * Bin name of the HOST distribution (bin === piConfig.name: "pi" under vanilla pi,
+ * "pi-cante" under pi-cante), read from the host package.json. Falls back to "pi".
+ */
+function hostBinName(): string {
+	try {
+		const pkg = JSON.parse(readFileSync(path.join(getPackageDir(), "package.json"), "utf8")) as {
+			piConfig?: { name?: string };
+		};
+		return pkg.piConfig?.name || "pi";
+	} catch {
+		return "pi";
+	}
+}
+
 const ULTRACODE_BORDER_LABEL = "ultracode auto";
 // Best-effort inter-extension hook used by extensions/effort/index.ts for `/effort ultracode`.
 const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
@@ -306,7 +327,7 @@ const workflowToolSchema = Type.Object({
 	),
 	scope: Type.Optional(
 		StringEnum(WORKFLOW_SCOPE_INPUTS, {
-			description: "Use project .pi/workflows, global ~/.pi/agent/workflows, or auto resolution.",
+			description: `Use project ${CONFIG_DIR_NAME}/workflows, global agent-dir workflows, or auto resolution.`,
 		}),
 	),
 	code: Type.Optional(Type.String({ description: "JavaScript workflow source for action=write." })),
@@ -1095,7 +1116,10 @@ export async function runWorkflow(
 			return args;
 		}
 
-		const piCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi";
+		// Default to the HOST distribution's own binary (bin name === piConfig.name:
+		// "pi" under vanilla pi, "pi-cante" under pi-cante) so subagents inherit the
+		// same distribution and config dir. The env override still wins.
+		const piCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || hostBinName();
 		let envWrapper: { path: string; dir: string } | undefined;
 		function buildAgentProcess(attemptPrompt: string): { command: string; args: string[] } {
 			const agentArgs = buildAgentArgs(attemptPrompt);
@@ -1949,7 +1973,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			"Decide model and reasoning per call: pass model ('haiku'|'sonnet'|'opus' or a full 'provider/id') and effort (low|medium|high|xhigh|max) on agent/agents/pipeline calls or any per-item spec (the node(role,extra) helper threads input.models/efforts/toolsByRole per role). Use a cheap/fast model + low effort for wide scouting, classification, and extraction; a stronger model + high/xhigh effort for synthesis, adversarial verification, planning, and hard reasoning. Omitting them inherits the orchestrator model and session reasoning level; agentType personas set defaults (reviewer/planner/architect/researcher=high, explore/implementer=medium) and explicit options win. model and effort are part of the cache key, so changing them re-runs that call on resume.",
 			"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them. In synthesis/judge prompts, restate the task + success criteria at BOTH the start and the end (after the evidence block), most-important findings first, to counter lost-in-the-middle.",
 			"Never cap coverage silently. Whenever a workflow uses slice/head/top-N/sampling/no-retry, clamps concurrency to limits.concurrency, or lowers maxAgents below the discovered work-list, log() exactly what was excluded, delayed, or clamped.",
-			"When creating a workflow, inspect the pattern catalog first (optionally action=scaffold name=<key> for a scaffold), reuse an existing workflow only when it exactly matches the task, otherwise write a clear gitignored .pi/workflows/drafts/<task-slug>.js project draft and launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If a workflow is warranted for complex workflow/prompt/contract design, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name.",
+			`When creating a workflow, inspect the pattern catalog first (optionally action=scaffold name=<key> for a scaffold), reuse an existing workflow only when it exactly matches the task, otherwise write a clear gitignored ${CONFIG_DIR_NAME}/workflows/drafts/<task-slug>.js project draft and launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If a workflow is warranted for complex workflow/prompt/contract design, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name.`,
 			"Workflows in persistent TUI/RPC sessions always run in background: use dynamic_workflow action=start (or action=run, which the extension backgrounds there), then inspect with action=runs/view and stop with action=cancel if needed.",
 			"Do NOT busy-poll a background run (no sleep/loop re-checking status.json or repeated action=view): the harness already tracks it and injects a completion notice when it finishes, so let it report back and inspect ONCE when notified (or when the user asks). While it runs, do other useful work instead of watching it.",
 			"If a run was interrupted (state stale/failed/cancelled), use dynamic_workflow action=resume name=<runId> to continue it in place; completed subagent/bash calls are reused from the run journal and are not re-executed, so resuming is cheap. agent() output is cached by default (opt out with {cache:false}); bash() is cached only with {cache:true}. Calls whose arguments depend on Date.now()/Math.random() will not be cached and will re-run on resume.",

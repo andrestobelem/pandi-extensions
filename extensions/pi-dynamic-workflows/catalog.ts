@@ -111,7 +111,7 @@ export const WORKFLOW_PATTERN_CATALOG: WorkflowPattern[] = [
 		key: "workflow-factory",
 		title: "Workflow factory (meta)",
 		category: "compose",
-		blurb: "Meta-workflow: catalog → plan → generate → review → refine, then write .pi/workflows/drafts/<slug>.js.",
+		blurb: "Meta-workflow: catalog → plan → generate → review → refine, then write <configDir>/workflows/drafts/<slug>.js.",
 		useWhen: "No existing workflow fits and you want a task-specific one scaffolded.",
 		inputHint: '{ "task": "audit GraphQL resolvers for N+1 queries", "write": true }',
 		primitives: ["agent(schema)", "prompt design", "writeFile"],

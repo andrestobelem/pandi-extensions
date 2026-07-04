@@ -334,9 +334,11 @@ function resolveDefaultContext7Skill(ctx: ExtensionContext): string | undefined 
 					path.join(ctx.cwd, CONFIG_DIR_NAME, "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 				]
 			: []),
+		// getAgentDir() already resolves the host distribution's global skills root
+		// (~/.pi/agent under vanilla pi, ~/.pi-cante/agent under pi-cante), so no
+		// hardcoded ~/.pi fallback is needed here.
 		path.join(getAgentDir(), "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 		path.join(os.homedir(), ".agents", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
-		path.join(os.homedir(), ".pi", "agent", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 	]);
 	for (const skillRoot of skillRoots) {
 		if (existsSync(path.join(skillRoot, "SKILL.md"))) return existingRealPath(skillRoot) ?? skillRoot;
