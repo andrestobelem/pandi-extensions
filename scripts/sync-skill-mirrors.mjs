@@ -26,6 +26,8 @@ const MIRRORED = [
 	"init-pi-dynamic-workflows",
 	"ai-assisted-engineering",
 	"modern-software-engineering",
+	"empirical-software-design",
+	"clean-craftsmanship",
 	"github-project",
 ];
 
