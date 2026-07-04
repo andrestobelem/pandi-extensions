@@ -61,3 +61,17 @@ overrides it — use whichever verb you prefer.
   `/rename` always produces a name and never blocks indefinitely.
 - Fallbacks: empty history or no usable text falls back to a default name
   (`session`); if `setSessionName` fails it reports an error instead of crashing.
+
+## Where the name shows up (and where it doesn't)
+
+The name set by `/rename` (or the native `/name`) appears in:
+
+- the **resume selector** (`pi -r` / `pi --resume`), which shows `name ?? first message`;
+- `/name` with no arguments (`Session name: <slug>`);
+- the **editor border pill** in the TUI.
+
+It does **not** appear in the exit hint (`To resume this session: pi --session <uuid>`):
+that line is printed by pi core with the session UUID, by design, because `--session`
+resolves paths and (partial) UUIDs — not names. This is identical for `/name`-named
+sessions and is not a `/rename` defect; to resume by name, use `pi -r` and pick it from
+the list.
