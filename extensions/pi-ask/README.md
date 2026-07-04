@@ -1,14 +1,32 @@
 # @pandi-coding-agent/ask
 
-Interactive decision tools the model can call to ask *you* — an arrow-key picker and a yes/no dialog instead of a plain-text numbered menu. They wrap pi's dialog helpers (`ctx.ui.select` / `ctx.ui.confirm`), so they work in both TUI and RPC/Supacode.
+Interactive decision tools the model can call to ask *you* — an arrow-key picker and a
+yes/no dialog, instead of a plain-text numbered menu. They wrap pi's dialog helpers
+(`ctx.ui.select` / `ctx.ui.confirm`), so they work in both TUI and RPC modes.
 
-## Install
+## Quickstart
 
-From npm:
+Install once:
 
 ```bash
 pi install npm:@pandi-coding-agent/ask
 ```
+
+Then the model can call `ask_choice` mid-conversation. You pick with `↑↓` + Enter, and
+it gets back:
+
+```json
+{ "index": 1, "label": "Patch the bug" }
+```
+
+## Tools
+
+| Tool | Call | Returns |
+| --- | --- | --- |
+| `ask_choice` | `ask_choice(question, options)` — `options` is a non-empty list of strings, in display order | JSON `{"index", "label"}` for the chosen option (`index` is 1-based); `{"cancelled": true}` on Esc |
+| `ask_confirm` | `ask_confirm(title, message?)` — `message` is an optional secondary detail line | JSON `{"confirmed": true \| false}` (also `false` on cancel/timeout) |
+
+## Other install options
 
 From this repository:
 
@@ -18,22 +36,13 @@ pi install -l ./extensions/pi-ask       # project-local
 pi --no-extensions -e ./extensions/pi-ask   # one-off trial, nothing else loaded
 ```
 
-## Usage
-
-| Tool | What it does |
-| --- | --- |
-| `ask_choice(question, options)` | Model tool: shows an arrow-key selector (`↑↓` + Enter); returns JSON `{"index", "label"}` (`index` is 1-based, matching the displayed numbering), or `{"cancelled": true}` on Esc. |
-| `ask_confirm(title, message?)` | Model tool: shows a yes/no confirm dialog; returns JSON `{"confirmed": true}` or `{"confirmed": false}` (also `false` on cancel/timeout). |
-
-Example `ask_choice` result:
-
-```json
-{ "index": 2, "label": "Fix only the docs" }
-```
-
 ## Limitations & safety notes
 
-- When no dialog UI is available (`ctx.hasUI` is false — e.g. `print`/`json` mode), both tools open no dialog and return a plain-text error, so the caller falls back to asking in text.
+- When no dialog UI is available (`ctx.hasUI` is false — e.g. `print`/`json` mode), both
+  tools open no dialog and return a plain-text error, so the caller falls back to asking
+  in text.
+- `ask_choice` with an empty `options` list also returns a plain-text error instead of
+  opening a dialog.
 
 ## Related
 

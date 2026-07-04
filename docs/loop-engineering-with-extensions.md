@@ -2,25 +2,32 @@
 
 Date: 2026-06-28
 
-A practical how-to that turns the
+An agent loop that never stops wastes money; one that stops on its own
+self-declared "done" is often wrong (a model judging its own work is
+unreliable — Huang et al., arXiv:2310.01798). This repo has two extensions
+that solve that: **`/goal`** iterates toward an objective until an
+*independent* check confirms it, and **`/loop`** repeats a task on a capped
+cadence with no notion of "finished" at all. Reach for `/goal` when you can
+write a checkable success criterion; reach for `/loop` for open-ended
+monitoring/polling work.
+
+```bash
+/goal migrate tests to vitest -- all tests pass; no jest imports remain
+/loop watch the deploy and report when it stabilizes
+```
+
+This guide turns the
 [loop-engineering investigation](./research/2026-06-28-loop-engineering.md)
-into concrete usage of the extensions in this repo. The research explains *what*
-loop engineering is and *why* the repo's mechanisms work; this guide explains
-*which extension to reach for* and *how to drive it* in a loop-engineered way.
+into concrete usage: the research explains *what* loop engineering is and *why*
+the repo's mechanisms work; this guide explains *which extension to reach for*
+and *how to drive it*.
 
 > **Definition (from the research).** *Loop engineering* is the discipline of
 > **designing, bounding, and verifying** iterative/feedback loops so a loop makes
 > measurable progress toward a goal and **stops on evidence** (`done` / `quiet` /
-> `blocked`) rather than on a timer, a self-declaration, or never.
-
-## The principle in one line
-
-> Bound the loop **and** keep the critique signal independent and unbiased.
-
-That is the decisive lesson behind every mechanism here: a model judging its own
-work is unreliable (Huang et al., arXiv:2310.01798), so a trustworthy loop needs
-both an explicit brake and an external check. `/goal` is the surface that enforces
-both at once.
+> `blocked`) rather than on a timer, a self-declaration, or never. The one-line
+> version: bound the loop **and** keep the critique signal independent and
+> unbiased — `/goal` is the surface that enforces both at once.
 
 ## TL;DR — pick the right loop surface
 
@@ -28,7 +35,7 @@ both at once.
 | --- | --- | --- | --- |
 | `/goal` | *What state am I in?* | The work has a verifiable `done` | Independent verification (strongest) |
 | `/loop` | *When do I wake up?* | Recurring tasks with no finish state | Bounded cadence, never trust the model |
-| `loop-until-done` workflow | *Has it converged yet?* | Exhaustive searches needing convergence | Convergence by quiet rounds |
+| `loop-until-dry` workflow | *Has it converged yet?* | Exhaustive searches needing convergence | Convergence by quiet rounds |
 | `/effort ultracode` + Contract Gate | *What does "done" even mean?* | Vague or broad orchestration tasks | Bound and verify the scope first |
 
 ## The four loop surfaces
@@ -39,7 +46,7 @@ Use `/goal` whenever there is a concrete, checkable definition of done. It runs
 `pursuing → verifying → verifying-independent → done | blocked`: a self
 completeness check, then a **separate read-only adversarial subagent** that emits
 `VERDICT: PASS | FAIL`. Only an independent `PASS` closes the goal
-(`extensions/pi-goal/index.ts:362-386`). This is the repo's direct architectural
+(`extensions/pi-goal/index.ts:264-271`). This is the repo's direct architectural
 answer to the self-correction-is-unreliable result.
 
 ```bash
@@ -51,17 +58,17 @@ answer to the self-correction-is-unreliable result.
 
 Guardrails you inherit for free:
 
-- Never an infinite loop; bounded rounds and caps (`pi-goal/index.ts:51`).
-- A claim without verifiable evidence is a `FAIL` (`pi-goal/index.ts:319`).
+- Never an infinite loop; bounded rounds and caps (`pi-goal/index.ts:157-159`, the `goal.iteration >= goal.maxIterations` guard).
+- A claim without verifiable evidence is a `FAIL` (`pi-goal/verifier.ts:69`).
 - Oscillation guard: `maxIndependentVerifications` (default 2) flips a thrashing
-  goal to `blocked` instead of looping forever (`pi-goal/index.ts:116`).
+  goal to `blocked` instead of looping forever (`pi-goal/index.ts:279-291`).
 
 ### `/loop` — bounded cadence, never trust the model
 
 Use `/loop` for recurring work that has no binary "done": monitoring, polling,
 autopilot. The model proposes a wake delay; the extension **saturates it** to a
 safe band of `[60, 3600]s` so a bad value can never destabilize the loop
-(`extensions/pi-loop/index.ts:103`, `:1186-1188`).
+(`extensions/pi-loop/index.ts:115-116` for the constants, `:1249-1251` for the clamp).
 
 ```bash
 # Fixed cadence (last token is the interval)
@@ -84,23 +91,22 @@ Choose the cadence regime deliberately:
 - Do not poll work the harness already tracks (subagents, workflows) — use a long
   fallback and let it report back.
 
-Defense in depth: Layered caps include wall-clock, iteration count, and best-effort context-budget (see `extensions/pi-loop/caps.ts:28-37`), plus a watchdog backstop above the deadline. Note the context-budget cap is a **soft sensor** — it silently no-ops when usage is unknown, so do not rely on it alone.
+Defense in depth: Layered caps include wall-clock and best-effort context-budget (see `extensions/pi-loop/caps.ts:26-41`), plus a separate iteration-count cap inside `fireWake` in `extensions/pi-loop/index.ts`, plus a watchdog backstop above the deadline. Note the context-budget cap is a **soft sensor** — it silently no-ops when usage is unknown, so do not rely on it alone.
 
-### `loop-until-done` — convergence by quiet rounds
+### `loop-until-dry` — convergence by quiet rounds
 
 When the goal is exhaustiveness rather than a single `done` (audits, repo-wide
-searches), use the `loop-until-done` workflow scaffold. It runs parallel finders
+searches), use the `loop-until-dry` workflow scaffold. It runs parallel finders
 each round and stops when **no new findings appear for `quietRounds` consecutive rounds** — a settle-to-tolerance detector, not a single transient-quiet flip.
 
-```text
-dynamic_workflow action=run name=loop-until-done \
-  input={"finders":4,"quietRounds":2,"maxRounds":8}
+```bash
+/workflow run loop-until-dry {"target":"all places we parse SSE chunks","quietRounds":2,"maxRounds":8}
 ```
 
 - `quietRounds` (default 2) is a debounce/deadband, not a proven fixed point.
 - `maxRounds` (default 8) is the hard brake; when it stops there, it says so
-  out loud (`extensions/pi-dynamic-workflows/pattern-scaffolds.ts:392-394`) — no silent
-  caps.
+  out loud (`extensions/pi-dynamic-workflows/scaffolds/loop-until-dry.js:165`) — no
+  silent caps.
 
 ### Ultracode + Contract Gate — bound the scope first
 
@@ -123,7 +129,7 @@ target instead of a vague prompt.
 | Bounded termination | Never loop forever on a task with a goal | Use `/goal` instead of `/loop` |
 | Layered caps | Wall-clock + iterations + budget | `/loop` defaults; `maxRounds` in workflows |
 | Cadence clamp | The model's delay is saturated, not trusted | `/loop` clamps to `[60, 3600]s` |
-| Convergence | Stop when findings stay at ~0 | `quietRounds` in `loop-until-done` |
+| Convergence | Stop when findings stay at ~0 | `quietRounds` in `loop-until-dry` |
 | Resumability | Rehydrate without a burst of catch-up | `dynamic_workflow action=resume` |
 | Destructive gating | Gate risky actions on autopilot only | `/loop auto` after `/trust` |
 | Independent verification | Close on an external signal, not self-claim | `/goal` independent verifier |
@@ -165,4 +171,4 @@ which carries the external citations (ReAct, Reflexion, Self-Refine, Huang et al
 control/feedback theory) and the verified `file:line` grounding for every
 mechanism referenced above. See also the broader
 [agentic patterns map](./research/2026-06-25-agentic-patterns-papers-workflows.md)
-and the side-by-side `/loop` vs `/goal` note in `.pi/notes/loop-y-goal.md`.
+The header comment in `extensions/pi-goal/index.ts` also documents the `/loop` vs `/goal` distinction directly in code.

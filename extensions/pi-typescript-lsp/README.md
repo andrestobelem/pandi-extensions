@@ -1,6 +1,27 @@
 # @pandi-coding-agent/typescript-lsp
 
-TypeScript diagnostics feedback for Pi: after a turn that wrote or edited TypeScript, it runs `tsc --noEmit` on the relevant project(s) and reports errors only for the files that turn actually touched.
+TypeScript diagnostics feedback for Pi: after a turn that wrote or edited TypeScript, it runs `tsc --noEmit` on the relevant project(s) and reports errors only for the files that turn actually touched. Reach for it whenever you're iterating on TypeScript inside a Pi session and want compiler feedback without leaving the chat or hand-running `tsc`.
+
+## Quickstart
+
+```bash
+pi install npm:@pandi-coding-agent/typescript-lsp
+```
+
+By default the check runs automatically on `agent_end`, scoped to the files the turn touched — so if it finds anything, you'll see the report on your next turn without doing anything:
+
+```text
+TypeScript diagnostics (1):
+src/foo.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.
+```
+
+That automatic check also clears the touched-files list, so running `/tsc run` right after just says "No TypeScript files touched this turn." — edit another `.ts` file first, then run it yourself on demand:
+
+```text
+/tsc run
+TypeScript diagnostics (1):
+src/foo.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.
+```
 
 ## What you get
 
@@ -9,12 +30,6 @@ TypeScript diagnostics feedback for Pi: after a turn that wrote or edited TypeSc
 - `/tsc` — a slash command to control and run checks yourself.
 
 ## Install
-
-From npm:
-
-```bash
-pi install npm:@pandi-coding-agent/typescript-lsp
-```
 
 From this repository:
 
@@ -38,9 +53,14 @@ pi --no-extensions -e ./extensions/pi-typescript-lsp   # one-off trial, nothing 
 
 ## How it works
 
-- Diagnostics fire on `agent_end` — after the whole turn finishes — not after every write. Mid-turn a file is often half-edited and would report transient errors; checking once at the edge, scoped to touched files, gives honest signal with minimal noise.
-- **advisory** (default): if touched files have type errors, the report arrives as a non-blocking message on the next turn. Identical reports are de-duplicated so the same errors are not re-injected turn after turn.
-- **autofix** (opt-in): the report triggers a follow-up turn so the agent fixes the errors immediately. A per-prompt budget (default 1 auto-triggered fix) plus the same de-duplication means it can never loop.
+Diagnostics fire on `agent_end` — after the whole turn finishes — not after every write. Mid-turn a file is often half-edited and would report transient errors; checking once at the edge, scoped to touched files, gives honest signal with minimal noise.
+
+Choose the delivery mode with `/tsc autofix on|off`:
+
+| Mode | On errors, `agent_end`... | Loop safety |
+| --- | --- | --- |
+| **advisory** (default) | sends a non-blocking message on the next turn | identical reports are de-duplicated, never re-injected |
+| **autofix** (opt-in) | triggers a follow-up turn so the agent fixes it now | budgeted to 1 auto-triggered fix per prompt, plus the same de-duplication — it can never loop |
 
 ## Limitations & safety notes
 
@@ -67,6 +87,8 @@ Environment variables:
 | `PI_TS_LSP_AUTOFIX` | `off` | `on` / `off` — opt into autofix turns |
 | `PI_TS_LSP_TSC` | (auto) | Absolute path to a `tsc.js` to run |
 | `PI_TS_LSP_TIMEOUT_MS` | `60000` | Wall budget per `tsc` run (positive int, ms) |
+
+Autofix delivery needs BOTH set together — `PI_TS_LSP_MODE=autofix` alone still runs advisory, since the code only switches to autofix when `mode === "autofix" && autofix` (`PI_TS_LSP_AUTOFIX=on`).
 
 ## Related
 

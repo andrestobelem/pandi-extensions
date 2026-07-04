@@ -1,28 +1,37 @@
 # @pandi-coding-agent/doctor
 
-Run the pi-dynamic-workflows environment check from inside a Pi session with `/doctor` — the same read-only report as `npm run doctor`, one keystroke away.
+Adds `/doctor`, an in-session shortcut for the pi-dynamic-workflows environment
+check. It answers "is my machine set up right?" without leaving the chat —
+the same read-only report as `npm run doctor`, one keystroke away.
 
-## What you get
+## Quickstart
 
-- A `/doctor` command that finds `scripts/doctor.mjs` and shows its report in the session.
-- In-repo dev always runs the freshest working-tree copy; standalone installs use the vendored copy shipped in the npm tarball.
-- Clear severities: `info` when all mandatory requirements pass, `error` on a non-zero exit, `warning` with a friendly hint when the script cannot be found.
+```text
+/doctor
+```
+
+```text
+pi-dynamic-workflows doctor
+
+Obligatorios:
+  ✓ Node.js 22.19.0 — ≥ 22.19.0
+...
+
+✓ Todos los requisitos obligatorios están presentes.
+```
+
+The command finds `scripts/doctor.mjs`, runs it, and shows the report as an
+`info` (all mandatory checks pass), `error` (non-zero exit or timeout), or
+`warning` (script not found) message.
 
 ## Install
 
-From npm:
-
-```bash
-pi install npm:@pandi-coding-agent/doctor
-```
-
-From this repository:
-
-```bash
-pi install ./extensions/pi-doctor          # global (your user)
-pi install -l ./extensions/pi-doctor       # project-local
-pi --no-extensions -e ./extensions/pi-doctor   # one-off trial, nothing else loaded
-```
+| Mode | Command | When to use it |
+| --- | --- | --- |
+| From npm | `pi install npm:@pandi-coding-agent/doctor` | Standalone use, outside this repo |
+| Global | `pi install ./extensions/pi-doctor` | You want `/doctor` in every session |
+| Project-local | `pi install -l ./extensions/pi-doctor` | Only this project should get `/doctor` |
+| One-off trial | `pi --no-extensions -e ./extensions/pi-doctor` | Try it with nothing else loaded |
 
 ## Commands
 
@@ -32,16 +41,25 @@ pi --no-extensions -e ./extensions/pi-doctor   # one-off trial, nothing else loa
 
 ## How it works
 
-- Locates the check by walking up from the session cwd for a working-tree copy (`<repo>/extensions/pi-doctor/scripts/doctor.mjs`), then falls back to the extension's own vendored copy.
-- Spawns it with `node` using an argv array — never a shell string — and captures the output with `NO_COLOR` set, so the report is plain text.
-- It runs the script as a subprocess found at runtime instead of importing it; a static import would break bundling, so the extension itself always loads.
+- Walks up from the session cwd looking for a working-tree copy
+  (`<repo>/extensions/pi-doctor/scripts/doctor.mjs`), so in-repo dev always
+  runs the freshest version; falls back to the vendored copy shipped in the
+  npm tarball for standalone installs.
+- Spawns it with `node` using an argv array — never a shell string — and
+  captures the output with `NO_COLOR` set, so the report is plain text.
+- Runs the script as a subprocess found at runtime instead of importing it: a
+  static import would break bundling, so the extension itself always loads.
 
 ## Limitations & safety notes
 
-- Standalone installs degrade honestly: `sync Claude global` reports `N/A` outside the suite repo, local `node_modules` probes use the session cwd, and the double-copy check skips working-tree detection.
-- During onboarding, before `pi install ./` + `/reload`, use `npm run doctor` — the `/doctor` command only exists once the extension is loaded.
+- Standalone installs degrade honestly: `sync Claude global` reports `N/A`
+  outside the suite repo, local `node_modules` probes use the session cwd,
+  and the double-copy check skips working-tree detection.
+- During onboarding, before `pi install ./` + `/reload`, use `npm run doctor`
+  instead — `/doctor` only exists once the extension is loaded.
 - The check times out after 120 seconds and reports the timeout as an error.
 
 ## Related
 
-For the full bundle of extensions and skills, install the repository root instead.
+For the full bundle of extensions and skills, install the repository root
+instead.

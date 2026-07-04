@@ -1,6 +1,12 @@
 # @pandi-coding-agent/plan
 
-Claude-style read-only plan mode for Pi: research and write a plan while mutation is hard-blocked, then implement only after you explicitly approve.
+`/plan` is Claude-style read-only plan mode for Pi: it researches and drafts a plan while every mutating tool is hard-blocked, then implements only after you give explicit approval. Reach for it before a risky, multi-step, or ambiguous change, so you can review the approach before any file gets touched.
+
+```text
+/plan Add OAuth login to the API -- inspect the existing auth flow, then propose the changes
+```
+
+Pi researches read-only, calls `submit_plan` with the full plan, and shows it in a scrollable Markdown overlay. Press `y`/`Enter` to approve and implement, or `n`/`Esc`/`q` to reject and have it revise.
 
 ## What you get
 
@@ -30,7 +36,7 @@ pi --no-extensions -e ./extensions/pi-plan   # one-off trial, nothing else loade
 
 | Command | What it does |
 | --- | --- |
-| `/plan [--ultracode] [--ultracode-steps] <task>` | Enter read-only plan mode for a task. |
+| `/plan [--ultracode\|--uc] [--ultracode-steps\|--uc-steps] <task>` | Enter read-only plan mode for a task. |
 | `/plan status` | Inspect the active plan: status, posture flags, counts. |
 | `/plan dashboard` | Open the tracking dashboard: session totals, the active plan, and a history table of every plan in the session (scrollable in a TUI; printed Markdown otherwise). |
 | `/plan ultracode on\|off\|status` | Session default for the ultracode posture; a flagless `/plan <task>` inherits it. |
@@ -38,6 +44,17 @@ pi --no-extensions -e ./extensions/pi-plan   # one-off trial, nothing else loade
 | `/plan exit\|cancel` | Leave plan mode without implementing. |
 | `enter_plan_mode` | Model tool: Pi enters plan mode itself before a multi-step or risky change. Accepts `nonInteractive`, `ultracode`, and `ultracodeSteps` booleans. |
 | `submit_plan` | Model tool: submit the plan artifact for explicit human approval. |
+
+## `/plan` vs `enter_plan_mode`
+
+Both arm the same read-only gate and end at `submit_plan`; they differ in who
+starts planning and where it can run.
+
+| | `/plan <task>` | `enter_plan_mode` (model tool) |
+| --- | --- | --- |
+| Who invokes it | You, explicitly | Pi, on its own initiative for risky/multi-step work |
+| Session mode | TUI/RPC only (needs a human to approve) | TUI/RPC, or `print`/`json` with `nonInteractive: true` (plan-only, no approval) |
+| How the prompt is delivered | Injected as a new user message | Returned as the tool's own result, in the same turn |
 
 ## How it works
 
@@ -51,14 +68,14 @@ pi --no-extensions -e ./extensions/pi-plan   # one-off trial, nothing else loade
 - The bash allowlist is best-effort and errs toward blocking.
 - In non-interactive (plan-only) mode the gate **never lifts**: there is no approval and no implementation for the whole session (see Details).
 - Without the non-interactive flag, `print`/`json` sessions refuse to enter plan mode (unchanged back-compat).
-- `dynamic_workflow` is gated by action while planning: read-only actions (`list`, `scaffold`, `read`, `graph`, `runs`, `view`) are allowed; `run`, `start`, `resume`, `write`, `cancel`, `delete`, and missing/unknown actions are blocked, because they can write files or spawn mutating subagents whose tool calls bypass the gate.
+- `dynamic_workflow` is gated by action while planning: read-only actions (`list`, `scaffold`, `read`, `graph`, `runs`, `view`) are allowed; `run`, `start`, `resume`, `write`, `cancel`, `delete`, `report` (writes an HTML report to disk), and missing/unknown actions are blocked, because they can write files or spawn mutating subagents whose tool calls bypass the gate.
 - Avoid recursion: a plan-only subagent should *name* the workflows to run; the **orchestrator** executes them after approval. Never let a subagent spawn subagents that spawn workflows.
 
 ## Details
 
 ### Posture flags
 
-Three orthogonal knobs tune plan mode. Each resolves with precedence **explicit param → session toggle → environment setting → default (off)**:
+Three orthogonal knobs tune plan mode. Ultracode and Ultracode steps resolve with precedence **explicit param → session toggle → environment setting → default (off)**; Non-interactive has no session toggle, so it resolves **explicit param → environment setting → default (off)**:
 
 | Flag | `enter_plan_mode` param | `/plan` flag | Env setting | Effect |
 | --- | --- | --- | --- | --- |

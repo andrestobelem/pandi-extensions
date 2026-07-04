@@ -1,13 +1,19 @@
 # @pandi-coding-agent/bg
 
-Run one-off background shell commands from Pi with `/bg`, with project-local logs and status artifacts. It is the small, human-only sibling of `dynamic_workflow` background runs: in-memory and **not** resumable — use `dynamic_workflow` for resumable agentic orchestration.
+`/bg` runs a shell command in the background from inside a Pi session, so a long build, test suite, or server doesn't block your chat. Each job gets its own log files and a status you can poll later. It's the small, human-only sibling of `dynamic_workflow` background runs — in-memory and **not** resumable; reach for `dynamic_workflow` when you need agentic orchestration that survives a restart.
 
-## What you get
+## Try it
 
-- Human-only slash commands to start, inspect, cancel, and clean up local background jobs. No `background_job` LLM tool is registered.
-- Per-job artifacts under `.pi/bg/runs/<jobId>/`: `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
-- A bounded lifecycle journal (`/bg events`) that explains *why* a job ended `failed`/`cancelled`/`interrupted` — evidence `status.json` alone does not carry.
-- Safe disk cleanup (`/bg delete`, `/bg prune`) that only ever removes finished jobs and records an audit line.
+```bash
+/bg start npm test
+# Started background job bg-lz3k2p1-a1b2c3d4.
+# Artifacts: /path/to/artifacts/bg-lz3k2p1-a1b2c3d4
+# Status: /bg status bg-lz3k2p1-a1b2c3d4
+# Logs: /bg logs bg-lz3k2p1-a1b2c3d4
+
+/bg status bg-lz3k2p1-a1b2c3d4
+/bg logs bg-lz3k2p1-a1b2c3d4
+```
 
 ## Install
 
@@ -24,6 +30,13 @@ pi install ./extensions/pi-bg          # global (your user)
 pi install -l ./extensions/pi-bg       # project-local
 pi --no-extensions -e ./extensions/pi-bg   # one-off trial, nothing else loaded
 ```
+
+## What you get
+
+- Human-only slash commands to start, inspect, cancel, and clean up local background jobs. No `background_job` LLM tool is registered.
+- Per-job artifacts under `.pi/bg/runs/<jobId>/`: `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
+- A bounded lifecycle journal (`/bg events`) that explains *why* a job ended `failed`/`cancelled`/`interrupted` — evidence `status.json` alone does not carry.
+- Safe disk cleanup (`/bg delete`, `/bg prune`) that only ever removes finished jobs and records an audit line.
 
 ## Commands
 
@@ -43,7 +56,7 @@ pi --no-extensions -e ./extensions/pi-bg   # one-off trial, nothing else loaded
 
 - `/bg start` only works in persistent TUI/RPC sessions and trusted projects; untrusted projects are refused before anything executes or is written.
 - Mutating commands (`start`, `cancel`, `delete`, `prune`) are blocked while `/plan` is active.
-- Jobs run as detached process groups. `job.json` and `status.json` are written with temp file + atomic rename; logs are append-only.
+- Jobs run as detached process groups, except on Windows, where the child is not spawned detached. `job.json` and `status.json` are written with temp file + atomic rename; logs are append-only.
 - Project-local artifacts live in `.pi/bg/runs/<jobId>/`. A global read-only fallback exists at `~/.pi/agent/bg/runs/<cwd-hash>/<jobId>/`.
 - There is no Supacode runner, daemon, automatic rehydration, or `/bg` dashboard.
 

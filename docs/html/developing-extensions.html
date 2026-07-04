@@ -124,18 +124,83 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 		<h1>Desarrollar y probar extensiones en pi</h1>
 	</header>
 	<main>
-<p>Fecha: 2026-07-03</p>
-<p>Esta guía es la fuente autoritativa de <strong>cómo desarrollar una extensión de este
-repo y probarla a la vez</strong>, sin romper la sesión con la que trabajás.</p>
-<p>El problema nace de que este repo es <strong>auto-hospedado</strong>: la suite está instalada
-globalmente apuntando al propio checkout
+<p>Fecha: 2026-07-04</p>
+<p>Una extensión de pi es un módulo TypeScript que agrega comandos, tools o
+reacciones a eventos del ciclo de vida del agente. Esta guía es la fuente
+autoritativa de <strong>cómo escribir una extensión de este repo y probarla a la
+vez</strong>, sin romper la sesión con la que estás trabajando. Recurrí a ella cuando
+vas a crear una extensión nueva, tocar una existente, o no sabés si conviene un
+comando, un tool o un event handler.</p>
+<h2>Quickstart: una extensión mínima</h2>
+<p>Una extensión exporta una función default que recibe <code>pi: ExtensionAPI</code>. Podés
+probarla sin instalarla, apuntando <code>pi -e</code> al archivo:</p>
+<pre><code class="language-typescript">// extensions/pi-hello/index.ts
+import type { ExtensionAPI } from &quot;@earendil-works/pi-coding-agent&quot;;
+
+export default function (pi: ExtensionAPI) {
+  pi.on(&quot;session_start&quot;, async (_event, ctx) =&gt; {
+    if (ctx.hasUI) ctx.ui.notify(&quot;pi-hello cargada&quot;, &quot;info&quot;);
+  });
+
+  pi.registerCommand(&quot;hello&quot;, {
+    description: &quot;Saluda&quot;,
+    handler: async (args, ctx) =&gt; ctx.ui.notify(`Hola ${args || &quot;mundo&quot;}!`, &quot;info&quot;),
+  });
+}
+</code></pre>
+<pre><code class="language-bash">pi -e ./extensions/pi-hello/index.ts
+</code></pre>
+<p>Cada extensión de este repo vive en su propio <code>extensions/pi-&lt;nombre&gt;/index.ts</code>
+(o un único <code>.ts</code>) y es <strong>self-contained</strong>: nada de imports runtime cruzados a
+otra extensión (<code>../shared/</code> solo existe para el harness de tests, nunca para
+código que corre en producción — ver <code>AGENTS.md</code>). Si dos extensiones necesitan
+la misma utilidad chica (un <code>notify.ts</code>, un parser de flags), se duplica a
+propósito: así cada una se puede instalar sola vía <code>pi install</code>.</p>
+<h2>¿Comando, tool o event handler?</h2>
+<p>Los tres primitivos conviven en la misma extensión; la pregunta es <strong>quién
+dispara el código</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Primitivo</th>
+<th>Quién lo dispara</th>
+<th>Usalo cuando</th>
+<th>Ejemplo en este repo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Comando</strong> — <code>pi.registerCommand(&quot;nombre&quot;, {...})</code></td>
+<td>El usuario, tipeando <code>/nombre</code></td>
+<td>La acción es explícita y el usuario decide el momento</td>
+<td><code>/plan</code>, <code>/loop</code>, <code>/goal</code></td>
+</tr>
+<tr>
+<td><strong>Tool</strong> — <code>pi.registerTool({...})</code></td>
+<td>El LLM, cuando decide que la necesita dentro de un turno</td>
+<td>Es una capacidad que el modelo debe poder invocar por su cuenta</td>
+<td><code>dynamic_workflow</code> (pi-dynamic-workflows)</td>
+</tr>
+<tr>
+<td><strong>Event handler</strong> — <code>pi.on(&quot;evento&quot;, (event, ctx) =&gt; ...)</code></td>
+<td>El runtime de pi, en cada punto del lifecycle</td>
+<td>Necesitás reaccionar o interceptar sin que nadie lo pida (bloquear un tool, inyectar contexto, persistir estado)</td>
+<td><code>pi.on(&quot;tool_call&quot;)</code> bloqueando mutaciones en <code>pi-plan</code>/<code>pi-loop</code>; <code>pi.on(&quot;session_before_compact&quot;)</code> en <code>pi-auto-compact</code></td>
+</tr>
+</tbody></table>
+<p>Ver la referencia completa de eventos y <code>ExtensionAPI</code> en el
+<a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md"><code>extensions.md</code></a>
+de pi upstream (o <code>docs/extensions.md</code> de tu instalación local del paquete).</p>
+<h2>Probarla sin romper tu sesión</h2>
+<p>Una vez que la extensión existe, queda el problema puntual de este repo: es
+<strong>auto-hospedado</strong>. La suite está instalada globalmente apuntando al propio
+checkout
 (<code>packages: [&quot;../../ws/at/pi-dynamic-workflows&quot;]</code> en <code>~/.pi/agent/settings.json</code>),
 y <strong>pi carga el TypeScript de las extensiones desde disco</strong> (no bundlea). Entonces
 un <code>/reload</code> en tu sesión de trabajo ejecuta tus edits <strong>sin commitear</strong> al
 instante — y un error de sintaxis o de carga puede tumbar esa sesión.</p>
 <p>La clave para no sufrirlo es separar <strong>tres ejes ortogonales</strong> que se confunden
 entre sí. Cada uno se resuelve con una herramienta distinta.</p>
-<h2>Eje 1 — Corrección: ¿mi edit funciona?</h2>
+<h3>Eje 1 — Corrección: ¿mi edit funciona?</h3>
 <p><strong>Loop primario. Sin riesgo para tu sesión. Es TDD (la vía Farley).</strong></p>
 <p>Los tests de integración <strong>no cargan la extensión en tu sesión</strong>: el harness
 compartido (<code>extensions/shared/test/harness.mjs</code>) hace un esbuild-bundle de la
@@ -157,7 +222,7 @@ cubrirlo con un test aislado.</li>
 </ul>
 <p>Este eje debería ser ~90% de tu dev-test. Los ejes 2 y 3 son complementos, no
 sustitutos.</p>
-<h2>Eje 2 — Seguridad de sesión: ¿un edit roto me tumba la sesión?</h2>
+<h3>Eje 2 — Seguridad de sesión: ¿un edit roto me tumba la sesión?</h3>
 <p>Este es el problema puntual del repo auto-hospedado. El mecanismo in-place es
 <code>/reload</code> (comando) o <code>ctx.reload()</code> desde un handler; recarga extensiones,
 skills, prompts y themes leyendo el source <strong>actual de disco</strong>. Ver el ejemplo
@@ -176,12 +241,12 @@ un follow-up <code>/reload</code>).</p>
 </thead>
 <tbody><tr>
 <td><strong>A. Worktree + segunda instancia pi</strong></td>
-<td><code>git_worktree open &lt;name&gt;</code> → nueva sesión pi ahí; <code>pi install ./ -l</code> en el worktree</td>
+<td><code>git_worktree open &lt;name&gt;</code> → nueva sesión pi ahí; <code>pi install -l ./</code> en el worktree</td>
 <td>Un edit roto solo afecta esa sesión throwaway; tu sesión de trabajo queda intacta</td>
 </tr>
 <tr>
 <td><strong>B. Install project-local en un scratch</strong></td>
-<td><code>pi install ./ -l</code> en un dir de prueba; tu global sigue en la versión estable</td>
+<td><code>pi install -l ./</code> en un dir de prueba; tu global sigue en la versión estable</td>
 <td>La sesión de autoría no depende de tus edits en vuelo</td>
 </tr>
 <tr>
@@ -197,7 +262,7 @@ A</strong> — &quot;desarrollar&quot; y &quot;probar&quot; nunca comparten proc
 lo trackea y avisa al terminar. (Ver la guía del tool <code>dynamic_workflow</code> y el
 skill <code>ultracode</code>.)</p>
 </blockquote>
-<h2>Eje 3 — Aislamiento de ejecución: ¿el código bajo prueba puede dañar el host?</h2>
+<h3>Eje 3 — Aislamiento de ejecución: ¿el código bajo prueba puede dañar el host?</h3>
 <p>Eje aparte, <strong>opt-in</strong>. Nada que ver con <code>/reload</code>: acá aislás la <em>ejecución</em> de
 tools/<code>!</code>-commands, no el ciclo de recarga.</p>
 <ul>
@@ -223,7 +288,7 @@ seguridad de ejecución, es de cuándo recargás.</p>
 <ul>
 <li><a href="index.html"><code>README.md</code></a> — instalación / dogfooding (<code>pi install ./</code>, <code>/reload</code>).</li>
 <li>Skill <code>init-pi-dynamic-workflows</code> — onboarding desde un clon fresco.</li>
-<li><a href="../.pi/memory/testing.md"><code>.pi/memory/testing.md</code></a> — detalles del harness de tests.</li>
+<li><a href="index.html#verification"><code>README.md#verification</code></a> — cómo correr <code>npm test</code> (harness de tests, lint, typecheck).</li>
 <li><a href="gondolin-isolation.html"><code>gondolin-isolation.md</code></a> — aislamiento por micro-VM (eje 3).</li>
 </ul>
 	</main>

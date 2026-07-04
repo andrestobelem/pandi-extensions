@@ -125,25 +125,30 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <p>Date: 2026-06-28</p>
-<p>A practical how-to that turns the
+<p>An agent loop that never stops wastes money; one that stops on its own
+self-declared &quot;done&quot; is often wrong (a model judging its own work is
+unreliable — Huang et al., arXiv:2310.01798). This repo has two extensions
+that solve that: <strong><code>/goal</code></strong> iterates toward an objective until an
+<em>independent</em> check confirms it, and <strong><code>/loop</code></strong> repeats a task on a capped
+cadence with no notion of &quot;finished&quot; at all. Reach for <code>/goal</code> when you can
+write a checkable success criterion; reach for <code>/loop</code> for open-ended
+monitoring/polling work.</p>
+<pre><code class="language-bash">/goal migrate tests to vitest -- all tests pass; no jest imports remain
+/loop watch the deploy and report when it stabilizes
+</code></pre>
+<p>This guide turns the
 <a href="research/2026-06-28-loop-engineering.html">loop-engineering investigation</a>
-into concrete usage of the extensions in this repo. The research explains <em>what</em>
-loop engineering is and <em>why</em> the repo&#39;s mechanisms work; this guide explains
-<em>which extension to reach for</em> and <em>how to drive it</em> in a loop-engineered way.</p>
+into concrete usage: the research explains <em>what</em> loop engineering is and <em>why</em>
+the repo&#39;s mechanisms work; this guide explains <em>which extension to reach for</em>
+and <em>how to drive it</em>.</p>
 <blockquote>
 <p><strong>Definition (from the research).</strong> <em>Loop engineering</em> is the discipline of
 <strong>designing, bounding, and verifying</strong> iterative/feedback loops so a loop makes
 measurable progress toward a goal and <strong>stops on evidence</strong> (<code>done</code> / <code>quiet</code> /
-<code>blocked</code>) rather than on a timer, a self-declaration, or never.</p>
+<code>blocked</code>) rather than on a timer, a self-declaration, or never. The one-line
+version: bound the loop <strong>and</strong> keep the critique signal independent and
+unbiased — <code>/goal</code> is the surface that enforces both at once.</p>
 </blockquote>
-<h2>The principle in one line</h2>
-<blockquote>
-<p>Bound the loop <strong>and</strong> keep the critique signal independent and unbiased.</p>
-</blockquote>
-<p>That is the decisive lesson behind every mechanism here: a model judging its own
-work is unreliable (Huang et al., arXiv:2310.01798), so a trustworthy loop needs
-both an explicit brake and an external check. <code>/goal</code> is the surface that enforces
-both at once.</p>
 <h2>TL;DR — pick the right loop surface</h2>
 <table>
 <thead>
@@ -167,7 +172,7 @@ both at once.</p>
 <td>Bounded cadence, never trust the model</td>
 </tr>
 <tr>
-<td><code>loop-until-done</code> workflow</td>
+<td><code>loop-until-dry</code> workflow</td>
 <td><em>Has it converged yet?</em></td>
 <td>Exhaustive searches needing convergence</td>
 <td>Convergence by quiet rounds</td>
@@ -185,7 +190,7 @@ both at once.</p>
 <code>pursuing → verifying → verifying-independent → done | blocked</code>: a self
 completeness check, then a <strong>separate read-only adversarial subagent</strong> that emits
 <code>VERDICT: PASS | FAIL</code>. Only an independent <code>PASS</code> closes the goal
-(<code>extensions/pi-goal/index.ts:362-386</code>). This is the repo&#39;s direct architectural
+(<code>extensions/pi-goal/index.ts:264-271</code>). This is the repo&#39;s direct architectural
 answer to the self-correction-is-unreliable result.</p>
 <pre><code class="language-bash"># Objective -- success criteria after the `--`
 /goal migrate tests to vitest -- all tests pass; no jest imports remain
@@ -194,16 +199,16 @@ answer to the self-correction-is-unreliable result.</p>
 </code></pre>
 <p>Guardrails you inherit for free:</p>
 <ul>
-<li>Never an infinite loop; bounded rounds and caps (<code>pi-goal/index.ts:51</code>).</li>
-<li>A claim without verifiable evidence is a <code>FAIL</code> (<code>pi-goal/index.ts:319</code>).</li>
+<li>Never an infinite loop; bounded rounds and caps (<code>pi-goal/index.ts:157-159</code>, the <code>goal.iteration &gt;= goal.maxIterations</code> guard).</li>
+<li>A claim without verifiable evidence is a <code>FAIL</code> (<code>pi-goal/verifier.ts:69</code>).</li>
 <li>Oscillation guard: <code>maxIndependentVerifications</code> (default 2) flips a thrashing
-goal to <code>blocked</code> instead of looping forever (<code>pi-goal/index.ts:116</code>).</li>
+goal to <code>blocked</code> instead of looping forever (<code>pi-goal/index.ts:279-291</code>).</li>
 </ul>
 <h3><code>/loop</code> — bounded cadence, never trust the model</h3>
 <p>Use <code>/loop</code> for recurring work that has no binary &quot;done&quot;: monitoring, polling,
 autopilot. The model proposes a wake delay; the extension <strong>saturates it</strong> to a
 safe band of <code>[60, 3600]s</code> so a bad value can never destabilize the loop
-(<code>extensions/pi-loop/index.ts:103</code>, <code>:1186-1188</code>).</p>
+(<code>extensions/pi-loop/index.ts:115-116</code> for the constants, <code>:1249-1251</code> for the clamp).</p>
 <pre><code class="language-bash"># Fixed cadence (last token is the interval)
 /loop check whether CI went green 10m
 
@@ -223,19 +228,18 @@ while keeping a warm cache.</li>
 <li>Do not poll work the harness already tracks (subagents, workflows) — use a long
 fallback and let it report back.</li>
 </ul>
-<p>Defense in depth: Layered caps include wall-clock, iteration count, and best-effort context-budget (see <code>extensions/pi-loop/caps.ts:28-37</code>), plus a watchdog backstop above the deadline. Note the context-budget cap is a <strong>soft sensor</strong> — it silently no-ops when usage is unknown, so do not rely on it alone.</p>
-<h3><code>loop-until-done</code> — convergence by quiet rounds</h3>
+<p>Defense in depth: Layered caps include wall-clock and best-effort context-budget (see <code>extensions/pi-loop/caps.ts:26-41</code>), plus a separate iteration-count cap inside <code>fireWake</code> in <code>extensions/pi-loop/index.ts</code>, plus a watchdog backstop above the deadline. Note the context-budget cap is a <strong>soft sensor</strong> — it silently no-ops when usage is unknown, so do not rely on it alone.</p>
+<h3><code>loop-until-dry</code> — convergence by quiet rounds</h3>
 <p>When the goal is exhaustiveness rather than a single <code>done</code> (audits, repo-wide
-searches), use the <code>loop-until-done</code> workflow scaffold. It runs parallel finders
+searches), use the <code>loop-until-dry</code> workflow scaffold. It runs parallel finders
 each round and stops when <strong>no new findings appear for <code>quietRounds</code> consecutive rounds</strong> — a settle-to-tolerance detector, not a single transient-quiet flip.</p>
-<pre><code class="language-text">dynamic_workflow action=run name=loop-until-done \
-  input={&quot;finders&quot;:4,&quot;quietRounds&quot;:2,&quot;maxRounds&quot;:8}
+<pre><code class="language-bash">/workflow run loop-until-dry {&quot;target&quot;:&quot;all places we parse SSE chunks&quot;,&quot;quietRounds&quot;:2,&quot;maxRounds&quot;:8}
 </code></pre>
 <ul>
 <li><code>quietRounds</code> (default 2) is a debounce/deadband, not a proven fixed point.</li>
 <li><code>maxRounds</code> (default 8) is the hard brake; when it stops there, it says so
-out loud (<code>extensions/pi-dynamic-workflows/pattern-scaffolds.ts:392-394</code>) — no silent
-caps.</li>
+out loud (<code>extensions/pi-dynamic-workflows/scaffolds/loop-until-dry.js:165</code>) — no
+silent caps.</li>
 </ul>
 <h3>Ultracode + Contract Gate — bound the scope first</h3>
 <p>Before orchestrating broad or repo-wide work, let the Contract Gate pin down what
@@ -274,7 +278,7 @@ target instead of a vague prompt.</p>
 <tr>
 <td>Convergence</td>
 <td>Stop when findings stay at ~0</td>
-<td><code>quietRounds</code> in <code>loop-until-done</code></td>
+<td><code>quietRounds</code> in <code>loop-until-dry</code></td>
 </tr>
 <tr>
 <td>Resumability</td>
@@ -325,7 +329,7 @@ which carries the external citations (ReAct, Reflexion, Self-Refine, Huang et al
 control/feedback theory) and the verified <code>file:line</code> grounding for every
 mechanism referenced above. See also the broader
 <a href="research/2026-06-25-agentic-patterns-papers-workflows.html">agentic patterns map</a>
-and the side-by-side <code>/loop</code> vs <code>/goal</code> note in <code>.pi/notes/loop-y-goal.md</code>.</p>
+The header comment in <code>extensions/pi-goal/index.ts</code> also documents the <code>/loop</code> vs <code>/goal</code> distinction directly in code.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

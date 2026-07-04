@@ -1,6 +1,19 @@
 # @pandi-coding-agent/effort
 
-Switch Pi's thinking level with a Claude-style `/effort` command — from `off` to `xhigh`, plus `ultracode` to enable the Dynamic Workflows router.
+This extension adds a Claude-style `/effort` slash command so you can change how
+hard Pi thinks — from `off` to `xhigh` — without hunting through settings.
+Reach for it when a task needs deeper reasoning (bump to `high`/`xhigh`) or
+when you want faster, cheaper turns (drop to `low`/`off`). One special value,
+`ultracode`, sets `xhigh` and turns on the Dynamic Workflows router in a
+single command.
+
+```text
+/effort high
+→ Thinking effort set to high.
+
+/effort ultracode
+→ Ultracode effort enabled (xhigh); dynamic workflow router enabled.
+```
 
 ## Install
 

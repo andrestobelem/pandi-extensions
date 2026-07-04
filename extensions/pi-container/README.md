@@ -1,12 +1,21 @@
 # @pandi-coding-agent/container
 
-Manage [Apple `container`](https://github.com/apple/container) sandboxes — Linux environments running in lightweight micro-VMs — from inside a Pi session. Pi can run isolated Linux commands in a micro-VM instead of running them directly on the host.
+Run Linux commands in an isolated micro-VM instead of on your Mac directly. This
+extension wraps [Apple `container`](https://github.com/apple/container) so a Pi
+session can spin up disposable or persistent Linux sandboxes — handy for
+untrusted commands, one-off tooling, or anything you don't want touching your
+host filesystem. Two surfaces share the same argv-only spawn path (never a
+shell string), so image refs, machine names, and commands can never inject a
+shell: `/container` (interactive, human) and `container_sandbox` (explicit
+actions, model-callable, no surprise deletes).
 
-## What you get
+## Quickstart
 
-- `/container` — human slash command; interactive and it confirms destructive operations.
-- `container_sandbox` — model-callable tool with explicit actions and no surprise deletes.
-- Shell-injection safety: `container` is always spawned with an argv array, never a shell string, so image refs, machine names, and commands cannot inject shell.
+```bash
+/container create alpine:latest dev --size small   # small 2cpu/1G Linux machine
+/container run dev -- uname -a                     # run a command inside it
+/container remove dev                              # clean up when done
+```
 
 ## Install
 
@@ -48,12 +57,19 @@ The `container_sandbox` tool takes an `action` plus:
 | `command` | Argv array for `run`, e.g. `["uname","-a"]`. |
 | `machine` | Existing machine to run inside (else ephemeral via `image`). |
 | `tier` | Named size preset for `create` or ephemeral `run` — see [Size tiers](#size-tiers). |
-| `workdir`, `cpus`, `memory`, `homeMount` (`ro`\|`rw`\|`none`), `setDefault` | Run/create tuning. Explicit `cpus`/`memory` override `tier`. |
+| `workdir` | For `run` only: working directory inside the container. |
+| `cpus`, `memory` | For `create`, or for ephemeral `run` (`image`, not `machine`): explicit values override `tier`. Ignored when `run` targets an existing `machine`. |
+| `homeMount` (`ro`\|`rw`\|`none`), `setDefault` | For `create` only. |
 | `force` | Required for `remove`. |
 
 It returns a text summary plus structured `details` (the parsed machine list, the created name, the run target/exit code, etc.).
 
-Two run modes:
+### Persistent machine vs. ephemeral container
+
+| Use... | When | `run` params |
+| --- | --- | --- |
+| a persistent machine | the sandbox should survive between commands; mirrors your macOS home/cwd into Linux (edit on macOS, run in Linux) | `machine` (created earlier via `create`) |
+| an ephemeral container | a one-shot command; equivalent to `container run --rm`, removed automatically after it exits (tool only — `/container run` targets a machine) | `image` |
 
 ```jsonc
 // run inside an existing persistent machine
@@ -62,8 +78,6 @@ Two run modes:
 // run in a fresh ephemeral container (removed after it exits)
 { "action": "run", "image": "alpine:latest", "command": ["echo", "hello"] }
 ```
-
-A persistent machine mirrors your macOS home/cwd into Linux (edit on macOS, run in Linux); an ephemeral container is a one-shot `container run --rm`.
 
 ## Size tiers
 

@@ -1,8 +1,14 @@
 # @pandi-coding-agent/btw
 
-Ask a quick side question about the current conversation with a Claude-style `/btw` command — one answer, no tool access, never added to the conversation history.
+Ask a quick side question about the current conversation without touching your session — a Claude-style `/btw` command for Pi. It answers from context the model already has, with no tool access, and the question/answer are never added to history.
 
-Use it for "what did we decide?" / "which file was that?" lookups about context the model already has — not for tasks that need new file reads, commands, or web searches.
+Use it for "what did we decide?" / "which file was that?" lookups — not for tasks that need new file reads, commands, or web searches.
+
+```
+/btw what did we decide about auth?
+```
+
+The answer appears in a dismissible, scrollable overlay in the TUI (or is printed / shown as a notification outside the TUI) and is never written back to the session.
 
 ## Install
 
@@ -25,9 +31,9 @@ pi --no-extensions -e ./extensions/pi-btw   # one-off trial, nothing else loaded
 | Command | What it does |
 | --- | --- |
 | `/btw <question>` | Ask a side question over the current conversation; the answer appears in a dismissible overlay and is never added to history. |
-| `/btw` | With no question, prints usage. |
+| `/btw` | With no question, shows a usage notification (printed to the console only in `--print` mode or when there is no UI). |
 
-In the TUI, the answer opens in a scrollable overlay (`↑/↓` `j/k` scroll, `PgUp/PgDn` page, `q`/`Esc` close). In non-TUI modes (`--print`, RPC/JSON) it is printed or shown as a notification.
+In the TUI, the overlay scrolls with `↑/↓` `j/k` (line) and `PgUp/PgDn` (page); close it with `q` or `Esc`. In non-TUI modes (`--print`, RPC/JSON) the answer is printed or shown as a notification instead.
 
 ## How it works
 

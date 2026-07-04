@@ -1,6 +1,15 @@
 # Setup — requirements, optional capabilities, configuration, distribution
 
-Full setup reference for the `pi-dynamic-workflows` suite. The root [`README.md`](../README.md) has the condensed quickstart.
+This is the **exhaustive** setup reference for `pi-dynamic-workflows`: every mandatory/optional requirement, environment variable, and distribution channel. Just cloned the repo? Run the condensed [Quickstart in the root README](../README.md#quickstart) instead — come back here for a specific detail (an env var, an optional capability, which distribution channel to pick).
+
+Fastest path from a clean machine:
+
+```bash
+nvm install && nvm use                                             # Node >= 22.19.0
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent    # Pi CLI
+npm install && npm run doctor                                      # dev toolchain + env check
+pi install ./                                                      # every extension + skill
+```
 
 ## Requirements
 
@@ -29,25 +38,11 @@ Full setup reference for the `pi-dynamic-workflows` suite. The root [`README.md`
 
 ## Installation variants
 
-From this repo, globally for your user:
-
-```bash
-pi install ./
-```
-
-Local to the current project:
-
-```bash
-pi install -l ./
-```
-
-Try without installing:
-
-```bash
-pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts
-# or load the whole package:
-pi --no-extensions -e .
-```
+| Variant | Command | When |
+| --- | --- | --- |
+| Global, for your user | `pi install ./` | Default: use the extensions in every project |
+| Local to this project | `pi install -l ./` | Only this one project needs them |
+| Try without installing | `pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts` (or `-e .` for the whole bundle) | Quick, throwaway test of one/all extension(s) |
 
 To use project workflows in `.pi/workflows/`, trust the project with `/trust` and restart or run `/reload`.
 
@@ -98,7 +93,7 @@ The suite is distributed through three channels; **pick one per machine/scope** 
 | --- | --- | --- |
 | **Pinned git bundle** | `pi install git:github.com/andrestobelem/pi-dynamic-workflows@v0.2.0` | Consumers: the whole suite, stable version. |
 | **Working tree (local paths)** | clone + `pi install ./` (or the per-extension paths) | Development/dogfooding: changes apply with `/reload`. |
-| **npm scoped `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/<ext>` | À la carte per extension — all 20 packages published on npmjs (versioned independently per semver; e.g. `dynamic-workflows`/`doctor` at 0.2.0, the rest at 0.1.x). With `min-release-age` set, freshly published versions only become installable after that window. |
+| **npm scoped `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/<ext>` | À la carte per extension — all 21 packages published on npmjs (versioned independently per semver; e.g. `dynamic-workflows`/`container`/`rename` at 0.2.0, `doctor` at 0.2.1, the rest at 0.1.x). With `min-release-age` set, freshly published versions only become installable after that window. |
 
 Every `extensions/pi-<ext>/package.json` already carries its public identity `@pandi-coding-agent/<ext>` (npm workspaces; `npm pack -w @pandi-coding-agent/<ext>` to test the tarball). The root `pi` manifest is **generated** from the sub-packages (`npm run sync:manifest`); a parity test fails on drift. Horizon: **Pandi** as a distro on top of Pi (extensions + theme + persona), not a CLI fork.
 
@@ -117,3 +112,11 @@ extensions/<name>/
 `package.json` publishes only runtime files with `files: ["extensions/*/*.ts", ...]`, so tests stay colocated in the repo but out of the npm tarball. `pi.extensions` explicitly lists the entrypoints loaded by default; optional extensions can follow the same convention and be loaded from settings.
 
 `extensions/pi-local-memory/` loads the `.pi/memory/` folder when present (injects the `MEMORY.md` index capped at 200 lines/25 KB and lists topic files for on-demand reading; falls back to the older `.pi/MEMORY.md`). The extension ships with the package; memory content stays private and gitignored.
+
+## Troubleshooting
+
+- **A command isn't available after install** — open Pi in the target project, run `/trust`, then `/reload` (or restart). Project-scoped workflows are trust-gated.
+- **`pi` not found** — the global install (Requirements above) didn't complete, or the global npm bin isn't on `PATH`.
+- **Node too old** — `nvm use` (need ≥ 22.19.0; Gondolin needs ≥ 23.6.0). `npm run doctor` exits non-zero on an old Node, but the repo declares no `engines` field, so a plain `npm install` won't block you.
+- **Same resource seems to load twice** — you likely mixed two distribution channels (see "Distribution" above); `npm run doctor` detects and warns. Pick one channel per machine/scope.
+- **Anything else** — `npm run doctor` is read-only and lists every mandatory/optional prerequisite with what's missing; treat it as authoritative over this page.

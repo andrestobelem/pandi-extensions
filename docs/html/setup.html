@@ -124,7 +124,13 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 		<h1>Setup — requirements, optional capabilities, configuration, distribution</h1>
 	</header>
 	<main>
-<p>Full setup reference for the <code>pi-dynamic-workflows</code> suite. The root <a href="index.html"><code>README.md</code></a> has the condensed quickstart.</p>
+<p>This is the <strong>exhaustive</strong> setup reference for <code>pi-dynamic-workflows</code>: every mandatory/optional requirement, environment variable, and distribution channel. Just cloned the repo? Run the condensed <a href="index.html#quickstart">Quickstart in the root README</a> instead — come back here for a specific detail (an env var, an optional capability, which distribution channel to pick).</p>
+<p>Fastest path from a clean machine:</p>
+<pre><code class="language-bash">nvm install &amp;&amp; nvm use                                             # Node &gt;= 22.19.0
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent    # Pi CLI
+npm install &amp;&amp; npm run doctor                                      # dev toolchain + env check
+pi install ./                                                      # every extension + skill
+</code></pre>
 <h2>Requirements</h2>
 <h3>Mandatory</h3>
 <table>
@@ -198,17 +204,30 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>The whole dev toolchain (<code>biome</code>, <code>tsc</code>, <code>esbuild</code>, <code>markdownlint-cli2</code>, <code>prettier</code>, <code>ctx7</code>) consists of <strong>devDependencies</strong>; <code>@mermaid-js/mermaid-cli</code> is an <strong>optionalDependency</strong> (it has an ASCII fallback, so a failed Chromium download does not break the install). Everything installs with <code>npm install</code> (optional ones unless <code>--omit=optional</code>) and runs via <code>npm run …</code>/<code>npx</code>, with no global installation. The only global install is the <strong>Pi CLI</strong>. Verify your environment with <code>npm run doctor</code>.</p>
 </blockquote>
 <h2>Installation variants</h2>
-<p>From this repo, globally for your user:</p>
-<pre><code class="language-bash">pi install ./
-</code></pre>
-<p>Local to the current project:</p>
-<pre><code class="language-bash">pi install -l ./
-</code></pre>
-<p>Try without installing:</p>
-<pre><code class="language-bash">pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts
-# or load the whole package:
-pi --no-extensions -e .
-</code></pre>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Command</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Global, for your user</td>
+<td><code>pi install ./</code></td>
+<td>Default: use the extensions in every project</td>
+</tr>
+<tr>
+<td>Local to this project</td>
+<td><code>pi install -l ./</code></td>
+<td>Only this one project needs them</td>
+</tr>
+<tr>
+<td>Try without installing</td>
+<td><code>pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts</code> (or <code>-e .</code> for the whole bundle)</td>
+<td>Quick, throwaway test of one/all extension(s)</td>
+</tr>
+</tbody></table>
 <p>To use project workflows in <code>.pi/workflows/</code>, trust the project with <code>/trust</code> and restart or run <code>/reload</code>.</p>
 <h3>External skill: karpathy-guidelines</h3>
 <p>The <code>karpathy-guidelines</code> skill is <strong>not vendored</strong> in the repo; <code>AGENTS.md</code> expects it installed. Fetch it from upstream into your global skills (Pi reads <code>~/.agents/skills</code>, Claude Code <code>~/.claude/skills</code>):</p>
@@ -300,7 +319,7 @@ done
 <tr>
 <td><strong>npm scoped <code>@pandi-coding-agent/*</code></strong></td>
 <td><code>pi install npm:@pandi-coding-agent/&lt;ext&gt;</code></td>
-<td>À la carte per extension — all 20 packages published on npmjs (versioned independently per semver; e.g. <code>dynamic-workflows</code>/<code>doctor</code> at 0.2.0, the rest at 0.1.x). With <code>min-release-age</code> set, freshly published versions only become installable after that window.</td>
+<td>À la carte per extension — all 21 packages published on npmjs (versioned independently per semver; e.g. <code>dynamic-workflows</code>/<code>container</code>/<code>rename</code> at 0.2.0, <code>doctor</code> at 0.2.1, the rest at 0.1.x). With <code>min-release-age</code> set, freshly published versions only become installable after that window.</td>
 </tr>
 </tbody></table>
 <p>Every <code>extensions/pi-&lt;ext&gt;/package.json</code> already carries its public identity <code>@pandi-coding-agent/&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/&lt;ext&gt;</code> to test the tarball). The root <code>pi</code> manifest is <strong>generated</strong> from the sub-packages (<code>npm run sync:manifest</code>); a parity test fails on drift. Horizon: <strong>Pandi</strong> as a distro on top of Pi (extensions + theme + persona), not a CLI fork.</p>
@@ -314,6 +333,14 @@ done
 </code></pre>
 <p><code>package.json</code> publishes only runtime files with <code>files: [&quot;extensions/*/*.ts&quot;, ...]</code>, so tests stay colocated in the repo but out of the npm tarball. <code>pi.extensions</code> explicitly lists the entrypoints loaded by default; optional extensions can follow the same convention and be loaded from settings.</p>
 <p><code>extensions/pi-local-memory/</code> loads the <code>.pi/memory/</code> folder when present (injects the <code>MEMORY.md</code> index capped at 200 lines/25 KB and lists topic files for on-demand reading; falls back to the older <code>.pi/MEMORY.md</code>). The extension ships with the package; memory content stays private and gitignored.</p>
+<h2>Troubleshooting</h2>
+<ul>
+<li><strong>A command isn&#39;t available after install</strong> — open Pi in the target project, run <code>/trust</code>, then <code>/reload</code> (or restart). Project-scoped workflows are trust-gated.</li>
+<li><strong><code>pi</code> not found</strong> — the global install (Requirements above) didn&#39;t complete, or the global npm bin isn&#39;t on <code>PATH</code>.</li>
+<li><strong>Node too old</strong> — <code>nvm use</code> (need ≥ 22.19.0; Gondolin needs ≥ 23.6.0). <code>npm run doctor</code> exits non-zero on an old Node, but the repo declares no <code>engines</code> field, so a plain <code>npm install</code> won&#39;t block you.</li>
+<li><strong>Same resource seems to load twice</strong> — you likely mixed two distribution channels (see &quot;Distribution&quot; above); <code>npm run doctor</code> detects and warns. Pick one channel per machine/scope.</li>
+<li><strong>Anything else</strong> — <code>npm run doctor</code> is read-only and lists every mandatory/optional prerequisite with what&#39;s missing; treat it as authoritative over this page.</li>
+</ul>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>
