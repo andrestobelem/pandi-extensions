@@ -1,20 +1,20 @@
-# @pandi-coding-agent/mdhtml
+# @pandi-coding-agent/docs
 
-Individual Pi package for the `/mdhtml` Markdown → HTML converter extension.
+Individual Pi package for the `/docs` Markdown → HTML converter extension.
 
 ## Install
 
 From this repository:
 
 ```bash
-pi install ./extensions/pi-mdhtml
-pi install -l ./extensions/pi-mdhtml
-pi --no-extensions -e ./extensions/pi-mdhtml
+pi install ./extensions/pi-docs
+pi install -l ./extensions/pi-docs
+pi --no-extensions -e ./extensions/pi-docs
 ```
 
 ## Provides
 
-- `/mdhtml <in.md> [more.md…] [-o out.html] [--kicker "Text"]` — convert Markdown
+- `/docs <in.md> [more.md…] [-o out.html] [--kicker "Text"]` — convert Markdown
   files into self-contained HTML artifacts styled with the pandi artifact style
   (Claude-design layout × Panda Syntax palette, light + dark).
 - `markdown_to_html` — the model-callable counterpart, so the agent itself can
@@ -26,7 +26,7 @@ pi --no-extensions -e ./extensions/pi-mdhtml
 The converter itself is a plain-node CLI too:
 
 ```bash
-node extensions/pi-mdhtml/scripts/md-to-html.mjs in.md -o out.html --kicker "Informe"
+node extensions/pi-docs/scripts/md-to-html.mjs in.md -o out.html --kicker "Informe"
 ```
 
 Details (mermaid support, GitHub alerts → callouts, title/kicker rules) are in the

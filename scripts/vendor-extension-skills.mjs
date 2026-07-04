@@ -27,9 +27,9 @@ const SKILLS_SRC = join(REPO, ".pi", "skills");
 // useless without (e.g. the ultracode/router skills need the dynamic-workflows engine).
 const VENDOR = {
 	"pi-dynamic-workflows": ["ultracode", "deep-research", "default"],
-	// pi-mdhtml renders Markdown with the pandi tokens; the skill carries the canonical
+	// pi-docs renders Markdown with the pandi tokens; the skill carries the canonical
 	// tokens/template the converter reads at runtime, so the extension vendors it.
-	"pi-mdhtml": ["pandi-artifact-style"],
+	"pi-docs": ["pandi-artifact-style"],
 };
 
 const checkOnly = process.argv.includes("--check");

@@ -1,9 +1,9 @@
 /**
- * pi-mdhtml — convert Markdown into a self-contained HTML artifact styled with the
+ * pi-docs — convert Markdown into a self-contained HTML artifact styled with the
  * pandi-artifact-style manual (Claude-design layout × Panda Syntax palette).
  *
  * Two surfaces over the same converter (./scripts/md-to-html.mjs):
- *   - `/mdhtml <in.md> [more.md…] [-o out.html] [--kicker "Text"]` — human command.
+ *   - `/docs <in.md> [more.md…] [-o out.html] [--kicker "Text"]` — human command.
  *   - `markdown_to_html` — model-callable tool (the agent cannot type slash commands).
  *
  * The pandi tokens are read at call time from the vendored pandi-artifact-style skill
@@ -24,7 +24,7 @@ import { parseArgs, renderMarkdownToHtml } from "./scripts/md-to-html.mjs";
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
-const USAGE = 'Usage: /mdhtml <input.md> [more.md…] [-o output.html] [--kicker "Text"]';
+const USAGE = 'Usage: /docs <input.md> [more.md…] [-o output.html] [--kicker "Text"]';
 
 /** Resolve a user path against the session cwd, expanding a leading `~`. */
 function resolveUserPath(input: string, cwd: string): string {
@@ -78,8 +78,8 @@ function relativeTo(cwd: string, abs: string): string {
 	return path.relative(cwd, abs) || abs;
 }
 
-export default function mdhtmlExtension(pi: ExtensionAPI): void {
-	pi.registerCommand("mdhtml", {
+export default function docsExtension(pi: ExtensionAPI): void {
+	pi.registerCommand("docs", {
 		description: "Convert a Markdown file to pandi-styled self-contained HTML",
 		handler: async (args, ctx) => {
 			let parsed: { inputs?: string[]; out?: string | null; kicker?: string; help?: boolean };
@@ -115,7 +115,7 @@ export default function mdhtmlExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	// Model-callable counterpart of `/mdhtml` (the agent cannot type a slash command).
+	// Model-callable counterpart of `/docs` (the agent cannot type a slash command).
 	pi.registerTool({
 		name: "markdown_to_html",
 		label: "Markdown to HTML",

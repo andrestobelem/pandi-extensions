@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pi-mdhtml/index.ts:
- * the `/mdhtml` COMMAND (human) and the `markdown_to_html` TOOL (model).
+ * Durable behavioral integration test for extensions/pi-docs/index.ts:
+ * the `/docs` COMMAND (human) and the `markdown_to_html` TOOL (model).
  *
  * Contract pinned here:
  * - both surfaces are registered (command with an HTML-aware description; tool with a
@@ -29,14 +29,14 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-async function buildMdhtml() {
+async function buildDocs() {
 	return await buildExtension({
-		name: "pi-mdhtml-integration",
-		src: path.join(REPO_ROOT, "extensions", "pi-mdhtml", "index.ts"),
-		outName: "mdhtml.mjs",
+		name: "pi-docs-integration",
+		src: path.join(REPO_ROOT, "extensions", "pi-docs", "index.ts"),
+		outName: "docs.mjs",
 		// No typebox stub: bundle the real one so tool.parameters keeps a real JSON schema
 		// (.properties), same as the pi-mdview suites.
-		copyDirs: { skills: path.join(REPO_ROOT, "extensions", "pi-mdhtml", "skills") },
+		copyDirs: { skills: path.join(REPO_ROOT, "extensions", "pi-docs", "skills") },
 	});
 }
 
@@ -68,16 +68,16 @@ async function loadSurfaces(url) {
 	const extension = await loadDefault(url);
 	const { pi, commands, tools } = makePi();
 	extension(pi);
-	return { command: commands.get("mdhtml"), tool: tools.get("markdown_to_html") };
+	return { command: commands.get("docs"), tool: tools.get("markdown_to_html") };
 }
 
 async function tmpCwd(name) {
-	return await fs.mkdtemp(path.join(os.tmpdir(), `pi-mdhtml-${name}-`));
+	return await fs.mkdtemp(path.join(os.tmpdir(), `pi-docs-${name}-`));
 }
 
 async function scenarioRegistered(url) {
 	const { command, tool } = await loadSurfaces(url);
-	check("command /mdhtml registered", !!command, String(!!command));
+	check("command /docs registered", !!command, String(!!command));
 	check("command describes HTML conversion", /html/i.test(command?.description || ""), command?.description);
 	check("tool markdown_to_html registered", !!tool, String(!!tool));
 	check("tool describes Markdown → HTML", /markdown/i.test(tool?.description || ""), tool?.description);
@@ -206,7 +206,7 @@ async function scenarioToolErrors(url) {
 }
 
 async function main() {
-	const { url } = await buildMdhtml();
+	const { url } = await buildDocs();
 	await scenarioRegistered(url);
 	await scenarioCommandConverts(url);
 	await scenarioCommandOutAndKicker(url);

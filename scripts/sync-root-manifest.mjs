@@ -34,7 +34,7 @@ const LOAD_ORDER = [
 	"pi-bg",
 	"pi-effort",
 	"pi-mdview",
-	"pi-mdhtml",
+	"pi-docs",
 	"pi-local-memory",
 	"pi-auto-compact",
 	"pi-worktree",

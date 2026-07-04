@@ -7,7 +7,7 @@
     "../extensions/pi-bg",
     "../extensions/pi-effort",
     "../extensions/pi-mdview",
-    { "source": "../extensions/pi-mdhtml", "skills": [] },
+    { "source": "../extensions/pi-docs", "skills": [] },
     "../extensions/pi-local-memory",
     "../extensions/pi-auto-compact",
     "../extensions/pi-worktree",

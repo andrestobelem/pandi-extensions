@@ -106,21 +106,21 @@ Working markup + CSS for all of these: [`reference/template.html`](./reference/t
    `themeVariables` mapped from the tokens (background/mainBkg/primaryColor from the
    surfaces, text from the inks, `titleColor` from the accent, lines from `--muted`).
    Reference implementation: `mermaidThemeVariables()` in
-   `extensions/pi-mdhtml/scripts/md-to-html.mjs` — copy it instead of inventing
+   `extensions/pi-docs/scripts/md-to-html.mjs` — copy it instead of inventing
    a new mapping.
 
 ## Converting Markdown to styled HTML
 
-Use the `pi-mdhtml` extension instead of hand-writing the shell — it owns the
-converter (`extensions/pi-mdhtml/scripts/md-to-html.mjs`):
+Use the `pi-docs` extension instead of hand-writing the shell — it owns the
+converter (`extensions/pi-docs/scripts/md-to-html.mjs`):
 
-- **In a Pi session**: the `/mdhtml` command (human) or the `markdown_to_html`
-  tool (model): `/mdhtml in.md [more.md…] [-o out.html] [--kicker "Informe"]`.
+- **In a Pi session**: the `/docs` command (human) or the `markdown_to_html`
+  tool (model): `/docs in.md [more.md…] [-o out.html] [--kicker "Informe"]`.
 - **From the shell**:
 
 ```bash
 npm run md:html -- docs/research/example.md            # writes example.html next to it
-node extensions/pi-mdhtml/scripts/md-to-html.mjs in.md -o out.html --kicker "Informe"
+node extensions/pi-docs/scripts/md-to-html.mjs in.md -o out.html --kicker "Informe"
 ```
 
 - Accepts multiple `.md` inputs (each writes a sibling `.html`); `-o` only with one.
@@ -136,7 +136,7 @@ node extensions/pi-mdhtml/scripts/md-to-html.mjs in.md -o out.html --kicker "Inf
 - Tokens are read at runtime from this skill's [`reference/pandi-tokens.css`](./reference/pandi-tokens.css)
   (the extension carries a vendored, byte-identical copy of the skill) — output is a
   single self-contained file with no JS.
-- Pinning tests: `extensions/pi-mdhtml/tests/integration/md-to-html.test.mjs` (`npm test`).
+- Pinning tests: `extensions/pi-docs/tests/integration/md-to-html.test.mjs` (`npm test`).
 
 ## Rules for Markdown reports (informes)
 
