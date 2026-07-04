@@ -194,8 +194,14 @@ whichever provider is active), so the same knobs target **Anthropic OR OpenAI/Co
   can pick a provider you have **not** authenticated (e.g. `amazon-bedrock` → `No API key found for
   <provider>`). **The dynamic-workflows runtime mitigates this: a bare alias is pinned to the session's
   provider on spawn** (`--provider <session provider> --model <alias>`), so it resolves within your
-  authenticated provider on pi (an explicit `provider`, or a qualified `provider/id`, always wins). Even
-  so, **prefer a provider-qualified `anthropic/…` id** (above) — or **omit `model`** to inherit the
+  authenticated provider on pi (an explicit `provider`, or a qualified `provider/id`, always wins).
+  On providers whose catalog lacks those aliases, the runtime additionally **maps the tier alias to
+  that provider's equivalent** — under `openai-codex`: `haiku` → `gpt-5.4-mini`, `sonnet` → `gpt-5.4`,
+  `opus` → `gpt-5.5` — only when the model registry confirms the target (never a silent substitution;
+  unconfirmed mappings keep the visible fail-fast pin). Extend/override the table per provider with
+  `PI_DYNAMIC_WORKFLOWS_TIER_MODELS` (JSON, e.g. `{"openai-codex":{"haiku":"gpt-6-mini"}}`). Mapping
+  happens after the cache key is computed from the raw alias, so it never invalidates resume journals.
+  Even so, **prefer a provider-qualified `anthropic/…` id** (above) — or **omit `model`** to inherit the
   session model — for cross-provider clarity, and because qualified ids are more cache-stable.
 
 **OpenAI / Codex** — provider `openai-codex` (from the Codex `/model` picker):

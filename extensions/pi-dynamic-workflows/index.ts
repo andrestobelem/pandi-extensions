@@ -363,6 +363,39 @@ function makeModelArg(ctx: ExtensionContext): string | undefined {
 	return `${ctx.model.provider}/${ctx.model.id}`;
 }
 
+// Tier-alias mapping (#24): the shared dual-platform scaffolds use BARE ladder aliases
+// (haiku/sonnet/opus) for cheap/balanced/deep tiers. Pinned to an Anthropic session they
+// resolve natively, but other providers have no such aliases and the branch fails fast
+// ("model is not supported"), so the cheap-tier promise dies cross-provider. This table
+// names the id that embodies each tier per provider; anthropic is deliberately absent
+// (pi resolves the aliases within it already). Extend or override per provider with
+// PI_DYNAMIC_WORKFLOWS_TIER_MODELS (JSON of the same shape) since catalogs move fast.
+const TIER_ALIASES = new Set(["haiku", "sonnet", "opus"]);
+const BUILTIN_TIER_MODELS: Record<string, Record<string, string>> = {
+	"openai-codex": { haiku: "gpt-5.4-mini", sonnet: "gpt-5.4", opus: "gpt-5.5" },
+};
+function tierModelTable(): { table: Record<string, Record<string, string>>; error?: string } {
+	const raw = process.env.PI_DYNAMIC_WORKFLOWS_TIER_MODELS?.trim();
+	if (!raw) return { table: BUILTIN_TIER_MODELS };
+	try {
+		const parsed = JSON.parse(raw);
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("expected an object");
+		const table: Record<string, Record<string, string>> = { ...BUILTIN_TIER_MODELS };
+		for (const [provider, tiers] of Object.entries(parsed as Record<string, unknown>)) {
+			if (!tiers || typeof tiers !== "object" || Array.isArray(tiers)) continue;
+			const merged: Record<string, string> = { ...table[provider] };
+			for (const [alias, id] of Object.entries(tiers as Record<string, unknown>)) {
+				if (typeof id === "string" && id.trim()) merged[alias] = id.trim();
+			}
+			table[provider] = merged;
+		}
+		return { table };
+	} catch (err) {
+		return { table: BUILTIN_TIER_MODELS, error: err instanceof Error ? err.message : String(err) };
+	}
+}
+let tierEnvWarned = false;
+
 // Scan a JS object/array literal starting at/after `start`, returning the index just past
 // its matching close (string/line+block-comment aware). -1 if it cannot be balanced. Used to
 // lift `export const meta = { ... }` out of a workflow without a brittle brace regex.
@@ -925,9 +958,38 @@ export async function runWorkflow(
 		// dual-platform scaffolds (which use bare aliases for Claude Code) resolve within the authenticated
 		// provider on pi. An explicit provider always wins; qualified ids ("provider/id") and omitted models
 		// (already qualified by makeModelArg) are left untouched.
-		const resolvedModel = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
+		let resolvedModel = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
 		const resolvedProvider =
 			effectiveOptions.provider ?? (resolvedModel && !resolvedModel.includes("/") ? ctx.model?.provider : undefined);
+		// #24: a bare LADDER alias pinned to a provider whose catalog lacks it would fail fast.
+		// Map it to that provider's tier id from the table, but ONLY when the model registry
+		// confirms the target exists — otherwise keep the verbatim pin (visible fail-fast); the
+		// session model is NEVER silently substituted. This runs AFTER the prologue computed the
+		// cache key from the RAW alias, so mapping never changes keys or invalidates journals.
+		let tierAliasNote: { message: string; details: Record<string, unknown> } | undefined;
+		if (resolvedModel && resolvedProvider && !resolvedModel.includes("/") && TIER_ALIASES.has(resolvedModel)) {
+			const { table, error } = tierModelTable();
+			if (error && !tierEnvWarned) {
+				tierEnvWarned = true;
+				await log(`invalid PI_DYNAMIC_WORKFLOWS_TIER_MODELS (using builtin tier table): ${error}`);
+			}
+			const mappedId = table[resolvedProvider]?.[resolvedModel];
+			if (mappedId && mappedId !== resolvedModel) {
+				if (ctx.modelRegistry?.find?.(resolvedProvider, mappedId)) {
+					tierAliasNote = {
+						message: `tier alias mapped: ${resolvedModel} -> ${resolvedProvider}/${mappedId}`,
+						details: { alias: resolvedModel, provider: resolvedProvider, model: mappedId },
+					};
+					resolvedModel = mappedId;
+				} else {
+					tierAliasNote = {
+						message: `tier alias not confirmed by the model registry: ${resolvedProvider}/${mappedId} — pinning "${resolvedModel}" verbatim (may fail fast)`,
+						details: { alias: resolvedModel, provider: resolvedProvider, unconfirmed: mappedId },
+					};
+				}
+			}
+		}
+		if (tierAliasNote) await log(tierAliasNote.message, tierAliasNote.details);
 		const rawThinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
 		const resolvedThinking = rawThinking ? String(rawThinking) : undefined;
 		// Recorded (display) form: qualify a bare model with the pinned provider so the
