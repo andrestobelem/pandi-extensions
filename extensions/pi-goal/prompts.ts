@@ -8,6 +8,7 @@
  * index.ts and reuses effectiveCriteria/formatProgressLog imported from here.
  */
 
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { PROGRESS_LOG_KEEP } from "./constants.js";
 import type { GoalState } from "./types.js";
 
@@ -62,7 +63,7 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 	if (goal.lastReason) lines.push(`Previous decision: ${goal.lastReason}`);
 	if (goal.ultracode) {
 		lines.push(
-			"ULTRACODE: prefer driving this work via dynamic workflows when it earns its cost. Scout inline first with cheap read-only probes; orchestrate (dynamic_workflow action=start) only for exhaustiveness, independent confidence, or scale, with explicit concurrency/maxAgents. Inspect the catalog (dynamic_workflow action=scaffold) and reuse an exact-fit workflow or write a gitignored .pi/workflows/drafts/<slug>.js draft.",
+			`ULTRACODE: prefer driving this work via dynamic workflows when it earns its cost. Scout inline first with cheap read-only probes; orchestrate (dynamic_workflow action=start) only for exhaustiveness, independent confidence, or scale, with explicit concurrency/maxAgents. Inspect the catalog (dynamic_workflow action=scaffold) and reuse an exact-fit workflow or write a gitignored ${CONFIG_DIR_NAME}/workflows/drafts/<slug>.js draft.`,
 		);
 	}
 	lines.push("");

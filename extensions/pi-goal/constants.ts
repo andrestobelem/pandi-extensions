@@ -5,6 +5,26 @@
  * index.ts, so the extension's behavior and public surface are unchanged.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { getPackageDir } from "@earendil-works/pi-coding-agent";
+
+/**
+ * Bin name of the HOST distribution (bin === piConfig.name: "pi" under vanilla pi,
+ * "pi-cante" under pi-cante), read from the host package.json. Falls back to "pi".
+ * Deliberately duplicated per extension (self-contained-extension rule).
+ */
+function hostBinName(): string {
+	try {
+		const pkg = JSON.parse(readFileSync(join(getPackageDir(), "package.json"), "utf8")) as {
+			piConfig?: { name?: string };
+		};
+		return pkg.piConfig?.name || "pi";
+	} catch {
+		return "pi";
+	}
+}
+
 export const GOAL_STATE_TYPE = "goal-state";
 export const GOAL_STATUS_KEY = "goal";
 export const GOAL_DIR = "goals";
@@ -43,4 +63,6 @@ export const DEFAULT_VERIFIER_TIMEOUT_MS = 120_000;
 // so this gate is not free — keep it small.
 export const DEFAULT_MAX_INDEPENDENT_VERIFICATIONS = 2;
 // pi command used to spawn the verifier subagent (mirrors dynamic-workflows.ts).
-export const PI_COMMAND = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi";
+// Defaults to the HOST distribution's own binary (bin name === piConfig.name) so the
+// independent verifier runs the same distribution; the env override still wins.
+export const PI_COMMAND = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || hostBinName();

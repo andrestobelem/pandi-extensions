@@ -32,7 +32,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // extensions/pi-goal/tests/integration/ -> repo root is four levels up.
@@ -47,6 +47,8 @@ async function buildVerifier() {
 		name: "pi-goal-verifier-coverage",
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "verifier.ts"),
 		outName: "verifier.mjs",
+		// verifier.ts pulls constants.ts, which imports getPackageDir from the SDK.
+		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 }
 

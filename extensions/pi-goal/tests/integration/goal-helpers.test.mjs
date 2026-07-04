@@ -18,7 +18,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -183,6 +183,8 @@ async function main() {
 		name: "pi-goal-prompts-helpers",
 		src: path.join(REPO_ROOT, "extensions", "pi-goal", "prompts.ts"),
 		outName: "prompts.mjs",
+		// prompts.ts imports CONFIG_DIR_NAME from the SDK, so the bundle needs the stub.
+		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	try {
 		await scenarioPrompts(prompts.url);
