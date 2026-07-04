@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/bg",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Pi extension with local /bg background job commands and project artifacts.",
 	"license": "MIT",
 	"repository": {
