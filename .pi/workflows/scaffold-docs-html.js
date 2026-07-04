@@ -5,15 +5,16 @@
 export const meta = {
 	name: "scaffold-docs-html",
 	description: "Genera un HTML pandi (diagrama mermaid + explicación completa) por scaffold del catálogo.",
-	phases: [{ title: "discover" }, { title: "author" }, { title: "convert" }, { title: "index" }, { title: "verify" }],
+	phases: [{ title: "discover" }, { title: "author" }, { title: "index" }, { title: "convert" }, { title: "verify" }],
 };
 
 export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
 	const SCAFFOLDS_DIR = "extensions/pi-dynamic-workflows/scaffolds";
 	const CATALOG = "extensions/pi-dynamic-workflows/catalog.ts";
-	const CONVERTER = "extensions/pi-docs/scripts/markdown-to-html.mjs";
-	const MD_DIR = ".pi/tmp/scaffold-docs";
+	// Las fuentes Markdown viven TRACKEADAS en docs/scaffolds/; el HTML es el mirror generado
+	// por `npm run sync:docs:html` (docs/html/scaffolds/), no se convierte a mano.
+	const MD_DIR = "docs/scaffolds";
 	const OUT_DIR = "docs/html/scaffolds";
 
 	phase("discover");
@@ -72,23 +73,20 @@ export default async function main() {
 	if (failed.length) log(`SIN DOC tras reintento (${failed.length}): ${failed.join(", ")}`);
 	const authored = keys.filter((k) => !failed.includes(k));
 
-	phase("convert");
-	const convFails = [];
-	for (const k of authored) {
-		const r = await bash(`node ${CONVERTER} ${MD_DIR}/${k}.md -o ${OUT_DIR}/${k}.html --kicker "Workflow scaffold"`, { cache: true });
-		if ((r.code ?? r.exitCode ?? 0) !== 0) { convFails.push(k); log(`conversión falló para ${k}: ${r.stderr.slice(0, 300)}`); }
-	}
-
 	phase("index");
-	const ok = authored.filter((k) => !convFails.includes(k));
+	const ok = authored;
 	const indexMd = await agent(
-		`Escribí un index.md (en español) para la carpeta de documentación de workflow scaffolds. Para cada scaffold listado abajo: un item con link [\`<key>\`](./<key>.html) y su blurb de una línea tomado del catálogo (traducido). Agrupá por afinidad (verificación, research, fan-out, meta/composición, iterativos, etc.) con secciones H2. Título H1: "Workflow scaffolds". Aclarar al inicio qué es un scaffold (patrón ejecutable del catálogo de pi-dynamic-workflows). Respondé SOLO el Markdown.\n\nScaffolds documentados: ${ok.join(", ")}${failed.length || convFails.length ? `\nSIN página (mencionalos en una nota final como pendientes): ${[...failed, ...convFails].join(", ")}` : ""}\n\nCatálogo:\n${catalogSrc}`,
+		`Escribí un index.md (en español) para la carpeta de documentación de workflow scaffolds. Para cada scaffold listado abajo: un item con link [\`<key>\`](./<key>.html) y su blurb de una línea tomado del catálogo (traducido). Agrupá por afinidad (verificación, research, fan-out, meta/composición, iterativos, etc.) con secciones H2. Título H1: "Workflow scaffolds". Aclarar al inicio qué es un scaffold (patrón ejecutable del catálogo de pi-dynamic-workflows). Respondé SOLO el Markdown.\n\nScaffolds documentados: ${ok.join(", ")}${failed.length ? `\nSIN página (mencionalos en una nota final como pendientes): ${failed.join(", ")}` : ""}\n\nCatálogo:\n${catalogSrc}`,
 		{ label: "index", phase: "index", model: input.model ?? "sonnet", effort: "medium" },
 	);
 	// Robustez: si el agente envuelve la respuesta en un fence ```markdown, lo quitamos.
 	const cleanIndex = String(indexMd).replace(/^\s*```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/, "$1");
 	await writeFile(`${MD_DIR}/index.md`, cleanIndex);
-	await bash(`node ${CONVERTER} ${MD_DIR}/index.md -o ${OUT_DIR}/index.html --kicker "Workflow scaffolds"`);
+
+	phase("convert");
+	const sync = await bash("npm run sync:docs:html");
+	const convFails = [];
+	if ((sync.code ?? 0) !== 0) { convFails.push("sync:docs:html"); log(`sync:docs:html falló: ${sync.stderr.slice(0, 300)}`); }
 
 	phase("verify");
 	const count = await bash(`ls ${OUT_DIR}/*.html | wc -l`);
