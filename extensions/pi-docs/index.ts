@@ -2,7 +2,7 @@
  * pi-docs — convert Markdown into a self-contained HTML artifact styled with the
  * pandi-artifact-style manual (Claude-design layout × Panda Syntax palette).
  *
- * Two surfaces over the same converter (./scripts/md-to-html.mjs):
+ * Two surfaces over the same converter (./scripts/markdown-to-html.mjs):
  *   - `/docs <in.md> [more.md…] [-o out.html] [--kicker "Text"]` — human command.
  *   - `markdown_to_html` — model-callable tool (the agent cannot type slash commands).
  *
@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { notify } from "./notify.js";
-import { parseArgs, renderMarkdownToHtml } from "./scripts/md-to-html.mjs";
+import { parseArgs, renderMarkdownToHtml } from "./scripts/markdown-to-html.mjs";
 
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");

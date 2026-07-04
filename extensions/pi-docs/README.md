@@ -26,7 +26,7 @@ pi --no-extensions -e ./extensions/pi-docs
 The converter itself is a plain-node CLI too:
 
 ```bash
-node extensions/pi-docs/scripts/md-to-html.mjs in.md -o out.html --kicker "Informe"
+node extensions/pi-docs/scripts/markdown-to-html.mjs in.md -o out.html --kicker "Informe"
 ```
 
 Details (mermaid support, GitHub alerts → callouts, title/kicker rules) are in the

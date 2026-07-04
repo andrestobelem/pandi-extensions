@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// md-to-html.mjs — convert Markdown into a self-contained HTML artifact styled with the
+// markdown-to-html.mjs — convert Markdown into a self-contained HTML artifact styled with the
 // pandi-artifact-style manual (Claude-design layout × Panda Syntax palette).
 //
 // Tokens are read at runtime from the extension's vendored skill copy
@@ -8,7 +8,7 @@
 // extensions/pi-pandi-theme/themes/panda-syntax-{dark,light}.json).
 //
 // Usage:
-//   node md-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]
+//   node markdown-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]
 //
 // Without -o each input writes a sibling <input>.html; -o is only valid with one input.
 
@@ -215,7 +215,7 @@ export function parseArgs(argv) {
 function main() {
 	const parsed = parseArgs(process.argv.slice(2));
 	if (parsed.help || !parsed.inputs?.length) {
-		console.log('Usage: md-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]');
+		console.log('Usage: markdown-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]');
 		process.exit(parsed.help ? 0 : 1);
 	}
 	if (parsed.out && parsed.inputs.length > 1) {

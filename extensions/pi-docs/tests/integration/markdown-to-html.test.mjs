@@ -1,4 +1,4 @@
-// Pinning tests for the pi-docs md-to-html converter (moved here from the
+// Pinning tests for the pi-docs markdown-to-html converter (moved here from the
 // pandi-artifact-style skill). TDD pinning suite: pure core (renderMarkdownToHtml)
 // + one CLI smoke test. node:test based; run-all executes the file directly and
 // node:test sets a non-zero exit code on failure.
@@ -11,7 +11,7 @@ import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
-const SCRIPT = path.join(REPO, "extensions", "pi-docs", "scripts", "md-to-html.mjs");
+const SCRIPT = path.join(REPO, "extensions", "pi-docs", "scripts", "markdown-to-html.mjs");
 
 const { renderMarkdownToHtml } = await import(pathToFileURL(SCRIPT).href);
 

@@ -1,4 +1,4 @@
-// Hand-written types for the sibling md-to-html.mjs (the converter stays a plain .mjs so
+// Hand-written types for the sibling markdown-to-html.mjs (the converter stays a plain .mjs so
 // repo scripts and the CLI can run it with plain node; tsconfig has no allowJs, so the
 // TypeScript entry imports it through this declaration).
 
