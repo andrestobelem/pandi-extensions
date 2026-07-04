@@ -64,6 +64,7 @@ function reviewItem(label, description, model = "anthropic/claude-sonnet-4-6") {
 }
 
 export default async function main() {
+	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
 	await log("repo-audit start", { concurrency: limits.concurrency, maxAgents: limits.maxAgents });
 
 	// 1) Deterministic gate — cheap, high-signal grounding (not cached: reflects current tree).
@@ -111,8 +112,12 @@ export default async function main() {
 		),
 	];
 
-	const concurrency = Math.min(4, limits.concurrency);
-	await log("review fan-out", { areas: areas.length, concurrency });
+	const requestedConcurrency = Number.isFinite(+input.concurrency) ? Math.max(1, Math.floor(+input.concurrency)) : 4;
+	const concurrency = Math.max(1, Math.min(requestedConcurrency, limits.concurrency));
+	if (concurrency !== requestedConcurrency) log(`concurrency clamped ${requestedConcurrency} -> ${concurrency} by limits.concurrency=${limits.concurrency}`);
+	const recommendedMaxAgents = areas.length + 1;
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) log(`WARNING: maxAgents may be tight for repo-audit ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, areas: areas.length, synthesis: 1 })}`);
+	await log("review fan-out", { areas: areas.length, concurrency, recommendedMaxAgents });
 	const reviews = await agents(areas, { concurrency, settle: true });
 	const ok = reviews.filter(Boolean);
 	const failed = reviews.length - ok.length;

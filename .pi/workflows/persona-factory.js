@@ -209,7 +209,7 @@ export default async function main() {
 
 	// ---------- budget ----------
 	const totalPlanned = FIGURES.length * ANGLES.length + FIGURES.length + 3 + FIGURES.length + 1;
-	const requestedConcurrency = 4;
+	const requestedConcurrency = Number.isFinite(+input.concurrency) ? Math.max(1, Math.floor(+input.concurrency)) : 4;
 	const effectiveConcurrency = Math.min(requestedConcurrency, limits.concurrency || requestedConcurrency);
 	log(
 		`budget: ${totalPlanned} planned agents (${FIGURES.length * ANGLES.length} research + ${FIGURES.length} synth + 3 review + ${FIGURES.length} refine + 1 judge); ` +

@@ -16,7 +16,7 @@ export default async function main() {
 	// Contratos TRACKEADOS (nunca leerlos de .pi/tmp/ — es efímero).
 	const dose = await readFile(".pi/skills/pandi-prose-style/SKILL.md");
 	const docsStyle = await readFile(".pi/skills/didactic-docs-style/SKILL.md");
-	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : 4;
+	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : (limits.concurrency ?? 4);
 	const conc = Math.max(1, Math.min(requestedConc, limits.concurrency ?? requestedConc));
 	if (conc !== requestedConc) log(`concurrency clamped ${requestedConc} -> ${conc}`);
 
@@ -45,8 +45,14 @@ export default async function main() {
 		`- No toques NINGÚN otro archivo.\n` +
 		`Respondé "done" + 2-4 bullets de qué cambiaste (o "no-op" + por qué).\n\n`;
 
+	const reviewCount = input.skipReview ? 0 : files.length;
+	const recommendedMaxAgents = files.length + reviewCount + reviewCount;
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) {
+		log(`WARNING: maxAgents may be tight for pandi-prose-wave1 ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, editors: files.length, reviewers: reviewCount, possibleFixers: reviewCount })}`);
+	}
+
 	phase("edit");
-	log(`editores: ${files.length} (uno por archivo; supera el hint maxAgents~12 del contrato: granularidad por archivo para diffs mínimos, reviewers read-only)`);
+	log(`editores: ${files.length} (uno por archivo; granularidad por archivo para diffs mínimos, reviewers read-only); concurrency=${conc}; recommendedMaxAgents~${recommendedMaxAgents}`);
 	const edits = await agents(
 		files.map((f) => ({
 			prompt: `${base}Archivo: ${f}`,

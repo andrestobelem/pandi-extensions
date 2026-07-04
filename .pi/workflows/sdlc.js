@@ -520,7 +520,15 @@ phase("Review");
 const reviewersRequested = Number.isFinite(+input?.reviewers) ? Math.floor(+input.reviewers) : 3;
 const reviewerCount = Math.min(3, Math.max(2, reviewersRequested));
 if (reviewerCount !== reviewersRequested) log(`reviewers clamped ${JSON.stringify({ requested: reviewersRequested, used: reviewerCount })} (adversarial-review contract: 2-3)`);
-const reviewConcurrency = Number.isFinite(+input?.concurrency) ? Math.max(1, Math.min(reviewerCount, Math.floor(+input.concurrency))) : reviewerCount;
+const requestedReviewConcurrency = Number.isFinite(+input?.concurrency)
+	? Math.max(1, Math.min(reviewerCount, Math.floor(+input.concurrency)))
+	: reviewerCount;
+const reviewConcurrency = Math.max(1, Math.min(requestedReviewConcurrency, limits.concurrency));
+if (reviewConcurrency !== requestedReviewConcurrency) {
+	log(
+		`review concurrency clamped ${JSON.stringify({ requested: requestedReviewConcurrency, used: reviewConcurrency, limit: limits.concurrency })}`,
+	);
+}
 
 const REVIEW_SCHEMA = {
 	type: "object",
@@ -591,7 +599,9 @@ reviewSettled.forEach((r, i) => {
 });
 if (retryIdx.length) {
 	log(`review: ${retryIdx.length}/${reviewLenses.length} reviewer(s) empty/malformed — retrying once each`);
-	const retried = await agents(retryIdx.map((i) => reviewerSpec(reviewLenses[i], 1)), { concurrency: retryIdx.length, settle: true });
+	const retryConcurrency = Math.max(1, Math.min(retryIdx.length, limits.concurrency));
+	if (retryConcurrency !== retryIdx.length) log(`review retry concurrency clamped ${JSON.stringify({ requested: retryIdx.length, used: retryConcurrency, limit: limits.concurrency })}`);
+	const retried = await agents(retryIdx.map((i) => reviewerSpec(reviewLenses[i], 1)), { concurrency: retryConcurrency, settle: true });
 	retryIdx.forEach((i, j) => {
 		if (retried[j]?.data) reviewSettled[i] = retried[j];
 	});

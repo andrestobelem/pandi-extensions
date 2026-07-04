@@ -20,7 +20,7 @@ export default async function main() {
 	const style = await readFile(".pi/skills/didactic-docs-style/SKILL.md");
 	// Contrato de dosis de tono Pandi: se pasa junto al didáctico para que el tono sobreviva regeneraciones.
 	const dose = await readFile(".pi/skills/pandi-prose-style/SKILL.md");
-	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : 6;
+	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : (limits.concurrency ?? 4);
 	const conc = Math.max(1, Math.min(requestedConc, limits.concurrency ?? requestedConc));
 	if (conc !== requestedConc) log(`concurrency clamped ${requestedConc} -> ${conc}`);
 
@@ -61,8 +61,14 @@ export default async function main() {
 		})),
 	].map((s) => ({ ...s, phase: "edit", tools: ["read", "bash", "write", "edit"] }));
 
+	const sampleReviewCount = input.skipReview ? 0 : Math.min(11, editorSpecs.length);
+	const recommendedMaxAgents = editorSpecs.length + sampleReviewCount + sampleReviewCount;
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) {
+		log(`WARNING: maxAgents may be tight for full didactic-docs pass ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, editors: editorSpecs.length, sampleReviewCount, possibleFixers: sampleReviewCount })}`);
+	}
+
 	phase("edit");
-	log(`editores: ${editorSpecs.length} (guide, readme, handbook, ${primFiles.length} primitivas, ${scaffoldMds.length} scaffolds)`);
+	log(`editores: ${editorSpecs.length} (guide, readme, handbook, ${primFiles.length} primitivas, ${scaffoldMds.length} scaffolds); concurrency=${conc}; recommendedMaxAgents~${recommendedMaxAgents}`);
 	const edits = await agents(editorSpecs.map(({ key, ...s }) => s), { concurrency: conc, settle: true });
 	const editFailed = editorSpecs.filter((_s, i) => edits[i] == null || edits[i]?.error).map((s) => s.key);
 	if (editFailed.length) log(`editores FALLIDOS (quedan sin mejorar): ${editFailed.join(", ")}`);

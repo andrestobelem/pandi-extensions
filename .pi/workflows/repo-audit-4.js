@@ -64,6 +64,7 @@ function isEmpty(r) {
 }
 
 export default async function main() {
+	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
 	const items = [
 		// core-dispatch-b: dual (opus + sonnet) — the untested half of the dispatcher.
 		item("core-dispatch-b", "opusHigh", "extensions/pi-dynamic-workflows/index.ts — review ONLY these functions (grep for each, read ~80-120 lines around it, NEVER read the whole file): journalLookup (resume/journal cache), runSubagent, runBash, runAsk, the makeApi globals factory, and handleTool. Focus on resume/journal correctness, secret redaction, unhandled rejections, and error handling."),
@@ -77,8 +78,12 @@ export default async function main() {
 	await log("model/effort matrix (anthropic-only)", { plan });
 	await writeArtifact("plan.json", plan);
 
-	const concurrency = Math.min(4, limits.concurrency);
-	await log("fan-out (pass 1)", { items: items.length, concurrency, maxAgents: limits.maxAgents });
+	const requestedConcurrency = Number.isFinite(+input.concurrency) ? Math.max(1, Math.floor(+input.concurrency)) : 4;
+	const concurrency = Math.max(1, Math.min(requestedConcurrency, limits.concurrency));
+	if (concurrency !== requestedConcurrency) log(`concurrency clamped ${requestedConcurrency} -> ${concurrency} by limits.concurrency=${limits.concurrency}`);
+	const recommendedMaxAgents = items.length * 2 + 1;
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) log(`WARNING: maxAgents may be tight for repo-audit-4 ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, firstPass: items.length, possibleRetries: items.length, synthesis: 1 })}`);
+	await log("fan-out (pass 1)", { items: items.length, concurrency, maxAgents: limits.maxAgents, recommendedMaxAgents });
 	let results = await agents(items, { concurrency, settle: true });
 
 	const retryIdx = results.map((r, i) => (isEmpty(r) ? i : -1)).filter((i) => i >= 0);

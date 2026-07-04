@@ -28,10 +28,14 @@ export default async function main() {
 	}
 	if (keys.length === 0) throw new Error("No se encontraron scaffolds.");
 	const catalogSrc = await readFile(CATALOG);
-	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : 6;
+	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : (limits.concurrency ?? 4);
 	const conc = Math.max(1, Math.min(requestedConc, limits.concurrency ?? requestedConc));
 	if (conc !== requestedConc) log(`concurrency clamped ${requestedConc} -> ${conc} (limits)`);
-	log(`scaffolds descubiertos: ${keys.length} · concurrency efectiva: ${conc}`);
+	const recommendedMaxAgents = keys.length * 2 + (Array.isArray(input.keys) && input.keys.length > 0 ? 0 : 1);
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) {
+		log(`WARNING: maxAgents may be tight for scaffold-docs-html ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, authors: keys.length, possibleRetries: keys.length, index: Array.isArray(input.keys) && input.keys.length > 0 ? 0 : 1 })}`);
+	}
+	log(`scaffolds descubiertos: ${keys.length} · concurrency efectiva: ${conc} · recommendedMaxAgents~${recommendedMaxAgents}`);
 	await bash(`mkdir -p ${MD_DIR} ${OUT_DIR}`);
 
 	// Prompt con prefijo estable; lo volátil (key) va al final.
@@ -75,7 +79,9 @@ export default async function main() {
 	let failed = keys.filter((_k, i) => results[i] == null || results[i]?.error);
 	if (failed.length) {
 		log(`fallaron ${failed.length}/${keys.length} autores; reintento una vez: ${failed.join(", ")}`);
-		const retry = await agents(failed.map(authorSpec), { concurrency: Math.min(conc, failed.length), settle: true });
+		const retryConcurrency = Math.max(1, Math.min(conc, failed.length, limits.concurrency ?? conc));
+		if (retryConcurrency !== failed.length) log(`retry concurrency clamped ${JSON.stringify({ requested: failed.length, used: retryConcurrency, limit: limits.concurrency })}`);
+		const retry = await agents(failed.map(authorSpec), { concurrency: retryConcurrency, settle: true });
 		failed = failed.filter((_k, i) => retry[i] == null || retry[i]?.error);
 	}
 	if (failed.length) log(`SIN DOC tras reintento (${failed.length}): ${failed.join(", ")}`);

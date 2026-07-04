@@ -72,6 +72,7 @@ function isEmpty(r) {
 }
 
 export default async function main() {
+	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
 	const items = [
 		// core-dispatch SPLIT into two function-focused shards (targeted reads, never the whole file).
 		item("core-dispatch-a", "opusHigh", "extensions/pi-dynamic-workflows/index.ts — review ONLY these functions (grep for each, read ~80-120 lines around it, do NOT read the whole file): the callSignal AbortSignal ALS, callControllers, the dispatcher, the agent()/ask() call wrap, and runWorkflow. Focus on cancellation wiring, AbortSignal lifecycle, and per-call isolation."),
@@ -93,8 +94,12 @@ export default async function main() {
 	await log("model/effort matrix", { plan });
 	await writeArtifact("plan.json", plan);
 
-	const concurrency = Math.min(4, limits.concurrency);
-	await log("fan-out (pass 1)", { items: items.length, concurrency, maxAgents: limits.maxAgents });
+	const requestedConcurrency = Number.isFinite(+input.concurrency) ? Math.max(1, Math.floor(+input.concurrency)) : 4;
+	const concurrency = Math.max(1, Math.min(requestedConcurrency, limits.concurrency));
+	if (concurrency !== requestedConcurrency) log(`concurrency clamped ${requestedConcurrency} -> ${concurrency} by limits.concurrency=${limits.concurrency}`);
+	const recommendedMaxAgents = items.length * 2 + 1;
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) log(`WARNING: maxAgents may be tight for repo-audit-3 ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, firstPass: items.length, possibleRetries: items.length, synthesis: 1 })}`);
+	await log("fan-out (pass 1)", { items: items.length, concurrency, maxAgents: limits.maxAgents, recommendedMaxAgents });
 	let results = await agents(items, { concurrency, settle: true });
 
 	// Retry-on-empty ONCE with cache:false (the empty-stream is transient; cached re-run would repeat it).

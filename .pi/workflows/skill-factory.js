@@ -184,13 +184,15 @@ export default async function main() {
 
 	// ---------- budget ----------
 	const totalPlanned = FIGURES.length * ANGLES.length + FIGURES.length + 3 + FIGURES.length + 1;
-	const requestedConcurrency = 4;
+	const requestedConcurrency = Number.isFinite(+input.concurrency) ? Math.max(1, Math.floor(+input.concurrency)) : 4;
 	const effectiveConcurrency = Math.min(requestedConcurrency, limits.concurrency || requestedConcurrency);
 	log(
 		`budget: ${totalPlanned} planned agents (${FIGURES.length * ANGLES.length} research + ${FIGURES.length} author + 3 review + ${FIGURES.length} refine + 1 judge); ` +
 			`concurrency requested=${requestedConcurrency} effective=${effectiveConcurrency} (web_search-heavy, kept moderate; ` +
 			`all figures' tracks interleave in parallel); limits=${json(limits)}`,
 	);
+	if (limits.maxAgents && totalPlanned > limits.maxAgents)
+		log(`WARNING: planned agents (${totalPlanned}) exceed limits.maxAgents (${limits.maxAgents}); later phases may starve — raise maxAgents`);
 
 	// ---------- reference material (trusted repo files) ----------
 	const READ_ONLY = ["read", "grep", "find", "ls"];
