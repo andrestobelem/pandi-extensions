@@ -269,7 +269,7 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 			at,
 		});
 		stopGoal(pi, ctx, goal.goalId, "done: independently verified against success criteria", "done");
-		notify(ctx, `Goal ${goal.goalId} DONE: independently verified (fresh-eyes subagent confirmed).`, "info");
+		notify(ctx, `Goal ${goal.goalId} DONE: independently verified (fresh-eyes subagent confirmed). 🐼`, "info");
 		return;
 	}
 
@@ -576,7 +576,7 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "stop" && !hasCriteriaSeparator) {
 		const goal = await resolveGoal(ctx, rest || undefined);
 		if (!goal) {
-			notify(ctx, "No matching goal to stop.", "warning");
+			notify(ctx, "No matching goal to stop — check the id with /goal status.", "warning");
 			return;
 		}
 		stopGoal(pi, ctx, goal.goalId, "stopped by user (/goal stop)", "stopped");
@@ -587,7 +587,11 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "status" && !hasCriteriaSeparator) {
 		if (rest) {
 			const goal = activeGoals.get(rest);
-			notify(ctx, goal ? formatStatus(goal) : `No goal with id ${rest}.`, goal ? "info" : "warning");
+			notify(
+				ctx,
+				goal ? formatStatus(goal) : `No goal with id ${rest} — run /goal status to list active goals.`,
+				goal ? "info" : "warning",
+			);
 			return;
 		}
 		const all = [...activeGoals.values()];
