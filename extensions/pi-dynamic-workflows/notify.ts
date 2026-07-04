@@ -12,9 +12,9 @@
  * Decoupled from the SDK by a minimal STRUCTURAL context (`NotifyContext`) so it
  * does not import `ExtensionContext`; any real `ExtensionContext` satisfies it.
  *
- * NOTE: pi-effort and pi-mdview deliberately keep their OWN hardened variants
- * (they route warnings/errors to stderr in print/headless mode and pi-mdview
- * uses a command-only context type), so they are intentionally not in this set.
+ * NOTE: this self-contained family now shares the hardened stderr-routing
+ * contract too. pi-docs carries the same behavior with a direct SDK context
+ * import, and pi-mdview still keeps a command-only context type.
  */
 
 export type NotifyType = "info" | "warning" | "error";
@@ -28,16 +28,21 @@ export interface NotifyContext {
 /**
  * Surface a message to the user.
  *
- * - print mode: write to stdout (machine-readable channel) and return.
+ * - print mode: write info to stdout, warnings/errors to stderr, and return.
  * - interactive with UI: delegate to `ctx.ui.notify`.
+ * - headless without UI: keep info silent but surface warnings/errors on stderr.
  *
- * The `ctx.ui` truthiness guard is a no-op under the real invariant (`hasUI`
- * implies `ui` is present).
+ * The `ctx.ui` truthiness guard preserves a no-op for structural test doubles
+ * that omit `ui`, even though the real invariant is `hasUI` implies `ui`.
  */
 export function notify(ctx: NotifyContext, message: string, type: NotifyType = "info"): void {
 	if (ctx.mode === "print") {
-		console.log(message);
+		(type === "info" ? console.log : console.error)(message);
 		return;
 	}
-	if (ctx.hasUI && ctx.ui) ctx.ui.notify(message, type);
+	if (ctx.hasUI && ctx.ui) {
+		ctx.ui.notify(message, type);
+		return;
+	}
+	if (type !== "info") console.error(message);
 }

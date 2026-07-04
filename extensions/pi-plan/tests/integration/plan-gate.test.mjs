@@ -216,11 +216,14 @@ async function planGatePrintRefuses(planUrl) {
 
 	const logged = [];
 	const origLog = console.log;
+	const origError = console.error;
 	console.log = (...a) => logged.push(a.join(" "));
+	console.error = (...a) => logged.push(a.join(" "));
 	try {
 		await commands.get("plan").handler("do a thing", ctx);
 	} finally {
 		console.log = origLog;
+		console.error = origError;
 	}
 	check("plan(print): no plan-state persisted", entries.find((e) => e.customType === "plan-state") === undefined);
 	check("plan(print): no planning prompt injected", sentMessages.length === 0);

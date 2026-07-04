@@ -1,17 +1,11 @@
 /**
- * Characterization tests for the self-contained user-notification helper in
- * extensions/pi-plan/notify.ts.
+ * Contract test for the self-contained notify helpers that drifted across the
+ * runtime-local copies in pi-plan, pi-goal, pi-loop, and pi-dynamic-workflows.
  *
- * notify.ts is a PURE module (only `export type`/`export interface` plus a single
- * exported function `notify`); it imports nothing at runtime and touches only
- * `console.log` and the structural `ctx.ui.notify`. So it builds with NO stubs and
- * we unit-test the EXPORTED function directly, asserting its CURRENT real behavior:
- *
- *   - print mode → writes the message to stdout (console.log) ONCE and returns
- *     early, skipping the UI entirely (even when hasUI/ui are present).
- *   - interactive (non-print) with hasUI+ui → delegates to ctx.ui.notify(message, type),
- *     passing the type through; the default type is "info".
- *   - interactive WITHOUT ui (or hasUI=false) → a silent no-op (the truthiness guard).
+ * The hardened contract is:
+ *   - print mode: info goes to stdout; warning/error go to stderr; UI is skipped.
+ *   - interactive with UI: delegate to ctx.ui.notify(message, type).
+ *   - headless without UI: info stays silent; warning/error go to stderr.
  *
  * Run it:    node extensions/pi-plan/tests/integration/notify-coverage.test.mjs
  * Exit code: 0 = all checks passed; 1 = a check failed; 2 = harness crashed.
@@ -23,130 +17,142 @@ import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// extensions/pi-plan/tests/integration/ -> repo root is four levels up.
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-
+const TARGETS = [
+	"extensions/pi-plan/notify.ts",
+	"extensions/pi-goal/notify.ts",
+	"extensions/pi-loop/notify.ts",
+	"extensions/pi-dynamic-workflows/notify.ts",
+];
 const { check, counts } = createChecker();
 
-// notify.ts is pure (only `import type`); build with NO stubs.
-async function buildNotify() {
+async function buildNotify(relPath) {
+	const extensionName = path.basename(path.dirname(relPath));
 	return await buildExtension({
-		name: "pi-plan-notify-coverage",
-		src: path.join(REPO_ROOT, "extensions", "pi-plan", "notify.ts"),
-		outName: "notify.mjs",
+		name: `notify-coverage-${extensionName}`,
+		src: path.join(REPO_ROOT, relPath),
+		outName: `${extensionName}-notify.mjs`,
 		stubs: {},
 	});
 }
 
-// A tiny ui.notify spy that records its calls.
 function makeUiSpy() {
 	const calls = [];
 	return { calls, notify: (message, type) => calls.push({ message, type }) };
 }
 
-// Capture console.log for the duration of `fn`, restoring it afterwards.
-async function captureLog(fn) {
-	const logged = [];
-	const orig = console.log;
-	console.log = (...a) => logged.push(a);
+async function withCapturedConsole(fn) {
+	const out = [];
+	const err = [];
+	const savedLog = console.log;
+	const savedError = console.error;
+	console.log = (...args) => out.push(args.join(" "));
+	console.error = (...args) => err.push(args.join(" "));
 	try {
 		await fn();
 	} finally {
-		console.log = orig;
+		console.log = savedLog;
+		console.error = savedError;
 	}
-	return logged;
+	return { out, err };
 }
 
-// ===========================================================================
-// SCENARIO 1: print mode routes the message to stdout, returns early, skips UI.
-// ===========================================================================
-async function printModeRoutesToStdout(notify) {
+function detailFor({ out, err, ui }) {
+	return JSON.stringify({ out, err, uiCalls: ui.calls });
+}
+
+async function assertPrintInfoGoesToStdout(relPath, notify) {
+	const message = `${relPath}: print info`;
 	const ui = makeUiSpy();
-	const ctx = { mode: "print", hasUI: true, ui };
-	let r;
-	const logged = await captureLog(() => {
-		r = notify(ctx, "hello", "warning");
-	});
-	check("print: returns undefined (no value)", r === undefined);
-	check("print: console.log called exactly once", logged.length === 1);
-	check("print: console.log called with the message", logged[0] && logged[0].length === 1 && logged[0][0] === "hello");
-	check("print: ui.notify NOT called (UI skipped)", ui.calls.length === 0);
+	const streams = await withCapturedConsole(() => notify({ mode: "print", hasUI: true, ui }, message));
+	check(
+		`${relPath}: print info writes once to stdout`,
+		streams.out.length === 1 && streams.out[0] === message,
+		detailFor({ ...streams, ui }),
+	);
+	check(`${relPath}: print info stays off stderr`, streams.err.length === 0, detailFor({ ...streams, ui }));
+	check(`${relPath}: print info skips UI`, ui.calls.length === 0, detailFor({ ...streams, ui }));
 }
 
-// print mode skips the UI even when type is omitted (still stdout-only).
-async function printModeIgnoresType(notify) {
+async function assertPrintProblemGoesToStderr(relPath, notify, type) {
+	const message = `${relPath}: print ${type}`;
 	const ui = makeUiSpy();
-	const ctx = { mode: "print", hasUI: true, ui };
-	const logged = await captureLog(() => notify(ctx, "msg"));
-	check("print(no type): console.log called once with the message", logged.length === 1 && logged[0][0] === "msg");
-	check("print(no type): ui.notify still NOT called", ui.calls.length === 0);
+	const streams = await withCapturedConsole(() => notify({ mode: "print", hasUI: true, ui }, message, type));
+	check(`${relPath}: print ${type} stays off stdout`, streams.out.length === 0, detailFor({ ...streams, ui }));
+	check(
+		`${relPath}: print ${type} writes once to stderr`,
+		streams.err.length === 1 && streams.err[0] === message,
+		detailFor({ ...streams, ui }),
+	);
+	check(`${relPath}: print ${type} skips UI`, ui.calls.length === 0, detailFor({ ...streams, ui }));
 }
 
-// ===========================================================================
-// SCENARIO 2: interactive with UI delegates to ctx.ui.notify, passing the type.
-// ===========================================================================
-async function interactiveDelegatesToUi(notify) {
+async function assertInteractiveDelegates(relPath, notify) {
 	const ui = makeUiSpy();
-	const ctx = { mode: "tui", hasUI: true, ui };
-	const logged = await captureLog(() => notify(ctx, "saved", "error"));
-	check("interactive: console.log NOT called", logged.length === 0);
-	check("interactive: ui.notify called exactly once", ui.calls.length === 1);
-	check("interactive: ui.notify got the message", ui.calls[0]?.message === "saved");
-	check("interactive: ui.notify got the explicit type", ui.calls[0]?.type === "error");
+	const message = `${relPath}: interactive warning`;
+	const streams = await withCapturedConsole(() => notify({ mode: "tui", hasUI: true, ui }, message, "warning"));
+	check(`${relPath}: interactive warning stays off stdout`, streams.out.length === 0, detailFor({ ...streams, ui }));
+	check(`${relPath}: interactive warning stays off stderr`, streams.err.length === 0, detailFor({ ...streams, ui }));
+	check(
+		`${relPath}: interactive warning delegates to UI`,
+		ui.calls.length === 1 && ui.calls[0]?.message === message && ui.calls[0]?.type === "warning",
+		detailFor({ ...streams, ui }),
+	);
 }
 
-// Default type is "info" when omitted.
-async function interactiveDefaultsToInfo(notify) {
+async function assertInteractiveDefaultsToInfo(relPath, notify) {
 	const ui = makeUiSpy();
-	const ctx = { mode: "tui", hasUI: true, ui };
-	notify(ctx, "plain");
-	check("default-type: ui.notify called once", ui.calls.length === 1);
-	check('default-type: type defaults to "info"', ui.calls[0]?.type === "info");
+	notify({ mode: "tui", hasUI: true, ui }, `${relPath}: interactive default`);
+	check(
+		`${relPath}: interactive default type is info`,
+		ui.calls.length === 1 && ui.calls[0]?.type === "info",
+		JSON.stringify({ uiCalls: ui.calls }),
+	);
 }
 
-// ===========================================================================
-// SCENARIO 3: no-op paths — no UI delivery, no stdout.
-// ===========================================================================
-async function noUiIsNoOp(notify) {
-	// hasUI=false (with a ui present) → guard short-circuits, nothing happens.
-	const ui = makeUiSpy();
-	const ctx = { mode: "tui", hasUI: false, ui };
-	const logged = await captureLog(() => notify(ctx, "ignored", "warning"));
-	check("hasUI=false: ui.notify NOT called", ui.calls.length === 0);
-	check("hasUI=false: console.log NOT called", logged.length === 0);
+async function assertHeadlessInfoIsSilent(relPath, notify) {
+	const streams = await withCapturedConsole(() => notify({ mode: "tui", hasUI: false }, `${relPath}: headless info`));
+	check(
+		`${relPath}: headless info stays silent`,
+		streams.out.length === 0 && streams.err.length === 0,
+		JSON.stringify(streams),
+	);
 }
 
-async function hasUiButNoUiObjectIsNoOp(notify) {
-	// hasUI=true but ui undefined → the `ctx.ui` truthiness guard makes it a no-op (no crash).
-	const ctx = { mode: "tui", hasUI: true };
-	let r;
-	const logged = await captureLog(() => {
-		r = notify(ctx, "no ui object");
-	});
-	check("hasUI+no-ui: returns undefined", r === undefined);
-	check("hasUI+no-ui: console.log NOT called", logged.length === 0);
+async function assertHeadlessProblemGoesToStderr(relPath, notify, type) {
+	const message = `${relPath}: headless ${type}`;
+	const streams = await withCapturedConsole(() => notify({ mode: "tui", hasUI: false }, message, type));
+	check(`${relPath}: headless ${type} stays off stdout`, streams.out.length === 0, JSON.stringify(streams));
+	check(
+		`${relPath}: headless ${type} writes once to stderr`,
+		streams.err.length === 1 && streams.err[0] === message,
+		JSON.stringify(streams),
+	);
 }
 
-async function main() {
-	const { outDir, url } = await buildNotify();
+async function assertNotifyContract(relPath) {
+	const { outDir, url } = await buildNotify(relPath);
 	try {
 		const { notify } = await loadModule(url);
-		check("notify is an exported function", typeof notify === "function");
-		await printModeRoutesToStdout(notify);
-		await printModeIgnoresType(notify);
-		await interactiveDelegatesToUi(notify);
-		await interactiveDefaultsToInfo(notify);
-		await noUiIsNoOp(notify);
-		await hasUiButNoUiObjectIsNoOp(notify);
+		check(`${relPath}: notify is an exported function`, typeof notify === "function");
+		await assertPrintInfoGoesToStdout(relPath, notify);
+		for (const type of ["warning", "error"]) await assertPrintProblemGoesToStderr(relPath, notify, type);
+		await assertInteractiveDelegates(relPath, notify);
+		await assertInteractiveDefaultsToInfo(relPath, notify);
+		await assertHeadlessInfoIsSilent(relPath, notify);
+		for (const type of ["warning", "error"]) await assertHeadlessProblemGoesToStderr(relPath, notify, type);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
+}
 
+async function main() {
+	for (const relPath of TARGETS) await assertNotifyContract(relPath);
 	console.log("");
 	console.log(`TOTAL: ${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed > 0) {
 		console.log("FAILURES:");
-		for (const f of counts.failures) console.log(`  - ${f}`);
+		for (const failure of counts.failures) console.log(`  - ${failure}`);
 		process.exit(1);
 	}
 	process.exit(0);

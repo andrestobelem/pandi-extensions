@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/loop",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Pi extension for iterative /loop tasks with dynamic or fixed cadence and safety gates.",
 	"license": "MIT",
 	"repository": {
