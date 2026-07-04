@@ -223,6 +223,13 @@ export interface DynamicWorkflowToolParams {
 }
 
 interface InternalAgentOptions extends AgentOptions {
+	/**
+	 * Worker-level sugar: reasoning effort (`low|medium|high|xhigh|max`). The worker's agent()
+	 * global maps it to `thinking` before posting, but agents() per-item specs, agents() shared
+	 * options, and ctx-style calls reach the host unmapped — so runSubagent normalizes it at
+	 * entry (effort -> thinking, max -> xhigh) and deletes it (issue #22).
+	 */
+	effort?: string;
 	__workflowPhase?: AgentPhaseInfo;
 	__workflowNamespace?: string;
 }
@@ -789,8 +796,21 @@ export async function runWorkflow(
 		// journal is keyed by (key, occ), so this ordering is what keeps resume lookups
 		// correct under ctx.agents/parallel/pipeline concurrency. agent() is cached by
 		// default; opt out with { cache: false }.
+		// Normalize worker-level sugar HOST-SIDE so EVERY path honors it — the worker's agent()
+		// global already maps effort->thinking, but agents() per-item specs, agents() shared
+		// options, and ctx-style calls arrive unmapped (issue #22: effort was silently dropped
+		// while still polluting the cache key). Done BEFORE the persona merge so an explicit
+		// per-item effort overrides a persona's thinking default, and BEFORE computeCallKey so
+		// the key sees the normalized `thinking` (journals recorded with raw `effort` items no
+		// longer match on resume and re-run — accepted, see #22).
+		const normalized: InternalAgentOptions = { ...options };
+		if (normalized.effort != null) {
+			if (normalized.thinking == null)
+				normalized.thinking = normalized.effort === "max" ? "xhigh" : String(normalized.effort);
+			delete normalized.effort;
+		}
 		const prologue = await occAssignMutex.runExclusive(async () => {
-			let resolved = (await applyPersonaOptions(ctx, options)) as InternalAgentOptions;
+			let resolved = (await applyPersonaOptions(ctx, normalized)) as InternalAgentOptions;
 			resolved = await applyDefaultAgentAccess(ctx, resolved);
 			if (resolved.schema !== undefined) {
 				resolved = appendSystemPromptOption(resolved, makeStructuredOutputSystemPrompt(resolved.schema));

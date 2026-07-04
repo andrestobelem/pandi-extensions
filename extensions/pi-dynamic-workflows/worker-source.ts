@@ -273,7 +273,9 @@ async function race(thunks, options) {
   // bridge so a race() loser that fans out via agents() has its in-flight children cancelled AT
   // race-loss (not just at run end): strip the signal before posting (never serialize an
   // AbortSignal) and post abort-call for this id on abort. All other options (model/effort/schema/
-  // label/concurrency/settle) pass through untouched -> the HOST's runAgents maps them per item.
+  // label/concurrency/settle) pass through untouched: the HOST normalizes effort->thinking
+  // (max->xhigh) in the runSubagent prologue — per item AND for shared options — mirroring
+  // agentGlobal above, and runAgents applies the remaining per-item spec fields.
   const agentsGlobal = (items, options) => {
     const opts = Object.assign({}, options || {});
     const sig = opts.signal;

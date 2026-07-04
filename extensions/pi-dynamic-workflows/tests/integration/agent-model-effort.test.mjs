@@ -44,7 +44,15 @@ const WORKFLOW = [
 	"export const meta = { name: 'model-effort', description: 'model/effort observability', phases: [{ title: 'P' }] };",
 	"phase('P');",
 	`const [r] = await agents([{ prompt: 'say hi', name: 'modeled', model: ${JSON.stringify(MODEL)}, thinking: ${JSON.stringify(THINKING)}, cache: false }], { settle: true });`,
-	"return { model: r?.model ?? null, thinking: r?.thinking ?? null, ok: r?.ok ?? null };",
+	// Issue #22: per-item effort on the agents() host path must be honored (max -> xhigh).
+	"const [e] = await agents([{ prompt: 'say effort', name: 'efforted', effort: 'max', cache: false }], { settle: true });",
+	// Shared-option effort applies to every item.
+	"const [s] = await agents([{ prompt: 'say shared', name: 'shared-effort', cache: false }], { settle: true, effort: 'high' });",
+	// Explicit thinking wins when both are given (mirrors the worker agent() global).
+	"const [w] = await agents([{ prompt: 'say both', name: 'both', effort: 'low', thinking: 'high', cache: false }], { settle: true });",
+	// Explicit per-item effort overrides a persona's thinking default (reviewer = high).
+	"const [p] = await agents([{ prompt: 'say persona', name: 'persona-effort', agentType: 'reviewer', effort: 'low', cache: false }], { settle: true });",
+	"return { model: r?.model ?? null, thinking: r?.thinking ?? null, ok: r?.ok ?? null, effortThinking: e?.thinking ?? null, sharedThinking: s?.thinking ?? null, bothThinking: w?.thinking ?? null, personaThinking: p?.thinking ?? null };",
 ].join("\n");
 
 async function buildEngine() {
@@ -160,6 +168,26 @@ async function scenarioEngine() {
 		out?.thinking === THINKING,
 		JSON.stringify(out),
 	);
+	check(
+		"engine: per-item effort on agents() maps to thinking (max -> xhigh)",
+		out?.effortThinking === "xhigh",
+		JSON.stringify(out),
+	);
+	check(
+		"engine: shared-option effort on agents() maps to thinking",
+		out?.sharedThinking === "high",
+		JSON.stringify(out),
+	);
+	check(
+		"engine: explicit thinking wins over effort when both are given",
+		out?.bothThinking === "high",
+		JSON.stringify(out),
+	);
+	check(
+		"engine: explicit per-item effort overrides the persona thinking default",
+		out?.personaThinking === "low",
+		JSON.stringify(out),
+	);
 
 	// events.jsonl: both the start (running) and end events carry model/thinking.
 	let events = [];
@@ -174,14 +202,14 @@ async function scenarioEngine() {
 			.filter((l) => l.trim())
 			.map((l) => JSON.parse(l));
 		const agentsDir = path.join(runDir, "agents");
-		const mdName = (await fs.readdir(agentsDir)).find((f) => f.endsWith(".md"));
+		const mdName = (await fs.readdir(agentsDir)).find((f) => f.endsWith("-modeled.md"));
 		md = await fs.readFile(path.join(agentsDir, mdName), "utf8");
 	} catch {
 		// events/md stay empty; checks fail with evidence
 	}
 	const agentEvents = events.filter((e) => e.type === "agent");
-	const startEvent = agentEvents.find((e) => e.state === "running");
-	const endEvent = agentEvents.find((e) => e.state === "completed" || e.state === "failed");
+	const startEvent = agentEvents.find((e) => e.state === "running" && e.name === "modeled");
+	const endEvent = agentEvents.find((e) => (e.state === "completed" || e.state === "failed") && e.name === "modeled");
 	check(
 		"engine: agent START event carries model + thinking",
 		startEvent?.model === MODEL && startEvent?.thinking === THINKING,
@@ -197,6 +225,12 @@ async function scenarioEngine() {
 		`engine: artifact records "- thinking: ${THINKING}"`,
 		md.includes(`- thinking: ${THINKING}`),
 		md.split("\n").slice(0, 8).join(" | "),
+	);
+	const effortedStart = agentEvents.find((e) => e.state === "running" && e.name === "efforted");
+	check(
+		"engine: efforted agent START event carries the mapped thinking",
+		effortedStart?.thinking === "xhigh",
+		JSON.stringify(effortedStart),
 	);
 
 	// Parser round-trip on the REAL run dir: the monitor model carries model/thinking.
