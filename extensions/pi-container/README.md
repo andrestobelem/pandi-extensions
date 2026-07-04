@@ -71,11 +71,13 @@ Apple `container` v1.0.0 defaults `machine create --memory` to **half of the hos
 
 | Tier | CPUs | Memory |
 | --- | --- | --- |
-| `micro` | 1 | 512M |
-| `tiny` | 2 | 1G |
-| `small` | 2 | 2G |
-| `medium` | 4 | 4G |
-| `large` | 8 | 8G |
+| `micro` | 1 | 256M |
+| `tiny` | 2 | 512M |
+| `small` | 2 | 1G |
+| `medium` | 4 | 2G |
+| `large` | 8 | 4G |
+
+The ladder is rebased on a 256M `micro`, doubling memory per tier. Apple's virtualization stack enforces a hard **200 MiB minimum** per VM (`minimum memory amount allowed is 200 MiB`); a real `npm i -g @earendil-works/pi-coding-agent` + `pi --version` was verified inside a 200M VM at ~114MB RSS, so 256M comfortably runs small Node/CLI workloads.
 
 - **Opt-in**: with no `tier` and no explicit `cpus`/`memory`, no flags are emitted and the CLI keeps its own defaults (identical behavior to before tiers existed).
 - **Precedence**: explicit `cpus`/`memory` override the tier, field by field.
@@ -85,7 +87,7 @@ Apple `container` v1.0.0 defaults `machine create --memory` to **half of the hos
 // tool: create a small machine
 { "action": "create", "image": "alpine:latest", "name": "dev", "tier": "small" }
 
-// tool: ephemeral run with a tier (emits --cpus 2 --memory 2G)
+// tool: ephemeral run with a tier (emits --cpus 2 --memory 1G)
 { "action": "run", "image": "alpine:latest", "tier": "small", "command": ["uname", "-a"] }
 ```
 

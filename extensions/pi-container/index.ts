@@ -285,7 +285,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 			tier: Type.Optional(
 				StringEnum(TIER_NAMES, {
 					description:
-						"For create or ephemeral run: named size preset (micro 1cpu/512M, tiny 2cpu/1G, small 2cpu/2G, medium 4cpu/4G, large 8cpu/8G). Explicit cpus/memory override it.",
+						"For create or ephemeral run: named size preset (micro 1cpu/256M, tiny 2cpu/512M, small 2cpu/1G, medium 4cpu/2G, large 8cpu/4G). Explicit cpus/memory override it.",
 				}),
 			),
 			cpus: Type.Optional(Type.Number({ description: "For create or ephemeral run: number of virtual CPUs." })),

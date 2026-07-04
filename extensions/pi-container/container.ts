@@ -188,17 +188,22 @@ export function formatMachineList(entries: MachineEntry[]): string {
  * HALF of the host's RAM, `--cpus` is undocumented) — huge for a sandbox, which is
  * exactly why these presets exist. Tiers apply to `machine create` and ephemeral
  * image runs only; a persistent machine's resources are fixed at creation upstream.
+ *
+ * Ladder: rebased on a 256M micro, doubling memory per tier. The virtualization
+ * stack enforces a hard 200 MiB minimum per VM, and a real `npm i -g` + `pi
+ * --version` was verified inside a 200M VM at ~114MB RSS, so 256M comfortably
+ * runs small Node/CLI workloads.
  */
 export const TIER_NAMES = ["micro", "tiny", "small", "medium", "large"] as const;
 
 export type TierName = (typeof TIER_NAMES)[number];
 
 export const TIER_PRESETS: Record<TierName, { cpus: number; memory: string }> = {
-	micro: { cpus: 1, memory: "512M" },
-	tiny: { cpus: 2, memory: "1G" },
-	small: { cpus: 2, memory: "2G" },
-	medium: { cpus: 4, memory: "4G" },
-	large: { cpus: 8, memory: "8G" },
+	micro: { cpus: 1, memory: "256M" },
+	tiny: { cpus: 2, memory: "512M" },
+	small: { cpus: 2, memory: "1G" },
+	medium: { cpus: 4, memory: "2G" },
+	large: { cpus: 8, memory: "4G" },
 };
 
 function isTierName(tier: string): tier is TierName {

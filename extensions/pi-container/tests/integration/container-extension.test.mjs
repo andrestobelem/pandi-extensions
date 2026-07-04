@@ -652,21 +652,24 @@ async function scenarioSizeTiers(url) {
 	const eq = (label, got, want) => check(label, JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got));
 
 	// tier table pinned exactly (not snapshot-fuzzy)
+	// Ladder rebased on a 256M micro (Apple container's hard floor is 200 MiB; a real
+	// `npm i -g` + `pi --version` was verified inside a 200M VM at 114MB RSS), doubling
+	// memory per tier upward.
 	eq("TIER_PRESETS: pinned values", mod.TIER_PRESETS, {
-		micro: { cpus: 1, memory: "512M" },
-		tiny: { cpus: 2, memory: "1G" },
-		small: { cpus: 2, memory: "2G" },
-		medium: { cpus: 4, memory: "4G" },
-		large: { cpus: 8, memory: "8G" },
+		micro: { cpus: 1, memory: "256M" },
+		tiny: { cpus: 2, memory: "512M" },
+		small: { cpus: 2, memory: "1G" },
+		medium: { cpus: 4, memory: "2G" },
+		large: { cpus: 8, memory: "4G" },
 	});
 	eq("TIER_NAMES: ordered ladder", mod.TIER_NAMES, ["micro", "tiny", "small", "medium", "large"]);
 
 	// pure resolver: tier alone, explicit-over-tier per field, neither, unknown
-	eq("resolveSize: tier only", mod.resolveSize({ tier: "small" }), { ok: true, cpus: 2, memory: "2G" });
+	eq("resolveSize: tier only", mod.resolveSize({ tier: "small" }), { ok: true, cpus: 2, memory: "1G" });
 	eq("resolveSize: explicit cpus wins over tier", mod.resolveSize({ tier: "small", cpus: 6 }), {
 		ok: true,
 		cpus: 6,
-		memory: "2G",
+		memory: "1G",
 	});
 	eq("resolveSize: explicit memory wins over tier", mod.resolveSize({ tier: "small", memory: "16G" }), {
 		ok: true,
@@ -703,7 +706,7 @@ async function scenarioSizeTiers(url) {
 			"--cpus",
 			"2",
 			"--memory",
-			"2G",
+			"1G",
 			"alpine:latest",
 		]);
 	}
@@ -716,7 +719,7 @@ async function scenarioSizeTiers(url) {
 			"--cpus",
 			"6",
 			"--memory",
-			"2G",
+			"1G",
 			"alpine:latest",
 		]);
 	}
@@ -741,7 +744,7 @@ async function scenarioSizeTiers(url) {
 			"--cpus",
 			"2",
 			"--memory",
-			"2G",
+			"1G",
 			"alpine:latest",
 			"pwd",
 		]);
