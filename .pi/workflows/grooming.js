@@ -5,10 +5,13 @@
  * Project v2 #4 board, label set) via read-only `gh` calls — no hardcoded issue
  * numbers or counts) and computes board↔issue drift DETERMINISTICALLY (set
  * arithmetic — an LLM auditor under-reported it in testing). Phase B fans out one
- * read-only analyst per open issue (six dimensions: clarity, staleness-vs-code,
- * label verdict, overlap, dependencies, T-shirt size).
+ * read-only analyst per open issue (eight dimensions: clarity, staleness-vs-code,
+ * label verdict, overlap, dependencies, T-shirt size, board Priority P0-P3,
+ * epic-parent candidate for native sub-issue links).
  * Phase C is a single synthesizer (dedup/story grouping, explicit priority
- * heuristic, draft proposed gh commands). Phase D is a propose-only verifier that
+ * heuristic, draft proposed gh commands — Status/Priority/Size item-edits and
+ * addSubIssue epic links; the Project board is the source of truth, so the
+ * recommended order is PERSISTED as Priority field proposals, not only prose). Phase D is a propose-only verifier that
  * checks every draft command against the live snapshot before it reaches the
  * report. NOTHING in this workflow mutates GitHub: mutating gh subcommands may
  * only appear as inert text in the report's proposed-actions section, for a
@@ -81,6 +84,11 @@ const PROJECT_NUMBER = 4;
 const PROJECT_ID = "PVT_kwHOAEKsO84BcY5A";
 const STATUS_FIELD_ID = "PVTSSF_lAHOAEKsO84BcY5AzhXCGf4";
 const STATUS_OPTIONS = { Todo: "f75ad846", "In Progress": "47fc9ee4", Done: "98236657" };
+const PRIORITY_FIELD_ID = "PVTSSF_lAHOAEKsO84BcY5AzhXHPrs";
+const PRIORITY_OPTIONS = { P0: "5625c061", P1: "431da638", P2: "29bb2363", P3: "01b46031" };
+const SIZE_FIELD_ID = "PVTSSF_lAHOAEKsO84BcY5AzhXHPrw";
+const SIZE_OPTIONS = { S: "cd9ee114", M: "b551b778", L: "254b9bf3" };
+const REPO_NAME = "pi-dynamic-workflows";
 
 // Per-role model/effort overrides: input.models[role] / input.efforts[role], else input.model /
 // input.effort, else the tier default baked into the node() call. role = the node's stable logical
@@ -127,7 +135,7 @@ if (projectCheck.code !== 0) {
 }
 log("preflight ok", { auth: true, projectAccess: true });
 
-const issueListRaw = await bash("gh issue list --state open --json number,title,body,labels,updatedAt,url --limit 500", {
+const issueListRaw = await bash("gh issue list --state open --json number,title,body,labels,updatedAt,url,id --limit 500", {
 	cache: true,
 });
 if (issueListRaw.code !== 0) {
@@ -143,6 +151,13 @@ const labelListRaw = await bash("gh label list --json name,description,color --l
 if (labelListRaw.code !== 0) {
 	throw new Error(`gh label list failed (exit ${labelListRaw.code}).\n${compact(labelListRaw.stderr, 1000)}`);
 }
+// Existing native sub-issue links (epics): needed so addSubIssue is only proposed for
+// UNLINKED children. Non-fatal if the API shape changes — degrade to "no known parents".
+const parentsRaw = await bash(
+	`gh api graphql -f query='{ repository(owner:"${OWNER}", name:"${REPO_NAME}") { issues(first:100, states:OPEN) { nodes { number parent { number } } } } }'`,
+	{ cache: true },
+);
+if (parentsRaw.code !== 0) log("parent-links scout failed (non-fatal) — proposing epics without existing-link dedup", { exit: parentsRaw.code });
 
 function parseJsonSafe(raw, fallback) {
 	try {
@@ -154,12 +169,14 @@ function parseJsonSafe(raw, fallback) {
 }
 
 const allOpenIssues = parseJsonSafe(issueListRaw.stdout, []);
+const parentNodes = parseJsonSafe(parentsRaw.stdout, {})?.data?.repository?.issues?.nodes ?? [];
+const existingParents = parentNodes.filter((n) => n?.parent?.number != null).map((n) => ({ child: n.number, parent: n.parent.number }));
 const boardItemsRaw = parseJsonSafe(boardListRaw.stdout, { items: [] });
 const boardItems = Array.isArray(boardItemsRaw) ? boardItemsRaw : (boardItemsRaw.items ?? []);
 const labels = parseJsonSafe(labelListRaw.stdout, []);
 const labelNames = labels.map((l) => l.name);
 
-log("scout complete", { openIssues: allOpenIssues.length, boardItems: boardItems.length, labels: labelNames.length });
+log("scout complete", { openIssues: allOpenIssues.length, boardItems: boardItems.length, labels: labelNames.length, existingEpicLinks: existingParents.length });
 
 // Optional maxIssues clamp (input, not a hardcoded count). Excluded issues are logged.
 const maxIssues = Number.isFinite(Number(input?.maxIssues)) && Number(input.maxIssues) > 0 ? Math.floor(Number(input.maxIssues)) : null;
@@ -211,7 +228,7 @@ phase("Analyze");
 const ISSUE_ANALYSIS_SCHEMA = {
 	type: "object",
 	additionalProperties: false,
-	required: ["issueNumber", "clarity", "staleness", "labelVerdict", "overlap", "dependencies", "size"],
+	required: ["issueNumber", "clarity", "staleness", "labelVerdict", "overlap", "dependencies", "size", "priority", "priorityRationale", "epicParent", "epicRationale"],
 	properties: {
 		issueNumber: { type: "number" },
 		clarity: { type: "string", description: "Clarity/acceptance-criteria verdict, cite what is missing if incomplete." },
@@ -223,6 +240,10 @@ const ISSUE_ANALYSIS_SCHEMA = {
 		overlap: { type: "string", description: "Overlap/duplication with sibling open issues, citing issue numbers." },
 		dependencies: { type: "string", description: "Dependencies or suggested ordering relative to sibling issues." },
 		size: { type: "string", enum: ["S", "M", "L"] },
+		priority: { type: "string", enum: ["P0", "P1", "P2", "P3"], description: "Recommended board Priority: P0 unblocker/critical bug, P1 high-value near-term, P2 normal, P3 nice-to-have." },
+		priorityRationale: { type: "string", description: "One concrete sentence: why this priority (dependency position, kind, evidence)." },
+		epicParent: { type: "number", description: "Issue number of the open STORY this issue is clearly a sub-task of, or 0 if none. Only from the siblings list — never invented." },
+		epicRationale: { type: "string", description: "Why that parent (or why none): cite body text/labels/scope." },
 	},
 };
 
@@ -234,7 +255,7 @@ const analystItems = analystIssues.map((issue) => ({
 		GH_READ_ONLY_NOTE,
 		UNTRUSTED_NOTICE,
 		"",
-		`Analyze issue #${issue.number} across exactly six dimensions: (1) clarity/acceptance criteria, (2) currency/staleness vs the ACTUAL repo code — ground this in concrete evidence (file paths you read, 'git log' output, presence/absence of tests), not just the issue text, (3) label verdict against the live label set below, (4) overlap/duplication with sibling issues below, (5) dependencies or suggested sequencing relative to siblings, (6) T-shirt size (S/M/L).`,
+		`Analyze issue #${issue.number} across exactly eight dimensions: (1) clarity/acceptance criteria, (2) currency/staleness vs the ACTUAL repo code — ground this in concrete evidence (file paths you read, 'git log' output, presence/absence of tests), not just the issue text, (3) label verdict against the live label set below, (4) overlap/duplication with sibling issues below, (5) dependencies or suggested sequencing relative to siblings, (6) T-shirt size (S/M/L), (7) recommended board Priority — P0 unblocker/critical bug, P1 high-value near-term, P2 normal, P3 nice-to-have — with a concrete rationale, (8) epic parent: if this issue is clearly a sub-task of an open 'story'-labelled sibling, give that issue number as epicParent (else 0) with rationale.`,
 		"",
 		fence("issue", { number: issue.number, title: issue.title, body: issue.body, labels: issue.labels, updatedAt: issue.updatedAt, url: issue.url }),
 		"",
@@ -297,7 +318,11 @@ const boardIndex = boardItems.map((it) => ({
 	issueNumber: it.content?.number ?? null,
 	title: it.title ?? it.content?.title ?? null,
 	status: it.status ?? null,
+	priority: it.priority ?? null,
+	size: it.size ?? null,
 }));
+// Node IDs + URLs so proposed addSubIssue mutations are copy-paste executable (no subshells).
+const issueNodeIndex = allOpenIssues.map((i) => ({ number: i.number, nodeId: i.id ?? null, url: i.url }));
 
 const synthesisPrompt = [
 	"You are the CROSS-ISSUE SYNTHESIZER for a propose-only backlog-grooming audit of pi-dynamic-workflows.",
@@ -315,8 +340,30 @@ const synthesisPrompt = [
 		", Done=" +
 		STATUS_OPTIONS.Done +
 		`) and gh issue edit/close/comment for issue-level fixes. Reference ONLY issue numbers or project item IDs that actually appear in the data below.`,
+		"",
+		"(5) PERSIST the plan to the board (source of truth): for EVERY open item whose board `priority` (board-index below) is null or contradicts your global order, propose `gh project item-edit --id <ITEM_ID> --project-id " +
+			PROJECT_ID +
+			" --field-id " +
+			PRIORITY_FIELD_ID +
+			" --single-select-option-id <ID>` (P0=" +
+			PRIORITY_OPTIONS.P0 +
+			", P1=" +
+			PRIORITY_OPTIONS.P1 +
+			", P2=" +
+			PRIORITY_OPTIONS.P2 +
+			", P3=" +
+			PRIORITY_OPTIONS.P3 +
+			"). Band your global order into P0-P3 (P0 unblockers/critical bugs; P1 high-value near-term; P2 normal; P3 nice-to-have) — the analysts' per-issue priority recommendations are input, but YOUR global order wins. Same for `size` with field " +
+			SIZE_FIELD_ID +
+			" (S=" +
+			SIZE_OPTIONS.S +
+			", M=" +
+			SIZE_OPTIONS.M +
+			", L=" +
+			SIZE_OPTIONS.L +
+			") using the analyst's size. (6) EPICS: where analysts identified an epicParent and no link already exists (existing-epic-links below), propose one `gh api graphql -f query='mutation { addSubIssue(input: { issueId: \"<PARENT_NODE_ID>\", subIssueUrl: \"<CHILD_URL>\" }) { issue { number } subIssue { number } } }'` per link, taking PARENT_NODE_ID and CHILD_URL ONLY from issue-node-index below. Only propose links BOTH the analyst rationale and the issue bodies support — never force a hierarchy.",
 	"",
-	`Coverage: ${completedAnalyses.length}/${analystIssues.length} issues analyzed, ${failedAnalystIssues.length} failed (${JSON.stringify(failedAnalystIssues)}). Board drift was computed DETERMINISTICALLY from live data (exact, not an LLM estimate): ${boardAudit.driftCount} drift item(s).`,
+	`Coverage: ${completedAnalyses.length}/${allOpenIssues.length} OPEN issues analyzed (${allOpenIssues.length - analystIssues.length} excluded by clamps: ${JSON.stringify(allOpenIssues.filter((i) => !analystIssues.includes(i)).map((i) => i.number))} — flag them as SIN ANALIZAR in the report), ${failedAnalystIssues.length} failed (${JSON.stringify(failedAnalystIssues)}). Board drift was computed DETERMINISTICALLY from live data (exact, not an LLM estimate): ${boardAudit.driftCount} drift item(s).`,
 	"",
 	// Bound scales with the backlog: a fixed 50KB truncated the tail analyses at 19 issues
 	// (the synthesizer honestly downgraded them to "title-only" — a coverage-contract miss).
@@ -327,6 +374,10 @@ const synthesisPrompt = [
 	fence("live-labels", labelNames),
 	"",
 	fence("board-index", compact(boardIndex, 20000)),
+	"",
+	fence("issue-node-index", compact(issueNodeIndex, 20000)),
+	"",
+	fence("existing-epic-links", existingParents),
 ].join("\n");
 
 const synthesis = await agent(synthesisPrompt, node("synthesizer", { model: "opus", effort: "high", schema: SYNTHESIS_SCHEMA }));
@@ -370,7 +421,20 @@ const verifierPrompt = [
 	UNTRUSTED_NOTICE,
 	"For EACH draft command below, mark valid:true ONLY if ALL of these hold:",
 	"1. It references a real issue number from validIssueNumbers OR a real project item id from validItemIds (below) — no invented IDs. validIssueNumbers includes both open issues and the CLOSED issues behind board-drift fixes; a Status-fix command justified by a closed issue's drift is VALID.",
-	"2. It is a SINGLE, non-compound command: no `&&`, `;`, `|`, backticks, or subshells chaining multiple gh invocations.",
+	"2. It is a SINGLE, non-compound command: no `&&`, `;`, `|`, or subshells chaining multiple gh invocations. (A GraphQL mutation string inside a quoted -f query='…' argument is ONE command — its braces/quotes are data, not chaining.)",
+	"2b. `gh project item-edit` field/option IDs must come from the known board constants: Status " +
+		STATUS_FIELD_ID +
+		" (options " +
+		JSON.stringify(STATUS_OPTIONS) +
+		"), Priority " +
+		PRIORITY_FIELD_ID +
+		" (options " +
+		JSON.stringify(PRIORITY_OPTIONS) +
+		"), Size " +
+		SIZE_FIELD_ID +
+		" (options " +
+		JSON.stringify(SIZE_OPTIONS) +
+		"). An addSubIssue mutation must use a parent issueId from validNodeIds and a child URL whose issue number is in validIssueNumbers.",
 	"3. It is annotated with a justification that cites a concrete finding (not vague).",
 	"Otherwise mark valid:false with a specific reason. Never rewrite commands into something executable by this workflow — you only annotate pass/fail for a human.",
 	"",
@@ -379,6 +443,8 @@ const verifierPrompt = [
 	fence("valid-issue-numbers", validIssueNumbers),
 	"",
 	fence("valid-item-ids", validItemIds),
+	"",
+	fence("valid-node-ids", issueNodeIndex),
 ].join("\n");
 
 const verification = await agent(verifierPrompt, node("verifier", { model: "opus", effort: "high", schema: VERIFY_SCHEMA }));
