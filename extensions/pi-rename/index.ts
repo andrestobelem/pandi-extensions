@@ -27,6 +27,7 @@ import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { EditorComponent } from "@earendil-works/pi-tui";
 import { composeTopBorder } from "./border-label.js";
 import { DEFAULT_SESSION_NAME, slugify } from "./derive-name.js";
+import { installExitNameHint } from "./exit-name-hint.js";
 import { notify } from "./notify.js";
 import { runPiSummary } from "./spawn-summary.js";
 import { summarizeSessionName } from "./summarize-name.js";
@@ -36,6 +37,9 @@ const SET_PROVIDER = "__piRenameSetBorderProvider";
 
 /** The most recently created wrapped editor, nudged to repaint after a rename. */
 let latestEditor: { invalidate?: () => void } | undefined;
+
+/** Setter feeding the exit-time "Session name: <slug>" hint (undefined off-TTY). */
+let setExitHintName: ((name: string | undefined) => void) | undefined;
 
 function readEntries(ctx: ExtensionCommandContext): unknown[] {
 	try {
@@ -63,6 +67,7 @@ function applyName(pi: ExtensionAPI, ctx: ExtensionCommandContext, rawName: stri
 	const finalName = slugify(rawName) || DEFAULT_SESSION_NAME;
 	try {
 		pi.setSessionName(finalName);
+		setExitHintName?.(finalName);
 		notify(ctx, `Session renamed to "${finalName}".`, "info");
 		// Nudge the editor so the border label updates immediately.
 		latestEditor?.invalidate?.();
@@ -167,5 +172,27 @@ export default function renameExtension(pi: ExtensionAPI): void {
 	// Show the current name in the editor's top border (TUI only).
 	pi.on("session_start", async (_event, ctx) => {
 		installNameBorderLabel(pi, ctx);
+		// Print the name under pi core's UUID-only exit resume hint (TUI only; the
+		// installer itself refuses non-TTY stdout so print mode is never polluted).
+		if (ctx.mode === "tui") {
+			setExitHintName ??= installExitNameHint({
+				isTTY: () => process.stdout.isTTY === true,
+				onExit: (hook) => void process.on("exit", hook),
+				write: (text) => void process.stdout.write(text),
+			});
+			setExitHintName?.(safeName(pi));
+		}
+	});
+
+	// Track every rename (native /name or any extension) so the exit hint stays current.
+	// The pinned SDK types (0.80.2) lag the runtime here: session_info_changed is emitted
+	// by 0.80.2's AgentSession and typed from 0.80.3 on — drop the cast when the dep ages
+	// past min-release-age and updates.
+	const onAny = pi.on as unknown as (
+		event: string,
+		handler: (event: { name?: string }, ctx: ExtensionContext) => Promise<void>,
+	) => void;
+	onAny("session_info_changed", async (event) => {
+		setExitHintName?.(event.name);
 	});
 }

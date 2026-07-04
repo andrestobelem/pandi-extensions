@@ -62,16 +62,22 @@ overrides it — use whichever verb you prefer.
 - Fallbacks: empty history or no usable text falls back to a default name
   (`session`); if `setSessionName` fails it reports an error instead of crashing.
 
-## Where the name shows up (and where it doesn't)
+## Where the name shows up
 
 The name set by `/rename` (or the native `/name`) appears in:
 
 - the **resume selector** (`pi -r` / `pi --resume`), which shows `name ?? first message`;
 - `/name` with no arguments (`Session name: <slug>`);
-- the **editor border pill** in the TUI.
+- the **editor border pill** in the TUI;
+- **on exit**, as a dim line under pi core's resume hint:
 
-It does **not** appear in the exit hint (`To resume this session: pi --session <uuid>`):
-that line is printed by pi core with the session UUID, by design, because `--session`
-resolves paths and (partial) UUIDs — not names. This is identical for `/name`-named
-sessions and is not a `/rename` defect; to resume by name, use `pi -r` and pick it from
-the list.
+  ```text
+  To resume this session: pi --session 019f2a26-70f1-7849-b9a3-c8ea84741ba1
+  Session name: docs-html-mirror-sync (resume by name: pi -r)
+  ```
+
+  The first line is pi core's and is UUID-only by design (`--session` resolves
+  paths/partial UUIDs, not names; upstream FR to include the name:
+  [earendil-works/pi#6296](https://github.com/earendil-works/pi/issues/6296)). The
+  second line is printed by this extension from a process `exit` hook (TUI + TTY only,
+  one hook across reloads, silent when the session is unnamed).

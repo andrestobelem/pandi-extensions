@@ -682,6 +682,13 @@ async function main() {
 		await fs.rm(spawnMod.outDir, { recursive: true, force: true });
 	}
 
+	const hintMod = await buildPureModule("exit-name-hint.ts", "exit-name-hint.mjs", "pi-rename-exit-hint");
+	try {
+		await scenarioExitNameHint(hintMod.url);
+	} finally {
+		await fs.rm(hintMod.outDir, { recursive: true, force: true });
+	}
+
 	const ext = await buildRename();
 	try {
 		await scenarioExplicitName(ext.url);
@@ -699,6 +706,82 @@ async function main() {
 		console.log("Failures:");
 		for (const failure of counts.failures) console.log(`- ${failure}`);
 		process.exit(1);
+	}
+}
+
+// exit-name-hint.ts: the dim "Session name: <slug>" line printed under pi core's
+// UUID-only exit resume hint (stopgap for earendil-works/pi#6296).
+async function scenarioExitNameHint(url) {
+	const { formatExitNameHint, installExitNameHint, EXIT_HINT_KEY } = await loadModule(url);
+
+	const line = stripAnsi(formatExitNameHint("docs-html-mirror-sync"));
+	check("exit hint line carries the name", line.includes("docs-html-mirror-sync"));
+	check("exit hint line points at resume-by-name (pi -r)", line.includes("pi -r"));
+	check("exit hint line is newline-terminated", line.endsWith("\n"));
+
+	function makeIo({ tty = true } = {}) {
+		const hooks = [];
+		const writes = [];
+		return {
+			io: { isTTY: () => tty, onExit: (hook) => hooks.push(hook), write: (text) => writes.push(text) },
+			hooks,
+			writes,
+		};
+	}
+
+	// Named session: the hook writes exactly the formatted line.
+	{
+		const { io, hooks, writes } = makeIo();
+		const setName = installExitNameHint(io, {});
+		check("install returns a setter on a TTY", typeof setName === "function");
+		check("install registers exactly one exit hook", hooks.length === 1);
+		setName("mi-sesion");
+		for (const hook of hooks) hook();
+		check("exit hook prints the current name", writes.length === 1 && stripAnsi(writes[0]).includes("mi-sesion"));
+	}
+
+	// Unnamed session: silent exit (no extra line under the core hint).
+	{
+		const { io, hooks, writes } = makeIo();
+		installExitNameHint(io, {});
+		for (const hook of hooks) hook();
+		check("exit hook writes nothing when the session is unnamed", writes.length === 0);
+	}
+
+	// Cleared name: setter(undefined) suppresses the line again.
+	{
+		const { io, hooks, writes } = makeIo();
+		const setName = installExitNameHint(io, {});
+		setName("algo");
+		setName(undefined);
+		for (const hook of hooks) hook();
+		check("exit hook respects a cleared name", writes.length === 0);
+	}
+
+	// Not a TTY (pipes, print mode): never installs, never writes.
+	{
+		const { io, hooks } = makeIo({ tty: false });
+		const setName = installExitNameHint(io, {});
+		check("install returns undefined off-TTY", setName === undefined);
+		check("no exit hook is registered off-TTY", hooks.length === 0);
+	}
+
+	// Reload semantics: a second install on the same registry reuses the holder
+	// (one hook, one line) and its setter updates the name the first hook reads.
+	{
+		const { io, hooks, writes } = makeIo();
+		const registry = {};
+		installExitNameHint(io, registry);
+		const setName2 = installExitNameHint(io, registry);
+		check("reload does not stack a second exit hook", hooks.length === 1);
+		check("reload still returns a working setter", typeof setName2 === "function");
+		setName2("post-reload");
+		for (const hook of hooks) hook();
+		check(
+			"post-reload setter feeds the original hook",
+			writes.length === 1 && stripAnsi(writes[0]).includes("post-reload"),
+		);
+		check("registry holder registered under the shared symbol", EXIT_HINT_KEY in registry);
 	}
 }
 
