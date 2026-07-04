@@ -393,7 +393,7 @@ export async function runCreate(run: RunContainer, params: CreateOptions, opts: 
 	if (params.name && !validateMachineName(params.name)) {
 		return {
 			ok: false,
-			text: `Invalid machine name: "${params.name}"`,
+			text: `Invalid machine name "${params.name}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
 			details: { isError: true, action: "create" },
 		};
 	}
@@ -450,7 +450,7 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 	if (params.machine && !validateMachineName(params.machine)) {
 		return {
 			ok: false,
-			text: `Invalid machine name: "${params.machine}"`,
+			text: `Invalid machine name "${params.machine}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
 			details: { isError: true, action: "run" },
 		};
 	}
@@ -488,7 +488,11 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 
 export async function runStop(run: RunContainer, params: { name?: string }, opts: HandlerOpts): Promise<HandlerResult> {
 	if (params.name && !validateMachineName(params.name)) {
-		return { ok: false, text: `Invalid machine name: "${params.name}"`, details: { isError: true, action: "stop" } };
+		return {
+			ok: false,
+			text: `Invalid machine name "${params.name}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
+			details: { isError: true, action: "stop" },
+		};
 	}
 	const result = await run(buildStopArgs(params), opts);
 	if (!result.ok) {
@@ -509,7 +513,7 @@ export async function runRemove(
 	if (!params.name || !validateMachineName(params.name)) {
 		return {
 			ok: false,
-			text: `remove requires a valid machine name (got "${params.name}").`,
+			text: `Invalid machine name "${params.name}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
 			details: { isError: true, action: "remove" },
 		};
 	}
