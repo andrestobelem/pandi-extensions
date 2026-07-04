@@ -4,8 +4,10 @@ description: >-
   Manage this repo's issue tracking on the GitHub Project v2
   "pi-dynamic-workflows" (user andrestobelem, project #4) with the gh CLI.
   Use when creating stories/tasks/bugs, adding items to the board, moving
-  Status (Todo / In Progress / Done), closing work from commits, or answering
-  "what is on the board / in progress / left to do".
+  Status (Todo / In Progress / Done), setting Priority (P0-P3) or Size (S/M/L),
+  building epics with native sub-issues, managing milestones, closing work from
+  commits, or answering "what is on the board / in progress / left to do /
+  next by priority".
 ---
 
 # github-project
@@ -31,6 +33,17 @@ re-discover them.
 - **Stories link their sub-tasks**: the parent story lists them in its body;
   each sub-task's body says `Part of #N`. Keep sub-tasks small and
   independently closeable.
+- **The Project board is the source of truth** for planning state: `Priority`
+  (P0 highest → P3) and `Size` (S/M/L) live as board fields, not only in
+  grooming run artifacts. The `grooming` workflow analyzes and PROPOSES
+  `item-edit` commands (propose-only); a human executes them. `sdlc` picks the
+  next issue as the top-Priority `Todo` item. Run artifacts are snapshots; the
+  board is current state.
+- **Epics are native sub-issues**, not just body text: link children to the
+  parent story with the `addSubIssue` GraphQL mutation (recipes below). GitHub
+  then computes `Sub-issues progress` automatically and the board can
+  group-by-parent. Keep the `Part of #N` body line as a human-readable
+  courtesy; the sub-issue link is the machine truth.
 
 ## Verified constants (2026-07-04)
 
@@ -43,13 +56,18 @@ re-discover them.
 | Status option: Todo | `f75ad846` |
 | Status option: In Progress | `47fc9ee4` |
 | Status option: Done | `98236657` |
+| Priority field ID | `PVTSSF_lAHOAEKsO84BcY5AzhXHPrs` |
+| Priority options | P0 `5625c061` · P1 `431da638` · P2 `29bb2363` · P3 `01b46031` |
+| Size field ID | `PVTSSF_lAHOAEKsO84BcY5AzhXHPrw` |
+| Size options | S `cd9ee114` · M `b551b778` · L `254b9bf3` |
 
 If an `item-edit` fails with an unknown field/option, re-derive the IDs (they
 only change if the field is recreated):
 
 ```bash
 gh project field-list 4 --owner andrestobelem --format json \
-  --jq '.fields[] | select(.name == "Status") | {id, options: [.options[] | {name, id}]}'
+  --jq '.fields[] | select(.name == "Status" or .name == "Priority" or .name == "Size")
+        | {name, id, options: [.options[] | {name, id}]}'
 ```
 
 ## Recipes
@@ -89,6 +107,70 @@ gh project item-edit --id <PVTI-item-id> \
   --single-select-option-id 47fc9ee4   # Todo f75ad846 · In Progress 47fc9ee4 · Done 98236657
 ```
 
+### Set Priority / Size on an item
+
+Same `item-edit` shape as Status — one field per call (verified round-trip:
+set → query → `--clear`):
+
+```bash
+gh project item-edit --id <PVTI-item-id> \
+  --project-id PVT_kwHOAEKsO84BcY5A \
+  --field-id PVTSSF_lAHOAEKsO84BcY5AzhXHPrs \
+  --single-select-option-id 431da638   # P0 5625c061 · P1 431da638 · P2 29bb2363 · P3 01b46031
+# Size: --field-id PVTSSF_lAHOAEKsO84BcY5AzhXHPrw · S cd9ee114 · M b551b778 · L 254b9bf3
+# Unset a field: same call with --clear instead of --single-select-option-id
+```
+
+### Pick the next work item (top-Priority Todo)
+
+In `item-list` JSON the field keys are lowercased (`priority`, `size`); items
+without the field have `null`:
+
+```bash
+gh project item-list 4 --owner andrestobelem --limit 200 --format json \
+  --jq '[.items[] | select(.status == "Todo" and .priority != null)]
+        | sort_by(.priority) | .[0:5]
+        | .[] | "\(.priority) #\(.content.number) \(.title)"'
+```
+
+(`sort_by(.priority)` works because P0 < P1 < … sorts lexicographically.)
+
+### Epics: native sub-issues
+
+Sub-issue operations are GraphQL-only (no `gh project`/`gh issue` subcommand).
+`addSubIssue` accepts the child's URL directly — no node-ID dance (input shape
+schema-verified; mutations exercised on demand):
+
+```bash
+# Link a child issue to its parent story (epic)
+PARENT_ID=$(gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pi-dynamic-workflows")
+  { issue(number:<PARENT>) { id } }}' --jq .data.repository.issue.id)
+gh api graphql -f query="mutation { addSubIssue(input: { issueId: \"$PARENT_ID\",
+  subIssueUrl: \"https://github.com/andrestobelem/pi-dynamic-workflows/issues/<CHILD>\" })
+  { issue { number } subIssue { number } } }"
+
+# List an epic's children + auto-computed progress
+gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pi-dynamic-workflows")
+  { issue(number:<PARENT>) { subIssuesSummary { total completed percentCompleted }
+    subIssues(first: 50) { nodes { number title state } } } }}' --jq .data.repository.issue
+
+# Unlink / reorder children: removeSubIssue · reprioritizeSubIssue (same input style)
+```
+
+The board surfaces this via the built-in `Parent issue` and `Sub-issues
+progress` fields (group a table view by Parent issue in the UI).
+
+### Milestones (release buckets)
+
+```bash
+gh api repos/andrestobelem/pi-dynamic-workflows/milestones -f title="v0.2 release" \
+  -f description="<anchor story / scope>"          # create
+gh issue edit <N> --milestone "v0.2 release"       # assign
+gh issue list --milestone "v0.2 release"           # query
+```
+
+The board's built-in `Milestone` field picks these up automatically.
+
 ### Finish work
 
 Prefer closing from the landing commit (`Closes #N` in the body) over manual
@@ -119,3 +201,11 @@ Issue-side queries stay on the repo: `gh issue list --label task --state open`.
   external viewers to resolve project URLs.
 - One `item-edit` sets ONE field; Status moves and other field edits are
   separate calls.
+- `gh project field-create` only supports `TEXT|SINGLE_SELECT|DATE|NUMBER` —
+  **Iteration fields cannot be created from the CLI** (UI-only); reading/setting
+  them via GraphQL works once created.
+- Sub-issue mutations (`addSubIssue` / `removeSubIssue` / `reprioritizeSubIssue`)
+  exist only in GraphQL; the parent must be passed as a node ID (`issueId`),
+  the child can be a plain `subIssueUrl`.
+- New single-select fields created via CLI get auto-generated option IDs —
+  record them here immediately (table above) so no session re-derives them.
