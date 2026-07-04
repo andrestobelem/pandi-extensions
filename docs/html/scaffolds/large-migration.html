@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>large-migration</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>large-migration</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Un applier real: gate de baseline verde, por archivo apply → verify → repair acotado, rollback en caso de falla. Secuencial.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start(["Input: instruction, files?, pattern?, verifyCmd?, maxRepairs=2, maxFiles=50, triage=true, dryRun=false"]) --&gt; Discover
+
+    subgraph Discover["Fase 1: Discover"]
+        D1{"input.files provisto?"}
+        D1 -- "sí" --&gt; D2["allFiles = input.files"]
+        D1 -- "no" --&gt; D3["agent scout haiku/low\n git ls-files + regex pattern\n -&gt; { files, totalMatched }"]
+        D2 --&gt; D4["files = allFiles.slice(0, maxFiles)"]
+        D3 --&gt; D4
+    end
+    Discover --&gt; D5{"files.length == 0?"}
+    D5 -- "sí" --&gt; End1(["return: nothing to migrate"])
+    D5 -- "no" --&gt; Baseline
+
+    subgraph Baseline["Fase 2: Baseline"]
+        B1{"verifyCmd provisto?"}
+        B1 -- "no" --&gt; B2["log WARNING: sin gate de build/test"]
+        B1 -- "sí" --&gt; B3["agent baseline haiku/low\n corre verifyCmd, NO edita\n -&gt; { green, evidence }"]
+        B3 --&gt; B4{"green?"}
+        B4 -- "no" --&gt; End2(["return { aborted: true, reason: red tree }"])
+    end
+    Baseline --&gt; Migrate
+
+    subgraph Migrate["Fase 3: Migrate — loop secuencial por archivo"]
+        direction TB
+        M0["for file in files (orden de lista, SIN paralelismo)"]
+        M0 --&gt; M1{"i&gt;0 y verifyCmd y !dryRun?"}
+        M1 -- "sí" --&gt; M2["agent recheck integrity-check:file\n haiku/low -&gt; { green, evidence }"]
+        M2 --&gt; M3{"green?"}
+        M3 -- "no" --&gt; M4["abort: stoppedBefore=file\n break loop"]
+        M1 -- "no" --&gt; M5
+        M3 -- "sí" --&gt; M5["agent migrate sonnet/medium\n prompt con instruction fence"]
+        M5 --&gt; M6{"triage=true?"}
+        M6 -- "no necesita cambio" --&gt; M7["status: skipped"]
+        M6 -- "necesita cambio" --&gt; M8{"dryRun?"}
+        M8 -- "sí" --&gt; M9["status: dry-run-preview\n (no escribe)"]
+        M8 -- "no" --&gt; M10["Apply edit + self-verify verifyCmd\n repair loop hasta maxRepairs\n si sigue rojo: git checkout -- file\n -&gt; status: migrated | failed-rolled-back | applied-unverified"]
+        M10 --&gt; M11{"status==migrated y verifyCmd y !dryRun?"}
+        M11 -- "sí" --&gt; M12["agent recheck verify-gate:file\n haiku/low, gate independiente"]
+        M12 --&gt; M13{"gate green?"}
+        M13 -- "no" --&gt; M14["downgrade -&gt; verify-mismatch-not-rolled-back\n (NO rollback, queda modificado)"]
+        M13 -- "sí" --&gt; M15["confirma migrated"]
+        M11 -- "no" --&gt; M16["push result"]
+        M9 --&gt; M16
+        M7 --&gt; M16
+        M14 --&gt; M16
+        M15 --&gt; M16
+        M4 --&gt; M16
+        M16 --&gt; M0
+    end
+    Migrate --&gt; FV{"verifyCmd y !dryRun?"}
+    FV -- "sí" --&gt; FV2["agent final-verify haiku/low\n corre verifyCmd una vez más"]
+    FV -- "no" --&gt; Result
+    FV2 --&gt; Result
+    Result(["return { instruction, dryRun, aborted?, counts, finalVerify, results }"])</pre>
+<h2>Qué hace</h2>
+<p><code>large-migration</code> es un scaffold <strong>applier</strong>, no un auditor: modifica el árbol de trabajo aplicando una instrucción de migración archivo por archivo, con barandas de seguridad tomadas de tooling de migración real (Google AI-migration, Amazon Q Code Transformation, el libro SWE de Google sobre LSC). A diferencia de <code>scout-fanout</code> (que triagea y revisa sin tocar código), este workflow escribe cambios en disco.</p>
+<p>El flujo es deliberadamente secuencial: como todos los agentes comparten el mismo árbol de trabajo, paralelizar apply/verify produciría carreras (un archivo en verificación mientras otro se edita). Por eso cada archivo se procesa uno detrás del otro, con un chequeo de integridad del árbol antes de tocar el siguiente y una verificación independiente después de que el agente que migró afirma haber terminado (&quot;migrated&quot; es un self-report, no una garantía — el orquestador vuelve a correr <code>verifyCmd</code> para confirmarlo).</p>
+<p>El diseño trata las afirmaciones del agente migrador como <em>claims</em>, no como hechos: si dice &quot;migrated&quot; pero el re-chequeo del orquestador da rojo, el status se degrada a <code>verify-mismatch-not-rolled-back</code> en vez de confiar ciegamente. Del mismo modo, si no hay <code>verifyCmd</code>, el workflow migra sin gate y lo advierte explícitamente en el log — no finge seguridad que no tiene.</p>
+<p>Explícitamente fuera de alcance (documentado en el propio código, no oculto): no hay secuenciación por orden de dependencias (los archivos se procesan en el orden de la lista descubierta), no hace commits git por archivo, y no hay apply en paralelo sobre worktrees separados. Si la migración lo necesita, hay que agregarlo.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>API/codemod rollouts: reemplazar una llamada, patrón o import por otro en muchos archivos.</li>
+<li>Upgrades de framework que requieren tocar archivo por archivo con verificación de build/test.</li>
+<li>Migraciones acotadas y respaldadas por evidencia (<code>verifyCmd</code>) donde &quot;no dejar nada roto&quot; importa más que la velocidad.</li>
+<li>Cuando estás mutando muchos archivos y <strong>no podés</strong> dejar uno roto atrás.</li>
+</ul>
+<p>No usarlo cuando:</p>
+<ul>
+<li>Solo necesitás triage/auditoría sin escribir cambios → usar <code>scout-fanout</code>.</li>
+<li>La migración requiere orden de dependencias entre archivos (este scaffold no lo resuelve).</li>
+<li>Se necesita apply en paralelo sobre worktrees separados para escalar velocidad (no soportado aquí; el diseño es intencionalmente secuencial).</li>
+<li>No hay forma de verificar el cambio (<code>verifyCmd</code>) y el riesgo de romper la rama es alto — el workflow puede correr sin gate, pero lo hace bajo protesta (WARNING en el log).</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p>El scaffold parsea <code>args</code> como input JSON, define un helper <code>node(role, extra)</code> para overrides por rol (<code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code>, con precedencia rol &gt; global &gt; default) y un helper <code>fence()</code> que envuelve datos no confiables (la instrucción de migración) en un delimitador derivado de un hash del contenido, para que un payload malicioso no pueda falsificar el marcador de cierre.</p>
+<p><strong>Fase 1 — Discover</strong> (<code>phase(&quot;Discover&quot;)</code>): si <code>input.files</code> viene como array no vacío, se usa directamente (se saltea git). Si no, un <code>agent</code> con rol <code>scout</code> (modelo <code>haiku</code>, effort <code>low</code>, <code>schema: FILE_LIST</code>) corre <code>git ls-files</code>, filtra por el regex <code>pattern</code> (default: extensiones de código <code>\.(ts|tsx|js|jsx|py|go|rs)$</code>, con alias <code>docs</code>/<code>web</code>/<code>config</code> disponibles) y devuelve hasta <code>maxFiles</code> rutas más <code>totalMatched</code> (el total antes del cap). Se aplica <code>files.slice(0, maxFiles)</code>; si no hay archivos, retorna temprano con un mensaje.</p>
+<p><strong>Fase 2 — Baseline</strong> (<code>phase(&quot;Baseline&quot;)</code>): si hay <code>verifyCmd</code>, un <code>agent</code> de rol <code>baseline</code> (haiku/low, <code>schema: VERIFY</code>) corre el comando SIN editar nada y reporta <code>{ green, evidence }</code>. Si no está verde, el workflow <strong>aborta</strong> devolviendo <code>{ aborted: true, reason: &quot;baseline is not green...&quot; }</code> — nunca migra sobre un árbol rojo. Si no se pasó <code>verifyCmd</code>, solo loggea una advertencia y continúa sin gate.</p>
+<p><strong>Fase 3 — Migrate</strong> (<code>phase(&quot;Migrate&quot;)</code>): loop <code>for</code> secuencial sobre <code>files</code>. Antes de cada archivo (salvo el primero, y solo si hay <code>verifyCmd</code> y no es <code>dryRun</code>) se corre un <code>recheck</code> (agent <code>integrity-check:&lt;file&gt;</code>, haiku/low) para confirmar que el árbol sigue verde; si no, se aborta el loop entero (<code>aborted.stoppedBefore</code>) para no seguir migrando sobre corrupción acumulada.</p>
+<p>Para cada archivo se construye un prompt (<code>agent</code> rol <code>migrate</code>, <code>sonnet</code>/<code>medium</code>, <code>schema: RESULT</code>) que:</p>
+<ul>
+<li>envuelve la instrucción con <code>fence(&quot;plan&quot;, ...)</code> y advierte explícitamente contra prompt injection dentro de los datos no confiables;</li>
+<li>si <code>triage</code> (default <code>true</code>), pide primero comprobar si el archivo realmente necesita el cambio — si no, status <code>skipped</code> sin editar;</li>
+<li>si <code>dryRun</code> (default <code>false</code>), pide describir el diff sin escribir, status <code>dry-run-preview</code>;</li>
+<li>si no, pide aplicar el cambio con Edit/Write, verificar con <code>verifyCmd</code>, y si falla, reparar hasta <code>maxRepairs</code> intentos (default <code>2</code>); si sigue rojo, hacer <code>git checkout -- &lt;file&gt;</code> (rollback) y devolver <code>failed-rolled-back</code>; si no hay <code>verifyCmd</code>, devuelve <code>applied-unverified</code>.</li>
+</ul>
+<p>Después de recibir el resultado, si <code>verifyCmd</code> está presente, no es <code>dryRun</code> y el agente reportó <code>migrated</code>, el orquestador corre un <code>recheck</code> independiente (<code>verify-gate:&lt;file&gt;</code>) — si da rojo, degrada el status a <code>verify-mismatch-not-rolled-back</code> y <strong>no hace rollback</strong> (deja el archivo modificado en disco), dejando constancia explícita en <code>notes</code> de que el self-report no coincidía con la verificación real.</p>
+<p>Al final del loop (si hubo <code>verifyCmd</code> y no <code>dryRun</code>) se corre un <code>final-verify</code> (haiku/low) para confirmar que todos los cambios compuestos siguen pasando juntos.</p>
+<p>Manejo de fallos parciales: no hay reintentos automáticos a nivel workflow más allá del repair loop por archivo; un archivo que no puede repararse se rollbackea y el loop continúa con el siguiente (salvo que el fallo deje el árbol rojo, en cuyo caso el chequeo de integridad del <em>próximo</em> archivo aborta el resto). No hay caching explícito entre corridas — cada fase re-ejecuta sus agentes; el único punto de &quot;memoria&quot; es el estado del propio árbol git (baseline verde, rollback vía <code>git checkout</code>).</p>
+<h2>Input y output</h2>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>instruction</code> (o <code>task</code>/<code>text</code>)</td>
+<td>string</td>
+<td><strong>requerido</strong></td>
+<td>Qué migrar; lanza error si falta.</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Si se provee, se usa tal cual (salta git ls-files).</td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td>string</td>
+<td><code>code</code> → <code>\.(ts|tsx|js|jsx|py|go|rs)$</code></td>
+<td>Alias válidos: <code>code</code>, <code>docs</code>, <code>web</code>, <code>config</code>; o un regex custom.</td>
+</tr>
+<tr>
+<td><code>verifyCmd</code></td>
+<td>string</td>
+<td><code>null</code></td>
+<td>Comando de build/test; sin él, migra sin gate (con warning).</td>
+</tr>
+<tr>
+<td><code>maxRepairs</code></td>
+<td>number</td>
+<td><code>2</code></td>
+<td>Clamp: <code>max(0, floor(x))</code>; coerción logueada si difiere.</td>
+</tr>
+<tr>
+<td><code>maxFiles</code></td>
+<td>number</td>
+<td><code>50</code></td>
+<td>Clamp: <code>max(1, min(4096, floor(x)))</code>; coerción logueada si difiere.</td>
+</tr>
+<tr>
+<td><code>triage</code></td>
+<td>bool</td>
+<td><code>true</code></td>
+<td>Si <code>false</code>, no se salta ningún archivo por &quot;no lo necesita&quot;.</td>
+</tr>
+<tr>
+<td><code>dryRun</code></td>
+<td>bool</td>
+<td><code>false</code></td>
+<td>Si <code>true</code>, no escribe nada, solo describe el diff.</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code> / <code>models{}</code> / <code>efforts{}</code></td>
+<td>—</td>
+<td>—</td>
+<td>Overrides globales o por rol (<code>scout</code>, <code>baseline</code>, <code>migrate</code>, <code>recheck</code>, <code>final-verify</code>).</td>
+</tr>
+<tr>
+<td><code>tools</code>/<code>skills</code>/<code>excludeTools</code> (+ variantes <code>*ByRole</code>)</td>
+<td>—</td>
+<td>—</td>
+<td>Overrides de herramientas/skills por rol.</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong> (objeto final):</p>
+<ul>
+<li><code>instruction</code>, <code>dryRun</code></li>
+<li><code>aborted</code> (si aplica): <code>{ reason, ...}</code> — por baseline rojo o integridad rota entre archivos.</li>
+<li><code>counts</code>: <code>{ total, processed, migrated, failedRolledBack, verifyMismatchNotRolledBack, skipped, appliedUnverified, dryRunPreview }</code></li>
+<li><code>finalVerify</code>: <code>{ green, evidence }</code> o <code>null</code> si no aplica.</li>
+<li><code>results</code>: array de <code>{ file, status, attempts, notes, verified? }</code>, con <code>status</code> uno de <code>migrated | failed-rolled-back | verify-mismatch-not-rolled-back | skipped | applied-unverified | dry-run-preview</code>.</li>
+</ul>
+<p>El scaffold no llama a <code>writeArtifact</code>; el único artefacto es el valor de retorno del workflow (y las líneas de <code>log(...)</code> emitidas en cada fase).</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Discover</strong> — determina la lista de archivos a migrar (input explícito o <code>git ls-files</code> + regex, acotado por <code>maxFiles</code>).</li>
+<li><strong>Baseline</strong> — gate de árbol verde: corre <code>verifyCmd</code> antes de tocar nada; aborta si está rojo.</li>
+<li><strong>Migrate</strong> — loop secuencial apply → verify → repair (acotado) → rollback por archivo, con chequeo de integridad entre archivos, verificación independiente del self-report, y verificación final de todo el conjunto.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

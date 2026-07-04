@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>adversarial-verify</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>adversarial-verify</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Jurado de escépticos por cada hallazgo, que descarta afirmaciones por refutación mayoritaria; por defecto se duda.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    A["Input: findings[] o topic"] --&gt; B{"¿Hay findings?"}
+    B --&gt;|"no, hay topic"| C["Fase Find: agent finder (haiku, low)\nschema FINDINGS, maxFindings (def 8)"]
+    C --&gt; D["findings descubiertos (cap maxFindings)"]
+    B --&gt;|"sí"| D
+    D --&gt; E["Normalizar a { id, claim, evidence }"]
+    E --&gt; F["Cap maxVerify (def 256, max 4096)"]
+    F --&gt; G["Fase Verify: loop secuencial por finding"]
+
+    subgraph G1 ["Por cada finding (secuencial)"]
+        direction TB
+        H["parallel: jurado de N skeptics\n(def 3, clamp 1..99)"]
+        subgraph JURY ["parallel() - jurado independiente"]
+            S1["skeptic 1 (opus, high)\nschema VOTE: refuted/why/citation"]
+            S2["skeptic 2"]
+            S3["skeptic N..."]
+        end
+        H --&gt; S1
+        H --&gt; S2
+        H --&gt; S3
+        S1 --&gt; I["Votos normalizados\n(voto inválido o crash -&gt; refuted=true)"]
+        S2 --&gt; I
+        S3 --&gt; I
+        I --&gt; J{"refutes &gt;= majority\n(floor(N/2)+1)?"}
+        J --&gt;|"sí"| K["KILLED"]
+        J --&gt;|"no"| L["SURVIVED"]
+    end
+
+    G --&gt; G1
+    G1 --&gt; M["Acumular verified[]"]
+    M --&gt; N["Filtrar survivors / contar killed"]
+    N --&gt; O["Return { survivors, killedCount, totalFindings,\nskepticsPerFinding, majorityToKill }"]</pre>
+<h2>Qué hace</h2>
+<p><code>adversarial-verify</code> es un scaffold de &quot;voto adversarial&quot;: toma una lista de hallazgos/afirmaciones (<code>findings</code>) —o los descubre a partir de un <code>topic</code>— y, para CADA hallazgo, lanza un jurado independiente de N escépticos cuyo único trabajo es intentar <strong>refutarlo</strong> con evidencia, nunca confirmarlo. Un hallazgo sobrevive solo si <strong>menos de una mayoría estricta</strong> de los escépticos vota &quot;refutado&quot;; en caso de duda o de fallo del escéptico, el voto por defecto es refuted=true (&quot;culpable hasta que se demuestre lo contrario&quot;).</p>
+<p>La pieza central es el fan-out: <code>parallel()</code> crea un jurado de tamaño <code>skeptics</code> (por defecto 3, acotado a 1–99) por cada finding, y ese jurado corre en paralelo, pero los findings en sí se procesan <strong>secuencialmente</strong>, uno tras otro (cada uno con su propio jurado de agentes <code>opus</code> en <code>effort: high</code>). El resultado no depende de un oráculo fijo de pass/fail sino del recuento de votos.</p>
+<p>Si no se pasan <code>findings</code> explícitos, el scaffold agrega una fase previa (<code>Find</code>) donde un agente barato (<code>haiku</code>, <code>effort: low</code>) descubre hasta <code>maxFindings</code> (por defecto 8) afirmaciones verificables a partir de un <code>topic</code>/<code>text</code>. Todo el contenido no confiable (el topic, el claim, la evidencia) se envuelve con un fence delimitado por un hash derivado del contenido, para evitar prompt injection, e instruye explícitamente a los agentes a tratar ese contenido como datos, nunca como instrucciones.</p>
+<p>El resultado final son los hallazgos sobrevivientes (sin los votos crudos, para no inflar el output), el conteo de descartados, y los parámetros del jurado usados (tamaño y mayoría necesaria para matar un finding).</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Depurar (prune) una lista de hallazgos ruidosa, como la de un <code>repo-bug-hunt</code> o auditoría automática.</li>
+<li>Sanity-check de afirmaciones antes de actuar sobre ellas (p. ej. antes de abrir issues o aplicar fixes).</li>
+<li>Descartar hallazgos alucinados por un LLM finder, aplicando un sesgo deliberado hacia la duda.</li>
+<li>Casos de uso explícitos del catálogo: &quot;Prune a noisy findings list&quot;, &quot;Sanity-check claims before acting&quot;, &quot;Drop hallucinated findings&quot;.</li>
+<li><strong>No usarlo</strong> cuando lo que se necesita es <strong>reproducir</strong> un bug con una corrida real (ver <code>bug-verify</code>, que corre secuencialmente sobre el working tree y exige un fallo reproducible, no un voto de opinión).</li>
+<li><strong>No usarlo</strong> con <code>skeptics</code> muy bajo (&lt;3): el propio código advierte que con jurados chicos + default-to-doubt, un solo escéptico indeciso puede matar todos los hallazgos.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Parseo de input y helpers.</strong> El input llega como JSON string o como objeto. Se define <code>compact()</code> para truncar logs largos (60k chars) y <code>fence()</code> para envolver datos no confiables en un delimitador con tag derivado de un hash FNV-like del contenido (no usa <code>Math.random</code>/<code>Date.now</code>, prohibidos en el runtime), de forma que el contenido no pueda forjar su propio marcador de cierre.</p>
+</li>
+<li><p><strong>Overrides por rol.</strong> La función <code>node(role, extra)</code> resuelve, para cada nodo lógico (<code>finder</code>, <code>skeptic</code>), el modelo y el <code>effort</code> a partir de precedencia: override por rol (<code>input.models[role]</code>/<code>input.efforts[role]</code>) &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call-site. También propaga <code>tools</code>, <code>skills</code> y <code>excludeTools</code> por rol de forma análoga.</p>
+</li>
+<li><p><strong>Tamaño del jurado.</strong> <code>skeptics = clamp(input.skeptics ?? 3, 1, 99)</code>. El límite superior de 99 está atado a que <code>parallel()</code> acepta como máximo 4096 thunks y los jurados son chicos. Si el valor pedido se recorta, o si es menor a 3, se emite un <code>log(WARNING...)</code> explicando el riesgo de sesgo hacia &quot;refutar todo&quot;.</p>
+</li>
+<li><p><strong>Fase &quot;Find&quot; (opcional).</strong> Si <code>input.findings</code> no es un array, se exige <code>input.topic</code> (o <code>input.text</code>); si falta, lanza error. Se corre un único <code>agent()</code> (rol <code>finder</code>, modelo <code>haiku</code>, <code>effort: low</code>, fase <code>&quot;Find&quot;</code>) con un schema estricto <code>FINDINGS</code> (<code>{ findings: [{id, claim, evidence}] }</code>), pidiendo hasta <code>maxFindings</code> (clamp mínimo 1, default 8) afirmaciones falsificables. El topic se pasa envuelto en <code>fence(&quot;topic&quot;, topic)</code> con instrucciones anti-injection. Si no hay findings tras esto, retorna el string <code>&quot;No findings to verify.&quot;</code> sin más trabajo.</p>
+</li>
+<li><p><strong>Normalización y cap de verificación.</strong> Cada finding (string u objeto) se normaliza a <code>{ id, claim, evidence }</code>. Luego se acota el total a <code>MAX_FINDINGS = clamp(input.maxVerify ?? 256, 1, 4096)</code>, porque cada finding dispara su propio jurado secuencial de agentes <code>opus</code> (costoso). Se loggea un warning si se recorta.</p>
+</li>
+<li><p><strong>Fase &quot;Verify&quot; — loop secuencial con jurado paralelo por finding.</strong> Para cada finding (<code>for</code> secuencial, sin <code>Promise.all</code> entre findings), se llama <code>parallel()</code> con <code>skeptics</code> thunks, cada uno un <code>agent()</code> independiente (rol <code>skeptic</code>, modelo <code>opus</code>, <code>effort: high</code>, <code>phase: &quot;Verify&quot;</code>, <code>schema: VOTE</code>) instruido a <strong>refutar únicamente</strong>, votando <code>refuted: true</code> por defecto ante incertidumbre, y a citar evidencia concreta (<code>file:line</code>, URL, o output de comando) o <code>INSUFFICIENT_EVIDENCE</code>. El claim y la evidencia del finding van cada uno envueltos en su propio <code>fence()</code>.</p>
+</li>
+<li><p><strong>Manejo de fallos parciales.</strong> Cualquier voto que no sea un objeto con <code>refuted: boolean</code> válido (thunk crasheado o resultado inválido) se normaliza a <code>{ refuted: true, why: &quot;skeptic failed/invalid -&gt; default refuted&quot;, citation: &quot;INSUFFICIENT_EVIDENCE&quot; }</code> — falla cerrado (fail-closed), manteniendo la postura adversarial.</p>
+</li>
+<li><p><strong>Decisión de mayoría.</strong> <code>majority = floor(skeptics / 2) + 1</code>. Un finding sobrevive solo si <code>refutes &lt; majority</code>. Se loggea el resultado por finding (<code>SURVIVED</code>/<code>KILLED</code>).</p>
+</li>
+<li><p><strong>Síntesis final.</strong> Se filtran los <code>survivors</code>, se cuenta <code>killed</code>, se loggea un resumen y el detalle completo (<code>compact(verified)</code>). No hay caching explícito en el scaffold (no usa <code>pipeline</code>/memoización); cada finding vuelve a correr su jurado sin reutilizar resultados previos.</p>
+</li>
+</ol>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (objeto o JSON string vía <code>args</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / clamp</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>findings</code></td>
+<td>array de string u objeto <code>{id, claim, evidence}</code></td>
+<td>— (si falta, requiere <code>topic</code>)</td>
+<td>Hallazgos a verificar directamente.</td>
+</tr>
+<tr>
+<td><code>topic</code> / <code>text</code></td>
+<td>string</td>
+<td>requerido si no hay <code>findings</code></td>
+<td>Tema del cual descubrir hallazgos.</td>
+</tr>
+<tr>
+<td><code>maxFindings</code></td>
+<td>number</td>
+<td>8, mínimo 1</td>
+<td>Tope de hallazgos a descubrir en la fase Find.</td>
+</tr>
+<tr>
+<td><code>maxVerify</code></td>
+<td>number</td>
+<td>256, clamp 1–4096</td>
+<td>Tope de findings a verificar (cada uno dispara un jurado).</td>
+</tr>
+<tr>
+<td><code>skeptics</code></td>
+<td>number</td>
+<td>3, clamp 1–99</td>
+<td>Tamaño del jurado por finding.</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Defaults globales por nodo.</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code> (<code>role</code> = <code>finder</code>|<code>skeptic</code>)</td>
+<td>object</td>
+<td>—</td>
+<td>Override por rol, tiene precedencia sobre el default global.</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (+ variantes <code>...ByRole</code>)</td>
+<td>array</td>
+<td>—</td>
+<td>Propagados a los agentes por rol.</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong> (retorno de <code>main()</code>):</p>
+<pre><code class="language-json">{
+  &quot;survivors&quot;: [ { &quot;id&quot;, &quot;claim&quot;, &quot;evidence&quot;, &quot;refutes&quot;, &quot;skeptics&quot;, &quot;survived&quot;: true } ],
+  &quot;killedCount&quot;: &lt;number&gt;,
+  &quot;totalFindings&quot;: &lt;number&gt;,
+  &quot;skepticsPerFinding&quot;: &lt;number&gt;,
+  &quot;majorityToKill&quot;: &lt;number&gt;
+}
+</code></pre>
+<ul>
+<li><code>survivors</code>: findings verificados que quedaron con <code>refutes &lt; majority</code> (sin los votos crudos individuales, que se descartan del objeto retornado pero sí quedan en el log).</li>
+<li>Si no hay ningún finding para verificar, retorna directamente el string <code>&quot;No findings to verify.&quot;</code>.</li>
+<li>No se observa llamada a <code>writeArtifact</code> en el código; toda la evidencia intermedia (findings descubiertos, votos por finding, resumen) se emite vía <code>log(...)</code>, no como artifacts en disco.</li>
+</ul>
+<h2>Fases</h2>
+<ol>
+<li><strong>Find</strong> — descubre hasta <code>maxFindings</code> afirmaciones falsificables a partir de <code>topic</code>/<code>text</code> (solo si no se pasaron <code>findings</code> explícitos); usa un único agente barato con schema estricto.</li>
+<li><strong>Verify</strong> — por cada finding (secuencial), corre un jurado paralelo de <code>skeptics</code> agentes que intentan refutarlo con evidencia; decide supervivencia por mayoría estricta de refutación, con fail-closed ante votos inválidos.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

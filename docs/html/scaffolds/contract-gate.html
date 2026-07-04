@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>contract-gate</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>contract-gate</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Convierte un pedido vago en un contrato inspeccionable y decide si preguntar ahora o proceder sobre una suposición registrada.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start(["Input: request, context?, reviewers?=3, improvePrompt?=true, generate?=false, maxQuestions?=4, planResources?=true, name?, write?=true"]) --&gt; Analyze
+
+    subgraph Analyze["Fase Analyze"]
+        direction TB
+        R1{{"reviewers &lt;= 1 ?"}}
+        R1 --&gt;|"sí"| Single["agent: analyze-contract\n(sonnet, medium, schema CONTRACT)"]
+        R1 --&gt;|"no (default 3, clamp 1..5)"| FanOut
+        subgraph FanOut["parallel: N reviewers independientes"]
+            direction LR
+            Rev1["analyze-1\nlente: scope y success criteria"]
+            Rev2["analyze-2\nlente: riesgos/constraints/irreversibilidad"]
+            Rev3["analyze-N\nlente: inputs faltantes/ambiguedad"]
+        end
+        FanOut --&gt; Synth["agent: analyze-synthesis\n(opus, high)\nune ambiguedades, fail-safe en blocking"]
+        Single --&gt; Contract["contract: improvedTask, successCriteria,\nassumptions, nonGoals, constraints,\nverificationPlan, routingHint, ambiguities"]
+        Synth --&gt; Contract
+    end
+
+    Contract --&gt; Gate
+
+    subgraph Gate["Fase Gate"]
+        direction TB
+        Split{{"hay ambiguities.blocking=true ?"}}
+    end
+
+    Split --&gt;|"sí"| Blocked["dedupe + cap a maxQuestions (1..3)\nverdict=BLOCKED\nstatus=NEEDS_CLARIFICATION"]
+    Blocked --&gt; Stop(["return: status, verdict,\ncontract, questions\n(rewrittenPrompt=null) — STOP"])
+
+    Split --&gt;|"no"| Fold["fold safe assumptions no-blocking\nverdict=PROCEED"]
+
+    Fold --&gt; RewriteGate{{"improvePrompt ?"}}
+    RewriteGate --&gt;|"true (default)"| Rewrite["Fase Rewrite\nagent: rewrite-prompt (sonnet, medium)\ncolapsa contrato en 1 prompt limpio y cacheable"]
+    RewriteGate --&gt;|"false"| ForwardRaw["forward request crudo + contrato serializado como contexto"]
+    Rewrite --&gt; RoutingNote
+    ForwardRaw --&gt; RoutingNote["deriva routingNote desde routingHint.shape"]
+
+    RoutingNote --&gt; PlanGate{{"planResources &amp;&amp; shape=='dynamic-workflow' ?"}}
+    PlanGate --&gt;|"sí"| PlanRes["Fase Plan Resources\nagent: resource-plan (sonnet, medium)\nlee workflow del pattern recomendado,\nemite tier + models/efforts por rol"]
+    PlanGate --&gt;|"no"| NoPlan["resourcePlan = null"]
+    PlanRes --&gt; GenGate
+    NoPlan --&gt; GenGate
+
+    GenGate{{"generate=true ?"}}
+    GenGate --&gt;|"no"| Proceed(["return: status=PROCEED, verdict=PROCEED,\ncontract, rewrittenPrompt, routing,\nresourcePlan, generated=undefined"])
+    GenGate --&gt;|"sí"| ShapeCheck{{"routing.shape == 'dynamic-workflow' ?"}}
+    ShapeCheck --&gt;|"no (trivial/single-agent)"| SkipFactory["generated = {handed_off:false, reason}\n(factory NO corre)"]
+    ShapeCheck --&gt;|"sí"| Handoff["Fase Handoff\nworkflow('workflow-factory', {task:rewrittenPrompt, name, write})"]
+    Handoff --&gt;|"éxito"| Handed["generated = {handed_off:true, name, write, output}"]
+    Handoff --&gt;|"workflow() no disponible / error"| Degrade["generated = {handed_off:false,\nreason: nested workflow() no disponible;\nusar rewrittenPrompt manualmente}"]
+    Handoff --&gt;|"factory retorna null"| NullOut["generated = {handed_off:false,\nreason: workflow-factory returned null}"]
+
+    SkipFactory --&gt; Final(["return: status=PROCEED, verdict=PROCEED,\ncontract, rewrittenPrompt, routing,\nresourcePlan, generated"])
+    Handed --&gt; Final
+    Degrade --&gt; Final
+    NullOut --&gt; Final</pre>
+<h2>Qué hace</h2>
+<p><code>contract-gate</code> es el &quot;paso cero&quot; que corre ANTES de cualquier ruteo, generación o implementación. No decide CÓMO hacer algo, sino QUÉ hay que hacer y SI hay que preguntar antes de empezar: toma un pedido crudo (&quot;hacé X&quot;) y lo convierte en un contrato inspeccionable (<code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>, <code>nonGoals</code>, <code>constraints</code>, <code>verificationPlan</code>, <code>routingHint</code>) más un veredicto de tipo value-of-information sobre cada ambigüedad detectada. Una ambigüedad solo bloquea (<code>blocking=true</code>) cuando su impacto en la decisión es ALTO y no existe un default seguro (ejemplo: sistema destino desconocido para una migración destructiva, bar de aceptación indefinido para una auditoría de alto riesgo, credencial faltante sin la cual la tarea no puede correr, o dos lecturas que producen entregables incompatibles). En cualquier otro caso la ambigüedad se resuelve como suposición explícita, con nivel de confianza y una condición que la invalidaría, y el flujo PROCEDE.</p>
+<p>El razonamiento detrás es que un contrato limpio es la mayor palanca sobre la calidad de lo que se genere después: convierte el paso de &quot;Plan&quot; de un generador downstream de adivinar a simplemente cumplir una especificación. Por eso, cuando el veredicto es <code>PROCEED</code>, el scaffold colapsa todo el contrato en UN prompt autocontenido (<code>rewrittenPrompt</code>) con un prefijo estable (para cacheo) y sin preguntas sin resolver, &quot;depende&quot; ni placeholders: cada ambigüedad previa ya es una suposición o un no-objetivo explícito.</p>
+<p>Opcionalmente, y solo cuando el veredicto es <code>PROCEED</code> y el caller pidió <code>generate=true</code>, el gate compone en línea con el meta-workflow hermano <code>workflow-factory</code>, pasándole el <code>rewrittenPrompt</code> ya depurado. Si el veredicto es <code>BLOCKED</code>, nunca compone: devuelve únicamente las preguntas y se detiene. También honra el <code>routingHint</code> más amplio del contrato — si la ruta recomendada es <code>trivial</code> o <code>single-agent</code>, NO corre la factory aunque <code>generate=true</code>, y en su lugar devuelve <code>{ handed_off:false, reason }</code>.</p>
+<p><code>contract-gate</code> es estrictamente upstream y más amplio que <code>workflow-factory</code>: puede detenerse y preguntarle a un humano, emite un contrato + prompt limpio (no código de workflow), y puede rutear a resultados que no son workflow dinámico. Garantiza que la factory nunca reciba una tarea ambigua.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Acotar un ticket confuso o mal especificado.</li>
+<li>Gatear antes de correr un multi-agente costoso (evitar gastar concurrencia/tokens en una tarea mal definida).</li>
+<li>Reescribir un pedido crudo en una especificación limpia y autocontenida.</li>
+<li>El pedido es vago o de alto riesgo y hace falta decidir &quot;preguntar ahora vs proceder con una suposición registrada&quot; antes de rutear o construir.</li>
+</ul>
+<p><strong>Cuándo NO usarlo</strong>: si el pedido ya es concreto, de bajo riesgo, y no hay ambigüedad real que valga la pena estructurar — en ese caso agregar el gate es puro overhead. Tampoco reemplaza a <code>workflow-factory</code> (que genera workflows) ni a <code>router</code> (que solo despacha): <code>contract-gate</code> precede a ambos, no los sustituye.</p>
+<h2>Cómo funciona</h2>
+<ol>
+<li><strong>Parseo defensivo del input</strong> y helpers: <code>compact</code> (trunca blobs grandes a 60000 chars) y <code>fence</code> (encierra datos no confiables en un marcador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> derivado de un hash de contenido, no de aleatoriedad, para que un payload no pueda forjar su propio cierre). Valida que <code>request</code> esté presente (o sus alias <code>task|text|question</code>); si no, lanza error.</li>
+<li><strong>Clamps con logging explícito</strong>: <code>reviewers</code> clamped a 1..5 (default 3); <code>maxQuestions</code> clamped a 1..3 (default 4, por lo que el default real efectivo es 3). Cualquier clamp se loguea con <code>requested</code>/<code>clampedTo</code>/<code>band</code>.</li>
+<li><strong>Fase Analyze</strong>: define un JSON Schema estricto (<code>CONTRACT</code>, <code>additionalProperties:false</code>) que fuerza la forma del contrato. Si <code>reviewers&lt;=1</code>, un único <code>agent()</code> (<code>analyze-contract</code>, modelo <code>sonnet</code>, effort <code>medium</code>) produce el contrato directamente. Si <code>reviewers&gt;1</code> (default), usa <code>parallel()</code> para lanzar N <code>agent()</code> independientes (roles <code>analyze-1..N</code>, cada uno con <code>cache:false</code> y un &quot;lente&quot; distinto rotando entre <code>scope &amp; success criteria</code>, <code>risks/constraints/irreversibility/security</code>, <code>missing inputs &amp; ambiguity</code>), filtra los drafts nulos (subagentes caídos), y luego sintetiza con un <code>agent()</code> de rol <code>analyze-synthesis</code> (modelo <code>opus</code>, effort <code>high</code>) que reconcilia: unión + dedup de ambigüedades, <strong>fail-safe</strong> (si CUALQUIER reviewer marcó blocking con razón sólida, se mantiene blocking), dedup de successCriteria/assumptions/nonGoals/constraints, elige el <code>routingHint</code> más cauteloso. Si ningún draft sobrevive o la síntesis no devuelve objeto, lanza error.</li>
+<li><strong>Fase Gate</strong>: separa <code>ambiguities</code> en <code>blockingAll</code> y <code>nonBlocking</code>. Si hay al menos una bloqueante: dedup por pregunta (case-insensitive), cap a <code>maxQuestions</code> (logueando si recorta), y retorna inmediatamente <code>{status:&quot;NEEDS_CLARIFICATION&quot;, verdict:&quot;BLOCKED&quot;, contract, questions, rewrittenPrompt:null, routing}</code> — <strong>detiene el flujo aquí, no reescribe ni compone nada</strong>. Si no hay bloqueantes, loguea cada suposición no-bloqueante plegada y continúa a PROCEED.</li>
+<li><strong>Fase Rewrite</strong> (solo si <code>improvePrompt!==false</code>, default true): un <code>agent()</code> de rol <code>rewrite-prompt</code> (modelo <code>sonnet</code>, effort <code>medium</code>) colapsa el contrato en un único prompt de texto plano, en orden estable (objetivo → criterios → suposiciones → no-objetivos → constraints → plan de verificación → routing como guía) para maximizar el prefijo cacheable. Si el resultado viene vacío, lanza error (nunca se entrega un prompt vacío a la factory). Si <code>improvePrompt===false</code>, se salta el LLM y se reenvía el <code>request</code> crudo + el contrato serializado como contexto adjunto.</li>
+<li><strong>Fase Plan Resources</strong> (solo si <code>planResources!==false</code> (default true) Y <code>routing.shape===&quot;dynamic-workflow&quot;</code> Y hay <code>routing.pattern</code>): un <code>agent()</code> de rol <code>resource-plan</code> (modelo <code>sonnet</code>, effort <code>medium</code>, schema <code>RESOURCE_PLAN</code>) le pide al LLM que lea el archivo del workflow recomendado (<code>.pi/workflows/&lt;pattern&gt;.js</code> o el global) para extraer sus roles <code>node(&#39;&lt;role&gt;&#39;, …)</code>, y emita un plan de modelo+effort por rol, con un <code>tier</code> (economy/balanced/premium) escalado según los riesgos del contrato. El resultado se aplana a <code>resourcePlan.models</code> / <code>resourcePlan.efforts</code> (mapas rol→valor); si el planner no devuelve nada usable, se loguea y <code>resourcePlan</code> queda <code>null</code>.</li>
+<li><strong>Fase Handoff</strong> (solo si <code>generate===true</code>): si <code>routing.shape !== &quot;dynamic-workflow&quot;</code> (o sea trivial/single-agent), NO corre la factory — devuelve <code>{handed_off:false, reason}</code> explicando por qué. Si sí es dynamic-workflow, llama <code>workflow(&quot;workflow-factory&quot;, {task: rewrittenPrompt, name: slug(...), write})</code>. Maneja tres casos de falla: (a) <code>workflow()</code> lanza excepción (p. ej. <code>workflow()</code> anidado no disponible un nivel más profundo) → degrada devolviendo <code>rewrittenPrompt</code> para handoff manual; (b) la factory retorna <code>null</code> (subagente murió o se saltó) → <code>handed_off:false</code> con razón explícita (nunca reenvía <code>&quot;null&quot;</code> como string como si fuera éxito); (c) éxito → <code>{handed_off:true, write, name, output: compact(factoryOut,60000)}</code>.</li>
+<li><strong>Caching/fallos parciales</strong>: los reviewers de Analyze corren con <code>cache:false</code> explícito (cada draft debe ser independiente, no reusar cache entre reviewers); <code>parallel()</code> filtra resultados <code>Boolean</code> así que un reviewer caído simplemente no aporta draft (mientras quede al menos uno, sigue). No hay reintentos automáticos; los fallos se propagan como error solo cuando NINGÚN draft sobrevive o el contrato final es inválido.</li>
+</ol>
+<p>No escribe artifacts a disco (no usa <code>writeArtifact</code>); toda la salida viaja en el <code>return</code> del workflow. El único efecto &quot;físico&quot; indirecto es la posible escritura de un draft de workflow por parte de <code>workflow-factory</code> cuando <code>generate=true</code> y <code>write!==false</code> (comportamiento de la factory, no de este scaffold).</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (objeto JSON):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>request</code> (o alias <code>task</code>/<code>text</code>/<code>question</code>)</td>
+<td>string</td>
+<td><strong>requerido</strong></td>
+<td>Pedido crudo del usuario; sin él lanza error.</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Contexto adicional, se fusiona en el prompt de análisis.</td>
+</tr>
+<tr>
+<td><code>reviewers</code></td>
+<td>number</td>
+<td><code>3</code></td>
+<td>Clamped a <code>1..5</code>; <code>1</code> colapsa a un único analyze sin síntesis.</td>
+</tr>
+<tr>
+<td><code>improvePrompt</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td><code>false</code> salta la reescritura LLM y reenvía request crudo + contrato.</td>
+</tr>
+<tr>
+<td><code>generate</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td><code>true</code> compone <code>workflow-factory</code> si el veredicto es PROCEED y el routing es dynamic-workflow.</td>
+</tr>
+<tr>
+<td><code>maxQuestions</code></td>
+<td>number</td>
+<td><code>4</code> (pedido)</td>
+<td>Clamped a <code>1..3</code> (banda del gate); el default efectivo termina siendo <code>3</code>.</td>
+</tr>
+<tr>
+<td><code>planResources</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td><code>false</code> salta la fase Plan Resources.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>derivado de <code>contract.improvedTask</code> o <code>request</code></td>
+<td>Slugificado (<code>slug()</code>) para nombrar el draft de la factory.</td>
+</tr>
+<tr>
+<td><code>write</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Se pasa a <code>workflow-factory</code> como flag de escritura.</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Overrides globales aplicados a TODOS los nodos internos.</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>—</td>
+<td>Overrides por rol (<code>analyze-1</code>, <code>analyze-synthesis</code>, <code>rewrite-prompt</code>, <code>resource-plan</code>, etc.), tienen precedencia sobre el global.</td>
+</tr>
+<tr>
+<td><code>tools</code>/<code>toolsByRole</code>, <code>skills</code>/<code>skillsByRole</code>, <code>excludeTools</code>/<code>excludeByRole</code></td>
+<td>array/object</td>
+<td>—</td>
+<td>Mismo patrón global vs por-rol para tools/skills/exclusiones.</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong> (dos formas posibles, discriminadas por <code>verdict</code>):</p>
+<ul>
+<li><strong>BLOCKED</strong>: <code>{ status:&quot;NEEDS_CLARIFICATION&quot;, verdict:&quot;BLOCKED&quot;, contract, questions:[{question, rationale}], rewrittenPrompt:null, routing }</code> — detenido, sin reescritura ni composición.</li>
+<li><strong>PROCEED</strong>: <code>{ status:&quot;PROCEED&quot;, verdict:&quot;PROCEED&quot;, contract, rewrittenPrompt, routing:{...routingHint, note}, resourcePlan:{tier, rationale, pattern, models, efforts}|null, generated?:{handed_off, name?, write?, output?, reason?} }</code>.</li>
+</ul>
+<p>No hay <code>writeArtifact</code> en este scaffold; el <code>rewrittenPrompt</code> es el artefacto de handoff durable pero viaja solo en el valor de retorno (o dentro de lo que <code>workflow-factory</code> decida escribir si <code>generate=true</code>).</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Analyze</strong> — uno o N agentes independientes producen/reconcilian el contrato estructurado (JSON Schema <code>CONTRACT</code>).</li>
+<li><strong>Gate</strong> — separa ambigüedades bloqueantes vs no-bloqueantes; si hay bloqueantes, emite preguntas y DETIENE el flujo (no llega a las fases siguientes).</li>
+<li><strong>Rewrite</strong> — colapsa el contrato en un prompt único, limpio y cacheable (o lo salta si <code>improvePrompt=false</code>).</li>
+<li><strong>Plan Resources</strong> — (condicional a <code>planResources</code> y <code>routing.shape===&quot;dynamic-workflow&quot;</code>) recomienda un presupuesto de modelo/effort por rol para el workflow sugerido.</li>
+<li><strong>Handoff</strong> — (condicional a <code>generate=true</code> y routing dynamic-workflow) compone <code>workflow(&quot;workflow-factory&quot;, …)</code> con el prompt reescrito; degrada con gracia ante fallas o rutas no aptas.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

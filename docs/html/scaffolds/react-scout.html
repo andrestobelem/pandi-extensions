@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>react-scout</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>react-scout</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Loop ReAct de razonar → actuar → observar: cada paso fundamenta un pensamiento en una observación real de solo lectura antes de dar el siguiente.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Input["Input: question, maxSteps=6 clamp 1..50, tools default read/grep/find/ls/web_search"] --&gt; Loop
+
+    subgraph Loop["Loop while not done and step &lt; maxSteps"]
+        direction TB
+        Reason["Fase Reason&lt;br/&gt;agent con schema STEP&lt;br/&gt;modelo sonnet, effort medium&lt;br/&gt;emite thought + done + action + query"]
+        Reason --&gt;|"done=true o action=none o query vacia"| Stop["Marca done=true&lt;br/&gt;push trace no-op&lt;br/&gt;break"]
+        Reason --&gt;|"accion + query"| Observe["Fase Observe&lt;br/&gt;agent independiente de solo lectura&lt;br/&gt;modelo haiku, effort low, tools=tools&lt;br/&gt;ejecuta SOLO la accion pedida"]
+        Observe --&gt; CheckCite["Chequea NO_FINDINGS / fallo&lt;br/&gt;y presencia de cita file:line, path o URL&lt;br/&gt;marca uncited si corresponde"]
+        CheckCite --&gt; Append["Push {step, thought, action, query, observation, uncited} a trace"]
+        Append --&gt; Reason
+    end
+
+    Stop --&gt; Answer
+    Loop --&gt;|"step alcanza maxSteps sin done"| Answer
+
+    Answer["Fase Answer&lt;br/&gt;agent modelo opus, effort high&lt;br/&gt;responde SOLO con el trace&lt;br/&gt;o INSUFFICIENT_EVIDENCE"]
+    Answer --&gt; Output["Return { answer, trace, steps, converged }"]</pre>
+<h2>Qué hace</h2>
+<p><code>react-scout</code> implementa el patrón ReAct (arXiv:2210.03629): en vez de dejar que un solo agente conteste &quot;de una&quot; una pregunta, obliga a un ciclo explícito de razonar → actuar → observar. En cada paso, un agente &quot;actor&quot; (rol <code>reason</code>) emite un THOUGHT y una única ACTION de solo lectura (grep/read/find/web_search) usando un schema tipado (<code>STEP</code>), y un agente &quot;observer&quot; independiente (rol <code>observe</code>) ejecuta ÚNICAMENTE esa acción y reporta evidencia citada o <code>NO_FINDINGS</code>. Esa evidencia se agrega a un trace acumulado que el próximo THOUGHT debe usar como base.</p>
+<p>El loop termina cuando el actor declara <code>done=true</code> (ya tiene evidencia suficiente) o cuando se agota el presupuesto de pasos (<code>maxSteps</code>). Al final, una fase <code>Answer</code> separada sintetiza la respuesta usando ESTRICTAMENTE el trace acumulado (rol <code>answer</code>, modelo opus, effort high), citando evidencia o declarando <code>INSUFFICIENT_EVIDENCE</code> si el trace no alcanza.</p>
+<p>El diseño prioriza que cada afirmación esté anclada en una observación real (no en el prior del modelo): el prompt del observer exige citar <code>file:line</code> / path / URL, y el código marca explícitamente como <code>uncited</code> cualquier observación sin cita detectable, para que las fases posteriores puedan descontarla. También hay defensas contra prompt injection (fences con hash del contenido, instrucción de tratar el contenido delimitado como datos, nunca como instrucciones) y manejo explícito de fallos parciales (reason falla, observe falla, resultado null) sin perder el trace.</p>
+<p>El propio código lo documenta como el &quot;front-end canónico&quot; de un fan-out: se pensó para correr primero y luego pasar <code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>, generalizando el scout de un solo paso que esos workflows usan al inicio.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Investigación grounded/fundamentada: cuando cada afirmación debe estar respaldada por una observación real, no por inferencia libre del modelo.</li>
+<li>Producir un trace estructurado para pasarlo a un fan-out (<code>scout-fanout</code>, <code>fan-out-and-synthesize</code>) en lugar de un resumen de una sola pasada.</li>
+<li>Preguntas donde la siguiente acción depende de lo que se observó recién (p. ej. &quot;¿dónde el decoder WASM recibe los bytes?&quot;), es decir, exploración adaptativa paso a paso.</li>
+<li>Casos donde conviene poder auditar el razonamiento: el trace queda como evidencia inspeccionable (thought/action/query/observation/uncited por paso).</li>
+</ul>
+<p>Cuándo NO usarlo:</p>
+<ul>
+<li>Preguntas triviales que un solo agente con tools puede responder en una pasada (el overhead de loop + dos agentes por paso no se justifica).</li>
+<li>Cuando se necesita PARALELISMO amplio o comparación de múltiples ángulos independientes (usar <code>complex-research</code> u otro workflow de fan-out en su lugar; <code>react-scout</code> es secuencial, un paso a la vez).</li>
+<li>Cuando se requieren acciones de escritura/mutación: el scaffold es explícitamente de solo lectura (comentario &quot;ReAct&#39;s &#39;act&#39; here is observation, not mutation&quot;).</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Parseo de input y defaults.</strong> Lee <code>args</code> (string JSON o objeto), extrae <code>question</code>/<code>q</code>/<code>text</code>/<code>topic</code> (obligatorio, si falta lanza error), <code>maxSteps</code> (default 6, clamp 1–50, loggea si se clampeó), y <code>tools</code> (default <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;,&quot;web_search&quot;]</code>). Soporta overrides por rol vía <code>input.models[role]</code>, <code>input.efforts[role]</code>, <code>input.toolsByRole[role]</code>, <code>input.skillsByRole[role]</code>, <code>input.excludeByRole[role]</code>, con fallback a <code>input.model</code>/<code>input.effort</code>/<code>input.tools</code>/etc. globales (helper <code>node(role, extra)</code>).</p>
+</li>
+<li><p><strong>Utilidades de seguridad de datos.</strong> <code>compact(d, n=60000)</code> trunca strings largos con marcador <code>…[truncated]</code>. <code>fence(kind, d)</code> envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;…&lt;/untrusted-HASH&gt;</code> derivado de un hash FNV-like del propio contenido (no aleatorio, porque el runtime prohíbe <code>Math.random</code>/<code>Date.now</code>), para que un payload malicioso no pueda forjar el marcador de cierre.</p>
+</li>
+<li><p><strong>Fase <code>Reason</code> (dentro del loop, primitiva <code>agent</code> con <code>schema</code>).</strong> Cada iteración (<code>step</code> incrementa hasta <code>maxSteps</code>): se llama <code>phase(&quot;Reason&quot;)</code> y se invoca <code>agent(...)</code> con schema <code>STEP</code> (<code>thought</code>, <code>done</code>, <code>action</code>, <code>query</code>), modelo <code>sonnet</code>, effort <code>medium</code>, label <code>reason-{step}</code>. El prompt incluye la pregunta y el trace acumulado (truncado por <code>traceForPrompt</code>, que conserva la COLA/más reciente si excede 12000 chars, con log de truncamiento). Manejo de fallos:</p>
+<ul>
+<li>Si <code>agent()</code> lanza excepción: se pushea un registro sentinel al trace (<code>observation: &quot;(reason failed: ...)&quot;</code>) y se hace <code>break</code> (no converge).</li>
+<li>Si <code>decided</code> es <code>null</code>/falsy: mismo tratamiento con <code>&quot;(reason failed: empty result)&quot;</code> y <code>break</code>.</li>
+<li>Si <code>decided.done</code> es true, o <code>action===&quot;none&quot;</code>, o no hay <code>query</code>: se marca <code>done=true</code>, se pushea un registro <code>&quot;(actor declared done)&quot;</code> y se sale del loop (convergencia real).</li>
+</ul>
+</li>
+<li><p><strong>Fase <code>Observe</code> (primitiva <code>agent</code> sin schema, con <code>tools</code>).</strong> Solo se ejecuta si el actor pidió una acción concreta. <code>phase(&quot;Observe&quot;)</code> + <code>agent(...)</code> con modelo <code>haiku</code>, effort <code>low</code>, label <code>observe-{step}</code>, <code>tools</code> (las de input o default). El prompt obliga a ejecutar EXACTAMENTE la acción/query pedida y citar <code>file:line</code>/path/URL por cada hecho, o responder <code>NO_FINDINGS</code> si no hay hallazgos. Manejo de fallos: excepción → sentinel <code>&quot;(observation failed: ...)&quot;</code> con log, sin detener el loop (se sigue para no perder el trace); resultado <code>null</code> (agente saltado por el usuario) → sentinel <code>&quot;(observation skipped/failed: empty result)&quot;</code>.</p>
+</li>
+<li><p><strong>Clasificación de la observación.</strong> <code>nothing</code> = matchea <code>NO_FINDINGS</code> o los sentinels de fallo/skip. <code>uncited</code> = no es <code>nothing</code> y no matchea <code>hasCitation</code> (regex de <code>file:line</code>, URL, o extensión de archivo). Se pushea <code>{step, thought, action, query, observation, uncited}</code> al trace y se loggea el resultado (<code>nothing</code> / <code>evidence (UNCITED)</code> / <code>evidence</code>).</p>
+</li>
+<li><p><strong>Corte del loop.</strong> Si se sale sin <code>done=true</code> (agotó <code>maxSteps</code>), se loggea <code>&quot;stopped at step budget (not converged)&quot;</code>. En cualquier caso se loggea el tamaño final del trace.</p>
+</li>
+<li><p><strong>Fase <code>Answer</code> (primitiva <code>agent</code>, sin schema).</strong> <code>phase(&quot;Answer&quot;)</code> + <code>agent(...)</code> con modelo <code>opus</code>, effort <code>high</code>. El prompt exige responder usando ÚNICAMENTE el trace (comprimido con <code>compact(trace, 60000)</code>), citar evidencia por cada afirmación, y decir <code>INSUFFICIENT_EVIDENCE</code> + qué falta si el trace no alcanza. Si el resultado es <code>null</code> (agente caído o saltado), se sustituye por <code>&quot;INSUFFICIENT_EVIDENCE (answer step produced no output)&quot;</code> en vez de propagar <code>null</code>.</p>
+</li>
+</ol>
+<p>No hay <code>parallel</code>/<code>pipeline</code>/fan-out real en este scaffold: es puramente secuencial (<code>agent</code> a agent<code>, un loop </code>while<code>). No escribe artifacts (</code>writeArtifact`) ni usa caching explícito más allá de mantener el prefijo estable del prompt de Reason (rol + pregunta antes del trace volátil) para reutilizar el prompt cache.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (JSON, vía <code>args</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>question</code> / <code>q</code> / <code>text</code> / <code>topic</code></td>
+<td>string</td>
+<td>— (obligatorio)</td>
+<td>Lanza error si ninguno está presente</td>
+</tr>
+<tr>
+<td><code>maxSteps</code></td>
+<td>number</td>
+<td><code>6</code></td>
+<td>Clamp <code>[1, 50]</code>; loggea si se ajustó</td>
+</tr>
+<tr>
+<td><code>tools</code></td>
+<td>string[]</td>
+<td><code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;,&quot;web_search&quot;]</code></td>
+<td>Solo lectura por diseño</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Aplican a TODOS los nodos si no hay override por rol</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>—</td>
+<td>Override por rol (<code>reason</code>, <code>observe</code>, <code>answer</code>), precedencia sobre el global</td>
+</tr>
+<tr>
+<td><code>toolsByRole[role]</code> / <code>skillsByRole[role]</code> / <code>excludeByRole[role]</code></td>
+<td>object</td>
+<td>—</td>
+<td>Override por rol para tools/skills/excludeTools</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong> (retorno de <code>main()</code>):</p>
+<pre><code class="language-json">{ &quot;answer&quot;: &quot;string (o INSUFFICIENT_EVIDENCE ...)&quot;, &quot;trace&quot;: [ { &quot;step&quot;: 1, &quot;thought&quot;: &quot;...&quot;, &quot;action&quot;: &quot;grep|read|find|web_search|none&quot;, &quot;query&quot;: &quot;...&quot;, &quot;observation&quot;: &quot;...&quot;, &quot;uncited&quot;: false } ], &quot;steps&quot;: 3, &quot;converged&quot;: true }
+</code></pre>
+<ul>
+<li><code>answer</code>: respuesta final de la fase Answer (o sentinel de fallo).</li>
+<li><code>trace</code>: array completo de pasos, pensado para reutilizarse como input de otro workflow (<code>scout-fanout</code>, <code>fan-out-and-synthesize</code>).</li>
+<li><code>steps</code>: cantidad de entradas en el trace.</li>
+<li><code>converged</code>: <code>true</code> solo si el actor declaró <code>done</code> explícitamente antes de agotar <code>maxSteps</code>.</li>
+</ul>
+<p>No se llama <code>writeArtifact</code> en ningún punto del scaffold; el único artefacto es el objeto retornado.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Reason</strong> — el actor emite THOUGHT + ACTION/QUERY (o declara <code>done</code>), guiado por schema tipado.</li>
+<li><strong>Observe</strong> — un observador independiente ejecuta solo esa acción de lectura y reporta evidencia citada o <code>NO_FINDINGS</code>.</li>
+<li><strong>Answer</strong> — síntesis final estrictamente basada en el trace acumulado, citando evidencia o declarando <code>INSUFFICIENT_EVIDENCE</code>.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

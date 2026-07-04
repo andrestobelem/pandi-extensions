@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>repo-bug-hunt</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>repo-bug-hunt</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Escanea archivos de código, lanza revisores de bugs por archivo en paralelo, y un juez sintetiza hallazgos priorizados con citas. Los hallazgos son leads, no bugs confirmados.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    A["Input: files / maxFiles / concurrency / pattern / lens"] --&gt; B{"¿input.files no vacío?"}
+    B --&gt;|"sí, skip scout"| D["files = input.files"]
+    B --&gt;|"no"| C["agent Scout\nmodel=haiku effort=low\ngit ls-files filtrado por regex\nschema FILE_LIST"]
+    C --&gt; D2["allFiles"]
+    D2 --&gt; E["Cap: files = allFiles.slice(0, maxFiles)\nlog si se descartan"]
+    D --&gt; F{"files.length === 0?"}
+    E --&gt; F
+    F --&gt;|"sí"| G["return: sin archivos candidatos"]
+    F --&gt;|"no"| H["Clamp concurrency = min(files.length, 1..N, default 6)"]
+    H --&gt; I["parallel settle, concurrency N"]
+    subgraph Review["Fase Review — un reviewer independiente por archivo"]
+        I --&gt; R1["agent bug-hunt file 1\nmodel=sonnet effort=medium"]
+        I --&gt; R2["agent bug-hunt file 2\nmodel=sonnet effort=medium"]
+        I --&gt; R3["agent bug-hunt file N\nmodel=sonnet effort=medium"]
+    end
+    R1 --&gt; J["reviews []\nbranch fallida -&gt; null"]
+    R2 --&gt; J
+    R3 --&gt; J
+    J --&gt; K["completedReviews = filter Boolean\nfailed = reviews.length - completedReviews.length"]
+    K --&gt; L["agent Synthesis (juez)\nmodel=opus effort=high\ndedup + prioriza + coverage gaps"]
+    L --&gt; M["return: reporte final Markdown"]</pre>
+<h2>Qué hace</h2>
+<p><code>repo-bug-hunt</code> es un patrón scatter-gather de tres fases: un scout descubre el listado de archivos candidatos del repo (o usa una lista explícita), un fan-out de agentes revisores independientes inspecciona cada archivo en busca de bugs (o del &quot;lens&quot; que se le indique), y un agente juez final deduplica, prioriza y cita los hallazgos, dejando explícitas las brechas de cobertura y las ramas fallidas.</p>
+<p>El ancho del fan-out es data-driven: no se conoce hasta ejecutar el scout (o recibir <code>files[]</code>), por lo que el número de agentes revisores lanzados depende del tamaño real del repo filtrado por el patrón de extensión, acotado por <code>maxFiles</code>. Cada revisor es una rama independiente con semántica <code>settle</code> (una rama fallida se vuelve <code>null</code> y nunca hace rechazar el <code>parallel</code>), así que un archivo problemático no tumba el resto del análisis.</p>
+<p>El comentario de cabecera del archivo fuente es explícito: esta es una herramienta de <strong>descubrimiento</strong>; los hallazgos no se reproducen ni se testean, y deben tratarse como leads a verificar, no como bugs confirmados (de ahí el vínculo sugerido con <code>bug-verify</code> en el catálogo).</p>
+<p>Todo el contenido no confiable (archivos del repo, salidas de los revisores) se envuelve con <code>fence()</code>, un delimitador cuyo tag se deriva de un hash FNV del propio contenido, para blindar contra prompt injection: cualquier intento de forjar un marcador de cierre dentro del payload cambiaría el hash y por tanto el tag, así que no puede cerrar el fence prematuramente.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Auditoría de repo completa o de un subconjunto de archivos (casos de uso del catálogo: &quot;Repo audit&quot;).</li>
+<li>Barrido previo a un code review, para luego confirmar los hallazgos más prometedores con <code>bug-verify</code> (&quot;Pre-review sweep (then confirm with bug-verify)&quot;).</li>
+<li>Obtener una lista priorizada y citada de sospechas de bugs sobre una base de código (&quot;Prioritized cited findings&quot;).</li>
+<li>Cuando querés cambiar el &quot;lens&quot; de revisión (bugs generales, seguridad, o prosa/documentación) sin cambiar la estructura del workflow.</li>
+<li><strong>No usarlo</strong> cuando necesitás confirmación reproducible de un bug (usar <code>bug-verify</code> en su lugar) o cuando ya tenés una lista muy acotada de archivos sospechosos y preferís una revisión manual directa sin el costo de un scout + juez.</li>
+<li><strong>No usarlo</strong> para probar o ejecutar el código: el propio scaffold aclara que los revisores no editan archivos ni reproducen fallas.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea defensivamente a JSON (fallback <code>{}</code> si falla). Se definen <code>compact()</code> (trunca strings largos a 60k/80k caracteres con <code>…[truncated]</code>) y <code>fence()</code> (delimitador anti-injection basado en hash de contenido). El helper <code>node(role, extra)</code> resuelve overrides de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> por rol (<code>input.models[role]</code>/<code>input.efforts[role]</code>/etc.) con precedencia sobre los defaults globales (<code>input.model</code>/<code>input.effort</code>).</p>
+</li>
+<li><p><strong>Resolución de parámetros:</strong></p>
+<ul>
+<li><code>maxFiles</code>: <code>Math.max(1, Math.min(4096, Math.trunc(Number(input.maxFiles)) || 40))</code>, default 40. Si el valor provisto no coincide con el efectivo tras el clamp, se loguea el fallback.</li>
+<li><code>pattern</code>: preset (<code>code</code>, <code>docs</code>, <code>web</code>, <code>config</code>) o regex libre; default <code>code</code> = <code>\.(ts|tsx|js|jsx|py|go|rs)$</code>.</li>
+<li><code>lens</code>: preset (<code>code</code>, <code>security</code>, <code>prose</code>) o texto libre describiendo qué buscar; default <code>code</code> = &quot;likely bugs, race conditions, security issues, data-loss risks, and edge-case failures&quot;.</li>
+</ul>
+</li>
+<li><p><strong>Fase Scout</strong> (<code>{ title: &quot;Scout&quot; }</code>). Si <code>input.files</code> es un array no vacío, se usa directamente y se <strong>salta el scout</strong>. En caso contrario, se lanza un <code>agent()</code> con <code>model: &quot;haiku&quot;</code>, <code>effort: &quot;low&quot;</code> y <code>schema: FILE_LIST</code> (objeto <code>{ files: string[] }</code>, requerido por la restricción de que el schema top-level de un tool debe ser <code>object</code>) que ejecuta <code>git ls-files</code> y filtra por el regex del <code>pattern</code>, devolviendo todos los paths que matchean. Esto reemplaza un scout por shell (<code>git ls-files | grep</code>): el filtro vive en el prompt, no en interpolación de shell.</p>
+</li>
+<li><p><strong>Cap de archivos.</strong> <code>files = allFiles.slice(0, maxFiles)</code>. Si se recorta, se loguea <code>{ reviewed, total, skipped }</code>. Si no hay archivos candidatos (<code>files.length === 0</code>), el workflow retorna temprano un mensaje explicativo sin llegar a Review/Synthesis.</p>
+</li>
+<li><p><strong>Clamp de concurrencia.</strong> <code>concurrency = Math.max(1, Math.min(files.length, Math.trunc(Number(input.concurrency)) || 6))</code>, default 6, acotado también por el número de archivos. Si el valor provisto no coincide tras el clamp, se loguea el fallback.</p>
+</li>
+<li><p><strong>Fase Review</strong> (<code>{ title: &quot;Review&quot; }</code>). <code>parallel(files.map(...), { concurrency })</code>: por cada archivo se lanza un <code>agent()</code> independiente (<code>node(&quot;bug-hunt&quot;, { model: &quot;sonnet&quot;, effort: &quot;medium&quot;, label: &quot;bug-hunt-&lt;file&gt;&quot;, phase: &quot;Review&quot; })</code>) con un prompt que:</p>
+<ul>
+<li>Envuelve el contenido del archivo objetivo con <code>fence(&quot;file&quot;, file)</code> y advierte explícitamente que todo lo dentro de los marcadores <code>&lt;untrusted-…&gt;</code> es DATO a analizar, nunca instrucciones (defensa anti prompt-injection).</li>
+<li>Pide evidencia con archivo y número de línea, escenario de falla, impacto y fix mínimo; permite responder <code>NO_FINDINGS</code> o <code>INSUFFICIENT_EVIDENCE</code>.</li>
+<li>Usa semántica <code>settle</code>: si la rama falla, el resultado se convierte en <code>null</code> (vía <code>.then((output) =&gt; output == null ? null : {...})</code>) y no rompe el <code>Promise.all</code> colectivo.
+Tras el fan-out, <code>completedReviews = reviews.filter(Boolean)</code> y <code>failed = reviews.length - completedReviews.length</code>; ambos números se loguean y se pasan a la síntesis.</li>
+</ul>
+</li>
+<li><p><strong>Fase Synthesis</strong> (<code>{ title: &quot;Synthesis&quot; }</code>). Un único <code>agent()</code> juez (<code>node(&quot;synthesis&quot;, { model: &quot;opus&quot;, effort: &quot;high&quot;, phase: &quot;Synthesis&quot; })</code>) recibe todas las <code>completedReviews</code> comprimidas con <code>compact(..., 80000)</code> y envueltas en <code>fence(&quot;findings&quot;, ...)</code>, junto con las cifras de cobertura (<code>Reviewed files: files.length/allFiles.length</code>, <code>Failed/empty branches: failed</code>). Debe: deduplicar, priorizar, descartar afirmaciones sin cita, y producir un reporte con verdicto ejecutivo, tabla de hallazgos priorizados, hallazgos rechazados por baja confianza, brechas de cobertura, y sugerencias de verificación/tests. Este texto es el valor de retorno final del scaffold.</p>
+</li>
+</ol>
+<p>No hay caching explícito en el código (no se usan primitivas de memoización); el manejo de fallos parciales se limita al patrón <code>settle</code> del <code>parallel</code> (rama fallida → <code>null</code> → filtrada).</p>
+<h2>Input y output</h2>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / clamp</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>files</code></td>
+<td><code>string[]</code></td>
+<td>Si no vacío, se usa tal cual y se salta el scout</td>
+</tr>
+<tr>
+<td><code>maxFiles</code></td>
+<td><code>number</code></td>
+<td>default 40; clamp a entero en <code>[1, 4096]</code></td>
+</tr>
+<tr>
+<td><code>concurrency</code></td>
+<td><code>number</code></td>
+<td>default 6; clamp a entero en <code>[1, files.length]</code></td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td><code>string</code> (preset <code>code</code>|<code>docs</code>|<code>web</code>|<code>config</code> o regex libre)</td>
+<td>default <code>code</code> = `.(ts</td>
+</tr>
+<tr>
+<td><code>lens</code></td>
+<td><code>string</code> (preset <code>code</code>|<code>security</code>|<code>prose</code> o texto libre)</td>
+<td>default <code>code</code></td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>globales, aplicados a todo nodo</td>
+<td>overrideables por <code>models[role]</code> / <code>efforts[role]</code></td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code></td>
+<td>globales</td>
+<td>overrideables por <code>toolsByRole[role]</code> / <code>skillsByRole[role]</code> / <code>excludeByRole[role]</code></td>
+</tr>
+</tbody></table>
+<p><strong>Output:</strong> el <code>return</code> del <code>main()</code> es el texto de síntesis producido por el agente juez (Markdown con verdicto ejecutivo, tabla de hallazgos, hallazgos rechazados, brechas de cobertura y sugerencias de verificación). Si no hay archivos candidatos, retorna un mensaje de texto simple indicando el patrón usado y sugiriendo revisar el working directory o pasar <code>files[]</code> explícito.</p>
+<p>Este scaffold <strong>no llama a <code>writeArtifact</code></strong>; no persiste artefactos en disco por sí mismo — el resultado es únicamente el string de retorno de la función <code>main</code>.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Scout</strong> — descubre (o recibe) el listado de archivos candidatos y aplica el cap <code>maxFiles</code>.</li>
+<li><strong>Review</strong> — fan-out de un revisor de bugs independiente por archivo, en paralelo con <code>settle</code> y concurrencia acotada.</li>
+<li><strong>Synthesis</strong> — agente juez que deduplica, prioriza, cita y reporta cobertura/fallas sobre los hallazgos de la fase Review.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>workflow-factory</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>workflow-factory</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Meta-workflow: catálogo → plan → generar → revisar → refinar, y luego escribe <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Input["Input: task, name?, write?"] --&gt; P0
+
+    subgraph P0["Fase 0: Catalog"]
+        Cat["agent: catalog-scan\nmodel=haiku effort=low\nlee .pi/workflows/*.js\n(+ ~/.pi/agent/workflows/*.js)"]
+    end
+    Cat --&gt; Known["known workflows\n{name, description, kind}\n(excluye workflow-factory)"]
+
+    Known --&gt; P1
+
+    subgraph P1["Fase 1: Plan"]
+        Plan["agent: workflow-plan\nmodel=opus effort=high\nschema=PLAN\n(pattern, primitives, reuse,\npromptContracts, budget por rol)"]
+    end
+
+    Plan --&gt; P2
+
+    subgraph P2["Fase 2: Generate"]
+        Gen["agent: workflow-codegen\nmodel=sonnet effort=medium\ngenera JS del workflow completo\n(sin markdown fences)"]
+    end
+    Gen --&gt; ExtractJS["extractJs()\n(quita fences si el modelo\nigual las incluyó)"]
+
+    ExtractJS --&gt; P3
+
+    subgraph P3["Fase 3: Review"]
+        Rev["agent: workflow-review\nmodel=sonnet effort=medium\nschema=REVIEW\nverdict + findings\n(chequea REUSE y TIERING)"]
+    end
+
+    Rev --&gt; Gate{"verdict == APPROVED\n&amp;&amp; findings vacío?"}
+
+    Gate -- sí --&gt; SkipRefine["Refine: skip\n(log only)"]
+    Gate -- no --&gt; P4
+
+    subgraph P4["Fase 4: Refine"]
+        Refine["agent: workflow-refine\nmodel=sonnet effort=medium\nreescribe el código\naplicando los findings"]
+    end
+    Refine --&gt; ExtractJS2["extractJs()"]
+
+    SkipRefine --&gt; Validate
+    ExtractJS2 --&gt; Validate
+
+    Validate["validateCode() — heurística local\n(sin agente): no vacío, sin\nimport/require, tiene meta,\nno agent({...}) objeto,\nllama agent() al menos una vez"]
+
+    Validate --&gt; ValidGate{"código válido?"}
+
+    ValidGate -- no --&gt; ReturnUnvalidated["No escribe.\nDevuelve draft SIN VALIDAR\nen el resultado"]
+
+    ValidGate -- sí --&gt; WriteCheck{"input.write !== false?"}
+    WriteCheck -- no --&gt; ReturnAsResult["No escribe (write=false).\nDevuelve el código como resultado"]
+
+    WriteCheck -- sí --&gt; P5
+
+    subgraph P5["Fase 5: Write"]
+        Write["agent: write-file\nmodel=haiku effort=low\nusa tool Write para crear\n.pi/workflows/drafts/&lt;slug&gt;.js\nschema={wrote, path}"]
+    end
+
+    Write --&gt; WriteOk{"w.wrote === true?"}
+    WriteOk -- sí --&gt; Written["written = {path}\nlog OK"]
+    WriteOk -- no / error --&gt; WriteFailed["writeError\nlog FAILED — devuelve\ncódigo como resultado"]
+
+    Written --&gt; Summary
+    WriteFailed --&gt; Summary
+    ReturnUnvalidated --&gt; Summary
+    ReturnAsResult --&gt; Summary
+
+    Summary["Resumen final:\nnombre, wrote/path, review verdict,\nvalidation, pattern, why,\n(+ código completo si no se escribió)"]</pre>
+<h2>Qué hace</h2>
+<p><code>workflow-factory</code> es un meta-workflow: en lugar de ejecutar directamente una tarea, gasta una corrida completa en <strong>diseñar y generar</strong> el workflow específico para esa tarea, dejándolo como un archivo draft en <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> listo para inspección antes de confiar en él.</p>
+<p>El diseño es <em>catalog-aware</em>: antes de planificar, una fase de descubrimiento (Fase 0) lee los scaffolds ya existentes (<code>.pi/workflows/*.js</code> del proyecto y, si existe, <code>~/.pi/agent/workflows/*.js</code> global) y extrae su <code>meta.name</code>/<code>meta.description</code>, clasificándolos como <code>lib</code> (sub-workflow reusable, ej. terminado en <code>-lib</code>), <code>composed</code> (usa <code>workflow(...)</code>) o <code>base</code>. Ese catálogo se inyecta en las fases de Plan, Generate y Review para que el modelo <strong>prefiera reusar/especializar</strong> un scaffold existente o <strong>componerlo</strong> vía <code>workflow(name, args)</code> en lugar de reinventar lógica, y para que el plan justifique explícitamente construir desde cero cuando nada calza.</p>
+<p>El pipeline central es Plan → Generate → Review → Refine (condicional) → Write, con un gate de validación estructural puramente local (sin agente) antes de cualquier escritura a disco. El resultado generado es tratado como no confiable por defecto: se sanitiza el input untrusted con fences derivados de hash de contenido, se valida sintácticamente contra invariantes duras del runtime, y solo se escribe si pasa esa validación; si algo falla, el código se devuelve igual en el resultado para inspección manual, nunca se descarta silenciosamente.</p>
+<p>El workflow soporta composición recursiva acotada por profundidad (<code>workflow(name, args)</code> dentro de un nodo generado, incluyendo re-invocar <code>contract-gate</code> para re-alcance), documentada extensamente en los comentarios del código como guía para el modelo generador, pero el propio <code>workflow-factory</code> en sí no hace recursión — es la fase de Generate la que puede <em>producir</em> código con esa composición.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Ningún scaffold existente calza con la tarea y se necesita uno específico (caso de catálogo: &quot;No existing workflow fits and you want a task-specific one scaffolded&quot;).</li>
+<li>Bootstrap de un patrón nuevo de orquestación.</li>
+<li>Especializar el scaffold existente más cercano en vez de escribirlo a mano.</li>
+<li>Generar un draft para inspeccionar/editar antes de confiar en él (nunca se recomienda ejecutar el draft generado sin revisión humana).</li>
+<li><strong>No usarlo</strong> cuando ya existe (o se puede componer directamente) un scaffold que resuelve la tarea — el propio Phase-0 del factory está diseñado para detectar ese caso y decírtelo vía <code>reuse</code> en el plan; en ese caso es más barato usar/componer ese scaffold directamente.</li>
+<li><strong>No usarlo</strong> para tareas de bajo riesgo o pequeñas donde el costo de un ciclo Plan(opus)→Generate→Review→Refine no se justifica frente a resolver la tarea inline.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Input y utilidades.</strong> Parsea <code>args</code> (puede llegar como string JSON), define <code>compact()</code> (trunca payloads largos para prompts) y <code>fence()</code> (envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> calculado por FNV-1a sobre el contenido, para que texto malicioso no pueda falsificar el marcador de cierre). Define <code>node(role, extra)</code>, el helper de tiering por rol: aplica <code>input.models[role]</code>/<code>input.efforts[role]</code> (o los globales <code>input.model</code>/<code>input.effort</code>) y overrides de <code>tools</code>/<code>skills</code>/<code>excludeTools</code> por rol.</p>
+</li>
+<li><p><strong>Fase Catalog</strong> — <code>agent()</code> con <code>model: haiku, effort: low</code> (rol <code>catalog-scan</code>), sin schema propio salvo el objeto <code>CATALOG</code> (<code>{ workflows: [{ name, description, kind }] }</code>). Lee los <code>.js</code> de <code>.pi/workflows/</code> y opcionalmente los globales, excluyendo <code>workflow-factory</code> mismo y cualquier cosa bajo <code>drafts/</code>. El resultado se filtra localmente (excluye de nuevo <code>workflow-factory</code> por si el agente lo incluyó) y se formatea a texto (<code>catalogText</code>) para inyectar en los prompts siguientes.</p>
+</li>
+<li><p><strong>Fase Plan</strong> — <code>agent()</code> con <code>model: opus, effort: high</code> (rol <code>workflow-plan</code>), schema <code>PLAN</code> (objeto con <code>name, pattern, why, inputs, scout, primitives, reuse, promptContracts, verification, risks, budget</code>). El prompt le pide elegir el patrón de orquestación mínimo suficiente, listar en <code>reuse</code> qué scaffolds del catálogo componer/especializar (vacío solo si nada calza, y entonces <code>why</code> debe justificarlo), y definir en <code>budget</code> una entrada de <code>{role, model, effort, why}</code> por CADA rol de agente planeado, atado a ancho de fan-out / dificultad / costo de error / si hay verificación posterior.</p>
+</li>
+<li><p><strong>Fase Generate</strong> — <code>agent()</code> con <code>model: sonnet, effort: medium</code> (rol <code>workflow-codegen</code>), sin schema (devuelve texto/código). El prompt fija reglas duras de la convención del runtime: <code>export const meta</code> como literal puro, sin <code>import/require</code>, llamadas <code>agent(promptString, opts)</code> (nunca objeto), un rol tiereado explícitamente por cada <code>agent()</code>, uso de <code>parallel</code>/<code>pipeline</code> para fan-out, contratos de evidencia, timeouts explícitos para roles largos, y composición vía <code>workflow(name, args)</code> con las reglas de profundidad acotada (Claude Code Workflow tool = profundidad 1; pi = profundidad 2 por defecto, configurable con <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code>). Todo el contenido no confiable (<code>task</code>, <code>plan</code> compactado, <code>catalogText</code>) se pasa envuelto en <code>fence(...)</code>. La salida se limpia con <code>extractJs()</code> (extrae el bloque de código si el modelo igual devolvió fences markdown).</p>
+</li>
+<li><p><strong>Fase Review</strong> — <code>agent()</code> con <code>model: sonnet, effort: medium</code> (rol <code>workflow-review</code>), schema <code>REVIEW</code> (<code>{ verdict: APPROVED|CHANGES_REQUESTED, findings: [{snippet, problem, fix, severity?}] }</code>). Revisa correctitud, costo, seguridad, calidad de prompts y composabilidad; explícitamente chequea si se reimplementó lógica que un scaffold del catálogo ya provee (falta de <code>reuse</code>) y si el tiering de cada <code>agent()</code> es coherente (fan-out ancho en tier caro, o síntesis/juicio final en tier barato, se marcan como hallazgo). <code>reviewApproved</code> es <code>true</code> solo si <code>verdict === &quot;APPROVED&quot;</code> Y <code>findings</code> es un array vacío.</p>
+</li>
+<li><p><strong>Fase Refine (condicional)</strong> — si <code>reviewApproved</code> es falso, <code>agent()</code> con <code>model: sonnet, effort: medium</code> (rol <code>workflow-refine</code>), sin schema; reescribe el código para resolver los findings, manteniendo las mismas invariantes de forma. Si <code>reviewApproved</code> es verdadero, esta fase se salta (solo un <code>log</code>).</p>
+</li>
+<li><p><strong>Gate de validación estructural</strong> — <code>validateCode(src)</code>: chequeo <strong>local, sin agente</strong>, puramente heurístico contra el string del código: no vacío, sin <code>import</code>/<code>require</code>, contiene <code>export const meta =</code>, no usa <code>agent({...})</code> en forma objeto, y llama <code>agent(</code> al menos una vez. Si falla, <code>codeValid = false</code> y se loguea la razón; el código generado NUNCA se descarta, se devuelve como &quot;UNVALIDATED draft&quot; en el resultado final.</p>
+</li>
+<li><p><strong>Fase Write (condicional)</strong> — solo si <code>input.write !== false</code> y <code>codeValid</code>. <code>agent()</code> con <code>model: haiku, effort: low</code> (rol <code>write-file</code>), schema <code>{wrote, path}</code>; se le pide usar la tool Write para crear el archivo en <code>workflowPath</code> con el contenido exacto dentro del fence untrusted (tratado como dato a escribir verbatim, nunca a interpretar). Si el agente no confirma <code>wrote: true</code>, o lanza una excepción, se registra <code>writeError</code> y el código igual se devuelve en el resultado — nunca se pierde el trabajo generado por un fallo de escritura.</p>
+</li>
+<li><p><strong>Resumen final</strong> — se construye un array de líneas (nombre del workflow, si se escribió o la razón de por qué no, verdict de review, resultado de validación, patrón elegido, justificación, próximos pasos) y, si no se escribió a disco, se anexa el código completo (compactado) al final. Todo se une con <code>\n</code> y se retorna como string.</p>
+</li>
+</ol>
+<p>No hay fan-out paralelo (<code>parallel</code>/<code>pipeline</code>) en este scaffold: es una <strong>pipeline lineal de agentes</strong>, cada uno con schema/tier propios, con un único punto de branching condicional (Refine) y un gate puramente local (validación) antes de la escritura a disco.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (objeto, parseado defensivamente si llega como string JSON):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / comportamiento</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>task</code> (o <code>request</code>/<code>text</code>)</td>
+<td>string</td>
+<td><strong>Requerido</strong> — lanza error si falta</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Opcional; si falta se deriva con <code>slug(task)</code>. Se sanea con <code>slug()</code> (minúsculas, solo <code>[a-z0-9._/-]</code>, sin <code>..</code>, máx 80 chars), default final <code>&quot;workflow-draft&quot;</code></td>
+</tr>
+<tr>
+<td><code>write</code></td>
+<td>boolean</td>
+<td>Default efectivo <code>true</code> (solo se omite la escritura si es explícitamente <code>false</code>)</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>Default global de modelo/effort para TODOS los roles, salvo override por rol</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>Override por rol (precedencia: por-rol &gt; global <code>input.model/effort</code> &gt; default del call-site)</td>
+</tr>
+<tr>
+<td><code>toolsByRole[role]</code> / <code>skillsByRole[role]</code> / <code>excludeByRole[role]</code></td>
+<td>object</td>
+<td>Override por rol de <code>tools</code>/<code>skills</code>/<code>excludeTools</code>; también hay <code>input.tools</code>/<code>input.skills</code>/<code>input.excludeTools</code> como default global</td>
+</tr>
+</tbody></table>
+<p>Ejemplo del catálogo: <code>{ &quot;task&quot;: &quot;audit GraphQL resolvers for N+1 queries&quot;, &quot;write&quot;: true }</code>.</p>
+<p><strong>Output</strong>: un string (no un objeto) que resume la corrida:</p>
+<ul>
+<li>Nombre del workflow generado (<code>workflowName</code>).</li>
+<li>Si se escribió: ruta (<code>.pi/workflows/drafts/&lt;slug&gt;.js</code>); si no, la razón (validación fallida / fallo de escritura / <code>write=false</code>).</li>
+<li>Verdict de Review (y si se saltó Refine).</li>
+<li>Resultado de la validación estructural (passed / FAILED + lista de problemas).</li>
+<li>Patrón elegido (<code>plan.pattern</code>) y su justificación (<code>plan.why</code>).</li>
+<li>Nota de siguiente paso: inspeccionar/editar el draft (no está syntax-checked) antes de ejecutarlo con concurrencia explícita.</li>
+<li>Si NO se escribió a disco, el código JS completo (compactado a 60000 chars) se anexa al final del string.</li>
+</ul>
+<p><strong>Artifacts en disco</strong>: si <code>write !== false</code> y el código pasa <code>validateCode()</code> y la fase Write confirma <code>wrote: true</code>, escribe <code>.pi/workflows/drafts/&lt;workflowName&gt;.js</code> con el contenido exacto generado (post-Refine si aplicó). No usa <code>writeArtifact()</code> de la API del runtime — la escritura la hace un subagente vía la tool <code>Write</code> del sistema de archivos.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Catalog</strong> — descubre scaffolds existentes (nombre, descripción, tipo) para alimentar reuse-awareness.</li>
+<li><strong>Plan</strong> — diseña el patrón de orquestación, inputs, primitivas, reuse, contratos de prompt, verificación, riesgos y presupuesto por rol (modelo/effort).</li>
+<li><strong>Generate</strong> — genera el código JavaScript completo del workflow siguiendo las convenciones duras del runtime.</li>
+<li><strong>Review</strong> — audita el código generado por correctitud, costo, seguridad, reuse y tiering; emite verdict + findings.</li>
+<li><strong>Refine</strong> — reescribe el código para resolver los findings de Review (se salta si Review aprobó sin hallazgos).</li>
+<li><strong>Write</strong> — valida estructuralmente el código y, si pasa, lo escribe en <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> vía un subagente con la tool Write.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

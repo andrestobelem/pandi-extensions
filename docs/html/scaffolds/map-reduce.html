@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>map-reduce</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>map-reduce</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Map-reduce jerárquico: mapeo por chunk bajo un contrato de evidencia, reduce en lotes acotados hasta un único resumen-de-resúmenes.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    A["Input: instruction (req), items[] o content, chunkChars=8000, reduceBatch=5, maxChunks=400, maxRounds=auto"] --&gt; B{"instruction vacío?"}
+    B --&gt;|"sí"| B1["ABORT: return ERROR result, chunks=0"]
+    B --&gt;|"no"| C["Phase: Source"]
+
+    C --&gt; D{"items[] presente?"}
+    D --&gt;|"sí"| E["units = items (as-is)"]
+    D --&gt;|"no, content presente"| F["split content en chunks de ~chunkChars\n(cortes preferentes en párrafo/newline)"]
+    D --&gt;|"ninguno"| G["ABORT: return ERROR, chunks=0"]
+    E --&gt; H["work = units.slice(0, maxChunks)\n(log si se recorta cobertura)"]
+    F --&gt; H
+    H --&gt; I{"chunks == 0?"}
+    I --&gt;|"sí"| I1["ABORT: return ERROR"]
+    I --&gt;|"no"| J["Phase: Map"]
+
+    subgraph MAP["MAP fan-out (parallel + settle)"]
+        M1["agent mapper haiku·low\nchunk 1 -&gt; finding | NO_FINDINGS | INSUFFICIENT_EVIDENCE"]
+        M2["agent mapper haiku·low\nchunk 2 -&gt; ..."]
+        M3["agent mapper haiku·low\nchunk N -&gt; ..."]
+    end
+    J --&gt; MAP
+    MAP --&gt; K["filtrar nulls (settle) -&gt; completedMaps\nrecuperar failedChunks por índice"]
+    K --&gt; L["filtrar sentinelas NO_FINDINGS / INSUFFICIENT_EVIDENCE -&gt; findings"]
+    L --&gt; N{"findings.length == 0?"}
+    N --&gt;|"sí"| N1["return NO_FINDINGS result, reduceRounds=0"]
+    N --&gt;|"no"| O["Phase: Reduce"]
+
+    O --&gt; P["level = findings.map(output)\nmaxRounds = ceil(log_reduceBatch(len))+2, clamp 1..30"]
+    P --&gt; Q{"level.length &gt; 1\nAND reduceRounds &lt; maxRounds?"}
+
+    subgraph ROUND["runRound(level): un round"]
+        R0["reduceRounds += 1"]
+        R0 --&gt; R1["batchOf(level, reduceBatch)"]
+        subgraph REDUCEFAN["reduce batches (parallel + settle)"]
+            RB1["agent reducer sonnet·medium\nmerge batch 1 (isFinal si única batch)"]
+            RB2["agent reducer sonnet·medium\nmerge batch 2"]
+        end
+        R1 --&gt; REDUCEFAN
+        REDUCEFAN --&gt; R2["batch fallida -&gt; carry partials sin merge (coverage preservada)\nnext = merged | raw partials"]
+    end
+
+    Q --&gt;|"sí"| ROUND
+    ROUND --&gt; S{"level.length &gt;= inCount?\n(sin progreso)"}
+    S --&gt;|"sí: STUCK"| T["stuck=true, break loop principal"]
+    S --&gt;|"no"| Q
+    Q --&gt;|"no (len&lt;=1 o round-cap)"| U
+
+    T --&gt; U{"level.length &gt; 1?"}
+    U --&gt;|"sí"| V["forced DRAIN: rounds extra acotados\ndrainCap = ceil(log_reduceBatch(survivors))+1\n(NUNCA un merge plano de todos los sobrevivientes)"]
+    V --&gt; ROUND2["runRound(level) repetido hasta drainCap o sin progreso"]
+    ROUND2 --&gt; W
+    U --&gt;|"no"| W["result = level[0] (o ERROR si vacío)"]
+
+    W --&gt; X["log map-reduce done: chunks, mapCount, withFindings, reduceRounds, failedChunks, survivors"]
+    X --&gt; Y["return { result, chunks, mapCount, reduceRounds }"]</pre>
+<h2>Qué hace</h2>
+<p><code>map-reduce</code> implementa el patrón MapReduce clásico (Dean &amp; Ghemawat) con un reduce <strong>jerárquico/recursivo</strong> en lugar de una síntesis plana. Divide un corpus (una lista de <code>items</code> o un <code>content</code> string grande) en un work-list, lanza un extractor barato en paralelo por cada chunk/item bajo un contrato de evidencia (citar la fuente, o declarar explícitamente <code>NO_FINDINGS</code>/<code>INSUFFICIENT_EVIDENCE</code> en vez de inventar), y luego fusiona los outputs del map en rondas: cada ronda agrupa los resultados en lotes de tamaño <code>reduceBatch</code> y llama a un reducer por lote, repitiendo hasta que sobrevive exactamente <strong>un</strong> resultado (el resumen-de-resúmenes).</p>
+<p>La razón de ser &quot;dinámico&quot; es que el tamaño del corpus (cantidad de items, o de chunks derivados de partir un string grande en runtime) no se conoce en tiempo de autoría: tanto el ancho del fan-out de MAP como el número de rondas de REDUCE (~`ceil(log_reduceBatch(N))`) se calculan en runtime y están acotados con clamps duros.</p>
+<p>El diseño es &quot;robustness-first, nunca throw&quot;: usa <code>settle</code> en cada fan-out, un cap de rondas adaptativo, un detector de estancamiento (una ronda que no reduce el conteo de sobrevivientes), y una guardia de ronda estrictamente creciente. Cuando se ve forzado a detenerse antes de llegar a un único resultado (por cap o por estancamiento), NO colapsa todo en una llamada plana: sigue fusionando en pasadas de &quot;drenaje&quot; acotadas en lotes de <code>reduceBatch</code>, preservando así la invariante de fan-in jerárquico incluso en el peor caso.</p>
+<p>Se diferencia de <code>fan-out-and-synthesize</code> en que ese último hace una síntesis-como-juez plana sobre una lista chica (todos los outputs del map en un solo prompt), mientras que <code>map-reduce</code> reduce recursivamente en lotes acotados, por lo que escala más allá de una sola ventana de contexto — el caso de uso central es un corpus grande.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>El input es más grande que una sola ventana de contexto (razón declarada en el catálogo: <code>useWhen</code>).</li>
+<li>Resumir un documento o log enorme.</li>
+<li>Consolidar cientos de tickets (&quot;roll up&quot;).</li>
+<li>Extraer información a través de un corpus grande (p. ej. &quot;extraer todos los cambios de API que rompen compatibilidad&quot;).</li>
+<li><strong>No usarlo</strong> cuando el work-list es chico y cabe entero en un solo prompt de síntesis: en ese caso <code>fan-out-and-synthesize</code> (síntesis plana como juez) es más simple y barato — <code>map-reduce</code> paga el costo de rondas de reduce adicionales que no aportan valor si no hay problema de tamaño de contexto.</li>
+<li>No usarlo si se necesita un juicio comparativo/de ranking entre alternativas (eso es un patrón distinto, no map-reduce).</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p><strong>Validación de entrada.</strong> <code>instruction</code> es el único parámetro requerido (qué extraer/producir de cada chunk y llevar a través del merge). Si falta, aborta de forma graciosa devolviendo el shape de salida declarado con <code>chunks=0</code> (nunca lanza excepción). Los demás parámetros numéricos se sanean con una función <code>clamp</code> (parsea a entero, aplica límites).</p>
+<p><strong>Fase Source.</strong> Si <code>input.items</code> es un array no vacío, se usa tal cual (un map por item, <code>items</code> gana si ambos están presentes). Si no, y hay <code>input.content</code> (string), se divide en chunks de ~`chunkChars<code> caracteres, preferiendo cortar en un salto de párrafo (</code>\n\n<code>) o de línea (</code>\n<code>) cercano al límite objetivo, para no partir a mitad de oración. Si no hay ni </code>items<code>ni</code>content<code>, aborta con error. El work-list resultante se recorta a </code>maxChunks` (default 400, clamp 1..2000); si se recorta, se loguea cuánta cobertura se pierde explícitamente (&quot;no silent caps&quot;). Si el resultado final tiene 0 chunks, aborta con error.</p>
+<p><strong>Fase Map.</strong> Lanza un <code>agent</code> por cada chunk/item en <code>parallel</code> (con <code>settle</code> implícito vía el filtrado post-hoc de nulls). Cada mapper corre en el rol <code>mapper</code> (modelo <code>haiku</code>, effort <code>low</code> — extracción mecánica barata) y recibe: la instrucción, contexto opcional, y el chunk envuelto en un fence anti-inyección (<code>fence()</code>, delimitador derivado de un hash del contenido para que datos maliciosos no puedan forjar el marcador de cierre). El contrato de salida exige citar el span fuente exacto para cada hallazgo, o responder exactamente <code>NO_FINDINGS</code> (nada relevante) o <code>INSUFFICIENT_EVIDENCE</code> (chunk vacío/ilegible) — nunca inventar contenido. Tras el fan-out, se filtran los branches fallidos (null bajo settle) recuperando sus índices como <code>failedChunks</code>, y se filtran ambas clases de sentinela para que no contaminen el reduce, quedando <code>findings</code> (solo outputs con contenido relevante). Si <code>findings</code> queda vacío, retorna inmediatamente <code>NO_FINDINGS</code> con <code>reduceRounds=0</code>.</p>
+<p><strong>Fase Reduce.</strong> El nivel inicial (<code>level</code>) es la lista de outputs de <code>findings</code>. El cap de rondas (<code>maxRounds</code>) por defecto es <code>ceil(log_reduceBatch(N)) + 2</code> (clamp 1..30), escalando con el tamaño del corpus; es overridable vía <code>input.maxRounds</code>. Cada ronda (<code>runRound</code>) agrupa <code>level</code> en lotes de <code>reduceBatch</code> (default 5, clamp 2..20) y lanza un <code>agent</code> reducer (modelo <code>sonnet</code>, effort <code>medium</code>) por lote en <code>parallel</code>. Si el lote colapsa a una sola batch, ese reducer recibe el framing de &quot;reduce FINAL&quot; (más fidelidad que el framing genérico intermedio de &quot;esto se va a volver a fusionar&quot;). Cada reducer debe deduplicar, preservar todas las citas distintas, resolver contradicciones señalándolas, y nunca inventar. Si una batch de reduce falla (settle → null), sus partials crudos se llevan sin fusionar al siguiente nivel (cobertura preservada, se loguea). El loop principal se repite mientras <code>level.length &gt; 1</code> y no se alcance <code>maxRounds</code>; si una ronda no reduce el conteo de sobrevivientes (<code>level.length &gt;= inCount</code>), se marca <code>stuck</code> y se sale del loop. Si tras el loop principal quedan &gt;1 sobrevivientes (por cap o por stuck), se ejecuta un &quot;drenaje forzado&quot;: rondas extra acotadas por <code>drainCap = ceil(log_reduceBatch(survivors)) + 1</code>, cada una contando como ronda ejecutada — nunca se hace un merge plano de todos los sobrevivientes de una vez. El resultado final es <code>level[0]</code>, o un mensaje de error si el nivel queda vacío.</p>
+<p><strong>Caching:</strong> no se observa ningún mecanismo explícito de caché en el código (no hay llamadas a una API de cache); cada <code>agent</code> se invoca fresco.</p>
+<p><strong>Manejo de fallos parciales:</strong> en ambos fan-outs (MAP y cada ronda de REDUCE) se usa el patrón &quot;settle&quot; (nulls filtrados post-hoc en vez de propagar la excepción), y todo fallo se loguea con nombres/índices específicos (<code>failedChunks</code>, <code>failedBatches</code>) en vez de fallar silenciosamente.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Requerido</th>
+<th>Default / clamp</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>instruction</code></td>
+<td>string</td>
+<td><strong>sí</strong></td>
+<td>— (si falta o vacío tras <code>trim()</code>, aborta con error)</td>
+</tr>
+<tr>
+<td><code>items</code></td>
+<td>any[]</td>
+<td>uno de <code>items</code>|<code>content</code> (gana <code>items</code>)</td>
+<td>— (usado tal cual, un map por item)</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>string</td>
+<td>uno de <code>items</code>|<code>content</code></td>
+<td>— (se parte en chunks si <code>items</code> está ausente)</td>
+</tr>
+<tr>
+<td><code>chunkChars</code></td>
+<td>number</td>
+<td>no</td>
+<td>default 8000, clamp 500..200000</td>
+</tr>
+<tr>
+<td><code>reduceBatch</code></td>
+<td>number</td>
+<td>no</td>
+<td>default 5, clamp 2..20</td>
+</tr>
+<tr>
+<td><code>maxChunks</code></td>
+<td>number</td>
+<td>no</td>
+<td>default 400, clamp 1..2000</td>
+</tr>
+<tr>
+<td><code>maxRounds</code></td>
+<td>number</td>
+<td>no</td>
+<td>default <code>ceil(log_reduceBatch(findings)) + 2</code>, clamp 1..30</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>string</td>
+<td>no</td>
+<td>opcional, framing extra para todos los nodos (truncado a 4000 chars)</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>no</td>
+<td>override global para todo nodo</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>no</td>
+<td>override por rol (<code>mapper</code>, <code>reducer</code>); precedencia: por-rol &gt; global &gt; default del call-site</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
+<td>array</td>
+<td>no</td>
+<td>pasados al <code>agent</code> si son arrays</td>
+</tr>
+</tbody></table>
+<p><strong>Output:</strong> <code>{ result, chunks, mapCount, reduceRounds }</code></p>
+<ul>
+<li><code>result</code>: string final (resumen-de-resúmenes), o un mensaje <code>ERROR:</code>/<code>NO_FINDINGS:</code> en los caminos de aborto.</li>
+<li><code>chunks</code>: número de chunks/items del work-list realmente mapeados (después de aplicar <code>maxChunks</code>).</li>
+<li><code>mapCount</code>: número de operaciones MAP completadas (settle: nulls excluidos); el conteo de hallazgos reales se reporta solo por log, no en el shape de retorno.</li>
+<li><code>reduceRounds</code>: número de rondas de reducer ejecutadas (cada pasada de drenaje forzado también cuenta como ronda, por lo que puede exceder <code>maxRounds</code> hasta <code>drainCap</code>).</li>
+</ul>
+<p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (mensajes de progreso, caps aplicados, fallos, estancamiento) y por el shape de retorno.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Source</strong> — resuelve el work-list: usa <code>items</code> tal cual, o parte <code>content</code> en chunks (~`chunkChars<code>, corte boundary-aware); aplica el cap </code>maxChunks` y loguea cobertura recortada.</li>
+<li><strong>Map</strong> — un <code>agent</code> mapper (haiku·low) por chunk/item, en <code>parallel</code> con settle, bajo contrato de evidencia (citar o declarar <code>NO_FINDINGS</code>/<code>INSUFFICIENT_EVIDENCE</code>); filtra fallos y sentinelas.</li>
+<li><strong>Reduce</strong> — merge jerárquico en rondas: agrupa en lotes de <code>reduceBatch</code>, un <code>agent</code> reducer (sonnet·medium) por lote en <code>parallel</code> con settle, repite hasta 1 sobreviviente o hasta el cap/estancamiento, con drenaje forzado acotado como último recurso.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

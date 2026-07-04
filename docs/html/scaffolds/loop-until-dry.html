@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>loop-until-dry</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>loop-until-dry</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Sigue lanzando finders en paralelo hasta que hay K rondas consecutivas sin novedad, o se alcanza <code>maxRounds</code>.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start(["Input: target, quietRounds=2, maxRounds=8, finders=3"]) --&gt; Init["Validar/clampear params\nseen=Set, all=[], quiet=0, round=0"]
+    Init --&gt; LoopCheck{"quiet &lt; quietToStop\nY round &lt; maxRounds?"}
+
+    LoopCheck -- si --&gt; IncRound["round++\nphase Discover"]
+    IncRound --&gt; Fanout["parallel: lanzar N finders\n(uno por angulo i=1..finders)"]
+
+    subgraph Round["Ronda de discovery (paralelo, settle)"]
+        F1["finder r-a1\nhaiku/low"]
+        F2["finder r-a2\nhaiku/low"]
+        F3["finder r-a3\nhaiku/low"]
+    end
+    Fanout --&gt; F1
+    Fanout --&gt; F2
+    Fanout --&gt; F3
+
+    F1 --&gt; Merge["Filtrar nulls (finders caidos)\nDedupe por item.id contra seen\nAcumular en all[]"]
+    F2 --&gt; Merge
+    F3 --&gt; Merge
+
+    Merge --&gt; AllFailed{"Todos los finders\nfallaron esta ronda?"}
+    AllFailed -- si --&gt; NoCount["No cuenta hacia quiet\n(protege contra falso 'dry')"]
+    AllFailed -- no --&gt; FreshCheck{"fresh == 0?"}
+    FreshCheck -- si --&gt; QuietInc["quiet++"]
+    FreshCheck -- no --&gt; QuietReset["quiet = 0"]
+
+    NoCount --&gt; LoopCheck
+    QuietInc --&gt; LoopCheck
+    QuietReset --&gt; LoopCheck
+
+    LoopCheck -- no --&gt; StopReason{"round &gt;= maxRounds\ny quiet &lt; quietToStop?"}
+    StopReason -- si --&gt; LogCap["log: detenido por maxRounds, no por dry"]
+    StopReason -- no --&gt; Synth
+    LogCap --&gt; Synth["phase Synthesize\nagent judge sobre all[]\nopus/high"]
+    Synth --&gt; Return(["return synthesis\n(hallazgos dedupe + severidad + evidencia)"])</pre>
+<h2>Qué hace</h2>
+<p><code>loop-until-dry</code> es un scaffold de descubrimiento dinámico: en lugar de fijar de antemano cuántas rondas de búsqueda hacer, mantiene un pool de <code>finders</code> corriendo en paralelo, ronda tras ronda, hasta que <strong>K rondas consecutivas</strong> (<code>quietRounds</code>, default 2) no aportan ningún hallazgo nuevo, o se alcanza un tope duro de rondas (<code>maxRounds</code>, default 8). Esta es la propiedad que lo hace &quot;dinámico&quot; en el sentido estricto del catálogo: la profundidad de la exploración se adapta a lo que efectivamente se encuentra, no a un número fijo elegido por el usuario.</p>
+<p>Cada ronda lanza <code>finders</code> (default 3, clamp 1-6) agentes en paralelo con el primitivo <code>parallel</code>, cada uno instruido a atacar el <code>target</code> desde un &quot;ángulo&quot; distinto (<code>#i</code>) y a evitar repetir lo ya encontrado (se le pasa la lista acumulada <code>all</code> truncada a 4000 chars como contexto). Los agentes devuelven JSON validado por schema (<code>{ items: [{ id, title, evidence }] }</code>), y el resultado de cada finder puede ser <code>null</code> si el agente falla — el scaffold trata eso como &quot;cero items&quot;, nunca como excepción que tumbe la ronda completa.</p>
+<p>La deduplicación es por <code>id</code> estable contra un <code>Set</code> global (<code>seen</code>), acumulando los items nuevos en <code>all</code>. Hay una salvaguarda explícita: si <strong>todos</strong> los finders de una ronda fallan (batches vacío), esa ronda no cuenta hacia el contador <code>quiet</code> — de lo contrario un fallo de infraestructura (p. ej. rate limit) sería indistinguible de una ronda genuinamente &quot;seca&quot; y detendría el loop prematuramente y en falso. El scaffold también loggea explícitamente si el corte final fue por el cap de rondas y no por agotamiento real, evitando &quot;caps silenciosos&quot;.</p>
+<p>Al terminar el loop, una fase de síntesis pasa todos los hallazgos acumulados (hasta 60000 chars) a un único agente <code>opus</code>/<code>high</code> que actúa como juez: deduplica, descarta afirmaciones sin evidencia, ordena por severidad y devuelve el resultado final con evidencia. Todo el contenido no confiable (el <code>target</code> del usuario y los hallazgos acumulados que se re-inyectan a los finders) se envuelve con un fence delimitado por un hash del propio contenido, para blindar contra prompt injection sin mutar el payload.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>El conjunto a descubrir es de tamaño desconocido y se busca exhaustividad (catálogo: <em>&quot;The set you&#39;re discovering is unknown-size and you want exhaustiveness&quot;</em>).</li>
+<li>Enumerar todos los call-sites o edge-cases de algo en un repo.</li>
+<li>Preguntas del tipo &quot;encontrar todo lo que…&quot; (todas las validaciones faltantes, todos los lugares que parsean un formato, etc.).</li>
+<li>Se quiere que el propio proceso decida cuándo parar (por rondas sin novedad) en vez de fijar a mano una cantidad de pasadas.</li>
+</ul>
+<p>Cuándo NO usarlo:</p>
+<ul>
+<li>El alcance ya es conocido y acotado (usar un fan-out estático simple en su lugar; este scaffold paga el costo de múltiples rondas para ganar exhaustividad, que no hace falta si ya se sabe cuántos ítems hay).</li>
+<li>Se necesita razonamiento paso a paso grounded en observaciones reales de herramientas (usar <code>react-scout</code>).</li>
+<li>El presupuesto de rondas/finders es tan ajustado que nunca podría detectar 2 rondas quietas reales — en ese caso el resultado dependerá más del cap que de la exhaustividad real.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p><strong>Setup de parámetros.</strong> El input se parsea (string JSON o objeto), y se derivan <code>models</code>/<code>efforts</code>/<code>toolsByRole</code>/<code>skillsByRole</code>/<code>excludeByRole</code> para permitir overrides por rol vía el helper <code>node(role, extra)</code> (precedencia: override por rol &gt; default global <code>input.model</code>/<code>input.effort</code> &gt; default del call-site). <code>quietRounds</code> se clampea a 1-100, <code>maxRounds</code> a 1-1000, <code>finders</code> a 1-6, logueando si hubo clamp. <code>target</code> (alias <code>scope</code>/<code>task</code>) es obligatorio; si falta, lanza error.</p>
+<p><strong>Fase Discover (loop).</strong> Mientras <code>quiet &lt; quietToStop</code> y <code>round &lt; maxRounds</code>:</p>
+<ol>
+<li>Se llama <code>phase(&quot;Discover&quot;)</code> y se incrementa <code>round</code>.</li>
+<li><code>parallel(...)</code> lanza <code>finders</code> agentes (rol lógico <code>&quot;finder&quot;</code>, modelo <code>haiku</code>, effort <code>low</code>), cada uno con un prompt que fija el ángulo de búsqueda (<code>#i</code>), pasa el <code>target</code> y la lista <code>all</code> ya encontrada (ambos dentro de fences anti-injection), y exige salida validada por el schema <code>ITEMS</code>.</li>
+<li>Los resultados <code>null</code> (fallos de agente) se filtran; se cuenta cuántos finders fallaron y se loguea. Cada item nuevo (por <code>id</code> no visto) se agrega a <code>all</code> y a <code>seen</code>; se cuenta <code>fresh</code>.</li>
+<li>Si <strong>ningún</strong> finder tuvo éxito esa ronda, se loguea y <strong>no</strong> se actualiza <code>quiet</code> (evita falso &quot;dry&quot; por fallo infra). Si hubo al menos un éxito: <code>quiet = fresh === 0 ? quiet + 1 : 0</code>.</li>
+</ol>
+<p><strong>Salida del loop.</strong> Si se llegó a <code>maxRounds</code> sin haber alcanzado <code>quietToStop</code>, se loguea explícitamente que el corte fue por presupuesto de rondas, no por agotamiento real.</p>
+<p><strong>Fase Synthesize.</strong> Un único <code>agent</code> (modelo <code>opus</code>, effort <code>high</code>) recibe todos los hallazgos acumulados (fenced, hasta 60000 chars) con instrucción de actuar como &quot;synthesis-as-judge&quot;: deduplicar, descartar afirmaciones no soportadas, priorizar por severidad manteniendo evidencia. Su salida es el <code>return</code> del scaffold.</p>
+<p><strong>Manejo de fallos parciales:</strong> <code>parallel</code> no aborta el resto de la ronda si un finder crashea; ese branch se resuelve a <code>null</code> y se descuenta explícitamente del conteo de éxitos, sin afectar el contador de rondas quietas salvo en el caso extremo de fallo total de la ronda.</p>
+<p><strong>Caching / modelos:</strong> no hay caching explícito de resultados entre rondas más allá de la deduplicación por <code>id</code>; cada ronda vuelve a pasar el estado acumulado (truncado) a los finders para minimizar redundancia. Los finders usan un modelo económico (<code>haiku</code>, <code>low</code>) por diseño — son baratos y se ejecutan muchas veces; la síntesis usa el modelo más caro (<code>opus</code>, <code>high</code>) una sola vez al final.</p>
+<h2>Input y output</h2>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>target</code> / <code>scope</code> / <code>task</code></td>
+<td>string</td>
+<td>— (requerido)</td>
+<td>Qué buscar/auditar; lanza error si falta.</td>
+</tr>
+<tr>
+<td><code>quietRounds</code></td>
+<td>number</td>
+<td>2</td>
+<td>Clamp 1..100. Rondas consecutivas sin hallazgos nuevos para detener el loop.</td>
+</tr>
+<tr>
+<td><code>maxRounds</code></td>
+<td>number</td>
+<td>8</td>
+<td>Clamp 1..1000. Tope duro de rondas aunque no esté &quot;seco&quot;.</td>
+</tr>
+<tr>
+<td><code>finders</code></td>
+<td>number</td>
+<td>3</td>
+<td>Clamp 1..6. Agentes en paralelo por ronda.</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default global aplicado a todos los nodos (finder y synthesis).</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>—</td>
+<td>Override por rol (<code>finder</code>, <code>synthesis</code>), precedencia sobre el default global.</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>Tools por rol o global.</td>
+</tr>
+<tr>
+<td><code>skills</code> / <code>skillsByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>Skills por rol o global.</td>
+</tr>
+<tr>
+<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>Exclusión de tools por rol o global.</td>
+</tr>
+</tbody></table>
+<p><strong>Output:</strong> el <code>return</code> del scaffold es directamente la respuesta de texto/estructura del agente de síntesis (<code>opus</code>/<code>high</code>): hallazgos deduplicados, ordenados por severidad, con evidencia, descartando lo no soportado. No hay <code>writeArtifact</code> en el código — el scaffold no persiste artifacts propios, solo devuelve el resultado de síntesis como valor de retorno del workflow.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Discover</strong> — ronda(s) de fan-out en paralelo de finders (rol <code>finder</code>) hasta agotar novedad (quiet rounds) o alcanzar <code>maxRounds</code>.</li>
+<li><strong>Synthesize</strong> — un agente único (rol <code>synthesis</code>) actúa como juez sobre todos los hallazgos acumulados: dedupe, descarta lo no soportado, ordena por severidad y devuelve el resultado final.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

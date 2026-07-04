@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>adversarial-plan-review</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>adversarial-plan-review</h1>
+	</header>
+	<main>
+<blockquote>
+<p>N revisores de ángulo fijo (corrección, seguridad, mantenibilidad, alcance) sintetizan un plan revisado.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Input["Input: plan / text"] --&gt; Bound["compact(plan, 40000)"]
+    Bound --&gt; Fanout["parallel settle: 4 reviewers"]
+
+    subgraph Review["Fase Review - en paralelo, settle semantics"]
+        R1["agent: correctness-reviewer&lt;br/&gt;sonnet / medium"]
+        R2["agent: security-reviewer&lt;br/&gt;sonnet / medium"]
+        R3["agent: maintainability-reviewer&lt;br/&gt;sonnet / medium"]
+        R4["agent: scope-reviewer&lt;br/&gt;sonnet / medium"]
+    end
+
+    Fanout --&gt; R1
+    Fanout --&gt; R2
+    Fanout --&gt; R3
+    Fanout --&gt; R4
+
+    R1 --&gt; Filter["filter(Boolean): descarta null/vacios"]
+    R2 --&gt; Filter
+    R3 --&gt; Filter
+    R4 --&gt; Filter
+
+    Filter --&gt; Gate{"completedCritiques.length == 0?"}
+    Gate -- "si, todos fallaron" --&gt; Insufficient["return INSUFFICIENT_EVIDENCE\n(sin sintesis)"]
+    Gate -- "no, hay al menos 1" --&gt; Compact2["compact(critiques, 60000)"]
+    Compact2 --&gt; Synth["Fase Synthesize: agent plan-synthesis\nopus / high\nsynthesis-as-judge"]
+    Synth --&gt; Output["Output: markdown revised plan\n(prosa, terminal)"]</pre>
+<h2>Qué hace</h2>
+<p><code>adversarial-plan-review</code> toma un plan de implementación (texto) y lo somete a una revisión adversarial: cuatro agentes independientes lo critican en paralelo, cada uno desde un ángulo fijo distinto (corrección, seguridad, mantenibilidad, alcance), sin comunicación entre ellos y sin editar archivos. El objetivo es encontrar razones para NO enviar el plan tal cual, antes de invertir esfuerzo de implementación.</p>
+<p>Los cuatro fan-outs corren con semántica <code>settle</code>: si un reviewer falla o devuelve vacío, su rama resuelve a <code>null</code> en vez de rechazar el <code>parallel</code> completo, así que un fallo aislado no tumba la corrida. Luego de filtrar las ramas nulas, un único agente de síntesis de alto esfuerzo (<code>opus</code>/<code>high</code>) actúa como juez: deduplica hallazgos, resuelve contradicciones entre críticas, descarta afirmaciones sin soporte (salvo que estén marcadas como especulativas) y produce un plan revisado. El agente de síntesis recibe explícitamente cuántos reviewers pidió (4), cuántos completaron y cuántos fallaron, para poder mencionar los gaps de cobertura en su output.</p>
+<p>Si los cuatro reviewers fallan o devuelven texto vacío, el workflow NO llega a sintetizar: corta temprano y devuelve <code>INSUFFICIENT_EVIDENCE</code> explicando que no hubo señal suficiente para producir un plan revisado.</p>
+<p>Todo el contenido no confiable (el plan del usuario, las críticas) se envuelve con un delimitador derivado de un hash del propio contenido (<code>fence()</code>), para que un plan malicioso no pueda falsificar el cierre del delimitador e inyectar instrucciones a los agentes downstream.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Revisión de diseño / RFC antes de aprobarlo.</li>
+<li>Gate previo a la implementación de un cambio.</li>
+<li>Buscar activamente razones para NO enviar un plan (adversarial, no complaciente).</li>
+<li>Cuando querés cobertura de varios ángulos fijos (no descubiertos dinámicamente) sobre un único artefacto textual.</li>
+</ul>
+<p>No usarlo cuando:</p>
+<ul>
+<li>No hay un plan/texto concreto para revisar (el input es obligatorio: <code>plan</code> o <code>text</code>).</li>
+<li>Se necesita comparar varias alternativas entre sí (usar <code>tournament</code> o <code>judge-escalate</code>).</li>
+<li>Se busca consenso por votación sobre múltiples caminos de razonamiento (usar <code>self-consistency</code>).</li>
+<li>El costo de 4 revisores + 1 síntesis de alto esfuerzo (opus/high) no se justifica para un cambio trivial.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p><strong>Fase Review</strong> (<code>parallel</code>, settle):
+El workflow define 4 roles fijos —<code>correctness-reviewer</code>, <code>security-reviewer</code>, <code>maintainability-reviewer</code>, <code>scope-reviewer</code>— cada uno con su &quot;angle&quot; textual. Cada uno corre como una llamada <code>agent(...)</code> independiente dentro de <code>parallel(thunks)</code>, con modelo <code>sonnet</code> y esfuerzo <code>medium</code> por defecto (overrideable per-rol vía <code>input.models</code>/<code>input.efforts</code>/<code>input.model</code>/<code>input.effort</code>). Cada agente recibe el mismo <code>sharedContract</code>: no editar archivos, no asumir que otro reviewer cubre lo que falta, citar archivos/líneas si el plan referencia código, separar hallazgos confirmados de riesgos especulativos, decir <code>INSUFFICIENT_EVIDENCE</code> si falta evidencia, y un formato de salida fijo (Verdict / Must-fix / Should-fix / Questions / Smallest safe path). El plan se pasa fenceado como dato no confiable, con instrucción explícita de ignorar cualquier directiva embebida en él.</p>
+<p>Cada thunk post-procesa su resultado: si el output es <code>null</code> o string vacío, se convierte en <code>null</code>; si no, se envuelve como <code>{ name, output }</code>. Esto es lo que permite el <code>filter(Boolean)</code> posterior para descartar ramas fallidas/vacías sin perder la forma esperada por la síntesis.</p>
+<p><strong>Gate de cobertura</strong>: se cuenta <code>completedCritiques.length</code> vs <code>failed = critiques.length - completedCritiques.length</code>. Si <code>completedCritiques.length === 0</code> (los 4 fallaron o vinieron vacíos), el workflow no llama a síntesis y retorna directamente <code>&quot;INSUFFICIENT_EVIDENCE: all reviewers failed or returned empty...&quot;</code>.</p>
+<p><strong>Fase Synthesize</strong> (<code>agent</code>, sin schema — free text):
+Si hay al menos una crítica completada, se compactan (<code>compact(..., 60000)</code>) y se pasan fenceadas al agente de síntesis (<code>plan-synthesis</code>, modelo <code>opus</code>, esfuerzo <code>high</code>). El prompt aplica el patrón &quot;synthesis-as-judge&quot;: deduplicar, resolver contradicciones, descartar afirmaciones sin soporte salvo marcadas como especulativas, preservar riesgos aceptados, y mencionar explícitamente los reviewers fallidos/vacíos. Se le inyectan los números de cobertura (<code>reviewers.length</code>, <code>completedCritiques.length</code>, <code>failed</code>) como datos, no como instrucciones. El formato de salida pedido: plan revisado, cambios must-fix, cambios opcionales/diferidos, riesgos aceptados y por qué, checklist de validación, gaps de cobertura.</p>
+<p><strong>Manejo de fallos parciales</strong>: settle semantics en el <code>parallel</code> (nunca rechaza el conjunto por un solo fallo) + gate de &quot;todos fallaron&quot; antes de sintetizar + inyección explícita del conteo de fallos en el prompt de síntesis, para que el juez no ignore silenciosamente los huecos de cobertura.</p>
+<p><strong>Caching / bounding</strong>: no hay caching explícito en el código; sí hay <em>bounding</em> de longitud vía <code>compact()</code> (plan truncado a 40000 chars, críticas combinadas truncadas a 60000 chars) para controlar el tamaño de contexto pasado a cada agente, con <code>log()</code> cuando ocurre truncamiento.</p>
+<h2>Input y output</h2>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Requerido</th>
+<th>Default / clamp</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>plan</code> (o <code>text</code> como alias)</td>
+<td>string (o JSON-serializable)</td>
+<td>Sí — si falta, <code>throw new Error(&#39;Pass { plan: &quot;...&quot; } as workflow input.&#39;)</code></td>
+<td>Se serializa a string si no lo es; se trunca a 40000 chars vía <code>compact()</code></td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>No</td>
+<td>Default global aplicado a todos los nodos si no hay override por rol</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>objeto</td>
+<td>No</td>
+<td>Override específico por rol (<code>reviewer</code>, <code>plan-synthesis</code>); precedencia: por-rol &gt; global &gt; default del call-site</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td>array</td>
+<td>No</td>
+<td>Herramientas del agente, por defecto o por rol</td>
+</tr>
+<tr>
+<td><code>skills</code> / <code>skillsByRole[role]</code></td>
+<td>array</td>
+<td>No</td>
+<td>Skills del agente</td>
+</tr>
+<tr>
+<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
+<td>array</td>
+<td>No</td>
+<td>Exclusión de tools</td>
+</tr>
+</tbody></table>
+<p>Número de reviewers: fijo en 4 (correctness, security, maintainability, scope) — no configurable por input, hardcodeado en el array <code>reviewers</code>.</p>
+<p><strong>Output</strong>: string markdown. Dos posibles formas:</p>
+<ul>
+<li>Camino normal: el texto de síntesis del agente <code>plan-synthesis</code> (plan revisado + must-fix + opcionales + riesgos + checklist + gaps de cobertura). Es prosa libre, sin schema, terminal (pensado para consumo humano).</li>
+<li>Camino de fallo total: el literal <code>&quot;INSUFFICIENT_EVIDENCE: all reviewers failed or returned empty; no revised plan produced. Re-run or simplify the plan.&quot;</code>.</li>
+</ul>
+<p>No se detectó ninguna llamada a <code>writeArtifact</code> en el archivo: el workflow no persiste artifacts en disco, solo emite <code>log(...)</code> de progreso (bounding del plan, selección de fan-out, resultado del fan-out, bounding de críticas) y retorna el string de síntesis (o el mensaje de insuficiencia) como resultado final del workflow.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Review</strong> — fan-out en paralelo (settle) de 4 reviewers de ángulo fijo (correctness, security, maintainability, scope) sobre el plan.</li>
+<li><strong>Synthesize</strong> — un agente único (<code>plan-synthesis</code>, opus/high) sintetiza las críticas completadas en un plan revisado, o el workflow corta antes con <code>INSUFFICIENT_EVIDENCE</code> si las 4 ramas fallaron/vinieron vacías.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

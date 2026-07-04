@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>self-refine</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>self-refine</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Loop acotado de generar → criticar → refinar en el mismo lugar, con memoria verbal; se detiene silenciosamente cuando el crítico queda satisfecho.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start["Input: task, maxRounds (default 4, clamp 1-8), useJury"] --&gt; Draft["Generate&lt;br/&gt;agent draft-0&lt;br/&gt;model sonnet / effort medium"]
+    Draft --&gt;|"draft == null"| FailInit["return result:null, failure: initial draft null"]
+    Draft --&gt; LoopCheck{"round &lt; maxRounds?"}
+
+    LoopCheck --&gt;|no| StopMax["Salir del loop&lt;br/&gt;satisfied=false&lt;br/&gt;log stopped at maxRounds"]
+    LoopCheck --&gt;|si| IncRound["round++"]
+
+    IncRound --&gt; CritiqueGate{"useJury?"}
+
+    subgraph Critique["Critique (fase)"]
+        CritiqueGate --&gt;|"true: COMPOSICION"| Jury["workflow adversarial-verify&lt;br/&gt;topic: claims del draft&lt;br/&gt;skeptics: input.skeptics default 3"]
+        Jury --&gt; JuryCheck{"resultado es objeto&lt;br/&gt;y totalFindings &gt; 0?"}
+        JuryCheck --&gt;|no| JuryEmpty["critique = not satisfied&lt;br/&gt;issue: jury sin claims chequeables"]
+        JuryCheck --&gt;|si| JuryVerdict["critique.satisfied = killed==0&lt;br/&gt;issue: N claims refutados"]
+
+        CritiqueGate --&gt;|"false: crítico único"| Critic["agent critique&lt;br/&gt;model opus / effort high&lt;br/&gt;schema CRITIQUE (satisfied, issues[])&lt;br/&gt;draft envuelto en fence anti-prompt-injection"]
+        Critic --&gt;|"critique == null"| BreakNull["break: last good draft&lt;br/&gt;failureNote = critic returned null"]
+    end
+
+    JuryEmpty --&gt; Decision
+    JuryVerdict --&gt; Decision
+    Critic --&gt;|"critique != null"| Decision{"satisfied OR issues vacíos?"}
+
+    Decision --&gt;|si| Satisfied["satisfied = true&lt;br/&gt;break"]
+    Decision --&gt;|no| PushMemory["memory.push({round, issues})&lt;br/&gt;verbal memory acumulada"]
+
+    subgraph Refine["Refine (fase)"]
+        PushMemory --&gt; RefineAgent["agent refine-N&lt;br/&gt;model sonnet / effort medium&lt;br/&gt;input: task + memory completa + draft actual"]
+    end
+
+    RefineAgent --&gt; LoopCheck
+    BreakNull --&gt; Return
+    Satisfied --&gt; Return
+    StopMax --&gt; Return
+    RefineAgent -.-&gt;|"throw en Critique/Refine"| CatchErr["catch: failureNote = round N failed&lt;br/&gt;break, conserva último draft bueno"]
+    CatchErr --&gt; Return
+
+    Return["Return: { result: draft, rounds, satisfied, critiques: memory, failure? }"]</pre>
+<h2>Qué hace</h2>
+<p><code>self-refine</code> implementa el patrón Self-Refine (arXiv:2303.17651): produce un primer borrador y luego lo mejora <strong>en el mismo lugar</strong> mediante rondas de crítica y revisión, en vez de reintentar la tarea desde cero. Cada ronda de crítica es adversarial y debe ser accionable y localizada (apunta a un span concreto y sugiere un fix concreto); las críticas de todas las rondas anteriores se acumulan como &quot;memoria verbal&quot; y se anteponen al prompt de la siguiente refinación, para que el modelo no repita errores ya señalados.</p>
+<p>El loop está acotado por ambos extremos: un tope duro <code>maxRounds</code> (por defecto 4, clamp entre 1 y 8 — el paper original nota que el retorno decae rápido después de ~4 rondas) y una parada silenciosa cuando el crítico declara <code>satisfied=true</code> (o no reporta issues). Esto evita tanto el loop infinito como el sobre-ajuste de &quot;seguir mejorando&quot; sin criterio.</p>
+<p>Para mitigar el problema conocido de que la auto-crítica intrínseca puede degradar la salida cuando el crítico es esencialmente el mismo generador validándose a sí mismo (Huang et al., arXiv:2310.01798), el scaffold aplica dos mitigaciones: (1) el crítico por defecto es una instancia de agente separada con un brief explícitamente adversarial (<code>model: opus</code>, <code>effort: high</code>) que nunca reescribe, solo critica; y (2) opcionalmente (<code>useJury:true</code>) reemplaza ese crítico único por una composición con el workflow <code>adversarial-verify</code>, un jurado de escépticos que refuta por mayoría las afirmaciones del borrador — una señal más fuerte e independiente antes de aceptar &quot;satisfied&quot;.</p>
+<p>El manejo de fallos parciales es explícito: si el draft inicial vuelve <code>null</code>, retorna de inmediato sin intentar refinar nada; si el crítico (modo agente único) retorna <code>null</code>, o si cualquier excepción ocurre durante crítica/refinamiento, el loop rompe conservando el <strong>último draft bueno conocido</strong> en vez de descartarlo, y deja constancia en <code>failure</code>.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Pulir un único artefacto (documento, spec, sección de código) donde la crítica puede ser intrínseca al modelo.</li>
+<li>Iterar hasta calidad sobre una sola pieza de contenido, no sobre múltiples archivos o un repo.</li>
+<li>Casos donde se quiere un crítico adicional más fuerte e independiente vía jurado escéptico (<code>useJury: true</code>).</li>
+<li><strong>No usarlo cuando</strong>: conviene re-intentar la tarea completa desde un estado limpio en cada trial (usar <code>reflexion.js</code> en su lugar, que tiene reset de entorno y evaluador externo opcional vía <code>verifyCmd</code>); tampoco es apto cuando se necesita un oráculo objetivo pass/fail (tests, comandos) — para eso también aplica <code>reflexion</code>.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Parseo de input y helpers.</strong> Lee <code>args</code> (string JSON u objeto), define <code>compact()</code> para truncar datos largos a 60000 chars antes de meterlos en prompts, y <code>fence()</code> para envolver datos no confiables (el draft) en un delimitador <code>&lt;untrusted-HASH&gt;</code> derivado de un hash del contenido — evita que un payload malicioso forje el marcador de cierre y por lo tanto neutraliza inyección de instrucciones dentro del draft que el crítico lee.</p>
+</li>
+<li><p><strong>Overrides por rol.</strong> <code>node(role, extra)</code> resuelve <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> con precedencia: override por rol (<code>input.models[role]</code>, etc.) &gt; default global (<code>input.model</code>, etc.) &gt; default del scaffold. Los roles usados son <code>draft</code>, <code>critique</code>, <code>refine</code>.</p>
+</li>
+<li><p><strong>Validación de input.</strong> Requiere <code>task</code> (o <code>question</code>/<code>text</code> como alias). <code>maxRounds</code> se clampa a <code>[1, 8]</code> con log si se recorta. <code>useJury</code> es un booleano estricto (<code>=== true</code>).</p>
+</li>
+<li><p><strong>Fase Generate.</strong> Un único <code>agent(...)</code> produce el primer borrador completo (<code>model: sonnet</code>, <code>effort: medium</code>, label <code>draft-0</code>). Si retorna <code>null</code> (subagente falló o fue saltado), el scaffold corta inmediatamente y devuelve <code>{ result: null, rounds: 0, satisfied: false, critiques: [], failure: &quot;initial draft null&quot; }</code>.</p>
+</li>
+<li><p><strong>Loop principal</strong> (<code>while (round &lt; maxRounds)</code>), envuelto en <code>try/catch</code> por ronda para aislar fallos parciales:</p>
+<ul>
+<li><strong>Fase Critique.</strong><ul>
+<li>Si <code>useJury: true</code>: llama a <code>workflow(&quot;adversarial-verify&quot;, { topic, skeptics: input.skeptics ?? 3 })</code> (COMPOSICIÓN con otro scaffold). El resultado puede ser un string (cuando el finder no extrajo claims chequeables) — ese caso se trata explícitamente como &quot;no verificado&quot; (no como &quot;draft limpio&quot;) para no quiet-stop falsamente. Si hay findings, <code>satisfied = (killed === 0)</code>; los claims refutados por mayoría se traducen a un issue sintético.</li>
+<li>Si <code>useJury: false</code> (default): llama a un <code>agent(...)</code> crítico (<code>model: opus</code>, <code>effort: high</code>) con <code>schema: CRITIQUE</code> (JSON Schema tipado: <code>satisfied: boolean</code>, <code>issues: [{where, problem, fix}]</code>). El draft se pasa envuelto en <code>fence(&quot;candidate&quot;, ...)</code> con instrucciones explícitas de ignorar cualquier directiva incrustada en los datos. Si el agente retorna <code>null</code>, rompe el loop con <code>failureNote</code> y conserva el último draft.</li>
+</ul>
+</li>
+<li><strong>Gate de decisión.</strong> Si <code>critique.satisfied</code> es true o no hay issues, marca <code>satisfied = true</code> y sale del loop (quiet stop).</li>
+<li>Si hay issues, los agrega a <code>memory</code> (array acumulativo de <code>{round, issues}</code> — la memoria verbal).</li>
+<li><strong>Fase Refine.</strong> Un <code>agent(...)</code> (<code>model: sonnet</code>, <code>effort: medium</code>, label <code>refine-N</code>) recibe la tarea, <strong>toda la memoria acumulada</strong> (<code>compact(memory, 16000)</code>) y el draft actual, con instrucción de resolver todas las críticas sin introducir problemas nuevos. El resultado reemplaza <code>draft</code> y el loop vuelve a evaluar la condición de ronda.</li>
+<li>Cualquier excepción durante crítica o refinamiento se captura: registra <code>failureNote</code>, loggea, y rompe el loop conservando el <code>draft</code> previo a la excepción (nunca lo descarta).</li>
+</ul>
+</li>
+<li><p><strong>Salida del loop.</strong> Si se agotó <code>maxRounds</code> sin <code>satisfied</code>, loggea que se detuvo sin llegar a satisfacción. Loggea siempre un resumen final (<code>rounds</code>, <code>satisfied</code>, <code>useJury</code>, <code>failed</code>).</p>
+</li>
+</ol>
+<p>No hay caching explícito en este scaffold (cada ronda vuelve a llamar a los agentes); la única forma de &quot;memoria&quot; es la lista <code>memory</code> que se pasa completa en cada prompt de refinamiento.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (objeto o string JSON vía <code>args</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / clamp</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>task</code> (o <code>question</code>/<code>text</code>)</td>
+<td>string</td>
+<td>requerido</td>
+<td>lanza error si falta</td>
+</tr>
+<tr>
+<td><code>maxRounds</code></td>
+<td>number</td>
+<td><code>4</code>, clamp <code>[1, 8]</code></td>
+<td>tope duro de rondas crítica+refine</td>
+</tr>
+<tr>
+<td><code>useJury</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>debe ser literalmente <code>true</code> para activar el jurado</td>
+</tr>
+<tr>
+<td><code>skeptics</code></td>
+<td>number</td>
+<td><code>3</code> (solo si <code>useJury</code>)</td>
+<td>pasado a <code>adversarial-verify</code></td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>overrides globales aplicados a todos los nodos</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>—</td>
+<td>overrides por rol: <code>draft</code>, <code>critique</code>, <code>refine</code></td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>herramientas permitidas por nodo</td>
+</tr>
+<tr>
+<td><code>skills</code> / <code>skillsByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>skills por nodo</td>
+</tr>
+<tr>
+<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>herramientas excluidas por nodo</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong> (objeto retornado):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>result</code></td>
+<td>any / null</td>
+<td>el draft final (o <code>null</code> si la generación inicial falló)</td>
+</tr>
+<tr>
+<td><code>rounds</code></td>
+<td>number</td>
+<td>rondas de crítica+refine ejecutadas</td>
+</tr>
+<tr>
+<td><code>satisfied</code></td>
+<td>boolean</td>
+<td>true si el crítico dio quiet-stop</td>
+</tr>
+<tr>
+<td><code>critiques</code></td>
+<td>array</td>
+<td>memoria verbal completa: <code>[{round, issues}]</code></td>
+</tr>
+<tr>
+<td><code>failure</code></td>
+<td>string (opcional)</td>
+<td>presente solo si hubo un fallo parcial (draft inicial null, crítico null, o excepción en una ronda)</td>
+</tr>
+</tbody></table>
+<p>No se observan llamadas a <code>writeArtifact</code> en este scaffold — el resultado se retorna directamente, sin persistir artifacts en disco.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Generate</strong> — produce el borrador inicial (<code>agent</code>, <code>draft-0</code>).</li>
+<li><strong>Critique</strong> — evalúa el borrador actual, ya sea con un crítico adversarial único o con el jurado <code>adversarial-verify</code> (<code>useJury: true</code>); determina si hay issues accionables o si se declara <code>satisfied</code>.</li>
+<li><strong>Refine</strong> — revisa el borrador aplicando los fixes señalados, usando toda la memoria verbal acumulada; se repite junto con Critique hasta <code>satisfied</code> o <code>maxRounds</code>.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

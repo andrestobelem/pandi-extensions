@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fan-out-and-synthesize</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>fan-out-and-synthesize</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Scatter-gather: escanea una lista de trabajo, un revisor por ítem (paralelo, con settle), y sintetiza como juez con notas de cobertura/fallos.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Input["Input: limit, pattern, lens, files?"] --&gt; HasFiles{"input.files provisto?"}
+    HasFiles -- si --&gt; Candidates0["allCandidates = input.files"]
+    HasFiles -- no --&gt; Scout["Scout: agent scho haiku/low\ngit ls-files + filtro por regex\nschema FILE_LIST"]
+    Scout --&gt; Candidates0
+    Candidates0 --&gt; Cap["Cap a limit (default 12)\ncandidates = allCandidates.slice(0, limit)"]
+
+    Cap --&gt; FanOut["parallel settle: un reviewer por candidate"]
+    subgraph Review["Review - fan-out paralelo (sonnet, medium)"]
+        R1["agent review file 1"]
+        R2["agent review file 2"]
+        Rn["agent review file N"]
+    end
+    FanOut --&gt; R1
+    FanOut --&gt; R2
+    FanOut --&gt; Rn
+
+    R1 --&gt; Filter["filter: descarta branches null/failed\nrecupera failedFiles por posicion"]
+    R2 --&gt; Filter
+    Rn --&gt; Filter
+
+    Filter --&gt; Judge["Synthesize: agent judge opus/high\nprioriza findings, descarta claims sin evidencia\nnombra failed/uncovered files"]
+    Judge --&gt; Output["Output: resultado de texto libre del juez"]</pre>
+<h2>Qué hace</h2>
+<p><code>fan-out-and-synthesize</code> es el patrón base de scatter-gather (parallelization / scatter-gather de &quot;Anthropic: Building Effective Agents&quot;): descubre una lista de trabajo en tiempo de ejecución, lanza un revisor independiente por cada ítem en paralelo, y sintetiza los resultados con un agente que actúa como juez, priorizando hallazgos, descartando afirmaciones sin evidencia y nombrando explícitamente qué ramas fallaron o quedaron sin revisar.</p>
+<p>El ancho del fan-out no se conoce en tiempo de autoría (depende de cuántos archivos matchean el patrón en el repo), por lo que se deriva de un scout en runtime y se limita con <code>limit</code>. El scout, los revisores y el juez son tres agentes con roles y efforts distintos: el scout es barato (haiku/low) porque solo filtra rutas, los revisores son de esfuerzo medio (sonnet/medium) porque hacen lectura línea por línea, y el juez corre con el modelo y esfuerzo más altos (opus/high) porque debe priorizar y descartar entre muchos hallazgos.</p>
+<p>El diseño trata explícitamente el fallo parcial como un caso de primera clase: el fan-out usa <code>parallel</code> con semántica <em>settle</em> (una rama fallida se convierte en <code>null</code>, nunca rechaza la promesa combinada), y tanto el conteo de cobertura como la lista de archivos no revisados se pasan al juez para que los mencione en la síntesis en lugar de ocultarlos.</p>
+<p>Toda entrada no confiable (el patrón regex del usuario, el contenido de los reviews) se envuelve con <code>fence()</code>, un delimitador derivado de un hash del contenido (FNV-like, sin <code>Math.random</code>/<code>Date.now</code> porque el runtime los prohíbe) para que un payload malicioso no pueda falsificar el marcador de cierre y así inyectar instrucciones al scout o al juez.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Repartir revisión de código sobre muchos archivos (caso de catálogo).</li>
+<li>Síntesis multi-ángulo: muchas perspectivas independientes convergiendo en un solo veredicto (caso de catálogo).</li>
+<li>Correr revisores independientes sobre una lista de trabajo acotada (caso de catálogo).</li>
+<li>Necesitás cobertura amplia e independiente de un work-list conocido o casi conocido (<code>useWhen</code> del catálogo).</li>
+<li>Auditorías de seguridad, revisión de prosa/documentación, o cualquier chequeo que se beneficie de &quot;N ojos&quot; sin contaminación entre ramas (cada reviewer ve solo su archivo).</li>
+</ul>
+<p><strong>No usarlo cuando:</strong></p>
+<ul>
+<li>El work-list es enorme y solo importa la parte riesgosa (usar en su lugar <code>scout-fanout</code>, que clasifica riesgo antes de invertir en revisión profunda).</li>
+<li>El output necesita un schema estructurado para composición downstream — el propio código lo advierte: &quot;Output... currently free-form prose — add a schema before composing this workflow downstream.&quot;</li>
+<li>Los ítems no son independientes entre sí (por ejemplo si un archivo solo tiene sentido revisado junto con otro): el fan-out asume independencia total por diseño.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Parseo de input.</strong> <code>args</code> se parsea como JSON de forma defensiva (try/catch a <code>{}</code>). Se derivan <code>limit</code> (clamp entre 1 y 4096, default 12), <code>pattern</code> (preset o regex libre, default <code>code</code>), <code>lens</code> (preset o descripción libre de qué buscar, default <code>code</code>), y overrides opcionales por rol (<code>models</code>, <code>efforts</code>, <code>toolsByRole</code>, <code>skillsByRole</code>, <code>excludeByRole</code>) vía el helper <code>node(role, extra)</code>.</p>
+</li>
+<li><p><strong>Fase Scout.</strong> Si <code>input.files</code> viene poblado, se usa directamente como <code>allCandidates</code> y se salta el scout. Si no, se llama a un <code>agent()</code> (rol <code>scout</code>, modelo <code>haiku</code>, effort <code>low</code>, <code>schema: FILE_LIST</code>) instruido para correr <code>git ls-files</code>, filtrar por el regex (pasado dentro de un <code>fence(&quot;pattern&quot;, pattern)</code> para que el propio patrón no pueda inyectar instrucciones) y devolver <code>{ files: [...] }</code>. El resultado se trunca a <code>limit</code> con <code>.slice(0, limit)</code>; si se descartan candidatos se loguea <code>candidate cap applied</code> con conteos.</p>
+</li>
+<li><p><strong>Fase Review (fan-out paralelo).</strong> Se llama a <code>parallel()</code> sobre un array de thunks, uno por candidato, cada uno un <code>agent()</code> (rol <code>review</code>, modelo <code>sonnet</code>, effort <code>medium</code>, <code>label: review-&lt;file&gt;</code>, <code>phase: &quot;Review&quot;</code>) con el prompt &quot;Review <file> for <lens>...&quot;, que exige citar evidencia file/line, decir <code>NO_FINDINGS</code> si no hay issues creíbles, y <code>INSUFFICIENT_EVIDENCE</code>/<code>FILE_UNREADABLE</code> en vez de reportar &quot;limpio&quot; si el archivo no se puede leer. <code>parallel</code> usa semántica <em>settle</em>: una rama que falla se resuelve como <code>null</code> en vez de rechazar el <code>Promise.all</code>. Tras el fan-out se calcula <code>completedReviews</code> (filtrando outputs no nulos) y <code>failedFiles</code> (candidatos cuya posición en <code>reviews</code> quedó sin output), y se loguea <code>fan-out complete</code> con totales.</p>
+</li>
+<li><p><strong>Fase Synthesize (juez).</strong> Un único <code>agent()</code> (rol <code>synthesis</code>, modelo <code>opus</code>, effort <code>high</code>, <code>phase: &quot;Synthesize&quot;</code>) recibe: la instrucción de sintetizar como &quot;synthesis-as-judge&quot; (priorizar, descartar claims sin soporte, mencionar caps y ramas fallidas), la cobertura numérica (<code>candidates.length</code>/<code>allCandidates.length</code>), la lista de <code>failedFiles</code>, y los hallazgos completos (<code>completedReviews</code>, comprimidos con <code>compact(..., 50000)</code> para truncar payloads gigantes) envueltos en <code>fence(&quot;findings&quot;, ...)</code>. El prompt repite la advertencia de tratar todo lo cercado como datos, nunca instrucciones.</p>
+</li>
+<li><p><strong>Retorno.</strong> La función devuelve directamente el resultado del agente juez (texto libre, sin schema).</p>
+</li>
+</ol>
+<p>No hay caching explícito en el scaffold (no se usa ninguna primitiva de cache); cada corrida vuelve a scoutear y revisar desde cero. Tampoco hay <code>writeArtifact</code> — el resultado se retorna como valor del workflow, no se persiste a disco dentro del propio código.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (JSON parseado defensivamente desde <code>args</code>, default <code>{}</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>limit</code></td>
+<td>number</td>
+<td><code>12</code></td>
+<td>Clamp <code>[1, 4096]</code>, truncado con <code>Math.floor</code>; si se corrige se loguea.</td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td>string</td>
+<td><code>code</code></td>
+<td>Preset (<code>code</code>|<code>docs</code>|<code>web</code>|<code>config</code>) o regex libre. Presets: code=`.(ts</td>
+</tr>
+<tr>
+<td><code>lens</code></td>
+<td>string</td>
+<td><code>code</code></td>
+<td>Preset (<code>code</code>|<code>security</code>|<code>prose</code>) o descripción libre de qué buscar.</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Opcional; si está presente y no vacío, bypassea el scout de <code>git ls-files</code>.</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Overrides globales aplicados a todos los nodos.</td>
+</tr>
+<tr>
+<td><code>models.&lt;role&gt;</code> / <code>efforts.&lt;role&gt;</code></td>
+<td>string</td>
+<td>—</td>
+<td>Overrides por rol (<code>scout</code>, <code>review</code>, <code>synthesis</code>); tienen precedencia sobre el global.</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (globales o <code>*ByRole</code>)</td>
+<td>array</td>
+<td>—</td>
+<td>Pasados a cada agente si son arrays.</td>
+</tr>
+</tbody></table>
+<p><strong>Output:</strong> el retorno de la función es directamente el resultado del <code>agent()</code> de síntesis — texto libre (prose) con los hallazgos priorizados, sin schema. No se escriben <code>artifacts</code> (no hay llamadas a <code>writeArtifact</code> en el código).</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Scout</strong> — descubre/filtra la lista de trabajo (<code>git ls-files</code> + regex) o usa <code>input.files</code> si se provee; agente barato con schema <code>FILE_LIST</code>.</li>
+<li><strong>Review</strong> — fan-out paralelo (<code>parallel</code>, settle) de un revisor por archivo candidato, con evidencia file/line obligatoria y manejo explícito de archivos ilegibles.</li>
+<li><strong>Synthesize</strong> — agente juez de mayor esfuerzo que prioriza hallazgos, descarta afirmaciones sin evidencia y nombra ramas fallidas/no cubiertas.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

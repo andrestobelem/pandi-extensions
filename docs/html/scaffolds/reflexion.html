@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>reflexion</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>reflexion</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Bucle de &quot;RL verbal&quot; (verbal reinforcement learning): reintenta la tarea completa en cada trial cargando reflexiones previas; el evaluador puede estar externamente fundamentado (<code>verifyCmd</code>).</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start(["Input: task, verifyCmd?, maxTrials, memoryCap"]) --&gt; Loop{"trial &lt; maxTrials?"}
+
+    subgraph Trial["Trial N (reset completo)"]
+        direction TB
+        Act["Fase Act (M_a)\nAgente ACTOR\nresuelve la tarea desde cero\ncon memoria episódica acotada"] --&gt; ActNull{"attempt == null?"}
+        ActNull -- si --&gt; RecordFail["Registrar fallo\nlesson: sin output del actor"] --&gt; AppendMem1["Push a memory (cap N)"]
+        ActNull -- no --&gt; Eval["Fase Evaluate (M_e)"]
+
+        Eval --&gt; HasVerify{"verifyCmd presente?"}
+        HasVerify -- si --&gt; Grounded["Evaluador GROUNDED\ncorre verifyCmd via bash\nen sandbox aislado\nrequiere evidence citada"]
+        HasVerify -- no --&gt; Ungrounded["Evaluador agente independiente\n(adversarial, ungrounded)"]
+        Grounded --&gt; Verdict["Verdict {pass, score, feedback, evidence, grounded}"]
+        Ungrounded --&gt; Verdict
+
+        Verdict --&gt; ClampScore["Clamp score a [0,1]\nDegradar grounded si no hay\nevidence citada no vacia"]
+        ClampScore --&gt; Acceptable{"pass &amp;&amp; (sin verifyCmd || grounded)?"}
+        Acceptable -- si --&gt; Success["Marcar passed = true\nGuardar history\nBREAK"]
+        Acceptable -- no --&gt; UpdateBest["Actualizar best si score &gt;= best.score"]
+
+        UpdateBest --&gt; Reflect["Fase Reflect (M_sr)\nAgente SELF-REFLECTION\nproduce lesson corta"]
+        Reflect --&gt; AppendMem2["Push lesson a memory\n(drop oldest si excede memoryCap)"]
+        AppendMem2 --&gt; NextTrial["trial++"]
+    end
+
+    Loop -- si --&gt; Trial
+    Trial --&gt; Loop
+    Loop -- no / Success --&gt; Done["Fin del loop"]
+    Done --&gt; ReturnBest{"passed?"}
+    ReturnBest -- si --&gt; ReturnPass["result = attempt del trial que paso"]
+    ReturnBest -- no --&gt; ReturnBudget["result = best.attempt\n(mejor score observado)"]
+    ReturnPass --&gt; Output(["Return: result, passed, trials,\nverifyCmd, grounded, bestTrial,\nbestScore, lessons, history"])
+    ReturnBudget --&gt; Output</pre>
+<h2>Qué hace</h2>
+<p><code>reflexion</code> implementa el paper <em>Reflexion: Language Agents with Verbal Reinforcement Learning</em> (arXiv:2303.11366). A diferencia de un refinamiento in-place, este scaffold es un <strong>bucle de trials externo</strong>: en cada iteración resetea el problema y hace que un agente Actor resuelva la tarea completa desde cero, condicionado únicamente por un buffer acotado de lecciones textuales acumuladas en trials anteriores (memoria episódica).</p>
+<p>Separa explícitamente tres roles del paper: el <strong>Actor</strong> (M_a) genera el intento completo; el <strong>Evaluador</strong> (M_e) emite una señal objetiva de pass/fail + score, y puede estar <em>fundamentado</em> (grounded) ejecutando un comando real (<code>verifyCmd</code>) vía la tool de bash, o caer a un agente evaluador independiente y adversarial si no hay comando; y el <strong>Self-Reflection</strong> (M_sr) convierte la señal de fallo (sparse) en una lección verbal corta para el siguiente trial. Estos tres roles usan agentes/instancias distintas, no el mismo modelo autoevaluándose.</p>
+<p>El diseño es deliberadamente &quot;falsificable&quot;: un veredicto solo se considera <code>grounded</code> si (a) se pidió <code>verifyCmd</code>, (b) el evaluador no marcó <code>grounded=false</code>, y (c) citó output no vacío en <code>evidence</code>; si falta cualquiera de estas condiciones se degrada a ungrounded, para que un modelo no pueda reclamar una ejecución que nunca hizo. Un &quot;pass&quot; reclamado sin evidencia real bajo <code>verifyCmd</code> NO se acepta como éxito — el loop sigue intentando.</p>
+<p>El bucle está acotado en ambos extremos: se detiene apenas el Evaluador da pass aceptable, o cuando se agota el presupuesto de <code>maxTrials</code>; en ese caso devuelve el mejor intento observado (por score), no el último a secas.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Tareas de código con test suite u otro comando de verificación objetivo (<code>verifyCmd</code>), donde re-generar desde cero es más barato/limpio que editar in-place.</li>
+<li>Tareas con una señal de pass/fail clara (compilación, tests, build) — casos del catálogo: &quot;Code-with-tests&quot;, &quot;Tasks with a pass/fail signal&quot;.</li>
+<li>Cuando conviene decidir entre &quot;reset y reintentar toda la tarea&quot; versus &quot;editar en el lugar&quot; (<code>Reset-and-re-attempt vs edit-in-place</code>) y se opta por la primera.</li>
+<li>Cuando existe un oráculo objetivo (comando ejecutable) — el diseño premia fuertemente disponer de <code>verifyCmd</code>; sin él, el evaluador es un agente ungrounded, señal más débil (per arXiv:2310.01798).</li>
+</ul>
+<p><strong>No usarlo cuando:</strong></p>
+<ul>
+<li>Se quiere refinar UN único artefacto en el lugar en vez de reintentar desde cero — para eso está <code>self-refine</code> (edita in-place, memoria de una sola cadena, un solo modelo con todos los sombreros).</li>
+<li>No hay forma de expresar una señal de éxito/fracaso razonable ni siquiera vía un evaluador agente (la tarea es puramente subjetiva/abierta).</li>
+<li>El runtime no aplica el aislamiento de tools por agente (p. ej. Claude Code Workflow no fuerza <code>actorTools</code>): ahí el Actor puede leer el propio <code>verifyCmd</code>/grader y converger en el trial 1, sin ejercitar realmente el loop de reflect→retry.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p>El scaffold parsea <code>input</code> (JSON o string) y valida que exista <code>task</code> (alias <code>question</code>/<code>text</code>), lanzando error si falta. Define un helper <code>node(role, extra)</code> para resolver overrides por rol de modelo/effort/tools/skills/excludeTools con precedencia per-role &gt; global (<code>input.model</code>/<code>input.effort</code>/etc.) &gt; default del call-site. Define también <code>fence()</code>, que envuelve contenido no confiable en un delimitador derivado de un hash del propio contenido (no determinista por azar — el runtime prohíbe <code>Math.random</code>/<code>Date.now</code> — sino por FNV-ish hash), para que un payload malicioso no pueda forjar el marcador de cierre.</p>
+<p>Fases (declaradas en <code>meta.phases</code>, ejecutadas dentro del <code>while</code> con <code>phase(...)</code>):</p>
+<ol>
+<li><p><strong>Act</strong> — El agente <code>actor</code> (modelo <code>sonnet</code>, effort <code>medium</code> por defecto, override vía <code>actorModel</code>/<code>models.actor</code>) recibe la tarea completa más el bloque de memoria episódica (o &quot;sin lecciones previas&quot; en el trial 1) y produce un intento self-contained desde cero. Si <code>actorTools</code> está seteado, se restringe el toolset del Actor (para que no pueda leer el oráculo/grader). Si el agente devuelve <code>null</code> (murió/fue skippeado), se registra como fallo, se agrega una lección genérica (&quot;actor produjo output vacío&quot;) a memoria y se continúa al siguiente trial sin llamar al Evaluador.</p>
+</li>
+<li><p><strong>Evaluate</strong> — El agente <code>evaluator</code> (modelo <code>opus</code>, effort <code>high</code>, con <code>schema: VERDICT</code>) recibe un prompt distinto según haya <code>verifyCmd</code>:</p>
+<ul>
+<li><strong>Grounded</strong>: se le indica ejecutar el comando real en un directorio scratch aislado (<code>mktemp -d</code>), materializar ahí el intento, correr <code>verifyCmd</code> con la tool de bash, y devolver <code>evidence</code> con el output real citado; debe limpiar el scratch dir al final.</li>
+<li><strong>Ungrounded</strong> (sin <code>verifyCmd</code>): agente evaluador independiente y adversarial, <code>grounded=false</code> forzado, sin <code>evidence</code>.
+Ambas ramas usan <code>fence()</code> para envolver <code>task</code> y el intento como datos no confiables (con instrucciones anti-inyección explícitas). El código clampa <code>score</code> a <code>[0,1]</code> y descarta NaN; recalcula <code>grounded</code> de forma defensiva exigiendo <code>evidence</code> no vacía; y calcula <code>acceptablePass = pass &amp;&amp; (!verifyCmd || grounded)</code> — es decir, un pass solo cuenta si no se pidió grounding o si el grounding fue real. Actualiza <code>best</code> con tie-break hacia el trial más reciente en empates de score.</li>
+</ul>
+</li>
+<li><p><strong>Reflect</strong> — Solo si el trial no fue un pass aceptable. El agente <code>reflection</code> (modelo <code>opus</code>, effort <code>high</code>, <code>schema: REFLECTION</code>) recibe el veredicto objetivo (pass/score/grounded), el intento, el feedback y (si existe) la evidencia citada, y debe producir UNA o dos frases: por qué falló y qué cambiar la próxima vez — sin reescribir la solución. Si el agente no devuelve una <code>lesson</code> válida, se genera una lección fallback con el score y feedback truncados. La lección se agrega al buffer <code>memory</code>, que se recorta (<code>shift()</code>, FIFO) cuando excede <code>memoryCap</code> (default 3).</p>
+</li>
+</ol>
+<p><strong>Manejo de fallos parciales</strong>: actor null → fallo registrado sin evaluar; evaluador null/crash → veredicto sintético fail-closed (<code>pass:false, score:0</code>); reflexión null/inválida → lección fallback determinística. Nunca hay un pass silencioso ni una &quot;reflexión&quot; vacía que rompa el ciclo.</p>
+<p><strong>Caching</strong>: el scaffold no usa <code>writeArtifact</code> ni caching explícito; el estado vive en memoria del proceso (<code>memory</code>, <code>history</code>, <code>best</code>) durante la ejecución del workflow. No persiste artifacts en disco.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (objeto JSON pasado como <code>args</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>task</code> (o <code>question</code>/<code>text</code>)</td>
+<td>string</td>
+<td>—</td>
+<td><strong>requerido</strong>; lanza error si falta</td>
+</tr>
+<tr>
+<td><code>verifyCmd</code></td>
+<td>string</td>
+<td><code>null</code></td>
+<td>si se define y no es vacío tras <code>trim()</code>, activa el evaluador grounded</td>
+</tr>
+<tr>
+<td><code>maxTrials</code></td>
+<td>number</td>
+<td><code>3</code></td>
+<td>clamp a <code>[1, 50]</code>; loguea si el valor se ajustó</td>
+</tr>
+<tr>
+<td><code>memoryCap</code></td>
+<td>number</td>
+<td><code>3</code></td>
+<td>mínimo <code>1</code>; tamaño del buffer FIFO de lecciones</td>
+</tr>
+<tr>
+<td><code>actorModel</code></td>
+<td>string</td>
+<td>inherit</td>
+<td>atajo que setea <code>models.actor</code> si no está ya seteado</td>
+</tr>
+<tr>
+<td><code>evaluatorModel</code></td>
+<td>string</td>
+<td>inherit</td>
+<td>atajo que setea <code>models.evaluator</code> si no está ya seteado</td>
+</tr>
+<tr>
+<td><code>actorTools</code></td>
+<td>array</td>
+<td><code>null</code> (inherit)</td>
+<td>restringe las tools del Actor (p. ej. <code>[]</code> para que no pueda ver el oráculo)</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>defaults globales aplicados a todos los nodos</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td><code>{}</code></td>
+<td>overrides por rol (<code>actor</code>, <code>evaluator</code>, <code>reflection</code>)</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>scoping de tools global o por rol</td>
+</tr>
+<tr>
+<td><code>skills</code> / <code>skillsByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>scoping de skills global o por rol</td>
+</tr>
+<tr>
+<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
+<td>array</td>
+<td>—</td>
+<td>exclusión de tools global o por rol</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong> (objeto retornado por <code>main</code>):</p>
+<ul>
+<li><code>result</code>: el intento ganador (si <code>passed</code>, el del trial que pasó; si no, el de mejor <code>score</code> observado — <code>best.attempt</code>).</li>
+<li><code>passed</code>: boolean, si algún trial fue un pass aceptable.</li>
+<li><code>trials</code>: número de trials ejecutados.</li>
+<li><code>maxTrials</code>: presupuesto configurado.</li>
+<li><code>verifyCmd</code>: boolean — si se PIDIÓ grounding (no si se logró).</li>
+<li><code>grounded</code>: boolean — si ALGÚN trial logró grounding real, evidence-backed (<code>groundedAny</code>).</li>
+<li><code>bestTrial</code> / <code>bestScore</code>: trial y score del mejor intento observado.</li>
+<li><code>lessons</code>: snapshot final del buffer de memoria episódica (copia, <code>memory.slice()</code>).</li>
+<li><code>history</code>: array por-trial con <code>{ trial, attempt, pass, score, feedback, evidence, grounded, lesson }</code>.</li>
+</ul>
+<p>No se escriben <code>writeArtifact</code>; todo el resultado va en el valor de retorno.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Act</strong> — el Actor (M_a) resuelve la tarea completa desde cero, condicionado por la memoria episódica acotada.</li>
+<li><strong>Evaluate</strong> — el Evaluador (M_e) emite un veredicto objetivo pass/fail + score, grounded (ejecuta <code>verifyCmd</code> vía bash con evidencia citada) o ungrounded (agente adversarial independiente).</li>
+<li><strong>Reflect</strong> — el Self-Reflection (M_sr) convierte la señal de fallo en una lección verbal corta, agregada al buffer de memoria para el próximo trial.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

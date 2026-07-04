@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>composition-driver</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>composition-driver</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Workflow padre: descubre afirmaciones, delega la verificación a verify-claims-lib, luego sintetiza.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    A["Input: topic, maxClaims?, skeptics?"] --&gt; B["Phase: Discover"]
+    B --&gt; C["agent claim-finder (haiku, effort low, schema CLAIMS)"]
+    C --&gt; D{"¿claims encontradas &gt; 0?"}
+    D -- no --&gt; Z["Return: 'No falsifiable claims found to verify.'"]
+    D -- sí --&gt; E["slice a maxClaims (clamp 1..20)"]
+    E --&gt; F["Phase: Verify"]
+    F --&gt; G["skeptics = clamp(input.skeptics, 1..8, default 3)"]
+    G --&gt; H["workflow('verify-claims-lib', {claims, skeptics, topic})"]
+
+    subgraph SUB ["sub-workflow verify-claims-lib (delegado)"]
+        H1["Phase: Verify Claims"] --&gt; H2["por cada claim:"]
+        H2 --&gt; H3["parallel: N skeptics agent(opus, effort high, schema VERDICT)"]
+        H3 --&gt; H4["mayoría estricta refuta -&gt; dropped, si no -&gt; verified"]
+        H4 --&gt; H5["return {verified, dropped, votes, coverage}"]
+    end
+
+    H --&gt; SUB
+    SUB --&gt; I{"¿workflow lanzó excepción? (p.ej. nesting depth excedido)"}
+    I -- sí --&gt; J["degrada: verification = {verified: claims, note: 'verification skipped'}"]
+    I -- no --&gt; K["verification = resultado de verify-claims-lib"]
+    J --&gt; L["Phase: Synthesize"]
+    K --&gt; L
+    L --&gt; M["agent composition-synthesis (opus, effort high)"]
+    M --&gt; N["Return: síntesis final (verified/dropped, evidencia, nota de delegación)"]</pre>
+<h2>Qué hace</h2>
+<p><code>composition-driver</code> es la referencia canónica del patrón de composición de workflows en este repo: un workflow &quot;padre&quot; que descubre afirmaciones falsificables sobre un tema y luego delega la fase de verificación completa a un workflow &quot;biblioteca&quot; reutilizable, <code>verify-claims-lib</code>, invocado con la primitiva <code>workflow(name, args)</code>. El propio scaffold no implementa jurados de escépticos ni lógica de veredicto: solo se encarga de encontrar candidatos a verificar, empaquetar el contrato de entrada (<code>{claims, skeptics, topic}</code>) y sintetizar el resultado devuelto por el sub-workflow.</p>
+<p>El diseño ilustra tres ideas de composición: (1) separación de responsabilidades entre descubrimiento y verificación, cada una en su propio workflow independientemente testeable; (2) un contrato explícito de entrada/salida entre padre e hijo (<code>{claims:[{id,claim,evidence}], skeptics?, topic?}</code> → <code>{verified, dropped, votes, coverage}</code>); y (3) degradación controlada cuando la composición no está disponible (por ejemplo, por límite de profundidad de anidamiento de workflows), en cuyo caso el padre sigue funcionando tratando todas las claims como &quot;verificadas por defecto&quot; y deja constancia de la omisión.</p>
+<p>Como en el resto de los scaffolds del repo, todo el contenido no confiable (el <code>topic</code> de entrada, y los hallazgos del sub-workflow antes de sintetizarlos) se envuelve con <code>fence()</code>, un delimitador derivado de un hash del contenido (FNV-1a doble) que no puede ser falsificado por texto inyectado, y los prompts incluyen instrucciones explícitas para que los agentes traten ese contenido como datos, nunca como instrucciones.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Fact-checking de un documento: extraer afirmaciones verificables y confirmarlas con evidencia.</li>
+<li>Cuando se quiere separar la fase de &quot;descubrimiento&quot; (barata, un solo modelo) de la de &quot;verificación&quot; (cara, jurado paralelo), reutilizando la segunda como building block en otros workflows.</li>
+<li>Como referencia/plantilla al diseñar un workflow padre + sub-workflow propios (patrón <code>workflow(name, args)</code>), o al entender exactamente cómo funciona ese flujo discover → verify.</li>
+<li><strong>No usarlo</strong> si no existe (o no se puede instalar) el workflow hermano <code>verify-claims-lib</code> en el mismo scope (proyecto o global): el padre sigue corriendo por la ruta de degradación, pero sin verificación real (todo se acepta como verificado con una nota).</li>
+<li><strong>No usarlo</strong> para temas sin afirmaciones fácticas falsificables (opiniones, tareas creativas): el finder puede no devolver claims y el workflow corta temprano con &quot;No falsifiable claims found to verify.&quot;</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea como JSON (o se usa tal cual si ya es objeto); si falla, cae a <code>{}</code>. Se definen <code>compact()</code> (trunca strings/objetos largos a 60000 chars) y <code>fence()</code> (envuelve datos no confiables en un tag <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code>). <code>node(role, extra)</code> resuelve overrides de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> por rol, con precedencia: override por rol (<code>models[role]</code>) &gt; default global (<code>input.model</code>) &gt; default del call-site.</p>
+</li>
+<li><p><strong>Validación de input.</strong> Requiere <code>input.topic</code> (o <code>question</code>/<code>text</code> como alias); si falta, lanza error. <code>maxClaims</code> se calcula desde <code>input.maxClaims</code> (default 8), forzado a entero ≥1 y clamped a un máximo de 20; si el valor pedido excede el máximo, se loggea el clamp.</p>
+</li>
+<li><p><strong>Phase &quot;Discover&quot;.</strong> Un único <code>agent()</code> (rol <code>claim-finder</code>, modelo <code>haiku</code>, <code>effort: low</code>, con <code>schema: CLAIMS</code> — objeto con array <code>claims:[{id,claim,evidence}]</code>) recibe el <code>topic</code> envuelto en <code>fence()</code> y debe encontrar hasta <code>maxClaims</code> afirmaciones concretas y falsificables. El resultado se filtra (<code>claim?.claim</code> truthy) y se recorta a <code>maxClaims</code>; si no sobrevive ninguna claim, el workflow retorna inmediatamente el string <code>&quot;No falsifiable claims found to verify.&quot;</code> sin pasar a Verify.</p>
+</li>
+<li><p><strong>Phase &quot;Verify&quot;.</strong> <code>skeptics</code> se toma de <code>input.skeptics</code> (default 3), clamped a <code>[1,8]</code> (se loggea si se ajustó). Se invoca <code>await workflow(&quot;verify-claims-lib&quot;, { claims, skeptics, topic })</code>, delegando toda la verificación (jurados de escépticos en paralelo, votación por mayoría estricta, generación de <code>verified</code>/<code>dropped</code>/<code>votes</code>/<code>coverage</code> — ver <code>verify-claims-lib.js</code>). Si la llamada lanza una excepción (por ejemplo, profundidad de anidamiento de workflows excedida), se captura, se loggea el motivo, y se degrada asignando <code>verification = { verified: claims, note: &quot;verification skipped (nesting depth exceeded)&quot; }</code> — es decir, todas las claims se tratan como verificadas sin evidencia real de refutación.</p>
+</li>
+<li><p><strong>Phase &quot;Synthesize&quot;.</strong> Un <code>agent()</code> final (rol <code>composition-synthesis</code>, modelo <code>opus</code>, <code>effort: high</code>) recibe el objeto <code>verification</code> compactado (<code>compact(verification, 50000)</code>) envuelto en <code>fence(&quot;findings&quot;, ...)</code>, y debe sintetizar las claims verificadas/descartadas preservando incertidumbre, citando evidencia y mencionando explícitamente que la verificación fue delegada a <code>verify-claims-lib</code>. El resultado de este agente es el valor final que retorna el workflow.</p>
+</li>
+</ol>
+<p>No hay caché explícito (<code>memo</code>/artifacts intermedios) ni <code>writeArtifact()</code> en este scaffold: todo el estado vive en memoria de la ejecución y el único output persistente es lo que el runner del workflow registre por defecto (logs de fase vía <code>phase()</code>/<code>log()</code>).</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (<code>args</code>, JSON o objeto):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>topic</code> (alias <code>question</code>, <code>text</code>)</td>
+<td>string</td>
+<td>— (requerido)</td>
+<td>Tema sobre el que se buscan afirmaciones; si falta, lanza <code>Error</code>.</td>
+</tr>
+<tr>
+<td><code>maxClaims</code></td>
+<td>number</td>
+<td><code>8</code></td>
+<td>Entero ≥1, clamped a máx. <code>20</code>.</td>
+</tr>
+<tr>
+<td><code>skeptics</code></td>
+<td>number</td>
+<td><code>3</code></td>
+<td>Entero, clamped a <code>[1, 8]</code> (nota: <code>verify-claims-lib</code> internamente permite hasta 64, pero este padre nunca pide más de 8).</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Overrides globales aplicados a todos los nodos (<code>agent</code>/<code>node</code>).</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td><code>{}</code></td>
+<td>Overrides por rol (<code>claim-finder</code>, <code>composition-synthesis</code>); tiene precedencia sobre el global.</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (+ variantes <code>*ByRole</code>)</td>
+<td>array</td>
+<td>—</td>
+<td>Se propagan a <code>node()</code> si están presentes.</td>
+</tr>
+</tbody></table>
+<p><strong>Output:</strong> el valor de retorno del <code>agent()</code> de síntesis (texto/objeto producido por el modelo <code>opus</code>), o el string temprano <code>&quot;No falsifiable claims found to verify.&quot;</code> si no se hallaron claims. No se escriben artifacts en disco (<code>writeArtifact</code> no se usa en este scaffold).</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Discover</strong> — <code>agent claim-finder</code> encuentra hasta <code>maxClaims</code> afirmaciones falsificables sobre <code>topic</code>, devueltas con schema <code>CLAIMS</code>.</li>
+<li><strong>Verify</strong> — delega vía <code>workflow(&quot;verify-claims-lib&quot;, {claims, skeptics, topic})</code>; degrada a &quot;todo verificado sin evidencia&quot; si el sub-workflow no está disponible.</li>
+<li><strong>Synthesize</strong> — <code>agent composition-synthesis</code> (opus, effort high) sintetiza el resultado de verificación en la respuesta final.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

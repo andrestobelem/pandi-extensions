@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>verify-claims-lib</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>verify-claims-lib</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Sub-workflow reutilizable: verifica <code>{ claims, skeptics? }</code> con jurados de escépticos y devuelve verified/dropped/votes/coverage.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start(["Input: { claims, skeptics?, topic? }"]) --&gt; Parse["Parsear args JSON / objeto"]
+    Parse --&gt; CheckClaims{"claims vacío?"}
+    CheckClaims -- sí --&gt; EmptyReturn["Return { verified: [], dropped: [], votes: [], coverage: { claims: 0 } }"]
+    CheckClaims -- no --&gt; Clamp["Clampar skeptics a [1, 64] (default 3)"]
+    Clamp --&gt; LoopStart["Loop secuencial: for each claim (i = 0..N-1)"]
+
+    subgraph PerClaim ["Por cada claim (secuencial)"]
+        direction TB
+        Jury["parallel: lanzar 'skeptics' agentes jurado"]
+        subgraph Fanout ["Jurado de escépticos (fan-out paralelo)"]
+            S1["skeptic 1: agent(VERDICT schema, model opus, effort high)"]
+            S2["skeptic 2: agent(VERDICT schema, model opus, effort high)"]
+            S3["skeptic N: agent(VERDICT schema, model opus, effort high)"]
+        end
+        Jury --&gt; S1
+        Jury --&gt; S2
+        Jury --&gt; S3
+        S1 --&gt; Collect["Recolectar votos (fail-closed: inválido = refuted)"]
+        S2 --&gt; Collect
+        S3 --&gt; Collect
+        Collect --&gt; Majority{"refutations &gt;= majority (floor(skeptics/2)+1)?"}
+        Majority -- sí --&gt; Drop["dropped.push(claim + verification)"]
+        Majority -- no --&gt; Verify["verified.push(claim + verification)"]
+        Drop --&gt; LogClaim["log claim verification complete"]
+        Verify --&gt; LogClaim
+    end
+
+    LoopStart --&gt; Jury
+    LogClaim --&gt; NextClaim{"quedan claims?"}
+    NextClaim -- sí --&gt; LoopStart
+    NextClaim -- no --&gt; Result["result = { verified, dropped, votes, coverage:{claims, skeptics} }"]
+    Result --&gt; Return(["Return result"])</pre>
+<h2>Qué hace</h2>
+<p><code>verify-claims-lib</code> es un sub-workflow puro de verificación: recibe una lista de afirmaciones (<code>claims</code>) y, para cada una, convoca un jurado paralelo de agentes &quot;escépticos&quot; cuya única misión es intentar <strong>refutarla</strong> con evidencia concreta (file:line, URL o salida de comando). No descubre afirmaciones ni sintetiza nada por su cuenta — esa responsabilidad la tiene el workflow padre (p. ej. <code>composition-driver</code>), que lo invoca vía <code>workflow(&quot;verify-claims-lib&quot;, args)</code>.</p>
+<p>El criterio de supervivencia es una mayoría estricta del tamaño <strong>fijo</strong> del jurado: si el número de refutaciones es <code>&gt;= floor(skeptics/2) + 1</code>, la afirmación cae en <code>dropped</code>; si no, sobrevive en <code>verified</code>. Los empates sobreviven (se requiere mayoría estricta para matar). El código deja explícito (comentario &quot;F1&quot;) que está armonizado con <code>adversarial-verify</code>: un veredicto ausente o inválido de un escéptico no ayuda a sobrevivir, sino que cuenta como refutación (fail-closed), evitando que un fallo parcial infle artificialmente la supervivencia de una claim.</p>
+<p>Es, en esencia, la extracción a librería de la fase de &quot;jurado escéptico&quot; de <code>adversarial-verify</code>, pensada para ser compuesta dentro de workflows más grandes en lugar de ejecutarse de forma standalone.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Cuando un workflow padre necesita verificación como building block reutilizable (caso canónico: <code>composition-driver</code>).</li>
+<li>Cualquier workflow que primero <strong>descubre</strong> afirmaciones y luego necesita <strong>verificarlas</strong> por separado.</li>
+<li>Como verificador compartido dentro de un pipeline de composición más grande.</li>
+</ul>
+<p>Cuándo NO usarlo:</p>
+<ul>
+<li>Si no hay un paso previo de discovery que produzca <code>{id, claim, evidence?}</code> — este scaffold no genera claims, solo las verifica.</li>
+<li>Si se necesita todo el flujo end-to-end (discover → verify → synthesize) en un solo paso: usar <code>composition-driver</code> u otro workflow que lo orqueste, no este directamente como entrypoint final.</li>
+<li>Si <code>claims</code> está vacío, el propio scaffold retorna de inmediato <code>{ verified: [], dropped: [], votes: [], coverage: { claims: 0 } }</code> sin gastar agentes — no tiene sentido invocarlo &quot;por si acaso&quot; sin candidatos reales.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p><strong>Fase única: &quot;Verify Claims&quot;.</strong> Todo el trabajo ocurre en una sola fase declarada en <code>meta.phases</code>; no hay fases de discovery ni de síntesis (eso vive en el workflow que lo compone).</p>
+<ol>
+<li><strong>Parseo de input.</strong> <code>args</code> puede llegar como string JSON o como objeto; se parsea de forma defensiva (try/catch → <code>{}</code> si falla).</li>
+<li><strong>Normalización de claims.</strong> Se filtran los elementos de <code>input.claims</code> que tengan un campo <code>claim</code> truthy. Si el resultado es vacío, retorna inmediatamente el shape vacío sin invocar ningún agente.</li>
+<li><strong>Clamp de <code>skeptics</code>.</strong> <code>input.skeptics</code> se coerciona a entero y se clampa a <code>[1, 64]</code>, con default <code>3</code> si no es un número finito. Si el valor pedido excede el máximo, se loggea el clamp (<code>skeptics clamped down</code>).</li>
+<li><strong>Overrides por rol.</strong> Soporta <code>input.model</code>/<code>input.effort</code> como defaults globales y <code>input.models[role]</code>/<code>input.efforts[role]</code> (rol = <code>&quot;skeptic&quot;</code>) como overrides específicos, igual que <code>input.tools</code>/<code>input.skills</code>/<code>input.excludeTools</code> vía <code>toolsByRole</code>/<code>skillsByRole</code>/<code>excludeByRole</code>. La precedencia es: override por rol &gt; default global &gt; default del call-site (que en este caso hardcodea <code>model: &quot;opus&quot;</code>, <code>effort: &quot;high&quot;</code> para el nodo skeptic, sobreescribible).</li>
+<li><strong>Loop secuencial sobre claims.</strong> Para cada claim (en orden, uno a la vez — no en paralelo entre claims):<ul>
+<li>Se lanza <code>parallel(...)</code> con <code>skeptics</code> agentes concurrentes, cada uno un &quot;skeptic j/N&quot; con instrucciones explícitas de intentar refutar la claim con evidencia concreta, y con protección de prompt-injection: los datos de <code>topic</code>/<code>claim</code>/<code>evidence</code> se envuelven con <code>fence(...)</code>, un delimitador derivado de un hash FNV-like del contenido (no de aleatoriedad, ya que el runtime prohíbe <code>Math.random</code>/<code>Date.now</code>), para que texto malicioso embebido no pueda forjar un marcador de cierre falso.</li>
+<li>Cada agente devuelve un JSON validado contra el schema <code>VERDICT</code> (<code>refuted: boolean</code>, <code>confidence: string</code>, <code>evidence: string</code>, <code>why: string</code>), con <code>model: &quot;opus&quot;</code> y <code>effort: &quot;high&quot;</code> por defecto.</li>
+<li>Los votos se normalizan: cualquier resultado sin <code>refuted</code> boolean válido (agente caído o output inválido) se reemplaza por un voto default <code>{ refuted: true, confidence: &quot;low&quot;, evidence: &quot;&quot;, why: &quot;skeptic failed/invalid -&gt; default refuted&quot; }</code> — es decir, <strong>fail-closed</strong>.</li>
+<li>Se cuenta <code>refutations</code> y se compara contra <code>majority = floor(skeptics/2) + 1</code>; <code>survived = refutations &lt; majority</code>.</li>
+<li>Se construye un <code>record</code> con la claim, los votos parseados, el número de branches fallidos, el conteo de refutaciones y el veredicto de supervivencia; se acumula en <code>votes</code>, y la claim (enriquecida con <code>verification: record</code>) se empuja a <code>verified</code> o <code>dropped</code>.</li>
+<li>Se loggea el progreso por claim (<code>claim verification complete</code>, con índice/total/survived/refutations/votos/fallos).</li>
+</ul>
+</li>
+<li><strong>Resultado final.</strong> Se retorna <code>{ verified, dropped, votes, coverage: { claims: claims.length, skeptics } }</code>. No hay <code>writeArtifact</code> en este scaffold — es puramente funcional/retorno de valor, delegando la persistencia (si la hay) al workflow padre.</li>
+</ol>
+<p>No hay caching explícito (<code>cache: true/false</code> no aparece) ni pipeline/gate adicionales; el único mecanismo de manejo de fallos parciales es el fail-closed en el conteo de votos.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (<code>{ claims:[{id, claim, evidence?}], skeptics?, topic? }</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / Clamp</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>claims</code></td>
+<td><code>Array&lt;{id?, claim, evidence?}&gt;</code></td>
+<td>filtra por <code>claim</code> truthy; si queda vacío, corta temprano</td>
+<td>obligatorio para hacer trabajo real</td>
+</tr>
+<tr>
+<td><code>skeptics</code></td>
+<td>number</td>
+<td>default <code>3</code>; clamp <code>[1, 64]</code></td>
+<td>se loggea si el pedido excede 64</td>
+</tr>
+<tr>
+<td><code>topic</code></td>
+<td>string</td>
+<td><code>&quot;n/a&quot;</code> si ausente</td>
+<td>se trunca a 4000 chars vía <code>compact</code></td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>aplican a todos los nodos (rol <code>skeptic</code>)</td>
+<td>override global</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>rol = <code>&quot;skeptic&quot;</code></td>
+<td>override por rol, precedencia sobre global</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (+ <code>*ByRole</code>)</td>
+<td>array</td>
+<td>igual patrón global/por-rol</td>
+<td>pasan al agente skeptic</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong>:</p>
+<pre><code class="language-json">{
+  &quot;verified&quot;: [ /* claims con verification.survived = true */ ],
+  &quot;dropped&quot;: [ /* claims con verification.survived = false */ ],
+  &quot;votes&quot;: [ /* un record por claim: {claim, parsedVotes, failedBranches, refutations, survived} */ ],
+  &quot;coverage&quot;: { &quot;claims&quot;: &quot;&lt;n&gt;&quot;, &quot;skeptics&quot;: &quot;&lt;n&gt;&quot; }
+}
+</code></pre>
+<p>No escribe artifacts en disco (<code>writeArtifact</code> no se usa en este scaffold); todo el output se retorna al caller (típicamente <code>composition-driver</code>).</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Verify Claims</strong> — única fase declarada en <code>meta.phases</code>; ejecuta el loop secuencial de claims, cada una resuelta mediante un fan-out paralelo de agentes escépticos con schema <code>VERDICT</code>, y produce <code>verified</code>/<code>dropped</code>/<code>votes</code>/<code>coverage</code> como resultado final.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

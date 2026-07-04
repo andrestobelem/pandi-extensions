@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>router</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>router</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Clasifica una solicitud y la despacha al único mejor workflow del catálogo, o solo recomienda.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    A["Input: request (task/text)"] --&gt; B{"candidates explícito?"}
+    B -- "sí" --&gt; C["Usar allow-list del caller"]
+    B -- "no" --&gt; D["Fase Discover: agent catalog-scan (haiku, low)\nlee .pi/workflows/*.js y ~/.pi/agent/workflows/*.js"]
+    D --&gt;|"falla"| E["catálogo vacío (log, no crash)"]
+    D --&gt;|"ok"| F["lista workflows: name/description"]
+    C --&gt; G["Filtrar excluidos: router y drafts/, dedup"]
+    E --&gt; G
+    F --&gt; G
+    G --&gt; H["Aplicar maxCandidates (default 60, clamp 1..200)"]
+    H --&gt; I{"candidates.length == 0?"}
+    I -- "sí" --&gt; J["return selected=none, dispatched=false"]
+    I -- "no" --&gt; K["Fase Route: agent route (opus, high, schema ROUTE)"]
+    K --&gt;|"falla"| L["return selected=none, error, dispatched=false"]
+    K --&gt;|"ok"| M{"selected válido y no excluido?"}
+    M -- "no" --&gt; N["forzar selected=none (log)"]
+    M -- "sí" --&gt; O["selected = nombre elegido"]
+    N --&gt; P{"selected==none OR runSelected==false?"}
+    O --&gt; P
+    P -- "sí" --&gt; Q["return selected, why, dispatched=false, suggestedArgs"]
+    P -- "no" --&gt; R["Fase Dispatch: resolver dispatchArgs\n(input.args ?? suggestedArgs ?? {request})"]
+    R --&gt; S["workflow(selected, dispatchArgs)"]
+    S --&gt;|"éxito"| T["return selected, why, dispatched=true, output"]
+    S --&gt;|"falla"| U["return selected, why, dispatched=false, error (recomendación intacta)"]</pre>
+<h2>Qué hace</h2>
+<p><code>router</code> implementa el patrón clásico de routing/dispatch de LLM: un nodo juez único (<code>route</code>) clasifica una solicitud entrante y elige, entre los workflows hermanos del catálogo, el que mejor se ajusta. A diferencia de <code>contract-gate</code> (que solo recomienda un <code>routingHint</code>), <code>router</code> por defecto <strong>ejecuta</strong> la decisión: llama a <code>workflow(selected, args)</code> y devuelve la salida de ese workflow, de modo que el caller puede pasar una tarea cruda a <code>router</code> y recibir el resultado del especialista sin tener que nombrarlo.</p>
+<p>El conjunto de candidatos no se conoce en tiempo de autoría: se <strong>descubre en runtime</strong> leyendo <code>.pi/workflows/*.js</code> (proyecto) y <code>~/.pi/agent/workflows/*.js</code> (global), extrayendo <code>meta.name</code>/<code>meta.description</code> de cada archivo. <code>router</code> se excluye a sí mismo y cualquier entrada bajo una subcarpeta <code>drafts/</code>, de modo que un ciclo de auto-ruteo es estructuralmente imposible.</p>
+<p>Cada etapa está blindada: si el escaneo del catálogo falla, se sigue con catálogo vacío (→ <code>selected: &quot;none&quot;</code>); si el nodo de ruteo falla, degrada a <code>&quot;none&quot;</code> con el motivo en <code>error</code>; si el dispatch falla, se surge <code>dispatched:false</code> + <code>error</code> — nunca un crash. <code>&quot;none&quot;</code> es un resultado de primera clase para solicitudes triviales o sin encaje, y el dispatch es de un solo tiro (sin loop ni recursión).</p>
+<p>El nombre elegido por el nodo juez se valida contra el conjunto descubierto: un pick alucinado o fuera de catálogo se trata como <code>&quot;none&quot;</code>, nunca se despacha una suposición.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Un único front door para tareas crudas, cuando el caller no sabe (o no quiere) nombrar el workflow correcto.</li>
+<li>Previsualizar la elección con <code>runSelected: false</code> (solo recomendación, sin ejecutar nada).</li>
+<li>Mapear una tarea al especialista adecuado dentro de un catálogo de workflows conocido.</li>
+</ul>
+<p><strong>No usarlo cuando:</strong></p>
+<ul>
+<li>Ya se sabe con certeza qué workflow correr (llamarlo directamente, o usar <code>guardrails</code> si se quiere envolver uno ya elegido).</li>
+<li>Se necesita generar un workflow nuevo en lugar de reutilizar uno existente (usar <code>workflow-factory</code>).</li>
+<li>Se necesita solo una recomendación con <code>routingHint</code> de forma (trivial / single-agent / dynamic-workflow) sin listar candidatos concretos (usar <code>contract-gate</code>).</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p>El input llega como <code>args</code> (posiblemente JSON-stringified) y se parsea defensivamente; si falla el parseo, se usa <code>{}</code>. Toda entrada no confiable (contenido del catálogo, contexto, request) se envuelve con <code>fence()</code>, un delimitador cuyo tag se deriva de un hash del contenido, para que un payload malicioso no pueda forjar un marcador de cierre coincidente.</p>
+<p><strong>Fase 1 — Discover.</strong> Si <code>input.candidates</code> viene como array no vacío, se usa como allow-list explícita (se salta el escaneo de catálogo, pero igual se filtra contra <code>router</code>/<code>drafts</code> y se deduplica). En caso contrario, se invoca <code>agent()</code> con rol <code>catalog-scan</code> (modelo <code>haiku</code>, effort <code>low</code>, schema <code>CATALOG</code>) para leer los archivos de catálogo y extraer <code>{ name, description }</code> de cada uno, tratando su contenido como DATOS a copiar literalmente, nunca como instrucciones a obedecer. Un fallo en este <code>agent()</code> se loguea y se continúa con lista vacía. Los nombres excluidos (<code>router</code> y cualquier entrada bajo <code>drafts/</code>) se descartan y se deduplican por nombre; se aplica el cap <code>maxCandidates</code> con log visible si recorta cobertura. Si no queda ningún candidato, se retorna de inmediato <code>{ selected: &quot;none&quot;, dispatched: false, candidates: [] }</code>.</p>
+<p><strong>Fase 2 — Route.</strong> Un solo nodo juez (<code>agent()</code> con rol <code>route</code>, modelo <code>opus</code>, effort <code>high</code>, schema <code>ROUTE</code>) recibe el catálogo (nombre + descripción de cada candidato, todo fenceado como untrusted), el <code>context</code> opcional y el <code>request</code>, y debe devolver <code>{ selected, why, suggestedArgs }</code>. Las reglas del prompt exigen: <code>selected</code> debe ser exactamente un nombre de la lista (copiado verbatim) o el literal <code>&quot;none&quot;</code>; elegir <code>&quot;none&quot;</code> si nada encaja genuinamente o si la tarea es trivial; nunca elegir una lista; justificar con señales concretas de la solicitud. Si este <code>agent()</code> lanza, se retorna <code>selected:&quot;none&quot;</code> con <code>error</code>. Si <code>decision.selected</code> no está en el conjunto válido descubierto o está excluido, se fuerza a <code>&quot;none&quot;</code> (logueado, nunca despachado a ciegas).</p>
+<p><strong>Fase 3 — Dispatch.</strong> Si <code>selected === &quot;none&quot;</code> o <code>runSelected === false</code>, se retorna solo la recomendación (<code>dispatched: false</code>). En caso contrario se resuelven los <code>dispatchArgs</code> con precedencia nullish: <code>input.args ?? suggestedArgs ?? { request }</code> (un <code>suggestedArgs: {}</code> explícito SÍ se pasa, no se reemplaza por <code>{ request }</code> solo por estar vacío). Se llama <code>workflow(selected, dispatchArgs)</code>; si tiene éxito se retorna <code>{ selected, why, dispatched: true, output, ... }</code>; si falla, se retorna <code>dispatched: false</code> con <code>error</code> describiendo el fallo de dispatch, preservando la recomendación (<code>selected</code>, <code>why</code>) intacta.</p>
+<p>No hay caching explícito en el scaffold; el único mecanismo de resiliencia es el patrón try/catch por etapa descrito arriba, que degrada cada fallo a un resultado seguro en lugar de propagar la excepción.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (<code>args</code>, JSON-stringified o objeto):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / clamp</th>
+<th>Descripción</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>request</code> (alias <code>task</code>, <code>text</code>)</td>
+<td>string</td>
+<td><strong>requerido</strong></td>
+<td>La tarea a rutear; si falta o está vacía tras trim, lanza error.</td>
+</tr>
+<tr>
+<td><code>candidates</code></td>
+<td>string[]</td>
+<td>opcional</td>
+<td>Allow-list explícita; si se provee, se salta el escaneo de catálogo.</td>
+</tr>
+<tr>
+<td><code>runSelected</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Si <code>false</code>, solo recomienda (nunca despacha).</td>
+</tr>
+<tr>
+<td><code>args</code></td>
+<td>object</td>
+<td>opcional</td>
+<td>Args para el workflow elegido; tiene prioridad sobre <code>suggestedArgs</code>.</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>string</td>
+<td>opcional</td>
+<td>Contexto extra plegado en el prompt de ruteo.</td>
+</tr>
+<tr>
+<td><code>maxCandidates</code></td>
+<td>number</td>
+<td><code>60</code> (clamp 1..200)</td>
+<td>Tope de candidatos mostrados al nodo <code>route</code>; el recorte se loguea.</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Overrides globales aplicados a todos los nodos.</td>
+</tr>
+<tr>
+<td><code>models{}</code> / <code>efforts{}</code></td>
+<td>object</td>
+<td>—</td>
+<td>Overrides por rol (<code>catalog-scan</code>, <code>route</code>).</td>
+</tr>
+<tr>
+<td><code>toolsByRole</code> / <code>skillsByRole</code> / <code>excludeByRole</code></td>
+<td>object</td>
+<td>—</td>
+<td>Overrides de tools/skills/excludeTools por rol.</td>
+</tr>
+</tbody></table>
+<p><strong>Output:</strong></p>
+<pre><code>{
+  selected: string,        // nombre del workflow elegido, o &quot;none&quot;
+  why: string,              // justificación del nodo route
+  dispatched: boolean,      // true solo si se ejecutó workflow(selected, ...)
+  output?: any,              // presente solo cuando dispatched=true
+  suggestedArgs?: object,    // args propuestos por el nodo route
+  candidates?: string[],     // lista de nombres considerados
+  error?: string             // presente solo en fallo guardado (routing o dispatch)
+}
+</code></pre>
+<p>No se observan llamadas a <code>writeArtifact</code> en el código: el scaffold no escribe artifacts propios; su único efecto observable son las líneas de <code>log(...)</code> y el valor de retorno.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Discover</strong> — descubre el conjunto de workflows candidatos (allow-list del caller o escaneo del catálogo vía <code>agent()</code>), filtra excluidos (<code>router</code>, <code>drafts/</code>), deduplica y aplica el cap <code>maxCandidates</code>.</li>
+<li><strong>Route</strong> — un nodo juez único (<code>agent()</code> con schema <code>ROUTE</code>) elige exactamente un nombre del catálogo o <code>&quot;none&quot;</code>, con justificación y <code>suggestedArgs</code>; se valida contra el conjunto descubierto.</li>
+<li><strong>Dispatch</strong> — si hay una selección válida y <code>runSelected</code> no es <code>false</code>, ejecuta <code>workflow(selected, dispatchArgs)</code> y retorna su salida; de otro modo retorna solo la recomendación.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>tournament</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>tournament</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Bracket de eliminación simple: rondas de juicio por pares hasta que sobrevive un solo candidato.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    A["Input: candidates o topic"] --&gt; B{"¿hay candidates?"}
+    B --&gt;|"sí"| E["entrants = candidates"]
+    B --&gt;|"no, hay topic"| S["Fase Seed"]
+    B --&gt;|"no hay topic ni candidates"| ERR["throw Error"]
+
+    subgraph SEED["Fase Seed — parallel(angles)"]
+        direction TB
+        S1["agent seed-0 (risk-first)"]
+        S2["agent seed-1 (simplicity-first)"]
+        S3["agent seed-2 (user-first)"]
+        S4["agent seed-i (cost-first / custom)"]
+    end
+    S --&gt; SEED
+    SEED --&gt; E2["entrants = outputs no-crasheados, con label de angle"]
+    E2 --&gt; CLAMP["clamp a MAX_ENTRANTS = 8192"]
+    E --&gt; CLAMP
+
+    CLAMP --&gt; ONE{"entrants.length &lt; 2?"}
+    ONE --&gt;|"sí"| RET0["return entrants[0] o \"\""]
+    ONE --&gt;|"no"| INIT["survivors = entrants (ids e0..en)"]
+
+    INIT --&gt; LOOP{"survivors.length &gt; 1?"}
+    LOOP --&gt;|"sí"| PAIR["Fase Bracket: emparejar survivors\n(par impar -&gt; 1 bye)"]
+
+    subgraph BRACKET["Ronda N — parallel(matches) con settle"]
+        direction TB
+        M1["agent match-rN-m0 (schema VERDICT, opus, effort high)"]
+        M2["agent match-rN-m1"]
+        M3["agent match-rN-mK"]
+    end
+    PAIR --&gt; BRACKET
+    BRACKET --&gt; MAP["mapear verdict slot1/slot2 -&gt; entrant a/b\n(anti position-bias flip)"]
+    MAP --&gt; DEF{"¿verdict inválido/crash?"}
+    DEF --&gt;|"sí"| DFT["default a candidato a + log degradado"]
+    DEF --&gt;|"no"| WIN["winner = candidato elegido"]
+    DFT --&gt; NEXT["next survivors (+ bye si existe)"]
+    WIN --&gt; NEXT
+    NEXT --&gt; LOOP
+
+    LOOP --&gt;|"no, queda 1"| CHAMP["champion = survivors[0]"]
+    CHAMP --&gt; LOGOUT["log tournament summary (entrants, rounds, transcript, championId)"]
+    LOGOUT --&gt; RET["return champion.text"]</pre>
+<h2>Qué hace</h2>
+<p><code>tournament</code> implementa un bracket de eliminación simple estilo torneo deportivo: en lugar de pedirle a un juez que puntúe cada candidato en una escala absoluta (lo cual es notoriamente poco confiable), lo obliga a resolver comparaciones binarias — &quot;¿cuál de estos dos es mejor?&quot; — que son mucho más fáciles de juzgar con consistencia. Cada ronda empareja a los sobrevivientes, un agente-juez con salida estructurada (<code>{winner: 1|2, why}</code>) decide cada partido, los ganadores avanzan y el proceso se repite hasta que queda un solo campeón.</p>
+<p>El número de rondas no está fijado de antemano: emerge de los datos como <code>ceil(log2(n))</code>, y el bracket se reduce a la mitad en cada iteración hasta colapsar a un sobreviviente. Si el campo tiene un número impar de participantes en una ronda, el último entrante recibe un &quot;bye&quot; (pasa gratis a la siguiente ronda) en vez de fabricarle un rival artificial.</p>
+<p>Los candidatos pueden venir explícitos en <code>input.candidates</code>, o generarse automáticamente a partir de &quot;ángulos&quot; de análisis distintos (<code>risk-first</code>, <code>simplicity-first</code>, <code>user-first</code>, <code>cost-first</code> por defecto) cuando solo se provee un <code>topic</code>. Cada partido usa <code>parallel()</code> con semántica de &quot;settle&quot; (vía el helper interno, ver más abajo), de modo que un juez que crashea en un partido no hunde toda la ronda: ese partido simplemente se resuelve por default (documentado en el log, nunca en silencio).</p>
+<p>Todo el prompt de datos no confiables (<code>topic</code>, textos de candidatos) se envuelve con un fence delimitado por un hash derivado del contenido, para blindar contra inyección de instrucciones dentro de los datos que se están juzgando o generando.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Elegir el mejor de varios borradores/diseños (draft de PR, propuestas de arquitectura, textos).</li>
+<li>Ranking comparativo cuando no hay una escala absoluta confiable.</li>
+<li>Selección cabeza a cabeza (head-to-head) entre alternativas.</li>
+<li>El caso general: <strong>la puntuación absoluta es poco confiable pero la comparación por pares es fácil</strong> (ej. &quot;¿cuál código es más legible?&quot; es más fiable que &quot;puntuá este código de 1 a 10&quot;).</li>
+</ul>
+<p><strong>No usarlo cuando:</strong></p>
+<ul>
+<li>Hace falta una puntuación absoluta o un umbral (ej. &quot;aprobar si score &gt; 7&quot;) — usar un scaffold de scoring, no un bracket.</li>
+<li>Se necesita explorar pasos intermedios de una solución (no solo candidatos finales) — ver <code>tree-of-thoughts</code>.</li>
+<li>Se busca consenso por votación mayoritaria entre razonamientos independientes — ver <code>self-consistency</code>.</li>
+<li>Solo hay 0 o 1 candidato: el scaffold corta temprano y devuelve ese único candidato (o <code>&quot;&quot;</code>) sin gastar rondas de juicio.</li>
+</ul>
+<h2>Cómo funciona</h2>
+<ol>
+<li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea como JSON (con fallback a <code>{}</code> si falla). Se define <code>compact()</code> para truncar logs largos, y <code>fence()</code> para envolver datos no confiables en un delimitador cuyo tag es un hash FNV-like del contenido — no se puede falsear porque el propio contenido determina el tag de cierre, y no usa <code>Math.random()</code>/<code>Date.now()</code> (prohibidos en el runtime).</p>
+</li>
+<li><p><strong>Resolución de overrides por rol.</strong> El helper <code>node(role, extra)</code> aplica precedencia: <code>input.models[role]</code> / <code>input.efforts[role]</code> / <code>input.toolsByRole[role]</code> / etc. sobre <code>input.model</code> / <code>input.effort</code> / <code>input.tools</code> globales, sobre el default del call-site. Los roles estables usados en este scaffold son <code>&quot;seed&quot;</code> (fase Seed) y <code>&quot;match&quot;</code> (fase Bracket).</p>
+</li>
+<li><p><strong>Fase Seed (solo si no hay <code>input.candidates</code>).</strong> Requiere <code>input.topic</code> (o <code>question</code>/<code>q</code>/<code>text</code>); si no hay ni candidates ni topic, lanza <code>Error</code>. Toma <code>input.angles</code> (default: 4 ángulos fijos) y por cada ángulo dispara un <code>agent()</code> en paralelo (<code>parallel()</code>) con el prompt &quot;Propone UN approach concreto&quot; + fence del topic. Modelo fijo <code>&quot;sonnet&quot;</code>, effort <code>&quot;medium&quot;</code> (ambos sobre-escribibles vía <code>models.seed</code>/<code>efforts.seed</code>). Los <code>angles</code> se clampean a 4096 (límite de <code>parallel()</code>). Los resultados se mapean a texto <strong>antes</strong> de filtrar nulls, para que un seed crasheado no corra las etiquetas de ángulo de los siguientes entrantes.</p>
+</li>
+<li><p><strong>Clamp de campo.</strong> Los entrantes (explícitos o generados) se recortan a <code>MAX_ENTRANTS = 8192</code>, para que ninguna ronda del bracket exceda el cap de 4096 thunks por llamada a <code>parallel()</code> (una ronda genera como máximo <code>entrants/2</code> partidos).</p>
+</li>
+<li><p><strong>Caso trivial.</strong> Si <code>entrants.length &lt; 2</code>, se loguea y se retorna directamente ese único candidato (o <code>&quot;&quot;</code> si no hay ninguno) — no se corre ningún torneo.</p>
+</li>
+<li><p><strong>Fase Bracket (loop <code>while survivors.length &gt; 1</code>).</strong> En cada ronda:</p>
+<ul>
+<li>Se emparejan sobrevivientes consecutivos; si el conteo es impar, el último recibe un bye.</li>
+<li>Se ejecutan los partidos con <code>parallel()</code>; cada partido llama a <code>agent()</code> con <code>schema: VERDICT</code> (<code>{winner: 1|2, why}</code>), modelo <code>&quot;opus&quot;</code>, effort <code>&quot;high&quot;</code> (rol <code>&quot;match&quot;</code>, overrideable). Para evitar bias posicional, se alterna qué candidato ocupa el &quot;slot 1&quot; según <code>(round + i) % 2</code>.</li>
+<li>El label de cada match es <code>match-r{round}-m{i}</code> — un id estable por ronda+partido para que el cache de prompts no colisione entre rondas.</li>
+<li>El resultado de <code>parallel()</code> viene con settle implícito: si un elemento del array de resultados es falsy/<code>undefined</code> (partido crasheado) o el veredicto no trae <code>winner</code> válido (1 o 2), se hace default explícito a &quot;candidato 1&quot; (<code>a</code>) y se cuenta/loguea como <code>defaulted</code> — nunca en silencio.</li>
+<li>Se registra cada partido en <code>transcript</code> (round, match, ids de a/b, winner, why).</li>
+<li>Los ganadores + el eventual bye forman los <code>survivors</code> de la siguiente ronda.</li>
+</ul>
+</li>
+<li><p><strong>Salida.</strong> Cuando queda un solo sobreviviente, se loguea el campeón y un resumen JSON completo (<code>entrants</code>, <code>rounds</code>, <code>transcript</code>, <code>championId</code>) vía <code>log()</code> (truncado con <code>compact()</code> a 60000 caracteres) — no hay <code>writeArtifact</code> en este scaffold, todo el detalle vive en el log del run. La función retorna el texto del campeón (<code>champion.text</code>), o <code>&quot;&quot;</code> si no hay ninguno.</p>
+</li>
+</ol>
+<h2>Input y output</h2>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>candidates</code></td>
+<td><code>string[]</code></td>
+<td>—</td>
+<td>Si se provee (no vacío tras filtrar falsy), se usa directo como entrantes; tiene prioridad sobre <code>topic</code>.</td>
+</tr>
+<tr>
+<td><code>topic</code> / <code>question</code> / <code>q</code> / <code>text</code></td>
+<td><code>string</code></td>
+<td>—</td>
+<td>Usado solo si no hay <code>candidates</code>; requerido en ese caso (si falta, <code>throw</code>).</td>
+</tr>
+<tr>
+<td><code>angles</code></td>
+<td><code>string[]</code></td>
+<td><code>[&quot;risk-first&quot;,&quot;simplicity-first&quot;,&quot;user-first&quot;,&quot;cost-first&quot;]</code></td>
+<td>Ángulos para generar entrantes cuando no hay <code>candidates</code>. Clampeado a 4096 (límite de <code>parallel()</code>).</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td><code>string</code></td>
+<td>—</td>
+<td>Defaults globales para todo nodo (sonnet/opus por rol si no se especifica).</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td><code>object</code></td>
+<td>—</td>
+<td>Overrides por rol (<code>seed</code>, <code>match</code>), tienen prioridad sobre el default global.</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td><code>string[]</code></td>
+<td>—</td>
+<td>Herramientas por defecto / por rol.</td>
+</tr>
+<tr>
+<td><code>skills</code> / <code>skillsByRole[role]</code></td>
+<td><code>string[]</code></td>
+<td>—</td>
+<td>Skills por defecto / por rol.</td>
+</tr>
+<tr>
+<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
+<td><code>string[]</code></td>
+<td>—</td>
+<td>Exclusiones por defecto / por rol.</td>
+</tr>
+</tbody></table>
+<p>Clamps internos (no configurables al alza):</p>
+<ul>
+<li>Ángulos de seed: máx. <strong>4096</strong>.</li>
+<li>Entrantes totales: máx. <strong>8192</strong> (<code>MAX_ENTRANTS</code>), para no exceder el cap de 4096 thunks/llamada de <code>parallel()</code> en ninguna ronda.</li>
+</ul>
+<p><strong>Output:</strong> el texto del candidato campeón (<code>string</code>), o <code>&quot;&quot;</code> si no hubo ningún entrante válido. No se escriben artifacts con <code>writeArtifact</code>; el detalle del torneo (entrantes, rondas, transcript completo por partido, id del campeón) se emite exclusivamente vía <code>log()</code> como un bloque JSON compactado a 60000 caracteres.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Seed</strong> — genera entrantes desde ángulos distintos cuando no se proveen <code>candidates</code> explícitos (fan-out en paralelo, un <code>agent()</code> por ángulo).</li>
+<li><strong>Bracket</strong> — rondas de juicio por pares en paralelo (<code>agent({schema})</code> por partido) que reducen el campo a la mitad hasta quedar un único campeón.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

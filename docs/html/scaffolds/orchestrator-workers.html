@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>orchestrator-workers</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>orchestrator-workers</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Un planificador descompone un objetivo abierto en un grafo de subtareas con dependencias (<code>dependsOn</code>); los workers lo ejecutan nivel por nivel; un integrador combina los resultados.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start(["Input: goal, context?, maxSubtasks=8, concurrency?"]) --&gt; Plan
+
+    subgraph Plan["Fase 1: Plan"]
+        Planner["agent: PLANNER&lt;br/&gt;opus / high&lt;br/&gt;schema PLAN"]
+        Planner --&gt; Normalize["Normalizar plan:&lt;br/&gt;dedupe ids, cap a maxSubtasks (log),&lt;br/&gt;drop dangling deps (log)"]
+    end
+
+    Normalize --&gt; Exec
+
+    subgraph Exec["Fase 2: Execute (loop Kahn-style, &lt;= subtasks.length niveles)"]
+        direction TB
+        Ready{"¿Hay subtareas READY&lt;br/&gt;(deps completas)?"}
+        Ready -- "no, y quedan pendientes" --&gt; Stuck["stopReason = stuck-or-cycle&lt;br/&gt;log y romper loop"]
+        Ready -- "sí" --&gt; Level["parallel(settle) sobre el nivel&lt;br/&gt;concurrency opcional"]
+
+        subgraph Level_detail["Nivel N: workers en paralelo"]
+            W1["agent: WORKER t1&lt;br/&gt;sonnet / medium"]
+            W2["agent: WORKER t2&lt;br/&gt;sonnet / medium"]
+            W3["agent: WORKER tN&lt;br/&gt;sonnet / medium"]
+        end
+
+        Level --&gt; Level_detail
+        Level_detail --&gt; Record["Registrar por tarea:&lt;br/&gt;completed (output no vacío) |&lt;br/&gt;failed (output vacío/null)&lt;br/&gt;ambos marcan done -&gt; desbloquean deps"]
+        Record --&gt; Ready
+    end
+
+    Ready -- "todas done" --&gt; Unreached["Marcar subtareas nunca alcanzadas&lt;br/&gt;como status: unreached"]
+    Stuck --&gt; Unreached
+
+    Unreached --&gt; CheckCompleted{"¿completed.length === 0?"}
+    CheckCompleted -- "sí" --&gt; EarlyReturn["return { result: mensaje de fallo,&lt;br/&gt;plan, workers } sin integrar"]
+    CheckCompleted -- "no" --&gt; Integrate
+
+    subgraph Integrate["Fase 3: Integrate"]
+        Integrator["agent: INTEGRATOR&lt;br/&gt;opus / high&lt;br/&gt;recibe coverage + gaps + worker outputs"]
+    end
+
+    Integrate --&gt; Return["return { result: integration,&lt;br/&gt;plan: planMeta, workers: records }"]</pre>
+<h2>Qué hace</h2>
+<p><code>orchestrator-workers</code> implementa el patrón Orchestrator–Workers de Anthropic (&quot;Building Effective Agents&quot;): un LLM planificador descompone un objetivo abierto (<code>goal</code>) en un conjunto de subtareas con dependencias explícitas (<code>dependsOn</code>), sin que la forma del grafo se conozca en tiempo de autoría. Ese grafo se ejecuta luego en niveles (scheduling estilo Kahn): en cada nivel corren en paralelo todas las subtareas cuyas dependencias ya completaron, hasta que no queda ninguna pendiente. Finalmente un integrador combina los resultados de los workers en un único entregable.</p>
+<p>El diseño está pensado como &quot;robustness-first&quot;: el scheduling está acotado a como máximo <code>subtasks.length</code> niveles (una cota que nunca debería alcanzarse si el grafo es válido, porque cada iteración no-break marca al menos una tarea como <code>done</code>), detecta ciclos o dependencias colgantes (ningún subtask queda &quot;ready&quot; mientras quedan pendientes) y lo registra en el log en vez de colgarse. Un fallo de un worker (output vacío o <code>null</code>) se registra explícitamente como <code>failed</code>, no se disfraza de éxito, y no bloquea a las tareas dependientes: éstas se ejecutan igual, informadas de que esa dependencia falló.</p>
+<p>El contrato de salida es estable en todos los caminos de salida sin excepción (incluso plan vacío o fallo total): siempre <code>{ result, plan, workers }</code>. Esto permite que otro workflow que componga este scaffold via <code>workflow()</code> nunca tenga que distinguir entre un string suelto y un objeto estructurado.</p>
+<p>Todas las entradas no confiables (goal, context, descripciones de subtareas, outputs de dependencias) se envuelven con <code>fence()</code>, un delimitador derivado de un hash del propio contenido, para blindar contra prompt injection sin depender de escaping mutante.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Entregables de múltiples partes.</li>
+<li>Objetivos de investigación/construcción con interdependencias entre sub-partes.</li>
+<li>Descomponer un objetivo abierto en un grafo de subtareas (cuando el número y la forma de las subtareas no se conocen de antemano).</li>
+<li><strong>No usarlo cuando:</strong><ul>
+<li>La lista de trabajo ya es conocida y plana, sin dependencias entre ítems — usar <code>scout-fanout</code> o <code>fan-out-and-synthesize</code> (una sola pasada, sin grafo).</li>
+<li>Se necesita iterar el mismo finder hasta que no aparezca nada nuevo — usar <code>loop-until-dry</code>.</li>
+<li>El objetivo es generar un archivo <code>.js</code> de workflow, no ejecutar subtareas — usar <code>workflow-factory</code>.</li>
+</ul>
+</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p><strong>Fase &quot;Plan&quot;:</strong> un único <code>agent()</code> (rol <code>planner</code>, modelo <code>opus</code>, <code>effort: high</code>) recibe el <code>goal</code> (y <code>context</code> opcional) envueltos en <code>fence()</code>, con instrucciones explícitas de: ids cortos y únicos, usar <code>dependsOn</code> solo cuando hay una necesidad real de output ajeno (para maximizar paralelismo), que <code>dependsOn</code> forme un DAG sin ciclos ni auto-referencias, y respetar el tope <code>maxSubtasks</code>. La llamada está atada a un JSON Schema (<code>PLAN</code>, <code>type: object</code>, <code>additionalProperties: false</code>) con <code>maxItems: maxSubtasks</code> en el array de subtareas. Tras recibir el plan, el código aplica normalización defensiva: descarta subtareas sin <code>id</code>/<code>description</code>, deduplica ids repetidos (logueado), si no hay ninguna subtarea usable trata todo el <code>goal</code> como una única subtarea <code>t1</code>, recorta a <code>maxSubtasks</code> si el planner devolvió más (logueado, sin caps silenciosos), y filtra <code>dependsOn</code> para quedarse solo con ids que sobrevivieron el recorte/dedupe (dependencias colgantes también logueadas).</p>
+<p><strong>Fase &quot;Execute&quot;:</strong> loop while <code>done.size &lt; subtasks.length</code>, acotado a <code>maxLevels = subtasks.length</code>. En cada iteración calcula <code>ready</code> = subtareas no completadas cuyas dependencias están todas en <code>done</code>. Si <code>ready</code> está vacío pero quedan tareas sin completar, es ciclo o dependencia bloqueada: se loguea <code>stuck-or-cycle</code> y se sale del loop. Si hay <code>ready</code>, se lanzan en paralelo con <code>parallel(..., { settle: true })</code> (via <code>.then</code> sobre <code>agent()</code>, no aparece <code>settle</code> explícito en la llamada pero el comentario indica que un worker fallido resuelve a <code>null</code> sin abortar el resto — modo settle), cada worker (rol <code>worker</code>, <code>sonnet</code>, <code>effort: medium</code>, label <code>worker-&lt;id&gt;</code>) recibe la descripción de su subtarea, el goal general, el contexto compartido y — para cada dependencia — el output de esa dependencia si existe, o una nota explícita de que la dependencia falló/no produjo output. Tras el nivel, cada resultado se evalúa con un test estricto de éxito (string no vacío tras <code>trim()</code>); si falla, se registra <code>status: failed</code> con <code>output: null</code>; si tiene éxito, se guarda en el mapa <code>outputs</code> y se registra <code>status: completed</code>. En ambos casos la tarea se marca <code>done</code> (un fallo también desbloquea a sus dependientes, que verán la nota de &quot;dependencia falló&quot;). Tras salir del loop (por completar todo o por <code>stuck-or-cycle</code>/<code>level-cap</code>), toda subtarea que no llegó a <code>done</code> se registra como <code>status: unreached</code>.</p>
+<p><strong>Fase &quot;Integrate&quot;:</strong> si <code>completed.length === 0</code> se retorna inmediatamente sin llamar al integrador, con un mensaje explicando el <code>stopReason</code> y las tareas failed/unreached — cumpliendo el contrato estable <code>{ result, plan, workers }</code> sin invocar un LLM innecesario. Si hay al menos un worker completado, se construye un resumen de cobertura (<code>coverage</code>, <code>gaps</code>) y se llama a un único <code>agent()</code> (rol <code>integrator</code>, <code>opus</code>, <code>effort: high</code>) con el goal, el contexto, y los outputs de los workers completados (envueltos en <code>fence(&quot;findings&quot;, ...)</code>, truncados a 60000 chars via <code>compact</code>). Se le instruye explícitamente a no inventar resultados para subtareas failed/unreached y a incluir una nota de &quot;Coverage &amp; gaps&quot;.</p>
+<p><strong>Manejo de fallos parciales:</strong> no hay reintentos ni caching explícito en este scaffold; el manejo de fallos es puramente de &quot;hacer visible, nunca ocultar&quot;: workers fallidos (<code>failed</code>) y tareas nunca alcanzadas (<code>unreached</code>) se distinguen y se pasan tanto al integrador como al output final.</p>
+<h2>Input y output</h2>
+<p><strong>Input</strong> (<code>args</code> parseado como JSON, con fallback a <code>{}</code> si falla el parseo):</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / clamp</th>
+<th>Notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>goal</code> (alias <code>task</code>, <code>text</code>)</td>
+<td>string</td>
+<td><strong>requerido</strong></td>
+<td>Lanza error si falta o está vacío tras trim.</td>
+</tr>
+<tr>
+<td><code>context</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Contexto compartido para planner y workers.</td>
+</tr>
+<tr>
+<td><code>maxSubtasks</code></td>
+<td>number</td>
+<td><code>8</code>, clamp <code>1..30</code></td>
+<td>Tope duro sobre subtareas planificadas; recorte logueado.</td>
+</tr>
+<tr>
+<td><code>concurrency</code></td>
+<td>number</td>
+<td><code>undefined</code> (auto)</td>
+<td>Si se define y es <code>&gt; 0</code>, se pasa como <code>{ concurrency }</code> a <code>parallel()</code>.</td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>—</td>
+<td>Overrides globales aplicados a todos los nodos.</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
+<td>—</td>
+<td>Override por rol (<code>planner</code>, <code>worker</code>, <code>integrator</code>) sobre el global.</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>toolsByRole</code>, <code>skills</code> / <code>skillsByRole</code>, <code>excludeTools</code> / <code>excludeByRole</code></td>
+<td>array/object</td>
+<td>—</td>
+<td>Igual patrón global vs. por-rol.</td>
+</tr>
+</tbody></table>
+<p><strong>Output</strong> — siempre <code>{ result, plan, workers }</code>:</p>
+<ul>
+<li><code>result</code>: string — el entregable integrado, o (si nada completó) un mensaje de fallo con <code>stopReason</code> y las tareas failed/unreached.</li>
+<li><code>plan</code>: <code>{ goal, rationale, subtasks, maxSubtasks, schedule, stopReason, unreached }</code> — el plan normalizado, el <code>rationale</code> del planner, el trace de niveles ejecutados (<code>schedule</code>), la razón de parada (<code>completed</code> | <code>stuck-or-cycle</code> | <code>level-cap</code>) y los ids nunca alcanzados.</li>
+<li><code>workers</code>: array de registros <code>{ id, description, dependsOn, status, output }</code> con <code>status</code> en <code>completed | failed | unreached</code>.</li>
+</ul>
+<p>No se detecta ninguna llamada a <code>writeArtifact</code> en este archivo — el scaffold no escribe artifacts a disco; su output es puramente el valor de retorno.</p>
+<h2>Fases</h2>
+<ol>
+<li><strong>Plan</strong> — el orquestador (planner) descompone el <code>goal</code> en subtareas con <code>dependsOn</code>.</li>
+<li><strong>Execute</strong> — ejecución leveled (Kahn-style) de los workers, con detección de ciclos/bloqueos.</li>
+<li><strong>Integrate</strong> — el integrador combina los resultados de los workers completados en un entregable único, señalando gaps.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>guardrails</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:28px; }
+main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+pre code { background:none; padding:0; color:var(--ink); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
+th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">Workflow scaffold</div>
+		<h1>guardrails</h1>
+	</header>
+	<main>
+<blockquote>
+<p>Tripwire barato de entrada/salida que HALTA ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
+</blockquote>
+<h2>Diagrama</h2>
+<pre class="mermaid">flowchart TD
+    Start(["input: content? / protect?"]) --&gt; Mode{"protect presente?"}
+
+    Mode --&gt;|"No -&gt; VALIDATOR"| VPhase["phase: Output"]
+    VPhase --&gt; VChecks["checks = outputRules || inputRules || rules"]
+    VChecks --&gt; VGuards["runGuards(output, output-guard, content, checks)"]
+
+    subgraph VGuardFanOut ["parallel guard fan-out (settle)"]
+        VG1["agent guard rule 1 (haiku, low, schema GUARD)"]
+        VG2["agent guard rule 2"]
+        VGn["agent guard rule N"]
+    end
+    VGuards --&gt; VGuardFanOut
+    VGuardFanOut --&gt; VDecide{"algún tripped?"}
+    VDecide --&gt;|"si"| VTripped(["return status: TRIPPED, stage: validate"])
+    VDecide --&gt;|"no"| VPass(["return status: PASS, stage: validate"])
+
+    Mode --&gt;|"Si -&gt; WRAPPER"| IPhase["phase: Input"]
+    IPhase --&gt; IGuards["runGuards(input, input-guard, content ?? protect.args, inputRules || rules)"]
+
+    subgraph IGuardFanOut ["parallel guard fan-out (settle)"]
+        IG1["agent guard rule 1"]
+        IGn["agent guard rule N"]
+    end
+    IGuards --&gt; IGuardFanOut
+    IGuardFanOut --&gt; IDecide{"algún tripped?"}
+    IDecide --&gt;|"si -&gt; STOP, no ejecuta el trabajo"| ITripped(["return status: TRIPPED, stage: input, ranWork: false"])
+    IDecide --&gt;|"no"| RPhase["phase: Run"]
+
+    RPhase --&gt; RunWF["workflow(protect.name, protect.args ?? { request: content })"]
+    RunWF --&gt;|"throw"| RError(["return status: ERROR, stage: run"])
+    RunWF --&gt;|"output == null"| RNull(["return status: ERROR, stage: run (protected workflow produced null)"])
+    RunWF --&gt;|"output ok"| OPhase["phase: Output"]
+
+    OPhase --&gt; OGuards["runGuards(output, output-guard, outText, outputRules)"]
+
+    subgraph OGuardFanOut ["parallel guard fan-out (settle)"]
+        OG1["agent guard rule 1"]
+        OGn["agent guard rule N"]
+    end
+    OGuards --&gt; OGuardFanOut
+    OGuardFanOut --&gt; ODecide{"algún tripped?"}
+    ODecide --&gt;|"si"| OTripped(["return status: TRIPPED, stage: output, output incluido"])
+    ODecide --&gt;|"no"| OPass(["return status: PASS, protect.name, inputChecks, outputChecks, output"])</pre>
+<h2>Qué hace</h2>
+<p><code>guardrails</code> implementa el patrón de &quot;input/output guardrails&quot; del OpenAI Agents SDK: en vez de gastar un run completo (o entregar un output malo) y descubrir el problema después, corre chequeos rápidos y acotados —uno por regla— y HALTA en el momento en que alguno se dispara con evidencia clara. Cada guard es un agente barato (<code>haiku</code>, <code>effort: low</code>) que evalúa <strong>una sola regla</strong> contra el contenido y devuelve un veredicto tipado <code>{ tripped, reason, evidence }</code>; los guards de una misma etapa corren en paralelo con <code>settle</code> para que un guard que crashea no tumbe a los demás.</p>
+<p>El scaffold tiene dos modos que comparten la misma lógica de guard (<code>runGuards</code>): <strong>WRAPPER</strong>, donde envuelve la ejecución de otro workflow del catálogo colocando guards de entrada antes de correrlo y guards de salida después; y <strong>VALIDATOR</strong>, donde simplemente evalúa un artifact/contenido ya existente contra un set de reglas y devuelve PASS/TRIPPED, sin ejecutar ningún workflow.</p>
+<p>Un detalle de seguridad central: todo el contenido a evaluar se envuelve con <code>fence()</code>, un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;...&lt;/untrusted-HASH&gt;</code> cuyo tag se deriva de un hash FNV-like del propio contenido (sin <code>Math.random</code>/<code>Date.now</code>, prohibidos en el runtime). Esto evita que un payload malicioso &quot;escape&quot; el delimitador insertando su propio cierre falso, porque cualquier cambio en el contenido cambia el hash y por lo tanto el tag esperado. El prompt de cada guard además instruye explícitamente ignorar cualquier instrucción embebida en esa zona (&quot;ignore previous&quot;, cambios de rol, de esquema, etc.), tratándola como contenido sospechoso a reportar, no a obedecer — mitigación de prompt injection.</p>
+<p>Respecto a fallos parciales: un guard que crashea (<code>null</code> o sin <code>tripped</code> boolean) se registra como <code>failed: true</code> y, por defecto, se trata como <strong>no disparado</strong> (modo laxo, para que infraestructura inestable no frene trabajo bueno); con <code>strict:true</code> el comportamiento se invierte a fail-closed (un guard caído cuenta como disparado). No hay caching explícito en el scaffold — cada corrida re-evalúa todas las reglas.</p>
+<h2>Cuándo usarlo</h2>
+<ul>
+<li>Gate de scope/seguridad antes de correr un agente (guards de entrada sobre la request).</li>
+<li>Chequeo de PII/secretos sobre un output ya generado (modo validador).</li>
+<li>Envolver un workflow del catálogo elegido con tripwires de entrada y salida.</li>
+<li>Enforcement de límites duros de forma barata (reglas simples, agentes chicos, sin gastar el presupuesto completo del workflow real si el input ya es inválido).</li>
+</ul>
+<p>No usarlo cuando:</p>
+<ul>
+<li>Se necesita decidir/scopear una tarea abierta antes de rutear (para eso está <code>contract-gate</code>, que construye un contrato completo y un gate de valor de información; <code>guardrails</code> es liviano y binario, no reemplaza ese análisis).</li>
+<li>Las reglas no pueden expresarse como violaciones binarias evidenciables — el guard está diseñado para NO disparar ante estilo o incertidumbre, solo ante violación clara y citable.</li>
+<li>Se requiere elegir automáticamente qué workflow correr (eso es el trabajo de <code>router</code>; <code>guardrails</code> solo envuelve un <code>protect.name</code> ya decidido).</li>
+</ul>
+<h2>Cómo funciona</h2>
+<p>El scaffold declara tres fases (<code>Input</code>, <code>Run</code>, <code>Output</code>) pero solo recorre las que corresponden al modo activo.</p>
+<p><strong>Preparación (sin fase declarada):</strong> parsea <code>args</code> como JSON, define helpers <code>compact</code> (trunca texto largo a 60k chars) y <code>fence</code> (delimitador anti-injection basado en hash), resuelve overrides de modelo/effort/tools/skills por rol vía <code>node(role, extra)</code>, y valida que exista <code>content</code> o <code>protect</code>, y al menos un set de reglas si no hay <code>protect</code>.</p>
+<p><strong><code>runGuards(stage, role, text, ruleList)</code></strong> es la función compartida por ambos modos:</p>
+<ol>
+<li>Si <code>ruleList</code> está vacía, no corre nada (<code>{ tripped: [], all: [], ran: 0 }</code>).</li>
+<li>Clampa <code>ruleList</code> a <code>MAX_GUARDS = 4096</code>.</li>
+<li>Fija <code>phase(&quot;Input&quot;)</code> o <code>phase(&quot;Output&quot;)</code> según <code>stage</code>.</li>
+<li>Lanza <code>parallel(...)</code> con un <code>agent(...)</code> por regla — schema <code>GUARD</code> (<code>tripped</code>/<code>reason</code>/<code>evidence</code> obligatorios), modelo <code>haiku</code>, <code>effort: &quot;low&quot;</code>, contenido envuelto con <code>fence(&quot;candidate&quot;, ...)</code>.</li>
+<li>Normaliza veredictos: los que no traen <code>tripped: boolean</code> se marcan <code>failed:true</code> y se resuelven a <code>tripped=strict</code> (por defecto <code>false</code>).</li>
+<li>Loguea cuántos guards fallaron y cuántos se dispararon; devuelve <code>{ tripped, all, ran }</code>.</li>
+</ol>
+<p><strong>Modo VALIDATOR (sin <code>protect</code>):</strong></p>
+<ol>
+<li><code>phase(&quot;Output&quot;)</code>.</li>
+<li><code>checks = outputRules || inputRules || rules</code> (primer set no vacío).</li>
+<li>Corre <code>runGuards(&quot;output&quot;, &quot;output-guard&quot;, content, checks)</code>.</li>
+<li>Si algo se disparó: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;validate&quot;, tripped, checks, content: compact(...) }</code>.</li>
+<li>Si no: <code>{ status: &quot;PASS&quot;, stage: &quot;validate&quot;, checks }</code>.</li>
+</ol>
+<p><strong>Modo WRAPPER (<code>protect: { name, args }</code>):</strong></p>
+<ol>
+<li><strong>Fase Input</strong> — corre <code>runGuards(&quot;input&quot;, &quot;input-guard&quot;, content ?? protect.args, inputRules || rules)</code> sobre la request. Si algo dispara: STOP inmediato, <code>{ status: &quot;TRIPPED&quot;, stage: &quot;input&quot;, protect: protect.name, tripped, ranWork: false }</code> — el workflow protegido <strong>nunca se ejecuta</strong>.</li>
+<li><strong>Fase Run</strong> — si el input pasó, corre <code>workflow(protect.name, protect.args ?? { request: content })</code>. Si lanza excepción: <code>{ status: &quot;ERROR&quot;, stage: &quot;run&quot;, error }</code>. Si devuelve <code>null</code>/<code>undefined</code>: <code>{ status: &quot;ERROR&quot;, stage: &quot;run&quot;, error: &quot;produced null (skipped or died)&quot; }</code>.</li>
+<li><strong>Fase Output</strong> — corre <code>runGuards(&quot;output&quot;, &quot;output-guard&quot;, outText, outputRules)</code> sobre el resultado (<code>outText</code> es el output tal cual si es string, o <code>compact(output, 40000)</code> si es objeto). Si algo dispara: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;output&quot;, protect: protect.name, tripped, output }</code> (el output se devuelve igual, para inspección, pero marcado como no confiable). Si no: <code>{ status: &quot;PASS&quot;, protect: protect.name, inputChecks, outputChecks, output }</code>.</li>
+</ol>
+<p>No hay caching ni artifacts persistidos; todo el estado vive en el valor de retorno del run.</p>
+<h2>Input y output</h2>
+<p>Input (<code>args</code>), todo opcional salvo lo indicado:</p>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Tipo</th>
+<th>Default / Nota</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>content</code> / <code>request</code> / <code>text</code> / <code>output</code> / <code>input</code></td>
+<td>string/objeto</td>
+<td>primer valor no-null de esos alias; contenido a validar (modo validador) o dato adicional para input-guards en modo wrapper</td>
+</tr>
+<tr>
+<td><code>protect</code></td>
+<td><code>{ name, args }</code></td>
+<td>si está presente y <code>protect.name</code> es válido, activa modo WRAPPER; si no, modo VALIDATOR</td>
+</tr>
+<tr>
+<td><code>strict</code></td>
+<td>boolean</td>
+<td><code>false</code> — si <code>true</code>, un guard que crashea cuenta como disparado (fail-closed)</td>
+</tr>
+<tr>
+<td><code>rules</code></td>
+<td><code>string[]</code></td>
+<td>fallback de reglas para el validador y para <code>outputRules</code> si no se especifica</td>
+</tr>
+<tr>
+<td><code>inputRules</code></td>
+<td><code>string[]</code></td>
+<td>reglas para guards de entrada (wrapper); si vacío usa <code>rules</code></td>
+</tr>
+<tr>
+<td><code>outputRules</code></td>
+<td><code>string[]</code></td>
+<td>reglas para guards de salida; si vacío usa <code>rules</code></td>
+</tr>
+<tr>
+<td><code>model</code> / <code>effort</code></td>
+<td>string</td>
+<td>overrides globales de modelo/reasoning-effort para todos los nodos</td>
+</tr>
+<tr>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>objeto</td>
+<td>overrides por rol (<code>input-guard</code>, <code>output-guard</code>); precedencia: por-rol &gt; global &gt; default de llamada (<code>haiku</code>/<code>low</code>)</td>
+</tr>
+<tr>
+<td><code>tools</code> / <code>toolsByRole</code>, <code>skills</code> / <code>skillsByRole</code>, <code>excludeTools</code> / <code>excludeByRole</code></td>
+<td>array/objeto</td>
+<td>overrides de tools/skills por rol o global</td>
+</tr>
+</tbody></table>
+<p>Validaciones que lanzan error:</p>
+<ul>
+<li>Sin <code>content</code> y sin <code>protect</code> → <code>&quot;Pass { content } to validate, or { protect: { name, args } } to wrap a workflow.&quot;</code></li>
+<li>Modo validador sin ninguna regla (<code>rules</code>/<code>inputRules</code>/<code>outputRules</code> todos vacíos) → <code>&#39;Validator mode needs at least one rule: pass { rules: [...] } (or inputRules/outputRules).&#39;</code></li>
+</ul>
+<p>Clamp interno: <code>MAX_GUARDS = 4096</code> reglas por lista de guards (recorta con log si se excede).</p>
+<p>Output — objeto simple según rama alcanzada, sin <code>writeArtifact</code> (este scaffold no persiste artifacts, todo va en el valor de retorno):</p>
+<ul>
+<li>Validador: <code>{ status: &quot;PASS&quot;|&quot;TRIPPED&quot;, stage: &quot;validate&quot;, checks, tripped?, content? }</code>.</li>
+<li>Wrapper, tripwire de entrada: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;input&quot;, protect, tripped, ranWork: false }</code>.</li>
+<li>Wrapper, error al correr el workflow protegido: <code>{ status: &quot;ERROR&quot;, stage: &quot;run&quot;, protect, error }</code>.</li>
+<li>Wrapper, éxito: <code>{ status: &quot;PASS&quot;, protect, inputChecks, outputChecks, output }</code>.</li>
+<li>Wrapper, tripwire de salida: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;output&quot;, protect, tripped, output }</code>.</li>
+</ul>
+<h2>Fases</h2>
+<ol>
+<li><strong>Input</strong> — guards de entrada sobre la request (solo modo wrapper); si dispara, detiene todo antes de gastar presupuesto en el trabajo real.</li>
+<li><strong>Run</strong> — ejecución del workflow protegido (<code>workflow(protect.name, protect.args)</code>), único lugar donde se gasta presupuesto real (solo modo wrapper).</li>
+<li><strong>Output</strong> — guards de salida sobre el resultado (wrapper) o sobre el <code>content</code> recibido (validador); si dispara, marca el resultado como no confiable.</li>
+</ol>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
+</body>
+</html>
