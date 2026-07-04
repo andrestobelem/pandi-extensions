@@ -163,6 +163,14 @@ Decide model and reasoning effort **per call** — don't let every node inherit 
 - **Synthesis, adversarial verification, planning, hard reasoning** → a strong model at high effort
   (the highest tier only for the hardest judge/synthesis step).
 
+Decide each node's tier by four factors — **fan-out width** (the wider the fan-out, the cheaper each
+branch must be), **per-item difficulty** (mechanical extraction vs. real reasoning), **cost of being
+wrong** (a bad judge verdict is expensive; a bad scout note is caught later), and **downstream
+verification** (a node whose output a later node verifies can run cheaper; a FINAL judge/synthesis
+with no safety net below it earns the top tier). Ladder cheap→strong: haiku < sonnet < opus; keep
+scout/extract/mechanical roles cheap even at premium stakes — spend the budget on the
+judge/verify/synthesis/planning nodes.
+
 | Tier | Claude (`model` · `effort`) | pi · Anthropic (`model` · `effort`) |
 | --- | --- | --- |
 | cheap | `haiku` · `low` | `anthropic/claude-haiku-4-5` · `low` (or `minimal`/`off`) |
