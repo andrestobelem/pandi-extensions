@@ -165,9 +165,15 @@ workflows errored (&quot;Unexpected token &#39;export&#39;&quot; / &quot;module 
 a CommonJS <code>module</code> stub, and after the body runs CALLS the captured entry with a recording
 <code>ctx</code> whose methods alias the same stubs (helpers kept inside the <code>ctx</code> object so they never
 collide with scaffolds&#39; own <code>const compact</code>). Verified: <code>continuous-improvement</code> 0→5 nodes,
-<code>loop-engineering-*</code> now run, all Claude scaffolds unchanged (no regression), both copies
-kept byte-identical. The throwaway adapter <code>.pi/tmp/build-ctx-workflow-html.mjs</code> was removed.</li>
-<li>Paths: <code>.pi/scripts/build-workflow-artifact.mjs</code>, <code>.claude/scripts/build-workflow-artifact.mjs</code>.</li>
+<code>loop-engineering-*</code> now run, all Claude scaffolds unchanged (no regression). The two copies
+have since intentionally diverged: <code>.claude/scripts/build-workflow-artifact.mjs</code> is now a
+thin CLI wrapper over <code>.claude/scripts/lib/artifact.mjs</code> adding <code>--run</code>/<code>--watch</code>/<code>--match</code>/
+<code>--open</code>/<code>--interval</code> for live monitoring, while <code>.pi/scripts/build-workflow-artifact.mjs</code>
+remains the single-file pre-launch builder (per the self-contained-extension rule, no runtime
+code is shared between them); the split is by design and the two are not re-synced. The throwaway
+adapter <code>.pi/tmp/build-ctx-workflow-html.mjs</code> was removed.</li>
+<li>Paths: <code>.pi/scripts/build-workflow-artifact.mjs</code>, <code>.claude/scripts/build-workflow-artifact.mjs</code>,
+<code>.claude/scripts/lib/artifact.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-DASH-H1 — Confirm the new gate baseline (HEAD moved)</strong> · <code>done</code> (resolved)<ul>
