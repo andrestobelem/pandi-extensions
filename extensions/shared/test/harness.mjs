@@ -97,7 +97,10 @@ export const STUB_SOURCES = {
  */
 export function sdkStub(outDir, { customEditor } = {}) {
 	const agentDir = JSON.stringify(path.join(outDir, "agentdir"));
-	let source = `export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${agentDir}; }\n`;
+	// getPackageDir() points at <outDir>/packagedir (no package.json there), so
+	// host-bin-name lookups fall back to "pi" exactly like a vanilla pi host.
+	const packageDir = JSON.stringify(path.join(outDir, "packagedir"));
+	let source = `export const CONFIG_DIR_NAME = ".pi";\nexport function getAgentDir() { return ${agentDir}; }\nexport function getPackageDir() { return ${packageDir}; }\n`;
 	if (customEditor === "render") {
 		source += "export class CustomEditor { constructor() {} input() {} render() { return []; } }\n";
 	} else if (customEditor === "full") {
