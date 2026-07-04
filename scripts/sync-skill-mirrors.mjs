@@ -29,6 +29,7 @@ const MIRRORED = [
 	"empirical-software-design",
 	"clean-craftsmanship",
 	"github-project",
+	"pi-cante-releasing",
 ];
 
 const checkOnly = process.argv.includes("--check");
