@@ -1,8 +1,44 @@
 # Dynamic Workflows — the full guide
 
-A Dynamic Workflow is a **trusted JavaScript script** that Pi executes to orchestrate large work with subagents. This is the deep reference for the `pi-dynamic-workflows` extension; the root [`README.md`](../README.md) has the short overview, and [`extensions/pi-dynamic-workflows/README.md`](../extensions/pi-dynamic-workflows/README.md) documents the installable package.
+A Dynamic Workflow is a **trusted JavaScript script** that Pi runs to orchestrate large work across many subagents. Reach for one when a single conversation is not enough — you need to fan work out across parallel `pi -p` agents, cover many independent items, or get adversarial verification before a decision. Think of it as **MapReduce with agents**: `map` runs many subagents in parallel over independent units, `reduce` is a final synthesis that combines results, resolves contradictions, and prioritizes.
 
-The typical shape is:
+This is the deep reference for the `pi-dynamic-workflows` extension. The root [`README.md`](../README.md) has the short overview, and [`extensions/pi-dynamic-workflows/README.md`](../extensions/pi-dynamic-workflows/README.md) documents the installable package.
+
+## Quickstart
+
+A workflow is a JS module whose default export is an `async` function. It reads its input from the `args` global and calls injected helpers (`agent`, `agents`, `log`, `writeArtifact`, …) — never `import`/`require`, never `ctx`.
+
+```js
+// .pi/workflows/drafts/review-two-files.js
+// The default export must NOT be named `workflow` (that shadows the composition
+// global). Use `main` — or a top-level script that ends in `return`.
+export default async function main() {
+  await log("start", { args });
+
+  const items = [
+    { label: "a", prompt: "Review src/a.ts for bugs", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
+    { label: "b", prompt: "Review src/b.ts for bugs", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
+  ];
+
+  const reviews = await agents(items, { concurrency: 2, settle: true }); // fan out; failures → null
+  const ok = reviews.filter(Boolean);
+  await log("done", { total: reviews.length, failed: reviews.length - ok.length });
+
+  await writeArtifact("reviews.json", reviews); // persist outside the chat
+  return compact(ok, 20000); // truncated summary → result.json
+}
+```
+
+Run it (in a persistent TUI/RPC session this launches in **background** and returns a `runId` immediately):
+
+```text
+/workflow run review-two-files
+/workflow view latest
+```
+
+That is the whole loop: **scout → fan out → synthesize → persist artifacts**. The rest of this guide fills in the concepts, the full primitive reference, and the operational details.
+
+## The typical shape
 
 - **Cheap scout**: first discover the real work-list (`git ls-files`, diff, grep, glob, etc.).
 - **Controlled fan-out**: spread files, topics, hypotheses, or perspectives across parallel subagents.
@@ -10,24 +46,57 @@ The typical shape is:
 - **Artifacts outside the chat**: persist intermediate outputs in the run directory instead of relying on conversational context.
 - **Synthesis-as-judge**: a final agent deduplicates, drops unsupported claims, preserves uncertainty, and returns a prioritized conclusion.
 
-Mentally, it is **MapReduce with agents**:
-
-- `map`: many subagents work in parallel over independent units.
-- `reduce`: a final synthesis combines results, resolves contradictions, and prioritizes.
-
 ## When to use them
 
-Use workflows when there is a real orchestration reason:
+Use a workflow only when there is a real orchestration reason; a small edit, a simple question, or a few direct tool calls are better single-agent.
 
-- **Exhaustiveness**: many independent files/items to cover.
-- **Confidence**: adversarial review, multiple perspectives, or verification before a decision.
-- **Scale**: more context than a single conversation should carry.
+| Reason | Use a workflow when… |
+| --- | --- |
+| **Exhaustiveness** | there are many independent files/items to cover |
+| **Confidence** | you need adversarial review, multiple perspectives, or verification before a decision |
+| **Scale** | there is more context than a single conversation should carry |
+| **Trivial task** | ❌ do it single-agent instead |
 
-Do not use them for trivial tasks: a small edit, a simple question, or a few direct tool calls are better single-agent.
+## Which primitive do I use?
+
+Everything composes from `agent()` (one unit of model work). Pick the higher-level primitive by the shape of the work:
+
+```mermaid
+flowchart TD
+  start([I have work to orchestrate]) --> many{More than<br/>one item?}
+  many -- no --> agent["agent()<br/>one subagent"]
+  many -- yes --> stages{Each item needs<br/>2+ dependent stages?}
+  stages -- yes --> pipeline["pipeline()<br/>per-item stages, no barrier"]
+  stages -- no --> barrier{A later step needs<br/>ALL results at once?}
+  barrier -- "yes (dedup / merge / rank)" --> parallel["parallel()<br/>barrier"]
+  barrier -- no --> agents["agents()<br/>bounded parallel map"]
+  start --> hedge{First good answer<br/>wins / hedge latency?}
+  hedge -- yes --> race["race()<br/>cancel the losers"]
+  start --> compose{Reusable sub-workflow,<br/>no human decision between?}
+  compose -- yes --> workflow["workflow()<br/>inline composition"]
+```
+
+- **`race` vs a judge**: `race` optimizes *latency* (first accepted answer wins). Picking the *best by quality* is a judge (`tournament`, `judge-escalate`) that must see all candidates.
+- **`parallel` vs `pipeline`**: use `parallel` only for a true barrier (global dedup/merge, early-exit on zero total, cross-branch ranking). `parallel → transform-with-no-cross-item-dependency → parallel` should be ONE `pipeline`.
+- **`workflow` vs sequenced runs**: if no human/external decision sits between two sub-steps, compose with `workflow()` in a single run; if you must read results and decide the next phase, sequence separate runs (`action=start/run` + `action=view`).
 
 ## Execution cycle
 
-When you launch a workflow (`/workflow run`/`start` or `dynamic_workflow action=run`/`start`), the extension does the following:
+When you launch a workflow (`/workflow run`/`start` or `dynamic_workflow action=run`/`start`), the extension runs this cycle:
+
+```mermaid
+flowchart TD
+  launch([run / start]) --> resolve[1. Resolve workflow<br/>by name: project + global]
+  resolve --> create[2. Create run: runId +<br/>.pi/workflows/runs/&lt;run-id&gt;/]
+  create --> persist[3. Persist initial state<br/>input/status/events/codeHash/agents]
+  persist --> worker[4. Execute JS in a Worker<br/>injected globals, no import/ctx]
+  worker --> spawn[5. Spawn subagents<br/>pi -p --no-session --mode json]
+  spawn --> limits[6. Apply limits<br/>concurrency, maxAgents, timeouts]
+  limits --> save[7. Save progress + artifacts<br/>events.jsonl, status.json, agents/*.md]
+  save --> result[8. Return final result → result.json]
+```
+
+Details of each step:
 
 1. **Resolves the workflow** by name, searching project and global workflows.
 2. **Creates a run** with a `runId` and its own directory under `.pi/workflows/runs/<run-id>/` (or the equivalent global root).
@@ -40,25 +109,42 @@ When you launch a workflow (`/workflow run`/`start` or `dynamic_workflow action=
 
 ## Injected globals API
 
-- `agent(prompt, opts)` — runs a Pi subagent (`pi -p --no-session`) and **unwraps** the result: plain text without a schema, the parsed object with `{ schema }`, or `null` if the branch fails. It is the expensive unit (one `pi -p` call). Cached by default for resume; opt out per call with `{ cache: false }`.
+These globals are the entire authoring interface. The most important:
+
+| Global | What it does | Returns |
+| --- | --- | --- |
+| `agent(prompt, opts)` | one subagent (`pi -p --no-session`); the expensive unit, cached by default | unwrapped text; parsed object with `{ schema }`; `null` on failure |
+| `agents(items, opts)` | bounded parallel fan-out (map) | `SubagentResult[]` (`.output`/`.data`/`.ok`); `null` per branch under `settle` |
+| `pipeline(items, ...stages)` | per-item dependent stages, no barrier | array aligned to items; `null` for a failed item |
+| `parallel([thunks])` | explicit barrier with bounded local concurrency | array aligned to thunks; `null` per failed thunk |
+| `race(thunks, { accept? })` | first accepted value wins; SIGTERM the losers | `{ winner, index, status }` (`"won"`/`"empty"`) |
+| `workflow(name, args)` | inline reusable sub-workflow (depth 1) | the sub-workflow's return value |
+| `ask(question, opts?)` | pause a branch to ask a human via Pi's UI | the answer (`string`/`boolean`) |
+
+More on the key ones:
+
+- `agent(prompt, opts)` — **unwraps** the result: plain text without a schema, the parsed object with `{ schema }`, or `null` if the branch fails. Cached by default for resume; opt out per call with `{ cache: false }`.
 - `agent(prompt, { schema })` — requests validated JSON and **returns the parsed object directly** (or `null` if it fails or never validates); retries with `schemaRetries` (default `2`). For the full envelope (`output`/`data`/`schemaOk`) use the plural `agents([...])`.
 - `agent(prompt, { agentType: "reviewer" })` — applies persona defaults (`explore`, `reviewer`, `planner`, `architect`, `implementer`, `researcher`); explicit options win.
-- `agents(items, opts)` — parallel fan-out with bounded concurrency; returns `SubagentResult[]` (`.output`/`.data`/`.ok`).
 - `agents(items, { concurrency, settle: true })` — one failing branch does not sink the batch; returns `Array<SubagentResult | null>` with `null` for failed branches.
 - `pipeline(items, ...stages)` — multi-stage flow per item with no global barrier; each stage receives `(prev, item, index)` and failed items yield `null`.
 - `parallel([async () => ...])` — explicit barrier with bounded local concurrency; each failed thunk yields `null`. Use it only when a later step needs all results at once.
 - `race(thunks, { accept? })` — opens N branches and, as soon as one produces an accepted value (default `!= null`), **cancels the in-flight losers** (real SIGTERM to the subprocess, via the `AbortSignal` each thunk receives); returns `{ winner, index, status }` (`status: "won" | "empty"`). Typical shape: `race(items.map((s) => (signal) => agent(prompt, { signal })))`.
-- `ask(question, opts?)` — pauses a branch to ask a human via Pi's UI (`kind: "input" | "confirm" | "select"`, inferred from `choices`/`default`); returns the answer (`string`/`boolean`). **Resume-safe**: the answer is journaled and reused on resume without re-asking. In headless mode (`hasUI=false`) it returns `opts.default` or throws a clear error; it never hangs. Cancelable inside `race()` via `{ signal }`.
+- `ask(question, opts?)` — pauses a branch to ask a human (`kind: "input" | "confirm" | "select"`, inferred from `choices`/`default`). **Resume-safe**: the answer is journaled and reused on resume without re-asking. In headless mode (`hasUI=false`) it returns `opts.default` or throws a clear error; it never hangs. Cancelable inside `race()` via `{ signal }`.
 - `workflow(name, args)` — composes a reusable sub-workflow inline (depth 1) sharing the same run, limits, abort, and cache/journal; emits `workflow` events for auditability. Use it for libraries like `lib/verify-claims`, not for phases that need a human decision in between.
+
+Supporting helpers:
+
 - `bash(command, opts)` — runs shell from the workflow cwd; cacheable only with `{ cache: true }` (deterministic commands only).
 - `readFile/writeFile/appendFile/listFiles` — file helpers confined to the workflow cwd.
 - `writeArtifact/appendArtifact` — persists run data outside the chat (idempotent; not cached, rewritten on resume).
 - `log(message, details)` — records progress visible in the dashboard, status line, and `events.jsonl`.
-- `compact(value, maxChars)` — serializes and truncates large results to hand to a synthesis.
-- `json(value, maxChars)` — alias of `compact` (same serialization/truncation).
-- `limits` — effective read-only run limits (`concurrency`, `maxAgents`, timeouts).
+- `sleep(ms)` — pauses the current branch for `ms` milliseconds, e.g. backoff between polling probes; abortable (resolves early/rejects if the run/branch is aborted) and never cached, so it always re-runs on resume.
+- `phase(label)` — sets a lightweight label for the calls that follow, shown in the dashboard as `P<phase> 1/n`, `P<phase> 2/n`, etc. on agents launched by the same `agents(...)` call; call `phase(null)` to clear it.
+- `compact(value, maxChars)` — serializes and truncates large results to hand to a synthesis. `json(value, maxChars)` is an alias (same serialization/truncation).
+- `args` — the workflow input; `limits` — effective read-only run limits (`concurrency`, `maxAgents`, timeouts).
 
-Common subagent options:
+### Common subagent options
 
 ```js
 {
@@ -79,42 +165,67 @@ Common subagent options:
 
 `tools`/`excludeTools` limit Pi tools; by default explicit allowlists also receive `web_search` when the `pi-codex-web-search` package is available (opt out: `includeExtensions: false` or `excludeTools: ["web_search"]`). `skills: ["path/to/skill"]` loads explicit skills (`includeSkills: true` adds them to discovery, `includeSkills: false` disables discovery); normal discovery keeps `context7-cli` available, and if you pass an explicit skill list, Dynamic Workflows adds `context7-cli` when it finds it (opt out: `includeSkills: false`). `extensions: ["path/to/ext.ts"]` loads explicit extensions (`includeExtensions: true` enables discovery). `keys: ["GITHUB_TOKEN"]` exposes only those environment variables to the agent in an isolated env (values are redacted in artifacts/dashboard). Use `env: { NAME: "value" }` only to inject an explicit value; never write secrets in prompts.
 
-## Minimal example
+## Concurrency
+
+`concurrency` controls how many subagents run `pi -p` at the same time — not the total amount of work. A 40-file bug hunt with `concurrency: 4` runs in waves of up to 4 simultaneous agents until the list is done.
+
+Related limits:
+
+- `concurrency` = max simultaneous subagents (normalized between `1` and `16`; unset, defaults to `4`).
+- `maxAgents` = max total subagents for the run.
+- `maxFiles`, `angles`, `rounds`, etc. = workflow-specific limits over the work-list.
+
+### Why the default is 4
+
+`4` is a safe point between speed, cost, and stability: it cuts wall-clock a lot versus serial without aggressively multiplying instantaneous cost, rate limits, or noise; it protects the provider and local machine from too many simultaneous `pi -p` processes saturating CPU/I-O/terminals/logs; it reduces correlated failures (timeouts, rate-limit errors) that grow with fan-out; and it keeps logs/artifacts/dashboard readable. It is a **conservative default, not a fixed recommendation** — long workflows should pass explicit limits per task, model, and budget.
+
+### Choose concurrency dynamically
+
+The default being `4` does **not** mean workflows should hardcode 4. Workflows scout first, discover the real work-list, and only then pick parallelism. The decision is layered:
+
+- **User/agent at launch** may pass explicit `concurrency` when they know budget, provider, or urgency.
+- **Runtime** enforces the effective limit (`limits.concurrency`) and the global hard cap.
+- **Workflow** picks a local concurrency from item count, risk, cost, and task type, never exceeding `limits.concurrency`.
+
+| Situation | Concurrency |
+| --- | --- |
+| Expensive models, strict rate limits, debugging, side effects/writes | `1–2` |
+| Read-only review/research (safe default) | `4` |
+| Many independent branches, provider responds well | `6–8` |
+| Large read-only sweeps with explicit `maxAgents` + timeout | `12–16` |
+| 1–2 items | `1–2` (match the count) |
 
 ```js
-function chooseConcurrency(items) {
+function chooseConcurrency(items, opts = {}) {
   if (Number.isFinite(args?.concurrency)) {
-    return Math.min(Math.max(Math.floor(args.concurrency), 1), limits.concurrency, items.length);
+    return Math.min(Math.max(Math.floor(args.concurrency), 1), limits.concurrency);
   }
-  return Math.min(items.length <= 2 ? items.length : 4, limits.concurrency);
-}
-
-// The default export must NOT be called `workflow` (that shadows the composition global): use `main`.
-export default async function main() {
-  await log("start", { args });
-
-  const items = [
-    { label: "a", prompt: "Review src/a.ts", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
-    { label: "b", prompt: "Review src/b.ts", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
-  ];
-  const concurrency = chooseConcurrency(items);
-  await log("fan-out selected", { items: items.length, concurrency });
-
-  const reviews = await agents(items, { concurrency, settle: true });
-  const completedReviews = reviews.filter(Boolean);
-  await log("review fan-out complete", { total: reviews.length, failed: reviews.length - completedReviews.length });
-
-  await writeArtifact("reviews.json", reviews);
-  return compact(completedReviews, 20000);
+  const count = items.length;
+  if (count <= 1) return 1;
+  if (opts.sideEffects) return Math.min(2, count, limits.concurrency);
+  if (opts.expensiveModel) return Math.min(2, count, limits.concurrency);
+  if (opts.readOnlyAudit && count >= 30) return Math.min(8, count, limits.concurrency);
+  return Math.min(4, count, limits.concurrency);
 }
 ```
+
+How it applies:
+
+```js
+const concurrency = Math.min(args?.concurrency ?? limits.concurrency, limits.concurrency);
+const reviews = await agents(items, { concurrency, settle: true });
+```
+
+- `limits.concurrency` is the effective run limit and is read-only.
+- `agents(..., { concurrency })` clamps again so it never exceeds the run limit; `pipeline()` and `parallel()` also use `limits.concurrency` as their local bound.
+- Cached calls on resume (`journal.jsonl` HIT) do not run `pi -p`, so they consume no concurrency slots and do not count against `maxAgents`.
 
 ## Background runs
 
 In a persistent TUI/RPC session, all workflows launch in background by default (`run`, `start`, and `resume`):
 
 ```text
-/workflow start bug-hunt-repo-audit {"maxFiles":40,"concurrency":4,"maxAgents":20}
+/workflow start bug-hunt {"maxFiles":40,"concurrency":4,"maxAgents":20}
 /workflow runs
 /workflow view <runId>
 /workflow cancel <runId>
@@ -123,7 +234,7 @@ In a persistent TUI/RPC session, all workflows launch in background by default (
 From the model tool:
 
 ```json
-{ "action": "start", "name": "bug-hunt-repo-audit", "input": { "maxFiles": 40 }, "concurrency": 4, "maxAgents": 20 }
+{ "action": "start", "name": "bug-hunt", "input": { "maxFiles": 40 }, "concurrency": 4, "maxAgents": 20 }
 ```
 
 Notes:
@@ -166,98 +277,17 @@ How it works:
 - `/workflow runs` marks resumable runs with `resumable` and shows `cached:N`; `/workflow view <runId>` adds a `Resume: /workflow resume <runId>` line, the `codeHash`, the cached-call count, and the code-changed warning.
 - Atomicity: `status.json`/`result.json` are written with temp+rename so a crash cannot corrupt them.
 
-## Concurrency: why the default is 4
-
-`concurrency` controls how many subagents can be running `pi -p` at the same time. It is not the total amount of work: a 40-file bug hunt with `concurrency: 4` runs in waves of up to 4 simultaneous agents until the list is done.
-
-The default is `4` because it is a safe point between speed, cost, and stability:
-
-- **Speeds things up without blowing the budget**: 4 concurrent calls already cut wall-clock a lot versus serial execution without aggressively multiplying instantaneous cost, rate limits, or noise.
-- **Protects the provider and the local machine**: each subagent is a `pi -p --no-session --mode json` process; too many simultaneous processes/model calls can saturate CPU, I/O, terminals, logs, or provider limits.
-- **Reduces correlated failures**: with a large fan-out, pushing concurrency too high increases timeouts, rate-limit errors, and failed branches. `4` is usually stable for read-only audits/research.
-- **Keeps observability good**: logs, artifacts, and the dashboard stay readable; 12–16 simultaneous branches can produce events that are hard to follow.
-- **It is a conservative default, not a fixed recommendation**: long workflows should pass explicit limits per task, model, and budget.
-
-Related limits:
-
-- `concurrency` = max simultaneous subagents.
-- `maxAgents` = max total subagents for the run.
-- `maxFiles`, `angles`, `rounds`, etc. = workflow-specific limits over the work-list.
-- Current hard cap: `concurrency` is normalized between `1` and `16`; unset, it defaults to `4`.
-
-### Concurrency should be dynamic
-
-The default being `4` does **not** mean workflows should hardcode 4. Workflows are dynamic: they scout first, discover the real work-list, and only then choose how much parallelism to use.
-
-The decision is layered:
-
-- **User/agent at launch**: may pass an explicit `concurrency` when they know budget, provider, or urgency.
-- **Runtime**: enforces the effective limit (`limits.concurrency`) and the global hard cap against dangerous values.
-- **Workflow**: picks a local concurrency from item count, risk, cost, and task type, never exceeding `limits.concurrency`.
-
-Criteria for choosing dynamically:
-
-- **Work-list size**: 1–2 items → use 1–2; dozens → it can go up.
-- **Task type**: read-only audits tolerate more parallelism; writes, migrations, or side effects should be more conservative.
-- **Cost/model/provider**: expensive models or strict rate limits lower concurrency.
-- **Requested depth**: a "quick check" uses less; an "exhaustive audit" can use more, with an explicit `maxAgents`.
-- **Background mode**: can run longer, but should not spend aggressively without visible limits.
-
-Dynamic selection example:
-
-```js
-function chooseConcurrency(items, opts = {}) {
-  if (Number.isFinite(args?.concurrency)) {
-    return Math.min(Math.max(Math.floor(args.concurrency), 1), limits.concurrency);
-  }
-
-  const count = items.length;
-  if (count <= 1) return 1;
-  if (opts.sideEffects) return Math.min(2, count, limits.concurrency);
-  if (opts.expensiveModel) return Math.min(2, count, limits.concurrency);
-  if (opts.readOnlyAudit && count >= 30) return Math.min(8, count, limits.concurrency);
-  return Math.min(4, count, limits.concurrency);
-}
-```
-
-The `4` default is only the safe fallback when nobody gave a better signal. A well-designed workflow should be able to drop to `1–2` or rise to `6–8` based on what it discovered.
-
-How it applies:
-
-```js
-const concurrency = Math.min(
-  args?.concurrency ?? limits.concurrency,
-  limits.concurrency,
-);
-
-const reviews = await agents(items, { concurrency, settle: true });
-```
-
-- `limits.concurrency` is the effective run limit and is read-only.
-- `agents(..., { concurrency })` clamps again so it never exceeds the run limit.
-- `pipeline()` and `parallel()` also use `limits.concurrency` as their local bound.
-- Cached calls on resume (`journal.jsonl` HIT) do not run `pi -p`, so they consume no concurrency slots and do not count against `maxAgents`.
-
-Rule of thumb:
-
-- Use `1–2` for expensive models, strict rate limits, debugging, or workflows with side effects.
-- Use `4` as the safe default for read-only review/research.
-- Use `6–8` when there are many independent branches and the provider responds well.
-- Use `12–16` only for large read-only sweeps with explicit `maxAgents` and timeout.
-
 ## Pattern catalog and use cases
 
-The `Patterns` tab and `/workflow patterns` show all registered scaffolds and use cases. Scaffolds are embedded in the extension, so the package does not depend on files under `examples/workflows/`. The visible catalog uses Claude-style names:
+The `Patterns` tab and `/workflow patterns` show all registered scaffolds and use cases. Scaffolds are embedded in the extension, so the package does not depend on files under `examples/workflows/`. Catalog keys ARE the scaffold filenames (1:1, no aliases):
 
-- **Scaffolds**: `classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`.
-- **Compose scaffolds**: `compose-verify-claims`, `lib-verify-claims`, `workflow-factory`.
-- **Use-cases**: `bug-hunt-repo-audit`, `large-migration`, `complex-research`, `plan-review`, `claim-bug-verification`.
+- **Scaffolds**: `fan-out-and-synthesize`, `adversarial-verify`, `judge-escalate`, `tournament`, `loop-until-dry`.
+- **Compose scaffolds**: `composition-driver`, `verify-claims-lib`, `workflow-factory`.
+- **Use-cases**: `repo-bug-hunt`, `large-migration`, `complex-research`, `adversarial-plan-review`, `bug-verify`.
 
-Older names no longer resolve as pattern aliases. The legacy intents `deep-research` and `default` live on as skills that route to `complex-research` and `fan-out-and-synthesize` respectively.
+An earlier, Claude-style naming (`classify-and-act`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`, `compose-verify-claims`, `lib-verify-claims`, `bug-hunt-repo-audit`, `plan-review`, `claim-bug-verification`) was retired by the single-interface refactor and no longer resolves as a pattern alias. The legacy intents `deep-research` and `default` live on as skills that route to `complex-research` and `fan-out-and-synthesize` respectively.
 
-Composition smell test: if no human/external decision sits between two sub-steps, use `workflow()` inside a single run; if you need to read results and decide the next phase, sequence separate runs with `action=start/run` plus `action=view`.
-
-## Research-backed templates
+### Research-backed templates
 
 Map common agent papers/frameworks to Pi workflow design:
 
@@ -273,7 +303,7 @@ Use these as patterns, not ceremony: every branch needs a reason, a contract, an
 
 See detailed notes in [`docs/research/2026-06-25-agentic-patterns-papers-workflows.md`](./research/2026-06-25-agentic-patterns-papers-workflows.md).
 
-## Recommended prompt patterns
+### Recommended prompt patterns
 
 Workflows work best when every prompt declares its pattern explicitly:
 
@@ -318,7 +348,7 @@ During active background runs (the default in TUI/RPC), Pi shows the state in th
 
 In interactive mode, `/workflows`, `Ctrl+Alt+W`, or pressing `↓` when the editor cannot go lower opens a TUI dashboard on the `Monitor` tab by default; pressing `←` when the editor cannot move further left opens the same dashboard directly on the `Agents` tab. Tabs: `Monitor`, `Agents`, `Sessions`, `Runs`, `Workflows`, `Patterns`, and `Activity`.
 
-- The `Patterns` tab shows the compact catalog (`classify-and-act`, `fan-out-and-synthesize`, `adversarial-verification`, etc.) with when to use each one, expected input, and primitives; `Enter`/`n` creates a project workflow draft from the selected scaffold to edit before saving.
+- The `Patterns` tab shows the compact catalog (`fan-out-and-synthesize`, `adversarial-verify`, `judge-escalate`, etc.) with when to use each one, expected input, and primitives; `Enter`/`n` creates a project workflow draft from the selected scaffold to edit before saving.
 - The `Monitor` tab prioritizes the active run or, failing that, the latest run; it shows workflow, state, elapsed, active/stale, agents running in parallel (`actual/concurrency`) plus peak, bash, artifacts, last log, and `runDir`. With subagents present, it lists state, duration, exit code, schema, tools, skills, extensions, keys, and prompt availability/preview; agents launched by the same `agents(...)` call are labeled `P<phase> 1/n`, `P<phase> 2/n`, etc. `↑`/`↓` select an agent, `Enter`/`o` opens a live agent view (1s refresh, parsed output, prompt, and access — no raw JSON stdout dump), and `←`/`→` switch tabs.
 - The `Agents` tab lists every agent registered across runs, grouped by recent runs, with the current parallel total on top; `↑`/`↓` select any agent and the bottom panel shows state, phase `1/n`, artifact, tools, skills, extensions, keys, prompt preview, and output preview before opening the live detail with `Enter`/`o`.
 - The `Sessions` tab shows the live Pi TUI/RPC sessions for the project via heartbeat (pid, mode, idle, session file, and active workflows), marking rows stale when a process died without cleanup; `Enter` switches the current session to the selected one when a session file is available.
@@ -341,13 +371,13 @@ Or from the tool:
 { "action": "start", "name": "audit-concurrency-<slug>", "input": { "maxAgents": 20, "concurrency": 4 } }
 ```
 
-Reusing an existing workflow is only right when it matches the task **exactly**; otherwise generate a new one under `.pi/workflows/drafts/` as a gitignored, task-specific draft.
+Reusing an existing workflow is only right when it matches the task **exactly**; otherwise generate a new one under `.pi/workflows/drafts/` as a gitignored, task-specific draft. Treat a generated workflow as a **disposable draft** until it proves its value:
 
-A dynamically generated workflow should be treated as a **disposable draft** until it proves its value. After running it:
-
-- If it did not help: delete it with `/workflow delete <name>`.
-- If it helped for that task but will not be reusable: leave it in `.pi/workflows/drafts/` as local history.
-- If you liked it and want to reuse it: **promote** it to a stable name by copying its code to another workflow, for example:
+| After running it… | Do this |
+| --- | --- |
+| It did not help | delete it with `/workflow delete <name>` |
+| Helped once, not reusable | leave it in `.pi/workflows/drafts/` as local history |
+| Liked it, want to reuse | **promote** it to a stable name (copy its code to another workflow) |
 
 ```json
 { "action": "read", "name": "audit-concurrency-<slug>" }
@@ -388,7 +418,7 @@ Model-facing tool: `dynamic_workflow` with actions `list`, `scaffold`, `read`, `
 /workflow graph bug-hunt                # large Mermaid PNG in TUI; shows fan-out ×N, lanes/branches, Mermaid export
 /workflow runs                          # recent runs
 /workflow view latest                   # timeline + artifacts of the latest run
-/workflow new bug-hunt --pattern=bug-hunt-repo-audit
+/workflow new bug-hunt --pattern=repo-bug-hunt
 /workflow edit bug-hunt
 /workflow run bug-hunt {"maxFiles":40,"concurrency":6,"maxAgents":16}     # background by default in TUI/RPC
 /workflow start bug-hunt {"maxFiles":40,"concurrency":4,"maxAgents":16}   # explicit background alias
