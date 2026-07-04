@@ -35,7 +35,10 @@ export default async function main() {
 	await bash(`mkdir -p ${MD_DIR} ${OUT_DIR}`);
 
 	// Prompt con prefijo estable; lo volátil (key) va al final.
+	// Contrato de estilo didáctico trackeado: single source of truth del estándar.
+	const style = await readFile(".pi/skills/didactic-docs-style/SKILL.md");
 	const basePrompt =
+		`Contrato de estilo didáctico (cumplilo AL PIE DE LA LETRA):\n\n${style}\n\n` +
 		`Sos un documentador técnico del repo pi-dynamic-workflows. Tu tarea: escribir la documentación COMPLETA en Markdown (en español, tono técnico, no marketing) de UN workflow scaffold.\n\n` +
 		`Fuentes (leelas con tus tools de lectura):\n` +
 		`- El código fuente del scaffold: ${SCAFFOLDS_DIR}/<key>.js (leelo ENTERO; es la fuente de verdad).\n` +

@@ -15,7 +15,9 @@ export default async function main() {
 	const MD_DIR = ".pi/tmp/scaffold-docs";
 	const OUT_DIR = "docs/html/scaffolds";
 	const CONVERTER = "extensions/pi-docs/scripts/markdown-to-html.mjs";
-	const style = await readFile(".pi/tmp/didactic-style.md");
+	// Contrato de estilo TRACKEADO (single source of truth del estándar didáctico);
+	// nunca leerlo de .pi/tmp/ — ese directorio es efímero y ya perdimos drafts ahí.
+	const style = await readFile(".pi/skills/didactic-docs-style/SKILL.md");
 	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : 6;
 	const conc = Math.max(1, Math.min(requestedConc, limits.concurrency ?? requestedConc));
 	if (conc !== requestedConc) log(`concurrency clamped ${requestedConc} -> ${conc}`);
