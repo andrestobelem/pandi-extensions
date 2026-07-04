@@ -33,6 +33,10 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const GEN = path.join(REPO_ROOT, ".claude", "scripts", "generate-claude-workflows.mjs");
 const SRC_DIR = path.join(REPO_ROOT, "extensions", "pi-dynamic-workflows", "scaffolds");
 const OUT_DIR = path.join(REPO_ROOT, ".claude", "workflows");
+// Second generated destination (#26): the ultracode skill carries its own copy of the
+// Claude-side catalog so the skill stays self-contained in standalone installs; it is
+// generated from the SAME canonical scaffolds and must stay byte-equal to OUT_DIR.
+const SNAPSHOT_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode", "reference", "claude-workflows");
 
 const { check, counts } = createChecker();
 
@@ -81,7 +85,22 @@ async function main() {
 	}
 	fs.rmSync(tmp, { recursive: true, force: true });
 
-	// 3) Sensitivity / negative control: a one-char tweak must register as drift.
+	// 3) Snapshot parity (#26): the ultracode skill's reference copy is the SAME generated
+	//    artifact — every catalog file must be byte-equal in the snapshot dir.
+	for (const name of outNames) {
+		let snapText = null;
+		try {
+			snapText = fs.readFileSync(path.join(SNAPSHOT_DIR, name), "utf8");
+		} catch {}
+		const catText = fs.readFileSync(path.join(OUT_DIR, name), "utf8");
+		check(
+			`snapshot: reference/claude-workflows/${name} is byte-equal to .claude/workflows/${name}`,
+			snapText === catText,
+			snapText === null ? "missing in snapshot dir" : `snapshot=${snapText.length}B catalog=${catText.length}B`,
+		);
+	}
+
+	// 4) Sensitivity / negative control: a one-char tweak must register as drift.
 	const sample = outNames[0];
 	const samplePath = path.join(OUT_DIR, sample);
 	const original = fs.readFileSync(samplePath, "utf8");
@@ -94,6 +113,29 @@ async function main() {
 		);
 	});
 	check(`negative control restored ${sample} byte-for-byte`, fs.readFileSync(samplePath, "utf8") === original);
+
+	// 5) Negative control for the SNAPSHOT destination: --check must also watch it.
+	const snapSamplePath = path.join(SNAPSHOT_DIR, sample);
+	let snapOriginal = null;
+	try {
+		snapOriginal = fs.readFileSync(snapSamplePath, "utf8");
+	} catch {}
+	if (snapOriginal !== null) {
+		await withMutatedFile(snapSamplePath, `${snapOriginal}\nconst __snapshot_drift_probe__ = 1;\n`, () => {
+			const tweaked = spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+			check(
+				`negative control: a hand-edit to the SNAPSHOT copy of ${sample} is detected as drift`,
+				tweaked.status !== 0,
+				`exit=${tweaked.status}`,
+			);
+		});
+		check(
+			`negative control restored snapshot ${sample} byte-for-byte`,
+			fs.readFileSync(snapSamplePath, "utf8") === snapOriginal,
+		);
+	} else {
+		check(`negative control: snapshot copy of ${sample} exists`, false, "missing in snapshot dir");
+	}
 
 	console.log(`\nTOTAL: ${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

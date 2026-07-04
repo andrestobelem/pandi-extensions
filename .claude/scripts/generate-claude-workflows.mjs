@@ -1,11 +1,15 @@
 #!/usr/bin/env node
-// generate-claude-workflows.mjs — deterministically generate .claude/workflows/*.js
-// (Claude Code top-level-script dialect) FROM the canonical pi scaffolds
-// (extensions/pi-dynamic-workflows/scaffolds/*.js).
+// generate-claude-workflows.mjs — deterministically generate the Claude Code
+// top-level-script dialect of every canonical pi scaffold
+// (extensions/pi-dynamic-workflows/scaffolds/*.js) into TWO destinations:
+//   1. .claude/workflows/*.js — the repo's Claude catalog (synced to ~/.claude).
+//   2. .pi/skills/ultracode/reference/claude-workflows/*.js — the ultracode skill's
+//      self-contained reference copy (#26); it travels with the skill via the
+//      skill syncs (gen-claude-ultracode, vendor-extension-skills).
 //
 // pi scaffolds are the SOURCE OF TRUTH. The Claude files are generated artifacts:
 // do NOT hand-edit them — edit the pi scaffold and re-run this. A parity test
-// (tests/.../claude-parity) guards against drift.
+// (tests/.../claude-parity) guards against drift in BOTH destinations.
 //
 // Transform (the only real pi->claude delta; see git history / plan):
 //   1. Entry-point: unwrap `export default async function main() { <body> }` to a
@@ -22,14 +26,17 @@
 //   node .claude/scripts/generate-claude-workflows.mjs --check   # verify, exit 1 on drift
 
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import prettier from "prettier";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..");
 const SRC_DIR = join(REPO, "extensions", "pi-dynamic-workflows", "scaffolds");
-const OUT_DIR = join(REPO, ".claude", "workflows");
+const OUT_DIRS = [
+	join(REPO, ".claude", "workflows"),
+	join(REPO, ".pi", "skills", "ultracode", "reference", "claude-workflows"),
+];
 
 const PRETTIER_OPTS = {
 	parser: "babel",
@@ -119,30 +126,34 @@ async function main() {
 	for (const f of files) {
 		const src = await readFile(join(SRC_DIR, f), "utf8");
 		const generated = await generateOne(f, src);
-		const outPath = join(OUT_DIR, f);
-		let current = null;
-		try {
-			current = await readFile(outPath, "utf8");
-		} catch {}
-		if (check) {
-			if (current !== generated) {
-				console.error(`  drift: .claude/workflows/${f}`);
-				drift++;
+		for (const outDir of OUT_DIRS) {
+			const outPath = join(outDir, f);
+			const rel = relative(REPO, outPath);
+			let current = null;
+			try {
+				current = await readFile(outPath, "utf8");
+			} catch {}
+			if (check) {
+				if (current !== generated) {
+					console.error(`  drift: ${rel}`);
+					drift++;
+				}
+			} else if (current !== generated) {
+				await writeFile(outPath, generated);
+				console.log(`  wrote: ${rel}`);
+				wrote++;
 			}
-		} else if (current !== generated) {
-			await writeFile(outPath, generated);
-			console.log(`  wrote: .claude/workflows/${f}`);
-			wrote++;
 		}
 	}
+	const total = files.length * OUT_DIRS.length;
 	if (check) {
 		if (drift > 0) {
-			console.error(`[generate-claude-workflows] ❌ ${drift}/${files.length} out of date — run without --check.`);
+			console.error(`[generate-claude-workflows] ❌ ${drift}/${total} out of date — run without --check.`);
 			process.exit(1);
 		}
-		console.log(`[generate-claude-workflows] ✅ all ${files.length} in sync.`);
+		console.log(`[generate-claude-workflows] ✅ all ${total} in sync (${OUT_DIRS.length} destinations).`);
 	} else {
-		console.log(`[generate-claude-workflows] done — ${wrote} written, ${files.length - wrote} unchanged.`);
+		console.log(`[generate-claude-workflows] done — ${wrote} written, ${total - wrote} unchanged.`);
 	}
 }
 
