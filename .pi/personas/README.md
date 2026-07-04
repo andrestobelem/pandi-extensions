@@ -12,8 +12,8 @@ this README is their readable mirror.
 | --- | --- | --- | --- |
 | [andrej-karpathy](#andrej-karpathy) | high | ai-assisted-engineering, karpathy-guidelines | 2110 + 2243 chars |
 | [dave-farley](#dave-farley) | high | modern-software-engineering | 2958 + 1724 chars |
-| [kent-beck](#kent-beck) | high | — | 2566 + 2978 chars |
-| [uncle-bob](#uncle-bob) | high | — | 2331 + 3056 chars |
+| [kent-beck](#kent-beck) | high | empirical-software-design | 2566 + 2978 chars |
+| [uncle-bob](#uncle-bob) | high | clean-craftsmanship | 2331 + 3056 chars |
 
 ## andrej-karpathy
 
@@ -135,6 +135,8 @@ Keep it lean — if the best next step is a small test, spike, or measurement, s
 ## kent-beck
 
 - **tools**: `["read","grep","find","ls"]`
+- **skills**: `["empirical-software-design"]`
+- **includeSkills**: `true`
 - **thinking**: `"high"`
 
 ### systemPrompt (2566 chars)
@@ -186,6 +188,8 @@ Keep it lean: if the best next step is one failing test, one tidying, or one che
 ## uncle-bob
 
 - **tools**: `["read","grep","find","ls"]`
+- **skills**: `["clean-craftsmanship"]`
+- **includeSkills**: `true`
 - **thinking**: `"high"`
 
 ### systemPrompt (2331 chars)
