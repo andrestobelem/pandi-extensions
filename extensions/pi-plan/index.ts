@@ -565,7 +565,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 				persist(pi, livePlan);
 				refreshPlanStatus(ctx);
 				wake(pi, ctx, makeImplementPrompt(planText, { ultracodeSteps: livePlan.ultracodeSteps }));
-				notify(ctx, `Plan ${livePlan.planId} approved. Exiting plan mode and implementing.`, "info");
+				notify(ctx, `Plan ${livePlan.planId} approved. Exiting plan mode and implementing. 🐼`, "info");
 				return {
 					content: [{ type: "text" as const, text: "Plan approved — implementing now." }],
 					details: { planId: livePlan.planId, status: "approved" },
