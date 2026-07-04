@@ -3,7 +3,7 @@
 // instead of inside a template literal. The builder inlines jsonToMarkdown() above this, then
 // interpolates this file via ${...} (its content is never re-parsed, so no escaping traps).
 const D=JSON.parse(document.getElementById("data").textContent);
-const esc=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const esc=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const PAL=["#3f7a52","#7a4fb0","#b54545","#9a6a14","#2f6f9e","#a3517a"];
 const pc={}; (D.phases||[]).forEach((p,i)=>pc[p]=PAL[i%PAL.length]);
 // Render the diagram FIRST and in isolation: set #mm content, then run mermaid explicitly.
