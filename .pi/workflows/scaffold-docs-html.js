@@ -83,13 +83,18 @@ export default async function main() {
 
 	phase("index");
 	const ok = authored;
-	const indexMd = await agent(
+	if (Array.isArray(input.keys) && input.keys.length > 0) {
+		// Con subset NO se regenera index.md: listaría solo el subset y pisaría el índice completo.
+		log(`index.md NO regenerado (subset de ${ok.length} keys); el índice completo trackeado queda intacto`);
+	} else {
+		const indexMd = await agent(
 		`Escribí un index.md (en español) para la carpeta de documentación de workflow scaffolds. Para cada scaffold listado abajo: un item con link [\`<key>\`](./<key>.md) y su blurb de una línea tomado del catálogo (traducido). Agrupá por afinidad (verificación, research, fan-out, meta/composición, iterativos, etc.) con secciones H2. Título H1: "Workflow scaffolds". Aclarar al inicio qué es un scaffold (patrón ejecutable del catálogo de pi-dynamic-workflows). Respondé SOLO el Markdown.\n\nScaffolds documentados: ${ok.join(", ")}${failed.length ? `\nSIN página (mencionalos en una nota final como pendientes): ${failed.join(", ")}` : ""}\n\nCatálogo:\n${catalogSrc}`,
 		{ label: "index", phase: "index", model: input.model ?? "sonnet", effort: "medium" },
 	);
-	// Robustez: si el agente envuelve la respuesta en un fence ```markdown, lo quitamos.
-	const cleanIndex = String(indexMd).replace(/^\s*```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/, "$1");
-	await writeFile(`${MD_DIR}/index.md`, cleanIndex);
+		// Robustez: si el agente envuelve la respuesta en un fence ```markdown, lo quitamos.
+		const cleanIndex = String(indexMd).replace(/^\s*```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/, "$1");
+		await writeFile(`${MD_DIR}/index.md`, cleanIndex);
+	}
 
 	phase("convert");
 	const sync = await bash("npm run sync:docs:html");
@@ -97,6 +102,9 @@ export default async function main() {
 	if ((sync.code ?? 0) !== 0) { convFails.push("sync:docs:html"); log(`sync:docs:html falló: ${sync.stderr.slice(0, 300)}`); }
 
 	phase("verify");
+	// Patch COMPLETO como artifact: sesiones concurrentes ya barrieron el working tree dos veces;
+	// con esto el output de los autores sobrevive fuera del árbol y re-aplicar es un `git apply`.
+	await writeArtifact("scaffolds.patch", (await bash(`git diff -- ${MD_DIR} ${OUT_DIR}`)).stdout);
 	const count = await bash(`ls ${OUT_DIR}/*.html | wc -l`);
 	const noMermaid = [];
 	for (const k of ok) {
