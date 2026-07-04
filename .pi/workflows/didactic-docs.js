@@ -18,6 +18,8 @@ export default async function main() {
 	// Contrato de estilo TRACKEADO (single source of truth del estándar didáctico);
 	// nunca leerlo de .pi/tmp/ — ese directorio es efímero y ya perdimos drafts ahí.
 	const style = await readFile(".pi/skills/didactic-docs-style/SKILL.md");
+	// Contrato de dosis de tono Pandi: se pasa junto al didáctico para que el tono sobreviva regeneraciones.
+	const dose = await readFile(".pi/skills/pandi-prose-style/SKILL.md");
 	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : 6;
 	const conc = Math.max(1, Math.min(requestedConc, limits.concurrency ?? requestedConc));
 	if (conc !== requestedConc) log(`concurrency clamped ${requestedConc} -> ${conc}`);
@@ -28,6 +30,7 @@ export default async function main() {
 
 	const base =
 		`Sos un editor técnico senior. Mejorá UN documento de la documentación de dynamic workflows siguiendo este contrato de estilo AL PIE DE LA LETRA:\n\n${style}\n\n` +
+		`Contrato de dosis de tono (fila "Docs": condimento leve, 🐼 ≤ 1 por doc y cero es válido, jamás en tablas/hechos/frontmatter):\n\n${dose}\n\n` +
 		`Método: (1) leé el documento entero; (2) verificá los hechos dudosos contra el código fuente indicado; (3) reescribilo en el MISMO archivo con tus tools de edición/escritura. No toques ningún otro archivo. Respondé solo "done" más una lista de 3-5 cambios didácticos que hiciste.\n\n`;
 
 	const editorSpecs = [

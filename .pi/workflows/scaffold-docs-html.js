@@ -37,8 +37,11 @@ export default async function main() {
 	// Prompt con prefijo estable; lo volátil (key) va al final.
 	// Contrato de estilo didáctico trackeado: single source of truth del estándar.
 	const style = await readFile(".pi/skills/didactic-docs-style/SKILL.md");
+	// Contrato de dosis de tono: el tono Pandi entra por el GENERADOR (sobrevive regeneraciones).
+	const dose = await readFile(".pi/skills/pandi-prose-style/SKILL.md");
 	const basePrompt =
 		`Contrato de estilo didáctico (cumplilo AL PIE DE LA LETRA):\n\n${style}\n\n` +
+		`Contrato de dosis de tono (aplicá la fila "Docs": condimento leve, 🐼 ≤ 1 por doc y cero es válido, jamás en tablas/hechos/frontmatter):\n\n${dose}\n\n` +
 		`Sos un documentador técnico del repo pi-dynamic-workflows. Tu tarea: escribir la documentación COMPLETA en Markdown (en español, tono técnico, no marketing) de UN workflow scaffold.\n\n` +
 		`Fuentes (leelas con tus tools de lectura):\n` +
 		`- El código fuente del scaffold: ${SCAFFOLDS_DIR}/<key>.js (leelo ENTERO; es la fuente de verdad).\n` +

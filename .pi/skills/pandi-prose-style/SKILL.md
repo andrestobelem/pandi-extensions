@@ -86,6 +86,16 @@ sentence's functional status is unclear, leave it byte-identical and flag it.
 - Style decisions come from this matrix, not ad-hoc taste — that is what
   keeps a large fan-out from drifting.
 
+## How it is applied
+
+- Docs generators load this contract alongside didactic-docs-style:
+  `.pi/workflows/scaffold-docs-html.js` and `.pi/workflows/didactic-docs.js`
+  pass both to every editor/reviewer agent, so tone survives regeneration.
+- Sweeps: `.pi/workflows/pandi-prose-wave1.js` (docs/skills row). Messages
+  were restyled in wave 2 (one `style(<ext>)` commit per extension).
+- Comments and prompts get NO dedicated sweep: apply their row
+  opportunistically, only when a file is already being touched.
+
 ## Deference wiring
 
 - **didactic-docs-style** owns the Markdown docs contract (structure, shape,
