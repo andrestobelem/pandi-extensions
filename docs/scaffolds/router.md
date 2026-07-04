@@ -1,118 +1,122 @@
 # router
 
-> Clasifica una solicitud y la despacha al único mejor workflow del catálogo, o solo recomienda.
+> Clasificá un request y despachalo al mejor workflow del catálogo, o solo recomendá.
 
 ## En 30 segundos
 
-`router` es un "front door" único: recibe una tarea en texto libre, la compara contra los workflows hermanos disponibles (descubiertos en runtime, no hardcodeados) y ejecuta el que mejor encaje — devolviendo su resultado. Elegilo cuando el caller no sabe (o no quiere saber) qué workflow específico correr; no lo uses si ya sabés cuál invocar (llamalo directo) o si necesitás generar un workflow nuevo (`workflow-factory`).
+`router` es la puerta de entrada única para tareas crudas: en vez de que vos elijas a mano qué workflow del catálogo corresponde, un único nodo juez lee el catálogo, decide cuál es el mejor fit y (por default) lo ejecuta, devolviéndote directamente su output. Elegilo cuando tenés un request genérico y no querés nombrar vos mismo el workflow específico, o cuando querés previsualizar la decisión de ruteo sin disparar nada (`runSelected:false`).
 
 ## Cómo lanzarlo
 
-```bash
-# 1) Crear el workflow a partir del scaffold (abre el editor con el código base)
-/workflow new mi-router --pattern=router
-
-# 2) Ejecutarlo con una tarea cruda como input
-/workflow run mi-router {"request":"Necesito optimizar una query de Snowflake que tarda 40s"}
+```text
+/workflow new mi-run --pattern=router
+/workflow run mi-run {"request":"Auditá los endpoints de la API en busca de fallas de seguridad","runSelected":true}
 ```
 
-`request` es el único campo obligatorio (ver tabla de input más abajo). El router descubre el catálogo, elige un workflow (o `"none"`) y, si `runSelected` no es `false`, lo despacha y devuelve su `output`.
+`request` es el único campo obligatorio. Para solo ver qué elegiría sin ejecutar nada:
+
+```text
+/workflow run mi-run {"request":"Resumí este log de 50MB","runSelected":false}
+```
 
 ## Diagrama
 
 ```mermaid
 flowchart TD
-    A["Input: request (task/text)"] --> B{"candidates explícito?"}
-    B -- "sí" --> C["Usar allow-list del caller"]
-    B -- "no" --> D["Fase Discover: agent catalog-scan (haiku, low)\nlee .pi/workflows/*.js y ~/.pi/agent/workflows/*.js"]
-    D -->|"falla"| E["catálogo vacío (log, no crash)"]
-    D -->|"ok"| F["lista workflows: name/description"]
-    C --> G["Filtrar excluidos: router y drafts/, dedup"]
-    E --> G
-    F --> G
-    G --> H["Aplicar maxCandidates (default 60, clamp 1..200)"]
-    H --> I{"candidates.length == 0?"}
-    I -- "sí" --> J["return selected=none, dispatched=false"]
-    I -- "no" --> K["Fase Route: agent route (opus, high, schema ROUTE)"]
-    K -->|"falla"| L["return selected=none, error, dispatched=false"]
-    K -->|"ok"| M{"selected válido y no excluido?"}
-    M -- "no" --> N["forzar selected=none (log)"]
-    M -- "sí" --> O["selected = nombre elegido"]
-    N --> P{"selected==none OR runSelected==false?"}
-    O --> P
-    P -- "sí" --> Q["return selected, why, dispatched=false, suggestedArgs"]
-    P -- "no" --> R["Fase Dispatch: resolver dispatchArgs\n(input.args ?? suggestedArgs ?? {request})"]
-    R --> S["workflow(selected, dispatchArgs)"]
-    S -->|"éxito"| T["return selected, why, dispatched=true, output"]
-    S -->|"falla"| U["return selected, why, dispatched=false, error (recomendación intacta)"]
+    A["Input: request (req, alias task/text), candidates[]?, runSelected=true, args?, context?, maxCandidates=60"] --> B{"request vacío?"}
+    B -->|"sí"| B1["throw Error: falta request"]
+    B -->|"no"| C["Phase: Discover"]
+
+    C --> D{"input.candidates[] provisto?"}
+    D -->|"sí"| E["known = candidates (allow-list explícita)"]
+    D -->|"no"| F["agent catalog-scan haiku·low\nlee .pi/workflows/*.js y ~/.pi/agent/workflows/*.js\nextrae meta.name/meta.description"]
+    F -->|"falla"| F1["log error; known = [] (catálogo vacío)"]
+    F -->|"ok"| G["known = workflows[]"]
+    E --> H
+    F1 --> H
+    G --> H["filtrar excluidos: nombre 'router' y rutas .../drafts/...\ndeduplicar por nombre"]
+    H --> I["aplicar cap maxCandidates (default 60, clamp 1..200)\nlog si se recorta"]
+    I --> J{"candidates.length == 0?"}
+    J -->|"sí"| J1["return selected:'none', dispatched:false, candidates:[]"]
+    J -->|"no"| K["Phase: Route"]
+
+    K --> L["agent route opus·high (schema ROUTE)\ncatálogo + context + request, todo dentro de fence() anti-inyección"]
+    L -->|"falla"| L1["log error; return selected:'none', dispatched:false, error"]
+    L -->|"ok"| M["decision = { selected, why, suggestedArgs }"]
+    M --> N{"selected no está en candidateNames\nO está excluido?"}
+    N -->|"sí"| N1["log; selected = 'none' (guard anti-alucinación)"]
+    N -->|"no"| O
+    N1 --> O{"selected=='none' OR runSelected==false?"}
+    O -->|"sí"| O1["return { selected, why, dispatched:false, suggestedArgs, candidates }"]
+    O -->|"no"| P["Phase: Dispatch"]
+
+    P --> Q["dispatchArgs = input.args ?? suggestedArgs ?? { request }"]
+    Q --> R["workflow(selected, dispatchArgs)"]
+    R -->|"éxito"| S["return { selected, why, dispatched:true, suggestedArgs, output, candidates }"]
+    R -->|"falla"| T["log; return { selected, why, dispatched:false, suggestedArgs, candidates, error }"]
 ```
 
 ## Qué hace
 
-`router` implementa el patrón clásico de routing/dispatch de LLM: un nodo juez único (`route`) clasifica una solicitud entrante y elige, entre los workflows hermanos del catálogo, el que mejor se ajusta. A diferencia de `contract-gate` (que solo recomienda un `routingHint`), `router` por defecto **ejecuta** la decisión: llama a `workflow(selected, args)` y devuelve la salida de ese workflow.
+`router` implementa el patrón clásico de LLM-router (también llamado dispatch/handoff): un frente barato de autorear que clasifica un request entrante y lo reenvía al especialista más adecuado. Acá los "especialistas" son los workflows hermanos del catálogo de dynamic workflows, y la decisión de ruteo la toma UN solo nodo juez (rol `route`) que devuelve un objeto tipado `{ selected, why, suggestedArgs }`. Si el ruteo tiene éxito, `router` **despacha**: llama a `workflow(selected, …)` y devuelve el output de ese workflow tal cual — a diferencia de `contract-gate`, que solo *recomienda* una forma de encarar la tarea sin ejecutarla.
 
-El conjunto de candidatos no se conoce en tiempo de autoría: se **descubre en runtime** leyendo `.pi/workflows/*.js` (proyecto) y `~/.pi/agent/workflows/*.js` (global), extrayendo `meta.name`/`meta.description` de cada archivo. `router` se excluye a sí mismo y cualquier entrada bajo una subcarpeta `drafts/`, de modo que un ciclo de auto-ruteo es estructuralmente imposible.
+Es "dinámico" porque el conjunto de candidatos no se conoce en tiempo de autoría: se **descubre** en runtime leyendo el catálogo del proyecto (`.pi/workflows/*.js`) y el global (`~/.pi/agent/workflows/*.js`), excluyendo `router` mismo y cualquier entrada bajo `drafts/`. El target elegido se invoca dinámicamente vía la primitiva `workflow()` — el único punto que varía según el request.
 
-Cada etapa está blindada: si el escaneo del catálogo falla, se sigue con catálogo vacío (→ `selected: "none"`); si el nodo de ruteo falla, degrada a `"none"` con el motivo en `error`; si el dispatch falla, se retorna `dispatched:false` + `error` — nunca un crash. `"none"` es un resultado de primera clase para solicitudes triviales o sin encaje, y el dispatch es de un solo tiro (sin loop ni recursión). El nombre elegido por el nodo juez se valida contra el conjunto descubierto: un pick alucinado o fuera de catálogo se trata como `"none"`, nunca se despacha una suposición.
+El diseño es robusto en cada uno de los tres pasos: si falla el escaneo del catálogo, degrada a catálogo vacío (`selected:"none"`); si falla el nodo de ruteo, degrada a `"none"` (con el motivo en `error`); si falla el dispatch, surge como `dispatched:false` (+ `error`) — nunca un crash. `"none"` es un resultado de primera clase para requests triviales o sin fit. El router rechaza estructuralmente despacharse a sí mismo o a cualquier nombre fuera del set descubierto, así que un ciclo de auto-ruteo es imposible; el dispatch es de un solo disparo (sin loop ni recursión).
 
 ## Cuándo usarlo
 
-| Necesitás... | Usá |
-|---|---|
-| Front door único: mapear una tarea cruda al especialista correcto de un catálogo conocido | **`router`** |
-| Solo previsualizar la elección, sin ejecutar nada (`runSelected: false`) | `router` (modo recomendación) |
-| Ya sabés qué workflow correr | llamarlo directo, o `guardrails` para envolverlo |
-| Generar un workflow nuevo en vez de reusar uno existente | `workflow-factory` |
-| Una recomendación de forma (trivial / single-agent / dynamic-workflow) sin listar candidatos concretos | `contract-gate` |
+- Un único front door para tareas crudas cuando no sabés (o no querés elegir vos) qué workflow del catálogo aplica.
+- Previsualizar la elección con `runSelected:false` antes de comprometerte a ejecutar algo.
+- Mapear una tarea al especialista correcto entre varios workflows candidatos.
+- Restringir el universo de candidatos vos mismo con `candidates: [...]` (allow-list explícita, salta el escaneo del catálogo).
+
+No usarlo cuando:
+
+- Ya sabés exactamente qué workflow querés correr — llamalo directo, ahorrate el nodo de ruteo (`opus`·`high`, el más caro del scaffold).
+- Necesitás ejecutar **varios** workflows o combinarlos — `router` elige exactamente uno, nunca una lista.
+- El request es autosuficiente y trivial — el propio nodo `route` puede (y debe) devolver `"none"` en ese caso, evitando levantar un workflow multi-agente innecesario.
 
 ## Cómo funciona
 
-El input llega como `args` (posiblemente JSON-stringified) y se parsea defensivamente; si falla el parseo, se usa `{}`. Toda entrada no confiable (contenido del catálogo, contexto, request) se envuelve con `fence()`, un delimitador cuyo tag se deriva de un hash del contenido, para que un payload malicioso no pueda forjar un marcador de cierre coincidente.
+**Validación de entrada.** `request` (alias `task`/`text`) es obligatorio; si falta o queda vacío tras `trim()`, lanza `Error` directamente (no hay camino de degradación graciosa acá, a diferencia de las fases posteriores). `runSelected` default `true`. `maxCandidates` se sanea con clamp 1..200 (default 60), logueando si el valor pedido fue recortado.
 
-**Fase 1 — Discover.** Si `input.candidates` viene como array no vacío, se usa como allow-list explícita (se salta el escaneo de catálogo, pero igual se filtra contra `router`/`drafts` y se deduplica). En caso contrario, se invoca `agent()` con rol `catalog-scan` (modelo `haiku`, effort `low`, schema `CATALOG`) para leer los archivos de catálogo y extraer `{ name, description }` de cada uno, tratando su contenido como DATOS a copiar literalmente, nunca como instrucciones a obedecer. Un fallo en este `agent()` se loguea y se continúa con lista vacía. Los nombres excluidos (`router` y cualquier entrada bajo `drafts/`) se descartan y se deduplican por nombre; se aplica el cap `maxCandidates` con log visible si recorta cobertura. Si no queda ningún candidato, se retorna de inmediato `{ selected: "none", dispatched: false, candidates: [] }`.
+**Fase Discover.** Si `input.candidates` es un array no vacío, se usa como allow-list explícita (saltea el escaneo, igual se filtra contra `router`/`drafts` y se deduplica). Si no, se lanza un `agent` (rol `catalog-scan`, modelo `haiku`, effort `low`, schema `CATALOG`) instruido para leer los archivos de catálogo del proyecto y globales como **datos**, nunca como instrucciones (defensa anti-inyección explícita en el prompt), y extraer `meta.name`/`meta.description` de cada uno, excluyendo `router` y cualquier ruta bajo `drafts/`. Si ese `agent` lanza excepción, se loguea y se continúa con catálogo vacío — nunca crashea. Los candidatos descubiertos se filtran (excluidos + duplicados) y se recortan al cap `maxCandidates` con log explícito si hubo recorte. Si el resultado queda en cero candidatos, la fase settlea temprano devolviendo `{ selected: "none", dispatched: false, candidates: [] }` sin pasar a Route.
 
-**Fase 2 — Route.** Un solo nodo juez (`agent()` con rol `route`, modelo `opus`, effort `high`, schema `ROUTE`) recibe el catálogo (nombre + descripción de cada candidato, todo fenceado como untrusted), el `context` opcional y el `request`, y debe devolver `{ selected, why, suggestedArgs }`. Las reglas del prompt exigen: `selected` debe ser exactamente un nombre de la lista (copiado verbatim) o el literal `"none"`; elegir `"none"` si nada encaja genuinamente o si la tarea es trivial; nunca elegir una lista; justificar con señales concretas de la solicitud. Si este `agent()` lanza, se retorna `selected:"none"` con `error`. Si `decision.selected` no está en el conjunto válido descubierto o está excluido, se fuerza a `"none"` (logueado, nunca despachado a ciegas).
+**Fase Route.** Un único `agent` juez (rol `route`, modelo `opus`, effort `high`, schema `ROUTE`) recibe la lista de candidatos, el `context` opcional y el `request`, todos envueltos en `fence()` — un delimitador anti-inyección derivado de un hash del contenido, para que un payload malicioso no pueda forjar el marcador de cierre. El prompt exige elegir EXACTAMENTE un nombre copiado literal de la lista, o `"none"`, y justificar la elección citando señales concretas del request. Si el nodo lanza excepción, se degrada a `selected:"none"` con el error en el campo `error`. Tras recibir la decisión, se valida que `selected` esté realmente en el set descubierto y no excluido — un pick alucinado o fuera de catálogo se coacciona a `"none"` de forma visible (logueada), nunca se despacha una alucinación.
 
-**Fase 3 — Dispatch.** Si `selected === "none"` o `runSelected === false`, se retorna solo la recomendación (`dispatched: false`). En caso contrario se resuelven los `dispatchArgs` con precedencia nullish: `input.args ?? suggestedArgs ?? { request }` (un `suggestedArgs: {}` explícito SÍ se pasa, no se reemplaza por `{ request }` solo por estar vacío). Se llama `workflow(selected, dispatchArgs)`; si tiene éxito se retorna `{ selected, why, dispatched: true, output, ... }`; si falla, se retorna `dispatched: false` con `error` describiendo el fallo de dispatch, preservando la recomendación (`selected`, `why`) intacta.
+**Fase Dispatch.** Si `selected === "none"` o `runSelected === false`, retorna solo la recomendación (`dispatched:false`) sin llamar a nada más. Si no, resuelve `dispatchArgs` con precedencia nullish: `input.args ?? suggestedArgs ?? { request }` (un `suggestedArgs` explícitamente `{}` se respeta, no cae a `{ request }`). Llama a `workflow(selected, dispatchArgs)` en un único intento guardado: si tiene éxito, devuelve `{ selected, why, dispatched:true, suggestedArgs, output, candidates }`; si lanza excepción, devuelve `dispatched:false` con el error prefijado (`Dispatch to "X" failed: …`) sin reintentar ni recursionar.
 
-No hay caching explícito en el scaffold; el único mecanismo de resiliencia es el patrón try/catch por etapa descrito arriba, que degrada cada fallo a un resultado seguro en lugar de propagar la excepción.
+**Caching:** no hay mecanismo explícito de caché — cada `agent` se invoca fresco.
+
+**Fallos parciales:** cada uno de los tres pasos (scan, route, dispatch) está aislado con try/catch propio; ninguno propaga excepción hacia el caller salvo la validación inicial de `request` vacío.
 
 ## Input y output
 
-**Input** (`args`, JSON-stringified u objeto):
-
-| Campo | Tipo | Default / clamp | Descripción |
+| Campo | Tipo | Requerido | Default / clamp |
 |---|---|---|---|
-| `request` (alias `task`, `text`) | string | **requerido** | La tarea a rutear; si falta o está vacía tras trim, lanza error. |
-| `candidates` | string[] | opcional | Allow-list explícita; si se provee, se salta el escaneo de catálogo. |
-| `runSelected` | boolean | `true` | Si `false`, solo recomienda (nunca despacha). |
-| `args` | object | opcional | Args para el workflow elegido; tiene prioridad sobre `suggestedArgs`. |
-| `context` | string | opcional | Contexto extra plegado en el prompt de ruteo. |
-| `maxCandidates` | number | `60` (clamp 1..200) | Tope de candidatos mostrados al nodo `route`; el recorte se loguea. |
-| `model` / `effort` | string | — | Overrides globales aplicados a todos los nodos. |
-| `models{}` / `efforts{}` | object | — | Overrides por rol (`catalog-scan`, `route`). |
-| `toolsByRole` / `skillsByRole` / `excludeByRole` | object | — | Overrides de tools/skills/excludeTools por rol. |
+| `request` (alias `task`, `text`) | string | **sí** | — (si falta/vacío, `throw Error`) |
+| `candidates` | string[] | no | allow-list explícita; salta el escaneo del catálogo si se provee |
+| `runSelected` | boolean | no | default `true`; en `false` solo recomienda, nunca despacha |
+| `args` | object | no | args para el workflow elegido; fallback nullish a `suggestedArgs`, luego a `{ request }` |
+| `context` | string | no | contexto extra plegado en el prompt de ruteo |
+| `maxCandidates` | number | no | default 60, clamp 1..200 |
+| `model` / `effort` | string | no | override global para todo nodo |
+| `models[role]` / `efforts[role]` | object | no | override por rol (`catalog-scan`, `route`); precedencia por-rol > global > default |
+| `tools` / `skills` / `excludeTools` (y variantes `*ByRole`) | array | no | pasados al `agent` si son arrays |
 
-**Output:**
+**Output:** `{ selected, why, dispatched, output? }`, con extensiones opcionales `candidates` (lista de nombres considerados) y `error` (presente solo en un fallo guardado de ruteo o dispatch).
 
-```json
-{
-  "selected": "string",        // nombre del workflow elegido, o "none"
-  "why": "string",             // justificación del nodo route
-  "dispatched": "boolean",     // true solo si se ejecutó workflow(selected, ...)
-  "output": "any?",            // presente solo cuando dispatched=true
-  "suggestedArgs": "object?",  // args propuestos por el nodo route
-  "candidates": "string[]?",   // lista de nombres considerados
-  "error": "string?"           // presente solo en fallo guardado (routing o dispatch)
-}
-```
+- `selected`: nombre del workflow elegido, o `"none"`.
+- `why`: justificación evidenciada de la elección (o de por qué nada encajó).
+- `dispatched`: `true` solo si `workflow(selected, …)` se ejecutó con éxito.
+- `output`: presente únicamente cuando `dispatched === true` — es el output crudo del workflow despachado.
+- `suggestedArgs`: args propuestos por el nodo `route` para el workflow elegido (se incluye en las respuestas de recomendación y de dispatch).
 
-No se observan llamadas a `writeArtifact` en el código: el scaffold no escribe artifacts propios; su único efecto observable son las líneas de `log(...)` y el valor de retorno.
+No se observan llamadas a `writeArtifact`: toda la observabilidad pasa por `log(...)` (candidatos descubiertos, caps aplicados, decisión de ruteo, resultado del dispatch) y por el shape de retorno.
 
 ## Fases
 
-1. **Discover** — descubre el conjunto de workflows candidatos (allow-list del caller o escaneo del catálogo vía `agent()`), filtra excluidos (`router`, `drafts/`), deduplica y aplica el cap `maxCandidates`.
-2. **Route** — un nodo juez único (`agent()` con schema `ROUTE`) elige exactamente un nombre del catálogo o `"none"`, con justificación y `suggestedArgs`; se valida contra el conjunto descubierto.
-3. **Dispatch** — si hay una selección válida y `runSelected` no es `false`, ejecuta `workflow(selected, dispatchArgs)` y retorna su salida; de otro modo retorna solo la recomendación.
-</content>
-</invoke>
+1. **Discover** — resuelve el set de candidatos: usa la allow-list explícita si se provee, o escanea el catálogo del proyecto/global vía un `agent` barato (haiku·low); filtra excluidos (`router`, `drafts/`), deduplica y aplica el cap `maxCandidates`.
+2. **Route** — un único `agent` juez (opus·high) elige exactamente un nombre del catálogo (o `"none"`) con justificación y `suggestedArgs`; se valida contra el set descubierto para bloquear alucinaciones.
+3. **Dispatch** — si hay un `selected` válido y `runSelected` está activo, invoca `workflow(selected, dispatchArgs)` en un solo intento guardado y devuelve su output; si no, devuelve solo la recomendación.
