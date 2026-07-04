@@ -1,10 +1,19 @@
 # writeFile
 
+Save a file into the workspace (`cwd`) from inside a workflow — for example, a
+generated report or a file the workflow is meant to produce as its final
+output. Parent directories are created automatically; paths cannot escape
+`cwd`.
+
+```js
+const report = await agent("Write the audit report as Markdown", { effort: "high" });
+const { path } = await writeFile("docs/audit.md", report);
+log(`wrote ${path}`);
+```
+
 **Runtime:** pi runtime
 
 **Signature:** `writeFile(path, data) → Promise<{ path }>`
-
-Write a file relative to the run's `cwd`, creating parent directories as needed.
 
 **Returns:** `{ path }` — the absolute path written.
 
@@ -18,14 +27,17 @@ Write a file relative to the run's `cwd`, creating parent directories as needed.
 
 ## Gotchas
 
-- Confined to `cwd`; parent dirs are created automatically.
+- Confined to `cwd`: a path that resolves outside it (via `..` or a symlink)
+  throws `Path escapes workflow cwd`, it is not silently clamped.
+- Parent directories are created for you — no need to `mkdir` first.
 - Never run untrusted-data neutralization on content written **verbatim** — fence
   only the inputs, not the output.
 
 ## Example
 
 ```js
-const report = await agent("Write the audit report as Markdown", { effort: "high" });
-const { path } = await writeFile("docs/audit.md", report);
-log(`wrote ${path}`);
+const findings = await agent("Summarize the audit findings", { effort: "high" });
+const { path } = await writeFile("docs/audit-summary.md", findings);
+log(`workflow product ready at ${path}`);
+return { path };
 ```

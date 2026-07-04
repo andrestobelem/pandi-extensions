@@ -1,11 +1,20 @@
 # readFile
 
+Reads a file from disk into a string, so a workflow can feed real
+source/evidence into a prompt or process. Reach for it whenever a step needs
+file contents that aren't already in `args`.
+
+```js
+const src = await readFile("src/auth.ts");
+const review = await agent(
+  `Review for bugs.\n<untrusted kind="src">${src}</untrusted>`,
+  { effort: "high" },
+);
+```
+
 **Runtime:** pi runtime
 
 **Signature:** `readFile(path, encoding = "utf8") → Promise<string>`
-
-Read a file, resolved relative to the run's `cwd`. Confined to the workflow's
-working directory.
 
 **Returns:** the file contents as a string (per `encoding`).
 
@@ -17,15 +26,21 @@ working directory.
 
 ## Gotchas
 
-- Paths resolve against `cwd`; it is confined there (not an arbitrary FS read).
-- File contents are **untrusted** — fence them before putting them in a prompt.
+- Relative paths resolve against the run's `cwd`; absolute paths are used
+  as-is but must still resolve inside `cwd` — either way, an escape attempt
+  (e.g. `../../etc/passwd`) throws instead of reading outside the sandbox.
+- File contents are **untrusted** — fence them (as in the example above)
+  before putting them in a prompt.
 
 ## Example
 
 ```js
-const src = await readFile("src/auth.ts");
+const input = typeof args === "string" ? JSON.parse(args) : (args ?? {});
+const diff = await readFile(input.diffPath ?? "CHANGES.diff");
 const review = await agent(
-  `Review for bugs.\n<untrusted kind="src">${src}</untrusted>`,
+  `Review this diff for regressions.\n<untrusted kind="diff">${diff}</untrusted>`,
   { effort: "high" },
 );
+await writeArtifact("review.md", review);
+return { reviewed: true };
 ```

@@ -1,5 +1,15 @@
 # listFiles
 
+`listFiles` walks a directory recursively and returns every file path it finds.
+Use it to build a durable work-list inside a workflow — the equivalent of an
+inline "scout" step, but bounded and loggable — before fanning out with
+`agents()` or `pipeline()`.
+
+```js
+const files = await listFiles("src", { maxFiles: 5000 });
+log(`work-list: ${files.length} files`);
+```
+
 **Runtime:** pi runtime
 
 **Signature:** `listFiles(dir = ".", options?) → Promise<string[]>`
@@ -18,10 +28,12 @@ Recursively list files under `dir` (relative to `cwd`). Skips `node_modules` and
 
 ## Gotchas
 
-- Auto-skips `node_modules`/`.git`; other large/generated dirs are up to you to
-  filter.
+- Auto-skips `node_modules`/`.git`; other large/generated dirs (e.g. `dist`,
+  `.venv`) are up to you to filter.
 - If the walk stops at `maxFiles`, coverage is capped — `log()` it (never cap
   silently).
+- Paths are relative to `cwd`, not to `dir` — join `dir` back in if you need
+  it for display.
 
 ## Example
 

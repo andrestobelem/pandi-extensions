@@ -1,29 +1,45 @@
 # agent
 
+`agent()` runs **one** subagent call — a single unit of model work with its own
+prompt, model/effort budget, and tool access. Reach for it whenever a workflow
+step needs "ask a model something and get an answer back," whether that's a
+quick classification or a scoped code review.
+
+```js
+const review = await agent(
+  `Review this diff for security bugs. Return JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
+  { model: "anthropic/claude-sonnet-4-6", effort: "high", schema: reviewSchema },
+);
+if (review) log(`verdict: ${review.verdict}`);
+```
+
 **Runtime:** shared (pi + Claude Code)
 
 **Signature:** `agent(prompt, options?) → Promise<object | string | null>`
 
-Run a single subagent. The prompt is a string (string-first on Claude). Options
-set the per-call budget and access: `model`, `effort` (`low…max`) / `thinking`,
-`schema`, `name`/`label`, `agentType` (`explore`/`reviewer`/`planner`/
-`architect`/`implementer`/`researcher`), `tools`/`excludeTools`, `skills`, `extensions`,
+The prompt is a string (string-first on Claude). Options set the per-call
+budget and access: `model`, `effort` (`low…max`) / `thinking`, `schema`,
+`name`/`label`, `agentType` (`explore`/`reviewer`/`planner`/`architect`/
+`implementer`/`researcher`), `tools`/`excludeTools`, `skills`, `extensions`,
 `keys`, `env`, and `signal` (for cancellation inside `race()`).
 
 **Returns:**
 
-- with `{ schema }` → the **parsed object** (top-level type must be an object),
-  or `null` if the branch failed or the output did not validate.
+- with `{ schema }` → the **parsed object** (top-level type must be an object).
+  If the output does not validate after retries, the default (`schemaOnInvalid:
+  "throw"`) is to **throw**, not return `null` — pass `{ schemaOnInvalid: "null" }`
+  explicitly to get `null` instead.
 - without a schema → the **text** output.
 - `null` on a failed subagent (`ok:false`) — so `parallel`/`pipeline` settle
   accounting stays honest.
 
 ## When to use / not
 
-- **Use** for one unit of model work. It is the atom every other primitive
-  composes.
-- **Not** for many independent items — use `agents`; not for dependent stages —
-  use `pipeline`.
+| Situation | Use |
+| --- | --- |
+| One unit of model work | `agent` — the atom every other primitive composes |
+| Many independent items | `agents` (fan-out) |
+| Dependent stages, output feeds next input | `pipeline` |
 
 ## Gotchas
 
@@ -39,7 +55,7 @@ set the per-call budget and access: `model`, `effort` (`low…max`) / `thinking`
 ```js
 const review = await agent(
   `Review this diff for security bugs. Return JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
-  { model: "anthropic/claude-sonnet-4-6", effort: "high", schema: reviewSchema },
+  { model: "anthropic/claude-sonnet-4-6", effort: "high", schema: reviewSchema, schemaOnInvalid: "null" },
 );
 if (review) log(`verdict: ${review.verdict}`);
 ```

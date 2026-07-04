@@ -1,15 +1,28 @@
 # compact
 
+Turns any value (object, array, string) into a bounded string — stringify plus
+truncate, in one call. Use it whenever you build a synthesis/judge prompt from
+several branch results: it keeps the combined prompt under budget instead of
+blowing past the model's context.
+
+```js
+const findings = (await agents(files, { concurrency: 8, settle: true })).filter(Boolean);
+return await agent(
+  `Synthesize these findings, most severe first:\n${compact(findings, 40000)}`,
+  { model: "opus", effort: "high" },
+);
+```
+
 **Runtime:** shared (pi + Claude Code)
 
 **Signature:** `compact(value, maxChars?) → string`
 
-Bounded stringify for **prompt building**: turn a value (object/array/string)
-into a compact string, truncated to `maxChars` (defaults to the runtime's max
-tool-text budget) so aggregated results stay within budget when fed to a
-synthesis prompt.
+- `value` — string, object, or array; non-strings are `JSON.stringify`'d
+  (2-space indent, circular refs replaced with `"[Circular]"`).
+- `maxChars` — defaults to the runtime's max tool-text budget (24000).
 
-**Returns:** a bounded string.
+**Returns:** the value as a string, truncated to `maxChars` with a
+`...[truncated N chars]` suffix when it overflows.
 
 ## When to use / not
 
@@ -20,17 +33,25 @@ synthesis prompt.
 
 ## Gotchas
 
-- Truncates by design; pair with evidence contracts (most-important-first) so the
-  cut tail isn't the critical part.
-- On Claude Code, `compact()` ships beside the `fence(kind, data)` helper in every
-  scaffold.
+- Truncation cuts the **tail**, so pair it with an evidence contract that puts
+  the most-important-first — otherwise the cut part may be the critical one.
+- On Claude Code, `compact()` ships beside the `fence(kind, data)` helper in
+  every scaffold — `fence` wraps untrusted data for the prompt, `compact` caps
+  its size; they're typically used together.
 
 ## Example
 
 ```js
-const findings = (await agents(files, { concurrency: 8, settle: true })).filter(Boolean);
-return await agent(
-  `Synthesize these findings, most severe first:\n${compact(findings, 40000)}`,
-  { model: "opus", effort: "high" },
-);
+export default async function main() {
+  const files = ["a.ts", "b.ts", "c.ts"];
+  const results = await agents(
+    files.map((f) => `Review ${f} for bugs`),
+    { concurrency: 4, settle: true },
+  );
+  const findings = results.filter(Boolean);
+  return await agent(
+    `Synthesize these findings, most severe first:\n${compact(findings, 20000)}`,
+    { model: "opus", effort: "high" },
+  );
+}
 ```

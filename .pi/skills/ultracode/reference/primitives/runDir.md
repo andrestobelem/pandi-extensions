@@ -1,11 +1,18 @@
 # runDir
 
+A read-only global string holding the absolute path to the current run's
+directory — the folder where artifacts, events, and the journal for this
+workflow run live. Reach for it when you need to log or reason about *where*
+things landed, not to write files directly.
+
+```js
+log(`artifacts for this run live in ${runDir}`);
+await writeArtifact("summary.md", summary); // resolved under runDir, emits an event
+```
+
 **Runtime:** pi runtime (read-only run context)
 
 **Signature:** `runDir` (string) — this run's directory
-
-The absolute path of the current run's directory, where artifacts and the
-journal live. Injected as a flat global.
 
 **Returns:** the absolute run-directory path.
 
@@ -25,6 +32,10 @@ journal live. Injected as a flat global.
 ## Example
 
 ```js
-log(`artifacts for this run live in ${runDir}`);
-await writeArtifact("summary.md", summary); // resolved under runDir, emits an event
+export default async function main() {
+  log(`run directory: ${runDir}`);
+  const findings = await agent("scan the repo for TODOs");
+  await writeArtifact("findings.md", findings);
+  return `wrote findings under ${runDir}/artifacts/findings.md`;
+}
 ```

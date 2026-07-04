@@ -1,43 +1,63 @@
 # race
 
-**Runtime:** pi runtime (not on the Claude Code Workflow tool)
-
-**Signature:** `race(thunks, { accept? }) → Promise<{ winner, index, status, errors? }>`
-
-Fan out N branches and, the moment one produces an **accepted** value, **cancel
-the in-flight losers** (a real SIGTERM via each thunk's `AbortSignal`). Each
-`thunk` is `(signal) => Promise` — pass the `signal` into `agent()`/`ask()` so
-losers are actually aborted. `accept` decides what counts as a win (default:
-`(value) => value != null`).
-
-**Returns:** `{ winner, index, status }`:
-
-- `status: "won"` → `winner` is the accepted value, `index` its position.
-- `errors?: [{ index, error }]` → present when one or more branches REJECTED
-  (threw); a genuine thunk bug is debuggable instead of looking like a clean
-  all-decline. A plain decline (resolved `null`) reports no errors.
-- `status: "empty"` → no branch was accepted; `winner` is `null`, `index` is
-  `-1`.
-
-## When to use / not
-
-- **Use** for first-good-answer-wins / hedging a flaky or latency-sensitive call
-  (redundant attempts, fastest acceptable result).
-- **Not** for picking the *best by quality* — that's a judge (`tournament`,
-  `judge-escalate`), which must see all candidates. `race` optimizes latency, not
-  merit.
-
-## Gotchas
-
-- Thunks MUST be functions taking `signal`; a non-empty array is required (throws
-  otherwise).
-- Thread the `signal` through so losers cancel; otherwise they keep running.
-
-## Example
+`race` runs several branches at once and takes whichever one is "good enough"
+first, then cancels the rest. Reach for it when you have redundant attempts at
+the same goal (multiple endpoints, multiple retries) and only care about the
+fastest acceptable answer — not the best one.
 
 ```js
 const { winner, index, status } = await race(
   endpoints.map((url) => (signal) => agent(`Answer via ${url}: ${q}`, { signal })),
 );
 if (status === "won") log(`endpoint ${index} answered first`);
+```
+
+**Runtime:** pi runtime (not on the Claude Code Workflow tool)
+
+**Signature:** `race(thunks, { accept? }) → Promise<{ winner, index, status, errors? }>`
+
+Each `thunk` is `(signal) => Promise`; pass that `signal` into `agent()`/`ask()`
+so losers are actually aborted (a real SIGTERM once one branch wins). `accept`
+decides what counts as a win — default `(value) => value != null`, so a
+resolved `null` is treated as a decline, not a win.
+
+**Returns:**
+
+- `status: "won"` → `winner` is the accepted value, `index` its position.
+- `status: "empty"` → no branch was accepted; `winner` is `null`, `index` is
+  `-1`.
+- `errors?: [{ index, error }]` → present when one or more branches REJECTED
+  (threw), so a genuine thunk bug is debuggable instead of looking like a
+  clean all-decline. A plain decline (resolved `null`) adds no error entry.
+
+## When to use / not
+
+| Situation | Use |
+| --- | --- |
+| Hedge a flaky or slow call with redundant attempts | `race` — optimizes latency |
+| Pick the best answer by *quality*, not speed | `tournament` / `judge-escalate` — a judge must see every candidate |
+| Just run N things and keep all results | `agents` / `parallel` |
+
+## Gotchas
+
+- Thunks MUST be functions taking `signal`; a non-empty array is required —
+  `race([])` or non-function entries throw synchronously.
+- Thread the `signal` through to `agent()`/`ask()`/`bash()`; if you don't,
+  losers keep running after the race is decided.
+- `errors` is additive: even with rejections, `winner`/`index`/`status` keep
+  their normal meaning — check `status`, not `errors`, to know if you have a
+  winner.
+
+## Example
+
+```js
+export default async function main(ctx, input) {
+  const endpoints = input.endpoints ?? [];
+  const { winner, index, status, errors } = await race(
+    endpoints.map((url) => (signal) => agent(`Fetch a status summary from ${url}`, { signal })),
+    { accept: (value) => typeof value === "string" && value.length > 0 },
+  );
+  if (status === "empty") throw new Error(`no endpoint answered: ${JSON.stringify(errors)}`);
+  return { source: endpoints[index], summary: winner };
+}
 ```

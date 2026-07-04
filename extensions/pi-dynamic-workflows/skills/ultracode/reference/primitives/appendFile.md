@@ -1,11 +1,19 @@
 # appendFile
 
+Adds data to the end of a file relative to the run's `cwd`, creating parent
+directories on the way if needed. Reach for it when a workflow step needs to
+accumulate lines into a plain file over time — a log, a growing report, a
+running summary — without a full agent or `bash` call.
+
+```js
+for (const line of summaryLines) {
+  await appendFile("out/summary.txt", `${line}\n`);
+}
+```
+
 **Runtime:** pi runtime
 
 **Signature:** `appendFile(path, data) → Promise<{ path }>`
-
-Append to a file relative to the run's `cwd`, creating parent directories as
-needed.
 
 **Returns:** `{ path }` — the absolute path written.
 
@@ -27,4 +35,5 @@ needed.
 for (const line of summaryLines) {
   await appendFile("out/summary.txt", `${line}\n`);
 }
+log("summary written to out/summary.txt");
 ```

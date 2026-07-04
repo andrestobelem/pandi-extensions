@@ -1,5 +1,14 @@
 # args
 
+`args` is how a run's caller hands parameters — the request text, target
+paths, model/effort budgets — down into the script. Reach for it any time your
+script needs to know what it was asked to do, instead of hardcoding it.
+
+```js
+const input = typeof args === "string" ? JSON.parse(args) : (args ?? {});
+console.log(input.request);
+```
+
 **Runtime:** shared (pi + Claude Code)
 
 **Signature:** `args` (value) — the workflow input

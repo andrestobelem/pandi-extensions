@@ -1,16 +1,29 @@
 # Dynamic-workflow primitives (injected globals)
 
-Per-primitive reference for the globals a dynamic-workflow script can call. Scripts use them as bare globals — no `import`/`require`, no `ctx.*`.
+A dynamic-workflow script is a plain JS function that calls a set of pre-injected globals — no `import`/`require`, no `ctx.*`. This page is the index: what each global does, when to reach for it, and where its full doc lives.
 
-## Usage
+## Quickstart
 
 ```js
 export default async function main() {
-  const findings = await agents(files, { concurrency: 8 });
-  return compact(findings.filter(Boolean));
+  const findings = await agents(files, { concurrency: 8 }); // one subagent per file, 8 at a time
+  return compact(findings.filter(Boolean)); // drop nulls (failed items), bound the output size
 }
 // (or a top-level script that ends in `return`)
 ```
+
+## Which primitive?
+
+| Need | Reach for |
+| --- | --- |
+| One subagent call | [`agent`](agent.md) |
+| Same step over many items, bounded concurrency | [`agents`](agents.md) |
+| Independent branches, wait for all | [`parallel`](parallel.md) |
+| Dependent stages per item (no merge across items) | [`pipeline`](pipeline.md) |
+| Several attempts, first good one wins | [`race`](race.md) |
+| Reuse another workflow as a step | [`workflow`](workflow.md) |
+
+## All globals
 
 | Category | Primitive | What it does |
 | --- | --- | --- |
@@ -41,15 +54,14 @@ export default async function main() {
 
 ## How it works
 
-- The source of truth for *which* primitives exist is the runtime itself: the `sandbox.<name> = …` assignments in `extensions/pi-dynamic-workflows/worker-source.ts`.
-- A parity test (`extensions/pi-dynamic-workflows/tests/integration/primitives-parity.test.mjs`) keeps this folder 1:1 with that list — add or remove a global there and the test fails until the matching `<name>.md` is added or removed here.
-- This folder is the per-primitive analog of `extensions/pi-dynamic-workflows/scaffolds/` for patterns.
+The source of truth for *which* primitives exist is the `sandbox.<name> = …` assignments in `worker-source.ts`. A parity test (`tests/integration/primitives-parity.test.mjs`) keeps this folder 1:1 with that list — add/remove a global there and the test fails until the matching `<name>.md` is added/removed here. This folder is the per-primitive analog of `scaffolds/` for patterns.
 
-## Limitations & safety notes
+## Gotchas
 
-- These docs describe the **pi `dynamic_workflow` runtime**. Only the core (`agent`, `agents`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`, `compact`) is shared with the Claude Code Workflow tool — don't assume the rest exist there. Keep cross-runtime scaffolds to the shared core.
-- Filesystem and shell primitives are confined to the run `cwd`.
-- Artifacts are persisted under `runDir` and are inspectable after the run.
+- **Cross-runtime:** only the core (`agent`, `agents`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`, `compact`) is shared with the Claude Code Workflow tool — don't assume the rest exist there.
+- **Filesystem/shell** primitives (`bash`, `readFile`, `writeFile`, `appendFile`, `listFiles`) are confined to the run `cwd`.
+- **Artifacts** are persisted under `runDir` and stay inspectable after the run ends.
+- **Failure shape:** `agent`/`agents` return `null` per failed item instead of throwing — always filter before using results (see the `compact(findings.filter(Boolean))` line above).
 
 ## Related
 

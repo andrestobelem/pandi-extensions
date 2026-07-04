@@ -1,15 +1,43 @@
 # @pandi-coding-agent/dynamic-workflows
 
-Run multi-agent JavaScript workflows from Pi: fan out parallel subagents, collect artifacts, resume interrupted runs, and watch everything in a TUI dashboard. Includes the Ultracode router that turns big tasks into orchestrated workflows.
+A JavaScript runtime for multi-agent workflows inside Pi: fan out parallel
+subagents, collect artifacts, resume interrupted runs, and watch it all in a
+TUI dashboard. Reach for it when a task is too big or too uncertain for a
+single reply — a repo-wide audit, a broad migration, or research that needs
+independent perspectives — but skip it for a single question or a one-file
+edit; a few direct tool calls are cheaper.
+
+## Quickstart
+
+A workflow is a plain JavaScript file: a top-level script (no `import`, no
+other exports) that ends with `return <value>`, using injected globals like
+`agent` and `args`. Save this as `.pi/workflows/hello.js`:
+
+```js
+const input = typeof args === "string" ? JSON.parse(args) : (args ?? {});
+const topic = input.topic ?? "pi extensions";
+const notes = await agent(`List 3 facts about ${topic}.`, { model: "haiku", effort: "low" });
+return await agent(`Turn these notes into one tight paragraph:\n${notes}`, { effort: "high" });
+```
+
+Then, from a Pi session:
+
+```text
+/workflow run hello {"topic": "circuit breakers"}
+```
+
+That's the whole loop: write a `.js` file, `/workflow run <name> [json-input]`.
+No UI? Ask the agent to call the `dynamic_workflow` tool with
+`action: "write"` (name + code) and `action: "run"` (name + input) instead.
 
 ## What you get
 
 - A JavaScript workflow runtime with injected globals: `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`, `workflow`, `phase`, `log`, `args`, plus read-only `limits`/`runId`/`runDir`/`cwd`.
-- The `dynamic_workflow` model tool for listing, scaffolding, reading, writing, running, resuming, cancelling, graphing, and viewing workflows.
+- The `dynamic_workflow` model tool for listing, scaffolding, reading, writing, running, resuming, cancelling, deleting, graphing, listing runs, and viewing workflows (and more).
 - A resumable journal and per-run artifacts, so crashed or cancelled runs continue instead of restarting.
 - A live TUI dashboard (`/workflows` or `Ctrl+Alt+W`) with Monitor, Agents, Sessions, Runs, Workflows, Patterns, and Activity tabs.
 - Ultracode routing commands and a Contract Gate that reviews the task contract before broad orchestration.
-- A compact scaffold catalog: six primary scaffolds, compose scaffolds, and use-case scaffolds — no pattern aliases.
+- A compact scaffold catalog: 12 primary scaffolds, 7 compose scaffolds, and 6 use-case scaffolds — no pattern aliases.
 
 ## Install
 
@@ -27,24 +55,48 @@ pi install -l ./extensions/pi-dynamic-workflows       # project-local
 pi --no-extensions -e ./extensions/pi-dynamic-workflows   # one-off trial, nothing else loaded
 ```
 
+## Choosing a primitive
+
+| Situation | Primitive |
+| --- | --- |
+| One subagent call | `agent(prompt, options?)` |
+| Same one step, over many independent items | `agents(items, options?)` |
+| 2+ dependent stages per item, no cross-item merge | `pipeline(items, ...stages)` |
+| A later step needs ALL results at once (barrier: dedup, rank, merge) | `parallel(thunks)` |
+| First accepted answer wins; cancel the rest | `race(thunks, { accept? })` |
+| The workflow can't safely decide alone — needs a human call | `ask(question, options?)` |
+
+`race` and `ask` are pi-only (not on the Claude Code Workflow tool). See
+`primitives/*.md` for full signatures and gotchas.
+
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `/workflow …` | Manage workflows: `new` (scaffold), `agents`, `sessions`, `cleanup`, `delete`, `delete-run`, and more. |
+| `/workflow …` | Manage workflows: `new` (scaffold), `run`, `start`, `agents`, `sessions`, `cleanup`, `delete`, `delete-run`, and more. |
 | `/workflows` | Open the workflow dashboard (also `Ctrl+Alt+W`). |
 | `/dynamic-workflow` (alias `/ultracode`) | Route the current task through the Ultracode workflow router. |
 | `/deep-research` | Legacy intent; routes to the `complex-research` pattern. |
 | `/ultracode-mode` | Toggle always-on Ultracode routing for the session. |
 | `/ultracode-contract` | Toggle the Contract Gate; `/ultracode-contract off` disables it for the session. |
-| `dynamic_workflow` | Model tool: list, scaffold, read, write, run, resume, cancel, graph, and view workflows. |
+| `dynamic_workflow` | Model tool: list, scaffold, read, write, run, start, resume, cancel, delete, graph, runs, view, and report on workflows (and more). |
+
+`/workflow run <name>` runs in the foreground and prints the result — except
+inside a persistent (TUI) session, where it auto-backgrounds so the dashboard
+stays the control plane. `/workflow start <name>` launches in the background
+when the session is TUI or RPC, so you can keep chatting while it runs; in
+print/json mode there is no persistent session to keep it alive, so it errors
+instead of falling back to foreground.
 
 ## How it works
 
-Workflows are plain JavaScript files. Stable workflows live in `.pi/workflows/`; drafts and run artifacts live under `.pi/workflows/drafts/` and `.pi/workflows/runs/` in trusted projects. Key primitives:
+Stable workflows live in `.pi/workflows/`; drafts and run artifacts live under
+`.pi/workflows/drafts/` and `.pi/workflows/runs/` in trusted projects. A
+workflow may optionally declare `export const meta = { name, description,
+phases }` for dashboard labels. Key primitives beyond the table above:
 
-- `race(thunks, { accept? })` — first accepted branch wins; in-flight losers are cancelled with a real SIGTERM via each thunk's `AbortSignal`. Returns `{ winner, index, status }`.
 - `ask(question, opts?)` — pause a branch to ask a human via Pi's UI (`input`/`confirm`/`select`). Resume-safe (the answer is journaled and replayed, never re-asked), headless-honest (`opts.default` or a clear error, never hangs), and cancellable inside `race()`.
+- `race(thunks, { accept? })` — first accepted branch wins; in-flight losers are cancelled with a real SIGTERM via each thunk's `AbortSignal`. Returns `{ winner, index, status }`.
 - **Per-call model and reasoning:** every subagent call can set its own `model`, `provider`, and `effort` (`low|medium|high|xhigh|max`). Omitting them inherits the orchestrator's model and session reasoning level. They are part of the cache key, so changing them re-runs that call on resume.
 
 ```js
@@ -74,7 +126,7 @@ The runtime bounds execution at several layers so a workflow cannot grow without
 - **`concurrency`** — simultaneous subagents; clamped to `limits.concurrency`.
 - **Depth-1 composition** — `workflow(name, args)` invokes reusable sub-workflows one level deep only; deeper recursive calls are refused.
 - **Cross-process recursion guard** — each subagent is spawned one level deeper (`PI_DYNAMIC_WORKFLOWS_DEPTH` = depth + 1). If a subagent with `includeExtensions: true` has the `dynamic_workflow` tool, its `start`/`run`/`resume` actions are **refused** once its depth reaches the limit. This closes the vector where a subagent would launch nested top-level runs that do not count against the parent's budget.
-- Drafts and run artifacts are only written in **trusted projects**.
+- Runs still execute in untrusted projects, but their artifacts are redirected to a global, project-hashed root instead of `.pi/workflows/runs/`. Only writing drafts/workflows with `scope=project` requires a **trusted project** (use `scope=global` to write without trust).
 
 ## Details
 
@@ -105,20 +157,20 @@ Before writing a workflow, use `dynamic_workflow action=scaffold` or `/workflow 
 
 | Scaffold | Use it for | Choose it when |
 | --- | --- | --- |
-| `classify-and-act` | Cheap classification, then per-class treatment. | An audit, PR review, or migration should spend expensive agents only on medium/high-risk files. Verify: full classification artifact, skipped-item counts, evidence per follow-up. |
+| `scout-fanout` | Cheap classification, then per-class treatment. | An audit, PR review, or migration should spend expensive agents only on medium/high-risk files. Verify: full classification artifact, skipped-item counts, evidence per follow-up. |
 | `fan-out-and-synthesize` | Independent work with one final reduction. | You can split by files, topics, modules, or perspectives and need a synthesis that drops unsupported findings. Verify: coverage, failed branches, caps, cited findings. |
-| `adversarial-verification` | Pruning claims, suspected bugs, or plans before acting. | The cost of accepting a false positive is high. Verify: each claim ends `verified` or `dropped` with a reason and evidence. |
-| `generate-and-filter` | Designing several solutions and choosing by an explicit rubric. | You need best-of-N for architecture, prompts, or strategy. Verify: candidates, rubric, scores, and drop reasons are saved. |
-| `tournaments` | Pairwise comparisons and bracket ranking. | Designs, prompts, or plans must compete head-to-head and relative ranking beats absolute scores. Verify: bracket/matrix, criteria, winner rationale. |
-| `loop-until-done` | Discovery or repair of unknown size. | You must iterate until quiet rounds, `maxRounds`, budget, or timeout. Verify: round log, stop criterion, deduplicated findings. |
-| `compose-verify-claims` | Local discovery composed with a stable verification library. | No human decision is needed between discovering and verifying. Verify: serializable JSON contract between parent and child, artifacts from both. |
-| `lib-verify-claims` | Shared sub-workflow for fact-checking / claim pruning. | Several workflows need the same verification without copying prompts. Verify: `{ claims, skeptics? }` input, stable output, explicit failure handling. |
+| `adversarial-verify` | Pruning claims, suspected bugs, or plans before acting. | The cost of accepting a false positive is high. Verify: each claim ends `verified` or `dropped` with a reason and evidence. |
+| `judge-escalate` | Designing several solutions and choosing by an explicit rubric. | You need best-of-N for architecture, prompts, or strategy. Verify: candidates, rubric, scores, and drop reasons are saved. |
+| `tournament` | Pairwise comparisons and bracket ranking. | Designs, prompts, or plans must compete head-to-head and relative ranking beats absolute scores. Verify: bracket/matrix, criteria, winner rationale. |
+| `loop-until-dry` | Discovery or repair of unknown size. | You must iterate until quiet rounds, `maxRounds`, budget, or timeout. Verify: round log, stop criterion, deduplicated findings. |
+| `composition-driver` | Local discovery composed with a stable verification library. | No human decision is needed between discovering and verifying. Verify: serializable JSON contract between parent and child, artifacts from both. |
+| `verify-claims-lib` | Shared sub-workflow for fact-checking / claim pruning. | Several workflows need the same verification without copying prompts. Verify: `{ claims, skeptics? }` input, stable output, explicit failure handling. |
 | `workflow-factory` | Meta-workflow that designs a task-specific workflow. | Orchestration is complex enough that prompts/contracts deserve review before spending many subagents. Verify: draft under `.pi/workflows/drafts/`, review, decision artifacts. |
-| `bug-hunt-repo-audit` | Finding likely bugs across many files. | You want a reusable broad audit, not a manual one-off. Verify: file coverage, prioritized findings, file/line citations. |
+| `repo-bug-hunt` | Finding likely bugs across many files. | You want a reusable broad audit, not a manual one-off. Verify: file coverage, prioritized findings, file/line citations. |
 | `large-migration` | Planning or executing migrations across many files. | You must discover blockers, risks, and caps before editing. Verify: candidate inventory, risk classification, migration checklist. |
 | `complex-research` | Broad research with sources, comparisons, or migration analysis. | You need independent perspectives and citations, not a quick answer. Verify: sources per claim, angle coverage, research limits. |
-| `plan-review` | A skeptical panel before implementing a risky decision. | A plan needs critique from several perspectives. Verify: accepted risks, recommended changes, verification gaps. |
-| `claim-bug-verification` | Confirming sweep findings before reporting or changing code. | You have suspected bugs/claims and want to separate real evidence from hallucinations. Verify: each finding has a repro, concrete evidence, or a drop reason. |
+| `adversarial-plan-review` | A skeptical panel before implementing a risky decision. | A plan needs critique from several perspectives. Verify: accepted risks, recommended changes, verification gaps. |
+| `bug-verify` | Confirming sweep findings before reporting or changing code. | You have suspected bugs/claims and want to separate real evidence from hallucinations. Verify: each finding has a repro, concrete evidence, or a drop reason. |
 
 ### Research-backed templates
 
