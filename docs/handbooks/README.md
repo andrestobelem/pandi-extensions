@@ -20,5 +20,5 @@ up to date as the project evolves.
 
 ## Index
 
-- [Workflow catalog (quick reference)](./workflow-catalog.md) — the 25 dynamic-workflow scaffolds by family, with descriptions and use cases.
+- [Workflow catalog (quick reference)](./workflow-catalog.md) — pick a dynamic-workflow family with a decision table/flowchart, then browse the 25 scaffolds by family (links to their HTML pages).
 - [Pandi artifact style (skill)](../../.pi/skills/pandi-artifact-style/SKILL.md) — style manual for HTML artifacts, reports, and styled docs: Claude-design layout with the Panda Syntax palette (tokens + template included).
