@@ -1,5 +1,7 @@
-// Unit tests for the pandi-artifact-style md-to-html converter.
-// TDD pinning suite: pure core (renderMarkdownToHtml) + one CLI smoke test.
+// Pinning tests for the pi-mdhtml md-to-html converter (moved here from the
+// pandi-artifact-style skill). TDD pinning suite: pure core (renderMarkdownToHtml)
+// + one CLI smoke test. node:test based; run-all executes the file directly and
+// node:test sets a non-zero exit code on failure.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -8,8 +10,8 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const SCRIPT = path.join(REPO, ".pi", "skills", "pandi-artifact-style", "scripts", "md-to-html.mjs");
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
+const SCRIPT = path.join(REPO, "extensions", "pi-mdhtml", "scripts", "md-to-html.mjs");
 
 const { renderMarkdownToHtml } = await import(pathToFileURL(SCRIPT).href);
 

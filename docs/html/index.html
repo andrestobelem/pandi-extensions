@@ -158,7 +158,7 @@ cd /your/project &amp;&amp; pi
 </code></pre>
 <p>Optional extras (web search for subagents, Context7 docs, PNG graphs, Apple <code>container</code> sandboxes, Gondolin micro-VMs) and the external <code>karpathy-guidelines</code> skill are covered in <a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2>Extension catalog</h2>
-<p>All 17 extensions load by default from the <code>pi.extensions</code> field of <code>package.json</code> when you run <code>pi install ./</code>. Each one is also installable on its own with <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<p>All 20 extensions load by default from the <code>pi.extensions</code> field of <code>package.json</code> when you run <code>pi install ./</code>. Each one is also installable on its own with <code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <table>
 <thead>
 <tr>
@@ -241,6 +241,12 @@ cd /your/project &amp;&amp; pi
 <td>—</td>
 </tr>
 <tr>
+<td><strong>pi-mdhtml</strong></td>
+<td><code>/mdhtml</code> · <code>markdown_to_html</code></td>
+<td>Converts Markdown into pandi-styled self-contained HTML artifacts (light + dark).</td>
+<td>—</td>
+</tr>
+<tr>
 <td><strong>pi-btw</strong></td>
 <td><code>/btw</code></td>
 <td>Quick side question about the current conversation, tool-free, in an overlay; not saved to history.</td>
@@ -275,6 +281,12 @@ cd /your/project &amp;&amp; pi
 <td>· <code>ask_choice</code>, <code>ask_confirm</code></td>
 <td>Interactive TUI selector/confirm tools for model-driven decision points.</td>
 <td>TUI/RPC</td>
+</tr>
+<tr>
+<td><strong>pi-doctor</strong></td>
+<td><code>/doctor</code></td>
+<td>Runs the repo&#39;s read-only environment check (<code>scripts/doctor.mjs</code>) and shows the report.</td>
+<td>—</td>
 </tr>
 </tbody></table>
 <blockquote>

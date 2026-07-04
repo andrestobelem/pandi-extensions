@@ -40,7 +40,7 @@ Optional extras (web search for subagents, Context7 docs, PNG graphs, Apple `con
 
 ## Extension catalog
 
-All 17 extensions load by default from the `pi.extensions` field of `package.json` when you run `pi install ./`. Each one is also installable on its own with `pi install ./extensions/<name>`.
+All 20 extensions load by default from the `pi.extensions` field of `package.json` when you run `pi install ./`. Each one is also installable on its own with `pi install ./extensions/<name>`.
 
 | Extension | Surface (human · model) | What it does | Extra requirements |
 | --- | --- | --- | --- |
@@ -56,12 +56,14 @@ All 17 extensions load by default from the `pi.extensions` field of `package.jso
 | **pi-container** | `/container` · `container_sandbox` | Runs isolated Linux commands in Apple `container` micro-VMs, without touching the host. | macOS Apple Silicon + `container` |
 | **pi-bg** | `/bg` | In-memory background jobs for one-off human commands; not resumable (the small sibling of `dynamic_workflow`). | trust for `start` |
 | **pi-mdview** | `/mdview` | Opens a Markdown file in Pi's scrollable TUI viewer. | — |
+| **pi-mdhtml** | `/mdhtml` · `markdown_to_html` | Converts Markdown into pandi-styled self-contained HTML artifacts (light + dark). | — |
 | **pi-btw** | `/btw` | Quick side question about the current conversation, tool-free, in an overlay; not saved to history. | — |
 | **pi-rename** | `/rename` | Renames the session or auto-generates the name from history (Claude-style). | optional: `PI_RENAME_*` |
 | **pi-pandi** | `/pandi [art\|face\|off\|on]` | Panda character: animated splash, indicator, verbs, and mood. | TUI for the full effect |
 | **pi-exit** | `/exit` | Claude-style alias of `/quit` for a clean exit. | — |
 | **pi-clear** | `/clear` | Claude-style alias of `/new` to start a fresh session. | — |
 | **pi-ask** | · `ask_choice`, `ask_confirm` | Interactive TUI selector/confirm tools for model-driven decision points. | TUI/RPC |
+| **pi-doctor** | `/doctor` | Runs the repo's read-only environment check (`scripts/doctor.mjs`) and shows the report. | — |
 
 > `extensions/shared/` is not an extension: it is test-harness code, never published or loaded. `extensions/pi-pandi-theme/` ships no code either: it is a themes-only package (`pi.themes`) with the `panda-syntax-dark`/`panda-syntax-light` variants, the visual companion of **pi-pandi**; it loads with `pi install ./` and is enabled via `/settings` or `"theme"`.
 

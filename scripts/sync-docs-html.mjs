@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // sync-docs-html.mjs — mirror the human docs (root README.md + docs/**/*.md, minus the
 // transient docs/conversaciones/) into `docs/html/` as COMMITTED, navigable HTML styled by
-// the pandi-artifact-style converter. Same generator + --check shape as the other
+// the pi-mdhtml converter (pandi artifact style). Same generator + --check shape as the other
 // sync-*.mjs scripts: the mirror is a GENERATED artifact — do not hand-edit it; edit the
 // Markdown source and re-run this. `npm test` runs the --check, so drift fails the gate.
 //
@@ -18,7 +18,7 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CONVERTER = path.join(REPO, ".pi", "skills", "pandi-artifact-style", "scripts", "md-to-html.mjs");
+const CONVERTER = path.join(REPO, "extensions", "pi-mdhtml", "scripts", "md-to-html.mjs");
 const { renderMarkdownToHtml } = await import(pathToFileURL(CONVERTER).href);
 
 const MIRROR = ["docs", "html"];

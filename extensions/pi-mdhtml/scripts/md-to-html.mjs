@@ -2,8 +2,10 @@
 // md-to-html.mjs — convert Markdown into a self-contained HTML artifact styled with the
 // pandi-artifact-style manual (Claude-design layout × Panda Syntax palette).
 //
-// Tokens are read at runtime from ../reference/pandi-tokens.css (single source of truth,
-// derived from extensions/pi-pandi-theme/themes/panda-syntax-{dark,light}.json).
+// Tokens are read at runtime from the extension's vendored skill copy
+// (../skills/pandi-artifact-style/reference/pandi-tokens.css, kept byte-identical to the
+// canonical .pi/skills source by vendor-extension-skills.mjs; colors derive from
+// extensions/pi-pandi-theme/themes/panda-syntax-{dark,light}.json).
 //
 // Usage:
 //   node md-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]
@@ -15,8 +17,8 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Marked } from "marked";
 
-const SKILL_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const TOKENS_CSS_PATH = path.join(SKILL_DIR, "reference", "pandi-tokens.css");
+const EXT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
 const ALERT_CALLOUTS = {
 	NOTE: "info",
@@ -153,11 +155,12 @@ function alertsToCallouts(html) {
 	const marker = new RegExp(`<blockquote>\\s*<p>\\[!(${kinds})\\]\\s*(?:<br\\s*/?>\\s*)?`, "g");
 	let out = html.replace(marker, (_all, kind) => `<div class="callout ${ALERT_CALLOUTS[kind]}"><p>`);
 	// Close the div only for blockquotes we opened as callouts.
-	if (out !== html) out = out.replace(/<\/blockquote>/g, (close, idx) => {
-		const opened = out.lastIndexOf("<div class=\"callout", idx);
-		const openedQuote = out.lastIndexOf("<blockquote>", idx);
-		return opened > openedQuote ? "</div>" : close;
-	});
+	if (out !== html)
+		out = out.replace(/<\/blockquote>/g, (close, idx) => {
+			const opened = out.lastIndexOf('<div class="callout', idx);
+			const openedQuote = out.lastIndexOf("<blockquote>", idx);
+			return opened > openedQuote ? "</div>" : close;
+		});
 	return out;
 }
 
@@ -194,7 +197,7 @@ ${mermaidBlock}</body>
 `;
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
 	const inputs = [];
 	let out = null;
 	let kicker;
@@ -212,7 +215,7 @@ function parseArgs(argv) {
 function main() {
 	const parsed = parseArgs(process.argv.slice(2));
 	if (parsed.help || !parsed.inputs?.length) {
-		console.log("Usage: md-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker \"Text\"]");
+		console.log('Usage: md-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]');
 		process.exit(parsed.help ? 0 : 1);
 	}
 	if (parsed.out && parsed.inputs.length > 1) {
@@ -221,7 +224,7 @@ function main() {
 	}
 	for (const input of parsed.inputs) {
 		const md = fs.readFileSync(input, "utf8");
-		const outPath = parsed.out ?? input.replace(/\.md$/i, "") + ".html";
+		const outPath = parsed.out ?? `${input.replace(/\.md$/i, "")}.html`;
 		const html = renderMarkdownToHtml(md, { title: path.basename(input), kicker: parsed.kicker });
 		fs.writeFileSync(outPath, html);
 		console.log(`${input} -> ${outPath}`);
