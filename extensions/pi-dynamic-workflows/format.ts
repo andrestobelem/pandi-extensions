@@ -21,19 +21,34 @@ export function truncate(value: string, max = MAX_TOOL_TEXT): string {
 }
 
 export function safeJson(value: unknown, indent = 2): string {
+	// Track "seen" per traversal PATH (add on enter, delete on exit of scope), mirroring
+	// journal.ts stableStringify. A flat JSON.stringify replacer cannot do this: it never
+	// learns when a subtree is fully left, so a global WeakSet without cleanup wrongly
+	// stamps ANY repeated reference as "[Circular]" — even a DAG's shared-but-not-circular
+	// child across two independent branches — instead of only true cycles.
 	const seen = new WeakSet<object>();
-	return JSON.stringify(
-		value,
-		(_key, current) => {
-			if (typeof current === "bigint") return current.toString();
-			if (typeof current === "object" && current !== null) {
-				if (seen.has(current)) return "[Circular]";
-				seen.add(current);
-			}
-			return current;
-		},
-		indent,
-	);
+	const replace = (current: unknown, key = ""): unknown => {
+		// Mirror JSON.stringify's own SerializeJSONProperty order: toJSON() (e.g. Date) runs
+		// BEFORE the cycle check, same as the native algorithm, so toJSON-bearing values keep
+		// serializing exactly as they did with the old replacer-based implementation.
+		if (
+			typeof current === "object" &&
+			current !== null &&
+			typeof (current as { toJSON?: unknown }).toJSON === "function"
+		) {
+			current = (current as { toJSON: (key: string) => unknown }).toJSON(key);
+		}
+		if (typeof current === "bigint") return current.toString();
+		if (typeof current !== "object" || current === null) return current;
+		if (seen.has(current)) return "[Circular]";
+		seen.add(current);
+		const out: unknown = Array.isArray(current)
+			? current.map((item, i) => replace(item, String(i)))
+			: Object.fromEntries(Object.entries(current).map(([k, v]) => [k, replace(v, k)]));
+		seen.delete(current);
+		return out;
+	};
+	return JSON.stringify(replace(value), null, indent);
 }
 
 export function stringify(value: unknown, max = MAX_TOOL_TEXT): string {
