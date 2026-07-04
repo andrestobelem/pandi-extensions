@@ -57,6 +57,8 @@
 		"md:html": "node extensions/pi-docs/scripts/markdown-to-html.mjs",
 		"sync:docs:html": "node scripts/sync-docs-html.mjs",
 		"sync:docs:html:check": "node scripts/sync-docs-html.mjs --check",
+		"sync:personas": "node scripts/sync-personas-readme.mjs",
+		"sync:personas:check": "node scripts/sync-personas-readme.mjs --check",
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"publish:npm": "node scripts/publish-npm.mjs",
 		"publish:npm:go": "node scripts/publish-npm.mjs --publish",
@@ -64,7 +66,7 @@
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
 		"test:unit": "node --test \"scripts/test/unit/*.test.mjs\"",
 		"test:integration": "node scripts/test/run-all.mjs",
-		"test": "npm run typecheck && npm run check && npm run lint:md && npm run sync:docs:html:check && npm run test:unit && npm run test:integration"
+		"test": "npm run typecheck && npm run check && npm run lint:md && npm run sync:docs:html:check && npm run sync:personas:check && npm run test:unit && npm run test:integration"
 	},
 	"pi": {
 		"extensions": [
