@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/rename",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Pi extension that adds a Claude-style /rename command to rename the current session, auto-generating a name from history when none is given.",
 	"license": "MIT",
 	"repository": {
