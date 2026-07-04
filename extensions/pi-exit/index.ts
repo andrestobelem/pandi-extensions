@@ -33,7 +33,11 @@ export default function exitExtension(pi: ExtensionAPI): void {
 			try {
 				ctx.shutdown();
 			} catch (error) {
-				notify(ctx, `exit failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+				notify(
+					ctx,
+					`exit failed: ${error instanceof Error ? error.message : String(error)} — try /quit instead`,
+					"error",
+				);
 			}
 		},
 	});
