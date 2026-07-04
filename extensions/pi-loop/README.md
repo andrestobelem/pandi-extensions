@@ -1,53 +1,65 @@
 # @pandi-coding-agent/loop
 
-Run a task on a loop with `/loop` — dynamic or fixed-interval cadence, pause/resume controls, and safety gates on autonomous iterations.
+Keep a task running turn after turn without re-prompting it yourself: `/loop`
+re-injects the next iteration on its own, at a cadence the model picks or one
+you fix, until it (or you) calls it done. Reach for it for multi-pass jobs —
+polling a CI run, iterating on a fix, watching a slow process.
 
-## What you get
-
-- Iterative loops where the model decides the next wakeup, or fixed intervals like `10m` / `1h`.
-- Full lifecycle control: `status`, `pause`, `resume`, `stop`, per loop id.
-- Autonomous mode (`/loop auto`) gated by project trust plus an explicit confirmation.
-- A destructive-action gate that guards autopilot turns against irreversible tool calls.
-
-## Install
-
-From npm:
+## Quickstart
 
 ```bash
 pi install npm:@pandi-coding-agent/loop
 ```
 
-From this repository:
-
-```bash
-pi install ./extensions/pi-loop          # global (your user)
-pi install -l ./extensions/pi-loop       # project-local
-pi --no-extensions -e ./extensions/pi-loop   # one-off trial, nothing else loaded
+```text
+/loop "watch the CI run and tell me when it's green"
 ```
+
+This starts a **dynamic** loop: it runs one pass immediately, then the model
+calls the `loop_schedule` tool to pick the next wakeup (clamped to 60s-1h) —
+no fixed timer, no manual re-prompting. Stop it anytime with `/loop stop`.
+
+From this repo instead of npm: `pi install ./extensions/pi-loop` (add `-l`
+for project-local, or `pi --no-extensions -e ./extensions/pi-loop` to trial it
+alone).
+
+## Choosing a mode
+
+| Mode | Start with | Cadence | Use when |
+| --- | --- | --- | --- |
+| Dynamic | `/loop <task>` | Model picks each wakeup (60s-1h) | Pace is unpredictable |
+| Fixed | `/loop <task> <interval>` | You set the period, e.g. `10m` | You know how often to check |
+| Autonomous | `/loop auto <objective> [interval]` | Same as above | Unattended, on a trusted project, after you confirm once |
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `/loop [--ultracode] <task>` | Start a dynamic iterative loop; the model schedules each wakeup. |
+| `/loop [--ultracode] <task>` | Start a dynamic loop; the model schedules each wakeup. |
 | `/loop [--ultracode] <task> <interval>` | Start a fixed-interval loop, e.g. `10m` or `1h`. |
-| `/loop auto [--ultracode] <task> [interval]` | Start a trusted autonomous loop after you confirm. |
+| `/loop auto [--ultracode] <objective> [interval]` | Start a trusted autonomous loop after you confirm. |
 | `/loop status\|pause\|resume\|stop [id]` | Manage running loops. |
 | `loop_schedule` | Model tool: schedule the next wakeup in dynamic mode (no-op in fixed mode). |
 | `loop_stop` | Model tool: stop the loop that owns the current turn. |
 
-## How it works
+`--ultracode` (alias `--uc`) is parsed before the trailing interval token, so
+`--ultracode <task> 5m` keeps both; it only nudges iterations to lean on
+dynamic workflows when that earns its cost, never forcing one.
 
-- The extension persists loop state, serializes wakeups (one autopilot turn at a time), and re-arms on reload.
-- `--ultracode` (alias `--uc`) sets an ultracode posture: each iteration prompt asks the model to drive the work via dynamic workflows when that earns its cost (scout inline first, orchestrate for exhaustiveness, confidence, or scale). It is prompt-injection only — it does not change the thinking level and does not force-activate `dynamic_workflow`.
-- The flag is parsed before the trailing interval token (so `--ultracode <task> 5m` keeps both), stripped from the task, and persisted so the posture survives a reload.
-- Caps stop a loop before it re-arms: a max wall-clock deadline, a context-usage percent cap, and a max-iterations gate. A watchdog force-stops loops that blow past a hard deadline.
+## How it works & safety
 
-## Limitations & safety notes
-
-- `/loop auto` requires a trusted project **and** an explicit interactive confirmation; sessions without a UI refuse it. If the project loses trust, a rehydrated autonomous loop is retired instead of resumed.
-- While an autopilot turn is active, destructive tool calls matching a conservative allowlist (recursive `rm`, force pushes, `git reset --hard`, SQL drops, out-of-project write redirections, and similar) are confirmed when a UI exists or blocked otherwise.
-- The wall-clock deadline uses `Date.now()`, not a monotonic clock, so it survives restarts; a backward clock jump only delays the cap by the jump size.
+- State persists across reloads; wakeups are serialized to one autopilot turn
+  at a time, even with several loops active.
+- Caps stop a loop before it re-arms: max iterations (25 default), a
+  wall-clock deadline (6h default), a context-usage cap (90% default) — and a
+  25h watchdog backstop beyond that. The deadline uses `Date.now()`, not a
+  monotonic clock, so a backward clock jump only delays it.
+- During an autopilot turn, a destructive-action gate confirms (with a UI) or
+  blocks (without one) calls matching a conservative allowlist: recursive
+  `rm`, force pushes, `git reset --hard`, SQL drops, out-of-project writes.
+- `/loop auto` needs a trusted project **and** an explicit confirmation;
+  sessions without a UI refuse it, and a rehydrated autonomous loop is
+  retired (not resumed) if the project has since lost trust.
 
 ## Related
 

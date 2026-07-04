@@ -20,7 +20,7 @@ import { existsSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { type ParsedCommand, parseCommand } from "./command.js";
 import { type CopyPrefKey, resetSessionCopyDefaults, resolveCopyPrefs, setSessionCopyDefault } from "./copy-prefs.js";
@@ -91,7 +91,7 @@ const HELP_TEXT = [
 	"Pass --copy-ignored/--copy-untracked (or --no-copy-ignored/--no-copy-untracked) to override per call.",
 	"Or set a session default with `set` (also via PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED env vars).",
 	"",
-	"A bare <name> (no slash) is created under .pi/worktrees/<name> (gitignored).",
+	`A bare <name> (no slash) is created under ${CONFIG_DIR_NAME}/worktrees/<name> (gitignored).`,
 	"Use ./x, ../x, /abs, or ~/x for an explicit location.",
 ].join("\n");
 
@@ -229,7 +229,7 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 	const copyOpts = resolveCopyPrefs({ copyIgnored: parsed.copyIgnored, copyUntracked: parsed.copyUntracked });
 	const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal);
 	const branchNote = parsed.newBranch ? ` (new branch ${parsed.newBranch})` : "";
-	const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
+	const locationNote = target.usedDefaultBase ? ` (default ${CONFIG_DIR_NAME}/worktrees/)` : "";
 	notify(ctx, `Added worktree at ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}.`, "info");
 }
 
@@ -842,7 +842,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const copyOpts = resolveCopyPrefs({ copyIgnored: params.copyIgnored, copyUntracked: params.copyUntracked });
 				const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal ?? undefined);
 				const branchNote = params.branch ? ` (new branch ${params.branch})` : "";
-				const locationNote = target.usedDefaultBase ? " (default .pi/worktrees/)" : "";
+				const locationNote = target.usedDefaultBase ? ` (default ${CONFIG_DIR_NAME}/worktrees/)` : "";
 				return {
 					content: [
 						{

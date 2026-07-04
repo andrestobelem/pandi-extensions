@@ -6,6 +6,7 @@
  * leaf has no cycle back to index.ts. Depth-one sibling imported via "./prompt.js".
  */
 
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { formatInterval } from "./interval.js";
 
 /** Structural subset of LoopState that makeLoopIterationPrompt reads. A full LoopState satisfies it. */
@@ -50,7 +51,7 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 	}
 	if (loop.ultracode) {
 		lines.push(
-			"ULTRACODE: prefer driving this work via dynamic workflows when it earns its cost. Scout inline first with cheap read-only probes; orchestrate (dynamic_workflow action=start) only for exhaustiveness, independent confidence, or scale, with explicit concurrency/maxAgents. Inspect the catalog (dynamic_workflow action=scaffold) and reuse an exact-fit workflow or write a gitignored .pi/workflows/drafts/<slug>.js draft.",
+			`ULTRACODE: prefer driving this work via dynamic workflows when it earns its cost. Scout inline first with cheap read-only probes; orchestrate (dynamic_workflow action=start) only for exhaustiveness, independent confidence, or scale, with explicit concurrency/maxAgents. Inspect the catalog (dynamic_workflow action=scaffold) and reuse an exact-fit workflow or write a gitignored ${CONFIG_DIR_NAME}/workflows/drafts/<slug>.js draft.`,
 		);
 	}
 	lines.push("");
