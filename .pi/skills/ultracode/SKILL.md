@@ -15,8 +15,8 @@ description: >-
 
 # ultracode
 
-Decide whether to orchestrate, design the workflow, then run it. This skill is **self-contained
-and dual-platform**: the *concepts* (when to orchestrate, primitives, prompting, security) are
+Decide whether to orchestrate, design the workflow, then run it — in that order. 🐼 This skill is
+**self-contained and dual-platform**: the *concepts* (when to orchestrate, primitives, prompting, security) are
 shared; the concrete *API* differs between **Claude Code (Anthropic)** and **pi** (one runtime, runs on Anthropic OR OpenAI/Codex) — see
 [Platform reference](#platform-reference) for each one's tool, helpers, and invocation.
 

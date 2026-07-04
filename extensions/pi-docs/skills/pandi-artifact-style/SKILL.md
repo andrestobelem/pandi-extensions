@@ -10,9 +10,10 @@ description: >-
 
 # Pandi artifact style
 
-Claude-design structure and typography, colored with the Panda Syntax palette.
-Apply this to every presentation-quality artifact: HTML reports, dashboards,
-`writeArtifact()` HTML outputs, informes, and styled docs.
+One look, everywhere: Claude-design structure and typography, colored with the
+Panda Syntax palette. Apply this to every presentation-quality artifact — HTML
+reports, dashboards, `writeArtifact()` HTML outputs, informes, and styled
+docs — so a reader recognizes a pandi artifact on sight. 🐼
 
 **Source of truth for colors:** `extensions/pi-pandi-theme/themes/panda-syntax-dark.json`
 and `panda-syntax-light.json`. Never invent new hues — map every color to a

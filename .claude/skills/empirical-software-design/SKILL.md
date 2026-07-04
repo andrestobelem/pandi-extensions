@@ -13,7 +13,7 @@ description: >-
 
 # Empirical Software Design
 
-Use this skill when a task needs fine-grained design judgment inside the coding loop: sizing the next TDD step, deciding whether to tidy before, after, later, or never, separating structure from behavior, judging how simple is simple enough, or keeping an AI coding agent inside a tight feedback loop.
+Reach for this skill for fine-grained design judgment inside the coding loop: sizing the next TDD step, deciding whether to tidy before, after, later, or never, separating structure from behavior, judging how simple is simple enough, or keeping an AI coding agent inside a tight feedback loop.
 
 This skill is based on the project research distilled from Kent Beck's _Test-Driven Development: By Example_, _Tidy First?_, Canon TDD, the 3X model, and his augmented-coding writing. See `references/kent-beck-empirical-software-design.md` for the compact source summary.
 

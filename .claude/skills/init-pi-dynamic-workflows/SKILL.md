@@ -83,7 +83,7 @@ Inside Pi:
 ```
 
 Also good signals: the in-session `/doctor` (or `npm run doctor` before install) all-green for
-mandatory items, and `npm test` passing.
+mandatory items, and `npm test` passing. All green? You're set. 🐼
 
 ## Working INSIDE this repo (no install needed)
 This checkout already wires every extension via its own `.pi/settings.json` (`packages: [...]`).

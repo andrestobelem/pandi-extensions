@@ -13,7 +13,8 @@ description: >-
 # Didactic docs style contract
 
 Goal: make each doc CLEARER and MORE DIDACTIC without losing one bit of
-technical accuracy. This contract is the single source of truth for the
+technical accuracy — clarity and correctness travel together, never traded
+for one another. This contract is the single source of truth for the
 "didactic" documentation standard of this repo; workflows that edit or
 generate docs must load it and pass it to every editor/reviewer agent.
 
