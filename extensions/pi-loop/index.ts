@@ -688,7 +688,11 @@ async function startAutonomousLoop(
 	}
 	// Mandatory confirmation: no UI to confirm on → refuse (cannot get consent).
 	if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
-		notify(ctx, "/loop auto requires an interactive confirmation, which this session cannot show.", "error");
+		notify(
+			ctx,
+			"/loop auto requires an interactive confirmation; run it from a TUI or RPC session instead.",
+			"error",
+		);
 		return undefined;
 	}
 	const approved = await ctx.ui.confirm(
@@ -1086,7 +1090,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "stop") {
 		const loop = await resolveLoop(ctx, rest || undefined, ["running", "paused"]);
 		if (!loop) {
-			notify(ctx, "No matching loop to stop.", "warning");
+			notify(ctx, "No matching loop to stop. Use /loop status to see active loops.", "warning");
 			return;
 		}
 		stopLoop(pi, ctx, loop.loopId, "stopped by user (/loop stop)", "stopped");
@@ -1097,7 +1101,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "pause") {
 		const loop = await resolveLoop(ctx, rest || undefined, ["running"]);
 		if (!loop) {
-			notify(ctx, "No running loop to pause.", "warning");
+			notify(ctx, "No running loop to pause. Use /loop status to see active loops.", "warning");
 			return;
 		}
 		if (pauseLoop(pi, ctx, loop)) notify(ctx, `Paused loop ${loop.loopId}.`, "info");
@@ -1108,7 +1112,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "resume") {
 		const loop = await resolveLoop(ctx, rest || undefined, ["paused"]);
 		if (!loop) {
-			notify(ctx, "No paused loop to resume.", "warning");
+			notify(ctx, "No paused loop to resume. Use /loop status to see active loops.", "warning");
 			return;
 		}
 		if (resumeLoop(pi, ctx, loop)) notify(ctx, `Resumed loop ${loop.loopId}.`, "info");
@@ -1125,7 +1129,11 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "status") {
 		if (rest) {
 			const loop = activeLoops.get(rest);
-			notify(ctx, loop ? formatStatus(loop) : `No loop with id ${rest}.`, loop ? "info" : "warning");
+			notify(
+				ctx,
+				loop ? formatStatus(loop) : `No loop with id ${rest}. Use /loop status to list active loops.`,
+				loop ? "info" : "warning",
+			);
 			return;
 		}
 		const all = [...activeLoops.values()];
