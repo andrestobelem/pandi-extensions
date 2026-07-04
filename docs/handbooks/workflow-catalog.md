@@ -63,66 +63,66 @@ flowchart TD
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`contract-gate`](../html/scaffolds/contract-gate.html) | Turn a vague ask into an inspectable contract (improved task, success criteria, assumptions, non-goals) and decide *ask-now vs proceed-on-a-recorded-assumption*. | Scope a fuzzy ticket; gate before a costly multi-agent run; rewrite a raw ask into a clean spec. | The problem is *what should we even do*, not *is this output safe* — use `guardrails` for the latter. |
-| [`guardrails`](../html/scaffolds/guardrails.html) | Cheap input/output tripwire that **HALTS** on a clear violation; can wrap any workflow via `protect:{name,args}`. | Scope/safety gate before an agent; PII/secret check on an output; wrap a chosen workflow with tripwires. | You already know the task and just need a hard limit (PII, secrets) enforced around it or its output. |
+| [`contract-gate`](../scaffolds/contract-gate.md) | Turn a vague ask into an inspectable contract (improved task, success criteria, assumptions, non-goals) and decide *ask-now vs proceed-on-a-recorded-assumption*. | Scope a fuzzy ticket; gate before a costly multi-agent run; rewrite a raw ask into a clean spec. | The problem is *what should we even do*, not *is this output safe* — use `guardrails` for the latter. |
+| [`guardrails`](../scaffolds/guardrails.md) | Cheap input/output tripwire that **HALTS** on a clear violation; can wrap any workflow via `protect:{name,args}`. | Scope/safety gate before an agent; PII/secret check on an output; wrap a chosen workflow with tripwires. | You already know the task and just need a hard limit (PII, secrets) enforced around it or its output. |
 
 ## 🧭 Route & orchestrate
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`router`](../html/scaffolds/router.html) | Classify a request and dispatch to the single best catalog workflow (or recommend-only). | A single front door for raw tasks; map a task to the right specialist; preview the pick with `runSelected:false`. | You want the *pattern itself* picked for you — `orchestrator-workers` still needs you to hand it a goal. |
-| [`orchestrator-workers`](../html/scaffolds/orchestrator-workers.html) | A planner decomposes an open goal into a `dependsOn` subtask graph; workers execute level-by-level; an integrator merges. | Multi-part deliverables; research/build goals with interdependencies. | Subtasks and their dependencies aren't known up front — `map-reduce` assumes chunks are already independent. |
-| [`map-reduce`](../html/scaffolds/map-reduce.html) | Hierarchical map-reduce: per-chunk map under an evidence contract, reduce in bounded batches to one summary-of-summaries. | Input bigger than one context window: huge doc/log, hundreds of tickets. | The input is bigger than one context window and chunks are independent, unlike `orchestrator-workers`' dependency graph. |
-| [`workflow-factory`](../html/scaffolds/workflow-factory.html) | Meta-workflow: catalog → plan → generate → review → refine, then write `.pi/workflows/drafts/<slug>.js`. | No existing workflow fits and you want a task-specific one; specialize the closest scaffold. | Nothing in this catalog fits, even after specializing the closest scaffold. |
-| [`recursive-compose`](../html/scaffolds/recursive-compose.html) | Reference (pi, depth ≤ 3): a node re-gates a sub-task via `contract-gate`, then dispatches via `router` — bounded recursion. | Self-similar gate→compose pipelines; carry the gate's resource plan into a deeper run. | You need the gate→dispatch pattern to recurse into sub-tasks, not just run once. |
+| [`router`](../scaffolds/router.md) | Classify a request and dispatch to the single best catalog workflow (or recommend-only). | A single front door for raw tasks; map a task to the right specialist; preview the pick with `runSelected:false`. | You want the *pattern itself* picked for you — `orchestrator-workers` still needs you to hand it a goal. |
+| [`orchestrator-workers`](../scaffolds/orchestrator-workers.md) | A planner decomposes an open goal into a `dependsOn` subtask graph; workers execute level-by-level; an integrator merges. | Multi-part deliverables; research/build goals with interdependencies. | Subtasks and their dependencies aren't known up front — `map-reduce` assumes chunks are already independent. |
+| [`map-reduce`](../scaffolds/map-reduce.md) | Hierarchical map-reduce: per-chunk map under an evidence contract, reduce in bounded batches to one summary-of-summaries. | Input bigger than one context window: huge doc/log, hundreds of tickets. | The input is bigger than one context window and chunks are independent, unlike `orchestrator-workers`' dependency graph. |
+| [`workflow-factory`](../scaffolds/workflow-factory.md) | Meta-workflow: catalog → plan → generate → review → refine, then write `.pi/workflows/drafts/<slug>.js`. | No existing workflow fits and you want a task-specific one; specialize the closest scaffold. | Nothing in this catalog fits, even after specializing the closest scaffold. |
+| [`recursive-compose`](../scaffolds/recursive-compose.md) | Reference (pi, depth ≤ 3): a node re-gates a sub-task via `contract-gate`, then dispatches via `router` — bounded recursion. | Self-similar gate→compose pipelines; carry the gate's resource plan into a deeper run. | You need the gate→dispatch pattern to recurse into sub-tasks, not just run once. |
 
 ## 🔍 Discover & fan-out
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`fan-out-and-synthesize`](../html/scaffolds/fan-out-and-synthesize.html) | Scatter-gather: scout a work-list, one reviewer per item (parallel, settle), synthesize-as-judge with coverage/failure notes. | Broad independent coverage of a known-ish work-list; multi-angle synthesis. | The work-list is known-ish and every item deserves a look — `scout-fanout` skips low-risk items instead. |
-| [`scout-fanout`](../html/scaffolds/scout-fanout.html) | Scout + adaptive-depth pipeline: risk-classify every file cheaply, deep-review only high/medium; low-risk short-circuits. | Triage-then-review a large tree; spend budget only where it pays. | You want coverage but only want to pay for the risky items. |
-| [`repo-bug-hunt`](../html/scaffolds/repo-bug-hunt.html) | Scout files, per-file bug reviewers, judge dedupes + prioritizes with citations. Findings are **leads**, not confirmed bugs. | Repo audit; pre-review sweep (then confirm with `bug-verify`). | You want a prioritized cited bug list — pair with `bug-verify` after, since these leads are unconfirmed. |
-| [`loop-until-dry`](../html/scaffolds/loop-until-dry.html) | Keep fanning out finders until K consecutive quiet rounds or `maxRounds`. | Unknown-size set you want to exhaust: "find all call-sites / edge-cases". | The set is unknown-size and you need exhaustiveness, unlike the capped list in `fan-out-and-synthesize`. |
-| [`react-scout`](../html/scaffolds/react-scout.html) | ReAct reason → act → observe loop: each step grounds a thought in a real read-only observation. | Evidence-grounded investigation before committing or fanning out. | You need evidence *before* committing to a fan-out, not coverage of a list. |
-| [`complex-research`](../html/scaffolds/complex-research.html) | Independent research angles (each runs web search), synthesized as judge with citations and coverage gaps. | Cited answer to an external question: tech comparisons, landscape scans. | The question is external (needs the web), not something answerable by reading this repo. |
+| [`fan-out-and-synthesize`](../scaffolds/fan-out-and-synthesize.md) | Scatter-gather: scout a work-list, one reviewer per item (parallel, settle), synthesize-as-judge with coverage/failure notes. | Broad independent coverage of a known-ish work-list; multi-angle synthesis. | The work-list is known-ish and every item deserves a look — `scout-fanout` skips low-risk items instead. |
+| [`scout-fanout`](../scaffolds/scout-fanout.md) | Scout + adaptive-depth pipeline: risk-classify every file cheaply, deep-review only high/medium; low-risk short-circuits. | Triage-then-review a large tree; spend budget only where it pays. | You want coverage but only want to pay for the risky items. |
+| [`repo-bug-hunt`](../scaffolds/repo-bug-hunt.md) | Scout files, per-file bug reviewers, judge dedupes + prioritizes with citations. Findings are **leads**, not confirmed bugs. | Repo audit; pre-review sweep (then confirm with `bug-verify`). | You want a prioritized cited bug list — pair with `bug-verify` after, since these leads are unconfirmed. |
+| [`loop-until-dry`](../scaffolds/loop-until-dry.md) | Keep fanning out finders until K consecutive quiet rounds or `maxRounds`. | Unknown-size set you want to exhaust: "find all call-sites / edge-cases". | The set is unknown-size and you need exhaustiveness, unlike the capped list in `fan-out-and-synthesize`. |
+| [`react-scout`](../scaffolds/react-scout.md) | ReAct reason → act → observe loop: each step grounds a thought in a real read-only observation. | Evidence-grounded investigation before committing or fanning out. | You need evidence *before* committing to a fan-out, not coverage of a list. |
+| [`complex-research`](../scaffolds/complex-research.md) | Independent research angles (each runs web search), synthesized as judge with citations and coverage gaps. | Cited answer to an external question: tech comparisons, landscape scans. | The question is external (needs the web), not something answerable by reading this repo. |
 
 ## ✅ Verify
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`adversarial-verify`](../html/scaffolds/adversarial-verify.html) | Per-finding skeptic jury that prunes by majority refutation; default-to-doubt. | Prune a noisy findings list; drop hallucinated findings before acting. | You have many findings/claims to prune by argument, not by running code — use `bug-verify` for the latter. |
-| [`bug-verify`](../html/scaffolds/bug-verify.html) | Confirm suspected bugs by **reproduction**: real only if a run fails on current code; optional FAIL→PASS fix check + minimization. Sequential. | Confirm `repo-bug-hunt` leads; reproduce-and-fix loop. | You must prove it with a failing run (e.g. confirming `repo-bug-hunt` leads), not argue it. |
-| [`verify-claims-lib`](../html/scaffolds/verify-claims-lib.html) | Reusable sub-workflow: verify `{claims, skeptics?}` with skeptic juries; returns verified/dropped/votes/coverage. | A verification building block for a parent workflow. | You're authoring a *parent* workflow (like `composition-driver`) and need verification as a building block. |
-| [`adversarial-plan-review`](../html/scaffolds/adversarial-plan-review.html) | N fixed-angle reviewers (correctness, security, maintainability, scope) synthesize a revised plan. | Design/RFC review; pre-implementation gate. | The artifact under review is a *plan*, not code or claims — use before implementation starts. |
+| [`adversarial-verify`](../scaffolds/adversarial-verify.md) | Per-finding skeptic jury that prunes by majority refutation; default-to-doubt. | Prune a noisy findings list; drop hallucinated findings before acting. | You have many findings/claims to prune by argument, not by running code — use `bug-verify` for the latter. |
+| [`bug-verify`](../scaffolds/bug-verify.md) | Confirm suspected bugs by **reproduction**: real only if a run fails on current code; optional FAIL→PASS fix check + minimization. Sequential. | Confirm `repo-bug-hunt` leads; reproduce-and-fix loop. | You must prove it with a failing run (e.g. confirming `repo-bug-hunt` leads), not argue it. |
+| [`verify-claims-lib`](../scaffolds/verify-claims-lib.md) | Reusable sub-workflow: verify `{claims, skeptics?}` with skeptic juries; returns verified/dropped/votes/coverage. | A verification building block for a parent workflow. | You're authoring a *parent* workflow (like `composition-driver`) and need verification as a building block. |
+| [`adversarial-plan-review`](../scaffolds/adversarial-plan-review.md) | N fixed-angle reviewers (correctness, security, maintainability, scope) synthesize a revised plan. | Design/RFC review; pre-implementation gate. | The artifact under review is a *plan*, not code or claims — use before implementation starts. |
 
 ## 🎯 Generate & select
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`judge-escalate`](../html/scaffolds/judge-escalate.html) | Generate candidates from distinct angles, typed judge, escalate only when confidence is low. | Best-of-N where you'd rather deepen than commit to a weak winner. | There's usually a clear winner and you want adaptive spend, not always-run-everything. |
-| [`tournament`](../html/scaffolds/tournament.html) | Single-elimination bracket: pairwise judge rounds until one candidate survives. | Pick the best of several drafts/designs when absolute scoring is unreliable but pairwise is easy. | Absolute scoring is unreliable but pairwise comparison is easy. |
-| [`self-consistency`](../html/scaffolds/self-consistency.html) | Sample N independent reasoning paths, pick by consensus (vote), tie-broken by an evidence-weighing judge. | High-variance reasoning/math/judgment; report the consensus margin. | It's high-variance reasoning/math and agreement across paths is the signal you trust. |
-| [`tree-of-thoughts`](../html/scaffolds/tree-of-thoughts.html) | Beam search over partial solutions: expand K thoughts, judge-score, prune to top-B, recurse to depth, commit. | Multi-step planning/design search; explore a solution space. | The problem has intermediate steps worth exploring, not just final candidates to compare. |
+| [`judge-escalate`](../scaffolds/judge-escalate.md) | Generate candidates from distinct angles, typed judge, escalate only when confidence is low. | Best-of-N where you'd rather deepen than commit to a weak winner. | There's usually a clear winner and you want adaptive spend, not always-run-everything. |
+| [`tournament`](../scaffolds/tournament.md) | Single-elimination bracket: pairwise judge rounds until one candidate survives. | Pick the best of several drafts/designs when absolute scoring is unreliable but pairwise is easy. | Absolute scoring is unreliable but pairwise comparison is easy. |
+| [`self-consistency`](../scaffolds/self-consistency.md) | Sample N independent reasoning paths, pick by consensus (vote), tie-broken by an evidence-weighing judge. | High-variance reasoning/math/judgment; report the consensus margin. | It's high-variance reasoning/math and agreement across paths is the signal you trust. |
+| [`tree-of-thoughts`](../scaffolds/tree-of-thoughts.md) | Beam search over partial solutions: expand K thoughts, judge-score, prune to top-B, recurse to depth, commit. | Multi-step planning/design search; explore a solution space. | The problem has intermediate steps worth exploring, not just final candidates to compare. |
 
 ## 🔁 Iterate & refine
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`self-refine`](../html/scaffolds/self-refine.html) | Bounded in-place generate → critique → refine with verbal memory; quiet-stop when the critic is satisfied. | Polish one artifact (doc/spec/code) to quality. | One artifact needs polish and the critique can be intrinsic — no external oracle needed. |
-| [`reflexion`](../html/scaffolds/reflexion.html) | Verbal-RL outer trial loop: re-attempt each trial carrying self-reflections; evaluator can be externally grounded (`verifyCmd`). | Code-with-tests; tasks with a pass/fail oracle; reset-and-re-attempt vs edit-in-place. | You have a pass/fail oracle (e.g. tests) and a fresh re-attempt beats editing in place. |
+| [`self-refine`](../scaffolds/self-refine.md) | Bounded in-place generate → critique → refine with verbal memory; quiet-stop when the critic is satisfied. | Polish one artifact (doc/spec/code) to quality. | One artifact needs polish and the critique can be intrinsic — no external oracle needed. |
+| [`reflexion`](../scaffolds/reflexion.md) | Verbal-RL outer trial loop: re-attempt each trial carrying self-reflections; evaluator can be externally grounded (`verifyCmd`). | Code-with-tests; tasks with a pass/fail oracle; reset-and-re-attempt vs edit-in-place. | You have a pass/fail oracle (e.g. tests) and a fresh re-attempt beats editing in place. |
 
 ## 🚚 Migrate
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`large-migration`](../html/scaffolds/large-migration.html) | A real applier: green-baseline gate, per-file apply → verify → bounded-repair, rollback on failure. Sequential. | API/codemod rollouts; framework upgrades; capped, evidence-backed migration. | You're mutating many files and must never leave a broken one behind — not for read-only discovery. |
+| [`large-migration`](../scaffolds/large-migration.md) | A real applier: green-baseline gate, per-file apply → verify → bounded-repair, rollback on failure. Sequential. | API/codemod rollouts; framework upgrades; capped, evidence-backed migration. | You're mutating many files and must never leave a broken one behind — not for read-only discovery. |
 
 ## 🧩 Compose & meta
 
 | Workflow | What it does | Use cases | Use over its neighbor when… |
 | --- | --- | --- | --- |
-| [`composition-driver`](../html/scaffolds/composition-driver.html) | Parent workflow: discover claims, delegate verification to `verify-claims-lib`, then synthesize. | Fact-check a document; the canonical discover→verify composition reference. | You want the canonical worked example of discover→verify composition, not just the library piece alone. |
+| [`composition-driver`](../scaffolds/composition-driver.md) | Parent workflow: discover claims, delegate verification to `verify-claims-lib`, then synthesize. | Fact-check a document; the canonical discover→verify composition reference. | You want the canonical worked example of discover→verify composition, not just the library piece alone. |
 
 ---
 

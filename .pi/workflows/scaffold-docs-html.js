@@ -76,7 +76,7 @@ export default async function main() {
 	phase("index");
 	const ok = authored;
 	const indexMd = await agent(
-		`Escribí un index.md (en español) para la carpeta de documentación de workflow scaffolds. Para cada scaffold listado abajo: un item con link [\`<key>\`](./<key>.html) y su blurb de una línea tomado del catálogo (traducido). Agrupá por afinidad (verificación, research, fan-out, meta/composición, iterativos, etc.) con secciones H2. Título H1: "Workflow scaffolds". Aclarar al inicio qué es un scaffold (patrón ejecutable del catálogo de pi-dynamic-workflows). Respondé SOLO el Markdown.\n\nScaffolds documentados: ${ok.join(", ")}${failed.length ? `\nSIN página (mencionalos en una nota final como pendientes): ${failed.join(", ")}` : ""}\n\nCatálogo:\n${catalogSrc}`,
+		`Escribí un index.md (en español) para la carpeta de documentación de workflow scaffolds. Para cada scaffold listado abajo: un item con link [\`<key>\`](./<key>.md) y su blurb de una línea tomado del catálogo (traducido). Agrupá por afinidad (verificación, research, fan-out, meta/composición, iterativos, etc.) con secciones H2. Título H1: "Workflow scaffolds". Aclarar al inicio qué es un scaffold (patrón ejecutable del catálogo de pi-dynamic-workflows). Respondé SOLO el Markdown.\n\nScaffolds documentados: ${ok.join(", ")}${failed.length ? `\nSIN página (mencionalos en una nota final como pendientes): ${failed.join(", ")}` : ""}\n\nCatálogo:\n${catalogSrc}`,
 		{ label: "index", phase: "index", model: input.model ?? "sonnet", effort: "medium" },
 	);
 	// Robustez: si el agente envuelve la respuesta en un fence ```markdown, lo quitamos.

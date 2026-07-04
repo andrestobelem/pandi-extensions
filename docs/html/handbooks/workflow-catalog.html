@@ -228,13 +228,13 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/contract-gate.html"><code>contract-gate</code></a></td>
+<td><a href="../scaffolds/contract-gate.html"><code>contract-gate</code></a></td>
 <td>Turn a vague ask into an inspectable contract (improved task, success criteria, assumptions, non-goals) and decide <em>ask-now vs proceed-on-a-recorded-assumption</em>.</td>
 <td>Scope a fuzzy ticket; gate before a costly multi-agent run; rewrite a raw ask into a clean spec.</td>
 <td>The problem is <em>what should we even do</em>, not <em>is this output safe</em> — use <code>guardrails</code> for the latter.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/guardrails.html"><code>guardrails</code></a></td>
+<td><a href="../scaffolds/guardrails.html"><code>guardrails</code></a></td>
 <td>Cheap input/output tripwire that <strong>HALTS</strong> on a clear violation; can wrap any workflow via <code>protect:{name,args}</code>.</td>
 <td>Scope/safety gate before an agent; PII/secret check on an output; wrap a chosen workflow with tripwires.</td>
 <td>You already know the task and just need a hard limit (PII, secrets) enforced around it or its output.</td>
@@ -251,31 +251,31 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/router.html"><code>router</code></a></td>
+<td><a href="../scaffolds/router.html"><code>router</code></a></td>
 <td>Classify a request and dispatch to the single best catalog workflow (or recommend-only).</td>
 <td>A single front door for raw tasks; map a task to the right specialist; preview the pick with <code>runSelected:false</code>.</td>
 <td>You want the <em>pattern itself</em> picked for you — <code>orchestrator-workers</code> still needs you to hand it a goal.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/orchestrator-workers.html"><code>orchestrator-workers</code></a></td>
+<td><a href="../scaffolds/orchestrator-workers.html"><code>orchestrator-workers</code></a></td>
 <td>A planner decomposes an open goal into a <code>dependsOn</code> subtask graph; workers execute level-by-level; an integrator merges.</td>
 <td>Multi-part deliverables; research/build goals with interdependencies.</td>
 <td>Subtasks and their dependencies aren&#39;t known up front — <code>map-reduce</code> assumes chunks are already independent.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/map-reduce.html"><code>map-reduce</code></a></td>
+<td><a href="../scaffolds/map-reduce.html"><code>map-reduce</code></a></td>
 <td>Hierarchical map-reduce: per-chunk map under an evidence contract, reduce in bounded batches to one summary-of-summaries.</td>
 <td>Input bigger than one context window: huge doc/log, hundreds of tickets.</td>
 <td>The input is bigger than one context window and chunks are independent, unlike <code>orchestrator-workers</code>&#39; dependency graph.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/workflow-factory.html"><code>workflow-factory</code></a></td>
+<td><a href="../scaffolds/workflow-factory.html"><code>workflow-factory</code></a></td>
 <td>Meta-workflow: catalog → plan → generate → review → refine, then write <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</td>
 <td>No existing workflow fits and you want a task-specific one; specialize the closest scaffold.</td>
 <td>Nothing in this catalog fits, even after specializing the closest scaffold.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/recursive-compose.html"><code>recursive-compose</code></a></td>
+<td><a href="../scaffolds/recursive-compose.html"><code>recursive-compose</code></a></td>
 <td>Reference (pi, depth ≤ 3): a node re-gates a sub-task via <code>contract-gate</code>, then dispatches via <code>router</code> — bounded recursion.</td>
 <td>Self-similar gate→compose pipelines; carry the gate&#39;s resource plan into a deeper run.</td>
 <td>You need the gate→dispatch pattern to recurse into sub-tasks, not just run once.</td>
@@ -292,37 +292,37 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/fan-out-and-synthesize.html"><code>fan-out-and-synthesize</code></a></td>
+<td><a href="../scaffolds/fan-out-and-synthesize.html"><code>fan-out-and-synthesize</code></a></td>
 <td>Scatter-gather: scout a work-list, one reviewer per item (parallel, settle), synthesize-as-judge with coverage/failure notes.</td>
 <td>Broad independent coverage of a known-ish work-list; multi-angle synthesis.</td>
 <td>The work-list is known-ish and every item deserves a look — <code>scout-fanout</code> skips low-risk items instead.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/scout-fanout.html"><code>scout-fanout</code></a></td>
+<td><a href="../scaffolds/scout-fanout.html"><code>scout-fanout</code></a></td>
 <td>Scout + adaptive-depth pipeline: risk-classify every file cheaply, deep-review only high/medium; low-risk short-circuits.</td>
 <td>Triage-then-review a large tree; spend budget only where it pays.</td>
 <td>You want coverage but only want to pay for the risky items.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/repo-bug-hunt.html"><code>repo-bug-hunt</code></a></td>
+<td><a href="../scaffolds/repo-bug-hunt.html"><code>repo-bug-hunt</code></a></td>
 <td>Scout files, per-file bug reviewers, judge dedupes + prioritizes with citations. Findings are <strong>leads</strong>, not confirmed bugs.</td>
 <td>Repo audit; pre-review sweep (then confirm with <code>bug-verify</code>).</td>
 <td>You want a prioritized cited bug list — pair with <code>bug-verify</code> after, since these leads are unconfirmed.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/loop-until-dry.html"><code>loop-until-dry</code></a></td>
+<td><a href="../scaffolds/loop-until-dry.html"><code>loop-until-dry</code></a></td>
 <td>Keep fanning out finders until K consecutive quiet rounds or <code>maxRounds</code>.</td>
 <td>Unknown-size set you want to exhaust: &quot;find all call-sites / edge-cases&quot;.</td>
 <td>The set is unknown-size and you need exhaustiveness, unlike the capped list in <code>fan-out-and-synthesize</code>.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/react-scout.html"><code>react-scout</code></a></td>
+<td><a href="../scaffolds/react-scout.html"><code>react-scout</code></a></td>
 <td>ReAct reason → act → observe loop: each step grounds a thought in a real read-only observation.</td>
 <td>Evidence-grounded investigation before committing or fanning out.</td>
 <td>You need evidence <em>before</em> committing to a fan-out, not coverage of a list.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/complex-research.html"><code>complex-research</code></a></td>
+<td><a href="../scaffolds/complex-research.html"><code>complex-research</code></a></td>
 <td>Independent research angles (each runs web search), synthesized as judge with citations and coverage gaps.</td>
 <td>Cited answer to an external question: tech comparisons, landscape scans.</td>
 <td>The question is external (needs the web), not something answerable by reading this repo.</td>
@@ -339,25 +339,25 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/adversarial-verify.html"><code>adversarial-verify</code></a></td>
+<td><a href="../scaffolds/adversarial-verify.html"><code>adversarial-verify</code></a></td>
 <td>Per-finding skeptic jury that prunes by majority refutation; default-to-doubt.</td>
 <td>Prune a noisy findings list; drop hallucinated findings before acting.</td>
 <td>You have many findings/claims to prune by argument, not by running code — use <code>bug-verify</code> for the latter.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/bug-verify.html"><code>bug-verify</code></a></td>
+<td><a href="../scaffolds/bug-verify.html"><code>bug-verify</code></a></td>
 <td>Confirm suspected bugs by <strong>reproduction</strong>: real only if a run fails on current code; optional FAIL→PASS fix check + minimization. Sequential.</td>
 <td>Confirm <code>repo-bug-hunt</code> leads; reproduce-and-fix loop.</td>
 <td>You must prove it with a failing run (e.g. confirming <code>repo-bug-hunt</code> leads), not argue it.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/verify-claims-lib.html"><code>verify-claims-lib</code></a></td>
+<td><a href="../scaffolds/verify-claims-lib.html"><code>verify-claims-lib</code></a></td>
 <td>Reusable sub-workflow: verify <code>{claims, skeptics?}</code> with skeptic juries; returns verified/dropped/votes/coverage.</td>
 <td>A verification building block for a parent workflow.</td>
 <td>You&#39;re authoring a <em>parent</em> workflow (like <code>composition-driver</code>) and need verification as a building block.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/adversarial-plan-review.html"><code>adversarial-plan-review</code></a></td>
+<td><a href="../scaffolds/adversarial-plan-review.html"><code>adversarial-plan-review</code></a></td>
 <td>N fixed-angle reviewers (correctness, security, maintainability, scope) synthesize a revised plan.</td>
 <td>Design/RFC review; pre-implementation gate.</td>
 <td>The artifact under review is a <em>plan</em>, not code or claims — use before implementation starts.</td>
@@ -374,25 +374,25 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/judge-escalate.html"><code>judge-escalate</code></a></td>
+<td><a href="../scaffolds/judge-escalate.html"><code>judge-escalate</code></a></td>
 <td>Generate candidates from distinct angles, typed judge, escalate only when confidence is low.</td>
 <td>Best-of-N where you&#39;d rather deepen than commit to a weak winner.</td>
 <td>There&#39;s usually a clear winner and you want adaptive spend, not always-run-everything.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/tournament.html"><code>tournament</code></a></td>
+<td><a href="../scaffolds/tournament.html"><code>tournament</code></a></td>
 <td>Single-elimination bracket: pairwise judge rounds until one candidate survives.</td>
 <td>Pick the best of several drafts/designs when absolute scoring is unreliable but pairwise is easy.</td>
 <td>Absolute scoring is unreliable but pairwise comparison is easy.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/self-consistency.html"><code>self-consistency</code></a></td>
+<td><a href="../scaffolds/self-consistency.html"><code>self-consistency</code></a></td>
 <td>Sample N independent reasoning paths, pick by consensus (vote), tie-broken by an evidence-weighing judge.</td>
 <td>High-variance reasoning/math/judgment; report the consensus margin.</td>
 <td>It&#39;s high-variance reasoning/math and agreement across paths is the signal you trust.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/tree-of-thoughts.html"><code>tree-of-thoughts</code></a></td>
+<td><a href="../scaffolds/tree-of-thoughts.html"><code>tree-of-thoughts</code></a></td>
 <td>Beam search over partial solutions: expand K thoughts, judge-score, prune to top-B, recurse to depth, commit.</td>
 <td>Multi-step planning/design search; explore a solution space.</td>
 <td>The problem has intermediate steps worth exploring, not just final candidates to compare.</td>
@@ -409,13 +409,13 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/self-refine.html"><code>self-refine</code></a></td>
+<td><a href="../scaffolds/self-refine.html"><code>self-refine</code></a></td>
 <td>Bounded in-place generate → critique → refine with verbal memory; quiet-stop when the critic is satisfied.</td>
 <td>Polish one artifact (doc/spec/code) to quality.</td>
 <td>One artifact needs polish and the critique can be intrinsic — no external oracle needed.</td>
 </tr>
 <tr>
-<td><a href="../html/scaffolds/reflexion.html"><code>reflexion</code></a></td>
+<td><a href="../scaffolds/reflexion.html"><code>reflexion</code></a></td>
 <td>Verbal-RL outer trial loop: re-attempt each trial carrying self-reflections; evaluator can be externally grounded (<code>verifyCmd</code>).</td>
 <td>Code-with-tests; tasks with a pass/fail oracle; reset-and-re-attempt vs edit-in-place.</td>
 <td>You have a pass/fail oracle (e.g. tests) and a fresh re-attempt beats editing in place.</td>
@@ -432,7 +432,7 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/large-migration.html"><code>large-migration</code></a></td>
+<td><a href="../scaffolds/large-migration.html"><code>large-migration</code></a></td>
 <td>A real applier: green-baseline gate, per-file apply → verify → bounded-repair, rollback on failure. Sequential.</td>
 <td>API/codemod rollouts; framework upgrades; capped, evidence-backed migration.</td>
 <td>You&#39;re mutating many files and must never leave a broken one behind — not for read-only discovery.</td>
@@ -449,7 +449,7 @@ before choosing a bigger pattern.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><a href="../html/scaffolds/composition-driver.html"><code>composition-driver</code></a></td>
+<td><a href="../scaffolds/composition-driver.html"><code>composition-driver</code></a></td>
 <td>Parent workflow: discover claims, delegate verification to <code>verify-claims-lib</code>, then synthesize.</td>
 <td>Fact-check a document; the canonical discover→verify composition reference.</td>
 <td>You want the canonical worked example of discover→verify composition, not just the library piece alone.</td>

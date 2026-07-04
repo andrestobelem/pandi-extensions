@@ -48,6 +48,27 @@ export function rewriteHrefs(html, fromMd, set) {
 	});
 }
 
+// Source-side rule: in-set Markdown links to Markdown; the mirror (not the author) owns the
+// .md -> .html rewrite. A relative .html href whose target has an in-set .md twin (directly,
+// or through the docs/html mirror) is a source error this script cannot fix — report it.
+export function findBadSourceHrefs(html, fromMd, set) {
+	const bad = [];
+	for (const [, href] of html.matchAll(/href="([^"]+)"/g)) {
+		if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("#") || href.startsWith("/")) continue;
+		const [target] = href.split("#");
+		if (!target.endsWith(".html")) continue;
+		const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(fromMd), target));
+		const twin =
+			resolved === "docs/html/index.html"
+				? "README.md"
+				: resolved.startsWith("docs/html/")
+					? `docs/${resolved.slice("docs/html/".length, -".html".length)}.md`
+					: `${resolved.slice(0, -".html".length)}.md`;
+		if (set.has(twin)) bad.push({ file: fromMd, href, twin });
+	}
+	return bad;
+}
+
 // Discover the source set: root README.md + docs/**/*.md minus excluded subtrees.
 function discoverSet(root) {
 	const set = new Set();
@@ -88,13 +109,16 @@ export function syncDocsHtml(root, opts = {}) {
 	const written = [];
 	const deleted = [];
 	const stale = [];
+	const badHrefs = [];
 
 	const expected = new Map();
 	for (const rel of set) {
 		const md = fs.readFileSync(path.join(root, rel), "utf8");
 		const kicker = rel === "README.md" ? path.basename(root) : path.posix.dirname(rel);
-		const html = rewriteHrefs(renderMarkdownToHtml(md, { title: path.posix.basename(rel), kicker }), rel, set);
-		expected.set(outPathFor(rel), html);
+		const rendered = renderMarkdownToHtml(md, { title: path.posix.basename(rel), kicker });
+		// Scan BEFORE rewriteHrefs: after it, every correct in-set .md link also reads .html.
+		badHrefs.push(...findBadSourceHrefs(rendered, rel, set));
+		expected.set(outPathFor(rel), rewriteHrefs(rendered, rel, set));
 	}
 
 	for (const [outRel, content] of expected) {
@@ -118,13 +142,20 @@ export function syncDocsHtml(root, opts = {}) {
 		}
 	}
 
-	return { written, deleted, stale };
+	return { written, deleted, stale, badHrefs };
 }
 
 const isMain = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (isMain) {
 	const check = process.argv.includes("--check");
-	const { written, deleted, stale } = syncDocsHtml(REPO, { check });
+	const { written, deleted, stale, badHrefs } = syncDocsHtml(REPO, { check });
+	if (badHrefs.length) {
+		console.error(`[sync-docs-html] ✗ ${badHrefs.length} .html link(s) in Markdown sources with an in-set .md twin:`);
+		for (const b of badHrefs)
+			console.error(`[sync-docs-html]   ${b.file}: ${b.href} -> link the source instead (${b.twin})`);
+		console.error("[sync-docs-html]   Markdown links Markdown; the html mirror rewrites in-set .md links itself");
+		process.exit(1);
+	}
 	if (check) {
 		if (stale.length) {
 			console.error(`[sync-docs-html] ✗ mirror drift (${stale.length}): ${stale.join(", ")}`);
