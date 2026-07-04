@@ -728,8 +728,33 @@ async function scenarioSizeTiers(url) {
 		const res = await mod.runCreate(run, { image: "alpine:latest", tier: "xl" }, {});
 		check(
 			"runCreate: unknown tier refused, no spawn",
-			res.ok === false && run.calls.length === 0 && /micro/.test(res.text),
+			res.ok === false && run.calls.length === 0 && /small/.test(res.text),
 			JSON.stringify(res),
+		);
+	}
+
+	// machine create has a HARDER floor than ephemeral run: the CLI rejects machine
+	// memory below 1G (real error: "invalid memory value '256mb'. Must be greater
+	// than 1gb"), while ephemeral runs bottom out at 200 MiB. So micro/tiny are
+	// ephemeral-only and create must refuse them BEFORE spawning, with guidance.
+	eq("MACHINE_TIER_NAMES: machine-capable ladder", mod.MACHINE_TIER_NAMES, ["small", "medium", "large"]);
+	for (const tier of ["micro", "tiny"]) {
+		const run = fakeRunner();
+		const res = await mod.runCreate(run, { image: "alpine:latest", name: "dev", tier }, {});
+		check(
+			`runCreate: ${tier} refused for machines (1G CLI floor), no spawn`,
+			res.ok === false && run.calls.length === 0 && /1G/.test(res.text) && /small/.test(res.text),
+			JSON.stringify(res),
+		);
+	}
+	{
+		// …but micro stays valid for the EPHEMERAL path (200 MiB floor there).
+		const run = fakeRunner([{ ok: true, stdout: "ok\n", stderr: "", exitCode: 0 }]);
+		const res = await mod.runExec(run, { image: "alpine:latest", tier: "micro", command: ["true"] }, {});
+		check(
+			"runExec ephemeral: micro still allowed (200 MiB floor)",
+			res.ok === true && JSON.stringify(run.calls[0]).includes('"256M"'),
+			JSON.stringify({ res, argv: run.calls[0] }),
 		);
 	}
 

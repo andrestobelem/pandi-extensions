@@ -210,9 +210,17 @@ function isTierName(tier: string): tier is TierName {
 	return (TIER_NAMES as readonly string[]).includes(tier);
 }
 
-/** One-line human list of the valid tiers with their sizes (for errors + help). */
-export function describeTiers(): string {
-	return TIER_NAMES.map((t) => `${t} (${TIER_PRESETS[t].cpus}cpu/${TIER_PRESETS[t].memory})`).join(", ");
+/**
+ * Tiers valid for PERSISTENT machines. The CLI enforces a 1G minimum for
+ * `machine create` (real error: "invalid memory value '256mb'. Must be greater
+ * than 1gb"), while ephemeral `run` bottoms out at 200 MiB — so the sub-1G tiers
+ * (micro/tiny) are ephemeral-run-only.
+ */
+export const MACHINE_TIER_NAMES = ["small", "medium", "large"] as const;
+
+/** One-line human list of tiers with their sizes (for errors + help). */
+export function describeTiers(names: readonly TierName[] = TIER_NAMES): string {
+	return names.map((t) => `${t} (${TIER_PRESETS[t].cpus}cpu/${TIER_PRESETS[t].memory})`).join(", ");
 }
 
 export interface SizeResolution {
@@ -386,6 +394,14 @@ export async function runCreate(run: RunContainer, params: CreateOptions, opts: 
 		return {
 			ok: false,
 			text: `Invalid machine name: "${params.name}"`,
+			details: { isError: true, action: "create" },
+		};
+	}
+	if (params.tier && isTierName(params.tier) && !(MACHINE_TIER_NAMES as readonly string[]).includes(params.tier)) {
+		const machineTiers = describeTiers(MACHINE_TIER_NAMES);
+		return {
+			ok: false,
+			text: `Tier "${params.tier}" is too small for a persistent machine — the CLI requires at least 1G of memory for 'machine create'. Machine tiers: ${machineTiers}. Sub-1G tiers work only for ephemeral image runs.`,
 			details: { isError: true, action: "create" },
 		};
 	}

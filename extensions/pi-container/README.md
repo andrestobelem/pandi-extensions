@@ -69,19 +69,20 @@ A persistent machine mirrors your macOS home/cwd into Linux (edit on macOS, run 
 
 Apple `container` v1.0.0 defaults `machine create --memory` to **half of the host's RAM** (e.g. ~18G on a 36GB machine) and leaves the `--cpus` default undocumented (`container machine create --help`); ephemeral `run`'s `-c`/`-m` defaults are likewise undocumented. Half the host RAM is a lot for a sandbox, so the extension ships named presets:
 
-| Tier | CPUs | Memory |
-| --- | --- | --- |
-| `micro` | 1 | 256M |
-| `tiny` | 2 | 512M |
-| `small` | 2 | 1G |
-| `medium` | 4 | 2G |
-| `large` | 8 | 4G |
+| Tier | CPUs | Memory | Valid for |
+| --- | --- | --- | --- |
+| `micro` | 1 | 256M | ephemeral `run` only |
+| `tiny` | 2 | 512M | ephemeral `run` only |
+| `small` | 2 | 1G | `create` + ephemeral `run` |
+| `medium` | 4 | 2G | `create` + ephemeral `run` |
+| `large` | 8 | 4G | `create` + ephemeral `run` |
 
 The ladder is rebased on a 256M `micro`, doubling memory per tier. Apple's virtualization stack enforces a hard **200 MiB minimum** per VM (`minimum memory amount allowed is 200 MiB`); a real `npm i -g @earendil-works/pi-coding-agent` + `pi --version` was verified inside a 200M VM at ~114MB RSS, so 256M comfortably runs small Node/CLI workloads.
 
 - **Opt-in**: with no `tier` and no explicit `cpus`/`memory`, no flags are emitted and the CLI keeps its own defaults (identical behavior to before tiers existed).
 - **Precedence**: explicit `cpus`/`memory` override the tier, field by field.
 - **Scope**: tiers apply to `create` (machine) and to ephemeral image `run`s only. They do **not** apply to `run` inside an existing machine — its resources are fixed at creation by the upstream CLI.
+- **Two different CLI floors** (both measured on v1.0.0): ephemeral `run` bottoms out at **200 MiB**, but `machine create` requires **at least 1G** (real error: `invalid memory value '256mb'. Must be greater than 1gb`). The extension refuses `micro`/`tiny` for `create` with a bounded error before spawning anything.
 
 ```jsonc
 // tool: create a small machine

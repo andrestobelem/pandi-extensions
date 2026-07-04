@@ -47,6 +47,7 @@ export {
 	formatMachineList,
 	humanBytes,
 	isSupportedPlatform,
+	MACHINE_TIER_NAMES,
 	parseMachineList,
 	resolveSize,
 	runContainer,
@@ -74,6 +75,7 @@ const HELP_TEXT = [
 	"",
 	`Size tiers: ${describeTiers()}.`,
 	"Without a size, the CLI defaults memory to HALF of the host RAM (v1.0.0).",
+	"Machines need >= 1G (CLI floor), so micro/tiny apply to ephemeral runs only.",
 	"",
 	"Apple `container` needs macOS on Apple Silicon, `brew install container`, a",
 	"configured kernel (`container system kernel set --recommended`), and a booted",
@@ -266,7 +268,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 			"Use container_sandbox to run untrusted or isolated Linux commands inside Apple `container` micro-VMs instead of running them directly on the host.",
 			"For action 'run', pass 'command' as an argv array (e.g. [\"uname\",\"-a\"]) plus either 'machine' (an existing machine) or 'image' (ephemeral container). Never embed a shell string.",
 			"container_sandbox 'remove' never deletes by default: only pass force:true when the user explicitly accepts deleting the machine.",
-			"Prefer a named size tier (micro/tiny/small/medium/large) for 'create' and ephemeral 'run': without one the CLI defaults machine memory to HALF of the host RAM. Explicit cpus/memory override the tier; tiers never apply to a run inside an existing machine.",
+			"Prefer a named size tier for 'create' (small/medium/large; the CLI requires >= 1G for machines) and ephemeral 'run' (any tier, incl. micro/tiny): without one the CLI defaults machine memory to HALF of the host RAM. Explicit cpus/memory override the tier; tiers never apply to a run inside an existing machine.",
 			"Apple `container` needs macOS on Apple Silicon, `brew install container`, a configured kernel, and a booted subsystem; surface the install/start guidance instead of retrying blindly.",
 		],
 		parameters: Type.Object({
@@ -285,7 +287,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 			tier: Type.Optional(
 				StringEnum(TIER_NAMES, {
 					description:
-						"For create or ephemeral run: named size preset (micro 1cpu/256M, tiny 2cpu/512M, small 2cpu/1G, medium 4cpu/2G, large 8cpu/4G). Explicit cpus/memory override it.",
+						"For create or ephemeral run: named size preset (micro 1cpu/256M, tiny 2cpu/512M, small 2cpu/1G, medium 4cpu/2G, large 8cpu/4G). create accepts small+ only (CLI requires >= 1G for machines); micro/tiny are ephemeral-run-only. Explicit cpus/memory override it.",
 				}),
 			),
 			cpus: Type.Optional(Type.Number({ description: "For create or ephemeral run: number of virtual CPUs." })),
