@@ -35,15 +35,6 @@ Modo **validador** (sin `protect`, solo evalúa un `content` ya existente contra
 }
 ```
 
-## Cuándo usarlo vs. otras opciones
-
-| Necesitás... | Usá |
-|---|---|
-| Un tripwire binario, barato, en los bordes de un workflow ya elegido | `guardrails` |
-| Decidir/scopear una tarea abierta antes de rutear | `contract-gate` |
-| Elegir automáticamente qué workflow correr | `router` |
-| Reglas de estilo o juicio subjetivo (no violaciones binarias evidenciables) | otro patrón — un guard no dispara ante incertidumbre |
-
 ## Diagrama
 
 ```mermaid
@@ -93,7 +84,7 @@ flowchart TD
     ODecide -->|"no"| OPass(["return status: PASS, protect.name, inputChecks, outputChecks, output"])
 ```
 
-## Conceptos clave
+## Qué hace
 
 `guardrails` implementa el patrón de "input/output guardrails" del OpenAI Agents SDK. Cada guard es un agente barato (`haiku`, `effort: low`) que evalúa **una sola regla** contra el contenido y devuelve un veredicto tipado `{ tripped, reason, evidence }`; los guards de una misma etapa corren en paralelo con `settle`, así un guard que crashea no tumba a los demás. El scaffold tiene dos modos que comparten la misma función `runGuards`: **WRAPPER** (envuelve la ejecución de otro workflow con guards de entrada antes y guards de salida después) y **VALIDATOR** (evalúa un `content` ya existente contra reglas y devuelve PASS/TRIPPED, sin ejecutar ningún workflow).
 
@@ -102,6 +93,15 @@ Casos de uso concretos: gate de scope/seguridad antes de correr un agente (guard
 **Seguridad — anti prompt-injection.** Todo el contenido a evaluar se envuelve con `fence()`, un delimitador `<untrusted-HASH kind="...">...</untrusted-HASH>` cuyo tag se deriva de un hash FNV-like del propio contenido (sin `Math.random`/`Date.now`, prohibidos en el runtime). Un payload malicioso no puede "escapar" el delimitador insertando su propio cierre falso, porque cualquier cambio en el contenido cambia el hash y por lo tanto el tag esperado. El prompt de cada guard además instruye ignorar cualquier instrucción embebida en esa zona ("ignore previous", cambios de rol o de esquema, etc.), tratándola como contenido sospechoso a reportar, no a obedecer.
 
 **Fallos parciales.** Un guard que crashea (`null` o sin `tripped` boolean) se registra como `failed: true` y, por defecto, se trata como **no disparado** (modo laxo, para que infraestructura inestable no frene trabajo bueno); con `strict:true` el comportamiento se invierte a fail-closed (un guard caído cuenta como disparado). No hay caching — cada corrida re-evalúa todas las reglas.
+
+## Cuándo usarlo
+
+| Necesitás... | Usá |
+|---|---|
+| Un tripwire binario, barato, en los bordes de un workflow ya elegido | `guardrails` |
+| Decidir/scopear una tarea abierta antes de rutear | `contract-gate` |
+| Elegir automáticamente qué workflow correr | `router` |
+| Reglas de estilo o juicio subjetivo (no violaciones binarias evidenciables) | otro patrón — un guard no dispara ante incertidumbre |
 
 ## Cómo funciona
 
