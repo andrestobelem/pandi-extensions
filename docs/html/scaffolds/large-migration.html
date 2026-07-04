@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>large-migration</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Un applier real: gate de baseline verde, por archivo apply → verify → repair acotado, rollback en caso de falla. Secuencial.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>large-migration</code> aplica de verdad una migración de código archivo por archivo — no solo la audita — con barandas tomadas de tooling real (baseline verde antes de tocar nada, verify después de cada archivo, rollback si no se puede reparar). Elegilo cuando tenés que mutar muchos archivos con una instrucción repetible (un codemod, un upgrade de API) y <strong>no podés</strong> dejar la rama rota; para triage/auditoría sin escribir, usá <code>scout-fanout</code>.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=large-migration
+/workflow run mi-run {&quot;instruction&quot;: &quot;Reemplazar axios.get(url) por fetchJson(url)&quot;, &quot;pattern&quot;: &quot;code&quot;, &quot;verifyCmd&quot;: &quot;npm run build &amp;&amp; npm test&quot;, &quot;maxFiles&quot;: 50}
+</code></pre>
+<p>Con <code>instruction</code> alcanza (es el único campo requerido); sin <code>files</code> explícitos, el workflow descubre el work-list vía <code>git ls-files</code> + <code>pattern</code> (default: extensiones de código). Sin <code>verifyCmd</code> migra igual, pero sin gate ni rollback verificado — el log deja constancia con un WARNING. Ver la tabla completa en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: instruction, files?, pattern?, verifyCmd?, maxRepairs=2, maxFiles=50, triage=true, dryRun=false"]) --&gt; Discover
@@ -189,19 +196,42 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>El diseño trata las afirmaciones del agente migrador como <em>claims</em>, no como hechos: si dice &quot;migrated&quot; pero el re-chequeo del orquestador da rojo, el status se degrada a <code>verify-mismatch-not-rolled-back</code> en vez de confiar ciegamente. Del mismo modo, si no hay <code>verifyCmd</code>, el workflow migra sin gate y lo advierte explícitamente en el log — no finge seguridad que no tiene.</p>
 <p>Explícitamente fuera de alcance (documentado en el propio código, no oculto): no hay secuenciación por orden de dependencias (los archivos se procesan en el orden de la lista descubierta), no hace commits git por archivo, y no hay apply en paralelo sobre worktrees separados. Si la migración lo necesita, hay que agregarlo.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>API/codemod rollouts: reemplazar una llamada, patrón o import por otro en muchos archivos.</li>
-<li>Upgrades de framework que requieren tocar archivo por archivo con verificación de build/test.</li>
-<li>Migraciones acotadas y respaldadas por evidencia (<code>verifyCmd</code>) donde &quot;no dejar nada roto&quot; importa más que la velocidad.</li>
-<li>Cuando estás mutando muchos archivos y <strong>no podés</strong> dejar uno roto atrás.</li>
-</ul>
-<p>No usarlo cuando:</p>
-<ul>
-<li>Solo necesitás triage/auditoría sin escribir cambios → usar <code>scout-fanout</code>.</li>
-<li>La migración requiere orden de dependencias entre archivos (este scaffold no lo resuelve).</li>
-<li>Se necesita apply en paralelo sobre worktrees separados para escalar velocidad (no soportado aquí; el diseño es intencionalmente secuencial).</li>
-<li>No hay forma de verificar el cambio (<code>verifyCmd</code>) y el riesgo de romper la rama es alto — el workflow puede correr sin gate, pero lo hace bajo protesta (WARNING en el log).</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Usar <code>large-migration</code>?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API/codemod rollout: reemplazar una llamada, patrón o import en muchos archivos</td>
+<td>Sí — es el caso central</td>
+</tr>
+<tr>
+<td>Upgrade de framework, archivo por archivo, con build/test como gate</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Migración acotada donde &quot;no dejar nada roto&quot; pesa más que la velocidad</td>
+<td>Sí, sobre todo con <code>verifyCmd</code></td>
+</tr>
+<tr>
+<td>Solo necesitás triage/auditoría, sin escribir cambios</td>
+<td>No — usá <code>scout-fanout</code></td>
+</tr>
+<tr>
+<td>La migración requiere orden de dependencias entre archivos</td>
+<td>No — este scaffold procesa en orden de lista, no lo resuelve</td>
+</tr>
+<tr>
+<td>Necesitás apply en paralelo sobre worktrees separados para escalar velocidad</td>
+<td>No — el diseño es intencionalmente secuencial</td>
+</tr>
+<tr>
+<td>No hay forma de verificar el cambio (<code>verifyCmd</code>) y el riesgo de romper la rama es alto</td>
+<td>Puede correr sin gate, pero bajo protesta (WARNING en el log) — evaluá el riesgo antes</td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <p>El scaffold parsea <code>args</code> como input JSON, define un helper <code>node(role, extra)</code> para overrides por rol (<code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code>, con precedencia rol &gt; global &gt; default) y un helper <code>fence()</code> que envuelve datos no confiables (la instrucción de migración) en un delimitador derivado de un hash del contenido, para que un payload malicioso no pueda falsificar el marcador de cierre.</p>
 <p><strong>Fase 1 — Discover</strong> (<code>phase(&quot;Discover&quot;)</code>): si <code>input.files</code> viene como array no vacío, se usa directamente (se saltea git). Si no, un <code>agent</code> con rol <code>scout</code> (modelo <code>haiku</code>, effort <code>low</code>, <code>schema: FILE_LIST</code>) corre <code>git ls-files</code>, filtra por el regex <code>pattern</code> (default: extensiones de código <code>\.(ts|tsx|js|jsx|py|go|rs)$</code>, con alias <code>docs</code>/<code>web</code>/<code>config</code> disponibles) y devuelve hasta <code>maxFiles</code> rutas más <code>totalMatched</code> (el total antes del cap). Se aplica <code>files.slice(0, maxFiles)</code>; si no hay archivos, retorna temprano con un mensaje.</p>

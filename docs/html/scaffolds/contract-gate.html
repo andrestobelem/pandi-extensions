@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>contract-gate</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Convierte un pedido vago en un contrato inspeccionable y decide si preguntar ahora o proceder sobre una suposición registrada.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>contract-gate</code> es el paso cero antes de rutear o generar nada: toma un pedido crudo y decide si hace falta preguntar algo primero, o si ya se puede proceder con suposiciones explícitas y registradas. Elegilo cuando el pedido es vago, de alto riesgo, o vas a lanzar un multi-agente costoso y no querés que arranque sobre una ambigüedad sin resolver.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=contract-gate
+/workflow run mi-run {&quot;request&quot;: &quot;Migrar el pipeline de facturación a Kafka&quot;, &quot;context&quot;: &quot;Cliente enterprise, sin downtime permitido&quot;, &quot;generate&quot;: true}
+</code></pre>
+<p>Con el input mínimo (<code>request</code>) alcanza: los demás campos (<code>reviewers</code>, <code>maxQuestions</code>, <code>improvePrompt</code>, <code>planResources</code>, <code>generate</code>, etc., ver la tabla de <a href="#input-y-output">Input y output</a>) tienen default. Si el veredicto es <code>BLOCKED</code>, la respuesta trae solo preguntas (<code>rewrittenPrompt:null</code>) y se detiene ahí; si es <code>PROCEED</code>, trae el contrato y el <code>rewrittenPrompt</code>, y — solo con <code>generate:true</code> y ruta <code>dynamic-workflow</code> — además compone <code>workflow-factory</code> en línea.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: request, context?, reviewers?=3, improvePrompt?=true, generate?=false, maxQuestions?=4, planResources?=true, name?, write?=true"]) --&gt; Analyze
@@ -196,7 +203,31 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li>Reescribir un pedido crudo en una especificación limpia y autocontenida.</li>
 <li>El pedido es vago o de alto riesgo y hace falta decidir &quot;preguntar ahora vs proceder con una suposición registrada&quot; antes de rutear o construir.</li>
 </ul>
-<p><strong>Cuándo NO usarlo</strong>: si el pedido ya es concreto, de bajo riesgo, y no hay ambigüedad real que valga la pena estructurar — en ese caso agregar el gate es puro overhead. Tampoco reemplaza a <code>workflow-factory</code> (que genera workflows) ni a <code>router</code> (que solo despacha): <code>contract-gate</code> precede a ambos, no los sustituye.</p>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Qué usar?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Pedido concreto, bajo riesgo, sin ambigüedad real</td>
+<td>Nada de esto — el gate es puro overhead.</td>
+</tr>
+<tr>
+<td>Pedido vago o de alto riesgo, todavía no sabés qué workflow correr</td>
+<td><code>contract-gate</code> (solo, sin <code>generate</code>).</td>
+</tr>
+<tr>
+<td>Ya tenés un contrato/prompt claro y querés el código del workflow</td>
+<td><code>workflow-factory</code>, o <code>contract-gate</code> con <code>generate:true</code>.</td>
+</tr>
+<tr>
+<td>Ya sabés qué workflow correr y solo hace falta despacharlo</td>
+<td><code>router</code>, no <code>contract-gate</code>.</td>
+</tr>
+</tbody></table>
+<p><code>contract-gate</code> precede a <code>workflow-factory</code> y a <code>router</code>; no los sustituye.</p>
 <h2>Cómo funciona</h2>
 <ol>
 <li><strong>Parseo defensivo del input</strong> y helpers: <code>compact</code> (trunca blobs grandes a 60000 chars) y <code>fence</code> (encierra datos no confiables en un marcador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> derivado de un hash de contenido, no de aleatoriedad, para que un payload no pueda forjar su propio cierre). Valida que <code>request</code> esté presente (o sus alias <code>task|text|question</code>); si no, lanza error.</li>

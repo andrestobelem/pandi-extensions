@@ -120,13 +120,28 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>scout-fanout</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Scout y luego fan-out adaptativo: clasifica el riesgo de cada archivo de forma barata, hace deep-review solo en los de riesgo alto/medio; los de bajo riesgo cortocircuitan.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>scout-fanout</code> primero <strong>descubre</strong> qué archivos existen (<code>git ls-files</code> filtrado por un patrón, o una lista que le pases) y después gasta cómputo de forma desigual: clasifica el riesgo de cada archivo con un modelo barato, y solo hace deep-review en los que salen <code>high</code> o <code>medium</code>. Elegilo cuando tenés un árbol grande y revisar todo con el mismo esfuerzo sería caro, pero igual querés cobertura total (todo archivo se clasifica, aunque no todos se revisen a fondo).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=scout-fanout
+</code></pre>
+<p>Input típico (JSON pasado como <code>args</code> al workflow):</p>
+<pre><code class="language-json">{
+  &quot;pattern&quot;: &quot;code&quot;,
+  &quot;lens&quot;: &quot;security&quot;,
+  &quot;maxFiles&quot;: 40
+}
+</code></pre>
+<p>Sin input, corre con los defaults (<code>pattern=code</code>, <code>lens=code</code>, <code>maxFiles=40</code>) y deja que el scout descubra los archivos vía <code>git ls-files</code>. Para saltar el scout y clasificar una lista puntual:</p>
+<pre><code class="language-json">{ &quot;files&quot;: [&quot;src/config.js&quot;, &quot;src/router.js&quot;], &quot;lens&quot;: &quot;security&quot; }
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: pattern, lens, maxFiles, files?"]) --&gt; HasFiles{"input.files provisto?"}

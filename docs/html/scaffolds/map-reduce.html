@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>map-reduce</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Map-reduce jerárquico: mapeo por chunk bajo un contrato de evidencia, reduce en lotes acotados hasta un único resumen-de-resúmenes.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es el patrón para cuando tu corpus (un log gigante, cientos de tickets, un documento enorme) no entra en una sola ventana de contexto. Un extractor barato lee cada chunk por separado (MAP) y después una serie de reducers va fusionando esos resultados de a lotes, ronda tras ronda, hasta que queda un único resumen (REDUCE jerárquico). Elegilo cuando el tamaño del input es el problema; si el work-list es chico, <code>fan-out-and-synthesize</code> alcanza y sale más barato.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=map-reduce
+/workflow run mi-run {&quot;instruction&quot;:&quot;Extraé cada incidente reportado y su causa raíz&quot;,&quot;content&quot;:&quot;&lt;texto completo del log&gt;&quot;,&quot;chunkChars&quot;:6000,&quot;reduceBatch&quot;:4}
+</code></pre>
+<p><code>instruction</code> es el único campo obligatorio; <code>content</code> (string grande, se parte en chunks) o <code>items</code> (array ya pre-cortado) aportan el corpus. El resto de los campos de <code>input</code> tiene defaults razonables — ver la tabla en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: instruction (req), items[] o content, chunkChars=8000, reduceBatch=5, maxChunks=400, maxRounds=auto"] --&gt; B{"instruction vacío?"}
@@ -187,16 +194,28 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p><code>map-reduce</code> implementa el patrón MapReduce clásico (Dean &amp; Ghemawat) con un reduce <strong>jerárquico/recursivo</strong> en lugar de una síntesis plana. Divide un corpus (una lista de <code>items</code> o un <code>content</code> string grande) en un work-list, lanza un extractor barato en paralelo por cada chunk/item bajo un contrato de evidencia (citar la fuente, o declarar explícitamente <code>NO_FINDINGS</code>/<code>INSUFFICIENT_EVIDENCE</code> en vez de inventar), y luego fusiona los outputs del map en rondas: cada ronda agrupa los resultados en lotes de tamaño <code>reduceBatch</code> y llama a un reducer por lote, repitiendo hasta que sobrevive exactamente <strong>un</strong> resultado (el resumen-de-resúmenes).</p>
 <p>La razón de ser &quot;dinámico&quot; es que el tamaño del corpus (cantidad de items, o de chunks derivados de partir un string grande en runtime) no se conoce en tiempo de autoría: tanto el ancho del fan-out de MAP como el número de rondas de REDUCE (~`ceil(log_reduceBatch(N))`) se calculan en runtime y están acotados con clamps duros.</p>
 <p>El diseño es &quot;robustness-first, nunca throw&quot;: usa <code>settle</code> en cada fan-out, un cap de rondas adaptativo, un detector de estancamiento (una ronda que no reduce el conteo de sobrevivientes), y una guardia de ronda estrictamente creciente. Cuando se ve forzado a detenerse antes de llegar a un único resultado (por cap o por estancamiento), NO colapsa todo en una llamada plana: sigue fusionando en pasadas de &quot;drenaje&quot; acotadas en lotes de <code>reduceBatch</code>, preservando así la invariante de fan-in jerárquico incluso en el peor caso.</p>
-<p>Se diferencia de <code>fan-out-and-synthesize</code> en que ese último hace una síntesis-como-juez plana sobre una lista chica (todos los outputs del map en un solo prompt), mientras que <code>map-reduce</code> reduce recursivamente en lotes acotados, por lo que escala más allá de una sola ventana de contexto — el caso de uso central es un corpus grande.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>El input es más grande que una sola ventana de contexto (razón declarada en el catálogo: <code>useWhen</code>).</li>
-<li>Resumir un documento o log enorme.</li>
-<li>Consolidar cientos de tickets (&quot;roll up&quot;).</li>
-<li>Extraer información a través de un corpus grande (p. ej. &quot;extraer todos los cambios de API que rompen compatibilidad&quot;).</li>
-<li><strong>No usarlo</strong> cuando el work-list es chico y cabe entero en un solo prompt de síntesis: en ese caso <code>fan-out-and-synthesize</code> (síntesis plana como juez) es más simple y barato — <code>map-reduce</code> paga el costo de rondas de reduce adicionales que no aportan valor si no hay problema de tamaño de contexto.</li>
-<li>No usarlo si se necesita un juicio comparativo/de ranking entre alternativas (eso es un patrón distinto, no map-reduce).</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>Patrón recomendado</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>El corpus es más grande que una sola ventana de contexto (razón declarada en <code>useWhen</code> del catálogo)</td>
+<td><code>map-reduce</code></td>
+</tr>
+<tr>
+<td>Work-list chico que cabe entero en un solo prompt de síntesis</td>
+<td><code>fan-out-and-synthesize</code> (síntesis plana como juez; más simple y barato)</td>
+</tr>
+<tr>
+<td>Se necesita un juicio comparativo/de ranking entre alternativas</td>
+<td>otro patrón (no map-reduce)</td>
+</tr>
+</tbody></table>
+<p>Casos típicos de <code>map-reduce</code>: resumir un documento o log enorme, consolidar cientos de tickets (&quot;roll up&quot;), o extraer información a través de un corpus grande (p. ej. &quot;extraer todos los cambios de API que rompen compatibilidad&quot;). Usar <code>fan-out-and-synthesize</code> cuando no hay problema de tamaño de contexto: <code>map-reduce</code> paga el costo de rondas de reduce adicionales que no aportan valor si el work-list ya cabe en un prompt.</p>
 <h2>Cómo funciona</h2>
 <p><strong>Validación de entrada.</strong> <code>instruction</code> es el único parámetro requerido (qué extraer/producir de cada chunk y llevar a través del merge). Si falta, aborta de forma graciosa devolviendo el shape de salida declarado con <code>chunks=0</code> (nunca lanza excepción). Los demás parámetros numéricos se sanean con una función <code>clamp</code> (parsea a entero, aplica límites).</p>
 <p><strong>Fase Source.</strong> Si <code>input.items</code> es un array no vacío, se usa tal cual (un map por item, <code>items</code> gana si ambos están presentes). Si no, y hay <code>input.content</code> (string), se divide en chunks de ~`chunkChars<code> caracteres, preferiendo cortar en un salto de párrafo (</code>\n\n<code>) o de línea (</code>\n<code>) cercano al límite objetivo, para no partir a mitad de oración. Si no hay ni </code>items<code>ni</code>content<code>, aborta con error. El work-list resultante se recorta a </code>maxChunks` (default 400, clamp 1..2000); si se recorta, se loguea cuánta cobertura se pierde explícitamente (&quot;no silent caps&quot;). Si el resultado final tiene 0 chunks, aborta con error.</p>

@@ -120,13 +120,23 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>router</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Clasifica una solicitud y la despacha al único mejor workflow del catálogo, o solo recomienda.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>router</code> es un &quot;front door&quot; único: recibe una tarea en texto libre, la compara contra los workflows hermanos disponibles (descubiertos en runtime, no hardcodeados) y ejecuta el que mejor encaje — devolviendo su resultado. Elegilo cuando el caller no sabe (o no quiere saber) qué workflow específico correr; no lo uses si ya sabés cuál invocar (llamalo directo) o si necesitás generar un workflow nuevo (<code>workflow-factory</code>).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-bash"># 1) Crear el workflow a partir del scaffold (abre el editor con el código base)
+/workflow new mi-router --pattern=router
+
+# 2) Ejecutarlo con una tarea cruda como input
+/workflow run mi-router {&quot;request&quot;:&quot;Necesito optimizar una query de Snowflake que tarda 40s&quot;}
+</code></pre>
+<p><code>request</code> es el único campo obligatorio (ver tabla de input más abajo). El router descubre el catálogo, elige un workflow (o <code>&quot;none&quot;</code>) y, si <code>runSelected</code> no es <code>false</code>, lo despacha y devuelve su <code>output</code>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: request (task/text)"] --&gt; B{"candidates explícito?"}
@@ -153,22 +163,38 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     S --&gt;|"éxito"| T["return selected, why, dispatched=true, output"]
     S --&gt;|"falla"| U["return selected, why, dispatched=false, error (recomendación intacta)"]</pre>
 <h2>Qué hace</h2>
-<p><code>router</code> implementa el patrón clásico de routing/dispatch de LLM: un nodo juez único (<code>route</code>) clasifica una solicitud entrante y elige, entre los workflows hermanos del catálogo, el que mejor se ajusta. A diferencia de <code>contract-gate</code> (que solo recomienda un <code>routingHint</code>), <code>router</code> por defecto <strong>ejecuta</strong> la decisión: llama a <code>workflow(selected, args)</code> y devuelve la salida de ese workflow, de modo que el caller puede pasar una tarea cruda a <code>router</code> y recibir el resultado del especialista sin tener que nombrarlo.</p>
+<p><code>router</code> implementa el patrón clásico de routing/dispatch de LLM: un nodo juez único (<code>route</code>) clasifica una solicitud entrante y elige, entre los workflows hermanos del catálogo, el que mejor se ajusta. A diferencia de <code>contract-gate</code> (que solo recomienda un <code>routingHint</code>), <code>router</code> por defecto <strong>ejecuta</strong> la decisión: llama a <code>workflow(selected, args)</code> y devuelve la salida de ese workflow.</p>
 <p>El conjunto de candidatos no se conoce en tiempo de autoría: se <strong>descubre en runtime</strong> leyendo <code>.pi/workflows/*.js</code> (proyecto) y <code>~/.pi/agent/workflows/*.js</code> (global), extrayendo <code>meta.name</code>/<code>meta.description</code> de cada archivo. <code>router</code> se excluye a sí mismo y cualquier entrada bajo una subcarpeta <code>drafts/</code>, de modo que un ciclo de auto-ruteo es estructuralmente imposible.</p>
-<p>Cada etapa está blindada: si el escaneo del catálogo falla, se sigue con catálogo vacío (→ <code>selected: &quot;none&quot;</code>); si el nodo de ruteo falla, degrada a <code>&quot;none&quot;</code> con el motivo en <code>error</code>; si el dispatch falla, se surge <code>dispatched:false</code> + <code>error</code> — nunca un crash. <code>&quot;none&quot;</code> es un resultado de primera clase para solicitudes triviales o sin encaje, y el dispatch es de un solo tiro (sin loop ni recursión).</p>
-<p>El nombre elegido por el nodo juez se valida contra el conjunto descubierto: un pick alucinado o fuera de catálogo se trata como <code>&quot;none&quot;</code>, nunca se despacha una suposición.</p>
+<p>Cada etapa está blindada: si el escaneo del catálogo falla, se sigue con catálogo vacío (→ <code>selected: &quot;none&quot;</code>); si el nodo de ruteo falla, degrada a <code>&quot;none&quot;</code> con el motivo en <code>error</code>; si el dispatch falla, se retorna <code>dispatched:false</code> + <code>error</code> — nunca un crash. <code>&quot;none&quot;</code> es un resultado de primera clase para solicitudes triviales o sin encaje, y el dispatch es de un solo tiro (sin loop ni recursión). El nombre elegido por el nodo juez se valida contra el conjunto descubierto: un pick alucinado o fuera de catálogo se trata como <code>&quot;none&quot;</code>, nunca se despacha una suposición.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Un único front door para tareas crudas, cuando el caller no sabe (o no quiere) nombrar el workflow correcto.</li>
-<li>Previsualizar la elección con <code>runSelected: false</code> (solo recomendación, sin ejecutar nada).</li>
-<li>Mapear una tarea al especialista adecuado dentro de un catálogo de workflows conocido.</li>
-</ul>
-<p><strong>No usarlo cuando:</strong></p>
-<ul>
-<li>Ya se sabe con certeza qué workflow correr (llamarlo directamente, o usar <code>guardrails</code> si se quiere envolver uno ya elegido).</li>
-<li>Se necesita generar un workflow nuevo en lugar de reutilizar uno existente (usar <code>workflow-factory</code>).</li>
-<li>Se necesita solo una recomendación con <code>routingHint</code> de forma (trivial / single-agent / dynamic-workflow) sin listar candidatos concretos (usar <code>contract-gate</code>).</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Necesitás...</th>
+<th>Usá</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Front door único: mapear una tarea cruda al especialista correcto de un catálogo conocido</td>
+<td><strong><code>router</code></strong></td>
+</tr>
+<tr>
+<td>Solo previsualizar la elección, sin ejecutar nada (<code>runSelected: false</code>)</td>
+<td><code>router</code> (modo recomendación)</td>
+</tr>
+<tr>
+<td>Ya sabés qué workflow correr</td>
+<td>llamarlo directo, o <code>guardrails</code> para envolverlo</td>
+</tr>
+<tr>
+<td>Generar un workflow nuevo en vez de reusar uno existente</td>
+<td><code>workflow-factory</code></td>
+</tr>
+<tr>
+<td>Una recomendación de forma (trivial / single-agent / dynamic-workflow) sin listar candidatos concretos</td>
+<td><code>contract-gate</code></td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <p>El input llega como <code>args</code> (posiblemente JSON-stringified) y se parsea defensivamente; si falla el parseo, se usa <code>{}</code>. Toda entrada no confiable (contenido del catálogo, contexto, request) se envuelve con <code>fence()</code>, un delimitador cuyo tag se deriva de un hash del contenido, para que un payload malicioso no pueda forjar un marcador de cierre coincidente.</p>
 <p><strong>Fase 1 — Discover.</strong> Si <code>input.candidates</code> viene como array no vacío, se usa como allow-list explícita (se salta el escaneo de catálogo, pero igual se filtra contra <code>router</code>/<code>drafts</code> y se deduplica). En caso contrario, se invoca <code>agent()</code> con rol <code>catalog-scan</code> (modelo <code>haiku</code>, effort <code>low</code>, schema <code>CATALOG</code>) para leer los archivos de catálogo y extraer <code>{ name, description }</code> de cada uno, tratando su contenido como DATOS a copiar literalmente, nunca como instrucciones a obedecer. Un fallo en este <code>agent()</code> se loguea y se continúa con lista vacía. Los nombres excluidos (<code>router</code> y cualquier entrada bajo <code>drafts/</code>) se descartan y se deduplican por nombre; se aplica el cap <code>maxCandidates</code> con log visible si recorta cobertura. Si no queda ningún candidato, se retorna de inmediato <code>{ selected: &quot;none&quot;, dispatched: false, candidates: [] }</code>.</p>
@@ -176,7 +202,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p><strong>Fase 3 — Dispatch.</strong> Si <code>selected === &quot;none&quot;</code> o <code>runSelected === false</code>, se retorna solo la recomendación (<code>dispatched: false</code>). En caso contrario se resuelven los <code>dispatchArgs</code> con precedencia nullish: <code>input.args ?? suggestedArgs ?? { request }</code> (un <code>suggestedArgs: {}</code> explícito SÍ se pasa, no se reemplaza por <code>{ request }</code> solo por estar vacío). Se llama <code>workflow(selected, dispatchArgs)</code>; si tiene éxito se retorna <code>{ selected, why, dispatched: true, output, ... }</code>; si falla, se retorna <code>dispatched: false</code> con <code>error</code> describiendo el fallo de dispatch, preservando la recomendación (<code>selected</code>, <code>why</code>) intacta.</p>
 <p>No hay caching explícito en el scaffold; el único mecanismo de resiliencia es el patrón try/catch por etapa descrito arriba, que degrada cada fallo a un resultado seguro en lugar de propagar la excepción.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (<code>args</code>, JSON-stringified o objeto):</p>
+<p><strong>Input</strong> (<code>args</code>, JSON-stringified u objeto):</p>
 <table>
 <thead>
 <tr>
@@ -242,14 +268,14 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </tr>
 </tbody></table>
 <p><strong>Output:</strong></p>
-<pre><code>{
-  selected: string,        // nombre del workflow elegido, o &quot;none&quot;
-  why: string,              // justificación del nodo route
-  dispatched: boolean,      // true solo si se ejecutó workflow(selected, ...)
-  output?: any,              // presente solo cuando dispatched=true
-  suggestedArgs?: object,    // args propuestos por el nodo route
-  candidates?: string[],     // lista de nombres considerados
-  error?: string             // presente solo en fallo guardado (routing o dispatch)
+<pre><code class="language-json">{
+  &quot;selected&quot;: &quot;string&quot;,        // nombre del workflow elegido, o &quot;none&quot;
+  &quot;why&quot;: &quot;string&quot;,             // justificación del nodo route
+  &quot;dispatched&quot;: &quot;boolean&quot;,     // true solo si se ejecutó workflow(selected, ...)
+  &quot;output&quot;: &quot;any?&quot;,            // presente solo cuando dispatched=true
+  &quot;suggestedArgs&quot;: &quot;object?&quot;,  // args propuestos por el nodo route
+  &quot;candidates&quot;: &quot;string[]?&quot;,   // lista de nombres considerados
+  &quot;error&quot;: &quot;string?&quot;           // presente solo en fallo guardado (routing o dispatch)
 }
 </code></pre>
 <p>No se observan llamadas a <code>writeArtifact</code> en el código: el scaffold no escribe artifacts propios; su único efecto observable son las líneas de <code>log(...)</code> y el valor de retorno.</p>
@@ -257,7 +283,8 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <ol>
 <li><strong>Discover</strong> — descubre el conjunto de workflows candidatos (allow-list del caller o escaneo del catálogo vía <code>agent()</code>), filtra excluidos (<code>router</code>, <code>drafts/</code>), deduplica y aplica el cap <code>maxCandidates</code>.</li>
 <li><strong>Route</strong> — un nodo juez único (<code>agent()</code> con schema <code>ROUTE</code>) elige exactamente un nombre del catálogo o <code>&quot;none&quot;</code>, con justificación y <code>suggestedArgs</code>; se valida contra el conjunto descubierto.</li>
-<li><strong>Dispatch</strong> — si hay una selección válida y <code>runSelected</code> no es <code>false</code>, ejecuta <code>workflow(selected, dispatchArgs)</code> y retorna su salida; de otro modo retorna solo la recomendación.</li>
+<li><strong>Dispatch</strong> — si hay una selección válida y <code>runSelected</code> no es <code>false</code>, ejecuta <code>workflow(selected, dispatchArgs)</code> y retorna su salida; de otro modo retorna solo la recomendación.</content>
+</invoke></li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

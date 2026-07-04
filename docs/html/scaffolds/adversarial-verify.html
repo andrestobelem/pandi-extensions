@@ -120,26 +120,43 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>adversarial-verify</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Jurado de escépticos por cada hallazgo, que descarta afirmaciones por refutación mayoritaria; por defecto se duda.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>adversarial-verify</code> le pasa cada afirmación (<code>finding</code>) a un jurado de agentes cuyo único trabajo es intentar <strong>refutarla</strong> con evidencia, nunca confirmarla; la afirmación sobrevive solo si menos de la mayoría del jurado vota &quot;refutado&quot;. Elegilo cuando tenés una lista de hallazgos ruidosa (de un finder automático, una auditoría, un LLM) y querés depurarla con un sesgo deliberado hacia la duda antes de actuar sobre ella — no cuando necesitás reproducir un bug con una corrida real (para eso, ver <code>bug-verify</code>).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-bash">/workflow new mi-run --pattern=adversarial-verify
+</code></pre>
+<p>Esto crea <code>.pi/workflows/mi-run.js</code> a partir del scaffold. Para correrlo con un input concreto:</p>
+<pre><code class="language-bash">/workflow run mi-run &#39;{
+  &quot;findings&quot;: [
+    { &quot;id&quot;: &quot;f1&quot;, &quot;claim&quot;: &quot;El endpoint /health no requiere autenticación&quot;, &quot;evidence&quot;: &quot;routes/health.js:12&quot; },
+    { &quot;id&quot;: &quot;f2&quot;, &quot;claim&quot;: &quot;El cache nunca expira&quot;, &quot;evidence&quot;: &quot;cache.js:40&quot; }
+  ],
+  &quot;skeptics&quot;: 3
+}&#39;
+</code></pre>
+<p>Si no tenés <code>findings</code> armados, pasá <code>topic</code> (o <code>text</code>) y una fase previa los descubre por vos:</p>
+<pre><code class="language-bash">/workflow run mi-run &#39;{ &quot;topic&quot;: &quot;vulnerabilidades de seguridad en src/auth&quot;, &quot;maxFindings&quot;: 5 }&#39;
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: findings[] o topic"] --&gt; B{"¿Hay findings?"}
     B --&gt;|"no, hay topic"| C["Fase Find: agent finder (haiku, low)\nschema FINDINGS, maxFindings (def 8)"]
-    C --&gt; D["findings descubiertos (cap maxFindings)"]
-    B --&gt;|"sí"| D
+    C --&gt;|"cap maxFindings"| D["findings normalizados"]
+    B --&gt;|"sí (sin cap maxFindings)"| D
     D --&gt; E["Normalizar a { id, claim, evidence }"]
     E --&gt; F["Cap maxVerify (def 256, max 4096)"]
     F --&gt; G["Fase Verify: loop secuencial por finding"]
 
     subgraph G1 ["Por cada finding (secuencial)"]
         direction TB
-        H["parallel: jurado de N skeptics\n(def 3, clamp 1..99)"]
+        H["parallel: jurado de N skeptics\n(def 3, clamp 1..99, convención de diseño)"]
         subgraph JURY ["parallel() - jurado independiente"]
             S1["skeptic 1 (opus, high)\nschema VOTE: refuted/why/citation"]
             S2["skeptic 2"]
@@ -161,8 +178,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     M --&gt; N["Filtrar survivors / contar killed"]
     N --&gt; O["Return { survivors, killedCount, totalFindings,\nskepticsPerFinding, majorityToKill }"]</pre>
 <h2>Qué hace</h2>
-<p><code>adversarial-verify</code> es un scaffold de &quot;voto adversarial&quot;: toma una lista de hallazgos/afirmaciones (<code>findings</code>) —o los descubre a partir de un <code>topic</code>— y, para CADA hallazgo, lanza un jurado independiente de N escépticos cuyo único trabajo es intentar <strong>refutarlo</strong> con evidencia, nunca confirmarlo. Un hallazgo sobrevive solo si <strong>menos de una mayoría estricta</strong> de los escépticos vota &quot;refutado&quot;; en caso de duda o de fallo del escéptico, el voto por defecto es refuted=true (&quot;culpable hasta que se demuestre lo contrario&quot;).</p>
-<p>La pieza central es el fan-out: <code>parallel()</code> crea un jurado de tamaño <code>skeptics</code> (por defecto 3, acotado a 1–99) por cada finding, y ese jurado corre en paralelo, pero los findings en sí se procesan <strong>secuencialmente</strong>, uno tras otro (cada uno con su propio jurado de agentes <code>opus</code> en <code>effort: high</code>). El resultado no depende de un oráculo fijo de pass/fail sino del recuento de votos.</p>
+<p>La pieza central es el fan-out: <code>parallel()</code> crea un jurado de tamaño <code>skeptics</code> (por defecto 3, acotado a 1–99) por cada finding, y ese jurado corre en paralelo, pero los findings en sí se procesan <strong>secuencialmente</strong>, uno tras otro (cada uno, al procesarse, dispara su propio jurado paralelo de agentes <code>opus</code> en <code>effort: high</code>). El resultado no depende de un oráculo fijo de pass/fail sino del recuento de votos.</p>
 <p>Si no se pasan <code>findings</code> explícitos, el scaffold agrega una fase previa (<code>Find</code>) donde un agente barato (<code>haiku</code>, <code>effort: low</code>) descubre hasta <code>maxFindings</code> (por defecto 8) afirmaciones verificables a partir de un <code>topic</code>/<code>text</code>. Todo el contenido no confiable (el topic, el claim, la evidencia) se envuelve con un fence delimitado por un hash derivado del contenido, para evitar prompt injection, e instruye explícitamente a los agentes a tratar ese contenido como datos, nunca como instrucciones.</p>
 <p>El resultado final son los hallazgos sobrevivientes (sin los votos crudos, para no inflar el output), el conteo de descartados, y los parámetros del jurado usados (tamaño y mayoría necesaria para matar un finding).</p>
 <h2>Cuándo usarlo</h2>
@@ -180,11 +196,11 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </li>
 <li><p><strong>Overrides por rol.</strong> La función <code>node(role, extra)</code> resuelve, para cada nodo lógico (<code>finder</code>, <code>skeptic</code>), el modelo y el <code>effort</code> a partir de precedencia: override por rol (<code>input.models[role]</code>/<code>input.efforts[role]</code>) &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call-site. También propaga <code>tools</code>, <code>skills</code> y <code>excludeTools</code> por rol de forma análoga.</p>
 </li>
-<li><p><strong>Tamaño del jurado.</strong> <code>skeptics = clamp(input.skeptics ?? 3, 1, 99)</code>. El límite superior de 99 está atado a que <code>parallel()</code> acepta como máximo 4096 thunks y los jurados son chicos. Si el valor pedido se recorta, o si es menor a 3, se emite un <code>log(WARNING...)</code> explicando el riesgo de sesgo hacia &quot;refutar todo&quot;.</p>
+<li><p><strong>Tamaño del jurado.</strong> <code>skeptics = clamp(input.skeptics ?? 3, 1, 99)</code>. El límite superior de 99 es una convención de diseño del scaffold (el comentario del código lo justifica apelando al cap de 4096 thunks de <code>parallel()</code>, pero esa función no impone ningún chequeo de tamaño en el runtime — el <code>throw</code> por <code>length &gt; 4096</code> solo existe en <code>pipeline()</code>); en la práctica los jurados son chicos, así que 99 alcanza de sobra. Si el valor pedido se recorta, o si es menor a 3, se emite un <code>log(WARNING...)</code> explicando el riesgo de sesgo hacia &quot;refutar todo&quot;.</p>
 </li>
 <li><p><strong>Fase &quot;Find&quot; (opcional).</strong> Si <code>input.findings</code> no es un array, se exige <code>input.topic</code> (o <code>input.text</code>); si falta, lanza error. Se corre un único <code>agent()</code> (rol <code>finder</code>, modelo <code>haiku</code>, <code>effort: low</code>, fase <code>&quot;Find&quot;</code>) con un schema estricto <code>FINDINGS</code> (<code>{ findings: [{id, claim, evidence}] }</code>), pidiendo hasta <code>maxFindings</code> (clamp mínimo 1, default 8) afirmaciones falsificables. El topic se pasa envuelto en <code>fence(&quot;topic&quot;, topic)</code> con instrucciones anti-injection. Si no hay findings tras esto, retorna el string <code>&quot;No findings to verify.&quot;</code> sin más trabajo.</p>
 </li>
-<li><p><strong>Normalización y cap de verificación.</strong> Cada finding (string u objeto) se normaliza a <code>{ id, claim, evidence }</code>. Luego se acota el total a <code>MAX_FINDINGS = clamp(input.maxVerify ?? 256, 1, 4096)</code>, porque cada finding dispara su propio jurado secuencial de agentes <code>opus</code> (costoso). Se loggea un warning si se recorta.</p>
+<li><p><strong>Normalización y cap de verificación.</strong> Cada finding (string u objeto) se normaliza a <code>{ id, claim, evidence }</code>. Luego se acota el total a <code>MAX_FINDINGS = Math.max(1, Math.min(4096, Math.floor(Number(input?.maxVerify) || 256)))</code> — nótese el <code>||</code>, no <code>??</code>: con <code>maxVerify: 0</code> (o cualquier valor falsy numérico) cae a 256, no a 1 — porque cada finding, procesado secuencialmente, dispara su propio jurado paralelo de agentes <code>opus</code> (costoso). Se loggea un warning si se recorta.</p>
 </li>
 <li><p><strong>Fase &quot;Verify&quot; — loop secuencial con jurado paralelo por finding.</strong> Para cada finding (<code>for</code> secuencial, sin <code>Promise.all</code> entre findings), se llama <code>parallel()</code> con <code>skeptics</code> thunks, cada uno un <code>agent()</code> independiente (rol <code>skeptic</code>, modelo <code>opus</code>, <code>effort: high</code>, <code>phase: &quot;Verify&quot;</code>, <code>schema: VOTE</code>) instruido a <strong>refutar únicamente</strong>, votando <code>refuted: true</code> por defecto ante incertidumbre, y a citar evidencia concreta (<code>file:line</code>, URL, o output de comando) o <code>INSUFFICIENT_EVIDENCE</code>. El claim y la evidencia del finding van cada uno envueltos en su propio <code>fence()</code>.</p>
 </li>
@@ -257,11 +273,11 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </tbody></table>
 <p><strong>Output</strong> (retorno de <code>main()</code>):</p>
 <pre><code class="language-json">{
-  &quot;survivors&quot;: [ { &quot;id&quot;, &quot;claim&quot;, &quot;evidence&quot;, &quot;refutes&quot;, &quot;skeptics&quot;, &quot;survived&quot;: true } ],
-  &quot;killedCount&quot;: &lt;number&gt;,
-  &quot;totalFindings&quot;: &lt;number&gt;,
-  &quot;skepticsPerFinding&quot;: &lt;number&gt;,
-  &quot;majorityToKill&quot;: &lt;number&gt;
+  &quot;survivors&quot;: [ { &quot;id&quot;: &quot;f1&quot;, &quot;claim&quot;: &quot;...&quot;, &quot;evidence&quot;: &quot;...&quot;, &quot;refutes&quot;: 0, &quot;skeptics&quot;: 3, &quot;survived&quot;: true } ],
+  &quot;killedCount&quot;: 1,
+  &quot;totalFindings&quot;: 2,
+  &quot;skepticsPerFinding&quot;: 3,
+  &quot;majorityToKill&quot;: 2
 }
 </code></pre>
 <ul>

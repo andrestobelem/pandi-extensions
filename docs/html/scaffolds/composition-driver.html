@@ -120,13 +120,25 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>composition-driver</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Workflow padre: descubre afirmaciones, delega la verificación a verify-claims-lib, luego sintetiza.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>composition-driver</code> busca afirmaciones falsificables sobre un tema y luego reutiliza otro workflow
+(<code>verify-claims-lib</code>) para verificarlas con un jurado de escépticos en paralelo, antes de sintetizar
+un resultado final. Elegilo cuando quieras separar &quot;encontrar candidatos&quot; (barato, un solo modelo) de
+&quot;verificar&quot; (caro, jurado paralelo), o como plantilla para tu propio workflow padre + sub-workflow
+(patrón <code>workflow(name, args)</code>).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-bash">/workflow new mi-run --pattern=composition-driver
+/workflow run mi-run {&quot;topic&quot;: &quot;Node.js 22 hizo LTS en octubre 2024&quot;, &quot;maxClaims&quot;: 5, &quot;skeptics&quot;: 3}
+</code></pre>
+<p>Requiere que exista (proyecto o global) el workflow hermano <code>verify-claims-lib</code>; si no está, el padre
+sigue corriendo pero degrada a &quot;todo verificado sin evidencia real&quot; (ver <a href="#c%C3%B3mo-funciona">Cómo funciona</a>).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: topic, maxClaims?, skeptics?"] --&gt; B["Phase: Discover"]
@@ -154,31 +166,91 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     L --&gt; M["agent composition-synthesis (opus, effort high)"]
     M --&gt; N["Return: síntesis final (verified/dropped, evidencia, nota de delegación)"]</pre>
 <h2>Qué hace</h2>
-<p><code>composition-driver</code> es la referencia canónica del patrón de composición de workflows en este repo: un workflow &quot;padre&quot; que descubre afirmaciones falsificables sobre un tema y luego delega la fase de verificación completa a un workflow &quot;biblioteca&quot; reutilizable, <code>verify-claims-lib</code>, invocado con la primitiva <code>workflow(name, args)</code>. El propio scaffold no implementa jurados de escépticos ni lógica de veredicto: solo se encarga de encontrar candidatos a verificar, empaquetar el contrato de entrada (<code>{claims, skeptics, topic}</code>) y sintetizar el resultado devuelto por el sub-workflow.</p>
-<p>El diseño ilustra tres ideas de composición: (1) separación de responsabilidades entre descubrimiento y verificación, cada una en su propio workflow independientemente testeable; (2) un contrato explícito de entrada/salida entre padre e hijo (<code>{claims:[{id,claim,evidence}], skeptics?, topic?}</code> → <code>{verified, dropped, votes, coverage}</code>); y (3) degradación controlada cuando la composición no está disponible (por ejemplo, por límite de profundidad de anidamiento de workflows), en cuyo caso el padre sigue funcionando tratando todas las claims como &quot;verificadas por defecto&quot; y deja constancia de la omisión.</p>
-<p>Como en el resto de los scaffolds del repo, todo el contenido no confiable (el <code>topic</code> de entrada, y los hallazgos del sub-workflow antes de sintetizarlos) se envuelve con <code>fence()</code>, un delimitador derivado de un hash del contenido (FNV-1a doble) que no puede ser falsificado por texto inyectado, y los prompts incluyen instrucciones explícitas para que los agentes traten ese contenido como datos, nunca como instrucciones.</p>
+<p><code>composition-driver</code> es la referencia canónica del patrón de composición de workflows en este repo: un
+workflow &quot;padre&quot; que descubre afirmaciones falsificables sobre un tema y luego delega la fase de
+verificación completa a un workflow &quot;biblioteca&quot; reutilizable, <code>verify-claims-lib</code>, invocado con la
+primitiva <code>workflow(name, args)</code>. El propio scaffold no implementa jurados de escépticos ni lógica de
+veredicto: solo se encarga de encontrar candidatos a verificar, empaquetar el contrato de entrada
+(<code>{claims, skeptics, topic}</code>) y sintetizar el resultado devuelto por el sub-workflow.</p>
+<p>El diseño ilustra tres ideas de composición: (1) separación de responsabilidades entre descubrimiento
+y verificación, cada una en su propio workflow independientemente testeable; (2) un contrato explícito
+de entrada/salida entre padre e hijo (<code>{claims:[{id,claim,evidence}], skeptics?, topic?}</code> →
+<code>{verified, dropped, votes, coverage}</code>); y (3) degradación controlada cuando la composición no está
+disponible (por ejemplo, por límite de profundidad de anidamiento de workflows), en cuyo caso el padre
+sigue funcionando tratando todas las claims como &quot;verificadas por defecto&quot; y deja constancia de la
+omisión.</p>
+<p>Como en el resto de los scaffolds del repo, todo el contenido no confiable (el <code>topic</code> de entrada, y
+los hallazgos del sub-workflow antes de sintetizarlos) se envuelve con <code>fence()</code>, un delimitador
+derivado de un hash del contenido (FNV-1a doble) que no puede ser falsificado por texto inyectado, y
+los prompts incluyen instrucciones explícitas para que los agentes traten ese contenido como datos,
+nunca como instrucciones.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Fact-checking de un documento: extraer afirmaciones verificables y confirmarlas con evidencia.</li>
-<li>Cuando se quiere separar la fase de &quot;descubrimiento&quot; (barata, un solo modelo) de la de &quot;verificación&quot; (cara, jurado paralelo), reutilizando la segunda como building block en otros workflows.</li>
-<li>Como referencia/plantilla al diseñar un workflow padre + sub-workflow propios (patrón <code>workflow(name, args)</code>), o al entender exactamente cómo funciona ese flujo discover → verify.</li>
-<li><strong>No usarlo</strong> si no existe (o no se puede instalar) el workflow hermano <code>verify-claims-lib</code> en el mismo scope (proyecto o global): el padre sigue corriendo por la ruta de degradación, pero sin verificación real (todo se acepta como verificado con una nota).</li>
-<li><strong>No usarlo</strong> para temas sin afirmaciones fácticas falsificables (opiniones, tareas creativas): el finder puede no devolver claims y el workflow corta temprano con &quot;No falsifiable claims found to verify.&quot;</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Usarlo?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fact-checking de un documento: extraer afirmaciones y confirmarlas con evidencia</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Separar descubrimiento (barato) de verificación (cara, jurado paralelo) reutilizable en otros workflows</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Plantilla para diseñar tu propio padre + sub-workflow (patrón <code>workflow(name, args)</code>)</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>No existe (ni se puede instalar) <code>verify-claims-lib</code> en el mismo scope</td>
+<td>No — corre por la ruta de degradación, sin verificación real</td>
+</tr>
+<tr>
+<td>Tema sin afirmaciones fácticas falsificables (opiniones, tareas creativas)</td>
+<td>No — el finder puede no devolver claims y el workflow corta temprano</td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <ol>
-<li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea como JSON (o se usa tal cual si ya es objeto); si falla, cae a <code>{}</code>. Se definen <code>compact()</code> (trunca strings/objetos largos a 60000 chars) y <code>fence()</code> (envuelve datos no confiables en un tag <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code>). <code>node(role, extra)</code> resuelve overrides de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> por rol, con precedencia: override por rol (<code>models[role]</code>) &gt; default global (<code>input.model</code>) &gt; default del call-site.</p>
+<li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea como JSON (o se usa tal cual si ya es objeto); si
+falla, cae a <code>{}</code>. Se definen <code>compact()</code> (trunca strings/objetos largos a 60000 chars) y <code>fence()</code>
+(envuelve datos no confiables en un tag <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code>). <code>node(role, extra)</code> resuelve
+overrides de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> por rol, con precedencia: override por
+rol (<code>models[role]</code>) &gt; default global (<code>input.model</code>) &gt; default del call-site.</p>
 </li>
-<li><p><strong>Validación de input.</strong> Requiere <code>input.topic</code> (o <code>question</code>/<code>text</code> como alias); si falta, lanza error. <code>maxClaims</code> se calcula desde <code>input.maxClaims</code> (default 8), forzado a entero ≥1 y clamped a un máximo de 20; si el valor pedido excede el máximo, se loggea el clamp.</p>
+<li><p><strong>Validación de input.</strong> Requiere <code>input.topic</code> (o <code>question</code>/<code>text</code> como alias); si falta, lanza
+error. <code>maxClaims</code> se calcula desde <code>input.maxClaims</code> (default 8), forzado a entero ≥1 y clamped a
+un máximo de 20; si el valor pedido excede el máximo, se loggea el clamp.</p>
 </li>
-<li><p><strong>Phase &quot;Discover&quot;.</strong> Un único <code>agent()</code> (rol <code>claim-finder</code>, modelo <code>haiku</code>, <code>effort: low</code>, con <code>schema: CLAIMS</code> — objeto con array <code>claims:[{id,claim,evidence}]</code>) recibe el <code>topic</code> envuelto en <code>fence()</code> y debe encontrar hasta <code>maxClaims</code> afirmaciones concretas y falsificables. El resultado se filtra (<code>claim?.claim</code> truthy) y se recorta a <code>maxClaims</code>; si no sobrevive ninguna claim, el workflow retorna inmediatamente el string <code>&quot;No falsifiable claims found to verify.&quot;</code> sin pasar a Verify.</p>
+<li><p><strong>Phase &quot;Discover&quot;.</strong> Un único <code>agent()</code> (rol <code>claim-finder</code>, modelo <code>haiku</code>, <code>effort: low</code>, con
+<code>schema: CLAIMS</code> — objeto con array <code>claims:[{id,claim,evidence}]</code>) recibe el <code>topic</code> envuelto en
+<code>fence()</code> y debe encontrar hasta <code>maxClaims</code> afirmaciones concretas y falsificables. El resultado se
+filtra (<code>claim?.claim</code> truthy) y se recorta a <code>maxClaims</code>; si no sobrevive ninguna claim, el
+workflow retorna inmediatamente el string <code>&quot;No falsifiable claims found to verify.&quot;</code> sin pasar a
+Verify.</p>
 </li>
-<li><p><strong>Phase &quot;Verify&quot;.</strong> <code>skeptics</code> se toma de <code>input.skeptics</code> (default 3), clamped a <code>[1,8]</code> (se loggea si se ajustó). Se invoca <code>await workflow(&quot;verify-claims-lib&quot;, { claims, skeptics, topic })</code>, delegando toda la verificación (jurados de escépticos en paralelo, votación por mayoría estricta, generación de <code>verified</code>/<code>dropped</code>/<code>votes</code>/<code>coverage</code> — ver <code>verify-claims-lib.js</code>). Si la llamada lanza una excepción (por ejemplo, profundidad de anidamiento de workflows excedida), se captura, se loggea el motivo, y se degrada asignando <code>verification = { verified: claims, note: &quot;verification skipped (nesting depth exceeded)&quot; }</code> — es decir, todas las claims se tratan como verificadas sin evidencia real de refutación.</p>
+<li><p><strong>Phase &quot;Verify&quot;.</strong> <code>skeptics</code> se toma de <code>input.skeptics</code> (default 3), clamped a <code>[1,8]</code> (se
+loggea si se ajustó). Se invoca <code>await workflow(&quot;verify-claims-lib&quot;, { claims, skeptics, topic })</code>,
+delegando toda la verificación (jurados de escépticos en paralelo, votación por mayoría estricta,
+generación de <code>verified</code>/<code>dropped</code>/<code>votes</code>/<code>coverage</code> — ver <code>verify-claims-lib.js</code>). Si la llamada
+lanza una excepción (por ejemplo, profundidad de anidamiento de workflows excedida), se captura, se
+loggea el motivo, y se degrada asignando
+<code>verification = { verified: claims, note: &quot;verification skipped (nesting depth exceeded)&quot; }</code> — es
+decir, todas las claims se tratan como verificadas sin evidencia real de refutación.</p>
 </li>
-<li><p><strong>Phase &quot;Synthesize&quot;.</strong> Un <code>agent()</code> final (rol <code>composition-synthesis</code>, modelo <code>opus</code>, <code>effort: high</code>) recibe el objeto <code>verification</code> compactado (<code>compact(verification, 50000)</code>) envuelto en <code>fence(&quot;findings&quot;, ...)</code>, y debe sintetizar las claims verificadas/descartadas preservando incertidumbre, citando evidencia y mencionando explícitamente que la verificación fue delegada a <code>verify-claims-lib</code>. El resultado de este agente es el valor final que retorna el workflow.</p>
+<li><p><strong>Phase &quot;Synthesize&quot;.</strong> Un <code>agent()</code> final (rol <code>composition-synthesis</code>, modelo <code>opus</code>,
+<code>effort: high</code>) recibe el objeto <code>verification</code> compactado (<code>compact(verification, 50000)</code>) envuelto
+en <code>fence(&quot;findings&quot;, ...)</code>, y debe sintetizar las claims verificadas/descartadas preservando
+incertidumbre, citando evidencia y mencionando explícitamente que la verificación fue delegada a
+<code>verify-claims-lib</code>. El resultado de este agente es el valor final que retorna el workflow.</p>
 </li>
 </ol>
-<p>No hay caché explícito (<code>memo</code>/artifacts intermedios) ni <code>writeArtifact()</code> en este scaffold: todo el estado vive en memoria de la ejecución y el único output persistente es lo que el runner del workflow registre por defecto (logs de fase vía <code>phase()</code>/<code>log()</code>).</p>
+<p>No hay caché explícito (<code>memo</code>/artifacts intermedios) ni <code>writeArtifact()</code> en este scaffold: todo el
+estado vive en memoria de la ejecución y el único output persistente es lo que el runner del workflow
+registre por defecto (logs de fase vía <code>phase()</code>/<code>log()</code>).</p>
 <h2>Input y output</h2>
 <p><strong>Input</strong> (<code>args</code>, JSON o objeto):</p>
 <table>
@@ -227,12 +299,17 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <td>Se propagan a <code>node()</code> si están presentes.</td>
 </tr>
 </tbody></table>
-<p><strong>Output:</strong> el valor de retorno del <code>agent()</code> de síntesis (texto/objeto producido por el modelo <code>opus</code>), o el string temprano <code>&quot;No falsifiable claims found to verify.&quot;</code> si no se hallaron claims. No se escriben artifacts en disco (<code>writeArtifact</code> no se usa en este scaffold).</p>
+<p><strong>Output:</strong> el valor de retorno del <code>agent()</code> de síntesis (texto/objeto producido por el modelo
+<code>opus</code>), o el string temprano <code>&quot;No falsifiable claims found to verify.&quot;</code> si no se hallaron claims. No
+se escriben artifacts en disco (<code>writeArtifact</code> no se usa en este scaffold).</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Discover</strong> — <code>agent claim-finder</code> encuentra hasta <code>maxClaims</code> afirmaciones falsificables sobre <code>topic</code>, devueltas con schema <code>CLAIMS</code>.</li>
-<li><strong>Verify</strong> — delega vía <code>workflow(&quot;verify-claims-lib&quot;, {claims, skeptics, topic})</code>; degrada a &quot;todo verificado sin evidencia&quot; si el sub-workflow no está disponible.</li>
-<li><strong>Synthesize</strong> — <code>agent composition-synthesis</code> (opus, effort high) sintetiza el resultado de verificación en la respuesta final.</li>
+<li><strong>Discover</strong> — <code>agent claim-finder</code> encuentra hasta <code>maxClaims</code> afirmaciones falsificables sobre
+<code>topic</code>, devueltas con schema <code>CLAIMS</code>.</li>
+<li><strong>Verify</strong> — delega vía <code>workflow(&quot;verify-claims-lib&quot;, {claims, skeptics, topic})</code>; degrada a &quot;todo
+verificado sin evidencia&quot; si el sub-workflow no está disponible.</li>
+<li><strong>Synthesize</strong> — <code>agent composition-synthesis</code> (opus, effort high) sintetiza el resultado de
+verificación en la respuesta final.</content></li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

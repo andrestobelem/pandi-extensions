@@ -120,13 +120,28 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>fan-out-and-synthesize</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Scatter-gather: escanea una lista de trabajo, un revisor por ítem (paralelo, con settle), y sintetiza como juez con notas de cobertura/fallos.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Este es el patrón BASE de scatter-gather: descubrís una lista de trabajo (archivos de un repo, por ejemplo), lanzás un revisor independiente por cada ítem en paralelo, y un único agente-juez sintetiza todos los hallazgos en un veredicto priorizado. Elegilo cuando necesitás cobertura amplia sobre un work-list conocido (o casi conocido en runtime) y cada ítem puede evaluarse sin conocer a los demás — por ejemplo, revisión de código en muchos archivos, auditorías de seguridad, o revisión de prosa/documentación.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=fan-out-and-synthesize
+/workflow run mi-run {&quot;pattern&quot;:&quot;security&quot;,&quot;lens&quot;:&quot;security&quot;,&quot;limit&quot;:8}
+</code></pre>
+<p><code>new</code> crea el scaffold como archivo editable; <code>run</code> (o <code>start</code> para correrlo en background) lo ejecuta con el input JSON. Un input típico:</p>
+<pre><code class="language-json">{
+  &quot;pattern&quot;: &quot;security&quot;,
+  &quot;lens&quot;: &quot;security&quot;,
+  &quot;limit&quot;: 8,
+  &quot;files&quot;: [&quot;src/auth.ts&quot;, &quot;src/session.ts&quot;]
+}
+</code></pre>
+<p>Si omitís <code>files</code>, un scout barato corre <code>git ls-files</code> y filtra por <code>pattern</code> (default <code>code</code>) antes de aplicar el <code>limit</code> (default 12). El resto de los campos de input (<code>model</code>, <code>effort</code>, <code>models.&lt;role&gt;</code>, etc.) se detalla en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Input["Input: limit, pattern, lens, files?"] --&gt; HasFiles{"input.files provisto?"}
@@ -205,7 +220,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <td><code>pattern</code></td>
 <td>string</td>
 <td><code>code</code></td>
-<td>Preset (<code>code</code>|<code>docs</code>|<code>web</code>|<code>config</code>) o regex libre. Presets: code=`.(ts</td>
+<td>Preset (<code>code</code>|<code>docs</code>|<code>web</code>|<code>config</code>) o regex libre. Presets: code=<code>\.(ts|tsx|js|jsx|py|go|rs)$</code>, docs=<code>\.(md|mdx|txt|rst|adoc)$</code>, web=<code>\.(html|css|scss|vue|svelte)$</code>, config=<code>\.(json|ya?ml|toml|ini)$</code>.</td>
 </tr>
 <tr>
 <td><code>lens</code></td>

@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>judge-escalate</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Genera candidatos desde ángulos distintos, un juez con veredicto tipado, y escala solo cuando la confianza es baja.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es un best-of-N con gasto adaptativo: varios agentes proponen respuestas desde ángulos distintos (risk-first, simplicity-first, user-first, ...), un juez de alto esfuerzo elige un ganador con veredicto tipado (<code>winner</code>, <code>confidence</code>, <code>why</code>), y solo se paga otra ronda de generación —más exigente— si el juez no está seguro. Elegilo cuando querés comparar alternativas con un criterio absoluto (no pairwise) y preferís gastar cómputo extra solo cuando hace falta, en vez de siempre correr N rondas fijas.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=judge-escalate
+/workflow run mi-run {&quot;question&quot;: &quot;¿Cuál es la mejor estrategia de rollback para el gate?&quot;, &quot;angles&quot;: [&quot;risk-first&quot;, &quot;simplicity-first&quot;, &quot;user-first&quot;], &quot;maxEscalations&quot;: 2}
+</code></pre>
+<p><code>question</code> (alias <code>q</code>/<code>text</code>) es el único campo obligatorio; <code>angles</code> y <code>maxEscalations</code> son opcionales y ya traen los defaults de arriba. Ver <a href="#input-y-output">Input y output</a> para overrides opcionales (<code>model</code>, <code>models</code>, <code>tools</code>, etc.).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Input["Input: question, angles, maxEscalations, model/effort overrides"] --&gt; Loop
@@ -154,18 +161,38 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>Una vez que el loop termina, se selecciona el candidato ganador según el índice devuelto por el juez (con fallback defensivo al candidato 1 si el índice está fuera de rango), y una fase final de síntesis produce la respuesta definitiva, incorporando ideas de los candidatos que no ganaron y señalando riesgos residuales.</p>
 <p>Todo el input externo (la pregunta y los textos de los candidatos) se envuelve con un fence de delimitador derivado por hash del contenido (<code>fence()</code>), para evitar inyección de instrucciones vía prompt injection, ya que el contenido no puede forjar su propio marcador de cierre.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Decisiones con un ganador claro la mayoría de las veces, pero donde ocasionalmente conviene profundizar antes de comprometerse.</li>
-<li>Gasto adaptativo: querés pagar más cómputo solo cuando el juez está inseguro, no siempre.</li>
-<li>Selección best-of-N entre opciones (ej. &quot;¿cuál es la mejor estrategia de rollback para el gate?&quot;).</li>
-<li>Casos donde comparar por veredicto absoluto (no pairwise) es razonable, y el ángulo importa (risk-first, simplicity-first, user-first, etc.).</li>
-</ul>
-<p><strong>No usarlo cuando:</strong></p>
-<ul>
-<li>La comparación absoluta del juez es poco confiable pero la comparación pairwise sí (ahí conviene <code>tournament</code>, bracket de eliminación directa).</li>
-<li>Se necesita agregación por consenso/voto entre muestras independientes en vez de un juez único (ahí conviene <code>self-consistency</code>).</li>
-<li>No hay una pregunta bien definida a la que responder (el scaffold falla explícitamente sin <code>question</code>).</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Usar <code>judge-escalate</code>?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Best-of-N con ganador claro casi siempre, pero a veces conviene profundizar</td>
+<td>Sí — es el caso de diseño</td>
+</tr>
+<tr>
+<td>Querés pagar cómputo extra solo si el juez duda, no siempre</td>
+<td>Sí — ese es el gasto adaptativo</td>
+</tr>
+<tr>
+<td>Comparación absoluta (un juez, no pairwise) es razonable</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>La comparación absoluta es poco confiable pero la pairwise sí</td>
+<td>No — usar <code>tournament</code> (bracket de eliminación directa)</td>
+</tr>
+<tr>
+<td>Necesitás consenso/voto entre muestras independientes, sin juez único</td>
+<td>No — usar <code>self-consistency</code></td>
+</tr>
+<tr>
+<td>No hay una pregunta concreta a responder</td>
+<td>No — el scaffold falla explícitamente sin <code>question</code></td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <ol>
 <li><p><strong>Parseo de input y helpers.</strong> Se parsea <code>args</code> a JSON con fallback a <code>{}</code>. Se definen <code>compact()</code> (trunca strings largos a 60000 chars para no inundar prompts) y <code>fence()</code> (delimitador de contenido no confiable con hash FNV-ish, no basado en <code>Date.now()</code>/<code>Math.random()</code> porque el runtime los prohíbe). <code>node(role, extra)</code> construye las opciones de cada nodo del workflow con overrides por rol (<code>input.models[role]</code>, <code>input.efforts[role]</code>, <code>input.toolsByRole[role]</code>, etc.), con precedencia: override por rol &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call-site.</p>

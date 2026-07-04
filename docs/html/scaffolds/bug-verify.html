@@ -120,13 +120,31 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>bug-verify</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Confirma bugs sospechosos por REPRODUCCIÓN: solo son reales si una ejecución falla en el código actual; con verificación opcional FAIL→PASS del fix y minimización.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>bug-verify</code> toma una lista de bugs sospechosos (o un <code>topic</code> para descubrirlos) y los pasa por un agente que debe construir y CORRER una reproducción real: solo cuenta como <code>reproduced</code> si el run efectivamente falla contra el código actual, nunca un argumento de &quot;probablemente pasa&quot;. Elegilo cuando tenés leads de bugs (por ejemplo de <code>repo-bug-hunt</code>) que querés confirmar con evidencia ejecutable antes de reportarlos o arreglarlos, opcionalmente comprobando también que un fix candidato los resuelve (<code>attemptFix</code>).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=bug-verify
+</code></pre>
+<p>Input típico (JSON pasado como <code>args</code> al workflow):</p>
+<pre><code class="language-json">{
+  &quot;bugs&quot;: [
+    { &quot;id&quot;: &quot;b1&quot;, &quot;claim&quot;: &quot;parseConfig lanza en YAML vacío&quot;, &quot;file&quot;: &quot;src/config.js&quot; }
+  ],
+  &quot;verifyCmd&quot;: &quot;npm test&quot;,
+  &quot;attemptFix&quot;: false,
+  &quot;maxBugs&quot;: 12
+}
+</code></pre>
+<p>Si no tenés una lista armada, alcanza con un <code>topic</code> y el <code>finder</code> interno descubre candidatos:</p>
+<pre><code class="language-json">{ &quot;topic&quot;: &quot;posibles off-by-one en el paginador de resultados&quot;, &quot;maxBugs&quot;: 8 }
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: bugs[] | topic + verifyCmd? attemptFix? minimize? maxBugs?"]) --&gt; HasBugs{"¿input.bugs o\ninput.findings provisto?"}
@@ -164,18 +182,37 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     Classify --&gt; Out(["return: { confirmed, counts, attemptFix, results, coverage }"])</pre>
 <h2>Qué hace</h2>
 <p><code>bug-verify</code> es el hermano de <code>adversarial-verify</code>, pero para bugs de código: en lugar de podar afirmaciones por citación de un escéptico, poda bugs por <strong>ejecución</strong>. La premisa es simple y estricta: un bug solo se considera confirmado (<code>reproduced</code>) si un agente construye una reproducción mínima (test, script o comando) y la CORRE, observando que efectivamente falla contra el código actual. Argumentar que &quot;probablemente&quot; existe el bug no cuenta como prueba.</p>
-<p>El workflow tiene dos fases. En <strong>Source</strong> obtiene la lista de bugs sospechosos: o bien los recibe directamente en el input (<code>bugs</code>/<code>findings</code>), o bien —si en cambio se pasa un <code>topic</code>— lanza un agente <code>finder</code> (modelo <code>haiku</code>, esfuerzo <code>low</code>) que descubre hasta <code>maxBugs</code> candidatos. Luego normaliza, deduplica por <code>claim+file</code> y aplica el cap <code>maxBugs</code> antes de gastar presupuesto de verificación.</p>
-<p>En <strong>Reproduce</strong>, itera SECUENCIALMENTE (no en paralelo) sobre cada bug, porque corre contra el mismo working tree con las dependencias ya instaladas: correr reproducciones en paralelo sobre el mismo árbol de trabajo generaría carreras de archivos/estado. Cada bug se verifica con un agente <code>sonnet</code> de esfuerzo <code>medium</code> que debe construir y ejecutar una reproducción real, citando la salida FALLIDA observada. Si <code>attemptFix</code> está activo, el mismo agente intenta un fix mínimo, confirma que la reproducción pasa a PASS sin regresiones, y luego revierte el fix (el workflow verifica bugs, no los aterriza). Si <code>attemptFix</code> está activo también se snapshotea el estado del árbol (<code>git status --porcelain</code>) antes y después de cada bug para detectar si un revert falló y dejó el árbol sucio (<code>treeDirty</code>).</p>
-<p>Todo el input externo (el <code>topic</code>, el <code>claim</code>, <code>file</code>, <code>evidence</code> reportados) se envuelve con un delimitador derivado de un hash del contenido (<code>fence</code>) para blindar contra inyección de instrucciones dentro de datos no confiables — el agente recibe instrucciones explícitas de tratar ese contenido como DATA, nunca como directivas.</p>
+<p>El workflow itera SECUENCIALMENTE (no en paralelo) sobre cada bug en la fase Reproduce, porque corre contra el mismo working tree con las dependencias ya instaladas: un worktree nuevo no tendría node_modules/build artifacts instalados, así que paralelizar en worktrees separados resultaría incómodo. Si <code>attemptFix</code> está activo, el árbol se snapshotea (<code>git status --porcelain</code>) una vez antes del loop, y después de cada bug, comparando siempre contra esa misma referencia inicial para detectar si un revert falló y dejó el árbol sucio (<code>treeDirty</code>).</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Confirmar los leads que salieron de <code>repo-bug-hunt</code> (o cualquier hallazgo similar) antes de reportarlos o arreglarlos.</li>
-<li>Loop de &quot;reproducir y arreglar&quot;: querés no solo detectar el bug sino confirmar que un fix candidato lo resuelve sin romper nada más (<code>attemptFix: true</code>).</li>
-<li>Cuando necesitás PROBAR un bug con una corrida real, no solo argumentarlo.</li>
-<li><strong>No usarlo</strong> si no hay forma de ejecutar nada contra el código (sin entorno runnable, sin test runner) — en ese caso los agentes devolverán <code>inconclusive</code>, no <code>reproduced</code>; no fuerza una prueba donde no la hay.</li>
-<li><strong>No usarlo</strong> para verificar afirmaciones no ejecutables (diseño, arquitectura, prosa) — para eso está <code>adversarial-verify</code> (poda por citación/argumento, no por ejecución).</li>
-<li>Cuidado con <code>attemptFix</code> en un working tree con cambios sin commitear: el workflow detecta y advierte si el árbol queda sucio tras un revert fallido, pero no lo repara automáticamente.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>Usá...</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bug de código, querés PROBARLO con una corrida real</td>
+<td><code>bug-verify</code></td>
+</tr>
+<tr>
+<td>Afirmación no ejecutable (diseño, arquitectura, prosa)</td>
+<td><code>adversarial-verify</code> (poda por citación/argumento)</td>
+</tr>
+<tr>
+<td>Leads de <code>repo-bug-hunt</code> (u otro hallazgo) a confirmar antes de reportar</td>
+<td><code>bug-verify</code></td>
+</tr>
+<tr>
+<td>Querés no solo detectar el bug sino confirmar que un fix lo resuelve sin romper nada</td>
+<td><code>bug-verify</code> con <code>attemptFix: true</code></td>
+</tr>
+<tr>
+<td>No hay forma de ejecutar nada contra el código (sin entorno runnable, sin test runner)</td>
+<td>No lo fuerces: los agentes devolverán <code>inconclusive</code>, no <code>reproduced</code></td>
+</tr>
+</tbody></table>
+<p>Cuidado con <code>attemptFix</code> en un working tree con cambios sin commitear: el workflow detecta y advierte si el árbol queda sucio tras un revert fallido (<code>treeDirty: true</code>), pero no lo repara automáticamente.</p>
 <h2>Cómo funciona</h2>
 <ol>
 <li><p><strong>Parseo de input y helpers.</strong> Lee <code>args</code> (string JSON o objeto), define <code>compact</code> (trunca payloads grandes a 60000 chars para logs/prompts) y <code>fence</code> (delimitador anti-inyección basado en hash FNV-like del contenido, sin randomness porque el runtime prohíbe <code>Math.random</code>/<code>Date.now</code>). Define <code>node(role, extra)</code> para aplicar overrides por-rol de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> con precedencia: override por rol &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call site.</p>

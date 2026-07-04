@@ -120,13 +120,29 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>repo-bug-hunt</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Escanea archivos de código, lanza revisores de bugs por archivo en paralelo, y un juez sintetiza hallazgos priorizados con citas. Los hallazgos son leads, no bugs confirmados.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>repo-bug-hunt</code> recorre un repo (o una lista de archivos que le pases), lanza un revisor independiente por archivo en paralelo buscando bugs (o el &quot;lens&quot; que elijas: seguridad, prosa, etc.), y un juez final deduplica y prioriza los hallazgos con citas. Elegilo para una auditoría amplia o un barrido previo a code review, cuando querés una lista priorizada de sospechas sin todavía reproducirlas. Los hallazgos son <strong>leads</strong>, no bugs confirmados: para confirmar por reproducción, encadená con <code>bug-verify</code>.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=repo-bug-hunt
+</code></pre>
+<p>Input típico (JSON pasado como <code>args</code> al workflow):</p>
+<pre><code class="language-json">{
+  &quot;pattern&quot;: &quot;code&quot;,
+  &quot;lens&quot;: &quot;security&quot;,
+  &quot;maxFiles&quot;: 40,
+  &quot;concurrency&quot;: 6
+}
+</code></pre>
+<p>Sin input, corre con los defaults (<code>pattern=code</code>, <code>lens=code</code>, <code>maxFiles=40</code>, <code>concurrency=6</code>) y deja que el scout descubra los archivos vía <code>git ls-files</code>. Para saltar el scout y auditar una lista puntual:</p>
+<pre><code class="language-json">{ &quot;files&quot;: [&quot;src/config.js&quot;, &quot;src/router.js&quot;], &quot;lens&quot;: &quot;security&quot; }
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: files / maxFiles / concurrency / pattern / lens"] --&gt; B{"¿input.files no vacío?"}
@@ -220,7 +236,7 @@ Tras el fan-out, <code>completedReviews = reviews.filter(Boolean)</code> y <code
 <tr>
 <td><code>pattern</code></td>
 <td><code>string</code> (preset <code>code</code>|<code>docs</code>|<code>web</code>|<code>config</code> o regex libre)</td>
-<td>default <code>code</code> = `.(ts</td>
+<td>default <code>code</code> = <code>\.(ts|tsx|js|jsx|py|go|rs)$</code></td>
 </tr>
 <tr>
 <td><code>lens</code></td>

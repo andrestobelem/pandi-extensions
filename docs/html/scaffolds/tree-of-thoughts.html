@@ -120,13 +120,27 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>tree-of-thoughts</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Beam search sobre soluciones parciales: expandir K &quot;pensamientos&quot;, puntuarlos con un juez, podar al top-B, recursar en profundidad, y comprometerse con el mejor.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>tree-of-thoughts</code> explora un problema paso a paso en vez de generar una sola cadena de razonamiento de punta a punta: en cada nivel expande el mejor conjunto de caminos parciales en varias alternativas, un juez las puntúa, y solo las mejores sobreviven al siguiente nivel. Elegilo cuando el problema tiene <strong>pasos intermedios que vale la pena comparar</strong> antes de llegar a una solución completa — por ejemplo, diseñar un rollout en varias etapas donde conviene descartar ramas poco prometedoras temprano.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-bash">/workflow new mi-run --pattern=tree-of-thoughts
+</code></pre>
+<p>Esto crea <code>.pi/workflows/mi-run.js</code> a partir del scaffold. Para correrlo con un input concreto:</p>
+<pre><code class="language-bash">/workflow run mi-run &#39;{
+  &quot;problem&quot;: &quot;Diseñar el rollout de un feature flag riesgoso en 4 pasos escalonados&quot;,
+  &quot;branching&quot;: 3,
+  &quot;beam&quot;: 2,
+  &quot;depth&quot;: 3
+}&#39;
+</code></pre>
+<p><code>problem</code> es obligatorio (podés usar <code>question</code>/<code>text</code>/<code>task</code> como alias); <code>branching</code>, <code>beam</code> y <code>depth</code> son opcionales — ver la tabla de Input más abajo para sus defaults y topes.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: problem, branching, beam, depth"]) --&gt; Init["frontier = [{path: '', score: 0}]"]
@@ -163,26 +177,38 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     BestPick --&gt; CommitAgent["agent commit\nsintetiza respuesta final desde best.path\n(opus/high)"]
     CommitAgent --&gt; Out(["return { answer, bestScore, search }"])</pre>
 <h2>Qué hace</h2>
-<p><code>tree-of-thoughts</code> implementa una búsqueda tipo <em>beam search</em> sobre soluciones parciales, siguiendo el paper Tree of Thoughts (arXiv:2305.10601). En lugar de generar una sola cadena de razonamiento de punta a punta, mantiene un <em>frontier</em> de nodos (caminos parciales) y en cada nivel: (1) expande cada nodo del frontier en <code>branching</code> (K) hijos candidatos generados por un agente, (2) evalúa cada hijo con un agente-juez que devuelve un score 0-10 vía schema tipado, y (3) poda quedándose sólo con los <code>beam</code> (B) mejores para el siguiente nivel. Esto se repite hasta <code>depth</code> niveles.</p>
-<p>El &quot;backtracking&quot; es implícito: no hay marcha atrás explícita, sino que una rama que puntuó bien temprano pero deja de mejorar simplemente queda fuera del top-B en el siguiente corte y se descarta. La búsqueda se auto-podará: el presupuesto de expansión (fan-out) se gasta sólo en los caminos que el juez considera prometedores, no en explorar todo el árbol hasta el final.</p>
-<p>Al terminar la búsqueda (o si se agota antes por falta de hijos), se toma el mejor nodo del frontier final y un agente de síntesis escribe la respuesta completa a partir del camino de razonamiento ganador.</p>
-<p>El costo total del fan-out está acotado: <code>branching</code> se cachea en 8 y <code>beam</code> en 16, precisamente para que <code>beam * branching</code> (thunks por nivel) se mantenga muy por debajo del límite de 4096 thunks de <code>parallel()</code>.</p>
+<p>El scaffold implementa una búsqueda tipo <em>beam search</em> sobre soluciones parciales, siguiendo el paper Tree of Thoughts (arXiv:2305.10601). Mantiene un <em>frontier</em> de caminos parciales y en cada nivel: (1) expande cada nodo en <code>branching</code> (K) hijos candidatos generados por un agente, (2) los evalúa con un agente-juez que devuelve un score 0-10 vía schema tipado, y (3) poda quedándose sólo con los <code>beam</code> (B) mejores. Esto se repite hasta <code>depth</code> niveles.</p>
+<p>El &quot;backtracking&quot; es implícito: no hay marcha atrás explícita, sino que una rama que puntuó bien temprano pero deja de mejorar simplemente queda fuera del top-B en el siguiente corte. La búsqueda se auto-poda: el presupuesto de expansión se gasta sólo en los caminos que el juez considera prometedores, no en explorar todo el árbol.</p>
+<p>Al terminar (o si se agota antes por falta de hijos), se toma el mejor nodo del frontier final y un agente de síntesis escribe la respuesta completa a partir del camino de razonamiento ganador. El costo total del fan-out está acotado: <code>branching</code> se cachea en 8 y <code>beam</code> en 16, para que <code>beam * branching</code> (thunks por nivel) se mantenga muy por debajo del límite de 4096 thunks de <code>parallel()</code>.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Cuando el problema tiene <strong>pasos intermedios que vale la pena explorar</strong>, no sólo candidatos finales completos (a diferencia de best-of-N).</li>
-<li>Planificación o diseño multi-paso donde conviene comparar alternativas parciales antes de comprometerse (p. ej. &quot;diseñar el rollout de un gate en 4 pasos escalonados&quot;).</li>
-<li>Explorar un espacio de soluciones con la secuencia expandir → puntuar → podar → comprometerse.</li>
-<li><strong>No usarlo</strong> cuando el problema es de un solo paso o no tiene una noción clara de &quot;solución parcial evaluable&quot; — en ese caso <code>judge-escalate</code> (equivalente a este scaffold con depth=1, beam=1) es más simple y barato.</li>
-<li><strong>No usarlo</strong> cuando conviene comparación relativa/pareada en vez de puntaje absoluto — para eso está <code>tournament</code> (brackets pairwise en lugar de juez con rúbrica).</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>Scaffold recomendado</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>El problema tiene pasos intermedios que vale explorar y comparar antes de comprometerse (no sólo candidatos finales completos)</td>
+<td><strong>tree-of-thoughts</strong></td>
+</tr>
+<tr>
+<td>Problema de un solo paso, sin noción clara de &quot;solución parcial evaluable&quot;</td>
+<td><code>judge-escalate</code> (equivale a este scaffold con <code>depth=1, beam=1</code>: más simple y barato)</td>
+</tr>
+<tr>
+<td>Conviene comparación relativa/pareada en vez de puntaje absoluto</td>
+<td><code>tournament</code> (brackets pairwise en lugar de juez con rúbrica)</td>
+</tr>
+</tbody></table>
+<p>Ejemplo típico: &quot;diseñar el rollout de un gate en 4 pasos escalonados&quot;, donde cada paso se puede juzgar antes de seguir.</p>
 <h2>Cómo funciona</h2>
-<p><strong>Setup.</strong> Parsea <code>input</code> (JSON string u objeto), resuelve <code>problem</code>/<code>question</code>/<code>text</code>/<code>task</code> como el enunciado del problema (obligatorio, si falta lanza error). Construye overrides por-rol de modelo/effort/tools/skills/excludeTools vía el helper <code>node(role, extra)</code>, con precedencia: override por-rol &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call-site. Clampa <code>branching</code> (mínimo 2, default 3, tope 8), <code>beam</code> (mínimo 1, default 2, tope 16) y <code>depth</code> (mínimo 1, default 3, tope 8), logueando si algún valor se reduce por el cap.</p>
-<p>Usa dos utilidades de seguridad: <code>compact(d, n)</code> trunca datos largos a 60000 chars (8000/40000 en usos puntuales), y <code>fence(kind, d)</code> envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> cuyo tag se deriva de un hash FNV-like del contenido — así un payload malicioso no puede forgear el marcador de cierre porque cambiaría el hash. Todo el texto del problema/inputs de usuario se pasa a los agentes envuelto en este fence, con instrucciones explícitas de tratar ese contenido como DATA, nunca como instrucciones.</p>
-<p><strong>Fase Expand</strong> (<code>phase(&quot;Expand&quot;)</code>, una por nivel): para cada nodo del frontier actual, dispara <code>branching</code> llamadas <code>agent()</code> en paralelo (<code>parallel()</code>, que actúa como barrera — espera a que todos terminen) pidiendo &quot;un próximo paso&quot; que extienda ese camino parcial. Modelo <code>sonnet</code>, effort <code>medium</code>, label <code>expand-L{level}-n{ni}-c{ci}</code>. Si el resultado es <code>null</code> se descarta; si no queda ningún hijo, se loguea y se rompe el loop (se conserva el frontier del nivel anterior).</p>
-<p><strong>Fase Evaluate</strong> (<code>phase(&quot;Evaluate&quot;)</code>, misma iteración): cada hijo generado se pasa a un agente-juez (<code>model: opus</code>, <code>effort: high</code>, <code>schema: SCORE</code>) que debe devolver <code>{ score: number 0-10, why: string }</code>. El score se clampa a [0,10] (logueando si el valor crudo estaba fuera de rango) y se ordena todo el conjunto de hijos evaluados de mayor a menor score. El nuevo <code>frontier</code> es el slice top-<code>beam</code>; el resto se descarta (poda/backtrack implícito). Se loguea cuántos se expandieron, cuántos se conservaron y los scores del beam.</p>
-<p><strong>Loop de niveles</strong>: se repite Expand→Evaluate <code>depth</code> veces (o menos si se corta antes por falta de hijos).</p>
-<p><strong>Fase Commit</strong> (<code>phase(&quot;Commit&quot;)</code>, una sola vez al final): si el frontier quedó vacío se retorna el string <code>&quot;Search produced no viable path.&quot;</code> sin llamar a ningún agente. Si no, se toma <code>best = frontier[0]</code> (mayor score) y se llama a un agente de síntesis (<code>model: opus</code>, <code>effort: high</code>) que escribe la respuesta final completa a partir del <code>best.path</code> completo (el trace ganador, truncado a 40000 chars vía <code>compact</code>), pidiéndole que sea autocontenida y señale incertidumbre residual.</p>
-<p><strong>Manejo de fallos parciales</strong>: los hijos <code>null</code> (fallos de expansión) se filtran silenciosamente con <code>.filter(Boolean)</code>; si TODOS fallan en un nivel, se corta la búsqueda ahí en vez de propagar el error. No hay mecanismo de reintento explícito ni caching de resultados entre corridas — cada invocación del scaffold es una búsqueda desde cero.</p>
+<p><strong>Setup.</strong> Parsea <code>input</code> (JSON string u objeto), resuelve <code>problem</code>/<code>question</code>/<code>text</code>/<code>task</code> como el enunciado (obligatorio, lanza error si falta). Construye overrides por-rol de modelo/effort/tools/skills/excludeTools vía el helper <code>node(role, extra)</code>, con precedencia: override por-rol &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call-site. Clampa <code>branching</code> (mínimo 2, default 3, tope 8), <code>beam</code> (mínimo 1, default 2, tope 16) y <code>depth</code> (mínimo 1, default 3, tope 8), logueando si algún valor se reduce por el cap.</p>
+<p>Usa dos utilidades de seguridad: <code>compact(d, n)</code> trunca datos largos a 60000 chars (8000/40000 en usos puntuales), y <code>fence(kind, d)</code> envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> cuyo tag se deriva de un hash FNV-like del contenido — así un payload malicioso no puede forgear el marcador de cierre porque cambiaría el hash. Todo el texto del problema/inputs de usuario se pasa a los agentes envuelto en este fence, con instrucciones explícitas de tratarlo como DATA, nunca como instrucciones.</p>
+<p><strong>Fase Expand</strong> (una por nivel): por cada nodo del frontier actual, dispara <code>branching</code> llamadas <code>agent()</code> en paralelo (<code>parallel()</code>, que actúa como barrera) pidiendo &quot;un próximo paso&quot; que extienda ese camino parcial. Modelo <code>sonnet</code>, effort <code>medium</code>, label <code>expand-L{level}-n{ni}-c{ci}</code>. Si el resultado es <code>null</code> se descarta; si no queda ningún hijo, se loguea y se rompe el loop (se conserva el frontier del nivel anterior).</p>
+<p><strong>Fase Evaluate</strong> (misma iteración): cada hijo se pasa a un agente-juez (<code>model: opus</code>, <code>effort: high</code>, <code>schema: SCORE</code>) que devuelve <code>{ score: number 0-10, why: string }</code>. El score se clampa a [0,10] (logueando si el valor crudo estaba fuera de rango) y se ordena todo el conjunto de mayor a menor score. El nuevo <code>frontier</code> es el slice top-<code>beam</code>; el resto se descarta (poda/backtrack implícito).</p>
+<p><strong>Fase Commit</strong> (una sola vez al final): si el frontier quedó vacío se retorna <code>&quot;Search produced no viable path.&quot;</code> sin llamar a ningún agente. Si no, se toma <code>best = frontier[0]</code> y se llama a un agente de síntesis (<code>model: opus</code>, <code>effort: high</code>) que escribe la respuesta final a partir del <code>best.path</code> completo (truncado a 40000 chars vía <code>compact</code>), pidiéndole que sea autocontenida y señale incertidumbre residual.</p>
+<p><strong>Manejo de fallos parciales</strong>: los hijos <code>null</code> se filtran silenciosamente con <code>.filter(Boolean)</code>; si TODOS fallan en un nivel, se corta la búsqueda ahí en vez de propagar el error. No hay reintento explícito ni caching entre corridas — cada invocación es una búsqueda desde cero.</p>
 <h2>Input y output</h2>
 <p><strong>Input</strong> (objeto o JSON string vía <code>args</code>):</p>
 <table>
@@ -228,7 +254,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
 <td>object</td>
 <td>—</td>
-<td>Override por rol (<code>expand</code>, <code>score</code>, <code>commit</code>), tiene prioridad sobre el default global.</td>
+<td>Override por rol, tiene prioridad sobre el default global.</td>
 </tr>
 <tr>
 <td><code>tools</code> / <code>toolsByRole[role]</code></td>
@@ -259,7 +285,8 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <ol>
 <li><strong>Expand</strong> — expandir cada nodo del frontier en <code>branching</code> hijos candidatos vía agentes en paralelo (una ejecución por nivel de profundidad).</li>
 <li><strong>Evaluate</strong> — puntuar cada hijo con un agente-juez (schema tipado 0-10) y podar al top-<code>beam</code> (también una ejecución por nivel).</li>
-<li><strong>Commit</strong> — sintetizar la respuesta final a partir del mejor camino del frontier resultante (una sola vez, al cierre de la búsqueda).</li>
+<li><strong>Commit</strong> — sintetizar la respuesta final a partir del mejor camino del frontier resultante (una sola vez, al cierre de la búsqueda).</content>
+</invoke></li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

@@ -120,13 +120,27 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>reflexion</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Bucle de &quot;RL verbal&quot; (verbal reinforcement learning): reintenta la tarea completa en cada trial cargando reflexiones previas; el evaluador puede estar externamente fundamentado (<code>verifyCmd</code>).</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>reflexion</code> resuelve una tarea completa una y otra vez: en cada trial la reintenta desde cero, un evaluador separado le pone pass/fail + score (idealmente corriendo un comando real), y un tercer agente convierte cada fallo en una lección corta que el próximo intento tiene en cuenta. Elegilo cuando tenés una tarea con señal de éxito objetiva — tests, build, un <code>verifyCmd</code> ejecutable — y preferís reintentar toda la solución de nuevo en vez de parchearla en el lugar (para eso último existe <code>self-refine</code>).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=reflexion
+</code></pre>
+<p>Input típico (JSON pasado como <code>args</code> al workflow):</p>
+<pre><code class="language-json">{
+  &quot;task&quot;: &quot;Implementar parseConfig(str) en src/config.js: debe tolerar YAML vacío&quot;,
+  &quot;verifyCmd&quot;: &quot;npm test -- config.test.js&quot;,
+  &quot;maxTrials&quot;: 3,
+  &quot;memoryCap&quot;: 3
+}
+</code></pre>
+<p>Sin <code>verifyCmd</code> igual funciona, pero el evaluador cae a un agente ungrounded (señal más débil): alcanza con <code>{ &quot;task&quot;: &quot;...&quot; }</code>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: task, verifyCmd?, maxTrials, memoryCap"]) --&gt; Loop{"trial &lt; maxTrials?"}
@@ -167,18 +181,31 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>El diseño es deliberadamente &quot;falsificable&quot;: un veredicto solo se considera <code>grounded</code> si (a) se pidió <code>verifyCmd</code>, (b) el evaluador no marcó <code>grounded=false</code>, y (c) citó output no vacío en <code>evidence</code>; si falta cualquiera de estas condiciones se degrada a ungrounded, para que un modelo no pueda reclamar una ejecución que nunca hizo. Un &quot;pass&quot; reclamado sin evidencia real bajo <code>verifyCmd</code> NO se acepta como éxito — el loop sigue intentando.</p>
 <p>El bucle está acotado en ambos extremos: se detiene apenas el Evaluador da pass aceptable, o cuando se agota el presupuesto de <code>maxTrials</code>; en ese caso devuelve el mejor intento observado (por score), no el último a secas.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Tareas de código con test suite u otro comando de verificación objetivo (<code>verifyCmd</code>), donde re-generar desde cero es más barato/limpio que editar in-place.</li>
-<li>Tareas con una señal de pass/fail clara (compilación, tests, build) — casos del catálogo: &quot;Code-with-tests&quot;, &quot;Tasks with a pass/fail signal&quot;.</li>
-<li>Cuando conviene decidir entre &quot;reset y reintentar toda la tarea&quot; versus &quot;editar en el lugar&quot; (<code>Reset-and-re-attempt vs edit-in-place</code>) y se opta por la primera.</li>
-<li>Cuando existe un oráculo objetivo (comando ejecutable) — el diseño premia fuertemente disponer de <code>verifyCmd</code>; sin él, el evaluador es un agente ungrounded, señal más débil (per arXiv:2310.01798).</li>
-</ul>
-<p><strong>No usarlo cuando:</strong></p>
-<ul>
-<li>Se quiere refinar UN único artefacto en el lugar en vez de reintentar desde cero — para eso está <code>self-refine</code> (edita in-place, memoria de una sola cadena, un solo modelo con todos los sombreros).</li>
-<li>No hay forma de expresar una señal de éxito/fracaso razonable ni siquiera vía un evaluador agente (la tarea es puramente subjetiva/abierta).</li>
-<li>El runtime no aplica el aislamiento de tools por agente (p. ej. Claude Code Workflow no fuerza <code>actorTools</code>): ahí el Actor puede leer el propio <code>verifyCmd</code>/grader y converger en el trial 1, sin ejercitar realmente el loop de reflect→retry.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>Elegí</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tarea con test suite / build / comando de verificación objetivo (<code>verifyCmd</code>)</td>
+<td><code>reflexion</code> — reintenta toda la tarea, evaluador grounded</td>
+</tr>
+<tr>
+<td>Señal de pass/fail clara pero sin comando ejecutable (&quot;Tasks with a pass/fail signal&quot;)</td>
+<td><code>reflexion</code> sin <code>verifyCmd</code> — evaluador cae a agente ungrounded, señal más débil (per arXiv:2310.01798)</td>
+</tr>
+<tr>
+<td>Refinar UN artefacto existente en el lugar, sin resetear</td>
+<td><code>self-refine</code> (una sola cadena, un solo modelo con todos los sombreros)</td>
+</tr>
+<tr>
+<td>Tarea puramente subjetiva/abierta, sin ninguna señal de éxito expresable</td>
+<td>ninguno de los dos — no hay oráculo, ni siquiera un evaluador agente, para anclar el loop</td>
+</tr>
+</tbody></table>
+<p>Otra señal a considerar: si el runtime no aplica aislamiento de tools por agente (p. ej. Claude Code Workflow no fuerza <code>actorTools</code>), el Actor puede leer el propio <code>verifyCmd</code>/grader y converger en el trial 1, sin ejercitar realmente el loop reflect→retry.</p>
 <h2>Cómo funciona</h2>
 <p>El scaffold parsea <code>input</code> (JSON o string) y valida que exista <code>task</code> (alias <code>question</code>/<code>text</code>), lanzando error si falta. Define un helper <code>node(role, extra)</code> para resolver overrides por rol de modelo/effort/tools/skills/excludeTools con precedencia per-role &gt; global (<code>input.model</code>/<code>input.effort</code>/etc.) &gt; default del call-site. Define también <code>fence()</code>, que envuelve contenido no confiable en un delimitador derivado de un hash del propio contenido (no determinista por azar — el runtime prohíbe <code>Math.random</code>/<code>Date.now</code> — sino por FNV-ish hash), para que un payload malicioso no pueda forjar el marcador de cierre.</p>
 <p>Fases (declaradas en <code>meta.phases</code>, ejecutadas dentro del <code>while</code> con <code>phase(...)</code>):</p>

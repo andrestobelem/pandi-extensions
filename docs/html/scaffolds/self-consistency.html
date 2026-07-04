@@ -120,13 +120,25 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>self-consistency</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Muestrea N caminos de razonamiento independientes y elige la respuesta por consenso (voto), con desempate a cargo de un juez que pesa evidencia.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>self-consistency</code> le hace la MISMA pregunta a N agentes independientes (sin verse entre sí), extrae de cada uno una respuesta normalizada corta, y se queda con la que junta más votos; si hay empate, un juez (<code>opus</code>, effort <code>high</code>) desempata pesando la evidencia de cada bando. Elegilo cuando una sola pasada de razonamiento puede fallar por azar (matemática, clasificación, juicio) y te sirve reportar el margen de consenso (5/5 no es lo mismo que 2/2/1) — no para redacción abierta ni para descartar afirmaciones por refutación (para eso, <code>adversarial-verify</code>).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-bash">/workflow new mi-run --pattern=self-consistency
+</code></pre>
+<p>Esto crea <code>.pi/workflows/mi-run.js</code> a partir del scaffold. Para correrlo con un input concreto:</p>
+<pre><code class="language-bash">/workflow run mi-run &#39;{
+  &quot;question&quot;: &quot;Un tren sale a las 14:00 a 80km/h y otro a las 14:30 a 100km/h en la misma dirección. ¿En qué hora se cruzan?&quot;,
+  &quot;samples&quot;: 7
+}&#39;
+</code></pre>
+<p><code>question</code> (o sus alias <code>q</code> / <code>text</code>) es el único campo obligatorio; si se omite, el scaffold lanza error. <code>samples</code> es opcional (default <code>5</code>, clamp <code>[2, 20]</code>).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: question, samples default 5 clamp 2..20"] --&gt; B["Phase: Sample"]
@@ -164,17 +176,31 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <h2>Cuándo usarlo</h2>
 <ul>
 <li>Razonamiento/matemática/juicio de alta varianza, donde una sola pasada puede fallar aleatoriamente.</li>
-<li>Cuando se necesita reportar el margen de consenso (qué tan de acuerdo estuvieron los caminos), no solo una respuesta.</li>
+<li>Cuando necesitás reportar el margen de consenso (qué tan de acuerdo estuvieron los caminos), no solo una respuesta.</li>
 <li>Cuando el objetivo es que varios caminos independientes converjan en UNA respuesta (a diferencia de sintetizar un resumen combinado).</li>
 <li>Preguntas con una respuesta final normalizable a una forma canónica corta (un valor, una clasificación, un veredicto breve) — no para tareas abiertas de redacción larga, donde &quot;votar&quot; sobre texto libre no tiene sentido.</li>
-<li>No usarlo para descartar afirmaciones por refutación mayoritaria (para eso está <code>adversarial-verify</code>), ni cuando el problema requiere explorar y podar pasos intermedios (para eso, <code>tree-of-thoughts</code>).</li>
 </ul>
-<p>Casos de uso del catálogo:</p>
-<ul>
-<li>Razonamiento/matemática/juicio de alta varianza.</li>
-<li>Reportar el margen de consenso.</li>
-<li>Acordar una única respuesta entre varios caminos.</li>
-</ul>
+<p>Si lo que necesitás es otra cosa, hay un scaffold más específico:</p>
+<table>
+<thead>
+<tr>
+<th>Necesidad</th>
+<th>Scaffold</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Acordar UNA respuesta entre varios caminos independientes</td>
+<td><strong>self-consistency</strong> (este)</td>
+</tr>
+<tr>
+<td>Descartar afirmaciones por refutación mayoritaria</td>
+<td><code>adversarial-verify</code></td>
+</tr>
+<tr>
+<td>Explorar y podar pasos intermedios de un problema</td>
+<td><code>tree-of-thoughts</code></td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <p><strong>Input parsing y helpers.</strong> El input se parsea desde <code>args</code> (string JSON o objeto). Se define <code>compact()</code> para truncar textos largos en logs/prompts (default 60000 chars), y <code>fence()</code> para envolver datos no confiables en un delimitador derivado de un hash de contenido (FNV-like de 64 bits combinando dos acumuladores), de forma que un payload malicioso no pueda falsificar la marca de cierre. <code>node(role, extra)</code> resuelve overrides de modelo/effort/tools/skills por rol (<code>input.models[role]</code>, <code>input.efforts[role]</code>, etc.) con precedencia: override por rol &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call site.</p>
 <p><strong>Fase Sample.</strong> Usa <code>parallel([...])</code> como barrera — necesita que TODAS las muestras completen antes de tabular. Genera <code>samples</code> (default 5, clamp <code>[2, 20]</code>, logueando si hubo clamp) llamadas <code>agent()</code> independientes, cada una con:</p>

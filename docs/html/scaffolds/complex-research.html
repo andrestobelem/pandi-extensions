@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>complex-research</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Ángulos de investigación independientes (cada uno con búsqueda web), sintetizados por un agente juez con citas y vacíos de cobertura.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es un &quot;pedile a N investigadores que ataquen la misma pregunta desde ángulos distintos, y a un quinto que arbitre&quot;: cada agente de research busca en la web de forma independiente (sin ver a los demás) y un agente juez de alto esfuerzo dedupe, prioriza evidencia primaria y reporta qué ángulos fallaron. Elegilo cuando necesitás una respuesta con citas a una pregunta externa (comparación de tecnologías, escaneo de panorama/literatura) — no para tareas de código/repo local, ni cuando necesitás verificación de claims (para eso, encadená <code>adversarial-verify</code> después).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=complex-research
+/workflow run mi-run {&quot;question&quot;: &quot;WASM vs NAPI FFI para Node en 2026: cual conviene?&quot;}
+</code></pre>
+<p><code>question</code> (alias <code>q</code>, <code>text</code>) es el único campo obligatorio; <code>angles</code> es opcional (default: 4 ángulos fijos). Ver <a href="#input-y-output">Input y output</a> para overrides (<code>angles</code>, <code>model</code>, <code>models</code>, <code>tools</code>, etc.).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     IN["Input: question, angles?"] --&gt; VAL{"question presente?"}
@@ -167,23 +174,43 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 
     SYN --&gt; OUT["return: Markdown final&lt;br/&gt;(resumen, recomendacion, evidencia,&lt;br/&gt;tradeoffs, riesgos, gaps de cobertura)"]</pre>
 <h2>Qué hace</h2>
-<p><code>complex-research</code> es el patrón base de scatter-gather aplicado a investigación: dado una pregunta, lanza N agentes de investigación en paralelo, cada uno cubriendo un &quot;ángulo&quot; distinto (fuentes primarias, opciones de implementación, riesgos, recomendación), y cada uno con acceso a búsqueda web independiente. Ningún agente ve el trabajo de los demás; el fan-out es puramente de exploración divergente.</p>
+<p><code>complex-research</code> es el patrón base de scatter-gather aplicado a investigación: lanza N agentes de investigación en paralelo, cada uno cubriendo un &quot;ángulo&quot; distinto (fuentes primarias, opciones de implementación, riesgos, recomendación) con búsqueda web independiente. Ningún agente ve el trabajo de los demás; el fan-out es puramente de exploración divergente.</p>
 <p>Cuando todos los ángulos terminan (o fallan), un único agente de síntesis actúa como juez: deduplica hallazgos, prioriza evidencia primaria sobre secundaria, marca incertidumbre explícitamente, y reporta cuántas ramas de investigación fallaron o quedaron vacías. El resultado es un documento Markdown en formato fijo (resumen ejecutivo → recomendación → evidencia → tradeoffs → riesgos → vacíos de cobertura), no un objeto estructurado validado por schema.</p>
 <p>El scaffold está diseñado explícitamente como patrón <strong>base</strong> (<code>basedOn: fan-out-and-synthesize</code>), no compuesto: la doc del archivo advierte que para respuestas consecuentes conviene encadenarlo con un paso de verificación posterior (p.ej. <code>adversarial-verify</code>), ya que este workflow no verifica sus propias afirmaciones, solo las sintetiza con honestidad sobre sus lagunas.</p>
 <p>Todo el contenido no confiable (la pregunta/ángulo, y cualquier contenido web/página que los agentes de research obtengan, así como los outputs de research que ve el sintetizador) se envuelve con un delimitador derivado de un hash del contenido (<code>fence</code>), para que un payload malicioso no pueda falsificar el marcador de cierre y así intentar inyectar instrucciones a los agentes que leen esos datos.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Necesitás una respuesta con citas a una pregunta externa (ver <code>useWhen</code> del catálogo).</li>
-<li>Comparaciones de tecnologías (p.ej. &quot;WASM vs NAPI FFI para Node en 2026&quot;).</li>
-<li>Escaneos de literatura o panorama de un tema (landscape scans).</li>
-<li>Respuestas respaldadas por fuentes, como paso previo a una verificación (pair with a verify step) — no lo uses solo como respuesta final si el tema es de alto riesgo/consecuencia.</li>
-</ul>
-<p><strong>No usarlo cuando:</strong></p>
-<ul>
-<li>La pregunta no requiere investigación externa (es una tarea de código/repo local) — usá un patrón de exploración de repo en su lugar.</li>
-<li>Necesitás garantías de verificación de claims (este workflow sintetiza, no refuta); combinalo con <code>adversarial-verify</code> o similar si eso importa.</li>
-<li>El output debe ser un objeto estructurado/schema-validado: acá el resultado es texto libre en Markdown, sin validación de schema.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Usarlo?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Pregunta externa que necesita respuesta con citas (comparación de tecnologías, ej. &quot;WASM vs NAPI FFI para Node en 2026&quot;)</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Escaneo de literatura o panorama de un tema (landscape scan)</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Paso previo a una verificación (pair with a verify step)</td>
+<td>Sí, pero no como respuesta final si el tema es de alto riesgo/consecuencia</td>
+</tr>
+<tr>
+<td>Tarea de código/repo local, sin investigación externa</td>
+<td>No — usá un patrón de exploración de repo</td>
+</tr>
+<tr>
+<td>Necesitás garantías de verificación de claims (este workflow sintetiza, no refuta)</td>
+<td>No — combinalo con <code>adversarial-verify</code> o similar</td>
+</tr>
+<tr>
+<td>El output debe ser un objeto estructurado/schema-validado</td>
+<td>No — acá el resultado es texto libre en Markdown, sin validación de schema</td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <p><strong>Fase Research (fan-out):</strong></p>
 <ul>

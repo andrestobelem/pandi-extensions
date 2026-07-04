@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>orchestrator-workers</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Un planificador descompone un objetivo abierto en un grafo de subtareas con dependencias (<code>dependsOn</code>); los workers lo ejecutan nivel por nivel; un integrador combina los resultados.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Usalo cuando tenés un objetivo abierto cuyas subtareas y dependencias NO conocés de antemano: un planificador LLM las descubre y arma el grafo (<code>dependsOn</code>) al vuelo, los workers lo ejecutan nivel por nivel (cada nivel en paralelo), y un integrador combina todo en un entregable único. Elegilo para entregables de varias partes con interdependencias reales; si la lista de trabajo ya es plana y conocida, un fan-out estático (<code>scout-fanout</code>) alcanza y es más simple.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=orchestrator-workers
+/workflow run mi-run {&quot;goal&quot;: &quot;Investigar y redactar una propuesta de migración de X a Y, cubriendo riesgos, plan de rollout y costos&quot;, &quot;maxSubtasks&quot;: 6, &quot;context&quot;: &quot;stack actual: Node 18, Postgres 14&quot;}
+</code></pre>
+<p><code>goal</code> (alias <code>task</code>/<code>text</code>) es el único campo obligatorio; el resto son overrides opcionales con sus defaults — ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: goal, context?, maxSubtasks=8, concurrency?"]) --&gt; Plan

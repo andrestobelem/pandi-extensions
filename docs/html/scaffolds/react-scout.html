@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>react-scout</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Loop ReAct de razonar → actuar → observar: cada paso fundamenta un pensamiento en una observación real de solo lectura antes de dar el siguiente.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es el patrón ReAct (arXiv:2210.03629): en vez de que un solo agente conteste &quot;de una&quot;, un actor propone un THOUGHT + una ACTION de solo lectura por paso, un observador independiente la ejecuta y reporta evidencia citada, y esa evidencia alimenta el próximo pensamiento — hasta que el actor declara <code>done</code> o se agota <code>maxSteps</code>. Elegilo cuando cada afirmación debe estar anclada en una observación real (no en el prior del modelo) y cuando la próxima acción depende de lo que se acaba de observar; NO lo uses para preguntas triviales de una pasada ni cuando necesitás paralelismo amplio (para eso, <code>complex-research</code> u otro fan-out).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=react-scout
+/workflow run mi-run {&quot;question&quot;: &quot;¿Dónde el decoder WASM recibe los bytes de entrada?&quot;, &quot;maxSteps&quot;: 8}
+</code></pre>
+<p><code>question</code> (alias <code>q</code>/<code>text</code>/<code>topic</code>) es el único campo obligatorio; <code>maxSteps</code> (default <code>6</code>, clamp <code>1..50</code>) y <code>tools</code> (default <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;,&quot;web_search&quot;]</code>) son opcionales. Ver <a href="#input-y-output">Input y output</a> para overrides por rol (<code>models</code>, <code>efforts</code>, <code>toolsByRole</code>, etc.).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Input["Input: question, maxSteps=6 clamp 1..50, tools default read/grep/find/ls/web_search"] --&gt; Loop
@@ -147,23 +154,54 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     Answer["Fase Answer&lt;br/&gt;agent modelo opus, effort high&lt;br/&gt;responde SOLO con el trace&lt;br/&gt;o INSUFFICIENT_EVIDENCE"]
     Answer --&gt; Output["Return { answer, trace, steps, converged }"]</pre>
 <h2>Qué hace</h2>
-<p><code>react-scout</code> implementa el patrón ReAct (arXiv:2210.03629): en vez de dejar que un solo agente conteste &quot;de una&quot; una pregunta, obliga a un ciclo explícito de razonar → actuar → observar. En cada paso, un agente &quot;actor&quot; (rol <code>reason</code>) emite un THOUGHT y una única ACTION de solo lectura (grep/read/find/web_search) usando un schema tipado (<code>STEP</code>), y un agente &quot;observer&quot; independiente (rol <code>observe</code>) ejecuta ÚNICAMENTE esa acción y reporta evidencia citada o <code>NO_FINDINGS</code>. Esa evidencia se agrega a un trace acumulado que el próximo THOUGHT debe usar como base.</p>
-<p>El loop termina cuando el actor declara <code>done=true</code> (ya tiene evidencia suficiente) o cuando se agota el presupuesto de pasos (<code>maxSteps</code>). Al final, una fase <code>Answer</code> separada sintetiza la respuesta usando ESTRICTAMENTE el trace acumulado (rol <code>answer</code>, modelo opus, effort high), citando evidencia o declarando <code>INSUFFICIENT_EVIDENCE</code> si el trace no alcanza.</p>
+<p>En cada paso, el rol <code>reason</code> emite un THOUGHT y una única ACTION de solo lectura (schema tipado <code>STEP</code>), y el rol <code>observe</code> —un agente independiente— ejecuta ÚNICAMENTE esa acción y reporta evidencia citada o <code>NO_FINDINGS</code>; esa evidencia se agrega al trace que el próximo THOUGHT usa como base. El loop termina cuando el actor declara <code>done=true</code> (ya tiene evidencia suficiente) o cuando se agota el presupuesto de pasos (<code>maxSteps</code>). Al final, una fase <code>Answer</code> separada sintetiza la respuesta usando ESTRICTAMENTE el trace acumulado (rol <code>answer</code>, modelo opus, effort high), citando evidencia o declarando <code>INSUFFICIENT_EVIDENCE</code> si el trace no alcanza.</p>
 <p>El diseño prioriza que cada afirmación esté anclada en una observación real (no en el prior del modelo): el prompt del observer exige citar <code>file:line</code> / path / URL, y el código marca explícitamente como <code>uncited</code> cualquier observación sin cita detectable, para que las fases posteriores puedan descontarla. También hay defensas contra prompt injection (fences con hash del contenido, instrucción de tratar el contenido delimitado como datos, nunca como instrucciones) y manejo explícito de fallos parciales (reason falla, observe falla, resultado null) sin perder el trace.</p>
 <p>El propio código lo documenta como el &quot;front-end canónico&quot; de un fan-out: se pensó para correr primero y luego pasar <code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>, generalizando el scout de un solo paso que esos workflows usan al inicio.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Investigación grounded/fundamentada: cuando cada afirmación debe estar respaldada por una observación real, no por inferencia libre del modelo.</li>
-<li>Producir un trace estructurado para pasarlo a un fan-out (<code>scout-fanout</code>, <code>fan-out-and-synthesize</code>) en lugar de un resumen de una sola pasada.</li>
-<li>Preguntas donde la siguiente acción depende de lo que se observó recién (p. ej. &quot;¿dónde el decoder WASM recibe los bytes?&quot;), es decir, exploración adaptativa paso a paso.</li>
-<li>Casos donde conviene poder auditar el razonamiento: el trace queda como evidencia inspeccionable (thought/action/query/observation/uncited por paso).</li>
-</ul>
-<p>Cuándo NO usarlo:</p>
-<ul>
-<li>Preguntas triviales que un solo agente con tools puede responder en una pasada (el overhead de loop + dos agentes por paso no se justifica).</li>
-<li>Cuando se necesita PARALELISMO amplio o comparación de múltiples ángulos independientes (usar <code>complex-research</code> u otro workflow de fan-out en su lugar; <code>react-scout</code> es secuencial, un paso a la vez).</li>
-<li>Cuando se requieren acciones de escritura/mutación: el scaffold es explícitamente de solo lectura (comentario &quot;ReAct&#39;s &#39;act&#39; here is observation, not mutation&quot;).</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Usar <code>react-scout</code>?</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Cada afirmación debe estar respaldada por una observación real, no por el prior del modelo</td>
+<td>Sí</td>
+<td>El observer cita <code>file:line</code>/path/URL y marca <code>uncited</code> lo que no lo hace</td>
+</tr>
+<tr>
+<td>Necesitás un trace estructurado para alimentar un fan-out (<code>scout-fanout</code>, <code>fan-out-and-synthesize</code>)</td>
+<td>Sí</td>
+<td>Es el &quot;front-end canónico&quot; para eso; <code>result.trace</code> se pasa directo</td>
+</tr>
+<tr>
+<td>La siguiente acción depende de lo que se acaba de observar (exploración adaptativa)</td>
+<td>Sí</td>
+<td>Cada THOUGHT se construye sobre el trace acumulado del paso anterior</td>
+</tr>
+<tr>
+<td>Querés auditar el razonamiento paso a paso</td>
+<td>Sí</td>
+<td>El trace queda como evidencia inspeccionable (thought/action/query/observation/uncited)</td>
+</tr>
+<tr>
+<td>Pregunta trivial que un solo agente con tools resuelve en una pasada</td>
+<td>No</td>
+<td>El overhead de loop + dos agentes por paso no se justifica</td>
+</tr>
+<tr>
+<td>Necesitás paralelismo amplio o comparar ángulos independientes</td>
+<td>No</td>
+<td><code>react-scout</code> es secuencial, un paso a la vez; usá <code>complex-research</code> u otro fan-out</td>
+</tr>
+<tr>
+<td>Necesitás acciones de escritura/mutación</td>
+<td>No</td>
+<td>El scaffold es explícitamente de solo lectura (&quot;ReAct&#39;s &#39;act&#39; here is observation, not mutation&quot;)</td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <ol>
 <li><p><strong>Parseo de input y defaults.</strong> Lee <code>args</code> (string JSON o objeto), extrae <code>question</code>/<code>q</code>/<code>text</code>/<code>topic</code> (obligatorio, si falta lanza error), <code>maxSteps</code> (default 6, clamp 1–50, loggea si se clampeó), y <code>tools</code> (default <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;,&quot;web_search&quot;]</code>). Soporta overrides por rol vía <code>input.models[role]</code>, <code>input.efforts[role]</code>, <code>input.toolsByRole[role]</code>, <code>input.skillsByRole[role]</code>, <code>input.excludeByRole[role]</code>, con fallback a <code>input.model</code>/<code>input.effort</code>/<code>input.tools</code>/etc. globales (helper <code>node(role, extra)</code>).</p>
@@ -186,7 +224,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li><p><strong>Fase <code>Answer</code> (primitiva <code>agent</code>, sin schema).</strong> <code>phase(&quot;Answer&quot;)</code> + <code>agent(...)</code> con modelo <code>opus</code>, effort <code>high</code>. El prompt exige responder usando ÚNICAMENTE el trace (comprimido con <code>compact(trace, 60000)</code>), citar evidencia por cada afirmación, y decir <code>INSUFFICIENT_EVIDENCE</code> + qué falta si el trace no alcanza. Si el resultado es <code>null</code> (agente caído o saltado), se sustituye por <code>&quot;INSUFFICIENT_EVIDENCE (answer step produced no output)&quot;</code> en vez de propagar <code>null</code>.</p>
 </li>
 </ol>
-<p>No hay <code>parallel</code>/<code>pipeline</code>/fan-out real en este scaffold: es puramente secuencial (<code>agent</code> a agent<code>, un loop </code>while<code>). No escribe artifacts (</code>writeArtifact`) ni usa caching explícito más allá de mantener el prefijo estable del prompt de Reason (rol + pregunta antes del trace volátil) para reutilizar el prompt cache.</p>
+<p>No hay <code>parallel</code>/<code>pipeline</code>/fan-out real en este scaffold: es puramente secuencial (<code>agent</code> tras <code>agent</code>, en un loop <code>while</code>). No escribe artifacts (<code>writeArtifact</code>) ni usa caching explícito más allá de mantener el prefijo estable del prompt de Reason (rol + pregunta antes del trace volátil) para reutilizar el prompt cache.</p>
 <h2>Input y output</h2>
 <p><strong>Input</strong> (JSON, vía <code>args</code>):</p>
 <table>

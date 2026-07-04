@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>adversarial-plan-review</h1>
 	</header>
 	<main>
 <blockquote>
 <p>N revisores de ángulo fijo (corrección, seguridad, mantenibilidad, alcance) sintetizan un plan revisado.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es un &quot;code review adversarial&quot; para un plan de implementación: 4 agentes independientes lo atacan cada uno desde un ángulo distinto (corrección, seguridad, mantenibilidad, alcance) y un quinto agente de alto esfuerzo sintetiza sus críticas en un plan revisado. Elegilo como gate antes de implementar un cambio no trivial, cuando querés cobertura sistemática de esos 4 ángulos fijos sobre UN solo artefacto de texto (no para comparar alternativas entre sí, ni para votar entre caminos de razonamiento).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=adversarial-plan-review
+/workflow run mi-run {&quot;plan&quot;: &quot;1. Migrar tabla X a esquema Y...\n2. Backfill con job nocturno...&quot;}
+</code></pre>
+<p><code>plan</code> (alias <code>text</code>) es el único campo obligatorio; ver <a href="#input-y-output">Input y output</a> para overrides opcionales (<code>model</code>, <code>models</code>, <code>tools</code>, etc.).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Input["Input: plan / text"] --&gt; Bound["compact(plan, 40000)"]
@@ -149,16 +156,13 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     R3 --&gt; Filter
     R4 --&gt; Filter
 
-    Filter --&gt; Gate{"completedCritiques.length == 0?"}
-    Gate -- "si, todos fallaron" --&gt; Insufficient["return INSUFFICIENT_EVIDENCE\n(sin sintesis)"]
+    Filter --&gt; Gate{"completedCritiques.length === 0?"}
+    Gate -- "si, todos fallaron" --&gt; Insufficient["return INSUFFICIENT_EVIDENCE&lt;br/&gt;(sin sintesis)"]
     Gate -- "no, hay al menos 1" --&gt; Compact2["compact(critiques, 60000)"]
-    Compact2 --&gt; Synth["Fase Synthesize: agent plan-synthesis\nopus / high\nsynthesis-as-judge"]
-    Synth --&gt; Output["Output: markdown revised plan\n(prosa, terminal)"]</pre>
+    Compact2 --&gt; Synth["Fase Synthesize: agent plan-synthesis&lt;br/&gt;opus / high&lt;br/&gt;synthesis-as-judge"]
+    Synth --&gt; Output["Output: markdown revised plan&lt;br/&gt;(prosa, terminal)"]</pre>
 <h2>Qué hace</h2>
-<p><code>adversarial-plan-review</code> toma un plan de implementación (texto) y lo somete a una revisión adversarial: cuatro agentes independientes lo critican en paralelo, cada uno desde un ángulo fijo distinto (corrección, seguridad, mantenibilidad, alcance), sin comunicación entre ellos y sin editar archivos. El objetivo es encontrar razones para NO enviar el plan tal cual, antes de invertir esfuerzo de implementación.</p>
-<p>Los cuatro fan-outs corren con semántica <code>settle</code>: si un reviewer falla o devuelve vacío, su rama resuelve a <code>null</code> en vez de rechazar el <code>parallel</code> completo, así que un fallo aislado no tumba la corrida. Luego de filtrar las ramas nulas, un único agente de síntesis de alto esfuerzo (<code>opus</code>/<code>high</code>) actúa como juez: deduplica hallazgos, resuelve contradicciones entre críticas, descarta afirmaciones sin soporte (salvo que estén marcadas como especulativas) y produce un plan revisado. El agente de síntesis recibe explícitamente cuántos reviewers pidió (4), cuántos completaron y cuántos fallaron, para poder mencionar los gaps de cobertura en su output.</p>
-<p>Si los cuatro reviewers fallan o devuelven texto vacío, el workflow NO llega a sintetizar: corta temprano y devuelve <code>INSUFFICIENT_EVIDENCE</code> explicando que no hubo señal suficiente para producir un plan revisado.</p>
-<p>Todo el contenido no confiable (el plan del usuario, las críticas) se envuelve con un delimitador derivado de un hash del propio contenido (<code>fence()</code>), para que un plan malicioso no pueda falsificar el cierre del delimitador e inyectar instrucciones a los agentes downstream.</p>
+<p>Cuatro agentes independientes critican el mismo plan en paralelo, sin comunicación entre ellos y sin editar archivos: el objetivo es encontrar razones para NO enviar el plan tal cual, antes de invertir esfuerzo de implementación (los detalles de settle-semantics, el gate de cobertura y la síntesis-como-juez están en <a href="#c%C3%B3mo-funciona">Cómo funciona</a>). El plan y las críticas —todo contenido no confiable— se envuelven con un delimitador derivado de un hash del propio contenido (<code>fence()</code>), para que un plan malicioso no pueda falsificar el cierre del delimitador e inyectar instrucciones a los agentes downstream.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
 <li>Revisión de diseño / RFC antes de aprobarlo.</li>

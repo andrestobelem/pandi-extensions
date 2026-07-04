@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>loop-until-dry</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Sigue lanzando finders en paralelo hasta que hay K rondas consecutivas sin novedad, o se alcanza <code>maxRounds</code>.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es un descubrimiento en bucle: en vez de fijar de antemano cuántas rondas de búsqueda hacer, lanza <code>finders</code> agentes en paralelo ronda tras ronda hasta que <code>quietRounds</code> rondas consecutivas no traen nada nuevo (o se llega al tope <code>maxRounds</code>), y al final un agente sintetiza todo lo acumulado. Elegilo cuando el conjunto a descubrir es de tamaño desconocido y querés exhaustividad — &quot;encontrar todo lo que…&quot; — no para un alcance ya acotado (ahí alcanza un fan-out estático).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=loop-until-dry
+/workflow run mi-run {&quot;target&quot;: &quot;todas las validaciones de input faltantes en src/api/&quot;, &quot;quietRounds&quot;: 2, &quot;maxRounds&quot;: 8, &quot;finders&quot;: 3}
+</code></pre>
+<p><code>target</code> (alias <code>scope</code>/<code>task</code>) es el único campo obligatorio; el resto son overrides opcionales con sus defaults — ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: target, quietRounds=2, maxRounds=8, finders=3"]) --&gt; Init["Validar/clampear params\nseen=Set, all=[], quiet=0, round=0"]

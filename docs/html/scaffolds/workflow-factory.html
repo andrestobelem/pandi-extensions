@@ -120,13 +120,25 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>workflow-factory</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Meta-workflow: catálogo → plan → generar → revisar → refinar, y luego escribe <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>workflow-factory</code> no ejecuta tu tarea: la usa como brief para <strong>diseñar y generar otro workflow</strong> a medida, y lo deja como draft en disco para que lo revises antes de correrlo. Elegilo cuando ningún scaffold existente calza con la tarea y necesitás uno nuevo (o una especialización de uno existente) generado por agentes en vez de escrito a mano — no para tareas chicas o de bajo riesgo, donde el ciclo Plan(opus)→Generate→Review→Refine es más caro que resolver la tarea inline.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=workflow-factory
+</code></pre>
+<p>Con un input típico:</p>
+<pre><code class="language-json">{
+  &quot;task&quot;: &quot;audit GraphQL resolvers for N+1 queries&quot;,
+  &quot;write&quot;: true
+}
+</code></pre>
+<p><code>task</code> es el único campo requerido. Si el draft resultante te convence, inspeccionalo en <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> y recién ahí corrélo con concurrencia explícita — nunca sin revisión humana.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Input["Input: task, name?, write?"] --&gt; P0
@@ -199,14 +211,38 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>El pipeline central es Plan → Generate → Review → Refine (condicional) → Write, con un gate de validación estructural puramente local (sin agente) antes de cualquier escritura a disco. El resultado generado es tratado como no confiable por defecto: se sanitiza el input untrusted con fences derivados de hash de contenido, se valida sintácticamente contra invariantes duras del runtime, y solo se escribe si pasa esa validación; si algo falla, el código se devuelve igual en el resultado para inspección manual, nunca se descarta silenciosamente.</p>
 <p>El workflow soporta composición recursiva acotada por profundidad (<code>workflow(name, args)</code> dentro de un nodo generado, incluyendo re-invocar <code>contract-gate</code> para re-alcance), documentada extensamente en los comentarios del código como guía para el modelo generador, pero el propio <code>workflow-factory</code> en sí no hace recursión — es la fase de Generate la que puede <em>producir</em> código con esa composición.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Ningún scaffold existente calza con la tarea y se necesita uno específico (caso de catálogo: &quot;No existing workflow fits and you want a task-specific one scaffolded&quot;).</li>
-<li>Bootstrap de un patrón nuevo de orquestación.</li>
-<li>Especializar el scaffold existente más cercano en vez de escribirlo a mano.</li>
-<li>Generar un draft para inspeccionar/editar antes de confiar en él (nunca se recomienda ejecutar el draft generado sin revisión humana).</li>
-<li><strong>No usarlo</strong> cuando ya existe (o se puede componer directamente) un scaffold que resuelve la tarea — el propio Phase-0 del factory está diseñado para detectar ese caso y decírtelo vía <code>reuse</code> en el plan; en ese caso es más barato usar/componer ese scaffold directamente.</li>
-<li><strong>No usarlo</strong> para tareas de bajo riesgo o pequeñas donde el costo de un ciclo Plan(opus)→Generate→Review→Refine no se justifica frente a resolver la tarea inline.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Usar <code>workflow-factory</code>?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ningún scaffold existente calza con la tarea</td>
+<td>Sí — es el caso de catálogo (&quot;No existing workflow fits and you want a task-specific one scaffolded&quot;)</td>
+</tr>
+<tr>
+<td>Bootstrap de un patrón de orquestación nuevo</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Querés especializar el scaffold existente más cercano, sin escribirlo a mano</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Necesitás un draft para inspeccionar/editar antes de confiar en él</td>
+<td>Sí — pero nunca ejecutes el draft generado sin revisión humana</td>
+</tr>
+<tr>
+<td>Ya existe (o se puede componer directamente) un scaffold que resuelve la tarea</td>
+<td>No — Phase-0 lo detecta y te lo dice vía <code>reuse</code> en el plan; usá/componé ese scaffold directamente, es más barato</td>
+</tr>
+<tr>
+<td>Tarea chica o de bajo riesgo</td>
+<td>No — el ciclo Plan(opus)→Generate→Review→Refine no se justifica frente a resolverla inline</td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <ol>
 <li><p><strong>Input y utilidades.</strong> Parsea <code>args</code> (puede llegar como string JSON), define <code>compact()</code> (trunca payloads largos para prompts) y <code>fence()</code> (envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> calculado por FNV-1a sobre el contenido, para que texto malicioso no pueda falsificar el marcador de cierre). Define <code>node(role, extra)</code>, el helper de tiering por rol: aplica <code>input.models[role]</code>/<code>input.efforts[role]</code> (o los globales <code>input.model</code>/<code>input.effort</code>) y overrides de <code>tools</code>/<code>skills</code>/<code>excludeTools</code> por rol.</p>

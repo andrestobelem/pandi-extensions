@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>verify-claims-lib</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Sub-workflow reutilizable: verifica <code>{ claims, skeptics? }</code> con jurados de escépticos y devuelve verified/dropped/votes/coverage.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es el paso de &quot;verificación&quot; extraído a librería: dado un array de <code>claims</code> ya descubiertas, convoca por cada una un jurado paralelo de agentes escépticos que intentan refutarla con evidencia concreta, y solo sobreviven (<code>verified</code>) las que resisten una mayoría estricta de refutaciones. No descubre ni sintetiza nada — elegilo cuando un workflow padre (típicamente <code>composition-driver</code>) ya separó &quot;descubrir afirmaciones&quot; de &quot;verificarlas&quot; y necesita ese segundo paso como pieza reutilizable, no como entrypoint final por sí solo.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=verify-claims-lib
+/workflow run mi-run {&quot;claims&quot;: [{&quot;id&quot;: &quot;c1&quot;, &quot;claim&quot;: &quot;El endpoint /login soporta rate limiting&quot;, &quot;evidence&quot;: &quot;src/auth.ts:42&quot;}], &quot;skeptics&quot;: 3, &quot;topic&quot;: &quot;auditoría de auth&quot;}
+</code></pre>
+<p><code>claims</code> es el único campo obligatorio (cada elemento necesita al menos <code>claim</code>); <code>skeptics</code> y <code>topic</code> son opcionales y ya traen los defaults de arriba (<code>3</code> y <code>&quot;n/a&quot;</code>). En la práctica casi siempre se invoca desde otro workflow vía <code>workflow(&quot;verify-claims-lib&quot;, args)</code>, no como entrypoint final — ver <a href="#cu%C3%A1ndo-usarlo">Cuándo usarlo</a>. Para overrides por rol (<code>model</code>, <code>models</code>, <code>tools</code>, etc.) ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: { claims, skeptics?, topic? }"]) --&gt; Parse["Parsear args JSON / objeto"]
@@ -162,21 +169,41 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     NextClaim -- no --&gt; Result["result = { verified, dropped, votes, coverage:{claims, skeptics} }"]
     Result --&gt; Return(["Return result"])</pre>
 <h2>Qué hace</h2>
-<p><code>verify-claims-lib</code> es un sub-workflow puro de verificación: recibe una lista de afirmaciones (<code>claims</code>) y, para cada una, convoca un jurado paralelo de agentes &quot;escépticos&quot; cuya única misión es intentar <strong>refutarla</strong> con evidencia concreta (file:line, URL o salida de comando). No descubre afirmaciones ni sintetiza nada por su cuenta — esa responsabilidad la tiene el workflow padre (p. ej. <code>composition-driver</code>), que lo invoca vía <code>workflow(&quot;verify-claims-lib&quot;, args)</code>.</p>
 <p>El criterio de supervivencia es una mayoría estricta del tamaño <strong>fijo</strong> del jurado: si el número de refutaciones es <code>&gt;= floor(skeptics/2) + 1</code>, la afirmación cae en <code>dropped</code>; si no, sobrevive en <code>verified</code>. Los empates sobreviven (se requiere mayoría estricta para matar). El código deja explícito (comentario &quot;F1&quot;) que está armonizado con <code>adversarial-verify</code>: un veredicto ausente o inválido de un escéptico no ayuda a sobrevivir, sino que cuenta como refutación (fail-closed), evitando que un fallo parcial infle artificialmente la supervivencia de una claim.</p>
 <p>Es, en esencia, la extracción a librería de la fase de &quot;jurado escéptico&quot; de <code>adversarial-verify</code>, pensada para ser compuesta dentro de workflows más grandes en lugar de ejecutarse de forma standalone.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Cuando un workflow padre necesita verificación como building block reutilizable (caso canónico: <code>composition-driver</code>).</li>
-<li>Cualquier workflow que primero <strong>descubre</strong> afirmaciones y luego necesita <strong>verificarlas</strong> por separado.</li>
-<li>Como verificador compartido dentro de un pipeline de composición más grande.</li>
-</ul>
-<p>Cuándo NO usarlo:</p>
-<ul>
-<li>Si no hay un paso previo de discovery que produzca <code>{id, claim, evidence?}</code> — este scaffold no genera claims, solo las verifica.</li>
-<li>Si se necesita todo el flujo end-to-end (discover → verify → synthesize) en un solo paso: usar <code>composition-driver</code> u otro workflow que lo orqueste, no este directamente como entrypoint final.</li>
-<li>Si <code>claims</code> está vacío, el propio scaffold retorna de inmediato <code>{ verified: [], dropped: [], votes: [], coverage: { claims: 0 } }</code> sin gastar agentes — no tiene sentido invocarlo &quot;por si acaso&quot; sin candidatos reales.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>¿Usarlo?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Un workflow padre necesita verificación como building block reutilizable (caso canónico: <code>composition-driver</code>)</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>El workflow ya <strong>descubrió</strong> afirmaciones y ahora necesita <strong>verificarlas</strong> como paso separado</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Se quiere un verificador compartido dentro de un pipeline de composición más grande</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>No hay un paso previo de discovery que produzca <code>{id, claim, evidence?}</code></td>
+<td>No — este scaffold no genera claims, solo las verifica</td>
+</tr>
+<tr>
+<td>Se necesita el flujo end-to-end (discover → verify → synthesize) en un solo paso</td>
+<td>No — usar <code>composition-driver</code> u otro orquestador, no este como entrypoint final</td>
+</tr>
+<tr>
+<td><code>claims</code> llega vacío</td>
+<td>No hace falta invocarlo — el propio scaffold retorna de inmediato <code>{ verified: [], dropped: [], votes: [], coverage: { claims: 0 } }</code> sin gastar agentes</td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
 <p><strong>Fase única: &quot;Verify Claims&quot;.</strong> Todo el trabajo ocurre en una sola fase declarada en <code>meta.phases</code>; no hay fases de discovery ni de síntesis (eso vive en el workflow que lo compone).</p>
 <ol>

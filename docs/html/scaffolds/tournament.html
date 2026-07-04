@@ -120,13 +120,33 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>tournament</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Bracket de eliminación simple: rondas de juicio por pares hasta que sobrevive un solo candidato.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>tournament</code> enfrenta candidatos de a pares y un juez elige el mejor de cada partido; los ganadores avanzan a la siguiente ronda hasta que queda un solo campeón — como un cuadro de eliminación deportivo. Elegilo cuando necesitás rankear o elegir entre varios borradores/diseños y <strong>no confiás en que un juez le ponga un puntaje absoluto consistente</strong> (ej. &quot;puntuá de 1 a 10&quot;), pero sí confiás en que compare bien dos opciones a la vez (&quot;¿cuál de estas dos es mejor?&quot;). Los candidatos pueden venir explícitos (<code>candidates</code>) o generarse solos a partir de un <code>topic</code> y varios ángulos de análisis.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=tournament
+</code></pre>
+<p>Input típico (JSON pasado como <code>args</code> al workflow) con candidatos explícitos:</p>
+<pre><code class="language-json">{
+  &quot;candidates&quot;: [
+    &quot;Propuesta A: cache en memoria con TTL de 5 minutos&quot;,
+    &quot;Propuesta B: invalidación por evento vía pub/sub&quot;,
+    &quot;Propuesta C: sin cache, leer siempre de la fuente&quot;
+  ]
+}
+</code></pre>
+<p>Si no tenés candidatos armados, alcanza con un <code>topic</code> y el scaffold genera entrantes desde 4 ángulos por defecto (<code>risk-first</code>, <code>simplicity-first</code>, <code>user-first</code>, <code>cost-first</code>):</p>
+<pre><code class="language-json">{
+  &quot;topic&quot;: &quot;Cómo cachear resultados de una API externa lenta&quot;,
+  &quot;angles&quot;: [&quot;risk-first&quot;, &quot;simplicity-first&quot;, &quot;user-first&quot;]
+}
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: candidates o topic"] --&gt; B{"¿hay candidates?"}

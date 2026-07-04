@@ -120,13 +120,58 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>guardrails</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Tripwire barato de entrada/salida que HALTA ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>guardrails</code> corre chequeos rápidos y baratos (un agente <code>haiku</code>/<code>low</code> por regla) sobre un texto o sobre la request/respuesta de otro workflow, y HALTA en el momento en que alguna regla se dispara con evidencia clara — en vez de gastar un run completo o entregar un output malo y descubrir el problema después. Elegilo cuando querés poner un límite duro y binario (&quot;esto no puede pasar&quot;) delante o detrás de un workflow, o validar un artifact ya generado contra reglas de PII/seguridad/scope, sin escribir ese chequeo a mano.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-bash">/workflow new mi-run --pattern=guardrails
+</code></pre>
+<p>Modo <strong>wrapper</strong> (envuelve otro workflow del catálogo con guards de entrada y salida):</p>
+<pre><code class="language-json">{
+  &quot;protect&quot;: { &quot;name&quot;: &quot;complex-research&quot;, &quot;args&quot;: { &quot;question&quot;: &quot;Estado de la migración a Postgres 16&quot; } },
+  &quot;inputRules&quot;: [&quot;La request no debe pedir credenciales ni secretos&quot;],
+  &quot;outputRules&quot;: [&quot;El resultado no debe citar PII (emails, teléfonos, DNIs)&quot;]
+}
+</code></pre>
+<pre><code class="language-bash">/workflow run mi-run &#39;{&quot;protect&quot;:{&quot;name&quot;:&quot;complex-research&quot;,&quot;args&quot;:{&quot;question&quot;:&quot;Estado de la migración a Postgres 16&quot;}},&quot;inputRules&quot;:[&quot;La request no debe pedir credenciales ni secretos&quot;],&quot;outputRules&quot;:[&quot;El resultado no debe citar PII (emails, telefonos, DNIs)&quot;]}&#39;
+</code></pre>
+<p>Modo <strong>validador</strong> (sin <code>protect</code>, solo evalúa un <code>content</code> ya existente contra <code>rules</code>):</p>
+<pre><code class="language-json">{
+  &quot;content&quot;: &quot;El informe final incluye el email juan.perez@empresa.com como contacto&quot;,
+  &quot;rules&quot;: [&quot;El texto no debe contener direcciones de email&quot;]
+}
+</code></pre>
+<h2>Cuándo usarlo vs. otras opciones</h2>
+<table>
+<thead>
+<tr>
+<th>Necesitás...</th>
+<th>Usá</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Un tripwire binario, barato, en los bordes de un workflow ya elegido</td>
+<td><code>guardrails</code></td>
+</tr>
+<tr>
+<td>Decidir/scopear una tarea abierta antes de rutear</td>
+<td><code>contract-gate</code></td>
+</tr>
+<tr>
+<td>Elegir automáticamente qué workflow correr</td>
+<td><code>router</code></td>
+</tr>
+<tr>
+<td>Reglas de estilo o juicio subjetivo (no violaciones binarias evidenciables)</td>
+<td>otro patrón — un guard no dispara ante incertidumbre</td>
+</tr>
+</tbody></table>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["input: content? / protect?"]) --&gt; Mode{"protect presente?"}
@@ -172,24 +217,11 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     OGuardFanOut --&gt; ODecide{"algún tripped?"}
     ODecide --&gt;|"si"| OTripped(["return status: TRIPPED, stage: output, output incluido"])
     ODecide --&gt;|"no"| OPass(["return status: PASS, protect.name, inputChecks, outputChecks, output"])</pre>
-<h2>Qué hace</h2>
-<p><code>guardrails</code> implementa el patrón de &quot;input/output guardrails&quot; del OpenAI Agents SDK: en vez de gastar un run completo (o entregar un output malo) y descubrir el problema después, corre chequeos rápidos y acotados —uno por regla— y HALTA en el momento en que alguno se dispara con evidencia clara. Cada guard es un agente barato (<code>haiku</code>, <code>effort: low</code>) que evalúa <strong>una sola regla</strong> contra el contenido y devuelve un veredicto tipado <code>{ tripped, reason, evidence }</code>; los guards de una misma etapa corren en paralelo con <code>settle</code> para que un guard que crashea no tumbe a los demás.</p>
-<p>El scaffold tiene dos modos que comparten la misma lógica de guard (<code>runGuards</code>): <strong>WRAPPER</strong>, donde envuelve la ejecución de otro workflow del catálogo colocando guards de entrada antes de correrlo y guards de salida después; y <strong>VALIDATOR</strong>, donde simplemente evalúa un artifact/contenido ya existente contra un set de reglas y devuelve PASS/TRIPPED, sin ejecutar ningún workflow.</p>
-<p>Un detalle de seguridad central: todo el contenido a evaluar se envuelve con <code>fence()</code>, un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;...&lt;/untrusted-HASH&gt;</code> cuyo tag se deriva de un hash FNV-like del propio contenido (sin <code>Math.random</code>/<code>Date.now</code>, prohibidos en el runtime). Esto evita que un payload malicioso &quot;escape&quot; el delimitador insertando su propio cierre falso, porque cualquier cambio en el contenido cambia el hash y por lo tanto el tag esperado. El prompt de cada guard además instruye explícitamente ignorar cualquier instrucción embebida en esa zona (&quot;ignore previous&quot;, cambios de rol, de esquema, etc.), tratándola como contenido sospechoso a reportar, no a obedecer — mitigación de prompt injection.</p>
-<p>Respecto a fallos parciales: un guard que crashea (<code>null</code> o sin <code>tripped</code> boolean) se registra como <code>failed: true</code> y, por defecto, se trata como <strong>no disparado</strong> (modo laxo, para que infraestructura inestable no frene trabajo bueno); con <code>strict:true</code> el comportamiento se invierte a fail-closed (un guard caído cuenta como disparado). No hay caching explícito en el scaffold — cada corrida re-evalúa todas las reglas.</p>
-<h2>Cuándo usarlo</h2>
-<ul>
-<li>Gate de scope/seguridad antes de correr un agente (guards de entrada sobre la request).</li>
-<li>Chequeo de PII/secretos sobre un output ya generado (modo validador).</li>
-<li>Envolver un workflow del catálogo elegido con tripwires de entrada y salida.</li>
-<li>Enforcement de límites duros de forma barata (reglas simples, agentes chicos, sin gastar el presupuesto completo del workflow real si el input ya es inválido).</li>
-</ul>
-<p>No usarlo cuando:</p>
-<ul>
-<li>Se necesita decidir/scopear una tarea abierta antes de rutear (para eso está <code>contract-gate</code>, que construye un contrato completo y un gate de valor de información; <code>guardrails</code> es liviano y binario, no reemplaza ese análisis).</li>
-<li>Las reglas no pueden expresarse como violaciones binarias evidenciables — el guard está diseñado para NO disparar ante estilo o incertidumbre, solo ante violación clara y citable.</li>
-<li>Se requiere elegir automáticamente qué workflow correr (eso es el trabajo de <code>router</code>; <code>guardrails</code> solo envuelve un <code>protect.name</code> ya decidido).</li>
-</ul>
+<h2>Conceptos clave</h2>
+<p><code>guardrails</code> implementa el patrón de &quot;input/output guardrails&quot; del OpenAI Agents SDK. Cada guard es un agente barato (<code>haiku</code>, <code>effort: low</code>) que evalúa <strong>una sola regla</strong> contra el contenido y devuelve un veredicto tipado <code>{ tripped, reason, evidence }</code>; los guards de una misma etapa corren en paralelo con <code>settle</code>, así un guard que crashea no tumba a los demás. El scaffold tiene dos modos que comparten la misma función <code>runGuards</code>: <strong>WRAPPER</strong> (envuelve la ejecución de otro workflow con guards de entrada antes y guards de salida después) y <strong>VALIDATOR</strong> (evalúa un <code>content</code> ya existente contra reglas y devuelve PASS/TRIPPED, sin ejecutar ningún workflow).</p>
+<p>Casos de uso concretos: gate de scope/seguridad antes de correr un agente (guards de entrada sobre la request), chequeo de PII/secretos sobre un output ya generado (modo validador), envolver un workflow del catálogo con tripwires de entrada y salida, o enforcement barato de límites duros sin gastar el presupuesto completo si el input ya es inválido.</p>
+<p><strong>Seguridad — anti prompt-injection.</strong> Todo el contenido a evaluar se envuelve con <code>fence()</code>, un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;...&lt;/untrusted-HASH&gt;</code> cuyo tag se deriva de un hash FNV-like del propio contenido (sin <code>Math.random</code>/<code>Date.now</code>, prohibidos en el runtime). Un payload malicioso no puede &quot;escapar&quot; el delimitador insertando su propio cierre falso, porque cualquier cambio en el contenido cambia el hash y por lo tanto el tag esperado. El prompt de cada guard además instruye ignorar cualquier instrucción embebida en esa zona (&quot;ignore previous&quot;, cambios de rol o de esquema, etc.), tratándola como contenido sospechoso a reportar, no a obedecer.</p>
+<p><strong>Fallos parciales.</strong> Un guard que crashea (<code>null</code> o sin <code>tripped</code> boolean) se registra como <code>failed: true</code> y, por defecto, se trata como <strong>no disparado</strong> (modo laxo, para que infraestructura inestable no frene trabajo bueno); con <code>strict:true</code> el comportamiento se invierte a fail-closed (un guard caído cuenta como disparado). No hay caching — cada corrida re-evalúa todas las reglas.</p>
 <h2>Cómo funciona</h2>
 <p>El scaffold declara tres fases (<code>Input</code>, <code>Run</code>, <code>Output</code>) pero solo recorre las que corresponden al modo activo.</p>
 <p><strong>Preparación (sin fase declarada):</strong> parsea <code>args</code> como JSON, define helpers <code>compact</code> (trunca texto largo a 60k chars) y <code>fence</code> (delimitador anti-injection basado en hash), resuelve overrides de modelo/effort/tools/skills por rol vía <code>node(role, extra)</code>, y valida que exista <code>content</code> o <code>protect</code>, y al menos un set de reglas si no hay <code>protect</code>.</p>

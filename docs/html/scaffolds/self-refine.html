@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>self-refine</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Loop acotado de generar → criticar → refinar en el mismo lugar, con memoria verbal; se detiene silenciosamente cuando el crítico queda satisfecho.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p>Es un pulidor iterativo para UN artefacto: un agente escribe un primer borrador, otro (más exigente) lo critica de forma adversarial y localizada, y un tercero lo revisa aplicando esas críticas — repitiendo hasta que el crítico quede conforme o se agote <code>maxRounds</code>. Elegilo para pulir un documento, spec o snippet de código donde la crítica intrínseca del modelo alcanza; si necesitás reintentar la tarea completa desde cero en cada trial, o un oráculo objetivo pass/fail, usá <code>reflexion</code> en su lugar.</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=self-refine
+/workflow run mi-run {&quot;task&quot;: &quot;Escribí una sección de troubleshooting para el README de este proyecto&quot;, &quot;maxRounds&quot;: 3, &quot;useJury&quot;: false}
+</code></pre>
+<p><code>task</code> (alias <code>question</code>/<code>text</code>) es el único campo obligatorio; <code>maxRounds</code> (default <code>4</code>, clamp <code>[1,8]</code>) y <code>useJury</code> (default <code>false</code>) son opcionales. Ver <a href="#input-y-output">Input y output</a> para overrides opcionales (<code>model</code>, <code>models</code>, <code>tools</code>, <code>skeptics</code>, etc.).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start["Input: task, maxRounds (default 4, clamp 1-8), useJury"] --&gt; Draft["Generate&lt;br/&gt;agent draft-0&lt;br/&gt;model sonnet / effort medium"]

@@ -120,13 +120,20 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">Workflow scaffold</div>
+		<div class="kicker">docs/scaffolds</div>
 		<h1>recursive-compose</h1>
 	</header>
 	<main>
 <blockquote>
 <p>Referencia (pi, profundidad ≤ 3): un nodo re-escanea una sub-tarea vía <code>contract-gate</code> y luego la despacha vía <code>router</code> — recursión acotada.</p>
 </blockquote>
+<h2>En 30 segundos</h2>
+<p><code>recursive-compose</code> no ejecuta agentes: re-evalúa una tarea con <code>contract-gate</code> (Phase-0) y, si el gate recomienda un <code>dynamic-workflow</code>, despacha ese patrón vía <code>router</code>, propagando el presupuesto de modelos/esfuerzo sugerido por el gate. Elegilo cuando quieras un ejemplo de referencia de &quot;Phase-0 desde adentro + despacho recursivo&quot; acotado en profundidad — típicamente para probar o ejemplificar composición, no para trabajo de producción sobre Claude Code (ahí se topa con el guard de profundidad, ver más abajo).</p>
+<h2>Cómo lanzarlo</h2>
+<pre><code class="language-text">/workflow new mi-run --pattern=recursive-compose
+/workflow run mi-run {&quot;task&quot;: &quot;Investigar y resumir el estado de X&quot;}
+</code></pre>
+<p>El input es un objeto (o JSON string) con <code>task</code> (alias <code>request</code>/<code>text</code>, requerido), y opcionalmente <code>context</code> y <code>args</code> — ver la tabla de <a href="#input-y-output">Input y output</a> más abajo.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: task (+ context, args)"] --&gt; B{"task presente?"}
