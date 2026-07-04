@@ -128,161 +128,127 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>Sub-workflow reutilizable: verifica <code>{ claims, skeptics? }</code> con jurados de escépticos y devuelve verified/dropped/votes/coverage.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Es el paso de &quot;verificación&quot; extraído a librería: dado un array de <code>claims</code> ya descubiertas, convoca por cada una un jurado paralelo de agentes escépticos que intentan refutarla con evidencia concreta, y solo sobreviven (<code>verified</code>) las que resisten una mayoría estricta de refutaciones. No descubre ni sintetiza nada — elegilo cuando un workflow padre (típicamente <code>composition-driver</code>) ya separó &quot;descubrir afirmaciones&quot; de &quot;verificarlas&quot; y necesita ese segundo paso como pieza reutilizable, no como entrypoint final por sí solo.</p>
+<p>Es un bloque de verificación pensado para ser <strong>llamado desde otro workflow</strong> (vía <code>workflow(&quot;verify-claims-lib&quot;, args)</code>), no para correrse solo como flujo de punta a punta. Recibe una lista de afirmaciones ya extraídas y, para cada una, arma un jurado de escépticos en paralelo que intenta refutarla con evidencia concreta; una afirmación sobrevive solo si no logra reunir mayoría de refutaciones. Elegilo cuando tu propio workflow ya descubrió las claims y solo necesita la verificación como pieza reusable (el ejemplo canónico es <code>composition-driver</code>, que descubre y delega esta pieza).</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=verify-claims-lib
-/workflow run mi-run {&quot;claims&quot;: [{&quot;id&quot;: &quot;c1&quot;, &quot;claim&quot;: &quot;El endpoint /login soporta rate limiting&quot;, &quot;evidence&quot;: &quot;src/auth.ts:42&quot;}], &quot;skeptics&quot;: 3, &quot;topic&quot;: &quot;auditoría de auth&quot;}
+/workflow run mi-run {&quot;claims&quot;:[{&quot;id&quot;:&quot;c1&quot;,&quot;claim&quot;:&quot;El endpoint /health responde 200 sin auth&quot;}],&quot;skeptics&quot;:3}
 </code></pre>
-<p><code>claims</code> es el único campo obligatorio (cada elemento necesita al menos <code>claim</code>); <code>skeptics</code> y <code>topic</code> son opcionales y ya traen los defaults de arriba (<code>3</code> y <code>&quot;n/a&quot;</code>). En la práctica casi siempre se invoca desde otro workflow vía <code>workflow(&quot;verify-claims-lib&quot;, args)</code>, no como entrypoint final — ver <a href="#cu%C3%A1ndo-usarlo">Cuándo usarlo</a>. Para overrides por rol (<code>model</code>, <code>models</code>, <code>tools</code>, etc.) ver <a href="#input-y-output">Input y output</a>.</p>
+<p>También se invoca en composición, sin pasar por <code>/workflow run</code>, desde el código de otro scaffold: <code>await workflow(&quot;verify-claims-lib&quot;, { claims, skeptics: 5, topic })</code>. <code>claims</code> es el único campo con contenido real requerido (una claim sin <code>.claim</code> se descarta); el resto tiene defaults — ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Start(["Input: { claims, skeptics?, topic? }"]) --&gt; Parse["Parsear args JSON / objeto"]
-    Parse --&gt; CheckClaims{"claims vacío?"}
-    CheckClaims -- sí --&gt; EmptyReturn["Return { verified: [], dropped: [], votes: [], coverage: { claims: 0 } }"]
-    CheckClaims -- no --&gt; Clamp["Clampar skeptics a [1, 64] (default 3)"]
-    Clamp --&gt; LoopStart["Loop secuencial: for each claim (i = 0..N-1)"]
+    A["Input: claims[] (req), skeptics=3, topic?"] --&gt; B["filtrar claims sin campo .claim"]
+    B --&gt; C{"claims.length == 0?"}
+    C --&gt;|"sí"| C1["return { verified:[], dropped:[], votes:[], coverage:{claims:0} }"]
+    C --&gt;|"no"| D["skeptics = clamp(skeptics, 1, 64)\n(log si se recorta hacia abajo)"]
+    D --&gt; E["Phase: Verify Claims"]
+    E --&gt; F["for cada claim (secuencial)"]
 
-    subgraph PerClaim ["Por cada claim (secuencial)"]
-        direction TB
-        Jury["parallel: lanzar 'skeptics' agentes jurado"]
-        subgraph Fanout ["Jurado de escépticos (fan-out paralelo)"]
-            S1["skeptic 1: agent(VERDICT schema, model opus, effort high)"]
-            S2["skeptic 2: agent(VERDICT schema, model opus, effort high)"]
-            S3["skeptic N: agent(VERDICT schema, model opus, effort high)"]
+    subgraph LOOP["por claim i"]
+        F1["Phase: Verify Claims"] --&gt; G
+
+        subgraph JURY["jury fan-out (parallel)"]
+            S1["agent skeptic 1/N opus·high\nintenta REFUTAR -&gt; VERDICT schema"]
+            S2["agent skeptic 2/N opus·high\n..."]
+            S3["agent skeptic N/N opus·high\n..."]
         end
-        Jury --&gt; S1
-        Jury --&gt; S2
-        Jury --&gt; S3
-        S1 --&gt; Collect["Recolectar votos (fail-closed: inválido = refuted)"]
-        S2 --&gt; Collect
-        S3 --&gt; Collect
-        Collect --&gt; Majority{"refutations &gt;= majority (floor(skeptics/2)+1)?"}
-        Majority -- sí --&gt; Drop["dropped.push(claim + verification)"]
-        Majority -- no --&gt; Verify["verified.push(claim + verification)"]
-        Drop --&gt; LogClaim["log claim verification complete"]
-        Verify --&gt; LogClaim
+        G["parallel(skeptics)"] --&gt; JURY
+        JURY --&gt; H["cast = voto valido o\n{refuted:true, evidence:'', why:'skeptic failed/invalid'}\n(fail-closed)"]
+        H --&gt; I["refutations = count(refuted==true)\nmajority = floor(skeptics/2)+1"]
+        I --&gt; J{"refutations &lt; majority?"}
+        J --&gt;|"sí: survived"| K1["verified.push(claim + verification)"]
+        J --&gt;|"no"| K2["dropped.push(claim + verification)"]
+        K1 --&gt; L["votes.push(record)\nlog progreso de la claim"]
+        K2 --&gt; L
     end
 
-    LoopStart --&gt; Jury
-    LogClaim --&gt; NextClaim{"quedan claims?"}
-    NextClaim -- sí --&gt; LoopStart
-    NextClaim -- no --&gt; Result["result = { verified, dropped, votes, coverage:{claims, skeptics} }"]
-    Result --&gt; Return(["Return result"])</pre>
+    F --&gt; LOOP
+    LOOP --&gt; M{"quedan claims?"}
+    M --&gt;|"sí"| F
+    M --&gt;|"no"| N["return { verified, dropped, votes,\n  coverage:{claims, skeptics} }"]</pre>
 <h2>Qué hace</h2>
-<p>El criterio de supervivencia es una mayoría estricta del tamaño <strong>fijo</strong> del jurado: si el número de refutaciones es <code>&gt;= floor(skeptics/2) + 1</code>, la afirmación cae en <code>dropped</code>; si no, sobrevive en <code>verified</code>. Los empates sobreviven (se requiere mayoría estricta para matar). El código deja explícito (comentario &quot;F1&quot;) que está armonizado con <code>adversarial-verify</code>: un veredicto ausente o inválido de un escéptico no ayuda a sobrevivir, sino que cuenta como refutación (fail-closed), evitando que un fallo parcial infle artificialmente la supervivencia de una claim.</p>
-<p>Es, en esencia, la extracción a librería de la fase de &quot;jurado escéptico&quot; de <code>adversarial-verify</code>, pensada para ser compuesta dentro de workflows más grandes en lugar de ejecutarse de forma standalone.</p>
+<p><code>verify-claims-lib</code> es la forma &quot;biblioteca&quot; de <code>adversarial-verify</code>: en vez de un flujo completo (descubrir → verificar → sintetizar), expone solo el paso de verificación como un contrato reutilizable — <code>{ claims, skeptics? }</code> entra, <code>{ verified, dropped, votes, coverage }</code> sale. Cada claim se somete, una por una, a un jurado de <code>skeptics</code> agentes en paralelo cuyo único objetivo es intentar refutarla con una cita concreta (file:line, URL, o salida de comando); si no aportan una cita concreta, deben declarar <code>evidence=&quot;INSUFFICIENT_EVIDENCE&quot;</code> y <code>refuted=true</code> en vez de inventar sustento.</p>
+<p>La supervivencia de una claim depende de una regla de mayoría estricta sobre el tamaño <strong>fijo</strong> del jurado: sobrevive solo si las refutaciones quedan por debajo de <code>floor(skeptics/2) + 1</code>. Los empates sobreviven (hace falta mayoría estricta para matar), y cualquier voto ausente o inválido (agente caído, JSON que no matchea el schema) cuenta automáticamente como refutación — el sistema falla cerrado, así que un jurado incompleto nunca facilita que una claim sobreviva.</p>
+<p>El aislamiento de prompt-injection es explícito: la claim y su evidencia se envuelven con <code>fence()</code>, un delimitador derivado de un hash del contenido (no de aleatoriedad, prohibida en el runtime), de modo que un payload malicioso no puede forjar el marcador de cierre y hacerse pasar por instrucción del sistema. El prompt de cada escéptico instruye explícitamente ignorar cualquier directiva dentro de esos datos.</p>
+<p>Al no incluir descubrimiento ni síntesis, este scaffold es la pieza que un workflow padre delega cuando ya tiene sus propias claims (por ejemplo, <code>composition-driver</code> las descubre y llama <code>workflow(&quot;verify-claims-lib&quot;, args)</code>); no tiene sentido correrlo si todavía no existe una lista concreta de afirmaciones a verificar.</p>
 <h2>Cuándo usarlo</h2>
-<table>
-<thead>
-<tr>
-<th>Situación</th>
-<th>¿Usarlo?</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Un workflow padre necesita verificación como building block reutilizable (caso canónico: <code>composition-driver</code>)</td>
-<td>Sí</td>
-</tr>
-<tr>
-<td>El workflow ya <strong>descubrió</strong> afirmaciones y ahora necesita <strong>verificarlas</strong> como paso separado</td>
-<td>Sí</td>
-</tr>
-<tr>
-<td>Se quiere un verificador compartido dentro de un pipeline de composición más grande</td>
-<td>Sí</td>
-</tr>
-<tr>
-<td>No hay un paso previo de discovery que produzca <code>{id, claim, evidence?}</code></td>
-<td>No — este scaffold no genera claims, solo las verifica</td>
-</tr>
-<tr>
-<td>Se necesita el flujo end-to-end (discover → verify → synthesize) en un solo paso</td>
-<td>No — usar <code>composition-driver</code> u otro orquestador, no este como entrypoint final</td>
-</tr>
-<tr>
-<td><code>claims</code> llega vacío</td>
-<td>No hace falta invocarlo — el propio scaffold retorna de inmediato <code>{ verified: [], dropped: [], votes: [], coverage: { claims: 0 } }</code> sin gastar agentes</td>
-</tr>
-</tbody></table>
-<h2>Cómo funciona</h2>
-<p><strong>Fase única: &quot;Verify Claims&quot;.</strong> Todo el trabajo ocurre en una sola fase declarada en <code>meta.phases</code>; no hay fases de discovery ni de síntesis (eso vive en el workflow que lo compone).</p>
-<ol>
-<li><strong>Parseo de input.</strong> <code>args</code> puede llegar como string JSON o como objeto; se parsea de forma defensiva (try/catch → <code>{}</code> si falla).</li>
-<li><strong>Normalización de claims.</strong> Se filtran los elementos de <code>input.claims</code> que tengan un campo <code>claim</code> truthy. Si el resultado es vacío, retorna inmediatamente el shape vacío sin invocar ningún agente.</li>
-<li><strong>Clamp de <code>skeptics</code>.</strong> <code>input.skeptics</code> se coerciona a entero y se clampa a <code>[1, 64]</code>, con default <code>3</code> si no es un número finito. Si el valor pedido excede el máximo, se loggea el clamp (<code>skeptics clamped down</code>).</li>
-<li><strong>Overrides por rol.</strong> Soporta <code>input.model</code>/<code>input.effort</code> como defaults globales y <code>input.models[role]</code>/<code>input.efforts[role]</code> (rol = <code>&quot;skeptic&quot;</code>) como overrides específicos, igual que <code>input.tools</code>/<code>input.skills</code>/<code>input.excludeTools</code> vía <code>toolsByRole</code>/<code>skillsByRole</code>/<code>excludeByRole</code>. La precedencia es: override por rol &gt; default global &gt; default del call-site (que en este caso hardcodea <code>model: &quot;opus&quot;</code>, <code>effort: &quot;high&quot;</code> para el nodo skeptic, sobreescribible).</li>
-<li><strong>Loop secuencial sobre claims.</strong> Para cada claim (en orden, uno a la vez — no en paralelo entre claims):<ul>
-<li>Se lanza <code>parallel(...)</code> con <code>skeptics</code> agentes concurrentes, cada uno un &quot;skeptic j/N&quot; con instrucciones explícitas de intentar refutar la claim con evidencia concreta, y con protección de prompt-injection: los datos de <code>topic</code>/<code>claim</code>/<code>evidence</code> se envuelven con <code>fence(...)</code>, un delimitador derivado de un hash FNV-like del contenido (no de aleatoriedad, ya que el runtime prohíbe <code>Math.random</code>/<code>Date.now</code>), para que texto malicioso embebido no pueda forjar un marcador de cierre falso.</li>
-<li>Cada agente devuelve un JSON validado contra el schema <code>VERDICT</code> (<code>refuted: boolean</code>, <code>confidence: string</code>, <code>evidence: string</code>, <code>why: string</code>), con <code>model: &quot;opus&quot;</code> y <code>effort: &quot;high&quot;</code> por defecto.</li>
-<li>Los votos se normalizan: cualquier resultado sin <code>refuted</code> boolean válido (agente caído o output inválido) se reemplaza por un voto default <code>{ refuted: true, confidence: &quot;low&quot;, evidence: &quot;&quot;, why: &quot;skeptic failed/invalid -&gt; default refuted&quot; }</code> — es decir, <strong>fail-closed</strong>.</li>
-<li>Se cuenta <code>refutations</code> y se compara contra <code>majority = floor(skeptics/2) + 1</code>; <code>survived = refutations &lt; majority</code>.</li>
-<li>Se construye un <code>record</code> con la claim, los votos parseados, el número de branches fallidos, el conteo de refutaciones y el veredicto de supervivencia; se acumula en <code>votes</code>, y la claim (enriquecida con <code>verification: record</code>) se empuja a <code>verified</code> o <code>dropped</code>.</li>
-<li>Se loggea el progreso por claim (<code>claim verification complete</code>, con índice/total/survived/refutations/votos/fallos).</li>
+<ul>
+<li>Un workflow padre ya descubrió afirmaciones (de un documento, de resultados de otro agente, etc.) y necesita verificación como building block — caso de uso canónico: llamado por <code>composition-driver</code>.</li>
+<li>Cualquier flujo de &quot;descubrir, después verificar&quot; donde la etapa de verificación se quiere reusar tal cual en más de un lugar.</li>
+<li>Se busca un verificador compartido con jurado de escépticos, sin acoplarlo al paso de descubrimiento.</li>
+<li><strong>No usarlo</strong> si necesitás el flujo completo de punta a punta (descubrir + verificar + sintetizar reporte) — para eso está <code>adversarial-verify</code>, del cual este scaffold es la forma &quot;librería&quot;.</li>
+<li><strong>No usarlo</strong> para juicios comparativos entre alternativas (eso es un patrón de ranking/torneo, no de verificación de claims individuales).</li>
 </ul>
-</li>
-<li><strong>Resultado final.</strong> Se retorna <code>{ verified, dropped, votes, coverage: { claims: claims.length, skeptics } }</code>. No hay <code>writeArtifact</code> en este scaffold — es puramente funcional/retorno de valor, delegando la persistencia (si la hay) al workflow padre.</li>
+<h2>Cómo funciona</h2>
+<p><strong>Validación de entrada.</strong> El input se parsea defensivamente (JSON o objeto ya parseado; si falla, <code>{}</code>). <code>claims</code> se filtra a solo los elementos con un campo <code>.claim</code> truthy; si el resultado queda vacío, retorna inmediatamente el shape completo con todos los campos en cero/vacío (nunca lanza excepción). <code>skeptics</code> se sanea con <code>clamp(1, 64)</code>, y si el valor pedido excedía el máximo se loguea el recorte explícitamente.</p>
+<p><strong>Fase Verify Claims (única fase declarada).</strong> Itera las claims <strong>secuencialmente</strong> (no hay fan-out entre claims, solo dentro de cada claim). Para cada una:</p>
+<ol>
+<li>Lanza un <code>agent</code> por cada uno de los <code>skeptics</code> jueces, todos en <code>parallel</code>, rol <code>skeptic</code> (modelo <code>opus</code>, effort <code>high</code> — se prioriza rigor sobre costo, a diferencia del mapper barato de <code>map-reduce</code>). El prompt de cada juez recibe el <code>topic</code> opcional, la <code>claim</code> y su <code>evidence</code> (<code>&quot;none&quot;</code> si no se proveyó), todos truncados a un límite de caracteres (<code>compact()</code>, 4000/2000) y envueltos en <code>fence()</code>. El schema de salida (<code>VERDICT</code>) exige <code>refuted</code> (boolean), <code>confidence</code>, <code>evidence</code> y <code>why</code>, con <code>additionalProperties:false</code>.</li>
+<li>Los votos se normalizan (<code>cast</code>): un voto válido pasa tal cual; uno inválido o de un branch caído se reemplaza por <code>{refuted:true, confidence:&quot;low&quot;, evidence:&quot;&quot;, why:&quot;skeptic failed/invalid -&gt; default refuted&quot;}</code> — el patrón fail-closed mencionado arriba.</li>
+<li>Se cuentan las <code>refutations</code> y se compara contra <code>majority = floor(skeptics/2)+1</code>; <code>survived = refutations &lt; majority</code>.</li>
+<li>La claim (con su registro de verificación completo) va a <code>verified</code> o <code>dropped</code> según corresponda; el registro (<code>record</code>) siempre se agrega a <code>votes</code>, incluyendo cuántos branches fallaron (<code>failedBranches</code>).</li>
+<li>Se loguea el resultado de cada claim (índice, total, <code>survived</code>, <code>refutations</code>, cantidad de votos, <code>failedBranches</code>) antes de pasar a la siguiente.</li>
 </ol>
-<p>No hay caching explícito (<code>cache: true/false</code> no aparece) ni pipeline/gate adicionales; el único mecanismo de manejo de fallos parciales es el fail-closed en el conteo de votos.</p>
+<p><strong>Caching:</strong> no hay mecanismo explícito de caché; cada <code>agent</code> corre fresco por claim y por escéptico.</p>
+<p><strong>Manejo de fallos parciales:</strong> no se usa <code>settle</code> explícito (no hay filtrado de nulls post-<code>parallel</code>); en su lugar, cada resultado de jurado se valida inline (<code>r?.data &amp;&amp; typeof r.data.refuted === &quot;boolean&quot;</code>) y todo lo que no matchea ese chequeo — crash, timeout, JSON inválido — se convierte en un voto de refutación por defecto, preservando siempre <code>skeptics</code> votos contados por claim.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (<code>{ claims:[{id, claim, evidence?}], skeptics?, topic? }</code>):</p>
+<p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default / Clamp</th>
-<th>Notas</th>
+<th>Requerido</th>
+<th>Default / clamp</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>claims</code></td>
-<td><code>Array&lt;{id?, claim, evidence?}&gt;</code></td>
-<td>filtra por <code>claim</code> truthy; si queda vacío, corta temprano</td>
-<td>obligatorio para hacer trabajo real</td>
+<td><code>{id?, claim, evidence?}[]</code></td>
+<td><strong>sí</strong> (contenido)</td>
+<td>se filtran los elementos sin <code>.claim</code>; si queda vacío, retorna shape vacío sin lanzar</td>
 </tr>
 <tr>
 <td><code>skeptics</code></td>
 <td>number</td>
-<td>default <code>3</code>; clamp <code>[1, 64]</code></td>
-<td>se loggea si el pedido excede 64</td>
+<td>no</td>
+<td>default 3, clamp 1..64 (log si se recorta hacia abajo)</td>
 </tr>
 <tr>
 <td><code>topic</code></td>
 <td>string</td>
-<td><code>&quot;n/a&quot;</code> si ausente</td>
-<td>se trunca a 4000 chars vía <code>compact</code></td>
+<td>no</td>
+<td><code>&quot;n/a&quot;</code> si ausente; se pasa a cada escéptico truncado a 4000 chars</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>aplican a todos los nodos (rol <code>skeptic</code>)</td>
-<td>override global</td>
+<td>no</td>
+<td>override global para el rol <code>skeptic</code> (default: <code>opus</code> / <code>high</code>)</td>
 </tr>
 <tr>
-<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td><code>models[&quot;skeptic&quot;]</code> / <code>efforts[&quot;skeptic&quot;]</code></td>
 <td>object</td>
-<td>rol = <code>&quot;skeptic&quot;</code></td>
-<td>override por rol, precedencia sobre global</td>
+<td>no</td>
+<td>override específico del rol; precedencia por-rol &gt; global &gt; default del call-site</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (+ <code>*ByRole</code>)</td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y <code>*ByRole</code>)</td>
 <td>array</td>
-<td>igual patrón global/por-rol</td>
-<td>pasan al agente skeptic</td>
+<td>no</td>
+<td>pasados al <code>agent</code> skeptic si son arrays</td>
 </tr>
 </tbody></table>
-<p><strong>Output</strong>:</p>
-<pre><code class="language-json">{
-  &quot;verified&quot;: [ /* claims con verification.survived = true */ ],
-  &quot;dropped&quot;: [ /* claims con verification.survived = false */ ],
-  &quot;votes&quot;: [ /* un record por claim: {claim, parsedVotes, failedBranches, refutations, survived} */ ],
-  &quot;coverage&quot;: { &quot;claims&quot;: &quot;&lt;n&gt;&quot;, &quot;skeptics&quot;: &quot;&lt;n&gt;&quot; }
-}
-</code></pre>
-<p>No escribe artifacts en disco (<code>writeArtifact</code> no se usa en este scaffold); todo el output se retorna al caller (típicamente <code>composition-driver</code>).</p>
+<p><strong>Output:</strong> <code>{ verified, dropped, votes, coverage }</code></p>
+<ul>
+<li><code>verified</code>: array de claims (objeto original + <code>verification</code>) que sobrevivieron la mayoría de refutaciones.</li>
+<li><code>dropped</code>: array de claims (mismo shape) que fueron refutadas por mayoría.</li>
+<li><code>votes</code>: un registro por claim procesada — <code>{ claim, parsedVotes, failedBranches, refutations, survived }</code> — incluso para claims que terminaron en <code>verified</code>.</li>
+<li><code>coverage</code>: <code>{ claims: &lt;total procesadas&gt;, skeptics: &lt;tamaño de jurado usado&gt; }</code>.</li>
+</ul>
+<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (recorte de <code>skeptics</code>, progreso por claim) y por el shape de retorno; al ser un sub-workflow de librería, el consumidor (el workflow padre) es quien decide qué persistir.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Verify Claims</strong> — única fase declarada en <code>meta.phases</code>; ejecuta el loop secuencial de claims, cada una resuelta mediante un fan-out paralelo de agentes escépticos con schema <code>VERDICT</code>, y produce <code>verified</code>/<code>dropped</code>/<code>votes</code>/<code>coverage</code> como resultado final.</li>
+<li><strong>Verify Claims</strong> — única fase declarada en <code>meta.phases</code>; cubre todo el trabajo: por cada claim, arma un jurado de escépticos en paralelo, aplica la regla de mayoría estricta con fallo cerrado sobre votos inválidos, y clasifica la claim en <code>verified</code> o <code>dropped</code> antes de pasar a la siguiente.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

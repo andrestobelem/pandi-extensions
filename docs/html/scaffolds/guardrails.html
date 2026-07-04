@@ -125,205 +125,171 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Tripwire barato de entrada/salida que HALTA ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
+<p>Tripwire barato de input/output que HALTA ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>guardrails</code> corre chequeos rápidos y baratos (un agente <code>haiku</code>/<code>low</code> por regla) sobre un texto o sobre la request/respuesta de otro workflow, y HALTA en el momento en que alguna regla se dispara con evidencia clara — en vez de gastar un run completo o entregar un output malo y descubrir el problema después. Elegilo cuando querés poner un límite duro y binario (&quot;esto no puede pasar&quot;) delante o detrás de un workflow, o validar un artifact ya generado contra reglas de PII/seguridad/scope, sin escribir ese chequeo a mano.</p>
+<p><code>guardrails</code> corre chequeos rápidos y acotados (un agente barato por regla) antes y/o después de un trabajo real, y detiene todo apenas uno de esos chequeos &quot;trippea&quot; — en vez de gastar una corrida completa (o entregar un resultado malo) y descubrir el problema después. Elegilo cuando necesitás imponer límites duros baratos alrededor de otro workflow, o validar un artefacto puntual contra un set de reglas.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-bash">/workflow new mi-run --pattern=guardrails
+<pre><code class="language-text">/workflow new mi-run --pattern=guardrails
+/workflow run mi-run {&quot;protect&quot;:{&quot;name&quot;:&quot;deep-research&quot;,&quot;args&quot;:{&quot;request&quot;:&quot;...&quot;}},&quot;inputRules&quot;:[&quot;no pedir generar malware&quot;],&quot;outputRules&quot;:[&quot;no filtrar secretos/API keys&quot;]}
 </code></pre>
-<p>Modo <strong>wrapper</strong> (envuelve otro workflow del catálogo con guards de entrada y salida):</p>
-<pre><code class="language-json">{
-  &quot;protect&quot;: { &quot;name&quot;: &quot;complex-research&quot;, &quot;args&quot;: { &quot;question&quot;: &quot;Estado de la migración a Postgres 16&quot; } },
-  &quot;inputRules&quot;: [&quot;La request no debe pedir credenciales ni secretos&quot;],
-  &quot;outputRules&quot;: [&quot;El resultado no debe citar PII (emails, teléfonos, DNIs)&quot;]
-}
+<p>Modo validador (sin <code>protect</code>, solo chequea un artefacto ya generado):</p>
+<pre><code class="language-text">/workflow run mi-run {&quot;content&quot;:&quot;&lt;texto a validar&gt;&quot;,&quot;rules&quot;:[&quot;no contiene PII sin redactar&quot;]}
 </code></pre>
-<pre><code class="language-bash">/workflow run mi-run &#39;{&quot;protect&quot;:{&quot;name&quot;:&quot;complex-research&quot;,&quot;args&quot;:{&quot;question&quot;:&quot;Estado de la migración a Postgres 16&quot;}},&quot;inputRules&quot;:[&quot;La request no debe pedir credenciales ni secretos&quot;],&quot;outputRules&quot;:[&quot;El resultado no debe citar PII (emails, telefonos, DNIs)&quot;]}&#39;
-</code></pre>
-<p>Modo <strong>validador</strong> (sin <code>protect</code>, solo evalúa un <code>content</code> ya existente contra <code>rules</code>):</p>
-<pre><code class="language-json">{
-  &quot;content&quot;: &quot;El informe final incluye el email juan.perez@empresa.com como contacto&quot;,
-  &quot;rules&quot;: [&quot;El texto no debe contener direcciones de email&quot;]
-}
-</code></pre>
+<p><code>content</code>/<code>protect</code> son mutuamente relevantes según el modo — ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Start(["input: content? / protect?"]) --&gt; Mode{"protect presente?"}
+    A["Input: content|protect, rules/inputRules/outputRules, strict=false"] --&gt; B{"protect presente?"}
 
-    Mode --&gt;|"No -&gt; VALIDATOR"| VPhase["phase: Output"]
-    VPhase --&gt; VChecks["checks = outputRules || inputRules || rules"]
-    VChecks --&gt; VGuards["runGuards(output, output-guard, content, checks)"]
+    B --&gt;|"no (VALIDATOR)"| C["Phase: Output"]
+    C --&gt; D["checks = outputRules -&gt; inputRules -&gt; rules (primero no-vacío)"]
+    D --&gt; E["runGuards(output, content, checks)"]
 
-    subgraph VGuardFanOut ["parallel guard fan-out (settle)"]
-        VG1["agent guard rule 1 (haiku, low, schema GUARD)"]
-        VG2["agent guard rule 2"]
-        VGn["agent guard rule N"]
+    subgraph GFAN1["fan-out de guards (parallel + settle)"]
+        G1["agent output-guard haiku·low\nregla 1 -&gt; {tripped,reason,evidence}"]
+        G2["agent output-guard haiku·low\nregla 2 -&gt; ..."]
+        G3["agent output-guard haiku·low\nregla N -&gt; ..."]
     end
-    VGuards --&gt; VGuardFanOut
-    VGuardFanOut --&gt; VDecide{"algún tripped?"}
-    VDecide --&gt;|"si"| VTripped(["return status: TRIPPED, stage: validate"])
-    VDecide --&gt;|"no"| VPass(["return status: PASS, stage: validate"])
+    E --&gt; GFAN1
+    GFAN1 --&gt; F{"algun guard tripped?"}
+    F --&gt;|"sí"| F1["return TRIPPED (stage=validate)"]
+    F --&gt;|"no"| F2["return PASS (stage=validate)"]
 
-    Mode --&gt;|"Si -&gt; WRAPPER"| IPhase["phase: Input"]
-    IPhase --&gt; IGuards["runGuards(input, input-guard, content ?? protect.args, inputRules || rules)"]
+    B --&gt;|"sí (WRAPPER)"| H["Phase: Input"]
+    H --&gt; I["runGuards(input, content ?? protect.args, inputRules|rules)"]
 
-    subgraph IGuardFanOut ["parallel guard fan-out (settle)"]
-        IG1["agent guard rule 1"]
-        IGn["agent guard rule N"]
+    subgraph GFAN2["fan-out de guards (parallel + settle)"]
+        GI1["agent input-guard haiku·low\nregla 1"]
+        GI2["agent input-guard haiku·low\nregla 2"]
     end
-    IGuards --&gt; IGuardFanOut
-    IGuardFanOut --&gt; IDecide{"algún tripped?"}
-    IDecide --&gt;|"si -&gt; STOP, no ejecuta el trabajo"| ITripped(["return status: TRIPPED, stage: input, ranWork: false"])
-    IDecide --&gt;|"no"| RPhase["phase: Run"]
+    I --&gt; GFAN2
+    GFAN2 --&gt; J{"algun input guard tripped?"}
+    J --&gt;|"sí"| J1["return TRIPPED (stage=input, ranWork=false)\nNO se corre el workflow protegido"]
+    J --&gt;|"no"| K["Phase: Run"]
 
-    RPhase --&gt; RunWF["workflow(protect.name, protect.args ?? { request: content })"]
-    RunWF --&gt;|"throw"| RError(["return status: ERROR, stage: run"])
-    RunWF --&gt;|"output == null"| RNull(["return status: ERROR, stage: run (protected workflow produced null)"])
-    RunWF --&gt;|"output ok"| OPhase["phase: Output"]
+    K --&gt; L["output = workflow(protect.name, protect.args)"]
+    L --&gt; M{"throw / null?"}
+    M --&gt;|"throw"| M1["return ERROR (stage=run)"]
+    M --&gt;|"output null"| M2["return ERROR: protected workflow produjo null"]
+    M --&gt;|"ok"| N["Phase: Output"]
 
-    OPhase --&gt; OGuards["runGuards(output, output-guard, outText, outputRules)"]
-
-    subgraph OGuardFanOut ["parallel guard fan-out (settle)"]
-        OG1["agent guard rule 1"]
-        OGn["agent guard rule N"]
+    N --&gt; O["runGuards(output, outText, outputRules)"]
+    subgraph GFAN3["fan-out de guards (parallel + settle)"]
+        GO1["agent output-guard haiku·low\nregla 1"]
+        GO2["agent output-guard haiku·low\nregla N"]
     end
-    OGuards --&gt; OGuardFanOut
-    OGuardFanOut --&gt; ODecide{"algún tripped?"}
-    ODecide --&gt;|"si"| OTripped(["return status: TRIPPED, stage: output, output incluido"])
-    ODecide --&gt;|"no"| OPass(["return status: PASS, protect.name, inputChecks, outputChecks, output"])</pre>
+    O --&gt; GFAN3
+    GFAN3 --&gt; P{"algun output guard tripped?"}
+    P --&gt;|"sí"| P1["return TRIPPED (stage=output)\ncon el output ya generado"]
+    P --&gt;|"no"| Q["return PASS con output + inputChecks/outputChecks"]</pre>
 <h2>Qué hace</h2>
-<p><code>guardrails</code> implementa el patrón de &quot;input/output guardrails&quot; del OpenAI Agents SDK. Cada guard es un agente barato (<code>haiku</code>, <code>effort: low</code>) que evalúa <strong>una sola regla</strong> contra el contenido y devuelve un veredicto tipado <code>{ tripped, reason, evidence }</code>; los guards de una misma etapa corren en paralelo con <code>settle</code>, así un guard que crashea no tumba a los demás. El scaffold tiene dos modos que comparten la misma función <code>runGuards</code>: <strong>WRAPPER</strong> (envuelve la ejecución de otro workflow con guards de entrada antes y guards de salida después) y <strong>VALIDATOR</strong> (evalúa un <code>content</code> ya existente contra reglas y devuelve PASS/TRIPPED, sin ejecutar ningún workflow).</p>
-<p>Casos de uso concretos: gate de scope/seguridad antes de correr un agente (guards de entrada sobre la request), chequeo de PII/secretos sobre un output ya generado (modo validador), envolver un workflow del catálogo con tripwires de entrada y salida, o enforcement barato de límites duros sin gastar el presupuesto completo si el input ya es inválido.</p>
-<p><strong>Seguridad — anti prompt-injection.</strong> Todo el contenido a evaluar se envuelve con <code>fence()</code>, un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;...&lt;/untrusted-HASH&gt;</code> cuyo tag se deriva de un hash FNV-like del propio contenido (sin <code>Math.random</code>/<code>Date.now</code>, prohibidos en el runtime). Un payload malicioso no puede &quot;escapar&quot; el delimitador insertando su propio cierre falso, porque cualquier cambio en el contenido cambia el hash y por lo tanto el tag esperado. El prompt de cada guard además instruye ignorar cualquier instrucción embebida en esa zona (&quot;ignore previous&quot;, cambios de rol o de esquema, etc.), tratándola como contenido sospechoso a reportar, no a obedecer.</p>
-<p><strong>Fallos parciales.</strong> Un guard que crashea (<code>null</code> o sin <code>tripped</code> boolean) se registra como <code>failed: true</code> y, por defecto, se trata como <strong>no disparado</strong> (modo laxo, para que infraestructura inestable no frene trabajo bueno); con <code>strict:true</code> el comportamiento se invierte a fail-closed (un guard caído cuenta como disparado). No hay caching — cada corrida re-evalúa todas las reglas.</p>
+<p><code>guardrails</code> implementa el patrón de guardrails de entrada/salida de la OpenAI Agents SDK: correr chequeos baratos y acotados en paralelo con (o alrededor de) el trabajo real, y detenerse temprano apenas uno se dispara, en vez de descubrir el problema al final. Cada regla se evalúa con un agente independiente (<code>haiku</code>, effort <code>low</code>) que debe devolver un veredicto tipado (<code>tripped</code>, <code>reason</code>, <code>evidence</code>) citando la evidencia exacta — nunca disparar por estilo o incertidumbre, solo ante una violación clara y evidenciada.</p>
+<p>El scaffold tiene dos modos. En modo <strong>wrapper</strong> (<code>protect:{name,args}</code>) actúa como front-end/back-end de cualquier workflow del catálogo: primero corre los guards de INPUT sobre la solicitud (si alguno trippea, ni siquiera se ejecuta el workflow protegido, ahorrando todo el costo); si pasan, corre el workflow real; y finalmente corre los guards de OUTPUT sobre el resultado antes de confiarlo/devolverlo. En modo <strong>validador</strong> (sin <code>protect</code>) simplemente chequea un <code>content</code> ya existente contra un set de reglas y devuelve PASS/TRIPPED — útil para gatear un output que ya generaste por otro medio.</p>
+<p>A diferencia de <code>contract-gate</code> (que construye un contrato completo de tarea y decide ask-vs-proceed antes de rutear), <code>guardrails</code> es deliberadamente más liviano y corre en los bordes de la ejecución: un tripwire binario a la entrada (¿esto está en scope/es seguro de correr?) y a la salida (¿el resultado viola una regla?). Ambos componen: <code>contract-gate</code> puede decidir el scope, y el workflow elegido puede envolverse en <code>guardrails</code> para el enforcement barato.</p>
 <h2>Cuándo usarlo</h2>
-<table>
-<thead>
-<tr>
-<th>Necesitás...</th>
-<th>Usá</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Un tripwire binario, barato, en los bordes de un workflow ya elegido</td>
-<td><code>guardrails</code></td>
-</tr>
-<tr>
-<td>Decidir/scopear una tarea abierta antes de rutear</td>
-<td><code>contract-gate</code></td>
-</tr>
-<tr>
-<td>Elegir automáticamente qué workflow correr</td>
-<td><code>router</code></td>
-</tr>
-<tr>
-<td>Reglas de estilo o juicio subjetivo (no violaciones binarias evidenciables)</td>
-<td>otro patrón — un guard no dispara ante incertidumbre</td>
-</tr>
-</tbody></table>
+<ul>
+<li>Gate de scope/seguridad antes de correr un agente (caso de catálogo).</li>
+<li>Chequeo de PII/secretos sobre un output ya generado (caso de catálogo).</li>
+<li>Envolver un workflow elegido con tripwires de input/output (caso de catálogo).</li>
+<li>Enforcement de límites duros y baratos alrededor de CUALQUIER workflow, sin tocar su código.</li>
+</ul>
+<p>No usarlo cuando:</p>
+<ul>
+<li>Necesitás decidir SI vale la pena correr algo y con qué alcance antes de rutear — eso es <code>contract-gate</code>.</li>
+<li>El chequeo requiere razonamiento profundo o comparación entre alternativas (los guards son deliberadamente baratos y binarios, no jueces de calidad).</li>
+<li>No tenés reglas concretas y citables — sin al menos una regla, el modo validador lanza error explícito.</li>
+</ul>
 <h2>Cómo funciona</h2>
-<p>El scaffold declara tres fases (<code>Input</code>, <code>Run</code>, <code>Output</code>) pero solo recorre las que corresponden al modo activo.</p>
-<p><strong>Preparación (sin fase declarada):</strong> parsea <code>args</code> como JSON, define helpers <code>compact</code> (trunca texto largo a 60k chars) y <code>fence</code> (delimitador anti-injection basado en hash), resuelve overrides de modelo/effort/tools/skills por rol vía <code>node(role, extra)</code>, y valida que exista <code>content</code> o <code>protect</code>, y al menos un set de reglas si no hay <code>protect</code>.</p>
-<p><strong><code>runGuards(stage, role, text, ruleList)</code></strong> es la función compartida por ambos modos:</p>
-<ol>
-<li>Si <code>ruleList</code> está vacía, no corre nada (<code>{ tripped: [], all: [], ran: 0 }</code>).</li>
-<li>Clampa <code>ruleList</code> a <code>MAX_GUARDS = 4096</code>.</li>
-<li>Fija <code>phase(&quot;Input&quot;)</code> o <code>phase(&quot;Output&quot;)</code> según <code>stage</code>.</li>
-<li>Lanza <code>parallel(...)</code> con un <code>agent(...)</code> por regla — schema <code>GUARD</code> (<code>tripped</code>/<code>reason</code>/<code>evidence</code> obligatorios), modelo <code>haiku</code>, <code>effort: &quot;low&quot;</code>, contenido envuelto con <code>fence(&quot;candidate&quot;, ...)</code>.</li>
-<li>Normaliza veredictos: los que no traen <code>tripped: boolean</code> se marcan <code>failed:true</code> y se resuelven a <code>tripped=strict</code> (por defecto <code>false</code>).</li>
-<li>Loguea cuántos guards fallaron y cuántos se dispararon; devuelve <code>{ tripped, all, ran }</code>.</li>
-</ol>
-<p><strong>Modo VALIDATOR (sin <code>protect</code>):</strong></p>
-<ol>
-<li><code>phase(&quot;Output&quot;)</code>.</li>
-<li><code>checks = outputRules || inputRules || rules</code> (primer set no vacío).</li>
-<li>Corre <code>runGuards(&quot;output&quot;, &quot;output-guard&quot;, content, checks)</code>.</li>
-<li>Si algo se disparó: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;validate&quot;, tripped, checks, content: compact(...) }</code>.</li>
-<li>Si no: <code>{ status: &quot;PASS&quot;, stage: &quot;validate&quot;, checks }</code>.</li>
-</ol>
-<p><strong>Modo WRAPPER (<code>protect: { name, args }</code>):</strong></p>
-<ol>
-<li><strong>Fase Input</strong> — corre <code>runGuards(&quot;input&quot;, &quot;input-guard&quot;, content ?? protect.args, inputRules || rules)</code> sobre la request. Si algo dispara: STOP inmediato, <code>{ status: &quot;TRIPPED&quot;, stage: &quot;input&quot;, protect: protect.name, tripped, ranWork: false }</code> — el workflow protegido <strong>nunca se ejecuta</strong>.</li>
-<li><strong>Fase Run</strong> — si el input pasó, corre <code>workflow(protect.name, protect.args ?? { request: content })</code>. Si lanza excepción: <code>{ status: &quot;ERROR&quot;, stage: &quot;run&quot;, error }</code>. Si devuelve <code>null</code>/<code>undefined</code>: <code>{ status: &quot;ERROR&quot;, stage: &quot;run&quot;, error: &quot;produced null (skipped or died)&quot; }</code>.</li>
-<li><strong>Fase Output</strong> — corre <code>runGuards(&quot;output&quot;, &quot;output-guard&quot;, outText, outputRules)</code> sobre el resultado (<code>outText</code> es el output tal cual si es string, o <code>compact(output, 40000)</code> si es objeto). Si algo dispara: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;output&quot;, protect: protect.name, tripped, output }</code> (el output se devuelve igual, para inspección, pero marcado como no confiable). Si no: <code>{ status: &quot;PASS&quot;, protect: protect.name, inputChecks, outputChecks, output }</code>.</li>
-</ol>
-<p>No hay caching ni artifacts persistidos; todo el estado vive en el valor de retorno del run.</p>
+<p><strong>Parseo de input y validación temprana.</strong> El <code>args</code> se parsea defensivamente (JSON o ya-objeto); si falla, cae a <code>{}</code>. Se resuelve <code>content</code> desde varios alias (<code>content</code>/<code>request</code>/<code>text</code>/<code>output</code>/<code>input</code>), se detecta <code>protect</code> (objeto con <code>name</code>), y <code>strict</code> (default <code>false</code>, fail-open: un guard que crashea NO cuenta como tripped a menos que <code>strict:true</code>, fail-closed). Si no hay <code>content</code> ni <code>protect</code>, o si no hay ninguna regla (<code>rules</code>/<code>inputRules</code>/<code>outputRules</code>) cuando no se envuelve un workflow, lanza un <code>Error</code> explícito de inmediato — sin fase, sin fan-out.</p>
+<p><strong>Fencing anti-inyección.</strong> Todo contenido a evaluar se envuelve con <code>fence(kind, data)</code>: un delimitador cuyo tag se deriva de un hash FNV-like del contenido, así un payload malicioso no puede forjar el marcador de cierre (insertarlo cambiaría el hash). El prompt de cada guard instruye explícitamente ignorar cualquier directiva dentro de esa zona fenced (cambios de rol, intentos de steering del veredicto) y tratarla como contenido a reportar, no a obedecer.</p>
+<p><strong><code>runGuards(stage, role, text, ruleList)</code> — el corazón del scaffold.</strong> Clampa la lista de reglas a <code>MAX_GUARDS=4096</code> (logueando si recorta). Lanza un <code>agent</code> por regla en <code>parallel</code>, cada uno con <code>schema: GUARD</code> (objeto tipado <code>{tripped, reason, evidence}</code>), modelo <code>haiku</code>, effort <code>low</code>, rol <code>input-guard</code>/<code>output-guard</code> y fase <code>Input</code>/<code>Output</code> según el stage. Tras el fan-out (settle implícito: un guard fallido llega como <code>null</code>), cada verdicto ausente/mal formado se normaliza a <code>{tripped: strict, reason: &quot;guard failed -&gt; ...&quot;, evidence: &quot;INSUFFICIENT_EVIDENCE&quot;, failed: true}</code> — es decir, fail-open por default, fail-closed bajo <code>strict</code>. Se loguea cuántos guards fallaron y cuántos trippearon.</p>
+<p><strong>Modo validador.</strong> Fase única <code>Output</code>. Resuelve <code>checks</code> como el primer set no vacío entre <code>outputRules</code>, <code>inputRules</code>, <code>rules</code> (en ese orden), corre <code>runGuards</code> una vez, y retorna <code>{status: &quot;PASS&quot;|&quot;TRIPPED&quot;, stage: &quot;validate&quot;, ...}</code>.</p>
+<p><strong>Modo wrapper — fase Input.</strong> Corre los guards de entrada sobre <code>content ?? protect.args</code> usando <code>inputRules</code> (o <code>rules</code> como fallback). Si alguno trippea, retorna de inmediato <code>{status:&quot;TRIPPED&quot;, stage:&quot;input&quot;, ranWork:false}</code> <strong>sin llamar nunca</strong> al workflow protegido — el ahorro central del patrón.</p>
+<p><strong>Modo wrapper — fase Run.</strong> Llama <code>workflow(protect.name, protect.args ?? {request: content})</code> dentro de un <code>try/catch</code>. Una excepción se captura y retorna como <code>{status:&quot;ERROR&quot;, stage:&quot;run&quot;, error}</code>; un resultado <code>null</code> (workflow saltado o muerto) también se reporta como <code>ERROR</code> explícito, nunca se propaga silenciosamente.</p>
+<p><strong>Modo wrapper — fase Output.</strong> Compacta el output (string tal cual, u objeto serializado y truncado a 40000 chars vía <code>compact</code>) y corre los guards de salida con <code>outputRules</code>. Si alguno trippea, retorna <code>{status:&quot;TRIPPED&quot;, stage:&quot;output&quot;, output}</code> — el output generado se incluye igual, para inspección, pero marcado como no confiable. Si pasa, retorna <code>{status:&quot;PASS&quot;, protect: protect.name, inputChecks, outputChecks, output}</code>.</p>
+<p><strong>Caching:</strong> no hay mecanismo de caché explícito; cada guard es un <code>agent</code> fresco por regla y por fan-out.</p>
+<p><strong>Fallos parciales:</strong> todos los fan-outs usan <code>parallel</code> + settle (nulls filtrados/normalizados post-hoc, nunca una excepción sin manejar); el comportamiento ante un guard caído es configurable con <code>strict</code> (fail-open por default, fail-closed opcional). El workflow protegido en sí se envuelve en <code>try/catch</code> explícito.</p>
 <h2>Input y output</h2>
-<p>Input (<code>args</code>), todo opcional salvo lo indicado:</p>
+<p><strong>Input</strong> (JSON-stringified en <code>args</code>):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default / Nota</th>
+<th>Requerido</th>
+<th>Default / notas</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>content</code> / <code>request</code> / <code>text</code> / <code>output</code> / <code>input</code></td>
-<td>string/objeto</td>
-<td>primer valor no-null de esos alias; contenido a validar (modo validador) o dato adicional para input-guards en modo wrapper</td>
+<td>any</td>
+<td>uno de estos, o <code>protect</code></td>
+<td>primer alias no-nulo encontrado; el <code>content</code> a validar/proteger</td>
 </tr>
 <tr>
 <td><code>protect</code></td>
-<td><code>{ name, args }</code></td>
-<td>si está presente y <code>protect.name</code> es válido, activa modo WRAPPER; si no, modo VALIDATOR</td>
+<td><code>{name, args}</code></td>
+<td>sí, para modo wrapper</td>
+<td>objeto con <code>name</code> string; si falta, modo validador</td>
 </tr>
 <tr>
 <td><code>strict</code></td>
 <td>boolean</td>
-<td><code>false</code> — si <code>true</code>, un guard que crashea cuenta como disparado (fail-closed)</td>
+<td>no</td>
+<td>default <code>false</code> (fail-open); <code>true</code> = un guard caído cuenta como tripped</td>
 </tr>
 <tr>
 <td><code>rules</code></td>
-<td><code>string[]</code></td>
-<td>fallback de reglas para el validador y para <code>outputRules</code> si no se especifica</td>
+<td>string[]</td>
+<td>ver abajo</td>
+<td>fallback para checks del validador y para <code>outputRules</code> si no se especifica</td>
 </tr>
 <tr>
 <td><code>inputRules</code></td>
-<td><code>string[]</code></td>
-<td>reglas para guards de entrada (wrapper); si vacío usa <code>rules</code></td>
+<td>string[]</td>
+<td>no</td>
+<td>reglas de entrada (wrapper); cae a <code>rules</code> si vacío</td>
 </tr>
 <tr>
 <td><code>outputRules</code></td>
-<td><code>string[]</code></td>
-<td>reglas para guards de salida; si vacío usa <code>rules</code></td>
+<td>string[]</td>
+<td>no</td>
+<td>reglas de salida (ambos modos); cae a <code>rules</code> si vacío</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>overrides globales de modelo/reasoning-effort para todos los nodos</td>
+<td>no</td>
+<td>override global para todo guard</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
-<td>objeto</td>
-<td>overrides por rol (<code>input-guard</code>, <code>output-guard</code>); precedencia: por-rol &gt; global &gt; default de llamada (<code>haiku</code>/<code>low</code>)</td>
+<td>object</td>
+<td>no</td>
+<td>override por rol (<code>input-guard</code>, <code>output-guard</code>)</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>toolsByRole</code>, <code>skills</code> / <code>skillsByRole</code>, <code>excludeTools</code> / <code>excludeByRole</code></td>
-<td>array/objeto</td>
-<td>overrides de tools/skills por rol o global</td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y <code>*ByRole</code>)</td>
+<td>array</td>
+<td>no</td>
+<td>pasados a cada <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
-<p>Validaciones que lanzan error:</p>
+<p>Reglas de validez: sin <code>content</code> ni <code>protect</code> → error inmediato. Sin <code>protect</code> y sin ninguna regla (<code>rules</code>/<code>inputRules</code>/<code>outputRules</code>) → error explícito (&quot;Validator mode needs at least one rule...&quot;).</p>
+<p><strong>Output:</strong></p>
 <ul>
-<li>Sin <code>content</code> y sin <code>protect</code> → <code>&quot;Pass { content } to validate, or { protect: { name, args } } to wrap a workflow.&quot;</code></li>
-<li>Modo validador sin ninguna regla (<code>rules</code>/<code>inputRules</code>/<code>outputRules</code> todos vacíos) → <code>&#39;Validator mode needs at least one rule: pass { rules: [...] } (or inputRules/outputRules).&#39;</code></li>
+<li>Validador: <code>{status: &quot;PASS&quot;|&quot;TRIPPED&quot;, stage: &quot;validate&quot;, tripped?, checks, content?}</code> (<code>content</code> solo si <code>TRIPPED</code>, truncado a 20000 chars).</li>
+<li>Wrapper, tripwire de input: <code>{status: &quot;TRIPPED&quot;, stage: &quot;input&quot;, protect: name, tripped, ranWork: false}</code>.</li>
+<li>Wrapper, error del workflow protegido: <code>{status: &quot;ERROR&quot;, stage: &quot;run&quot;, protect: name, error}</code>.</li>
+<li>Wrapper, tripwire de output: <code>{status: &quot;TRIPPED&quot;, stage: &quot;output&quot;, protect: name, tripped, output}</code>.</li>
+<li>Wrapper, éxito: <code>{status: &quot;PASS&quot;, protect: name, inputChecks, outputChecks, output}</code>.</li>
 </ul>
-<p>Clamp interno: <code>MAX_GUARDS = 4096</code> reglas por lista de guards (recorta con log si se excede).</p>
-<p>Output — objeto simple según rama alcanzada, sin <code>writeArtifact</code> (este scaffold no persiste artifacts, todo va en el valor de retorno):</p>
-<ul>
-<li>Validador: <code>{ status: &quot;PASS&quot;|&quot;TRIPPED&quot;, stage: &quot;validate&quot;, checks, tripped?, content? }</code>.</li>
-<li>Wrapper, tripwire de entrada: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;input&quot;, protect, tripped, ranWork: false }</code>.</li>
-<li>Wrapper, error al correr el workflow protegido: <code>{ status: &quot;ERROR&quot;, stage: &quot;run&quot;, protect, error }</code>.</li>
-<li>Wrapper, éxito: <code>{ status: &quot;PASS&quot;, protect, inputChecks, outputChecks, output }</code>.</li>
-<li>Wrapper, tripwire de salida: <code>{ status: &quot;TRIPPED&quot;, stage: &quot;output&quot;, protect, tripped, output }</code>.</li>
-</ul>
+<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (guards fallidos/trippeados, tripwires disparados, errores del workflow protegido) y por el shape de retorno.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Input</strong> — guards de entrada sobre la request (solo modo wrapper); si dispara, detiene todo antes de gastar presupuesto en el trabajo real.</li>
-<li><strong>Run</strong> — ejecución del workflow protegido (<code>workflow(protect.name, protect.args)</code>), único lugar donde se gasta presupuesto real (solo modo wrapper).</li>
-<li><strong>Output</strong> — guards de salida sobre el resultado (wrapper) o sobre el <code>content</code> recibido (validador); si dispara, marca el resultado como no confiable.</li>
+<li><strong>Input</strong> — (solo modo wrapper) corre los guards sobre la solicitud/<code>protect.args</code>; si alguno trippea, HALTA sin ejecutar el workflow protegido.</li>
+<li><strong>Run</strong> — (solo modo wrapper) ejecuta <code>workflow(protect.name, protect.args)</code> bajo <code>try/catch</code>, tratando <code>null</code>/excepción como error explícito.</li>
+<li><strong>Output</strong> — corre los guards sobre el resultado (wrapper) o sobre <code>content</code> (validador); si alguno trippea, HALTA devolviendo el resultado marcado como no confiable.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

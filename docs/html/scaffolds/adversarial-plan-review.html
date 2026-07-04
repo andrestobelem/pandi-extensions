@@ -128,64 +128,104 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>N revisores de ángulo fijo (corrección, seguridad, mantenibilidad, alcance) sintetizan un plan revisado.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Es un &quot;code review adversarial&quot; para un plan de implementación: 4 agentes independientes lo atacan cada uno desde un ángulo distinto (corrección, seguridad, mantenibilidad, alcance) y un quinto agente de alto esfuerzo sintetiza sus críticas en un plan revisado. Elegilo como gate antes de implementar un cambio no trivial, cuando querés cobertura sistemática de esos 4 ángulos fijos sobre UN solo artefacto de texto (no para comparar alternativas entre sí, ni para votar entre caminos de razonamiento).</p>
+<p>Este scaffold revisa un plan de implementación desde cuatro ángulos
+independientes en paralelo (corrección, seguridad, mantenibilidad, alcance) y
+un agente de síntesis fusiona las críticas en un plan revisado. Elegilo
+cuando querés someter un plan a estrés antes de construirlo — un gate previo
+a la implementación, no un reemplazo del juicio humano.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=adversarial-plan-review
-/workflow run mi-run {&quot;plan&quot;: &quot;1. Migrar tabla X a esquema Y...\n2. Backfill con job nocturno...&quot;}
+<pre><code>/workflow new revision-plan --pattern=adversarial-plan-review
 </code></pre>
-<p><code>plan</code> (alias <code>text</code>) es el único campo obligatorio; ver <a href="#input-y-output">Input y output</a> para overrides opcionales (<code>model</code>, <code>models</code>, <code>tools</code>, etc.).</p>
+<p>Input típico (JSON):</p>
+<pre><code class="language-json">{
+  &quot;plan&quot;: &quot;1. Agregar tabla users_v2...\n2. Migrar lecturas...\n3. Borrar tabla vieja...&quot;
+}
+</code></pre>
+<p>También acepta <code>input.text</code> como alias de <code>plan</code>. Ambos son requeridos: si
+falta, el workflow lanza <code>Pass { plan: &quot;...&quot; } as workflow input.</code>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Input["Input: plan / text"] --&gt; Bound["compact(plan, 40000)"]
-    Bound --&gt; Fanout["parallel settle: 4 reviewers"]
+    A["Input: plan (o text)"] --&gt; B["compact plan a 40000 chars"]
+    B --&gt; C["parallel(settle) fan-out: 4 reviewers"]
 
-    subgraph Review["Fase Review - en paralelo, settle semantics"]
-        R1["agent: correctness-reviewer&lt;br/&gt;sonnet / medium"]
-        R2["agent: security-reviewer&lt;br/&gt;sonnet / medium"]
-        R3["agent: maintainability-reviewer&lt;br/&gt;sonnet / medium"]
-        R4["agent: scope-reviewer&lt;br/&gt;sonnet / medium"]
+    subgraph Review["Fase Review — sonnet, effort medium"]
+        C --&gt; R1["correctness-reviewer"]
+        C --&gt; R2["security-reviewer"]
+        C --&gt; R3["maintainability-reviewer"]
+        C --&gt; R4["scope-reviewer"]
     end
 
-    Fanout --&gt; R1
-    Fanout --&gt; R2
-    Fanout --&gt; R3
-    Fanout --&gt; R4
+    R1 --&gt; D["filter(Boolean): descartar branches fallidas o vacias"]
+    R2 --&gt; D
+    R3 --&gt; D
+    R4 --&gt; D
 
-    R1 --&gt; Filter["filter(Boolean): descarta null/vacios"]
-    R2 --&gt; Filter
-    R3 --&gt; Filter
-    R4 --&gt; Filter
-
-    Filter --&gt; Gate{"completedCritiques.length === 0?"}
-    Gate -- "si, todos fallaron" --&gt; Insufficient["return INSUFFICIENT_EVIDENCE&lt;br/&gt;(sin sintesis)"]
-    Gate -- "no, hay al menos 1" --&gt; Compact2["compact(critiques, 60000)"]
-    Compact2 --&gt; Synth["Fase Synthesize: agent plan-synthesis&lt;br/&gt;opus / high&lt;br/&gt;synthesis-as-judge"]
-    Synth --&gt; Output["Output: markdown revised plan&lt;br/&gt;(prosa, terminal)"]</pre>
+    D --&gt; E{"completedCritiques.length == 0?"}
+    E --&gt;|si| F["return INSUFFICIENT_EVIDENCE"]
+    E --&gt;|no| G["compact critiques a 60000 chars"]
+    G --&gt; H["Synthesis: opus, effort high"]
+    H --&gt; I["Revised plan + must-fix + deferred + riesgos + checklist + coverage gaps"]</pre>
 <h2>Qué hace</h2>
-<p>Cuatro agentes independientes critican el mismo plan en paralelo, sin comunicación entre ellos y sin editar archivos: el objetivo es encontrar razones para NO enviar el plan tal cual, antes de invertir esfuerzo de implementación (los detalles de settle-semantics, el gate de cobertura y la síntesis-como-juez están en <a href="#c%C3%B3mo-funciona">Cómo funciona</a>). El plan y las críticas —todo contenido no confiable— se envuelven con un delimitador derivado de un hash del propio contenido (<code>fence()</code>), para que un plan malicioso no pueda falsificar el cierre del delimitador e inyectar instrucciones a los agentes downstream.</p>
+<p>El scaffold implementa el patrón &quot;fan-out adversarial + síntesis como juez&quot;:
+cuatro agentes revisores, cada uno con un ángulo fijo y sin visibilidad de los
+otros, critican el mismo plan de forma independiente y en paralelo. Cada
+revisor recibe la instrucción explícita de que su crítica debe ser útil
+incluso si los demás fallan, reforzando la independencia del ángulo.</p>
+<p>Las ejecuciones usan <code>parallel</code> con semántica de <em>settle</em>: una rama que falla
+resuelve a <code>null</code> en vez de rechazar la promesa completa, así un revisor caído
+no tira abajo la revisión entera. Después del fan-out se filtran los <code>null</code>
+(fallos o salidas vacías) y se cuenta cuántos revisores completaron vs.
+fallaron; ese conteo de cobertura se inyecta como dato explícito en el prompt
+de síntesis para que el juez pueda dar cuenta de las ramas muertas.</p>
+<p>Si los cuatro revisores fallan o devuelven vacío, el workflow corta antes de
+sintetizar y devuelve <code>INSUFFICIENT_EVIDENCE</code> — nunca sintetiza &quot;de la nada&quot;.
+Con al menos una crítica completada, un único agente de síntesis (modelo
+<code>opus</code>, effort <code>high</code>) fusiona, deduplica, resuelve contradicciones, descarta
+afirmaciones no soportadas (salvo que estén marcadas como especulativas) y
+produce el plan revisado final en formato prosa/markdown libre.</p>
+<p>Tanto el plan de entrada como las críticas se envuelven con <code>fence(...)</code>, un
+delimitador derivado por hash del contenido mismo: un payload malicioso no
+puede falsificar el marcador de cierre porque insertarlo cambiaría el hash.
+Esto neutraliza intentos de inyección de instrucciones dentro del plan o las
+críticas (cambios de rol, manipulación de veredicto, &quot;ignore previous&quot;, etc.),
+que se tratan siempre como datos a analizar, nunca como órdenes.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Revisión de diseño / RFC antes de aprobarlo.</li>
-<li>Gate previo a la implementación de un cambio.</li>
-<li>Buscar activamente razones para NO enviar un plan (adversarial, no complaciente).</li>
-<li>Cuando querés cobertura de varios ángulos fijos (no descubiertos dinámicamente) sobre un único artefacto textual.</li>
-</ul>
-<p>No usarlo cuando:</p>
-<ul>
-<li>No hay un plan/texto concreto para revisar (el input es obligatorio: <code>plan</code> o <code>text</code>).</li>
-<li>Se necesita comparar varias alternativas entre sí (usar <code>tournament</code> o <code>judge-escalate</code>).</li>
-<li>Se busca consenso por votación sobre múltiples caminos de razonamiento (usar <code>self-consistency</code>).</li>
-<li>El costo de 4 revisores + 1 síntesis de alto esfuerzo (opus/high) no se justifica para un cambio trivial.</li>
+<li>Revisión de diseño/RFC antes de implementar.</li>
+<li>Gate previo a la implementación de un plan.</li>
+<li>Buscar activamente razones para NO enviar un plan tal cual está.</li>
+<li><strong>No usarlo</strong> para revisar código ya escrito (usá un scaffold orientado a
+revisión de diffs/PRs) ni cuando el plan es trivial y no justifica 5
+llamadas a agentes (4 revisores + 1 síntesis).</li>
 </ul>
 <h2>Cómo funciona</h2>
-<p><strong>Fase Review</strong> (<code>parallel</code>, settle):
-El workflow define 4 roles fijos —<code>correctness-reviewer</code>, <code>security-reviewer</code>, <code>maintainability-reviewer</code>, <code>scope-reviewer</code>— cada uno con su &quot;angle&quot; textual. Cada uno corre como una llamada <code>agent(...)</code> independiente dentro de <code>parallel(thunks)</code>, con modelo <code>sonnet</code> y esfuerzo <code>medium</code> por defecto (overrideable per-rol vía <code>input.models</code>/<code>input.efforts</code>/<code>input.model</code>/<code>input.effort</code>). Cada agente recibe el mismo <code>sharedContract</code>: no editar archivos, no asumir que otro reviewer cubre lo que falta, citar archivos/líneas si el plan referencia código, separar hallazgos confirmados de riesgos especulativos, decir <code>INSUFFICIENT_EVIDENCE</code> si falta evidencia, y un formato de salida fijo (Verdict / Must-fix / Should-fix / Questions / Smallest safe path). El plan se pasa fenceado como dato no confiable, con instrucción explícita de ignorar cualquier directiva embebida en él.</p>
-<p>Cada thunk post-procesa su resultado: si el output es <code>null</code> o string vacío, se convierte en <code>null</code>; si no, se envuelve como <code>{ name, output }</code>. Esto es lo que permite el <code>filter(Boolean)</code> posterior para descartar ramas fallidas/vacías sin perder la forma esperada por la síntesis.</p>
-<p><strong>Gate de cobertura</strong>: se cuenta <code>completedCritiques.length</code> vs <code>failed = critiques.length - completedCritiques.length</code>. Si <code>completedCritiques.length === 0</code> (los 4 fallaron o vinieron vacíos), el workflow no llama a síntesis y retorna directamente <code>&quot;INSUFFICIENT_EVIDENCE: all reviewers failed or returned empty...&quot;</code>.</p>
-<p><strong>Fase Synthesize</strong> (<code>agent</code>, sin schema — free text):
-Si hay al menos una crítica completada, se compactan (<code>compact(..., 60000)</code>) y se pasan fenceadas al agente de síntesis (<code>plan-synthesis</code>, modelo <code>opus</code>, esfuerzo <code>high</code>). El prompt aplica el patrón &quot;synthesis-as-judge&quot;: deduplicar, resolver contradicciones, descartar afirmaciones sin soporte salvo marcadas como especulativas, preservar riesgos aceptados, y mencionar explícitamente los reviewers fallidos/vacíos. Se le inyectan los números de cobertura (<code>reviewers.length</code>, <code>completedCritiques.length</code>, <code>failed</code>) como datos, no como instrucciones. El formato de salida pedido: plan revisado, cambios must-fix, cambios opcionales/diferidos, riesgos aceptados y por qué, checklist de validación, gaps de cobertura.</p>
-<p><strong>Manejo de fallos parciales</strong>: settle semantics en el <code>parallel</code> (nunca rechaza el conjunto por un solo fallo) + gate de &quot;todos fallaron&quot; antes de sintetizar + inyección explícita del conteo de fallos en el prompt de síntesis, para que el juez no ignore silenciosamente los huecos de cobertura.</p>
-<p><strong>Caching / bounding</strong>: no hay caching explícito en el código; sí hay <em>bounding</em> de longitud vía <code>compact()</code> (plan truncado a 40000 chars, críticas combinadas truncadas a 60000 chars) para controlar el tamaño de contexto pasado a cada agente, con <code>log()</code> cuando ocurre truncamiento.</p>
+<p><strong>Fase Review.</strong> Se arma un arreglo fijo de 4 revisores (<code>correctness-reviewer</code>,
+<code>security-reviewer</code>, <code>maintainability-reviewer</code>, <code>scope-reviewer</code>), cada uno
+con su propio &quot;ángulo&quot; de análisis. Se lanzan con <code>parallel(...)</code>, cada uno
+como una llamada a <code>agent(...)</code> sin schema (salida en texto libre), modelo
+<code>sonnet</code> y effort <code>medium</code> por defecto — overrideables vía <code>input.model</code>/
+<code>input.effort</code> globales o <code>input.models[&quot;reviewer&quot;]</code>/<code>input.efforts[&quot;reviewer&quot;]</code>
+por rol (ver helper <code>node()</code>). Cada revisor recibe un contrato compartido
+(<code>sharedContract</code>) que exige: no editar archivos, no asumir que otros
+revisores cubren huecos, citar archivo/línea cuando el plan referencia código,
+separar hallazgos confirmados de riesgos especulativos, y decir
+<code>INSUFFICIENT_EVIDENCE</code> si falta evidencia. El formato de salida esperado por
+revisor es: Verdict, Must-fix issues, Should-fix issues, Questions/missing
+evidence, Smallest safe path. Al terminar cada rama, la salida se envuelve en
+<code>{ name, output }</code>; salidas <code>null</code> o vacías se descartan con <code>filter(Boolean)</code>.</p>
+<p><strong>Fase Synthesize.</strong> Si <code>completedCritiques.length === 0</code>, el workflow retorna
+inmediatamente el string <code>INSUFFICIENT_EVIDENCE: ...</code> sin invocar síntesis.
+Si no, arma un único <code>agent(...)</code> con modelo <code>opus</code> y effort <code>high</code>, al que le
+pasa: las críticas completadas (compactadas a 60000 caracteres), y los
+números de cobertura (revisores solicitados, completados, fallidos). El
+prompt instruye al patrón &quot;synthesis-as-judge&quot;: deduplicar, resolver
+contradicciones, descartar afirmaciones no soportadas salvo marcadas
+especulativas, preservar riesgos aceptados, y mencionar explícitamente los
+revisores fallidos/vacíos. El formato de salida pedido es: plan revisado en
+orden, cambios must-fix, cambios opcionales/diferidos, riesgos aceptados y por
+qué, checklist de validación, huecos de cobertura/revisores fallidos.</p>
+<p>No hay caching explícito en el código; el manejo de fallos parciales se
+resuelve enteramente vía <code>parallel</code> con semántica settle + <code>filter(Boolean)</code>.</p>
 <h2>Input y output</h2>
 <table>
 <thead>
@@ -193,57 +233,47 @@ Si hay al menos una crítica completada, se compactan (<code>compact(..., 60000)
 <th>Campo</th>
 <th>Tipo</th>
 <th>Requerido</th>
-<th>Default / clamp</th>
+<th>Notas</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>plan</code> (o <code>text</code> como alias)</td>
-<td>string (o JSON-serializable)</td>
-<td>Sí — si falta, <code>throw new Error(&#39;Pass { plan: &quot;...&quot; } as workflow input.&#39;)</code></td>
-<td>Se serializa a string si no lo es; se trunca a 40000 chars vía <code>compact()</code></td>
+<td><code>plan</code> (o <code>text</code>)</td>
+<td>string</td>
+<td>sí</td>
+<td>Plan de implementación a revisar. Si falta ambos, lanza error.</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>No</td>
-<td>Default global aplicado a todos los nodos si no hay override por rol</td>
+<td>no</td>
+<td>Defaults globales aplicados a cada nodo.</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
-<td>objeto</td>
-<td>No</td>
-<td>Override específico por rol (<code>reviewer</code>, <code>plan-synthesis</code>); precedencia: por-rol &gt; global &gt; default del call-site</td>
+<td>object</td>
+<td>no</td>
+<td>Overrides por rol (<code>reviewer</code>, <code>plan-synthesis</code>).</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>toolsByRole[role]</code></td>
-<td>array</td>
-<td>No</td>
-<td>Herramientas del agente, por defecto o por rol</td>
-</tr>
-<tr>
-<td><code>skills</code> / <code>skillsByRole[role]</code></td>
-<td>array</td>
-<td>No</td>
-<td>Skills del agente</td>
-</tr>
-<tr>
-<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
-<td>array</td>
-<td>No</td>
-<td>Exclusión de tools</td>
+<td><code>tools</code> / <code>toolsByRole</code>, <code>skills</code> / <code>skillsByRole</code>, <code>excludeTools</code> / <code>excludeByRole</code></td>
+<td>array/object</td>
+<td>no</td>
+<td>Overrides de tools/skills por rol o globales.</td>
 </tr>
 </tbody></table>
-<p>Número de reviewers: fijo en 4 (correctness, security, maintainability, scope) — no configurable por input, hardcodeado en el array <code>reviewers</code>.</p>
-<p><strong>Output</strong>: string markdown. Dos posibles formas:</p>
-<ul>
-<li>Camino normal: el texto de síntesis del agente <code>plan-synthesis</code> (plan revisado + must-fix + opcionales + riesgos + checklist + gaps de cobertura). Es prosa libre, sin schema, terminal (pensado para consumo humano).</li>
-<li>Camino de fallo total: el literal <code>&quot;INSUFFICIENT_EVIDENCE: all reviewers failed or returned empty; no revised plan produced. Re-run or simplify the plan.&quot;</code>.</li>
-</ul>
-<p>No se detectó ninguna llamada a <code>writeArtifact</code> en el archivo: el workflow no persiste artifacts en disco, solo emite <code>log(...)</code> de progreso (bounding del plan, selección de fan-out, resultado del fan-out, bounding de críticas) y retorna el string de síntesis (o el mensaje de insuficiencia) como resultado final del workflow.</p>
+<p>Clamps: el plan se trunca (<code>compact</code>) a 40000 caracteres antes de revisarlo;
+las críticas combinadas se truncan a 60000 caracteres antes de sintetizarlas.
+El número de revisores es fijo en 4 (no configurable desde el input).</p>
+<p>Output: string de markdown en texto libre (sin schema) — el plan revisado
+final, o <code>INSUFFICIENT_EVIDENCE: ...</code> si los 4 revisores fallaron/vinieron
+vacíos. No se observan llamadas a <code>writeArtifact</code> en el código: el resultado
+es el valor de retorno del workflow.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Review</strong> — fan-out en paralelo (settle) de 4 reviewers de ángulo fijo (correctness, security, maintainability, scope) sobre el plan.</li>
-<li><strong>Synthesize</strong> — un agente único (<code>plan-synthesis</code>, opus/high) sintetiza las críticas completadas en un plan revisado, o el workflow corta antes con <code>INSUFFICIENT_EVIDENCE</code> si las 4 ramas fallaron/vinieron vacías.</li>
+<li><strong>Review</strong> — fan-out en paralelo de 4 revisores de ángulo fijo (<code>parallel</code>
+con settle semántico), cada uno vía <code>agent(...)</code> sin schema.</li>
+<li><strong>Synthesize</strong> — un único <code>agent(...)</code> (opus, effort high) fusiona las
+críticas completadas en un plan revisado, dando cuenta de coverage gaps.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

@@ -125,82 +125,125 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Scatter-gather: escanea una lista de trabajo, un revisor por ítem (paralelo, con settle), y sintetiza como juez con notas de cobertura/fallos.</p>
+<p>Scatter-gather: scout un work-list, un revisor por ítem (paralelo, settle), síntesis-como-juez con notas de cobertura/fallo.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Este es el patrón BASE de scatter-gather: descubrís una lista de trabajo (archivos de un repo, por ejemplo), lanzás un revisor independiente por cada ítem en paralelo, y un único agente-juez sintetiza todos los hallazgos en un veredicto priorizado. Elegilo cuando necesitás cobertura amplia sobre un work-list conocido (o casi conocido en runtime) y cada ítem puede evaluarse sin conocer a los demás — por ejemplo, revisión de código en muchos archivos, auditorías de seguridad, o revisión de prosa/documentación.</p>
+<p>Patrón base de scatter-gather: primero descubre una lista de trabajo (por
+defecto, archivos del repo que matchean un patrón), después lanza un revisor
+independiente por cada ítem en paralelo, y por último un juez sintetiza los
+hallazgos priorizados, descarta afirmaciones sin evidencia y nombra las
+ramas que fallaron. Elegilo cuando necesitás cobertura amplia e
+independiente sobre una lista de trabajo conocida o casi conocida (archivos,
+docs, config), y un solo resultado priorizado al final.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=fan-out-and-synthesize
-/workflow run mi-run {&quot;pattern&quot;:&quot;security&quot;,&quot;lens&quot;:&quot;security&quot;,&quot;limit&quot;:8}
+<pre><code>/workflow new mi-run --pattern=fan-out-and-synthesize
 </code></pre>
-<p><code>new</code> crea el scaffold como archivo editable; <code>run</code> (o <code>start</code> para correrlo en background) lo ejecuta con el input JSON. Un input típico:</p>
-<pre><code class="language-json">{
-  &quot;pattern&quot;: &quot;security&quot;,
-  &quot;lens&quot;: &quot;security&quot;,
-  &quot;limit&quot;: 8,
-  &quot;files&quot;: [&quot;src/auth.ts&quot;, &quot;src/session.ts&quot;]
-}
+<p>Input JSON típico:</p>
+<pre><code class="language-json">{ &quot;lens&quot;: &quot;security&quot;, &quot;limit&quot;: 20, &quot;pattern&quot;: &quot;code&quot; }
 </code></pre>
-<p>Si omitís <code>files</code>, un scout barato corre <code>git ls-files</code> y filtra por <code>pattern</code> (default <code>code</code>) antes de aplicar el <code>limit</code> (default 12). El resto de los campos de input (<code>model</code>, <code>effort</code>, <code>models.&lt;role&gt;</code>, etc.) se detalla en <a href="#input-y-output">Input y output</a>.</p>
+<p><code>files</code> opcional para saltear el scout con una lista explícita:</p>
+<pre><code class="language-json">{ &quot;files&quot;: [&quot;src/a.ts&quot;, &quot;src/b.ts&quot;], &quot;lens&quot;: &quot;code&quot; }
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Input["Input: limit, pattern, lens, files?"] --&gt; HasFiles{"input.files provisto?"}
-    HasFiles -- si --&gt; Candidates0["allCandidates = input.files"]
-    HasFiles -- no --&gt; Scout["Scout: agent scho haiku/low\ngit ls-files + filtro por regex\nschema FILE_LIST"]
-    Scout --&gt; Candidates0
-    Candidates0 --&gt; Cap["Cap a limit (default 12)\ncandidates = allCandidates.slice(0, limit)"]
+    Start(["input: limit, pattern, lens, files?"]) --&gt; HasFiles{"input.files provisto?"}
+    HasFiles -- sí --&gt; Candidates["candidates = files.slice(0, limit)"]
+    HasFiles -- no --&gt; Scout["Scout: agent haiku/low\ngit ls-files + filtro por regex\nschema FILE_LIST"]
+    Scout --&gt; Candidates
 
-    Cap --&gt; FanOut["parallel settle: un reviewer por candidate"]
-    subgraph Review["Review - fan-out paralelo (sonnet, medium)"]
-        R1["agent review file 1"]
-        R2["agent review file 2"]
-        Rn["agent review file N"]
+    Candidates --&gt; FanOut
+
+    subgraph FanOut ["Review: parallel (settle)"]
+        R1["reviewer archivo 1\nsonnet/medium"]
+        R2["reviewer archivo 2\nsonnet/medium"]
+        Rn["reviewer archivo N\nsonnet/medium"]
     end
-    FanOut --&gt; R1
-    FanOut --&gt; R2
-    FanOut --&gt; Rn
 
-    R1 --&gt; Filter["filter: descarta branches null/failed\nrecupera failedFiles por posicion"]
-    R2 --&gt; Filter
-    Rn --&gt; Filter
-
-    Filter --&gt; Judge["Synthesize: agent judge opus/high\nprioriza findings, descarta claims sin evidencia\nnombra failed/uncovered files"]
-    Judge --&gt; Output["Output: resultado de texto libre del juez"]</pre>
+    FanOut --&gt; Filter["filter(Boolean)\ncompletedReviews vs failedFiles"]
+    Filter --&gt; Judge["Synthesize: agent opus/high\nsynthesis-as-judge\nprioriza, descarta sin evidencia,\nnombra archivos no revisados"]
+    Judge --&gt; Out(["return: texto libre del juez"])</pre>
 <h2>Qué hace</h2>
-<p><code>fan-out-and-synthesize</code> es el patrón base de scatter-gather (parallelization / scatter-gather de &quot;Anthropic: Building Effective Agents&quot;): descubre una lista de trabajo en tiempo de ejecución, lanza un revisor independiente por cada ítem en paralelo, y sintetiza los resultados con un agente que actúa como juez, priorizando hallazgos, descartando afirmaciones sin evidencia y nombrando explícitamente qué ramas fallaron o quedaron sin revisar.</p>
-<p>El ancho del fan-out no se conoce en tiempo de autoría (depende de cuántos archivos matchean el patrón en el repo), por lo que se deriva de un scout en runtime y se limita con <code>limit</code>. El scout, los revisores y el juez son tres agentes con roles y efforts distintos: el scout es barato (haiku/low) porque solo filtra rutas, los revisores son de esfuerzo medio (sonnet/medium) porque hacen lectura línea por línea, y el juez corre con el modelo y esfuerzo más altos (opus/high) porque debe priorizar y descartar entre muchos hallazgos.</p>
-<p>El diseño trata explícitamente el fallo parcial como un caso de primera clase: el fan-out usa <code>parallel</code> con semántica <em>settle</em> (una rama fallida se convierte en <code>null</code>, nunca rechaza la promesa combinada), y tanto el conteo de cobertura como la lista de archivos no revisados se pasan al juez para que los mencione en la síntesis en lugar de ocultarlos.</p>
-<p>Toda entrada no confiable (el patrón regex del usuario, el contenido de los reviews) se envuelve con <code>fence()</code>, un delimitador derivado de un hash del contenido (FNV-like, sin <code>Math.random</code>/<code>Date.now</code> porque el runtime los prohíbe) para que un payload malicioso no pueda falsificar el marcador de cierre y así inyectar instrucciones al scout o al juez.</p>
+<p>El workflow implementa el patrón scatter-gather con síntesis-como-juez
+descrito en &quot;Anthropic: Building Effective Agents&quot; (parallelization). Primero
+resuelve un work-list: si <code>input.files</code> viene con contenido, lo usa
+directamente; si no, corre un agente scout (modelo <code>haiku</code>, esfuerzo <code>low</code>)
+que ejecuta <code>git ls-files</code> y filtra los paths contra un patrón regex, devuelto
+con schema <code>{ files: string[] }</code>. El patrón puede ser un preset (<code>code</code>,
+<code>docs</code>, <code>web</code>, <code>config</code>) o una regex libre.</p>
+<p>La lista resultante se recorta a <code>limit</code> ítems (default 12), y el exceso se
+loguea y descarta. Después lanza un <code>parallel</code> con settle semantics: un
+agente <code>sonnet</code>/<code>medium</code> por archivo, cada uno revisando según el <code>lens</code>
+elegido (preset <code>code</code>, <code>security</code>, <code>prose</code>, o texto libre), citando
+evidencia archivo/línea. Una rama fallida (agente que tira excepción o
+retorna null) se resuelve a <code>null</code> y no rompe las demás; el workflow filtra
+los resultados válidos y recupera por posición qué archivos quedaron sin
+revisar.</p>
+<p>Por último, un agente juez (<code>opus</code>, esfuerzo <code>high</code>) recibe todos los reportes
+completados más el conteo de cobertura y la lista de archivos fallidos, y
+produce una síntesis priorizada: descarta afirmaciones sin sustento y nombra
+explícitamente los archivos no revisados. Toda entrada externa (patrón regex,
+reportes de revisores) viaja envuelta en un fence <code>&lt;untrusted-…&gt;</code> con hash
+derivado del contenido, para que el agente la trate como datos y no como
+instrucciones.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Repartir revisión de código sobre muchos archivos (caso de catálogo).</li>
-<li>Síntesis multi-ángulo: muchas perspectivas independientes convergiendo en un solo veredicto (caso de catálogo).</li>
-<li>Correr revisores independientes sobre una lista de trabajo acotada (caso de catálogo).</li>
-<li>Necesitás cobertura amplia e independiente de un work-list conocido o casi conocido (<code>useWhen</code> del catálogo).</li>
-<li>Auditorías de seguridad, revisión de prosa/documentación, o cualquier chequeo que se beneficie de &quot;N ojos&quot; sin contaminación entre ramas (cada reviewer ve solo su archivo).</li>
+<li>Repartir revisión de código/docs entre muchos archivos.</li>
+<li>Síntesis multi-ángulo: combinar hallazgos de revisores independientes en un
+solo veredicto priorizado.</li>
+<li>Correr revisores independientes sobre un work-list acotado (<code>limit</code>).</li>
+<li>Necesitás cobertura amplia e independiente de un work-list conocido o
+casi conocido.</li>
 </ul>
-<p><strong>No usarlo cuando:</strong></p>
+<p>No usarlo cuando:</p>
 <ul>
-<li>El work-list es enorme y solo importa la parte riesgosa (usar en su lugar <code>scout-fanout</code>, que clasifica riesgo antes de invertir en revisión profunda).</li>
-<li>El output necesita un schema estructurado para composición downstream — el propio código lo advierte: &quot;Output... currently free-form prose — add a schema before composing this workflow downstream.&quot;</li>
-<li>Los ítems no son independientes entre sí (por ejemplo si un archivo solo tiene sentido revisado junto con otro): el fan-out asume independencia total por diseño.</li>
+<li>El work-list es enorme y solo una fracción amerita revisión profunda (ver
+<code>scout-fanout</code>, que clasifica riesgo antes de gastar en revisión honda).</li>
+<li>Necesitás un resultado estructurado (schema): la síntesis actual es prosa
+libre, sin schema — hay que agregarlo antes de componer este workflow
+como paso de otro.</li>
 </ul>
 <h2>Cómo funciona</h2>
 <ol>
-<li><p><strong>Parseo de input.</strong> <code>args</code> se parsea como JSON de forma defensiva (try/catch a <code>{}</code>). Se derivan <code>limit</code> (clamp entre 1 y 4096, default 12), <code>pattern</code> (preset o regex libre, default <code>code</code>), <code>lens</code> (preset o descripción libre de qué buscar, default <code>code</code>), y overrides opcionales por rol (<code>models</code>, <code>efforts</code>, <code>toolsByRole</code>, <code>skillsByRole</code>, <code>excludeByRole</code>) vía el helper <code>node(role, extra)</code>.</p>
+<li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea defensivamente a objeto;
+<code>compact()</code> trunca datos largos a 60000 caracteres; <code>fence()</code> envuelve
+datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code>
+derivado del contenido (hash FNV-like), no falsificable por el propio
+contenido. <code>node(role, extra)</code> arma las opciones de cada agente aplicando
+overrides por rol (<code>input.models[role]</code>, <code>input.efforts[role]</code>,
+<code>input.toolsByRole[role]</code>, <code>input.skillsByRole[role]</code>,
+<code>input.excludeByRole[role]</code>) con fallback a los defaults globales
+(<code>input.model</code>, <code>input.effort</code>, <code>input.tools</code>, <code>input.skills</code>,
+<code>input.excludeTools</code>).</p>
 </li>
-<li><p><strong>Fase Scout.</strong> Si <code>input.files</code> viene poblado, se usa directamente como <code>allCandidates</code> y se salta el scout. Si no, se llama a un <code>agent()</code> (rol <code>scout</code>, modelo <code>haiku</code>, effort <code>low</code>, <code>schema: FILE_LIST</code>) instruido para correr <code>git ls-files</code>, filtrar por el regex (pasado dentro de un <code>fence(&quot;pattern&quot;, pattern)</code> para que el propio patrón no pueda inyectar instrucciones) y devolver <code>{ files: [...] }</code>. El resultado se trunca a <code>limit</code> con <code>.slice(0, limit)</code>; si se descartan candidatos se loguea <code>candidate cap applied</code> con conteos.</p>
+<li><p><strong>Fase Scout.</strong> Si <code>input.files</code> es un array no vacío, se usa tal cual
+como <code>allCandidates</code>. Si no, un <code>agent()</code> con <code>model: &quot;haiku&quot;</code>,
+<code>effort: &quot;low&quot;</code> y <code>schema: FILE_LIST</code> corre <code>git ls-files</code>, filtra por el
+patrón (preset o regex libre) y devuelve <code>{ files: [...] }</code>. El patrón se
+pasa siempre dentro de un <code>fence()</code>, con instrucciones explícitas al
+agente de tratarlo como literal inerte e ignorar directivas embebidas.</p>
 </li>
-<li><p><strong>Fase Review (fan-out paralelo).</strong> Se llama a <code>parallel()</code> sobre un array de thunks, uno por candidato, cada uno un <code>agent()</code> (rol <code>review</code>, modelo <code>sonnet</code>, effort <code>medium</code>, <code>label: review-&lt;file&gt;</code>, <code>phase: &quot;Review&quot;</code>) con el prompt &quot;Review <file> for <lens>...&quot;, que exige citar evidencia file/line, decir <code>NO_FINDINGS</code> si no hay issues creíbles, y <code>INSUFFICIENT_EVIDENCE</code>/<code>FILE_UNREADABLE</code> en vez de reportar &quot;limpio&quot; si el archivo no se puede leer. <code>parallel</code> usa semántica <em>settle</em>: una rama que falla se resuelve como <code>null</code> en vez de rechazar el <code>Promise.all</code>. Tras el fan-out se calcula <code>completedReviews</code> (filtrando outputs no nulos) y <code>failedFiles</code> (candidatos cuya posición en <code>reviews</code> quedó sin output), y se loguea <code>fan-out complete</code> con totales.</p>
+<li><p><strong>Fase Review.</strong> <code>candidates = allCandidates.slice(0, limit)</code> (con log si
+se recortó). <code>parallel()</code> lanza un <code>agent()</code> por candidato —
+<code>model: &quot;sonnet&quot;</code>, <code>effort: &quot;medium&quot;</code>, <code>label: review-&lt;file&gt;</code>,
+<code>phase: &quot;Review&quot;</code> — pidiendo evidencia archivo/línea y distinguiendo
+explícitamente <code>NO_FINDINGS</code> de <code>INSUFFICIENT_EVIDENCE / FILE_UNREADABLE</code>.
+<code>parallel</code> usa semántica <em>settle</em>: una rama que falla se resuelve a
+<code>null</code> en vez de rechazar todo el <code>Promise.all</code>. El workflow filtra
+<code>completedReviews</code> (output no nulo) y recalcula <code>failedFiles</code> por
+posición contra <code>candidates</code>.</p>
 </li>
-<li><p><strong>Fase Synthesize (juez).</strong> Un único <code>agent()</code> (rol <code>synthesis</code>, modelo <code>opus</code>, effort <code>high</code>, <code>phase: &quot;Synthesize&quot;</code>) recibe: la instrucción de sintetizar como &quot;synthesis-as-judge&quot; (priorizar, descartar claims sin soporte, mencionar caps y ramas fallidas), la cobertura numérica (<code>candidates.length</code>/<code>allCandidates.length</code>), la lista de <code>failedFiles</code>, y los hallazgos completos (<code>completedReviews</code>, comprimidos con <code>compact(..., 50000)</code> para truncar payloads gigantes) envueltos en <code>fence(&quot;findings&quot;, ...)</code>. El prompt repite la advertencia de tratar todo lo cercado como datos, nunca instrucciones.</p>
-</li>
-<li><p><strong>Retorno.</strong> La función devuelve directamente el resultado del agente juez (texto libre, sin schema).</p>
+<li><p><strong>Fase Synthesize.</strong> Un <code>agent()</code> final (<code>model: &quot;opus&quot;</code>,
+<code>effort: &quot;high&quot;</code>) recibe, dentro de un <code>fence(&quot;findings&quot;, …)</code>, los
+reportes completados (truncados con <code>compact(…, 50000)</code>), más el conteo
+de cobertura (<code>candidates.length</code>/<code>allCandidates.length</code>) y la lista de
+<code>failedFiles</code>. Se le pide síntesis-como-juez: hallazgos priorizados por
+severidad, descarte de afirmaciones sin evidencia, y mención explícita de
+los archivos no revisados. Es la salida final del workflow (<code>return synthesis</code>) — no escribe artifacts propios ni usa <code>writeArtifact</code>.</p>
 </li>
 </ol>
-<p>No hay caching explícito en el scaffold (no se usa ninguna primitiva de cache); cada corrida vuelve a scoutear y revisar desde cero. Tampoco hay <code>writeArtifact</code> — el resultado se retorna como valor del workflow, no se persiste a disco dentro del propio código.</p>
+<p>No hay caching explícito en el scaffold: cada corrida repite scout, reviews y
+síntesis desde cero.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (JSON parseado defensivamente desde <code>args</code>, default <code>{}</code>):</p>
 <table>
 <thead>
 <tr>
@@ -214,51 +257,58 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <td><code>limit</code></td>
 <td>number</td>
 <td><code>12</code></td>
-<td>Clamp <code>[1, 4096]</code>, truncado con <code>Math.floor</code>; si se corrige se loguea.</td>
+<td>Clamp a <code>[1, 4096]</code>, <code>Math.floor</code>; excedente se loguea y descarta</td>
 </tr>
 <tr>
 <td><code>pattern</code></td>
 <td>string</td>
-<td><code>code</code></td>
-<td>Preset (<code>code</code>|<code>docs</code>|<code>web</code>|<code>config</code>) o regex libre. Presets: code=<code>\.(ts|tsx|js|jsx|py|go|rs)$</code>, docs=<code>\.(md|mdx|txt|rst|adoc)$</code>, web=<code>\.(html|css|scss|vue|svelte)$</code>, config=<code>\.(json|ya?ml|toml|ini)$</code>.</td>
+<td><code>&quot;code&quot;</code></td>
+<td>Preset <code>code|docs|web|config</code> o regex libre para <code>git ls-files</code></td>
 </tr>
 <tr>
 <td><code>lens</code></td>
 <td>string</td>
-<td><code>code</code></td>
-<td>Preset (<code>code</code>|<code>security</code>|<code>prose</code>) o descripción libre de qué buscar.</td>
+<td><code>&quot;code&quot;</code></td>
+<td>Preset <code>code|security|prose</code> o descripción libre de qué buscar</td>
 </tr>
 <tr>
 <td><code>files</code></td>
 <td>string[]</td>
 <td>—</td>
-<td>Opcional; si está presente y no vacío, bypassea el scout de <code>git ls-files</code>.</td>
+<td>Si viene con contenido, reemplaza el scout por git</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>—</td>
-<td>Overrides globales aplicados a todos los nodos.</td>
+<td>por rol (<code>haiku</code>/low, <code>sonnet</code>/medium, <code>opus</code>/high)</td>
+<td>Overrides globales</td>
 </tr>
 <tr>
-<td><code>models.&lt;role&gt;</code> / <code>efforts.&lt;role&gt;</code></td>
-<td>string</td>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
+<td>object</td>
 <td>—</td>
-<td>Overrides por rol (<code>scout</code>, <code>review</code>, <code>synthesis</code>); tienen precedencia sobre el global.</td>
+<td>Overrides por rol: <code>scout</code>, <code>review</code>, <code>synthesis</code></td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (globales o <code>*ByRole</code>)</td>
-<td>array</td>
+<td><code>tools</code> / <code>toolsByRole</code>, <code>skills</code> / <code>skillsByRole</code>, <code>excludeTools</code> / <code>excludeByRole</code></td>
+<td>array/object</td>
 <td>—</td>
-<td>Pasados a cada agente si son arrays.</td>
+<td>Igual mecanismo global vs por-rol</td>
 </tr>
 </tbody></table>
-<p><strong>Output:</strong> el retorno de la función es directamente el resultado del <code>agent()</code> de síntesis — texto libre (prose) con los hallazgos priorizados, sin schema. No se escriben <code>artifacts</code> (no hay llamadas a <code>writeArtifact</code> en el código).</p>
+<p>Output: el resultado del agente juez — <strong>texto libre, sin schema</strong>
+(el propio scaffold lo marca como pendiente de mejora antes de componerlo
+downstream). No escribe artifacts con <code>writeArtifact</code>; todo el estado
+relevante (cobertura, archivos fallidos) se loguea con <code>log()</code> durante la
+corrida.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Scout</strong> — descubre/filtra la lista de trabajo (<code>git ls-files</code> + regex) o usa <code>input.files</code> si se provee; agente barato con schema <code>FILE_LIST</code>.</li>
-<li><strong>Review</strong> — fan-out paralelo (<code>parallel</code>, settle) de un revisor por archivo candidato, con evidencia file/line obligatoria y manejo explícito de archivos ilegibles.</li>
-<li><strong>Synthesize</strong> — agente juez de mayor esfuerzo que prioriza hallazgos, descarta afirmaciones sin evidencia y nombra ramas fallidas/no cubiertas.</li>
+<li><strong>Scout</strong> — descubre y filtra el work-list (git ls-files + regex, o
+<code>input.files</code>).</li>
+<li><strong>Review</strong> — un revisor independiente por archivo, en paralelo, con
+settle semantics.</li>
+<li><strong>Synthesize</strong> — un juez único combina, prioriza y reporta cobertura y
+fallos.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

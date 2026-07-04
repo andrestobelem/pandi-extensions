@@ -125,173 +125,125 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Muestrea N caminos de razonamiento independientes y elige la respuesta por consenso (voto), con desempate a cargo de un juez que pesa evidencia.</p>
+<p>Muestrea N caminos de razonamiento independientes y elige la respuesta por consenso (voto), no por un único camino (arXiv:2203.11171).</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>self-consistency</code> le hace la MISMA pregunta a N agentes independientes (sin verse entre sí), extrae de cada uno una respuesta normalizada corta, y se queda con la que junta más votos; si hay empate, un juez (<code>opus</code>, effort <code>high</code>) desempata pesando la evidencia de cada bando. Elegilo cuando una sola pasada de razonamiento puede fallar por azar (matemática, clasificación, juicio) y te sirve reportar el margen de consenso (5/5 no es lo mismo que 2/2/1) — no para redacción abierta ni para descartar afirmaciones por refutación (para eso, <code>adversarial-verify</code>).</p>
+<p>Un solo chain-of-thought puede equivocarse; si en cambio hacés que N modelos razonen el mismo problema <strong>sin verse entre sí</strong> y todos convergen en la misma respuesta, esa coincidencia es una señal mucho más fuerte que cualquier camino individual. Elegí este patrón para preguntas de alta varianza (matemática, lógica, juicio) donde querés medir el margen de consenso, no una respuesta única sin contexto de confianza.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-bash">/workflow new mi-run --pattern=self-consistency
+<pre><code class="language-text">/workflow new mi-run --pattern=self-consistency
+/workflow run mi-run {&quot;question&quot;:&quot;Does this code path leak the handle?&quot;,&quot;samples&quot;:7}
 </code></pre>
-<p>Esto crea <code>.pi/workflows/mi-run.js</code> a partir del scaffold. Para correrlo con un input concreto:</p>
-<pre><code class="language-bash">/workflow run mi-run &#39;{
-  &quot;question&quot;: &quot;Un tren sale a las 14:00 a 80km/h y otro a las 14:30 a 100km/h en la misma dirección. ¿En qué hora se cruzan?&quot;,
-  &quot;samples&quot;: 7
-}&#39;
-</code></pre>
-<p><code>question</code> (o sus alias <code>q</code> / <code>text</code>) es el único campo obligatorio; si se omite, el scaffold lanza error. <code>samples</code> es opcional (default <code>5</code>, clamp <code>[2, 20]</code>).</p>
+<p><code>question</code> (alias <code>q</code>/<code>text</code>) es el único campo obligatorio. <code>samples</code> es opcional (default 5, clamp 2..20).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    A["Input: question, samples default 5 clamp 2..20"] --&gt; B["Phase: Sample"]
+    A["Input: question (req), samples=5 (clamp 2..20)"] --&gt; B{"question ausente?"}
+    B --&gt;|"sí"| B1["throw Error"]
+    B --&gt;|"no"| C["Phase: Sample"]
 
-    subgraph B["Phase: Sample — parallel barrier"]
-        direction TB
-        S1["agent sample-1&lt;br/&gt;model haiku, effort low, cache false&lt;br/&gt;schema SAMPLE answer+reasoning"]
-        S2["agent sample-2&lt;br/&gt;cache false"]
-        S3["agent sample-i ...&lt;br/&gt;cache false"]
-        SN["agent sample-N&lt;br/&gt;cache false"]
+    subgraph SAMPLE["fan-out INDEPENDIENTE (parallel, N agentes)"]
+        S1["agent sample haiku·low, cache:false\nintento #1 -&gt; {answer, reasoning}"]
+        S2["agent sample haiku·low, cache:false\nintento #2 -&gt; {answer, reasoning}"]
+        S3["agent sample haiku·low, cache:false\nintento #N -&gt; {answer, reasoning}"]
     end
+    C --&gt; SAMPLE
+    SAMPLE --&gt; D["filtrar nulls -&gt; valid\nloguear failed = samples - valid.length"]
+    D --&gt; E{"valid.length == 0?"}
+    E --&gt;|"sí"| E1["return string: 'All samples failed...'"]
+    E --&gt;|"no"| F["Phase: Tally"]
 
-    B --&gt; F{"Filter valid&lt;br/&gt;drop null/failed samples"}
-    F --&gt;|"all failed"| Z["Return: All samples failed; no consensus possible."]
-    F --&gt;|"valid.length &gt; 0"| T["Phase: Tally&lt;br/&gt;count votes per normalized answer (lowercase key)"]
+    F --&gt; G["agrupar valid por answer.toLowerCase()\ncontar votos por clave -&gt; tally"]
+    G --&gt; H["ranked = tally ordenado desc por votos\ntop = ranked[0]\ntied = ranked con votos == top.votes"]
+    H --&gt; I["Phase: Decide"]
 
-    T --&gt; R["Rank tally by votes desc&lt;br/&gt;top = ranked[0]&lt;br/&gt;tied = ranked with votes == top.votes"]
-
-    R --&gt; D["Phase: Decide"]
-    D --&gt; G{"tied.length == 1 ?"}
-    G --&gt;|"yes: clear plurality"| P["decision = { answer: top.answer, votes, method: plurality }"]
-    G --&gt;|"no: tie"| J["agent tiebreak&lt;br/&gt;model opus, effort high&lt;br/&gt;schema TIEBREAK answer+why&lt;br/&gt;judges only the tied contenders' reasoning"]
-    J --&gt; M{"judge answer matches&lt;br/&gt;one of the tied answers?"}
-    M --&gt;|"yes"| P2["decision = { answer: matched, votes: top.votes, method: judge-tiebreak, tiedAmong }"]
-    M --&gt;|"no (off-list)"| P3["fallback: decision.answer = tied[0].answer&lt;br/&gt;log warning"]
-
-    P --&gt; O["Return { ...decision, totalSamples, counted, distribution }"]
-    P2 --&gt; O
-    P3 --&gt; O</pre>
+    I --&gt; J{"tied.length == 1?"}
+    J --&gt;|"sí"| K["decision = top answer, method=plurality"]
+    J --&gt;|"no, hay empate"| L["agent tiebreak opus·high\njuez evidencia sobre solo los tied"]
+    L --&gt; M{"verdict.answer matchea\nalguno de los tied?"}
+    M --&gt;|"sí"| N["decision = match, method=judge-tiebreak"]
+    M --&gt;|"no (off-list)"| O["log warning\nfallback: decision = tied[0]"]
+    K --&gt; P["return { ...decision, totalSamples, counted, distribution }"]
+    N --&gt; P
+    O --&gt; P</pre>
 <h2>Qué hace</h2>
-<p><code>self-consistency</code> implementa el método del paper <em>Self-Consistency Improves Chain of Thought Reasoning</em> (arXiv:2203.11171): en lugar de confiar en una sola cadena de razonamiento, dispara N intentos completamente independientes sobre la misma pregunta, extrae de cada uno una respuesta normalizada a una forma canónica corta, y elige la respuesta que junta más votos. La idea es que un solo camino de razonamiento puede desviarse, pero la convergencia de varios caminos independientes es una señal mucho más fuerte que confiar en cualquiera de ellos por separado.</p>
-<p>A diferencia de un fan-out genérico que sintetiza un resumen combinado, este scaffold no mezcla las respuestas: cuenta acuerdos sobre un campo de respuesta estructurado y reporta el margen de consenso (por ejemplo, distinguir un 5/5 de un split 2/2/1), de modo que quien llama puede actuar según la confianza del resultado, no solo según &quot;una respuesta cualquiera&quot;.</p>
-<p>Los muestreadores corren con <code>cache: false</code> y un sufijo de prompt por intento (<code>independent attempt #i</code>) precisamente para garantizar que sean extracciones genuinamente independientes y no la misma completion cacheada repetida N veces — si no se hiciera esto, prompts idénticos podrían colisionar en caché y destruir la independencia estadística que el método necesita.</p>
-<p>Es el contraparte de consenso de <code>adversarial-verify</code> (que poda una afirmación por mayoría de REFUTACIÓN): <code>self-consistency</code> se usa para ACORDAR una respuesta; <code>adversarial-verify</code> para DESCARTAR afirmaciones individuales.</p>
+<p><code>self-consistency</code> implementa el patrón del paper homónimo (Wang et al., arXiv:2203.11171): en vez de confiar en un único chain-of-thought, dispara <code>samples</code> (default 5) intentos de razonamiento totalmente independientes sobre la misma pregunta, cada uno con <code>cache:false</code> y un sufijo de prompt distinto (<code>intento #i</code>) para forzar muestras genuinas y no la misma respuesta cacheada repetida N veces. Cada sampler devuelve una respuesta normalizada a forma canónica corta más su razonamiento.</p>
+<p>La diferencia frente a un fan-out-and-synthesize plano es que acá no se sintetiza un resumen mezclado: se <strong>cuentan votos</strong> sobre un campo de respuesta estructurado y se reporta el margen de consenso, de modo que un 5/5 y un 2/2/1 quedan distinguibles y el llamador puede actuar según esa confianza. Los empates no se rompen arbitrariamente: se delega a un juez de mayor capacidad que pesa evidencia solo entre las respuestas empatadas.</p>
+<p>Es el contraparte &quot;de consenso&quot; de <code>adversarial-verify</code> (que poda una afirmación por mayoría de REFUTACIÓN): <code>self-consistency</code> se usa para <strong>acordar</strong> una respuesta, <code>adversarial-verify</code> para <strong>refutar</strong> afirmaciones individuales.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Razonamiento/matemática/juicio de alta varianza, donde una sola pasada puede fallar aleatoriamente.</li>
-<li>Cuando necesitás reportar el margen de consenso (qué tan de acuerdo estuvieron los caminos), no solo una respuesta.</li>
-<li>Cuando el objetivo es que varios caminos independientes converjan en UNA respuesta (a diferencia de sintetizar un resumen combinado).</li>
-<li>Preguntas con una respuesta final normalizable a una forma canónica corta (un valor, una clasificación, un veredicto breve) — no para tareas abiertas de redacción larga, donde &quot;votar&quot; sobre texto libre no tiene sentido.</li>
+<li>Razonamiento/matemática/juicio de alta varianza donde un solo intento puede fallar.</li>
+<li>Reportar el margen de consenso (cuántos de N coincidieron), no solo una respuesta.</li>
+<li>Acordar una única respuesta a través de múltiples caminos de razonamiento independientes.</li>
+<li><strong>No usarlo</strong> cuando la tarea no tiene una &quot;respuesta&quot; normalizable a texto corto (p. ej. generar un documento largo o código): ahí conviene <code>fan-out-and-synthesize</code> u otro patrón de síntesis.</li>
+<li><strong>No usarlo</strong> para refutar/verificar una afirmación puntual: para eso está <code>adversarial-verify</code>.</li>
 </ul>
-<p>Si lo que necesitás es otra cosa, hay un scaffold más específico:</p>
-<table>
-<thead>
-<tr>
-<th>Necesidad</th>
-<th>Scaffold</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Acordar UNA respuesta entre varios caminos independientes</td>
-<td><strong>self-consistency</strong> (este)</td>
-</tr>
-<tr>
-<td>Descartar afirmaciones por refutación mayoritaria</td>
-<td><code>adversarial-verify</code></td>
-</tr>
-<tr>
-<td>Explorar y podar pasos intermedios de un problema</td>
-<td><code>tree-of-thoughts</code></td>
-</tr>
-</tbody></table>
 <h2>Cómo funciona</h2>
-<p><strong>Input parsing y helpers.</strong> El input se parsea desde <code>args</code> (string JSON o objeto). Se define <code>compact()</code> para truncar textos largos en logs/prompts (default 60000 chars), y <code>fence()</code> para envolver datos no confiables en un delimitador derivado de un hash de contenido (FNV-like de 64 bits combinando dos acumuladores), de forma que un payload malicioso no pueda falsificar la marca de cierre. <code>node(role, extra)</code> resuelve overrides de modelo/effort/tools/skills por rol (<code>input.models[role]</code>, <code>input.efforts[role]</code>, etc.) con precedencia: override por rol &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call site.</p>
-<p><strong>Fase Sample.</strong> Usa <code>parallel([...])</code> como barrera — necesita que TODAS las muestras completen antes de tabular. Genera <code>samples</code> (default 5, clamp <code>[2, 20]</code>, logueando si hubo clamp) llamadas <code>agent()</code> independientes, cada una con:</p>
-<ul>
-<li>Modelo <code>haiku</code>, effort <code>low</code> (vía <code>node(&quot;sample&quot;, {...})</code>, pero fijos aquí en lugar de solo depender del override — el código pasa <code>model: &quot;haiku&quot;, effort: &quot;low&quot;</code> explícitamente dentro de <code>node(...)</code>, que aun así puede ser sobreescrito por <code>input.models.sample</code>/<code>input.efforts.sample</code>).</li>
-<li><code>cache: false</code> para forzar draws genuinamente independientes.</li>
-<li><code>schema: SAMPLE</code> — objeto con <code>answer</code> (forma canónica corta) y <code>reasoning</code>.</li>
-<li>Prompt con instrucciones anti-inyección (todo lo fenced es DATA, no instrucciones) y un sufijo <code>(independent attempt #i)</code>.</li>
-</ul>
-<p>Cada resultado se mapea a <code>{ i, answer, reasoning }</code> o <code>null</code> si el agente no devolvió <code>answer</code>. Si TODAS las muestras fallan, retorna el string <code>&quot;All samples failed; no consensus possible.&quot;</code> sin seguir a las fases siguientes. Si algunas fallan, se loguea <code>failed/samples samples failed (counted as no vote)</code> y se continúa solo con las válidas.</p>
-<p><strong>Fase Tally.</strong> Cuenta votos por respuesta normalizada (<code>answer.toLowerCase()</code> como key de agrupación), acumulando en un <code>Map</code> con <code>{ answer, votes, samples: [i...] }</code>. Ordena descendente por votos (<code>ranked</code>), toma el líder (<code>top</code>) y calcula el conjunto de empatados (<code>tied</code>) — todos los que igualan <code>top.votes</code>. Loguea un resumen JSON (<code>counted</code>, <code>distinct</code>, <code>leader</code>, <code>leaderVotes</code>, <code>tie</code>).</p>
-<p><strong>Fase Decide.</strong> Dos caminos:</p>
-<ul>
-<li><strong>Plurality clara</strong> (<code>tied.length === 1</code>): la respuesta ganadora se toma directamente, <code>method: &quot;plurality&quot;</code>.</li>
-<li><strong>Empate</strong> (<code>tied.length &gt; 1</code>): se arma un prompt con las respuestas empatadas y un ejemplar de razonamiento para cada una (truncado a 4000 chars vía <code>compact</code>), y se llama a un <code>agent()</code> juez con modelo <code>opus</code>, effort <code>high</code>, schema <code>TIEBREAK</code> (<code>answer</code> + <code>why</code>), pidiéndole elegir EXACTAMENTE una de las respuestas empatadas (copiada verbatim) siendo escéptico. El resultado del juez se valida contra la lista de empatados (case-insensitive); si no matchea ninguno (respuesta &quot;off-list&quot;), se loguea una advertencia y se usa un fallback determinístico: la primera respuesta empatada (<code>tied[0]</code>). <code>method: &quot;judge-tiebreak&quot;</code>, con <code>tiedAmong</code> listando las respuestas en disputa.</li>
-</ul>
-<p><strong>Manejo de fallos parciales:</strong> samples individuales que fallan se cuentan como &quot;no vote&quot; (no rompen el flujo, salvo que fallen TODAS). <strong>Caching:</strong> deshabilitado explícitamente en la fase Sample para preservar independencia estadística; no se menciona <code>cache: false</code> en el nodo de tiebreak (usa el comportamiento default de <code>agent</code>).</p>
+<p><strong>Validación de entrada.</strong> <code>question</code> (o sus alias <code>q</code>/<code>text</code>) es obligatorio; si falta, lanza <code>Error</code> directamente (único scaffold de los revisados que no hace &quot;abort gracioso&quot; acá, sino throw). <code>samples</code> se sanea a entero y se clampea a <code>[2, 20]</code>, logueando si el valor pedido fue recortado.</p>
+<p><strong>Fase Sample.</strong> Lanza <code>samples</code> llamadas a <code>agent</code> en <code>parallel</code>, todas en el rol <code>sample</code> (modelo <code>haiku</code>, effort <code>low</code> — barato porque el volumen es lo que aporta señal, no la potencia de cada intento individual). Cada prompt: (a) pide razonar paso a paso y dar una respuesta final, (b) incluye las salvaguardas anti-inyección estándar sobre el contenido fenced de la pregunta (<code>fence(&quot;topic&quot;, question)</code>, delimitador derivado de un hash del contenido), (c) pide normalizar la respuesta a forma canónica corta (minúsculas, sin palabras de más) para que respuestas equivalentes matcheen como strings idénticos, y (d) agrega <code>(intento independiente #i — razoná por tu cuenta; no asumas una respuesta particular)</code> para evitar que el modelo ancle en una respuesta esperada. Cada agente corre con <code>cache:false</code> explícito — sin esto, prompts casi idénticos podrían resolverse contra la misma respuesta cacheada y arruinar la independencia estadística de las muestras. El schema de salida (<code>SAMPLE</code>) exige <code>answer</code> y <code>reasoning</code>. Tras el fan-out, se filtran los <code>null</code> (fallos bajo el patrón settle-por-<code>.then</code>) quedando <code>valid</code>; si <code>valid.length === 0</code>, retorna directamente el string <code>&quot;All samples failed; no consensus possible.&quot;</code> sin pasar a Tally/Decide.</p>
+<p><strong>Fase Tally.</strong> Agrupa las respuestas válidas por su clave en minúsculas (case-insensitive) en un <code>Map</code>, acumulando votos y los índices de muestra que contribuyeron a cada respuesta. Ordena las claves por votos descendente (<code>ranked</code>); <code>top</code> es la de más votos, <code>tied</code> es el subconjunto de <code>ranked</code> que empata con <code>top</code> en cantidad de votos. Se loguea un resumen (<code>counted</code>, <code>distinct</code>, <code>leader</code>, <code>leaderVotes</code>, <code>tie</code>).</p>
+<p><strong>Fase Decide.</strong> Si hay un único ganador (<code>tied.length === 1</code>), la decisión es esa respuesta con <code>method: &quot;plurality&quot;</code> — no hace falta juez. Si hay empate, arma un prompt con la evidencia (razonamiento truncado a 4000 chars) de un ejemplar por cada respuesta empatada y llama a un <code>agent</code> en el rol <code>tiebreak</code> (modelo <code>opus</code>, effort <code>high</code> — el único punto del flujo donde se invierte capacidad alta, porque acá sí hace falta juicio fino) pidiéndole elegir exactamente una de las respuestas empatadas, copiada verbatim. La respuesta del juez se valida contra la lista cerrada de <code>tied</code>: si no matchea ninguna (respuesta &quot;off-list&quot;), se loguea una advertencia y se hace fallback a <code>tied[0]</code> en vez de confiar ciegamente en el output del juez.</p>
+<p><strong>Manejo de fallos parciales:</strong> cada muestra fallida en el fan-out se descarta silenciosamente vía <code>.then(...)</code> devolviendo <code>null</code> y filtrando después (equivalente a <code>settle</code>), y el conteo de fallos se loguea explícitamente (<code>failed/samples samples failed</code>) — nunca se propaga la excepción de una muestra individual.</p>
+<p><strong>Caching:</strong> deliberadamente <strong>desactivado</strong> (<code>cache: false</code>) en la fase Sample, justamente porque la independencia estadística de las N muestras es el mecanismo central del patrón; el tiebreak (una sola llamada) no necesita esa consideración.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (objeto o string JSON vía <code>args</code>):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
+<th>Requerido</th>
 <th>Default / clamp</th>
-<th>Notas</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>question</code> | <code>q</code> | <code>text</code></td>
+<td><code>question</code> (alias <code>q</code>, <code>text</code>)</td>
 <td>string</td>
-<td>requerido</td>
-<td>lanza error si falta (<code>Pass { question: &quot;...&quot; } as workflow input.</code>)</td>
+<td><strong>sí</strong></td>
+<td>— (si falta, <code>throw new Error</code>)</td>
 </tr>
 <tr>
 <td><code>samples</code></td>
 <td>number</td>
-<td><code>5</code>; clamp <code>[2, 20]</code></td>
-<td>se loguea si el valor pedido se clampea</td>
+<td>no</td>
+<td>default 5, clamp 2..20</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>—</td>
-<td>override global para todos los nodos</td>
+<td>no</td>
+<td>override global para todo nodo</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
 <td>object</td>
-<td>—</td>
-<td>override por rol (<code>sample</code>, <code>tiebreak</code>)</td>
+<td>no</td>
+<td>override por rol (<code>sample</code>, <code>tiebreak</code>); precedencia: por-rol &gt; global &gt; default del call-site</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
 <td>array</td>
-<td>—</td>
-<td>tools por nodo</td>
-</tr>
-<tr>
-<td><code>skills</code> / <code>skillsByRole[role]</code></td>
-<td>array</td>
-<td>—</td>
-<td>skills por nodo</td>
-</tr>
-<tr>
-<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
-<td>array</td>
-<td>—</td>
-<td>exclusión de tools por nodo</td>
+<td>no</td>
+<td>pasados al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
-<p><strong>Output</strong> (retorno del <code>main()</code>):</p>
+<p><strong>Output:</strong></p>
 <ul>
-<li>Si todas las muestras fallan: string <code>&quot;All samples failed; no consensus possible.&quot;</code></li>
-<li>Caso normal: objeto<ul>
-<li><code>answer</code>: respuesta consensuada (string)</li>
-<li><code>votes</code>: cantidad de votos del líder</li>
-<li><code>method</code>: <code>&quot;plurality&quot;</code> o <code>&quot;judge-tiebreak&quot;</code></li>
-<li><code>tiedAmong</code> (solo si hubo tiebreak): lista de respuestas que empataron</li>
-<li><code>totalSamples</code>: N pedido tras clamp</li>
-<li><code>counted</code>: cuántas muestras válidas se contaron</li>
-<li><code>distribution</code>: array de <code>{ answer, votes, samples }</code> por cada respuesta distinta, ordenado por votos desc</li>
+<li>Camino de fallo total: string <code>&quot;All samples failed; no consensus possible.&quot;</code></li>
+<li>Camino normal: <code>{ answer, votes, method, totalSamples, counted, distribution, tiedAmong? }</code><ul>
+<li><code>answer</code>: respuesta consensuada final.</li>
+<li><code>votes</code>: votos que obtuvo <code>top</code> (la respuesta líder original, incluso si el tiebreak eligió otra de las empatadas).</li>
+<li><code>method</code>: <code>&quot;plurality&quot;</code> o <code>&quot;judge-tiebreak&quot;</code>.</li>
+<li><code>tiedAmong</code>: presente solo si hubo empate; lista de las respuestas que compitieron.</li>
+<li><code>totalSamples</code>: cuántas muestras se pidieron (tras el clamp).</li>
+<li><code>counted</code>: cuántas muestras produjeron respuesta válida.</li>
+<li><code>distribution</code>: <code>[{ answer, votes, samples }]</code> por cada respuesta distinta observada, con los índices de muestra que la votaron.</li>
 </ul>
 </li>
 </ul>
-<p>No se observa uso de <code>writeArtifact</code> en este scaffold — el resultado se retorna directamente (no se persiste como archivo de artifact).</p>
+<p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (clamp de samples, fallos parciales, resumen de tally, veredicto de consenso) y por el shape de retorno.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Sample</strong> — dispara <code>samples</code> agentes independientes en paralelo (<code>parallel</code>, barrera), cada uno con <code>cache: false</code>, modelo <code>haiku</code>/effort <code>low</code> por default, devolviendo una respuesta normalizada + razonamiento vía schema.</li>
-<li><strong>Tally</strong> — cuenta votos por respuesta normalizada (case-insensitive), rankea y detecta empates.</li>
-<li><strong>Decide</strong> — resuelve por plurality directa si no hay empate, o invoca un agente juez (<code>opus</code>, effort <code>high</code>) para desempatar por evidencia entre las respuestas empatadas, con fallback determinístico si el juez responde fuera de lista.</li>
+<li><strong>Sample</strong> — <code>samples</code> agentes independientes (haiku·low, <code>cache:false</code>) razonan la misma pregunta por separado y devuelven <code>{answer normalizada, reasoning}</code>; se filtran los fallos.</li>
+<li><strong>Tally</strong> — cuenta votos por respuesta normalizada (case-insensitive) y ordena por popularidad, detectando empates.</li>
+<li><strong>Decide</strong> — gana por pluralidad si no hay empate; si lo hay, un juez (opus·high) pesa la evidencia y elige entre las empatadas, con fallback seguro si responde fuera de lista.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

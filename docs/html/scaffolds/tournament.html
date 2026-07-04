@@ -125,185 +125,129 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Bracket de eliminación simple: rondas de juicio por pares hasta que sobrevive un solo candidato.</p>
+<p>Bracket de eliminación simple: rondas de un juez por pareja hasta que sobrevive un solo candidato.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>tournament</code> enfrenta candidatos de a pares y un juez elige el mejor de cada partido; los ganadores avanzan a la siguiente ronda hasta que queda un solo campeón — como un cuadro de eliminación deportivo. Elegilo cuando necesitás rankear o elegir entre varios borradores/diseños y <strong>no confiás en que un juez le ponga un puntaje absoluto consistente</strong> (ej. &quot;puntuá de 1 a 10&quot;), pero sí confiás en que compare bien dos opciones a la vez (&quot;¿cuál de estas dos es mejor?&quot;). Los candidatos pueden venir explícitos (<code>candidates</code>) o generarse solos a partir de un <code>topic</code> y varios ángulos de análisis.</p>
+<p>Es el patrón para cuando puntuar en absoluto (dar un score de 1 a 10) es poco confiable, pero comparar dos alternativas cara a cara es fácil. Un juez arbitra partidos de a pares y solo el ganador avanza a la siguiente ronda, como un bracket de torneo deportivo, hasta que queda un único campeón. Elegilo para elegir el mejor de varios borradores/diseños o para un ranking comparativo cabeza a cabeza; si necesitás un score absoluto o consenso por votación, otro patrón encaja mejor.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=tournament
+/workflow run mi-run {&quot;candidates&quot;:[&quot;Propuesta A: microservicios&quot;, &quot;Propuesta B: monolito modular&quot;, &quot;Propuesta C: serverless&quot;, &quot;Propuesta D: monolito clásico&quot;]}
 </code></pre>
-<p>Input típico (JSON pasado como <code>args</code> al workflow) con candidatos explícitos:</p>
-<pre><code class="language-json">{
-  &quot;candidates&quot;: [
-    &quot;Propuesta A: cache en memoria con TTL de 5 minutos&quot;,
-    &quot;Propuesta B: invalidación por evento vía pub/sub&quot;,
-    &quot;Propuesta C: sin cache, leer siempre de la fuente&quot;
-  ]
-}
+<p>También podés arrancar solo con un <code>topic</code> y dejar que el scaffold genere los candidatos por vos, uno por ángulo:</p>
+<pre><code class="language-text">/workflow run mi-run {&quot;topic&quot;:&quot;¿Cómo deberíamos migrar el pipeline de facturación?&quot;, &quot;angles&quot;:[&quot;risk-first&quot;,&quot;simplicity-first&quot;,&quot;user-first&quot;,&quot;cost-first&quot;]}
 </code></pre>
-<p>Si no tenés candidatos armados, alcanza con un <code>topic</code> y el scaffold genera entrantes desde 4 ángulos por defecto (<code>risk-first</code>, <code>simplicity-first</code>, <code>user-first</code>, <code>cost-first</code>):</p>
-<pre><code class="language-json">{
-  &quot;topic&quot;: &quot;Cómo cachear resultados de una API externa lenta&quot;,
-  &quot;angles&quot;: [&quot;risk-first&quot;, &quot;simplicity-first&quot;, &quot;user-first&quot;]
-}
-</code></pre>
+<p><code>candidates</code> (array de strings) tiene prioridad; si falta o viene vacío, se requiere <code>topic</code>/<code>question</code>/<code>q</code>/<code>text</code> (el primero no-nulo gana) para generar un candidato por cada <code>angles</code> (default <code>[&quot;risk-first&quot;,&quot;simplicity-first&quot;,&quot;user-first&quot;,&quot;cost-first&quot;]</code>).</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    A["Input: candidates o topic"] --&gt; B{"¿hay candidates?"}
+    A["Input: candidates[] o topic + angles[]"] --&gt; B{"candidates[] presente y no vacío?"}
     B --&gt;|"sí"| E["entrants = candidates"]
-    B --&gt;|"no, hay topic"| S["Fase Seed"]
-    B --&gt;|"no hay topic ni candidates"| ERR["throw Error"]
+    B --&gt;|"no"| C{"topic ausente?"}
+    C --&gt;|"sí"| C1["throw: falta candidates o topic"]
+    C --&gt;|"no"| D["Phase: Seed"]
 
-    subgraph SEED["Fase Seed — parallel(angles)"]
-        direction TB
-        S1["agent seed-0 (risk-first)"]
-        S2["agent seed-1 (simplicity-first)"]
-        S3["agent seed-2 (user-first)"]
-        S4["agent seed-i (cost-first / custom)"]
+    subgraph SEEDFAN["Seed fan-out (parallel)"]
+        S1["agent seed-0 sonnet·medium\nángulo 1 -&gt; propuesta"]
+        S2["agent seed-1 sonnet·medium\nángulo 2 -&gt; propuesta"]
+        S3["agent seed-N sonnet·medium\nángulo N -&gt; propuesta"]
     end
-    S --&gt; SEED
-    SEED --&gt; E2["entrants = outputs no-crasheados, con label de angle"]
-    E2 --&gt; CLAMP["clamp a MAX_ENTRANTS = 8192"]
-    E --&gt; CLAMP
+    D --&gt; SEEDFAN
+    SEEDFAN --&gt; E2["entrants = outputs no-nulos, etiquetados '[ángulo] texto'"]
+    E --&gt; F
+    E2 --&gt; F["clamp entrants a MAX_ENTRANTS=8192"]
 
-    CLAMP --&gt; ONE{"entrants.length &lt; 2?"}
-    ONE --&gt;|"sí"| RET0["return entrants[0] o \"\""]
-    ONE --&gt;|"no"| INIT["survivors = entrants (ids e0..en)"]
+    F --&gt; G{"entrants.length &lt; 2?"}
+    G --&gt;|"sí"| G1["return entrants[0] o '' — sin torneo"]
+    G --&gt;|"no"| H["Phase: Bracket\ntotalRounds = ceil(log2(N))"]
 
-    INIT --&gt; LOOP{"survivors.length &gt; 1?"}
-    LOOP --&gt;|"sí"| PAIR["Fase Bracket: emparejar survivors\n(par impar -&gt; 1 bye)"]
+    H --&gt; I["survivors = entrants"]
+    I --&gt; J{"survivors.length &gt; 1?"}
+    J --&gt;|"no"| P["champion = survivors[0]"]
+    J --&gt;|"sí"| K["pairs = agrupar de a 2\n(impar -&gt; 1 bye sin oponente)"]
 
-    subgraph BRACKET["Ronda N — parallel(matches) con settle"]
-        direction TB
-        M1["agent match-rN-m0 (schema VERDICT, opus, effort high)"]
-        M2["agent match-rN-m1"]
-        M3["agent match-rN-mK"]
+    subgraph BRACKETFAN["Ronda: matches en parallel + settle"]
+        M1["agent match-r·m1 opus·high, schema VERDICT\nslot1 vs slot2 (flip por paridad round+i)"]
+        M2["agent match-r·m2 opus·high, schema VERDICT"]
+        M3["agent match-r·mN opus·high, schema VERDICT"]
     end
-    PAIR --&gt; BRACKET
-    BRACKET --&gt; MAP["mapear verdict slot1/slot2 -&gt; entrant a/b\n(anti position-bias flip)"]
-    MAP --&gt; DEF{"¿verdict inválido/crash?"}
-    DEF --&gt;|"sí"| DFT["default a candidato a + log degradado"]
-    DEF --&gt;|"no"| WIN["winner = candidato elegido"]
-    DFT --&gt; NEXT["next survivors (+ bye si existe)"]
-    WIN --&gt; NEXT
-    NEXT --&gt; LOOP
+    K --&gt; BRACKETFAN
+    BRACKETFAN --&gt; L{"verdict válido (winner 1|2)?"}
+    L --&gt;|"sí"| L1["ganador real = mapear slot-&gt;entrante (des-flip)"]
+    L --&gt;|"no/crash"| L2["default LOUD: gana candidato a\n(log 'defaulting to candidate 1')"]
+    L1 --&gt; N["next = ganadores + bye si había"]
+    L2 --&gt; N
+    N --&gt; J
 
-    LOOP --&gt;|"no, queda 1"| CHAMP["champion = survivors[0]"]
-    CHAMP --&gt; LOGOUT["log tournament summary (entrants, rounds, transcript, championId)"]
-    LOGOUT --&gt; RET["return champion.text"]</pre>
+    P --&gt; Q["log champion + tournament.json (entrants, rounds, transcript, championId)"]
+    Q --&gt; R["return champion.text"]</pre>
 <h2>Qué hace</h2>
-<p><code>tournament</code> implementa un bracket de eliminación simple estilo torneo deportivo: en lugar de pedirle a un juez que puntúe cada candidato en una escala absoluta (lo cual es notoriamente poco confiable), lo obliga a resolver comparaciones binarias — &quot;¿cuál de estos dos es mejor?&quot; — que son mucho más fáciles de juzgar con consistencia. Cada ronda empareja a los sobrevivientes, un agente-juez con salida estructurada (<code>{winner: 1|2, why}</code>) decide cada partido, los ganadores avanzan y el proceso se repite hasta que queda un solo campeón.</p>
-<p>El número de rondas no está fijado de antemano: emerge de los datos como <code>ceil(log2(n))</code>, y el bracket se reduce a la mitad en cada iteración hasta colapsar a un sobreviviente. Si el campo tiene un número impar de participantes en una ronda, el último entrante recibe un &quot;bye&quot; (pasa gratis a la siguiente ronda) en vez de fabricarle un rival artificial.</p>
-<p>Los candidatos pueden venir explícitos en <code>input.candidates</code>, o generarse automáticamente a partir de &quot;ángulos&quot; de análisis distintos (<code>risk-first</code>, <code>simplicity-first</code>, <code>user-first</code>, <code>cost-first</code> por defecto) cuando solo se provee un <code>topic</code>. Cada partido usa <code>parallel()</code> con semántica de &quot;settle&quot; (vía el helper interno, ver más abajo), de modo que un juez que crashea en un partido no hunde toda la ronda: ese partido simplemente se resuelve por default (documentado en el log, nunca en silencio).</p>
-<p>Todo el prompt de datos no confiables (<code>topic</code>, textos de candidatos) se envuelve con un fence delimitado por un hash derivado del contenido, para blindar contra inyección de instrucciones dentro de los datos que se están juzgando o generando.</p>
+<p><code>tournament</code> implementa un bracket de eliminación simple (single-elimination) clásico: en vez de pedirle a un modelo que puntúe cada candidato de forma absoluta, lo enfrenta de a pares y le pide un veredicto binario (<code>{ winner: 1|2, why }</code>). Solo el ganador de cada partido avanza; el proceso se repite ronda tras ronda hasta que queda un único sobreviviente, el &quot;campeón&quot;.</p>
+<p>La razón de ser &quot;dinámico&quot; es que nada del bracket está fijo de antemano: si no se pasan <code>candidates</code>, el propio scaffold genera un entrante por cada ángulo de análisis (Fase Seed) antes de arrancar el torneo. El número de rondas (<code>ceil(log2(N))</code>) emerge del tamaño real del campo de entrantes, y un campo impar recibe un &quot;bye&quot; (pase libre sin oponente fabricado) en vez de forzar un partido inventado.</p>
+<p>El diseño evita dos sesgos comunes al usar LLMs como jueces: la posición del candidato en el prompt (se alterna cuál va en el slot 1 según la paridad de <code>round + i</code>, &quot;position bias washout&quot;) y el fallo silencioso (si un partido crashea o devuelve un veredicto inválido, se loguea explícitamente y se aplica un default declarado — nunca un fallback mudo).</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Elegir el mejor de varios borradores/diseños (draft de PR, propuestas de arquitectura, textos).</li>
-<li>Ranking comparativo cuando no hay una escala absoluta confiable.</li>
-<li>Selección cabeza a cabeza (head-to-head) entre alternativas.</li>
-<li>El caso general: <strong>la puntuación absoluta es poco confiable pero la comparación por pares es fácil</strong> (ej. &quot;¿cuál código es más legible?&quot; es más fiable que &quot;puntuá este código de 1 a 10&quot;).</li>
+<li>Elegir el mejor de varios borradores o diseños (del catálogo).</li>
+<li>Ranking comparativo (del catálogo).</li>
+<li>Selección cabeza a cabeza entre alternativas (del catálogo).</li>
+<li>Cuando puntuar en absoluto es poco confiable pero comparar dos opciones es fácil (<code>useWhen</code> del catálogo).</li>
 </ul>
-<p><strong>No usarlo cuando:</strong></p>
-<ul>
-<li>Hace falta una puntuación absoluta o un umbral (ej. &quot;aprobar si score &gt; 7&quot;) — usar un scaffold de scoring, no un bracket.</li>
-<li>Se necesita explorar pasos intermedios de una solución (no solo candidatos finales) — ver <code>tree-of-thoughts</code>.</li>
-<li>Se busca consenso por votación mayoritaria entre razonamientos independientes — ver <code>self-consistency</code>.</li>
-<li>Solo hay 0 o 1 candidato: el scaffold corta temprano y devuelve ese único candidato (o <code>&quot;&quot;</code>) sin gastar rondas de juicio.</li>
-</ul>
+<p>No usarlo cuando: se necesita un score absoluto por candidato (no solo un orden relativo) — ahí conviene un scaffold de puntuación directa; cuando la señal que importa es el consenso entre múltiples caminos de razonamiento sobre una misma pregunta — ahí <code>self-consistency</code> (votación) es más apropiado; o cuando el objetivo es resumir/consolidar un corpus en vez de comparar alternativas — ahí <code>map-reduce</code> o <code>fan-out-and-synthesize</code> encajan mejor.</p>
 <h2>Cómo funciona</h2>
-<ol>
-<li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea como JSON (con fallback a <code>{}</code> si falla). Se define <code>compact()</code> para truncar logs largos, y <code>fence()</code> para envolver datos no confiables en un delimitador cuyo tag es un hash FNV-like del contenido — no se puede falsear porque el propio contenido determina el tag de cierre, y no usa <code>Math.random()</code>/<code>Date.now()</code> (prohibidos en el runtime).</p>
-</li>
-<li><p><strong>Resolución de overrides por rol.</strong> El helper <code>node(role, extra)</code> aplica precedencia: <code>input.models[role]</code> / <code>input.efforts[role]</code> / <code>input.toolsByRole[role]</code> / etc. sobre <code>input.model</code> / <code>input.effort</code> / <code>input.tools</code> globales, sobre el default del call-site. Los roles estables usados en este scaffold son <code>&quot;seed&quot;</code> (fase Seed) y <code>&quot;match&quot;</code> (fase Bracket).</p>
-</li>
-<li><p><strong>Fase Seed (solo si no hay <code>input.candidates</code>).</strong> Requiere <code>input.topic</code> (o <code>question</code>/<code>q</code>/<code>text</code>); si no hay ni candidates ni topic, lanza <code>Error</code>. Toma <code>input.angles</code> (default: 4 ángulos fijos) y por cada ángulo dispara un <code>agent()</code> en paralelo (<code>parallel()</code>) con el prompt &quot;Propone UN approach concreto&quot; + fence del topic. Modelo fijo <code>&quot;sonnet&quot;</code>, effort <code>&quot;medium&quot;</code> (ambos sobre-escribibles vía <code>models.seed</code>/<code>efforts.seed</code>). Los <code>angles</code> se clampean a 4096 (límite de <code>parallel()</code>). Los resultados se mapean a texto <strong>antes</strong> de filtrar nulls, para que un seed crasheado no corra las etiquetas de ángulo de los siguientes entrantes.</p>
-</li>
-<li><p><strong>Clamp de campo.</strong> Los entrantes (explícitos o generados) se recortan a <code>MAX_ENTRANTS = 8192</code>, para que ninguna ronda del bracket exceda el cap de 4096 thunks por llamada a <code>parallel()</code> (una ronda genera como máximo <code>entrants/2</code> partidos).</p>
-</li>
-<li><p><strong>Caso trivial.</strong> Si <code>entrants.length &lt; 2</code>, se loguea y se retorna directamente ese único candidato (o <code>&quot;&quot;</code> si no hay ninguno) — no se corre ningún torneo.</p>
-</li>
-<li><p><strong>Fase Bracket (loop <code>while survivors.length &gt; 1</code>).</strong> En cada ronda:</p>
-<ul>
-<li>Se emparejan sobrevivientes consecutivos; si el conteo es impar, el último recibe un bye.</li>
-<li>Se ejecutan los partidos con <code>parallel()</code>; cada partido llama a <code>agent()</code> con <code>schema: VERDICT</code> (<code>{winner: 1|2, why}</code>), modelo <code>&quot;opus&quot;</code>, effort <code>&quot;high&quot;</code> (rol <code>&quot;match&quot;</code>, overrideable). Para evitar bias posicional, se alterna qué candidato ocupa el &quot;slot 1&quot; según <code>(round + i) % 2</code>.</li>
-<li>El label de cada match es <code>match-r{round}-m{i}</code> — un id estable por ronda+partido para que el cache de prompts no colisione entre rondas.</li>
-<li>El resultado de <code>parallel()</code> viene con settle implícito: si un elemento del array de resultados es falsy/<code>undefined</code> (partido crasheado) o el veredicto no trae <code>winner</code> válido (1 o 2), se hace default explícito a &quot;candidato 1&quot; (<code>a</code>) y se cuenta/loguea como <code>defaulted</code> — nunca en silencio.</li>
-<li>Se registra cada partido en <code>transcript</code> (round, match, ids de a/b, winner, why).</li>
-<li>Los ganadores + el eventual bye forman los <code>survivors</code> de la siguiente ronda.</li>
-</ul>
-</li>
-<li><p><strong>Salida.</strong> Cuando queda un solo sobreviviente, se loguea el campeón y un resumen JSON completo (<code>entrants</code>, <code>rounds</code>, <code>transcript</code>, <code>championId</code>) vía <code>log()</code> (truncado con <code>compact()</code> a 60000 caracteres) — no hay <code>writeArtifact</code> en este scaffold, todo el detalle vive en el log del run. La función retorna el texto del campeón (<code>champion.text</code>), o <code>&quot;&quot;</code> si no hay ninguno.</p>
-</li>
-</ol>
+<p><strong>Fase Seed.</strong> Si <code>input.candidates</code> es un array no vacío (tras filtrar falsy), se usa tal cual como campo de entrantes. Si no, requiere <code>topic</code>/<code>question</code>/<code>q</code>/<code>text</code> (se toma el primero no-nulo); sin ninguno, lanza una excepción explícita. Con topic, genera un candidato por cada elemento de <code>angles</code> (default 4 ángulos: <code>risk-first</code>, <code>simplicity-first</code>, <code>user-first</code>, <code>cost-first</code>, clamp a 4096 por el límite de <code>parallel()</code>) lanzando un <code>agent</code> por ángulo en <code>parallel</code>, rol <code>seed</code> (modelo <code>sonnet</code>, effort <code>medium</code>), cada uno con el topic envuelto en un fence anti-inyección derivado de hash de contenido. Los resultados nulos (fallo bajo <code>parallel</code>) se descartan preservando el índice/etiqueta original de cada ángulo antes de filtrar, para que un seed caído no corra las etiquetas de los siguientes. El campo resultante se recorta a <code>MAX_ENTRANTS = 8192</code> (loggeado si aplica, para que cualquier ronda quede dentro del cap de 4096 thunks de <code>parallel()</code>). Si queda menos de 2 entrantes, no hay torneo: retorna directamente ese único candidato (o <code>&quot;&quot;</code>).</p>
+<p><strong>Fase Bracket.</strong> <code>totalRounds = ceil(log2(N))</code> se calcula y loguea al arrancar, solo a título informativo (el loop real termina por condición, no por contador fijo). En cada ronda: se agrupan los sobrevivientes de a pares consecutivos; si el conteo es impar, el último sobreviviente recibe un bye (avanza sin jugar). Cada partido se resuelve con un <code>agent</code> juez (modelo <code>opus</code>, effort <code>high</code>, <code>schema: VERDICT</code> que exige <code>{winner: 1|2, why}</code>), lanzados todos en <code>parallel</code> para la ronda (settle: un partido caído no tumba la ronda entera). Para neutralizar el sesgo de posición, qué candidato ocupa el slot 1 vs. slot 2 se decide alternando según la paridad de <code>round + índice de partido</code>; el label del <code>agent</code> (<code>match-r{round}-m{i}</code>) es estable entre rondas para no colisionar la caché de prompts. Tras cada partido, el veredicto de slot se remapea al entrante real (deshaciendo el flip); si el veredicto es inválido o el partido crasheó, se aplica un default explícito y logueado (gana el candidato &quot;a&quot; del par, nunca en silencio) y se cuenta como <code>defaulted</code> en el log de la ronda. Los ganadores (más el bye, si hubo) forman el <code>survivors</code> de la siguiente ronda; el loop continúa mientras <code>survivors.length &gt; 1</code>.</p>
+<p><strong>Personas/modelos:</strong> rol <code>seed</code> en <code>sonnet</code>/<code>medium</code> (generación barata de propuestas); rol <code>match</code> en <code>opus</code>/<code>high</code> (juicio de mayor calidad, ya que decide directamente quién avanza). Ambos roles, igual que <code>tools</code>/<code>skills</code>/<code>excludeTools</code>, son overrideables por <code>input.models[role]</code> / <code>input.efforts[role]</code> / <code>*ByRole</code>, con precedencia por-rol &gt; global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call-site.</p>
+<p><strong>Caching:</strong> no hay llamadas a una API de cache explícita; cada <code>agent</code> corre fresco, aunque los labels estables por ronda/partido evitan colisiones si el runtime cachea por label.</p>
 <h2>Input y output</h2>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default</th>
-<th>Notas</th>
+<th>Requerido</th>
+<th>Default / clamp</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>candidates</code></td>
-<td><code>string[]</code></td>
-<td>—</td>
-<td>Si se provee (no vacío tras filtrar falsy), se usa directo como entrantes; tiene prioridad sobre <code>topic</code>.</td>
+<td>string[]</td>
+<td>uno de <code>candidates</code>|<code>topic</code> (gana <code>candidates</code>)</td>
+<td>— (se filtran valores falsy)</td>
 </tr>
 <tr>
 <td><code>topic</code> / <code>question</code> / <code>q</code> / <code>text</code></td>
-<td><code>string</code></td>
-<td>—</td>
-<td>Usado solo si no hay <code>candidates</code>; requerido en ese caso (si falta, <code>throw</code>).</td>
+<td>string</td>
+<td>uno de <code>candidates</code>|<code>topic</code></td>
+<td>— (se toma el primero no-nulo si falta <code>candidates</code>)</td>
 </tr>
 <tr>
 <td><code>angles</code></td>
-<td><code>string[]</code></td>
-<td><code>[&quot;risk-first&quot;,&quot;simplicity-first&quot;,&quot;user-first&quot;,&quot;cost-first&quot;]</code></td>
-<td>Ángulos para generar entrantes cuando no hay <code>candidates</code>. Clampeado a 4096 (límite de <code>parallel()</code>).</td>
+<td>string[]</td>
+<td>no</td>
+<td>default <code>[&quot;risk-first&quot;,&quot;simplicity-first&quot;,&quot;user-first&quot;,&quot;cost-first&quot;]</code>, clamp a 4096 elementos</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
-<td><code>string</code></td>
-<td>—</td>
-<td>Defaults globales para todo nodo (sonnet/opus por rol si no se especifica).</td>
+<td>string</td>
+<td>no</td>
+<td>override global para todo nodo</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
-<td><code>object</code></td>
-<td>—</td>
-<td>Overrides por rol (<code>seed</code>, <code>match</code>), tienen prioridad sobre el default global.</td>
+<td>object</td>
+<td>no</td>
+<td>override por rol (<code>seed</code>, <code>match</code>); precedencia: por-rol &gt; global &gt; default</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>toolsByRole[role]</code></td>
-<td><code>string[]</code></td>
-<td>—</td>
-<td>Herramientas por defecto / por rol.</td>
-</tr>
-<tr>
-<td><code>skills</code> / <code>skillsByRole[role]</code></td>
-<td><code>string[]</code></td>
-<td>—</td>
-<td>Skills por defecto / por rol.</td>
-</tr>
-<tr>
-<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
-<td><code>string[]</code></td>
-<td>—</td>
-<td>Exclusiones por defecto / por rol.</td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
+<td>array</td>
+<td>no</td>
+<td>pasados al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
-<p>Clamps internos (no configurables al alza):</p>
-<ul>
-<li>Ángulos de seed: máx. <strong>4096</strong>.</li>
-<li>Entrantes totales: máx. <strong>8192</strong> (<code>MAX_ENTRANTS</code>), para no exceder el cap de 4096 thunks/llamada de <code>parallel()</code> en ninguna ronda.</li>
-</ul>
-<p><strong>Output:</strong> el texto del candidato campeón (<code>string</code>), o <code>&quot;&quot;</code> si no hubo ningún entrante válido. No se escriben artifacts con <code>writeArtifact</code>; el detalle del torneo (entrantes, rondas, transcript completo por partido, id del campeón) se emite exclusivamente vía <code>log()</code> como un bloque JSON compactado a 60000 caracteres.</p>
+<p><strong>Output:</strong> el texto del candidato campeón (<code>champion.text</code>), o <code>&quot;&quot;</code>/el único entrante si el campo tenía menos de 2 candidatos. No se observan llamadas a <code>writeArtifact</code>; toda la observabilidad pasa por <code>log(...)</code>: tamaño del bracket inicial, byes, conteo de defaults por ronda, y un resumen final <code>tournament.json</code> (compactado a 60000 chars) con <code>entrants</code>, <code>rounds</code>, el <code>transcript</code> completo de partidos (<code>round</code>, <code>match</code>, <code>a</code>, <code>b</code>, <code>winner</code>, <code>why</code>) y el <code>championId</code>.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Seed</strong> — genera entrantes desde ángulos distintos cuando no se proveen <code>candidates</code> explícitos (fan-out en paralelo, un <code>agent()</code> por ángulo).</li>
-<li><strong>Bracket</strong> — rondas de juicio por pares en paralelo (<code>agent({schema})</code> por partido) que reducen el campo a la mitad hasta quedar un único campeón.</li>
+<li><strong>Seed</strong> — resuelve el campo de entrantes: usa <code>candidates</code> tal cual, o genera un candidato por cada ángulo vía <code>agent</code> en <code>parallel</code> (rol <code>seed</code>, sonnet·medium) a partir de <code>topic</code>; clamp a <code>MAX_ENTRANTS</code>.</li>
+<li><strong>Bracket</strong> — bucle de rondas de eliminación simple: empareja sobrevivientes (con bye si el campo es impar), un <code>agent</code> juez por partido en <code>parallel</code> con settle y schema tipado (rol <code>match</code>, opus·high), washout de sesgo de posición, default explícito ante fallos, hasta que sobrevive un único campeón.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

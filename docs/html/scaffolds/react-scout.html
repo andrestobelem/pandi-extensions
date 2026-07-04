@@ -125,108 +125,107 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Loop ReAct de razonar → actuar → observar: cada paso fundamenta un pensamiento en una observación real de solo lectura antes de dar el siguiente.</p>
+<p>ReAct reason → act → observe loop: cada paso funda un pensamiento en una observación real de solo lectura antes del siguiente.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Es el patrón ReAct (arXiv:2210.03629): en vez de que un solo agente conteste &quot;de una&quot;, un actor propone un THOUGHT + una ACTION de solo lectura por paso, un observador independiente la ejecuta y reporta evidencia citada, y esa evidencia alimenta el próximo pensamiento — hasta que el actor declara <code>done</code> o se agota <code>maxSteps</code>. Elegilo cuando cada afirmación debe estar anclada en una observación real (no en el prior del modelo) y cuando la próxima acción depende de lo que se acaba de observar; NO lo uses para preguntas triviales de una pasada ni cuando necesitás paralelismo amplio (para eso, <code>complex-research</code> u otro fan-out).</p>
+<p>En vez de dejar que un solo agente improvise una respuesta, <code>react-scout</code>
+alterna explícitamente razonamiento y acción: un &quot;actor&quot; propone un
+PENSAMIENTO y una única ACCIÓN de solo lectura, un &quot;observador&quot; independiente
+la ejecuta y devuelve evidencia citada, y esa evidencia se agrega a una traza
+que el siguiente pensamiento debe usar. Elegilo cuando necesitás una
+investigación fundada en evidencia real (no en prosa suelta) antes de
+comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=react-scout
-/workflow run mi-run {&quot;question&quot;: &quot;¿Dónde el decoder WASM recibe los bytes de entrada?&quot;, &quot;maxSteps&quot;: 8}
+<pre><code class="language-bash">/workflow new mi-scout --pattern=react-scout
 </code></pre>
-<p><code>question</code> (alias <code>q</code>/<code>text</code>/<code>topic</code>) es el único campo obligatorio; <code>maxSteps</code> (default <code>6</code>, clamp <code>1..50</code>) y <code>tools</code> (default <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;,&quot;web_search&quot;]</code>) son opcionales. Ver <a href="#input-y-output">Input y output</a> para overrides por rol (<code>models</code>, <code>efforts</code>, <code>toolsByRole</code>, etc.).</p>
+<p>Input típico:</p>
+<pre><code class="language-json">{
+  &quot;question&quot;: &quot;¿Dónde el decodificador WASM recibe los bytes de entrada?&quot;,
+  &quot;maxSteps&quot;: 6
+}
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Input["Input: question, maxSteps=6 clamp 1..50, tools default read/grep/find/ls/web_search"] --&gt; Loop
-
-    subgraph Loop["Loop while not done and step &lt; maxSteps"]
-        direction TB
-        Reason["Fase Reason&lt;br/&gt;agent con schema STEP&lt;br/&gt;modelo sonnet, effort medium&lt;br/&gt;emite thought + done + action + query"]
-        Reason --&gt;|"done=true o action=none o query vacia"| Stop["Marca done=true&lt;br/&gt;push trace no-op&lt;br/&gt;break"]
-        Reason --&gt;|"accion + query"| Observe["Fase Observe&lt;br/&gt;agent independiente de solo lectura&lt;br/&gt;modelo haiku, effort low, tools=tools&lt;br/&gt;ejecuta SOLO la accion pedida"]
-        Observe --&gt; CheckCite["Chequea NO_FINDINGS / fallo&lt;br/&gt;y presencia de cita file:line, path o URL&lt;br/&gt;marca uncited si corresponde"]
-        CheckCite --&gt; Append["Push {step, thought, action, query, observation, uncited} a trace"]
-        Append --&gt; Reason
-    end
-
-    Stop --&gt; Answer
-    Loop --&gt;|"step alcanza maxSteps sin done"| Answer
-
-    Answer["Fase Answer&lt;br/&gt;agent modelo opus, effort high&lt;br/&gt;responde SOLO con el trace&lt;br/&gt;o INSUFFICIENT_EVIDENCE"]
-    Answer --&gt; Output["Return { answer, trace, steps, converged }"]</pre>
+    Start(["Input: question, maxSteps"]) --&gt; Loop{"step &lt; maxSteps and not done?"}
+    Loop -- sí --&gt; Reason["Fase Reason: agent actor (sonnet)\nemite thought + action + query (schema STEP)"]
+    Reason -- "reason falló o done/none" --&gt; Trace1["push a la traza\n(sentinela o 'actor done')"]
+    Trace1 --&gt; Done{"¿actor dijo done\no falló el reason?"}
+    Done -- sí --&gt; Answer
+    Done -- no --&gt; Observe["Fase Observe: agent observador (haiku)\nejecuta SOLO esa acción\n(grep/read/find/web_search)"]
+    Observe --&gt; Cite["Marca observation como\nuncited si no trae file:line/URL"]
+    Cite --&gt; Trace2["push {thought, action, query, observation, uncited}"]
+    Trace2 --&gt; Loop
+    Loop -- no --&gt; Answer["Fase Answer: agent sintetizador (opus)\nresponde SOLO con la traza,\ncita evidencia o INSUFFICIENT_EVIDENCE"]
+    Answer --&gt; Out(["Output: answer, trace, steps, converged"])</pre>
 <h2>Qué hace</h2>
-<p>En cada paso, el rol <code>reason</code> emite un THOUGHT y una única ACTION de solo lectura (schema tipado <code>STEP</code>), y el rol <code>observe</code> —un agente independiente— ejecuta ÚNICAMENTE esa acción y reporta evidencia citada o <code>NO_FINDINGS</code>; esa evidencia se agrega al trace que el próximo THOUGHT usa como base. El loop termina cuando el actor declara <code>done=true</code> (ya tiene evidencia suficiente) o cuando se agota el presupuesto de pasos (<code>maxSteps</code>). Al final, una fase <code>Answer</code> separada sintetiza la respuesta usando ESTRICTAMENTE el trace acumulado (rol <code>answer</code>, modelo opus, effort high), citando evidencia o declarando <code>INSUFFICIENT_EVIDENCE</code> si el trace no alcanza.</p>
-<p>El diseño prioriza que cada afirmación esté anclada en una observación real (no en el prior del modelo): el prompt del observer exige citar <code>file:line</code> / path / URL, y el código marca explícitamente como <code>uncited</code> cualquier observación sin cita detectable, para que las fases posteriores puedan descontarla. También hay defensas contra prompt injection (fences con hash del contenido, instrucción de tratar el contenido delimitado como datos, nunca como instrucciones) y manejo explícito de fallos parciales (reason falla, observe falla, resultado null) sin perder el trace.</p>
-<p>El propio código lo documenta como el &quot;front-end canónico&quot; de un fan-out: se pensó para correr primero y luego pasar <code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>, generalizando el scout de un solo paso que esos workflows usan al inicio.</p>
+<p><code>react-scout</code> implementa el patrón ReAct (arXiv:2210.03629): en lugar de que
+un modelo genere una respuesta de una sola vez, el workflow fuerza un ciclo
+explícito de razonar → actuar → observar. En cada paso, un agente &quot;actor&quot;
+(rol <code>reason</code>) mira la pregunta y la traza acumulada, y decide UNA sola
+acción de solo lectura a ejecutar a continuación (grep, read, find o
+web_search), o declara que ya tiene evidencia suficiente (<code>done: true</code>).</p>
+<p>Un segundo agente, el &quot;observador&quot; (rol <code>observe</code>), es independiente del
+actor y ejecuta exclusivamente esa acción solicitada — nada más — devolviendo
+hallazgos citados (file:line, ruta o URL) o <code>NO_FINDINGS</code>. Esta separación
+evita que el actor alucine evidencia: solo puede razonar sobre lo que el
+observador realmente encontró.</p>
+<p>El ciclo se repite hasta que el actor declara <code>done</code> o se agota el
+presupuesto de pasos (<code>maxSteps</code>). Al final, un tercer agente sintetizador
+(rol <code>answer</code>) redacta la respuesta usando ÚNICAMENTE la traza acumulada,
+citando evidencia por cada afirmación, o declarando <code>INSUFFICIENT_EVIDENCE</code>
+si la traza no alcanza.</p>
+<p>Es explícitamente el &quot;front-end&quot; canónico para un fan-out: se puede correr
+primero para fundamentar una hipótesis o lista de trabajo, y luego pasar
+<code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>.</p>
 <h2>Cuándo usarlo</h2>
-<table>
-<thead>
-<tr>
-<th>Situación</th>
-<th>¿Usar <code>react-scout</code>?</th>
-<th>Por qué</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Cada afirmación debe estar respaldada por una observación real, no por el prior del modelo</td>
-<td>Sí</td>
-<td>El observer cita <code>file:line</code>/path/URL y marca <code>uncited</code> lo que no lo hace</td>
-</tr>
-<tr>
-<td>Necesitás un trace estructurado para alimentar un fan-out (<code>scout-fanout</code>, <code>fan-out-and-synthesize</code>)</td>
-<td>Sí</td>
-<td>Es el &quot;front-end canónico&quot; para eso; <code>result.trace</code> se pasa directo</td>
-</tr>
-<tr>
-<td>La siguiente acción depende de lo que se acaba de observar (exploración adaptativa)</td>
-<td>Sí</td>
-<td>Cada THOUGHT se construye sobre el trace acumulado del paso anterior</td>
-</tr>
-<tr>
-<td>Querés auditar el razonamiento paso a paso</td>
-<td>Sí</td>
-<td>El trace queda como evidencia inspeccionable (thought/action/query/observation/uncited)</td>
-</tr>
-<tr>
-<td>Pregunta trivial que un solo agente con tools resuelve en una pasada</td>
-<td>No</td>
-<td>El overhead de loop + dos agentes por paso no se justifica</td>
-</tr>
-<tr>
-<td>Necesitás paralelismo amplio o comparar ángulos independientes</td>
-<td>No</td>
-<td><code>react-scout</code> es secuencial, un paso a la vez; usá <code>complex-research</code> u otro fan-out</td>
-</tr>
-<tr>
-<td>Necesitás acciones de escritura/mutación</td>
-<td>No</td>
-<td>El scaffold es explícitamente de solo lectura (&quot;ReAct&#39;s &#39;act&#39; here is observation, not mutation&quot;)</td>
-</tr>
-</tbody></table>
-<h2>Cómo funciona</h2>
-<ol>
-<li><p><strong>Parseo de input y defaults.</strong> Lee <code>args</code> (string JSON o objeto), extrae <code>question</code>/<code>q</code>/<code>text</code>/<code>topic</code> (obligatorio, si falta lanza error), <code>maxSteps</code> (default 6, clamp 1–50, loggea si se clampeó), y <code>tools</code> (default <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;,&quot;web_search&quot;]</code>). Soporta overrides por rol vía <code>input.models[role]</code>, <code>input.efforts[role]</code>, <code>input.toolsByRole[role]</code>, <code>input.skillsByRole[role]</code>, <code>input.excludeByRole[role]</code>, con fallback a <code>input.model</code>/<code>input.effort</code>/<code>input.tools</code>/etc. globales (helper <code>node(role, extra)</code>).</p>
-</li>
-<li><p><strong>Utilidades de seguridad de datos.</strong> <code>compact(d, n=60000)</code> trunca strings largos con marcador <code>…[truncated]</code>. <code>fence(kind, d)</code> envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;…&lt;/untrusted-HASH&gt;</code> derivado de un hash FNV-like del propio contenido (no aleatorio, porque el runtime prohíbe <code>Math.random</code>/<code>Date.now</code>), para que un payload malicioso no pueda forjar el marcador de cierre.</p>
-</li>
-<li><p><strong>Fase <code>Reason</code> (dentro del loop, primitiva <code>agent</code> con <code>schema</code>).</strong> Cada iteración (<code>step</code> incrementa hasta <code>maxSteps</code>): se llama <code>phase(&quot;Reason&quot;)</code> y se invoca <code>agent(...)</code> con schema <code>STEP</code> (<code>thought</code>, <code>done</code>, <code>action</code>, <code>query</code>), modelo <code>sonnet</code>, effort <code>medium</code>, label <code>reason-{step}</code>. El prompt incluye la pregunta y el trace acumulado (truncado por <code>traceForPrompt</code>, que conserva la COLA/más reciente si excede 12000 chars, con log de truncamiento). Manejo de fallos:</p>
 <ul>
-<li>Si <code>agent()</code> lanza excepción: se pushea un registro sentinel al trace (<code>observation: &quot;(reason failed: ...)&quot;</code>) y se hace <code>break</code> (no converge).</li>
-<li>Si <code>decided</code> es <code>null</code>/falsy: mismo tratamiento con <code>&quot;(reason failed: empty result)&quot;</code> y <code>break</code>.</li>
-<li>Si <code>decided.done</code> es true, o <code>action===&quot;none&quot;</code>, o no hay <code>query</code>: se marca <code>done=true</code>, se pushea un registro <code>&quot;(actor declared done)&quot;</code> y se sale del loop (convergencia real).</li>
+<li>Investigación fundada en evidencia real antes de comprometerse a una
+respuesta o acción.</li>
+<li>Producir una traza (<code>trace</code>) para entregarle a un fan-out posterior.</li>
+<li>Fundar cada paso de razonamiento en una observación concreta del repo o la
+web, en vez de dejar que el modelo &quot;recuerde&quot; o infiera.</li>
+<li><strong>No usarlo</strong> para preguntas triviales que un solo agente con tools ya
+resuelve en un paso, ni cuando se necesita escritura/mutación (el loop es
+deliberadamente de solo lectura).</li>
 </ul>
-</li>
-<li><p><strong>Fase <code>Observe</code> (primitiva <code>agent</code> sin schema, con <code>tools</code>).</strong> Solo se ejecuta si el actor pidió una acción concreta. <code>phase(&quot;Observe&quot;)</code> + <code>agent(...)</code> con modelo <code>haiku</code>, effort <code>low</code>, label <code>observe-{step}</code>, <code>tools</code> (las de input o default). El prompt obliga a ejecutar EXACTAMENTE la acción/query pedida y citar <code>file:line</code>/path/URL por cada hecho, o responder <code>NO_FINDINGS</code> si no hay hallazgos. Manejo de fallos: excepción → sentinel <code>&quot;(observation failed: ...)&quot;</code> con log, sin detener el loop (se sigue para no perder el trace); resultado <code>null</code> (agente saltado por el usuario) → sentinel <code>&quot;(observation skipped/failed: empty result)&quot;</code>.</p>
-</li>
-<li><p><strong>Clasificación de la observación.</strong> <code>nothing</code> = matchea <code>NO_FINDINGS</code> o los sentinels de fallo/skip. <code>uncited</code> = no es <code>nothing</code> y no matchea <code>hasCitation</code> (regex de <code>file:line</code>, URL, o extensión de archivo). Se pushea <code>{step, thought, action, query, observation, uncited}</code> al trace y se loggea el resultado (<code>nothing</code> / <code>evidence (UNCITED)</code> / <code>evidence</code>).</p>
-</li>
-<li><p><strong>Corte del loop.</strong> Si se sale sin <code>done=true</code> (agotó <code>maxSteps</code>), se loggea <code>&quot;stopped at step budget (not converged)&quot;</code>. En cualquier caso se loggea el tamaño final del trace.</p>
-</li>
-<li><p><strong>Fase <code>Answer</code> (primitiva <code>agent</code>, sin schema).</strong> <code>phase(&quot;Answer&quot;)</code> + <code>agent(...)</code> con modelo <code>opus</code>, effort <code>high</code>. El prompt exige responder usando ÚNICAMENTE el trace (comprimido con <code>compact(trace, 60000)</code>), citar evidencia por cada afirmación, y decir <code>INSUFFICIENT_EVIDENCE</code> + qué falta si el trace no alcanza. Si el resultado es <code>null</code> (agente caído o saltado), se sustituye por <code>&quot;INSUFFICIENT_EVIDENCE (answer step produced no output)&quot;</code> en vez de propagar <code>null</code>.</p>
-</li>
+<h2>Cómo funciona</h2>
+<p>El workflow parsea el input, valida <code>question</code> (obligatorio) y clampea
+<code>maxSteps</code> entre 1 y 50 (default 6, logueando si hubo clamp). Las
+observaciones/acciones permitidas por defecto son
+<code>[&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;, &quot;web_search&quot;]</code> (todas de solo lectura),
+configurables vía <code>input.tools</code>.</p>
+<p>Soporta overrides por rol vía <code>input.model</code>/<code>input.effort</code> (default global) o
+<code>input.models[role]</code>/<code>input.efforts[role]</code> (override por rol: <code>reason</code>,
+<code>observe</code>, <code>answer</code>), igual que <code>toolsByRole</code>, <code>skillsByRole</code> y
+<code>excludeByRole</code>.</p>
+<p>Cada iteración del <code>while</code> tiene dos fases:</p>
+<ol>
+<li><strong>Reason</strong> — llama <code>agent(...)</code> con un schema tipado (<code>STEP</code>: <code>thought</code>,
+<code>done</code>, <code>action</code>, <code>query</code>) usando <code>model: &quot;sonnet&quot;</code>, <code>effort: &quot;medium&quot;</code>
+por defecto. El prompt pone la pregunta y la traza (truncada a los últimos
+12000 caracteres si es muy larga, preservando lo más reciente) dentro de
+fences con delimitador derivado por hash del contenido (<code>fence(...)</code>),
+para blindar contra inyección de instrucciones en datos no confiables. Si
+el reason falla o devuelve vacío, se registra un sentinela en la traza y
+se corta el loop (no cuenta como convergencia).</li>
+<li><strong>Observe</strong> — si el actor no dijo <code>done</code>/<code>none</code>/query vacía, se llama a un
+segundo <code>agent(...)</code> (rol <code>observe</code>, <code>model: &quot;haiku&quot;</code>, <code>effort: &quot;low&quot;</code>,
+con las <code>tools</code> configuradas) que ejecuta EXACTAMENTE la acción y query
+pedidas, y debe citar evidencia (<code>file:line</code>, ruta o URL) o responder
+<code>NO_FINDINGS</code>. Si falla, se registra un sentinela textual y el loop
+continúa (no se pierde la traza). Cada observación se marca <code>uncited</code> si
+no trae ninguna cita reconocible, para que los pasos siguientes puedan
+descontarla.</li>
 </ol>
-<p>No hay <code>parallel</code>/<code>pipeline</code>/fan-out real en este scaffold: es puramente secuencial (<code>agent</code> tras <code>agent</code>, en un loop <code>while</code>). No escribe artifacts (<code>writeArtifact</code>) ni usa caching explícito más allá de mantener el prefijo estable del prompt de Reason (rol + pregunta antes del trace volátil) para reutilizar el prompt cache.</p>
+<p>Cuando el actor declara <code>done</code> (o se acaba <code>maxSteps</code>), corre la fase
+<strong>Answer</strong>: un tercer <code>agent(...)</code> (<code>model: &quot;opus&quot;</code>, <code>effort: &quot;high&quot;</code>)
+sintetiza la respuesta usando solo la traza, citando evidencia, o devolviendo
+<code>INSUFFICIENT_EVIDENCE</code> si no alcanza. Si el agente de respuesta devuelve
+<code>null</code> (subagente caído o el usuario lo saltó), se sustituye por un mensaje
+explícito de insuficiencia en vez de propagar <code>null</code> en silencio.</p>
+<p>No hay caching explícito ni artifacts escritos por este scaffold; el
+resultado se devuelve directamente al llamador.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (JSON, vía <code>args</code>):</p>
 <table>
 <thead>
 <tr>
@@ -239,55 +238,52 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <tbody><tr>
 <td><code>question</code> / <code>q</code> / <code>text</code> / <code>topic</code></td>
 <td>string</td>
-<td>— (obligatorio)</td>
-<td>Lanza error si ninguno está presente</td>
+<td>—</td>
+<td>Obligatorio; lanza error si falta.</td>
 </tr>
 <tr>
 <td><code>maxSteps</code></td>
 <td>number</td>
 <td><code>6</code></td>
-<td>Clamp <code>[1, 50]</code>; loggea si se ajustó</td>
+<td>Clampeado a <code>[1, 50]</code>; se loguea si hubo clamp.</td>
 </tr>
 <tr>
 <td><code>tools</code></td>
 <td>string[]</td>
 <td><code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;,&quot;web_search&quot;]</code></td>
-<td>Solo lectura por diseño</td>
+<td>Acciones de solo lectura permitidas para el observador y para <code>toolsByRole</code> como fallback.</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
 <td>—</td>
-<td>Aplican a TODOS los nodos si no hay override por rol</td>
+<td>Overrides globales aplicados a los tres roles.</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
 <td>object</td>
 <td>—</td>
-<td>Override por rol (<code>reason</code>, <code>observe</code>, <code>answer</code>), precedencia sobre el global</td>
+<td>Override por rol (<code>reason</code>, <code>observe</code>, <code>answer</code>); precede al default global.</td>
 </tr>
 <tr>
-<td><code>toolsByRole[role]</code> / <code>skillsByRole[role]</code> / <code>excludeByRole[role]</code></td>
+<td><code>toolsByRole</code> / <code>skillsByRole</code> / <code>excludeByRole</code></td>
 <td>object</td>
 <td>—</td>
-<td>Override por rol para tools/skills/excludeTools</td>
+<td>Igual mecanismo, por rol, para tools/skills/excludeTools.</td>
 </tr>
 </tbody></table>
-<p><strong>Output</strong> (retorno de <code>main()</code>):</p>
-<pre><code class="language-json">{ &quot;answer&quot;: &quot;string (o INSUFFICIENT_EVIDENCE ...)&quot;, &quot;trace&quot;: [ { &quot;step&quot;: 1, &quot;thought&quot;: &quot;...&quot;, &quot;action&quot;: &quot;grep|read|find|web_search|none&quot;, &quot;query&quot;: &quot;...&quot;, &quot;observation&quot;: &quot;...&quot;, &quot;uncited&quot;: false } ], &quot;steps&quot;: 3, &quot;converged&quot;: true }
-</code></pre>
+<p>Salida (objeto retornado, sin artifacts):</p>
 <ul>
-<li><code>answer</code>: respuesta final de la fase Answer (o sentinel de fallo).</li>
-<li><code>trace</code>: array completo de pasos, pensado para reutilizarse como input de otro workflow (<code>scout-fanout</code>, <code>fan-out-and-synthesize</code>).</li>
-<li><code>steps</code>: cantidad de entradas en el trace.</li>
-<li><code>converged</code>: <code>true</code> solo si el actor declaró <code>done</code> explícitamente antes de agotar <code>maxSteps</code>.</li>
+<li><code>answer</code>: string — respuesta final citada, o <code>INSUFFICIENT_EVIDENCE (...)</code>.</li>
+<li><code>trace</code>: array de <code>{ step, thought, action, query, observation, uncited }</code>.</li>
+<li><code>steps</code>: number de pasos ejecutados.</li>
+<li><code>converged</code>: boolean — <code>true</code> si el actor declaró <code>done</code> antes de agotar <code>maxSteps</code>.</li>
 </ul>
-<p>No se llama <code>writeArtifact</code> en ningún punto del scaffold; el único artefacto es el objeto retornado.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Reason</strong> — el actor emite THOUGHT + ACTION/QUERY (o declara <code>done</code>), guiado por schema tipado.</li>
-<li><strong>Observe</strong> — un observador independiente ejecuta solo esa acción de lectura y reporta evidencia citada o <code>NO_FINDINGS</code>.</li>
-<li><strong>Answer</strong> — síntesis final estrictamente basada en el trace acumulado, citando evidencia o declarando <code>INSUFFICIENT_EVIDENCE</code>.</li>
+<li><strong>Reason</strong> — el actor emite THOUGHT + ACTION sobre la traza acumulada.</li>
+<li><strong>Observe</strong> — el observador ejecuta solo esa acción y reporta evidencia citada.</li>
+<li><strong>Answer</strong> — síntesis final estrictamente basada en la traza.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

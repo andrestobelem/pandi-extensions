@@ -125,175 +125,108 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Ángulos de investigación independientes (cada uno con búsqueda web), sintetizados por un agente juez con citas y vacíos de cobertura.</p>
+<p>Ángulos de investigación independientes con búsqueda web, sintetizados como juez con citas y notas de cobertura.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Es un &quot;pedile a N investigadores que ataquen la misma pregunta desde ángulos distintos, y a un quinto que arbitre&quot;: cada agente de research busca en la web de forma independiente (sin ver a los demás) y un agente juez de alto esfuerzo dedupe, prioriza evidencia primaria y reporta qué ángulos fallaron. Elegilo cuando necesitás una respuesta con citas a una pregunta externa (comparación de tecnologías, escaneo de panorama/literatura) — no para tareas de código/repo local, ni cuando necesitás verificación de claims (para eso, encadená <code>adversarial-verify</code> después).</p>
+<p>Es el patrón base para responder una pregunta externa con evidencia: varios agentes de investigación corren en paralelo, cada uno enfocado en un ángulo distinto (docs oficiales, tradeoffs, riesgos, recomendación), y un agente juez sintetiza todo en una respuesta final con fuentes. Elegilo cuando necesitás una respuesta citada a una pregunta técnica; si la respuesta es consecuente (decisión de producción, seguridad), encadenalo con un paso de verificación posterior — este scaffold no verifica, solo investiga y sintetiza.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=complex-research
-/workflow run mi-run {&quot;question&quot;: &quot;WASM vs NAPI FFI para Node en 2026: cual conviene?&quot;}
+/workflow run mi-run {&quot;question&quot;:&quot;WASM vs NAPI FFI para Node en 2026?&quot;}
 </code></pre>
-<p><code>question</code> (alias <code>q</code>, <code>text</code>) es el único campo obligatorio; <code>angles</code> es opcional (default: 4 ángulos fijos). Ver <a href="#input-y-output">Input y output</a> para overrides (<code>angles</code>, <code>model</code>, <code>models</code>, <code>tools</code>, etc.).</p>
+<p><code>question</code> es el único campo obligatorio. <code>angles</code> es opcional (array de strings); si no se pasa, usa 4 ángulos por defecto (ver <a href="#c%C3%B3mo-funciona">Cómo funciona</a>):</p>
+<pre><code class="language-text">/workflow run mi-run {&quot;question&quot;:&quot;...&quot;,&quot;angles&quot;:[&quot;adopción en la industria&quot;,&quot;benchmarks de performance&quot;]}
+</code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    IN["Input: question, angles?"] --&gt; VAL{"question presente?"}
-    VAL -- no --&gt; ERR["throw Error"]
-    VAL -- si --&gt; ANG["Resolver angles&lt;br/&gt;(default: 4 angulos fijos)&lt;br/&gt;clamp a 64, log si se recorta"]
-    ANG --&gt; FANOUT["parallel: un agent por angulo"]
+    A["Input: question (req, o q/text), angles[] opcional"] --&gt; B{"question ausente?"}
+    B --&gt;|"sí"| B1["throw Error: falta question"]
+    B --&gt;|"no"| C["angles = input.angles o default de 4 ángulos\nclamp a 64 (log si se recorta)"]
+    C --&gt; D["Phase: Research"]
 
-    subgraph "Fase Research (fan-out, settle)"
-        FANOUT --&gt; R1["agent research-1&lt;br/&gt;model haiku, effort low"]
-        FANOUT --&gt; R2["agent research-2&lt;br/&gt;model haiku, effort low"]
-        FANOUT --&gt; R3["agent research-N...&lt;br/&gt;model haiku, effort low"]
+    subgraph FANOUT["fan-out (parallel, settle vía filter)"]
+        R1["agent research-1 haiku·low\nángulo 1 -&gt; findings | INSUFFICIENT_EVIDENCE"]
+        R2["agent research-2 haiku·low\nángulo 2 -&gt; ..."]
+        R3["agent research-N haiku·low\nángulo N -&gt; ..."]
     end
+    D --&gt; FANOUT
+    FANOUT --&gt; E["filtrar nulls -&gt; completedResearch\nfailed = total - completed"]
+    E --&gt; F{"completedResearch.length == 0?"}
+    F --&gt;|"sí"| F1["return: 'todas las ramas fallaron/vacías'"]
+    F --&gt;|"no"| G["Phase: Synthesis"]
 
-    R1 --&gt; M1{"output null?"}
-    R2 --&gt; M2{"output null?"}
-    R3 --&gt; M3{"output null?"}
-    M1 -- si --&gt; NULL1["null (descartado)"]
-    M2 -- si --&gt; NULL2["null (descartado)"]
-    M3 -- si --&gt; NULL3["null (descartado)"]
-    M1 -- no --&gt; OK1["{name, output}"]
-    M2 -- no --&gt; OK2["{name, output}"]
-    M3 -- no --&gt; OK3["{name, output}"]
-
-    OK1 --&gt; FILTER["filter(Boolean)&lt;br/&gt;completedResearch"]
-    OK2 --&gt; FILTER
-    OK3 --&gt; FILTER
-    NULL1 --&gt; COUNT["failed = total - completed"]
-    NULL2 --&gt; COUNT
-    NULL3 --&gt; COUNT
-
-    FILTER --&gt; GATE{"completedResearch.length === 0?"}
-    GATE -- si --&gt; FAILRET["return: 'All research branches&lt;br/&gt;failed/empty...' (sin sintesis)"]
-    GATE -- no --&gt; SYN
-
-    subgraph "Fase Synthesis"
-        SYN["agent research-synthesis&lt;br/&gt;model opus, effort high&lt;br/&gt;synthesis-as-judge"]
-    end
-
-    SYN --&gt; OUT["return: Markdown final&lt;br/&gt;(resumen, recomendacion, evidencia,&lt;br/&gt;tradeoffs, riesgos, gaps de cobertura)"]</pre>
+    G --&gt; H["agent research-synthesis opus·high\nsynthesis-as-judge sobre completedResearch\ncoverage: angles pedidos / completadas / fallidas"]
+    H --&gt; I["return: Markdown final\n(resumen ejecutivo, recomendación, evidencia,\ntradeoffs, riesgos, gaps de cobertura)"]</pre>
 <h2>Qué hace</h2>
-<p><code>complex-research</code> es el patrón base de scatter-gather aplicado a investigación: lanza N agentes de investigación en paralelo, cada uno cubriendo un &quot;ángulo&quot; distinto (fuentes primarias, opciones de implementación, riesgos, recomendación) con búsqueda web independiente. Ningún agente ve el trabajo de los demás; el fan-out es puramente de exploración divergente.</p>
-<p>Cuando todos los ángulos terminan (o fallan), un único agente de síntesis actúa como juez: deduplica hallazgos, prioriza evidencia primaria sobre secundaria, marca incertidumbre explícitamente, y reporta cuántas ramas de investigación fallaron o quedaron vacías. El resultado es un documento Markdown en formato fijo (resumen ejecutivo → recomendación → evidencia → tradeoffs → riesgos → vacíos de cobertura), no un objeto estructurado validado por schema.</p>
-<p>El scaffold está diseñado explícitamente como patrón <strong>base</strong> (<code>basedOn: fan-out-and-synthesize</code>), no compuesto: la doc del archivo advierte que para respuestas consecuentes conviene encadenarlo con un paso de verificación posterior (p.ej. <code>adversarial-verify</code>), ya que este workflow no verifica sus propias afirmaciones, solo las sintetiza con honestidad sobre sus lagunas.</p>
-<p>Todo el contenido no confiable (la pregunta/ángulo, y cualquier contenido web/página que los agentes de research obtengan, así como los outputs de research que ve el sintetizador) se envuelve con un delimitador derivado de un hash del contenido (<code>fence</code>), para que un payload malicioso no pueda falsificar el marcador de cierre y así intentar inyectar instrucciones a los agentes que leen esos datos.</p>
+<p><code>complex-research</code> implementa un scatter-gather de dos fases: <strong>fan-out de investigación</strong> independiente seguido de una <strong>síntesis-como-juez</strong>. Cada ángulo de investigación (una perspectiva sobre la pregunta, p. ej. &quot;documentación oficial&quot; o &quot;riesgos y gotchas&quot;) se despacha a un agente propio que hace su propia búsqueda web y produce un reporte estructurado por su cuenta, sin ver el trabajo de los demás — esto maximiza la cobertura independiente y evita que un agente ancle a otro.</p>
+<p>Es un patrón dinámico porque el número e identidad de los ángulos los define quien llama al workflow en runtime (vía <code>input.angles</code>), no el autor del scaffold; el ancho del fan-out se calcula a partir de ese array. El diseño es explícitamente &quot;no confundas generación con verdad&quot;: cada research agent puede declarar <code>INSUFFICIENT_EVIDENCE</code> en vez de inventar, y la síntesis debe preferir evidencia primaria y marcar incertidumbre.</p>
+<p>Es un patrón <strong>base</strong> (no compuesto): el propio código comenta que conviene emparejarlo con un paso de verificación posterior (<code>basedOn: fan-out-and-synthesize</code>) para respuestas consecuentes, ya que no incluye ningún jurado ni verificación adversarial — solo produce la síntesis inicial.</p>
 <h2>Cuándo usarlo</h2>
-<table>
-<thead>
-<tr>
-<th>Situación</th>
-<th>¿Usarlo?</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Pregunta externa que necesita respuesta con citas (comparación de tecnologías, ej. &quot;WASM vs NAPI FFI para Node en 2026&quot;)</td>
-<td>Sí</td>
-</tr>
-<tr>
-<td>Escaneo de literatura o panorama de un tema (landscape scan)</td>
-<td>Sí</td>
-</tr>
-<tr>
-<td>Paso previo a una verificación (pair with a verify step)</td>
-<td>Sí, pero no como respuesta final si el tema es de alto riesgo/consecuencia</td>
-</tr>
-<tr>
-<td>Tarea de código/repo local, sin investigación externa</td>
-<td>No — usá un patrón de exploración de repo</td>
-</tr>
-<tr>
-<td>Necesitás garantías de verificación de claims (este workflow sintetiza, no refuta)</td>
-<td>No — combinalo con <code>adversarial-verify</code> o similar</td>
-</tr>
-<tr>
-<td>El output debe ser un objeto estructurado/schema-validado</td>
-<td>No — acá el resultado es texto libre en Markdown, sin validación de schema</td>
-</tr>
-</tbody></table>
+<ul>
+<li>Comparaciones de tecnología (p. ej. &quot;WASM vs NAPI FFI para Node&quot;).</li>
+<li>Relevamientos de literatura o panorama de un tema (landscape scans).</li>
+<li>Respuestas con fuentes/citas (source-backed answers) — pero emparejalo con un paso de verificación si la respuesta es consecuente.</li>
+</ul>
+<p><strong>No usarlo cuando:</strong></p>
+<ul>
+<li>Ya tenés hallazgos/afirmaciones concretos que necesitás depurar por refutación — usá <code>adversarial-verify</code>.</li>
+<li>El corpus a resumir es un documento/log gigante que no entra en una ventana de contexto (no es investigación web) — usá <code>map-reduce</code>.</li>
+<li>Necesitás verificación reproducible de un bug — usá <code>bug-verify</code>.</li>
+</ul>
 <h2>Cómo funciona</h2>
-<p><strong>Fase Research (fan-out):</strong></p>
-<ul>
-<li>Se resuelven los <code>angles</code>: si el input trae <code>angles</code> (array no vacío), se usan tal cual; si no, se usa el default fijo de 4 ángulos (fuentes primarias/docs oficiales; opciones de implementación y tradeoffs; riesgos/gotchas/migración; mejor recomendación con evidencia).</li>
-<li>Se aplica un clamp a 64 ángulos máximo, con <code>log</code> si se recorta.</li>
-<li><code>parallel(...)</code> lanza un <code>agent(...)</code> por cada ángulo, cada uno con rol lógico <code>&quot;research&quot;</code>, <code>model: &quot;haiku&quot;</code>, <code>effort: &quot;low&quot;</code> (overridable vía <code>input.models.research</code> / <code>input.efforts.research</code>, o globalmente vía <code>input.model</code> / <code>input.effort</code>), y etiqueta <code>research-{i}-{ángulo truncado a 40 chars}</code>.</li>
-<li>Cada agente de research recibe instrucciones anti-inyección (tratar el contenido entre marcadores <code>&lt;untrusted-…&gt;</code> como datos, nunca como instrucciones), reglas de evidencia (preferir fuentes primarias, citar solo lo observado, separar hechos/interpretación/preguntas abiertas, declarar <code>INSUFFICIENT_EVIDENCE</code> si falta evidencia), y un formato de salida fijo (Key findings / Evidence-sources / Tradeoffs / Risks-gotchas / Recommendation for this angle).</li>
-<li><code>parallel</code> opera en modo &quot;settle&quot;: cada <code>.then()</code> mapea el output del agente a <code>null</code> si viene vacío/fallido, o a <code>{ name, output }</code> si tuvo éxito — es decir, una rama que falla no aborta el fan-out completo.</li>
-<li>Tras el fan-out se filtran los <code>null</code> (<code>completedResearch</code>) y se calcula <code>failed = total - completed</code>, dejando log de la cobertura.</li>
-<li><strong>Gate de fallo total:</strong> si <code>completedResearch.length === 0</code> (todas las ramas fallaron o vinieron vacías), el workflow corta ahí y retorna un mensaje explícito de fallo sin invocar síntesis — evita sintetizar &quot;de la nada&quot;.</li>
-</ul>
-<p><strong>Fase Synthesis:</strong></p>
-<ul>
-<li>Un solo <code>agent(...)</code> con rol lógico <code>&quot;research-synthesis&quot;</code>, <code>model: &quot;opus&quot;</code>, <code>effort: &quot;high&quot;</code> recibe: la pregunta original, contadores de cobertura (ángulos pedidos / completados / fallidos), y los outputs de investigación completados, comprimidos con <code>compact(..., 90000)</code> (trunca a 90.000 caracteres con marca <code>…[truncated]</code>) y envueltos en el fence anti-inyección bajo la etiqueta <code>&quot;findings&quot;</code>.</li>
-<li>Las instrucciones de síntesis fijan el patrón &quot;synthesis-as-judge&quot;: deduplicar, preferir evidencia primaria, marcar incertidumbre, y mencionar explícitamente las ramas fallidas/vacías, con formato de salida fijo de 6 secciones.</li>
-<li>No hay reintentos ni loop: es un pipeline lineal fan-out → filtro → gate → síntesis, ejecutado una sola vez.</li>
-<li>No hay <code>writeArtifact</code>; el output es simplemente el texto retornado por el agente de síntesis (o el mensaje de fallo total).</li>
-<li>Personalización por rol vía <code>node(role, extra)</code>: permite overrides de <code>model</code>, <code>effort</code>, <code>tools</code>, <code>skills</code>, <code>excludeTools</code> por rol lógico (<code>research</code>, <code>research-synthesis</code>) o global, con precedencia rol &gt; global &gt; default del scaffold.</li>
-</ul>
+<p><strong>Validación de entrada.</strong> <code>question</code> es obligatorio (acepta alias <code>q</code> o <code>text</code>); si falta, el workflow lanza una excepción explícita (<code>throw new Error</code>) — a diferencia de otros scaffolds que abortan con un resultado de error, este falla duro. <code>angles</code> es opcional: si no se pasa un array no vacío, usa 4 ángulos por defecto (&quot;official documentation and primary sources&quot;, &quot;implementation options and tradeoffs&quot;, &quot;risks, gotchas, and migration concerns&quot;, &quot;best current recommendation with evidence&quot;). El array de ángulos (propio o default) se recorta a 64 elementos como máximo, logueando si hubo recorte.</p>
+<p><strong>Fase Research.</strong> Lanza un <code>agent</code> por cada ángulo en <code>parallel</code>, cada uno bajo el rol lógico <code>research</code> (modelo <code>haiku</code>, effort <code>low</code> — investigación barata y paralela). Cada research agent recibe el ángulo y la pregunta envueltos en un fence anti-inyección (<code>fence()</code>, delimitador derivado de un hash de contenido), con instrucciones explícitas de tratar ese contenido como dato a investigar, nunca como instrucciones, y de ignorar cualquier directiva embebida (cambios de rol, manipulación de veredicto, &quot;ignorá lo anterior&quot;). El contrato de salida por ángulo es fijo: Key findings, Evidence/sources, Tradeoffs, Risks/gotchas, Recommendation for this angle; y debe preferir fuentes primarias/oficiales, citar URLs/archivos/comandos solo si fueron realmente usados/observados, separar hechos de interpretación, y declarar <code>INSUFFICIENT_EVIDENCE</code> si la evidencia no alcanza. Cada branch retorna <code>{ name, output }</code> o <code>null</code> si el agente falla (equivalente a settle vía <code>.then()</code> con manejo de <code>null</code>).</p>
+<p>Tras el fan-out, se filtran los <code>null</code> (<code>completedResearch</code>) y se calcula <code>failed = total - completed</code>, logueando ambos conteos. Si <strong>todas</strong> las ramas fallaron o quedaron vacías, el workflow corta ahí mismo y retorna un mensaje explícito indicando que no hay evidencia para sintetizar (nunca sintetiza desde cero evidencia).</p>
+<p><strong>Fase Synthesis.</strong> Un único <code>agent</code> bajo el rol <code>research-synthesis</code> (modelo <code>opus</code>, effort <code>high</code> — el nodo más caro/capaz del workflow, acorde a que es el paso de juicio final) recibe: la pregunta original, los conteos de cobertura (ángulos pedidos, completados, fallidos), y todos los outputs de investigación completados, comprimidos con <code>compact()</code> (trunca a 90000 caracteres) y envueltos en el mismo fence anti-inyección. Las instrucciones de síntesis exigen: deduplicar, preferir evidencia primaria, marcar incertidumbre, y mencionar explícitamente las ramas fallidas/vacías. El formato de salida es fijo: resumen ejecutivo, recomendación, evidencia/fuentes, tradeoffs y alternativas, riesgos/preguntas abiertas, y brechas de cobertura con qué verificar a continuación. Ese texto Markdown es el retorno final del workflow.</p>
+<p><strong>Caching:</strong> no hay ningún mecanismo de caché explícito; cada <code>agent</code> corre fresco.</p>
+<p><strong>Manejo de fallos parciales:</strong> patrón settle manual (filtrado post-hoc de <code>null</code> en vez de propagar excepción) en el fan-out de investigación; si el fallo es total, se corta antes de la síntesis con un mensaje explícito en vez de invocar al sintetizador sobre datos vacíos.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (JSON-stringified en <code>args</code>):</p>
+<p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente; si el parseo falla, se usa <code>{}</code>):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
 <th>Requerido</th>
-<th>Default / comportamiento</th>
+<th>Default / clamp</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>question</code> (alias <code>q</code>, <code>text</code>)</td>
 <td>string</td>
-<td>Sí</td>
-<td>Si falta, <code>throw new Error(&#39;Pass { question: &quot;...&quot; } as workflow input.&#39;)</code></td>
+<td><strong>sí</strong></td>
+<td>— (si falta, <code>throw new Error</code>)</td>
 </tr>
 <tr>
 <td><code>angles</code></td>
 <td>string[]</td>
-<td>No</td>
-<td>Default: 4 ángulos fijos (docs/fuentes primarias; opciones e implementación; riesgos/gotchas/migración; mejor recomendación con evidencia). Se recorta (<code>slice</code>) a máx. 64, con log si se excede</td>
+<td>no</td>
+<td>default: 4 ángulos fijos (docs oficiales, opciones/tradeoffs, riesgos, recomendación); clamp a 64 elementos</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>No</td>
-<td>Defaults globales aplicados a todo nodo salvo override por rol</td>
+<td>no</td>
+<td>override global para todo nodo</td>
 </tr>
 <tr>
-<td><code>models.{role}</code> / <code>efforts.{role}</code></td>
+<td><code>models[role]</code> / <code>efforts[role]</code></td>
 <td>object</td>
-<td>No</td>
-<td>Override por rol (<code>research</code>, <code>research-synthesis</code>); precede al global</td>
+<td>no</td>
+<td>override por rol (<code>research</code>, <code>research-synthesis</code>); precedencia: por-rol &gt; global &gt; default del call-site</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>toolsByRole.{role}</code></td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
 <td>array</td>
-<td>No</td>
-<td>Herramientas por nodo/rol</td>
-</tr>
-<tr>
-<td><code>skills</code> / <code>skillsByRole.{role}</code></td>
-<td>array</td>
-<td>No</td>
-<td>Skills por nodo/rol</td>
-</tr>
-<tr>
-<td><code>excludeTools</code> / <code>excludeByRole.{role}</code></td>
-<td>array</td>
-<td>No</td>
-<td>Exclusión de herramientas por nodo/rol</td>
+<td>no</td>
+<td>pasados al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
-<p><strong>Output:</strong></p>
-<ul>
-<li>Texto libre en Markdown (no validado por schema) con la síntesis final: resumen ejecutivo, recomendación, evidencia/fuentes, tradeoffs, riesgos/preguntas abiertas, vacíos de cobertura y ramas fallidas.</li>
-<li>Caso de fallo total: string fijo <code>&quot;All research branches failed/empty; no synthesis produced. Re-run or narrow the question.&quot;</code></li>
-<li>No escribe <code>writeArtifact</code>; todo el resultado viaja como valor de retorno del workflow.</li>
-</ul>
+<p><strong>Output:</strong> un string Markdown de texto libre (no está validado contra un schema), producido por el agente de síntesis: resumen ejecutivo, recomendación, evidencia/fuentes, tradeoffs, riesgos y brechas de cobertura. En el camino de fallo total, el retorno es en cambio el string literal indicando que todas las ramas fallaron/vacías.</p>
+<p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (ángulos usados, conteo de fan-out completado/fallido) y por el string retornado.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Research</strong> — Fan-out paralelo de agentes independientes (uno por ángulo), cada uno con búsqueda web propia, produciendo hallazgos por perspectiva; ramas fallidas se descartan sin abortar el resto.</li>
-<li><strong>Synthesis</strong> — Un agente-juez único sintetiza las ramas completadas en una respuesta final citada, marcando incertidumbre y vacíos de cobertura (o, si no hubo ninguna rama exitosa, el workflow corta antes de esta fase y devuelve un mensaje de fallo).</li>
+<li><strong>Research</strong> — fan-out en <code>parallel</code> de un <code>agent</code> (haiku·low) por ángulo, cada uno investigando de forma independiente con su propia búsqueda web bajo un contrato de evidencia fijo; se filtran los fallos y se corta temprano si todas las ramas fallan.</li>
+<li><strong>Synthesis</strong> — un único <code>agent</code> (opus·high) actuando como juez: deduplica, prefiere evidencia primaria, marca incertidumbre y reporta explícitamente la cobertura (ángulos completados vs. fallidos).</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

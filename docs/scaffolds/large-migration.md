@@ -1,150 +1,165 @@
 # large-migration
 
-> Un applier real: gate de baseline verde, por archivo apply → verify → repair acotado, rollback en caso de falla. Secuencial.
+> Un applier real: gate de baseline verde, apply → verify → repair acotado por archivo, rollback ante fallo. Secuencial.
 
 ## En 30 segundos
 
-`large-migration` aplica de verdad una migración de código archivo por archivo — no solo la audita — con barandas tomadas de tooling real (baseline verde antes de tocar nada, verify después de cada archivo, rollback si no se puede reparar). Elegilo cuando tenés que mutar muchos archivos con una instrucción repetible (un codemod, un upgrade de API) y **no podés** dejar la rama rota; para triage/auditoría sin escribir, usá `scout-fanout`.
+`large-migration` migra código archivo por archivo y de verdad escribe en el árbol de trabajo — no es una auditoría, es un applier. Antes de tocar nada exige que el build/tests estén en verde; después de cada archivo vuelve a verificar de forma independiente y, si algo queda roto tras los intentos de reparación permitidos, hace `git checkout --` y sigue sin dejar un archivo a medio migrar. Elegilo cuando vas a mutar muchos archivos con la misma regla y no podés permitirte dejar uno roto atrás; para auditar/revisar sin mutar, usá `scout-fanout`.
 
 ## Cómo lanzarlo
 
 ```text
 /workflow new mi-run --pattern=large-migration
-/workflow run mi-run {"instruction": "Reemplazar axios.get(url) por fetchJson(url)", "pattern": "code", "verifyCmd": "npm run build && npm test", "maxFiles": 50}
+/workflow run mi-run {"instruction":"Reemplazar oldApi(...) por newApi(...)","verifyCmd":"npm run build && npm test","dryRun":true}
 ```
 
-Con `instruction` alcanza (es el único campo requerido); sin `files` explícitos, el workflow descubre el work-list vía `git ls-files` + `pattern` (default: extensiones de código). Sin `verifyCmd` migra igual, pero sin gate ni rollback verificado — el log deja constancia con un WARNING. Ver la tabla completa en [Input y output](#input-y-output).
+`instruction` es el único campo obligatorio. `dryRun:true` es la forma segura de previsualizar antes de aplicar de verdad; sin `verifyCmd` el workflow migra sin gate de build/test (se loguea como warning). Ver la tabla completa en [Input y output](#input-y-output).
 
 ## Diagrama
 
 ```mermaid
 flowchart TD
-    Start(["Input: instruction, files?, pattern?, verifyCmd?, maxRepairs=2, maxFiles=50, triage=true, dryRun=false"]) --> Discover
+    A["Input: instruction (req), files[] | pattern, verifyCmd, maxRepairs=2, maxFiles=50, triage=true, dryRun=false"] --> B{"instruction ausente?"}
+    B -->|"sí"| B1["throw Error"]
+    B -->|"no"| C["Phase: Discover"]
 
-    subgraph Discover["Fase 1: Discover"]
-        D1{"input.files provisto?"}
-        D1 -- "sí" --> D2["allFiles = input.files"]
-        D1 -- "no" --> D3["agent scout haiku/low\n git ls-files + regex pattern\n -> { files, totalMatched }"]
-        D2 --> D4["files = allFiles.slice(0, maxFiles)"]
-        D3 --> D4
-    end
-    Discover --> D5{"files.length == 0?"}
-    D5 -- "sí" --> End1(["return: nothing to migrate"])
-    D5 -- "no" --> Baseline
+    C --> D{"input.files[] presente?"}
+    D -->|"sí"| E["allFiles = files (skip git)"]
+    D -->|"no"| F["agent scout haiku·low\ngit ls-files + filtrar por pattern regex\n-> { files[], totalMatched }"]
+    E --> G["files = allFiles.slice(0, maxFiles)\n(log si se recorta cobertura)"]
+    F --> G
+    G --> H{"files.length == 0?"}
+    H -->|"sí"| H1["return: nada que migrar"]
+    H -->|"no"| I["Phase: Baseline"]
 
-    subgraph Baseline["Fase 2: Baseline"]
-        B1{"verifyCmd provisto?"}
-        B1 -- "no" --> B2["log WARNING: sin gate de build/test"]
-        B1 -- "sí" --> B3["agent baseline haiku/low\n corre verifyCmd, NO edita\n -> { green, evidence }"]
-        B3 --> B4{"green?"}
-        B4 -- "no" --> End2(["return { aborted: true, reason: red tree }"])
-    end
-    Baseline --> Migrate
+    I --> J{"verifyCmd presente?"}
+    J -->|"no"| J1["log WARNING: sin gate de build/test"]
+    J -->|"sí"| K["agent baseline haiku·low\nrun verifyCmd SIN editar -> { green, evidence }"]
+    K --> L{"green?"}
+    L -->|"no"| L1["ABORT: return { aborted:true, reason:'red tree', baseline }"]
+    L -->|"sí"| M["Phase: Migrate"]
+    J1 --> M
 
-    subgraph Migrate["Fase 3: Migrate — loop secuencial por archivo"]
-        direction TB
-        M0["for file in files (orden de lista, SIN paralelismo)"]
-        M0 --> M1{"i>0 y verifyCmd y !dryRun?"}
-        M1 -- "sí" --> M2["agent recheck integrity-check:file\n haiku/low -> { green, evidence }"]
-        M2 --> M3{"green?"}
-        M3 -- "no" --> M4["abort: stoppedBefore=file\n break loop"]
-        M1 -- "no" --> M5
-        M3 -- "sí" --> M5["agent migrate sonnet/medium\n prompt con instruction fence"]
-        M5 --> M6{"triage=true?"}
-        M6 -- "no necesita cambio" --> M7["status: skipped"]
-        M6 -- "necesita cambio" --> M8{"dryRun?"}
-        M8 -- "sí" --> M9["status: dry-run-preview\n (no escribe)"]
-        M8 -- "no" --> M10["Apply edit + self-verify verifyCmd\n repair loop hasta maxRepairs\n si sigue rojo: git checkout -- file\n -> status: migrated | failed-rolled-back | applied-unverified"]
-        M10 --> M11{"status==migrated y verifyCmd y !dryRun?"}
-        M11 -- "sí" --> M12["agent recheck verify-gate:file\n haiku/low, gate independiente"]
-        M12 --> M13{"gate green?"}
-        M13 -- "no" --> M14["downgrade -> verify-mismatch-not-rolled-back\n (NO rollback, queda modificado)"]
-        M13 -- "sí" --> M15["confirma migrated"]
-        M11 -- "no" --> M16["push result"]
-        M9 --> M16
-        M7 --> M16
-        M14 --> M16
-        M15 --> M16
-        M4 --> M16
-        M16 --> M0
+    M --> N["for file in files (SECUENCIAL, mismo working tree)"]
+    N --> O{"i>0 y verifyCmd y !dryRun?"}
+    O -->|"sí"| P["agent recheck haiku·low: integrity-check\nrun verifyCmd -> { green, evidence }"]
+    P --> Q{"green?"}
+    Q -->|"no"| Q1["aborted = tree roto por archivo previo\nBREAK loop"]
+    Q -->|"sí"| R["agent migrate sonnet·medium\n(un archivo, fence anti-inyección)"]
+    O -->|"no"| R
+
+    subgraph MIGSTEP["Migrar 1 archivo"]
+        R --> R1{"triage=true?"}
+        R1 -->|"no aplica"| R2["status: skipped"]
+        R1 -->|"aplica / triage=false"| R3{"dryRun?"}
+        R3 -->|"sí"| R4["describe el edit, no escribe\nstatus: dry-run-preview"]
+        R3 -->|"no"| R5["Edit/Write el archivo"]
+        R5 --> R6{"verifyCmd?"}
+        R6 -->|"no"| R7["status: applied-unverified"]
+        R6 -->|"sí"| R8["run verifyCmd"]
+        R8 --> R9{"pasa?"}
+        R9 -->|"sí"| R10["status: migrated"]
+        R9 -->|"no, quedan repairs <= maxRepairs"| R11["REPAIR: leer fallo, fix, re-run"]
+        R11 --> R8
+        R9 -->|"no, agotó maxRepairs"| R12["git checkout -- file (ROLLBACK)\nstatus: failed-rolled-back"]
     end
-    Migrate --> FV{"verifyCmd y !dryRun?"}
-    FV -- "sí" --> FV2["agent final-verify haiku/low\n corre verifyCmd una vez más"]
-    FV -- "no" --> Result
-    FV2 --> Result
-    Result(["return { instruction, dryRun, aborted?, counts, finalVerify, results }"])
+
+    R10 --> S{"verifyCmd y !dryRun y status==migrated?"}
+    S -->|"sí"| T["agent recheck haiku·low: verify-gate\nrun verifyCmd -> { green, evidence }\n(no confía en el self-report)"]
+    T --> U{"green?"}
+    U -->|"no"| U1["downgrade status ->\nverify-mismatch-not-rolled-back\n(NO se hace rollback acá)"]
+    U -->|"sí"| V["push result"]
+    U1 --> V
+    S -->|"no"| V
+    R2 --> V
+    R4 --> V
+    R7 --> V
+    R12 --> V
+
+    V --> N
+    N -->|"loop terminado o break"| W{"verifyCmd y !dryRun?"}
+    W -->|"sí"| X["agent final-verify haiku·low\nrun verifyCmd una vez más -> { green, evidence }"]
+    W -->|"no"| Y["return { instruction, dryRun, aborted?, counts, finalVerify, results }"]
+    X --> Y
 ```
 
 ## Qué hace
 
-`large-migration` es un scaffold **applier**, no un auditor: modifica el árbol de trabajo aplicando una instrucción de migración archivo por archivo, con barandas de seguridad tomadas de tooling de migración real (Google AI-migration, Amazon Q Code Transformation, el libro SWE de Google sobre LSC). A diferencia de `scout-fanout` (que triagea y revisa sin tocar código), este workflow escribe cambios en disco.
+`large-migration` es la variante "applier" de `scout-fanout`: en lugar de triar y revisar sin tocar código, edita el árbol de trabajo de verdad, siguiendo las prácticas de migraciones a gran escala documentadas por Google (LSC, AI-migration), Amazon Q Code Transformation y el SWE Book. La idea central es tratar cada archivo como una unidad transaccional: aplicar el cambio, verificarlo con el build/test real del repo, reparar un número acotado de veces si falla, y si sigue fallando revertir ese archivo puntual con `git checkout --` para no dejar nada roto.
 
-El flujo es deliberadamente secuencial: como todos los agentes comparten el mismo árbol de trabajo, paralelizar apply/verify produciría carreras (un archivo en verificación mientras otro se edita). Por eso cada archivo se procesa uno detrás del otro, con un chequeo de integridad del árbol antes de tocar el siguiente y una verificación independiente después de que el agente que migró afirma haber terminado ("migrated" es un self-report, no una garantía — el orquestador vuelve a correr `verifyCmd` para confirmarlo).
+Todo corre **secuencial**, deliberadamente: como todos los archivos comparten el mismo working tree, paralelizar apply/verify produciría carreras (un archivo verificando mientras otro edita). Antes de cada archivo (salvo el primero) se re-chequea que el árbol siga verde, para no seguir migrando sobre una corrupción dejada por un archivo anterior; y después de que un agente reporta `migrated`, el orquestador vuelve a correr `verifyCmd` de forma independiente en vez de confiar en el self-report del agente — si el chequeo independiente da rojo, degrada el status a `verify-mismatch-not-rolled-back` en vez de aceptar la afirmación a ciegas.
 
-El diseño trata las afirmaciones del agente migrador como *claims*, no como hechos: si dice "migrated" pero el re-chequeo del orquestador da rojo, el status se degrada a `verify-mismatch-not-rolled-back` en vez de confiar ciegamente. Del mismo modo, si no hay `verifyCmd`, el workflow migra sin gate y lo advierte explícitamente en el log — no finge seguridad que no tiene.
-
-Explícitamente fuera de alcance (documentado en el propio código, no oculto): no hay secuenciación por orden de dependencias (los archivos se procesan en el orden de la lista descubierta), no hace commits git por archivo, y no hay apply en paralelo sobre worktrees separados. Si la migración lo necesita, hay que agregarlo.
+El workflow es explícito sobre lo que deja fuera de alcance: no ordena archivos por dependencias (los procesa en el orden de la lista), no hace un commit por archivo para diffs aterrizables, y no usa worktrees paralelos. Si la migración necesita eso, hay que agregarlo por fuera.
 
 ## Cuándo usarlo
 
-| Situación | ¿Usar `large-migration`? |
-|---|---|
-| API/codemod rollout: reemplazar una llamada, patrón o import en muchos archivos | Sí — es el caso central |
-| Upgrade de framework, archivo por archivo, con build/test como gate | Sí |
-| Migración acotada donde "no dejar nada roto" pesa más que la velocidad | Sí, sobre todo con `verifyCmd` |
-| Solo necesitás triage/auditoría, sin escribir cambios | No — usá `scout-fanout` |
-| La migración requiere orden de dependencias entre archivos | No — este scaffold procesa en orden de lista, no lo resuelve |
-| Necesitás apply en paralelo sobre worktrees separados para escalar velocidad | No — el diseño es intencionalmente secuencial |
-| No hay forma de verificar el cambio (`verifyCmd`) y el riesgo de romper la rama es alto | Puede correr sin gate, pero bajo protesta (WARNING en el log) — evaluá el riesgo antes |
+- **API/codemod rollouts**: reemplazar una llamada o patrón de API por otro en todo el repo.
+- **Upgrades de framework**: migraciones mecánicas repetidas archivo por archivo.
+- **Migración acotada y respaldada por evidencia**: cuando cada cambio debe quedar verificado por build/test antes de darlo por bueno.
+- En general: cuando vas a mutar muchos archivos con la misma regla y no podés permitirte dejar uno roto en el árbol.
+
+No usarlo cuando:
+
+- Solo querés auditar/revisar sin mutar código → `scout-fanout`.
+- La migración requiere orden de dependencias entre archivos, commits atómicos por archivo, o worktrees paralelos (fuera de alcance declarado).
+- No hay forma de expresar un `verifyCmd` confiable — el workflow igual corre, pero sin gate de build/test es solo edición a ciegas (se loguea como warning explícito).
 
 ## Cómo funciona
 
-El scaffold parsea `args` como input JSON, define un helper `node(role, extra)` para overrides por rol (`model`/`effort`/`tools`/`skills`/`excludeTools`, con precedencia rol > global > default) y un helper `fence()` que envuelve datos no confiables (la instrucción de migración) en un delimitador derivado de un hash del contenido, para que un payload malicioso no pueda falsificar el marcador de cierre.
+**Fase Discover.** Si `input.files` viene como array no vacío, se usa tal cual y se saltea git. Si no, un `agent` `scout` (modelo `haiku`, effort `low`) corre `git ls-files`, filtra por el `pattern` (regex; con presets nombrados `code`/`docs`/`web`/`config`, default `code` = `ts|tsx|js|jsx|py|go|rs`) y devuelve `{ files[], totalMatched }` bajo el schema `FILE_LIST` — con la instrucción explícita de nunca inventar paths que no aparezcan en la salida real de `git ls-files`. El resultado se recorta a `maxFiles` (default 50, clamp 1..4096); si se recorta, se loguea. Si no queda ningún archivo, retorna temprano "nada que migrar".
 
-**Fase 1 — Discover** (`phase("Discover")`): si `input.files` viene como array no vacío, se usa directamente (se saltea git). Si no, un `agent` con rol `scout` (modelo `haiku`, effort `low`, `schema: FILE_LIST`) corre `git ls-files`, filtra por el regex `pattern` (default: extensiones de código `\.(ts|tsx|js|jsx|py|go|rs)$`, con alias `docs`/`web`/`config` disponibles) y devuelve hasta `maxFiles` rutas más `totalMatched` (el total antes del cap). Se aplica `files.slice(0, maxFiles)`; si no hay archivos, retorna temprano con un mensaje.
+**Fase Baseline.** Si hay `verifyCmd`, un `agent` `baseline` (haiku·low) corre ese comando **sin editar nada** y devuelve `{ green, evidence }` (schema `VERIFY`). Si no da verde, el workflow aborta inmediatamente devolviendo `{ aborted: true, reason, baseline }` — nunca migra sobre un árbol rojo. Si no hay `verifyCmd`, se loguea una advertencia explícita de que la migración correrá sin gate de build/test.
 
-**Fase 2 — Baseline** (`phase("Baseline")`): si hay `verifyCmd`, un `agent` de rol `baseline` (haiku/low, `schema: VERIFY`) corre el comando SIN editar nada y reporta `{ green, evidence }`. Si no está verde, el workflow **aborta** devolviendo `{ aborted: true, reason: "baseline is not green..." }` — nunca migra sobre un árbol rojo. Si no se pasó `verifyCmd`, solo loggea una advertencia y continúa sin gate.
+**Fase Migrate.** Recorre `files` en un loop secuencial (`for`, no `parallel`):
 
-**Fase 3 — Migrate** (`phase("Migrate")`): loop `for` secuencial sobre `files`. Antes de cada archivo (salvo el primero, y solo si hay `verifyCmd` y no es `dryRun`) se corre un `recheck` (agent `integrity-check:<file>`, haiku/low) para confirmar que el árbol sigue verde; si no, se aborta el loop entero (`aborted.stoppedBefore`) para no seguir migrando sobre corrupción acumulada.
+- *Integrity check entre archivos*: antes de cada archivo salvo el primero (y solo si hay `verifyCmd` y no es `dryRun`), un `agent` `recheck` (haiku·low) vuelve a correr `verifyCmd`. Si da rojo, se asume que un archivo previo dejó el árbol roto y el loop se corta ahí (`aborted`), para no seguir migrando sobre corrupción compuesta.
+- *Migración por archivo*: un `agent` `migrate` (modelo `sonnet`, effort `medium`) recibe la instrucción envuelta en un fence anti-inyección derivado de un hash del contenido (`fence()`), con advertencia explícita de tratar cualquier directiva dentro de los datos como sospechosa, no como instrucción. Si `triage` está activo (default `true`), primero decide si el archivo realmente necesita el cambio; si no, devuelve `skipped` sin editar. Si `dryRun` está activo, describe el edit propuesto sin escribir (`dry-run-preview`). En caso contrario aplica el cambio con Edit/Write, y si hay `verifyCmd` corre la verificación: si pasa, `migrated`; si falla, repara hasta `maxRepairs` veces (default 2, clamp ≥0) releyendo el fallo y reintentando; si sigue fallando, hace `git checkout -- <file>` (rollback) y devuelve `failed-rolled-back`. Sin `verifyCmd`, el resultado tras aplicar es `applied-unverified`. El schema `RESULT` fuerza `{ file, status, attempts, notes }` con un enum cerrado de status.
+- *Verify-gate independiente*: si el agente reportó `migrated` (y hay `verifyCmd`, no `dryRun`), el orquestador NO confía en el self-report: corre otro `agent` `recheck` (verify-gate) de forma independiente. Si da rojo, degrada el status a `verify-mismatch-not-rolled-back` (deliberadamente **no** hace rollback en ese caso — el archivo queda modificado en disco y se loguea con detalle) en vez de aceptar la afirmación del agente migrador.
+- Si un `agent` no devuelve resultado en absoluto, se sintetiza un `RESULT` de emergencia con status `verify-mismatch-not-rolled-back` y una nota que advierte que no hubo rollback automático.
 
-Para cada archivo se construye un prompt (`agent` rol `migrate`, `sonnet`/`medium`, `schema: RESULT`) que:
-- envuelve la instrucción con `fence("plan", ...)` y advierte explícitamente contra prompt injection dentro de los datos no confiables;
-- si `triage` (default `true`), pide primero comprobar si el archivo realmente necesita el cambio — si no, status `skipped` sin editar;
-- si `dryRun` (default `false`), pide describir el diff sin escribir, status `dry-run-preview`;
-- si no, pide aplicar el cambio con Edit/Write, verificar con `verifyCmd`, y si falla, reparar hasta `maxRepairs` intentos (default `2`); si sigue rojo, hacer `git checkout -- <file>` (rollback) y devolver `failed-rolled-back`; si no hay `verifyCmd`, devuelve `applied-unverified`.
+Al final del loop (si hubo `verifyCmd` y no es `dryRun`), un `agent` `final-verify` (haiku·low) corre `verifyCmd` una vez más para confirmar que los cambios por archivo siguen componiendo verde en conjunto.
 
-Después de recibir el resultado, si `verifyCmd` está presente, no es `dryRun` y el agente reportó `migrated`, el orquestador corre un `recheck` independiente (`verify-gate:<file>`) — si da rojo, degrada el status a `verify-mismatch-not-rolled-back` y **no hace rollback** (deja el archivo modificado en disco), dejando constancia explícita en `notes` de que el self-report no coincidía con la verificación real.
+**Fallos parciales:** cada paso de verificación (`baseline`, `recheck` de integridad, `verify-gate`, `final-verify`) es un `agent` dedicado con schema estricto, no una inferencia; el status por archivo distingue explícitamente entre self-report confiado (`migrated`), self-report desmentido (`verify-mismatch-not-rolled-back`), reparado y revertido (`failed-rolled-back`), sin necesidad (`skipped`), sin gate (`applied-unverified`) y solo-preview (`dry-run-preview`). No hay try/catch alrededor de la lógica de negocio: los abortos son retornos explícitos con razón (`red tree`, `tree roto por archivo previo`), no excepciones.
 
-Al final del loop (si hubo `verifyCmd` y no `dryRun`) se corre un `final-verify` (haiku/low) para confirmar que todos los cambios compuestos siguen pasando juntos.
-
-Manejo de fallos parciales: no hay reintentos automáticos a nivel workflow más allá del repair loop por archivo; un archivo que no puede repararse se rollbackea y el loop continúa con el siguiente (salvo que el fallo deje el árbol rojo, en cuyo caso el chequeo de integridad del *próximo* archivo aborta el resto). No hay caching explícito entre corridas — cada fase re-ejecuta sus agentes; el único punto de "memoria" es el estado del propio árbol git (baseline verde, rollback vía `git checkout`).
+**Caching:** no se observa ningún mecanismo de caché explícito; cada llamada a `agent` es fresca.
 
 ## Input y output
 
-| Campo | Tipo | Default | Notas |
+| Campo | Tipo | Requerido | Default / clamp |
 |---|---|---|---|
-| `instruction` (o `task`/`text`) | string | **requerido** | Qué migrar; lanza error si falta. |
-| `files` | string[] | — | Si se provee, se usa tal cual (salta git ls-files). |
-| `pattern` | string | `code` → `\.(ts\|tsx\|js\|jsx\|py\|go\|rs)$` | Alias válidos: `code`, `docs`, `web`, `config`; o un regex custom. |
-| `verifyCmd` | string | `null` | Comando de build/test; sin él, migra sin gate (con warning). |
-| `maxRepairs` | number | `2` | Clamp: `max(0, floor(x))`; coerción logueada si difiere. |
-| `maxFiles` | number | `50` | Clamp: `max(1, min(4096, floor(x)))`; coerción logueada si difiere. |
-| `triage` | bool | `true` | Si `false`, no se salta ningún archivo por "no lo necesita". |
-| `dryRun` | bool | `false` | Si `true`, no escribe nada, solo describe el diff. |
-| `model` / `effort` / `models{}` / `efforts{}` | — | — | Overrides globales o por rol (`scout`, `baseline`, `migrate`, `recheck`, `final-verify`). |
-| `tools`/`skills`/`excludeTools` (+ variantes `*ByRole`) | — | — | Overrides de herramientas/skills por rol. |
+| `instruction` (o `task`/`text`) | string | **sí** | — (si falta, `throw Error`) |
+| `files` | string[] | no | si viene no vacío, se usa tal cual y se saltea git |
+| `pattern` | string | no | preset (`code`\|`docs`\|`web`\|`config`) o regex propia; default `code` = `\.(ts\|tsx\|js\|jsx\|py\|go\|rs)$` |
+| `verifyCmd` | string | no | sin default; sin él, migra sin gate de build/test (con warning) |
+| `maxRepairs` | number | no | default 2, `Math.max(0, floor(...))` |
+| `maxFiles` | number | no | default 50, clamp 1..4096 |
+| `triage` | boolean | no | default `true` |
+| `dryRun` | boolean | no | default `false` |
+| `model` / `effort` | string | no | override global por nodo |
+| `models[role]` / `efforts[role]` | object | no | override por rol (`scout`, `baseline`, `recheck`, `migrate`, `final-verify`); precedencia por-rol > global > default del call-site |
+| `tools` / `skills` / `excludeTools` (y variantes `*ByRole`) | array | no | pasados al `agent` si son arrays |
 
-**Output** (objeto final):
-- `instruction`, `dryRun`
-- `aborted` (si aplica): `{ reason, ...}` — por baseline rojo o integridad rota entre archivos.
-- `counts`: `{ total, processed, migrated, failedRolledBack, verifyMismatchNotRolledBack, skipped, appliedUnverified, dryRunPreview }`
-- `finalVerify`: `{ green, evidence }` o `null` si no aplica.
-- `results`: array de `{ file, status, attempts, notes, verified? }`, con `status` uno de `migrated | failed-rolled-back | verify-mismatch-not-rolled-back | skipped | applied-unverified | dry-run-preview`.
+**Output:**
 
-El scaffold no llama a `writeArtifact`; el único artefacto es el valor de retorno del workflow (y las líneas de `log(...)` emitidas en cada fase).
+```json
+{
+  "instruction": "...",
+  "dryRun": false,
+  "aborted": { "reason": "...", "..." },
+  "counts": {
+    "total": 0, "processed": 0, "migrated": 0,
+    "failedRolledBack": 0, "verifyMismatchNotRolledBack": 0,
+    "skipped": 0, "appliedUnverified": 0, "dryRunPreview": 0
+  },
+  "finalVerify": { "green": true, "evidence": "..." },
+  "results": [{ "file": "...", "status": "...", "attempts": 0, "notes": "..." }]
+}
+```
+
+`aborted` solo aparece si el baseline dio rojo o si el integrity-check entre archivos detectó un árbol roto; en ese caso el loop se corta antes de procesar todos los archivos. `finalVerify` es `null` si no hubo `verifyCmd` o si `dryRun` es `true`. No se observan llamadas a `writeArtifact`: toda la observabilidad pasa por `log(...)` (baseline, integridad entre archivos, status por archivo, mismatches de verify-gate) y por el shape de retorno.
 
 ## Fases
 
-1. **Discover** — determina la lista de archivos a migrar (input explícito o `git ls-files` + regex, acotado por `maxFiles`).
-2. **Baseline** — gate de árbol verde: corre `verifyCmd` antes de tocar nada; aborta si está rojo.
-3. **Migrate** — loop secuencial apply → verify → repair (acotado) → rollback por archivo, con chequeo de integridad entre archivos, verificación independiente del self-report, y verificación final de todo el conjunto.
+1. **Discover** — resuelve el work-list: usa `files` explícitos o descubre vía `git ls-files` + `pattern` regex (agente `scout`), acotado por `maxFiles`.
+2. **Baseline** — gate de árbol verde: corre `verifyCmd` antes de cualquier cambio (agente `baseline`); aborta si el árbol ya está rojo.
+3. **Migrate** — loop secuencial por archivo con integrity-check previo, apply/triage/dry-run, verify + repair acotado, rollback ante fallo persistente, verify-gate independiente del self-report, y verificación final de conjunto.

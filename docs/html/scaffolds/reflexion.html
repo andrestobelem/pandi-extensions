@@ -125,207 +125,190 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Bucle de &quot;RL verbal&quot; (verbal reinforcement learning): reintenta la tarea completa en cada trial cargando reflexiones previas; el evaluador puede estar externamente fundamentado (<code>verifyCmd</code>).</p>
+<p>Loop de reintentos verbal-RL: reintenta la tarea completa en cada trial cargando auto-reflexiones; el evaluador puede estar externamente grounded (<code>verifyCmd</code>).</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>reflexion</code> resuelve una tarea completa una y otra vez: en cada trial la reintenta desde cero, un evaluador separado le pone pass/fail + score (idealmente corriendo un comando real), y un tercer agente convierte cada fallo en una lección corta que el próximo intento tiene en cuenta. Elegilo cuando tenés una tarea con señal de éxito objetiva — tests, build, un <code>verifyCmd</code> ejecutable — y preferís reintentar toda la solución de nuevo en vez de parchearla en el lugar (para eso último existe <code>self-refine</code>).</p>
+<p><code>reflexion</code> implementa Reflexion (arXiv:2303.11366): en vez de editar un borrador in-place, resetea y re-resuelve la tarea ENTERA desde cero en cada trial, cargando solo un buffer acotado de lecciones en lenguaje natural de los trials fallidos anteriores. Elegilo cuando tenés una tarea con oráculo objetivo (tests, build, comando de verificación) y creés que &quot;empezar de nuevo con una lección aprendida&quot; va a rendir mejor que parchear el mismo intento repetidamente.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=reflexion
+/workflow run mi-run {&quot;task&quot;:&quot;Hacer pasar el test del decoder que está fallando&quot;,&quot;verifyCmd&quot;:&quot;npm test -- decoder&quot;,&quot;maxTrials&quot;:3}
 </code></pre>
-<p>Input típico (JSON pasado como <code>args</code> al workflow):</p>
-<pre><code class="language-json">{
-  &quot;task&quot;: &quot;Implementar parseConfig(str) en src/config.js: debe tolerar YAML vacío&quot;,
-  &quot;verifyCmd&quot;: &quot;npm test -- config.test.js&quot;,
-  &quot;maxTrials&quot;: 3,
-  &quot;memoryCap&quot;: 3
-}
-</code></pre>
-<p>Sin <code>verifyCmd</code> igual funciona, pero el evaluador cae a un agente ungrounded (señal más débil): alcanza con <code>{ &quot;task&quot;: &quot;...&quot; }</code>.</p>
+<p><code>task</code> es el único campo obligatorio (acepta también <code>question</code> o <code>text</code> como alias). <code>verifyCmd</code> es opcional pero recomendado: sin él, el Evaluador cae a un juicio intrínseco (más débil, per arXiv:2310.01798). Ver el resto de los campos en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Start(["Input: task, verifyCmd?, maxTrials, memoryCap"]) --&gt; Loop{"trial &lt; maxTrials?"}
+    A["Input: task (req), verifyCmd?, maxTrials=3 (clamp 1..50), memoryCap=3, actorModel?, evaluatorModel?, actorTools?"] --&gt; B{"task ausente?"}
+    B --&gt;|"sí"| B1["throw Error"]
+    B --&gt;|"no"| C["memory = [] (buffer acotado de lecciones)\nhistory = [], trial = 0, passed = false"]
 
-    subgraph Trial["Trial N (reset completo)"]
-        direction TB
-        Act["Fase Act (M_a)\nAgente ACTOR\nresuelve la tarea desde cero\ncon memoria episódica acotada"] --&gt; ActNull{"attempt == null?"}
-        ActNull -- si --&gt; RecordFail["Registrar fallo\nlesson: sin output del actor"] --&gt; AppendMem1["Push a memory (cap N)"]
-        ActNull -- no --&gt; Eval["Fase Evaluate (M_e)"]
+    C --&gt; D{"trial &lt; maxTrials?"}
+    D --&gt;|"no"| Z
+    D --&gt;|"sí"| E["trial += 1"]
 
-        Eval --&gt; HasVerify{"verifyCmd presente?"}
-        HasVerify -- si --&gt; Grounded["Evaluador GROUNDED\ncorre verifyCmd via bash\nen sandbox aislado\nrequiere evidence citada"]
-        HasVerify -- no --&gt; Ungrounded["Evaluador agente independiente\n(adversarial, ungrounded)"]
-        Grounded --&gt; Verdict["Verdict {pass, score, feedback, evidence, grounded}"]
-        Ungrounded --&gt; Verdict
+    E --&gt; F["Phase: Act"]
+    F --&gt; G["agent ACTOR sonnet·medium\nresuelve la tarea COMPLETA desde cero\ncondicionado SOLO en memory (lecciones previas)"]
+    G --&gt; H{"attempt == null?"}
+    H --&gt;|"sí"| H1["registra fallo 'actor sin output'\nmemory.push lección genérica -&gt; continue"]
+    H1 --&gt; D
+    H --&gt;|"no"| I["Phase: Evaluate"]
 
-        Verdict --&gt; ClampScore["Clamp score a [0,1]\nDegradar grounded si no hay\nevidence citada no vacia"]
-        ClampScore --&gt; Acceptable{"pass &amp;&amp; (sin verifyCmd || grounded)?"}
-        Acceptable -- si --&gt; Success["Marcar passed = true\nGuardar history\nBREAK"]
-        Acceptable -- no --&gt; UpdateBest["Actualizar best si score &gt;= best.score"]
+    I --&gt; J{"verifyCmd presente?"}
+    J --&gt;|"sí"| K["agent EVALUATOR opus·high (GROUNDED)\ncrea scratch dir, materializa el attempt,\nCORRE verifyCmd via bash tool,\ncita output real en 'evidence'"]
+    J --&gt;|"no"| L["agent EVALUATOR opus·high (independiente)\njuicio adversarial intrínseco,\ngrounded=false, evidence=''"]
+    K --&gt; M["VERDICT schema: {pass, score, feedback, evidence, grounded}"]
+    L --&gt; M
 
-        UpdateBest --&gt; Reflect["Fase Reflect (M_sr)\nAgente SELF-REFLECTION\nproduce lesson corta"]
-        Reflect --&gt; AppendMem2["Push lesson a memory\n(drop oldest si excede memoryCap)"]
-        AppendMem2 --&gt; NextTrial["trial++"]
-    end
+    M --&gt; N{"verdictRaw == null?"}
+    N --&gt;|"sí"| N1["verdict fail-closed: pass=false, score=0"]
+    N --&gt;|"no"| N2["usa verdict tal cual"]
+    N1 --&gt; O
+    N2 --&gt; O["score = clamp(verdict.score, 0..1), guard NaN"]
 
-    Loop -- si --&gt; Trial
-    Trial --&gt; Loop
-    Loop -- no / Success --&gt; Done["Fin del loop"]
-    Done --&gt; ReturnBest{"passed?"}
-    ReturnBest -- si --&gt; ReturnPass["result = attempt del trial que paso"]
-    ReturnBest -- no --&gt; ReturnBudget["result = best.attempt\n(mejor score observado)"]
-    ReturnPass --&gt; Output(["Return: result, passed, trials,\nverifyCmd, grounded, bestTrial,\nbestScore, lessons, history"])
-    ReturnBudget --&gt; Output</pre>
+    O --&gt; P{"grounded real?\n(verifyCmd AND grounded!=false AND evidence no vacío)"}
+    P --&gt;|"sí"| P1["grounded=true, groundedAny=true"]
+    P --&gt;|"no"| P2["grounded=false (downgrade defensivo si se pidió verifyCmd)"]
+    P1 --&gt; Q
+    P2 --&gt; Q["acceptablePass = pass AND (!verifyCmd OR grounded)"]
+
+    Q --&gt; R["actualiza best si score &gt;= best.score (tie-break al más reciente)"]
+    R --&gt; S{"acceptablePass?"}
+    S --&gt;|"sí"| S1["history.push(pass=true)\npassed=true -&gt; BREAK loop"]
+    S --&gt;|"no"| T["Phase: Reflect"]
+
+    T --&gt; U["agent SELF-REFLECTION opus·high\nNO reescribe la solución;\ndiagnostica POR QUÉ falló +\nestrategia concreta para el próximo trial"]
+    U --&gt; V["REFLECTION schema: {lesson}"]
+    V --&gt; W["history.push(pass=false, lesson)\nmemory.push(lesson)"]
+    W --&gt; X{"memory.length &gt; memoryCap?"}
+    X --&gt;|"sí"| X1["memory.shift() (descarta la más vieja)"]
+    X --&gt;|"no"| Y
+    X1 --&gt; Y["log memoria N/memoryCap"]
+    Y --&gt; D
+
+    S1 --&gt; Z["fin del loop: passed (break) o budget agotado"]
+    Z --&gt; AA["finalAttempt = passed ? último history.attempt : best.attempt"]
+    AA --&gt; AB["return { result, passed, trials, maxTrials,\nverifyCmd, grounded: groundedAny, bestTrial, bestScore,\nlessons: memory, history }"]</pre>
 <h2>Qué hace</h2>
-<p><code>reflexion</code> implementa el paper <em>Reflexion: Language Agents with Verbal Reinforcement Learning</em> (arXiv:2303.11366). A diferencia de un refinamiento in-place, este scaffold es un <strong>bucle de trials externo</strong>: en cada iteración resetea el problema y hace que un agente Actor resuelva la tarea completa desde cero, condicionado únicamente por un buffer acotado de lecciones textuales acumuladas en trials anteriores (memoria episódica).</p>
-<p>Separa explícitamente tres roles del paper: el <strong>Actor</strong> (M_a) genera el intento completo; el <strong>Evaluador</strong> (M_e) emite una señal objetiva de pass/fail + score, y puede estar <em>fundamentado</em> (grounded) ejecutando un comando real (<code>verifyCmd</code>) vía la tool de bash, o caer a un agente evaluador independiente y adversarial si no hay comando; y el <strong>Self-Reflection</strong> (M_sr) convierte la señal de fallo (sparse) en una lección verbal corta para el siguiente trial. Estos tres roles usan agentes/instancias distintas, no el mismo modelo autoevaluándose.</p>
-<p>El diseño es deliberadamente &quot;falsificable&quot;: un veredicto solo se considera <code>grounded</code> si (a) se pidió <code>verifyCmd</code>, (b) el evaluador no marcó <code>grounded=false</code>, y (c) citó output no vacío en <code>evidence</code>; si falta cualquiera de estas condiciones se degrada a ungrounded, para que un modelo no pueda reclamar una ejecución que nunca hizo. Un &quot;pass&quot; reclamado sin evidencia real bajo <code>verifyCmd</code> NO se acepta como éxito — el loop sigue intentando.</p>
-<p>El bucle está acotado en ambos extremos: se detiene apenas el Evaluador da pass aceptable, o cuando se agota el presupuesto de <code>maxTrials</code>; en ese caso devuelve el mejor intento observado (por score), no el último a secas.</p>
+<p><code>reflexion</code> implementa el patrón &quot;verbal reinforcement learning&quot; del paper original: un loop EXTERNO de trials que reintenta la tarea completa desde cero, en lugar de refinar un mismo artefacto in-place. Separa explícitamente tres roles fieles al paper — Actor (M_a), Evaluador (M_e) y Auto-Reflexión (M_sr) — cada uno como una llamada a <code>agent</code> distinta, en vez de un único modelo cumpliendo todos los papeles.</p>
+<p>El punto fuerte del diseño es la falsabilidad del grounding: cuando se pasa <code>verifyCmd</code>, el Evaluador debe CORRER ese comando de verdad vía la tool de bash en un directorio scratch aislado, y citar el output real en el campo <code>evidence</code>. El código no confía en la palabra del modelo: si <code>verifyCmd</code> fue pedido pero el Evaluador no citó output no-vacío, el grounding se degrada defensivamente a <code>false</code> y un &quot;pass&quot; reclamado sin evidencia NO se acepta como éxito — el trial sigue reintentando. Esto imita la regla de &quot;no reproduced sin output citado&quot; de <code>bug-verify.js</code>.</p>
+<p>La memoria episódica es un buffer acotado (<code>memoryCap</code>, default 3, siguiendo el paper que usa 1-3 lecciones para caber en la ventana de contexto): cada lección de un trial fallido se agrega al final y, si se excede el cap, se descarta la más vieja. El loop está acotado en ambos extremos: para en el primer <code>pass</code> aceptable, o cuando se agota <code>maxTrials</code> — nunca reintenta indefinidamente. Si se agota el presupuesto sin pasar, el resultado devuelto es el mejor intento observado (<code>best</code>, por score, con desempate al más reciente).</p>
 <h2>Cuándo usarlo</h2>
 <table>
 <thead>
 <tr>
 <th>Situación</th>
-<th>Elegí</th>
+<th>Patrón recomendado</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Tarea con test suite / build / comando de verificación objetivo (<code>verifyCmd</code>)</td>
-<td><code>reflexion</code> — reintenta toda la tarea, evaluador grounded</td>
+<td>Tenés un oráculo objetivo (tests/build) y &quot;empezar de nuevo&quot; &gt; &quot;parchear el mismo borrador&quot;</td>
+<td><code>reflexion</code></td>
 </tr>
 <tr>
-<td>Señal de pass/fail clara pero sin comando ejecutable (&quot;Tasks with a pass/fail signal&quot;)</td>
-<td><code>reflexion</code> sin <code>verifyCmd</code> — evaluador cae a agente ungrounded, señal más débil (per arXiv:2310.01798)</td>
+<td>Preferís editar UN borrador in-place con crítica/refinamiento sobre el mismo artefacto</td>
+<td><code>self-refine</code> (una sola cadena, sin reset, sin evaluador separado)</td>
 </tr>
 <tr>
-<td>Refinar UN artefacto existente en el lugar, sin resetear</td>
-<td><code>self-refine</code> (una sola cadena, un solo modelo con todos los sombreros)</td>
-</tr>
-<tr>
-<td>Tarea puramente subjetiva/abierta, sin ninguna señal de éxito expresable</td>
-<td>ninguno de los dos — no hay oráculo, ni siquiera un evaluador agente, para anclar el loop</td>
+<td>No tenés forma de verificar objetivamente el resultado ni un criterio claro de éxito/fracaso</td>
+<td>reconsiderar: el Evaluador ungrounded es intrínsecamente más débil (arXiv:2310.01798)</td>
 </tr>
 </tbody></table>
-<p>Otra señal a considerar: si el runtime no aplica aislamiento de tools por agente (p. ej. Claude Code Workflow no fuerza <code>actorTools</code>), el Actor puede leer el propio <code>verifyCmd</code>/grader y converger en el trial 1, sin ejercitar realmente el loop reflect→retry.</p>
+<p>Casos de uso listados en el catálogo: código con tests (&quot;Code-with-tests&quot;), tareas con señal binaria de pass/fail (&quot;Tasks with a pass/fail signal&quot;), y decisiones de reset-y-reintentar vs. editar-en-el-lugar (&quot;Reset-and-re-attempt vs edit-in-place&quot;). <strong>Caveat documentado en el código:</strong> en runtimes que NO aíslan las tools por agente (p. ej. el runtime de Claude Code Workflow), el Actor conserva acceso completo a archivos/bash, puede leer el propio verificador y correr <code>verifyCmd</code> él mismo, convergiendo en el trial 1 — para ejercitar el loop reflect→retry ahí hace falta una tarea cuyo primer intento falle genuinamente, o un harness de test que stubee <code>agent</code>.</p>
 <h2>Cómo funciona</h2>
-<p>El scaffold parsea <code>input</code> (JSON o string) y valida que exista <code>task</code> (alias <code>question</code>/<code>text</code>), lanzando error si falta. Define un helper <code>node(role, extra)</code> para resolver overrides por rol de modelo/effort/tools/skills/excludeTools con precedencia per-role &gt; global (<code>input.model</code>/<code>input.effort</code>/etc.) &gt; default del call-site. Define también <code>fence()</code>, que envuelve contenido no confiable en un delimitador derivado de un hash del propio contenido (no determinista por azar — el runtime prohíbe <code>Math.random</code>/<code>Date.now</code> — sino por FNV-ish hash), para que un payload malicioso no pueda forjar el marcador de cierre.</p>
-<p>Fases (declaradas en <code>meta.phases</code>, ejecutadas dentro del <code>while</code> con <code>phase(...)</code>):</p>
-<ol>
-<li><p><strong>Act</strong> — El agente <code>actor</code> (modelo <code>sonnet</code>, effort <code>medium</code> por defecto, override vía <code>actorModel</code>/<code>models.actor</code>) recibe la tarea completa más el bloque de memoria episódica (o &quot;sin lecciones previas&quot; en el trial 1) y produce un intento self-contained desde cero. Si <code>actorTools</code> está seteado, se restringe el toolset del Actor (para que no pueda leer el oráculo/grader). Si el agente devuelve <code>null</code> (murió/fue skippeado), se registra como fallo, se agrega una lección genérica (&quot;actor produjo output vacío&quot;) a memoria y se continúa al siguiente trial sin llamar al Evaluador.</p>
-</li>
-<li><p><strong>Evaluate</strong> — El agente <code>evaluator</code> (modelo <code>opus</code>, effort <code>high</code>, con <code>schema: VERDICT</code>) recibe un prompt distinto según haya <code>verifyCmd</code>:</p>
-<ul>
-<li><strong>Grounded</strong>: se le indica ejecutar el comando real en un directorio scratch aislado (<code>mktemp -d</code>), materializar ahí el intento, correr <code>verifyCmd</code> con la tool de bash, y devolver <code>evidence</code> con el output real citado; debe limpiar el scratch dir al final.</li>
-<li><strong>Ungrounded</strong> (sin <code>verifyCmd</code>): agente evaluador independiente y adversarial, <code>grounded=false</code> forzado, sin <code>evidence</code>.
-Ambas ramas usan <code>fence()</code> para envolver <code>task</code> y el intento como datos no confiables (con instrucciones anti-inyección explícitas). El código clampa <code>score</code> a <code>[0,1]</code> y descarta NaN; recalcula <code>grounded</code> de forma defensiva exigiendo <code>evidence</code> no vacía; y calcula <code>acceptablePass = pass &amp;&amp; (!verifyCmd || grounded)</code> — es decir, un pass solo cuenta si no se pidió grounding o si el grounding fue real. Actualiza <code>best</code> con tie-break hacia el trial más reciente en empates de score.</li>
-</ul>
-</li>
-<li><p><strong>Reflect</strong> — Solo si el trial no fue un pass aceptable. El agente <code>reflection</code> (modelo <code>opus</code>, effort <code>high</code>, <code>schema: REFLECTION</code>) recibe el veredicto objetivo (pass/score/grounded), el intento, el feedback y (si existe) la evidencia citada, y debe producir UNA o dos frases: por qué falló y qué cambiar la próxima vez — sin reescribir la solución. Si el agente no devuelve una <code>lesson</code> válida, se genera una lección fallback con el score y feedback truncados. La lección se agrega al buffer <code>memory</code>, que se recorta (<code>shift()</code>, FIFO) cuando excede <code>memoryCap</code> (default 3).</p>
-</li>
-</ol>
-<p><strong>Manejo de fallos parciales</strong>: actor null → fallo registrado sin evaluar; evaluador null/crash → veredicto sintético fail-closed (<code>pass:false, score:0</code>); reflexión null/inválida → lección fallback determinística. Nunca hay un pass silencioso ni una &quot;reflexión&quot; vacía que rompa el ciclo.</p>
-<p><strong>Caching</strong>: el scaffold no usa <code>writeArtifact</code> ni caching explícito; el estado vive en memoria del proceso (<code>memory</code>, <code>history</code>, <code>best</code>) durante la ejecución del workflow. No persiste artifacts en disco.</p>
+<p><strong>Validación de entrada.</strong> <code>task</code> (o sus alias <code>question</code>/<code>text</code>) es obligatorio; si falta, lanza <code>Error</code> directamente (no hay retorno de error graceful como en otros scaffolds). <code>maxTrials</code> se sanea a entero con clamp 1..50 (default 3, logueando si se recortó). <code>memoryCap</code> se sanea a entero &gt;= 1 (default 3). Los overrides <code>actorModel</code>/<code>evaluatorModel</code> se enrutan al canal <code>models[role]</code> para que ganen sobre el default global <code>input.model</code>, respetando la precedencia por-rol &gt; global &gt; default del call-site. <code>actorTools</code>, si es un array, restringe las tools del Actor (para que no pueda espiar al oráculo/Evaluador).</p>
+<p><strong>Fase Act (M_a).</strong> Un <code>agent</code> en el rol <code>actor</code> (modelo <code>sonnet</code>, effort <code>medium</code>) recibe la tarea completa más un bloque de &quot;lecciones de trials pasados&quot; (o el mensaje de que es el primer trial si <code>memory</code> está vacía) y produce un intento fresco y autocontenido — nunca asume que existe un intento previo. Si el Actor retorna <code>null</code> (agente saltado/muerto), el trial se registra como fallido con una lección genérica (&quot;el actor no produjo output&quot;) y continúa al siguiente trial sin llamar al Evaluador.</p>
+<p><strong>Fase Evaluate (M_e).</strong> Rama dual según si hay <code>verifyCmd</code>: (a) <strong>grounded</strong> — el Evaluador (<code>opus</code>, effort <code>high</code>, con schema <code>VERDICT</code>) crea un directorio scratch aislado, materializa ahí los archivos del intento, corre <code>verifyCmd</code> con la tool de bash, y debe citar el output real (exit code + stdout/stderr relevante) en <code>evidence</code>; al terminar limpia el scratch dir. (b) <strong>ungrounded</strong> — sin <code>verifyCmd</code>, un Evaluador independiente y adversarial juzga contra los criterios explícitos de la tarea, sin correr nada, con <code>grounded=false</code> forzado y <code>evidence</code> vacío. Ambas ramas envuelven la tarea y el intento en un fence anti-inyección (<code>fence()</code>, delimitador derivado de un hash del contenido) con instrucciones explícitas de tratar el contenido como dato, nunca como instrucción. Si el Evaluador retorna <code>null</code>, se usa un verdict fail-closed (<code>pass=false, score=0</code>) — nunca un pass silencioso.</p>
+<p><strong>Downgrade de grounding y aceptación de pass.</strong> El <code>score</code> se clampea a [0,1] con guardia de <code>NaN</code>. El flag <code>grounded</code> real solo es <code>true</code> si (<code>verifyCmd</code> presente) AND (<code>verdict.grounded !== false</code>) AND (<code>evidence</code> citado no vacío) — si alguna falla, se degrada a <code>false</code> aunque el modelo haya dicho <code>grounded=true</code>. Un <code>pass</code> solo se acepta (<code>acceptablePass</code>) si no se pidió <code>verifyCmd</code>, o si se pidió Y el resultado está efectivamente grounded — un &quot;pass&quot; auto-reportado sin evidencia bajo <code>verifyCmd</code> NO termina el loop.</p>
+<p><strong>Fase Reflect (M_sr), solo en fallo.</strong> Un <code>agent</code> en el rol <code>reflection</code> (<code>opus</code>, effort <code>high</code>, schema <code>REFLECTION</code>) recibe el intento fallido, el feedback del Evaluador y (si existe) el output citado, y produce UNA o dos oraciones: por qué falló y qué estrategia concreta cambiar — explícitamente NO una reescritura de la solución. La lección se agrega al buffer <code>memory</code>; si excede <code>memoryCap</code>, se descarta la más vieja (FIFO). Si el Evaluador o el parseo de la lección fallan, se usa una lección de fallback derivada del score y el feedback truncado.</p>
+<p><strong>Manejo de fallos parciales:</strong> un Actor nulo no aborta el run, se contabiliza como trial fallido con lección genérica. Un Evaluador nulo se trata como fail-closed. Un <code>pass</code> reclamado sin evidencia bajo <code>verifyCmd</code> se rechaza explícitamente en vez de aceptarse. <strong>Caching:</strong> no se observa ningún mecanismo de caché; cada llamada a <code>agent</code> es fresca.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (objeto JSON pasado como <code>args</code>):</p>
+<p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default</th>
-<th>Notas</th>
+<th>Requerido</th>
+<th>Default / clamp</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>task</code> (o <code>question</code>/<code>text</code>)</td>
 <td>string</td>
-<td>—</td>
-<td><strong>requerido</strong>; lanza error si falta</td>
+<td><strong>sí</strong></td>
+<td>— (si falta, <code>throw Error</code>)</td>
 </tr>
 <tr>
 <td><code>verifyCmd</code></td>
 <td>string</td>
-<td><code>null</code></td>
-<td>si se define y no es vacío tras <code>trim()</code>, activa el evaluador grounded</td>
+<td>no</td>
+<td><code>null</code>; si se da, activa el Evaluador grounded</td>
 </tr>
 <tr>
 <td><code>maxTrials</code></td>
 <td>number</td>
-<td><code>3</code></td>
-<td>clamp a <code>[1, 50]</code>; loguea si el valor se ajustó</td>
+<td>no</td>
+<td>default 3, clamp 1..50</td>
 </tr>
 <tr>
 <td><code>memoryCap</code></td>
 <td>number</td>
-<td><code>3</code></td>
-<td>mínimo <code>1</code>; tamaño del buffer FIFO de lecciones</td>
+<td>no</td>
+<td>default 3 (tamaño del buffer episódico)</td>
 </tr>
 <tr>
 <td><code>actorModel</code></td>
 <td>string</td>
-<td>inherit</td>
-<td>atajo que setea <code>models.actor</code> si no está ya seteado</td>
+<td>no</td>
+<td>override de modelo solo para el Actor (rutea a <code>models.actor</code>)</td>
 </tr>
 <tr>
 <td><code>evaluatorModel</code></td>
 <td>string</td>
-<td>inherit</td>
-<td>atajo que setea <code>models.evaluator</code> si no está ya seteado</td>
+<td>no</td>
+<td>override de modelo solo para el Evaluador (rutea a <code>models.evaluator</code>)</td>
 </tr>
 <tr>
 <td><code>actorTools</code></td>
-<td>array</td>
-<td><code>null</code> (inherit)</td>
-<td>restringe las tools del Actor (p. ej. <code>[]</code> para que no pueda ver el oráculo)</td>
+<td>any[]</td>
+<td>no</td>
+<td>si es array, reemplaza las tools del Actor (p. ej. <code>[]</code> para que no espíe el oráculo)</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>—</td>
-<td>defaults globales aplicados a todos los nodos</td>
+<td>no</td>
+<td>override global para todo nodo</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
 <td>object</td>
-<td><code>{}</code></td>
-<td>overrides por rol (<code>actor</code>, <code>evaluator</code>, <code>reflection</code>)</td>
+<td>no</td>
+<td>override por rol (<code>actor</code>, <code>evaluator</code>, <code>reflection</code>); precedencia por-rol &gt; global &gt; default del call-site</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
 <td>array</td>
-<td>—</td>
-<td>scoping de tools global o por rol</td>
-</tr>
-<tr>
-<td><code>skills</code> / <code>skillsByRole[role]</code></td>
-<td>array</td>
-<td>—</td>
-<td>scoping de skills global o por rol</td>
-</tr>
-<tr>
-<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
-<td>array</td>
-<td>—</td>
-<td>exclusión de tools global o por rol</td>
+<td>no</td>
+<td>pasados al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
-<p><strong>Output</strong> (objeto retornado por <code>main</code>):</p>
+<p><strong>Output:</strong></p>
 <ul>
-<li><code>result</code>: el intento ganador (si <code>passed</code>, el del trial que pasó; si no, el de mejor <code>score</code> observado — <code>best.attempt</code>).</li>
-<li><code>passed</code>: boolean, si algún trial fue un pass aceptable.</li>
-<li><code>trials</code>: número de trials ejecutados.</li>
-<li><code>maxTrials</code>: presupuesto configurado.</li>
-<li><code>verifyCmd</code>: boolean — si se PIDIÓ grounding (no si se logró).</li>
-<li><code>grounded</code>: boolean — si ALGÚN trial logró grounding real, evidence-backed (<code>groundedAny</code>).</li>
-<li><code>bestTrial</code> / <code>bestScore</code>: trial y score del mejor intento observado.</li>
-<li><code>lessons</code>: snapshot final del buffer de memoria episódica (copia, <code>memory.slice()</code>).</li>
-<li><code>history</code>: array por-trial con <code>{ trial, attempt, pass, score, feedback, evidence, grounded, lesson }</code>.</li>
+<li><code>result</code>: el intento ganador (si <code>passed</code>) o el de mejor score observado (<code>best.attempt</code>) si se agotó el presupuesto.</li>
+<li><code>passed</code>: booleano — ¿algún trial fue aceptado como pass?</li>
+<li><code>trials</code>: número de trials efectivamente ejecutados.</li>
+<li><code>maxTrials</code>: el límite configurado (tras clamp).</li>
+<li><code>verifyCmd</code>: booleano — ¿se PIDIÓ grounding (se pasó <code>verifyCmd</code>)? (distinto de si se logró).</li>
+<li><code>grounded</code>: booleano — ¿algún trial logró un grounding real, evidence-backed (<code>groundedAny</code>)?</li>
+<li><code>bestTrial</code> / <code>bestScore</code>: número de trial y score del mejor intento observado.</li>
+<li><code>lessons</code>: copia del buffer de memoria episódica al finalizar.</li>
+<li><code>history</code>: array con un registro estructurado por trial (<code>trial, attempt, pass, score, feedback, evidence, grounded, lesson</code>).</li>
 </ul>
-<p>No se escriben <code>writeArtifact</code>; todo el resultado va en el valor de retorno.</p>
+<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (inicio, resultado de cada trial, downgrades de grounding, estado de la memoria) y por el shape de retorno.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Act</strong> — el Actor (M_a) resuelve la tarea completa desde cero, condicionado por la memoria episódica acotada.</li>
-<li><strong>Evaluate</strong> — el Evaluador (M_e) emite un veredicto objetivo pass/fail + score, grounded (ejecuta <code>verifyCmd</code> vía bash con evidencia citada) o ungrounded (agente adversarial independiente).</li>
-<li><strong>Reflect</strong> — el Self-Reflection (M_sr) convierte la señal de fallo en una lección verbal corta, agregada al buffer de memoria para el próximo trial.</li>
+<li><strong>Act</strong> — el Actor (sonnet·medium) resuelve la tarea completa desde cero, condicionado solo en las lecciones acumuladas de trials previos.</li>
+<li><strong>Evaluate</strong> — el Evaluador (opus·high) emite un veredicto objetivo pass/fail + score; grounded (corre <code>verifyCmd</code> de verdad y cita evidencia) si se pasó <code>verifyCmd</code>, o un juicio independiente adversarial si no.</li>
+<li><strong>Reflect</strong> — solo si el trial falló: la Auto-Reflexión (opus·high) convierte la señal dispersa del Evaluador en una lección verbal corta, que se agrega al buffer acotado de memoria episódica para el próximo trial.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

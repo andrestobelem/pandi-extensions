@@ -125,202 +125,124 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Confirma bugs sospechosos por REPRODUCCIÓN: solo son reales si una ejecución falla en el código actual; con verificación opcional FAIL→PASS del fix y minimización.</p>
+<p>Confirma bugs sospechosos por REPRODUCCIÓN: solo es real si una corrida falla contra el código actual; check opcional de fix FAIL→PASS + minimización.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>bug-verify</code> toma una lista de bugs sospechosos (o un <code>topic</code> para descubrirlos) y los pasa por un agente que debe construir y CORRER una reproducción real: solo cuenta como <code>reproduced</code> si el run efectivamente falla contra el código actual, nunca un argumento de &quot;probablemente pasa&quot;. Elegilo cuando tenés leads de bugs (por ejemplo de <code>repo-bug-hunt</code>) que querés confirmar con evidencia ejecutable antes de reportarlos o arreglarlos, opcionalmente comprobando también que un fix candidato los resuelve (<code>attemptFix</code>).</p>
+<p>Es el hermano de <code>adversarial-verify</code>, pero para bugs de código: en vez de podar afirmaciones por cita de un escéptico, poda bugs por ejecución. Toma una lista de bugs sospechosos (o los descubre con un finder inline), y para cada uno exige una corrida real que falle por esa razón — nada de &quot;probablemente&quot; ni argumentación. Elegilo cuando necesitás PROBAR un bug antes de arreglarlo, típicamente como paso siguiente de un <code>repo-bug-hunt</code>.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=bug-verify
+/workflow run mi-run {&quot;bugs&quot;:[{&quot;id&quot;:&quot;b1&quot;,&quot;claim&quot;:&quot;El decoder SSE descarta el último chunk si no termina en \\n\\n&quot;,&quot;file&quot;:&quot;src/sse.ts&quot;}],&quot;verifyCmd&quot;:&quot;npm test&quot;}
 </code></pre>
-<p>Input típico (JSON pasado como <code>args</code> al workflow):</p>
-<pre><code class="language-json">{
-  &quot;bugs&quot;: [
-    { &quot;id&quot;: &quot;b1&quot;, &quot;claim&quot;: &quot;parseConfig lanza en YAML vacío&quot;, &quot;file&quot;: &quot;src/config.js&quot; }
-  ],
-  &quot;verifyCmd&quot;: &quot;npm test&quot;,
-  &quot;attemptFix&quot;: false,
-  &quot;maxBugs&quot;: 12
-}
+<p>También podés partir de un tema y dejar que un finder inline proponga sospechosos:</p>
+<pre><code class="language-text">/workflow run mi-run {&quot;topic&quot;:&quot;SSE decoder drops final chunk&quot;,&quot;verifyCmd&quot;:&quot;npm test&quot;}
 </code></pre>
-<p>Si no tenés una lista armada, alcanza con un <code>topic</code> y el <code>finder</code> interno descubre candidatos:</p>
-<pre><code class="language-json">{ &quot;topic&quot;: &quot;posibles off-by-one en el paginador de resultados&quot;, &quot;maxBugs&quot;: 8 }
-</code></pre>
+<p><code>bugs</code> (o <code>findings</code>) es un array de <code>{ id?, claim|title|description, file?, evidence? }</code>; si no lo pasás, usá <code>topic</code> para que un finder los descubra. <code>verifyCmd</code> es opcional pero recomendado (el runner del proyecto, p. ej. <code>npm test</code>); sin él, el agente improvisa un comando de repro por bug.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Start(["Input: bugs[] | topic + verifyCmd? attemptFix? minimize? maxBugs?"]) --&gt; HasBugs{"¿input.bugs o\ninput.findings provisto?"}
+    A["Input: bugs[] o topic, verifyCmd?, attemptFix=false, minimize=false, maxBugs=12"] --&gt; B["Phase: Source"]
 
-    subgraph Source["Fase: Source"]
-        HasBugs -- "no" --&gt; Finder["agent: finder\n(haiku, low, schema BUGS)\nbusca hasta maxBugs bugs sobre 'topic'"]
-        HasBugs -- "si" --&gt; Norm["Normalizar { id, claim, file, reportedEvidence }"]
-        Finder --&gt; Norm
-        Norm --&gt; Dedup["Dedup por claim+file normalizado"]
-        Dedup --&gt; Cap["Cap a maxBugs (default 12)"]
-        Cap --&gt; Empty{"¿items.length == 0?"}
-        Empty -- "si" --&gt; End0(["return: 'No suspected bugs to verify.'"])
+    B --&gt; C{"bugs o findings presente?"}
+    C --&gt;|"no"| D{"topic presente?"}
+    D --&gt;|"no"| D1["ABORT: throw error"]
+    D --&gt;|"sí"| E["agent finder haiku·low\ndescubre hasta maxBugs sospechosos -&gt; bugs[]"]
+    C --&gt;|"sí"| F["raw = bugs (as-is)"]
+    E --&gt; G
+    F --&gt; G["normalizar { id, claim, file, reportedEvidence }"]
+
+    G --&gt; H["dedup por claim+file normalizado"]
+    H --&gt; I["cap a maxBugs"]
+    I --&gt; J{"items.length == 0?"}
+    J --&gt;|"sí"| J1["return: No suspected bugs to verify."]
+    J --&gt;|"no"| K["Phase: Reproduce"]
+
+    K --&gt; L{"attemptFix?"}
+    L --&gt;|"sí"| M["agent tree-baseline haiku·low\ngit status --porcelain (snapshot)"]
+    L --&gt;|"no"| N["loop SECUENCIAL sobre items"]
+    M --&gt; N
+
+    subgraph LOOP["por cada bug (secuencial, mismo working tree)"]
+        R1["agent repro sonnet·medium\nconstruye repro minimal, LA CORRE,\ncita output real -&gt; status/repro/evidence"]
+        R1 --&gt; R2{"attemptFix?"}
+        R2 --&gt;|"sí, dentro del prompt"| R2a["intenta fix minimal,\nconfirma FAIL-&gt;PASS + sin regresiones,\nrevierte el fix"]
+        R2 --&gt;|"no"| R3
+        R2a --&gt; R3{"attemptFix (workflow)?"}
+        R3 --&gt;|"sí"| R4["agent tree-check haiku·low\ngit status --porcelain\ncompara vs baseline -&gt; treeDirty"]
+        R3 --&gt;|"no"| R5["push result"]
+        R4 --&gt; R5
     end
-
-    Empty -- "no" --&gt; AttemptFix{"attemptFix == true?"}
-
-    subgraph Reproduce["Fase: Reproduce"]
-        AttemptFix -- "si" --&gt; Baseline["agent: tree-baseline\n(haiku, low)\ngit status --porcelain"]
-        AttemptFix -- "no" --&gt; Loop
-        Baseline --&gt; Loop
-
-        subgraph Loop["Loop SECUENCIAL por cada bug (sin paralelismo)"]
-            direction TB
-            Repro["agent: repro:{id}\n(sonnet, medium, schema VERDICT)\nconstruye + CORRE repro real,\nintenta fix si attemptFix,\nminimiza si minimize"]
-            TreeCheck{"attemptFix?"}
-            Check["agent: tree-check:{id}\n(haiku, low)\ngit status --porcelain\n-&gt; compara con baseline (treeDirty)"]
-            Repro --&gt; TreeCheck
-            TreeCheck -- "si" --&gt; Check
-            TreeCheck -- "no" --&gt; Record["push resultado + log status"]
-            Check --&gt; Record
-        end
-    end
-
-    Record --&gt; Classify["Clasificar por status:\nreproduced / not-reproduced / inconclusive"]
-    Classify --&gt; Out(["return: { confirmed, counts, attemptFix, results, coverage }"])</pre>
+    N --&gt; LOOP
+    LOOP --&gt; O["clasificar: reproduced / not-reproduced / inconclusive"]
+    O --&gt; P["return { confirmed, counts, attemptFix, results, coverage }"]</pre>
 <h2>Qué hace</h2>
-<p><code>bug-verify</code> es el hermano de <code>adversarial-verify</code>, pero para bugs de código: en lugar de podar afirmaciones por citación de un escéptico, poda bugs por <strong>ejecución</strong>. La premisa es simple y estricta: un bug solo se considera confirmado (<code>reproduced</code>) si un agente construye una reproducción mínima (test, script o comando) y la CORRE, observando que efectivamente falla contra el código actual. Argumentar que &quot;probablemente&quot; existe el bug no cuenta como prueba.</p>
-<p>El workflow itera SECUENCIALMENTE (no en paralelo) sobre cada bug en la fase Reproduce, porque corre contra el mismo working tree con las dependencias ya instaladas: un worktree nuevo no tendría node_modules/build artifacts instalados, así que paralelizar en worktrees separados resultaría incómodo. Si <code>attemptFix</code> está activo, el árbol se snapshotea (<code>git status --porcelain</code>) una vez antes del loop, y después de cada bug, comparando siempre contra esa misma referencia inicial para detectar si un revert falló y dejó el árbol sucio (<code>treeDirty</code>).</p>
+<p>Corre en dos fases: <strong>Source</strong> junta la lista de bugs sospechosos (tal cual si viene en el input, o descubierta por un finder barato si solo diste un <code>topic</code>), los normaliza, deduplica por <code>claim+file</code> y los recorta a <code>maxBugs</code>. <strong>Reproduce</strong> verifica cada bug uno por uno: un agente construye un test, script o input mínimo que dispare el bug, lo EJECUTA de verdad contra el código actual, y cita el output real. Solo se marca <code>reproduced</code> si la corrida falla por la razón alegada; si el código se comporta bien o no se puede reproducir, es <code>not-reproduced</code>; si no hay entorno ejecutable, <code>inconclusive</code>.</p>
+<p>A diferencia de <code>adversarial-verify</code> (que poda afirmaciones citando evidencia textual), acá el único oráculo válido es una ejecución observada. Esto refleja prácticas reales de reproducción de bugs: SWE-bench (<code>FAIL_TO_PASS</code>), Agentless/BRT, y el replay de sanitizers de OSS-Fuzz. El sesgo por defecto es conservador: sin corrida real que falle, no hay confirmación.</p>
+<p>Si pedís <code>attemptFix</code>, cada agente de repro además intenta un fix mínimo, confirma que la corrida pasa de FAIL a PASS sin romper el resto de la suite, y luego REVIERTE el fix (el workflow verifica bugs, no los aterriza). Como esto muta el árbol de trabajo real, el workflow toma un snapshot de <code>git status --porcelain</code> antes de empezar y otro después de cada bug, para detectar si un revert falló y dejó el árbol sucio (<code>treeDirty</code>).</p>
+<p>Corre SECUENCIALMENTE, no en paralelo: usa el árbol de trabajo compartido con las dependencias ya instaladas, y un worktree fresco por bug sería incómodo (sin <code>node_modules</code>/artifacts de build). Es la razón explícita por la que este scaffold no usa fan-out.</p>
 <h2>Cuándo usarlo</h2>
-<table>
-<thead>
-<tr>
-<th>Situación</th>
-<th>Usá...</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Bug de código, querés PROBARLO con una corrida real</td>
-<td><code>bug-verify</code></td>
-</tr>
-<tr>
-<td>Afirmación no ejecutable (diseño, arquitectura, prosa)</td>
-<td><code>adversarial-verify</code> (poda por citación/argumento)</td>
-</tr>
-<tr>
-<td>Leads de <code>repo-bug-hunt</code> (u otro hallazgo) a confirmar antes de reportar</td>
-<td><code>bug-verify</code></td>
-</tr>
-<tr>
-<td>Querés no solo detectar el bug sino confirmar que un fix lo resuelve sin romper nada</td>
-<td><code>bug-verify</code> con <code>attemptFix: true</code></td>
-</tr>
-<tr>
-<td>No hay forma de ejecutar nada contra el código (sin entorno runnable, sin test runner)</td>
-<td>No lo fuerces: los agentes devolverán <code>inconclusive</code>, no <code>reproduced</code></td>
-</tr>
-</tbody></table>
-<p>Cuidado con <code>attemptFix</code> en un working tree con cambios sin commitear: el workflow detecta y advierte si el árbol queda sucio tras un revert fallido (<code>treeDirty: true</code>), pero no lo repara automáticamente.</p>
-<h2>Cómo funciona</h2>
-<ol>
-<li><p><strong>Parseo de input y helpers.</strong> Lee <code>args</code> (string JSON o objeto), define <code>compact</code> (trunca payloads grandes a 60000 chars para logs/prompts) y <code>fence</code> (delimitador anti-inyección basado en hash FNV-like del contenido, sin randomness porque el runtime prohíbe <code>Math.random</code>/<code>Date.now</code>). Define <code>node(role, extra)</code> para aplicar overrides por-rol de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> con precedencia: override por rol &gt; default global (<code>input.model</code>/<code>input.effort</code>) &gt; default del call site.</p>
-</li>
-<li><p><strong>Fase Source.</strong> Si <code>input.bugs</code> o <code>input.findings</code> es un array, se usa tal cual. Si no, requiere <code>input.topic</code> (o <code>input.text</code>); si falta ambos, lanza error. Con <code>topic</code>, corre un <code>agent()</code> con rol <code>finder</code> (modelo <code>haiku</code>, effort <code>low</code>, <code>schema: BUGS</code>) que devuelve hasta <code>maxBugs</code> bugs candidatos en JSON estructurado. Luego normaliza cada item a <code>{ id, claim, file, reportedEvidence }</code> (acepta strings sueltos o objetos con <code>claim</code>/<code>title</code>/<code>description</code>), deduplica por clave <code>claim+file</code> en minúsculas/trim, y recorta al límite <code>maxBugs</code>. Si la lista queda vacía, retorna el string <code>&quot;No suspected bugs to verify.&quot;</code> sin entrar a Reproduce.</p>
-</li>
-<li><p><strong>Baseline del árbol (si <code>attemptFix</code>).</strong> Antes del loop, un agente <code>tree-baseline</code> (<code>haiku</code>, <code>low</code>) corre <code>git status --porcelain</code> y guarda el resultado como referencia para detectar reverts fallidos.</p>
-</li>
-<li><p><strong>Fase Reproduce (loop secuencial).</strong> Para cada bug, en orden:</p>
 <ul>
-<li>Construye un prompt con las reglas de reproducción (debe correr algo real y citar la salida FALLIDA; <code>status=&quot;reproduced&quot;</code> solo si el run falla por la razón alegada; <code>&quot;not-reproduced&quot;</code> si el código se comporta bien; <code>&quot;inconclusive&quot;</code> si no puede montarse un entorno ejecutable), más instrucciones condicionales de <code>attemptFix</code> (arreglar mínimo, confirmar FAIL→PASS sin regresiones, revertir) y <code>minimize</code> (delta-debugging).</li>
-<li>Llama a <code>agent()</code> con rol <code>repro</code> (modelo <code>sonnet</code>, effort <code>medium</code>, <code>schema: VERDICT</code>, label <code>repro:{id}</code>).</li>
-<li>Si <code>attemptFix</code>, corre un segundo agente <code>tree-check:{id}</code> (<code>haiku</code>, <code>low</code>) que repite <code>git status --porcelain</code> y compara contra el baseline; si difiere, marca <code>treeDirty: true</code> y logea un warning.</li>
-<li>Empuja el resultado combinado a <code>results</code> y logea el status (y <code>fixVerified</code> si aplica).</li>
+<li>Confirmar los leads que salieron de un <code>repo-bug-hunt</code> antes de invertir tiempo en arreglarlos.</li>
+<li>Loop de reproducir-y-arreglar (<code>attemptFix=true</code>) cuando querés confirmación FAIL→PASS con regresiones cubiertas.</li>
+<li>Probar un bug con una corrida real en vez de una argumentación o una cita de código.</li>
+<li><strong>No lo uses</strong> si necesitás verificar afirmaciones no ejecutables (diseño, arquitectura, hechos de texto) — para eso está <code>adversarial-verify</code>. Tampoco si necesitás paralelismo masivo sobre muchos bugs independientes: acá el árbol compartido fuerza secuencialidad.</li>
 </ul>
-</li>
-<li><p><strong>Clasificación final.</strong> Filtra <code>results</code> por <code>status</code> en <code>reproduced</code> / <code>not-reproduced</code> / <code>inconclusive</code>, cuenta cuántos confirmados tuvieron <code>fixVerified === true</code>, y retorna el objeto de salida.</p>
-</li>
-</ol>
-<p><strong>Manejo de fallos parciales:</strong> si un <code>agent()</code> de reproducción no devuelve nada, se sustituye por un registro <code>{ id, status: &quot;inconclusive&quot;, repro: &quot;&quot;, evidence: &quot;agent returned no result&quot; }</code> — el loop nunca se detiene por un fallo individual. No hay caching explícito en el código (cada bug se procesa una sola vez por corrida; no hay memoización entre invocaciones).</p>
+<h2>Cómo funciona</h2>
+<p><strong>Fase Source.</strong> Si <code>input.bugs</code> o <code>input.findings</code> viene como array, se usa tal cual. Si no, requiere <code>input.topic</code> (o <code>input.text</code>); dispara un <code>agent</code> (<code>finder</code>, modelo <code>haiku</code>, effort <code>low</code>, con <code>schema</code> JSON) que devuelve hasta <code>maxBugs</code> sospechosos falsables. El texto del topic se envuelve con <code>fence()</code> (marcador delimitador derivado de un hash del contenido, no de aleatoriedad) para blindar contra inyección de instrucciones. Cada item crudo se normaliza a <code>{ id, claim, file, reportedEvidence }</code>, se deduplica por la clave <code>claim+file</code> en minúsculas, y se recorta a <code>maxBugs</code> (con <code>log()</code> de cuántos se descartaron).</p>
+<p><strong>Fase Reproduce.</strong> Si <code>attemptFix</code> está activo, un agente <code>tree-baseline</code> (<code>haiku</code>, <code>low</code>) corre <code>git status --porcelain</code> para tener una foto del estado inicial. Después, un <code>for</code> secuencial (no <code>parallel</code>) recorre cada bug: un agente <code>repro</code> (<code>sonnet</code>, <code>medium</code>, <code>schema</code> VERDICT, label <code>repro:&lt;id&gt;</code>) recibe el claim, file y evidencia reportada (cada uno envuelto en su propio <code>fence()</code>), y debe construir y CORRER una reproducción real, citando el output. El prompt instruye explícitamente el intento de fix + revert si <code>attemptFix</code>, y la minimización delta-debugging-style si <code>minimize</code>. Tras cada bug, si <code>attemptFix</code>, otro agente <code>tree-check</code> (<code>haiku</code>, <code>low</code>) vuelve a correr <code>git status --porcelain</code> y compara contra el baseline para marcar <code>treeDirty</code> (revert fallido).</p>
+<p>No hay <code>parallel</code>/<code>settle</code> en este scaffold — cada resultado se empuja directo al array <code>results</code>, y un <code>agent</code> que devuelve <code>null</code>/vacío se registra como <code>inconclusive</code> en vez de abortar el loop. No hay caching explícito (sin <code>writeArtifact</code> ni memoización entre corridas); cada invocación reproduce desde cero.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (objeto o string JSON vía <code>args</code>):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
-<th>Tipo</th>
-<th>Default / clamp</th>
-<th>Descripción</th>
+<th>Tipo / default</th>
+<th>Notas</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>bugs</code></td>
-<td><code>Array</code></td>
-<td>—</td>
-<td>Bugs sospechosos ya conocidos (se usa si está presente; toma precedencia sobre <code>findings</code>)</td>
-</tr>
-<tr>
-<td><code>findings</code></td>
-<td><code>Array</code></td>
-<td>—</td>
-<td>Alias de <code>bugs</code> si <code>bugs</code> no está presente</td>
+<td><code>bugs</code> / <code>findings</code></td>
+<td>array de <code>{ id?, claim|title|description, file?, evidence? }</code></td>
+<td>si falta, requiere <code>topic</code></td>
 </tr>
 <tr>
 <td><code>topic</code> / <code>text</code></td>
-<td><code>string</code></td>
-<td>requerido si no hay <code>bugs</code>/<code>findings</code></td>
-<td>Tema para que el <code>finder</code> descubra bugs inline</td>
+<td>string</td>
+<td>dispara el finder inline si no hay <code>bugs</code></td>
 </tr>
 <tr>
 <td><code>verifyCmd</code></td>
-<td><code>string</code></td>
-<td><code>null</code> (trim vacío → <code>null</code>)</td>
-<td>Runner del proyecto (ej. <code>npm test</code>) sugerido a los agentes de repro</td>
+<td>string, opcional</td>
+<td>runner del proyecto (p. ej. <code>&quot;npm test&quot;</code>); sin él, el agente improvisa</td>
 </tr>
 <tr>
 <td><code>attemptFix</code></td>
-<td><code>boolean</code></td>
-<td><code>false</code></td>
-<td>Intentar un fix mínimo + confirmar FAIL→PASS sin regresiones + revertir</td>
+<td>bool, default <code>false</code></td>
+<td>intenta fix minimal + confirma FAIL→PASS + revert</td>
 </tr>
 <tr>
 <td><code>minimize</code></td>
-<td><code>boolean</code></td>
-<td><code>false</code></td>
-<td>Minimizar la reproducción (estilo delta-debugging)</td>
+<td>bool, default <code>false</code></td>
+<td>minimiza la reproducción (delta-debugging)</td>
 </tr>
 <tr>
 <td><code>maxBugs</code></td>
-<td><code>number</code></td>
-<td><code>12</code>, clamp <code>[1, 4096]</code>, floor</td>
-<td>Tope de bugs a verificar</td>
-</tr>
-<tr>
-<td><code>model</code> / <code>effort</code></td>
-<td>—</td>
-<td>—</td>
-<td>Defaults globales por nodo</td>
-</tr>
-<tr>
-<td><code>models[role]</code> / <code>efforts[role]</code></td>
-<td>—</td>
-<td>—</td>
-<td>Overrides por rol (<code>finder</code>, <code>tree-baseline</code>, <code>repro</code>, <code>tree-check</code>)</td>
-</tr>
-<tr>
-<td><code>tools</code>/<code>toolsByRole</code>, <code>skills</code>/<code>skillsByRole</code>, <code>excludeTools</code>/<code>excludeByRole</code></td>
-<td>—</td>
-<td>—</td>
-<td>Overrides de herramientas/skills por rol</td>
+<td>number, default <code>12</code>, clamp <code>1..4096</code></td>
+<td>cap tras dedup</td>
 </tr>
 </tbody></table>
-<p><strong>Output</strong> (objeto retornado):</p>
+<p>Retorna:</p>
 <pre><code class="language-text">{
-  confirmed:  [ ...results con status === &quot;reproduced&quot; ],
+  confirmed: [...],          // bugs con status &quot;reproduced&quot;
   counts: { total, reproduced, notReproduced, inconclusive, fixVerified },
-  attemptFix: boolean,
-  results:    [ { id, claim, file, reportedEvidence, status, repro, evidence, fixVerified?, notes?, treeDirty? }, ... ],
-  coverage:   { bugs: &lt;items.length&gt; },
+  attemptFix: bool,
+  results: [...],             // todos los bugs con su verdict completo
+  coverage: { bugs: &lt;items.length&gt; }
 }
 </code></pre>
-<p>Caso borde: si no quedan bugs tras dedup/normalización, retorna el string literal <code>&quot;No suspected bugs to verify.&quot;</code> en lugar del objeto anterior.</p>
-<p>El código no invoca <code>writeArtifact</code> — no persiste artifacts en disco; toda la evidencia (<code>repro</code>, <code>evidence</code>, logs) vive en el valor de retorno y en los <code>log()</code> emitidos durante la corrida.</p>
+<p>No escribe artifacts (<code>writeArtifact</code>) — el resultado viaja completo en el valor de retorno del workflow.</p>
 <h2>Fases</h2>
-<p>Declaradas en <code>meta.phases</code>:</p>
 <ol>
-<li><strong>Source</strong> — obtiene/descubre los bugs sospechados, normaliza, deduplica y aplica el cap <code>maxBugs</code>.</li>
-<li><strong>Reproduce</strong> — verifica cada bug secuencialmente mediante una reproducción real ejecutada (con fix opcional + chequeo de árbol limpio, y minimización opcional).</li>
+<li><strong>Source</strong> — junta o descubre los bugs sospechosos, normaliza, deduplica, recorta a <code>maxBugs</code>.</li>
+<li><strong>Reproduce</strong> — verifica cada bug secuencialmente por ejecución real (repro + opcional fix/revert + opcional minimización), clasifica en <code>reproduced</code> / <code>not-reproduced</code> / <code>inconclusive</code>.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

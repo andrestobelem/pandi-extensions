@@ -125,152 +125,132 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Sigue lanzando finders en paralelo hasta que hay K rondas consecutivas sin novedad, o se alcanza <code>maxRounds</code>.</p>
+<p>Descubrimiento loop-until-dry: seguí lanzando finders hasta K rondas quietas consecutivas o hasta <code>maxRounds</code>.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Es un descubrimiento en bucle: en vez de fijar de antemano cuántas rondas de búsqueda hacer, lanza <code>finders</code> agentes en paralelo ronda tras ronda hasta que <code>quietRounds</code> rondas consecutivas no traen nada nuevo (o se llega al tope <code>maxRounds</code>), y al final un agente sintetiza todo lo acumulado. Elegilo cuando el conjunto a descubrir es de tamaño desconocido y querés exhaustividad — &quot;encontrar todo lo que…&quot; — no para un alcance ya acotado (ahí alcanza un fan-out estático).</p>
+<p>Es el patrón para cuando no sabés de antemano cuántos hallazgos hay — un audit, un &quot;encontrá todos los call-sites de X&quot; — y querés exhaustividad, no una cantidad fija de resultados. En cada ronda, varios finders en paralelo buscan hallazgos NUEVOS con ángulos distintos; si una ronda no aporta nada nuevo, cuenta como &quot;quieta&quot;. El loop para cuando se acumulan K rondas quietas seguidas (ya está seco) o al llegar a <code>maxRounds</code> (presupuesto agotado). Elegilo cuando el tamaño del conjunto a descubrir es desconocido; si ya sabés el work-list completo, usá <code>map-reduce</code> o <code>fan-out-and-synthesize</code> en su lugar.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=loop-until-dry
-/workflow run mi-run {&quot;target&quot;: &quot;todas las validaciones de input faltantes en src/api/&quot;, &quot;quietRounds&quot;: 2, &quot;maxRounds&quot;: 8, &quot;finders&quot;: 3}
+/workflow run mi-run {&quot;target&quot;:&quot;todos los lugares donde parseamos chunks SSE&quot;,&quot;quietRounds&quot;:2,&quot;maxRounds&quot;:8}
 </code></pre>
-<p><code>target</code> (alias <code>scope</code>/<code>task</code>) es el único campo obligatorio; el resto son overrides opcionales con sus defaults — ver <a href="#input-y-output">Input y output</a>.</p>
+<p><code>target</code> es el único campo obligatorio (también acepta los alias <code>scope</code>/<code>task</code>); si falta, el scaffold lanza un error explícito. El resto de los campos tiene defaults — ver la tabla en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Start(["Input: target, quietRounds=2, maxRounds=8, finders=3"]) --&gt; Init["Validar/clampear params\nseen=Set, all=[], quiet=0, round=0"]
-    Init --&gt; LoopCheck{"quiet &lt; quietToStop\nY round &lt; maxRounds?"}
+    A["Input: target (req, alias scope|task)\nquietRounds=2, maxRounds=8, finders=3"] --&gt; B{"target ausente?"}
+    B --&gt;|"sí"| B1["throw Error"]
+    B --&gt;|"no"| C["seen=Set vacío, all=[], quiet=0, round=0"]
 
-    LoopCheck -- si --&gt; IncRound["round++\nphase Discover"]
-    IncRound --&gt; Fanout["parallel: lanzar N finders\n(uno por angulo i=1..finders)"]
+    C --&gt; D{"quiet &lt; quietToStop\nAND round &lt; maxRounds?"}
+    D --&gt;|"no"| Z["Phase: Synthesize"]
+    D --&gt;|"sí"| E["round += 1\nPhase: Discover"]
 
-    subgraph Round["Ronda de discovery (paralelo, settle)"]
-        F1["finder r-a1\nhaiku/low"]
-        F2["finder r-a2\nhaiku/low"]
-        F3["finder r-a3\nhaiku/low"]
+    subgraph FINDERS["fan-out de finders (parallel)"]
+        F1["agent finder haiku·low\nángulo #1: buscar items NUEVOS\nno listados en 'all' (dedupe por id)"]
+        F2["agent finder haiku·low\nángulo #2: ..."]
+        F3["agent finder haiku·low\nángulo #N: ..."]
     end
-    Fanout --&gt; F1
-    Fanout --&gt; F2
-    Fanout --&gt; F3
+    E --&gt; FINDERS
+    FINDERS --&gt; G["ok = batches sin null (settle)\nfailed = finders - ok.length\nlog si failed &gt; 0"]
 
-    F1 --&gt; Merge["Filtrar nulls (finders caidos)\nDedupe por item.id contra seen\nAcumular en all[]"]
-    F2 --&gt; Merge
-    F3 --&gt; Merge
+    G --&gt; H["por cada item de cada ok:\nsi item.id no está en seen -&gt; push a all, seen.add(id), fresh++"]
+    H --&gt; I["log ronda: +fresh nuevos (all.length total)"]
 
-    Merge --&gt; AllFailed{"Todos los finders\nfallaron esta ronda?"}
-    AllFailed -- si --&gt; NoCount["No cuenta hacia quiet\n(protege contra falso 'dry')"]
-    AllFailed -- no --&gt; FreshCheck{"fresh == 0?"}
-    FreshCheck -- si --&gt; QuietInc["quiet++"]
-    FreshCheck -- no --&gt; QuietReset["quiet = 0"]
+    I --&gt; J{"ok.length == 0?\n(todos los finders murieron)"}
+    J --&gt;|"sí"| J1["log: ronda no cuenta hacia quiet\n(no avanza el contador)"]
+    J --&gt;|"no"| K{"fresh == 0?"}
+    K --&gt;|"sí"| K1["quiet += 1"]
+    K --&gt;|"no"| K2["quiet = 0"]
 
-    NoCount --&gt; LoopCheck
-    QuietInc --&gt; LoopCheck
-    QuietReset --&gt; LoopCheck
+    J1 --&gt; D
+    K1 --&gt; D
+    K2 --&gt; D
 
-    LoopCheck -- no --&gt; StopReason{"round &gt;= maxRounds\ny quiet &lt; quietToStop?"}
-    StopReason -- si --&gt; LogCap["log: detenido por maxRounds, no por dry"]
-    StopReason -- no --&gt; Synth
-    LogCap --&gt; Synth["phase Synthesize\nagent judge sobre all[]\nopus/high"]
-    Synth --&gt; Return(["return synthesis\n(hallazgos dedupe + severidad + evidencia)"])</pre>
+    Z --&gt; L{"se llegó a maxRounds\nsin quiet alcanzado?"}
+    L --&gt;|"sí"| L1["log: stopped at maxRounds (not dry)"]
+    L --&gt;|"no"| M["log: findings collected (total)"]
+    L1 --&gt; M
+
+    M --&gt; N["agent synthesis-as-judge opus·high\nsobre compact(all, 60000)\ndedupe, prioriza por severidad,\ndescarta claims sin evidencia"]
+    N --&gt; O["return synthesis (texto final)"]</pre>
 <h2>Qué hace</h2>
-<p><code>loop-until-dry</code> es un scaffold de descubrimiento dinámico: en lugar de fijar de antemano cuántas rondas de búsqueda hacer, mantiene un pool de <code>finders</code> corriendo en paralelo, ronda tras ronda, hasta que <strong>K rondas consecutivas</strong> (<code>quietRounds</code>, default 2) no aportan ningún hallazgo nuevo, o se alcanza un tope duro de rondas (<code>maxRounds</code>, default 8). Esta es la propiedad que lo hace &quot;dinámico&quot; en el sentido estricto del catálogo: la profundidad de la exploración se adapta a lo que efectivamente se encuentra, no a un número fijo elegido por el usuario.</p>
-<p>Cada ronda lanza <code>finders</code> (default 3, clamp 1-6) agentes en paralelo con el primitivo <code>parallel</code>, cada uno instruido a atacar el <code>target</code> desde un &quot;ángulo&quot; distinto (<code>#i</code>) y a evitar repetir lo ya encontrado (se le pasa la lista acumulada <code>all</code> truncada a 4000 chars como contexto). Los agentes devuelven JSON validado por schema (<code>{ items: [{ id, title, evidence }] }</code>), y el resultado de cada finder puede ser <code>null</code> si el agente falla — el scaffold trata eso como &quot;cero items&quot;, nunca como excepción que tumbe la ronda completa.</p>
-<p>La deduplicación es por <code>id</code> estable contra un <code>Set</code> global (<code>seen</code>), acumulando los items nuevos en <code>all</code>. Hay una salvaguarda explícita: si <strong>todos</strong> los finders de una ronda fallan (batches vacío), esa ronda no cuenta hacia el contador <code>quiet</code> — de lo contrario un fallo de infraestructura (p. ej. rate limit) sería indistinguible de una ronda genuinamente &quot;seca&quot; y detendría el loop prematuramente y en falso. El scaffold también loggea explícitamente si el corte final fue por el cap de rondas y no por agotamiento real, evitando &quot;caps silenciosos&quot;.</p>
-<p>Al terminar el loop, una fase de síntesis pasa todos los hallazgos acumulados (hasta 60000 chars) a un único agente <code>opus</code>/<code>high</code> que actúa como juez: deduplica, descarta afirmaciones sin evidencia, ordena por severidad y devuelve el resultado final con evidencia. Todo el contenido no confiable (el <code>target</code> del usuario y los hallazgos acumulados que se re-inyectan a los finders) se envuelve con un fence delimitado por un hash del propio contenido, para blindar contra prompt injection sin mutar el payload.</p>
+<p><code>loop-until-dry</code> implementa un descubrimiento dinámico donde la profundidad NO está fijada de antemano: en cada ronda se lanzan <code>finders</code> agentes en paralelo, cada uno con una instrucción de buscar desde un &quot;ángulo&quot; distinto (una estrategia de búsqueda distinta de la de sus pares) y de reportar solo hallazgos que no estén ya en la lista acumulada. El loop sigue rondas tras ronda hasta que se cumple una de dos condiciones de parada: <code>quietRounds</code> rondas consecutivas sin ningún hallazgo nuevo (el conjunto está &quot;seco&quot;), o <code>maxRounds</code> rondas totales (presupuesto agotado, se loguea explícitamente que la parada fue por cap y no por sequedad).</p>
+<p>Cada finder devuelve JSON validado por schema (<code>{ items: [{ id, title, evidence }] }</code>), lo que permite deduplicar de forma confiable por <code>id</code> en un <code>Set</code> global (<code>seen</code>) en vez de depender de comparación de texto libre. Al final, una fase de síntesis-como-juez (un solo agente, modelo <code>opus</code>, effort <code>high</code>) recibe TODOS los hallazgos acumulados de todas las rondas y produce el resultado final: deduplicado, priorizado por severidad, con evidencia, descartando cualquier claim sin sustento.</p>
+<p>El diseño es &quot;robustness-first&quot;: el fan-out de cada ronda usa el patrón settle (un finder que crashea se vuelve <code>null</code> y no tumba la ronda), y se distingue explícitamente una ronda &quot;quieta de verdad&quot; (todos los finders corrieron y no encontraron nada nuevo) de una ronda donde TODOS los finders fallaron (esa no cuenta para el contador de sequedad, para no confundir infraestructura caída con &quot;ya no hay más para encontrar&quot;). Todos los caps y decisiones de parada se loguean, nunca de forma silenciosa.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>El conjunto a descubrir es de tamaño desconocido y se busca exhaustividad (catálogo: <em>&quot;The set you&#39;re discovering is unknown-size and you want exhaustiveness&quot;</em>).</li>
-<li>Enumerar todos los call-sites o edge-cases de algo en un repo.</li>
-<li>Preguntas del tipo &quot;encontrar todo lo que…&quot; (todas las validaciones faltantes, todos los lugares que parsean un formato, etc.).</li>
-<li>Se quiere que el propio proceso decida cuándo parar (por rondas sin novedad) en vez de fijar a mano una cantidad de pasadas.</li>
-</ul>
-<p>Cuándo NO usarlo:</p>
-<ul>
-<li>El alcance ya es conocido y acotado (usar un fan-out estático simple en su lugar; este scaffold paga el costo de múltiples rondas para ganar exhaustividad, que no hace falta si ya se sabe cuántos ítems hay).</li>
-<li>Se necesita razonamiento paso a paso grounded en observaciones reales de herramientas (usar <code>react-scout</code>).</li>
-<li>El presupuesto de rondas/finders es tan ajustado que nunca podría detectar 2 rondas quietas reales — en ese caso el resultado dependerá más del cap que de la exhaustividad real.</li>
+<li>Enumerar todos los call-sites o edge-cases de algo en un código/base grande.</li>
+<li>Preguntas del tipo &quot;encontrá todo lo que…&quot; donde el tamaño del resultado es desconocido.</li>
+<li>Auditorías donde importa la exhaustividad y parar quieto (no por un número arbitrario de resultados).</li>
+<li><strong>No usarlo</strong> cuando ya conocés el work-list completo de antemano (usá <code>map-reduce</code> si es grande, o <code>fan-out-and-synthesize</code> si entra en un prompt): pagar rondas de descubrimiento no aporta nada si no hay nada que descubrir.</li>
+<li><strong>No usarlo</strong> cuando necesitás un ranking/comparación entre alternativas fijas, no un descubrimiento abierto.</li>
 </ul>
 <h2>Cómo funciona</h2>
-<p><strong>Setup de parámetros.</strong> El input se parsea (string JSON o objeto), y se derivan <code>models</code>/<code>efforts</code>/<code>toolsByRole</code>/<code>skillsByRole</code>/<code>excludeByRole</code> para permitir overrides por rol vía el helper <code>node(role, extra)</code> (precedencia: override por rol &gt; default global <code>input.model</code>/<code>input.effort</code> &gt; default del call-site). <code>quietRounds</code> se clampea a 1-100, <code>maxRounds</code> a 1-1000, <code>finders</code> a 1-6, logueando si hubo clamp. <code>target</code> (alias <code>scope</code>/<code>task</code>) es obligatorio; si falta, lanza error.</p>
-<p><strong>Fase Discover (loop).</strong> Mientras <code>quiet &lt; quietToStop</code> y <code>round &lt; maxRounds</code>:</p>
-<ol>
-<li>Se llama <code>phase(&quot;Discover&quot;)</code> y se incrementa <code>round</code>.</li>
-<li><code>parallel(...)</code> lanza <code>finders</code> agentes (rol lógico <code>&quot;finder&quot;</code>, modelo <code>haiku</code>, effort <code>low</code>), cada uno con un prompt que fija el ángulo de búsqueda (<code>#i</code>), pasa el <code>target</code> y la lista <code>all</code> ya encontrada (ambos dentro de fences anti-injection), y exige salida validada por el schema <code>ITEMS</code>.</li>
-<li>Los resultados <code>null</code> (fallos de agente) se filtran; se cuenta cuántos finders fallaron y se loguea. Cada item nuevo (por <code>id</code> no visto) se agrega a <code>all</code> y a <code>seen</code>; se cuenta <code>fresh</code>.</li>
-<li>Si <strong>ningún</strong> finder tuvo éxito esa ronda, se loguea y <strong>no</strong> se actualiza <code>quiet</code> (evita falso &quot;dry&quot; por fallo infra). Si hubo al menos un éxito: <code>quiet = fresh === 0 ? quiet + 1 : 0</code>.</li>
-</ol>
-<p><strong>Salida del loop.</strong> Si se llegó a <code>maxRounds</code> sin haber alcanzado <code>quietToStop</code>, se loguea explícitamente que el corte fue por presupuesto de rondas, no por agotamiento real.</p>
-<p><strong>Fase Synthesize.</strong> Un único <code>agent</code> (modelo <code>opus</code>, effort <code>high</code>) recibe todos los hallazgos acumulados (fenced, hasta 60000 chars) con instrucción de actuar como &quot;synthesis-as-judge&quot;: deduplicar, descartar afirmaciones no soportadas, priorizar por severidad manteniendo evidencia. Su salida es el <code>return</code> del scaffold.</p>
-<p><strong>Manejo de fallos parciales:</strong> <code>parallel</code> no aborta el resto de la ronda si un finder crashea; ese branch se resuelve a <code>null</code> y se descuenta explícitamente del conteo de éxitos, sin afectar el contador de rondas quietas salvo en el caso extremo de fallo total de la ronda.</p>
-<p><strong>Caching / modelos:</strong> no hay caching explícito de resultados entre rondas más allá de la deduplicación por <code>id</code>; cada ronda vuelve a pasar el estado acumulado (truncado) a los finders para minimizar redundancia. Los finders usan un modelo económico (<code>haiku</code>, <code>low</code>) por diseño — son baratos y se ejecutan muchas veces; la síntesis usa el modelo más caro (<code>opus</code>, <code>high</code>) una sola vez al final.</p>
+<p><strong>Validación de entrada.</strong> <code>target</code> (o sus alias <code>scope</code>/<code>task</code>) es obligatorio: describe qué buscar/auditar. Si no está presente, el scaffold lanza una excepción inmediatamente (a diferencia de otros scaffolds que abortan devolviendo un shape de error, acá se propaga el <code>throw</code>). Los parámetros numéricos se sanean con <code>Number(...) || default</code> y luego un <code>clamp</code> manual: <code>quietRounds</code> default 2 (clamp 1..100), <code>maxRounds</code> default 8 (clamp 1..1000), <code>finders</code> default 3 (clamp 1..6). Cada clamp aplicado se loguea si el valor pedido difiere del efectivo.</p>
+<p><strong>Fase Discover (se repite por ronda).</strong> En cada iteración del loop principal se incrementa <code>round</code>, se marca <code>phase(&quot;Discover&quot;)</code>, y se lanzan <code>finders</code> agentes en <code>parallel</code>. Cada finder corre en el rol <code>finder</code> (modelo <code>haiku</code>, effort <code>low</code> — barato, apto para volumen) y recibe: un fence anti-inyección envolviendo el <code>target</code> y otro envolviendo los hallazgos ya acumulados (truncados a 4000 chars con <code>compact</code>), instrucción explícita de usar un ángulo de búsqueda distinto de los otros finders del mismo round, y el pedido de devolver JSON validado contra el schema <code>ITEMS</code> (array vacío si no hay nada nuevo). Tras el fan-out, se filtran los <code>null</code> (settle) para obtener <code>ok</code>; si algún finder falló se loguea cuántos. Por cada item de cada resultado <code>ok</code>, si su <code>id</code> no está en el <code>Set seen</code>, se agrega a <code>all</code> y se cuenta como <code>fresh</code>.</p>
+<p><strong>Contador de sequedad.</strong> Si <code>ok.length === 0</code> (TODOS los finders de la ronda fallaron), esa ronda NO cuenta hacia el contador <code>quiet</code> — evita confundir una caída de infraestructura con &quot;ya no hay más para encontrar&quot;. En caso contrario, <code>quiet</code> se resetea a 0 si hubo algún hallazgo <code>fresh</code>, o se incrementa en 1 si la ronda no aportó nada nuevo. El loop principal continúa mientras <code>quiet &lt; quietToStop</code> y <code>round &lt; maxRounds</code>.</p>
+<p><strong>Fase Synthesize.</strong> Al salir del loop (por sequedad o por cap), si se llegó a <code>maxRounds</code> sin haber alcanzado <code>quietToStop</code> rondas quietas, se loguea explícitamente que la parada fue por presupuesto de rondas y no porque el conjunto esté seco (no-silent-caps). Luego se marca <code>phase(&quot;Synthesize&quot;)</code> y se lanza un único <code>agent</code> de síntesis-como-juez (modelo <code>opus</code>, effort <code>high</code>) sobre TODOS los hallazgos acumulados (truncados a 60000 chars), envueltos en el mismo fence anti-inyección. Su instrucción: deduplicar, descartar claims sin sustento, priorizar por severidad (más severo primero), preservando evidencia. El resultado de este agente es el retorno final del scaffold.</p>
+<p><strong>Caching:</strong> no se observa ningún mecanismo explícito de caché; cada <code>agent</code> de cada ronda y la síntesis se invocan frescos.</p>
+<p><strong>Manejo de fallos parciales:</strong> el fan-out de finders usa el patrón settle (un finder caído se convierte en <code>null</code> y se filtra); se distingue y loguea el caso extremo de que TODA una ronda falle, para no dejar que un problema de infraestructura sea indistinguible de &quot;ya no hay más hallazgos&quot;.</p>
 <h2>Input y output</h2>
+<p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default</th>
-<th>Notas</th>
+<th>Requerido</th>
+<th>Default / clamp</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>target</code> / <code>scope</code> / <code>task</code></td>
+<td><code>target</code> (alias <code>scope</code>, <code>task</code>)</td>
 <td>string</td>
-<td>— (requerido)</td>
-<td>Qué buscar/auditar; lanza error si falta.</td>
+<td><strong>sí</strong></td>
+<td>— (si falta, <code>throw Error</code>)</td>
 </tr>
 <tr>
 <td><code>quietRounds</code></td>
 <td>number</td>
-<td>2</td>
-<td>Clamp 1..100. Rondas consecutivas sin hallazgos nuevos para detener el loop.</td>
+<td>no</td>
+<td>default 2, clamp 1..100</td>
 </tr>
 <tr>
 <td><code>maxRounds</code></td>
 <td>number</td>
-<td>8</td>
-<td>Clamp 1..1000. Tope duro de rondas aunque no esté &quot;seco&quot;.</td>
+<td>no</td>
+<td>default 8, clamp 1..1000</td>
 </tr>
 <tr>
 <td><code>finders</code></td>
 <td>number</td>
-<td>3</td>
-<td>Clamp 1..6. Agentes en paralelo por ronda.</td>
+<td>no</td>
+<td>default 3, clamp 1..6</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>—</td>
-<td>Default global aplicado a todos los nodos (finder y synthesis).</td>
+<td>no</td>
+<td>override global para todo nodo</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
 <td>object</td>
-<td>—</td>
-<td>Override por rol (<code>finder</code>, <code>synthesis</code>), precedencia sobre el default global.</td>
+<td>no</td>
+<td>override por rol (<code>finder</code>, <code>synthesis</code>); precedencia: por-rol &gt; global &gt; default del call-site</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>toolsByRole[role]</code></td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
 <td>array</td>
-<td>—</td>
-<td>Tools por rol o global.</td>
-</tr>
-<tr>
-<td><code>skills</code> / <code>skillsByRole[role]</code></td>
-<td>array</td>
-<td>—</td>
-<td>Skills por rol o global.</td>
-</tr>
-<tr>
-<td><code>excludeTools</code> / <code>excludeByRole[role]</code></td>
-<td>array</td>
-<td>—</td>
-<td>Exclusión de tools por rol o global.</td>
+<td>no</td>
+<td>pasados al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
-<p><strong>Output:</strong> el <code>return</code> del scaffold es directamente la respuesta de texto/estructura del agente de síntesis (<code>opus</code>/<code>high</code>): hallazgos deduplicados, ordenados por severidad, con evidencia, descartando lo no soportado. No hay <code>writeArtifact</code> en el código — el scaffold no persiste artifacts propios, solo devuelve el resultado de síntesis como valor de retorno del workflow.</p>
+<p><strong>Output:</strong> el resultado devuelto directamente por el agente de síntesis (texto, no un objeto envuelto) — los hallazgos deduplicados, priorizados por severidad, con evidencia.</p>
+<p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (parámetros efectivos, hallazgos nuevos por ronda, finders fallidos, motivo de parada) y por el valor de retorno final.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Discover</strong> — ronda(s) de fan-out en paralelo de finders (rol <code>finder</code>) hasta agotar novedad (quiet rounds) o alcanzar <code>maxRounds</code>.</li>
-<li><strong>Synthesize</strong> — un agente único (rol <code>synthesis</code>) actúa como juez sobre todos los hallazgos acumulados: dedupe, descarta lo no soportado, ordena por severidad y devuelve el resultado final.</li>
+<li><strong>Discover</strong> — se repite ronda tras ronda: fan-out de <code>finders</code> agentes en paralelo (haiku·low, cada uno con un ángulo de búsqueda distinto), dedupe por <code>id</code> contra lo ya encontrado, y actualización del contador de rondas quietas hasta cumplir <code>quietRounds</code> consecutivas sin novedades o agotar <code>maxRounds</code>.</li>
+<li><strong>Synthesize</strong> — un único agente juez (opus·high) sobre todos los hallazgos acumulados de todas las rondas: deduplica, descarta claims sin evidencia, prioriza por severidad y produce el resultado final.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

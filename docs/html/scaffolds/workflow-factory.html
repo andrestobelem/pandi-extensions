@@ -125,207 +125,155 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Meta-workflow: catálogo → plan → generar → revisar → refinar, y luego escribe <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</p>
+<p>Meta-workflow: catálogo → plan → generación → revisión → refinamiento, y después escribe <code>&lt;configDir&gt;/workflows/drafts/&lt;slug&gt;.js</code>.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>workflow-factory</code> no ejecuta tu tarea: la usa como brief para <strong>diseñar y generar otro workflow</strong> a medida, y lo deja como draft en disco para que lo revises antes de correrlo. Elegilo cuando ningún scaffold existente calza con la tarea y necesitás uno nuevo (o una especialización de uno existente) generado por agentes en vez de escrito a mano — no para tareas chicas o de bajo riesgo, donde el ciclo Plan(opus)→Generate→Review→Refine es más caro que resolver la tarea inline.</p>
+<p>Es el workflow que diseña OTRO workflow. Le pasás una tarea en lenguaje natural y gasta una corrida completa en: descubrir el catálogo de scaffolds existentes, planear el patrón/primitivas/presupuesto de modelos, generar el código JS del nuevo workflow, revisarlo de forma adversarial, refinarlo si hace falta, y finalmente escribir el draft a disco. Elegilo cuando ningún scaffold existente encaja y necesitás uno específico para la tarea — nunca cuando <code>fan-out-and-synthesize</code>, <code>map-reduce</code> u otro patrón catalogado ya resuelve el caso.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=workflow-factory
+/workflow run mi-run {&quot;task&quot;:&quot;Auditar resolvers de GraphQL en busca de queries N+1&quot;,&quot;write&quot;:true}
 </code></pre>
-<p>Con un input típico:</p>
-<pre><code class="language-json">{
-  &quot;task&quot;: &quot;audit GraphQL resolvers for N+1 queries&quot;,
-  &quot;write&quot;: true
-}
-</code></pre>
-<p><code>task</code> es el único campo requerido. Si el draft resultante te convence, inspeccionalo en <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> y recién ahí corrélo con concurrencia explícita — nunca sin revisión humana.</p>
+<p><code>task</code> es el único campo obligatorio (qué debe lograr el workflow generado). <code>write</code> (default <code>true</code> si se omite) controla si el resultado se escribe a disco o solo se devuelve como texto — ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Input["Input: task, name?, write?"] --&gt; P0
+    A["Input: task (req), name?, write?=true,\nmodel/effort, models/efforts[role],\ntoolsByRole/skillsByRole/excludeByRole[role]"] --&gt; B{"task ausente?"}
+    B --&gt;|"sí"| B1["throw Error: falta task"]
+    B --&gt;|"no"| C["Phase: Catalog"]
 
-    subgraph P0["Fase 0: Catalog"]
-        Cat["agent: catalog-scan\nmodel=haiku effort=low\nlee .pi/workflows/*.js\n(+ ~/.pi/agent/workflows/*.js)"]
-    end
-    Cat --&gt; Known["known workflows\n{name, description, kind}\n(excluye workflow-factory)"]
+    C --&gt; D["agent catalog-scan haiku·low\nlee .pi/workflows/*.js (proyecto + global)\n-&gt; { workflows: [ name, description, kind ] }"]
+    D --&gt; E["known = catalog filtrado\n(excluye workflow-factory)\ncatalogText = lista formateada"]
 
-    Known --&gt; P1
+    E --&gt; F["Phase: Plan"]
+    F --&gt; G["agent workflow-plan opus·high, schema PLAN\ninput: task + catalogText (fenced anti-inyección)\n-&gt; { name, pattern, why, inputs, scout, primitives,\n     reuse, promptContracts, verification, risks, budget[] }"]
 
-    subgraph P1["Fase 1: Plan"]
-        Plan["agent: workflow-plan\nmodel=opus effort=high\nschema=PLAN\n(pattern, primitives, reuse,\npromptContracts, budget por rol)"]
-    end
+    G --&gt; H["Phase: Generate"]
+    H --&gt; I["agent workflow-codegen sonnet·medium\ntimeoutMs=20min\ninput: task + plan (compact 12k) + catalogText (fenced)\n-&gt; JS crudo del workflow generado"]
+    I --&gt; J["extractJs(): saca el bloque ```js```\no usa el texto tal cual"]
+    J --&gt; K{"code vacío?"}
+    K --&gt;|"sí"| K1["throw Error: codegen produjo output vacío\n(probable timeout del agente)"]
+    K --&gt;|"no"| L["Phase: Review"]
 
-    Plan --&gt; P2
+    L --&gt; M["agent workflow-review sonnet·medium, schema REVIEW\nchequea: correctitud, costo, seguridad,\nreuse de catálogo, tiering de modelos por rol\n-&gt; { verdict: APPROVED|CHANGES_REQUESTED, findings[] }"]
+    M --&gt; N{"verdict==APPROVED\nAND findings.length==0?"}
 
-    subgraph P2["Fase 2: Generate"]
-        Gen["agent: workflow-codegen\nmodel=sonnet effort=medium\ngenera JS del workflow completo\n(sin markdown fences)"]
-    end
-    Gen --&gt; ExtractJS["extractJs()\n(quita fences si el modelo\nigual las incluyó)"]
+    N --&gt;|"sí"| O["log: skip Refine"]
+    N --&gt;|"no"| P["Phase: Refine"]
+    P --&gt; Q["agent workflow-refine sonnet·medium\ntimeoutMs=20min\ninput: task + findings (fenced) + code (fenced)\n-&gt; code revisado (extractJs de nuevo)"]
 
-    ExtractJS --&gt; P3
+    O --&gt; R["Validación estructural (heurística, sin LLM)"]
+    Q --&gt; R
+    R --&gt; S{"code vacío? usa import/require?\nfalta 'export const meta ='?\nusa agent({...}) objeto-forma?\nnunca llama agent()?"}
+    S --&gt;|"algún problema"| S1["codeValid=false\nlog validation FAILED"]
+    S --&gt;|"ok"| S2["codeValid=true"]
 
-    subgraph P3["Fase 3: Review"]
-        Rev["agent: workflow-review\nmodel=sonnet effort=medium\nschema=REVIEW\nverdict + findings\n(chequea REUSE y TIERING)"]
-    end
+    S2 --&gt; T{"input.write !== false?"}
+    T --&gt;|"no"| U["log: write=false, code se devuelve como resultado"]
+    S1 --&gt; V["write SKIPPED: draft NO_VALIDADO\nse devuelve igual en el resultado"]
+    T --&gt;|"sí"| W["Phase: Write"]
+    W --&gt; X["agent write-file haiku·low, schema {wrote,path}\nWrite tool -&gt; .pi/workflows/drafts/&lt;slug&gt;.js\ncontenido pasado como DATA fenced (verbatim)"]
+    X --&gt; Y{"wrote===true?"}
+    Y --&gt;|"sí"| Z["written = { path }"]
+    Y --&gt;|"no / excepción"| Z1["writeError; código se devuelve\ncomo resultado en vez de escribirse"]
 
-    Rev --&gt; Gate{"verdict == APPROVED\n&amp;&amp; findings vacío?"}
-
-    Gate -- sí --&gt; SkipRefine["Refine: skip\n(log only)"]
-    Gate -- no --&gt; P4
-
-    subgraph P4["Fase 4: Refine"]
-        Refine["agent: workflow-refine\nmodel=sonnet effort=medium\nreescribe el código\naplicando los findings"]
-    end
-    Refine --&gt; ExtractJS2["extractJs()"]
-
-    SkipRefine --&gt; Validate
-    ExtractJS2 --&gt; Validate
-
-    Validate["validateCode() — heurística local\n(sin agente): no vacío, sin\nimport/require, tiene meta,\nno agent({...}) objeto,\nllama agent() al menos una vez"]
-
-    Validate --&gt; ValidGate{"código válido?"}
-
-    ValidGate -- no --&gt; ReturnUnvalidated["No escribe.\nDevuelve draft SIN VALIDAR\nen el resultado"]
-
-    ValidGate -- sí --&gt; WriteCheck{"input.write !== false?"}
-    WriteCheck -- no --&gt; ReturnAsResult["No escribe (write=false).\nDevuelve el código como resultado"]
-
-    WriteCheck -- sí --&gt; P5
-
-    subgraph P5["Fase 5: Write"]
-        Write["agent: write-file\nmodel=haiku effort=low\nusa tool Write para crear\n.pi/workflows/drafts/&lt;slug&gt;.js\nschema={wrote, path}"]
-    end
-
-    Write --&gt; WriteOk{"w.wrote === true?"}
-    WriteOk -- sí --&gt; Written["written = {path}\nlog OK"]
-    WriteOk -- no / error --&gt; WriteFailed["writeError\nlog FAILED — devuelve\ncódigo como resultado"]
-
-    Written --&gt; Summary
-    WriteFailed --&gt; Summary
-    ReturnUnvalidated --&gt; Summary
-    ReturnAsResult --&gt; Summary
-
-    Summary["Resumen final:\nnombre, wrote/path, review verdict,\nvalidation, pattern, why,\n(+ código completo si no se escribió)"]</pre>
+    U --&gt; END["return resumen:\nnombre, path escrito o razón,\nverdict de Review, validación,\npattern/why del plan, código si no se escribió"]
+    V --&gt; END
+    Z --&gt; END
+    Z1 --&gt; END</pre>
 <h2>Qué hace</h2>
-<p><code>workflow-factory</code> es un meta-workflow: en lugar de ejecutar directamente una tarea, gasta una corrida completa en <strong>diseñar y generar</strong> el workflow específico para esa tarea, dejándolo como un archivo draft en <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> listo para inspección antes de confiar en él.</p>
-<p>El diseño es <em>catalog-aware</em>: antes de planificar, una fase de descubrimiento (Fase 0) lee los scaffolds ya existentes (<code>.pi/workflows/*.js</code> del proyecto y, si existe, <code>~/.pi/agent/workflows/*.js</code> global) y extrae su <code>meta.name</code>/<code>meta.description</code>, clasificándolos como <code>lib</code> (sub-workflow reusable, ej. terminado en <code>-lib</code>), <code>composed</code> (usa <code>workflow(...)</code>) o <code>base</code>. Ese catálogo se inyecta en las fases de Plan, Generate y Review para que el modelo <strong>prefiera reusar/especializar</strong> un scaffold existente o <strong>componerlo</strong> vía <code>workflow(name, args)</code> en lugar de reinventar lógica, y para que el plan justifique explícitamente construir desde cero cuando nada calza.</p>
-<p>El pipeline central es Plan → Generate → Review → Refine (condicional) → Write, con un gate de validación estructural puramente local (sin agente) antes de cualquier escritura a disco. El resultado generado es tratado como no confiable por defecto: se sanitiza el input untrusted con fences derivados de hash de contenido, se valida sintácticamente contra invariantes duras del runtime, y solo se escribe si pasa esa validación; si algo falla, el código se devuelve igual en el resultado para inspección manual, nunca se descarta silenciosamente.</p>
-<p>El workflow soporta composición recursiva acotada por profundidad (<code>workflow(name, args)</code> dentro de un nodo generado, incluyendo re-invocar <code>contract-gate</code> para re-alcance), documentada extensamente en los comentarios del código como guía para el modelo generador, pero el propio <code>workflow-factory</code> en sí no hace recursión — es la fase de Generate la que puede <em>producir</em> código con esa composición.</p>
+<p><code>workflow-factory</code> es un workflow que produce otro workflow: dado un <code>task</code> en lenguaje natural, ejecuta un pipeline de seis fases (Catalog → Plan → Generate → Review → Refine → Write) donde cada fase alimenta a la siguiente con contexto acumulado. El objetivo es que el resultado sea un draft JS listo para inspeccionar, no una respuesta final para confiar a ciegas — el propio código lo deja explícito en el resumen final (&quot;inspect/edit the generated workflow (it is NOT syntax-checked)&quot;).</p>
+<p>Es &quot;catalog-aware&quot;: antes de planear, un agente barato escanea los <code>.pi/workflows/*.js</code> existentes (del proyecto y, si existe, el catálogo global) y extrae <code>meta.name</code>/<code>meta.description</code>, clasificando cada uno como <code>lib</code> (sub-workflow reusable, p. ej. terminado en <code>-lib</code>), <code>composed</code> (usa <code>workflow(...)</code>) o <code>base</code>. Ese catálogo se inyecta en los prompts de Plan, Generate y Review para que el planificador PREFIERA reusar/especializar el scaffold más cercano y COMPONER sub-pasos reusables vía <code>workflow(name, args)</code> en vez de reinventar — el plan debe justificar explícitamente construir desde cero si nada encaja.</p>
+<p>El diseño soporta composición recursiva acotada por profundidad: un workflow generado puede componer otros scaffolds con <code>workflow(name, args)</code>, incluyendo llamar a <code>workflow(&quot;contract-gate&quot;, …)</code> desde dentro de un nodo para re-acotar una subtarea antes de profundizar. Esa recursión está limitada por el runtime (Claude Code Workflow tool: profundidad 1, solo el nivel superior puede componer; pi: profundidad 2 por defecto, configurable con <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code>).</p>
+<p>Todo el input/contexto no confiable (el <code>task</code> del usuario, el catálogo, el código generado, los hallazgos de revisión) se envuelve con <code>fence()</code>, un delimitador derivado del hash del propio contenido: un payload malicioso no puede forjar el marcador de cierre porque cambiar el contenido cambia el hash. Los prompts de Generate/Refine/Review instruyen explícitamente a tratar ese contenido como datos a diseñar/juzgar, nunca como instrucciones a obedecer.</p>
 <h2>Cuándo usarlo</h2>
-<table>
-<thead>
-<tr>
-<th>Situación</th>
-<th>¿Usar <code>workflow-factory</code>?</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Ningún scaffold existente calza con la tarea</td>
-<td>Sí — es el caso de catálogo (&quot;No existing workflow fits and you want a task-specific one scaffolded&quot;)</td>
-</tr>
-<tr>
-<td>Bootstrap de un patrón de orquestación nuevo</td>
-<td>Sí</td>
-</tr>
-<tr>
-<td>Querés especializar el scaffold existente más cercano, sin escribirlo a mano</td>
-<td>Sí</td>
-</tr>
-<tr>
-<td>Necesitás un draft para inspeccionar/editar antes de confiar en él</td>
-<td>Sí — pero nunca ejecutes el draft generado sin revisión humana</td>
-</tr>
-<tr>
-<td>Ya existe (o se puede componer directamente) un scaffold que resuelve la tarea</td>
-<td>No — Phase-0 lo detecta y te lo dice vía <code>reuse</code> en el plan; usá/componé ese scaffold directamente, es más barato</td>
-</tr>
-<tr>
-<td>Tarea chica o de bajo riesgo</td>
-<td>No — el ciclo Plan(opus)→Generate→Review→Refine no se justifica frente a resolverla inline</td>
-</tr>
-</tbody></table>
+<ul>
+<li>Bootstrap de un patrón nuevo que no está en el catálogo (caso de uso del catálogo).</li>
+<li>Especializar el scaffold existente más cercano a la tarea (caso de uso del catálogo).</li>
+<li>Generar un draft para inspeccionar antes de confiar en él, en vez de escribir el workflow a mano desde cero (caso de uso del catálogo).</li>
+<li>Tareas de alcance amplio o repetible donde vale la pena invertir una corrida completa en diseñar la orquestación correcta.</li>
+</ul>
+<p><strong>Cuándo NO usarlo:</strong></p>
+<ul>
+<li>Si un scaffold del catálogo ya resuelve la tarea (p. ej. <code>fan-out-and-synthesize</code>, <code>map-reduce</code>) — usarlo directo es más barato que generar y revisar código nuevo.</li>
+<li>Para tareas puntuales de una sola vez donde el costo de Plan+Generate+Review+Refine (hasta 4 llamadas a modelos caros) no se amortiza.</li>
+<li>El resultado es un <strong>draft sin syntax-check</strong>: no usarlo cuando se necesita una respuesta inmediata y confiable sin revisión humana posterior.</li>
+</ul>
 <h2>Cómo funciona</h2>
-<ol>
-<li><p><strong>Input y utilidades.</strong> Parsea <code>args</code> (puede llegar como string JSON), define <code>compact()</code> (trunca payloads largos para prompts) y <code>fence()</code> (envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> calculado por FNV-1a sobre el contenido, para que texto malicioso no pueda falsificar el marcador de cierre). Define <code>node(role, extra)</code>, el helper de tiering por rol: aplica <code>input.models[role]</code>/<code>input.efforts[role]</code> (o los globales <code>input.model</code>/<code>input.effort</code>) y overrides de <code>tools</code>/<code>skills</code>/<code>excludeTools</code> por rol.</p>
-</li>
-<li><p><strong>Fase Catalog</strong> — <code>agent()</code> con <code>model: haiku, effort: low</code> (rol <code>catalog-scan</code>), sin schema propio salvo el objeto <code>CATALOG</code> (<code>{ workflows: [{ name, description, kind }] }</code>). Lee los <code>.js</code> de <code>.pi/workflows/</code> y opcionalmente los globales, excluyendo <code>workflow-factory</code> mismo y cualquier cosa bajo <code>drafts/</code>. El resultado se filtra localmente (excluye de nuevo <code>workflow-factory</code> por si el agente lo incluyó) y se formatea a texto (<code>catalogText</code>) para inyectar en los prompts siguientes.</p>
-</li>
-<li><p><strong>Fase Plan</strong> — <code>agent()</code> con <code>model: opus, effort: high</code> (rol <code>workflow-plan</code>), schema <code>PLAN</code> (objeto con <code>name, pattern, why, inputs, scout, primitives, reuse, promptContracts, verification, risks, budget</code>). El prompt le pide elegir el patrón de orquestación mínimo suficiente, listar en <code>reuse</code> qué scaffolds del catálogo componer/especializar (vacío solo si nada calza, y entonces <code>why</code> debe justificarlo), y definir en <code>budget</code> una entrada de <code>{role, model, effort, why}</code> por CADA rol de agente planeado, atado a ancho de fan-out / dificultad / costo de error / si hay verificación posterior.</p>
-</li>
-<li><p><strong>Fase Generate</strong> — <code>agent()</code> con <code>model: sonnet, effort: medium</code> (rol <code>workflow-codegen</code>), sin schema (devuelve texto/código). El prompt fija reglas duras de la convención del runtime: <code>export const meta</code> como literal puro, sin <code>import/require</code>, llamadas <code>agent(promptString, opts)</code> (nunca objeto), un rol tiereado explícitamente por cada <code>agent()</code>, uso de <code>parallel</code>/<code>pipeline</code> para fan-out, contratos de evidencia, timeouts explícitos para roles largos, y composición vía <code>workflow(name, args)</code> con las reglas de profundidad acotada (Claude Code Workflow tool = profundidad 1; pi = profundidad 2 por defecto, configurable con <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code>). Todo el contenido no confiable (<code>task</code>, <code>plan</code> compactado, <code>catalogText</code>) se pasa envuelto en <code>fence(...)</code>. La salida se limpia con <code>extractJs()</code> (extrae el bloque de código si el modelo igual devolvió fences markdown).</p>
-</li>
-<li><p><strong>Fase Review</strong> — <code>agent()</code> con <code>model: sonnet, effort: medium</code> (rol <code>workflow-review</code>), schema <code>REVIEW</code> (<code>{ verdict: APPROVED|CHANGES_REQUESTED, findings: [{snippet, problem, fix, severity?}] }</code>). Revisa correctitud, costo, seguridad, calidad de prompts y composabilidad; explícitamente chequea si se reimplementó lógica que un scaffold del catálogo ya provee (falta de <code>reuse</code>) y si el tiering de cada <code>agent()</code> es coherente (fan-out ancho en tier caro, o síntesis/juicio final en tier barato, se marcan como hallazgo). <code>reviewApproved</code> es <code>true</code> solo si <code>verdict === &quot;APPROVED&quot;</code> Y <code>findings</code> es un array vacío.</p>
-</li>
-<li><p><strong>Fase Refine (condicional)</strong> — si <code>reviewApproved</code> es falso, <code>agent()</code> con <code>model: sonnet, effort: medium</code> (rol <code>workflow-refine</code>), sin schema; reescribe el código para resolver los findings, manteniendo las mismas invariantes de forma. Si <code>reviewApproved</code> es verdadero, esta fase se salta (solo un <code>log</code>).</p>
-</li>
-<li><p><strong>Gate de validación estructural</strong> — <code>validateCode(src)</code>: chequeo <strong>local, sin agente</strong>, puramente heurístico contra el string del código: no vacío, sin <code>import</code>/<code>require</code>, contiene <code>export const meta =</code>, no usa <code>agent({...})</code> en forma objeto, y llama <code>agent(</code> al menos una vez. Si falla, <code>codeValid = false</code> y se loguea la razón; el código generado NUNCA se descarta, se devuelve como &quot;UNVALIDATED draft&quot; en el resultado final.</p>
-</li>
-<li><p><strong>Fase Write (condicional)</strong> — solo si <code>input.write !== false</code> y <code>codeValid</code>. <code>agent()</code> con <code>model: haiku, effort: low</code> (rol <code>write-file</code>), schema <code>{wrote, path}</code>; se le pide usar la tool Write para crear el archivo en <code>workflowPath</code> con el contenido exacto dentro del fence untrusted (tratado como dato a escribir verbatim, nunca a interpretar). Si el agente no confirma <code>wrote: true</code>, o lanza una excepción, se registra <code>writeError</code> y el código igual se devuelve en el resultado — nunca se pierde el trabajo generado por un fallo de escritura.</p>
-</li>
-<li><p><strong>Resumen final</strong> — se construye un array de líneas (nombre del workflow, si se escribió o la razón de por qué no, verdict de review, resultado de validación, patrón elegido, justificación, próximos pasos) y, si no se escribió a disco, se anexa el código completo (compactado) al final. Todo se une con <code>\n</code> y se retorna como string.</p>
-</li>
-</ol>
-<p>No hay fan-out paralelo (<code>parallel</code>/<code>pipeline</code>) en este scaffold: es una <strong>pipeline lineal de agentes</strong>, cada uno con schema/tier propios, con un único punto de branching condicional (Refine) y un gate puramente local (validación) antes de la escritura a disco.</p>
+<p><strong>Fase Catalog.</strong> Un <code>agent</code> (rol <code>catalog-scan</code>, modelo <code>haiku</code>, effort <code>low</code>) lee los archivos <code>.pi/workflows/*.js</code> del proyecto y, si existe, <code>~/.pi/agent/workflows/*.js</code>, excluyendo <code>workflow-factory</code> y cualquier cosa bajo <code>drafts/</code>. Devuelve <code>{ workflows: [{ name, description, kind }] }</code> con schema fijo. El resultado se filtra (se descarta <code>workflow-factory</code> si aparece) y se formatea en <code>catalogText</code>, una lista de líneas <code>- name [kind]: description</code> que se reusa en las tres fases siguientes.</p>
+<p><strong>Fase Plan.</strong> Un <code>agent</code> (rol <code>workflow-plan</code>, modelo <code>opus</code>, effort <code>high</code>, con <code>schema PLAN</code>) recibe el <code>task</code> y el <code>catalogText</code> (ambos dentro de un <code>fence</code>) y debe devolver un plan estructurado: <code>name</code>, <code>pattern</code>, <code>why</code>, <code>inputs</code>, <code>scout</code>, <code>primitives</code> disponibles (<code>agent</code>, <code>parallel</code>, <code>pipeline</code>, <code>workflow(name,args)</code>), <code>reuse</code> (nombres del catálogo a componer/especializar — vacío solo si <code>why</code> justifica construir desde cero), <code>promptContracts</code>, <code>verification</code>, <code>risks</code>, y <code>budget</code> (un array con <code>{ role, model, effort, why }</code> por cada rol de agente planeado, atado explícitamente a ancho de fan-out, dificultad, costo de error y si hay verificación posterior).</p>
+<p><strong>Fase Generate.</strong> Un <code>agent</code> (rol <code>workflow-codegen</code>, modelo <code>sonnet</code>, effort <code>medium</code>, <code>timeoutMs=20 min</code>) recibe el <code>task</code>, el <code>plan</code> (compactado a 12000 chars) y el <code>catalogText</code>, todos fenced, y debe devolver JS puro (sin fences Markdown) que cumpla contratos duros: <code>export const meta</code> como literal puro, sin <code>import</code>/<code>require</code>, llamadas <code>agent(promptString, opts)</code> (nunca forma-objeto), cada <code>agent()</code> con <code>model</code>/<code>effort</code> explícitos tomados del budget del plan, un helper <code>node(role, extra)</code> para overrides por rol, tools read-only salvo mutación explícitamente requerida, y contratos de evidencia (citar o declarar <code>NO_FINDINGS</code>/<code>INSUFFICIENT_EVIDENCE</code>). <code>extractJs()</code> saca el bloque de código (con o sin fences). Si el resultado queda vacío — típicamente por timeout del agente — el workflow aborta con <code>throw</code> explícito en vez de dejar pasar un código vacío a Review (evita que un timeout se entierre bajo un turno de revisión desperdiciado).</p>
+<p><strong>Fase Review.</strong> Un <code>agent</code> (rol <code>workflow-review</code>, modelo <code>sonnet</code>, effort <code>medium</code>, <code>schema REVIEW</code>) juzga el código generado (fenced) contra el <code>task</code> y el <code>catalogText</code>, buscando: correctitud, costo, seguridad, calidad de prompts, reuse perdido (lógica reimplementada que un workflow del catálogo ya resolvía) y tiering incorrecto (fan-out ancho en tier caro, juez/síntesis en tier barato, o <code>agent()</code> sin <code>model</code>/<code>effort</code>). Devuelve <code>{ verdict: APPROVED|CHANGES_REQUESTED, findings[] }</code>; <code>APPROVED</code> solo es válido con <code>findings</code> vacío.</p>
+<p><strong>Fase Refine.</strong> Se salta (<code>log</code> explícito) si el veredicto fue <code>APPROVED</code> con cero findings. Si no, otro <code>agent</code> (rol <code>workflow-refine</code>, modelo <code>sonnet</code>, effort <code>medium</code>, <code>timeoutMs=20 min</code>) recibe el <code>task</code>, los <code>findings</code> compactados y el <code>code</code> actual (todos fenced) y devuelve la versión corregida, con los mismos contratos duros que Generate.</p>
+<p><strong>Validación estructural (sin LLM).</strong> Antes de escribir a disco, una función <code>validateCode()</code> corre chequeos heurísticos baratos sobre el string final: código no vacío, sin <code>import</code>/<code>require</code>, presencia de <code>export const meta =</code>, ausencia de <code>agent({...})</code> forma-objeto, y al menos una llamada a <code>agent()</code>. Si falla cualquiera, <code>codeValid=false</code> y el draft se devuelve como &quot;UNVALIDATED&quot; sin intentar escribirlo — es un gate duro, no una sugerencia.</p>
+<p><strong>Fase Write.</strong> Solo corre si <code>input.write !== false</code> y <code>codeValid</code>. Un <code>agent</code> (rol <code>write-file</code>, modelo <code>haiku</code>, effort <code>low</code>, <code>schema {wrote,path}</code>) usa la tool Write para crear <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> con el contenido pasado como dato fenced (&quot;verbatim, nunca instrucciones&quot;). Si el agente no confirma <code>wrote:true</code> o lanza una excepción, se registra <code>writeError</code> y el código generado se devuelve igual en el resultado en vez de perderse.</p>
+<p><strong>Manejo de fallos parciales:</strong> no hay fan-out paralelo en este scaffold (es una cadena secuencial de agentes únicos por fase), así que no aplica <code>settle</code>; en su lugar cada fase que puede fallar (codegen vacío, validación estructural, escritura a disco) tiene su propio camino de degradación explícito (<code>throw</code>, draft no-escrito, o resultado devuelto en texto) en vez de fallar en silencio.</p>
+<p><strong>Caching:</strong> no se observa ningún mecanismo explícito de caché; cada <code>agent</code> se invoca fresco en cada corrida.</p>
 <h2>Input y output</h2>
-<p><strong>Input</strong> (objeto, parseado defensivamente si llega como string JSON):</p>
+<p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default / comportamiento</th>
+<th>Requerido</th>
+<th>Default / clamp</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>task</code> (o <code>request</code>/<code>text</code>)</td>
+<td><code>task</code> / <code>request</code> / <code>text</code></td>
 <td>string</td>
-<td><strong>Requerido</strong> — lanza error si falta</td>
+<td><strong>sí</strong> (al menos uno)</td>
+<td>— si falta, <code>throw Error(&#39;Pass { task: &quot;...&quot; }&#39;)</code></td>
 </tr>
 <tr>
 <td><code>name</code></td>
 <td>string</td>
-<td>Opcional; si falta se deriva con <code>slug(task)</code>. Se sanea con <code>slug()</code> (minúsculas, solo <code>[a-z0-9._/-]</code>, sin <code>..</code>, máx 80 chars), default final <code>&quot;workflow-draft&quot;</code></td>
+<td>no</td>
+<td>default: slug derivado de <code>task</code>; siempre pasado por <code>slug()</code> (minúsculas, <code>[a-z0-9._/-]</code>, sin <code>..</code>, máx. 80 chars)</td>
 </tr>
 <tr>
 <td><code>write</code></td>
 <td>boolean</td>
-<td>Default efectivo <code>true</code> (solo se omite la escritura si es explícitamente <code>false</code>)</td>
+<td>no</td>
+<td>default efectivo <code>true</code> (solo se salta la escritura si es literalmente <code>false</code>)</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
 <td>string</td>
-<td>Default global de modelo/effort para TODOS los roles, salvo override por rol</td>
+<td>no</td>
+<td>override global para todo nodo</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
 <td>object</td>
-<td>Override por rol (precedencia: por-rol &gt; global <code>input.model/effort</code> &gt; default del call-site)</td>
+<td>no</td>
+<td>override por rol (<code>catalog-scan</code>, <code>workflow-plan</code>, <code>workflow-codegen</code>, <code>workflow-review</code>, <code>workflow-refine</code>, <code>write-file</code>); precedencia: por-rol &gt; global &gt; default del call-site</td>
 </tr>
 <tr>
-<td><code>toolsByRole[role]</code> / <code>skillsByRole[role]</code> / <code>excludeByRole[role]</code></td>
-<td>object</td>
-<td>Override por rol de <code>tools</code>/<code>skills</code>/<code>excludeTools</code>; también hay <code>input.tools</code>/<code>input.skills</code>/<code>input.excludeTools</code> como default global</td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
+<td>array</td>
+<td>no</td>
+<td>pasados al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
-<p>Ejemplo del catálogo: <code>{ &quot;task&quot;: &quot;audit GraphQL resolvers for N+1 queries&quot;, &quot;write&quot;: true }</code>.</p>
-<p><strong>Output</strong>: un string (no un objeto) que resume la corrida:</p>
+<p><strong>Output:</strong> un string (no un objeto estructurado) con el resumen de la corrida:</p>
 <ul>
-<li>Nombre del workflow generado (<code>workflowName</code>).</li>
-<li>Si se escribió: ruta (<code>.pi/workflows/drafts/&lt;slug&gt;.js</code>); si no, la razón (validación fallida / fallo de escritura / <code>write=false</code>).</li>
-<li>Verdict de Review (y si se saltó Refine).</li>
-<li>Resultado de la validación estructural (passed / FAILED + lista de problemas).</li>
-<li>Patrón elegido (<code>plan.pattern</code>) y su justificación (<code>plan.why</code>).</li>
-<li>Nota de siguiente paso: inspeccionar/editar el draft (no está syntax-checked) antes de ejecutarlo con concurrencia explícita.</li>
-<li>Si NO se escribió a disco, el código JS completo (compactado a 60000 chars) se anexa al final del string.</li>
+<li>Línea de encabezado con el <code>workflowName</code> generado.</li>
+<li>Si se escribió: <code>Wrote: .pi/workflows/drafts/&lt;slug&gt;.js</code>; si no, la razón (validación fallida, error de escritura, o <code>write=false</code>).</li>
+<li>Veredicto de Review (<code>APPROVED (Refine skipped)</code> o <code>CHANGES_REQUESTED</code>).</li>
+<li>Resultado de la validación estructural (<code>passed</code> o la lista de problemas).</li>
+<li><code>pattern</code> y <code>why</code> tomados del plan.</li>
+<li>Recordatorio explícito: inspeccionar/editar el workflow generado (no tiene syntax-check) antes de correrlo con concurrencia explícita.</li>
+<li>Si NO se escribió a disco, el código JS completo (compactado a 60000 chars) se incluye al final del string.</li>
 </ul>
-<p><strong>Artifacts en disco</strong>: si <code>write !== false</code> y el código pasa <code>validateCode()</code> y la fase Write confirma <code>wrote: true</code>, escribe <code>.pi/workflows/drafts/&lt;workflowName&gt;.js</code> con el contenido exacto generado (post-Refine si aplicó). No usa <code>writeArtifact()</code> de la API del runtime — la escritura la hace un subagente vía la tool <code>Write</code> del sistema de archivos.</p>
+<p>No hay llamadas a <code>writeArtifact</code>; la única escritura a disco es el archivo del workflow generado en sí, hecha por el sub-agente <code>write-file</code> vía la tool <code>Write</code>.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Catalog</strong> — descubre scaffolds existentes (nombre, descripción, tipo) para alimentar reuse-awareness.</li>
-<li><strong>Plan</strong> — diseña el patrón de orquestación, inputs, primitivas, reuse, contratos de prompt, verificación, riesgos y presupuesto por rol (modelo/effort).</li>
-<li><strong>Generate</strong> — genera el código JavaScript completo del workflow siguiendo las convenciones duras del runtime.</li>
-<li><strong>Review</strong> — audita el código generado por correctitud, costo, seguridad, reuse y tiering; emite verdict + findings.</li>
-<li><strong>Refine</strong> — reescribe el código para resolver los findings de Review (se salta si Review aprobó sin hallazgos).</li>
-<li><strong>Write</strong> — valida estructuralmente el código y, si pasa, lo escribe en <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> vía un subagente con la tool Write.</li>
+<li><strong>Catalog</strong> — un <code>agent</code> barato escanea los <code>.pi/workflows/*.js</code> existentes y produce <code>{ name, description, kind }</code> por cada uno, excluyendo <code>workflow-factory</code> y drafts.</li>
+<li><strong>Plan</strong> — un <code>agent</code> de alto tier diseña el patrón, primitivas, reuse del catálogo y presupuesto de modelo/effort por rol.</li>
+<li><strong>Generate</strong> — un <code>agent</code> de tier medio produce el JS completo del workflow, siguiendo los contratos duros de la runtime.</li>
+<li><strong>Review</strong> — un <code>agent</code> de tier medio juzga el código generado (correctitud, costo, seguridad, reuse, tiering) y devuelve <code>APPROVED</code> o <code>CHANGES_REQUESTED</code> con findings.</li>
+<li><strong>Refine</strong> — se salta si Review aprobó sin findings; si no, un <code>agent</code> corrige el código según los findings.</li>
+<li><strong>Write</strong> — validación estructural heurística y, si pasa y <code>write!==false</code>, un <code>agent</code> escribe el draft final a <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

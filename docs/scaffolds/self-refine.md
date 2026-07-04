@@ -1,134 +1,124 @@
 # self-refine
 
-> Loop acotado de generar → criticar → refinar en el mismo lugar, con memoria verbal; se detiene silenciosamente cuando el crítico queda satisfecho.
+> Bucle acotado de generar → criticar → refinar en el mismo artefacto, con memoria verbal; quiet-stop cuando el crítico queda conforme (arXiv:2303.17651).
 
 ## En 30 segundos
 
-Es un pulidor iterativo para UN artefacto: un agente escribe un primer borrador, otro (más exigente) lo critica de forma adversarial y localizada, y un tercero lo revisa aplicando esas críticas — repitiendo hasta que el crítico quede conforme o se agote `maxRounds`. Elegilo para pulir un documento, spec o snippet de código donde la crítica intrínseca del modelo alcanza; si necesitás reintentar la tarea completa desde cero en cada trial, o un oráculo objetivo pass/fail, usá `reflexion` en su lugar.
+Es el patrón para pulir UN artefacto (un texto, un doc, una sección de spec) por rondas sucesivas: un agente produce un borrador, otro lo critica de forma adversarial y localizada, y un tercer paso lo revisa incorporando esa crítica. Se detiene solo (`satisfied`) cuando ya no quedan issues accionables, o al llegar a un tope duro de rondas. Elegilo cuando la crítica puede ser intrínseca (otro LLM leyendo el mismo texto alcanza); si necesitás un oráculo objetivo externo (tests que pasan/fallan) y preferís reintentar desde cero en vez de editar in-place, usá `reflexion` en su lugar.
 
 ## Cómo lanzarlo
 
 ```text
 /workflow new mi-run --pattern=self-refine
-/workflow run mi-run {"task": "Escribí una sección de troubleshooting para el README de este proyecto", "maxRounds": 3, "useJury": false}
+/workflow run mi-run {"task":"Escribí la sección de migración del changelog v2.", "maxRounds":4, "useJury":true}
 ```
 
-`task` (alias `question`/`text`) es el único campo obligatorio; `maxRounds` (default `4`, clamp `[1,8]`) y `useJury` (default `false`) son opcionales. Ver [Input y output](#input-y-output) para overrides opcionales (`model`, `models`, `tools`, `skeptics`, etc.).
+`task` es el único campo obligatorio (si falta, la función tira `Error`). Ver la tabla en [Input y output](#input-y-output) para el resto de los campos y sus defaults.
 
 ## Diagrama
 
 ```mermaid
 flowchart TD
-    Start["Input: task, maxRounds (default 4, clamp 1-8), useJury"] --> Draft["Generate<br/>agent draft-0<br/>model sonnet / effort medium"]
-    Draft -->|"draft == null"| FailInit["return result:null, failure: initial draft null"]
-    Draft --> LoopCheck{"round < maxRounds?"}
+    A["Input: task (req), maxRounds=4 (clamp 1..8), useJury=false"] --> B{"task presente?"}
+    B -->|"no"| B1["throw Error"]
+    B -->|"sí"| C["Phase: Generate"]
 
-    LoopCheck -->|no| StopMax["Salir del loop<br/>satisfied=false<br/>log stopped at maxRounds"]
-    LoopCheck -->|si| IncRound["round++"]
+    C --> D["agent draft sonnet·medium\ndraft-0: primer intento completo"]
+    D --> E{"draft == null?"}
+    E -->|"sí"| E1["return { result: null, rounds: 0, satisfied: false, failure }"]
+    E -->|"no"| F["round = 0, memory = [], satisfied = false"]
 
-    IncRound --> CritiqueGate{"useJury?"}
+    F --> G{"round < maxRounds?"}
+    G -->|"no"| Z
+    G -->|"sí"| H["round += 1 · Phase: Critique"]
 
-    subgraph Critique["Critique (fase)"]
-        CritiqueGate -->|"true: COMPOSICION"| Jury["workflow adversarial-verify<br/>topic: claims del draft<br/>skeptics: input.skeptics default 3"]
-        Jury --> JuryCheck{"resultado es objeto<br/>y totalFindings > 0?"}
-        JuryCheck -->|no| JuryEmpty["critique = not satisfied<br/>issue: jury sin claims chequeables"]
-        JuryCheck -->|si| JuryVerdict["critique.satisfied = killed==0<br/>issue: N claims refutados"]
+    H --> I{"useJury?"}
+    I -->|"sí"| J["workflow adversarial-verify\ntopic = claims del draft, skeptics=input.skeptics"]
+    J --> K{"jury verificó 0 claims?"}
+    K -->|"sí"| K1["critique = NOT satisfied\nissue: draft muy vago/no falsable"]
+    K -->|"no"| K2["critique.satisfied = (killed == 0)\nissue: N de M claims refutadas por el jury"]
+    I -->|"no"| L["agent critique opus·high, schema=CRITIQUE\ncrítico adversarial, ve el draft fenced anti-inyección"]
+    L --> M{"critique == null?"}
+    M -->|"sí"| M1["break: return último draft bueno\n(NO se marca satisfied)"]
 
-        CritiqueGate -->|"false: crítico único"| Critic["agent critique<br/>model opus / effort high<br/>schema CRITIQUE (satisfied, issues[])<br/>draft envuelto en fence anti-prompt-injection"]
-        Critic -->|"critique == null"| BreakNull["break: last good draft<br/>failureNote = critic returned null"]
+    K1 --> N
+    K2 --> N
+    M --> N{"critique.satisfied\nO issues vacío?"}
+    N -->|"sí"| N1["satisfied = true, break"]
+    N -->|"no"| O["memory.push({round, issues})\nPhase: Refine"]
+
+    O --> P["agent refine sonnet·medium\nresuelve TODAS las issues, usa memory completa\ncomo memoria verbal acumulada"]
+    P --> Q["draft = output del refine"]
+    Q --> G
+
+    N1 --> Z["log resultado final"]
+    Z --> ZZ["return { result: draft, rounds, satisfied, critiques: memory, failure? }"]
+
+    subgraph CATCH["try/catch por ronda"]
+        H -.-> CX["excepción en critique o refine"]
+        CX --> CY["failureNote = round N failed: msg\nbreak: return último draft bueno"]
     end
-
-    JuryEmpty --> Decision
-    JuryVerdict --> Decision
-    Critic -->|"critique != null"| Decision{"satisfied OR issues vacíos?"}
-
-    Decision -->|si| Satisfied["satisfied = true<br/>break"]
-    Decision -->|no| PushMemory["memory.push({round, issues})<br/>verbal memory acumulada"]
-
-    subgraph Refine["Refine (fase)"]
-        PushMemory --> RefineAgent["agent refine-N<br/>model sonnet / effort medium<br/>input: task + memory completa + draft actual"]
-    end
-
-    RefineAgent --> LoopCheck
-    BreakNull --> Return
-    Satisfied --> Return
-    StopMax --> Return
-    RefineAgent -.->|"throw en Critique/Refine"| CatchErr["catch: failureNote = round N failed<br/>break, conserva último draft bueno"]
-    CatchErr --> Return
-
-    Return["Return: { result: draft, rounds, satisfied, critiques: memory, failure? }"]
 ```
 
 ## Qué hace
 
-`self-refine` implementa el patrón Self-Refine (arXiv:2303.17651): produce un primer borrador y luego lo mejora **en el mismo lugar** mediante rondas de crítica y revisión, en vez de reintentar la tarea desde cero. Cada ronda de crítica es adversarial y debe ser accionable y localizada (apunta a un span concreto y sugiere un fix concreto); las críticas de todas las rondas anteriores se acumulan como "memoria verbal" y se anteponen al prompt de la siguiente refinación, para que el modelo no repita errores ya señalados.
+`self-refine` implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artefacto se produce, se critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como "memoria verbal" — cada ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde contexto de por qué se cambió algo.
 
-El loop está acotado por ambos extremos: un tope duro `maxRounds` (por defecto 4, clamp entre 1 y 8 — el paper original nota que el retorno decae rápido después de ~4 rondas) y una parada silenciosa cuando el crítico declara `satisfied=true` (o no reporta issues). Esto evita tanto el loop infinito como el sobre-ajuste de "seguir mejorando" sin criterio.
+El bucle está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de "seguir mejorando" suelen fallar: un tope duro `maxRounds` (el paper reporta retornos decrecientes después de ~4 rondas) y un "quiet stop" cuando el crítico declara `satisfied` (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial — nunca acordar mansamente con el propio draft.
 
-Para mitigar el problema conocido de que la auto-crítica intrínseca puede degradar la salida cuando el crítico es esencialmente el mismo generador validándose a sí mismo (Huang et al., arXiv:2310.01798), el scaffold aplica dos mitigaciones: (1) el crítico por defecto es una instancia de agente separada con un brief explícitamente adversarial (`model: opus`, `effort: high`) que nunca reescribe, solo critica; y (2) opcionalmente (`useJury:true`) reemplaza ese crítico único por una composición con el workflow `adversarial-verify`, un jurado de escépticos que refuta por mayoría las afirmaciones del borrador — una señal más fuerte e independiente antes de aceptar "satisfied".
-
-El manejo de fallos parciales es explícito: si el draft inicial vuelve `null`, retorna de inmediato sin intentar refinar nada; si el crítico (modo agente único) retorna `null`, o si cualquier excepción ocurre durante crítica/refinamiento, el loop rompe conservando el **último draft bueno conocido** en vez de descartarlo, y deja constancia en `failure`.
+La corrección puramente intrínseca (el crítico es, en esencia, el mismo generador acordando consigo mismo) puede degradar el output en vez de mejorarlo (Huang et al., arXiv:2310.01798). El scaffold mitiga esto de dos formas: (1) el crítico es una instancia de agente separada con un brief explícitamente adversarial, y (2) opcionalmente (`useJury: true`) reemplaza al crítico único por una COMPOSICIÓN con el workflow `adversarial-verify` — un jurado de escépticos que refuta por mayoría las afirmaciones del draft, un oráculo más fuerte e independiente que evalúa antes de confiar en un "satisfied".
 
 ## Cuándo usarlo
 
-- Pulir un único artefacto (documento, spec, sección de código) donde la crítica puede ser intrínseca al modelo.
-- Iterar hasta calidad sobre una sola pieza de contenido, no sobre múltiples archivos o un repo.
-- Casos donde se quiere un crítico adicional más fuerte e independiente vía jurado escéptico (`useJury: true`).
-- **No usarlo cuando**: conviene re-intentar la tarea completa desde un estado limpio en cada trial (usar `reflexion.js` en su lugar, que tiene reset de entorno y evaluador externo opcional vía `verifyCmd`); tampoco es apto cuando se necesita un oráculo objetivo pass/fail (tests, comandos) — para eso también aplica `reflexion`.
+- Pulir un doc, spec o fragmento de código hasta que alcance calidad, con feedback intrínseco de otro LLM.
+- Iterar sobre UN artefacto in-place (no reintentos desde cero).
+- Casos donde se quiere un crítico más fuerte que "otro LLM opinando": activar `useJury: true` para delegar la señal de crítica al jurado adversarial.
+- **No usarlo** cuando hay un oráculo objetivo externo (tests, comando de verificación) y conviene reintentar la tarea entera en cada trial en vez de editar in-place — para eso está `reflexion` (arXiv:2303.11366), que además lleva memoria cross-trial.
 
 ## Cómo funciona
 
-1. **Parseo de input y helpers.** Lee `args` (string JSON u objeto), define `compact()` para truncar datos largos a 60000 chars antes de meterlos en prompts, y `fence()` para envolver datos no confiables (el draft) en un delimitador `<untrusted-HASH>` derivado de un hash del contenido — evita que un payload malicioso forje el marcador de cierre y por lo tanto neutraliza inyección de instrucciones dentro del draft que el crítico lee.
+**Validación de entrada y setup.** `task` (o sus alias `question`/`text`) es obligatorio; si falta, lanza `Error`. `maxRounds` se sanea con `clamp(1, 8)` sobre el valor pedido (default 4), logueando si se recortó. `useJury` activa la composición con `adversarial-verify`. Hay soporte de overrides por nodo (`input.model`/`effort` global, `input.models[role]`/`efforts[role]` por rol, y lo mismo para `tools`/`skills`/`excludeTools`), con precedencia por-rol > global > default del call-site.
 
-2. **Overrides por rol.** `node(role, extra)` resuelve `model`/`effort`/`tools`/`skills`/`excludeTools` con precedencia: override por rol (`input.models[role]`, etc.) > default global (`input.model`, etc.) > default del scaffold. Los roles usados son `draft`, `critique`, `refine`.
+**Fase Generate.** Un único `agent` (rol `draft`, modelo `sonnet`, effort `medium`) produce el primer intento completo de la tarea. Si el draft vuelve `null` (agente saltado o subagente caído), el scaffold aborta de inmediato devolviendo `{ result: null, rounds: 0, satisfied: false, failure: "initial draft null" }` — nunca intenta criticar un draft inexistente.
 
-3. **Validación de input.** Requiere `task` (o `question`/`text` como alias). `maxRounds` se clampa a `[1, 8]` con log si se recorta. `useJury` es un booleano estricto (`=== true`).
+**Fase Critique (dentro del loop, por ronda).** Dos caminos según `useJury`:
+- **Crítico único** (default): un `agent` (rol `critique`, modelo `opus`, effort `high`) recibe el draft envuelto en un fence anti-inyección (`fence()`, delimitador derivado de un hash del contenido) con instrucciones explícitas de tratar el contenido como DATA, nunca como instrucciones, e ignorar cualquier directiva embebida. Devuelve un objeto tipado (`schema: CRITIQUE`) con `satisfied: boolean` e `issues[]` (`where`/`problem`/`fix`), forzado a ser accionable y localizado. Si el `agent` devuelve `null` (crítico saltado/caído), el loop rompe de inmediato devolviendo el último draft bueno — un `null` NUNCA se interpreta como "satisfied".
+- **Jurado** (`useJury: true`): delega la señal de crítica a `workflow("adversarial-verify", { topic: ..., skeptics: input.skeptics })`, pasándole las afirmaciones del draft como claims a refutar. Si el jury no verificó ninguna claim (`totalFindings === 0` o salida no-objeto), se trata explícitamente como "no satisfecho" (no como "draft limpio") con un issue sintético pidiendo un draft más concreto/falsable. Si verificó claims, `satisfied = (killed === 0)`; las claims refutadas se traducen a un único issue agregado.
 
-4. **Fase Generate.** Un único `agent(...)` produce el primer borrador completo (`model: sonnet`, `effort: medium`, label `draft-0`). Si retorna `null` (subagente falló o fue saltado), el scaffold corta inmediatamente y devuelve `{ result: null, rounds: 0, satisfied: false, critiques: [], failure: "initial draft null" }`.
+**Quiet stop / acumulación de memoria.** Si la crítica resultante es `satisfied` o no trae issues, el loop marca `satisfied = true` y rompe sin refinar más. Si trae issues, se agregan a `memory` (array acumulado, cada entrada con su número de ronda) — esa memoria completa (no solo la última crítica) se pasa al refine.
 
-5. **Loop principal** (`while (round < maxRounds)`), envuelto en `try/catch` por ronda para aislar fallos parciales:
-   - **Fase Critique.**
-     - Si `useJury: true`: llama a `workflow("adversarial-verify", { topic, skeptics: input.skeptics ?? 3 })` (COMPOSICIÓN con otro scaffold). El resultado puede ser un string (cuando el finder no extrajo claims chequeables) — ese caso se trata explícitamente como "no verificado" (no como "draft limpio") para no quiet-stop falsamente. Si hay findings, `satisfied = (killed === 0)`; los claims refutados por mayoría se traducen a un issue sintético.
-     - Si `useJury: false` (default): llama a un `agent(...)` crítico (`model: opus`, `effort: high`) con `schema: CRITIQUE` (JSON Schema tipado: `satisfied: boolean`, `issues: [{where, problem, fix}]`). El draft se pasa envuelto en `fence("candidate", ...)` con instrucciones explícitas de ignorar cualquier directiva incrustada en los datos. Si el agente retorna `null`, rompe el loop con `failureNote` y conserva el último draft.
-   - **Gate de decisión.** Si `critique.satisfied` es true o no hay issues, marca `satisfied = true` y sale del loop (quiet stop).
-   - Si hay issues, los agrega a `memory` (array acumulativo de `{round, issues}` — la memoria verbal).
-   - **Fase Refine.** Un `agent(...)` (`model: sonnet`, `effort: medium`, label `refine-N`) recibe la tarea, **toda la memoria acumulada** (`compact(memory, 16000)`) y el draft actual, con instrucción de resolver todas las críticas sin introducir problemas nuevos. El resultado reemplaza `draft` y el loop vuelve a evaluar la condición de ronda.
-   - Cualquier excepción durante crítica o refinamiento se captura: registra `failureNote`, loggea, y rompe el loop conservando el `draft` previo a la excepción (nunca lo descarta).
+**Fase Refine.** Un `agent` (rol `refine`, modelo `sonnet`, effort `medium`) recibe la tarea, TODA la memoria acumulada de críticas (truncada a ~16000 chars vía `compact`) y el draft actual, con instrucción de resolver todas las issues listadas sin introducir problemas nuevos ni tocar lo que ya funciona. Su output reemplaza `draft` y el loop vuelve a Critique.
 
-6. **Salida del loop.** Si se agotó `maxRounds` sin `satisfied`, loggea que se detuvo sin llegar a satisfacción. Loggea siempre un resumen final (`rounds`, `satisfied`, `useJury`, `failed`).
+**Manejo de fallos parciales.** Todo el cuerpo de cada ronda (critique + refine) está en un `try/catch`: si algo tira excepción, se registra `failureNote` con el número de ronda y el mensaje, se loguea, y se rompe el loop devolviendo el ÚLTIMO draft bueno conocido — nunca se pierde progreso ni se propaga la excepción hacia arriba.
 
-No hay caching explícito en este scaffold (cada ronda vuelve a llamar a los agentes); la única forma de "memoria" es la lista `memory` que se pasa completa en cada prompt de refinamiento.
+**Caching:** no se observa ningún mecanismo explícito de caché; cada llamada a `agent`/`workflow` es fresca.
 
 ## Input y output
 
-**Input** (objeto o string JSON vía `args`):
+**Input** (JSON-stringified en `args`, parseado defensivamente):
 
-| Campo | Tipo | Default / clamp | Notas |
+| Campo | Tipo | Requerido | Default / clamp |
 |---|---|---|---|
-| `task` (o `question`/`text`) | string | requerido | lanza error si falta |
-| `maxRounds` | number | `4`, clamp `[1, 8]` | tope duro de rondas crítica+refine |
-| `useJury` | boolean | `false` | debe ser literalmente `true` para activar el jurado |
-| `skeptics` | number | `3` (solo si `useJury`) | pasado a `adversarial-verify` |
-| `model` / `effort` | string | — | overrides globales aplicados a todos los nodos |
-| `models[role]` / `efforts[role]` | object | — | overrides por rol: `draft`, `critique`, `refine` |
-| `tools` / `toolsByRole[role]` | array | — | herramientas permitidas por nodo |
-| `skills` / `skillsByRole[role]` | array | — | skills por nodo |
-| `excludeTools` / `excludeByRole[role]` | array | — | herramientas excluidas por nodo |
+| `task` (alias `question`/`text`) | string | **sí** | — (si falta, `throw Error`) |
+| `maxRounds` | number | no | default 4, clamp 1..8 |
+| `useJury` | boolean | no | default `false` — usa `adversarial-verify` como crítico si es `true` |
+| `skeptics` | number | no (solo con `useJury`) | pasado tal cual a `adversarial-verify` |
+| `model` / `effort` | string | no | override global para todo nodo |
+| `models[role]` / `efforts[role]` | object | no | override por rol (`draft`, `critique`, `refine`); precedencia: por-rol > global > default del call-site |
+| `tools` / `skills` / `excludeTools` (y variantes `*ByRole`) | array | no | pasados al `agent` si son arrays |
 
-**Output** (objeto retornado):
+**Output:** `{ result, rounds, satisfied, critiques, failure? }`
 
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `result` | any / null | el draft final (o `null` si la generación inicial falló) |
-| `rounds` | number | rondas de crítica+refine ejecutadas |
-| `satisfied` | boolean | true si el crítico dio quiet-stop |
-| `critiques` | array | memoria verbal completa: `[{round, issues}]` |
-| `failure` | string (opcional) | presente solo si hubo un fallo parcial (draft inicial null, crítico null, o excepción en una ronda) |
+- `result`: string del draft final (el último bueno, sea que se haya llegado a `satisfied` o se haya frenado por cap/fallo).
+- `rounds`: número de rondas de critique/refine efectivamente ejecutadas (no cuenta la generación inicial).
+- `satisfied`: `true` solo si el loop terminó porque el crítico/jury declaró conformidad; `false` si terminó por `maxRounds`, por un crítico `null`, o por una excepción.
+- `critiques`: la `memory` acumulada — array de `{ round, issues }` por cada ronda que produjo issues.
+- `failure` (opcional): string con la causa cuando el loop terminó de forma anómala (crítico `null` o excepción en una ronda); ausente en el camino feliz.
 
-No se observan llamadas a `writeArtifact` en este scaffold — el resultado se retorna directamente, sin persistir artifacts en disco.
+No se observan llamadas a `writeArtifact`: toda la observabilidad pasa por `log(...)` (progreso por ronda, satisfacción o cantidad de issues, clamps aplicados, fallos) y por el shape de retorno.
 
 ## Fases
 
-1. **Generate** — produce el borrador inicial (`agent`, `draft-0`).
-2. **Critique** — evalúa el borrador actual, ya sea con un crítico adversarial único o con el jurado `adversarial-verify` (`useJury: true`); determina si hay issues accionables o si se declara `satisfied`.
-3. **Refine** — revisa el borrador aplicando los fixes señalados, usando toda la memoria verbal acumulada; se repite junto con Critique hasta `satisfied` o `maxRounds`.
+1. **Generate** — un `agent` produce el primer borrador completo de la tarea.
+2. **Critique** — un `agent` adversarial (o, con `useJury:true`, el workflow `adversarial-verify` como jurado escéptico) evalúa el draft y devuelve `satisfied` + `issues` localizadas y accionables.
+3. **Refine** — un `agent` revisa el draft resolviendo todas las issues señaladas, usando la memoria verbal acumulada de rondas previas; el ciclo vuelve a Critique hasta `satisfied` o `maxRounds`.
