@@ -1,34 +1,51 @@
 # @pandi-coding-agent/dynamic-workflows
 
-Individual Pi package for the core Dynamic Workflows extension.
+Run multi-agent JavaScript workflows from Pi: fan out parallel subagents, collect artifacts, resume interrupted runs, and watch everything in a TUI dashboard. Includes the Ultracode router that turns big tasks into orchestrated workflows.
+
+## What you get
+
+- A JavaScript workflow runtime with injected globals: `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`, `workflow`, `phase`, `log`, `args`, plus read-only `limits`/`runId`/`runDir`/`cwd`.
+- The `dynamic_workflow` model tool for listing, scaffolding, reading, writing, running, resuming, cancelling, graphing, and viewing workflows.
+- A resumable journal and per-run artifacts, so crashed or cancelled runs continue instead of restarting.
+- A live TUI dashboard (`/workflows` or `Ctrl+Alt+W`) with Monitor, Agents, Sessions, Runs, Workflows, Patterns, and Activity tabs.
+- Ultracode routing commands and a Contract Gate that reviews the task contract before broad orchestration.
+- A compact scaffold catalog: six primary scaffolds, compose scaffolds, and use-case scaffolds — no pattern aliases.
 
 ## Install
+
+From npm:
+
+```bash
+pi install npm:@pandi-coding-agent/dynamic-workflows
+```
 
 From this repository:
 
 ```bash
-pi install ./extensions/pi-dynamic-workflows
-pi install -l ./extensions/pi-dynamic-workflows
-pi --no-extensions -e ./extensions/pi-dynamic-workflows
+pi install ./extensions/pi-dynamic-workflows          # global (your user)
+pi install -l ./extensions/pi-dynamic-workflows       # project-local
+pi --no-extensions -e ./extensions/pi-dynamic-workflows   # one-off trial, nothing else loaded
 ```
 
-## Provides
+## Commands
 
-- `dynamic_workflow` model tool for listing, templating, reading, writing, running, resuming, cancelling, graphing, and viewing workflows.
-- `/workflow` and `/workflows` human commands.
-- `/dynamic-workflow` (alias `/ultracode`), `/deep-research`, `/ultracode-mode`, and `/ultracode-contract` routing commands.
-- Ultracode Contract Gate guidance for a small read-only task-contract review workflow before broad scout/orchestration; disable it per session with `/ultracode-contract off`.
-- Visual state indicators when always-on routing is enabled: the prompt's top
-  border embeds an `ultracode auto` label (using the border color, and only on a
-  plain border so scroll hints like `↑ N more` stay untouched), and the status
-  line shows `uc:auto`/`uc:off` for routing plus `cg:on`/`cg:off` for the
-  Contract Gate.
-- Compact Claude-style scaffold catalog: six primary scaffolds, compose scaffolds, and use-case scaffolds, with no pattern aliases.
-- JavaScript workflow runtime with injected globals `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`, `workflow`, `phase`, `log`, `args` (+ read-only `limits`/`runId`/`runDir`/`cwd`), artifacts, resumable journal, and TUI dashboard.
-  - `race(thunks, { accept? })` — first accepted branch wins and the in-flight losers are cancelled (real SIGTERM via each thunk's `AbortSignal`); returns `{ winner, index, status }`.
-  - `ask(question, opts?)` — pause a branch to ask a human via Pi's UI (`input`/`confirm`/`select`); resume-safe (the answer is journaled and replayed, never re-asked), headless-honest (`opts.default` or a clear error, never hangs), and cancellable inside `race()`.
-- Per-call model and reasoning selection: every subagent call can choose its own `model`, `provider`, and `effort` (`low|medium|high|xhigh|max`, mapped onto the engine reasoning scale) — e.g. cheap/fast + `effort: "low"` for wide scouts and a stronger model + `effort: "high"`/`"xhigh"` for synthesis or verification. Omitting them inherits the orchestrator's model and session reasoning level; `model`/`provider`/`effort` are part of the cache key, so changing them re-runs that call on resume.
-- Stable KV-cache prefix: build subagent prompts with the shared/stable framing (role, task, success criteria, output format) first and the volatile per-item content (the item, ids, retrieved snippets) last, so identical prefixes reuse the provider prompt/KV cache across calls. Avoid `Date.now()`/`Math.random()` inside prompts — they bust that cache and make the resume journal miss, re-running the call.
+| Command | What it does |
+| --- | --- |
+| `/workflow …` | Manage workflows: `new` (scaffold), `agents`, `sessions`, `cleanup`, `delete`, `delete-run`, and more. |
+| `/workflows` | Open the workflow dashboard (also `Ctrl+Alt+W`). |
+| `/dynamic-workflow` (alias `/ultracode`) | Route the current task through the Ultracode workflow router. |
+| `/deep-research` | Legacy intent; routes to the `complex-research` pattern. |
+| `/ultracode-mode` | Toggle always-on Ultracode routing for the session. |
+| `/ultracode-contract` | Toggle the Contract Gate; `/ultracode-contract off` disables it for the session. |
+| `dynamic_workflow` | Model tool: list, scaffold, read, write, run, resume, cancel, graph, and view workflows. |
+
+## How it works
+
+Workflows are plain JavaScript files. Stable workflows live in `.pi/workflows/`; drafts and run artifacts live under `.pi/workflows/drafts/` and `.pi/workflows/runs/` in trusted projects. Key primitives:
+
+- `race(thunks, { accept? })` — first accepted branch wins; in-flight losers are cancelled with a real SIGTERM via each thunk's `AbortSignal`. Returns `{ winner, index, status }`.
+- `ask(question, opts?)` — pause a branch to ask a human via Pi's UI (`input`/`confirm`/`select`). Resume-safe (the answer is journaled and replayed, never re-asked), headless-honest (`opts.default` or a clear error, never hangs), and cancellable inside `race()`.
+- **Per-call model and reasoning:** every subagent call can set its own `model`, `provider`, and `effort` (`low|medium|high|xhigh|max`). Omitting them inherits the orchestrator's model and session reasoning level. They are part of the cache key, so changing them re-runs that call on resume.
 
 ```js
 // Decide model + reasoning per call.
@@ -42,321 +59,68 @@ const verdict = await agent(
 );
 ```
 
-## Seguridad y límites
+Prompt-design rules baked into the scaffolds:
 
-El runtime acota la ejecución en varias capas para que un workflow no pueda
-crecer sin control:
+- **Stable KV-cache prefix.** Put the shared framing (role, task, success criteria, output format) first and the volatile per-item content last, so identical prefixes reuse the provider prompt/KV cache. Avoid `Date.now()`/`Math.random()` inside prompts — they bust that cache and make the resume journal miss, re-running the call.
+- **Position-aware synthesis.** Models attend best to the start and end of context and worst to the middle (the *lost-in-the-middle* U-curve; see `docs/research/2026-06-28-context-engineering-focus.md`). Synthesis scaffolds restate the task and criteria AFTER the evidence block, with a short footer asking for the output format, most-important-first ordering, and explicit notes on failed/empty branches. Replicate this in your own workflows: task/criteria at both ends, evidence in the middle.
 
-- **`maxAgents`** — tope de subagentes por run (todas las fases, no solo el pico
-  de paralelismo); se clampa a `limits.maxAgents`.
-- **`concurrency`** — subagentes simultáneos; se clampa a `limits.concurrency`.
-- **Composición depth‑1** — `workflow(name, args)` solo invoca sub‑workflows
-  reutilizables a un nivel; una llamada recursiva más profunda se rechaza.
-- **Guard de recursión entre procesos** — cada subagente se spawnea un nivel más
-  profundo (`PI_DYNAMIC_WORKFLOWS_DEPTH = profundidad + 1`). Si un subagente con
-  `includeExtensions: true` tiene la herramienta `dynamic_workflow`, sus acciones
-  `start`/`run`/`resume` se **rechazan** cuando su profundidad alcanza el límite.
-  Así se cierra el vector donde un subagente lanzaría runs top‑level anidados que
-  no cuentan contra el presupuesto del padre.
+When always-on routing is enabled, the prompt's top border embeds an `ultracode auto` label (border color only, plain borders only, so scroll hints like `↑ N more` stay untouched), and the status line shows `uc:auto`/`uc:off` for routing and `cg:on`/`cg:off` for the Contract Gate.
 
-### Variables de entorno
+## Limitations & safety notes
 
-- `PI_DYNAMIC_WORKFLOWS_DEPTH` — profundidad de anidamiento de la sesión actual
-  (`0` en el Pi top‑level). La fija el runtime al spawnear cada subagente; no
-  hace falta setearla a mano.
-- `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` — límite antes de rechazar `start`/`run`/`resume`
-  (default **`2`**, que permite hasta dos niveles de anidamiento). Subilo para
-  permitir más anidamiento; **`0` apaga todos los runs** (incluido el top‑level),
-  útil como kill‑switch.
+The runtime bounds execution at several layers so a workflow cannot grow without control:
 
-## Monitor y dashboard
+- **`maxAgents`** — cap on subagents per run (across all phases, not just peak parallelism); clamped to `limits.maxAgents`.
+- **`concurrency`** — simultaneous subagents; clamped to `limits.concurrency`.
+- **Depth-1 composition** — `workflow(name, args)` invokes reusable sub-workflows one level deep only; deeper recursive calls are refused.
+- **Cross-process recursion guard** — each subagent is spawned one level deeper (`PI_DYNAMIC_WORKFLOWS_DEPTH` = depth + 1). If a subagent with `includeExtensions: true` has the `dynamic_workflow` tool, its `start`/`run`/`resume` actions are **refused** once its depth reaches the limit. This closes the vector where a subagent would launch nested top-level runs that do not count against the parent's budget.
+- Drafts and run artifacts are only written in **trusted projects**.
 
-Abrí el dashboard con `/workflows` o `Ctrl+Alt+W`. Desde un editor **vacío**,
-`↓` abre el Monitor y `←` abre Agents (con un prompt escrito, `↓`/`←` siguen
-siendo movimiento normal del cursor). `/workflow agents` y `/workflow sessions`
-abren directamente esas pestañas, y la línea de estado ociosa muestra
-`wf · /workflows` como puerta de entrada.
+## Details
 
-Pestañas: **Monitor**, **Agents**, **Sessions**, **Runs**, **Workflows**,
-**Patterns**, **Activity**.
+### Environment variables
 
-Teclado (resumen; `?` abre la ayuda completa como overlay):
+| Variable | Meaning |
+| --- | --- |
+| `PI_DYNAMIC_WORKFLOWS_DEPTH` | Nesting depth of the current session (`0` at top-level Pi). Set by the runtime when spawning each subagent; you never set it by hand. |
+| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | Limit before `start`/`run`/`resume` is refused (default **`2`**, allowing up to two nesting levels). Raise it to allow more nesting; **`0` disables all runs** (including top-level) — useful as a kill-switch. |
 
-- Pestañas: `Tab`/`→` siguiente, `Shift+Tab`/`←` anterior; saltos directos
-  `m` Monitor · `A`/`n` Agents · `a` Activity · `s` Sessions · `w` Workflows ·
-  `p` Patterns · `R` Runs.
-- Listas: `↑`/`↓` o `k`/`j`; `PgUp`/`PgDn` página; `Home`/`End` o `G`
-  primero/último.
-- Acciones: `Enter`/`o` detalle del agente · `v` ver run · `g` graph ·
-  `c`/`x` cancelar run activo · `r` rerun · `d`/`Del` borrar run (con
-  confirmación). En **Agents**, `f` salta al siguiente agente `failed`.
-- **Monitor**: con varios runs activos, `[` y `]` cambian el run enfocado
-  (lista `Active runs (N)` arriba y título `run k/N`). El header muestra
-  `updated Ns ago` en cada refresco, o `⚠ refresh failed: …` si falla.
-- **Visor en vivo** de un agente: `↑↓`/`PgUp`/`PgDn`/`Home`/`End` para
-  scrollear; el header dice `refresh 1s` mientras corre y `final (<estado>)`
-  al terminar (ahí se detiene el polling). `q`/`Esc` cierra.
+### Monitor and dashboard
 
-La ayuda superior solo anuncia las acciones válidas para el run seleccionado
-(por ejemplo, no ofrece `cancel` si el run no está activo). Las acciones
-destructivas (cancelar, borrar, rerun, cambiar de sesión) piden confirmación.
+Open the dashboard with `/workflows` or `Ctrl+Alt+W`. From an **empty** editor, `↓` opens the Monitor and `←` opens Agents (with a written prompt, `↓`/`←` remain normal cursor movement). `/workflow agents` and `/workflow sessions` open those tabs directly, and the idle status line shows `wf · /workflows` as an entry point.
 
-## Catálogo de patrones
+Keyboard summary (`?` opens the full help overlay):
 
-Antes de escribir un workflow, usa `dynamic_workflow action=scaffold` o
-`/workflow new <name> --pattern=<key>` para inspeccionar el scaffold más cercano.
-Los patrones son piezas de diseño: elige el más simple que produzca evidencia,
-registra límites/caps y deja artifacts verificables.
+- **Tabs:** `Tab`/`→` next, `Shift+Tab`/`←` previous; direct jumps `m` Monitor · `A`/`n` Agents · `a` Activity · `s` Sessions · `w` Workflows · `p` Patterns · `R` Runs.
+- **Lists:** `↑`/`↓` or `k`/`j`; `PgUp`/`PgDn` page; `Home`/`End` or `G` first/last.
+- **Actions:** `Enter`/`o` agent detail · `v` view run · `g` graph · `c`/`x` cancel active run · `r` rerun · `d`/`Del` delete run (with confirmation). In **Agents**, `f` jumps to the next `failed` agent.
+- **Monitor:** with several active runs, `[` and `]` switch the focused run (`Active runs (N)` list on top and a `run k/N` title). The header shows `updated Ns ago` on each refresh, or `⚠ refresh failed: …` on failure.
+- **Live agent viewer:** `↑↓`/`PgUp`/`PgDn`/`Home`/`End` to scroll; the header says `refresh 1s` while running and `final (<state>)` when done (polling stops there). `q`/`Esc` closes.
 
-Guía rápida de elección:
+The top help only advertises actions valid for the selected run (for example, no `cancel` when the run is not active). Destructive actions (cancel, delete, rerun, switch session) ask for confirmation.
 
-- No uses Dynamic Workflows para una pregunta simple, una edición de un archivo o
-  una tarea que cabe en pocos tool calls directos.
-- Usa **fan-out** cuando hay ramas independientes; **classify-and-act** cuando
-  primero necesitas separar riesgo/señal; **adversarial verification** cuando ya
-  tienes claims y quieres podarlos; **loop-until-done** cuando el tamaño real del
-  trabajo es desconocido.
-- Los intents legacy siguen siendo rutas: `deep-research` apunta a
-  `complex-research` y `default` apunta a `fan-out-and-synthesize`.
+### Scaffold catalog
 
-### `classify-and-act` — clasificar y actuar
+Before writing a workflow, use `dynamic_workflow action=scaffold` or `/workflow new <name> --pattern=<key>` to inspect the closest scaffold. Scaffolds are design pieces: pick the simplest one that produces evidence, record limits/caps, and leave verifiable artifacts. Do not use Dynamic Workflows for a simple question, a single-file edit, or a task that fits in a few direct tool calls. Legacy intents remain as routes: `deep-research` → `complex-research`, `default` → `fan-out-and-synthesize`.
 
-```mermaid
-flowchart LR
-  A[Scout barato] --> B[Clasificar items]
-  B --> C{Alta señal?}
-  C -- sí --> D[Follow-up dirigido]
-  C -- no --> E[Descartar o registrar]
-  D --> F[Síntesis]
-  E --> F
-```
+| Scaffold | Use it for | Choose it when |
+| --- | --- | --- |
+| `classify-and-act` | Cheap classification, then per-class treatment. | An audit, PR review, or migration should spend expensive agents only on medium/high-risk files. Verify: full classification artifact, skipped-item counts, evidence per follow-up. |
+| `fan-out-and-synthesize` | Independent work with one final reduction. | You can split by files, topics, modules, or perspectives and need a synthesis that drops unsupported findings. Verify: coverage, failed branches, caps, cited findings. |
+| `adversarial-verification` | Pruning claims, suspected bugs, or plans before acting. | The cost of accepting a false positive is high. Verify: each claim ends `verified` or `dropped` with a reason and evidence. |
+| `generate-and-filter` | Designing several solutions and choosing by an explicit rubric. | You need best-of-N for architecture, prompts, or strategy. Verify: candidates, rubric, scores, and drop reasons are saved. |
+| `tournaments` | Pairwise comparisons and bracket ranking. | Designs, prompts, or plans must compete head-to-head and relative ranking beats absolute scores. Verify: bracket/matrix, criteria, winner rationale. |
+| `loop-until-done` | Discovery or repair of unknown size. | You must iterate until quiet rounds, `maxRounds`, budget, or timeout. Verify: round log, stop criterion, deduplicated findings. |
+| `compose-verify-claims` | Local discovery composed with a stable verification library. | No human decision is needed between discovering and verifying. Verify: serializable JSON contract between parent and child, artifacts from both. |
+| `lib-verify-claims` | Shared sub-workflow for fact-checking / claim pruning. | Several workflows need the same verification without copying prompts. Verify: `{ claims, skeptics? }` input, stable output, explicit failure handling. |
+| `workflow-factory` | Meta-workflow that designs a task-specific workflow. | Orchestration is complex enough that prompts/contracts deserve review before spending many subagents. Verify: draft under `.pi/workflows/drafts/`, review, decision artifacts. |
+| `bug-hunt-repo-audit` | Finding likely bugs across many files. | You want a reusable broad audit, not a manual one-off. Verify: file coverage, prioritized findings, file/line citations. |
+| `large-migration` | Planning or executing migrations across many files. | You must discover blockers, risks, and caps before editing. Verify: candidate inventory, risk classification, migration checklist. |
+| `complex-research` | Broad research with sources, comparisons, or migration analysis. | You need independent perspectives and citations, not a quick answer. Verify: sources per claim, angle coverage, research limits. |
+| `plan-review` | A skeptical panel before implementing a risky decision. | A plan needs critique from several perspectives. Verify: accepted risks, recommended changes, verification gaps. |
+| `claim-bug-verification` | Confirming sweep findings before reporting or changing code. | You have suspected bugs/claims and want to separate real evidence from hallucinations. Verify: each finding has a repro, concrete evidence, or a drop reason. |
 
-- **Uso:** muchos items necesitan tratamientos distintos después de una
-  clasificación barata.
-- **Elígelo cuando:** una auditoría, review de PR o migración solo debe gastar
-  agentes caros en archivos de riesgo medio/alto.
-- **Primitivas:** `bash`, `pipeline`, `agent(schema)`.
-- **Verifica:** artifact con clasificación completa, conteo de items omitidos y
-  evidencia de cada follow-up.
-
-### `fan-out-and-synthesize` — abrir en paralelo y sintetizar
-
-```mermaid
-flowchart LR
-  A[Work-list] --> B1[Agente 1]
-  A --> B2[Agente 2]
-  A --> B3[Agente N]
-  B1 --> C[Síntesis como juez]
-  B2 --> C
-  B3 --> C
-```
-
-- **Uso:** trabajo independiente con una reducción final.
-- **Elígelo cuando:** puedes dividir por archivos, temas, módulos o perspectivas
-  y necesitas una síntesis que descarte hallazgos sin evidencia.
-- **Primitivas:** `bash`, `agents({ settle:true })`, `agent`.
-- **Verifica:** reporta cobertura, ramas fallidas, caps y hallazgos con citas.
-
-### `adversarial-verification` — verificación adversarial
-
-```mermaid
-flowchart LR
-  A[Claims o plan] --> B1[Escéptico 1]
-  A --> B2[Escéptico 2]
-  A --> B3[Escéptico N]
-  B1 --> C[Voto / evidencia]
-  B2 --> C
-  B3 --> C
-  C --> D[Keep / drop]
-```
-
-- **Uso:** podar claims, bugs sospechados o planes antes de actuar.
-- **Elígelo cuando:** el coste de aceptar un falso positivo es alto.
-- **Primitivas:** `parallel`, `agent(schema)`, voting.
-- **Verifica:** cada claim queda en `verified` o `dropped` con razón y evidencia.
-
-### `generate-and-filter` — generar opciones y filtrar
-
-```mermaid
-flowchart LR
-  A[Pregunta / objetivo] --> B1[Candidato A]
-  A --> B2[Candidato B]
-  A --> B3[Candidato C]
-  B1 --> C[Juez por rúbrica]
-  B2 --> C
-  B3 --> C
-  C --> D[Mejor opción o escalado]
-```
-
-- **Uso:** diseñar varias soluciones y elegir por una rúbrica explícita.
-- **Elígelo cuando:** necesitas best-of-N para arquitectura, prompts o estrategia,
-  no una única respuesta generada.
-- **Primitivas:** `parallel`, `agent(schema)`, bucle adaptativo.
-- **Verifica:** guarda candidatos, rúbrica, puntuación y motivo de descarte.
-
-### `tournaments` — ranking por torneo
-
-```mermaid
-flowchart LR
-  A[Candidatos] --> B[Comparaciones por pares]
-  B --> C[Ganadores de ronda]
-  C --> D{Queda uno?}
-  D -- no --> B
-  D -- sí --> E[Ranking / ganador]
-```
-
-- **Uso:** comparar alternativas cuando el ranking relativo importa más que una
-  puntuación absoluta.
-- **Elígelo cuando:** hay diseños, prompts o planes que deben competir cara a cara.
-- **Primitivas:** `agents({ settle:true })`, `agent(schema)`, bracket.
-- **Verifica:** conserva matriz/llaves, criterios de comparación y explicación del ganador.
-
-### `loop-until-done` — iterar hasta terminar
-
-```mermaid
-flowchart LR
-  A[Descubrir] --> B[Actuar o verificar]
-  B --> C{Nuevos hallazgos?}
-  C -- sí --> A
-  C -- no --> D[Quiet rounds / done]
-  C -- límite --> E[Stop por coste/tiempo]
-```
-
-- **Uso:** discovery o repair cuando no conoces el tamaño real del trabajo.
-- **Elígelo cuando:** debes repetir hasta rondas quietas, `maxRounds`, budget o timeout.
-- **Primitivas:** `agents({ settle:true })`, loop, `log`.
-- **Verifica:** log de rondas, criterio de parada y lista deduplicada de hallazgos.
-
-### `compose-verify-claims` — componer verificación reutilizable
-
-```mermaid
-flowchart LR
-  A[Workflow padre] --> B[Descubrir claims]
-  B --> C[workflow lib/verify-claims]
-  C --> D[Síntesis padre]
-```
-
-- **Uso:** combinar descubrimiento local con una librería de verificación estable.
-- **Elígelo cuando:** no necesitas una decisión humana entre descubrir y verificar.
-- **Primitivas:** `workflow`, `agent`, sub-workflow.
-- **Verifica:** contrato JSON serializable entre padre e hijo y artifacts de ambos.
-
-### `lib-verify-claims` — librería para verificar claims
-
-```mermaid
-flowchart LR
-  A[claims] --> B[Escépticos por claim]
-  B --> C[Resultado tipado]
-  C --> D[verified / dropped]
-```
-
-- **Uso:** sub-workflow compartido para fact-checking o pruning de claims.
-- **Elígelo cuando:** varios workflows necesitan la misma verificación sin copiar prompts.
-- **Primitivas:** `agents({ settle:true })`, `agent(schema)`, contrato de librería.
-- **Verifica:** entrada `{ claims, skeptics? }`, salida estable y manejo explícito de fallos.
-
-### `workflow-factory` — meta-workflow de diseño
-
-```mermaid
-flowchart LR
-  A[Tarea compleja] --> B[Mejorar prompt]
-  B --> C[Diseñar contrato]
-  C --> D[Escribir draft]
-  D --> E[Review del workflow]
-```
-
-- **Uso:** crear un workflow específico cuando el diseño de prompts/contratos también
-  merece revisión.
-- **Elígelo cuando:** la orquestación es compleja antes de gastar muchos subagentes.
-- **Primitivas:** `agent(schema)`, prompt improvement, `writeFile`.
-- **Verifica:** draft bajo `.pi/workflows/drafts/`, review y artifacts de decisión.
-
-### `bug-hunt-repo-audit` — auditoría de bugs en repo
-
-```mermaid
-flowchart LR
-  A[git ls-files] --> B[Chunks / archivos]
-  B --> C[Reviewers]
-  C --> D[Síntesis priorizada]
-```
-
-- **Uso:** encontrar bugs probables a través de muchos archivos.
-- **Elígelo cuando:** quieres un audit broad reutilizable, no un one-off manual.
-- **Primitivas:** `bash`, `agents({ settle:true })`, reviewer synthesis.
-- **Verifica:** cobertura de archivos, hallazgos priorizados y citas archivo/línea.
-
-### `large-migration` — migración grande
-
-```mermaid
-flowchart LR
-  A[Buscar candidatos] --> B[Clasificar riesgo]
-  B --> C[Plan / cambios dirigidos]
-  C --> D[Verificación]
-```
-
-- **Uso:** planear o ejecutar migraciones que cruzan muchos archivos.
-- **Elígelo cuando:** debes descubrir blockers, riesgos y caps antes de editar.
-- **Primitivas:** `bash`, `pipeline`, `agent(schema)`.
-- **Verifica:** inventario de candidatos, clasificación de riesgo y checklist de migración.
-
-### `complex-research` — investigación compleja
-
-```mermaid
-flowchart LR
-  A[Pregunta] --> B1[Ángulo docs]
-  A --> B2[Ángulo riesgos]
-  A --> B3[Ángulo alternativas]
-  B1 --> C[Síntesis con fuentes]
-  B2 --> C
-  B3 --> C
-```
-
-- **Uso:** investigación amplia con fuentes, comparativas o análisis de migración.
-- **Elígelo cuando:** necesitas perspectivas independientes y citas, no una respuesta rápida.
-- **Primitivas:** `agents({ settle:true })`, research angles, synthesis-as-judge.
-- **Verifica:** fuentes por claim, cobertura de ángulos y límites de investigación.
-
-### `plan-review` — revisión de plan
-
-```mermaid
-flowchart LR
-  A[Plan] --> B1[Seguridad]
-  A --> B2[Performance]
-  A --> B3[Producto / scope]
-  B1 --> C[Síntesis de riesgos]
-  B2 --> C
-  B3 --> C
-```
-
-- **Uso:** panel escéptico antes de implementar una decisión riesgosa.
-- **Elígelo cuando:** un plan necesita críticas desde varias perspectivas.
-- **Primitivas:** `agents({ settle:true })`, reviewer panel, synthesis-as-judge.
-- **Verifica:** riesgos aceptados, cambios recomendados y huecos de verificación.
-
-### `claim-bug-verification` — verificar bugs o claims
-
-```mermaid
-flowchart LR
-  A[Finding sospechado] --> B[Repro / evidencia]
-  B --> C[Escépticos]
-  C --> D{Suficiente?}
-  D -- sí --> E[Reportar]
-  D -- no --> F[Descartar]
-```
-
-- **Uso:** confirmar hallazgos de un sweep antes de reportarlos o cambiar código.
-- **Elígelo cuando:** tienes una lista de bugs/claims sospechosos y quieres separar
-  evidencia real de alucinaciones.
-- **Primitivas:** `parallel`, `agent(schema)`, voting.
-- **Verifica:** cada finding tiene repro, evidencia concreta o razón de descarte.
-
-## Síntesis position-aware (lost-in-the-middle)
-
-Los modelos atienden mejor al **inicio y al final** del contexto y peor al medio (la curva U de *lost-in-the-middle*; ver `docs/research/2026-06-28-context-engineering-focus.md`). Cuando un paso de síntesis/`judge` recibe un bloque grande de evidencia, las instrucciones que van solo arriba quedan "enterradas" frente a la zona de alta atención del final.
-
-Por eso los scaffolds de síntesis (`fan-out-and-synthesize`, `complex-research`, `bug-hunt-repo-audit`, `plan-review`, etc.) **reafirman la tarea + criterios DESPUÉS de la evidencia** (`compact(...)`), con un footer corto que pide el formato de salida, lo más importante primero, y notar explícitamente las ramas fallidas/vacías. Así las instrucciones quedan en **ambos extremos** del prompt, no solo arriba. Al escribir tus propios workflows, replica este patrón: tarea/criterios al inicio y al final, evidencia en el medio.
-
-## Research-backed templates
+### Research-backed templates
 
 Map common agent papers/frameworks to Pi workflow design:
 
@@ -370,6 +134,7 @@ Map common agent papers/frameworks to Pi workflow design:
 
 Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
 
-Stable workflows live in `.pi/workflows/`; drafts and run artifacts live under `.pi/workflows/drafts/` and `.pi/workflows/runs/` for trusted projects.
+## Related
 
-For `/effort ultracode`, also install `./extensions/pi-effort` or the repository root bundle.
+- For `/effort ultracode`, also install `./extensions/pi-effort`.
+- For the full bundle of extensions and skills, install the repository root instead.

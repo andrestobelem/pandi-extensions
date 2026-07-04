@@ -1,23 +1,38 @@
 # @pandi-coding-agent/effort
 
-Individual Pi package for the `/effort` extension.
+Switch Pi's thinking level with a Claude-style `/effort` command — from `off` to `xhigh`, plus `ultracode` to enable the Dynamic Workflows router.
 
 ## Install
+
+From npm:
+
+```bash
+pi install npm:@pandi-coding-agent/effort
+```
 
 From this repository:
 
 ```bash
-pi install ./extensions/pi-effort
-pi install -l ./extensions/pi-effort
-pi --no-extensions -e ./extensions/pi-effort
+pi install ./extensions/pi-effort          # global (your user)
+pi install -l ./extensions/pi-effort       # project-local
+pi --no-extensions -e ./extensions/pi-effort   # one-off trial, nothing else loaded
 ```
 
-## Provides
+## Commands
 
-- `/effort status` — show current thinking effort.
-- `/effort off|minimal|low|medium|high|xhigh` — set Pi thinking level.
-- `/effort ultracode` — request `xhigh` and enable the Dynamic Workflows Ultracode router when that extension is loaded.
+| Command | What it does |
+| --- | --- |
+| `/effort` | Open an interactive picker of effort levels. |
+| `/effort status` | Show the current thinking effort. |
+| `/effort off\|minimal\|low\|medium\|high\|xhigh` | Set Pi's thinking level (`none` and `max` are aliases for `off` and `xhigh`). |
+| `/effort ultracode` | Set `xhigh` and enable the Dynamic Workflows Ultracode router (when that extension is loaded). |
 
-For `/effort ultracode` routing, also install `./extensions/pi-dynamic-workflows` or the repository root bundle.
+## Limitations & safety notes
 
-Lowering thinking afterwards with `/effort <level>` (e.g. `/effort medium`) does **not** turn the Ultracode router off — these are separate concerns. To disable the router, use `/ultracode-mode off`.
+- `/effort ultracode` routing needs the `pi-dynamic-workflows` extension — install `./extensions/pi-dynamic-workflows` or the repository root bundle.
+- Lowering thinking afterwards (e.g. `/effort medium`) does **not** turn the Ultracode router off — they are separate concerns. Disable the router with `/ultracode-mode off`.
+- The active model may clamp the requested level (non-reasoning models become `off`); the command reports the level that actually took effect.
+
+## Related
+
+For the full bundle of extensions and skills, install the repository root instead.

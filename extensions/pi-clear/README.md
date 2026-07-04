@@ -1,33 +1,35 @@
 # @pandi-coding-agent/clear
 
-Individual Pi package for the `/clear` extension.
+Adds a Claude-style `/clear` command to Pi that starts a fresh session — a thin alias for the native `/new`, for Claude muscle-memory.
 
 ## Install
+
+From npm:
+
+```bash
+pi install npm:@pandi-coding-agent/clear
+```
 
 From this repository:
 
 ```bash
-pi install ./extensions/pi-clear
-pi install -l ./extensions/pi-clear
-pi --no-extensions -e ./extensions/pi-clear
+pi install ./extensions/pi-clear          # global (your user)
+pi install -l ./extensions/pi-clear       # project-local
+pi --no-extensions -e ./extensions/pi-clear   # one-off trial, nothing else loaded
 ```
 
-## Provides
+## Commands
 
-- `/clear` — start a fresh session, clearing the conversation. Calls `ctx.newSession()`,
-  the same fresh session as the native `/new`. Arguments are ignored.
+| Command | What it does |
+| --- | --- |
+| `/clear` | Start a fresh session, clearing the conversation. Calls `ctx.newSession()` — the same fresh session as the native `/new`. Arguments are ignored. |
 
-This mirrors Claude Code's `/clear`, which clears the conversation and starts fresh.
+## How it works
 
-## Relationship to the native `/new`
+- `/clear` coexists with Pi's native `/new` and never overrides it — use whichever verb you prefer.
+- A cancelled new session (an extension vetoed it via `session_before_switch`) stays silent; the host already handled the interaction.
+- If `newSession` throws, the failure is reported as an error notification instead of crashing the TUI.
 
-Pi already ships a native `/new` that starts a new session. `/clear` is a thin **alias**
-for the Claude muscle-memory: it coexists with `/new` and never overrides it — use
-whichever verb you prefer.
+## Related
 
-## Behavior details
-
-- A cancelled new session (an extension vetoed it via `session_before_switch`) is left
-  silent — the host already handled the interaction.
-- If `newSession` throws, the failure is reported as an error notification instead of
-  crashing the TUI.
+For the full bundle of extensions and skills, install the repository root instead.

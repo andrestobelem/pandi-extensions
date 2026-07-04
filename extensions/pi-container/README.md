@@ -1,61 +1,58 @@
 # @pandi-coding-agent/container
 
-Manage [Apple `container`](https://github.com/apple/container) sandboxes — Linux
-environments running in lightweight **micro-VMs** (Virtualization.framework) — from
-inside a Pi session. Two surfaces:
+Manage [Apple `container`](https://github.com/apple/container) sandboxes — Linux environments running in lightweight micro-VMs — from inside a Pi session. Pi can run isolated Linux commands in a micro-VM instead of running them directly on the host.
 
-- **`/container`** — human slash command (interactive, confirms destructive ops).
-- **`container_sandbox`** — a model-callable tool so Pi can run **isolated Linux
-  commands** in a micro-VM instead of running them directly on the host.
+## What you get
 
-Both share the same pure helpers, and `container` is always spawned with an **argv
-array (never a shell string)**, so image refs, machine names, and commands cannot
-inject shell.
+- `/container` — human slash command; interactive and it confirms destructive operations.
+- `container_sandbox` — model-callable tool with explicit actions and no surprise deletes.
+- Shell-injection safety: `container` is always spawned with an argv array, never a shell string, so image refs, machine names, and commands cannot inject shell.
 
-## Requirements
+## Install
 
-Apple `container` runs Linux in per-environment VMs and requires:
+From npm:
 
-- **macOS on Apple Silicon** (arm64); macOS 26 recommended.
-- the CLI: `brew install container`
-- a configured kernel: `container system kernel set --recommended`
-- a booted subsystem: `container system start`
-
-On an unsupported host the extension returns a single bounded message instead of
-failing obscurely.
-
-## Command
-
-```text
-/container [status]                     subsystem + machine overview
-/container list                         list container machines
-/container create <image> [name]        create a machine (e.g. alpine:latest dev)
-/container run <machine> -- <cmd...>    run a command inside a machine
-/container stop [name]                  stop a machine (default if omitted)
-/container remove <name>                delete a machine (confirms first)
+```bash
+pi install npm:@pandi-coding-agent/container
 ```
 
-- `run` takes the command after a `--` separator, e.g.
-  `/container run dev -- uname -a`. The command is passed as an **argv array**.
-- `remove` asks for confirmation in a TUI before deleting.
+From this repository:
 
-## Tool
+```bash
+pi install ./extensions/pi-container          # global (your user)
+pi install -l ./extensions/pi-container       # project-local
+pi --no-extensions -e ./extensions/pi-container   # one-off trial, nothing else loaded
+```
 
-The `container_sandbox` tool takes an `action`
-(`status` | `list` | `create` | `run` | `stop` | `remove`) plus:
+## Commands
 
-- `name` — machine name (create/stop/remove, or run target)
-- `image` — OCI image (create, or ephemeral run), e.g. `alpine:latest`
-- `command` — **argv array** for `run` (e.g. `["uname","-a"]`)
-- `machine` — existing machine to run inside (else ephemeral via `image`)
-- `workdir`, `cpus`, `memory`, `homeMount` (`ro`/`rw`/`none`), `setDefault`
-- `force` — required for `remove`
+| Command | What it does |
+| --- | --- |
+| `/container` | Bare invocation opens an interactive action selector (falls back to `status` off-TUI). |
+| `/container status` | Show subsystem + machine overview. |
+| `/container list` | List container machines. |
+| `/container create <image> [name]` | Create a machine (e.g. `alpine:latest dev`). |
+| `/container run <machine> -- <cmd...>` | Run a command inside a machine, e.g. `/container run dev -- uname -a`. |
+| `/container stop [name]` | Stop a machine (the default machine if omitted). |
+| `/container remove <name>` | Delete a machine; asks for confirmation in a TUI first. |
+| `container_sandbox` | Model tool: same actions (`status`, `list`, `create`, `run`, `stop`, `remove`) — see below. |
 
-It returns a text summary plus structured `details` (the parsed machine list, the
-created name, the run target/exit code, etc.). It **never deletes by default**:
-`remove` only proceeds when `force: true` is passed explicitly.
+## How it works
 
-### Isolated command execution
+The `container_sandbox` tool takes an `action` plus:
+
+| Parameter | Meaning |
+| --- | --- |
+| `name` | Machine name (create/stop/remove, or run target). |
+| `image` | OCI image (create, or ephemeral run), e.g. `alpine:latest`. |
+| `command` | Argv array for `run`, e.g. `["uname","-a"]`. |
+| `machine` | Existing machine to run inside (else ephemeral via `image`). |
+| `workdir`, `cpus`, `memory`, `homeMount` (`ro`\|`rw`\|`none`), `setDefault` | Run/create tuning. |
+| `force` | Required for `remove`. |
+
+It returns a text summary plus structured `details` (the parsed machine list, the created name, the run target/exit code, etc.).
+
+Two run modes:
 
 ```jsonc
 // run inside an existing persistent machine
@@ -65,13 +62,15 @@ created name, the run target/exit code, etc.). It **never deletes by default**:
 { "action": "run", "image": "alpine:latest", "command": ["echo", "hello"] }
 ```
 
-A persistent **machine** mirrors your macOS home/cwd into Linux (edit on macOS,
-run in Linux); an **ephemeral** container is a one-shot `container run --rm`.
+A persistent machine mirrors your macOS home/cwd into Linux (edit on macOS, run in Linux); an ephemeral container is a one-shot `container run --rm`.
 
-## Install
+## Limitations & safety notes
 
-```sh
-pi install ./extensions/pi-container
-# or, to try without installing:
-pi --no-extensions -e ./extensions/pi-container
-```
+- Apple `container` requires **macOS on Apple Silicon** (arm64); macOS 26 recommended. On an unsupported host the extension returns a single bounded message instead of failing obscurely.
+- Setup needed before use: the CLI (`brew install container`), a configured kernel (`container system kernel set --recommended`), and a booted subsystem (`container system start`).
+- The tool never deletes by default: `remove` only proceeds when `force: true` is passed explicitly. The `/container remove` command confirms in a TUI first.
+- Commands run inside the VM are passed as an argv array — no shell interpolation on the host.
+
+## Related
+
+For the full bundle of extensions and skills, install the repository root instead.

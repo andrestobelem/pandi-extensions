@@ -1,40 +1,52 @@
 # @pandi-coding-agent/local-memory
 
-Individual Pi package for the local memory extension.
+Give Pi a project-local memory folder (`.pi/memory/`): a capped `MEMORY.md` index is injected into the system prompt every turn, and Pi can persist durable notes on its own with a `remember` tool.
+
+## What you get
+
+- `.pi/memory/MEMORY.md` — the index, auto-injected each turn (capped to the first 200 lines or 25 KB, whichever hits first).
+- `.pi/memory/<topic>.md` — topic files, never injected; the injected block lists their paths so Pi reads them on demand.
+- `remember` model tool — lets Pi save stable preferences, project conventions, and key decisions for future sessions.
+- Backward compatibility — falls back to the legacy `.pi/MEMORY.md` when the folder index is absent.
 
 ## Install
+
+From npm:
+
+```bash
+pi install npm:@pandi-coding-agent/local-memory
+```
 
 From this repository:
 
 ```bash
-pi install ./extensions/pi-local-memory
-pi install -l ./extensions/pi-local-memory
-pi --no-extensions -e ./extensions/pi-local-memory
+pi install ./extensions/pi-local-memory          # global (your user)
+pi install -l ./extensions/pi-local-memory       # project-local
+pi --no-extensions -e ./extensions/pi-local-memory   # one-off trial, nothing else loaded
 ```
 
-## Provides
+## Usage
 
-Claude-style memory **folder** at `.pi/memory/`:
+| Surface | What it does |
+| --- | --- |
+| `remember` (no `topic`) | Model tool: appends a durable note to the injected index `.pi/memory/MEMORY.md`. |
+| `remember` with `topic` | Model tool: appends the note to `.pi/memory/<topic>.md` (topic is slugified, so path traversal is impossible). |
+| Per-turn injection | Injects the index (or legacy `.pi/MEMORY.md`) as a tagged block into the system prompt and lists topic-file paths. |
 
-- **`.pi/memory/MEMORY.md`** is the index/entrypoint. The extension injects it as a tagged block
-  into the per-turn system prompt, **capped to the first 200 lines or 25 KB** (whichever hits
-  first). For backward compatibility it falls back to the pre-folder `.pi/MEMORY.md` when the
-  folder index is absent.
-- **`.pi/memory/<topic>.md`** are topic files. They are **not** injected; instead the injected
-  block lists their paths so Pi reads them **on demand** with its file tools.
-- `remember` model tool: lets Pi persist a durable note **on its own initiative** (stable
-  preferences, project conventions, key decisions). With no `topic` the note goes to the
-  injected index; with a `topic` it goes to `.pi/memory/<topic>.md` (the topic is slugified, so
-  path traversal is impossible). It appends only to a managed block
-  (`<!-- pi:remember:begin -->` … `<!-- pi:remember:end -->`) so human-curated notes are never
-  touched, is idempotent (re-saving the same note is a no-op), and fails safe on read/write
-  errors. The first index write seeds from any legacy `.pi/MEMORY.md` (never deleting it), and
-  the note flows back into your context next session via the reader above.
+## How it works
 
-## Trust boundary
+- `remember` appends only inside a managed block (`<!-- pi:remember:begin -->` … `<!-- pi:remember:end -->`), so human-curated notes are never touched.
+- Re-saving the same note is a no-op, and read/write errors fail safe: nothing is clobbered if the target could not be read.
+- The first index write seeds from any legacy `.pi/MEMORY.md` without deleting it; the note flows back into context next session via the injection above.
 
-When loaded (e.g. globally), this extension auto-injects the `.pi/memory/MEMORY.md` index (or the legacy `.pi/MEMORY.md`) from whatever project you open into the system prompt on every turn — there is no prompt, allowlist, or provenance check. Open only **trusted** projects: a repository you do not control could ship a committed index to influence the assistant. Topic files are lower risk because they are listed but never auto-injected. Literal `</local_memory>` tags in the injected index are escaped so the content cannot break out of its block, and the index is length-capped before injection.
+## Limitations & safety notes
 
-**Write-side (anti-injection).** `remember` writes to a channel that is re-injected into future sessions' system prompts as **trusted context** — treat it as an authority boundary. The assistant should persist only facts it has itself **verified, in its own words**, and must **never** copy untrusted retrieved/tool/web/user-pasted content — or instructions embedded in it — into memory. The `</local_memory>` escaping above prevents *structural* breakout, but delimiters are not a semantic security boundary, so the real defense is not ingesting untrusted content in the first place.
+- **Trusted projects only.** When loaded (e.g. globally), the extension auto-injects `.pi/memory/MEMORY.md` (or the legacy `.pi/MEMORY.md`) from whatever project you open — no prompt, allowlist, or provenance check. A repository you do not control could ship a committed index to influence the assistant.
+- Topic files are lower risk: they are listed but never auto-injected.
+- Literal `</local_memory>` tags in the index are escaped, and the index is length-capped, so injected content cannot break out of its block structurally.
+- **Write-side (anti-injection).** `remember` writes to a channel re-injected into future sessions' system prompts as trusted context — an authority boundary. The assistant should persist only facts it has itself verified, in its own words, and never copy untrusted retrieved/tool/web/user-pasted content (or instructions embedded in it) into memory. Delimiters are not a semantic security boundary; the real defense is not ingesting untrusted content in the first place.
+- Use this only for trusted project-local notes.
 
-Use this only for trusted project-local notes. For the full bundle of extensions and skills, install the repository root instead.
+## Related
+
+For the full bundle of extensions and skills, install the repository root instead.

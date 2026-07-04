@@ -1,19 +1,8 @@
 # Dynamic-workflow primitives (injected globals)
 
-This folder is the **canonical, per-primitive reference** for the globals a
-dynamic-workflow script can call — the analog of
-`extensions/pi-dynamic-workflows/scaffolds/` for patterns.
+Per-primitive reference for the globals a dynamic-workflow script can call. Scripts use them as bare globals — no `import`/`require`, no `ctx.*`.
 
-The **source of truth** for *which* primitives exist is the runtime itself: the
-`sandbox.<name> = …` assignments in
-`extensions/pi-dynamic-workflows/worker-source.ts`. A parity test
-(`extensions/pi-dynamic-workflows/tests/integration/primitives-parity.test.mjs`)
-keeps this folder 1:1 with
-that list — add or remove a global there and the test fails until the matching
-`<name>.md` is added or removed here.
-
-A workflow script calls these as **bare globals** — no `import`/`require`, no
-`ctx.*`:
+## Usage
 
 ```js
 export default async function main() {
@@ -23,50 +12,45 @@ export default async function main() {
 // (or a top-level script that ends in `return`)
 ```
 
-**Runtime note:** the *source of truth* is the **pi `dynamic_workflow` runtime**.
-The core (`agent`, `agents`, `parallel`, `pipeline`, `workflow`, `phase`, `log`,
-`args`, `compact`) is shared with the Claude Code Workflow tool; the rest are
-pi-runtime globals — don't assume they exist on Claude Code (keep cross-runtime
-scaffolds to the shared core).
+| Category | Primitive | What it does |
+| --- | --- | --- |
+| Subagents & composition | [`agent`](agent.md) | Run one subagent; parsed object with `{ schema }`, else text; `null` on failure. |
+| Subagents & composition | [`agents`](agents.md) | Bounded parallel map, one step per item (`{ concurrency, settle }`). |
+| Subagents & composition | [`parallel`](parallel.md) | Barrier: run branches, wait for ALL results at once. |
+| Subagents & composition | [`pipeline`](pipeline.md) | Dependent stages per item, no cross-item merge; failed items → `null`. |
+| Subagents & composition | [`race`](race.md) | First accepted value wins; cancel the in-flight losers. |
+| Subagents & composition | [`workflow`](workflow.md) | Compose a reusable sub-workflow inline (depth-bounded). |
+| Human & observability | [`ask`](ask.md) | Human-in-the-loop question (input/confirm/select); resume-safe. |
+| Human & observability | [`phase`](phase.md) | Mark the current phase for the dashboard/log. |
+| Human & observability | [`log`](log.md) | Append a line to the run log. |
+| Filesystem & shell | [`bash`](bash.md) | Run a shell command; caching is opt-in (`{ cache: true }`). |
+| Filesystem & shell | [`readFile`](readFile.md) | Read a file relative to `cwd`. |
+| Filesystem & shell | [`writeFile`](writeFile.md) | Write a file (creates parent dirs). |
+| Filesystem & shell | [`appendFile`](appendFile.md) | Append to a file (creates parent dirs). |
+| Filesystem & shell | [`listFiles`](listFiles.md) | Recursively list files (skips `node_modules`/`.git`). |
+| Artifacts | [`writeArtifact`](writeArtifact.md) | Write a named run artifact. |
+| Artifacts | [`appendArtifact`](appendArtifact.md) | Append to a named artifact (concurrency-safe). |
+| Utilities | [`sleep`](sleep.md) | Abortable delay. |
+| Utilities | [`json`](json.md) | Bounded, safe stringify. |
+| Utilities | [`compact`](compact.md) | Bounded stringify for prompts. |
+| Utilities | [`args`](args.md) | The workflow input. |
+| Read-only run context | [`limits`](limits.md) | `{ concurrency, maxAgents, … }` caps. |
+| Read-only run context | [`runId`](runId.md) | This run's id. |
+| Read-only run context | [`runDir`](runDir.md) | This run's directory (artifacts live here). |
+| Read-only run context | [`cwd`](cwd.md) | The workflow's working directory. |
 
-## Subagents & composition
+## How it works
 
-- [`agent`](agent.md) — run one subagent; parsed object with `{ schema }`, else text; `null` on failure.
-- [`agents`](agents.md) — bounded parallel map, one step per item (`{ concurrency, settle }`).
-- [`parallel`](parallel.md) — barrier: run branches, wait for ALL results at once.
-- [`pipeline`](pipeline.md) — dependent stages per item, no cross-item merge; failed items → `null`.
-- [`race`](race.md) — first accepted value wins, cancel the in-flight losers.
-- [`workflow`](workflow.md) — compose a reusable sub-workflow inline (depth-bounded).
+- The source of truth for *which* primitives exist is the runtime itself: the `sandbox.<name> = …` assignments in `extensions/pi-dynamic-workflows/worker-source.ts`.
+- A parity test (`extensions/pi-dynamic-workflows/tests/integration/primitives-parity.test.mjs`) keeps this folder 1:1 with that list — add or remove a global there and the test fails until the matching `<name>.md` is added or removed here.
+- This folder is the per-primitive analog of `extensions/pi-dynamic-workflows/scaffolds/` for patterns.
 
-## Human & observability
+## Limitations & safety notes
 
-- [`ask`](ask.md) — human-in-the-loop question (input/confirm/select); resume-safe.
-- [`phase`](phase.md) — mark the current phase for the dashboard/log.
-- [`log`](log.md) — append a line to the run log.
+- These docs describe the **pi `dynamic_workflow` runtime**. Only the core (`agent`, `agents`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`, `compact`) is shared with the Claude Code Workflow tool — don't assume the rest exist there. Keep cross-runtime scaffolds to the shared core.
+- Filesystem and shell primitives are confined to the run `cwd`.
+- Artifacts are persisted under `runDir` and are inspectable after the run.
 
-## Filesystem & shell (confined to the run cwd)
+## Related
 
-- [`bash`](bash.md) — run a shell command; caching is opt-in (`{ cache: true }`).
-- [`readFile`](readFile.md) — read a file relative to `cwd`.
-- [`writeFile`](writeFile.md) — write a file (creates parent dirs).
-- [`appendFile`](appendFile.md) — append to a file (creates parent dirs).
-- [`listFiles`](listFiles.md) — recursively list files (skips `node_modules`/`.git`).
-
-## Artifacts (persisted under `runDir`, inspectable)
-
-- [`writeArtifact`](writeArtifact.md) — write a named run artifact.
-- [`appendArtifact`](appendArtifact.md) — append to a named artifact (concurrency-safe).
-
-## Utilities
-
-- [`sleep`](sleep.md) — abortable delay.
-- [`json`](json.md) — bounded, safe stringify.
-- [`compact`](compact.md) — bounded stringify for prompts.
-- [`args`](args.md) — the workflow input.
-
-## Read-only run context
-
-- [`limits`](limits.md) — `{ concurrency, maxAgents, … }` caps.
-- [`runId`](runId.md) — this run's id.
-- [`runDir`](runDir.md) — this run's directory (artifacts live here).
-- [`cwd`](cwd.md) — the workflow's working directory.
+These globals are provided by the `@pandi-coding-agent/dynamic-workflows` extension — see [`extensions/pi-dynamic-workflows/README.md`](../README.md) for installation and the full extension surface.

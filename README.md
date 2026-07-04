@@ -55,7 +55,7 @@ All 20 extensions load by default from the `pi.extensions` field of `package.jso
 | **pi-worktree** | `/worktree` · `git_worktree` | Manages git worktrees from Pi; opens new sessions, never changes the cwd. | git + a git repo |
 | **pi-container** | `/container` · `container_sandbox` | Runs isolated Linux commands in Apple `container` micro-VMs, without touching the host. | macOS Apple Silicon + `container` |
 | **pi-bg** | `/bg` | In-memory background jobs for one-off human commands; not resumable (the small sibling of `dynamic_workflow`). | trust for `start` |
-| **pi-mdview** | `/mdview` | Opens a Markdown file in Pi's scrollable TUI viewer. | — |
+| **pi-mdview** | `/mdview` · `view_markdown` | Opens a Markdown file in Pi's scrollable TUI viewer. | — |
 | **pi-docs** | `/docs` · `markdown_to_html` | Converts Markdown into pandi-styled self-contained HTML artifacts (light + dark). | — |
 | **pi-btw** | `/btw` | Quick side question about the current conversation, tool-free, in an overlay; not saved to history. | — |
 | **pi-rename** | `/rename` | Renames the session or auto-generates the name from history (Claude-style). | optional: `PI_RENAME_*` |

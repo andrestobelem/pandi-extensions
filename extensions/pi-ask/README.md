@@ -1,39 +1,40 @@
 # @pandi-coding-agent/ask
 
-Interactive **decision tools** the model can call to ask *you* — instead of printing a
-plain-text numbered menu. The assistant produces text and tool calls; it cannot pop a TUI
-selector from a reply. These tools wrap pi's dialog helpers (`ctx.ui.select` /
-`ctx.ui.confirm`, which work in **TUI and RPC/Supacode**) so a decision point becomes an
-interactive picker and the choice is read back into the conversation.
-
-## Tools
-
-### `ask_choice(question, options)`
-
-Shows an arrow-key selector (`↑↓` + Enter). Returns JSON:
-
-```json
-{ "index": 2, "label": "Corregir solo los docs" }
-```
-
-`index` is **1-based** (matches the displayed numbering). On cancel (Esc) it returns
-`{ "cancelled": true }`.
-
-### `ask_confirm(title, message?)`
-
-Shows a yes/no confirm dialog. Returns JSON `{ "confirmed": true }` or
-`{ "confirmed": false }` (also `false` on cancel/timeout).
-
-## Non-interactive modes
-
-When no dialog UI is available (`ctx.hasUI` is false — e.g. `print`/`json` mode), both
-tools open **no** dialog and return a plain-text error, so the caller falls back to asking
-in text.
+Interactive decision tools the model can call to ask *you* — an arrow-key picker and a yes/no dialog instead of a plain-text numbered menu. They wrap pi's dialog helpers (`ctx.ui.select` / `ctx.ui.confirm`), so they work in both TUI and RPC/Supacode.
 
 ## Install
 
+From npm:
+
 ```bash
-pi install ./extensions/pi-ask          # or the whole bundle: pi install ./
+pi install npm:@pandi-coding-agent/ask
 ```
 
-Part of the [pi-dynamic-workflows](../../README.md) harness.
+From this repository:
+
+```bash
+pi install ./extensions/pi-ask          # global (your user)
+pi install -l ./extensions/pi-ask       # project-local
+pi --no-extensions -e ./extensions/pi-ask   # one-off trial, nothing else loaded
+```
+
+## Usage
+
+| Tool | What it does |
+| --- | --- |
+| `ask_choice(question, options)` | Model tool: shows an arrow-key selector (`↑↓` + Enter); returns JSON `{"index", "label"}` (`index` is 1-based, matching the displayed numbering), or `{"cancelled": true}` on Esc. |
+| `ask_confirm(title, message?)` | Model tool: shows a yes/no confirm dialog; returns JSON `{"confirmed": true}` or `{"confirmed": false}` (also `false` on cancel/timeout). |
+
+Example `ask_choice` result:
+
+```json
+{ "index": 2, "label": "Fix only the docs" }
+```
+
+## Limitations & safety notes
+
+- When no dialog UI is available (`ctx.hasUI` is false — e.g. `print`/`json` mode), both tools open no dialog and return a plain-text error, so the caller falls back to asking in text.
+
+## Related
+
+For the full bundle of extensions and skills, install the repository root instead.

@@ -1,31 +1,32 @@
 # @pandi-coding-agent/pandi-theme
 
-Temas Panda Syntax para Pi 🐼 — el compañero visual del mascota Pandi
-(`pi-pandi`). Un port a la TUI de Pi del clásico tema
-[Panda Syntax](https://github.com/PandaTheme) de editores, en variantes
-oscura y clara.
+Panda Syntax themes for Pi 🐼 — the visual companion to the Pandi mascot (`pi-pandi`). A Pi TUI port of the classic editor theme [Panda Syntax](https://github.com/PandaTheme), in dark and light variants.
+
+## What you get
+
+- `panda-syntax-dark` — `#292A2B` background with `#19F9D8` (panda green), `#FF75B5` (pink), and `#45A9F9` (blue) accents.
+- `panda-syntax-light` — the same palette adapted to light terminals.
+- Themes only: this package ships no code extensions (`pi.themes` in `package.json`).
 
 ## Install
+
+From npm:
+
+```bash
+pi install npm:@pandi-coding-agent/pandi-theme
+```
 
 From this repository:
 
 ```bash
-pi install ./extensions/pi-pandi-theme
-pi install -l ./extensions/pi-pandi-theme
+pi install ./extensions/pi-pandi-theme          # global (your user)
+pi install -l ./extensions/pi-pandi-theme       # project-local
+pi --no-extensions -e ./extensions/pi-pandi-theme   # one-off trial, nothing else loaded
 ```
-
-## Provides
-
-- `panda-syntax-dark` — fondo `#292A2B`, acentos `#19F9D8` (verde panda),
-  `#FF75B5` (rosa) y `#45A9F9` (azul).
-- `panda-syntax-light` — la misma paleta adaptada a terminales claras.
-
-No incluye extensiones de código: es un paquete solo de temas
-(`pi.themes` en `package.json`).
 
 ## Usage
 
-Seleccioná el tema vía `/settings`, o en `settings.json`:
+Pick the theme via `/settings`, or set it in `settings.json`:
 
 ```json
 {
@@ -33,12 +34,13 @@ Seleccioná el tema vía `/settings`, o en `settings.json`:
 }
 ```
 
-La forma `light/dark` deja que Pi elija la variante según el fondo
-detectado de la terminal; también podés fijar una sola
-(`"theme": "panda-syntax-dark"`).
+The `light/dark` form lets Pi choose the variant from your terminal's detected background. You can also pin a single variant (`"theme": "panda-syntax-dark"`).
 
-## Notes
+## Details
 
-- Los dos JSON viven en `themes/` y declaran los 51 tokens de color
-  requeridos por el schema de temas de Pi.
-- Si el tema activo se edita en disco, Pi lo recarga en caliente.
+- The two theme JSON files live in `themes/` and declare all 51 color tokens required by Pi's theme schema.
+- If you edit the active theme on disk, Pi hot-reloads it.
+
+## Related
+
+For the full bundle of extensions and skills, install the repository root instead.

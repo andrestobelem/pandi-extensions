@@ -1,83 +1,51 @@
 # @pandi-coding-agent/rename
 
-Individual Pi package for the `/rename` extension.
+Rename the current Pi session with a Claude-style `/rename` command — pass a name to use it, or pass nothing and it summarizes your most recent activity into one.
+
+## What you get
+
+- `/rename <name>` and no-argument `/rename` (LLM auto-naming with a deterministic fallback).
+- Every name is stored as a **slug**: lowercase ASCII, hyphen-separated, diacritics stripped, max 4 words / 60 chars (`Café → cafe`, `Refactor Auth Module! → refactor-auth-module`).
+- The current name shows as an inverted-color pill in the editor's top border, and as a `Session name:` hint on exit.
+- A functional **superset** of Pi's native `/name`: same naming target, plus the auto-generate path `/name` lacks. It coexists with `/name` and never overrides it.
 
 ## Install
+
+From npm:
+
+```bash
+pi install npm:@pandi-coding-agent/rename
+```
 
 From this repository:
 
 ```bash
-pi install ./extensions/pi-rename
-pi install -l ./extensions/pi-rename
-pi --no-extensions -e ./extensions/pi-rename
+pi install ./extensions/pi-rename          # global (your user)
+pi install -l ./extensions/pi-rename       # project-local
+pi --no-extensions -e ./extensions/pi-rename   # one-off trial, nothing else loaded
 ```
 
-## Provides
+## Commands
 
-- `/rename <name>` — set the current session display name. The name is always stored as
-  a **slug**: lowercase, ASCII alphanumerics separated by single hyphens, diacritics
-  stripped, capped at 4 words (e.g. `Refactor Auth Module!` → `refactor-auth-module`,
-  `Café` → `cafe`).
-- `/rename` — **summarize your most recent activity** into a slug and apply it directly.
-  It asks the LLM (via `pi -p`) for a short title describing the most recent part of the
-  conversation, then slugifies it, so re-running it as work evolves produces a fresh,
-  current name and replaces the previous one. If the LLM is unavailable (offline, no API
-  key, timeout) it falls back to a **deterministic** slug of the latest user message. It
-  never opens an input dialog: pass a name to use it, or pass nothing to have one invented.
+| Command | What it does |
+| --- | --- |
+| `/rename <name>` | Slugify `<name>` and set it as the session display name (instant, no LLM). |
+| `/rename` | Summarize your most recent activity via the LLM into a slug and apply it directly. |
 
-The current name is shown as an inverted-color "pill" (foreground/background swapped)
-embedded in the editor's **top border** (the violet prompt line) — right where the
-dynamic-workflows router shows `ultracode auto`, with the border line continuing into
-the name pill as `ultracode auto ── <slug>` (existing label first, name last) when both
-are present. This mirrors Claude Code's
-`/rename [name]`, which renames the current conversation, shows the name on the prompt
-bar, and auto-generates one from history when none is given.
+## How it works
 
-## Relationship to the native `/name`
+- **Auto-naming:** a one-shot `pi -p` subprocess summarizes the most recent part of the conversation into a short title, which is slugified. Re-running `/rename` as work evolves replaces the name with a fresh, current one. It never opens an input dialog.
+- **Subprocess isolation:** the summary run uses `--no-extensions/--no-skills/--no-context-files`, is bounded by a ~12s timeout, and uses your configured model. Override the binary with `PI_RENAME_PI_COMMAND` and the model with `PI_RENAME_MODEL`.
+- **Deterministic fallback:** if the LLM is unavailable (offline, no API key, timeout), `/rename` slugifies the most recent non-empty user message (leading slash-command dropped, truncated on a word boundary). It always produces a name and never blocks indefinitely.
+- **Border pill:** a thin outer editor layer overrides only rendering, so it needs no dependency on dynamic-workflows and composes with that extension's label as `ultracode auto ── <slug>` when both are present. The name is rendered in reverse video (inverted fg/bg).
+- **Same channel as `/name`:** names are set via `pi.setSessionName`, so `/resume`, the resume selector (`pi -r`), and `/name` with no arguments all show the same slug.
 
-Pi already ships a native `/name <name>` that sets the session display name. `/rename`
-is a functional **superset** of it: same naming target, plus the no-argument
-auto-generate path that `/name` lacks. `/rename` coexists with `/name` and never
-overrides it — use whichever verb you prefer.
+## Limitations & safety notes
 
-## Behavior details
+- Empty history or no usable text falls back to the default name `session`; if `setSessionName` fails, `/rename` reports an error instead of crashing.
+- The exit-time `Session name: <slug> (resume by name: pi -r)` line prints only in the TUI on a TTY, and stays silent when the session is unnamed.
+- Pi core's own exit hint (`To resume this session: pi --session <uuid>`) is UUID-only by design — `--session` resolves paths/partial UUIDs, not names. Upstream FR to include the name: [earendil-works/pi#6296](https://github.com/earendil-works/pi/issues/6296).
 
-- The name shown by `/resume` (and tooling) is the session display name, set via the
-  same channel as `/name` (`pi.setSessionName`).
-- Both the explicit and auto-generated names are slugified, so the stored name and the
-  border label are always a clean slug of at most 4 words.
-- The border label is added by a thin outer editor layer that delegates everything but
-  rendering, so it works without importing or depending on dynamic-workflows, composes
-  with that extension's `ultracode auto` label (placed first), and leaves scroll hints
-  untouched. The name is rendered with reverse video (inverted fg/bg) as a pill.
-- The no-argument name is generated by an LLM: a one-shot `pi -p` subprocess summarizes
-  the most recent part of the conversation into a short title, which is slugified. The
-  subprocess is isolated (`--no-extensions/--no-skills/--no-context-files`) and bounded by
-  a ~12s timeout. It uses your configured model by default; override the binary with
-  `PI_RENAME_PI_COMMAND` and the model with `PI_RENAME_MODEL`.
-- The fallback is **deterministic** (no LLM, no network): the most recent non-empty user
-  message (walking the history backward), leading slash-command dropped, slugified and
-  truncated on a word boundary. It is used whenever the summary is unavailable, so
-  `/rename` always produces a name and never blocks indefinitely.
-- Fallbacks: empty history or no usable text falls back to a default name
-  (`session`); if `setSessionName` fails it reports an error instead of crashing.
+## Related
 
-## Where the name shows up
-
-The name set by `/rename` (or the native `/name`) appears in:
-
-- the **resume selector** (`pi -r` / `pi --resume`), which shows `name ?? first message`;
-- `/name` with no arguments (`Session name: <slug>`);
-- the **editor border pill** in the TUI;
-- **on exit**, as a dim line under pi core's resume hint:
-
-  ```text
-  To resume this session: pi --session 019f2a26-70f1-7849-b9a3-c8ea84741ba1
-  Session name: docs-html-mirror-sync (resume by name: pi -r)
-  ```
-
-  The first line is pi core's and is UUID-only by design (`--session` resolves
-  paths/partial UUIDs, not names; upstream FR to include the name:
-  [earendil-works/pi#6296](https://github.com/earendil-works/pi/issues/6296)). The
-  second line is printed by this extension from a process `exit` hook (TUI + TTY only,
-  one hook across reloads, silent when the session is unnamed).
+For the full bundle of extensions and skills, install the repository root instead.
