@@ -131,7 +131,10 @@ export function formatDoctorOutput(result: DoctorResult): { text: string; type: 
 		return { text: `Could not run the doctor check: ${result.spawnError}`, type: "error" };
 	}
 	if (result.timedOut) {
-		return { text: "The doctor check timed out.", type: "error" };
+		return {
+			text: "The doctor check timed out — run `npm run doctor` directly for more time to finish.",
+			type: "error",
+		};
 	}
 	const text = result.stdout.trim() || result.stderr.trim() || "(doctor produced no output)";
 	return { text, type: result.ok ? "info" : "error" };
