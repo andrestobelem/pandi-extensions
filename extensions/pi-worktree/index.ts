@@ -416,7 +416,7 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 			created: false,
 			opened: false,
 			isError: true,
-			message: `Invalid branch name: "${opts.newBranch}"`,
+			message: `Invalid branch name "${opts.newBranch}" — no spaces, control characters, or leading/trailing dots or slashes.`,
 		};
 	}
 	let created = false;
@@ -626,7 +626,11 @@ async function resolveInteractiveAction(ctx: ExtensionContext): Promise<ParsedCo
 		const branch = await ctx.ui.input?.("New branch name (optional)", "");
 		const newBranch = branch?.trim() || undefined;
 		if (newBranch && !isValidBranchName(newBranch)) {
-			notify(ctx, `Invalid branch name: "${newBranch}"`, "warning");
+			notify(
+				ctx,
+				`Invalid branch name "${newBranch}" — no spaces, control characters, or leading/trailing dots or slashes.`,
+				"warning",
+			);
 			return undefined;
 		}
 		return { action: "add", path: pathArg, newBranch };
@@ -820,7 +824,12 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				}
 				if (params.branch !== undefined && !isValidBranchName(params.branch)) {
 					return {
-						content: [{ type: "text" as const, text: `Invalid branch name: "${params.branch}"` }],
+						content: [
+							{
+								type: "text" as const,
+								text: `Invalid branch name "${params.branch}" — no spaces, control characters, or leading/trailing dots or slashes.`,
+							},
+						],
 						details: { isError: true, action: "add" },
 					};
 				}

@@ -98,7 +98,10 @@ export function parseCommand(input: string): ParsedCommand {
 				: "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]";
 		if (!pathArg) return { action: head, error: usage };
 		if (newBranch !== undefined && !isValidBranchName(newBranch)) {
-			return { action: head, error: `Invalid branch name: "${newBranch ?? ""}"` };
+			return {
+				action: head,
+				error: `Invalid branch name "${newBranch ?? ""}" — no spaces, control characters, or leading/trailing dots or slashes.`,
+			};
 		}
 		return { action: head, path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
 	}
