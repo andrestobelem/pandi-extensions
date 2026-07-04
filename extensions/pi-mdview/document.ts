@@ -40,7 +40,7 @@ export async function loadMarkdownDocument(pathArg: string, cwd: string): Promis
 		if (stat.size > MAX_MDVIEW_BYTES) {
 			return {
 				ok: false,
-				message: `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES}).`,
+				message: `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES} bytes) — open it in an external editor instead.`,
 				level: "warning",
 			};
 		}
