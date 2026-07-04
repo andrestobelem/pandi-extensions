@@ -56,7 +56,7 @@ export function convertMarkdownFile(
 	try {
 		md = fs.readFileSync(inputAbs, "utf8");
 	} catch {
-		throw new Error(`Could not read ${inputPath}`);
+		throw new Error(`Could not read ${inputPath} — check the path and try again`);
 	}
 	const tokensCss = fs.readFileSync(TOKENS_CSS_PATH, "utf8");
 	const html = renderMarkdownToHtml(md, { title: path.basename(inputAbs), kicker: opts.kicker, tokensCss });
@@ -141,7 +141,12 @@ export default function docsExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx: ExtensionContext) {
 			if (!params.path?.trim()) {
 				return {
-					content: [{ type: "text" as const, text: "markdown_to_html: `path` must not be empty." }],
+					content: [
+						{
+							type: "text" as const,
+							text: "markdown_to_html: `path` must not be empty — pass a Markdown file path.",
+						},
+					],
 					details: { isError: true },
 				};
 			}
