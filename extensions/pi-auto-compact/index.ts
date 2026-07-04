@@ -210,7 +210,11 @@ export default function autoCompact(pi: ExtensionAPI) {
 				// retries; unlike onComplete this cannot tight-loop (paced by agent_end,
 				// and it self-heals once the transient error clears).
 				previousPercent = null;
-				notify(ctx, `Auto-compaction failed: ${error.message}`, "error");
+				notify(
+					ctx,
+					`Auto-compaction failed: ${error.message} — it will retry automatically once usage crosses the threshold again.`,
+					"error",
+				);
 				updateStatusBar(ctx);
 			},
 		});
@@ -270,7 +274,11 @@ export default function autoCompact(pi: ExtensionAPI) {
 			}
 		} catch (err) {
 			pendingSnapshotPath = undefined;
-			notify(ctx, `Could not save compaction snapshot: ${(err as Error).message}`, "warning");
+			notify(
+				ctx,
+				`Could not save compaction snapshot: ${(err as Error).message} — compaction continues without it.`,
+				"warning",
+			);
 		}
 	};
 
@@ -286,7 +294,11 @@ export default function autoCompact(pi: ExtensionAPI) {
 			writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
 			notify(ctx, `Compaction snapshot saved (recoverable raw context): ${file}`, "info");
 		} catch (err) {
-			notify(ctx, `Could not finalize compaction snapshot: ${(err as Error).message}`, "warning");
+			notify(
+				ctx,
+				`Could not finalize compaction snapshot: ${(err as Error).message} — the raw snapshot at ${file} is still recoverable, just missing the summary patch.`,
+				"warning",
+			);
 		}
 	};
 
