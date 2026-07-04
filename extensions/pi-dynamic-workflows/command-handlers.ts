@@ -25,7 +25,13 @@ import {
 	switchToPiSession,
 } from "./dashboard-orchestration.js";
 import { text } from "./format.js";
-import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
+import type {
+	DynamicWorkflowToolParams,
+	WorkflowLogEntry,
+	WorkflowRunRecord,
+	WorkflowRunResult,
+	WorkflowRunStatus,
+} from "./index.js";
 import { currentWorkflowDepth, maxWorkflowDepth, transformWorkflowCode, WORKFLOW_DRAFT_DIR } from "./index.js";
 import { notify } from "./notify.js";
 import {
@@ -47,8 +53,11 @@ import {
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "./run-lifecycle.js";
+import { collectRunReport } from "./run-report-collector.js";
+import { buildRunReportHtml } from "./run-report-html.js";
 import { getRunState, getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
+import { readRunStatus } from "./run-store.js";
 import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from "./run-view.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow } from "./workflow-resolve.js";
@@ -106,6 +115,19 @@ export async function handleTool(
 		const run = await resolveRun(ctx, params.name);
 		const view = await formatRunView(run);
 		return { content: [text(view)], details: { action, run } };
+	}
+
+	if (action === "report") {
+		const run = await resolveRun(ctx, params.name);
+		const reportPath = await writeRunReport(run);
+		return {
+			content: [
+				text(
+					`Run report written: ${reportPath}\nOpen it in a browser; artifact links resolve relative to the run dir.`,
+				),
+			],
+			details: { action, runId: run.runId, reportPath },
+		};
 	}
 
 	if (action === "cancel") {
@@ -263,6 +285,29 @@ export function parseCleanupArgs(afterAction: string): CleanupArgs {
 	return result;
 }
 
+/**
+ * Render a run into a self-contained HTML report. Default output is
+ * <runDir>/report.html so relative artifact links resolve. The in-session
+ * readRunStatus verdict is the staleness authority (liveness "verified");
+ * the current script source (when readable) feeds code-drift detection.
+ */
+async function writeRunReport(run: WorkflowRunRecord, outPath?: string): Promise<string> {
+	const liveStatus = await readRunStatus(run.runDir);
+	let currentScriptCode: string | null;
+	try {
+		currentScriptCode = await fs.readFile(run.file, "utf8");
+	} catch {
+		currentScriptCode = null;
+	}
+	const model = await collectRunReport(run.runDir, {
+		...(liveStatus ? { liveStatus } : {}),
+		currentScriptCode,
+	});
+	const target = outPath ?? path.join(run.runDir, "report.html");
+	await fs.writeFile(target, buildRunReportHtml(model), "utf8");
+	return target;
+}
+
 export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
 	const trimmed = args.trim();
 	const actionMatch = /^(\S+)(?:\s+([\s\S]*))?$/.exec(trimmed);
@@ -372,6 +417,29 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 		if (action === "view") {
 			const run = await resolveRun(ctx, commandName);
 			await showRunView(ctx, run);
+			return;
+		}
+
+		if (action === "report") {
+			// /workflow report [runId|latest] [-o out.html] — default output is INSIDE the
+			// run dir so relative artifact links resolve; -o elsewhere breaks those links,
+			// so it warns.
+			const tokens = afterAction.split(/\s+/).filter(Boolean);
+			const outFlag = tokens.indexOf("-o");
+			const outOverride = outFlag !== -1 ? tokens[outFlag + 1] : undefined;
+			if (outFlag !== -1 && !outOverride) {
+				notify(ctx, "Usage: /workflow report [runId|latest] [-o out.html]", "warning");
+				return;
+			}
+			const idToken = tokens.filter((_t, i) => i !== outFlag && i !== outFlag + 1)[0];
+			const run = await resolveRun(ctx, idToken === "latest" ? undefined : idToken);
+			const reportPath = await writeRunReport(run, outOverride ? path.resolve(ctx.cwd, outOverride) : undefined);
+			const outsideRunDir = outOverride && !reportPath.startsWith(path.resolve(run.runDir) + path.sep);
+			notify(
+				ctx,
+				`Run report written: ${reportPath}${outsideRunDir ? "\nWarning: written outside the run dir — relative artifact links will not resolve." : ""}`,
+				outsideRunDir ? "warning" : "info",
+			);
 			return;
 		}
 

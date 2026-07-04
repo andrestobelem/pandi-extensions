@@ -65,6 +65,7 @@ import { installWorkflowDashboardDownEditor } from "./dashboard-down-editor.js";
 import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
 import { abortActiveWorkflowRuns } from "./run-lifecycle.js";
 
+export { countRunArtifacts } from "./dashboard-collectors.js";
 export { settleWithinTimeout } from "./run-lifecycle.js";
 
 import { handleTool, handleWorkflowCommand, handleWorkflowsCommand } from "./command-handlers.js";
@@ -203,6 +204,7 @@ const TOOL_ACTIONS = [
 	"graph",
 	"runs",
 	"view",
+	"report",
 ] as const;
 const WORKFLOW_SCOPE_INPUTS = ["auto", "project", "global"] as const;
 
@@ -294,7 +296,7 @@ interface WorkflowRuntimeApi {
 const workflowToolSchema = Type.Object({
 	action: StringEnum(TOOL_ACTIONS, {
 		description:
-			"Workflow operation to perform: list/scaffold/read/write/run/start/resume/cancel/delete/graph/runs/view. scaffold with no name lists the pattern catalog; scaffold with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed.",
+			"Workflow operation to perform: list/scaffold/read/write/run/start/resume/cancel/delete/graph/runs/view/report. scaffold with no name lists the pattern catalog; scaffold with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed. report renders a run (default: latest) into a self-contained <runDir>/report.html.",
 	}),
 	name: Type.Optional(
 		Type.String({

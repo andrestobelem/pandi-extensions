@@ -122,7 +122,9 @@ export interface WorkflowMonitorModel {
 	canRerun: boolean;
 }
 
-async function countRunArtifacts(runDir: string): Promise<number> {
+// Exported for the run-report-adapters pin: the generated report is derived output,
+// never a run artifact, so writing report.html must not change the artifact count.
+export async function countRunArtifacts(runDir: string): Promise<number> {
 	try {
 		const files = await listRunFiles(runDir, 200);
 		const bookkeeping = new Set([
@@ -132,6 +134,7 @@ async function countRunArtifacts(runDir: string): Promise<number> {
 			"events.jsonl",
 			JOURNAL_FILE,
 			"summary.md",
+			"report.html",
 		]);
 		return files.filter((file) => !bookkeeping.has(file)).length;
 	} catch {
