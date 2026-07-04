@@ -64,7 +64,9 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			if (rawTopic) {
 				const slug = slugifyTopic(rawTopic);
 				if (!slug) {
-					return errorResult(`Invalid topic "${params.topic}": no safe file name could be derived.`);
+					return errorResult(
+						`Invalid topic "${params.topic}": no safe file name could be derived — use letters, numbers, or hyphens.`,
+					);
 				}
 				targetPath = join(memoryDir, `${slug}.md`);
 				targetLabel = `${CONFIG_DIR_NAME}/memory/${slug}.md`;
@@ -82,9 +84,12 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 					existing = readFileSync(legacyPath, "utf8");
 				}
 			} catch {
-				return errorResult(`Could not read existing memory at ${targetPath}; nothing was written.`, {
-					path: targetPath,
-				});
+				return errorResult(
+					`Could not read existing memory at ${targetPath}; nothing was written — check that the file exists and is readable, then retry.`,
+					{
+						path: targetPath,
+					},
+				);
 			}
 
 			const date = new Date().toISOString().slice(0, 10);
