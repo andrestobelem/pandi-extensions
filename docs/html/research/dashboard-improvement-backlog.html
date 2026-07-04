@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard improvement backlog</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -133,15 +133,15 @@ paths (verified to exist), and status (<code>open</code> / <code>done</code> / <
 <li><strong>DW-DASH-001 — Extract shared &quot;Selected agent&quot; detail helper</strong> · <code>done</code><ul>
 <li>Why: the detail block was duplicated near-identically in two render paths, so any
 field-format edit risked silent divergence between Monitor and Agents.</li>
-<li>Paths: <code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code>
-(<code>renderSelectedAgentDetail</code>), <code>extensions/pi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code>.</li>
+<li>Paths: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code>
+(<code>renderSelectedAgentDetail</code>), <code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-DASH-002 — Pin switch-session arg quoting/parsing round-trip</strong> · <code>done</code><ul>
 <li>Why: <code>parseWorkflowCommandArgument</code> (the <code>switch-session</code> arg path) had zero
 coverage; a naive quote-strip would break session paths containing spaces/unicode.</li>
-<li>Paths: <code>extensions/pi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code>,
-<code>extensions/pi-dynamic-workflows/dashboard-orchestration.ts</code> (exports the helper).</li>
+<li>Paths: <code>extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code>,
+<code>extensions/pandi-dynamic-workflows/dashboard-orchestration.ts</code> (exports the helper).</li>
 </ul>
 </li>
 <li><strong>DW-DASH-003 — Collapse the duplicated per-row agent line formatting</strong> · <code>done</code><ul>
@@ -151,9 +151,9 @@ duplicated <code>muted(...)</code>/<code>success(...)</code>/<code>warning(...)<
 only the prefix label/elapsed-vs-workflow segment and Monitor&#39;s <code>code:</code> chip
 differed. Extracted a behavior-preserving private helper <code>renderAgentRowMeta(...)</code>
 invoked from both render paths so the common chip string is built in one place.</li>
-<li>Paths: <code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code>
+<li>Paths: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code>
 (<code>renderAgentRowMeta</code>, used in <code>renderMonitorAgents</code> and <code>renderAgents</code>),
-<code>extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code>.</li>
+<code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-TOOL-001 — Make the workflow HTML previewer compatible with BOTH harnesses</strong> · <code>done</code><ul>
@@ -188,7 +188,7 @@ longer applies; this item is moot at the current baseline.</li>
 (not untracked), so the provenance concern is gone. It runs green in the
 auto-discovered verify loop and passes <code>biome check</code>; no further human decision is
 needed.</li>
-<li>Paths: <code>extensions/pi-dynamic-workflows/tests/integration/dashboard-collectors-contract.test.mjs</code>.</li>
+<li>Paths: <code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-collectors-contract.test.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-DASH-H3 — Jump-to-next-active-run shortcut in Runs/Activity</strong> · <code>done</code><ul>
@@ -201,8 +201,8 @@ run on the Runs tab and the next/previous running entry on the Activity tab (wra
 no-op when nothing is running), mirroring the Monitor&#39;s <code>[</code> / <code>]</code> cycling and the
 Agents tab&#39;s <code>f</code>. Anchored by <code>dashboard-jump-active-run.test.mjs</code> (9 checks); help
 overlay + per-tab help bar updated.</li>
-<li>Paths: <code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code>,
-<code>extensions/pi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs</code>.</li>
+<li>Paths: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code>,
+<code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs</code>.</li>
 </ul>
 </li>
 </ul>

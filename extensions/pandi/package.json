@@ -1,0 +1,34 @@
+{
+	"name": "@pandi-coding-agent/pandi",
+	"version": "0.1.2",
+	"description": "Pi extension that adds Pandi, a panda mascot: a startup splash header, an animated working indicator, and a /pandi command.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pi-dynamic-workflows.git",
+		"directory": "extensions/pandi"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"mascot",
+		"panda"
+	],
+	"files": [
+		"index.ts",
+		"face.ts",
+		"moods.ts",
+		"persona.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	}
+}

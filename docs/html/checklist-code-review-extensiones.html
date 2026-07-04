@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Checklist de code review — extensiones pi (pi-dynamic-workflows)</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -173,7 +173,7 @@ repo vía <code>biome check --write .</code>); usar <code>npx biome check --writ
 y confirmar con <code>git diff --stat</code> que solo cambiaron los archivos esperados.</li>
 <li><input disabled="" type="checkbox"> Todo <code>try/catch</code>/rama de error/<code>if</code> defensivo nuevo tiene aserción en el
 <code>*-coverage.test.mjs</code> de la extensión (p.ej.
-<code>extensions/pi-goal/tests/integration/index-coverage.test.mjs</code>); sin caso real
+<code>extensions/pandi-goal/tests/integration/index-coverage.test.mjs</code>); sin caso real
 que la dispare, eliminar la rama.</li>
 <li><input disabled="" type="checkbox"> Markdown tocado (README, skills, docs) pasa <code>npm run lint:md</code> (markdownlint-cli2).</li>
 </ul>
@@ -184,8 +184,8 @@ que la dispare, eliminar la rama.</li>
 en <code>extensions/&lt;ext&gt;/</code>; con subdirs usar la misma forma <code>git grep</code> de 2.1:
 <code>git grep -hoE &#39;from &quot;\./[A-Za-z0-9_-]+\.(js|ts)&quot;&#39; -- &#39;extensions/&lt;ext&gt;/**.ts&#39; &#39;:!*/tests/*&#39; | sed &#39;s/\.js&quot;/.ts&quot;/&#39;</code> — cada <code>.ts</code> resultante debe estar en <code>files[]</code>.</li>
 <li><input disabled="" type="checkbox"> Subcarpetas referenciadas (<code>scripts/</code>, <code>themes/</code>, <code>primitives/</code>, <code>skills/</code>) están
-declaradas en <code>files[]</code> (ver <code>pi-doctor</code>→<code>scripts</code>, <code>pi-dynamic-workflows</code>→
-<code>scaffolds</code>/<code>primitives</code>/<code>skills</code>, <code>pi-pandi-theme</code>→<code>themes</code>).</li>
+declaradas en <code>files[]</code> (ver <code>pandi-doctor</code>→<code>scripts</code>, <code>pandi-dynamic-workflows</code>→
+<code>scaffolds</code>/<code>primitives</code>/<code>skills</code>, <code>pandi-theme</code>→<code>themes</code>).</li>
 <li><input disabled="" type="checkbox"> <code>pi.extensions</code> del <code>package.json</code> de la extensión apunta al entrypoint real y
 coincide con el manifiesto root.</li>
 <li><input disabled="" type="checkbox"> Manifiesto root regenerado, no editado a mano, si cambió el catálogo:
@@ -193,7 +193,7 @@ coincide con el manifiesto root.</li>
 <li><input disabled="" type="checkbox"> Skills/guías vendorizadas por la extensión, si aplica, no driftan:
 <code>npm run sync:skills:check</code>, <code>npm run sync:agents:check</code>, <code>npm run doctor</code>.</li>
 <li><input disabled="" type="checkbox"> Tarball real: <code>npm pack -w extensions/&lt;ext&gt; --dry-run</code> (por RUTA; el nombre npm
-omite <code>pi-</code>, ej. <code>pi-goal</code>→<code>@pandi-coding-agent/goal</code>) incluye todos los archivos
+omite <code>pi-</code>, ej. <code>pandi-goal</code>→<code>@pandi-coding-agent/pandi-goal</code>) incluye todos los archivos
 runtime, no solo <code>index.ts</code>.</li>
 </ul>
 <h2>6. Suite completa y commit</h2>

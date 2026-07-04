@@ -9,7 +9,7 @@
 //
 // This mirrors the claude-workflows pattern (a generator + a --check guarded by a parity test):
 // edit the .pi copy, then re-run this; the parity test
-// (extensions/pi-dynamic-workflows/tests/integration/skill-mirror-parity.test.mjs) fails on drift.
+// (extensions/pandi-dynamic-workflows/tests/integration/skill-mirror-parity.test.mjs) fails on drift.
 //
 // Usage:
 //   node scripts/sync-skill-mirrors.mjs           # write mirrors from .pi -> .claude

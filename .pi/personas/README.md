@@ -4,7 +4,7 @@
 # Project personas
 
 Read-only advisor personas for subagents, selected with `agentType: "<name>"` and loaded by
-`extensions/pi-dynamic-workflows/agent-env-persona.ts` (project personas override built-ins;
+`extensions/pandi-dynamic-workflows/agent-env-persona.ts` (project personas override built-ins;
 explicit call options win). The JSON files are the source of truth and are injected at spawn;
 this README is their readable mirror.
 

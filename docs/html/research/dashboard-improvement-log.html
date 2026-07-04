@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard improvement log</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -142,15 +142,15 @@ Pending work lives in <code>dashboard-improvement-backlog.md</code>, not here.</
 </li>
 <li><p><strong>Archivos REALES tocados (pass):</strong></p>
 <ul>
-<li><code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code> — nuevo helper privado <code>renderAgentRowMeta</code> (def. antes de <code>renderMonitorAgents</code>); ambos callers reemplazan los ~6 <code>const</code> de chips por <code>const meta = this.renderAgentRowMeta(...)</code>.</li>
-<li><code>extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code> — test behavioral nuevo (patrón <code>buildExtension</code> + <code>loadModule</code> + <code>WorkflowDashboard.render(WIDTH)</code>): para un mismo agente verifica que el meta suffix (<code>prompt…keys</code>) es byte-idéntico entre la fila de Monitor y la de Agents, y que persisten las dos divergencias (<code>code:</code> solo en Monitor; <code>— &lt;workflow&gt; &lt;runId&gt;</code> solo en Agents). Autodescubierto por <code>scripts/test/run-all.mjs</code> (convención <code>tests/integration/*.test.mjs</code>) — manifest sin tocar.</li>
+<li><code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> — nuevo helper privado <code>renderAgentRowMeta</code> (def. antes de <code>renderMonitorAgents</code>); ambos callers reemplazan los ~6 <code>const</code> de chips por <code>const meta = this.renderAgentRowMeta(...)</code>.</li>
+<li><code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code> — test behavioral nuevo (patrón <code>buildExtension</code> + <code>loadModule</code> + <code>WorkflowDashboard.render(WIDTH)</code>): para un mismo agente verifica que el meta suffix (<code>prompt…keys</code>) es byte-idéntico entre la fila de Monitor y la de Agents, y que persisten las dos divergencias (<code>code:</code> solo en Monitor; <code>— &lt;workflow&gt; &lt;runId&gt;</code> solo en Agents). Autodescubierto por <code>scripts/test/run-all.mjs</code> (convención <code>tests/integration/*.test.mjs</code>) — manifest sin tocar.</li>
 <li><code>docs/research/dashboard-improvement-backlog.md</code> — DW-DASH-003 → Done; H1/H2 marcados resueltos al baseline <code>da0a449</code>.</li>
 </ul>
 </li>
 <li><p><strong>Verificación (verde):</strong></p>
 <ul>
 <li><code>tsc -p tsconfig.json --noEmit</code></li>
-<li><code>biome check extensions/pi-dynamic-workflows</code> (98 files, sin errores)</li>
+<li><code>biome check extensions/pandi-dynamic-workflows</code> (98 files, sin errores)</li>
 <li>Bucle <code>for f in tests/integration/*.test.mjs</code> (todas las suites PASS, incl. la nueva con 9 checks)</li>
 <li>esbuild de <code>workflow-dashboard.ts</code> a <code>.pi/tmp/wfdash.check.mjs</code> OK (artefacto borrado)</li>
 <li><code>node --check</code> de la <code>.mjs</code> nueva OK</li>
@@ -178,9 +178,9 @@ Pending work lives in <code>dashboard-improvement-backlog.md</code>, not here.</
 </li>
 <li><p><strong>Archivos REALES tocados (pass):</strong></p>
 <ul>
-<li><code>extensions/pi-dynamic-workflows/workflow-dashboard.ts</code> — helper <code>renderSelectedAgentDetail</code> (def. ~L737; usado en Monitor ~L853 y Agents ~L927).</li>
-<li><code>extensions/pi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code> — ancla el contrato: líneas compartidas byte-idénticas entre ambos tabs + las tres diferencias intencionales (header / schema suffix / ancho 220 vs 260).</li>
-<li><code>extensions/pi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code> — fija el round-trip de quoting↔parsing de <code>parseWorkflowCommandArgument</code> para el comando <code>switch-session</code> (ruta antes sin cobertura).</li>
+<li><code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> — helper <code>renderSelectedAgentDetail</code> (def. ~L737; usado en Monitor ~L853 y Agents ~L927).</li>
+<li><code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code> — ancla el contrato: líneas compartidas byte-idénticas entre ambos tabs + las tres diferencias intencionales (header / schema suffix / ancho 220 vs 260).</li>
+<li><code>extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code> — fija el round-trip de quoting↔parsing de <code>parseWorkflowCommandArgument</code> para el comando <code>switch-session</code> (ruta antes sin cobertura).</li>
 </ul>
 </li>
 <li><p><strong>Finalize (esta corrida):</strong></p>
@@ -193,7 +193,7 @@ Pending work lives in <code>dashboard-improvement-backlog.md</code>, not here.</
 <li><p><strong>Verificación:</strong> DIFERIDA al orquestador (el gate prohíbe ejecutarla aquí). Plan esperado en verde:</p>
 <ul>
 <li><code>tsc --noEmit</code></li>
-<li><code>biome check extensions/pi-dynamic-workflows</code></li>
+<li><code>biome check extensions/pandi-dynamic-workflows</code></li>
 <li>Bucle <code>for f in tests/integration/*.test.mjs</code></li>
 <li>esbuild de la ext</li>
 <li><code>node --check</code></li>

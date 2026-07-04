@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dynamic Workflows — the full guide</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -125,7 +125,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <p>A Dynamic Workflow is a <strong>trusted JavaScript script</strong> that Pi runs to orchestrate large work across many subagents. Reach for one when a single conversation is not enough — you need to fan work out across parallel <code>pi -p</code> agents, cover many independent items, or get adversarial verification before a decision. Think of it as <strong>MapReduce with agents</strong>: <code>map</code> runs many subagents in parallel over independent units, <code>reduce</code> is a final synthesis that combines results, resolves contradictions, and prioritizes.</p>
-<p>This is the deep reference for the <code>pi-dynamic-workflows</code> extension. The root <a href="index.html"><code>README.md</code></a> has the short overview, and <a href="../extensions/pi-dynamic-workflows/README.md"><code>extensions/pi-dynamic-workflows/README.md</code></a> documents the installable package.</p>
+<p>This is the deep reference for the <code>pandi-dynamic-workflows</code> extension. The root <a href="index.html"><code>README.md</code></a> has the short overview, and <a href="../extensions/pandi-dynamic-workflows/README.md"><code>extensions/pandi-dynamic-workflows/README.md</code></a> documents the installable package.</p>
 <h2>Quickstart</h2>
 <p>A workflow is a JS module whose default export is an <code>async</code> function. It reads its input from the <code>args</code> global and calls injected helpers (<code>agent</code>, <code>agents</code>, <code>log</code>, <code>writeArtifact</code>, …) — never <code>import</code>/<code>require</code>, never <code>ctx</code>.</p>
 <pre><code class="language-js">// .pi/workflows/drafts/review-two-files.js

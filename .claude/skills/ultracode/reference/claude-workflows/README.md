@@ -2,7 +2,7 @@
 
 > **Provenance.** The `*.js` files here are **generated artifacts** — do NOT
 > hand-edit them. `.claude/scripts/generate-claude-workflows.mjs` produces them
-> from the canonical pi scaffolds (`extensions/pi-dynamic-workflows/scaffolds/`),
+> from the canonical pi scaffolds (`extensions/pandi-dynamic-workflows/scaffolds/`),
 > byte-identical to the repo's `.claude/workflows/` catalog, and the
 > `claude-parity` test gates both destinations against drift. The copy lives
 > inside the skill so it stays self-contained when the skill is installed

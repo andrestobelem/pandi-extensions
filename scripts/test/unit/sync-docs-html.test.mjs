@@ -19,7 +19,7 @@ test("outPathFor maps the set and rejects everything else", () => {
 	assert.equal(outPathFor("docs/research/x.md"), "research/x.html");
 	assert.equal(outPathFor("docs/conversaciones/x.md"), null);
 	assert.equal(outPathFor("AGENTS.md"), null);
-	assert.equal(outPathFor("extensions/pi-bg/README.md"), null);
+	assert.equal(outPathFor("extensions/pandi-bg/README.md"), null);
 });
 
 test("rewriteHrefs rewrites in-set relative .md links, preserves anchors, leaves the rest", () => {

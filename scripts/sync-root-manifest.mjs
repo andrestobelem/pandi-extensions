@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // sync-root-manifest.mjs — derive the root package.json `pi.extensions` and `pi.themes`
-// from each `extensions/pi-<name>/package.json` pi manifest (SOURCE OF TRUTH = the
+// from each `extensions/pandi-<name>/package.json` pi manifest (SOURCE OF TRUTH = the
 // sub-packages). Adding an extension never requires hand-editing the root list; a
 // package that declares pi resources but is missing from the root is drift.
 //
@@ -11,7 +11,7 @@
 //
 // This mirrors the sync-skill-mirrors pattern (a generator + a --check guarded by a
 // parity test): edit a sub-package manifest, then re-run this; the parity test
-// (extensions/pi-dynamic-workflows/tests/integration/root-manifest-parity.test.mjs)
+// (extensions/pandi-dynamic-workflows/tests/integration/root-manifest-parity.test.mjs)
 // fails on drift.
 //
 // Usage:
@@ -27,34 +27,35 @@ const ROOT_PKG = join(REPO, "package.json");
 
 // Curated load order (dir names). Keep the core first and the UX aliases last.
 const LOAD_ORDER = [
-	"pi-dynamic-workflows",
-	"pi-loop",
-	"pi-goal",
-	"pi-plan",
-	"pi-bg",
-	"pi-effort",
-	"pi-mdview",
-	"pi-docs",
-	"pi-local-memory",
-	"pi-auto-compact",
-	"pi-worktree",
-	"pi-container",
-	"pi-typescript-lsp",
-	"pi-rename",
-	"pi-btw",
-	"pi-pandi",
-	"pi-exit",
-	"pi-clear",
-	"pi-ask",
-	"pi-doctor",
-	"pi-pandi-theme",
+	"pandi-dynamic-workflows",
+	"pandi-loop",
+	"pandi-goal",
+	"pandi-plan",
+	"pandi-bg",
+	"pandi-effort",
+	"pandi-mdview",
+	"pandi-docs",
+	"pandi-local-memory",
+	"pandi-auto-compact",
+	"pandi-worktree",
+	"pandi-container",
+	"pandi-typescript-lsp",
+	"pandi-rename",
+	"pandi-btw",
+	"pandi",
+	"pandi-exit",
+	"pandi-clear",
+	"pandi-ask",
+	"pandi-doctor",
+	"pandi-theme",
 ];
 
 const checkOnly = process.argv.includes("--check");
 
-const dirs = readdirSync(join(REPO, "extensions"))
-	.filter((d) => d.startsWith("pi-") && existsSync(join(REPO, "extensions", d, "package.json")))
-	.sort();
+const isPandiExtensionDir = (d) =>
+	(d === "pandi" || d.startsWith("pandi-")) && existsSync(join(REPO, "extensions", d, "package.json"));
+
+const dirs = readdirSync(join(REPO, "extensions")).filter(isPandiExtensionDir).sort();
 const known = dirs.filter((d) => LOAD_ORDER.includes(d));
 const unknown = dirs.filter((d) => !LOAD_ORDER.includes(d));
 const ordered = [...LOAD_ORDER.filter((d) => known.includes(d)), ...unknown];

@@ -5,7 +5,7 @@ A **persona** is a named preset of `AgentOptions` you attach to a subagent with
 (`thinking`), and a role `systemPrompt`, so you don't re-specify them per call.
 
 Source of truth: `BUILTIN_AGENT_PERSONAS` in
-`extensions/pi-dynamic-workflows/agent-env-persona.ts`. Projects can override a
+`extensions/pandi-dynamic-workflows/agent-env-persona.ts`. Projects can override a
 built-in (or add their own) with a trusted `.pi/personas/<name>.json` file whose
 keys are limited to the persona-safe `AgentOptions` allowlist.
 

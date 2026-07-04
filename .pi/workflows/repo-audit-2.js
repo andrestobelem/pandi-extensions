@@ -64,9 +64,9 @@ export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
 	// Scope strings (reused so the 3 CORE areas can be reviewed by BOTH providers).
 	const S = {
-		coreDispatch: "extensions/pi-dynamic-workflows/index.ts — the subagent dispatcher, journal/resume cache, runSubagent/runAsk/runBash, makeApi globals, handleTool. Focus on cancellation, resume/journal correctness, and secret redaction.",
-		corePrimitives: "extensions/pi-dynamic-workflows/concurrency-primitives.ts + process-spawn.ts + worker-source.ts. Focus on race()/agents()/parallel()/pipeline() cancellation & error propagation, AbortSignal wiring, and child-process spawn (argv vs shell) safety.",
-		coreEnvResume: "extensions/pi-dynamic-workflows/agent-env-persona.ts + config.ts + run-lifecycle.ts + run-state.ts. Focus on keys/env isolation & redaction, web_search/context7 resolution, limit clamps, and atomic status/result writes.",
+		coreDispatch: "extensions/pandi-dynamic-workflows/index.ts — the subagent dispatcher, journal/resume cache, runSubagent/runAsk/runBash, makeApi globals, handleTool. Focus on cancellation, resume/journal correctness, and secret redaction.",
+		corePrimitives: "extensions/pandi-dynamic-workflows/concurrency-primitives.ts + process-spawn.ts + worker-source.ts. Focus on race()/agents()/parallel()/pipeline() cancellation & error propagation, AbortSignal wiring, and child-process spawn (argv vs shell) safety.",
+		coreEnvResume: "extensions/pandi-dynamic-workflows/agent-env-persona.ts + config.ts + run-lifecycle.ts + run-state.ts. Focus on keys/env isolation & redaction, web_search/context7 resolution, limit clamps, and atomic status/result writes.",
 	};
 	const items = [
 		// CORE (critical) — dual, cross-provider: anthropic opus + openai-codex gpt-5.5.
@@ -77,12 +77,12 @@ export default async function main() {
 		item("core-env-resume", "opusHigh", S.coreEnvResume),
 		item("core-env-resume", "codexHigh", S.coreEnvResume),
 		// loops/goal/plan — single reviewer, alternate providers.
-		item("pi-loop", "codexHigh", "extensions/pi-loop/*.ts (skip tests/). Focus on state rehydration, delay/iteration/deadline clamps, tui/rpc gating, watchdog force-stop, autopilotTurnInFlight lifecycle vs activeLoops, and GC of terminal state."),
-		item("pi-goal", "sonnetHigh", "extensions/pi-goal/*.ts (skip tests/). Focus on activeGoals cleanup on stop/shutdown, sidecar write-vs-read symmetry, independent-verifier gating & caps, and iteration/wait clamps."),
-		item("pi-plan", "codexHigh", "extensions/pi-plan/*.ts (skip tests/). Focus on read-only mutation gate enforcement, blocked dynamic_workflow actions, bash allowlist, and non-interactive plan-only handling."),
+		item("pandi-loop", "codexHigh", "extensions/pandi-loop/*.ts (skip tests/). Focus on state rehydration, delay/iteration/deadline clamps, tui/rpc gating, watchdog force-stop, autopilotTurnInFlight lifecycle vs activeLoops, and GC of terminal state."),
+		item("pandi-goal", "sonnetHigh", "extensions/pandi-goal/*.ts (skip tests/). Focus on activeGoals cleanup on stop/shutdown, sidecar write-vs-read symmetry, independent-verifier gating & caps, and iteration/wait clamps."),
+		item("pandi-plan", "codexHigh", "extensions/pandi-plan/*.ts (skip tests/). Focus on read-only mutation gate enforcement, blocked dynamic_workflow actions, bash allowlist, and non-interactive plan-only handling."),
 		// devtools + docs/config — single reviewer, alternate providers, medium effort.
-		item("devtools-a", "sonnetMed", "extensions/pi-typescript-lsp/*.ts + extensions/pi-bg/*.ts (skip tests/). Focus on tsc resolution & touched-file scoping, and bg job lifecycle, PID/identity reuse detection, atomic writes, trust gating."),
-		item("devtools-b", "codexMed", "extensions/pi-worktree/*.ts + extensions/pi-container/*.ts (skip tests/). Focus on argv-array (never shell) git/container spawning, platform guards, and never-force-delete defaults."),
+		item("devtools-a", "sonnetMed", "extensions/pandi-typescript-lsp/*.ts + extensions/pandi-bg/*.ts (skip tests/). Focus on tsc resolution & touched-file scoping, and bg job lifecycle, PID/identity reuse detection, atomic writes, trust gating."),
+		item("devtools-b", "codexMed", "extensions/pandi-worktree/*.ts + extensions/pandi-container/*.ts (skip tests/). Focus on argv-array (never shell) git/container spawning, platform guards, and never-force-delete defaults."),
 		item("docs-consistency", "codexMed", "Compare the ROOT README.md claims against actual code: slash-command names, model tool names, PI_* env-var names AND defaults, and file paths. Read README.md plus the specific source lines it references. Report each drift with both citations."),
 		item("config-manifest", "sonnetMed", "package.json (`pi.extensions` vs extensions/ dirs, `files`, `pi.skills`, scripts), biome.jsonc, tsconfig.json, .gitignore, .env.example vs actual PI_* usage, and pi scaffolds vs .claude/workflows (parity). Report mismatches with citations."),
 	];

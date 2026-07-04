@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // generate-claude-workflows.mjs — deterministically generate the Claude Code
 // top-level-script dialect of every canonical pi scaffold
-// (extensions/pi-dynamic-workflows/scaffolds/*.js) into TWO destinations:
+// (extensions/pandi-dynamic-workflows/scaffolds/*.js) into TWO destinations:
 //   1. .claude/workflows/*.js — the repo's Claude catalog (synced to ~/.claude).
 //   2. .pi/skills/ultracode/reference/claude-workflows/*.js — the ultracode skill's
 //      self-contained reference copy (#26); it travels with the skill via the
@@ -32,7 +32,7 @@ import prettier from "prettier";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..");
-const SRC_DIR = join(REPO, "extensions", "pi-dynamic-workflows", "scaffolds");
+const SRC_DIR = join(REPO, "extensions", "pandi-dynamic-workflows", "scaffolds");
 const OUT_DIRS = [
 	join(REPO, ".claude", "workflows"),
 	join(REPO, ".pi", "skills", "ultracode", "reference", "claude-workflows"),

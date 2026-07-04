@@ -4,11 +4,11 @@ Date: 2026-06-29
 
 ## Objetivo
 
-Revisar el subsistema de **Personas** de `pi-dynamic-workflows`: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene. Lente: skeptical code reviewer, read-only, con cita `file:line`.
+Revisar el subsistema de **Personas** de `pandi-dynamic-workflows`: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene. Lente: skeptical code reviewer, read-only, con cita `file:line`.
 
 ## Dónde vive
 
-- **Definición:** `extensions/pi-dynamic-workflows/agent-env-persona.ts`
+- **Definición:** `extensions/pandi-dynamic-workflows/agent-env-persona.ts`
   — `BUILTIN_AGENT_PERSONAS` (5 personas, líneas 27–58) + resolución/merge/carga.
 - **Personas de proyecto:** archivos `.pi/personas/<name>.json` (`loadProjectPersona`, línea 228).
   Hoy **no hay ninguna** en el repo.
@@ -89,7 +89,7 @@ escéptico, etc.). Decisión pendiente: ¿adoptar `agentType` en los scaffolds?
 
 ### 6. Doc gap (menor)
 
-El README de la extensión (`extensions/pi-dynamic-workflows/README.md`) no menciona personas; sí
+El README de la extensión (`extensions/pandi-dynamic-workflows/README.md`) no menciona personas; sí
 lo hacen el README raíz (líneas 158, 402, 500, 525) y el skill.
 
 ## Orden sugerido de arreglo

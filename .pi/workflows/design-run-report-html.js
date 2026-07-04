@@ -46,10 +46,10 @@ export default async function main() {
 		"- .pi/scripts/build-workflow-artifact.mjs (static pre-launch HTML preview of a workflow SCRIPT; " +
 		"stubs the runtime globals, records agent()/parallel()/pipeline()/workflow(), renders tabs; mirrored " +
 		"byte-identical in .claude/scripts/). It knows nothing about runs.\n" +
-		"- extensions/pi-dynamic-workflows/: workflow-dashboard.ts (live TUI dashboard), run-view.ts, " +
+		"- extensions/pandi-dynamic-workflows/: workflow-dashboard.ts (live TUI dashboard), run-view.ts, " +
 		"run-status-ui.ts, dashboard-collectors.ts, workflow-graph.ts, workflow-graph-component.ts, " +
 		"metrics/journal/run-store modules — the extension already parses run data for the TUI.\n" +
-		"- extensions/pi-docs/ (markdown_to_html tool + /docs command) and the pandi-artifact-style skill " +
+		"- extensions/pandi-docs/ (markdown_to_html tool + /docs command) and the pandi-artifact-style skill " +
 		"(.pi/skills/pandi-artifact-style/SKILL.md): Claude-design layout, Panda Syntax palette, light+dark, " +
 		"self-contained single-file HTML, no external assets.\n" +
 		"- A real sample run dir: " + sampleRunDir + " (status.json, events.jsonl, journal.jsonl, " +

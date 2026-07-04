@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Research: ultracode always-on</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -146,7 +146,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li>Claude Code Settings: <a href="https://docs.anthropic.com/en/docs/claude-code/settings">https://docs.anthropic.com/en/docs/claude-code/settings</a></li>
 </ul>
 <h2>Implementation decision for Pi</h2>
-<p>We implemented an always-on router in the <code>pi-dynamic-workflows</code> extension:</p>
+<p>We implemented an always-on router in the <code>pandi-dynamic-workflows</code> extension:</p>
 <ul>
 <li>A short system prompt section is injected in <code>before_agent_start</code>.</li>
 <li>The extension tries to enable the <code>dynamic_workflow</code> tool so the router is available.</li>

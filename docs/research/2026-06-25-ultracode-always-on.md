@@ -27,7 +27,7 @@ According to public Claude Code and Anthropic documentation:
 
 ## Implementation decision for Pi
 
-We implemented an always-on router in the `pi-dynamic-workflows` extension:
+We implemented an always-on router in the `pandi-dynamic-workflows` extension:
 
 - A short system prompt section is injected in `before_agent_start`.
 - The extension tries to enable the `dynamic_workflow` tool so the router is available.

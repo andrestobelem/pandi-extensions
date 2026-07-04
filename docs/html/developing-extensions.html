@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Desarrollar y probar extensiones en pi</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -134,12 +134,12 @@ comando, un tool o un event handler.</p>
 <h2>Quickstart: una extensión mínima</h2>
 <p>Una extensión exporta una función default que recibe <code>pi: ExtensionAPI</code>. Podés
 probarla sin instalarla, apuntando <code>pi -e</code> al archivo:</p>
-<pre><code class="language-typescript">// extensions/pi-hello/index.ts
+<pre><code class="language-typescript">// extensions/pandi-hello/index.ts
 import type { ExtensionAPI } from &quot;@earendil-works/pi-coding-agent&quot;;
 
 export default function (pi: ExtensionAPI) {
   pi.on(&quot;session_start&quot;, async (_event, ctx) =&gt; {
-    if (ctx.hasUI) ctx.ui.notify(&quot;pi-hello cargada&quot;, &quot;info&quot;);
+    if (ctx.hasUI) ctx.ui.notify(&quot;pandi-hello cargada&quot;, &quot;info&quot;);
   });
 
   pi.registerCommand(&quot;hello&quot;, {
@@ -148,9 +148,9 @@ export default function (pi: ExtensionAPI) {
   });
 }
 </code></pre>
-<pre><code class="language-bash">pi -e ./extensions/pi-hello/index.ts
+<pre><code class="language-bash">pi -e ./extensions/pandi-hello/index.ts
 </code></pre>
-<p>Cada extensión de este repo vive en su propio <code>extensions/pi-&lt;nombre&gt;/index.ts</code>
+<p>Cada extensión de este repo vive en su propio <code>extensions/pandi-&lt;nombre&gt;/index.ts</code>
 (o un único <code>.ts</code>) y es <strong>self-contained</strong>: nada de imports runtime cruzados a
 otra extensión (<code>../shared/</code> solo existe para el harness de tests, nunca para
 código que corre en producción — ver <code>AGENTS.md</code>). Si dos extensiones necesitan
@@ -178,13 +178,13 @@ dispara el código</strong>:</p>
 <td><strong>Tool</strong> — <code>pi.registerTool({...})</code></td>
 <td>El LLM, cuando decide que la necesita dentro de un turno</td>
 <td>Es una capacidad que el modelo debe poder invocar por su cuenta</td>
-<td><code>dynamic_workflow</code> (pi-dynamic-workflows)</td>
+<td><code>dynamic_workflow</code> (pandi-dynamic-workflows)</td>
 </tr>
 <tr>
 <td><strong>Event handler</strong> — <code>pi.on(&quot;evento&quot;, (event, ctx) =&gt; ...)</code></td>
 <td>El runtime de pi, en cada punto del lifecycle</td>
 <td>Necesitás reaccionar o interceptar sin que nadie lo pida (bloquear un tool, inyectar contexto, persistir estado)</td>
-<td><code>pi.on(&quot;tool_call&quot;)</code> bloqueando mutaciones en <code>pi-plan</code>/<code>pi-loop</code>; <code>pi.on(&quot;session_before_compact&quot;)</code> en <code>pi-auto-compact</code></td>
+<td><code>pi.on(&quot;tool_call&quot;)</code> bloqueando mutaciones en <code>pandi-plan</code>/<code>pandi-loop</code>; <code>pi.on(&quot;session_before_compact&quot;)</code> en <code>pandi-auto-compact</code></td>
 </tr>
 </tbody></table>
 <p>Ver la referencia completa de eventos y <code>ExtensionAPI</code> en el
@@ -207,7 +207,7 @@ compartido (<code>extensions/shared/test/harness.mjs</code>) hace un esbuild-bun
 extensión a un directorio temporal y la importa dinámicamente con un <code>ctx</code>
 mockeado. Es aislado y rápido.</p>
 <pre><code class="language-bash"># una suite puntual (segundos) — el loop de desarrollo
-node --test extensions/pi-&lt;ext&gt;/tests/integration/&lt;algo&gt;.test.mjs
+node --test extensions/pandi-&lt;ext&gt;/tests/integration/&lt;algo&gt;.test.mjs
 
 # todo el gate antes de commitear (typecheck + biome + markdownlint + suites)
 npm test
@@ -271,7 +271,7 @@ Aísla los tools built-in y <code>!</code> en una micro-VM; <strong>no</strong> 
 dynamic-workflows (spawnean <code>pi</code>/<code>codex</code> en el host).</li>
 <li><strong>Contenedor / Docker:</strong> para aislar el orquestador entero, correr todo <code>pi</code>
 dentro de un contenedor (ver <code>docs/containerization.md</code> de pi upstream), o usar
-la extensión <code>pi-container</code> para correr comandos en micro-VMs de Apple
+la extensión <code>pandi-container</code> para correr comandos en micro-VMs de Apple
 <code>container</code>.</li>
 </ul>
 <p>No uses el eje 3 para resolver el eje 2: un edit roto no es un problema de

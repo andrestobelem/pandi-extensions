@@ -44,28 +44,28 @@ All 20 extensions load by default from the `pi.extensions` field of `package.jso
 
 | Extension | Surface (human · model) | What it does | Extra requirements |
 | --- | --- | --- | --- |
-| **pi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/ultracode`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | JS workflow runtime for multi-agent orchestration with parallel execution, artifacts, and idempotent resume. | optional: mmdc, web_search, Context7 |
-| **pi-loop** | `/loop` · `loop_schedule`, `loop_stop` | Iterative loop with dynamic or fixed cadence, driven by the model or the extension. | TUI/RPC; autopilot requires trust |
-| **pi-goal** | `/goal` · `goal_progress` | Goal-driven loop with a mandatory completion check and optional independent verifier. | TUI/RPC |
-| **pi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Read-only plan mode with mutations blocked until you explicitly approve the plan. | TUI/RPC (or `PI_PLAN_NONINTERACTIVE=1`) |
-| **pi-effort** | `/effort status\|off\|minimal\|low\|medium\|high\|xhigh\|ultracode` | Claude-style thinking-level switch; `ultracode` enables the workflow router. | `ultracode` needs the core loaded |
-| **pi-local-memory** | `remember` | Local memory in `.pi/memory/`: auto-injected index + on-demand topic files. | ⚠ auto-injects memory: trusted projects only |
-| **pi-auto-compact** | `/auto-compact [bar\|snapshot\|snapshots\|clear-tools]` | Auto-compacts context past a threshold, with recoverable snapshots and a progress bar. | configurable via `PI_AUTO_COMPACT_*` |
-| **pi-typescript-lsp** | `/tsc` · `typescript_diagnostics` | `tsc --noEmit` feedback scoped to the files touched this turn; non-blocking. | project `tsconfig.json` |
-| **pi-worktree** | `/worktree` · `git_worktree` | Manages git worktrees from Pi; opens new sessions, never changes the cwd. | git + a git repo |
-| **pi-container** | `/container` · `container_sandbox` | Runs isolated Linux commands in Apple `container` micro-VMs, without touching the host. | macOS Apple Silicon + `container` |
-| **pi-bg** | `/bg` | In-memory background jobs for one-off human commands; not resumable (the small sibling of `dynamic_workflow`). | trust for `start` |
-| **pi-mdview** | `/mdview` · `view_markdown` | Opens a Markdown file in Pi's scrollable TUI viewer. | — |
-| **pi-docs** | `/docs` · `markdown_to_html` | Converts Markdown into pandi-styled self-contained HTML artifacts (light + dark). | — |
-| **pi-btw** | `/btw` | Quick side question about the current conversation, tool-free, in an overlay; not saved to history. | — |
-| **pi-rename** | `/rename` | Renames the session or auto-generates the name from history (Claude-style). | optional: `PI_RENAME_*` |
-| **pi-pandi** | `/pandi [art\|face\|off\|on]` | Panda character: animated splash, indicator, verbs, and mood. | TUI for the full effect |
-| **pi-exit** | `/exit` | Claude-style alias of `/quit` for a clean exit. | — |
-| **pi-clear** | `/clear` | Claude-style alias of `/new` to start a fresh session. | — |
-| **pi-ask** | · `ask_choice`, `ask_confirm` | Interactive TUI selector/confirm tools for model-driven decision points. | TUI/RPC |
-| **pi-doctor** | `/doctor` | Runs the repo's read-only environment check (`scripts/doctor.mjs`) and shows the report. | — |
+| **pandi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/ultracode`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | JS workflow runtime for multi-agent orchestration with parallel execution, artifacts, and idempotent resume. | optional: mmdc, web_search, Context7 |
+| **pandi-loop** | `/loop` · `loop_schedule`, `loop_stop` | Iterative loop with dynamic or fixed cadence, driven by the model or the extension. | TUI/RPC; autopilot requires trust |
+| **pandi-goal** | `/goal` · `goal_progress` | Goal-driven loop with a mandatory completion check and optional independent verifier. | TUI/RPC |
+| **pandi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Read-only plan mode with mutations blocked until you explicitly approve the plan. | TUI/RPC (or `PI_PLAN_NONINTERACTIVE=1`) |
+| **pandi-effort** | `/effort status\|off\|minimal\|low\|medium\|high\|xhigh\|ultracode` | Claude-style thinking-level switch; `ultracode` enables the workflow router. | `ultracode` needs the core loaded |
+| **pandi-local-memory** | `remember` | Local memory in `.pi/memory/`: auto-injected index + on-demand topic files. | ⚠ auto-injects memory: trusted projects only |
+| **pandi-auto-compact** | `/auto-compact [bar\|snapshot\|snapshots\|clear-tools]` | Auto-compacts context past a threshold, with recoverable snapshots and a progress bar. | configurable via `PI_AUTO_COMPACT_*` |
+| **pandi-typescript-lsp** | `/tsc` · `typescript_diagnostics` | `tsc --noEmit` feedback scoped to the files touched this turn; non-blocking. | project `tsconfig.json` |
+| **pandi-worktree** | `/worktree` · `git_worktree` | Manages git worktrees from Pi; opens new sessions, never changes the cwd. | git + a git repo |
+| **pandi-container** | `/container` · `container_sandbox` | Runs isolated Linux commands in Apple `container` micro-VMs, without touching the host. | macOS Apple Silicon + `container` |
+| **pandi-bg** | `/bg` | In-memory background jobs for one-off human commands; not resumable (the small sibling of `dynamic_workflow`). | trust for `start` |
+| **pandi-mdview** | `/mdview` · `view_markdown` | Opens a Markdown file in Pi's scrollable TUI viewer. | — |
+| **pandi-docs** | `/docs` · `markdown_to_html` | Converts Markdown into pandi-styled self-contained HTML artifacts (light + dark). | — |
+| **pandi-btw** | `/btw` | Quick side question about the current conversation, tool-free, in an overlay; not saved to history. | — |
+| **pandi-rename** | `/rename` | Renames the session or auto-generates the name from history (Claude-style). | optional: `PI_RENAME_*` |
+| **pandi** | `/pandi [art\|face\|off\|on]` | Panda character: animated splash, indicator, verbs, and mood. | TUI for the full effect |
+| **pandi-exit** | `/exit` | Claude-style alias of `/quit` for a clean exit. | — |
+| **pandi-clear** | `/clear` | Claude-style alias of `/new` to start a fresh session. | — |
+| **pandi-ask** | · `ask_choice`, `ask_confirm` | Interactive TUI selector/confirm tools for model-driven decision points. | TUI/RPC |
+| **pandi-doctor** | `/doctor` | Runs the repo's read-only environment check (`scripts/doctor.mjs`) and shows the report. | — |
 
-> `extensions/shared/` is not an extension: it is test-harness code, never published or loaded. `extensions/pi-pandi-theme/` ships no code either: it is a themes-only package (`pi.themes`) with the `panda-syntax-dark`/`panda-syntax-light` variants, the visual companion of **pi-pandi**; it loads with `pi install ./` and is enabled via `/settings` or `"theme"`.
+> `extensions/shared/` is not an extension: it is test-harness code, never published or loaded. `extensions/pandi-theme/` ships no code either: it is a themes-only package (`pi.themes`) with the `panda-syntax-dark`/`panda-syntax-light` variants, the visual companion of **pandi**; it loads with `pi install ./` and is enabled via `/settings` or `"theme"`.
 
 ## Dynamic Workflows in 60 seconds
 
@@ -120,7 +120,7 @@ Use these as patterns, not ceremony: every branch needs a reason, a contract, an
 /plan                                   # read-only plan mode, mutations blocked until approval
 /loop fix the failing tests             # iterative loop with dynamic cadence
 /goal make npm test pass                # goal loop with independent verification
-/bg start npm test                      # one-off human background job (see extensions/pi-bg/README.md)
+/bg start npm test                      # one-off human background job (see extensions/pandi-bg/README.md)
 ```
 
 Some extensions also expose tools that **Pi decides to use on its own** (not human slash commands): `enter_plan_mode`/`submit_plan` (plan before risky changes; only you approve), `remember` (persist durable notes under `.pi/memory/`), `git_worktree`, `container_sandbox`, `typescript_diagnostics`, `ask_choice`/`ask_confirm`, `loop_schedule`/`loop_stop`, and `goal_progress`. Each extension's README documents its surface.
@@ -130,7 +130,7 @@ Some extensions also expose tools that **Pi decides to use on its own** (not hum
 - [`docs/setup.md`](docs/setup.md) — full requirements, optional capabilities, env-var configuration, distribution channels, repo layout.
 - [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) — the deep Dynamic Workflows guide: execution cycle, globals API, background & resume, concurrency, pattern catalog, prompts, security.
 - [`docs/developing-extensions.md`](docs/developing-extensions.md) — developing extensions in this self-hosted repo without breaking your session.
-- [`extensions/<name>/README.md`](extensions) — per-extension docs (e.g. [`pi-dynamic-workflows`](extensions/pi-dynamic-workflows/README.md), [`pi-bg`](extensions/pi-bg/README.md)).
+- [`extensions/<name>/README.md`](extensions) — per-extension docs (e.g. [`pandi-dynamic-workflows`](extensions/pandi-dynamic-workflows/README.md), [`pandi-bg`](extensions/pandi-bg/README.md)).
 
 ## Verification
 

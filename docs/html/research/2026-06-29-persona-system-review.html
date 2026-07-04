@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sistema de Personas (agentType) — Code Review</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -126,10 +126,10 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	<main>
 <p>Date: 2026-06-29</p>
 <h2>Objetivo</h2>
-<p>Revisar el subsistema de <strong>Personas</strong> de <code>pi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene. Lente: skeptical code reviewer, read-only, con cita <code>file:line</code>.</p>
+<p>Revisar el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene. Lente: skeptical code reviewer, read-only, con cita <code>file:line</code>.</p>
 <h2>Dónde vive</h2>
 <ul>
-<li><strong>Definición:</strong> <code>extensions/pi-dynamic-workflows/agent-env-persona.ts</code>
+<li><strong>Definición:</strong> <code>extensions/pandi-dynamic-workflows/agent-env-persona.ts</code>
 — <code>BUILTIN_AGENT_PERSONAS</code> (5 personas, líneas 27–58) + resolución/merge/carga.</li>
 <li><strong>Personas de proyecto:</strong> archivos <code>.pi/personas/&lt;name&gt;.json</code> (<code>loadProjectPersona</code>, línea 228).
 Hoy <strong>no hay ninguna</strong> en el repo.</li>
@@ -191,7 +191,7 @@ by the caller&quot;, pero el default es <code>READ_ONLY_AGENT_TOOLS</code>. &quo
 No es bug, pero los scaffolds hoy sólo heredan model/effort, no la <strong>identidad</strong> (el <code>systemPrompt</code>
 escéptico, etc.). Decisión pendiente: ¿adoptar <code>agentType</code> en los scaffolds?</p>
 <h3>6. Doc gap (menor)</h3>
-<p>El README de la extensión (<code>extensions/pi-dynamic-workflows/README.md</code>) no menciona personas; sí
+<p>El README de la extensión (<code>extensions/pandi-dynamic-workflows/README.md</code>) no menciona personas; sí
 lo hacen el README raíz (líneas 158, 402, 500, 525) y el skill.</p>
 <h2>Orden sugerido de arreglo</h2>
 <ol>

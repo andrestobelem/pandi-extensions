@@ -10,8 +10,8 @@ export const meta = {
 
 export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
-	const SCAFFOLDS_DIR = "extensions/pi-dynamic-workflows/scaffolds";
-	const CATALOG = "extensions/pi-dynamic-workflows/catalog.ts";
+	const SCAFFOLDS_DIR = "extensions/pandi-dynamic-workflows/scaffolds";
+	const CATALOG = "extensions/pandi-dynamic-workflows/catalog.ts";
 	// Las fuentes Markdown viven TRACKEADAS en docs/scaffolds/; el HTML es el mirror generado
 	// por `npm run sync:docs:html` (docs/html/scaffolds/), no se convierte a mano.
 	const MD_DIR = "docs/scaffolds";

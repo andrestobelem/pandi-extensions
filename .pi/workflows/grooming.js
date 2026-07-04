@@ -88,7 +88,7 @@ const PRIORITY_FIELD_ID = "PVTSSF_lAHOAEKsO84BcY5AzhXHPrs";
 const PRIORITY_OPTIONS = { P0: "5625c061", P1: "431da638", P2: "29bb2363", P3: "01b46031" };
 const SIZE_FIELD_ID = "PVTSSF_lAHOAEKsO84BcY5AzhXHPrw";
 const SIZE_OPTIONS = { S: "cd9ee114", M: "b551b778", L: "254b9bf3" };
-const REPO_NAME = "pi-dynamic-workflows";
+const REPO_NAME = "pandi-dynamic-workflows";
 
 // Per-role model/effort overrides: input.models[role] / input.efforts[role], else input.model /
 // input.effort, else the tier default baked into the node() call. role = the node's stable logical

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Workflow catalog (quick reference)</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -124,7 +124,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 		<h1>Workflow catalog (quick reference)</h1>
 	</header>
 	<main>
-<p><strong>Date:</strong> 2026-07-01 | <strong>Status:</strong> durable reference | <strong>Scope:</strong> 25 dynamic-workflow scaffolds in <code>pi-dynamic-workflows</code></p>
+<p><strong>Date:</strong> 2026-07-01 | <strong>Status:</strong> durable reference | <strong>Scope:</strong> 25 dynamic-workflow scaffolds in <code>pandi-dynamic-workflows</code></p>
 <p>Before you write a workflow from scratch, check here: this is the index of every built-in
 scaffold, grouped by family, so you can pick a pattern instead of reinventing one. Most tasks
 don&#39;t need any of this — a single agent call beats a workflow for almost everything; reach for
@@ -137,7 +137,7 @@ before choosing a bigger pattern.</p>
 <p><strong>Source of truth (do not hand-maintain the list against these):</strong></p>
 <ul>
 <li>Live catalog: <code>dynamic_workflow action=scaffold</code> (or <code>/workflow patterns</code>); fetch one with <code>action=scaffold name=&lt;key&gt;</code>.</li>
-<li>Scaffold code: <code>extensions/pi-dynamic-workflows/scaffolds/*.js</code> (pi) and <code>.claude/workflows/*.js</code> (Claude Code) — 25 each.</li>
+<li>Scaffold code: <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code> (pi) and <code>.claude/workflows/*.js</code> (Claude Code) — 25 each.</li>
 <li>Full HTML pages per scaffold: <code>docs/html/scaffolds/&lt;key&gt;.html</code>.</li>
 <li>The <code>ultracode</code> skill (<code>.pi/skills/ultracode/SKILL.md</code>) carries the same catalog by family.</li>
 </ul>
@@ -458,7 +458,7 @@ before choosing a bigger pattern.</p>
 <hr>
 <h2>Next steps</h2>
 <ul>
-<li>Keep this in sync when scaffolds are added/removed: re-run <code>dynamic_workflow action=scaffold</code> and diff the names against <code>extensions/pi-dynamic-workflows/scaffolds/*.js</code>.</li>
+<li>Keep this in sync when scaffolds are added/removed: re-run <code>dynamic_workflow action=scaffold</code> and diff the names against <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code>.</li>
 <li>For per-workflow input shapes and primitives, see the live catalog output (each entry lists a sample <code>Input</code> and <code>Primitives</code>) or the linked HTML page per scaffold.</li>
 </ul>
 	</main>

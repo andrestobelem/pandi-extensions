@@ -2,7 +2,7 @@
 /**
  * Publish changed @pandi-coding-agent/* workspaces to npm.
  *
- * Per workspace (extensions/pi-*):
+ * Per workspace (extensions/pandi*):
  *   - if <name>@<version> is NOT on npm            -> publish it
  *   - if it IS on npm and the local pack shasum
  *     matches the published dist.shasum            -> skip (unchanged)
@@ -61,7 +61,7 @@ function main() {
 
 	const extDir = join(root, "extensions");
 	const workspaces = readdirSync(extDir)
-		.filter((d) => d.startsWith("pi-"))
+		.filter((d) => d === "pandi" || d.startsWith("pandi-"))
 		.map((d) => join(extDir, d))
 		.map((dir) => {
 			try {

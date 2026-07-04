@@ -1,0 +1,32 @@
+{
+	"name": "@pandi-coding-agent/pandi-mdview",
+	"version": "0.1.1",
+	"description": "Pi extension that adds a TUI Markdown viewer command.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pi-dynamic-workflows.git",
+		"directory": "extensions/pandi-mdview"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"markdown",
+		"tui"
+	],
+	"files": [
+		"*.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	}
+}

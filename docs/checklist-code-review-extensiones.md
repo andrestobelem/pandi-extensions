@@ -51,7 +51,7 @@ Fuentes: `AGENTS.md`, `docs/principios-ingenieria.md`, `package.json`, `extensio
       y confirmar con `git diff --stat` que solo cambiaron los archivos esperados.
 - [ ] Todo `try/catch`/rama de error/`if` defensivo nuevo tiene aserción en el
       `*-coverage.test.mjs` de la extensión (p.ej.
-      `extensions/pi-goal/tests/integration/index-coverage.test.mjs`); sin caso real
+      `extensions/pandi-goal/tests/integration/index-coverage.test.mjs`); sin caso real
       que la dispare, eliminar la rama.
 - [ ] Markdown tocado (README, skills, docs) pasa `npm run lint:md` (markdownlint-cli2).
 
@@ -63,8 +63,8 @@ Fuentes: `AGENTS.md`, `docs/principios-ingenieria.md`, `package.json`, `extensio
       `git grep -hoE 'from "\./[A-Za-z0-9_-]+\.(js|ts)"' -- 'extensions/<ext>/**.ts'
       ':!*/tests/*' | sed 's/\.js"/.ts"/'` — cada `.ts` resultante debe estar en `files[]`.
 - [ ] Subcarpetas referenciadas (`scripts/`, `themes/`, `primitives/`, `skills/`) están
-      declaradas en `files[]` (ver `pi-doctor`→`scripts`, `pi-dynamic-workflows`→
-      `scaffolds`/`primitives`/`skills`, `pi-pandi-theme`→`themes`).
+      declaradas en `files[]` (ver `pandi-doctor`→`scripts`, `pandi-dynamic-workflows`→
+      `scaffolds`/`primitives`/`skills`, `pandi-theme`→`themes`).
 - [ ] `pi.extensions` del `package.json` de la extensión apunta al entrypoint real y
       coincide con el manifiesto root.
 - [ ] Manifiesto root regenerado, no editado a mano, si cambió el catálogo:
@@ -72,7 +72,7 @@ Fuentes: `AGENTS.md`, `docs/principios-ingenieria.md`, `package.json`, `extensio
 - [ ] Skills/guías vendorizadas por la extensión, si aplica, no driftan:
       `npm run sync:skills:check`, `npm run sync:agents:check`, `npm run doctor`.
 - [ ] Tarball real: `npm pack -w extensions/<ext> --dry-run` (por RUTA; el nombre npm
-      omite `pi-`, ej. `pi-goal`→`@pandi-coding-agent/goal`) incluye todos los archivos
+      omite `pi-`, ej. `pandi-goal`→`@pandi-coding-agent/pandi-goal`) incluye todos los archivos
       runtime, no solo `index.ts`.
 
 ## 6. Suite completa y commit

@@ -210,7 +210,7 @@ export async function bundle({ src, outDir, outName, aliases = {}, npx = "--no-i
  *
  * Options:
  *   - name:    tempdir prefix (e.g. "pi-bg-jobs-integration").
- *   - src:     absolute path to the entry (e.g. <repo>/extensions/pi-bg/index.ts).
+ *   - src:     absolute path to the entry (e.g. <repo>/extensions/pandi-bg/index.ts).
  *   - outName: output filename inside the tempdir (e.g. "bg.mjs").
  *   - stubs:   spec passed to writeStubs (default {} = no aliases).
  *   - npx:     "--no-install" (default; esbuild is a pinned devDependency, so no network is

@@ -10,11 +10,11 @@ export const meta = {
 
 export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
-	const EXT = "extensions/pi-dynamic-workflows";
+	const EXT = "extensions/pandi-dynamic-workflows";
 	const PRIM = `${EXT}/primitives`;
 	const MD_DIR = ".pi/tmp/scaffold-docs";
 	const OUT_DIR = "docs/html/scaffolds";
-	const CONVERTER = "extensions/pi-docs/scripts/markdown-to-html.mjs";
+	const CONVERTER = "extensions/pandi-docs/scripts/markdown-to-html.mjs";
 	// Contrato de estilo TRACKEADO (single source of truth del estándar didáctico);
 	// nunca leerlo de .pi/tmp/ — ese directorio es efímero y ya perdimos drafts ahí.
 	const style = await readFile(".pi/skills/didactic-docs-style/SKILL.md");

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Loop engineering with our extensions</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -190,7 +190,7 @@ unbiased — <code>/goal</code> is the surface that enforces both at once.</p>
 <code>pursuing → verifying → verifying-independent → done | blocked</code>: a self
 completeness check, then a <strong>separate read-only adversarial subagent</strong> that emits
 <code>VERDICT: PASS | FAIL</code>. Only an independent <code>PASS</code> closes the goal
-(<code>extensions/pi-goal/index.ts:264-271</code>). This is the repo&#39;s direct architectural
+(<code>extensions/pandi-goal/index.ts:264-271</code>). This is the repo&#39;s direct architectural
 answer to the self-correction-is-unreliable result.</p>
 <pre><code class="language-bash"># Objective -- success criteria after the `--`
 /goal migrate tests to vitest -- all tests pass; no jest imports remain
@@ -208,7 +208,7 @@ goal to <code>blocked</code> instead of looping forever (<code>pi-goal/index.ts:
 <p>Use <code>/loop</code> for recurring work that has no binary &quot;done&quot;: monitoring, polling,
 autopilot. The model proposes a wake delay; the extension <strong>saturates it</strong> to a
 safe band of <code>[60, 3600]s</code> so a bad value can never destabilize the loop
-(<code>extensions/pi-loop/index.ts:115-116</code> for the constants, <code>:1249-1251</code> for the clamp).</p>
+(<code>extensions/pandi-loop/index.ts:115-116</code> for the constants, <code>:1249-1251</code> for the clamp).</p>
 <pre><code class="language-bash"># Fixed cadence (last token is the interval)
 /loop check whether CI went green 10m
 
@@ -228,7 +228,7 @@ while keeping a warm cache.</li>
 <li>Do not poll work the harness already tracks (subagents, workflows) — use a long
 fallback and let it report back.</li>
 </ul>
-<p>Defense in depth: Layered caps include wall-clock and best-effort context-budget (see <code>extensions/pi-loop/caps.ts:26-41</code>), plus a separate iteration-count cap inside <code>fireWake</code> in <code>extensions/pi-loop/index.ts</code>, plus a watchdog backstop above the deadline. Note the context-budget cap is a <strong>soft sensor</strong> — it silently no-ops when usage is unknown, so do not rely on it alone.</p>
+<p>Defense in depth: Layered caps include wall-clock and best-effort context-budget (see <code>extensions/pandi-loop/caps.ts:26-41</code>), plus a separate iteration-count cap inside <code>fireWake</code> in <code>extensions/pandi-loop/index.ts</code>, plus a watchdog backstop above the deadline. Note the context-budget cap is a <strong>soft sensor</strong> — it silently no-ops when usage is unknown, so do not rely on it alone.</p>
 <h3><code>loop-until-dry</code> — convergence by quiet rounds</h3>
 <p>When the goal is exhaustiveness rather than a single <code>done</code> (audits, repo-wide
 searches), use the <code>loop-until-dry</code> workflow scaffold. It runs parallel finders
@@ -238,7 +238,7 @@ each round and stops when <strong>no new findings appear for <code>quietRounds</
 <ul>
 <li><code>quietRounds</code> (default 2) is a debounce/deadband, not a proven fixed point.</li>
 <li><code>maxRounds</code> (default 8) is the hard brake; when it stops there, it says so
-out loud (<code>extensions/pi-dynamic-workflows/scaffolds/loop-until-dry.js:165</code>) — no
+out loud (<code>extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js:165</code>) — no
 silent caps.</li>
 </ul>
 <h3>Ultracode + Contract Gate — bound the scope first</h3>
@@ -329,7 +329,7 @@ which carries the external citations (ReAct, Reflexion, Self-Refine, Huang et al
 control/feedback theory) and the verified <code>file:line</code> grounding for every
 mechanism referenced above. See also the broader
 <a href="research/2026-06-25-agentic-patterns-papers-workflows.html">agentic patterns map</a>
-The header comment in <code>extensions/pi-goal/index.ts</code> also documents the <code>/loop</code> vs <code>/goal</code> distinction directly in code.</p>
+The header comment in <code>extensions/pandi-goal/index.ts</code> also documents the <code>/loop</code> vs <code>/goal</code> distinction directly in code.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

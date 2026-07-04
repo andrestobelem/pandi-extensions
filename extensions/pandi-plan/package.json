@@ -1,0 +1,33 @@
+{
+	"name": "@pandi-coding-agent/pandi-plan",
+	"version": "0.1.2",
+	"description": "Pi extension for Claude-style read-only plan mode with explicit approval before mutation.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pi-dynamic-workflows.git",
+		"directory": "extensions/pandi-plan"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"plan-mode",
+		"approval"
+	],
+	"files": [
+		"*.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*",
+		"typebox": "*"
+	}
+}

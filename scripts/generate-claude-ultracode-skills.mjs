@@ -13,7 +13,7 @@
 //
 // The .claude copies are GENERATED artifacts: do NOT hand-edit them — edit the .pi source and
 // re-run this. A parity test guards against drift
-// (extensions/pi-dynamic-workflows/tests/integration/claude-ultracode-skills-parity.test.mjs).
+// (extensions/pandi-dynamic-workflows/tests/integration/claude-ultracode-skills-parity.test.mjs).
 //
 // Usage:
 //   node scripts/generate-claude-ultracode-skills.mjs           # write both skills from .pi

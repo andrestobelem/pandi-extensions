@@ -14,13 +14,13 @@ Pending work lives in `dashboard-improvement-backlog.md`, not here.
   - Sin renombres ni reordenamientos; salida renderizada idéntica byte-a-byte a la anterior en ambos tabs.
 
 - **Archivos REALES tocados (pass):**
-  - `extensions/pi-dynamic-workflows/workflow-dashboard.ts` — nuevo helper privado `renderAgentRowMeta` (def. antes de `renderMonitorAgents`); ambos callers reemplazan los ~6 `const` de chips por `const meta = this.renderAgentRowMeta(...)`.
-  - `extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs` — test behavioral nuevo (patrón `buildExtension` + `loadModule` + `WorkflowDashboard.render(WIDTH)`): para un mismo agente verifica que el meta suffix (`prompt…keys`) es byte-idéntico entre la fila de Monitor y la de Agents, y que persisten las dos divergencias (`code:` solo en Monitor; `— <workflow> <runId>` solo en Agents). Autodescubierto por `scripts/test/run-all.mjs` (convención `tests/integration/*.test.mjs`) — manifest sin tocar.
+  - `extensions/pandi-dynamic-workflows/workflow-dashboard.ts` — nuevo helper privado `renderAgentRowMeta` (def. antes de `renderMonitorAgents`); ambos callers reemplazan los ~6 `const` de chips por `const meta = this.renderAgentRowMeta(...)`.
+  - `extensions/pandi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs` — test behavioral nuevo (patrón `buildExtension` + `loadModule` + `WorkflowDashboard.render(WIDTH)`): para un mismo agente verifica que el meta suffix (`prompt…keys`) es byte-idéntico entre la fila de Monitor y la de Agents, y que persisten las dos divergencias (`code:` solo en Monitor; `— <workflow> <runId>` solo en Agents). Autodescubierto por `scripts/test/run-all.mjs` (convención `tests/integration/*.test.mjs`) — manifest sin tocar.
   - `docs/research/dashboard-improvement-backlog.md` — DW-DASH-003 → Done; H1/H2 marcados resueltos al baseline `da0a449`.
 
 - **Verificación (verde):**
   - `tsc -p tsconfig.json --noEmit`
-  - `biome check extensions/pi-dynamic-workflows` (98 files, sin errores)
+  - `biome check extensions/pandi-dynamic-workflows` (98 files, sin errores)
   - Bucle `for f in tests/integration/*.test.mjs` (todas las suites PASS, incl. la nueva con 9 checks)
   - esbuild de `workflow-dashboard.ts` a `.pi/tmp/wfdash.check.mjs` OK (artefacto borrado)
   - `node --check` de la `.mjs` nueva OK
@@ -41,9 +41,9 @@ Pending work lives in `dashboard-improvement-backlog.md`, not here.
   - Behavior-preserving: ambos tabs renderizan las mismas líneas de detalle para una entrada equivalente.
 
 - **Archivos REALES tocados (pass):**
-  - `extensions/pi-dynamic-workflows/workflow-dashboard.ts` — helper `renderSelectedAgentDetail` (def. ~L737; usado en Monitor ~L853 y Agents ~L927).
-  - `extensions/pi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs` — ancla el contrato: líneas compartidas byte-idénticas entre ambos tabs + las tres diferencias intencionales (header / schema suffix / ancho 220 vs 260).
-  - `extensions/pi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs` — fija el round-trip de quoting↔parsing de `parseWorkflowCommandArgument` para el comando `switch-session` (ruta antes sin cobertura).
+  - `extensions/pandi-dynamic-workflows/workflow-dashboard.ts` — helper `renderSelectedAgentDetail` (def. ~L737; usado en Monitor ~L853 y Agents ~L927).
+  - `extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs` — ancla el contrato: líneas compartidas byte-idénticas entre ambos tabs + las tres diferencias intencionales (header / schema suffix / ancho 220 vs 260).
+  - `extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs` — fija el round-trip de quoting↔parsing de `parseWorkflowCommandArgument` para el comando `switch-session` (ruta antes sin cobertura).
 
 - **Finalize (esta corrida):**
   - Solo se agregaron los docs de `docs/research/` (este log + backlog).
@@ -52,7 +52,7 @@ Pending work lives in `dashboard-improvement-backlog.md`, not here.
 
 - **Verificación:** DIFERIDA al orquestador (el gate prohíbe ejecutarla aquí). Plan esperado en verde:
   - `tsc --noEmit`
-  - `biome check extensions/pi-dynamic-workflows`
+  - `biome check extensions/pandi-dynamic-workflows`
   - Bucle `for f in tests/integration/*.test.mjs`
   - esbuild de la ext
   - `node --check`

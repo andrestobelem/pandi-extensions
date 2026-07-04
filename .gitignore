@@ -69,7 +69,7 @@ pi-session-*.html
 **/.pi/extensions/
 
 # pi-pandi runtime state (chosen face style), not shipped/tracked.
-extensions/pi-pandi/*.local.json
+extensions/pandi/*.local.json
 
 # Pi project-local on-demand tools (e.g. Gondolin micro-VM; heavy platform-specific
 # native deps installed via `npm run setup:gondolin`, loaded with `pi -e .pi/tools/gondolin`).

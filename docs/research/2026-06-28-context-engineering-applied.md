@@ -28,15 +28,15 @@ The value is (a) recognizing that explicitly and (b) closing six or seven target
 
 | Research lever | Where it lives | Evidence in code |
 |---|---|---|
-| External memory / offloading (§3b, MemGPT) | `pi-local-memory` | Injects `MEMORY.md` capped (200 lines/25 KB); topic files are **listed but read on demand** = textbook just-in-time |
-| Just-in-time retrieval (§3c) | `pi-dynamic-workflows` + memory | Cheap scout (`git ls-files`/grep/glob), references + on-demand load, `writeArtifact` moves bulk out of chat |
+| External memory / offloading (§3b, MemGPT) | `pandi-local-memory` | Injects `MEMORY.md` capped (200 lines/25 KB); topic files are **listed but read on demand** = textbook just-in-time |
+| Just-in-time retrieval (§3c) | `pandi-dynamic-workflows` + memory | Cheap scout (`git ls-files`/grep/glob), references + on-demand load, `writeArtifact` moves bulk out of chat |
 | Small tool budget (§3d, LongFuncEval 7–85%) | workflow personas | `READ_ONLY_AGENT_TOOLS = [read, grep, find, ls]` + `--no-extensions` by default (unless `includeExtensions:true`) |
 | Isolate-for-read / single-thread-for-write (§3d, Cognition↔Anthropic) | read-only personas + synthesis-as-judge | explore/reviewer/researcher are read-only; the orchestrator compresses findings |
-| Recitation / re-anchor the goal (§3e, Manus) | `pi-goal` + `pi-loop` | Stable mold re-injected each iteration; `successCriteria` recorded ONCE as definition-of-done; progress log **bounded** (anti self-mimicry) |
-| Trajectory + adversarial eval (§4, τ-bench) | `pi-goal` independent verifier | Skeptical read-only verifier judges against criteria with evidence, not intuition |
+| Recitation / re-anchor the goal (§3e, Manus) | `pandi-goal` + `pandi-loop` | Stable mold re-injected each iteration; `successCriteria` recorded ONCE as definition-of-done; progress log **bounded** (anti self-mimicry) |
+| Trajectory + adversarial eval (§4, τ-bench) | `pandi-goal` independent verifier | Skeptical read-only verifier judges against criteria with evidence, not intuition |
 | Architecture-to-topology, not fashion (§3d) | Ultracode router + Contract Gate | Trivial gate avoids over-orchestration; Contract Gate synthesizes a contract before escalating |
-| Near-threshold compaction (§3b) | `pi-auto-compact` | Relative edge-trigger at 30%; re-arms from post-compaction % to avoid looping; footer bar = budget gauge |
-| Authority separation (§3a) | `pi-local-memory` | Durable directives go to the system channel (trusted content, written by `remember`/human) |
+| Near-threshold compaction (§3b) | `pandi-auto-compact` | Relative edge-trigger at 30%; re-arms from post-compaction % to avoid looping; footer bar = budget gauge |
+| Authority separation (§3a) | `pandi-local-memory` | Durable directives go to the system channel (trusted content, written by `remember`/human) |
 
 ---
 
@@ -44,7 +44,7 @@ The value is (a) recognizing that explicitly and (b) closing six or seven target
 
 ### 3.1 Recoverable compaction — the strongest gap (§3b)
 
-`pi-auto-compact` fires `ctx.compact()` (a harness summary) **without coupling to
+`pandi-auto-compact` fires `ctx.compact()` (a harness summary) **without coupling to
 memory/artifacts**. The paper is explicit: recursive summarization can drop a fact you later
 need; *preserve the raw externally so compaction is recoverable, not destructive.* The 30%
 threshold is aggressive and good for the attention budget, but it amplifies cascading-error
@@ -97,7 +97,7 @@ not literal matches.
 The two highest-ROI, low-risk items are **3.1 (recoverable compaction)** and **3.3
 (position-aware synthesis)** — they attack the paper's two central failure modes (compaction
 cascade + lost-in-the-middle) with surgical changes to extensions that are already well
-understood. Suggested order: plan 3.1 first (it spans `pi-auto-compact` + memory/
+understood. Suggested order: plan 3.1 first (it spans `pandi-auto-compact` + memory/
 artifacts and deserves a design pass), then do 3.3 as a contained follow-up.
 
 ---

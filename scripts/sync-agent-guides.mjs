@@ -5,7 +5,7 @@
 //
 // Same shape as sync-skill-mirrors.mjs (a writer + a --check guarded by a parity test): edit
 // AGENTS.md, then re-run this; the parity test
-// (extensions/pi-dynamic-workflows/tests/integration/agent-guide-mirror-parity.test.mjs)
+// (extensions/pandi-dynamic-workflows/tests/integration/agent-guide-mirror-parity.test.mjs)
 // fails on drift.
 //
 // Usage:

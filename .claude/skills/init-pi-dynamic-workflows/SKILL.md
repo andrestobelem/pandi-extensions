@@ -11,11 +11,11 @@ description: >-
 
 # Initialize this harness (pi-dynamic-workflows)
 
-Bring a **fresh clone** of `pi-dynamic-workflows` to a working setup: the Pi extensions
+Bring a **fresh clone** of `pandi-dynamic-workflows` to a working setup: the Pi extensions
 (`/workflow`, `/goal`, `/loop`, `/plan`, `/effort`, `/mdview`, …), the project skills, and the
 dynamic-workflow catalog — usable from Pi and from Claude Code.
 
-**Source of truth:** the README **"Quickstart"** section and `extensions/pi-doctor/scripts/doctor.mjs`. This skill is the
+**Source of truth:** the README **"Quickstart"** section and `extensions/pandi-doctor/scripts/doctor.mjs`. This skill is the
 ordered procedure + judgment; when in doubt, run `npm run doctor` and follow the README rather than
 guessing. Do not invent versions or steps — read them from `.nvmrc`, `package.json`, and the README.
 
@@ -26,7 +26,7 @@ guessing. Do not invent versions or steps — read them from `.nvmrc`, `package.
 Do NOT use for: authoring a new extension/skill, or `npm install`-ing some unrelated library.
 
 ## Preconditions to check first (read-only)
-1. Are we at the **repo root**? (`package.json` name must be `pi-dynamic-workflows`.)
+1. Are we at the **repo root**? (`package.json` name must be `pandi-dynamic-workflows`.)
 2. What does the environment already have? Run **`npm run doctor`** — it is read-only, lists every
    mandatory + optional prerequisite, and exits non-zero only if a MANDATORY one is missing. Let its
    output drive what you still need to install; don't reinstall what's already OK.
@@ -89,7 +89,7 @@ mandatory items, and `npm test` passing. All green? You're set. 🐼
 This checkout already wires every extension via its own `.pi/settings.json` (`packages: [...]`).
 So to hack on the repo you can just run `pi` at the repo root and `/trust` it — `pi install ./` is
 only for making the extensions available in your OTHER projects. To try one extension without
-installing: `pi --no-extensions -e ./extensions/pi-dynamic-workflows/index.ts` (or `-e .` for the
+installing: `pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts` (or `-e .` for the
 whole bundle).
 
 Because this checkout is **self-hosted** (the global install can point back at this repo, and pi
@@ -122,7 +122,7 @@ npm run setup:gondolin && echo "then run:  pi -e .pi/tools/gondolin"
 ```
 
 Per-extension installs (instead of the whole bundle) are listed in the README's
-"Paquetes individuales por extensión" table, e.g. `pi install ./extensions/pi-loop`.
+"Paquetes individuales por extensión" table, e.g. `pi install ./extensions/pandi-loop`.
 
 ## Troubleshooting
 - **A command isn't available after install** → open Pi in the target project, `/trust`, then

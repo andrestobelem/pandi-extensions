@@ -1,0 +1,32 @@
+{
+	"name": "@pandi-coding-agent/pandi-local-memory",
+	"version": "0.2.0",
+	"description": "Pi extension that injects a project-local .pi/memory/ folder (capped MEMORY.md index plus on-demand topic files) into the system prompt.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pi-dynamic-workflows.git",
+		"directory": "extensions/pandi-local-memory"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"memory",
+		"context"
+	],
+	"files": [
+		"*.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"typebox": "*"
+	}
+}

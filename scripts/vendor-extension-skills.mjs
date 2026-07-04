@@ -7,7 +7,7 @@
 // entry in `.pi/settings.json` filters skills to `[]` so the vendored copy does NOT double-load
 // in-repo. The vendored trees are GENERATED artifacts: do NOT hand-edit them — edit the `.pi`
 // source and re-run this. A parity test guards against drift
-// (extensions/pi-dynamic-workflows/tests/integration/extension-skills-vendor-parity.test.mjs).
+// (extensions/pandi-dynamic-workflows/tests/integration/extension-skills-vendor-parity.test.mjs).
 //
 // Mirrors the existing generator+--check pattern (sync-skill-mirrors.mjs,
 // generate-claude-ultracode-skills.mjs): the whole skill tree is copied VERBATIM.
@@ -26,10 +26,10 @@ const SKILLS_SRC = join(REPO, ".pi", "skills");
 // Ownership map: which skills each extension vendors. A skill is owned by the extension it is
 // useless without (e.g. the ultracode/router skills need the dynamic-workflows engine).
 const VENDOR = {
-	"pi-dynamic-workflows": ["ultracode", "deep-research", "default"],
+	"pandi-dynamic-workflows": ["ultracode", "deep-research", "default"],
 	// pi-docs renders Markdown with the pandi tokens; the skill carries the canonical
 	// tokens/template the converter reads at runtime, so the extension vendors it.
-	"pi-docs": ["pandi-artifact-style"],
+	"pandi-docs": ["pandi-artifact-style"],
 };
 
 const checkOnly = process.argv.includes("--check");

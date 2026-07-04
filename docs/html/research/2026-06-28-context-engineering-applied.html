@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>2026-06-28-context-engineering-applied.md</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -157,12 +157,12 @@ The value is (a) recognizing that explicitly and (b) closing six or seven target
 </thead>
 <tbody><tr>
 <td>External memory / offloading (§3b, MemGPT)</td>
-<td><code>pi-local-memory</code></td>
+<td><code>pandi-local-memory</code></td>
 <td>Injects <code>MEMORY.md</code> capped (200 lines/25 KB); topic files are <strong>listed but read on demand</strong> = textbook just-in-time</td>
 </tr>
 <tr>
 <td>Just-in-time retrieval (§3c)</td>
-<td><code>pi-dynamic-workflows</code> + memory</td>
+<td><code>pandi-dynamic-workflows</code> + memory</td>
 <td>Cheap scout (<code>git ls-files</code>/grep/glob), references + on-demand load, <code>writeArtifact</code> moves bulk out of chat</td>
 </tr>
 <tr>
@@ -177,12 +177,12 @@ The value is (a) recognizing that explicitly and (b) closing six or seven target
 </tr>
 <tr>
 <td>Recitation / re-anchor the goal (§3e, Manus)</td>
-<td><code>pi-goal</code> + <code>pi-loop</code></td>
+<td><code>pandi-goal</code> + <code>pandi-loop</code></td>
 <td>Stable mold re-injected each iteration; <code>successCriteria</code> recorded ONCE as definition-of-done; progress log <strong>bounded</strong> (anti self-mimicry)</td>
 </tr>
 <tr>
 <td>Trajectory + adversarial eval (§4, τ-bench)</td>
-<td><code>pi-goal</code> independent verifier</td>
+<td><code>pandi-goal</code> independent verifier</td>
 <td>Skeptical read-only verifier judges against criteria with evidence, not intuition</td>
 </tr>
 <tr>
@@ -192,19 +192,19 @@ The value is (a) recognizing that explicitly and (b) closing six or seven target
 </tr>
 <tr>
 <td>Near-threshold compaction (§3b)</td>
-<td><code>pi-auto-compact</code></td>
+<td><code>pandi-auto-compact</code></td>
 <td>Relative edge-trigger at 30%; re-arms from post-compaction % to avoid looping; footer bar = budget gauge</td>
 </tr>
 <tr>
 <td>Authority separation (§3a)</td>
-<td><code>pi-local-memory</code></td>
+<td><code>pandi-local-memory</code></td>
 <td>Durable directives go to the system channel (trusted content, written by <code>remember</code>/human)</td>
 </tr>
 </tbody></table>
 <hr>
 <h2>3. Highest-value gaps (prioritized)</h2>
 <h3>3.1 Recoverable compaction — the strongest gap (§3b)</h3>
-<p><code>pi-auto-compact</code> fires <code>ctx.compact()</code> (a harness summary) <strong>without coupling to
+<p><code>pandi-auto-compact</code> fires <code>ctx.compact()</code> (a harness summary) <strong>without coupling to
 memory/artifacts</strong>. The paper is explicit: recursive summarization can drop a fact you later
 need; <em>preserve the raw externally so compaction is recoverable, not destructive.</em> The 30%
 threshold is aggressive and good for the attention budget, but it amplifies cascading-error
@@ -242,7 +242,7 @@ not literal matches.</p>
 <p>The two highest-ROI, low-risk items are <strong>3.1 (recoverable compaction)</strong> and <strong>3.3
 (position-aware synthesis)</strong> — they attack the paper&#39;s two central failure modes (compaction
 cascade + lost-in-the-middle) with surgical changes to extensions that are already well
-understood. Suggested order: plan 3.1 first (it spans <code>pi-auto-compact</code> + memory/
+understood. Suggested order: plan 3.1 first (it spans <code>pandi-auto-compact</code> + memory/
 artifacts and deserves a design pass), then do 3.3 as a contained follow-up.</p>
 <hr>
 <h2>5. Implementation status</h2>

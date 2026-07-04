@@ -1,7 +1,7 @@
 # Auditoría del repo — errores e inconsistencias (2026-07-01)
 
 Informe consolidado de una auditoría read-only del monorepo de extensiones
-`pi-dynamic-workflows`, ejecutada con workflows dinámicos multi-agente. Recoge
+`pandi-dynamic-workflows`, ejecutada con workflows dinámicos multi-agente. Recoge
 solo hallazgos con cita concreta `archivo:línea`; los marcados **[verificado]**
 fueron re-chequeados a mano contra el archivo, los **[plausible]** quedan
 pendientes de verificación fina.
@@ -26,13 +26,13 @@ Gate determinista en cada corrida: `tsc --noEmit` limpio, `biome check` limpio
 
 1. **Los 25 scaffolds no se empaquetan** — `package.json:17`. **[verificado]**
    `files: ["extensions/*/*.ts", …]`: el glob `*/*.ts` matchea un solo nivel y
-   solo `.ts`, así que excluye `extensions/pi-dynamic-workflows/scaffolds/*.js`
+   solo `.ts`, así que excluye `extensions/pandi-dynamic-workflows/scaffolds/*.js`
    (dos niveles, `.js`). `pattern-scaffolds.ts` los lee de disco en runtime
    (`readdirSync`) y **lanza** si faltan (`throw` en la resolución del patrón);
    su propio comentario afirma que `files[]` los envía. Un paquete publicado a
    npm rompería en cualquier pedido de scaffold. Impacto real solo si se
    distribuye vía npm; nulo si se usa `pi install ./` desde el repo.
-   Fix: agregar `extensions/pi-dynamic-workflows/scaffolds/` (o `**/scaffolds/*.js`)
+   Fix: agregar `extensions/pandi-dynamic-workflows/scaffolds/` (o `**/scaffolds/*.js`)
    a `files`.
 
 2. **`web_search` cargado desde un `cwd` no confiable** —

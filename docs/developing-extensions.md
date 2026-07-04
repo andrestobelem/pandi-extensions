@@ -15,12 +15,12 @@ Una extensión exporta una función default que recibe `pi: ExtensionAPI`. Podé
 probarla sin instalarla, apuntando `pi -e` al archivo:
 
 ```typescript
-// extensions/pi-hello/index.ts
+// extensions/pandi-hello/index.ts
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
-    if (ctx.hasUI) ctx.ui.notify("pi-hello cargada", "info");
+    if (ctx.hasUI) ctx.ui.notify("pandi-hello cargada", "info");
   });
 
   pi.registerCommand("hello", {
@@ -31,10 +31,10 @@ export default function (pi: ExtensionAPI) {
 ```
 
 ```bash
-pi -e ./extensions/pi-hello/index.ts
+pi -e ./extensions/pandi-hello/index.ts
 ```
 
-Cada extensión de este repo vive en su propio `extensions/pi-<nombre>/index.ts`
+Cada extensión de este repo vive en su propio `extensions/pandi-<nombre>/index.ts`
 (o un único `.ts`) y es **self-contained**: nada de imports runtime cruzados a
 otra extensión (`../shared/` solo existe para el harness de tests, nunca para
 código que corre en producción — ver `AGENTS.md`). Si dos extensiones necesitan
@@ -49,8 +49,8 @@ dispara el código**:
 | Primitivo | Quién lo dispara | Usalo cuando | Ejemplo en este repo |
 |---|---|---|---|
 | **Comando** — `pi.registerCommand("nombre", {...})` | El usuario, tipeando `/nombre` | La acción es explícita y el usuario decide el momento | `/plan`, `/loop`, `/goal` |
-| **Tool** — `pi.registerTool({...})` | El LLM, cuando decide que la necesita dentro de un turno | Es una capacidad que el modelo debe poder invocar por su cuenta | `dynamic_workflow` (pi-dynamic-workflows) |
-| **Event handler** — `pi.on("evento", (event, ctx) => ...)` | El runtime de pi, en cada punto del lifecycle | Necesitás reaccionar o interceptar sin que nadie lo pida (bloquear un tool, inyectar contexto, persistir estado) | `pi.on("tool_call")` bloqueando mutaciones en `pi-plan`/`pi-loop`; `pi.on("session_before_compact")` en `pi-auto-compact` |
+| **Tool** — `pi.registerTool({...})` | El LLM, cuando decide que la necesita dentro de un turno | Es una capacidad que el modelo debe poder invocar por su cuenta | `dynamic_workflow` (pandi-dynamic-workflows) |
+| **Event handler** — `pi.on("evento", (event, ctx) => ...)` | El runtime de pi, en cada punto del lifecycle | Necesitás reaccionar o interceptar sin que nadie lo pida (bloquear un tool, inyectar contexto, persistir estado) | `pi.on("tool_call")` bloqueando mutaciones en `pandi-plan`/`pandi-loop`; `pi.on("session_before_compact")` en `pandi-auto-compact` |
 
 Ver la referencia completa de eventos y `ExtensionAPI` en el
 [`extensions.md`](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md)
@@ -80,7 +80,7 @@ mockeado. Es aislado y rápido.
 
 ```bash
 # una suite puntual (segundos) — el loop de desarrollo
-node --test extensions/pi-<ext>/tests/integration/<algo>.test.mjs
+node --test extensions/pandi-<ext>/tests/integration/<algo>.test.mjs
 
 # todo el gate antes de commitear (typecheck + biome + markdownlint + suites)
 npm test
@@ -131,7 +131,7 @@ tools/`!`-commands, no el ciclo de recarga.
   dynamic-workflows (spawnean `pi`/`codex` en el host).
 - **Contenedor / Docker:** para aislar el orquestador entero, correr todo `pi`
   dentro de un contenedor (ver `docs/containerization.md` de pi upstream), o usar
-  la extensión `pi-container` para correr comandos en micro-VMs de Apple
+  la extensión `pandi-container` para correr comandos en micro-VMs de Apple
   `container`.
 
 No uses el eje 3 para resolver el eje 2: un edit roto no es un problema de

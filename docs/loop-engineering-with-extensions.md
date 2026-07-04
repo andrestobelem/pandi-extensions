@@ -46,7 +46,7 @@ Use `/goal` whenever there is a concrete, checkable definition of done. It runs
 `pursuing → verifying → verifying-independent → done | blocked`: a self
 completeness check, then a **separate read-only adversarial subagent** that emits
 `VERDICT: PASS | FAIL`. Only an independent `PASS` closes the goal
-(`extensions/pi-goal/index.ts:264-271`). This is the repo's direct architectural
+(`extensions/pandi-goal/index.ts:264-271`). This is the repo's direct architectural
 answer to the self-correction-is-unreliable result.
 
 ```bash
@@ -68,7 +68,7 @@ Guardrails you inherit for free:
 Use `/loop` for recurring work that has no binary "done": monitoring, polling,
 autopilot. The model proposes a wake delay; the extension **saturates it** to a
 safe band of `[60, 3600]s` so a bad value can never destabilize the loop
-(`extensions/pi-loop/index.ts:115-116` for the constants, `:1249-1251` for the clamp).
+(`extensions/pandi-loop/index.ts:115-116` for the constants, `:1249-1251` for the clamp).
 
 ```bash
 # Fixed cadence (last token is the interval)
@@ -91,7 +91,7 @@ Choose the cadence regime deliberately:
 - Do not poll work the harness already tracks (subagents, workflows) — use a long
   fallback and let it report back.
 
-Defense in depth: Layered caps include wall-clock and best-effort context-budget (see `extensions/pi-loop/caps.ts:26-41`), plus a separate iteration-count cap inside `fireWake` in `extensions/pi-loop/index.ts`, plus a watchdog backstop above the deadline. Note the context-budget cap is a **soft sensor** — it silently no-ops when usage is unknown, so do not rely on it alone.
+Defense in depth: Layered caps include wall-clock and best-effort context-budget (see `extensions/pandi-loop/caps.ts:26-41`), plus a separate iteration-count cap inside `fireWake` in `extensions/pandi-loop/index.ts`, plus a watchdog backstop above the deadline. Note the context-budget cap is a **soft sensor** — it silently no-ops when usage is unknown, so do not rely on it alone.
 
 ### `loop-until-dry` — convergence by quiet rounds
 
@@ -105,7 +105,7 @@ each round and stops when **no new findings appear for `quietRounds` consecutive
 
 - `quietRounds` (default 2) is a debounce/deadband, not a proven fixed point.
 - `maxRounds` (default 8) is the hard brake; when it stops there, it says so
-  out loud (`extensions/pi-dynamic-workflows/scaffolds/loop-until-dry.js:165`) — no
+  out loud (`extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js:165`) — no
   silent caps.
 
 ### Ultracode + Contract Gate — bound the scope first
@@ -171,4 +171,4 @@ which carries the external citations (ReAct, Reflexion, Self-Refine, Huang et al
 control/feedback theory) and the verified `file:line` grounding for every
 mechanism referenced above. See also the broader
 [agentic patterns map](./research/2026-06-25-agentic-patterns-papers-workflows.md)
-The header comment in `extensions/pi-goal/index.ts` also documents the `/loop` vs `/goal` distinction directly in code.
+The header comment in `extensions/pandi-goal/index.ts` also documents the `/loop` vs `/goal` distinction directly in code.

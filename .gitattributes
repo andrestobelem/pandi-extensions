@@ -3,5 +3,5 @@
 # on-disk bytes become the scaffold code shipped in EMBEDDED_SCAFFOLD_SOURCES. Pin LF
 # so a CRLF/autocrlf checkout cannot embed "\r\n", change the emitted scaffold bytes,
 # and make `gen-scaffolds.mjs --check` (the in-sync test) fail on a clean tree.
-extensions/pi-dynamic-workflows/scaffolds/*.js text eol=lf
-extensions/pi-dynamic-workflows/scaffolds.generated.ts text eol=lf
+extensions/pandi-dynamic-workflows/scaffolds/*.js text eol=lf
+extensions/pandi-dynamic-workflows/scaffolds.generated.ts text eol=lf

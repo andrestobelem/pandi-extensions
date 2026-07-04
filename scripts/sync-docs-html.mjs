@@ -18,7 +18,7 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CONVERTER = path.join(REPO, "extensions", "pi-docs", "scripts", "markdown-to-html.mjs");
+const CONVERTER = path.join(REPO, "extensions", "pandi-docs", "scripts", "markdown-to-html.mjs");
 const { renderMarkdownToHtml } = await import(pathToFileURL(CONVERTER).href);
 
 const MIRROR = ["docs", "html"];

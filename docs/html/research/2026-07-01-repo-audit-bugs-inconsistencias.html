@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Auditoría del repo — errores e inconsistencias (2026-07-01)</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -125,7 +125,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <p>Informe consolidado de una auditoría read-only del monorepo de extensiones
-<code>pi-dynamic-workflows</code>, ejecutada con workflows dinámicos multi-agente. Recoge
+<code>pandi-dynamic-workflows</code>, ejecutada con workflows dinámicos multi-agente. Recoge
 solo hallazgos con cita concreta <code>archivo:línea</code>; los marcados <strong>[verificado]</strong>
 fueron re-chequeados a mano contra el archivo, los <strong>[plausible]</strong> quedan
 pendientes de verificación fina.</p>
@@ -147,13 +147,13 @@ entero) y los shards vacíos se reintentan una vez con <code>cache:false</code>.
 <ol>
 <li><p><strong>Los 25 scaffolds no se empaquetan</strong> — <code>package.json:17</code>. <strong>[verificado]</strong>
 <code>files: [&quot;extensions/*/*.ts&quot;, …]</code>: el glob <code>*/*.ts</code> matchea un solo nivel y
-solo <code>.ts</code>, así que excluye <code>extensions/pi-dynamic-workflows/scaffolds/*.js</code>
+solo <code>.ts</code>, así que excluye <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code>
 (dos niveles, <code>.js</code>). <code>pattern-scaffolds.ts</code> los lee de disco en runtime
 (<code>readdirSync</code>) y <strong>lanza</strong> si faltan (<code>throw</code> en la resolución del patrón);
 su propio comentario afirma que <code>files[]</code> los envía. Un paquete publicado a
 npm rompería en cualquier pedido de scaffold. Impacto real solo si se
 distribuye vía npm; nulo si se usa <code>pi install ./</code> desde el repo.
-Fix: agregar <code>extensions/pi-dynamic-workflows/scaffolds/</code> (o <code>**/scaffolds/*.js</code>)
+Fix: agregar <code>extensions/pandi-dynamic-workflows/scaffolds/</code> (o <code>**/scaffolds/*.js</code>)
 a <code>files</code>.</p>
 </li>
 <li><p><strong><code>web_search</code> cargado desde un <code>cwd</code> no confiable</strong> —

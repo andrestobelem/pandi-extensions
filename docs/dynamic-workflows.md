@@ -2,7 +2,7 @@
 
 A Dynamic Workflow is a **trusted JavaScript script** that Pi runs to orchestrate large work across many subagents. Reach for one when a single conversation is not enough — you need to fan work out across parallel `pi -p` agents, cover many independent items, or get adversarial verification before a decision. Think of it as **MapReduce with agents**: `map` runs many subagents in parallel over independent units, `reduce` is a final synthesis that combines results, resolves contradictions, and prioritizes.
 
-This is the deep reference for the `pi-dynamic-workflows` extension. The root [`README.md`](../README.md) has the short overview, and [`extensions/pi-dynamic-workflows/README.md`](../extensions/pi-dynamic-workflows/README.md) documents the installable package.
+This is the deep reference for the `pandi-dynamic-workflows` extension. The root [`README.md`](../README.md) has the short overview, and [`extensions/pandi-dynamic-workflows/README.md`](../extensions/pandi-dynamic-workflows/README.md) documents the installable package.
 
 ## Quickstart
 

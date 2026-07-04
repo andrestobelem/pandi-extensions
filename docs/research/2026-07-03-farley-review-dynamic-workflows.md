@@ -1,6 +1,6 @@
 # Revisión Farley (MSE) de Pi Dynamic Workflows — 2026-07-03
 
-Revisión de la extensión `pi-dynamic-workflows` (engine/runtime, primitivas,
+Revisión de la extensión `pandi-dynamic-workflows` (engine/runtime, primitivas,
 catálogo de scaffolds, dashboard/graph) con la lente de Dave Farley (*Modern
 Software Engineering*): aprendizaje, TDD como feedback, gestión de complejidad,
 estabilidad + throughput. Contract Gate: PROCEED (run `…contract-gate-3abe7ce6`).

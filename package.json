@@ -3,7 +3,8 @@
 	"version": "0.1.0",
 	"private": true,
 	"workspaces": [
-		"extensions/pi-*"
+		"extensions/pandi",
+		"extensions/pandi-*"
 	],
 	"description": "Claude-style dynamic workflows for Pi: JavaScript orchestration scripts with parallel Pi subagents.",
 	"license": "MIT",
@@ -21,11 +22,11 @@
 	],
 	"files": [
 		"extensions/*/*.ts",
-		"extensions/pi-doctor/scripts/*.mjs",
-		"extensions/pi-docs/scripts/*.mjs",
-		"extensions/pi-docs/skills",
-		"extensions/pi-pandi-theme/themes/*.json",
-		"extensions/pi-dynamic-workflows/scaffolds/*.js",
+		"extensions/pandi-doctor/scripts/*.mjs",
+		"extensions/pandi-docs/scripts/*.mjs",
+		"extensions/pandi-docs/skills",
+		"extensions/pandi-theme/themes/*.json",
+		"extensions/pandi-dynamic-workflows/scaffolds/*.js",
 		".pi/skills",
 		"README.md",
 		"LICENSE"
@@ -54,7 +55,7 @@
 		"sync:claude:ultracode": "node scripts/generate-claude-ultracode-skills.mjs",
 		"sync:claude:ultracode:check": "node scripts/generate-claude-ultracode-skills.mjs --check",
 		"lint:md": "markdownlint-cli2",
-		"md:html": "node extensions/pi-docs/scripts/markdown-to-html.mjs",
+		"md:html": "node extensions/pandi-docs/scripts/markdown-to-html.mjs",
 		"sync:docs:html": "node scripts/sync-docs-html.mjs",
 		"sync:docs:html:check": "node scripts/sync-docs-html.mjs --check",
 		"sync:personas": "node scripts/sync-personas-readme.mjs",
@@ -62,7 +63,7 @@
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"publish:npm": "node scripts/publish-npm.mjs",
 		"publish:npm:go": "node scripts/publish-npm.mjs --publish",
-		"doctor": "node extensions/pi-doctor/scripts/doctor.mjs",
+		"doctor": "node extensions/pandi-doctor/scripts/doctor.mjs",
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
 		"test:unit": "node --test \"scripts/test/unit/*.test.mjs\"",
 		"test:integration": "node scripts/test/run-all.mjs",
@@ -70,32 +71,32 @@
 	},
 	"pi": {
 		"extensions": [
-			"./extensions/pi-dynamic-workflows/index.ts",
-			"./extensions/pi-loop/index.ts",
-			"./extensions/pi-goal/index.ts",
-			"./extensions/pi-plan/index.ts",
-			"./extensions/pi-bg/index.ts",
-			"./extensions/pi-effort/index.ts",
-			"./extensions/pi-mdview/index.ts",
-			"./extensions/pi-docs/index.ts",
-			"./extensions/pi-local-memory/index.ts",
-			"./extensions/pi-auto-compact/index.ts",
-			"./extensions/pi-worktree/index.ts",
-			"./extensions/pi-container/index.ts",
-			"./extensions/pi-typescript-lsp/index.ts",
-			"./extensions/pi-rename/index.ts",
-			"./extensions/pi-btw/index.ts",
-			"./extensions/pi-pandi/index.ts",
-			"./extensions/pi-exit/index.ts",
-			"./extensions/pi-clear/index.ts",
-			"./extensions/pi-ask/index.ts",
-			"./extensions/pi-doctor/index.ts"
+			"./extensions/pandi-dynamic-workflows/index.ts",
+			"./extensions/pandi-loop/index.ts",
+			"./extensions/pandi-goal/index.ts",
+			"./extensions/pandi-plan/index.ts",
+			"./extensions/pandi-bg/index.ts",
+			"./extensions/pandi-effort/index.ts",
+			"./extensions/pandi-mdview/index.ts",
+			"./extensions/pandi-docs/index.ts",
+			"./extensions/pandi-local-memory/index.ts",
+			"./extensions/pandi-auto-compact/index.ts",
+			"./extensions/pandi-worktree/index.ts",
+			"./extensions/pandi-container/index.ts",
+			"./extensions/pandi-typescript-lsp/index.ts",
+			"./extensions/pandi-rename/index.ts",
+			"./extensions/pandi-btw/index.ts",
+			"./extensions/pandi/index.ts",
+			"./extensions/pandi-exit/index.ts",
+			"./extensions/pandi-clear/index.ts",
+			"./extensions/pandi-ask/index.ts",
+			"./extensions/pandi-doctor/index.ts"
 		],
 		"skills": [
 			"./.pi/skills"
 		],
 		"themes": [
-			"./extensions/pi-pandi-theme/themes"
+			"./extensions/pandi-theme/themes"
 		]
 	},
 	"peerDependencies": {

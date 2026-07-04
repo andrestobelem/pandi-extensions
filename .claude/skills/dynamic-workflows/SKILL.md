@@ -122,10 +122,10 @@ instead of hiding them.
 
 Workflow scripts call these as **bare globals** — no `import`/`require`/`ctx.*`. This is the full set
 injected by the pi runtime (the source of truth is `sandbox.<name> = …` in
-`extensions/pi-dynamic-workflows/worker-source.ts`). Each `Primitive` in the table below is a doc
+`extensions/pandi-dynamic-workflows/worker-source.ts`). Each `Primitive` in the table below is a doc
 file — the cell is the file stem (e.g. `agent` → `agent.md`):
 
-- **canonical source of truth:** `extensions/pi-dynamic-workflows/primitives/<name>.md` (24 primitive
+- **canonical source of truth:** `extensions/pandi-dynamic-workflows/primitives/<name>.md` (24 primitive
   docs + a `README.md` index).
 - **bundled with this skill:** [`reference/primitives/<name>.md`](reference/primitives/) — a
   byte-identical mirror kept 1:1 with the runtime by `primitives-parity.test.mjs`.
@@ -294,7 +294,7 @@ Map common agent papers/frameworks to Pi workflow design:
 Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
 
 Several of these ship as concrete **scaffold** files under
-`extensions/pi-dynamic-workflows/scaffolds/` (Claude-runtime mirror in
+`extensions/pandi-dynamic-workflows/scaffolds/` (Claude-runtime mirror in
 [`reference/claude-workflows/`](reference/claude-workflows/)): `self-consistency` →
 `self-consistency.js`, Reflexion / Self-Refine → `reflexion.js` / `self-refine.js`, Tree of Thoughts →
 `tree-of-thoughts.js`, ReAct → `react-scout.js`, multiagent debate → `adversarial-verify.js`. The rest
@@ -305,7 +305,7 @@ Several of these ship as concrete **scaffold** files under
 Each `pattern` below is a **scaffold** — a runnable `.js` file, not just a concept. The `Pattern`
 column is the file stem (e.g. `contract-gate` → `contract-gate.js`), so the 25 files are:
 
-- **pi source of truth:** `extensions/pi-dynamic-workflows/scaffolds/<pattern>.js` (25 files). Fetch
+- **pi source of truth:** `extensions/pandi-dynamic-workflows/scaffolds/<pattern>.js` (25 files). Fetch
   one at runtime with `dynamic_workflow action=scaffold name=<pattern>`.
 - **Claude-runtime versions** bundled with this skill:
   [`reference/claude-workflows/<pattern>.js`](reference/claude-workflows/) (25 files; the two runtimes

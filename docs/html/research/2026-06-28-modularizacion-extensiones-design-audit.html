@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Modularización de extensiones — Design Audit y roadmap</title>
 <style>
-/* Pandi artifact tokens — derived 1:1 from extensions/pi-pandi-theme/themes/
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
  * Dark is the base (matches the TUI default); light activates via
  * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
@@ -145,7 +145,7 @@ ejecutado como dynamic workflow read-only.</p>
 </li>
 <li><p><strong>Limitación conocida:</strong></p>
 <ul>
-<li>1 de 9 analizadores por extensión (<code>pi-goal</code>) falló validación de schema; la síntesis usó 8 ext + 4 transversales.</li>
+<li>1 de 9 analizadores por extensión (<code>pandi-goal</code>) falló validación de schema; la síntesis usó 8 ext + 4 transversales.</li>
 <li>La salida de síntesis se truncó al final de §7 (la fila 3.17 quedó cortada).</li>
 <li>El roadmap máquina-legible completo está en <code>roadmap.json</code>.</li>
 <li>Las secciones §8/§9 se restauran abajo desde el plan de verificación del contrato.</li>
@@ -216,8 +216,8 @@ ejecutado como dynamic workflow read-only.</p>
 <h3>Estado general de salud</h3>
 <p>El conjunto es sano en su mayoría:</p>
 <ul>
-<li><strong>Pequeñas y cohesivas (6 extensiones):</strong> <code>pi-local-memory</code> 31 LOC, <code>pi-auto-compact</code> 120, <code>pi-mdview</code> 181, <code>pi-effort</code> 247, <code>pi-bg</code> 637, <code>pi-plan</code> 656</li>
-<li><strong>Monolitos genuinos (2 extensiones):</strong> <code>pi-dynamic-workflows</code> 7143 LOC, <code>pi-loop</code> 1599 LOC (~13–16 concerns cada uno)</li>
+<li><strong>Pequeñas y cohesivas (6 extensiones):</strong> <code>pandi-local-memory</code> 31 LOC, <code>pandi-auto-compact</code> 120, <code>pandi-mdview</code> 181, <code>pandi-effort</code> 247, <code>pandi-bg</code> 637, <code>pandi-plan</code> 656</li>
+<li><strong>Monolitos genuinos (2 extensiones):</strong> <code>pandi-dynamic-workflows</code> 7143 LOC, <code>pandi-loop</code> 1599 LOC (~13–16 concerns cada uno)</li>
 </ul>
 <h3>Oportunidades de DRY transversal</h3>
 <p>Estrecha y de alta calidad:</p>
@@ -237,7 +237,7 @@ ejecutado como dynamic workflow read-only.</p>
 <li>Empezar por guardianes de prompts (Fase 1, Low, cero cambio de wording)</li>
 <li>Extracciones puras compartidas (<code>formatEta</code>, <code>projectHash</code>)</li>
 <li>Validar el patrón de descomposición en extensiones pequeñas antes de tocar los monolitos</li>
-<li>Dejar <code>runtime.ts</code>/<code>worker-source</code> de <code>pi-dynamic-workflows</code> y el <code>state.ts</code> compartido de <code>pi-loop</code> para el final, tras tests de caracterización</li>
+<li>Dejar <code>runtime.ts</code>/<code>worker-source</code> de <code>pandi-dynamic-workflows</code> y el <code>state.ts</code> compartido de <code>pandi-loop</code> para el final, tras tests de caracterización</li>
 </ol>
 <h3>Riesgo dominante</h3>
 <p>No es la mecánica de mover archivos sino el <strong>estado mutable compartido:</strong></p>
@@ -577,7 +577,7 @@ ejecutado como dynamic workflow read-only.</p>
 <tbody><tr>
 <td>Bloque &quot;Research-backed templates&quot;</td>
 <td><code>templates.ts:1229</code> (<code>formatWorkflowPatternCatalog</code>, derivado de <code>WORKFLOW_PATTERN_CATALOG</code>) — <strong>única byte-idéntica real</strong></td>
-<td><code>.pi/skills/dynamic-workflows/SKILL.md:65-77</code>, <code>README.md:119-131</code> (raíz), <code>extensions/pi-dynamic-workflows/README.md:323-335</code></td>
+<td><code>.pi/skills/dynamic-workflows/SKILL.md:65-77</code>, <code>README.md:119-131</code> (raíz), <code>extensions/pandi-dynamic-workflows/README.md:323-335</code></td>
 <td>Test de integración que extrae la sección entre <code>Research-backed templates</code> y la línea de cierre, canonicaliza (trim por línea, normalizar prefijo <code>##</code>/<code>###</code>, join <code>\n</code>) y compara byte-a-byte contra la subcadena de <code>formatWorkflowPatternCatalog()</code></td>
 </tr>
 <tr>
@@ -731,7 +731,7 @@ ejecutado como dynamic workflow read-only.</p>
 <tr>
 <td>2.3</td>
 <td><code>refactor(shared)</code></td>
-<td><code>extensions/shared/state-store.ts</code>, <code>pi-loop</code>, <code>pi-goal</code></td>
+<td><code>extensions/shared/state-store.ts</code>, <code>pandi-loop</code>, <code>pandi-goal</code></td>
 <td><code>writeSidecarAtomic&lt;T&gt;</code> + <code>stateDir</code> dual-root (near-identical)</td>
 <td>loop-caps-resume + goal-rehydrate + <code>npm test</code></td>
 <td>Medium</td>
@@ -920,7 +920,7 @@ movido es idéntico (sólo <code>export</code>/import añadidos), como se hizo e
 </ul>
 <h2>9. Notas y limitaciones</h2>
 <ul>
-<li>Analizadores: 8/9 por extensión válidos (<code>pi-goal</code> falló schema) + 4/4 transversales.</li>
+<li>Analizadores: 8/9 por extensión válidos (<code>pandi-goal</code> falló schema) + 4/4 transversales.</li>
 <li>La síntesis se truncó al final de §7; <code>roadmap.json</code> tiene el roadmap completo (fases 1-3).</li>
 <li>Fase 4 (modularización de tests: harness/fixtures esbuild compartidos, ~1000-1400 LOC dup)
 está descrita en §5 pero aún NO ejecutada — es el mayor payoff pendiente y debe ir DESPUÉS

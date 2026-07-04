@@ -10,13 +10,13 @@ paths (verified to exist), and status (`open` / `done` / `human`).
 - **DW-DASH-001 — Extract shared "Selected agent" detail helper** · `done`
   - Why: the detail block was duplicated near-identically in two render paths, so any
     field-format edit risked silent divergence between Monitor and Agents.
-  - Paths: `extensions/pi-dynamic-workflows/workflow-dashboard.ts`
-    (`renderSelectedAgentDetail`), `extensions/pi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs`.
+  - Paths: `extensions/pandi-dynamic-workflows/workflow-dashboard.ts`
+    (`renderSelectedAgentDetail`), `extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs`.
 - **DW-DASH-002 — Pin switch-session arg quoting/parsing round-trip** · `done`
   - Why: `parseWorkflowCommandArgument` (the `switch-session` arg path) had zero
     coverage; a naive quote-strip would break session paths containing spaces/unicode.
-  - Paths: `extensions/pi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs`,
-    `extensions/pi-dynamic-workflows/dashboard-orchestration.ts` (exports the helper).
+  - Paths: `extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs`,
+    `extensions/pandi-dynamic-workflows/dashboard-orchestration.ts` (exports the helper).
 - **DW-DASH-003 — Collapse the duplicated per-row agent line formatting** · `done`
   - Why: `renderMonitorAgents` and `renderAgents` built the per-row chip suffix
     `prompt schema tools skills extensions keys` byte-for-byte identically with
@@ -24,9 +24,9 @@ paths (verified to exist), and status (`open` / `done` / `human`).
     only the prefix label/elapsed-vs-workflow segment and Monitor's `code:` chip
     differed. Extracted a behavior-preserving private helper `renderAgentRowMeta(...)`
     invoked from both render paths so the common chip string is built in one place.
-  - Paths: `extensions/pi-dynamic-workflows/workflow-dashboard.ts`
+  - Paths: `extensions/pandi-dynamic-workflows/workflow-dashboard.ts`
     (`renderAgentRowMeta`, used in `renderMonitorAgents` and `renderAgents`),
-    `extensions/pi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs`.
+    `extensions/pandi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs`.
 - **DW-TOOL-001 — Make the workflow HTML previewer compatible with BOTH harnesses** · `done`
   - Why: `build-workflow-artifact.mjs` (identical in `.pi/scripts/` and `.claude/scripts/`)
     only handled Claude-style top-level scripts; ctx-style / export-default / CommonJS
@@ -55,7 +55,7 @@ paths (verified to exist), and status (`open` / `done` / `human`).
     (not untracked), so the provenance concern is gone. It runs green in the
     auto-discovered verify loop and passes `biome check`; no further human decision is
     needed.
-  - Paths: `extensions/pi-dynamic-workflows/tests/integration/dashboard-collectors-contract.test.mjs`.
+  - Paths: `extensions/pandi-dynamic-workflows/tests/integration/dashboard-collectors-contract.test.mjs`.
 - **DW-DASH-H3 — Jump-to-next-active-run shortcut in Runs/Activity** · `done`
   - Why: a keybinding to jump to the next active run speeds monitoring of long lists.
   - Resolution: implemented WITHOUT touching the hot `index.ts`. The dashboard owns all
@@ -66,8 +66,8 @@ paths (verified to exist), and status (`open` / `done` / `human`).
     no-op when nothing is running), mirroring the Monitor's `[` / `]` cycling and the
     Agents tab's `f`. Anchored by `dashboard-jump-active-run.test.mjs` (9 checks); help
     overlay + per-tab help bar updated.
-  - Paths: `extensions/pi-dynamic-workflows/workflow-dashboard.ts`,
-    `extensions/pi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs`.
+  - Paths: `extensions/pandi-dynamic-workflows/workflow-dashboard.ts`,
+    `extensions/pandi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs`.
 
 ## Open (in allow-set; safe to pick up next)
 

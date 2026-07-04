@@ -18,7 +18,7 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CONVERTER = path.join(REPO, "extensions", "pi-docs", "scripts", "markdown-to-html.mjs");
+const CONVERTER = path.join(REPO, "extensions", "pandi-docs", "scripts", "markdown-to-html.mjs");
 const { renderMarkdownToHtml } = await import(pathToFileURL(CONVERTER).href);
 
 // Long prompt strings get their own readable sections instead of one-line meta entries.
@@ -90,7 +90,7 @@ export function renderPersonasReadme(personas) {
 		"# Project personas",
 		"",
 		'Read-only advisor personas for subagents, selected with `agentType: "<name>"` and loaded by',
-		"`extensions/pi-dynamic-workflows/agent-env-persona.ts` (project personas override built-ins;",
+		"`extensions/pandi-dynamic-workflows/agent-env-persona.ts` (project personas override built-ins;",
 		"explicit call options win). The JSON files are the source of truth and are injected at spawn;",
 		"this README is their readable mirror.",
 		"",

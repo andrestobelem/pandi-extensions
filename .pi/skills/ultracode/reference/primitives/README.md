@@ -65,4 +65,4 @@ The source of truth for *which* primitives exist is the `sandbox.<name> = …` a
 
 ## Related
 
-These globals are provided by the `@pandi-coding-agent/dynamic-workflows` extension — see [`extensions/pi-dynamic-workflows/README.md`](../README.md) for installation and the full extension surface.
+These globals are provided by the `@pandi-coding-agent/pandi-dynamic-workflows` extension — see [`extensions/pandi-dynamic-workflows/README.md`](../README.md) for installation and the full extension surface.

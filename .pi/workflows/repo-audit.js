@@ -83,24 +83,24 @@ export default async function main() {
 	const areas = [
 		reviewItem(
 			"core-runtime",
-			"The Dynamic Workflows CORE runtime. Prioritize the highest-risk files: extensions/pi-dynamic-workflows/index.ts (subagent dispatcher, journal/resume, runAsk/runBash/runSubagent, makeApi, handleTool), concurrency-primitives.ts (race/agents/parallel/pipeline cancellation), process-spawn.ts, agent-env-persona.ts (keys/env isolation, web_search/context7 resolution), worker-source.ts, types.ts. Focus on concurrency, cancellation, resume/journal correctness, and secret handling.",
+			"The Dynamic Workflows CORE runtime. Prioritize the highest-risk files: extensions/pandi-dynamic-workflows/index.ts (subagent dispatcher, journal/resume, runAsk/runBash/runSubagent, makeApi, handleTool), concurrency-primitives.ts (race/agents/parallel/pipeline cancellation), process-spawn.ts, agent-env-persona.ts (keys/env isolation, web_search/context7 resolution), worker-source.ts, types.ts. Focus on concurrency, cancellation, resume/journal correctness, and secret handling.",
 			"anthropic/claude-opus-4-8",
 		),
 		reviewItem(
 			"loops-goal-plan",
-			"Persistent-loop extensions: extensions/pi-loop, extensions/pi-goal, extensions/pi-plan. Review each *.ts (skip tests/). Focus on state rehydration, iteration/deadline clamps, trust/mode gating, plan-mode read-only enforcement, and verifier/gate logic.",
+			"Persistent-loop extensions: extensions/pandi-loop, extensions/pandi-goal, extensions/pandi-plan. Review each *.ts (skip tests/). Focus on state rehydration, iteration/deadline clamps, trust/mode gating, plan-mode read-only enforcement, and verifier/gate logic.",
 		),
 		reviewItem(
 			"context-effort",
-			"extensions/pi-effort, extensions/pi-local-memory, extensions/pi-auto-compact, extensions/pi-btw. Review each *.ts (skip tests/). Focus on env-var parsing/defaults, memory injection safety, compaction/snapshot correctness, and no-tools guarantees.",
+			"extensions/pandi-effort, extensions/pandi-local-memory, extensions/pandi-auto-compact, extensions/pandi-btw. Review each *.ts (skip tests/). Focus on env-var parsing/defaults, memory injection safety, compaction/snapshot correctness, and no-tools guarantees.",
 		),
 		reviewItem(
 			"devtools",
-			"extensions/pi-typescript-lsp, extensions/pi-worktree, extensions/pi-container, extensions/pi-bg. Review each *.ts (skip tests/). Focus on argv-vs-shell spawning, PID/identity handling, tsc resolution, container platform guards, and bg job lifecycle/atomic writes.",
+			"extensions/pandi-typescript-lsp, extensions/pandi-worktree, extensions/pandi-container, extensions/pandi-bg. Review each *.ts (skip tests/). Focus on argv-vs-shell spawning, PID/identity handling, tsc resolution, container platform guards, and bg job lifecycle/atomic writes.",
 		),
 		reviewItem(
 			"ux-aliases",
-			"extensions/pi-mdview, extensions/pi-rename, extensions/pi-pandi, extensions/pi-exit, extensions/pi-clear, and extensions/shared. Review each *.ts (skip tests/). Focus on alias coexistence (never override native), timeouts/fallbacks, and shared harness helpers.",
+			"extensions/pandi-mdview, extensions/pandi-rename, extensions/pandi, extensions/pandi-exit, extensions/pandi-clear, and extensions/shared. Review each *.ts (skip tests/). Focus on alias coexistence (never override native), timeouts/fallbacks, and shared harness helpers.",
 		),
 		reviewItem(
 			"docs-consistency",
@@ -108,7 +108,7 @@ export default async function main() {
 		),
 		reviewItem(
 			"config-manifest",
-			"CONFIG/MANIFEST consistency. Check: package.json `pi.extensions` vs the actual extensions/ dirs (missing/extra); `files` vs what must ship; scripts correctness; `pi.skills` vs skills on disk; biome.jsonc + .gitignore + tsconfig.json coherence; the pi scaffolds (extensions/pi-dynamic-workflows/scaffolds/*.js) vs the generated .claude/workflows/*.js (run `node .claude/scripts/generate-claude-workflows.mjs --check` mentally / by reading); .env.example vs actual PI_* usage. Report mismatches with citations.",
+			"CONFIG/MANIFEST consistency. Check: package.json `pi.extensions` vs the actual extensions/ dirs (missing/extra); `files` vs what must ship; scripts correctness; `pi.skills` vs skills on disk; biome.jsonc + .gitignore + tsconfig.json coherence; the pi scaffolds (extensions/pandi-dynamic-workflows/scaffolds/*.js) vs the generated .claude/workflows/*.js (run `node .claude/scripts/generate-claude-workflows.mjs --check` mentally / by reading); .env.example vs actual PI_* usage. Report mismatches with citations.",
 		),
 	];
 

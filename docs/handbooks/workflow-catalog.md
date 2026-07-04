@@ -1,6 +1,6 @@
 # Workflow catalog (quick reference)
 
-**Date:** 2026-07-01 | **Status:** durable reference | **Scope:** 25 dynamic-workflow scaffolds in `pi-dynamic-workflows`
+**Date:** 2026-07-01 | **Status:** durable reference | **Scope:** 25 dynamic-workflow scaffolds in `pandi-dynamic-workflows`
 
 Before you write a workflow from scratch, check here: this is the index of every built-in
 scaffold, grouped by family, so you can pick a pattern instead of reinventing one. Most tasks
@@ -18,7 +18,7 @@ before choosing a bigger pattern.
 **Source of truth (do not hand-maintain the list against these):**
 
 - Live catalog: `dynamic_workflow action=scaffold` (or `/workflow patterns`); fetch one with `action=scaffold name=<key>`.
-- Scaffold code: `extensions/pi-dynamic-workflows/scaffolds/*.js` (pi) and `.claude/workflows/*.js` (Claude Code) — 25 each.
+- Scaffold code: `extensions/pandi-dynamic-workflows/scaffolds/*.js` (pi) and `.claude/workflows/*.js` (Claude Code) — 25 each.
 - Full HTML pages per scaffold: `docs/html/scaffolds/<key>.html`.
 - The `ultracode` skill (`.pi/skills/ultracode/SKILL.md`) carries the same catalog by family.
 
@@ -128,5 +128,5 @@ flowchart TD
 
 ## Next steps
 
-- Keep this in sync when scaffolds are added/removed: re-run `dynamic_workflow action=scaffold` and diff the names against `extensions/pi-dynamic-workflows/scaffolds/*.js`.
+- Keep this in sync when scaffolds are added/removed: re-run `dynamic_workflow action=scaffold` and diff the names against `extensions/pandi-dynamic-workflows/scaffolds/*.js`.
 - For per-workflow input shapes and primitives, see the live catalog output (each entry lists a sample `Input` and `Primitives`) or the linked HTML page per scaffold.

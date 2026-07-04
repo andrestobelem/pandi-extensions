@@ -2,7 +2,7 @@
 name: github-project
 description: >-
   Manage this repo's issue tracking on the GitHub Project v2
-  "pi-dynamic-workflows" (user andrestobelem, project #4) with the gh CLI.
+  "pandi-dynamic-workflows" (user andrestobelem, project #4) with the gh CLI.
   Use when creating stories/tasks/bugs, adding items to the board, moving
   Status (Todo / In Progress / Done), setting Priority (P0-P3) or Size (S/M/L),
   building epics with native sub-issues, managing milestones, closing work from
@@ -13,7 +13,7 @@ description: >-
 # github-project
 
 All work on this repo is tracked as **repo issues** placed on the **GitHub
-Project v2 board "pi-dynamic-workflows"** (owner: user `andrestobelem`,
+Project v2 board "pandi-dynamic-workflows"** (owner: user `andrestobelem`,
 project `4`), driven entirely from the terminal with `gh`. This skill carries
 the verified IDs and the exact command recipes so no session has to
 re-discover them.
@@ -143,14 +143,14 @@ schema-verified; mutations exercised on demand):
 
 ```bash
 # Link a child issue to its parent story (epic)
-PARENT_ID=$(gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pi-dynamic-workflows")
+PARENT_ID=$(gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pandi-dynamic-workflows")
   { issue(number:<PARENT>) { id } }}' --jq .data.repository.issue.id)
 gh api graphql -f query="mutation { addSubIssue(input: { issueId: \"$PARENT_ID\",
   subIssueUrl: \"https://github.com/andrestobelem/pi-dynamic-workflows/issues/<CHILD>\" })
   { issue { number } subIssue { number } } }"
 
 # List an epic's children + auto-computed progress
-gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pi-dynamic-workflows")
+gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pandi-dynamic-workflows")
   { issue(number:<PARENT>) { subIssuesSummary { total completed percentCompleted }
     subIssues(first: 50) { nodes { number title state } } } }}' --jq .data.repository.issue
 

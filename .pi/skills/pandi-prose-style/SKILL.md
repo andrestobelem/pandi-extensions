@@ -20,7 +20,7 @@ skill answers one question per prose surface: **what dose of each ingredient
 does it admit?** Code itself (identifiers, structure, logic) is out of scope
 — always.
 
-Canonical persona source: `extensions/pi-pandi/persona.ts` (read-only for
+Canonical persona source: `extensions/pandi/persona.ts` (read-only for
 this skill; restyling never edits the persona definition).
 
 ## The matrix

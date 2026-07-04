@@ -50,7 +50,7 @@ Use the gitignored `.pi/tmp/` directory for throwaway temporary files (scratch s
 
 ## Issue tracking
 
-Work on this repo is tracked in the **GitHub Project v2 "pi-dynamic-workflows"** ([#4](https://github.com/users/andrestobelem/projects/4), owner user `andrestobelem`), managed from the terminal with the `gh` CLI (the authenticated token carries the `project` scope).
+Work on this repo is tracked in the **GitHub Project v2 "pandi-dynamic-workflows"** ([#4](https://github.com/users/andrestobelem/projects/4), owner user `andrestobelem`), managed from the terminal with the `gh` CLI (the authenticated token carries the `project` scope).
 
 - **Stories/tasks/bugs are repo Issues**, labelled `story` / `task` / `bug` / `tests` / `tech-debt`. Create with `gh issue create`, add to the board with `gh project item-add 4 --owner andrestobelem --url <issue-url>`.
 - The Project groups items by **Status** (`Todo` / `In Progress` / `Done`); move an item with `gh project item-edit`.
