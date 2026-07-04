@@ -200,7 +200,8 @@ async function checkProject(tsconfigPath: string, signal: AbortSignal | undefine
 	};
 }
 
-const TIMEOUT_MESSAGE = "TypeScript check timed out — results inconclusive.";
+const TIMEOUT_MESSAGE =
+	"TypeScript check timed out — results inconclusive. Re-run once tsc finishes, or raise PI_TS_LSP_TIMEOUT_MS.";
 
 // --------------------------------------------------------------------------
 // Extension
