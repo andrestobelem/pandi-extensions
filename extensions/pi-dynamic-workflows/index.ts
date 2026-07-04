@@ -224,17 +224,18 @@ export interface DynamicWorkflowToolParams {
 
 interface InternalAgentOptions extends AgentOptions {
 	/**
-	 * Worker-level sugar: reasoning effort (`low|medium|high|xhigh|max`). The worker's agent()
-	 * global maps it to `thinking` before posting, but agents() per-item specs, agents() shared
-	 * options, and ctx-style calls reach the host unmapped — so runSubagent normalizes it at
-	 * entry (effort -> thinking, max -> xhigh) and deletes it (issue #22).
+	 * Worker-level sugar. The worker's agent() global maps effort->thinking and label->name
+	 * before posting, but agents() per-item specs, agents() shared options, and ctx-style calls
+	 * reach the host unmapped — so runSubagent normalizes both at entry (effort -> thinking with
+	 * max -> xhigh, label -> name) and deletes them (issues #22/#23).
 	 */
 	effort?: string;
+	label?: string;
 	__workflowPhase?: AgentPhaseInfo;
 	__workflowNamespace?: string;
 }
 
-interface AgentSpec extends AgentOptions {
+interface AgentSpec extends InternalAgentOptions {
 	prompt: string;
 }
 
@@ -809,6 +810,12 @@ export async function runWorkflow(
 				normalized.thinking = normalized.effort === "max" ? "xhigh" : String(normalized.effort);
 			delete normalized.effort;
 		}
+		// Same for label -> name (#23): runAgents prefers item.label when naming a spec item, so
+		// this mapping covers direct/ctx-style calls; the delete keeps label out of the cache key.
+		if (normalized.label != null) {
+			if (normalized.name == null) normalized.name = String(normalized.label);
+			delete normalized.label;
+		}
 		const prologue = await occAssignMutex.runExclusive(async () => {
 			let resolved = (await applyPersonaOptions(ctx, normalized)) as InternalAgentOptions;
 			resolved = await applyDefaultAgentAccess(ctx, resolved);
@@ -1319,7 +1326,9 @@ export async function runWorkflow(
 						...sharedOptions,
 						...itemOptions,
 						__workflowPhase,
-						name: item.name ?? `agent-${index + 1}`,
+						// Per-item label is the documented way to name a spec node (#23); the
+						// prologue later strips the stale label field from the cache key.
+						name: item.name ?? item.label ?? `agent-${index + 1}`,
 					});
 				};
 				// Run under mapLimit's fan-out-scoped signal (parented on fanoutSignal) so a

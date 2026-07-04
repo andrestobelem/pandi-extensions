@@ -52,7 +52,9 @@ const WORKFLOW = [
 	"const [w] = await agents([{ prompt: 'say both', name: 'both', effort: 'low', thinking: 'high', cache: false }], { settle: true });",
 	// Explicit per-item effort overrides a persona's thinking default (reviewer = high).
 	"const [p] = await agents([{ prompt: 'say persona', name: 'persona-effort', agentType: 'reviewer', effort: 'low', cache: false }], { settle: true });",
-	"return { model: r?.model ?? null, thinking: r?.thinking ?? null, ok: r?.ok ?? null, effortThinking: e?.thinking ?? null, sharedThinking: s?.thinking ?? null, bothThinking: w?.thinking ?? null, personaThinking: p?.thinking ?? null };",
+	// Issue #23: per-item label on the agents() host path becomes the subagent name.
+	"const [l] = await agents([{ prompt: 'say label', label: 'scout-x', cache: false }], { settle: true });",
+	"return { model: r?.model ?? null, thinking: r?.thinking ?? null, ok: r?.ok ?? null, effortThinking: e?.thinking ?? null, sharedThinking: s?.thinking ?? null, bothThinking: w?.thinking ?? null, personaThinking: p?.thinking ?? null, labeledName: l?.name ?? null };",
 ].join("\n");
 
 async function buildEngine() {
@@ -186,6 +188,11 @@ async function scenarioEngine() {
 	check(
 		"engine: explicit per-item effort overrides the persona thinking default",
 		out?.personaThinking === "low",
+		JSON.stringify(out),
+	);
+	check(
+		"engine: per-item label on agents() becomes the subagent name",
+		out?.labeledName === "scout-x",
 		JSON.stringify(out),
 	);
 
