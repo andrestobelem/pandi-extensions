@@ -132,7 +132,7 @@ async function scenarioTuiOpensViewer(url) {
 	const rendered = stripAnsi((ctx._customCalls[0]?.firstRender || []).join("\n"));
 	check("tui: viewer renders the heading", /Tool Heading/.test(rendered), rendered);
 	const text = result?.content?.[0]?.text || "";
-	check("tui: returns an ack mentioning the viewer", /viewer/i.test(text), text);
+	check("tui: returns an ack mentioning the viewer", /visor/i.test(text), text);
 	check("tui: ack mentions the relative path", /doc\.md/.test(text), text);
 	check("tui: details.opened is true", result?.details?.opened === true, JSON.stringify(result?.details));
 	check("tui: not an error", !result?.details?.isError, JSON.stringify(result?.details));
@@ -161,7 +161,7 @@ async function scenarioMissingFile(url) {
 	check("missing: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
 	check(
 		"missing: error mentions read failure",
-		/could not read/i.test(result?.content?.[0]?.text || ""),
+		/no se pudo leer/i.test(result?.content?.[0]?.text || ""),
 		result?.content?.[0]?.text,
 	);
 }
@@ -177,7 +177,7 @@ async function scenarioOversized(url) {
 	check("oversized: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
 	check(
 		"oversized: error mentions size limit",
-		/too large/i.test(result?.content?.[0]?.text || ""),
+		/demasiado grande/i.test(result?.content?.[0]?.text || ""),
 		result?.content?.[0]?.text,
 	);
 }

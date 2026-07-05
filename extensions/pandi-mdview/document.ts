@@ -34,13 +34,13 @@ export type MarkdownLoad =
  */
 export async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<MarkdownLoad> {
 	const filePath = resolveMarkdownPath(pathArg, cwd);
-	if (!filePath) return { ok: false, message: "Usage: /mdview <path-to-markdown-file>", level: "warning" };
+	if (!filePath) return { ok: false, message: "Uso: /mdview <ruta-al-archivo-markdown>", level: "warning" };
 	try {
 		const stat = await fs.stat(filePath);
 		if (stat.size > MAX_MDVIEW_BYTES) {
 			return {
 				ok: false,
-				message: `Markdown file is too large to view (${stat.size} bytes; limit ${MAX_MDVIEW_BYTES} bytes) — open it in an external editor instead.`,
+				message: `El archivo Markdown es demasiado grande para verlo (${stat.size} bytes; límite ${MAX_MDVIEW_BYTES} bytes) — abrilo en un editor externo.`,
 				level: "warning",
 			};
 		}
@@ -48,6 +48,6 @@ export async function loadMarkdownDocument(pathArg: string, cwd: string): Promis
 		return { ok: true, filePath, content, bytes: stat.size };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		return { ok: false, message: `Could not read Markdown file: ${message}`, level: "error" };
+		return { ok: false, message: `No se pudo leer el archivo Markdown: ${message}`, level: "error" };
 	}
 }

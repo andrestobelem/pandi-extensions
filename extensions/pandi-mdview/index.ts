@@ -117,7 +117,7 @@ class MarkdownViewComponent implements Component {
 		const location = this.theme.fg("dim", relativePath);
 		const footer = this.theme.fg(
 			"dim",
-			`↑/↓ j/k scroll • PgUp/PgDn page • q/Esc close • ${start + 1}-${end}/${bodyLines.length}`,
+			`↑/↓ j/k desplazar • PgUp/PgDn página • q/Esc cerrar • ${start + 1}-${end}/${bodyLines.length}`,
 		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));
@@ -168,7 +168,7 @@ async function showMarkdown(pathArg: string, ctx: ExtensionContext): Promise<voi
 
 export default function markdownViewExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("mdview", {
-		description: "View a Markdown file in Pi's TUI",
+		description: "Ver un archivo Markdown en la TUI de Pi",
 		handler: async (args, ctx) => {
 			await showMarkdown(args, ctx);
 		},
@@ -180,14 +180,14 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 	// (where it renders in the transcript).
 	pi.registerTool({
 		name: "view_markdown",
-		label: "View Markdown",
+		label: "Ver Markdown",
 		description:
-			"Open a Markdown file for the user. In a TUI it opens Pi's scrollable Markdown viewer; in non-interactive modes it returns the file's Markdown content. Use when the user asks to show, open, or view a Markdown (.md) file.",
-		promptSnippet: "Show or open a Markdown file for the user.",
+			"Abre un archivo Markdown para el usuario. En una TUI abre el visor Markdown con scroll de Pi; en modos no interactivos devuelve el contenido Markdown del archivo. Usalo cuando el usuario pida mostrar, abrir o ver un archivo Markdown (.md).",
+		promptSnippet: "Mostrar o abrir un archivo Markdown para el usuario.",
 		parameters: Type.Object({
 			path: Type.String({
 				minLength: 1,
-				description: "Path to the Markdown file: relative to the cwd, ~-expanded, or absolute.",
+				description: "Ruta al archivo Markdown: relativa al cwd, expandida con ~, o absoluta.",
 			}),
 		}),
 		executionMode: "sequential",
@@ -206,7 +206,7 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: `Opened ${relativePath} in the Markdown viewer (${load.bytes} bytes).`,
+							text: `Se abrió ${relativePath} en el visor Markdown (${load.bytes} bytes).`,
 						},
 					],
 					details: { path: relativePath, bytes: load.bytes, opened: true },

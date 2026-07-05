@@ -128,7 +128,7 @@ async function scenarioRendersRelativePath(url) {
 	check("/mdview opens custom UI", ctx._customCalls.length === 1, String(ctx._customCalls.length));
 	check("/mdview renders heading text", /Hello Markdown/.test(rendered), rendered);
 	check("/mdview renders body text", /Body text/.test(rendered), rendered);
-	check("/mdview shows close hint", /q\/Esc close/.test(rendered), rendered);
+	check("/mdview shows close hint", /q\/Esc cerrar/.test(rendered), rendered);
 }
 
 async function scenarioQuotedPath(url) {
@@ -155,7 +155,7 @@ async function scenarioErrors(url) {
 		noArgCtx._customCalls.length === 0,
 		String(noArgCtx._customCalls.length),
 	);
-	check("/mdview missing arg reports usage", /Usage: \/mdview/.test(noArgCtx._notes.at(-1)?.msg || ""));
+	check("/mdview missing arg reports usage", /Uso: \/mdview/.test(noArgCtx._notes.at(-1)?.msg || ""));
 
 	const missingCtx = makeCtx({ cwd });
 	await command.handler("missing.md", missingCtx);
@@ -200,7 +200,7 @@ async function scenarioLargeFileGuard(url) {
 	);
 	check(
 		"large-file: warns about size",
-		/large/i.test(ctx._notes.at(-1)?.msg || "") && ctx._notes.at(-1)?.type === "warning",
+		/grande/i.test(ctx._notes.at(-1)?.msg || "") && ctx._notes.at(-1)?.type === "warning",
 		JSON.stringify(ctx._notes.at(-1)),
 	);
 }
@@ -224,7 +224,7 @@ async function scenarioPrintModeErrorToStderr(url) {
 	const { out, err } = await captureConsole(() => commands.get("mdview").handler("missing.md", ctx));
 	check(
 		"print-error: error goes to stderr, not stdout",
-		/Could not read/.test(err) && !/Could not read/.test(out),
+		/No se pudo leer/.test(err) && !/No se pudo leer/.test(out),
 		JSON.stringify({ out, err }),
 	);
 }
