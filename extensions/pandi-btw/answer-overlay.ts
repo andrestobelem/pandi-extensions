@@ -6,7 +6,7 @@
  * toma el control del editor temporalmente y resuelve cuando el usuario lo cierra), así
  * que no se persiste nada: al cerrarlo solo vuelve el control al editor.
  *
- * El componente está vendoreado desde MarkdownViewComponent de pi-mdview (se permite la
+ * El componente está vendoreado desde MarkdownViewComponent de pandi-mdview (se permite la
  * duplicación entre extensiones para que cada una pueda publicarse standalone): mismo
  * modelo de scroll, mismo renderizado de Markdown, mismo cierre con q/Esc. Las únicas
  * diferencias son el encabezado (la pregunta en lugar de una ruta de archivo) y que

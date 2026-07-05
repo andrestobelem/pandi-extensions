@@ -37,7 +37,7 @@ const BTW_MAX_TOKENS = 2048;
 
 const STATUS_KEY = "btw";
 
-/** Notificá al usuario, degradando con gracia fuera de la TUI (refleja el ayudante de pi-mdview). */
+/** Notificá al usuario, degradando con gracia fuera de la TUI (refleja el ayudante de pandi-mdview). */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	// La superficie overlay/notify solo existe en una sesión interactiva (TUI/RPC). En los
 	// modos print y json (headless, hasUI=false) no hay UI, así que hacé fallback a la

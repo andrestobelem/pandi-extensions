@@ -1,7 +1,7 @@
 /**
  * Ayudantes puros y deterministas para el comando `/btw`.
  *
- * Como derive-name.ts de pi-rename, este módulo nunca toca el LLM, la red ni ninguna API
+ * Como derive-name.ts de pandi-rename, este módulo nunca toca el LLM, la red ni ninguna API
  * runtime de Pi: solo transforma estructuras de datos. Todas las *decisiones* que toma
  * `/btw` sobre qué enviarle al modelo y cómo leer su respuesta viven acá para poder
  * probarlas con tests unitarios en aislamiento, dejando a index.ts como una capa delgada

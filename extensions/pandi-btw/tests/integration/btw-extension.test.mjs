@@ -420,7 +420,7 @@ async function testTuiOverlay(url) {
 }
 
 async function main() {
-	const { outDir, aliases } = await makeBuildDir("pi-btw-integration", {
+	const { outDir, aliases } = await makeBuildDir("pandi-btw-integration", {
 		sdk: (dir) => sdkStub(dir),
 		// Markdown lo provee el stub tui compartido (STUB_SOURCES.tui).
 		tui: STUB_SOURCES.tui,
@@ -465,7 +465,7 @@ async function main() {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
 
-	console.log(`\n=== pi-btw: ${counts.passed} passed, ${counts.failed} failed ===`);
+	console.log(`\n=== pandi-btw: ${counts.passed} passed, ${counts.failed} failed ===`);
 	if (counts.failed > 0) {
 		for (const f of counts.failures) console.log(`  FAIL ${f}`);
 		process.exit(1);
