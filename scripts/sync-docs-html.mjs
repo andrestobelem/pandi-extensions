@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // sync-docs-html.mjs — espeja los docs humanos (README.md raíz + docs/**/*.md, salvo el
 // transitorio docs/conversaciones/) en `docs/html/` como HTML COMMITTEADO y navegable, estilado por
-// el converter de pi-docs (pandi artifact style). Tiene la misma forma generator + --check que los otros
+// el converter de pandi-docs (pandi artifact style). Tiene la misma forma generator + --check que los otros
 // scripts sync-*.mjs: el mirror es un artifact GENERATED — no lo edites a mano; editá la fuente
 // Markdown y re-ejecutá esto. `npm test` corre el --check, así que el drift rompe la compuerta.
 //

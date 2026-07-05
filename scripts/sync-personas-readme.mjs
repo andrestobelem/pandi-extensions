@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // sync-personas-readme.mjs — espeja las personas del proyecto (.pi/personas/*.json) en
 // .pi/personas/README.md + README.html COMMITTEADOS y legibles por humanos (con estilo pandi vía el
-// converter de pi-docs). Tiene la misma forma generator + --check que los otros scripts sync-*.mjs:
+// converter de pandi-docs). Tiene la misma forma generator + --check que los otros scripts sync-*.mjs:
 // ambos mirrors son artifacts GENERATED — no los edites a mano; editá el JSON (la fuente de verdad,
 // inyectada al spawn) y re-ejecutá esto.
 //
