@@ -1,26 +1,26 @@
 /**
- * LLM-backed session-name summarization for `/rename` (no argument).
+ * Resumen del nombre de sesión con LLM para `/rename` (sin argumento).
  *
- * The deterministic path in ./derive-name slugs the most recent user message verbatim.
- * This module instead builds a prompt from the MOST RECENT part of the conversation and
- * asks an LLM (via an injected runner) to summarize it into a short title, which is then
- * slugified. The runner is injected so this module never touches a process or the network
- * itself — the real subprocess lives in ./spawn-summary, and tests pass a stub. On any
- * failure (offline, no API key, timeout, empty/garbage output, or no history) it falls
- * back to the deterministic ./derive-name result, so `/rename` always produces a name.
+ * La ruta determinística en ./derive-name convierte en slug el mensaje de usuario más reciente tal cual.
+ * En cambio, este módulo arma un prompt a partir de la parte MÁS RECIENTE de la conversación y
+ * le pide a un LLM (vía un runner inyectado) que la resuma en un título corto, que luego se
+ * convierte en slug. El runner se inyecta para que este módulo nunca toque un proceso ni la red
+ * por sí mismo — el subprocess real vive en ./spawn-summary, y los tests pasan un stub. Ante cualquier
+ * falla (offline, sin API key, timeout, salida vacía/basura o sin historial) vuelve al resultado
+ * determinístico de ./derive-name, así que `/rename` siempre produce un nombre.
  *
- * Pure except for calling the injected runner, so the prompt-building, output-parsing,
- * and fallback logic are all unit-testable without an LLM.
+ * Es puro salvo por llamar al runner inyectado, así que el armado del prompt, el parseo de salida
+ * y la lógica de respaldo son todos testeables sin un LLM.
  */
 
 import { DEFAULT_SESSION_NAME, type DeriveOptions, deriveSessionName, slugify } from "./derive-name.js";
 
-/** How many trailing messages count as "the most recent part" of the conversation. */
+/** Cuántos mensajes finales cuentan como "la parte más reciente" de la conversación. */
 export const MAX_SUMMARY_MESSAGES = 8;
-/** Hard cap on the conversation text fed to the model (keep the most recent tail). */
+/** Tope duro del texto de conversación enviado al modelo (se conserva la cola más reciente). */
 export const MAX_SUMMARY_CHARS = 4000;
 
-/** Runs the summary prompt through an LLM and resolves its raw text (or rejects). */
+/** Ejecuta el prompt de resumen a través de un LLM y resuelve su texto crudo (o rechaza). */
 export type SummaryRunner = (prompt: string) => Promise<string>;
 
 export interface SummarizeOptions extends DeriveOptions {
@@ -34,13 +34,13 @@ export interface SummarizeArgs extends SummarizeOptions {
 }
 
 export interface SummarizeResult {
-	/** The slug to apply. */
+	/** El slug a aplicar. */
 	name: string;
-	/** True when the deterministic fallback was used instead of an LLM summary. */
+	/** True cuando se usó el respaldo determinístico en vez de un resumen del LLM. */
 	fellBack: boolean;
 }
 
-/** Extract `{role, text}` from a `user`/`assistant` message entry (ignores image blocks). */
+/** Extrae `{role, text}` de una entrada de mensaje `user`/`assistant` (ignora bloques de imagen). */
 function extractRoleText(entry: unknown): { role: string; text: string } | undefined {
 	const message = (entry as { message?: { role?: string; content?: unknown } } | null)?.message;
 	const role = message?.role;
@@ -64,7 +64,7 @@ function extractRoleText(entry: unknown): { role: string; text: string } | undef
 	return text ? { role, text } : undefined;
 }
 
-/** The last `maxMessages` non-empty user/assistant messages, in chronological order. */
+/** Los últimos `maxMessages` mensajes no vacíos de user/assistant, en orden cronológico. */
 function recentMessages(entries: unknown, maxMessages: number): { role: string; text: string }[] {
 	const list = Array.isArray(entries) ? entries : [];
 	const out: { role: string; text: string }[] = [];
@@ -76,8 +76,8 @@ function recentMessages(entries: unknown, maxMessages: number): { role: string; 
 }
 
 /**
- * Build the summarization prompt from the most recent part of the conversation. Returns
- * "" when there is nothing to summarize (so the caller can skip the LLM entirely).
+ * Arma el prompt de resumen a partir de la parte más reciente de la conversación. Devuelve
+ * "" cuando no hay nada para resumir (así quien llama puede saltear el LLM por completo).
  */
 export function buildSummaryPrompt(entries: unknown, opts: SummarizeOptions = {}): string {
 	const maxMessages = opts.maxMessages ?? MAX_SUMMARY_MESSAGES;
@@ -85,7 +85,7 @@ export function buildSummaryPrompt(entries: unknown, opts: SummarizeOptions = {}
 	const messages = recentMessages(entries, maxMessages);
 	if (messages.length === 0) return "";
 	let convo = messages.map((m) => `${m.role}: ${m.text}`).join("\n");
-	// Keep the most recent tail when over the cap.
+	// Conservá la cola más reciente cuando supera el tope.
 	if (convo.length > maxChars) convo = convo.slice(convo.length - maxChars);
 	return [
 		"Estás nombrando una sesión de trabajo en base a su actividad MÁS RECIENTE.",
@@ -98,8 +98,8 @@ export function buildSummaryPrompt(entries: unknown, opts: SummarizeOptions = {}
 	].join("\n");
 }
 
-/** Turn raw model output into a slug: first non-empty line, then slugify (which already
- * strips quotes, markdown, and punctuation). Returns "" when nothing slug-able remains. */
+/** Convierte la salida cruda del modelo en un slug: toma la primera línea no vacía y luego aplica slugify (que ya
+ * quita comillas, markdown y puntuación). Devuelve "" cuando no queda nada convertible a slug. */
 export function slugFromSummaryOutput(raw: string, opts: SummarizeOptions = {}): string {
 	const firstLine =
 		String(raw ?? "")
@@ -110,9 +110,9 @@ export function slugFromSummaryOutput(raw: string, opts: SummarizeOptions = {}):
 }
 
 /**
- * Summarize the recent conversation into a slug session name, falling back to the
- * deterministic ./derive-name result on any failure (no history, runner throws/times out,
- * or empty/garbage output). Never throws.
+ * Resume la conversación reciente en un nombre de sesión slug, con respaldo al resultado
+ * determinístico de ./derive-name ante cualquier falla (sin historial, runner lanza o expira,
+ * o salida vacía/basura). Nunca lanza.
  */
 export async function summarizeSessionName(args: SummarizeArgs): Promise<SummarizeResult> {
 	const { entries, runSummary, ...opts } = args;
@@ -124,7 +124,7 @@ export async function summarizeSessionName(args: SummarizeArgs): Promise<Summari
 		const slug = slugFromSummaryOutput(raw, opts);
 		if (slug) return { name: slug, fellBack: false };
 	} catch {
-		// fall through to the deterministic fallback
+		// seguí hacia el respaldo determinístico
 	}
 	return { name: fallbackName, fellBack: true };
 }

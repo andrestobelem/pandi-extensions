@@ -1,25 +1,25 @@
 /**
- * Claude-style `/rename` command for Pi.
+ * Comando `/rename` estilo Claude para Pi.
  *
- * Claude Code's `/rename [name]` renames the current conversation: with an argument it
- * uses that name, and with no argument it auto-generates one from the conversation
- * history. Pi already has a native `/name <name>` that sets the session display name,
- * but it has no no-argument auto-generate path. This extension adds `/rename` as a
- * functional SUPERSET of `/name` (it coexists with `/name`, never overrides it):
+ * El `/rename [name]` de Claude Code renombra la conversación actual: con un argumento
+ * usa ese nombre, y sin argumento autogenera uno a partir del historial de la
+ * conversación. Pi ya tiene un `/name <name>` nativo que fija el nombre visible de la sesión,
+ * pero no tiene una ruta de autogeneración sin argumentos. Esta extensión agrega `/rename` como un
+ * SUPERSET funcional de `/name` (coexiste con `/name`, nunca lo sobreescribe):
  *
  *   /rename Refactor auth   -> pi.setSessionName("refactor-auth")
  *   /rename "Hello World!"  -> pi.setSessionName("hello-world")
- *   /rename                 -> invent a slug from the MOST RECENT activity and apply it
- *                              directly (no dialog); re-running it tracks current work.
+ *   /rename                 -> inventa un slug a partir de la actividad MÁS RECIENTE y lo aplica
+ *                              directamente (sin diálogo); al volver a correrlo sigue el trabajo actual.
  *
- * Every applied name is a slug. The current name is shown as an inverted-color pill
- * embedded in the editor's top border (the violet prompt line), right where
- * dynamic-workflows shows "ultracode auto" — composing as "ultracode auto ── <slug>"
- * (existing label first, name last, joined by the border line) when both are present.
- * pandi-rename wraps
- * the editor with its own outer layer (delegating everything but render), so it neither
- * imports nor depends on dynamic-workflows. Naming logic is deterministic and lives in
- * ./derive-name; the border math lives in ./border-label.
+ * Cada nombre aplicado es un slug. El nombre actual se muestra como una pastilla de color invertido
+ * incrustada en el borde superior del editor (la línea violeta del prompt), justo donde
+ * dynamic-workflows muestra "ultracode auto" — componiendo como "ultracode auto ── <slug>"
+ * (etiqueta existente primero, nombre al final, unidos por la línea del borde) cuando ambas están presentes.
+ * pandi-rename envuelve
+ * el editor con su propia capa externa (delegando todo salvo render), así que no importa
+ * ni depende de dynamic-workflows. La lógica de nombres es determinística y vive en
+ * ./derive-name; la matemática del borde vive en ./border-label.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -35,10 +35,10 @@ import { summarizeSessionName } from "./summarize-name.js";
 const NAME_EDITOR_MARKER = "__piRenameNameBorderEditor";
 const SET_PROVIDER = "__piRenameSetBorderProvider";
 
-/** The most recently created wrapped editor, nudged to repaint after a rename. */
+/** El editor envuelto creado más recientemente, al que se le pide redibujado tras un rename. */
 let latestEditor: { invalidate?: () => void } | undefined;
 
-/** Setter feeding the exit-time "Session name: <slug>" hint (undefined off-TTY). */
+/** Setter que alimenta la pista de salida "Session name: <slug>" (undefined fuera de TTY). */
 let setExitHintName: ((name: string | undefined) => void) | undefined;
 
 function readEntries(ctx: ExtensionCommandContext): unknown[] {
@@ -57,19 +57,19 @@ function safeName(pi: ExtensionAPI): string | undefined {
 	}
 }
 
-/** The border label for the current session name, or undefined when unnamed. */
+/** La etiqueta de borde para el nombre actual de la sesión, o undefined cuando no tiene nombre. */
 function borderLabel(pi: ExtensionAPI): string | undefined {
 	return safeName(pi) || undefined;
 }
 
-/** Slugify and apply a name via pi.setSessionName, reporting success/failure. */
+/** Convierte un nombre en slug y lo aplica vía pi.setSessionName, reportando éxito/falla. */
 function applyName(pi: ExtensionAPI, ctx: ExtensionCommandContext, rawName: string): boolean {
 	const finalName = slugify(rawName) || DEFAULT_SESSION_NAME;
 	try {
 		pi.setSessionName(finalName);
 		setExitHintName?.(finalName);
 		notify(ctx, `Sesión renombrada a "${finalName}".`, "info");
-		// Nudge the editor so the border label updates immediately.
+		// Forzá un redibujado del editor para que la etiqueta del borde se actualice enseguida.
 		latestEditor?.invalidate?.();
 		return true;
 	} catch (error) {
@@ -80,10 +80,10 @@ function applyName(pi: ExtensionAPI, ctx: ExtensionCommandContext, rawName: stri
 }
 
 /**
- * Wrap an editor with a transparent outer layer that only overrides render(), adding the
- * session-name label to the top border. Everything else delegates to the base editor, so
- * the underlying behavior (typing, submit, dynamic-workflows' Down-key dashboard) is
- * preserved. A marker + provider setter let install reuse this layer across reloads.
+ * Envuelve un editor con una capa externa transparente que solo sobreescribe render(), agregando la
+ * etiqueta del nombre de sesión al borde superior. Todo lo demás delega en el editor base, así que
+ * se preserva el comportamiento subyacente (tipeo, submit, dashboard con tecla Down de dynamic-workflows).
+ * Un marker + un setter del provider permiten que install reutilice esta capa entre reloads.
  */
 function wrapEditorWithNameBorder(
 	base: EditorComponent,
@@ -103,7 +103,7 @@ function wrapEditorWithNameBorder(
 					const label = holder.provider();
 					if (!label || lines.length === 0) return lines;
 					const color = (target as { borderColor?: (value: string) => string }).borderColor ?? ((s) => s);
-					// The name renders as a "pill": inverted fg/bg (reverse video) over the border color.
+					// El nombre se renderiza como una "pastilla": fg/bg invertidos (reverse video) sobre el color del borde.
 					const labelColor = (value: string) => `\x1b[7m${color(value)}\x1b[27m`;
 					const decorated = composeTopBorder(lines[0], width, label, { color, labelColor });
 					if (decorated == null) return lines;
@@ -121,7 +121,7 @@ function wrapEditorWithNameBorder(
 	}) as unknown as EditorComponent;
 }
 
-/** Install (or reuse) the outer editor layer that shows the name in the top border. */
+/** Instala (o reutiliza) la capa externa del editor que muestra el nombre en el borde superior. */
 function installNameBorderLabel(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	if (ctx.mode !== "tui" || typeof ctx.ui.setEditorComponent !== "function") return;
 	const holder = { provider: () => borderLabel(pi) };
@@ -132,7 +132,7 @@ function installNameBorderLabel(pi: ExtensionAPI, ctx: ExtensionContext): void {
 			[NAME_EDITOR_MARKER]?: boolean;
 			[SET_PROVIDER]?: (next: () => string | undefined) => void;
 		};
-		// Reuse our own layer across reloads instead of stacking another proxy.
+		// Reutilizá nuestra propia capa entre reloads en vez de apilar otro proxy.
 		if (existing[NAME_EDITOR_MARKER]) {
 			existing[SET_PROVIDER]?.(holder.provider);
 			latestEditor = base as { invalidate?: () => void };
@@ -149,15 +149,15 @@ export default function renameExtension(pi: ExtensionAPI): void {
 		description:
 			"Renombra la sesión actual con un slug. Sin argumento, resume tu actividad más reciente mediante el LLM.",
 		handler: async (args, ctx) => {
-			// With a name, use it directly (instant, no LLM). Never opens an input dialog.
+			// Con un nombre, usalo directo (instantáneo, sin LLM). Nunca abre un diálogo de entrada.
 			const trimmed = args.trim();
 			if (trimmed) {
 				applyName(pi, ctx, trimmed);
 				return;
 			}
-			// No argument: summarize the MOST RECENT part of the conversation into a name via
-			// `pi -p`, falling back to a deterministic slug of the latest message if the LLM is
-			// unavailable (offline, no key, timeout). The handler is already async.
+			// Sin argumento: resumí la parte MÁS RECIENTE de la conversación en un nombre vía
+			// `pi -p`, con respaldo en un slug determinístico del último mensaje si el LLM no está
+			// disponible (offline, sin key, timeout). El handler ya es async.
 			notify(ctx, "Generando un nombre a partir de la conversación reciente\u2026", "info");
 			const { name, fellBack } = await summarizeSessionName({
 				entries: readEntries(ctx),
@@ -169,11 +169,11 @@ export default function renameExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	// Show the current name in the editor's top border (TUI only).
+	// Mostrá el nombre actual en el borde superior del editor (solo TUI).
 	pi.on("session_start", async (_event, ctx) => {
 		installNameBorderLabel(pi, ctx);
-		// Print the name under pi core's UUID-only exit resume hint (TUI only; the
-		// installer itself refuses non-TTY stdout so print mode is never polluted).
+		// Imprimí el nombre debajo de la pista de salida con UUID solamente de pi core (solo TUI; el
+		// instalador mismo rechaza stdout no TTY, así que el modo print nunca se contamina).
 		if (ctx.mode === "tui") {
 			setExitHintName ??= installExitNameHint({
 				isTTY: () => process.stdout.isTTY === true,
@@ -184,10 +184,10 @@ export default function renameExtension(pi: ExtensionAPI): void {
 		}
 	});
 
-	// Track every rename (native /name or any extension) so the exit hint stays current.
-	// The pinned SDK types (0.80.2) lag the runtime here: session_info_changed is emitted
-	// by 0.80.2's AgentSession and typed from 0.80.3 on — drop the cast when the dep ages
-	// past min-release-age and updates.
+	// Seguí cada rename (nativo /name o de cualquier extensión) para que la pista de salida siga actualizada.
+	// Los tipos fijados del SDK (0.80.2) van atrasados respecto del runtime acá: session_info_changed se emite
+	// desde AgentSession en 0.80.2 y se tipa a partir de 0.80.3 — quitá el cast cuando la dep supere
+	// min-release-age y se actualice.
 	const onAny = pi.on as unknown as (
 		event: string,
 		handler: (event: { name?: string }, ctx: ExtensionContext) => Promise<void>,

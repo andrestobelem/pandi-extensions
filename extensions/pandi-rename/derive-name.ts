@@ -1,31 +1,30 @@
 /**
- * Pure, deterministic helpers for the `/rename` command.
+ * Helpers puros y determinísticos para el comando `/rename`.
  *
- * These never touch the LLM, the network, or any Pi API: given the same input they
- * always return the same name. The extension's index.ts is the only orchestration
- * layer (reads the session, talks to the UI); all naming logic lives here so it can
- * be unit-tested in isolation.
+ * Nunca tocan el LLM, la red ni ninguna API de Pi: dada la misma entrada
+ * siempre devuelven el mismo nombre. El index.ts de la extensión es la única capa de
+ * orquestación (lee la sesión, habla con la UI); toda la lógica de nombres vive acá para
+ * poder testearse en aislamiento.
  *
- * Every name produced here is a slug: lowercase, ASCII alphanumerics separated by
- * single hyphens, no leading/trailing/repeated hyphens.
+ * Cada nombre producido acá es un slug: alfanuméricos ASCII en minúscula separados por
+ * guiones simples, sin guiones iniciales/finales/repetidos.
  */
 
-/** Default name used when nothing usable can be derived from the conversation. */
+/** Nombre por defecto usado cuando no se puede derivar nada útil de la conversación. */
 export const DEFAULT_SESSION_NAME = "session";
 
-/** Baseline limits for a slug. Tunable; pinned by the test suite. */
+/** Límites base para un slug. Son ajustables; la suite de tests los pinea. */
 export const MAX_NAME_CHARS = 60;
 export const MAX_NAME_WORDS = 4;
 
 /**
- * Connector words (articles, prepositions, conjunctions) a session NAME should not end
- * on. The point is to describe the session in a few words without leaving the slug
- * dangling mid-phrase (e.g. "arreglar-el-bug-de" -> "arreglar-el-bug"). Spanish + English
- * function words only; content words are never trimmed. Lowercase, ASCII, matching the
- * post-slugify tokens.
+ * Palabras conectoras (artículos, preposiciones, conjunciones) con las que un nombre de sesión no debería terminar.
+ * La idea es describir la sesión en pocas palabras sin dejar el slug colgando a mitad de frase
+ * (p. ej. "arreglar-el-bug-de" -> "arreglar-el-bug"). Solo palabras funcionales de español + inglés;
+ * las palabras de contenido nunca se recortan. En minúscula, ASCII, haciendo match con los tokens post-slugify.
  */
 const TRAILING_CONNECTORS = new Set<string>([
-	// Spanish
+	// Español
 	"el",
 	"la",
 	"los",
@@ -62,7 +61,7 @@ const TRAILING_CONNECTORS = new Set<string>([
 	"sus",
 	"mi",
 	"tu",
-	// English
+	// Inglés
 	"the",
 	"an",
 	"of",
@@ -85,9 +84,9 @@ const TRAILING_CONNECTORS = new Set<string>([
 ]);
 
 /**
- * Drop trailing connector segments from a hyphenated slug so a name never ends on a
- * dangling article/preposition/conjunction. Always keeps at least one segment, so an
- * all-connector slug is left non-empty rather than collapsing to "".
+ * Quita segmentos conectores finales de un slug con guiones para que un nombre nunca termine en
+ * un artículo/preposición/conjunción colgando. Siempre conserva al menos un segmento, así que un
+ * slug compuesto solo por conectores queda no vacío en vez de colapsar a "".
  */
 function trimTrailingConnectors(slug: string): string {
 	if (!slug) return slug;
@@ -106,20 +105,20 @@ export interface DeriveOptions extends SlugOptions {
 }
 
 /**
- * Convert arbitrary text into a slug: strip diacritics, lowercase, split on every run
- * of non-alphanumeric characters, and join the words with hyphens. Truncates to at most
- * maxWords words and maxChars chars without splitting a word (a single oversized word is
- * hard-truncated so the result is never empty when there was content), then drops any
- * trailing connector words so the slug reads as a short name and never ends mid-phrase
- * on a dangling article/preposition/conjunction. Returns "" when there is nothing
- * slug-able.
+ * Convierte texto arbitrario en un slug: quita diacríticos, pasa a minúscula, separa en cada racha
+ * de caracteres no alfanuméricos y une las palabras con guiones. Trunca a lo sumo a maxWords
+ * palabras y maxChars caracteres sin partir una palabra (una sola palabra demasiado grande se
+ * trunca a la fuerza para que el resultado nunca quede vacío cuando había contenido), y luego quita
+ * cualquier palabra conectora final para que el slug se lea como un nombre corto y nunca termine a mitad
+ * de frase con un artículo/preposición/conjunción colgando. Devuelve "" cuando no hay nada
+ * convertible a slug.
  */
 export function slugify(raw: string, opts: SlugOptions = {}): string {
 	const maxChars = opts.maxChars ?? MAX_NAME_CHARS;
 	const maxWords = opts.maxWords ?? MAX_NAME_WORDS;
 	const base = (raw ?? "")
 		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "") // drop combining diacritical marks
+		.replace(/[\u0300-\u036f]/g, "") // quita marcas diacríticas combinadas
 		.toLowerCase();
 	let words = base.split(/[^a-z0-9]+/).filter(Boolean);
 	if (maxWords > 0) words = words.slice(0, maxWords);
@@ -129,13 +128,13 @@ export function slugify(raw: string, opts: SlugOptions = {}): string {
 		if (candidate.length > maxChars) break;
 		slug = candidate;
 	}
-	// A single first word longer than maxChars: hard-truncate so we still return a slug.
+	// Si la primera palabra sola supera maxChars: truncá a la fuerza para seguir devolviendo un slug.
 	if (!slug && words.length > 0) slug = words[0].slice(0, Math.max(0, maxChars));
-	// Keep the name short but never ending on a dangling connector word.
+	// Mantené el nombre corto, pero que nunca termine en una palabra conectora colgando.
 	return trimTrailingConnectors(slug);
 }
 
-/** Extract the joined text content of a `user` message entry (ignores image blocks). */
+/** Extrae el contenido de texto unido de una entrada de mensaje `user` (ignora bloques de imagen). */
 function extractUserText(entry: unknown): string {
 	const message = (entry as { message?: { role?: string; content?: unknown } } | null)?.message;
 	if (message?.role !== "user") return "";
@@ -156,14 +155,14 @@ function extractUserText(entry: unknown): string {
 }
 
 /**
- * Derive a slug session name from the conversation history, reflecting what the user is
- * doing NOW. Walks entries from the MOST RECENT backward and uses the latest `user`
- * message that yields a non-empty slug (a leading slash-command token is dropped first,
- * so a bare `/rename` invocation or an empty turn is skipped and the previous real
- * instruction wins). Because it reads the latest activity rather than the first message,
- * calling `/rename` again as the conversation evolves produces a fresh, current name
- * instead of being stuck on how the session opened. Returns the default name when no
- * user message yields a slug.
+ * Deriva un nombre de sesión slug a partir del historial de la conversación, reflejando lo que el usuario está
+ * haciendo AHORA. Recorre las entradas desde la MÁS RECIENTE hacia atrás y usa el último mensaje `user`
+ * que produzca un slug no vacío (primero descarta un token inicial de slash-command,
+ * así se saltea una invocación sola de `/rename` o un turno vacío y gana la instrucción real previa).
+ * Como lee la actividad más reciente y no el primer mensaje, volver a llamar a `/rename`
+ * mientras evoluciona la conversación produce un nombre fresco y actual
+ * en vez de quedar clavado en cómo arrancó la sesión. Devuelve el nombre por defecto cuando ningún
+ * mensaje del usuario produce un slug.
  */
 export function deriveSessionName(entries: unknown, opts: DeriveOptions = {}): string {
 	const fallback = opts.defaultName ?? DEFAULT_SESSION_NAME;
@@ -171,7 +170,7 @@ export function deriveSessionName(entries: unknown, opts: DeriveOptions = {}): s
 	for (let i = list.length - 1; i >= 0; i--) {
 		const raw = extractUserText(list[i]);
 		if (!raw) continue;
-		// Drop a leading slash-command token, e.g. "/explain the cache" -> "the cache".
+		// Quitá un token inicial de slash-command, p. ej. "/explain the cache" -> "the cache".
 		const cleaned = raw.replace(/^\s*\/[a-zA-Z][\w-]*\s*/, "");
 		const slug = slugify(cleaned, opts);
 		if (slug) return slug;

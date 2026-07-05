@@ -1,17 +1,17 @@
 /**
- * The real LLM runner for `/rename` summarization: spawn the `pi` CLI in print mode
- * (`pi -p "<prompt>"`, "print response and exit") and return its stdout.
+ * El runner real del LLM para el resumen de `/rename`: ejecuta el CLI `pi` en modo print
+ * (`pi -p "<prompt>"`, "print response and exit") y devuelve su stdout.
  *
- * The pi SDK exposes no completion/generate-text API, so a one-shot subprocess is the
- * mechanism (mirroring how pandi-dynamic-workflows calls the model). The subprocess is
- * isolated — `--no-extensions/--no-skills/--no-context-files` keeps it fast and avoids
- * recursively loading this very extension. The binary is `pi` on PATH unless overridden
- * by PI_RENAME_PI_COMMAND; the model is the user's default unless PI_RENAME_MODEL is set.
+ * El SDK de pi no expone una API de completion/generate-text, así que un subprocess de un solo tiro es el
+ * mecanismo (refleja cómo pandi-dynamic-workflows llama al modelo). El subprocess está
+ * aislado — `--no-extensions/--no-skills/--no-context-files` lo mantiene rápido y evita
+ * cargar recursivamente esta misma extensión. El binario es `pi` en PATH salvo que
+ * PI_RENAME_PI_COMMAND lo sobrescriba; el modelo es el predeterminado del usuario salvo que PI_RENAME_MODEL esté definido.
  *
- * Kept separate from summarize-name.ts (which is pure + injectable) so that module's
- * orchestration/fallback logic stays unit-testable without spawning anything. This file
- * deliberately duplicates a small spawn helper rather than importing one from another
- * extension, per the self-contained-extension rule.
+ * Se mantiene separado de summarize-name.ts (que es puro + inyectable) para que la lógica de
+ * orquestación/respaldo de ese módulo siga siendo testeable sin spawnear nada. Este archivo
+ * duplica a propósito un pequeño helper de spawn en vez de importarlo de otra
+ * extensión, por la regla de extensión autocontenida.
  */
 
 import { spawn } from "node:child_process";
@@ -20,10 +20,10 @@ import { join } from "node:path";
 import { getPackageDir } from "@earendil-works/pi-coding-agent";
 
 /**
- * Bin name of the HOST distribution, read from the host package.json: the first
- * `bin` key when present ("pi" under vanilla pi, "picante" under pi-cante), else
- * piConfig.name (distros may rename the bin independently of the product name).
- * Falls back to "pi". Deliberately duplicated per extension (self-contained-extension rule).
+ * Nombre del binario de la distribución HOST, leído del package.json del host: la primera
+ * clave de `bin` cuando existe ("pi" en pi vanilla, "picante" en pi-cante), o si no
+ * piConfig.name (las distros pueden renombrar el binario independientemente del nombre del producto).
+ * Hace fallback a "pi". Duplicado a propósito por extensión (regla de extensión autocontenida).
  */
 function hostBinName(): string {
 	try {
@@ -41,7 +41,7 @@ function hostBinName(): string {
 	}
 }
 
-/** Default cap so a hung/slow model can never block `/rename` forever. */
+/** Tope por defecto para que un modelo colgado/lento nunca pueda bloquear `/rename` para siempre. */
 export const DEFAULT_SUMMARY_TIMEOUT_MS = 12_000;
 const KILL_GRACE_MS = 1_000;
 const MAX_STDOUT_CHARS = 20_000;
@@ -52,7 +52,7 @@ export interface PiSummaryOptions {
 	timeoutMs?: number;
 }
 
-/** Build the `pi -p …` argument vector. Pure, so it is unit-testable. Prompt goes last. */
+/** Arma el vector de argumentos de `pi -p …`. Es puro, así que es testeable. El prompt va al final. */
 export function buildPiSummaryArgs(prompt: string, opts: { model?: string } = {}): string[] {
 	const args = ["-p", "--no-extensions", "--no-skills", "--no-context-files", "--no-approve"];
 	if (opts.model) args.push("--model", opts.model);
@@ -61,12 +61,12 @@ export function buildPiSummaryArgs(prompt: string, opts: { model?: string } = {}
 }
 
 /**
- * Run the summary prompt through `pi -p` and resolve its stdout. Rejects on spawn error,
- * a non-zero exit, or the timeout — summarizeSessionName turns any rejection into the
- * deterministic fallback.
+ * Corre el prompt de resumen por `pi -p` y resuelve su stdout. Rechaza ante error de spawn,
+ * salida no cero o timeout — summarizeSessionName convierte cualquier rechazo en el
+ * respaldo determinístico.
  */
 export async function runPiSummary(prompt: string, opts: PiSummaryOptions = {}): Promise<string> {
-	// Default to the HOST distribution's own binary (bin name === piConfig.name); env override wins.
+	// Por defecto usa el binario propio de la distribución HOST (bin name === piConfig.name); si hay env override, gana ese.
 	const command = process.env.PI_RENAME_PI_COMMAND || hostBinName();
 	const model = opts.model ?? process.env.PI_RENAME_MODEL ?? undefined;
 	const args = buildPiSummaryArgs(prompt, { model });

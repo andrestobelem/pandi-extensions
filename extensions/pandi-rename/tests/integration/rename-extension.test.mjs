@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-rename/index.ts and its pure
- * helpers (derive-name.ts, border-label.ts).
+ * Test de integración de comportamiento duradero para extensions/pandi-rename/index.ts y sus
+ * helpers puros (derive-name.ts, border-label.ts).
  *
- * Pins the public /rename contract:
- * - every applied name is a slug (lowercase, hyphen-separated, diacritics stripped),
- *   capped at MAX_NAME_WORDS (4) words, and never ending on a dangling connector word
- *   (trailing articles/prepositions/conjunctions are trimmed so it reads as a name)
- * - /rename <name> slugifies and sets the session name
- * - /rename with no arg, headless, derives a slug from the most recent user message
- * - /rename with no arg never opens a dialog: it invents a slug from history and applies
- *   it directly, whether or not UI is available
- * - empty/whitespace history falls back to a default name
- * - setSessionName failures are reported, not thrown
- * - the current name is shown as a label embedded in the editor's top border, composing
- *   with an existing right-aligned label (e.g. "ultracode auto") and leaving scroll
- *   hints untouched; the outer editor layer delegates all other behavior and does not
- *   stack across reloads
+ * Pinea el contrato público de /rename:
+ * - cada nombre aplicado es un slug (minúsculas, separado por guiones, sin diacríticos)
+ * - queda limitado a MAX_NAME_WORDS (4) palabras y nunca termina en una palabra conectora colgando
+ *   (se recortan artículos/preposiciones/conjunciones finales para que se lea como un nombre)
+ * - /rename <name> convierte a slug y fija el nombre de la sesión
+ * - /rename sin argumento, sin UI, deriva un slug del mensaje de usuario más reciente
+ * - /rename sin argumento nunca abre un diálogo: inventa un slug a partir del historial y lo aplica
+ *   directamente, haya UI disponible o no
+ * - historial vacío o solo whitespace hace respaldo a un nombre por defecto
+ * - las fallas de setSessionName se reportan, no se lanzan
+ * - el nombre actual se muestra como una etiqueta incrustada en el borde superior del editor,
+ *   componiendo con una etiqueta existente alineada a la derecha (p. ej. "ultracode auto") y dejando las
+ *   pistas de scroll intactas; la capa externa del editor delega todo el resto del comportamiento y no
+ *   se apila entre reloads
  */
 
 import * as fs from "node:fs/promises";
@@ -43,8 +43,8 @@ async function buildPureModule(file, outName, name) {
 		name,
 		src: path.join(REPO_ROOT, "extensions", "pandi-rename", file),
 		outName,
-		// spawn-summary.ts imports getPackageDir from the SDK (host bin-name lookup),
-		// so pure-module bundles need the stub too (harmless for entries that don't).
+		// spawn-summary.ts importa getPackageDir del SDK (búsqueda del nombre del binario host),
+		// así que los bundles de módulos puros también necesitan el stub (inocuo para las entradas que no lo usan).
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 }
@@ -111,7 +111,7 @@ function makeCtx({ hasUI = false, entries = [], inputResult, mode = "tui" } = {}
 	return ctx;
 }
 
-// A ctx that supports the editor-component install path (mirrors the host wiring).
+// Un ctx que soporta la ruta de instalación de editor-component (refleja el cableado del host).
 function makeEditorCtx(baseFactory) {
 	let currentFactory = baseFactory;
 	const ctx = {
@@ -130,7 +130,7 @@ function makeEditorCtx(baseFactory) {
 	return { ctx, getFactory: () => currentFactory };
 }
 
-// Minimal base editor producing a plain (or pre-decorated) violet top border.
+// Editor base mínimo que produce un borde superior violeta simple (o ya decorado).
 function makeFakeEditor({ topLine } = {}) {
 	const calls = { handleInput: [], invalidate: 0 };
 	return {
@@ -187,7 +187,7 @@ async function scenarioSlugifyUnit(url) {
 		slugify("supercalifragilistic", { maxChars: 5 }) === "super",
 	);
 
-	// A name should never end on a dangling connector (article/preposition/conjunction).
+	// Un nombre nunca debería terminar en un conector colgando (artículo/preposición/conjunción).
 	check(
 		"slugify drops a trailing connector word (es)",
 		slugify("arreglar el bug de") === "arreglar-el-bug",
@@ -367,7 +367,7 @@ async function scenarioNoArgSummary(url) {
 	const renameExtension = await loadDefault(url);
 	const outDir = path.dirname(fileURLToPath(url));
 
-	// Success: a fake `pi` prints a title; the no-arg path slugifies it.
+	// Éxito: un `pi` falso imprime un título; la ruta sin argumento lo convierte en slug.
 	const fakePiOk = path.join(outDir, "fake-pi-ok.mjs");
 	await fs.writeFile(fakePiOk, "#!/usr/bin/env node\nprocess.stdout.write('Harden The Loop Gate\\n');\n", {
 		mode: 0o755,
@@ -386,7 +386,7 @@ async function scenarioNoArgSummary(url) {
 		await fs.rm(fakePiOk, { force: true });
 	}
 
-	// Failure: the spawn errors -> deterministic fallback from the most recent message.
+	// Falla: el spawn da error -> respaldo determinístico desde el mensaje más reciente.
 	const prev2 = process.env.PI_RENAME_PI_COMMAND;
 	try {
 		process.env.PI_RENAME_PI_COMMAND = path.join(outDir, "definitely-not-a-real-pi-binary");
@@ -481,7 +481,7 @@ async function scenarioExplicitName(url) {
 
 async function scenarioNoArgHeadless(url) {
 	const renameExtension = await loadDefault(url);
-	// Force the LLM spawn to fail so we exercise the DETERMINISTIC fallback (latest message).
+	// Forzá que falle el spawn del LLM para ejercitar el respaldo DETERMINISTA (último mensaje).
 	const prev = process.env.PI_RENAME_PI_COMMAND;
 	process.env.PI_RENAME_PI_COMMAND = "definitely-not-a-real-pi-binary";
 	try {
@@ -501,7 +501,7 @@ async function scenarioNoArgHeadless(url) {
 		);
 		check("/rename no-arg headless does not open input dialog", ctx._inputCalls.length === 0);
 
-		// whitespace-only argument is treated as no-arg.
+		// Un argumento con solo whitespace se trata como sin argumento.
 		const harness2 = makePi();
 		renameExtension(harness2.pi);
 		const command2 = harness2.commands.get("rename");
@@ -523,8 +523,8 @@ async function scenarioNoArgUI(url) {
 	const command = (h) => h.commands.get("rename");
 	const entries = [userEntry("Build the rename extension")];
 
-	// Even with UI available, no-arg invents the name and NEVER opens an input dialog.
-	// Force the LLM spawn to fail so the name comes from the deterministic fallback.
+	// Incluso con UI disponible, la ruta sin argumento inventa el nombre y NUNCA abre un diálogo de entrada.
+	// Forzá que falle el spawn del LLM para que el nombre salga del respaldo determinístico.
 	const prev = process.env.PI_RENAME_PI_COMMAND;
 	process.env.PI_RENAME_PI_COMMAND = "definitely-not-a-real-pi-binary";
 	try {
@@ -547,7 +547,7 @@ async function scenarioNoArgUI(url) {
 async function scenarioBorderEditor(url) {
 	const renameExtension = await loadDefault(url);
 
-	// Name shown in the top border once installed.
+	// El nombre se muestra en el borde superior una vez instalado.
 	const h1 = makePi({ initialName: "my-task" });
 	renameExtension(h1.pi);
 	const fake1 = makeFakeEditor();
@@ -564,12 +564,12 @@ async function scenarioBorderEditor(url) {
 	check("name renders as an inverted pill (reverse video)", raw1.includes("\x1b[7m"), JSON.stringify(raw1));
 	check("wrapped editor carries the reuse marker", wrapped1.__piRenameNameBorderEditor === true);
 
-	// Delegates non-render behavior to the base editor.
+	// Delega el comportamiento fuera de render al editor base.
 	check("wrapped editor delegates getText", wrapped1.getText() === "base-text");
 	wrapped1.handleInput("x");
 	check("wrapped editor delegates handleInput", fake1.calls.handleInput.includes("x"));
 
-	// Composes with an existing right-aligned label (ultracode auto).
+	// Compone con una etiqueta existente alineada a la derecha (ultracode auto).
 	const h2 = makePi({ initialName: "my-task" });
 	renameExtension(h2.pi);
 	const fake2 = makeFakeEditor({ topLine: (w) => borderWithLabel("ultracode auto", w) });
@@ -586,7 +586,7 @@ async function scenarioBorderEditor(url) {
 		top2,
 	);
 
-	// Leaves a scroll hint untouched.
+	// Deja intacta una pista de scroll.
 	const h3 = makePi({ initialName: "my-task" });
 	renameExtension(h3.pi);
 	const fake3 = makeFakeEditor({ topLine: (w) => violet(`─── ↑ 3 more ${"─".repeat(w - 13)}`) });
@@ -599,7 +599,7 @@ async function scenarioBorderEditor(url) {
 	);
 	check("scroll hint left untouched (no name injected)", top3.includes("↑ 3 more") && !top3.includes("my-task"), top3);
 
-	// Unnamed session: border passes through unchanged.
+	// Sesión sin nombre: el borde pasa sin cambios.
 	const h4 = makePi();
 	renameExtension(h4.pi);
 	const fake4 = makeFakeEditor();
@@ -612,7 +612,7 @@ async function scenarioBorderEditor(url) {
 	);
 	check("unnamed session leaves the border plain", !top4.includes("my-task") && /^─+$/.test(top4), top4);
 
-	// Reloading session_start must not stack another layer.
+	// Volver a cargar session_start no debe apilar otra capa.
 	const h5 = makePi({ initialName: "my-task" });
 	renameExtension(h5.pi);
 	const fake5 = makeFakeEditor();
@@ -631,14 +631,14 @@ async function scenarioFallbacksAndErrors(url) {
 	const renameExtension = await loadDefault(url);
 	const command = (h) => h.commands.get("rename");
 
-	// Empty history headless -> default name.
+	// Historial vacío sin UI -> nombre por defecto.
 	const h1 = makePi();
 	renameExtension(h1.pi);
 	const ctx1 = makeCtx({ hasUI: false, entries: [] });
 	await command(h1).handler("", ctx1);
 	check("/rename empty history falls back to default", h1.sessionName === "session", h1.sessionName);
 
-	// setSessionName throws -> reported as error, no crash.
+	// setSessionName lanza -> se reporta como error, sin crash.
 	const h2 = makePi({ throwOnSet: true });
 	renameExtension(h2.pi);
 	const ctx2 = makeCtx({ hasUI: true });
@@ -712,8 +712,8 @@ async function main() {
 	}
 }
 
-// exit-name-hint.ts: the dim "Session name: <slug>" line printed under pi core's
-// UUID-only exit resume hint (stopgap for earendil-works/pi#6296).
+// exit-name-hint.ts: la línea tenue "Session name: <slug>" impresa debajo de la
+// pista de reanudación al salir solo con UUID de pi core (stopgap para earendil-works/pi#6296).
 async function scenarioExitNameHint(url) {
 	const { formatExitNameHint, installExitNameHint, EXIT_HINT_KEY } = await loadModule(url);
 
@@ -732,7 +732,7 @@ async function scenarioExitNameHint(url) {
 		};
 	}
 
-	// Named session: the hook writes exactly the formatted line.
+	// Sesión con nombre: el hook escribe exactamente la línea formateada.
 	{
 		const { io, hooks, writes } = makeIo();
 		const setName = installExitNameHint(io, {});
@@ -743,7 +743,7 @@ async function scenarioExitNameHint(url) {
 		check("exit hook prints the current name", writes.length === 1 && stripAnsi(writes[0]).includes("mi-sesion"));
 	}
 
-	// Unnamed session: silent exit (no extra line under the core hint).
+	// Sesión sin nombre: salida silenciosa (sin línea extra debajo de la pista de core).
 	{
 		const { io, hooks, writes } = makeIo();
 		installExitNameHint(io, {});
@@ -751,7 +751,7 @@ async function scenarioExitNameHint(url) {
 		check("exit hook writes nothing when the session is unnamed", writes.length === 0);
 	}
 
-	// Cleared name: setter(undefined) suppresses the line again.
+	// Nombre limpiado: setter(undefined) vuelve a suprimir la línea.
 	{
 		const { io, hooks, writes } = makeIo();
 		const setName = installExitNameHint(io, {});
@@ -761,7 +761,7 @@ async function scenarioExitNameHint(url) {
 		check("exit hook respects a cleared name", writes.length === 0);
 	}
 
-	// Not a TTY (pipes, print mode): never installs, never writes.
+	// No es TTY (pipes, modo print): nunca instala, nunca escribe.
 	{
 		const { io, hooks } = makeIo({ tty: false });
 		const setName = installExitNameHint(io, {});
@@ -769,8 +769,8 @@ async function scenarioExitNameHint(url) {
 		check("no exit hook is registered off-TTY", hooks.length === 0);
 	}
 
-	// Reload semantics: a second install on the same registry reuses the holder
-	// (one hook, one line) and its setter updates the name the first hook reads.
+	// Semántica de reload: una segunda instalación sobre el mismo registry reutiliza el holder
+	// (un hook, una línea) y su setter actualiza el nombre que lee el hook original.
 	{
 		const { io, hooks, writes } = makeIo();
 		const registry = {};

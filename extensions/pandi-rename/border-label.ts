@@ -1,10 +1,10 @@
 /**
- * Pure helpers to embed a right-aligned label into the editor's top border (the violet
- * prompt line), mirroring how the dynamic-workflows editor shows "ultracode auto".
+ * Helpers puros para incrustar una etiqueta alineada a la derecha en el borde superior del editor (la línea violeta
+ * del prompt), reflejando cómo el editor de dynamic-workflows muestra "ultracode auto".
  *
- * No imports: a small vendored ANSI stripper and a length-based width are enough for the
- * ASCII slugs + a couple of symbols we render. composeTopBorder() is deterministic and
- * unit-tested; index.ts owns the (impure) editor wrapping.
+ * Sin imports: un pequeño removedor ANSI vendorizado y un ancho basado en longitud alcanzan para los
+ * slugs ASCII + un par de símbolos que renderizamos. composeTopBorder() es determinística y está
+ * testeada; index.ts se ocupa del wrapping (impuro) del editor.
  */
 
 const ANSI = /\x1b\[[0-9;]*m/g;
@@ -19,20 +19,19 @@ export function visibleWidth(value: string): number {
 }
 
 export interface ComposeDeps {
-	/** Wrap dashes (and any existing label) in the editor's border color. Default: identity. */
+	/** Envuelve los guiones (y cualquier etiqueta existente) con el color del borde del editor. Por defecto: identidad. */
 	color?: (value: string) => string;
-	/** Style the name label itself, e.g. inverted fg/bg "pill". Default: same as color. */
+	/** Estiliza la etiqueta del nombre, p. ej. una "pastilla" con fg/bg invertido. Por defecto: igual que color. */
 	labelColor?: (value: string) => string;
 }
 
 /**
- * Right-align the name label into a top-border line. Any existing right-aligned label
- * (e.g. "ultracode auto") is kept and placed FIRST, with the name last, joined by the
- * border glyph so the line continues into the name pill. The name is styled with
- * labelColor (its own pill), the rest
- * with color. Returns the rebuilt line, or null when the line is not a decoratable border
- * — a left-aligned hint such as a scroll indicator ("↑ N more") or anything that does not
- * parse as a border is left untouched, and null is returned when there is not enough room.
+ * Alinea a la derecha la etiqueta del nombre dentro de una línea de borde superior. Cualquier etiqueta alineada a la derecha
+ * existente (p. ej. "ultracode auto") se conserva y se coloca PRIMERO, con el nombre al final, unida por el glifo
+ * del borde para que la línea continúe dentro de la pastilla del nombre. El nombre se estiliza con
+ * labelColor (su propia pastilla), el resto con color. Devuelve la línea reconstruida, o null cuando la línea no es un borde
+ * decorable — una pista alineada a la izquierda como un indicador de scroll ("↑ N more") o cualquier cosa que no
+ * parsee como borde se deja intacta, y se devuelve null cuando no hay suficiente espacio.
  */
 export function composeTopBorder(line0: string, width: number, label: string, deps: ComposeDeps = {}): string | null {
 	if (!line0 || width <= 0 || !label) return null;
@@ -43,17 +42,17 @@ export function composeTopBorder(line0: string, width: number, label: string, de
 	let existing = "";
 	if (!/^─+$/.test(plain)) {
 		const match = plain.match(/^(─+) (.+) (─+)$/);
-		if (!match) return null; // not a recognizable border line
+		if (!match) return null; // no es una línea de borde reconocible
 		const leftDashes = match[1].length;
 		const rightDashes = match[3].length;
-		// A right-aligned label (e.g. ultracode) has few trailing dashes; a left-aligned
-		// hint (e.g. "↑ N more") has many. Only combine with a right-aligned label.
+		// Una etiqueta alineada a la derecha (p. ej. ultracode) tiene pocos guiones finales; una pista
+		// alineada a la izquierda (p. ej. "↑ N more") tiene muchos. Solo combinar con una etiqueta alineada a la derecha.
 		if (rightDashes > leftDashes) return null;
 		existing = match[2].trim();
 	}
 
-	// Connect the existing label to the name with the SAME border glyph (─), so the line
-	// continues seamlessly into the name pill instead of a spaced ASCII separator.
+	// Conectá la etiqueta existente con el nombre usando el MISMO glifo de borde (─), para que la línea
+	// continúe sin cortes dentro de la pastilla del nombre en vez de usar un separador ASCII espaciado.
 	const pill = ` ${label} `;
 	const joiner = ` ${DASH}${DASH}`;
 	const visibleMiddle = existing ? ` ${existing}${joiner}${pill}` : pill;

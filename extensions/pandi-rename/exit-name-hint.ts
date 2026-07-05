@@ -1,24 +1,24 @@
 /**
- * Exit-time session-name hint.
+ * Pista del nombre de la sesión al salir.
  *
- * pi core prints `To resume this session: pi --session <uuid>` right before
- * `process.exit(0)` — always the UUID, never the display name (upstream FR:
- * https://github.com/earendil-works/pi/issues/6296). A process `exit` hook runs
- * synchronously AFTER that core write, so this module uses one to add a single dim
- * line directly beneath it when the session has a name:
+ * pi core imprime `To resume this session: pi --session <uuid>` justo antes de
+ * `process.exit(0)` — siempre el UUID, nunca el nombre visible (upstream FR:
+ * https://github.com/earendil-works/pi/issues/6296). Un hook de `exit` del proceso corre
+ * sincrónicamente DESPUÉS de esa escritura de core, así que este módulo usa uno para agregar una sola línea tenue
+ * justo debajo cuando la sesión tiene nombre:
  *
  *   Session name: docs-html-mirror-sync (resume by name: pi -r)
  *
- * The mutable state (current name) lives in a holder registered under a global
- * Symbol: `/reload` re-imports the extension in a fresh module scope, and reusing
- * the registered holder keeps ONE exit hook (and one printed line) across reloads
- * instead of stacking a duplicate per reload. If upstream ships #6296 this line
- * becomes redundant but stays harmless (it prints the same name).
+ * El estado mutable (nombre actual) vive en un holder registrado bajo un
+ * Symbol global: `/reload` reimporta la extensión en un scope de módulo nuevo, y reutilizar
+ * el holder registrado mantiene UN hook de salida (y una línea impresa) entre reloads
+ * en vez de apilar un duplicado por reload. Si upstream publica #6296 esta línea
+ * se vuelve redundante, pero sigue siendo inocua (imprime el mismo nombre).
  */
 
 export const EXIT_HINT_KEY = Symbol.for("pandi-rename.exit-name-hint");
 
-/** Injected process surface so the behavior is testable without a real process. */
+/** Superficie de proceso inyectada para que el comportamiento sea testeable sin un proceso real. */
 export interface ExitNameHintIO {
 	isTTY(): boolean;
 	onExit(hook: () => void): void;
@@ -29,16 +29,16 @@ interface Holder {
 	name: string | undefined;
 }
 
-/** The dim one-liner printed under pi core's exit resume hint. */
+/** La línea tenue de una sola línea impresa debajo de la pista de reanudación al salir de pi core. */
 export function formatExitNameHint(name: string): string {
 	const dim = (text: string) => `\x1b[2m${text}\x1b[22m`;
 	return `${dim("Session name:")} ${name} ${dim("(resume by name: pi -r)")}\n`;
 }
 
 /**
- * Install the exit hook (or reuse the one a previous load registered) and return a
- * setter for the current session name. Returns undefined off-TTY (piped stdout,
- * print mode), where the line would pollute machine-readable output.
+ * Instala el hook de salida (o reutiliza el que registró una carga previa) y devuelve un
+ * setter para el nombre actual de la sesión. Devuelve undefined fuera de TTY (stdout con pipe,
+ * modo print), donde la línea contaminaría la salida legible por máquinas.
  */
 export function installExitNameHint(
 	io: ExitNameHintIO,
