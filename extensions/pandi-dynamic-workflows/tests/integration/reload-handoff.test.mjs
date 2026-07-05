@@ -23,7 +23,7 @@ const WORKFLOW = `
 export const meta = { name: "reload-probe", description: "reload handoff probe" };
 const first = await bash("printf first", { cache: true });
 await log("after cached bash");
-await sleep(1200);
+await sleep(2000);
 return { runId, first: first.stdout };
 `;
 
@@ -246,12 +246,158 @@ async function scenarioReloadAutoResume(url) {
 		JSON.stringify(completed.output),
 	);
 	check(
+		"reload: original run limits are preserved after auto-resume",
+		completed.agentConcurrency === 1 && completed.maxAgents === 2,
+		JSON.stringify({ agentConcurrency: completed.agentConcurrency, maxAgents: completed.maxAgents }),
+	);
+	check(
 		"reload: fresh ctx receives the normal completion notification",
 		secondCtx.notifications.some((n) => /completed/i.test(n.message)) && secondPi.userMessages.length === 1,
 		JSON.stringify({ notifications: secondCtx.notifications, userMessages: secondPi.userMessages }),
 	);
 
 	await emit(secondPi.handlers, "session_shutdown", { reason: "quit" }, secondCtx.ctx);
+}
+
+async function scenarioMultipleReloadAutoResume(url) {
+	const project = await makeProject();
+	const sharedExecCalls = [];
+
+	const firstMod = await loadExtensionModule(url);
+	const firstExt = firstMod.default;
+	const firstPi = makePi("multi-before", sharedExecCalls);
+	const firstCtx = makeCtx(project, "multi-before");
+	firstExt(firstPi.pi);
+	await emit(firstPi.handlers, "session_start", { reason: "startup" }, firstCtx.ctx);
+
+	const firstStart = await runTool(firstPi.tools.get("dynamic_workflow"), firstCtx.ctx, {
+		action: "start",
+		name: "reload-probe",
+		concurrency: 1,
+		maxAgents: 2,
+		timeoutMs: 30_000,
+	});
+	const secondStart = await runTool(firstPi.tools.get("dynamic_workflow"), firstCtx.ctx, {
+		action: "start",
+		name: "reload-probe",
+		concurrency: 1,
+		maxAgents: 2,
+		timeoutMs: 30_000,
+	});
+	const firstStatus = firstStart.details.status;
+	const secondStatus = secondStart.details.status;
+	await Promise.all([waitForJournaledBash(firstStatus.runDir), waitForJournaledBash(secondStatus.runDir)]);
+	check(
+		"multi: both old attempts reached their cached bash before reload",
+		sharedExecCalls.length === 2,
+		JSON.stringify(sharedExecCalls),
+	);
+
+	await emit(firstPi.handlers, "session_shutdown", { reason: "reload" }, firstCtx.ctx);
+	const interrupted = await Promise.all([
+		readJsonIfExists(path.join(firstStatus.runDir, "result.json")),
+		readJsonIfExists(path.join(secondStatus.runDir, "result.json")),
+	]);
+	check(
+		"multi: both old attempts are interrupted as reload failures",
+		interrupted.every((result) => result?.state === "failed" && /reload/i.test(result.error || "")),
+		JSON.stringify(interrupted),
+	);
+
+	const secondMod = await loadExtensionModule(url);
+	const secondExt = secondMod.default;
+	const secondPi = makePi("multi-after", sharedExecCalls);
+	const secondCtx = makeCtx(project, "multi-after");
+	secondExt(secondPi.pi);
+	await emit(secondPi.handlers, "session_start", { reason: "reload" }, secondCtx.ctx);
+
+	const completed = await Promise.all([
+		waitForCompletedResult(firstStatus.runDir),
+		waitForCompletedResult(secondStatus.runDir),
+	]);
+	check(
+		"multi: all reload handoff runs resume with the same runIds",
+		completed[0].runId === firstStatus.runId && completed[1].runId === secondStatus.runId,
+		JSON.stringify(completed.map((result) => result.runId)),
+	);
+	check(
+		"multi: cached bash calls are not re-executed for either resumed run",
+		sharedExecCalls.length === 2,
+		JSON.stringify(sharedExecCalls),
+	);
+	await emit(secondPi.handlers, "session_shutdown", { reason: "quit" }, secondCtx.ctx);
+}
+
+async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
+	const project = await makeProject();
+	const otherProject = await makeProject();
+	const sharedExecCalls = [];
+
+	const firstMod = await loadExtensionModule(url);
+	const firstExt = firstMod.default;
+	const firstPi = makePi("cwd-before", sharedExecCalls);
+	const firstCtx = makeCtx(project, "cwd-before");
+	firstExt(firstPi.pi);
+	await emit(firstPi.handlers, "session_start", { reason: "startup" }, firstCtx.ctx);
+
+	const startResponse = await runTool(firstPi.tools.get("dynamic_workflow"), firstCtx.ctx, {
+		action: "start",
+		name: "reload-probe",
+		timeoutMs: 30_000,
+	});
+	const status = startResponse.details.status;
+	await waitForJournaledBash(status.runDir);
+	await emit(firstPi.handlers, "session_shutdown", { reason: "reload" }, firstCtx.ctx);
+	const interrupted = await readJsonIfExists(path.join(status.runDir, "result.json"));
+	check(
+		"cwd: old attempt is queued as a reload interruption",
+		interrupted?.state === "failed" && /reload/i.test(interrupted.error || ""),
+		JSON.stringify(interrupted),
+	);
+
+	const wrongCwdMod = await loadExtensionModule(url);
+	const wrongCwdExt = wrongCwdMod.default;
+	const wrongCwdPi = makePi("cwd-wrong", sharedExecCalls);
+	const wrongCwdCtx = makeCtx(otherProject, "cwd-wrong");
+	wrongCwdExt(wrongCwdPi.pi);
+	await emit(wrongCwdPi.handlers, "session_start", { reason: "reload" }, wrongCwdCtx.ctx);
+	await new Promise((resolve) => setTimeout(resolve, 300));
+	const afterWrongCwd = await readJsonIfExists(path.join(status.runDir, "result.json"));
+	check(
+		"cwd: reload handoff is not resumed from a different cwd",
+		afterWrongCwd?.state === "failed" && sharedExecCalls.length === 1,
+		JSON.stringify({ afterWrongCwd, execCalls: sharedExecCalls }),
+	);
+	await emit(wrongCwdPi.handlers, "session_shutdown", { reason: "quit" }, wrongCwdCtx.ctx);
+
+	const startupMod = await loadExtensionModule(url);
+	const startupExt = startupMod.default;
+	const startupPi = makePi("cwd-startup", sharedExecCalls);
+	const startupCtx = makeCtx(project, "cwd-startup");
+	startupExt(startupPi.pi);
+	await emit(startupPi.handlers, "session_start", { reason: "startup" }, startupCtx.ctx);
+	await new Promise((resolve) => setTimeout(resolve, 300));
+	const afterStartup = await readJsonIfExists(path.join(status.runDir, "result.json"));
+	check(
+		"cwd: non-reload session_start does not consume a valid handoff",
+		afterStartup?.state === "failed" && sharedExecCalls.length === 1,
+		JSON.stringify({ afterStartup, execCalls: sharedExecCalls }),
+	);
+	await emit(startupPi.handlers, "session_shutdown", { reason: "quit" }, startupCtx.ctx);
+
+	const reloadMod = await loadExtensionModule(url);
+	const reloadExt = reloadMod.default;
+	const reloadPi = makePi("cwd-reload", sharedExecCalls);
+	const reloadCtx = makeCtx(project, "cwd-reload");
+	reloadExt(reloadPi.pi);
+	await emit(reloadPi.handlers, "session_start", { reason: "reload" }, reloadCtx.ctx);
+	const completed = await waitForCompletedResult(status.runDir);
+	check(
+		"cwd: matching cwd plus reload reason resumes the preserved handoff",
+		completed.runId === status.runId && sharedExecCalls.length === 1,
+		JSON.stringify({ completed, execCalls: sharedExecCalls }),
+	);
+	await emit(reloadPi.handlers, "session_shutdown", { reason: "quit" }, reloadCtx.ctx);
 }
 
 async function scenarioQuitDoesNotAutoResume(url) {
@@ -294,6 +440,8 @@ async function scenarioQuitDoesNotAutoResume(url) {
 async function main() {
 	const { url } = await buildExtension();
 	await scenarioReloadAutoResume(url);
+	await scenarioMultipleReloadAutoResume(url);
+	await scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url);
 	await scenarioQuitDoesNotAutoResume(url);
 	console.log(`\nTOTAL: ${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

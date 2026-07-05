@@ -89,9 +89,10 @@ print/json mode there is no persistent session to keep it alive, so it errors
 instead of falling back to foreground.
 
 On `/reload`, active background workflows are interrupted and automatically
-resumed in the fresh extension instance with the same `runId`. Completed
-journaled calls stay cached; in-flight calls and uncached side effects may run
-again, matching normal `/workflow resume` semantics.
+resumed in the fresh extension instance with the same `runId` and original
+limits (`concurrency`, `maxAgents`, timeouts). Completed journaled calls stay
+cached; in-flight calls and uncached side effects may run again, matching normal
+`/workflow resume` semantics.
 
 ## How it works
 

@@ -188,12 +188,15 @@ export async function startWorkflowBackground(
 		limits,
 		controller,
 	};
-	activeRuns.set(prepared.runId, active);
 	const status = initialRunStatus(workflow, prepared, true, limits);
-	await writeRunStatus(status);
-	refreshActiveWorkflowStatus(ctx);
-
-	const promise = runWorkflow(pi, ctx, workflow, input, limits, controller.signal, undefined, prepared)
+	let releaseRunStart: (() => void) | undefined;
+	let rejectRunStart: ((error: unknown) => void) | undefined;
+	const runStartGate = new Promise<void>((resolve, reject) => {
+		releaseRunStart = resolve;
+		rejectRunStart = reject;
+	});
+	const promise = runStartGate
+		.then(() => runWorkflow(pi, ctx, workflow, input, limits, controller.signal, undefined, prepared))
 		.then((result) => {
 			if (!shouldSuppressReloadHandoffResult(result)) {
 				const resultState = getRunState(result);
@@ -255,6 +258,15 @@ export async function startWorkflowBackground(
 			refreshActiveWorkflowStatus(ctx);
 		});
 	active.promise = promise;
+	activeRuns.set(prepared.runId, active);
+	try {
+		await writeRunStatus(status);
+		refreshActiveWorkflowStatus(ctx);
+		releaseRunStart?.();
+	} catch (err) {
+		rejectRunStart?.(err);
+		throw err;
+	}
 	void promise;
 	return status;
 }
@@ -518,7 +530,7 @@ export async function resumeReloadInterruptedWorkflowRuns(
 
 	for (const entry of entries) {
 		try {
-			await entry.settled;
+			await settleWithinTimeout(entry.settled, 5000);
 			if (!entry.interruptedByReload) {
 				skipped.push(entry.runId);
 				continue;
