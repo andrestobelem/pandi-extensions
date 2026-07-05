@@ -42,6 +42,14 @@ function displayMarkdownPath(cwd: string, filePath: string): string {
 	return path.relative(cwd, filePath) || filePath;
 }
 
+function toolResult(text: string, details: Record<string, unknown>) {
+	return { content: [{ type: "text" as const, text }], details };
+}
+
+function toolError(text: string) {
+	return toolResult(text, { isError: true });
+}
+
 // Construye el tema de Markdown a partir del objeto `theme` de runtime (el valor que entra al
 // callback ctx.ui.custom) usando SOLO imports type-only del SDK. A propósito NO importamos
 // getMarkdownTheme() del SDK como valor: eso arrastra todo el runtime de coding-agent
@@ -197,28 +205,18 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const load = await loadMarkdownDocument(params.path, ctx.cwd);
 			if (!load.ok) {
-				return {
-					content: [{ type: "text" as const, text: load.message }],
-					details: { isError: true },
-				};
+				return toolError(load.message);
 			}
 			const relativePath = displayMarkdownPath(ctx.cwd, load.filePath);
 			if (ctx.mode === "tui" && ctx.hasUI) {
 				await openMarkdownViewer(ctx, load.filePath, load.content);
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Se abrió ${relativePath} en el visor Markdown (${load.bytes} bytes).`,
-						},
-					],
-					details: { path: relativePath, bytes: load.bytes, opened: true },
-				};
+				return toolResult(`Se abrió ${relativePath} en el visor Markdown (${load.bytes} bytes).`, {
+					path: relativePath,
+					bytes: load.bytes,
+					opened: true,
+				});
 			}
-			return {
-				content: [{ type: "text" as const, text: load.content }],
-				details: { path: relativePath, bytes: load.bytes, opened: false },
-			};
+			return toolResult(load.content, { path: relativePath, bytes: load.bytes, opened: false });
 		},
 	});
 }
