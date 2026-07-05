@@ -144,6 +144,11 @@ function parseVerdict(stdout: string): VerifierVerdict {
 	return { pass, feedback: text, unparsed: false };
 }
 
+function formatVerifierRunFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return `verifier could not run: ${message}`;
+}
+
 /**
  * Corre UNA verificación independiente en un proceso SEPARADO. Solo lectura, escéptica,
  * ojos frescos. Devuelve un veredicto parseado. Corre OUTSIDE del turno del modelo: no toca
@@ -182,7 +187,6 @@ export async function runIndependentVerifier(
 		}
 		return verdict;
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		return { pass: false, feedback: `verifier could not run: ${msg}`, unparsed: true };
+		return { pass: false, feedback: formatVerifierRunFailure(err), unparsed: true };
 	}
 }
