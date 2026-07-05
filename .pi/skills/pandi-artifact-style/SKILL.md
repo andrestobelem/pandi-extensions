@@ -90,7 +90,7 @@ Working markup + CSS for all of these: [`reference/template.html`](./reference/t
 - **Tables**: full-width inside a rounded `--paper` frame; uppercase 14px
   header row on `--raised`; row separators with `--line` only.
 - **Code**: inline `code` in `--code` on `--raised`; blocks in a `--paper`
-  rounded frame at 15px/1.6.
+  rounded frame at 16px/1.6.
 - **Quotes**: 3px `--accent` left border, text in `--ink2`.
 
 ## Rules for HTML artifacts

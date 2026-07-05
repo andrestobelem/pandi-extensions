@@ -47,10 +47,10 @@ main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
 main li { margin:3px 0; }
 a { color:var(--link); }
 strong { color:var(--ink); }
-code { font-family:ui-monospace,Menlo,monospace; font-size:15px; color:var(--code);
+code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
 pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
-      padding:16px; overflow:auto; font-size:15px; line-height:1.6; }
+      padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
 pre code { background:none; padding:0; color:var(--ink); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
