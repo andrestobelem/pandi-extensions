@@ -62,7 +62,16 @@ export {
 	validateMachineName,
 } from "./container.js";
 
-const SUBCOMMANDS = ["status", "list", "create", "run", "stop", "remove"] as const;
+const CONTAINER_ACTIONS = [
+	{ value: "status", selectLabel: "status — resumen del subsistema y las máquinas" },
+	{ value: "list", selectLabel: "list — lista las máquinas del contenedor" },
+	{ value: "create", selectLabel: "create — crea una máquina a partir de una imagen OCI" },
+	{ value: "run", selectLabel: "run — ejecuta un comando en una máquina o en un contenedor efímero" },
+	{ value: "stop", selectLabel: "stop — detiene una máquina" },
+	{ value: "remove", selectLabel: "remove — elimina una máquina (pide confirmación)" },
+] as const;
+
+const SUBCOMMANDS = CONTAINER_ACTIONS.map(({ value }) => value);
 
 const HELP_TEXT = [
 	"Uso:",
@@ -85,14 +94,7 @@ const HELP_TEXT = [
 const PLATFORM_MSG = "Apple `container` requiere macOS en Apple Silicon (arm64); este host no es compatible.";
 
 /** Opciones con etiqueta humana para el selector de acciones de `/container` sin args (el primer token es el valor). */
-export const CONTAINER_SELECT_ITEMS = [
-	"status — resumen del subsistema y las máquinas",
-	"list — lista las máquinas del contenedor",
-	"create — crea una máquina a partir de una imagen OCI",
-	"run — ejecuta un comando en una máquina o en un contenedor efímero",
-	"stop — detiene una máquina",
-	"remove — elimina una máquina (pide confirmación)",
-];
+export const CONTAINER_SELECT_ITEMS = CONTAINER_ACTIONS.map(({ selectLabel }) => selectLabel);
 
 /**
  * Resuelve el argumento de `/container`, abriendo un selector interactivo de acciones cuando el
@@ -275,7 +277,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 			"Apple `container` necesita macOS en Apple Silicon, `brew install container`, un kernel configurado, y un subsistema iniciado; mostrá la guía de instalación/inicio en vez de reintentar a ciegas.",
 		],
 		parameters: Type.Object({
-			action: StringEnum(["status", "list", "create", "run", "stop", "remove"] as const),
+			action: StringEnum(SUBCOMMANDS),
 			name: Type.Optional(
 				Type.String({ description: "Nombre de la máquina (para create/stop/remove, o el destino de run)." }),
 			),
