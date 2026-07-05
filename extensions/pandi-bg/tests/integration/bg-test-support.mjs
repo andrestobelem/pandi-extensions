@@ -1,3 +1,4 @@
+import { watch as watchDir } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -152,4 +153,42 @@ export async function waitFor(label, fn, { timeoutMs = 6000, intervalMs = 25 } =
 		await new Promise((resolve) => setTimeout(resolve, intervalMs));
 	}
 	throw new Error(`Timed out waiting for ${label}: ${last instanceof Error ? last.message : JSON.stringify(last)}`);
+}
+
+export async function waitForFile(label, file, { timeoutMs = 6000 } = {}) {
+	try {
+		await fs.access(file);
+		return file;
+	} catch {
+		// Fall through and wait for the producer's file-create event.
+	}
+
+	const dir = path.dirname(file);
+	const base = path.basename(file);
+	return await new Promise((resolve, reject) => {
+		let settled = false;
+		let watcher;
+		const finish = (fn, value) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			watcher?.close();
+			fn(value);
+		};
+		const checkFile = async () => {
+			try {
+				await fs.access(file);
+				finish(resolve, file);
+			} catch {
+				// Not there yet; keep waiting for the next directory event or timeout.
+			}
+		};
+		const timer = setTimeout(() => {
+			finish(reject, new Error(`Timed out waiting for ${label}: ${file}`));
+		}, timeoutMs);
+		watcher = watchDir(dir, { persistent: false }, (_event, filename) => {
+			if (filename === undefined || String(filename) === base) void checkFile();
+		});
+		void checkFile();
+	});
 }

@@ -22,6 +22,7 @@ import {
 	readJson,
 	shellQuote,
 	waitFor,
+	waitForFile,
 } from "./bg-test-support.mjs";
 
 const { check, counts } = createChecker();
@@ -33,12 +34,20 @@ async function startControlledJob(commands, cwd, { exitCode = 0 } = {}) {
 	await fs.writeFile(
 		script,
 		`const fs = require("node:fs");\n` +
+			`const path = require("node:path");\n` +
 			`fs.writeFileSync(process.argv[2], "started");\n` +
 			`console.log("hello-stdout");\n` +
 			`console.error("hello-stderr");\n` +
 			`const release = process.argv[3];\n` +
 			`const timeout = setTimeout(() => process.exit(99), 8000);\n` +
-			`const poll = setInterval(() => { if (fs.existsSync(release)) { clearInterval(poll); clearTimeout(timeout); process.exit(${exitCode}); } }, 20);\n`,
+			`let watcher;\n` +
+			`function finish() { clearTimeout(timeout); watcher?.close(); process.exit(${exitCode}); }\n` +
+			`watcher = fs.watch(path.dirname(release), { persistent: false }, (_event, filename) => {\n` +
+			`  if (filename === undefined || String(filename) === path.basename(release)) {\n` +
+			`    if (fs.existsSync(release)) finish();\n` +
+			`  }\n` +
+			`});\n` +
+			`if (fs.existsSync(release)) finish();\n`,
 	);
 	const ctx = makeCtx({ cwd, trusted: true });
 	const command = `${shellQuote(process.execPath)} ${shellQuote(script)} ${shellQuote(started)} ${shellQuote(release)}`;
@@ -58,7 +67,7 @@ async function realStartCompletesAndLogs(url) {
 	check("start: artifacts directory exists immediately", existsSync(job.runDir), job.runDir);
 	check("start: job.json exists immediately", existsSync(path.join(job.runDir, "job.json")));
 	check("start: status.json exists immediately", existsSync(path.join(job.runDir, "status.json")));
-	await waitFor("child started handshake", async () => existsSync(job.started));
+	await waitForFile("child started handshake", job.started);
 	check("start: returns before release/completion", !existsSync(job.release));
 	let status = await readJson(path.join(job.runDir, "status.json"));
 	check("start: status reaches running before release", status.state === "running", JSON.stringify(status));
@@ -96,7 +105,7 @@ async function failureIsRecorded(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-fail-");
 	const job = await startControlledJob(commands, cwd, { exitCode: 7 });
-	await waitFor("failing child started", async () => existsSync(job.started));
+	await waitForFile("failing child started", job.started);
 	await fs.writeFile(job.release, "fail");
 	const status = await waitFor("failed status", async () => {
 		const s = await readJson(path.join(job.runDir, "status.json"));
@@ -159,7 +168,7 @@ async function cancelStopsActiveJob(url) {
 	await commands.get("bg").handler(`start ${command}`, ctx);
 	const jobId = parseJobId(ctx._notes.at(-1)?.msg || "");
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId || "missing");
-	await waitFor("long job started", async () => existsSync(started));
+	await waitForFile("long job started", started);
 	await waitFor("long job running status", async () => {
 		const s = await readJson(path.join(runDir, "status.json"));
 		return s.state === "running" ? s : false;
@@ -204,7 +213,7 @@ async function cancelEscalatesToSigkill(url) {
 	await commands.get("bg").handler(`start ${command}`, ctx);
 	const jobId = parseJobId(ctx._notes.at(-1)?.msg || "");
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId || "missing");
-	await waitFor("sigterm-ignoring child started", async () => existsSync(started));
+	await waitForFile("sigterm-ignoring child started", started);
 	await waitFor("running status", async () => {
 		const s = await readJson(path.join(runDir, "status.json"));
 		return s.state === "running" ? s : false;
@@ -263,7 +272,7 @@ async function cancelReachesGroupSurvivorsAfterShellExit(url) {
 	await commands.get("bg").handler(`start ${command}`, ctx);
 	const jobId = parseJobId(ctx._notes.at(-1)?.msg || "");
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId || "missing");
-	await waitFor("group survivor started", async () => existsSync(started));
+	await waitForFile("group survivor started", started);
 
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
 	check(
