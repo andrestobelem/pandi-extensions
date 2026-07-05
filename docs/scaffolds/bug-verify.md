@@ -86,7 +86,7 @@ Corre SECUENCIALMENTE, no en paralelo: usa el árbol de trabajo compartido con l
 
 No hay `parallel`/`settle` en este scaffold — cada resultado se empuja directo al array `results`, y un `agent` que devuelve `null`/vacío se registra como `inconclusive` en vez de abortar el ciclo. No hay caché explícita (sin `writeArtifact` ni memoización entre corridas); cada invocación reproduce desde cero.
 
-## Entrada y salida
+## Input y output
 
 | Campo | Tipo / default | Notas |
 |---|---|---|

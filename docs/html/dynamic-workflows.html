@@ -429,18 +429,18 @@ const reviews = await agents(items, { concurrency, settle: true });
 <li><strong>Casos de uso</strong>: <code>repo-bug-hunt</code>, <code>large-migration</code>, <code>complex-research</code>, <code>adversarial-plan-review</code>, <code>bug-verify</code>.</li>
 </ul>
 <p>Un naming anterior, al estilo Claude (<code>classify-and-act</code>, <code>adversarial-verification</code>, <code>generate-and-filter</code>, <code>tournaments</code>, <code>loop-until-done</code>, <code>compose-verify-claims</code>, <code>lib-verify-claims</code>, <code>bug-hunt-repo-audit</code>, <code>plan-review</code>, <code>claim-bug-verification</code>) quedó retirado por el refactor de interfaz única y ya no resuelve como alias de patrón. Los intents legacy <code>deep-research</code> y <code>default</code> siguen vivos como skills que enrutan a <code>complex-research</code> y <code>fan-out-and-synthesize</code> respectivamente.</p>
-<h3>Templates respaldados por papers</h3>
-<p>Mapeá papers/frameworks comunes de agentes al diseño de workflows en Pi:</p>
+<h3>Plantillas apoyadas en research</h3>
+<p>Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:</p>
 <ul>
-<li><strong>ReAct</strong> -&gt; explorar/observar con tools antes del fan-out; mantener el razonamiento atado a evidencia.</li>
-<li><strong>Self-consistency</strong> -&gt; muestrear ramas independientes y luego seleccionar por consistencia/evidencia en vez de confiar en un solo camino.</li>
-<li><strong>Reflexion / Self-Refine</strong> -&gt; ciclos generate -&gt; critique -&gt; refine, siempre acotados por rounds, quiet stops, <code>maxAgents</code> y timeout.</li>
-<li><strong>Tree of Thoughts</strong> -&gt; ramificar alternativas, evaluar/podar con un juez y después comprometerse con un camino.</li>
-<li><strong>Multiagent debate</strong> -&gt; revisores adversariales más síntesis como juez; las afirmaciones sin respaldo se descartan.</li>
-<li><strong>AutoGen / CAMEL / MetaGPT</strong> -&gt; roles explícitos, artifacts estables y contratos claros de handoff.</li>
-<li><strong>SWE-agent / DSPy</strong> -&gt; importan la interfaz y los contratos: tools acotadas, schemas/fixed formats y checks reproducibles.</li>
+<li><strong>ReAct</strong> -&gt; scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.</li>
+<li><strong>Self-consistency</strong> -&gt; muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.</li>
+<li><strong>Reflexion / Self-Refine</strong> -&gt; loops de generate -&gt; critique -&gt; refine, siempre acotados por rondas, quiet stops, <code>maxAgents</code> y timeout.</li>
+<li><strong>Tree of Thoughts</strong> -&gt; ramificar alternativas, evaluar/podar con un judge y luego comprometerse con un camino.</li>
+<li><strong>Multiagent debate</strong> -&gt; reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.</li>
+<li><strong>AutoGen / CAMEL / MetaGPT</strong> -&gt; roles explícitos, artifacts estables y contratos de handoff claros.</li>
+<li><strong>SWE-agent / DSPy</strong> -&gt; importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.</li>
 </ul>
-<p>Usalos como patrones, no como ceremonia: cada rama necesita una razón, un contrato y una condición de corte.</p>
+<p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <p>Ver notas detalladas en <a href="research/2026-06-25-agentic-patterns-papers-workflows.html"><code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md</code></a>.</p>
 <h3>Patrones de prompt recomendados</h3>
 <p>Los workflows funcionan mejor cuando cada prompt declara explícitamente su patrón:</p>

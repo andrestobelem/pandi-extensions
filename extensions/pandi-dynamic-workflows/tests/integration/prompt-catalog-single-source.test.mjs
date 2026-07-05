@@ -5,23 +5,28 @@
  * --------------------
  * The runtime CANONICAL source of the workflow pattern catalog is
  * `formatWorkflowPatternCatalog()` in extensions/pandi-dynamic-workflows/pattern-scaffolds.ts.
- * The same "Research-backed templates" block is mirrored, for human docs, in these
- * places:
+ * The same "Research-backed templates" block is mirrored, for human docs, in two
+ * flavors:
+ *   English (byte-identical to the canonical block, modulo heading level):
  *   - extensions/pandi-dynamic-workflows/README.md   (## Research-backed templates)
- *   - README.md (repo root)                        (### Research-backed templates)
- *   - docs/dynamic-workflows.md                    (## Research-backed templates)
  *   - .pi/skills/ultracode/SKILL.md                (## Research-backed templates)
+ *   Spanish (the human docs are in Spanish since the 2026-07 translation):
+ *   - README.md (repo root)                        (### Plantillas apoyadas en research)
+ *   - docs/dynamic-workflows.md                    (### Plantillas apoyadas en research)
  *
- * Those copies are byte-identical to the canonical block today (modulo the heading
- * level ##/### and trailing whitespace). `npm test` is otherwise a typecheck +
- * behavior suite; nothing pins these doc mirrors, so any future edit to the catalog
- * wording would silently drift the docs out of sync (DRY violation for prompts).
+ * `npm test` is otherwise a typecheck + behavior suite; nothing pins these doc
+ * mirrors, so any future edit to the catalog wording would silently drift the docs
+ * out of sync (DRY violation for prompts).
  *
- * This test enforces the single source: it extracts the block from each doc,
- * canonicalizes (strip the leading `#`/`##`/`###` on the heading line, trim per-line
- * trailing whitespace, drop trailing blank lines) and asserts it equals the same
- * block produced by `formatWorkflowPatternCatalog()`. If you intentionally change
- * the wording, update pattern-scaffolds.ts AND the mirrored docs together and this stays green.
+ * This test enforces the single source per flavor:
+ *   - English mirrors must equal the block produced by `formatWorkflowPatternCatalog()`
+ *     (strip the heading level, trim per-line trailing whitespace, drop trailing blanks).
+ *   - Spanish mirrors must be byte-identical to EACH OTHER (one Spanish canon; the
+ *     root README copy is the reference) and must list the same **bold** pattern
+ *     names, in the same order, as the English canonical block (structural parity —
+ *     a translation cannot be byte-compared against the English prompt).
+ * If you intentionally change the wording, update pattern-scaffolds.ts AND the
+ * mirrored docs together and this stays green.
  *
  * Run directly:
  *   node extensions/pandi-dynamic-workflows/tests/integration/prompt-catalog-single-source.test.mjs
@@ -37,6 +42,8 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const HEADING = "Research-backed templates";
 const CLOSING = "Use these as patterns, not ceremony";
+const HEADING_ES = "Plantillas apoyadas en research";
+const CLOSING_ES = "Usalos como patterns, no como ceremonia";
 
 // pattern-scaffolds.ts has NO external imports, so it bundles standalone (no stubs needed).
 async function buildTemplates() {
@@ -53,13 +60,13 @@ async function buildTemplates() {
  * Slice the block from its heading line through the CLOSING line (inclusive).
  * Returns null if the markers are not found.
  */
-function sliceBlock(text) {
+function sliceBlock(text, heading = HEADING, closing = CLOSING) {
 	const lines = text.split("\n");
-	const start = lines.findIndex((l) => l.replace(/^#+\s*/, "").trim() === HEADING);
+	const start = lines.findIndex((l) => l.replace(/^#+\s*/, "").trim() === heading);
 	if (start === -1) return null;
 	let end = -1;
 	for (let i = start; i < lines.length; i++) {
-		if (lines[i].includes(CLOSING)) {
+		if (lines[i].includes(closing)) {
 			end = i;
 			break;
 		}
@@ -100,13 +107,8 @@ async function main() {
 	}
 	const canonical = canonicalize(canonicalBlock);
 
-	const docs = [
-		"extensions/pandi-dynamic-workflows/README.md",
-		"README.md",
-		"docs/dynamic-workflows.md",
-		".pi/skills/ultracode/SKILL.md",
-	];
-	for (const rel of docs) {
+	const englishDocs = ["extensions/pandi-dynamic-workflows/README.md", ".pi/skills/ultracode/SKILL.md"];
+	for (const rel of englishDocs) {
 		const text = await fs.readFile(path.join(REPO_ROOT, rel), "utf8");
 		const block = sliceBlock(text);
 		check(`${rel}: "${HEADING}" block present`, block !== null);
@@ -117,6 +119,34 @@ async function main() {
 			got === canonical,
 			got === canonical ? "" : firstDiff(canonical, got),
 		);
+	}
+
+	// Spanish mirrors: one Spanish canon (root README is the reference) + structural
+	// parity of the bold pattern names against the English canonical block.
+	const spanishDocs = ["README.md", "docs/dynamic-workflows.md"];
+	const boldNames = (block) => block.match(/\*\*[^*]+\*\*/g) ?? [];
+	const canonicalNames = boldNames(canonical).join(" | ");
+	let spanishRef = null;
+	for (const rel of spanishDocs) {
+		const text = await fs.readFile(path.join(REPO_ROOT, rel), "utf8");
+		const block = sliceBlock(text, HEADING_ES, CLOSING_ES);
+		check(`${rel}: "${HEADING_ES}" block present`, block !== null);
+		if (!block) continue;
+		const got = canonicalize(block);
+		check(
+			`${rel}: bold pattern names match the canonical block (structural parity)`,
+			boldNames(got).join(" | ") === canonicalNames,
+			`canonical: ${canonicalNames}\n   doc:       ${boldNames(got).join(" | ")}`,
+		);
+		if (spanishRef === null) {
+			spanishRef = { rel, got };
+		} else {
+			check(
+				`${rel}: Spanish block is byte-identical to ${spanishRef.rel}`,
+				got === spanishRef.got,
+				got === spanishRef.got ? "" : firstDiff(spanishRef.got, got),
+			);
+		}
 	}
 
 	console.log(`\nTOTAL: ${failures === 0 ? "all passed" : `${failures} failed`}`);

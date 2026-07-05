@@ -287,19 +287,19 @@ La pestaña `Patterns` y `/workflow patterns` muestran todos los scaffolds y cas
 
 Un naming anterior, al estilo Claude (`classify-and-act`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`, `compose-verify-claims`, `lib-verify-claims`, `bug-hunt-repo-audit`, `plan-review`, `claim-bug-verification`) quedó retirado por el refactor de interfaz única y ya no resuelve como alias de patrón. Los intents legacy `deep-research` y `default` siguen vivos como skills que enrutan a `complex-research` y `fan-out-and-synthesize` respectivamente.
 
-### Templates respaldados por papers
+### Plantillas apoyadas en research
 
-Mapeá papers/frameworks comunes de agentes al diseño de workflows en Pi:
+Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:
 
-- **ReAct** -> explorar/observar con tools antes del fan-out; mantener el razonamiento atado a evidencia.
-- **Self-consistency** -> muestrear ramas independientes y luego seleccionar por consistencia/evidencia en vez de confiar en un solo camino.
-- **Reflexion / Self-Refine** -> ciclos generate -> critique -> refine, siempre acotados por rounds, quiet stops, `maxAgents` y timeout.
-- **Tree of Thoughts** -> ramificar alternativas, evaluar/podar con un juez y después comprometerse con un camino.
-- **Multiagent debate** -> revisores adversariales más síntesis como juez; las afirmaciones sin respaldo se descartan.
-- **AutoGen / CAMEL / MetaGPT** -> roles explícitos, artifacts estables y contratos claros de handoff.
-- **SWE-agent / DSPy** -> importan la interfaz y los contratos: tools acotadas, schemas/fixed formats y checks reproducibles.
+- **ReAct** -> scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.
+- **Self-consistency** -> muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.
+- **Reflexion / Self-Refine** -> loops de generate -> critique -> refine, siempre acotados por rondas, quiet stops, `maxAgents` y timeout.
+- **Tree of Thoughts** -> ramificar alternativas, evaluar/podar con un judge y luego comprometerse con un camino.
+- **Multiagent debate** -> reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.
+- **AutoGen / CAMEL / MetaGPT** -> roles explícitos, artifacts estables y contratos de handoff claros.
+- **SWE-agent / DSPy** -> importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.
 
-Usalos como patrones, no como ceremonia: cada rama necesita una razón, un contrato y una condición de corte.
+Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.
 
 Ver notas detalladas en [`docs/research/2026-06-25-agentic-patterns-papers-workflows.md`](./research/2026-06-25-agentic-patterns-papers-workflows.md).
 
