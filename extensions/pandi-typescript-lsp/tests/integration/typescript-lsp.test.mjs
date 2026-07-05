@@ -38,11 +38,11 @@ const REAL_TSC = path.join(REPO_ROOT, "node_modules", "typescript", "lib", "tsc.
 const { check, counts } = createChecker();
 
 async function buildBundle() {
-	// Stub the SDK (pi-coding-agent) the same way pi-worktree does: index.ts uses it
+	// Stub the SDK (pi-coding-agent) the same way pandi-worktree does: index.ts uses it
 	// for TYPES only (erased), but its real runtime drags in cross-spawn's dynamic
 	// require, which breaks an ESM bundle. pi-ai + typebox bundle from node_modules.
 	return await buildExtension({
-		name: "pi-typescript-lsp-build",
+		name: "pandi-typescript-lsp-build",
 		src: path.join(REPO_ROOT, "extensions", "pandi-typescript-lsp", "index.ts"),
 		outName: "typescript-lsp.mjs",
 		stubs: { sdk: 'export const CONFIG_DIR_NAME = ".pi";\n' },
@@ -50,7 +50,7 @@ async function buildBundle() {
 	});
 }
 
-// --- mocks (calque of pi-worktree's makePi/makeCtx, plus event + message capture) ---
+// --- mocks (calque of pandi-worktree's makePi/makeCtx, plus event + message capture) ---
 
 function makePi() {
 	const commands = new Map();
@@ -332,7 +332,7 @@ async function scenarioAdvisoryE2E(url) {
 	await fireAgentEnd(handlers, ctx);
 	check("advisory e2e: one message sent", messages.length === 1, String(messages.length));
 	const sent = messages[0];
-	check("advisory e2e: customType is pi-typescript-lsp", sent?.message?.customType === "pandi-typescript-lsp");
+	check("advisory e2e: customType is pandi-typescript-lsp", sent?.message?.customType === "pandi-typescript-lsp");
 	check("advisory e2e: deliverAs nextTurn", sent?.options?.deliverAs === "nextTurn");
 	check("advisory e2e: not a triggerTurn", !sent?.options?.triggerTurn);
 	check("advisory e2e: display true", sent?.message?.display === true);

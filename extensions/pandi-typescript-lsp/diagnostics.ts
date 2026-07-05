@@ -1,12 +1,12 @@
 /**
- * pi-typescript-lsp helpers: pure, UI-free logic for turning a `tsc --noEmit`
+ * pandi-typescript-lsp helpers: pure, UI-free logic for turning a `tsc --noEmit`
  * run into a bounded, touched-file diagnostics report.
  *
  * Everything here is deliberately free of pi's ExtensionContext / UI so it can be
  * unit-tested in isolation against the same bundle the extension ships. The only
  * side effects are filesystem reads (tsconfig / tsc discovery, realpath
  * canonicalization) — never a spawn. Spawning `tsc` (with an ARGV array, never a
- * shell string) lives in index.ts, mirroring how pi-worktree keeps `runGit`
+ * shell string) lives in index.ts, mirroring how pandi-worktree keeps `runGit`
  * beside its pure helpers.
  *
  * Contract note: this is NOT a full Language Server. There is no hover, no

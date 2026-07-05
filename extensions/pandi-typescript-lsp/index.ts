@@ -1,5 +1,5 @@
 /**
- * pi-typescript-lsp: TypeScript diagnostics feedback that fires on the COHERENT
+ * pandi-typescript-lsp: TypeScript diagnostics feedback that fires on the COHERENT
  * EDGE (agent_end), scoped to the files the turn actually touched.
  *
  * This is NOT a full Language Server — there is no hover, no go-to-definition,
@@ -8,13 +8,13 @@
  * relevant project(s), keep only the touched files' errors, and surface a bounded
  * top-N report. It is non-blocking by design (never `block`s a tool call).
  *
- * Surfaces (the project convention — see pi-worktree / pi-auto-compact):
+ * Surfaces (the project convention — see pandi-worktree / pandi-auto-compact):
  *   - automatic feedback on `agent_end` (advisory by default; opt-in autofix)
  *   - `typescript_diagnostics`  model-callable tool (pull, on-demand)
  *   - `/tsc`                    human slash command (status/on/off/run/scope/…)
  *
  * `tsc` is always spawned with an ARGV array (never a shell string), exactly as
- * pi-worktree spawns `git`, so paths can never inject shell commands. If neither
+ * pandi-worktree spawns `git`, so paths can never inject shell commands. If neither
  * a tsconfig nor a usable tsc can be found, the extension is a NO-OP with a
  * single advisory warning — it never breaks the session.
  */
@@ -69,7 +69,7 @@ const MAX_TSC_OUTPUT_BYTES = 2_000_000;
 const DEFAULT_AUTOFIX_BUDGET = 1;
 
 // --------------------------------------------------------------------------
-// tsc runner — argv array, never a shell (mirrors pi-worktree's runGit)
+// tsc runner — argv array, never a shell (mirrors pandi-worktree's runGit)
 // --------------------------------------------------------------------------
 
 interface RunTscOptions {
@@ -84,7 +84,7 @@ interface RunTscOptions {
  * all come back as a TscRunResult. Output is byte-bounded so a runaway tsc cannot
  * flood memory.
  *
- * Exported for the integration suite (mirrors pi-container's runContainer): the
+ * Exported for the integration suite (mirrors pandi-container's runContainer): the
  * timeout/abort/spawn-error mechanics are pinned against REAL spawns there.
  */
 export function runTsc(command: string, args: string[], options: RunTscOptions): Promise<TscRunResult> {
@@ -243,7 +243,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		warnedNoEngine = true;
 		notify(
 			ctx,
-			"pi-typescript-lsp: no se encontró tsconfig.json ni tsc — diagnósticos de TypeScript deshabilitados para esta sesión.",
+			"pandi-typescript-lsp: no se encontró tsconfig.json ni tsc — diagnósticos de TypeScript deshabilitados para esta sesión.",
 			"warning",
 		);
 	};
@@ -334,7 +334,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			if (outcome.status === "timeout") {
 				// Nothing was verified: keep lastKey so an already-surfaced report is
 				// not re-sent once tsc works again, and say so instead of staying mute.
-				notify(ctx, `pi-typescript-lsp: ${TIMEOUT_MESSAGE}`, "warning");
+				notify(ctx, `pandi-typescript-lsp: ${TIMEOUT_MESSAGE}`, "warning");
 				return;
 			}
 			const diags = outcome.diags;
