@@ -567,7 +567,7 @@ export class WorkflowDashboard {
 			line("  ↑ ↓ / j k move · PgUp / PgDn page · Home / End / G first / last"),
 			line("  [ ] active run — Monitor: cycle focus · Runs/Activity: jump to next/prev running"),
 			line(accent("Actions")),
-			line("  Enter / o agent detail — sub-tabs: Card · Prompt · Output · Definition · Run (←→/1-5)"),
+			line("  Enter / o agent detail — sub-tabs: Card · Prompt · Output · Definition · Run · Graph (←→/1-6)"),
 			line("  v run view · g graph"),
 			line("  f next failed agent (Agents tab)"),
 			line("  c / x cancel active · r rerun (confirm) · d / Del delete (confirm)"),

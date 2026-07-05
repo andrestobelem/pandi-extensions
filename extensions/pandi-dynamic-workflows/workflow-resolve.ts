@@ -13,7 +13,7 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { WorkflowFile, WorkflowLocation, WorkflowScope, WorkflowScopeInput } from "./index.js";
+import type { WorkflowFile, WorkflowLocation, WorkflowRunRecord, WorkflowScope, WorkflowScopeInput } from "./index.js";
 import { WORKFLOW_DIR, WORKFLOW_DRAFT_DIR, WORKFLOW_GRAPH_DIR, WORKFLOW_RUN_DIR } from "./index.js";
 import { resolveInsideRoot } from "./path-safety.js";
 
@@ -195,6 +195,25 @@ export async function resolveWorkflow(
 
 	if (scope === "project" && !ctx.isProjectTrusted()) requireTrustedProject(ctx);
 	throw new Error(`Workflow not found: ${name}`);
+}
+
+export async function resolveWorkflowForRun(
+	ctx: ExtensionContext,
+	run: WorkflowRunRecord,
+): Promise<WorkflowFile | undefined> {
+	try {
+		return await resolveWorkflow(ctx, run.workflow, run.scope);
+	} catch {
+		if (run.file && existsSync(run.file)) {
+			return {
+				name: run.workflow,
+				scope: run.scope,
+				path: run.file,
+				relativePath: path.basename(run.file),
+			};
+		}
+		return undefined;
+	}
 }
 
 export function parsePatternFlag(raw: string | undefined): string | undefined {

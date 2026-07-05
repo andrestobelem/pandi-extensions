@@ -52,7 +52,7 @@ function fencedBlock(content: string, lang = "text"): string {
 	return `${fence}${lang}\n${content}\n${fence}`;
 }
 
-// The agent detail document split into the sub-tab views (Card / Prompt / Output) plus
+// The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
 	card: string;
@@ -272,6 +272,35 @@ async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string>
 	].join("\n");
 }
 
+// The Graph sub-tab: a Markdown/text rendering of the same static workflow graph
+// used by /workflow graph. Keep it as text+Mermaid inside the tabbed Markdown
+// viewer; the standalone graph action owns the richer PNG-capable component.
+async function formatWorkflowGraphView(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<string> {
+	const header = [`# Workflow graph: ${run.workflow}`, "", `Run: ${run.runId}`];
+	const { resolveWorkflowForRun } = await import("./workflow-resolve.js");
+	const workflow = await resolveWorkflowForRun(ctx, run);
+	if (!workflow) return [...header, "", "Cannot open graph: workflow file not found."].join("\n");
+	let code: string;
+	try {
+		code = await fs.readFile(workflow.path, "utf8");
+	} catch (err) {
+		return [...header, "", `Cannot read workflow file: ${err instanceof Error ? err.message : String(err)}`].join(
+			"\n",
+		);
+	}
+	const codeChanged = run.codeHash !== undefined && computeCodeHash(code) !== run.codeHash;
+	const { makeWorkflowGraphForContext } = await import("./workflow-graph.js");
+	return [
+		...header,
+		`File: ${workflow.path}`,
+		...(codeChanged
+			? ["", "⚠ Warning: this file changed since the run started, so the graph reflects the current workflow file."]
+			: []),
+		"",
+		await makeWorkflowGraphForContext(ctx, workflow, code),
+	].join("\n");
+}
+
 const TERMINAL_AGENT_STATES: ReadonlySet<string> = new Set(["completed", "failed", "cached"]);
 
 function isTerminalAgentState(state: string | undefined): boolean {
@@ -303,10 +332,11 @@ export async function showLiveAgentView(
 		// open→action→reopen loop: `f` lets the user open one of the run's artifacts in the
 		// right viewer (.md → Markdown, else text), then returns to the live agent view — the
 		// same affordance the run view has, so the agent screen "fits together" with it.
-		// The detail screen is a SUB-TABBED viewer (Card / Prompt / Output / Definition / Run)
+		// The detail screen is a SUB-TABBED viewer (Card / Prompt / Output / Definition / Run / Graph)
 		// so the user can move between the agent card, its prompt, its output, the workflow
-		// source, and the full run view without bouncing back to the dashboard.
+		// source, the full run view, and the workflow graph without bouncing back to the dashboard.
 		let definitionCache: string | undefined; // static per run: load once, reuse across tabs/refreshes
+		let graphCache: string | undefined; // static per run: load once, reuse across tabs/refreshes
 		for (;;) {
 			let timer: NodeJS.Timeout | undefined;
 			let refreshing = false;
@@ -339,6 +369,9 @@ export async function showLiveAgentView(
 								component.setTabContent("definition", definitionCache);
 							} else if (active === "run") {
 								component.setTabContent("run", await formatRunView(run));
+							} else if (active === "graph") {
+								graphCache ??= await formatWorkflowGraphView(ctx, run);
+								component.setTabContent("graph", graphCache);
 							}
 							tui.requestRender();
 							// Stop polling once the agent is terminal; the final output stays on
@@ -368,6 +401,7 @@ export async function showLiveAgentView(
 							{ key: "output", label: "Output" },
 							{ key: "definition", label: "Definition" },
 							{ key: "run", label: "Run" },
+							{ key: "graph", label: "Graph" },
 						],
 						() => void refresh(), // load the newly-focused tab immediately
 					);

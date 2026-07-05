@@ -145,7 +145,7 @@ Keyboard summary (`?` opens the full help overlay):
 
 - **Tabs:** `Tab`/`→` next, `Shift+Tab`/`←` previous; direct jumps `m` Monitor · `A`/`n` Agents · `a` Activity · `s` Sessions · `w` Workflows · `p` Patterns · `R` Runs.
 - **Lists:** `↑`/`↓` or `k`/`j`; `PgUp`/`PgDn` page; `Home`/`End` or `G` first/last.
-- **Actions:** `Enter`/`o` agent detail — a sub-tabbed screen (**Card · Prompt · Output · Definition · Run**; switch with `←`/`→`, `Tab`, or `1`–`5`, scroll position remembered per tab) · `v` view run · `g` graph · `c`/`x` cancel active run · `r` rerun · `d`/`Del` delete run (with confirmation). In **Agents**, `f` jumps to the next `failed` agent.
+- **Actions:** `Enter`/`o` agent detail — a sub-tabbed screen (**Card · Prompt · Output · Definition · Run · Graph**; switch with `←`/`→`, `Tab`, or `1`–`6`, scroll position remembered per tab) · `v` view run · `g` graph · `c`/`x` cancel active run · `r` rerun · `d`/`Del` delete run (with confirmation). In **Agents**, `f` jumps to the next `failed` agent.
 - **Monitor:** with several active runs, `[` and `]` switch the focused run (`Active runs (N)` list on top and a `run k/N` title). The header shows `updated Ns ago` on each refresh, or `⚠ refresh failed: …` on failure.
 - **Live agent viewer:** `↑↓`/`PgUp`/`PgDn`/`Home`/`End` to scroll; the header says `refresh 1s` while running and `final (<state>)` when done (polling stops there). `q`/`Esc` closes.
 

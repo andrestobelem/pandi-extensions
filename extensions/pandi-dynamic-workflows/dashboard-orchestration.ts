@@ -60,7 +60,7 @@ import { listRuns, showRunView } from "./run-view.js";
 import type { DashboardSelection, WorkflowDashboardTab } from "./workflow-dashboard.js";
 import { WorkflowDashboard } from "./workflow-dashboard.js";
 import { showWorkflowGraph } from "./workflow-graph.js";
-import { ensureDir, listWorkflows, resolveWorkflow } from "./workflow-resolve.js";
+import { ensureDir, listWorkflows, resolveWorkflow, resolveWorkflowForRun } from "./workflow-resolve.js";
 
 export async function runWorkflowWithUi(
 	pi: ExtensionAPI,
@@ -118,22 +118,6 @@ async function runWorkflowFromUi(
 	const result = await runWorkflowWithUi(pi, ctx, workflow, input, limits, undefined);
 	notify(ctx, formatRunSummary(result), result.ok ? "info" : "error");
 	return result;
-}
-
-async function resolveWorkflowForRun(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<WorkflowFile | undefined> {
-	try {
-		return await resolveWorkflow(ctx, run.workflow, run.scope);
-	} catch {
-		if (run.file && existsSync(run.file)) {
-			return {
-				name: run.workflow,
-				scope: run.scope,
-				path: run.file,
-				relativePath: path.basename(run.file),
-			};
-		}
-		return undefined;
-	}
 }
 
 async function loadRerunInput(

@@ -1,8 +1,8 @@
 /**
  * AgentLiveViewComponent — the TUI component that renders a single agent's live
  * execution output (scrollable log with a status header), optionally with SUB-TABS
- * (Card / Prompt / Output / Definition / Run) so the Monitor's Enter detail screen
- * lets the user move between views without bouncing back to the dashboard.
+ * (Card / Prompt / Output / Definition / Run / Graph) so the Monitor's Enter detail
+ * screen lets the user move between views without bouncing back to the dashboard.
  *
  * Pure presentation over plain string content; agent-view.ts feeds it the per-tab
  * Markdown and constructs it only inside the showLiveAgentView ctx.ui.custom callback.
