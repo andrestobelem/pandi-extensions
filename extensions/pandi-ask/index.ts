@@ -1,5 +1,5 @@
 /**
- * pi-ask — herramientas interactivas de decisión que el modelo puede invocar.
+ * pandi-ask — herramientas interactivas de decisión que el modelo puede invocar.
  *
  * El asistente produce texto y tool calls; no puede abrir un selector TUI desde una
  * respuesta simple. Estas tools envuelven los helpers de diálogo de pi (`ctx.ui.select` / `ctx.ui.confirm`, que
