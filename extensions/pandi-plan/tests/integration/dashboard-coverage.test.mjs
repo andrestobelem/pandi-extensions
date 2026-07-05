@@ -67,10 +67,10 @@ function snap(overrides = {}) {
 // ===========================================================================
 function emptyPlans(mod) {
 	const out = mod.buildPlanDashboardMarkdown([]);
-	check("empty: contains the dashboard title", /# Plan Mode Dashboard/.test(out));
+	check("empty: contains the dashboard title", /# Tablero de Modo Plan/.test(out));
 	check(
-		"empty: contains the 'No plans recorded in this session yet' message",
-		out.includes("No plans recorded in this session yet"),
+		"empty: contains the 'no hay planes registrados' message",
+		out.includes("Todavía no hay planes registrados en esta sesión"),
 	);
 	check("empty: does NOT render a History section", !out.includes("## History"));
 	check("empty: does NOT render a session-totals line", !/\*\*Plans:\*\*/.test(out));
@@ -97,19 +97,22 @@ function activeSection(mod) {
 	const withPlan = mod.buildPlanDashboardMarkdown([
 		snap({ planId: "act", active: true, status: "planned", lastPlan: "step1" }),
 	]);
-	check("active: renders the 'read-only gate ARMED' header", withPlan.includes("(read-only gate ARMED)"));
 	check(
-		"active: opens a <details> 'Last submitted plan' block",
-		withPlan.includes("<details><summary>Last submitted plan</summary>"),
+		"active: renders the 'gate de solo lectura ARMADO' header",
+		withPlan.includes("(gate de solo lectura ARMADO)"),
+	);
+	check(
+		"active: opens a <details> 'Último plan enviado' block",
+		withPlan.includes("<details><summary>Último plan enviado</summary>"),
 	);
 	check("active: includes the lastPlan text verbatim", withPlan.includes("step1"));
 	check("active: closes the <details> block", withPlan.includes("</details>"));
 
 	const noPlan = mod.buildPlanDashboardMarkdown([snap({ planId: "act", active: true, status: "planned" })]);
-	check("active(no lastPlan): still renders the ARMED header", noPlan.includes("(read-only gate ARMED)"));
+	check("active(no lastPlan): still renders the ARMED header", noPlan.includes("(gate de solo lectura ARMADO)"));
 	check(
 		"active(no lastPlan): omits the <details> block",
-		!noPlan.includes("<details><summary>Last submitted plan</summary>"),
+		!noPlan.includes("<details><summary>Último plan enviado</summary>"),
 	);
 }
 
@@ -199,7 +202,7 @@ function checklistRendering(mod) {
 	]);
 	check(
 		"render-checklist: shows a Checklist header with a done count",
-		/Checklist \(0\/3 done\)/.test(withSteps),
+		/Checklist \(0\/3 listos\)/.test(withSteps),
 		withSteps,
 	);
 	check("render-checklist: renders unchecked GFM items", withSteps.includes("- [ ] write code"), withSteps);
@@ -207,7 +210,7 @@ function checklistRendering(mod) {
 	const withProgress = mod.buildPlanDashboardMarkdown([
 		snap({ planId: "act", active: true, status: "planned", lastPlan: "- [x] done\n- [ ] pending" }),
 	]);
-	check("render-checklist: counts completed items", /Checklist \(1\/2 done\)/.test(withProgress), withProgress);
+	check("render-checklist: counts completed items", /Checklist \(1\/2 listos\)/.test(withProgress), withProgress);
 	check("render-checklist: keeps the checked box", withProgress.includes("- [x] done"), withProgress);
 	check("render-checklist: keeps the unchecked box", withProgress.includes("- [ ] pending"), withProgress);
 
@@ -215,8 +218,8 @@ function checklistRendering(mod) {
 	const noSteps = mod.buildPlanDashboardMarkdown([
 		snap({ planId: "act", active: true, status: "planned", lastPlan: "just prose, no steps" }),
 	]);
-	check("render-checklist(no steps): no done-count header", !/Checklist \(\d+\/\d+ done\)/.test(noSteps), noSteps);
-	check("render-checklist(no steps): shows a no-steps note", /No checklist steps/i.test(noSteps), noSteps);
+	check("render-checklist(no steps): no done-count header", !/Checklist \(\d+\/\d+ listos\)/.test(noSteps), noSteps);
+	check("render-checklist(no steps): shows a no-steps note", /No se pudo extraer ningún paso/i.test(noSteps), noSteps);
 }
 
 // ---------------------------------------------------------------------------
@@ -365,8 +368,8 @@ async function overlayDegradesOnFailure(mod) {
 	check("overlay-fail: renderPlanDashboardOverlay resolves (does not reject)", !threw);
 	check("overlay-fail: notify invoked exactly once", state.notes.length === 1);
 	check(
-		"overlay-fail: notify message includes 'Could not open the plan dashboard: boom'",
-		state.notes[0]?.msg?.includes("Could not open the plan dashboard: boom"),
+		"overlay-fail: notify message includes 'No se pudo abrir el tablero de plan: boom'",
+		state.notes[0]?.msg?.includes("No se pudo abrir el tablero de plan: boom"),
 	);
 	check("overlay-fail: notify level is 'warning'", state.notes[0]?.type === "warning");
 }

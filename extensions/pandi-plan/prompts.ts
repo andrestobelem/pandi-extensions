@@ -33,68 +33,70 @@ export interface PlanFlags {
 /** The planning instruction injected when /plan enters the mode. */
 export function makePlanningPrompt(plan: { planId: string; task: string } & PlanFlags): string {
 	const lines: string[] = [];
-	lines.push(`You are now in PLAN MODE (plan ${plan.planId}). This is a READ-ONLY planning posture.`);
+	lines.push(`Ahora estás en MODO PLAN (plan ${plan.planId}). Esta es una postura de planificación de SOLO LECTURA.`);
 	lines.push("");
-	lines.push("TASK (verbatim):");
+	lines.push("TAREA (textual):");
 	lines.push(plan.task);
 	lines.push("");
 	if (plan.nonInteractive) {
-		lines.push("NON-INTERACTIVE (plan-only) SESSION:");
-		lines.push("- There is NO human approval and NO implementation here. Your only deliverable is the PLAN itself.");
-		lines.push("- The read-only gate stays armed for the WHOLE session; write/edit and mutating shell stay blocked.");
+		lines.push("SESIÓN NO INTERACTIVA (solo plan):");
+		lines.push("- Acá no hay aprobación humana ni implementación. Tu único entregable es el PLAN en sí.");
 		lines.push(
-			"- When the plan is ready, call submit_plan({ plan }) to record it, then RETURN THE FULL PLAN as your final answer. Do NOT attempt to implement.",
+			"- El gate de solo lectura queda armado durante TODA la sesión; write/edit y el shell mutante siguen bloqueados.",
+		);
+		lines.push(
+			"- Cuando el plan esté listo, llamá a submit_plan({ plan }) para registrarlo, y después DEVOLVÉ EL PLAN COMPLETO como tu respuesta final. NO intentes implementar.",
 		);
 		lines.push("");
 	}
-	lines.push("RULES while in plan mode (ENFORCED by a gate, not just guidance):");
+	lines.push("REGLAS mientras estás en modo plan (un gate las HACE CUMPLIR, no son solo una guía):");
 	lines.push(
-		"- You may ONLY use read-only actions: read, grep, find, ls, and read-only shell commands (e.g. git ls-files, git status, cat, head, sed -n for viewing). Mutating tools (write, edit) and mutating shell commands (rm, mv, git commit/add/push/reset, redirections >/>>, package installs, etc.) are HARD-BLOCKED and will fail. dynamic_workflow is allowed only for read-only actions (list/scaffold/read/graph/runs/view); write/run/start are blocked while planning.",
+		"- SOLO podés usar acciones de solo lectura: read, grep, find, ls, y comandos de shell de solo lectura (p. ej. git ls-files, git status, cat, head, sed -n para ver contenido). Las tools mutantes (write, edit) y los comandos de shell mutantes (rm, mv, git commit/add/push/reset, redirecciones >/>>, instalación de paquetes, etc.) están BLOQUEADOS DE FORMA DURA y van a fallar. dynamic_workflow solo se permite para acciones de solo lectura (list/scaffold/read/graph/runs/view); write/run/start quedan bloqueados mientras planificás.",
 	);
-	lines.push("- Do NOT begin implementing. Implementation happens only AFTER the user approves your plan.");
+	lines.push("- NO empieces a implementar. La implementación ocurre solo DESPUÉS de que el usuario apruebe tu plan.");
 	lines.push(
-		"- Your plan MAY include running dynamic workflows (dynamic_workflow action=run/start) as implementation steps — those execute only AFTER approval, so propose them for broad, parallel, or high-confidence work (large audits, migrations, exhaustive sweeps, independent verification, deep research). While planning you can inspect the catalog read-only (dynamic_workflow action=list/scaffold/read) to pick or design the right workflow, then describe it in the plan.",
+		"- Tu plan PUEDE incluir correr dynamic workflows (dynamic_workflow action=run/start) como pasos de implementación — esos se ejecutan solo DESPUÉS de la aprobación, así que proponelos para trabajo amplio, paralelo o de alta confianza (auditorías grandes, migraciones, barridos exhaustivos, verificación independiente, investigación profunda). Mientras planificás podés inspeccionar el catálogo en solo lectura (dynamic_workflow action=list/scaffold/read) para elegir o diseñar el workflow correcto, y después describirlo en el plan.",
 	);
 	if (plan.ultracode) {
 		lines.push(
-			"- ULTRACODE: lean on dynamic workflows to RESEARCH and DESIGN this plan. Inspect the catalog read-only now (dynamic_workflow action=list/scaffold/read/graph) and make the plan name the run/start workflows that will execute the work after approval, with explicit concurrency/maxAgents.",
+			"- ULTRACODE: apoyate en dynamic workflows para INVESTIGAR y DISEÑAR este plan. Inspeccioná el catálogo en solo lectura ahora (dynamic_workflow action=list/scaffold/read/graph) y hacé que el plan nombre los workflows run/start que van a ejecutar el trabajo después de la aprobación, con concurrency/maxAgents explícitos.",
 		);
 	}
 	if (plan.ultracodeSteps) {
 		lines.push(
-			"- ULTRACODE STEPS: structure the plan so its STEPS execute via dynamic workflows when warranted (exhaustiveness, confidence, scale). For each step, note whether it runs as a workflow and with what concurrency/maxAgents, vs. inline.",
+			"- ULTRACODE STEPS: estructurá el plan para que sus PASOS se ejecuten vía dynamic workflows cuando se justifique (exhaustividad, confianza, escala). Para cada paso, indicá si corre como workflow y con qué concurrency/maxAgents, o si corre inline.",
 		);
 	}
 	if (!plan.nonInteractive) {
 		lines.push(
-			"- To clarify requirements before finalizing the plan, you may ask the user a BLOCKING question with the interactive tools when available — ask_choice / ask_confirm (pi, from pi-ask) or AskUserQuestion (Claude Code) — otherwise ask in plain text. Keep it to genuinely blocking questions.",
+			"- Para aclarar requisitos antes de terminar el plan, podés hacerle al usuario una pregunta BLOQUEANTE con las tools interactivas cuando estén disponibles — ask_choice / ask_confirm (pi, de pi-ask) o AskUserQuestion (Claude Code) — si no, preguntá en texto plano. Limitalo a preguntas genuinamente bloqueantes.",
 		);
 	}
 	lines.push("");
-	lines.push("WHAT TO DO:");
-	lines.push("1. RESEARCH the task with read-only tools until you understand it.");
-	lines.push("2. DESIGN an implementation approach.");
+	lines.push("QUÉ HACER:");
+	lines.push("1. INVESTIGÁ la tarea con tools de solo lectura hasta entenderla.");
+	lines.push("2. DISEÑÁ un enfoque de implementación.");
 	if (plan.nonInteractive) {
 		lines.push(
-			"3. When the plan is complete and self-contained, call submit_plan({ plan }) to record it, then output the FULL plan in Markdown as your final answer.",
+			"3. Cuando el plan esté completo y autocontenido, llamá a submit_plan({ plan }) para registrarlo, y después mostrá el PLAN COMPLETO en Markdown como tu respuesta final.",
 		);
 		lines.push(
-			"This is a non-interactive session: there is no approval or implementation step. The plan IS the result.",
+			"Esta es una sesión no interactiva: no hay paso de aprobación ni de implementación. El plan ES el resultado.",
 		);
 	} else {
 		lines.push(
-			"3. When the plan is complete and self-contained, call submit_plan({ plan }) with the FULL implementation plan in Markdown. This presents it to the user for approval.",
+			"3. Cuando el plan esté completo y autocontenido, llamá a submit_plan({ plan }) con el plan de implementación COMPLETO en Markdown. Esto se lo presenta al usuario para su aprobación.",
 		);
 		lines.push(
-			"On approval you will exit plan mode and be asked to implement. If the plan is rejected you will get feedback and should revise, then call submit_plan again.",
+			"Si se aprueba, vas a salir del modo plan y se te va a pedir que implementes. Si el plan se rechaza vas a recibir feedback y deberías revisarlo, y después volver a llamar a submit_plan.",
 		);
 	}
 	return lines.join("\n");
 }
 
-/** The implementation message re-injected after the user approves the plan. */
+/** El mensaje de implementación reinyectado después de que el usuario aprueba el plan. */
 export function makeImplementPrompt(planText: string, opts: { ultracodeSteps?: boolean } = {}): string {
-	const base = `Plan approved. Implement now:\n\n${planText}`;
+	const base = `Plan aprobado. Implementá ahora:\n\n${planText}`;
 	if (!opts.ultracodeSteps) return base;
-	return `${base}\n\nExecute the steps marked for ultracode via dynamic_workflow (action=run/start) with explicit concurrency/maxAgents; keep the rest inline.`;
+	return `${base}\n\nEjecutá los pasos marcados para ultracode vía dynamic_workflow (action=run/start) con concurrency/maxAgents explícitos; mantené el resto inline.`;
 }

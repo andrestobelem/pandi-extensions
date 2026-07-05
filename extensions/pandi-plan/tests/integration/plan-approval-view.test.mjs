@@ -222,8 +222,8 @@ async function overlayPresentsAndRenders(url) {
 
 	const rendered = stripAnsi((ctx._customCalls[0].firstRender || []).join("\n"));
 	check("overlay: renders the plan body text", /Do the thing/.test(rendered), rendered);
-	check("overlay: shows a scroll hint", /scroll/i.test(rendered), rendered);
-	check("overlay: shows approve + reject hints", /approve/i.test(rendered) && /reject/i.test(rendered), rendered);
+	check("overlay: shows a scroll hint", /desplazar/i.test(rendered), rendered);
+	check("overlay: shows approve + reject hints", /aprobar/i.test(rendered) && /rechazar/i.test(rendered), rendered);
 
 	// 'y' approved → gate lifts, status approved, implement re-injected.
 	check("overlay: write ALLOWED after 'y' approval", !(await writeBlocked(handlers, ctx)));

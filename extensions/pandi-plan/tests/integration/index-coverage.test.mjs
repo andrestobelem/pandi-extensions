@@ -167,13 +167,13 @@ async function submitNoUiDegrades(url) {
 	check("no-ui: tool result is NOT an error (degraded, not crash)", !res?.details?.isError);
 	check(
 		"no-ui: warned via notify",
-		degraded._notes.some((n) => n.type === "warning" && /approval dialog/i.test(n.msg)),
+		degraded._notes.some((n) => n.type === "warning" && /diálogo de aprobación/i.test(n.msg)),
 	);
 
 	// Did NOT auto-approve: the gate stays armed and no implement message was injected.
 	check("no-ui: write STILL BLOCKED after submit (gate not lifted)", await writeBlocked(handlers, degraded));
 	check("no-ui: NO implement message injected", sentMessages.length === afterEntry);
-	check("no-ui: no message says 'Implement now'", !sentMessages.some((m) => /Implement now/i.test(m.content)));
+	check("no-ui: no message says 'Implementá ahora'", !sentMessages.some((m) => /Implementá ahora/i.test(m.content)));
 
 	// Persisted state remains active/planning (submission counted on entry to the tool).
 	const st = latestPlanState(entries);
@@ -198,8 +198,8 @@ async function planAlreadyActiveWarns(url) {
 
 	await commands.get("plan").handler("task2", ctx);
 	check(
-		"already-active: warns with /already active/",
-		ctx._notes.slice(notesBefore).some((n) => n.type === "warning" && /already active/i.test(n.msg)),
+		"already-active: warns with /ya está activo/",
+		ctx._notes.slice(notesBefore).some((n) => n.type === "warning" && /ya está activo/i.test(n.msg)),
 	);
 
 	const ids = planStateIds(entries);
@@ -302,7 +302,7 @@ async function wakeDelivery(url) {
 		const res = await tools.get("submit_plan").execute("tc1", { plan: "# Plan\n1. step" }, undefined, undefined, ctx);
 		check("wake(busy): submit approved", res?.details && res.details.status === "approved");
 		const wake = sentMessages[sentMessages.length - 1];
-		check("wake(busy): implement message injected", wake && /Implement now/i.test(wake.content));
+		check("wake(busy): implement message injected", wake && /Implementá ahora/i.test(wake.content));
 		check("wake(busy): delivered as followUp", wake?.options && wake.options.deliverAs === "followUp");
 	}
 
@@ -315,7 +315,7 @@ async function wakeDelivery(url) {
 		await commands.get("plan").handler("ship it", ctx);
 		await tools.get("submit_plan").execute("tc1", { plan: "# Plan\n1. step" }, undefined, undefined, ctx);
 		const wake = sentMessages[sentMessages.length - 1];
-		check("wake(idle): implement message injected", wake && /Implement now/i.test(wake.content));
+		check("wake(idle): implement message injected", wake && /Implementá ahora/i.test(wake.content));
 		check(
 			"wake(idle): NO deliverAs option (steered, not followUp)",
 			!wake?.options || wake.options.deliverAs === undefined,

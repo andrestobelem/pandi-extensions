@@ -190,15 +190,15 @@ async function approveLiftsGate(url) {
 	const beforeSubmit = sentMessages.length;
 	check(
 		"approve: planning prompt injected on entry",
-		beforeSubmit === 1 && /PLAN MODE/i.test(sentMessages[0].content),
+		beforeSubmit === 1 && /MODO PLAN/i.test(sentMessages[0].content),
 	);
 	// The planning prompt tells the model its PLAN may run dynamic workflows after approval
 	// (so it knows the option exists when designing the implementation, not just that the tool
 	// is read-only while planning).
 	check(
 		"approve: planning prompt advertises dynamic workflows in the plan",
-		/your plan may include running dynamic workflows/i.test(sentMessages[0].content) &&
-			/after (the user )?approv/i.test(sentMessages[0].content),
+		/tu plan puede incluir correr dynamic workflows/i.test(sentMessages[0].content) &&
+			/después de la aprobación/i.test(sentMessages[0].content),
 	);
 
 	const planText = "# Plan\n1. Do the thing\n2. Verify it";
@@ -219,7 +219,7 @@ async function approveLiftsGate(url) {
 	// Observable: implementation message re-injected, carrying the EXACT plan text.
 	const wake = sentMessages[sentMessages.length - 1];
 	check("approve: implement message re-injected after approval", sentMessages.length === beforeSubmit + 1);
-	check("approve: implement message says 'Implement now'", wake && /Implement now/i.test(wake.content));
+	check("approve: implement message says 'Implementá ahora'", wake && /Implementá ahora/i.test(wake.content));
 	check("approve: implement message contains the plan text verbatim", wake?.content.includes(planText));
 
 	// Observable: tool result reports approved.
@@ -261,7 +261,7 @@ async function rejectKeepsGateThenApprove(url) {
 	const rejText = rejRes?.content?.[0]?.text;
 	check(
 		"reject: tool result tells model to revise + resubmit",
-		!!rejText && /revise/i.test(rejText) && /submit_plan/i.test(rejText),
+		!!rejText && /revis/i.test(rejText) && /submit_plan/i.test(rejText),
 	);
 
 	// --- Second submission: APPROVED (revise → resubmit → approve) ---
@@ -308,7 +308,7 @@ async function exitAborts(url) {
 	check("exit: persisted active=false", st && st.active === false);
 	// Observable (the dangerous direction): exit must NOT re-inject an implementation message.
 	check("exit: NO implement message injected (no implicit implement)", sentMessages.length === afterEntry);
-	check("exit: no message says 'Implement now'", !sentMessages.some((m) => /Implement now/i.test(m.content)));
+	check("exit: no message says 'Implementá ahora'", !sentMessages.some((m) => /Implementá ahora/i.test(m.content)));
 
 	// /plan cancel behaves the same on a freshly re-entered plan (control for the alias).
 	await commands.get("plan").handler("another task", ctx);
@@ -614,8 +614,8 @@ async function pendingConfirmCannotOverrideCurrentPlan(url) {
 		);
 		check("pending-exit: late approval does NOT inject implement", sentMessages.length === afterEntry);
 		check(
-			"pending-exit: no message says 'Implement now'",
-			!sentMessages.some((m) => /Implement now/i.test(m.content)),
+			"pending-exit: no message says 'Implementá ahora'",
+			!sentMessages.some((m) => /Implementá ahora/i.test(m.content)),
 		);
 		check("pending-exit: gate remains ALLOWED after stale approval", !(await writeBlocked(handlers, ctx)));
 	}
@@ -739,8 +739,8 @@ async function autonomousEntryViaTool(url) {
 		check("enter: tool result details.entered=true", res?.details && res.details.entered === true);
 		const text = res?.content?.[0]?.text;
 		check(
-			"enter: tool result carries the planning instruction (PLAN MODE + submit_plan)",
-			!!text && /PLAN MODE/i.test(text) && /submit_plan/i.test(text),
+			"enter: tool result carries the planning instruction (MODO PLAN + submit_plan)",
+			!!text && /MODO PLAN/i.test(text) && /submit_plan/i.test(text),
 		);
 		// Observable: NO extra user message injected — the instruction rides the tool result.
 		check("enter: no user message injected by the tool (no double injection)", sentMessages.length === 0);
@@ -799,7 +799,7 @@ async function autonomousEntryViaTool(url) {
 		const wake = sentMessages[sentMessages.length - 1];
 		check(
 			"enter→approve: implement message injected with the plan text",
-			wake && /Implement now/i.test(wake.content) && wake.content.includes(planText),
+			wake && /Implementá ahora/i.test(wake.content) && wake.content.includes(planText),
 		);
 	}
 }
@@ -827,8 +827,8 @@ async function nonInteractivePlanOnly(url) {
 			const st0 = latestPlanState(entries);
 			check("plan-only(env): persisted nonInteractive=true", st0 && st0.nonInteractive === true);
 			check(
-				"plan-only(env): planning prompt marks NON-INTERACTIVE",
-				/NON-INTERACTIVE/i.test(enterRes.content[0].text),
+				"plan-only(env): planning prompt marks SESIÓN NO INTERACTIVA",
+				/SESIÓN NO INTERACTIVA/i.test(enterRes.content[0].text),
 			);
 
 			const planText = "# Plan\n1. do X\n2. verify";
@@ -955,10 +955,10 @@ async function planDashboardReport(url) {
 		console.log = origLog;
 	}
 	const out = logged.join("\n");
-	check("dashboard: prints the dashboard title", /Plan Mode Dashboard/.test(out));
+	check("dashboard: prints the dashboard title", /Tablero de Modo Plan/.test(out));
 	check("dashboard: lists the active plan task", /design the dashboard/.test(out));
 	check("dashboard: shows the ultracode-steps posture", /ultracode-steps/.test(out));
-	check("dashboard: renders the History table header", /\| Plan \| Status \| Posture \|/.test(out));
+	check("dashboard: renders the History table header", /\| Plan \| Estado \| Postura \|/.test(out));
 }
 
 // ===========================================================================
@@ -975,7 +975,7 @@ async function sessionToggles(url) {
 	await commands.get("plan").handler("ultracode on", ctx);
 	check(
 		"toggle: /plan ultracode on is acknowledged",
-		ctx._notes.some((n) => /ultracode session default: on/i.test(n.msg)),
+		ctx._notes.some((n) => /ultracode valor por defecto de sesión: on/i.test(n.msg)),
 	);
 	await commands.get("plan").handler("steps-ultracode on", ctx);
 	await commands.get("plan").handler("build the thing", ctx);
@@ -995,7 +995,7 @@ async function sessionToggles(url) {
 	await commands.get("plan").handler("ultracode status", ctx);
 	check(
 		"toggle: ultracode status reports off",
-		ctx._notes.some((n) => /ultracode session default: off/i.test(n.msg)),
+		ctx._notes.some((n) => /ultracode valor por defecto de sesión: off/i.test(n.msg)),
 	);
 }
 
@@ -1024,7 +1024,7 @@ async function nonInteractiveIgnoredInTui(url) {
 		);
 		check("nonInteractive-tui: gate LIFTED after approval", !(await writeBlocked(handlers, ctx)));
 		const wake = sentMessages[sentMessages.length - 1];
-		check("nonInteractive-tui: implement message injected", wake && /Implement now/i.test(wake.content));
+		check("nonInteractive-tui: implement message injected", wake && /Implementá ahora/i.test(wake.content));
 	}
 
 	// --- 12b: an exported PI_PLAN_NONINTERACTIVE=1 is also ignored in TUI. ---

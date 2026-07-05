@@ -57,48 +57,51 @@ function planningPromptTests(mod) {
 		const out = makePlanningPrompt({ planId: "abc12345", task });
 		// Header followed IMMEDIATELY by the exact task, then a blank line — no escaping.
 		check(
-			"planning: 'TASK (verbatim):' header is followed immediately by the exact task",
-			out.includes(`TASK (verbatim):\n${task}\n`),
+			"planning: 'TAREA (textual):' header is followed immediately by the exact task",
+			out.includes(`TAREA (textual):\n${task}\n`),
 		);
 		// The raw task substring (special chars + newline) survives untouched.
 		check("planning: task special characters are not escaped", out.includes("Migrate DB & drop *old* tables"));
 		check("planning: multi-line task second line is preserved verbatim", out.includes("\nline2\n"));
 		// Not truncated: the entire task substring is present as one contiguous block.
-		const idx = out.indexOf("TASK (verbatim):\n");
+		const idx = out.indexOf("TAREA (textual):\n");
 		check("planning: task block is contiguous (not split/truncated)", out.slice(idx).includes(task));
 	}
 
 	// --- planId appears in the opening line ---
 	{
 		const out = makePlanningPrompt({ planId: "deadbeef", task: "x" });
-		check("planning: opening line names PLAN MODE", out.startsWith("You are now in PLAN MODE"));
+		check("planning: opening line names MODO PLAN", out.startsWith("Ahora estás en MODO PLAN"));
 		check("planning: opening line embeds the planId", out.includes("(plan deadbeef)"));
-		check("planning: states READ-ONLY posture", /READ-ONLY planning posture/.test(out));
+		check("planning: states SOLO LECTURA posture", /postura de planificación de SOLO LECTURA/.test(out));
 	}
 
 	// --- default (interactive, no posture flags) ---
 	{
 		const out = makePlanningPrompt({ planId: "p1", task: "ship it" });
-		check("planning(default): NO non-interactive block", !/NON-INTERACTIVE/.test(out));
+		check("planning(default): NO non-interactive block", !/SESIÓN NO INTERACTIVA/.test(out));
 		check("planning(default): NO ULTRACODE wording", !/ULTRACODE/.test(out));
 		check("planning(default): offers AskUserQuestion (interactive)", /AskUserQuestion/.test(out));
 		check("planning(default): offers pi-ask interactive tools", /ask_choice/.test(out) && /ask_confirm/.test(out));
-		check("planning(default): has the WHAT TO DO section", /WHAT TO DO:/.test(out));
+		check("planning(default): has the QUÉ HACER section", /QUÉ HACER:/.test(out));
 		check("planning(default): mentions submit_plan for approval", /submit_plan/.test(out));
-		check("planning(default): interactive step3 mentions approval", /presents it to the user for approval/.test(out));
+		check(
+			"planning(default): interactive step3 mentions approval",
+			/se lo presenta al usuario para su aprobación/.test(out),
+		);
 	}
 
 	// --- nonInteractive flag ---
 	{
 		const out = makePlanningPrompt({ planId: "p2", task: "t", nonInteractive: true });
 		check(
-			"planning(nonInteractive): includes NON-INTERACTIVE block",
-			/NON-INTERACTIVE \(plan-only\) SESSION:/.test(out),
+			"planning(nonInteractive): includes SESIÓN NO INTERACTIVA block",
+			/SESIÓN NO INTERACTIVA \(solo plan\):/.test(out),
 		);
-		check("planning(nonInteractive): says NO human approval", /NO human approval/.test(out));
+		check("planning(nonInteractive): says no hay aprobación humana", /no hay aprobación humana/.test(out));
 		check("planning(nonInteractive): drops AskUserQuestion", !/AskUserQuestion/.test(out));
 		check("planning(nonInteractive): drops ask_choice/ask_confirm", !/ask_choice/.test(out));
-		check("planning(nonInteractive): step3 says the plan IS the result", /The plan IS the result/.test(out));
+		check("planning(nonInteractive): step3 says el plan ES el resultado", /El plan ES el resultado/.test(out));
 	}
 
 	// --- ultracode flag ---
@@ -126,7 +129,7 @@ function planningPromptTests(mod) {
 	{
 		const out = makePlanningPrompt({ planId: "p6", task: "t" });
 		check("planning: returns a string", typeof out === "string");
-		check("planning: lines joined with newlines", out.includes("\n") && !out.includes(",You"));
+		check("planning: lines joined with newlines", out.includes("\n") && !out.includes(",Ahora"));
 	}
 }
 
@@ -142,12 +145,12 @@ function implementPromptTests(mod) {
 		const planText = "# Plan\n1. do X & verify *carefully*";
 		const out = makeImplementPrompt(planText);
 		check(
-			"implement(base): starts with 'Plan approved. Implement now:'",
-			out.startsWith("Plan approved. Implement now:"),
+			"implement(base): starts with 'Plan aprobado. Implementá ahora:'",
+			out.startsWith("Plan aprobado. Implementá ahora:"),
 		);
 		check(
 			"implement(base): plan text follows a blank line, verbatim",
-			out === `Plan approved. Implement now:\n\n${planText}`,
+			out === `Plan aprobado. Implementá ahora:\n\n${planText}`,
 		);
 		check("implement(base): no ultracode suffix by default", !/dynamic_workflow/.test(out));
 	}
@@ -156,7 +159,7 @@ function implementPromptTests(mod) {
 	{
 		const planText = "# Plan\nstep";
 		const out = makeImplementPrompt(planText, { ultracodeSteps: false });
-		check("implement(steps=false): equals the base form", out === `Plan approved. Implement now:\n\n${planText}`);
+		check("implement(steps=false): equals the base form", out === `Plan aprobado. Implementá ahora:\n\n${planText}`);
 	}
 
 	// --- opts.ultracodeSteps = true appends the dynamic_workflow suffix ---
@@ -165,11 +168,11 @@ function implementPromptTests(mod) {
 		const out = makeImplementPrompt(planText, { ultracodeSteps: true });
 		check(
 			"implement(steps=true): keeps the base prefix",
-			out.startsWith(`Plan approved. Implement now:\n\n${planText}`),
+			out.startsWith(`Plan aprobado. Implementá ahora:\n\n${planText}`),
 		);
 		check(
 			"implement(steps=true): appends dynamic_workflow guidance",
-			/Execute the steps marked for ultracode via dynamic_workflow/.test(out),
+			/Ejecutá los pasos marcados para ultracode vía dynamic_workflow/.test(out),
 		);
 		check("implement(steps=true): mentions concurrency/maxAgents", /concurrency\/maxAgents/.test(out));
 		check("implement(steps=true): plan text still present verbatim", out.includes(planText));

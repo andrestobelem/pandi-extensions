@@ -133,7 +133,7 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	// compare (defensive — it is not a built-in tool name in this SDK, but blocking a
 	// non-existent name is inert and future-proofs against a notebook editor being added).
 	if (ALWAYS_BLOCKED_BUILTIN_TOOLS.has(name)) {
-		return `plan mode is READ-ONLY: the "${name}" tool is blocked while planning. Present your plan via submit_plan; you can edit after the user approves.`;
+		return `el modo plan es de SOLO LECTURA: la tool "${name}" está bloqueada mientras planificás. Presentá tu plan vía submit_plan; podés editar después de que el usuario apruebe.`;
 	}
 	// Read-only built-ins are always allowed.
 	if (READONLY_BUILTIN_TOOLS.has(name)) return undefined;
@@ -141,7 +141,7 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	if (name === "bash") {
 		const command = (event.input as { command?: unknown }).command;
 		if (typeof command === "string" && isMutatingBash(command)) {
-			return `plan mode is READ-ONLY: this shell command looks like a mutation and is blocked while planning: ${command.slice(0, 200)}`;
+			return `el modo plan es de SOLO LECTURA: este comando de shell parece una mutación y está bloqueado mientras planificás: ${command.slice(0, 200)}`;
 		}
 		return undefined;
 	}
@@ -152,7 +152,7 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	if (name === "dynamic_workflow") {
 		const action = (event.input as { action?: unknown }).action;
 		if (typeof action === "string" && DYNAMIC_WORKFLOW_READONLY_ACTIONS.has(action)) return undefined;
-		return `plan mode is READ-ONLY: dynamic_workflow "${String(action)}" can write files or spawn mutating subagents and is blocked while planning. Use only read-only actions (list/scaffold/read/graph/runs/view), or submit_plan when your plan is ready.`;
+		return `el modo plan es de SOLO LECTURA: dynamic_workflow "${String(action)}" puede escribir archivos o lanzar subagentes mutantes y está bloqueado mientras planificás. Usá solo acciones de solo lectura (list/scaffold/read/graph/runs/view), o submit_plan cuando tu plan esté listo.`;
 	}
 	// Unknown / other tools: allow. The hard guarantees above (built-in mutators + bash
 	// heuristic + the known custom-tool block) are best-effort; an unknown custom mutating

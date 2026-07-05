@@ -124,7 +124,7 @@ class PlanApprovalComponent implements Component {
 		const location = this.theme.fg("dim", this.planId);
 		const footer = this.theme.fg(
 			"dim",
-			`↑/↓ j/k scroll • PgUp/PgDn page • y/Enter approve • n/Esc reject • ${start + 1}-${end}/${bodyLines.length}`,
+			`↑/↓ j/k desplazar • PgUp/PgDn página • y/Enter aprobar • n/Esc rechazar • ${start + 1}-${end}/${bodyLines.length}`,
 		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));

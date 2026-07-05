@@ -301,16 +301,20 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 	// Mode gate (HARD RULE): the /plan command needs an interactive approval; print/json
 	// cannot deliver it. Refuse to enter.
 	if (!canApproveInMode(ctx)) {
-		notify(ctx, "/plan requires a TUI or RPC session (this mode cannot run the approval handshake).", "error");
+		notify(
+			ctx,
+			"/plan requiere una sesión TUI o RPC (este modo no puede ejecutar el protocolo de aprobación).",
+			"error",
+		);
 		return undefined;
 	}
 	const trimmed = cleanedTask.trim();
 	if (!trimmed) {
-		notify(ctx, "Usage: /plan [--ultracode] [--ultracode-steps] <task>", "warning");
+		notify(ctx, "Uso: /plan [--ultracode] [--ultracode-steps] <task>", "warning");
 		return undefined;
 	}
 	if (planModeActive()) {
-		notify(ctx, "Plan mode is already active. Use /plan status, or /plan exit to leave it.", "warning");
+		notify(ctx, "El modo plan ya está activo. Usá /plan status, o /plan exit para salir.", "warning");
 		return currentPlan();
 	}
 
@@ -318,7 +322,11 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 	// Command path: inject the planning instruction as a user message (research read-only,
 	// then submit_plan when ready), because the command runs out-of-band of the model's turn.
 	wake(pi, ctx, makePlanningPrompt(plan));
-	notify(ctx, `Entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`, "info");
+	notify(
+		ctx,
+		`Entraste en modo plan (${plan.planId}). Solo lectura hasta que apruebes un plan. Tarea: ${trimmed}`,
+		"info",
+	);
 	return plan;
 }
 
@@ -333,7 +341,7 @@ function exitPlan(pi: ExtensionAPI, ctx: ExtensionContext, reason: string): bool
 	plan.status = "exited";
 	persist(pi, plan);
 	refreshPlanStatus(ctx);
-	notify(ctx, `Exited plan mode (${plan.planId}): ${reason}. No implementation was started.`, "info");
+	notify(ctx, `Saliste del modo plan (${plan.planId}): ${reason}. No se inició ninguna implementación.`, "info");
 	return true;
 }
 
@@ -400,7 +408,7 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	// token (mirrors goal's handleGoalCommand dispatch). Otherwise the whole arg string is <task>.
 	if (firstSpace === -1 && firstToken === "status") {
 		const plan = currentPlan() ?? [...activePlans.values()].pop();
-		notify(ctx, plan ? formatStatus(plan) : "Plan mode is not active.", "info");
+		notify(ctx, plan ? formatStatus(plan) : "El modo plan no está activo.", "info");
 		return;
 	}
 	if (firstSpace === -1 && (firstToken === "dashboard" || firstToken === "tui")) {
@@ -417,19 +425,19 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1);
 		const action = parsePlanToggleValue(rest);
 		if (action === "invalid") {
-			notify(ctx, `Usage: /plan ${label} [on|off|status]`, "warning");
+			notify(ctx, `Uso: /plan ${label} [on|off|status]`, "warning");
 			return;
 		}
 		if (action === "on") setSessionFlagDefault(key, true);
 		else if (action === "off") setSessionFlagDefault(key, false);
 		const current = getSessionFlagDefault(key);
-		const state = current === undefined ? "unset (env/param decides)" : current ? "on" : "off";
-		notify(ctx, `/plan ${label} session default: ${state}.`, "info");
+		const state = current === undefined ? "sin definir (lo decide env/param)" : current ? "on" : "off";
+		notify(ctx, `/plan ${label} valor por defecto de sesión: ${state}.`, "info");
 		return;
 	}
 	if (firstSpace === -1 && (firstToken === "exit" || firstToken === "cancel")) {
-		if (!exitPlan(pi, ctx, `${firstToken} by user`)) {
-			notify(ctx, "Plan mode is not active; nothing to exit.", "warning");
+		if (!exitPlan(pi, ctx, `${firstToken} por el usuario`)) {
+			notify(ctx, "El modo plan no está activo; no hay nada de qué salir.", "warning");
 		}
 		return;
 	}
@@ -467,17 +475,18 @@ export default function planExtension(pi: ExtensionAPI): void {
 		name: "submit_plan",
 		label: "Submit Plan",
 		description:
-			"Present your completed implementation plan to the user for approval (≈ ExitPlanMode). The ONLY way to finish plan mode. On approval you exit plan mode and implement; on rejection you stay in plan mode and revise.",
-		promptSnippet: "Submit your /plan implementation plan for the user to approve.",
+			"Presentale al usuario tu plan de implementación terminado para que lo apruebe (≈ ExitPlanMode). Es la ÚNICA forma de terminar el modo plan. Si se aprueba, salís del modo plan e implementás; si se rechaza, seguís en modo plan y revisás.",
+		promptSnippet: "Enviále al usuario tu plan de implementación de /plan para que lo apruebe.",
 		promptGuidelines: [
-			"Do your research FIRST with read-only tools. You cannot edit/write or run mutating shell commands while planning — those are hard-blocked.",
-			"When the plan is complete and self-contained, call submit_plan with the FULL plan in Markdown. Do not start implementing: implementation happens only after the user approves.",
-			"If the plan is rejected, you will get the rejection back; revise the plan to address the feedback and call submit_plan again.",
+			"Investigá PRIMERO con tools de solo lectura. No podés editar/escribir ni correr comandos de shell mutantes mientras planificás — están bloqueados de forma dura.",
+			"Cuando el plan esté completo y autocontenido, llamá a submit_plan con el plan COMPLETO en Markdown. No empieces a implementar: la implementación ocurre solo después de que el usuario apruebe.",
+			"Si el plan se rechaza, vas a recibir el rechazo de vuelta; revisá el plan para atender el feedback y volvé a llamar a submit_plan.",
 		],
 		parameters: Type.Object({
 			plan: Type.String({
 				minLength: 1,
-				description: "The full implementation plan in Markdown, ready to present to the user for approval.",
+				description:
+					"El plan de implementación completo en Markdown, listo para presentarle al usuario para su aprobación.",
 			}),
 		}),
 		executionMode: "sequential",
@@ -485,7 +494,12 @@ export default function planExtension(pi: ExtensionAPI): void {
 			const plan = currentPlan();
 			if (!plan) {
 				return {
-					content: [{ type: "text" as const, text: "No active plan to submit. Plan mode is not active." }],
+					content: [
+						{
+							type: "text" as const,
+							text: "No hay ningún plan activo para enviar. El modo plan no está activo.",
+						},
+					],
 					details: { isError: true },
 				};
 			}
@@ -508,14 +522,14 @@ export default function planExtension(pi: ExtensionAPI): void {
 				setPlanStatus(ctx, plan);
 				notify(
 					ctx,
-					`Plan ${plan.planId} recorded (plan-only, non-interactive). No approval or implementation here — the plan is the deliverable.`,
+					`Plan ${plan.planId} registrado (solo plan, no interactivo). Acá no hay aprobación ni implementación — el plan es el entregable.`,
 					"info",
 				);
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: `Plan recorded (plan-only mode). This is a non-interactive session: there is no approval or implementation step, and the read-only gate stays armed. Output the FULL plan below as your final answer; do NOT implement.\n\n${planText}`,
+							text: `Plan registrado (modo solo plan). Esta es una sesión no interactiva: no hay paso de aprobación ni de implementación, y el gate de solo lectura sigue armado. Mostrá el PLAN COMPLETO abajo como tu respuesta final; NO implementes.\n\n${planText}`,
 						},
 					],
 					details: { planId: plan.planId, status: "plan-only", approved: false },
@@ -530,14 +544,14 @@ export default function planExtension(pi: ExtensionAPI): void {
 			if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
 				notify(
 					ctx,
-					"Plan ready, but this session cannot show an approval dialog. Run /plan in a TUI or RPC session to approve.",
+					"El plan está listo, pero esta sesión no puede mostrar un diálogo de aprobación. Corré /plan en una sesión TUI o RPC para aprobar.",
 					"warning",
 				);
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: "Plan recorded, but approval could not be collected in this session (no interactive UI). A human must run /plan in a TUI/RPC session to approve. Staying in plan mode.",
+							text: "Plan registrado, pero no se pudo recoger la aprobación en esta sesión (no hay UI interactiva). Un humano tiene que correr /plan en una sesión TUI/RPC para aprobar. Seguimos en modo plan.",
 						},
 					],
 					details: { planId: plan.planId, status: "planning", approved: false, reason: "no-ui" },
@@ -549,14 +563,14 @@ export default function planExtension(pi: ExtensionAPI): void {
 				if (!artifact.opened) {
 					notify(
 						ctx,
-						`Plan HTML artifact saved, but the browser could not be opened automatically: ${artifact.htmlPath}`,
+						`Se guardó el artifact HTML del plan, pero no se pudo abrir el navegador automáticamente: ${artifact.htmlPath}`,
 						"warning",
 					);
 				}
 			} catch (error) {
 				notify(
 					ctx,
-					`Could not create/open the plan HTML preview: ${(error as Error).message}. Continuing with Markdown approval.`,
+					`No se pudo crear/abrir la vista previa HTML del plan: ${(error as Error).message}. Seguimos con la aprobación en Markdown.`,
 					"warning",
 				);
 			}
@@ -568,7 +582,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: "Plan approval result is stale; plan mode has changed. No action was taken.",
+							text: "El resultado de la aprobación del plan quedó obsoleto; el modo plan cambió. No se tomó ninguna acción.",
 						},
 					],
 					details: { isError: true, planId: plan.planId, status: "stale" },
@@ -583,9 +597,9 @@ export default function planExtension(pi: ExtensionAPI): void {
 				persist(pi, livePlan);
 				refreshPlanStatus(ctx);
 				wake(pi, ctx, makeImplementPrompt(planText, { ultracodeSteps: livePlan.ultracodeSteps }));
-				notify(ctx, `Plan ${livePlan.planId} approved. Exiting plan mode and implementing. 🐼`, "info");
+				notify(ctx, `Plan ${livePlan.planId} aprobado. Saliendo del modo plan e implementando. 🐼`, "info");
 				return {
-					content: [{ type: "text" as const, text: "Plan approved — implementing now." }],
+					content: [{ type: "text" as const, text: "Plan aprobado — implementando ahora." }],
 					details: { planId: livePlan.planId, status: "approved" },
 				};
 			}
@@ -596,12 +610,12 @@ export default function planExtension(pi: ExtensionAPI): void {
 			livePlan.status = "planning"; // remains active; status reflects we're still planning.
 			persist(pi, livePlan);
 			setPlanStatus(ctx, livePlan);
-			notify(ctx, `Plan ${livePlan.planId} rejected. Still in plan mode; the agent will revise.`, "info");
+			notify(ctx, `Plan ${livePlan.planId} rechazado. Seguimos en modo plan; el agente va a revisar.`, "info");
 			return {
 				content: [
 					{
 						type: "text" as const,
-						text: "Plan rejected. You are still in plan mode (read-only). Revise the plan to address the user's concerns and call submit_plan again.",
+						text: "Plan rechazado. Seguís en modo plan (solo lectura). Revisá el plan para atender las inquietudes del usuario y volvé a llamar a submit_plan.",
 					},
 				],
 				details: { planId: livePlan.planId, status: "rejected", rejections: livePlan.rejections },
@@ -620,37 +634,37 @@ export default function planExtension(pi: ExtensionAPI): void {
 		name: "enter_plan_mode",
 		label: "Enter Plan Mode",
 		description:
-			"Enter read-only plan mode yourself before implementing a non-trivial, multi-step, or risky change. Arms a read-only gate (write/edit and mutating shell commands are hard-blocked) so you research read-only and draft a plan, then present it via submit_plan for the user's explicit approval before any edits. Needs a TUI/RPC session.",
-		promptSnippet: "Enter read-only plan mode to research and present a plan before implementing.",
+			"Entrá vos mismo en modo plan de solo lectura antes de implementar un cambio no trivial, de varios pasos, o riesgoso. Arma un gate de solo lectura (write/edit y los comandos de shell mutantes quedan bloqueados de forma dura) para que investigues en solo lectura y redactes un plan, y después lo presentes vía submit_plan para la aprobación explícita del usuario antes de cualquier edición. Necesita una sesión TUI/RPC.",
+		promptSnippet: "Entrá en modo plan de solo lectura para investigar y presentar un plan antes de implementar.",
 		promptGuidelines: [
-			"Use enter_plan_mode on your own initiative when the user's request is non-trivial, multi-step, ambiguous, destructive, or far-reaching (refactors, migrations, schema/architecture changes, anything touching many files) and they have NOT already approved a concrete approach — it arms a read-only gate so you research safely, then you call submit_plan for explicit approval before any edits.",
-			"Do NOT use enter_plan_mode for trivial, single-step, read-only, or already-approved work, for answering questions, or when a plan, /goal, or /loop is already driving the turn — just do those directly.",
-			"enter_plan_mode needs an interactive approval, so it only takes effect in a TUI or RPC session; if it reports it could not enter (non-interactive mode) or that plan mode is already active, do NOT retry — continue the task (or, if already planning, keep researching read-only and call submit_plan).",
-			"After enter_plan_mode you are READ-ONLY: write/edit and mutating shell commands are hard-blocked until the user approves your plan, so finish researching and then call submit_plan — implementation happens only after approval.",
-			"Your plan MAY include running dynamic workflows (dynamic_workflow action=run/start) as post-approval implementation steps for broad, parallel, or high-confidence work (large audits, migrations, exhaustive sweeps, independent verification, deep research); while planning you can inspect the catalog read-only (dynamic_workflow action=list/scaffold/read) to pick or design the right one and describe it in the plan.",
+			"Usá enter_plan_mode por tu propia iniciativa cuando el pedido del usuario sea no trivial, de varios pasos, ambiguo, destructivo, o de alcance amplio (refactors, migraciones, cambios de schema/arquitectura, cualquier cosa que toque muchos archivos) y todavía NO haya aprobado un enfoque concreto — arma un gate de solo lectura para que investigues de forma segura, y después llamás a submit_plan para la aprobación explícita antes de cualquier edición.",
+			"NO uses enter_plan_mode para trabajo trivial, de un solo paso, de solo lectura, o ya aprobado, para responder preguntas, o cuando un plan, /goal, o /loop ya está conduciendo el turno — hacé eso directamente.",
+			"enter_plan_mode necesita una aprobación interactiva, así que solo tiene efecto en una sesión TUI o RPC; si reporta que no pudo entrar (modo no interactivo) o que el modo plan ya está activo, NO reintentes — seguí con la tarea (o, si ya estás planificando, seguí investigando en solo lectura y llamá a submit_plan).",
+			"Después de enter_plan_mode quedás en SOLO LECTURA: write/edit y los comandos de shell mutantes quedan bloqueados de forma dura hasta que el usuario apruebe tu plan, así que terminá de investigar y después llamá a submit_plan — la implementación ocurre solo después de la aprobación.",
+			"Tu plan PUEDE incluir correr dynamic workflows (dynamic_workflow action=run/start) como pasos de implementación posteriores a la aprobación para trabajo amplio, paralelo, o de alta confianza (auditorías grandes, migraciones, barridos exhaustivos, verificación independiente, investigación profunda); mientras planificás podés inspeccionar el catálogo en solo lectura (dynamic_workflow action=list/scaffold/read) para elegir o diseñar el indicado y describirlo en el plan.",
 		],
 		parameters: Type.Object({
 			task: Type.String({
 				minLength: 1,
 				description:
-					"The task you intend to plan before implementing (what you will research and write a plan for).",
+					"La tarea que pensás planificar antes de implementar (lo que vas a investigar y para lo que vas a escribir un plan).",
 			}),
 			nonInteractive: Type.Optional(
 				Type.Boolean({
 					description:
-						"Plan-only: enter even in a non-interactive (print/json) session, e.g. a dynamic-workflow subagent. There is no approval or implementation; the plan is the deliverable and the read-only gate never lifts. Defaults from PI_PLAN_NONINTERACTIVE.",
+						"Solo plan: entrá incluso en una sesión no interactiva (print/json), p. ej. un subagente de dynamic-workflow. No hay aprobación ni implementación; el plan es el entregable y el gate de solo lectura nunca se levanta. Por defecto toma el valor de PI_PLAN_NONINTERACTIVE.",
 				}),
 			),
 			ultracode: Type.Optional(
 				Type.Boolean({
 					description:
-						"Tell the planner to research/design the plan using dynamic workflows (ultracode). Defaults from PI_PLAN_ULTRACODE.",
+						"Decile al planificador que investigue/diseñe el plan usando dynamic workflows (ultracode). Por defecto toma el valor de PI_PLAN_ULTRACODE.",
 				}),
 			),
 			ultracodeSteps: Type.Optional(
 				Type.Boolean({
 					description:
-						"Tell the planner/implementer to execute the plan's STEPS via dynamic workflows when warranted. Defaults from PI_PLAN_ULTRACODE_STEPS.",
+						"Decile al planificador/implementador que ejecute los PASOS del plan vía dynamic workflows cuando se justifique. Por defecto toma el valor de PI_PLAN_ULTRACODE_STEPS.",
 				}),
 			),
 		}),
@@ -668,14 +682,14 @@ export default function planExtension(pi: ExtensionAPI): void {
 			if (!canEnterPlanMode(ctx, flags)) {
 				notify(
 					ctx,
-					"Cannot enter plan mode here: this session is not interactive. Pass nonInteractive (or set PI_PLAN_NONINTERACTIVE) for a plan-only session, or proceed without plan mode.",
+					"No se puede entrar en modo plan acá: esta sesión no es interactiva. Pasá nonInteractive (o seteá PI_PLAN_NONINTERACTIVE) para una sesión solo-plan, o seguí sin modo plan.",
 					"warning",
 				);
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: "Plan mode requires a TUI or RPC session to run the approval handshake. For a non-interactive session, pass nonInteractive:true (plan-only: produce a plan, no implementation) or set PI_PLAN_NONINTERACTIVE=1. Otherwise do not enter plan mode; proceed with the task normally.",
+							text: "El modo plan requiere una sesión TUI o RPC para ejecutar el protocolo de aprobación. Para una sesión no interactiva, pasá nonInteractive:true (solo plan: produce un plan, sin implementación) o seteá PI_PLAN_NONINTERACTIVE=1. Si no, no entres en modo plan; seguí con la tarea normalmente.",
 						},
 					],
 					details: { entered: false, reason: "mode" },
@@ -687,7 +701,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: "enter_plan_mode requires a non-empty task describing what to plan.",
+							text: "enter_plan_mode requiere una task no vacía que describa qué planificar.",
 						},
 					],
 					details: { isError: true, entered: false, reason: "empty-task" },
@@ -701,7 +715,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: `Plan mode is already active${current ? ` (${current.planId})` : ""}. Continue researching read-only, then call submit_plan when your plan is ready.`,
+							text: `El modo plan ya está activo${current ? ` (${current.planId})` : ""}. Seguí investigando en solo lectura, y llamá a submit_plan cuando tu plan esté listo.`,
 						},
 					],
 					details: { entered: false, reason: "already-active", planId: current?.planId },
@@ -712,8 +726,8 @@ export default function planExtension(pi: ExtensionAPI): void {
 			notify(
 				ctx,
 				plan.nonInteractive
-					? `Pi entered plan mode (${plan.planId}, plan-only). Read-only; the plan is the deliverable. Task: ${trimmed}`
-					: `Pi entered plan mode (${plan.planId}). Read-only until you approve a plan. Task: ${trimmed}`,
+					? `Pi entró en modo plan (${plan.planId}, solo plan). Solo lectura; el plan es el entregable. Tarea: ${trimmed}`
+					: `Pi entró en modo plan (${plan.planId}). Solo lectura hasta que apruebes un plan. Tarea: ${trimmed}`,
 				"info",
 			);
 			// Tool path: hand the planning instruction back as THIS tool's result (no wake), so the
@@ -727,25 +741,29 @@ export default function planExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("plan", {
 		description:
-			"Enter read-only plan mode: /plan [--ultracode] [--ultracode-steps] <task> — research read-only, write a plan, submit it for approval, then implement. /plan status | /plan dashboard | /plan exit | /plan cancel.",
+			"Entrá en modo plan de solo lectura: /plan [--ultracode] [--ultracode-steps] <task> — investigá en solo lectura, escribí un plan, envialo para aprobación, y después implementá. /plan status | /plan dashboard | /plan exit | /plan cancel.",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
-				{ value: "status", label: "status", description: "Show plan-mode status" },
-				{ value: "dashboard", label: "dashboard", description: "Open the plan-mode tracking dashboard" },
-				{ value: "--ultracode", label: "--ultracode", description: "Plan using dynamic workflows" },
+				{ value: "status", label: "status", description: "Mostrar el estado del modo plan" },
+				{ value: "dashboard", label: "dashboard", description: "Abrir el tablero de seguimiento del modo plan" },
+				{ value: "--ultracode", label: "--ultracode", description: "Planificar usando dynamic workflows" },
 				{
 					value: "--ultracode-steps",
 					label: "--ultracode-steps",
-					description: "Execute the plan's steps via dynamic workflows",
+					description: "Ejecutar los pasos del plan vía dynamic workflows",
 				},
-				{ value: "ultracode", label: "ultracode", description: "Toggle session default: on|off|status" },
+				{
+					value: "ultracode",
+					label: "ultracode",
+					description: "Alternar el valor por defecto de sesión: on|off|status",
+				},
 				{
 					value: "steps-ultracode",
 					label: "steps-ultracode",
-					description: "Toggle steps-via-workflows session default: on|off|status",
+					description: "Alternar el valor por defecto de sesión de pasos-vía-workflows: on|off|status",
 				},
-				{ value: "exit", label: "exit", description: "Leave plan mode without implementing" },
-				{ value: "cancel", label: "cancel", description: "Leave plan mode without implementing" },
+				{ value: "exit", label: "exit", description: "Salir del modo plan sin implementar" },
+				{ value: "cancel", label: "cancel", description: "Salir del modo plan sin implementar" },
 			];
 			const prefix = argumentPrefix.trim().toLowerCase();
 			if (!prefix) return items;

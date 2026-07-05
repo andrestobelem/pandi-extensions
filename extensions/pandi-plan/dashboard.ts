@@ -113,9 +113,11 @@ export function extractPlanChecklist(markdown: string): ChecklistItem[] {
  * plan), and a "History" table of every plan in the session (oldest first).
  */
 export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
-	const lines: string[] = ["# Plan Mode Dashboard", ""];
+	const lines: string[] = ["# Tablero de Modo Plan", ""];
 	if (plans.length === 0) {
-		lines.push("No plans recorded in this session yet. Start one with `/plan <task>` or the `enter_plan_mode` tool.");
+		lines.push(
+			"Todavía no hay planes registrados en esta sesión. Empezá uno con `/plan <task>` o la tool `enter_plan_mode`.",
+		);
 		return lines.join("\n");
 	}
 
@@ -129,36 +131,36 @@ export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 	);
 
 	if (active.length) {
-		lines.push("## Active");
+		lines.push("## Activo");
 		for (const p of active) {
 			lines.push(
 				"",
-				`### ${p.planId} — ${p.status} (read-only gate ARMED)`,
-				`- **Posture:** ${planPosture(p)}`,
-				`- **Submissions:** ${p.submissions} · **Rejections:** ${p.rejections}`,
-				`- **Updated:** ${p.updatedAt}`,
-				`- **Task:** ${clip(p.task, 200)}`,
+				`### ${p.planId} — ${p.status} (gate de solo lectura ARMADO)`,
+				`- **Postura:** ${planPosture(p)}`,
+				`- **Envíos:** ${p.submissions} · **Rechazos:** ${p.rejections}`,
+				`- **Actualizado:** ${p.updatedAt}`,
+				`- **Tarea:** ${clip(p.task, 200)}`,
 			);
 			if (p.lastPlan) {
 				// Claude-style checklist derived from the latest submitted plan.
 				const steps = extractPlanChecklist(p.lastPlan);
 				if (steps.length) {
 					const done = steps.filter((s) => s.checked).length;
-					lines.push("", `#### Checklist (${done}/${steps.length} done)`);
+					lines.push("", `#### Checklist (${done}/${steps.length} listos)`);
 					for (const s of steps) lines.push(`- [${s.checked ? "x" : " "}] ${s.text}`);
 				} else {
-					lines.push("", "_No checklist steps parsed from the latest plan._");
+					lines.push("", "_No se pudo extraer ningún paso del checklist del último plan._");
 				}
-				lines.push("", "<details><summary>Last submitted plan</summary>", "", p.lastPlan, "", "</details>");
+				lines.push("", "<details><summary>Último plan enviado</summary>", "", p.lastPlan, "", "</details>");
 			}
 		}
 		lines.push("");
 	}
 
 	lines.push(
-		"## History",
+		"## Historial",
 		"",
-		"| Plan | Status | Posture | Subs | Rej | Task |",
+		"| Plan | Estado | Postura | Envíos | Rech | Tarea |",
 		"| --- | --- | --- | --- | --- | --- |",
 	);
 	for (const p of sorted) {
@@ -214,10 +216,10 @@ export async function renderPlanDashboardOverlay(ctx: ExtensionContext, markdown
 					const visible = allLines.slice(start, end);
 					while (visible.length < height) visible.push("");
 					const border = "─".repeat(safeWidth);
-					const footer = `↑/↓ j/k scroll · PgUp/PgDn page · q/Esc close · ${start + 1}-${end}/${allLines.length}`;
+					const footer = `↑/↓ j/k desplazar · PgUp/PgDn página · q/Esc cerrar · ${start + 1}-${end}/${allLines.length}`;
 					return [
 						border,
-						pad("Plan Mode Dashboard", safeWidth),
+						pad("Tablero de Modo Plan", safeWidth),
 						"",
 						...visible.map((line) => pad(line, safeWidth)),
 						pad(footer, safeWidth),
@@ -229,7 +231,7 @@ export async function renderPlanDashboardOverlay(ctx: ExtensionContext, markdown
 	} catch (error) {
 		notify(
 			ctx,
-			`Could not open the plan dashboard: ${error instanceof Error ? error.message : String(error)}`,
+			`No se pudo abrir el tablero de plan: ${error instanceof Error ? error.message : String(error)}`,
 			"warning",
 		);
 	}

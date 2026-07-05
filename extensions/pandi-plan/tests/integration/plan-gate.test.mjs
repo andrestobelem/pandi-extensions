@@ -139,7 +139,7 @@ async function planGate(planUrl) {
 		["notebook-edit", { path: "n.ipynb" }],
 	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent(name, input));
-		check(`plan: BLOCKS ${name}`, !!r && r.block === true && /read-only/i.test(r.reason || ""));
+		check(`plan: BLOCKS ${name}`, !!r && r.block === true && /solo lectura/i.test(r.reason || ""));
 	}
 
 	// BLOCKED: mutating bash.
@@ -230,8 +230,8 @@ async function planGatePrintRefuses(planUrl) {
 	const r = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "a.ts", content: "x" }));
 	check("plan(print): write ALLOWED (gate never armed)", r === undefined);
 	check(
-		"plan(print): refusal mentions TUI or RPC",
-		logged.some((l) => /TUI or RPC/i.test(l)),
+		"plan(print): refusal mentions TUI o RPC",
+		logged.some((l) => /TUI o RPC/i.test(l)),
 	);
 }
 

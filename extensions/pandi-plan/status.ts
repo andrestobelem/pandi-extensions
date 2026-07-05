@@ -37,13 +37,13 @@ export function clearPlanStatus(ctx: ExtensionContext): void {
 }
 
 export function formatStatus(plan: PlanState): string {
-	const gate = plan.active ? "active (read-only gate ARMED)" : `inactive [${plan.status}]`;
-	const counts = ` — ${plan.submissions} plan(s) submitted, ${plan.rejections} rejected`;
+	const gate = plan.active ? "activo (gate de solo lectura ARMADO)" : `inactivo [${plan.status}]`;
+	const counts = ` — ${plan.submissions} plan(es) enviado(s), ${plan.rejections} rechazado(s)`;
 	const tags = [
 		plan.nonInteractive ? "plan-only" : undefined,
 		plan.ultracode ? "ultracode" : undefined,
 		plan.ultracodeSteps ? "ultracode-steps" : undefined,
 	].filter(Boolean);
 	const posture = tags.length ? ` [${tags.join(", ")}]` : "";
-	return `Plan ${plan.planId}: ${gate}${posture}${counts}. Task: ${plan.task}`;
+	return `Plan ${plan.planId}: ${gate}${posture}${counts}. Tarea: ${plan.task}`;
 }
