@@ -110,6 +110,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.1",
+		"@types/sanitize-html": "^2.16.1",
 		"ctx7": "^0.5.3",
 		"esbuild": "^0.25.12",
 		"markdownlint-cli2": "^0.22.1",

@@ -116,7 +116,17 @@ const STUB_SPECIFIERS = {
 	ai: "@earendil-works/pi-ai",
 	tui: "@earendil-works/pi-tui",
 	sdk: "@earendil-works/pi-coding-agent",
+	sanitizeHtml: "sanitize-html",
 };
+
+function realSanitizeHtmlStub() {
+	return (
+		'import { createRequire } from "node:module";\n' +
+		"const require = createRequire(import.meta.url);\n" +
+		`const sanitizeHtml = require(${JSON.stringify(path.join(REPO_ROOT, "node_modules", "sanitize-html"))});\n` +
+		"export default sanitizeHtml;\n"
+	);
+}
 
 /**
  * Write the requested stub files into `outDir` and return an esbuild `--alias` map
@@ -189,7 +199,7 @@ export async function makeBuildDir(name, stubs = {}) {
  * return the file:// URL. Throws with esbuild's stderr on failure. Passing an alias
  * for a module the entry never imports is harmless (esbuild simply ignores it).
  */
-export async function bundle({ src, outDir, outName, aliases = {}, npx = "--no-install" }) {
+export async function bundle({ src, outDir, outName, aliases = {}, external = [], npx = "--no-install" }) {
 	if (!src) throw new Error("bundle: { src } (absolute entry path) is required");
 	if (!outDir) throw new Error("bundle: { outDir } is required");
 	if (!outName) throw new Error("bundle: { outName } is required");
@@ -197,6 +207,7 @@ export async function bundle({ src, outDir, outName, aliases = {}, npx = "--no-i
 	const out = path.join(outDir, outName);
 	const args = [npx, "esbuild", src, "--bundle", "--platform=node", "--format=esm"];
 	for (const [specifier, file] of Object.entries(aliases)) args.push(`--alias:${specifier}=${file}`);
+	for (const specifier of external) args.push(`--external:${specifier}`);
 	args.push(`--outfile=${out}`);
 	const r = spawnSync("npx", args, { cwd: REPO_ROOT, encoding: "utf8" });
 	if (r.status !== 0) throw new Error(`esbuild failed for ${outName}: ${r.stderr || r.stdout}`);
@@ -215,15 +226,24 @@ export async function bundle({ src, outDir, outName, aliases = {}, npx = "--no-i
  *   - stubs:   spec passed to writeStubs (default {} = no aliases).
  *   - npx:     "--no-install" (default; esbuild is a pinned devDependency, so no network is
  *              needed and the run stays offline-deterministic) or "--yes" — preserved per suite.
+ *   - external: package specifiers left for Node to load at runtime.
  *   - copyDirs: { destName: absSrcDir } — sibling asset dirs copied into the tempdir next to the
  *               bundle, for entries that read files at runtime relative to import.meta.url
  *               (e.g. pandi-dynamic-workflows reads scaffolds/*.js beside its module).
  */
-export async function buildExtension({ name, src, outName, stubs = {}, npx = "--no-install", copyDirs = {} }) {
-	const { outDir, aliases } = await makeBuildDir(name, stubs);
+export async function buildExtension({
+	name,
+	src,
+	outName,
+	stubs = {},
+	external = [],
+	npx = "--no-install",
+	copyDirs = {},
+}) {
+	const { outDir, aliases } = await makeBuildDir(name, { sanitizeHtml: realSanitizeHtmlStub, ...stubs });
 	for (const [dest, srcDir] of Object.entries(copyDirs)) {
 		await fs.cp(srcDir, path.join(outDir, dest), { recursive: true });
 	}
-	const url = await bundle({ src, outDir, outName, aliases, npx });
+	const url = await bundle({ src, outDir, outName, aliases, external, npx });
 	return { outDir, url };
 }

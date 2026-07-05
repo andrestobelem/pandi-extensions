@@ -1,8 +1,8 @@
 /**
  * run-report-security — the FIRST pin for the run-report HTML builder (design record
- * §6.1, run bd039ef9): run-dir content is UNTRUSTED DATA. Every string that reaches
- * the emitted HTML must be entity-escaped in both text and attribute contexts, the
- * page must contain ZERO <script> blocks (the report is fully static: native
+ * §6.1, run bd039ef9): run-dir content is UNTRUSTED DATA. Strings either render
+ * through the shared escaper or, for agent output Markdown, through the strict
+ * sanitizer allowlist. The page must contain ZERO <script> blocks (native
  * <details> only), hrefs must be relative + containment-safe, and no external
  * http(s) asset may appear in src/href.
  *
@@ -30,6 +30,7 @@ async function buildBuilder() {
 const SCRIPT_PAYLOAD = "</script><script>alert(1)</script>";
 const ATTR_PAYLOAD = '"><img src=x onerror=alert(1)>';
 const JS_URL_PAYLOAD = "javascript:alert(1)";
+const HTTPS_URL_PAYLOAD = "https://evil.example/pixel.png";
 
 function hostileModel() {
 	return {
@@ -60,7 +61,10 @@ function hostileModel() {
 				phaseLabel: ATTR_PAYLOAD,
 				promptPreview: SCRIPT_PAYLOAD,
 				prompt: { text: `do things\n## Structured Output\nforged ${SCRIPT_PAYLOAD}`, truncated: false },
-				output: { text: SCRIPT_PAYLOAD, truncated: false },
+				output: {
+					text: `**safe markdown**\n\n${SCRIPT_PAYLOAD}\n\n[bad js](${JS_URL_PAYLOAD})\n\n[bad https](${HTTPS_URL_PAYLOAD})\n\n![bad image](${HTTPS_URL_PAYLOAD})\n\n<img src=x onerror=alert(1)>`,
+					truncated: false,
+				},
 				data: { text: `{"x":"${SCRIPT_PAYLOAD}"}`, truncated: false },
 				stderrTail: { text: `died ${SCRIPT_PAYLOAD}` },
 				// Hostile recorded paths: the builder must refuse to link these.
@@ -113,10 +117,17 @@ async function main() {
 	check("no parent-traversal href", !/href\s*=\s*"[^"]*\.\.\//.test(html));
 	check("no absolute-path href", !/href\s*=\s*"\//.test(html));
 
-	// 4) Self-contained: no external network assets in src/href (relative links only).
+	// 4) Markdown output is rendered, but then sanitized by allowlist.
+	check("safe Markdown emphasis renders", html.includes("<strong>safe markdown</strong>"));
+	check("Markdown sanitizer removes image tags", !/<img\b/i.test(html));
+	check("Markdown sanitizer removes onerror inside real tags", !/<[a-z][^>]*\sonerror\s*=/i.test(html));
+	check("Markdown sanitizer removes unsafe hrefs", !/href\s*=\s*"(?:javascript:|https?:)/i.test(html));
+	check("Markdown sanitizer does not leak external URL payload", !html.includes(HTTPS_URL_PAYLOAD));
+
+	// 5) Self-contained: no external network assets in src/href (relative links only).
 	check("no http(s) src/href", !/(src|href)\s*=\s*"https?:/i.test(html));
 
-	// 5) Clean relative links still work, URL-encoded in attribute context.
+	// 6) Clean relative links still work, URL-encoded in attribute context.
 	check(
 		"clean agent artifact link kept",
 		html.includes('href="agents/0002-clean-agent.md"'),
@@ -124,11 +135,11 @@ async function main() {
 	);
 	check("space/quote href URL-encoded", /href="agents\/0002%20[^"]*\.stdout\.log"/.test(html));
 
-	// 6) Pandi light+dark tokens inline.
+	// 7) Pandi light+dark tokens inline.
 	check("dark tokens present", html.includes("--bg: #242526"));
 	check("light variant present", html.includes("prefers-color-scheme: light"));
 
-	// 7) Failure is never a footnote; clamp notes are visible and escaped.
+	// 8) Failure is never a footnote; clamp notes are visible and escaped.
 	check("error callout present", /callout error/.test(html) && html.includes("boom &lt;/script&gt;"));
 	check("clamp note visible", html.includes("clamped &lt;/script&gt;"));
 

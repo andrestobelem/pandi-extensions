@@ -2,8 +2,8 @@
  * Pure model→HTML builder for the workflow run report (design record, run bd039ef9).
  *
  * Contract (pinned by run-report-security.test.mjs):
- * - Every model string is UNTRUSTED DATA: rendered only through the 5-char escaper,
- *   in text and attribute contexts alike.
+ * - Every model string is UNTRUSTED DATA: most strings render through the 5-char escaper;
+ *   agent outputs render as Markdown only through marked + sanitize-html with a strict allowlist.
  * - The emitted page contains ZERO <script> blocks — collapsing uses native
  *   <details>/<summary>, so there is no DOM sink for injected content at all.
  * - hrefs are relative-only: absolute paths, parent traversal, and URL schemes are
@@ -13,6 +13,11 @@
  * - No fs, no ctx, no Date.now(): all times come from the model (generatedAt),
  *   so regeneration from a fixed model is byte-stable.
  */
+
+import { renderRunReportMarkdown } from "./run-report-markdown.js";
+import { escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
+
+export { escapeHtml, safeRelativeHref };
 
 export interface RunReportText {
 	text: string;
@@ -103,30 +108,6 @@ export interface RunReportModel {
 	clampNotes: string[];
 }
 
-/** One escaper for text AND attribute contexts: & < > " ' (never the 3-char variant). */
-export function escapeHtml(value: string): string {
-	return value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("'", "&#39;");
-}
-
-/**
- * Sanitize an href candidate: RELATIVE paths only. Refuses URL schemes ("js:",
- * "http:"…), absolute paths, backslashes, and any ".." segment; URL-encodes each
- * segment for the attribute context. Returns undefined when refused.
- */
-export function safeRelativeHref(candidate: string | undefined): string | undefined {
-	if (!candidate) return undefined;
-	if (/^[a-z][a-z0-9+.-]*:/i.test(candidate)) return undefined; // any scheme
-	if (candidate.startsWith("/") || candidate.startsWith("\\") || candidate.includes("\\")) return undefined;
-	const segments = candidate.split("/");
-	if (segments.some((s) => s === "" || s === "." || s === "..")) return undefined;
-	return segments.map((s) => encodeURIComponent(s)).join("/");
-}
-
 /* Pandi artifact tokens — inlined per the self-contained-extension rule (per-extension
  * duplication is intentional). Pinned against the canonical
  * .pi/skills/pandi-artifact-style/reference/pandi-tokens.css by run-report-tokens parity test. */
@@ -209,6 +190,14 @@ details .body { border-top:1px solid var(--line); padding:14px 16px; color:var(-
 details.fail-card { border-color:var(--error); }
 pre { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px 12px; overflow-x:auto;
   font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--ink); white-space:pre-wrap; word-break:break-word; }
+.md-body { color:var(--ink2); }
+.md-body p, .md-body ul, .md-body ol, .md-body blockquote, .md-body table { margin:0 0 10px; }
+.md-body h1, .md-body h2, .md-body h3, .md-body h4, .md-body h5, .md-body h6 { color:var(--ink); margin:14px 0 8px; }
+.md-body h1 { font-size:18px; } .md-body h2 { font-size:16px; } .md-body h3, .md-body h4, .md-body h5, .md-body h6 { font-size:14px; }
+.md-body code { color:var(--code); background:var(--raised); border-radius:5px; padding:1px 5px; }
+.md-body pre code { background:none; padding:0; color:var(--ink); }
+.md-body blockquote { border-left:3px solid var(--accent); padding-left:12px; color:var(--ink2); }
+.md-body .md-image-alt, .md-body .md-link-text { color:var(--muted); font-style:italic; }
 a { color:var(--link); }
 .muted { color:var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
@@ -232,11 +221,20 @@ function truncNote(t: RunReportText): string {
 	return t.truncated ? ` <span class="muted">…[truncated]</span>` : "";
 }
 
-function textBlock(title: string, t: RunReportText | undefined, open = false): string {
+function textBlock(
+	title: string,
+	t: RunReportText | undefined,
+	open = false,
+	render: "pre" | "markdown" = "pre",
+): string {
 	if (!t) return "";
+	const body =
+		render === "markdown"
+			? `<div class="md-body">${renderRunReportMarkdown(t.text)}</div>`
+			: `<pre>${escapeHtml(t.text)}</pre>`;
 	return (
 		`<details${open ? " open" : ""}><summary>${escapeHtml(title)}${truncNote(t)}</summary>` +
-		`<div class="body"><pre>${escapeHtml(t.text)}</pre></div></details>`
+		`<div class="body">${body}</div></details>`
 	);
 }
 
@@ -278,7 +276,7 @@ function renderAgent(agent: RunReportAgent): string {
 			body += `<div class="kv muted">Prompt (extracted from artifact; section boundaries are forgeable):</div>`;
 			body += textBlock("Prompt", agent.prompt);
 		}
-		if (agent.output) body += textBlock("Output", agent.output);
+		if (agent.output) body += textBlock("Output", agent.output, false, "markdown");
 		if (agent.data) body += textBlock("Structured data", agent.data);
 	}
 	if (agent.stderrTail) {
