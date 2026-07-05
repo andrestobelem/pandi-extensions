@@ -85,16 +85,62 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 	const childFile = path.join(dir, "child.mjs");
 	fs.writeFileSync(childFile, childSrc);
 	// Run the child, let it mutate, then SIGTERM it; the signal guard must restore before exit.
-	spawnSync(
-		"node",
+	const crash = spawnSync(
+		process.execPath,
 		[
 			"-e",
 			`const { spawn } = require('node:child_process');
-			 const c = spawn('node', [${JSON.stringify(childFile)}], { stdio: ['ignore','pipe','inherit'] });
-			 c.stdout.on('data', (d) => { if (String(d).includes('MUTATED')) setTimeout(() => c.kill('SIGTERM'), 50); });
-			 c.on('exit', () => process.exit(0));`,
+			 const child = spawn(process.execPath, [${JSON.stringify(childFile)}], { stdio: ['ignore','pipe','inherit'] });
+			 let observedMutation = false;
+			 const timeout = setTimeout(() => {
+			   console.error('timeout waiting for MUTATED marker');
+			   child.kill('SIGKILL');
+			   process.exit(2);
+			 }, 5000);
+			 child.stdout.on('data', (d) => {
+			   const text = String(d);
+			   process.stdout.write(text);
+			   if (!observedMutation && text.includes('MUTATED')) {
+			     observedMutation = true;
+			     console.log('PARENT_OBSERVED_MUTATED');
+			     setTimeout(() => {
+			       const sent = child.kill('SIGTERM');
+			       console.log('PARENT_SENT_SIGTERM=' + sent);
+			     }, 50);
+			   }
+			 });
+			 child.on('error', (error) => {
+			   clearTimeout(timeout);
+			   console.error(String(error && error.stack || error));
+			   process.exit(3);
+			 });
+			 child.on('exit', (code, signal) => {
+			   clearTimeout(timeout);
+			   if (!observedMutation) {
+			     console.error('child exited before MUTATED marker: code=' + code + ' signal=' + signal);
+			     process.exit(4);
+			   }
+			   if (!(code === 143 || signal === 'SIGTERM')) {
+			     console.error('child did not exit from SIGTERM handler: code=' + code + ' signal=' + signal);
+			     process.exit(5);
+			   }
+			   console.log('PARENT_OBSERVED_SIGTERM_EXIT');
+			   process.exit(0);
+			 });`,
 		],
 		{ encoding: "utf8", timeout: 20000 },
+	);
+	const crashDetails = `status=${crash.status} signal=${crash.signal} stdout=${JSON.stringify(crash.stdout)} stderr=${JSON.stringify(crash.stderr)}`;
+	check("crash harness wrapper exits cleanly", crash.status === 0, crashDetails);
+	check(
+		"crash harness observed the child mutation marker before killing it",
+		crash.stdout.includes("PARENT_OBSERVED_MUTATED"),
+		crashDetails,
+	);
+	check(
+		"crash harness observed the child SIGTERM-handler exit",
+		crash.stdout.includes("PARENT_OBSERVED_SIGTERM_EXIT"),
+		crashDetails,
 	);
 	const afterKill = fs.readFileSync(marker, "utf8");
 	check(
