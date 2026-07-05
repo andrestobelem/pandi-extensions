@@ -1,10 +1,10 @@
 /**
- * Workflow pattern catalog metadata + key resolution for dynamic-workflows.
+ * Metadata del catálogo de patrones de workflow + resolución de keys para dynamic-workflows.
  *
- * Pure data + lookup helpers, split out of pattern-scaffolds.ts for cohesion. Catalog keys ARE the
- * scaffold filenames / `meta.name` of extensions/pandi-dynamic-workflows/scaffolds/*.js, so
- * pattern-scaffolds.ts maps each key 1:1 to its embedded source. Content mirrors the authoring
- * reference in scaffolds/README.md (§6 "the 25 workflows by family").
+ * Datos puros + helpers de lookup, separados de pattern-scaffolds.ts por cohesión. Las keys del catálogo SON los
+ * filenames de scaffold / `meta.name` de extensions/pandi-dynamic-workflows/scaffolds/*.js, así
+ * pattern-scaffolds.ts mapea cada key 1:1 a su fuente embebida. El contenido refleja la referencia de authoring
+ * en scaffolds/README.md (§6 "the 25 workflows by family").
  */
 
 export interface WorkflowPattern {

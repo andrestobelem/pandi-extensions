@@ -1,15 +1,15 @@
 /**
- * Structured-output kernel for pandi-dynamic-workflows.
+ * Núcleo de structured-output para pandi-dynamic-workflows.
  *
- * The structured-output system-prompt builder, a generic appendSystemPrompt helper,
- * and TypeBox-backed schema validation (validateStructuredData) + retry-prompt
- * formatting used when a subagent must return JSON. formatSchemaValidationErrors
- * stays module-private; index.ts imports back the 4 it calls inside runSubagent.
+ * El builder de system-prompt de structured-output, un helper genérico appendSystemPrompt,
+ * y validación de schema respaldada por TypeBox (validateStructuredData) + formato de retry-prompt
+ * usado cuando un subagente debe devolver JSON. formatSchemaValidationErrors
+ * queda privado del módulo; index.ts importa de vuelta las 4 funciones que llama dentro de runSubagent.
  *
- * One-way runtime dependency: index.ts -> structured-output. The back-edge to
- * index.ts is type-only (AgentOptions via import type, erased); Value comes from the
- * external typebox/value package and safeJson from the format.ts sibling (no cycle).
- * Extracted byte-identically from index.ts.
+ * Dependencia runtime unidireccional: index.ts -> structured-output. La arista de vuelta hacia
+ * index.ts es solo de tipos (AgentOptions vía import type, borrado); Value viene del paquete externo
+ * typebox/value y safeJson del sibling format.ts (sin ciclo).
+ * Extraído byte-idéntico desde index.ts.
  */
 import { Value } from "typebox/value";
 import { safeJson } from "./format.js";

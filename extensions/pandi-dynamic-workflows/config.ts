@@ -1,13 +1,13 @@
 /**
- * Run configuration for dynamic workflows: the limit defaults/ceilings plus the
- * input-normalization and limit-building helpers that turn raw tool/CLI input
- * into a normalized input object and a clamped RunLimits.
+ * Configuración de runs para dynamic workflows: defaults/techos de límites más los
+ * helpers de normalización de input y construcción de límites que convierten input raw
+ * de tool/CLI en un objeto input normalizado y RunLimits clampados.
  *
- * Pure and self-contained at depth one under extensions/pandi-dynamic-workflows, so
- * it matches the package `files` glob and is bundled into index.ts (jiti at
- * runtime, esbuild in tests). The only dependency back on index.ts is TYPE-only
- * (DynamicWorkflowToolParams, RunLimits); `import type` is erased at build time,
- * so there is no runtime import cycle.
+ * Puro y autocontenido a profundidad uno bajo extensions/pandi-dynamic-workflows, así
+ * matchea el glob `files` del paquete y se bundlea en index.ts (jiti en runtime,
+ * esbuild en tests). La única dependencia de vuelta hacia index.ts es SOLO de TIPOS
+ * (DynamicWorkflowToolParams, RunLimits); `import type` se borra en build time,
+ * así no hay ciclo de import runtime.
  */
 
 import type { DynamicWorkflowToolParams, RunLimits } from "./index.js";
@@ -39,10 +39,10 @@ export function parseCliJsonOrText(raw: string | undefined, options: { strictJso
 	}
 }
 
-// The tool-call path can deliver `input` as a JSON string instead of a parsed
-// object (e.g. when tool arguments are marshaled as text). Coerce strings the
-// same way the CLI/editor paths do, so workflows reliably receive an object and
-// `input?.x` fields are honored instead of being silently undefined.
+// La ruta tool-call puede entregar `input` como string JSON en vez de objeto parseado
+// (p. ej. cuando los argumentos de tool se serializan como texto). Coercioná strings
+// igual que las rutas CLI/editor, para que los workflows reciban confiablemente un objeto y
+// los campos `input?.x` se respeten en vez de quedar silently undefined.
 export function normalizeWorkflowInput(input: unknown): unknown {
 	if (typeof input !== "string") return input ?? {};
 	return parseCliJsonOrText(input);

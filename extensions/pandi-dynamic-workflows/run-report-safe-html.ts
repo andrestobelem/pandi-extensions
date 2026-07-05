@@ -1,6 +1,6 @@
-/** Shared escaping/link guards for run-report HTML surfaces. */
+/** Guards compartidos de escaping/links para superficies HTML de run-report. */
 
-/** One escaper for text AND attribute contexts: & < > " ' (never the 3-char variant). */
+/** Un escaper para contextos de texto Y atributos: & < > " ' (nunca la variante de 3 chars). */
 export function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -11,9 +11,9 @@ export function escapeHtml(value: string): string {
 }
 
 /**
- * Sanitize an href candidate: RELATIVE paths only. Refuses URL schemes ("js:",
- * "http:"…), absolute paths, backslashes, and any ".." segment; URL-encodes each
- * segment for the attribute context. Returns undefined when refused.
+ * Sanitiza un candidato href: solo paths RELATIVOS. Rechaza esquemas URL ("js:",
+ * "http:"…), paths absolutos, backslashes y cualquier segmento ".."; URL-encodea cada
+ * segmento para el contexto de atributo. Devuelve undefined cuando se rechaza.
  */
 export function safeRelativeHref(candidate: string | undefined): string | undefined {
 	if (!candidate) return undefined;

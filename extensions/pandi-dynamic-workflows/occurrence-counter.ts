@@ -1,21 +1,21 @@
 /**
- * Deterministic per-key occurrence index for the content-addressed resume cache.
+ * Índice determinista de ocurrencia por key para la resume cache content-addressed.
  *
- * Extracted verbatim from runWorkflow's former nested `nextOcc`/`occCounters`. Same key
- * (identical call args) → 0, 1, 2, …; distinct keys count independently. `next()` MUST be
- * called in synchronous emission order — that ordering is what makes `occ` (and therefore
- * resume-cache lookups) deterministic.
+ * Extraído textualmente de los antiguos `nextOcc`/`occCounters` anidados de runWorkflow. Misma key
+ * (args de llamada idénticos) → 0, 1, 2, …; keys distintas cuentan independientemente. `next()` DEBE
+ * llamarse en orden síncrono de emisión: ese orden hace determinista a `occ` (y por lo tanto
+ * a los lookups de resume-cache).
  *
- * Intentionally PURE and mutex-free: the serialization lives in runWorkflow's
- * `occAssignMutex`, which wraps the WHOLE occ-assignment prologue (persona/access
- * resolution + key computation + this call), not just the counter increment. Reintroducing
- * a lock in here would shrink that critical section and change resume-cache ordering — so
- * this stays a plain counter and the caller owns the mutex.
+ * Intencionalmente PURO y sin mutex: la serialización vive en `occAssignMutex` de runWorkflow,
+ * que envuelve TODO el prólogo de asignación de occ (resolución persona/access + cómputo de key
+ * + esta llamada), no solo el incremento del counter. Reintroducir un lock acá achicaría esa
+ * sección crítica y cambiaría el orden de resume-cache, así que esto queda como counter plano
+ * y el caller es dueño del mutex.
  */
 export class OccurrenceCounter {
 	private readonly counters = new Map<string, number>();
 
-	/** Next occurrence index for `key`: same key → 0, 1, 2, …; distinct keys are independent. */
+	/** Siguiente índice de ocurrencia para `key`: misma key → 0, 1, 2, …; keys distintas son independientes. */
 	next(key: string): number {
 		const occ = this.counters.get(key) ?? 0;
 		this.counters.set(key, occ + 1);

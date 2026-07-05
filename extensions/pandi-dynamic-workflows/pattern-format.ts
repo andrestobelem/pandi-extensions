@@ -1,7 +1,7 @@
 /**
- * Presentation helpers that render the workflow pattern catalog into the
- * prompt/cheat-sheet strings shown to humans and the model. Split out of
- * pattern-scaffolds.ts for cohesion; pure formatters over catalog.ts data.
+ * Helpers de presentación que renderizan el catálogo de patrones de workflow en los
+ * strings de prompt/cheat-sheet mostrados a humanos y al modelo. Separados de
+ * pattern-scaffolds.ts por cohesión; formatters puros sobre datos de catalog.ts.
  */
 
 import type { WorkflowPattern } from "./catalog.js";

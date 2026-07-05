@@ -1,11 +1,11 @@
 /**
- * Workflow resolution — discovery of workflow files across project/global locations and the
- * filesystem layout for runs and graphs (slugify, projectHash, run/graph roots, listWorkflows,
- * resolveWorkflow, createRunDirectory). The "where do workflows live and where do their runs/
- * graphs go" concern, separated from the engine that executes them.
+ * Resolución de workflows — descubrimiento de archivos de workflow entre ubicaciones project/global y el
+ * layout de filesystem para runs y graphs (slugify, projectHash, roots de run/graph, listWorkflows,
+ * resolveWorkflow, createRunDirectory). La incumbencia "dónde viven los workflows y adónde van sus runs/
+ * graphs", separada del engine que los ejecuta.
  *
- * Deferred value imports from index.ts (the path-segment consts, used only inside bodies);
- * record/scope types cross as import type. Extracted byte-identically.
+ * Imports de valores diferidos desde index.ts (las consts de segmentos de path, usadas solo dentro de cuerpos);
+ * los tipos record/scope cruzan como import type. Extraído byte-idéntico.
  */
 
 import * as crypto from "node:crypto";

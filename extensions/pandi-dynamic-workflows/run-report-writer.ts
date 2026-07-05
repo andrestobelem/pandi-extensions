@@ -1,10 +1,10 @@
 /**
- * Watched run-report writer.
+ * Writer de run-report watched.
  *
- * Owns the server-side regeneration loop for `/workflow report --watch` and
- * `dynamic_workflow action=report watch:true`: report.html is regenerated
- * atomically while the run is live-running, and the final terminal snapshot is
- * written without browser auto-refresh.
+ * Es dueño del loop de regeneración server-side para `/workflow report --watch` y
+ * `dynamic_workflow action=report watch:true`: report.html se regenera
+ * atómicamente mientras el run está live-running, y el snapshot terminal final se
+ * escribe sin auto-refresh del browser.
  */
 
 import * as fs from "node:fs/promises";
@@ -29,9 +29,9 @@ export interface RunReportWriteOptions {
 	watch?: boolean;
 	signal?: AbortSignal;
 	intervalMs?: number;
-	/** Test seam for liveness; production uses readRunStatus. */
+	/** Seam de test para liveness; producción usa readRunStatus. */
 	readStatus?: (runDir: string) => Promise<WorkflowRunStatus | undefined>;
-	/** Test hook and observability seam: called after each atomic write. */
+	/** Hook de test y seam de observabilidad: se llama después de cada escritura atómica. */
 	onWrite?: (result: RunReportWriteResult, html: string) => void | Promise<void>;
 }
 

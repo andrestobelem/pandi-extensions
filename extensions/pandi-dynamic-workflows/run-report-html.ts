@@ -1,17 +1,17 @@
 /**
- * Pure model→HTML builder for the workflow run report (design record, run bd039ef9).
+ * Builder puro model→HTML para el reporte de run de workflow (registro de diseño, run bd039ef9).
  *
- * Contract (pinned by run-report-security.test.mjs):
- * - Every model string is UNTRUSTED DATA: most strings render through the 5-char escaper;
- *   agent outputs render as Markdown only through marked + sanitize-html with a strict allowlist.
- * - The emitted page contains ZERO <script> blocks — collapsing uses native
- *   <details>/<summary>, so there is no DOM sink for injected content at all.
- * - hrefs are relative-only: absolute paths, parent traversal, and URL schemes are
- *   refused (the collector containment-checks too; this is defense-in-depth), and
- *   attribute values are URL-encoded per path segment.
- * - Self-contained: inline CSS only (pandi tokens, light+dark); no network assets.
- * - No fs, no ctx, no Date.now(): all times come from the model (generatedAt),
- *   so regeneration from a fixed model is byte-stable.
+ * Contrato (pineado por run-report-security.test.mjs):
+ * - Cada string del modelo es UNTRUSTED DATA: la mayoría de strings renderiza vía el escaper de 5 chars;
+ *   las salidas de agentes renderizan como Markdown solo vía marked + sanitize-html con allowlist estricta.
+ * - La página emitida contiene CERO bloques <script>: el colapso usa
+ *   <details>/<summary> nativos, así no hay ningún sink DOM para contenido inyectado.
+ * - Los hrefs son solo relativos: paths absolutos, parent traversal y esquemas URL se
+ *   rechazan (el collector también chequea contención; esto es defense-in-depth), y
+ *   los valores de atributos se URL-encodean por segmento de path.
+ * - Autocontenido: solo CSS inline (tokens pandi, claro+oscuro); sin assets de red.
+ * - Sin fs, sin ctx, sin Date.now(): todos los tiempos vienen del modelo (generatedAt),
+ *   así la regeneración desde un modelo fijo es byte-stable.
  */
 
 import { renderRunReportMarkdown } from "./run-report-markdown.js";
@@ -27,7 +27,7 @@ export interface RunReportText {
 export interface RunReportAgent {
 	id: number;
 	name: string;
-	/** AgentMonitorState plus the report-vocabulary "interrupted" (agent running while run terminal). */
+	/** AgentMonitorState más el vocabulario de reporte "interrupted" (agente running mientras el run es terminal). */
 	state: string;
 	ok?: boolean;
 	code?: number;
@@ -43,10 +43,10 @@ export interface RunReportAgent {
 	phaseIndex?: number;
 	phaseTotal?: number;
 	promptPreview?: string;
-	/** Verbatim prompt copy; newer runs source this from bounded structured events. */
+	/** Copia textual del prompt; los runs nuevos la obtienen desde eventos estructurados acotados. */
 	prompt?: RunReportText;
 	output?: RunReportText;
-	/** Re-serialized structured data (never raw bytes). */
+	/** Datos estructurados reserializados (nunca bytes crudos). */
 	data?: RunReportText;
 	stderrTail?: { text: string; href?: string };
 	stdoutHref?: string;
@@ -71,7 +71,7 @@ export interface RunReportAgent {
 		toolErrors?: number;
 		autoRetries?: number;
 	};
-	/** True when the global inline budget clamped this agent to metadata + links. */
+	/** True cuando el presupuesto inline global limitó este agente a metadata + links. */
 	inlineOmitted?: boolean;
 }
 
@@ -82,10 +82,10 @@ export interface RunReportModel {
 	scope?: string;
 	/** running | completed | failed | cancelled | stale */
 	state: string;
-	/** "verified" (in-session readRunStatus verdict) or "unverified" (foreign dir snapshot). */
+	/** "verified" (veredicto readRunStatus en sesión) o "unverified" (snapshot de dir externo). */
 	liveness: "verified" | "unverified";
 	generatedAt: string;
-	/** Opt-in browser refresh for server-regenerated watched reports; ignored unless state is running. */
+	/** Refresh opt-in del browser para reportes watched regenerados por servidor; se ignora salvo que state sea running. */
 	autoRefreshSeconds?: number;
 	startedAt?: string;
 	endedAt?: string;
@@ -114,13 +114,13 @@ export interface RunReportModel {
 	artifacts: { path: string; bytes?: number }[];
 	artifactsOmitted?: number;
 	missingFiles: string[];
-	/** Visible clamp callouts — clamps are never silent (pandi rule 5). */
+	/** Callouts visibles de clamp: los clamps nunca son silenciosos (regla pandi 5). */
 	clampNotes: string[];
 }
 
-/* Pandi artifact tokens — inlined per the self-contained-extension rule (per-extension
- * duplication is intentional). Pinned against the canonical
- * .pi/skills/pandi-artifact-style/reference/pandi-tokens.css by run-report-tokens parity test. */
+/* Tokens de artifact Pandi — inlineados por la regla de extensión autocontenida (la duplicación
+ * por extensión es intencional). Pineados contra el canónico
+ * .pi/skills/pandi-artifact-style/reference/pandi-tokens.css por el test de paridad run-report-tokens. */
 export const PANDI_TOKENS_CSS = `:root {
   --bg: #242526;
   --paper: #292A2B;

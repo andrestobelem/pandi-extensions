@@ -1,12 +1,12 @@
 /**
- * WorkflowGraphComponent — the TUI component that renders a workflow graph.
+ * WorkflowGraphComponent — el componente TUI que renderiza un workflow graph.
  *
- * Pure presentation: given a WorkflowGraphModel (+ optional rendered image attempt and
- * theme), it draws the document lines / image into the terminal. Its engine (model
- * building + line/image rendering) lives in the workflow-graph.ts sibling. index.ts
- * constructs it only inside the showWorkflowGraph body, so there is no runtime cycle:
- * the only back-reference to index.ts is the erased `import type WorkflowGraphModel`.
- * Extracted byte-identically (only an added `export ` prefix on the class).
+ * Presentación pura: dado un WorkflowGraphModel (+ intento opcional de imagen renderizada y
+ * theme), dibuja las líneas del documento / imagen en la terminal. Su engine (construcción de modelo
+ * + render de líneas/imagen) vive en el sibling workflow-graph.ts. index.ts
+ * lo construye solo dentro del cuerpo showWorkflowGraph, así que no hay ciclo runtime:
+ * la única referencia de vuelta a index.ts es el `import type WorkflowGraphModel` borrado.
+ * Extraído byte-idéntico (solo se agregó un prefijo `export ` a la clase).
  */
 import * as path from "node:path";
 import { Key, matchesKey, Image as TerminalImage, truncateToWidth } from "@earendil-works/pi-tui";

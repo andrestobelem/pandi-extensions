@@ -1,13 +1,13 @@
 /**
- * Run status presentation — the /workflow status line + bottom widget rendering, the run
- * summary/cancel predicates, and the showText helper. The host-facing status surface driven
- * by the engine and command handlers (showWorkflowGraph stays in index.ts with the graph
- * types it renders).
+ * Presentación de status de run — render de la línea /workflow status + widget inferior, los predicados
+ * de resumen/cancel de run y el helper showText. La superficie de status de cara al host, impulsada
+ * por el engine y los command handlers (showWorkflowGraph queda en index.ts con los tipos de graph
+ * que renderiza).
  *
- * Deferred cycle: refreshActiveWorkflowStatus reads activeRuns from ./index.js inside its
- * body and the engine calls the setWorkflow*Status helpers back; siblings import the run
- * summary/status helpers from here. Owns its two host status-key consts. Record types cross
- * as import type. Extracted byte-identically.
+ * Ciclo diferido: refreshActiveWorkflowStatus lee activeRuns desde ./index.js dentro de su
+ * cuerpo y el engine llama de vuelta a los helpers setWorkflow*Status; los siblings importan desde acá
+ * los helpers de resumen/status de run. Es dueño de sus dos consts de status-key del host. Los tipos Record
+ * cruzan como import type. Extraído byte-idéntico.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";

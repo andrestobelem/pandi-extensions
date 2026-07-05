@@ -1,13 +1,13 @@
 /**
- * Workflow-graph source-introspection kernel for pandi-dynamic-workflows.
+ * Núcleo de introspección de fuente de workflow-graph para pandi-dynamic-workflows.
  *
- * Pure static analysis of workflow JavaScript source: label sanitization,
- * string-literal / call-argument extraction, top-level argument splitting, and
- * fanout/cardinality inference that turns ctx.* calls into graph step metadata.
+ * Análisis estático puro de fuente JavaScript de workflows: sanitización de labels,
+ * extracción de string-literal / argumentos de llamada, separación de argumentos top-level e
+ * inferencia de fanout/cardinalidad que convierte llamadas ctx.* en metadata de pasos del graph.
  *
- * One-way runtime dependency: imports renderSafeInline from the render-utils leaf;
- * the back-reference to index.ts is TYPE-ONLY (import type, erased at build), so
- * there is no runtime cycle. Extracted byte-identically from index.ts.
+ * Dependencia runtime unidireccional: importa renderSafeInline desde la hoja render-utils;
+ * la referencia de vuelta a index.ts es SOLO DE TIPOS (import type, borrada en build), así
+ * no hay ciclo runtime. Extraído byte-idéntico desde index.ts.
  */
 import { renderSafeInline } from "./render-utils.js";
 import type { WorkflowGraphChildCall, WorkflowGraphFanoutInfo, WorkflowGraphStep } from "./workflow-graph.js";

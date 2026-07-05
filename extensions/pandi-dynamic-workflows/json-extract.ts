@@ -1,15 +1,15 @@
 /**
- * pandi-dynamic-workflows JSON extraction (pure).
+ * Extracción JSON de pandi-dynamic-workflows (pura).
  *
- * Pull a single JSON value out of (possibly noisy) LLM text: try a direct
- * JSON.parse, then any \`\`\`json fenced blocks, then the first brace/bracket-
- * balanced substring. Fully self-contained — no ctx, no node/SDK imports, no
- * shared state, and independent of schema VALIDATION (which couples to safeJson
- * and TypeBox Value and lives in the structured-output.ts sibling).
+ * Saca un único valor JSON desde texto de LLM (posiblemente ruidoso): probá primero
+ * JSON.parse directo, luego cualquier bloque fenced \`\`\`json, y luego el primer substring
+ * balanceado por llaves/corchetes. Completamente autocontenido — sin ctx, sin imports node/SDK,
+ * sin estado compartido, e independiente de la VALIDACIÓN de schema (que se acopla a safeJson
+ * y TypeBox Value y vive en el sibling structured-output.ts).
  *
- * Extracted verbatim from index.ts (behavior-preserving). Depth-one sibling
- * imported via "./json-extract.js"; parseJsonText/balancedJsonCandidate stay
- * module-private, only extractJsonCandidate (the sole external caller) is exported.
+ * Extraído textualmente desde index.ts (preserva comportamiento). Sibling de profundidad uno
+ * importado vía "./json-extract.js"; parseJsonText/balancedJsonCandidate quedan
+ * privados del módulo, solo se exporta extractJsonCandidate (el único caller externo).
  */
 
 function parseJsonText(textValue: string): { ok: true; data: unknown } | { ok: false; error: string } {

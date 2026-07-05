@@ -1,9 +1,9 @@
 /**
- * Serialized JSONL file append — a per-path AsyncMutex so concurrent writers to the same
- * events/journal file never interleave a partial line. A leaf used by the engine
- * (events.jsonl) and journal.ts (the resumable-run cache journal).
+ * Append serializado a archivo JSONL — un AsyncMutex por path para que writers concurrentes al mismo
+ * archivo events/journal nunca intercalen una línea parcial. Una hoja usada por el engine
+ * (events.jsonl) y journal.ts (el journal de cache de runs reanudables).
  *
- * Extracted byte-identically from index.ts.
+ * Extraído byte-idéntico desde index.ts.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -16,8 +16,8 @@ interface AppendMutexEntry {
 }
 const appendFileMutexes = new Map<string, AppendMutexEntry>();
 
-// Acquire the append mutex for a path, ref-counting so the entry survives while any writer is
-// using it (preserving mutual exclusion) yet is purged once idle (avoids unbounded map growth).
+// Adquirí el mutex de append para un path, con ref-count para que la entrada sobreviva mientras cualquier writer
+// la usa (preservando la exclusión mutua) pero se purgue al quedar idle (evita crecimiento no acotado del map).
 function acquireAppendMutex(key: string): AsyncMutex {
 	let entry = appendFileMutexes.get(key);
 	if (!entry) {

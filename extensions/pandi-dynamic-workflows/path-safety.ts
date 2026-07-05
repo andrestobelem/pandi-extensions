@@ -1,7 +1,7 @@
 /**
- * Path safety — containment checks + resolution that keep agent file access sandboxed inside a
- * run/cwd root, rejecting path escapes (including through symlinks via realpath). A pure leaf used
- * by the engine (agent cwd + artifact paths) and workflow-resolve.ts. Extracted byte-identically.
+ * Seguridad de paths — chequeos de contención + resolución que mantienen el acceso a archivos de agentes
+ * sandboxed dentro de una root run/cwd, rechazando escapes de path (incluidos symlinks vía realpath).
+ * Hoja pura usada por el engine (cwd de agentes + paths de artifacts) y workflow-resolve.ts. Extraído byte-idéntico.
  */
 import { existsSync, realpathSync } from "node:fs";
 import * as path from "node:path";
