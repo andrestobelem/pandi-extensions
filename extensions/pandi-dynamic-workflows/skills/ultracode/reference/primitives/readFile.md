@@ -7,7 +7,7 @@ file contents that aren't already in `args`.
 ```js
 const src = await readFile("src/auth.ts");
 const review = await agent(
-  `Review for bugs.\n<untrusted kind="src">${src}</untrusted>`,
+  `Revisá buscando bugs.\n<untrusted kind="src">${src}</untrusted>`,
   { effort: "high" },
 );
 ```
@@ -38,7 +38,7 @@ const review = await agent(
 const input = typeof args === "string" ? JSON.parse(args) : (args ?? {});
 const diff = await readFile(input.diffPath ?? "CHANGES.diff");
 const review = await agent(
-  `Review this diff for regressions.\n<untrusted kind="diff">${diff}</untrusted>`,
+  `Revisá este diff buscando regresiones.\n<untrusted kind="diff">${diff}</untrusted>`,
   { effort: "high" },
 );
 await writeArtifact("review.md", review);

@@ -7,7 +7,7 @@ quick classification or a scoped code review.
 
 ```js
 const review = await agent(
-  `Review this diff for security bugs. Return JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
+  `Revisá este diff buscando bugs de seguridad. Devolvé JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
   { model: "anthropic/claude-sonnet-4-6", effort: "high", schema: reviewSchema },
 );
 if (review) log(`verdict: ${review.verdict}`);
@@ -54,7 +54,7 @@ budget and access: `model`, `effort` (`low…max`) / `thinking`, `schema`,
 
 ```js
 const review = await agent(
-  `Review this diff for security bugs. Return JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
+  `Revisá este diff buscando bugs de seguridad. Devolvé JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
   { model: "anthropic/claude-sonnet-4-6", effort: "high", schema: reviewSchema, schemaOnInvalid: "null" },
 );
 if (review) log(`verdict: ${review.verdict}`);

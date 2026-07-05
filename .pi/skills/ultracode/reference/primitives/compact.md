@@ -8,7 +8,7 @@ blowing past the model's context.
 ```js
 const findings = (await agents(files, { concurrency: 8, settle: true })).filter(Boolean);
 return await agent(
-  `Synthesize these findings, most severe first:\n${compact(findings, 40000)}`,
+  `Sintetizá estos hallazgos, de mayor severidad primero:\n${compact(findings, 40000)}`,
   { model: "opus", effort: "high" },
 );
 ```
@@ -45,12 +45,12 @@ return await agent(
 export default async function main() {
   const files = ["a.ts", "b.ts", "c.ts"];
   const results = await agents(
-    files.map((f) => `Review ${f} for bugs`),
+    files.map((f) => `Revisá ${f} buscando bugs`),
     { concurrency: 4, settle: true },
   );
   const findings = results.filter(Boolean);
   return await agent(
-    `Synthesize these findings, most severe first:\n${compact(findings, 20000)}`,
+    `Sintetizá estos hallazgos, de mayor severidad primero:\n${compact(findings, 20000)}`,
     { model: "opus", effort: "high" },
   );
 }

@@ -35,7 +35,7 @@ resolved `null` is treated as a decline, not a win.
 | Situation | Use |
 | --- | --- |
 | Hedge a flaky or slow call with redundant attempts | `race` — optimizes latency |
-| Pick the best answer by *quality*, not speed | `tournament` / `judge-escalate` — a judge must see every candidate |
+| Elegí la mejor respuesta por *calidad*, no por velocidad | `tournament` / `judge-escalate` — a judge must see every candidate |
 | Just run N things and keep all results | `agents` / `parallel` |
 
 ## Gotchas

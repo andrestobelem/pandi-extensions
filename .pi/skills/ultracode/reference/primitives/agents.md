@@ -45,7 +45,7 @@ branch when `settle: true`.
 - Include a **stable id/index** in each per-item prompt so two items never race
   for the same cache slot.
 - **Filter nulls** and `log()` how many branches failed; synthesis prompts must
-  name failed/empty branches instead of hiding them.
+  nombrar ramas fallidas/vacías en vez de ocultarlas.
 - `concurrency` above `limits.concurrency` is clamped — `log()` the clamp.
 
 ## Example
@@ -53,7 +53,7 @@ branch when `settle: true`.
 ```js
 const files = await scanRepo();
 const results = await agents(
-  files.map((f, i) => ({ prompt: `[${i}] Review ${f} for security issues`, name: f })),
+  files.map((f, i) => ({ prompt: `[${i}] Revisá ${f} por problemas de seguridad`, name: f })),
   { concurrency: 5, settle: true, effort: "medium" },
 );
 const findings = results.filter(Boolean).map((r) => r.data ?? r.output);

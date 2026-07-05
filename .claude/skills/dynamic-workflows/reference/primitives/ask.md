@@ -56,7 +56,7 @@ export default async function main(ctx, input) {
     default: false,
   });
   if (!proceed) return { skipped: true, reason: "declined by human" };
-  const result = await agent(`Run the deployment for ${input.target}`);
+  const result = await agent(`Ejecutá el deployment para ${input.target}`);
   return { deployed: true, result };
 }
 ```

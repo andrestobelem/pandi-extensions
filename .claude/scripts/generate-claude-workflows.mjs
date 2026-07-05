@@ -59,20 +59,20 @@ const CATALOG_REWRITES = [
 	],
 	// router.js — prompt de descubrimiento de catálogo
 	[
-		"EXISTING pi dynamic workflows available to dispatch to. Read the project catalog at .pi/workflows/*.js and, if it exists, the global catalog at ~/.pi/agent/workflows/*.js.",
-		"EXISTING Claude Code dynamic workflows available to dispatch to. Read the user catalog at ~/.claude/workflows/*.js and, if it exists, the project catalog at ./.claude/workflows/*.js.",
+		"EXISTING pi dynamic workflows disponibles para dispatch. Leé el catálogo del proyecto en .pi/workflows/*.js y, si existe, el catálogo global en ~/.pi/agent/workflows/*.js.",
+		"EXISTING Claude Code dynamic workflows disponibles para dispatch. Leé el catálogo de usuario en ~/.claude/workflows/*.js y, si existe, el catálogo del proyecto en ./.claude/workflows/*.js.",
 	],
 	// workflow-factory.js — prompt de descubrimiento de catálogo
 	[
-		"EXISTING pi dynamic workflows available to reuse/compose. Read the project catalog at .pi/workflows/*.js and, if it exists, the global catalog at ~/.pi/agent/workflows/*.js.",
-		"EXISTING Claude Code dynamic workflows available to reuse/compose. Read the user catalog at ~/.claude/workflows/*.js and, if it exists, the project catalog at .claude/workflows/*.js.",
+		"EXISTING pi dynamic workflows disponibles para reuse/compose. Leé el catálogo del proyecto en .pi/workflows/*.js y, si existe, el catálogo global en ~/.pi/agent/workflows/*.js.",
+		"EXISTING Claude Code dynamic workflows disponibles para reuse/compose. Leé el catálogo de usuario en ~/.claude/workflows/*.js y, si existe, el catálogo del proyecto en .claude/workflows/*.js.",
 	],
 	// workflow-factory.js — draft path (comentario + código), substring compartido
 	[".pi/workflows/drafts/", ".claude/workflows/drafts/"],
 	// contract-gate.js — prompt de patrón de lectura (preserva la lectura de DOS paths de pi: global + project-local)
 	[
-		"First read .pi/workflows/${routing.pattern}.js (or the global ~/.pi/agent/workflows/${routing.pattern}.js) and extract",
-		"First read ~/.claude/workflows/${routing.pattern}.js (or the project ./.claude/workflows/${routing.pattern}.js) and extract",
+		"Primero leé .pi/workflows/${routing.pattern}.js (o el global ~/.pi/agent/workflows/${routing.pattern}.js) y extraé",
+		"Primero leé ~/.claude/workflows/${routing.pattern}.js (o el del proyecto ./.claude/workflows/${routing.pattern}.js) y extraé",
 	],
 ];
 

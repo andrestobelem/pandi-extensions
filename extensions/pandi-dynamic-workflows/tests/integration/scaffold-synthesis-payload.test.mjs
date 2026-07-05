@@ -113,7 +113,7 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 	//    rather than only at the top where a long evidence block can bury them.
 	const compactIdx = code.lastIndexOf("compact(");
 	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";
-	const restated = /Now (produce|do exactly|write|synthesize)/.test(tail);
+	const restated = /Ahora (producí|hacé exactamente|escribí|sintetizá)/.test(tail);
 	check(`${key}: restates the task AFTER the evidence (both-ends framing)`, restated, tail.slice(0, 140));
 }
 
@@ -124,7 +124,7 @@ for (const key of POSITION_AWARE_EXTRA) {
 	const code = res?.content?.[0]?.text ?? "";
 	const compactIdx = code.lastIndexOf("compact(");
 	const tail = compactIdx >= 0 ? code.slice(compactIdx) : "";
-	const restated = /Now (produce|do exactly|write|synthesize)/.test(tail);
+	const restated = /Ahora (producí|hacé exactamente|escribí|sintetizá)/.test(tail);
 	check(`${key}: restates the task AFTER the evidence (both-ends framing)`, restated, tail.slice(0, 140));
 }
 

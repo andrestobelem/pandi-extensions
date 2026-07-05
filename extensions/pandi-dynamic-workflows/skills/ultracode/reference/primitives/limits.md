@@ -51,7 +51,7 @@ export default async function main(ctx, input) {
   const conc = Math.min(files.length, limits.concurrency);
   log(`fanning out over ${files.length} files at concurrency ${conc}`);
   const results = await agents(
-    files.map((f) => `Review ${f} for bugs`),
+    files.map((f) => `Revisá ${f} buscando bugs`),
     { concurrency: conc, settle: true },
   );
   return results;

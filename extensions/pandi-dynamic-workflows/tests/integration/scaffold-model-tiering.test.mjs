@@ -42,7 +42,7 @@ const gateSrc = fs.readFileSync(path.join(SCAFFOLDS_DIR, "contract-gate.js"), "u
 // The normative ladder policy: both fragments must appear wherever the tier decision
 // is delegated to a model (contract-gate's resource-plan AND the factory's planner).
 const LADDER = "haiku < sonnet < opus";
-const KEEP_CHEAP = "cheap even at premium";
+const KEEP_CHEAP = "baratos";
 
 // ---------------------------------------------------------------------------
 // 1) FACTORY PLAN: budget field + ladder policy in the planner prompt.
@@ -67,12 +67,12 @@ check(
 );
 check(
 	`factory plan: planner prompt keeps mechanical roles cheap ("${KEEP_CHEAP}")`,
-	factorySrc.includes(KEEP_CHEAP),
+	factorySrc.includes("Mantené baratos") && factorySrc.includes("stakes premium"),
 	"keep-cheap-even-at-premium sentence missing from workflow-factory",
 );
 check(
 	"policy single-source: contract-gate carries the same ladder sentence",
-	gateSrc.includes(LADDER) && gateSrc.includes(KEEP_CHEAP),
+	gateSrc.includes(LADDER) && gateSrc.includes("baratos") && gateSrc.includes("premium"),
 	"contract-gate lost the normative ladder policy",
 );
 
@@ -104,7 +104,7 @@ check(
 
 check(
 	"factory review: reviewer checklist has the TIERING item",
-	factorySrc.includes("Also check TIERING"),
+	factorySrc.includes("revisá TIERING"),
 	"review prompt has no explicit tier-check item",
 );
 

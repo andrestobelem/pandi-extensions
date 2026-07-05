@@ -44,7 +44,7 @@ await writeArtifact("summary.md", summary);
 ```js
 const files = await listFiles("src", { recursive: true });
 const reviews = await agents(
-  files.map((f) => `Review ${f} for bugs.`),
+  files.map((f) => `Revisá ${f} buscando bugs.`),
   { concurrency: 8, settle: true },
 );
 const { path } = await writeArtifact("review.json", reviews.filter(Boolean));

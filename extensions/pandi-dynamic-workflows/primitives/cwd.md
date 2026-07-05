@@ -42,6 +42,6 @@ export default async function main() {
   const files = await listFiles(".");
   const manifestPath = `${cwd}/package.json`;
   const manifest = await readFile("package.json", "utf8");
-  return await agent(`Review ${files.length} files rooted at ${manifestPath}`);
+  return await agent(`Revisá ${files.length} archivos bajo ${manifestPath}`);
 }
 ```

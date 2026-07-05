@@ -40,7 +40,7 @@ interleave a partial write and corrupt it. Emits an `artifact_append` event.
 
 ```js
 async function reviewOne(item) {
-  const r = await agent(`Review ${item}`, { model: "sonnet" });
+  const r = await agent(`Revisá ${item}`, { model: "sonnet" });
   return { item, output: r.output };
 }
 
