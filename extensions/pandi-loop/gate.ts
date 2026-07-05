@@ -233,11 +233,11 @@ export function destructiveReason(ctx: ExtensionContext, event: ToolCallEvent): 
 			// [^\n]*-anchored patterns. This strengthens every pattern at once.
 			const command = rawCommand.replace(/\\\r?\n/g, " ");
 			if (isDestructiveBash(command)) {
-				return `autopilot blocked a destructive shell command: ${command.slice(0, 200)}`;
+				return `autopilot bloqueó un comando de shell destructivo: ${command.slice(0, 200)}`;
 			}
 			const unsafeTarget = unsafeBashWriteTarget(ctx, command);
 			if (unsafeTarget) {
-				return `autopilot blocked a shell write outside the project: ${unsafeTarget.slice(0, 200)}`;
+				return `autopilot bloqueó una escritura de shell fuera del proyecto: ${unsafeTarget.slice(0, 200)}`;
 			}
 		}
 		return undefined;
@@ -246,7 +246,7 @@ export function destructiveReason(ctx: ExtensionContext, event: ToolCallEvent): 
 		const input = event.input as { file_path?: unknown; path?: unknown };
 		const filePath = input.file_path ?? input.path;
 		if (isUnsafeWritePath(ctx, filePath)) {
-			return `autopilot blocked a ${event.toolName} outside the project: ${String(filePath).slice(0, 200)}`;
+			return `autopilot bloqueó un ${event.toolName} fuera del proyecto: ${String(filePath).slice(0, 200)}`;
 		}
 		return undefined;
 	}

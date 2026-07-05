@@ -31,12 +31,12 @@ export function capExceeded(ctx: ExtensionContext, loop: LoopCapsInput): string 
 	// clock-independent maxIterations gate (fireWake) stays the hard, monotonic backstop.
 	const elapsed = Date.now() - loop.startedAt;
 	if (loop.maxWallClockMs > 0 && elapsed >= loop.maxWallClockMs) {
-		return `reached wall-clock deadline (${Math.round(loop.maxWallClockMs / 60000)}m)`;
+		return `alcanzó el deadline de wall-clock (${Math.round(loop.maxWallClockMs / 60000)}m)`;
 	}
 	// Best-effort: getContextUsage may be unavailable (undefined) or unknown (percent null).
 	const usage = ctx.getContextUsage?.();
 	if (usage && usage.percent !== null && usage.percent >= loop.contextPercentCap) {
-		return `reached context budget (${Math.round(usage.percent)}% ≥ ${loop.contextPercentCap}%)`;
+		return `alcanzó el presupuesto de contexto (${Math.round(usage.percent)}% ≥ ${loop.contextPercentCap}%)`;
 	}
 	return undefined;
 }

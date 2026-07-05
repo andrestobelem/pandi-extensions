@@ -455,7 +455,7 @@ async function pauseResume(url) {
 	);
 	check(
 		"resume: reason notes it was resumed by the user",
-		/resume/i.test(resumed?.lastReason || ""),
+		/resume|reanudado/i.test(resumed?.lastReason || ""),
 		`reason=${resumed?.lastReason}`,
 	);
 
@@ -688,7 +688,11 @@ async function rehydrateAutonomousTrustGate(url) {
 			s?.status === "stopped",
 			`status=${s?.status}`,
 		);
-		check("autotrust: retire reason mentions trust", /trust/i.test(s?.lastReason || ""), `reason=${s?.lastReason}`);
+		check(
+			"autotrust: retire reason mentions trust",
+			/trust|confianza/i.test(s?.lastReason || ""),
+			`reason=${s?.lastReason}`,
+		);
 		check(
 			"autotrust: a retired autonomous loop fires NO wake",
 			sentMessages.length === 0,
@@ -878,7 +882,10 @@ async function concurrentLoopCap(url) {
 	check("concurrency: the (cap+1)th /loop is REFUSED (no new loop created)", overflow === undefined, `id=${overflow}`);
 	const refused = ctx._notes
 		.slice(before)
-		.some((n) => (n.type === "error" || n.type === "warning") && /concurrent|max|cap|limit|too many/i.test(n.msg));
+		.some(
+			(n) =>
+				(n.type === "error" || n.type === "warning") && /concurrent|max|cap|limit|too many|demasiados/i.test(n.msg),
+		);
 	check(
 		"concurrency: the refusal is surfaced to the user",
 		refused,

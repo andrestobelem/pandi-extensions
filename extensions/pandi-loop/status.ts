@@ -24,10 +24,10 @@ export interface LoopStatusInput {
 }
 
 export function formatStatus(loop: LoopStatusInput): string {
-	const eta = loop.status === "running" ? `, next ${formatEta(loop.nextFireAt)}` : "";
+	const eta = loop.status === "running" ? `, próximo ${formatEta(loop.nextFireAt)}` : "";
 	const mode =
-		loop.mode === "fixed" && loop.intervalMs ? ` every ${formatInterval(Math.round(loop.intervalMs / 1000))}` : "";
+		loop.mode === "fixed" && loop.intervalMs ? ` cada ${formatInterval(Math.round(loop.intervalMs / 1000))}` : "";
 	const auto = loop.autonomous ? " auto" : "";
-	const reason = loop.lastReason ? `, reason: ${loop.lastReason}` : "";
+	const reason = loop.lastReason ? `, razón: ${loop.lastReason}` : "";
 	return `${loop.loopId} [${loop.status}${auto}]${mode} it ${loop.iteration}/${loop.maxIterations}${eta}${reason} — ${loop.task}`;
 }

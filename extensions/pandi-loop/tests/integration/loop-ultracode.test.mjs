@@ -106,7 +106,7 @@ async function ultracodeInjectsGuidance(loopUrl) {
 	check("ultracode: guidance mentions dynamic workflows", /dynamic workflows/i.test(prompt));
 	check(
 		"ultracode: flag stripped from the task",
-		/TASK \(verbatim\):\s*\nwatch the build/.test(prompt) && !/--ultracode/.test(prompt),
+		/TAREA \(textual\):\s*\nwatch the build/.test(prompt) && !/--ultracode/.test(prompt),
 		prompt.slice(0, 200),
 	);
 	check("ultracode: posture is persisted on the snapshot", latestSnapshot(entries)?.ultracode === true);

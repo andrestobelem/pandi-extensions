@@ -348,14 +348,14 @@ async function terminalLoopsDisappearFromActiveStatus(url) {
 	await commands.get("loop").handler("status", ctx);
 	check(
 		"terminal: default /loop status no longer lists the stopped loop",
-		ctx._notes.at(-1)?.msg === "No loops.",
+		ctx._notes.at(-1)?.msg === "No hay loops.",
 		ctx._notes.at(-1)?.msg,
 	);
 
 	await commands.get("loop").handler(`status ${id}`, ctx);
 	check(
 		"terminal: explicit status id is gone from the live set",
-		ctx._notes.at(-1)?.msg === `No loop with id ${id}. Use /loop status to list active loops.`,
+		ctx._notes.at(-1)?.msg === `No hay ningún loop con id ${id}. Usá /loop status para listar los loops activos.`,
 		ctx._notes.at(-1)?.msg,
 	);
 }

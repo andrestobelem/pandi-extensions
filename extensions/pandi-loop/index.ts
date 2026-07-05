@@ -409,8 +409,12 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		if (loop?.status !== "running") continue;
 		// Guards re-checked at delivery (state may have changed while queued).
 		if (loop.iteration >= loop.maxIterations) {
-			stopLoop(pi, ctx, loop.loopId, `reached maxIterations (${loop.maxIterations})`, "done");
-			notify(ctx, `Loop ${loop.loopId} stopped: reached maxIterations (${loop.maxIterations}).`, "warning");
+			stopLoop(pi, ctx, loop.loopId, `alcanzó el límite de maxIterations (${loop.maxIterations})`, "done");
+			notify(
+				ctx,
+				`Loop ${loop.loopId} detenido: alcanzó el límite de maxIterations (${loop.maxIterations}).`,
+				"warning",
+			);
 			continue;
 		}
 		const cap = capExceeded(ctx, loop);
@@ -444,7 +448,7 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 /** Stop a loop because a cap was hit. Status "done" (a clean, expected end). */
 function stopForCap(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop, reason: string): void {
 	stopLoop(pi, ctx, loop.loopId, reason, "done");
-	notify(ctx, `Loop ${loop.loopId} stopped: ${reason}.`, "warning");
+	notify(ctx, `Loop ${loop.loopId} detenido: ${reason}.`, "warning");
 }
 
 /**
@@ -471,15 +475,19 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 	// firing. (The caps gate below covers maxWallClockMs; this also catches loops whose
 	// maxWallClockMs was somehow set absurdly high.)
 	if (Date.now() - loop.startedAt >= WATCHDOG_HARD_DEADLINE_MS) {
-		const reason = `watchdog: exceeded hard backstop deadline (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
+		const reason = `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
 		stopLoop(pi, ctx, loop.loopId, reason, "done");
-		notify(ctx, `Loop ${loop.loopId} force-stopped by watchdog (zombie backstop).`, "warning");
+		notify(ctx, `Loop ${loop.loopId} forzado a detenerse por el watchdog (respaldo anti-zombie).`, "warning");
 		return;
 	}
 
 	if (loop.iteration >= loop.maxIterations) {
-		stopLoop(pi, ctx, loop.loopId, `reached maxIterations (${loop.maxIterations})`, "done");
-		notify(ctx, `Loop ${loop.loopId} stopped: reached maxIterations (${loop.maxIterations}).`, "warning");
+		stopLoop(pi, ctx, loop.loopId, `alcanzó el límite de maxIterations (${loop.maxIterations})`, "done");
+		notify(
+			ctx,
+			`Loop ${loop.loopId} detenido: alcanzó el límite de maxIterations (${loop.maxIterations}).`,
+			"warning",
+		);
 		return;
 	}
 
@@ -541,7 +549,7 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 	const target = base + period;
 	const delay = Math.max(0, target - Date.now());
 	loop.nextFireAt = target;
-	loop.lastReason = `auto: fixed interval ${formatInterval(Math.round(period / 1000))}`;
+	loop.lastReason = `auto: intervalo fijo ${formatInterval(Math.round(period / 1000))}`;
 	loop.rearmedThisTurn = true;
 	persist(pi, ctx, loop);
 	setLoopStatus(ctx, loop);
@@ -571,13 +579,13 @@ function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean 
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Mode gate: only TUI/RPC can sustain a persistent looping session.
 	if (!canLoopInMode(ctx)) {
-		notify(ctx, "/loop requires a TUI or RPC session (this mode cannot loop).", "error");
+		notify(ctx, "/loop requiere una sesión TUI o RPC (este modo no puede loopear).", "error");
 		return undefined;
 	}
 	const { rest: withoutFlag, ultracode } = extractUltracodeFlag(task);
 	const trimmed = withoutFlag.trim();
 	if (!trimmed) {
-		notify(ctx, "Usage: /loop [--ultracode] <task> [interval]", "warning");
+		notify(ctx, "Uso: /loop [--ultracode] <task> [interval]", "warning");
 		return undefined;
 	}
 
@@ -595,13 +603,13 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		}
 	}
 	if (!taskText) {
-		notify(ctx, "Usage: /loop <task> [interval]", "warning");
+		notify(ctx, "Uso: /loop <task> [interval]", "warning");
 		return undefined;
 	}
 	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
 		notify(
 			ctx,
-			`Too many active loops (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Stop one with /loop stop before starting another.`,
+			`Demasiados loops activos (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Detené uno con /loop stop antes de iniciar otro.`,
 			"error",
 		);
 		return undefined;
@@ -635,9 +643,9 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	// deliverWake builds the prompt fresh via makeLoopIterationPrompt(loop), so it is never
 	// stored on the loop — it would only ever be stale by the time it was read.
 	fireWake(pi, ctx, loop);
-	const modeLabel = loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
+	const modeLabel = loop.mode === "fixed" ? ` (cada ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
 	const uc = ultracode ? " [ultracode]" : "";
-	notify(ctx, `Started loop ${loopId}${modeLabel}${uc}: ${taskText}`, "info");
+	notify(ctx, `Loop ${loopId} iniciado${modeLabel}${uc}: ${taskText}`, "info");
 	return loop;
 }
 
@@ -657,18 +665,18 @@ async function startAutonomousLoop(
 	rawArgs: string,
 ): Promise<ActiveLoop | undefined> {
 	if (!canLoopInMode(ctx)) {
-		notify(ctx, "/loop auto requires a TUI or RPC session (this mode cannot loop).", "error");
+		notify(ctx, "/loop auto requiere una sesión TUI o RPC (este modo no puede loopear).", "error");
 		return undefined;
 	}
 	// Trust gate FIRST: an autonomous loop must never run in an untrusted project.
 	if (!ctx.isProjectTrusted()) {
-		notify(ctx, "/loop auto requires a trusted project. Run /trust first, then retry.", "error");
+		notify(ctx, "/loop auto requiere un proyecto de confianza. Corré /trust primero, y reintentá.", "error");
 		return undefined;
 	}
 	const { rest: withoutFlag, ultracode } = extractUltracodeFlag(rawArgs);
 	const trimmed = withoutFlag.trim();
 	if (!trimmed) {
-		notify(ctx, "Usage: /loop auto [--ultracode] <objective> [interval]", "warning");
+		notify(ctx, "Uso: /loop auto [--ultracode] <objective> [interval]", "warning");
 		return undefined;
 	}
 	// Strip an optional trailing interval token, same parser as startLoop.
@@ -683,30 +691,26 @@ async function startAutonomousLoop(
 		}
 	}
 	if (!objective) {
-		notify(ctx, "Usage: /loop auto <objective> [interval]", "warning");
+		notify(ctx, "Uso: /loop auto <objective> [interval]", "warning");
 		return undefined;
 	}
 	// Mandatory confirmation: no UI to confirm on → refuse (cannot get consent).
 	if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
-		notify(
-			ctx,
-			"/loop auto requires an interactive confirmation; run it from a TUI or RPC session instead.",
-			"error",
-		);
+		notify(ctx, "/loop auto requiere una confirmación interactiva; corrélo desde una sesión TUI o RPC.", "error");
 		return undefined;
 	}
 	const approved = await ctx.ui.confirm(
-		"Start an autonomous loop?",
-		`This loop will act on its own (no user message each turn) to pursue:\n\n${objective}\n\nDestructive actions stay gated, but it will run unattended. Start it?`,
+		"¿Iniciar un loop autónomo?",
+		`Este loop va a actuar por su cuenta (sin mensaje del usuario en cada turno) para perseguir:\n\n${objective}\n\nLas acciones destructivas siguen bloqueadas, pero va a correr sin supervisión. ¿Lo iniciás?`,
 	);
 	if (!approved) {
-		notify(ctx, "Autonomous loop not started (not confirmed).", "info");
+		notify(ctx, "El loop autónomo no se inició (no se confirmó).", "info");
 		return undefined;
 	}
 	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
 		notify(
 			ctx,
-			`Too many active loops (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Stop one with /loop stop before starting another.`,
+			`Demasiados loops activos (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Detené uno con /loop stop antes de iniciar otro.`,
 			"error",
 		);
 		return undefined;
@@ -738,8 +742,8 @@ async function startAutonomousLoop(
 	persist(pi, ctx, loop);
 
 	fireWake(pi, ctx, loop);
-	const modeLabel = loop.mode === "fixed" ? ` (every ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
-	notify(ctx, `Started autonomous loop ${loopId}${modeLabel}: ${objective}`, "info");
+	const modeLabel = loop.mode === "fixed" ? ` (cada ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
+	notify(ctx, `Loop autónomo ${loopId} iniciado${modeLabel}: ${objective}`, "info");
 	return loop;
 }
 
@@ -762,7 +766,7 @@ async function resolveLoop(
 	if (candidates.length === 1) return candidates[0];
 	if (ctx.hasUI) {
 		const choice = await ctx.ui.select(
-			"Which loop?",
+			"¿Qué loop?",
 			candidates.map((l) => `${l.loopId} — ${l.task}`),
 		);
 		if (!choice) return undefined;
@@ -857,7 +861,7 @@ function resumeLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 				? Math.max(0, loop.nextFireAt - Date.now())
 				: SAFETY_NET_DELAY_SECONDS * 1000;
 	loop.pausedRemainingMs = undefined;
-	scheduleWake(pi, ctx, loop, Math.round(remaining / 1000), "resumed by user");
+	scheduleWake(pi, ctx, loop, Math.round(remaining / 1000), "reanudado por el usuario");
 	return true;
 }
 
@@ -931,7 +935,7 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 				autopilot: false,
 			};
 			activeLoops.set(retired.loopId, retired);
-			stopLoop(pi, ctx, retired.loopId, "autonomous loop retired: project no longer trusted", "stopped");
+			stopLoop(pi, ctx, retired.loopId, "loop autónomo retirado: el proyecto ya no es de confianza", "stopped");
 			continue;
 		}
 
@@ -1069,9 +1073,9 @@ function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Da
 		// Only RUNNING loops can be zombies; a paused loop is intentionally idle (see docstring).
 		if (loop.status !== "running") continue;
 		if (now - loop.startedAt < WATCHDOG_HARD_DEADLINE_MS) continue;
-		const reason = `watchdog: exceeded hard backstop deadline (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
+		const reason = `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
 		stopLoop(pi, ctx, loop.loopId, reason, "done");
-		notify(ctx, `Loop ${loop.loopId} force-stopped by watchdog (zombie backstop).`, "warning");
+		notify(ctx, `Loop ${loop.loopId} forzado a detenerse por el watchdog (respaldo anti-zombie).`, "warning");
 		killed += 1;
 	}
 	return killed;
@@ -1090,33 +1094,45 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "stop") {
 		const loop = await resolveLoop(ctx, rest || undefined, ["running", "paused"]);
 		if (!loop) {
-			notify(ctx, "No matching loop to stop. Use /loop status to see active loops.", "warning");
+			notify(
+				ctx,
+				"No hay ningún loop que coincida para detener. Usá /loop status para ver los loops activos.",
+				"warning",
+			);
 			return;
 		}
-		stopLoop(pi, ctx, loop.loopId, "stopped by user (/loop stop)", "stopped");
-		notify(ctx, `Stopped loop ${loop.loopId}.`, "info");
+		stopLoop(pi, ctx, loop.loopId, "detenido por el usuario (/loop stop)", "stopped");
+		notify(ctx, `Loop ${loop.loopId} detenido.`, "info");
 		return;
 	}
 
 	if (firstToken === "pause") {
 		const loop = await resolveLoop(ctx, rest || undefined, ["running"]);
 		if (!loop) {
-			notify(ctx, "No running loop to pause. Use /loop status to see active loops.", "warning");
+			notify(
+				ctx,
+				"No hay ningún loop corriendo para pausar. Usá /loop status para ver los loops activos.",
+				"warning",
+			);
 			return;
 		}
-		if (pauseLoop(pi, ctx, loop)) notify(ctx, `Paused loop ${loop.loopId}.`, "info");
-		else notify(ctx, `Loop ${loop.loopId} is not running.`, "warning");
+		if (pauseLoop(pi, ctx, loop)) notify(ctx, `Loop ${loop.loopId} pausado.`, "info");
+		else notify(ctx, `El loop ${loop.loopId} no está corriendo.`, "warning");
 		return;
 	}
 
 	if (firstToken === "resume") {
 		const loop = await resolveLoop(ctx, rest || undefined, ["paused"]);
 		if (!loop) {
-			notify(ctx, "No paused loop to resume. Use /loop status to see active loops.", "warning");
+			notify(
+				ctx,
+				"No hay ningún loop pausado para reanudar. Usá /loop status para ver los loops activos.",
+				"warning",
+			);
 			return;
 		}
-		if (resumeLoop(pi, ctx, loop)) notify(ctx, `Resumed loop ${loop.loopId}.`, "info");
-		else notify(ctx, `Loop ${loop.loopId} is not paused.`, "warning");
+		if (resumeLoop(pi, ctx, loop)) notify(ctx, `Loop ${loop.loopId} reanudado.`, "info");
+		else notify(ctx, `El loop ${loop.loopId} no está pausado.`, "warning");
 		return;
 	}
 
@@ -1131,14 +1147,16 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 			const loop = activeLoops.get(rest);
 			notify(
 				ctx,
-				loop ? formatStatus(loop) : `No loop with id ${rest}. Use /loop status to list active loops.`,
+				loop
+					? formatStatus(loop)
+					: `No hay ningún loop con id ${rest}. Usá /loop status para listar los loops activos.`,
 				loop ? "info" : "warning",
 			);
 			return;
 		}
 		const all = [...activeLoops.values()];
 		if (all.length === 0) {
-			notify(ctx, "No loops.", "info");
+			notify(ctx, "No hay loops.", "info");
 			return;
 		}
 		notify(ctx, all.map(formatStatus).join("\n"), "info");
@@ -1177,8 +1195,8 @@ async function handleToolCall(
 
 	if (ctx.hasUI && typeof ctx.ui.confirm === "function") {
 		const approved = await ctx.ui.confirm(
-			"Autopilot wants to run a destructive action",
-			`${reason}\n\nThis loop iteration was triggered automatically (not by you). Allow it?`,
+			"Autopilot quiere ejecutar una acción destructiva",
+			`${reason}\n\nEsta iteración del loop se disparó automáticamente (no vos). ¿La permitís?`,
 		);
 		if (approved) return undefined;
 		return { block: true, reason };
@@ -1196,15 +1214,15 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		name: "loop_schedule",
 		label: "Loop Schedule",
 		description:
-			"Schedule the next iteration of the active /loop. Call this when more work or waiting is needed before the next pass.",
-		promptSnippet: "Schedule the next /loop iteration with a delay and reason.",
+			"Programá la próxima iteración del /loop activo. Llamalo cuando haga falta más trabajo o esperar antes de la siguiente pasada.",
+		promptSnippet: "Programá la próxima iteración del /loop con un delay y una razón.",
 		promptGuidelines: [
-			"Think about WHAT you are waiting for, not how long you want to sleep — then pick a cadence that matches it. The delay is clamped to [60, 3600] seconds.",
-			"Use a short delay (<300s) to poll a fast-moving external state (e.g. a CI run, a deploy) while keeping a warm working cache, but never exactly 300s.",
-			"Use a long delay (300-3600s) when you expect a slow change or are waiting on something that takes many minutes.",
-			"If you are idle with no concrete signal to wait on, schedule a long fallback (1200-1800s) instead of busy-polling.",
-			"Do NOT poll work that the harness already tracks for you (background jobs, subagents, workflows) — schedule a long fallback and let it report back.",
-			"Always pass a one-sentence reason explaining what you chose and why; it is shown in the status line and re-injected into the next iteration for continuity.",
+			"Pensá QUÉ estás esperando, no cuánto tiempo querés dormir — y elegí una cadencia acorde. El delay se clampea a [60, 3600] segundos.",
+			"Usá un delay corto (<300s) para sondear un estado externo que cambia rápido (p. ej. un run de CI, un deploy) manteniendo caliente la caché de trabajo, pero nunca exactamente 300s.",
+			"Usá un delay largo (300-3600s) cuando esperás un cambio lento o estás esperando algo que tarda varios minutos.",
+			"Si estás ocioso sin ninguna señal concreta que esperar, programá un fallback largo (1200-1800s) en vez de hacer busy-polling.",
+			"NO sondees trabajo que el harness ya trackea por vos (jobs de background, subagentes, workflows) — programá un fallback largo y dejá que te reporte.",
+			"Pasá siempre una razón de una oración explicando qué elegíste y por qué; se muestra en la línea de estado y se reinyecta en la próxima iteración para dar continuidad.",
 		],
 		parameters: Type.Object({
 			// No schema bounds on purpose: the SDK validates (and rejects) args
@@ -1212,7 +1230,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			// would throw on an out-of-range value instead of letting us clamp.
 			// The clamp inside execute() is the single defense — never trust the model.
 			delaySeconds: Type.Number({
-				description: `Seconds to wait before the next iteration; clamped to [${MIN_DELAY_SECONDS}, ${MAX_DELAY_SECONDS}].`,
+				description: `Segundos a esperar antes de la próxima iteración; clampeado a [${MIN_DELAY_SECONDS}, ${MAX_DELAY_SECONDS}].`,
 			}),
 			reason: Type.String({ minLength: 3 }),
 		}),
@@ -1224,7 +1242,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: "No active loop to schedule. There is nothing to reschedule.",
+							text: "No hay ningún loop activo para reprogramar. No hay nada que reprogramar.",
 						},
 					],
 					details: { isError: true },
@@ -1244,7 +1262,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: `Loop ${loop.loopId} runs on a fixed interval (every ${formatInterval(periodSec)}); cadence is fixed and loop_schedule is a no-op. Reason noted: ${params.reason}.`,
+							text: `El loop ${loop.loopId} corre en un intervalo fijo (cada ${formatInterval(periodSec)}); la cadencia es fija y loop_schedule es un no-op. Razón registrada: ${params.reason}.`,
 						},
 					],
 					details: { loopId: loop.loopId, mode: "fixed", noop: true, intervalSeconds: periodSec },
@@ -1262,7 +1280,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 				content: [
 					{
 						type: "text" as const,
-						text: `Scheduled next iteration of loop ${loop.loopId} in ${delaySec}s (reason: ${params.reason}).`,
+						text: `Próxima iteración del loop ${loop.loopId} programada en ${delaySec}s (razón: ${params.reason}).`,
 					},
 				],
 				details: {
@@ -1277,8 +1295,8 @@ export default function loopExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "loop_stop",
 		label: "Loop Stop",
-		description: "End the active /loop. Call this when the task is complete or no further iterations help.",
-		promptSnippet: "End the active /loop with a reason.",
+		description: "Terminá el /loop activo. Llamalo cuando la tarea esté completa o más iteraciones no ayuden.",
+		promptSnippet: "Terminá el /loop activo con una razón.",
 		parameters: Type.Object({
 			reason: Type.String(),
 		}),
@@ -1287,7 +1305,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			const running = [...activeLoops.values()].filter((l) => l.status === "running");
 			if (running.length === 0) {
 				return {
-					content: [{ type: "text" as const, text: "No active loop to stop." }],
+					content: [{ type: "text" as const, text: "No hay ningún loop activo para detener." }],
 					details: { isError: true },
 				};
 			}
@@ -1295,12 +1313,12 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			// with N coexisting loops a wake-triggered loop_stop ends the RIGHT loop rather
 			// than an arbitrary running[0]. Fall back to the sole running loop otherwise.
 			const loop = running.find((l) => l.autopilot) ?? running[0];
-			stopLoop(pi, ctx, loop.loopId, params.reason || "stopped by loop_stop", "stopped");
+			stopLoop(pi, ctx, loop.loopId, params.reason || "detenido por loop_stop", "stopped");
 			return {
 				content: [
 					{
 						type: "text" as const,
-						text: `Stopped loop ${loop.loopId} (reason: ${params.reason}).`,
+						text: `Loop ${loop.loopId} detenido (razón: ${params.reason}).`,
 					},
 				],
 				details: { loopId: loop.loopId },
@@ -1310,15 +1328,19 @@ export default function loopExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("loop", {
 		description:
-			"Run a task iteratively: /loop [--ultracode] <task> [interval] | /loop auto [--ultracode] <objective> [interval] | /loop stop [id] | /loop pause [id] | /loop resume [id] | /loop status [id]. Interval (e.g. 5m, 30s, 2h) runs on a fixed cadence; omit it for model-paced. 'auto' starts an autonomous loop (requires a trusted project + confirmation). --ultracode drives iterations via dynamic workflows.",
+			"Corré una tarea de forma iterativa: /loop [--ultracode] <task> [interval] | /loop auto [--ultracode] <objective> [interval] | /loop stop [id] | /loop pause [id] | /loop resume [id] | /loop status [id]. El interval (p. ej. 5m, 30s, 2h) corre en una cadencia fija; omitilo para que lo module el modelo. 'auto' inicia un loop autónomo (requiere un proyecto de confianza + confirmación). --ultracode conduce las iteraciones vía dynamic workflows.",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
-				{ value: "auto", label: "auto", description: "Start an autonomous loop (trust + confirm)" },
-				{ value: "stop", label: "stop", description: "Stop a loop" },
-				{ value: "pause", label: "pause", description: "Pause a running loop" },
-				{ value: "resume", label: "resume", description: "Resume a paused loop" },
-				{ value: "status", label: "status", description: "Show loop status" },
-				{ value: "--ultracode", label: "--ultracode", description: "Run loop iterations via dynamic workflows" },
+				{ value: "auto", label: "auto", description: "Iniciar un loop autónomo (confianza + confirmación)" },
+				{ value: "stop", label: "stop", description: "Detener un loop" },
+				{ value: "pause", label: "pause", description: "Pausar un loop en ejecución" },
+				{ value: "resume", label: "resume", description: "Reanudar un loop pausado" },
+				{ value: "status", label: "status", description: "Mostrar el estado del loop" },
+				{
+					value: "--ultracode",
+					label: "--ultracode",
+					description: "Correr las iteraciones del loop vía dynamic workflows",
+				},
 			];
 			for (const loop of activeLoops.values()) {
 				if (loop.status === "running" || loop.status === "paused") {
@@ -1352,7 +1374,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 				clearTimeout(loop.timer);
 				loop.timer = null;
 			}
-			loop.controller.abort("session shutdown");
+			loop.controller.abort("cierre de sesión");
 			if (loop.status === "running") {
 				// Persist as "stale" (recoverable on next session_start), keeping nextFireAt intact.
 				loop.status = "stale";
@@ -1393,7 +1415,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 				rearmFixed(pi, ctx, loop);
 			} else {
 				// Dynamic mode: model did not call loop_schedule this turn → defensive re-arm.
-				scheduleWake(pi, ctx, loop, SAFETY_NET_DELAY_SECONDS, "auto: turn closed without loop_schedule");
+				scheduleWake(pi, ctx, loop, SAFETY_NET_DELAY_SECONDS, "auto: el turno cerró sin loop_schedule");
 			}
 		}
 		// The autopilot turn is over: release the in-flight gate and deliver the NEXT queued
