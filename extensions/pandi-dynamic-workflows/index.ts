@@ -70,7 +70,11 @@ export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 
 import { installWorkflowDashboardDownEditor } from "./dashboard-down-editor.js";
 import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
-import { abortActiveWorkflowRuns } from "./run-lifecycle.js";
+import {
+	abortActiveWorkflowRuns,
+	interruptActiveWorkflowRunsForReload,
+	resumeReloadInterruptedWorkflowRuns,
+} from "./run-lifecycle.js";
 
 export { countRunArtifacts } from "./dashboard-collectors.js";
 export { settleWithinTimeout } from "./run-lifecycle.js";
@@ -2187,11 +2191,13 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		refreshActiveWorkflowStatus(ctx);
 		setUltracodeStatus(ctx, ultracodeAlwaysOn);
 		setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
+		if (event.reason === "reload") await resumeReloadInterruptedWorkflowRuns(pi, ctx);
 	});
 
-	pi.on("session_shutdown", async (_event, ctx) => {
+	pi.on("session_shutdown", async (event, ctx) => {
 		await stopPiSessionHeartbeat();
-		await abortActiveWorkflowRuns("Workflow cancelled by session shutdown.");
+		if (event.reason === "reload") await interruptActiveWorkflowRunsForReload();
+		else await abortActiveWorkflowRuns("Workflow cancelled by session shutdown.");
 		clearWorkflowWidget(ctx);
 		setWorkflowIdleStatus(ctx);
 		clearUltracodeStatus(ctx);

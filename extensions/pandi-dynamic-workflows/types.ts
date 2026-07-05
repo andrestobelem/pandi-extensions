@@ -226,7 +226,9 @@ export interface ActiveWorkflowRun {
 	runId: string;
 	runDir: string;
 	started: number;
+	cwd: string;
 	workflow: WorkflowFile;
+	limits: RunLimits;
 	controller: AbortController;
 	promise?: Promise<WorkflowRunResult>;
 }

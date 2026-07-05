@@ -241,7 +241,8 @@ Notas:
 
 - `run`/`start` devuelven enseguida el `runId`, `status.json` y el directorio de artifacts en TUI/RPC.
 - Al completar o fallar, el workflow en background despierta al agente con un follow-up automático para inspeccionar `dynamic_workflow action=view name=<runId>` y continuar la tarea.
-- La corrida solo sigue viva mientras viva la sesión actual de Pi; después de reiniciar, una corrida incompleta aparece como `stale`. Reanudala con `/workflow resume <runId>` (ver "Corridas reanudables").
+- En `/reload`, Pi interrumpe de forma controlada las corridas background activas y la instancia nueva las reanuda automáticamente con el mismo `runId`. Las llamadas ya journaled no se reejecutan; lo que estaba in-flight o no cacheado puede volver a correr, igual que en un resume manual.
+- Si el proceso Pi se reinicia o muere, no hay handoff in-memory: una corrida incompleta aparece como `stale`. Reanudala con `/workflow resume <runId>` (ver "Corridas reanudables").
 - Monitoreá con `/workflow runs`, `/workflow view <runId>` o la pestaña `Monitor` del dashboard; cancelá con `/workflow cancel <runId>` o `dynamic_workflow action=cancel` (el dashboard solo cancela corridas activas en esta sesión).
 - Las corridas en background siguen gastando llamadas al modelo: usá límites explícitos.
 - **Fallback en foreground**: en modo print/json no hay una sesión persistente para sostener una corrida en background, así que `run` bloquea hasta completar.

@@ -106,6 +106,52 @@ function wakeAgentForWorkflowResult(pi: ExtensionAPI, ctx: ExtensionContext, res
 	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 }
 
+const RELOAD_INTERRUPT_REASON =
+	"Workflow interrupted by /reload; the new extension instance will resume this run from the journal.";
+const RELOAD_HANDOFF_GLOBAL_KEY = "__pandiDynamicWorkflowsReloadHandoff";
+
+interface ReloadHandoffEntry {
+	runId: string;
+	cwd: string;
+	limits: RunLimits;
+	settled: Promise<WorkflowRunResult | undefined>;
+	interruptedByReload?: boolean;
+	resuming?: boolean;
+}
+
+function reloadHandoffStore(): Map<string, ReloadHandoffEntry> {
+	const g = globalThis as typeof globalThis & {
+		__pandiDynamicWorkflowsReloadHandoff?: Map<string, ReloadHandoffEntry>;
+	};
+	if (!g[RELOAD_HANDOFF_GLOBAL_KEY]) {
+		g[RELOAD_HANDOFF_GLOBAL_KEY] = new Map<string, ReloadHandoffEntry>();
+	}
+	return g[RELOAD_HANDOFF_GLOBAL_KEY];
+}
+
+function isReloadInterruptResult(result: WorkflowRunResult | undefined): boolean {
+	return typeof result?.error === "string" && result.error.includes(RELOAD_INTERRUPT_REASON);
+}
+
+function shouldSuppressReloadHandoffResult(result: WorkflowRunResult): boolean {
+	return reloadHandoffStore().has(result.runId) && isReloadInterruptResult(result);
+}
+
+function makeReloadHandoffSettledPromise(run: ActiveWorkflowRun): Promise<WorkflowRunResult | undefined> {
+	return (run.promise ?? Promise.resolve(undefined))
+		.then((result) => {
+			const entry = reloadHandoffStore().get(run.runId);
+			if (entry) entry.interruptedByReload = isReloadInterruptResult(result);
+			return result;
+		})
+		.catch((err) => {
+			const message = err instanceof Error ? err.stack || err.message : String(err);
+			const entry = reloadHandoffStore().get(run.runId);
+			if (entry) entry.interruptedByReload = message.includes(RELOAD_INTERRUPT_REASON);
+			return undefined;
+		});
+}
+
 function canLaunchWorkflowInBackground(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
 }
@@ -137,7 +183,9 @@ export async function startWorkflowBackground(
 		runId: prepared.runId,
 		runDir: prepared.runDir,
 		started: prepared.started,
+		cwd: ctx.cwd,
 		workflow,
+		limits,
 		controller,
 	};
 	activeRuns.set(prepared.runId, active);
@@ -147,14 +195,16 @@ export async function startWorkflowBackground(
 
 	const promise = runWorkflow(pi, ctx, workflow, input, limits, controller.signal, undefined, prepared)
 		.then((result) => {
-			const resultState = getRunState(result);
-			const type = resultState === "completed" ? "info" : resultState === "cancelled" ? "warning" : "error";
-			notify(
-				ctx,
-				`Background workflow ${getRunStatusLabel(result)}: ${workflow.name}\nRun: ${result.runId}\nArtifacts: ${result.runDir}`,
-				type,
-			);
-			wakeAgentForWorkflowResult(pi, ctx, result);
+			if (!shouldSuppressReloadHandoffResult(result)) {
+				const resultState = getRunState(result);
+				const type = resultState === "completed" ? "info" : resultState === "cancelled" ? "warning" : "error";
+				notify(
+					ctx,
+					`Background workflow ${getRunStatusLabel(result)}: ${workflow.name}\nRun: ${result.runId}\nArtifacts: ${result.runDir}`,
+					type,
+				);
+				wakeAgentForWorkflowResult(pi, ctx, result);
+			}
 			return result;
 		})
 		.catch(async (err) => {
@@ -190,12 +240,14 @@ export async function startWorkflowBackground(
 				error,
 			});
 			await fs.writeFile(path.join(prepared.runDir, "summary.md"), formatRunSummary(result), "utf8");
-			notify(
-				ctx,
-				`Background workflow failed to run: ${workflow.name}\nRun: ${prepared.runId}\nError: ${error}`,
-				"error",
-			);
-			wakeAgentForWorkflowResult(pi, ctx, result);
+			if (!shouldSuppressReloadHandoffResult(result)) {
+				notify(
+					ctx,
+					`Background workflow failed to run: ${workflow.name}\nRun: ${prepared.runId}\nError: ${error}`,
+					"error",
+				);
+				wakeAgentForWorkflowResult(pi, ctx, result);
+			}
 			return result;
 		})
 		.finally(() => {
@@ -431,6 +483,75 @@ export async function cleanupWorkflowRuns(
 		}
 	}
 	return { removed, kept: runs.length - removed.length };
+}
+
+export async function interruptActiveWorkflowRunsForReload(): Promise<{ interrupted: string[] }> {
+	const runs = [...activeRuns.values()];
+	if (runs.length === 0) return { interrupted: [] };
+	const store = reloadHandoffStore();
+	for (const run of runs) {
+		const entry: ReloadHandoffEntry = {
+			runId: run.runId,
+			cwd: run.cwd,
+			limits: { ...run.limits },
+			settled: Promise.resolve(undefined),
+		};
+		store.set(run.runId, entry);
+		entry.settled = makeReloadHandoffSettledPromise(run);
+		run.controller.abort(RELOAD_INTERRUPT_REASON);
+	}
+	await settleWithinTimeout(Promise.allSettled(runs.map((run) => store.get(run.runId)?.settled)), 3000);
+	activeRuns.clear();
+	return { interrupted: runs.map((run) => run.runId) };
+}
+
+export async function resumeReloadInterruptedWorkflowRuns(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+): Promise<{ resumed: string[]; skipped: string[]; failed: string[] }> {
+	const store = reloadHandoffStore();
+	const entries = [...store.values()].filter((entry) => entry.cwd === ctx.cwd && !entry.resuming);
+	for (const entry of entries) entry.resuming = true;
+	const resumed: string[] = [];
+	const skipped: string[] = [];
+	const failed: string[] = [];
+
+	for (const entry of entries) {
+		try {
+			await entry.settled;
+			if (!entry.interruptedByReload) {
+				skipped.push(entry.runId);
+				continue;
+			}
+			const record = await resumeWorkflow(pi, ctx, entry.runId, { limits: entry.limits });
+			resumed.push(record.runId);
+		} catch (err) {
+			failed.push(`${entry.runId}: ${err instanceof Error ? err.message : String(err)}`);
+		} finally {
+			store.delete(entry.runId);
+		}
+	}
+
+	if (resumed.length > 0) {
+		notify(
+			ctx,
+			`Resumed ${resumed.length} background workflow${resumed.length === 1 ? "" : "s"} after /reload: ${resumed.join(", ")}`,
+			"info",
+		);
+	}
+	if (skipped.length > 0 || failed.length > 0) {
+		const parts = [
+			...(skipped.length ? [`skipped (not interrupted by reload): ${skipped.join(", ")}`] : []),
+			...(failed.length ? [`failed: ${failed.join("; ")}`] : []),
+		];
+		notify(
+			ctx,
+			`Some workflow reload handoffs were not auto-resumed (${parts.join("; ")}). Use /workflow resume <runId> to retry manually.`,
+			"warning",
+		);
+	}
+	refreshActiveWorkflowStatus(ctx);
+	return { resumed, skipped, failed };
 }
 
 // Race a promise against a timeout. The timeout timer is always cleared afterwards so a
