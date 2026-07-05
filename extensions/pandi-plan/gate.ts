@@ -83,6 +83,33 @@ function firstNonWhitespaceAfter(command: string, start: number): string | undef
 	return undefined;
 }
 
+function readShellToken(command: string, start: number): string | undefined {
+	let inSingle = false;
+	let inDouble = false;
+	let token = "";
+
+	for (let i = start; i < command.length; i++) {
+		const ch = command[i];
+		if (ch === "\\" && !inSingle) {
+			if (i + 1 < command.length) token += command[i + 1];
+			i += 1;
+			continue;
+		}
+		if (ch === "'" && !inDouble) {
+			inSingle = !inSingle;
+			continue;
+		}
+		if (ch === '"' && !inSingle) {
+			inDouble = !inDouble;
+			continue;
+		}
+		if (!inSingle && !inDouble && (/\s/.test(ch) || ch === ";" || ch === "|" || ch === "&")) break;
+		token += ch;
+	}
+
+	return token || undefined;
+}
+
 function hasWritingRedirection(command: string): boolean {
 	let inSingle = false;
 	let inDouble = false;
@@ -110,15 +137,319 @@ function hasWritingRedirection(command: string): boolean {
 			const targetStart = firstNonWhitespaceAfter(command, i + 2);
 			if (targetStart === undefined || /[-\d&]/.test(targetStart)) continue; // fd dup/close: 2>&1, >&2, >&-
 		}
+
+		let targetOffset = 1;
+		if (next === ">" || next === "|") targetOffset = 2; // >>file, >|file
+		const target = readShellToken(command, i + targetOffset);
+		if (target === "/dev/null") continue;
 		return true;
 	}
 
 	return false;
 }
 
+function splitShellSegments(command: string): string[] {
+	const segments: string[] = [];
+	let inSingle = false;
+	let inDouble = false;
+	let start = 0;
+
+	for (let i = 0; i < command.length; i++) {
+		const ch = command[i];
+		if (ch === "\\" && !inSingle) {
+			i += 1;
+			continue;
+		}
+		if (ch === "'" && !inDouble) {
+			inSingle = !inSingle;
+			continue;
+		}
+		if (ch === '"' && !inSingle) {
+			inDouble = !inDouble;
+			continue;
+		}
+		if (inSingle || inDouble) continue;
+
+		const next = command[i + 1];
+		const isSeparator = ch === ";" || ch === "\n" || ch === "|" || (ch === "&" && next === "&");
+		if (!isSeparator || (ch === "|" && command[i - 1] === ">")) continue;
+
+		const segment = command.slice(start, i).trim();
+		if (segment) segments.push(segment);
+		start = i + (ch === "&" && next === "&" ? 2 : 1);
+		if (ch === "&" && next === "&") i += 1;
+	}
+
+	const last = command.slice(start).trim();
+	if (last) segments.push(last);
+	return segments;
+}
+
+function shellWords(segment: string): string[] {
+	const words: string[] = [];
+	let inSingle = false;
+	let inDouble = false;
+	let current = "";
+
+	for (let i = 0; i < segment.length; i++) {
+		const ch = segment[i];
+		if (ch === "\\" && !inSingle) {
+			if (i + 1 < segment.length) current += segment[i + 1];
+			i += 1;
+			continue;
+		}
+		if (ch === "'" && !inDouble) {
+			inSingle = !inSingle;
+			continue;
+		}
+		if (ch === '"' && !inSingle) {
+			inDouble = !inDouble;
+			continue;
+		}
+		if (!inSingle && !inDouble && /\s/.test(ch)) {
+			if (current) words.push(current);
+			current = "";
+			continue;
+		}
+		current += ch;
+	}
+
+	if (current) words.push(current);
+	return words;
+}
+
+function commandBasename(token: string | undefined): string {
+	return (token ?? "").split("/").pop() ?? "";
+}
+
+function isEnvAssignment(token: string): boolean {
+	return /^[A-Za-z_][A-Za-z0-9_]*=/.test(token);
+}
+
+function firstCommandIndex(words: string[], start = 0): number {
+	let index = start;
+	while (index < words.length && isEnvAssignment(words[index])) index += 1;
+	return index;
+}
+
+function hasSedInPlaceFlag(words: string[]): boolean {
+	return words.some((word) => /^-[A-Za-z]*i[A-Za-z]*$/.test(word));
+}
+
+function hasAny(words: string[], values: Set<string>): boolean {
+	return words.some((word) => values.has(word));
+}
+
+const FILE_MUTATING_COMMANDS = new Set([
+	"touch",
+	"mkdir",
+	"chmod",
+	"chown",
+	"chgrp",
+	"rm",
+	"rmdir",
+	"mv",
+	"cp",
+	"ln",
+	"install",
+	"truncate",
+	"shred",
+	"unlink",
+	"tee",
+	"make",
+]);
+
+const GIT_MUTATING_SUBCOMMANDS = new Set([
+	"commit",
+	"add",
+	"push",
+	"pull",
+	"clone",
+	"fetch",
+	"reset",
+	"clean",
+	"checkout",
+	"switch",
+	"restore",
+	"merge",
+	"rebase",
+	"stash",
+	"apply",
+	"rm",
+	"mv",
+	"cherry-pick",
+	"revert",
+]);
+
+const GIT_BRANCH_MUTATING_FLAGS = new Set([
+	"-d",
+	"-D",
+	"-m",
+	"-M",
+	"-c",
+	"-C",
+	"--delete",
+	"--move",
+	"--copy",
+	"--set-upstream-to",
+	"--unset-upstream",
+	"--create-reflog",
+	"--track",
+]);
+
+const GIT_TAG_MUTATING_FLAGS = new Set([
+	"-a",
+	"-d",
+	"-f",
+	"-m",
+	"-s",
+	"-u",
+	"--annotate",
+	"--delete",
+	"--force",
+	"--message",
+	"--sign",
+	"--local-user",
+]);
+
+function gitSubcommand(words: string[], gitIndex: number): { subcommand: string; args: string[] } | undefined {
+	for (let index = gitIndex + 1; index < words.length; index++) {
+		const word = words[index];
+		if (word === "-C" || word === "-c" || word === "--git-dir" || word === "--work-tree") {
+			index += 1;
+			continue;
+		}
+		if (word.startsWith("--git-dir=") || word.startsWith("--work-tree=")) continue;
+		if (word.startsWith("-")) continue;
+		return { subcommand: word, args: words.slice(index + 1) };
+	}
+	return undefined;
+}
+
+function isMutatingGit(words: string[], gitIndex: number): boolean {
+	const parsed = gitSubcommand(words, gitIndex);
+	if (!parsed) return false;
+	const { subcommand, args } = parsed;
+	if (GIT_MUTATING_SUBCOMMANDS.has(subcommand)) return true;
+	if (subcommand === "branch") {
+		if (hasAny(args, GIT_BRANCH_MUTATING_FLAGS)) return true;
+		const hasReadListFlag = args.some((arg) => arg === "--list" || arg === "-l" || arg === "--show-current");
+		return !hasReadListFlag && args.some((arg) => !arg.startsWith("-"));
+	}
+	if (subcommand === "tag") {
+		if (hasAny(args, GIT_TAG_MUTATING_FLAGS)) return true;
+		return args.some((arg) => !arg.startsWith("-"));
+	}
+	if (subcommand === "remote") return hasAny(args, new Set(["add", "remove", "rm", "rename", "set-url", "prune"]));
+	return false;
+}
+
+function isMutatingGh(words: string[], ghIndex: number): boolean {
+	const scope = words[ghIndex + 1];
+	const action = words[ghIndex + 2];
+	if (!scope) return false;
+	if (scope === "issue")
+		return hasAny(
+			[action ?? ""],
+			new Set([
+				"close",
+				"comment",
+				"create",
+				"delete",
+				"develop",
+				"edit",
+				"lock",
+				"pin",
+				"reopen",
+				"transfer",
+				"unlock",
+				"unpin",
+			]),
+		);
+	if (scope === "pr")
+		return hasAny(
+			[action ?? ""],
+			new Set([
+				"checkout",
+				"close",
+				"comment",
+				"create",
+				"draft",
+				"edit",
+				"lock",
+				"merge",
+				"ready",
+				"reopen",
+				"review",
+				"unlock",
+			]),
+		);
+	if (scope === "project")
+		return hasAny(
+			[action ?? ""],
+			new Set(["close", "create", "delete", "edit", "item-add", "item-archive", "item-delete", "item-edit"]),
+		);
+	if (scope === "repo")
+		return hasAny([action ?? ""], new Set(["clone", "create", "delete", "fork", "rename", "sync"]));
+	if (scope === "release")
+		return hasAny([action ?? ""], new Set(["create", "delete", "delete-asset", "edit", "upload"]));
+	if (scope === "workflow") return action === "run";
+	if (scope === "run") return hasAny([action ?? ""], new Set(["cancel", "delete", "rerun"]));
+	if (scope === "secret" || scope === "variable") return hasAny([action ?? ""], new Set(["delete", "remove", "set"]));
+	if (scope === "auth") return hasAny([action ?? ""], new Set(["login", "logout", "refresh", "switch"]));
+	return false;
+}
+
+function isMutatingCommand(words: string[], start = 0): boolean {
+	const commandIndex = firstCommandIndex(words, start);
+	const command = commandBasename(words[commandIndex]);
+	const args = words.slice(commandIndex + 1);
+	if (!command) return false;
+	if (command === "sudo" || command === "command" || command === "builtin" || command === "time")
+		return isMutatingCommand(words, commandIndex + 1);
+	if (command === "env") return isMutatingCommand(words, commandIndex + 1);
+	if (FILE_MUTATING_COMMANDS.has(command)) return true;
+	if (command === "sed") return hasSedInPlaceFlag(args);
+	if (command === "dd") return args.some((arg) => /^(if|of)=/.test(arg));
+	if (command.startsWith("mkfs")) return true;
+	if (command === "git") return isMutatingGit(words, commandIndex);
+	if (command === "gh") return isMutatingGh(words, commandIndex);
+	if (["npm", "pnpm", "yarn", "bun"].includes(command))
+		return hasAny(args, new Set(["install", "add", "ci", "uninstall", "remove", "update", "upgrade", "prune"]));
+	if (command === "npx") return args.includes("-y");
+	if (["pip", "pip3", "pipx"].includes(command)) return args.includes("install");
+	if (command === "poetry") return args.includes("add");
+	if (command === "cargo") return args.includes("add");
+	if (command === "go") return args.includes("get");
+	if (command === "gem") return args.includes("install");
+	if (command === "brew") return args.includes("install");
+	if (command === "kubectl") return hasAny(args, new Set(["apply", "delete"]));
+	if (command === "terraform") return hasAny(args, new Set(["apply", "destroy"]));
+	if (command === "helm") return hasAny(args, new Set(["upgrade", "install", "uninstall"]));
+	if (["bash", "sh", "zsh"].includes(command)) {
+		const scriptIndex = args.indexOf("-c");
+		if (scriptIndex >= 0 && args[scriptIndex + 1]) return isMutatingBash(args[scriptIndex + 1]);
+	}
+	return false;
+}
+
+function hasMutatingExec(words: string[]): boolean {
+	for (let index = 0; index < words.length; index++) {
+		if (words[index] !== "-exec") continue;
+		if (isMutatingCommand(words, index + 1)) return true;
+	}
+	return false;
+}
+
+function isMutatingSegment(segment: string): boolean {
+	const words = shellWords(segment);
+	if (words.length === 0) return false;
+	return isMutatingCommand(words) || hasMutatingExec(words);
+}
+
 /** ¿Es este comando bash una mutación per el allowlist best-effort? */
 export function isMutatingBash(command: string): boolean {
-	return hasWritingRedirection(command) || MUTATING_BASH_PATTERNS.some((re) => re.test(command));
+	return hasWritingRedirection(command) || splitShellSegments(command).some(isMutatingSegment);
 }
 
 /**

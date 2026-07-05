@@ -150,6 +150,7 @@ async function planGate(planUrl) {
 		"chmod +x script.sh",
 		"git commit -m wip",
 		"git branch feat",
+		"git tag v1.2.3",
 		"echo x > f",
 		"node test.js 2>err.log",
 		"sed -i 's/a/b/' f",
@@ -157,6 +158,7 @@ async function planGate(planUrl) {
 		"cp template.txt config.json",
 		"ln -sf /etc/hosts ./link",
 		"install -m 0755 a b",
+		"gh issue close 51 2>/dev/null",
 	]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
 		check(`plan: BLOCKS bash "${cmd}"`, !!r && r.block === true);
@@ -169,6 +171,12 @@ async function planGate(planUrl) {
 		"cat package.json",
 		"grep -n foo bar.ts",
 		"git status",
+		"wc -l AGENTS.md CLAUDE.md 2>/dev/null",
+		"rg -ln \"expected|assert.*includes|match\" extensions/pandi-plan/tests/integration --glob '*.mjs' --max-count 1",
+		"git diff -- extensions/pandi-dynamic-workflows/run-report-collector.ts .claude/scripts/lib/run-merge.mjs",
+		"git show --stat --oneline b8ae471 4a77745 2>/dev/null",
+		"gh issue view 51 --repo andrestobelem/pandi-extensions --json title,body,labels,state 2>/dev/null || true",
+		'rg "phaseTotal|phaseIndex|phaseId" -n extensions/pandi-dynamic-workflows .pi/workflows/runs 2>/dev/null | head -80',
 		'grep -rn "len(x) > 0" .',
 		'grep -rn "foo->bar" src',
 		"awk '$3 >= 100' f",
