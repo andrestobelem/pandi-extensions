@@ -1,18 +1,17 @@
 #!/usr/bin/env node
 /**
- * Characterization coverage for `extensions/pandi-bg/job-state.ts` — the read-time
- * projection helpers (projectState / decorateStatus). These assert the CURRENT
- * behavior of the source; the source is the source of truth.
+ * Cobertura de caracterización para `extensions/pandi-bg/job-state.ts`: helpers de proyección
+ * read-time (projectState / decorateStatus). Afirman el comportamiento ACTUAL del código fuente;
+ * el código fuente es la fuente de verdad.
  *
- * Bootstrap note (divergent from the sibling bg-jobs.test.mjs, intentionally):
- * to drive the ownership short-circuit we must mutate the SAME `activeJobs` map
- * that job-state.ts reads. esbuild inlines `./runtime-state.js` into a normal
- * bundle, which would hide that singleton. So we bundle job-state.ts with
- * `--external:./runtime-state.js` and supply our own runtime-state.js (a real
- * Map plus byte-identical asString/asNumber) next to the bundle: Node resolves
- * the one relative specifier to the file we control, so the test and the module
- * share one `activeJobs` instance. process-liveness.js stays bundled (real), so
- * the non-owned contrast genuinely probes a reaped pid.
+ * Nota de bootstrap (diverge intencionalmente del sibling bg-jobs.test.mjs): para manejar el
+ * short-circuit de ownership debemos mutar el MISMO map `activeJobs` que lee job-state.ts.
+ * esbuild inlinea `./runtime-state.js` en un bundle normal, lo que ocultaría ese singleton.
+ * Por eso bundleamos job-state.ts con `--external:./runtime-state.js` y proveemos nuestro propio
+ * runtime-state.js (un Map real más asString/asNumber byte-identical) junto al bundle: Node
+ * resuelve el único specifier relativo al archivo que controlamos, así que el test y el módulo
+ * comparten una instancia `activeJobs`. process-liveness.js queda bundleado (real), así que el
+ * contraste non-owned realmente prueba un pid reaped.
  */
 
 import { spawnSync } from "node:child_process";
@@ -27,8 +26,8 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-// Bundle job-state.ts with runtime-state.js kept external so the test can share
-// the in-process `activeJobs` singleton with the module under test.
+// Bundlea job-state.ts manteniendo runtime-state.js external para que el test pueda compartir
+// el singleton in-process `activeJobs` con el módulo bajo prueba.
 async function buildJobState() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-job-state-"));
 	await fs.writeFile(
@@ -59,16 +58,16 @@ async function buildJobState() {
 	};
 }
 
-// Gap 1: an owned job (registered in activeJobs) or a terminal persisted state is a
-// pure passthrough of the persisted state — the liveness probe is short-circuited, so
-// no `persistedState`/`hint` is attached even when the recorded pid is long dead.
+// Brecha 1: un job poseído (registrado en activeJobs) o un estado persistido terminal es un
+// passthrough puro del estado persistido; la prueba de liveness hace short-circuit, así que no
+// se adjunta `persistedState`/`hint` aunque el pid registrado esté muerto hace rato.
 async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 	const { projectState, decorateStatus, deriveState } = await loadModule(moduleUrl);
-	// Plain import (NO cache-busting query) so we share the exact `activeJobs` singleton
-	// that the bundle's `./runtime-state.js` import resolves to.
+	// Import plano (SIN query de cache-busting) para compartir el singleton `activeJobs` exacto
+	// al que resuelve el import `./runtime-state.js` del bundle.
 	const { activeJobs } = await import(runtimeStateUrl);
 
-	// A reaped pid: spawnSync waits for exit, so this pid is dead by the time we probe it.
+	// Un pid reaped: spawnSync espera la salida, así que este pid está muerto cuando lo probamos.
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 	check(
 		"setup: probe child exited cleanly",
@@ -88,7 +87,7 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 		);
 		check("owned: no verify-before-kill hint attached", owned.hint === undefined, JSON.stringify(owned));
 
-		// Contrast: the SAME dead pid, NOT owned, takes the probe branch -> not 'running'.
+		// Contraste: el MISMO pid muerto, NO poseído, toma la rama de prueba -> no 'running'.
 		const orphanGap = projectState("not-owned-job", "running", dead.pid);
 		check(
 			"contrast: an unowned dead-pid running job is re-derived away from running",
@@ -96,7 +95,7 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 			JSON.stringify(orphanGap),
 		);
 
-		// decorateStatus mirrors the short-circuit and stamps active=true for an owned job.
+		// decorateStatus espeja el short-circuit y estampa active=true para un job poseído.
 		const decorated = decorateStatus(jobId, { state: "running", pid: dead.pid });
 		check(
 			"owned: decorateStatus keeps running and marks active",
@@ -109,7 +108,7 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 			JSON.stringify(decorated),
 		);
 
-		// deriveState is the thin .state accessor over projectState — owned passthrough too.
+		// deriveState es el accessor fino .state sobre projectState; también passthrough poseído.
 		check(
 			"owned: deriveState returns the passthrough state",
 			deriveState(jobId, { state: "running", pid: dead.pid }) === "running",
@@ -118,7 +117,7 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 		activeJobs.delete(jobId);
 	}
 
-	// A terminal persisted state is a passthrough regardless of ownership (never probed).
+	// Un estado persistido terminal es passthrough sin importar ownership (nunca se prueba).
 	const terminal = projectState("terminal-job", "completed", dead.pid);
 	check(
 		"terminal: completed passes through with no probe metadata",
@@ -127,8 +126,8 @@ async function ownedJobShortCircuitsLivenessProbe(moduleUrl, runtimeStateUrl) {
 	);
 }
 
-// Gap 2: decorateStatus sets `active` from activeJobs membership and returns a NON-mutating
-// copy — a frozen raw object for an unowned job must not throw and must be left untouched.
+// Brecha 2: decorateStatus setea `active` desde membresía en activeJobs y devuelve una copia
+// NO mutante; un objeto raw congelado para un job no poseído no debe lanzar y debe quedar intacto.
 async function decorateStatusIsNonMutatingAndSetsActive(moduleUrl, runtimeStateUrl) {
 	const { decorateStatus } = await loadModule(moduleUrl);
 	const { activeJobs } = await import(runtimeStateUrl);

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Real-job behavioral integration test for `/bg` M2a.
+ * Test de integración conductual con jobs reales para `/bg` M2a.
  *
- * Covers the local slash-only runner: start/completion, failure, cancellation,
- * stale/non-owned PIDs, mode/trust gates, artifacts, and logs.
+ * Cubre el runner local solo slash: start/completion, failure, cancellation,
+ * PIDs stale/no poseídos, gates de mode/trust, artefactos y logs.
  */
 
 import { spawn, spawnSync } from "node:child_process";
@@ -187,10 +187,10 @@ async function cancelEscalatesToSigkill(url) {
 	const cwd = await createBgTestDir("pi-bg-sigkill-");
 	const script = path.join(cwd, "ignore-sigterm.cjs");
 	const started = path.join(cwd, "sigterm-started");
-	// A child that INSTALLS a SIGTERM handler and keeps running -> it survives the
-	// initial SIGTERM, so finalization only happens once the grace-timer escalates to
-	// SIGKILL. The existing cancel test uses a child without a handler (dies on SIGTERM),
-	// so this is the only coverage of the riskiest cancellation path.
+	// Un child que INSTALA un handler SIGTERM y sigue corriendo -> sobrevive al SIGTERM
+	// inicial, así que la finalización solo ocurre cuando el grace-timer escala a SIGKILL.
+	// El test cancel existente usa un child sin handler (muere con SIGTERM), así que esta
+	// es la única cobertura de la ruta de cancelación más riesgosa.
 	await fs.writeFile(
 		script,
 		`const fs = require("node:fs");\n` +
@@ -239,12 +239,12 @@ async function cancelReachesGroupSurvivorsAfterShellExit(url) {
 		check("cancel-survivors: skipped on win32 (POSIX group semantics)", true);
 		return;
 	}
-	// Issue #9 shape: the DIRECT child (the shell) exits at once after backgrounding
-	// the real work, while the survivor ignores SIGTERM and keeps the log pipes open.
-	// On Linux CI this same tree shape arises WITHOUT '&' (dash forks instead of
-	// exec'ing the command), and it left jobs stuck forever: child.exitCode was set,
-	// so the finished-guard skipped both the cancel and the SIGKILL escalation.
-	// A job must count as live until FINALIZED, and escalation must hit the GROUP.
+	// Forma del issue #9: el child DIRECTO (la shell) sale de inmediato tras mandar el trabajo
+	// real a background, mientras el sobreviviente ignora SIGTERM y mantiene abiertos los log
+	// pipes. En Linux CI esta misma forma de árbol aparece SIN '&' (dash forkea en vez de hacer
+	// exec del comando), y dejaba jobs trabados para siempre: child.exitCode quedaba seteado,
+	// así que el guard de terminado omitía cancel y la escalada a SIGKILL. Un job debe contar
+	// como vivo hasta FINALIZED, y la escalada debe llegar al GROUP.
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-survivor-");
 	const script = path.join(cwd, "ignore-sigterm.cjs");
@@ -257,8 +257,8 @@ async function cancelReachesGroupSurvivorsAfterShellExit(url) {
 			`setInterval(() => {}, 1000);\n`,
 	);
 	const ctx = makeCtx({ cwd, trusted: true });
-	// `... &`: the shell backgrounds the worker (same process group, job control off)
-	// and exits 0 immediately -> exitCode set on the runtime while the group lives on.
+	// `... &`: la shell manda el worker a background (mismo process group, job control off)
+	// y sale 0 de inmediato -> exitCode seteado en el runtime mientras el grupo sigue vivo.
 	const command = `${shellQuote(process.execPath)} ${shellQuote(script)} ${shellQuote(started)} &`;
 	await commands.get("bg").handler(`start ${command}`, ctx);
 	const jobId = parseJobId(ctx._notes.at(-1)?.msg || "");
@@ -284,7 +284,7 @@ async function cancelReachesGroupSurvivorsAfterShellExit(url) {
 	await waitFor("group survivor reaped after SIGKILL", async () => {
 		try {
 			process.kill(survivorPid, 0);
-			return false; // still alive
+			return false; // sigue vivo
 		} catch {
 			return true;
 		}
@@ -306,7 +306,7 @@ async function orphanedPidIsLabeledNotKilled(url) {
 			2,
 		),
 	);
-	// pid = this live test process, not owned by the bg session => orphaned (alive elsewhere).
+	// pid = este proceso de test vivo, no poseído por la sesión bg => orphaned (vivo en otro lado).
 	await fs.writeFile(
 		path.join(runDir, "status.json"),
 		JSON.stringify({ jobId, state: "running", pid: process.pid, updatedAt: new Date().toISOString() }, null, 2),
@@ -341,7 +341,7 @@ async function interruptedAndStaleStatesAreDerived(url) {
 	const cwd = await createBgTestDir("pi-bg-interrupted-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
 
-	// (1) Persisted running, recorded pid is dead (reaped) => interrupted.
+	// (1) running persistido, pid registrado muerto (reaped) => interrupted.
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 	check(
 		"interrupted: probe child exited cleanly",
@@ -360,7 +360,7 @@ async function interruptedAndStaleStatesAreDerived(url) {
 		JSON.stringify({ jobId: deadJob, state: "running", pid: dead.pid, updatedAt: new Date().toISOString() }, null, 2),
 	);
 
-	// (2) Persisted starting with NO recorded pid => stale fallback (cannot probe).
+	// (2) starting persistido SIN pid registrado => fallback stale (no se puede probar).
 	const noPidJob = "nopid-job";
 	const noPidDir = path.join(runsRoot, noPidJob);
 	await fs.mkdir(noPidDir, { recursive: true });
@@ -409,7 +409,7 @@ async function processStartIdCapturesIdentity(url) {
 		JSON.stringify({ status: dead.status, pid: dead.pid }),
 	);
 	if (process.platform === "win32") {
-		// Windows identity capture is deferred (graceful degradation to best-effort liveness).
+		// La captura de identidad en Windows se difiere (degradación graceful a liveness de mejor esfuerzo).
 		check(
 			"startid: win32 identity capture is deferred (undefined)",
 			readStartId(process.pid) === undefined,
@@ -435,7 +435,7 @@ async function livenessProbeClassifiesPids(url) {
 	const probe = mod.probeProcessAlive;
 	check("liveness: probeProcessAlive is exported", typeof probe === "function", typeof probe);
 	if (typeof probe !== "function") return;
-	// A signal-0 probe sends no signal; it only asks whether some process holds the pid.
+	// Una prueba signal-0 no envía señal; solo pregunta si algún proceso posee el pid.
 	check("liveness: current process is alive", probe(process.pid) === "alive", String(probe(process.pid)));
 	check("liveness: undefined pid is unknown", probe(undefined) === "unknown", String(probe(undefined)));
 	check(
@@ -443,7 +443,7 @@ async function livenessProbeClassifiesPids(url) {
 		probe(0) === "unknown" && probe(-1) === "unknown" && probe(1.5) === "unknown",
 		JSON.stringify([probe(0), probe(-1), probe(1.5)]),
 	);
-	// Spawn a short-lived child and let spawnSync reap it, then probe its now-dead pid.
+	// Spawnea un child de vida corta y deja que spawnSync lo reap, luego prueba su pid ya muerto.
 	const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 	check(
 		"liveness: spawned probe child exited cleanly",
@@ -607,13 +607,13 @@ async function identityDefeatsPidReuse(url) {
 		);
 		return dir;
 	};
-	// pid alive (this process) but recorded startId is stale => the pid was reused.
+	// pid alive (este proceso) pero startId registrado stale => el pid fue reutilizado.
 	const reusedDir = await write("reused", {
 		state: "running",
 		pid: process.pid,
 		startId: "stale:bogus-identity",
 	});
-	// pid alive AND recorded startId matches => genuinely our orphaned process.
+	// pid alive Y startId registrado coincide => proceso huérfano genuinamente nuestro.
 	const verifiedDir = await write("verified", {
 		state: "running",
 		pid: process.pid,
@@ -665,7 +665,7 @@ async function cancelSignalsVerifiedOrphan(url) {
 	const jobId = "verified-orphan";
 	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
 	await fs.mkdir(runDir, { recursive: true });
-	// A real detached process group we own at the OS level but NOT in this bg session.
+	// Un process group detached real que poseemos a nivel SO pero NO en esta sesión bg.
 	const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], {
 		detached: true,
 		stdio: "ignore",
@@ -738,12 +738,12 @@ async function cancelSignalsVerifiedOrphan(url) {
 		try {
 			process.kill(-child.pid, "SIGKILL");
 		} catch {
-			/* best-effort: the process group may already be gone */
+			/* mejor esfuerzo: el process group puede ya no existir */
 		}
 		try {
 			process.kill(child.pid, "SIGKILL");
 		} catch {
-			/* best-effort: the child may already be gone */
+			/* mejor esfuerzo: el child puede ya no existir */
 		}
 	}
 }
@@ -758,7 +758,7 @@ async function cancelRefusesReusedPid(url) {
 		path.join(runDir, "job.json"),
 		JSON.stringify({ jobId, command: "x", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir }, null, 2),
 	);
-	// Live pid (this process) but a stale recorded identity => pid reuse: must NOT be signaled.
+	// Pid vivo (este proceso) pero identidad registrada stale => reutilización de pid: NO debe recibir señal.
 	await fs.writeFile(
 		path.join(runDir, "status.json"),
 		JSON.stringify(
@@ -786,9 +786,9 @@ async function cancelRefusesReusedPid(url) {
 	}
 }
 
-// R2: /bg delete gate re-derives LIVE state (never trusts status.json.state) and refines
-// an orphaned pid by identity, so active/verified-alive/unknown jobs are never deletable
-// while a reused-pid (different identity => interrupted) job is.
+// R2: el gate de /bg delete rederiva estado LIVE (nunca confía en status.json.state) y refina
+// un pid huérfano por identidad, así que los jobs active/verified-alive/unknown nunca son
+// eliminables mientras un job con pid reutilizado (identidad distinta => interrupted) sí lo es.
 async function deleteGateReDerivesLiveState(url) {
 	const mod = await loadModule(url);
 	const readStartId = mod.readProcessStartId;
@@ -859,8 +859,8 @@ async function deleteGateReDerivesLiveState(url) {
 	);
 }
 
-// R3: removeRunDir re-validates liveness at the edge (immediately before fs.rm) and aborts
-// the removal if the injected re-check says the job is no longer deletable.
+// R3: removeRunDir revalida liveness en el borde (justo antes de fs.rm) y aborta la eliminación
+// si el rechequeo inyectado dice que el job ya no es eliminable.
 async function removeRunDirRevalidatesBeforeRm(url) {
 	const mod = await loadModule(url);
 	const removeRunDir = mod.removeRunDir;
@@ -884,8 +884,8 @@ async function removeRunDirRevalidatesBeforeRm(url) {
 	check("revalidate: a passing re-check removes the dir", removed === true && !existsSync(dir), `removed=${removed}`);
 }
 
-// R4 unit: the --yes-only parser (a typo stays a safe dry-run) and the symlink-skipping
-// lstat-walk size helper.
+// R4 unit: el parser solo --yes (un typo queda como dry-run seguro) y el helper de tamaño
+// lstat-walk que omite symlinks.
 async function pruneFlagAndSizeHelpers(url) {
 	const mod = await loadModule(url);
 	const parse = mod.parsePruneFlags;
@@ -910,8 +910,8 @@ async function pruneFlagAndSizeHelpers(url) {
 	);
 }
 
-// R4 integration: /bg prune defaults to a dry run — lists terminal candidates, skips a
-// live job with a reason, prompts for --yes, and removes nothing.
+// R4 integration: /bg prune default es dry run; lista candidatos terminales, omite un job vivo
+// con motivo, pide --yes y no elimina nada.
 async function prunePreviewListsCandidatesWithoutDeleting(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-prune-preview-");
@@ -950,8 +950,8 @@ async function prunePreviewListsCandidatesWithoutDeleting(url) {
 	check("prune-preview: prompts for --yes", /--yes/.test(msg), msg);
 }
 
-// R5 integration: /bg prune --yes removes the deletable set (re-deriving live state), skips
-// a live job, audits one line per removal, and is idempotent.
+// R5 integration: /bg prune --yes elimina el conjunto eliminable (rederivando estado vivo),
+// omite un job vivo, audita una línea por eliminación y es idempotente.
 async function pruneYesExecutesReDerivesAndAudits(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-prune-yes-");
@@ -1010,7 +1010,7 @@ async function logStreamErrorsAreContained(url) {
 	const runDir = path.join(cwd, "run");
 	await fs.mkdir(runDir, { recursive: true });
 
-	// Hazard baseline: an unguarded stream 'error' throws and would crash the host process.
+	// Baseline de riesgo: un 'error' de stream sin guard lanza y crashearía el proceso host.
 	const unguarded = createWriteStream(path.join(runDir, "unguarded.log"));
 	let unguardedThrew = false;
 	try {
@@ -1021,7 +1021,7 @@ async function logStreamErrorsAreContained(url) {
 	unguarded.destroy();
 	check("guard: unguarded stream error throws (hazard reproduced)", unguardedThrew);
 
-	// Fixed behavior: a guarded stream 'error' is contained (no throw) and recorded as an event.
+	// Comportamiento corregido: un 'error' de stream con guard queda contenido (no lanza) y se registra como evento.
 	const guarded = createWriteStream(path.join(runDir, "stdout.log"));
 	guard(runDir, "job-streamerr", [guarded, null, undefined]);
 	let guardedThrew = false;
@@ -1054,7 +1054,7 @@ async function atomicWriteCleansTempOnRenameFailure(url) {
 	check("atomic: atomicWriteJson is exported", typeof atomicWriteJson === "function", typeof atomicWriteJson);
 	if (typeof atomicWriteJson !== "function") return;
 	const dir = await createBgTestDir("pi-bg-atomic-");
-	// Make the target an existing directory so rename(tmp, target) fails (EISDIR).
+	// Hace que el target sea un directorio existente para que rename(tmp, target) falle (EISDIR).
 	const target = path.join(dir, "target");
 	await fs.mkdir(target);
 	let threw = false;
@@ -1077,7 +1077,7 @@ async function descriptionListsPreviewSubcommand(url) {
 async function startSurfacesFilesystemErrors(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-fserror-");
-	// Make .pi a regular file so createRunDir's ensurePlainDirectory throws mid-start.
+	// Hace que .pi sea un archivo regular para que ensurePlainDirectory de createRunDir lance a mitad de start.
 	await fs.writeFile(path.join(cwd, ".pi"), "not a dir");
 	const ctx = makeCtx({ cwd, trusted: true });
 	let threw = false;
@@ -1103,7 +1103,7 @@ async function backpressurePausesSource(url) {
 	const gate = new Promise((resolve) => {
 		release = resolve;
 	});
-	// A sink whose write callback is withheld -> stays full and never drains until released.
+	// Un sink cuyo callback de write se retiene -> queda lleno y nunca drena hasta liberarlo.
 	const slow = new Writable({
 		highWaterMark: 1,
 		write(_chunk, _enc, cb) {
@@ -1132,11 +1132,11 @@ async function backpressureRecoversWhenSinkDies(url) {
 	if (typeof pipe !== "function") return;
 
 	const source = new PassThrough();
-	// A sink whose write callback is never invoked -> stays full and never drains.
+	// Un sink cuyo callback de write nunca se invoca -> queda lleno y nunca drena.
 	const slow = new Writable({
 		highWaterMark: 1,
 		write() {
-			/* withhold cb: permanently full */
+			/* retener cb: lleno permanentemente */
 		},
 	});
 	pipe(source, [slow]);
@@ -1148,8 +1148,8 @@ async function backpressureRecoversWhenSinkDies(url) {
 		`isPaused=${source.isPaused()}`,
 	);
 
-	// The sink dies without ever draining. The source must resume rather than stay
-	// paused forever (which would block the child and leave the job stuck running).
+	// El sink muere sin drenar nunca. La fuente debe reanudar en vez de quedar pausada para
+	// siempre (lo que bloquearía al child y dejaría el job trabado en running).
 	slow.destroy();
 	await new Promise((r) => setTimeout(r, 30));
 	check(
@@ -1176,13 +1176,13 @@ async function writeCapStopsAndMarksLog(url) {
 	});
 	const cap = 10;
 	pipe(source, [sink], cap);
-	source.write(Buffer.from("a".repeat(8))); // under cap
-	source.write(Buffer.from("b".repeat(8))); // crosses cap -> partial + marker
-	source.write(Buffer.from("c".repeat(8))); // fully dropped once capped
+	source.write(Buffer.from("a".repeat(8))); // bajo cap
+	source.write(Buffer.from("b".repeat(8))); // cruza el cap -> parcial + marcador
+	source.write(Buffer.from("c".repeat(8))); // descartado por completo tras llegar al cap
 	await new Promise((r) => setTimeout(r, 30));
 
 	const text = Buffer.concat(chunks).toString("utf8");
-	const payload = text.replace(/\n?\[log topado en 10 bytes\]\n?/g, ""); // strip marker (it contains 'c')
+	const payload = text.replace(/\n?\[log topado en 10 bytes\]\n?/g, ""); // quita marcador (contiene 'c')
 	check(
 		"write-cap: emits exactly one capped marker",
 		(text.match(/\[log topado en 10 bytes\]/g) || []).length === 1,
@@ -1199,9 +1199,9 @@ async function jobFinishedGuardRejectsCancel(url) {
 	const isFinished = mod.isJobFinished;
 	check("cancel-guard: isJobFinished is exported", typeof isFinished === "function", typeof isFinished);
 	if (typeof isFinished !== "function") return;
-	// A FINALIZED job must not be re-signalled — but a job whose direct child exited
-	// is still live: with shell:true the shell can exit while its process group keeps
-	// working (issue #9), so exitCode/signalCode alone must NOT count as finished.
+	// Un job FINALIZED no debe recibir señal de nuevo, pero un job cuyo child directo salió
+	// sigue vivo: con shell:true la shell puede salir mientras su process group sigue trabajando
+	// (issue #9), así que exitCode/signalCode solos NO deben contar como terminado.
 	check(
 		"cancel-guard: finalized job is finished",
 		isFinished({ finalized: true, child: { exitCode: null, signalCode: null } }) === true,
@@ -1232,8 +1232,8 @@ async function finalizeRejectionIsContained(url) {
 		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), `pi-bg-finalize-${label}-`));
 		const runDir = path.join(cwd, "run");
 		await fs.mkdir(runDir, { recursive: true });
-		// Make status.json a directory so atomicWriteJson's rename fails -> writeStatus
-		// rejects -> finalizeJob rejects, reproducing the host-crash hazard.
+		// Hace que status.json sea un directorio para que el rename de atomicWriteJson falle
+		// -> writeStatus rechaza -> finalizeJob rechaza, reproduciendo el riesgo de crash del host.
 		await fs.mkdir(path.join(runDir, "status.json"));
 		const noop = () => {};
 		return {
@@ -1254,9 +1254,9 @@ async function finalizeRejectionIsContained(url) {
 		};
 	};
 
-	// Hazard baseline: the raw finalizeJob rejects when the status write fails. An
-	// unguarded `void finalizeJob(...)` in a child lifecycle handler would escalate
-	// this to an unhandledRejection and crash the host Pi process.
+	// Baseline de riesgo: finalizeJob crudo rechaza cuando falla la escritura de status. Un
+	// `void finalizeJob(...)` sin guard en un handler de ciclo de vida del child escalaría esto
+	// a un unhandledRejection y crashearía el proceso host de Pi.
 	const bad1 = await makeBadRuntime("raw");
 	let rawRejected = false;
 	await finalizeJob(bad1, 0, null).catch(() => {
@@ -1264,8 +1264,8 @@ async function finalizeRejectionIsContained(url) {
 	});
 	check("finalize: raw finalizeJob rejects on status-write failure (hazard reproduced)", rawRejected);
 
-	// Fixed behavior: safeFinalize swallows the rejection (no unhandledRejection)
-	// and records it as a finalize-error event for observability.
+	// Comportamiento corregido: safeFinalize absorbe el rechazo (sin unhandledRejection)
+	// y lo registra como evento finalize-error para observabilidad.
 	const rejections = [];
 	const onUnhandled = (err) => rejections.push(err);
 	process.on("unhandledRejection", onUnhandled);

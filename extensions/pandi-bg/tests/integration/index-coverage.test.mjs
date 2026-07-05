@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Characterization coverage for index.ts command-dispatch branches that the
- * primary bg-jobs suite does not exercise: the top-level try/catch error
- * response, the duplicate-cancel branch, cancelPersistedJob's reused/unknown
- * identity refusal, handleDelete's non-deletable refusal, handlePrune's
- * untrusted + plan-mode gates, and reconcileInterruptedJobs skipping a job that
- * is active in this session.
+ * Cobertura de caracterización para ramas de command-dispatch de index.ts que la suite
+ * principal bg-jobs no ejerce: la respuesta de error del try/catch top-level, la rama de
+ * duplicate-cancel, el rechazo de identidad reused/unknown en cancelPersistedJob, el rechazo
+ * non-deletable de handleDelete, los gates untrusted + plan-mode de handlePrune, y
+ * reconcileInterruptedJobs omitiendo un job activo en esta sesión.
  *
- * All assertions go through the registered `/bg` command handler (which calls
- * ctx.ui.notify with only { message, type } — details are NOT surfaced there, so
- * we assert on the message text and type), or through the exported
- * reconcileInterruptedJobs. The source is the source of truth; these tests
- * record its CURRENT behavior.
+ * Todas las aserciones pasan por el command handler registrado de `/bg` (que llama a
+ * ctx.ui.notify solo con { message, type }; details NO se exponen ahí, así que afirmamos sobre
+ * el texto y tipo del message), o por reconcileInterruptedJobs exportado. El código fuente es la
+ * fuente de verdad; estos tests registran su comportamiento ACTUAL.
  */
 
 import { spawnSync } from "node:child_process";
@@ -36,7 +34,7 @@ const { check, counts } = createChecker();
 
 const skipped = [];
 
-// Start a child that runs until killed; returns { jobId, runDir, cleanup }.
+// Inicia un child que corre hasta que lo maten; devuelve { jobId, runDir, cleanup }.
 async function startLongJob(commands, cwd) {
 	const script = path.join(cwd, `long-${Math.random().toString(16).slice(2)}.cjs`);
 	const started = path.join(cwd, `started-${Math.random().toString(16).slice(2)}`);
@@ -62,11 +60,11 @@ async function startLongJob(commands, cwd) {
 	return { ctx, jobId, runDir, cleanup };
 }
 
-// ── Gap 1: handleBgCommand top-level try/catch ───────────────────────────────
+// ── Brecha 1: try/catch top-level de handleBgCommand ─────────────────────────
 async function topLevelCatchReturnsErrorResponse(url) {
 	const { commands } = await loadExtension(url);
-	// A non-string cwd makes candidateRunRoots(ctx) -> path.join throw synchronously
-	// inside handleList (a non-ENOENT error), exercising the dispatch try/catch.
+	// Un cwd no string hace que candidateRunRoots(ctx) -> path.join lance sincrónicamente
+	// dentro de handleList (un error non-ENOENT), ejerciendo el try/catch de dispatch.
 	const ctx = makeCtx({ cwd: 12345, trusted: true });
 	let threw = false;
 	try {
@@ -80,7 +78,7 @@ async function topLevelCatchReturnsErrorResponse(url) {
 	check("catch: response uses the 'error' type", note.type === "error", JSON.stringify(note));
 }
 
-// ── Gap 2: handleCancel duplicate-request branch ─────────────────────────────
+// ── Brecha 2: rama duplicate-request de handleCancel ─────────────────────────
 async function duplicateCancelIsReported(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-dup-cancel-");
@@ -108,7 +106,7 @@ async function duplicateCancelIsReported(url) {
 	}
 }
 
-// ── Gap 4: cancelPersistedJob reused/unknown identity refusal ────────────────
+// ── Brecha 4: rechazo de identidad reused/unknown de cancelPersistedJob ──────
 async function cancelPersistedRefusesReusedIdentity(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-persist-reuse-");
@@ -119,8 +117,8 @@ async function cancelPersistedRefusesReusedIdentity(url) {
 		path.join(runDir, "job.json"),
 		JSON.stringify({ jobId, command: "x", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir }, null, 2),
 	);
-	// Live pid (this process) + stale recorded identity => verifyProcessIdentity is
-	// "different" on POSIX (pid reused) and "unknown" on win32 (cannot verify).
+	// Pid vivo (este proceso) + identidad registrada stale => verifyProcessIdentity es
+	// "different" en POSIX (pid reutilizado) y "unknown" en win32 (no puede verificar).
 	await fs.writeFile(
 		path.join(runDir, "status.json"),
 		JSON.stringify(
@@ -149,7 +147,7 @@ async function cancelPersistedRefusesReusedIdentity(url) {
 	}
 }
 
-// ── Gap 5: handleDelete non-deletable (live/orphaned) refusal ────────────────
+// ── Brecha 5: rechazo non-deletable (live/orphaned) de handleDelete ──────────
 async function deleteRefusesLiveOrphan(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-delete-live-");
@@ -160,8 +158,8 @@ async function deleteRefusesLiveOrphan(url) {
 		path.join(runDir, "job.json"),
 		JSON.stringify({ jobId, command: "x", cwd, createdAt: new Date().toISOString() }, null, 2),
 	);
-	// state=running + alive pid (this process), no startId => orphaned, identity unknown
-	// => classifyForDeletion refuses (not a terminal state).
+	// state=running + pid alive (este proceso), sin startId => orphaned, identidad unknown
+	// => classifyForDeletion rechaza (no es un estado terminal).
 	await fs.writeFile(
 		path.join(runDir, "status.json"),
 		JSON.stringify({ jobId, state: "running", pid: process.pid, updatedAt: new Date().toISOString() }, null, 2),
@@ -174,11 +172,11 @@ async function deleteRefusesLiveOrphan(url) {
 	check("delete-live: current process is still alive (never touched)", process.kill(process.pid, 0));
 }
 
-// ── Gap 6: handlePrune untrusted + plan-mode gates ───────────────────────────
+// ── Brecha 6: gates untrusted + plan-mode de handlePrune ─────────────────────
 async function pruneUntrustedAndPlanModeRejected(url) {
 	const { commands } = await loadExtension(url);
 
-	// Untrusted project: prune is refused with a trust message.
+	// Proyecto no confiable: prune se rechaza con un mensaje de trust.
 	const untrustedCwd = await createBgTestDir("pi-bg-prune-untrusted-");
 	const untrustedCtx = makeCtx({ cwd: untrustedCwd, trusted: false });
 	await commands.get("bg").handler("prune", untrustedCtx);
@@ -190,7 +188,7 @@ async function pruneUntrustedAndPlanModeRejected(url) {
 	);
 	check("prune-gate: untrusted rejection uses 'warning' type", untrustedCtx._notes.at(-1)?.type === "warning");
 
-	// Plan mode active: prune is refused before the trust check.
+	// Plan mode activo: prune se rechaza antes del chequeo de trust.
 	const planSym = Symbol.for("pandi-plan.plan-mode.guard");
 	const prev = globalThis[planSym];
 	globalThis[planSym] = { isActive: () => true };
@@ -211,11 +209,11 @@ async function pruneUntrustedAndPlanModeRejected(url) {
 	}
 }
 
-// ── Gap 7: reconcileInterruptedJobs skips jobs active in this session ─────────
+// ── Brecha 7: reconcileInterruptedJobs omite jobs activos en esta sesión ──────
 async function reconcileSkipsActiveSessionJob(url) {
-	// IMPORTANT: load ONE module instance so the command handler and reconcile share
-	// the same in-process activeJobs registry (separate cache-busted imports would each
-	// get their own activeJobs and the "active" guard could not be observed).
+	// IMPORTANTE: cargar UNA instancia del módulo para que el command handler y reconcile
+	// compartan el mismo registro activeJobs in-process (imports separados con cache-busting
+	// tendrían su propio activeJobs y el guard "active" no podría observarse).
 	const mod = await loadModule(url);
 	const reconcile = mod.reconcileInterruptedJobs;
 	const { pi, commands } = makePi();
@@ -226,7 +224,7 @@ async function reconcileSkipsActiveSessionJob(url) {
 	const cwd = await createBgTestDir("pi-bg-reconcile-active-");
 	const job = await startLongJob(commands, cwd);
 	try {
-		// Tamper this live, in-session job's status to look like a dead-pid running job.
+		// Manipula el status de este job vivo in-session para que parezca un job running con dead-pid.
 		const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
 		const statusFile = path.join(job.runDir, "status.json");
 		const current = await readJson(statusFile);
@@ -262,7 +260,7 @@ async function main() {
 	await pruneUntrustedAndPlanModeRejected(url);
 	await reconcileSkipsActiveSessionJob(url);
 
-	// Intentionally not covered:
+	// Intencionalmente no cubierto:
 	skipped.push(
 		"handleCancel already-finished in-session branch (isJobFinished true while still in activeJobs): the window between child exit (exitCode set) and the 'close' handler running safeFinalize (which deletes the runtime from activeJobs) is not deterministically observable from the command handler, so a non-racy assertion is impossible.",
 	);

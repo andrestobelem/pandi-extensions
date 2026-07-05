@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 /**
- * Characterization coverage for extensions/pandi-bg/process-liveness.ts.
+ * Cobertura de caracterización para extensions/pandi-bg/process-liveness.ts.
  *
- * Fills the gaps the existing bg-jobs.test.mjs leaves in the pure liveness/identity
- * helpers: the error-code branches of probeProcessAlive, the platform branches of
- * readProcessStartId (Linux /proc parsing, darwin/BSD `ps` parsing, error-swallowing),
- * and verifyProcessIdentity's win32 degradation.
+ * Cubre las brechas que bg-jobs.test.mjs deja en los helpers puros de liveness/identidad: ramas
+ * por error-code de probeProcessAlive, ramas de plataforma de readProcessStartId (parseo Linux
+ * /proc, parseo `ps` darwin/BSD, absorción de errores) y degradación win32 de verifyProcessIdentity.
  *
- * These helpers read the OS via the GLOBAL `process` (process.kill / process.platform)
- * and via the MODULE imports `readFileSync` (node:fs) and `spawnSync`
- * (node:child_process). We bundle the module once with node:fs / node:child_process
- * aliased to injectable stubs (driven by globals), so we can feed deterministic
- * fixtures for the platform branches without any real subprocess or real /proc access,
- * and we temporarily override process.platform / process.kill (restored in finally) to
- * exercise each branch on this host. The source is the source of truth.
+ * Estos helpers leen el SO vía el GLOBAL `process` (process.kill / process.platform) y vía los
+ * imports de MODULE `readFileSync` (node:fs) y `spawnSync` (node:child_process). Bundleamos el
+ * módulo una vez con node:fs / node:child_process aliaseados a stubs inyectables (manejados por
+ * globals), así podemos alimentar fixtures determinísticos para las ramas de plataforma sin
+ * subprocess real ni acceso real a /proc, y temporalmente overrideamos process.platform /
+ * process.kill (restaurados en finally) para ejercer cada rama en este host. El código fuente es
+ * la fuente de verdad.
  */
 
 import * as fs from "node:fs/promises";
@@ -28,8 +27,8 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-// Bundle process-liveness.ts with its two node builtins aliased to stubs that delegate
-// to globals, so each test can inject the exact readFileSync/spawnSync behavior it needs.
+// Bundlea process-liveness.ts con sus dos builtins de node aliaseados a stubs que delegan a
+// globals, para que cada test pueda inyectar el comportamiento readFileSync/spawnSync exacto.
 async function buildLiveness() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-liveness-cov-"));
 	const fsStub = path.join(outDir, "stub-fs.mjs");
@@ -58,14 +57,14 @@ async function buildLiveness() {
 	return url;
 }
 
-// --- probeProcessAlive error-code branches -------------------------------------------
+// --- ramas de código de error de probeProcessAlive ------------------------------------
 
 function probeMapsErrorCodes(mod) {
 	const probe = mod.probeProcessAlive;
 	check("probe: probeProcessAlive is exported", typeof probe === "function", typeof probe);
 	if (typeof probe !== "function") return;
 
-	// EPERM = the process exists but is owned by another user -> still "alive".
+	// EPERM = el proceso existe pero pertenece a otro usuario -> sigue "alive".
 	const eperm = withKill(
 		() => {
 			const err = new Error("operation not permitted");
@@ -76,7 +75,7 @@ function probeMapsErrorCodes(mod) {
 	);
 	check("probe: EPERM maps to alive (foreign-owned but live)", eperm === "alive", String(eperm));
 
-	// An unexpected/unrelated code -> best-effort "unknown" (never claim dead).
+	// Código inesperado/no relacionado -> "unknown" de mejor esfuerzo (nunca afirmar dead).
 	const einval = withKill(
 		() => {
 			const err = new Error("invalid argument");
@@ -87,7 +86,7 @@ function probeMapsErrorCodes(mod) {
 	);
 	check("probe: unexpected code (EINVAL) maps to unknown", einval === "unknown", String(einval));
 
-	// ESRCH = no such process -> "dead" (re-confirm the documented mapping alongside EPERM).
+	// ESRCH = no existe tal proceso -> "dead" (reconfirma el mapeo documentado junto a EPERM).
 	const esrch = withKill(
 		() => {
 			const err = new Error("no such process");
@@ -98,7 +97,7 @@ function probeMapsErrorCodes(mod) {
 	);
 	check("probe: ESRCH maps to dead", esrch === "dead", String(esrch));
 
-	// An error with NO code at all also falls through to unknown.
+	// Un error SIN code también cae a unknown.
 	const noCode = withKill(
 		() => {
 			throw new Error("mysterious");
@@ -108,15 +107,15 @@ function probeMapsErrorCodes(mod) {
 	check("probe: error without a code maps to unknown", noCode === "unknown", String(noCode));
 }
 
-// --- readProcessStartId platform branches --------------------------------------------
+// --- ramas de plataforma de readProcessStartId ----------------------------------------
 
 function readStartIdLinuxBranch(mod) {
 	const read = mod.readProcessStartId;
 	if (typeof read !== "function") return;
 
-	// A realistic /proc/<pid>/stat where comm contains spaces AND inner parens, so the
-	// parser must slice after the LAST ')'. After-comm tokens are field 3 onward, so the
-	// starttime (field 22, 1-indexed) lands at index 19 of those tokens.
+	// Un /proc/<pid>/stat realista donde comm contiene espacios Y parens internos, así que el
+	// parser debe cortar después del ÚLTIMO ')'. Los tokens after-comm son desde el campo 3, así
+	// que starttime (campo 22, 1-indexed) cae en el índice 19 de esos tokens.
 	const tokens = Array.from({ length: 22 }, (_, i) => (i === 19 ? "987654" : String(i)));
 	const statLine = `1234 (weird )name) ${tokens.join(" ")}\n`;
 	globalThis.__bgReadFileSync = (file) => {
@@ -127,7 +126,7 @@ function readStartIdLinuxBranch(mod) {
 	clearStubs();
 	check("startid-linux: parses starttime after last ')' as lin:<starttime>", result === "lin:987654", String(result));
 
-	// A stat line with too few post-comm tokens (no index 19) -> undefined.
+	// Línea stat con muy pocos tokens post-comm (sin índice 19) -> undefined.
 	globalThis.__bgReadFileSync = () => "1234 (comm) 3 4 5\n";
 	const shortResult = withPlatform("linux", () => read(4321));
 	clearStubs();
@@ -138,7 +137,7 @@ function readStartIdDarwinBranch(mod) {
 	const read = mod.readProcessStartId;
 	if (typeof read !== "function") return;
 
-	// status 0 with lstart output -> ps:<trimmed output>.
+	// status 0 con salida lstart -> ps:<trimmed output>.
 	globalThis.__bgSpawnSync = (cmd, args) => {
 		check("startid-darwin: shells out to ps -o lstart=", cmd === "ps" && args.includes("lstart="), `${cmd} ${args}`);
 		return { status: 0, stdout: "Mon Jun 30 12:00:00 2024\n" };
@@ -147,19 +146,19 @@ function readStartIdDarwinBranch(mod) {
 	clearStubs();
 	check("startid-darwin: status 0 yields ps:<lstart>", ok === "ps:Mon Jun 30 12:00:00 2024", String(ok));
 
-	// Non-zero status -> the output is treated as empty -> undefined.
+	// Status no cero -> la salida se trata como vacía -> undefined.
 	globalThis.__bgSpawnSync = () => ({ status: 1, stdout: "Mon Jun 30 12:00:00 2024\n" });
 	const failed = withPlatform("darwin", () => read(4321));
 	clearStubs();
 	check("startid-darwin: non-zero status yields undefined", failed === undefined, String(failed));
 
-	// status 0 but empty stdout -> undefined.
+	// status 0 pero stdout vacío -> undefined.
 	globalThis.__bgSpawnSync = () => ({ status: 0, stdout: "   \n" });
 	const empty = withPlatform("darwin", () => read(4321));
 	clearStubs();
 	check("startid-darwin: empty stdout yields undefined", empty === undefined, String(empty));
 
-	// The same branch is reached for *bsd platforms (platform.endsWith("bsd")).
+	// La misma rama se alcanza para plataformas *bsd (platform.endsWith("bsd")).
 	globalThis.__bgSpawnSync = () => ({ status: 0, stdout: "Tue Jul 1 09:00:00 2024\n" });
 	const bsd = withPlatform("freebsd", () => read(4321));
 	clearStubs();
@@ -170,7 +169,7 @@ function readStartIdSwallowsErrors(mod) {
 	const read = mod.readProcessStartId;
 	if (typeof read !== "function") return;
 
-	// Linux: readFileSync throws (e.g. ENOENT) -> caught -> undefined.
+	// Linux: readFileSync lanza (p. ej. ENOENT) -> capturado -> undefined.
 	globalThis.__bgReadFileSync = () => {
 		const err = new Error("no such file");
 		err.code = "ENOENT";
@@ -180,7 +179,7 @@ function readStartIdSwallowsErrors(mod) {
 	clearStubs();
 	check("startid: a throwing readFileSync is swallowed to undefined", linThrow === undefined, String(linThrow));
 
-	// darwin: spawnSync throws -> caught -> undefined.
+	// darwin: spawnSync lanza -> capturado -> undefined.
 	globalThis.__bgSpawnSync = () => {
 		throw new Error("spawn blew up");
 	};
@@ -192,19 +191,19 @@ function readStartIdSwallowsErrors(mod) {
 function readStartIdWin32Branch(mod) {
 	const read = mod.readProcessStartId;
 	if (typeof read !== "function") return;
-	// win32 hits neither branch -> undefined (graceful degradation), with no stub calls.
+	// win32 no entra en ninguna rama -> undefined (degradación graceful), sin llamadas a stubs.
 	const result = withPlatform("win32", () => read(4321));
 	check("startid-win32: unsupported platform yields undefined", result === undefined, String(result));
 }
 
-// --- verifyProcessIdentity win32 degradation -----------------------------------------
+// --- degradación win32 de verifyProcessIdentity ---------------------------------------
 
 function verifyWin32Degrades(mod) {
 	const verify = mod.verifyProcessIdentity;
 	check("verify: verifyProcessIdentity is exported", typeof verify === "function", typeof verify);
 	if (typeof verify !== "function") return;
-	// On win32, readProcessStartId(pid) is undefined, so even WITH a recorded id the
-	// current id is unreadable -> "unknown" (never claims same/different).
+	// En win32, readProcessStartId(pid) es undefined, así que incluso CON un id registrado el
+	// id actual es ilegible -> "unknown" (nunca afirma same/different).
 	const result = withPlatform("win32", () => verify(4321, "ps:anything"));
 	check("verify-win32: degrades to unknown when current id is unreadable", result === "unknown", String(result));
 }

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for `/bg` safety/read paths.
+ * Test de integración conductual durable para rutas de seguridad/lectura de `/bg`.
  *
- * This pins the safety-critical M2 contract:
- * - `/bg plan` is a dry-run only and creates no runtime artifacts.
- * - `/bg list/status/logs` read trusted project-local and global fallback artifacts safely.
- * - mutating start/cancel slash commands are blocked in plan mode.
- * - untrusted projects do not inspect project-local `.pi/bg` artifacts and cannot start jobs.
- * - log output is bounded/truncated and job ids cannot path-traverse.
+ * Pinea el contrato M2 crítico para seguridad:
+ * - `/bg plan` es solo dry-run y no crea artefactos runtime.
+ * - `/bg list/status/logs` leen de forma segura artefactos confiables locales del proyecto
+ *   y global fallback.
+ * - las slash commands mutantes start/cancel se bloquean en plan mode.
+ * - proyectos no confiables no inspeccionan artefactos locales `.pi/bg` y no pueden iniciar jobs.
+ * - la salida de log es acotada/truncada y los job ids no pueden hacer path traversal.
  */
 
 import { spawnSync } from "node:child_process";
@@ -24,9 +25,9 @@ function stableHash(value) {
 	return crypto.createHash("sha1").update(value).digest("hex").slice(0, 12);
 }
 
-// Characterization: pin the CURRENT handleStatus orphaned refinement (dead -> interrupted;
+// Caracterización: pinea el refinamiento orphaned ACTUAL de handleStatus (dead -> interrupted;
 // alive+verified -> orphaned/identity:verified; alive+different -> interrupted; alive+no-id
-// -> best-effort orphaned) so R2's extraction of refineOrphanedIdentity cannot silently drift.
+// -> orphaned de mejor esfuerzo) para que la extracción R2 de refineOrphanedIdentity no derive.
 async function statusOrphanedRefinementPinned(url) {
 	const { readProcessStartId } = await import(url);
 	const { commands } = await loadExtension(url);
@@ -74,7 +75,7 @@ async function statusOrphanedRefinementPinned(url) {
 	}
 }
 
-// R1: /bg delete happy path + symlink-safe removal + path-traversal guard.
+// R1: happy path de /bg delete + eliminación symlink-safe + guard de path traversal.
 async function deleteRemovesTerminalJobsAndGuards(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-delete-");
@@ -119,8 +120,8 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 	);
 }
 
-// R3: /bg delete scope/trust + the blocking inner-symlink escape (fs.rm unlinks an inner
-// symlink instead of following it, so an external target survives the removal).
+// R3: scope/trust de /bg delete + bloqueo del escape por symlink interno (fs.rm deslinkea un
+// symlink interno en vez de seguirlo, así que un destino externo sobrevive a la eliminación).
 async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-delete-scope-");
@@ -130,7 +131,7 @@ async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 		return c._notes.at(-1)?.msg || "";
 	};
 
-	// (a) Inner symlink escape: deleting the job dir unlinks combined.log, never the target.
+	// (a) Escape por symlink interno: eliminar el job dir deslinkea combined.log, nunca el destino.
 	const okDir = await setupJob(runsRoot, "symlink-job", { state: "completed" });
 	const external = await createBgTestDir("pi-bg-external-");
 	const externalFile = path.join(external, "precious.txt");
@@ -143,7 +144,7 @@ async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 		existsSync(externalFile) && (await fs.readFile(externalFile, "utf8")) === "do not delete me",
 	);
 
-	// (b) Global-fallback job: refused as read-only/out-of-scope; dir intact.
+	// (b) Job global-fallback: rechazado como read-only/fuera de scope; dir intacto.
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
 	const globalDir = await setupJob(globalRunsRoot, "global-job", { state: "completed" });
 	const globalMsg = await say("delete global-job", makeCtx({ cwd, trusted: true }));
@@ -154,7 +155,7 @@ async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 	);
 	check("delete-scope: the global job dir is left intact", existsSync(globalDir));
 
-	// (c) Untrusted project: trust-gated no-op; dir intact.
+	// (c) Proyecto no confiable: no-op gateado por trust; dir intacto.
 	const keepDir = await setupJob(runsRoot, "keep-job", { state: "completed" });
 	const untrustedMsg = await say("delete keep-job", makeCtx({ cwd, trusted: false }));
 	check("delete-scope: untrusted project is refused", /no confiable/i.test(untrustedMsg), untrustedMsg);
@@ -176,8 +177,8 @@ async function deleteRejectedInPlanMode(planUrl, bgUrl) {
 	await commands.get("plan").handler("exit", ctx);
 }
 
-// R6: delete/prune are fully wired (description, completions, unknown-subcommand help) and
-// remain slash-only (no LLM tool); no dashboard verb leaked in.
+// R6: delete/prune están completamente cableados (description, completions, ayuda de
+// unknown-subcommand) y siguen siendo slash-only (sin LLM tool); no se filtró el verbo dashboard.
 async function dispatcherExposesDeleteAndPrune(url) {
 	const { commands, tools } = await loadExtension(url);
 	const bg = commands.get("bg");
@@ -249,7 +250,7 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 	const ctx = makeCtx({ cwd, trusted: true });
 
 	await commands.get("plan").handler("design safely", ctx);
-	// A later same-process plan.ts load must not mask an already-active plan guard.
+	// Una carga posterior de plan.ts en el mismo proceso no debe ocultar un plan guard ya activo.
 	const reloadedPlanExtension = await loadDefault(planUrl);
 	reloadedPlanExtension(makePi().pi);
 	await commands.get("bg").handler("start npm test", ctx);
@@ -266,10 +267,11 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 		"plan guard: /bg cancel rejected while plan mode active",
 		/No se puede ejecutar \/bg cancel mientras el modo plan está activo/.test(cancelMsg),
 	);
-	// bg's mutating surface is human-only slash commands: it must register ZERO LLM tools. The
-	// tools map here holds only what the bundled plan+bg extensions registered, so the invariant
-	// is "no bg/background_job tool" (plan owns submit_plan + enter_plan_mode). Asserted by tool
-	// NAME rather than a frozen count so adding plan tools never silently breaks this guard.
+	// La superficie mutante de bg son solo slash commands humanas: debe registrar CERO LLM tools.
+	// El map tools acá contiene solo lo registrado por las extensiones plan+bg bundleadas, así que
+	// el invariante es "sin tool bg/background_job" (plan posee submit_plan + enter_plan_mode).
+	// Se afirma por NAME de tool y no por un conteo congelado para que agregar tools de plan no
+	// rompa este guard silenciosamente.
 	check(
 		"plan guard: still registers no background_job/bg LLM tools",
 		!tools.has("background_job") && !tools.has("bg") && tools.has("submit_plan") && tools.has("enter_plan_mode"),
@@ -318,7 +320,7 @@ async function listStatusLogsReadExistingArtifacts(url, agentDir) {
 async function logTailDoesNotSplitUtf8(url) {
 	const cwd = await createBgTestDir("pi-bg-utf8-");
 	const runsRoot = path.join(cwd, ".pi", "bg", "runs");
-	// Place a 4-byte emoji so the last-20000-bytes window starts on a continuation byte.
+	// Coloca un emoji de 4 bytes para que la ventana de últimos 20000 bytes empiece en un byte de continuación.
 	const head = Buffer.from("A".repeat(10));
 	const emoji = Buffer.from("\u{1F600}");
 	const tail = Buffer.from("A".repeat(19997));
@@ -587,7 +589,7 @@ async function planAliasStillPreviews(url) {
 	const cwd = await createBgTestDir("pi-bg-plan-alias-");
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, trusted: true });
-	// Backward-compat: the deprecated `plan` verb still maps to the preview dry-run.
+	// Backward-compat: el verbo deprecated `plan` todavía mapea al dry-run preview.
 	await commands.get("bg").handler("plan npm test", ctx);
 	check(
 		"alias: deprecated /bg plan still previews (dry-run)",
@@ -643,7 +645,7 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 	};
 	const readState = async (runDir) => JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")).state;
 
-	// TUI session: a dead running job is reconciled to interrupted on disk.
+	// Sesión TUI: un job running muerto se reconcilia a interrupted en disco.
 	const tui = await seedDeadJob("dead-on-start");
 	await handler({}, makeCtx({ cwd: tui.cwd, trusted: true, mode: "tui" }));
 	check(
@@ -652,7 +654,7 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 		await readState(tui.runDir),
 	);
 
-	// Non-persistent json mode: gated off, the artifact is left running.
+	// Modo json no persistente: gateado off, el artefacto queda running.
 	const json = await seedDeadJob("dead-json");
 	await handler({}, makeCtx({ cwd: json.cwd, trusted: true, mode: "json" }));
 	check(

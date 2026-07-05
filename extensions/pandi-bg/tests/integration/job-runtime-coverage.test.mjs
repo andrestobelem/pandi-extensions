@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * Characterization coverage for extensions/pandi-bg/job-runtime.ts.
+ * Cobertura de caracterización para extensions/pandi-bg/job-runtime.ts.
  *
- * Targets behaviors the existing bg-jobs.test.mjs leaves uncovered: writeStatus
- * serialization, pipeWithBackpressure null-source short-circuit + multi-sink
- * coordination/independent caps, finalizeJob state derivation + idempotency +
- * cancelTimer clearing, killRuntime's finished/no-pid/posix-group branches, and
- * signalProcessGroup's POSIX negative-pid group kill.
+ * Apunta a comportamientos que bg-jobs.test.mjs deja sin cubrir: serialización de writeStatus,
+ * short-circuit de fuente null en pipeWithBackpressure + coordinación multi-sink/caps
+ * independientes, derivación de estado + idempotencia + limpieza de cancelTimer en finalizeJob,
+ * ramas finished/no-pid/posix-group de killRuntime, y kill de grupo con pid negativo POSIX de
+ * signalProcessGroup.
  *
- * job-runtime.ts is bundled DIRECTLY (not via index.ts) because killRuntime and
- * signalProcessGroup are not re-exported from index.ts. storage.ts (pulled in)
- * imports runtime SDK symbols, so the sdk stub is required.
+ * job-runtime.ts se bundlea DIRECTAMENTE (no vía index.ts) porque killRuntime y
+ * signalProcessGroup no se reexportan desde index.ts. storage.ts (arrastrado) importa símbolos
+ * del SDK runtime, así que se requiere el stub sdk.
  */
 
 import { spawn } from "node:child_process";
@@ -66,7 +66,7 @@ function makeRuntime(label, runDir, { child, cancelRequested = false } = {}) {
 	};
 }
 
-// --- writeStatus: merges patch + updatedAt, serializes via statusWriteChain ---
+// --- writeStatus: mergea patch + updatedAt, serializa vía statusWriteChain ---
 async function writeStatusSerializes(mod) {
 	const writeStatus = mod.writeStatus;
 	check("writeStatus: exported", typeof writeStatus === "function", typeof writeStatus);
@@ -76,7 +76,7 @@ async function writeStatusSerializes(mod) {
 	rt.status = { jobId: "job-ws", state: "starting", updatedAt: new Date(0).toISOString(), exitCode: 5 };
 
 	const p1 = writeStatus(rt, { state: "starting" });
-	const u1 = rt.status.updatedAt; // set synchronously before first await
+	const u1 = rt.status.updatedAt; // seteado sincrónicamente antes del primer await
 	const p2 = writeStatus(rt, { state: "running" });
 	const u2 = rt.status.updatedAt;
 	await Promise.all([p1, p2]);
@@ -96,7 +96,7 @@ async function writeStatusSerializes(mod) {
 	);
 }
 
-// --- pipeWithBackpressure: null/undefined source short-circuits ---
+// --- pipeWithBackpressure: fuente null/undefined hace short-circuit ---
 async function pipeNullSourceShortCircuits(mod) {
 	const pipe = mod.pipeWithBackpressure;
 	if (typeof pipe !== "function") return check("pipe-null: exported", false, typeof pipe);
@@ -124,7 +124,7 @@ async function pipeNullSourceShortCircuits(mod) {
 	sink.destroy();
 }
 
-// --- pipeWithBackpressure: multiple sinks coordinate (resume only after EVERY sink drains) ---
+// --- pipeWithBackpressure: múltiples sinks coordinan (resume solo tras drenar CADA sink) ---
 async function pipeMultiSinkCoordination(mod) {
 	const pipe = mod.pipeWithBackpressure;
 	if (typeof pipe !== "function") return check("pipe-multi: exported", false, typeof pipe);
@@ -151,7 +151,7 @@ async function pipeMultiSinkCoordination(mod) {
 		source.isPaused() === true,
 		`isPaused=${source.isPaused()}`,
 	);
-	// Release only slowA -> the other sink still needs drain, so the source stays paused.
+	// Libera solo slowA -> el otro sink aún necesita drain, así que la fuente sigue pausada.
 	if (cbA) cbA();
 	await tick();
 	check(
@@ -159,7 +159,7 @@ async function pipeMultiSinkCoordination(mod) {
 		source.isPaused() === true,
 		`isPaused=${source.isPaused()}`,
 	);
-	// Release slowB -> every sink has drained, source resumes.
+	// Libera slowB -> todos los sinks drenaron, la fuente reanuda.
 	if (cbB) cbB();
 	await tick();
 	check(
@@ -172,7 +172,7 @@ async function pipeMultiSinkCoordination(mod) {
 	slowB.destroy();
 }
 
-// --- pipeWithBackpressure: independent per-sink byte caps ---
+// --- pipeWithBackpressure: caps de bytes independientes por sink ---
 async function pipeIndependentCaps(mod) {
 	const pipe = mod.pipeWithBackpressure;
 	if (typeof pipe !== "function") return check("pipe-caps: exported", false, typeof pipe);
@@ -193,9 +193,9 @@ async function pipeIndependentCaps(mod) {
 	});
 	const cap = 10;
 	pipe(source, [sinkA, sinkB], cap);
-	source.write(Buffer.from("a".repeat(8))); // under cap
-	source.write(Buffer.from("b".repeat(8))); // crosses cap
-	source.write(Buffer.from("c".repeat(8))); // dropped once capped
+	source.write(Buffer.from("a".repeat(8))); // bajo cap
+	source.write(Buffer.from("b".repeat(8))); // cruza el cap
+	source.write(Buffer.from("c".repeat(8))); // descartado tras llegar al cap
 	await tick();
 	const textA = Buffer.concat(bufA).toString("utf8");
 	const textB = Buffer.concat(bufB).toString("utf8");
@@ -213,12 +213,12 @@ async function pipeIndependentCaps(mod) {
 	sinkB.destroy();
 }
 
-// --- finalizeJob: state derivation ---
+// --- finalizeJob: derivación de estado ---
 async function finalizeStateDerivation(mod) {
 	const finalizeJob = mod.finalizeJob;
 	if (typeof finalizeJob !== "function") return check("finalize-derive: exported", false, typeof finalizeJob);
 
-	// error -> failed (records error.message; finish event includes it)
+	// error -> failed (registra error.message; el evento finish lo incluye)
 	const errDir = await makeRunDir("err");
 	const errRt = makeRuntime("err", errDir);
 	await finalizeJob(errRt, null, null, new Error("spawn EACCES"));
@@ -236,14 +236,14 @@ async function finalizeStateDerivation(mod) {
 		errEvents.slice(-200),
 	);
 
-	// exitCode 0, no error, not cancelled -> completed
+	// exitCode 0, sin error, no cancelado -> completed
 	const okDir = await makeRunDir("ok");
 	const okRt = makeRuntime("ok", okDir);
 	await finalizeJob(okRt, 0, null);
 	const okStatus = await readJson(path.join(okDir, "status.json"));
 	check("finalize-derive: exit 0 -> completed", okStatus.state === "completed", JSON.stringify(okStatus));
 
-	// non-zero exit -> failed
+	// salida no cero -> failed
 	const failDir = await makeRunDir("fail");
 	const failRt = makeRuntime("fail", failDir);
 	await finalizeJob(failRt, 7, null);
@@ -254,7 +254,7 @@ async function finalizeStateDerivation(mod) {
 		JSON.stringify(failStatus),
 	);
 
-	// cancelRequested wins even on exit 0
+	// cancelRequested gana incluso con exit 0
 	const cancelDir = await makeRunDir("cancel");
 	const cancelRt = makeRuntime("cancel", cancelDir, { cancelRequested: true });
 	await finalizeJob(cancelRt, 0, null);
@@ -266,17 +266,17 @@ async function finalizeStateDerivation(mod) {
 	);
 }
 
-// --- finalizeJob: cleanup runs even when a status/event write throws ---
-// finalizeJob sets finalized=true, then awaits writeStatus + appendEvent, then
-// removes the job from activeJobs and closes the log streams. If a write throws
-// (disk full, FD limit, missing runDir), the cleanup must STILL run — otherwise
-// the job stays half-finalized: stream fds leak and the run is stuck. Both
-// cleanup steps share one finally; closing the streams is the observable pin.
+// --- finalizeJob: cleanup corre incluso cuando una escritura status/event lanza ---
+// finalizeJob setea finalized=true, luego espera writeStatus + appendEvent, luego remueve el job
+// de activeJobs y cierra los log streams. Si una escritura lanza (disco lleno, límite de FD,
+// runDir faltante), el cleanup IGUAL debe correr; de lo contrario el job queda medio finalizado:
+// stream fds filtrados y la corrida trabada. Ambos pasos de cleanup comparten un finally; cerrar
+// los streams es el pin observable.
 async function finalizeClosesStreamsWhenWriteFails(mod) {
 	const finalizeJob = mod.finalizeJob;
 	if (typeof finalizeJob !== "function") return check("finalize-cleanup: exported", false, typeof finalizeJob);
 
-	// A runDir that does NOT exist makes atomicWriteJson (writeStatus) throw ENOENT.
+	// Un runDir que NO existe hace que atomicWriteJson (writeStatus) lance ENOENT.
 	const badRunDir = path.join(os.tmpdir(), "pi-bg-finalize-nonexistent-dir-xyz", "run");
 	const ended = { stdout: false, stderr: false, combined: false };
 	const rt = makeRuntime("cleanup", badRunDir, {});
@@ -298,7 +298,7 @@ async function finalizeClosesStreamsWhenWriteFails(mod) {
 	);
 }
 
-// --- finalizeJob: idempotency + cancelTimer cleared ---
+// --- finalizeJob: idempotencia + cancelTimer limpiado ---
 async function finalizeIdempotentAndClearsTimer(mod) {
 	const finalizeJob = mod.finalizeJob;
 	if (typeof finalizeJob !== "function") return check("finalize-idem: exported", false, typeof finalizeJob);
@@ -311,7 +311,7 @@ async function finalizeIdempotentAndClearsTimer(mod) {
 
 	await finalizeJob(rt, 0, null);
 	check("finalize-idem: first call marks finalized", rt.finalized === true);
-	await finalizeJob(rt, 7, null); // must be a no-op
+	await finalizeJob(rt, 7, null); // debe ser no-op
 
 	const status = await readJson(path.join(runDir, "status.json"));
 	check(
@@ -327,15 +327,15 @@ async function finalizeIdempotentAndClearsTimer(mod) {
 	check("finalize-idem: cancelTimer was cleared (callback never fired)", fired === false);
 }
 
-// --- killRuntime: finalized job is a no-op; no-pid live job falls back to child.kill ---
+// --- killRuntime: job finalized es no-op; job vivo sin pid cae a child.kill ---
 async function killRuntimeBranches(mod) {
 	const killRuntime = mod.killRuntime;
 	if (typeof killRuntime !== "function") return check("kill: exported", false, typeof killRuntime);
 
-	// FINALIZED job -> returns early, never signals (its pid may be reaped/reused).
-	// NOTE: exitCode alone must NOT trigger this branch — with shell:true the direct
-	// child can be just the shell while its group lives on (issue #9); that live-group
-	// case is pinned by killRuntimeExitedShellSignalsSurvivors below.
+	// Job FINALIZED -> retorna temprano, nunca envía señal (su pid puede estar reaped/reused).
+	// NOTE: exitCode solo NO debe disparar esta rama; con shell:true el child directo puede ser
+	// solo la shell mientras su grupo sigue vivo (issue #9); ese caso live-group queda pineado por
+	// killRuntimeExitedShellSignalsSurvivors abajo.
 	let finishedSig = "untouched";
 	const finished = {
 		finalized: true,
@@ -348,7 +348,7 @@ async function killRuntimeBranches(mod) {
 		String(finishedSig),
 	);
 
-	// Live job with no pid -> falls back to child.kill(signal).
+	// Job vivo sin pid -> cae a child.kill(signal).
 	let noPidSig = null;
 	const noPid = {
 		finalized: false,
@@ -358,7 +358,7 @@ async function killRuntimeBranches(mod) {
 	check("kill: no-pid live job falls back to child.kill(signal)", noPidSig === "SIGKILL", String(noPidSig));
 }
 
-// --- killRuntime (POSIX): an exited direct child does NOT block the group signal (issue #9) ---
+// --- killRuntime (POSIX): un child directo salido NO bloquea la señal de grupo (issue #9) ---
 async function killRuntimeExitedShellSignalsSurvivors(mod) {
 	if (process.platform === "win32") {
 		check("kill-exited-shell: POSIX group semantics (skipped on win32)", true);
@@ -366,13 +366,13 @@ async function killRuntimeExitedShellSignalsSurvivors(mod) {
 	}
 	const killRuntime = mod.killRuntime;
 	if (typeof killRuntime !== "function") return check("kill-exited-shell: exported", false, typeof killRuntime);
-	// A detached leader forks a survivor into its process group and EXITS — mirroring
-	// dash under shell:true forking the real work (issue #9): the runtime's direct
-	// child has exitCode set while a group member lives on.
+	// Un leader detached forkea un sobreviviente dentro de su process group y SALE, espejando a
+	// dash bajo shell:true cuando forkea el trabajo real (issue #9): el child directo del runtime
+	// tiene exitCode seteado mientras un miembro del grupo sigue vivo.
 	const code =
 		"const cp=require('node:child_process');" +
 		"const g=cp.spawn(process.execPath,['-e','setTimeout(()=>{},60000)'],{stdio:'ignore'});" +
-		"g.unref();" + // the child handle must not keep the leader's event loop alive: the leader EXITS
+		"g.unref();" + // el handle del child no debe mantener vivo el event loop del leader: el leader SALE
 		"process.stdout.write(String(g.pid));";
 	const child = spawn(process.execPath, ["-e", code], { detached: true, stdio: ["ignore", "pipe", "ignore"] });
 	child.unref();
@@ -402,17 +402,17 @@ async function killRuntimeExitedShellSignalsSurvivors(mod) {
 		try {
 			process.kill(-child.pid, "SIGKILL");
 		} catch {
-			/* group already gone */
+			/* grupo ya ausente */
 		}
 		try {
 			process.kill(grandPid, "SIGKILL");
 		} catch {
-			/* survivor already gone */
+			/* sobreviviente ya ausente */
 		}
 	}
 }
 
-// --- killRuntime (POSIX): a real pid signals the group then returns (no double kill) ---
+// --- killRuntime (POSIX): un pid real señaliza el grupo y retorna (sin double kill) ---
 async function killRuntimePosixGroup(mod) {
 	if (process.platform === "win32") {
 		check("kill-posix: group-signal path exercised on POSIX only (skipped on win32)", true);
@@ -441,17 +441,17 @@ async function killRuntimePosixGroup(mod) {
 		try {
 			process.kill(-child.pid, "SIGKILL");
 		} catch {
-			/* group already gone */
+			/* grupo ya ausente */
 		}
 		try {
 			process.kill(child.pid, "SIGKILL");
 		} catch {
-			/* child already gone */
+			/* child ya ausente */
 		}
 	}
 }
 
-// --- signalProcessGroup (POSIX): negative-pid kill targets the detached group ---
+// --- signalProcessGroup (POSIX): kill con pid negativo apunta al grupo detached ---
 async function signalProcessGroupPosix(mod) {
 	if (process.platform === "win32") {
 		check("group-posix: negative-pid group kill exercised on POSIX only (skipped on win32)", true);
@@ -460,8 +460,8 @@ async function signalProcessGroupPosix(mod) {
 	const signalProcessGroup = mod.signalProcessGroup;
 	if (typeof signalProcessGroup !== "function")
 		return check("group-posix: exported", false, typeof signalProcessGroup);
-	// A detached leader that forks a grandchild in the SAME process group; both must die
-	// from a single negative-pid group signal (distinguishing it from process.kill(pid)).
+	// Un leader detached que forkea un grandchild en el MISMO process group; ambos deben morir
+	// por una sola señal de grupo con pid negativo (distinguiéndola de process.kill(pid)).
 	const code =
 		"const cp=require('node:child_process');" +
 		"const g=cp.spawn(process.execPath,['-e','setTimeout(()=>{},60000)'],{stdio:'ignore'});" +
@@ -491,12 +491,12 @@ async function signalProcessGroupPosix(mod) {
 			try {
 				process.kill(-pid, "SIGKILL");
 			} catch {
-				/* gone */
+				/* ausente */
 			}
 			try {
 				process.kill(pid, "SIGKILL");
 			} catch {
-				/* gone */
+				/* ausente */
 			}
 		}
 	}

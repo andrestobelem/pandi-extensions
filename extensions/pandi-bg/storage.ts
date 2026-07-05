@@ -1,11 +1,12 @@
 /**
- * pandi-bg storage layer: path layout (project/global run roots), directory-safety
- * helpers (no symlinks / path escape), bounded JSON read, and atomic JSON write.
+ * Capa de storage de pandi-bg: layout de paths (project/global run roots), helpers de
+ * seguridad de directorio (sin symlinks / escape de path), lectura JSON acotada y
+ * escritura JSON atómica.
  *
- * Extracted verbatim from index.ts (behavior-preserving) to isolate the pure,
- * activeJobs-free filesystem concerns. Depth-one sibling module imported by
- * index.ts via "./storage.js". The runner/jobs concerns (streams, activeJobs,
- * status derivation) deliberately stay in index.ts.
+ * Extraída verbatim de index.ts (preserva comportamiento) para aislar las preocupaciones
+ * de filesystem puras y sin activeJobs. Módulo hermano de profundidad uno importado por
+ * index.ts vía "./storage.js". Las preocupaciones de runner/jobs (streams, activeJobs,
+ * derivación de status) quedan deliberadamente en index.ts.
  */
 
 import * as crypto from "node:crypto";
@@ -129,8 +130,8 @@ export async function atomicWriteJson(file: string, value: unknown): Promise<voi
 	}
 }
 
-// Sum the sizes of regular files under a run dir (lstat-walk via Dirent; an inner symlink
-// is skipped, never followed, so it cannot inflate the total or escape the tree).
+// Suma tamaños de archivos regulares bajo un run dir (lstat-walk vía Dirent; un symlink
+// interno se omite, nunca se sigue, así que no puede inflar el total ni escapar del árbol).
 export async function dirSizeBytes(dir: string): Promise<number> {
 	let total = 0;
 	let entries: {
@@ -152,22 +153,23 @@ export async function dirSizeBytes(dir: string): Promise<number> {
 			try {
 				total += (await fs.lstat(full)).size;
 			} catch {
-				// unreadable entry contributes nothing
+				// una entry ilegible no aporta nada
 			}
 		}
 	}
 	return total;
 }
 
-// Minimal flag parse for /bg prune: only --yes executes; everything else is ignored (no
-// other flags in BG-4), so a typo like --yse stays a safe dry-run.
+// Parseo mínimo de flags para /bg prune: solo --yes ejecuta; todo lo demás se ignora (sin
+// otros flags en BG-4), así que un typo como --yse queda como dry-run seguro.
 export function parsePruneFlags(tail: string): { yes: boolean } {
 	return { yes: tail.trim().split(/\s+/).filter(Boolean).includes("--yes") };
 }
 
-// Best-effort append-only audit of irreversible removals, at .pi/bg/runs/.audit.jsonl.
-// The leading dot means validJobId() rejects it, so every job-enumeration loop skips
-// it for free (no pollution of list/reconcile/prune). Never throws into the caller.
+// Auditoría append-only de mejor esfuerzo de eliminaciones irreversibles, en
+// .pi/bg/runs/.audit.jsonl. El punto inicial hace que validJobId() lo rechace, así que todo
+// loop de enumeración de jobs lo omite gratis (sin contaminar list/reconcile/prune). Nunca
+// lanza hacia quien llama.
 export async function appendAuditLine(ctx: ExtensionContext, entry: Record<string, unknown>): Promise<void> {
 	const auditFile = path.join(getProjectBgRoot(ctx), RUNS_DIR, ".audit.jsonl");
 	try {
@@ -177,15 +179,15 @@ export async function appendAuditLine(ctx: ExtensionContext, entry: Record<strin
 			"utf8",
 		);
 	} catch {
-		// audit is best-effort evidence; it must never block the operation it records
+		// audit es evidencia de mejor esfuerzo; nunca debe bloquear la operación que registra
 	}
 }
 
-// Remove a single project-local run directory, symlink/path-safe. Immediately before
-// fs.rm it re-asserts the jobId and the full path chain (no symlinked component, no
-// escape from the project runs root). fs.rm(recursive) lstats each entry, so a
-// malicious inner symlink (e.g. combined.log -> /etc/...) is unlinked, not followed.
-// Returns false (nothing removed) when the dir is missing, symlinked, or out of scope.
+// Elimina un único run directory local del proyecto, symlink/path-safe. Justo antes de fs.rm
+// reafirma el jobId y toda la cadena de path (sin componente symlinkeado, sin escape de la
+// project runs root). fs.rm(recursive) hace lstat de cada entry, así que un symlink interno
+// malicioso (p. ej. combined.log -> /etc/...) se deslinkea, no se sigue. Devuelve false
+// (nada eliminado) cuando el dir falta, está symlinkeado o está fuera de scope.
 export async function removeRunDir(
 	ctx: ExtensionContext,
 	jobId: string,
@@ -196,8 +198,8 @@ export async function removeRunDir(
 	const runDir = path.join(getProjectBgRoot(ctx), RUNS_DIR, jobId);
 	if (!(await lstatPlainDirectoryChain(ctx.cwd, runDir))) return false;
 	if (!(await lstatPlainDirectory(runDir))) return false;
-	// Edge re-validation: re-read status and let the caller re-derive deletability
-	// immediately before the irreversible fs.rm, closing the classify->remove window.
+	// Revalidación en el borde: relee status y deja que quien llama rederive eliminabilidad
+	// justo antes del fs.rm irreversible, cerrando la ventana classify->remove.
 	if (revalidate && !(await revalidate(await readJson(path.join(runDir, "status.json"))))) return false;
 	await fs.rm(runDir, { recursive: true, force: true });
 	await appendAuditLine(ctx, {

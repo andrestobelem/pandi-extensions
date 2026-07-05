@@ -1,18 +1,18 @@
-// pandi-bg read-time job-state projection. These derive the state a reader should SEE from
-// the persisted state + the in-process registry (activeJobs) + a pid liveness/identity
-// probe — they never persist and never signal. Pure projection (no fs); the I/O scanning
-// (listJobs/eachProjectRunDir/reconcileInterruptedJobs) stays in index.ts and feeds these.
+// Proyección read-time de job-state de pandi-bg. Deriva el estado que un lector debe VER desde
+// el estado persistido + el registro in-process (activeJobs) + una prueba de liveness/identidad
+// de pid; nunca persiste ni envía señales. Proyección pura (sin fs); el escaneo I/O
+// (listJobs/eachProjectRunDir/reconcileInterruptedJobs) queda en index.ts y alimenta esto.
 
 import type { JobState } from "./index.js";
 import { probeProcessAlive, verifyProcessIdentity } from "./process-liveness.js";
 import { activeJobs, asNumber, asString } from "./runtime-state.js";
 
-// Single read-time projection of the persisted state (the only states a writer can
-// know: starting/running/completed/failed/cancelled). When a job is persisted as
-// starting/running but is NOT owned by this session, probe the recorded pid to
-// distinguish an orphaned-but-alive process from one that died while Pi was down,
-// falling back to `stale` only when the pid is unprobeable. Never persisted, never
-// signals: cancel still refuses any persisted pid.
+// Proyección read-time única del estado persistido (los únicos estados que un writer puede
+// conocer: starting/running/completed/failed/cancelled). Cuando un job está persistido como
+// starting/running pero esta sesión NO lo posee, prueba el pid registrado para distinguir un
+// proceso huérfano pero vivo de uno que murió mientras Pi estaba caído, cayendo a `stale`
+// solo cuando el pid no es comprobable. Nunca persistido, nunca señales: cancel sigue
+// rechazando cualquier pid persistido.
 export function projectState(
 	jobId: string,
 	persisted: string | undefined,
@@ -37,10 +37,10 @@ export function deriveState(jobId: string, status: Record<string, unknown> | und
 	return projectState(jobId, asString(status?.state) ?? "unknown", asNumber(status?.pid)).state;
 }
 
-// Refine a read-time `orphaned` projection with one identity probe: a different start
-// identity means the pid was reused (our process is gone => interrupted); a matching
-// identity is verified-alive; unknown stays orphaned (best-effort). Shared by /bg status
-// and classifyForDeletion so the two never diverge.
+// Refina una proyección read-time `orphaned` con una prueba de identidad: una identidad de
+// inicio distinta significa que el pid fue reutilizado (nuestro proceso terminó => interrupted);
+// una identidad igual es verified-alive; unknown queda orphaned (mejor esfuerzo). Compartido por
+// /bg status y classifyForDeletion para que ambos nunca diverjan.
 export function refineOrphanedIdentity(
 	pid: number | undefined,
 	startId: string | undefined,

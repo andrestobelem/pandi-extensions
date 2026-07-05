@@ -1,13 +1,13 @@
 /**
- * pandi-bg in-process runtime registry: the `activeJobs` map (the ES-module
- * singleton tracking jobs this session owns) plus the tiny shared helpers
+ * Registro runtime in-process de pandi-bg: el map `activeJobs` (el singleton ES-module
+ * que trackea jobs que posee esta sesión) más los helpers compartidos mínimos
  * (nowIso, appendEvent, asString, asNumber).
  *
- * Extracted verbatim from index.ts (behavior-preserving). The `activeJobs`
- * Map is a single shared instance imported back into index.ts so every
- * get/set/has/delete/values call site operates on the same identity. The
- * RuntimeJob type stays declared in index.ts (the runner/jobs hub) and is
- * imported here type-only, so there is no runtime import cycle.
+ * Extraído verbatim de index.ts (preserva comportamiento). El Map `activeJobs`
+ * es una única instancia compartida importada de vuelta en index.ts para que todo
+ * call site get/set/has/delete/values opere sobre la misma identidad. El tipo
+ * RuntimeJob sigue declarado en index.ts (el hub de runner/jobs) y se importa acá
+ * solo como tipo, así que no hay ciclo de import runtime.
  */
 
 import * as fs from "node:fs/promises";

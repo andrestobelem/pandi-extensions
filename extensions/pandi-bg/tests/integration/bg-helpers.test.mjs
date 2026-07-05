@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /**
- * Unit tests for the PURE/file helpers in extensions/pandi-bg that the coverage audit flagged
- * as high-risk but untested:
- *   - storage.ts: validJobId (path-traversal guard), lstatPlainDirectory,
- *     lstatPlainDirectoryChain, ensurePlainDirectory (symlink/non-dir refusal).
- *   - runtime-state.ts: asString / asNumber (finite-number coercion).
+ * Tests unitarios para los helpers PURE/file en extensions/pandi-bg que la auditoría de
+ * cobertura marcó como de alto riesgo pero sin tests:
+ *   - storage.ts: validJobId (guard de path traversal), lstatPlainDirectory,
+ *     lstatPlainDirectoryChain, ensurePlainDirectory (rechazo de symlink/non-dir).
+ *   - runtime-state.ts: asString / asNumber (coerción de finite-number).
  *
- * These guards exist to stop a malicious/buggy job id or a symlinked path from escaping the
- * bg runs directory, so they deserve direct coverage. Real filesystem fixtures (tmpdir) are
- * used for the lstat chain so symlink behavior is exercised, not mocked away.
+ * Estos guards existen para impedir que un job id malicioso/buggy o un path symlinkeado escape
+ * del directorio de bg runs, así que merecen cobertura directa. Se usan fixtures reales de
+ * filesystem (tmpdir) para la cadena lstat, de modo que el comportamiento de symlink se ejerza,
+ * no quede mockeado.
  *
- * Run it:
+ * Ejecutar:
  *   node extensions/pandi-bg/tests/integration/bg-helpers.test.mjs
  */
 
@@ -28,13 +29,13 @@ const { check, counts } = createChecker();
 async function scenarioStorage(url) {
 	const { validJobId, lstatPlainDirectory, lstatPlainDirectoryChain, ensurePlainDirectory } = await loadModule(url);
 
-	// --- validJobId: the path-traversal / hidden-file guard ---
+	// --- validJobId: guard de path traversal / hidden-file ---
 	const valid = ["bg-abc_1.2", "A", "abc123", "x.y-z_2", "bg-lq3k9-1a2b3c4d"];
 	for (const id of valid) check(`validJobId accepts: ${JSON.stringify(id)}`, validJobId(id) === true);
 	const invalid = ["", ".", "..", ".hidden", ".audit.jsonl", "../x", "a/b", "-leading", "a b", "a\\b", "..\\x"];
 	for (const id of invalid) check(`validJobId rejects: ${JSON.stringify(id)}`, validJobId(id) === false);
 
-	// --- filesystem fixtures for the lstat guards ---
+	// --- fixtures de filesystem para los guards lstat ---
 	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bg-storage-"));
 	try {
 		const realDir = path.join(tmp, "realdir");
@@ -47,7 +48,7 @@ async function scenarioStorage(url) {
 		try {
 			await fs.symlink(realDir, symlinkToDir, "dir");
 		} catch {
-			symlinkOk = false; // some platforms/CI forbid symlink creation
+			symlinkOk = false; // algunas plataformas/CI prohíben crear symlinks
 		}
 		const missing = path.join(tmp, "nope");
 
@@ -63,7 +64,7 @@ async function scenarioStorage(url) {
 			check("lstatPlainDirectory symlink case skipped (symlink unsupported here)", true);
 		}
 
-		// chain: true only when every component is a real, non-symlinked dir under base.
+		// chain: true solo cuando todo componente es un dir real sin symlink bajo base.
 		check(
 			"lstatPlainDirectoryChain true for nested real dirs under base",
 			(await lstatPlainDirectoryChain(realDir, nested)) === true,
@@ -76,8 +77,8 @@ async function scenarioStorage(url) {
 			"lstatPlainDirectoryChain false for an absolute escape",
 			(await lstatPlainDirectoryChain(realDir, "/")) === false,
 		);
-		// base === target yields an empty relative, which the guard rejects (the chain is only
-		// ever asked about a CHILD of base; same-dir is treated as out of scope → false).
+		// base === target produce un relative vacío, que el guard rechaza (la chain solo se
+		// consulta sobre un HIJO de base; same-dir se trata como fuera de alcance → false).
 		check(
 			"lstatPlainDirectoryChain false for base === target (empty relative rejected)",
 			(await lstatPlainDirectoryChain(realDir, realDir)) === false,
@@ -92,13 +93,13 @@ async function scenarioStorage(url) {
 			check("lstatPlainDirectoryChain symlink-component case skipped", true);
 		}
 
-		// ensurePlainDirectory: creates, tolerates EEXIST, refuses non-dir / symlink.
+		// ensurePlainDirectory: crea, tolera EEXIST, rechaza non-dir / symlink.
 		const fresh = path.join(tmp, "fresh");
 		await ensurePlainDirectory(fresh);
 		check("ensurePlainDirectory creates a fresh dir", (await lstatPlainDirectory(fresh)) === true);
 		let secondThrew = false;
 		try {
-			await ensurePlainDirectory(fresh); // EEXIST tolerated
+			await ensurePlainDirectory(fresh); // EEXIST tolerado
 		} catch {
 			secondThrew = true;
 		}
@@ -106,7 +107,7 @@ async function scenarioStorage(url) {
 
 		let fileThrew = false;
 		try {
-			await ensurePlainDirectory(regularFile); // exists but is a file
+			await ensurePlainDirectory(regularFile); // existe pero es un archivo
 		} catch (e) {
 			fileThrew = /Se rechaza usar algo que no es un directorio o es un symlink/.test(String(e?.message));
 		}

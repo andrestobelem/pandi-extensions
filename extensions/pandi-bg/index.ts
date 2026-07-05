@@ -1,8 +1,9 @@
 /**
- * Local `/bg` background jobs (M2a).
+ * Jobs en segundo plano locales de `/bg` (M2a).
  *
- * Scope is intentionally narrow: human slash commands only, local child_process runner,
- * trusted projects only for starts, no Supacode runner, and no mutating LLM tool.
+ * El alcance es deliberadamente estrecho: solo slash commands humanas, runner local
+ * con child_process, inicios solo en proyectos confiables, sin runner de Supacode y
+ * sin tool LLM mutante.
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -38,8 +39,8 @@ import {
 	validJobId,
 } from "./storage.js";
 
-// Child-process + log-stream lifecycle lives in ./job-runtime.ts; these are re-exported
-// because the integration suite imports them from the built bundle.
+// El ciclo de vida de child-process + log-stream vive en ./job-runtime.ts; se reexportan
+// porque la suite de integración los importa desde el bundle generado.
 export {
 	finalizeJob,
 	guardStreamErrors,
@@ -115,9 +116,9 @@ interface BgResponse {
 	type?: "info" | "warning" | "error";
 }
 
-// Read-time job-state projection (projectState/deriveState/refineOrphanedIdentity/
-// decorateStatus) lives in ./job-state.ts; imported here and used by the listing,
-// status, and deletion paths. Internal (not part of the public surface).
+// La proyección read-time de job-state (projectState/deriveState/refineOrphanedIdentity/
+// decorateStatus) vive en ./job-state.ts; se importa acá y se usa en listados,
+// status y rutas de eliminación. Interno (no es parte de la superficie pública).
 
 async function listJobs(ctx: ExtensionContext): Promise<JobSummary[]> {
 	const jobs: JobSummary[] = [];
@@ -159,14 +160,16 @@ async function findJobDir(ctx: ExtensionContext, jobId: string): Promise<string 
 }
 
 const RECONCILABLE_STATES = new Set(["starting", "running"]);
-// The only states a finished job's artifacts may be deleted in. `starting`/`running`
-// (and read-time `orphaned`/`stale`/`unknown`) are never deletable — see classifyForDeletion.
+// Únicos estados en los que pueden eliminarse los artefactos de un job terminado.
+// `starting`/`running` (y read-time `orphaned`/`stale`/`unknown`) nunca son eliminables;
+// ver classifyForDeletion.
 const DELETABLE_STATES = new Set(["completed", "failed", "cancelled", "interrupted"]);
 
-// Enumerate project-local run dirs (trusted only), yielding {jobId, runDir, status} for each
-// valid, non-symlinked job dir. Shared by reconcile and prune so the trust/symlink/path
-// gating and the .audit.jsonl dotfile skipping (validJobId rejects the leading dot) live in
-// exactly one place. Active-session filtering and state logic stay with each caller.
+// Enumera run dirs locales del proyecto (solo confiables), devolviendo {jobId, runDir, status}
+// por cada job dir válido y sin symlink. Compartido por reconcile y prune para que los gates
+// de trust/symlink/path y el salto del dotfile .audit.jsonl (validJobId rechaza el punto
+// inicial) vivan en un solo lugar. El filtrado de sesión activa y la lógica de estado quedan
+// en quien llama.
 async function eachProjectRunDir(
 	ctx: ExtensionContext,
 ): Promise<{ jobId: string; runDir: string; status: Record<string, unknown> | undefined }[]> {
@@ -193,15 +196,16 @@ async function eachProjectRunDir(
 	return out;
 }
 
-// Session-start self-heal: a fresh Pi process owns no jobs (activeJobs is empty),
-// so any project-local job persisted as starting/running is from a previous run.
-// Probe its recorded pid; a DEAD pid means the process is truly gone (Pi died
-// before finalize), so atomically rewrite the artifact to a terminal `interrupted`
-// state. Live/unprobeable jobs are left untouched (the read-time projection still
-// surfaces orphaned/stale). Writing `interrupted` only on a confirmed-dead pid is
-// what avoids the pid-reuse hazard: a dead pid can never be our live job, so the
-// terminal state is always correct. Project root only (the only root pandi-bg writes,
-// and only when trusted); best-effort — never throws into session_start.
+// Self-heal al session-start: un proceso Pi nuevo no posee jobs (activeJobs está vacío),
+// así que todo job local del proyecto persistido como starting/running viene de una corrida
+// anterior. Se prueba su pid registrado; un pid DEAD significa que el proceso ya no existe
+// (Pi murió antes de finalize), así que el artefacto se reescribe atómicamente a un estado
+// terminal `interrupted`. Los jobs vivos/no comprobables quedan intactos (la proyección
+// read-time aún muestra orphaned/stale). Escribir `interrupted` solo con un pid confirmado
+// muerto evita el riesgo de reutilización de pid: un pid muerto nunca puede ser nuestro job
+// vivo, así que el estado terminal siempre es correcto. Solo project root (la única root que
+// escribe pandi-bg, y solo cuando es confiable); mejor esfuerzo, nunca lanza hacia
+// session_start.
 export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<number> {
 	let reconciled = 0;
 	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
@@ -210,9 +214,10 @@ export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<n
 		if (!state || !RECONCILABLE_STATES.has(state)) continue;
 		const pid = asNumber(status?.pid);
 		const live = probeProcessAlive(pid);
-		// Dead pid => process gone. Alive but a different start identity => the pid was
-		// reused, so our process is also gone. Both are positive evidence to terminalize;
-		// an alive pid we cannot disprove (same/unknown) stays a read-time orphaned/stale.
+		// Dead pid => proceso ausente. Alive pero con identidad de inicio distinta => el pid
+		// fue reutilizado, así que nuestro proceso también terminó. Ambos son evidencia positiva
+		// para terminalizar; un pid alive que no podemos descartar (same/unknown) queda como
+		// orphaned/stale read-time.
 		const cause =
 			live === "dead"
 				? "pid-dead"
@@ -238,7 +243,7 @@ export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<n
 			});
 			reconciled++;
 		} catch {
-			// Best-effort: leave the artifact untouched if the atomic rewrite fails.
+			// Mejor esfuerzo: deja el artefacto intacto si falla la reescritura atómica.
 		}
 	}
 	return reconciled;
@@ -284,8 +289,8 @@ function canRunInMode(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
 }
 
-// Status-sidecar write, stream backpressure/guarding, one-shot finalize, and process-
-// group signalling live in ./job-runtime.ts (imported above + re-exported for tests).
+// La escritura del sidecar de status, backpressure/guarding de streams, finalize one-shot y
+// señales al process group viven en ./job-runtime.ts (importado arriba + reexportado para tests).
 
 async function handlePreview(command: string): Promise<BgResponse> {
 	if (!command.trim()) return response("Uso: /bg preview <command>", undefined, "warning");
@@ -391,10 +396,10 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 	);
 }
 
-// Cancel a job this session does not own (persisted by another Pi process/run). The
-// safety rule that the in-session path takes for granted must be earned here: only
-// signal when the live pid is VERIFIED still our process (same start identity). A
-// reused pid or one we cannot verify is never signaled — it is left for OS tools.
+// Cancela un job que esta sesión no posee (persistido por otro proceso/corrida de Pi).
+// La regla de seguridad que la ruta in-session da por sentada debe ganarse acá: solo enviar
+// señal cuando el pid vivo está VERIFIED como nuestro proceso (misma identidad de inicio).
+// Un pid reutilizado o no verificable nunca recibe señal; queda para herramientas del SO.
 async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await findJobDir(ctx, jobId);
 	if (!runDir)
@@ -521,10 +526,10 @@ async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	return response(["Jobs en segundo plano:", ...jobs.map(formatJob)].join("\n"), { jobs });
 }
 
-// Single source of truth for whether a job's artifacts may be removed. Never trusts
-// status.json.state as liveness: re-derives the live state via projectState and refines
-// an orphaned pid by identity. Active (owned) and verified/unverifiable-alive jobs are
-// never deletable; a reused pid refines to `interrupted` and is.
+// Fuente única de verdad para decidir si pueden eliminarse los artefactos de un job. Nunca
+// confía en status.json.state como liveness: rederiva el estado vivo vía projectState y refina
+// un pid huérfano por identidad. Los jobs activos (poseídos), verificados o vivos no verificables
+// nunca son eliminables; un pid reutilizado refina a `interrupted` y sí lo es.
 function classifyForDeletion(
 	jobId: string,
 	status: Record<string, unknown> | undefined,
@@ -543,9 +548,9 @@ function classifyForDeletion(
 	return { liveState: state, deletable: false, reason };
 }
 
-// Bulk-remove finished jobs. R4 implements the default dry-run preview: list deletable
-// candidates (with size) and the skipped jobs with reasons, never removing anything. R5
-// wires the --yes execution. classifyForDeletion is the single deletability predicate.
+// Elimina jobs terminados en lote. R4 implementa la vista previa dry-run por defecto: lista
+// candidatos eliminables (con tamaño) y jobs omitidos con motivos, sin eliminar nada. R5
+// cablea la ejecución con --yes. classifyForDeletion es el único predicado de eliminabilidad.
 async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgResponse> {
 	const blocked = rejectInPlanMode("prune");
 	if (blocked) return blocked;
@@ -565,9 +570,9 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 	}
 	const totalBytes = candidates.reduce((sum, c) => sum + c.bytes, 0);
 	if (yes) {
-		// Remove each candidate via the shared removeRunDir, which re-derives deletability
-		// from a fresh status read right before fs.rm (so a job revived since the scan is
-		// skipped) and appends one .audit.jsonl line per removal.
+		// Elimina cada candidato vía el removeRunDir compartido, que rederiva eliminabilidad
+		// desde una lectura fresca de status justo antes de fs.rm (para omitir un job revivido
+		// desde el escaneo) y agrega una línea .audit.jsonl por eliminación.
 		const deleted: string[] = [];
 		for (const c of candidates) {
 			if (
@@ -607,9 +612,9 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 	});
 }
 
-// Delete one finished job's artifacts, gated on re-derived LIVE state (classifyForDeletion)
-// so a running/active/verified-alive job is never deletable. removeRunDir enforces project
-// scope + symlink safety at the edge.
+// Elimina artefactos de un job terminado, gateado por estado LIVE rederivado
+// (classifyForDeletion) para que un job running/active/verified-alive nunca sea eliminable.
+// removeRunDir aplica scope de proyecto + seguridad de symlink en el borde.
 async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const blocked = rejectInPlanMode("delete");
 	if (blocked) return blocked;
@@ -621,8 +626,8 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 		);
 	const runDir = await resolveRunDir(ctx, jobId, "Uso: /bg delete <jobId>");
 	if (typeof runDir !== "string") return runDir;
-	// Write boundary: only the project-local store is mutable. A global-fallback job
-	// resolves via findJobDir for reads, but delete refuses it (read-only).
+	// Límite de escritura: solo el store local del proyecto es mutable. Un job global-fallback
+	// resuelve vía findJobDir para lecturas, pero delete lo rechaza (read-only).
 	const projectRuns = path.join(getProjectBgRoot(ctx), RUNS_DIR);
 	if (!path.resolve(runDir).startsWith(path.resolve(projectRuns) + path.sep)) {
 		return response(
@@ -640,7 +645,7 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 			"warning",
 		);
 	}
-	// Re-derive deletability from a fresh status read right before fs.rm (TOCTOU guard).
+	// Rederiva eliminabilidad desde una lectura fresca de status justo antes de fs.rm (guard TOCTOU).
 	const removed = await removeRunDir(
 		ctx,
 		jobId,
@@ -656,8 +661,8 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	return response(`Job en segundo plano ${jobId} eliminado.`, { action: "delete", jobId, deleted: true });
 }
 
-// Validate a job id and resolve its symlink-safe run directory, or return the
-// shared usage/not-found warning so every read subcommand behaves identically.
+// Valida un job id y resuelve su run directory symlink-safe, o devuelve el warning compartido
+// de uso/no encontrado para que todo subcomando de lectura se comporte igual.
 async function resolveRunDir(ctx: ExtensionContext, jobId: string, usage: string): Promise<string | BgResponse> {
 	if (!jobId || !validJobId(jobId)) return response(usage, undefined, "warning");
 	const runDir = await findJobDir(ctx, jobId);
@@ -671,9 +676,9 @@ async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	const job = (await readJson(path.join(runDir, "job.json"))) ?? {};
 	const rawStatus = (await readJson(path.join(runDir, "status.json"))) ?? {};
 	const status = decorateStatus(jobId, rawStatus);
-	// Refine a best-effort `orphaned` with a single identity probe (one job => one ps on
-	// macOS/BSD; /bg list deliberately does NOT do this to avoid N subprocesses): a reused
-	// pid downgrades to `interrupted`; a verified pid is marked so the operator can trust it.
+	// Refina un `orphaned` de mejor esfuerzo con una sola prueba de identidad (un job => un ps
+	// en macOS/BSD; /bg list deliberadamente NO hace esto para evitar N subprocesses): un pid
+	// reutilizado baja a `interrupted`; un pid verificado se marca para que el operador confíe.
 	if (status.state === "orphaned") {
 		const pid = asNumber(status.pid);
 		const refined = refineOrphanedIdentity(pid, asString(status.startId));
@@ -712,8 +717,9 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 		const buffer = Buffer.alloc(bytesToRead);
 		await handle.read(buffer, 0, bytesToRead, Math.max(0, stat.size - bytesToRead));
 		const truncated = stat.size > MAX_LOG_BYTES;
-		// A byte-bounded tail can start mid UTF-8 sequence; drop leading continuation
-		// bytes (0b10xxxxxx) so the first character decodes cleanly instead of as U+FFFD.
+		// Un tail acotado por bytes puede empezar en medio de una secuencia UTF-8; descarta bytes
+		// de continuación iniciales (0b10xxxxxx) para que el primer carácter decodifique limpio
+		// en vez de U+FFFD.
 		let start = 0;
 		if (truncated) {
 			while (start < buffer.length && (buffer[start] & 0xc0) === 0x80) start++;
@@ -728,8 +734,8 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 	}
 }
 
-// Read a bounded, symlink-safe artifact tail shaped as a /bg response, or undefined
-// when the artifact is absent so callers can fall back to another source.
+// Lee un tail acotado y symlink-safe de un artefacto con forma de respuesta /bg, o undefined
+// cuando el artefacto no existe para que quienes llaman puedan recurrir a otra fuente.
 async function boundedArtifactResponse(
 	runDir: string,
 	jobId: string,
@@ -766,10 +772,10 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 	);
 }
 
-// Surface the structured lifecycle journal (start/running/cancel-*/finish/
-// reconcile-interrupted/finalize-error). It explains WHY a job ended
-// failed/cancelled/interrupted — evidence that status.json alone does not carry.
-// Bounded/symlink-safe via the same readBoundedLog path as /bg logs.
+// Expone el journal estructurado del ciclo de vida (start/running/cancel-*/finish/
+// reconcile-interrupted/finalize-error). Explica POR QUÉ un job terminó
+// failed/cancelled/interrupted: evidencia que status.json solo no contiene.
+// Acotado/symlink-safe vía la misma ruta readBoundedLog que /bg logs.
 async function handleEvents(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await resolveRunDir(ctx, jobId, "Uso: /bg events <jobId>");
 	if (typeof runDir !== "string") return runDir;
@@ -792,7 +798,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 		const tail = match[2] ?? "";
 		switch (subcommand.toLowerCase()) {
 			case "preview":
-			case "plan": // deprecated alias of preview
+			case "plan": // alias deprecated de preview
 				return await handlePreview(tail);
 			case "start":
 				return await handleStart(ctx, tail);
@@ -853,16 +859,16 @@ export default function bgExtension(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => notify(ctx, await handleBgCommand(args, ctx)),
 	});
 
-	// Self-heal at startup (only persistent, trusted sessions, where jobs are owned):
-	// rewrite project-local jobs whose recorded pid is dead from a stale `running` to a
-	// terminal `interrupted`, so the on-disk artifact stops claiming `running` forever.
-	// Best-effort; never let it break session start.
+	// Self-heal al startup (solo sesiones persistentes y confiables, donde se poseen jobs):
+	// reescribe jobs locales del proyecto cuyo pid registrado está muerto, de `running` stale
+	// a `interrupted` terminal, para que el artefacto en disco deje de afirmar `running`.
+	// Mejor esfuerzo; nunca dejar que rompa session start.
 	pi.on("session_start", async (_event, ctx) => {
 		if (!canRunInMode(ctx)) return;
 		try {
 			await reconcileInterruptedJobs(ctx);
 		} catch {
-			// ignore: reconcile is non-critical bookkeeping
+			// ignore: reconcile es bookkeeping no crítico
 		}
 	});
 }
