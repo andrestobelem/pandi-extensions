@@ -88,12 +88,12 @@ export function buildSummaryPrompt(entries: unknown, opts: SummarizeOptions = {}
 	// Keep the most recent tail when over the cap.
 	if (convo.length > maxChars) convo = convo.slice(convo.length - maxChars);
 	return [
-		"You are naming a coding session based on its MOST RECENT activity.",
-		"Read the recent conversation below and reply with a SHORT title of 2-4 words",
-		"describing what is being worked on now. Reply with ONLY the title — no quotes,",
-		"no punctuation, no preamble, no explanation.",
+		"Estás nombrando una sesión de trabajo en base a su actividad MÁS RECIENTE.",
+		"Leé la conversación reciente de abajo y responde con un título CORTO de 2 a 4 palabras",
+		"que describa en qué se está trabajando ahora. Responde SOLO con el título — sin comillas,",
+		"sin puntuación, sin preámbulo, sin explicación.",
 		"",
-		"Recent conversation:",
+		"Conversación reciente:",
 		convo,
 	].join("\n");
 }

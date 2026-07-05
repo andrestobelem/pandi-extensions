@@ -278,7 +278,7 @@ async function scenarioSummarizeUnit(url) {
 		userEntry("now harden the loop gate"),
 	]);
 	check("buildSummaryPrompt includes the most recent message", prompt.includes("now harden the loop gate"), prompt);
-	check("buildSummaryPrompt asks for a short title", /title/i.test(prompt), prompt);
+	check("buildSummaryPrompt asks for a short title", /t.tulo/i.test(prompt), prompt);
 	check("buildSummaryPrompt is empty with no conversation", buildSummaryPrompt([]) === "");
 
 	check(
@@ -467,7 +467,7 @@ async function scenarioExplicitName(url) {
 	check("/rename <name> sets a slug session name", harness.sessionName === "refactor-auth", harness.sessionName);
 	check(
 		"/rename <name> notifies success with the slug",
-		ctx._notes.some((n) => n.type === "info" && /renamed to "refactor-auth"/.test(n.msg)),
+		ctx._notes.some((n) => n.type === "info" && /renombrada a "refactor-auth"/.test(n.msg)),
 		JSON.stringify(ctx._notes),
 	);
 	check("/rename <name> does not open the input dialog", ctx._inputCalls.length === 0);
@@ -651,7 +651,7 @@ async function scenarioFallbacksAndErrors(url) {
 	check("/rename does not crash when setSessionName throws", !threw);
 	check(
 		"/rename reports a setSessionName failure",
-		ctx2._notes.some((n) => n.type === "error" && /failed to rename/i.test(n.msg)),
+		ctx2._notes.some((n) => n.type === "error" && /no se pudo renombrar/i.test(n.msg)),
 		JSON.stringify(ctx2._notes),
 	);
 }

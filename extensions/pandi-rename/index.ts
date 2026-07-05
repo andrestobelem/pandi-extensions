@@ -68,13 +68,13 @@ function applyName(pi: ExtensionAPI, ctx: ExtensionCommandContext, rawName: stri
 	try {
 		pi.setSessionName(finalName);
 		setExitHintName?.(finalName);
-		notify(ctx, `Session renamed to "${finalName}".`, "info");
+		notify(ctx, `Sesión renombrada a "${finalName}".`, "info");
 		// Nudge the editor so the border label updates immediately.
 		latestEditor?.invalidate?.();
 		return true;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		notify(ctx, `Failed to rename session: ${message}`, "error");
+		notify(ctx, `No se pudo renombrar la sesión: ${message}`, "error");
 		return false;
 	}
 }
@@ -147,7 +147,7 @@ function installNameBorderLabel(pi: ExtensionAPI, ctx: ExtensionContext): void {
 export default function renameExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("rename", {
 		description:
-			"Rename the current session to a slug. With no argument, summarizes your most recent activity via the LLM.",
+			"Renombra la sesión actual con un slug. Sin argumento, resume tu actividad más reciente mediante el LLM.",
 		handler: async (args, ctx) => {
 			// With a name, use it directly (instant, no LLM). Never opens an input dialog.
 			const trimmed = args.trim();
@@ -158,14 +158,14 @@ export default function renameExtension(pi: ExtensionAPI): void {
 			// No argument: summarize the MOST RECENT part of the conversation into a name via
 			// `pi -p`, falling back to a deterministic slug of the latest message if the LLM is
 			// unavailable (offline, no key, timeout). The handler is already async.
-			notify(ctx, "Generating a name from the recent conversation\u2026", "info");
+			notify(ctx, "Generando un nombre a partir de la conversación reciente\u2026", "info");
 			const { name, fellBack } = await summarizeSessionName({
 				entries: readEntries(ctx),
 				runSummary: (prompt) => runPiSummary(prompt, { cwd: ctx.cwd }),
 				defaultName: DEFAULT_SESSION_NAME,
 			});
 			applyName(pi, ctx, name);
-			if (fellBack) notify(ctx, "Used a deterministic name (conversation summary unavailable).", "info");
+			if (fellBack) notify(ctx, "Se usó un nombre determinístico (resumen de conversación no disponible).", "info");
 		},
 	});
 
