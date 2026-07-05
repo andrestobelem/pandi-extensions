@@ -123,6 +123,7 @@ async function writeContractRunFixture() {
 
 const pre = await buildArtifact({ scriptPath: SCAFFOLD, argsJson });
 const preHtml = pre.html;
+const preMonitorHtml = sectionHtml(preHtml, "monitor");
 const prePlanHtml = sectionHtml(preHtml, "plan");
 
 check("preview has a didactic opening", /class="opening"[^>]*>[^<]*Vista estática antes de ejecutar/i.test(preHtml));
@@ -135,12 +136,28 @@ check(
 	"preview no longer uses the old fixed English kicker",
 	!preHtml.includes("Dynamic workflow · review before launch"),
 );
-check("preview keeps Plan first and active", /<button data-t="plan" class="active">Plan<\/button>/.test(preHtml));
+check(
+	"preview keeps Monitor first and active",
+	/<button data-t="monitor" class="active">Monitor<\/button>/.test(preHtml),
+);
+check(
+	"preview puts Monitor before Plan",
+	indexOfNeedle(preHtml, 'data-t="monitor"') < indexOfNeedle(preHtml, 'data-t="plan"'),
+);
 check(
 	"preview puts Plan before Diagram",
 	indexOfNeedle(preHtml, 'data-t="plan"') < indexOfNeedle(preHtml, 'data-t="overview"'),
 );
-check("preview renders an explicit Plan section", /<section data-s="plan" class="active">/.test(preHtml));
+check("preview renders an explicit Monitor section", /<section data-s="monitor" class="active">/.test(preHtml));
+check("monitor labels the workflow status in Spanish", preMonitorHtml.includes("Estado del workflow"));
+check("monitor labels progress in Spanish", preMonitorHtml.includes("Progreso"));
+check("monitor labels activity in Spanish", preMonitorHtml.includes("Actividad"));
+check("monitor labels agents in Spanish", preMonitorHtml.includes("Agentes"));
+check(
+	"monitor derives phase content from the workflow",
+	preMonitorHtml.includes("Scout") && preMonitorHtml.includes("Review"),
+);
+check("preview renders an explicit Plan section", /<section data-s="plan">/.test(preHtml));
 check("plan labels the workflow summary in Spanish", prePlanHtml.includes("Qué va a ejecutar"));
 check("plan labels phases in Spanish", prePlanHtml.includes("Fases"));
 check("plan labels agents in Spanish", prePlanHtml.includes("Agentes y contratos"));
@@ -185,6 +202,10 @@ try {
 		/<div class="callout error">[\s\S]*agente fall[oó]/i.test(postHtml),
 	);
 	check(
+		"post-run keeps Monitor before Results",
+		indexOfNeedle(postHtml, 'data-t="monitor"') < indexOfNeedle(postHtml, 'data-t="results"'),
+	);
+	check(
 		"post-run puts Results before Plan",
 		indexOfNeedle(postHtml, 'data-t="results"') < indexOfNeedle(postHtml, 'data-t="plan"'),
 	);
@@ -193,10 +214,14 @@ try {
 		indexOfNeedle(postHtml, 'data-t="plan"') < indexOfNeedle(postHtml, 'data-t="overview"'),
 	);
 	check(
-		"post-run makes Results the active tab",
-		/<button data-t="results" id="tabresults" class="active">Resultados<\/button>/.test(postHtml),
+		"post-run makes Monitor the active tab",
+		/<button data-t="monitor" class="active">Monitor<\/button>/.test(postHtml),
 	);
-	check("post-run makes the results section active", /<section data-s="results" class="active">/.test(postHtml));
+	check("post-run makes the monitor section active", /<section data-s="monitor" class="active">/.test(postHtml));
+	check(
+		"post-run keeps Results available",
+		/<button data-t="results" id="tabresults">Resultados<\/button>/.test(postHtml),
+	);
 	check(
 		"post-run puts Agents before Diagram",
 		indexOfNeedle(postHtml, 'data-t="agents"') < indexOfNeedle(postHtml, 'data-t="overview"'),
@@ -216,16 +241,16 @@ try {
 
 	check("run without results explains the missing output", noResultsHtml.includes("sin output final"));
 	check(
-		"run without results starts from Agents",
-		/<button data-t="agents" class="active">Agentes y prompts<\/button>/.test(noResultsHtml),
+		"run without results starts from Monitor",
+		/<button data-t="monitor" class="active">Monitor<\/button>/.test(noResultsHtml),
+	);
+	check(
+		"run without results keeps Monitor before Plan",
+		indexOfNeedle(noResultsHtml, 'data-t="monitor"') < indexOfNeedle(noResultsHtml, 'data-t="plan"'),
 	);
 	check(
 		"run without results keeps Plan before Diagram",
 		indexOfNeedle(noResultsHtml, 'data-t="plan"') < indexOfNeedle(noResultsHtml, 'data-t="overview"'),
-	);
-	check(
-		"run without results puts Agents before Plan",
-		indexOfNeedle(noResultsHtml, 'data-t="agents"') < indexOfNeedle(noResultsHtml, 'data-t="plan"'),
 	);
 } finally {
 	await fs.rm(noResultsRunDir, { recursive: true, force: true });

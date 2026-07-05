@@ -1,5 +1,6 @@
 // render.mjs — arma el objeto data (mermaid + fidelity notes + todo lo que necesita el cliente)
 // y produce el string HTML autocontenido. Puro: sin file IO, sin estado de proceso.
+import { renderWorkflowMonitor } from "./monitor.mjs";
 import { renderWorkflowPlan } from "./plan.mjs";
 import { phaseTitleOf } from "./util.mjs";
 
@@ -157,6 +158,7 @@ a{color:var(--link);}
 .prov code{font-family:ui-monospace,Menlo,monospace;font-size:14px;color:var(--code);background:var(--raised);padding:2px 7px;border-radius:6px;word-break:break-all;}
 .trole{font-size:14px;color:var(--muted);margin-top:2px;}.subh{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;}
 .chips{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;}.chip{font-size:14px;padding:4px 10px;border-radius:999px;background:var(--raised);border:1px solid var(--line);color:var(--ink2);}
+.monitor-hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;}.monitor-title{font-size:22px;font-weight:700;color:var(--ink);display:flex;gap:10px;align-items:center;flex-wrap:wrap;}.monitor-hero p{margin:6px 0 0;color:var(--ink2);max-width:74ch;}.monitor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:14px;}.metric-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:90px;}.metric-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}.metric-value{font-size:24px;line-height:1.2;color:var(--ink);font-weight:700;margin-top:4px;}.metric-detail{font-size:13px;color:var(--ink2);margin-top:6px;}.meter{display:inline-block;width:76px;height:8px;border-radius:999px;background:var(--raised);border:1px solid var(--line);overflow:hidden;vertical-align:middle;margin-right:6px;}.meter span{display:block;height:100%;background:var(--success);}.monitor-table{width:100%;border-collapse:collapse;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px;font-size:14px;}.monitor-table th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--raised);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);}.monitor-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink2);}.monitor-table tr:last-child td{border-bottom:0;}.monitor-table tr.featured td{background:var(--info-bg);}.muted-mini{font-size:12px;color:var(--muted);}.mono-mini{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);}
 .runbanner{margin:14px 0 4px;padding:10px 14px;border-radius:10px;font-size:15.5px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;}.runbanner b{font-weight:700;color:var(--ink);}
 .runbanner.ok{background:var(--success-bg);border:1px solid var(--success);color:var(--ink);}.runbanner.run{background:var(--info-bg);border:1px solid var(--info);color:var(--ink);}.runbanner.fail{background:var(--error-bg);border:1px solid var(--error);color:var(--ink);}
 .banner{margin:18px 0 8px;padding:10px 14px;background:var(--error-bg);border:1px solid var(--error);border-radius:10px;color:var(--ink);font-size:16px;}
@@ -169,7 +171,7 @@ h2.sec{font-size:15.5px;letter-spacing:.08em;text-transform:uppercase;color:var(
 .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden;}
 .card>.head{padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;}.card>.head:hover{background:var(--raised);}
 .badge{font-size:13px;font-weight:600;padding:3px 9px;border-radius:6px;background:var(--raised);border:1px solid var(--line);color:var(--ink);white-space:nowrap;}
-.rpill{font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;}.rpill.ok{background:var(--success-bg);color:var(--success);border:1px solid var(--success);}.rpill.fail{background:var(--error-bg);color:var(--error);border:1px solid var(--error);}.rpill.run{background:var(--info-bg);color:var(--info);border:1px solid var(--info);}
+.rpill{font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;}.rpill.ok{background:var(--success-bg);color:var(--success);border:1px solid var(--success);}.rpill.fail{background:var(--error-bg);color:var(--error);border:1px solid var(--error);}.rpill.run{background:var(--info-bg);color:var(--info);border:1px solid var(--info);}.rpill.warn{background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning);}
 .nid{font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:600;color:var(--info);}.me{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--ink2);background:var(--raised);border:1px solid var(--line);padding:2px 8px;border-radius:999px;white-space:nowrap;}.schema{margin-left:auto;font-size:14px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;}
 .card .body{display:none;border-top:1px solid var(--line);}.card.open .body{display:block;}.caret{color:var(--muted);transition:transform .15s;}.card.open .caret{transform:rotate(90deg);}
 .meta-row{display:flex;gap:18px;flex-wrap:wrap;padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--line);font-size:15px;color:var(--ink2);}.meta-row b{color:var(--ink);}
@@ -241,10 +243,11 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const autoRefresh = !!(runData && runData.active);
   const hasRun = !!runData;
   const hasResults = !!(runData && runData.results);
-  const initialTab = hasResults ? "results" : hasRun ? "agents" : "plan";
+  const initialTab = "monitor";
   const opening = escHtml(openingText({ runData, nodeCount: nodes.length, argsJson, hasResults }));
   const callouts = topCallouts(runData);
   const tabMap = {
+    monitor: tabButton("monitor", "Monitor", initialTab === "monitor"),
     results: tabButton("results", "Resultados", initialTab === "results", 'id="tabresults"'),
     plan: tabButton("plan", "Plan", initialTab === "plan"),
     overview: tabButton("overview", "Diagrama", initialTab === "overview"),
@@ -256,11 +259,13 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   };
   const tabs = (hasRun
     ? hasResults
-      ? [tabMap.results, tabMap.plan, tabMap.agents, tabMap.overview, tabMap.contract, tabMap.schemas, tabMap.based, tabMap.script]
-      : [tabMap.agents, tabMap.plan, tabMap.overview, tabMap.contract, tabMap.results, tabMap.schemas, tabMap.based, tabMap.script]
-    : [tabMap.plan, tabMap.overview, tabMap.agents, tabMap.schemas, tabMap.based, tabMap.script, tabMap.results]
+      ? [tabMap.monitor, tabMap.results, tabMap.plan, tabMap.agents, tabMap.overview, tabMap.contract, tabMap.schemas, tabMap.based, tabMap.script]
+      : [tabMap.monitor, tabMap.plan, tabMap.agents, tabMap.overview, tabMap.contract, tabMap.results, tabMap.schemas, tabMap.based, tabMap.script]
+    : [tabMap.monitor, tabMap.plan, tabMap.overview, tabMap.agents, tabMap.schemas, tabMap.based, tabMap.script, tabMap.results]
   ).filter(Boolean).join("");
   const active = (id) => (initialTab === id ? ' class="active"' : "");
+  const monitorHtml = renderWorkflowMonitor({ meta, phases, nodes, runData, args: argsLabel, warn: warnText, source: scriptPath });
+  const monitorSection = `<section data-s="monitor"${active("monitor")}><h2 class="sec">Monitor — estado, progreso y evidencia</h2><p class="section-intro">Esta vista replica la lectura del monitor de workflow: primero estado y progreso; después agentes, actividad y rutas crudas para depurar.</p>${monitorHtml}</section>`;
   const planHtml = renderWorkflowPlan({ meta, phases, nodes, composes, scaffolds, provenance, args: argsLabel, schemas, warn: warnText, source: scriptPath });
   const planSection = `<section data-s="plan"${active("plan")}><h2 class="sec">Plan — blueprint antes de ejecutar</h2><p class="section-intro">Este plan sale del workflow mismo: fases, agentes, contratos y composición detectados por el preview estático.</p>${planHtml}</section>`;
   const overviewSection = `<section data-s="overview"${active("overview")}><h2 class="sec">Orquestación</h2><p class="section-intro">El diagrama muestra la estructura detectada: fases, tipos de agente y composición entre workflows. Usalo como mapa; los prompts exactos están en la pestaña de agentes.</p><div class="diagram"><pre class="mermaid" id="mm"></pre></div></section>`;
@@ -272,9 +277,9 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const scriptSection = '<section data-s="script"><h2 class="sec">Script completo</h2><pre class="block"><code class="language-javascript" id="script"></code></pre></section>';
   const sections = hasRun
     ? hasResults
-      ? [resultsSection, planSection, agentsSection, overviewSection, contractSection, schemasSection, basedSection, scriptSection]
-      : [agentsSection, planSection, overviewSection, contractSection, resultsSection, schemasSection, basedSection, scriptSection]
-    : [planSection, overviewSection, agentsSection, resultsSection, schemasSection, basedSection, scriptSection];
+      ? [monitorSection, resultsSection, planSection, agentsSection, overviewSection, contractSection, schemasSection, basedSection, scriptSection]
+      : [monitorSection, planSection, agentsSection, overviewSection, contractSection, resultsSection, schemasSection, basedSection, scriptSection]
+    : [monitorSection, planSection, overviewSection, agentsSection, resultsSection, schemasSection, basedSection, scriptSection];
 
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${autoRefresh ? '<meta http-equiv="refresh" content="2">' : ""}
 <title>${(meta.name || "workflow").replace(/[<>&]/g, "")} — workflow</title>

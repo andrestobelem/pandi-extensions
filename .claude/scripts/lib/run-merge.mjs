@@ -22,9 +22,16 @@ export function readRunData(runDir) {
   const status = (() => { const s = tryRead(join(runDir, "status.json")); try { return s ? JSON.parse(s) : {}; } catch { return {}; } })();
   const events = tryRead(join(runDir, "events.jsonl")) || "";
   const byId = new Map();
+  const logs = [];
+  let bashDone = 0;
   for (const line of events.split("\n")) {
     if (!line.trim()) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
+    if (e.type === "log" && e.time && e.message) {
+      logs.push({ time: e.time, message: String(e.message), ...(e.details === undefined ? {} : { details: e.details }) });
+      if (String(e.message).startsWith("bash end:")) bashDone++;
+      continue;
+    }
     if (e.type !== "agent") continue;
     byId.set(e.id, { ...(byId.get(e.id) || {}), ...e }); // los eventos posteriores (completed) pisan a running
   }
@@ -68,7 +75,7 @@ export function readRunData(runDir) {
   artifacts.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
   const results = returnValue != null || artifacts.length ? { returnValue, artifacts } : null;
 
-  return { runDir, runId: status.runId || basename(runDir), state: status.state || "unknown", active: !!status.active, agentCount: status.agentCount ?? byId.size, elapsedMs: status.elapsedMs || 0, ok, fail, running, byRole, results };
+  return { runDir, runId: status.runId || basename(runDir), state: status.state || "unknown", active: !!status.active, agentCount: status.agentCount ?? byId.size, elapsedMs: status.elapsedMs || 0, ok, fail, running, bashDone, logs, byRole, results };
 }
 
 export function mergeNodes(runData, baseNodes, declared) {

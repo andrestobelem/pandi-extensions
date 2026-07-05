@@ -410,8 +410,8 @@ Workflow({
   (a child's `workflow()` throws; only the top level composes). **Concurrency:** auto, ~`min(16,
   cores-2)`.
 - **SHOW, THEN LAUNCH (required):** always render an authored/specialized script to a self-contained
-  HTML and `open` it so the **Plan** tab is inspectable (derived from the workflow's phases,
-  agents, contracts, and composition) — then **launch directly, without asking for approval**
+  HTML and `open` it so the **Monitor** landing tab plus the **Plan** tab are inspectable (derived
+  from workflow phases, agents, contracts, composition, and monitor-style progress) — then **launch directly, without asking for approval**
   (the user watches the opened artifact and the live run, and interrupts if needed):
 
 ```sh
@@ -421,9 +421,9 @@ open <out.html>
 
   Pass the same `argsJson` the run will use; use the absolute path (cwd resets). Render + open, then
   call `Workflow` immediately with the same `name`/`scriptPath` and `args` — don't block on a question.
-- **RE-RENDER WHEN THE RUN ENDS (required):** the pre-launch render is only the *plan* — its Plan
-  tab is static, its Results tab is empty, and agent outputs are stubbed because the run data does
-  not exist yet. Once the run completes (or to follow it live), rebuild the SAME HTML with the real
+- **RE-RENDER WHEN THE RUN ENDS (required):** the pre-launch render is only the *plan/monitor preview* —
+  Monitor summarizes planned structure, Plan is static, Results is empty, and agent outputs are stubbed
+  because the run data does not exist yet. Once the run completes (or to follow it live), rebuild the SAME HTML with the real
   run overlaid (`status.json` + `events.jsonl` + `result.json` + run-root artifacts) and re-open it. Never present the pre-launch
   HTML as the run's outcome:
 

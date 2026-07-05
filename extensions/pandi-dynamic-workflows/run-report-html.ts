@@ -170,6 +170,18 @@ header h1 { margin:6px 0 2px; font-size:24px; color:var(--ink); }
 header .sub { color:var(--ink2); font-size:13px; }
 .chips { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 4px; }
 .chip { font-size:12px; color:var(--ink2); background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:3px 10px; }
+.monitor-panel { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px; margin:18px 0; }
+.monitor-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.monitor-head h2 { margin:0; }
+.monitor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr)); gap:10px; margin:10px 0 14px; }
+.metric-card { background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:10px; min-height:82px; }
+.metric-label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.metric-value { font-size:22px; line-height:1.2; color:var(--ink); font-weight:700; margin-top:3px; }
+.metric-detail { color:var(--ink2); font-size:12px; margin-top:5px; }
+.meter { display:inline-block; width:70px; height:8px; border-radius:999px; background:var(--raised); border:1px solid var(--line); overflow:hidden; vertical-align:middle; margin-right:6px; }
+.meter span { display:block; height:100%; background:var(--success); }
+.monitor-table { margin-top:8px; }
+.monitor-table tr.featured td { background:var(--info-bg); }
 .rpill { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }
 .rpill.ok   { background:var(--success-bg); color:var(--success); border:1px solid var(--success); }
 .rpill.run  { background:var(--info-bg);    color:var(--info);    border:1px solid var(--info); }
@@ -241,6 +253,94 @@ function textBlock(
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
 	return count === 1 ? singular : pluralForm;
+}
+
+function meter(fraction: number): string {
+	const pct = Math.max(0, Math.min(1, Number.isFinite(fraction) ? fraction : 0));
+	return `<span class="meter" title="${Math.round(pct * 100)}%"><span style="width:${Math.round(pct * 100)}%"></span></span>`;
+}
+
+function metricCard(label: string, value: string | number, detail = ""): string {
+	return (
+		`<div class="metric-card"><div class="metric-label">${escapeHtml(label)}</div>` +
+		`<div class="metric-value">${escapeHtml(String(value))}</div>` +
+		(detail ? `<div class="metric-detail">${detail}</div>` : "") +
+		`</div>`
+	);
+}
+
+function agentDone(agent: RunReportAgent): boolean {
+	return agent.state !== "running" && agent.state !== "unknown";
+}
+
+function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): string {
+	const total = model.agents.length;
+	const done = model.agents.filter(agentDone).length;
+	const running = model.agents.filter((agent) => agent.state === "running").length;
+	const frac = total > 0 ? done / total : 0;
+	const last = model.logs.slice(-1)[0];
+	const featured =
+		model.agents.find((agent) => agent.ok === false || agent.state === "failed" || agent.state === "interrupted") ??
+		model.agents.find((agent) => agent.state === "running") ??
+		model.agents[0];
+	const row = (agent: RunReportAgent): string => {
+		const isFeatured = featured && agent.id === featured.id;
+		const meta = [
+			agent.phaseLabel ? `phase ${agent.phaseLabel}` : "",
+			agent.model ? `model ${agent.model}` : "",
+			agent.thinking ? `effort ${agent.thinking}` : "",
+			agent.elapsedMs !== undefined ? `elapsed ${Math.round(agent.elapsedMs / 100) / 10}s` : "",
+			agent.code !== undefined ? `code ${agent.code}` : "",
+			agent.schemaOk !== undefined ? `schema ${agent.schemaOk ? "ok" : "bad"}` : "",
+		]
+			.filter(Boolean)
+			.join(" · ");
+		return (
+			`<tr${isFeatured ? ' class="featured"' : ""}>` +
+			`<td><span class="rpill ${pillClass(agent.state, agent.ok)}">${escapeHtml(agent.state)}</span></td>` +
+			`<td class="mono">#${escapeHtml(String(agent.id))}</td>` +
+			`<td>${escapeHtml(agent.name)}${meta ? `<div class="kv muted">${escapeHtml(meta)}</div>` : ""}</td>` +
+			`<td>${escapeHtml(agent.tools ?? "default")}</td>` +
+			`<td>${escapeHtml(agent.skills ?? "default")}</td>` +
+			`</tr>`
+		);
+	};
+	const agentRows = model.agents.map(row).join("");
+	const featuredHint = featured
+		? `<div class="callout ${failedAgents ? "error" : "info"}"><b>Selected agent:</b> #${escapeHtml(String(featured.id))} ${escapeHtml(featured.name)} — ${escapeHtml(featured.state)}.</div>`
+		: `<div class="callout info"><b>Selected agent:</b> no agents recorded yet.</div>`;
+	return (
+		`<section class="monitor-panel"><div class="monitor-head"><h2>Workflow monitor</h2>` +
+		`<span class="rpill ${pillClass(model.state)}">${escapeHtml(model.state)}</span></div>` +
+		`<div class="monitor-grid">` +
+		metricCard("Progress", `${done}/${total}`, `${meter(frac)} <span>${Math.round(frac * 100)}%</span>`) +
+		metricCard(
+			"parallel",
+			model.agentConcurrency !== undefined ? `${running}/${model.agentConcurrency}` : running,
+			model.peakParallelAgents !== undefined
+				? `peak ${escapeHtml(String(model.peakParallelAgents))}`
+				: "running now",
+		) +
+		metricCard("failed", failedAgents, failedAgents ? "review failed cards" : "no failed agents") +
+		metricCard(
+			"artifacts",
+			model.artifacts.length,
+			model.artifacts[0] ? escapeHtml(model.artifacts[0].path) : "none listed",
+		) +
+		metricCard("logs", model.logs.length, "timeline entries") +
+		metricCard(
+			"Latest activity",
+			last ? `${String(last.time).slice(11, 19)} ${last.message}` : "—",
+			"last log event",
+		) +
+		`</div>` +
+		featuredHint +
+		`<h2>Agent monitor</h2>` +
+		(agentRows
+			? `<table class="monitor-table"><thead><tr><th>State</th><th>ID</th><th>Agent</th><th>Tools</th><th>Skills</th></tr></thead><tbody>${agentRows}</tbody></table>`
+			: `<div class="muted">No agents recorded for this run.</div>`) +
+		`</section>`
+	);
 }
 
 function openingText(model: RunReportModel, failedAgents: number): string {
@@ -469,6 +569,7 @@ ${LAYOUT_CSS}
 </header>
 ${opening}
 ${callouts.join("\n")}
+${renderWorkflowMonitor(model, failedAgents)}
 ${textBlock("Input", model.input)}
 ${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true)}` : ""}
 ${metricsSection}
