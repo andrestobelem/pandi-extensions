@@ -1,27 +1,28 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-typescript-lsp/index.ts.
+ * Test de integración de comportamiento durable para extensions/pandi-typescript-lsp/index.ts.
  *
- * Honest + hermetic (no network):
- * - Unit-tests the pure helpers (parseTscDiagnostics / isTsFile / findNearestTsconfig /
- *   filterToTouched / formatDiagnostics / shouldRun / diagnosticsKey) directly against
- *   the same bundle's exports.
- * - Runs a REAL end-to-end check: a temp project (tsconfig.json + a .ts with a type
- *   error), driven through the extension's tool_result tracker + agent_end edge, with
- *   the REAL tsc from this repo (PI_TS_LSP_TSC → node_modules/typescript/lib/tsc.js).
- *   Reports the error; once the file is fixed, the next edge is clean.
- * - Verifies: tool + command registered; tracker records only touched .ts files;
- *   agent_end does NOT run with no TS touched / in an aborted run; advisory feedback
- *   by default (sendMessage nextTurn) with dedupe; autofix opt-in (followUp +
- *   triggerTurn) honoring the per-prompt budget.
- * - P4 additions (issue #4, mutation-verified non-vacuous): resolveTscCommand
- *   resolution order (env/local/npx), REAL runTsc mechanics (timeout, exit-0-after-
- *   timeout still not ok, abort, spawnError, byte-bounded output), no-engine paths
- *   (no tsconfig; tsc absent via PATH sabotage) warning once per session, tool
- *   project scope + multi-tsconfig grouping, and /tsc command branch edges.
- * - #10: a TIMED-OUT run is surfaced as INCONCLUSIVE on every surface (tool
- *   isError+timedOut, /tsc run warning, advisory-edge warning) — never as
- *   "clean" — and preserves the advisory dedupe key (nothing was verified).
+ * Honesto + hermético (sin red):
+ * - Prueba los helpers puros (parseTscDiagnostics / isTsFile / findNearestTsconfig /
+ *   filterToTouched / formatDiagnostics / shouldRun / diagnosticsKey) directo contra
+ *   los exports del mismo bundle.
+ * - Corre un check end-to-end REAL: un proyecto temporal (tsconfig.json + un .ts con
+ *   un error de tipos), manejado mediante el tracker tool_result + el borde agent_end
+ *   de la extensión, con el tsc REAL de este repo (PI_TS_LSP_TSC → node_modules/typescript/lib/tsc.js).
+ *   Reporta el error; una vez que se arregla el archivo, el siguiente borde queda limpio.
+ * - Verifica: tool + command registrados; el tracker registra solo archivos .ts tocados;
+ *   agent_end NO corre sin TS tocado / en una corrida abortada; feedback advisory por
+ *   default (sendMessage nextTurn) con dedupe; autofix opt-in (followUp + triggerTurn)
+ *   respetando el presupuesto por prompt.
+ * - Agregados P4 (issue #4, verificados por mutación y no vacuos): orden de resolución
+ *   de resolveTscCommand (env/local/npx), mecánicas REALES de runTsc (timeout,
+ *   exit-0-after-timeout sigue sin ser ok, abort, spawnError, salida acotada por
+ *   bytes), paths sin engine (sin tsconfig; tsc ausente vía sabotaje de PATH) con
+ *   advertencia una sola vez por sesión, scope de proyecto de la tool + agrupación
+ *   multi-tsconfig, y bordes de ramas del command /tsc.
+ * - #10: una corrida de tsc TIMED-OUT se muestra como INCONCLUSIVE en toda superficie
+ *   (tool isError+timedOut, advertencia de /tsc run, advertencia del borde advisory),
+ *   nunca como "clean", y preserva la clave advisory de dedupe (no se verificó nada).
  */
 
 import { existsSync } from "node:fs";
@@ -38,9 +39,9 @@ const REAL_TSC = path.join(REPO_ROOT, "node_modules", "typescript", "lib", "tsc.
 const { check, counts } = createChecker();
 
 async function buildBundle() {
-	// Stub the SDK (pi-coding-agent) the same way pandi-worktree does: index.ts uses it
-	// for TYPES only (erased), but its real runtime drags in cross-spawn's dynamic
-	// require, which breaks an ESM bundle. pi-ai + typebox bundle from node_modules.
+	// Reemplazo del SDK (pi-coding-agent) igual que hace pandi-worktree: index.ts lo usa
+	// solo para TYPES (se borran), pero su runtime real arrastra el require dinámico
+	// de cross-spawn, que rompe un bundle ESM. pi-ai + typebox bundlean desde node_modules.
 	return await buildExtension({
 		name: "pandi-typescript-lsp-build",
 		src: path.join(REPO_ROOT, "extensions", "pandi-typescript-lsp", "index.ts"),
@@ -50,7 +51,7 @@ async function buildBundle() {
 	});
 }
 
-// --- mocks (calque of pandi-worktree's makePi/makeCtx, plus event + message capture) ---
+// --- dobles (calco de makePi/makeCtx de pandi-worktree, más captura de eventos y mensajes) ---
 
 function makePi() {
 	const commands = new Map();
@@ -90,10 +91,11 @@ function lastNote(ctx) {
 	return ctx._notes.at(-1) ?? { msg: "", type: undefined };
 }
 
-// Load a fresh extension instance. `env` overrides INIT-TIME settings (read once in
-// the default export, e.g. PI_TS_LSP_MODE / PI_TS_LSP_AUTOFIX); they are restored after
-// wiring. PI_TS_LSP_TSC is RUNTIME state (read on every tsc spawn) and is set once,
-// persistently, in main() — never here.
+// Cargá una instancia fresca de la extensión. `env` sobreescribe configuración de
+// INIT-TIME (se leen una vez en el export default, por ejemplo PI_TS_LSP_MODE /
+// PI_TS_LSP_AUTOFIX); se restauran después del wiring. PI_TS_LSP_TSC es estado de
+// RUNTIME (se lee en cada spawn de tsc) y se define una sola vez, de forma
+// persistente, en main(); nunca acá.
 async function loadExtension(url, env = {}) {
 	const extension = await loadDefault(url);
 	const saved = {};
@@ -138,7 +140,7 @@ async function fireAgentEnd(handlers, ctx) {
 	await handlers.get("agent_end")({ type: "agent_end", messages: [] }, ctx);
 }
 
-// --- unit blocks: pure helpers tested against the bundle's exports -----------
+// --- bloques unitarios: helpers puros probados contra los exports del bundle ------
 
 async function scenarioPureHelpers(url) {
 	const mod = await loadModule(url);
@@ -157,8 +159,8 @@ async function scenarioPureHelpers(url) {
 		check(`isTsFile(${JSON.stringify(p)}) === ${want}`, mod.isTsFile(p) === want, p);
 	}
 
-	// parseTscDiagnostics: two diagnostics, CRLF, an indented continuation line,
-	// and a non-indented summary line that must be ignored.
+	// parseTscDiagnostics: dos diagnósticos, CRLF, una línea de continuación
+	// indentada y una línea de resumen no indentada que debe ignorarse.
 	const out = [
 		"src/a.ts(1,7): error TS2322: Type 'number' is not assignable to type 'string'.\r",
 		"src/b.ts(10,3): error TS2554: Expected 1 arguments, but got 0.",
@@ -207,7 +209,7 @@ async function scenarioPureHelpers(url) {
 	const clean = mod.formatDiagnostics([], {});
 	check("formatDiagnostics: empty → no errors, empty text", !clean.hasErrors && clean.text === "");
 
-	// shouldRun: full truth table around the gate.
+	// shouldRun: tabla de verdad completa alrededor del gate.
 	check(
 		"shouldRun: runs when touched + idle + !aborted + !pending",
 		mod.shouldRun({ touched: 1, aborted: false, idle: true, pending: false }) === true,
@@ -229,7 +231,7 @@ async function scenarioPureHelpers(url) {
 		mod.shouldRun({ touched: 1, aborted: false, idle: true, pending: true }) === false,
 	);
 
-	// diagnosticsKey: stable + order-independent, distinct for distinct diagnostics.
+	// diagnosticsKey: estable e independiente del orden, y distinto para diagnósticos distintos.
 	const d1 = [
 		{ file: "/x/a.ts", line: 1, col: 1, code: "TS1", severity: "error", message: "a" },
 		{ file: "/x/b.ts", line: 2, col: 2, code: "TS2", severity: "error", message: "b" },
@@ -270,7 +272,7 @@ async function scenarioFilterToTouched(url) {
 	check("filterToTouched: drops untouched file", !filtered.some((d) => d.file.endsWith("other.ts")));
 }
 
-// --- behavior blocks --------------------------------------------------------
+// --- bloques de comportamiento ---------------------------------------------
 
 async function scenarioRegisters(url) {
 	const { commands, tools } = await loadExtension(url);
@@ -284,7 +286,7 @@ async function scenarioRegisters(url) {
 		Array.isArray(tool?.promptGuidelines) && tool.promptGuidelines.some((g) => /typescript_diagnostics/.test(g)),
 	);
 	check("tool has promptSnippet", typeof tool?.promptSnippet === "string" && tool.promptSnippet.length > 0);
-	// /tsc subcommand completions
+	// completions de subcomandos de /tsc
 	const gac = commands.get("tsc").getArgumentCompletions;
 	const sc = gac("sc");
 	check("completions: 'sc' → scope", Array.isArray(sc) && sc.length === 1 && sc[0].value === "scope");
@@ -296,7 +298,7 @@ async function scenarioTrackerOnlyTs(url) {
 	const { dir } = await makeProject({ content: GOOD_TS });
 	const ctx = makeCtx({ cwd: dir });
 
-	// A non-.ts write must NOT be tracked → on-demand touched check sees nothing.
+	// Una escritura no-.ts NO debe trackearse → el check touched a demanda no ve nada.
 	touch(handlers, ctx, path.join(dir, "note.md"));
 	touch(handlers, ctx, path.join(dir, "script.js"));
 	let res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
@@ -306,12 +308,12 @@ async function scenarioTrackerOnlyTs(url) {
 		JSON.stringify(res.details),
 	);
 
-	// An errored tool_result must NOT be tracked either.
+	// Un tool_result con error tampoco debe trackearse.
 	touch(handlers, ctx, path.join(dir, "sample.ts"), { isError: true });
 	res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
 	check("tracker: ignores errored results", res.details?.count === 0, JSON.stringify(res.details));
 
-	// A real .ts write IS tracked → the on-demand check actually runs tsc (clean here).
+	// Una escritura .ts real SÍ se trackea → el check a demanda efectivamente corre tsc (acá limpio).
 	touch(handlers, ctx, path.join(dir, "sample.ts"));
 	res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
 	check(
@@ -327,7 +329,7 @@ async function scenarioAdvisoryE2E(url) {
 	const { dir, file } = await makeProject({ content: BAD_TS });
 	const ctx = makeCtx({ cwd: dir });
 
-	// Touch the bad file, then fire the coherent edge → advisory feedback.
+	// Tocá el archivo malo y después dispará el borde coherente → feedback advisory.
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
 	check("advisory e2e: one message sent", messages.length === 1, String(messages.length));
@@ -347,12 +349,12 @@ async function scenarioAdvisoryE2E(url) {
 		JSON.stringify(sent?.message?.details),
 	);
 
-	// Same errors again → dedupe: no new message.
+	// Los mismos errores otra vez → dedupe: sin mensaje nuevo.
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
 	check("advisory e2e: identical report is de-duplicated", messages.length === 1, String(messages.length));
 
-	// Fix the file → next edge is clean, still no new message.
+	// Arreglá el archivo → el siguiente borde queda limpio, igual sin mensaje nuevo.
 	await fs.writeFile(file, GOOD_TS, "utf8");
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
@@ -364,12 +366,12 @@ async function scenarioGateNoRun(url) {
 	const { handlers, messages } = await loadExtension(url);
 	const { dir, file } = await makeProject({ content: BAD_TS });
 
-	// No TS touched → agent_end is a no-op.
+	// Sin TS tocado → agent_end es un no-op.
 	const idleCtx = makeCtx({ cwd: dir });
 	await fireAgentEnd(handlers, idleCtx);
 	check("gate: no touched TS → no message", messages.length === 0, String(messages.length));
 
-	// Touched but the run was aborted → no message.
+	// Tocado, pero la corrida fue abortada → sin mensaje.
 	const ac = new AbortController();
 	ac.abort();
 	const abortedCtx = makeCtx({ cwd: dir, signal: ac.signal });
@@ -387,7 +389,7 @@ async function scenarioAutofixBudget(url) {
 	const { dir, file } = await makeProject({ content: BAD_TS });
 	const ctx = makeCtx({ cwd: dir });
 
-	// Start a prompt (resets the budget), touch the bad file, fire the edge.
+	// Empezá un prompt (resetea el presupuesto), tocá el archivo malo y dispará el borde.
 	handlers.get("agent_start")({ type: "agent_start" }, ctx);
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
@@ -395,14 +397,14 @@ async function scenarioAutofixBudget(url) {
 	check("autofix: deliverAs followUp", messages[0]?.options?.deliverAs === "followUp");
 	check("autofix: triggerTurn true", messages[0]?.options?.triggerTurn === true);
 
-	// A DIFFERENT error within the same prompt → budget (1) is exhausted, so even a
-	// non-duplicate report does NOT trigger another fix turn.
+	// Un error DIFERENTE dentro del mismo prompt → el presupuesto (1) se agota, así
+	// que incluso un reporte no duplicado NO dispara otro turno de fix.
 	await fs.writeFile(file, BAD_TS_2, "utf8");
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
 	check("autofix: per-prompt budget caps follow-ups", messages.length === 1, String(messages.length));
 
-	// New prompt resets the budget → a fresh follow-up is allowed again.
+	// Un prompt nuevo resetea el presupuesto → vuelve a permitirse un follow-up fresco.
 	handlers.get("agent_start")({ type: "agent_start" }, ctx);
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
@@ -419,13 +421,13 @@ async function scenarioCommandRun(url) {
 	await commands.get("tsc").handler("status", ctx);
 	check("cmd status: reports state", /Diagnósticos de TypeScript: on/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 
-	// max <n> rejects junk, accepts a positive int.
+	// max <n> rechaza basura y acepta un entero positivo.
 	await commands.get("tsc").handler("max zero", ctx);
 	check("cmd max: rejects non-int", /Uso: \/tsc max/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 	await commands.get("tsc").handler("max 5", ctx);
 	check("cmd max: accepts positive int", /max errors: 5/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 
-	// project-scope run reports the error directly via notify (human surface).
+	// una corrida con scope project reporta el error directo vía notify (superficie humana).
 	await commands.get("tsc").handler("scope project", ctx);
 	await commands.get("tsc").handler("run", ctx);
 	check(
@@ -434,7 +436,7 @@ async function scenarioCommandRun(url) {
 		lastNote(ctx).msg,
 	);
 
-	// off → the coherent edge becomes a no-op even with a touched bad file.
+	// off → el borde coherente pasa a ser un no-op incluso con un archivo malo tocado.
 	await commands.get("tsc").handler("off", ctx);
 	check("cmd off: disabled state acknowledged", /deshabilitados/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 	touch(handlers, ctx, file);
@@ -443,8 +445,8 @@ async function scenarioCommandRun(url) {
 	await fs.rm(dir, { recursive: true, force: true });
 }
 
-// resolveTscCommand resolution order (issue #4): env override → nearest local
-// node_modules tsc → npx fallback.
+// Orden de resolución de resolveTscCommand (issue #4): env override → tsc local
+// más cercano en node_modules → fallback a npx.
 async function scenarioResolveTscCommand(url) {
 	const mod = await loadModule(url);
 
@@ -475,11 +477,11 @@ async function scenarioResolveTscCommand(url) {
 	}
 }
 
-// runTsc mechanics (issue #4 "timeouts"), against REAL spawns: a hung tsc is
-// SIGTERM'd at timeoutMs (timedOut, ok=false), an aborted signal resolves without
-// crashing, a missing binary reports spawnError, and output is byte-bounded.
-// NOTE: how a TIMED-OUT run is SURFACED upstream (today: parsed-empty → "clean")
-// is tracked separately as a behavior bug — these pins cover the runner contract.
+// Mecánicas de runTsc (issue #4 "timeouts"), contra spawns REALES: un tsc colgado
+// recibe SIGTERM en timeoutMs (timedOut, ok=false), una señal abortada resuelve sin
+// crashear, un binario faltante reporta spawnError y la salida queda acotada por bytes.
+// NOTE: cómo una corrida TIMED-OUT aparece aguas arriba (hoy: parsed-empty → "clean")
+// se trackea aparte como bug de comportamiento; estos pins cubren el contrato del runner.
 async function scenarioRunTscMechanics(url) {
 	const mod = await loadModule(url);
 	check("runTsc is exported for the suite", typeof mod.runTsc === "function", typeof mod.runTsc);
@@ -495,9 +497,9 @@ async function scenarioRunTscMechanics(url) {
 		JSON.stringify(hung),
 	);
 
-	// A child that IGNORES SIGTERM and then exits 0 AFTER the timeout fired: exit
-	// code alone says success, but a timed-out run must NEVER count as ok — this is
-	// the `!timedOut` half of the ok derivation (exit-0-after-timeout).
+	// Un child que IGNORA SIGTERM y después sale 0 DESPUÉS de que dispara el timeout:
+	// el exit code solo dice éxito, pero una corrida con timeout NUNCA debe contar como ok;
+	// esta es la mitad `!timedOut` de la derivación de ok (exit-0-after-timeout).
 	const lateOk = await mod.runTsc(
 		process.execPath,
 		["-e", 'process.on("SIGTERM", () => {}); setTimeout(() => process.exit(0), 600)'],
@@ -541,10 +543,10 @@ async function scenarioRunTscMechanics(url) {
 	);
 }
 
-// No-engine branches (issue #4 "tsc absent" / "project without tsconfig").
+// Ramas sin engine (issue #4 "tsc absent" / "project without tsconfig").
 async function scenarioNoEngine(url) {
-	// A) Project without tsconfig: the coherent edge warns ONCE per session, the
-	// tool returns a bounded isError result for both scopes.
+	// A) Proyecto sin tsconfig: el borde coherente advierte UNA VEZ por sesión y la
+	// tool devuelve un resultado isError acotado para ambos scopes.
 	const { handlers, tools, messages } = await loadExtension(url);
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-nocfg-"));
 	const file = path.join(dir, "sample.ts");
@@ -588,8 +590,8 @@ async function scenarioNoEngine(url) {
 	);
 	await fs.rm(dir, { recursive: true, force: true });
 
-	// B) tsc ABSENT (tsconfig present, no env override, no local tsc, npx unreachable):
-	// spawn fails → same no-engine surfacing, never a crash.
+	// B) tsc AUSENTE (tsconfig presente, sin env override, sin tsc local, npx inalcanzable):
+	// falla el spawn → misma superficie sin engine, nunca un crash.
 	const { handlers: h2, messages: m2 } = await loadExtension(url);
 	const { dir: dir2, file: file2 } = await makeProject({ content: BAD_TS });
 	const ctx2 = makeCtx({ cwd: dir2 });
@@ -614,10 +616,10 @@ async function scenarioNoEngine(url) {
 	}
 }
 
-// Tool project scope with real errors + multi-tsconfig grouping (issue #4
-// "touched-vs-project scope branches").
+// Scope `project` de la herramienta con errores reales + agrupación multi-tsconfig
+// (issue #4 "touched-vs-project scope branches").
 async function scenarioScopesAndGrouping(url) {
-	// Tool scope=project surfaces the project's error even with nothing touched.
+	// tool scope=project muestra el error del proyecto incluso sin nada tocado.
 	const { tools } = await loadExtension(url);
 	const { dir } = await makeProject({ content: BAD_TS });
 	const ctx = makeCtx({ cwd: dir });
@@ -629,8 +631,8 @@ async function scenarioScopesAndGrouping(url) {
 	);
 	await fs.rm(dir, { recursive: true, force: true });
 
-	// Two sibling projects (own tsconfigs), both touched → ONE advisory carrying both
-	// errors: runTouchedCheck groups by nearest tsconfig and runs tsc per group.
+	// Dos proyectos hermanos (con tsconfig propio), ambos tocados → UN advisory con
+	// ambos errores: runTouchedCheck agrupa por tsconfig más cercano y corre tsc por grupo.
 	const { handlers, messages } = await loadExtension(url);
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-multi-"));
 	const mk = async (name, content) => {
@@ -661,10 +663,10 @@ async function scenarioScopesAndGrouping(url) {
 	await fs.rm(root, { recursive: true, force: true });
 }
 
-// Issue #10: a TIMED-OUT tsc run must be surfaced as inconclusive — never as
-// "clean" — and must not disturb dedupe state. Uses the runtime seams
-// PI_TS_LSP_TSC (hanging script) and PI_TS_LSP_TIMEOUT_MS (short budget),
-// both read on every spawn.
+// Issue #10: una corrida de tsc TIMED-OUT debe mostrarse como inconclusa, nunca
+// como "clean", y no debe perturbar el estado de dedupe. Usa las costuras de runtime
+// PI_TS_LSP_TSC (script colgado) y PI_TS_LSP_TIMEOUT_MS (presupuesto corto),
+// ambas leídas en cada spawn.
 async function scenarioTimeoutInconclusive(url) {
 	const hangDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-tslsp-hang-"));
 	const hangScript = path.join(hangDir, "hang.js");
@@ -674,7 +676,7 @@ async function scenarioTimeoutInconclusive(url) {
 	const { dir, file } = await makeProject({ content: BAD_TS });
 	const ctx = makeCtx({ cwd: dir });
 
-	// Step 1 (real tsc): advisory surfaces the error and arms the dedupe key.
+	// Paso 1 (tsc real): el advisory muestra el error y arma la clave de dedupe.
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
 	check("timeout: baseline advisory sent (dedupe armed)", messages.length === 1, String(messages.length));
@@ -684,7 +686,7 @@ async function scenarioTimeoutInconclusive(url) {
 	process.env.PI_TS_LSP_TSC = hangScript;
 	process.env.PI_TS_LSP_TIMEOUT_MS = "300";
 	try {
-		// Tool, project scope: a timed-out check is an ERROR result, not "clean".
+		// tool, scope project: un check con timeout da un resultado ERROR, no "clean".
 		const res = await tools
 			.get("typescript_diagnostics")
 			.execute("id", { scope: "project" }, undefined, undefined, ctx);
@@ -696,7 +698,7 @@ async function scenarioTimeoutInconclusive(url) {
 			JSON.stringify(res),
 		);
 
-		// Tool, touched scope: same inconclusive surfacing.
+		// tool, scope touched: misma superficie inconclusa.
 		touch(handlers, ctx, file);
 		const resTouched = await tools
 			.get("typescript_diagnostics")
@@ -707,7 +709,7 @@ async function scenarioTimeoutInconclusive(url) {
 			JSON.stringify(resTouched),
 		);
 
-		// /tsc run: warning, not an "all clean" info.
+		// /tsc run: warning, no un info de "all clean".
 		await commands.get("tsc").handler("scope project", ctx);
 		await commands.get("tsc").handler("run", ctx);
 		check(
@@ -716,8 +718,8 @@ async function scenarioTimeoutInconclusive(url) {
 			JSON.stringify(lastNote(ctx)),
 		);
 
-		// Step 2 (advisory edge with hanging tsc): no message, no no-engine warning,
-		// a timeout warning instead — and the dedupe key must SURVIVE.
+		// Paso 2 (borde advisory con tsc colgado): sin mensaje, sin advertencia de
+		// no-engine, sino una advertencia de timeout; y la clave de dedupe debe sobrevivir.
 		const notesBefore = ctx._notes.length;
 		touch(handlers, ctx, file);
 		await fireAgentEnd(handlers, ctx);
@@ -736,8 +738,8 @@ async function scenarioTimeoutInconclusive(url) {
 		else process.env.PI_TS_LSP_TIMEOUT_MS = savedTimeout;
 	}
 
-	// Step 3 (real tsc again, SAME error): if the timeout had cleared lastKey the
-	// identical report would be re-sent — it must still be de-duplicated.
+	// Paso 3 (tsc real de nuevo, MISMO error): si el timeout hubiera limpiado lastKey,
+	// el reporte idéntico se reenviaría; igual debe seguir deduplicado.
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
 	check("timeout: dedupe key survives a timed-out run", messages.length === 1, String(messages.length));
@@ -746,8 +748,8 @@ async function scenarioTimeoutInconclusive(url) {
 	await fs.rm(dir, { recursive: true, force: true });
 }
 
-// /tsc command branch edges: scope usage/accepted, autofix usage/accepted, unknown
-// subcommand, and `run` with nothing touched (its distinct message).
+// Bordes de ramas del comando /tsc: scope usage/accepted, autofix usage/accepted,
+// subcommand desconocido y `run` sin nada tocado (su mensaje distinto).
 async function scenarioCommandEdges(url) {
 	const { commands } = await loadExtension(url);
 	const { dir } = await makeProject({ content: GOOD_TS });
@@ -772,7 +774,7 @@ async function scenarioCommandEdges(url) {
 	await cmd.handler("frobnicate", ctx);
 	check("cmd unknown: usage warning", /Uso: \/tsc \[status/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 
-	// `run` with scope touched and nothing touched → its OWN message (not no-engine).
+	// `run` con scope touched y nada tocado → su mensaje PROPIO (no no-engine).
 	await cmd.handler("run", ctx);
 	check(
 		"cmd run: nothing touched → dedicated message",
@@ -787,7 +789,7 @@ async function main() {
 		console.error(`Missing real tsc for e2e: ${REAL_TSC}`);
 		process.exit(2);
 	}
-	// PI_TS_LSP_TSC is runtime state read on every tsc spawn — set it once for the suite.
+	// PI_TS_LSP_TSC es estado de runtime leído en cada spawn de tsc; definilo una vez para la suite.
 	process.env.PI_TS_LSP_TSC = REAL_TSC;
 	const { outDir, url } = await buildBundle();
 	try {

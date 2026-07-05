@@ -1,22 +1,24 @@
 /**
- * pandi-typescript-lsp: TypeScript diagnostics feedback that fires on the COHERENT
- * EDGE (agent_end), scoped to the files the turn actually touched.
+ * pandi-typescript-lsp: feedback de diagnósticos de TypeScript que se dispara en
+ * el BORDE COHERENTE (`agent_end`), acotado a los archivos que el turno realmente
+ * tocó.
  *
- * This is NOT a full Language Server — there is no hover, no go-to-definition,
- * no completions. The single contract is *diagnostics feedback*: after the agent
- * finishes a turn that wrote/edited TypeScript, we run `tsc --noEmit` on the
- * relevant project(s), keep only the touched files' errors, and surface a bounded
- * top-N report. It is non-blocking by design (never `block`s a tool call).
+ * Esto NO es un Language Server completo: no hay hover, go-to-definition ni
+ * completions. El único contrato es el *feedback de diagnósticos*: después de que
+ * el agente termina un turno que escribió/editó TypeScript, corremos `tsc --noEmit`
+ * sobre el/los proyecto(s) relevante(s), conservamos solo los errores de los
+ * archivos tocados y mostramos un reporte top-N acotado. Está diseñado para no
+ * bloquear (nunca `block`ea una invocación de tool).
  *
- * Surfaces (the project convention — see pandi-worktree / pandi-auto-compact):
- *   - automatic feedback on `agent_end` (advisory by default; opt-in autofix)
- *   - `typescript_diagnostics`  model-callable tool (pull, on-demand)
- *   - `/tsc`                    human slash command (status/on/off/run/scope/…)
+ * Superficies (la convención del proyecto; ver pandi-worktree / pandi-auto-compact):
+ *   - feedback automático en `agent_end` (advisory por omisión; autofix opcional)
+ *   - herramienta `typescript_diagnostics` invocable por el modelo (pull, a demanda)
+ *   - comando `/tsc` para personas (`status`/`on`/`off`/`run`/`scope`/…)
  *
- * `tsc` is always spawned with an ARGV array (never a shell string), exactly as
- * pandi-worktree spawns `git`, so paths can never inject shell commands. If neither
- * a tsconfig nor a usable tsc can be found, the extension is a NO-OP with a
- * single advisory warning — it never breaks the session.
+ * `tsc` siempre se spawnea con un array ARGV (nunca un shell string), igual que
+ * pandi-worktree hace spawn de `git`, así que las rutas nunca pueden inyectar
+ * comandos de shell. Si no se encuentra ni un tsconfig ni un tsc utilizable, la
+ * extensión queda en NO-OP con una sola advertencia advisory; nunca rompe la sesión.
  */
 
 import { spawn } from "node:child_process";
@@ -43,9 +45,9 @@ import {
 import { advisoryMessage, autofixMessage } from "./messages.js";
 import { type FeedbackMode, parseMax, parseMode, parseOnOff, parseScope, type Scope } from "./settings.js";
 
-// Re-exported for the integration suite to unit-test the pure helpers directly
-// against the same bundle (an `export … from` re-export creates no local binding,
-// so there is no clash with the import above).
+// Reexportado para que la suite de integración pruebe los helpers puros directamente
+// contra el mismo bundle (un re-export `export … from` no crea binding local,
+// así que no choca con el import de arriba).
 export {
 	buildTscArgs,
 	diagnosticsKey,
@@ -58,18 +60,19 @@ export {
 	shouldRun,
 } from "./diagnostics.js";
 
-// Setting parsers live in settings.ts (mirrors the diagnostics.ts split); re-exported
-// here so the extension's public surface stays identical.
+// Los parsers de settings viven en settings.ts (refleja la separación de
+// diagnostics.ts); se reexportan acá para que la superficie pública de la
+// extensión quede idéntica.
 export { parseMax, parseMode, parseOnOff, parseScope } from "./settings.js";
 
-/** Custom message type owned by this extension (for dedupe/rendering). */
+/** Tipo de mensaje personalizado propio de esta extensión (para dedupe/rendering). */
 const CUSTOM_TYPE = "pandi-typescript-lsp";
 const MAX_TSC_OUTPUT_BYTES = 2_000_000;
-/** Default autofix budget per prompt: at most one auto-triggered fix turn. */
+/** Presupuesto predeterminado de autofix por prompt: como mucho un turno de fix auto-disparado. */
 const DEFAULT_AUTOFIX_BUDGET = 1;
 
 // --------------------------------------------------------------------------
-// tsc runner — argv array, never a shell (mirrors pandi-worktree's runGit)
+// ejecutor de tsc: array argv, nunca un shell (refleja el runGit de pandi-worktree)
 // --------------------------------------------------------------------------
 
 interface RunTscOptions {
@@ -79,13 +82,14 @@ interface RunTscOptions {
 }
 
 /**
- * Run `command args…` (a resolved tsc invocation) in `cwd` and resolve with a
- * typed result. NEVER rejects: spawn failure, non-zero exit, timeout, or abort
- * all come back as a TscRunResult. Output is byte-bounded so a runaway tsc cannot
- * flood memory.
+ * Corré `command args…` (una invocación de tsc ya resuelta) en `cwd` y resolvé
+ * con un resultado tipado. NUNCA rechaza: falla de spawn, exit no cero, timeout
+ * o abort vuelven todos como un TscRunResult. La salida está acotada por bytes
+ * para que un tsc desbocado no inunde la memoria.
  *
- * Exported for the integration suite (mirrors pandi-container's runContainer): the
- * timeout/abort/spawn-error mechanics are pinned against REAL spawns there.
+ * Exportado para la suite de integración (refleja el runContainer de
+ * pandi-container): ahí quedan pineadas contra spawns REALES las mecánicas de
+ * timeout/abort/spawn-error.
  */
 export function runTsc(command: string, args: string[], options: RunTscOptions): Promise<TscRunResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_TSC_TIMEOUT_MS } = options;
@@ -111,7 +115,7 @@ export function runTsc(command: string, args: string[], options: RunTscOptions):
 			try {
 				child.kill("SIGTERM");
 			} catch {
-				/* already gone */
+				/* ya no existe */
 			}
 			finish({ ok: false, exitCode: null, stdout, stderr, signal: "SIGTERM", timedOut: false });
 		};
@@ -121,7 +125,7 @@ export function runTsc(command: string, args: string[], options: RunTscOptions):
 			try {
 				child.kill("SIGTERM");
 			} catch {
-				/* already gone */
+				/* ya no existe */
 			}
 		}, timeoutMs);
 		if (typeof timer.unref === "function") timer.unref();
@@ -172,13 +176,14 @@ export function runTsc(command: string, args: string[], options: RunTscOptions):
 }
 
 /**
- * Run tsc for a single tsconfig and return the parsed diagnostics with their file
- * paths resolved to absolute (tsc emits paths relative to its cwd).
+ * Corré tsc para un solo tsconfig y devolvé los diagnósticos parseados con sus
+ * rutas de archivo resueltas a absolutas (tsc emite rutas relativas a su cwd).
  *
- * Outcome-typed so "no engine" and "timed out" are DISTINCT from "clean": a run
- * that never finished must never be surfaced as a clean check (#10). The wall
- * budget is read per spawn from PI_TS_LSP_TIMEOUT_MS (like PI_TS_LSP_TSC), so
- * the suite can force a real timeout.
+ * Está tipado por outcome para que "no engine" y "timed out" sean DISTINTOS de
+ * "clean": una corrida que nunca terminó no debe mostrarse nunca como un check
+ * limpio (#10). El presupuesto de tiempo real se lee por spawn desde
+ * PI_TS_LSP_TIMEOUT_MS (igual que PI_TS_LSP_TSC), así la suite puede forzar un
+ * timeout real.
  */
 type CheckOutcome = { status: "ok"; diags: Diagnostic[] } | { status: "no-engine" } | { status: "timeout" };
 
@@ -204,7 +209,7 @@ const TIMEOUT_MESSAGE =
 	"El chequeo de TypeScript agotó el tiempo de espera — resultados no concluyentes. Reintentá cuando tsc termine, o aumentá PI_TS_LSP_TIMEOUT_MS.";
 
 // --------------------------------------------------------------------------
-// Extension
+// Extensión
 // --------------------------------------------------------------------------
 
 export default function typescriptLspExtension(pi: ExtensionAPI): void {
@@ -214,16 +219,16 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 	let autofix = parseOnOff(process.env.PI_TS_LSP_AUTOFIX) ?? false;
 	let scope: Scope = "touched";
 
-	// Per-prompt set of touched TS files (absolute). Tracked in tool_result,
-	// consumed and cleared in agent_end.
+	// Set por prompt de archivos TS tocados (absolutos). Se trackea en
+	// tool_result, se consume y se limpia en agent_end.
 	const touched = new Set<string>();
-	// Only one tsc check in flight at a time.
+	// Solo un check de tsc en vuelo por vez.
 	let running = false;
-	// Dedupe: last diagnostics key we surfaced (cleared when the project is clean).
+	// Deduplicación: última clave de diagnósticos que mostramos (se limpia cuando el proyecto queda limpio).
 	let lastKey: string | undefined;
-	// Per-prompt autofix budget.
+	// Presupuesto de autofix por prompt.
 	let autofixBudget = DEFAULT_AUTOFIX_BUDGET;
-	// One-time NO-OP warning (no tsconfig/tsc) per session.
+	// Advertencia NO-OP de una sola vez (sin tsconfig/tsc) por sesión.
 	let warnedNoEngine = false;
 
 	const notify = (ctx: ExtensionContext, message: string, level: "info" | "warning" | "error" = "info"): void => {
@@ -249,10 +254,10 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 	};
 
 	/**
-	 * Group `files` by nearest tsconfig, run tsc per group, and return diagnostics
-	 * filtered to those files. "no-engine" (no tsconfig found / tsc unspawnable) and
-	 * "timeout" (ANY group timed out — partial results would be a lie) are distinct
-	 * from "clean" (ok with an empty array).
+	 * Agrupá `files` por tsconfig más cercano, corré tsc por grupo y devolvé los
+	 * diagnósticos filtrados a esos archivos. "no-engine" (no se encontró tsconfig /
+	 * no se puede hacer spawn de tsc) y "timeout" (ALGÚN grupo agotó el tiempo; los
+	 * resultados parciales mentirían) son distintos de "clean" (ok con un array vacío).
 	 */
 	const runTouchedCheck = async (ctx: ExtensionContext, files: string[]): Promise<CheckOutcome> => {
 		const groups = new Map<string, string[]>();
@@ -277,14 +282,14 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		return spawned ? { status: "ok", diags: all } : { status: "no-engine" };
 	};
 
-	/** Run a whole-project check against `<cwd>/tsconfig.json` (no touched filter). */
+	/** Corré un check de proyecto completo contra `<cwd>/tsconfig.json` (sin filtro de tocados). */
 	const runProjectCheck = async (ctx: ExtensionContext): Promise<CheckOutcome> => {
 		const tsconfig = path.join(ctx.cwd, "tsconfig.json");
 		if (!existsSync(tsconfig)) return { status: "no-engine" };
 		return checkProject(tsconfig, ctx.signal);
 	};
 
-	// --- tracker: record touched TS files. NEVER check here. ----------------
+	// --- rastreador: registrá archivos TS tocados. NUNCA chequear acá. ----------
 	pi.on("tool_result", (event, ctx) => {
 		if (event.isError) return;
 		const name = event.toolName;
@@ -294,12 +299,12 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		touched.add(path.isAbsolute(raw) ? raw : path.resolve(ctx.cwd, raw));
 	});
 
-	// --- reset the per-prompt autofix budget at the start of each prompt. ----
+	// --- reseteá el presupuesto de autofix por prompt al inicio de cada prompt. -
 	pi.on("agent_start", () => {
 		autofixBudget = DEFAULT_AUTOFIX_BUDGET;
 	});
 
-	// --- coherent edge: run the check after the turn fully finishes. ---------
+	// --- borde coherente: corré el check después de que el turno termine por completo. -
 	pi.on("agent_end", async (_event, ctx) => {
 		if (!enabled) {
 			touched.clear();
@@ -310,7 +315,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			touched.clear();
 			return;
 		}
-		// Gate on the pure predicate so it stays unit-testable.
+		// Gateá sobre el predicado puro para que siga siendo testeable de forma unitaria.
 		if (
 			!shouldRun({
 				touched: touched.size,
@@ -319,7 +324,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 				pending: ctx.hasPendingMessages(),
 			})
 		) {
-			// Not idle or messages queued: keep `touched` and retry on a later edge.
+			// No está idle o hay mensajes en cola: conservá `touched` y reintentá en un borde posterior.
 			return;
 		}
 		if (running) return;
@@ -332,8 +337,8 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			if (outcome.status === "timeout") {
-				// Nothing was verified: keep lastKey so an already-surfaced report is
-				// not re-sent once tsc works again, and say so instead of staying mute.
+				// No se verificó nada: conservá lastKey para que un reporte ya mostrado
+				// no se vuelva a enviar cuando tsc funcione de nuevo, y avisalo en vez de quedar en silencio.
 				notify(ctx, `pandi-typescript-lsp: ${TIMEOUT_MESSAGE}`, "warning");
 				return;
 			}
@@ -347,8 +352,8 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			if (key === lastKey) return; // identical report already surfaced
 
 			if (mode === "autofix" && autofix) {
-				// Don't poison dedupe state when the budget blocks delivery: only
-				// remember a key for reports we actually send.
+				// No contamines el estado de dedupe cuando el presupuesto bloquea la
+				// entrega: recordá una clave solo para los reportes que realmente enviamos.
 				if (autofixBudget <= 0) return;
 				autofixBudget -= 1;
 				lastKey = key;
@@ -380,7 +385,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		}
 	});
 
-	// --- tool: typescript_diagnostics (pull / on-demand) --------------------
+	// --- tool: typescript_diagnostics (pull / a demanda) ---------------------
 	pi.registerTool({
 		name: "typescript_diagnostics",
 		label: "TypeScript Diagnostics",

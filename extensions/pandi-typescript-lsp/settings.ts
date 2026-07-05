@@ -1,19 +1,19 @@
 /**
- * pandi-typescript-lsp settings: the small, pure setting parsers (env + subcommand
- * share these — mirrors pandi-auto-compact) plus the feedback-mode/scope
- * value types they produce.
+ * Configuración de pandi-typescript-lsp: los parsers chicos y puros de
+ * configuración (env + subcommand comparten estos; refleja pandi-auto-compact)
+ * más los tipos de valor de feedback-mode/scope que producen.
  *
- * Like diagnostics.ts, this module is deliberately free of pi's ExtensionContext
- * / UI so it can be unit-tested in isolation against the same bundle the
- * extension ships. No side effects.
+ * Igual que diagnostics.ts, este módulo está deliberadamente libre de
+ * ExtensionContext / UI de pi para poder probarse de forma aislada contra el
+ * mismo bundle que publica la extensión. Sin efectos laterales.
  *
- * Depth-one sibling module imported by index.ts via "./settings.js".
+ * Módulo hermano a un nivel, importado por index.ts vía "./settings.js".
  */
 
 export type FeedbackMode = "advisory" | "autofix";
 export type Scope = "touched" | "project";
 
-/** Parse an on/off-style setting. Returns undefined for unrecognised input. */
+/** Parsea una configuración estilo on/off. Devuelve undefined para input no reconocido. */
 export function parseOnOff(value: string | undefined): boolean | undefined {
 	if (value === undefined) return undefined;
 	const v = value.trim().toLowerCase();
@@ -22,7 +22,7 @@ export function parseOnOff(value: string | undefined): boolean | undefined {
 	return undefined;
 }
 
-/** Parse the feedback mode setting (advisory | autofix). */
+/** Parsea la configuración de modo de feedback (`advisory` | `autofix`). */
 export function parseMode(value: string | undefined): FeedbackMode | undefined {
 	if (value === undefined) return undefined;
 	const v = value.trim().toLowerCase();
@@ -30,7 +30,7 @@ export function parseMode(value: string | undefined): FeedbackMode | undefined {
 	return undefined;
 }
 
-/** Parse a positive integer max-errors setting. */
+/** Parsea la configuración max-errors como entero positivo. */
 export function parseMax(value: string | undefined): number | undefined {
 	if (value === undefined) return undefined;
 	const n = Number(value.trim());
@@ -38,7 +38,7 @@ export function parseMax(value: string | undefined): number | undefined {
 	return n;
 }
 
-/** Parse a scope setting (touched | project). */
+/** Parsea la configuración de scope (`touched` | `project`). */
 export function parseScope(value: string | undefined): Scope | undefined {
 	if (value === undefined) return undefined;
 	const v = value.trim().toLowerCase();

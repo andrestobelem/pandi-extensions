@@ -1,69 +1,71 @@
 /**
- * pandi-typescript-lsp helpers: pure, UI-free logic for turning a `tsc --noEmit`
- * run into a bounded, touched-file diagnostics report.
+ * Utilidades de pandi-typescript-lsp: lógica pura, sin UI, para convertir una
+ * corrida de `tsc --noEmit` en un reporte acotado de diagnósticos para archivos
+ * tocados.
  *
- * Everything here is deliberately free of pi's ExtensionContext / UI so it can be
- * unit-tested in isolation against the same bundle the extension ships. The only
- * side effects are filesystem reads (tsconfig / tsc discovery, realpath
- * canonicalization) — never a spawn. Spawning `tsc` (with an ARGV array, never a
- * shell string) lives in index.ts, mirroring how pandi-worktree keeps `runGit`
- * beside its pure helpers.
+ * Todo acá está deliberadamente libre de ExtensionContext / UI de pi para poder
+ * probarse de forma aislada contra el mismo bundle que publica la extensión. Los
+ * únicos efectos laterales son lecturas del filesystem (descubrimiento de
+ * tsconfig / tsc, canonicalización con realpath); nunca un spawn. El spawn de
+ * `tsc` (con un array ARGV, nunca un shell string) vive en index.ts, reflejando
+ * cómo pandi-worktree mantiene `runGit` junto a sus utilidades puras.
  *
- * Contract note: this is NOT a full Language Server. There is no hover, no
- * go-to-definition, no completions. The single contract is *diagnostics
- * feedback*: parse `tsc` output, keep only the files the turn actually touched,
- * and surface a top-N summary.
+ * Nota de contrato: esto NO es un Language Server completo. No hay hover,
+ * go-to-definition ni completions. El único contrato es el *feedback de
+ * diagnósticos*: parsear la salida de `tsc`, conservar solo los archivos que el
+ * turno realmente tocó y mostrar un resumen top-N.
  *
- * Depth-one sibling module imported by index.ts via "./diagnostics.js".
+ * Módulo hermano a un nivel, importado por index.ts vía "./diagnostics.js".
  */
 
 import { existsSync, realpathSync } from "node:fs";
 import * as path from "node:path";
 
-/** Default wall-clock budget for a single `tsc` invocation. */
+/** Presupuesto predeterminado de tiempo real para una sola invocación de `tsc`. */
 export const DEFAULT_TSC_TIMEOUT_MS = 60_000;
 
-/** Default cap on how many diagnostics are surfaced in one report. */
+/** Tope predeterminado de diagnósticos que se muestran en un reporte. */
 export const DEFAULT_MAX_ERRORS = 20;
 
-/** A single parsed `tsc` diagnostic. */
+/** Un solo diagnóstico parseado de `tsc`. */
 export interface Diagnostic {
-	/** File path exactly as tsc emitted it (may be relative to tsc's cwd). */
+	/** Ruta de archivo exactamente como la emitió tsc (puede ser relativa al cwd de tsc). */
 	file: string;
 	line: number;
 	col: number;
-	/** TypeScript error code, e.g. "TS2322". */
+	/** Código de error de TypeScript, por ejemplo "TS2322". */
 	code: string;
 	severity: "error" | "warning";
 	message: string;
 }
 
-/** Result of a single `tsc` spawn (returned by index.ts's runner). */
+/** Resultado de un solo spawn de `tsc` (devuelto por el runner de index.ts). */
 export interface TscRunResult {
-	/** true when tsc exited 0 and was neither aborted nor timed out. */
+	/** true cuando tsc salió con 0 y no fue ni abortado ni agotó el tiempo. */
 	ok: boolean;
 	exitCode: number | null;
 	stdout: string;
 	stderr: string;
 	signal: NodeJS.Signals | null;
 	timedOut: boolean;
-	/** set when we never managed to spawn tsc at all. */
+	/** Se define cuando nunca logramos hacer spawn de tsc. */
 	spawnError?: string;
 }
 
-/** How `tsc` should be invoked (command + leading args before the tsc flags). */
+/** Cómo debe invocarse `tsc` (command + args iniciales antes de los flags de tsc). */
 export interface TscCommand {
-	/** Executable to spawn (node for env/local tsc.js, "npx" for the fallback). */
+	/** Ejecutable a spawnear (node para env/local tsc.js, "npx" para el fallback). */
 	command: string;
-	/** Leading args (the tsc.js path for node, or ["tsc"] for npx). */
+	/** Args iniciales (la ruta a tsc.js para node, o ["tsc"] para npx). */
 	args: string[];
-	/** Which resolution branch produced this command (for diagnostics/tests). */
+	/** Qué rama de resolución produjo este command (para diagnósticos/tests). */
 	kind: "env" | "local" | "npx";
 }
 
 /**
- * A TypeScript source file we care about: .ts/.tsx/.mts/.cts but NOT a .d.ts
- * declaration file (editing a .d.ts is rare and re-checking it adds noise).
+ * Un archivo fuente TypeScript que nos importa: .ts/.tsx/.mts/.cts, pero NO un
+ * archivo de declaración .d.ts (editar un .d.ts es raro y volver a chequearlo
+ * agrega ruido).
  */
 export function isTsFile(filePath: string): boolean {
 	if (!filePath) return false;
@@ -73,13 +75,14 @@ export function isTsFile(filePath: string): boolean {
 }
 
 /**
- * Parse `tsc --pretty false` output into structured diagnostics.
+ * Parsea la salida de `tsc --pretty false` en diagnósticos estructurados.
  *
- * Each diagnostic is a line of the form:
+ * Cada diagnóstico es una línea con la forma:
  *   `path/to/file.ts(line,col): error TSxxxx: message`
- * Handles CRLF, and folds INDENTED continuation lines (tsc wraps long messages)
- * into the preceding diagnostic's message. Non-matching, non-indented lines (e.g.
- * a trailing "Found N errors." summary) are ignored.
+ * Maneja CRLF y pliega las líneas de continuación indentadas (tsc parte mensajes
+ * largos) dentro del mensaje del diagnóstico anterior. Las líneas que no matchean
+ * y no están indentadas (por ejemplo, un resumen final "Found N errors.") se
+ * ignoran.
  */
 export function parseTscDiagnostics(stdout: string): Diagnostic[] {
 	const diags: Diagnostic[] = [];
@@ -101,7 +104,7 @@ export function parseTscDiagnostics(stdout: string): Diagnostic[] {
 			};
 			continue;
 		}
-		// Indented, non-empty line that is not a new diagnostic → message continuation.
+		// Línea indentada, no vacía, que no es un diagnóstico nuevo → continuación del mensaje.
 		if (current && /^\s+\S/.test(line)) {
 			current.message += `\n${line.trim()}`;
 		}
@@ -110,7 +113,7 @@ export function parseTscDiagnostics(stdout: string): Diagnostic[] {
 	return diags;
 }
 
-/** True when `dir` is `root` or a descendant of `root`. */
+/** Devuelve true cuando `dir` es `root` o un descendiente de `root`. */
 function isWithinOrEqual(root: string, dir: string): boolean {
 	if (dir === root) return true;
 	const rel = path.relative(root, dir);
@@ -118,9 +121,10 @@ function isWithinOrEqual(root: string, dir: string): boolean {
 }
 
 /**
- * Find the nearest tsconfig.json by walking UP from `file`'s directory, stopping
- * at `cwd` (inclusive). Falls back to `<cwd>/tsconfig.json` (whether or not it
- * exists) so callers always get a stable path to gate on with existsSync.
+ * Encuentra el tsconfig.json más cercano recorriendo hacia ARRIBA desde el
+ * directorio de `file`, y se detiene en `cwd` (inclusive). Usa
+ * `<cwd>/tsconfig.json` como respaldo (exista o no) para que quienes llaman
+ * siempre obtengan una ruta estable sobre la que puedan decidir con existsSync.
  */
 export function findNearestTsconfig(file: string, cwd: string): string {
 	const root = path.resolve(cwd);
@@ -138,17 +142,17 @@ export function findNearestTsconfig(file: string, cwd: string): string {
 	return fallback;
 }
 
-/** Build the tsc flag array for a project check. Pure; touches nothing. */
+/** Construye el array de flags de tsc para un chequeo de proyecto. Puro; no toca nada. */
 export function buildTscArgs(tsconfigPath: string): string[] {
 	return ["--noEmit", "--pretty", "false", "-p", tsconfigPath];
 }
 
 /**
- * Resolve HOW to run tsc, in order:
- *   1. env PI_TS_LSP_TSC — absolute path to tsc.js, run with the current node.
- *   2. nearest node_modules/typescript/bin/tsc walking up from `tsconfigDir`.
- *   3. fallback: `npx tsc`.
- * Pure aside from existsSync probes; `env` is injectable for tests.
+ * Resuelve CÓMO correr tsc, en este orden:
+ *   1. env PI_TS_LSP_TSC — ruta absoluta a tsc.js, corrido con el node actual.
+ *   2. el node_modules/typescript/bin/tsc más cercano, subiendo desde `tsconfigDir`.
+ *   3. si no, `npx tsc`.
+ * Es puro salvo por los sondeos con existsSync; `env` es inyectable para tests.
  */
 export function resolveTscCommand(tsconfigDir: string, env: NodeJS.ProcessEnv = process.env): TscCommand {
 	const envTsc = env.PI_TS_LSP_TSC?.trim();
@@ -166,9 +170,10 @@ export function resolveTscCommand(tsconfigDir: string, env: NodeJS.ProcessEnv = 
 }
 
 /**
- * Canonicalize a path for comparison: resolve to absolute, then follow symlinks
- * via realpath when the path exists (so macOS /var ↔ /private/var and other
- * symlinked temp dirs compare equal). Falls back to the resolved path otherwise.
+ * Canonicaliza una ruta para compararla: resolvela a absoluta y luego seguí los
+ * symlinks con realpath cuando la ruta exista (así macOS /var ↔ /private/var y
+ * otros directorios temporales con symlinks comparan igual). Si no, vuelve a la
+ * ruta resuelta.
  */
 function canonicalize(filePath: string): string {
 	const abs = path.resolve(filePath);
@@ -180,18 +185,19 @@ function canonicalize(filePath: string): string {
 }
 
 /**
- * Stable 5-field dedupe key for a single diagnostic, given its already-canonical
- * file path. Used by both the touched-file filter and the feedback dedupe so the
- * key string stays identical in both places.
+ * Clave estable de dedupe de 5 campos para un solo diagnóstico, dada su ruta de
+ * archivo ya canonicalizada. La usan tanto el filtro de archivos tocados como la
+ * deduplicación de feedback para que el texto de la clave sea idéntico en ambos lados.
  */
 function diagKey(canonicalFile: string, d: Diagnostic): string {
 	return `${canonicalFile}:${d.line}:${d.col}:${d.code}:${d.message}`;
 }
 
 /**
- * Keep only diagnostics whose file is one of `touchedAbsPaths`, normalizing both
- * sides (realpath-aware) so symlinked temp dirs match, and de-duplicating
- * identical diagnostics. Returned diagnostics carry the canonical absolute path.
+ * Conserva solo los diagnósticos cuyo archivo esté en `touchedAbsPaths`,
+ * normalizando ambos lados (con realpath) para que coincidan los temp dirs con
+ * symlinks, y deduplicando diagnósticos idénticos. Los diagnósticos devueltos
+ * llevan la ruta absoluta canonicalizada.
  */
 export function filterToTouched(diags: Diagnostic[], touchedAbsPaths: string[]): Diagnostic[] {
 	const touched = new Set(touchedAbsPaths.map(canonicalize));
@@ -208,17 +214,17 @@ export function filterToTouched(diags: Diagnostic[], touchedAbsPaths: string[]):
 	return out;
 }
 
-/** Result of formatting diagnostics for display. */
+/** Resultado de formatear diagnósticos para mostrarlos. */
 export interface FormatResult {
 	hasErrors: boolean;
 	text: string;
 }
 
 /**
- * Format diagnostics as a top-N list. Each line is
- *   `file(line,col): severity TSxxxx: message` (first line of the message only).
- * When there are more than `maxErrors`, a trailing `(+N más)` is appended.
- * `hasErrors` is true when any diagnostic has error severity.
+ * Formatea diagnósticos como una lista top-N. Cada línea es
+ *   `file(line,col): severity TSxxxx: message` (solo la primera línea del mensaje).
+ * Cuando hay más de `maxErrors`, se agrega un `(+N más)` al final.
+ * `hasErrors` es true cuando algún diagnóstico tiene severidad error.
  */
 export function formatDiagnostics(diags: Diagnostic[], opts: { maxErrors?: number } = {}): FormatResult {
 	const maxErrors = opts.maxErrors ?? DEFAULT_MAX_ERRORS;
@@ -234,7 +240,7 @@ export function formatDiagnostics(diags: Diagnostic[], opts: { maxErrors?: numbe
 	return { hasErrors: diags.some((d) => d.severity === "error"), text };
 }
 
-/** Inputs to the run gate. `touched` is the COUNT of touched TS files. */
+/** Entradas del criterio de ejecución. `touched` es la cantidad de archivos TS tocados. */
 export interface ShouldRunState {
 	touched: number;
 	aborted: boolean;
@@ -243,16 +249,16 @@ export interface ShouldRunState {
 }
 
 /**
- * The coherent-edge gate: run only when the turn touched TS files, was not
- * aborted, the agent is idle, and nothing else is queued. Pure boolean logic.
+ * El criterio del borde coherente: corré solo cuando el turno tocó archivos TS,
+ * no fue abortado, el agente está idle y no hay nada más en cola. Lógica booleana pura.
  */
 export function shouldRun(state: ShouldRunState): boolean {
 	return state.touched > 0 && !state.aborted && state.idle && !state.pending;
 }
 
 /**
- * Stable, order-independent key for a set of diagnostics, used to DEDUPE feedback
- * so identical reports are not re-injected turn after turn.
+ * Clave estable e independiente del orden para un conjunto de diagnósticos, usada
+ * para deduplicar el feedback y evitar reinyectar reportes idénticos turno tras turno.
  */
 export function diagnosticsKey(diags: Diagnostic[]): string {
 	return diags
