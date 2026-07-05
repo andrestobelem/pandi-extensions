@@ -63,9 +63,11 @@ function makeCtx(cwd) {
 	};
 }
 
-async function makeRunDir(project, runId) {
+async function makeRunDir(project, runId, { startedAt = "2026-01-01T00:00:00.000Z" } = {}) {
 	const runDir = path.join(project, ".pi", "workflows", "runs", runId);
 	await fs.mkdir(path.join(runDir, "agents"), { recursive: true });
+	const updatedAt = new Date(Date.parse(startedAt) + 60_000).toISOString();
+	const logAt = new Date(Date.parse(startedAt) + 1_000).toISOString();
 	const status = {
 		workflow: "adapter-demo",
 		scope: "project",
@@ -75,12 +77,12 @@ async function makeRunDir(project, runId) {
 		state: "completed",
 		background: true,
 		active: false,
-		startedAt: "2026-01-01T00:00:00.000Z",
-		updatedAt: "2026-01-01T00:01:00.000Z",
-		endedAt: "2026-01-01T00:01:00.000Z",
+		startedAt,
+		updatedAt,
+		endedAt: updatedAt,
 		elapsedMs: 60000,
 		agentCount: 1,
-		logs: [{ time: "2026-01-01T00:00:01.000Z", message: "phase: solo" }],
+		logs: [{ time: logAt, message: "phase: solo" }],
 	};
 	await fs.writeFile(path.join(runDir, "status.json"), JSON.stringify(status));
 	await fs.writeFile(
@@ -120,20 +122,18 @@ async function main() {
 	// The action is part of the tool schema.
 	check("tool registered", !!tool);
 
-	const runDir = await makeRunDir(project, "2026-01-01T00-00-00-000Z-adapter-demo-aaaa1111");
+	const oldRunId = "2026-01-01T00-00-00-000Z-adapter-demo-aaaa1111";
+	const latestRunId = "2026-01-02T00-00-00-000Z-adapter-demo-bbbb2222";
+	const runDir = await makeRunDir(project, oldRunId, { startedAt: "2026-01-01T00:00:00.000Z" });
+	const latestRunDir = await makeRunDir(project, latestRunId, { startedAt: "2026-01-02T00:00:00.000Z" });
 
 	// 1) Tool action=report with explicit run id writes <runDir>/report.html.
 	const explicit = await settle(
-		tool.execute(
-			"tc-report-1",
-			{ action: "report", name: "2026-01-01T00-00-00-000Z-adapter-demo-aaaa1111" },
-			new AbortController().signal,
-			undefined,
-			ctx,
-		),
+		tool.execute("tc-report-1", { action: "report", name: oldRunId }, new AbortController().signal, undefined, ctx),
 	);
 	check("action=report succeeds", explicit.ok === true, explicit.ok ? "" : explicit.msg);
 	const reportPath = path.join(runDir, "report.html");
+	const latestReportPath = path.join(latestRunDir, "report.html");
 	const html = await fs.readFile(reportPath, "utf8").catch(() => undefined);
 	check("report.html written inside the run dir", typeof html === "string");
 	check("report is a full document", (html ?? "").startsWith("<!doctype html>"));
@@ -141,22 +141,31 @@ async function main() {
 	check("report links the agent artifact relatively", (html ?? "").includes('href="agents/0001-solo.md"'));
 	check("tool response mentions the output path", explicit.ok && JSON.stringify(explicit.v).includes("report.html"));
 
-	// 2) action=report without a name resolves the LATEST run.
+	// 2) action=report without a name resolves the LATEST run among multiple candidates.
 	await fs.rm(reportPath, { force: true });
+	await fs.rm(latestReportPath, { force: true });
 	const latest = await settle(
 		tool.execute("tc-report-2", { action: "report" }, new AbortController().signal, undefined, ctx),
 	);
 	check("action=report defaults to latest run", latest.ok === true, latest.ok ? "" : latest.msg);
 	check(
 		"latest run report written",
-		await fs.access(reportPath).then(
+		await fs.access(latestReportPath).then(
 			() => true,
 			() => false,
+		),
+	);
+	check(
+		"older run report not written by latest default",
+		await fs.access(reportPath).then(
+			() => false,
+			() => true,
 		),
 	);
 
 	// 3) action=report watch:true on a terminal run writes once and does not add refresh.
 	await fs.rm(reportPath, { force: true });
+	await fs.rm(latestReportPath, { force: true });
 	const watchedTerminal = await settle(
 		tool.execute("tc-report-3", { action: "report", watch: true }, new AbortController().signal, undefined, ctx),
 	);
@@ -165,7 +174,7 @@ async function main() {
 		watchedTerminal.ok === true,
 		watchedTerminal.ok ? "" : watchedTerminal.msg,
 	);
-	const watchedHtml = await fs.readFile(reportPath, "utf8").catch(() => undefined);
+	const watchedHtml = await fs.readFile(latestReportPath, "utf8").catch(() => undefined);
 	check("watched terminal report written", typeof watchedHtml === "string");
 	check("watched terminal report has no meta refresh", !/http-equiv="refresh"/.test(watchedHtml ?? ""));
 	check(
@@ -180,8 +189,8 @@ async function main() {
 	const slash = await settle(
 		Promise.resolve(
 			workflowCommand.handler
-				? workflowCommand.handler("report 2026-01-01T00-00-00-000Z-adapter-demo-aaaa1111", ctx)
-				: commands.get("workflow")("report 2026-01-01T00-00-00-000Z-adapter-demo-aaaa1111", ctx),
+				? workflowCommand.handler(`report ${oldRunId}`, ctx)
+				: commands.get("workflow")(`report ${oldRunId}`, ctx),
 		),
 	);
 	check("/workflow report succeeds", slash.ok === true, slash.ok ? "" : slash.msg);
