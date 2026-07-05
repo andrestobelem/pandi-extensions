@@ -131,6 +131,7 @@ Algunas extensiones también exponen tools que **Pi decide usar por su cuenta** 
 - [`docs/setup.md`](docs/setup.md) — requisitos completos, capacidades opcionales, configuración por env vars, canales de distribución y layout del repo.
 - [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) — guía profunda de Dynamic Workflows: ciclo de ejecución, API de globals, background y resume, concurrencia, catálogo de patterns, prompts y seguridad.
 - [`docs/developing-extensions.md`](docs/developing-extensions.md) — cómo desarrollar extensiones en este repo self-hosted sin romper tu sesión.
+- [`RELEASING.md`](RELEASING.md) — política de versiones, tag de suite y publish npm de `@pandi-coding-agent/*`.
 - [`extensions/<name>/README.md`](extensions) — documentación por extensión (por ejemplo [`pandi-dynamic-workflows`](extensions/pandi-dynamic-workflows/README.md), [`pandi-bg`](extensions/pandi-bg/README.md)).
 
 ## Verificación
