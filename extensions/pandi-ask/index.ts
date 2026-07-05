@@ -37,6 +37,10 @@ function textResult(text: string, details: unknown) {
 	return { content: [{ type: "text" as const, text }], details };
 }
 
+function jsonResult(payload: unknown, details: unknown) {
+	return textResult(JSON.stringify(payload), details);
+}
+
 export default function askExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "ask_choice",
@@ -59,20 +63,26 @@ export default function askExtension(pi: ExtensionAPI) {
 			}
 			const choice = await ctx.ui.select(params.question, options);
 			if (choice == null) {
-				return textResult(JSON.stringify({ cancelled: true }), {
-					cancelled: true,
-					question: params.question,
-					options,
-				});
+				return jsonResult(
+					{ cancelled: true },
+					{
+						cancelled: true,
+						question: params.question,
+						options,
+					},
+				);
 			}
 			const index = options.indexOf(choice) + 1;
-			return textResult(JSON.stringify({ index, label: choice }), {
-				cancelled: false,
-				index,
-				label: choice,
-				question: params.question,
-				options,
-			});
+			return jsonResult(
+				{ index, label: choice },
+				{
+					cancelled: false,
+					index,
+					label: choice,
+					question: params.question,
+					options,
+				},
+			);
 		},
 	});
 
@@ -89,7 +99,7 @@ export default function askExtension(pi: ExtensionAPI) {
 			}
 			const ok = await ctx.ui.confirm(params.title, params.message ?? "");
 			const confirmed = Boolean(ok);
-			return textResult(JSON.stringify({ confirmed }), { confirmed, title: params.title });
+			return jsonResult({ confirmed }, { confirmed, title: params.title });
 		},
 	});
 }
