@@ -16,7 +16,7 @@
  * becomes redundant but stays harmless (it prints the same name).
  */
 
-export const EXIT_HINT_KEY = Symbol.for("pi-rename.exit-name-hint");
+export const EXIT_HINT_KEY = Symbol.for("pandi-rename.exit-name-hint");
 
 /** Injected process surface so the behavior is testable without a real process. */
 export interface ExitNameHintIO {

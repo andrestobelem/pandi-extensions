@@ -2061,19 +2061,26 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 
 	// /dynamic-workflow is the primary command; /ultracode is a working slash alias with identical
 	// behavior. Both route the task through the ultracode Contract Gate + workflow guidance.
-	const makeWorkflowRoutingHandler = (commandName: string) => async (args: string, ctx: ExtensionContext) => {
-		const task = args.trim();
-		if (!task) {
-			notify(ctx, `Usage: /${commandName} <task>`, "warning");
-			return;
-		}
-		if (!ensureDynamicWorkflowToolActive(pi))
-			notify(
-				ctx,
-				`dynamic_workflow tool is not active; ${commandName} will only provide routing guidance.`,
-				"warning",
-			);
-		sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled));
+	const makeWorkflowRoutingHandler = (
+		commandName: string,
+		options: { promptMode?: "ultracode" | "deep-research"; usageTarget?: string } = {},
+	) => {
+		const promptMode = options.promptMode ?? "ultracode";
+		const usageTarget = options.usageTarget ?? "<task>";
+		return async (args: string, ctx: ExtensionContext) => {
+			const task = args.trim();
+			if (!task) {
+				notify(ctx, `Usage: /${commandName} ${usageTarget}`, "warning");
+				return;
+			}
+			if (!ensureDynamicWorkflowToolActive(pi))
+				notify(
+					ctx,
+					`dynamic_workflow tool is not active; ${commandName} will only provide routing guidance.`,
+					"warning",
+				);
+			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, promptMode, ultracodeContractGateEnabled));
+		};
 	};
 
 	pi.registerCommand("dynamic-workflow", {
@@ -2088,20 +2095,10 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("deep-research", {
 		description: "Ask Pi to create/run a dynamic workflow for deep research",
-		handler: async (args, ctx) => {
-			const task = args.trim();
-			if (!task) {
-				notify(ctx, "Usage: /deep-research <research question>", "warning");
-				return;
-			}
-			if (!ensureDynamicWorkflowToolActive(pi))
-				notify(
-					ctx,
-					"dynamic_workflow tool is not active; deep-research will only provide routing guidance.",
-					"warning",
-				);
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, "deep-research", ultracodeContractGateEnabled));
-		},
+		handler: makeWorkflowRoutingHandler("deep-research", {
+			promptMode: "deep-research",
+			usageTarget: "<research question>",
+		}),
 	});
 
 	pi.registerCommand("ultracode-contract", {
