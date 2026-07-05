@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-exit/index.ts.
+ * Prueba de integración conductual estable para extensions/pandi-exit/index.ts.
  *
- * Pins the public /exit contract (a Claude-style alias for pi's native /quit):
- * - registers a slash command named "exit" with a non-empty description
- * - the handler triggers a clean shutdown via ctx.shutdown() exactly once
- * - the handler ignores any arguments and still shuts down
- * - registers EXACTLY one command (the README promises /exit coexists with the
- *   native /quit and never overrides it) (issue #13)
- * - a throwing ctx.shutdown() is reported as an error note and never propagates,
- *   mirroring pi-clear's guarded ctx.newSession() (issue #13)
+ * Fija el contrato público de /exit (un alias estilo Claude para el /quit nativo de pi):
+ * - registra un slash command llamado "exit" con una descripción no vacía
+ * - el handler dispara un cierre limpio vía ctx.shutdown() exactamente una vez
+ * - el handler ignora cualquier argumento y aun así cierra
+ * - registra exactamente un comando (el README promete que /exit coexiste con el
+ *   /quit nativo y nunca lo reemplaza) (issue #13)
+ * - un ctx.shutdown() que lanza se informa como una nota de error y nunca se propaga,
+ *   reflejando el ctx.newSession() protegido de pi-clear (issue #13)
  */
 
 import * as fs from "node:fs/promises";
@@ -73,9 +73,9 @@ async function main() {
 		await cmd.handler("  some ignored args  ", ctx2);
 		check("/exit ignores args and still shuts down once", ctx2._calls.shutdown === 1, String(ctx2._calls.shutdown));
 
-		// A throwing shutdown (the mode-provided shutdownHandler can throw) is reported
-		// as an error note and never propagates — same contract as pi-clear's guarded
-		// ctx.newSession().
+		// Un shutdown que lanza (el shutdownHandler provisto por el modo puede lanzar)
+		// se informa como una nota de error y nunca se propaga: mismo contrato que el
+		// ctx.newSession() protegido de pi-clear.
 		const ctxThrow = makeCtx({ throwOnShutdown: true });
 		let threw = false;
 		try {
@@ -92,7 +92,7 @@ async function main() {
 			JSON.stringify(ctxThrow._notes),
 		);
 
-		// Success stays strictly silent.
+		// En éxito no se emite nada.
 		check("/exit is silent on success", ctx._notes.length === 0 && ctx2._notes.length === 0);
 	} finally {
 		await fs.rm(ext.outDir, { recursive: true, force: true });

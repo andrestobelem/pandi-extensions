@@ -1,22 +1,23 @@
 /**
- * Claude-style `/exit` command for Pi.
+ * Comando `/exit` estilo Claude para Pi.
  *
- * Claude Code uses `/exit` (and `/quit`) to leave the session. Pi already ships a native
- * `/quit` that shuts down cleanly, but no `/exit`. This extension adds `/exit` as a thin
- * alias so the Claude muscle-memory works in Pi (it coexists with `/quit`, never
- * overrides it):
+ * Claude Code usa `/exit` (y `/quit`) para salir de la sesión. Pi ya trae un `/quit`
+ * nativo que cierra de forma limpia, pero no `/exit`. Esta extensión agrega `/exit` como
+ * alias fino para que la memoria muscular de Claude funcione en Pi (coexiste con `/quit`,
+ * nunca lo reemplaza):
  *
- *   /exit   -> ctx.shutdown()   (same clean shutdown as /quit)
+ *   /exit   -> ctx.shutdown()   (mismo cierre limpio que /quit)
  *
- * Arguments are ignored — exiting takes no parameters. ctx.shutdown() defers the actual
- * shutdown until the agent is idle, but it delegates to a mode-provided shutdownHandler
- * that CAN throw synchronously — so it is guarded like pi-clear guards ctx.newSession(),
- * reporting the failure instead of leaking a generic extension error.
+ * Los argumentos se ignoran: salir no recibe parámetros. ctx.shutdown() difiere el cierre
+ * real hasta que el agente queda inactivo, pero delega en un shutdownHandler provisto por
+ * el modo que PUEDE lanzar de forma síncrona; por eso se protege igual que pi-clear
+ * protege ctx.newSession(), informando la falla en vez de filtrar un error genérico de la
+ * extensión.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
-/** Notify the user, degrading gracefully outside the TUI (mirrors the sibling extensions). */
+/** Notifica al usuario y degrada con gracia fuera de la TUI (refleja las extensiones hermanas). */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
 		if (type === "info") console.log(message);
