@@ -1,23 +1,26 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-doctor/index.ts.
+ * Test de integración conductual durable para `extensions/pandi-doctor/index.ts`.
  *
- * `/doctor` is a thin in-session convenience that spawns the extension's vendored
- * read-only environment check (extensions/pandi-doctor/scripts/doctor.mjs) and shows
- * its report. Honest evidence:
- *   - the /doctor command is actually registered;
- *   - resolveDoctorScript walks up from a cwd to find the working-tree copy of
- *     extensions/pandi-doctor/scripts/doctor.mjs, falls back to the extension's own
- *     vendored copy (<extDir>/scripts/doctor.mjs), and returns null when neither
- *     resolves;
- *   - runDoctorCheck (driven by an INJECTED fake runner) maps ok/exit/spawnError
- *     to the right notify text + type, deterministically;
- *   - the missing-binary path is exercised with a REAL spawn of a guaranteed-absent
- *     binary (so spawnError is real, not mocked) → bounded message, no crash;
- *   - the command handler runs end-to-end against the REAL repo doctor and calls
- *     ctx.ui.notify once with non-empty text (env-agnostic: info or error).
+ * `/doctor` es una conveniencia liviana dentro de la sesión que hace spawn del
+ * chequeo read-only de entorno vendorizado por la extensión
+ * (`extensions/pandi-doctor/scripts/doctor.mjs`) y muestra su reporte. Evidencia
+ * honesta:
+ *   - el comando `/doctor` efectivamente se registra;
+ *   - `resolveDoctorScript` sube desde un `cwd` para encontrar la copia del
+ *     working tree de `extensions/pandi-doctor/scripts/doctor.mjs`, cae en la copia
+ *     vendorizada propia de la extensión (`<extDir>/scripts/doctor.mjs`) y devuelve
+ *     null cuando ninguna resuelve;
+ *   - `runDoctorCheck` (manejado por un runner fake INJECTADO) mapea
+ *     `ok`/`exit`/`spawnError` al texto + `type` correctos para notify, de forma
+ *     determinística;
+ *   - el camino de binario ausente se ejercita con un spawn REAL de un binario
+ *     garantizadamente ausente (así `spawnError` es real, no mocked) → mensaje
+ *     acotado, sin crash;
+ *   - el command handler corre end-to-end contra el doctor REAL del repo y llama a
+ *     `ctx.ui.notify` una vez con texto no vacío (env-agnostic: `info` o `error`).
  *
- * doctor.mjs is spawned with an ARGV array (never a shell string).
+ * `doctor.mjs` se ejecuta con un array ARGV (nunca un shell string).
  */
 
 import { spawnSync } from "node:child_process";
@@ -33,12 +36,12 @@ const EXT_DIR = path.resolve(__dirname, "..", "..");
 
 const { check, counts } = createChecker();
 
-/** Where the vendored doctor script lives, relative to a suite/working-tree root. */
+/** Dónde vive el script doctor vendorizado, relativo a la raíz de la suite/working tree. */
 const VENDORED_REL = path.join("extensions", "pandi-doctor", "scripts", "doctor.mjs");
 
 async function buildBundle() {
-	// index.ts uses the SDK for types only (erased); stub it so esbuild does not pull
-	// the real @earendil-works/pi-coding-agent runtime.
+	// `index.ts` usa el SDK solo por tipos (se borran); stubbealo para que esbuild no
+	// traiga el runtime real de `@earendil-works/pi-coding-agent`.
 	return await buildExtension({
 		name: "pi-doctor-build",
 		src: path.join(REPO_ROOT, "extensions", "pandi-doctor", "index.ts"),
@@ -71,7 +74,7 @@ async function loadExtension(url) {
 	return { commands, tools };
 }
 
-/** A fake runner matching runDoctor's signature; records calls, returns canned results. */
+/** Runner fake que respeta la firma de `runDoctor`; registra llamadas y devuelve resultados prefijados. */
 function fakeRunner(scripted = []) {
 	const calls = [];
 	const opts = [];
@@ -97,7 +100,7 @@ async function scenarioRegistration(url) {
 async function scenarioResolver(url) {
 	const mod = await loadModule(url);
 
-	// From the repo root, walking up finds the vendored extensions/pandi-doctor/scripts/doctor.mjs.
+	// Desde la raíz del repo, al subir encuentra el `extensions/pandi-doctor/scripts/doctor.mjs` vendorizado.
 	const fromRoot = mod.resolveDoctorScript(REPO_ROOT, "/nonexistent/ext");
 	check(
 		"resolveDoctorScript: finds the vendored script from repo root",
@@ -105,7 +108,7 @@ async function scenarioResolver(url) {
 		String(fromRoot),
 	);
 
-	// From a nested repo subdir, walking up still finds it.
+	// Desde un subdir anidado del repo, al subir igual lo encuentra.
 	const fromSubdir = mod.resolveDoctorScript(path.join(REPO_ROOT, "extensions", "pandi-doctor"), "/nonexistent/ext");
 	check(
 		"resolveDoctorScript: finds it from a nested subdir",
@@ -113,7 +116,7 @@ async function scenarioResolver(url) {
 		String(fromSubdir),
 	);
 
-	// Extension-relative fallback: cwd is unrelated, but extDir carries its own copy.
+	// Fallback relativo a la extensión: el `cwd` no tiene relación, pero `extDir` trae su propia copia.
 	const fromFallback = mod.resolveDoctorScript(path.parse(REPO_ROOT).root, EXT_DIR);
 	check(
 		"resolveDoctorScript: falls back to the extension's own scripts/doctor.mjs",
@@ -121,7 +124,7 @@ async function scenarioResolver(url) {
 		String(fromFallback),
 	);
 
-	// Neither cwd nor fallback resolves → null.
+	// Si no resuelve ni `cwd` ni el fallback → `null`.
 	const none = mod.resolveDoctorScript(path.parse(REPO_ROOT).root, "/nonexistent/ext");
 	check("resolveDoctorScript: null when nothing resolves", none === null, String(none));
 }
@@ -129,7 +132,7 @@ async function scenarioResolver(url) {
 async function scenarioCheckLogic(url) {
 	const mod = await loadModule(url);
 
-	// ok run → info, report text passed through.
+	// Run ok → `info`, con el texto del reporte pasado directo.
 	{
 		const run = fakeRunner([{ ok: true, stdout: "✓ all mandatory present\n", stderr: "", exitCode: 0 }]);
 		const res = await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR });
@@ -145,8 +148,8 @@ async function scenarioCheckLogic(url) {
 		);
 	}
 
-	// The runner receives the SESSION cwd (doctor.mjs discovers the suite root from
-	// there), not the script's grandparent directory.
+	// El runner recibe el `cwd` de la sesión (`doctor.mjs` descubre la raíz de la
+	// suite desde ahí), no el directorio abuelo del script.
 	{
 		const nestedCwd = path.join(REPO_ROOT, "extensions");
 		const run = fakeRunner([{ ok: true, stdout: "ok", stderr: "", exitCode: 0 }]);
@@ -154,7 +157,7 @@ async function scenarioCheckLogic(url) {
 		check("runDoctorCheck: spawns with the session cwd", run.opts[0]?.cwd === nestedCwd, JSON.stringify(run.opts[0]));
 	}
 
-	// exit 1 (mandatory missing) → error.
+	// `exit 1` (falta un obligatorio) → `error`.
 	{
 		const run = fakeRunner([{ ok: false, stdout: "✗ Pi CLI missing\n", stderr: "", exitCode: 1 }]);
 		const res = await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR });
@@ -165,7 +168,7 @@ async function scenarioCheckLogic(url) {
 		);
 	}
 
-	// spawnError → bounded error message, no throw.
+	// `spawnError` → mensaje de error acotado, sin throw.
 	{
 		const run = fakeRunner([{ ok: false, spawnError: "spawn node ENOENT" }]);
 		const res = await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR });
@@ -176,7 +179,7 @@ async function scenarioCheckLogic(url) {
 		);
 	}
 
-	// script not found → warning that points at the repo, runner NOT called.
+	// Script no encontrado → `warning` que apunta al repo, sin llamar al runner.
 	{
 		const run = fakeRunner([{ ok: true, stdout: "should not run", stderr: "", exitCode: 0 }]);
 		const res = await mod.runDoctorCheck(run, { cwd: path.parse(REPO_ROOT).root, extDir: "/nonexistent/ext" });
@@ -190,7 +193,7 @@ async function scenarioCheckLogic(url) {
 
 async function scenarioRealSpawnMissingBin(url) {
 	const mod = await loadModule(url);
-	// REAL spawn of a guaranteed-absent binary → spawnError is real, message bounded.
+	// Spawn REAL de un binario garantizadamente ausente → `spawnError` real, mensaje acotado.
 	const script = mod.resolveDoctorScript(REPO_ROOT, EXT_DIR);
 	const result = await mod.runDoctor(script, { bin: "node-does-not-exist-xyz", timeoutMs: 5000 });
 	check("runDoctor: missing bin → ok=false", result.ok === false, JSON.stringify(result));
@@ -202,15 +205,16 @@ async function scenarioRealSpawnMissingBin(url) {
 }
 
 function scenarioStandaloneDoctor() {
-	// Copy ONLY the vendored script to a temp dir outside the repo (like an npm
-	// install of @pandi-coding-agent/pandi-doctor) and run it for REAL from a non-repo
-	// cwd: it must degrade gracefully, not assume the suite repo exists.
+	// Copiá SOLO el script vendorizado a un dir temporal fuera del repo (como una
+	// instalación npm de `@pandi-coding-agent/pandi-doctor`) y corrélo de verdad desde
+	// un `cwd` fuera del repo: debe degradarse con gracia, sin asumir que existe el
+	// repo de la suite.
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-standalone-"));
 	try {
 		const extDir = path.join(tmp, "ext");
 		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
 		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
-		const agentDir = path.join(tmp, "agent"); // empty seam: host settings must not leak in
+		const agentDir = path.join(tmp, "agent"); // seam vacío: la configuración host no debe filtrarse
 		fs.mkdirSync(agentDir, { recursive: true });
 		const r = spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
 			cwd: tmp,
@@ -232,10 +236,10 @@ function scenarioStandaloneDoctor() {
 }
 
 function scenarioPreCommitHookCheck() {
-	// Inside a suite-like git repo, doctor must report whether the versioned
-	// pre-commit hook (scripts/git-hooks + core.hooksPath) is installed:
-	// WARN when missing, OK once `git config core.hooksPath scripts/git-hooks`
-	// points at an existing hook file.
+	// Dentro de un repo git parecido a la suite, doctor debe reportar si el hook
+	// `pre-commit` versionado (`scripts/git-hooks` + `core.hooksPath`) está instalado:
+	// `WARN` cuando falta, `OK` una vez que `git config core.hooksPath scripts/git-hooks`
+	// apunta a un archivo de hook existente.
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-hook-"));
 	try {
 		spawnSync("git", ["init", "-q"], { cwd: tmp, encoding: "utf8", timeout: 10000 });
@@ -243,7 +247,7 @@ function scenarioPreCommitHookCheck() {
 		const extDir = path.join(tmp, "ext");
 		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
 		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
-		const agentDir = path.join(tmp, "agent"); // empty seam: host settings must not leak in
+		const agentDir = path.join(tmp, "agent"); // seam vacío: la configuración host no debe filtrarse
 		fs.mkdirSync(agentDir, { recursive: true });
 		const runDoctorHere = () =>
 			spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
@@ -258,7 +262,7 @@ function scenarioPreCommitHookCheck() {
 		check("hook check: reported when not installed", beforeLine.length > 0, before.slice(0, 400));
 		check("hook check: WARN + actionable hint when not installed", /⚠/.test(beforeLine), beforeLine);
 
-		// Install: versioned hook file + core.hooksPath, exactly like `npm install` (prepare) does.
+		// Instalación: archivo de hook versionado + `core.hooksPath`, exactamente como hace `npm install` (`prepare`).
 		const hooksDir = path.join(tmp, "scripts", "git-hooks");
 		fs.mkdirSync(hooksDir, { recursive: true });
 		fs.writeFileSync(path.join(hooksDir, "pre-commit"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
@@ -287,7 +291,7 @@ async function scenarioHandlerEndToEnd(url) {
 		cwd: REPO_ROOT,
 		ui: { notify: (message, type) => notifications.push({ message, type }) },
 	};
-	// Runs the REAL scripts/doctor.mjs against this repo; env-agnostic assertion.
+	// Corre el `scripts/doctor.mjs` REAL contra este repo; aserción env-agnostic.
 	await commands.get("doctor").handler("", ctx);
 	check("handler: notifies exactly once", notifications.length === 1, `count=${notifications.length}`);
 	check(

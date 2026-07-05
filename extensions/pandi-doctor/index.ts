@@ -1,14 +1,15 @@
 /**
- * pi-doctor — a thin in-session `/doctor` command that runs the repo's read-only
- * environment check (scripts/doctor.mjs) and shows the report.
+ * pi-doctor — un comando `/doctor` liviano dentro de la sesión que corre el chequeo
+ * read-only de entorno del repo (`scripts/doctor.mjs`) y muestra el reporte.
  *
- * It is a convenience wrapper around `npm run doctor`: it locates scripts/doctor.mjs
- * (walking up from the session cwd, then an extension-relative fallback) and spawns
- * `node` on it (argv, never a shell). It does NOT import the script — that would
- * break standalone loading — so outside the repo it degrades to a friendly hint.
+ * Es un wrapper de conveniencia sobre `npm run doctor`: ubica `scripts/doctor.mjs`
+ * (subiendo desde el cwd de la sesión y, si no, con un fallback relativo a la
+ * extensión) y le hace spawn con `node` (argv, nunca shell). NO importa el script
+ * — eso rompería la carga standalone — así que fuera del repo se degrada a una
+ * sugerencia amigable.
  *
- * Pure helpers + the spawn seam live in ./doctor.ts and are re-exported so the
- * integration suite can drive them with an injected fake runner.
+ * Los helpers puros + el punto de inyección del spawn viven en `./doctor.ts` y se
+ * reexportan para que la suite de integración los maneje con un runner fake inyectado.
  */
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,7 +20,7 @@ import { notify } from "./notify.js";
 const EXT_DIR = dirname(fileURLToPath(import.meta.url));
 
 export type { DoctorResult, RunDoctor, RunDoctorOptions } from "./doctor.js";
-// Re-exported so the integration suite can unit-test the pure helpers + the seam.
+// Reexportado para que la suite de integración pueda unit-testear los helpers puros + el seam.
 export { formatDoctorOutput, resolveDoctorScript, runDoctor, runDoctorCheck } from "./doctor.js";
 
 export default function doctorExtension(pi: ExtensionAPI): void {

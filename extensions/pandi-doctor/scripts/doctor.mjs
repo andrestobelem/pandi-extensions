@@ -18,10 +18,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Walk up from `startDir` to find the pandi-extensions suite root (the repo
- * package.json). The script now lives INSIDE the pi-doctor extension, so it can
- * run from any install location; the suite root is a property of the CWD, not of
- * where the script file sits.
+ * Subí desde `startDir` para encontrar la raíz de la suite pandi-extensions (el
+ * `package.json` del repo). El script ahora vive DENTRO de la extensión pi-doctor,
+ * así que puede correr desde cualquier lugar de instalación; la raíz de la suite es
+ * una propiedad del CWD, no de dónde queda el archivo del script.
  */
 function findSuiteRoot(startDir) {
 	let dir = startDir;
@@ -31,7 +31,7 @@ function findSuiteRoot(startDir) {
 			try {
 				if (JSON.parse(readFileSync(pkg, "utf8")).name === "pandi-extensions") return dir;
 			} catch {
-				// unreadable/invalid package.json: keep walking up.
+				// `package.json` ilegible o inválido: seguí subiendo.
 			}
 		}
 		const parent = path.dirname(dir);
@@ -40,17 +40,17 @@ function findSuiteRoot(startDir) {
 	}
 }
 
-/** Script-relative fallback: <ext>/scripts → repo root, but only if it really IS the suite. */
+/** Fallback relativo al script: `<ext>/scripts` → raíz del repo, pero solo si de verdad ES la suite. */
 function suiteRootFromScriptLocation() {
 	const candidate = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 	return findSuiteRoot(candidate) === candidate ? candidate : null;
 }
 
-// null ⇒ standalone install (e.g. npm:@pandi-coding-agent/pandi-doctor): repo-only
-// checks degrade to N/A instead of false warnings.
+// null ⇒ instalación standalone (p. ej. `npm:@pandi-coding-agent/pandi-doctor`): los
+// chequeos solo-del-repo se degradan a N/A en vez de dar warnings falsos.
 const SUITE_ROOT = findSuiteRoot(process.cwd()) ?? suiteRootFromScriptLocation();
-// Project dir for project-level lookups (node_modules, .agents/.pi skills,
-// .pi/settings.json): the suite root when inside the repo, else the cwd.
+// Directorio del proyecto para lookups a nivel proyecto (`node_modules`, skills en
+// `.agents`/`.pi`, `.pi/settings.json`): la raíz de la suite dentro del repo, o si no el cwd.
 const PROJECT_DIR = SUITE_ROOT ?? process.cwd();
 const MIN_NODE = "22.19.0"; // engines.node de @earendil-works/pi-coding-agent
 const GONDOLIN_NODE = "23.6.0"; // piso extra para la extensión opcional Gondolin
@@ -67,7 +67,7 @@ const OK = green("✓");
 const WARN = yellow("⚠");
 const FAIL = red("✗");
 
-/** Parse "v22.19.0" / "codex-cli 0.142.4" -> [22,19,0]; null if none. */
+/** Parsea "v22.19.0" / "codex-cli 0.142.4" -> [22,19,0]; devuelve null si no encuentra ninguna. */
 function parseSemver(text) {
 	const m = String(text).match(/(\d+)\.(\d+)\.(\d+)/);
 	return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
@@ -80,7 +80,7 @@ function gte(a, b) {
 	return true;
 }
 
-/** Run `<bin> <args>`; returns { found, out } without throwing (ENOENT => found:false). */
+/** Corre `<bin> <args>`; devuelve { found, out } sin lanzar (`ENOENT` => `found:false`). */
 function probe(bin, args = ["--version"]) {
 	try {
 		const r = spawnSync(bin, args, { encoding: "utf8", timeout: 8000 });
@@ -236,8 +236,8 @@ const shortDir = globalDir === home || globalDir.startsWith(home + path.sep) ? g
 const syncScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "sync-claude-global.mjs") : null;
 const syncLabel = `sync Claude global (${shortDir})`;
 if (!SUITE_ROOT) {
-	// Standalone install: the mirror is a dev concern of the suite repo, not of
-	// this machine — N/A, not a false "out of sync" warning.
+	// Instalación standalone: el espejo es una preocupación de desarrollo del repo de
+	// la suite, no de esta máquina — N/A, no un warning falso de "out of sync".
 	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(syncScript)) {
 	const sync = spawnSync("node", [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
@@ -335,7 +335,7 @@ const foreignCopies = packageEntries.filter(
 			src.includes("@pandi-coding-agent/")),
 );
 const workingTreeEntries = packageEntries.filter(({ src, base }) => {
-	// Without a suite working tree there is nothing to double-load against.
+	// Sin un working tree de la suite no hay nada contra lo que hacer double-load.
 	if (!SUITE_ROOT || isRemote(src)) return false;
 	const resolved = path.resolve(base, src);
 	return resolved === SUITE_ROOT || resolved.startsWith(SUITE_ROOT + path.sep);

@@ -1,17 +1,19 @@
 /**
- * Pure helpers + a single spawn seam for the pi-doctor extension.
+ * Helpers puros + un único punto de inyección del spawn para la extensión pi-doctor.
  *
- *   - `runDoctor` spawns `node <scripts/doctor.mjs>` with an ARGV array (never a
- *     shell string). Spawn failure, non-zero exit, timeout, or abort all come back
- *     as a DoctorResult (never throws), mirroring pi-container's runContainer.
- *   - `resolveDoctorScript` locates the read-only env check WITHOUT importing it
- *     (a static import would break bundling), preferring the WORKING-TREE copy
- *     (walk up from the session cwd to extensions/pandi-doctor/scripts/doctor.mjs, so
- *     in-repo dev always runs the freshest version), then falling back to the
- *     extension's own vendored `<extDir>/scripts/doctor.mjs` — which ships in the
- *     npm tarball, so a standalone install still resolves. Null when neither does.
- *   - `runDoctorCheck` is the injectable high-level step the command handler calls;
- *     `formatDoctorOutput` maps a DoctorResult to notify text + severity.
+ *   - `runDoctor` ejecuta `node <scripts/doctor.mjs>` con un array ARGV (nunca un
+ *     shell string). Fallo de spawn, salida no cero, timeout o abort vuelven como un
+ *     DoctorResult (nunca lanza), igual que `runContainer` de pi-container.
+ *   - `resolveDoctorScript` ubica el chequeo read-only de entorno SIN importarlo
+ *     (un import estático rompería el bundling), prefiriendo la copia del WORKING TREE
+ *     (sube desde el cwd de la sesión hasta extensions/pandi-doctor/scripts/doctor.mjs,
+ *     así el desarrollo dentro del repo siempre corre la versión más nueva), y luego
+ *     cae en la copia vendorizada propia de la extensión `<extDir>/scripts/doctor.mjs`
+ *     — que viaja en el npm tarball, así que una instalación standalone igual resuelve.
+ *     Devuelve null cuando no existe ninguna.
+ *   - `runDoctorCheck` es el paso de alto nivel inyectable que llama el command
+ *     handler; `formatDoctorOutput` mapea un DoctorResult a texto + severidad para
+ *     notify.
  */
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -22,9 +24,9 @@ export interface DoctorResult {
 	stdout: string;
 	stderr: string;
 	exitCode?: number;
-	/** set when the process was killed by timeout/abort. */
+	/** se marca cuando el proceso se termina por timeout/abort. */
 	timedOut?: boolean;
-	/** set when we never managed to spawn `node` at all. */
+	/** se marca cuando nunca logramos hacer spawn de `node`. */
 	spawnError?: string;
 }
 
@@ -32,18 +34,18 @@ export interface RunDoctorOptions {
 	cwd?: string;
 	signal?: AbortSignal;
 	timeoutMs?: number;
-	/** binary to spawn; overridable so tests can point at a guaranteed-absent name. */
+	/** binario a ejecutar; se puede sobrescribir para que los tests apunten a un nombre garantizadamente ausente. */
 	bin?: string;
 }
 
 export const DEFAULT_DOCTOR_TIMEOUT_MS = 120_000;
 
-/** Signature shared by runDoctor and the injected fake runner in tests. */
+/** Firma compartida por `runDoctor` y el runner fake inyectado en tests. */
 export type RunDoctor = (scriptPath: string, options?: RunDoctorOptions) => Promise<DoctorResult>;
 
 /**
- * Spawn `node <scriptPath>` (the vendored scripts/doctor.mjs). Spawn failure, non-zero
- * exit, timeout, or abort all resolve to a DoctorResult (never throws).
+ * Ejecuta `node <scriptPath>` (el `scripts/doctor.mjs` vendorizado). Fallo de spawn,
+ * salida no cero, timeout o abort siempre resuelven a un DoctorResult (nunca lanza).
  */
 export function runDoctor(scriptPath: string, options: RunDoctorOptions = {}): Promise<DoctorResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_DOCTOR_TIMEOUT_MS, bin = "node" } = options;
@@ -53,7 +55,7 @@ export function runDoctor(scriptPath: string, options: RunDoctorOptions = {}): P
 		let settled = false;
 		let timedOut = false;
 
-		// NO_COLOR so the captured report is plain text (doctor.mjs also skips ANSI when piped).
+		// NO_COLOR para que el reporte capturado sea texto plano (`doctor.mjs` también omite ANSI cuando va por pipe).
 		const child = spawn(bin, [scriptPath], {
 			cwd,
 			windowsHide: true,
@@ -97,19 +99,20 @@ export function runDoctor(scriptPath: string, options: RunDoctorOptions = {}): P
 	});
 }
 
-/** Where the vendored doctor script lives, relative to a suite/working-tree root. */
+/** Dónde vive el script doctor vendorizado, relativo a la raíz de la suite/working tree. */
 const VENDORED_SCRIPT_REL = join("extensions", "pandi-doctor", "scripts", "doctor.mjs");
 
 /**
- * Locate the doctor script: walk up from `startCwd` looking for a working-tree
- * copy (`<root>/extensions/pandi-doctor/scripts/doctor.mjs` — in-repo dev wins even
- * when the extension loaded from another install identity), then fall back to the
- * extension's own vendored copy (`<extDir>/scripts/doctor.mjs`, shipped in the npm
- * tarball). Returns null when neither exists — `/doctor` degrades to a hint.
+ * Ubicá el script doctor: subí desde `startCwd` buscando una copia del working tree
+ * (`<root>/extensions/pandi-doctor/scripts/doctor.mjs` — el desarrollo dentro del repo
+ * gana incluso cuando la extensión cargó desde otra identidad de instalación), y si
+ * no, caé en la copia vendorizada propia de la extensión (`<extDir>/scripts/doctor.mjs`,
+ * incluida en el npm tarball). Devuelve null cuando no existe ninguna — `/doctor` se
+ * degrada a una sugerencia.
  */
 export function resolveDoctorScript(startCwd: string, extDir: string): string | null {
 	let dir = startCwd;
-	// Walk up to the filesystem root.
+	// Subí hasta la raíz del filesystem.
 	for (;;) {
 		const candidate = join(dir, VENDORED_SCRIPT_REL);
 		if (existsSync(candidate)) return candidate;
@@ -125,7 +128,7 @@ export function resolveDoctorScript(startCwd: string, extDir: string): string | 
 const NOT_IN_REPO_HINT =
 	"No se encontró `scripts/doctor.mjs` — corré `/doctor` desde dentro del repo pandi-extensions (o usá `npm run doctor`).";
 
-/** Map a DoctorResult to notify text + severity. */
+/** Mapea un DoctorResult a texto + severidad para notify. */
 export function formatDoctorOutput(result: DoctorResult): { text: string; type: "info" | "warning" | "error" } {
 	if (result.spawnError) {
 		return { text: `No se pudo ejecutar el chequeo del doctor: ${result.spawnError}`, type: "error" };
@@ -141,8 +144,8 @@ export function formatDoctorOutput(result: DoctorResult): { text: string; type: 
 }
 
 /**
- * High-level step the command handler calls. Resolves the script, runs it via the
- * injected runner, and returns notify-ready text + type. Never throws.
+ * Paso de alto nivel que llama el command handler. Resuelve el script, lo corre con
+ * el runner inyectado y devuelve texto + type listos para notify. Nunca lanza.
  */
 export async function runDoctorCheck(
 	run: RunDoctor,
@@ -150,7 +153,7 @@ export async function runDoctorCheck(
 ): Promise<{ ok: boolean; text: string; type: "info" | "warning" | "error" }> {
 	const script = resolveDoctorScript(opts.cwd, opts.extDir);
 	if (!script) return { ok: false, text: NOT_IN_REPO_HINT, type: "warning" };
-	// Spawn with the SESSION cwd: doctor.mjs discovers the suite root from there.
+	// Hace spawn con el cwd de la sesión: `doctor.mjs` descubre la raíz de la suite desde ahí.
 	const result = await run(script, { cwd: opts.cwd, signal: opts.signal });
 	const { text, type } = formatDoctorOutput(result);
 	return { ok: result.ok, text, type };
