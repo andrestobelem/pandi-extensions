@@ -1,5 +1,22 @@
 # Instrucciones del proyecto
 
+## En 30 segundos
+
+Este repo es **pandi-extensions**: una suite de extensiones, skills, tema y workflows para convertir Pi en un laboratorio de patrones agénticos ejecutables. Este archivo es la guía raíz para agentes: define cómo pensar, cuándo delegar, cómo verificar y qué límites no cruzar.
+
+Leé primero el estado real del repo, hacé cambios chicos, verificá con evidencia y dejá el trabajo observable. Menos magia, más bambú inspeccionable. 🐼
+
+> **Fuente canónica:** editá `AGENTS.md`. `CLAUDE.md` es un espejo byte-idéntico para Claude Code; después de tocar esta guía corré `node scripts/sync-agent-guides.mjs`.
+
+## Loop de trabajo esperado
+
+1. **Scout primero.** Mirá `git status`, leé los archivos relevantes y comprobá supuestos con comandos baratos antes de diseñar.
+2. **Elegí el paso más chico que aprenda algo.** Preferí una corrección quirúrgica con evidencia rápida a un refactor amplio sin necesidad.
+3. **Si cambia comportamiento, TDD por defecto.** Red → Green → Refactor → Commit. Si no podés ir test-first, decilo explícitamente; no llames TDD a test-after.
+4. **Refactor no se saltea en silencio.** Después de Green, hacé la pasada de Refactor y narrá el resultado, incluso si es “nada que cambiar”.
+5. **Verificá lo tocado.** Usá tests/checks acotados primero; corré gates amplios solo cuando el alcance lo justifique y el árbol no tenga cambios ajenos que contaminen el resultado.
+6. **Preservá trabajo ajeno.** En un repo con sesiones concurrentes, nunca limpies, formatees, agregues al stage, resetees ni commitees archivos que no pertenecen a tu tarea.
+
 ## Mentalidad de ingeniería
 
 Adoptá una mentalidad de ingeniería estilo Karpathy: construí entendimiento desde primeros principios, preferí sistemas chicos y legibles, y hacé que la complejidad se gane su lugar. Al aprender o diseñar, empezá por baselines simples, inspeccioná los datos/estado directamente, verificá supuestos, probá primero casos mínimos o representativos, y agregá sofisticación de a poco.
@@ -8,59 +25,94 @@ Usá la IA agresivamente como nueva interfaz de programación, pero no confundas
 
 Para trabajo agéntico, tratá prompts, contexto, tools, memoria, artifacts y evaluaciones como parte del programa. Hacé el workflow observable: pasos chicos, evidencia preservada, incertidumbre expuesta, outputs verificados, y artifacts inspeccionables antes que magia oculta.
 
-## Guías de código
+## Skills y lentes de diseño
 
-Usá el skill instalado `karpathy-guidelines` al escribir, revisar o refactorizar código. Contiene las reglas comunitarias inspiradas en Karpathy para pensar antes de codear, mantener las soluciones simples, hacer cambios quirúrgicos y guiar el trabajo con objetivos verificables. Es un skill EXTERNO — no está vendoreado en este repo; se instala globalmente desde upstream (ver el Quickstart del README / el skill `init-pandi-extensions`), y `npm run doctor` reporta si está presente.
+Usá estos skills cuando el trabajo toque su dominio:
 
-Usá el skill del proyecto `modern-software-engineering` para arquitectura, refactoring, code review, estrategia de tests, mejoras de delivery/proceso y diseño de dynamic workflows. Destila la Modern Software Engineering estilo Dave Farley: TDD por defecto para cambios de comportamiento (Red → Green → Refactor → Commit), optimizar por evidencia rápida, gestionar la complejidad deliberadamente, y juzgar cambios por estabilidad más throughput.
+| Skill | Cuándo usarlo |
+| --- | --- |
+| `karpathy-guidelines` | Escribir, revisar o refactorizar código con cambios simples, quirúrgicos y verificables. Es externo; `npm run doctor` reporta si está instalado. |
+| `modern-software-engineering` | Arquitectura, refactoring, code review, tests, delivery y diseño de dynamic workflows. Es el dueño del loop TDD por defecto. |
+| `ai-assisted-engineering` | Decidir cuánto delegar a IA/agentes y cómo diseñar/orquestar dynamic workflows. Es la lente del **orquestador**. |
+| `empirical-software-design` | Micro-ritmo de TDD, tamaño de paso, fake/triangulate, tidy first/after/later/never y reversibilidad. |
+| `clean-craftsmanship` | Legibilidad, SOLID/componentes, Clean Architecture, dependencia y disciplina profesional. |
 
-Usá el skill del proyecto `ai-assisted-engineering` cuando la tarea trate de *usar IA o agentes para construir software* — decidir cuánto delegar, si el output generado es confiable, y en especial cómo diseñar/orquestar dynamic workflows. Es el compañero AI-era de `modern-software-engineering` (aquel aporta la disciplina TDD/complejidad; este aporta la disciplina de dónde encaja la IA adentro). Aplicá los tres por rol: `ai-assisted-engineering` es la lente del **orquestador** (clasificar prototipo vs. producción, fijar el límite de delegación, scout + baseline simple antes de un fan-out grande, tratar prompts/contexto/tools como el programa, verificar con evidencia ejecutable), mientras `karpathy-guidelines` + `modern-software-engineering` aplican adentro de los **workers** que efectivamente escriben y verifican código. No cargues cada lente en cada subagente — emparejá el skill con el rol, honrando "smallest inspectable slice".
+Aplicá cada lente donde aporta: `ai-assisted-engineering` para el orquestador; `karpathy-guidelines` + `modern-software-engineering` para workers que escriben/verifican código; `empirical-software-design` para el ritmo fino; `clean-craftsmanship` para oficio y límites de diseño. Deferencia TDD: `modern-software-engineering` gobierna el loop y la forma de respuesta; `empirical-software-design`, el micro-ritmo y la economía de diseño; `clean-craftsmanship`, la disciplina de las tres leyes y el profesionalismo. Las decisiones de delegación a IA difieren a `ai-assisted-engineering`. Las personas advisor `kent-beck` y `uncle-bob` (`.pi/personas/`) cargan su skill correspondiente automáticamente.
 
-Dos lentes de método más profundas complementan — no reemplazan — esos defaults. Usá el skill del proyecto `empirical-software-design` (lente Kent Beck) para el juicio de diseño fino dentro del loop de código: tamaño de paso de TDD (test list, fake it, triangulate), separación estructura-vs-comportamiento, economía de tidy first/after/later/never, y guardrails de augmented coding. Usá el skill del proyecto `clean-craftsmanship` (lente Uncle Bob) para el oficio de legibilidad a nivel código, diagnosticar deterioro de diseño con principios SOLID/de componentes, dirección de dependencias de Clean Architecture, y disciplinas de profesionalismo. TDD se reparte deliberadamente en tres por deferencia explícita: `modern-software-engineering` es dueño del loop por defecto y de la forma de la respuesta, `empirical-software-design` es dueño del micro-ritmo y la economía de diseño, `clean-craftsmanship` es dueño del framing de disciplina de las tres leyes — y ambas lentes nuevas difieren la decisión de delegación a IA a `ai-assisted-engineering`. Las personas advisor `kent-beck` y `uncle-bob` (`.pi/personas/`) cargan su skill correspondiente automáticamente.
+Fuente/referencia: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills). Estas guías derivan de notas de Andrej Karpathy sobre errores comunes de LLMs al codear; no fueron escritas por él.
 
-Honrá cada paso de TDD, no solo los dos fáciles:
+## Reglas de código y arquitectura
 
-- **Red primero.** Escribí el test que falla ANTES de la implementación; test-after no es TDD. Si genuinamente no podés ir test-first, decilo explícitamente en vez de etiquetar test-after como TDD.
-- **Nunca saltees Refactor en silencio.** Después de Green, hacé siempre la pasada de Refactor y NARRÁ su resultado — incluso cuando la conclusión sea "nada que cambiar", decilo y explicá por qué. Los tests en verde son la red de seguridad que hace barato refactorizar; no usarlos es el desperdicio.
-- **El paso Refactor está acotado por la regla de extensión autocontenida.** Pi carga cada extensión autocontenida (un archivo único o su propio dir vía resolución de filesystem de jiti), así que un import runtime de `../shared/` solo resuelve mientras el monorepo completo está presente y se rompe cuando la extensión se instala standalone. Por eso la duplicación por extensión es INTENCIONAL (ver `pi-*/notify.ts`, `time.ts`, `session-state.ts`, y los pequeños parsers de flags/strings de prompt por extensión). NO hagas "DRY" de código runtime entre extensiones hacia un módulo compartido durante Refactor; `extensions/shared/` es SOLO para harness de tests. Deduplicá únicamente DENTRO de una misma extensión/paquete.
-- **Commit es la fase final de TDD.** Cuando Refactor queda en verde, aterrizá el cambio como commit atómico usando Conventional Commits con scope explícito (p. ej. `fix(pandi-goal): clear terminated goals`). Cada commit es un cambio coherente, con el test que pinea en el MISMO commit que el código que cubre.
+- **Extensiones autocontenidas.** Pi carga cada extensión autocontenida (un archivo único o su propio dir vía resolución de filesystem de `jiti`). Un import runtime de `../shared/` solo resuelve mientras el monorepo completo está presente y se rompe cuando la extensión se instala standalone.
+- **Duplicación intencional entre extensiones.** La duplicación por extensión es válida para mantener packages publicables por separado (por ejemplo `pandi-*/notify.ts`, `time.ts`, `session-state.ts` y parsers chicos). `extensions/shared/` es SOLO para harness de tests.
+- **DRY dentro del paquete.** No dedupes runtime entre extensiones hacia un módulo compartido; sí dedupá dentro de la misma extensión/paquete cuando reduce complejidad real.
+- **Pruebas colocalizadas.** Las suites de integración viven bajo `extensions/<extension>/tests/integration/` y se corren con `npm test` o con comandos acotados por extensión.
+- **Runtime como mecanismo de disciplina.** En este paquete, `/plan` ≈ Think Before Coding, los safeguards de `/loop` ≈ Surgical Changes, y `/goal` + `/loop` ≈ Goal-Driven Execution.
 
-Fuente/referencia: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills). Estas guías derivan de las notas de Andrej Karpathy sobre errores comunes de LLMs al codear; no fueron escritas por él.
+## Verificación y repo auto-hospedado
 
-En este paquete, esos principios también están operacionalizados como mecanismos de runtime: `/plan` ≈ Think Before Coding, los safeguards de `/loop` ≈ Surgical Changes, y `/goal` + `/loop` ≈ Goal-Driven Execution. Las suites de integración de comportamiento agrupadas por extensión bajo `extensions/<extension>/tests/integration/` (se corren con `npm test`) los mantienen honestos.
+Este repo puede estar instalado globalmente apuntando al mismo checkout de trabajo: `/reload` puede cargar TypeScript sin commitear y un error de carga puede tumbar la sesión. Loop seguro:
+
+1. **Primero tests aislados.** Usá suites de integración con el harness (`node --test ...` o `npm test`) antes de smoke tests en vivo.
+2. **Smoke en vivo en worktree aparte.** Si necesitás probar comandos Pi reales, abrí una segunda sesión en un worktree (`git_worktree open ...`) y hacé `pi install ./ -l` ahí.
+3. **TypeScript con tool dedicado.** Para archivos TypeScript tocados, preferí `typescript_diagnostics` sobre invocar `tsc` a mano.
+4. **Markdown tocado.** Para Markdown, corré `npx markdownlint-cli2 ":ruta.md"` o `npm run lint:md` cuando el alcance sea repo-wide.
+5. **Gate completo.** `npm test` corre `typecheck`, `biome check .`, `markdownlint-cli2`, checks de sync/docs/personas, unit tests e integración. Usalo antes de cerrar trabajo amplio o cuando el árbol esté bajo control.
+
+## Docs y prosa
+
+- Usá `didactic-docs-style` para documentación: apertura en 30 segundos, disclosure progresivo, tablas/diagramas para decisiones, ejemplos mínimos y exactitud verificable.
+- Usá `pandi-prose-style` para ajustar tono por superficie. En docs/READMEs/AGENTS el tono Pandi es visible pero liviano; en prompts, errores y código es cero o casi cero según la matriz.
+- `docs/html/` es generado: regeneralo con `npm run sync:docs:html`; no lo edites a mano.
+- `CLAUDE.md` también es generado desde `AGENTS.md`: no lo edites a mano salvo que estés probando el guard de parity.
 
 ## Ultracode / dynamic workflows
 
-Para tareas amplias, de alta confianza o repo-wide, usá el router de Ultracode (`/dynamic-workflow` (alias `/ultracode`), `/effort ultracode`, o `dynamic_workflow`) solo cuando se gana su costo:
+Para tareas amplias, de alta confianza o repo-wide, usá el router de Ultracode (`/dynamic-workflow` alias `/ultracode`, `/effort ultracode`, o `dynamic_workflow`) solo cuando se gana su costo:
 
-- Primero scouteá inline con sondas baratas read-only para descubrir la work-list real.
-- Usá dynamic workflows para escala, exhaustividad, verificación independiente, o más contexto del que entra en una ventana.
-- Preferí drafts frescos específicos de la tarea bajo el gitignoreado `.pi/workflows/drafts/<slug>.js`, junto a `.pi/workflows/runs/`; reutilizá un workflow existente solo cuando calza exacto con la tarea.
-- Graficá/lanzá workflows en background con `concurrency` y `maxAgents` explícitos, y después inspeccioná los artifacts antes de confiar en las conclusiones.
-- Los subagentes reciben `web_search` y `context7-cli` por defecto cuando están instalados; optá por salir solo cuando se requiere aislamiento.
-- Adjuntá una persona `agentType` (`explore`/`researcher`/`planner`/`architect`/`implementer`/`reviewer`) para defaults acordes al rol; todas son read-only por defecto (otorgá tools de escritura/ejecución explícitamente), y las opciones explícitas siempre ganan. Catálogo + cuándo usar cada una: `.pi/skills/ultracode/reference/personas.md`.
-- **Parámetros y límites de `web_search` (LEER antes de buscar).** El tool (pi-codex-web-search) delega cada llamada a UN run efímero de Codex. Parámetros: `query` (requerido); `mode` = `fast`|`deep` (profundidad, default `fast`); `freshness` = `cached`|`live` (default: fast→cached, deep→live; se auto-promueve a `live` ante señales de actualidad como today/latest/price); `maxSources` = 1–10 (default 5). Dos límites SEPARADOS, fáciles de confundir:
-  - **Presupuesto de queries por LLAMADA (NO acumulativo entre llamadas).** Dentro de una sola llamada Codex puede ramificarse en sub-queries, con tope por run de **10** (fast) / **24** (deep). Una llamada `fast` cuya query es tan amplia que necesita una 11ª sub-query falla con `exceeded the fast search budget 11/10` (deep: `27/24`). Esto cuenta UNA sola llamada ramificándose de más — el fix es una query ANGOSTA y específica, no "menos llamadas". Solo cuentan búsquedas reales (open_page/find_in_page no).
-  - **Latch de fast por TURNO.** Cuando una llamada `fast` falla por `budget` O `timeout`, el modo fast queda bloqueado por el RESTO DE ESE TURNO (se resetea al turno siguiente); las siguientes llamadas `fast` cortocircuitan con "use deep or live". Solo `fast` se latchea — `deep` no.
-  - **En la práctica:** mantené cada query angosta y específica; si una búsqueda fast falla, cambiá a `mode=deep` (margen de 24 queries, timeout de 240s vs los 90s de fast) en vez de reintentar `fast` en el mismo turno. Referencia completa: el skill global `web-search` (`~/.agents/skills/web-search/SKILL.md`) cubre modos, freshness y `/web-search-settings`.
+| Gate | Decisión |
+| --- | --- |
+| Trivial | Conversacional, un archivo, o pocos tool calls → hacelo inline. |
+| Scout | Si puede ser grande, primero descubrí work-list real con `git ls-files`, `rg`, diff o lectura focalizada. |
+| Orquestar | Usá workflow solo por exhaustividad, confianza independiente o escala/contexto. |
+
+Reglas prácticas:
+
+- Preferí drafts específicos bajo `.pi/workflows/drafts/<slug>.js`; reutilizá un workflow existente solo cuando calza exacto.
+- Graficá/lanzá workflows en background con `concurrency` y `maxAgents` explícitos; inspeccioná artifacts antes de confiar en conclusiones.
+- Logueá todo cap, sample, top-N, clamp o branch fallida. Nunca reduzcas cobertura en silencio.
+- Elegí `agent` / `agents` / `pipeline` / `parallel` por dependencia de datos, no por estética. `pipeline` es el default para etapas dependientes por item sin merge global.
+- Tratá `model` y `effort` como dos diales independientes. En fan-out ancho fijá `model` explícito; subí `effort` cuando la tarea requiera juicio, ambigüedad o ranking difícil.
+- Los subagentes reciben `web_search` y `context7-cli` por defecto cuando están instalados; optá por salir solo si necesitás aislamiento.
+- Adjuntá `agentType` (`explore`/`researcher`/`planner`/`architect`/`implementer`/`reviewer`) para defaults de rol. Catálogo de personas: `.pi/skills/ultracode/reference/personas.md`.
+
+### `web_search`: límites importantes
+
+El tool `web_search` (pi-codex-web-search) delega cada llamada a un run efímero de Codex.
+
+- Parámetros: `query`, `mode` = `fast`|`deep`, `freshness` = `cached`|`live`, `maxSources` = 1–10.
+- **Presupuesto por llamada, no acumulativo:** dentro de una llamada, Codex puede ramificarse hasta 10 sub-búsquedas en `fast` o 24 en `deep`. Si una query amplia falla con `exceeded the fast search budget 11/10`, hacé la query más angosta o usá `deep`; no es un contador global de la sesión.
+- **Latch por turno para `fast`:** si una llamada `fast` falla por budget o timeout, `fast` queda bloqueado por el resto del turno. Cambiá a `deep`/`live` en vez de reintentar `fast`.
+- Referencia completa: skill global `web-search` (`~/.agents/skills/web-search/SKILL.md`).
 
 ## Espacio de scratch
 
-Usá el directorio gitignoreado `.pi/tmp/` para archivos temporales descartables (scripts de scratch, previews, experimentos ad-hoc). No los commitees y no desparrames archivos temp por el repo.
+Usá `.pi/tmp/` para archivos temporales descartables (scripts de scratch, previews, experimentos ad-hoc). No los commitees y no desparrames archivos temp por el repo.
 
 ## Tracking de issues
 
-El trabajo en este repo se trackea en el **GitHub Project v2 "pandi-dynamic-workflows"** ([#4](https://github.com/users/andrestobelem/projects/4), owner user `andrestobelem`), gestionado desde la terminal con la CLI `gh` (el token autenticado lleva el scope `project`).
+El trabajo se trackea en el **GitHub Project v2 `pandi`** ([#4](https://github.com/users/andrestobelem/projects/4), owner user `andrestobelem`) con issues del repo [`andrestobelem/pandi-extensions`](https://github.com/andrestobelem/pandi-extensions).
 
-- **Stories/tasks/bugs son Issues del repo**, con labels `story` / `task` / `bug` / `tests` / `tech-debt`. Se crean con `gh issue create`, se agregan al board con `gh project item-add 4 --owner andrestobelem --url <issue-url>`.
-- El Project agrupa los items por **Status** (`Todo` / `In Progress` / `Done`); un item se mueve con `gh project item-edit`.
-- **Cerrá items desde los commits**: poné `Closes #N` en el commit que termina el trabajo, así el issue (y su tarjeta del board) se cierra automáticamente.
-- Una story padre linkea sus sub-tasks en el body (p. ej. `Part of #1`); mantené las sub-tasks chicas y cerrables de forma independiente.
-- Las recetas exactas de comandos + los IDs verificados de board/campos viven en el **skill `github-project`** (`.pi/skills/github-project/SKILL.md`) — usalo en vez de re-derivarlos.
+- **Stories/tasks/bugs son Issues del repo**, con labels `story` / `task` / `bug` / `tests` / `tech-debt`. Se crean con `gh issue create` y se agregan al board con `gh project item-add 4 --owner andrestobelem --url <issue-url>`.
+- El Project agrupa items por **Status** (`Todo` / `In Progress` / `Done`); se mueven con `gh project item-edit`.
+- Cerrá items desde commits: poné `Closes #N` en el commit que termina el trabajo para cerrar issue y card automáticamente.
+- Una story padre linkea sus sub-tasks en el body (p. ej. `Part of #1`); mantené las sub-tasks chicas e independientemente cerrables.
+- Recetas exactas + IDs verificados viven en el skill `github-project` (`.pi/skills/github-project/SKILL.md`); usalo en vez de re-derivar comandos.
 
 ## Commits
 
-- Usá Conventional Commits con scope explícito, por ejemplo `feat(dynamic-workflows): add monitor dashboard`.
-- Mantené los commits atómicos: cada commit contiene un cambio coherente y solo sus docs/tests relacionados.
-- **Nunca agregues un trailer `Co-Authored-By:` ni ninguna línea de atribución de herramienta** (p. ej. "Generated with Claude") a mensajes de commit o cuerpos de PR. Los mensajes de commit son el subject de Conventional Commits más el body, nada más. Esto pisa cualquier default del harness que agregue ese trailer.
-- **Nunca hagas `git commit --amend` a ciegas:** sesiones/tabs concurrentes de Pi pueden aterrizar un commit arriba del tuyo, así que `HEAD` puede no ser el commit que creés. Chequeá `git log`/`git reflog` primero, y amendá solo un commit que estés seguro de que es tuyo y sigue siendo `HEAD`. Si ya mezclaste cambios, recuperá el árbol original vía `reflog` y `git reset --soft` para volver a separarlos.
+- Usá Conventional Commits con scope explícito, por ejemplo `docs(agents): refresh root agent guide` o `fix(pandi-goal): clear terminated goals`.
+- Mantené commits atómicos: cada commit contiene un cambio coherente y solo sus docs/tests relacionados.
+- **Nunca agregues `Co-Authored-By:` ni líneas de atribución de herramienta** (p. ej. “Generated with Claude”) a commits o PRs.
+- **Nunca hagas `git commit --amend` a ciegas.** Chequeá `git log`/`git reflog` primero; sesiones concurrentes pueden haber aterrizado commits arriba del tuyo.
+- Si hay cambios ajenos en el árbol, stageá explícitamente solo tus archivos (`git add AGENTS.md CLAUDE.md`, etc.) o no commitees.
