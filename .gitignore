@@ -52,13 +52,13 @@ examples/.pi/
 **/.pi/plans/
 .pi/plan-artifacts/
 **/.pi/plan-artifacts/
-# Raw transcript snapshots written before auto-compaction (pi-auto-compact #3.1).
+# Raw transcript snapshots written before auto-compaction (pandi-auto-compact #3.1).
 .pi/compaction-snapshots/
 **/.pi/compaction-snapshots/
 # Stray native /export output (no path) lands a pi-session-*.html in the repo root.
 pi-session-*.html
 
-# Pi git worktrees scratch space (default base for the pi-worktree extension).
+# Pi git worktrees scratch space (default base for the pandi-worktree extension).
 .pi/worktrees/
 **/.pi/worktrees/
 
@@ -70,7 +70,7 @@ pi-session-*.html
 .pi/extensions/
 **/.pi/extensions/
 
-# pi-pandi runtime state (chosen face style), not shipped/tracked.
+# pandi runtime state (chosen face style), not shipped/tracked.
 extensions/pandi/*.local.json
 
 # Pi project-local on-demand tools (e.g. Gondolin micro-VM; heavy platform-specific
