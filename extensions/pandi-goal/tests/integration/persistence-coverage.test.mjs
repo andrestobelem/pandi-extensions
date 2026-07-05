@@ -112,11 +112,11 @@ function makeGoal(overrides = {}) {
 	};
 }
 
-// Sondea el filesystem (o cualquier predicate) hasta true o hasta agotar intentos.
+// Sondea el filesystem (o cualquier predicate) hasta true o hasta agotar turnos de I/O/check.
+// No duerme por tiempo de pared: persist() dispara promesas de fs, no timers de producción.
 async function flush(predicate, tries = 200) {
 	for (let i = 0; i < tries; i++) {
 		await new Promise((r) => setImmediate(r));
-		await new Promise((r) => setTimeout(r, 1));
 		if (predicate?.()) return true;
 	}
 	return predicate ? predicate() : true;
