@@ -51,6 +51,11 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	else console.error(message);
 }
 
+function formatBtwFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return `btw falló: ${message}`;
+}
+
 async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
 	const question = args.trim();
 	if (!question) {
@@ -96,7 +101,7 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 	try {
 		response = await completeSimple(model, context, options);
 	} catch (error) {
-		notify(ctx, `btw falló: ${error instanceof Error ? error.message : String(error)}`, "error");
+		notify(ctx, formatBtwFailure(error), "error");
 		return;
 	} finally {
 		if (showStatus) ctx.ui.setStatus(STATUS_KEY, undefined);
