@@ -1,23 +1,23 @@
 /**
- * Time-formatting helper, local to this extension so it stays self-contained.
+ * Helper de formateo de tiempo, local a esta extensión para que siga siendo autocontenida.
  *
- * INTENTIONAL DUPLICATION: a byte-identical copy lives in every extension that
- * needs it (currently pi-loop and pi-goal) instead of a cross-extension
- * `../shared/` import. Pi loads each extension self-contained — a single file or
- * a directory with its OWN helpers — so reaching into a sibling extension's
- * directory only resolves while the whole package is co-installed and breaks
- * under any per-extension distribution. The function is tiny and stable; keep
- * the copies in sync by hand.
+ * DUPLICACIÓN INTENCIONAL: vive una copia byte-idéntica en cada extensión que
+ * la necesita (hoy pi-loop y pi-goal), en vez de un import cross-extension
+ * `../shared/`. Pi carga cada extensión de forma autocontenida —un solo archivo
+ * o un directorio con sus PROPIOS helpers—, así que meterse en el directorio de
+ * una extensión hermana solo resuelve mientras todo el paquete está
+ * co-instalado y se rompe bajo cualquier distribución por extensión. La función
+ * es chica y estable; mantené las copias sincronizadas a mano.
  */
 
 /**
- * Human-friendly "time until next fire" label for a status line.
+ * Etiqueta legible del tiempo hasta el próximo disparo para una línea de estado.
  *
- * - `null`      -> "now" (no scheduled wake)
+ * - `null`      -> "now" (sin wake programado)
  * - < 60s       -> "<n>s"
- * - >= 60s      -> "<n>m" (rounded to whole minutes)
+ * - >= 60s      -> "<n>m" (redondeado a minutos enteros)
  *
- * Never returns a negative value: past timestamps clamp to 0.
+ * Nunca devuelve un valor negativo: los timestamps pasados se limitan a 0.
  */
 export function formatEta(nextFireAt: number | null): string {
 	if (nextFireAt === null) return "now";

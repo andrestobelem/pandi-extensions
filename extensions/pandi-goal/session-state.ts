@@ -1,23 +1,25 @@
 /**
- * Session-state replay kernel, local to this extension so it stays self-contained.
+ * Núcleo de replay de session-state, local a esta extensión para que siga siendo autocontenida.
  *
- * INTENTIONAL DUPLICATION: a byte-identical copy lives in each of the loop/goal/
- * plan extensions that needs it instead of a cross-extension `../shared/` import.
- * Pi loads each extension self-contained (a single file or a directory with its
- * OWN helpers, via jiti filesystem resolution), so a `../shared/` import only
- * resolves while the whole package is co-installed and breaks under per-extension
- * distribution. Keep the copies in sync by hand.
+ * DUPLICACIÓN INTENCIONAL: vive una copia byte-idéntica en cada una de las
+ * extensiones loop/goal/plan que la necesitan, en vez de un import
+ * cross-extension `../shared/`. Pi carga cada extensión de forma autocontenida
+ * (un solo archivo o un directorio con sus PROPIOS helpers, vía resolución de
+ * filesystem de jiti), así que un import `../shared/` solo resuelve mientras
+ * todo el paquete está co-instalado y se rompe bajo distribución por extensión.
+ * Mantené las copias sincronizadas a mano.
  *
- * Only the PURE latest-by-key collection lives here; the divergent recovery logic
- * that runs afterwards (active-vs-terminal gating, sidecar conflict resolution,
- * autonomous retirement, re-arming) stays in each extension's index.ts because
- * those are genuinely different state machines, not duplication.
+ * Acá vive solo la recolección PURA latest-by-key; la lógica divergente de
+ * recuperación que corre después (gating active-vs-terminal, resolución de
+ * conflictos del sidecar, retiro autónomo, re-arming) queda en el index.ts de
+ * cada extensión porque esas sí son máquinas de estado realmente distintas, no
+ * duplicación.
  *
- * The entry parameter is structural (PersistedEntry) so this does not couple to a
- * specific SDK entry type.
+ * El parámetro entry es estructural (PersistedEntry), así que esto no se acopla
+ * a un tipo específico de entry del SDK.
  */
 
-/** Structural shape of a session entry this kernel inspects. */
+/** Forma estructural de una entrada de sesión que inspecciona este núcleo. */
 export interface PersistedEntry {
 	type: string;
 	customType?: string;
@@ -25,14 +27,15 @@ export interface PersistedEntry {
 }
 
 /**
- * Build a Map of the latest snapshot per key from append-only session entries,
- * keeping only entries whose type is "custom" and whose customType matches, and
- * whose extracted key is a string. Last write wins (entries are scanned in order;
- * Map.set overwrites). Behavior-identical to the inline loop it replaces.
+ * Construye un Map del último snapshot por clave a partir de session entries
+ * append-only, conservando solo las entradas cuyo type es "custom", cuyo
+ * customType coincide y cuya clave extraída es un string. Gana la última
+ * escritura (las entradas se recorren en orden; Map.set sobreescribe). Es
+ * idéntico en comportamiento al loop inline que reemplaza.
  *
- * @param entries    session entries in append order (oldest -> newest)
- * @param customType the appendEntry customType discriminator (e.g. "loop-state")
- * @param keyOf      extracts the id used as the Map key (must be a string to keep)
+ * @param entries    session entries en orden de append (oldest -> newest)
+ * @param customType el discriminador customType de appendEntry (e.g. "loop-state")
+ * @param keyOf      extrae el id usado como clave del Map (debe ser un string para conservarse)
  */
 export function collectLatestByKey<T>(
 	entries: Iterable<PersistedEntry>,

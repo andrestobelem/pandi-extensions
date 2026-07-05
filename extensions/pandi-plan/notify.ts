@@ -1,20 +1,24 @@
 /**
- * User-notification helper, local to this extension so it stays self-contained.
+ * Helper de notificación al usuario, local a esta extensión para que siga
+ * siendo autocontenida.
  *
- * INTENTIONAL DUPLICATION: a byte-identical copy lives in every extension that
- * needs it (pandi-plan, pandi-loop, pandi-goal, pandi-dynamic-workflows) instead of a
- * cross-extension `../shared/` import. Pi loads each extension self-contained (a
- * single file or a directory with its OWN helpers, via jiti filesystem
- * resolution), so a `../shared/` import only resolves while the whole package is
- * co-installed and breaks under per-extension distribution. Keep copies in sync
- * by hand; the function is tiny and stable.
+ * DUPLICACIÓN INTENCIONAL: vive una copia byte-idéntica en cada extensión que
+ * la necesita (pandi-plan, pandi-loop, pandi-goal, pandi-dynamic-workflows), en
+ * vez de un import cross-extension `../shared/`. Pi carga cada extensión de
+ * forma autocontenida (un solo archivo o un directorio con sus PROPIOS helpers,
+ * vía resolución de filesystem de jiti), así que un import `../shared/` solo
+ * resuelve mientras todo el paquete está co-instalado y se rompe bajo
+ * distribución por extensión. Mantené las copias sincronizadas a mano; la
+ * función es chica y estable.
  *
- * Decoupled from the SDK by a minimal STRUCTURAL context (`NotifyContext`) so it
- * does not import `ExtensionContext`; any real `ExtensionContext` satisfies it.
+ * Desacoplado del SDK mediante un contexto STRUCTURAL mínimo (`NotifyContext`),
+ * así que no importa `ExtensionContext`; cualquier `ExtensionContext` real lo
+ * satisface.
  *
- * NOTE: this self-contained family now shares the hardened stderr-routing
- * contract too. pi-docs carries the same behavior with a direct SDK context
- * import, and pi-mdview still keeps a command-only context type.
+ * NOTE: esta familia autocontenida ahora también comparte el contrato
+ * endurecido de ruteo a stderr. pi-docs lleva el mismo comportamiento con un
+ * import directo del contexto del SDK, y pi-mdview todavía conserva un tipo de
+ * contexto solo de comando.
  */
 
 export type NotifyType = "info" | "warning" | "error";
@@ -26,14 +30,15 @@ export interface NotifyContext {
 }
 
 /**
- * Surface a message to the user.
+ * Muestra un mensaje al usuario.
  *
- * - print mode: write info to stdout, warnings/errors to stderr, and return.
- * - interactive with UI: delegate to `ctx.ui.notify`.
- * - headless without UI: keep info silent but surface warnings/errors on stderr.
+ * - modo print: escribe info en stdout, warnings/errors en stderr, y retorna.
+ * - interactivo con UI: delega en `ctx.ui.notify`.
+ * - headless sin UI: mantiene info en silencio, pero muestra warnings/errors en stderr.
  *
- * The `ctx.ui` truthiness guard preserves a no-op for structural test doubles
- * that omit `ui`, even though the real invariant is `hasUI` implies `ui`.
+ * El guard de truthiness de `ctx.ui` preserva un no-op para test doubles
+ * estructurales que omiten `ui`, aunque la invariante real es que `hasUI`
+ * implica `ui`.
  */
 export function notify(ctx: NotifyContext, message: string, type: NotifyType = "info"): void {
 	if (ctx.mode === "print") {
