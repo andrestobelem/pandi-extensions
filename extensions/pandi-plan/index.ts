@@ -125,7 +125,7 @@ export interface PlanModeGuard {
 	isActive(): boolean;
 }
 
-export const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
+export const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pandi-plan.plan-mode.guard");
 
 // ---------------------------------------------------------------------------
 // Active-plan helpers

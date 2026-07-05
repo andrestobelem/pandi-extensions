@@ -53,7 +53,7 @@ export { atomicWriteJson, dirSizeBytes, parsePruneFlags, removeRunDir };
 
 const MAX_LOG_BYTES = 20_000;
 const CANCEL_GRACE_MS = 750;
-const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
+const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pandi-plan.plan-mode.guard");
 
 export type JobState =
 	| "starting"

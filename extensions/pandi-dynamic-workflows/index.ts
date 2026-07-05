@@ -206,7 +206,7 @@ function hostBinName(): string {
 
 const ULTRACODE_BORDER_LABEL = "ultracode auto";
 // Best-effort inter-extension hook used by extensions/effort/index.ts for `/effort ultracode`.
-const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
+const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 export const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // Resumable / idempotent runs: host-side content-address cache journal.

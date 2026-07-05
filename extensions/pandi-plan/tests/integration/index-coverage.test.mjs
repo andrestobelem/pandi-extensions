@@ -239,7 +239,7 @@ async function shutdownPersistsActivePlan(url) {
 // GAP 4: isPlanModeActive() + PLAN_MODE_GUARD registration & previous-guard chaining.
 // ===========================================================================
 async function planModeGuardChaining(url) {
-	const GUARD_SYMBOL = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
+	const GUARD_SYMBOL = Symbol.for("pandi-plan.plan-mode.guard");
 
 	// --- 4a: isPlanModeActive() is false on a fresh import, true after entering a plan. ---
 	{

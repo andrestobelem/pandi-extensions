@@ -22,7 +22,7 @@ const EFFORT_STATUS_KEY = "effort";
 // Keep this string in sync with extensions/dynamic-workflows/index.ts. The event is
 // intentionally best-effort: `/effort` still works as a thinking-level command
 // when the dynamic-workflows extension is not loaded.
-const ULTRACODE_MODE_EVENT = "pi-dynamic-workflows:ultracode-mode";
+const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 
 const COMPLETIONS: { value: string; description: string }[] = [
 	{ value: "off", description: "Disable model thinking/reasoning" },

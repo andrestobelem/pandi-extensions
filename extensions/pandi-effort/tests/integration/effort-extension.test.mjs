@@ -208,7 +208,7 @@ async function scenarioUltracode(url) {
 		"/effort ultracode emits router event",
 		harness.emitted.some(
 			(e) =>
-				e.event === "pi-dynamic-workflows:ultracode-mode" &&
+				e.event === "pandi-dynamic-workflows:ultracode-mode" &&
 				e.data?.enabled === true &&
 				e.data?.source === "/effort",
 		),
@@ -437,7 +437,7 @@ async function scenarioAliasHandling(url) {
 	await command.handler("ultra-code", ctx);
 	check(
 		"/effort ultra-code runs the ultracode path (router event emitted)",
-		harness.emitted.some((e) => e.event === "pi-dynamic-workflows:ultracode-mode" && e.data?.enabled === true),
+		harness.emitted.some((e) => e.event === "pandi-dynamic-workflows:ultracode-mode" && e.data?.enabled === true),
 		JSON.stringify(harness.emitted),
 	);
 	check(

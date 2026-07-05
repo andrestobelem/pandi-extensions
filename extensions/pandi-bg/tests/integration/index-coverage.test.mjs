@@ -191,7 +191,7 @@ async function pruneUntrustedAndPlanModeRejected(url) {
 	check("prune-gate: untrusted rejection uses 'warning' type", untrustedCtx._notes.at(-1)?.type === "warning");
 
 	// Plan mode active: prune is refused before the trust check.
-	const planSym = Symbol.for("pi-dynamic-workflows.plan-mode.guard");
+	const planSym = Symbol.for("pandi-plan.plan-mode.guard");
 	const prev = globalThis[planSym];
 	globalThis[planSym] = { isActive: () => true };
 	try {
