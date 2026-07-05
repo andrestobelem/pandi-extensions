@@ -134,7 +134,7 @@ async function main() {
 		const failStreams = await withCapturedConsole(() => cmd.handler("", ctxPrintFail));
 		check(
 			"print mode: failure reported on stderr",
-			failStreams.err.some((l) => /clear failed/.test(l) && /boom/.test(l)),
+			failStreams.err.some((l) => /clear falló/.test(l) && /boom/.test(l)),
 			JSON.stringify(failStreams),
 		);
 		check(

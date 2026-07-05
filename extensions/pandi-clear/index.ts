@@ -27,14 +27,14 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 
 export default function clearExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("clear", {
-		description: "Start a fresh session, clearing the conversation (Claude-style alias for /new).",
+		description: "Iniciá una sesión nueva, limpiando la conversación (alias estilo Claude para /new).",
 		handler: async (_args, ctx) => {
 			try {
 				await ctx.newSession();
 			} catch (error) {
 				notify(
 					ctx,
-					`clear failed: ${error instanceof Error ? error.message : String(error)} — try /new instead.`,
+					`clear falló: ${error instanceof Error ? error.message : String(error)} — probá /new en su lugar.`,
 					"error",
 				);
 			}
