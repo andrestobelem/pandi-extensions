@@ -1,23 +1,23 @@
 /**
- * Run-dir → RunReportModel collector for the workflow run report (design record,
- * run bd039ef9). Assembles the pure builder's model from the persisted run files,
- * applying the bounding + degradation contract:
+ * Colector Run-dir → RunReportModel para el reporte de workflow run (registro de diseño,
+ * run bd039ef9). Ensambla el modelo pure builder desde los archivos del run persistidos,
+ * aplicando el contrato bounding + degradation:
  *
- * - Structured-event-first sourcing: inline agent output comes from events.jsonl
- *   (already writer-bounded); the agent .md is consulted ONLY for the verbatim
- *   Prompt (no JSON copy exists), via a bounded prefix read.
- * - Every file read has a byte ceiling; stderr is read as a bounded TAIL (crash
- *   evidence lives at the end); journal.jsonl and stdout logs are never inlined.
- * - A global inline budget degrades later agents to metadata + links, with a
- *   visible clamp note (clamps are never silent).
- * - hrefs are recomputed relative to the run dir with a containment check —
- *   recorded absolute paths are untrusted.
- * - Degrades gracefully on partial/failed/foreign runs; throws only below the
- *   minimum (neither status.json nor result.json readable).
- * - Deterministic for a fixed opts.generatedAt: no other wall-clock reads.
+ * - Sourcing structured-event-first: agent output inline viene de events.jsonl (ya
+ *   writer-bounded); el .md del agent se consulta SOLO para el Prompt verbatim
+ *   (no existe copia JSON), via una bounded prefix read.
+ * - Cada file read tiene byte ceiling; stderr se lee como bounded TAIL (crash evidence
+ *   vive al final); journal.jsonl y stdout logs nunca se inline.
+ * - Un budget inline global degrada los agents posteriores a metadata + links, con una
+ *   visible clamp note (clamps nunca son silent).
+ * - hrefs se recalculan relativos al run dir con un containment check — los absolute
+ *   paths registrados no son confiables.
+ * - Degrada gracefully en runs partial/failed/foreign; lanza solo debajo del mínimo
+ *   (ni status.json ni result.json legibles).
+ * - Determinístico para un opts.generatedAt fijo: sin otros wall-clock reads.
  *
- * Reuses the extension's tested parsers (readRunEvents, getRunState,
- * computeCodeHash) so report semantics stay ≡ TUI semantics.
+ * Reutiliza los parsers testeados de la extensión (readRunEvents, getRunState,
+ * computeCodeHash) así la semántica del report permanece ≡ semántica TUI.
  */
 
 import * as fs from "node:fs/promises";
@@ -33,19 +33,19 @@ import type { WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./t
 export type { RunReportModel };
 export { buildRunReportHtml };
 
-/** Bounds — anchored to existing runtime constants (design record §4). */
+/** Límites — anclados a constantes runtime existentes (registro de diseño §4). */
 export const REPORT_BOUNDS = {
-	/** Matches MAX_TOOL_TEXT / MAX_AGENT_OUTPUT_IN_RESULT. */
+	/** Matchea MAX_TOOL_TEXT / MAX_AGENT_OUTPUT_IN_RESULT. */
 	outputChars: 24_000,
-	/** Matches the readFilePrefix precedent for agent .md reads. */
+	/** Matchea el precedente readFilePrefix para reads de agent .md. */
 	promptChars: 16_000,
 	dataChars: 16_000,
-	/** Tail, aligned with the TUI's 6 000-char stderr magnitude. */
+	/** Tail, alineado con la magnitud 6 000-char stderr del TUI. */
 	stderrTailChars: 6_000,
 	logDetailChars: 500,
-	/** Total inlined content across the page (conservative pick). */
+	/** Contenido inlined total en la página (elección conservadora). */
 	globalInlineBudgetBytes: 1_000_000,
-	/** Per-file read ceiling: hostile dirs cannot OOM the generator. */
+	/** Por-file read ceiling: dirs hostiles no pueden OOM el generador. */
 	fileReadCeilingBytes: 4_000_000,
 	maxArtifactsListed: 100,
 } as const;
@@ -54,11 +54,11 @@ export interface CollectRunReportOptions {
 	/** In-session readRunStatus verdict (staleness authority). Absent = foreign dir. */
 	liveStatus?: WorkflowRunStatus;
 	/**
-	 * Current workflow script source for drift detection: a string re-hashes
-	 * against status.codeHash; null means "script missing"; undefined = unknown.
+	 * Código fuente de script workflow actual para drift detection: un string re-hashea
+	 * contra status.codeHash; null significa "script missing"; undefined = unknown.
 	 */
 	currentScriptCode?: string | null;
-	/** Timestamp embedded in the report; injectable for deterministic output. */
+	/** Timestamp embebido en el reporte; inyectable para output determinístico. */
 	generatedAt?: string;
 }
 
@@ -77,7 +77,7 @@ async function readBounded(file: string, maxBytes: number): Promise<string | und
 	}
 }
 
-/** Bounded TAIL read: open + seek to size − maxBytes (never read the whole file). */
+/** Bounded TAIL read: open + seek a size − maxBytes (nunca lee el archivo entero). */
 async function readTail(file: string, maxBytes: number): Promise<string | undefined> {
 	try {
 		const stat = await fs.stat(file);
@@ -111,10 +111,10 @@ function boundedText(value: string, max: number): RunReportText {
 }
 
 /**
- * Recompute a recorded (untrusted) path relative to the run dir. Recorded paths are
- * either absolute (events.jsonl) or cwd-relative (the agents/ dir scan when the
- * caller passed a relative runDir), so candidates resolve against the CWD — never
- * against the run dir, which would double the prefix for relative candidates.
+ * Recalcula un recorded (untrusted) path relativo al run dir. Los recorded paths son
+ * either absolute (events.jsonl) o cwd-relative (el scan agents/ dir cuando el llamador
+ * pasó un runDir relativo), así candidates se resuelven contra el CWD — nunca contra
+ * el run dir, que duplicaría el prefijo para candidates relativos.
  */
 function containedRelative(runDir: string, candidate: string | undefined): string | undefined {
 	if (!candidate) return undefined;
@@ -156,7 +156,7 @@ interface MetricsFile {
 	}[];
 }
 
-/** Second bounded events pass: structured agent `data` (readRunEvents keeps output only). */
+/** Segunda bounded events pass: agent estructurado `data` (readRunEvents mantiene solo output). */
 async function readAgentData(runDir: string, ceiling: number): Promise<Map<number, string>> {
 	const out = new Map<number, string>();
 	const body = await readBounded(path.join(runDir, "events.jsonl"), ceiling);
@@ -168,7 +168,7 @@ async function readAgentData(runDir: string, ceiling: number): Promise<Map<numbe
 			if (event.type !== "agent" || typeof event.id !== "number" || event.data === undefined) continue;
 			out.set(event.id, JSON.stringify(event.data, null, 2));
 		} catch {
-			// Malformed lines are tolerated everywhere.
+			// Líneas mal formadas se toleran en todas partes.
 		}
 	}
 	return out;
@@ -190,12 +190,12 @@ async function listArtifacts(
 		for (const entry of entries) {
 			const childRel = rel ? `${rel}/${entry.name}` : entry.name;
 			if (entry.isDirectory()) {
-				// Never follow symlinked dirs out of the run dir.
+				// Nunca siga dirs symlinked fuera del run dir.
 				if (!entry.isSymbolicLink()) await walk(path.join(dir, entry.name), childRel);
 				continue;
 			}
 			if (!entry.isFile()) continue;
-			if (childRel === "report.html") continue; // the report never lists itself
+			if (childRel === "report.html") continue; // el reporte nunca se lista a sí mismo
 			let bytes: number | undefined;
 			try {
 				bytes = (await fs.stat(path.join(dir, entry.name))).size;
@@ -228,7 +228,7 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 	const metrics = await readJsonBounded<MetricsFile>(path.join(runDir, "metrics.json"), B.fileReadCeilingBytes);
 	const agentData = await readAgentData(runDir, B.fileReadCeilingBytes);
 
-	// Log precedence: status logs when non-empty, else events (matches formatRunView).
+	// Precedencia log: logs status cuando no-empty, else events (matchea formatRunView).
 	const rawLogs: WorkflowLogEntry[] = base?.logs?.length ? base.logs : events.logs;
 	const logs = rawLogs.map((entry) => ({
 		time: entry.time,

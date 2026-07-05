@@ -1,16 +1,16 @@
 /**
- * Workflow-graph render + image kernel for pandi-dynamic-workflows.
+ * Workflow-graph render + image kernel para pandi-dynamic-workflows.
  *
- * Builds the workflow graph model from a parsed workflow (static JS introspection),
- * renders it as Markdown/overview/mermaid lines, and renders a PNG via the mermaid
- * CLI (mmdc). Consumes the graph-parse sibling for source-introspection helpers and
- * the process-spawn sibling (runProcess) for the mmdc subprocess. The WorkflowGraph
- * model types live in index.ts (shared with the WorkflowGraphComponent TUI) and are
- * imported here as types; WorkflowGraphImageRender/Attempt are owned here.
+ * Construye el workflow graph model desde un parsed workflow (static JS introspection),
+ * lo renderiza como Markdown/overview/mermaid lines, y renderiza un PNG via el mermaid
+ * CLI (mmdc). Consume el graph-parse sibling para source-introspection helpers y el
+ * process-spawn sibling (runProcess) para el mmdc subprocess. Los tipos WorkflowGraph
+ * model viven en index.ts (compartidos con el WorkflowGraphComponent TUI) e se
+ * importan aquí como types; WorkflowGraphImageRender/Attempt se poseen aquí.
  *
- * Deferred cycle with index.ts: resolveWorkflow is read only inside bodies; the model
- * types cross as import type (erased). index.ts imports the externally-consumed
- * functions back and WorkflowGraphImageAttempt as a type.
+ * Deferred cycle con index.ts: resolveWorkflow se lee solo dentro de bodies; los types
+ * model cruzan como import type (erased). index.ts importa los externally-consumed
+ * functions de vuelta y WorkflowGraphImageAttempt como type.
  */
 import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
@@ -55,8 +55,8 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 		if (!isJavaScriptCodePosition(code, match.index)) continue;
 		const prefix = match[1] ? "ctx." : "";
 		const method = match[2];
-		// Skip a bare `function <method>(…)` DECLARATION (e.g. `async function workflow(ctx, input)`),
-		// which is the entry function, not a composition call.
+		// Salta una bare `function <method>(…)` DECLARATION (p. ej. `async function workflow(ctx, input)`),
+		// que es la entry function, no una composition call.
 		if (!prefix && /\bfunction\*?\s*$/.test(code.slice(0, match.index))) continue;
 		const openParenIndex = regex.lastIndex - 1;
 		const end = findCallEndIndex(code, openParenIndex);

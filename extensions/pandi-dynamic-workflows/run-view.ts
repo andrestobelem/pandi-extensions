@@ -1,16 +1,18 @@
 /**
- * Run-list / run-view kernel for pandi-dynamic-workflows.
+ * Run-list / run-view kernel para pandi-dynamic-workflows.
  *
- * Lists workflow runs, formats the run picker, resolves a run by id/alias, lists a
- * run's files, and renders the full Markdown run view (status, agents, timeline,
- * artifacts, output). selectRunByKey is the generic id/alias selector reused by the
- * dashboard. All 6 are consumed by index.ts (and selectRunByKey by a test).
+ * Lista workflow runs, formatea el run picker, resuelve un run por id/alias, lista
+ * archivos de un run, y renderiza la full Markdown run view (status, agents,
+ * timeline, artifacts, output). selectRunByKey es el generic id/alias selector
+ * reutilizado por el dashboard. Los 6 se consumen por index.ts (y selectRunByKey
+ * por un test).
  *
- * Deferred cycles: pulls run metadata/derivations from the run-store/run-state/
- * event-parser/journal/format/presentation siblings, and compactInline from
- * ./index.js (read only inside formatRunView's body); WorkflowRunRecord/
- * AgentMonitorModel cross as import type (erased). index.ts imports all 6 back and
- * re-exports selectRunByKey for the composition test. Extracted byte-identically.
+ * Deferred cycles: tira run metadata/derivations desde run-store/run-state/
+ * event-parser/journal/format/presentation siblings, y compactInline desde
+ * ./index.js (read solo dentro del body formatRunView); WorkflowRunRecord/
+ * AgentMonitorModel cruzan como import type (erased). index.ts importa los 6
+ * de vuelta y re-exports selectRunByKey para el composition test. Extraído
+ * byte-idénticamente.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -42,11 +44,11 @@ export async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord
 		const record = await readRunRecord(runDir);
 		if (record) runs.push(record);
 	}
-	// Order by startedAt (newest first), NOT by getRunDirs's directory mtime:
-	// status.json is rewritten on every log()/resume/status refresh, so any write
-	// in an OLD run dir bumps its mtime above newer runs — and "latest" is the
-	// default target for resume/view/cancel/delete. Matches cleanup's ordering
-	// (run-state.ts). Stable sort: undated records keep mtime order, after dated.
+	// Ordena por startedAt (más nuevo primero), NO por mtime del directory getRunDirs:
+	// status.json se reescribe en cada log()/resume/status refresh, así cualquier write
+	// en un OLD run dir bumps su mtime arriba de runs más nuevos — y "latest" es el
+	// default target para resume/view/cancel/delete. Matchea ordering de cleanup
+	// (run-state.ts). Stable sort: undated records mantienen mtime order, después dated.
 	const startedMs = (run: WorkflowRunRecord): number => {
 		const t = Date.parse(run.startedAt ?? "");
 		return Number.isFinite(t) ? t : Number.NEGATIVE_INFINITY;
@@ -71,9 +73,9 @@ export function formatRunList(runs: WorkflowRunRecord[]): string {
 		.join("\n");
 }
 
-// Resolve a run by key with EXACT id match taking priority over substring/alias matches, so a
-// short exact id can never be shadowed by a different run whose id merely contains the key
-// (which would otherwise cancel or delete the wrong run).
+// Resuelve un run por key con EXACT id match tomando prioridad sobre substring/alias matches,
+// así una short exact id nunca puede ser shadowed por un run diferente cuyo id meramente
+// contiene la key (que de otra forma cancelaría o borraría el run equivocado).
 export function selectRunByKey<T>(
 	items: T[],
 	key: string,
@@ -152,8 +154,8 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
 	});
 
-	// Detect whether the workflow source changed since this run (best-effort:
-	// reads the recorded file path and compares hashes).
+	// Detecta si el workflow source cambió desde este run (best-effort:
+	// lee el recorded file path y compara hashes).
 	let codeChanged = false;
 	if (run.codeHash && run.file) {
 		try {
@@ -208,9 +210,9 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 	].join("\n");
 }
 
-// Open a single run artifact in the viewer that fits it: `.md`/`.markdown` render as rich
-// Markdown, everything else as text. The path is contained within runDir so a crafted
-// relative path cannot read arbitrary files off disk.
+// Abre un single run artifact en el viewer que le cabe: `.md`/`.markdown` se renderizan
+// como rich Markdown, todo lo demás como text. El path se contiene dentro de runDir
+// así un crafted relative path no puede leer arbitrary files off disk.
 export async function openRunArtifact(ctx: ExtensionContext, runDir: string, relPath: string): Promise<void> {
 	const resolved = path.resolve(runDir, relPath);
 	const base = path.resolve(runDir);
@@ -229,8 +231,9 @@ export async function openRunArtifact(ctx: ExtensionContext, runDir: string, rel
 	else await showText(ctx, relPath, content);
 }
 
-// Let the user pick one of a run's artifacts and open it in the viewer that fits it. Shared
-// by the run view and the live agent view so the `f` affordance behaves identically in both.
+// Deja que el usuario elija uno de los artifacts de un run y lo abra en el viewer que le
+// cabe. Compartido por el run view y el live agent view así la affordance `f` se comporta
+// idénticamente en ambos.
 export async function pickAndOpenRunArtifact(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<void> {
 	const { files } = await listRunFiles(run.runDir);
 	if (files.length === 0) {
@@ -241,9 +244,10 @@ export async function pickAndOpenRunArtifact(ctx: ExtensionContext, run: Workflo
 	if (choice) await openRunArtifact(ctx, run.runDir, choice);
 }
 
-// The run-view SCREEN: render the run as rich Markdown and, in a TUI, let the user press
-// `f` to open one of its artifacts (the chosen file routes to the Markdown or text viewer),
-// then return to the run view — the same open→action→reopen loop the dashboard uses.
+// La SCREEN run-view: renderiza el run como rich Markdown y, en un TUI, deja que el
+// usuario presione `f` para abrir uno de sus artifacts (el archivo elegido va al Markdown
+// o text viewer), luego retorna a la run view — el mismo open→action→reopen loop
+// que usa el dashboard.
 export async function showRunView(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<void> {
 	for (;;) {
 		const canOpenFiles = ctx.mode === "tui" && ctx.hasUI;

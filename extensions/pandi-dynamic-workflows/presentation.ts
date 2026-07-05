@@ -1,16 +1,16 @@
 /**
- * Pure presentation helpers for the dynamic-workflows UI: the small,
- * side-effect-free formatters that turn workflow data into display strings
+ * Ayudantes de pure presentation para la dynamic-workflows UI: los small,
+ * side-effect-free formatters que convierten workflow data en display strings
  * (workflow list, progress counts, dashboard hint, short name, elapsed time).
  *
- * Depth-one sibling under extensions/pandi-dynamic-workflows; bundled into index.ts
- * (jiti at runtime, esbuild in tests). The only coupling back to index.ts is
- * TYPE-only (WorkflowFile, WorkflowLogEntry) via `import type`, which is erased
- * at build time, so there is no runtime import cycle.
+ * Sibling a profundidad uno bajo extensions/pandi-dynamic-workflows; bundled en index.ts
+ * (jiti at runtime, esbuild en tests). El único coupling de vuelta a index.ts es
+ * TYPE-only (WorkflowFile, WorkflowLogEntry) via `import type`, que se borra
+ * at build time, así no hay runtime import cycle.
  *
- * NOTE: formatRunSummary and the getRun* run-state helpers stay in index.ts on
- * purpose — they depend on index internals (getRunStatusLabel, formatParallelAgents,
- * stringify, getRunState, WorkflowRunRecord), so they are not pure leaves.
+ * NOTE: formatRunSummary y los getRun* run-state helpers permanecen en index.ts
+ * a propósito — dependen de index internals (getRunStatusLabel, formatParallelAgents,
+ * stringify, getRunState, WorkflowRunRecord), así no son pure leaves.
  */
 
 import { stringify } from "./format.js";
@@ -27,7 +27,7 @@ export function formatWorkflowList(files: WorkflowFile[]): string {
 	return files.map((file) => `- ${file.name} (${file.scope}) — ${file.relativePath}`).join("\n");
 }
 
-/** The slice of a run record the draft usage index needs (kept minimal for purity). */
+/** El slice de un run record que el draft usage index necesita (mantenido minimal para purity). */
 export interface DraftUsageRun {
 	workflow?: string;
 	state?: string;
@@ -35,13 +35,13 @@ export interface DraftUsageRun {
 }
 
 /**
- * Render the draft-workflows usage index: one markdown table row per draft
- * workflow with run counts (ok/failed), last run timestamp and last state,
- * sorted by recency (never-run drafts last, alphabetically). Takes the SHORT
- * draft names (the caller owns the "which files are drafts" location logic);
- * runs match by either the short name or the `drafts/<name>` invocation form.
- * Pure so the contract is pinned at the cheapest test level; the
- * `/workflow index` command writes the result to .pi/workflows/drafts/INDEX.md.
+ * Renderiza el draft-workflows usage index: una markdown table row por draft
+ * workflow con run counts (ok/failed), last run timestamp y last state,
+ * ordenados por recency (never-run drafts últimos, alfabéticamente). Toma los SHORT
+ * draft names (el llamador es dueño de la "which files are drafts" location logic);
+ * runs matchean por short name o por la `drafts/<name>` invocation form.
+ * Pure así el contract se pinea en el cheapest test level; el comando `/workflow index`
+ * escribe el resultado a .pi/workflows/drafts/INDEX.md.
  */
 export function formatDraftUsageIndex(draftNames: string[], runs: DraftUsageRun[]): string {
 	if (draftNames.length === 0) return "No draft workflows found.";
@@ -66,7 +66,7 @@ export function formatDraftUsageIndex(draftNames: string[], runs: DraftUsageRun[
 		};
 	});
 	rows.sort((a, b) => b.lastMs - a.lastMs || a.shortName.localeCompare(b.shortName));
-	// Draft names are file paths, but escape table-breaking characters defensively.
+	// Draft names son file paths, pero escape table-breaking characters defensively.
 	const cell = (value: string) => value.replace(/\r?\n/g, " ").replace(/\|/g, "\\|") || "—";
 	return [
 		"# Draft workflows — usage index",

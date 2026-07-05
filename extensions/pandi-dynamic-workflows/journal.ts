@@ -1,17 +1,17 @@
 /**
- * Resumable-runs content-address cache journal for dynamic-workflows.
+ * Diario de cache de content-address para runs resumibles en dynamic-workflows.
  *
- * Journaling/cache subsystem: deterministic call keys (stableStringify +
- * computeCallKey), code hashing (computeCodeHash), reading/appending the
- * per-run journal.jsonl (loadJournal / appendJournalRecord), result
- * normalization for journaling, and the agent-id / artifact-number derivations
- * that keep resume idempotent. Moved verbatim from index.ts (behavior-preserving).
+ * Subsistema journaling/cache: deterministic call keys (stableStringify +
+ * computeCallKey), code hashing (computeCodeHash), reading/appending del
+ * per-run journal.jsonl (loadJournal / appendJournalRecord), result normalization
+ * para journaling, y las derivaciones agent-id / artifact-number que mantienen
+ * resume idempotente. Movido verbatim desde index.ts (behavior-preserving).
  *
- * Runtime deps from index.ts (appendJsonLine, transformWorkflowCode, and the
- * JOURNAL_FILE / MAX_* budgets) are used ONLY inside function bodies, so the
- * journal.ts <-> index.ts ESM cycle is fully deferred (no top-level cross-use);
- * types come via `import type` (erased). Depth-one sibling so it ships under
- * the `files` glob.
+ * Runtime deps desde index.ts (appendJsonLine, transformWorkflowCode, y los
+ * budgets JOURNAL_FILE / MAX_*) se usan SOLO dentro de bodies de función, así
+ * el ciclo ESM journal.ts <-> index.ts está completamente deferred (sin top-level
+ * cross-use); types vienen via `import type` (erased). Sibling a profundidad uno
+ * así se incluye bajo el glob `files`.
  */
 
 import * as crypto from "node:crypto";
@@ -22,11 +22,11 @@ import { truncate } from "./format.js";
 import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "./index.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM, transformWorkflowCode } from "./index.js";
 
-// --- Resumable runs: content-address cache journal ---
+// --- Runs resumibles: diario de cache content-address ---
 
-// Deterministic JSON: object keys sorted recursively so identical args always
-// produce the same string regardless of key insertion order. undefined values
-// are dropped (mirroring JSON.stringify); arrays keep their order.
+// JSON determinístico: object keys ordenadas recursivamente así args idénticos siempre
+// producen el mismo string independientemente del key insertion order. Los valores undefined
+// se descartan (espejando JSON.stringify); arrays mantienen su orden.
 export function stableStringify(value: unknown): string {
 	const seen = new WeakSet<object>();
 	const encode = (current: unknown): string => {
@@ -71,9 +71,9 @@ export function computeCodeHash(code: string): string {
 	return crypto.createHash("sha256").update(transformWorkflowCode(code)).digest("hex");
 }
 
-// Parse journal.jsonl into a key -> array(occ) map (last-wins per (key, occ)).
-// Tolerant of a torn final line (same convention as readRunLogEvents): the last
-// line is discarded if it does not parse, since a crash can truncate it.
+// Parsea journal.jsonl en un key -> array(occ) map (last-wins per (key, occ)).
+// Tolerante de una torn final line (misma convención como readRunLogEvents): la última
+// línea se descarta si no parsea, ya que un crash puede truncarla.
 export async function loadJournal(runDir: string): Promise<JournalCache> {
 	const cache: JournalCache = new Map();
 	let body: string;
@@ -98,7 +98,7 @@ export async function loadJournal(runDir: string): Promise<JournalCache> {
 		try {
 			record = JSON.parse(line) as JournalRecord;
 		} catch {
-			// A crash can leave the final JSONL record torn; tolerate only that case.
+			// Un crash puede dejar el final JSONL record torn; tolerate solo ese caso.
 			if (i === lastContentLine) continue;
 			console.warn(
 				`[dynamic-workflows] Ignoring malformed journal line ${i + 1} in ${journalPath}; resume cache may be incomplete.`,
@@ -107,16 +107,16 @@ export async function loadJournal(runDir: string): Promise<JournalCache> {
 		}
 		if (!record || typeof record.key !== "string" || typeof record.occ !== "number" || !record.result) continue;
 		const slots = cache.get(record.key) ?? [];
-		slots[record.occ] = record.result; // last-wins for a repeated (key, occ)
+		slots[record.occ] = record.result; // last-wins para (key, occ) repetido
 		cache.set(record.key, slots);
 	}
 	return cache;
 }
 
-// Read a cached result for (key, occ) from a loaded journal cache. Returns undefined when
-// absent: unknown key, occ past the recorded slots, or a fresh non-resumed run (no cache).
-// Pure read counterpart to loadJournal/appendJournalRecord — the caller owns the JournalCache
-// and the serialization; this never mutates.
+// Lee un cached result para (key, occ) desde un loaded journal cache. Devuelve undefined cuando
+// absent: unknown key, occ pasado los recorded slots, o fresh non-resumed run (no cache).
+// Pure read counterpart a loadJournal/appendJournalRecord — el llamador es dueño del JournalCache
+// y la serialization; esto nunca muta.
 export function lookupJournalRecord(
 	cache: JournalCache | undefined,
 	key: string,
@@ -146,11 +146,11 @@ export function normalizeBashResultForJournal(result: BashResult): BashResult {
 	};
 }
 
-// Highest agent id recorded in the journal. A count is NOT safe here: the
-// journal can be non-contiguous (gaps from in-flight/{cache:false} agents that
-// never journaled, or out-of-order completion under concurrency), so resumed
-// runs must start agentCount strictly above the max existing id, never the
-// count, or a fresh agents/NNNN would clobber a cached artifact on disk.
+// Highest agent id registrado en el journal. Un count NO es seguro aquí: el
+// journal puede ser non-contiguous (gaps desde in-flight/{cache:false} agents que
+// nunca journaled, o out-of-order completion bajo concurrency), así resumed
+// runs deben iniciar agentCount estrictamente arriba del max existing id, nunca el
+// count, o un fresh agents/NNNN clobberíaría un cached artifact en disk.
 export function maxJournalAgentId(cache: JournalCache): number {
 	let max = 0;
 	for (const slots of cache.values()) {
@@ -163,10 +163,9 @@ export function maxJournalAgentId(cache: JournalCache): number {
 	return max;
 }
 
-// Highest NNNN prefix among agents/NNNN-*.md artifacts already on disk. This
-// covers ids that were never journaled (e.g. {cache:false} agents from the
-// original run), so resumed agentCount also clears those and never overwrites
-// any existing artifact.
+// Highest NNNN prefix entre agents/NNNN-*.md artifacts ya en disk. Esto cubre
+// ids que nunca fueron journaled (p. ej. {cache:false} agents del original run),
+// así resumed agentCount también limpia esos y nunca sobrescribe ningún existing artifact.
 export async function maxAgentArtifactNumber(runDir: string): Promise<number> {
 	let max = 0;
 	let names: string[];

@@ -1,13 +1,14 @@
 /**
- * Pi session tracking — the on-disk session record/heartbeat lifecycle that lets the
- * dashboard list and switch to other live Pi sessions for this project.
+ * Pi session tracking — el on-disk session record/heartbeat lifecycle que permite al
+ * dashboard listar y cambiar a otros live Pi sessions para este proyecto.
  *
- * PiSessionRecord/LivePiSessionRuntime are module-internal; PiSessionModel (the enriched
- * record the dashboard renders) is exported, as are the live-session path helpers. Deferred
- * cycle: the heartbeat/root helpers read ensureDir/activeRuns/projectHash/PI_SESSION_HEARTBEAT_MS
- * from ./index.js only inside their bodies, and index.ts imports the session helpers back
- * (invoked only in the session_start/session_end handlers and the dashboard body). Extracted
- * byte-identically (cluster + the four live-session symbols that were its sole users).
+ * PiSessionRecord/LivePiSessionRuntime son module-internal; PiSessionModel (el enriched
+ * record que el dashboard renderiza) se exporta, así como los live-session path helpers.
+ * Deferred cycle: los heartbeat/root helpers leen ensureDir/activeRuns/projectHash/
+ * PI_SESSION_HEARTBEAT_MS desde ./index.js solo dentro de sus bodies, e index.ts importa
+ * los session helpers de vuelta (invocados solo en session_start/session_end handlers y
+ * dashboard body). Extraído byte-idénticamente (cluster + los cuatro live-session symbols
+ * que fueron sus únicos usuarios).
  */
 
 import * as crypto from "node:crypto";
@@ -114,8 +115,8 @@ async function writePiSessionHeartbeat(runtime: LivePiSessionRuntime): Promise<v
 		await ensureDir(path.dirname(runtime.file));
 		await writeJsonFile(runtime.file, buildPiSessionRecord(runtime));
 	} catch {
-		// Heartbeats are best-effort; the dashboard should never fail because the
-		// live-session registry cannot be written (e.g. permissions or tmp cleanup).
+		// Heartbeats son best-effort; el dashboard nunca debe fallar porque el
+		// live-session registry no se puede escribir (p. ej. permissions o tmp cleanup).
 	}
 }
 
@@ -249,11 +250,11 @@ export interface SessionPruneEntry {
 	record: unknown;
 }
 
-// Pure prune policy for `/workflow cleanup sessions`. Given the on-disk live-session files
-// (each with its raw parsed record), decide which are safe to delete. `now` and isPidAlive
-// are injected so this is pure and offline. Safe by default:
-//   - unparseable record        → keep (never delete what we can't classify)
-//   - the current session's file → keep, always (defensive: never delete our own)
+// Política prune pura para `/workflow cleanup sessions`. Dado los on-disk live-session
+// files (cada uno con su raw parsed record), decide cuáles son safe para borrar. `now` e
+// isPidAlive se inyectan así esto es puro y offline. Safe por default:
+//   - unparseable record        → keep (nunca borra lo que no podemos clasificar)
+//   - the current session's file → keep, always (defensive: nunca borra el nuestro)
 //   - pid exited                 → remove (definitively safe)
 //   - pid alive + fresh (live)   → keep
 //   - pid alive + stale heartbeat→ keep unless includeHeartbeatStale (a live pid may be paused)
@@ -282,8 +283,8 @@ export function classifySessionFilesForPrune(
 	return { remove, keep };
 }
 
-// IO wrapper: enumerate this project's live-session files, classify them, and unlink the
-// removable ones. Only touches files for ctx.cwd (other projects' sessions are left alone).
+// IO wrapper: enumera los live-session files de este proyecto, clasifícalos, y desvincula
+// los removibles. Solo toca files para ctx.cwd (otros projects' sessions se dejan solos).
 export async function prunePiSessionFiles(
 	ctx: ExtensionContext,
 	opts: { includeHeartbeatStale?: boolean; dryRun?: boolean } = {},

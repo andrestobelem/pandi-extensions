@@ -1,15 +1,15 @@
 /**
- * Agent environment, persona, and default-access kernel for pandi-dynamic-workflows.
+ * Agente environment, persona, y kernel default-access para pandi-dynamic-workflows.
  *
- * Builds the env wrapper for agent subprocesses (key allow-listing, isolation,
- * value sanitization), resolves built-in/project personas, and applies default
- * tool/skill/extension access (web-search + context7). 14 of 20 decls are
- * module-private; index.ts imports back the 6 it still calls.
+ * Construye el env wrapper para agent subprocesses (key allow-listing, isolation,
+ * value sanitization), resuelve personas built-in/project, y aplica default
+ * tool/skill/extension access (web-search + context7). 14 de 20 decls son
+ * module-private; index.ts importa de vuelta los 6 que aún llama.
  *
- * Deferred runtime cycle with index.ts: the persona/default consts are imported
- * from ./index.js but read only inside cluster function bodies; AgentOptions crosses
- * as import type (erased). CONFIG_DIR_NAME/getAgentDir/ExtensionContext come from the
- * framework package (no cycle). Extracted byte-identically from index.ts.
+ * Deferred runtime cycle con index.ts: los consts persona/default se importan
+ * desde ./index.js pero se leen solo dentro de cluster function bodies; AgentOptions
+ * cruza como import type (erased). CONFIG_DIR_NAME/getAgentDir/ExtensionContext vienen
+ * del framework package (sin cycle). Extraído byte-idénticamente desde index.ts.
  */
 import { createHash } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
@@ -177,9 +177,10 @@ export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: Agen
 export function sanitizeEnvForCache(env: Record<string, string> | undefined): Record<string, string> | undefined {
 	if (!env) return undefined;
 	const out: Record<string, string> = {};
-	// The cache/journal key is written to disk, so never put raw env values (possible secrets)
-	// in it — but DO distinguish different values so two different values of the same var don't
-	// collide onto one key and replay a stale journaled result on resume. Hash the value.
+	// El cache/journal key se escribe en disk, así nunca pongas raw env values (posibles
+	// secrets) en él — pero SÍ distingue diferentes valores así dos diferentes valores
+	// de la misma var no colisionen en una key y replay un stale journaled result en resume.
+	// Hash el valor.
 	for (const key of Object.keys(env).sort())
 		out[key] = `sha256:${createHash("sha256")
 			.update(env[key] ?? "")
@@ -307,10 +308,10 @@ async function resolvePiPackageExtensionPaths(packageRoot: string): Promise<stri
 async function resolveDefaultWebSearchExtensions(ctx: ExtensionContext): Promise<string[]> {
 	const packageRoots = appendUniqueValues(undefined, [
 		path.join(getAgentDir(), "npm", "node_modules", DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE),
-		// The cwd entry loads code from the project directory into every subagent, so it is
-		// gated behind project trust just like loadProjectPersona — an untrusted cwd must not
-		// be able to drop node_modules/pi-codex-web-search and get it auto-attached. The global
-		// agent-dir entry above stays ungated.
+		// La cwd entry carga code desde el project directory en cada subagent, así se gatea
+		// detrás de project trust como loadProjectPersona — un untrusted cwd no debe poder
+		// drop node_modules/pi-codex-web-search y get it auto-attached. La global agent-dir
+		// entry arriba permanece ungated.
 		...(ctx.isProjectTrusted() ? [path.join(ctx.cwd, "node_modules", DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE)] : []),
 	]);
 	const extensions: string[] = [];
@@ -323,20 +324,20 @@ async function resolveDefaultWebSearchExtensions(ctx: ExtensionContext): Promise
 
 function resolveDefaultContext7Skill(ctx: ExtensionContext): string | undefined {
 	const skillRoots = appendUniqueValues(undefined, [
-		// The cwd-relative roots load a skill (attacker-controllable SKILL.md instructions)
-		// from the project directory into every subagent, so they are gated behind project
-		// trust just like loadProjectPersona and resolveDefaultWebSearchExtensions — an
-		// untrusted cwd must not be able to drop .agents/skills/context7-cli and get it
-		// auto-attached before /trust runs. The global agent-dir / home roots stay ungated.
+		// Las cwd-relative roots cargan un skill (attacker-controllable SKILL.md instructions)
+		// desde el project directory en cada subagent, así se gatean detrás de project trust
+		// como loadProjectPersona y resolveDefaultWebSearchExtensions — un untrusted cwd
+		// no debe poder drop .agents/skills/context7-cli y get it auto-attached antes de /trust
+		// runs. Las global agent-dir / home roots permanecen ungated.
 		...(ctx.isProjectTrusted()
 			? [
 					path.join(ctx.cwd, ".agents", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 					path.join(ctx.cwd, CONFIG_DIR_NAME, "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 				]
 			: []),
-		// getAgentDir() already resolves the host distribution's global skills root
-		// (~/.pi/agent under vanilla pi, ~/.pi-cante/agent under pi-cante), so no
-		// hardcoded ~/.pi fallback is needed here.
+		// getAgentDir() ya resuelve el global skills root de la distribución host
+		// (~/.pi/agent bajo vanilla pi, ~/.pi-cante/agent bajo pi-cante), así no
+		// se necesita hardcoded ~/.pi fallback aquí.
 		path.join(getAgentDir(), "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 		path.join(os.homedir(), ".agents", "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 	]);

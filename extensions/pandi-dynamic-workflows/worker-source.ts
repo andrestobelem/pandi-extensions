@@ -1,13 +1,13 @@
 /**
- * Source code of the dynamic-workflows execution Worker, kept verbatim as a
- * String.raw template literal. It is instantiated with `new Worker(source,
- * { eval: true })` in index.ts, so it runs in a fresh CommonJS worker context
- * (its `require("node:worker_threads")` / `require("node:vm")` are valid there,
- * NOT ESM imports in this module). BYTE-SENSITIVE: the worker bundles/executes
- * this exact text; do not reformat, re-indent, or "tidy" the contents.
+ * Código fuente del Worker de ejecución de dynamic-workflows, mantenido tal cual como
+ * literal template String.raw. Se instancia con `new Worker(source, { eval: true })`
+ * en index.ts, ejecutándose en un contexto worker CommonJS fresco (sus llamadas
+ * `require("node:worker_threads")` / `require("node:vm")` son válidas ahí, NO importes
+ * ESM en este módulo). BYTE-SENSITIVE: el worker agrupa/ejecuta este texto exacto; no
+ * reformatees, re-indentess, ni "acomodess" el contenido.
  *
- * Moved out of index.ts verbatim (behavior-preserving); only the declaration
- * location changed. Depth-one sibling so it ships under the `files` glob.
+ * Movido de index.ts tal cual (preservando comportamiento); solo cambió la ubicación
+ * de la declaración. Sibling a profundidad uno para que se incluya en el glob `files`.
  */
 
 export const WORKFLOW_WORKER_SOURCE = String.raw`
@@ -46,8 +46,9 @@ function hostCall(method, args) {
   return hostCallTracked(method, args).promise;
 }
 
-// Bridge a per-call AbortSignal to the host: posting abort-call lets the host abort exactly this
-// call's CombinedSignal (used by race() losers). Shared by agent() and ask() (same file, intentional).
+// Enlazar un AbortSignal por-llamada al host: postear abort-call permite al host abortar
+// exactamente el CombinedSignal de esta llamada (usado por losers de race()). Compartido por
+// agent() y ask() (mismo archivo, intencional).
 function bridgeAbortToHost(sig, id) {
   if (!sig) return;
   if (sig.aborted) {
@@ -130,11 +131,11 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
   return results;
 }
 
-// race(thunks, { accept? }) -> { winner, index, status }. Fans out N branches and, the moment one
-// produces an ACCEPTED value (default: != null), aborts the in-flight losers via the AbortSignal each
-// thunk receives. Pure in-worker: cancellation rides the per-call hostCall id (agentGlobal posts
-// abort-call when its signal fires). Every branch has a rejection handler so a cancelled loser never
-// surfaces as an unhandled rejection.
+// race(thunks, { accept? }) -> { winner, index, status }. Abre en abanico N ramas y, en el
+// momento en que una produce un valor ACEPTADO (default: != null), aborta los losers en vuelo
+// mediante el AbortSignal que cada thunk recibe. Puro en-worker: cancelación viaja por el id
+// hostCall por-llamada (agentGlobal postea abort-call cuando su signal dispara). Cada rama
+// tiene un rejection handler así un loser cancelado nunca emerge como unhandled rejection.
 async function race(thunks, options) {
   if (!Array.isArray(thunks) || thunks.length === 0)
     throw new Error("race(thunks) expects a non-empty array of functions.");
@@ -142,8 +143,8 @@ async function race(thunks, options) {
     throw new Error("race() thunks must be functions: (signal) => Promise.");
   const accept = (options && options.accept) || ((v) => v != null);
   const controller = new AbortController();
-  // Synchronous fan-out (map, not chained then) so each thunk's first hostCall posts in emission
-  // order -> deterministic occ assignment under the host occ mutex.
+  // Fan-out síncrono (map, no then encadenado) así el primer hostCall de cada thunk postea
+  // en orden de emisión -> asignación determinística de occ bajo el mutex occ del host.
   const promises = thunks.map((thunk) => {
     try { return Promise.resolve(thunk(controller.signal)); }
     catch (e) { return Promise.reject(e); }
@@ -151,10 +152,10 @@ async function race(thunks, options) {
   return await new Promise((resolve) => {
     let settled = false;
     let remaining = thunks.length;
-    // Rejections are collected (not discarded): a genuine thunk bug used to be
-    // indistinguishable from "every branch declined" — both returned a bare
-    // status:"empty". The additive errors[] field keeps an all-rejected race
-    // debuggable without changing the winner/index/status semantics.
+    // Rejections se coleccionan (no se descartan): un bug genuino de thunk solía ser
+    // indistinguible de "todas las ramas declinaron" — ambas devolvían un bare
+    // status:"empty". El campo aditivo errors[] mantiene una race all-rejected
+    // debuggable sin cambiar la semántica de winner/index/status.
     const errors = [];
     const finish = (index, winner, status) => {
       if (settled) return;
@@ -232,11 +233,11 @@ async function race(thunks, options) {
     crypto: globalThis.crypto,
   };
 
-  // Single authoring interface: workflows call injected GLOBALS (no ctx.*). The agent() global is a
-  // thin wrapper over the host bridge that (1) maps effort->thinking and label->name, (2) returns the
-  // parsed object for schema calls / the text output otherwise, and (3) yields null on a failed
-  // subagent (ok:false) so parallel()/pipeline() settle semantics and partial-failure accounting stay
-  // honest. phase(label) is a lightweight observability marker.
+  // Interfaz única de autoría: workflows llamam GLOBALS inyectados (no ctx.*). El global agent()
+  // es un thin wrapper sobre el host bridge que (1) mapea effort->thinking y label->name, (2)
+  // devuelve el objeto parseado para schema calls / el text output en otro caso, y (3) cede null
+  // en un subagent fallido (ok:false) así settle semantics de parallel()/pipeline() y contabilidad
+  // de partial-failure permanecen honest. phase(label) es un marcador de observabilidad lightweight.
   const mapEffort = (e) => (e === "max" ? "xhigh" : e);
   const agentGlobal = async (prompt, options) => {
     const opts = Object.assign({}, options || {});
@@ -248,19 +249,20 @@ async function race(thunks, options) {
     delete opts.effort;
     delete opts.phase;
     const { id, promise } = hostCallTracked("agent", [prompt, opts]);
-    // The "call" message is posted (inside hostCallTracked) BEFORE this listener attaches, so an
-    // abort-call can never reach the host before its call -> the host always registers the per-id
-    // controller first. An already-aborted signal posts abort-call immediately.
+    // El mensaje "call" se postea (dentro de hostCallTracked) ANTES de que se attache este
+    // listener, así abort-call nunca puede llegar al host antes de su call -> el host siempre
+    // registra el controlador per-id primero. Un signal ya-abortado postea abort-call inmediatamente.
     bridgeAbortToHost(sig, id);
     const res = await promise;
     if (res == null || res.ok === false) return null;
     return opts.schema !== undefined ? (res.data != null ? res.data : null) : res.output;
   };
-  // ask(question, options?) -> the human's answer (string for input/select, boolean for confirm).
-  // Mirrors agentGlobal's per-call signal bridge so a race() loser's ask dialog is dismissed: the
-  // signal is stripped before posting (never serialize an AbortSignal) and an abort posts abort-call
-  // for this id. Unlike agentGlobal it does NOT swallow ok:false -> a host error (e.g. headless with
-  // no default, or an aborted dialog) rejects, surfacing as a thrown error in the workflow.
+  // ask(question, options?) -> la respuesta del humano (string para input/select, boolean para
+  // confirm). Espeja el per-call signal bridge de agentGlobal así un ask dialog de race() loser se
+  // despide: la signal se quita antes de postear (nunca serialices un AbortSignal) y un abort
+  // postea abort-call para este id. A diferencia de agentGlobal NO engulle ok:false -> un host
+  // error (p. ej. headless sin default, o un diálogo abortado) rechaza, emergiendo como error
+  // lanzado en el workflow.
   const askGlobal = async (question, options) => {
     const opts = Object.assign({}, options || {});
     const sig = opts.signal;
@@ -269,13 +271,13 @@ async function race(thunks, options) {
     bridgeAbortToHost(sig, id);
     return await promise;
   };
-  // agents(items, options?) -> array of SubagentResult|null. Mirrors agentGlobal's per-call signal
-  // bridge so a race() loser that fans out via agents() has its in-flight children cancelled AT
-  // race-loss (not just at run end): strip the signal before posting (never serialize an
-  // AbortSignal) and post abort-call for this id on abort. All other options (model/effort/schema/
-  // label/concurrency/settle) pass through untouched: the HOST normalizes the worker sugar —
-  // effort->thinking (max->xhigh) in the runSubagent prologue (per item AND for shared options)
-  // and label->name per item in runAgents — mirroring agentGlobal above.
+  // agents(items, options?) -> array of SubagentResult|null. Espeja el per-call signal bridge de
+  // agentGlobal así un race() loser que se abre en abanico via agents() tiene sus children in-flight
+  // cancelados EN race-loss (no solo al final del run): quita la signal antes de postear (nunca
+  // serialices un AbortSignal) y postea abort-call para este id en abort. Todas las otras opciones
+  // (model/effort/schema/label/concurrency/settle) pasan sin tocar: el HOST normaliza el worker
+  // sugar — effort->thinking (max->xhigh) en el prologue runSubagent (por item Y para opciones
+  // shared) y label->name por item en runAgents — espejando agentGlobal arriba.
   const agentsGlobal = (items, options) => {
     const opts = Object.assign({}, options || {});
     const sig = opts.signal;
@@ -311,8 +313,8 @@ async function race(thunks, options) {
     sandbox.json = ctx.json;
     sandbox.compact = ctx.compact;
     sandbox.args = workerData.input;
-    // Read-only run context as flat globals (superset of the helper-globals): a top-level
-    // workflow script reaches the run's limits/ids without a ctx object.
+    // Contexto de run read-only como globals planos (superset de helper-globals): un script
+    // workflow top-level llega a los limits/ids del run sin un objeto ctx.
     sandbox.limits = limits;
     sandbox.runId = ctx.runId;
     sandbox.runDir = ctx.runDir;

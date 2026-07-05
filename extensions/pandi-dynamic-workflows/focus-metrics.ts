@@ -1,24 +1,24 @@
 /**
- * pandi-dynamic-workflows focus observability (pure).
+ * Observabilidad de focus de pandi-dynamic-workflows (pura).
  *
- * "Measure focus live" (context-engineering §4), in the spirit of OpenTelemetry
- * GenAI spans: fold the Pi JSON-mode event stream a subagent already emits into
- * focus metrics — per-step token growth, tool-error rate, and retries — then roll
- * the per-agent metrics up into a per-run summary the engine writes as artifacts
- * (metrics.json / metrics.md).
+ * "Medir focus en vivo" (context-engineering §4), en el espíritu de OpenTelemetry
+ * GenAI spans: plega el event stream Pi JSON-mode que un subagent ya emite en
+ * focus metrics — per-step token growth, tool-error rate, y retries — luego
+ * enrolla las per-agent metrics en un per-run summary que el engine escribe como
+ * artifacts (metrics.json / metrics.md).
  *
- * Fully self-contained — no ctx, no fs, no node/SDK imports — so it is trivially
- * testable from raw stdout fixtures. Mirrors agent-output.ts: tolerant line-by-line
- * JSON parsing that skips partial/invalid lines and never throws.
+ * Completamente self-contained — sin ctx, sin fs, sin node/SDK imports — así
+ * es trivialmente testeable desde raw stdout fixtures. Espeja agent-output.ts: tolerante
+ * JSON parsing line-by-line que salta partial/invalid lines y nunca lanza.
  *
- * Token accounting (from AssistantMessage.usage on message_end/turn_end/agent_end):
+ * Contabilidad de tokens (desde AssistantMessage.usage en message_end/turn_end/agent_end):
  *   - inputTokensPeak  = max per-call (input + cacheRead + cacheWrite) → peak
- *     context-window pressure (the focus signal). Cache-aware: with prompt caching
- *     providers report the cached prompt in cacheRead/cacheWrite and usage.input is
- *     only the uncached remainder (~2 tok observed), so input alone lies.
+ *     context-window pressure (señal focus). Cache-aware: con prompt caching
+ *     providers reportan el cached prompt en cacheRead/cacheWrite y usage.input es
+ *     solo el uncached remainder (~2 tok observado), así input solo miente.
  *   - outputTokensTotal= sum usage.output → total generation
- *   - cost/cacheRead/cacheWrite are summed (each is per-API-call)
- * Tool-error rate comes from tool_execution_end {isError}; retries from auto_retry_end.
+ *   - cost/cacheRead/cacheWrite se suman (cada una es per-API-call)
+ * Tool-error rate viene de tool_execution_end {isError}; retries de auto_retry_end.
  */
 
 export interface AgentFocusMetrics {
@@ -26,13 +26,13 @@ export interface AgentFocusMetrics {
 	name: string;
 	ok: boolean;
 	elapsedMs: number;
-	/** Assistant turns observed (counted from message_end events only — see parseAgentFocusMetrics). */
+	/** Assistant turns observados (contados desde message_end events solo — ver parseAgentFocusMetrics). */
 	turns: number;
 	/** Peak per-call prompt size (input + cacheRead + cacheWrite) = peak context pressure. */
 	inputTokensPeak: number;
-	/** Summed generated tokens across the agent's API calls. */
+	/** Tokens generados sumados a lo largo de las API calls del agent. */
 	outputTokensTotal: number;
-	/** Peak per-call totalTokens reported by the provider. */
+	/** Peak per-call totalTokens reportados por el provider. */
 	totalTokens: number;
 	cacheReadTotal: number;
 	cacheWriteTotal: number;
@@ -46,7 +46,7 @@ export interface RunFocusMetrics {
 	measuredAgents: number;
 	okAgents: number;
 	failedAgents: number;
-	/** Max single-agent peak input tokens across the run (worst context pressure). */
+	/** Max single-agent peak input tokens a lo largo del run (worst context pressure). */
 	inputTokensPeak: number;
 	outputTokensTotal: number;
 	totalTokens: number;
@@ -55,12 +55,12 @@ export interface RunFocusMetrics {
 	costTotal: number;
 	toolCalls: number;
 	toolErrors: number;
-	/** toolErrors / toolCalls, or 0 when there were no tool calls. */
+	/** toolErrors / toolCalls, o 0 cuando no hubo tool calls. */
 	toolErrorRate: number;
 	autoRetries: number;
-	/** Sum of per-agent durations (NOT wall-clock; agents run in parallel). */
+	/** Suma de per-agent durations (NO wall-clock; agents corren en parallel). */
 	agentElapsedMsTotal: number;
-	/** Per-agent metrics ordered by id — the per-step token-growth trajectory. */
+	/** Per-agent metrics ordenadas por id — la per-step token-growth trajectory. */
 	agents: AgentFocusMetrics[];
 }
 
@@ -72,7 +72,7 @@ function numberOf(value: unknown): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-/** Extract a Usage-shaped reading from an assistant message, if present. */
+/** Extrae una lectura Usage-shaped de un mensaje assistant, si está presente. */
 function readUsage(message: unknown): {
 	input: number;
 	output: number;
@@ -97,8 +97,8 @@ function readUsage(message: unknown): {
 }
 
 /**
- * Fold one subagent's JSON-mode stdout into AgentFocusMetrics. Tolerant: invalid or
- * partial lines are skipped, and an empty/garbage stream yields zeroed metrics.
+ * Pliega el stdout JSON-mode de un subagent en AgentFocusMetrics. Tolerante: invalid o
+ * partial lines se saltan, y un empty/garbage stream rinde zeroed metrics.
  */
 export function parseAgentFocusMetrics(
 	stdout: string,
@@ -129,7 +129,7 @@ export function parseAgentFocusMetrics(
 		try {
 			event = JSON.parse(trimmed);
 		} catch {
-			continue; // partial/invalid line — skip (lenient, never throw)
+			continue; // partial/invalid line — skip (lenient, nunca lanza)
 		}
 		const record = asRecord(event);
 		if (!record) continue;
@@ -140,9 +140,9 @@ export function parseAgentFocusMetrics(
 		} else if (record.type === "auto_retry_end") {
 			metrics.autoRetries++;
 		} else if (record.type === "message_end") {
-			// message_end is the canonical terminal event per assistant API call and carries
-			// final usage. turn_end/agent_end merely repeat/replay the same assistant message,
-			// so counting only message_end avoids double-counting without any dedup bookkeeping.
+			// message_end es el canonical terminal event per assistant API call y lleva
+			// final usage. turn_end/agent_end meramente repeat/replay el mismo mensaje assistant,
+			// así contar solo message_end evita double-counting sin dedup bookkeeping.
 			const usage = readUsage(record.message);
 			if (usage) {
 				metrics.turns++;
@@ -157,8 +157,8 @@ function accumulateUsage(
 	metrics: AgentFocusMetrics,
 	usage: { input: number; output: number; total: number; cacheRead: number; cacheWrite: number; cost: number },
 ): void {
-	// Cache-aware prompt size: cached tokens ARE input the model attends to; usage.input
-	// alone is only the uncached remainder under prompt caching.
+	// Cache-aware prompt size: cached tokens SON input que el modelo atiende; usage.input
+	// solo es solo el uncached remainder bajo prompt caching.
 	metrics.inputTokensPeak = Math.max(metrics.inputTokensPeak, usage.input + usage.cacheRead + usage.cacheWrite);
 	metrics.totalTokens = Math.max(metrics.totalTokens, usage.total);
 	metrics.outputTokensTotal += usage.output;
@@ -167,7 +167,7 @@ function accumulateUsage(
 	metrics.costTotal += usage.cost;
 }
 
-/** Roll per-agent focus metrics up into a per-run summary. */
+/** Enrolla per-agent focus metrics arriba en un per-run summary. */
 export function aggregateRunFocusMetrics(agents: AgentFocusMetrics[]): RunFocusMetrics {
 	const ordered = [...agents].sort((a, b) => a.id - b.id);
 	const agg: RunFocusMetrics = {
@@ -235,8 +235,8 @@ export function formatFocusMetricsMarkdown(agg: RunFocusMetrics, opts: { cachedC
 		"| id | name | ok | turns | inputPeak | outputTotal | toolCalls | toolErrors | retries | elapsedMs |",
 		"| -- | ---- | -- | ----- | --------- | ----------- | --------- | ---------- | ------- | --------- |",
 	);
-	// Agent names are workflow-supplied, so escape Markdown table-breaking characters
-	// (pipes and newlines) before interpolating into a cell.
+	// Los nombres de agent son workflow-supplied, así escape Markdown table-breaking characters
+	// (pipes y newlines) antes de interpolar en una celda.
 	const cell = (value: string) => String(value).replace(/\r?\n/g, " ").replace(/\|/g, "\\|");
 	for (const a of agg.agents) {
 		lines.push(

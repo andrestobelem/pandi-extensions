@@ -1,14 +1,15 @@
 /**
- * Shared Markdown viewer for the dynamic-workflows dashboard.
+ * Shared Markdown viewer para el dynamic-workflows dashboard.
  *
- * A self-contained scrollable viewer built on pi-tui's `Markdown` component so run views,
- * agent views, and `.md` artifacts render as RICH Markdown (headings, code blocks, lists)
- * instead of a plain text editor dump. We deliberately do NOT import pandi-mdview at runtime
- * (the self-contained-extension rule forbids cross-extension runtime imports), nor the SDK's
- * getMarkdownTheme() as a value (that pulls the whole coding-agent runtime —
- * cross-spawn/child_process — into the bundle and breaks standalone load). Instead the
- * Markdown theme is built from the runtime `theme` object using ONLY type-only SDK imports.
- * The small chrome duplication with pandi-mdview's own viewer is intentional and sanctioned.
+ * Un viewer scrollable self-contained construido sobre pi-tui's `Markdown` component
+ * así run views, agent views, y `.md` artifacts se renderizan como RICH Markdown
+ * (headings, code blocks, lists) en lugar de plain text editor dump. Deliberadamente
+ * NO importamos pandi-mdview at runtime (la self-contained-extension rule prohíbe
+ * cross-extension runtime imports), ni el getMarkdownTheme() del SDK como valor
+ * (eso tira todo el coding-agent runtime — cross-spawn/child_process — al bundle
+ * y rompe standalone load). En lugar de eso el Markdown theme se construye desde el
+ * runtime `theme` object usando SOLO type-only SDK imports. La small chrome duplication
+ * con el own viewer de pandi-mdview es intencional y sanctioned.
  */
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import {
@@ -25,22 +26,22 @@ import { notify } from "./notify.js";
 const VIEWER_MIN_BODY_LINES = 3;
 const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
 
-/** Route a file path to the viewer that fits it: Markdown for .md/.markdown, else text. */
+/** Rutea un file path al viewer que le cabe: Markdown para .md/.markdown, else text. */
 export function pickViewerForPath(filePath: string): "markdown" | "text" {
 	const lower = filePath.toLowerCase();
 	return lower.endsWith(".md") || lower.endsWith(".markdown") ? "markdown" : "text";
 }
 
-// Shared viewer chrome (one source of truth for the run view AND the live agent view):
-// the navigation/close/position hint string and the scroll-key mapping, so both viewers
-// advertise and honor the SAME keys.
+// Shared viewer chrome (una source of truth para el run view Y el live agent view):
+// la navigation/close/position hint string y el scroll-key mapping, así ambos viewers
+// advertisen y honren las MISMAS keys.
 export function formatViewerHints(opts: { canOpenFiles: boolean; start: number; end: number; total: number }): string {
 	const filesHint = opts.canOpenFiles ? "f files • " : "";
 	return `↑/↓ j/k scroll • PgUp/PgDn page • ${filesHint}q/Esc close • ${opts.start}-${opts.end}/${opts.total}`;
 }
 
-// Map an input key to a scroll action shared by both viewers: a line delta (±1), a page delta
-// (±page), "top"/"bottom" jumps, or null when the key is not a scroll key.
+// Mapea un input key a una scroll action compartida por ambos viewers: un line delta (±1),
+// un page delta (±page), "top"/"bottom" jumps, o null cuando la key no es scroll key.
 export function scrollDelta(data: string, page: number): number | "top" | "bottom" | null {
 	if (matchesKey(data, "down") || data === "j") return 1;
 	if (matchesKey(data, "up") || data === "k") return -1;
@@ -59,9 +60,9 @@ function boundedLine(text: string, width: number): string {
 	return padToWidth(truncateToWidth(text, Math.max(1, width)), width);
 }
 
-// Build the Markdown theme from the runtime `theme` (a value handed to the ctx.ui.custom
-// callback). Type-only SDK imports keep this self-contained (see file header). Exported for
-// reuse WITHIN this extension (e.g. the live agent view) — never imported across extensions.
+// Construye el Markdown theme desde el runtime `theme` (un valor pasado al ctx.ui.custom
+// callback). Type-only SDK imports mantiene esto self-contained (ver file header). Exportado
+// para reuse WITHIN esta extensión (p. ej. el live agent view) — nunca importado entre extensions.
 export function createMarkdownTheme(theme: Theme): MarkdownTheme {
 	return {
 		heading: (text) => theme.fg("mdHeading", theme.bold(text)),
@@ -82,7 +83,7 @@ export function createMarkdownTheme(theme: Theme): MarkdownTheme {
 	};
 }
 
-/** Intent returned when the viewer closes: plain close (undefined) or "open an artifact". */
+/** Intent devuelto cuando el viewer cierra: plain close (undefined) o "open an artifact". */
 export type MarkdownViewIntent = "openFiles" | undefined;
 
 export class WorkflowMarkdownViewComponent implements Component {

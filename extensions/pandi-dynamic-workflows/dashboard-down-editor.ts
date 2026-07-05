@@ -1,13 +1,14 @@
 /**
- * WorkflowDashboardDownEditor — the custom Down/Left-key editor that opens the workflow
- * dashboard from the prompt, plus its install hook and small cursor helper.
+ * WorkflowDashboardDownEditor — el editor personalizado de teclas Down/Left que abre el
+ * dashboard de workflow desde el prompt, más su hook de instalación y pequeño ayudante
+ * de cursor.
  *
- * installWorkflowDashboardDownEditor wires the editor into the session; the class
- * implements the host EditorComponent contract. Deferred cycle: it calls
- * openWorkflowDashboard from ./index.js only inside the editor's open closure, and
- * index.ts imports installWorkflowDashboardDownEditor back (invoked only in the
- * session_start handler). The Dashboard* function types stay in index.ts (shared with
- * openWorkflowDashboard) and cross as import type. Extracted byte-identically.
+ * installWorkflowDashboardDownEditor conecta el editor a la sesión; la clase implementa el
+ * contrato host EditorComponent. Ciclo deferred: llama openWorkflowDashboard desde ./index.js
+ * solo dentro de la closure open del editor, e index.ts importa installWorkflowDashboardDownEditor
+ * de vuelta (invocado solo en el handler session_start). Los tipos de función Dashboard*
+ * permanecen en index.ts (compartidos con openWorkflowDashboard) y cruzan como import type.
+ * Extraído byte-idénticamente.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -20,11 +21,11 @@ import { type ColorMode, colorizeKeyword, containsKeywordToken, detectColorMode 
 import { stripAnsiCodes } from "./render-utils.js";
 
 const WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER = "__dynamicWorkflowDashboardDownEditor";
-// ~8 fps: smooth enough for a scrolling rainbow without flooding the renderer. The timer
-// only triggers a re-render while the prompt holds the keyword AND is focused, so an idle
-// or keyword-free prompt costs nothing beyond one boolean check per tick.
+// ~8 fps: liso enough para un rainbow scrolling sin inundar el renderer. El timer solo
+// desencadena re-render mientras el prompt contiene la palabra clave Y está enfocado, así
+// un prompt idle o keyword-free no cuesta nada más allá de una boolean check por tick.
 const RAINBOW_INTERVAL_MS = 120;
-// The typed words that get the animated multicolor effect (case-insensitive).
+// Las palabras tipadas que obtienen el efecto de múltiples colores animados (case-insensitive).
 const RAINBOW_KEYWORDS = ["ultracode", "workflow", "workflows"];
 
 class WorkflowDashboardDownEditor implements EditorComponent {
@@ -46,7 +47,7 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 				: new Map<string, () => void>();
 		if (this.rainbowColorMode !== "none") {
 			this.rainbowTimer = setInterval(() => this.tickRainbow(), RAINBOW_INTERVAL_MS);
-			// Never let the animation keep the Node process alive on its own.
+			// Nunca dejes que la animación mantenga el proceso Node vivo por sí solo.
 			this.rainbowTimer.unref?.();
 		}
 	}
@@ -55,9 +56,10 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	private rainbowTimer?: ReturnType<typeof setInterval>;
 	private readonly rainbowColorMode: ColorMode = detectColorMode();
 
-	// Advance the rainbow band and repaint, but only while the prompt actually contains the
-	// keyword and is focused — so the effect animates as you type "ultracode" and pauses (no
-	// wasted renders) when the word is gone, a dashboard/modal is up, or color is unsupported.
+	// Avanza la banda rainbow y repinta, pero solo mientras el prompt contiene la palabra clave
+	// y está enfocado — así el efecto se anima mientras tipeas "ultracode" y pausa (sin
+	// renders malgastados) cuando la palabra se fue, un dashboard/modal está arriba, o color
+	// no está soportado.
 	private tickRainbow(): void {
 		if (this.rainbowColorMode === "none" || !this.focused || !this.textHasKeyword()) return;
 		this.advanceRainbow();
@@ -69,12 +71,12 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		return RAINBOW_KEYWORDS.some((keyword) => containsKeywordToken(text, keyword));
 	}
 
-	/** Bump the rainbow phase one step (exposed for deterministic tests). */
+	/** Incrementa la fase rainbow un paso (expuesta para tests determinísticos). */
 	advanceRainbow(): void {
 		this.rainbowPhase = (this.rainbowPhase + 1) % 1_000_000;
 	}
 
-	/** Stop the animation timer. Best-effort hygiene; the timer is also unref'd. */
+	/** Detiene el timer de animación. Higiene best-effort; el timer también está unref'd. */
 	dispose(): void {
 		if (this.rainbowTimer) {
 			clearInterval(this.rainbowTimer);
@@ -169,10 +171,10 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	render(width: number): string[] {
 		const lines = this.decorateTopBorder(this.base.render(width), width);
 		if (this.rainbowColorMode === "none") return lines;
-		// The base editor renders as [top border, ...typed input, bottom border, ...autocomplete].
-		// Paint the keyword ONLY on the typed-input lines (strictly between the two borders), so
-		// the effect lands where you write and never on the border label or the slash-command /
-		// autocomplete dropdown that follows the bottom border.
+		// El editor base se renderiza como [top border, ...typed input, bottom border, ...autocomplete].
+		// Pinta la palabra clave SOLO en las líneas typed-input (estrictamente entre los dos
+		// borders), así el efecto cae donde escribes y nunca en la border label o el dropdown
+		// de autocomplete slash-command / que sigue al bottom border.
 		let bottomBorder = lines.length;
 		for (let i = 1; i < lines.length; i++) {
 			if (isBorderLine(lines[i])) {
@@ -190,9 +192,9 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		);
 	}
 
-	// Embed a short status label into the editor's top border (the violet prompt
-	// line) without disturbing the base layout. Only a plain, full-width border is
-	// decorated, so scroll hints like "↑ N more" are left untouched.
+	// Inserta una etiqueta de estado corta en el top border del editor (la línea prompt
+	// violeta) sin perturbar el layout base. Solo un border plain, full-width se decora,
+	// así scroll hints como "↑ N more" se dejan intactos.
 	private decorateTopBorder(lines: string[], width: number): string[] {
 		if (lines.length === 0 || width <= 0) return lines;
 		const label = this.getBorderLabel();
@@ -247,9 +249,9 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	handleInput(data: string): void {
 		const opensMonitor = matchesKey(data, Key.down);
 		const opensSessions = matchesKey(data, Key.left);
-		// Only treat ↓/← as dashboard-open gestures from a genuinely empty editor.
-		// With a composed prompt they must stay normal cursor movements (← at col 0 of
-		// a written prompt used to surprise-open the Sessions dashboard).
+		// Solo trata ↓/← como gestos dashboard-open desde un editor genuinamente vacío.
+		// Con un prompt compuesto deben permanecer como movimientos normales del cursor (← at col 0
+		// de un prompt escrito solía surprise-open el dashboard Sessions).
 		if ((!opensMonitor && !opensSessions) || this.base.getText().trim() !== "") {
 			this.base.handleInput(data);
 			return;
@@ -281,7 +283,7 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 			try {
 				void Promise.resolve(submit(command)).catch(() => undefined);
 			} catch {
-				// Fall back to leaving the command ready for manual Enter if direct submission fails.
+				// Recurre a dejar el comando listo para Enter manual si la sumisión directa falla.
 				this.base.setText(command);
 			}
 			return;
@@ -314,9 +316,9 @@ function sameEditorCursor(a: { line: number; col: number }, b: { line: number; c
 	return a.line === b.line && a.col === b.col;
 }
 
-// A horizontal editor border: the ─ rule, optionally carrying a scroll hint ("↑/↓ N more").
-// Used to bound the typed-input region (between the top and bottom borders) so the keyword
-// rainbow never bleeds into the autocomplete dropdown rendered after the bottom border.
+// Un horizontal editor border: la regla ─, opcionalmente llevando un scroll hint ("↑/↓ N more").
+// Usado para acotar la región typed-input (entre los top y bottom borders) así la palabra
+// clave rainbow nunca sangra en el dropdown autocomplete renderizado después del bottom border.
 function isBorderLine(line: string): boolean {
 	const stripped = stripAnsiCodes(line);
 	if (!stripped.includes("─")) return false;

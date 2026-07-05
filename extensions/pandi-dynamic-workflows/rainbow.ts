@@ -1,15 +1,15 @@
 /**
- * Pure, dependency-free color helpers for the animated multicolor "ultracode" label.
+ * Ayudantes de color puros, sin dependencias, para la etiqueta "ultracode" animada multicolor.
  *
- * rainbowText() wraps each character of a string in a per-character rainbow color so the
- * caller can animate it by advancing `phase` over time. It is deterministic given (text,
- * phase, options) — no timers, no module state — so it is trivially unit/integration
- * testable; the editor owns the clock that bumps `phase` and triggers re-renders.
+ * rainbowText() envuelve cada carácter de un string en un color rainbow per-carácter así el
+ * llamador puede animarlo avanzando `phase` con el tiempo. Es determinístico dado (text, phase,
+ * options) — sin timers, sin module state — así es trivialmente testeable unit/integration;
+ * el editor es dueño del reloj que incrementa `phase` y desencadena re-renders.
  *
- * Two output modes keep the effect visible across terminals: 24-bit truecolor
- * (`\x1b[38;2;r;g;bm`, e.g. iTerm2) and the 256-color cube (`\x1b[38;5;Nm`, e.g.
- * Terminal.app). detectColorMode() picks one from the environment, falling back to "none"
- * so callers can render the plain single-color label on terminals without color support.
+ * Dos modos de output mantienen el efecto visible entre terminales: 24-bit truecolor
+ * (`\x1b[38;2;r;g;bm`, p. ej. iTerm2) y el cubo 256-color (`\x1b[38;5;Nm`, p. ej.
+ * Terminal.app). detectColorMode() elige uno del environment, fallando a "none" así
+ * llamadores pueden renderizar la etiqueta plain single-color en terminales sin soporte color.
  */
 
 const RESET = "\x1b[0m";
@@ -17,19 +17,19 @@ const RESET = "\x1b[0m";
 export type ColorMode = "truecolor" | "ansi256" | "none";
 
 export interface RainbowOptions {
-	/** Output encoding for the per-character color. Defaults to "truecolor". */
+	/** Encoding de output para el color per-carácter. Default a "truecolor". */
 	mode?: ColorMode;
-	/** Degrees of hue between adjacent characters (the width of the rainbow band). */
+	/** Grados de hue entre caracteres adyacentes (el ancho de la banda rainbow). */
 	hueStep?: number;
-	/** Degrees the whole band shifts per unit of `phase` (the scroll speed). */
+	/** Grados que toda la banda se desplaza por unidad de `phase` (la velocidad de scroll). */
 	phaseStep?: number;
-	/** HSL saturation in [0, 1]. */
+	/** Saturación HSL en [0, 1]. */
 	saturation?: number;
-	/** HSL lightness in [0, 1]. */
+	/** Luminosidad HSL en [0, 1]. */
 	lightness?: number;
 }
 
-/** Convert an HSL color (h in degrees, s/l in [0,1]) to 8-bit RGB. */
+/** Convierte un color HSL (h en grados, s/l en [0,1]) a RGB 8-bit. */
 export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 	const hue = ((h % 360) + 360) % 360;
 	const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -83,21 +83,23 @@ export function rainbowText(text: string, phase = 0, options: RainbowOptions = {
 	return out;
 }
 
-// Control sequences to skip when matching the plain keyword: CSI (`\x1b[...m` colors and
-// cursor moves), APC (`\x1b_...\x07`, which includes Pi's zero-width hardware-cursor marker),
-// and other single-char escapes. They carry zero visible width and must be preserved in place.
+// Secuencias de control a saltar cuando se matchea la palabra clave plain: CSI (`\x1b[...m`
+// colores y cursor moves), APC (`\x1b_...\x07`, que incluye el marcador hardware-cursor
+// zero-width de Pi), y otros single-char escapes. Llevan zero visible width y deben
+// preservarse en lugar.
 const CONTROL_SEQUENCE = /^(?:\x1b\[[0-9;?]*[A-Za-z]|\x1b_[^\x07]*\x07|\x1b[@-Z\\-_])/;
 
-// A keyword only counts as a standalone trigger token: bounded on the LEFT by start-of-text, a
-// space, or a `/` (so `/ultracode` and ` ultracode ` count) and on the RIGHT by end-of-text or a
-// space. Substrings glued to a larger word (`workflows`, `myultracode`) are NOT tokens.
+// Una palabra clave solo cuenta como un trigger token standalone: limitada a la IZQUIERDA por
+// start-of-text, un space, o una `/` (así `/ultracode` y ` ultracode ` cuentan) y a la DERECHA
+// por end-of-text o space. Substrings pegados a palabra más grande (`workflows`, `myultracode`)
+// NO son tokens.
 const isKeywordLeftBoundary = (text: string, at: number): boolean =>
 	at === 0 || text[at - 1] === " " || text[at - 1] === "/";
 const isKeywordRightBoundary = (text: string, at: number): boolean => at === text.length || text[at] === " ";
 
 /**
- * True when `text` contains `keyword` (case-insensitive) as a standalone token per the boundary
- * rule above. Substrings inside larger words do not count.
+ * Verdadero cuando `text` contiene `keyword` (case-insensitive) como token standalone por la
+ * regla boundary arriba. Substrings dentro de palabras más grandes no cuentan.
  */
 export function containsKeywordToken(text: string, keyword: string): boolean {
 	if (!keyword) return false;
@@ -110,10 +112,11 @@ export function containsKeywordToken(text: string, keyword: string): boolean {
 }
 
 /**
- * Recolor every visible occurrence of `keyword` (case-insensitive) inside an already-rendered
- * line with the animated rainbow, leaving all other characters and every control sequence
- * (ANSI styling + the zero-width cursor marker) exactly where they were. The visible width is
- * unchanged. Returns the line untouched when mode is "none" or the keyword is absent.
+ * Recolorea cada ocurrencia visible de `keyword` (case-insensitive) dentro de una línea ya
+ * renderizada con el rainbow animado, dejando todos los otros caracteres y cada secuencia de
+ * control (ANSI styling + el marcador cursor zero-width) exactamente donde estaban. El visible
+ * width no cambia. Devuelve la línea intacta cuando mode es "none" o la palabra clave está
+ * ausente.
  */
 export function colorizeKeyword(line: string, keyword: string, phase = 0, options: RainbowOptions = {}): string {
 	const mode = options.mode ?? "truecolor";
@@ -124,8 +127,8 @@ export function colorizeKeyword(line: string, keyword: string, phase = 0, option
 	const saturation = options.saturation ?? 1;
 	const lightness = options.lightness ?? 0.6;
 
-	// Split the line into control tokens (kept verbatim) and visible characters, recording the
-	// concatenated visible text so we can match the plain keyword across embedded escapes.
+	// Divide la línea en tokens de control (mantenidos tal cual) y caracteres visibles, registrando
+	// el texto visible concatenado así podemos matchear la palabra clave plain entre escapes.
 	type Token = { ctrl: true; text: string } | { ctrl: false; ch: string };
 	const tokens: Token[] = [];
 	let visible = "";
@@ -142,11 +145,11 @@ export function colorizeKeyword(line: string, keyword: string, phase = 0, option
 	}
 	if (!visible.toLowerCase().includes(key)) return line;
 
-	// Mark, for each visible character, its 0-based offset within a keyword match (or -1).
+	// Marca, para cada carácter visible, su offset 0-based dentro de un keyword match (o -1).
 	const lower = visible.toLowerCase();
 	const offsetInMatch = new Array<number>(visible.length).fill(-1);
 	for (let from = lower.indexOf(key); from >= 0; from = lower.indexOf(key, from + key.length)) {
-		// Only recolor standalone keyword tokens; skip substrings glued to a larger word.
+		// Solo recolorea tokens de palabra clave standalone; salta substrings pegados a palabra más grande.
 		if (!isKeywordLeftBoundary(lower, from) || !isKeywordRightBoundary(lower, from + key.length)) continue;
 		for (let k = 0; k < key.length; k++) offsetInMatch[from + k] = k;
 	}
@@ -168,7 +171,7 @@ export function colorizeKeyword(line: string, keyword: string, phase = 0, option
 	return out;
 }
 
-/** Pick the richest color encoding the current terminal advertises. */
+/** Elige el encoding de color más rico que la terminal actual publicita. */
 export function detectColorMode(env: NodeJS.ProcessEnv = process.env): ColorMode {
 	const colorterm = (env.COLORTERM ?? "").toLowerCase();
 	if (colorterm.includes("truecolor") || colorterm.includes("24bit")) return "truecolor";
