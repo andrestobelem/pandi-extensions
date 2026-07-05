@@ -23,8 +23,16 @@ import type {
 } from "./index.js";
 import { renderSafeInline } from "./render-utils.js";
 
+export interface ParsedPhaseEvent {
+	id: number;
+	label: string;
+	time: string;
+	source: "event";
+}
+
 interface ParsedRunEvents {
 	logs: WorkflowLogEntry[];
+	phases: ParsedPhaseEvent[];
 	agents: AgentMonitorModel[];
 }
 
@@ -44,6 +52,26 @@ export function numberValue(value: unknown): number | undefined {
 
 export function booleanValue(value: unknown): boolean | undefined {
 	return typeof value === "boolean" ? value : undefined;
+}
+
+function metricsValue(value: unknown): AgentMonitorModel["metrics"] | undefined {
+	const record = recordValue(value);
+	if (!record) return undefined;
+	const metrics = {
+		...(numberValue(record.turns) === undefined ? {} : { turns: numberValue(record.turns) }),
+		...(numberValue(record.inputTokensPeak) === undefined
+			? {}
+			: { inputTokensPeak: numberValue(record.inputTokensPeak) }),
+		...(numberValue(record.outputTokensTotal) === undefined
+			? {}
+			: { outputTokensTotal: numberValue(record.outputTokensTotal) }),
+		...(numberValue(record.totalTokens) === undefined ? {} : { totalTokens: numberValue(record.totalTokens) }),
+		...(numberValue(record.costTotal) === undefined ? {} : { costTotal: numberValue(record.costTotal) }),
+		...(numberValue(record.toolCalls) === undefined ? {} : { toolCalls: numberValue(record.toolCalls) }),
+		...(numberValue(record.toolErrors) === undefined ? {} : { toolErrors: numberValue(record.toolErrors) }),
+		...(numberValue(record.autoRetries) === undefined ? {} : { autoRetries: numberValue(record.autoRetries) }),
+	};
+	return Object.keys(metrics).length ? metrics : undefined;
 }
 
 export function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<SubagentResult> {
@@ -152,10 +180,15 @@ export function mergeAgentMonitor(
 		...(existing?.promptPreview || patch.promptPreview
 			? { promptPreview: patch.promptPreview ?? existing?.promptPreview }
 			: {}),
+		...(existing?.promptCopy || patch.promptCopy ? { promptCopy: patch.promptCopy ?? existing?.promptCopy } : {}),
+		...(existing?.promptTruncated !== undefined || patch.promptTruncated !== undefined
+			? { promptTruncated: patch.promptTruncated ?? existing?.promptTruncated }
+			: {}),
 		...(existing?.output || patch.output ? { output: patch.output ?? existing?.output } : {}),
 		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined
 			? { schemaOk: patch.schemaOk ?? existing?.schemaOk }
 			: {}),
+		...(existing?.metrics || patch.metrics ? { metrics: patch.metrics ?? existing?.metrics } : {}),
 		promptAvailable: existing?.promptAvailable === true || patch.promptAvailable === true || !!artifactPath,
 	};
 }
@@ -173,6 +206,7 @@ async function readFilePrefix(file: string, maxBytes = 16_000): Promise<string> 
 
 export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 	const logs: WorkflowLogEntry[] = [];
+	const phases: ParsedPhaseEvent[] = [];
 	const agentsById = new Map<number, AgentMonitorModel>();
 	const upsert = (patch: Partial<AgentMonitorModel> & { id: number; name: string }) => {
 		agentsById.set(patch.id, mergeAgentMonitor(agentsById.get(patch.id), patch));
@@ -226,6 +260,11 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 								: { schemaOk: booleanValue(details?.schemaOk) }),
 						});
 					}
+				} else if (event.type === "phase") {
+					const id = numberValue(event.id);
+					const label = stringValue(event.label);
+					const time = stringValue(event.time);
+					if (id !== undefined && label && time) phases.push({ id, label, time, source: "event" });
 				} else if (event.type === "agent") {
 					const id = numberValue(event.id);
 					const name = stringValue(event.name);
@@ -242,6 +281,7 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 						const phaseIndex = numberValue(event.phaseIndex);
 						const phaseTotal = numberValue(event.phaseTotal);
 						const phaseLabel = stringValue(event.phaseLabel);
+						const metrics = metricsValue(event.metrics);
 						upsert({
 							id,
 							name,
@@ -274,8 +314,13 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							...(phaseIndex === undefined ? {} : { phaseIndex }),
 							...(phaseTotal === undefined ? {} : { phaseTotal }),
 							...(phaseLabel ? { phaseLabel } : {}),
+							...(stringValue(event.promptCopy) ? { promptCopy: stringValue(event.promptCopy) } : {}),
+							...(booleanValue(event.promptTruncated) === undefined
+								? {}
+								: { promptTruncated: booleanValue(event.promptTruncated) }),
 							...(stringValue(event.output) ? { output: stringValue(event.output) } : {}),
 							...(booleanValue(event.schemaOk) === undefined ? {} : { schemaOk: booleanValue(event.schemaOk) }),
+							...(metrics ? { metrics } : {}),
 							promptAvailable: booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),
 						});
 					}
@@ -322,7 +367,7 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 		// Runs without agent artifacts still render their timeline normally.
 	}
 
-	return { logs, agents: [...agentsById.values()].sort((a, b) => a.id - b.id) };
+	return { logs, phases, agents: [...agentsById.values()].sort((a, b) => a.id - b.id) };
 }
 
 export async function readRunLogEvents(runDir: string): Promise<WorkflowLogEntry[]> {

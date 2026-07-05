@@ -35,7 +35,7 @@ export interface RunReportAgent {
 	schemaOk?: boolean;
 	phaseLabel?: string;
 	promptPreview?: string;
-	/** Verbatim prompt from the agent .md — forgeable, rendered with a caveat. */
+	/** Verbatim prompt copy; newer runs source this from bounded structured events. */
 	prompt?: RunReportText;
 	output?: RunReportText;
 	/** Re-serialized structured data (never raw bytes). */
@@ -82,8 +82,7 @@ export interface RunReportModel {
 	input?: RunReportText;
 	output?: RunReportText;
 	logs: { time: string; message: string; details?: string }[];
-	/** Derived from the "phase: <name>" log convention — flagged as such in the UI. */
-	phases: { label: string; time: string }[];
+	phases: { label: string; time: string; source?: "event" | "log" }[];
 	agents: RunReportAgent[];
 	metricsTotals?: {
 		measuredAgents?: number;
@@ -352,11 +351,19 @@ export function buildRunReportHtml(model: RunReportModel): string {
 	].join("");
 
 	const phaseRows = model.phases
-		.map((p) => `<tr><td class="mono">${escapeHtml(p.time)}</td><td>${escapeHtml(p.label)}</td></tr>`)
+		.map(
+			(p) =>
+				`<tr><td class="mono">${escapeHtml(p.time)}</td><td>${escapeHtml(p.label)}</td><td>${escapeHtml(p.source ?? "log")}</td></tr>`,
+		)
 		.join("");
+	const hasStructuredPhases = model.phases.some((p) => p.source === "event");
 	const phaseSection = model.phases.length
-		? `<h2>Phases</h2><div class="kv muted">Derived from the "phase: …" log convention.</div>` +
-			`<table><thead><tr><th>Time</th><th>Phase</th></tr></thead><tbody>${phaseRows}</tbody></table>`
+		? `<h2>Phases</h2><div class="kv muted">${
+				hasStructuredPhases
+					? "Structured phase events from the run dir; legacy log-derived phases are marked as log."
+					: 'Derived from the "phase: …" log convention.'
+			}</div>` +
+			`<table><thead><tr><th>Time</th><th>Phase</th><th>Source</th></tr></thead><tbody>${phaseRows}</tbody></table>`
 		: "";
 
 	const logRows = model.logs

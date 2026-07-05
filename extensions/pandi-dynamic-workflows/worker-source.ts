@@ -287,7 +287,7 @@ async function race(thunks, options) {
   let currentPhaseLabel = null;
   const phase = (label) => {
     currentPhaseLabel = label == null ? null : String(label);
-    if (currentPhaseLabel) void hostCall("log", ["phase: " + currentPhaseLabel]);
+    if (currentPhaseLabel) void hostCall("phase", [currentPhaseLabel]);
   };
 
   try {
