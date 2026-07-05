@@ -110,9 +110,22 @@ async function main() {
 			promptCopy,
 			promptTruncated: false,
 		});
-		check("prompt tab includes the source heading", withCopy.prompt.includes("# Task"), withCopy.prompt);
+		check("prompt tab renders a card title", withCopy.prompt.includes("# Prompt: Agent #1: alpha"), withCopy.prompt);
+		check("prompt tab renders summary metadata", withCopy.prompt.includes("## Summary"), withCopy.prompt);
 		check(
-			"prompt tab includes source list items",
+			"prompt tab records event promptCopy as the source",
+			/\| Source \| event promptCopy \|/.test(withCopy.prompt),
+			withCopy.prompt,
+		);
+		check(
+			"prompt tab separates metadata from the prompt body",
+			withCopy.prompt.includes("## Prompt body") &&
+				withCopy.prompt.indexOf("## Prompt body") < withCopy.prompt.indexOf("# Task"),
+			withCopy.prompt,
+		);
+		check("prompt body includes the source heading", withCopy.prompt.includes("# Task"), withCopy.prompt);
+		check(
+			"prompt body includes source list items",
 			withCopy.prompt.includes("- keep this list item"),
 			withCopy.prompt,
 		);
@@ -167,6 +180,11 @@ async function main() {
 			artifactPath: "agents/0001-alpha.md",
 			promptAvailable: true,
 		});
+		check(
+			"artifact fallback records the artifact Prompt section as source",
+			/\| Source \| artifact Prompt section \|/.test(fallback.prompt),
+			fallback.prompt,
+		);
 		check("artifact fallback keeps prompt Markdown", fallback.prompt.includes("# Fallback Prompt"), fallback.prompt);
 		check(
 			"artifact fallback is not globally fenced",

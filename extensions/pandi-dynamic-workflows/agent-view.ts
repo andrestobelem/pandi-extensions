@@ -220,11 +220,39 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 			? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")]
 			: []),
 	];
+	const promptSourceLabel = promptFromEvent
+		? "event promptCopy"
+		: prompt
+			? "artifact Prompt section"
+			: agent.promptAvailable
+				? "artifact missing/unparsed"
+				: "unavailable";
+	const promptWasTruncated =
+		!!promptSource && (promptSource.length > MAX_TOOL_TEXT || !!(promptFromEvent && agent.promptTruncated));
+	const promptRows: [string, string][] = [
+		["Agent", `#${agent.id}${phase ? ` ${phase}` : ""} ${agent.name}`],
+		["State", `${stateIcon} ${agent.state}`],
+		["Source", promptSourceLabel],
+		["Characters", promptSource ? `${promptSource.length} source` : "n/a"],
+		["Truncated", promptWasTruncated ? "yes" : "no"],
+		["Artifact", artifactPath ?? "unavailable"],
+	];
+	const promptTable = [
+		"| Setting | Value |",
+		"| --- | --- |",
+		...promptRows.map(([key, value]) => `| ${escapeCell(key)} | ${escapeCell(value)} |`),
+	].join("\n");
 	const promptLines = [
-		"## Prompt sent to this agent",
+		`# Prompt: Agent #${agent.id}${phase ? ` ${phase}` : ""}: ${agent.name}`,
+		"",
+		"## Summary",
+		"",
+		promptTable,
+		"",
+		"## Prompt body",
 		"",
 		promptText,
-		...(access ? ["", "## Runtime access (recorded in artifact)", "", truncate(access, 6000)] : []),
+		...(access ? ["", "## Runtime access", "", truncate(access, 6000)] : []),
 	];
 	// `full` preserves the legacy single-document section order exactly: card, answer,
 	// structured output, prompt, access, diagnostics.
