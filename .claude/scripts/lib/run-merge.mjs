@@ -36,17 +36,28 @@ export function readRunData(runDir) {
     byId.set(e.id, { ...(byId.get(e.id) || {}), ...e }); // los eventos posteriores (completed) pisan a running
   }
   const byRole = new Map();
-  let ok = 0, fail = 0, running = 0;
+  const phaseTotals = new Map();
+  let ok = 0, fail = 0, running = 0, unknown = 0, standalonePlanned = 0;
+  const failedAgent = (a) => a.ok === false || ["failed", "interrupted", "cancelled", "error", "timeout", "killed"].includes(String(a.state || ""));
+  const successfulAgent = (a) => (a.state === "completed" || a.state === "cached") && a.ok !== false;
+  const phaseKey = (a) => a.phaseId !== undefined && a.phaseId !== null ? `phase:${a.phaseId}` : `role:${norm(a.name)}`;
   for (const a of byId.values()) {
     const role = norm(a.name);
     let g = byRole.get(role);
-    if (!g) { g = { role, count: 0, ok: 0, fail: 0, running: 0, output: null, artifact: null, prompt: null }; byRole.set(role, g); }
+    if (!g) { g = { role, count: 0, planned: 0, ok: 0, fail: 0, running: 0, unknown: 0, output: null, artifact: null, prompt: null }; byRole.set(role, g); }
     g.count++;
-    // completed → ok/fail según a.ok; still-running → running; cualquier otro estado terminal
-    // (error/timeout/killed/cancelled) es una FAILURE, no "running".
-    if (a.state === "completed") { if (a.ok) { g.ok++; ok++; } else { g.fail++; fail++; } }
-    else if (a.state === "running") { g.running++; running++; }
-    else { g.fail++; fail++; }
+    if (typeof a.phaseTotal === "number" && a.phaseTotal > 0) {
+      const key = phaseKey(a);
+      phaseTotals.set(key, Math.max(phaseTotals.get(key) || 0, a.phaseTotal));
+      g.planned = Math.max(g.planned || 0, a.phaseTotal);
+    } else {
+      standalonePlanned++;
+      g.planned = Math.max(g.planned || 0, g.count);
+    }
+    if (a.state === "running") { g.running++; running++; }
+    else if (failedAgent(a)) { g.fail++; fail++; }
+    else if (successfulAgent(a)) { g.ok++; ok++; }
+    else { g.unknown++; unknown++; }
     if (!g.output && a.output) g.output = String(a.output).slice(0, 700);
     if (!g.artifact && a.artifactPath) g.artifact = a.artifactPath;
   }
@@ -75,12 +86,24 @@ export function readRunData(runDir) {
   artifacts.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
   const results = returnValue != null || artifacts.length ? { returnValue, artifacts } : null;
 
-  return { runDir, runId: status.runId || basename(runDir), state: status.state || "unknown", active: !!status.active, agentCount: status.agentCount ?? byId.size, elapsedMs: status.elapsedMs || 0, ok, fail, running, bashDone, logs, byRole, results };
+  let planned = standalonePlanned;
+  for (const total of phaseTotals.values()) planned += total;
+  planned = Math.max(status.agentCount ?? 0, byId.size, planned);
+  const state = status.state || "unknown";
+  const active = !!status.active || state === "running";
+  const done = ok + fail + unknown;
+  const openEnded = active && running === 0 && done >= planned && planned > 0;
+  const fraction = planned > 0 ? (openEnded ? Math.min(done / planned, 0.95) : done / planned) : 0;
+  const runKind = state === "failed" ? "fail" : active ? "run" : state === "completed" ? "ok" : "warn";
+  const progressKind = fail || state === "failed" ? "fail" : active || running ? "run" : unknown ? "warn" : runKind;
+  const progress = { done, total: planned, running, failed: fail, unknown, openEnded, fraction, kind: progressKind, value: `${done}/${planned}${openEnded ? "+" : ""}` };
+
+  return { runDir, runId: status.runId || basename(runDir), state, active, agentCount: status.agentCount ?? byId.size, elapsedMs: status.elapsedMs || 0, ok, fail, unknown, running, bashDone, logs, byRole, results, runKind, progress };
 }
 
 export function mergeNodes(runData, baseNodes, declared) {
   if (!runData) return { nodes: baseNodes, extraPhases: [] };
-  const rg = (g) => ({ count: g.count, ok: g.ok, fail: g.fail, running: g.running, output: g.output, artifact: g.artifact });
+  const rg = (g) => ({ count: g.count, planned: Math.max(g.planned || 0, g.count), ok: g.ok, fail: g.fail, unknown: g.unknown || 0, running: g.running, output: g.output, artifact: g.artifact });
   const used = new Set();
   const nodes = baseNodes.map((n) => { const g = runData.byRole.get(n.role); if (!g) return n; used.add(n.role); return { ...n, run: rg(g) }; });
   const extraPhases = [];
