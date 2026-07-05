@@ -134,7 +134,7 @@ async function loopAutopilotGate(loopUrl) {
 	check("loop: rm -rf ALLOWED before any loop (no autopilot)", preRm === undefined);
 
 	// Start a loop. fireWake() runs synchronously and sets autopilot=true on this loop.
-	commands.get("loop").handler("keep the build green", ctx);
+	await commands.get("loop").handler("keep the build green", ctx);
 
 	// While autopilot is active (confirmResult=false => deny), destructive bash is BLOCKED.
 	for (const cmd of [
@@ -288,7 +288,7 @@ async function loopScheduleClamp(loopUrl) {
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
 
 	// Need a running DYNAMIC loop for loop_schedule to act on.
-	commands.get("loop").handler("a dynamic task", ctx);
+	await commands.get("loop").handler("a dynamic task", ctx);
 	const sched = tools.get("loop_schedule");
 	check("loop_schedule tool registered", !!sched);
 
