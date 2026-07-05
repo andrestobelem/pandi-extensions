@@ -1,15 +1,16 @@
 /**
- * pandi-loop iteration-prompt builder (pure). The stable molde re-injected each
- * iteration (autonomous objective vs verbatim task; fixed vs dynamic cadence
- * guidance). Extracted from index.ts with the body verbatim; the only change is
- * the parameter type, decoupled from LoopState into a structural input so this
- * leaf has no cycle back to index.ts. Depth-one sibling imported via "./prompt.js".
+ * Constructor del prompt de iteración de pandi-loop (puro). El molde estable que se
+ * reinyecta en cada iteración (objetivo autónomo vs tarea verbatim; guía de cadencia
+ * fija vs dinámica). Extraído de index.ts con el cuerpo verbatim; el único cambio es
+ * el tipo del parámetro, desacoplado de LoopState a un input estructural para que esta
+ * hoja no tenga ciclo de vuelta hacia index.ts. Hermano de profundidad uno importado vía
+ * "./prompt.js".
  */
 
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { formatInterval } from "./interval.js";
 
-/** Structural subset of LoopState that makeLoopIterationPrompt reads. A full LoopState satisfies it. */
+/** Subconjunto estructural de LoopState que makeLoopIterationPrompt lee. Un LoopState completo lo satisface. */
 export interface LoopIterationPromptInput {
 	loopId: string;
 	task: string;
@@ -28,8 +29,8 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 	lines.push(`Estás corriendo una iteración de /loop (loop ${loop.loopId}).`);
 	lines.push("");
 	if (loop.autonomous) {
-		// Autonomous mode (P2): no conventional user task. The "task" field holds the
-		// recurring OBJECTIVE; the re-injected text is this sentinel, not a user message.
+		// Modo autónomo (P2): sin tarea de usuario convencional. El campo "task" contiene el
+		// objetivo recurrente; el texto reinyectado es esta sentinela, no un mensaje de usuario.
 		lines.push("LOOP AUTÓNOMO (sin usuario interactivo este turno).");
 		lines.push("Esta iteración fue generada por la extensión /loop para perseguir un objetivo recurrente:");
 		lines.push("");
@@ -57,8 +58,8 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 	lines.push("");
 	lines.push("Hacé EXACTAMENTE UNA iteración de la tarea ahora, y después decidí si continuar:");
 	if (loop.mode === "fixed") {
-		// Fixed mode: the period is owned by the extension; the model only decides
-		// continue vs stop. loop_schedule is a no-op here (it cannot change cadence).
+		// Modo fijo: el período pertenece a la extensión; el modelo solo decide continuar vs
+		// detenerse. loop_schedule es un no-op acá (no puede cambiar la cadencia).
 		const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
 		lines.push(
 			`- Este loop corre en un intervalo FIJO (cada ${formatInterval(periodSec)}). NO controlás la cadencia; no intentes cambiarla.`,

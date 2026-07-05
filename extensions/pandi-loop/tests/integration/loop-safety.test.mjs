@@ -1,12 +1,12 @@
 /**
- * Integration tests for the autopilot safety gate and loop_schedule clamp in
+ * Tests de integracion para la compuerta de seguridad de autopilot y el clamp de loop_schedule en
  * extensions/pandi-loop/index.ts.
  *
- * These are not full Pi process integration test tests: they bundle the current extension into
- * a temp dir, load it with a mocked ExtensionAPI/ctx, and assert observable gate
- * behavior.
+ * Estos no son tests completos de integracion del proceso Pi: empaquetan la extension actual en
+ * un directorio temp, la cargan con ExtensionAPI/ctx mockeados y verifican el comportamiento
+ * observable de la compuerta.
  *
- * Run it:
+ * Ejecutarlo:
  *   node extensions/pandi-loop/tests/integration/loop-safety.test.mjs
  */
 
@@ -16,10 +16,10 @@ import { fileURLToPath } from "node:url";
 import { bundle, createChecker, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// extensions/<extension>/tests/integration/ -> repo root is four levels up.
+// extensions/<extension>/tests/integration/ -> el repo root está cuatro niveles arriba.
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-// Default mocked project cwd. main() points this at the temp build dir so loop
-// sidecar writes never pollute the real repo's .pi/loops during tests.
+// cwd de proyecto mockeado por default. main() apunta esto al dir temp de build para que las
+// escrituras sidecar del loop nunca ensucien el .pi/loops del repo real durante los tests.
 let TEST_PROJECT_ROOT = REPO_ROOT;
 
 // ---------------------------------------------------------------------------
@@ -28,12 +28,12 @@ let TEST_PROJECT_ROOT = REPO_ROOT;
 const { check, counts } = createChecker();
 
 // ---------------------------------------------------------------------------
-// Build the current extensions to ESM in a temp dir, return import URLs.
+// Construye las extensiones actuales a ESM en un dir temp y devuelve las import URLs.
 // ---------------------------------------------------------------------------
 async function buildExtensions(names) {
-	// The exercised gate paths only need typebox for tool-schema declaration and the SDK
-	// symbols for state-dir resolution — never validation. One shared outDir/stubs keeps
-	// getAgentDir consistent across the bundled extensions.
+	// Las rutas de gate ejercitadas solo necesitan typebox para la declaración del tool-schema y los
+	// símbolos del SDK para resolver el state-dir — nunca validación. Un outDir/stubs compartido mantiene
+	// getAgentDir consistente entre las extensiones bundleadas.
 	const { outDir, aliases } = await makeBuildDir("pi-safety-integration", {
 		typebox: true,
 		sdk: (dir) => sdkStub(dir),
@@ -51,12 +51,12 @@ async function buildExtensions(names) {
 	return { outDir, urls };
 }
 
-// A module keeps a singleton (activeLoops / activePlans). Load a FRESH instance per
-// scenario via a cache-busting query so scenarios never leak state into each other.
+// Un módulo mantiene un singleton (activeLoops / activePlans). Cargá una instancia FRESCA por
+// escenario vía una query cache-busting para que los escenarios nunca filtren estado entre sí.
 
 // ---------------------------------------------------------------------------
-// Mock pi + ctx (shape mirrors the ExtensionAPI / ExtensionContext surface the
-// extensions actually use, learned from the real handlers).
+// Mock de pi + ctx (la forma espeja la superficie de ExtensionAPI / ExtensionContext que
+// las extensiones usan realmente, aprendida de los handlers reales).
 // ---------------------------------------------------------------------------
 function makePi() {
 	const tools = new Map();
@@ -108,7 +108,7 @@ function toolCallEvent(toolName, input = {}) {
 	};
 }
 
-// Run every registered tool_call handler; first blocker wins (mirrors the engine).
+// Corre cada handler registrado de tool_call; gana el primer bloqueo (refleja el engine).
 async function runGate(handlers, ctx, event) {
 	for (const h of handlers.get("tool_call") || []) {
 		const res = await h(event, ctx);
@@ -118,9 +118,9 @@ async function runGate(handlers, ctx, event) {
 }
 
 // ===========================================================================
-// SCENARIO 3: loop.ts autopilot destructive gate. Only armed while a loop is in
-// autopilot (i.e. the turn was triggered by a wake, not a human). Starting a loop
-// in tui mode fires the first wake synchronously, setting autopilot=true.
+// ESCENARIO 3: compuerta destructiva de autopilot de loop.ts. Solo está armada mientras un loop está en
+// autopilot (es decir, el turno fue disparado por un wake, no por un humano). Iniciar un loop
+// en modo tui dispara el primer wake sincrónicamente, seteando autopilot=true.
 // ===========================================================================
 async function loopAutopilotGate(loopUrl) {
 	const loopExtension = await loadDefault(loopUrl);
@@ -129,14 +129,14 @@ async function loopAutopilotGate(loopUrl) {
 	const cwd = TEST_PROJECT_ROOT;
 	const ctx = makeCtx({ mode: "tui", hasUI: true, confirmResult: false, cwd });
 
-	// Before any loop: gate is inert (no autopilot active) -> destructive command allowed.
+	// Antes de cualquier loop: la compuerta está inerte (sin autopilot activo) -> comando destructivo permitido.
 	const preRm = await runGate(handlers, ctx, toolCallEvent("bash", { command: "rm -rf /tmp/x" }));
 	check("loop: rm -rf ALLOWED before any loop (no autopilot)", preRm === undefined);
 
-	// Start a loop. fireWake() runs synchronously and sets autopilot=true on this loop.
+	// Inicia un loop. fireWake() corre sincrónicamente y setea autopilot=true en este loop.
 	await commands.get("loop").handler("keep the build green", ctx);
 
-	// While autopilot is active (confirmResult=false => deny), destructive bash is BLOCKED.
+	// Mientras autopilot está activo (confirmResult=false => deny), bash destructivo queda BLOQUEADO.
 	for (const cmd of [
 		"rm -rf build",
 		"rm -fr build",
@@ -148,69 +148,69 @@ async function loopAutopilotGate(loopUrl) {
 		"mkfs.ext4 /dev/sdb",
 		"terraform apply -auto-approve",
 		"kubectl delete pod x",
-		// Recursive rm without -f, and find/truncate/shred deletions.
+		// rm recursivo sin -f, y eliminaciones con find/truncate/shred.
 		"rm -r build",
 		"find . -name '*.sqlite' -delete",
 		"find . -type f -exec rm {} +",
 		"truncate -s 0 important.db",
 		"shred -u secret.key",
-		// Shell redirections / tee writing OUTSIDE the project (parity with write/edit).
+		// Redirecciones de shell / tee que escriben FUERA del proyecto (paridad con write/edit).
 		"echo x > /etc/cron.d/pwn",
 		"echo x | tee /etc/hosts",
-		// L1: tilde (~) and unexpanded shell vars ($HOME/${HOME}) resolve OUTSIDE the
-		// project at shell-expansion time; our path math never expands them, so they
-		// must be treated as out-of-project writes.
+		// L1: tilde (~) y vars de shell sin expandir ($HOME/${HOME}) resuelven FUERA del
+		// proyecto en tiempo de expansión de shell; nuestra matemática de paths nunca las expande,
+		// así que deben tratarse como escrituras fuera del proyecto.
 		"echo pwn >> ~/.bashrc",
 		"echo pwn > $HOME/.profile",
-		// Template literal + escaped `\${` keeps the literal ${HOME} text (same value)
-		// without tripping noTemplateCurlyInString on a regular string.
+		// Un template literal + `\${` escapado conserva el texto literal ${HOME} (mismo valor)
+		// sin disparar noTemplateCurlyInString en un string regular.
 		`echo pwn > \${HOME}/.evil`,
 		"echo pwn | tee ~/.ssh/authorized_keys",
-		// L2: a `cd`/`pushd` to a dir we cannot prove is in-project makes a RELATIVE
-		// redirect target unsafe (it no longer resolves under ctx.cwd).
+		// L2: un `cd`/`pushd` a un dir que no podemos probar dentro del proyecto vuelve inseguro un target
+		// de redirección RELATIVO (ya no resuelve debajo de ctx.cwd).
 		"cd /etc && echo x > hosts",
 		"cd /tmp && echo x | tee secret.key",
 		"cd ~ && echo x > .bashrc",
 		"cd && echo x > .bashrc",
 		"cd .. && echo x > escaped.txt",
-		// HARDENING: evasions of the gate's EXISTING intent that previously slipped through.
-		// git force-push via a `+` refspec (no --force/-f flag).
+		// HARDENING: evasiones de la intención EXISTING de la compuerta que antes se colaban.
+		// git force-push via un refspec `+` (sin flag --force/-f).
 		"git push origin +master",
 		"git push origin +refs/heads/main",
-		// `>|` clobber operator and `&>` combined redirect writing OUTSIDE the project.
+		// Operador clobber `>|` y redirección combinada `&>` escribiendo FUERA del proyecto.
 		"echo x >| /etc/cron.d/pwn",
 		"echo x &> /etc/hosts",
 		"echo x &>> /etc/hosts",
-		// Redirect target that is a command substitution: cannot be proven in-project, so
-		// it is treated as unsafe (consistent with the existing $VAR/${VAR} treatment).
+		// Target de redirección que es una sustitución de comando: no se puede probar dentro del proyecto, así que
+		// se trata como inseguro (consistente con el tratamiento existente de $VAR/${VAR}).
 		"echo x > $(getconf DARWIN_USER_DIR)/p",
-		// git history / stash destruction (irreversible) — same family as the existing git gates.
+		// Destrucción de history / stash de git (irreversible) - misma familia que las compuertas git existentes.
 		"git filter-branch --force --all",
 		"git stash clear",
 		"git stash drop",
-		// ROUND 2 (adversarial-workflow findings, each verified vs the real gate):
-		// `>&file` combined redirect (the `>`-first mirror of the already-gated `&>`).
+		// RONDA 2 (hallazgos de adversarial-workflow, cada uno verificado vs la compuerta real):
+		// Redirección combinada `>&file` (el espejo con `>` primero de `&>` ya cubierto por la compuerta).
 		"printf x >& ~/.ssh/authorized_keys",
-		// multi-target tee: every target is checked, not just the first.
+		// tee multi-target: se revisa cada target, no solo el primero.
 		"echo x | tee build/out.log /etc/cron.d/payload",
 		"echo x | tee -a logs/x /root/.bashrc",
-		// destructive remote pushes that carry NO force flag (delete / mirror / prune / :ref).
+		// pushes remotos destructivos que no llevan NINGÚN flag force (delete / mirror / prune / :ref).
 		"git push origin --delete production",
 		"git push origin :production",
 		"git push --mirror origin",
-		// line-continuation splits a command across lines so [^\n]* patterns miss the flags.
+		// line-continuation parte un comando entre líneas, así los patrones [^\n]* no ven los flags.
 		"rm \\\n  -rf .git node_modules",
-		// SQL DROP variants beyond table/database/schema.
+		// Variantes SQL DROP mas alla de table/database/schema.
 		"psql -c 'DROP OWNED BY app CASCADE;'",
 		"psql -c 'DROP TABLESPACE fast;'",
-		// filesystem-format aliases of mkfs.
+		// Alias de formato de filesystem de mkfs.
 		"mke2fs -F -t ext4 /dev/sdb1",
 		"mkswap /dev/sdb2",
-		// find -exec with a path-qualified rm (/bin/rm) instead of bare rm.
+		// find -exec con un rm calificado por path (/bin/rm) en vez de rm desnudo.
 		"find . -type f -exec /bin/rm {} +",
-		// git checkout --force / -f discards uncommitted work like reset --hard.
+		// git checkout --force / -f descarta trabajo sin commit como reset --hard.
 		"git checkout -f origin/main",
-		// helm release destruction / rollback.
+		// Destruccion / rollback de release helm.
 		"helm delete prod-release --namespace prod",
 		"helm rollback prod 3",
 	]) {
@@ -218,8 +218,8 @@ async function loopAutopilotGate(loopUrl) {
 		check(`loop(autopilot): BLOCKS bash "${cmd}"`, !!r && r.block === true, r ? "" : "not blocked");
 	}
 
-	// Non-destructive bash is allowed even under autopilot. In-project redirects and
-	// fd-dups (2>&1) must NOT be mistaken for out-of-project writes.
+	// bash no destructivo se permite incluso bajo autopilot. Las redirecciones dentro del proyecto y
+	// fd-dups (2>&1) NO deben confundirse con escrituras fuera del proyecto.
 	for (const cmd of [
 		"npm test",
 		"git status",
@@ -230,20 +230,20 @@ async function loopAutopilotGate(loopUrl) {
 		"node build.js > out.log 2>&1",
 		"cmd 2>&1",
 		"echo ok > /dev/null",
-		// L2 false-positive guards: an IN-PROJECT cd, a substring "cd" inside a path,
-		// and /dev/null after an out-of-project cd must all stay ALLOWED.
+		// Guardas de falsos positivos L2: un cd dentro del proyecto, un substring "cd" dentro de un path,
+		// y /dev/null después de un cd fuera del proyecto deben seguir PERMITIDOS.
 		"cd build && echo x > out.log",
 		"cat src/cd/file > out.txt",
 		"cd /etc && echo ok > /dev/null",
-		// HARDENING false-positive guards: an ordinary (non-force) push, an IN-PROJECT `&>`
-		// and `>|` clobber, and a `git stash` (no clear/drop) must all stay ALLOWED.
+		// Guardas de falsos positivos HARDENING: un push ordinario (non-force), un `&>` dentro del proyecto
+		// y clobber `>|`, y un `git stash` (sin clear/drop) deben seguir PERMITIDOS.
 		"git push origin main",
 		"node build.js &> out.log",
 		"echo x >| local.txt",
 		"git stash",
 		"git stash pop",
-		// ROUND 2 false-positive guards: fd-dups and combined-redirects/tee that stay IN-PROJECT,
-		// plus an ordinary (non-force) checkout and restore, must all remain ALLOWED.
+		// Guardas de falsos positivos RONDA 2: fd-dups y combined-redirects/tee que siguen dentro del proyecto,
+		// más un checkout y restore ordinarios (non-force), deben permanecer PERMITIDOS.
 		"echo err >&2",
 		"node build.js > out.log 2>&1",
 		"echo x | tee build/a.log build/b.log",
@@ -254,7 +254,7 @@ async function loopAutopilotGate(loopUrl) {
 		check(`loop(autopilot): ALLOWS bash "${cmd}"`, r === undefined, r ? r.reason : "");
 	}
 
-	// write/edit: blocked only when the path escapes the project root.
+	// write/edit: bloqueado solo cuando el path escapa de la raiz del proyecto.
 	const outside = await runGate(handlers, ctx, toolCallEvent("write", { file_path: "/etc/passwd", content: "x" }));
 	check("loop(autopilot): BLOCKS write to /etc/passwd (outside project)", !!outside && outside.block === true);
 	const traversal = await runGate(handlers, ctx, toolCallEvent("edit", { file_path: "../../secret" }));
@@ -278,8 +278,8 @@ async function loopAutopilotGate(loopUrl) {
 }
 
 // ===========================================================================
-// SCENARIO 4: loop_schedule delay CLAMP to [60, 3600] (the single defense — the
-// model is never trusted). Drive the registered tool's execute() directly.
+// ESCENARIO 4: CLAMP del delay de loop_schedule a [60, 3600] (la única defensa -
+// nunca se confía en el modelo). Ejecuta directamente el execute() del tool registrado.
 // ===========================================================================
 async function loopScheduleClamp(loopUrl) {
 	const loopExtension = await loadDefault(loopUrl);
@@ -287,7 +287,7 @@ async function loopScheduleClamp(loopUrl) {
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
 
-	// Need a running DYNAMIC loop for loop_schedule to act on.
+	// Necesita un loop DYNAMIC en ejecución para que loop_schedule actúe.
 	await commands.get("loop").handler("a dynamic task", ctx);
 	const sched = tools.get("loop_schedule");
 	check("loop_schedule tool registered", !!sched);
@@ -325,8 +325,8 @@ async function main() {
 		for (const f of counts.failures) console.log(`  - ${f}`);
 		process.exit(1);
 	}
-	// Started loops leave live setTimeout timers in loop tests; exit explicitly so
-	// the behavior runner never hangs after a green run.
+	// Los loops iniciados dejan timers setTimeout vivos en los tests de loop; salir explícitamente para que
+	// el runner de comportamiento nunca quede colgado tras una corrida en verde.
 	process.exit(0);
 }
 

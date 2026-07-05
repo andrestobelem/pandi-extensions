@@ -1,76 +1,79 @@
 /**
- * Claude-style `/loop` for Pi (P0 dynamic + P1).
+ * `/loop` estilo Claude para Pi (P0 dynamic + P1).
  *
- * Runs a task iteratively. Pi has no native ScheduleWakeup/cron, so the
- * primitive is inverted: the model decides the next cadence by calling the
- * `loop_schedule` tool we register, and THIS extension materializes the wake
- * with setTimeout, re-injecting the iteration prompt via pi.sendUserMessage.
- * The loop lives in the extension's Node process.
+ * Ejecuta una tarea iterativamente. Pi no tiene ScheduleWakeup/cron nativo,
+ * así que la primitiva se invierte: el modelo decide la próxima cadencia
+ * llamando a la tool `loop_schedule`, y esta extensión materializa el wake
+ * con setTimeout, reinyectando el prompt de iteración vía pi.sendUserMessage.
+ * El loop vive en el proceso Node de la extensión.
  *
- * P0 scope:
- * - commands: /loop <task>, /loop stop [id], /loop status [id]
+ * Alcance P0:
+ * - comandos: /loop <task>, /loop stop [id], /loop status [id]
  * - tools: loop_schedule(delaySeconds, reason), loop_stop(reason)
  * - engine: fireWake / scheduleWake / startLoop / stopLoop
- * - state: activeLoops Map + persistence via pi.appendEntry("loop-state", ...)
- * - rehydrate on session_start (no double-fire; single catch-up tick)
- * - cleanup on session_shutdown (clearTimeout + abort + persist "stale")
- * - safety net on agent_end
- * - status line
+ * - estado: activeLoops Map + persistencia vía pi.appendEntry("loop-state", ...)
+ * - rehydrate en session_start (sin double-fire; tick único de recuperación)
+ * - limpieza en session_shutdown (clearTimeout + abort + persistir "stale")
+ * - red de seguridad en agent_end
+ * - línea de estado
  *
- * P1 scope (all additive over P0; P0 behavior unchanged):
- * - fixed-interval mode: `/loop <task> <interval>` where interval matches
- *   ^\d+(s|m|h)$ (the LAST token). No interval = dynamic (P0). In fixed mode the
- *   extension owns the period: re-arm after each iteration with an ABSOLUTE
- *   timestamp (nextFireAt += periodMs) via a re-armed setTimeout (never setInterval,
- *   so iterations never overlap). loop_schedule is an informative NO-OP in fixed
- *   mode (the model only decides continue/stop; the period is fixed).
- * - full state machine: running|paused|stopped|done|failed|stale, with
- *   `/loop pause [id]` and `/loop resume [id]`.
- * - irreversible-action gate via pi.on("tool_call"): a per-loop `autopilot` flag
- *   is set when fireWake injects (the turn was triggered by a wake, not the user)
- *   and cleared on agent_end. While autopilot is active, destructive tools matching
- *   a conservative allowlist are confirmed (if UI) or blocked (if no UI).
- * - time/budget caps: maxWallClockMs (absolute deadline) in addition to
- *   maxIterations, plus a best-effort ctx.getContextUsage() percent threshold.
- *   Checked BEFORE re-arming (in fireWake and agent_end). Hitting a cap -> stop
- *   with status "done" + notify.
- * - robust persistence: an ATOMIC sidecar JSON (temp+rename) with `updatedAt` in
- *   addition to appendEntry; on rehydrate the newer of {last JSONL entry, sidecar}
- *   wins by updatedAt. Dual-root: .pi/loops/<id>/state.json if trusted, else
- *   getAgentDir()/loops/<projectHash>/<id>/state.json. Single catch-up tick kept.
- * - safety net on agent_end also covers fixed mode (period re-arm) and the caps.
+ * Alcance P1 (todo aditivo sobre P0; comportamiento P0 sin cambios):
+ * - modo fixed-interval: `/loop <task> <interval>` donde interval matchea
+ *   ^\d+(s|m|h)$ (el último token). Sin interval = dynamic (P0). En fixed mode la
+ *   extensión posee el período: rearma después de cada iteración con un timestamp
+ *   ABSOLUTO (nextFireAt += periodMs) vía setTimeout rearmado (nunca setInterval,
+ *   para que las iteraciones no se solapen). loop_schedule es un NO-OP informativo
+ *   en fixed mode (el modelo solo decide continue/stop; el período es fijo).
+ * - máquina de estados completa: running|paused|stopped|done|failed|stale, con
+ *   `/loop pause [id]` y `/loop resume [id]`.
+ * - gate de acciones irreversibles vía pi.on("tool_call"): un flag `autopilot`
+ *   por loop se activa cuando fireWake inyecta (el turno fue disparado por un wake,
+ *   no por el usuario) y se limpia en agent_end. Mientras autopilot está activo,
+ *   las tools destructivas que matchean una allowlist conservadora se confirman
+ *   (si hay UI) o se bloquean (si no hay UI).
+ * - topes de tiempo/budget: maxWallClockMs (deadline absoluto) además de
+ *   maxIterations, más un umbral porcentual best-effort de ctx.getContextUsage().
+ *   Se chequean ANTES de rearmar (en fireWake y agent_end). Al tocar un tope -> stop
+ *   con status "done" + notify.
+ * - persistencia robusta: sidecar JSON ATOMIC (temp+rename) con `updatedAt` además
+ *   de appendEntry; en rehydrate gana por updatedAt el más nuevo de {last JSONL entry,
+ *   sidecar}. Dual-root: .pi/loops/<id>/state.json si es trusted, o
+ *   getAgentDir()/loops/<projectHash>/<id>/state.json. Mantiene un solo catch-up tick.
+ * - la red de seguridad en agent_end también cubre fixed mode (rearmado del período) y topes.
  *
- * P2 scope (all additive over P0/P1; P0/P1 behavior unchanged):
- * - multi-loop FIFO wake queue: with N live loops their setTimeout callbacks could
- *   fire (near-)simultaneously and each call sendUserMessage, racing for the turn. A
- *   module-level FIFO of pending wakes serializes them: a wake is DELIVERED only when
- *   ctx.isIdle() AND no autopilot wake is already in flight this turn; otherwise it is
- *   enqueued and drained on the next agent_end. Guarantees exactly ONE autopilot turn
- *   at a time. loop_schedule/loop_stop resolve the loop that OWNS the current turn (the
- *   one whose autopilot flag is set), robustened for N coexisting loops.
- * - autonomous mode: `/loop auto <task> [interval]` — a loop with NO user task in the
- *   conventional sense; the re-injected text is a sentinel generated by the extension
- *   (a recurring objective). Start REQUIRES ctx.isProjectTrusted() AND an explicit
- *   ctx.ui.confirm; missing either → reject. (Documented at handleAutoStart.) The trust
- *   gate also holds on RE-ENTRY: rehydrate retires an autonomous loop (terminal "stopped")
- *   if the project is no longer trusted, so a once-confirmed autonomous loop can never keep
- *   firing unattended across reloads in a project that has since lost trust.
- * - GC of old terminal state: sweep sidecar state.json dirs for loops in a TERMINAL
- *   status (done/stopped/failed) whose updatedAt is older than GC_MAX_AGE_MS, mirroring
- *   dynamic-workflows getRunDirs. Runs on session_start (and an explicit sweep). NEVER
- *   touches live loops (running/paused/stale).
- * - anti-zombie watchdog: a backstop ABOVE maxWallClockMs. A periodic module-level
- *   sweep force-stops (done + cleanup) any loop that blew past a HARD deadline
- *   (startedAt + WATCHDOG_HARD_DEADLINE_MS) — catching loops that hung without the
- *   normal caps/agent_end firing. Healthy loops are never killed.
+ * Alcance P2 (todo aditivo sobre P0/P1; comportamiento P0/P1 sin cambios):
+ * - cola FIFO multi-loop de wakes: con N loops vivos, sus callbacks de setTimeout
+ *   podrían dispararse casi simultáneamente y llamar cada uno a sendUserMessage,
+ *   compitiendo por el turno. Una FIFO a nivel módulo de wakes pendientes los serializa:
+ *   un wake se ENTREGA solo cuando ctx.isIdle() Y no hay otro wake autopilot en vuelo
+ *   en este turno; si no, se encola y se drena en el siguiente agent_end. Garantiza
+ *   exactamente UN turno autopilot a la vez. loop_schedule/loop_stop resuelven el loop
+ *   que posee el turno actual (el que tiene el flag autopilot activo), robustecido para
+ *   N loops coexistentes.
+ * - modo autónomo: `/loop auto <task> [interval]` — un loop SIN tarea de usuario en el
+ *   sentido convencional; el texto reinyectado es una sentinela generada por la extensión
+ *   (un objetivo recurrente). Iniciar REQUIERE ctx.isProjectTrusted() Y un
+ *   ctx.ui.confirm explícito; si falta cualquiera → reject. (Documentado en
+ *   handleAutoStart.) El gate de trust también aplica en RE-ENTRY: rehydrate retira
+ *   un loop autónomo (terminal "stopped") si el proyecto ya no es trusted, para que un
+ *   loop autónomo confirmado una vez no siga disparando sin supervisión tras reloads en
+ *   un proyecto que perdió trust.
+ * - GC de estado terminal viejo: barre dirs sidecar state.json de loops en status TERMINAL
+ *   (done/stopped/failed) cuyo updatedAt es más viejo que GC_MAX_AGE_MS, reflejando
+ *   dynamic-workflows getRunDirs. Corre en session_start (y con sweep explícito). NUNCA
+ *   toca loops vivos (running/paused/stale).
+ * - watchdog anti-zombie: respaldo POR ENCIMA de maxWallClockMs. Un sweep periódico a
+ *   nivel módulo force-stoppea (done + cleanup) cualquier loop que pasó un deadline DURO
+ *   (startedAt + WATCHDOG_HARD_DEADLINE_MS), capturando loops colgados sin que disparen
+ *   los caps normales/agent_end. Los loops sanos nunca se matan.
  *
- * Hard rules:
- * - print gate: ctx.mode === "print" → notify + reject.
- * - clamp delaySeconds to [60, 3600] INSIDE execute() (do not trust the model).
- * - the cadence heuristic lives in loop_schedule promptGuidelines, not in code.
- * - no new deps (typebox is already present).
- * - defaults: maxIterations = 25; on "fork" do NOT migrate the loop.
- * - never re-inject outside tui/rpc.
+ * Reglas duras:
+ * - gate de print: ctx.mode === "print" → notify + reject.
+ * - clampear delaySeconds a [60, 3600] DENTRO de execute() (no confiar en el modelo).
+ * - la heurística de cadencia vive en promptGuidelines de loop_schedule, no en código.
+ * - sin deps nuevas (typebox ya está presente).
+ * - defaults: maxIterations = 25; en "fork" NO migrar el loop.
+ * - nunca reinyectar fuera de tui/rpc.
  */
 
 import * as crypto from "node:crypto";
@@ -99,33 +102,33 @@ const LOOP_STATUS_KEY = "loop";
 const LOOP_DIR = "loops";
 const STATE_FILE = "state.json";
 const DEFAULT_MAX_ITERATIONS = 25;
-// Hard ceiling on simultaneously-active loops (running/paused). Bounds unbounded timer/
-// state accumulation from repeated /loop starts — each loop owns a setTimeout, so without
-// this a user could grow activeLoops without limit. New starts past the cap are refused;
-// rehydrate of already-created loops is deliberately exempt (it recovers existing state).
+// Tope duro de loops simultáneamente activos (running/paused). Acota la acumulación
+// ilimitada de timers/estado por starts repetidos de /loop: cada loop posee un setTimeout,
+// y sin esto un usuario podría hacer crecer activeLoops sin límite. Los starts nuevos
+// sobre el tope se rechazan; rehydrate de loops ya creados queda exento.
 const MAX_CONCURRENT_LOOPS = 20;
-// Treat a persisted cap as valid only if it is a finite number > 0; otherwise fall back to
-// the default. Defends rehydrate against a corrupt/tampered sidecar where `0`/NaN/undefined
-// would slip past `??` (which only replaces null/undefined) and silently disable a cap
-// (maxWallClockMs<=0 voids the deadline; a missing maxIterations makes `iter >= undefined`
-// always-false, voiding the iteration gate). Call sites add per-cap shaping: Math.trunc for
-// the integer iteration count, and a Math.min(.,100) clamp for the percentage cap.
+// Trata un tope persistido como válido solo si es un número finito > 0; si no, usa el
+// valor por default. Defiende rehydrate de un sidecar corrupto/manipulado donde `0`/NaN/undefined
+// pasarían por `??` (que solo reemplaza null/undefined) y desactivarían un tope en silencio
+// (maxWallClockMs<=0 anula el deadline; maxIterations ausente hace que `iter >= undefined`
+// sea siempre false y anule el gate de iteraciones). Los call sites ajustan por tope:
+// Math.trunc para el conteo entero y clamp Math.min(.,100) para el tope porcentual.
 const positiveOr = (value: unknown, dflt: number): number =>
 	typeof value === "number" && Number.isFinite(value) && value > 0 ? value : dflt;
 const MIN_DELAY_SECONDS = 60;
 const MAX_DELAY_SECONDS = 3600;
-// Safety-net cadence when a turn closed without the model calling loop_schedule.
+// Cadencia de seguridad cuando un turno cerró sin que el modelo llame loop_schedule.
 const SAFETY_NET_DELAY_SECONDS = 1500;
-// P1 caps. maxWallClockMs is an absolute deadline measured from startedAt; the
-// budget threshold is a best-effort fraction of the context window (getContextUsage).
-const DEFAULT_MAX_WALL_CLOCK_MS = 6 * 60 * 60 * 1000; // 6h absolute deadline by default.
-const DEFAULT_CONTEXT_PERCENT_CAP = 90; // stop if getContextUsage().percent exceeds this.
-// P2 GC: terminal (done/stopped/failed) sidecar state dirs older than this are swept.
-// Live states (running/paused/stale) are NEVER swept regardless of age.
-const GC_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days.
-// P2 watchdog: an ABSOLUTE backstop above maxWallClockMs. A loop that somehow blew past
-// startedAt + this (e.g. hung, caps never fired) is force-stopped (done + cleanup). It is
-// deliberately generous (well beyond the 6h default deadline) so it only catches zombies.
+// Topes P1. maxWallClockMs es un deadline absoluto medido desde startedAt; el umbral
+// de budget es una fracción best-effort de la ventana de contexto (getContextUsage).
+const DEFAULT_MAX_WALL_CLOCK_MS = 6 * 60 * 60 * 1000; // Deadline absoluto por default de 6h.
+const DEFAULT_CONTEXT_PERCENT_CAP = 90; // Detiene si getContextUsage().percent supera esto.
+// GC P2: barre dirs sidecar terminales (done/stopped/failed) más viejos que esto.
+// Los estados vivos (running/paused/stale) NUNCA se barren sin importar su edad.
+const GC_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días.
+// Watchdog P2: respaldo ABSOLUTO por encima de maxWallClockMs. Un loop que supere
+// startedAt + esto (p. ej. colgado, caps sin disparar) se force-stoppea (done + cleanup).
+// Es deliberadamente amplio (por encima del deadline por default de 6h) para captar solo zombies.
 const WATCHDOG_HARD_DEADLINE_MS = 25 * 60 * 60 * 1000; // 25h.
 
 type LoopMode = "dynamic" | "fixed";
@@ -135,46 +138,46 @@ interface LoopState {
 	loopId: string;
 	task: string;
 	mode: LoopMode;
-	/** Fixed-mode period in ms (0/undefined for dynamic). The extension owns this. */
+	/** Período de fixed-mode en ms (0/undefined para dynamic). La extensión lo posee. */
 	intervalMs?: number;
 	iteration: number;
 	maxIterations: number;
-	/** Absolute wall-clock deadline (epoch ms): stop once Date.now() exceeds it. */
+	/** Deadline absoluto de wall-clock (epoch ms): detener cuando Date.now() lo supere. */
 	maxWallClockMs: number;
-	/** Best-effort context-usage percent cap (stop if getContextUsage().percent exceeds). */
+	/** Tope porcentual best-effort de uso de contexto (detener si getContextUsage().percent lo supera). */
 	contextPercentCap: number;
 	startedAt: number;
 	nextFireAt: number | null;
 	lastReason?: string;
 	status: LoopStatus;
 	/**
-	 * Autonomous mode (P2): true when this loop has no conventional user task; the
-	 * re-injected text is a sentinel generated by the extension (a recurring objective).
-	 * Start requires trust + an explicit confirm. Persisted so it survives a reload.
+	 * Modo autónomo (P2): true si este loop no tiene tarea de usuario convencional; el
+	 * texto reinyectado es una sentinela generada por la extensión (un objetivo recurrente).
+	 * El start requiere trust + confirm explícito. Persistido para sobrevivir reloads.
 	 */
 	autonomous?: boolean;
-	/** Ultracode posture: lean on dynamic workflows to drive the work (prompt-injection only). */
+	/** Postura Ultracode: apoya el trabajo en dynamic workflows (solo inyección de prompt). */
 	ultracode?: boolean;
-	/** ISO timestamp of the last write; used to resolve JSONL-vs-sidecar conflicts. */
+	/** Timestamp ISO de la última escritura; resuelve conflictos JSONL-vs-sidecar. */
 	updatedAt: string;
 }
 
 interface ActiveLoop extends LoopState {
 	timer: ReturnType<typeof setTimeout> | null;
 	controller: AbortController;
-	/** True once a wake was (re)armed in the current turn; reset on each fire. */
+	/** Verdadero cuando un wake fue (re)armado en el turno actual; se resetea en cada fire. */
 	rearmedThisTurn: boolean;
-	/** True while the CURRENT turn was triggered by a wake (fireWake), not the user. */
+	/** Verdadero mientras el turno ACTUAL fue disparado por un wake (fireWake), no por el usuario. */
 	autopilot: boolean;
 	/**
-	 * Transient: ms left on the dynamic timer when paused, so resume re-arms with the
-	 * remainder. null = "fire immediately" (was at iteration boundary). Not persisted.
+	 * Transitorio: ms restantes del timer dynamic al pausar, para que resume rearme
+	 * con el remanente. null = "fire immediately" (estaba en límite de iteración). No persistido.
 	 */
 	pausedRemainingMs?: number | null;
 	/**
-	 * Transient (fixed mode): absolute timestamp the in-flight iteration was scheduled
-	 * for. The next re-arm is fixedAnchor + period, so the cadence never drifts even if
-	 * an iteration runs long. Not persisted.
+	 * Transitorio (fixed mode): timestamp absoluto para el que se programó la iteración
+	 * en vuelo. El próximo rearmado es fixedAnchor + period, así la cadencia no deriva
+	 * aunque una iteración tarde. No persistido.
 	 */
 	fixedAnchor?: number;
 }
@@ -183,26 +186,26 @@ interface ActiveLoop extends LoopState {
 const activeLoops = new Map<string, ActiveLoop>();
 
 // ---------------------------------------------------------------------------
-// FIFO wake queue (P2): serialize autopilot turns across N loops
+// Cola FIFO de wakes (P2): serializa turnos autopilot entre N loops
 // ---------------------------------------------------------------------------
 
 /**
- * A pending autopilot wake. When several loops' timers fire at (about) the same time,
- * each would otherwise call sendUserMessage and race for the turn. We serialize them:
- * only ONE wake is delivered at a time, and only when the agent is idle and no autopilot
- * turn is already in flight. The rest queue here, FIFO, and drain on agent_end.
+ * Un wake autopilot pendiente. Cuando varios timers de loops disparan casi al mismo
+ * tiempo, cada uno llamaría sendUserMessage y competiría por el turno. Los serializamos:
+ * solo se entrega UN wake a la vez, y solo cuando el agente está idle y no hay otro turno
+ * autopilot en vuelo. El resto se encola acá, FIFO, y se drena en agent_end.
  */
 interface PendingWake {
 	loopId: string;
 }
 
-// Module-level FIFO of wakes waiting to be delivered. Order = arrival order.
+// FIFO a nivel módulo de wakes esperando entrega. Orden = orden de llegada.
 const wakeQueue: PendingWake[] = [];
-// True from the moment a wake is delivered until the turn it triggered ends (agent_end).
-// While true, no further wake is delivered (one autopilot turn at a time).
+// Verdadero desde que se entrega un wake hasta que termina el turno que disparó (agent_end).
+// Mientras sea verdadero, no se entrega otro wake (un turno autopilot a la vez).
 let autopilotTurnInFlight = false;
 
-/** Is the loop that owns the in-flight autopilot turn still present and running? */
+/** ¿El loop dueño del turno autopilot en vuelo sigue presente y running? */
 function inFlightOwnerAlive(): boolean {
 	for (const loop of activeLoops.values()) {
 		if (loop.autopilot && loop.status === "running") return true;
@@ -211,13 +214,13 @@ function inFlightOwnerAlive(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Pure leaves extracted to depth-one siblings:
+// Hojas puras extraídas a siblings de profundidad uno:
 //   ./prompt.ts   — makeLoopIterationPrompt
 //   ./interval.ts — parseInterval / formatInterval
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Status line
+// Línea de estado
 // ---------------------------------------------------------------------------
 
 function setLoopStatus(ctx: ExtensionContext, loop: LoopState): void {
@@ -238,10 +241,10 @@ function clearLoopStatus(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setStatus(LOOP_STATUS_KEY, undefined);
 }
 
-/** Refresh status from whatever loop is currently running or paused (if any). */
+/** Refresca el status desde el loop actualmente running o paused, si hay. */
 function refreshLoopStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
-	// Prefer a running loop; fall back to a paused one so the user keeps seeing it.
+	// Preferir un loop running; usar uno paused como fallback para que el usuario lo siga viendo.
 	for (const loop of activeLoops.values()) {
 		if (loop.status === "running") {
 			setLoopStatus(ctx, loop);
@@ -258,7 +261,7 @@ function refreshLoopStatus(ctx: ExtensionContext): void {
 }
 
 // ---------------------------------------------------------------------------
-// Persistence
+// Persistencia
 // ---------------------------------------------------------------------------
 
 function snapshot(loop: ActiveLoop): LoopState {
@@ -282,25 +285,25 @@ function snapshot(loop: ActiveLoop): LoopState {
 }
 
 /**
- * Persist a loop transition. Stamps `updatedAt` (so JSONL vs sidecar conflicts
- * resolve by recency), appends to the session JSONL (does NOT go to the LLM), and
- * fire-and-forgets an ATOMIC sidecar write that covers a hard crash where the
- * JSONL might miss the last append.
+ * Persiste una transición de loop. Marca `updatedAt` (para resolver conflictos
+ * JSONL vs sidecar por recencia), agrega al JSONL de sesión (NO va al LLM), y
+ * dispara sin esperar una escritura sidecar ATOMIC que cubre un crash duro donde
+ * el JSONL podría perder el último append.
  */
 function persist(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	loop.updatedAt = new Date().toISOString();
 	const snap = snapshot(loop);
 	pi.appendEntry<LoopState>(LOOP_STATE_TYPE, snap);
-	// Best-effort atomic sidecar (never throws into the engine).
+	// Sidecar atómico best-effort (nunca lanza al engine).
 	void writeSidecar(ctx, snap).catch(() => {});
 }
 
-// --- Atomic sidecar (P1) -------------------------------------------------------
+// --- Sidecar atómico (P1) -------------------------------------------------------
 
 /**
- * Dual-root state dir, mirroring dynamic-workflows getRunRoot:
- * - trusted project → <cwd>/.pi/loops/<id>
- * - otherwise       → <agentDir>/loops/<projectHash>/<id>
+ * Dir de estado dual-root, reflejando dynamic-workflows getRunRoot:
+ * - proyecto trusted → <cwd>/.pi/loops/<id>
+ * - si no            → <agentDir>/loops/<projectHash>/<id>
  */
 function loopStateDir(ctx: ExtensionContext, loopId: string): string {
 	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, LOOP_DIR, loopId);
@@ -308,7 +311,7 @@ function loopStateDir(ctx: ExtensionContext, loopId: string): string {
 	return path.join(getAgentDir(), LOOP_DIR, projectHash, loopId);
 }
 
-/** Atomic write: temp file then rename, so a crash mid-write never truncates state.json. */
+/** Escritura atómica: temp file y rename, para que un crash a mitad de escritura no trunque state.json. */
 async function writeSidecar(ctx: ExtensionContext, state: LoopState): Promise<void> {
 	const dir = loopStateDir(ctx, state.loopId);
 	await fs.mkdir(dir, { recursive: true });
@@ -323,7 +326,7 @@ async function writeSidecar(ctx: ExtensionContext, state: LoopState): Promise<vo
 	}
 }
 
-/** Read a sidecar state.json for a loopId, or undefined if missing/corrupt. */
+/** Lee un sidecar state.json para un loopId, o undefined si falta o está corrupto. */
 async function readSidecar(ctx: ExtensionContext, loopId: string): Promise<LoopState | undefined> {
 	try {
 		const file = path.join(loopStateDir(ctx, loopId), STATE_FILE);
@@ -336,7 +339,7 @@ async function readSidecar(ctx: ExtensionContext, loopId: string): Promise<LoopS
 	}
 }
 
-/** Best-effort discovery of loopIds that exist only in sidecar state. */
+/** Descubrimiento best-effort de loopIds que existen solo en estado sidecar. */
 async function discoverSidecarLoopIds(ctx: ExtensionContext): Promise<string[]> {
 	try {
 		const dirents = await fs.readdir(loopStateRoot(ctx), { withFileTypes: true });
@@ -351,63 +354,64 @@ async function discoverSidecarLoopIds(ctx: ExtensionContext): Promise<string[]> 
 // ---------------------------------------------------------------------------
 
 /**
- * A loop can only run where the agent loop is interactive enough to re-inject a
- * prompt and resume on its own: TUI and RPC. "print" is a one-shot, and "json"
- * is non-interactive (hasUI is true only in tui/rpc) — neither can sustain a
- * looping session. Mirrors wakeAgentForWorkflowResult in dynamic-workflows.
+ * Un loop solo puede correr donde el agent loop sea suficientemente interactivo
+ * para reinyectar un prompt y reanudarse solo: TUI y RPC. "print" es one-shot, y
+ * "json" no es interactivo (hasUI es true solo en tui/rpc); ninguno sostiene una
+ * sesión de loop. Refleja wakeAgentForWorkflowResult en dynamic-workflows.
  */
 function canLoopInMode(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
 }
 
 /**
- * Low-level delivery primitive: actually re-inject a prompt into the session. Mirrors
- * wakeAgentForWorkflowResult (idle → steer; busy → followUp). Mode-gated. The FIFO queue
- * (deliverWake/drainWakeQueue) is the only caller; never call this directly to re-inject
- * an autopilot iteration (that would bypass serialization).
+ * Primitiva de entrega de bajo nivel: reinyecta un prompt en la sesión. Refleja
+ * wakeAgentForWorkflowResult (idle → steer; busy → followUp). Tiene gate por modo.
+ * La cola FIFO (deliverWake/drainWakeQueue) es el único caller; nunca llamar esto
+ * directamente para reinyectar una iteración autopilot porque saltearía la serialización.
  *
- * NOTE (P2): drainWakeQueue now gates delivery on ctx.isIdle(), so the only reachable path
- * here is the idle (steer) branch; the followUp branch is retained defensively (a future
- * caller / different mode could still hit it) but the queue never delivers while busy.
+ * NOTE (P2): drainWakeQueue ahora gatea la entrega con ctx.isIdle(), así que el único
+ * camino alcanzable acá es la rama idle (steer); la rama followUp se conserva
+ * defensivamente (un caller futuro / modo distinto podría alcanzarla), pero la cola
+ * nunca entrega mientras está busy.
  */
 function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
-	// Mode gate: never re-inject outside tui/rpc (defends rehydrate paths too).
+	// Gate por modo: nunca reinyectar fuera de tui/rpc (también defiende rutas de rehydrate).
 	if (!canLoopInMode(ctx)) return;
 	if (ctx.isIdle()) pi.sendUserMessage(prompt);
 	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 }
 
 /**
- * Try to deliver the next queued wake (P2). Delivers AT MOST ONE, and only when the
- * agent is idle (never mid-user-turn) AND no autopilot turn is already in flight —
- * guaranteeing a single autopilot turn at a time across N loops and never opening an
- * autopilot turn while the human still owns the turn. Anything else stays queued (FIFO)
- * and is retried on the next agent_end. Skips/drops queue entries whose loop is no longer
- * running (stopped/paused/gone) so a stale entry never re-injects.
+ * Intenta entregar el siguiente wake encolado (P2). Entrega COMO MÁXIMO UNO, y solo
+ * cuando el agente está idle (nunca en medio de un turno de usuario) Y no hay otro turno
+ * autopilot en vuelo. Garantiza un único turno autopilot a la vez entre N loops y nunca
+ * abre un turno autopilot mientras el humano todavía posee el turno. Lo demás queda
+ * encolado (FIFO) y se reintenta en el siguiente agent_end. Saltea/descarta entradas cuyo
+ * loop ya no está running (stopped/paused/gone), para que una entrada stale nunca reinyecte.
  *
- * The iteration counter is advanced and the autopilot flag is armed HERE (at delivery),
- * not at enqueue time, so a queued-but-undelivered loop neither advances nor blocks the
- * destructive-action gate.
+ * El contador de iteración avanza y el flag autopilot se arma ACÁ (al entregar), no al
+ * encolar, así un loop encolado pero no entregado no avanza ni bloquea el gate de
+ * acciones destructivas.
  */
 function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	if (!canLoopInMode(ctx)) return;
-	// Deliver ONLY when the agent is idle: a wake injected during the user's own turn would
-	// open an autopilot turn mid-human-turn (anyAutopilotActive() would then gate the human's
-	// own destructive commands — violating "a human-driven turn is never gated"). If the agent
-	// is busy, leave everything queued; agent_end re-drains once the turn ends and the agent is
-	// idle again.
+	// Entregar SOLO cuando el agente está idle: un wake inyectado durante el turno del usuario
+	// abriría un turno autopilot en medio del turno humano (anyAutopilotActive() entonces gatearía
+	// los comandos destructivos del humano, violando "a human-driven turn is never gated"). Si el
+	// agente está busy, dejar todo encolado; agent_end vuelve a drenar cuando el turno termina y el
+	// agente está idle otra vez.
 	if (!ctx.isIdle()) return;
-	// One autopilot turn at a time: never deliver a second wake while a turn is already in
-	// flight (its owning loop still running). This is the load-bearing serialization that
-	// keeps N loops from each injecting in the same turn.
+	// Un turno autopilot a la vez: nunca entregar un segundo wake mientras ya hay un turno
+	// en vuelo (su loop dueño sigue running). Esta serialización evita que N loops inyecten
+	// en el mismo turno.
 	if (autopilotTurnInFlight && inFlightOwnerAlive()) return;
 
 	while (wakeQueue.length > 0) {
 		const next = wakeQueue.shift()!;
 		const loop = activeLoops.get(next.loopId);
-		// Drop stale entries: the loop was stopped/paused/removed before its turn came up.
+		// Descartar entradas stale: el loop fue stopped/paused/removido antes de su turno.
 		if (loop?.status !== "running") continue;
-		// Guards re-checked at delivery (state may have changed while queued).
+		// Guards rechequeados al entregar (el estado puede haber cambiado en cola).
 		if (loop.iteration >= loop.maxIterations) {
 			stopLoop(pi, ctx, loop.loopId, `alcanzó el límite de maxIterations (${loop.maxIterations})`, "done");
 			notify(
@@ -423,21 +427,21 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 			continue;
 		}
 		deliverWake(pi, ctx, loop);
-		return; // exactly one autopilot turn at a time.
+		return; // exactamente un turno autopilot a la vez.
 	}
 }
 
-/** Deliver one loop's iteration: advance counter, arm autopilot, persist, re-inject. */
+/** Entrega una iteración de loop: avanza contador, arma autopilot, persiste, reinyecta. */
 function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	loop.iteration += 1;
-	// In fixed mode, remember the ABSOLUTE timestamp this iteration was scheduled for
-	// so the next re-arm is previousTarget + period (drift-free). In dynamic mode the
-	// model picks the next cadence, so clear the anchor.
+	// En modo fixed, recordar el timestamp ABSOLUTO para el que se programó esta iteración
+	// para que el próximo rearmado sea previousTarget + period (sin deriva). En modo dynamic
+	// el modelo elige la próxima cadencia, así que se limpia el anchor.
 	loop.fixedAnchor = loop.mode === "fixed" ? (loop.nextFireAt ?? Date.now()) : undefined;
 	loop.nextFireAt = null;
 	loop.rearmedThisTurn = false;
-	// This turn is triggered by a wake (not the user): arm the autopilot gate and mark a
-	// turn in flight so no other queued wake is delivered until this turn ends.
+	// Este turno lo disparó un wake (no el usuario): armar el gate autopilot y marcar un
+	// turno en vuelo para que no se entregue otro wake encolado hasta que termine.
 	loop.autopilot = true;
 	autopilotTurnInFlight = true;
 	persist(pi, ctx, loop);
@@ -445,35 +449,36 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 	wake(pi, ctx, makeLoopIterationPrompt(loop));
 }
 
-/** Stop a loop because a cap was hit. Status "done" (a clean, expected end). */
+/** Detiene un loop porque se tocó un tope. Status "done" (fin limpio y esperado). */
 function stopForCap(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop, reason: string): void {
 	stopLoop(pi, ctx, loop.loopId, reason, "done");
 	notify(ctx, `Loop ${loop.loopId} detenido: ${reason}.`, "warning");
 }
 
 /**
- * Fire one iteration. Guards status, enforces maxIterations + caps, then ENQUEUES the
- * wake onto the module FIFO and tries to drain it. With N loops whose timers fire near
- * the same instant, this serializes them: drainWakeQueue delivers at most one autopilot
- * turn at a time; the rest stay queued and drain on agent_end. (P2 changed this from a
- * direct re-inject to enqueue+drain; the per-iteration bookkeeping moved to deliverWake.)
+ * Dispara una iteración. Valida status, aplica maxIterations + caps, luego ENCOLA el
+ * wake en la FIFO del módulo e intenta drenarla. Con N loops cuyos timers disparan casi
+ * al mismo instante, esto los serializa: drainWakeQueue entrega como máximo un turno
+ * autopilot a la vez; el resto queda en cola y se drena en agent_end. (P2 cambió esto
+ * de reinyectar directo a enqueue+drain; el bookkeeping por iteración pasó a deliverWake.)
  */
 function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	loop.timer = null;
 	if (loop.status !== "running") return;
 
-	// This loop's timer fired, which means its PREVIOUS turn finished (the timer is only
-	// armed at scheduleWake/rearmFixed/agent_end, i.e. after the turn). If this loop was
-	// the in-flight autopilot owner, release the gate now so a fresh wake can be delivered
-	// (covers paths where agent_end did not run between turns, e.g. tests / RPC edge).
+	// El timer de este loop disparó, lo que significa que su turno PREVIO terminó (el timer
+	// solo se arma en scheduleWake/rearmFixed/agent_end, es decir, después del turno). Si
+	// este loop era el dueño autopilot en vuelo, liberar el gate ahora para que pueda
+	// entregarse un wake fresco (cubre rutas donde agent_end no corrió entre turnos,
+	// p. ej. tests / edge RPC).
 	if (loop.autopilot) {
 		loop.autopilot = false;
 		autopilotTurnInFlight = false;
 	}
 
-	// Backstop: if THIS loop is itself a zombie (past the hard deadline), stop instead of
-	// firing. (The caps gate below covers maxWallClockMs; this also catches loops whose
-	// maxWallClockMs was somehow set absurdly high.)
+	// Respaldo: si ESTE loop es zombi (pasó el deadline duro), detener en vez de disparar.
+	// (El gate de caps de abajo cubre maxWallClockMs; esto también captura loops cuyo
+	// maxWallClockMs quedó absurdamente alto.)
 	if (Date.now() - loop.startedAt >= WATCHDOG_HARD_DEADLINE_MS) {
 		const reason = `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
 		stopLoop(pi, ctx, loop.loopId, reason, "done");
@@ -491,25 +496,25 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 		return;
 	}
 
-	// Caps gate before doing any work: never fire an iteration past a deadline/budget.
+	// Gate de caps antes de hacer trabajo: nunca disparar una iteración pasado un deadline/budget.
 	const cap = capExceeded(ctx, loop);
 	if (cap) {
 		stopForCap(pi, ctx, loop, cap);
 		return;
 	}
 
-	// Enqueue this loop's wake (dedup: never queue the same loop twice concurrently) and
-	// attempt delivery. deliverWake does iteration++/autopilot/persist/re-inject.
-	// Only the loopId is queued: deliverWake rebuilds the prompt fresh via
-	// makeLoopIterationPrompt(loop) at delivery (reflecting the just-incremented iteration),
-	// so carrying a prompt string on the queue entry would be dead, stale data.
+	// Encolar el wake de este loop (dedup: nunca encolar el mismo loop dos veces a la vez)
+	// e intentar entregarlo. deliverWake hace iteration++/autopilot/persist/reinyección.
+	// Solo se encola loopId: deliverWake reconstruye el prompt fresco vía
+	// makeLoopIterationPrompt(loop) al entregar (reflejando la iteración recién incrementada),
+	// así que cargar un prompt string en la entrada de cola sería dato muerto y stale.
 	if (!wakeQueue.some((w) => w.loopId === loop.loopId)) {
 		wakeQueue.push({ loopId: loop.loopId });
 	}
 	drainWakeQueue(pi, ctx);
 }
 
-/** Arm the next wake after delaySec. Caller is responsible for clamping. */
+/** Arma el próximo wake después de delaySec. El caller es responsable de clampear. */
 function scheduleWake(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
@@ -530,11 +535,11 @@ function scheduleWake(
 }
 
 /**
- * Fixed-mode re-arm (P1). The extension owns the cadence: schedule the next wake at
- * an ABSOLUTE timestamp (nextFireAt += periodMs) so periods never drift, and use a
- * re-armed setTimeout (never setInterval) so a slow iteration can never overlap the
- * next. If the absolute target is already in the past (a long iteration), fire on
- * the next tick (delay 0) — a single catch-up, never a burst.
+ * Rearmado fixed-mode (P1). La extensión posee la cadencia: programa el próximo wake
+ * en un timestamp ABSOLUTO (nextFireAt += periodMs) para que los períodos no deriven,
+ * y usa un setTimeout rearmado (nunca setInterval) para que una iteración lenta no se
+ * solape con la siguiente. Si el target absoluto ya está en el pasado (iteración larga),
+ * dispara en el siguiente tick (delay 0): un solo catch-up, nunca un burst.
  */
 function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	if (loop.timer) {
@@ -542,8 +547,8 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 		loop.timer = null;
 	}
 	const period = loop.intervalMs ?? 0;
-	// Anchor to the previous scheduled fire time (set by fireWake) so periods never
-	// drift; fall back to current nextFireAt (first arm / resume) or now.
+	// Anclar al fire time programado previo (seteado por fireWake) para que los períodos
+	// no deriven; fallback al nextFireAt actual (primer armado / resume) o now.
 	const base = loop.fixedAnchor ?? loop.nextFireAt ?? Date.now();
 	loop.fixedAnchor = undefined;
 	const target = base + period;
@@ -557,13 +562,13 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 }
 
 // ---------------------------------------------------------------------------
-// Start / stop
+// Inicio / stop
 // ---------------------------------------------------------------------------
 
 /**
- * Strip a `--ultracode` / `--uc` posture flag off the args (anywhere in the string).
- * Returns the cleaned text plus whether the flag was present. Parsed BEFORE the trailing
- * interval token so the flag is never mistaken for an interval.
+ * Quita de args un flag de postura `--ultracode` / `--uc` (en cualquier lugar del string).
+ * Devuelve el texto limpio y si el flag estaba presente. Se parsea ANTES del token
+ * interval final para que el flag nunca se confunda con un interval.
  */
 function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean } {
 	let ultracode = false;
@@ -577,7 +582,7 @@ function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean 
 }
 
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
-	// Mode gate: only TUI/RPC can sustain a persistent looping session.
+	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
 	if (!canLoopInMode(ctx)) {
 		notify(ctx, "/loop requiere una sesión TUI o RPC (este modo no puede loopear).", "error");
 		return undefined;
@@ -589,8 +594,8 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		return undefined;
 	}
 
-	// Fixed-interval mode: the LAST whitespace-separated token may be an interval
-	// (^\d+(s|m|h)$). If so, strip it and own the cadence; otherwise stay dynamic (P0).
+	// Modo fixed-interval: el ÚLTIMO token separado por espacios puede ser un interval
+	// (^\d+(s|m|h)$). Si matchea, quitarlo y poseer la cadencia; si no, quedar dynamic (P0).
 	let taskText = trimmed;
 	let intervalMs: number | undefined;
 	const lastSpace = trimmed.lastIndexOf(" ");
@@ -639,9 +644,9 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	activeLoops.set(loopId, loop);
 	persist(pi, ctx, loop);
 
-	// Send the first iteration prompt immediately. fireWake handles iteration++/persist/status.
-	// deliverWake builds the prompt fresh via makeLoopIterationPrompt(loop), so it is never
-	// stored on the loop — it would only ever be stale by the time it was read.
+	// Enviar de inmediato el primer prompt de iteración. fireWake maneja iteration++/persist/status.
+	// deliverWake construye el prompt fresco vía makeLoopIterationPrompt(loop), así que nunca
+	// se guarda en el loop: solo estaría stale cuando se leyera.
 	fireWake(pi, ctx, loop);
 	const modeLabel = loop.mode === "fixed" ? ` (cada ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
 	const uc = ultracode ? " [ultracode]" : "";
@@ -650,14 +655,14 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 }
 
 /**
- * Start an AUTONOMOUS loop (P2): a loop whose re-injected text is a sentinel/objective
- * generated by the extension rather than a one-off user task. Because such a loop will
- * keep acting without a human in the turn, the bar is higher:
- *   - the project MUST be trusted (ctx.isProjectTrusted()), and
- *   - the user MUST explicitly confirm via ctx.ui.confirm.
- * Missing EITHER → reject (no loop created). Without UI there is no way to confirm, so
- * autonomous mode is refused there too. Everything else (modes, caps, persistence, the
- * irreversible-action gate, the FIFO queue, the watchdog) is shared with startLoop.
+ * Inicia un loop AUTÓNOMO (P2): un loop cuyo texto reinyectado es un sentinel/objective
+ * generado por la extensión, no una tarea de usuario puntual. Como ese loop seguirá
+ * actuando sin un humano en el turno, el umbral es más alto:
+ *   - el proyecto DEBE ser trusted (ctx.isProjectTrusted()), y
+ *   - el usuario DEBE confirmar explícitamente vía ctx.ui.confirm.
+ * Si falta CUALQUIERA → reject (no se crea loop). Sin UI no hay forma de confirmar, así
+ * que el modo autónomo también se rechaza. Todo lo demás (modes, caps, persistencia,
+ * gate de acciones irreversibles, cola FIFO, watchdog) se comparte con startLoop.
  */
 async function startAutonomousLoop(
 	pi: ExtensionAPI,
@@ -668,7 +673,7 @@ async function startAutonomousLoop(
 		notify(ctx, "/loop auto requiere una sesión TUI o RPC (este modo no puede loopear).", "error");
 		return undefined;
 	}
-	// Trust gate FIRST: an autonomous loop must never run in an untrusted project.
+	// Gate de trust PRIMERO: un loop autónomo nunca debe correr en un proyecto untrusted.
 	if (!ctx.isProjectTrusted()) {
 		notify(ctx, "/loop auto requiere un proyecto de confianza. Corré /trust primero, y reintentá.", "error");
 		return undefined;
@@ -679,7 +684,7 @@ async function startAutonomousLoop(
 		notify(ctx, "Uso: /loop auto [--ultracode] <objective> [interval]", "warning");
 		return undefined;
 	}
-	// Strip an optional trailing interval token, same parser as startLoop.
+	// Quitar un token interval final opcional, con el mismo parser que startLoop.
 	let objective = trimmed;
 	let intervalMs: number | undefined;
 	const lastSpace = trimmed.lastIndexOf(" ");
@@ -694,7 +699,7 @@ async function startAutonomousLoop(
 		notify(ctx, "Uso: /loop auto <objective> [interval]", "warning");
 		return undefined;
 	}
-	// Mandatory confirmation: no UI to confirm on → refuse (cannot get consent).
+	// Confirmación obligatoria: si no hay UI para confirmar → rechazar (no se puede obtener consentimiento).
 	if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
 		notify(ctx, "/loop auto requiere una confirmación interactiva; corrélo desde una sesión TUI o RPC.", "error");
 		return undefined;
@@ -748,9 +753,9 @@ async function startAutonomousLoop(
 }
 
 /**
- * Resolve a loop by id, the unique candidate, or via ui.select. `statuses` filters
- * which loops are eligible (e.g. ["running"] for stop, ["running","paused"] for
- * status display). Defaults to running-only (preserves P0 stop/schedule behavior).
+ * Resuelve un loop por id, por candidato único o vía ui.select. `statuses` filtra
+ * qué loops son elegibles (p. ej. ["running"] para stop, ["running","paused"] para
+ * mostrar status). Por default, solo running (preserva el comportamiento P0 stop/schedule).
  */
 async function resolveLoop(
 	ctx: ExtensionContext,
@@ -794,18 +799,18 @@ function stopLoop(
 	loop.nextFireAt = null;
 	loop.lastReason = reason;
 	loop.autopilot = false;
-	// Drop any pending wake for this loop so it can never re-inject after stopping.
+	// Descartar cualquier wake pendiente de este loop para que nunca reinyecte tras stop.
 	dropQueuedWakes(loopId);
 	persist(pi, ctx, loop);
-	// Terminal loops are no longer active: keep the persisted final snapshot for
-	// audit/rehydrate decisions, but remove the in-memory loop immediately so
-	// /loop status, completions, GC, and status-line refresh only see live loops.
+	// Los loops terminales ya no están activos: conservar el snapshot final persistido
+	// para decisiones de audit/rehydrate, pero quitar el loop en memoria de inmediato
+	// para que /loop status, completions, GC y refresh de línea de estado vean solo loops vivos.
 	activeLoops.delete(loopId);
 	refreshLoopStatus(ctx);
 	return true;
 }
 
-/** Remove any queued wakes for a loop (used on stop/pause so they never deliver). */
+/** Quita wakes encolados de un loop (usado en stop/pause para que nunca se entreguen). */
 function dropQueuedWakes(loopId: string): void {
 	for (let i = wakeQueue.length - 1; i >= 0; i--) {
 		if (wakeQueue[i].loopId === loopId) wakeQueue.splice(i, 1);
@@ -813,9 +818,9 @@ function dropQueuedWakes(loopId: string): void {
 }
 
 /**
- * Pause a loop (P1): clear the timer, keep all state, set status "paused". Records
- * the remaining delay so resume (dynamic) can re-arm with what was left. Does NOT
- * re-inject. A no-op if the loop is not running.
+ * Pausa un loop (P1): limpia el timer, conserva todo el estado y setea status "paused".
+ * Registra el delay restante para que resume (dynamic) rearme con lo que quedaba.
+ * NO reinyecta. NO-OP si el loop no está running.
  */
 function pauseLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): boolean {
 	if (loop.status !== "running") return false;
@@ -823,12 +828,12 @@ function pauseLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): b
 		clearTimeout(loop.timer);
 		loop.timer = null;
 	}
-	// Preserve the remaining delay as a relative offset so resume can restore it even
-	// across a persist/rehydrate (we re-derive nextFireAt on resume from this).
+	// Preservar el delay restante como offset relativo para que resume pueda restaurarlo
+	// incluso tras persist/rehydrate (rederivamos nextFireAt desde esto en resume).
 	loop.pausedRemainingMs = loop.nextFireAt === null ? null : Math.max(0, loop.nextFireAt - Date.now());
 	loop.status = "paused";
 	loop.autopilot = false;
-	// Drop any pending wake so a paused loop never re-injects from the queue.
+	// Descartar cualquier wake pendiente para que un loop paused nunca reinyecte desde la cola.
 	dropQueuedWakes(loop.loopId);
 	persist(pi, ctx, loop);
 	refreshLoopStatus(ctx);
@@ -836,24 +841,24 @@ function pauseLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): b
 }
 
 /**
- * Resume a paused loop (P1): status back to "running" and re-arm. Dynamic loops use
- * the remaining delay captured at pause (fallback: a safety-net cadence if unknown);
- * fixed loops re-arm by their owned period. A no-op if the loop is not paused.
+ * Reanuda un loop paused (P1): status vuelve a "running" y rearma. Los loops dynamic usan
+ * el delay restante capturado al pausar (fallback: cadencia de seguridad si se desconoce);
+ * los loops fixed rearma por su período propio. NO-OP si el loop no está paused.
  */
 function resumeLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): boolean {
 	if (loop.status !== "paused") return false;
 	loop.status = "running";
 	if (loop.mode === "fixed") {
-		// Fixed: anchor the next absolute fire at now + period (drift-free from resume).
+		// Fixed: anclar el próximo fire absoluto en now + period (sin deriva desde resume).
 		loop.nextFireAt = Date.now();
 		rearmFixed(pi, ctx, loop);
 		return true;
 	}
-	// Prefer the remainder captured at pause (same-process pause/resume). If that is
-	// gone (e.g. the loop was paused, persisted, then rehydrated across a reload —
-	// pausedRemainingMs is transient and NOT persisted), fall back to the persisted
-	// absolute nextFireAt, which DOES survive a reload (mirrors what rehydrate does for
-	// running loops). Only when neither is available do we use the safety-net cadence.
+	// Preferir el remanente capturado al pausar (pause/resume en el mismo proceso). Si
+	// ya no está (p. ej. el loop fue pausado, persistido y rehidratado tras un reload:
+	// pausedRemainingMs es transitorio y NO persistido), usar como fallback el nextFireAt
+	// absoluto persistido, que SÍ sobrevive un reload (refleja lo que rehydrate hace con
+	// loops running). Solo cuando ninguno existe usamos la cadencia de seguridad.
 	const remaining =
 		loop.pausedRemainingMs != null
 			? loop.pausedRemainingMs
@@ -866,13 +871,13 @@ function resumeLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 }
 
 // ---------------------------------------------------------------------------
-// Rehydration (session_start)
+// Rehidratación (session_start)
 // ---------------------------------------------------------------------------
 
 /**
- * Pick the newer of two snapshots by updatedAt (ISO strings compare lexically since
- * they share format; missing updatedAt is treated as oldest). Used to resolve a
- * JSONL-vs-sidecar conflict — whichever was written last wins.
+ * Elige el más nuevo de dos snapshots por updatedAt (los strings ISO comparan léxicamente
+ * porque comparten formato; updatedAt ausente se trata como lo más viejo). Usado para resolver
+ * conflictos JSONL-vs-sidecar: gana el que se escribió último.
  */
 function newerState(a: LoopState | undefined, b: LoopState | undefined): LoopState | undefined {
 	if (!a) return b;
@@ -883,19 +888,19 @@ function newerState(a: LoopState | undefined, b: LoopState | undefined): LoopSta
 }
 
 /**
- * Rebuild loop state and re-arm. Source of truth per loopId is the NEWER of the last
- * JSONL entry and the atomic sidecar (by updatedAt), covering a hard crash where the
- * JSONL might miss the last append. Avoids double-fire: if activeLoops already has the
- * loop (timer alive in this process), skip. Only a SINGLE catch-up tick — no burst.
- * Recovers "paused" loops as paused (no re-arm). Respects caps (never re-arm past one).
+ * Reconstruye estado de loop y rearma. La fuente de verdad por loopId es el MÁS NUEVO
+ * entre la última entrada JSONL y el sidecar atómico (por updatedAt), cubriendo un crash
+ * duro donde el JSONL podría perder el último append. Evita double-fire: si activeLoops
+ * ya tiene el loop (timer vivo en este proceso), saltea. Solo un catch-up tick: sin burst.
+ * Recupera loops "paused" como paused (sin rearmar). Respeta caps (nunca rearma pasado uno).
  */
 async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	const entries = ctx.sessionManager.getEntries();
 	const latestJsonl = collectLatestByKey<LoopState>(entries, LOOP_STATE_TYPE, (d) => d.loopId);
 
-	// Resolve each loopId against its sidecar (newer-by-updatedAt wins). Also include
-	// sidecar-only loopIds: the sidecar is specifically the crash-recovery fallback for
-	// a transition that reached state.json but did not make it into the session JSONL.
+	// Resolver cada loopId contra su sidecar (gana el más nuevo por updatedAt). Incluir
+	// también loopIds sidecar-only: el sidecar es específicamente el fallback de crash recovery
+	// para una transición que llegó a state.json pero no al JSONL de sesión.
 	const resolved = new Map<string, LoopState>();
 	const sidecarLoopIds = await discoverSidecarLoopIds(ctx);
 	for (const loopId of new Set([...latestJsonl.keys(), ...sidecarLoopIds])) {
@@ -906,20 +911,20 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 	}
 
 	for (const state of resolved.values()) {
-		// "running" = was live in a prior process; "stale" = persisted by a clean
-		// session_shutdown (reload/quit); "paused" = recover and keep paused.
-		// Anything else (stopped/done/failed) is terminal → skip.
+		// "running" = estaba vivo en un proceso previo; "stale" = persistido por un
+		// session_shutdown limpio (reload/quit); "paused" = recuperar y mantener paused.
+		// Todo lo demás (stopped/done/failed) es terminal → saltear.
 		if (state.status !== "running" && state.status !== "stale" && state.status !== "paused") continue;
-		// Timer still alive in this process → do not re-arm (no double-fire).
+		// Timer todavía vivo en este proceso → no rearmar (sin double-fire).
 		if (activeLoops.has(state.loopId)) continue;
-		// AUTONOMOUS re-entry gate (P2 security): an autonomous loop acts with no human in
-		// the turn, so its start required trust + an explicit confirm. That guarantee must
-		// hold on EVERY re-entry, not just the interactive start — otherwise a once-confirmed
-		// autonomous loop would keep firing unattended across reloads even after the project
-		// stops being trusted. If the project is no longer trusted, retire it (terminal
-		// "stopped") instead of re-arming it. (A trusted project still rehydrates it; we do
-		// not re-prompt confirm on rehydrate because there is no interactive user at
-		// session_start, and trust is the load-bearing gate for unattended action.)
+		// Gate de re-entry AUTÓNOMO (seguridad P2): un loop autónomo actúa sin humano en
+		// el turno, así que su start requirió trust + confirm explícito. Esa garantía debe
+		// sostenerse en CADA re-entry, no solo en el start interactivo; si no, un loop
+		// autónomo confirmado una vez seguiría disparando sin supervisión tras reloads aunque
+		// el proyecto deje de ser trusted. Si el proyecto ya no es trusted, retirarlo
+		// (terminal "stopped") en vez de rearmarlo. (Un proyecto trusted todavía lo rehidrata;
+		// no repreguntamos confirm en rehydrate porque no hay usuario interactivo en
+		// session_start, y trust es el gate crítico para acción sin supervisión.)
 		if (state.autonomous && !ctx.isProjectTrusted()) {
 			const retired: ActiveLoop = {
 				...state,
@@ -942,13 +947,13 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		const recoverPaused = state.status === "paused";
 		const loop: ActiveLoop = {
 			...state,
-			// Back-compat for pre-P1 snapshots missing the new fields.
+			// Compatibilidad hacia atrás para snapshots pre-P1 a los que les faltan los campos nuevos.
 			mode: state.mode ?? "dynamic",
 			maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
 			maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
 			contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
 			updatedAt: state.updatedAt ?? new Date().toISOString(),
-			// Normalize a recovered "stale" snapshot back to "running"; keep "paused" as-is.
+			// Normalizar un snapshot "stale" recuperado de vuelta a "running"; dejar "paused" como está.
 			status: recoverPaused ? "paused" : "running",
 			timer: null,
 			controller: new AbortController(),
@@ -957,10 +962,10 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		};
 		activeLoops.set(loop.loopId, loop);
 
-		// Paused loops are recovered idle (no timer) until /loop resume.
+		// Los loops paused se recuperan idle (sin timer) hasta /loop resume.
 		if (recoverPaused) continue;
 
-		// A cap already exceeded across the downtime → stop cleanly instead of re-arming.
+		// Un cap ya excedido durante el downtime → detener limpiamente en vez de rearmar.
 		const cap = capExceeded(ctx, loop);
 		if (cap) {
 			stopForCap(pi, ctx, loop, cap);
@@ -968,24 +973,24 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		}
 
 		const remaining = loop.nextFireAt === null ? 0 : Math.max(0, loop.nextFireAt - Date.now());
-		// Single catch-up tick (clamped to >= 0); never a burst of missed wakes.
+		// Un único tick de catch-up (clampeado a >= 0); nunca un burst de wakes perdidos.
 		loop.timer = setTimeout(() => fireWake(pi, ctx, loop), remaining);
 	}
 	refreshLoopStatus(ctx);
-	// Backstop sweep: a loop that was hung across the downtime (past the hard deadline)
-	// is force-stopped here rather than being re-armed into another zombie iteration.
+	// Barrido de respaldo: un loop que quedó colgado durante el downtime (más allá del deadline duro)
+	// se force-stoppea acá en vez de rearmarse hacia otra iteración zombie.
 	watchdogSweep(pi, ctx);
 }
 
 // ---------------------------------------------------------------------------
-// GC of old terminal state (P2)
+// GC de estado terminal viejo (P2)
 // ---------------------------------------------------------------------------
 
 /**
- * Root that holds per-loop sidecar dirs, mirroring loopStateDir's parent:
- * - trusted project → <cwd>/.pi/loops
- * - otherwise       → <agentDir>/loops/<projectHash>
- * (Same split as dynamic-workflows getRunRoot, so GC walks the right tree.)
+ * Root que guarda dirs sidecar por loop, espejando el padre de loopStateDir:
+ * - proyecto trusted → <cwd>/.pi/loops
+ * - si no            → <agentDir>/loops/<projectHash>
+ * (Misma partición que dynamic-workflows getRunRoot, así que GC recorre el árbol correcto.)
  */
 function loopStateRoot(ctx: ExtensionContext): string {
 	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, LOOP_DIR);
@@ -996,16 +1001,16 @@ function loopStateRoot(ctx: ExtensionContext): string {
 const TERMINAL_STATUSES: ReadonlySet<LoopStatus> = new Set<LoopStatus>(["done", "stopped", "failed"]);
 
 /**
- * Sweep old terminal sidecar dirs (P2). For every <root>/<id>/state.json, parse it and
- * remove the dir ONLY when the loop is in a terminal status (done/stopped/failed) AND its
- * updatedAt is older than GC_MAX_AGE_MS. Live loops (running/paused/stale) and loops still
- * present in activeLoops are NEVER removed regardless of age. Best-effort: any read/parse/
- * rm error is swallowed so GC can never crash the session. Returns how many dirs it removed.
+ * Barre dirs sidecar terminales viejos (P2). Para cada <root>/<id>/state.json, lo parsea y
+ * quita el dir SOLO cuando el loop está en un estado terminal (done/stopped/failed) Y su
+ * updatedAt es más viejo que GC_MAX_AGE_MS. Los loops vivos (running/paused/stale) y los loops
+ * todavía presentes en activeLoops NUNCA se quitan sin importar la edad. De mejor esfuerzo: cualquier
+ * error de read/parse/rm se traga para que GC nunca pueda crashear la sesión. Devuelve cuántos dirs quitó.
  *
- * Mirrors dynamic-workflows getRunDirs (readdir withFileTypes + stat), but the recency
- * decision uses the persisted updatedAt (not dir mtime) so a clock-skewed FS can't make us
- * delete fresh state — and we still require a TERMINAL status, so a live loop is safe even
- * if its state.json is ancient.
+ * Refleja dynamic-workflows getRunDirs (readdir withFileTypes + stat), pero la decisión de recencia
+ * usa el updatedAt persistido (no el mtime del dir), así que un FS con skew de reloj no puede hacernos
+ * borrar estado fresco — y además seguimos exigiendo un estado TERMINAL, así que un loop vivo está seguro
+ * aunque su state.json sea antiquísimo.
  */
 async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Date.now()): Promise<number> {
 	const root = loopStateRoot(ctx);
@@ -1020,7 +1025,7 @@ async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Date.now(
 	for (const dirent of dirents) {
 		if (!dirent.isDirectory()) continue;
 		const loopId = dirent.name;
-		// Never GC a loop that is live in this process (timer may be armed).
+		// Nunca hacer GC de un loop que está vivo en este proceso (el timer puede estar armado).
 		if (activeLoops.has(loopId)) continue;
 		const dir = path.join(root, loopId);
 		const file = path.join(dir, STATE_FILE);
@@ -1028,49 +1033,49 @@ async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Date.now(
 			const body = await fs.readFile(file, "utf8");
 			const state = JSON.parse(body) as LoopState;
 			if (!state || typeof state.status !== "string") continue;
-			// Only terminal states are eligible; live states are preserved indefinitely.
+			// Solo los estados terminales son elegibles; los estados vivos se preservan indefinidamente.
 			if (!TERMINAL_STATUSES.has(state.status)) continue;
 			const updated = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
-			// Require a parseable, sufficiently-old updatedAt before deleting.
+			// Exigir un updatedAt parseable y suficientemente viejo antes de borrar.
 			if (!Number.isFinite(updated) || now - updated < GC_MAX_AGE_MS) continue;
 			await fs.rm(dir, { recursive: true, force: true });
 			removed += 1;
 		} catch {
-			// Missing/corrupt state.json or rm failure → skip (never throw into the engine).
+			// state.json faltante/corrupto o fallo de rm → saltear (nunca lanzar hacia el engine).
 		}
 	}
 	return removed;
 }
 
 // ---------------------------------------------------------------------------
-// Anti-zombie watchdog (P2)
+// Watchdog anti-zombie (P2)
 // ---------------------------------------------------------------------------
 
 /**
- * Force-stop any loop that blew past its ABSOLUTE backstop deadline (P2). This is a
- * last-resort net ABOVE maxWallClockMs / the context cap: those are checked at re-arm
- * time, so a loop that hung WITHOUT reaching an agent_end (or whose caps somehow never
- * fired) could otherwise live forever. Here we hard-stop (done + full cleanup) any
- * RUNNING loop whose startedAt + WATCHDOG_HARD_DEADLINE_MS is in the past.
- * Healthy loops (well within the deadline) are untouched. Returns count force-stopped.
+ * Force-stoppea cualquier loop que haya superado su deadline ABSOLUTO de respaldo (P2). Esta es una
+ * red de último recurso POR ENCIMA de maxWallClockMs / el cap de contexto: esos se chequean al momento
+ * de rearmar, así que un loop que se colgó SIN llegar a un agent_end (o cuyos caps de algún modo nunca
+ * dispararon) podría vivir para siempre. Acá hard-stoppeamos (done + cleanup completo) cualquier loop
+ * RUNNING cuyo startedAt + WATCHDOG_HARD_DEADLINE_MS quedó en el pasado.
+ * Los loops sanos (bien dentro del deadline) no se tocan. Devuelve la cantidad force-stoppeada.
  *
- * PAUSED loops are NOT zombies and are deliberately excluded: a paused loop has no armed
- * timer and consumes nothing — it is intentionally idle waiting for /loop resume, a fully
- * legitimate state. Its wall-clock since startedAt keeps growing while paused, so measuring
- * it against startedAt would kill a healthy paused loop behind the user's back (e.g. paused
- * over a weekend). A paused loop only becomes watchdog-eligible after it resumes (status
- * back to "running"). The soft wall-clock cap (capExceeded) already never fires on a paused
- * loop, so excluding paused here keeps the hard backstop consistent with it.
+ * Los loops PAUSED NO son zombies y se excluyen deliberadamente: un loop pausado no tiene timer armado
+ * y no consume nada — está idle a propósito esperando /loop resume, un estado totalmente legítimo.
+ * Su wall-clock desde startedAt sigue creciendo mientras está paused, así que medirlo contra startedAt
+ * mataría un loop paused sano a espaldas del usuario (p. ej. pausado durante un fin de semana). Un loop
+ * paused solo pasa a ser elegible para el watchdog después de reanudarse (status de vuelta a "running").
+ * El cap blando de wall-clock (capExceeded) ya nunca dispara sobre un loop paused, así que excluir paused
+ * acá mantiene consistente el respaldo duro con eso.
  *
- * No dedicated periodic timer: the sweep is driven from the natural pulse points
- * (session_start after rehydrate, every agent_end, and each fireWake). That avoids
- * adding an orthogonal module timer (and is just as effective — a dead process would
- * not run a periodic timer anyway; recovery happens on the next session_start).
+ * Sin timer periódico dedicado: el barrido se dispara desde los puntos naturales de pulso
+ * (session_start después de rehydrate, cada agent_end y cada fireWake). Eso evita
+ * agregar un timer de módulo ortogonal (y es igual de efectivo — un proceso muerto tampoco
+ * correría un timer periódico; la recuperación pasa en el siguiente session_start).
  */
 function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Date.now()): number {
 	let killed = 0;
 	for (const loop of [...activeLoops.values()]) {
-		// Only RUNNING loops can be zombies; a paused loop is intentionally idle (see docstring).
+		// Solo los loops RUNNING pueden ser zombies; un loop paused está idle a propósito (ver docstring).
 		if (loop.status !== "running") continue;
 		if (now - loop.startedAt < WATCHDOG_HARD_DEADLINE_MS) continue;
 		const reason = `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
@@ -1082,7 +1087,7 @@ function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Da
 }
 
 // ---------------------------------------------------------------------------
-// Command handling
+// Manejo de comandos
 // ---------------------------------------------------------------------------
 
 async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
@@ -1137,7 +1142,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	}
 
 	if (firstToken === "auto") {
-		// Autonomous mode (P2): requires trust + an explicit confirm (enforced inside).
+		// Modo autónomo (P2): requiere trust + una confirmación explícita (forzada adentro).
 		await startAutonomousLoop(pi, ctx, rest);
 		return;
 	}
@@ -1163,15 +1168,15 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	// Otherwise: the whole args is the task (possibly with a trailing interval token).
+	// Si no: args entero es la tarea (posiblemente con un token interval al final).
 	startLoop(pi, ctx, trimmed);
 }
 
 // ---------------------------------------------------------------------------
-// Irreversible-action gate (P1) — pure policy in ./gate.ts (destructiveReason); wiring below.
+// Gate de acciones irreversibles (P1) — política pura en ./gate.ts (destructiveReason); cableado abajo.
 // ---------------------------------------------------------------------------
 
-/** True if ANY loop currently considers this turn an autopilot (wake-triggered) turn. */
+/** Verdadero si ALGÚN loop considera este turno, actualmente, como un turno autopilot (disparado por wake). */
 function anyAutopilotActive(): boolean {
 	for (const loop of activeLoops.values()) {
 		if (loop.autopilot && loop.status === "running") return true;
@@ -1180,10 +1185,10 @@ function anyAutopilotActive(): boolean {
 }
 
 /**
- * tool_call handler (P1). Only gates when the current turn is autopilot (wake-triggered)
- * AND the tool/args match the destructive allowlist. With UI: ask ctx.ui.confirm and
- * block if rejected. Without UI (still tui/rpc edge, or confirm unavailable): hard block.
- * A human-driven turn (no autopilot flag) is never gated.
+ * Handler de tool_call (P1). Solo gatea cuando el turno actual es autopilot (disparado por wake)
+ * Y la tool/args matchean la allowlist destructiva. Con UI: pedir ctx.ui.confirm y
+ * bloquear si se rechaza. Sin UI (todavía caso tui/rpc edge, o confirm no disponible): bloqueo duro.
+ * Un turno impulsado por un humano (sin flag autopilot) nunca se gatea.
  */
 async function handleToolCall(
 	ctx: ExtensionContext,
@@ -1201,12 +1206,12 @@ async function handleToolCall(
 		if (approved) return undefined;
 		return { block: true, reason };
 	}
-	// No interactive UI to confirm → block to stay safe.
+	// Sin UI interactiva para confirmar → bloquear para mantener la seguridad.
 	return { block: true, reason };
 }
 
 // ---------------------------------------------------------------------------
-// Extension entrypoint
+// Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
 
 export default function loopExtension(pi: ExtensionAPI): void {
@@ -1225,10 +1230,10 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			"Pasá siempre una razón de una oración explicando qué elegíste y por qué; se muestra en la línea de estado y se reinyecta en la próxima iteración para dar continuidad.",
 		],
 		parameters: Type.Object({
-			// No schema bounds on purpose: the SDK validates (and rejects) args
-			// via validateToolArguments BEFORE execute() runs, so min/max here
-			// would throw on an out-of-range value instead of letting us clamp.
-			// The clamp inside execute() is the single defense — never trust the model.
+			// Sin límites de schema a propósito: el SDK valida (y rechaza) args
+			// vía validateToolArguments ANTES de que corra execute(), así que min/max acá
+			// lanzarían sobre un valor fuera de rango en vez de dejarnos clampear.
+			// El clamp dentro de execute() es la única defensa — nunca confíes en el modelo.
 			delaySeconds: Type.Number({
 				description: `Segundos a esperar antes de la próxima iteración; clampeado a [${MIN_DELAY_SECONDS}, ${MAX_DELAY_SECONDS}].`,
 			}),
@@ -1248,14 +1253,14 @@ export default function loopExtension(pi: ExtensionAPI): void {
 					details: { isError: true },
 				};
 			}
-			// Target the loop whose autopilot turn is actually calling this tool: the one
-			// with autopilot set. This matters when a fixed and a dynamic loop coexist —
-			// without it, a fixed loop's autopilot turn could reprogram the dynamic loop's
-			// timer. Fall back to a running dynamic loop, then any running loop.
+			// Apuntar al loop cuyo turno autopilot está llamando realmente esta tool: el que
+			// tiene autopilot seteado. Esto importa cuando coexisten un loop fixed y uno dynamic —
+			// sin eso, el turno autopilot de un loop fixed podría reprogramar el timer del loop dynamic.
+			// Hacer fallback a un loop dynamic corriendo, y luego a cualquier loop corriendo.
 			const loop = running.find((l) => l.autopilot) ?? running.find((l) => l.mode === "dynamic") ?? running[0];
-			// Fixed mode: the extension owns the cadence, so loop_schedule is an
-			// informative NO-OP — do not touch the timer or nextFireAt. The model only
-			// decides continue (do nothing) vs stop (loop_stop) on a fixed interval.
+			// Modo fixed: la extensión posee la cadencia, así que loop_schedule es un
+			// NO-OP informativo — no tocar el timer ni nextFireAt. El modelo solo
+			// decide continuar (no hacer nada) vs detenerse (loop_stop) en un intervalo fijo.
 			if (loop.mode === "fixed") {
 				const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
 				return {
@@ -1268,9 +1273,9 @@ export default function loopExtension(pi: ExtensionAPI): void {
 					details: { loopId: loop.loopId, mode: "fixed", noop: true, intervalSeconds: periodSec },
 				};
 			}
-			// Clamp INSIDE execute() — never trust the model's value. A non-finite
-			// value (NaN/Infinity) falls back to the safety-net cadence instead of
-			// arming setTimeout(NaN) (which would fire immediately).
+			// Clampear DENTRO de execute() — nunca confíes en el valor del modelo. Un valor no finito
+			// (NaN/Infinity) hace fallback a la cadencia de safety-net en vez de
+			// armar setTimeout(NaN) (que dispararía inmediatamente).
 			const raw = params.delaySeconds;
 			const delaySec = Number.isFinite(raw)
 				? Math.min(MAX_DELAY_SECONDS, Math.max(MIN_DELAY_SECONDS, Math.round(raw)))
@@ -1309,9 +1314,9 @@ export default function loopExtension(pi: ExtensionAPI): void {
 					details: { isError: true },
 				};
 			}
-			// Resolve the loop that OWNS the current turn (its autopilot flag is set), so
-			// with N coexisting loops a wake-triggered loop_stop ends the RIGHT loop rather
-			// than an arbitrary running[0]. Fall back to the sole running loop otherwise.
+			// Resolver el loop que POSEE el turno actual (su flag autopilot está seteado), así
+			// con N loops coexistentes un loop_stop disparado por wake termina el loop CORRECTO en vez
+			// de un running[0] arbitrario. Si no, hacer fallback al único loop corriendo.
 			const loop = running.find((l) => l.autopilot) ?? running[0];
 			stopLoop(pi, ctx, loop.loopId, params.reason || "detenido por loop_stop", "stopped");
 			return {
@@ -1354,17 +1359,17 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => await handleLoopCommand(pi, args, ctx),
 	});
 
-	// Irreversible-action gate (P1): block/confirm destructive tools on autopilot turns.
+	// Gate de acciones irreversibles (P1): bloquear/confirmar tools destructivas en turnos autopilot.
 	pi.on("tool_call", async (event, ctx) => await handleToolCall(ctx, event));
 
 	pi.on("session_start", async (event, ctx) => {
-		// Do NOT migrate a loop into a forked session: a fork inherits the parent's
-		// "loop-state" entries, but the loop must keep running only in the parent.
-		// startup / reload / resume DO rehydrate; "new" carries no parent entries.
+		// NO migrar un loop a una sesión forked: un fork hereda las entradas "loop-state"
+		// del padre, pero el loop debe seguir corriendo solo en el padre.
+		// startup / reload / resume SÍ rehidratan; "new" no trae entradas del padre.
 		if (event.reason === "fork") return;
 		await rehydrate(pi, ctx);
-		// GC old terminal sidecar state (P2). Runs AFTER rehydrate so live loops are in
-		// activeLoops and thus never collected. Best-effort; never throws into the engine.
+		// GC de estado sidecar terminal viejo (P2). Corre DESPUÉS de rehydrate para que los loops vivos estén en
+		// activeLoops y así nunca se recolecten. De mejor esfuerzo; nunca lanza hacia el engine.
 		await gcOldTerminalLoops(ctx).catch(() => {});
 	});
 
@@ -1376,16 +1381,16 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			}
 			loop.controller.abort("cierre de sesión");
 			if (loop.status === "running") {
-				// Persist as "stale" (recoverable on next session_start), keeping nextFireAt intact.
+				// Persistir como "stale" (recuperable en el próximo session_start), manteniendo nextFireAt intacto.
 				loop.status = "stale";
 				persist(pi, ctx, loop);
 			}
-			// "paused" is left as-is so it rehydrates as paused. Terminal states untouched.
+			// "paused" se deja tal cual para que se rehidrate como paused. Estados terminales intactos.
 		}
-		// Clear the live in-memory set, queue, and in-flight gate: the persisted snapshots
-		// above are the source of truth for the next session_start. Keeping stale/paused
-		// ActiveLoop objects here would make a same-process reload skip rehydrate via
-		// activeLoops.has(...) and leave no timer armed.
+		// Limpiar el set in-memory vivo, la cola y el gate in-flight: los snapshots persistidos
+		// de arriba son la fuente de verdad del próximo session_start. Mantener acá objetos
+		// ActiveLoop stale/paused haría que un reload del mismo proceso saltee rehydrate vía
+		// activeLoops.has(...) y deje sin timer armado.
 		activeLoops.clear();
 		wakeQueue.length = 0;
 		autopilotTurnInFlight = false;
@@ -1393,14 +1398,14 @@ export default function loopExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("agent_end", async (_event, ctx) => {
-		// End of an autopilot turn: clear the per-loop autopilot flag (the next user turn
-		// must not be gated). Then run the safety net (covers dynamic + fixed + caps).
+		// Fin de un turno autopilot: limpiar el flag autopilot por loop (el próximo turno del usuario
+		// no debe gatearse). Después correr la safety net (cubre dynamic + fixed + caps).
 		for (const loop of activeLoops.values()) {
 			loop.autopilot = false;
 			if (loop.status !== "running") continue;
 
-			// Caps gate before any re-arm: if a deadline/budget is already exhausted,
-			// stop cleanly instead of scheduling another iteration.
+			// Gate de caps antes de cualquier rearmado: si un deadline/budget ya está agotado,
+			// detener limpiamente en vez de programar otra iteración.
 			const cap = capExceeded(ctx, loop);
 			if (cap) {
 				stopForCap(pi, ctx, loop, cap);
@@ -1411,19 +1416,19 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			if (loop.timer) continue;
 
 			if (loop.mode === "fixed") {
-				// Fixed mode: re-arm by the owned period (absolute timestamp, no overlap).
+				// Modo fixed: rearmar por el período propio (timestamp absoluto, sin solapamiento).
 				rearmFixed(pi, ctx, loop);
 			} else {
-				// Dynamic mode: model did not call loop_schedule this turn → defensive re-arm.
+				// Modo dynamic: el modelo no llamó a loop_schedule este turno → rearmado defensivo.
 				scheduleWake(pi, ctx, loop, SAFETY_NET_DELAY_SECONDS, "auto: el turno cerró sin loop_schedule");
 			}
 		}
-		// The autopilot turn is over: release the in-flight gate and deliver the NEXT queued
-		// wake (if any) — this is where loops that lost the race for this turn get theirs.
+		// El turno autopilot terminó: liberar el gate in-flight y entregar el SIGUIENTE wake
+		// encolado (si hay) — acá es donde los loops que perdieron la carrera por este turno reciben el suyo.
 		autopilotTurnInFlight = false;
 		drainWakeQueue(pi, ctx);
-		// Opportunistic anti-zombie sweep at every turn boundary (cheap; the periodic
-		// timer covers idle gaps). Force-stops any loop past its hard backstop deadline.
+		// Barrido anti-zombie oportunista en cada frontera de turno (barato; el timer periódico
+		// cubre huecos idle). Force-stoppea cualquier loop pasado su deadline duro de respaldo.
 		watchdogSweep(pi, ctx);
 	});
 }

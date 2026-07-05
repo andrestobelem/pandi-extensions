@@ -1,108 +1,111 @@
 /**
- * pandi-loop autopilot DESTRUCTIVE-ACTION gate (pure safety policy).
+ * Gate DESTRUCTIVE-ACTION de autopilot de pandi-loop (política de seguridad pura).
  *
- * Extracted verbatim from index.ts (behavior-preserving) so the safety policy
- * — which autopilot bash commands / out-of-project writes are gated — lives in
- * one trivially testable, side-effect-free place. The wiring (anyAutopilotActive
- * / handleToolCall, which read shared loop state) stays in index.ts and imports
- * destructiveReason. Depth-one sibling imported via "./gate.js"; the SDK imports
- * are type-only and erased at build time.
+ * Extraído literal de index.ts (conserva comportamiento) para que la política
+ * de seguridad - qué comandos bash de autopilot / escrituras fuera del proyecto
+ * pasan por el gate - viva en un lugar puro y testeable. El cableado
+ * (anyAutopilotActive / handleToolCall, que leen estado compartido del loop)
+ * queda en index.ts e importa destructiveReason. Hermano de profundidad uno
+ * importado vía "./gate.js"; los imports del SDK son solo de tipos y se borran
+ * al compilar.
  */
 
 import * as path from "node:path";
 import type { ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 
 /**
- * Conservative allowlist of destructive operations that require confirmation when an
- * AUTOPILOT turn (one triggered by a wake, not the user) tries to run them. The intent
- * is to catch clearly irreversible / high-blast-radius actions while NEVER getting in
- * the way of a human's own turn or of ordinary loop work (reads, greps, normal edits).
+ * Lista conservadora de operaciones destructivas que requieren confirmación cuando un
+ * turno AUTOPILOT (disparado por wake, no por el usuario) intenta ejecutarlas. Busca
+ * atrapar acciones claramente irreversibles / de alto radio de impacto sin interferir
+ * NUNCA con un turno humano ni con trabajo normal del loop (lecturas, greps,
+ * ediciones normales).
  *
- * Documented allowlist:
- *  - bash commands matching:
- *      rm RECURSIVE in ANY flag form: -r / -R / -rf / -fr / --recursive (force is
- *        optional — the recursive flag is the data-loss risk). Single-file rm is not gated.
- *      find ... -delete and find ... -exec rm (incl. a path-qualified rm like /bin/rm)
- *      truncate / shred (in-place destruction of existing files)
- *      shell redirections (>, >>, the `>|`/`>>|` clobber form, and BOTH combined-redirect
- *        spellings `&>`/`&>>` and `>&`/`N>&`) and tee (every positional target, not just
- *        the first) writing OUTSIDE the project cwd, including targets that escape via a
- *        leading ~ (home), an unexpanded $VAR/${VAR}, a command substitution ($(...) /
- *        `...`), a backslash-escaped path (`\/etc/...`), or a relative target reached
- *        after a `cd`/`pushd` into a dir outside the project
- *      git push --force / -f / --force-with-lease / +refspec, and the non-force remote
- *        destroyers --delete / --mirror / --prune and the `origin :branch` delete refspec
- *      git reset --hard / git checkout -f|--force (working-tree loss)
+ * Lista documentada:
+ *  - comandos bash que matchean:
+ *      rm recursivo en CUALQUIER forma de flag: -r / -R / -rf / -fr / --recursive (force es
+ *        opcional; el flag recursivo es el riesgo de pérdida de datos). rm de archivo
+ *        único no se bloquea.
+ *      find ... -delete y find ... -exec rm (incluye rm con ruta como /bin/rm)
+ *      truncate / shred (destrucción in-place de archivos existentes)
+ *      redirecciones de shell (>, >>, la forma clobber `>|`/`>>|`, y AMBAS escrituras
+ *        combinadas `&>`/`&>>` y `>&`/`N>&`) y tee (cada target posicional, no solo el
+ *        primero) que escriben FUERA del cwd del proyecto, incluidos targets que
+ *        escapan con ~ inicial (home), $VAR/${VAR} sin expandir, sustitución de comando
+ *        ($(...) / `...`), ruta escapada con backslash (`\/etc/...`) o target relativo
+ *        alcanzado tras `cd`/`pushd` a un dir fuera del proyecto
+ *      git push --force / -f / --force-with-lease / +refspec, y destructores remotos
+ *        sin force --delete / --mirror / --prune y el refspec de borrado `origin :branch`
+ *      git reset --hard / git checkout -f|--force (pérdida del working-tree)
  *      git clean -fd / -xfd
- *      git filter-branch (history rewrite) and git stash clear / stash drop (stash loss)
+ *      git filter-branch (reescritura de historia) y git stash clear / stash drop (pérdida de stash)
  *      DROP TABLE/DATABASE/SCHEMA/TABLESPACE/OWNED (SQL drops)
  *      TRUNCATE TABLE
  *      kubectl apply|delete / terraform apply|destroy / helm upgrade|install|uninstall|
  *        delete|rollback
- *      dd  (raw disk writes)
- *      mkfs and its aliases (mke2fs / mkdosfs / mkntfs / mkswap / newfs) — device format
+ *      dd  (escrituras crudas a disco)
+ *      mkfs y sus alias (mke2fs / mkdosfs / mkntfs / mkswap / newfs) - formateo de device
  *
- *  Backslash line-continuations are collapsed to a space before matching, so splitting a
- *  command across lines (`rm \\<newline> -rf d`) cannot hide its flags from the patterns.
+ *  Las continuaciones de línea con backslash se colapsan a espacio antes del match, así
+ *  dividir un comando en líneas (`rm \\<newline> -rf d`) no oculta sus flags a los patrones.
  *
- * NOTE on "deploy": there is intentionally NO bare /\bdeploy\b/ pattern. "deploy" is a
- * plain English word, not a binary, so it false-positives on ordinary loop work like
- * `cat deploy.md`, `ls deploy/`, `grep deploy src/`, `npm run deploy:dry-run` — which is
- * the opposite of conservative (a loop whose whole job is to *watch a deploy* would
- * auto-block every iteration). Real deploy tooling is already covered by the structured
- * kubectl/terraform/helm patterns below.
+ * NOTE sobre "deploy": intencionalmente NO hay patrón /\bdeploy\b/ suelto. "deploy" es una
+ * palabra común en inglés, no un binario, así que da falsos positivos en trabajo normal del
+ * loop como `cat deploy.md`, `ls deploy/`, `grep deploy src/`, `npm run deploy:dry-run`; eso
+ * es lo opuesto a conservador (un loop cuyo trabajo es *watch a deploy* se autobloquearía
+ * en cada iteración). Las herramientas reales de deploy ya están cubiertas por los patrones
+ * estructurados kubectl/terraform/helm de abajo.
  *
- *  - write/edit targeting a path OUTSIDE the trusted project cwd (an absolute path that
- *    does not start with ctx.cwd, or any path escaping via "..").
+ *  - write/edit apuntando a una ruta FUERA del cwd confiable del proyecto (ruta absoluta
+ *    que no empieza con ctx.cwd, o cualquier ruta que escape vía "..").
  *
- * Conservative bias: when unsure, DO NOT block — only autopilot turns are gated, and
- * only when the pattern clearly matches one of the above.
+ * Sesgo conservador: ante duda, NO bloquear; solo los turnos autopilot pasan por el gate,
+ * y solo cuando el patrón matchea claramente uno de los anteriores.
  *
- * ACCEPTED LIMITATIONS (by design — this is defense-in-depth, NOT a security boundary;
- * the load-bearing controls are project trust + the autopilot confirm/block). A regex
- * allowlist cannot catch destruction expressed through a general-purpose interpreter or
- * runtime indirection, and gating those would false-positive on ordinary work. So these
- * intentionally PASS: interpreter-driven deletion (`perl -e unlink`, `python -c
- * shutil.rmtree`), deletion via `xargs rm` (non-recursive), flags assembled from a shell
- * variable (`R=-rf; rm $R d`), encoded execution (`… | base64 -d | sh`), destructive
- * verbs behind generic one-letter aliases (`k delete …`) or tools not on the structured
- * list (most `docker`/cloud-CLI subcommands, and `rsync --delete` whose mirror-wipe is
- * indistinguishable from an ordinary sync), and out-of-project writes reached only at
- * runtime through a symlink (no realpath/filesystem awareness here). `git -C <outside>`
- * is not gated on the path itself, but its destructive SUBcommand still is, since the
- * verb patterns above match regardless of the `-C` directory.
+ * LIMITACIONES ACEPTADAS (por diseño: esto es defense-in-depth, NO un límite de seguridad;
+ * los controles principales son confianza del proyecto + confirm/block de autopilot). Una
+ * lista regex no puede atrapar destrucción expresada vía intérprete general o indirección
+ * runtime, y gatear eso daría falsos positivos en trabajo normal. Entonces estos casos
+ * intencionalmente pasan: borrado vía intérprete (`perl -e unlink`, `python -c
+ * shutil.rmtree`), borrado vía `xargs rm` (no recursivo), flags armados desde variable de
+ * shell (`R=-rf; rm $R d`), ejecución codificada (`… | base64 -d | sh`), verbos destructivos
+ * detrás de alias genéricos de una letra (`k delete …`) o tools fuera de la lista
+ * estructurada (la mayoría de subcomandos `docker`/cloud-CLI, y `rsync --delete`, cuyo
+ * mirror-wipe no se distingue de un sync normal), y escrituras fuera del proyecto alcanzadas
+ * solo en runtime vía symlink (sin realpath ni conciencia de filesystem aquí). `git -C
+ * <outside>` no se gatea por la ruta, pero su subcomando destructivo sí, porque los patrones
+ * de verbos matchean sin importar el directorio `-C`.
  */
 export const DESTRUCTIVE_BASH_PATTERNS: RegExp[] = [
-	// rm that is RECURSIVE, in ANY flag form (-r, -R, -rf, -fr, --recursive). The
-	// recursive flag is the data-loss risk; force only suppresses prompts, so a bare
-	// `rm -r dir` in a non-interactive autopilot shell still deletes a whole tree.
-	// Single-file `rm foo.txt` is intentionally NOT gated.
+	// rm recursivo, en CUALQUIER forma de flag (-r, -R, -rf, -fr, --recursive). El flag
+	// recursivo es el riesgo de pérdida de datos; force solo suprime prompts, así que
+	// `rm -r dir` en una shell autopilot no interactiva igual borra un árbol completo.
+	// `rm foo.txt` de un solo archivo intencionalmente no se gatea.
 	/\brm\b(?=[^\n]*(\s-[a-z]*[rR]|\s--recursive\b))/i,
-	// find-driven deletion: `find … -delete` and `find … -exec rm …` (allowing a path-
-	// qualified rm like `-exec /bin/rm` or `-exec /usr/bin/rm`, which bare `rm\b` would miss).
+	// Borrado vía find: `find … -delete` y `find … -exec rm …` (permite rm con ruta
+	// como `-exec /bin/rm` o `-exec /usr/bin/rm`, que `rm\b` suelto no vería).
 	/\bfind\b[^\n]*\s-delete\b/i,
 	/\bfind\b[^\n]*-exec\s+(?:\S*\/)?rm\b/i,
-	// In-place data destruction of existing files (coreutils truncate, shred).
+	// Destrucción in-place de datos de archivos existentes (coreutils truncate, shred).
 	/\btruncate\b/i,
 	/\bshred\b/i,
 	/\bgit\b[^\n]*\bpush\b[^\n]*(--force\b|--force-with-lease\b|\s-f\b)/i,
-	// Force-push via a `+` refspec (e.g. `git push origin +master`): a leading `+` on the
-	// refspec force-updates the remote ref WITHOUT any --force/-f flag, so the flag-based
-	// pattern above misses it. The `\s\+\S` anchors on a whitespace-led `+<ref>` token.
+	// Push forzado vía refspec `+` (ej. `git push origin +master`): un `+` inicial en el
+	// refspec fuerza el update del ref remoto sin flag --force/-f, así que el patrón
+	// por flag de arriba no lo ve. `\s\+\S` ancla en un token `+<ref>` tras whitespace.
 	/\bgit\b[^\n]*\bpush\b[^\n]*\s\+[^\s]/i,
-	// Destructive remote pushes that carry NO force flag: `--delete`/`--mirror`/`--prune`
-	// (delete or rewrite remote refs) and the empty-source colon refspec `origin :branch`
-	// (deletes the remote branch). A leading-whitespace colon `\s:\S` avoids matching the
-	// `host:repo`/`main:refs/...` colons in ordinary push URLs and ref mappings.
+	// Pushes remotos destructivos sin flag force: `--delete`/`--mirror`/`--prune`
+	// (borran o reescriben refs remotos) y el refspec con origen vacío `origin :branch`
+	// (borra la rama remota). El colon tras whitespace `\s:\S` evita matchear colons de
+	// `host:repo`/`main:refs/...` en URLs de push y mappings de refs normales.
 	/\bgit\b[^\n]*\bpush\b[^\n]*(--delete\b|--mirror\b|--prune\b)/i,
 	/\bgit\b[^\n]*\bpush\b[^\n]*\s:\S/i,
 	/\bgit\b[^\n]*\breset\b[^\n]*--hard\b/i,
 	/\bgit\b[^\n]*\bclean\b[^\n]*\s-[a-z]*f/i,
-	// git checkout -f / --force discards uncommitted working-tree changes (no reflog for
-	// them) — same irreversible-working-tree-loss class as reset --hard.
+	// git checkout -f / --force descarta cambios del working-tree sin commit (sin reflog
+	// para ellos): misma clase de pérdida irreversible de working-tree que reset --hard.
 	/\bgit\b[^\n]*\bcheckout\b[^\n]*\s(?:-f\b|--force\b)/i,
-	// git history rewrite (filter-branch) and stash destruction (stash clear/drop) are
-	// irreversible — same destructive-git family as reset --hard / clean -fd above.
+	// Reescritura de historia git (filter-branch) y destrucción de stash (stash clear/drop)
+	// son irreversibles: misma familia git destructiva que reset --hard / clean -fd arriba.
 	/\bgit\b[^\n]*\bfilter-branch\b/i,
 	/\bgit\b[^\n]*\bstash\b[^\n]*\b(clear|drop)\b/i,
 	/\bdrop\s+(table|database|schema|tablespace|owned)\b/i,
@@ -112,47 +115,47 @@ export const DESTRUCTIVE_BASH_PATTERNS: RegExp[] = [
 	/\bhelm\b[^\n]*\b(upgrade|install|uninstall|delete|rollback)\b/i,
 	/\bdd\b[^\n]*\bif=|\bdd\b[^\n]*\bof=/i,
 	/\bmkfs(\.\w+)?\b/i,
-	// mkfs aliases / other filesystem-format tools that reformat a device.
+	// Alias de mkfs / otras tools de formato de filesystem que reformatean un device.
 	/\b(mke2fs|mkdosfs|mkntfs|mkswap|newfs)\b/i,
 ];
 
-/** Is this bash command in the destructive allowlist? */
+/** ¿Este comando bash está en la lista destructiva? */
 export function isDestructiveBash(command: string): boolean {
 	return DESTRUCTIVE_BASH_PATTERNS.some((re) => re.test(command));
 }
 
-// Shell redirections that WRITE a file (>, >>, the `>|` clobber-override form, optionally
-// fd-prefixed like 2>log), capturing the target path. Excludes fd-dups (>&, 2>&1) and the
-// operators ->, =>, >= which are not redirections. The `\|?` after `>>?` catches `>|`/`>>|`,
-// which set noclobber-override and otherwise slip past (the `|` is not a valid target char).
+// Redirecciones de shell que escriben un archivo (>, >>, forma clobber-override `>|`,
+// opcionalmente con fd como 2>log), capturando la ruta target. Excluye fd-dups (>&, 2>&1)
+// y operadores ->, =>, >= que no son redirecciones. El `\|?` tras `>>?` atrapa `>|`/`>>|`,
+// que activan noclobber-override y si no pasarían (el `|` no es char válido de target).
 export const REDIRECT_TARGET_RE = /(?:^|[^&>=\d-])\d*>>?\|?\s*(?![&>=])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
-// `&>` / `&>>` redirect BOTH stdout+stderr to a file (bash). REDIRECT_TARGET_RE deliberately
-// rejects a `&` immediately before `>` (to skip fd-dups like 2>&1 / >&2), so the combined-
-// redirect operator needs its own pattern: `&` at a command-ish position, then `>`/`>>`.
+// `&>` / `&>>` redirigen stdout+stderr a un archivo (bash). REDIRECT_TARGET_RE rechaza
+// a propósito un `&` justo antes de `>` (para saltar fd-dups como 2>&1 / >&2), así que el
+// operador de redirección combinada necesita patrón propio: `&` en posición de comando, luego `>`/`>>`.
 export const AMP_REDIRECT_TARGET_RE = /(?:^|[\s;|&(])&>>?\s*(?![&>=])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
-// `>&file` / `N>&file` is the `>`-first spelling of the combined redirect: bash sends BOTH
-// streams to <file> when the word after `>&` is not a number/`-` (a number/`-` is an fd-dup
-// or close: 2>&1, >&2, >&-). AMP_REDIRECT_TARGET_RE only matches the `&`-first `&>` form, so
-// this mirror needs its own pattern; the `(?![-\d&])` guard preserves the fd-dup exclusions.
+// `>&file` / `N>&file` es la forma con `>` primero de la redirección combinada: bash envía ambos
+// streams a <file> cuando la palabra tras `>&` no es número/`-` (número/`-` es fd-dup o close:
+// 2>&1, >&2, >&-). AMP_REDIRECT_TARGET_RE solo matchea la forma `&>` con `&` primero, así que
+// este espejo necesita patrón propio; el guard `(?![-\d&])` preserva exclusiones fd-dup.
 export const GT_AMP_REDIRECT_TARGET_RE = /(?:^|[^&>=\d-])\d*>&\s*(?![-\d&])("[^"]*"|'[^']*'|[^\s|&;<>]+)/g;
-// `tee [flags] <file...>` writes EVERY positional file. Capture the whole post-`tee`
-// argument run so unsafeBashWriteTarget can check each target, not just the first (a
-// single-capture regex let `tee build/ok.log /etc/evil` slip its second target past).
+// `tee [flags] <file...>` escribe cada archivo posicional. Captura toda la corrida de argumentos
+// tras `tee` para que unsafeBashWriteTarget revise cada target, no solo el primero (una regex de
+// una captura dejaba pasar el segundo target de `tee build/ok.log /etc/evil`).
 export const TEE_ARGS_RE = /\btee\b((?:\s+(?:-\S+|"[^"]*"|'[^']*'|[^\s|&;<>]+))+)/gi;
-// `cd`/`pushd` at COMMAND position (start, or after a ;/&&/||/|/newline/`(` separator),
-// capturing the optional directory operand. A bare `cd` (no operand) goes to $HOME.
+// `cd`/`pushd` en posición de comando (inicio, o tras separador ;/&&/||/|/newline/`(`),
+// capturando el operando de directorio opcional. Un `cd` suelto (sin operando) va a $HOME.
 export const CD_TARGET_RE = /(?:^|[;&|\n(])[ \t]*(?:cd|pushd)\b[ \t]*("[^"]*"|'[^']*'|[^\s|&;<>]+)?/gi;
 
-// Does the command `cd`/`pushd` into a directory we cannot prove stays inside the
-// project? If so, any RELATIVE redirect/tee target is no longer provably in-project.
-// A bare `cd`, `cd -`, `cd ~`, `cd ..`, `cd /abs-outside`, or `cd $VAR` all qualify.
+// ¿El comando hace `cd`/`pushd` a un directorio que no podemos probar dentro del proyecto?
+// Si sí, todo target RELATIVO de redirect/tee ya no es demostrablemente in-project.
+// Un `cd`, `cd -`, `cd ~`, `cd ..`, `cd /abs-outside` o `cd $VAR` califican.
 export function commandChangesToUnsafeDir(ctx: ExtensionContext, command: string): boolean {
 	for (const m of command.matchAll(CD_TARGET_RE)) {
 		const raw = m[1];
-		if (raw === undefined) return true; // bare `cd` -> $HOME (outside the project)
+		if (raw === undefined) return true; // `cd` suelto -> $HOME (fuera del proyecto)
 		const dir = unquote(raw);
-		if (dir === "" || dir === "-") return true; // `cd -` returns to an unknown previous dir
-		if (isUnsafeWritePath(ctx, dir)) return true; // absolute-outside, .., leading ~, or $VAR
+		if (dir === "" || dir === "-") return true; // `cd -` vuelve a un dir previo desconocido
+		if (isUnsafeWritePath(ctx, dir)) return true; // absolute-outside, .., ~ inicial o $VAR
 	}
 	return false;
 }
@@ -167,14 +170,14 @@ export function unquote(value: string): string {
 	return value;
 }
 
-// Return the first shell redirect/tee target that writes OUTSIDE the project, so a
-// bash command cannot evade the same out-of-project guard applied to write/edit.
+// Devuelve el primer target de redirect/tee de shell que escribe FUERA del proyecto, para que
+// un comando bash no evada la misma guardia fuera-del-proyecto aplicada a write/edit.
 export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): string | undefined {
 	const targets: string[] = [];
 	for (const re of [REDIRECT_TARGET_RE, AMP_REDIRECT_TARGET_RE, GT_AMP_REDIRECT_TARGET_RE]) {
 		for (const m of command.matchAll(re)) if (m[1]) targets.push(unquote(m[1]));
 	}
-	// `tee` may list several files; check every non-flag token in its argument run.
+	// `tee` puede listar varios archivos; revisar cada token no-flag en sus argumentos.
 	for (const m of command.matchAll(TEE_ARGS_RE)) {
 		if (!m[1]) continue;
 		for (const tok of m[1].trim().split(/\s+/)) {
@@ -184,53 +187,51 @@ export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): s
 	}
 	const leftProject = commandChangesToUnsafeDir(ctx, command);
 	for (const target of targets) {
-		if (target.startsWith("/dev/")) continue; // /dev/null and friends are not real writes
+		if (target.startsWith("/dev/")) continue; // /dev/null y similares no son escrituras reales
 		if (isUnsafeWritePath(ctx, target)) return target;
-		// After a `cd` outside the project, a relative target resolves outside too.
+		// Tras un `cd` fuera del proyecto, un target relativo también resuelve afuera.
 		if (leftProject && !path.isAbsolute(target)) return target;
 	}
 	return undefined;
 }
 
-/** Is this write/edit path unsafe (outside the trusted project cwd, or escaping via "..")? */
+/** ¿Esta ruta write/edit es insegura (fuera del cwd confiable del proyecto, o escapa vía "..")? */
 export function isUnsafeWritePath(ctx: ExtensionContext, filePath: unknown): boolean {
 	if (typeof filePath !== "string" || filePath.length === 0) return false;
-	// Drop shell backslash-escapes first: `> \/etc/x` reaches here as `\/etc/x`, which
-	// path.normalize treats as a NON-absolute name (it does not start with `/`) and would
-	// wave through. Unescaping restores the real `/etc/x` so the absolute-outside check fires.
+	// Quitar primero escapes backslash de shell: `> \/etc/x` llega como `\/etc/x`, que
+	// path.normalize trata como nombre no absoluto (no empieza con `/`) y dejaría pasar.
+	// Desescapar restaura el `/etc/x` real para disparar el chequeo absolute-outside.
 	const p = filePath.replace(/\\(.)/g, "$1");
-	// A leading ~ (home), an unexpanded shell variable ($VAR / ${VAR}), a command
-	// substitution ($(...) or `...`) cannot be proven to resolve inside the project: the
-	// shell expands them at runtime, path.normalize does not. Treat them as out-of-project
-	// rather than as innocuous relative names.
+	// Un ~ inicial (home), variable de shell sin expandir ($VAR / ${VAR}) o sustitución de
+	// comando ($(...) o `...`) no se puede probar dentro del proyecto: la shell expande eso
+	// en runtime, path.normalize no. Tratarlo como fuera-del-proyecto, no como relativo inocuo.
 	if (p.startsWith("~")) return true;
 	if (/\$[\w{(]/.test(p)) return true;
 	if (p.includes("`")) return true;
-	// Reject any path that climbs out of cwd via "..".
+	// Rechazar toda ruta que salga del cwd vía "..".
 	const normalized = path.normalize(p);
 	if (normalized.split(path.sep).includes("..")) return true;
 	if (path.isAbsolute(normalized)) {
 		const root = path.resolve(ctx.cwd);
 		const target = path.resolve(normalized);
-		// Outside cwd → unsafe. (Inside cwd → ordinary loop work, allowed.)
+		// Fuera de cwd -> inseguro. (Dentro de cwd -> trabajo normal del loop, permitido.)
 		return target !== root && !target.startsWith(root + path.sep);
 	}
-	// A relative path with no ".." resolves inside cwd → safe.
+	// Una ruta relativa sin ".." resuelve dentro de cwd -> segura.
 	return false;
 }
 
 /**
- * Decide whether an autopilot tool call is a gated destructive action. Returns a
- * human-readable reason when it should be gated, else undefined. Pure (no side effects)
- * so it is trivially testable.
+ * Decide si una llamada de tool autopilot es una acción destructiva gateada. Devuelve una
+ * razón legible cuando debe gatearse; si no, undefined. Pura (sin side effects), testeable.
  */
 export function destructiveReason(ctx: ExtensionContext, event: ToolCallEvent): string | undefined {
 	if (event.toolName === "bash") {
 		const rawCommand = (event.input as { command?: unknown }).command;
 		if (typeof rawCommand === "string") {
-			// Collapse backslash line-continuations to a space BEFORE matching: otherwise a
-			// command split across lines (`rm \\<newline> -rf d`) hides its flags from the
-			// [^\n]*-anchored patterns. This strengthens every pattern at once.
+			// Colapsar continuaciones de línea con backslash a espacio ANTES del match: si no,
+			// un comando partido en líneas (`rm \\<newline> -rf d`) oculta sus flags a patrones
+			// anclados con [^\n]*. Esto refuerza todos los patrones a la vez.
 			const command = rawCommand.replace(/\\\r?\n/g, " ");
 			if (isDestructiveBash(command)) {
 				return `autopilot bloqueó un comando de shell destructivo: ${command.slice(0, 200)}`;

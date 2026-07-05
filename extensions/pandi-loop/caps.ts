@@ -1,16 +1,17 @@
 /**
- * pandi-loop caps policy (pure). Decides whether a loop has hit a HARD cap (absolute
- * wall-clock deadline) or a best-effort budget cap (context-usage percent),
- * returning a human-readable stop-reason or undefined. No shared state, no FIFO,
- * no side effects — the scheduler (fireWake / drainWakeQueue / rehydrate / agent_end)
- * imports this and owns the imperative stop. Extracted from index.ts with the body
- * verbatim; only the loop parameter is decoupled from ActiveLoop into a structural
- * LoopCapsInput. Depth-one sibling imported via "./caps.js".
+ * Política de caps de pandi-loop (pura). Decide si un loop llegó a un cap HARD
+ * (deadline absoluto de wall-clock) o a un cap de presupuesto best-effort
+ * (porcentaje de context-usage), devolviendo una stop-reason legible para humanos o
+ * undefined. Sin estado compartido, sin FIFO, sin efectos secundarios: el scheduler
+ * (fireWake / drainWakeQueue / rehydrate / agent_end) importa esto y es dueño del
+ * stop imperativo. Extraído de index.ts con el cuerpo verbatim; solo el parámetro
+ * loop se desacopla de ActiveLoop a un LoopCapsInput estructural. Hermano de
+ * profundidad uno importado vía "./caps.js".
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-/** Structural subset of the loop state that capExceeded reads. ActiveLoop satisfies it. */
+/** Subconjunto estructural del estado del loop que capExceeded lee. ActiveLoop lo satisface. */
 export interface LoopCapsInput {
 	startedAt: number;
 	maxWallClockMs: number;
@@ -18,22 +19,24 @@ export interface LoopCapsInput {
 }
 
 /**
- * Caps gate (P1). Returns a stop-reason string if a hard cap (wall-clock deadline)
- * or a best-effort budget cap (context-usage percent) is exceeded, else undefined.
- * Checked BEFORE re-arming so a loop never schedules another iteration past a cap.
- * maxIterations stays a separate gate inside fireWake (unchanged from P0).
+ * Gate de caps (P1). Devuelve un string de stop-reason si se excede un hard cap
+ * (deadline de wall-clock) o un cap de presupuesto best-effort (porcentaje de
+ * context-usage); si no, undefined. Se chequea ANTES de rearmar para que un loop
+ * nunca programe otra iteración después de un cap. maxIterations sigue siendo un
+ * gate separado dentro de fireWake (sin cambios desde P0).
  */
 export function capExceeded(ctx: ExtensionContext, loop: LoopCapsInput): string | undefined {
-	// NOTE (accepted limitation): elapsed is WALL-CLOCK (Date.now() - startedAt), not a
-	// monotonic clock. This is deliberate — the deadline must survive process restarts ("6h
-	// from when the loop started"), which a per-process monotonic clock cannot do. A backward
-	// clock jump (NTP/DST) only DELAYS this soft cap by the jump magnitude; the
-	// clock-independent maxIterations gate (fireWake) stays the hard, monotonic backstop.
+	// NOTE (limitación aceptada): elapsed es WALL-CLOCK (Date.now() - startedAt), no un
+	// reloj monotónico. Esto es deliberado: el deadline debe sobrevivir reinicios del
+	// proceso ("6h desde que arrancó el loop"), algo que un reloj monotónico por proceso
+	// no puede hacer. Un salto hacia atrás del reloj (NTP/DST) solo retrasa este soft cap
+	// por la magnitud del salto; el gate maxIterations independiente del reloj (fireWake)
+	// sigue siendo el respaldo duro y monotónico.
 	const elapsed = Date.now() - loop.startedAt;
 	if (loop.maxWallClockMs > 0 && elapsed >= loop.maxWallClockMs) {
 		return `alcanzó el deadline de wall-clock (${Math.round(loop.maxWallClockMs / 60000)}m)`;
 	}
-	// Best-effort: getContextUsage may be unavailable (undefined) or unknown (percent null).
+	// De mejor esfuerzo: getContextUsage puede no estar disponible (undefined) o ser desconocido (percent null).
 	const usage = ctx.getContextUsage?.();
 	if (usage && usage.percent !== null && usage.percent >= loop.contextPercentCap) {
 		return `alcanzó el presupuesto de contexto (${Math.round(usage.percent)}% ≥ ${loop.contextPercentCap}%)`;

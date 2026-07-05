@@ -1,23 +1,23 @@
 /**
- * Behavioral integration test for the ULTRACODE posture of extensions/pandi-loop/index.ts.
+ * Prueba de integración de comportamiento para la postura ULTRACODE de extensions/pandi-loop/index.ts.
  *
- * `npm test` is a TYPECHECK only; it proves nothing about runtime behavior. This file pins
- * the observable contract of the `--ultracode` posture flag added to `/loop`:
- *   - `/loop --ultracode <task>` makes the re-injected ITERATION prompt carry the ULTRACODE
- *     guidance (lean on dynamic workflows), while a plain `/loop <task>` does NOT.
- *   - the flag is stripped from the task text and never mistaken for the trailing interval
- *     token (`--ultracode <task> 5m` keeps fixed cadence AND the posture).
- *   - the posture is persisted on the loop-state snapshot so it survives a reload.
+ * `npm test` es solo un TYPECHECK; no prueba nada sobre el comportamiento en runtime. Este archivo fija
+ * el contrato observable del flag de postura `--ultracode` agregado a `/loop`:
+ *   - `/loop --ultracode <task>` hace que el prompt ITERATION reinyectado lleve la guía ULTRACODE
+ *     (apoyarse en dynamic workflows), mientras que un `/loop <task>` simple NO.
+ *   - el flag se elimina del texto de la tarea y nunca se confunde con el token de intervalo final
+ *     (`--ultracode <task> 5m` conserva la cadencia fija Y la postura).
+ *   - la postura se persiste en el loop-state snapshot para que sobreviva una recarga.
  *
- * Mechanism: pandi-loop injects each iteration prompt via `pi.sendUserMessage`. We build the
- * CURRENT index.ts to ESM (same self-bootstrapping pattern as loop-behavior.test.mjs), drive
- * the REAL `/loop` command against a mocked pi/ctx, and capture sendUserMessage + the
- * persisted loop-state snapshots. We assert the OBSERVABLE prompt text and snapshot.
+ * Mecanismo: pandi-loop inyecta cada prompt de iteración vía `pi.sendUserMessage`. Construimos el
+ * index.ts ACTUAL a ESM (mismo patrón self-bootstrapping que loop-behavior.test.mjs), ejecutamos
+ * el comando REAL `/loop` contra un pi/ctx mockeado, y capturamos sendUserMessage + los
+ * snapshots loop-state persistidos. Afirmamos el texto OBSERVABLE del prompt y el snapshot.
  *
- * Run it:
+ * Ejecutarlo:
  *   node extensions/pandi-loop/tests/integration/loop-ultracode.test.mjs
  *
- * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
+ * Exit code 0 = todos los checks pasaron; 1 = falló un check de comportamiento; 2 = el harness crasheó.
  */
 
 import * as fs from "node:fs/promises";
@@ -85,7 +85,7 @@ function latestSnapshot(entries) {
 	return snap;
 }
 
-// Start a loop and capture the first injected iteration prompt (fireWake runs synchronously).
+// Inicia un loop y captura el primer prompt de iteración inyectado (fireWake corre sincrónicamente).
 async function startLoopAndCapture(loopUrl, args) {
 	const loopExtension = await loadDefault(loopUrl);
 	const ctx = makeCtx();
@@ -96,7 +96,7 @@ async function startLoopAndCapture(loopUrl, args) {
 }
 
 // ===========================================================================
-// SCENARIO 1: `--ultracode` injects the ULTRACODE guidance into the iteration prompt.
+// ESCENARIO 1: `--ultracode` inyecta la guía ULTRACODE en el prompt de iteración.
 // ===========================================================================
 async function ultracodeInjectsGuidance(loopUrl) {
 	const { sentMessages, entries } = await startLoopAndCapture(loopUrl, "--ultracode watch the build");
@@ -113,7 +113,7 @@ async function ultracodeInjectsGuidance(loopUrl) {
 }
 
 // ===========================================================================
-// SCENARIO 2: the flag is not mistaken for the trailing interval; fixed cadence survives.
+// ESCENARIO 2: el flag no se confunde con el intervalo final; la cadencia fija sobrevive.
 // ===========================================================================
 async function flagDoesNotEatInterval(loopUrl) {
 	const { sentMessages, entries } = await startLoopAndCapture(loopUrl, "--ultracode watch the build 5m");
@@ -127,7 +127,7 @@ async function flagDoesNotEatInterval(loopUrl) {
 }
 
 // ===========================================================================
-// SCENARIO 3: no flag → no ultracode wording, posture off (characterizes the default).
+// ESCENARIO 3: sin flag → sin texto ultracode, postura desactivada (caracteriza el default por omisión).
 // ===========================================================================
 async function defaultHasNoUltracode(loopUrl) {
 	const { sentMessages, entries } = await startLoopAndCapture(loopUrl, "watch the build");
