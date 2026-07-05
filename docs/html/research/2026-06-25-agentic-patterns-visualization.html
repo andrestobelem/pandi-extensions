@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -130,8 +141,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2>En 30 segundos</h2>
 <p>Sirve cuando el grafo te está ocultando la forma real del workflow. Usalo para distinguir rápido entre secuencia, fan-out, paralelismo y síntesis, y para comprobar que una etapa con muchos agentes no quedó aplastada en una sola flecha.</p>
 <h2>Cómo probarlo</h2>
-<pre><code class="language-bash">PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p &quot;/workflow graph generated/agentic-viz-patterns-research&quot;
-</code></pre>
+<pre><code class="hljs language-bash">PI_DYNAMIC_WORKFLOWS_PI_COMMAND=<span class="hljs-literal">true</span> pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p <span class="hljs-string">&quot;/workflow graph generated/agentic-viz-patterns-research&quot;</span></code></pre>
 <h2>Fuentes revisadas</h2>
 <p><strong>Documentación y frameworks:</strong></p>
 <ul>
@@ -209,9 +219,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <h2>Validación</h2>
 <p>Probá la implementación:</p>
-<pre><code class="language-bash">npm test
-./node_modules/.bin/mmdc -q -i /tmp/subgraph-id-edge.mmd -o /tmp/subgraph-id-edge.png -e png -t dark -b transparent -w 2600 -H 1800 -s 2
-</code></pre>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
+./node_modules/.bin/mmdc -q -i /tmp/subgraph-id-edge.mmd -o /tmp/subgraph-id-edge.png -e png -t dark -b transparent -w 2600 -H 1800 -s 2</code></pre>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

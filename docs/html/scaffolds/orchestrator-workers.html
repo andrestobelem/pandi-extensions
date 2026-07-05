@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -130,9 +141,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2>En 30 segundos</h2>
 <p>Es el patrón para cuando tenés un objetivo abierto (&quot;construí X&quot;, &quot;investigá Y&quot;) y no sabés de antemano en qué subtareas se descompone ni qué depende de qué. Un orquestador (LLM) decide en tiempo de ejecución el plan — subtareas más un grafo de dependencias — y luego los workers lo ejecutan por niveles: primero las subtareas sin dependencias pendientes, en paralelo, y así sucesivamente hasta vaciar el grafo. Un integrator final fusiona todo en un único entregable. Elegilo cuando la forma del trabajo (cuántas partes, cómo se relacionan) es parte de lo que hay que descubrir, no algo que vos ya conocés de antemano.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=orchestrator-workers
-/workflow run mi-run {&quot;goal&quot;:&quot;Diseñar e implementar un sistema de notificaciones por email&quot;,&quot;maxSubtasks&quot;:6,&quot;concurrency&quot;:3}
-</code></pre>
+<pre><code class="hljs language-text">/workflow new mi-run --pattern=orchestrator-workers
+/workflow run mi-run {&quot;goal&quot;:&quot;Diseñar e implementar un sistema de notificaciones por email&quot;,&quot;maxSubtasks&quot;:6,&quot;concurrency&quot;:3}</code></pre>
 <p><code>goal</code> es el único campo obligatorio (aliases: <code>task</code>, <code>text</code>). <code>context</code> agrega trasfondo compartido para planner y workers; <code>maxSubtasks</code> y <code>concurrency</code> acotan el ancho del plan y del fan-out por nivel — ver la tabla en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD

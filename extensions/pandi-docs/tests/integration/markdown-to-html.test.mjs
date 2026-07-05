@@ -82,8 +82,23 @@ test("maps GitHub alerts to pandi callouts and strips the marker", () => {
 
 test("escapes HTML inside code fences", () => {
 	const html = renderMarkdownToHtml('# T\n\n```html\n<script>alert("x")</script>\n```\n', {});
-	assert.match(html, /&lt;script&gt;/);
-	assert.doesNotMatch(html, /<script>alert/);
+	assert.match(html, /&lt;/);
+	assert.match(html, /script/);
+	assert.doesNotMatch(html, /<script\b/i);
+	assert.doesNotMatch(html, /<\/script>/i);
+});
+
+test("code fences are syntax-highlighted at render time with the pandi palette", () => {
+	const html = renderMarkdownToHtml(
+		"# T\n\n```js\nexport default async function main() {\n\tconst ok = true;\n}\n```\n",
+		{},
+	);
+	assert.match(html, /class="hljs language-js"/);
+	assert.match(html, /class="hljs-keyword">export<\/span>/);
+	assert.match(html, /class="hljs-title function_">main<\/span>/);
+	assert.match(html, /\.hljs-keyword[^}]*var\(--accent\)/);
+	assert.match(html, /\.hljs-title[^}]*var\(--info\)/);
+	assert.doesNotMatch(html, /highlight\.min\.js/);
 });
 
 test("mermaid fences become pandi-themed diagrams; plain docs stay JS-free", () => {

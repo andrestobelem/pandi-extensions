@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -130,9 +141,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2>En 30 segundos</h2>
 <p>Es el patrón para barrer un repo en busca de bugs sin saber de antemano qué archivos importan. Un scout descubre los archivos candidatos con <code>git ls-files</code> filtrado por regex, un revisor independiente inspecciona cada archivo en paralelo, y un juez final deduplica y prioriza los hallazgos citando evidencia. Elegilo para una auditoría amplia o un barrido pre-review; no lo uses cuando necesitás confirmar que un bug puntual es real (para eso está <code>bug-verify</code>, que reproduce y prueba).</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=repo-bug-hunt
-/workflow run mi-run {&quot;maxFiles&quot;: 30, &quot;lens&quot;: &quot;security&quot;}
-</code></pre>
+<pre><code class="hljs language-text">/workflow new mi-run --pattern=repo-bug-hunt
+/workflow run mi-run {&quot;maxFiles&quot;: 30, &quot;lens&quot;: &quot;security&quot;}</code></pre>
 <p>Todos los campos de <code>input</code> son opcionales; con <code>{}</code> corre sobre archivos de código (<code>pattern: &quot;code&quot;</code>) con hasta 40 archivos y lente genérica de bugs. Ver la tabla en <a href="#input-y-output">Input y output</a> para el resto de los defaults.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD

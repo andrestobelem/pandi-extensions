@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -134,9 +145,8 @@ en una cadencia acotada sin ninguna noción de &quot;finished&quot;. Usá <code>
 podés escribir un criterio de éxito verificable; usá <code>/loop</code> para trabajo de
 monitoreo o polling sin estado final claro.</p>
 <h2>En 30 segundos</h2>
-<pre><code class="language-bash">/goal migrate tests to vitest -- all tests pass; no jest imports remain
-/loop watch the deploy and report when it stabilizes
-</code></pre>
+<pre><code class="hljs language-bash">/goal migrate tests to vitest -- all tests pass; no jest imports remain
+/loop watch the deploy and report when it stabilizes</code></pre>
 <p>Esta guía convierte la
 <a href="research/2026-06-28-loop-engineering.html">investigación sobre loop engineering</a>
 en uso concreto: la investigación explica <em>qué</em> es loop engineering y <em>por qué</em>
@@ -195,11 +205,10 @@ solo de lectura</strong> que emite <code>VERDICT: PASS | FAIL</code>. Solo un <c
 cierra el goal (<code>extensions/pandi-goal/index.ts:264-271</code>). Esta es la respuesta
 arquitectónica directa del repo al resultado de que la autocorrección no es
 confiable.</p>
-<pre><code class="language-bash"># Objetivo -- criterios de éxito después de `--`
+<pre><code class="hljs language-bash"><span class="hljs-comment"># Objetivo -- criterios de éxito después de `--`</span>
 /goal migrate tests to vitest -- all tests pass; no jest imports remain
 /goal status
-/goal stop
-</code></pre>
+/goal stop</code></pre>
 <p>Guardrails que heredás gratis:</p>
 <ul>
 <li>Nunca hay loop infinito; hay rondas y topes acotados (<code>extensions/pandi-goal/index.ts:157-159</code>, el guard <code>goal.iteration &gt;= goal.maxIterations</code>).</li>
@@ -212,17 +221,16 @@ polling, autopilot. El modelo propone un delay de wake; la extensión <strong>lo
 a una banda segura de <code>[60, 3600]s</code> para que un valor malo nunca desestabilice
 el loop (<code>extensions/pandi-loop/index.ts:115-116</code> para las constantes,
 <code>:1249-1251</code> para el clamp).</p>
-<pre><code class="language-bash"># Cadencia fija (el último token es el intervalo)
+<pre><code class="hljs language-bash"><span class="hljs-comment"># Cadencia fija (el último token es el intervalo)</span>
 /loop check whether CI went green 10m
 
-# Cadencia dinámica (el modelo elige el delay; se limita)
+<span class="hljs-comment"># Cadencia dinámica (el modelo elige el delay; se limita)</span>
 /loop watch the deploy and report when it stabilizes
 
-# Loop autónomo confiado (requiere /trust primero)
-/loop auto keep the docs index in sync with docs/ 1h
+<span class="hljs-comment"># Loop autónomo confiado (requiere /trust primero)</span>
+/loop auto keep the docs index <span class="hljs-keyword">in</span> <span class="hljs-built_in">sync</span> with docs/ 1h
 
-/loop status   /loop pause   /loop resume   /loop stop
-</code></pre>
+/loop status   /loop pause   /loop resume   /loop stop</code></pre>
 <p>Elegí la cadencia con intención:</p>
 <ul>
 <li>Poll corto (<code>&lt; 300s</code>, nunca exactamente 300) para estado externo rápido (CI,
@@ -243,8 +251,7 @@ a nivel repo), usá el scaffold <code>loop-until-dry</code>. Ejecuta finders en 
 cada ronda y se detiene cuando <strong>no aparecen hallazgos nuevos durante
 <code>quietRounds</code> rondas consecutivas</strong>: un detector de settle-to-tolerance, no un
 flip de quietud transitoria.</p>
-<pre><code class="language-bash">/workflow run loop-until-dry {&quot;target&quot;:&quot;all places we parse SSE chunks&quot;,&quot;quietRounds&quot;:2,&quot;maxRounds&quot;:8}
-</code></pre>
+<pre><code class="hljs language-bash">/workflow run loop-until-dry {<span class="hljs-string">&quot;target&quot;</span>:<span class="hljs-string">&quot;all places we parse SSE chunks&quot;</span>,<span class="hljs-string">&quot;quietRounds&quot;</span>:2,<span class="hljs-string">&quot;maxRounds&quot;</span>:8}</code></pre>
 <ul>
 <li><code>quietRounds</code> (por defecto 2) es un debounce/deadband, no un punto fijo
 probado.</li>
@@ -258,10 +265,9 @@ precise qué significa &quot;done&quot;. Corre una revisión pequeña y de solo 
 contrato de tarea y emite <code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>,
 <code>nonGoals</code>, <code>routingHints</code>, <code>verificationPlan</code> y <code>blockers</code> — así el loop
 optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
-<pre><code class="language-bash">/effort ultracode          # request xhigh + enable always-on routing
-/ultracode-contract off    # disable the Contract Gate for this session
-/ultracode-mode off        # turn the router off (lowering effort does not)
-</code></pre>
+<pre><code class="hljs language-bash">/effort ultracode          <span class="hljs-comment"># request xhigh + enable always-on routing</span>
+/ultracode-contract off    <span class="hljs-comment"># disable the Contract Gate for this session</span>
+/ultracode-mode off        <span class="hljs-comment"># turn the router off (lowering effort does not)</span></code></pre>
 <h2>Los ocho principios → perillas que controlás</h2>
 <table>
 <thead>
@@ -314,13 +320,11 @@ optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
 </tbody></table>
 <h2>Recetas</h2>
 <p>Ejecutá trabajos distintos en paralelo (no se componen — ver abajo):</p>
-<pre><code class="language-bash">/goal implement feature X -- criteria ...   # itera hasta quedar verificado
-/loop watch the X deploy 5m                 # repite en una cadencia
-</code></pre>
+<pre><code class="hljs language-bash">/goal implement feature X -- criteria ...   <span class="hljs-comment"># itera hasta quedar verificado</span>
+/loop watch the X deploy 5m                 <span class="hljs-comment"># repite en una cadencia</span></code></pre>
 <p>Manejá cada uno por separado — mantienen estado e IDs distintos:</p>
-<pre><code class="language-bash">/goal status     /goal stop [id]
-/loop status     /loop pause [id]   /loop resume [id]   /loop stop [id]
-</code></pre>
+<pre><code class="hljs language-bash">/goal status     /goal stop [<span class="hljs-built_in">id</span>]
+/loop status     /loop pause [<span class="hljs-built_in">id</span>]   /loop resume [<span class="hljs-built_in">id</span>]   /loop stop [<span class="hljs-built_in">id</span>]</code></pre>
 <h2>Anti-patrones</h2>
 <ul>
 <li><strong>No</strong> uses <code>/loop</code> en una tarea que tenga un <code>done</code> verificable; para eso es

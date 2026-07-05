@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -130,9 +141,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2>En 30 segundos</h2>
 <p><code>tree-of-thoughts</code> explora un árbol de soluciones parciales en vez de elegir una sola respuesta de una vez. En cada nivel expande cada nodo vivo en <code>branching</code> hijos, los puntúa con un juez (<code>schema: SCORE</code>) y conserva solo los <code>beam</code> mejores. Úsalo cuando hay pasos intermedios evaluables y querés comparar caminos antes de comprometerte.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-tot --pattern=tree-of-thoughts
-/workflow run mi-tot &#39;{&quot;problem&quot;:&quot;Design the gate rollout in 4 staged steps.&quot;,&quot;branching&quot;:3,&quot;beam&quot;:2,&quot;depth&quot;:3}&#39;
-</code></pre>
+<pre><code class="hljs language-text">/workflow new mi-tot --pattern=tree-of-thoughts
+/workflow run mi-tot &#x27;{&quot;problem&quot;:&quot;Design the gate rollout in 4 staged steps.&quot;,&quot;branching&quot;:3,&quot;beam&quot;:2,&quot;depth&quot;:3}&#x27;</code></pre>
 <p><code>problem</code> es obligatorio; también acepta <code>question</code>, <code>text</code> o <code>task</code>. Ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD

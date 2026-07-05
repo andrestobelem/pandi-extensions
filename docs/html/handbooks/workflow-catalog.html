@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -126,8 +137,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<main>
 <p><strong>Fecha:</strong> 2026-07-01 | <strong>Estado:</strong> referencia durable | <strong>Alcance:</strong> 25 scaffolds de dynamic workflows en <code>pandi-dynamic-workflows</code></p>
 <p>Antes de escribir un workflow desde cero, mirá acá: este índice reúne todos los scaffolds integrados, agrupados por familia, para que elijas un patrón en vez de reinventarlo. La mayoría de las tareas no necesita nada de esto: una sola llamada a un agente gana en casi todo; usá un scaffold solo cuando necesites escala, exhaustividad o verificación independiente.</p>
-<pre><code class="language-text">dynamic_workflow action=scaffold name=fan-out-and-synthesize
-</code></pre>
+<pre><code class="hljs language-text">dynamic_workflow action=scaffold name=fan-out-and-synthesize</code></pre>
 <p>Este comando ejecuta el scaffold base o por defecto (ver su fila más abajo) — es lo que muestra <code>dynamic_workflow action=scaffold</code> y la pestaña <strong>Patterns</strong> cuando no elegís un patrón —, así podés ver la forma de una salida antes de subir a un patrón más grande.</p>
 <p><strong>Fuente de verdad (no mantengas esta lista a mano):</strong></p>
 <ul>

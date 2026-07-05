@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -131,31 +142,30 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Requisitos mínimos:</strong> Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales: <a href="setup.html"><code>docs/setup.md</code></a>.</li>
 </ul>
 <h2>Inicio rápido</h2>
-<pre><code class="language-bash"># 0. Node &gt;= 22.19.0 (se recomienda nvm; el repo trae .nvmrc)
+<pre><code class="hljs language-bash"><span class="hljs-comment"># 0. Node &gt;= 22.19.0 (se recomienda nvm; el repo trae .nvmrc)</span>
 nvm install &amp;&amp; nvm use
 
-# 1. Instalá el runtime de Pi globalmente
+<span class="hljs-comment"># 1. Instalá el runtime de Pi globalmente</span>
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 pi --version
 
-# 2. Cloná el repo e instalá el toolchain de desarrollo
-git clone https://github.com/andrestobelem/pandi-extensions.git
-cd pandi-extensions
+<span class="hljs-comment"># 2. Cloná el repo e instalá el toolchain de desarrollo</span>
+git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pandi-extensions.git
+<span class="hljs-built_in">cd</span> pandi-extensions
 npm install
 
-# 3. Verificá el entorno y luego corré el gate completo
+<span class="hljs-comment"># 3. Verificá el entorno y luego corré el gate completo</span>
 npm run doctor
-npm test
+npm <span class="hljs-built_in">test</span>
 
-# 4. Instalá TODAS las extensiones + skills en Pi (global para tu usuario)
-pi install ./                       # local al proyecto: pi install -l ./
+<span class="hljs-comment"># 4. Instalá TODAS las extensiones + skills en Pi (global para tu usuario)</span>
+pi install ./                       <span class="hljs-comment"># local al proyecto: pi install -l ./</span>
 
-# 5. Abrí Pi en tu proyecto, confiá en él y hacé un smoke test
-cd /your/project &amp;&amp; pi
-#   dentro de Pi:  /trust  y luego  /reload
-#   /effort status      (router de ultracode)
-#   /workflows          (dashboard TUI)  o  /workflow patterns
-</code></pre>
+<span class="hljs-comment"># 5. Abrí Pi en tu proyecto, confiá en él y hacé un smoke test</span>
+<span class="hljs-built_in">cd</span> /your/project &amp;&amp; pi
+<span class="hljs-comment">#   dentro de Pi:  /trust  y luego  /reload</span>
+<span class="hljs-comment">#   /effort status      (router de ultracode)</span>
+<span class="hljs-comment">#   /workflows          (dashboard TUI)  o  /workflow patterns</span></code></pre>
 <p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code>, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2>Cómo leer este repo</h2>
 <p>Este repo funciona como <strong>paquete instalable</strong> y como <strong>libro práctico</strong>. Elegí la ruta más chica que te lleve al próximo experimento verificable:</p>
@@ -231,16 +241,15 @@ cd /your/project &amp;&amp; pi
     D --&gt; E[workflow-factory]</pre>
 <h2>Dynamic Workflows en 60 segundos</h2>
 <p>Un Dynamic Workflow — el runtime del libro — es un <strong>script de JavaScript trusted</strong> que Pi ejecuta para orquestar trabajo grande con subagentes. El modelo mental es <strong>MapReduce con agentes</strong>: scoutear barato la lista real de trabajo, abrir ramas independientes con contratos de evidencia, persistir artifacts fuera del chat y dejar que una síntesis final haga deduplicación y priorización.</p>
-<pre><code class="language-js">export default async function main() {
-  const items = [
-    { label: &quot;a&quot;, prompt: &quot;Review src/a.ts&quot;, tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;], agentType: &quot;reviewer&quot; },
-    { label: &quot;b&quot;, prompt: &quot;Review src/b.ts&quot;, tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;], agentType: &quot;reviewer&quot; },
+<pre><code class="hljs language-js"><span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">main</span>(<span class="hljs-params"></span>) {
+  <span class="hljs-keyword">const</span> items = [
+    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;a&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Review src/a.ts&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
+    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;b&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Review src/b.ts&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
   ];
-  const reviews = await agents(items, { concurrency: 2, settle: true });
-  await writeArtifact(&quot;reviews.json&quot;, reviews);
-  return compact(reviews.filter(Boolean), 20000);
-}
-</code></pre>
+  <span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { <span class="hljs-attr">concurrency</span>: <span class="hljs-number">2</span>, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> });
+  <span class="hljs-keyword">await</span> <span class="hljs-title function_">writeArtifact</span>(<span class="hljs-string">&quot;reviews.json&quot;</span>, reviews);
+  <span class="hljs-keyword">return</span> <span class="hljs-title function_">compact</span>(reviews.<span class="hljs-title function_">filter</span>(<span class="hljs-title class_">Boolean</span>), <span class="hljs-number">20000</span>);
+}</code></pre>
 <p>Puntos clave:</p>
 <ul>
 <li><strong>Globals inyectados, sin imports</strong>: <code>agent</code>/<code>agents</code>, <code>pipeline</code>, <code>parallel</code>, <code>race</code>, <code>ask</code>, <code>workflow</code>, <code>bash</code>, <code>readFile</code>/<code>writeArtifact</code>, <code>log</code>, <code>compact</code>, más <code>args</code> y <code>limits</code> en modo read-only.</li>
@@ -404,7 +413,7 @@ cd /your/project &amp;&amp; pi
 <p><code>extensions/shared/</code> no es una extensión: es código de test harness; nunca se publica ni se carga. <code>extensions/pandi-theme/</code> tampoco envía código: es un package solo de temas (<code>pi.themes</code>) con las variantes <code>panda-syntax-dark</code>/<code>panda-syntax-light</code>, el compañero visual de <strong>pandi</strong>; se carga con <code>pi install ./</code> y se habilita vía <code>/settings</code> o <code>&quot;theme&quot;</code>.</p>
 </blockquote>
 <h2>Comandos de todos los días</h2>
-<pre><code class="language-text">/workflows                              # dashboard TUI (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
+<pre><code class="hljs language-text">/workflows                              # dashboard TUI (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
 /workflow run bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:6,&quot;maxAgents&quot;:16}
 /workflow view latest                   # timeline + artifacts de la corrida más reciente
 /workflow resume latest                 # retoma una corrida interrumpida sin reejecutar agentes terminados
@@ -414,8 +423,7 @@ cd /your/project &amp;&amp; pi
 /plan                                   # modo de plan read-only; las mutaciones esperan tu aprobación
 /loop fix the failing tests             # loop iterativo con cadencia dinámica
 /goal make npm test pass                # goal loop con verificación independiente
-/bg start npm test                      # background job humano de una sola vez (ver extensions/pandi-bg/README.md)
-</code></pre>
+/bg start npm test                      # background job humano de una sola vez (ver extensions/pandi-bg/README.md)</code></pre>
 <p>Algunas extensiones también exponen tools que <strong>Pi decide usar por su cuenta</strong> (no como slash commands humanos): <code>enter_plan_mode</code>/<code>submit_plan</code> (planificar antes de cambios riesgosos; solo vos aprobás), <code>remember</code> (persistir notas durables en <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code> y <code>goal_progress</code>. El README de cada extensión documenta su surface.</p>
 <h2>Documentación</h2>
 <p>El README raíz es la puerta de entrada; <code>docs/</code> es el libro completo; <code>docs/html/</code> es el espejo HTML navegable y generado por <code>npm run sync:docs:html</code>.</p>
@@ -429,8 +437,7 @@ cd /your/project &amp;&amp; pi
 <li><a href="extensions"><code>extensions/&lt;name&gt;/README.md</code></a> — documentación por extensión (por ejemplo <a href="extensions/pandi-dynamic-workflows/README.md"><code>pandi-dynamic-workflows</code></a>, <a href="extensions/pandi-bg/README.md"><code>pandi-bg</code></a>).</li>
 </ul>
 <h2>Verificación</h2>
-<pre><code class="language-bash">npm test
-</code></pre>
+<pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span></code></pre>
 <p>El gate corre, en este orden: <code>tsc</code> (typecheck de todas las extensiones), <code>biome check .</code> (lint + format de JS/TS/JSON), <code>markdownlint-cli2</code> (Markdown) y las suites de integración colocalizadas vía <code>scripts/test/run-all.mjs</code>. Verificá primero tu entorno con <code>npm run doctor</code>.</p>
 <h2>Seguimiento de issues</h2>
 <p>El trabajo se sigue en el GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pandi-extensions</a></strong> (board v2).</p>

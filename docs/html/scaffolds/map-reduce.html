@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -130,9 +141,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2>En 30 segundos</h2>
 <p>Es el patrón para cuando un corpus grande —un log enorme, cientos de tickets, un documento largo— no entra en una sola ventana de contexto. Un extractor barato procesa cada chunk por separado (MAP) y luego una serie de reducers va fusionando esos resultados en lotes, ronda tras ronda, hasta quedar en un único resumen (REDUCE jerárquico). Elegilo cuando el tamaño de entrada es el problema; si la lista de trabajo es chica, <code>fan-out-and-synthesize</code> suele ser más simple y más barato.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=map-reduce
-/workflow run mi-run {&quot;instruction&quot;:&quot;Extraé cada incidente reportado y su causa raíz&quot;,&quot;content&quot;:&quot;&lt;texto completo del log&gt;&quot;,&quot;chunkChars&quot;:6000,&quot;reduceBatch&quot;:4}
-</code></pre>
+<pre><code class="hljs language-text">/workflow new mi-run --pattern=map-reduce
+/workflow run mi-run {&quot;instruction&quot;:&quot;Extraé cada incidente reportado y su causa raíz&quot;,&quot;content&quot;:&quot;&lt;texto completo del log&gt;&quot;,&quot;chunkChars&quot;:6000,&quot;reduceBatch&quot;:4}</code></pre>
 <p><code>instruction</code> es el único campo obligatorio; <code>content</code> (string grande, se parte en chunks) o <code>items</code> (array ya pre-cortado) aportan el corpus. El resto de los campos de <code>input</code> tiene valores por defecto razonables — ver la tabla en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD

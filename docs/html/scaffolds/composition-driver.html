@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -135,11 +146,9 @@ reutilizable a un sub-workflow independiente (<code>verify-claims-lib</code>) co
 punta a punta, o cuando necesites exactamente descubrir → verificar → sintetizar
 sobre un texto.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-sh">/workflow new fact-check-sse --pattern=composition-driver
-</code></pre>
+<pre><code class="hljs language-sh">/workflow new fact-check-sse --pattern=composition-driver</code></pre>
 <p>Ejemplo mínimo de input:</p>
-<pre><code class="language-json">{ &quot;topic&quot;: &quot;claims en nuestro doc de paridad SSE&quot;, &quot;maxClaims&quot;: 8, &quot;skeptics&quot;: 3 }
-</code></pre>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;topic&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;claims en nuestro doc de paridad SSE&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;maxClaims&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;skeptics&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span> <span class="hljs-punctuation">}</span></code></pre>
 <p>Requiere que exista, junto a este scaffold, un workflow de proyecto o global
 llamado <code>verify-claims-lib</code> (ver <a href="verify-claims-lib.html">verify-claims-lib</a>).
 Si no está disponible, el workflow degrada en lugar de fallar.</p>

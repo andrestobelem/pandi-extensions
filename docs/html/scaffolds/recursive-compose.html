@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -131,15 +142,13 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><code>recursive-compose</code> no hace trabajo de dominio: encadena workflows existentes. Primero vuelve a pasar la tarea por el gate de Fase-0 (<code>contract-gate</code>) para re-scopearla; si el gate concluye que hace falta un dynamic workflow, despacha el scaffold recomendado con <code>router</code>.</p>
 <p>Elegilo cuando quieras ver o reutilizar el patrón “gate → compone recursivamente”. Es útil como referencia de profundidad acotada y de cómo propagar el <code>resourcePlan</code> del gate hacia una ejecución más profunda.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=recursive-compose
-</code></pre>
+<pre><code class="hljs language-text">/workflow new mi-run --pattern=recursive-compose</code></pre>
 <p>Input típico:</p>
-<pre><code class="language-json">{
-  &quot;task&quot;: &quot;audit + fix the SSE decoder&quot;,
-  &quot;context&quot;: &quot;opcional, texto libre&quot;,
-  &quot;args&quot;: { &quot;limit&quot;: 20 }
-}
-</code></pre>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;task&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;audit + fix the SSE decoder&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;context&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;opcional, texto libre&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;args&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span> <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
 <p><code>task</code> es obligatorio (alias: <code>request</code>, <code>text</code>). <code>args</code> se reenvía al workflow que termine despachado.</p>
 <p><strong>Runtime:</strong> este scaffold anida <code>workflow(...)</code>, así que necesita un runtime que permita profundidad ≥ 3 si se cuenta el nodo raíz como profundidad 1. En pi funciona con <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH &gt;= 3</code>; la cadena llega a profundidad 3. En la Workflow tool de Claude Code (profundidad 1), el segundo salto (<code>router</code> → scaffold elegido) dispara el guard de recursión; el código lo captura y devuelve <code>status: &quot;DEPTH_BLOCKED&quot;</code>.</p>
 <h2>Diagrama</h2>

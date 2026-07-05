@@ -15,6 +15,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import hljs from "highlight.js/lib/common";
 import { Marked } from "marked";
 
 const EXT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -49,9 +50,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -73,16 +85,29 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 `;
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const codeLanguage = (lang) => (lang || "").trim().split(/\s+/, 1)[0].toLowerCase();
+const classToken = (lang) => lang.replace(/[^A-Za-z0-9_-]/g, "-");
+
+function highlightCode(text, lang) {
+	const source = String(text ?? "");
+	if (lang && hljs.getLanguage(lang)) return hljs.highlight(source, { language: lang, ignoreIllegals: true }).value;
+	return escapeHtml(source);
+}
+
+function renderCodeBlock(token) {
+	const lang = codeLanguage(token.lang);
+	if (lang === "mermaid") return `<pre class="mermaid">${escapeHtml(token.text)}</pre>\n`;
+	const languageClass = lang ? ` language-${classToken(lang)}` : "";
+	return `<pre><code class="hljs${languageClass}">${highlightCode(token.text, lang)}</code></pre>\n`;
+}
 
 // Motor Markdown: GFM + un renderizador de código que convierte bloques ```mermaid en contenedores
-// de diagramas (mermaid lee textContent, así que el escape de entidades sigue siendo correcto y seguro).
+// de diagramas y resalta el resto de fences en build-time. Así los artifacts siguen siendo
+// autocontenidos: el HTML ya lleva los spans coloreables y no necesita runtime JS para código.
 const engine = new Marked({
 	gfm: true,
 	renderer: {
-		code(token) {
-			if ((token.lang || "").trim() === "mermaid") return `<pre class="mermaid">${escapeHtml(token.text)}</pre>\n`;
-			return false; // usa el renderizador de código por defecto
-		},
+		code: renderCodeBlock,
 	},
 });
 

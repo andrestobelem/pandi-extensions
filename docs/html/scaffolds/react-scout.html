@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -136,14 +147,12 @@ que el siguiente pensamiento debe usar. Elegilo cuando necesitás una
 investigación fundada en evidencia real (no en prosa suelta) antes de
 comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-bash">/workflow new mi-scout --pattern=react-scout
-</code></pre>
+<pre><code class="hljs language-bash">/workflow new mi-scout --pattern=react-scout</code></pre>
 <p>Entrada típica:</p>
-<pre><code class="language-json">{
-  &quot;question&quot;: &quot;¿Dónde el decodificador WASM recibe los bytes de entrada?&quot;,
-  &quot;maxSteps&quot;: 6
-}
-</code></pre>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;¿Dónde el decodificador WASM recibe los bytes de entrada?&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;maxSteps&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">6</span>
+<span class="hljs-punctuation">}</span></code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Entrada: question, maxSteps"]) --&gt; Loop{"step &lt; maxSteps and not done?"}

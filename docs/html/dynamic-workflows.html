@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -128,29 +139,27 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Esta es la referencia profunda de la extensión <code>pandi-dynamic-workflows</code>. El <a href="index.html"><code>README.md</code></a> raíz tiene el resumen corto, y <a href="../extensions/pandi-dynamic-workflows/README.md"><code>extensions/pandi-dynamic-workflows/README.md</code></a> documenta el paquete instalable.</p>
 <h2>En 30 segundos</h2>
 <p>Un workflow es un módulo JS cuyo export por defecto es una función <code>async</code>. Lee su entrada desde la global <code>args</code> y llama helpers inyectados (<code>agent</code>, <code>agents</code>, <code>log</code>, <code>writeArtifact</code>, …): no usa <code>import</code>/<code>require</code>, ni <code>ctx</code>.</p>
-<pre><code class="language-js">// .pi/workflows/drafts/review-two-files.js
-// The default export must NOT be named `workflow` (that shadows the composition
-// global). Use `main` — or a top-level script that ends in `return`.
-export default async function main() {
-  await log(&quot;start&quot;, { args });
+<pre><code class="hljs language-js"><span class="hljs-comment">// .pi/workflows/drafts/review-two-files.js</span>
+<span class="hljs-comment">// The default export must NOT be named `workflow` (that shadows the composition</span>
+<span class="hljs-comment">// global). Use `main` — or a top-level script that ends in `return`.</span>
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">main</span>(<span class="hljs-params"></span>) {
+  <span class="hljs-keyword">await</span> <span class="hljs-title function_">log</span>(<span class="hljs-string">&quot;start&quot;</span>, { args });
 
-  const items = [
-    { label: &quot;a&quot;, prompt: &quot;Review src/a.ts for bugs&quot;, tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;], agentType: &quot;reviewer&quot; },
-    { label: &quot;b&quot;, prompt: &quot;Review src/b.ts for bugs&quot;, tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;], agentType: &quot;reviewer&quot; },
+  <span class="hljs-keyword">const</span> items = [
+    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;a&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Review src/a.ts for bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
+    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;b&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Review src/b.ts for bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
   ];
 
-  const reviews = await agents(items, { concurrency: 2, settle: true }); // fan out; failures → null
-  const ok = reviews.filter(Boolean);
-  await log(&quot;done&quot;, { total: reviews.length, failed: reviews.length - ok.length });
+  <span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { <span class="hljs-attr">concurrency</span>: <span class="hljs-number">2</span>, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> }); <span class="hljs-comment">// fan out; failures → null</span>
+  <span class="hljs-keyword">const</span> ok = reviews.<span class="hljs-title function_">filter</span>(<span class="hljs-title class_">Boolean</span>);
+  <span class="hljs-keyword">await</span> <span class="hljs-title function_">log</span>(<span class="hljs-string">&quot;done&quot;</span>, { <span class="hljs-attr">total</span>: reviews.<span class="hljs-property">length</span>, <span class="hljs-attr">failed</span>: reviews.<span class="hljs-property">length</span> - ok.<span class="hljs-property">length</span> });
 
-  await writeArtifact(&quot;reviews.json&quot;, reviews); // persist outside the chat
-  return compact(ok, 20000); // truncated summary → result.json
-}
-</code></pre>
+  <span class="hljs-keyword">await</span> <span class="hljs-title function_">writeArtifact</span>(<span class="hljs-string">&quot;reviews.json&quot;</span>, reviews); <span class="hljs-comment">// persist outside the chat</span>
+  <span class="hljs-keyword">return</span> <span class="hljs-title function_">compact</span>(ok, <span class="hljs-number">20000</span>); <span class="hljs-comment">// truncated summary → result.json</span>
+}</code></pre>
 <p>Ejecutalo (en una sesión TUI/RPC persistente esto arranca en <strong>background</strong> y devuelve <code>runId</code> al instante):</p>
-<pre><code class="language-text">/workflow run review-two-files
-/workflow view latest
-</code></pre>
+<pre><code class="hljs language-text">/workflow run review-two-files
+/workflow view latest</code></pre>
 <p>Ese es todo el ciclo — <strong>explorar → fan out → sintetizar → persistir artifacts</strong>. El resto de esta guía solo completa los conceptos, la referencia de primitivas y los detalles operativos.</p>
 <h2>La forma típica</h2>
 <ul>
@@ -297,19 +306,18 @@ export default async function main() {
 <li><code>args</code> — la entrada del workflow; <code>limits</code> — límites efectivos de solo lectura del run (<code>concurrency</code>, <code>maxAgents</code>, timeouts).</li>
 </ul>
 <h3>Opciones comunes de subagentes</h3>
-<pre><code class="language-js">{
-  label: &quot;review-auth&quot;,
-  tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;],
-  skills: [&quot;/path/to/skill&quot;],
-  extensions: [&quot;/path/to/extension.ts&quot;],
-  keys: [&quot;GITHUB_TOKEN&quot;], // values redacted; missing keys stay visible in dashboard/artifacts
-  timeoutMs: 300000,
-  effort: &quot;high&quot;,
-  agentType: &quot;reviewer&quot;,
-  schema: { type: &quot;object&quot;, required: [&quot;verdict&quot;], properties: { verdict: { type: &quot;string&quot; } } },
-  schemaOnInvalid: &quot;throw&quot;
-}
-</code></pre>
+<pre><code class="hljs language-js">{
+  <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;review-auth&quot;</span>,
+  <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>],
+  <span class="hljs-attr">skills</span>: [<span class="hljs-string">&quot;/path/to/skill&quot;</span>],
+  <span class="hljs-attr">extensions</span>: [<span class="hljs-string">&quot;/path/to/extension.ts&quot;</span>],
+  <span class="hljs-attr">keys</span>: [<span class="hljs-string">&quot;GITHUB_TOKEN&quot;</span>], <span class="hljs-comment">// values redacted; missing keys stay visible in dashboard/artifacts</span>
+  <span class="hljs-attr">timeoutMs</span>: <span class="hljs-number">300000</span>,
+  <span class="hljs-attr">effort</span>: <span class="hljs-string">&quot;high&quot;</span>,
+  <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span>,
+  <span class="hljs-attr">schema</span>: { <span class="hljs-attr">type</span>: <span class="hljs-string">&quot;object&quot;</span>, <span class="hljs-attr">required</span>: [<span class="hljs-string">&quot;verdict&quot;</span>], <span class="hljs-attr">properties</span>: { <span class="hljs-attr">verdict</span>: { <span class="hljs-attr">type</span>: <span class="hljs-string">&quot;string&quot;</span> } } },
+  <span class="hljs-attr">schemaOnInvalid</span>: <span class="hljs-string">&quot;throw&quot;</span>
+}</code></pre>
 <h3>Acceso por agente</h3>
 <p><code>tools</code>/<code>excludeTools</code> limitan las tools de Pi; por defecto, los allowlists explícitos también reciben <code>web_search</code> cuando el paquete <code>pi-codex-web-search</code> está disponible (opt out: <code>includeExtensions: false</code> o <code>excludeTools: [&quot;web_search&quot;]</code>). <code>skills: [&quot;path/to/skill&quot;]</code> carga skills explícitas (<code>includeSkills: true</code> las agrega al discovery, <code>includeSkills: false</code> lo desactiva); el discovery normal mantiene <code>context7-cli</code> disponible, y si pasás una lista explícita de skills, Dynamic Workflows agrega <code>context7-cli</code> cuando lo encuentra (opt out: <code>includeSkills: false</code>). <code>extensions: [&quot;path/to/ext.ts&quot;]</code> carga extensiones explícitas (<code>includeExtensions: true</code> habilita discovery). <code>keys: [&quot;GITHUB_TOKEN&quot;]</code> expone solo esas variables de entorno al agente en un entorno aislado (los valores se redacted en artifacts/dashboard). Usá <code>env: { NAME: &quot;value&quot; }</code> solo para inyectar un valor explícito; nunca escribas secretos en prompts.</p>
 <h2>Concurrencia</h2>
@@ -357,22 +365,20 @@ export default async function main() {
 <td><code>1–2</code> (igual al conteo)</td>
 </tr>
 </tbody></table>
-<pre><code class="language-js">function chooseConcurrency(items, opts = {}) {
-  if (Number.isFinite(args?.concurrency)) {
-    return Math.min(Math.max(Math.floor(args.concurrency), 1), limits.concurrency);
+<pre><code class="hljs language-js"><span class="hljs-keyword">function</span> <span class="hljs-title function_">chooseConcurrency</span>(<span class="hljs-params">items, opts = {}</span>) {
+  <span class="hljs-keyword">if</span> (<span class="hljs-title class_">Number</span>.<span class="hljs-built_in">isFinite</span>(args?.<span class="hljs-property">concurrency</span>)) {
+    <span class="hljs-keyword">return</span> <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(<span class="hljs-title class_">Math</span>.<span class="hljs-title function_">max</span>(<span class="hljs-title class_">Math</span>.<span class="hljs-title function_">floor</span>(args.<span class="hljs-property">concurrency</span>), <span class="hljs-number">1</span>), limits.<span class="hljs-property">concurrency</span>);
   }
-  const count = items.length;
-  if (count &lt;= 1) return 1;
-  if (opts.sideEffects) return Math.min(2, count, limits.concurrency);
-  if (opts.expensiveModel) return Math.min(2, count, limits.concurrency);
-  if (opts.readOnlyAudit &amp;&amp; count &gt;= 30) return Math.min(8, count, limits.concurrency);
-  return Math.min(4, count, limits.concurrency);
-}
-</code></pre>
+  <span class="hljs-keyword">const</span> count = items.<span class="hljs-property">length</span>;
+  <span class="hljs-keyword">if</span> (count &lt;= <span class="hljs-number">1</span>) <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>;
+  <span class="hljs-keyword">if</span> (opts.<span class="hljs-property">sideEffects</span>) <span class="hljs-keyword">return</span> <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(<span class="hljs-number">2</span>, count, limits.<span class="hljs-property">concurrency</span>);
+  <span class="hljs-keyword">if</span> (opts.<span class="hljs-property">expensiveModel</span>) <span class="hljs-keyword">return</span> <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(<span class="hljs-number">2</span>, count, limits.<span class="hljs-property">concurrency</span>);
+  <span class="hljs-keyword">if</span> (opts.<span class="hljs-property">readOnlyAudit</span> &amp;&amp; count &gt;= <span class="hljs-number">30</span>) <span class="hljs-keyword">return</span> <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(<span class="hljs-number">8</span>, count, limits.<span class="hljs-property">concurrency</span>);
+  <span class="hljs-keyword">return</span> <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(<span class="hljs-number">4</span>, count, limits.<span class="hljs-property">concurrency</span>);
+}</code></pre>
 <p>Cómo se aplica:</p>
-<pre><code class="language-js">const concurrency = Math.min(args?.concurrency ?? limits.concurrency, limits.concurrency);
-const reviews = await agents(items, { concurrency, settle: true });
-</code></pre>
+<pre><code class="hljs language-js"><span class="hljs-keyword">const</span> concurrency = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(args?.<span class="hljs-property">concurrency</span> ?? limits.<span class="hljs-property">concurrency</span>, limits.<span class="hljs-property">concurrency</span>);
+<span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { concurrency, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> });</code></pre>
 <ul>
 <li><code>limits.concurrency</code> es el límite efectivo del run y es de solo lectura.</li>
 <li><code>agents(..., { concurrency })</code> vuelve a clamplear, así nunca supera el límite del run; <code>pipeline()</code> y <code>parallel()</code> también usan <code>limits.concurrency</code> como su límite local.</li>
@@ -380,14 +386,12 @@ const reviews = await agents(items, { concurrency, settle: true });
 </ul>
 <h2>Corridas en background</h2>
 <p>En una sesión TUI/RPC persistente, todos los workflows arrancan en background por defecto (<code>run</code>, <code>start</code> y <code>resume</code>):</p>
-<pre><code class="language-text">/workflow start bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:4,&quot;maxAgents&quot;:20}
+<pre><code class="hljs language-text">/workflow start bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:4,&quot;maxAgents&quot;:20}
 /workflow runs
 /workflow view &lt;runId&gt;
-/workflow cancel &lt;runId&gt;
-</code></pre>
+/workflow cancel &lt;runId&gt;</code></pre>
 <p>Desde la herramienta del modelo:</p>
-<pre><code class="language-json">{ &quot;action&quot;: &quot;start&quot;, &quot;name&quot;: &quot;bug-hunt&quot;, &quot;input&quot;: { &quot;maxFiles&quot;: 40 }, &quot;concurrency&quot;: 4, &quot;maxAgents&quot;: 20 }
-</code></pre>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;start&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;bug-hunt&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;input&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;maxFiles&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">40</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;concurrency&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">4</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;maxAgents&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span> <span class="hljs-punctuation">}</span></code></pre>
 <p>Notas:</p>
 <ul>
 <li><code>run</code>/<code>start</code> devuelven enseguida el <code>runId</code>, <code>status.json</code> y el directorio de artifacts en TUI/RPC.</li>
@@ -399,13 +403,11 @@ const reviews = await agents(items, { concurrency, settle: true });
 </ul>
 <h2>Corridas reanudables (idempotentes)</h2>
 <p>Cuando una corrida se interrumpe (la sesión de Pi murió y aparece <code>stale</code>, o terminó <code>failed</code>/<code>cancelled</code>), podés reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un <code>pi -p</code> caro):</p>
-<pre><code class="language-text">/workflow resume latest              # background by default in TUI/RPC
+<pre><code class="hljs language-text">/workflow resume latest              # background by default in TUI/RPC
 /workflow resume &lt;runId&gt;              # background by default in TUI/RPC
-/workflow resume &lt;runId&gt; --force       # even if the run is already completed
-</code></pre>
+/workflow resume &lt;runId&gt; --force       # even if the run is already completed</code></pre>
 <p>Desde la herramienta del modelo:</p>
-<pre><code class="language-json">{ &quot;action&quot;: &quot;resume&quot;, &quot;name&quot;: &quot;&lt;runId&gt;&quot;, &quot;force&quot;: false }
-</code></pre>
+<pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;resume&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;runId&gt;&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;force&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span> <span class="hljs-punctuation">}</span></code></pre>
 <p>Cómo funciona:</p>
 <ul>
 <li>La corrida se reanuda <strong>en el mismo lugar</strong>: mismo <code>runId</code>, mismo directorio. Estados reanudables: <code>stale</code>, <code>failed</code>, <code>cancelled</code>. Una corrida <code>completed</code> requiere <code>force:true</code>.</li>

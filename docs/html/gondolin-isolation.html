@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -130,9 +141,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>No forma parte del paquete publicado de este repo. Se mantiene opt-in porque depende de <code>@earendil-works/gondolin</code>, una dependencia nativa pesada y específica de plataforma que ensancharía el lockfile y solo funciona en unas pocas plataformas.</p>
 <h2>En 30 segundos</h2>
 <p>Usá Gondolin si querés que <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> corran dentro de una VM, pero sin cambiar cómo desarrollás o recargás extensiones.</p>
-<pre><code class="language-bash">npm run setup:gondolin
-pi -e .pi/tools/gondolin
-</code></pre>
+<pre><code class="hljs language-bash">npm run setup:gondolin
+pi -e .pi/tools/gondolin</code></pre>
 <p>Después, dentro de la sesión de pi, <code>!uname -a</code> debe devolver <strong>Linux</strong>.</p>
 <h2>Qué aísla y qué no</h2>
 <ul>
@@ -146,17 +156,14 @@ pi -e .pi/tools/gondolin
 <li>QEMU disponible (por ejemplo, <code>brew install qemu</code> en macOS).</li>
 </ul>
 <h2>Instalación</h2>
-<pre><code class="language-bash">npm run setup:gondolin
-</code></pre>
+<pre><code class="hljs language-bash">npm run setup:gondolin</code></pre>
 <p>Ese comando copia la extensión de ejemplo incluida en pi a <code>.pi/tools/gondolin</code> dentro de este repo y luego ejecuta <code>npm install --ignore-scripts</code> allí. La instalación va deliberadamente a <code>.pi/tools/</code> y no a <code>.pi/extensions/</code>, porque esta última ruta se autodetecta y levantaría una micro-VM en <strong>cada</strong> sesión de pi en este repo. <code>.pi/tools/</code> está ignorado por git, así que las dependencias nativas pesadas quedan fuera del control de versiones.</p>
 <p>La instalación con <code>--ignore-scripts</code> es la ruta recomendada upstream y sin scripts: el runner <code>krun</code> ya viene como binario precompilado y <code>ssh2</code> cae a JavaScript puro sin compilar <code>cpu-features</code> de forma opcional.</p>
 <h2>Uso</h2>
 <p>Desde la raíz de este repo:</p>
-<pre><code class="language-bash">pi -e .pi/tools/gondolin
-</code></pre>
+<pre><code class="hljs language-bash">pi -e .pi/tools/gondolin</code></pre>
 <p>Alias útil de shell:</p>
-<pre><code class="language-bash">alias pi-vm=&#39;pi -e .pi/tools/gondolin&#39;
-</code></pre>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">alias</span> pi-vm=<span class="hljs-string">&#x27;pi -e .pi/tools/gondolin&#x27;</span></code></pre>
 <h2>Verificación</h2>
 <p>Dentro de la sesión de pi:</p>
 <ul>

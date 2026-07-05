@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -150,17 +161,16 @@ remoto que usamos en desarrollo.</p>
 Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi.</li>
 </ul>
 <h2>Cómo aplicarlo</h2>
-<pre><code class="language-bash"># Backup de lo que tengas
-cp -a ~/.config/kitty ~/.config/kitty.bak 2&gt;/dev/null || true
+<pre><code class="hljs language-bash"><span class="hljs-comment"># Backup de lo que tengas</span>
+<span class="hljs-built_in">cp</span> -a ~/.config/kitty ~/.config/kitty.bak 2&gt;/dev/null || <span class="hljs-literal">true</span>
 
-mkdir -p ~/.config/kitty
-cp config/kitty/kitty.conf \
+<span class="hljs-built_in">mkdir</span> -p ~/.config/kitty
+<span class="hljs-built_in">cp</span> config/kitty/kitty.conf \
    config/kitty/current-theme.conf \
    config/kitty/light-theme.auto.conf \
    config/kitty/dark-theme.auto.conf \
    config/kitty/no-preference-theme.auto.conf \
-   ~/.config/kitty/
-</code></pre>
+   ~/.config/kitty/</code></pre>
 <p>Recargá la configuración con <code>ctrl+shift+F5</code> (o reiniciá kitty) y listo 🐼.</p>
 <h2>Qué hace cada ajuste</h2>
 <table>
@@ -264,13 +274,12 @@ cuando macOS cambia entre modo claro y oscuro — no hace falta ningún script.<
 <h2>Actualizar esta copia</h2>
 <p>Si cambiás algo en <code>~/.config/kitty/kitty.conf</code>, regenerá la versión activa y
 verificá que coincida:</p>
-<pre><code class="language-bash"># Ver los ajustes activos en vivo
-grep -vE &#39;^\s*#&#39; ~/.config/kitty/kitty.conf | grep -vE &#39;^\s*$&#39;
+<pre><code class="hljs language-bash"><span class="hljs-comment"># Ver los ajustes activos en vivo</span>
+grep -vE <span class="hljs-string">&#x27;^\s*#&#x27;</span> ~/.config/kitty/kitty.conf | grep -vE <span class="hljs-string">&#x27;^\s*$&#x27;</span>
 
-# Comparar con la copia del repo (vacío = idéntico)
-diff &lt;(grep -vE &#39;^\s*#&#39; config/kitty/kitty.conf         | grep -vE &#39;^\s*$&#39;) \
-     &lt;(grep -vE &#39;^\s*#&#39; ~/.config/kitty/kitty.conf       | grep -vE &#39;^\s*$&#39;)
-</code></pre>
+<span class="hljs-comment"># Comparar con la copia del repo (vacío = idéntico)</span>
+diff &lt;(grep -vE <span class="hljs-string">&#x27;^\s*#&#x27;</span> config/kitty/kitty.conf         | grep -vE <span class="hljs-string">&#x27;^\s*$&#x27;</span>) \
+     &lt;(grep -vE <span class="hljs-string">&#x27;^\s*#&#x27;</span> ~/.config/kitty/kitty.conf       | grep -vE <span class="hljs-string">&#x27;^\s*$&#x27;</span>)</code></pre>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

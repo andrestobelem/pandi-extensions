@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -130,9 +141,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2>En 30 segundos</h2>
 <p>Este scaffold sirve para descubrir un conjunto cuyo tamaño no conocés de antemano: un audit, un &quot;encontrá todos los call-sites de X&quot; o una búsqueda de edge-cases. En cada ronda, varios <code>finders</code> corren en paralelo desde ángulos distintos y solo agregan hallazgos nuevos. El loop termina cuando se acumulan K rondas quietas seguidas (ya se secó) o cuando llega a <code>maxRounds</code> (presupuesto agotado). Si el work-list ya está cerrado, usá <code>map-reduce</code> o <code>fan-out-and-synthesize</code> en su lugar.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=loop-until-dry
-/workflow run mi-run {&quot;target&quot;:&quot;todos los lugares donde parseamos chunks SSE&quot;,&quot;quietRounds&quot;:2,&quot;maxRounds&quot;:8}
-</code></pre>
+<pre><code class="hljs language-text">/workflow new mi-run --pattern=loop-until-dry
+/workflow run mi-run {&quot;target&quot;:&quot;todos los lugares donde parseamos chunks SSE&quot;,&quot;quietRounds&quot;:2,&quot;maxRounds&quot;:8}</code></pre>
 <p><code>target</code> es el único campo obligatorio (también acepta los alias <code>scope</code>/<code>task</code>); si falta, el scaffold lanza un error explícito. El resto de los campos tiene defaults — ver la tabla en <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD

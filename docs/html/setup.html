@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -127,11 +138,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Esta es la referencia <strong>exhaustiva</strong> de configuración de <code>pandi-extensions</code>: reúne requisitos obligatorios y opcionales, variables de entorno y canales de distribución. Si recién clonaste el repo, mejor empezá por el <a href="index.html#inicio-r%C3%A1pido">Inicio rápido del README raíz</a> y volvé acá cuando necesites un detalle puntual: una variable, una capacidad opcional o qué canal de distribución conviene.</p>
 <h2>En 30 segundos</h2>
 <p>Si querés dejar una máquina lista rápido, estos cuatro comandos cubren el camino feliz:</p>
-<pre><code class="language-bash">nvm install &amp;&amp; nvm use                                             # Node &gt;= 22.19.0
-npm install -g --ignore-scripts @earendil-works/pi-coding-agent    # Pi CLI
-npm install &amp;&amp; npm run doctor                                      # toolchain + chequeo de entorno
-pi install ./                                                      # todas las extensiones + skills
-</code></pre>
+<pre><code class="hljs language-bash">nvm install &amp;&amp; nvm use                                             <span class="hljs-comment"># Node &gt;= 22.19.0</span>
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent    <span class="hljs-comment"># Pi CLI</span>
+npm install &amp;&amp; npm run doctor                                      <span class="hljs-comment"># toolchain + chequeo de entorno</span>
+pi install ./                                                      <span class="hljs-comment"># todas las extensiones + skills</span></code></pre>
 <p>Usá esta página cuando necesites decidir qué instalar, qué habilita cada dependencia opcional o cómo se distribuye el paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
 <h2>Requisitos</h2>
 <h3>Obligatorios</h3>
@@ -234,12 +244,11 @@ pi install ./                                                      # todas las e
 <p>Para usar los workflows del proyecto en <code>.pi/workflows/</code>, confiá el proyecto con <code>/trust</code> y reiniciá o ejecutá <code>/reload</code>.</p>
 <h3>Skill externo: karpathy-guidelines</h3>
 <p>El skill <code>karpathy-guidelines</code> <strong>no</strong> viene vendorizado en el repo; <code>AGENTS.md</code> espera que esté instalado. Traelo desde upstream a tus skills globales (Pi lee <code>~/.agents/skills</code>, Claude Code <code>~/.claude/skills</code>):</p>
-<pre><code class="language-bash">for d in ~/.agents/skills ~/.claude/skills; do
-  mkdir -p &quot;$d/karpathy-guidelines&quot;
+<pre><code class="hljs language-bash"><span class="hljs-keyword">for</span> d <span class="hljs-keyword">in</span> ~/.agents/skills ~/.claude/skills; <span class="hljs-keyword">do</span>
+  <span class="hljs-built_in">mkdir</span> -p <span class="hljs-string">&quot;<span class="hljs-variable">$d</span>/karpathy-guidelines&quot;</span>
   curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
-    -o &quot;$d/karpathy-guidelines/SKILL.md&quot;
-done
-</code></pre>
+    -o <span class="hljs-string">&quot;<span class="hljs-variable">$d</span>/karpathy-guidelines/SKILL.md&quot;</span>
+<span class="hljs-keyword">done</span></code></pre>
 <h3>Skills vendorizados</h3>
 <p>El paquete <code>pandi-dynamic-workflows</code> <strong>vendoriza sus propios skills</strong> (<code>ultracode</code>, <code>deep-research</code>, <code>default</code>) en <code>extensions/pandi-dynamic-workflows/skills/</code>, para que viajen cuando instalás solo esa extensión. Son un espejo generado del origen canónico en <code>.pi/skills/</code> (regenerar con <code>npm run sync:skills:vendor</code>; el test de paridad y <code>npm run doctor</code> detectan drift). Dentro del repo no se duplican: la entrada de esa extensión en <code>.pi/settings.json</code> filtra <code>skills: []</code> porque el repo ya los carga por auto-discovery desde <code>.pi/skills/</code>.</p>
 <h2>Capacidades opcionales en detalle</h2>
@@ -328,12 +337,11 @@ done
 <p>Cada <code>extensions/pandi-&lt;ext&gt;/package.json</code> lleva su identidad pública <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> para probar el tarball). El manifiesto raíz de <code>pi</code> se <strong>genera</strong> desde los subpackages (<code>npm run sync:manifest</code>); un test de paridad falla si hay drift. Horizonte: <strong>Pandi</strong> como distro sobre Pi (extensiones + theme + persona), no como un fork del CLI.</p>
 <h2>Estructura del repositorio (extensiones)</h2>
 <p>Cada extensión vive como un mini paquete npm bajo <code>extensions/&lt;name&gt;/</code>:</p>
-<pre><code class="language-text">extensions/&lt;name&gt;/
+<pre><code class="hljs language-text">extensions/&lt;name&gt;/
   index.ts              # entrypoint de Pi
   *.ts                  # helpers de runtime de esa extensión
   tests/unit/           # tests rápidos, cuando aplica
-  tests/integration/    # suites durables de comportamiento
-</code></pre>
+  tests/integration/    # suites durables de comportamiento</code></pre>
 <p><code>package.json</code> publica solo archivos de runtime con <code>files: [&quot;extensions/*/*.ts&quot;, ...]</code>, así que los tests quedan cerca del código pero fuera del tarball npm. <code>pi.extensions</code> lista explícitamente los entrypoints cargados por defecto; las extensiones opcionales pueden seguir el mismo patrón y cargarse desde settings.</p>
 <p><code>extensions/pandi-local-memory/</code> carga la carpeta <code>.pi/memory/</code> cuando existe (inyecta el índice <code>MEMORY.md</code> con tope de 200 líneas/25 KB y lista archivos temáticos para lectura bajo demanda; cae al viejo <code>.pi/MEMORY.md</code>). La extensión viene con el paquete; el contenido de memoria queda privado y gitignored.</p>
 <h2>Troubleshooting</h2>

@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -137,8 +148,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>OKF es una especificación abierta en borrador para representar conocimiento en Markdown + YAML: un bundle portable, fácil de revisar en diffs y apto para humanos y agentes.
 Sirve cuando querés publicar contexto curado sobre tablas, métricas, runbooks o APIs sin depender de una plataforma central.
 Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real:</p>
-<pre><code class="language-bash">python -m reference_agent visualize --bundle ./bundles/ga4
-</code></pre>
+<pre><code class="hljs language-bash">python -m reference_agent visualize --bundle ./bundles/ga4</code></pre>
 <h2>1. Resumen ejecutivo</h2>
 <p>El <strong>Open Knowledge Format (OKF)</strong> es una <strong>especificación abierta en estado borrador (v0.1 — Draft)</strong> de Google Cloud para representar <em>conocimiento</em>: &quot;los metadatos, el contexto y la perspectiva curada que rodean a los datos y los sistemas&quot; (SPEC.md). Su tesis central es ser <strong>un formato, no una plataforma</strong>: &quot;un directorio de archivos markdown con frontmatter YAML. No hay registro de esquemas, ni autoridad central, ni herramientas obligatorias&quot; (SPEC.md).</p>
 <p>La propuesta de valor es que el conocimiento organizativo (definiciones de tablas, métricas, runbooks, descripciones de APIs, rutas de join) se vuelva <strong>legible, parseable, diffeable y portable</strong>: &quot;si puedes hacer <code>cat</code> a un archivo, puedes leer OKF; si puedes hacer <code>git clone</code> a un repo, puedes distribuirlo&quot; (README de OKF). Sirve como una <strong>capa durable de conocimiento/contexto</strong> que tanto humanos como agentes de IA pueden consumir, frente a otros artefactos del ecosistema agentico que resuelven capas distintas (descubrimiento de agentes, protocolos de runtime, instrucciones de repo).</p>
@@ -161,8 +171,8 @@ Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real
 </ul>
 <p>El layout de directorios es independiente del dominio: los productores organizan los conceptos como prefieran.</p>
 <p><strong>Layout mínimo (Apéndice A del SPEC, verificado y coincidente con el bundle <code>ga4</code> real):</strong></p>
-<pre><code>my_bundle/
-├── index.md            # único lugar donde se permite frontmatter okf_version: &quot;0.1&quot;
+<pre><code class="hljs">my_bundle/
+├── index.md            # único lugar donde se permite frontmatter okf_version: "0.1"
 ├── log.md              # opcional; historial con cabeceras de fecha ISO 8601
 ├── datasets/
 │   ├── index.md
@@ -170,8 +180,7 @@ Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real
 └── tables/
     ├── index.md
     ├── orders.md
-    └── customers.md
-</code></pre>
+    └── customers.md</code></pre>
 <h3>2.2 Documentos de concepto (§2, §4)</h3>
 <p>Un <strong>Concept</strong> es una unidad única de conocimiento = un archivo Markdown. El <strong>Concept ID</strong> es la ruta del archivo dentro del bundle sin el sufijo <code>.md</code> (p. ej., <code>tables/users.md</code> → <code>tables/users</code>).</p>
 <p>Cada concepto consta de: un bloque de <strong>frontmatter</strong> YAML (delimitado por <code>---</code>) y un <strong>cuerpo</strong> Markdown libre.</p>
@@ -217,40 +226,38 @@ Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real
 </tbody></table>
 <p><strong>Extensiones:</strong> los productores PUEDEN añadir claves arbitrarias; los consumidores DEBERÍAN preservar las claves desconocidas en round-trip y NO DEBEN rechazar documentos por campos no reconocidos.</p>
 <p><strong>Plantilla de frontmatter (§4.1, verbatim):</strong></p>
-<pre><code class="language-yaml">---
-type: &lt;Type name&gt;                  # REQUERIDO
-title: &lt;Optional display name&gt;
-description: &lt;Optional one-line summary&gt;
-resource: &lt;Optional canonical URI for the underlying asset&gt;
-tags: [&lt;tag&gt;, &lt;tag&gt;, …]            # Opcional
-timestamp: &lt;ISO 8601 datetime&gt;     # Opcional, última modificación
-# … otros pares clave/valor definidos por el productor
----
-</code></pre>
+<pre><code class="hljs language-yaml"><span class="hljs-meta">---</span>
+<span class="hljs-attr">type:</span> <span class="hljs-string">&lt;Type</span> <span class="hljs-string">name&gt;</span>                  <span class="hljs-comment"># REQUERIDO</span>
+<span class="hljs-attr">title:</span> <span class="hljs-string">&lt;Optional</span> <span class="hljs-string">display</span> <span class="hljs-string">name&gt;</span>
+<span class="hljs-attr">description:</span> <span class="hljs-string">&lt;Optional</span> <span class="hljs-string">one-line</span> <span class="hljs-string">summary&gt;</span>
+<span class="hljs-attr">resource:</span> <span class="hljs-string">&lt;Optional</span> <span class="hljs-string">canonical</span> <span class="hljs-string">URI</span> <span class="hljs-string">for</span> <span class="hljs-string">the</span> <span class="hljs-string">underlying</span> <span class="hljs-string">asset&gt;</span>
+<span class="hljs-attr">tags:</span> [<span class="hljs-string">&lt;tag&gt;</span>, <span class="hljs-string">&lt;tag&gt;</span>, <span class="hljs-string">…</span>]            <span class="hljs-comment"># Opcional</span>
+<span class="hljs-attr">timestamp:</span> <span class="hljs-string">&lt;ISO</span> <span class="hljs-number">8601 </span><span class="hljs-string">datetime&gt;</span>     <span class="hljs-comment"># Opcional, última modificación</span>
+<span class="hljs-comment"># … otros pares clave/valor definidos por el productor</span>
+<span class="hljs-meta">---</span></code></pre>
 <h3>2.4 Convenciones del cuerpo (§4.2)</h3>
 <p>Se prefiere markdown estructural. Tres cabeceras <strong>convencionales</strong> (no requeridas): <code># Schema</code>, <code># Examples</code>, <code># Citations</code>. En el ejemplo trabajado del SPEC también aparece <code># Joins</code>, útil para documentar rutas de join.</p>
 <h3>2.5 Ejemplo concreto: concepto ligado a un recurso (§4.3)</h3>
-<pre><code class="language-markdown">---
+<pre><code class="hljs language-markdown">---
 type: BigQuery Table
 title: Customer Orders
 description: One row per completed customer order across all channels.
 resource: https://console.cloud.google.com/bigquery?p=acme&amp;d=sales&amp;t=orders
 tags: [sales, orders, revenue]
-timestamp: 2026-05-28T14:30:00Z
----
+<span class="hljs-section">timestamp: 2026-05-28T14:30:00Z
+---</span>
 
-# Schema
+<span class="hljs-section"># Schema</span>
 | Column | Type | Description |
 |--------|------|-------------|
-| `order_id` | STRING | Globally unique order identifier. |
-| `customer_id` | STRING | Foreign key into [customers](/tables/customers.md). |
+| <span class="hljs-code">`order_id`</span> | STRING | Globally unique order identifier. |
+| <span class="hljs-code">`customer_id`</span> | STRING | Foreign key into [<span class="hljs-string">customers</span>](<span class="hljs-link">/tables/customers.md</span>). |
 
-# Joins
-Joined with [customers](/tables/customers.md) on `customer_id`.
+<span class="hljs-section"># Joins</span>
+Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link">/tables/customers.md</span>) on <span class="hljs-code">`customer_id`</span>.
 
-# Citations
-[1] [BigQuery table schema](https://console.cloud.google.com/bigquery?p=acme&amp;d=sales&amp;t=orders)
-</code></pre>
+<span class="hljs-section"># Citations</span>
+[<span class="hljs-string">1</span>] [<span class="hljs-string">BigQuery table schema</span>](<span class="hljs-link">https://console.cloud.google.com/bigquery?p=acme&amp;d=sales&amp;t=orders</span>)</code></pre>
 <p>Un <strong>concepto abstracto</strong> (§4.4) no lleva <code>resource</code>: p. ej. un <code>type: Playbook</code> con secciones <code># Trigger</code> / <code># Steps</code>.</p>
 <h3>2.6 Nombres de archivo reservados (§3.1)</h3>
 <p>Solo <strong>dos</strong> nombres reservados en cualquier nivel de jerarquía, prohibidos como nombres de concepto:</p>
@@ -268,18 +275,16 @@ Joined with [customers](/tables/customers.md) on `customer_id`.
 <p>Un enlace afirma una <strong>relación no tipada</strong> (arista dirigida); el <em>tipo</em> de relación (joins-with, depends-on) vive en la prosa circundante, no en el enlace. Los consumidores DEBEN tolerar enlaces rotos (pueden representar &quot;conocimiento aún no escrito&quot;).</p>
 <h3>2.8 Archivos índice (§6)</h3>
 <p><code>index.md</code> puede aparecer en cualquier directorio para progressive disclosure. Los archivos index <strong>no llevan frontmatter</strong> (única excepción: la declaración de versión en el index raíz). El cuerpo son secciones de enlaces con viñetas y descripciones cortas:</p>
-<pre><code class="language-markdown"># Section / Group Heading
-* [Title 1](relative-url-1) - short description of item 1
-</code></pre>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># Section / Group Heading</span>
+<span class="hljs-bullet">*</span> [<span class="hljs-string">Title 1</span>](<span class="hljs-link">relative-url-1</span>) - short description of item 1</code></pre>
 <blockquote>
 <p><strong>Tensión señalada por la investigación:</strong> §6 dice que los <code>index.md</code> &quot;no contienen frontmatter&quot;, pero §11 permite <code>okf_version</code> solo en el <code>index.md</code> raíz. Cómo deben reconciliar esto los consumidores estrictos queda <em>no especificado</em> — marcar como incertidumbre.</p>
 </blockquote>
 <h3>2.9 Archivos log (§7)</h3>
 <p><code>log.md</code> opcional, con lo más reciente primero, agrupado por fecha con cabeceras ISO <code>YYYY-MM-DD</code>. Las palabras en negrita iniciales (<code>**Update**</code>, <code>**Creation**</code>, <code>**Deprecation**</code>) son convención, no requisito.</p>
-<pre><code class="language-markdown"># Directory Update Log
-## 2026-05-22
-* **Update**: Added new BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
-</code></pre>
+<pre><code class="hljs language-markdown"><span class="hljs-section"># Directory Update Log</span>
+<span class="hljs-section">## 2026-05-22</span>
+<span class="hljs-bullet">*</span> <span class="hljs-strong">**Update**</span>: Added new BigQuery table reference for [<span class="hljs-string">Customer Metrics</span>](<span class="hljs-link">/tables/customer-metrics.md</span>).</code></pre>
 <h3>2.10 Citas (§8)</h3>
 <p>Las afirmaciones con fuente DEBERÍAN listarse bajo una cabecera <code># Citations</code> al final, numeradas. Los enlaces PUEDEN ser URLs absolutas, rutas relativas al bundle, o rutas hacia un subdirectorio <code>references/</code> que refleja material externo como conceptos de primera clase.</p>
 <h3>2.11 Conformidad (§9) — un único nivel, no escalonado</h3>
@@ -310,13 +315,11 @@ Joined with [customers](/tables/customers.md) on `customer_id`.
 <li><strong>Pasada web</strong>: el LLM actúa como crawler sobre URLs semilla (vía herramienta <code>fetch_url</code>), luego enriquece conceptos, acuña documentos <code>references/&lt;slug&gt;</code>, o se salta. Guardarraíles: <code>--web-max-pages</code> (límite), <code>--web-allowed-host</code> (filtro mismo-dominio), <code>--no-web</code> (omitir).</li>
 </ul>
 <p>CLI:</p>
-<pre><code class="language-bash">python -m reference_agent enrich \
-  --source bq --dataset &lt;project&gt;.&lt;dataset&gt; \
-  --web-seed-file &lt;seeds.txt&gt; --out ./bundles/&lt;name&gt;
-</code></pre>
+<pre><code class="hljs language-bash">python -m reference_agent enrich \
+  --<span class="hljs-built_in">source</span> bq --dataset &lt;project&gt;.&lt;dataset&gt; \
+  --web-seed-file &lt;seeds.txt&gt; --out ./bundles/&lt;name&gt;</code></pre>
 <h3>3.3 Visualizador (PoC de <em>consumidor</em>)</h3>
-<pre><code class="language-bash">python -m reference_agent visualize --bundle ./bundles/&lt;name&gt;
-</code></pre>
+<pre><code class="hljs language-bash">python -m reference_agent visualize --bundle ./bundles/&lt;name&gt;</code></pre>
 <p>Emite un <code>viz.html</code> autocontenido: grafo force-directed con <strong>Cytoscape.js</strong>, render de markdown con <strong>marked</strong> (ambos desde CDN); backlinks/&quot;Cited by&quot;, búsqueda, filtro por tipo, cambio de layout. Ningún dato sale de la página.</p>
 <h3>3.4 Instalación y credenciales</h3>
 <ul>

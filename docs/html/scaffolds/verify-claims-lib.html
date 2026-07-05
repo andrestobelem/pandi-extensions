@@ -94,9 +94,20 @@ a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
-pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
       padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
-pre code { background:none; padding:0; color:var(--ink); }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
@@ -131,9 +142,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Esta pieza sirve para <strong>verificar afirmaciones ya extraídas</strong>. Se invoca desde otro workflow con <code>workflow(&quot;verify-claims-lib&quot;, args)</code>.</p>
 <p>No descubre claims ni sintetiza un informe final: solo arma jurados de escépticos en paralelo y decide qué afirmaciones sobreviven. Usalo cuando tu workflow padre ya hizo la parte de descubrimiento y ahora necesita una verificación compartible; el caso canónico es <code>composition-driver</code>.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code class="language-text">/workflow new mi-run --pattern=verify-claims-lib
-/workflow run mi-run {&quot;claims&quot;:[{&quot;id&quot;:&quot;c1&quot;,&quot;claim&quot;:&quot;El endpoint /health responde 200 sin auth&quot;}],&quot;skeptics&quot;:3}
-</code></pre>
+<pre><code class="hljs language-text">/workflow new mi-run --pattern=verify-claims-lib
+/workflow run mi-run {&quot;claims&quot;:[{&quot;id&quot;:&quot;c1&quot;,&quot;claim&quot;:&quot;El endpoint /health responde 200 sin auth&quot;}],&quot;skeptics&quot;:3}</code></pre>
 <p>También se puede invocar en composición, sin pasar por <code>/workflow run</code>, desde el código de otro scaffold: <code>await workflow(&quot;verify-claims-lib&quot;, { claims, skeptics: 5, topic })</code>. <code>claims</code> debe traer elementos con <code>.claim</code>; si todos vienen vacíos, el workflow devuelve el shape vacío. El resto cae en los defaults; ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
