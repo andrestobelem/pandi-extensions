@@ -64,7 +64,7 @@ export async function handleTool(
 	const action = params.action;
 	const scope = params.scope ?? "auto";
 
-	// Recursion guard: a workflow subagent (depth >= limit) may not launch more workflows.
+	// Guardia de recursión: un subagente de flujo de trabajo (profundidad >= límite) no puede lanzar más flujos de trabajo.
 	if (
 		(action === "start" || action === "run" || action === "resume") &&
 		currentWorkflowDepth() >= maxWorkflowDepth()
@@ -133,9 +133,9 @@ export async function handleTool(
 			pi,
 			ctx,
 			params.name,
-			// limitParamsFromInput extracts only the explicitly-passed numeric limit
-			// knobs (concurrency/maxAgents/timeoutMs/agentTimeoutMs) from params, so
-			// resume honors them like start does instead of silently ignoring them.
+			// limitParamsFromInput extrae solo los parámetros de límite numérico pasados explícitamente
+			// (concurrency/maxAgents/timeoutMs/agentTimeoutMs) de params, así que
+			// reanudar los honra como start en lugar de ignorarlos silenciosamente.
 			{ background: resumeInBackground, force: !!params.force, limits: limitParamsFromInput(params) },
 			signal,
 			(logs) => {
@@ -172,11 +172,11 @@ export async function handleTool(
 
 	if (action === "write") {
 		if (params.code === undefined) throw new Error("dynamic_workflow action=write requires code.");
-		// Validate the authoring contract AND syntax BEFORE persisting, so invalid
-		// code fails here with the transform's instructive error instead of round-
-		// tripping through write and only failing much later at run/start (Farley
-		// review 2026-07-03 finding #8). new Function() parses the compiled CJS
-		// body without executing it.
+		// Valida el contrato de autoría Y la sintaxis ANTES de persistir, para que el código
+		// inválido falle aquí con el error instructivo de la transformación en lugar de
+		// pasar a través de write y solo fallar mucho después en run/start (hallazgo de revisión
+		// de Farley 2026-07-03 #8). new Function() analiza el
+		// cuerpo compilado de CJS sin ejecutarlo.
 		const compiled = transformWorkflowCode(params.code);
 		try {
 			new Function(compiled);
@@ -326,9 +326,9 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 
 		if (action === "index") {
 			const draftsRoot = path.join(ctx.cwd, CONFIG_DIR_NAME, WORKFLOW_DRAFT_DIR);
-			// Project drafts only: the index lives in the project drafts dir and the runs
-			// store is project-scoped. Drafts are recognized by location (their names are
-			// short; the drafts/ prefix is only the invocation form).
+			// Solo borradores del proyecto: el índice vive en el directorio de borradores del proyecto y el
+			// almacén tiene alcance de proyecto. Los borradores se reconocen por ubicación (sus nombres son
+			// cortos; el prefijo drafts/ es solo la forma de invocación).
 			const draftNames = (await listWorkflows(ctx))
 				.filter((file) => file.path.startsWith(draftsRoot + path.sep))
 				.map((file) => file.name);
@@ -559,9 +559,9 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 		}
 
 		if (action === "resume") {
-			// Tokens after "resume": optional <runId> (defaults to latest) plus
-			// --force. Persistent sessions resume in background by default; print/json
-			// falls back to foreground because no background run can stay alive.
+			// Tokens después de "resume": <runId> opcional (por defecto es el más reciente) más
+			// --force. Las sesiones persistentes se reanudan en segundo plano por defecto; print/json
+			// retrocede a primer plano porque ninguna ejecución en segundo plano puede permanecer viva.
 			const tokens = afterAction.split(/\s+/).filter(Boolean);
 			const background = shouldLaunchWorkflowInBackground(ctx);
 			const force = tokens.some((t) => t === "--force" || t === "-f");
@@ -587,7 +587,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 			const doSessions = opts.target === "sessions" || opts.target === "both";
 			const doRuns = opts.target === "runs" || opts.target === "both";
 
-			// Dry-run: preview via the pure selectors without deleting anything.
+			// Dry-run: previsualiza a través de los selectores puros sin eliminar nada.
 			if (opts.dryRun) {
 				const lines = ["/workflow cleanup --dry-run — nothing was deleted."];
 				if (doSessions) {
@@ -609,7 +609,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 				return;
 			}
 
-			// Destructive: require interactive confirmation, or an explicit --yes in no-UI mode.
+			// Destructivo: requiere confirmación interactiva, o un --yes explícito en modo sin UI.
 			if (!ctx.hasUI && !opts.yes) {
 				notify(ctx, "/workflow cleanup is destructive; pass --yes (or --dry-run) in no-UI mode.", "warning");
 				return;

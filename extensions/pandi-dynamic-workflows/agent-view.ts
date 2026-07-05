@@ -23,8 +23,8 @@ import { formatRunView, pickAndOpenRunArtifact } from "./run-view.js";
 
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
-	// artifactPath originates from untrusted events.jsonl; contain it within runDir
-	// so a crafted absolute path or "../" traversal cannot read arbitrary files.
+	// artifactPath se origina en events.jsonl no confiable; conténlo dentro de runDir
+	// para que una ruta absoluta manipulada o un recorrido "../" no puedan leer archivos arbitrarios.
 	const resolved = path.resolve(run.runDir, agent.artifactPath);
 	const base = path.resolve(run.runDir);
 	if (resolved !== base && !resolved.startsWith(base + path.sep)) return undefined;
@@ -244,9 +244,9 @@ async function formatAgentView(run: WorkflowRunRecord, agent: AgentMonitorModel)
 	return (await buildAgentViewParts(run, agent)).full;
 }
 
-// The Definition sub-tab: the workflow source this run executed, as a fenced code block,
-// with a resume-cache warning when the file changed since the run (same hash check the
-// run view does).
+// La pestaña Definition: la fuente del flujo de trabajo que ejecutó esta ejecución, como un bloque de código cercado,
+// con una advertencia de caché de reanudación cuando el archivo cambió desde la ejecución (igual verificación de hash que
+// hace la vista de ejecución).
 async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string> {
 	const header = [`# Workflow definition: ${run.workflow}`, "", `File: ${run.file ?? "unknown"}`];
 	if (!run.file) return [...header, "", "No workflow file was recorded for this run."].join("\n");
@@ -272,9 +272,9 @@ async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string>
 	].join("\n");
 }
 
-// The Graph sub-tab: a Markdown/text rendering of the same static workflow graph
-// used by /workflow graph. Keep it as text+Mermaid inside the tabbed Markdown
-// viewer; the standalone graph action owns the richer PNG-capable component.
+// La pestaña Graph: una representación Markdown/texto del mismo gráfico de flujo de trabajo estático
+// usado por /workflow graph. Mantenlo como text+Mermaid dentro del visor Markdown con pestañas;
+// la acción de gráfico independiente posee el componente más rico capaz de PNG.
 async function formatWorkflowGraphView(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<string> {
 	const header = [`# Workflow graph: ${run.workflow}`, "", `Run: ${run.runId}`];
 	const { resolveWorkflowForRun } = await import("./workflow-resolve.js");
@@ -329,14 +329,14 @@ export async function showLiveAgentView(
 		return;
 	}
 	if (ctx.mode === "tui") {
-		// open→action→reopen loop: `f` lets the user open one of the run's artifacts in the
-		// right viewer (.md → Markdown, else text), then returns to the live agent view — the
-		// same affordance the run view has, so the agent screen "fits together" with it.
-		// The detail screen is a SUB-TABBED viewer (Card / Prompt / Graph / Output / Definition / Run)
-		// so the user can move between the agent card, its prompt, the workflow graph, its output,
-		// the workflow source, and the full run view without bouncing back to the dashboard.
-		let definitionCache: string | undefined; // static per run: load once, reuse across tabs/refreshes
-		let graphCache: string | undefined; // static per run: load once, reuse across tabs/refreshes
+		// bucle open→action→reopen: `f` deja al usuario abrir uno de los artefactos de la ejecución en
+		// el visor correcto (.md → Markdown, de lo contrario texto), luego regresa a la vista de agente en vivo —
+		// la misma capacidad que tiene la vista de ejecución, para que la pantalla del agente "encaje" con ella.
+		// La pantalla de detalle es un visor SUB-TABULADO (Card / Prompt / Graph / Output / Definition / Run)
+		// para que el usuario pueda moverse entre la tarjeta del agente, su prompt, el gráfico del flujo de trabajo, su salida,
+		// la fuente del flujo de trabajo, y la vista de ejecución completa sin rebotar al panel.
+		let definitionCache: string | undefined; // estático por ejecución: carga una vez, reutiliza entre pestañas/actualizaciones
+		let graphCache: string | undefined; // estático por ejecución: carga una vez, reutiliza entre pestañas/actualizaciones
 		for (;;) {
 			let timer: NodeJS.Timeout | undefined;
 			let refreshing = false;
@@ -348,8 +348,8 @@ export async function showLiveAgentView(
 					const refresh = async () => {
 						if (!component) return;
 						if (refreshing) {
-							// A tab switch during an in-flight refresh must not be dropped: the new
-							// tab would stay on "Loading…" forever once the terminal-state poll stops.
+							// Un cambio de pestaña durante una actualización en vuelo no debe ser descartado: el
+							// nuevo tab estaría en "Cargando…" por siempre una vez que la encuesta de estado terminal se detiene.
 							pending = true;
 							return;
 						}
@@ -359,7 +359,7 @@ export async function showLiveAgentView(
 							component.setState(latest.state);
 							const active = component.getActiveTab();
 							if (active === "card" || active === "prompt" || active === "output") {
-								// One artifact read yields all three agent sections; fill them together.
+								// Una lectura de artefacto produce las tres secciones del agente; rellénlas juntas.
 								const parts = await buildAgentViewParts(run, latest);
 								component.setTabContent("card", parts.card);
 								component.setTabContent("prompt", parts.prompt);
@@ -374,9 +374,9 @@ export async function showLiveAgentView(
 								component.setTabContent("graph", graphCache);
 							}
 							tui.requestRender();
-							// Stop polling once the agent is terminal; the final output stays on
-							// screen until the user closes the view. Tab switches still refresh
-							// on demand via onTabChange below.
+							// Detén el sondeo una vez que el agente es terminal; la salida final permanece
+							// en pantalla hasta que el usuario cierre la vista. Los cambios de pestaña aún se actualizan
+							// bajo demanda a través de onTabChange abajo.
 							if (timer && isTerminalAgentState(latest.state)) {
 								clearInterval(timer);
 								timer = undefined;

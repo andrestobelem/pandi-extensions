@@ -1,14 +1,14 @@
 /**
- * Claude-style Dynamic Workflows for Pi.
+ * Flujos de trabajo dinámicos estilo Claude para Pi.
  *
- * This extension adds:
- * - `dynamic_workflow` tool for the model to list/read/write/run workflow scripts
- * - `/workflow` and `/workflows` commands for humans
- * - `/dynamic-workflow` and `/deep-research` routing commands
- * - a small JavaScript workflow runtime with parallel Pi subagents and artifacts
+ * Esta extensión añade:
+ * - herramienta `dynamic_workflow` para que el modelo liste/lea/escriba/ejecute scripts de flujos de trabajo
+ * - comandos `/workflow` y `/workflows` para usuarios
+ * - comandos de enrutamiento `/dynamic-workflow` y `/deep-research`
+ * - un pequeño motor de ejecución de flujos de trabajo JavaScript con subagentes Pi paralelos y artefactos
  *
- * Workflows are trusted code. They run inside the Pi process (not a security
- * sandbox) and can spend model calls by spawning subagents.
+ * Los flujos de trabajo son código de confianza. Se ejecutan dentro del proceso Pi (no en una
+ * caja de arena de seguridad) y pueden consumir llamadas de modelo creando subagentes.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -188,17 +188,17 @@ export const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
 export const WORKFLOW_RUN_DIR = path.join(WORKFLOW_DIR, "runs");
 export const WORKFLOW_GRAPH_DIR = path.join(WORKFLOW_DIR, "graphs");
 export const PI_SESSION_HEARTBEAT_MS = 5_000;
-// Grace period after SIGTERM before escalating to SIGKILL for spawned child processes.
+// Período de gracia tras SIGTERM antes de escalar a SIGKILL para procesos hijo creados.
 export const PROCESS_KILL_GRACE_MS = 2_000;
 export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
-// Label embedded in the editor's top border (the violet prompt line) while
-// always-on Ultracode routing is active, so the router state is visible there too.
+// Etiqueta incrustada en el borde superior del editor (línea de prompt violeta) mientras
+// el enrutamiento Ultracode siempre activo está activo, para que el estado del enrutador también sea visible ahí.
 /**
- * Bin name of the HOST distribution, read from the host package.json: the first
- * `bin` key when present ("pi" under vanilla pi, "picante" under pi-cante), else
- * piConfig.name (distros may rename the bin independently of the product name).
- * Falls back to "pi".
+ * Nombre del bin de la distribución HOST, leído desde el package.json del host: la primera
+ * clave `bin` si está presente ("pi" bajo pi vanilla, "picante" bajo pi-cante), si no
+ * piConfig.name (las distros pueden renombrar el bin de forma independiente del nombre del producto).
+ * Vuelve a "pi" como defecto.
  */
 function hostBinName(): string {
 	try {
@@ -217,11 +217,11 @@ function hostBinName(): string {
 }
 
 const ULTRACODE_BORDER_LABEL = "ultracode auto";
-// Best-effort inter-extension hook used by extensions/effort/index.ts for `/effort ultracode`.
+// Gancho inter-extensión de mejor esfuerzo usado por extensions/effort/index.ts para `/effort ultracode`.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 export const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// Resumable / idempotent runs: host-side content-address cache journal.
+// Ejecuciones reanudables / idempotentes: journal de caché con dirección de contenido en el lado del host.
 export const JOURNAL_FILE = "journal.jsonl";
 const JOURNAL_VERSION = 4;
 export const MAX_JOURNALED_STREAM = 200_000;
@@ -262,10 +262,10 @@ export interface DynamicWorkflowToolParams {
 
 interface InternalAgentOptions extends AgentOptions {
 	/**
-	 * Worker-level sugar. The worker's agent() global maps effort->thinking and label->name
-	 * before posting, but agents() per-item specs, agents() shared options, and ctx-style calls
-	 * reach the host unmapped — so runSubagent normalizes both at entry (effort -> thinking with
-	 * max -> xhigh, label -> name) and deletes them (issues #22/#23).
+	 * Azúcar a nivel de worker. El global agent() del worker mapea effort->thinking y label->name
+	 * antes de publicar, pero las especificaciones per-item de agents(), las opciones compartidas de agents() y las llamadas ctx-style
+	 * llegan al host sin mapear — así que runSubagent normaliza ambas en la entrada (effort -> thinking con
+	 * max -> xhigh, label -> name) y las elimina (issues #22/#23).
 	 */
 	effort?: string;
 	label?: string;
@@ -294,7 +294,7 @@ interface AskOptions {
 	default?: string | boolean;
 	timeoutMs?: number;
 	cache?: boolean;
-	/** The answer is a secret: never persist it (events/journal) or replay it on resume. */
+	/** La respuesta es secreta: nunca la persistas (events/journal) ni la reproduzcas al reanudar. */
 	secret?: boolean;
 	__workflowNamespace?: string;
 }
@@ -408,13 +408,13 @@ function makeModelArg(ctx: ExtensionContext): string | undefined {
 	return `${ctx.model.provider}/${ctx.model.id}`;
 }
 
-// Tier-alias mapping (#24): the shared dual-platform scaffolds use BARE ladder aliases
-// (haiku/sonnet/opus) for cheap/balanced/deep tiers. Pinned to an Anthropic session they
-// resolve natively, but other providers have no such aliases and the branch fails fast
-// ("model is not supported"), so the cheap-tier promise dies cross-provider. This table
-// names the id that embodies each tier per provider; anthropic is deliberately absent
-// (pi resolves the aliases within it already). Extend or override per provider with
-// PI_DYNAMIC_WORKFLOWS_TIER_MODELS (JSON of the same shape) since catalogs move fast.
+// Mapeo de alias de nivel (#24): los scaffolds compartidos de doble plataforma usan alias de escalera DESNUDOS
+// (haiku/sonnet/opus) para niveles económico/equilibrado/profundo. Fijados a una sesión de Anthropic se
+// resuelven de forma nativa, pero otros proveedores no tienen tales alias y la rama falla rápido
+// ("modelo no soportado"), por lo que la promesa de nivel económico muere entre proveedores. Esta tabla
+// nombra el id que personifica cada nivel por proveedor; anthropic está deliberadamente ausente
+// (pi ya resuelve los alias dentro de él). Extiende o anula por proveedor con
+// PI_DYNAMIC_WORKFLOWS_TIER_MODELS (JSON de la misma forma) ya que los catálogos cambian rápido.
 const TIER_ALIASES = new Set(["haiku", "sonnet", "opus"]);
 const BUILTIN_TIER_MODELS: Record<string, Record<string, string>> = {
 	"openai-codex": { haiku: "gpt-5.4-mini", sonnet: "gpt-5.4", opus: "gpt-5.5" },
@@ -441,9 +441,9 @@ function tierModelTable(): { table: Record<string, Record<string, string>>; erro
 }
 let tierEnvWarned = false;
 
-// Scan a JS object/array literal starting at/after `start`, returning the index just past
-// its matching close (string/line+block-comment aware). -1 if it cannot be balanced. Used to
-// lift `export const meta = { ... }` out of a workflow without a brittle brace regex.
+// Escanea un literal de objeto/array JS comenzando en/después de `start`, retornando el índice justo después
+// de su cierre coincidente (consciente de string/comentario de línea+bloque). -1 si no se puede equilibrar. Se usa para
+// extraer `export const meta = { ... }` de un flujo de trabajo sin una regex de llave frágil.
 function matchBalancedLiteral(src: string, start: number): number {
 	let i = start;
 	while (i < src.length && /\s/.test(src[i])) i++;
@@ -486,12 +486,12 @@ function matchBalancedLiteral(src: string, start: number): number {
 	return -1;
 }
 
-// Compile a workflow's authored source into CommonJS the Worker can run. The single authoring
-// contract is a top-level script that uses the injected globals (agent, parallel, pipeline,
-// workflow, phase, log, args), optionally declares `export const meta = { ... }`, and ends with
-// `return <value>`. We lift `meta` out, then wrap the body in an async function so its top-level
-// `await`/`return` are legal. (A legacy `export default function` form is still accepted while the
-// codebase migrates; it is removed once all scaffolds/tests use the single interface.)
+// Compila la fuente escrita de un flujo de trabajo en CommonJS que puede ejecutar el Worker. El contrato de autoría único
+// es un script de nivel superior que usa los globals inyectados (agent, parallel, pipeline,
+// workflow, phase, log, args), opcionalmente declara `export const meta = { ... }`, y termina con
+// `return <value>`. Extraemos `meta`, luego envolvemos el cuerpo en una función async para que su nivel superior
+// `await`/`return` sean legales. (Una forma legacy `export default function` sigue siendo aceptada mientras
+// el código migra; se elimina una vez que todos los scaffolds/tests usan la interfaz única.)
 export function transformWorkflowCode(code: string): string {
 	if (/^\s*import\s/m.test(code)) {
 		throw new Error(
@@ -516,10 +516,10 @@ export function transformWorkflowCode(code: string): string {
 		body = body.slice(0, metaDecl.index) + (metaDecl[1] ?? "") + body.slice(after);
 	}
 
-	// 2) Pick the compilation form:
-	//    - legacy `export default ...`  -> rewrite to `module.exports = ...` (transitional).
-	//    - legacy direct `module.exports = ...` -> pass through (transitional).
-	//    - new top-level script (neither) -> wrap so top-level `await`/`return` are legal.
+	// 2) Elige la forma de compilación:
+	//    - legacy `export default ...`  -> reescribe a `module.exports = ...` (transitional).
+	//    - legacy directo `module.exports = ...` -> pasa (transitional).
+	//    - nuevo script de nivel superior (ninguno) -> envuelve para que `await`/`return` de nivel superior sean legales.
 	const usesExportDefault = /(^|\n)\s*export\s+default\s/.test(body);
 	const assignsModuleExports = /(^|\n)\s*module\.exports\s*=/.test(body);
 	let output: string;
@@ -566,11 +566,11 @@ export function transformWorkflowCode(code: string): string {
 	return output;
 }
 
-// Bridges a per-call AbortSignal from the worker dispatcher into the agent closure without
-// touching WorkflowRuntimeApi. runSubagent captures it synchronously at entry so it survives the
-// occAssignMutex/semaphore awaits; ALS context is per async chain, so concurrent agent() calls
-// never cross-talk. Set only for method==="agent" calls; everything else sees undefined and falls
-// back to the run signal.
+// Canaliza un AbortSignal por-llamada del despachador del worker hacia el cierre del agente sin
+// tocar WorkflowRuntimeApi. runSubagent lo captura de forma síncrona en la entrada para que sobreviva al
+// occAssignMutex/semaphore awaits; el contexto ALS es por cadena async, así que las llamadas agent() concurrentes
+// nunca se cross-talk. Se establece solo para llamadas method==="agent"; todo lo demás ve undefined y vuelve
+// a la señal de ejecución.
 const callSignal = new AsyncLocalStorage<AbortSignal>();
 
 async function executeWorkflowCode(
@@ -614,19 +614,19 @@ async function executeWorkflowCode(
 
 	return await new Promise<unknown>((resolve, reject) => {
 		let settled = false;
-		// Per-call abort handles for in-flight agent() calls, keyed by worker message id. An
-		// abort-call message (a race() loser) aborts exactly one; cleanup disposes the rest.
+		// Manijos de aborción por-llamada para llamadas agent() en vuelo, codificadas por id de mensaje del worker. Un
+		// mensaje abort-call (un perdedor de race()) aborta exactamente uno; cleanup desecha el resto.
 		const callControllers = new Map<number, CombinedSignal>();
 
 		const cleanup = () => {
 			signal.removeEventListener("abort", onAbort);
 			worker.removeAllListeners();
 			void worker.terminate();
-			// Abort each in-flight call's combined signal BEFORE disposing it. onAbort (on the run
-			// signal) fires before the per-call abortFromParent listeners registered later on the
-			// same signal, so disposing here (which removes those listeners) would strand them and
-			// leave subagent children running until agentTimeoutMs. Aborting first drives each
-			// child's SIGTERM synchronously; combineSignal.abort is idempotent.
+			// Aborta cada señal combinada de llamada en vuelo ANTES de desecharla. onAbort (en la
+			// señal de ejecución) se dispara antes de los listeners abortFromParent por-llamada registrados después en la
+			// misma señal, así que desechar aquí (que elimina esos listeners) los varaía y
+			// dejaría hijos subagente ejecutándose hasta agentTimeoutMs. Abortar primero dispara cada
+			// SIGTERM del hijo de forma síncrona; combineSignal.abort es idempotente.
 			for (const c of callControllers.values()) {
 				c.abort(new Error(abortReasonMessage(signal)));
 				c.dispose();
@@ -646,7 +646,7 @@ async function executeWorkflowCode(
 			try {
 				worker.postMessage(message);
 			} catch {
-				// Worker may have exited between an async host call and the response.
+				// El worker puede haberse salido entre una llamada host asíncrona y la respuesta.
 			}
 		};
 
@@ -768,8 +768,8 @@ export async function runWorkflow(
 	const agentSemaphore = createSemaphore(runLimits.concurrency, runSignal.signal);
 	const trackedSubagents = new Set<Promise<unknown>>();
 	const logs: WorkflowLogEntry[] = [];
-	// Resumed runs start agentCount past the agents/NNNN artifacts already on disk
-	// so freshly re-run subagents never overwrite the cached ones.
+	// Ejecuciones reanudadas comienzan agentCount más allá de los artefactos agents/NNNN ya en disco
+	// para que los subagentes recién re-ejecutados nunca sobrescriban los en caché.
 	let agentCount = preparedRun.resume?.baseAgentCount ?? 0;
 	let agentPhaseCount = 0;
 	let explicitPhaseCount = 0;

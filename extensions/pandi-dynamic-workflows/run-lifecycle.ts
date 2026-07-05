@@ -157,9 +157,9 @@ function canLaunchWorkflowInBackground(ctx: ExtensionContext): boolean {
 }
 
 export function shouldLaunchWorkflowInBackground(ctx: ExtensionContext): boolean {
-	// Project preference: every workflow launched from a persistent session runs
-	// in background so the dashboard remains the control plane and completion can
-	// wake the agent. Print/json modes have no live session to keep the run alive.
+	// Preferencia del proyecto: cada flujo de trabajo lanzado desde una sesión persistente se ejecuta
+	// en segundo plano para que el panel siga siendo el plano de control y la finalización pueda
+	// despertar al agente. Los modos print/json no tienen sesión en vivo para mantener viva la ejecución.
 	return canLaunchWorkflowInBackground(ctx);
 }
 
@@ -176,7 +176,7 @@ export async function startWorkflowBackground(
 			"Background workflow runs require a persistent TUI/RPC session. In print/json mode, action=run falls back to foreground because there is no live session to keep a background run alive.",
 		);
 	}
-	// For resume, preparedRun reuses the existing runDir/runId in place.
+	// Para reanudar, preparedRun reutiliza el runDir/runId existente en su lugar.
 	const prepared = preparedRun ?? (await prepareWorkflowRun(ctx, workflow.name, true));
 	const controller = new AbortController();
 	const active: ActiveWorkflowRun = {
@@ -271,16 +271,16 @@ export async function startWorkflowBackground(
 	return status;
 }
 
-// Synchronous reservation for in-flight resumes: resumeWorkflow awaits several
-// reads between its activeRuns guard and the moment startWorkflowBackground /
-// runWorkflowWithUi registers the run, so two resumes fired in the same tick
-// would BOTH pass the guard and drive runWorkflow against the same runDir and
-// journal (duplicate agents, artifact clobbering). The Set is reserved in the
-// same synchronous block as the guard check and released in finally.
+// Reserva síncrona para reanudaciones en vuelo: resumeWorkflow espera varios
+// lecturas entre su guardia activeRuns y el momento que startWorkflowBackground /
+// runWorkflowWithUi registra la ejecución, así que dos reanudaciones disparadas en el mismo tick
+// pasarían ambas la guardia e impulsarían runWorkflow contra el mismo runDir y
+// journal (agentes duplicados, aplastamiento de artefactos). El Set se reserva en
+// el mismo bloque síncrono que la verificación de guardia y se libera en finally.
 const resumingRuns = new Set<string>();
 
-// Resume an interrupted run in place (same runDir/runId), reusing the journal so
-// already-completed subagent/bash calls are not re-executed.
+// Reanuda una ejecución interrumpida en su lugar (mismo runDir/runId), reutilizando el journal para que
+// las llamadas subagente/bash ya completadas no se re-ejecuten.
 export async function resumeWorkflow(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
@@ -307,8 +307,8 @@ export async function resumeWorkflow(
 		throw new Error(`Workflow run ${record.runId} cannot be resumed (state: ${String(state)}).`);
 	}
 
-	// Reserve in the SAME synchronous block as the guard above (no await between),
-	// so a concurrent resume of the same runId rejects instead of double-running.
+	// Reserva en el MISMO bloque síncrono que la guardia anterior (sin await entre),
+	// para que una reanudación concurrente del mismo runId sea rechazada en lugar de ejecutarse dos veces.
 	resumingRuns.add(record.runId);
 	try {
 		return await resumeReservedRun(pi, ctx, record, signal, onProgress, opts.limits);
@@ -317,7 +317,7 @@ export async function resumeWorkflow(
 	}
 }
 
-// The body of resumeWorkflow after validation+reservation (unchanged behavior).
+// El cuerpo de resumeWorkflow después de validación+reserva (comportamiento sin cambios).
 async function resumeReservedRun(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
@@ -330,9 +330,9 @@ async function resumeReservedRun(
 	const code = await fs.readFile(workflow.path, "utf8");
 	const codeHash = computeCodeHash(code);
 	const journal = await loadJournal(record.runDir);
-	// Start agentCount above the highest id already used (journaled OR on disk),
-	// so freshly re-run subagents can never overwrite an existing agents/NNNN
-	// artifact, even when the journal is non-contiguous or has {cache:false} gaps.
+	// Comienza agentCount por encima del id más alto ya usado (registrado en el journal O en disco),
+	// para que los subagentes recién re-ejecutados nunca puedan sobrescribir un
+	// artefacto agents/NNNN existente, incluso cuando el journal es no contiguo o tiene espacios {cache:false}.
 	const baseAgentCount = Math.max(maxJournalAgentId(journal), await maxAgentArtifactNumber(record.runDir));
 
 	let input: unknown = {};
@@ -341,11 +341,11 @@ async function resumeReservedRun(
 	} catch {
 		input = {};
 	}
-	// Explicit limit params passed to action=resume override the input.json-derived
-	// ones (matching the start branch's {...limitParamsFromInput(input), ...params}
-	// precedence); previously they were silently ignored and the resumed run fell
-	// back to defaults — e.g. resume with maxAgents=150 re-running into the same
-	// DEFAULT_MAX_AGENTS=64 wall it was resumed to escape.
+	// Los parámetros de límite explícitos pasados a action=resume anulan los derivados de input.json
+	// (coincidiendo con la precedencia {...limitParamsFromInput(input), ...params}
+	// de la rama start); anteriormente se ignoraban silenciosamente y la ejecución reanudada caía
+	// a los valores por defecto — p. ej. reanudar con maxAgents=150 re-ejecutando en el mismo
+	// muro DEFAULT_MAX_AGENTS=64 del que fue reanudado para escapar.
 	const limits = buildLimits({ ...limitParamsFromInput(input), ...(limitOverrides ?? {}) });
 	const resumeInBackground = shouldLaunchWorkflowInBackground(ctx);
 
@@ -365,11 +365,11 @@ async function resumeReservedRun(
 		},
 	};
 	await ensureDir(path.join(record.runDir, "agents"));
-	// Remove the stale result.json from the prior (failed/cancelled/completed)
-	// run. readRunRecord reads result.json before status.json, so leaving it in
-	// place would mask the live running status for the duration of the resume
-	// (runs/view/dashboard would show the old terminal state). runWorkflow
-	// rewrites result.json when the resumed run finishes.
+	// Elimina el result.json obsoleto de la (fallida/cancelada/completada)
+	// ejecución anterior. readRunRecord lee result.json antes de status.json, así que dejarlo
+	// en su lugar ocultaría el estado en ejecución en vivo durante la duración de la reanudación
+	// (runs/view/dashboard mostrarían el estado terminal anterior). runWorkflow
+	// reescribe result.json cuando finaliza la ejecución reanudada.
 	await fs.rm(path.join(record.runDir, "result.json"), { force: true }).catch(() => {});
 
 	const previousHash = record.codeHash;
@@ -466,14 +466,14 @@ export async function deleteWorkflowRun(ctx: ExtensionContext, id: string | unde
 	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
 }
 
-// Default number of most-recent workflow runs `/workflow cleanup` retains. Single source
-// of truth for the retention policy (re-exported by command-handlers.ts for the CLI parser).
+// Número por defecto de ejecuciones de flujo de trabajo más recientes que `/workflow cleanup` retiene. Fuente única
+// de verdad para la política de retención (re-exportada por command-handlers.ts para el analizador CLI).
 export const DEFAULT_CLEANUP_KEEP = 20;
 
-// Bulk cleanup: select the terminal runs safe to delete (never running/active, retaining
-// the `keep` most-recent) and remove their run directories. `dryRun` returns the selection
-// without deleting so callers can preview. selectRunsForCleanup (run-state.ts) owns the
-// pure policy; this wraps it with the live activeRuns set and the fs.rm IO.
+// Limpieza masiva: selecciona las ejecuciones terminales seguras para eliminar (nunca en ejecución/activas, reteniendo
+// las `keep` más recientes) y elimina sus directorios de ejecución. `dryRun` devuelve la selección
+// sin eliminar para que los llamadores puedan previsualizar. selectRunsForCleanup (run-state.ts) posee
+// la política pura; esto la envuelve con el conjunto activeRuns en vivo y la IO fs.rm.
 export async function cleanupWorkflowRuns(
 	ctx: ExtensionContext,
 	opts: { keep?: number; states?: WorkflowRunState[]; dryRun?: boolean } = {},
@@ -566,9 +566,9 @@ export async function resumeReloadInterruptedWorkflowRuns(
 	return { resumed, skipped, failed };
 }
 
-// Race a promise against a timeout. The timeout timer is always cleared afterwards so a
-// fast-settling promise can't leave a pending timer keeping the event loop alive (e.g. at
-// session shutdown).
+// Carrera de una promesa contra un tiempo de espera. El temporizador de tiempo de espera siempre se borra después para que
+// una promesa que se resuelve rápido no pueda dejar un temporizador pendiente manteniendo vivo el bucle de eventos (p. ej.
+// en el apagado de la sesión).
 export async function settleWithinTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<void> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const guard = new Promise<void>((resolve) => {

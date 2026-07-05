@@ -43,17 +43,17 @@ import { canCancelRun } from "./run-status-ui.js";
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;
 export type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
 
-// Single source of truth for the "how do I create the first run?" guidance so
-// every empty run-bearing list (Monitor, Runs, Agents, Activity) gives a
-// first-time user the exact command instead of a dead-end "nothing here" line.
+// Fuente única de verdad para la guía "¿cómo creo la primera ejecución?" así que
+// toda lista vacía con ejecuciones (Monitor, Runs, Agents, Activity) da
+// al usuario primerizo el comando exacto en lugar de una línea muerta "nada aquí".
 const START_WORKFLOW_HINT = "Start one with /workflow start <name> {json} or dynamic_workflow action=start.";
 
-// Keep the cursor on the same item when a list is rebuilt/reordered under it
-// (lists are mtime-sorted and refreshed every 1.5s, so a fixed index would
-// silently retarget destructive actions). Falls back to clamped position when
-// the previously-selected item is gone.
-// Compact "showing a-b/total" suffix for windowed lists; empty when the whole
-// list fits, so users can tell a list is scrolled and where the window sits.
+// Mantén el cursor en el mismo elemento cuando una lista se reconstruye/reordena debajo
+// (las listas están ordenadas por mtime y se actualizan cada 1.5s, así que un índice fijo
+// reorientaría silenciosamente acciones destructivas). Vuelve a la posición limitada cuando
+// el elemento previamente seleccionado se ha ido.
+// Sufijo compacto "mostrando a-b/total" para listas ventaneadas; vacío cuando toda la
+// lista cabe, para que los usuarios sepan que una lista se desplazó y dónde se sienta la ventana.
 function windowLabel(total: number, start: number, count: number): string {
 	if (total <= count) return "";
 	const end = Math.min(total, start + count);
@@ -92,9 +92,9 @@ export class WorkflowDashboard {
 	private monitorRunIndex = 0;
 	private patternIndex = 0;
 	private showHelp = false;
-	// Refresh health: the 1.5s background refresh marks success/failure here so the
-	// header can advertise recency and surface read errors instead of silently
-	// freezing on an unhandled rejection.
+	// Salud de actualización: la actualización en segundo plano de 1.5s marca éxito/falla aquí para que
+	// el encabezado pueda publicitar recencia y exponer errores de lectura en lugar de
+	// congelarse en un rechazo no manejado.
 	private lastRefreshAt = Date.now();
 	private lastRefreshError: string | undefined;
 
@@ -127,8 +127,8 @@ export class WorkflowDashboard {
 	) {
 		this.tab = restore?.tab ?? initialTab;
 		if (restore) {
-			// Best-effort restore so reopening the dashboard after an action keeps the
-			// user where they were; indices are clamped to the freshly-reloaded lists.
+			// Restauración de mejor esfuerzo para que reabriendo el panel después de una acción mantenga
+			// al usuario donde estaba; los índices se limitan a las listas recién recargadas.
 			const clamp = (value: number, length: number) => Math.max(0, Math.min(value, Math.max(0, length - 1)));
 			this.workflowIndex = clamp(restore.workflowIndex, workflows.length);
 			this.runIndex = clamp(restore.runIndex, runs.length);
@@ -136,9 +136,9 @@ export class WorkflowDashboard {
 			this.sessionIndex = clamp(restore.sessionIndex, piSessions.length);
 			this.agentIndex = clamp(restore.agentIndex, agentEntries.length);
 			this.patternIndex = clamp(restore.patternIndex, WORKFLOW_PATTERN_CATALOG.length);
-			// Restore the focused RUN first, then clamp the agent index against THAT
-			// run's agents (not the active/first run's) so both halves of the Monitor
-			// master-detail come back where the user left them.
+			// Restaura el RUN enfocado primero, luego limita el índice del agente contra ESE
+			// agentes de la ejecución (no los de la ejecución activa/primera) para que ambas mitades del Monitor
+			// master-detail vuelvan adonde el usuario las dejó.
 			this.monitorRunIndex = clamp(restore.monitorRunIndex ?? 0, monitorModels.length);
 			const monitorAgents = monitorModels[this.monitorRunIndex]?.agents.length ?? 0;
 			this.monitorAgentIndex = clamp(restore.monitorAgentIndex, monitorAgents);
@@ -243,8 +243,8 @@ export class WorkflowDashboard {
 	}
 
 	private isDeleteInput(data: string): boolean {
-		// Backspace is intentionally excluded: it reads as "go back/erase" in almost
-		// every TUI, so binding it to a destructive delete was a surprising mis-hit.
+		// Retroceso se excluye intencionalmente: se lee como "volver/borrar" en casi
+		// cada TUI, así que vincularlo a una eliminación destructiva fue un error sorprendente.
 		return data === "d" || matchesKey(data, Key.delete);
 	}
 
@@ -319,7 +319,7 @@ export class WorkflowDashboard {
 
 	handleInput(data: string): void {
 		if (this.showHelp) {
-			// The help overlay is a modal hint: any key dismisses it.
+			// La superposición de ayuda es una pista modal: cualquier tecla la descarta.
 			this.showHelp = false;
 			this.requestRender();
 			return;
@@ -423,7 +423,7 @@ export class WorkflowDashboard {
 			matchesKey(data, Key.end) ||
 			data === "G"
 		) {
-			// Page/Home/End (and vim G = last) jump within the active list, mirroring the live agent view.
+			// Page/Home/End (y vim G = último) saltan dentro de la lista activa, reflejando la vista de agente en vivo.
 			const page = 10;
 			if (this.activeListLength() > 0) {
 				if (matchesKey(data, Key.pageUp)) this.setActiveIndex(this.getActiveIndex() - page);
@@ -435,9 +435,9 @@ export class WorkflowDashboard {
 			return;
 		}
 		if ((data === "[" || data === "]") && (this.tab === "runs" || this.tab === "activity")) {
-			// Mirror the Monitor's [ ] run cycling on the flat lists: jump selection to the
-			// next/previous running item so a long Runs/Activity list can be triaged to the
-			// in-progress runs with one key.
+			// Refleja el ciclado [ ] de ejecución del Monitor en las listas planas: salta la selección al
+			// siguiente/anterior elemento en ejecución para que una larga lista Runs/Activity se pueda clasificar al
+			// ejecuciones en progreso con una tecla.
 			this.jumpToActiveRun(data === "]" ? 1 : -1);
 			return;
 		}
@@ -483,12 +483,12 @@ export class WorkflowDashboard {
 		this.handleRunSelectionInput(data, run);
 	}
 
-	// Single source of truth for the run-action shortcuts shared by every
-	// run-bearing tab (monitor, agents, runs, activity): Enter/o agent output,
-	// v run view, g graph, c/x cancel (gated), r rerun (gated), d/Del delete.
-	// `agent` is only passed where a sub-agent row is selectable (monitor/agents);
-	// without it Enter/o falls through to the run view, matching prior behavior.
-	// Extracted from three byte-identical branches to stop them drifting apart.
+	// Fuente única de verdad para los atajos de acción de ejecución compartidos por cada
+	// pestaña con ejecuciones (monitor, agents, runs, activity): salida de agente Enter/o,
+	// vista de ejecución v, gráfico g, cancelar c/x (limitado), reejecutar r (limitado), eliminar d/Del.
+	// `agent` solo se pasa donde una fila de sub-agente es seleccionable (monitor/agents);
+	// sin él Enter/o cae a la vista de ejecución, coincidiendo con el comportamiento anterior.
+	// Extraído de tres ramas byte-idénticas para evitar que se desvíen.
 	private handleRunSelectionInput(data: string, run: WorkflowRunRecord, agent?: AgentMonitorModel): void {
 		if ((matchesKey(data, Key.enter) || data === "o") && agent) this.done({ type: "agent", run, agent });
 		else if (matchesKey(data, Key.enter) || data === "v") this.done({ type: "view", run });
@@ -499,8 +499,8 @@ export class WorkflowDashboard {
 		else if (this.isDeleteInput(data)) this.done({ type: "deleteRun", run });
 	}
 
-	// Jump selection to the next failed agent (forward, wrapping). Turns the
-	// failed:N counter into one-key triage for large fan-outs.
+	// Salta la selección al siguiente agente fallido (adelante, envuelto). Convierte el
+	// contador failed:N en triaje de una tecla para grandes fan-outs.
 	private jumpToNextFailedAgent(): void {
 		const n = this.agentEntries.length;
 		if (n === 0) return;
@@ -514,9 +514,9 @@ export class WorkflowDashboard {
 		}
 	}
 
-	// Jump selection to the next/previous RUNNING run (Runs tab) or running activity entry
-	// (Activity tab), wrapping. Turns the ▶ running glyph into one-key triage on the flat
-	// lists, the same way `f` jumps to the next failed agent. No-op when nothing is running.
+	// Salta la selección a la siguiente/anterior ejecución RUNNING (pestaña Runs) o entrada de actividad en ejecución
+	// (pestaña Activity), envuelto. Convierte el glifo ▶ running en triaje de una tecla en la
+	// listas, de la misma manera que `f` salta al siguiente agente fallido. No-op cuando nada se ejecuta.
 	private jumpToActiveRun(delta: number): void {
 		if (this.tab === "runs") {
 			const n = this.runs.length;
@@ -541,7 +541,7 @@ export class WorkflowDashboard {
 		}
 	}
 
-	// Cycle the focused active run in the Monitor (master-detail over all active runs).
+	// Cicla la ejecución activa enfocada en el Monitor (master-detail sobre todas las ejecuciones activas).
 	private cycleMonitorRun(delta: number): void {
 		const n = this.monitorModels.length;
 		if (n <= 1) return;
@@ -582,10 +582,10 @@ export class WorkflowDashboard {
 	render(width: number): string[] {
 		if (width <= 0) return [];
 		const w = width;
-		// Color hierarchy (all semantic theme tokens → adapt to dark/light/auto; no hardcoded
-		// colors anywhere): accent = primary/titles/selection; success|warning|error = state;
-		// muted = secondary labels; dim = tertiary (ids, paths, hints, chip labels);
-		// border = horizontal rules/separators.
+		// Jerarquía de colores (todos los tokens de tema semántico → adaptar a dark/light/auto; sin
+		// colores en ningún lado): accent = primary/títulos/selección; success|warning|error = estado;
+		// muted = etiquetas secundarias; dim = terciario (ids, paths, hints, chip labels);
+		// border = reglas/separadores horizontales.
 		const accent = (s: string) => this.theme.fg("accent", s);
 		const muted = (s: string) => this.theme.fg("muted", s);
 		const success = (s: string) => this.theme.fg("success", s);
@@ -681,7 +681,7 @@ export class WorkflowDashboard {
 		warning: (s: string) => string,
 		dim: (s: string) => string,
 	): void {
-		// Blank line + dim caption: groups the dense label block into readable sections.
+		// Línea en blanco + subtítulo dim: agrupa el bloque de etiqueta densa en secciones legibles.
 		const section = (caption: string) => {
 			lines.push(line(""));
 			lines.push(line(dim(caption)));
@@ -891,12 +891,12 @@ export class WorkflowDashboard {
 		warning: (s: string) => string,
 		dim: (s: string) => string,
 	): string {
-		// Chips joined by a ` · ` divider so the row breathes; chip LABELS use dim so the
-		// state-bearing chips (prompt✓ / schema:bad / missing) stay the eye-catchers.
+		// Chips unidos por un divisor ` · ` para que la fila respire; las ETIQUETAS de chip usan dim para que
+		// los chips que llevan estado (prompt✓ / schema:bad / missing) sigan siendo los que atraen la vista.
 		const chips: string[] = [agent.promptAvailable ? success("prompt✓") : warning("prompt?")];
 		if (agent.schemaOk !== undefined) chips.push(agent.schemaOk ? muted("schema:ok") : error("schema:bad"));
-		// model/effort chips: short model id (last path segment) to keep the row compact;
-		// omitted entirely when unknown (runs recorded before these fields existed).
+		// chips de modelo/esfuerzo: id de modelo corto (último segmento de ruta) para mantener la fila compacta;
+		// omitido completamente cuando se desconoce (ejecuciones registradas antes de que existieran estos campos).
 		if (agent.model) chips.push(dim(`model:${renderSafeInline(agent.model.split("/").pop() ?? agent.model)}`));
 		if (agent.thinking) chips.push(dim(`effort:${renderSafeInline(agent.thinking)}`));
 		chips.push(dim(`tools:${agent.tools?.length ? agent.tools.length : "default"}`));
