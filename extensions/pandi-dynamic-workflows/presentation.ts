@@ -159,7 +159,7 @@ export function workflowProgressLabel(progress: WorkflowProgressCounts): string 
 }
 
 export function workflowDashboardHint(): string {
-	return "/workflows ↓ monitor ← agents Ctrl+Alt+W";
+	return "/workflows ↓ monitor ← sessions Ctrl+Alt+W";
 }
 
 export function shortWorkflowName(name: string): string {

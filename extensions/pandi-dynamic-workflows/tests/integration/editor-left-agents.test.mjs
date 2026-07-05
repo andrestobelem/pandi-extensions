@@ -4,10 +4,9 @@
  *
  * Observable contract:
  *   - Down at the bottom of the prompt still opens the workflow dashboard on Monitor.
- *   - Left at the left edge of the prompt opens the same dashboard directly on Agents
- *     (Claude Code-style Agent View shortcut).
+ *   - Left at the left edge of the prompt opens the same dashboard directly on Sessions.
  *   - Left that actually moves the editor cursor does NOT open the dashboard.
- *   - /workflow agents is a slash-command fallback for the same Agents tab.
+ *   - /workflow agents is still a slash-command fallback for the Agents tab.
  *   - /workflow sessions opens the live Pi sessions tab.
  *   - Enter on a selected Pi session switches to that session file from both
  *     slash-command and editor-opened dashboards.
@@ -253,14 +252,15 @@ function renderedText(call) {
 	return (call?.lines ?? []).join("\n");
 }
 
-async function scenarioLeftOpensAgents(url) {
+async function scenarioLeftOpensSessions(url) {
 	const { wrapped, customCalls } = await installEditor(url, makeBaseEditor({ cursor: { line: 0, col: 0 } }));
 	wrapped.handleInput("left");
 	await waitFor(() => customCalls.length === 1);
 	const text = renderedText(customCalls[0]);
 	check("left boundary opens dashboard", customCalls.length === 1, `calls=${customCalls.length}`);
-	check("left boundary opens Agents tab", text.includes("[Agents]"), text.split("\n")[0]);
+	check("left boundary opens Sessions tab", text.includes("[Sessions]"), text.split("\n")[0]);
 	check("left boundary does not open Monitor tab", !text.includes("[Monitor]"), text.split("\n")[0]);
+	check("left boundary does not open Agents tab", !text.includes("[Agents]"), text.split("\n")[0]);
 }
 
 async function scenarioDownStillOpensMonitor(url) {
@@ -287,7 +287,7 @@ async function scenarioLeftMovementDoesNotOpen(url) {
 
 async function scenarioLeftWithTextDoesNotOpen(url) {
 	// A composed prompt with the cursor at col 0: ← must stay a normal editor key,
-	// not surprise-open the Agents dashboard (the gesture is for an EMPTY editor).
+	// not surprise-open the Sessions dashboard (the gesture is for an EMPTY editor).
 	const base = makeBaseEditor({ text: "hello world", cursor: { line: 0, col: 0 } });
 	const { wrapped, customCalls } = await installEditor(url, base);
 	wrapped.handleInput("left");
@@ -361,7 +361,7 @@ async function scenarioEditorOpenedSessionsEnterSwitches(url) {
 	ext(pi);
 	const base = makeBaseEditor({ cursor: { line: 0, col: 0 } });
 	const eventState = makeCtx(project, () => base, {
-		customInputs: ["right", "down", "enter"],
+		customInputs: ["down", "enter"],
 		includeSwitchSession: false,
 	});
 	const commandState = makeCtx(project, () => base);
@@ -396,7 +396,7 @@ async function scenarioEditorOpenedSessionsEnterSwitches(url) {
 
 async function main() {
 	const { url } = await buildExtension();
-	await scenarioLeftOpensAgents(url);
+	await scenarioLeftOpensSessions(url);
 	await scenarioDownStillOpensMonitor(url);
 	await scenarioLeftMovementDoesNotOpen(url);
 	await scenarioLeftWithTextDoesNotOpen(url);

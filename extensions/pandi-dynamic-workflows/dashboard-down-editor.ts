@@ -1,5 +1,5 @@
 /**
- * WorkflowDashboardDownEditor — the custom Down-key editor that opens the workflow
+ * WorkflowDashboardDownEditor — the custom Down/Left-key editor that opens the workflow
  * dashboard from the prompt, plus its install hook and small cursor helper.
  *
  * installWorkflowDashboardDownEditor wires the editor into the session; the class
@@ -35,7 +35,7 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 	constructor(
 		private readonly base: EditorComponent,
 		private openDashboard: DashboardOpener,
-		private openAgentsDashboard: DashboardOpener = openDashboard,
+		private openSessionsDashboard: DashboardOpener = openDashboard,
 		private getBorderLabel: () => string | undefined = () => undefined,
 		private readonly requestRender: () => void = () => {},
 	) {
@@ -84,10 +84,10 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 
 	setWorkflowDashboardOpen(
 		openDashboard: DashboardOpener,
-		openAgentsDashboard: DashboardOpener = openDashboard,
+		openSessionsDashboard: DashboardOpener = openDashboard,
 	): void {
 		this.openDashboard = openDashboard;
-		this.openAgentsDashboard = openAgentsDashboard;
+		this.openSessionsDashboard = openSessionsDashboard;
 	}
 
 	setBorderLabelProvider(getBorderLabel: () => string | undefined): void {
@@ -246,11 +246,11 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 
 	handleInput(data: string): void {
 		const opensMonitor = matchesKey(data, Key.down);
-		const opensAgents = matchesKey(data, Key.left);
+		const opensSessions = matchesKey(data, Key.left);
 		// Only treat ↓/← as dashboard-open gestures from a genuinely empty editor.
 		// With a composed prompt they must stay normal cursor movements (← at col 0 of
-		// a written prompt used to surprise-open the Agents dashboard).
-		if ((!opensMonitor && !opensAgents) || this.base.getText().trim() !== "") {
+		// a written prompt used to surprise-open the Sessions dashboard).
+		if ((!opensMonitor && !opensSessions) || this.base.getText().trim() !== "") {
 			this.base.handleInput(data);
 			return;
 		}
@@ -269,7 +269,7 @@ class WorkflowDashboardDownEditor implements EditorComponent {
 		if (this.opening) return;
 
 		this.opening = true;
-		const open = opensAgents ? this.openAgentsDashboard : this.openDashboard;
+		const open = opensSessions ? this.openSessionsDashboard : this.openDashboard;
 		void open((command) => this.submitCommand(command)).finally(() => {
 			this.opening = false;
 		});
@@ -334,19 +334,21 @@ export function installWorkflowDashboardDownEditor(
 	ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 		const openMonitor = async (submitCommand?: DashboardCommandSubmitter) =>
 			await openWorkflowDashboard(pi, ctx, "monitor", { submitCommand });
-		const openAgents = async (submitCommand?: DashboardCommandSubmitter) =>
-			await openWorkflowDashboard(pi, ctx, "agents", { submitCommand });
+		const openSessions = async (submitCommand?: DashboardCommandSubmitter) =>
+			await openWorkflowDashboard(pi, ctx, "sessions", { submitCommand });
 		const base = previous?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
 		const existing = base as EditorComponent & {
 			[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER]?: boolean;
-			setWorkflowDashboardOpen?: (openDashboard: DashboardOpener, openAgentsDashboard?: DashboardOpener) => void;
+			setWorkflowDashboardOpen?: (openDashboard: DashboardOpener, openSessionsDashboard?: DashboardOpener) => void;
 			setBorderLabelProvider?: (getBorderLabel: () => string | undefined) => void;
 		};
 		if (existing[WORKFLOW_DASHBOARD_DOWN_EDITOR_MARKER] && typeof existing.setWorkflowDashboardOpen === "function") {
-			existing.setWorkflowDashboardOpen(openMonitor, openAgents);
+			existing.setWorkflowDashboardOpen(openMonitor, openSessions);
 			existing.setBorderLabelProvider?.(getBorderLabel);
 			return existing;
 		}
-		return new WorkflowDashboardDownEditor(base, openMonitor, openAgents, getBorderLabel, () => tui.requestRender());
+		return new WorkflowDashboardDownEditor(base, openMonitor, openSessions, getBorderLabel, () =>
+			tui.requestRender(),
+		);
 	});
 }

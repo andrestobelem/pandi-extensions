@@ -139,7 +139,7 @@ The runtime bounds execution at several layers so a workflow cannot grow without
 
 ### Monitor and dashboard
 
-Open the dashboard with `/workflows` or `Ctrl+Alt+W`. From an **empty** editor, `↓` opens the Monitor and `←` opens Agents (with a written prompt, `↓`/`←` remain normal cursor movement). `/workflow agents` and `/workflow sessions` open those tabs directly, and the idle status line shows `wf · /workflows` as an entry point.
+Open the dashboard with `/workflows` or `Ctrl+Alt+W`. From an **empty** editor, `↓` opens the Monitor and `←` opens Sessions (with a written prompt, `↓`/`←` remain normal cursor movement). `/workflow agents` and `/workflow sessions` open those tabs directly, and the idle status line shows `wf · /workflows` as an entry point.
 
 Keyboard summary (`?` opens the full help overlay):
 
