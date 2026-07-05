@@ -88,7 +88,8 @@ export default function askExtension(pi: ExtensionAPI) {
 				return textResult(NO_UI_MESSAGE, { confirmed: false, reason: "no-ui" });
 			}
 			const ok = await ctx.ui.confirm(params.title, params.message ?? "");
-			return textResult(JSON.stringify({ confirmed: Boolean(ok) }), { confirmed: Boolean(ok), title: params.title });
+			const confirmed = Boolean(ok);
+			return textResult(JSON.stringify({ confirmed }), { confirmed, title: params.title });
 		},
 	});
 }
