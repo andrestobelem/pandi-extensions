@@ -167,7 +167,10 @@ if (verifyCmd) {
 			verifyCmd +
 			"`. " +
 			"Return { green, evidence } where evidence quotes the decisive pass/fail output. Do NOT edit any files.",
-		node("baseline", { tier: "cheap", effort: "low", schema: VERIFY, phase: "Baseline" }),
+		// effort medium, not low: this gate judges CALLER-supplied verifyCmd output (arbitrary,
+		// possibly flaky) to call {green} — that is judgment, not literal transcription.
+		// Override per run via input.efforts.baseline when your verifyCmd output is trivially crisp.
+		node("baseline", { tier: "cheap", effort: "medium", schema: VERIFY, phase: "Baseline" }),
 	);
 	log(`baseline ${JSON.stringify(base)}`);
 	if (!base?.green) {
@@ -211,7 +214,8 @@ const recheck = async (n) =>
 		"Run `" +
 			verifyCmd +
 			"` at the repo root and report { green, evidence } where evidence quotes the decisive pass/fail output. Do NOT edit any files.",
-		node("recheck", { tier: "cheap", effort: "low", schema: VERIFY, label: n, phase: "Migrate" }),
+		// effort medium: judges caller-supplied verifyCmd output (see baseline). Override: input.efforts.recheck.
+		node("recheck", { tier: "cheap", effort: "medium", schema: VERIFY, label: n, phase: "Migrate" }),
 	);
 
 const results = [];
@@ -304,7 +308,8 @@ let finalVerify = null;
 if (verifyCmd && !dryRun) {
 	finalVerify = await agent(
 		`Run \`${verifyCmd}\` once more at the repo root and report { green, evidence }. Do NOT edit files.`,
-		node("final-verify", { tier: "cheap", effort: "low", schema: VERIFY, phase: "Migrate" }),
+		// effort medium: judges caller-supplied verifyCmd output (see baseline). Override: input.efforts["final-verify"].
+		node("final-verify", { tier: "cheap", effort: "medium", schema: VERIFY, phase: "Migrate" }),
 	);
 	log(`final verify ${JSON.stringify(finalVerify)}`);
 }

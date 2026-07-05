@@ -25,6 +25,13 @@
  *   3. Every `tier: "<value>"` is one of cheap|balanced|deep — a typo fails HERE,
  *      statically, instead of silently inheriting the orchestrator model at runtime
  *      (node()'s `log("unknown tier …")` is the last-resort net, not the only one).
+ *   4. large-migration.js gate nodes that judge the CALLER-supplied `verifyCmd`
+ *      output (baseline / recheck / final-verify) default to effort >= medium:
+ *      interpreting arbitrary, possibly flaky command output to call {green} is
+ *      judgment, not transcription — the L2 floor table sets medium as the
+ *      default for user-verifyCmd gates (override per run via input.efforts.*).
+ *      bug-verify.js tree-baseline/tree-check stay `low` on purpose: they
+ *      transcribe `git status --porcelain` literally, zero judgment.
  *
  * The 5 generated mirrors (.claude/workflows, .pi/skills/ultracode/reference/…,
  * extensions/…/skills/…, .claude/skills/…) are covered transitively by the
@@ -81,6 +88,13 @@ async function main() {
 
 		const badTiers = [...source.matchAll(TIER_VALUE)].map((m) => m[1]).filter((v) => !VALID_TIERS.has(v));
 		check(`${file}: all tier values are cheap|balanced|deep`, badTiers.length === 0, badTiers.join(", "));
+
+		if (file === "large-migration.js") {
+			for (const role of ["baseline", "recheck", "final-verify"]) {
+				const call = new RegExp(`node\\("${role}",[^)]*effort:\\s*"low"`).exec(source);
+				check(`${file}: user-verifyCmd gate "${role}" does not default to effort "low"`, call === null, call?.[0]);
+			}
+		}
 	}
 
 	console.log(`\nTOTAL: ${failures === 0 ? "all passed" : `${failures} failed`}`);
