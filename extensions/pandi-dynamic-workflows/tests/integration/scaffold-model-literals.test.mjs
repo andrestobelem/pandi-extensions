@@ -32,6 +32,10 @@
  *      default for user-verifyCmd gates (override per run via input.efforts.*).
  *      bug-verify.js tree-baseline/tree-check stay `low` on purpose: they
  *      transcribe `git status --porcelain` literally, zero judgment.
+ *   5. orchestrator-workers.js worker nodes default to effort high because the
+ *      integrator only merges/preserves evidence and gaps; it does not rerun an
+ *      explicit verification step. Callers may pass mutating tools via input.tools
+ *      / toolsByRole.worker, so this is a worker-without-guaranteed-net default.
  *
  * The 5 generated mirrors (.claude/workflows, .pi/skills/ultracode/reference/…,
  * extensions/…/skills/…, .claude/skills/…) are covered transitively by the
@@ -94,6 +98,15 @@ async function main() {
 				const call = new RegExp(`node\\("${role}",[^)]*effort:\\s*"low"`).exec(source);
 				check(`${file}: user-verifyCmd gate "${role}" does not default to effort "low"`, call === null, call?.[0]);
 			}
+		}
+
+		if (file === "orchestrator-workers.js") {
+			const mediumWorker = /node\("worker",[^)]*effort:\s*"medium"/.exec(source);
+			check(
+				`${file}: worker default reflects no guaranteed downstream verification (effort high, not medium)`,
+				mediumWorker === null,
+				mediumWorker?.[0],
+			);
 		}
 	}
 

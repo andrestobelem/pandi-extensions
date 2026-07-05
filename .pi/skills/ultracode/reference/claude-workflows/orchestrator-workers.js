@@ -41,7 +41,7 @@
  *   concurrency number   optional. Max workers run at once within a level.
  *   models/efforts/model/effort — per-node overrides (see node()).
  *
- * Roles: planner (opus·high), worker (sonnet·medium), integrator (opus·high).
+ * Roles: planner (opus·high), worker (sonnet·high), integrator (opus·high).
  *
  * Output: { result, plan, workers } — the merged deliverable, the plan
  *   (subtasks + caps + per-level schedule + stop reason + unreached), and
@@ -289,7 +289,9 @@ while (done.size < subtasks.length) {
 					`OVERALL GOAL:\n${fence("topic", compact(goal, 4000))}\n\n` +
 					(context ? `SHARED CONTEXT:\n${fence("topic", compact(context, 4000))}\n\n` : "") +
 					(depContext ? `DEPENDENCY OUTPUTS:\n${fence("trace", depContext)}\n\n` : ""),
-				node("worker", { tier: "balanced", effort: "medium", label: `worker-${s.id}`, phase: "Execute" }),
+				// effort high: the integrator merges evidence/gaps but does not rerun an explicit verification net.
+				// Callers can still opt down via input.efforts.worker for read-only/prototype runs.
+				node("worker", { tier: "balanced", effort: "high", label: `worker-${s.id}`, phase: "Execute" }),
 			).then((output) => ({ id: s.id, output }));
 		}),
 		parallelOpts,
