@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// markdown-to-html.mjs — convert Markdown into a self-contained HTML artifact styled with the
-// pandi-artifact-style manual (Claude-design layout × Panda Syntax palette).
+// markdown-to-html.mjs — convierte Markdown en un artifact HTML autocontenido con estilo según el
+// manual pandi-artifact-style (layout Claude-design × paleta Panda Syntax).
 //
-// Tokens are read at runtime from the extension's vendored skill copy
-// (../skills/pandi-artifact-style/reference/pandi-tokens.css, kept byte-identical to the
-// canonical .pi/skills source by vendor-extension-skills.mjs; colors derive from
+// Los tokens se leen en tiempo de ejecución desde la copia vendoreada del skill de la extensión
+// (../skills/pandi-artifact-style/reference/pandi-tokens.css, mantenida idéntica byte a byte con la
+// fuente canónica de .pi/skills por vendor-extension-skills.mjs; los colores derivan de
 // extensions/pandi-theme/themes/panda-syntax-{dark,light}.json).
 //
-// Usage:
+// Uso:
 //   node markdown-to-html.mjs <input.md> [más.md…] [-o output.html] [--kicker "Text"]
 //
-// Without -o each input writes a sibling <input>.html; -o is only valid with one input.
+// Sin -o cada entrada escribe un archivo hermano <input>.html; -o solo es válido con una entrada.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -28,8 +28,8 @@ const ALERT_CALLOUTS = {
 	CAUTION: "error",
 };
 
-// Component styles for the rendered Markdown body — the recipes from SKILL.md
-// (paper/ink surfaces, quiet hierarchy, uppercase section headings, monospace for code).
+// Estilos del componente para el cuerpo Markdown renderizado — las recetas de SKILL.md
+// (superficies paper/ink, jerarquía sobria, títulos de sección en mayúsculas, monospace para código).
 const BODY_CSS = `
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--ink);
@@ -74,24 +74,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// Markdown engine: GFM + a code renderer that turns ```mermaid fences into diagram
-// containers (mermaid reads textContent, so entity-escaping stays correct and safe).
+// Motor Markdown: GFM + un renderizador de código que convierte bloques ```mermaid en contenedores
+// de diagramas (mermaid lee textContent, así que el escape de entidades sigue siendo correcto y seguro).
 const engine = new Marked({
 	gfm: true,
 	renderer: {
 		code(token) {
 			if ((token.lang || "").trim() === "mermaid") return `<pre class="mermaid">${escapeHtml(token.text)}</pre>\n`;
-			return false; // fall back to the default code renderer
+			return false; // usa el renderizador de código por defecto
 		},
 	},
 });
 
-// Parse the CSS custom properties out of pandi-tokens.css (dark = first :root block,
-// light = the prefers-color-scheme block), so mermaid theming shares the single source
-// of truth instead of duplicating hex values.
+// Extrae las custom properties CSS de pandi-tokens.css (dark = primer bloque :root,
+// light = bloque prefers-color-scheme), para que el theming de mermaid comparta la única fuente
+// de verdad en vez de duplicar valores hex.
 function parseTokenVariants(tokensCss) {
 	let split = tokensCss.search(/@media[^{]*prefers-color-scheme:\s*light/);
-	if (split < 0) split = tokensCss.length; // no light block: reuse dark for both
+	if (split < 0) split = tokensCss.length; // sin bloque light: reutiliza dark para ambos
 	const grab = (css) => {
 		const vars = {};
 		for (const m of css.matchAll(/--([\w-]+):\s*(#[0-9A-Fa-f]{6})/g)) vars[m[1]] = m[2];
@@ -100,7 +100,7 @@ function parseTokenVariants(tokensCss) {
 	return { dark: grab(tokensCss.slice(0, split)), light: grab(tokensCss.slice(split)) };
 }
 
-// Map pandi tokens to mermaid `base` themeVariables (same semantic roles as the manual).
+// Mapea los tokens pandi a las themeVariables `base` de mermaid (mismos roles semánticos que el manual).
 function mermaidThemeVariables(vars) {
 	return {
 		background: vars.bg,
@@ -145,7 +145,7 @@ function stripYamlFrontmatter(md) {
 	return md.slice(close + newline.length + 3 + newline.length);
 }
 
-// Extract the first top-level `# heading` as the page title and drop it from the body.
+// Extrae el primer `# heading` de nivel superior como título de la página y lo quita del cuerpo.
 function splitTitle(md) {
 	const lines = md.split("\n");
 	for (let i = 0; i < lines.length; i++) {
@@ -153,18 +153,18 @@ function splitTitle(md) {
 		if (/^\s*$/.test(line)) continue;
 		const m = /^#\s+(.+?)\s*$/.exec(line);
 		if (m) return { title: m[1], body: [...lines.slice(0, i), ...lines.slice(i + 1)].join("\n") };
-		break; // first non-blank line is not an h1 — keep the document intact
+		break; // la primera línea no vacía no es un h1 — conserva intacto el documento
 	}
 	return { title: null, body: md };
 }
 
-// Map GitHub alert blockquotes (> [!NOTE] …) to pandi callouts by post-processing the
-// rendered HTML: simpler and more stable than overriding marked's token renderers.
+// Mapea blockquotes de alertas de GitHub (> [!NOTE] …) a callouts pandi posprocesando el
+// HTML renderizado: más simple y más estable que sobreescribir los renderizadores de tokens de marked.
 function alertsToCallouts(html) {
 	const kinds = Object.keys(ALERT_CALLOUTS).join("|");
 	const marker = new RegExp(`<blockquote>\\s*<p>\\[!(${kinds})\\]\\s*(?:<br\\s*/?>\\s*)?`, "g");
 	let out = html.replace(marker, (_all, kind) => `<div class="callout ${ALERT_CALLOUTS[kind]}"><p>`);
-	// Close the div only for blockquotes we opened as callouts.
+	// Cierra el div solo para los blockquotes que abrimos como callouts.
 	if (out !== html)
 		out = out.replace(/<\/blockquote>/g, (close, idx) => {
 			const opened = out.lastIndexOf('<div class="callout', idx);

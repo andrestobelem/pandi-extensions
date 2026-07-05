@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-docs/index.ts:
- * the `/docs` COMMAND (human) and the `markdown_to_html` TOOL (model).
+ * Test de integración conductual duradero para extensions/pandi-docs/index.ts:
+ * el comando `/docs` (humano) y la herramienta `markdown_to_html` (modelo).
  *
- * Contract pinned here:
- * - both surfaces are registered (command with an HTML-aware description; tool with a
- *   `path` parameter)
- * - converting a .md writes a sibling .html styled with the pandi tokens
- * - `-o` (command) / `out` (tool) override the output path, creating parent dirs
- * - `--kicker` (command) / `kicker` (tool) set the header kicker
- * - multiple command inputs each write a sibling .html; `-o` with several inputs errors
- * - missing input / empty path return a bounded error (notify error / details.isError),
- *   and nothing is written
+ * Contrato fijado acá:
+ * - ambas superficies se registran (comando con una descripción consciente de HTML; herramienta con un
+ *   parámetro `path`)
+ * - convertir un .md escribe un .html hermano con estilo de tokens pandi
+ * - `-o` (comando) / `out` (herramienta) sobreescriben la ruta de salida, creando directorios padre
+ * - `--kicker` (comando) / `kicker` (herramienta) fijan el kicker del encabezado
+ * - varias entradas del comando escriben cada una un .html hermano; `-o` con varias entradas da error
+ * - entrada faltante / path vacío devuelven un error acotado (notify error / details.isError),
+ *   y no se escribe nada
  *
- * Self-bootstrapping (same pattern as the pi-mdview suites): esbuilds the CURRENT
- * index.ts into an OS tempdir and copies the vendored skills/ dir next to the bundle,
- * because index.ts resolves pandi-tokens.css relative to import.meta.url.
+ * Autoarranque (mismo patrón que las suites de pi-mdview): hace esbuild del
+ * index.ts ACTUAL en un directorio temporal del OS y copia el directorio vendoreado skills/ junto al bundle,
+ * porque index.ts resuelve pandi-tokens.css relativo a import.meta.url.
  */
 
 import * as fs from "node:fs/promises";
@@ -34,8 +34,8 @@ async function buildDocs() {
 		name: "pi-docs-integration",
 		src: path.join(REPO_ROOT, "extensions", "pandi-docs", "index.ts"),
 		outName: "docs.mjs",
-		// No typebox stub: bundle the real one so tool.parameters keeps a real JSON schema
-		// (.properties), same as the pi-mdview suites.
+		// Sin stub de typebox: bundlea el real para que tool.parameters conserve un JSON schema real
+		// (.properties), igual que las suites de pi-mdview.
 		copyDirs: { skills: path.join(REPO_ROOT, "extensions", "pandi-docs", "skills") },
 	});
 }

@@ -1,7 +1,7 @@
-// Pinning tests for the pi-docs markdown-to-html converter (moved here from the
-// pandi-artifact-style skill). TDD pinning suite: pure core (renderMarkdownToHtml)
-// + one CLI smoke test. node:test based; run-all executes the file directly and
-// node:test sets a non-zero exit code on failure.
+// Tests de pinning para el conversor markdown-to-html de pi-docs (movidos acá desde el
+// skill pandi-artifact-style). Suite de pinning TDD: núcleo puro (renderMarkdownToHtml)
+// + una prueba de humo de CLI. Basada en node:test; run-all ejecuta el archivo directo y
+// node:test fija un código de salida distinto de cero ante fallas.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -21,10 +21,10 @@ test("renders a full self-contained page: h1 becomes the title, body keeps the p
 	assert.match(html, /<title>My report<\/title>/);
 	assert.match(html, /<h1>My report<\/h1>/);
 	assert.match(html, /Hello <em>world<\/em>\./);
-	// Pandi tokens come from reference/pandi-tokens.css (dark base + light variant).
+	// Los tokens Pandi salen de reference/pandi-tokens.css (base dark + variante light).
 	assert.match(html, /--bg:\s*#242526/);
 	assert.match(html, /prefers-color-scheme:\s*light/);
-	// The h1 is promoted to the header, not duplicated in the body.
+	// El h1 se promociona al encabezado, no se duplica en el cuerpo.
 	assert.equal(html.match(/<h1>My report<\/h1>/g).length, 1);
 });
 
@@ -73,7 +73,7 @@ test("maps GitHub alerts to pandi callouts and strips the marker", () => {
 	assert.match(html, /class="callout warn"/);
 	assert.match(html, /Coverage was capped\./);
 	assert.doesNotMatch(html, /\[!WARNING\]/);
-	// Each alert kind maps to its own class; plain blockquotes stay blockquotes.
+	// Cada tipo de alerta mapea a su propia clase; los blockquotes comunes siguen siendo blockquotes.
 	assert.match(renderMarkdownToHtml("# T\n\n> [!NOTE]\n> n\n", {}), /class="callout info"/);
 	assert.match(renderMarkdownToHtml("# T\n\n> [!TIP]\n> t\n", {}), /class="callout success"/);
 	assert.match(renderMarkdownToHtml("# T\n\n> [!CAUTION]\n> c\n", {}), /class="callout error"/);
@@ -90,10 +90,10 @@ test("mermaid fences become pandi-themed diagrams; plain docs stay JS-free", () 
 	const withDiagram = renderMarkdownToHtml("# T\n\n```mermaid\nflowchart LR\n  A --> B\n```\n", {});
 	assert.match(withDiagram, /<pre class="mermaid">/);
 	assert.match(withDiagram, /flowchart LR/);
-	assert.match(withDiagram, /mermaid(@|\.min)/); // CDN script present
+	assert.match(withDiagram, /mermaid(@|\.min)/); // Script del CDN presente
 	assert.match(withDiagram, /themeVariables/);
-	assert.match(withDiagram, /#FF75B5/); // pandi accent wired into the mermaid theme
-	// A document without mermaid must stay a no-JS artifact.
+	assert.match(withDiagram, /#FF75B5/); // Acento de pandi conectado al tema de mermaid
+	// Un documento sin mermaid debe seguir siendo un artifact sin JS.
 	const plain = renderMarkdownToHtml("# T\n\n```js\nconst a = 1;\n```\n", {});
 	assert.doesNotMatch(plain, /<script/);
 });

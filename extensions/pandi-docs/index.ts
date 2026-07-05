@@ -1,16 +1,16 @@
 /**
- * pi-docs — convert Markdown into a self-contained HTML artifact styled with the
- * pandi-artifact-style manual (Claude-design layout × Panda Syntax palette).
+ * pi-docs — convierte Markdown en un artifact HTML autocontenido con estilo según el
+ * manual pandi-artifact-style (layout Claude-design × paleta Panda Syntax).
  *
- * Two surfaces over the same converter (./scripts/markdown-to-html.mjs):
- *   - `/docs <in.md> [más.md…] [-o out.html] [--kicker "Text"]` — human command.
- *   - `markdown_to_html` — model-callable tool (the agent cannot type slash commands).
+ * Dos superficies sobre el mismo conversor (./scripts/markdown-to-html.mjs):
+ *   - `/docs <in.md> [más.md…] [-o out.html] [--kicker "Text"]` — comando para humanos.
+ *   - `markdown_to_html` — herramienta invocable por el modelo (el agente no puede tipear comandos con slash).
  *
- * The pandi tokens are read at call time from the vendored pandi-artifact-style skill
- * that ships INSIDE this extension (skills/pandi-artifact-style/reference/), resolved
- * relative to import.meta.url so the extension stays self-contained when installed
- * standalone. In-repo the vendored copy is a generated mirror of .pi/skills (kept
- * byte-identical by scripts/vendor-extension-skills.mjs).
+ * Los tokens pandi se leen al invocar desde el skill pandi-artifact-style vendoreado
+ * que viaja DENTRO de esta extensión (skills/pandi-artifact-style/reference/), resuelto
+ * relativo a import.meta.url para que la extensión siga siendo autocontenida al instalarse
+ * sola. En el repo la copia vendoreada es un espejo generado de .pi/skills (mantenido
+ * idéntico byte a byte por scripts/vendor-extension-skills.mjs).
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -26,13 +26,13 @@ const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "re
 
 const USAGE = 'Uso: /docs <input.md> [más.md…] [-o output.html] [--kicker "Texto"]';
 
-/** Resolve a user path against the session cwd, expanding a leading `~`. */
+/** Resuelve una ruta de usuario contra el cwd de la sesión, expandiendo un `~` inicial. */
 function resolveUserPath(input: string, cwd: string): string {
 	const expanded = input === "~" || input.startsWith("~/") ? path.join(os.homedir(), input.slice(1)) : input;
 	return path.resolve(cwd, expanded);
 }
 
-/** Default output path: the input with its .md extension swapped for .html. */
+/** Ruta de salida por defecto: la entrada con su extensión .md reemplazada por .html. */
 function defaultOutPath(inputAbs: string): string {
 	return `${inputAbs.replace(/\.md$/i, "")}.html`;
 }
@@ -44,8 +44,8 @@ export interface ConvertResult {
 }
 
 /**
- * Convert one Markdown file to a styled HTML file. Throws Error with a
- * user-presentable message on failure (missing/unreadable input).
+ * Convierte un archivo Markdown en un archivo HTML con estilo. Lanza Error con un
+ * mensaje presentable al usuario si falla (entrada faltante/ilegible).
  */
 export function convertMarkdownFile(
 	inputPath: string,
@@ -66,7 +66,7 @@ export function convertMarkdownFile(
 	return { input: inputAbs, output: outAbs, bytes: Buffer.byteLength(html) };
 }
 
-/** Tokenize a command argument string, honoring single/double quotes (e.g. --kicker "Two words"). */
+/** Tokeniza una cadena de argumentos del comando, respetando comillas simples/dobles (p. ej. --kicker "Two words"). */
 export function tokenizeArgs(args: string): string[] {
 	const tokens: string[] = [];
 	const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
@@ -115,7 +115,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	// Model-callable counterpart of `/docs` (the agent cannot type a slash command).
+	// Contraparte invocable por el modelo de `/docs` (el agente no puede tipear un comando con slash).
 	pi.registerTool({
 		name: "markdown_to_html",
 		label: "Markdown to HTML",
