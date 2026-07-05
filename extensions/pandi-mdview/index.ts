@@ -38,6 +38,10 @@ function boundedLine(text: string, width: number): string {
 	return padToWidth(truncateToWidth(text, Math.max(1, width)), width);
 }
 
+function displayMarkdownPath(cwd: string, filePath: string): string {
+	return path.relative(cwd, filePath) || filePath;
+}
+
 // Construye el tema de Markdown a partir del objeto `theme` de runtime (el valor que entra al
 // callback ctx.ui.custom) usando SOLO imports type-only del SDK. A propósito NO importamos
 // getMarkdownTheme() del SDK como valor: eso arrastra todo el runtime de coding-agent
@@ -113,8 +117,7 @@ class MarkdownViewComponent implements Component {
 		while (visibleBody.length < bodyHeight) visibleBody.push("");
 
 		const title = this.theme.fg("accent", this.theme.bold("Markdown"));
-		const relativePath = path.relative(this.cwd, this.filePath) || this.filePath;
-		const location = this.theme.fg("dim", relativePath);
+		const location = this.theme.fg("dim", displayMarkdownPath(this.cwd, this.filePath));
 		const footer = this.theme.fg(
 			"dim",
 			`↑/↓ j/k desplazar • PgUp/PgDn página • q/Esc cerrar • ${start + 1}-${end}/${bodyLines.length}`,
@@ -199,7 +202,7 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 					details: { isError: true },
 				};
 			}
-			const relativePath = path.relative(ctx.cwd, load.filePath) || load.filePath;
+			const relativePath = displayMarkdownPath(ctx.cwd, load.filePath);
 			if (ctx.mode === "tui" && ctx.hasUI) {
 				await openMarkdownViewer(ctx, load.filePath, load.content);
 				return {
