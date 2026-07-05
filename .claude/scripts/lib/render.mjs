@@ -236,20 +236,33 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   };
   const jsonBlob = JSON.stringify(data).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
   const autoRefresh = !!(runData && runData.active);
+  const hasRun = !!runData;
   const hasResults = !!(runData && runData.results);
-  const initialTab = hasResults ? "results" : "overview";
+  const initialTab = hasResults ? "results" : hasRun ? "agents" : "overview";
   const opening = escHtml(openingText({ runData, nodeCount: nodes.length, argsJson, hasResults }));
   const callouts = topCallouts(runData);
-  const tabs = [
-    ...(hasResults ? [tabButton("results", "Resultados", initialTab === "results", 'id="tabresults"')] : []),
-    tabButton("overview", "Diagrama", initialTab === "overview"),
-    ...(hasContract ? [tabButton("contract", "Contrato", false)] : []),
-    tabButton("agents", "Agentes y prompts", false),
-    tabButton("schemas", "Schemas", false),
-    tabButton("based", "Basado en", false),
-    tabButton("script", "Script completo", false),
-    ...(!hasResults ? [tabButton("results", "Resultados", false, 'id="tabresults"')] : []),
-  ].join("");
+  const tabMap = {
+    results: tabButton("results", "Resultados", initialTab === "results", 'id="tabresults"'),
+    overview: tabButton("overview", "Diagrama", initialTab === "overview"),
+    contract: hasContract ? tabButton("contract", "Contrato", false) : "",
+    agents: tabButton("agents", "Agentes y prompts", initialTab === "agents"),
+    schemas: tabButton("schemas", "Schemas", false),
+    based: tabButton("based", "Basado en", false),
+    script: tabButton("script", "Script completo", false),
+  };
+  const tabs = (hasRun
+    ? [
+        hasResults ? tabMap.results : "",
+        tabMap.agents,
+        tabMap.overview,
+        tabMap.contract,
+        tabMap.schemas,
+        tabMap.based,
+        tabMap.script,
+        !hasResults ? tabMap.results : "",
+      ]
+    : [tabMap.overview, tabMap.agents, tabMap.schemas, tabMap.based, tabMap.script, tabMap.results]
+  ).filter(Boolean).join("");
   const active = (id) => (initialTab === id ? ' class="active"' : "");
   const overviewSection = `<section data-s="overview"${active("overview")}><h2 class="sec">Orquestación</h2><p class="section-intro">El diagrama muestra la estructura detectada: fases, tipos de agente y composición entre workflows. Usalo como mapa; los prompts exactos están en la pestaña de agentes.</p><div class="diagram"><pre class="mermaid" id="mm"></pre></div></section>`;
   const contractSection = hasContract ? '<section data-s="contract"><h2 class="sec">Contrato — contrato de tarea del gate</h2><div class="mdbody" id="contract"></div></section>' : "";
@@ -258,9 +271,18 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const schemasSection = '<section data-s="schemas"><h2 class="sec">Schemas de structured output</h2><div id="schemas"></div></section>';
   const basedSection = '<section data-s="based"><h2 class="sec">Basado en — fuentes y scaffolds</h2><div id="based"></div></section>';
   const scriptSection = '<section data-s="script"><h2 class="sec">Script completo</h2><pre class="block"><code class="language-javascript" id="script"></code></pre></section>';
-  const sections = hasResults
-    ? [resultsSection, overviewSection, contractSection, agentsSection, schemasSection, basedSection, scriptSection]
-    : [overviewSection, contractSection, resultsSection, agentsSection, schemasSection, basedSection, scriptSection];
+  const sections = hasRun
+    ? [
+        hasResults ? resultsSection : "",
+        agentsSection,
+        overviewSection,
+        contractSection,
+        !hasResults ? resultsSection : "",
+        schemasSection,
+        basedSection,
+        scriptSection,
+      ]
+    : [overviewSection, agentsSection, resultsSection, schemasSection, basedSection, scriptSection];
 
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${autoRefresh ? '<meta http-equiv="refresh" content="2">' : ""}
 <title>${(meta.name || "workflow").replace(/[<>&]/g, "")} — workflow</title>

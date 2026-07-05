@@ -13,6 +13,7 @@ var mermaidRendered=false;
 function renderMermaidOnce(){if(mermaidRendered)return;try{
   var mmEl=document.getElementById("mm");
   if(!mmEl)return;
+  mmEl.removeAttribute("data-processed");
   mmEl.textContent=D.__mm||"";
   var dark=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches;
   var themeVars=D.mermaidThemes&&(dark?D.mermaidThemes.dark:D.mermaidThemes.light);

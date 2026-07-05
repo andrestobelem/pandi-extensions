@@ -59,6 +59,25 @@ async function writeFailedRunFixture() {
 	return runDir;
 }
 
+async function writeNoResultsRunFixture() {
+	const runDir = await fs.mkdtemp(path.join(os.tmpdir(), "workflow-preview-no-results-run-"));
+	await fs.writeFile(
+		path.join(runDir, "status.json"),
+		JSON.stringify({
+			runId: "2026-01-01T00-00-00-000Z-no-results-preview-cccc3333",
+			state: "completed",
+			active: false,
+			agentCount: 1,
+			elapsedMs: 1000,
+		}),
+	);
+	await fs.writeFile(
+		path.join(runDir, "events.jsonl"),
+		`${JSON.stringify({ type: "agent", id: 1, name: "worker-only", state: "completed", ok: true, output: "ok" })}\n`,
+	);
+	return runDir;
+}
+
 async function writeContractRunFixture() {
 	const runDir = await fs.mkdtemp(path.join(os.tmpdir(), "workflow-preview-contract-run-"));
 	await fs.writeFile(
@@ -132,6 +151,10 @@ check("diagram labels args input in Spanish", preHtml.includes("entrada args"));
 check("diagram labels empty phases in Spanish", preHtml.includes("sin agentes · solo bash o no alcanzado"));
 check("diagram no longer emits English args input", !preHtml.includes("args input"));
 check("diagram render is deferred until the visible tab", preHtml.includes("function renderMermaidOnce()"));
+check(
+	"diagram clears Mermaid autostart state before rendering",
+	preHtml.includes('mmEl.removeAttribute("data-processed")'),
+);
 check("diagram renders when the overview tab opens", preHtml.includes('b.dataset.t==="overview"'));
 check("results include a first-read guide", preHtml.includes("Qué mirar primero"));
 check("results prefer summary.md when available", preHtml.includes('a.name==="summary.md"'));
@@ -157,11 +180,33 @@ try {
 	);
 	check("post-run makes the results section active", /<section data-s="results" class="active">/.test(postHtml));
 	check(
-		"post-run keeps Diagram available after Results",
+		"post-run puts Agents before Diagram",
+		indexOfNeedle(postHtml, 'data-t="agents"') < indexOfNeedle(postHtml, 'data-t="overview"'),
+	);
+	check(
+		"post-run keeps Diagram available after Agents",
 		postHtml.includes('<button data-t="overview">Diagrama</button>'),
 	);
 } finally {
 	await fs.rm(runDir, { recursive: true, force: true });
+}
+
+const noResultsRunDir = await writeNoResultsRunFixture();
+try {
+	const noResults = await buildArtifact({ scriptPath: SCAFFOLD, argsJson, runDir: noResultsRunDir });
+	const noResultsHtml = noResults.html;
+
+	check("run without results explains the missing output", noResultsHtml.includes("sin output final"));
+	check(
+		"run without results starts from Agents",
+		/<button data-t="agents" class="active">Agentes y prompts<\/button>/.test(noResultsHtml),
+	);
+	check(
+		"run without results puts Agents before Diagram",
+		indexOfNeedle(noResultsHtml, 'data-t="agents"') < indexOfNeedle(noResultsHtml, 'data-t="overview"'),
+	);
+} finally {
+	await fs.rm(noResultsRunDir, { recursive: true, force: true });
 }
 
 const contractRunDir = await writeContractRunFixture();
