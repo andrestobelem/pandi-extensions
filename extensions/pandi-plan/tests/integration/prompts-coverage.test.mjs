@@ -82,7 +82,7 @@ function planningPromptTests(mod) {
 		check("planning(default): NO non-interactive block", !/SESIÓN NO INTERACTIVA/.test(out));
 		check("planning(default): NO ULTRACODE wording", !/ULTRACODE/.test(out));
 		check("planning(default): offers AskUserQuestion (interactive)", /AskUserQuestion/.test(out));
-		check("planning(default): offers pi-ask interactive tools", /ask_choice/.test(out) && /ask_confirm/.test(out));
+		check("planning(default): offers pandi-ask interactive tools", /ask_choice/.test(out) && /ask_confirm/.test(out));
 		check("planning(default): has the QUÉ HACER section", /QUÉ HACER:/.test(out));
 		check("planning(default): mentions submit_plan for approval", /submit_plan/.test(out));
 		check(
