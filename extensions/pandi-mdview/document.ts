@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 
-const MAX_MDVIEW_BYTES = 2_000_000; // guard: reading/parsing a huge file blocks the TUI event loop
+const MAX_MDVIEW_BYTES = 2_000_000; // guarda: leer/parsear un archivo enorme bloquea el loop de eventos de la TUI
 
 function stripWrappingQuotes(value: string): string {
 	const trimmed = value.trim();
@@ -28,9 +28,9 @@ export type MarkdownLoad =
 	| { ok: false; message: string; level: "warning" | "error" };
 
 /**
- * Resolve + size-guard + read a Markdown file. Shared by the `/mdview` command and the
- * model-callable `view_markdown` tool so both apply the SAME validation and limits.
- * Pure of UI: callers decide how to surface success (viewer / content) and errors.
+ * Resuelve + valida tamaño + lee un archivo Markdown. Lo comparten el comando `/mdview` y la
+ * TOOL `view_markdown` invocable por el modelo para que ambos apliquen la MISMA validación y límites.
+ * Sin UI: quien llama decide cómo mostrar éxitos (visor / contenido) y errores.
  */
 export async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<MarkdownLoad> {
 	const filePath = resolveMarkdownPath(pathArg, cwd);

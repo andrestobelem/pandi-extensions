@@ -15,14 +15,14 @@ import { loadMarkdownDocument } from "./document.js";
 export { resolveMarkdownPath } from "./document.js";
 
 const VIEWER_MIN_BODY_LINES = 3;
-const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
+const VIEWER_FIXED_LINES = 5; // borde superior, título, separador, pie, borde inferior
 
 function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
-		// In --print/--json mode pi takes over process.stdout (reserving real stdout
-		// for the model response) and routes all console output to stderr. So both
-		// branches below surface on the terminal via stderr; the split only keeps
-		// log/error semantics for any caller that inspects the two streams.
+		// En modo --print/--json pi toma process.stdout (reservando stdout real
+		// para la respuesta del modelo) y enruta toda la salida de consola a stderr. Así, ambas
+		// ramas de abajo aparecen en la terminal vía stderr; la separación solo conserva
+		// la semántica log/error para quien inspeccione los dos streams.
 		if (type === "info") console.log(message);
 		else console.error(message);
 		return;
@@ -38,10 +38,10 @@ function boundedLine(text: string, width: number): string {
 	return padToWidth(truncateToWidth(text, Math.max(1, width)), width);
 }
 
-// Build the Markdown theme from the runtime `theme` object (a value passed into the
-// ctx.ui.custom callback) using ONLY type-only SDK imports. We deliberately do NOT import
-// the SDK's getMarkdownTheme() as a value: that pulls the whole coding-agent runtime
-// (cross-spawn/child_process) into the bundle and breaks the self-contained extension load.
+// Construye el tema de Markdown a partir del objeto `theme` de runtime (el valor que entra al
+// callback ctx.ui.custom) usando SOLO imports type-only del SDK. A propósito NO importamos
+// getMarkdownTheme() del SDK como valor: eso arrastra todo el runtime de coding-agent
+// (cross-spawn/child_process) al bundle y rompe la carga autocontenida de la extensión.
 function createMarkdownTheme(theme: Theme): MarkdownTheme {
 	return {
 		heading: (text) => theme.fg("mdHeading", theme.bold(text)),
@@ -141,7 +141,7 @@ class MarkdownViewComponent implements Component {
 	}
 }
 
-/** Open the interactive scroll viewer; resolves when the user closes it (q/Esc). */
+/** Abre el visor interactivo con scroll; se resuelve cuando el usuario lo cierra (q/Esc). */
 function openMarkdownViewer(ctx: ExtensionContext, filePath: string, content: string): Promise<void> {
 	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 		return new MarkdownViewComponent(tui, theme, filePath, ctx.cwd, content, () => done(undefined));
@@ -156,9 +156,9 @@ async function showMarkdown(pathArg: string, ctx: ExtensionContext): Promise<voi
 	}
 
 	if (ctx.mode !== "tui") {
-		// Non-TUI fallback: dump the document for terminal viewing. Under --print pi
-		// has taken over stdout and routes this to stderr, so it is NOT redirectable
-		// to a file (`pi /mdview f.md > out.md` captures nothing); use `cat` for raw text.
+		// Fallback no TUI: vuelca el documento para verlo en la terminal. Bajo --print, pi
+		// tomó control de stdout y lo enruta a stderr, así que NO puede redirigirse
+		// a un archivo (`pi /mdview f.md > out.md` no captura nada); usá `cat` para texto crudo.
 		console.log(load.content);
 		return;
 	}
@@ -174,10 +174,10 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	// Model-callable counterpart of `/mdview`. The command is user-only (the agent cannot
-	// type a slash command), so this TOOL lets the agent itself show Markdown: it opens the
-	// same scroll viewer in a TUI, and returns the raw content in non-interactive modes
-	// (where it renders in the transcript).
+	// Contraparte invocable por el modelo de `/mdview`. El comando es solo para el usuario (el agente no puede
+	// tipear un slash command), así que esta TOOL le permite al agente mostrar Markdown: abre el
+	// mismo visor con scroll en una TUI y devuelve el contenido crudo en modos no interactivos
+	// (donde se renderiza en la transcripción).
 	pi.registerTool({
 		name: "view_markdown",
 		label: "Ver Markdown",

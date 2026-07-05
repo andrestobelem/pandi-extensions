@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for the model-callable `view_markdown` TOOL
- * registered by extensions/pandi-mdview/index.ts.
+ * Test de integración conductual durable para la TOOL `view_markdown` invocable por el modelo,
+ * registrada por extensions/pandi-mdview/index.ts.
  *
- * Why this exists: `/mdview` is a user COMMAND (the agent cannot invoke it). To let
- * the agent itself "show a Markdown file", the extension also exposes a TOOL the LLM
- * can call. This suite pins that contract:
- * - the tool is registered with a `path` parameter and a Markdown-aware description
- * - in TUI mode it opens the same custom scroll viewer and returns a short ack
- * - in non-interactive modes it returns the file's Markdown content (no UI opened)
- * - missing/oversized/empty paths return a bounded tool error (details.isError), no UI
+ * Por qué existe: `/mdview` es un COMMAND del usuario (el agente no puede invocarlo). Para que
+ * el propio agente "muestre un archivo Markdown", la extensión también expone una TOOL que el LLM
+ * puede llamar. Esta suite fija ese contrato:
+ * - la tool se registra con un parámetro `path` y una descripción consciente de Markdown
+ * - en modo TUI abre el mismo visor con scroll personalizado y devuelve un ack breve
+ * - en modos no interactivos devuelve el contenido Markdown del archivo (no se abre UI)
+ * - rutas faltantes/sobredimensionadas/vacías devuelven un error de tool acotado (details.isError), sin UI
  *
- * Self-bootstrapping (same pattern as mdview-extension.test.mjs): it esbuilds the
- * CURRENT extensions/pandi-mdview/index.ts into an OS temp dir at run time so it can never
- * test a stale bundle, then drives the REAL registered tool.
+ * Auto-bootstrap (mismo patrón que mdview-extension.test.mjs): hace esbuild del
+ * extensions/pandi-mdview/index.ts actual en un directorio temporal del OS en tiempo de ejecución para que nunca
+ * pruebe un bundle obsoleto, y luego usa la TOOL real registrada.
  */
 
 import * as fs from "node:fs/promises";

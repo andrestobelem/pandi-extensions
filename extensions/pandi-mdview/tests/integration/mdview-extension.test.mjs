@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-mdview/index.ts.
+ * Test de integración conductual durable para extensions/pandi-mdview/index.ts.
  *
- * Pins the public /mdview contract:
- * - the command is registered by the extension
- * - a relative Markdown file path opens a custom TUI component
- * - quoted paths with spaces are resolved relative to ctx.cwd
- * - q closes the focused viewer
- * - missing arguments/files report bounded UI warnings/errors instead of throwing
+ * Fija el contrato público de /mdview:
+ * - el comando lo registra la extensión
+ * - una ruta relativa a un archivo Markdown abre un componente TUI personalizado
+ * - las rutas entre comillas con espacios se resuelven relativas a ctx.cwd
+ * - q cierra el visor enfocado
+ * - argumentos/archivos faltantes informan warnings/errors de UI acotados en vez de lanzar
  */
 
 import { spawnSync } from "node:child_process";
@@ -37,8 +37,8 @@ function makePi() {
 	return {
 		pi: {
 			registerCommand: (name, opts) => commands.set(name, opts),
-			// The extension also registers a model-callable `view_markdown` tool; this
-			// suite only exercises the /mdview COMMAND, so capture tools without asserting.
+			// La extensión también registra una TOOL `view_markdown` invocable por el modelo; esta
+			// suite solo ejercita el COMMAND /mdview, así que captura tools sin afirmar nada.
 			registerTool: (tool) => tools.set(tool.name, tool),
 		},
 		commands,
@@ -211,8 +211,8 @@ async function scenarioPrintModeStdout(url) {
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd, mode: "print" });
 	const { out } = await captureConsole(() => commands.get("mdview").handler("doc.md", ctx));
-	// Unit-level: the handler emits the document via console.log. Under the real
-	// `pi --print` binary that stream is routed to stderr (see scenarioPrintModeRealStdout).
+	// A nivel unitario: el handler emite el documento vía console.log. Bajo el binario real
+	// `pi --print`, ese stream se enruta a stderr (ver scenarioPrintModeRealStdout).
 	check("print: emits document content via console.log", out.includes("plain body"), out);
 	check("print: opens no custom UI", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 }
@@ -229,10 +229,10 @@ async function scenarioPrintModeErrorToStderr(url) {
 	);
 }
 
-// End-to-end against the real `pi --print` binary so we exercise pi's stdout
-// takeover (it reserves real stdout for the model response and routes all
-// extension console output to stderr). A mocked console.log can never reveal
-// this, which is exactly why the in-process unit checks gave false confidence.
+// End-to-end contra el binario real `pi --print` para ejercitar la toma de stdout de pi
+// (reserva stdout real para la respuesta del modelo y enruta toda la salida de consola
+// de la extensión a stderr). Un console.log mockeado nunca puede revelar
+// esto, que es exactamente por lo que los checks unitarios in-process dieron falsa confianza.
 async function scenarioPrintModeRealStdout() {
 	const which = spawnSync("bash", ["-lc", "command -v pi"], { encoding: "utf8" });
 	if (which.status !== 0) {
@@ -251,9 +251,9 @@ async function scenarioPrintModeRealStdout() {
 	const stdout = r.stdout || "";
 	const stderr = r.stderr || "";
 	check("print-real: exits cleanly", r.status === 0, JSON.stringify({ status: r.status, err: stderr.slice(0, 200) }));
-	// Honest contract: pi reserves real stdout for the model response, so the
-	// document is emitted to the terminal via stderr; `pi /mdview f.md > out.md`
-	// captures nothing. These two checks pin that real routing.
+	// Contrato honesto: pi reserva stdout real para la respuesta del modelo, así que el
+	// documento se emite a la terminal vía stderr; `pi /mdview f.md > out.md`
+	// no captura nada. Estas dos verificaciones fijan ese enrutamiento real.
 	check(
 		"print-real: document is emitted to the terminal (stderr)",
 		stderr.includes("UNIQUE_BODY_TOKEN"),
