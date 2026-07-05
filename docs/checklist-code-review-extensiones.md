@@ -87,7 +87,7 @@ Fuentes: `AGENTS.md`, `docs/principios-ingenieria.md`, `package.json`, `extensio
 - [ ] El commit es atómico: un cambio coherente, con el test de fijación en el MISMO commit
       que el código (`git show --stat HEAD` confirma ambos juntos).
 - [ ] El mensaje usa Conventional Commits con scope explícito de la extensión, p. ej.
-      `fix(pi-goal): clear terminated goals` — sin scope genérico `fix: ...`.
+      `fix(pandi-goal): clear terminated goals` — sin scope genérico `fix: ...`.
 - [ ] Sin `Co-Authored-By:` ni atribución a herramienta/IA:
       `git log -1 --format=%B | grep -i "co-authored-by\|generated with"` no matchea nada.
 - [ ] Antes de amendar: `git log`/`git reflog` confirma que `HEAD` es el commit propio

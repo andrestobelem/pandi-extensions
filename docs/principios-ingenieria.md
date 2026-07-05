@@ -60,7 +60,7 @@ evidencia concreta.
   nunca runtime compartido entre extensiones. Al refactorizar, deduplicá solo DENTRO de
   una misma extensión/paquete.
 - **Conventional Commits con scope explícito, siempre** (ej.
-  `fix(pi-goal): clear terminated goals`), un cambio coherente por commit, con su test de
+  `fix(pandi-goal): clear terminated goals`), un cambio coherente por commit, con su test de
   fijación en el mismo commit.
 - **Nunca `Co-Authored-By:` ni atribución de herramienta** en commits o PRs. Mensaje =
   subject Conventional-Commits + body, nada más.

@@ -142,7 +142,7 @@ seguridad de ejecución, es de cuándo recargás.
 2. Implementá hasta verde: `node --test <suite>`; refactor con la red de tests.
 3. `npm test` completo antes de commitear (gate del repo).
 4. Smoke en vivo solo si hace falta, en un worktree aparte (eje 2, estrategia A).
-5. Commit atómico con Conventional Commits + scope (ej. `feat(pi-goal): …`).
+5. Commit atómico con Conventional Commits + scope (ej. `feat(pandi-goal): …`).
 
 ## Ver también
 
