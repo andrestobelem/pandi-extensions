@@ -28,14 +28,14 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 
 export default function exitExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("exit", {
-		description: "Exit pi cleanly (Claude-style alias for /quit).",
+		description: "Sale de pi de forma limpia (alias estilo Claude de /quit).",
 		handler: async (_args, ctx) => {
 			try {
 				ctx.shutdown();
 			} catch (error) {
 				notify(
 					ctx,
-					`exit failed: ${error instanceof Error ? error.message : String(error)} — try /quit instead`,
+					`no se pudo salir: ${error instanceof Error ? error.message : String(error)} — probá /quit en su lugar`,
 					"error",
 				);
 			}

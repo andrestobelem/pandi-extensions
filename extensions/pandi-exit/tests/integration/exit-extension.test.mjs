@@ -86,7 +86,9 @@ async function main() {
 		check("/exit does not crash when shutdown throws", !threw);
 		check(
 			"/exit reports a shutdown failure as an error note",
-			ctxThrow._notes.some((n) => n.type === "error" && /exit failed/.test(n.msg) && /shutdown-refused/.test(n.msg)),
+			ctxThrow._notes.some(
+				(n) => n.type === "error" && /no se pudo salir/.test(n.msg) && /shutdown-refused/.test(n.msg),
+			),
 			JSON.stringify(ctxThrow._notes),
 		);
 
