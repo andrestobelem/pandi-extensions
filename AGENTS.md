@@ -27,7 +27,7 @@ Honor every TDD step, not just the easy two:
 
 Source/reference: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills). These guidelines are derived from Andrej Karpathy's notes on LLM coding pitfalls; they are not authored by him.
 
-In this package, those principles are also operationalized as runtime mechanisms: `/plan` ≈ Think Before Coding, `/loop` safeguards ≈ Surgical Changes, and `/goal` + `/loop` ≈ Goal-Driven Execution. Behavior integration suites grouped by extension under `tests/<extension>/integration/` (run via `npm test`) keep them honest.
+In this package, those principles are also operationalized as runtime mechanisms: `/plan` ≈ Think Before Coding, `/loop` safeguards ≈ Surgical Changes, and `/goal` + `/loop` ≈ Goal-Driven Execution. Behavior integration suites grouped by extension under `extensions/<extension>/tests/integration/` (run via `npm test`) keep them honest.
 
 ## Ultracode / dynamic workflows
 

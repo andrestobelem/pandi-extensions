@@ -55,6 +55,7 @@
 		"sync:claude:ultracode": "node scripts/generate-claude-ultracode-skills.mjs",
 		"sync:claude:ultracode:check": "node scripts/generate-claude-ultracode-skills.mjs --check",
 		"lint:md": "markdownlint-cli2",
+		"docs:links:check": "node scripts/check-doc-catalog-and-links.mjs",
 		"md:html": "node extensions/pandi-docs/scripts/markdown-to-html.mjs",
 		"sync:docs:html": "node scripts/sync-docs-html.mjs",
 		"sync:docs:html:check": "node scripts/sync-docs-html.mjs --check",

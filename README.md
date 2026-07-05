@@ -1,6 +1,6 @@
 # pi-dynamic-workflows
 
-**A suite of 17 extensions for [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — the `@earendil-works/pi-coding-agent` agentic coding CLI — that brings Claude Code's ergonomics and capabilities to Pi: **dynamic multi-agent workflows** (the centerpiece), plus `/loop`, `/goal`, `/plan`, local memory, context auto-compaction, TypeScript diagnostics, git worktrees, Linux sandboxes, and several UX aliases/shortcuts.
+**A suite of 20 extensions for [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — the `@earendil-works/pi-coding-agent` agentic coding CLI — that brings Claude Code's ergonomics and capabilities to Pi: **dynamic multi-agent workflows** (the centerpiece), plus `/loop`, `/goal`, `/plan`, local memory, context auto-compaction, TypeScript diagnostics, git worktrees, Linux sandboxes, and several UX aliases/shortcuts.
 
 The heart of the repo is **Dynamic Workflows / Ultracode**: trusted JavaScript scripts that Pi executes to orchestrate parallel subagents, persist artifacts outside the chat context, and return a coordinated synthesis. The other extensions are independent pieces you can install one by one or all together, whatever your project needs. 🐼
 
