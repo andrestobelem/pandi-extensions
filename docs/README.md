@@ -16,16 +16,16 @@ Si querés ubicarte rápido, empezá por la guía de `Setup`, la documentación 
 
 ## Investigación y análisis
 
-- [Loop engineering with our extensions (how-to)](./loop-engineering-with-extensions.md)
-- [Research: ultracode always-on](./research/2026-06-25-ultracode-always-on.md)
-- [Improving prompts for dynamic workflows](./research/2026-06-25-prompt-patterns-workflows.md)
-- [Andrej Karpathy's recommendations for programming, learning, and using AI](./research/2026-06-25-karpathy-programming-recommendations.md)
-- [Agentic patterns and papers applicable to Dynamic Workflows](./research/2026-06-25-agentic-patterns-papers-workflows.md)
-- [Visualization of agentic patterns in Dynamic Workflows](./research/2026-06-25-agentic-patterns-visualization.md)
-- [Software engineering principles according to Dave Farley](./research/2026-06-25-dave-farley-modern-software-engineering.md)
-- [Claude Dynamic Workflows: a harness for every task](./research/2026-06-26-claude-dynamic-workflows-harness.md)
+- [Ingeniería de loops con nuestras extensiones (how-to)](./loop-engineering-with-extensions.md)
+- [Investigación: ultracode siempre activo](./research/2026-06-25-ultracode-always-on.md)
+- [Mejorar prompts para dynamic workflows](./research/2026-06-25-prompt-patterns-workflows.md)
+- [Recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA](./research/2026-06-25-karpathy-programming-recommendations.md)
+- [Patrones agénticos y papers aplicables a Dynamic Workflows](./research/2026-06-25-agentic-patterns-papers-workflows.md)
+- [Visualización de patrones agénticos en Dynamic Workflows](./research/2026-06-25-agentic-patterns-visualization.md)
+- [Principios de ingeniería de software según Dave Farley](./research/2026-06-25-dave-farley-modern-software-engineering.md)
+- [Claude Dynamic Workflows: _A harness for every task_](./research/2026-06-26-claude-dynamic-workflows-harness.md)
 - [Modularización de extensiones — Design Audit y roadmap](./research/2026-06-28-modularizacion-extensiones-design-audit.md)
-- [Research: loop engineering (source-backed)](./research/2026-06-28-loop-engineering.md)
+- [Loop engineering — una investigación respaldada por fuentes](./research/2026-06-28-loop-engineering.md)
 
 ## Estructura del directorio
 
