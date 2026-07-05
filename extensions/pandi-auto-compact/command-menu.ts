@@ -1,22 +1,24 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CODEX_DEFAULT_THRESHOLD_PERCENT, DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
 
+const MENU_ACTIONS = [
+	{ value: "status", description: "mostrar la configuración actual" },
+	{ value: "on", description: "activar la auto-compactación" },
+	{ value: "off", description: "desactivar la auto-compactación" },
+	{ value: "run", description: "compactar el contexto ahora" },
+	{ value: "bar on", description: "mostrar la barra de progreso del footer" },
+	{ value: "bar off", description: "ocultar la barra de progreso del footer" },
+	{ value: "snapshot on", description: "mantener instantáneas recuperables antes de compactar" },
+	{ value: "snapshot off", description: "dejar de guardar instantáneas" },
+	{ value: "snapshots", description: "listar las instantáneas recientes" },
+	{ value: "clear-tools on", description: "elidir salidas de tools viejas y grandes (más barato que compactar)" },
+	{ value: "clear-tools off", description: "dejar de elidir salidas de tools viejas" },
+	{ value: "threshold", description: "configurar el % de umbral de compactación" },
+] as const;
+
 // Menú interactivo que se muestra para un `/auto-compact` sin argumentos en una sesión con UI. El texto
 // ANTES de " — " es el comando canónico que el manejador ya entiende.
-export const MENU_OPTIONS = [
-	"status — mostrar la configuración actual",
-	"on — activar la auto-compactación",
-	"off — desactivar la auto-compactación",
-	"run — compactar el contexto ahora",
-	"bar on — mostrar la barra de progreso del footer",
-	"bar off — ocultar la barra de progreso del footer",
-	"snapshot on — mantener instantáneas recuperables antes de compactar",
-	"snapshot off — dejar de guardar instantáneas",
-	"snapshots — listar las instantáneas recientes",
-	"clear-tools on — elidir salidas de tools viejas y grandes (más barato que compactar)",
-	"clear-tools off — dejar de elidir salidas de tools viejas",
-	"threshold — configurar el % de umbral de compactación",
-];
+export const MENU_OPTIONS = MENU_ACTIONS.map(({ value, description }) => `${value} — ${description}`);
 
 // Valores predefinidos de threshold ofrecidos después de elegir "threshold"; se derivan para que el
 // predeterminado actual siempre esté presente (y marcado abajo). La última entrada abre un campo de texto.
