@@ -10,7 +10,7 @@
  *
  * Los argumentos se ignoran: salir no recibe parámetros. ctx.shutdown() difiere el cierre
  * real hasta que el agente queda inactivo, pero delega en un shutdownHandler provisto por
- * el modo que PUEDE lanzar de forma síncrona; por eso se protege igual que pi-clear
+ * el modo que PUEDE lanzar de forma síncrona; por eso se protege igual que pandi-clear
  * protege ctx.newSession(), informando la falla en vez de filtrar un error genérico de la
  * extensión.
  */

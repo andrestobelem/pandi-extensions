@@ -9,7 +9,7 @@
  * - registra exactamente un comando (el README promete que /exit coexiste con el
  *   /quit nativo y nunca lo reemplaza) (issue #13)
  * - un ctx.shutdown() que lanza se informa como una nota de error y nunca se propaga,
- *   reflejando el ctx.newSession() protegido de pi-clear (issue #13)
+ *   reflejando el ctx.newSession() protegido de pandi-clear (issue #13)
  */
 
 import * as fs from "node:fs/promises";
@@ -75,7 +75,7 @@ async function main() {
 
 		// Un shutdown que lanza (el shutdownHandler provisto por el modo puede lanzar)
 		// se informa como una nota de error y nunca se propaga: mismo contrato que el
-		// ctx.newSession() protegido de pi-clear.
+		// ctx.newSession() protegido de pandi-clear.
 		const ctxThrow = makeCtx({ throwOnShutdown: true });
 		let threw = false;
 		try {
