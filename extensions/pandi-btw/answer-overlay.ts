@@ -1,16 +1,16 @@
 /**
- * The dismissible, scrollable overlay that shows a `/btw` answer in the TUI.
+ * Overlay cerrable y desplazable que muestra una respuesta de `/btw` en la TUI.
  *
- * This is the Pi analogue of Claude Code's `/btw` overlay: the answer appears on top of
- * the session WITHOUT being written into the conversation. It is rendered via
- * ctx.ui.custom() (which temporarily takes over the editor and resolves when the user
- * dismisses it), so nothing is persisted — closing it just returns control to the editor.
+ * Este es el análogo en Pi del overlay `/btw` de Claude Code: la respuesta aparece sobre
+ * la sesión SIN escribirse en la conversación. Se renderiza con ctx.ui.custom() (que
+ * toma el control del editor temporalmente y resuelve cuando el usuario lo cierra), así
+ * que no se persiste nada: al cerrarlo solo vuelve el control al editor.
  *
- * The component is vendored from pi-mdview's MarkdownViewComponent (cross-extension
- * duplication is allowed so each extension can be published standalone): same scroll
- * model, same Markdown rendering, same q/Esc-to-close. The only differences are the
- * header (the question instead of a file path) and that it is fed model output rather
- * than a file.
+ * El componente está vendoreado desde MarkdownViewComponent de pi-mdview (se permite la
+ * duplicación entre extensiones para que cada una pueda publicarse standalone): mismo
+ * modelo de scroll, mismo renderizado de Markdown, mismo cierre con q/Esc. Las únicas
+ * diferencias son el encabezado (la pregunta en lugar de una ruta de archivo) y que
+ * recibe la salida del modelo en vez de un archivo.
  */
 
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -25,7 +25,7 @@ import {
 } from "@earendil-works/pi-tui";
 
 const VIEWER_MIN_BODY_LINES = 3;
-const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
+const VIEWER_FIXED_LINES = 5; // borde superior, título, espaciador, pie, borde inferior
 
 function padToWidth(text: string, width: number): string {
 	return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
@@ -132,7 +132,7 @@ class AnswerViewComponent implements Component {
 	}
 }
 
-/** Open the interactive answer overlay; resolves when the user closes it (q/Esc). */
+/** Abre el overlay interactivo de respuesta; se resuelve cuando el usuario lo cierra (q/Esc). */
 export function openAnswerOverlay(ctx: ExtensionContext, question: string, answer: string): Promise<void> {
 	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 		return new AnswerViewComponent(tui, theme, question, answer, () => done(undefined));

@@ -1,26 +1,28 @@
 /**
- * Claude-style `/btw` command for Pi.
+ * Comando `/btw` estilo Claude para Pi.
  *
- * Claude Code's `/btw <question>` asks a quick SIDE question that uses the current
- * conversation as context, returns a single answer with NO tool access, and is NEVER
- * added to the conversation history — it appears in a dismissible overlay. It is meant
- * for "what did we decide?" / "what file was that?" lookups about context the model
- * already has, not for tasks needing new file reads, commands, or web searches.
+ * El `/btw <question>` de Claude Code hace una pregunta lateral rápida que usa la
+ * conversación actual como contexto, devuelve una única respuesta sin acceso a tools y
+ * nunca se agrega al historial de la conversación: aparece en un overlay cerrable. Está
+ * pensado para consultas del tipo "¿qué decidimos?" / "¿qué archivo era ese?" sobre
+ * contexto que el modelo ya tiene, no para tareas que necesiten nuevas lecturas de
+ * archivos, comandos o web searches.
  *
- * This extension replicates that in Pi:
+ * Esta extensión replica eso en Pi:
  *
- *   /btw what did we decide about auth?   -> one-shot model call over the current branch,
- *                                            answer shown in a scrollable overlay, nothing
- *                                            written back to the session.
+ *   /btw qué decidimos sobre auth?        -> llamada one-shot al modelo sobre la rama actual,
+ *                                            respuesta mostrada en un overlay desplazable,
+ *                                            nada se escribe de vuelta en la sesión.
  *
- * How it stays out of history: a command handler runs immediately when the user submits
- * `/btw …` (the typed text is not appended to the session), we only READ the branch via
- * sessionManager.getBranch(), and we display the answer with ctx.ui (overlay/notify/console)
- * — we never call pi.sendMessage, pi.appendEntry, pi.setSessionName, or any session write.
+ * Cómo queda fuera del historial: un command handler corre inmediatamente cuando el
+ * usuario envía `/btw …` (el texto tipeado no se agrega a la sesión), solo leemos la rama
+ * con sessionManager.getBranch(), y mostramos la respuesta con ctx.ui
+ * (overlay/notify/console): nunca llamamos a pi.sendMessage, pi.appendEntry,
+ * pi.setSessionName ni a ninguna escritura de sesión.
  *
- * The request is built with completeSimple() and carries NO tools, so the model can only
- * answer in text. The pure request/answer logic lives in ./build-btw-context; the overlay
- * lives in ./answer-overlay; this file is just orchestration.
+ * El request se arma con completeSimple() y no lleva tools, así que el modelo solo puede
+ * responder en texto. La lógica pura de request/respuesta vive en ./build-btw-context;
+ * el overlay vive en ./answer-overlay; este archivo solo orquesta.
  */
 
 import type { AssistantMessage, SimpleStreamOptions } from "@earendil-works/pi-ai";
@@ -30,17 +32,17 @@ import { convertToLlm } from "@earendil-works/pi-coding-agent";
 import { openAnswerOverlay } from "./answer-overlay.js";
 import { buildBtwContext, extractAnswerText } from "./build-btw-context.js";
 
-/** Cap the side answer: it should be a quick reply, not a long generation. */
+/** Limitá la respuesta lateral: debe ser una respuesta rápida, no una generación larga. */
 const BTW_MAX_TOKENS = 2048;
 
 const STATUS_KEY = "btw";
 
-/** Notify the user, degrading gracefully outside the TUI (mirrors pi-mdview's helper). */
+/** Notificá al usuario, degradando con gracia fuera de la TUI (refleja el ayudante de pi-mdview). */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	// The overlay/notify surface only exists in an interactive (TUI/RPC) session. In print
-	// AND json (headless, hasUI=false) modes there is no UI, so fall back to the console —
-	// otherwise errors/warnings are silently dropped in json mode (a failure then looks
-	// indistinguishable from a hang).
+	// La superficie overlay/notify solo existe en una sesión interactiva (TUI/RPC). En los
+	// modos print y json (headless, hasUI=false) no hay UI, así que hacé fallback a la
+	// consola: de lo contrario, los errores/advertencias se descartan en silencio en modo
+	// json (y una falla queda indistinguible de un cuelgue).
 	if (ctx.mode !== "print" && ctx.hasUI) {
 		ctx.ui.notify(message, type);
 		return;
@@ -72,7 +74,7 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 		return;
 	}
 
-	// Build the one-shot request from the current branch (read-only) + the question.
+	// Armá el request one-shot desde la rama actual (solo lectura) + la pregunta.
 	const context = buildBtwContext({ entries: ctx.sessionManager.getBranch(), convertToLlm, question });
 
 	const options: SimpleStreamOptions = {
@@ -82,9 +84,9 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 		headers: auth.headers,
 		env: auth.env,
 	};
-	// Reasoning only applies to reasoning-capable models; otherwise it is rejected/ignored.
-	// pi.getThinkingLevel() and SimpleStreamOptions.reasoning use distinct (but compatible)
-	// ThinkingLevel declarations, so narrow to the option's type.
+	// Reasoning solo aplica a modelos con reasoning; de lo contrario se rechaza/ignora.
+	// pi.getThinkingLevel() y SimpleStreamOptions.reasoning usan declaraciones
+	// ThinkingLevel distintas (pero compatibles), así que estrechá al tipo de la opción.
 	if (model.reasoning) options.reasoning = pi.getThinkingLevel() as SimpleStreamOptions["reasoning"];
 
 	const showStatus = ctx.hasUI && typeof ctx.ui.setStatus === "function";
@@ -115,7 +117,7 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 		return;
 	}
 
-	// Display WITHOUT persisting: overlay in the TUI, plain output otherwise.
+	// Mostrá SIN persistir: overlay en la TUI, salida simple en otro caso.
 	if (ctx.mode === "tui" && ctx.hasUI) {
 		await openAnswerOverlay(ctx, question, answer);
 	} else if (ctx.mode === "print") {

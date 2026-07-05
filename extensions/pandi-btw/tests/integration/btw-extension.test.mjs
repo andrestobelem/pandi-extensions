@@ -1,23 +1,27 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-btw/index.ts and its pure helper
- * (build-btw-context.ts).
+ * Test de integración conductual durable para extensions/pandi-btw/index.ts y su ayudante
+ * puro (build-btw-context.ts).
  *
- * Pins the public /btw contract:
- * - /btw is registered with a description
- * - /btw with no argument prints a usage hint and does NOT call the model
- * - no model selected / unusable credentials are reported, and the model is not called
- * - /btw builds a one-shot request from the current branch + the question, with a system
- *   prompt and NO tools, and surfaces the model's text answer
- * - reasoning is passed ONLY for reasoning-capable models
- * - model error / aborted / empty answers are reported, not thrown
- * - TUI shows the scrollable overlay component (render + q-to-close), non-TUI prints
- * - CRITICALLY: the handler NEVER writes to the session (no pi.sendMessage / appendEntry /
- *   setSessionName, no sessionManager mutation) — the side question stays out of history
- * - the pure helper (extractMessages / buildBtwContext / extractAnswerText) behaves
+ * Fija el contrato público de /btw:
+ * - /btw se registra con una descripción
+ * - /btw sin argumento imprime una ayuda de uso y NO llama al modelo
+ * - se informa cuando no hay modelo seleccionado / credenciales no utilizables, y no se
+ *   llama al modelo
+ * - /btw arma un request one-shot desde la rama actual + la pregunta, con un prompt
+ *   de sistema y sin tools, y expone la respuesta de texto del modelo
+ * - reasoning se pasa SOLO para modelos con reasoning
+ * - los errores del modelo / aborted / respuestas vacías se informan, no se lanzan
+ * - la TUI muestra el componente de overlay desplazable (renderizado + cierre con q), fuera
+ *   de la TUI imprime
+ * - CRÍTICAMENTE: el handler NUNCA escribe en la sesión (no pi.sendMessage /
+ *   appendEntry / setSessionName, sin mutación de sessionManager): la pregunta lateral
+ *   queda fuera del historial
+ * - el ayudante puro (extractMessages / buildBtwContext / extractAnswerText) se comporta
  *
- * The model call is stubbed by aliasing "@earendil-works/pi-ai/compat" to a fake
- * completeSimple that records its arguments and returns a configurable AssistantMessage.
+ * La llamada al modelo se stubbea aliaseando "@earendil-works/pi-ai/compat" a un
+ * completeSimple falso que registra sus argumentos y devuelve un AssistantMessage
+ * configurable.
  */
 
 import * as fs from "node:fs/promises";
@@ -49,7 +53,7 @@ const DEFAULT_ANSWER = {
 	timestamp: 0,
 };
 
-/** Fake completeSimple: records every call and returns globalThis.__btwResponse or a default. */
+/** completeSimple falso: registra cada llamada y devuelve globalThis.__btwResponse o un valor por omisión. */
 const COMPAT_STUB =
 	"export async function completeSimple(model, context, options) {\n" +
 	"  (globalThis.__btwCalls ??= []).push({ model, context, options });\n" +
@@ -58,7 +62,7 @@ const COMPAT_STUB =
 	"}\n" +
 	"export function streamSimple() {}\n";
 
-/** A theme whose styling helpers are identity functions, so render output is inspectable. */
+/** Un tema cuyos ayudantes de estilo son funciones identidad, para que la salida de renderizado sea inspeccionable. */
 function fakeTheme() {
 	const id = (_color, text) => (text === undefined ? _color : text);
 	return {
@@ -77,7 +81,7 @@ function makePi() {
 	const pi = {
 		registerCommand: (name, opts) => commands.set(name, opts),
 		getThinkingLevel: () => thinkingLevel,
-		// Spies: the handler must never touch these (no history pollution).
+		// Espías: el handler nunca debe tocar esto (sin contaminar el historial).
 		sendMessage: () => {
 			calls.sendMessage += 1;
 		},
@@ -113,7 +117,7 @@ function makeCtx({
 		signal: undefined,
 		sessionManager: {
 			getBranch: () => entries,
-			// Spies: the handler must only READ the branch, never mutate the session.
+			// Espías: el handler solo debe LEER la rama, nunca mutar la sesión.
 			appendMessage: () => {
 				session.appended += 1;
 			},
@@ -229,16 +233,16 @@ async function testNoModel(url) {
 	check("no model does not call the model", (globalThis.__btwCalls ?? []).length === 0);
 }
 
-// In json/headless mode (mode !== "print", hasUI === false) there is no overlay
-// and no print-stream branch, so notify() must fall back to the console —
-// otherwise every error/warning (no model, auth failure, model error) is
-// silently dropped and a failure is indistinguishable from a hang.
+// En modo json/headless (mode !== "print", hasUI === false) no hay overlay
+// ni rama de print-stream, así que notify() debe hacer fallback a la consola:
+// de lo contrario, cada error/advertencia (sin modelo, auth failure, model error)
+// se descarta en silencio y una falla queda indistinguible de un cuelgue.
 async function testJsonModeNotifyReachesConsole(url) {
 	resetModelCalls();
 	const ext = await loadDefault(url);
 	const { pi, commands } = makePi();
 	ext(pi);
-	// model:null drives notify() with an error; json mode has no UI.
+	// model:null hace que notify() reciba un error; el modo json no tiene UI.
 	const { ctx } = makeCtx({ mode: "json", hasUI: false, model: null });
 
 	const errOut = [];
@@ -364,7 +368,7 @@ async function testModelErrors(url) {
 	);
 	check("model error opens no overlay", r.overlays.length === 0);
 
-	// empty answer (stop, but no text)
+	// respuesta vacía (stop, pero sin texto)
 	resetModelCalls();
 	globalThis.__btwResponse = {
 		content: [{ type: "thinking", thinking: "x" }],
@@ -418,17 +422,17 @@ async function testTuiOverlay(url) {
 async function main() {
 	const { outDir, aliases } = await makeBuildDir("pi-btw-integration", {
 		sdk: (dir) => sdkStub(dir),
-		// Markdown is provided by the shared tui stub (STUB_SOURCES.tui).
+		// Markdown lo provee el stub tui compartido (STUB_SOURCES.tui).
 		tui: STUB_SOURCES.tui,
 	});
 
-	// index.ts imports convertToLlm from the SDK at runtime; the stub identity is enough.
+	// index.ts importa convertToLlm desde el SDK en runtime; alcanza con la identidad del stub.
 	await fs.appendFile(
 		aliases["@earendil-works/pi-coding-agent"],
 		"export function convertToLlm(messages) { return messages; }\n",
 	);
 
-	// Stub the one-shot model call.
+	// Stubeá la llamada one-shot al modelo.
 	const compatFile = path.join(outDir, "stub-ai-compat.mjs");
 	await fs.writeFile(compatFile, COMPAT_STUB);
 	aliases["@earendil-works/pi-ai/compat"] = compatFile;
