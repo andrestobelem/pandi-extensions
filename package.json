@@ -118,5 +118,9 @@
 	},
 	"optionalDependencies": {
 		"@mermaid-js/mermaid-cli": "^11.15.0"
+	},
+	"allowScripts": {
+		"esbuild@0.25.12": true,
+		"puppeteer@24.43.1": true
 	}
 }
