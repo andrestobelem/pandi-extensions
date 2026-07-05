@@ -78,6 +78,10 @@ function relativeTo(cwd: string, abs: string): string {
 	return path.relative(cwd, abs) || abs;
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 export default function docsExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("docs", {
 		description: "Convertí un archivo Markdown a HTML autocontenido con estilo pandi",
@@ -86,7 +90,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 			try {
 				parsed = parseArgs(tokenizeArgs(args ?? ""));
 			} catch (error) {
-				notify(ctx, `${error instanceof Error ? error.message : String(error)}\n${USAGE}`, "error");
+				notify(ctx, `${errorMessage(error)}\n${USAGE}`, "error");
 				return;
 			}
 			if (parsed.help || !parsed.inputs?.length) {
@@ -107,7 +111,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 					});
 					written.push(relativeTo(ctx.cwd, result.output));
 				} catch (error) {
-					notify(ctx, error instanceof Error ? error.message : String(error), "error");
+					notify(ctx, errorMessage(error), "error");
 					return;
 				}
 			}
@@ -168,7 +172,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 				};
 			} catch (error) {
 				return {
-					content: [{ type: "text" as const, text: error instanceof Error ? error.message : String(error) }],
+					content: [{ type: "text" as const, text: errorMessage(error) }],
 					details: { isError: true },
 				};
 			}
