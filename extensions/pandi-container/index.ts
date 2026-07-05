@@ -1,7 +1,7 @@
 /**
- * pi-container: manage Apple `container` sandboxes (Linux micro-VMs) from inside Pi.
+ * pandi-container: manage Apple `container` sandboxes (Linux micro-VMs) from inside Pi.
  *
- * Two surfaces (the project convention, see pi-worktree):
+ * Two surfaces (the project convention, see pandi-worktree):
  *   - `/container`           human slash command (interactive, confirms destructive ops)
  *   - `container_sandbox`    model-callable tool (explicit actions, no surprise deletes)
  *

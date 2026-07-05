@@ -1,8 +1,8 @@
 /**
- * Pure helpers + a single spawn seam for the pi-container extension.
+ * Pure helpers + a single spawn seam for the pandi-container extension.
  *
  * Apple's `container` CLI runs Linux in lightweight micro-VMs (Virtualization.framework)
- * on Apple Silicon. This module wraps it the same way pi-worktree wraps git:
+ * on Apple Silicon. This module wraps it the same way pandi-worktree wraps git:
  *   - `runContainer` spawns `container` with an ARGV array (never a shell string),
  *     so image refs / machine names / commands cannot inject shell.
  *   - `build*Args` are pure argv constructors (unit-tested exactly).
@@ -43,7 +43,7 @@ export type RunContainer = (args: string[], options?: RunContainerOptions) => Pr
 
 /**
  * Spawn `container` with an argv array. Spawn failure, non-zero exit, timeout, or
- * abort all come back as a ContainerResult (never throws), mirroring pi-worktree's runGit.
+ * abort all come back as a ContainerResult (never throws), mirroring pandi-worktree's runGit.
  */
 export function runContainer(args: string[], options: RunContainerOptions = {}): Promise<ContainerResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_CONTAINER_TIMEOUT_MS, bin = "container" } = options;
