@@ -149,6 +149,7 @@ async function planGate(planUrl) {
 		"touch generated.txt",
 		"chmod +x script.sh",
 		"git commit -m wip",
+		"git branch feat",
 		"echo x > f",
 		"node test.js 2>err.log",
 		"sed -i 's/a/b/' f",
@@ -161,25 +162,14 @@ async function planGate(planUrl) {
 		check(`plan: BLOCKS bash "${cmd}"`, !!r && r.block === true);
 	}
 
-	// CHARACTERIZATION (documented known false positive — L2-low). A read-only grep whose
-	// pattern contains a spaced '>' inside quotes is CURRENTLY blocked by the redirect
-	// heuristic /(^|[^&>=-])>>?\s*(?![&>=])/. A quoted spaced '>' is lexically identical to a
-	// real redirect (echo x > f); only quoting distinguishes them. The gate errs SAFE (no real
-	// mutation) at the cost of plan-mode UX. Pinned so any future regex refinement that ALLOWS
-	// this is an INTENTIONAL, reviewed change (and must keep real redirects blocked).
-	{
-		const cmd = 'grep -rn "len(x) > 0" .';
-		const r = await runGate(handlers, ctx, toolCallEvent("bash", { command: cmd }));
-		check(`plan: documents redirect false positive — BLOCKS bash "${cmd}"`, !!r && r.block === true);
-	}
-
-	// ALLOWED: read-only bash + read tools + submit_plan. The last four are read-only commands
-	// whose operators (->, >=, =>) must NOT be mistaken for write redirections (F12).
+	// ALLOWED: read-only bash + read tools + submit_plan. The last five are read-only commands
+	// whose quoted/comparison operators (>, ->, >=, =>) must NOT be mistaken for write redirections.
 	for (const cmd of [
 		"git ls-files",
 		"cat package.json",
 		"grep -n foo bar.ts",
 		"git status",
+		'grep -rn "len(x) > 0" .',
 		'grep -rn "foo->bar" src',
 		"awk '$3 >= 100' f",
 		'git log --grep "x -> y"',

@@ -6,7 +6,7 @@
  * events; this suite pins the pure decision logic directly (isMutatingBash, blockedReason,
  * and the read-only dynamic_workflow allowlist) so the security-critical classification is
  * covered at the cheapest level. Gaps surfaced by the coverage audit:
- *   - isMutatingBash: git mutations incl. `git branch -D`, and NOT plain `git branch <name>`.
+ *   - isMutatingBash: git mutations incl. `git branch -D` and plain `git branch <name>` creation.
  *   - blockedReason: write/edit blocked; read/grep allowed; bash blocked only when mutating;
  *     dynamic_workflow blocked unless its action is read-only; submit_plan/enter_plan_mode allowed.
  *
@@ -46,6 +46,7 @@ async function scenarioGateHelpers(url) {
 		"git stash",
 		"git branch -D feat",
 		"git branch -d feat",
+		"git branch feat",
 		"git pull",
 		"git clone https://example.com/x.git",
 		"git fetch origin",
@@ -70,10 +71,12 @@ async function scenarioGateHelpers(url) {
 		"git ls-files",
 		"git status",
 		"git log --oneline",
-		"git branch feat", // create/list a branch is not -d/-D
+		"git branch",
+		"git branch --list feat",
 		"git diff",
 		"cat file.txt",
 		"grep -rn foo .",
+		'grep -rn "len(x) > 0" .',
 		"ls -la",
 		"echo 2>&1", // fd-dup, not a file redirect
 		"node --version",

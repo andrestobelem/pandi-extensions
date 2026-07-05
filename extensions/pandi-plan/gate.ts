@@ -26,9 +26,9 @@ import type { ToolCallEvent } from "@earendil-works/pi-coding-agent";
  *   - File creation / deletion / move / metadata changes: touch, mkdir, rm, rmdir, mv, truncate, shred, unlink, chmod, chown, chgrp
  *   - In-place / writing tooling: sed -i, tee, dd, mkfs
  *   - Shell redirections that WRITE a file: >, >>, >|, including numbered-fd
- *     writes like 2>err.log (but NOT fd duplications like 2>&1)
+ *     writes like 2>err.log (but NOT quoted > text or fd duplications like 2>&1)
  *   - Git mutations: commit, add, push, pull, clone, fetch, reset, clean, checkout, switch, restore, merge,
- *     rebase, stash, apply, rm, mv, tag, branch -D/-d, cherry-pick, revert
+ *     rebase, stash, apply, rm, mv, tag, branch creation/deletion, cherry-pick, revert
  *   - Package manager mutations: npm/pnpm/yarn/bun install|add|ci|uninstall|remove|update|upgrade|prune, npx -y, pip/pipx install, poetry add,
  *     cargo add, go get, gem install, brew install, bun add/install
  *   - Infra/build that writes: make, kubectl apply/delete, terraform apply/destroy,
@@ -55,14 +55,12 @@ export const MUTATING_BASH_PATTERNS: RegExp[] = [
 	/\btee\b/i,
 	/\bdd\b[^\n]*\b(if|of)=/i,
 	/\bmkfs(\.\w+)?\b/i,
-	// Shell redirections that write a file: >, >>, >|, including numbered-fd
-	// writes like 2>err.log (avoid matching 2>&1 / >&N fd-dups, and the operators
-	// ->, =>, >= which are not redirections).
-	/(^|[^&>=-])>>?\s*(?![&>=])/,
-	/>\|/,
+	// Shell redirections are checked by hasWritingRedirection below, because the regex
+	// version could not distinguish `> file` from a read-only quoted grep pattern.
 	// Git mutations.
 	/\bgit\b[^\n]*\b(commit|add|push|pull|clone|fetch|reset|clean|checkout|switch|restore|merge|rebase|stash|apply|rm|mv|tag|cherry-pick|revert)\b/i,
-	/\bgit\b[^\n]*\bbranch\b[^\n]*\s-[dD]\b/i,
+	/\bgit\b[^\n]*\bbranch\b[^\n]*\s-(?:[dDmMcC]|-delete|-move|-copy|-set-upstream-to|-unset-upstream|-create-reflog|-track)\b/i,
+	/\bgit\b[^\n]*\bbranch\b\s+(?!-)(?:"[^"]+"|'[^']+'|[^\s;|&]+)/i,
 	// Package installs.
 	/\b(npm|pnpm|yarn|bun)\b[^\n]*\b(install|add|ci|uninstall|remove|update|upgrade|prune)\b/i,
 	/\bnpx\b[^\n]*\s-y\b/i,
@@ -79,9 +77,49 @@ export const MUTATING_BASH_PATTERNS: RegExp[] = [
 	/\bhelm\b[^\n]*\b(upgrade|install|uninstall)\b/i,
 ];
 
+function firstNonWhitespaceAfter(command: string, start: number): string | undefined {
+	for (let i = start; i < command.length; i++) {
+		if (!/\s/.test(command[i])) return command[i];
+	}
+	return undefined;
+}
+
+function hasWritingRedirection(command: string): boolean {
+	let inSingle = false;
+	let inDouble = false;
+
+	for (let i = 0; i < command.length; i++) {
+		const ch = command[i];
+		if (ch === "\\" && !inSingle) {
+			i += 1;
+			continue;
+		}
+		if (ch === "'" && !inDouble) {
+			inSingle = !inSingle;
+			continue;
+		}
+		if (ch === '"' && !inSingle) {
+			inDouble = !inDouble;
+			continue;
+		}
+		if (inSingle || inDouble || ch !== ">") continue;
+
+		const prev = command[i - 1];
+		const next = command[i + 1];
+		if (prev === "-" || prev === "=" || next === "=") continue; // ->, =>, >=
+		if (next === "&") {
+			const targetStart = firstNonWhitespaceAfter(command, i + 2);
+			if (targetStart === undefined || /[-\d&]/.test(targetStart)) continue; // fd dup/close: 2>&1, >&2, >&-
+		}
+		return true;
+	}
+
+	return false;
+}
+
 /** Is this bash command a mutation per the best-effort allowlist? */
 export function isMutatingBash(command: string): boolean {
-	return MUTATING_BASH_PATTERNS.some((re) => re.test(command));
+	return hasWritingRedirection(command) || MUTATING_BASH_PATTERNS.some((re) => re.test(command));
 }
 
 /**
