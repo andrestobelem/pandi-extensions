@@ -74,11 +74,38 @@ Si `improvePrompt` queda activo, `contract-gate` colapsa el contrato en un `rewr
 | `models[role]` / `efforts[role]` | override por rol |
 | `tools` / `skills` / `excludeTools` y variantes `*ByRole` | arrays pasados al `agent` |
 
-**BLOCKED:** `{ status: "NEEDS_CLARIFICATION", verdict: "BLOCKED", contract, questions: [{ question, rationale }], rewrittenPrompt: null, routing }`
+### BLOCKED
 
-**PROCEED:** `{ status: "PROCEED", verdict: "PROCEED", contract, rewrittenPrompt, routing, resourcePlan, generated }`
+```js
+{
+  status: "NEEDS_CLARIFICATION",
+  verdict: "BLOCKED",
+  contract,
+  questions: [{ question, rationale }],
+  rewrittenPrompt: null,
+  routing,
+}
+```
 
-`contract` agrega `verdict`; `routing` replica `routingHint` y suma `note` solo en `PROCEED` (en `BLOCKED` devuelve `contract?.routingHint ?? null` sin `note`). `generated` queda `undefined` si `generate:false`. Si `generate:true`, puede ser `{ handed_off, reason?, name?, write?, output? }`.
+### PROCEED
+
+```js
+{
+  status: "PROCEED",
+  verdict: "PROCEED",
+  contract,
+  rewrittenPrompt,
+  routing,
+  resourcePlan,
+  generated,
+}
+```
+
+Notas de salida:
+
+- `contract` agrega `verdict`.
+- `routing` replica `routingHint`; en `PROCEED` suma `note`, y en `BLOCKED` devuelve `contract?.routingHint ?? null` sin `note`.
+- `generated` queda `undefined` si `generate:false`; con `generate:true` puede ser `{ handed_off, reason?, name?, write?, output? }`.
 
 ## Fases
 

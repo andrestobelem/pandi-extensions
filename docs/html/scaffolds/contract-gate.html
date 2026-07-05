@@ -248,9 +248,31 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>arrays pasados al <code>agent</code></td>
 </tr>
 </tbody></table>
-<p><strong>BLOCKED:</strong> <code>{ status: &quot;NEEDS_CLARIFICATION&quot;, verdict: &quot;BLOCKED&quot;, contract, questions: [{ question, rationale }], rewrittenPrompt: null, routing }</code></p>
-<p><strong>PROCEED:</strong> <code>{ status: &quot;PROCEED&quot;, verdict: &quot;PROCEED&quot;, contract, rewrittenPrompt, routing, resourcePlan, generated }</code></p>
-<p><code>contract</code> agrega <code>verdict</code>; <code>routing</code> replica <code>routingHint</code> y suma <code>note</code> solo en <code>PROCEED</code> (en <code>BLOCKED</code> devuelve <code>contract?.routingHint ?? null</code> sin <code>note</code>). <code>generated</code> queda <code>undefined</code> si <code>generate:false</code>. Si <code>generate:true</code>, puede ser <code>{ handed_off, reason?, name?, write?, output? }</code>.</p>
+<h3>BLOCKED</h3>
+<pre><code class="hljs language-js">{
+  <span class="hljs-attr">status</span>: <span class="hljs-string">&quot;NEEDS_CLARIFICATION&quot;</span>,
+  <span class="hljs-attr">verdict</span>: <span class="hljs-string">&quot;BLOCKED&quot;</span>,
+  contract,
+  <span class="hljs-attr">questions</span>: [{ question, rationale }],
+  <span class="hljs-attr">rewrittenPrompt</span>: <span class="hljs-literal">null</span>,
+  routing,
+}</code></pre>
+<h3>PROCEED</h3>
+<pre><code class="hljs language-js">{
+  <span class="hljs-attr">status</span>: <span class="hljs-string">&quot;PROCEED&quot;</span>,
+  <span class="hljs-attr">verdict</span>: <span class="hljs-string">&quot;PROCEED&quot;</span>,
+  contract,
+  rewrittenPrompt,
+  routing,
+  resourcePlan,
+  generated,
+}</code></pre>
+<p>Notas de salida:</p>
+<ul>
+<li><code>contract</code> agrega <code>verdict</code>.</li>
+<li><code>routing</code> replica <code>routingHint</code>; en <code>PROCEED</code> suma <code>note</code>, y en <code>BLOCKED</code> devuelve <code>contract?.routingHint ?? null</code> sin <code>note</code>.</li>
+<li><code>generated</code> queda <code>undefined</code> si <code>generate:false</code>; con <code>generate:true</code> puede ser <code>{ handed_off, reason?, name?, write?, output? }</code>.</li>
+</ul>
 <h2>Fases</h2>
 <ol>
 <li><strong>Analyze</strong> — N reviewers independientes o uno solo construyen el contrato estructurado.</li>
