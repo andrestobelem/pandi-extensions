@@ -37,7 +37,8 @@ function atomicWriteFileSync(file, content) {
 	}
 }
 
-// path -> original content still owed a restore. A Map so nested/parallel mutations each restore.
+// path -> original content still owed a restore. Same-file overlap is rejected so a nested
+// mutation cannot overwrite the original restore baseline in this process.
 const pending = new Map();
 let guardsInstalled = false;
 
@@ -77,8 +78,11 @@ function installGuards() {
  * @returns {Promise<T>} whatever `fn` returns.
  */
 export async function withMutatedFile(filePath, mutate, fn) {
-	const original = fs.readFileSync(filePath, "utf8");
 	installGuards();
+	if (pending.has(filePath)) {
+		throw new Error(`withMutatedFile: ${filePath} is already being mutated`);
+	}
+	const original = fs.readFileSync(filePath, "utf8");
 	pending.set(filePath, original);
 	try {
 		const next = typeof mutate === "function" ? mutate(original) : mutate;

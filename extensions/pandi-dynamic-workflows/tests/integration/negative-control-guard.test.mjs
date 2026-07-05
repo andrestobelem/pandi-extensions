@@ -14,7 +14,8 @@
  *   2. Throw-safety: if fn throws, the file is still restored (finally) and the throw propagates.
  *   3. Crash-safety (the point): a child process SIGTERM'd mid-mutation still restores the file,
  *      via the registered signal handler — proven with a real child, not a mock.
- *   4. Atomicity (issue #8): every replacement lands via rename (new inode on POSIX), never by
+ *   4. Nested same-file mutation is rejected rather than losing the original restore baseline.
+ *   5. Atomicity (issue #8): every replacement lands via rename (new inode on POSIX), never by
  *      truncating the live file — a concurrent reader (esbuild resolving the REAL root
  *      package.json while a parity suite mutates it) must never observe a truncated file.
  *
@@ -102,7 +103,20 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 		`after=${JSON.stringify(afterKill)}`,
 	);
 
-	// 4) Atomicity (issue #8): suites run in a parallel pool and esbuild (cwd = repo root)
+	// 4) Nested same-file mutation: reject instead of overwriting the restore baseline.
+	let nestedRejected = false;
+	await withMutatedFile(f, "OUTER", async () => {
+		try {
+			await withMutatedFile(f, "INNER", () => undefined);
+		} catch (error) {
+			nestedRejected = /already being mutated/.test(String(error?.message || error));
+		}
+		check("nested same-file mutation is rejected", nestedRejected);
+		check("outer mutation remains active after nested rejection", fs.readFileSync(f, "utf8") === "OUTER");
+	});
+	check("file restored after rejected nested mutation", fs.readFileSync(f, "utf8") === ORIGINAL);
+
+	// 5) Atomicity (issue #8): suites run in a parallel pool and esbuild (cwd = repo root)
 	// resolves the REAL root package.json while the parity suites mutate it in place. In-place
 	// fs.writeFileSync truncates before writing, so a parallel reader can observe an EMPTY file
 	// (CI: "Unexpected end of file in JSON — package.json:1:0"). Pin the atomic mechanism
