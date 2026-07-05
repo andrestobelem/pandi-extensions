@@ -17,7 +17,7 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { discoverSkillClassification, REPO, reportUnclassifiedSkills } from "./skill-classification.mjs";
+import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 const checkOnly = process.argv.includes("--check");
 const classification = discoverSkillClassification();
@@ -36,7 +36,7 @@ async function readMaybe(file) {
 let drift = 0;
 let wrote = 0;
 for (const name of MIRRORED) {
-	const src = join(REPO, ".pi", "skills", name, "SKILL.md");
+	const src = join(SKILLS_ROOT, name, "SKILL.md");
 	const dst = join(REPO, ".claude", "skills", name, "SKILL.md");
 	const want = await readMaybe(src);
 	if (want === null) {

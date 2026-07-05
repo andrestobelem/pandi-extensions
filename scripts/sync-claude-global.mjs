@@ -27,7 +27,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { discoverSkillClassification, reportUnclassifiedSkills } from "./skill-classification.mjs";
+import { discoverSkillClassification, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const classification = discoverSkillClassification();
@@ -81,7 +81,7 @@ function planPairs(dest) {
 
 	// primitives reference, sourced from the canonical .pi mirror
 	addTree(
-		join(REPO, ".pi", "skills", "ultracode", "reference", "primitives"),
+		join(SKILLS_ROOT, "ultracode", "reference", "primitives"),
 		join(dest, "skills", "ultracode", "reference", "primitives"),
 	);
 

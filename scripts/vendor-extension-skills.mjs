@@ -18,9 +18,9 @@
 
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
-import { discoverSkillClassification, REPO, reportUnclassifiedSkills } from "./skill-classification.mjs";
+import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
-const SKILLS_SRC = join(REPO, ".pi", "skills");
+const SKILLS_SRC = SKILLS_ROOT;
 const checkOnly = process.argv.includes("--check");
 const classification = discoverSkillClassification();
 const VENDOR = classification.vendoredByExtension;
