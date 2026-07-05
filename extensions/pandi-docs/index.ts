@@ -82,6 +82,14 @@ function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+function toolResult(text: string, details: Record<string, unknown>) {
+	return { content: [{ type: "text" as const, text }], details };
+}
+
+function toolError(text: string) {
+	return toolResult(text, { isError: true });
+}
+
 export default function docsExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("docs", {
 		description: "Convertí un archivo Markdown a HTML autocontenido con estilo pandi",
@@ -148,33 +156,21 @@ export default function docsExtension(pi: ExtensionAPI): void {
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx: ExtensionContext) {
 			if (!params.path?.trim()) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "markdown_to_html: `path` no puede estar vacío — pasá una ruta a un archivo Markdown.",
-						},
-					],
-					details: { isError: true },
-				};
+				return toolError("markdown_to_html: `path` no puede estar vacío — pasá una ruta a un archivo Markdown.");
 			}
 			try {
 				const result = convertMarkdownFile(params.path, { cwd: ctx.cwd, out: params.out, kicker: params.kicker });
 				const output = relativeTo(ctx.cwd, result.output);
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Se escribió ${output} (${result.bytes} bytes) a partir de ${relativeTo(ctx.cwd, result.input)}.`,
-						},
-					],
-					details: { input: relativeTo(ctx.cwd, result.input), output, bytes: result.bytes },
-				};
+				return toolResult(
+					`Se escribió ${output} (${result.bytes} bytes) a partir de ${relativeTo(ctx.cwd, result.input)}.`,
+					{
+						input: relativeTo(ctx.cwd, result.input),
+						output,
+						bytes: result.bytes,
+					},
+				);
 			} catch (error) {
-				return {
-					content: [{ type: "text" as const, text: errorMessage(error) }],
-					details: { isError: true },
-				};
+				return toolError(errorMessage(error));
 			}
 		},
 	});
