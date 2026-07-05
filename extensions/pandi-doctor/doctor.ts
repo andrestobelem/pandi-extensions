@@ -3,7 +3,7 @@
  *
  *   - `runDoctor` ejecuta `node <scripts/doctor.mjs>` con un array ARGV (nunca un
  *     shell string). Fallo de spawn, salida no cero, timeout o abort vuelven como un
- *     DoctorResult (nunca lanza), igual que `runContainer` de pi-container.
+ *     DoctorResult (nunca lanza), igual que `runContainer` de pandi-container.
  *   - `resolveDoctorScript` ubica el chequeo read-only de entorno SIN importarlo
  *     (un import estático rompería el bundling), prefiriendo la copia del WORKING TREE
  *     (sube desde el cwd de la sesión hasta extensions/pandi-doctor/scripts/doctor.mjs,

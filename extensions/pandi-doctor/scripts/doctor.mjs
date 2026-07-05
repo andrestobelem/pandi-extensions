@@ -219,7 +219,7 @@ if (process.platform === "darwin" && process.arch === "arm64") {
 		"optional",
 		container.found ? OK : WARN,
 		"Apple container",
-		container.found ? "sandboxes Linux (pi-container)" : "ausente — brew install container",
+		container.found ? "sandboxes Linux (pandi-container)" : "ausente — brew install container",
 	);
 } else {
 	report("optional", dim("·"), "Apple container", "N/A (solo macOS Apple Silicon)");
