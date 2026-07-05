@@ -1,21 +1,23 @@
 /**
  * Behavior: every committed project workflow under `.pi/workflows/*.js` must
- * actually LOAD under the real runtime rule. The workflow runner rejects static
- * `import` statements and any non-`export default` top-level `export`
- * (`transformWorkflowCode`), and runs workflows in a sandbox without
- * `require`/node builtins. A workflow that violates this fails at second 0 with
- * "Static import statements are not supported in workflows" — which is exactly
- * how `.pi/workflows/continuous-improvement.js` silently broke after the
- * import-ban was introduced.
+ * compile and module-load under the real runtime rule. The workflow runner rejects
+ * static `import` statements and any non-`export default` top-level `export`
+ * (`transformWorkflowCode`), then evaluates the transformed CommonJS module in a
+ * sandbox without `require`/node builtins. A workflow that violates this fails at
+ * second 0 with "Static import statements are not supported in workflows" — which
+ * is exactly how `.pi/workflows/continuous-improvement.js` silently broke after
+ * the import-ban was introduced.
  *
- * This guard calls the REAL exported `transformWorkflowCode` on each project
- * workflow and asserts it does not throw, so the class of bug can never return
- * unnoticed.
+ * This guard calls the REAL exported `transformWorkflowCode`, evaluates the
+ * transformed module in a minimal VM context, and asserts it exports a workflow
+ * function. It deliberately does NOT execute the workflow body: project workflows
+ * are trusted/costly and may spawn agents, run bash, or write artifacts.
  */
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import * as vm from "node:vm";
 import { sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +64,13 @@ async function listProjectWorkflows() {
 		.sort();
 }
 
+function loadTransformedWorkflow(rel, compiled) {
+	const module = { exports: {} };
+	const context = vm.createContext({ module, exports: module.exports });
+	vm.runInContext(compiled, context, { filename: rel, timeout: 1000 });
+	return module.exports;
+}
+
 async function main() {
 	const { url } = await buildExtension();
 	const mod = await import(url);
@@ -75,13 +84,25 @@ async function main() {
 	for (const file of workflows) {
 		const rel = path.relative(REPO_ROOT, file);
 		const code = await fs.readFile(file, "utf8");
-		let error;
+		let compiled;
+		let transformError;
 		try {
-			transformWorkflowCode(code);
+			compiled = transformWorkflowCode(code);
 		} catch (err) {
-			error = err?.message ? err.message : String(err);
+			transformError = err?.message ? err.message : String(err);
 		}
-		check(`loads under runtime rule: ${rel}`, !error, error);
+		check(`compiles under runtime rule: ${rel}`, !transformError, transformError);
+		if (transformError) continue;
+
+		let loaded;
+		let loadError;
+		try {
+			loaded = loadTransformedWorkflow(rel, compiled);
+		} catch (err) {
+			loadError = err?.message ? err.message : String(err);
+		}
+		check(`module-loads in workflow VM: ${rel}`, !loadError, loadError);
+		check(`exports workflow function: ${rel}`, typeof loaded === "function", typeof loaded);
 	}
 }
 
