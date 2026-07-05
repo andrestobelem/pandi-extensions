@@ -62,6 +62,11 @@ function borderLabel(pi: ExtensionAPI): string | undefined {
 	return safeName(pi) || undefined;
 }
 
+function formatRenameFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return `No se pudo renombrar la sesión: ${message}`;
+}
+
 /** Convierte un nombre en slug y lo aplica vía pi.setSessionName, reportando éxito/falla. */
 function applyName(pi: ExtensionAPI, ctx: ExtensionCommandContext, rawName: string): boolean {
 	const finalName = slugify(rawName) || DEFAULT_SESSION_NAME;
@@ -73,8 +78,7 @@ function applyName(pi: ExtensionAPI, ctx: ExtensionCommandContext, rawName: stri
 		latestEditor?.invalidate?.();
 		return true;
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		notify(ctx, `No se pudo renombrar la sesión: ${message}`, "error");
+		notify(ctx, formatRenameFailure(error), "error");
 		return false;
 	}
 }
