@@ -332,9 +332,9 @@ export async function showLiveAgentView(
 		// open→action→reopen loop: `f` lets the user open one of the run's artifacts in the
 		// right viewer (.md → Markdown, else text), then returns to the live agent view — the
 		// same affordance the run view has, so the agent screen "fits together" with it.
-		// The detail screen is a SUB-TABBED viewer (Card / Prompt / Output / Definition / Run / Graph)
-		// so the user can move between the agent card, its prompt, its output, the workflow
-		// source, the full run view, and the workflow graph without bouncing back to the dashboard.
+		// The detail screen is a SUB-TABBED viewer (Card / Prompt / Graph / Output / Definition / Run)
+		// so the user can move between the agent card, its prompt, the workflow graph, its output,
+		// the workflow source, and the full run view without bouncing back to the dashboard.
 		let definitionCache: string | undefined; // static per run: load once, reuse across tabs/refreshes
 		let graphCache: string | undefined; // static per run: load once, reuse across tabs/refreshes
 		for (;;) {
@@ -398,10 +398,10 @@ export async function showLiveAgentView(
 						[
 							{ key: "card", label: "Card" },
 							{ key: "prompt", label: "Prompt" },
+							{ key: "graph", label: "Graph" },
 							{ key: "output", label: "Output" },
 							{ key: "definition", label: "Definition" },
 							{ key: "run", label: "Run" },
-							{ key: "graph", label: "Graph" },
 						],
 						() => void refresh(), // load the newly-focused tab immediately
 					);

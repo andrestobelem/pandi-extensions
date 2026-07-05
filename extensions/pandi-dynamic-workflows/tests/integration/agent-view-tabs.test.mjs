@@ -3,7 +3,7 @@
  * Behavioral contract for the SUB-TABS on the live agent/run detail view.
  *
  * Entering a run's agent from the Monitor/Agents tabs opens one detail screen with
- * sub-tabs (Card, Prompt, Output, Definition, Run, Graph) instead of separate full screens.
+ * sub-tabs (Card, Prompt, Graph, Output, Definition, Run) instead of separate full screens.
  * This pins the component half: the tab bar renders with the active tab highlighted,
  * ←/→ and Tab/Shift+Tab cycle, digits jump, scroll position is remembered PER TAB,
  * switching notifies the opener (so it can load that tab's content immediately), and

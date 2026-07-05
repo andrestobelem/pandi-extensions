@@ -107,12 +107,14 @@ async function exerciseGraphTab(showLiveAgentView, { label, project, run, agent,
 					doneValue = value;
 				});
 
-				const withGraphTab = await waitForRender(component, (rendered) => /\bGraph\b/.test(rendered));
-				check(`${label}: tab bar includes Graph`, withGraphTab.ok, withGraphTab.rendered);
+				const withGraphTab = await waitForRender(component, (rendered) =>
+					/Card[\s\S]*Prompt[\s\S]*Graph[\s\S]*Output[\s\S]*Definition[\s\S]*Run/.test(rendered),
+				);
+				check(`${label}: tab bar lists the requested order`, withGraphTab.ok, withGraphTab.rendered);
 
-				component.handleInput("6");
+				component.handleInput("3");
 				check(
-					`${label}: digit 6 activates the Graph tab`,
+					`${label}: digit 3 activates the Graph tab`,
 					component.getActiveTab() === "graph",
 					component.getActiveTab(),
 				);
