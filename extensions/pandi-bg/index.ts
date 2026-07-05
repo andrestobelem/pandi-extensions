@@ -200,7 +200,7 @@ async function eachProjectRunDir(
 // state. Live/unprobeable jobs are left untouched (the read-time projection still
 // surfaces orphaned/stale). Writing `interrupted` only on a confirmed-dead pid is
 // what avoids the pid-reuse hazard: a dead pid can never be our live job, so the
-// terminal state is always correct. Project root only (the only root pi-bg writes,
+// terminal state is always correct. Project root only (the only root pandi-bg writes,
 // and only when trusted); best-effort — never throws into session_start.
 export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<number> {
 	let reconciled = 0;

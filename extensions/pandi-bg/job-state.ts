@@ -1,4 +1,4 @@
-// pi-bg read-time job-state projection. These derive the state a reader should SEE from
+// pandi-bg read-time job-state projection. These derive the state a reader should SEE from
 // the persisted state + the in-process registry (activeJobs) + a pid liveness/identity
 // probe — they never persist and never signal. Pure projection (no fs); the I/O scanning
 // (listJobs/eachProjectRunDir/reconcileInterruptedJobs) stays in index.ts and feeds these.

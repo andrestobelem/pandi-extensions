@@ -1,5 +1,5 @@
 /**
- * pi-bg storage layer: path layout (project/global run roots), directory-safety
+ * pandi-bg storage layer: path layout (project/global run roots), directory-safety
  * helpers (no symlinks / path escape), bounded JSON read, and atomic JSON write.
  *
  * Extracted verbatim from index.ts (behavior-preserving) to isolate the pure,

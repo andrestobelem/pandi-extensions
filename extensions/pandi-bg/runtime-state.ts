@@ -1,5 +1,5 @@
 /**
- * pi-bg in-process runtime registry: the `activeJobs` map (the ES-module
+ * pandi-bg in-process runtime registry: the `activeJobs` map (the ES-module
  * singleton tracking jobs this session owns) plus the tiny shared helpers
  * (nowIso, appendEvent, asString, asNumber).
  *

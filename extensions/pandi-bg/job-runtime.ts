@@ -1,4 +1,4 @@
-// pi-bg child-process + log-stream lifecycle: write the status sidecar (serialized per
+// pandi-bg child-process + log-stream lifecycle: write the status sidecar (serialized per
 // job), pipe child output to bounded log sinks with backpressure, contain stream errors,
 // finalize a job exactly once, and signal a detached job's process group. Operate on the
 // in-process RuntimeJob registry (activeJobs lives in runtime-state.ts). index.ts owns the
