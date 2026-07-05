@@ -2,7 +2,7 @@
 /**
  * Durable behavioral test for extensions/pandi pure persona block (persona.ts).
  *
- * pi-pandi appends this block to the END of the system prompt (via before_agent_start) to
+ * pandi appends this block to the END of the system prompt (via before_agent_start) to
  * give the assistant Pandi's gentle, bamboo-forest voice — including the soft 🐼 signature
  * the user likes. This suite pins the contract so the append stays well-formed and on-tone.
  *
@@ -66,7 +66,7 @@ async function scenarioPersonaUnit(url) {
 
 async function main() {
 	const built = await buildExtension({
-		name: "pi-pandi-persona",
+		name: "pandi-persona",
 		src: path.join(REPO_ROOT, "extensions", "pandi", "persona.ts"),
 		outName: "persona.mjs",
 	});

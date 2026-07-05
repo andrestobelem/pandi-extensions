@@ -3,7 +3,7 @@
  * module load: importing this file is side-effect free, so it can be unit-tested in
  * isolation (index.ts is the only orchestration layer).
  *
- * This is the text pi-pandi appends to the END of the system prompt (via before_agent_start)
+ * This is the text pandi appends to the END of the system prompt (via before_agent_start)
  * to give the assistant Pandi's gentle, bamboo-forest voice — including the soft 🐼 signature
  * the user asked for. It is injected ONLY while Pandi is enabled (/pandi on); /pandi off
  * removes it, restoring the default persona. It stays a garnish: the 🐼 is occasional and the
