@@ -71,9 +71,17 @@ const toolsByRole = input && typeof input.toolsByRole === "object" && input.tool
 const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 const excludeByRole =
 	input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 const node = (role, extra = {}) => {
-	const o = { label: role, ...extra };
-	const m = models[role] ?? input?.model;
+	const { tier, ...rest } = extra;
+	if (tier != null && !(tier in TIERS)) log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+	const o = { label: role, ...rest };
+	const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 	const e = efforts[role] ?? input?.effort;
 	if (m != null) o.model = m;
 	if (e != null) o.effort = e;
@@ -146,7 +154,7 @@ ${sharedContract}
 
 Plan:
 ${fence("plan", planText)}`,
-				node("reviewer", { model: "sonnet", effort: "medium", label: reviewer.name, phase: "Review" }),
+				node("reviewer", { tier: "balanced", effort: "medium", label: reviewer.name, phase: "Review" }),
 			).then((output) =>
 				output == null || (typeof output === "string" && output.trim() === "")
 					? null
@@ -198,7 +206,7 @@ Output format:
 
 Critiques:
 ${fence("findings", critiquesText)}\n\nNow produce the output format above: revised plan first, must-fix changes next, discard unsupported claims, and explicitly note the ${failed} failed/empty reviewers.`,
-	node("plan-synthesis", { model: "opus", effort: "high", phase: "Synthesize" }),
+	node("plan-synthesis", { tier: "deep", effort: "high", phase: "Synthesize" }),
 );
 
 return synthesis;

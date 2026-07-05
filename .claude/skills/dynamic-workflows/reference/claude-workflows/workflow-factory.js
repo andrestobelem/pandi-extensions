@@ -88,9 +88,17 @@ const toolsByRole = input && typeof input.toolsByRole === "object" && input.tool
 const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 const excludeByRole =
 	input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 const node = (role, extra = {}) => {
-	const o = { label: role, ...extra };
-	const m = models[role] ?? input?.model;
+	const { tier, ...rest } = extra;
+	if (tier != null && !(tier in TIERS)) log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+	const o = { label: role, ...rest };
+	const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 	const e = efforts[role] ?? input?.effort;
 	if (m != null) o.model = m;
 	if (e != null) o.effort = e;
@@ -152,7 +160,7 @@ const CATALOG = {
 phase("Catalog");
 const catalog = await agent(
 	`List the EXISTING Claude Code dynamic workflows available to reuse/compose. Read the user catalog at ~/.claude/workflows/*.js and, if it exists, the project catalog at .claude/workflows/*.js. For EACH file — EXCLUDE "workflow-factory" itself and anything under a drafts/ subdirectory — extract meta.name and meta.description, and classify kind as "lib" (a reusable sub-workflow, e.g. a name ending in -lib), "composed" (it calls workflow(...) / is built from others), or "base". Return { workflows: [ { name, description, kind } ] }.`,
-	node("catalog-scan", { model: "haiku", effort: "low", schema: CATALOG, phase: "Catalog" }),
+	node("catalog-scan", { tier: "cheap", effort: "low", schema: CATALOG, phase: "Catalog" }),
 );
 const known = Array.isArray(catalog?.workflows)
 	? catalog.workflows.filter((w) => w?.name && w.name !== "workflow-factory")
@@ -227,7 +235,7 @@ const plan = await agent(
 		`Default subagent access: web_search is added when web/docs/current evidence may help, and context7 is available for library docs; do not opt out unless isolation is required.\n` +
 		`In 'budget', decide the model + reasoning effort for EVERY agent role you plan (models ladder cheap\u2192strong: haiku < sonnet < opus; effort: low < medium < high < xhigh < max). Keep wide fan-out / scout / classify / extract / mechanical roles cheap even at premium stakes; spend the budget on judge/verify/synthesis/planning roles. Tie each 'why' to fan-out width, per-item difficulty, cost of being wrong, and whether a later node verifies the output.\n` +
 		`Return JSON matching the schema. Include prompt contracts with evidence rules, partial-failure handling, caps, and verification strategy.`,
-	node("workflow-plan", { model: "opus", effort: "high", schema: PLAN, phase: "Plan" }),
+	node("workflow-plan", { tier: "deep", effort: "high", schema: PLAN, phase: "Plan" }),
 );
 
 phase("Generate");
@@ -251,7 +259,7 @@ const implement = await agent(
 		`${fence("request", task)}\n` +
 		`${fence("plan", compact(plan, 12000))}\n` +
 		`EXISTING WORKFLOW CATALOG — compose these by name with workflow("<name>", args) wherever they fit (especially *-lib reusable sub-steps), instead of re-implementing their logic:\n${fence("candidate", catalogText)}`,
-	node("workflow-codegen", { model: "sonnet", effort: "medium", phase: "Generate", timeoutMs: 20 * 60_000 }),
+	node("workflow-codegen", { tier: "balanced", effort: "medium", phase: "Generate", timeoutMs: 20 * 60_000 }),
 );
 let code = extractJs(implement);
 if (!code) {
@@ -301,7 +309,7 @@ const review = await agent(
 		`Also check TIERING: every agent() node must set an explicit model + effort from the plan's budget — flag any wide fan-out node on the deep tier (opus/xhigh), any final judge/synthesis node on the cheap tier (haiku), and any agent() call missing model/effort (it silently inherits the session model).\n` +
 		`EXISTING WORKFLOW CATALOG:\n${fence("candidate", catalogText)}\n\n` +
 		`${fence("request", task)}\n\nWorkflow code:\n\n${fence("candidate", code)}`,
-	node("workflow-review", { model: "sonnet", effort: "medium", schema: REVIEW, phase: "Review" }),
+	node("workflow-review", { tier: "balanced", effort: "medium", schema: REVIEW, phase: "Review" }),
 );
 const reviewApproved =
 	review?.verdict === "APPROVED" && Array.isArray(review?.findings) && review.findings.length === 0;
@@ -324,7 +332,7 @@ if (reviewApproved) {
 			`${fence("request", task)}\n` +
 			`${fence("findings", compact(review, 12000))}\n` +
 			`${fence("candidate", code)}`,
-		node("workflow-refine", { model: "sonnet", effort: "medium", phase: "Refine", timeoutMs: 20 * 60_000 }),
+		node("workflow-refine", { tier: "balanced", effort: "medium", phase: "Refine", timeoutMs: 20 * 60_000 }),
 	);
 	code = extractJs(refine);
 }
@@ -366,7 +374,7 @@ if (input?.write !== false) {
 					fence("candidate", code) +
 					"\n",
 				node("write-file", {
-					model: "haiku",
+					tier: "cheap",
 					effort: "low",
 					phase: "Write",
 					schema: {

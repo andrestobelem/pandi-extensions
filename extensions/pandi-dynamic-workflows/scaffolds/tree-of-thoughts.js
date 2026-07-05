@@ -74,9 +74,18 @@ export default async function main() {
 	const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 	const excludeByRole =
 		input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+	// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+	// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+	// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+	// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+	// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+	const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 	const node = (role, extra = {}) => {
-		const o = { label: role, ...extra };
-		const m = models[role] ?? input?.model;
+		const { tier, ...rest } = extra;
+		if (tier != null && !(tier in TIERS))
+			log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+		const o = { label: role, ...rest };
+		const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 		const e = efforts[role] ?? input?.effort;
 		if (m != null) o.model = m;
 		if (e != null) o.effort = e;
@@ -134,7 +143,7 @@ export default async function main() {
 								`${fence("topic", problem)}\n\n` +
 								`Partial solution so far:\n${fence("plan", parent.path || "(start fresh)")}`,
 							node("expand", {
-								model: "sonnet",
+								tier: "balanced",
 								effort: "medium",
 								label: `expand-L${level}-n${ni + 1}-c${ci + 1}`,
 								phase: "Expand",
@@ -161,7 +170,7 @@ export default async function main() {
 							`Score how promising this partial solution is for the problem (0-10). Be discriminating; reserve high scores for paths likely to reach a correct, complete answer.\n\n` +
 							`${fence("topic", problem)}\n\nPartial solution:\n${fence("candidate", compact(child.path, 8000))}`,
 						node("score", {
-							model: "opus",
+							tier: "deep",
 							effort: "high",
 							label: `score-L${level}-${i + 1}`,
 							schema: SCORE,
@@ -194,7 +203,7 @@ export default async function main() {
 			`Write the final, complete answer to the problem, building on the winning line of reasoning below. ` +
 			`Make it self-contained; flag any residual uncertainty.\n\n` +
 			`${fence("topic", problem)}\n\nWinning reasoning path (score ${best.score}/10):\n${fence("trace", compact(best.path, 40000))}`,
-		node("commit", { model: "opus", effort: "high", phase: "Commit" }),
+		node("commit", { tier: "deep", effort: "high", phase: "Commit" }),
 	);
 
 	return { answer, bestScore: best.score, search: { branching, beam, depth } };

@@ -74,9 +74,18 @@ export default async function main() {
 	const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 	const excludeByRole =
 		input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+	// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+	// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+	// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+	// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+	// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+	const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 	const node = (role, extra = {}) => {
-		const o = { label: role, ...extra };
-		const m = models[role] ?? input?.model;
+		const { tier, ...rest } = extra;
+		if (tier != null && !(tier in TIERS))
+			log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+		const o = { label: role, ...rest };
+		const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 		const e = efforts[role] ?? input?.effort;
 		if (m != null) o.model = m;
 		if (e != null) o.effort = e;
@@ -143,7 +152,7 @@ export default async function main() {
 				" of them as JSON: " +
 				'{ "files": ["path", ...], "totalMatched": <total number of git-tracked paths that matched the regex BEFORE the cap> }. ' +
 				'Return ONLY paths that appear verbatim in the git ls-files output; never invent paths. If none match, return { "files": [], "totalMatched": 0 }.',
-			node("scout", { model: "haiku", effort: "low", schema: FILE_LIST, phase: "Discover" }),
+			node("scout", { tier: "cheap", effort: "low", schema: FILE_LIST, phase: "Discover" }),
 		);
 		allFiles = scouted?.files ?? [];
 		totalMatched = Number.isFinite(+scouted?.totalMatched) ? +scouted.totalMatched : allFiles.length;
@@ -161,7 +170,7 @@ export default async function main() {
 				verifyCmd +
 				"`. " +
 				"Return { green, evidence } where evidence quotes the decisive pass/fail output. Do NOT edit any files.",
-			node("baseline", { model: "haiku", effort: "low", schema: VERIFY, phase: "Baseline" }),
+			node("baseline", { tier: "cheap", effort: "low", schema: VERIFY, phase: "Baseline" }),
 		);
 		log(`baseline ${JSON.stringify(base)}`);
 		if (!base?.green) {
@@ -205,7 +214,7 @@ export default async function main() {
 			"Run `" +
 				verifyCmd +
 				"` at the repo root and report { green, evidence } where evidence quotes the decisive pass/fail output. Do NOT edit any files.",
-			node("recheck", { model: "haiku", effort: "low", schema: VERIFY, label: n, phase: "Migrate" }),
+			node("recheck", { tier: "cheap", effort: "low", schema: VERIFY, label: n, phase: "Migrate" }),
 		);
 
 	const results = [];
@@ -253,7 +262,7 @@ export default async function main() {
 		const r = await agent(
 			prompt,
 			node("migrate", {
-				model: "sonnet",
+				tier: "balanced",
 				effort: "medium",
 				schema: RESULT,
 				label: `migrate:${file}`,
@@ -298,7 +307,7 @@ export default async function main() {
 	if (verifyCmd && !dryRun) {
 		finalVerify = await agent(
 			`Run \`${verifyCmd}\` once more at the repo root and report { green, evidence }. Do NOT edit files.`,
-			node("final-verify", { model: "haiku", effort: "low", schema: VERIFY, phase: "Migrate" }),
+			node("final-verify", { tier: "cheap", effort: "low", schema: VERIFY, phase: "Migrate" }),
 		);
 		log(`final verify ${JSON.stringify(finalVerify)}`);
 	}

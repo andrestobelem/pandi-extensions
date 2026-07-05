@@ -116,9 +116,18 @@ export default async function main() {
 	const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 	const excludeByRole =
 		input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+	// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+	// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+	// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+	// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+	// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+	const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 	const node = (role, extra = {}) => {
-		const o = { label: role, ...extra };
-		const m = models[role] ?? input?.model;
+		const { tier, ...rest } = extra;
+		if (tier != null && !(tier in TIERS))
+			log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+		const o = { label: role, ...rest };
+		const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 		const e = efforts[role] ?? input?.effort;
 		if (m != null) o.model = m;
 		if (e != null) o.effort = e;
@@ -239,7 +248,7 @@ export default async function main() {
 				`Produce your complete attempt now` +
 				(verifyCmd ? ` so that it will pass when checked with \`${verifyCmd}\`.` : "."),
 			node("actor", {
-				model: "sonnet",
+				tier: "balanced",
 				effort: "medium",
 				label: `actor-trial-${trial}`,
 				phase: "Act",
@@ -294,7 +303,7 @@ export default async function main() {
 		const verdictRaw = await agent(
 			evalPrompt,
 			node("evaluator", {
-				model: "opus",
+				tier: "deep",
 				effort: "high",
 				label: `evaluator-trial-${trial}`,
 				schema: VERDICT,
@@ -373,7 +382,7 @@ export default async function main() {
 				`${fence("findings", compact(verdict.feedback ?? "", 6000))}` +
 				(quotedOutput ? `\n\n${fence("trace", compact(quotedOutput, 6000))}` : ""),
 			node("reflection", {
-				model: "opus",
+				tier: "deep",
 				effort: "high",
 				label: `reflection-trial-${trial}`,
 				schema: REFLECTION,

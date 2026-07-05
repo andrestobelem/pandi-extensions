@@ -78,9 +78,17 @@ const toolsByRole = input && typeof input.toolsByRole === "object" && input.tool
 const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 const excludeByRole =
 	input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 const node = (role, extra = {}) => {
-	const o = { label: role, ...extra };
-	const m = models[role] ?? input?.model;
+	const { tier, ...rest } = extra;
+	if (tier != null && !(tier in TIERS)) log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+	const o = { label: role, ...rest };
+	const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 	const e = efforts[role] ?? input?.effort;
 	if (m != null) o.model = m;
 	if (e != null) o.effort = e;
@@ -130,7 +138,7 @@ const CRITIQUE = {
 phase("Generate");
 let draft = await agent(
 	`Produce a first complete attempt at the task below. Aim for correct and concrete; it will be critiqued and refined.\n\nTask: ${task}`,
-	node("draft", { model: "sonnet", effort: "medium", label: "draft-0", phase: "Generate" }),
+	node("draft", { tier: "balanced", effort: "medium", label: "draft-0", phase: "Generate" }),
 );
 if (draft == null) {
 	log("self-refine: initial draft was skipped/failed — nothing to refine");
@@ -204,7 +212,7 @@ while (round < maxRounds) {
 					`Task: ${task}\n\nAttempt:\n` +
 					`${fence("candidate", compact(draft, 30000))}`,
 				node("critique", {
-					model: "opus",
+					tier: "deep",
 					effort: "high",
 					label: `critique-${round}`,
 					schema: CRITIQUE,
@@ -235,7 +243,7 @@ while (round < maxRounds) {
 				`Task: ${task}\n\n` +
 				`Critiques so far (verbal memory, oldest first):\n${compact(memory, 16000)}\n\n` +
 				`Current attempt:\n${compact(draft, 30000)}`,
-			node("refine", { model: "sonnet", effort: "medium", label: `refine-${round}`, phase: "Refine" }),
+			node("refine", { tier: "balanced", effort: "medium", label: `refine-${round}`, phase: "Refine" }),
 		);
 	} catch (err) {
 		// Partial-failure isolation: a thrown critique/refine on this round must NOT

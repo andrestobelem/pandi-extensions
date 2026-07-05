@@ -71,9 +71,17 @@ const toolsByRole = input && typeof input.toolsByRole === "object" && input.tool
 const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 const excludeByRole =
 	input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 const node = (role, extra = {}) => {
-	const o = { label: role, ...extra };
-	const m = models[role] ?? input?.model;
+	const { tier, ...rest } = extra;
+	if (tier != null && !(tier in TIERS)) log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+	const o = { label: role, ...rest };
+	const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 	const e = efforts[role] ?? input?.effort;
 	if (m != null) o.model = m;
 	if (e != null) o.effort = e;
@@ -120,7 +128,7 @@ const drawn = await parallel(
 					`(independent attempt #${i + 1} — reason on your own; do not assume a particular answer)\n\n` +
 					`Problem:\n${fence("topic", question)}`,
 				node("sample", {
-					model: "haiku",
+					tier: "cheap",
 					effort: "low",
 					label: `sample-${i + 1}`,
 					schema: SAMPLE,
@@ -186,7 +194,7 @@ if (tied.length === 1) {
 			`Choose exactly one of the tied answers (copy its text verbatim): ${fence("candidate", tied.map((t) => t.answer).join(" | "))}\n\n` +
 			`Problem:\n${fence("topic", question)}\n\n` +
 			`Candidate answers and reasoning:\n${fence("candidate", contenders)}`,
-		node("tiebreak", { model: "opus", effort: "high", phase: "Decide", schema: TIEBREAK }),
+		node("tiebreak", { tier: "deep", effort: "high", phase: "Decide", schema: TIEBREAK }),
 	);
 	// Constrain/normalize the judge's pick to one of the tied keys; fall back to the first tied answer.
 	const picked = String(verdict?.answer ?? "").trim();

@@ -107,9 +107,18 @@ export default async function main() {
 	const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 	const excludeByRole =
 		input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+	// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+	// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+	// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+	// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+	// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+	const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 	const node = (role, extra = {}) => {
-		const o = { label: role, ...extra };
-		const m = models[role] ?? input?.model;
+		const { tier, ...rest } = extra;
+		if (tier != null && !(tier in TIERS))
+			log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+		const o = { label: role, ...rest };
+		const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 		const e = efforts[role] ?? input?.effort;
 		if (m != null) o.model = m;
 		if (e != null) o.effort = e;
@@ -187,7 +196,7 @@ export default async function main() {
 			`Return JSON matching the schema.\n\n` +
 			`GOAL:\n${fence("topic", compact(goal, 8000))}\n\n` +
 			(context ? `SHARED CONTEXT:\n${fence("topic", compact(context, 8000))}\n\n` : ""),
-		node("planner", { model: "opus", effort: "high", schema: PLAN, phase: "Plan" }),
+		node("planner", { tier: "deep", effort: "high", schema: PLAN, phase: "Plan" }),
 	);
 
 	let subtasks = Array.isArray(planResult?.subtasks) ? planResult.subtasks.filter((s) => s?.id && s.description) : [];
@@ -282,7 +291,7 @@ export default async function main() {
 						`OVERALL GOAL:\n${fence("topic", compact(goal, 4000))}\n\n` +
 						(context ? `SHARED CONTEXT:\n${fence("topic", compact(context, 4000))}\n\n` : "") +
 						(depContext ? `DEPENDENCY OUTPUTS:\n${fence("trace", depContext)}\n\n` : ""),
-					node("worker", { model: "sonnet", effort: "medium", label: `worker-${s.id}`, phase: "Execute" }),
+					node("worker", { tier: "balanced", effort: "medium", label: `worker-${s.id}`, phase: "Execute" }),
 				).then((output) => ({ id: s.id, output }));
 			}),
 			parallelOpts,
@@ -404,7 +413,7 @@ export default async function main() {
 				),
 			)}\n\n` +
 			`Now produce the integrated deliverable, then a short "Coverage & gaps" note naming any failed/unreached subtasks.`,
-		node("integrator", { model: "opus", effort: "high", phase: "Integrate" }),
+		node("integrator", { tier: "deep", effort: "high", phase: "Integrate" }),
 	);
 
 	return {

@@ -61,9 +61,17 @@ const toolsByRole = input && typeof input.toolsByRole === "object" && input.tool
 const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 const excludeByRole =
 	input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 const node = (role, extra = {}) => {
-	const o = { label: role, ...extra };
-	const m = models[role] ?? input?.model;
+	const { tier, ...rest } = extra;
+	if (tier != null && !(tier in TIERS)) log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+	const o = { label: role, ...rest };
+	const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 	const e = efforts[role] ?? input?.effort;
 	if (m != null) o.model = m;
 	if (e != null) o.effort = e;
@@ -127,7 +135,7 @@ if (!findings) {
 			`Each must be falsifiable (a skeptic could try to refute it with evidence).\n` +
 			`Return JSON: { "findings": [ { "id", "claim", "evidence" }, ... ] }.\n\n` +
 			`${fence("topic", topic)}`,
-		node("finder", { model: "haiku", effort: "low", schema: FINDINGS, phase: "Find" }),
+		node("finder", { tier: "cheap", effort: "low", schema: FINDINGS, phase: "Find" }),
 	);
 	findings = (Array.isArray(found?.findings) ? found.findings : []).slice(0, maxFind);
 	log(`finder produced ${findings.length} findings (cap ${maxFind}) ${JSON.stringify({ topic })}`);
@@ -186,7 +194,7 @@ for (let fi = 0; fi < items.length; fi++) {
 						`${fence("claim", item.claim)}\n` +
 						`${fence("evidence", item.evidence || "(none)")}`,
 					node("skeptic", {
-						model: "opus",
+						tier: "deep",
 						effort: "high",
 						label: `skeptic-${item.id}-${si + 1}`,
 						schema: VOTE,

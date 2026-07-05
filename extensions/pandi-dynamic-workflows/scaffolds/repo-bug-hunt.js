@@ -78,9 +78,18 @@ export default async function main() {
 	const skillsByRole = input && typeof input.skillsByRole === "object" && input.skillsByRole ? input.skillsByRole : {};
 	const excludeByRole =
 		input && typeof input.excludeByRole === "object" && input.excludeByRole ? input.excludeByRole : {};
+	// TIERS — starting model defaults for THIS scaffold; the AUTHORING AGENT re-decides them per task.
+	// Two independent dials: `tier` picks the MODEL only; `effort` is a SEPARATE per-call decision
+	// (a fast tier doing gate/evidence work still earns effort>=medium — see the ultracode skill).
+	// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
+	// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
+	const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
 	const node = (role, extra = {}) => {
-		const o = { label: role, ...extra };
-		const m = models[role] ?? input?.model;
+		const { tier, ...rest } = extra;
+		if (tier != null && !(tier in TIERS))
+			log(`unknown tier "${tier}" for role ${role}; inheriting orchestrator model`);
+		const o = { label: role, ...rest };
+		const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 		const e = efforts[role] ?? input?.effort;
 		if (m != null) o.model = m;
 		if (e != null) o.effort = e;
@@ -141,7 +150,7 @@ export default async function main() {
 				pattern +
 				". " +
 				'Return ALL of them as JSON: { "files": ["path", ...] }.',
-			node("scout", { model: "haiku", effort: "low", schema: FILE_LIST, phase: "Scout" }),
+			node("scout", { tier: "cheap", effort: "low", schema: FILE_LIST, phase: "Scout" }),
 		);
 		allFiles = scouted?.files ?? [];
 	}
@@ -199,7 +208,7 @@ Output format:
 
 Target file to inspect:
 ${fence("file", file)}`,
-					node("bug-hunt", { model: "sonnet", effort: "medium", label: `bug-hunt-${file}`, phase: "Review" }),
+					node("bug-hunt", { tier: "balanced", effort: "medium", label: `bug-hunt-${file}`, phase: "Review" }),
 				).then((output) => (output == null ? null : { name: `bug-hunt-${file}`, output })),
 		),
 		{ concurrency },
@@ -237,7 +246,7 @@ ${fence(
 		80000,
 	),
 )}\n\nNow produce the output format above: executive verdict first, most severe findings first, discard uncited claims, and explicitly note the ${failed} failed/empty branches.`,
-		node("synthesis", { model: "opus", effort: "high", phase: "Synthesis" }),
+		node("synthesis", { tier: "deep", effort: "high", phase: "Synthesis" }),
 	);
 
 	return synthesis;
