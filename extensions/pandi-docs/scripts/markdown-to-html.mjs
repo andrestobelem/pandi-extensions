@@ -135,8 +135,8 @@ mermaid.initialize({
 </script>`;
 }
 
-// Drop optional YAML frontmatter before title extraction/rendering. Docs may use
-// frontmatter for skills or OKF metadata; the HTML artifact should show prose, not metadata.
+// Quita frontmatter YAML opcional antes de extraer/renderizar el título. Los docs pueden usar
+// frontmatter para metadata de skills u OKF; el artifact HTML debe mostrar prosa, no metadata.
 function stripYamlFrontmatter(md) {
 	if (!md.startsWith("---\n") && !md.startsWith("---\r\n")) return md;
 	const newline = md.startsWith("---\r\n") ? "\r\n" : "\n";
