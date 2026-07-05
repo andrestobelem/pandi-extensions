@@ -29,6 +29,10 @@ const clientJsSource = (() => {
   try { return readFileSync(new URL("./artifact-client.js", import.meta.url), "utf8"); }
   catch { return 'document.body.innerHTML="<p>artifact-client.js missing</p>";'; }
 })();
+const pandiTokensCss = (() => {
+  try { return readFileSync(new URL("./pandi-tokens.css", import.meta.url), "utf8"); }
+  catch { return ":root{--bg:#242526;--paper:#292A2B;--info-bg:#2E2A33;--raised:#31353A;--ink:#E6E6E6;--ink2:#BBBBBB;--muted:#757575;--line:#3E4250;--line-strong:#676B79;--accent:#FF75B5;--link:#6FC1FF;--info:#45A9F9;--success:#19F9D8;--warning:#FFCC95;--error:#FF4B82;--code:#19F9D8;--purple:#BCAAFE;--success-bg:#1E2E2B;--error-bg:#2E1E24;--warning-bg:#2E2A33;}"; }
+})();
 // Contract-view client code, injected into the HTML ONLY when a contract is present (keeps
 // non-contract artifacts byte-identical). Read lazily-eager here alongside the base client.
 const contractViewSource = (() => {
@@ -51,7 +55,7 @@ export async function buildArtifact({ scriptPath, raw, argsObj, argsJson, runDir
     merged, basePhases: model.basePhases, composes: model.composes, meta: model.meta,
     provenance: model.provenance, scaffolds: model.scaffolds, scriptPath, argsJson,
     schemas: model.schemas, skillRefs: model.skillRefs, raw, runData,
-    staticFidelity: model.staticFidelity, jsonToMarkdownSource, clientJsSource, contractViewSource,
+    staticFidelity: model.staticFidelity, jsonToMarkdownSource, clientJsSource, contractViewSource, tokensCss: pandiTokensCss,
   });
   return { html, data, runData, nodeCount, composes: model.composes, runErr: model.runErr, resolvedRunDir };
 }

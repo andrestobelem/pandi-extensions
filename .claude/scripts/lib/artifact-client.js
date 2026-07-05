@@ -4,14 +4,16 @@
 // interpolates this file via ${...} (its content is never re-parsed, so no escaping traps).
 const D=JSON.parse(document.getElementById("data").textContent);
 const esc=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-const PAL=["#3f7a52","#7a4fb0","#b54545","#9a6a14","#2f6f9e","#a3517a"];
+const PAL=["var(--success)","var(--purple)","var(--error)","var(--warning)","var(--info)","var(--accent)"];
 const pc={}; (D.phases||[]).forEach((p,i)=>pc[p]=PAL[i%PAL.length]);
 // Render the diagram FIRST and in isolation: set #mm content, then run mermaid explicitly.
 // (startOnLoad races other DOM code — if anything below throws, #mm stays empty and mermaid renders "Syntax error".)
 (function(){try{
   var mmEl=document.getElementById("mm");
   mmEl.textContent=D.__mm||"";
-  mermaid.initialize({startOnLoad:false,theme:"neutral",flowchart:{useMaxWidth:false}});
+  var dark=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches;
+  var themeVars=D.mermaidThemes&&(dark?D.mermaidThemes.dark:D.mermaidThemes.light);
+  mermaid.initialize({startOnLoad:false,theme:"base",themeVariables:themeVars||{},flowchart:{useMaxWidth:false}});
   mermaid.run({nodes:[mmEl]}).catch(function(){});
 }catch(e){}})();
 document.getElementById("wf-name").textContent=D.meta.name||"workflow";
