@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-plan",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "Pi extension for Claude-style read-only plan mode with explicit approval before mutation.",
 	"license": "MIT",
 	"repository": {
@@ -26,7 +26,7 @@
 		]
 	},
 	"dependencies": {
-		"@pandi-coding-agent/pandi-docs": "0.1.0"
+		"@pandi-coding-agent/pandi-docs": "0.1.2"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "^0.80.3",
