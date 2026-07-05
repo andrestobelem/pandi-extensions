@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-container/index.ts.
+ * Test de integración conductual duradero para extensions/pandi-container/index.ts.
  *
- * Apple's `container` runs Linux in real micro-VMs (Apple Silicon + macOS 26 +
- * a booted subsystem), which a CI box cannot spin up. So honest evidence here is:
- *   - pure parsers pinned against REAL captured CLI output (`container machine ls
- *     --format json`), so the parser is tested against the actual contract;
- *   - arg builders asserted exactly (argv, never a shell string);
- *   - high-level action handlers driven by an INJECTED fake runner, so dispatch,
- *     the "remove needs force" gate, and error normalization are deterministic;
- *   - the CLI-missing path exercised with a REAL spawn of a guaranteed-absent
- *     binary (so `spawnError` is real, not mocked) → a bounded message, no crash;
- *   - the /container command and container_sandbox tool are actually registered.
+ * Apple `container` corre Linux en micro-VMs reales (Apple Silicon + macOS 26 +
+ * un subsistema iniciado), que una caja de CI no puede levantar. Entonces la evidencia honesta acá es:
+ *   - parsers puros pineados contra salida REAL capturada de la CLI (`container machine ls
+ *     --format json`), así el parser se prueba contra el contrato real;
+ *   - constructores de argv afirmados exactamente (argv, nunca un string de shell);
+ *   - manejadores de alto nivel guiados por un runner simulado INJECTADO, así el despacho,
+ *     la barrera de "remove requiere force" y la normalización de errores son deterministas;
+ *   - la ruta de CLI ausente ejercitada con un spawn REAL de un binario garantizadamente ausente
+ *     (así `spawnError` es real, no mockeado) → mensaje acotado, sin caerse;
+ *   - el comando /container y la tool container_sandbox quedan realmente registrados.
  *
- * `container` is always spawned with an ARGV array (never a shell string), so
- * image refs / machine names / commands cannot inject shell.
+ * `container` siempre se invoca con un array ARGV (nunca un string de shell), así
+ * referencias de imagen / nombres de máquina / comandos no pueden inyectar shell.
  *
- * P4 additions (issue #3, mutation-verified non-vacuous): runStatus not-booted /
- * running / degraded-ls branches, create/stop/exec validation + describeError
- * normalization (stderr detail, exit-code fallback, timed-out), parseContainerCommand,
- * REAL runContainer timeout + abort, and outside-in command/tool paths — each platform
- * pins its real branch (linux CI: the platform guard; macOS/arm64: help/unknown/remove
- * gates, including confirmed-remove threading force:true to the CLI, kept harmless via
- * a guaranteed-absent machine name).
+ * Agregados de P4 (issue #3, mutation-verified non-vacuous): ramas de runStatus not-booted /
+ * running / degraded-ls, validación de create/stop/exec + normalización de describeError
+ * (detalle de stderr, fallback de exit-code, timed-out), parseContainerCommand,
+ * timeout + abort REALES de runContainer, y rutas de afuera hacia adentro de comando/tool — cada plataforma
+ * pinea su rama real (linux CI: la guarda de plataforma; macOS/arm64: compuertas help/unknown/remove,
+ * incluyendo que remove confirmado encadene force:true hasta la CLI, mantenido inocuo vía
+ * un nombre de máquina garantizadamente ausente).
  */
 
 import * as path from "node:path";
@@ -35,8 +35,8 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function buildBundle() {
-	// index.ts uses the SDK for types only (erased); stub it so esbuild does not pull
-	// the real @earendil-works/pi-coding-agent runtime (cross-spawn breaks an ESM bundle).
+	// index.ts usa el SDK solo para tipos (se borran); stubbealo para que esbuild no traiga
+	// el runtime real de @earendil-works/pi-coding-agent (cross-spawn rompe un bundle ESM).
 	return await buildExtension({
 		name: "pi-container-build",
 		src: path.join(REPO_ROOT, "extensions", "pandi-container", "index.ts"),
@@ -69,7 +69,7 @@ async function loadExtension(url) {
 	return { commands, tools };
 }
 
-/** A fake runner matching runContainer's signature; records calls, returns canned results. */
+/** Un runner simulado con la firma de runContainer; registra llamadas y devuelve resultados prefijados. */
 function fakeRunner(scripted = []) {
 	const calls = [];
 	let i = 0;
@@ -82,7 +82,7 @@ function fakeRunner(scripted = []) {
 	return run;
 }
 
-// Real captured output of `container machine ls --format json` (1.0.0).
+// Salida real capturada de `container machine ls --format json` (1.0.0).
 const REAL_MACHINE_JSON =
 	'[{"memory":19327352832,"diskSize":78790656,"default":true,"id":"dev","ipAddress":"192.168.64.4","createdDate":"2026-06-30T18:48:46Z","cpus":6,"status":"running"}]';
 
@@ -98,12 +98,12 @@ async function scenarioRegistration(url) {
 async function scenarioPureHelpers(url) {
 	const mod = await loadModule(url);
 
-	// platform guard
+	// guarda de plataforma
 	check("isSupportedPlatform(darwin,arm64) true", mod.isSupportedPlatform("darwin", "arm64") === true);
 	check("isSupportedPlatform(darwin,x64) false", mod.isSupportedPlatform("darwin", "x64") === false);
 	check("isSupportedPlatform(linux,arm64) false", mod.isSupportedPlatform("linux", "arm64") === false);
 
-	// machine-name validation
+	// validación de nombre de máquina
 	for (const [name, ok] of [
 		["dev", true],
 		["my-machine_1", true],
@@ -116,7 +116,7 @@ async function scenarioPureHelpers(url) {
 		check(`validateMachineName(${JSON.stringify(name)}) === ${ok}`, mod.validateMachineName(name) === ok, name);
 	}
 
-	// parser pinned to REAL captured JSON
+	// parser pineado a JSON REAL capturado
 	const entries = mod.parseMachineList(REAL_MACHINE_JSON);
 	check("parseMachineList: one entry", entries.length === 1, String(entries.length));
 	const m = entries[0];
@@ -132,7 +132,7 @@ async function scenarioPureHelpers(url) {
 	check("parseMachineList: empty array", mod.parseMachineList("[]").length === 0);
 	check("parseMachineList: junk → []", Array.isArray(mod.parseMachineList("not json")));
 
-	// formatter
+	// formateador
 	const line = mod.formatMachineList(entries);
 	check("formatMachineList: mentions id + status", line.includes("dev") && line.includes("running"), line);
 	check("formatMachineList: humanizes memory (18G)", /18\s?G/i.test(line), line);
@@ -213,7 +213,7 @@ async function scenarioArgBuilders(url) {
 async function scenarioHandlers(url) {
 	const mod = await loadModule(url);
 
-	// list → parses injected JSON into structured details
+	// list → parsea JSON inyectado a detalles estructurados
 	{
 		const run = fakeRunner([{ ok: true, stdout: REAL_MACHINE_JSON, stderr: "", exitCode: 0 }]);
 		const res = await mod.runList(run, {});
@@ -225,7 +225,7 @@ async function scenarioHandlers(url) {
 		);
 	}
 
-	// exec → builds args + surfaces stdout
+	// exec → arma args y expone stdout
 	{
 		const run = fakeRunner([{ ok: true, stdout: "Linux 6.18.15\n", stderr: "", exitCode: 0 }]);
 		const res = await mod.runExec(run, { machine: "dev", command: ["uname", "-sr"] }, {});
@@ -238,7 +238,7 @@ async function scenarioHandlers(url) {
 		);
 	}
 
-	// exec ephemeral (image, no machine)
+	// exec efímero (image, sin machine)
 	{
 		const run = fakeRunner([{ ok: true, stdout: "ok\n", stderr: "", exitCode: 0 }]);
 		const res = await mod.runExec(run, { image: "alpine:latest", command: ["echo", "ok"] }, {});
@@ -250,20 +250,20 @@ async function scenarioHandlers(url) {
 		);
 	}
 
-	// exec with neither machine nor image → bounded error, no run
+	// exec sin machine ni image → error acotado, sin run
 	{
 		const run = fakeRunner();
 		const res = await mod.runExec(run, { command: ["echo", "x"] }, {});
 		check("runExec: requires machine or image", res.ok === false && run.calls.length === 0, JSON.stringify(res));
 	}
 
-	// remove without force → refuses, never spawns
+	// remove sin force → se niega, nunca hace spawn
 	{
 		const run = fakeRunner();
 		const res = await mod.runRemove(run, { name: "dev", force: false }, {});
 		check("runRemove: refuses without force", res.ok === false && run.calls.length === 0, JSON.stringify(res));
 	}
-	// remove with force → deletes
+	// remove con force → elimina
 	{
 		const run = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
 		const res = await mod.runRemove(run, { name: "dev", force: true }, {});
@@ -274,7 +274,7 @@ async function scenarioHandlers(url) {
 		);
 	}
 
-	// error normalization: spawnError → CLI-not-found guidance
+	// normalización de errores: spawnError → guía de CLI no encontrada
 	{
 		const run = fakeRunner([{ ok: false, spawnError: "spawn container ENOENT" }]);
 		const res = await mod.runList(run, {});
@@ -304,7 +304,7 @@ async function scenarioBareActionSelector(url) {
 		};
 	};
 
-	// bare + UI → opens the action selector and returns the chosen action token
+	// sin args + UI → abre el selector de acciones y devuelve el token elegido
 	{
 		const { ctx, selectCalls } = makeCtx({ selectResult: "stop \u2014 stop a machine" });
 		const out = await mod.resolveContainerInput("", ctx);
@@ -319,7 +319,7 @@ async function scenarioBareActionSelector(url) {
 		check("returns the chosen action token", out === "stop", String(out));
 	}
 
-	// headless (no UI) → never opens the selector; passes the (empty) input through unchanged
+	// sin UI (headless) → nunca abre el selector; pasa la entrada (vacía) sin cambios
 	{
 		const { ctx, selectCalls } = makeCtx({ hasUI: false, selectResult: "stop" });
 		const out = await mod.resolveContainerInput("", ctx);
@@ -327,14 +327,14 @@ async function scenarioBareActionSelector(url) {
 		check("headless bare passes through empty input", out === "", JSON.stringify(out));
 	}
 
-	// explicit argument → bypasses the selector entirely
+	// argumento explícito → saltea por completo el selector
 	{
 		const { ctx, selectCalls } = makeCtx({ selectResult: "stop" });
 		const out = await mod.resolveContainerInput("list", ctx);
 		check("explicit arg bypasses the selector", selectCalls.length === 0 && out === "list", String(out));
 	}
 
-	// cancelling the selector → empty string (runCommand then shows help), no crash
+	// cancelar el selector → texto vacío (runCommand después muestra ayuda), sin caerse
 	{
 		const { ctx } = makeCtx({ selectResult: undefined });
 		const out = await mod.resolveContainerInput("", ctx);
@@ -344,7 +344,7 @@ async function scenarioBareActionSelector(url) {
 
 async function scenarioRealSpawnMissingCli(url) {
 	const mod = await loadModule(url);
-	// REAL spawn of a guaranteed-absent binary → spawnError is real, message is bounded.
+	// spawn REAL de un binario garantizadamente ausente → spawnError es real, el mensaje es acotado.
 	const result = await mod.runContainer(["machine", "ls"], { bin: "container-does-not-exist-xyz", timeoutMs: 5000 });
 	check("runContainer: missing bin → ok=false", result.ok === false, JSON.stringify(result));
 	check(
@@ -354,9 +354,9 @@ async function scenarioRealSpawnMissingCli(url) {
 	);
 }
 
-// runStatus branches (issue #3 "not booted"): a failing `system status` must surface
-// the CLI detail; a running subsystem lists machines; a failing machine-ls degrades
-// to an empty list instead of failing the whole status.
+// ramas de runStatus (issue #3 "not booted"): un `system status` fallido debe exponer
+// el detalle de la CLI; un subsistema en ejecución lista máquinas; un machine-ls fallido degrada
+// a una lista vacía en vez de fallar todo el status.
 async function scenarioStatusHandler(url) {
 	const mod = await loadModule(url);
 
@@ -398,13 +398,13 @@ async function scenarioStatusHandler(url) {
 	}
 }
 
-// create/stop/exec error edges (issue #3 "run failure"): argument validation refuses
-// BEFORE spawning; CLI failures normalize through describeError (stderr detail,
-// exit-code fallback, timed-out).
+// bordes de error de create/stop/exec (issue #3 "run failure"): la validación de argumentos se niega
+// ANTES de hacer spawn; las fallas de la CLI se normalizan vía describeError (detalle de stderr,
+// fallback de exit-code, timed-out).
 async function scenarioHandlerErrorEdges(url) {
 	const mod = await loadModule(url);
 
-	// create: missing image / invalid name → refused, no spawn
+	// create: image faltante / nombre inválido → se niega, sin spawn
 	{
 		const run = fakeRunner();
 		const res = await mod.runCreate(run, { image: "" }, {});
@@ -412,7 +412,7 @@ async function scenarioHandlerErrorEdges(url) {
 		const res2 = await mod.runCreate(run, { image: "alpine:latest", name: "bad name" }, {});
 		check("runCreate: invalid name refused, no spawn", res2.ok === false && run.calls.length === 0, res2.text);
 	}
-	// create: CLI failure → normalized error; success → confirmation text
+	// create: falla de CLI → error normalizado; éxito → texto de confirmación
 	{
 		const run = fakeRunner([{ ok: false, stdout: "", stderr: "kernel not configured", exitCode: 1 }]);
 		const res = await mod.runCreate(run, { image: "alpine:latest", name: "dev" }, {});
@@ -430,7 +430,7 @@ async function scenarioHandlerErrorEdges(url) {
 		);
 	}
 
-	// stop: invalid name refused; empty-output failure falls back to the exit code; default name
+	// stop: nombre inválido rechazado; falla con salida vacía usa el exit code; nombre default
 	{
 		const run = fakeRunner();
 		const res = await mod.runStop(run, { name: "a;b" }, {});
@@ -451,7 +451,7 @@ async function scenarioHandlerErrorEdges(url) {
 		);
 	}
 
-	// exec: invalid machine name refused before spawning; empty stdout → explicit marker; timeout → timed-out text
+	// exec: nombre de machine inválido rechazado antes del spawn; stdout vacío → marca explícita; timeout → texto timed-out
 	{
 		const run = fakeRunner();
 		const res = await mod.runExec(run, { machine: "a b", command: ["true"] }, {});
@@ -473,7 +473,7 @@ async function scenarioHandlerErrorEdges(url) {
 	}
 }
 
-// parseContainerCommand (pure): `--` argv separator, defaults, case-insensitivity.
+// parseContainerCommand (puro): separador argv `--`, valores por defecto e insensibilidad de mayúsculas/minúsculas.
 async function scenarioParseContainerCommand(url) {
 	const mod = await loadModule(url);
 	const p = mod.parseContainerCommand;
@@ -493,8 +493,8 @@ async function scenarioParseContainerCommand(url) {
 	);
 }
 
-// runContainer real process edges: a hung child is SIGTERM'd at timeoutMs (timedOut,
-// ok=false), and an abort signal kills it the same way — real spawns, not mocks.
+// bordes reales de proceso de runContainer: un hijo colgado recibe SIGTERM en timeoutMs (timedOut,
+// ok=false), y una señal de abort lo mata igual — spawns reales, no mocks.
 async function scenarioRealTimeoutAndAbort(url) {
 	const mod = await loadModule(url);
 
@@ -523,11 +523,11 @@ async function scenarioRealTimeoutAndAbort(url) {
 	);
 }
 
-// Outside-in (issue #3): drive the REAL /container command handler and the
-// container_sandbox tool. The runner is not injectable at this level, so only
-// no-spawn paths are pinned — and each platform pins its real branch: on
-// unsupported hosts (linux CI) every call must short-circuit with the platform
-// message; on macOS/arm64 the help/unknown/remove-gate paths run (none spawns).
+// De afuera hacia adentro (issue #3): ejercita el handler REAL de /container y la
+// tool container_sandbox. El runner no es inyectable a este nivel, así que solo
+// se pinean rutas sin spawn — y cada plataforma pinea su rama real: en
+// hosts no soportados (linux CI) toda llamada debe cortocircuitar con el mensaje de plataforma;
+// en macOS/arm64 corren las rutas help/unknown/remove-gate (ninguna hace spawn).
 async function scenarioCommandAndToolOutsideIn(url) {
 	const mod = await loadModule(url);
 	const { commands, tools } = await loadExtension(url);
@@ -554,7 +554,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 	};
 
 	if (!mod.isSupportedPlatform()) {
-		// Unsupported host (linux CI): the guard must fire for BOTH surfaces, before any spawn.
+		// host no soportado (linux CI): la guarda debe disparar para AMBAS superficies, antes de cualquier spawn.
 		const { ctx, notes } = makeCtx();
 		await command.handler("status", ctx);
 		check(
@@ -571,7 +571,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		return;
 	}
 
-	// Supported host (macOS/arm64): pin the no-spawn command paths.
+	// host soportado (macOS/arm64): pinear las rutas del comando sin spawn.
 	{
 		const { ctx, notes } = makeCtx();
 		await command.handler("help", ctx);
@@ -593,7 +593,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		);
 	}
 	{
-		// remove via the command: declining the confirm must refuse WITHOUT spawning.
+		// remove vía el comando: rechazar la confirmación debe negarse SIN hacer spawn.
 		const { ctx, notes, confirms } = makeCtx({ confirmResult: false });
 		await command.handler("remove dev", ctx);
 		check("/container remove asks for confirmation", confirms.length === 1, `confirms=${confirms.length}`);
@@ -604,7 +604,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		);
 	}
 	{
-		// headless remove: no UI to confirm → force stays false → refuses, no spawn.
+		// remove sin UI (headless): no hay UI para confirmar → force queda false → se niega, sin spawn.
 		const { ctx, notes, confirms } = makeCtx({ hasUI: false });
 		ctx.mode = "print";
 		const errs = [];
@@ -623,10 +623,10 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		);
 	}
 	{
-		// remove CONFIRMED: the confirm result must thread through as force:true, so the
-		// request reaches the CLI instead of the needsForce gate. A valid-shaped but
-		// guaranteed-absent machine keeps this harmless: the CLI errors (machine not
-		// found / not installed / not booted) — anything BUT the "Refusing" refusal.
+		// remove CONFIRMADO: el resultado de confirm debe encadenarse como force:true, para que la
+		// solicitud llegue a la CLI en vez de la barrera needsForce. Un nombre con forma válida pero
+		// garantizadamente ausente mantiene esto inocuo: la CLI falla (machine not
+		// found / not installed / not booted) — cualquier cosa MENOS la negativa "Refusing".
 		const { ctx, notes, confirms } = makeCtx({ confirmResult: true });
 		await command.handler("remove pi-test-absent-machine-xyz", ctx);
 		check("/container remove confirmed: confirm was asked", confirms.length === 1, `confirms=${confirms.length}`);
@@ -637,7 +637,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		);
 	}
 	{
-		// Tool surface, no-spawn paths: remove without force refuses; defensive unknown action.
+		// Superficie tool, rutas sin spawn: remove sin force se niega; acción desconocida defensiva.
 		const { ctx } = makeCtx();
 		const refused = await tool.execute("t2", { action: "remove", name: "dev" }, undefined, undefined, ctx);
 		check(
@@ -654,19 +654,19 @@ async function scenarioCommandAndToolOutsideIn(url) {
 	}
 }
 
-// Size tiers (named cpu/memory presets): the tier table is pinned EXACTLY, the pure
-// resolver honors explicit-cpus/memory-over-tier precedence, argv builders emit the
-// resolved flags (ephemeral run gains --cpus/--memory), an unknown tier is refused
-// BEFORE any spawn, and tiers never apply to run-inside-an-existing-machine (its
-// resources are fixed at creation by the upstream CLI).
+// Niveles de tamaño (presets con nombre de cpu/memory): la tabla de tiers queda pineada EXACTAMENTE, el puro
+// resolver respeta la precedencia de cpus/memory explícitos sobre tier, los argv builders emiten las
+// flags resueltas (run efímero gana --cpus/--memory), un tier desconocido se rechaza
+// ANTES de cualquier spawn, y los tiers nunca aplican a un run dentro de una máquina existente (sus
+// recursos quedan fijados en la creación por la CLI upstream).
 async function scenarioSizeTiers(url) {
 	const mod = await loadModule(url);
 	const eq = (label, got, want) => check(label, JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got));
 
-	// tier table pinned exactly (not snapshot-fuzzy)
-	// Ladder rebased on a 256M micro (Apple container's hard floor is 200 MiB; a real
-	// `npm i -g` + `pi --version` was verified inside a 200M VM at 114MB RSS), doubling
-	// memory per tier upward.
+	// tabla de tiers pineada exactamente (sin snapshots borrosos)
+	// Escalera rebasada sobre un micro de 256M (el piso duro de Apple container es 200 MiB; un
+	// `npm i -g` + `pi --version` real se verificó dentro de una VM de 200M con 114MB de RSS), duplicando
+	// la memoria hacia arriba por tier.
 	eq("TIER_PRESETS: pinned values", mod.TIER_PRESETS, {
 		micro: { cpus: 1, memory: "256M" },
 		tiny: { cpus: 2, memory: "512M" },
@@ -676,7 +676,7 @@ async function scenarioSizeTiers(url) {
 	});
 	eq("TIER_NAMES: ordered ladder", mod.TIER_NAMES, ["micro", "tiny", "small", "medium", "large"]);
 
-	// pure resolver: tier alone, explicit-over-tier per field, neither, unknown
+	// resolver puro: tier solo, explícito-sobre-tier por campo, ninguno, desconocido
 	eq("resolveSize: tier only", mod.resolveSize({ tier: "small" }), { ok: true, cpus: 2, memory: "1G" });
 	eq("resolveSize: explicit cpus wins over tier", mod.resolveSize({ tier: "small", cpus: 6 }), {
 		ok: true,
@@ -698,14 +698,14 @@ async function scenarioSizeTiers(url) {
 		);
 	}
 
-	// ephemeral run argv now carries the resolved flags (today it silently drops them)
+	// ahora el argv del run efímero lleva las flags resueltas (hoy las descarta en silencio)
 	eq(
 		"buildEphemeralRunArgs: emits --cpus/--memory before image",
 		mod.buildEphemeralRunArgs({ image: "alpine:latest", cpus: 2, memory: "2G", command: ["pwd"] }),
 		["run", "--rm", "--cpus", "2", "--memory", "2G", "alpine:latest", "pwd"],
 	);
 
-	// create: tier resolves into --cpus/--memory; explicit values override; bad tier never spawns
+	// create: el tier se resuelve a --cpus/--memory; los valores explícitos pisan; un tier malo nunca hace spawn
 	{
 		const run = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
 		const res = await mod.runCreate(run, { image: "alpine:latest", name: "dev", tier: "small" }, {});
@@ -745,10 +745,10 @@ async function scenarioSizeTiers(url) {
 		);
 	}
 
-	// machine create has a HARDER floor than ephemeral run: the CLI rejects machine
-	// memory below 1G (real error: "invalid memory value '256mb'. Must be greater
-	// than 1gb"), while ephemeral runs bottom out at 200 MiB. So micro/tiny are
-	// ephemeral-only and create must refuse them BEFORE spawning, with guidance.
+	// `machine create` tiene un piso MÁS DURO que un run efímero: la CLI rechaza memoria de machine
+	// por debajo de 1G (error real: "invalid memory value '256mb'. Must be greater
+	// than 1gb"), mientras los runs efímeros bajan hasta 200 MiB. Entonces micro/tiny son
+	// solo efímeros y create debe rechazarlos ANTES del spawn, con guía.
 	eq("MACHINE_TIER_NAMES: machine-capable ladder", mod.MACHINE_TIER_NAMES, ["small", "medium", "large"]);
 	for (const tier of ["micro", "tiny"]) {
 		const run = fakeRunner();
@@ -760,7 +760,7 @@ async function scenarioSizeTiers(url) {
 		);
 	}
 	{
-		// …but micro stays valid for the EPHEMERAL path (200 MiB floor there).
+		// …pero micro sigue siendo válido para la ruta efímera (ahí el piso es 200 MiB).
 		const run = fakeRunner([{ ok: true, stdout: "ok\n", stderr: "", exitCode: 0 }]);
 		const res = await mod.runExec(run, { image: "alpine:latest", tier: "micro", command: ["true"] }, {});
 		check(
@@ -770,7 +770,7 @@ async function scenarioSizeTiers(url) {
 		);
 	}
 
-	// run: tier applies to the EPHEMERAL path only; with an existing machine it is refused
+	// run: el tier aplica solo a la ruta efímera; con una machine existente se rechaza
 	{
 		const run = fakeRunner([{ ok: true, stdout: "ok\n", stderr: "", exitCode: 0 }]);
 		const res = await mod.runExec(run, { image: "alpine:latest", tier: "small", command: ["pwd"] }, {});
@@ -805,7 +805,7 @@ async function scenarioSizeTiers(url) {
 		);
 	}
 
-	// /container create flag parsing (pure): --size extracted from the token list
+	// parseo de flags de /container create (puro): --size extraído de la lista de tokens
 	eq("parseSizeFlag: extracts --size", mod.parseSizeFlag(["alpine:latest", "dev", "--size", "small"]), {
 		tokens: ["alpine:latest", "dev"],
 		tier: "small",
@@ -816,7 +816,7 @@ async function scenarioSizeTiers(url) {
 		check("parseSizeFlag: dangling --size → error", typeof bad.error === "string", JSON.stringify(bad));
 	}
 
-	// tool schema + help parity
+	// paridad entre el schema de la tool y la ayuda
 	{
 		const { commands, tools } = await loadExtension(url);
 		const tool = tools.get("container_sandbox");

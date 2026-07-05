@@ -1,17 +1,17 @@
 /**
- * pandi-container: manage Apple `container` sandboxes (Linux micro-VMs) from inside Pi.
+ * pandi-container: gestiona sandboxes de Apple `container` (micro-VMs Linux) desde Pi.
  *
- * Two surfaces (the project convention, see pandi-worktree):
- *   - `/container`           human slash command (interactive, confirms destructive ops)
- *   - `container_sandbox`    model-callable tool (explicit actions, no surprise deletes)
+ * Dos superficies (convención del proyecto; ver pandi-worktree):
+ *   - `/container`           comando slash para humanos (interactivo, confirma ops destructivas)
+ *   - `container_sandbox`    tool invocable por el modelo (acciones explícitas, sin borrados sorpresa)
  *
- * Both share the pure helpers + handlers in ./container.ts. `container` is always
- * spawned with an ARGV array (never a shell string) so image refs / machine names /
- * commands can't inject shell.
+ * Ambos comparten las utilidades puras + manejadores de ./container.ts. `container` siempre se
+ * invoca con un array ARGV (nunca un string de shell), así referencias de imagen / nombres de máquina /
+ * comandos no pueden inyectar shell.
  *
- * Apple `container` runs each Linux environment in its own lightweight VM
- * (Virtualization.framework) and requires macOS on Apple Silicon, the `container`
- * CLI (`brew install container`), a configured kernel, and a booted subsystem.
+ * Apple `container` corre cada entorno Linux en su propia VM liviana
+ * (Virtualization.framework) y requiere macOS en Apple Silicon, la CLI `container`
+ * (`brew install container`), un kernel configurado y un subsistema iniciado.
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -32,8 +32,8 @@ import {
 } from "./container.js";
 import { notify } from "./notify.js";
 
-// Re-exported so the integration suite can unit-test the pure helpers + handlers
-// directly against the same built bundle.
+// Reexportado para que la suite de integración pueda probar unitariamente las utilidades puras + manejadores
+// directamente contra el mismo bundle generado.
 export {
 	buildEphemeralRunArgs,
 	buildMachineCreateArgs,
@@ -84,7 +84,7 @@ const HELP_TEXT = [
 
 const PLATFORM_MSG = "Apple `container` requiere macOS en Apple Silicon (arm64); este host no es compatible.";
 
-/** Human-labelled options for the bare `/container` action selector (first token is the value). */
+/** Opciones con etiqueta humana para el selector de acciones de `/container` sin args (el primer token es el valor). */
 export const CONTAINER_SELECT_ITEMS = [
 	"status — resumen del subsistema y las máquinas",
 	"list — lista las máquinas del contenedor",
@@ -95,10 +95,10 @@ export const CONTAINER_SELECT_ITEMS = [
 ];
 
 /**
- * Resolve the `/container` argument, opening an interactive action selector when the
- * command is invoked bare in a session with a UI. Headless (no UI) and explicit args
- * keep the unchanged behavior, so nothing regresses off-TUI. Cancelling returns "",
- * which `runCommand` renders as the help text.
+ * Resuelve el argumento de `/container`, abriendo un selector interactivo de acciones cuando el
+ * comando se invoca sin args en una sesión con UI. Sin UI (headless) y los args explícitos
+ * mantienen el comportamiento intacto, así nada se rompe fuera del TUI. Cancelar devuelve "",
+ * que `runCommand` renderiza como texto de ayuda.
  */
 export async function resolveContainerInput(input: string, ctx: ExtensionContext): Promise<string> {
 	const trimmed = input.trim();
@@ -108,12 +108,12 @@ export async function resolveContainerInput(input: string, ctx: ExtensionContext
 }
 
 // --------------------------------------------------------------------------
-// Command parsing (tiny, local — no shared runtime imports)
+// Parseo del comando (chico, local — sin imports de runtime compartidos)
 // --------------------------------------------------------------------------
 
 /**
- * Extract a `--size <tier>` (alias `--tier <tier>`) flag from a token list (pure).
- * Returns the remaining tokens plus the tier; a dangling flag yields a bounded error.
+ * Extrae una flag `--size <tier>` (alias `--tier <tier>`) de una lista de tokens (puro).
+ * Devuelve los tokens restantes más el tier; una flag colgando produce un error acotado.
  */
 export function parseSizeFlag(tokens: string[]): { tokens: string[]; tier?: string; error?: string } {
 	const out: string[] = [];
@@ -134,7 +134,7 @@ export function parseSizeFlag(tokens: string[]): { tokens: string[]; tier?: stri
 	return tier != null ? { tokens: out, tier } : { tokens: out };
 }
 
-/** Split a command line into the subcommand and the rest, honoring a `--` argv separator. */
+/** Divide una línea de comando en subcomando y resto, respetando un separador argv `--`. */
 export function parseContainerCommand(input: string): {
 	action: string;
 	rest: string[];
@@ -157,7 +157,7 @@ export function parseContainerCommand(input: string): {
 }
 
 // --------------------------------------------------------------------------
-// Command handler
+// Handler del comando
 // --------------------------------------------------------------------------
 
 async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
@@ -223,7 +223,7 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 }
 
 // --------------------------------------------------------------------------
-// Tool result helper
+// Adaptador del resultado de la tool
 // --------------------------------------------------------------------------
 
 function toToolResult(result: HandlerResult) {
@@ -234,7 +234,7 @@ function toToolResult(result: HandlerResult) {
 }
 
 // --------------------------------------------------------------------------
-// Extension entry
+// Entrada de la extensión
 // --------------------------------------------------------------------------
 
 export default function containerExtension(pi: ExtensionAPI): void {
@@ -243,7 +243,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/);
 			if (tokens.length > 1) {
-				// `create … --size <tier>`: complete the tier names.
+				// `create … --size <tier>`: completa los nombres de tier.
 				const prev = tokens[tokens.length - 2];
 				if (tokens[0] === "create" && (prev === "--size" || prev === "--tier")) {
 					const needle = (tokens[tokens.length - 1] ?? "").toLowerCase();

@@ -1,20 +1,20 @@
 /**
- * Pure helpers + a single spawn seam for the pandi-container extension.
+ * Utilidades puras + un único punto de spawn para la extensión pandi-container.
  *
- * Apple's `container` CLI runs Linux in lightweight micro-VMs (Virtualization.framework)
- * on Apple Silicon. This module wraps it the same way pandi-worktree wraps git:
- *   - `runContainer` spawns `container` with an ARGV array (never a shell string),
- *     so image refs / machine names / commands cannot inject shell.
- *   - `build*Args` are pure argv constructors (unit-tested exactly).
- *   - `parseMachineList` / `formatMachineList` parse the CLI's `--format json`.
- *   - `run*` handlers take an injected `run` fn so dispatch + the destructive-action
- *     gate are deterministic in tests without booting a real VM.
+ * La CLI `container` de Apple corre Linux en micro-VMs livianas (Virtualization.framework)
+ * sobre Apple Silicon. Este módulo la envuelve igual que pandi-worktree envuelve git:
+ *   - `runContainer` hace spawn de `container` con un array ARGV (nunca un string de shell),
+ *     así referencias de imagen / nombres de máquina / comandos no pueden inyectar shell.
+ *   - `build*Args` son constructores puros de argv (testeados exactamente).
+ *   - `parseMachineList` / `formatMachineList` parsean el `--format json` de la CLI.
+ *   - los manejadores `run*` reciben una fn `run` inyectada para que el despacho + la
+ *     barrera de acción destructiva sean deterministas en tests sin bootear una VM real.
  */
 
 import { spawn } from "node:child_process";
 
 // --------------------------------------------------------------------------
-// Spawn seam
+// Punto de spawn
 // --------------------------------------------------------------------------
 
 export interface ContainerResult {
@@ -22,9 +22,9 @@ export interface ContainerResult {
 	stdout: string;
 	stderr: string;
 	exitCode?: number;
-	/** set when the process was killed by timeout/abort. */
+	/** Se setea cuando el proceso fue terminado por timeout/abort. */
 	timedOut?: boolean;
-	/** set when we never managed to spawn `container` at all (e.g. not installed). */
+	/** Se setea cuando nunca logramos hacer spawn de `container` (ej. no está instalado). */
 	spawnError?: string;
 }
 
@@ -32,18 +32,18 @@ export interface RunContainerOptions {
 	cwd?: string;
 	signal?: AbortSignal;
 	timeoutMs?: number;
-	/** binary to spawn; overridable so tests can point at a guaranteed-absent name. */
+	/** Binario a ejecutar; redefinible para que los tests apunten a un nombre garantizadamente ausente. */
 	bin?: string;
 }
 
 export const DEFAULT_CONTAINER_TIMEOUT_MS = 120_000;
 
-/** Signature shared by runContainer and the injected fake runner in tests. */
+/** Firma compartida por runContainer y el runner simulado inyectado en tests. */
 export type RunContainer = (args: string[], options?: RunContainerOptions) => Promise<ContainerResult>;
 
 /**
- * Spawn `container` with an argv array. Spawn failure, non-zero exit, timeout, or
- * abort all come back as a ContainerResult (never throws), mirroring pandi-worktree's runGit.
+ * Hace spawn de `container` con un array argv. Falla de spawn, exit no cero, timeout o
+ * abort vuelven como un ContainerResult (nunca lanza), igual que el runGit de pandi-worktree.
  */
 export function runContainer(args: string[], options: RunContainerOptions = {}): Promise<ContainerResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_CONTAINER_TIMEOUT_MS, bin = "container" } = options;
@@ -93,10 +93,10 @@ export function runContainer(args: string[], options: RunContainerOptions = {}):
 }
 
 // --------------------------------------------------------------------------
-// Platform + name guards
+// Plataforma + guardas de nombre
 // --------------------------------------------------------------------------
 
-/** Apple `container` requires macOS on Apple Silicon. */
+/** Apple `container` requiere macOS en Apple Silicon. */
 export function isSupportedPlatform(platform: string = process.platform, arch: string = process.arch): boolean {
 	return platform === "darwin" && arch === "arm64";
 }
@@ -108,7 +108,7 @@ export function validateMachineName(name: string): boolean {
 }
 
 // --------------------------------------------------------------------------
-// Parsing + formatting
+// Parseo + formateo
 // --------------------------------------------------------------------------
 
 export interface MachineEntry {
@@ -122,7 +122,7 @@ export interface MachineEntry {
 	createdDate?: string;
 }
 
-/** Parse `container machine ls --format json`; junk/invalid input → []. */
+/** Parsea `container machine ls --format json`; entrada basura/inválida → []. */
 export function parseMachineList(jsonText: string): MachineEntry[] {
 	let parsed: unknown;
 	try {
@@ -146,7 +146,7 @@ export function parseMachineList(jsonText: string): MachineEntry[] {
 		.filter((m) => m.id.length > 0);
 }
 
-/** Humanize a byte count to a short binary-unit string (e.g. 19327352832 → "18G"). */
+/** Humaniza una cantidad de bytes a un texto corto con unidades binarias (ej. 19327352832 → "18G"). */
 export function humanBytes(bytes?: number): string {
 	if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes < 0) return "?";
 	const units = ["B", "K", "M", "G", "T"];
@@ -178,21 +178,21 @@ export function formatMachineList(entries: MachineEntry[]): string {
 }
 
 // --------------------------------------------------------------------------
-// Size tiers (named cpu/memory presets)
+// Niveles de tamaño (presets con nombre de cpu/memory)
 // --------------------------------------------------------------------------
 
 /**
- * Named size presets for sandbox micro-VMs. Opt-in: when the caller passes neither
- * a tier nor explicit cpus/memory, no flags are emitted and the `container` CLI
- * applies its own defaults (as of v1.0.0: `machine create --memory` defaults to
- * HALF of the host's RAM, `--cpus` is undocumented) — huge for a sandbox, which is
- * exactly why these presets exist. Tiers apply to `machine create` and ephemeral
- * image runs only; a persistent machine's resources are fixed at creation upstream.
+ * Presets de tamaño con nombre para micro-VMs sandbox. Son opt-in: cuando el caller no pasa ni
+ * un tier ni cpus/memory explícitos, no se emiten flags y la CLI `container`
+ * aplica sus propios defaults (a partir de v1.0.0: `machine create --memory` usa por defecto
+ * la MITAD de la RAM del host; `--cpus` no está documentado) — enorme para un sandbox, justo
+ * por eso existen estos presets. Los tiers aplican a `machine create` y a runs efímeros
+ * por imagen nada más; los recursos de una máquina persistente quedan fijados en la creación upstream.
  *
- * Ladder: rebased on a 256M micro, doubling memory per tier. The virtualization
- * stack enforces a hard 200 MiB minimum per VM, and a real `npm i -g` + `pi
- * --version` was verified inside a 200M VM at ~114MB RSS, so 256M comfortably
- * runs small Node/CLI workloads.
+ * Escalera: rebasada sobre un micro de 256M, duplicando la memoria por tier. El stack de virtualización
+ * impone un mínimo duro de 200 MiB por VM, y un `npm i -g` + `pi
+ * --version` real se verificó dentro de una VM de 200M con ~114MB de RSS, así que 256M
+ * alcanza cómodamente para cargas chicas de Node/CLI.
  */
 export const TIER_NAMES = ["micro", "tiny", "small", "medium", "large"] as const;
 
@@ -211,14 +211,14 @@ function isTierName(tier: string): tier is TierName {
 }
 
 /**
- * Tiers valid for PERSISTENT machines. The CLI enforces a 1G minimum for
- * `machine create` (real error: "invalid memory value '256mb'. Must be greater
- * than 1gb"), while ephemeral `run` bottoms out at 200 MiB — so the sub-1G tiers
- * (micro/tiny) are ephemeral-run-only.
+ * Tiers válidos para máquinas persistentes. La CLI exige un mínimo de 1G para
+ * `machine create` (error real: "invalid memory value '256mb'. Must be greater
+ * than 1gb"), mientras `run` efímero baja hasta 200 MiB — así que los tiers sub-1G
+ * (micro/tiny) son solo para runs efímeros.
  */
 export const MACHINE_TIER_NAMES = ["small", "medium", "large"] as const;
 
-/** One-line human list of tiers with their sizes (for errors + help). */
+/** Lista humana de una línea con los tiers y sus tamaños (para errores + ayuda). */
 export function describeTiers(names: readonly TierName[] = TIER_NAMES): string {
 	return names.map((t) => `${t} (${TIER_PRESETS[t].cpus}cpu/${TIER_PRESETS[t].memory})`).join(", ");
 }
@@ -231,10 +231,10 @@ export interface SizeResolution {
 }
 
 /**
- * Resolve a tier + explicit cpus/memory into the final sizes (pure).
- * Explicit cpus/memory always win over the tier, field by field (least surprise,
- * backward compatible). No tier and no explicit sizes → empty resolution, so the
- * CLI keeps applying its own defaults exactly as before.
+ * Resuelve un tier + cpus/memory explícitos a los tamaños finales (puro).
+ * Los cpus/memory explícitos siempre ganan sobre el tier, campo por campo (menor sorpresa,
+ * retrocompatible). Sin tier y sin tamaños explícitos → resolución vacía, así la
+ * CLI sigue aplicando sus propios defaults exactamente igual que antes.
  */
 export function resolveSize(opts: { tier?: string; cpus?: number; memory?: string }): SizeResolution {
 	const { tier, cpus, memory } = opts;
@@ -249,7 +249,7 @@ export function resolveSize(opts: { tier?: string; cpus?: number; memory?: strin
 }
 
 // --------------------------------------------------------------------------
-// Argv builders (pure)
+// Constructores de argv (puros)
 // --------------------------------------------------------------------------
 
 export function buildStatusArgs(): string[] {
@@ -263,7 +263,7 @@ export function buildMachineListArgs(): string[] {
 export interface CreateOptions {
 	image: string;
 	name?: string;
-	/** Named size preset; resolved to cpus/memory in runCreate (explicit values win). */
+	/** Preset de tamaño con nombre; runCreate lo resuelve a cpus/memory (los valores explícitos ganan). */
 	tier?: string;
 	cpus?: number;
 	memory?: string;
@@ -278,7 +278,7 @@ export function buildMachineCreateArgs(opts: CreateOptions): string[] {
 	if (opts.cpus != null) args.push("--cpus", String(opts.cpus));
 	if (opts.memory) args.push("--memory", opts.memory);
 	if (opts.homeMount) args.push("--home-mount", opts.homeMount);
-	args.push(opts.image); // image is positional and LAST
+	args.push(opts.image); // image es posicional y va AL FINAL
 	return args;
 }
 
@@ -292,7 +292,7 @@ export function buildMachineExecArgs(opts: ExecMachineOptions): string[] {
 	const args = ["machine", "run"];
 	if (opts.name) args.push("-n", opts.name);
 	if (opts.workdir) args.push("-w", opts.workdir);
-	args.push("--", ...opts.command); // `--` separates the executable+args
+	args.push("--", ...opts.command); // `--` separa el ejecutable+args
 	return args;
 }
 
@@ -309,7 +309,7 @@ export function buildEphemeralRunArgs(opts: EphemeralRunOptions): string[] {
 	if (opts.cpus != null) args.push("--cpus", String(opts.cpus));
 	if (opts.memory) args.push("--memory", opts.memory);
 	if (opts.workdir) args.push("-w", opts.workdir);
-	args.push(opts.image, ...opts.command); // image is positional BEFORE args
+	args.push(opts.image, ...opts.command); // image es posicional ANTES de los args
 	return args;
 }
 
@@ -324,12 +324,12 @@ export function buildRemoveArgs(opts: { name: string }): string[] {
 }
 
 // --------------------------------------------------------------------------
-// Error normalization
+// Normalización de errores
 // --------------------------------------------------------------------------
 
 const INSTALL_HINT = "No se encontró la CLI de Apple `container`. Instalala con: brew install container";
 
-/** Turn a failed ContainerResult into a single bounded, actionable line. */
+/** Convierte un ContainerResult fallido en una sola línea acotada y accionable. */
 export function describeError(result: ContainerResult, action: string): string {
 	if (result.spawnError) {
 		if (/ENOENT/i.test(result.spawnError)) return INSTALL_HINT;
@@ -343,7 +343,7 @@ export function describeError(result: ContainerResult, action: string): string {
 }
 
 // --------------------------------------------------------------------------
-// High-level action handlers (take an injected runner; pure dispatch otherwise)
+// Manejadores de alto nivel (reciben un runner inyectado; por lo demás, despacho puro)
 // --------------------------------------------------------------------------
 
 export interface HandlerResult {
@@ -430,7 +430,7 @@ export interface ExecParams {
 	machine?: string;
 	image?: string;
 	workdir?: string;
-	/** Named size preset; ephemeral (image) runs only — machine resources are fixed at creation. */
+	/** Preset de tamaño con nombre; solo runs efímeros (image) — los recursos de la máquina quedan fijos al crearla. */
 	tier?: string;
 	cpus?: number;
 	memory?: string;
