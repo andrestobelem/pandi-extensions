@@ -19,18 +19,19 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const ChoiceParams = Type.Object({
-	question: Type.String({ description: "The question or prompt shown above the options." }),
+	question: Type.String({ description: "La pregunta o prompt que se muestra arriba de las opciones." }),
 	options: Type.Array(Type.String(), {
-		description: "The options to choose from, in display order (at least one).",
+		description: "Las opciones para elegir, en el orden de visualización (al menos una).",
 	}),
 });
 
 const ConfirmParams = Type.Object({
-	title: Type.String({ description: "The yes/no question, shown as the dialog title." }),
-	message: Type.Optional(Type.String({ description: "Optional secondary line with more detail." })),
+	title: Type.String({ description: "La pregunta de sí/no, mostrada como título del diálogo." }),
+	message: Type.Optional(Type.String({ description: "Línea secundaria opcional con más detalle." })),
 });
 
-const NO_UI_MESSAGE = "Error: interactive UI not available (non-interactive mode). Ask the user in plain text instead.";
+const NO_UI_MESSAGE =
+	"Error: la UI interactiva no está disponible (modo no interactivo). Preguntale al usuario en texto plano.";
 
 function textResult(text: string, details: unknown) {
 	return { content: [{ type: "text" as const, text }], details };
@@ -41,9 +42,9 @@ export default function askExtension(pi: ExtensionAPI) {
 		name: "ask_choice",
 		label: "Ask choice",
 		description:
-			"Ask the user to pick ONE option from a list via an interactive TUI selector (arrow keys + Enter). " +
-			"Use at a decision point with multiple valid options instead of a plain-text numbered menu. " +
-			'Returns JSON {"index","label"} for the chosen option (index is 1-based), or {"cancelled":true} if the user cancels.',
+			"Pedile al usuario que elija UNA opción de una lista mediante un selector TUI interactivo (flechas + Enter). " +
+			"Usalo en un punto de decisión con varias opciones válidas, en vez de un menú numerado en texto plano. " +
+			'Devuelve JSON {"index","label"} para la opción elegida (index es 1-based), o {"cancelled":true} si el usuario cancela.',
 		parameters: ChoiceParams,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const options = Array.isArray(params.options) ? params.options : [];
@@ -51,7 +52,7 @@ export default function askExtension(pi: ExtensionAPI) {
 				return textResult(NO_UI_MESSAGE, { cancelled: true, reason: "no-ui" });
 			}
 			if (options.length === 0) {
-				return textResult("Error: no options provided — pass at least one option to ask_choice.", {
+				return textResult("Error: no se proporcionaron opciones — pasale al menos una opción a ask_choice.", {
 					cancelled: true,
 					reason: "no-options",
 				});
@@ -79,8 +80,8 @@ export default function askExtension(pi: ExtensionAPI) {
 		name: "ask_confirm",
 		label: "Ask confirm",
 		description:
-			"Ask the user a yes/no question via an interactive TUI confirm dialog. " +
-			'Returns JSON {"confirmed":true|false} (false also on cancel/timeout).',
+			"Hacele al usuario una pregunta de sí/no mediante un diálogo de confirmación TUI interactivo. " +
+			'Devuelve JSON {"confirmed":true|false} (false también en cancelación/timeout).',
 		parameters: ConfirmParams,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (!ctx.hasUI) {

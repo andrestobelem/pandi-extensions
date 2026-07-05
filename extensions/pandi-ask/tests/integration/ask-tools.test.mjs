@@ -102,7 +102,7 @@ async function scenarioRegistered(tools) {
 	);
 	check(
 		"ask_choice description mentions options/pick",
-		/option|pick|choose|select/i.test(choice?.description || ""),
+		/opci[oó]n|elegir|elija|selector/i.test(choice?.description || ""),
 		choice?.description,
 	);
 }
@@ -158,7 +158,7 @@ async function scenarioChoiceNoUi(tools) {
 	check("no-ui: opens no selector", ctx._selectCalls.length === 0, String(ctx._selectCalls.length));
 	check(
 		"no-ui: returns an error mentioning non-interactive",
-		/not available|non-interactive|plain text/i.test(result?.content?.[0]?.text || ""),
+		/no disponible|no interactivo|texto plano/i.test(result?.content?.[0]?.text || ""),
 		result?.content?.[0]?.text,
 	);
 }
@@ -206,7 +206,7 @@ async function scenarioConfirmNoUi(tools) {
 	check("confirm no-ui: opens no dialog", ctx._confirmCalls.length === 0, String(ctx._confirmCalls.length));
 	check(
 		"confirm no-ui: returns an error",
-		/not available|non-interactive|plain text/i.test(result?.content?.[0]?.text || ""),
+		/no disponible|no interactivo|texto plano/i.test(result?.content?.[0]?.text || ""),
 		result?.content?.[0]?.text,
 	);
 }
