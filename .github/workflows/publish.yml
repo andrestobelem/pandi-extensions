@@ -1,0 +1,49 @@
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Actually publish to npm (dry-run when false)"
+        required: true
+        default: false
+        type: boolean
+      expectedTag:
+        description: "Optional suite tag to validate, e.g. v0.2.0"
+        required: false
+        type: string
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm test
+      - name: Release contract
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            node scripts/release-contract.mjs --expect-tag "${GITHUB_REF_NAME}"
+          elif [ -n "${{ inputs.expectedTag }}" ]; then
+            node scripts/release-contract.mjs --expect-tag "${{ inputs.expectedTag }}"
+          else
+            node scripts/release-contract.mjs
+          fi
+      - name: Publish dry run
+        run: node scripts/publish-npm.mjs
+      - name: Publish to npm
+        if: ${{ github.ref_type == 'tag' || inputs.publish }}
+        run: node scripts/publish-npm.mjs --publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

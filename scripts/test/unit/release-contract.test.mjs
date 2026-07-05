@@ -29,3 +29,9 @@ test("release contract: peer dependency floors are pinned everywhere", () => {
 	const issues = checkReleaseContract(REPO);
 	assert.deepEqual(issues, []);
 });
+
+test("release contract: explicit tag preflight rejects tag/version drift", () => {
+	assert.deepEqual(checkReleaseContract(REPO, { expectedTag: "v9.9.9" }), [
+		"release tag v9.9.9 does not match root package version tag v0.2.0",
+	]);
+});

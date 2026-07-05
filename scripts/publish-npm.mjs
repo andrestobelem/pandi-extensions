@@ -28,8 +28,19 @@ export function classify(remoteShasum, localShasum) {
 	return remoteShasum === localShasum ? "unchanged" : "bump";
 }
 
+export function withSafeNpmConfig(cmdArgs) {
+	return cmdArgs.includes("--min-release-age=0") ? cmdArgs : [...cmdArgs, "--min-release-age=0"];
+}
+
+export function buildPublishArgs({ otp, provenance = false, tag = "latest" } = {}) {
+	const args = ["publish", "--access", "public", "--tag", tag];
+	if (provenance) args.push("--provenance");
+	if (otp) args.push(`--otp=${otp}`); // note: one TOTP code rarely survives >1 publish
+	return withSafeNpmConfig(args);
+}
+
 function npm(cmdArgs, opts = {}) {
-	return execFileSync("npm", cmdArgs, { encoding: "utf8", ...opts }).trim();
+	return execFileSync("npm", withSafeNpmConfig(cmdArgs), { encoding: "utf8", ...opts }).trim();
 }
 
 /** Published dist.shasum for name@version, or null if that version is not on npm. */
@@ -57,7 +68,10 @@ function main() {
 	const root = fileURLToPath(new URL("..", import.meta.url));
 	const args = process.argv.slice(2);
 	const doPublish = args.includes("--publish");
+	const provenance = args.includes("--provenance");
 	const otp = args.find((a) => a.startsWith("--otp="))?.slice(6);
+	const tagIndex = args.indexOf("--tag");
+	const tag = args.find((a) => a.startsWith("--tag="))?.slice(6) || (tagIndex >= 0 ? args[tagIndex + 1] : undefined);
 
 	const extDir = join(root, "extensions");
 	const workspaces = readdirSync(extDir)
@@ -104,8 +118,7 @@ function main() {
 	const failed = [];
 	for (const { dir, name, version } of toPublish) {
 		console.log(`\n→ npm publish ${name}@${version}`);
-		const publishArgs = ["publish", "--access", "public"];
-		if (otp) publishArgs.push(`--otp=${otp}`); // note: one TOTP code rarely survives >1 publish
+		const publishArgs = buildPublishArgs({ otp, provenance, tag: tag || "latest" });
 		try {
 			execFileSync("npm", publishArgs, { cwd: dir, stdio: "inherit" });
 		} catch {

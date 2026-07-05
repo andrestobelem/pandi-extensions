@@ -39,13 +39,16 @@ function checkPeerSet(pkg, label) {
 	return issues;
 }
 
-export function checkReleaseContract(root) {
+export function checkReleaseContract(root, options = {}) {
 	const issues = [];
 	const rootPkg = readJson(join(root, "package.json"));
 	const tag = expectedSuiteTag(rootPkg);
 	const setup = readFileSync(join(root, "docs", "setup.md"), "utf8");
 
 	if (!/^v\d+\.\d+\.\d+$/.test(tag)) issues.push(`root version ${rootPkg.version} does not map to a semver suite tag`);
+	if (options.expectedTag && options.expectedTag !== tag) {
+		issues.push(`release tag ${options.expectedTag} does not match root package version tag ${tag}`);
+	}
 	if (!setup.includes(`pandi-extensions@${tag}`)) issues.push(`docs/setup.md does not reference ${tag}`);
 
 	issues.push(...checkPeerSet(rootPkg, "root package.json"));
@@ -55,9 +58,16 @@ export function checkReleaseContract(root) {
 	return issues;
 }
 
+function parseExpectedTag(args) {
+	const eq = args.find((a) => a.startsWith("--expect-tag="));
+	if (eq) return eq.slice("--expect-tag=".length);
+	const idx = args.indexOf("--expect-tag");
+	return idx >= 0 ? args[idx + 1] : undefined;
+}
+
 function main() {
 	const root = fileURLToPath(new URL("..", import.meta.url));
-	const issues = checkReleaseContract(root);
+	const issues = checkReleaseContract(root, { expectedTag: parseExpectedTag(process.argv.slice(2)) });
 	if (issues.length === 0) {
 		console.log("release contract ok");
 		return;
