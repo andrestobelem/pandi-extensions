@@ -25,31 +25,31 @@ const EFFORT_STATUS_KEY = "effort";
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 
 const COMPLETIONS: { value: string; description: string }[] = [
-	{ value: "off", description: "Disable model thinking/reasoning" },
-	{ value: "minimal", description: "Minimal thinking" },
-	{ value: "low", description: "Low thinking" },
-	{ value: "medium", description: "Medium thinking" },
-	{ value: "high", description: "High thinking" },
-	{ value: "xhigh", description: "Extra-high thinking" },
-	{ value: "ultracode", description: "Extra-high thinking + dynamic workflow router" },
-	{ value: "status", description: "Show current effort" },
-	{ value: "none", description: "Alias for off" },
-	{ value: "max", description: "Alias for xhigh" },
-	{ value: "ultra-code", description: "Alias for ultracode" },
+	{ value: "off", description: "Desactivar el thinking/reasoning del modelo" },
+	{ value: "minimal", description: "Thinking mínimo" },
+	{ value: "low", description: "Thinking bajo" },
+	{ value: "medium", description: "Thinking medio" },
+	{ value: "high", description: "Thinking alto" },
+	{ value: "xhigh", description: "Thinking extra alto" },
+	{ value: "ultracode", description: "Thinking extra alto + router de dynamic workflow" },
+	{ value: "status", description: "Mostrar el esfuerzo actual" },
+	{ value: "none", description: "Alias de off" },
+	{ value: "max", description: "Alias de xhigh" },
+	{ value: "ultra-code", description: "Alias de ultracode" },
 ];
 
 const SELECT_ITEMS = [
-	"off — disable thinking",
-	"minimal — minimal thinking",
-	"low — low thinking",
-	"medium — medium thinking",
-	"high — high thinking",
-	"xhigh — extra-high thinking",
-	"ultracode — xhigh + dynamic workflow router",
+	"off — desactivar el thinking",
+	"minimal — thinking mínimo",
+	"low — thinking bajo",
+	"medium — thinking medio",
+	"high — thinking alto",
+	"xhigh — thinking extra alto",
+	"ultracode — xhigh + router de dynamic workflow",
 ];
 
 function usage(current: string): string {
-	return `Current effort: ${current}. Usage: /effort <off|minimal|low|medium|high|xhigh|ultracode>`;
+	return `Esfuerzo actual: ${current}. Uso: /effort <off|minimal|low|medium|high|xhigh|ultracode>`;
 }
 
 function safeCurrentLevel(pi: ExtensionAPI): ThinkingLevel | "unknown" {
@@ -86,7 +86,7 @@ function setThinkingEffort(
 		pi.setThinkingLevel(level);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		notify(ctx, `Failed to set effort ${level}: ${message}`, "error");
+		notify(ctx, `No se pudo configurar el esfuerzo ${level}: ${message}`, "error");
 		return before;
 	}
 
@@ -94,11 +94,11 @@ function setThinkingEffort(
 	updateEffortStatus(pi, ctx, actual);
 	if (options.announce !== false) {
 		if (actual === level) {
-			notify(ctx, `Thinking effort set to ${actual}.`, "info");
+			notify(ctx, `Esfuerzo de pensamiento configurado en ${actual}.`, "info");
 		} else {
 			notify(
 				ctx,
-				`Requested effort ${level}; active effort is ${actual} (the current model may clamp thinking).`,
+				`Se pidió el esfuerzo ${level}; el esfuerzo activo es ${actual} (el modelo actual puede limitar el thinking).`,
 				"warning",
 			);
 		}
@@ -123,7 +123,7 @@ async function resolveCommandValue(args: string, ctx: ExtensionContext): Promise
 	const trimmed = args.trim();
 	if (trimmed || !ctx.hasUI) return trimmed;
 
-	const choice = await ctx.ui.select("Select thinking effort", SELECT_ITEMS);
+	const choice = await ctx.ui.select("Seleccioná el esfuerzo de pensamiento", SELECT_ITEMS);
 	return choice?.split(/\s+/)[0] ?? "status";
 }
 
@@ -132,9 +132,9 @@ function enableUltracodeEffort(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	const workflowToolActive = ensureToolActive(pi, "dynamic_workflow");
 	pi.events.emit(ULTRACODE_MODE_EVENT, { enabled: true, source: "/effort" });
 	const routerStatus = workflowToolActive
-		? "dynamic workflow router enabled"
-		: "dynamic workflow router requested, but dynamic_workflow is not available in this session";
-	notify(ctx, `Ultracode effort enabled (${actual}); ${routerStatus}.`, workflowToolActive ? "info" : "warning");
+		? "router de dynamic workflow habilitado"
+		: "se pidió el router de dynamic workflow, pero dynamic_workflow no está disponible en esta sesión";
+	notify(ctx, `Esfuerzo ultracode habilitado (${actual}); ${routerStatus}.`, workflowToolActive ? "info" : "warning");
 }
 
 function handleEffortTarget(pi: ExtensionAPI, ctx: ExtensionContext, target: EffortTarget): void {
@@ -147,7 +147,7 @@ function handleEffortTarget(pi: ExtensionAPI, ctx: ExtensionContext, target: Eff
 
 	if (target.kind === "invalid") {
 		const current = safeCurrentLevel(pi);
-		notify(ctx, `Unknown effort "${target.value}". ${usage(current)}`, "warning");
+		notify(ctx, `Esfuerzo desconocido "${target.value}". ${usage(current)}`, "warning");
 		return;
 	}
 
@@ -161,7 +161,7 @@ function handleEffortTarget(pi: ExtensionAPI, ctx: ExtensionContext, target: Eff
 
 export default function effortExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("effort", {
-		description: "Set thinking effort: off|minimal|low|medium|high|xhigh|ultracode",
+		description: "Configurar el esfuerzo de pensamiento: off|minimal|low|medium|high|xhigh|ultracode",
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = COMPLETIONS.filter((item) => item.value.startsWith(needle));

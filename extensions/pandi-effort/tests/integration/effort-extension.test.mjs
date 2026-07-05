@@ -125,7 +125,7 @@ async function scenarioLevels(url) {
 	check("/effort high sets high", harness.level === "high", harness.level);
 	check(
 		"/effort high notifies",
-		ctx._notes.some((n) => /set to high/i.test(n.msg)),
+		ctx._notes.some((n) => /configurado en high/i.test(n.msg)),
 	);
 	check(
 		"/effort high updates status",
@@ -153,7 +153,7 @@ async function scenarioClampAndInvalid(url) {
 	check("/effort reports clamped active level", harness.level === "high", harness.level);
 	check(
 		"/effort clamp warning",
-		ctx._notes.some((n) => n.type === "warning" && /active effort is high/i.test(n.msg)),
+		ctx._notes.some((n) => n.type === "warning" && /esfuerzo activo es high/i.test(n.msg)),
 	);
 
 	const before = harness.level;
@@ -161,7 +161,7 @@ async function scenarioClampAndInvalid(url) {
 	check("/effort invalid does not change level", harness.level === before, `${before} -> ${harness.level}`);
 	check(
 		"/effort invalid shows usage",
-		ctx._notes.some((n) => /Unknown effort/i.test(n.msg) && /Usage: \/effort/.test(n.msg)),
+		ctx._notes.some((n) => /Esfuerzo desconocido/i.test(n.msg) && /Uso: \/effort/.test(n.msg)),
 	);
 }
 
@@ -186,7 +186,7 @@ async function scenarioSelectorAndStatusEvent(url) {
 	await command.handler("status", ctx);
 	check(
 		"/effort status reports current",
-		ctx._notes.some((n) => /Current effort: low/i.test(n.msg)),
+		ctx._notes.some((n) => /Esfuerzo actual: low/i.test(n.msg)),
 	);
 }
 
@@ -216,7 +216,7 @@ async function scenarioUltracode(url) {
 	);
 	check(
 		"/effort ultracode notifies",
-		ctx._notes.some((n) => /Ultracode effort enabled/i.test(n.msg)),
+		ctx._notes.some((n) => /Esfuerzo ultracode habilitado/i.test(n.msg)),
 	);
 }
 
@@ -241,7 +241,7 @@ async function scenarioUltracodeToolUnavailable(url) {
 	);
 	check(
 		"/effort ultracode warns the router is not available in this session",
-		ctx._notes.some((n) => n.type === "warning" && /not available in this session/i.test(n.msg)),
+		ctx._notes.some((n) => n.type === "warning" && /no está disponible en esta sesión/i.test(n.msg)),
 		JSON.stringify(ctx._notes),
 	);
 }
@@ -268,7 +268,7 @@ async function scenarioNotifyErrorRouting(url) {
 	}
 	check(
 		"print mode routes invalid-effort warning to stderr, not stdout",
-		pErrs.some((m) => /Unknown effort/i.test(m)) && !pLogs.some((m) => /Unknown effort/i.test(m)),
+		pErrs.some((m) => /Esfuerzo desconocido/i.test(m)) && !pLogs.some((m) => /Esfuerzo desconocido/i.test(m)),
 		`logs=${JSON.stringify(pLogs)} errs=${JSON.stringify(pErrs)}`,
 	);
 
@@ -284,7 +284,7 @@ async function scenarioNotifyErrorRouting(url) {
 	}
 	check(
 		"headless mode surfaces invalid-effort warning on stderr (not dropped)",
-		hErrs.some((m) => /Unknown effort/i.test(m)),
+		hErrs.some((m) => /Esfuerzo desconocido/i.test(m)),
 		`errs=${JSON.stringify(hErrs)}`,
 	);
 }
@@ -305,12 +305,14 @@ async function scenarioSetLevelThrows(url) {
 	check("setLevel throw: level unchanged", harness.level === "medium", harness.level);
 	check(
 		"setLevel throw: error notify carries the failure",
-		ctx._notes.some((n) => n.type === "error" && /Failed to set effort high: model rejects thinking/.test(n.msg)),
+		ctx._notes.some(
+			(n) => n.type === "error" && /No se pudo configurar el esfuerzo high: model rejects thinking/.test(n.msg),
+		),
 		JSON.stringify(ctx._notes),
 	);
 	check(
 		"setLevel throw: no success notify",
-		!ctx._notes.some((n) => /set to/i.test(n.msg)),
+		!ctx._notes.some((n) => /configurado en/i.test(n.msg)),
 		JSON.stringify(ctx._notes),
 	);
 }
@@ -328,7 +330,7 @@ async function scenarioUnknownCurrentLevel(url) {
 	await throwing.commands.get("effort").handler("status", ctx);
 	check(
 		"getThinkingLevel throw: status reports 'unknown'",
-		ctx._notes.some((n) => /Current effort: unknown/.test(n.msg)),
+		ctx._notes.some((n) => /Esfuerzo actual: unknown/.test(n.msg)),
 		JSON.stringify(ctx._notes),
 	);
 
@@ -338,7 +340,7 @@ async function scenarioUnknownCurrentLevel(url) {
 	await weird.commands.get("effort").handler("status", ctx2);
 	check(
 		"out-of-vocabulary level: status reports 'unknown'",
-		ctx2._notes.some((n) => /Current effort: unknown/.test(n.msg)),
+		ctx2._notes.some((n) => /Esfuerzo actual: unknown/.test(n.msg)),
 		JSON.stringify(ctx2._notes),
 	);
 }
@@ -358,7 +360,7 @@ async function scenarioUltracodeToolProbeDegradation(url) {
 	check("tool probe throw: still sets xhigh", throwing.level === "xhigh", throwing.level);
 	check(
 		"tool probe throw: warns router not available",
-		ctx._notes.some((n) => n.type === "warning" && /not available in this session/i.test(n.msg)),
+		ctx._notes.some((n) => n.type === "warning" && /no está disponible en esta sesión/i.test(n.msg)),
 		JSON.stringify(ctx._notes),
 	);
 
@@ -375,7 +377,7 @@ async function scenarioUltracodeToolProbeDegradation(url) {
 	check("already-active router: no redundant setActiveTools", setCalls === 0, `setCalls=${setCalls}`);
 	check(
 		"already-active router: reports enabled (info)",
-		ctx2._notes.some((n) => n.type === "info" && /router enabled/i.test(n.msg)),
+		ctx2._notes.some((n) => n.type === "info" && /router de dynamic workflow habilitado/i.test(n.msg)),
 		JSON.stringify(ctx2._notes),
 	);
 }
@@ -406,7 +408,7 @@ async function scenarioNoArgsEdges(url) {
 	check("headless no-args: level unchanged", headless.level === "medium", headless.level);
 	check(
 		"headless no-args: reports status/usage on stdout (print mode)",
-		logs.some((m) => /Current effort: medium/.test(m)),
+		logs.some((m) => /Esfuerzo actual: medium/.test(m)),
 		JSON.stringify(logs),
 	);
 
@@ -417,7 +419,7 @@ async function scenarioNoArgsEdges(url) {
 	check("cancelled selector: level unchanged", cancelled.level === "medium", cancelled.level);
 	check(
 		"cancelled selector: falls back to status/usage",
-		ctx2._notes.some((n) => /Current effort: medium/.test(n.msg)),
+		ctx2._notes.some((n) => /Esfuerzo actual: medium/.test(n.msg)),
 		JSON.stringify(ctx2._notes),
 	);
 }
