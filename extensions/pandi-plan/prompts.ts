@@ -69,7 +69,7 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 	}
 	if (!plan.nonInteractive) {
 		lines.push(
-			"- Para aclarar requisitos antes de terminar el plan, podés hacerle al usuario una pregunta BLOQUEANTE con las tools interactivas cuando estén disponibles — ask_choice / ask_confirm (pi, de pi-ask) o AskUserQuestion (Claude Code) — si no, preguntá en texto plano. Limitalo a preguntas genuinamente bloqueantes.",
+			"- Para aclarar requisitos antes de terminar el plan, podés hacerle al usuario una pregunta BLOQUEANTE con las tools interactivas cuando estén disponibles — ask_choice / ask_confirm (pi, de pandi-ask) o AskUserQuestion (Claude Code) — si no, preguntá en texto plano. Limitalo a preguntas genuinamente bloqueantes.",
 		);
 	}
 	lines.push("");

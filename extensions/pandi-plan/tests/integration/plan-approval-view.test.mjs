@@ -23,7 +23,7 @@
  * extensions/pandi-plan/index.ts to a tempdir ESM (aliasing typebox + the SDK + pi-tui to local
  * stubs), import it, and drive the REAL submit_plan tool against a mocked pi/ctx whose
  * ctx.ui.custom drives the REAL overlay component (calls the factory, captures render(), fires a
- * key, reads the done() value) — exactly like the pi-mdview suite exercises its viewer.
+ * key, reads the done() value) — exactly like the pandi-mdview suite exercises its viewer.
  *
  * Run it:    node extensions/pandi-plan/tests/integration/plan-approval-view.test.mjs
  * Exit code: 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
@@ -42,7 +42,7 @@ const { check, counts } = createChecker();
 
 async function buildPlan() {
 	// Same as plan-approval, plus the pi-tui stub: the approval overlay imports Markdown +
-	// key helpers from @earendil-works/pi-tui (like pi-mdview), so the bundle must resolve it.
+	// key helpers from @earendil-works/pi-tui (like pandi-mdview), so the bundle must resolve it.
 	return await buildExtension({
 		name: "pi-plan-approval-view-integration",
 		src: path.join(REPO_ROOT, "extensions", "pandi-plan", "index.ts"),
