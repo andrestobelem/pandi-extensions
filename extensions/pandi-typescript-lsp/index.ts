@@ -46,7 +46,7 @@ import { advisoryMessage, autofixMessage } from "./messages.js";
 import { type FeedbackMode, parseMax, parseMode, parseOnOff, parseScope, type Scope } from "./settings.js";
 
 // Reexportado para que la suite de integración pruebe los helpers puros directamente
-// contra el mismo bundle (un re-export `export … from` no crea binding local,
+// contra el mismo paquete (un re-export `export … from` no crea binding local,
 // así que no choca con el import de arriba).
 export {
 	buildTscArgs,
@@ -65,10 +65,10 @@ export {
 // extensión quede idéntica.
 export { parseMax, parseMode, parseOnOff, parseScope } from "./settings.js";
 
-/** Tipo de mensaje personalizado propio de esta extensión (para dedupe/rendering). */
+/** Tipo de mensaje personalizado propio de esta extensión (para dedupe/renderizado). */
 const CUSTOM_TYPE = "pandi-typescript-lsp";
 const MAX_TSC_OUTPUT_BYTES = 2_000_000;
-/** Presupuesto predeterminado de autofix por prompt: como mucho un turno de fix auto-disparado. */
+/** Presupuesto predeterminado de autofix por prompt: como mucho un turno de arreglo auto-disparado. */
 const DEFAULT_AUTOFIX_BUDGET = 1;
 
 // --------------------------------------------------------------------------
@@ -222,7 +222,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 	// Set por prompt de archivos TS tocados (absolutos). Se trackea en
 	// tool_result, se consume y se limpia en agent_end.
 	const touched = new Set<string>();
-	// Solo un check de tsc en vuelo por vez.
+	// Solo una corrida de tsc en vuelo por vez.
 	let running = false;
 	// Deduplicación: última clave de diagnósticos que mostramos (se limpia cuando el proyecto queda limpio).
 	let lastKey: string | undefined;
@@ -282,7 +282,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		return spawned ? { status: "ok", diags: all } : { status: "no-engine" };
 	};
 
-	/** Corré un check de proyecto completo contra `<cwd>/tsconfig.json` (sin filtro de tocados). */
+	/** Corré una verificación de proyecto completa contra `<cwd>/tsconfig.json` (sin filtro de tocados). */
 	const runProjectCheck = async (ctx: ExtensionContext): Promise<CheckOutcome> => {
 		const tsconfig = path.join(ctx.cwd, "tsconfig.json");
 		if (!existsSync(tsconfig)) return { status: "no-engine" };
@@ -304,7 +304,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		autofixBudget = DEFAULT_AUTOFIX_BUDGET;
 	});
 
-	// --- borde coherente: corré el check después de que el turno termine por completo. -
+	// --- borde coherente: corré la verificación después de que el turno termine por completo. -
 	pi.on("agent_end", async (_event, ctx) => {
 		if (!enabled) {
 			touched.clear();
@@ -349,7 +349,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			const key = diagnosticsKey(diags);
-			if (key === lastKey) return; // identical report already surfaced
+			if (key === lastKey) return; // reporte idéntico ya mostrado
 
 			if (mode === "autofix" && autofix) {
 				// No contamines el estado de dedupe cuando el presupuesto bloquea la
@@ -385,7 +385,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		}
 	});
 
-	// --- tool: typescript_diagnostics (pull / a demanda) ---------------------
+	// --- herramienta: typescript_diagnostics (pull / a demanda) ---------------------
 	pi.registerTool({
 		name: "typescript_diagnostics",
 		label: "TypeScript Diagnostics",
@@ -458,7 +458,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	// --- command: /tsc -------------------------------------------------------
+	// --- comando: /tsc -------------------------------------------------------
 	const SUBCOMMANDS = ["status", "on", "off", "run", "scope", "autofix", "max"] as const;
 
 	pi.registerCommand("tsc", {

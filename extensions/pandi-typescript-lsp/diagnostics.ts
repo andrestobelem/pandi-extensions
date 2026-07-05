@@ -39,7 +39,7 @@ export interface Diagnostic {
 	message: string;
 }
 
-/** Resultado de un solo spawn de `tsc` (devuelto por el runner de index.ts). */
+/** Resultado de un solo spawn de `tsc` (devuelto por el ejecutor de index.ts). */
 export interface TscRunResult {
 	/** true cuando tsc salió con 0 y no fue ni abortado ni agotó el tiempo. */
 	ok: boolean;
@@ -52,13 +52,13 @@ export interface TscRunResult {
 	spawnError?: string;
 }
 
-/** Cómo debe invocarse `tsc` (command + args iniciales antes de los flags de tsc). */
+/** Cómo debe invocarse `tsc` (comando + args iniciales antes de los flags de tsc). */
 export interface TscCommand {
-	/** Ejecutable a spawnear (node para env/local tsc.js, "npx" para el fallback). */
+	/** Ejecutable a spawnear (node para env/local tsc.js, "npx" para el respaldo). */
 	command: string;
 	/** Args iniciales (la ruta a tsc.js para node, o ["tsc"] para npx). */
 	args: string[];
-	/** Qué rama de resolución produjo este command (para diagnósticos/tests). */
+	/** Qué rama de resolución produjo este comando (para diagnósticos/tests). */
 	kind: "env" | "local" | "npx";
 }
 

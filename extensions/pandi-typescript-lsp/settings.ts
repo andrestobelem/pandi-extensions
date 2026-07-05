@@ -22,7 +22,7 @@ export function parseOnOff(value: string | undefined): boolean | undefined {
 	return undefined;
 }
 
-/** Parsea la configuración de modo de feedback (`advisory` | `autofix`). */
+/** Parsea la configuración de modo de retroalimentación (`advisory` | `autofix`). */
 export function parseMode(value: string | undefined): FeedbackMode | undefined {
 	if (value === undefined) return undefined;
 	const v = value.trim().toLowerCase();
