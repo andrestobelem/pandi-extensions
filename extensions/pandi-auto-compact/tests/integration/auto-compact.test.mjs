@@ -441,7 +441,7 @@ async function defaultThresholdContract(url) {
 		`got ${JSON.stringify(mod.THRESHOLD_OPTIONS)}`,
 	);
 	const markers = (mod.ARG_COMPLETIONS ?? []).filter(
-		(i) => typeof i.description === "string" && i.description.includes("(default)"),
+		(i) => typeof i.description === "string" && i.description.includes("(predeterminado)"),
 	);
 	check(
 		"default: exactly the default preset is marked (default)",
@@ -506,7 +506,7 @@ async function bareCommandOpensMenuAndDisables(url) {
 	await fireTurnEnd(handlers, env.ctx); // bar visible
 	check("menu: bar visible before opening menu", typeof lastStatus(env) === "string");
 
-	env.selectResponses.push("off — disable auto-compaction");
+	env.selectResponses.push("off — desactivar la auto-compactación");
 	await commands.get("auto-compact").handler("", env.ctx);
 	check(
 		"menu: a bare command opens exactly one select",
@@ -523,7 +523,7 @@ async function bareCommandOpensMenuAndDisables(url) {
 async function menuThresholdPresetSetsThreshold(url) {
 	const { commands } = await loadExtension(url);
 	const env = makeEnv();
-	env.selectResponses.push("threshold — set the compaction threshold %");
+	env.selectResponses.push("threshold — configurar el % de umbral de compactación");
 	env.selectResponses.push("50");
 	await commands.get("auto-compact").handler("", env.ctx);
 	check(
@@ -541,8 +541,8 @@ async function menuThresholdPresetSetsThreshold(url) {
 async function menuThresholdCustomUsesInput(url) {
 	const { commands } = await loadExtension(url);
 	const env = makeEnv();
-	env.selectResponses.push("threshold — set the compaction threshold %");
-	env.selectResponses.push("custom\u2026");
+	env.selectResponses.push("threshold — configurar el % de umbral de compactación");
+	env.selectResponses.push("personalizado\u2026");
 	env.inputResponses.push("35");
 	await commands.get("auto-compact").handler("", env.ctx);
 	check(
@@ -647,7 +647,7 @@ async function snapshotIsFailSafe(url) {
 	);
 	check(
 		"snapshot: a failure surfaces a warning",
-		env.notes.some((n) => n.l === "warning" && /snapshot/i.test(n.m)),
+		env.notes.some((n) => n.l === "warning" && /instantánea/i.test(n.m)),
 		`notes=${JSON.stringify(env.notes)}`,
 	);
 }

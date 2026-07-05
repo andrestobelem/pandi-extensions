@@ -109,7 +109,7 @@ export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToo
 			blockChanged = true;
 			return {
 				...b,
-				text: `${head}\n\u2026${CLEARED_SENTINEL} ${removed} chars of this ${toolName} result to save context; the full output is preserved in the session and can be re-read]\u2026\n${tail}`,
+				text: `${head}\n\u2026${CLEARED_SENTINEL} ${removed} caracteres de este resultado de ${toolName} para ahorrar contexto; la salida completa se conserva en la sesión y se puede releer]\u2026\n${tail}`,
 			};
 		});
 		if (blockChanged) {
@@ -196,7 +196,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 		if (compacting) return;
 		pendingReason = undefined;
 		compacting = true;
-		notify(ctx, `Auto-compacting context: ${reason}`, "info");
+		notify(ctx, `Compactando el contexto automáticamente: ${reason}`, "info");
 		updateStatusBar(ctx);
 
 		ctx.compact({
@@ -206,7 +206,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				// compaction could not bring usage below the threshold (large pinned/
 				// system content), resetting to null would re-cross every turn and loop.
 				previousPercent = ctx.getContextUsage()?.percent ?? null;
-				notify(ctx, "Auto-compaction completed", "info");
+				notify(ctx, "Auto-compactación completada", "info");
 				updateStatusBar(ctx);
 			},
 			onError: (error) => {
@@ -220,7 +220,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				previousPercent = null;
 				notify(
 					ctx,
-					`Auto-compaction failed: ${error.message} — it will retry automatically once usage crosses the threshold again.`,
+					`La auto-compactación falló: ${error.message} — va a reintentar automáticamente en cuanto el uso vuelva a cruzar el umbral.`,
 					"error",
 				);
 				updateStatusBar(ctx);
@@ -290,7 +290,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 			pendingSnapshotPath = undefined;
 			notify(
 				ctx,
-				`Could not save compaction snapshot: ${(err as Error).message} — compaction continues without it.`,
+				`No se pudo guardar la instantánea de compactación: ${(err as Error).message} — la compactación continúa sin ella.`,
 				"warning",
 			);
 		}
@@ -306,11 +306,11 @@ export default function autoCompact(pi: ExtensionAPI) {
 			const data = JSON.parse(readFileSync(file, "utf8")) as CompactionSnapshot;
 			data.summary = event.compactionEntry?.summary ?? "";
 			writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
-			notify(ctx, `Compaction snapshot saved (recoverable raw context): ${file}`, "info");
+			notify(ctx, `Instantánea de compactación guardada (contexto sin procesar recuperable): ${file}`, "info");
 		} catch (err) {
 			notify(
 				ctx,
-				`Could not finalize compaction snapshot: ${(err as Error).message} — the raw snapshot at ${file} is still recoverable, just missing the summary patch.`,
+				`No se pudo finalizar la instantánea de compactación: ${(err as Error).message} — la instantánea sin procesar en ${file} todavía se puede recuperar, solo falta aplicarle el resumen.`,
 				"warning",
 			);
 		}
@@ -373,7 +373,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("auto-compact", {
-		description: `Configure relative context auto-compaction (default enabled at ${DEFAULT_THRESHOLD_PERCENT}% for Claude/other models, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% for Codex). Run bare to pick a setting from a menu, or pass status|on|off|run|bar [on|off]|<1-99 percent>.`,
+		description: `Configurá la auto-compactación relativa de contexto (habilitada por default al ${DEFAULT_THRESHOLD_PERCENT}% para Claude/otros modelos, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% para Codex). Corré el comando sin argumentos para elegir una configuración desde un menú, o pasá status|on|off|run|bar [on|off]|<1-99 percent>.`,
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = needle
@@ -385,10 +385,10 @@ export default function autoCompact(pi: ExtensionAPI) {
 			const trimmed = (await resolveCommandValue(args, ctx)).trim();
 			if (!trimmed || trimmed === "status") {
 				const thresholdPercent = getThresholdPercent(ctx);
-				const thresholdSource = thresholdPercentOverride === undefined ? "default" : "override";
+				const thresholdSource = thresholdPercentOverride === undefined ? "predeterminado" : "personalizado";
 				notify(
 					ctx,
-					`Auto-compaction context is ${enabled ? "enabled" : "disabled"}; threshold: ${thresholdPercent}% (${thresholdSource}); bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (keep ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (keep ${clearKeepRecent}, >=${clearMinChars} chars)`,
+					`La auto-compactación de contexto está ${enabled ? "habilitada" : "deshabilitada"}; threshold: ${thresholdPercent}% (${thresholdSource}); bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (mantiene ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (mantiene ${clearKeepRecent}, >=${clearMinChars} caracteres)`,
 					"info",
 				);
 				return;
@@ -398,7 +398,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				enabled = true;
 				previousPercent = null;
 				pendingReason = undefined;
-				notify(ctx, `Auto-compaction context enabled at ${getThresholdPercent(ctx)}%`, "info");
+				notify(ctx, `Auto-compactación de contexto habilitada al ${getThresholdPercent(ctx)}%`, "info");
 				updateStatusBar(ctx);
 				return;
 			}
@@ -406,13 +406,13 @@ export default function autoCompact(pi: ExtensionAPI) {
 			if (trimmed === "disable" || trimmed === "off") {
 				enabled = false;
 				pendingReason = undefined;
-				notify(ctx, "Auto-compaction context disabled", "warning");
+				notify(ctx, "Auto-compactación de contexto deshabilitada", "warning");
 				updateStatusBar(ctx);
 				return;
 			}
 
 			if (trimmed === "run" || trimmed === "compact") {
-				triggerCompaction(ctx, "manual command");
+				triggerCompaction(ctx, "comando manual");
 				return;
 			}
 
@@ -421,11 +421,11 @@ export default function autoCompact(pi: ExtensionAPI) {
 				const arg = trimmed.slice("bar ".length).trim();
 				const next = resolveToggle(arg, showBar, parseBarSetting);
 				if (next === undefined) {
-					notify(ctx, "Usage: /auto-compact bar [on|off]", "warning");
+					notify(ctx, "Uso: /auto-compact bar [on|off]", "warning");
 					return;
 				}
 				showBar = next;
-				notify(ctx, `Auto-compaction context bar ${showBar ? "on" : "off"}`, "info");
+				notify(ctx, `Barra de auto-compactación de contexto: ${showBar ? "on" : "off"}`, "info");
 				updateStatusBar(ctx);
 				return;
 			}
@@ -436,13 +436,13 @@ export default function autoCompact(pi: ExtensionAPI) {
 					const dir = snapshotDirFor(ctx.cwd, ctx.sessionManager?.getSessionId?.() ?? "session");
 					const files = existsSync(dir) ? sortedSnapshotNames(readdirSync(dir)).reverse() : [];
 					if (files.length === 0) {
-						notify(ctx, `No compaction snapshots yet (${dir})`, "info");
+						notify(ctx, `Todavía no hay instantáneas de compactación (${dir})`, "info");
 					} else {
 						const top = files.slice(0, 10).map((n) => join(dir, n));
-						notify(ctx, `Recent compaction snapshots:\n${top.join("\n")}`, "info");
+						notify(ctx, `Instantáneas de compactación recientes:\n${top.join("\n")}`, "info");
 					}
 				} catch (err) {
-					notify(ctx, `Could not list snapshots: ${(err as Error).message}`, "warning");
+					notify(ctx, `No se pudieron listar las instantáneas: ${(err as Error).message}`, "warning");
 				}
 				return;
 			}
@@ -452,11 +452,11 @@ export default function autoCompact(pi: ExtensionAPI) {
 				const arg = trimmed.slice("snapshot".length).trim();
 				const next = resolveToggle(arg, snapshotsEnabled, parseSnapshotSetting);
 				if (next === undefined) {
-					notify(ctx, "Usage: /auto-compact snapshot [on|off]", "warning");
+					notify(ctx, "Uso: /auto-compact snapshot [on|off]", "warning");
 					return;
 				}
 				snapshotsEnabled = next;
-				notify(ctx, `Auto-compaction context snapshots ${snapshotsEnabled ? "on" : "off"}`, "info");
+				notify(ctx, `Instantáneas de auto-compactación de contexto: ${snapshotsEnabled ? "on" : "off"}`, "info");
 				return;
 			}
 
@@ -465,11 +465,15 @@ export default function autoCompact(pi: ExtensionAPI) {
 				const arg = trimmed.slice("clear-tools".length).trim();
 				const next = resolveToggle(arg, clearToolResults, parseClearSetting);
 				if (next === undefined) {
-					notify(ctx, "Usage: /auto-compact clear-tools [on|off]", "warning");
+					notify(ctx, "Uso: /auto-compact clear-tools [on|off]", "warning");
 					return;
 				}
 				clearToolResults = next;
-				notify(ctx, `Auto-compaction context tool-result clearing ${clearToolResults ? "on" : "off"}`, "info");
+				notify(
+					ctx,
+					`Limpieza de resultados de tools de auto-compactación de contexto: ${clearToolResults ? "on" : "off"}`,
+					"info",
+				);
 				return;
 			}
 
@@ -477,7 +481,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 			if (nextThreshold === undefined) {
 				notify(
 					ctx,
-					"Usage: /auto-compact [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|clear-tools [on|off]|<1-99 percent>]",
+					"Uso: /auto-compact [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|clear-tools [on|off]|<1-99 percent>]",
 					"warning",
 				);
 				return;
@@ -486,7 +490,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 			thresholdPercentOverride = nextThreshold;
 			previousPercent = null;
 			pendingReason = undefined;
-			notify(ctx, `Auto-compaction context threshold set to ${thresholdPercentOverride}%`, "info");
+			notify(ctx, `Umbral de auto-compactación de contexto configurado a ${thresholdPercentOverride}%`, "info");
 			updateStatusBar(ctx);
 		},
 	});

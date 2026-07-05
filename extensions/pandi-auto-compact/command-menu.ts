@@ -4,18 +4,18 @@ import { CODEX_DEFAULT_THRESHOLD_PERCENT, DEFAULT_THRESHOLD_PERCENT } from "./se
 // Interactive menu shown for a bare `/auto-compact` in a UI session. The text
 // BEFORE " — " is the canonical command the handler already understands.
 export const MENU_OPTIONS = [
-	"status — show current settings",
-	"on — enable auto-compaction",
-	"off — disable auto-compaction",
-	"run — compact context now",
-	"bar on — show the footer progress bar",
-	"bar off — hide the footer progress bar",
-	"snapshot on — keep recoverable pre-compaction snapshots",
-	"snapshot off — stop keeping snapshots",
-	"snapshots — list recent snapshots",
-	"clear-tools on — elide old large tool outputs (cheaper than compaction)",
-	"clear-tools off — stop eliding old tool outputs",
-	"threshold — set the compaction threshold %",
+	"status — mostrar la configuración actual",
+	"on — activar la auto-compactación",
+	"off — desactivar la auto-compactación",
+	"run — compactar el contexto ahora",
+	"bar on — mostrar la barra de progreso del footer",
+	"bar off — ocultar la barra de progreso del footer",
+	"snapshot on — mantener instantáneas recuperables antes de compactar",
+	"snapshot off — dejar de guardar instantáneas",
+	"snapshots — listar las instantáneas recientes",
+	"clear-tools on — elidir salidas de tools viejas y grandes (más barato que compactar)",
+	"clear-tools off — dejar de elidir salidas de tools viejas",
+	"threshold — configurar el % de umbral de compactación",
 ];
 
 // Threshold presets offered after choosing "threshold"; derived so the current default
@@ -23,28 +23,40 @@ export const MENU_OPTIONS = [
 const THRESHOLD_PRESETS = [
 	...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT, CODEX_DEFAULT_THRESHOLD_PERCENT]),
 ].sort((a, b) => a - b);
-export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "custom\u2026"];
+export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "personalizado\u2026"];
 
 // Argument autocomplete items. `value` is inserted into the editor on accept.
 export const ARG_COMPLETIONS: { value: string; label: string; description: string }[] = [
-	{ value: "status", label: "status", description: "Show current settings" },
-	{ value: "on", label: "on", description: "Enable auto-compaction" },
-	{ value: "off", label: "off", description: "Disable auto-compaction" },
-	{ value: "run", label: "run", description: "Compact context now" },
-	{ value: "bar", label: "bar", description: "Toggle the footer progress bar" },
-	{ value: "bar on", label: "bar on", description: "Show the footer progress bar" },
-	{ value: "bar off", label: "bar off", description: "Hide the footer progress bar" },
-	{ value: "snapshot", label: "snapshot", description: "Toggle recoverable compaction snapshots" },
-	{ value: "snapshot on", label: "snapshot on", description: "Keep recoverable pre-compaction snapshots" },
-	{ value: "snapshot off", label: "snapshot off", description: "Stop keeping snapshots" },
-	{ value: "snapshots", label: "snapshots", description: "List recent snapshots for this session" },
-	{ value: "clear-tools", label: "clear-tools", description: "Toggle eliding old large tool outputs" },
-	{ value: "clear-tools on", label: "clear-tools on", description: "Elide old large tool outputs per LLM call" },
-	{ value: "clear-tools off", label: "clear-tools off", description: "Stop eliding old tool outputs" },
+	{ value: "status", label: "status", description: "Mostrar la configuración actual" },
+	{ value: "on", label: "on", description: "Activar la auto-compactación" },
+	{ value: "off", label: "off", description: "Desactivar la auto-compactación" },
+	{ value: "run", label: "run", description: "Compactar el contexto ahora" },
+	{ value: "bar", label: "bar", description: "Alternar la barra de progreso del footer" },
+	{ value: "bar on", label: "bar on", description: "Mostrar la barra de progreso del footer" },
+	{ value: "bar off", label: "bar off", description: "Ocultar la barra de progreso del footer" },
+	{ value: "snapshot", label: "snapshot", description: "Alternar las instantáneas recuperables de compactación" },
+	{
+		value: "snapshot on",
+		label: "snapshot on",
+		description: "Mantener instantáneas recuperables antes de compactar",
+	},
+	{ value: "snapshot off", label: "snapshot off", description: "Dejar de guardar instantáneas" },
+	{ value: "snapshots", label: "snapshots", description: "Listar las instantáneas recientes de esta sesión" },
+	{
+		value: "clear-tools",
+		label: "clear-tools",
+		description: "Alternar la elisión de salidas de tools viejas y grandes",
+	},
+	{
+		value: "clear-tools on",
+		label: "clear-tools on",
+		description: "Elidir salidas de tools viejas y grandes en cada llamada al LLM",
+	},
+	{ value: "clear-tools off", label: "clear-tools off", description: "Dejar de elidir salidas de tools viejas" },
 	...THRESHOLD_PRESETS.map((p) => ({
 		value: String(p),
 		label: `${p}%`,
-		description: `Set threshold to ${p}%${p === DEFAULT_THRESHOLD_PERCENT ? " (default)" : p === CODEX_DEFAULT_THRESHOLD_PERCENT ? " (Codex default)" : ""}`,
+		description: `Configurar el umbral al ${p}%${p === DEFAULT_THRESHOLD_PERCENT ? " (predeterminado)" : p === CODEX_DEFAULT_THRESHOLD_PERCENT ? " (predeterminado de Codex)" : ""}`,
 	})),
 ];
 
@@ -55,14 +67,17 @@ export async function resolveCommandValue(args: string, ctx: ExtensionContext): 
 	const trimmed = args.trim();
 	if (trimmed || !ctx.hasUI) return trimmed;
 
-	const choice = await ctx.ui.select("Auto-compact context — choose a setting", MENU_OPTIONS);
+	const choice = await ctx.ui.select("Auto-compactación de contexto — elegí una configuración", MENU_OPTIONS);
 	if (!choice) return "status"; // cancelled → harmless no-op (status)
 	const command = choice.split(" — ")[0].trim();
 	if (command !== "threshold") return command;
 
-	const pick = await ctx.ui.select("Compaction threshold % (compact when usage reaches this)", THRESHOLD_OPTIONS);
+	const pick = await ctx.ui.select(
+		"% de umbral de compactación (compacta cuando el uso llega a este nivel)",
+		THRESHOLD_OPTIONS,
+	);
 	if (!pick) return "status";
-	if (!pick.startsWith("custom")) return pick;
-	const custom = await ctx.ui.input("Custom threshold percent (1\u201399)", "e.g. 45");
+	if (!pick.startsWith("personalizado")) return pick;
+	const custom = await ctx.ui.input("Porcentaje de umbral personalizado (1\u201399)", "ej. 45");
 	return (custom ?? "").trim() || "status";
 }
