@@ -1,17 +1,17 @@
 /**
- * AgentLiveViewComponent — the TUI component that renders a single agent's live
- * execution output (scrollable log with a status header), optionally with SUB-TABS
- * (Card / Prompt / Graph / Output / Definition / Run) so the Monitor's Enter detail
- * screen lets the user move between views without bouncing back to the dashboard.
+ * AgentLiveViewComponent — el componente TUI que renderiza la salida live de ejecución
+ * de un solo agente (log scrolleable con encabezado de status), opcionalmente con SUB-TABS
+ * (Card / Prompt / Graph / Output / Definition / Run) para que la pantalla de detalle Enter
+ * del Monitor permita moverse entre vistas sin volver al dashboard.
  *
- * Pure presentation over plain string content; agent-view.ts feeds it the per-tab
- * Markdown and constructs it only inside the showLiveAgentView ctx.ui.custom callback.
- * Tabs mode: `tabs` labels the sub-views, `setTabContent(key, content)` fills them,
- * ←/→ Tab/Shift+Tab/digits switch (scroll is remembered PER TAB), and `onTabChange`
- * lets the opener load the newly-focused tab immediately instead of waiting for the
- * 1s poll. Without `tabs` it behaves exactly as the legacy single-document viewer.
- * Deferred cycle: it reads liveAgentHeaderStatus from ./agent-view.js only inside
- * render() (erased-safe at load). Extracted byte-identically before tabs were added.
+ * Presentación pura sobre contenido string plano; agent-view.ts le entrega el Markdown
+ * por tab y lo construye solo dentro del callback showLiveAgentView ctx.ui.custom.
+ * Modo tabs: `tabs` etiqueta las subvistas, `setTabContent(key, content)` las llena,
+ * ←/→ Tab/Shift+Tab/dígitos cambian (el scroll se recuerda POR TAB), y `onTabChange`
+ * permite que el abridor cargue de inmediato el tab recién enfocado en vez de esperar el
+ * poll de 1s. Sin `tabs` se comporta exactamente como el visor legacy de documento único.
+ * Ciclo diferido: lee liveAgentHeaderStatus desde ./agent-view.js solo dentro de
+ * render() (seguro al cargar por borrado). Extraído byte-idéntico antes de agregar tabs.
  */
 import { Key, Markdown, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { liveAgentHeaderStatus } from "./agent-view.js";
@@ -23,9 +23,9 @@ export interface AgentViewTab {
 }
 
 export class AgentLiveViewComponent {
-	// The body is Markdown (formatAgentView & friends): render it RICH via pi-tui's
-	// Markdown component, the same renderer the run view and pandi-mdview use. One
-	// Markdown + one scroll offset per tab so switching keeps each tab's position.
+	// El cuerpo es Markdown (formatAgentView y afines): renderizalo RICH vía el componente
+	// Markdown de pi-tui, el mismo renderer que usan la vista de run y pandi-mdview. Un
+	// Markdown + un offset de scroll por tab para que cambiar conserve la posición de cada tab.
 	private markdownByTab = new Map<string, Markdown>();
 	private scrollByTab = new Map<string, number>();
 	private tabIndex = 0;
@@ -41,7 +41,7 @@ export class AgentLiveViewComponent {
 		private readonly onTabChange?: (key: string) => void,
 	) {}
 
-	/** Key of the currently focused tab ("" in legacy single-document mode). */
+	/** Clave del tab enfocado actualmente ("" en modo legacy de documento único). */
 	getActiveTab(): string {
 		return this.tabs[this.tabIndex]?.key ?? "";
 	}
@@ -55,12 +55,12 @@ export class AgentLiveViewComponent {
 		);
 	}
 
-	// Legacy entry point: sets the active tab's content (the ONLY document when no
-	// tabs were passed) and records the agent state for the header status label.
+	// Punto de entrada legacy: define el contenido del tab activo (el ÚNICO documento cuando no
+	// se pasaron tabs) y registra el estado del agente para la etiqueta de status del encabezado.
 	setContent(content: string, state?: string): void {
 		if (state !== undefined) this.agentState = state;
-		// In tabs mode the opener drives content via setTabContent; a bare setContent
-		// only updates state so the header can flip to "final (...)".
+		// En modo tabs, el abridor controla el contenido vía setTabContent; un setContent suelto
+		// solo actualiza el estado para que el encabezado pueda pasar a "final (...)".
 		if (this.tabs.length === 0) this.setTabContent(this.getActiveTab(), content);
 	}
 
@@ -102,7 +102,7 @@ export class AgentLiveViewComponent {
 				return;
 			}
 		}
-		// Scroll is clamped in render() once the body height is known for the active width.
+		// El scroll se limita en render() cuando ya se conoce la altura del cuerpo para el ancho activo.
 		const delta = scrollDelta(data, this.pageSize());
 		if (delta === null) return;
 		const key = this.getActiveTab();
@@ -110,7 +110,7 @@ export class AgentLiveViewComponent {
 		if (delta === "top") this.scrollByTab.set(key, 0);
 		else if (delta === "bottom") this.scrollByTab.set(key, Number.MAX_SAFE_INTEGER);
 		else this.scrollByTab.set(key, current + delta);
-		// Repaint immediately on scroll instead of waiting for the 1s refresh tick.
+		// Repintá inmediatamente al scrollear en vez de esperar el tick de refresco de 1s.
 		this.requestRender();
 	}
 
@@ -158,7 +158,7 @@ export class AgentLiveViewComponent {
 	}
 
 	private pageSize(): number {
-		// One extra chrome line (the tab bar) in tabs mode.
+		// Una línea extra de chrome (la barra de tabs) en modo tabs.
 		return Math.max(5, this.getHeight() - (this.tabs.length > 0 ? 5 : 4));
 	}
 }

@@ -1,15 +1,15 @@
 /**
- * Child-process spawn kernel for pandi-dynamic-workflows.
+ * Núcleo de spawn de child-process para pandi-dynamic-workflows.
  *
- * runProcess (buffered, timeout + kill-grace) and runStreamingAgentProcess (live
- * stdout/stderr streaming with bounded journaling) — the two subprocess primitives
- * used to launch agent subprocesses and the mermaid CLI. Highly cohesive leaf.
+ * runProcess (buffered, timeout + gracia de kill) y runStreamingAgentProcess (streaming live
+ * de stdout/stderr con journaling acotado) — las dos primitivas de subprocess usadas
+ * para lanzar subprocesses de agentes y la CLI de mermaid. Hoja muy cohesiva.
  *
- * Deferred bidirectional cycle with index.ts: imports MAX_JOURNALED_STREAM and
- * PROCESS_KILL_GRACE_MS (values, read only inside the run* bodies) from ./index.js.
- * ProcessResult (runProcess's result shape) is defined and exported here; index.ts
- * imports it back as a type. index.ts imports both run* functions back and re-exports
- * them for the composition test. spawn comes from node:child_process.
+ * Ciclo bidireccional diferido con index.ts: importa MAX_JOURNALED_STREAM y
+ * PROCESS_KILL_GRACE_MS (valores, leídos solo dentro de los cuerpos run*) desde ./index.js.
+ * ProcessResult (la forma de resultado de runProcess) se define y exporta acá; index.ts
+ * lo importa de vuelta como tipo. index.ts importa ambas funciones run* de vuelta y las reexporta
+ * para el test de composición. spawn viene de node:child_process.
  */
 import { spawn } from "node:child_process";
 import { MAX_JOURNALED_STREAM, PROCESS_KILL_GRACE_MS } from "./index.js";
@@ -43,7 +43,7 @@ export async function runProcess(
 		const timer = setTimeout(() => {
 			timedOut = true;
 			child.kill("SIGTERM");
-			// Escalate to SIGKILL if the child ignores SIGTERM, so the promise can't hang forever.
+			// Escalá a SIGKILL si el child ignora SIGTERM, para que la promesa no pueda colgarse para siempre.
 			killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
 		}, options.timeoutMs);
 		const finish = (result: ProcessResult) => {
@@ -81,7 +81,7 @@ export async function runStreamingAgentProcess(
 		timeoutMs: number;
 		signal: AbortSignal;
 		killGraceMs?: number;
-		/** Child env. Pass the full env (e.g. { ...process.env, ...overrides }); undefined inherits. */
+		/** Env del child. Pasá el env completo (p. ej. { ...process.env, ...overrides }); undefined hereda. */
 		env?: NodeJS.ProcessEnv;
 		onStdout?: (chunk: Buffer) => void | Promise<void>;
 		onStderr?: (chunk: Buffer) => void | Promise<void>;
@@ -91,8 +91,8 @@ export async function runStreamingAgentProcess(
 		let stdout = "";
 		let stderr = "";
 		let killed = false;
-		// True only when the TIMEOUT killed the child (not an abort/race loss), so
-		// callers can name the budget in artifacts instead of a mute exit code.
+		// True solo cuando el TIMEOUT mató al child (no un abort/pérdida de race), para que
+		// los callers puedan nombrar el presupuesto en artifacts en vez de un exit code mudo.
 		let timedOut = false;
 		let finished = false;
 		const append = (current: string, chunk: Buffer, options: { preserveLineBoundary?: boolean } = {}) => {
@@ -108,8 +108,8 @@ export async function runStreamingAgentProcess(
 		const kill = () => {
 			killed = true;
 			child.kill("SIGTERM");
-			// Escalate to SIGKILL if the child ignores SIGTERM, so we never leak the process or hold
-			// the agent semaphore indefinitely.
+			// Escalá a SIGKILL si el child ignora SIGTERM, para nunca filtrar el proceso ni retener
+			// el semáforo de agentes indefinidamente.
 			if (!killTimer)
 				killTimer = setTimeout(() => child.kill("SIGKILL"), options.killGraceMs ?? PROCESS_KILL_GRACE_MS);
 		};
@@ -119,10 +119,10 @@ export async function runStreamingAgentProcess(
 		}, options.timeoutMs);
 		const onAbort = () => kill();
 		options.signal.addEventListener("abort", onAbort, { once: true });
-		// A signal already aborted BEFORE the listener attached never fires "abort"
-		// (e.g. a race() loser whose abort propagated during setup). Kill explicitly so
-		// the loser's token spend stops instead of running to completion. kill() is
-		// idempotent (guards the SIGKILL timer), so the close handler stays correct.
+		// Una señal ya abortada ANTES de adjuntar el listener nunca dispara "abort"
+		// (p. ej. un perdedor de race() cuyo abort se propagó durante setup). Matá explícitamente para que
+		// el gasto de tokens del perdedor se detenga en vez de correr hasta completarse. kill() es
+		// idempotente (protege el timer de SIGKILL), así que el handler de close sigue correcto.
 		if (options.signal.aborted) kill();
 		const finish = (err: Error | undefined, code = 1) => {
 			if (finished) return;

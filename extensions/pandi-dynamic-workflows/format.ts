@@ -1,12 +1,11 @@
 /**
- * Tool-output formatting kernel for dynamic-workflows: the standard text()
- * result wrapper, length-bounded truncate(), a cycle-safe JSON serializer
- * (safeJson), and stringify() that combines them. Pure and dependency-free
- * (only the MAX_TOOL_TEXT budget, which lives here so truncate/stringify keep
- * their default), so it is a leaf module shared by the runner, tool handlers,
- * and the monitor TUI without any ESM cycle.
+ * Núcleo de formato de salida de tools para dynamic-workflows: el wrapper estándar de resultado
+ * text(), truncate() acotado por longitud, un serializador JSON seguro ante ciclos (safeJson),
+ * y stringify() que los combina. Puro y sin dependencias (solo el presupuesto MAX_TOOL_TEXT,
+ * que vive acá para que truncate/stringify mantengan su default), así que es un módulo hoja
+ * compartido por el runner, los handlers de tools y la TUI del monitor sin ningún ciclo ESM.
  *
- * Moved verbatim from index.ts (behavior-preserving).
+ * Movido textualmente desde index.ts (preserva comportamiento).
  */
 
 export const MAX_TOOL_TEXT = 24_000;
@@ -21,16 +20,16 @@ export function truncate(value: string, max = MAX_TOOL_TEXT): string {
 }
 
 export function safeJson(value: unknown, indent = 2): string {
-	// Track "seen" per traversal PATH (add on enter, delete on exit of scope), mirroring
-	// journal.ts stableStringify. A flat JSON.stringify replacer cannot do this: it never
-	// learns when a subtree is fully left, so a global WeakSet without cleanup wrongly
-	// stamps ANY repeated reference as "[Circular]" — even a DAG's shared-but-not-circular
-	// child across two independent branches — instead of only true cycles.
+	// Rastreá "seen" por RUTA de recorrido (agregar al entrar, borrar al salir del scope), reflejando
+	// stableStringify de journal.ts. Un replacer plano de JSON.stringify no puede hacer esto: nunca
+	// sabe cuándo se salió por completo de un subárbol, así que un WeakSet global sin cleanup marca
+	// erróneamente CUALQUIER referencia repetida como "[Circular]" — incluso un hijo compartido pero
+	// no circular de un DAG entre dos ramas independientes — en vez de solo ciclos reales.
 	const seen = new WeakSet<object>();
 	const replace = (current: unknown, key = ""): unknown => {
-		// Mirror JSON.stringify's own SerializeJSONProperty order: toJSON() (e.g. Date) runs
-		// BEFORE the cycle check, same as the native algorithm, so toJSON-bearing values keep
-		// serializing exactly as they did with the old replacer-based implementation.
+		// Reflejamos el orden SerializeJSONProperty propio de JSON.stringify: toJSON() (p. ej. Date) corre
+		// ANTES del chequeo de ciclos, igual que el algoritmo nativo, para que los valores con toJSON
+		// sigan serializando exactamente como lo hacían con la implementación anterior basada en replacer.
 		if (
 			typeof current === "object" &&
 			current !== null &&

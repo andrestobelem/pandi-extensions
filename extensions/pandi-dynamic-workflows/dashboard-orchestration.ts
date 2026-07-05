@@ -1,13 +1,13 @@
 /**
- * Dashboard orchestration — the /workflow dashboard open/choice flow, Pi-session switch,
- * draft-from-pattern, command-argument quoting, and the runWorkflowWithUi foreground run
- * path. The UI layer over the runWorkflow engine and the WorkflowDashboard component.
+ * Orquestación del dashboard — el flujo open/choice de /workflow dashboard, cambio de sesión Pi,
+ * draft-from-pattern, quoting de argumentos de comando y la ruta de run foreground
+ * runWorkflowWithUi. La capa UI sobre el engine runWorkflow y el componente WorkflowDashboard.
  *
- * Fully-deferred cycles: this module instantiates WorkflowDashboard and calls the engine,
- * collectors, run-lifecycle, and pi-session helpers only inside bodies; index.ts and
- * run-lifecycle.ts import the entry points back, and dashboard-down-editor.ts imports
- * openWorkflowDashboard + the Dashboard{CommandSubmitter,Opener} types from here. Record/
- * pattern types cross as import type. Extracted byte-identically.
+ * Ciclos totalmente diferidos: este módulo instancia WorkflowDashboard y llama al engine,
+ * collectors, run-lifecycle y helpers de pi-session solo dentro de cuerpos; index.ts y
+ * run-lifecycle.ts importan de vuelta los entry points, y dashboard-down-editor.ts importa desde acá
+ * openWorkflowDashboard + los tipos Dashboard{CommandSubmitter,Opener}. Los tipos Record/
+ * pattern cruzan como import type. Extraído byte-idéntico.
  */
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
@@ -270,9 +270,9 @@ export async function openWorkflowDashboard(
 	}
 	let currentTab = initialTab;
 	let restore: DashboardSelection | undefined;
-	// Reopen loop: non-terminal actions (view/graph/agent/cancel/delete/rerun/run)
-	// return to the dashboard on the same tab/selection instead of dropping to the
-	// editor. Only switching session, creating a pattern draft, or q/esc exit.
+	// Loop de reapertura: las acciones no terminales (view/graph/agent/cancel/delete/rerun/run)
+	// vuelven al dashboard en el mismo tab/selección en vez de caer al
+	// editor. Solo cambiar de sesión, crear un draft de patrón o q/esc salen.
 	for (;;) {
 		const workflows = await listWorkflows(ctx);
 		const runs = await listRuns(ctx);
@@ -320,8 +320,8 @@ export async function openWorkflowDashboard(
 						dashboard.markRefreshOk();
 						tui.requestRender();
 					} catch (err) {
-						// Never let a transient listRuns/read failure become an unhandled
-						// rejection that freezes the dashboard with stale data and no signal.
+						// Nunca dejes que una falla transitoria de listRuns/read se convierta en una rejection
+						// no manejada que congele el dashboard con datos stale y sin señal.
 						dashboard?.markRefreshError(err instanceof Error ? err.message : String(err));
 						tui.requestRender();
 					} finally {

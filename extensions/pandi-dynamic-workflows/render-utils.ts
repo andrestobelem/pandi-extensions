@@ -1,24 +1,24 @@
 /**
- * Pure terminal-rendering helpers for the dynamic-workflows monitor UI:
- * width-aware right padding and ANSI/control-sequence stripping. No side
- * effects and no dependency on index.ts (only the pi-tui width primitives),
- * so this is a leaf module both index.ts and the TUI components can import
- * without an ESM cycle.
+ * Helpers puros de render de terminal para la UI del monitor de dynamic-workflows:
+ * padding derecho consciente del ancho y stripping de secuencias ANSI/control. Sin efectos
+ * secundarios y sin dependencia de index.ts (solo las primitivas de ancho de pi-tui),
+ * así que este es un módulo hoja que tanto index.ts como los componentes TUI pueden importar
+ * sin ciclo ESM.
  *
- * Bodies moved verbatim from index.ts (behavior-preserving).
+ * Cuerpos movidos textualmente desde index.ts (preserva comportamiento).
  */
 
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
-// This module deliberately matches terminal control/ANSI escape sequences
-// (e.g. \x1b, \x07) in order to strip them. The noControlCharactersInRegex
-// rule is disabled project-wide in biome.jsonc for exactly this reason.
+// Este módulo matchea deliberadamente secuencias de escape ANSI/control de terminal
+// (p. ej. \x1b, \x07) para poder quitarlas. La regla noControlCharactersInRegex
+// está desactivada repo-wide en biome.jsonc exactamente por este motivo.
 
-// Render a fixed-width progress/utilization bar (e.g. "████████░░░░") for a 0..1
-// fraction. Pure and width-aware: the result is ALWAYS exactly `width` glyphs so
-// columns stay aligned, out-of-range / non-finite fractions clamp to [0, 1], and the
-// optional `paint.fill` / `paint.empty` callbacks wrap only their own segment so the
-// caller can two-tone the bar with theme colors without this leaf knowing the theme.
+// Renderiza una barra de progreso/utilización de ancho fijo (p. ej. "████████░░░░") para una fracción
+// 0..1. Pura y consciente del ancho: el resultado SIEMPRE tiene exactamente `width` glifos para que
+// las columnas queden alineadas, las fracciones fuera de rango / no finitas se limitan a [0, 1], y los
+// callbacks opcionales `paint.fill` / `paint.empty` envuelven solo su propio segmento para que el
+// caller pueda pintar la barra a dos tonos con colores del tema sin que esta hoja conozca el tema.
 export function renderMeter(
 	fraction: number,
 	width = 12,

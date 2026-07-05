@@ -1,14 +1,14 @@
 /**
- * Shared run-state model kernel for the dynamic-workflows monitor/runner.
+ * Núcleo compartido del modelo de estado de runs para el monitor/runner de dynamic-workflows.
  *
- * Pure, side-effect-free derivations over a WorkflowRunRecord (state, status
- * label/icon, elapsed time, parallel-agent counts/peak). Lives here so BOTH
- * index.ts (runner/tool path) and the monitor TUI can use them without the TUI
- * having to import runtime values from index.ts (which would create an ESM
- * cycle). The only dependency back on index.ts is TYPE-only (`import type`),
- * erased at build time, so index.ts -> run-state.js is a one-way runtime edge.
+ * Derivaciones puras y sin efectos sobre un WorkflowRunRecord (estado, etiqueta/icono
+ * de status, tiempo transcurrido, conteos/pico de agentes paralelos). Vive acá para que TANTO
+ * index.ts (ruta runner/tool) como la TUI del monitor puedan usarlas sin que la TUI
+ * tenga que importar valores runtime desde index.ts (lo que crearía un ciclo ESM).
+ * La única dependencia de vuelta hacia index.ts es SOLO de TIPOS (`import type`),
+ * borrada en build time, así que index.ts -> run-state.js es una arista runtime unidireccional.
  *
- * Bodies moved verbatim from index.ts (behavior-preserving).
+ * Cuerpos movidos textualmente desde index.ts (preserva comportamiento).
  */
 
 import type {
@@ -51,8 +51,8 @@ export function estimatePeakParallelAgents(agents: AgentMonitorModel[]): number 
 		if (Number.isFinite(ended)) points.push({ t: ended, d: -1 });
 	}
 	if (points.length === 0) return undefined;
-	// On a timestamp tie, apply ends (-1) before starts (+1) so a hand-off (one agent ends exactly
-	// when the next starts) is not double-counted as concurrent.
+	// Si hay empate de timestamp, aplicá finales (-1) antes que inicios (+1) para que un relevo
+	// (un agente termina exactamente cuando empieza el siguiente) no cuente doble como concurrencia.
 	points.sort((a, b) => a.t - b.t || a.d - b.d);
 	let current = 0;
 	let peak = 0;
@@ -101,23 +101,23 @@ export function getRunLogs(run: WorkflowRunRecord): WorkflowLogEntry[] {
 	return run.logs ?? [];
 }
 
-// A run can be resumed in place when it was interrupted (stale) or ended
-// without completing (failed/cancelled). Completed runs need force.
+// Un run puede reanudarse in place cuando fue interrumpido (stale) o terminó
+// sin completarse (failed/cancelled). Los runs completed necesitan force.
 export function isResumableState(state: WorkflowRunState): boolean {
 	return state === "stale" || state === "failed" || state === "cancelled";
 }
 
-// A run is terminal (safe to delete) when it is no longer running: completed, failed,
-// cancelled, or stale. This is the complement of "running".
+// Un run es terminal (seguro de borrar) cuando ya no está running: completed, failed,
+// cancelled o stale. Es el complemento de "running".
 export function isTerminalRunState(state: WorkflowRunState): boolean {
 	return state !== "running";
 }
 
-// Pure selection policy for `/workflow cleanup runs`. Returns the run records that are safe
-// to delete: only TERMINAL runs (never running), never a run tracked as active in-memory
-// (activeIds), optionally filtered to a set of states, and always retaining the `keep`
-// most-recent runs (by startedAt desc) so a bulk cleanup can't wipe the freshest history.
-// The IO wrapper (run-lifecycle.ts, cleanupWorkflowRuns) does the actual fs.rm.
+// Política pura de selección para `/workflow cleanup runs`. Devuelve los registros de run que son seguros
+// de borrar: solo runs TERMINAL (nunca running), nunca un run rastreado como activo en memoria
+// (activeIds), opcionalmente filtrado por un conjunto de estados, y reteniendo siempre los `keep`
+// runs más recientes (por startedAt desc) para que una limpieza masiva no borre el historial más fresco.
+// El wrapper de IO (run-lifecycle.ts, cleanupWorkflowRuns) hace el fs.rm real.
 export function selectRunsForCleanup(
 	runs: WorkflowRunRecord[],
 	opts: { keep?: number; states?: WorkflowRunState[]; activeIds: Set<string> },

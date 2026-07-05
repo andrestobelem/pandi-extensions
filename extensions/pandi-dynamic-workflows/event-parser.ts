@@ -1,15 +1,15 @@
 /**
- * Run-events parsing kernel for pandi-dynamic-workflows.
+ * Núcleo de parsing de run-events para pandi-dynamic-workflows.
  *
- * Pure value coercers, the agent-monitor merge logic, the phase/elapsed
- * derivations, and the events.jsonl -> { logs, agents } parsing pipeline
- * (readRunEvents). Extracted byte-identically from index.ts behind the
- * run-events-parsing.test.mjs characterization net.
+ * Coercers puros de valores, la lógica de merge de agent-monitor, las derivaciones
+ * phase/elapsed y el pipeline de parsing events.jsonl -> { logs, agents }
+ * (readRunEvents). Extraído byte-idéntico desde index.ts bajo la red de caracterización
+ * run-events-parsing.test.mjs.
  *
- * Deferred runtime cycle with index.ts: this module imports extractMarkdownSection
- * from ./index.js, but only calls it INSIDE readRunEvents' body (never at module
- * top level), and index.ts in turn imports these functions and calls them only
- * inside its own functions/TUI methods. Types are import type (erased at build).
+ * Ciclo runtime diferido con index.ts: este módulo importa extractMarkdownSection
+ * desde ./index.js, pero solo lo llama DENTRO del cuerpo de readRunEvents (nunca en top level),
+ * e index.ts a su vez importa estas funciones y las llama solo dentro de sus propias funciones/
+ * métodos TUI. Los tipos son import type (borrados en build).
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -84,9 +84,9 @@ export function phaseEventFields(phase: AgentPhaseInfo | undefined): Partial<Sub
 	};
 }
 
-// Live elapsed for an agent: use the recorded value once it ends, otherwise
-// derive it from startedAt while running so the row ticks instead of showing a
-// frozen "elapsed:…" placeholder.
+// Elapsed live de un agente: usá el valor grabado cuando termina; si no,
+// derivalo desde startedAt mientras está running para que la fila avance en vez de mostrar un
+// placeholder "elapsed:…" congelado.
 export function getAgentElapsedMs(
 	agent: Pick<AgentMonitorModel, "state" | "startedAt" | "elapsedMs">,
 ): number | undefined {
@@ -326,11 +326,11 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 					}
 				}
 			} catch {
-				// Ignore malformed event lines.
+				// Ignorá líneas de evento malformadas.
 			}
 		}
 	} catch {
-		// Missing events.jsonl is tolerated for older or partial runs.
+		// Toleramos events.jsonl ausente para runs antiguos o parciales.
 	}
 
 	try {
@@ -364,7 +364,7 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 			});
 		}
 	} catch {
-		// Runs without agent artifacts still render their timeline normally.
+		// Los runs sin artifacts de agentes igual renderizan su timeline normalmente.
 	}
 
 	return { logs, phases, agents: [...agentsById.values()].sort((a, b) => a.id - b.id) };

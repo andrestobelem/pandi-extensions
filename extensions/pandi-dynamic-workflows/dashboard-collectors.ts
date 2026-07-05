@@ -1,8 +1,8 @@
 /**
- * Dashboard data layer — the read side that collects run activity/agents and derives the
- * workflow monitor models the dashboard UI renders (workflow-dashboard.ts) and the
- * orchestration opens. Builds plain model objects from run state/logs/events; AgentMonitorModel
- * stays foundational in index.ts and crosses here as an import type. Extracted byte-identically.
+ * Capa de datos del dashboard — el lado de lectura que colecta actividad/agentes de runs y deriva los
+ * modelos de workflow monitor que renderiza la UI del dashboard (workflow-dashboard.ts) y que abre la
+ * orquestación. Construye objetos de modelo planos desde estado/logs/eventos de run; AgentMonitorModel
+ * sigue siendo fundacional en index.ts y cruza acá como import type. Extraído byte-idéntico.
  */
 import { existsSync } from "node:fs";
 import { readRunEvents, readRunLogEvents } from "./event-parser.js";
@@ -122,8 +122,8 @@ export interface WorkflowMonitorModel {
 	canRerun: boolean;
 }
 
-// Exported for the run-report-adapters pin: the generated report is derived output,
-// never a run artifact, so writing report.html must not change the artifact count.
+// Exportado para el pin de run-report-adapters: el reporte generado es salida derivada,
+// nunca un artifact de run, así que escribir report.html no debe cambiar el conteo de artifacts.
 export async function countRunArtifacts(runDir: string): Promise<number> {
 	try {
 		const { files } = await listRunFiles(runDir, 200);
@@ -187,8 +187,8 @@ async function deriveWorkflowMonitor(
 }
 
 export async function deriveWorkflowMonitorModels(runs: WorkflowRunRecord[]): Promise<WorkflowMonitorModel[]> {
-	// Surface ALL active runs (the header advertises "▶ N active"); fall back to the
-	// latest run only when nothing is active. The Monitor lets the user switch focus.
+	// Mostrá TODOS los runs activos (el encabezado anuncia "▶ N active"); caé al
+	// run más reciente solo cuando nada está activo. El Monitor permite cambiar el foco.
 	const actives = runs.filter((run) => isActiveRunRecord(run));
 	if (actives.length > 0) return Promise.all(actives.map((run) => deriveWorkflowMonitor(run, "active")));
 	const latest = runs[0];

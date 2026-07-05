@@ -1,16 +1,16 @@
 /**
- * Run/status persistence store for dynamic-workflows.
+ * Store de persistencia de run/status para dynamic-workflows.
  *
- * Reads and writes the per-run on-disk records (result.json, status.json) and
- * discovers run directories: atomic writeJsonFile (temp + rename), writeRunStatus,
- * readRunResult / readRunStatus / readRunRecord, and getRunDirs (mtime-sorted run
- * dirs across roots). Moved verbatim from index.ts (behavior-preserving), including
- * readRunStatus' live staleness derivation against activeRuns.
+ * Lee y escribe los registros on-disk por run (result.json, status.json) y
+ * descubre directorios de run: writeJsonFile atómico (temp + rename), writeRunStatus,
+ * readRunResult / readRunStatus / readRunRecord y getRunDirs (dirs de run ordenados por mtime
+ * entre roots). Movido textualmente desde index.ts (preserva comportamiento), incluida
+ * la derivación live de staleness de readRunStatus contra activeRuns.
  *
- * Runtime deps from index.ts (getRunRoots, the activeRuns Map) and safeJson from
- * ./format.js are used ONLY inside function bodies, so the run-store.ts <-> index.ts
- * ESM cycle is fully deferred (no top-level cross-use); types come via `import type`
- * (erased). Depth-one sibling so it ships under the `files` glob.
+ * Las deps runtime desde index.ts (getRunRoots, el Map activeRuns) y safeJson desde
+ * ./format.js se usan SOLO dentro de cuerpos de función, así que el ciclo ESM run-store.ts <-> index.ts
+ * queda totalmente diferido (sin uso cruzado top-level); los tipos vienen vía `import type`
+ * (borrados). Sibling de profundidad uno para que se shipee bajo el glob `files`.
  */
 
 import * as crypto from "node:crypto";
@@ -45,8 +45,8 @@ export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
 }
 
 export async function writeTextFileAtomic(file: string, content: string): Promise<void> {
-	// Atomic write: write to a unique temp sibling then rename, so a crash mid-write
-	// never leaves a truncated/corrupt generated file behind.
+	// Escritura atómica: escribí a un temp sibling único y luego renombrá, para que un crash a mitad de escritura
+	// nunca deje atrás un archivo generado truncado/corrupto.
 	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
 	await fs.writeFile(temp, content, "utf8");
 	try {
@@ -58,8 +58,8 @@ export async function writeTextFileAtomic(file: string, content: string): Promis
 }
 
 export async function writeJsonFile(file: string, value: unknown): Promise<void> {
-	// Atomic write: write to a unique temp file then rename, so a crash mid-write
-	// never leaves a truncated/corrupt status.json or result.json behind.
+	// Escritura atómica: escribí a un archivo temp único y luego renombrá, para que un crash a mitad de escritura
+	// nunca deje atrás un status.json o result.json truncado/corrupto.
 	await writeTextFileAtomic(file, `${safeJson(value)}\n`);
 }
 

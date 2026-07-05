@@ -1,13 +1,13 @@
 /**
- * Workflow pattern catalog and scaffold sources for dynamic-workflows.
+ * Catálogo de patrones de workflow y fuentes de scaffolds para dynamic-workflows.
  *
- * The executable scaffolds are authored as real files under scaffolds/*.js and read from disk
- * lazily on first use (relative to this module via import.meta.url) — so the .js files ARE the
- * shipped artifact: no codegen, no derived copy, tested == shipped by construction. The read is
- * lazy (not at import time) so merely loading the extension never touches the filesystem; only an
- * actual scaffold request does (this keeps bundled/relocated loads that never serve a scaffold
- * working). package.json files[] ships the scaffolds/ directory and pi loads the extension as
- * on-disk source, so the sibling lookup holds in both dev and installed layouts.
+ * Los scaffolds ejecutables se escriben como archivos reales bajo scaffolds/*.js y se leen de disco
+ * lazy en el primer uso (relativos a este módulo vía import.meta.url) — así que los archivos .js SON el
+ * artifact publicado: sin codegen, sin copia derivada, tested == shipped por construcción. La lectura es
+ * lazy (no en import time), así que solo cargar la extensión nunca toca el filesystem; solo lo hace un
+ * pedido real de scaffold (esto mantiene funcionando cargas bundled/reubicadas que nunca sirven un scaffold).
+ * package.json files[] incluye el directorio scaffolds/ y pi carga la extensión como fuente on-disk,
+ * así que el lookup sibling vale tanto en dev como en layouts instalados.
  */
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -19,8 +19,8 @@ import { WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
 const SCAFFOLDS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "scaffolds");
 
 let scaffoldSourcesCache: Record<string, string> | null = null;
-// Read every scaffolds/<key>.js into a name->source map, once and lazily (cached). Sync IO is
-// fine: it runs at most once over ~25 tiny files, and only when a scaffold is first requested.
+// Leé cada scaffolds/<key>.js en un map nombre->fuente, una vez y lazy (cacheado). El IO sync está
+// bien: corre como máximo una vez sobre ~25 archivos chicos, y solo cuando se pide el primer scaffold.
 function scaffoldSources(): Record<string, string> {
 	if (scaffoldSourcesCache) return scaffoldSourcesCache;
 	const map: Record<string, string> = {};
@@ -45,14 +45,14 @@ export {
 	formatWorkflowPatternPromptCheatSheet,
 } from "./pattern-format.js";
 
-// Default scaffold served by `/workflow new` (no --pattern) and the Patterns tab: the base
-// scatter-gather pattern. A function (not a const) so the disk read stays lazy.
+// Scaffold default servido por `/workflow new` (sin --pattern) y el tab Patterns: el patrón base
+// scatter-gather. Es función (no const) para que la lectura de disco siga lazy.
 export function getDefaultScaffold(): string {
 	return scaffoldSources()["fan-out-and-synthesize"];
 }
 
 export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
-	// Catalog keys ARE the scaffold filenames (1:1, no aliases), so the key maps to scaffolds/<key>.js.
+	// Las claves del catálogo SON los filenames de scaffold (1:1, sin aliases), así que la clave mapea a scaffolds/<key>.js.
 	const scaffold = scaffoldSources()[pattern.key];
 	if (scaffold === undefined) {
 		throw new Error(`Workflow scaffold missing for pattern ${pattern.key} (expected scaffolds/${pattern.key}.js)`);
@@ -60,9 +60,9 @@ export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise
 	return scaffold;
 }
 
-// A catalog pattern maps 1:1 to scaffolds/<key>.js. This guard keeps the catalog-keyed map free of
-// dead entries; the full orphan check (a scaffolds/*.js with no catalog key) lives in the
-// composition integration test, which reads the whole directory.
+// Un patrón de catálogo mapea 1:1 a scaffolds/<key>.js. Este guard mantiene el map por clave de catálogo libre de
+// entradas muertas; el chequeo completo de huérfanos (un scaffolds/*.js sin clave de catálogo) vive en el
+// test de integración de composición, que lee todo el directorio.
 export function listOrphanedScaffoldKeys(): string[] {
 	const sources = scaffoldSources();
 	const patternScaffolds: Record<string, string> = Object.fromEntries(

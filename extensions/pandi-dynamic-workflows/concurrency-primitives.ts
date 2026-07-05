@@ -1,12 +1,12 @@
 /**
- * Concurrency / abort primitives for pandi-dynamic-workflows.
+ * Primitivas de concurrency / abort para pandi-dynamic-workflows.
  *
- * A pure, dependency-free leaf: bounded-parallelism (mapLimit), a fair semaphore
- * (createSemaphore), abort-aware sleep, parent+timeout signal combination, and
- * abort-reason formatting. Depends only on Web/Node globals (AbortController,
- * AbortSignal, setTimeout). Imported one-way by index.ts (no cycle).
+ * Hoja pura y sin dependencias: paralelismo acotado (mapLimit), un semáforo justo
+ * (createSemaphore), sleep consciente de abort, combinación de señales parent+timeout y
+ * formato de abort-reason. Depende solo de globals Web/Node (AbortController,
+ * AbortSignal, setTimeout). Importada en una sola dirección por index.ts (sin ciclo).
  *
- * Extracted byte-identically from index.ts.
+ * Extraído byte-idéntico desde index.ts.
  */
 
 export interface CombinedSignal {
@@ -93,11 +93,11 @@ export async function mapLimit<T, R>(
 ): Promise<(R | null)[]> {
 	const results = new Array<R | null>(items.length);
 	const onError = options.onError ?? "throw";
-	// Fail-fast structured fan-out (onError "throw"): the FIRST rejection aborts a
-	// scoped signal — handed to fn as its third argument — so in-flight siblings
-	// can cancel and no queued item ever starts. Previously siblings kept running
-	// (and idle workers kept picking up NEW items) as unobserved orphans. The
-	// original error is rethrown after every worker has wound down.
+	// Fan-out estructurado fail-fast (onError "throw"): el PRIMER rechazo aborta una
+	// señal scoped — entregada a fn como tercer argumento — para que los siblings en vuelo
+	// puedan cancelarse y ningún item en cola llegue a arrancar. Antes los siblings seguían corriendo
+	// (y los workers idle seguían tomando items NUEVOS) como huérfanos no observados. El
+	// error original se relanza después de que todos los workers se apagaron.
 	const scoped = combineSignal(signal, 0);
 	let failed = false;
 	let firstError: unknown;
@@ -189,7 +189,7 @@ export function createSemaphore(limit: number, signal: AbortSignal) {
 	};
 }
 
-// Serialize overlapping async sections: each runExclusive waits for the previous to settle.
+// Serializa secciones async solapadas: cada runExclusive espera a que la anterior se asiente.
 export class AsyncMutex {
 	private tail: Promise<void> = Promise.resolve();
 

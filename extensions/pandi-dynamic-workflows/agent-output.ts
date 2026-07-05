@@ -1,15 +1,15 @@
 /**
- * pandi-dynamic-workflows agent-output parsing (pure).
+ * Parsing de agent-output de pandi-dynamic-workflows (puro).
  *
- * Turns a Pi JSON-mode event stream (the stdout of a non-interactive `pi` run)
- * into the final assistant text: extract text from message content, pull the
- * assistant text out of a message, and fold the event stream down to the last
- * assistant text (strict + lenient variants). Fully self-contained — no ctx, no
- * node/SDK imports, no shared state — so it is trivially testable.
+ * Convierte un event stream en modo JSON de Pi (el stdout de un run `pi` no interactivo)
+ * en el texto final del assistant: extrae texto del contenido de mensajes, toma el
+ * texto del assistant desde un mensaje y reduce el event stream al último
+ * texto de assistant (variantes strict + lenient). Completamente autocontenido — sin ctx,
+ * sin imports node/SDK, sin estado compartido — así que es trivial de testear.
  *
- * Extracted verbatim from index.ts (behavior-preserving). Depth-one sibling
- * imported via "./agent-output.js"; the three extract* / *Internal helpers stay
- * module-private, only the two parse entry points are exported.
+ * Extraído textualmente desde index.ts (preserva comportamiento). Sibling de profundidad uno
+ * importado vía "./agent-output.js"; los tres helpers extract* / *Internal quedan
+ * privados del módulo, solo se exportan los dos entry points de parse.
  */
 
 function extractTextFromMessageContent(content: unknown): string | undefined {
@@ -74,11 +74,10 @@ function parsePiJsonModeOutputInternal(
 		}
 		if (!event || typeof event !== "object") continue;
 		const record = event as Record<string, unknown>;
-		// Only NON-EMPTY text may become the final output: a tool-call-only or
-		// thinking-only assistant message extracts as "" (its parts map to "" and
-		// join), and letting that overwrite earlier real text silently loses the
-		// whole answer (ok:true, output:"") — seen with long tool-heavy reviewers
-		// whose final message was a tool call (2026-07-03 revisar-dw-farley-core).
+		// Solo texto NO VACÍO puede convertirse en la salida final: un mensaje de assistant solo con tool-calls
+		// o solo con thinking extrae "" (sus partes mapean a "" y se unen), y dejar que eso sobrescriba
+		// texto real anterior pierde silenciosamente toda la respuesta (ok:true, output:"") — visto con reviewers
+		// largos y cargados de tools cuyo mensaje final fue una tool call (2026-07-03 revisar-dw-farley-core).
 		if (record.type === "agent_end" && Array.isArray(record.messages)) {
 			for (const message of record.messages) {
 				const textValue = extractAssistantTextFromMessage(message);

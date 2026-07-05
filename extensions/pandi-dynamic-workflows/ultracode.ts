@@ -1,11 +1,11 @@
 /**
- * Ultracode router — the always-on prompt builders (routing rules, contract-gate, system
- * prompt), the dynamic-workflow tool activation helpers, the /ultracode-mode + contract-gate
- * status widgets, and the toggle-command parser. The router brain behind the activate hooks.
+ * Router de Ultracode — los builders always-on de prompts (reglas de routing, contract-gate,
+ * prompt de sistema), los helpers de activación del tool dynamic-workflow, los widgets de status
+ * /ultracode-mode + contract-gate y el parser del comando toggle. El cerebro router detrás de los hooks activate.
  *
- * All functions take pi/ctx as parameters and hold no module state, so index.ts imports the
- * entry points back (used only inside the activate body and handlers) and re-exports
- * extractUltracodeTask for the composition test. Extracted byte-identically.
+ * Todas las funciones reciben pi/ctx como parámetros y no mantienen estado de módulo, así que index.ts importa de vuelta
+ * los entry points (usados solo dentro del cuerpo activate y handlers) y reexporta
+ * extractUltracodeTask para el test de composición. Extraído byte-idéntico.
  */
 
 import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -14,7 +14,7 @@ import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } 
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
 const ULTRACODE_CONTRACT_STATUS_KEY = "dynamic-workflows-ultracode-contract";
 
-/** Human-labelled options for the bare `/ultracode-mode` selector (first token is the value). */
+/** Opciones etiquetadas para humanos del selector `/ultracode-mode` bare (el primer token es el valor). */
 const ULTRACODE_MODE_SELECT_ITEMS = [
 	"on — route every task through the dynamic workflow router",
 	"off — disable always-on routing for this session",
@@ -22,9 +22,9 @@ const ULTRACODE_MODE_SELECT_ITEMS = [
 ];
 
 /**
- * Resolve the `/ultracode-mode` argument, opening an interactive selector when the
- * command is invoked bare in a session with a UI. Headless (no UI) and explicit
- * args keep the unchanged behavior (bare = "status"), so nothing regresses off-TUI.
+ * Resuelve el argumento de `/ultracode-mode`, abriendo un selector interactivo cuando el
+ * comando se invoca bare en una sesión con UI. Headless (sin UI) y args explícitos
+ * mantienen el comportamiento sin cambios (bare = "status"), así no hay regresiones off-TUI.
  */
 export async function resolveUltracodeModeValue(args: string, ctx: ExtensionContext): Promise<string> {
 	const trimmed = args.trim();
@@ -171,8 +171,8 @@ export function clearUltracodeContractGateStatus(ctx: ExtensionContext): void {
 
 export function extractUltracodeTask(textValue: string): string | undefined {
 	const trimmed = textValue.trim();
-	// Separator after the keyword may be a `:`/`-` (with or without a trailing space) or just
-	// whitespace, so `ultracode:do X`, `ultracode: do X`, and `ultracode do X` all parse.
+	// El separador después de la keyword puede ser `:`/`-` (con o sin espacio posterior) o solo
+	// whitespace, así `ultracode:do X`, `ultracode: do X` y `ultracode do X` parsean todos.
 	const match = /^(?:ultracode|dynamic\s+workflow)(?:\s*[:-]\s*|\s+)([\s\S]+)/i.exec(trimmed);
 	return match?.[1]?.trim();
 }

@@ -1,11 +1,11 @@
 /**
- * Shared contract types for pandi-dynamic-workflows — the data shapes that flow between the engine
- * (index.ts) and its sibling modules: workflow files/locations/limits, agent options + results,
- * bash results, log entries, the run result/status/record union, journal records, prepared/active
- * runs, and the agent-monitor model. A pure type-only leaf (no imports, no runtime), so any module
- * can depend on the contract without importing the engine. index.ts re-exports these for back-compat.
+ * Tipos de contrato compartidos para pandi-dynamic-workflows — las formas de datos que fluyen entre el engine
+ * (index.ts) y sus módulos sibling: archivos/ubicaciones/límites de workflow, opciones + resultados de agentes,
+ * resultados de bash, entradas de log, la unión de resultado/status/registro de run, registros de journal, runs
+ * prepared/active y el modelo agent-monitor. Hoja pura solo de tipos (sin imports, sin runtime), así cualquier módulo
+ * puede depender del contrato sin importar el engine. index.ts reexporta esto por back-compat.
  *
- * Extracted byte-identically from index.ts.
+ * Extraído byte-idéntico desde index.ts.
  */
 export type WorkflowScope = "project" | "global";
 export type WorkflowScopeInput = WorkflowScope | "auto";
@@ -83,19 +83,19 @@ export interface SubagentResult {
 	ok: boolean;
 	code: number;
 	killed: boolean;
-	/** True when the agent's timeoutMs budget killed it (not an abort/race loss). */
+	/** True cuando el presupuesto timeoutMs del agente lo mató (no un abort/pérdida de race). */
 	timedOut?: boolean;
 	elapsedMs: number;
-	/** Semaphore queue wait before the first spawn; elapsedMs includes it. */
+	/** Espera en la cola del semáforo antes del primer spawn; elapsedMs la incluye. */
 	queuedMs?: number;
 	prompt: string;
 	output: string;
 	stdout: string;
 	stderr: string;
 	artifactPath: string;
-	/** Resolved model actually passed to the subagent (qualified provider/id when known). */
+	/** Modelo resuelto que realmente se pasó al subagente (provider/id calificado cuando se conoce). */
 	model?: string;
-	/** Resolved thinking/effort level actually passed to the subagent. */
+	/** Nivel thinking/effort resuelto que realmente se pasó al subagente. */
 	thinking?: string;
 	tools?: string[];
 	excludeTools?: string[];
@@ -124,8 +124,8 @@ export interface BashResult {
 	stderr: string;
 }
 
-// Result of an ask() human-in-the-loop call. Journaled by (key, occ) like agent/bash so a resumed
-// run replays the recorded answer instead of re-prompting the human.
+// Resultado de una llamada ask() human-in-the-loop. Se journaliza por (key, occ) como agent/bash para que un
+// run reanudado reproduzca la respuesta grabada en vez de volver a preguntar al humano.
 export interface AskResult {
 	kind: "input" | "confirm" | "select";
 	answer: string | boolean;
@@ -246,9 +246,9 @@ export interface AgentMonitorModel {
 	code?: number;
 	killed?: boolean;
 	artifactPath?: string;
-	/** Resolved model the subagent ran with (qualified provider/id when known). */
+	/** Modelo resuelto con el que corrió el subagente (provider/id calificado cuando se conoce). */
 	model?: string;
-	/** Resolved thinking/effort level the subagent ran with. */
+	/** Nivel thinking/effort resuelto con el que corrió el subagente. */
 	thinking?: string;
 	tools?: string[];
 	excludeTools?: string[];
