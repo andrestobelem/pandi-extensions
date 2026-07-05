@@ -125,6 +125,8 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <p>Multi-agent audit (exhaustive review + 2 loop-until-dry passes), modern-software-engineering rubric, adversarial jury-verified. <strong>45 distinct findings.</strong></p>
+<h2>Source integrity note</h2>
+<p>Several <code>Fix:</code> bullets in the original committed report were truncated mid-word by the generation pipeline. The original full text is not present in git history or the available workflow artifacts. To avoid fabricating technical instructions, this report preserves the verified finding titles/locations and marks incomplete fix details as requiring a targeted re-review before implementation.</p>
 <p>Severity: {&#39;high&#39;: 13, &#39;medium&#39;: 21, &#39;low&#39;: 11}</p>
 <blockquote>
 <p>Audit never ran dry — coverage is good but not exhaustive; the worker-source VM bridge, journal/resume, and parallel/agents contracts are the hot zones.</p>
@@ -132,7 +134,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <h2>HIGH</h2>
 <ul>
 <li><strong>JSON extractor only tries the first &#39;{&#39; and &#39;[&#39; — returns the wrong object from multi-segment output</strong> — <code>json-extract.ts:24</code> <em>(review)</em><ul>
-<li>Fix: Collect ALL &#39;{&#39;/&#39;[&#39; positions, sort, and iterate: for (let i=0;i&lt;textValue.length;i++){const c=textValue[i]; if(c===&#39;{&#39;||c===&#39;[&#39;)starts.push(i);} then run the existing balanced walk per start. Smallest safe reversible change to one line. Missing test that should exist: a json-ext</li>
+<li>Fix: Collect ALL &#39;{&#39;/&#39;[&#39; positions, sort, and iterate: for (let i=0;i&lt;textValue.length;i++){const c=textValue[i]; if(c===&#39;{&#39;||c===&#39;[&#39;)starts.push(i);} then run the existing balanced walk per start. Smallest safe reversible change to one line. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>artifactPath from events.jsonl reaches fs.readFile with no path containment — arbitrary file read</strong> — <code>agent-view.ts:22-24 (read at :54); source event-parser.ts:253</code> <em>(review)</em><ul>
@@ -140,31 +142,31 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </ul>
 </li>
 <li><strong>Cache occ determinism guarantee is false for ctx.parallel/ctx.pipeline — resume can return the wrong cached result</strong> — <code>index.ts:528-538 (nextOcc on message arrival) + worker-source.ts:61-113</code> <em>(review)</em><ul>
-<li>Fix: Smallest safe slice now: correct the comment to state determinism only for ctx.agents/mapLimit, and add a guard that warns when nextOcc returns occ&gt;0 for a key first seen inside a parallel/pipeline frame. Durable fix: derive occ from a worker-assigned monotonic branch/call index</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Resume silently swallows all input.json errors and re-runs with empty input / lost limits</strong> — <code>run-lifecycle.ts:240-244</code> <em>(review)</em><ul>
-<li>Fix: Distinguish ENOENT (acceptable {} fallback) from parse/permission errors: catch (err) { if ((err as NodeJS.ErrnoException).code !== &#39;ENOENT&#39;) throw err; }. Surface parse/EACCES in the resumed run status. Missing test: resume with a corrupt input.json asserts the run fails loudly</li>
+<li>Fix: Distinguish ENOENT (acceptable {} fallback) from parse/permission errors: catch (err) { if ((err as NodeJS.ErrnoException).code !== &#39;ENOENT&#39;) throw err; }. Surface parse/EACCES in the resumed run status. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Unguarded handleDashboardChoice in the dashboard reopen loop crashes the entire TUI on bad input</strong> — <code>dashboard-orchestration.ts:354 (throw sites in handleDashboardChoice ~:435,:463 and loadRerunInput ~:155-158)</code> <em>(review)</em><ul>
-<li>Fix: Wrap the handleDashboardChoice call at :354 in try/catch that notifies via ctx.ui and continues the loop (no rethrow); guard loadRerunInput&#39;s second parseCliJsonOrText to return undefined (cancel) on parse failure. Smallest reversible slice is the loop-level catch. Missing test:</li>
+<li>Fix: Wrap the handleDashboardChoice call at :354 in try/catch that notifies via ctx.ui and continues the loop (no rethrow); guard loadRerunInput&#39;s second parseCliJsonOrText to return undefined (cancel) on parse failure. Smallest reversible slice is the loop-level catch. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>agents() global bypasses effort-&gt;thinking and label-&gt;name transforms that agent() applies</strong> — <code>worker-source.ts:192-193</code> <em>(loop-1)</em><ul>
-<li>Fix: Extract the option-normalization in agentGlobal (lines 174-180) into a shared mapAgentOptions(opts) helper and apply it inside an agentsGlobal wrapper that maps each item&#39;s options before calling ctx.agents. Wire sandbox.agents to that wrapper. Test: a worker-level unit test asse</li>
+<li>Fix: Extract the option-normalization in agentGlobal (lines 174-180) into a shared mapAgentOptions(opts) helper and apply it inside an agentsGlobal wrapper that maps each item&#39;s options before calling ctx.agents. Wire sandbox.agents to that wrapper. Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>vm.runInContext timeout does not bound the async workflow body — runaway/hung orchestration is never killed by syncTimeoutMs</strong> — <code>worker-source.ts:233</code> <em>(loop-1)</em><ul>
-<li>Fix: Either remove the misleading timeout option (and document that only per-subagent timeouts apply), or wrap the awaited result in a real wall-clock guard: Promise.race([Promise.resolve(result), rejectAfter(limits.wallClockMs)]) with an explicit orchestration-level budget. Test: a w</li>
+<li>Fix: Either remove the misleading timeout option (and document that only per-subagent timeouts apply), or wrap the awaited result in a real wall-clock guard: Promise.race([Promise.resolve(result), rejectAfter(limits.wallClockMs)]) with an explicit orchestration-level budget. Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>parallel() and pipeline() collapse thrown errors to null — genuine failures are indistinguishable from intentional null returns</strong> — <code>worker-source.ts:75-81 (parallel), 103-111 (pipeline)</code> <em>(loop-1)</em><ul>
-<li>Fix: In the catch, emit a host log with the error before storing null (void hostCall(&#39;log&#39;,[&#39;parallel thunk &#39;+index+&#39; threw: &#39;+(e?.stack||e)])), so failures are visible in the journal/events even though the settle-to-null contract is preserved. Optionally surface a parallel error coun</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Per-record codeHash written to the journal but never validated on replay — stale cached results served after a code change</strong> — <code>journal.ts:94-113 (loadJournal); record.codeHash written in index.ts</code> <em>(loop-1)</em><ul>
-<li>Fix: In loadJournal (or at lookup time) skip/invalidate any record whose codeHash !== current computeCodeHash. Smallest safe change: filter records by codeHash during cache assembly when a current hash is passed in. Test: write a journal record under hash A, resume under hash B, asser</li>
+<li>Fix: In loadJournal (or at lookup time) skip/invalidate any record whose codeHash !== current computeCodeHash. Smallest safe change: filter records by codeHash during cache assembly when a current hash is passed in. Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>void open(...).finally() does not swallow rejection — unhandled promise rejection can crash the process</strong> — <code>dashboard-down-editor.ts:273 (finding mislabeled as dashboard-orchestration.ts:265)</code> <em>(loop-1)</em><ul>
@@ -172,34 +174,34 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </ul>
 </li>
 <li><strong>Schema retries run on silently truncated output; retry prompt misattributes the failure to a schema mismatch</strong> — <code>index.ts:944-962</code> <em>(loop-1)</em><ul>
-<li>Fix: Run extractJsonCandidate/validateStructuredData on the UNtruncated parsed output (truncate only the stored/journaled copy), or detect host-side truncation (output.length === cap) and report it accurately in the retry prompt. Test: feed a &gt;24000-char valid-JSON stdout and assert e</li>
+<li>Fix: Run extractJsonCandidate/validateStructuredData on the UNtruncated parsed output (truncate only the stored/journaled copy), or detect host-side truncation (output.length === cap) and report it accurately in the retry prompt. Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>agents(settle:true) silently swallows maxAgents-exceeded as a null result with no journal/event trace</strong> — <code>pi-dynamic-workflows/index.ts:787-789, 1117</code> <em>(loop-2)</em><ul>
-<li>Fix: Distinguish capacity rejection from content null. Smallest safe fix: before throwing at 788, emit a structured event/log (e.g. appendEvent({type:&quot;agent&quot;, state:&quot;rejected&quot;, reason:&quot;maxAgents&quot;})) so the run record shows the capacity hit; better, have mapLimit&#39;s onError handler tag</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>TOCTOU race: concurrent resumeWorkflow calls both pass the activeRuns guard; the second overwrites the first AbortController, orphaning a live run</strong> — <code>pi-dynamic-workflows/run-lifecycle.ts:213 (set at 135)</code> <em>(loop-2)</em><ul>
-<li>Fix: Close the window by reserving the runId synchronously the moment the guard passes — e.g. set a placeholder activeRuns entry (or a Set<string> of in-flight runIds) at line 213/214 before any await, then replace it with the real ActiveWorkflowRun at 135; reject the second caller on</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 </ul>
 <h2>MEDIUM</h2>
 <ul>
 <li><strong>getRunDirs rejects for ALL runs if any single run dir vanishes between readdir and stat</strong> — <code>run-store.ts:32-41</code> <em>(review)</em><ul>
-<li>Fix: Wrap the per-entry stat in try/catch returning undefined and filter, or use Promise.allSettled keeping only fulfilled — matching the already-correct pattern in collectPiSessions. Missing test: list with a directory deleted mid-enumeration (simulated stat rejection) asserts surviv</li>
+<li>Fix: Wrap the per-entry stat in try/catch returning undefined and filter, or use Promise.allSettled keeping only fulfilled — matching the already-correct pattern in collectPiSessions. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Subagents inherit the orchestrator&#39;s full process.env (all secrets) by default</strong> — <code>index.ts:821-830 (env spread) + agent-env-persona.ts:127-129</code> <em>(review)</em><ul>
-<li>Fix: Smallest safe slice: strip well-known provider secret vars from the inherited env unless explicitly listed in keys, and document the default loudly at the keys schema field. Larger change: flip default so subagents get a minimal base env unless inheritEnv:true. Reversible via the</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>onStdout/onStderr callback rejections become unhandled promise rejections</strong> — <code>process-spawn.ts:127,131</code> <em>(review)</em><ul>
-<li>Fix: Either await the callback inside an async data handler, or .catch() the returned promise and route the error into finish(). Smallest slice: void Promise.resolve(options.onStdout?.(chunk)).catch(()=&gt;{}). Missing test: a callback that rejects asserts no unhandled rejection and the</li>
+<li>Fix: Either await the callback inside an async data handler, or .catch() the returned promise and route the error into finish(). Smallest slice: void Promise.resolve(options.onStdout?.(chunk)).catch(()=&gt;{}). Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>startPiSessionHeartbeat can leak an interval and resurrect a deleted session file under fast shutdown</strong> — <code>pi-session.ts:133-136</code> <em>(review)</em><ul>
-<li>Fix: After the awaited first write, bail if ownership was lost: if (livePiSession !== runtime) return; immediately before creating the interval. Optionally no-op the interval body when livePiSession !== runtime. Keeps the start/stop contract intact. Missing test: invoke start then sto</li>
+<li>Fix: After the awaited first write, bail if ownership was lost: if (livePiSession !== runtime) return; immediately before creating the interval. Optionally no-op the interval body when livePiSession !== runtime. Keeps the start/stop contract intact. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>formatLiveRunView receives explicit undefined width in non-TUI mode, defeating the width=80 default</strong> — <code>run-status-ui.ts:156 (callsite) / 126-133 (defn)</code> <em>(review)</em><ul>
@@ -227,23 +229,23 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </ul>
 </li>
 <li><strong>Pervasive unit-test gap on the highest-risk pure functions (parsing, path-safety, journal, graph, config)</strong> — <code>json-extract.ts (whole) / path-safety.ts:1-49 / journal.ts:30-174 / graph-parse.ts:1-324 / config.ts:23-74</code> <em>(review)</em><ul>
-<li>Fix: Add small fast unit suites (these double as the characterization tests named in findings #1,#2,#17,#18,#19): tests/unit/json-extract (direct/fenced/first-broken/think-block/empty/nested), tests/integration/path-safety (mkdtemp sandbox: in-root ok, ../ throws, absolute throws, pre</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>config.normalizeWorkflowInput passes number/boolean/array primitives through unchanged as workflow input</strong> — <code>config.ts:47</code> <em>(loop-1)</em><ul>
-<li>Fix: Treat non-object, non-string inputs as either an error or wrap them: <code>if (input &amp;&amp; typeof input === &#39;object&#39;) return input; if (typeof input === &#39;string&#39;) return parseCliJsonOrText(input); return {}</code> (or throw with a clear message). Test: normalizeWorkflowInput(42) returns {} (or</li>
+<li>Fix: Treat non-object, non-string inputs as either an error or wrap them: <code>if (input &amp;&amp; typeof input === &#39;object&#39;) return input; if (typeof input === &#39;string&#39;) return parseCliJsonOrText(input); return {}</code> (or throw with a clear message). Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>self-refine refine step has no null guard — a dead/skipped refiner silently replaces the last good draft with null</strong> — <code>scaffolds/self-refine.js:229-236</code> <em>(loop-1)</em><ul>
-<li>Fix: After line 236, add: <code>if (draft == null) { failureNote = `round ${round}: refine returned null`; log(`self-refine ${failureNote} — returning last good draft`); draft = &lt;captured previous&gt;; break; }</code> — capture the pre-refine draft so the last good attempt is returned. Test: stub t</li>
+<li>Fix: After line 236, add: <code>if (draft == null) { failureNote = `round ${round}: refine returned null`; log(`self-refine ${failureNote} — returning last good draft`); draft = &lt;captured previous&gt;; break; }</code> — capture the pre-refine draft so the last good attempt is returned. Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>guardrails: protect.args=null with no content evaluates the literal string &#39;null&#39; against input rules</strong> — <code>scaffolds/guardrails.js:203</code> <em>(loop-1)</em><ul>
-<li>Fix: Guard the no-input case before runGuards: <code>const toGuard = content ?? protect.args; if (toGuard == null) { log(&#39;guardrails: no content/args to guard — failing closed&#39;); return { status:&#39;TRIPPED&#39;, stage:&#39;input&#39;, reason:&#39;no input&#39; } }</code>. Test: call wrapper mode with {} (no content,</li>
+<li>Fix: Guard the no-input case before runGuards: <code>const toGuard = content ?? protect.args; if (toGuard == null) { log(&#39;guardrails: no content/args to guard — failing closed&#39;); return { status:&#39;TRIPPED&#39;, stage:&#39;input&#39;, reason:&#39;no input&#39; } }</code>. Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>nextOcc() called after two awaits — occ assignment ordering depends on I/O timing, threatening resume cache correctness</strong> — <code>index.ts:713-714, 729</code> <em>(loop-1)</em><ul>
-<li>Fix: Compute key and call nextOcc(key) synchronously at the top of runSubagent, before the two awaits, then carry occ through. Also fix the now-false comment. Test: two concurrent agent() calls with identical args, with applyPersonaOptions artificially delayed on one, must still produ</li>
+<li>Fix: Compute key and call nextOcc(key) synchronously at the top of runSubagent, before the two awaits, then carry occ through. Also fix the now-false comment. Test detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>process-spawn: abort listener registered after spawn() — pre-fired abort never kills the child</strong> — <code>process-spawn.ts:103-115</code> <em>(loop-1)</em><ul>
@@ -255,30 +257,30 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </ul>
 </li>
 <li><strong>active.promise assigned after two awaits — abortActiveWorkflowRuns can read undefined and skip the graceful drain</strong> — <code>pi-dynamic-workflows/run-lifecycle.ts:135-197</code> <em>(loop-2)</em><ul>
-<li>Fix: Assign active.promise before the first await, or construct the promise synchronously and store it into active at creation (line 128-134) so the map entry is never observable without its promise. Missing test: invoke abort during the writeRunStatus await and assert the run&#39;s promi</li>
+<li>Fix: Assign active.promise before the first await, or construct the promise synchronously and store it into active at creation (line 128-134) so the map entry is never observable without its promise. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Workflow log messages can spoof agent-monitor state via the <code>agent N start:</code> regex in event-parser</strong> — <code>pi-dynamic-workflows/event-parser.ts:198-218</code> <em>(loop-2)</em><ul>
-<li>Fix: Stop overloading free-text log messages as the structural channel. Drive monitor state from the dedicated {type:&quot;agent&quot;} events (already emitted at index.ts:815) rather than regex-parsing log strings, or tag host structural logs with a reserved field (e.g. details.__hostAgentEven</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Dashboard monitorRunIndex omitted from DashboardSelection — focused run resets to 0 on every reopen</strong> — <code>pi-dynamic-workflows/workflow-dashboard.ts:67-76, 138-149</code> <em>(loop-2)</em><ul>
-<li>Fix: Add monitorRunIndex to the DashboardSelection interface, return it from getSelection(), and clamp-restore it in the constructor against monitorModels.length (mirroring the monitorAgentIndex handling at 133-134). Missing test: open dashboard, cycle to monitor run index 2, perform</li>
+<li>Fix: Add monitorRunIndex to the DashboardSelection interface, return it from getSelection(), and clamp-restore it in the constructor against monitorModels.length (mirroring the monitorAgentIndex handling at 133-134). Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>liveWriteTail .catch(()=&gt;{}) silently discards all live stdout/stderr write errors</strong> — <code>pi-dynamic-workflows/index.ts:813</code> <em>(loop-2)</em><ul>
-<li>Fix: Capture the first write error into a run-scoped flag and surface it once (a single log/appendEvent at agent end: &quot;live log truncated: <err>&quot;) instead of fully swallowing. Keep the chain from rejecting, but record that the artifact is incomplete. Missing test: stub fs.appendFile t</li>
+<li>Fix: Capture the first write error into a run-scoped flag and surface it once (a single log/appendEvent at agent end: &quot;live log truncated: <err>&quot;) instead of fully swallowing. Keep the chain from rejecting, but record that the artifact is incomplete. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 </ul>
 <h2>LOW</h2>
 <ul>
 <li><strong>action=write persists workflow source with no structural validation; invalid code fails only at run time</strong> — <code>command-handlers.ts:149-158</code> <em>(review)</em><ul>
-<li>Fix: In the write branch, run transformWorkflowCode(params.code) (discard result) before writing so structural errors surface at write time with the same message, and reject empty/whitespace-only code. On-disk file stays the original source. Missing test: write with a static import as</li>
+<li>Fix: In the write branch, run transformWorkflowCode(params.code) (discard result) before writing so structural errors surface at write time with the same message, and reject empty/whitespace-only code. On-disk file stays the original source. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Template-literal ${...} interpolations are treated as string content by the graph tokenizer</strong> — <code>graph-parse.ts:59-63</code> <em>(review)</em><ul>
-<li>Fix: Track ${...}: on &#39;$&#39;+&#39;{&#39; while in backtick, push the quote and enter code mode with a brace-depth counter; on the matching } restore the quote. Smallest alternative: emit a warning symbol when a call falls inside a template expression. Missing test: graph-parse unit test assertin</li>
+<li>Fix: Track ${...}: on &#39;$&#39;+&#39;{&#39; while in backtick, push the quote and enter code mode with a brace-depth counter; on the matching } restore the quote. Smallest alternative: emit a warning symbol when a call falls inside a template expression. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>countTopLevelArrayItems returns count=1 for spread-only arrays like [...items]</strong> — <code>graph-parse.ts:208-213</code> <em>(review)</em><ul>
@@ -306,7 +308,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </ul>
 </li>
 <li><strong>stableStringify emits non-JSON for sparse arrays (holes render as empty, not null), corrupting call-key reproducibility</strong> — <code>pi-dynamic-workflows/journal.ts:40-45</code> <em>(loop-2)</em><ul>
-<li>Fix: Normalize holes in the array branch: <code>current.map(item =&gt; encode(item))</code> already visits holes-as-undefined if you use a length-based loop. Replace with <code>Array.from({length: current.length}, (_, i) =&gt; encode(current[i]))</code> so holes encode as &quot;null&quot; (matching JSON.stringify). Missin</li>
+<li>Fix: Detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 <li><strong>Falsy coercion (<code>Number(x)||default</code>) silently ignores an explicit 0 for quietRounds/maxRounds/finders (and maxVerify)</strong> — <code>pi-dynamic-workflows/scaffolds/loop-until-dry.js:100,103,106; adversarial-verify.js:143</code> <em>(loop-2)</em><ul>
@@ -314,7 +316,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </ul>
 </li>
 <li><strong>journal occ accepted as any number (NaN/Infinity/huge float) and used directly as an array index</strong> — <code>pi-dynamic-workflows/journal.ts:108-110</code> <em>(loop-2)</em><ul>
-<li>Fix: Tighten the guard to <code>Number.isInteger(record.occ) &amp;&amp; record.occ &gt;= 0 &amp;&amp; record.occ &lt; SAFE_MAX</code> (a bounded cap) and skip otherwise, mirroring the torn-line tolerance already in loadJournal. Missing test: loadJournal of a journal line with occ:1e9 or occ:NaN skips the record and w</li>
+<li>Fix: Tighten the guard to <code>Number.isInteger(record.occ) &amp;&amp; record.occ &gt;= 0 &amp;&amp; record.occ &lt; SAFE_MAX</code> (a bounded cap) and skip otherwise, mirroring the torn-line tolerance already in loadJournal. Missing test/detail was truncated in the source report; run a targeted re-review for this finding before implementation.</li>
 </ul>
 </li>
 </ul>
