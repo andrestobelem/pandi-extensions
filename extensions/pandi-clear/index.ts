@@ -25,6 +25,11 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	if (ctx.hasUI) ctx.ui.notify(message, type);
 }
 
+function formatClearFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return `clear falló: ${message} — probá /new en su lugar.`;
+}
+
 export default function clearExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("clear", {
 		description: "Iniciá una sesión nueva, limpiando la conversación (alias estilo Claude para /new).",
@@ -32,11 +37,7 @@ export default function clearExtension(pi: ExtensionAPI): void {
 			try {
 				await ctx.newSession();
 			} catch (error) {
-				notify(
-					ctx,
-					`clear falló: ${error instanceof Error ? error.message : String(error)} — probá /new en su lugar.`,
-					"error",
-				);
+				notify(ctx, formatClearFailure(error), "error");
 			}
 		},
 	});
