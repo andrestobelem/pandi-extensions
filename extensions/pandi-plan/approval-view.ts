@@ -2,9 +2,9 @@
  * Plan-approval Markdown OVERLAY — the mdview-style surface submit_plan uses to present a
  * plan for approval when the session can show a custom component.
  *
- * Why this duplicates pi-mdview's viewer (on purpose)
+ * Why this duplicates pandi-mdview's viewer (on purpose)
  * ---------------------------------------------------
- * Pi loads each extension self-contained, so pi-plan may NOT import pi-mdview's viewer at
+ * Pi loads each extension self-contained, so pandi-plan may NOT import pandi-mdview's viewer at
  * runtime (a cross-extension import breaks a standalone install — see the repo's
  * self-contained-extension rule). The small Markdown theme + scroll-viewer logic is therefore
  * DUPLICATED here, then EXTENDED with a decision: unlike the read-only mdview viewer (which only
@@ -16,7 +16,7 @@
  * human must EXPLICITLY approve before any mutation, so the dangerous direction (dismiss silently
  * approving) is impossible here.
  *
- * Like pi-mdview's viewer and pi-plan's dashboard overlay, the live TUI wiring is exercised by
+ * Like pandi-mdview's viewer and pandi-plan's dashboard overlay, the live TUI wiring is exercised by
  * a suite that drives the component through a mocked ctx.ui.custom (see
  * tests/integration/plan-approval-view.test.mjs). Any overlay failure is the CALLER's concern:
  * submit_plan falls back to ctx.ui.confirm so approval is never lost.
@@ -44,7 +44,7 @@ function boundedLine(text: string, width: number): string {
 }
 
 // Build the Markdown theme from the runtime `theme` object using ONLY type-only SDK imports —
-// same reasoning as pi-mdview: importing the SDK's getMarkdownTheme() as a VALUE would pull the
+// same reasoning as pandi-mdview: importing the SDK's getMarkdownTheme() as a VALUE would pull the
 // whole coding-agent runtime into the bundle and break the self-contained extension load.
 function createMarkdownTheme(theme: Theme): MarkdownTheme {
 	return {

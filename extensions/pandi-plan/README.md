@@ -92,7 +92,7 @@ In `print`/`json` sessions there is no human to approve, so plan mode runs plan-
 ```js
 // inside a workflow: get a plan back from a sandboxed, read-only subagent
 const { output } = await ctx.agent("Plan the migration, then output the full plan.", {
-  includeExtensions: true, // load pi-plan in the subagent
+  includeExtensions: true, // load pandi-plan in the subagent
   env: { PI_PLAN_NONINTERACTIVE: "1", PI_PLAN_ULTRACODE_STEPS: "1" },
   // NOTE: do NOT give the planner `dynamic_workflow` run/start power. The plan should NAME the
   // workflows; the ORCHESTRATOR runs them. This keeps the composition non-recursive.

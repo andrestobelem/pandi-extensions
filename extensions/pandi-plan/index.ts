@@ -54,7 +54,7 @@
  * - print/json gate: ctx.mode must be tui/rpc; print/json → notify + refuse to enter
  *   (plan mode needs an interactive approval; print is one-shot and cannot deliver it).
  * - never re-inject outside tui/rpc.
- * - deps: typebox + @earendil-works/pi-tui (the approval overlay renders Markdown, like pi-mdview).
+ * - deps: typebox + @earendil-works/pi-tui (the approval overlay renders Markdown, like pandi-mdview).
  * - on "fork" do NOT migrate the plan-mode.
  * - the read-only allowlist is BEST-EFFORT and documented (see blockedReason).
  *
