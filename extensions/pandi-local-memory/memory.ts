@@ -1,55 +1,55 @@
 /**
- * Pure helpers for the model-callable `remember` tool — the WRITE side of
- * pi-local-memory. Kept side-effect free (no fs) so the append/dedup policy is
- * trivially testable in isolation; index.ts owns the actual file IO.
+ * Helpers puros para la tool `remember` invocable por el modelo: el lado WRITE de
+ * pandi-local-memory. Se mantienen sin efectos colaterales (sin fs) para que la política de
+ * append/dedup sea trivial de testear en aislamiento; index.ts se encarga del file IO real.
  *
- * Layout (Claude-style): durable notes live under the `.pi/memory/` FOLDER.
- *   - `.pi/memory/MEMORY.md` is the INDEX/entrypoint, injected at startup (capped).
- *   - `.pi/memory/<topic>.md` are TOPIC files, read on demand — never auto-injected.
+ * Layout (estilo Claude): las notas durables viven bajo la CARPETA `.pi/memory/`.
+ *   - `.pi/memory/MEMORY.md` es el ÍNDICE/punto de entrada, inyectado al inicio (capado).
+ *   - `.pi/memory/<topic>.md` son archivos de TOPIC, leídos bajo demanda; nunca se autoinyectan.
  *
- * The design constraint: Pi may persist durable notes ON ITS OWN, but it must
- * NEVER clobber human-curated content. So every agent-written note lives inside
- * a single MANAGED BLOCK delimited by HTML-comment markers, always kept at the
- * END of the target file. Everything outside the markers is the human's and is
- * left byte-for-byte untouched.
+ * Restricción de diseño: Pi puede persistir notas durables POR SÍ SOLO, pero NUNCA debe
+ * pisar contenido curado por humanos. Por eso cada nota escrita por el agente vive dentro
+ * de un único BLOQUE GESTIONADO delimitado por markers de comentario HTML, siempre al
+ * FINAL del archivo destino. Todo lo que queda fuera de los markers pertenece al humano y
+ * se deja intacto byte por byte.
  *
- * Depth-one sibling module imported by index.ts via "./memory.js"; typechecked
- * transitively (tsconfig includes extensions/**\/*.ts).
+ * Módulo hermano de profundidad 1 importado por index.ts vía "./memory.js"; typechecked
+ * de forma transitiva (tsconfig incluye extensions/**\/*.ts).
  */
 
-/** Marker that opens the agent-managed block. */
+/** Marker que abre el bloque gestionado por el agente. */
 export const REMEMBER_BEGIN = "<!-- pi:remember:begin -->";
-/** Marker that closes the agent-managed block. */
+/** Marker que cierra el bloque gestionado por el agente. */
 export const REMEMBER_END = "<!-- pi:remember:end -->";
-/** Heading shown to a human reading MEMORY.md, so the managed block is obvious. */
+/** Encabezado visible para quien lea MEMORY.md, para que el bloque gestionado sea obvio. */
 export const MANAGED_HEADING = "## Memoria del agente (gestionada automáticamente por la tool remember)";
 
-/** Upper bound on a single note (clamped inside execute; never trust the model). */
+/** Límite superior para una sola nota (se recorta dentro de execute; nunca confíes en el modelo). */
 export const MAX_NOTE_LENGTH = 1000;
 
 /**
- * Normalize a raw note into a single clean line: collapse whitespace/newlines,
- * trim, and cap the length. Returns "" when there is nothing left to store.
+ * Normaliza una nota cruda en una sola línea limpia: colapsa espacios/saltos de línea,
+ * recorta y limita la longitud. Devuelve "" cuando no queda nada para guardar.
  */
 export function normalizeNote(raw: string): string {
 	return raw.replace(/\s+/g, " ").trim().slice(0, MAX_NOTE_LENGTH);
 }
 
-/** Strip the `- <date>: ` bullet prefix so two notes can be compared by text only. */
+/** Quita el prefijo de viñeta `- <date>: ` para comparar dos notas solo por texto. */
 function bulletNoteText(line: string): string {
 	return line.replace(/^-\s+\d{4}-\d{2}-\d{2}:\s+/, "").trim();
 }
 
 /**
- * Append `note` (as a dated bullet) to the managed block of a MEMORY.md document.
+ * Agrega `note` (como viñeta fechada) al bloque gestionado de un documento MEMORY.md.
  *
- * - No managed block yet → create one at the END (preceded by the existing content,
- *   if any, so human notes stay on top).
- * - Managed block present → insert the new bullet just before the END marker.
- * - Idempotent: if the exact note text already exists in the managed block, return
- *   the document unchanged with `added: false`.
+ * - Si todavía no hay bloque gestionado → crea uno al FINAL (precedido por el contenido existente,
+ *   si lo hay, para que las notas humanas queden arriba).
+ * - Si el bloque gestionado existe → inserta la nueva viñeta justo antes del marker END.
+ * - Idempotente: si el texto exacto de la nota ya existe en el bloque gestionado, devuelve
+ *   el documento sin cambios con `added: false`.
  *
- * Pure: returns the new document text; the caller decides whether/where to write it.
+ * Pura: devuelve el nuevo texto del documento; quien llama decide si lo escribe y dónde.
  */
 export function upsertMemoryNote(existing: string, note: string, date: string): { content: string; added: boolean } {
 	const bullet = `- ${date}: ${note}`;
@@ -64,63 +64,63 @@ export function upsertMemoryNote(existing: string, note: string, date: string): 
 		return { content: `${sep}${block}`, added: true };
 	}
 
-	// Dedup within the managed block (markers + heading + bullets), comparing on note text.
+	// Dedup dentro del bloque gestionado (markers + encabezado + viñetas), comparando por el texto de la nota.
 	const block = existing.slice(begin, end);
 	const already = block.split("\n").some((line) => bulletNoteText(line) === note);
 	if (already) return { content: existing, added: false };
 
-	// Insert the new bullet right before the END marker, keeping one clean newline.
+	// Inserta la nueva viñeta justo antes del marker END, conservando un solo salto de línea limpio.
 	const head = existing.slice(0, end).replace(/\s+$/, "");
-	const tail = existing.slice(end); // begins with REMEMBER_END
+	const tail = existing.slice(end); // empieza con REMEMBER_END
 	return { content: `${head}\n${bullet}\n${tail}`, added: true };
 }
 
 // ===========================================================================
-// Folder layout helpers (Claude-style): a `.pi/memory/` directory with a single
-// injected INDEX plus on-demand topic files. All pure: callers in index.ts join
-// these against cwd and own the actual fs.
+// Helpers del layout en carpeta (estilo Claude): un directorio `.pi/memory/` con un
+// único ÍNDICE inyectado y archivos de topic bajo demanda. Todo es puro: quienes llaman
+// desde index.ts resuelven esto contra cwd y se encargan del fs real.
 // ===========================================================================
 
-/** Directory (relative to `.pi/`) that holds the memory index + topic files. */
+/** Directorio (relativo a `.pi/`) que guarda el índice de memoria y los archivos de topic. */
 export const MEMORY_DIR = "memory";
-/** The injected entrypoint inside the memory folder. */
+/** Punto de entrada inyectado dentro de la carpeta de memoria. */
 export const INDEX_FILE = "MEMORY.md";
 
-/** Injection caps for the index, mirroring Claude: first 200 lines OR 25 KB. */
+/** Topes de inyección para el índice, igual que Claude: primeras 200 líneas O 25 KB. */
 export const MAX_INJECT_LINES = 200;
 export const MAX_INJECT_BYTES = 25_000;
-/** Upper bound on a topic slug length, so a runaway title can't make a huge name. */
+/** Límite superior para la longitud del slug de topic, para que un título desbocado no genere un nombre enorme. */
 export const MAX_SLUG_LENGTH = 64;
 
 /**
- * Turn a free-form topic title into a SAFE single-segment filename slug.
+ * Convierte un título de topic libre en un slug de filename SAFE de un solo segmento.
  *
- * Collapses every non-alphanumeric run (including `/`, `\\`, `.`, `..`, spaces) to
- * a single hyphen, lowercases, trims hyphens, and caps the length. This makes path
- * traversal structurally impossible: `"../../etc/passwd"` -> `"etc-passwd"`,
- * `"../"` -> `""`. Returns "" when nothing safe remains (caller must reject).
+ * Colapsa cada secuencia no alfanumérica (incluyendo `/`, `\\`, `.`, `..`, espacios) a
+ * un solo guion, pasa a minúsculas, recorta guiones y limita la longitud. Eso vuelve el
+ * path traversal estructuralmente imposible: `"../../etc/passwd"` -> `"etc-passwd"`,
+ * `"../"` -> `""`. Devuelve "" cuando no queda nada seguro (quien llama debe rechazarlo).
  */
 export function slugifyTopic(raw: string): string {
 	return raw
-		.replace(/\.md$/i, "") // tolerate callers passing "debugging.md"
+		.replace(/\.md$/i, "") // tolera que quien llama pase "debugging.md"
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "")
 		.slice(0, MAX_SLUG_LENGTH);
 }
 
-/** Clip a UTF-8 string to at most `maxBytes`, trimming any split-codepoint tail. */
+/** Recorta una string UTF-8 a lo sumo a `maxBytes`, quitando cualquier cola con codepoints partidos. */
 function clipByBytes(text: string, maxBytes: number): string {
 	if (Buffer.byteLength(text, "utf8") <= maxBytes) return text;
 	return Buffer.from(text, "utf8")
 		.subarray(0, maxBytes)
 		.toString("utf8")
-		.replace(/\uFFFD+$/, ""); // drop a trailing replacement char from a cut multibyte seq
+		.replace(/\uFFFD+$/, ""); // quita un carácter de reemplazo final dejado por una secuencia multibyte cortada
 }
 
 /**
- * Cap text for injection: first `maxLines` lines, then clamp to `maxBytes` bytes.
- * Returns the (possibly clipped) text plus whether anything was truncated.
+ * Recorta texto para la inyección: primero `maxLines` líneas y luego `maxBytes` bytes.
+ * Devuelve el texto (posiblemente recortado) y si algo fue truncado.
  */
 export function capForInjection(
 	text: string,
@@ -141,15 +141,15 @@ export function capForInjection(
 	return { text: out, truncated };
 }
 
-/** Escape literal local_memory tags so file content can't break out of the fence. */
+/** Escapa tags literales de local_memory para que el contenido del archivo no pueda salir del fence. */
 export function escapeLocalMemoryTags(text: string): string {
 	return text.replace(/<\/?local_memory/gi, (match) => match.replace("<", "&lt;"));
 }
 
 /**
- * Build the fully-escaped BODY injected inside the <local_memory> block: the capped
- * index, an optional truncation marker, and a listing of on-demand topic files (paths
- * only — their contents are NOT injected; the agent reads them with its file tools).
+ * Construye el BODY totalmente escapado que se inyecta dentro del bloque <local_memory>: el
+ * índice recortado, un marker opcional de truncado y un listado de archivos de topic bajo
+ * demanda (solo paths: sus contenidos NO se inyectan; el agente los lee con sus file tools).
  */
 export function composeInjectedMemory(args: {
 	indexText: string;

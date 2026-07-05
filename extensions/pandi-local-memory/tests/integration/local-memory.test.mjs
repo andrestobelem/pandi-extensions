@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Behavioral integration test for pi-local-memory.
+ * Behavioral integration test for pandi-local-memory.
  *
  * Contract: durable memory lives in the .pi/memory/ FOLDER. On before_agent_start,
  * inject the index .pi/memory/MEMORY.md (capped to 200 lines / 25 KB) if present and
@@ -24,7 +24,7 @@ const { check, counts } = createChecker();
 
 async function build() {
 	const { url } = await buildExtension({
-		name: "pi-local-memory-integration",
+		name: "pandi-local-memory-integration",
 		src: path.join(REPO_ROOT, "extensions", "pandi-local-memory", "index.ts"),
 		outName: "lm.mjs",
 		npx: "--no-install",

@@ -5,24 +5,24 @@ import { Type } from "typebox";
 import { composeInjectedMemory, INDEX_FILE, normalizeNote, slugifyTopic, upsertMemoryNote } from "./memory.js";
 import { indexPathOf, legacyPathOf, memoryDirOf, safeRead } from "./paths.js";
 
-/** Build a `remember` tool result with a single text block plus arbitrary details. */
+/** Construye un resultado de la tool `remember` con un solo bloque de texto y detalles arbitrarios. */
 function result(text: string, details: Record<string, unknown>) {
 	return {
 		content: [{ type: "text" as const, text }],
 		details,
 	};
 }
-/** Build a failed `remember` result: `isError` + `remembered: false` plus any extra details. */
+/** Construye un resultado fallido de `remember`: `isError` + `remembered: false` y cualquier detalle extra. */
 function errorResult(text: string, details?: Record<string, unknown>) {
 	return result(text, { isError: true, remembered: false, ...details });
 }
 
 export default function localMemoryExtension(pi: ExtensionAPI): void {
-	// Model-callable WRITE path: lets Pi persist a durable note to .pi/memory/ on its own
-	// initiative (the read/inject hook below feeds the index back into future sessions).
-	// No `topic` -> the injected index (.pi/memory/MEMORY.md); with `topic` -> an on-demand
-	// topic file (.pi/memory/<slug>.md). Appends only to a managed block so human-curated
-	// content is never touched; idempotent; fails safe.
+	// Ruta de WRITE invocable por el modelo: permite que Pi persista una nota durable en .pi/memory/ por
+	// iniciativa propia (el hook de lectura/inyección de abajo vuelve a alimentar el índice en sesiones futuras).
+	// Sin `topic` -> el índice inyectado (.pi/memory/MEMORY.md); con `topic` -> un archivo de topic
+	// bajo demanda (.pi/memory/<slug>.md). Solo agrega a un bloque gestionado para no tocar nunca
+	// contenido curado por humanos; idempotente; fail-safe.
 	pi.registerTool({
 		name: "remember",
 		label: "Remember",
@@ -56,7 +56,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			const indexPath = indexPathOf(ctx.cwd);
 			const legacyPath = legacyPathOf(ctx.cwd);
 
-			// Resolve the target file: index by default, a slugified topic file when asked.
+			// Resuelve el archivo destino: índice por defecto, o un archivo de topic slugificado cuando se pide.
 			const rawTopic = params.topic?.trim();
 			let targetPath = indexPath;
 			let targetLabel = `${CONFIG_DIR_NAME}/memory/MEMORY.md`;
@@ -72,10 +72,10 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 				targetLabel = `${CONFIG_DIR_NAME}/memory/${slug}.md`;
 			}
 
-			// Read existing target content (fail-safe). For a fresh index, seed from the legacy
-			// .pi/MEMORY.md so a one-time migration preserves human-curated notes without ever
-			// deleting the old file. A read failure (EISDIR/EACCES/TOCTOU) is a HARD stop — never
-			// clobber a file we could not read.
+			// Lee el contenido existente del destino (fail-safe). Para un índice nuevo, inicializa desde el
+			// .pi/MEMORY.md legacy para que una migración de una sola vez preserve notas curadas por humanos sin
+			// borrar nunca el archivo viejo. Un fallo de lectura (EISDIR/EACCES/TOCTOU) es un HARD stop: nunca
+			// pises un archivo que no pudiste leer.
 			let existing = "";
 			try {
 				if (existsSync(targetPath)) {
@@ -122,8 +122,8 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 		const indexPath = indexPathOf(ctx.cwd);
 		const legacyPath = legacyPathOf(ctx.cwd);
 
-		// Prefer the new folder index; fall back to the pre-folder .pi/MEMORY.md so existing
-		// projects keep working until their first write migrates them. safeRead never throws.
+		// Preferí el nuevo índice en carpeta; caé al .pi/MEMORY.md previo a la carpeta para que los
+		// proyectos existentes sigan funcionando hasta que su primera escritura los migre. safeRead nunca lanza.
 		let indexText = safeRead(indexPath);
 		let usingLegacy = false;
 		let shownPath = indexPath;
@@ -136,8 +136,8 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 		const trimmed = indexText.trim();
 		if (!trimmed) return;
 
-		// List on-demand topic files (the folder's *.md except the index). They are surfaced as
-		// paths only — never injected — so the agent pulls them in with its file tools when relevant.
+		// Lista los archivos de topic bajo demanda (los *.md de la carpeta salvo el índice). Se exponen solo
+		// como paths, nunca se inyectan, para que el agente los traiga con sus tools de archivos cuando haga falta.
 		let topicNames: string[] = [];
 		if (!usingLegacy) {
 			try {
