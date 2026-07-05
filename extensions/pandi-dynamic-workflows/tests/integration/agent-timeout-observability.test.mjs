@@ -35,7 +35,7 @@ const WORKFLOW = [
 	"export const meta = { name: 'timeout-obs', description: 'timeout observability', phases: [{ title: 'P' }] };",
 	"phase('P');",
 	"const [r] = await agents([{ prompt: 'hang forever', name: 'hanger', timeoutMs: 1500, cache: false }], { settle: true });",
-	"return { ok: r?.ok ?? null, timedOut: r?.timedOut ?? null, queuedMs: r?.queuedMs ?? null, code: r?.code ?? null };",
+	"return { ok: r?.ok ?? null, timedOut: r?.timedOut ?? null, queuedMs: r?.queuedMs ?? null, elapsedMs: r?.elapsedMs ?? null, code: r?.code ?? null };",
 ].join("\n");
 
 async function buildExtension() {
@@ -151,7 +151,16 @@ async function main() {
 
 	check("run completes (settle) despite the timed-out agent", result?.ok === true, executeError ?? result?.error);
 	check("SubagentResult.timedOut is true", out?.timedOut === true, JSON.stringify(out));
-	check("SubagentResult.queuedMs is a small number", typeof out?.queuedMs === "number", JSON.stringify(out));
+	check(
+		"SubagentResult.elapsedMs includes the timeout budget",
+		typeof out?.elapsedMs === "number" && out.elapsedMs >= 1400,
+		JSON.stringify(out),
+	);
+	check(
+		"SubagentResult.queuedMs is separated from runtime",
+		typeof out?.queuedMs === "number" && out.queuedMs >= 0 && out.queuedMs < out.elapsedMs && out.queuedMs < 1000,
+		JSON.stringify(out),
+	);
 	check("agent failed with the SIGTERM code", out?.ok === false && out?.code === 143, JSON.stringify(out));
 
 	// The .md artifact must name the timeout budget and the queue wait.
@@ -170,7 +179,13 @@ async function main() {
 		/- timedOut: true \(timeoutMs 1500\)/.test(md),
 		md.split("\n").slice(0, 10).join(" | "),
 	);
-	check("artifact separates queue wait (- queuedMs: N)", /- queuedMs: \d+/.test(md));
+	const queuedMatch = /^- queuedMs: (\d+)$/m.exec(md);
+	check(
+		"artifact separates queue wait (- queuedMs: N)",
+		queuedMatch !== null,
+		md.split("\n").slice(0, 10).join(" | "),
+	);
+	check("artifact queuedMs remains small", queuedMatch !== null && Number(queuedMatch[1]) < 1000, queuedMatch?.[0]);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {
