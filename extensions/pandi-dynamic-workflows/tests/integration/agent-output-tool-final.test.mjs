@@ -37,6 +37,7 @@ const toolOnlyMsg = () => ({
 });
 const line = (obj) => JSON.stringify(obj);
 const stream = (...events) => `${events.map(line).join("\n")}\n`;
+const assistantEvent = (type, message) => ({ type, message });
 
 async function main() {
 	const { url } = await buildExtension({
@@ -49,18 +50,20 @@ async function main() {
 	check("parsePiJsonModeOutput exported", typeof parsePiJsonModeOutput === "function");
 
 	// --- the bug: trailing tool-only message must not clobber real text ---------
-	const toolFinal = parsePiJsonModeOutput(
-		stream(
-			{ type: "message_end", message: textMsg("## Findings\nthe real review") },
-			{ type: "message_end", message: toolOnlyMsg() },
-		),
-	);
-	check("trailing tool-only message_end keeps real text", toolFinal.ok === true, JSON.stringify(toolFinal));
-	check(
-		"trailing tool-only: output is the review",
-		toolFinal.ok && toolFinal.output === "## Findings\nthe real review",
-		JSON.stringify(toolFinal),
-	);
+	for (const eventType of ["message_end", "turn_end", "message_update"]) {
+		const toolFinal = parsePiJsonModeOutput(
+			stream(
+				assistantEvent(eventType, textMsg("## Findings\nthe real review")),
+				assistantEvent(eventType, toolOnlyMsg()),
+			),
+		);
+		check(`trailing tool-only ${eventType} keeps real text`, toolFinal.ok === true, JSON.stringify(toolFinal));
+		check(
+			`trailing tool-only ${eventType}: output is the review`,
+			toolFinal.ok && toolFinal.output === "## Findings\nthe real review",
+			JSON.stringify(toolFinal),
+		);
+	}
 
 	// agent_end replay variant (the full-messages replay path).
 	const replay = parsePiJsonModeOutput(
