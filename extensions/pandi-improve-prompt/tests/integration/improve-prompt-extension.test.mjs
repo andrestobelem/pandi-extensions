@@ -438,7 +438,7 @@ async function testRpcNotifiesThenSends(url) {
 }
 
 async function main() {
-	const { outDir, aliases } = await makeBuildDir("pi-improve-prompt-integration", {
+	const { outDir, aliases } = await makeBuildDir("pandi-improve-prompt-integration", {
 		sdk: (dir) => sdkStub(dir),
 		tui: STUB_SOURCES.tui,
 	});
@@ -478,7 +478,7 @@ async function main() {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
 
-	console.log(`\n=== pi-improve-prompt: ${counts.passed} passed, ${counts.failed} failed ===`);
+	console.log(`\n=== pandi-improve-prompt: ${counts.passed} passed, ${counts.failed} failed ===`);
 	if (counts.failed > 0) {
 		for (const f of counts.failures) console.log(`  FAIL ${f}`);
 		process.exit(1);
