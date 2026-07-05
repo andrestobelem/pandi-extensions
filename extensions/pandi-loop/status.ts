@@ -1,5 +1,5 @@
 /**
- * pi-loop status-line formatter (pure). Renders a single loop into the one-line
+ * pandi-loop status-line formatter (pure). Renders a single loop into the one-line
  * status string used by /loop status and the status bar. Extracted from index.ts
  * with the body verbatim; the only change is the parameter type, decoupled from
  * LoopState into a structural LoopStatusInput so this leaf has no cycle back to

@@ -1,5 +1,5 @@
 /**
- * pi-loop caps policy (pure). Decides whether a loop has hit a HARD cap (absolute
+ * pandi-loop caps policy (pure). Decides whether a loop has hit a HARD cap (absolute
  * wall-clock deadline) or a best-effort budget cap (context-usage percent),
  * returning a human-readable stop-reason or undefined. No shared state, no FIFO,
  * no side effects — the scheduler (fireWake / drainWakeQueue / rehydrate / agent_end)

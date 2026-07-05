@@ -1,5 +1,5 @@
 /**
- * pi-loop autopilot DESTRUCTIVE-ACTION gate (pure safety policy).
+ * pandi-loop autopilot DESTRUCTIVE-ACTION gate (pure safety policy).
  *
  * Extracted verbatim from index.ts (behavior-preserving) so the safety policy
  * — which autopilot bash commands / out-of-project writes are gated — lives in

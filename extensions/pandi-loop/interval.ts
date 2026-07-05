@@ -1,5 +1,5 @@
 /**
- * pi-loop interval layer (pure): parse a fixed-interval token ("5m", "30s",
+ * pandi-loop interval layer (pure): parse a fixed-interval token ("5m", "30s",
  * "2h") to a clamped period in ms, and format seconds back to a human label.
  *
  * Extracted verbatim from index.ts (behavior-preserving). No ctx, no LoopState,

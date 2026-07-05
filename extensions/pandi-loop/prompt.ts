@@ -1,5 +1,5 @@
 /**
- * pi-loop iteration-prompt builder (pure). The stable molde re-injected each
+ * pandi-loop iteration-prompt builder (pure). The stable molde re-injected each
  * iteration (autonomous objective vs verbatim task; fixed vs dynamic cadence
  * guidance). Extracted from index.ts with the body verbatim; the only change is
  * the parameter type, decoupled from LoopState into a structural input so this

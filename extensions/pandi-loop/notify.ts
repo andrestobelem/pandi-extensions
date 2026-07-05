@@ -16,8 +16,8 @@
  * satisface.
  *
  * NOTE: esta familia autocontenida ahora también comparte el contrato
- * endurecido de ruteo a stderr. pi-docs lleva el mismo comportamiento con un
- * import directo del contexto del SDK, y pi-mdview todavía conserva un tipo de
+ * endurecido de ruteo a stderr. pandi-docs lleva el mismo comportamiento con un
+ * import directo del contexto del SDK, y pandi-mdview todavía conserva un tipo de
  * contexto solo de comando.
  */
 

@@ -9,7 +9,7 @@
  *     token (`--ultracode <task> 5m` keeps fixed cadence AND the posture).
  *   - the posture is persisted on the loop-state snapshot so it survives a reload.
  *
- * Mechanism: pi-loop injects each iteration prompt via `pi.sendUserMessage`. We build the
+ * Mechanism: pandi-loop injects each iteration prompt via `pi.sendUserMessage`. We build the
  * CURRENT index.ts to ESM (same self-bootstrapping pattern as loop-behavior.test.mjs), drive
  * the REAL `/loop` command against a mocked pi/ctx, and capture sendUserMessage + the
  * persisted loop-state snapshots. We assert the OBSERVABLE prompt text and snapshot.

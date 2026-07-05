@@ -82,7 +82,7 @@ async function buildLoop() {
 	});
 }
 
-// pi-loop keeps a singleton activeLoops Map + module-level FIFO wakeQueue. loadDefault's
+// pandi-loop keeps a singleton activeLoops Map + module-level FIFO wakeQueue. loadDefault's
 // cache-busting query gives each scenario a FRESH instance so scenarios never leak state.
 
 // ---------------------------------------------------------------------------
