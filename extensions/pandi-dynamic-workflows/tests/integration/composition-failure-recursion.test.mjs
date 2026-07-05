@@ -1,37 +1,37 @@
 /**
- * Durable behavioral integration test for the FAILURE + RECURSION contracts of ctx.workflow()
- * composition in extensions/pandi-dynamic-workflows/index.ts.
+ * Test de integración conductual durable para los contratos FAILURE + RECURSION de la
+ * composición ctx.workflow() en extensions/pandi-dynamic-workflows/index.ts.
  *
- * The sibling suite (dynamic-workflow-composition.test.mjs) pins the HAPPY-PATH
- * composition contract (shared run/runDir/limits/budget, child-code-hash resume
- * cache, and the NESTED depth-1 guard parent -> child -> grandchild). This suite
- * pins two contracts that the happy-path suite does NOT cover:
+ * La suite hermana (dynamic-workflow-composition.test.mjs) pinea el contrato de composición
+ * HAPPY-PATH (run/runDir/limits/budget compartidos, resume cache por hash de código del child
+ * y guard NESTED depth-1 parent -> child -> grandchild). Esta suite pinea dos contratos que
+ * la suite happy-path NO cubre:
  *
- *   1. DIRECT self-recursion is refused with a DISTINCT message. The nested guard
+ *   1. La self-recursion DIRECT se rechaza con un mensaje DISTINCT. El guard anidado
  *      (`composition depth limit is 1: sub-workflows cannot call other sub-workflows`)
- *      only catches parent -> child -> grandchild. A workflow that calls ITSELF via
- *      ctx.workflow("<own name>") never goes a level deeper, so the nested guard
- *      never fires; a separate path-equality check in runSubworkflow refuses it with
- *      `refused recursive call ... may not call their parent`. Without that check a
- *      self-calling workflow recurses until the stack/limits blow — this is the guard
- *      that prevents an infinite run, and it had zero integration coverage.
+ *      solo atrapa parent -> child -> grandchild. Un workflow que se llama A SÍ MISMO vía
+ *      ctx.workflow("<own name>") nunca baja un nivel más, así que el guard anidado
+ *      no dispara; un chequeo separado de igualdad de paths en runSubworkflow lo rechaza con
+ *      `refused recursive call ... may not call their parent`. Sin ese chequeo, un workflow
+ *      que se llama a sí mismo recursa hasta reventar stack/limits: este es el guard que
+ *      previene un run infinito, y tenía cero cobertura de integración.
  *
- *   2. A sub-workflow FAILURE propagates to the parent AS A NORMAL THROW and the run
- *      records a `workflow` `phase:"error"` event (ok:false, with the message). The
- *      happy-path suite only asserts the `phase:"end"`/ok:true event. If a regression
- *      swallowed child errors (returned undefined instead of rethrowing), a parent
- *      would silently continue past a failed sub-step and the run would look "ok"
- *      while a phase never executed. We assert BOTH that the throw is catchable by the
- *      parent (so composition failures are recoverable, not unconditionally fatal) AND
- *      that the error event is recorded for observability even when the parent recovers.
+ *   2. Un FAILURE de sub-workflow se propaga al parent COMO THROW NORMAL y el run
+ *      registra un evento `workflow` `phase:"error"` (ok:false, con el mensaje). La suite
+ *      happy-path solo aserta el evento `phase:"end"`/ok:true. Si una regresión tragara
+ *      errores del child (devolviera undefined en vez de relanzar), un parent continuaría
+ *      silenciosamente después de un sub-step fallido y el run se vería "ok" mientras una
+ *      phase nunca se ejecutó. Asertamos AMBAS cosas: que el throw sea catchable por el
+ *      parent (así los failures de composición son recuperables, no fatal incondicionalmente) Y
+ *      que el evento de error se registre para observabilidad incluso cuando el parent se recupera.
  *
- * Same self-bootstrapping pattern as the other integration tests: esbuild the CURRENT source to a
- * tempdir (never stale), alias typebox/SDK/tui to local stubs (runs without
- * `npm install`), install real workflow files under a temp project's .pi/workflows,
- * and drive the REAL `dynamic_workflow` tool. Assertions are on OBSERVABLE outcomes
- * (run ok/error, recorded events), never copies of the source internals.
+ * Mismo patrón self-bootstrapping que los otros tests de integración: esbuild de la fuente ACTUAL a un
+ * tempdir (nunca stale), alias typebox/SDK/tui a stubs locales (corre sin
+ * `npm install`), instalar archivos de workflow reales bajo .pi/workflows de un proyecto temp
+ * y manejar la tool REAL `dynamic_workflow`. Las aserciones son sobre resultados OBSERVABLES
+ * (run ok/error, eventos registrados), nunca copias de los internals de fuente.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/composition-failure-recursion.test.mjs
  */
 
@@ -165,15 +165,15 @@ async function runTool(tool, ctx, params) {
 	return await tool.execute("tc-integration", params, new AbortController().signal, undefined, ctx);
 }
 
-// action="run" THROWS formatRunSummary(result) when the run fails (it does not
-// return { ok:false }). The summary text carries `Artifacts: <runDir>` and
-// `Error: <message>`, which is the observable surface the agent/user sees. This
-// helper runs a workflow expected to FAIL and returns the parsed failure surface.
+// action="run" HACE THROW de formatRunSummary(result) cuando el run falla (no
+// devuelve { ok:false }). El texto de summary lleva `Artifacts: <runDir>` y
+// `Error: <message>`, que es la superficie observable que ve el agente/usuario. Este
+// helper corre un workflow esperado a FALLAR y devuelve la superficie de failure parseada.
 async function runExpectingFailure(tool, ctx, params) {
 	let message;
 	try {
 		const ok = await runTool(tool, ctx, params);
-		// Should not happen for a failing run; surface the unexpected success.
+		// No debería pasar para un run fallido; exponé el éxito inesperado.
 		return { threw: false, message: "", runDir: undefined, ok };
 	} catch (err) {
 		message = err instanceof Error ? err.message : String(err);
@@ -188,12 +188,12 @@ async function runExpectingFailure(tool, ctx, params) {
 	};
 }
 
-// --- Scenario 1: a workflow that calls ITSELF is refused with the DISTINCT
-//     "recursive call ... may not call their parent" message (not the nested
-//     depth-1 message), and the run fails instead of looping forever. -----------
+// --- Escenario 1: un workflow que se llama A SÍ MISMO se rechaza con el mensaje DISTINCT
+//     "recursive call ... may not call their parent" (no el mensaje anidado
+//     depth-1), y el run falla en vez de loopear para siempre. ------------------
 async function scenarioDirectSelfRecursion(url) {
 	const project = await makeProject();
-	// The workflow's resolved name (from the .pi/workflows path) is "selfie".
+	// El nombre resuelto del workflow (desde el path .pi/workflows) es "selfie".
 	await writeWorkflow(
 		project,
 		"selfie",
@@ -227,10 +227,10 @@ module.exports = async function workflow(ctx) {
 	);
 }
 
-// --- Scenario 2: a sub-workflow that THROWS propagates to the parent and the run
-//     records a workflow phase:"error" event (ok:false, with the message), while a
-//     sibling successful child still records phase:"end"/ok:true. The parent here
-//     lets the error bubble, so the run fails. ----------------------------------
+// --- Escenario 2: un sub-workflow que HACE THROW se propaga al parent y el run
+//     registra un evento workflow phase:"error" (ok:false, con el mensaje), mientras un
+//     child sibling exitoso todavía registra phase:"end"/ok:true. El parent acá
+//     deja burbujear el error, así que el run falla. ----------------------------
 async function scenarioChildFailurePropagates(url) {
 	const project = await makeProject();
 	await writeWorkflow(
@@ -309,7 +309,7 @@ module.exports = async function workflow() {
 		errEvent ? /child-boom-42/.test(String(errEvent.error || "")) : false,
 		JSON.stringify(errEvent),
 	);
-	// Positive control: the healthy child still emits a clean end/ok:true event.
+	// Control positivo: el child sano todavía emite un evento end/ok:true limpio.
 	const okEvent = events.find(
 		(e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/healthy-child" && e.ok === true,
 	);
@@ -318,16 +318,16 @@ module.exports = async function workflow() {
 		Boolean(okEvent),
 		JSON.stringify(events.filter((e) => e.type === "workflow")),
 	);
-	// The failing child must NOT also have an end/ok:true event (would mean it was treated as success).
+	// El child fallido NO debe tener también un evento end/ok:true (significaría que se trató como éxito).
 	const falseSuccess = events.find(
 		(e) => e.type === "workflow" && e.phase === "end" && e.name === "lib/throwing-child" && e.ok === true,
 	);
 	check("child-failure: failing child has NO phase:end/ok:true event", !falseSuccess, JSON.stringify(falseSuccess));
 }
 
-// --- Scenario 3: the child failure is a NORMAL JS throw the parent can try/catch,
-//     so composition failures are RECOVERABLE; the run then succeeds, yet the
-//     phase:"error" event is STILL recorded for observability. -------------------
+// --- Escenario 3: el failure del child es un throw JS NORMAL que el parent puede try/catch,
+//     así que los failures de composición son RECUPERABLES; luego el run tiene éxito, pero el
+//     evento phase:"error" IGUAL queda registrado para observabilidad. -----------
 async function scenarioParentRecoversFromChildFailure(url) {
 	const project = await makeProject();
 	await writeWorkflow(

@@ -1,30 +1,30 @@
 /**
- * Behavioral integration tests for the `race()` global + in-flight subagent cancellation.
+ * Tests de integración conductuales para el global `race()` + cancelación de subagentes in-flight.
  *
- * Runs real workflows through the Worker with a faked `pi` agent subprocess
- * (PI_DYNAMIC_WORKFLOWS_PI_COMMAND). Each branch's role is encoded in its prompt
- * ([role:...][id:...][need:N]) so one flexible fake-pi covers every scenario:
+ * Corre workflows reales por el Worker con un subprocess de agente `pi` fakeado
+ * (PI_DYNAMIC_WORKFLOWS_PI_COMMAND). El rol de cada branch se codifica en su prompt
+ * ([role:...][id:...][need:N]) para que un único fake-pi flexible cubra todos los escenarios:
  *
- *   winner-basic         — race returns the winner's value/index/status "won"; the two in-flight
- *                          LOSERS each receive a real SIGTERM (winner untouched); and the journal
- *                          holds ONLY the winner's record (cancelled losers leave holes, not records).
- *   first-success-wins   — a branch that FAILS fast (-> null) never wins; a later branch wins and the
- *                          healthy loser is still cancelled. Proves accept-semantics + first SUCCESS.
- *   resume-valid-winner  — re-running a completed race replays the journaled winner (cache hit) and
- *                          yields a VALID winner (B2: valid, not necessarily identical), journal clean.
- *   empty-contract       — all branches fail -> { winner:null, index:-1, status:"empty" }; journal clean.
+ *   winner-basic         — race devuelve value/index/status "won" del winner; los dos LOSERS
+ *                          in-flight reciben cada uno un SIGTERM real (winner intacto); y el journal
+ *                          contiene SOLO el record del winner (losers cancelados dejan huecos, no records).
+ *   first-success-wins   — un branch que FALLA rápido (-> null) nunca gana; un branch posterior gana y el
+ *                          loser sano igual se cancela. Prueba accept-semantics + primer SUCCESS.
+ *   resume-valid-winner  — re-correr una race completada reproduce el winner journaleado (cache hit) y
+ *                          produce un winner VÁLIDO (B2: válido, no necesariamente idéntico), journal limpio.
+ *   empty-contract       — todos los branches fallan -> { winner:null, index:-1, status:"empty" }; journal limpio.
  *
- * Determinism: the winner waits for `spawned-*` markers (a filesystem barrier, never sleeps) and
- * flushes stdout before exit; LOSERS self-exit after a generous fallback so a missed kill can never
- * deadlock the suite.
+ * Determinismo: el winner espera marcadores `spawned-*` (una barrera de filesystem, nunca sleeps) y
+ * flushea stdout antes de salir; los LOSERS hacen self-exit después de un fallback generoso para que un kill perdido
+ * nunca pueda deadlockear la suite.
  *
- * Follow-up not covered here (impl is in place, typecheck-verified): the concurrency<branches
- * pre-spawn-guard regime (B1 regime b). With concurrency 1 a race is effectively SEQUENTIAL, so
- * which branch runs (and wins) first is a scheduling detail, not a fixed order — making a
- * deterministic "the instant winner wins / the parked loser never completes" assertion infeasible
- * without a finer scheduling harness.
+ * Follow-up no cubierto acá (impl presente, verificada por typecheck): el régimen concurrency<branches
+ * pre-spawn-guard (régimen B1 b). Con concurrency 1 una race es efectivamente SECUENCIAL, así que
+ * qué branch corre (y gana) primero es un detalle de scheduling, no un orden fijo — lo que hace inviable
+ * una aserción determinista "el winner instantáneo gana / el loser parked nunca completa"
+ * sin un harness de scheduling más fino.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/race-cancellation.test.mjs
  */
 import { watch as watchDir } from "node:fs";
@@ -38,7 +38,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
-// Top-level script: race() over prompts supplied via args, each forwarding its signal.
+// Script top-level: race() sobre prompts provistos vía args, cada uno forwardea su signal.
 const WORKFLOW = [
 	"const result = await race(args.prompts.map((p) => (signal) => agent(p, { signal })));",
 	"await writeArtifact('race.json', result);",
@@ -102,14 +102,14 @@ function makeCtx(cwd) {
 	};
 }
 
-// Flexible fake `pi`. The prompt (last argv) encodes a role:
-//   [role:win-barrier][id:X][need:N] -> wait until N `spawned-*` markers exist, then emit + exit 0.
-//   [role:win-now][id:X]             -> emit + exit 0 immediately (instant winner).
-//   [role:fail][id:X]                -> announce spawn, then exit 1 (no output -> null).
-//   [role:lose][id:X]                -> announce spawn; SIGTERM -> `cancelled-X` + exit; otherwise a
-//                                       fallback timer writes `completed-X` + exits (no infinite block).
-// The winner flushes stdout (write callback) BEFORE exiting, so a fast exit never truncates output.
-// `.cjs` so `require` works (the file is spawned directly via shebang).
+// Fake `pi` flexible. El prompt (último argv) codifica un rol:
+//   [role:win-barrier][id:X][need:N] -> esperar hasta que existan N marcadores `spawned-*`, luego emitir + exit 0.
+//   [role:win-now][id:X]             -> emitir + exit 0 inmediatamente (winner instantáneo).
+//   [role:fail][id:X]                -> anunciar spawn, luego exit 1 (sin output -> null).
+//   [role:lose][id:X]                -> anunciar spawn; SIGTERM -> `cancelled-X` + exit; de lo contrario un
+//                                       fallback timer escribe `completed-X` + sale (sin bloqueo infinito).
+// El winner flushea stdout (write callback) ANTES de salir, así un exit rápido nunca trunca output.
+// `.cjs` para que `require` funcione (el archivo se spawnea directamente vía shebang).
 async function writeFakePi(barrierDir, tag) {
 	const fakePi = path.join(barrierDir, `fake-pi-${tag}.cjs`);
 	await fs.writeFile(
@@ -216,7 +216,7 @@ async function readJournalAgentRecords(runDir) {
 }
 
 let tagSeq = 0;
-// A reusable runner bound to one fresh project + fake-pi, so a scenario can run AND resume.
+// Runner reutilizable ligado a un proyecto fresco + fake-pi, para que un escenario pueda correr Y reanudar.
 async function makeRunner(url) {
 	const tag = tagSeq++;
 	const mod = await import(`${url}?i=${tag}`);
@@ -383,10 +383,10 @@ async function scenarioEmptyContract(url) {
 	}
 }
 
-// Run-level cancellation: when the WHOLE run signal aborts (user cancel) with a subagent call
-// still in-flight, cleanup() must SIGTERM the child, not leave it running until its own timeout.
-// The bug: onAbort (run signal) fired first and cleanup disposed each per-call combined signal
-// BEFORE that signal's own abort listener ran, so the child was never killed.
+// Cancelación a nivel run: cuando aborta el signal de TODO el run (cancelación de usuario) con una llamada
+// de subagente todavía in-flight, cleanup() debe SIGTERMear el child, no dejarlo corriendo hasta su propio timeout.
+// El bug: onAbort (signal del run) disparaba primero y cleanup disposeaba cada signal combinado por llamada
+// ANTES de que corriera el abort listener propio de ese signal, así que el child nunca se mataba.
 async function scenarioRunAbortCancelsInflight(url) {
 	const tag = tagSeq++;
 	const mod = await import(`${url}?i=${tag}`);
@@ -424,7 +424,7 @@ async function scenarioRunAbortCancelsInflight(url) {
 			return { threw: String(e?.message ?? e) };
 		}
 	});
-	// Wait until the child has spawned (call in-flight), then abort the whole run.
+	// Esperá hasta que el child haya spawneado (llamada in-flight), luego abortá todo el run.
 	const spawned = await waitForMarkers(barrierDir, "spawned-", 1, 8000);
 	check(
 		"run-abort: the subagent child spawned (in-flight before abort)",
@@ -442,11 +442,11 @@ async function scenarioRunAbortCancelsInflight(url) {
 	);
 }
 
-// A race() loser that fans out via agents({ signal }) must have its in-flight children CANCELLED
-// when it loses, like agent()/ask() losers do. The worker must bridge the per-call abort to the
-// host (post abort-call) AND the host must honor that signal in the agents fan-out; otherwise the
-// losing agents branch's children run to their own timeout. (Note: in Node >=20 postMessage can
-// structured-clone an AbortSignal, so this is a cancellation gap, not a DataCloneError crash.)
+// Un loser de race() que hace fan-out vía agents({ signal }) debe CANCELAR sus children in-flight
+// cuando pierde, igual que hacen los losers de agent()/ask(). El worker debe puentear el abort por llamada al
+// host (post abort-call) Y el host debe honrar ese signal en el fan-out de agents; si no, los children
+// del branch agents perdedor corren hasta su propio timeout. (Nota: en Node >=20 postMessage puede
+// structured-clonear un AbortSignal, así que esto es un gap de cancelación, no un crash DataCloneError).
 async function scenarioRaceAgentsLosersCancelled(url) {
 	const tag = tagSeq++;
 	const mod = await import(`${url}?i=${tag}`);
@@ -460,8 +460,8 @@ async function scenarioRaceAgentsLosersCancelled(url) {
 			"  (signal) => agents(args.losers, { signal, concurrency: 2 }),",
 			"  (signal) => agent(args.winner, { signal }),",
 			"]);",
-			// Keep the run alive AFTER the race resolves so run-end cleanup does not mask whether the
-			// losing agents() branch was cancelled AT RACE-LOSS (the real gap) vs only at run end.
+			// Mantené vivo el run DESPUÉS de que race resuelva para que el cleanup de run-end no enmascare si el
+			// branch agents() perdedor se canceló EN RACE-LOSS (el gap real) vs solo al final del run.
 			"await sleep(3000);",
 			"return result;",
 		].join("\n"),
@@ -472,8 +472,8 @@ async function scenarioRaceAgentsLosersCancelled(url) {
 	const { pi, tools } = makePi();
 	(ext.activate ?? ext)(pi, makeCtx(project));
 	const tool = tools.get("dynamic_workflow");
-	// Start the run WITHOUT awaiting: the winner blocks on the 2 loser spawns, then wins; the
-	// workflow then sleeps 3s. We observe the losers' state DURING that sleep window.
+	// Arrancá el run SIN await: el winner bloquea hasta los 2 spawns de losers y luego gana; después el
+	// workflow duerme 3s. Observamos el estado de los losers DURANTE esa ventana de sleep.
 	const runPromise = withFakePi(fakePi, async () => {
 		const res = await tool.execute(
 			"tc-ragts",
@@ -494,9 +494,9 @@ async function scenarioRaceAgentsLosersCancelled(url) {
 		);
 		return res?.details?.result;
 	});
-	// The winner writes won-win when it wins => the race has resolved and the losing agents branch
-	// has lost. If losers are cancelled AT RACE-LOSS they get SIGTERM within ~ms; if only at run end
-	// they stay alive through the 3s sleep. Give a tight window that ends well before run end.
+	// El winner escribe won-win cuando gana => la race resolvió y el branch agents perdedor
+	// perdió. Si los losers se cancelan EN RACE-LOSS reciben SIGTERM en ~ms; si solo al final del run,
+	// siguen vivos durante el sleep de 3s. Dales una ventana ajustada que termine bastante antes del run-end.
 	await waitForMarkers(barrierDir, "won-", 1, 8000);
 	const cancelledAtLoss = await waitForMarkers(barrierDir, "cancelled-", 2, 1500);
 	const completedAtLoss = await listMarkers(barrierDir, "completed-");

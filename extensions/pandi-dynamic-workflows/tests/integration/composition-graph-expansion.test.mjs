@@ -1,37 +1,37 @@
 /**
- * Durable behavioral integration test for the STATIC sub-workflow expansion in the workflow GRAPH
- * (`dynamic_workflow action="graph"`) of extensions/pandi-dynamic-workflows/index.ts.
+ * Test de integración conductual durable para la expansión ESTÁTICA de sub-workflows en el GRAPH
+ * de workflow (`dynamic_workflow action="graph"`) de extensions/pandi-dynamic-workflows/index.ts.
  *
- * This is the STATIC analogue of dynamic-workflow-composition.test.mjs. That suite (and
- * passes 5/6) only exercise composition at RUNTIME (action="run"/"resume" → runSubworkflow).
- * NOBODY exercised the STATIC graph that expands ctx.workflow("name") one level by reading
- * the child file at preview time. That surface was introduced by commits:
+ * Este es el análogo ESTÁTICO de dynamic-workflow-composition.test.mjs. Esa suite (y
+ * los pases 5/6) solo ejercita composición en RUNTIME (action="run"/"resume" → runSubworkflow).
+ * NADIE ejercitaba el graph ESTÁTICO que expande ctx.workflow("name") un nivel leyendo
+ * el archivo child en preview time. Esa superficie fue introducida por los commits:
  *   - ccc51ca "feat(dynamic-workflows): expand subworkflows in workflow graphs"
  *   - 907f0c2 "fix(dynamic-workflows): ignore comments when graphing workflow calls"
- * via buildWorkflowGraphModelWithSubworkflows (dynamic-workflows.ts ~:2527) → makeWorkflowGraphForContext.
- * A silent regression here is invisible to tsc (string parsing + file resolution + render).
+ * vía buildWorkflowGraphModelWithSubworkflows (dynamic-workflows.ts ~:2527) → makeWorkflowGraphForContext.
+ * Una regresión silenciosa acá es invisible para tsc (parseo de strings + resolución de archivos + render).
  *
- * Six OBSERVABLE contracts pinned (all surfaced in `details.graph` / content text of action=graph):
- *   1. Literal happy path: ctx.workflow("lib/rank-candidates") with a LITERAL name resolves the
- *      child file, parses it, and the graph contains `expands: <name> (<n> steps)` plus the
- *      child's sub-graph lines (renderWorkflowGraphSubworkflowSummaryLines).
- *   2. Dynamic name: ctx.workflow(someVar) is NOT resolved →
+ * Seis contratos OBSERVABLES pineados (todos salen en `details.graph` / texto de content de action=graph):
+ *   1. Happy path literal: ctx.workflow("lib/rank-candidates") con nombre LITERAL resuelve el
+ *      archivo child, lo parsea, y el graph contiene `expands: <name> (<n> steps)` más las
+ *      líneas del sub-graph del child (renderWorkflowGraphSubworkflowSummaryLines).
+ *   2. Nombre dinámico: ctx.workflow(someVar) NO se resuelve →
  *      "dynamic sub-workflow name; cannot resolve statically".
- *   3. Depth limit: a child that itself calls ctx.workflow(...) (grandchild) is not expanded →
+ *   3. Límite de profundidad: un child que a su vez llama ctx.workflow(...) (grandchild) no se expande →
  *      "nested sub-workflows are not expanded; runtime composition depth limit is 1".
- *   4. Recursion guard: a workflow that calls ITSELF (ctx.workflow("<own name>")) → at depth 0 the
- *      resolved path is already in `seen` → "recursive sub-workflow skipped: <name>". (A deeper cycle
- *      hits the depth-limit message first, so the guard is exercised at the depth-0 self-call.)
- *   5. Unresolvable literal: ctx.workflow("does-not-exist") → resolve throws, caught into
+ *   4. Guard de recursión: un workflow que se llama A SÍ MISMO (ctx.workflow("<own name>")) → en depth 0 el
+ *      path resuelto ya está en `seen` → "recursive sub-workflow skipped: <name>". (Un ciclo más profundo
+ *      pega primero con el mensaje de depth-limit, así que el guard se ejercita en la self-call depth-0.)
+ *   5. Literal irresoluble: ctx.workflow("does-not-exist") → resolve hace throw, capturado en
  *      subworkflowError "Workflow not found: does-not-exist".
- *   6. Comment-ignoring (907f0c2): a ctx.workflow(...) inside a // line or block comment is NOT
- *      detected as a sub-workflow step at all.
+ *   6. Ignorar comentarios (907f0c2): un ctx.workflow(...) dentro de una línea // o block comment NO
+ *      se detecta como step de sub-workflow.
  *
- * The graph only PARSES the child's source; it never executes it, so the child workflows can be
- * minimal source files. They are installed into a temp project's .pi/workflows/{,lib/} exactly as
- * the runtime resolves them, and we drive the REAL dynamic_workflow tool with action="graph".
+ * El graph solo PARSEA la fuente del child; nunca la ejecuta, así que los workflows child pueden ser
+ * archivos fuente mínimos. Se instalan en .pi/workflows/{,lib/} de un proyecto temp exactamente como
+ * el runtime los resuelve, y manejamos la tool REAL dynamic_workflow con action="graph".
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/composition-graph-expansion.test.mjs
  */
 
@@ -141,7 +141,7 @@ async function runTool(tool, ctx, params) {
 	return await tool.execute("tc-integration", params, new AbortController().signal, undefined, ctx);
 }
 
-// Run action=graph for `name` and return the rendered graph text (same string the agent/user sees).
+// Corré action=graph para `name` y devolvé el texto de graph renderizado (mismo string que ve el agente/usuario).
 async function graphOf(url, project, name) {
 	const ext = await freshExtension(url);
 	const { pi, tools } = makePi();
@@ -150,14 +150,14 @@ async function graphOf(url, project, name) {
 	const response = await runTool(tools.get("dynamic_workflow"), ctx, { action: "graph", name });
 	const fromDetails = response?.details?.graph;
 	const fromContent = response?.content?.[0]?.text;
-	// Both surfaces must carry the same graph string (regression guard on the response shape).
+	// Ambas superficies deben llevar el mismo string de graph (guard de regresión sobre la forma de respuesta).
 	if (typeof fromDetails === "string" && typeof fromContent === "string") {
 		check(`graph[${name}]: details.graph === content text`, fromDetails === fromContent);
 	}
 	return fromDetails ?? fromContent ?? "";
 }
 
-// A minimal child library workflow: two ctx.* steps, no nested ctx.workflow.
+// Workflow child library mínimo: dos steps ctx.*, sin ctx.workflow anidado.
 const RANK_CHILD = `
 module.exports = async function workflow(ctx, input) {
   const scored = await ctx.agents(input.candidates.map((c) => ({ prompt: "score " + c })), { name: "juror" });
@@ -166,7 +166,7 @@ module.exports = async function workflow(ctx, input) {
 };
 `;
 
-// 1. Literal happy path: parent calls a literal lib/ child; the child must be expanded inline.
+// 1. Happy path literal: el parent llama un child lib/ literal; el child debe expandirse inline.
 async function scenarioLiteralExpansion(url) {
 	const project = await makeProject();
 	await writeWorkflow(
@@ -194,7 +194,7 @@ module.exports = async function workflow(ctx, input) {
 		/↳ sub-workflow graph: lib\/rank-candidates \(\d+ steps\)/.test(graph),
 		graph,
 	);
-	// The child's own steps (agents/writeArtifact) must appear inside the expanded subgraph.
+	// Los steps propios del child (agents/writeArtifact) deben aparecer dentro del subgraph expandido.
 	check(
 		"literal: child fan-out step surfaced in subgraph",
 		/ctx\.agents/.test(graph) && /ctx\.workflow/.test(graph),
@@ -205,7 +205,7 @@ module.exports = async function workflow(ctx, input) {
 	check("literal: no 'subgraph unavailable' for the resolvable child", !/subgraph unavailable/.test(graph), graph);
 }
 
-// 2. Dynamic name: ctx.workflow(variable) cannot be resolved statically.
+// 2. Nombre dinámico: ctx.workflow(variable) no se puede resolver estáticamente.
 async function scenarioDynamicName(url) {
 	const project = await makeProject();
 	await writeWorkflow(
@@ -229,7 +229,7 @@ module.exports = async function workflow(ctx, input) {
 	check("dynamic: does NOT claim to expand a child", !/expands:/.test(graph), graph);
 }
 
-// 3. Depth limit: child resolves, but its own ctx.workflow grandchild is not expanded (depth >= 1).
+// 3. Límite de profundidad: el child resuelve, pero su propio grandchild ctx.workflow no se expande (depth >= 1).
 async function scenarioDepthLimit(url) {
 	const project = await makeProject();
 	await writeWorkflow(
@@ -263,9 +263,9 @@ module.exports = async function workflow(ctx) {
 	check("depth: grandchild's own body is NOT inlined", !/depth-grandchild \(\d+ steps\)/.test(graph), graph);
 }
 
-// 4. Recursion guard: a workflow that calls ITSELF. At depth 0, the resolved self-path is already
-//    in `seen`, so the seen-based guard fires (NOT the depth-limit branch — that only triggers at
-//    depth >= 1, i.e. one level deeper). This pins the distinct recursive-skip message.
+// 4. Guard de recursión: un workflow que se llama A SÍ MISMO. En depth 0, el self-path resuelto ya está
+//    en `seen`, así que dispara el guard basado en seen (NO la rama de depth-limit, que solo dispara en
+//    depth >= 1, es decir, un nivel más profundo). Esto pinea el mensaje recursive-skip distinto.
 async function scenarioRecursionGuard(url) {
 	const project = await makeProject();
 	await writeWorkflow(
@@ -285,12 +285,12 @@ module.exports = async function workflow(ctx) {
 		/recursive sub-workflow skipped: graph-recur/.test(graph),
 		graph,
 	);
-	// Critically NOT the depth-limit message: the seen-guard must win for a depth-0 self-call.
+	// Críticamente NO es el mensaje de depth-limit: el seen-guard debe ganar para una self-call depth-0.
 	check("recursion: not mislabeled as depth-limit", !/depth limit is 1/.test(graph), graph);
 	check("recursion: does not infinitely inline itself", !/expands:\s*graph-recur/.test(graph), graph);
 }
 
-// 5. Unresolvable literal: ctx.workflow("does-not-exist") → resolve throws, caught into subworkflowError.
+// 5. Literal irresoluble: ctx.workflow("does-not-exist") → resolve hace throw, capturado en subworkflowError.
 async function scenarioUnresolvable(url) {
 	const project = await makeProject();
 	await writeWorkflow(
@@ -308,10 +308,10 @@ module.exports = async function workflow(ctx) {
 	check("unresolvable: does NOT claim to expand", !/expands:\s*lib\/no-such-workflow/.test(graph), graph);
 }
 
-// 6. Comment-ignoring (907f0c2): ctx.workflow(...) inside comments must NOT be graphed.
+// 6. Ignorar comentarios (907f0c2): ctx.workflow(...) dentro de comentarios NO debe graficarse.
 async function scenarioCommentIgnored(url) {
 	const project = await makeProject();
-	// Only commented-out ctx.workflow calls; the live body has a single real ctx.agent.
+	// Solo llamadas ctx.workflow comentadas; el cuerpo vivo tiene un único ctx.agent real.
 	await writeWorkflow(
 		project,
 		"graph-commented",
@@ -324,8 +324,8 @@ module.exports = async function workflow(ctx) {
 };
 `,
 	);
-	// Resolvable target exists, so if a commented call WERE graphed it would even expand — making
-	// the bug loud. The contract: it must not be detected at all.
+	// El target resolvible existe, así que si una llamada comentada SE graficara incluso expandiría,
+	// haciendo ruidoso el bug. El contrato: no debe detectarse en absoluto.
 	await writeWorkflow(project, "lib/rank-candidates", RANK_CHILD);
 
 	const graph = await graphOf(url, project, "graph-commented");
@@ -333,8 +333,8 @@ module.exports = async function workflow(ctx) {
 	check("comments: does not expand the commented child", !/expands:\s*lib\/rank-candidates/.test(graph), graph);
 	check("comments: the real ctx.agent step IS present", /ctx\.agent\b/.test(graph), graph);
 
-	// Positive control: an IDENTICAL workflow with the call UNcommented DOES expand → proves the
-	// negative above is caused by the comment, not by some unrelated parse failure.
+	// Control positivo: un workflow IDÉNTICO con la llamada DEScomentada SÍ expande → prueba que
+	// el negativo anterior lo causa el comentario, no algún fallo de parseo no relacionado.
 	await writeWorkflow(
 		project,
 		"graph-uncommented",
@@ -354,7 +354,7 @@ module.exports = async function workflow(ctx) {
 	);
 }
 
-// A globals-style child library workflow (export default main() + injected globals, no ctx.*).
+// Workflow child library estilo globals (export default main() + globals inyectados, sin ctx.*).
 const RANK_CHILD_GLOBALS = `
 export default async function main() {
   const scored = await agents(args.candidates.map((c) => ({ prompt: "score " + c })), { name: "juror" });
@@ -363,9 +363,9 @@ export default async function main() {
 };
 `;
 
-// Globals-style parent: bare agent()/agents()/workflow()/writeArtifact() calls (no ctx.*). The
-// graph parser must detect these exactly like ctx.* calls; previously it only matched `ctx.<m>(`,
-// so a globals-style workflow rendered an EMPTY graph ("No ... workflow API calls detected").
+// Parent estilo globals: llamadas desnudas agent()/agents()/workflow()/writeArtifact() (sin ctx.*). El
+// parser de graph debe detectarlas exactamente como llamadas ctx.*; antes solo matcheaba `ctx.<m>(`,
+// así que un workflow estilo globals renderizaba un graph VACÍO ("No ... workflow API calls detected").
 async function scenarioGlobalsStyleDetected(url) {
 	const project = await makeProject();
 	await writeWorkflow(
@@ -397,8 +397,8 @@ export default async function main() {
 		/expands:\s*lib\/rank-globals\s*\(\d+ steps\)/.test(graph),
 		graph,
 	);
-	// Accuracy: globals-style calls (parent AND child are globals here) must NOT be mislabeled with a
-	// `ctx.` prefix in the rendered step lines.
+	// Precisión: las llamadas estilo globals (parent Y child son globals acá) NO deben quedar mal etiquetadas con un
+	// prefijo `ctx.` en las líneas de step renderizadas.
 	check("globals: steps are NOT mislabeled with a ctx. prefix", !/ctx\./.test(graph), graph);
 }
 
