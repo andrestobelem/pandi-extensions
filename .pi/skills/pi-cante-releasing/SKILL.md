@@ -14,7 +14,7 @@ description: Release and maintain the pi-cante / pandi distributions (the pi cod
   | key | npm | bin | configDir |
   |---|---|---|---|
   | `pi-cante` (committed default) | `@pandi-coding-agent/pi-cante` | `pi-cante` | `.pi-cante` |
-  | `pandi` | `pandi-coding-agent` (unscoped — `@pandi-coding-agent/pandi` is taken by the pi-pandi *extension*) | `pandi` | `.pandi` |
+  | `pandi` | `pandi-coding-agent` (unscoped — `@pandi-coding-agent/pandi` is taken by the pandi *extension*) | `pandi` | `.pandi` |
 
 - **Versions**: `<upstream base>-<distro>.<n>` (e.g. `0.80.3-cante.1`). npm prereleases MUST be published with `--tag latest` explicitly; `npm i -g` follows the dist-tag so semver ordering doesn't matter.
 - The 21 `@pandi-coding-agent/*` extensions are **pinned `dependencies`** locked by the published `npm-shrinkwrap.json` — NOT `bundledDependencies` (npm assumes those are in the tarball and silently skips installing them; workspace hoisting keeps them out of the tarball).
