@@ -1,25 +1,24 @@
 /**
- * Plan-approval Markdown OVERLAY — the mdview-style surface submit_plan uses to present a
- * plan for approval when the session can show a custom component.
+ * Overlay Markdown de aprobación de plan — la superficie de estilo mdview que submit_plan usa para presentar un plan para aprobación cuando la sesión puede mostrar un componente personalizado.
  *
- * Why this duplicates pandi-mdview's viewer (on purpose)
+ * Por qué replica el visor de pandi-mdview (a propósito)
  * ---------------------------------------------------
- * Pi loads each extension self-contained, so pandi-plan may NOT import pandi-mdview's viewer at
- * runtime (a cross-extension import breaks a standalone install — see the repo's
- * self-contained-extension rule). The small Markdown theme + scroll-viewer logic is therefore
- * DUPLICATED here, then EXTENDED with a decision: unlike the read-only mdview viewer (which only
- * closes on q/Esc), this overlay resolves to a boolean — APPROVE or REJECT — so it both renders
- * the plan (headings/lists/code, scrollable) AND collects the approval in one screen.
+ * Pi carga cada extensión autocontenida, así que pandi-plan NO PUEDE importar el visor de pandi-mdview en
+ * runtime (una importación entre extensiones rompe una instalación standalone — ver la regla
+ * self-contained-extension del repo). La pequeña lógica de tema Markdown + scroll-viewer se
+ * REPLICA aquí, luego SE EXTIENDE con una decisión: a diferencia del visor mdview de solo lectura (que solo
+ * cierra con q/Esc), este overlay se resuelve a un booleano — APPROVE o REJECT — así que tanto renderiza
+ * el plan (headings/lists/code, scrollable) como recoge la aprobación en una pantalla.
  *
- * Decision keys map SAFELY: y / Y / Enter => APPROVE; n / N / Esc / q => REJECT. A dismiss
- * (Esc/q) is a REJECT, never an implicit approval — the whole point of plan mode is that the
- * human must EXPLICITLY approve before any mutation, so the dangerous direction (dismiss silently
- * approving) is impossible here.
+ * Las teclas de decisión mapean SEGURAMENTE: y / Y / Enter => APPROVE; n / N / Esc / q => REJECT. Un cierre
+ * (Esc/q) es un REJECT, nunca una aprobación implícita — el punto entero del modo plan es que el
+ * usuario DEBE aprobar explícitamente antes de cualquier mutación, así que la dirección peligrosa (cerrar silenciosamente
+ * aprobando) es imposible acá.
  *
- * Like pandi-mdview's viewer and pandi-plan's dashboard overlay, the live TUI wiring is exercised by
- * a suite that drives the component through a mocked ctx.ui.custom (see
- * tests/integration/plan-approval-view.test.mjs). Any overlay failure is the CALLER's concern:
- * submit_plan falls back to ctx.ui.confirm so approval is never lost.
+ * Como el visor de pandi-mdview y el overlay de dashboard de pandi-plan, el cableado TUI vivo se ejercita por
+ * una suite que maneja el componente a través de un ctx.ui.custom mocked (ver
+ * tests/integration/plan-approval-view.test.mjs). Cualquier fallo del overlay es responsabilidad del LLAMADOR:
+ * submit_plan vuelve a ctx.ui.confirm así que la aprobación nunca se pierde.
  */
 
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -43,9 +42,9 @@ function boundedLine(text: string, width: number): string {
 	return padToWidth(truncateToWidth(text, Math.max(1, width)), width);
 }
 
-// Build the Markdown theme from the runtime `theme` object using ONLY type-only SDK imports —
-// same reasoning as pandi-mdview: importing the SDK's getMarkdownTheme() as a VALUE would pull the
-// whole coding-agent runtime into the bundle and break the self-contained extension load.
+// Arma el tema Markdown del objeto `theme` runtime usando SOLO importaciones type-only del SDK —
+// la misma razón que pandi-mdview: importar getMarkdownTheme() del SDK como VALUE tiraría todo el
+// runtime del coding-agent al bundle y rompia la carga de extensión autocontenida.
 function createMarkdownTheme(theme: Theme): MarkdownTheme {
 	return {
 		heading: (text) => theme.fg("mdHeading", theme.bold(text)),
@@ -83,7 +82,7 @@ class PlanApprovalComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		// Decision keys first: y/Y/Enter approve; n/N/Esc/q reject (a dismiss is a reject).
+		// Teclas de decisión primero: y/Y/Enter aprueba; n/N/Esc/q rechaza (un cierre es un rechazo).
 		if (data === "y" || data === "Y" || matchesKey(data, "enter")) {
 			this.decide(true);
 			return;
@@ -148,8 +147,8 @@ class PlanApprovalComponent implements Component {
 }
 
 /**
- * Open the interactive Markdown approval overlay; resolves to true (APPROVE) or false (REJECT).
- * Caller must have already confirmed an interactive UI with ctx.ui.custom available.
+ * Abre el overlay interactivo de aprobación Markdown; se resuelve a true (APPROVE) o false (REJECT).
+ * El llamador debe haber ya confirmado una UI interactiva con ctx.ui.custom disponible.
  */
 export function renderPlanApprovalOverlay(ctx: ExtensionContext, planText: string, planId: string): Promise<boolean> {
 	return ctx.ui.custom<boolean>((tui, theme, _keybindings, done) => {

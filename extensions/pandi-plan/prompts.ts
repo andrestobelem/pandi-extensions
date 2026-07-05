@@ -1,28 +1,28 @@
 /**
- * Plan-mode prompt builders (pure).
+ * Armadores de prompts de modo plan (puros).
  *
- * Extracted verbatim from index.ts to isolate the canonical wording of the
- * planning posture and the post-approval implementation message from the
- * command/state wiring. Pure and side-effect free, so the prompt text has a
- * single home and is easy to review/test.
+ * Extraídos verbatim de index.ts para aislar el wording canónico de la
+ * postura de planificación y el mensaje de implementación post-aprobación del
+ * cableado de comando/state. Puros y sin side-effects, así que el texto del prompt tiene
+ * un hogar único y es fácil de revisar/testear.
  *
- * Decoupled from `PlanState`: `makePlanningPrompt` takes only the minimal
- * structural fields it needs (planId/task + the optional posture flags), which
- * any `PlanState` satisfies. Depth-one sibling module imported by index.ts via
+ * Desacoplados de `PlanState`: `makePlanningPrompt` toma solo los campos
+ * estructurales mínimos que necesita (planId/task + las banderas de postura opcionales), que
+ * cualquier `PlanState` satisface. Módulo sibling de profundidad uno importado por index.ts vía
  * "./prompts.js".
  */
 
 /**
- * Optional posture flags that tune the planning/implementation wording. All
- * default to false (the interactive, no-ultracode posture preserved verbatim):
+ * Banderas de postura opcionales que sintonizan el wording de planificación/implementación. Todas
+ * por defecto son false (la postura interactiva, sin-ultracode preservada verbatim):
  *
- * - nonInteractive: plan-only session (print/json or a workflow subagent). There
- *   is no human approval and no implementation; the deliverable is the PLAN. The
- *   read-only gate stays armed for the whole session, so mutation stays blocked.
- * - ultracode: tell the planner to lean on dynamic workflows to RESEARCH/DESIGN
- *   the plan (inspect the catalog read-only now; propose run/start steps).
- * - ultracodeSteps: tell the planner/implementer to execute the plan's STEPS via
- *   dynamic workflows when warranted (exhaustiveness, confidence, scale).
+ * - nonInteractive: sesión solo-plan (print/json o un subagente de workflow). No hay
+ *   aprobación humana ni implementación; el entregable es el PLAN. El
+ *   gate de solo lectura se mantiene armado durante toda la sesión, así que la mutación se mantiene bloqueada.
+ * - ultracode: indicale al planificador que se apoye en dynamic workflows para INVESTIGAR/DISEÑAR
+ *   el plan (inspecciona el catálogo de solo lectura ahora; propone pasos run/start).
+ * - ultracodeSteps: indicale al planificador/implementador que ejecute los PASOS del plan vía
+ *   dynamic workflows cuando esté justificado (exhaustividad, confianza, escala).
  */
 export interface PlanFlags {
 	nonInteractive?: boolean;
@@ -30,7 +30,7 @@ export interface PlanFlags {
 	ultracodeSteps?: boolean;
 }
 
-/** The planning instruction injected when /plan enters the mode. */
+/** La instrucción de planificación inyectada cuando /plan entra al modo. */
 export function makePlanningPrompt(plan: { planId: string; task: string } & PlanFlags): string {
 	const lines: string[] = [];
 	lines.push(`Ahora estás en MODO PLAN (plan ${plan.planId}). Esta es una postura de planificación de SOLO LECTURA.`);

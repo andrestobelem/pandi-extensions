@@ -1,10 +1,10 @@
 /**
- * Status-line presentation for the `/plan` extension.
+ * Presentación de línea de estado para la extensión `/plan`.
  *
- * Pure rendering of a single plan's status into Pi's status line, plus the textual
- * status summary used by `/plan status`. No gate ownership, no "which plan is active"
- * selection, no I/O beyond ctx.ui. The "which plan is currently active" selection stays
- * in index.ts (refreshPlanStatus), which reads the activePlans map and calls these
+ * Renderizado puro del estado de un plan único a la línea de estado de Pi, más el
+ * resumen de estado textual usado por `/plan status`. Sin dueo del gate, sin selección
+ * "qué plan está activo", sin I/O más allá de ctx.ui. La selección "qué plan está activo actualmente" se queda
+ * en index.ts (refreshPlanStatus), que lee el mapa activePlans y llama estos
  * renderers.
  */
 

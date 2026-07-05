@@ -1,65 +1,65 @@
 /**
- * Claude-style `/plan` ("plan mode") for Pi (P0).
+ * `/plan` de estilo Claude ("modo plan") para Pi (P0).
  *
- * Plan mode puts the MAIN agent into a READ-ONLY planning posture. While active,
- * the agent may RESEARCH (read/grep/find/ls + read-only bash) and PRODUCE a plan,
- * but it may NOT mutate the workspace. The deliverable is a PLAN artifact, presented
- * for EXPLICIT user approval, and only on approval does the agent EXIT the mode and
- * IMPLEMENT.
+ * El modo plan pone el agente PRINCIPAL en una postura de planificación DE SOLO LECTURA. Mientras está activo,
+ * el agente PUEDE INVESTIGAR (read/grep/find/ls + bash de solo lectura) y PRODUCIR un plan,
+ * pero NO PUEDE mutar el workspace. El entregable es un artefacto PLAN, presentado
+ * para aprobación EXPLÍCITA del usuario, y solo si se aprueba el agente SALE del modo e
+ * IMPLEMENTA.
  *
- * The three things that make it plan mode (not "a prompt that says please plan"):
- *   1. The read-only GATE — a pi.on("tool_call") handler HARD-BLOCKS mutating tools
- *      while the mode is active. Enforced, not advisory.
- *   2. The plan as an ARTIFACT — the model emits the plan through a registered tool
- *      (submit_plan), exactly as /loop emits via loop_schedule and /goal via
- *      goal_progress. The plan text is the payload.
- *   3. EXPLICIT approval before any mutation — submit_plan presents the plan in a
- *      scrollable, Markdown-rendered approval OVERLAY (mdview-style; see approval-view.ts),
- *      degrading to ctx.ui.confirm when a custom component can't be shown (≈ Claude's
- *      ExitPlanMode). Approve → lift the gate, re-inject "implement this". Reject → stay
- *      gated, return the rejection to the model.
+ * Las tres cosas que lo hacen modo plan (no "un prompt que dice porfa planifica"):
+ *   1. El GATE de solo lectura — un manejador pi.on("tool_call") HARD-BLOQUEA tools mutantes
+ *      mientras el modo está activo. Impuesto, no asesor.
+ *   2. El plan como un ARTEFACTO — el modelo emite el plan a través de una tool registrada
+ *      (submit_plan), exactamente como /loop emite vía loop_schedule y /goal vía
+ *      goal_progress. El texto del plan es el payload.
+ *   3. Aprobación EXPLÍCITA antes de cualquier mutación — submit_plan presenta el plan en un
+ *      OVERLAY de aprobación scrollable, renderizado Markdown (de estilo mdview; ver approval-view.ts),
+ *      degrada a ctx.ui.confirm cuando un componente personalizado no se puede mostrar (≈ ExitPlanMode de Claude).
+ *      Aprueba → levanta el gate, reinyecta "implementa esto". Rechaza → sigue
+ *      gateado, devuelve el rechazo al modelo.
  *
- * Two ways IN, one way to mutate:
- *   - HUMAN:  /plan <task>                  (the slash command)
- *   - MODEL:  enter_plan_mode({ task })     (a model-callable tool, so Pi can decide ON ITS
- *                                            OWN to plan a risky/multi-step change — "cuando
- *                                            le parezca"). Same armed/persisted state; the
- *                                            only difference is delivery of the planning
- *                                            instruction (command wakes a user message; the
- *                                            tool returns it as its own result). The model can
- *                                            ENTER but never APPROVE — approval stays human.
+ * Dos formas EN, una forma de mutar:
+ *   - HUMANO:  /plan <task>                  (el comando slash)
+ *   - MODELO:  enter_plan_mode({ task })     (una tool llamable por el modelo, así que Pi puede decidir POR SU CUENTA
+ *                                            planificar un cambio riesgoso/multi-paso — "cuando
+ *                                            le parezca"). Mismo estado armado/persistido; la
+ *                                            única diferencia es el delivery de la
+ *                                            instrucción de planificación (comando despierta un user message; la
+ *                                            tool lo devuelve como su propio resultado). El modelo puede
+ *                                            ENTRAR pero nunca APROBAR — la aprobación sigue siendo humana.
  *
- * Flow:
- *   /plan <task>   (or model: enter_plan_mode({ task }))
- *     → guard mode (print/json → notify + refuse)
- *     → activate plan-mode (in-memory + persisted) via createAndArmPlan
- *     → arm read-only GATE (tool_call handler blocks mutations)
- *     → deliver the planning instruction (command: inject a user message; tool: return it as
- *       the tool result) — research read-only, then submit_plan
- *          ↓ (model researches with read tools only; mutations blocked)
- *     model calls submit_plan({ plan })
- *     → present the plan for approval (Markdown overlay, or ctx.ui.confirm fallback)
- *          ├─ APPROVE → deactivate, lift gate, persist,
- *          │            wake "Plan approved. Implement now:\n<plan>"
- *          └─ REJECT  → stay in plan-mode, return to model to revise + resubmit
+ * Flujo:
+ *   /plan <task>   (o modelo: enter_plan_mode({ task }))
+ *     → guardia de modo (print/json → notify + rechaza)
+ *     → activa plan-mode (en-memoria + persistido) vía createAndArmPlan
+ *     → arma GATE de solo lectura (tool_call handler bloquea mutaciones)
+ *     → entrega la instrucción de planificación (comando: inyecta user message; tool: lo devuelve como
+ *       resultado de la tool) — investiga de solo lectura, luego submit_plan
+ *          ↓ (modelo investiga con tools de solo lectura; mutaciones bloqueadas)
+ *     modelo llama submit_plan({ plan })
+ *     → presenta el plan para aprobación (overlay Markdown, o fallback ctx.ui.confirm)
+ *          ├─ APPROVE → desactiva, levanta gate, persiste,
+ *          │            despierta "Plan aprobado. Implementa ahora:\n<plan>"
+ *          └─ REJECT  → sigue en plan-mode, devuelve al modelo para revisar + reenviar
  *
- * /plan status and /plan exit|cancel are out-of-band controls (abort w/o implementing).
+ * /plan status y /plan exit|cancel son controles out-of-band (aborta sin implementar).
  *
- * Mechanically the loop/goal family INVERTED: loop picks WHEN to wake, goal picks WHAT
- * STATE to report, plan SUPPRESSES mutation until an approved plan flips the agent from
- * planning to doing. The wake/persist/rehydrate/status plumbing is the same family; the
- * new parts are the GATE + the approval handshake.
+ * Mecánicamente la familia loop/goal INVERTIDA: loop elige CUÁNDO despertar, goal elige QUÉ
+ * STATE reportar, plan SUPRIME mutación hasta que un plan aprobado cambia el agente de
+ * planificación a acción. El plumbing wake/persist/rehydrate/status es la misma familia; las
+ * nuevas partes son el GATE + el handshake de aprobación.
  *
- * Hard rules:
- * - print/json gate: ctx.mode must be tui/rpc; print/json → notify + refuse to enter
- *   (plan mode needs an interactive approval; print is one-shot and cannot deliver it).
- * - never re-inject outside tui/rpc.
- * - deps: typebox + @earendil-works/pi-tui (the approval overlay renders Markdown, like pandi-mdview).
- * - on "fork" do NOT migrate the plan-mode.
- * - the read-only allowlist is BEST-EFFORT and documented (see blockedReason).
+ * Reglas duras:
+ * - gate print/json: ctx.mode debe ser tui/rpc; print/json → notify + rechaza entrar
+ *   (modo plan necesita una aprobación interactiva; print es one-shot y no puede entregarla).
+ * - nunca reinyectes fuera de tui/rpc.
+ * - deps: typebox + @earendil-works/pi-tui (el overlay de aprobación renderiza Markdown, como pandi-mdview).
+ * - en "fork" NO migres el plan-mode.
+ * - el allowlist de solo lectura es BEST-EFFORT y está documentado (ver blockedReason).
  *
- * AUTONOMOUS: this file does not import from extensions/loop/index.ts or extensions/goal/index.ts;
- * patterns (notify, persist via appendEntry, rehydrate, status line, wake) are copied.
+ * AUTÓNOMO: este archivo no importa de extensions/loop/index.ts o extensions/goal/index.ts;
+ * patrones (notify, persist vía appendEntry, rehydrate, línea de estado, wake) se copian.
  */
 
 import * as crypto from "node:crypto";
@@ -98,27 +98,27 @@ export interface PlanState {
 	/** True while the read-only GATE is armed (the mode is active). */
 	active: boolean;
 	status: PlanStatus;
-	/** How many times the model called submit_plan. */
+	/** Cuántas veces el modelo llamó submit_plan. */
 	submissions: number;
-	/** How many of those were rejected by the user. */
+	/** Cuántos de esos fueron rechazados por el usuario. */
 	rejections: number;
-	/** The last plan text the model submitted (for status + approval re-injection). */
+	/** El último texto de plan que el modelo sumitó (para status + reinyección de aprobación). */
 	lastPlan?: string;
 	/**
-	 * Posture flags resolved at entry (param -> env -> default). They tune the prompt
-	 * wording and, for nonInteractive, the submit_plan lifecycle (plan-only: no approval,
-	 * no implementation, gate never lifts). Persisted so the dashboard/status reflect them.
+	 * Banderas de postura resueltas al entry (param -> env -> default). Sintonizán el wording del prompt
+	 * y, para nonInteractive, el ciclo de vida submit_plan (solo plan: sin aprobación,
+	 * sin implementación, gate nunca se levanta). Persistidas así que dashboard/status las reflejan.
 	 */
 	nonInteractive?: boolean;
 	ultracode?: boolean;
 	ultracodeSteps?: boolean;
 	startedAt: number;
-	/** ISO timestamp of the last write (kept for parity with the loop/goal family). */
+	/** Timestamp ISO de la última escritura (mantenido para paridad con la familia loop/goal). */
 	updatedAt: string;
 }
 
-// Source of truth of "is plan mode active NOW" in this process. A Map for parity with
-// the loop/goal family, but /plan is single-session: at most one active plan at a time.
+// Fuente de verdad de "¿está el modo plan activo AHORA?" en este proceso. Un Map para paridad con
+// la familia loop/goal, pero /plan es single-session: a lo más un plan activo al tiempo.
 const activePlans = new Map<string, PlanState>();
 
 export interface PlanModeGuard {
@@ -128,10 +128,10 @@ export interface PlanModeGuard {
 export const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pandi-plan.plan-mode.guard");
 
 // ---------------------------------------------------------------------------
-// Active-plan helpers
+// Ayudantes de plan activo
 // ---------------------------------------------------------------------------
 
-/** Is the read-only gate armed (any plan currently active)? */
+/** ¿Está el gate de solo lectura armado (algún plan actualmente activo)? */
 function planModeActive(): boolean {
 	for (const plan of activePlans.values()) {
 		if (plan.active) return true;
@@ -165,14 +165,14 @@ function currentPlan(): PlanState | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Prompts — see ./prompts.ts (makePlanningPrompt / makeImplementPrompt).
+// Prompts — ver ./prompts.ts (makePlanningPrompt / makeImplementPrompt).
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Status line — see ./status.ts (setPlanStatus / clearPlanStatus / formatStatus).
+// Línea de estado — ver ./status.ts (setPlanStatus / clearPlanStatus / formatStatus).
 // ---------------------------------------------------------------------------
 
-/** Refresh status from the active plan (if any). */
+/** Refresca el estado desde el plan activo (si existe). */
 function refreshPlanStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
 	const plan = currentPlan();
@@ -181,14 +181,14 @@ function refreshPlanStatus(ctx: ExtensionContext): void {
 }
 
 // ---------------------------------------------------------------------------
-// Persistence
+// Persistencia
 // ---------------------------------------------------------------------------
 
 /**
- * Persist a plan transition. Stamps updatedAt and appends to the session JSONL (does NOT
- * go to the LLM). Mirrors the loop/goal family's appendEntry persistence. No sidecar: a
- * plan is short-lived and lives only inside one interactive session, so the JSONL entry
- * (replayed by rehydrate on session_start) is sufficient.
+ * Persiste una transición de plan. Marca updatedAt y agrega al JSONL de la sesión (NO
+ * va al LLM). Refleja la persistencia appendEntry de la familia loop/goal. Sin sidecar: un
+ * plan es short-lived y vive solo dentro de una sesión interactiva, así que la entrada JSONL
+ * (reproducida por rehydrate en session_start) es suficiente.
  */
 function persist(pi: ExtensionAPI, plan: PlanState): void {
 	plan.updatedAt = new Date().toISOString();
@@ -196,23 +196,23 @@ function persist(pi: ExtensionAPI, plan: PlanState): void {
 }
 
 // ---------------------------------------------------------------------------
-// Mode gate (print/json)
+// Gate de modo (print/json)
 // ---------------------------------------------------------------------------
 
 /**
- * Can this session run the INTERACTIVE approval handshake (ctx.ui.confirm) and the wake
- * re-injection? Only TUI and RPC can: "print" is one-shot and "json" is non-interactive
- * (hasUI is true only in tui/rpc). Gates the approval path and the wake. Mirrors canLoopInMode.
+ * ¿Puede esta sesión ejecutar el handshake de aprobación INTERACTIVO (ctx.ui.confirm) y el wake
+ * reinyección? Solo TUI y RPC pueden: "print" es one-shot y "json" es no-interactivo
+ * (hasUI es true solo en tui/rpc). Gatean la ruta de aprobación y el wake. Refleja canLoopInMode.
  */
 function canApproveInMode(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
 }
 
 /**
- * Can plan mode be ENTERED here? Interactive sessions always can. A non-interactive session
- * (print/json — e.g. a dynamic-workflow subagent) can ONLY enter when the nonInteractive
- * (plan-only) flag is set: it produces a plan as its deliverable and never implements, so the
- * absence of an approval handshake is by design (the read-only gate never lifts there).
+ * ¿Se puede ENTRAR al modo plan acá? Las sesiones interactivas siempre pueden. Una sesión no-interactiva
+ * (print/json — p. ej. un subagente dynamic-workflow) puede SOLO entrar cuando la bandera nonInteractive
+ * (solo plan) se setea: produce un plan como su entregable y nunca implementa, así que la
+ * ausencia de un handshake de aprobación es por diseño (el gate de solo lectura nunca se levanta ahí).
  */
 function canEnterPlanMode(ctx: ExtensionContext, flags: PlanFlags): boolean {
 	if (canApproveInMode(ctx)) return true;
@@ -220,18 +220,18 @@ function canEnterPlanMode(ctx: ExtensionContext, flags: PlanFlags): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Plan flags — see ./flags.ts (envFlag, resolvePlanFlags, parse* + the
-// session-default toggle singleton accessed via get/setSessionFlagDefault).
+// Banderas de plan — ver ./flags.ts (envFlag, resolvePlanFlags, parse* + el
+// singleton toggle de defecto de sesión accedido vía get/setSessionFlagDefault).
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Wake (re-inject implementation message after approval)
+// Wake (reinyecta mensaje de implementación después de aprobación)
 // ---------------------------------------------------------------------------
 
 /**
- * Re-inject the implementation prompt after approval, mirroring the loop/goal wake:
- * idle → steer (sendUserMessage), busy → followUp. Mode-gated so it never fires outside
- * tui/rpc (defends rehydrate paths too).
+ * Reinyecta el prompt de implementación después de aprobación, reflejando loop/goal wake:
+ * idle → steer (sendUserMessage), busy → followUp. Mode-gated así que nunca dispara fuera
+ * de tui/rpc (defiende rutas rehydrate también).
  */
 function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
 	if (!canApproveInMode(ctx)) return;
@@ -240,13 +240,13 @@ function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// The read-only GATE — see ./gate.ts (pure policy: blockedReason / isMutatingBash).
+// El GATE de solo lectura — ver ./gate.ts (política pura: blockedReason / isMutatingBash).
 // ---------------------------------------------------------------------------
 
 /**
- * tool_call handler. Gates ONLY while plan mode is active (inverts loop's "only on
- * autopilot turns"), and blocks HARD rather than confirming (in plan mode the correct
- * thing is to block hard — no mutation until an approved plan lifts the gate).
+ * Manejador de tool_call. Gatean SOLO mientras el modo plan está activo (invierte "solo en
+ * turnos autopilot" de loop), y bloquea DURO en lugar de confirmar (en modo plan lo correcto
+ * es bloquear duro — sin mutación hasta que un plan aprobado levante el gate).
  */
 async function handleToolCall(event: ToolCallEvent): Promise<ToolCallEventResult | undefined> {
 	if (!planModeActive()) return undefined;
@@ -256,16 +256,16 @@ async function handleToolCall(event: ToolCallEvent): Promise<ToolCallEventResult
 }
 
 // ---------------------------------------------------------------------------
-// Start / exit
+// Inicio / salida
 // ---------------------------------------------------------------------------
 
 /**
- * Create a fresh plan and ARM the read-only gate (active=true), persist it, and light the
- * status line. Pure of any DELIVERY decision: it does NOT inject the planning instruction —
- * the caller chooses how the model receives it. The /plan COMMAND wakes a user message; the
- * model-callable enter_plan_mode TOOL returns the instruction as its own tool result (so the
- * model keeps planning in the SAME turn without a second injected message). Assumes the
- * caller already passed the guards (canPlanInMode, non-empty task, no plan already active).
+ * Crea un plan fresco y ARMA el gate de solo lectura (active=true), lo persiste, y enciende la
+ * línea de estado. Puro de cualquier decisión DELIVERY: NO inyecta la instrucción de planificación —
+ * el llamador elige cómo el modelo la recibe. El COMANDO /plan despierta un user message; la
+ * TOOL enter_plan_mode llamable por modelo devuelve la instrucción como su propio tool result (así que el
+ * modelo sigue planificando en el MISMO turno sin un segundo mensaje inyectado). Asume que
+ * el llamador ya pasó las guardias (canPlanInMode, task no vacía, sin plan ya activo).
  */
 function createAndArmPlan(
 	pi: ExtensionAPI,
@@ -295,11 +295,11 @@ function createAndArmPlan(
 
 function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanState | undefined {
 	const { task: cleanedTask, flags: commandFlags } = parsePlanCommandFlags(task);
-	// The command path is interactive-only: non-interactive (plan-only) entry is the
-	// enter_plan_mode tool's job, so resolve flags WITHOUT non-interactive here.
+	// La ruta del comando es solo interactiva: la entrada no-interactiva (solo plan) es
+	// trabajo de la tool enter_plan_mode, así que resuelve flags SIN no-interactiva acá.
 	const flags = resolvePlanFlags({ ...commandFlags, nonInteractive: false });
-	// Mode gate (HARD RULE): the /plan command needs an interactive approval; print/json
-	// cannot deliver it. Refuse to enter.
+	// Gate de modo (REGLA DURA): el comando /plan necesita una aprobación interactiva; print/json
+	// no puede entregarla. Rechaza entrar.
 	if (!canApproveInMode(ctx)) {
 		notify(
 			ctx,
@@ -319,8 +319,8 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 	}
 
 	const plan = createAndArmPlan(pi, ctx, trimmed, flags);
-	// Command path: inject the planning instruction as a user message (research read-only,
-	// then submit_plan when ready), because the command runs out-of-band of the model's turn.
+	// Ruta del comando: inyecta la instrucción de planificación como user message (investiga de solo lectura,
+	// luego submit_plan cuando esté listo), porque el comando se ejecuta out-of-band del turno del modelo.
 	wake(pi, ctx, makePlanningPrompt(plan));
 	notify(
 		ctx,
@@ -331,8 +331,8 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 }
 
 /**
- * Leave plan mode WITHOUT implementing: lift the gate (active=false) and persist a terminal
- * state. Used by /plan exit|cancel. A no-op (false) if no plan is active.
+ * Sale del modo plan SIN implementar: levanta el gate (active=false) y persiste un
+ * estado terminal. Usado por /plan exit|cancel. Un no-op (false) si no hay plan activo.
  */
 function exitPlan(pi: ExtensionAPI, ctx: ExtensionContext, reason: string): boolean {
 	const plan = currentPlan();
@@ -346,38 +346,38 @@ function exitPlan(pi: ExtensionAPI, ctx: ExtensionContext, reason: string): bool
 }
 
 // ---------------------------------------------------------------------------
-// Rehydration (session_start)
+// Rehidratación (session_start)
 // ---------------------------------------------------------------------------
 
 /**
- * Rebuild plan state from persisted entries (last-wins by planId). Re-arms the read-only
- * GATE for any plan that was still active when the session ended (so a reload mid-planning
- * keeps the gate up). Avoids double-registration: if activePlans already has the plan in
- * this process, skip. Does NOT re-inject the planning prompt — the conversation already
- * carries it; we only restore the in-memory gate flag + status line.
+ * Reconstruye el estado del plan desde entradas persistidas (last-wins por planId). Re-arma el
+ * GATE de solo lectura para cualquier plan que estuviera aún activo cuando la sesión terminó (así que un reload
+ * mid-planning mantiene el gate arriba). Evita double-registration: si activePlans ya tiene el plan en
+ * este proceso, salta. NO reinyecta el prompt de planificación — la conversación ya lo
+ * lleva; solo restauramos el flag gate en-memoria + línea de estado.
  */
 function rehydrate(ctx: ExtensionContext): void {
 	const entries = ctx.sessionManager.getEntries();
 	const latest = collectLatestByKey<PlanState>(entries, PLAN_STATE_TYPE, (d) => d.planId);
 
 	for (const state of latest.values()) {
-		// Only an ACTIVE plan needs to be restored (its gate must come back up). Terminal
-		// states (approved/rejected-after-exit/exited) carry active=false → nothing to arm.
+		// Solo un plan ACTIVO necesita ser restaurado (su gate debe volver arriba). Estados
+		// terminales (approved/rejected-after-exit/exited) llevan active=false → nada que armar.
 		if (!state.active) continue;
-		if (activePlans.has(state.planId)) continue; // already live in this process.
+		if (activePlans.has(state.planId)) continue; // ya está vivo en este proceso.
 		activePlans.set(state.planId, { ...state });
 	}
 	refreshPlanStatus(ctx);
 }
 
 // ---------------------------------------------------------------------------
-// Command handling
+// Manejo de comandos
 // ---------------------------------------------------------------------------
 
 /**
- * Gather every plan in this session for the dashboard: the latest persisted snapshot per
- * planId (history) with the in-memory plans overlaid on top (most current — they carry the
- * freshest counts/lastPlan before the next persist). Pure read; no mutation.
+ * Junta cada plan en esta sesión para el dashboard: el snapshot persistido más reciente por
+ * planId (historial) con los planes en-memoria superpuestos arriba (más actual — llevan los
+ * conteos/lastPlan más frescos antes del siguiente persist). Lectura pura; sin mutación.
  */
 function collectAllPlans(ctx: ExtensionContext): PlanState[] {
 	const latest = collectLatestByKey<PlanState>(ctx.sessionManager.getEntries(), PLAN_STATE_TYPE, (d) => d.planId);
@@ -386,9 +386,9 @@ function collectAllPlans(ctx: ExtensionContext): PlanState[] {
 }
 
 /**
- * Open the plan-mode tracking dashboard. In a TUI it shows a scrollable overlay rendered
- * from the Markdown report; in non-interactive modes it prints the report. The overlay
- * itself lives in dashboard.ts (`renderPlanDashboardOverlay`).
+ * Abre el dashboard de seguimiento de modo plan. En un TUI muestra un overlay scrollable renderizado
+ * desde el reporte Markdown; en modos no-interactivos imprime el reporte. El overlay
+ * mismo vive en dashboard.ts (`renderPlanDashboardOverlay`).
  */
 async function openPlanDashboard(ctx: ExtensionContext): Promise<void> {
 	const markdown = buildPlanDashboardMarkdown(collectAllPlans(ctx));
@@ -404,8 +404,8 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	const firstSpace = trimmed.indexOf(" ");
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
 
-	// "status"/"dashboard"/"exit"/"cancel" are subcommands only when they are the WHOLE first
-	// token (mirrors goal's handleGoalCommand dispatch). Otherwise the whole arg string is <task>.
+	// "status"/"dashboard"/"exit"/"cancel" son subcomandos solo cuando son el PRIMER token COMPLETO
+	// (refleja el dispatch handleGoalCommand de goal). Sino el string de arg completo es <task>.
 	if (firstSpace === -1 && firstToken === "status") {
 		const plan = currentPlan() ?? [...activePlans.values()].pop();
 		notify(ctx, plan ? formatStatus(plan) : "El modo plan no está activo.", "info");
@@ -415,10 +415,10 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		await openPlanDashboard(ctx);
 		return;
 	}
-	// Session-default toggles: `/plan ultracode on|off|status` and `/plan steps-ultracode ...`.
-	// These set the in-memory ultracode posture defaults (param -> THIS -> env -> off). A first
-	// token of "ultracode"/"steps-ultracode" is always a toggle, never a task (mirrors how
-	// "status" cannot be a task) — use the `--ultracode` flag form for a one-off on a real task.
+	// Toggles de defecto de sesión: `/plan ultracode on|off|status` y `/plan steps-ultracode ...`.
+	// Estos setean los defaults de postura ultracode en-memoria (param -> ESTE -> env -> off). Un primer
+	// token de "ultracode"/"steps-ultracode" es siempre un toggle, nunca una task (refleja cómo
+	// "status" no puede ser una task) — usa la forma flag `--ultracode` para un one-off en una task real.
 	if (firstToken === "ultracode" || firstToken === "steps-ultracode") {
 		const key = firstToken === "ultracode" ? "ultracode" : "ultracodeSteps";
 		const label = firstToken === "ultracode" ? "ultracode" : "steps-ultracode";
@@ -442,35 +442,35 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	// Otherwise the whole args is the <task>.
+	// Si no, los args completos son el <task>.
 	startPlan(pi, ctx, trimmed);
 }
 
 // ---------------------------------------------------------------------------
-// Extension entrypoint
+// Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
 
 /**
- * Present the plan for the human's explicit approval and return their decision.
+ * Presenta el plan para la aprobación explícita del humano y devuelve su decisión.
  *
- * Prefers the mdview-style Markdown OVERLAY (rendered headings/lists/code + scroll + inline
- * approve/reject) when the session can show a custom component; otherwise degrades to the plain
- * ctx.ui.confirm dialog. An overlay failure also degrades to confirm, so approval is never lost.
- * The caller has already established hasUI + a usable confirm (submit_plan's no-UI guard).
+ * Prefiere el OVERLAY Markdown de estilo mdview (headings/lists/code renderizados + scroll + inline
+ * approve/reject) cuando la sesión puede mostrar un componente personalizado; si no, degrada al diálogo
+ * ctx.ui.confirm simple. Un fallo del overlay también degrada a confirm, así que la aprobación nunca se pierde.
+ * El llamador ya estableció hasUI + un confirm usable (guardia no-UI de submit_plan).
  */
 async function presentPlanForApproval(ctx: ExtensionContext, planText: string, planId: string): Promise<boolean> {
 	if (ctx.hasUI && typeof ctx.ui.custom === "function") {
 		try {
 			return await renderPlanApprovalOverlay(ctx, planText, planId);
 		} catch {
-			// Fall through to the confirm dialog below — a broken overlay must not lose the approval.
+			// Cae al diálogo confirm de abajo — un overlay roto no debe perder la aprobación.
 		}
 	}
 	return await ctx.ui.confirm("Approve this plan?", planText);
 }
 
 export default function planExtension(pi: ExtensionAPI): void {
-	// The plan artifact tool (≈ ExitPlanMode). The ONLY way to present a plan + exit the mode.
+	// La tool de artefacto del plan (≈ ExitPlanMode). La ÚNICA forma de presentar un plan + salir del modo.
 	pi.registerTool({
 		name: "submit_plan",
 		label: "Submit Plan",
@@ -511,13 +511,13 @@ export default function planExtension(pi: ExtensionAPI): void {
 			persist(pi, plan);
 			setPlanStatus(ctx, plan);
 
-			// NON-INTERACTIVE (plan-only): no human approval and no implementation. The plan IS the
-			// deliverable. We DELIBERATELY keep the gate armed (active stays true): the gate never
-			// lifts without a human, so mutation is impossible in this one-shot/--no-session session.
-			// No confirm, no wake, no implement re-injection. The caller (a human reading stdout, or
-			// the orchestrator of a dynamic workflow) decides what to do with the returned plan.
+			// NO INTERACTIVO (solo plan): sin aprobación humana y sin implementación. El plan ES el
+			// entregable. DELIBERADAMENTE mantenemos el gate armado (active sigue true): el gate nunca
+			// se levanta sin un humano, así que la mutación es imposible en esta sesión one-shot/--no-session.
+			// Sin confirm, sin wake, sin reinyección de implementación. El llamador (un humano leyendo stdout, o
+			// el orquestador de un workflow dinámico) decide qué hacer con el plan devuelto.
 			if (plan.nonInteractive) {
-				plan.status = "planned"; // active stays true on purpose; the read-only gate persists.
+				plan.status = "planned"; // active sigue true a propósito; el gate de solo lectura persiste.
 				persist(pi, plan);
 				setPlanStatus(ctx, plan);
 				notify(
@@ -536,11 +536,11 @@ export default function planExtension(pi: ExtensionAPI): void {
 				};
 			}
 
-			// Approval handshake. Without an interactive confirm we CANNOT approve — degrade and
-			// warn (do NOT auto-approve: that would defeat the whole approval gate). This branch
-			// is effectively unreachable given the print/json gate already refused entry (unless
-			// plan-only above handled it), but it is retained defensively, exactly as loop retains
-			// its confirm fallback.
+			// Handshake de aprobación. Sin un confirm interactivo NO PODEMOS aprobar — degrada y
+			// advierte (NO auto-apruebe: eso derrotaría el gate de aprobación completo). Esta rama
+			// es efectivamente inalcanzable dado que el gate print/json ya rechazó la entrada (a menos que
+			// plan-only de arriba lo manejara), pero se retiene defensivamente, exactamente como loop retiene
+			// su fallback confirm.
 			if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
 				notify(
 					ctx,
@@ -590,8 +590,8 @@ export default function planExtension(pi: ExtensionAPI): void {
 			}
 
 			if (approved) {
-				// APPROVE: lift the gate (deactivate so the tool_call handler returns early),
-				// persist, then wake the implementation message.
+				// APRUEBA: levanta el gate (desactiva así que el tool_call handler devuelve temprano),
+				// persiste, luego despierta el mensaje de implementación.
 				livePlan.active = false;
 				livePlan.status = "approved";
 				persist(pi, livePlan);
@@ -604,10 +604,10 @@ export default function planExtension(pi: ExtensionAPI): void {
 				};
 			}
 
-			// REJECT: stay in plan mode (gate stays armed), count it, persist, and return to the
-			// model so it revises and resubmits in the same turn. No wake.
+			// RECHAZA: sigue en modo plan (gate sigue armado), cuéntalo, persiste, y devuelve al
+			// modelo para que revise y reenvíe en el mismo turno. Sin wake.
 			livePlan.rejections += 1;
-			livePlan.status = "planning"; // remains active; status reflects we're still planning.
+			livePlan.status = "planning"; // sigue activo; el status refleja que aún estamos planificando.
 			persist(pi, livePlan);
 			setPlanStatus(ctx, livePlan);
 			notify(ctx, `Plan ${livePlan.planId} rechazado. Seguimos en modo plan; el agente va a revisar.`, "info");
@@ -623,13 +623,13 @@ export default function planExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	// Model-callable AUTONOMOUS entry into plan mode (≈ Claude requesting plan mode itself).
-	// This is the affordance that lets Pi decide ON ITS OWN to plan before mutating — the gate,
-	// the approval handshake, and exit semantics are all unchanged; only the ENTRY is new. It
-	// reuses createAndArmPlan (the exact armed/persisted state the /plan command produces) and
-	// hands the planning instruction back AS ITS OWN RESULT so the model keeps planning in the
-	// same turn (no wake / second user message). It can ENTER but never APPROVE: the human still
-	// approves via submit_plan + ctx.ui.confirm.
+	// Entrada AUTÓNOMA llamable por modelo al modo plan (≈ Claude solicitando el modo plan mismo).
+	// Esta es la affordance que deja que Pi decida POR SU CUENTA planificar antes de mutar — el gate,
+	// el handshake de aprobación y semántica de salida no cambian; solo la ENTRADA es nueva. Reutiliza
+	// createAndArmPlan (el estado exacto armado/persistido que produce el comando /plan) y
+	// devuelve la instrucción de planificación como su PROPIO RESULTADO así que el modelo sigue planificando en el
+	// mismo turno (sin wake / segundo user message). Puede ENTRAR pero nunca APROBAR: el humano aún
+	// aprueba vía submit_plan + ctx.ui.confirm.
 	pi.registerTool({
 		name: "enter_plan_mode",
 		label: "Enter Plan Mode",
@@ -707,8 +707,8 @@ export default function planExtension(pi: ExtensionAPI): void {
 					details: { isError: true, entered: false, reason: "empty-task" },
 				};
 			}
-			// Idempotent no-op when a plan is already active (single-plan invariant): do NOT create a
-			// second plan; report the current one so the model keeps planning instead of re-entering.
+			// No-op idempotente cuando un plan ya está activo (invariante single-plan): NO CREES un
+			// segundo plan; reporta el actual para que el modelo siga planificando en vez de re-entrar.
 			if (planModeActive()) {
 				const current = currentPlan();
 				return {
@@ -730,8 +730,8 @@ export default function planExtension(pi: ExtensionAPI): void {
 					: `Pi entró en modo plan (${plan.planId}). Solo lectura hasta que apruebes un plan. Tarea: ${trimmed}`,
 				"info",
 			);
-			// Tool path: hand the planning instruction back as THIS tool's result (no wake), so the
-			// model reads it immediately and keeps planning read-only in the same turn.
+			// Ruta de tool: devuelve la instrucción de planificación como resultado de ESTA tool (sin wake), así que el
+			// modelo la lee inmediatamente y sigue planificando de solo lectura en el mismo turno.
 			return {
 				content: [{ type: "text" as const, text: makePlanningPrompt(plan) }],
 				details: { entered: true, planId: plan.planId, status: "planning" },
@@ -772,22 +772,22 @@ export default function planExtension(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => await handlePlanCommand(pi, args, ctx),
 	});
 
-	// The read-only GATE: hard-block mutating tools while plan mode is active.
+	// El GATE de solo lectura: bloquea duro las tools mutantes mientras el modo plan está activo.
 	pi.on("tool_call", async (event, _ctx) => await handleToolCall(event));
 
 	pi.on("session_start", async (event, ctx) => {
-		// Session boundaries must not inherit in-memory plan state from another session.
+		// Las fronteras de sesión no deben heredar estado de plan en-memoria de otra sesión.
 		activePlans.clear();
 		resetSessionFlagDefaults();
-		// Do NOT migrate plan mode into a forked session: a fork inherits the parent's
-		// "plan-state" entries, but plan mode must keep running only in the parent.
+		// NO migres el modo plan a una sesión forked: un fork hereda las entradas
+		// "plan-state" del padre, pero el modo plan debe seguir corriendo solo en el padre.
 		if (event.reason === "fork") return;
 		rehydrate(ctx);
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
-		// Persist the active plan verbatim (active=true) so a reload re-arms the gate; do not
-		// change its status. Terminal plans are already persisted.
+		// Persiste el plan activo verbatim (active=true) así que un reload re-arma el gate; no
+		// cambies su status. Los planes terminales ya están persistidos.
 		const plan = currentPlan();
 		if (plan) persist(pi, plan);
 		clearPlanStatus(ctx);

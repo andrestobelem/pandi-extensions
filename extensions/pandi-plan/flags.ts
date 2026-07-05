@@ -1,34 +1,34 @@
 /**
- * Plan-flag resolution + parsing (the "pasar con parámetros o setear" surface).
+ * Resolución de banderas de plan + parsing (la superficie "pasar con parámetros o setear").
  *
- * Extracted verbatim from index.ts to isolate the posture-flag precedence
- * (param -> session toggle -> env -> default) and the small parsers from the
- * command/state wiring. Depth-one sibling module imported by index.ts via
+ * Extraído verbatim de index.ts para aislar la precedencia de postura-bandera
+ * (param -> session toggle -> env -> default) y los pequeños parsers del
+ * cableado de comando/state. Módulo sibling de profundidad uno importado por index.ts vía
  * "./flags.js".
  *
- * `sessionFlagDefaults` is module-mutable state. Its ES-singleton identity lives
- * HERE (one object, mutated only through the functions below + the accessor/setter).
- * index.ts must NOT re-declare it — it reads/writes through getSessionFlagDefault /
+ * `sessionFlagDefaults` es estado mutable de módulo. Su identidad ES-singleton vive
+ * AQUÍ (un objeto, mutado solo a través de las funciones abajo + el accessor/setter).
+ * index.ts NO DEBE re-declararlo — lee/escribe a través de getSessionFlagDefault /
  * setSessionFlagDefault.
  */
 
 import type { PlanFlags } from "./prompts.js";
 
-/** Keys of the session-default ultracode posture toggles. */
+/** Claves de los toggles de postura ultracode por defecto de sesión. */
 type SessionFlagKey = "ultracode" | "ultracodeSteps";
 
-/** A setting is ON when the env var is one of the truthy tokens (1/true/on/yes). */
+/** Un setting está ON cuando la env var es uno de los tokens truthy (1/true/on/yes). */
 export function envFlag(name: string): boolean {
 	const value = (process.env[name] ?? "").trim().toLowerCase();
 	return value === "1" || value === "true" || value === "on" || value === "yes";
 }
 
 /**
- * Session-level defaults for the ultracode posture, set by `/plan ultracode on|off` and
- * `/plan steps-ultracode on|off`. They sit BETWEEN an explicit param and the env setting
- * (param -> session toggle -> env -> default) and are reset at every session boundary.
- * nonInteractive is intentionally NOT a session toggle: it only matters in print/json, where
- * the session is one-shot, so it is set per call via param/env.
+ * Defaults a nivel sesión para la postura ultracode, seteados por `/plan ultracode on|off` y
+ * `/plan steps-ultracode on|off`. Están ENTRE un param explícito y el setting env
+ * (param -> session toggle -> env -> default) y se resetean en cada frontera de sesión.
+ * nonInteractive NO es intencionalmente un toggle de sesión: solo importa en print/json, donde
+ * la sesión es one-shot, así que se setea por llamada vía param/env.
  */
 const sessionFlagDefaults: { ultracode?: boolean; ultracodeSteps?: boolean } = {};
 
@@ -37,21 +37,21 @@ export function resetSessionFlagDefaults(): void {
 	sessionFlagDefaults.ultracodeSteps = undefined;
 }
 
-/** Read a session-default toggle (undefined = unset, env/param decides). */
+/** Lee un toggle de defecto de sesión (undefined = unset, env/param decide). */
 export function getSessionFlagDefault(key: SessionFlagKey): boolean | undefined {
 	return sessionFlagDefaults[key];
 }
 
-/** Set a session-default toggle (true/false). */
+/** Setea un toggle de defecto de sesión (true/false). */
 export function setSessionFlagDefault(key: SessionFlagKey, value: boolean): void {
 	sessionFlagDefaults[key] = value;
 }
 
 /**
- * Resolve the posture flags with precedence: explicit param -> session toggle -> environment
- * setting -> default (false). This is the "pasar con parámetros o setear" surface: tool/command
- * params win, then `/plan ultracode|steps-ultracode on|off` session defaults, then the PI_PLAN_*
- * env vars, else off. (nonInteractive skips the session-toggle layer.)
+ * Resuelve las banderas de postura con precedencia: param explícito -> session toggle -> env
+ * setting -> default (false). Esta es la superficie "pasar con parámetros o setear": params de tool/command
+ * ganan, luego defaults de sesión `/plan ultracode|steps-ultracode on|off`, luego las
+ * env vars PI_PLAN_*, sino off. (nonInteractive salta la capa session-toggle.)
  */
 export function resolvePlanFlags(params: PlanFlags): Required<PlanFlags> {
 	return {
@@ -61,7 +61,7 @@ export function resolvePlanFlags(params: PlanFlags): Required<PlanFlags> {
 	};
 }
 
-/** Parse an on|off|status toggle argument (with common aliases). */
+/** Parsea un argumento toggle on|off|status (con alias comunes). */
 export function parsePlanToggleValue(raw: string): "on" | "off" | "status" | "invalid" {
 	const value = raw.trim().toLowerCase();
 	if (!value || value === "status") return "status";
@@ -71,11 +71,11 @@ export function parsePlanToggleValue(raw: string): "on" | "off" | "status" | "in
 }
 
 /**
- * Parse trailing `--ultracode` / `--ultracode-steps` (aliases `--uc` / `--uc-steps`) flags
- * off the /plan argument string. The remaining text is the <task>. The command path is
- * interactive-only, so it does NOT accept --non-interactive (there is no clean way to
- * deliver the planning instruction in print/json from a command; non-interactive entry is
- * the enter_plan_mode tool's job). Returns the cleaned task plus the parsed command flags.
+ * Parsea flags `--ultracode` / `--ultracode-steps` (aliases `--uc` / `--uc-steps`) trailidores
+ * fuera del string de argumento /plan. El texto restante es el <task>. La ruta del comando es
+ * solo interactiva, así que NO acepta --non-interactive (no hay forma limpia de
+ * entregar la instrucción de planificación en print/json desde un comando; la entrada no interactiva es
+ * trabajo de la tool enter_plan_mode). Devuelve la tarea limpia más las banderas del comando parseadas.
  */
 export function parsePlanCommandFlags(args: string): { task: string; flags: PlanFlags } {
 	const flags: PlanFlags = {};

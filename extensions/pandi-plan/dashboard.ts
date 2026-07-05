@@ -1,30 +1,30 @@
 /**
- * Plan-mode tracking dashboard — PURE render kernel.
+ * Dashboard de seguimiento de modo plan — kernel de renderizado PURO.
  *
- * `buildPlanDashboardMarkdown` turns a set of plan snapshots (the session's plan
- * history + the active plan) into a Markdown report for `/plan dashboard`. It is
- * pure and DETERMINISTIC (no Date.now / no I/O): everything it shows is derived
- * from its inputs, so it is trivially unit-testable. The command wiring and the
- * TUI scroll overlay live in index.ts (the overlay needs a live TUI we cannot
- * exercise from the bundled integration harness).
+ * `buildPlanDashboardMarkdown` convierte un conjunto de snapshots de planes (el historial de planes
+ * de la sesión + el plan activo) en un reporte Markdown para `/plan dashboard`. Es
+ * puro y DETERMINISTA (sin Date.now / sin I/O): todo lo que muestra se deriva
+ * de sus inputs, así que es trivialmente unit-testable. El cableado del comando y el
+ * overlay de scroll TUI viven en index.ts (el overlay necesita un TUI vivo que no podemos
+ * ejercitar desde el harness de integración empaquetado).
  *
- * For the active plan it also renders a Claude-style CHECKLIST parsed from the
- * latest submitted plan text by `extractPlanChecklist` (also pure): GFM task-list
- * state is preserved, otherwise steps are derived from the plan's lists/headings.
+ * Para el plan activo también renderiza un CHECKLIST de estilo Claude parseado del
+ * texto del plan sumado más recientemente por `extractPlanChecklist` (también puro): el estado
+ * de la task-list GFM se preserva, en otro caso los pasos se derivan de las listas/headings del plan.
  *
- * Decoupled from index.ts's PlanState by a minimal STRUCTURAL `PlanSnapshot`
- * (mirrors session-state.ts's PersistedEntry approach); any real PlanState
- * satisfies it. Depth-one sibling imported via "./dashboard.js".
+ * Desacoplado del PlanState de index.ts por un mínimo ESTRUCTURAL `PlanSnapshot`
+ * (replica el enfoque PersistedEntry de session-state.ts); cualquier PlanState real
+ * lo satisface. Sibling de profundidad uno importado vía "./dashboard.js".
  *
- * `renderPlanDashboardOverlay` hosts the TUI scroll overlay (a minimal
- * self-contained component — no pi-tui runtime import) so index.ts only keeps the
- * command wiring + plan collection; any overlay failure degrades to a notification.
+ * `renderPlanDashboardOverlay` hospeda el overlay de scroll TUI (un mínimo
+ * componente autocontenido — sin importación de runtime pi-tui) así que index.ts solo mantiene el
+ * cableado del comando + colección de planes; cualquier fallo del overlay se degrada a una notificación.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "./notify.js";
 
-/** Structural shape of a plan this dashboard renders. Any PlanState satisfies it. */
+/** Forma estructural de un plan que este dashboard renderiza. Cualquier PlanState lo satisface. */
 export interface PlanSnapshot {
 	planId: string;
 	task: string;
@@ -40,7 +40,7 @@ export interface PlanSnapshot {
 	lastPlan?: string;
 }
 
-/** Human-readable posture tags (or "interactive" when no flag is set). */
+/** Tags de postura legibles (o "interactive" cuando no se setea ninguna bandera). */
 export function planPosture(plan: PlanSnapshot): string {
 	const tags: string[] = [];
 	if (plan.nonInteractive) tags.push("plan-only");
@@ -49,13 +49,13 @@ export function planPosture(plan: PlanSnapshot): string {
 	return tags.length ? tags.join(", ") : "interactive";
 }
 
-/** Collapse whitespace and clip to a single line of at most `max` chars. */
+/** Colapsa espacios en blanco y corta a una única línea de más de `max` caracteres. */
 function clip(text: string, max: number): string {
 	const oneLine = text.replace(/\s+/g, " ").trim();
 	return oneLine.length <= max ? oneLine : `${oneLine.slice(0, Math.max(0, max - 1))}…`;
 }
 
-/** One Claude-style checklist step parsed out of a plan's Markdown. */
+/** Un paso de checklist de estilo Claude parseado del Markdown de un plan. */
 export interface ChecklistItem {
 	text: string;
 	checked: boolean;
@@ -64,17 +64,16 @@ export interface ChecklistItem {
 const CHECKLIST_TEXT_MAX = 120;
 
 /**
- * Parse a submitted plan's Markdown into a Claude-style checklist of steps. PURE
- * and deterministic (no I/O, no Date.now), so it is trivially unit-testable.
+ * Parsea el Markdown de un plan sumado en un checklist de pasos de estilo Claude. PURO
+ * y determinista (sin I/O, sin Date.now), así que es trivialmente unit-testable.
  *
- * Strategy, in priority order (the FIRST kind that yields any item wins, so a plan
- * that already uses GFM task lists keeps its checked/unchecked state):
- *   1. GFM task-list items: `- [ ]` / `- [x]` (also `*`/`+` bullets and `1.`/`1)`
- *      ordered prefixes). `[x]`/`[X]` => checked.
- *   2. Ordered-list items (`1. step`) => unchecked steps.
- *   3. Bullet-list items (`- step`) => unchecked steps.
- *   4. `##`..`######` headings => unchecked steps (when the plan has no lists).
- * Returns [] when nothing structured is found.
+ * Estrategia, en orden de prioridad (el PRIMER tipo que produce algún item gana, así que un plan
+ * que ya usa task lists GFM mantiene su estado checked/unchecked):
+ *   1. Items de task-list GFM: `- [ ]` / `- [x]` (también bullets `*`/`+` y prefijos `1.`/`1)` ordenados). `[x]`/`[X]` => chequeado.
+ *   2. Items de lista ordenada (`1. paso`) => pasos sin checkear.
+ *   3. Items de lista con bullets (`- paso`) => pasos sin checkear.
+ *   4. Headings `##`..`######` => pasos sin checkear (cuando el plan no tiene listas).
+ * Devuelve [] cuando no se encuentra nada estructurado.
  */
 export function extractPlanChecklist(markdown: string): ChecklistItem[] {
 	const taskItems: ChecklistItem[] = [];
@@ -108,9 +107,9 @@ export function extractPlanChecklist(markdown: string): ChecklistItem[] {
 }
 
 /**
- * Render the plan-mode dashboard as Markdown: a header with session totals, an
- * "Active" detail section for any armed plan (posture, counts, last submitted
- * plan), and a "History" table of every plan in the session (oldest first).
+ * Renderiza el dashboard de modo plan como Markdown: un header con totales de sesión, una
+ * sección de detalle "Activo" para cualquier plan armado (postura, conteos, último plan
+ * sumado), y una tabla "Historial" de cada plan en la sesión (más antiguo primero).
  */
 export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 	const lines: string[] = ["# Tablero de Modo Plan", ""];
@@ -142,7 +141,7 @@ export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 				`- **Tarea:** ${clip(p.task, 200)}`,
 			);
 			if (p.lastPlan) {
-				// Claude-style checklist derived from the latest submitted plan.
+				// Checklist de estilo Claude derivado del plan sumido más recientemente.
 				const steps = extractPlanChecklist(p.lastPlan);
 				if (steps.length) {
 					const done = steps.filter((s) => s.checked).length;
@@ -173,10 +172,10 @@ export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 }
 
 /**
- * Render the dashboard Markdown as a scrollable TUI overlay. The overlay is a
- * minimal self-contained component (no pi-tui runtime import) so it never
- * destabilizes the bundled test harness; any overlay failure degrades to a
- * notification. Caller has already confirmed an interactive TUI with a live UI.
+ * Renderiza el Markdown del dashboard como un overlay de TUI scrollable. El overlay es un
+ * componente mínimo autocontenido (sin importación de runtime pi-tui) así que nunca
+ * desestabiliza el harness de test empaquetado; cualquier fallo del overlay se degrada a una
+ * notificación. El llamador ya ha confirmado un TUI interactivo con una UI viva.
  */
 export async function renderPlanDashboardOverlay(ctx: ExtensionContext, markdown: string): Promise<void> {
 	try {
