@@ -208,6 +208,10 @@ async function checkProject(tsconfigPath: string, signal: AbortSignal | undefine
 const TIMEOUT_MESSAGE =
 	"El chequeo de TypeScript agotó el tiempo de espera — resultados no concluyentes. Reintentá cuando tsc termine, o aumentá PI_TS_LSP_TIMEOUT_MS.";
 
+function toolResult(text: string, details: Record<string, unknown>) {
+	return { content: [{ type: "text" as const, text }], details };
+}
+
 // --------------------------------------------------------------------------
 // Extensión
 // --------------------------------------------------------------------------
@@ -415,30 +419,26 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 				outcome = await runProjectCheck(effectiveCtx);
 			} else {
 				if (touched.size === 0) {
-					return {
-						content: [{ type: "text" as const, text: "No se tocó ningún archivo TypeScript en este turno." }],
-						details: { scope: "touched", count: 0, diagnostics: [] },
-					};
+					return toolResult("No se tocó ningún archivo TypeScript en este turno.", {
+						scope: "touched",
+						count: 0,
+						diagnostics: [],
+					});
 				}
 				outcome = await runTouchedCheck(effectiveCtx, [...touched]);
 			}
 
 			if (outcome.status === "no-engine") {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "No se encontró tsconfig.json ni tsc — no se pueden ejecutar los diagnósticos de TypeScript.",
-						},
-					],
-					details: { isError: true, scope: requested },
-				};
+				return toolResult(
+					"No se encontró tsconfig.json ni tsc — no se pueden ejecutar los diagnósticos de TypeScript.",
+					{
+						isError: true,
+						scope: requested,
+					},
+				);
 			}
 			if (outcome.status === "timeout") {
-				return {
-					content: [{ type: "text" as const, text: TIMEOUT_MESSAGE }],
-					details: { isError: true, timedOut: true, scope: requested },
-				};
+				return toolResult(TIMEOUT_MESSAGE, { isError: true, timedOut: true, scope: requested });
 			}
 
 			const diags = outcome.diags;
@@ -446,15 +446,12 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			const text = formatted.hasErrors
 				? `Diagnósticos de TypeScript (${diags.length}):\n${formatted.text}`
 				: "No hay diagnósticos de TypeScript — limpio.";
-			return {
-				content: [{ type: "text" as const, text }],
-				details: {
-					scope: requested,
-					hasErrors: formatted.hasErrors,
-					count: diags.length,
-					diagnostics: diags,
-				},
-			};
+			return toolResult(text, {
+				scope: requested,
+				hasErrors: formatted.hasErrors,
+				count: diags.length,
+				diagnostics: diags,
+			});
 		},
 	});
 
