@@ -8,7 +8,7 @@
 // extensions/pandi-theme/themes/panda-syntax-{dark,light}.json).
 //
 // Usage:
-//   node markdown-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]
+//   node markdown-to-html.mjs <input.md> [más.md…] [-o output.html] [--kicker "Text"]
 //
 // Without -o each input writes a sibling <input>.html; -o is only valid with one input.
 
@@ -206,7 +206,7 @@ export function parseArgs(argv) {
 		if (a === "-o" || a === "--out") out = argv[++i];
 		else if (a === "--kicker") kicker = argv[++i];
 		else if (a === "-h" || a === "--help") return { help: true };
-		else if (a.startsWith("-")) throw new Error(`unknown flag: ${a}`);
+		else if (a.startsWith("-")) throw new Error(`flag desconocida: ${a}`);
 		else inputs.push(a);
 	}
 	return { inputs, out, kicker };
@@ -215,11 +215,11 @@ export function parseArgs(argv) {
 function main() {
 	const parsed = parseArgs(process.argv.slice(2));
 	if (parsed.help || !parsed.inputs?.length) {
-		console.log('Usage: markdown-to-html.mjs <input.md> [more.md…] [-o output.html] [--kicker "Text"]');
+		console.log('Uso: markdown-to-html.mjs <input.md> [más.md…] [-o output.html] [--kicker "Texto"]');
 		process.exit(parsed.help ? 0 : 1);
 	}
 	if (parsed.out && parsed.inputs.length > 1) {
-		console.error("-o is only valid with a single input");
+		console.error("-o solo es válido con un único archivo de entrada");
 		process.exit(1);
 	}
 	for (const input of parsed.inputs) {

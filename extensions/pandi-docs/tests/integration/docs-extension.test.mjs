@@ -149,7 +149,7 @@ async function scenarioCommandErrors(url) {
 	const ctx2 = makeCtx({ cwd });
 	await command.handler("", ctx2);
 	const usage = ctx2._notes[0];
-	check("command no args: shows usage", /usage/i.test(usage?.msg || ""), JSON.stringify(ctx2._notes));
+	check("command no args: shows usage", /uso/i.test(usage?.msg || ""), JSON.stringify(ctx2._notes));
 }
 
 async function scenarioToolConverts(url) {

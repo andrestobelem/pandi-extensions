@@ -3,7 +3,7 @@
  * pandi-artifact-style manual (Claude-design layout × Panda Syntax palette).
  *
  * Two surfaces over the same converter (./scripts/markdown-to-html.mjs):
- *   - `/docs <in.md> [more.md…] [-o out.html] [--kicker "Text"]` — human command.
+ *   - `/docs <in.md> [más.md…] [-o out.html] [--kicker "Text"]` — human command.
  *   - `markdown_to_html` — model-callable tool (the agent cannot type slash commands).
  *
  * The pandi tokens are read at call time from the vendored pandi-artifact-style skill
@@ -24,7 +24,7 @@ import { parseArgs, renderMarkdownToHtml } from "./scripts/markdown-to-html.mjs"
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
-const USAGE = 'Usage: /docs <input.md> [more.md…] [-o output.html] [--kicker "Text"]';
+const USAGE = 'Uso: /docs <input.md> [más.md…] [-o output.html] [--kicker "Texto"]';
 
 /** Resolve a user path against the session cwd, expanding a leading `~`. */
 function resolveUserPath(input: string, cwd: string): string {
@@ -56,7 +56,7 @@ export function convertMarkdownFile(
 	try {
 		md = fs.readFileSync(inputAbs, "utf8");
 	} catch {
-		throw new Error(`Could not read ${inputPath} — check the path and try again`);
+		throw new Error(`No se pudo leer ${inputPath} — revisá la ruta y volvé a intentar`);
 	}
 	const tokensCss = fs.readFileSync(TOKENS_CSS_PATH, "utf8");
 	const html = renderMarkdownToHtml(md, { title: path.basename(inputAbs), kicker: opts.kicker, tokensCss });
@@ -80,7 +80,7 @@ function relativeTo(cwd: string, abs: string): string {
 
 export default function docsExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("docs", {
-		description: "Convert a Markdown file to pandi-styled self-contained HTML",
+		description: "Convertí un archivo Markdown a HTML autocontenido con estilo pandi",
 		handler: async (args, ctx) => {
 			let parsed: { inputs?: string[]; out?: string | null; kicker?: string; help?: boolean };
 			try {
@@ -94,7 +94,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 				return;
 			}
 			if (parsed.out && parsed.inputs.length > 1) {
-				notify(ctx, `-o is only valid with a single input\n${USAGE}`, "error");
+				notify(ctx, `-o solo es válido con un único archivo de entrada\n${USAGE}`, "error");
 				return;
 			}
 			const written: string[] = [];
@@ -111,7 +111,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 					return;
 				}
 			}
-			notify(ctx, `Wrote ${written.join(", ")}`, "info");
+			notify(ctx, `Se escribió ${written.join(", ")}`, "info");
 		},
 	});
 
@@ -120,21 +120,25 @@ export default function docsExtension(pi: ExtensionAPI): void {
 		name: "markdown_to_html",
 		label: "Markdown to HTML",
 		description:
-			"Convert a Markdown file into a self-contained HTML artifact styled with the pandi " +
-			"artifact style (Claude-design layout, Panda Syntax palette, light+dark). Writes a " +
-			"sibling .html next to the input unless `out` is given. Use when the user asks for a " +
-			"styled HTML report/informe/artifact from a Markdown file.",
-		promptSnippet: "Convert a Markdown file to a pandi-styled self-contained HTML artifact.",
+			"Convertí un archivo Markdown en un artifact HTML autocontenido con el estilo " +
+			"pandi-artifact-style (layout Claude-design, paleta Panda Syntax, claro+oscuro). Escribe " +
+			"un .html hermano junto a la entrada salvo que se indique `out`. Usalo cuando el usuario " +
+			"pida un informe/artifact HTML con estilo a partir de un archivo Markdown.",
+		promptSnippet: "Convertí un archivo Markdown en un artifact HTML autocontenido con estilo pandi.",
 		parameters: Type.Object({
 			path: Type.String({
 				minLength: 1,
-				description: "Path to the Markdown file: relative to the cwd, ~-expanded, or absolute.",
+				description: "Ruta al archivo Markdown: relativa al cwd, con `~` expandido, o absoluta.",
 			}),
 			out: Type.Optional(
-				Type.String({ description: "Output HTML path (default: the input with .md swapped for .html)." }),
+				Type.String({
+					description: "Ruta del HTML de salida (por defecto: la entrada con `.md` reemplazado por `.html`).",
+				}),
 			),
 			kicker: Type.Optional(
-				Type.String({ description: 'Kicker text above the page title (default "Pandi artifact").' }),
+				Type.String({
+					description: 'Texto de kicker sobre el título de la página (por defecto "Pandi artifact").',
+				}),
 			),
 		}),
 		executionMode: "sequential",
@@ -144,7 +148,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: "markdown_to_html: `path` must not be empty — pass a Markdown file path.",
+							text: "markdown_to_html: `path` no puede estar vacío — pasá una ruta a un archivo Markdown.",
 						},
 					],
 					details: { isError: true },
@@ -157,7 +161,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: `Wrote ${output} (${result.bytes} bytes) from ${relativeTo(ctx.cwd, result.input)}.`,
+							text: `Se escribió ${output} (${result.bytes} bytes) a partir de ${relativeTo(ctx.cwd, result.input)}.`,
 						},
 					],
 					details: { input: relativeTo(ctx.cwd, result.input), output, bytes: result.bytes },
