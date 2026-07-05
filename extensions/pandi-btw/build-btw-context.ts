@@ -29,11 +29,11 @@ type AgentMessage = SessionMessageEntry["message"];
  * not a request to take actions or use tools (the request carries no tools anyway).
  */
 export const BTW_SYSTEM_PROMPT =
-	"You are answering a quick side question about the ongoing conversation shown above. " +
-	"Answer concisely and directly, grounded ONLY in that existing context — for example " +
-	'"what did we decide?" or "what file was that?". Do not propose taking new actions, ' +
-	"running commands, or using tools; just answer the question from what is already known. " +
-	"If the conversation does not contain the answer, say so briefly.";
+	"Estás respondiendo una pregunta rápida y lateral sobre la conversación mostrada arriba. " +
+	"Respondé de forma concisa y directa, basándote ÚNICAMENTE en ese contexto existente — por ejemplo " +
+	'"¿qué decidimos?" o "¿qué archivo era ese?". No propongas tomar nuevas acciones, ' +
+	"ejecutar comandos, ni usar tools; solo respondé la pregunta con lo que ya se sabe. " +
+	"Si la conversación no contiene la respuesta, decilo brevemente.";
 
 export interface BtwContextInput {
 	/** The current conversation branch (from sessionManager.getBranch()). */

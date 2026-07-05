@@ -108,7 +108,7 @@ class AnswerViewComponent implements Component {
 		const question = this.theme.fg("dim", this.question);
 		const footer = this.theme.fg(
 			"dim",
-			`↑/↓ j/k scroll • PgUp/PgDn page • q/Esc close • ${start + 1}-${end}/${bodyLines.length}`,
+			`↑/↓ j/k desplazar • PgUp/PgDn página • q/Esc cerrar • ${start + 1}-${end}/${bodyLines.length}`,
 		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));

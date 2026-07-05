@@ -54,7 +54,7 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 	if (!question) {
 		notify(
 			ctx,
-			"Usage: /btw <question> — ask a quick side question about the current conversation (not added to history).",
+			"Uso: /btw <pregunta> — hacé una pregunta rápida y lateral sobre la conversación actual (no se agrega al historial).",
 			"info",
 		);
 		return;
@@ -62,13 +62,13 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 
 	const model = ctx.model;
 	if (!model) {
-		notify(ctx, "No model selected. Choose one with /model, then retry /btw.", "error");
+		notify(ctx, "No hay modelo seleccionado. Elegí uno con /model y volvé a intentar con /btw.", "error");
 		return;
 	}
 
 	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
 	if (!auth.ok) {
-		notify(ctx, `No usable credentials for ${model.provider}/${model.id}: ${auth.error}`, "error");
+		notify(ctx, `No hay credenciales utilizables para ${model.provider}/${model.id}: ${auth.error}`, "error");
 		return;
 	}
 
@@ -94,24 +94,24 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 	try {
 		response = await completeSimple(model, context, options);
 	} catch (error) {
-		notify(ctx, `btw failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+		notify(ctx, `btw falló: ${error instanceof Error ? error.message : String(error)}`, "error");
 		return;
 	} finally {
 		if (showStatus) ctx.ui.setStatus(STATUS_KEY, undefined);
 	}
 
 	if (response.stopReason === "error") {
-		notify(ctx, `btw failed: ${response.errorMessage ?? "the model returned an error"}`, "error");
+		notify(ctx, `btw falló: ${response.errorMessage ?? "el modelo devolvió un error"}`, "error");
 		return;
 	}
 	if (response.stopReason === "aborted") {
-		notify(ctx, "btw cancelled.", "info");
+		notify(ctx, "btw cancelado.", "info");
 		return;
 	}
 
 	const answer = extractAnswerText(response);
 	if (!answer) {
-		notify(ctx, "btw: the model returned no answer.", "warning");
+		notify(ctx, "btw: el modelo no devolvió respuesta.", "warning");
 		return;
 	}
 
@@ -129,7 +129,8 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 
 export default function btwExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("btw", {
-		description: "Ask a quick side question about the current conversation (no tools, not added to history).",
+		description:
+			"Hacé una pregunta rápida y lateral sobre la conversación actual (sin tools, no se agrega al historial).",
 		handler: async (args, ctx) => {
 			await handleBtw(args, ctx, pi);
 		},

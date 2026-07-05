@@ -208,7 +208,7 @@ async function testEmptyQuestion(url) {
 	await commands.get("btw").handler("   ", ctx);
 	check(
 		"empty /btw shows a usage hint",
-		notes.some((n) => n.type === "info" && /usage:\s*\/btw/i.test(n.message)),
+		notes.some((n) => n.type === "info" && /uso:\s*\/btw/i.test(n.message)),
 		JSON.stringify(notes),
 	);
 	check("empty /btw does not call the model", (globalThis.__btwCalls ?? []).length === 0);
@@ -223,7 +223,7 @@ async function testNoModel(url) {
 	await commands.get("btw").handler("what file was that?", ctx);
 	check(
 		"no model selected is reported",
-		notes.some((n) => n.type === "error" && /no model/i.test(n.message)),
+		notes.some((n) => n.type === "error" && /no hay modelo/i.test(n.message)),
 		JSON.stringify(notes),
 	);
 	check("no model does not call the model", (globalThis.__btwCalls ?? []).length === 0);
@@ -251,7 +251,7 @@ async function testJsonModeNotifyReachesConsole(url) {
 	}
 	check(
 		"json mode: an error notify is written to the console (not silently dropped)",
-		errOut.some((m) => /no model/i.test(m)),
+		errOut.some((m) => /no hay modelo/i.test(m)),
 		JSON.stringify(errOut),
 	);
 }
@@ -376,7 +376,7 @@ async function testModelErrors(url) {
 	await commands.get("btw").handler("q", r.ctx);
 	check(
 		"empty answer is reported as a warning",
-		r.notes.some((n) => n.type === "warning" && /no answer/i.test(n.message)),
+		r.notes.some((n) => n.type === "warning" && /no devolvió respuesta/i.test(n.message)),
 		JSON.stringify(r.notes),
 	);
 	check("empty answer opens no overlay", r.overlays.length === 0);
