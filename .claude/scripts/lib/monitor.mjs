@@ -12,9 +12,9 @@ const empty = (value) => value === undefined || value === null || value === "" |
 const shortModel = (value) => (value && value !== "inherited" ? String(value).split("/").pop() : "inherited");
 const plural = (count, singular, pluralForm = `${singular}s`) => (count === 1 ? singular : pluralForm);
 
-function meter(fraction, kind = "ok") {
+function meter(fraction) {
   const pct = Math.max(0, Math.min(1, Number.isFinite(fraction) ? fraction : 0));
-  return `<span class="meter ${kind}" title="${Math.round(pct * 100)}%"><span style="width:${Math.round(pct * 100)}%"></span></span>`;
+  return `<span class="meter" title="${Math.round(pct * 100)}%"><span style="width:${Math.round(pct * 100)}%"></span></span>`;
 }
 
 function pill(kind, label) {
@@ -24,28 +24,19 @@ function pill(kind, label) {
 function nodeState(node) {
   const run = node.run;
   if (!run) return { kind: "run", label: "planificado", done: false, failed: false, running: false };
-  const total = Math.max(run.planned || 0, run.count || 0, (run.ok || 0) + (run.fail || 0) + (run.unknown || 0) + (run.running || 0));
-  if (run.running) {
-    const bits = [`corriendo ${run.running}/${total}`];
-    if (run.fail) bits.push(`falló ${run.fail}`);
-    if (run.ok) bits.push(`ok ${run.ok}`);
-    if (run.unknown) bits.push(`unknown ${run.unknown}`);
-    return { kind: "run", label: bits.join(" · "), done: false, failed: !!run.fail, running: true };
-  }
-  if (run.fail) return { kind: "fail", label: `falló ${run.fail}/${total}`, done: true, failed: true, running: false };
-  if (run.unknown) return { kind: "warn", label: `unknown ${run.unknown}/${total}`, done: true, failed: false, running: false };
-  if (run.ok) return { kind: "ok", label: `ok ${run.ok}/${total}`, done: true, failed: false, running: false };
+  if (run.fail) return { kind: "fail", label: `falló ${run.fail}/${run.count}`, done: true, failed: true, running: false };
+  if (run.running) return { kind: "run", label: `corriendo ${run.running}/${run.count}`, done: false, failed: false, running: true };
+  if (run.ok) return { kind: "ok", label: `ok ${run.ok}/${run.count}`, done: true, failed: false, running: false };
   return { kind: "warn", label: "sin datos", done: false, failed: false, running: false };
 }
 
 function progress({ nodes, runData }) {
-  if (runData?.progress) return runData.progress;
   if (runData) {
-    const done = (runData.ok || 0) + (runData.fail || 0) + (runData.unknown || 0);
+    const done = (runData.ok || 0) + (runData.fail || 0);
     const total = Math.max(runData.agentCount || 0, done + (runData.running || 0), nodes.length);
-    return { done, total, running: runData.running || 0, failed: runData.fail || 0, fraction: total > 0 ? done / total : 0, kind: runData.runKind || "ok", value: `${done}/${total}` };
+    return { done, total, running: runData.running || 0, failed: runData.fail || 0 };
   }
-  return { done: 0, total: nodes.length, running: 0, failed: 0, fraction: 0, kind: "run", value: `0/${nodes.length}` };
+  return { done: 0, total: nodes.length, running: 0, failed: 0 };
 }
 
 function pickFeaturedNode(nodes) {
@@ -84,10 +75,10 @@ function activityBlock(runData) {
 export function renderWorkflowMonitor({ meta = {}, phases = [], nodes = [], runData = null, args = "", warn = null, source = "" } = {}) {
   const p = progress({ nodes, runData });
   const total = Math.max(0, p.total || 0);
-  const frac = p.fraction !== undefined ? p.fraction : total > 0 ? p.done / total : 0;
+  const frac = total > 0 ? p.done / total : 0;
   const featured = pickFeaturedNode(nodes);
   const stateLabel = runData ? runData.state || "unknown" : "preview estático";
-  const stateKind = runData ? runData.runKind || (runData.state === "failed" ? "fail" : runData.active || runData.state === "running" ? "run" : runData.state === "completed" ? "ok" : "warn") : "run";
+  const stateKind = runData ? (runData.fail ? "fail" : runData.running ? "run" : runData.state === "completed" ? "ok" : "warn") : "run";
   const artifactCount = runData?.results?.artifacts?.length || 0;
   const lastLog = runData?.logs?.slice(-1)[0];
   const title = meta.name || "workflow";
@@ -100,7 +91,7 @@ export function renderWorkflowMonitor({ meta = {}, phases = [], nodes = [], runD
     `<div class="monitor-hero"><div><div class="monitor-title">${esc(title)} ${pill(stateKind, stateLabel)}</div><p>${esc(desc)}</p><div class="chips">${phaseChips}<span class="chip">args: ${esc(args)}</span>${source ? `<span class="chip">source: ${esc(source.split("/").pop())}</span>` : ""}</div></div></div>`,
     warnBlock,
     '<div class="subh">Progreso</div>',
-    `<div class="monitor-grid">${metric("agents", p.value || `${p.done}/${total}`, `${meter(frac, p.kind || "ok")} <span>${Math.round(frac * 100)}%</span>`)}${metric("parallel", runData ? String(p.running) : "preview", runData ? "corriendo ahora" : "se confirma al correr")}${metric("failed", String(p.failed), p.failed ? "revisar tarjetas fallidas" : "sin fallas registradas")}${metric("bash", String(runData?.bashDone ?? 0), "comandos completados")}${metric("artifacts", String(artifactCount), "root artifacts detectados")}${metric("last", lastLog ? `${String(lastLog.time || "").slice(11, 19)} ${lastLog.message}` : "—", "última actividad")}</div>`,
+    `<div class="monitor-grid">${metric("agents", `${p.done}/${total}`, `${meter(frac)} <span>${Math.round(frac * 100)}%</span>`)}${metric("parallel", runData ? String(p.running) : "preview", runData ? "corriendo ahora" : "se confirma al correr")}${metric("failed", String(p.failed), p.failed ? "revisar tarjetas fallidas" : "sin fallas registradas")}${metric("bash", String(runData?.bashDone ?? 0), "comandos completados")}${metric("artifacts", String(artifactCount), "root artifacts detectados")}${metric("last", lastLog ? `${String(lastLog.time || "").slice(11, 19)} ${lastLog.message}` : "—", "última actividad")}</div>`,
     '<div class="subh">Agentes</div>',
     nodes.length
       ? `<table class="monitor-table"><thead><tr><th>estado</th><th>id/fase</th><th>rol</th><th>modelo</th><th>esfuerzo</th><th>schema</th><th>tools</th><th>skills</th></tr></thead><tbody>${nodes.map((node) => agentRow(node, featured)).join("")}</tbody></table>`
