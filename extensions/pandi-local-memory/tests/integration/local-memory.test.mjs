@@ -171,7 +171,7 @@ async function capsIndexForInjection(url) {
 	const res = await handler(EVENT, { cwd });
 	check("cap: keeps the first line", !!res && res.systemPrompt.includes("line-1\n"), res?.systemPrompt?.slice(0, 80));
 	check("cap: drops lines past 200", !!res && !res.systemPrompt.includes("line-250"), "line-250 should be dropped");
-	check("cap: marks the index as truncated", !!res && /truncated for injection/.test(res.systemPrompt));
+	check("cap: marks the index as truncated", !!res && /truncado para la inyección/.test(res.systemPrompt));
 }
 
 async function listsTopicsButDoesNotInjectThem(url) {
@@ -247,7 +247,7 @@ async function rememberToolRegistered(url) {
 	const guide = `${(t?.promptGuidelines ?? []).join("\n")}\n${t?.description ?? ""}`.toLowerCase();
 	check(
 		"remember: guidance carries the anti-injection non-goal (no untrusted/retrieved content)",
-		/untrusted/.test(guide) && /(retrieved|tool output|web|pasted)/.test(guide) && /never/.test(guide),
+		/no confiable/.test(guide) && /(tool|web|pegado)/.test(guide) && /nunca/.test(guide),
 		guide.slice(0, 220),
 	);
 }
@@ -270,7 +270,7 @@ async function rememberCreatesAndAppends(url) {
 		"remember: second note appended alongside the first",
 		/use TDD/.test(mem2) && /prefer small commits/.test(mem2),
 	);
-	check("remember: single managed heading", (mem2.match(/Agent memory/g) || []).length === 1);
+	check("remember: single managed heading", (mem2.match(/Memoria del agente/g) || []).length === 1);
 	check(
 		"remember: single begin/end marker pair",
 		(mem2.match(/pi:remember:begin/g) || []).length === 1 && (mem2.match(/pi:remember:end/g) || []).length === 1,

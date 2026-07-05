@@ -22,7 +22,7 @@ export const REMEMBER_BEGIN = "<!-- pi:remember:begin -->";
 /** Marker that closes the agent-managed block. */
 export const REMEMBER_END = "<!-- pi:remember:end -->";
 /** Heading shown to a human reading MEMORY.md, so the managed block is obvious. */
-export const MANAGED_HEADING = "## Agent memory (auto-managed by the remember tool)";
+export const MANAGED_HEADING = "## Memoria del agente (gestionada automáticamente por la tool remember)";
 
 /** Upper bound on a single note (clamped inside execute; never trust the model). */
 export const MAX_NOTE_LENGTH = 1000;
@@ -159,11 +159,11 @@ export function composeInjectedMemory(args: {
 	const { text: capped, truncated } = capForInjection(args.indexText.trim());
 	const parts = [capped];
 	if (truncated) {
-		parts.push("\n… (memory index truncated for injection; open MEMORY.md to read the rest)");
+		parts.push("\n… (índice de memoria truncado para la inyección; abrí MEMORY.md para leer el resto)");
 	}
 	if (args.topicNames.length) {
 		const list = args.topicNames.map((name) => `- ${args.memoryDirPath}/${name}`).join("\n");
-		parts.push(`\n## Topic files (read on demand with your file tools)\n\n${list}`);
+		parts.push(`\n## Archivos de topics (se leen bajo demanda con tus tools de archivos)\n\n${list}`);
 	}
 	return escapeLocalMemoryTags(parts.join("\n"));
 }
