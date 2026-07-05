@@ -27,6 +27,11 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	if (ctx.hasUI) ctx.ui.notify(message, type);
 }
 
+function formatExitFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return `no se pudo salir: ${message} — probá /quit en su lugar`;
+}
+
 export default function exitExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("exit", {
 		description: "Sale de pi de forma limpia (alias estilo Claude de /quit).",
@@ -34,11 +39,7 @@ export default function exitExtension(pi: ExtensionAPI): void {
 			try {
 				ctx.shutdown();
 			} catch (error) {
-				notify(
-					ctx,
-					`no se pudo salir: ${error instanceof Error ? error.message : String(error)} — probá /quit en su lugar`,
-					"error",
-				);
+				notify(ctx, formatExitFailure(error), "error");
 			}
 		},
 	});
