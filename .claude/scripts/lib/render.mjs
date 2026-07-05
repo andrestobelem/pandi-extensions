@@ -18,6 +18,65 @@ const mmId = (s) => "P" + String(s).replace(/[^A-Za-z0-9]/g, "_");
 const mmLabel = (s) => String(s).replace(/["\[\]{}|<>`$]/g, " ").replace(/\s+/g, " ").trim();
 const shortModel = (m) => (m && m !== "inherited" ? String(m).split("/").pop() : null);
 const nodeME = (n) => [shortModel(n.model), n.effort && n.effort !== "inherited" ? n.effort : null].filter(Boolean).join("/");
+const escHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+const plural = (count, singular, pluralForm = `${singular}s`) => (count === 1 ? singular : pluralForm);
+
+function artifactKicker(runData) {
+  if (!runData) return "Workflow dinámico · preview estático";
+  if (runData.fail > 0) return "Workflow dinámico · reporte de run · con fallas";
+  if (runData.active || runData.state === "running") return "Workflow dinámico · run en progreso";
+  return "Workflow dinámico · reporte de run";
+}
+
+function openingText({ runData, nodeCount, argsJson, hasResults }) {
+  if (!runData) {
+    const argsLabel = argsJson ? "args provistos" : "args de ejemplo";
+    return `Vista estática antes de ejecutar: muestra la estructura extraída con ${argsLabel}. Confirmá fases, prompts y límites antes de lanzar el run.`;
+  }
+  const total = runData.agentCount || 0;
+  const agentLabel = plural(total, "agente");
+  const failed = runData.fail || 0;
+  const running = runData.running || 0;
+  if (failed > 0) {
+    const firstStep = hasResults ? "Empezá por Resultados" : "No hay output final registrado; empezá por las tarjetas fallidas";
+    return `${failed} de ${total} ${agentLabel} falló${failed === 1 ? "" : "n"}. ${firstStep}; después abrí prompts y evidencia cruda.`;
+  }
+  if (runData.active || runData.state === "running") {
+    return `Instantánea del run: ${total} ${agentLabel}, ${running} en progreso. El HTML se refresca mientras el run siga activo, así que resultados y métricas pueden cambiar.`;
+  }
+  if (runData.state === "cancelled") {
+    return `El run fue cancelado con ${total} ${agentLabel}. Usá este reporte para encontrar el último paso confiable antes de relanzar o resumir.`;
+  }
+  if (runData.state === "stale") {
+    return `El run parece stale: hay ${total} ${agentLabel}, pero no se confirma un owner activo. Tratá este HTML como diagnóstico, no como veredicto final.`;
+  }
+  if (runData.state === "completed") {
+    if (hasResults) return `${total} ${agentLabel} completaron el run sin fallas registradas. Empezá por Resultados; el diagrama y los prompts quedan abajo para auditar cómo se llegó ahí.`;
+    return `${total} ${agentLabel} completaron el run sin fallas registradas y sin output final. Empezá por Agentes y luego usá el Diagrama como mapa de auditoría.`;
+  }
+  return `Estado del run: ${runData.state || "desconocido"}. Hay ${total} ${agentLabel}; el preview estático detectó ${nodeCount} tipos de nodo.`;
+}
+
+function topCallouts(runData) {
+  if (!runData) return "";
+  const callouts = [];
+  if (runData.fail > 0) {
+    const failed = runData.fail;
+    callouts.push(`<div class="callout error"><b>Falla visible:</b> ${failed} ${plural(failed, "agente")} falló${failed === 1 ? "" : "n"}; no trates este reporte como aprobado hasta revisar esas tarjetas.</div>`);
+  }
+  if (runData.active || runData.state === "running") {
+    callouts.push(`<div class="callout info"><b>Run activo:</b> este artefacto puede cambiar en el próximo refresh.</div>`);
+  }
+  if (runData.state === "stale") {
+    callouts.push(`<div class="callout warn"><b>Stale:</b> no hay señal de owner activo; usalo para diagnosticar antes de continuar.</div>`);
+  }
+  return callouts.join("\n");
+}
+
+function tabButton(id, label, active, extraAttr = "") {
+  const extra = extraAttr ? ` ${extraAttr}` : "";
+  return `<button data-t="${id}"${extra}${active ? ' class="active"' : ""}>${label}</button>`;
+}
 
 const FALLBACK_TOKENS = `:root {
   --bg: #242526; --paper: #292A2B; --info-bg: #2E2A33; --raised: #31353A;
@@ -88,6 +147,9 @@ header{padding:40px 0 8px;}
 header .kicker{font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600;}
 header h1{margin:6px 0;font-size:34px;}
 header p{margin:0;color:var(--ink2);max-width:74ch;}
+.opening{margin:16px 0 8px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:12px 16px;font-size:17px;line-height:1.55;max-width:74ch;}
+.section-intro{margin:0 0 14px;color:var(--ink2);max-width:74ch;font-size:16px;}
+.callout{margin:12px 0;padding:10px 14px;border-radius:10px;border:1px solid var(--line);color:var(--ink);font-size:15.5px;}.callout b{color:var(--ink);}.callout.info{background:var(--info-bg);border-color:var(--info);}.callout.warn{background:var(--warning-bg);border-color:var(--warning);}.callout.error{background:var(--error-bg);border-color:var(--error);}
 a{color:var(--link);}
 .prov{margin:0 0 16px;padding:12px 16px;background:var(--paper);border:1px solid var(--line);border-radius:12px;font-size:16px;color:var(--ink2);}
 .prov b{color:var(--ink);}.prov a{color:var(--link);}.prov .cite{font-family:ui-monospace,Menlo,monospace;color:var(--muted);}
@@ -136,7 +198,7 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   // phase (e.g. "—" for agents the workflow never tagged with a phase) so nodes are never dropped.
   const nodePhases = Object.keys(nodesByPhase);
   const orderedPhases = [...phases, ...nodePhases.filter((p) => !phases.includes(p))];
-  let mm = "flowchart TB\n  IN([args input]):::io\n";
+  let mm = "flowchart TB\n  IN([entrada args]):::io\n";
   orderedPhases.forEach((ph) => {
     const ns = nodesByPhase[ph] || [];
     mm += `  subgraph ${mmId(ph)}["${mmLabel(ph)}"]\n   direction LR\n`;
@@ -146,20 +208,20 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
       const cls = n.run ? (n.run.fail ? "agf" : n.run.running ? "agr" : "agok") : "ag";
       mm += `   ${mmId(ph)}_${i}["${mmLabel(n.role)}${n.schemaObj ? " · schema" : ""}${me ? " · " + mmLabel(me) : ""}${glyph}"]:::${cls}\n`;
     });
-    if (!ns.length) mm += `   ${mmId(ph)}_x["no agents · bash-only or unreached"]:::empty\n`;
+    if (!ns.length) mm += `   ${mmId(ph)}_x["sin agentes · solo bash o no alcanzado"]:::empty\n`;
     mm += "  end\n";
   });
   let prev = "IN";
   orderedPhases.forEach((ph) => { mm += `  ${prev} --> ${mmId(ph)}\n`; prev = mmId(ph); });
   mm += `  ${prev} --> OUT[/"return"/]:::io\n`;
-  composes.forEach((c, i) => { mm += `  COMP${i}{{"workflow ${mmLabel(c)}"}}:::comp\n  ${prev} -. composes .-> COMP${i}\n`; });
+  composes.forEach((c, i) => { mm += `  COMP${i}{{"workflow ${mmLabel(c)}"}}:::comp\n  ${prev} -. compone .-> COMP${i}\n`; });
   mm += classDefs(tokenVariants.dark);
 
   // Fidelity notes — an empty box is never read as "no agents" when it's really runtime-gated.
   const fidelityNotes = [...staticFidelity];
   const declaredPhaseTitles = (meta.phases || []).map(phaseTitleOf).filter(Boolean);
   const emptyDeclared = declaredPhaseTitles.filter((t) => !nodes.some((n) => n.phase === t));
-  if (emptyDeclared.length) fidelityNotes.push("declared phase(s) with no recorded agents: " + emptyDeclared.join(", ") + (runData ? " — still gated on runtime values or bash-only (not reached in this run)" : " — likely gated on runtime values; see the Full script tab"));
+  if (emptyDeclared.length) fidelityNotes.push("fase(s) declarada(s) sin agentes registrados: " + emptyDeclared.join(", ") + (runData ? " — todavía depende de valores runtime o solo bash (no alcanzada en este run)" : " — probablemente depende de valores runtime; ver la pestaña Script completo"));
 
   const run = runData ? { runId: runData.runId, state: runData.state, active: runData.active, agentCount: runData.agentCount, ok: runData.ok, fail: runData.fail, running: runData.running, elapsedMs: runData.elapsedMs } : null;
   const contract = detectContract(runData);
@@ -167,34 +229,53 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const data = {
     meta, phases, composes, __mm: mm, mermaidThemes,
     provenance, scaffolds, source: scriptPath,
-    args: argsJson ? "(provided)" : "(kitchen-sink defaults for extraction)",
+    args: argsJson ? "(provistos)" : "(defaults de extracción)",
     schemas, nodes, skillRefs, script: raw, run, ...(hasContract ? { contract } : {}),
     results: runData ? runData.results : null,
     warn: fidelityNotes.length ? fidelityNotes.join(" · ") : null,
   };
   const jsonBlob = JSON.stringify(data).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
   const autoRefresh = !!(runData && runData.active);
+  const hasResults = !!(runData && runData.results);
+  const initialTab = hasResults ? "results" : "overview";
+  const opening = escHtml(openingText({ runData, nodeCount: nodes.length, argsJson, hasResults }));
+  const callouts = topCallouts(runData);
+  const tabs = [
+    ...(hasResults ? [tabButton("results", "Resultados", initialTab === "results", 'id="tabresults"')] : []),
+    tabButton("overview", "Diagrama", initialTab === "overview"),
+    ...(hasContract ? [tabButton("contract", "Contrato", false)] : []),
+    tabButton("agents", "Agentes y prompts", false),
+    tabButton("schemas", "Schemas", false),
+    tabButton("based", "Basado en", false),
+    tabButton("script", "Script completo", false),
+    ...(!hasResults ? [tabButton("results", "Resultados", false, 'id="tabresults"')] : []),
+  ].join("");
+  const active = (id) => (initialTab === id ? ' class="active"' : "");
+  const overviewSection = `<section data-s="overview"${active("overview")}><h2 class="sec">Orquestación</h2><p class="section-intro">El diagrama muestra la estructura detectada: fases, tipos de agente y composición entre workflows. Usalo como mapa; los prompts exactos están en la pestaña de agentes.</p><div class="diagram"><pre class="mermaid" id="mm"></pre></div></section>`;
+  const contractSection = hasContract ? '<section data-s="contract"><h2 class="sec">Contrato — contrato de tarea del gate</h2><div class="mdbody" id="contract"></div></section>' : "";
+  const resultsSection = `<section data-s="results"${active("results")}><h2 class="sec">Resultados — valor de retorno y artefactos</h2><div id="results"></div></section>`;
+  const agentsSection = '<section data-s="agents"><h2 class="sec">Agentes — abrí para ver el prompt exacto</h2><div id="agents"></div></section>';
+  const schemasSection = '<section data-s="schemas"><h2 class="sec">Schemas de structured output</h2><div id="schemas"></div></section>';
+  const basedSection = '<section data-s="based"><h2 class="sec">Basado en — fuentes y scaffolds</h2><div id="based"></div></section>';
+  const scriptSection = '<section data-s="script"><h2 class="sec">Script completo</h2><pre class="block"><code class="language-javascript" id="script"></code></pre></section>';
+  const sections = hasResults
+    ? [resultsSection, overviewSection, contractSection, agentsSection, schemasSection, basedSection, scriptSection]
+    : [overviewSection, contractSection, resultsSection, agentsSection, schemasSection, basedSection, scriptSection];
 
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${autoRefresh ? '<meta http-equiv="refresh" content="2">' : ""}
 <title>${(meta.name || "workflow").replace(/[<>&]/g, "")} — workflow</title>
 <style>
 ${tokensCss}
 ${COMPONENT_CSS}</style></head><body><div class="container">
-  <header><div class="kicker">Dynamic workflow · review before launch</div><h1 id="wf-name"></h1><p id="wf-desc"></p>
+  <header><div class="kicker">${artifactKicker(runData)}</div><h1 id="wf-name"></h1><p id="wf-desc"></p>
+  <p class="opening">${opening}</p>
+  ${callouts}
   <div class="runbanner" id="runbanner" style="display:none"></div>
   <div class="chips" id="wf-chips"></div>
   <div class="warn" id="warn" style="display:none"></div></header>
-  <nav class="tabs" id="tabs">
-    <button data-t="overview" class="active">Diagram</button>${hasContract ? '<button data-t="contract">Contract</button>' : ""}<button data-t="agents">Agents &amp; prompts</button>
-    <button data-t="schemas">Schemas</button><button data-t="based">Based on</button><button data-t="script">Full script</button><button data-t="results" id="tabresults">Results</button>
-  </nav>
-  <section data-s="overview" class="active"><h2 class="sec">Orchestration</h2><div class="diagram"><pre class="mermaid" id="mm"></pre></div></section>${hasContract ? '<section data-s="contract"><h2 class="sec">Contract — task contract from the gate</h2><div class="mdbody" id="contract"></div></section>' : ""}
-  <section data-s="results"><h2 class="sec">Results — return value &amp; artifacts</h2><div id="results"></div></section>
-  <section data-s="agents"><h2 class="sec">Agents — click for the exact composed prompt</h2><div id="agents"></div></section>
-  <section data-s="schemas"><h2 class="sec">Structured-output schemas</h2><div id="schemas"></div></section>
-  <section data-s="based"><h2 class="sec">Based on — sources &amp; scaffolds</h2><div id="based"></div></section>
-  <section data-s="script"><h2 class="sec">Full script</h2><pre class="block"><code class="language-javascript" id="script"></code></pre></section>
-  <footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+  <nav class="tabs" id="tabs">${tabs}</nav>
+  ${sections.filter(Boolean).join("\n  ")}
+  <footer>Generado con pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>
 <script type="application/json" id="data">${jsonBlob}</script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
