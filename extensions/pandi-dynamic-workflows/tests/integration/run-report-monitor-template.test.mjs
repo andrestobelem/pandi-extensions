@@ -90,6 +90,38 @@ check("monitor includes a compact agent matrix", html.includes("Agent monitor") 
 check("monitor makes failed agents visible early", html.indexOf("reviewer") < html.indexOf("Agents (2)"));
 check("run report remains script-free", !/<script/i.test(html));
 
+const interruptedHtml = mod.buildRunReportHtml({
+	...model(),
+	agents: [
+		{
+			id: 7,
+			name: "interrupted-reviewer",
+			state: "interrupted",
+			phaseLabel: "Review",
+			model: "sonnet",
+			thinking: "medium",
+			elapsedMs: 9000,
+			stderrTail: { text: "cancelled by terminal state" },
+		},
+	],
+	metricsTotals: { measuredAgents: 1, okAgents: 0, failedAgents: 1 },
+});
+check("interrupted agents count as failed in the opening", interruptedHtml.includes("1 de 1 agente falló"));
+check(
+	"interrupted agents drive the monitor failure metric",
+	interruptedHtml.includes('<div class="metric-label">failed</div><div class="metric-value">1</div>'),
+);
+check(
+	"interrupted agents are highlighted as failed cards",
+	/<details class="fail-card" open>[\s\S]*interrupted-reviewer/.test(interruptedHtml),
+);
+check(
+	"interrupted selected agent uses an error callout",
+	/<div class="callout error"><b>Selected agent:<\/b>[\s\S]*interrupted-reviewer[\s\S]*interrupted/.test(
+		interruptedHtml,
+	),
+);
+
 if (counts.failed > 0) {
 	console.error(`\n${counts.failed} checks FAILED:`);
 	for (const failure of counts.failures) console.error(`- ${failure}`);

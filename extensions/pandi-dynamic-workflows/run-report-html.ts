@@ -221,7 +221,8 @@ function pillClass(state: string, ok?: boolean): string {
 	if (state === "completed" && ok !== false) return "ok";
 	if (state === "running") return "run";
 	if (state === "cached") return "ok";
-	if (state === "stale" || state === "cancelled" || state === "interrupted" || state === "unknown") return "warn";
+	if (state === "interrupted") return "fail";
+	if (state === "stale" || state === "cancelled" || state === "unknown") return "warn";
 	return "fail";
 }
 
@@ -273,6 +274,10 @@ function agentDone(agent: RunReportAgent): boolean {
 	return agent.state !== "running" && agent.state !== "unknown";
 }
 
+function agentFailed(agent: RunReportAgent): boolean {
+	return agent.ok === false || agent.state === "failed" || agent.state === "interrupted";
+}
+
 function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): string {
 	const total = model.agents.length;
 	const done = model.agents.filter(agentDone).length;
@@ -280,9 +285,7 @@ function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): str
 	const frac = total > 0 ? done / total : 0;
 	const last = model.logs.slice(-1)[0];
 	const featured =
-		model.agents.find((agent) => agent.ok === false || agent.state === "failed" || agent.state === "interrupted") ??
-		model.agents.find((agent) => agent.state === "running") ??
-		model.agents[0];
+		model.agents.find(agentFailed) ?? model.agents.find((agent) => agent.state === "running") ?? model.agents[0];
 	const row = (agent: RunReportAgent): string => {
 		const isFeatured = featured && agent.id === featured.id;
 		const meta = [
@@ -372,7 +375,7 @@ function link(href: string | undefined, label: string): string {
 }
 
 function renderAgent(agent: RunReportAgent): string {
-	const failed = agent.ok === false || agent.state === "failed";
+	const failed = agentFailed(agent);
 	const pill = `<span class="rpill ${pillClass(agent.state, agent.ok)}">${escapeHtml(agent.state)}</span>`;
 	const meta: string[] = [];
 	if (agent.model) meta.push(`model ${agent.model}`);
@@ -427,7 +430,7 @@ function renderAgent(agent: RunReportAgent): string {
 
 export function buildRunReportHtml(model: RunReportModel): string {
 	const statePill = `<span class="rpill ${pillClass(model.state)}">${escapeHtml(model.state)}</span>`;
-	const failedAgents = model.agents.filter((a) => a.ok === false || a.state === "failed").length;
+	const failedAgents = model.agents.filter(agentFailed).length;
 	const autoRefreshSeconds =
 		model.state === "running" && model.autoRefreshSeconds !== undefined
 			? Math.max(1, Math.round(model.autoRefreshSeconds))

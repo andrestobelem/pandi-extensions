@@ -4,6 +4,9 @@
 // interpolates this file via ${...} (its content is never re-parsed, so no escaping traps).
 const D=JSON.parse(document.getElementById("data").textContent);
 const esc=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+const escapeMarkdownHtml=(s)=>String(s??"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const safeRenderedUrl=(value)=>{var v=String(value||"").trim();if(!v||/[\u0000-\u001F\u007F]/.test(v))return false;if(v[0]==="#")return true;if(/^(https?:|mailto:)/i.test(v))return true;if(v.startsWith("//")||/^[a-z][a-z0-9+.-]*:/i.test(v))return false;return true;};
+function sanitizeRenderedHtml(html){var t=document.createElement("template");t.innerHTML=String(html||"");var blocked=["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META","BASE","FORM","INPUT","BUTTON","SELECT","TEXTAREA","SVG","MATH"];t.content.querySelectorAll("*").forEach(function(el){if(blocked.indexOf(el.tagName)>=0){el.replaceWith(document.createTextNode(el.textContent||""));return;}Array.prototype.slice.call(el.attributes).forEach(function(attr){var name=attr.name.toLowerCase(),value=attr.value||"";if(name.indexOf("on")===0||name==="style"||name==="srcdoc"||name==="srcset"){el.removeAttribute(attr.name);return;}if((name==="href"||name==="src"||name==="xlink:href")&&!safeRenderedUrl(value)){el.removeAttribute(attr.name);return;}if(["href","src","alt","title","class","target","rel","colspan","rowspan"].indexOf(name)<0)el.removeAttribute(attr.name);});if(el.tagName==="A"&&el.getAttribute("href")){el.setAttribute("target","_blank");el.setAttribute("rel","noopener noreferrer");}});return t.innerHTML;}
 const PAL=["var(--success)","var(--purple)","var(--error)","var(--warning)","var(--info)","var(--accent)"];
 const pc={}; (D.phases||[]).forEach((p,i)=>pc[p]=PAL[i%PAL.length]);
 // Render Mermaid only when the diagram section is visible. Mermaid often computes
@@ -62,13 +65,12 @@ document.getElementById("script").textContent=D.script;
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#tabs button").forEach(x=>x.classList.remove("active"));document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));b.classList.add("active");document.querySelector('section[data-s="'+b.dataset.t+'"]').classList.add("active");if(b.dataset.t==="overview")renderMermaidOnce();});
 if(document.querySelector('section[data-s="overview"].active'))renderMermaidOnce();
 (function(){
-  var rt=document.getElementById("tabresults");var rsec=document.querySelector('section[data-s="results"]');
-  if(!D.results){if(rt)rt.style.display="none";if(rsec)rsec.style.display="none";return;}
+  if(!D.results){var empty=document.getElementById("results");if(empty)empty.innerHTML='<p style="color:var(--muted)">El run no produjo artefactos.</p>';return;}
   // Everything renders markdown -> HTML for a consistent look: .md as-is, .json/.txt wrapped in a
   // fenced code block (so marked emits <pre><code class="language-json"> that hljs then highlights).
   // NL/fence via fromCharCode so no backtick or newline needs escaping inside this template literal.
   var NL=String.fromCharCode(10),fence=String.fromCharCode(96,96,96);
-  var mdToHtml=function(md){return (window.marked&&marked.parse)?marked.parse(md,{breaks:true}):("<pre>"+esc(md)+"</pre>");};
+  var mdToHtml=function(md){var safeMd=escapeMarkdownHtml(md);var html=(window.marked&&marked.parse)?marked.parse(safeMd,{breaks:true}):("<pre>"+esc(md)+"</pre>");return sanitizeRenderedHtml(html);};
   // Outputs render as FORMATTED MARKDOWN (auto table/list/kv) via jsonToMarkdown — not raw JSON.
   var toHtml=function(text,ext){
     if(ext==="json"){ try{ return mdToHtml(jsonToMarkdown(JSON.parse(text))); }catch(e){ return mdToHtml(fence+"json"+NL+text+NL+fence); } }

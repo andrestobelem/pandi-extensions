@@ -3,8 +3,8 @@
  * workflow-preview-didactic — pins the didactic workflow artifact journey.
  *
  * The preview/report HTML should orient the reader before showing raw structure:
- * preview mode starts with a short explanation then the diagram; post-run mode
- * starts with results and visible failure callouts when any agent failed.
+ * preview and post-run mode start with the Monitor; raw evidence tabs stay
+ * reachable for audit and debugging.
  */
 
 import * as fs from "node:fs/promises";
@@ -163,8 +163,18 @@ check("plan labels phases in Spanish", prePlanHtml.includes("Fases"));
 check("plan labels agents in Spanish", prePlanHtml.includes("Agentes y contratos"));
 check("plan derives phase content from the workflow", prePlanHtml.includes("Scout") && prePlanHtml.includes("Review"));
 check("preview labels agents in Spanish", preHtml.includes("Agentes y prompts"));
+check("preview labels schemas tab", preHtml.includes('<button data-t="schemas">Schemas</button>'));
 check("preview labels based-on in Spanish", preHtml.includes("Basado en"));
 check("preview labels full script in Spanish", preHtml.includes("Script completo"));
+check(
+	"preview keeps empty Results available for raw evidence",
+	preHtml.includes('<button data-t="results" id="tabresults">Resultados</button>'),
+);
+check(
+	"client keeps empty Results visible instead of hiding the tab",
+	!preHtml.includes('rt.style.display="none"') && !preHtml.includes('rsec.style.display="none"'),
+);
+check("client sanitizes artifact markdown before innerHTML", preHtml.includes("sanitizeRenderedHtml"));
 check("client labels node-count chip in Spanish", preHtml.includes("tipos de nodo"));
 check("client copy action is Spanish", preHtml.includes(">copiar</button>"));
 check("client labels provenance helper in Spanish", preHtml.includes("Scaffolds base de este workflow"));
@@ -251,6 +261,14 @@ try {
 	check(
 		"run without results keeps Plan before Diagram",
 		indexOfNeedle(noResultsHtml, 'data-t="plan"') < indexOfNeedle(noResultsHtml, 'data-t="overview"'),
+	);
+	check(
+		"run without results keeps Results available",
+		noResultsHtml.includes('<button data-t="results" id="tabresults">Resultados</button>'),
+	);
+	check(
+		"run without results keeps Schemas available",
+		noResultsHtml.includes('<button data-t="schemas">Schemas</button>'),
 	);
 } finally {
 	await fs.rm(noResultsRunDir, { recursive: true, force: true });
