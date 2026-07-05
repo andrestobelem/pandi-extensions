@@ -76,6 +76,9 @@ function model() {
 				model: "anthropic/claude-sonnet-5",
 				thinking: "medium",
 				schemaOk: false,
+				phaseId: 2,
+				phaseIndex: 1,
+				phaseTotal: 3,
 				phaseLabel: "Review",
 				promptAvailable: true,
 				promptPreview: "review failed branch and explain risk",
@@ -115,10 +118,32 @@ check("monitor shows artifacts", html.includes("artifacts") && html.includes("su
 check("monitor shows latest activity", html.includes("Latest activity") && html.includes("agent 2 end: reviewer"));
 check("monitor includes a compact agent matrix", html.includes("Agent monitor") && html.includes("reviewer"));
 check("monitor makes failed agents visible early", html.indexOf("reviewer") < html.indexOf("Agents (2)"));
-const monitorSlice = html.slice(html.indexOf("Workflow monitor"), html.indexOf("Agents (2)"));
+const monitorStart = html.indexOf("Workflow monitor");
+const monitorEnd = html.indexOf("<h2>Agents (2)</h2>");
+check("monitor slice is bounded by the deeper Agents section", monitorStart >= 0 && monitorEnd > monitorStart, html);
+const monitorSlice = html.slice(monitorStart, monitorEnd);
 const monitorText = monitorSlice.replace(/<[^>]+>/g, "");
+const collapsedMonitorText = monitorText.replace(/\s+/g, " ");
+check(
+	"monitor agent header mirrors the TUI line",
+	collapsedMonitorText.includes("Agents (2)") &&
+		collapsedMonitorText.includes("parallel 0/3") &&
+		collapsedMonitorText.includes("peak 2"),
+	monitorSlice,
+);
+check(
+	"monitor row reads like a TUI agent line",
+	collapsedMonitorText.includes("✗ failed") &&
+		collapsedMonitorText.includes("#2") &&
+		collapsedMonitorText.includes("P2 1/3") &&
+		collapsedMonitorText.includes("reviewer") &&
+		collapsedMonitorText.includes("elapsed:3s") &&
+		collapsedMonitorText.includes("code:1"),
+	monitorSlice,
+);
 check("monitor row surfaces prompt chip early", monitorSlice.includes("prompt✓"), monitorSlice);
-check("monitor row surfaces compact schema chip early", monitorSlice.includes("schema:ok"), monitorSlice);
+check("monitor row surfaces compact schema ok chip early", monitorSlice.includes("schema:ok"), monitorSlice);
+check("monitor row surfaces compact schema bad chip early", monitorSlice.includes("schema:bad"), monitorSlice);
 check("monitor row surfaces short model chip early", monitorSlice.includes("model:claude-sonnet-5"), monitorSlice);
 check("monitor row surfaces effort chip early", monitorSlice.includes("effort:low"), monitorSlice);
 check("monitor row counts tools early", monitorSlice.includes("tools:2"), monitorSlice);
@@ -126,7 +151,21 @@ check("monitor row counts skills early", monitorSlice.includes("skills:1"), moni
 check("monitor row counts extensions early", monitorSlice.includes("ext:1"), monitorSlice);
 check("monitor row counts key access early", monitorSlice.includes("keys:1"), monitorSlice);
 check("monitor row counts missing keys early", monitorSlice.includes("missing:1"), monitorSlice);
-check("monitor selected agent has a structured detail block", monitorText.includes("agent: #2 reviewer"), monitorSlice);
+check(
+	"monitor selected agent has a structured detail block",
+	collapsedMonitorText.includes("agent: #2 P2 1/3 reviewer"),
+	monitorSlice,
+);
+check(
+	"monitor selected agent formats state elapsed/code like Monitor",
+	collapsedMonitorText.includes("state: failed • 3s • code 1"),
+	monitorSlice,
+);
+check(
+	"monitor selected agent surfaces structured phase label early",
+	collapsedMonitorText.includes("phase: P2 1/3 • Review"),
+	monitorSlice,
+);
 check("monitor selected agent surfaces prompt artifact early", monitorText.includes("prompt: available"), monitorSlice);
 check("monitor selected agent surfaces config section early", monitorText.includes("config"), monitorSlice);
 check(

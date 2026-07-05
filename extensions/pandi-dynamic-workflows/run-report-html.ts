@@ -195,6 +195,13 @@ header .sub { color:var(--ink2); font-size:13px; }
 .meter.warn span { background:var(--warning); }
 .monitor-table { margin-top:8px; }
 .monitor-table tr.featured td { background:var(--info-bg); }
+.monitor-agent-head { display:flex; flex-wrap:wrap; gap:6px; align-items:center; color:var(--ink2); margin:4px 0 8px; }
+.monitor-agent-row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.monitor-agent-state { font-weight:700; }
+.monitor-agent-state.ok { color:var(--success); }
+.monitor-agent-state.run { color:var(--info); }
+.monitor-agent-state.fail { color:var(--error); }
+.monitor-agent-state.warn { color:var(--warning); }
 .agent-chipline { display:flex; flex-wrap:wrap; gap:5px; }
 .mini-chip { display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:999px; padding:2px 7px; background:var(--bg); color:var(--ink2); font-size:11.5px; white-space:nowrap; }
 .mini-chip.ok { border-color:var(--success); color:var(--success); background:var(--success-bg); }
@@ -359,6 +366,36 @@ function progressValue(summary: ProgressSummary): string {
 	return `${summary.done}/${summary.total}${summary.openEnded ? "+" : ""}`;
 }
 
+function formatReportElapsedMs(ms: number): string {
+	const seconds = Math.max(0, Math.round(ms / 1000));
+	if (seconds < 60) return `${seconds}s`;
+	const minutes = Math.floor(seconds / 60);
+	const remainder = seconds % 60;
+	if (minutes < 60) return `${minutes}m${remainder.toString().padStart(2, "0")}s`;
+	const hours = Math.floor(minutes / 60);
+	return `${hours}h${(minutes % 60).toString().padStart(2, "0")}m`;
+}
+
+function formatReportAgentPhase(agent: RunReportAgent): string | undefined {
+	if (!agent.phaseIndex || !agent.phaseTotal) return undefined;
+	const batch = agent.phaseId ? `P${agent.phaseId} ` : "";
+	return `${batch}${agent.phaseIndex}/${agent.phaseTotal}`;
+}
+
+function reportAgentPhaseDetail(agent: RunReportAgent): string {
+	const phase = formatReportAgentPhase(agent);
+	if (phase && agent.phaseLabel) return `${phase} • ${agent.phaseLabel}`;
+	return phase ?? agent.phaseLabel ?? "";
+}
+
+function agentStateText(agent: RunReportAgent): string {
+	if (agentFailed(agent)) return agent.state === "interrupted" ? "✗ interrupted" : "✗ failed";
+	if (agent.state === "completed") return "✓ done";
+	if (agent.state === "running") return "▶ running";
+	if (agent.state === "cached") return "♻ cached";
+	return "? unknown";
+}
+
 function shortModel(model: string): string {
 	return model.split("/").filter(Boolean).pop() ?? model;
 }
@@ -373,7 +410,11 @@ function commaListCount(value: string | undefined): number | undefined {
 }
 
 function compactInlineText(value: string, max = 220): string {
-	const oneLine = value.replace(/\s+/g, " ").trim();
+	const oneLine = value
+		.replace(/\bhttps?:\/\/[^\s<>"]+/gi, "[external-url]")
+		.replace(/\bjavascript:[^\s<>"]+/gi, "[unsafe-url]")
+		.replace(/\s+/g, " ")
+		.trim();
 	if (oneLine.length <= max) return oneLine;
 	return `${oneLine.slice(0, Math.max(0, max - 1))}…`;
 }
@@ -446,6 +487,22 @@ function renderMiniChips(chips: string[]): string {
 		.join("")}</div>`;
 }
 
+function renderMonitorAgentLine(agent: RunReportAgent): string {
+	const phase = formatReportAgentPhase(agent);
+	const elapsed = agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatReportElapsedMs(agent.elapsedMs)}`;
+	return (
+		`<div class="monitor-agent-row">` +
+		`<span class="monitor-agent-state ${pillClass(agent.state, agent.ok)}">${escapeHtml(agentStateText(agent))}</span>` +
+		`<span class="mono">#${escapeHtml(String(agent.id))}</span>` +
+		(phase ? `<span class="mono">${escapeHtml(phase)}</span>` : "") +
+		`<b>${escapeHtml(agent.name)}</b>` +
+		`<span class="kv muted">${escapeHtml(elapsed)}</span>` +
+		(agent.code === undefined ? "" : `<span class="kv muted">code:${escapeHtml(String(agent.code))}</span>`) +
+		renderMiniChips(agentRowMeta(agent)) +
+		`</div>`
+	);
+}
+
 function detailLine(label: string, valueHtml: string): string {
 	return `<div class="monitor-detail-line"><span class="kv muted">${escapeHtml(label)}:</span> ${valueHtml}</div>`;
 }
@@ -453,7 +510,9 @@ function detailLine(label: string, valueHtml: string): string {
 function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): string {
 	const artifact = link(agent.artifactHref, "artifact.md");
 	const promptStatus = agent.promptAvailable ? "available" : "not available";
-	const phase = agent.phaseLabel ? detailLine("phase", escapeHtml(agent.phaseLabel)) : "";
+	const phaseToken = formatReportAgentPhase(agent);
+	const phaseDetail = reportAgentPhaseDetail(agent);
+	const phase = phaseDetail ? detailLine("phase", escapeHtml(phaseDetail)) : "";
 	const config = [
 		detailLine(
 			"model",
@@ -481,10 +540,13 @@ function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): str
 		.join("");
 	return (
 		`<div class="callout ${failed ? "error" : "info"} monitor-selected"><b>Selected agent</b>` +
-		detailLine("agent", `#${escapeHtml(String(agent.id))} ${escapeHtml(agent.name)}`) +
+		detailLine(
+			"agent",
+			`#${escapeHtml(String(agent.id))} ${phaseToken ? `${escapeHtml(phaseToken)} ` : ""}${escapeHtml(agent.name)}`,
+		) +
 		detailLine(
 			"state",
-			`${escapeHtml(agent.state)}${agent.elapsedMs !== undefined ? ` <span class="muted">•</span> ${escapeHtml(`${Math.round(agent.elapsedMs / 100) / 10}s`)}` : ""}${agent.code !== undefined ? ` <span class="muted">•</span> code ${escapeHtml(String(agent.code))}` : ""}`,
+			`${escapeHtml(agent.state)}${agent.elapsedMs !== undefined ? ` <span class="muted">•</span> ${escapeHtml(formatReportElapsedMs(agent.elapsedMs))}` : ""}${agent.code !== undefined ? ` <span class="muted">•</span> code ${escapeHtml(String(agent.code))}` : ""}`,
 		) +
 		phase +
 		detailLine(
@@ -505,23 +567,13 @@ function renderWorkflowMonitor(model: RunReportModel, summary: ProgressSummary):
 		model.agents.find(agentFailed) ?? model.agents.find((agent) => agent.state === "running") ?? model.agents[0];
 	const row = (agent: RunReportAgent): string => {
 		const isFeatured = featured && agent.id === featured.id;
-		const meta = [
-			agent.phaseLabel ? `phase ${agent.phaseLabel}` : "",
-			agent.elapsedMs !== undefined ? `elapsed ${Math.round(agent.elapsedMs / 100) / 10}s` : "",
-			agent.code !== undefined ? `code ${agent.code}` : "",
-		]
-			.filter(Boolean)
-			.join(" · ");
-		return (
-			`<tr${isFeatured ? ' class="featured"' : ""}>` +
-			`<td><span class="rpill ${pillClass(agent.state, agent.ok)}">${escapeHtml(agent.state)}</span></td>` +
-			`<td class="mono">#${escapeHtml(String(agent.id))}</td>` +
-			`<td>${escapeHtml(agent.name)}${meta ? `<div class="kv muted">${escapeHtml(meta)}</div>` : ""}</td>` +
-			`<td>${renderMiniChips(agentRowMeta(agent))}</td>` +
-			`</tr>`
-		);
+		return `<tr${isFeatured ? ' class="featured"' : ""}><td>${renderMonitorAgentLine(agent)}</td></tr>`;
 	};
 	const agentRows = model.agents.map(row).join("");
+	const parallel = model.agentConcurrency !== undefined ? `${running}/${model.agentConcurrency}` : String(running);
+	const agentHeader =
+		`<div class="monitor-agent-head"><b>Agents (${model.agents.length})</b>` +
+		`<span>• parallel ${escapeHtml(parallel)}${model.peakParallelAgents === undefined ? "" : ` • peak ${escapeHtml(String(model.peakParallelAgents))}`}</span></div>`;
 	const featuredHint = featured
 		? renderMonitorSelectedAgent(featured, summary.failed > 0)
 		: `<div class="callout info monitor-selected"><b>Selected agent</b><div class="monitor-detail-line muted">No agents recorded yet.</div></div>`;
@@ -556,8 +608,9 @@ function renderWorkflowMonitor(model: RunReportModel, summary: ProgressSummary):
 		`</div>` +
 		featuredHint +
 		`<h2>Agent monitor</h2>` +
+		agentHeader +
 		(agentRows
-			? `<table class="monitor-table"><thead><tr><th>State</th><th>ID</th><th>Agent</th><th>Monitor chips</th></tr></thead><tbody>${agentRows}</tbody></table>`
+			? `<table class="monitor-table"><thead><tr><th>Monitor row</th></tr></thead><tbody>${agentRows}</tbody></table>`
 			: `<div class="muted">No agents recorded for this run.</div>`) +
 		`</section>`
 	);
