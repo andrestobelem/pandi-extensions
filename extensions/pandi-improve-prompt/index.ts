@@ -39,6 +39,11 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	else console.error(message);
 }
 
+function formatImprovePromptFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return `improve-prompt failed: ${message}`;
+}
+
 /** Send the improved prompt as the next user turn, idle vs. mid-stream (mirrors /plan's wake). */
 function send(pi: ExtensionAPI, ctx: ExtensionCommandContext, improved: string): void {
 	if (ctx.isIdle()) pi.sendUserMessage(improved);
@@ -83,7 +88,7 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 	try {
 		response = await completeSimple(model, context, options);
 	} catch (error) {
-		notify(ctx, `improve-prompt failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+		notify(ctx, formatImprovePromptFailure(error), "error");
 		return;
 	} finally {
 		if (showStatus) ctx.ui.setStatus(STATUS_KEY, undefined);
