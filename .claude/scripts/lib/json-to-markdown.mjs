@@ -1,14 +1,14 @@
 // json-to-markdown.mjs
-// Self-contained, zero-dependency. Converts ANY JSON value into readable Markdown,
-// choosing the layout automatically by shape.
+// Autocontenido, sin dependencias. Convierte CUALQUIER valor JSON en Markdown legible,
+// eligiendo el layout automáticamente según la forma.
 //
-// Public API:
+// API pública:
 //   export function jsonToMarkdown(value, opts = {})
-//     opts.maxDepth : number (default 4)  -> recursion cap; deeper values become inline code
-//     opts.maxRows  : number (default 200) -> row/item cap for tables, lists and sections
+//     opts.maxDepth : number (default 4)  -> tope de recursión; los valores más profundos pasan a inline code
+//     opts.maxRows  : number (default 200) -> tope de filas/items para tablas, listas y secciones
 //
-// The RETURNED STRING may contain backticks / fenced blocks; that is fine because it is a
-// runtime value meant to be interpolated via ${...}. Only THIS module's source must be valid JS.
+// El STRING DEVUELTO puede contener backticks o fenced blocks; está bien porque es un
+// valor runtime pensado para interpolarse vía ${...}. Solo la fuente de ESTE módulo debe ser JS válido.
 
 export function jsonToMarkdown(value, opts = {}) {
   const cfg = {
@@ -20,7 +20,7 @@ export function jsonToMarkdown(value, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Core dispatch
+// Despacho central
 // ---------------------------------------------------------------------------
 
 function render(value, cfg, depth, level) {
@@ -67,7 +67,7 @@ function sections(arr, cfg, depth, level) {
 }
 
 // ---------------------------------------------------------------------------
-// Tables (array of ~uniform objects with primitive cell values)
+// Tablas (array de objetos más o menos uniformes con valores primitivos en sus celdas)
 // ---------------------------------------------------------------------------
 
 function canTable(arr) {
@@ -86,7 +86,7 @@ function canTable(arr) {
     }
   }
   const coverage = present / (arr.length * keys.length);
-  return coverage >= 0.6; // "uniform or nearly uniform"
+  return coverage >= 0.6; // "uniforme o casi uniforme"
 }
 
 function table(arr, cfg) {
@@ -108,7 +108,7 @@ function table(arr, cfg) {
 }
 
 // ---------------------------------------------------------------------------
-// Objects
+// Objetos
 // ---------------------------------------------------------------------------
 
 function renderObject(obj, cfg, depth, level) {
@@ -122,10 +122,10 @@ function renderObject(obj, cfg, depth, level) {
     if (isPrimitive(v)) {
       lines.push(`- **${escapeInline(k)}**: ${inlineScalar(v)}`);
     } else if (isBig(v)) {
-      // Nested collection -> its own heading + recursive block.
+      // Colección anidada -> su propio heading + bloque recursivo.
       lines.push(`\n${hl} ${escapeInline(k)}\n\n${render(v, cfg, depth + 1, level + 1)}`);
     } else {
-      // Empty [] / {} -> keep inline and compact.
+      // [] / {} vacíos -> se mantienen inline y compactos.
       lines.push(`- **${escapeInline(k)}**: ${compact(v)}`);
     }
   }
@@ -176,8 +176,8 @@ function inlineScalar(v) {
   return String(v);
 }
 
-// Escape a table cell: keep emojis/unicode, but neutralize pipes, backslashes
-// and line breaks so the row stays on a single line.
+// Escapa una celda de tabla: conserva emojis/unicode, pero neutraliza pipes, backslashes
+// y saltos de línea para que la fila quede en una sola línea.
 function escapeCell(s) {
   return String(s)
     .replace(/\\/g, "\\\\")
@@ -185,12 +185,12 @@ function escapeCell(s) {
     .replace(/\r?\n/g, "<br>");
 }
 
-// Inline (bullet / key-value) text: collapse line breaks so formatting holds.
+// Texto inline (bullet / key-value): colapsa saltos de línea para que el formato se mantenga.
 function escapeInline(s) {
   return String(s).replace(/\r?\n/g, " ");
 }
 
-// Compact, length-capped JSON for depth-capped / tiny values.
+// JSON compacto y acotado en longitud para valores chicos o limitados por profundidad.
 function compact(v) {
   let s;
   try {

@@ -1,27 +1,27 @@
 #!/usr/bin/env node
-// sync-claude-global.mjs — mirror this repo's Claude-facing assets into a GLOBAL Claude Code
-// home so a global `claude` session has the project's up-to-date workflows, skills, the runtime
-// helper script, and the ultracode primitives reference.
+// sync-claude-global.mjs — espeja los assets de este repo orientados a Claude dentro de un home
+// GLOBAL de Claude Code para que una sesión global de `claude` tenga workflows, skills, el script
+// helper de runtime y la referencia de primitives de ultracode actualizados del proyecto.
 //
-// SOURCE OF TRUTH = this repo. Destination defaults to ~/.claude and is injectable via
-// `--dest <dir>` or `CLAUDE_GLOBAL_DIR` (so tests run against a throwaway tmp dir, never $HOME).
+// FUENTE DE VERDAD = este repo. El destino por defecto es ~/.claude y puede inyectarse vía
+// `--dest <dir>` o `CLAUDE_GLOBAL_DIR` (así los tests corren contra un tmp dir descartable, nunca $HOME).
 //
-// Managed set (repo -> <dest>):
-//   - .claude/workflows/*                      -> <dest>/workflows/         (all .js + README)
-//   - .claude/scripts/build-workflow-artifact.mjs -> <dest>/scripts/        (Claude runtime helper)
-//   - .claude/scripts/lib/*                    -> <dest>/scripts/lib/     (its runtime dependencies)
-//   - .claude/skills/<PROJECT_SKILLS>/         -> <dest>/skills/<name>/      (recursive)
+// Set gestionado (repo -> <dest>):
+//   - .claude/workflows/*                      -> <dest>/workflows/         (todos los .js + README)
+//   - .claude/scripts/build-workflow-artifact.mjs -> <dest>/scripts/        (helper runtime de Claude)
+//   - .claude/scripts/lib/*                    -> <dest>/scripts/lib/     (sus dependencias runtime)
+//   - .claude/skills/<PROJECT_SKILLS>/         -> <dest>/skills/<name>/      (recursivo)
 //   - .pi/skills/ultracode/reference/primitives/* -> <dest>/skills/ultracode/reference/primitives/
-//         (canonical primitives docs; each carries **Runtime:** so a Claude reader sees which are
-//          pi-only. Sourced from .pi so we never touch the concurrently-edited .claude skill.)
+//         (docs canónicos de primitives; cada uno trae **Runtime:** para que un lector de Claude vea cuáles son
+//          pi-only. Sale de .pi para no tocar nunca el skill .claude que puede estar editándose en paralelo.)
 //
-// SAFETY: additive only — NO prune. Unmanaged global content (e.g. a global-only skill like
-// supacode-cli) is never deleted. `--check` compares without writing and exits 1 on drift.
+// SEGURIDAD: solo aditivo — SIN prune. El contenido global no gestionado (por ejemplo, un skill global-only
+// como supacode-cli) nunca se elimina. `--check` compara sin escribir y sale con 1 si hay drift.
 //
-// Usage:
-//   node scripts/sync-claude-global.mjs                 # write into ~/.claude
-//   node scripts/sync-claude-global.mjs --check         # verify only; exit 1 on drift (no writes)
-//   node scripts/sync-claude-global.mjs --dest <dir>    # target an explicit home (tests use this)
+// Uso:
+//   node scripts/sync-claude-global.mjs                 # escribe en ~/.claude
+//   node scripts/sync-claude-global.mjs --check         # solo verifica; sale con 1 si hay drift (sin writes)
+//   node scripts/sync-claude-global.mjs --dest <dir>    # apunta a un home explícito (los tests usan esto)
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -32,12 +32,12 @@ import { discoverSkillClassification, reportUnclassifiedSkills, SKILLS_ROOT } fr
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const classification = discoverSkillClassification();
 
-// Project-owned Claude skills to publish globally. The repo-owned set comes from the shared skill
-// classification; local-only, gitignored skills (e.g. open-prose) remain best-effort extras that
-// are synced when present on disk and simply absent on CI. Global-only skills (e.g. supacode-cli)
-// are left untouched. EXTERNAL skills (e.g. karpathy-guidelines, from
-// multica-ai/andrej-karpathy-skills) are NOT vendored here — the onboarding installs them globally
-// from upstream, so they are not republished.
+// Skills de Claude propiedad del proyecto para publicar globalmente. El set propio del repo sale de la
+// clasificación compartida de skills; los skills local-only y gitignored (por ejemplo open-prose) quedan como
+// extras best-effort: se sincronizan si están presentes en disco y simplemente faltan en CI. Los skills
+// global-only (por ejemplo supacode-cli) quedan intactos. Los skills EXTERNAL (por ejemplo karpathy-guidelines,
+// desde multica-ai/andrej-karpathy-skills) NO se vendorizan acá — el onboarding los instala globalmente
+// desde upstream, así que no se republican.
 const PROJECT_SKILLS = [...classification.global, ...classification.optionalClaudeGlobalSkills];
 
 function parseArgs(argv) {
@@ -47,7 +47,7 @@ function parseArgs(argv) {
 	return { checkOnly, dest: resolve(dest) };
 }
 
-/** Recursively list files under `dir`, as paths relative to `dir` (posix-ish). Empty if missing. */
+/** Lista recursivamente los archivos bajo `dir`, como paths relativos a `dir` (estilo POSIX). Vacío si falta. */
 function walk(dir) {
 	if (!existsSync(dir)) return [];
 	const out = [];
@@ -59,27 +59,27 @@ function walk(dir) {
 	return out;
 }
 
-/** Build the flat list of {src, dst} absolute file pairs the manifest expands to. */
+/** Construye la lista plana de pares de archivos absolutos {src, dst} a la que expande el manifiesto. */
 function planPairs(dest) {
 	const pairs = [];
 	const addTree = (srcDir, dstDir) => {
 		for (const rel of walk(srcDir)) pairs.push({ src: join(srcDir, rel), dst: join(dstDir, rel) });
 	};
 
-	// workflows (flat: *.js + README)
+	// workflows (plano: *.js + README)
 	addTree(join(REPO, ".claude", "workflows"), join(dest, "workflows"));
 
-	// runtime helper script (single file) plus its lib/ dependency tree — the CLI imports
-	// ./lib/artifact.mjs etc., so both must land together for the global copy to resolve.
+	// script helper de runtime (archivo único) más su árbol de dependencias lib/ — el CLI importa
+	// ./lib/artifact.mjs, etc., así que ambos deben caer juntos para que la copia global resuelva.
 	const rtScript = join(REPO, ".claude", "scripts", "build-workflow-artifact.mjs");
 	if (existsSync(rtScript)) pairs.push({ src: rtScript, dst: join(dest, "scripts", "build-workflow-artifact.mjs") });
 	const rtLib = join(REPO, ".claude", "scripts", "lib");
 	if (existsSync(rtLib)) addTree(rtLib, join(dest, "scripts", "lib"));
 
-	// project skills (recursive)
+	// skills del proyecto (recursivo)
 	for (const name of PROJECT_SKILLS) addTree(join(REPO, ".claude", "skills", name), join(dest, "skills", name));
 
-	// primitives reference, sourced from the canonical .pi mirror
+	// referencia de primitives, tomada desde el mirror canónico de .pi
 	addTree(
 		join(SKILLS_ROOT, "ultracode", "reference", "primitives"),
 		join(dest, "skills", "ultracode", "reference", "primitives"),

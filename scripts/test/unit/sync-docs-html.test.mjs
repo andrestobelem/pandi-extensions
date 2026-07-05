@@ -1,6 +1,6 @@
-// Unit tests for scripts/sync-docs-html.mjs — committed pandi HTML mirror of the docs.
-// Contract: pure mapping (outPathFor) + link rewriting (rewriteHrefs) + an end-to-end
-// sync over a temp tree (idempotent writes, orphan removal, non-writing --check).
+// Tests unitarios para scripts/sync-docs-html.mjs — mirror HTML de pandi para los docs, commiteado.
+// Contrato: mapeo puro (outPathFor) + reescritura de links (rewriteHrefs) + una sync end-to-end
+// sobre un árbol temporal (writes idempotentes, eliminación de huérfanos y --check sin escritura).
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -24,19 +24,19 @@ test("outPathFor maps the set and rejects everything else", () => {
 
 test("rewriteHrefs rewrites in-set relative .md links, preserves anchors, leaves the rest", () => {
 	const set = new Set(["README.md", "docs/README.md", "docs/setup.md", "docs/research/x.md"]);
-	// From the root README (out: index.html at mirror root).
+	// Desde el README raíz (salida: index.html en la raíz del mirror).
 	let html = '<a href="docs/setup.md">s</a> <a href="docs/research/x.md#sec">r</a>';
 	assert.equal(rewriteHrefs(html, "README.md", set), '<a href="setup.html">s</a> <a href="research/x.html#sec">r</a>');
-	// From docs/README.md (out: README.html at mirror root): ./, ../ and bare relatives.
+	// Desde docs/README.md (salida: README.html en la raíz del mirror): ./, ../ y relativos pelados.
 	html = '<a href="./setup.md">a</a> <a href="../README.md">b</a> <a href="research/x.md">c</a>';
 	assert.equal(
 		rewriteHrefs(html, "docs/README.md", set),
 		'<a href="setup.html">a</a> <a href="index.html">b</a> <a href="research/x.html">c</a>',
 	);
-	// From a nested file (out: research/x.html): needs an upward relative.
+	// Desde un archivo anidado (salida: research/x.html): necesita un relativo hacia arriba.
 	html = '<a href="../setup.md">up</a>';
 	assert.equal(rewriteHrefs(html, "docs/research/x.md", set), '<a href="../setup.html">up</a>');
-	// External URLs and out-of-set targets stay untouched.
+	// Las URLs externas y los targets fuera del set quedan intactos.
 	html = '<a href="https://x.io/a.md">e</a> <a href="../AGENTS.md">o</a>';
 	assert.equal(rewriteHrefs(html, "docs/README.md", set), html);
 });
@@ -56,22 +56,22 @@ function makeTree() {
 test("syncDocsHtml writes the mirror, is idempotent, removes orphans, and check never writes", () => {
 	const root = makeTree();
 	try {
-		// First pass: writes the three in-set files (conversaciones excluded).
+		// Primera pasada: escribe los tres archivos dentro del set (conversaciones queda excluido).
 		const first = syncDocsHtml(root, {});
 		assert.deepEqual(first.written.sort(), ["index.html", "research/x.html", "setup.html"]);
 		const mirror = path.join(root, "docs", "html");
 		const index = fs.readFileSync(path.join(mirror, "index.html"), "utf8");
 		assert.match(index, /<title>Root<\/title>/);
-		assert.match(index, />pandi-extensions</); // root README kicker comes from package metadata, not cwd basename
-		assert.match(index, /href="setup\.html"/); // link rewritten
+		assert.match(index, />pandi-extensions</); // el kicker del README raíz sale del metadata del package, no del basename de cwd
+		assert.match(index, /href="setup\.html"/); // link reescrito
 		assert.ok(!fs.existsSync(path.join(mirror, "conversaciones")));
 
-		// Second pass: nothing to do.
+		// Segunda pasada: no hay nada que hacer.
 		const second = syncDocsHtml(root, {});
 		assert.equal(second.written.length, 0);
 		assert.equal(second.deleted.length, 0);
 
-		// Orphan html gets removed; check mode reports but never writes/deletes.
+		// El html huérfano se elimina; el modo check reporta, pero nunca escribe ni borra.
 		fs.writeFileSync(path.join(mirror, "orphan.html"), "zombie");
 		fs.rmSync(path.join(root, "docs", "setup.md"));
 		const check = syncDocsHtml(root, { check: true });

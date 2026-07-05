@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// sync-agent-guides.mjs — mirror the root agent guide byte-identically from the canonical
-// `AGENTS.md` (SOURCE OF TRUTH, the cross-agent standard Pi reads) to `CLAUDE.md` (the copy
-// Claude Code reads), so the two cannot drift.
+// sync-agent-guides.mjs — espeja byte a byte la guía raíz de agentes desde el canónico
+// `AGENTS.md` (fuente de verdad, el estándar cross-agent que lee Pi) hacia `CLAUDE.md` (la copia
+// que lee Claude Code), para que no puedan divergir.
 //
-// Same shape as sync-skill-mirrors.mjs (a writer + a --check guarded by a parity test): edit
-// AGENTS.md, then re-run this; the parity test
+// Tiene la misma forma que sync-skill-mirrors.mjs (un writer + un --check protegido por un test de parity):
+// editá AGENTS.md y luego re-ejecutá esto; el test de parity
 // (extensions/pandi-dynamic-workflows/tests/integration/agent-guide-mirror-parity.test.mjs)
-// fails on drift.
+// falla si hay drift.
 //
-// Usage:
-//   node scripts/sync-agent-guides.mjs           # write CLAUDE.md from AGENTS.md
-//   node scripts/sync-agent-guides.mjs --check    # verify only; exit 1 on drift (no writes)
+// Uso:
+//   node scripts/sync-agent-guides.mjs           # escribe CLAUDE.md desde AGENTS.md
+//   node scripts/sync-agent-guides.mjs --check    # solo verifica; sale con 1 si hay drift (sin writes)
 
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";

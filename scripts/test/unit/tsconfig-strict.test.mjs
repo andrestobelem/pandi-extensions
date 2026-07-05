@@ -1,7 +1,7 @@
-// Unit test pinning strict TypeScript checking for extensions/**/*.ts.
-// Contract: tsconfig.json must set compilerOptions.strict === true, and
-// running `tsc -p tsconfig.json` under that config must exit 0 (no errors)
-// across all extension sources.
+// Test unitario que pinea el chequeo estricto de TypeScript para extensions/**/*.ts.
+// Contrato: tsconfig.json debe fijar compilerOptions.strict === true, y
+// correr `tsc -p tsconfig.json` bajo esa config debe salir con 0 (sin errores)
+// en todos los sources de extensiones.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";

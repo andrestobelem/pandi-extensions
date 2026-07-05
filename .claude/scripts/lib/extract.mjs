@@ -1,13 +1,13 @@
-// extract.mjs — static-preview extraction. Run the workflow body with STUBBED runtime globals
-// that RECORD every agent()/agents()/workflow()/phase() call, then derive the static model
-// (nodes, schemas, skill references, declared roles, provenance) with NO real execution.
+// extract.mjs — extracción para static-preview. Corre el body del workflow con globals de runtime stubbeados
+// que registran cada llamada a agent()/agents()/workflow()/phase(), y desde ahí deriva el modelo estático
+// (nodos, schemas, referencias de skills, roles declarados, provenance) sin ejecución real.
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { norm, phaseTitleOf } from "./util.mjs";
 
-// Returns the full static model consumed by render. `scriptPath` seeds the fallback meta.name;
-// `raw` is the workflow source; `argsObj` is splatted into the stub `args` global.
+// Devuelve el modelo estático completo que consume render. `scriptPath` siembra el fallback meta.name;
+// `raw` es la fuente del workflow; `argsObj` se splattea dentro del global stub `args`.
 export async function extractStaticModel({ scriptPath, raw, argsObj }) {
   const transformed = raw
   .replace(/export\s+const\s+meta\s*=/, "globalThis.__meta =")
@@ -112,12 +112,12 @@ if (!runErr && globalThis.__defaultErr) runErr = new Error(globalThis.__defaultE
 
   const meta = globalThis.__meta || { name: scriptPath.split("/").pop().replace(/\.js$/, ""), description: "", phases: [] };
 
-// "Based on" tab: a one-line provenance + (optionally) the scaffolds this workflow is based on.
-// Two sources, in priority order:
-//   1. meta.basedOn (also meta.paper / meta.source): a STRING (provenance line) OR an
-//      ARRAY of {name, role?, desc?} scaffold cards. This is the reliable, preferred path.
-//   2. Fallback: a leading `Paper:` / `Based on:` / `Source:` comment in the first 1500 chars,
-//      as a `//` line comment OR a ` *` block-comment line (both prefixes accepted).
+// Tab "Based on": una línea de provenance y, opcionalmente, los scaffolds en los que se basa este workflow.
+// Dos fuentes, en orden de prioridad:
+//   1. meta.basedOn (también meta.paper / meta.source): un STRING (línea de provenance) O un
+//      ARRAY de tarjetas de scaffold {name, role?, desc?}. Esta es la ruta confiable y preferida.
+//   2. Fallback: un comentario inicial `Paper:` / `Based on:` / `Source:` dentro de los primeros 1500 chars,
+//      como comentario de línea `//` O línea de bloque-comentario ` *` (ambos prefijos se aceptan).
 const paperFromComment = (() => {
   const head = raw.slice(0, 1500);
   const m = head.match(/^\s*(?:\/\/|\*)?\s*(?:Paper|Based on|Source)\s*:\s*(.+?)\s*$/im);
@@ -129,7 +129,7 @@ const scaffolds = Array.isArray(basedOnRaw)
   : [];
 const provenance = (typeof basedOnRaw === "string" ? basedOnRaw : null) || paperFromComment || null;
 
-  // ── static-preview nodes (recorded during the stubbed run) ───────────────────────────────
+  // ── nodos de static-preview (registrados durante el run stubbed) ───────────────────────────────
 const rawNodes = globalThis.__nodes || [];
 const basePhases = (globalThis.__phases && globalThis.__phases.length) ? globalThis.__phases : (meta.phases || []).map(phaseTitleOf).filter(Boolean);
 const composes = [...new Set(globalThis.__composes || [])];
@@ -154,8 +154,8 @@ const baseNodes = [...byKey.values()].map((n) => ({
   prompt: n.prompt,
 }));
 
-// Resolve each declared skill to its on-disk home + reference files (reference/ or references/),
-// so the artifact can show WHICH skills (and their reference docs) each agent loads.
+// Resuelve cada skill declarado a su home en disco y a sus archivos de referencia (reference/ o references/),
+// para que el artifact pueda mostrar QUÉ skills (y sus docs de referencia) carga cada agente.
 function resolveSkillRefs(names) {
   const bases = [".pi/skills", join(homedir(), ".pi/agent/skills"), join(homedir(), ".agents/skills"), ".claude/skills"];
   const out = {};
@@ -175,7 +175,7 @@ function resolveSkillRefs(names) {
             const sub = String(parent).slice(rdir.length).replace(/^[\\/]+/, "");
             references.push(rd + "/" + (sub ? sub + "/" : "") + e.name);
           }
-        } catch { /* unreadable reference dir — skip */ }
+        } catch { /* directorio de referencia ilegible — saltear */ }
       }
       found = { base, references: references.sort() };
       break;
@@ -186,24 +186,24 @@ function resolveSkillRefs(names) {
 }
 const skillRefs = resolveSkillRefs([...new Set(baseNodes.flatMap((n) => n.skills || []))]);
 
-// unique schemas
+// schemas únicos
 const schemas = {};
 let si = 0;
 for (const n of baseNodes) if (n.schemaObj) { const k = (n.role || ("schema" + si++)); if (!schemas[k]) schemas[k] = n.schemaObj; }
 
-// Static fidelity notes (extraction problems) computed once; empty-phase notes are per-render (they
-// depend on whether a run filled the phase), so they are added inside build().
+// Notas estáticas de fidelidad (problemas de extracción) calculadas una vez; las notas de fase vacía son por render
+// (dependen de si un run llenó la fase), así que se agregan dentro de build().
 const staticFidelity = [];
 if (runErr) staticFidelity.push("partial extraction — script threw during stubbed run: " + (runErr.message || runErr));
 if (globalThis.__pipeErr) staticFidelity.push("a pipeline() stage threw during extraction (" + globalThis.__pipeErr + ") — agents/phases gated on a prior stage's output may be missing below");
 
-// Source-level declaration scan: recover phase/model/effort for labels whose branch the stubbed run
-// never REACHED (e.g. a fan-out gated on prior-agent output). Heuristic: for each label:/name: string
-// literal, look in a ±420-char window for phase:/model:/effort: literals in the same opts object.
+// Escaneo de declaraciones a nivel fuente: recupera phase/model/effort para labels cuya rama el run stubbed
+// nunca ALCANZÓ (por ejemplo, un fan-out gated por la salida de un agente previo). Heurística: para cada literal
+// string en label:/name:, buscá en una ventana de ±420 chars los literales phase:/model:/effort: dentro del mismo objeto opts.
 function scanDeclaredRoles(src) {
   const map = new Map();
-  // Capture the opening quote and require the SAME quote to close (backref) so a mismatched
-  // quote (e.g. label:"x`) never silently captures across it.
+  // Captura la comilla de apertura y exige la MISMA comilla al cerrar (backref) para que una
+  // comilla despareja (por ejemplo label:"x`) nunca capture a través de ella en silencio.
   const re = /(?:label|name)\s*:\s*(["'`])(.*?)\1/g;
   let m;
   while ((m = re.exec(src))) {

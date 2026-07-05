@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Run all durable Pi package integration suites sequentially.
+ * Corre secuencialmente todas las suites de integración durables de paquetes Pi.
  *
- * Source of truth = DISCOVERY by convention: every
- * `extensions/<ext>/tests/integration/*.test.mjs` is run. Each extension brings its own
- * suites, so adding one needs no edit here — this runner only orchestrates + aggregates.
- * A suite that is not yet expected to be green is excluded ONLY by listing it explicitly
- * in `ignoredDraftSuites` (with a reason); nothing is ever skipped silently.
+ * Fuente de verdad = DISCOVERY por convención: se corre cada
+ * `extensions/<ext>/tests/integration/*.test.mjs`. Cada extensión trae sus propias
+ * suites, así que agregar una no exige editar nada acá — este runner solo orquesta y agrega.
+ * Una suite que todavía no se espera que esté verde se excluye SOLO listándola explícitamente
+ * en `ignoredDraftSuites` (con una razón); nunca se saltea nada en silencio.
  *
- * `npm test` delegates here after typecheck. You can also run the behavioral
- * suite directly while iterating:
+ * `npm test` delega acá después del typecheck. También podés correr la
+ * suite de comportamiento directamente mientras iterás:
  *
  *   node scripts/test/run-all.mjs
  *   node scripts/test/run-all.mjs --list
@@ -35,21 +35,20 @@ if (unknownArgs.length) {
 
 const SUITE_TIMEOUT_MS = 120_000;
 const SUITE_KILL_GRACE_MS = 5_000;
-// Suites are process-isolated (own tempdir + child + cache-busted import), so they run in a bounded
-// parallel pool for fast feedback. Cap conservatively (default min(cpus,4)) to limit CPU contention
-// that could destabilize the few timing-sensitive suites; override with TEST_CONCURRENCY or --serial.
+// Las suites están aisladas por proceso (tempdir propio + child + import con cache-bust), así que corren en un
+// pool paralelo acotado para dar feedback rápido. El tope es conservador (default min(cpus,4)) para limitar la
+// contención de CPU que podría desestabilizar las pocas suites sensibles al timing; se puede overridear con TEST_CONCURRENCY o --serial.
 const CONCURRENCY = args.has("--serial")
 	? 1
 	: Math.max(1, Number(process.env.TEST_CONCURRENCY) || Math.min(4, os.cpus().length || 4));
 const EXTENSIONS_DIR = "extensions";
 const SUITE_SUBDIR = path.posix.join("tests", "integration");
 
-// Draft suites are excluded but must be EXPLICIT (with a reason), so a not-yet-green
-// suite is never run AND a green suite is never skipped silently. Promote a suite out
-// of here once it is reliably green. Currently empty.
+// Las draft suites se excluyen, pero deben ser EXPLICIT (con una razón), para que una suite aún no verde
+// nunca corra Y una suite verde nunca se saltee en silencio. Sacá una suite de acá cuando esté verde de forma confiable. Hoy está vacío.
 const ignoredDraftSuites = new Set([]);
 
-// Discover suite directories by convention: extensions/<ext>/tests/integration that exist.
+// Descubre por convención los directorios de suites: los extensions/<ext>/tests/integration que existan.
 const extensionsDirAbs = path.join(REPO_ROOT, EXTENSIONS_DIR);
 const suiteDirs = (fs.existsSync(extensionsDirAbs) ? fs.readdirSync(extensionsDirAbs, { withFileTypes: true }) : [])
 	.filter((entry) => entry.isDirectory())
@@ -57,7 +56,7 @@ const suiteDirs = (fs.existsSync(extensionsDirAbs) ? fs.readdirSync(extensionsDi
 	.filter((dir) => fs.existsSync(path.join(REPO_ROOT, dir)))
 	.sort();
 
-// Discover suites: every *.test.mjs under those directories.
+// Descubre las suites: cada *.test.mjs bajo esos directorios.
 const discoveredSuites = suiteDirs
 	.flatMap((dir) =>
 		fs
@@ -82,8 +81,8 @@ if (suites.length === 0) {
 	process.exit(1);
 }
 
-// Run one suite in a child process, buffering its output (parallel-safe, unlike live `inherit`).
-// Preserves the timeout+SIGTERM semantics of the old spawnSync path, with a SIGKILL fallback.
+// Corre una suite en un child process, bufferizando su output (seguro en paralelo, a diferencia de `inherit` en vivo).
+// Preserva la semántica de timeout+SIGTERM de la vieja ruta con spawnSync, con fallback a SIGKILL.
 function runSuite(suite) {
 	return new Promise((resolve) => {
 		const started = Date.now();
@@ -112,7 +111,7 @@ function runSuite(suite) {
 	});
 }
 
-// Bounded worker pool: at most CONCURRENCY suites in flight; results kept in suite order.
+// Worker pool acotado: como mucho CONCURRENCY suites en vuelo; los resultados se mantienen en orden de suite.
 const results = new Array(suites.length);
 let nextIndex = 0;
 async function worker() {
@@ -122,7 +121,7 @@ async function worker() {
 		const result = await runSuite(suite);
 		results[i] = result;
 		const label = result.status === 0 ? "PASS" : result.timedOut ? "TIMEOUT" : "FAIL";
-		// Print each suite's buffered output as one coherent block when it finishes.
+		// Imprime el output bufferizado de cada suite como un bloque coherente cuando termina.
 		process.stdout.write(`\n=== ${suite}: ${label} (${Math.round(result.elapsedMs / 1000)}s) ===\n`);
 		if (result.out) process.stdout.write(result.out.endsWith("\n") ? result.out : `${result.out}\n`);
 	}

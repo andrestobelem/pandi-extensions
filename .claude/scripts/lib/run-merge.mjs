@@ -1,5 +1,5 @@
-// run-merge.mjs — ingest a real run directory (--run) and overlay its per-role results onto the
-// static node list, recovering runtime-only roles the stubbed extraction never reached.
+// run-merge.mjs — ingiere un directorio real de run (--run) y superpone sus resultados por rol sobre
+// la lista estática de nodos, recuperando roles solo-runtime a los que la extracción stubbed nunca llegó.
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { norm } from "./util.mjs";
@@ -26,7 +26,7 @@ export function readRunData(runDir) {
     if (!line.trim()) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     if (e.type !== "agent") continue;
-    byId.set(e.id, { ...(byId.get(e.id) || {}), ...e }); // later (completed) events overwrite running
+    byId.set(e.id, { ...(byId.get(e.id) || {}), ...e }); // los eventos posteriores (completed) pisan a running
   }
   const byRole = new Map();
   let ok = 0, fail = 0, running = 0;
@@ -35,8 +35,8 @@ export function readRunData(runDir) {
     let g = byRole.get(role);
     if (!g) { g = { role, count: 0, ok: 0, fail: 0, running: 0, output: null, artifact: null, prompt: null }; byRole.set(role, g); }
     g.count++;
-    // completed → ok/fail by a.ok; still-running → running; any other terminal state
-    // (error/timeout/killed/cancelled) is a FAILURE, not "running".
+    // completed → ok/fail según a.ok; still-running → running; cualquier otro estado terminal
+    // (error/timeout/killed/cancelled) es una FAILURE, no "running".
     if (a.state === "completed") { if (a.ok) { g.ok++; ok++; } else { g.fail++; fail++; } }
     else if (a.state === "running") { g.running++; running++; }
     else { g.fail++; fail++; }
@@ -45,8 +45,8 @@ export function readRunData(runDir) {
   }
   for (const g of byRole.values()) { if (g.artifact) { const md = tryRead(g.artifact); if (md) g.prompt = extractPromptFromMd(md); } }
 
-  // Results: the workflow return value (result.json .output) + the artifacts it wrote to the run
-  // dir ROOT (non-recursive), excluding engine-internal files. Rendered in the Results tab.
+  // Results: el valor de retorno del workflow (result.json .output) + los artifacts que escribió en el
+  // dir RAÍZ del run (sin recursión), excluyendo archivos internos del engine. Se renderiza en la tab Results.
   let returnValue = null;
   const rj = tryRead(join(runDir, "result.json"));
   if (rj) { try { const o = JSON.parse(rj); returnValue = o.output ?? o.result ?? null; } catch {} }
@@ -63,7 +63,7 @@ export function readRunData(runDir) {
       artifacts.push({ name: f, ext, content: c.slice(0, 80000) });
     }
   } catch {}
-  // summary.md first, then other .md, then .txt, then .json — alpha within each group.
+  // summary.md primero, después otros .md, luego .txt y después .json — alpha dentro de cada grupo.
   const rank = (x) => (x.name === "summary.md" ? 0 : x.ext === "md" ? 1 : x.ext === "txt" ? 2 : 3);
   artifacts.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
   const results = returnValue != null || artifacts.length ? { returnValue, artifacts } : null;

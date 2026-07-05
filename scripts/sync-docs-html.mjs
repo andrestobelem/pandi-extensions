@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// sync-docs-html.mjs — mirror the human docs (root README.md + docs/**/*.md, minus the
-// transient docs/conversaciones/) into `docs/html/` as COMMITTED, navigable HTML styled by
-// the pi-docs converter (pandi artifact style). Same generator + --check shape as the other
-// sync-*.mjs scripts: the mirror is a GENERATED artifact — do not hand-edit it; edit the
-// Markdown source and re-run this. `npm test` runs the --check, so drift fails the gate.
+// sync-docs-html.mjs — espeja los docs humanos (README.md raíz + docs/**/*.md, salvo el
+// transitorio docs/conversaciones/) en `docs/html/` como HTML COMMITTEADO y navegable, estilado por
+// el converter de pi-docs (pandi artifact style). Tiene la misma forma generator + --check que los otros
+// scripts sync-*.mjs: el mirror es un artifact GENERATED — no lo edites a mano; editá la fuente
+// Markdown y re-ejecutá esto. `npm test` corre el --check, así que el drift rompe la compuerta.
 //
-// Mapping: README.md -> docs/html/index.html; docs/<path>.md -> docs/html/<path>.html.
-// Relative .md links between in-set documents are rewritten to their .html mirror so the
-// output browses like a site; external URLs and out-of-set targets are left untouched.
+// Mapeo: README.md -> docs/html/index.html; docs/<path>.md -> docs/html/<path>.html.
+// Los links relativos a .md entre documentos dentro del set se reescriben a su mirror .html para que
+// la salida se navegue como un sitio; las URLs externas y los targets fuera del set quedan intactos.
 //
-// Usage:
-//   node scripts/sync-docs-html.mjs           # write/refresh the mirror (and prune orphans)
-//   node scripts/sync-docs-html.mjs --check   # verify only; exit 1 on drift (no writes)
+// Uso:
+//   node scripts/sync-docs-html.mjs           # escribe/refresca el mirror (y poda huérfanos)
+//   node scripts/sync-docs-html.mjs --check   # solo verifica; sale con 1 si hay drift (sin writes)
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -23,7 +23,7 @@ const { renderMarkdownToHtml } = await import(pathToFileURL(CONVERTER).href);
 
 const MIRROR = ["docs", "html"];
 
-// Repo-relative .md path -> mirror-relative .html path, or null when out of set.
+// Path .md relativo al repo -> path .html relativo al mirror, o null si está fuera del set.
 export function outPathFor(relMd) {
 	const p = relMd.replaceAll("\\", "/");
 	if (p === "README.md") return "index.html";
@@ -32,7 +32,7 @@ export function outPathFor(relMd) {
 	return `${p.slice("docs/".length, -".md".length)}.html`;
 }
 
-// Rewrite relative in-set .md hrefs in rendered HTML to their mirror .html equivalents.
+// Reescribe en el HTML renderizado los href relativos a .md dentro del set hacia sus equivalentes .html del mirror.
 export function rewriteHrefs(html, fromMd, set) {
 	const fromOut = outPathFor(fromMd);
 	if (!fromOut) return html;
@@ -48,9 +48,9 @@ export function rewriteHrefs(html, fromMd, set) {
 	});
 }
 
-// Source-side rule: in-set Markdown links to Markdown; the mirror (not the author) owns the
-// .md -> .html rewrite. A relative .html href whose target has an in-set .md twin (directly,
-// or through the docs/html mirror) is a source error this script cannot fix — report it.
+// Regla del lado fuente: el Markdown dentro del set linkea a Markdown; el mirror (no el autor)
+// es dueño de la reescritura .md -> .html. Un href relativo a .html cuyo target tenga un gemelo
+// .md dentro del set (directamente o a través del mirror docs/html) es un error de fuente que este script no puede arreglar — hay que reportarlo.
 export function findBadSourceHrefs(html, fromMd, set) {
 	const bad = [];
 	for (const [, href] of html.matchAll(/href="([^"]+)"/g)) {
@@ -69,7 +69,7 @@ export function findBadSourceHrefs(html, fromMd, set) {
 	return bad;
 }
 
-// Discover the source set: root README.md + docs/**/*.md minus excluded subtrees.
+// Descubre el set fuente: README.md raíz + docs/**/*.md menos los subárboles excluidos.
 function discoverSet(root) {
 	const set = new Set();
 	if (fs.existsSync(path.join(root, "README.md"))) set.add("README.md");
@@ -84,7 +84,7 @@ function discoverSet(root) {
 	return set;
 }
 
-// List every .html under the mirror as mirror-relative paths.
+// Lista cada .html bajo el mirror como paths relativos al mirror.
 function listMirror(mirrorAbs) {
 	const out = [];
 	const walk = (rel) => {
@@ -100,8 +100,8 @@ function listMirror(mirrorAbs) {
 	return out;
 }
 
-// Sync the mirror under `root`. check:true reports drift without touching disk.
-// Returns { written, deleted, stale } (mirror-relative paths).
+// Sincroniza el mirror bajo `root`. check:true reporta drift sin tocar el disco.
+// Devuelve { written, deleted, stale } (paths relativos al mirror).
 export function syncDocsHtml(root, opts = {}) {
 	const check = !!opts.check;
 	const set = discoverSet(root);
@@ -120,7 +120,7 @@ export function syncDocsHtml(root, opts = {}) {
 		const md = fs.readFileSync(path.join(root, rel), "utf8");
 		const kicker = rel === "README.md" ? (rootPackageName ?? path.basename(root)) : path.posix.dirname(rel);
 		const rendered = renderMarkdownToHtml(md, { title: path.posix.basename(rel), kicker });
-		// Scan BEFORE rewriteHrefs: after it, every correct in-set .md link also reads .html.
+		// Escaneá ANTES de rewriteHrefs: después, todo link correcto a .md dentro del set también se verá como .html.
 		badHrefs.push(...findBadSourceHrefs(rendered, rel, set));
 		expected.set(outPathFor(rel), rewriteHrefs(rendered, rel, set));
 	}

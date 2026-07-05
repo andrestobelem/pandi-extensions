@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-// sync-skill-mirrors.mjs — mirror byte-identical SKILL.md copies from the canonical
-// `.pi/skills/<name>/SKILL.md` (SOURCE OF TRUTH) to `.claude/skills/<name>/SKILL.md`, so a
-// skill that must be available IDENTICALLY in both hosts (Pi and Claude Code) cannot drift.
+// sync-skill-mirrors.mjs — espeja copias byte-idénticas de SKILL.md desde el canónico
+// `.pi/skills/<name>/SKILL.md` (fuente de verdad) hacia `.claude/skills/<name>/SKILL.md`, para que
+// un skill que debe estar disponible IDÉNTICO en ambos hosts (Pi y Claude Code) no pueda divergir.
 //
-// Only skills listed in MIRRORED are copied. Skills that are intentionally host-specific
-// (e.g. `ultracode`, whose catalog paths differ between pi and claude) are NOT listed and are
-// maintained independently — do not add them here.
+// Solo se copian los skills listados en MIRRORED. Los skills intencionalmente host-specific
+// (por ejemplo `ultracode`, cuyos catalog paths difieren entre pi y claude) NO se listan y se
+// mantienen de forma independiente — no los agregues acá.
 //
-// This mirrors the claude-workflows pattern (a generator + a --check guarded by a parity test):
-// edit the .pi copy, then re-run this; the parity test
-// (extensions/pandi-dynamic-workflows/tests/integration/skill-mirror-parity.test.mjs) fails on drift.
+// Esto sigue el patrón de claude-workflows (un generator + un --check protegido por un test de parity):
+// editá la copia en .pi y luego re-ejecutá esto; el test de parity
+// (extensions/pandi-dynamic-workflows/tests/integration/skill-mirror-parity.test.mjs) falla si hay drift.
 //
-// Usage:
-//   node scripts/sync-skill-mirrors.mjs           # write mirrors from .pi -> .claude
-//   node scripts/sync-skill-mirrors.mjs --check    # verify only; exit 1 on drift (no writes)
+// Uso:
+//   node scripts/sync-skill-mirrors.mjs           # escribe mirrors desde .pi -> .claude
+//   node scripts/sync-skill-mirrors.mjs --check    # solo verifica; sale con 1 si hay drift (sin writes)
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";

@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// vendor-extension-skills.mjs — deterministically mirror the skills OWNED by an extension FROM the
-// canonical `.pi/skills/<name>/` (SOURCE OF TRUTH) into `extensions/<ext>/skills/<name>/`, so the
-// extension carries its own skills when installed standalone (`pi install ./extensions/<ext>`).
+// vendor-extension-skills.mjs — espeja de forma determinista los skills OWNED por una extensión DESDE
+// el canónico `.pi/skills/<name>/` (fuente de verdad) hacia `extensions/<ext>/skills/<name>/`, para que
+// la extensión lleve sus propios skills cuando se instala standalone (`pi install ./extensions/<ext>`).
 //
-// The self-hosted repo loads these skills via `.pi/skills/` auto-discovery; the extension package
-// entry in `.pi/settings.json` filters skills to `[]` so the vendored copy does NOT double-load
-// in-repo. The vendored trees are GENERATED artifacts: do NOT hand-edit them — edit the `.pi`
-// source and re-run this. A parity test guards against drift
+// El repo self-hosted carga estos skills vía auto-discovery de `.pi/skills/`; la entrada del paquete
+// de la extensión en `.pi/settings.json` filtra skills a `[]` para que la copia vendorizada NO haga
+// double-load dentro del repo. Los árboles vendorizados son artifacts GENERATED: no los edites a mano —
+// editá la fuente en `.pi` y re-ejecutá esto. Un test de parity protege contra drift
 // (extensions/pandi-dynamic-workflows/tests/integration/extension-skills-vendor-parity.test.mjs).
 //
-// Mirrors the existing generator+--check pattern (sync-skill-mirrors.mjs,
-// generate-claude-ultracode-skills.mjs): the whole skill tree is copied VERBATIM.
+// Sigue el patrón existente de generator+--check (sync-skill-mirrors.mjs,
+// generate-claude-ultracode-skills.mjs): se copia VERBATIM todo el árbol del skill.
 //
-// Usage:
-//   node scripts/vendor-extension-skills.mjs           # write vendored copies from .pi -> extension
-//   node scripts/vendor-extension-skills.mjs --check   # verify only; exit 1 on drift (no writes)
+// Uso:
+//   node scripts/vendor-extension-skills.mjs           # escribe copias vendorizadas desde .pi -> extensión
+//   node scripts/vendor-extension-skills.mjs --check   # solo verifica; sale con 1 si hay drift (sin writes)
 
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
@@ -27,7 +27,7 @@ const VENDOR = classification.vendoredByExtension;
 
 if (checkOnly && reportUnclassifiedSkills("vendor-extension-skills", classification) > 0) process.exit(1);
 
-// Recursively list files under `dir` as paths relative to `dir` (sorted, POSIX-ish).
+// Lista recursivamente los archivos bajo `dir` como paths relativos a `dir` (ordenados, estilo POSIX).
 async function listFilesRec(dir, base = dir) {
 	const out = [];
 	let entries;
@@ -52,7 +52,7 @@ async function readMaybe(file) {
 	}
 }
 
-// Build the full set of expected files (relative path -> content) for one vendored skill tree.
+// Construye el conjunto completo de archivos esperados (path relativo -> contenido) para un árbol de skill vendorizado.
 async function expectedFilesFor(skillName) {
 	const srcRoot = join(SKILLS_SRC, skillName);
 	const files = new Map();
@@ -77,7 +77,7 @@ for (const [ext, skills] of Object.entries(VENDOR)) {
 		const outRoot = join(REPO, "extensions", ext, "skills", skillName);
 
 		if (checkOnly) {
-			// Expected files present and byte-identical?
+			// ¿Los archivos esperados están presentes y son byte-idénticos?
 			for (const [rel, want] of expected) {
 				const have = await readMaybe(join(outRoot, rel));
 				if (have !== want) {
@@ -85,7 +85,7 @@ for (const [ext, skills] of Object.entries(VENDOR)) {
 					drift++;
 				}
 			}
-			// No stale files the generator would not emit?
+			// ¿No hay archivos stale que el generador no emitiría?
 			for (const rel of await listFilesRec(outRoot)) {
 				if (!expected.has(rel)) {
 					console.error(`[vendor-extension-skills] ✗ stale (not generated): ${ext}/skills/${skillName}/${rel}`);
@@ -95,7 +95,7 @@ for (const [ext, skills] of Object.entries(VENDOR)) {
 			continue;
 		}
 
-		// Write mode: rewrite the target cleanly so stale files cannot linger.
+		// Modo escritura: reescribe el target en limpio para que no queden archivos stale.
 		await rm(outRoot, { recursive: true, force: true });
 		for (const [rel, content] of expected) {
 			const dst = join(outRoot, rel);

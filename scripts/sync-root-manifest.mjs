@@ -1,22 +1,22 @@
 #!/usr/bin/env node
-// sync-root-manifest.mjs — derive the root package.json `pi.extensions` and `pi.themes`
-// from each `extensions/pandi-<name>/package.json` pi manifest (SOURCE OF TRUTH = the
-// sub-packages). Adding an extension never requires hand-editing the root list; a
-// package that declares pi resources but is missing from the root is drift.
+// sync-root-manifest.mjs — deriva `pi.extensions` y `pi.themes` del package.json raíz
+// desde cada manifiesto pi `extensions/pandi-<name>/package.json` (fuente de verdad = los
+// sub-packages). Agregar una extensión nunca requiere editar a mano la lista raíz; un
+// package que declara recursos pi pero falta en la raíz es drift.
 //
-// Load ORDER is deliberate (it affects e.g. system-prompt append order and status-bar
-// slots), so it is curated here: dirs listed in LOAD_ORDER come first in that order;
-// any new dir not yet listed is appended alphabetically — it loads without a root
-// edit, and can be given a deliberate position later by adding it to LOAD_ORDER.
+// El ORDER de carga es deliberado (afecta, por ejemplo, el orden de append del system-prompt
+// y los slots de la status-bar), por eso se cura acá: los dirs listados en LOAD_ORDER van primero
+// en ese orden; cualquier dir nuevo que aún no esté listado se agrega al final alfabéticamente —
+// carga sin editar la raíz y más tarde puede recibir una posición deliberada agregándolo a LOAD_ORDER.
 //
-// This mirrors the sync-skill-mirrors pattern (a generator + a --check guarded by a
-// parity test): edit a sub-package manifest, then re-run this; the parity test
+// Esto sigue el patrón de sync-skill-mirrors (un generator + un --check protegido por un
+// test de parity): editá el manifiesto del sub-package y luego re-ejecutá esto; el test de parity
 // (extensions/pandi-dynamic-workflows/tests/integration/root-manifest-parity.test.mjs)
-// fails on drift.
+// falla si hay drift.
 //
-// Usage:
-//   node scripts/sync-root-manifest.mjs           # rewrite the root pi manifest
-//   node scripts/sync-root-manifest.mjs --check   # verify only; exit 1 on drift
+// Uso:
+//   node scripts/sync-root-manifest.mjs           # reescribe el manifiesto pi raíz
+//   node scripts/sync-root-manifest.mjs --check   # solo verifica; sale con 1 si hay drift
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ROOT_PKG = join(REPO, "package.json");
 
-// Curated load order (dir names). Keep the core first and the UX aliases last.
+// Orden de carga curado (nombres de dir). Mantené el core primero y los aliases de UX al final.
 const LOAD_ORDER = [
 	"pandi-dynamic-workflows",
 	"pandi-loop",

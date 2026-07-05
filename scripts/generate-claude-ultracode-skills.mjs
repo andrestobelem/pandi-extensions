@@ -1,23 +1,23 @@
 #!/usr/bin/env node
-// generate-claude-ultracode-skills.mjs — deterministically generate the Claude Code orchestration
-// skills FROM the canonical dual-platform pi skill `.pi/skills/ultracode/` (SOURCE OF TRUTH).
+// generate-claude-ultracode-skills.mjs — genera de forma determinista los skills de orquestación
+// de Claude Code DESDE el skill canónico dual-platform de pi `.pi/skills/ultracode/` (fuente de verdad).
 //
-// The .pi ultracode skill already self-describes BOTH runtimes (Claude Code + pi) via its
-// "Platform reference" section, so it is valid and complete Claude content as-is. We emit two
-// Claude skills from it with a MINIMAL transform — only the `name:` frontmatter field and the
-// `# ` H1 heading are renamed; everything else (prose, tables, links) and the entire reference/
-// tree are copied VERBATIM:
+// El skill ultracode de .pi ya describe por sí mismo AMBOS runtimes (Claude Code + pi) en su
+// sección "Platform reference", así que su contenido de Claude ya es válido y completo tal cual.
+// Desde ahí emitimos dos skills de Claude con una transformación MÍNIMA: solo se renombran el
+// campo `name:` del frontmatter y el heading H1 `# `; todo lo demás (prosa, tablas, links) y
+// todo el árbol reference/ se copia VERBATIM:
 //
-//   .pi/skills/ultracode/  ->  .claude/skills/ultracode/         (identity name)
-//                          ->  .claude/skills/dynamic-workflows/ (renamed)
+//   .pi/skills/ultracode/  ->  .claude/skills/ultracode/         (nombre idéntico)
+//                          ->  .claude/skills/dynamic-workflows/ (renombrado)
 //
-// The .claude copies are GENERATED artifacts: do NOT hand-edit them — edit the .pi source and
-// re-run this. A parity test guards against drift
+// Las copias de .claude son artifacts GENERATED: no las edites a mano — editá la fuente en .pi y
+// re-ejecutá esto. Un test de parity protege contra drift
 // (extensions/pandi-dynamic-workflows/tests/integration/claude-ultracode-skills-parity.test.mjs).
 //
-// Usage:
-//   node scripts/generate-claude-ultracode-skills.mjs           # write both skills from .pi
-//   node scripts/generate-claude-ultracode-skills.mjs --check   # verify only; exit 1 on drift
+// Uso:
+//   node scripts/generate-claude-ultracode-skills.mjs           # escribe ambos skills desde .pi
+//   node scripts/generate-claude-ultracode-skills.mjs --check   # solo verifica; sale con 1 si hay drift
 
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
@@ -27,18 +27,18 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(REPO, ".pi", "skills", "ultracode");
 const OUT_DIR = join(REPO, ".claude", "skills");
 
-// Target skill names emitted from the single canonical source.
+// Nombres de skill emitidos desde la única fuente canónica.
 const TARGETS = ["ultracode", "dynamic-workflows"];
 
 const checkOnly = process.argv.includes("--check");
 
-// Minimal pi->claude transform for SKILL.md: rename only the frontmatter `name:` and the H1.
-// For the "ultracode" target this is the identity (name/heading are already `ultracode`).
+// Transformación mínima pi->claude para SKILL.md: renombra solo el `name:` del frontmatter y el H1.
+// Para el target "ultracode" esto es la identidad (el nombre y el heading ya son `ultracode`).
 function transformSkill(src, targetName) {
 	return src.replace(/^name: ultracode$/m, `name: ${targetName}`).replace(/^# ultracode$/m, `# ${targetName}`);
 }
 
-// Recursively list files under `dir` as paths relative to `dir` (sorted, POSIX-ish).
+// Lista recursivamente los archivos bajo `dir` como paths relativos a `dir` (ordenados, estilo POSIX).
 async function listFilesRec(dir, base = dir) {
 	const out = [];
 	let entries;
@@ -63,13 +63,13 @@ async function readMaybe(file) {
 	}
 }
 
-// Build the full set of expected files (relative path -> content) for a target.
+// Construye el conjunto completo de archivos esperados (path relativo -> contenido) para un target.
 async function expectedFilesFor(targetName) {
 	const files = new Map();
-	// SKILL.md (transformed).
+	// SKILL.md (transformado).
 	const skill = await readFile(join(SRC, "SKILL.md"), "utf8");
 	files.set("SKILL.md", transformSkill(skill, targetName));
-	// reference/ tree (verbatim).
+	// árbol reference/ (verbatim).
 	const refRel = await listFilesRec(join(SRC, "reference"));
 	for (const rel of refRel) {
 		const content = await readFile(join(SRC, "reference", rel), "utf8");
@@ -85,7 +85,7 @@ for (const target of TARGETS) {
 	const expected = await expectedFilesFor(target);
 
 	if (checkOnly) {
-		// Expected files present and byte-identical?
+		// ¿Los archivos esperados están presentes y son byte-idénticos?
 		for (const [rel, want] of expected) {
 			const have = await readMaybe(join(outRoot, rel));
 			if (have !== want) {
@@ -93,7 +93,7 @@ for (const target of TARGETS) {
 				drift++;
 			}
 		}
-		// No stale files the generator would not emit?
+		// ¿No hay archivos stale que el generador no emitiría?
 		const actual = await listFilesRec(outRoot);
 		for (const rel of actual) {
 			if (!expected.has(rel)) {
@@ -104,7 +104,7 @@ for (const target of TARGETS) {
 		continue;
 	}
 
-	// Write mode: rewrite the target cleanly so stale files cannot linger.
+	// Modo escritura: reescribe el target en limpio para que no queden archivos stale.
 	await rm(outRoot, { recursive: true, force: true });
 	for (const [rel, content] of expected) {
 		const dst = join(outRoot, rel);

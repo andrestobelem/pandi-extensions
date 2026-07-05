@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Check README extension catalog parity and local Markdown links.
+ * Verifica la paridad del catálogo de extensiones del README y los links locales de Markdown.
  *
- * This is intentionally read-only. It catches cheap documentation drift that
- * otherwise only appears during onboarding: stale extension counts, missing
- * README catalog rows, and broken relative links in repo docs/skills.
+ * Esto es intencionalmente de solo lectura. Detecta drift barato de documentación que,
+ * de otro modo, solo aparece durante el onboarding: counts de extensiones stale,
+ * filas faltantes en el catálogo del README y links relativos rotos en docs/skills del repo.
  */
 
 import * as fs from "node:fs";

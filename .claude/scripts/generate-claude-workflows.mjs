@@ -1,29 +1,29 @@
 #!/usr/bin/env node
-// generate-claude-workflows.mjs — deterministically generate the Claude Code
-// top-level-script dialect of every canonical pi scaffold
-// (extensions/pandi-dynamic-workflows/scaffolds/*.js) into TWO destinations:
-//   1. .claude/workflows/*.js — the repo's Claude catalog (synced to ~/.claude).
-//   2. .pi/skills/ultracode/reference/claude-workflows/*.js — the ultracode skill's
-//      self-contained reference copy (#26); it travels with the skill via the
-//      skill syncs (gen-claude-ultracode, vendor-extension-skills).
+// generate-claude-workflows.mjs — genera de forma determinista el dialecto de
+// script top-level de Claude Code para cada scaffold pi canónico
+// (extensions/pandi-dynamic-workflows/scaffolds/*.js) en DOS destinos:
+//   1. .claude/workflows/*.js — el catálogo Claude del repo (sincronizado a ~/.claude).
+//   2. .pi/skills/ultracode/reference/claude-workflows/*.js — la copia de referencia
+//      autocontenida del skill ultracode (#26); viaja con el skill mediante los
+//      syncs de skills (gen-claude-ultracode, vendor-extension-skills).
 //
-// pi scaffolds are the SOURCE OF TRUTH. The Claude files are generated artifacts:
-// do NOT hand-edit them — edit the pi scaffold and re-run this. A parity test
-// (tests/.../claude-parity) guards against drift in BOTH destinations.
+// Los scaffolds de pi son la FUENTE DE VERDAD. Los archivos de Claude son artifacts generados:
+// no los edites a mano — editá el scaffold de pi y re-ejecutá esto. Un test de parity
+// (tests/.../claude-parity) protege contra drift en AMBOS destinos.
 //
-// Transform (the only real pi->claude delta; see git history / plan):
-//   1. Entry-point: unwrap `export default async function main() { <body> }` to a
-//      top-level body ending in `return` (Claude requires top-level scripts; it
-//      rejects export-default-main — verified empirically).
-//   2. Catalog-prose: rewrite the .pi/workflows + ~/.pi/agent/workflows catalog
-//      references/wording to the Claude equivalents (only router/contract-gate/
-//      workflow-factory contain these).
-//   3. Re-format with prettier (parser: babel — biome cannot parse top-level return).
-// Everything else (template literals, ?., ??, meta incl. basedOn, logic) is kept.
+// Transformación (la única delta real pi->claude; ver git history / plan):
+//   1. Entry-point: desenvuelve `export default async function main() { <body> }` a un
+//      body top-level que termina en `return` (Claude exige scripts top-level; rechaza
+//      export-default-main — verificado empíricamente).
+//   2. Catalog-prose: reescribe las referencias y la redacción del catálogo .pi/workflows + ~/.pi/agent/workflows
+//      a sus equivalentes de Claude (solo router/contract-gate/
+//      workflow-factory contienen esto).
+//   3. Re-format con prettier (parser: babel — biome no puede parsear top-level return).
+// Todo lo demás (template literals, ?., ??, meta incl. basedOn, lógica) se conserva.
 //
-// Usage:
-//   node .claude/scripts/generate-claude-workflows.mjs           # write all
-//   node .claude/scripts/generate-claude-workflows.mjs --check   # verify, exit 1 on drift
+// Uso:
+//   node .claude/scripts/generate-claude-workflows.mjs           # escribe todo
+//   node .claude/scripts/generate-claude-workflows.mjs --check   # verifica y sale con 1 si hay drift
 
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
@@ -49,27 +49,27 @@ const PRETTIER_OPTS = {
 	arrowParens: "always",
 };
 
-// Catalog-prose rewrites (pi -> claude). Each `find` is a distinctive verbatim
-// substring that occurs in exactly one scaffold; applied globally is safe.
+// Reescrituras de catalog-prose (pi -> claude). Cada `find` es un substring verbatim distintivo
+// que aparece exactamente en un scaffold; aplicarlo globalmente es seguro.
 const CATALOG_REWRITES = [
-	// router.js — header block comment (spans two comment lines)
+	// router.js — comentario de bloque del header (abarca dos líneas de comentario)
 	[
 		"reading the catalog (the project .pi/workflows/*.js and the global\n * ~/.pi/agent/workflows/*.js), excluding",
 		"reading the catalog (~/.claude/workflows/*.js and, if present, ./.claude/\n * workflows/*.js), excluding",
 	],
-	// router.js — catalog discovery prompt
+	// router.js — prompt de descubrimiento de catálogo
 	[
 		"EXISTING pi dynamic workflows available to dispatch to. Read the project catalog at .pi/workflows/*.js and, if it exists, the global catalog at ~/.pi/agent/workflows/*.js.",
 		"EXISTING Claude Code dynamic workflows available to dispatch to. Read the user catalog at ~/.claude/workflows/*.js and, if it exists, the project catalog at ./.claude/workflows/*.js.",
 	],
-	// workflow-factory.js — catalog discovery prompt
+	// workflow-factory.js — prompt de descubrimiento de catálogo
 	[
 		"EXISTING pi dynamic workflows available to reuse/compose. Read the project catalog at .pi/workflows/*.js and, if it exists, the global catalog at ~/.pi/agent/workflows/*.js.",
 		"EXISTING Claude Code dynamic workflows available to reuse/compose. Read the user catalog at ~/.claude/workflows/*.js and, if it exists, the project catalog at .claude/workflows/*.js.",
 	],
-	// workflow-factory.js — draft path (comment + code), shared substring
+	// workflow-factory.js — draft path (comentario + código), substring compartido
 	[".pi/workflows/drafts/", ".claude/workflows/drafts/"],
-	// contract-gate.js — read-pattern prompt (preserve pi's TWO-path read: global + project-local)
+	// contract-gate.js — prompt de patrón de lectura (preserva la lectura de DOS paths de pi: global + project-local)
 	[
 		"First read .pi/workflows/${routing.pattern}.js (or the global ~/.pi/agent/workflows/${routing.pattern}.js) and extract",
 		"First read ~/.claude/workflows/${routing.pattern}.js (or the project ./.claude/workflows/${routing.pattern}.js) and extract",
@@ -90,13 +90,13 @@ function unwrapMain(src, name) {
 		}
 	}
 	if (closeIdx === -1) throw new Error(`${name}: no top-level closing \`}\` found after wrapper`);
-	// main() must be the LAST top-level construct — fail loudly if a future scaffold adds
-	// code after it (the backward "last bare }" anchor would otherwise silently drop it).
+	// main() debe ser la ÚLTIMA construcción top-level — fallá ruidosamente si un scaffold futuro agrega
+	// código después (si no, el ancla inversa "last bare }" lo descartaría en silencio).
 	for (let i = closeIdx + 1; i < lines.length; i++) {
 		if (lines[i].trim() !== "") throw new Error(`${name}: unexpected top-level code after main() close (line ${i + 1})`);
 	}
-	const head = lines.slice(0, wrapIdx); // license/header comments + export const meta
-	const body = lines.slice(wrapIdx + 1, closeIdx); // function body (over-indented; prettier fixes)
+	const head = lines.slice(0, wrapIdx); // comentarios de licencia/header + export const meta
+	const body = lines.slice(wrapIdx + 1, closeIdx); // body de la función (sobreindentado; prettier lo corrige)
 	return [...head, ...body].join("\n");
 }
 
@@ -110,8 +110,8 @@ async function generateOne(name, src) {
 	const rewritten = applyCatalogRewrites(src);
 	const unwrapped = unwrapMain(rewritten, name);
 	const formatted = await prettier.format(unwrapped, PRETTIER_OPTS);
-	// Safety net: no pi-runtime catalog token may survive into a Claude artifact.
-	// Bare forms too (no `~/`): catch any surviving pi-runtime catalog reference.
+	// Red de seguridad: ningún token de catálogo de pi-runtime puede sobrevivir dentro de un artifact de Claude.
+	// También las formas peladas (sin `~/`): atrapá cualquier referencia remanente al catálogo de pi-runtime.
 	for (const token of [".pi/workflows", ".pi/agent/workflows", "EXISTING pi dynamic"]) {
 		if (formatted.includes(token)) throw new Error(`${name}: pi catalog token survived rewrite: "${token}"`);
 	}

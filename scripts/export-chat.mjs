@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// Export a Pi session to HTML under .pi/chats/ (the repo's gitignored chat home).
+// Exporta una sesión de Pi a HTML en .pi/chats/ (directorio gitignored de chats del repo).
 //
-// Pi's built-in `/export` writes the HTML into the current working directory and
-// has no setting for a default destination directory. This helper makes the
-// "chats live in .pi/chats/" convention real and repeatable by delegating to the
-// supported `pi --export <in> <out>` CLI and writing the output there.
+// El `/export` integrado de Pi escribe el HTML en el directorio de trabajo actual y
+// no tiene una opción para un directorio de destino por defecto. Este helper vuelve
+// real y repetible la convención "los chats viven en .pi/chats/" delegando al
+// CLI soportado `pi --export <in> <out>` y escribiendo la salida ahí.
 //
-// Usage:
-//   node scripts/export-chat.mjs                 # export the most recent session
-//   node scripts/export-chat.mjs <session.jsonl> # export a specific session file
+// Uso:
+//   node scripts/export-chat.mjs                 # exporta la sesión más reciente
+//   node scripts/export-chat.mjs <session.jsonl> # exporta un archivo de sesión específico
 //
-// Output name mirrors Pi's native export: pi-session-<sessionBasename>.html
+// El nombre de salida replica el export nativo de Pi: pi-session-<sessionBasename>.html
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
@@ -20,8 +20,8 @@ const REPO_ROOT = resolve(new URL("..", import.meta.url).pathname);
 const SESSIONS_DIR = join(REPO_ROOT, ".pi", "sessions");
 const CHATS_DIR = join(REPO_ROOT, ".pi", "chats");
 
-// Resolve the session file: an explicit argument wins, else the most recently
-// modified *.jsonl in .pi/sessions/ (i.e. the current/last session).
+// Resuelve el archivo de sesión: si hay un argumento explícito, gana; si no, usa el
+// *.jsonl modificado más recientemente en .pi/sessions/ (o sea, la sesión actual/última).
 function resolveSessionFile(arg) {
 	if (arg) {
 		const p = resolve(arg);

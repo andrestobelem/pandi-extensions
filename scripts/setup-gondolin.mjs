@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 /**
- * setup-gondolin.mjs — install the upstream Gondolin micro-VM isolation extension
- * into this repo's NON auto-discovered project-local tools dir (.pi/tools/gondolin)
- * so it is available on demand via `pi -e .pi/tools/gondolin`, without booting a VM
- * on every pi session.
+ * setup-gondolin.mjs — instala la extensión upstream de aislamiento micro-VM Gondolin
+ * en el directorio project-local de tools NO auto-discovered de este repo (.pi/tools/gondolin)
+ * para que quede disponible bajo demanda vía `pi -e .pi/tools/gondolin`, sin bootear una VM
+ * en cada sesión de pi.
  *
- * Why not vendor it (commit it): Gondolin needs a real runtime dependency
- * (@earendil-works/gondolin) with platform-specific native binaries, which would
- * bloat this repo's lockfile and only works on darwin-arm64 / linux-x64. We instead
- * copy pi's shipped example and install its deps with --ignore-scripts (the upstream
- * recommended, script-free install; the krun runner is a prebuilt binary and ssh2
- * falls back to pure JS without the optional cpu-features native build). The install
- * target .pi/tools/ is gitignored, so the heavy native deps stay out of version control.
+ * Por qué no vendorizarlo (commitearlo): Gondolin necesita una dependencia runtime real
+ * (@earendil-works/gondolin) con binarios nativos específicos por plataforma, lo que
+ * inflaría el lockfile de este repo y solo funciona en darwin-arm64 / linux-x64. En cambio,
+ * copiamos el ejemplo que trae pi e instalamos sus deps con --ignore-scripts (la instalación
+ * recomendada upstream, sin scripts; el runner krun es un binario prebuilt y ssh2 hace
+ * fallback a JS puro sin el build nativo opcional de cpu-features). El target de instalación
+ * .pi/tools/ está gitignored, así que las deps nativas pesadas quedan fuera del version control.
  *
- * Why .pi/tools/ and NOT .pi/extensions/: a project-local .pi/extensions subdirectory
- * is auto-discovered and would load on every session (a micro-VM boot each time).
- * .pi/tools/ is not an auto-discovered path, so Gondolin loads only with an explicit `pi -e`.
+ * Por qué .pi/tools/ y NO .pi/extensions/: un subdirectorio project-local .pi/extensions/
+ * se auto-discoverea y se cargaría en cada sesión (un boot de micro-VM cada vez).
+ * .pi/tools/ no es un path auto-discovered, así que Gondolin carga solo con un `pi -e` explícito.
  *
- * Usage:  node scripts/setup-gondolin.mjs   (or: npm run setup:gondolin)
+ * Uso:  node scripts/setup-gondolin.mjs   (o: npm run setup:gondolin)
  */
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync } from "node:fs";
@@ -33,7 +33,7 @@ function fail(message) {
 	process.exit(1);
 }
 
-// 1. Architecture guard: only platforms with a prebuilt krun runner are supported.
+// 1. Guardia de arquitectura: solo se soportan plataformas con runner krun prebuilt.
 const platformKey = `${process.platform}-${process.arch}`;
 if (!SUPPORTED.has(platformKey)) {
 	fail(
@@ -42,14 +42,14 @@ if (!SUPPORTED.has(platformKey)) {
 	);
 }
 
-// 2. Node engine guard (@earendil-works/gondolin requires Node >= 23.6.0).
+// 2. Guardia de engine de Node (@earendil-works/gondolin requiere Node >= 23.6.0).
 const major = Number(process.versions.node.split(".")[0]);
 const minor = Number(process.versions.node.split(".")[1]);
 if (major < 23 || (major === 23 && minor < 6)) {
 	fail(`Gondolin requires Node >= 23.6.0; this is ${process.versions.node}.`);
 }
 
-// 3. Locate pi's shipped Gondolin example.
+// 3. Ubicá el ejemplo de Gondolin que trae pi.
 let globalRoot;
 try {
 	globalRoot = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
@@ -65,19 +65,19 @@ if (!existsSync(path.join(example, "index.ts"))) {
 	);
 }
 
-// Refuse to clobber an existing install (e.g. one moved here manually).
+// Rechazá pisar una instalación existente (por ejemplo, una movida acá manualmente).
 if (existsSync(path.join(target, "index.ts"))) {
 	console.log(`✓ Gondolin already installed at ${target} — nothing to do.`);
 	process.exit(0);
 }
 
-// 4. Copy the (self-contained) example and install deps WITHOUT lifecycle scripts.
+// 4. Copiá el ejemplo (autocontenido) e instalá deps SIN lifecycle scripts.
 console.log(`→ Installing Gondolin into ${target}`);
 mkdirSync(target, { recursive: true });
 cpSync(example, target, { recursive: true });
-// Strip inherited npm_config_* env so a parent `npm run` does not leak config
-// (e.g. allow-scripts from ~/.npmrc -> npm_config_allow_scripts) into this
-// nested install, which npm rejects together with --ignore-scripts (EALLOWSCRIPTS).
+// Quitá del env heredado los npm_config_* para que un `npm run` padre no filtre config
+// (por ejemplo allow-scripts desde ~/.npmrc -> npm_config_allow_scripts) a esta
+// instalación anidada, que npm rechaza junto con --ignore-scripts (EALLOWSCRIPTS).
 const childEnv = Object.fromEntries(
 	Object.entries(process.env).filter(([k]) => !k.toLowerCase().startsWith("npm_config_")),
 );

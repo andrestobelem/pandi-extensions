@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * install-git-hooks.mjs — point git at the versioned hooks dir (scripts/git-hooks).
+ * install-git-hooks.mjs — apunta git al directorio versionado de hooks (scripts/git-hooks).
  *
- * Runs as the `prepare` npm script on every `npm install`. Portable (no shell
- * `||`/`true`, works on Windows) and NEVER fails the install: outside a git
- * checkout (npm tarball, CI cache restore) it is a silent no-op.
+ * Corre como script `prepare` de npm en cada `npm install`. Es portable (sin shell
+ * `||`/`true`, funciona en Windows) y NUNCA hace fallar la instalación: fuera de un
+ * checkout de git (npm tarball, restore de caché en CI) es un no-op silencioso.
  *
- * Logs to STDERR on purpose: `prepare` also runs under `npm pack --json`,
- * whose stdout must stay machine-parseable (packaging-scaffolds suite).
+ * Loguea a STDERR a propósito: `prepare` también corre bajo `npm pack --json`,
+ * cuyo stdout debe seguir siendo parseable por máquina (suite packaging-scaffolds).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";

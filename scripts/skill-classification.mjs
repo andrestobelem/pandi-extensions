@@ -3,8 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-// Test-only override: integration negative controls can run against a copied skill tree
-// instead of mutating the live .pi/skills directory that parallel suites also inspect.
+// Override solo para tests: los controles negativos de integración pueden correr contra un árbol
+// de skills copiado en vez de mutar el directorio live .pi/skills que otras suites paralelas también inspeccionan.
 export const SKILLS_ROOT = resolve(process.env.PANDI_SKILLS_ROOT || join(REPO, ".pi", "skills"));
 
 const OPTIONAL_CLAUDE_GLOBAL_SKILLS = ["open-prose"];

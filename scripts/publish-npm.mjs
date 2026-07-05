@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 /**
- * Publish changed @pandi-coding-agent/* workspaces to npm.
+ * Publica en npm los workspaces @pandi-coding-agent/* que cambiaron.
  *
- * Per workspace (extensions/pandi*):
- *   - if <name>@<version> is NOT on npm            -> publish it
- *   - if it IS on npm and the local pack shasum
- *     matches the published dist.shasum            -> skip (unchanged)
- *   - if it IS on npm but content differs          -> report "needs version bump" (never overwrite)
+ * Por workspace (extensions/pandi*):
+ *   - si <name>@<version> NO está en npm          -> publícalo
+ *   - si SÍ está en npm y el shasum del pack local
+ *     coincide con el dist.shasum publicado       -> sáltalo (sin cambios)
+ *   - si SÍ está en npm pero el contenido difiere -> reporta "needs version bump" (nunca sobreescribe)
  *
- * Note: shasums assume `npm pack` is byte-stable for identical content (true within one
- * npm version). If EVERY package suddenly reports BUMP?, suspect an npm/pacote upgrade,
- * not real content changes.
+ * NOTE: los shasums asumen que `npm pack` es byte-stable para contenido idéntico (cierto dentro de una
+ * versión de npm). Si TODOS los packages de golpe reportan BUMP?, sospechá de un upgrade de npm/pacote,
+ * no de cambios reales de contenido.
  *
- * Usage:
- *   node scripts/publish-npm.mjs            # dry run: show the plan only
- *   node scripts/publish-npm.mjs --publish  # actually run `npm publish --access public`
- *                                           # (with 2FA, npm prompts for OTP per package)
+ * Uso:
+ *   node scripts/publish-npm.mjs            # dry run: muestra solo el plan
+ *   node scripts/publish-npm.mjs --publish  # ejecuta de verdad `npm publish --access public`
+ *                                           # (con 2FA, npm pide OTP por package)
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Decide the action for one package: "publish" | "unchanged" | "bump". */
+/** Decide la acción para un package: "publish" | "unchanged" | "bump". */
 export function classify(remoteShasum, localShasum) {
 	if (remoteShasum === null) return "publish";
 	return remoteShasum === localShasum ? "unchanged" : "bump";
@@ -35,7 +35,7 @@ export function withSafeNpmConfig(cmdArgs) {
 export function buildPublishArgs({ otp, provenance = false, tag = "latest" } = {}) {
 	const args = ["publish", "--access", "public", "--tag", tag];
 	if (provenance) args.push("--provenance");
-	if (otp) args.push(`--otp=${otp}`); // note: one TOTP code rarely survives >1 publish
+	if (otp) args.push(`--otp=${otp}`); // nota: un código TOTP rara vez sobrevive a más de 1 publish
 	return withSafeNpmConfig(args);
 }
 
@@ -43,14 +43,14 @@ function npm(cmdArgs, opts = {}) {
 	return execFileSync("npm", withSafeNpmConfig(cmdArgs), { encoding: "utf8", ...opts }).trim();
 }
 
-/** Published dist.shasum for name@version, or null if that version is not on npm. */
+/** dist.shasum publicado para name@version, o null si esa versión no está en npm. */
 function publishedShasum(name, version) {
 	try {
 		const out = npm(["view", `${name}@${version}`, "dist.shasum"], { stdio: ["ignore", "pipe", "pipe"] });
-		return out === "" ? null : out; // some npm versions: missing version = exit 0, empty stdout
+		return out === "" ? null : out; // en algunas versiones de npm: versión faltante = exit 0, stdout vacío
 	} catch (err) {
 		const msg = `${err.stderr ?? ""}${err.message ?? ""}`;
-		if (msg.includes("E404")) return null; // version not published
+		if (msg.includes("E404")) return null; // versión no publicada
 		throw new Error(`npm view failed for ${name}@${version} (not a 404 — refusing to guess):\n${msg}`);
 	}
 }
@@ -81,7 +81,7 @@ function main() {
 			try {
 				return { dir, pkg: JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) };
 			} catch {
-				return null; // not a workspace (no/invalid package.json)
+				return null; // no es un workspace (package.json faltante o inválido)
 			}
 		})
 		.filter((w) => w !== null && !w.pkg.private);
@@ -107,7 +107,7 @@ function main() {
 		`\n${workspaces.length} workspaces: ${toPublish.length} to publish, ${unchanged} unchanged, ${needsBump.length} need a version bump.`,
 	);
 
-	// Exit 1 whenever there is unfinished work (needsBump), even after successful publishes.
+	// Sale con 1 siempre que quede trabajo pendiente (needsBump), incluso después de publishes exitosos.
 	if (needsBump.length > 0) process.exitCode = 1;
 
 	if (!doPublish) {

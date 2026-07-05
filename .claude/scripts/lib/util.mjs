@@ -1,6 +1,6 @@
-// util.mjs — tiny shared helpers for the workflow-artifact modules.
+// util.mjs — helpers compartidos mínimos para los módulos de workflow-artifact.
 
-// De-dup / grouping key: strip trailing numeric/escalation indices from a label ("skeptic-3" -> "skeptic").
+// Clave para de-dup y agrupación: quita los índices numéricos o de escalación al final de un label ("skeptic-3" -> "skeptic").
 export const norm = (l) => String(l || "agent").replace(/(-e?\d+)+$/i, "").replace(/-\d+$/g, "");
-// meta.phases entries may be plain strings ("asignacion") OR objects ({ title: "discover" }).
+// Las entries de meta.phases pueden ser strings simples ("asignacion") U objetos ({ title: "discover" }).
 export const phaseTitleOf = (p) => (typeof p === "string" ? p : p && p.title);

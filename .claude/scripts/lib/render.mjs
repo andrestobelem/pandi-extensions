@@ -1,17 +1,17 @@
-// render.mjs — assemble the data object (mermaid + fidelity notes + everything the client needs)
-// and produce the self-contained HTML string. Pure: no file IO, no process state.
+// render.mjs — arma el objeto data (mermaid + fidelity notes + todo lo que necesita el cliente)
+// y produce el string HTML autocontenido. Puro: sin file IO, sin estado de proceso.
 import { phaseTitleOf } from "./util.mjs";
 
-// Detect a Contract Gate result to show in a dedicated Contract tab: the run's return value (or a
-// contract.json artifact) that carries the contract shape. Field names tolerate both this repo's
-// lean gate (routingHints/blockers) and the full contract-gate scaffold (routingHint/ambiguities);
-// the client renderer normalizes them. Returns null when no contract is present (byte-identical path).
+// Detecta un resultado de Contract Gate para mostrarlo en una tab Contract dedicada: el valor de retorno
+// del run (o un artifact contract.json) que trae la forma del contrato. Los nombres de campos toleran tanto
+// el gate lean de este repo (routingHints/blockers) como el scaffold contract-gate completo (routingHint/ambiguities);
+// el renderer cliente los normaliza. Devuelve null cuando no hay contrato presente (ruta byte-idéntica).
 const looksLikeContract = (o) => !!o && typeof o === "object" && typeof o.improvedTask === "string" && Array.isArray(o.successCriteria);
 function detectContract(runData) {
   if (!runData || !runData.results) return null;
   if (looksLikeContract(runData.results.returnValue)) return runData.results.returnValue;
   const cj = (runData.results.artifacts || []).find((a) => a.ext === "json" && /contract/i.test(a.name));
-  if (cj) { try { const o = JSON.parse(cj.content); if (looksLikeContract(o)) return o; } catch { /* not a contract */ } }
+  if (cj) { try { const o = JSON.parse(cj.content); if (looksLikeContract(o)) return o; } catch { /* no es un contrato */ } }
   return null;
 }
 const mmId = (s) => "P" + String(s).replace(/[^A-Za-z0-9]/g, "_");
@@ -184,18 +184,18 @@ pre.block{background:var(--paper);border:1px solid var(--line);border-radius:12p
 footer{margin-top:40px;color:var(--muted);font-size:15px;}
 `;
 
-// Assemble { html, data } from the static model + merged nodes + (optional) run data.
+// Arma { html, data } desde el modelo estático + nodos mergeados + data opcional del run.
 export function assembleArtifact({ merged, basePhases, composes, meta, provenance, scaffolds, scriptPath, argsJson, schemas, skillRefs, raw, runData, staticFidelity, jsonToMarkdownSource, clientJsSource, contractViewSource, tokensCss = FALLBACK_TOKENS }) {
   const nodes = merged.nodes;
   const phases = [...basePhases, ...merged.extraPhases.filter((p) => !basePhases.includes(p))];
   const tokenVariants = parseTokenVariants(tokensCss);
   const mermaidThemes = { dark: mermaidThemeVariables(tokenVariants.dark), light: mermaidThemeVariables(tokenVariants.light) };
 
-  // auto Mermaid: IN -> phase groups in order -> OUT, plus compose edges
+  // Mermaid automático: IN -> grupos de fases en orden -> OUT, más aristas de compose
   const nodesByPhase = {};
   for (const n of nodes) (nodesByPhase[n.phase] ||= []).push(n);
-  // Diagram must show every phase that has nodes — declared phases first, then any extra node
-  // phase (e.g. "—" for agents the workflow never tagged with a phase) so nodes are never dropped.
+  // El diagrama debe mostrar toda fase que tenga nodos — primero las fases declaradas y después cualquier
+  // fase extra de nodo (por ejemplo "—" para agentes a los que el workflow nunca etiquetó con fase) para que no se pierdan nodos.
   const nodePhases = Object.keys(nodesByPhase);
   const orderedPhases = [...phases, ...nodePhases.filter((p) => !phases.includes(p))];
   let mm = "flowchart TB\n  IN([entrada args]):::io\n";
@@ -217,7 +217,7 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   composes.forEach((c, i) => { mm += `  COMP${i}{{"workflow ${mmLabel(c)}"}}:::comp\n  ${prev} -. compone .-> COMP${i}\n`; });
   mm += classDefs(tokenVariants.dark);
 
-  // Fidelity notes — an empty box is never read as "no agents" when it's really runtime-gated.
+  // Fidelity notes — una caja vacía nunca debe leerse como "sin agentes" cuando en realidad está gated por runtime.
   const fidelityNotes = [...staticFidelity];
   const declaredPhaseTitles = (meta.phases || []).map(phaseTitleOf).filter(Boolean);
   const emptyDeclared = declaredPhaseTitles.filter((t) => !nodes.some((n) => n.phase === t));
