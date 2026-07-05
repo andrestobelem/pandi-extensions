@@ -1,16 +1,16 @@
 /**
- * Claude-style `/effort` command for Pi.
+ * Comando `/effort` estilo Claude para Pi.
  *
- * Pi already has thinking levels internally (`off`, `minimal`, `low`, `medium`,
- * `high`, `xhigh`) plus built-in keyboard/settings controls. This extension adds a
- * slash-command surface that mirrors Claude-style effort switching:
+ * Pi ya tiene niveles de thinking internos (`off`, `minimal`, `low`, `medium`,
+ * `high`, `xhigh`) y controles integrados de teclado/configuración. Esta extensión agrega una
+ * interfaz de slash-command que refleja el cambio de esfuerzo estilo Claude:
  *
  *   /effort high       -> pi.setThinkingLevel("high")
  *   /effort xhigh      -> pi.setThinkingLevel("xhigh")
- *   /effort ultracode  -> xhigh + request the dynamic-workflows ultracode router
+ *   /effort ultracode  -> xhigh + pedir el router ultracode de dynamic-workflows
  *
- * The actual level may be clamped by the active model (non-reasoning models become
- * `off`); after every change we report the active level from `pi.getThinkingLevel()`.
+ * El nivel real puede quedar limitado por el modelo activo (los modelos sin reasoning pasan a
+ * `off`); después de cada cambio informamos el nivel activo desde `pi.getThinkingLevel()`.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -19,9 +19,9 @@ import type { EffortTarget, ThinkingLevel } from "./parse.js";
 import { parseEffortTarget, THINKING_LEVELS } from "./parse.js";
 
 const EFFORT_STATUS_KEY = "effort";
-// Keep this string in sync with extensions/dynamic-workflows/index.ts. The event is
-// intentionally best-effort: `/effort` still works as a thinking-level command
-// when the dynamic-workflows extension is not loaded.
+// Mantené este string sincronizado con extensions/dynamic-workflows/index.ts. El evento es
+// intencionalmente best-effort: `/effort` igual funciona como comando de nivel de thinking
+// cuando la extensión dynamic-workflows no está cargada.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 
 const COMPLETIONS: { value: string; description: string }[] = [
@@ -180,8 +180,8 @@ export default function effortExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("thinking_level_select", async (_event, ctx) => {
-		// Show the resolved/clamped active level (safeCurrentLevel) like every other
-		// status update, not the requested event.level which the model may not accept.
+		// Mostrá el nivel activo resuelto/limitado (safeCurrentLevel) como en cualquier otra
+		// actualización de estado, no el event.level pedido que el modelo quizá no acepte.
 		updateEffortStatus(pi, ctx);
 	});
 

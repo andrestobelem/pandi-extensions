@@ -1,13 +1,13 @@
 /**
- * Pure parsing/domain layer for the `/effort` command.
+ * Capa pura de parsing/dominio para el comando `/effort`.
  *
- * Extracted from index.ts to isolate the (side-effect-free) argument parsing
- * and the thinking-level vocabulary from the command wiring. Keeping this layer
- * pure makes it cheap to test and reason about (cohesion + testability), while
- * index.ts stays the thin command/registration aggregator.
+ * Extraída de index.ts para aislar el parsing de argumentos (sin side effects)
+ * y el vocabulario de niveles de thinking del cableado del comando. Mantener esta capa
+ * pura la hace barata de probar y razonar (cohesión + testabilidad), mientras
+ * index.ts queda como agregador fino de comando/registro.
  *
- * Depth-one sibling module (matches the `package.json` `files` glob); imported
- * by index.ts via "./parse.js", so it is typechecked transitively.
+ * Módulo hermano a un nivel de profundidad (coincide con el glob `files` de `package.json`);
+ * index.ts lo importa vía "./parse.js", así que se typecheckea de forma transitiva.
  */
 
 export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
@@ -20,8 +20,8 @@ export type EffortTarget =
 	| { kind: "invalid"; value: string };
 
 /**
- * Lightweight prefix/separator words dropped before resolving the final
- * significant token (e.g. `/effort thinking=high`, `/effort level high`).
+ * Palabras livianas de prefijo/separación que se descartan antes de resolver el
+ * token significativo final (p. ej. `/effort thinking=high`, `/effort level high`).
  */
 const PREFIX_WORDS = ["thinking", "think", "level", "effort"];
 
@@ -54,8 +54,8 @@ export function parseEffortTarget(raw: string): EffortTarget {
 	if (!value || value === "status" || value === "show" || value === "current") return { kind: "status" };
 	if (value === "ultracode" || value === "ultra-code") return { kind: "ultracode" };
 
-	// Accept `/effort thinking=high`, `/effort level high`, etc. by using the
-	// final significant token after lightweight separators/prefix words.
+	// Acepta `/effort thinking=high`, `/effort level high`, etc. usando el
+	// token significativo final después de separadores/palabras prefijo livianos.
 	const tokens = value
 		.replace(/[=:,]/g, " ")
 		.split(/\s+/)

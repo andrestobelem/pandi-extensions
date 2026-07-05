@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-effort/index.ts.
+ * Test de integración de comportamiento duradero para extensions/pandi-effort/index.ts.
  *
- * Pins the public /effort contract:
- * - named levels call pi.setThinkingLevel and report the active clamped level
- * - aliases such as `none` and `thinking=max` map to Pi thinking levels
- * - no-arg TUI usage opens a selector
- * - `ultracode` sets xhigh, activates dynamic_workflow when present, and emits the
- *   inter-extension event consumed by dynamic-workflows.ts
- * - thinking_level_select keeps the status line in sync
- * - degradation branches (issue #2, mutation-verified non-vacuous): setThinkingLevel
- *   throw is contained (error notify, pre-call level reported), safeCurrentLevel maps
- *   throw/out-of-vocabulary to "unknown", a throwing getActiveTools degrades ultracode
- *   to "router not available", headless no-args never opens the selector (usage on
- *   stdout in print mode), a cancelled selector falls back to status, bare `max` /
- *   `ultra-code` aliases resolve end-to-end, and session_start/shutdown paint/clear
- *   the status line (never without a UI)
+ * Fija el contrato público de /effort:
+ * - los niveles nombrados llaman a pi.setThinkingLevel e informan el nivel activo limitado
+ * - alias como `none` y `thinking=max` se mapean a niveles de thinking de Pi
+ * - el uso en TUI sin argumentos abre un selector
+ * - `ultracode` configura xhigh, activa dynamic_workflow cuando está presente y emite el
+ *   evento entre extensiones que consume dynamic-workflows.ts
+ * - thinking_level_select mantiene sincronizada la línea de estado
+ * - ramas de degradación (issue #2, verificadas por mutación y no vacuas): si setThinkingLevel
+ *   lanza, queda contenido (error notify, se informa el nivel previo a la llamada),
+ *   safeCurrentLevel mapea throw/valores fuera del vocabulario a "unknown", un
+ *   getActiveTools que lanza degrada ultracode a "router not available", headless sin
+ *   argumentos nunca abre el selector (usage en stdout en modo print), un selector
+ *   cancelado vuelve a status, los alias sueltos `max` / `ultra-code` resuelven de punta
+ *   a punta, y session_start/shutdown pintan/limpian la línea de estado (nunca sin UI)
  */
 
 import * as fs from "node:fs/promises";
@@ -220,11 +220,11 @@ async function scenarioUltracode(url) {
 	);
 }
 
-// F50/F51: notify() must not route warnings/errors to stdout in print mode, and must not
-// silently drop them when headless (no UI, not print).
-// Finding 3: documented degradation path. When dynamic_workflow is not available in this
-// session, /effort ultracode must still raise thinking to xhigh, must NOT activate a tool
-// that doesn't exist, and must warn that the router is unavailable.
+// F50/F51: notify() no debe enviar warnings/errors a stdout en modo print, ni
+// descartarlos en silencio cuando está headless (sin UI, no print).
+// Finding 3: vía de degradación documentada. Cuando dynamic_workflow no está disponible en esta
+// sesión, /effort ultracode igual debe subir thinking a xhigh, NO debe activar una tool
+// que no existe y debe advertir que el router no está disponible.
 async function scenarioUltracodeToolUnavailable(url) {
 	const effortExtension = await loadDefault(url);
 	const harness = makePi({ allTools: ["read"], activeTools: ["read"] });
@@ -252,7 +252,7 @@ async function scenarioNotifyErrorRouting(url) {
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
 
-	// F50: in print mode, stdout carries machine-readable data; warnings/errors belong on stderr.
+	// F50: en modo print, stdout lleva datos legibles por máquina; warnings/errors van a stderr.
 	const printCtx = makeCtx({ mode: "print", hasUI: false });
 	const pLogs = [];
 	const pErrs = [];
@@ -272,7 +272,7 @@ async function scenarioNotifyErrorRouting(url) {
 		`logs=${JSON.stringify(pLogs)} errs=${JSON.stringify(pErrs)}`,
 	);
 
-	// F51: headless (no UI, not print) must surface warnings/errors on stderr, not drop them.
+	// F51: headless (sin UI, no print) debe mostrar warnings/errors en stderr, no descartarlos.
 	const headlessCtx = makeCtx({ mode: "tui", hasUI: false });
 	const hErrs = [];
 	const origErr2 = console.error;
@@ -289,8 +289,8 @@ async function scenarioNotifyErrorRouting(url) {
 	);
 }
 
-// setThinkingLevel throwing (provider/model rejects the change) must be contained:
-// error notify, level report falls back to the pre-call level, and no success notify.
+// Si setThinkingLevel lanza (provider/model rechaza el cambio), debe quedar contenido:
+// error notify, el reporte de nivel vuelve al nivel previo a la llamada y no hay success notify.
 async function scenarioSetLevelThrows(url) {
 	const effortExtension = await loadDefault(url);
 	const harness = makePi({ initialLevel: "medium" });
@@ -317,8 +317,8 @@ async function scenarioSetLevelThrows(url) {
 	);
 }
 
-// safeCurrentLevel degradation: a throwing or out-of-vocabulary getThinkingLevel must
-// surface as "unknown" in the status usage line, never crash the handler.
+// Degradación de safeCurrentLevel: un getThinkingLevel que lanza o devuelve algo fuera del
+// vocabulario debe mostrarse como "unknown" en la línea de uso/estado; nunca debe romper el handler.
 async function scenarioUnknownCurrentLevel(url) {
 	const effortExtension = await loadDefault(url);
 	const throwing = makePi();
@@ -345,9 +345,9 @@ async function scenarioUnknownCurrentLevel(url) {
 	);
 }
 
-// ensureToolActive containment: a throwing getActiveTools must degrade to "router not
-// available" (warning), never crash /effort ultracode; and an ALREADY-active router
-// must not be re-activated (no setActiveTools call) yet still report enabled.
+// Contención de ensureToolActive: un getActiveTools que lanza debe degradarse a "router not
+// available" (warning), nunca romper /effort ultracode; y un router ya activo
+// no debe reactivarse (sin llamada a setActiveTools) y aun así debe informarse como habilitado.
 async function scenarioUltracodeToolProbeDegradation(url) {
 	const effortExtension = await loadDefault(url);
 	const throwing = makePi({ allTools: ["dynamic_workflow"], activeTools: [] });
@@ -382,15 +382,15 @@ async function scenarioUltracodeToolProbeDegradation(url) {
 	);
 }
 
-// resolveCommandValue edges: headless no-args must NOT open a selector (usage instead);
-// a cancelled selector (undefined) must fall back to status, changing nothing.
+// Bordes de resolveCommandValue: headless sin argumentos NO debe abrir un selector (usage en su lugar);
+// un selector cancelado (undefined) debe volver a status sin cambiar nada.
 async function scenarioNoArgsEdges(url) {
 	const effortExtension = await loadDefault(url);
 	const headless = makePi({ initialLevel: "medium" });
 	effortExtension(headless.pi);
 	let selectCalls = 0;
-	// print mode + no UI: the usage/status line must land on stdout (headless info is
-	// otherwise dropped by design — see notify.ts), and the selector must never open.
+	// modo print + sin UI: la línea de uso/estado debe caer en stdout (la info headless,
+	// de otro modo, se descarta por diseño — ver notify.ts), y el selector nunca debe abrirse.
 	const ctx = makeCtx({ mode: "print", hasUI: false });
 	ctx.ui.select = async () => {
 		selectCalls += 1;
@@ -424,8 +424,8 @@ async function scenarioNoArgsEdges(url) {
 	);
 }
 
-// Alias handling end-to-end (not just autocomplete): bare `max` -> xhigh, and the
-// `ultra-code` alias -> the full ultracode path (event + router).
+// Manejo de alias de punta a punta (no solo autocomplete): `max` solo -> xhigh, y el
+// alias `ultra-code` -> la ruta completa de ultracode (event + router).
 async function scenarioAliasHandling(url) {
 	const effortExtension = await loadDefault(url);
 	const harness = makePi({ allTools: ["dynamic_workflow"], activeTools: [] });
@@ -449,8 +449,8 @@ async function scenarioAliasHandling(url) {
 	);
 }
 
-// Session lifecycle: session_start paints the status, session_shutdown clears it
-// (undefined), and neither touches the status line without a UI.
+// Ciclo de vida de la sesión: session_start pinta el estado, session_shutdown lo limpia
+// (undefined) y ninguno toca la línea de estado sin UI.
 async function scenarioSessionLifecycle(url) {
 	const effortExtension = await loadDefault(url);
 	const harness = makePi({ initialLevel: "high" });
