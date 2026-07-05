@@ -33,7 +33,7 @@ For behavior-changing work, prefer TDD as the first learning mechanism:
 3. **Green:** make the smallest implementation change that passes.
 4. **Refactor:** improve names, boundaries, cohesion, coupling, duplication, and clarity while tests stay green.
 5. **Verify:** run the relevant local checks and CI signal; capture the exact command/result when possible.
-6. **Commit:** land the change as an atomic commit using Conventional Commits with an explicit scope (e.g. `fix(pi-goal): …`). One coherent change per commit, with the pinning test in the SAME commit as the code it covers.
+6. **Commit:** land the change as an atomic commit using Conventional Commits with an explicit scope (e.g. `fix(pandi-goal): …`). One coherent change per commit, with the pinning test in the SAME commit as the code it covers.
 
 If TDD is not the right tool for the task, say why and name the replacement evidence: spike result, CI signal, runtime observation, user feedback, metric, or other executable check.
 

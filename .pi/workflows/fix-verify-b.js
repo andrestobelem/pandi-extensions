@@ -88,7 +88,7 @@ export default async function main() {
 		`For the bug below:\n` +
 		`1. Open the cited file(s) with your read tools; find the real code and quote the exact lines (with correct file:line).\n` +
 		`2. status=confirmed only if the current code truly exhibits the defect; refuted if the code is actually correct (say why); uncertain if you cannot tell without running it.\n` +
-		`3. Draft the MINIMAL surgical fix (specific lines + the change). No unrelated refactor. Respect the self-contained-extension rule: extensions may NOT import shared runtime from ../shared; per-extension duplication is intentional — mirror the sibling extension's own pattern (e.g. pi-loop for pi-goal) rather than extracting shared code.\n` +
+		`3. Draft the MINIMAL surgical fix (specific lines + the change). No unrelated refactor. Respect the self-contained-extension rule: extensions may NOT import shared runtime from ../shared; per-extension duplication is intentional — mirror the sibling extension's own pattern (e.g. pandi-loop for pandi-goal) rather than extracting shared code.\n` +
 		`4. Design the Red test FIRST: which existing test harness/file, what it asserts, and precisely why it fails on today's code. Prefer the extension's own tests/integration/*.test.mjs conventions.\n` +
 		`5. Blast radius: list callers / other code paths that could break, and any behavior change a user would notice.\n` +
 		`Return JSON { id, status, realLines, rootCause, fix, redTest, blastRadius, surgical, confidence, notes }.\n`;

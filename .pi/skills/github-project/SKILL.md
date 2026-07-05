@@ -78,7 +78,7 @@ Preflight once per session if anything fails with auth errors: `gh auth status`
 ### Create an issue and put it on the board
 
 ```bash
-gh issue create --title "P5: cover pi-effort parse errors" \
+gh issue create --title "P5: cover pandi-effort parse errors" \
   --body "Part of #1. <what + why + evidence expected>" \
   --label task,tests
 gh project item-add 4 --owner andrestobelem --url <issue-url-from-previous-output>

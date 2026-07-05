@@ -1,6 +1,6 @@
 // scaffold-docs-html — genera docs/html/scaffolds/<key>.html para cada scaffold del catálogo:
 // fan-out (1 agente por scaffold escribe Markdown con diagrama mermaid) → conversión determinística
-// con el conversor pandi de pi-docs → índice → verificación.
+// con el conversor pandi de pandi-docs → índice → verificación.
 // Input: { keys?: string[] (subset), concurrency?, model?, effort? }
 export const meta = {
 	name: "scaffold-docs-html",
