@@ -4,7 +4,30 @@
 // interpolates this file via ${...} (its content is never re-parsed, so no escaping traps).
 const D=JSON.parse(document.getElementById("data").textContent);
 const esc=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-const escapeMarkdownHtml=(s)=>String(s??"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const escapeMarkdownHtmlInlineCode=(line)=>{
+  var text=String(line??""),out="",i=0;
+  while(i<text.length){
+    if(text[i]==="`"){
+      var j=i;
+      while(j<text.length&&text[j]==="`")j++;
+      var run=text.slice(i,j),close=text.indexOf(run,j);
+      if(close>=0){out+=text.slice(i,close+run.length);i=close+run.length;continue;}
+    }
+    var ch=text[i++];
+    out+=ch==="<"?"&lt;":ch===">"?"&gt;":ch;
+  }
+  return out;
+};
+const escapeMarkdownHtml=(s)=>{
+  var lines=String(s??"").split("\n"),out=[],fence=null;
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i],m=/^\s*(`{3,}|~{3,})/.exec(line);
+    if(fence){out.push(line);if(m&&m[1][0]===fence.ch&&m[1].length>=fence.len)fence=null;continue;}
+    if(m){fence={ch:m[1][0],len:m[1].length};out.push(line);continue;}
+    out.push(escapeMarkdownHtmlInlineCode(line));
+  }
+  return out.join("\n");
+};
 const safeRenderedUrl=(value)=>{var v=String(value||"").trim();if(!v||/[\u0000-\u001F\u007F]/.test(v))return false;if(v[0]==="#")return true;if(/^(https?:|mailto:)/i.test(v))return true;if(v.startsWith("//")||/^[a-z][a-z0-9+.-]*:/i.test(v))return false;return true;};
 function sanitizeRenderedHtml(html){var t=document.createElement("template");t.innerHTML=String(html||"");var blocked=["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META","BASE","FORM","INPUT","BUTTON","SELECT","TEXTAREA","SVG","MATH"];t.content.querySelectorAll("*").forEach(function(el){if(blocked.indexOf(el.tagName)>=0){el.replaceWith(document.createTextNode(el.textContent||""));return;}Array.prototype.slice.call(el.attributes).forEach(function(attr){var name=attr.name.toLowerCase(),value=attr.value||"";if(name.indexOf("on")===0||name==="style"||name==="srcdoc"||name==="srcset"){el.removeAttribute(attr.name);return;}if((name==="href"||name==="src"||name==="xlink:href")&&!safeRenderedUrl(value)){el.removeAttribute(attr.name);return;}if(["href","src","alt","title","class","target","rel","colspan","rowspan"].indexOf(name)<0)el.removeAttribute(attr.name);});if(el.tagName==="A"&&el.getAttribute("href")){el.setAttribute("target","_blank");el.setAttribute("rel","noopener noreferrer");}});return t.innerHTML;}
 const PAL=["var(--success)","var(--purple)","var(--error)","var(--warning)","var(--info)","var(--accent)"];
