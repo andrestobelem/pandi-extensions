@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Behavioral integration test for pi-auto-compact.
+ * Behavioral integration test for pandi-auto-compact.
  *
  * Focus: the edge-triggered compaction must fire ONCE on a genuine threshold
  * crossing and must NOT re-fire every turn when a completed compaction failed to
@@ -20,7 +20,7 @@ const { check, counts } = createChecker();
 
 async function build() {
 	const { url } = await buildExtension({
-		name: "pi-auto-compact-integration",
+		name: "pandi-auto-compact-integration",
 		src: path.join(REPO_ROOT, "extensions", "pandi-auto-compact", "index.ts"),
 		outName: "ac.mjs",
 		npx: "--no-install",

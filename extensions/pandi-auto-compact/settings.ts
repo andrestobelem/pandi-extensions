@@ -1,4 +1,4 @@
-// Setting parsers for pi-auto-compact. Env vars and `/auto-compact`
+// Setting parsers for pandi-auto-compact. Env vars and `/auto-compact`
 // subcommand arguments share this on/off + threshold grammar. Pure, no extension state;
 // re-exported from index.ts so the built bundle keeps exporting the public parser names.
 
