@@ -1,17 +1,18 @@
 /**
- * pandi-worktree: manage git worktrees from inside a Pi session.
+ * pandi-worktree: gestiona git worktrees desde dentro de una sesión de Pi.
  *
- * Two surfaces (the project convention, see pandi-mdview / pandi-local-memory):
- *   - `/worktree`        human slash command (interactive, confirmations, completions)
- *   - `git_worktree`     model-callable tool (explicit actions, no surprise deletes)
+ * Dos superficies (la convención del proyecto; ver pandi-mdview / pandi-local-memory):
+ *   - `/worktree`        slash command humano (interactivo, confirmaciones, completions)
+ *   - `git_worktree`     herramienta invocable por el modelo (acciones explícitas, sin borrados sorpresa)
  *
- * Both share the pure helpers in ./worktree.ts. `git` is always spawned with an
- * ARGV array (never a shell string) so paths/branch names can't inject commands.
+ * Ambas comparten los helpers puros de ./worktree.ts. `git` siempre se ejecuta
+ * con un array ARGV (nunca una cadena de shell) para que paths/nombres de rama
+ * no puedan inyectar comandos.
  *
- * Note on cwd: Pi's working directory is fixed at startup and cannot change
- * mid-session, so this extension never tries to "switch" the session into another
- * worktree — it surfaces each worktree's absolute PATH so you can open a new Pi
- * there (`cd <path> && pi`).
+ * Nota sobre cwd: el directorio de trabajo de Pi queda fijo al inicio y no
+ * puede cambiar a mitad de la sesión, así que esta extensión nunca intenta
+ * "mover" la sesión a otro worktree: expone el PATH absoluto de cada worktree
+ * para que puedas abrir un Pi nuevo ahí (`cd <path> && pi`).
  */
 
 import { spawn } from "node:child_process";
@@ -52,22 +53,22 @@ import {
 } from "./worktree.js";
 
 // --------------------------------------------------------------------------
-// Command argument parsing
+// Parseo de argumentos del comando
 // --------------------------------------------------------------------------
-// ParsedCommand + tokenize + parseCommand live in ./command.ts; tokenize/parseCommand
-// are re-exported so the built bundle keeps the names the integration suite imports.
+// ParsedCommand + tokenize + parseCommand viven en ./command.ts; tokenize/parseCommand
+// se reexportan para que el bundle construido conserve los nombres que importa la suite de integración.
 export { parseCommand, tokenize } from "./command.js";
-// Re-exported so the integration suite can unit-test the copy-default resolution
-// + parsing directly against the same bundle.
+// Reexportado para que la suite de integración pueda probar unitariamente la resolución
+// + el parsing de copy-defaults directamente contra el mismo bundle.
 export {
 	parseCopyToggleValue,
 	resetSessionCopyDefaults,
 	resolveCopyPrefs,
 	setSessionCopyDefault,
 } from "./copy-prefs.js";
-// Re-exported for the integration suite to unit-test the pure helpers directly
-// against the same bundle. Internal use still goes through the import above
-// (an `export … from` re-export creates no local binding, so there is no clash).
+// Reexportado para que la suite de integración pueda probar unitariamente los helpers puros
+// directamente contra el mismo bundle. El uso interno sigue pasando por el import de arriba
+// (un reexport `export … from` no crea un binding local, así que no hay choque).
 export {
 	buildAddArgs,
 	buildListIgnoredArgs,
@@ -96,7 +97,7 @@ const HELP_TEXT = [
 ].join("\n");
 
 // --------------------------------------------------------------------------
-// Command handlers
+// Manejadores del comando
 // --------------------------------------------------------------------------
 
 async function handleList(ctx: ExtensionContext, signal?: AbortSignal): Promise<void> {
@@ -125,12 +126,13 @@ interface CopyFilesResult {
 }
 
 /**
- * After a NEW worktree is created, optionally copy gitignored and/or untracked
- * files from the main worktree (ctx.cwd) into it. Best-effort and abortable:
- * enumeration goes through runGit (argv, never shell); copying uses fs.cp with
- * verbatimSymlinks so symlinks (e.g. node_modules/.bin) survive. The worktrees
- * base dir and .git are always excluded (filterCopyableEntries) to prevent a
- * recursive copy of other worktrees. Never throws into the caller.
+ * Después de crear un worktree NUEVO, copia opcionalmente archivos gitignored
+ * y/o untracked desde el worktree principal (ctx.cwd) hacia él. Es de mejor
+ * esfuerzo y abortable: la enumeración pasa por runGit (argv, nunca shell); la copia usa
+ * fs.cp con verbatimSymlinks para que sobrevivan los symlinks (p. ej.
+ * node_modules/.bin). El dir base de worktrees y .git siempre se excluyen
+ * (filterCopyableEntries) para evitar una copia recursiva de otros worktrees.
+ * Nunca lanza hacia quien llama.
  */
 async function copyFilesToWorktree(
 	ctx: ExtensionContext,
@@ -167,7 +169,7 @@ async function copyFilesToWorktree(
 	return result;
 }
 
-/** A short " (copied N ignored + M untracked file(s))" suffix; "" when nothing was requested. */
+/** Sufijo corto " (se copiaron N ignorados + M sin seguimiento archivo(s))"; "" cuando no se pidió nada. */
 function copyNote(opts: CopyFilesOptions, r: CopyFilesResult): string {
 	if (!opts.copyIgnored && !opts.copyUntracked) return "";
 	const parts: string[] = [];
@@ -177,19 +179,19 @@ function copyNote(opts: CopyFilesOptions, r: CopyFilesResult): string {
 	return ` (se copiaron ${parts.join(" + ")} archivo(s)${failed})`;
 }
 
-/** One-line summary of the resolved copy defaults (session/env, no per-call params). */
+/** Resumen de una línea de los copy-defaults resueltos (sesión/env, sin params por llamada). */
 function describeCopyDefaults(): string {
 	const r = resolveCopyPrefs({});
 	return `copy-ignored ${r.copyIgnored ? "on" : "off"}, copy-untracked ${r.copyUntracked ? "on" : "off"}`;
 }
 
-/** `/worktree set [copy-ignored|copy-untracked] [on|off|status]` — manage the session copy default. */
+/** `/worktree set [copy-ignored|copy-untracked] [on|off|status]` — gestiona el valor por defecto de copia de la sesión. */
 function handleSet(ctx: ExtensionContext, parsed: ParsedCommand): void {
 	if (parsed.error) {
 		notify(ctx, parsed.error, "warning");
 		return;
 	}
-	// No target, or an explicit `status`: just report the current resolution.
+	// Sin target, o con `status` explícito: solo informar la resolución actual.
 	if (!parsed.setTarget || parsed.setValue === "status") {
 		notify(ctx, `Copias por defecto de worktrees: ${describeCopyDefaults()}.`, "info");
 		return;
@@ -242,24 +244,24 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 }
 
 // --------------------------------------------------------------------------
-// Open: create-if-missing a worktree and start a new Pi session in it
+// Abrir: crear-si-falta un worktree e iniciar una sesión nueva de Pi en él
 // --------------------------------------------------------------------------
 
-// Supacode's CLI acks `tab new` over the controlling TTY (OSC). A child spawned
-// without a TTY never gets that ack and the command times out — EVEN THOUGH the
-// tab is created. So we generate the tab id ourselves (`tab new -n`) and confirm
-// creation via `tab list` (a read that works over the socket), instead of
-// trusting `tab new`'s exit code or stdout.
+// La CLI de Supacode confirma `tab new` sobre el TTY controlador (OSC). Un proceso hijo
+// lanzado sin TTY nunca recibe ese ack y el comando agota el tiempo — AUNQUE la
+// pestaña se crea. Por eso generamos el id de pestaña nosotros (`tab new -n`) y
+// confirmamos la creación con `tab list` (una lectura que funciona sobre el socket),
+// en vez de confiar en el exit code o stdout de `tab new`.
 const SUPACODE_LIST_TIMEOUT_MS = 5_000;
 const SUPACODE_VERIFY_TIMEOUT_MS = 5_000;
 const SUPACODE_VERIFY_DELAY_MS = 350;
 
-/** True when running inside a Supacode terminal (which can open a new tab). */
+/** Verdadero cuando se ejecuta dentro de una terminal Supacode (que puede abrir una pestaña nueva). */
 function isSupacode(): boolean {
 	return process.env.TERM_PROGRAM === "supacode" || Boolean(process.env.SUPACODE_SOCKET_PATH);
 }
 
-/** POSIX single-quote a string so it is safe inside a shell command. */
+/** Envuelve una cadena en comillas simples POSIX para que sea segura dentro de un comando shell. */
 function shellQuote(value: string): string {
 	return `'${value.replace(/'/g, "'\\''")}'`;
 }
@@ -279,10 +281,11 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * Run a `supacode` subcommand with an argv array (never a shell string). Never
- * rejects: spawn failure, non-zero exit, timeout, and abort all resolve to a
- * typed result. `spawnFailed` flags a missing/broken binary (child 'error') so
- * callers can tell it apart from the expected ack timeout of `tab new`.
+ * Ejecuta un subcomando `supacode` con un array argv (nunca una cadena de
+ * shell). Nunca rechaza: fallo de spawn, salida no cero, timeout y abort
+ * resuelven todos a un resultado tipado. `spawnFailed` marca un binario ausente
+ * o roto (evento 'error' del proceso hijo) para que quien llama pueda distinguirlo del timeout de
+ * ack esperado de `tab new`.
  */
 function runSupacode(
 	args: string[],
@@ -302,7 +305,7 @@ function runSupacode(
 			try {
 				child.kill("SIGKILL");
 			} catch {
-				/* already gone */
+				/* ya no está */
 			}
 			resolve(result);
 		};
@@ -337,11 +340,12 @@ function runSupacode(
 }
 
 /**
- * Open a new Pi session in a Supacode tab whose shell starts in `cwd`. The tab id
- * is generated here and passed via `tab new -n`, then confirmed with `tab list`,
- * so the result is correct even though `tab new` times out waiting for a TTY ack
- * it can never receive (the tab is still created). The only shell-evaluated text
- * is the `-i` input, where the path is single-quoted.
+ * Abre una sesión nueva de Pi en una pestaña de Supacode cuyo shell arranca en
+ * `cwd`. El id de pestaña se genera acá y se pasa por `tab new -n`, luego se
+ * confirma con `tab list`, así que el resultado es correcto aunque `tab new`
+ * agote el tiempo esperando un TTY ack que nunca puede recibir (la pestaña igual
+ * se crea). El único texto evaluado por shell es la entrada `-i`, donde el path
+ * va entre comillas simples.
  */
 async function openSupacodeTab(
 	cwd: string,
@@ -349,9 +353,9 @@ async function openSupacodeTab(
 ): Promise<{ ok: boolean; tabId?: string; error?: string }> {
 	const tabId = randomUUID().toUpperCase();
 	const input = `cd ${shellQuote(cwd)} && exec pi`;
-	// Fire-and-forget: this call hangs ~10s on the missing ack, so we do not await
-	// it. We keep the handle to detect a spawn failure and to kill the straggler
-	// once the tab is confirmed.
+	// Sin esperar: esta llamada queda colgada ~10s por el ack faltante, así que no
+	// la esperamos. Conservamos el handle para detectar un fallo de spawn y matar al
+	// rezagado cuando la pestaña quede confirmada.
 	const create = spawn("supacode", ["tab", "new", "-n", tabId, "-i", input], { windowsHide: true });
 	let spawnError: string | undefined;
 	create.on("error", (err) => {
@@ -374,7 +378,7 @@ async function openSupacodeTab(
 		try {
 			create.kill("SIGKILL");
 		} catch {
-			/* already gone */
+			/* ya no está */
 		}
 	}
 }
@@ -400,10 +404,11 @@ interface OpenOutcome {
 }
 
 /**
- * Resolve a worktree target, create it when its directory does not exist yet,
- * then start a NEW Pi session in it (a new Supacode tab when available; otherwise
- * report the `cd <path> && pi` command). The current session's cwd never changes.
- * Shared by the /worktree open command and the git_worktree tool.
+ * Resuelve un target de worktree, lo crea cuando su directorio todavía no
+ * existe y luego inicia una sesión NUEVA de Pi en él (una pestaña nueva de
+ * Supacode cuando está disponible; si no, informa el comando `cd <path> && pi`).
+ * El cwd de la sesión actual nunca cambia. Lo comparten el comando /worktree
+ * open y la herramienta git_worktree.
  */
 async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: AbortSignal): Promise<OpenOutcome> {
 	const target = resolveWorktreeTarget(opts.path ?? "", ctx.cwd);
@@ -517,7 +522,7 @@ async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal
 	}
 	const resolved = target.path;
 
-	// Confirm in interactive mode — removal deletes the worktree directory.
+	// Confirmar en modo interactivo: la eliminación borra el directorio del worktree.
 	if (ctx.hasUI) {
 		const ok = await ctx.ui.confirm("¿Eliminar worktree?", `Esto eliminará el worktree en:\n${resolved}`);
 		if (!ok) {
@@ -533,8 +538,8 @@ async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 
-	// git refuses to remove a dirty/locked worktree without --force. Offer a
-	// second, explicit confirmation rather than silently forcing.
+	// git se niega a eliminar un worktree sucio/bloqueado sin --force. Ofrecé una
+	// segunda confirmación explícita en vez de forzarlo en silencio.
 	if (!result.ok && !force && ctx.hasUI && needsForce(result)) {
 		const forceOk = await ctx.ui.confirm(
 			"¿Forzar eliminación?",
@@ -558,7 +563,7 @@ async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal
 }
 
 async function handlePrune(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
-	// Always preview first.
+	// Siempre previsualizá primero.
 	const preview = await runGit(buildPruneArgs(true), {
 		cwd: ctx.cwd,
 		signal,
@@ -599,7 +604,7 @@ async function handlePrune(ctx: ExtensionContext, parsed: ParsedCommand, signal?
 	notify(ctx, "Se limpiaron los metadatos obsoletos de worktrees.", "info");
 }
 
-/** Resolve the action when `/worktree` is invoked without args in a TUI. */
+/** Resuelve la acción cuando `/worktree` se invoca sin args en una TUI. */
 async function resolveInteractiveAction(ctx: ExtensionContext): Promise<ParsedCommand | undefined> {
 	const choice = await ctx.ui.select("Acción de worktree", [
 		"list — listar worktrees",
@@ -615,7 +620,7 @@ async function resolveInteractiveAction(ctx: ExtensionContext): Promise<ParsedCo
 			notify(ctx, "No hay worktrees disponibles para eliminar.", "warning");
 			return undefined;
 		}
-		// The main worktree (first entry) cannot be removed; offer the rest.
+		// El worktree principal (primera entrada) no puede eliminarse; ofrecé el resto.
 		const removable = listed.entries.slice(1);
 		if (removable.length === 0) {
 			notify(ctx, "Solo existe el worktree principal; no hay nada para eliminar.", "warning");
@@ -663,7 +668,7 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 		return;
 	}
 
-	// No args + interactive UI → menu-driven flow.
+	// Sin args + UI interactiva → flujo guiado por menú.
 	if (args.trim() === "" && ctx.hasUI && typeof ctx.ui.select === "function") {
 		const interactive = await resolveInteractiveAction(ctx);
 		if (!interactive) return;
@@ -693,14 +698,14 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 }
 
 // --------------------------------------------------------------------------
-// Tool: git_worktree (model-callable)
+// Herramienta: git_worktree (invocable por el modelo)
 // --------------------------------------------------------------------------
 
 const SUBCOMMANDS = ["list", "add", "open", "remove", "prune", "set", "help"] as const;
 
 export default function worktreeExtension(pi: ExtensionAPI): void {
-	// Session-default copy toggles live in-memory; clear them at every session boundary
-	// (mirrors pandi-plan resetting its ultracode posture toggles on session_start).
+	// Los toggles de copia por defecto de la sesión viven en memoria; limpialos en cada límite de sesión
+	// (refleja a pandi-plan reiniciando sus toggles de postura ultracode en session_start).
 	pi.on("session_start", () => {
 		resetSessionCopyDefaults();
 	});
@@ -709,7 +714,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		description: "Gestionar worktrees de git: list | add | open | remove | prune",
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/);
-			// Only complete the first token (the subcommand).
+			// Completá solo el primer token (el subcomando).
 			if (tokens.length > 1) return null;
 			const needle = (tokens[0] ?? "").toLowerCase();
 			const items = SUBCOMMANDS.filter((sub) => sub.startsWith(needle));

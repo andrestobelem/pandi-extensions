@@ -1,13 +1,14 @@
 /**
- * pandi-worktree helpers: pure, UI-free logic for driving `git worktree`.
+ * Helpers de pandi-worktree: lógica pura, sin UI, para manejar `git worktree`.
  *
- * Everything here is deliberately free of pi's ExtensionContext / UI so it can be
- * unit-tested in isolation and reused by both the `/worktree` command and the
- * model-callable `git_worktree` tool. The only side effect lives in `runGit`,
- * which spawns `git` with an ARGV array (never a shell string) so user/model
- * input can never inject shell commands.
+ * Todo acá está deliberadamente libre de ExtensionContext / UI de pi para que
+ * pueda probarse unitariamente en aislamiento y reutilizarse tanto por el
+ * comando `/worktree` como por la herramienta invocable por el modelo `git_worktree`.
+ * El único efecto lateral vive en `runGit`, que hace spawn de `git` con un
+ * array ARGV (nunca una cadena de shell) para que la entrada de la persona
+ * usuaria/modelo nunca pueda inyectar comandos de shell.
  *
- * Depth-one sibling module imported by index.ts via "./worktree.js".
+ * Módulo hermano de profundidad uno importado por index.ts vía "./worktree.js".
  */
 
 import { spawn } from "node:child_process";
@@ -18,19 +19,19 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 export const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 const MAX_GIT_OUTPUT_BYTES = 1_000_000;
-/** Default subdirectory (under the Pi config dir) for worktrees created from a bare name. */
+/** Subdirectorio por defecto (bajo el dir de config de Pi) para worktrees creados desde un nombre simple. */
 export const WORKTREES_DIR = "worktrees";
 
 export interface GitResult {
-	/** true when git exited 0 and was neither aborted nor timed out. */
+	/** true cuando git salió con 0 y no fue abortado ni agotó el tiempo. */
 	ok: boolean;
 	exitCode: number | null;
 	stdout: string;
 	stderr: string;
-	/** set when the process was killed by signal/timeout/abort. */
+	/** se define cuando el proceso fue terminado por signal/timeout/abort. */
 	signal: NodeJS.Signals | null;
 	timedOut: boolean;
-	/** set when we never managed to spawn git at all (e.g. git not installed). */
+	/** se define cuando nunca logramos hacer spawn de git (p. ej., git no instalado). */
 	spawnError?: string;
 }
 
@@ -41,9 +42,10 @@ export interface RunGitOptions {
 }
 
 /**
- * Accumulate child output as UTF-8 text, byte-bounded to MAX_GIT_OUTPUT_BYTES so a
- * runaway git can't flood memory or the transcript. Mutable sink: append each chunk and
- * read `.text`. Factors out the two identical stdout/stderr accumulators in runGit.
+ * Acumula la salida del proceso hijo como texto UTF-8, acotada por bytes a
+ * MAX_GIT_OUTPUT_BYTES para que un git desbocado no inunde la memoria ni la
+ * transcripción. Acumulador mutable: agregá cada chunk y leé `.text`. Factoriza los dos
+ * acumuladores idénticos de stdout/stderr en runGit.
  */
 function createBoundedSink(): { append(chunk: Buffer): void; readonly text: string } {
 	let text = "";
@@ -62,10 +64,11 @@ function createBoundedSink(): { append(chunk: Buffer): void; readonly text: stri
 }
 
 /**
- * Run `git <args>` in `cwd` and resolve with a typed result. NEVER rejects: a
- * spawn failure, non-zero exit, timeout, or abort all come back as a GitResult so
- * callers can branch without try/catch. Output is byte-bounded to keep a runaway
- * git from blocking the event loop / flooding the transcript.
+ * Ejecuta `git <args>` en `cwd` y resuelve con un resultado tipado. NUNCA
+ * rechaza: un fallo de spawn, salida no cero, timeout o abort vuelven todos
+ * como GitResult para que quien llama pueda bifurcar sin try/catch. La salida
+ * se acota por bytes para que un git desbocado no bloquee el bucle de eventos ni
+ * inunde la transcripción.
  */
 export function runGit(args: string[], options: RunGitOptions): Promise<GitResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_GIT_TIMEOUT_MS } = options;
@@ -89,7 +92,7 @@ export function runGit(args: string[], options: RunGitOptions): Promise<GitResul
 			try {
 				child.kill("SIGTERM");
 			} catch {
-				/* already gone */
+				/* ya no está */
 			}
 			finish({
 				ok: false,
@@ -106,10 +109,10 @@ export function runGit(args: string[], options: RunGitOptions): Promise<GitResul
 			try {
 				child.kill("SIGTERM");
 			} catch {
-				/* already gone */
+				/* ya no está */
 			}
 		}, timeoutMs);
-		// Do not keep the process alive just for this timer.
+		// No mantengas vivo el proceso solo por este timer.
 		if (typeof timer.unref === "function") timer.unref();
 
 		if (signal) {
@@ -147,13 +150,13 @@ export function runGit(args: string[], options: RunGitOptions): Promise<GitResul
 	});
 }
 
-/** A single entry from `git worktree list --porcelain`. */
+/** Una entrada de `git worktree list --porcelain`. */
 export interface WorktreeEntry {
 	path: string;
 	head?: string;
-	/** full ref (e.g. refs/heads/main) when attached to a branch. */
+	/** ref completa (p. ej. refs/heads/main) cuando está asociado a una rama. */
 	branch?: string;
-	/** short branch name derived from `branch`. */
+	/** nombre corto de la rama derivado de `branch`. */
 	branchShort?: string;
 	bare: boolean;
 	detached: boolean;
@@ -164,9 +167,9 @@ export interface WorktreeEntry {
 }
 
 /**
- * Parse `git worktree list --porcelain`. Records are separated by blank lines;
- * each line is `key value` or a bare `key`. Unknown keys are ignored so newer
- * git versions never break the parser.
+ * Parsea `git worktree list --porcelain`. Los registros se separan por líneas
+ * en blanco; cada línea es `key value` o una `key` sola. Las keys desconocidas
+ * se ignoran para que versiones más nuevas de git nunca rompan el parser.
  */
 export function parseWorktreeList(porcelain: string): WorktreeEntry[] {
 	const entries: WorktreeEntry[] = [];
@@ -192,7 +195,7 @@ export function parseWorktreeList(porcelain: string): WorktreeEntry[] {
 			current = { path: value, bare: false, detached: false, locked: false, prunable: false };
 			continue;
 		}
-		if (!current) continue; // malformed: a key before any `worktree` line
+		if (!current) continue; // malformado: una key antes de cualquier línea `worktree`
 		switch (key) {
 			case "HEAD":
 				current.head = value;
@@ -224,24 +227,25 @@ export function parseWorktreeList(porcelain: string): WorktreeEntry[] {
 }
 
 /**
- * Validate a git branch name against a practical subset of `git check-ref-format`.
- * Returns true only for names git would accept for a new branch. This is a guard
- * before `git worktree add -b <name>` so we fail fast with a clear message rather
- * than surfacing a cryptic git error.
+ * Valida un nombre de rama de git contra un subconjunto práctico de
+ * `git check-ref-format`. Devuelve true solo para nombres que git aceptaría
+ * para una rama nueva. Esto es un guard antes de `git worktree add -b <name>`
+ * para fallar rápido con un mensaje claro en vez de mostrar un error críptico
+ * de git.
  */
 export function isValidBranchName(name: string): boolean {
 	if (!name || name.length > 255) return false;
-	if (/\s/.test(name)) return false; // no whitespace
-	if (/[\x00-\x1f\x7f~^:?*[\\]/.test(name)) return false; // control chars + forbidden set
+	if (/\s/.test(name)) return false; // sin espacios en blanco
+	if (/[\x00-\x1f\x7f~^:?*[\\]/.test(name)) return false; // caracteres de control + conjunto prohibido
 	if (name.startsWith("/") || name.endsWith("/")) return false;
-	if (name.startsWith("-")) return false; // would look like a flag
+	if (name.startsWith("-")) return false; // se vería como un flag
 	if (name.startsWith(".") || name.endsWith(".")) return false;
 	if (name.endsWith(".lock")) return false;
 	if (name.includes("..")) return false;
 	if (name.includes("//")) return false;
 	if (name.includes("@{")) return false;
 	if (name === "@") return false;
-	// no path component may start with a dot or end with .lock
+	// ningún componente del path puede empezar con punto ni terminar en .lock
 	for (const part of name.split("/")) {
 		if (part === "" || part.startsWith(".") || part.endsWith(".lock")) return false;
 	}
@@ -249,20 +253,20 @@ export function isValidBranchName(name: string): boolean {
 }
 
 export interface WorktreeTarget {
-	/** absolute path where the worktree will live. */
+	/** path absoluto donde vivirá el worktree. */
 	path: string;
-	/** true when a bare <name> was placed under <cwd>/<configDir>/worktrees/. */
+	/** true cuando un <name> simple se ubicó bajo <cwd>/<configDir>/worktrees/. */
 	usedDefaultBase: boolean;
 }
 
 /**
- * Resolve a user/model supplied worktree location.
+ * Resuelve una ubicación de worktree provista por la persona usuaria/modelo.
  *
- * A BARE NAME (no path separator, not ~/absolute) lands in the default base
- * `<cwd>/<configDir>/worktrees/<name>` (kept local + gitignored — see
- * ensureWorktreesBaseDir). Anything that looks like a path — `./x`, `../x`,
- * `/abs/x`, `~/x`, or `a/b` — is honored literally (escape hatch), resolved
- * against `cwd` when relative.
+ * Un NOMBRE SIMPLE (sin separador de path, no ~/absolute) cae en la base por
+ * defecto `<cwd>/<configDir>/worktrees/<name>` (se mantiene local + gitignored:
+ * ver ensureWorktreesBaseDir). Cualquier cosa que parezca un path — `./x`,
+ * `../x`, `/abs/x`, `~/x` o `a/b` — se respeta de forma literal (vía de escape)
+ * y se resuelve contra `cwd` cuando es relativo.
  */
 export function resolveWorktreeTarget(
 	rawPath: string,
@@ -280,11 +284,12 @@ export function resolveWorktreeTarget(
 }
 
 /**
- * Make sure `<cwd>/<configDir>/worktrees/` exists and is self-ignoring, so the
- * worktrees created there never show up in the main repo's `git status`. Writes
- * a `.gitignore` containing `*` (ignores everything, including itself) on first
- * use. Best-effort: filesystem errors are swallowed because the subsequent
- * `git worktree add` will surface any real problem with a clear message.
+ * Asegura que `<cwd>/<configDir>/worktrees/` exista y se auto-ignore, para que
+ * los worktrees creados ahí nunca aparezcan en el `git status` del repo
+ * principal. En el primer uso escribe un `.gitignore` con `*` (ignora todo,
+ * incluido a sí mismo). Si falla, los errores de filesystem se absorben
+ * porque el `git worktree add` posterior mostrará cualquier problema real con
+ * un mensaje claro.
  */
 export function ensureWorktreesBaseDir(cwd: string, configDirName: string = CONFIG_DIR_NAME): string {
 	const base = path.join(cwd, configDirName, WORKTREES_DIR);
@@ -293,7 +298,7 @@ export function ensureWorktreesBaseDir(cwd: string, configDirName: string = CONF
 		const gitignore = path.join(base, ".gitignore");
 		if (!existsSync(gitignore)) writeFileSync(gitignore, "*\n", "utf8");
 	} catch {
-		/* best-effort: git add will report any real failure */
+		/* si falla, git add informará cualquier fallo real */
 	}
 	return base;
 }
@@ -311,30 +316,31 @@ export function stripWrappingQuotes(value: string): string {
 
 export interface AddArgsOptions {
 	path: string;
-	/** create a new branch with this name (git worktree add -b <branch>). */
+	/** crea una rama nueva con este nombre (git worktree add -b <branch>). */
 	newBranch?: string;
-	/** start point / commit-ish to base the worktree on. */
+	/** punto de inicio / commit-ish sobre el que basar el worktree. */
 	commitish?: string;
-	/** checkout in detached HEAD mode. */
+	/** hace checkout en modo detached HEAD. */
 	detach?: boolean;
-	/** force creation even when the branch is already checked out elsewhere. */
+	/** fuerza la creación incluso cuando la rama ya está checkouteada en otro lugar. */
 	force?: boolean;
 }
 
-/** Build argv for `git worktree add ...`. Pure; does not touch the filesystem. */
+/** Construye argv para `git worktree add ...`. Puro; no toca el filesystem. */
 export function buildAddArgs(options: AddArgsOptions): string[] {
 	const args = ["worktree", "add"];
 	if (options.force) args.push("--force");
 	if (options.detach) args.push("--detach");
 	if (options.newBranch) args.push("-b", options.newBranch);
-	// `--` ends option parsing so a dash-leading commitish (the only model/user
-	// value reaching git unvalidated) can't be interpreted as a flag.
+	// `--` termina el parsing de opciones para que un commitish que empieza con
+	// guion (el único valor de modelo/usuario que llega a git sin validar) no se
+	// interprete como un flag.
 	args.push("--", options.path);
 	if (options.commitish) args.push(options.commitish);
 	return args;
 }
 
-/** Build argv for `git worktree remove ...`. */
+/** Construye argv para `git worktree remove ...`. */
 export function buildRemoveArgs(targetPath: string, force = false): string[] {
 	const args = ["worktree", "remove"];
 	if (force) args.push("--force");
@@ -342,33 +348,33 @@ export function buildRemoveArgs(targetPath: string, force = false): string[] {
 	return args;
 }
 
-/** Build argv for `git worktree prune ...`. */
+/** Construye argv para `git worktree prune ...`. */
 export function buildPruneArgs(dryRun = false): string[] {
 	const args = ["worktree", "prune"];
 	if (dryRun) args.push("--dry-run");
 	return args;
 }
 
-/** Build argv for `git worktree list --porcelain`. */
+/** Construye argv para `git worktree list --porcelain`. */
 export function buildListArgs(): string[] {
 	return ["worktree", "list", "--porcelain"];
 }
 
 /**
- * Build argv to enumerate GITIGNORED paths in the main worktree, with
- * fully-ignored directories collapsed to a single entry (e.g. `node_modules/`)
- * so we copy one dir instead of thousands of files.
+ * Construye argv para enumerar paths GITIGNORED en el worktree principal, con
+ * directorios totalmente ignorados colapsados a una sola entrada (p. ej.
+ * `node_modules/`) para copiar un directorio en vez de miles de archivos.
  */
 export function buildListIgnoredArgs(): string[] {
 	return ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"];
 }
 
-/** Build argv to enumerate UNTRACKED (non-ignored) paths, untracked dirs collapsed. */
+/** Construye argv para enumerar paths UNTRACKED (no ignorados), con dirs sin seguimiento colapsados. */
 export function buildListUntrackedArgs(): string[] {
 	return ["ls-files", "--others", "--exclude-standard", "--directory"];
 }
 
-/** Split `git ls-files` stdout into trimmed relative entries (NUL- or newline-separated). */
+/** Divide `git ls-files` stdout en entradas relativas recortadas (separadas por NUL o salto de línea). */
 export function parseLsFilesEntries(stdout: string): string[] {
 	return String(stdout)
 		.split(/\0|\n/)
@@ -377,13 +383,13 @@ export function parseLsFilesEntries(stdout: string): string[] {
 }
 
 /**
- * Drop entries that must NEVER be copied into a new worktree, returning
- * separator-normalized, de-duplicated, trailing-slash-free paths:
- * - the worktrees base dir `<configDir>/worktrees/` AND any ancestor of it
- *   (e.g. a collapsed `.pi/`) — otherwise copy-ignored would recursively copy
- *   every OTHER worktree into the new one;
- * - any `.git` dir/file (top-level or nested worktree pointer);
- * - `.`/`..`/empty.
+ * Descarta entradas que NUNCA deben copiarse a un worktree nuevo y devuelve
+ * paths con separadores normalizados, sin duplicados y sin slash final:
+ * - el dir base de worktrees `<configDir>/worktrees/` Y cualquier ancestro suyo
+ *   (p. ej. una `.pi/` colapsada); de lo contrario copy-ignored copiaría de
+ *   forma recursiva cada OTRO worktree dentro del nuevo;
+ * - cualquier dir/archivo `.git` (top-level o puntero de worktree anidado);
+ * - `.`/`..`/vacío.
  */
 export function filterCopyableEntries(entries: string[], options: { configDirName?: string } = {}): string[] {
 	const configDirName = options.configDirName ?? CONFIG_DIR_NAME;
@@ -395,7 +401,7 @@ export function filterCopyableEntries(entries: string[], options: { configDirNam
 		const e = norm(raw);
 		if (!e || e === "." || e === "..") continue;
 		if (e === ".git" || e.startsWith(".git/") || e.endsWith("/.git") || e.includes("/.git/")) continue;
-		// self, descendant, OR ancestor of the worktrees base (collapsed `.pi/`).
+		// él mismo, descendiente O ancestro de la base de worktrees (`.pi/` colapsado).
 		if (e === worktreesBase || e.startsWith(`${worktreesBase}/`) || worktreesBase.startsWith(`${e}/`)) continue;
 		if (seen.has(e)) continue;
 		seen.add(e);
@@ -404,7 +410,7 @@ export function filterCopyableEntries(entries: string[], options: { configDirNam
 	return out;
 }
 
-/** Short label describing a worktree entry's checkout state. */
+/** Etiqueta corta que describe el estado de checkout de una entrada de worktree. */
 function worktreeLabel(entry: WorktreeEntry): string {
 	return entry.bare
 		? "(bare)"
@@ -417,7 +423,7 @@ function worktreeLabel(entry: WorktreeEntry): string {
 					: "(unknown)";
 }
 
-/** One-line human summary of a worktree entry for lists/notifications. */
+/** Resumen humano de una línea de una entrada de worktree para listas/notificaciones. */
 export function describeWorktree(entry: WorktreeEntry): string {
 	const label = worktreeLabel(entry);
 	const flags: string[] = [];

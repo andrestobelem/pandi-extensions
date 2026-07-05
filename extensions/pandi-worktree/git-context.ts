@@ -1,8 +1,9 @@
 /**
- * pandi-worktree UI + git-context glue: user notification and the small helpers that
- * detect a usable git repo, classify git failures, and list worktrees. Kept next to
- * the pure ./worktree.ts helpers (which build argv + parse output); this module adds
- * the ExtensionContext-aware surface that index.ts wires into the command/tool.
+ * Puente entre UI + git-context de pandi-worktree: notificación a la persona usuaria
+ * y helpers chicos que detectan un repo git utilizable, clasifican fallos de git y
+ * listan worktrees. Se mantiene junto a los helpers puros de ./worktree.ts (que
+ * construyen argv + parsean salida); este módulo agrega la superficie consciente de
+ * ExtensionContext que index.ts conecta al comando/herramienta.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -17,7 +18,7 @@ import {
 
 export function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
-		// stdout carries machine-readable output in print mode; keep warnings/errors on stderr.
+		// stdout lleva salida legible por máquina en modo print; mantené warnings/errors en stderr.
 		(type === "info" ? console.log : console.error)(message);
 		return;
 	}
@@ -25,11 +26,11 @@ export function notify(ctx: ExtensionContext, message: string, type: "info" | "w
 		ctx.ui.notify(message, type);
 		return;
 	}
-	// Headless without UI: surface problems on stderr instead of silently dropping them.
+	// Sin UI: mostrà los problemas en stderr en vez de descartarlos en silencio.
 	if (type !== "info") console.error(message);
 }
 
-/** A short, single-line reason from a failed git invocation. */
+/** Un motivo corto, de una sola línea, para una invocación fallida de git. */
 export function gitError(result: GitResult): string {
 	if (result.spawnError) return `No se pudo iniciar git: ${result.spawnError}`;
 	if (result.timedOut) return "git agotó el tiempo de espera";
@@ -37,30 +38,32 @@ export function gitError(result: GitResult): string {
 	return reason || `git salió con el código ${result.exitCode}`;
 }
 
-/** Combined stdout+stderr (git worktree prune reports to stderr). */
+/** stdout+stderr combinados (git worktree prune informa por stderr). */
 export function combinedOutput(result: GitResult): string {
 	return `${result.stdout}\n${result.stderr}`.trim();
 }
 
 /**
- * Locale-independent check for git's "needs --force" refusal (dirty or locked
- * worktree). git always emits the literal `--force` flag regardless of language.
+ * Chequeo independiente del locale para el rechazo de git que "necesita --force"
+ * (worktree sucio o bloqueado). git siempre emite el flag literal `--force` sin
+ * importar el idioma.
  */
 export function needsForce(result: GitResult): boolean {
 	return `${result.stderr}\n${result.stdout}`.includes("--force");
 }
 
 /**
- * Detect a usable git context (work tree OR bare repo) and return the raw
- * GitResult so callers can tell "not a repo" apart from git-missing/timeout.
- * `rev-parse --git-dir` exits 0 inside a work tree AND inside a bare repo, where
- * worktree add/list/remove/prune still work.
+ * Detecta un contexto git utilizable (work tree O bare repo) y devuelve el
+ * GitResult crudo para que quien llama distinga "no es un repo" de
+ * git-ausente/timeout. `rev-parse --git-dir` sale con 0 dentro de un work tree
+ * Y dentro de un bare repo, donde worktree add/list/remove/prune sigue
+ * funcionando.
  */
 export async function ensureGitRepo(ctx: ExtensionContext, signal?: AbortSignal): Promise<GitResult> {
 	return runGit(["rev-parse", "--git-dir"], { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
 }
 
-/** Diagnostic for a failed repo check: distinguish git-missing/timeout from "no repo". */
+/** Diagnóstico para un chequeo fallido del repo: distingue git-ausente/timeout de "no repo". */
 export function repoError(result: GitResult, surface: string): string {
 	if (result.spawnError || result.timedOut) return gitError(result);
 	return `No estás dentro de un repositorio git — ${surface} necesita un repositorio git.`;

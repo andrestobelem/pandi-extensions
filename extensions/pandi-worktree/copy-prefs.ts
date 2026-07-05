@@ -1,44 +1,48 @@
 /**
- * Worktree copy-default resolution + parsing (the "pass-per-call OR set" surface).
+ * Resolución y parseo del valor por defecto de copia de worktrees (la superficie "pasar por llamada o set").
  *
- * Mirrors pandi-plan's flags.ts pattern, kept SELF-CONTAINED in this extension
- * (intentional per-extension duplication — NOT a cross-extension `../shared/`
- * import — so the extension keeps working when installed standalone).
+ * Refleja el patrón flags.ts de pandi-plan, mantenido AUTOCONTENIDO en esta
+ * extensión (duplicación intencional por extensión — NO un import cross-extension
+ * a `../shared/` — para que la extensión siga funcionando cuando se instala
+ * standalone).
  *
- * `--copy-ignored` / `--copy-untracked` (and the tool's copyIgnored/copyUntracked
- * params) already let a caller turn copying ON per call. This adds the missing
- * "setear" surface: a session default (`/worktree set copy-ignored on|off`) and
- * an environment default, plus the ability to turn copying OFF per call
- * (`--no-copy-ignored`) to override an ON default.
+ * `--copy-ignored` / `--copy-untracked` (y los params copyIgnored/copyUntracked
+ * de la herramienta) ya permiten que quien llama active la copia por llamada. Esto suma
+ * la superficie que faltaba para `set`: un valor por defecto de sesión
+ * (`/worktree set copy-ignored on|off`) y uno de entorno, más la capacidad de
+ * desactivar la copia por llamada (`--no-copy-ignored`) para sobrescribir un
+ * valor por defecto en ON.
  *
- * Precedence (highest first): explicit per-call param (true/false) -> session
- * default -> environment (PI_WORKTREE_COPY_*) -> false.
+ * Precedencia (de mayor a menor): param explícito por llamada (true/false) ->
+ * valor por defecto de sesión -> entorno (PI_WORKTREE_COPY_*) -> false.
  *
- * `sessionCopyDefaults` is module-mutable state. Its ES-singleton identity lives
- * HERE (one object, mutated only through the functions below). index.ts must NOT
- * re-declare it — it writes/reads through set/reset/resolveCopyPrefs below.
- * Depth-one sibling module imported by index.ts/command.ts via "./copy-prefs.js".
+ * `sessionCopyDefaults` es estado mutable a nivel de módulo. Su identidad
+ * singleton de ES vive ACÁ (un objeto, mutado solo a través de las funciones de
+ * abajo). index.ts NO debe re-declararlo: escribe/lee vía
+ * set/reset/resolveCopyPrefs. Módulo hermano de profundidad uno importado por
+ * index.ts/command.ts vía "./copy-prefs.js".
  */
 
-/** A setting is ON when the env var is one of the truthy tokens (1/true/on/yes). */
+/** Un ajuste está en ON cuando la env var es uno de los tokens truthy (1/true/on/yes). */
 export function envFlag(name: string): boolean {
 	const value = (process.env[name] ?? "").trim().toLowerCase();
 	return value === "1" || value === "true" || value === "on" || value === "yes";
 }
 
-/** Tri-state copy preferences: undefined = "not specified, fall through". */
+/** Preferencias de copia tri-state: undefined = "sin especificar, seguir al siguiente valor". */
 export interface CopyPrefs {
 	copyIgnored?: boolean;
 	copyUntracked?: boolean;
 }
 
-/** Keys of the session-default copy toggles. */
+/** Claves de los toggles de copia por defecto de la sesión. */
 export type CopyPrefKey = "copyIgnored" | "copyUntracked";
 
 /**
- * Session-level defaults set by `/worktree set copy-ignored|copy-untracked on|off`.
- * They sit BETWEEN an explicit per-call param and the env setting and are reset at
- * every session boundary (see index.ts session_start hook).
+ * Valores por defecto a nivel de sesión definidos por
+ * `/worktree set copy-ignored|copy-untracked on|off`. Quedan ENTRE un param
+ * explícito por llamada y el valor de env, y se reinician en cada límite de
+ * sesión (ver el hook session_start de index.ts).
  */
 const sessionCopyDefaults: CopyPrefs = {};
 
@@ -47,15 +51,16 @@ export function resetSessionCopyDefaults(): void {
 	sessionCopyDefaults.copyUntracked = undefined;
 }
 
-/** Set a session-default toggle (true/false). */
+/** Define un toggle por defecto de la sesión (true/false). */
 export function setSessionCopyDefault(key: CopyPrefKey, value: boolean): void {
 	sessionCopyDefaults[key] = value;
 }
 
 /**
- * Resolve copy preferences with precedence: explicit per-call param (true/false)
- * -> session default -> environment (PI_WORKTREE_COPY_*) -> false. Returns
- * concrete booleans so callers and the copy note never see undefined.
+ * Resuelve las preferencias de copia con precedence: param explícito por
+ * llamada (true/false) -> valor por defecto de sesión -> entorno
+ * (PI_WORKTREE_COPY_*) -> false. Devuelve booleanos concretos para que quien
+ * llama y la nota de copia nunca vean undefined.
  */
 export function resolveCopyPrefs(params: CopyPrefs): { copyIgnored: boolean; copyUntracked: boolean } {
 	return {
@@ -64,7 +69,7 @@ export function resolveCopyPrefs(params: CopyPrefs): { copyIgnored: boolean; cop
 	};
 }
 
-/** Parse an on|off|status toggle argument (with common aliases). */
+/** Parsea un argumento de toggle on|off|status (con aliases comunes). */
 export function parseCopyToggleValue(raw: string): "on" | "off" | "status" | "invalid" {
 	const value = raw.trim().toLowerCase();
 	if (!value || value === "status") return "status";

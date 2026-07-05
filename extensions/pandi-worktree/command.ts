@@ -1,6 +1,6 @@
-// pandi-worktree `/worktree ...` command-line parsing: tokenize the argument string and
-// parse it into a structured ParsedCommand intent. Pure (no ctx/git); re-exported from
-// index.ts so the built bundle keeps the names the integration suite imports.
+// Parseo de la línea de comandos de pandi-worktree `/worktree ...`: tokeniza la cadena de argumentos y
+// la parsea en una intención ParsedCommand estructurada. Puro (sin ctx/git); se reexporta desde
+// index.ts para que el bundle construido conserve los nombres que importa la suite de integración.
 
 import { parseCopyToggleValue } from "./copy-prefs.js";
 import { isValidBranchName } from "./worktree.js";
@@ -13,32 +13,33 @@ export interface ParsedCommand {
 	force?: boolean;
 	detach?: boolean;
 	dryRun?: boolean;
-	/** Tri-state: true (--copy-ignored), false (--no-copy-ignored), undefined (fall through). */
+	/** Tres estados: true (--copy-ignored), false (--no-copy-ignored), undefined (seguir al siguiente valor). */
 	copyIgnored?: boolean;
 	copyUntracked?: boolean;
-	/** For `set`: which copy default to read/write (undefined = show both). */
+	/** Para `set`: qué valor por defecto de copia leer/escribir (undefined = mostrar ambos). */
 	setTarget?: "copy-ignored" | "copy-untracked";
-	/** For `set`: the parsed on|off|status|invalid toggle value. */
+	/** Para `set`: el valor parseado del toggle on|off|status|invalid. */
 	setValue?: "on" | "off" | "status" | "invalid";
 	error?: string;
 }
 
 /**
- * Tokenize a `/worktree ...` argument string, honoring simple single/double
- * quotes so paths with spaces work. Not a full shell parser — quotes only.
+ * Tokeniza una cadena de argumentos `/worktree ...`, respetando comillas
+ * simples/dobles básicas para que funcionen paths con espacios. No es un parser
+ * completo de shell: solo comillas.
  */
 export function tokenize(input: string): string[] {
 	const tokens: string[] = [];
 	const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
 	let match: RegExpExecArray | null;
-	// biome-ignore lint/suspicious/noAssignInExpressions: idiomatic regex.exec() loop
+	// biome-ignore lint/suspicious/noAssignInExpressions: loop idiomático con regex.exec()
 	while ((match = re.exec(input)) !== null) {
 		tokens.push(match[1] ?? match[2] ?? match[3] ?? "");
 	}
 	return tokens;
 }
 
-/** Parse the `/worktree` command line into a structured intent. */
+/** Parsea la línea de comandos `/worktree` en una intención estructurada. */
 export function parseCommand(input: string): ParsedCommand {
 	const tokens = tokenize(input.trim());
 	if (tokens.length === 0) return { action: "list" };
@@ -54,7 +55,7 @@ export function parseCommand(input: string): ParsedCommand {
 
 	if (head === "set") {
 		const rest = tokens.slice(1);
-		if (rest.length === 0) return { action: "set" }; // show both
+		if (rest.length === 0) return { action: "set" }; // mostrar ambos
 		const target = rest[0].toLowerCase();
 		if (target !== "copy-ignored" && target !== "copy-untracked") {
 			return { action: "set", error: "Uso: /worktree set [copy-ignored|copy-untracked] [on|off|status]" };
@@ -68,7 +69,7 @@ export function parseCommand(input: string): ParsedCommand {
 		let newBranch: string | undefined;
 		let force = false;
 		let detach = false;
-		// Tri-state: undefined unless an explicit flag turns copy on/off this call.
+		// Tres estados: undefined salvo que un flag explícito active/desactive la copia en esta llamada.
 		let copyIgnored: boolean | undefined;
 		let copyUntracked: boolean | undefined;
 		for (let i = 0; i < rest.length; i++) {

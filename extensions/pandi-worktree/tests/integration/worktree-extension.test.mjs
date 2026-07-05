@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-worktree/index.ts.
+ * Test de integración de comportamiento duradero para extensions/pandi-worktree/index.ts.
  *
- * Pins the public contract of the worktree extension against REAL git repos
- * created in mkdtemp dirs (honest evidence — git is actually invoked):
- * - the /worktree command and git_worktree tool are registered
- * - list parses the porcelain output (including the main worktree)
- * - add -b creates the worktree directory + the new branch
- * - remove refuses a dirty worktree without force, succeeds with force
- * - prune --dry-run reports without deleting; real prune cleans stale metadata
- * - outside a git repo: a bounded error, no worktree mutation
- * - pure helpers (parseWorktreeList / isValidBranchName / describeWorktree) and
- *   the command parser (tokenize / parseCommand / buildAddArgs) + subcommand
- *   completions are unit-tested directly against the bundle's exports
- * - a bare repo is accepted as a usable git context
+ * Fija el contrato público de la extensión worktree contra repos git REALES
+ * creados en dirs de mkdtemp (evidencia honesta: git se invoca de verdad):
+ * - el comando /worktree y la herramienta git_worktree quedan registrados
+ * - list parsea la salida porcelain (incluido el worktree principal)
+ * - add -b crea el directorio del worktree + la rama nueva
+ * - remove se niega ante un worktree sucio sin force y funciona con force
+ * - prune --dry-run informa sin borrar; prune real limpia metadatos obsoletos
+ * - fuera de un repo git: error acotado, sin mutación del worktree
+ * - los helpers puros (parseWorktreeList / isValidBranchName / describeWorktree) y
+ *   el parser del comando (tokenize / parseCommand / buildAddArgs) + completions
+ *   de subcomandos se prueban unitariamente directo contra los exports del bundle
+ * - un repo bare se acepta como contexto git utilizable
  */
 
 import { spawnSync } from "node:child_process";
@@ -47,10 +47,10 @@ async function makeRepo() {
 }
 
 async function buildBundle() {
-	// Stub the SDK so esbuild does not pull the real @earendil-works/pi-coding-agent
-	// runtime (it transitively requires cross-spawn, which uses a dynamic require that
-	// breaks an ESM bundle). worktree.ts only needs CONFIG_DIR_NAME as a value; index.ts
-	// uses the package for types only (erased). Same approach as pandi-bg.
+	// Stubeá el SDK para que esbuild no arrastre el runtime verdadero de @earendil-works/pi-coding-agent
+	// (transitivamente requiere cross-spawn, que usa un require dinámico que rompe
+	// un bundle ESM). worktree.ts solo necesita CONFIG_DIR_NAME como valor; index.ts
+	// usa el paquete solo para tipos (se borran). Mismo enfoque que pandi-bg.
 	return await buildExtension({
 		name: "pi-worktree-build",
 		src: path.join(REPO_ROOT, "extensions", "pandi-worktree", "index.ts"),
@@ -111,13 +111,13 @@ async function loadExtension(url) {
 	return { commands, tools };
 }
 
-// --- unit blocks: pure helpers + parser, tested against the bundle's exports ---
+// --- bloques unitarios: helpers puros + parser, probados contra los exports del bundle ---
 
 async function scenarioParseHelpers(url) {
 	const mod = await loadModule(url);
 
-	// parseWorktreeList: synthetic multi-record porcelain covering every flag,
-	// a locked reason, a prunable reason, CRLF line endings, and a HEAD-less record.
+	// parseWorktreeList: porcelain sintético de varios registros que cubre cada flag,
+	// un locked reason, un prunable reason, finales de línea CRLF y un registro sin HEAD.
 	const porcelain = [
 		"worktree /repo/main",
 		"HEAD 1111111111111111111111111111111111111111",
@@ -173,7 +173,7 @@ async function scenarioParseHelpers(url) {
 		JSON.stringify(nohead),
 	);
 
-	// describeWorktree: representative outputs.
+	// describeWorktree: salidas representativas.
 	check("describeWorktree: bare label", mod.describeWorktree(bare).includes("(bare)"), mod.describeWorktree(bare));
 	check(
 		"describeWorktree: detached label",
@@ -191,7 +191,7 @@ async function scenarioParseHelpers(url) {
 		mod.describeWorktree(prunable),
 	);
 
-	// isValidBranchName table.
+	// tabla de isValidBranchName.
 	for (const [name, expected] of [
 		["feature/x", true],
 		["-x", false],
@@ -299,9 +299,9 @@ async function scenarioCompletions(url) {
 }
 
 async function scenarioOpenFallback(url) {
-	// Force the non-Supacode path so the test never spawns a real terminal tab,
-	// even when the suite itself runs inside Supacode. isSupacode() reads these at
-	// call time, so clearing them here is enough; restore them in finally.
+	// Forzá la ruta no-Supacode para que el test nunca haga spawn de una pestaña real,
+	// incluso cuando la suite misma corra dentro de Supacode. isSupacode() lee esto al
+	// momento de la llamada, así que limpiarlo acá alcanza; restauralo en finally.
 	const saved = { term: process.env.TERM_PROGRAM, sock: process.env.SUPACODE_SOCKET_PATH };
 	delete process.env.TERM_PROGRAM;
 	delete process.env.SUPACODE_SOCKET_PATH;
@@ -309,7 +309,7 @@ async function scenarioOpenFallback(url) {
 		const cwd = await makeRepo();
 		const { commands, tools } = await loadExtension(url);
 
-		// Command: create-if-missing under the default base, then report how to open it.
+		// Comando: crear-si-falta bajo la base por defecto y luego informar cómo abrirlo.
 		const ctx = makeCtx({ cwd });
 		await commands.get("worktree").handler("open -b open-feat open-wt", ctx);
 		const wtPath = path.join(cwd, ".pi", "worktrees", "open-wt");
@@ -318,7 +318,7 @@ async function scenarioOpenFallback(url) {
 		check("open cmd: reports cd+pi (fallback)", /cd .* && pi/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 		check("open cmd: not an error note", lastNote(ctx).type !== "error", String(lastNote(ctx).type));
 
-		// Tool: opening an EXISTING worktree does not recreate it.
+		// Herramienta: abrir un worktree EXISTENTE no lo recrea.
 		const res = await tools
 			.get("git_worktree")
 			.execute("id", { action: "open", path: "open-wt" }, undefined, undefined, makeCtx({ cwd }));
@@ -327,7 +327,7 @@ async function scenarioOpenFallback(url) {
 		check("open tool: opened=false in fallback", res.details?.opened === false, JSON.stringify(res.details));
 		check("open tool: text mentions cd+pi", /cd .* && pi/.test(res.content?.[0]?.text || ""), res.content?.[0]?.text);
 
-		// Tool: invalid branch name is a bounded error, no directory created.
+		// Herramienta: un nombre de rama inválido da un error acotado; no se crea ningún directorio.
 		const bad = await tools
 			.get("git_worktree")
 			.execute(
@@ -362,7 +362,7 @@ async function scenarioAddDetachAndPlain(url) {
 	const { tools } = await loadExtension(url);
 	const tool = tools.get("git_worktree");
 
-	// Detached add (commitish HEAD, no branch).
+	// Agregar detached (commitish HEAD, sin rama).
 	const detPath = path.join(cwd, "wt-detached");
 	const det = await tool.execute(
 		"id",
@@ -377,7 +377,7 @@ async function scenarioAddDetachAndPlain(url) {
 	check("add detach: entry is detached", detEntry?.detached === true, JSON.stringify(detEntry));
 	await fs.rm(detPath, { recursive: true, force: true });
 
-	// Plain add (no -b, attaches HEAD on a new branch named after the path).
+	// Agregar simple (sin -b, asocia HEAD a una rama nueva nombrada según el path).
 	const plainPath = path.join(cwd, "wt-plain");
 	const plain = await tool.execute("id", { action: "add", path: plainPath }, undefined, undefined, makeCtx({ cwd }));
 	check("add plain: not an error", !plain.details?.isError, JSON.stringify(plain.details));
@@ -392,10 +392,10 @@ async function scenarioRemoveCommandForce(url) {
 	await tools
 		.get("git_worktree")
 		.execute("id", { action: "add", path: wtPath, branch: "force-b" }, undefined, undefined, makeCtx({ cwd }));
-	// Make it dirty so git refuses without --force.
+	// Ensucialo para que git se niegue sin --force.
 	await fs.writeFile(path.join(wtPath, "file.txt"), "changed\n", "utf8");
 
-	const ctx = makeCtx({ cwd, confirm: true }); // confirm returns true for both prompts
+	const ctx = makeCtx({ cwd, confirm: true }); // confirm devuelve true para ambos prompts
 	await commands.get("worktree").handler(`remove ${wtPath}`, ctx);
 	check("remove cmd force: prompted twice", ctx._confirms.length === 2, String(ctx._confirms.length));
 	check(
@@ -491,7 +491,7 @@ async function scenarioRemoveDirtyNeedsForce(url) {
 	await tools
 		.get("git_worktree")
 		.execute("id", { action: "add", path: wtPath, branch: "dirty-b" }, undefined, undefined, ctx);
-	// Make the worktree dirty.
+	// Ensuciá el worktree.
 	await fs.writeFile(path.join(wtPath, "file.txt"), "changed\n", "utf8");
 
 	const refused = await tools
@@ -520,7 +520,7 @@ async function scenarioRemoveCommandConfirm(url) {
 		.get("git_worktree")
 		.execute("id", { action: "add", path: wtPath, branch: "clean-b" }, undefined, undefined, makeCtx({ cwd }));
 
-	// Decline confirmation → worktree stays.
+	// Rechazar la confirmación → el worktree queda.
 	const declineCtx = makeCtx({ cwd, confirm: false });
 	await commands.get("worktree").handler(`remove ${wtPath}`, declineCtx);
 	check(
@@ -530,7 +530,7 @@ async function scenarioRemoveCommandConfirm(url) {
 	);
 	check("remove cmd decline: worktree preserved", existsSync(wtPath));
 
-	// Accept confirmation → worktree removed (clean, no force needed).
+	// Aceptar la confirmación → worktree eliminado (limpio, sin force).
 	const acceptCtx = makeCtx({ cwd, confirm: true });
 	await commands.get("worktree").handler(`remove ${wtPath}`, acceptCtx);
 	check("remove cmd accept: worktree removed", !existsSync(wtPath));
@@ -543,14 +543,14 @@ async function scenarioPruneDryRun(url) {
 	await tools
 		.get("git_worktree")
 		.execute("id", { action: "add", path: wtPath, branch: "prune-b" }, undefined, undefined, makeCtx({ cwd }));
-	// Delete the worktree dir behind git's back → its metadata becomes prunable.
+	// Borrá el dir del worktree a espaldas de git → sus metadatos pasan a ser prunable.
 	await fs.rm(wtPath, { recursive: true, force: true });
 
 	const dry = await tools
 		.get("git_worktree")
 		.execute("id", { action: "prune", dryRun: true }, undefined, undefined, makeCtx({ cwd }));
 	check("prune dry-run: not an error", !dry.details?.isError, JSON.stringify(dry.details));
-	// Stale metadata still present after dry-run.
+	// Los metadatos obsoletos siguen presentes después de dry-run.
 	const listAfterDry = await tools
 		.get("git_worktree")
 		.execute("id", { action: "list" }, undefined, undefined, makeCtx({ cwd }));
@@ -560,7 +560,7 @@ async function scenarioPruneDryRun(url) {
 		JSON.stringify(listAfterDry.details?.worktrees),
 	);
 
-	// Real prune via the command (no UI → no confirm needed).
+	// Prune real vía el comando (sin UI → no hace falta confirmar).
 	const pruneCtx = makeCtx({ cwd, mode: "print" });
 	await commands.get("worktree").handler("prune", pruneCtx);
 	const listAfter = await tools
@@ -592,8 +592,8 @@ async function scenarioDefaultBase(url) {
 	check("default base: writes .pi/worktrees/.gitignore", existsSync(giPath));
 	const gi = existsSync(giPath) ? await fs.readFile(giPath, "utf8") : "";
 	check("default base: .gitignore ignores everything", gi.trim() === "*", JSON.stringify(gi));
-	// The whole base must be invisible to the MAIN repo (relies solely on the
-	// self-contained .gitignore — the temp repo has no root ignore entry).
+	// Toda la base debe ser invisible para el repo PRINCIPAL (depende solo del
+	// .gitignore autocontenido: el repo temporal no tiene ninguna entrada ignore en raíz).
 	const status = git(cwd, ["status", "--porcelain"]);
 	check("default base: worktree is gitignored (clean status)", !status.includes(".pi/worktrees"), status);
 }
@@ -644,7 +644,7 @@ async function scenarioInteractiveAdd(url) {
 	await fs.rm(wtPath, { recursive: true, force: true });
 }
 
-// --- copy ignored/untracked files into new worktrees (feature) ---
+// --- copiar archivos ignored/untracked a worktrees nuevos (funcionalidad) ---
 
 async function scenarioCopyFilters(url) {
 	const mod = await loadModule(url);
@@ -686,7 +686,7 @@ async function scenarioCopyFilesIntoWorktree(url) {
 	await fs.writeFile(path.join(cwd, "file.txt"), "hello\n", "utf8");
 	git(cwd, ["add", "."]);
 	git(cwd, ["commit", "-q", "-m", "init"]);
-	// a gitignored dependency file + an untracked scratch file
+	// un archivo de dependencia gitignored + un archivo scratch untracked
 	await fs.mkdir(path.join(cwd, "node_modules"), { recursive: true });
 	await fs.writeFile(path.join(cwd, "node_modules", "dep.js"), "module.exports = 1;\n", "utf8");
 	await fs.writeFile(path.join(cwd, "scratch.txt"), "scratch\n", "utf8");
@@ -694,7 +694,7 @@ async function scenarioCopyFilesIntoWorktree(url) {
 	const { tools } = await loadExtension(url);
 	const tool = tools.get("git_worktree");
 
-	// copyIgnored: gitignored files copied; untracked NOT; worktrees base never recursed.
+	// copyIgnored: se copian archivos ignorados por git; los sin seguimiento NO; nunca se recorre la base de worktrees.
 	const ig = await tool.execute(
 		"id",
 		{ action: "add", path: "wt-ignored", branch: "b-ig", copyIgnored: true },
@@ -713,7 +713,7 @@ async function scenarioCopyFilesIntoWorktree(url) {
 		ig.content?.[0]?.text,
 	);
 
-	// copyUntracked: untracked files copied; ignored NOT.
+	// copyUntracked: se copian archivos sin seguimiento; los ignorados NO.
 	const un = await tool.execute(
 		"id",
 		{ action: "add", path: "wt-untracked", branch: "b-un", copyUntracked: true },
@@ -726,7 +726,7 @@ async function scenarioCopyFilesIntoWorktree(url) {
 	check("copyUntracked: scratch.txt copied", existsSync(path.join(unWt, "scratch.txt")));
 	check("copyUntracked: ignored node_modules NOT copied", !existsSync(path.join(unWt, "node_modules")));
 
-	// default (no flags): neither copied — current behavior is preserved.
+	// default (sin flags): no se copia ninguno; se preserva el comportamiento actual.
 	const none = await tool.execute(
 		"id",
 		{ action: "add", path: "wt-none", branch: "b-none" },
@@ -739,7 +739,7 @@ async function scenarioCopyFilesIntoWorktree(url) {
 	check("default: node_modules NOT copied", !existsSync(path.join(noneWt, "node_modules")));
 	check("default: scratch.txt NOT copied", !existsSync(path.join(noneWt, "scratch.txt")));
 
-	// command flags parse into the structured intent.
+	// los flags del comando se parsean a la intención estructurada.
 	const mod = await loadModule(url);
 	const parsed = mod.parseCommand("add --copy-ignored --copy-untracked wt-cmd");
 	check(
@@ -750,12 +750,12 @@ async function scenarioCopyFilesIntoWorktree(url) {
 	await fs.rm(cwd, { recursive: true, force: true });
 }
 
-// --- copy-default "set" surface (pass-per-call OR session/env default) ---
+// --- superficie de valor por defecto de copia "set" (pasar por llamada O valor por defecto de sesión/env) ---
 
 async function scenarioCopyPrefsResolution(url) {
 	const mod = await loadModule(url);
 
-	// precedence: explicit param -> session default -> env -> false.
+	// precedence: param explícito -> valor por defecto de sesión -> env -> false.
 	mod.resetSessionCopyDefaults();
 	const base = mod.resolveCopyPrefs({});
 	check(
@@ -790,7 +790,7 @@ async function scenarioCopyPrefsResolution(url) {
 	check("parseCopyToggleValue: empty -> status", mod.parseCopyToggleValue("") === "status");
 	check("parseCopyToggleValue: bogus -> invalid", mod.parseCopyToggleValue("x") === "invalid");
 
-	// parser: negation flags make copy tri-state; set subcommand.
+	// parser: los flags de negación vuelven tri-state la copia; subcomando set.
 	const noIg = mod.parseCommand("add --no-copy-ignored wt");
 	check("parseCommand: --no-copy-ignored => false", noIg.copyIgnored === false, JSON.stringify(noIg));
 	const plain = mod.parseCommand("add wt");
@@ -823,12 +823,12 @@ async function scenarioCopyPrefsSetCommand(url) {
 	await fs.mkdir(path.join(cwd, "node_modules"), { recursive: true });
 	await fs.writeFile(path.join(cwd, "node_modules", "dep.js"), "module.exports = 1;\n", "utf8");
 
-	// One extension instance so the command handler + tool share the session default singleton.
+	// Una instancia de la extensión para que el manejador del comando + la herramienta compartan el singleton del valor por defecto de sesión.
 	const { commands, tools } = await loadExtension(url);
 	const handler = commands.get("worktree").handler;
 	const tool = tools.get("git_worktree");
 
-	// set the session default ON, then a plain add (no flag) must copy node_modules.
+	// poné el valor por defecto de sesión en ON; luego un add simple (sin flag) debe copiar node_modules.
 	const setCtx = makeCtx({ cwd });
 	await handler("set copy-ignored on", setCtx);
 	check(
@@ -851,7 +851,7 @@ async function scenarioCopyPrefsSetCommand(url) {
 		existsSync(path.join(onWt, "node_modules", "dep.js")),
 	);
 
-	// per-call false overrides the ON session default.
+	// false por llamada sobrescribe el valor por defecto de sesión en ON.
 	const overridden = await tool.execute(
 		"id",
 		{ action: "add", path: "wt-override-off", branch: "b-off", copyIgnored: false },
