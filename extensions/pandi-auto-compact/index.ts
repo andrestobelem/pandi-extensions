@@ -23,18 +23,18 @@ import {
 	sortedSnapshotNames,
 } from "./snapshots.js";
 
-// Footer status key. setStatus is keyed so this extension owns exactly one slot.
+// Clave del estado del footer. setStatus usa esta clave para que esta extensión sea dueña de exactamente un espacio.
 const STATUS_KEY = "auto-compact";
 
-// Snapshot path/shape/prune helpers live in ./snapshots.ts. DEFAULT_SNAPSHOT_KEEP
-// (used by the activate handler) bounds snapshot disk growth.
+// Los helpers de ruta/forma/poda de instantáneas viven en ./snapshots.ts. DEFAULT_SNAPSHOT_KEEP
+// (usado por el manejador de activate) acota el crecimiento en disco de las instantáneas.
 const DEFAULT_SNAPSHOT_KEEP = 20;
 
 export type { CompactionSnapshot };
-// Setting parsers live in ./settings.ts; re-exported here so the built bundle keeps
-// exporting the public parser names (the integration suite imports them).
-// Snapshot path/shape/prune helpers live in ./snapshots.ts; re-exported so the built
-// bundle keeps exporting the names the integration suite imports.
+// Los parsers de configuración viven en ./settings.ts; se reexportan acá para que el bundle compilado siga
+// exportando los nombres públicos de parser (la suite de integración los importa).
+// Los helpers de ruta/forma/poda de instantáneas viven en ./snapshots.ts; se reexportan para que el bundle compilado
+// siga exportando los nombres que importa la suite de integración.
 export {
 	buildSnapshot,
 	CODEX_DEFAULT_THRESHOLD_PERCENT,
@@ -50,28 +50,28 @@ export {
 	snapshotFileName,
 };
 
-// Sentinel embedded in elided tool-result text. Detecting it makes clearing idempotent
-// (a re-run never re-clears already-cleared text) and lets humans spot trimmed output.
+// Centinela embebido en el texto elidido de tool-result. Detectarlo vuelve idempotente a la limpieza
+// (un reintento nunca vuelve a limpiar texto ya limpiado) y les deja a los humanos ver salida recortada.
 export const CLEARED_SENTINEL = "[pi-auto-compact cleared";
 
 export interface ClearToolResultsOptions {
-	/** Keep the most recent N tool results fully intact (recency zone). */
+	/** Mantiene los N tool results más recientes completamente intactos (zona de recencia). */
 	keepRecent: number;
-	/** Only elide text blocks longer than this. */
+	/** Solo elide bloques de texto más largos que esto. */
 	minChars: number;
-	/** Characters of the original head to retain. */
+	/** Caracteres del inicio original que se conservan. */
 	headChars: number;
-	/** Characters of the original tail to retain (the "decision tail"). */
+	/** Caracteres del final original que se conservan (la "decision tail"). */
 	tailChars: number;
 }
 
-// Pure, non-mutating tool-result clearing (research §3b). Returns a NEW array with the
-// bulky TEXT of OLD, consumed tool results elided to head + marker + tail, or null when
-// nothing changed. Preserves message identity for everything it does not touch, keeps
-// toolCallId/toolName/isError and image blocks, KEEPS the last keepRecent results and
-// error results (recovery signal), and is idempotent via CLEARED_SENTINEL. The caller
-// applies this per LLM call only — the session retains the originals, so it is ephemeral
-// and fully recoverable, never destructive.
+// Limpieza pura y no mutante de tool-result (research §3b). Devuelve un array NUEVO con el
+// TEXTO voluminoso de tool results consumidos y VIEJOS elidido a inicio + marcador + final, o null cuando
+// nada cambió. Conserva la identidad del mensaje para todo lo que no toca; mantiene
+// toolCallId/toolName/isError y bloques de imagen; CONSERVA los últimos keepRecent resultados y los
+// resultados con error (señal de recuperación), y es idempotente vía CLEARED_SENTINEL. Quien llama
+// la aplica solo por llamada al LLM — la sesión conserva los originales, así que es efímera
+// y totalmente recuperable, nunca destructiva.
 export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToolResultsOptions): unknown[] | null => {
 	if (!Array.isArray(messages) || messages.length === 0) return null;
 	const { keepRecent, minChars, headChars, tailChars } = opts;
@@ -82,17 +82,17 @@ export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToo
 	for (let i = 0; i < messages.length; i++) if (isToolResult(messages[i])) toolResultIdx.push(i);
 	if (toolResultIdx.length === 0) return null;
 
-	// Everything except the last keepRecent tool results is clearable.
+	// Todo salvo los últimos keepRecent tool results se puede limpiar.
 	const clearable = toolResultIdx.slice(0, Math.max(0, toolResultIdx.length - Math.max(0, keepRecent)));
 	if (clearable.length === 0) return null;
-	// Never clear unless the head+tail we keep is strictly smaller than the text.
+	// Nunca limpies salvo que el inicio+final que conservamos sea estrictamente menor que el texto.
 	const minEffective = Math.max(minChars, headChars + tailChars + 1);
 
 	let changed = false;
 	const out = messages.slice();
 	for (const i of clearable) {
 		const msg = messages[i] as Record<string, unknown>;
-		if (msg.isError === true) continue; // keep failures fully (recovery signal)
+		if (msg.isError === true) continue; // conserva los fallos completos (señal de recuperación)
 		const content = msg.content;
 		if (!Array.isArray(content)) continue;
 		let blockChanged = false;
@@ -122,16 +122,16 @@ export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToo
 
 export { ARG_COMPLETIONS, MENU_OPTIONS, THRESHOLD_OPTIONS } from "./command-menu.js";
 export type { ContextBar, ContextBarLevel } from "./context-bar.js";
-// The interactive `/auto-compact` menu (MENU_OPTIONS/THRESHOLD_OPTIONS/
-// ARG_COMPLETIONS) and resolveCommandValue live in ./command-menu.ts; MENU_OPTIONS/
-// THRESHOLD_OPTIONS/resolveCommandValue are re-exported to preserve the bundle surface.
-// The footer progress bar renderer + its types live in ./context-bar.ts; re-exported so
-// the bundle keeps exporting renderContextBar (the integration suite imports it).
+// El menú interactivo de `/auto-compact` (MENU_OPTIONS/THRESHOLD_OPTIONS/
+// ARG_COMPLETIONS) y resolveCommandValue viven en ./command-menu.ts; MENU_OPTIONS/
+// THRESHOLD_OPTIONS/resolveCommandValue se reexportan para preservar la superficie del bundle.
+// El render de la barra de progreso del footer + sus tipos viven en ./context-bar.ts; se reexportan para que
+// el bundle siga exportando renderContextBar (la suite de integración lo importa).
 export { renderContextBar, resolveCommandValue };
 
-// Footer bar level -> theme token. The urgent states (over threshold / compacting) use
-// `error` so they read as an alert; `accent` was too easily confused with selection/logo.
-// Exported so the integration suite can pin the mapping.
+// Nivel de la barra del footer -> token de tema. Los estados urgentes (sobre el umbral / compactando) usan
+// `error` para leerse como alerta; `accent` se confundía demasiado fácil con selección/logo.
+// Se exporta para que la suite de integración pueda pinear el mapeo.
 export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "error"> = {
 	idle: "muted",
 	near: "warning",
@@ -147,18 +147,18 @@ export default function autoCompact(pi: ExtensionAPI) {
 	let pendingReason: string | undefined;
 	let compacting = false;
 	let showBar = parseBarSetting(process.env.PI_AUTO_COMPACT_BAR) ?? true;
-	// Recoverable-compaction snapshots: on by default; bounded retention per session.
+	// Instantáneas de compactación recuperable: activadas de forma predeterminada; retención acotada por sesión.
 	let snapshotsEnabled = parseSnapshotSetting(process.env.PI_AUTO_COMPACT_SNAPSHOT) ?? true;
 	const snapshotKeep = parseSnapshotKeep(process.env.PI_AUTO_COMPACT_SNAPSHOT_KEEP) ?? DEFAULT_SNAPSHOT_KEEP;
-	// Path of the snapshot written on the most recent session_before_compact, awaiting
-	// its summary on session_compact. Compaction is never concurrent, so one slot suffices.
+	// Ruta de la instantánea escrita en el session_before_compact más reciente, a la espera de
+	// su resumen en session_compact. La compactación nunca es concurrente, así que alcanza con un espacio.
 	let pendingSnapshotPath: string | undefined;
-	// Tool-result clearing (research §3b): a cheaper, EPHEMERAL lever than compaction.
-	// Before each LLM call, elide the bulky text of OLD consumed tool results; the session
-	// keeps the originals, so it is non-destructive/recoverable. OFF by default (it changes
-	// what the model sees every call); independent from the compaction trigger.
+	// Limpieza de tool-result (research §3b): una palanca más barata y EFÍMERA que compactar.
+	// Antes de cada llamada al LLM, elide el texto voluminoso de tool results consumidos y VIEJOS; la sesión
+	// conserva los originales, así que no es destructiva/recuperable. Arranca en OFF de forma predeterminada
+	// (cambia lo que ve el modelo en cada llamada); es independiente del disparador de compactación.
 	let clearToolResults = parseClearSetting(process.env.PI_AUTO_COMPACT_CLEAR_TOOL_RESULTS) ?? false;
-	// Reused positive-int parser (same semantics as the snapshot budget).
+	// Parser reutilizado de enteros positivos (misma semántica que el presupuesto de instantáneas).
 	const clearKeepRecent = parseSnapshotKeep(process.env.PI_AUTO_COMPACT_CLEAR_KEEP_RECENT) ?? 3;
 	const clearMinChars = parseSnapshotKeep(process.env.PI_AUTO_COMPACT_CLEAR_MIN_CHARS) ?? 2000;
 	const CLEAR_HEAD_CHARS = 200;
@@ -168,9 +168,9 @@ export default function autoCompact(pi: ExtensionAPI) {
 		if (ctx.hasUI) ctx.ui.notify(message, level);
 	};
 
-	// Render (or clear) the footer progress bar. The bar is shown whenever the
-	// extension is enabled and the bar is not turned off; it is cleared otherwise
-	// so a disabled extension leaves no stale gauge behind.
+	// Renderiza (o limpia) la barra de progreso del footer. La barra se muestra siempre que la
+	// extensión esté habilitada y la barra no esté apagada; si no, se limpia
+	// para que una extensión deshabilitada no deje una señal vieja atrás.
 	const getThresholdPercent = (ctx: ExtensionContext) =>
 		thresholdPercentOverride ?? resolveDefaultThresholdPercent(ctx.model);
 
@@ -202,21 +202,21 @@ export default function autoCompact(pi: ExtensionAPI) {
 		ctx.compact({
 			onComplete: () => {
 				compacting = false;
-				// Re-arm the edge-trigger from the POST-compaction usage, not null. If
-				// compaction could not bring usage below the threshold (large pinned/
-				// system content), resetting to null would re-cross every turn and loop.
+				// Rearma el disparo por cruce desde el usage POST-compactación, no desde null. Si
+				// la compactación no pudo llevar el usage por debajo del umbral (contenido pinned/
+				// system grande), resetear a null volvería a cruzarlo en cada turno y entraría en loop.
 				previousPercent = ctx.getContextUsage()?.percent ?? null;
 				notify(ctx, "Auto-compactación completada", "info");
 				updateStatusBar(ctx);
 			},
 			onError: (error) => {
 				compacting = false;
-				// Re-arm the edge-trigger: a failed compaction did NOT reduce usage, so
-				// leaving previousPercent at its crossed (>= threshold) value would keep
-				// crossedThreshold false forever and silently disable auto-compaction for
-				// the rest of the session. null re-arms so the next above-threshold turn
-				// retries; unlike onComplete this cannot tight-loop (paced by agent_end,
-				// and it self-heals once the transient error clears).
+				// Rearma el disparo por cruce: una compactación fallida NO redujo el usage, así que
+				// dejar previousPercent en su valor cruzado (>= threshold) mantendría
+				// crossedThreshold en false para siempre y deshabilitaría la auto-compactación en silencio durante
+				// el resto de la sesión. null rearma para que el próximo turno por encima del umbral
+				// reintente; a diferencia de onComplete, esto no puede entrar en un loop cerrado (lo marca
+				// agent_end, y se autocorrige cuando desaparece el error transitorio).
 				previousPercent = null;
 				notify(
 					ctx,
@@ -249,9 +249,9 @@ export default function autoCompact(pi: ExtensionAPI) {
 		pendingReason = `${Math.round(currentPercent)}% >= ${thresholdPercent}%`;
 	};
 
-	// Persist the raw entries about to be summarized, BEFORE the lossy summary replaces
-	// them. Fully fail-safe: any error is surfaced (UI only) and swallowed so a snapshot
-	// failure can never block or cancel compaction.
+	// Persiste las entradas sin procesar que están por resumirse ANTES de que el resumen con pérdida las reemplace.
+	// Totalmente a prueba de fallos: cualquier error se muestra (solo en UI) y se absorbe para que una falla de
+	// instantánea nunca pueda bloquear ni cancelar la compactación.
 	const writeCompactionSnapshot = (
 		ctx: ExtensionContext,
 		event: { branchEntries?: unknown[]; reason?: string; willRetry?: boolean },
@@ -274,17 +274,17 @@ export default function autoCompact(pi: ExtensionAPI) {
 			mkdirSync(dir, { recursive: true });
 			writeFileSync(file, JSON.stringify(snapshot, null, 2), "utf8");
 			pendingSnapshotPath = file;
-			// Prune oldest beyond the retention budget (the just-written file is newest).
+			// Poda las más antiguas por encima del presupuesto de retención (el archivo recién escrito es el más nuevo).
 			try {
 				for (const name of selectSnapshotsToPrune(readdirSync(dir), snapshotKeep)) {
 					try {
 						unlinkSync(join(dir, name));
 					} catch {
-						/* a snapshot we could not delete is harmless; keep going */
+						/* una instantánea que no se pudo borrar es inofensiva; seguí */
 					}
 				}
 			} catch {
-				/* listing failed: skip pruning this round */
+				/* falló el listado: salteá la poda en esta vuelta */
 			}
 		} catch (err) {
 			pendingSnapshotPath = undefined;
@@ -296,8 +296,8 @@ export default function autoCompact(pi: ExtensionAPI) {
 		}
 	};
 
-	// After compaction, patch the lossy summary into the snapshot so the artifact shows
-	// exactly what was dropped AND what replaced it, then surface the recoverable path.
+	// Después de compactar, aplica el resumen con pérdida a la instantánea para que el artifact muestre
+	// exactamente qué se descartó Y con qué se reemplazó, y después muestra la ruta recuperable.
 	const finalizeCompactionSnapshot = (ctx: ExtensionContext, event: { compactionEntry?: { summary?: string } }) => {
 		const file = pendingSnapshotPath;
 		pendingSnapshotPath = undefined;
@@ -320,8 +320,8 @@ export default function autoCompact(pi: ExtensionAPI) {
 		updateStatusBar(ctx);
 	});
 
-	// Snapshot every compaction path (manual /compact, threshold auto-compaction, overflow
-	// recovery, and this extension's own ctx.compact()). Never cancels: returns nothing.
+	// Saca una instantánea en cada camino de compactación (manual /compact, auto-compactación por umbral, recuperación de
+	// overflow y el propio ctx.compact() de esta extensión). Nunca cancela: no devuelve nada.
 	pi.on("session_before_compact", (event, ctx) => {
 		writeCompactionSnapshot(ctx, event);
 	});
@@ -329,9 +329,9 @@ export default function autoCompact(pi: ExtensionAPI) {
 		finalizeCompactionSnapshot(ctx, event);
 	});
 
-	// Tool-result clearing runs before EACH LLM call and only affects that call's payload;
-	// the session retains the originals (ephemeral + recoverable). Fail-safe: never throws,
-	// returns nothing when disabled or when no message changed.
+	// La limpieza de tool-result corre antes de CADA llamada al LLM y solo afecta el payload de esa llamada;
+	// la sesión conserva los originales (efímero + recuperable). A prueba de fallos: nunca arroja,
+	// no devuelve nada cuando está deshabilitada o cuando ningún mensaje cambió.
 	pi.on("context", (event) => {
 		if (!clearToolResults) return;
 		try {
@@ -343,19 +343,19 @@ export default function autoCompact(pi: ExtensionAPI) {
 			});
 			if (next) return { messages: next as typeof event.messages };
 		} catch {
-			/* fail-safe: leave the context unchanged */
+			/* a prueba de fallos: dejá el contexto sin cambios */
 		}
 	});
 
-	// turn_end can fire between tool calls inside one assistant turn. Only mark
-	// compaction as pending here so the active workflow is not interrupted.
+	// turn_end puede dispararse entre llamadas a tools dentro de un turno del assistant. Acá solo marca
+	// la compactación como pendiente para no interrumpir el workflow activo.
 	pi.on("turn_end", (_event, ctx) => {
 		updatePendingCompaction(ctx);
 		updateStatusBar(ctx);
 	});
 
-	// Compact after the assistant turn fully finishes. This preserves the work
-	// flow while still compacting before the next user request.
+	// Compacta después de que el turno del assistant termina por completo. Esto preserva el workflow
+	// y aun así compacta antes del próximo pedido del usuario.
 	pi.on("agent_end", (_event, ctx) => {
 		updatePendingCompaction(ctx);
 		if (!enabled) {
@@ -416,7 +416,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				return;
 			}
 
-			// `bar` (toggle), `bar on`, `bar off` — control the footer progress bar.
+			// `bar` (toggle), `bar on`, `bar off` — controlan la barra de progreso del footer.
 			if (trimmed === "bar" || trimmed.startsWith("bar ")) {
 				const arg = trimmed.slice("bar ".length).trim();
 				const next = resolveToggle(arg, showBar, parseBarSetting);
@@ -430,7 +430,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				return;
 			}
 
-			// `snapshots` — list recent recoverable snapshots for this session (read-only).
+			// `snapshots` — lista las instantáneas recuperables recientes de esta sesión (solo lectura).
 			if (trimmed === "snapshots") {
 				try {
 					const dir = snapshotDirFor(ctx.cwd, ctx.sessionManager?.getSessionId?.() ?? "session");
@@ -447,7 +447,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				return;
 			}
 
-			// `snapshot` (toggle), `snapshot on`, `snapshot off` — recoverable-compaction snapshots.
+			// `snapshot` (toggle), `snapshot on`, `snapshot off` — instantáneas de compactación recuperable.
 			if (trimmed === "snapshot" || trimmed.startsWith("snapshot ")) {
 				const arg = trimmed.slice("snapshot".length).trim();
 				const next = resolveToggle(arg, snapshotsEnabled, parseSnapshotSetting);
@@ -460,7 +460,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				return;
 			}
 
-			// `clear-tools` (toggle), `clear-tools on`, `clear-tools off` — elide old tool outputs.
+			// `clear-tools` (toggle), `clear-tools on`, `clear-tools off` — eliden salidas viejas de tools.
 			if (trimmed === "clear-tools" || trimmed.startsWith("clear-tools ")) {
 				const arg = trimmed.slice("clear-tools".length).trim();
 				const next = resolveToggle(arg, clearToolResults, parseClearSetting);

@@ -1,8 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CODEX_DEFAULT_THRESHOLD_PERCENT, DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
 
-// Interactive menu shown for a bare `/auto-compact` in a UI session. The text
-// BEFORE " — " is the canonical command the handler already understands.
+// Menú interactivo que se muestra para un `/auto-compact` sin argumentos en una sesión con UI. El texto
+// ANTES de " — " es el comando canónico que el manejador ya entiende.
 export const MENU_OPTIONS = [
 	"status — mostrar la configuración actual",
 	"on — activar la auto-compactación",
@@ -18,14 +18,14 @@ export const MENU_OPTIONS = [
 	"threshold — configurar el % de umbral de compactación",
 ];
 
-// Threshold presets offered after choosing "threshold"; derived so the current default
-// is always present (and marked below). The last entry opens a text input.
+// Valores predefinidos de threshold ofrecidos después de elegir "threshold"; se derivan para que el
+// predeterminado actual siempre esté presente (y marcado abajo). La última entrada abre un campo de texto.
 const THRESHOLD_PRESETS = [
 	...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT, CODEX_DEFAULT_THRESHOLD_PERCENT]),
 ].sort((a, b) => a - b);
 export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "personalizado\u2026"];
 
-// Argument autocomplete items. `value` is inserted into the editor on accept.
+// Items de autocompletado de argumentos. `value` se inserta en el editor al aceptar.
 export const ARG_COMPLETIONS: { value: string; label: string; description: string }[] = [
 	{ value: "status", label: "status", description: "Mostrar la configuración actual" },
 	{ value: "on", label: "on", description: "Activar la auto-compactación" },
@@ -60,15 +60,15 @@ export const ARG_COMPLETIONS: { value: string; label: string; description: strin
 	})),
 ];
 
-// When invoked bare in a UI session, open a menu to pick a setting (and a second
-// menu/input for the threshold value); otherwise return the typed args unchanged.
-// Returns a string the command handler already understands.
+// Cuando se invoca sin argumentos en una sesión con UI, abre un menú para elegir una configuración (y un segundo
+// menú/input para el valor de threshold); si no, devuelve los args escritos sin cambios.
+// Devuelve un texto que el manejador del comando ya entiende.
 export async function resolveCommandValue(args: string, ctx: ExtensionContext): Promise<string> {
 	const trimmed = args.trim();
 	if (trimmed || !ctx.hasUI) return trimmed;
 
 	const choice = await ctx.ui.select("Auto-compactación de contexto — elegí una configuración", MENU_OPTIONS);
-	if (!choice) return "status"; // cancelled → harmless no-op (status)
+	if (!choice) return "status"; // cancelado → no-op inofensivo (status)
 	const command = choice.split(" — ")[0].trim();
 	if (command !== "threshold") return command;
 

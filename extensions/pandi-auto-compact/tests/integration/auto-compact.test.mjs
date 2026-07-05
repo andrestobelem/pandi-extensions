@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Behavioral integration test for pandi-auto-compact.
+ * Test de integración de comportamiento para pandi-auto-compact.
  *
- * Focus: the edge-triggered compaction must fire ONCE on a genuine threshold
- * crossing and must NOT re-fire every turn when a completed compaction failed to
- * bring usage back below the threshold (the re-compaction loop).
+ * Foco: la compactación disparada por cruce del umbral debe activarse UNA VEZ ante un cruce
+ * genuino del umbral y NO debe volver a activarse en cada turno cuando una compactación completada no logró
+ * llevar el usage de nuevo por debajo del umbral (el loop de recompactación).
  */
 
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
@@ -24,7 +24,7 @@ async function build() {
 		src: path.join(REPO_ROOT, "extensions", "pandi-auto-compact", "index.ts"),
 		outName: "ac.mjs",
 		npx: "--no-install",
-		// snapshots.ts imports CONFIG_DIR_NAME from the SDK, so the bundle needs the stub.
+		// snapshots.ts importa CONFIG_DIR_NAME desde el SDK, así que el bundle necesita el stub.
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	return url;
@@ -42,7 +42,7 @@ async function loadExtension(url) {
 	return { handlers, commands };
 }
 
-// Build a tool-result message with a text block of the given size (plus optional extras).
+// Construye un mensaje de tool-result con un bloque de texto del tamaño dado (más extras opcionales).
 function toolResult(id, size, { isError = false, toolName = "read", extra = [] } = {}) {
 	return {
 		role: "toolResult",
@@ -55,23 +55,23 @@ function toolResult(id, size, { isError = false, toolName = "read", extra = [] }
 }
 
 /**
- * Fake ExtensionContext. `compact` increments a counter and, on completion,
- * applies `reduceTo` (if set) to the reported usage before invoking onComplete,
- * modelling a compaction that may or may not bring usage below the threshold.
+ * ExtensionContext falso. `compact` incrementa un contador y, al completarse,
+ * aplica `reduceTo` (si está definido) al usage reportado antes de invocar onComplete,
+ * modelando una compactación que puede o no llevar el usage por debajo del umbral.
  *
- * `setStatus` calls are recorded so footer progress-bar behaviour can be
- * asserted; `theme.fg` is an identity so assertions see the raw bar text.
+ * Las llamadas a `setStatus` se registran para poder afirmar el comportamiento de la barra del footer;
+ * `theme.fg` es una identidad para que las aserciones vean el texto crudo de la barra.
  */
 function makeEnv({ hasUI = true, sessionId = "s1", cwd, model } = {}) {
 	const notes = [];
-	const statuses = []; // { key, text } in call order; text undefined means cleared
-	// Scripted interactive dialogs: tests push responses; calls are recorded.
+	const statuses = []; // { key, text } en orden de llamada; text undefined significa limpio
+	// Diálogos interactivos guionados: los tests empujan respuestas; las llamadas se registran.
 	const selectCalls = [];
 	const inputCalls = [];
 	const selectResponses = [];
 	const inputResponses = [];
 	const state = { percent: 0, compactCount: 0, reduceTo: null, failCompaction: false };
-	// Per-env temp workspace + session manager so the snapshot path is isolated.
+	// Workspace temporal por env + session manager para que la ruta de instantánea quede aislada.
 	const workdir = cwd ?? mkdtempSync(path.join(os.tmpdir(), "ac-snap-"));
 	const ctx = {
 		hasUI,
@@ -95,9 +95,9 @@ function makeEnv({ hasUI = true, sessionId = "s1", cwd, model } = {}) {
 		compact: ({ onComplete, onError }) => {
 			state.compactCount += 1;
 			queueMicrotask(() => {
-				// A failing compaction (LLM/network error) invokes onError WITHOUT
-				// reducing usage, modelling a transient failure that leaves the
-				// context untouched and still above threshold.
+				// Una compactación fallida (error de LLM/network) invoca onError SIN
+				// reducir el usage, modelando una falla transitoria que deja el
+				// contexto intacto y todavía por encima del umbral.
 				if (state.failCompaction) {
 					onError?.(new Error("compaction boom"));
 					return;
@@ -110,8 +110,8 @@ function makeEnv({ hasUI = true, sessionId = "s1", cwd, model } = {}) {
 	return { ctx, notes, statuses, state, selectCalls, inputCalls, selectResponses, inputResponses, workdir };
 }
 
-// Recoverable-compaction snapshot helpers ----------------------------------
-// The session_before_compact / session_compact events drive snapshot writing.
+// Helpers de instantáneas de compactación recuperable ----------------------------------
+// Los eventos session_before_compact / session_compact disparan la escritura de instantáneas.
 async function fireBeforeCompact(handlers, ctx, { branchEntries = [], reason = "threshold", willRetry = false } = {}) {
 	return handlers.get("session_before_compact")?.({ branchEntries, reason, willRetry }, ctx);
 }
@@ -120,7 +120,7 @@ async function fireSessionCompact(handlers, ctx, { summary = "" } = {}) {
 	return handlers.get("session_compact")?.({ compactionEntry: { summary } }, ctx);
 }
 
-// The per-session snapshot directory this extension writes to.
+// El directorio de instantáneas por sesión en el que escribe esta extensión.
 function snapDir(env, sessionId = "s1") {
 	return path.join(env.workdir, ".pi", "compaction-snapshots", sessionId);
 }
@@ -129,14 +129,14 @@ function snapFiles(env, sessionId = "s1") {
 	return existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".json")) : [];
 }
 
-// The most recent footer status text (or undefined when last cleared).
+// El texto más reciente del estado del footer (o undefined cuando se limpió por última vez).
 const lastStatus = (env) => (env.statuses.length ? env.statuses[env.statuses.length - 1].text : undefined);
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 async function fireAgentEnd(handlers, ctx) {
 	await handlers.get("agent_end")?.(null, ctx);
-	await tick(); // let queued compaction onComplete run
+	await tick(); // deja correr el onComplete de compactación encolado
 }
 
 async function fireTurnEnd(handlers, ctx) {
@@ -146,13 +146,13 @@ async function fireTurnEnd(handlers, ctx) {
 async function stuckAboveThresholdDoesNotLoop(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	// Compaction never reduces usage below the 35% default threshold.
+	// La compactación nunca baja el usage por debajo del umbral predeterminado de 35%.
 	env.state.percent = 60;
 	env.state.reduceTo = 60;
 
-	await fireAgentEnd(handlers, env.ctx); // genuine crossing -> compaction #1
-	await fireAgentEnd(handlers, env.ctx); // still 60% -> must NOT re-compact
-	await fireAgentEnd(handlers, env.ctx); // still 60% -> must NOT re-compact
+	await fireAgentEnd(handlers, env.ctx); // cruce genuino -> compactación #1
+	await fireAgentEnd(handlers, env.ctx); // sigue en 60% -> NO debe recompartar
+	await fireAgentEnd(handlers, env.ctx); // sigue en 60% -> NO debe recompartar
 
 	check(
 		"loop: compaction fires exactly once while usage stays above threshold",
@@ -161,19 +161,19 @@ async function stuckAboveThresholdDoesNotLoop(url) {
 	);
 }
 
-// A FAILED compaction (onError) must re-arm the edge-trigger so a subsequent
-// above-threshold turn retries — otherwise a single transient failure silently
-// disables auto-compaction for the rest of the session (the "onError never
-// re-arms" bug). Distinct from stuckAboveThresholdDoesNotLoop, where compaction
-// SUCCEEDS but cannot reduce usage (there we must NOT loop).
+// Una compactación FALLIDA (onError) debe rearmar el disparo por cruce para que un turno
+// posterior por encima del umbral reintente — si no, una sola falla transitoria deshabilita
+// la auto-compactación en silencio por el resto de la sesión (el bug de "onError nunca
+// rearma"). Distinto de stuckAboveThresholdDoesNotLoop, donde la compactación
+// TIENE ÉXITO pero no puede reducir el usage (ahí NO debemos entrar en loop).
 async function failedCompactionReArmsAndRetriggers(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 60; // above the 35% default threshold
+	env.state.percent = 60; // por encima del umbral predeterminado de 35%
 	env.state.failCompaction = true;
 
-	await fireAgentEnd(handlers, env.ctx); // crossing -> compaction #1 attempted, fails
-	await fireAgentEnd(handlers, env.ctx); // still 60% after failure -> MUST retry
+	await fireAgentEnd(handlers, env.ctx); // cruce -> se intenta la compactación #1, falla
+	await fireAgentEnd(handlers, env.ctx); // sigue en 60% tras la falla -> DEBE reintentar
 	check(
 		"failure: a failed compaction re-arms so the next above-threshold turn retries",
 		env.state.compactCount === 2,
@@ -184,15 +184,15 @@ async function failedCompactionReArmsAndRetriggers(url) {
 async function genuineRecrossRetriggers(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	// Compaction succeeds: brings usage down to 20% (below threshold).
+	// La compactación tiene éxito: lleva el usage a 20% (por debajo del umbral).
 	env.state.percent = 60;
 	env.state.reduceTo = 20;
 
-	await fireAgentEnd(handlers, env.ctx); // crossing -> compaction #1, now at 20%
-	await fireAgentEnd(handlers, env.ctx); // 20% < 35% -> no compaction
-	env.state.percent = 60; // genuine new rise above threshold
+	await fireAgentEnd(handlers, env.ctx); // cruce -> compactación #1, ahora en 20%
+	await fireAgentEnd(handlers, env.ctx); // 20% < 35% -> sin compactación
+	env.state.percent = 60; // nuevo aumento genuino por encima del umbral
 	env.state.reduceTo = 20;
-	await fireAgentEnd(handlers, env.ctx); // crossing again -> compaction #2
+	await fireAgentEnd(handlers, env.ctx); // vuelve a cruzar -> compactación #2
 
 	check(
 		"recross: a genuine new threshold crossing re-triggers compaction",
@@ -204,7 +204,7 @@ async function genuineRecrossRetriggers(url) {
 async function belowThresholdNeverCompacts(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 20; // never crosses 35%
+	env.state.percent = 20; // nunca cruza 35%
 	await fireAgentEnd(handlers, env.ctx);
 	await fireAgentEnd(handlers, env.ctx);
 	check(
@@ -217,7 +217,7 @@ async function belowThresholdNeverCompacts(url) {
 async function codexDefaultThresholdIsFifty(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv({ model: { provider: "openai-codex", id: "gpt-5.5" } });
-	env.state.percent = 40; // above Claude's 35%, below Codex's 50%
+	env.state.percent = 40; // por encima del 35% de Claude, por debajo del 50% de Codex
 	await fireAgentEnd(handlers, env.ctx);
 	check(
 		"default: Codex does not compact below 50%",
@@ -232,7 +232,7 @@ async function codexDefaultThresholdIsFifty(url) {
 async function claudeDefaultThresholdRemainsThirtyFive(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv({ model: { provider: "anthropic", id: "claude-sonnet-4-5" } });
-	env.state.percent = 40; // above Claude's 35% default
+	env.state.percent = 40; // por encima del predeterminado de 35% de Claude
 	await fireAgentEnd(handlers, env.ctx);
 	check(
 		"default: Claude still compacts at 35%",
@@ -241,8 +241,8 @@ async function claudeDefaultThresholdRemainsThirtyFive(url) {
 	);
 }
 
-// Pure unit-level coverage for parseThreshold (named export). Imports the
-// bundled module directly; does not instantiate the extension.
+// Cobertura pura a nivel unitario para parseThreshold (export nombrado). Importa el
+// módulo bundleado directamente; no instancia la extensión.
 async function parseThresholdEdgeCases(url) {
 	const mod = await loadModule(url);
 	const parseThreshold = mod.parseThreshold;
@@ -256,12 +256,12 @@ async function parseThresholdEdgeCases(url) {
 	const cases = [
 		["50", 50],
 		["50%", 50],
-		["0", undefined], // <= 0 rejected
-		["100", undefined], // >= 100 rejected
+		["0", undefined], // <= 0 rechazado
+		["100", undefined], // >= 100 rechazado
 		["", undefined],
 		[undefined, undefined],
-		["abc", undefined], // NaN rejected
-		[" 75 ", 75], // trimmed
+		["abc", undefined], // NaN rechazado
+		[" 75 ", 75], // con trim aplicado
 	];
 	for (const [input, expected] of cases) {
 		const actual = parseThreshold(input);
@@ -273,7 +273,7 @@ async function parseThresholdEdgeCases(url) {
 	}
 }
 
-// Pure coverage for renderContextBar (named export): fill, label, and level.
+// Cobertura pura para renderContextBar (export nombrado): relleno, etiqueta y `level`.
 async function renderContextBarCases(url) {
 	const mod = await loadModule(url);
 	const renderContextBar = mod.renderContextBar;
@@ -298,7 +298,7 @@ async function renderContextBarCases(url) {
 	check("renderContextBar: 0.8 of threshold is near", near?.level === "near", `got ${JSON.stringify(near)}`);
 
 	const over = renderContextBar({ percent: 60, thresholdPercent: 30, width: 8 });
-	// Fill is clamped at full (8 filled glyphs, 0 empty) and level is over.
+	// El fill se limita a completo (8 glifos llenos, 0 vacíos) y level es over.
 	check(
 		"renderContextBar: usage above threshold clamps to a full bar and over level",
 		over?.level === "over" &&
@@ -345,12 +345,12 @@ async function parseBarSettingCases(url) {
 	}
 }
 
-// Integration: the footer bar reflects usage on a normal turn, marks the
-// compacting state, and can be turned off/on via the command.
+// Integración: la barra del footer refleja el usage en un turno normal, marca el
+// estado compacting y puede apagarse/encenderse vía el comando.
 async function barReflectsUsageBelowThreshold(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 15; // under the 35% default threshold
+	env.state.percent = 15; // por debajo del umbral predeterminado de 35%
 	await fireTurnEnd(handlers, env.ctx);
 	const text = lastStatus(env);
 	check(
@@ -368,7 +368,7 @@ async function barReflectsUsageBelowThreshold(url) {
 async function barShowsCompactingState(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 60; // crosses threshold -> compaction
+	env.state.percent = 60; // cruza el umbral -> compactación
 	env.state.reduceTo = 20;
 	await fireAgentEnd(handlers, env.ctx);
 	const sawCompacting = env.statuses.some((s) => typeof s.text === "string" && s.text.includes("compacting"));
@@ -419,10 +419,10 @@ async function barClearedWhenDisabled(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Argument autocomplete: typing `/auto-compact <prefix>` offers choices.
+// Autocompletado de argumentos: tipear `/auto-compact <prefix>` ofrece opciones.
 // ---------------------------------------------------------------------------
-// Pins the default-threshold contract: the exported constant, the derived preset
-// list (which must contain the default), and a single "(default)" marker on it.
+// Pinea el contrato del threshold predeterminado: la constante exportada, la lista derivada
+// de presets (que debe contener el predeterminado) y un único marcador "(predeterminado)" sobre él.
 async function defaultThresholdContract(url) {
 	const mod = await loadModule(url);
 	check(
@@ -496,14 +496,14 @@ async function argumentCompletions(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Interactive menu: a bare `/auto-compact` in a UI session opens a
-// select to choose a parameter; choices map onto the existing actions.
+// Menú interactivo: un `/auto-compact` sin argumentos en una sesión con UI abre un
+// select para elegir un parámetro; las opciones mapean sobre las acciones existentes.
 // ---------------------------------------------------------------------------
 async function bareCommandOpensMenuAndDisables(url) {
 	const { handlers, commands } = await loadExtension(url);
 	const env = makeEnv();
 	env.state.percent = 15;
-	await fireTurnEnd(handlers, env.ctx); // bar visible
+	await fireTurnEnd(handlers, env.ctx); // barra visible
 	check("menu: bar visible before opening menu", typeof lastStatus(env) === "string");
 
 	env.selectResponses.push("off — desactivar la auto-compactación");
@@ -565,8 +565,8 @@ async function bareCommandWithoutUiNeverOpensMenu(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Recoverable compaction: snapshots preserve the raw entries BEFORE the lossy
-// summary replaces them, so compaction is recoverable rather than destructive.
+// Compactación recuperable: las instantáneas preservan las entradas sin procesar ANTES de que el resumen con pérdida
+// las reemplace, así que la compactación es recuperable en vez de destructiva.
 // ---------------------------------------------------------------------------
 async function snapshotWritesRawEntries(url) {
 	const { handlers } = await loadExtension(url);
@@ -626,7 +626,7 @@ async function snapshotDisabledWritesNothing(url) {
 async function snapshotIsFailSafe(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	// Make session id resolution throw so the whole write path errors out.
+	// Hace que la resolución del id de sesión arroje para que falle toda la ruta de escritura.
 	env.ctx.sessionManager = {
 		getSessionId: () => {
 			throw new Error("boom");
@@ -660,7 +660,7 @@ async function snapshotRetentionPrunes(url) {
 		const env = makeEnv();
 		for (let i = 0; i < 4; i++) {
 			await fireBeforeCompact(handlers, env.ctx, { branchEntries: [{ id: `e${i}` }] });
-			await new Promise((r) => setTimeout(r, 3)); // distinct ISO ms -> distinct file names
+			await new Promise((r) => setTimeout(r, 3)); // ms ISO distintos -> nombres de archivo distintos
 		}
 		check(
 			"snapshot: retention prunes to the newest keep=2",
@@ -673,7 +673,7 @@ async function snapshotRetentionPrunes(url) {
 	}
 }
 
-// Pure-unit coverage for the exported snapshot helpers.
+// Cobertura pura unitaria para los helpers de instantáneas exportados.
 async function snapshotPureHelpers(url) {
 	const mod = await loadModule(url);
 	check(
@@ -729,7 +729,7 @@ async function snapshotPureHelpers(url) {
 		snap.version === 1 && snap.entryCount === 2 && snap.summary === undefined,
 		`snap=${JSON.stringify(snap)}`,
 	);
-	// Names sort chronologically; keep=2 prunes the 3 oldest of 5.
+	// Los nombres se ordenan cronológicamente; keep=2 poda los 3 más antiguos de 5.
 	const names = ["5.json", "1.json", "3.json", "2.json", "4.json", "notes.txt"];
 	const pruned = mod.selectSnapshotsToPrune(names, 2);
 	check(
@@ -741,9 +741,9 @@ async function snapshotPureHelpers(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Tool-result clearing (research §3b): a cheaper, EPHEMERAL, non-destructive lever
-// than compaction. clearOldToolResults must elide OLD large tool-result text while
-// keeping recent + error results, never mutate inputs, and be idempotent.
+// Limpieza de tool-result (research §3b): una palanca más barata, EFÍMERA y no destructiva
+// que compactar. clearOldToolResults debe elidir texto VIEJO y grande de tool-result mientras
+// conserva resultados recientes + con error, nunca muta inputs y es idempotente.
 // ---------------------------------------------------------------------------
 async function clearElidesOldLargeResults(url) {
 	const mod = await loadModule(url);
@@ -753,7 +753,7 @@ async function clearElidesOldLargeResults(url) {
 		{ role: "user", content: "go" },
 		toolResult("a", 5000),
 		{ role: "assistant", content: [{ type: "text", text: "thinking" }] },
-		toolResult("b", 300), // recent (kept by keepRecent:1)
+		toolResult("b", 300), // reciente (conservado por keepRecent:1)
 	];
 	const out = clear(messages, opts);
 	check("clear: returns a new array when an old large result is elided", Array.isArray(out) && out !== messages);
@@ -779,13 +779,13 @@ async function clearSkipsRecentShortAndErrors(url) {
 	const mod = await loadModule(url);
 	const clear = mod.clearOldToolResults;
 	const opts = { keepRecent: 2, minChars: 500, headChars: 50, tailChars: 50 };
-	const short = toolResult("s", 100); // below minChars
-	const err = toolResult("e", 5000, { isError: true }); // error -> keep fully
+	const short = toolResult("s", 100); // por debajo de minChars
+	const err = toolResult("e", 5000, { isError: true }); // error -> conservar completo
 	const recent1 = toolResult("r1", 5000);
 	const recent2 = toolResult("r2", 5000);
 	const messages = [short, err, recent1, recent2];
 	const out = clear(messages, opts);
-	// short stays (too small), err stays (error), recent1+recent2 stay (keepRecent:2).
+	// short queda (demasiado chico), err queda (error), recent1+recent2 quedan (keepRecent:2).
 	check("clear: nothing to elide here returns null (short+error+recent only)", out === null, `out=${out && "array"}`);
 }
 
@@ -826,15 +826,15 @@ async function clearFailSafeOnMalformed(url) {
 	check("clear: no tool results returns null", clear([{ role: "user", content: "hi" }], opts) === null);
 }
 
-// Integration: the `context` hook returns modified messages only when clearing is
-// enabled (default OFF), and never throws.
+// Integración: el hook `context` devuelve mensajes modificados solo cuando la limpieza está
+// habilitada (OFF de forma predeterminada), y nunca arroja.
 async function contextHookGatedByToggle(url) {
 	const { handlers, commands } = await loadExtension(url);
 	const env = makeEnv();
 	const ctxHandler = handlers.get("context");
 	check("context: handler is registered", typeof ctxHandler === "function");
 	if (typeof ctxHandler !== "function") return;
-	// Default keepRecent is 3, so we need >3 tool results for the oldest to be clearable.
+	// El keepRecent predeterminado es 3, así que necesitamos >3 tool results para que el más viejo pueda limpiarse.
 	const event = {
 		type: "context",
 		messages: [toolResult("a", 5000), toolResult("b", 5000), toolResult("c", 5000), toolResult("d", 5000)],
@@ -856,7 +856,7 @@ async function contextHookGatedByToggle(url) {
 	);
 }
 
-// Pinea el mapeo nivel → token de tema del footer bar (BAR_LEVEL_COLOR, named export).
+// Pinea el mapeo nivel → token de tema de la barra del footer (BAR_LEVEL_COLOR, export nombrado).
 // El estado urgente (over/compacting) debe usar `error` para leerse como alerta, no `accent`
 // (que se comparte con selección/logo y no comunica peligro).
 async function barLevelColorCases(url) {

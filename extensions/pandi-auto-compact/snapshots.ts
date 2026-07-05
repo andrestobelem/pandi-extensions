@@ -1,28 +1,28 @@
-// pandi-auto-compact recoverable-compaction snapshots: the raw entries about to be
-// summarized are persisted BEFORE the lossy summary replaces them, so compaction is
-// recoverable rather than destructive. Snapshots live under <cwd>/<configDir>/<SNAPSHOT_DIR>/
-// <sessionId>/ (gitignored) — deliberately NOT in the memory folder, which is for curated,
-// injected facts, not bulky raw transcripts. Pure path/shape/prune helpers; re-exported
-// from index.ts so the built bundle keeps exporting the names the integration suite uses.
+// Instantáneas de compactación recuperable de pandi-auto-compact: las entradas sin procesar que están por
+// resumirse se guardan ANTES de que el resumen con pérdida las reemplace, así la compactación es
+// recuperable en vez de destructiva. Las instantáneas viven en <cwd>/<configDir>/<SNAPSHOT_DIR>/
+// <sessionId>/ (gitignored) — deliberadamente NO en la carpeta de memory, que es para hechos curados,
+// inyectados, no para transcripciones sin procesar voluminosas. Helpers puros de ruta/forma/poda; se reexportan
+// desde index.ts para que el bundle compilado siga exportando los nombres que usa la suite de integración.
 
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const SNAPSHOT_DIR = "compaction-snapshots";
 
-// Replace anything outside a safe file-name set so a session id / timestamp / reason
-// can never escape the snapshot directory. Leading/trailing `._-` are trimmed and an
-// all-dots result (e.g. "." or "..", which would traverse) falls back to `fallback`.
+// Reemplaza cualquier cosa fuera de un conjunto seguro de nombres de archivo para que session id / timestamp / reason
+// nunca puedan escapar del directorio de instantáneas. Se recortan los `._-` iniciales/finales y un
+// resultado de solo puntos (p. ej. "." o "..", que atravesaría directorios) vuelve a `fallback`.
 const safeSegment = (raw: string, fallback: string): string => {
 	const cleaned = (raw ?? "").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._-]+|[._-]+$/g, "");
 	return cleaned && !/^\.+$/.test(cleaned) ? cleaned : fallback;
 };
 
-/** Per-session snapshot directory: <cwd>/<configDir>/compaction-snapshots/<sessionId>/. Pure. */
+/** Directorio de instantáneas por sesión: <cwd>/<configDir>/compaction-snapshots/<sessionId>/. Puro. */
 export const snapshotDirFor = (cwd: string, sessionId: string): string =>
 	join(cwd, CONFIG_DIR_NAME, SNAPSHOT_DIR, safeSegment(sessionId, "session"));
 
-/** Snapshot file name. Timestamp-prefixed so a lexicographic sort is chronological. Pure. */
+/** Nombre del archivo de instantánea. Con prefijo de timestamp para que un sort lexicográfico sea cronológico. Puro. */
 export const snapshotFileName = (createdAtIso: string, reason: string): string =>
 	`${safeSegment(createdAtIso, "snapshot")}-${safeSegment(reason, "compact")}.json`;
 
@@ -34,11 +34,11 @@ export interface CompactionSnapshot {
 	willRetry: boolean;
 	entryCount: number;
 	entries: unknown[];
-	/** The lossy summary that replaced `entries`, patched in after compaction completes. */
+	/** El resumen con pérdida que reemplazó a `entries`, aplicado después de que termina la compactación. */
 	summary?: string;
 }
 
-/** Build the serializable snapshot object from the raw entries being compacted. Pure. */
+/** Construye el objeto de instantánea serializable a partir de las entradas sin procesar que se están compactando. Puro. */
 export const buildSnapshot = (opts: {
 	sessionId: string;
 	createdAt: string;
@@ -58,11 +58,11 @@ export const buildSnapshot = (opts: {
 	};
 };
 
-// Given snapshot file names (any order), return the OLDEST beyond `keep`. Names are
-// timestamp-prefixed so a lexicographic sort is chronological. keep<=0 prunes all.
-// The snapshot files in a directory listing: .json only, oldest-first (lexical sort ==
-// chronological since names are timestamp-prefixed). Shared by prune selection and the
-// `snapshots` listing so both define "a snapshot file" identically.
+// Dado un conjunto de nombres de archivos de instantáneas (en cualquier orden), devuelve los MÁS ANTIGUOS más allá de `keep`.
+// Los nombres tienen prefijo de timestamp, así que un sort lexicográfico es cronológico. keep<=0 poda todo.
+// Los archivos de instantánea en un listado de directorio: solo .json, del más antiguo al más nuevo (sort léxico ==
+// cronológico porque los nombres tienen prefijo de timestamp). Lo comparten la selección para poda y el listado
+// `snapshots` para que ambos definan "un archivo de instantánea" de forma idéntica.
 export const sortedSnapshotNames = (fileNames: string[]): string[] =>
 	fileNames.filter((n) => n.endsWith(".json")).sort();
 

@@ -1,10 +1,10 @@
-// Setting parsers for pandi-auto-compact. Env vars and `/auto-compact`
-// subcommand arguments share this on/off + threshold grammar. Pure, no extension state;
-// re-exported from index.ts so the built bundle keeps exporting the public parser names.
+// Parsers de configuración para pandi-auto-compact. Las env vars y los argumentos
+// de subcomandos de `/auto-compact` comparten esta gramática de on/off + threshold. Puro, sin estado de la extensión;
+// se reexportan desde index.ts para que el bundle compilado siga exportando los nombres públicos de parser.
 
-// Compaction fires when relative context usage reaches this percent. Single source of
-// truth: index.ts (runtime default + command description) and command-menu.ts (presets,
-// "(default)" marker) all derive from it. Override at startup with PI_AUTO_COMPACT_PERCENT.
+// La compactación se dispara cuando el uso relativo de contexto llega a este porcentaje. Fuente única de
+// verdad: index.ts (predeterminado en runtime + descripción del comando) y command-menu.ts (presets,
+// marcador "(predeterminado)") derivan de acá. Se puede sobreescribir al iniciar con PI_AUTO_COMPACT_PERCENT.
 export const DEFAULT_THRESHOLD_PERCENT = 35;
 export const CODEX_DEFAULT_THRESHOLD_PERCENT = 50;
 
@@ -31,8 +31,8 @@ export const parseThreshold = (value: string | undefined): number | undefined =>
 	return parsed;
 };
 
-// Parse an on/off-style setting (env var or subcommand argument). Returns
-// undefined for unrecognised input so callers can fall back to a default.
+// Parsea una configuración estilo on/off (env var o argumento de subcomando). Devuelve
+// undefined para entradas no reconocidas para que quien llama pueda volver a un valor predeterminado.
 const parseOnOff = (value: string | undefined): boolean | undefined => {
 	if (value === undefined) return undefined;
 	const v = value.trim().toLowerCase();
@@ -41,11 +41,11 @@ const parseOnOff = (value: string | undefined): boolean | undefined => {
 	return undefined;
 };
 export const parseBarSetting = parseOnOff;
-// Snapshots share the on/off grammar; aliased so callers/tests read intent clearly.
+// Las instantáneas comparten la gramática on/off; se aliasa para que quienes llaman y los tests lean la intención con claridad.
 export const parseSnapshotSetting = parseOnOff;
 
-// Parse the snapshot retention budget (a positive integer); undefined when invalid
-// so the caller falls back to DEFAULT_SNAPSHOT_KEEP.
+// Parsea el presupuesto de retención de instantáneas (un entero positivo); undefined cuando es inválido
+// para que quien llama vuelva a DEFAULT_SNAPSHOT_KEEP.
 export const parseSnapshotKeep = (value: string | undefined): number | undefined => {
 	if (!value) return undefined;
 	const n = Number(value.trim());
@@ -53,12 +53,12 @@ export const parseSnapshotKeep = (value: string | undefined): number | undefined
 	return n;
 };
 
-// Tool-result clearing shares the on/off grammar (aliased for intent at call sites).
+// La limpieza de tool-result comparte la gramática on/off (con alias por intención en los puntos de uso).
 export const parseClearSetting = parseOnOff;
 
-// Resolve a `/auto-compact <toggle> [on|off]` argument: an empty arg flips the
-// current value, otherwise parse the explicit on/off token (undefined => unrecognised, so
-// the caller shows usage). Shared by the bar/snapshot/clear-tools subcommands.
+// Resuelve un argumento de `/auto-compact <toggle> [on|off]`: un arg vacío invierte el
+// valor actual; si no, parsea el token explícito on/off (undefined => no reconocido, así que
+// quien llama muestra el uso). Lo comparten los subcomandos bar/snapshot/clear-tools.
 export const resolveToggle = (
 	arg: string,
 	current: boolean,
