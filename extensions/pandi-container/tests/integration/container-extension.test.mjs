@@ -138,7 +138,7 @@ async function scenarioPureHelpers(url) {
 	check("formatMachineList: humanizes memory (18G)", /18\s?G/i.test(line), line);
 	check(
 		"formatMachineList: empty → friendly",
-		/no .*machine/i.test(mod.formatMachineList([])),
+		/no hay máquinas/i.test(mod.formatMachineList([])),
 		mod.formatMachineList([]),
 	);
 }
@@ -392,7 +392,7 @@ async function scenarioStatusHandler(url) {
 		const res = await mod.runStatus(run, {});
 		check(
 			"runStatus with failing ls: still ok, empty machine list",
-			res.ok === true && /No container machines/.test(res.text),
+			res.ok === true && /No hay máquinas de contenedor/.test(res.text),
 			res.text,
 		);
 	}
@@ -439,12 +439,16 @@ async function scenarioHandlerErrorEdges(url) {
 		const res2 = await mod.runStop(run2, { name: "dev" }, {});
 		check(
 			"runStop: empty-detail failure reports the exit code",
-			res2.ok === false && /exit 7/.test(res2.text),
+			res2.ok === false && /salida 7/.test(res2.text),
 			res2.text,
 		);
 		const run3 = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
 		const res3 = await mod.runStop(run3, {}, {});
-		check("runStop: no name stops the default machine", res3.ok === true && /\(default\)/.test(res3.text), res3.text);
+		check(
+			"runStop: no name stops the default machine",
+			res3.ok === true && /\(predeterminada\)/.test(res3.text),
+			res3.text,
+		);
 	}
 
 	// exec: invalid machine name refused before spawning; empty stdout → explicit marker; timeout → timed-out text
@@ -454,10 +458,18 @@ async function scenarioHandlerErrorEdges(url) {
 		check("runExec: invalid machine name refused, no spawn", res.ok === false && run.calls.length === 0, res.text);
 		const run2 = fakeRunner([{ ok: true, stdout: "", stderr: "", exitCode: 0 }]);
 		const res2 = await mod.runExec(run2, { machine: "dev", command: ["true"] }, {});
-		check("runExec: empty stdout reports '(no output)'", res2.ok === true && /no output/i.test(res2.text), res2.text);
+		check(
+			"runExec: empty stdout reports '(sin salida)'",
+			res2.ok === true && /sin salida/i.test(res2.text),
+			res2.text,
+		);
 		const run3 = fakeRunner([{ ok: false, stdout: "", stderr: "", timedOut: true }]);
 		const res3 = await mod.runExec(run3, { machine: "dev", command: ["sleep", "99"] }, {});
-		check("runExec: timeout normalizes to 'timed out'", res3.ok === false && /timed out/i.test(res3.text), res3.text);
+		check(
+			"runExec: timeout normalizes to 'agotó el tiempo de espera'",
+			res3.ok === false && /agotó el tiempo de espera/i.test(res3.text),
+			res3.text,
+		);
 	}
 }
 
@@ -565,7 +577,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		await command.handler("help", ctx);
 		check(
 			"/container help prints usage",
-			notes.some((n) => n.type === "info" && /Usage:/.test(n.msg)),
+			notes.some((n) => n.type === "info" && /Uso:/.test(n.msg)),
 			JSON.stringify(notes.map((n) => n.type)),
 		);
 	}
@@ -575,7 +587,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		check(
 			"/container unknown subcommand warns + shows usage",
 			notes.some(
-				(n) => n.type === "warning" && /Unknown subcommand: frobnicate/.test(n.msg) && /Usage:/.test(n.msg),
+				(n) => n.type === "warning" && /Subcomando desconocido: frobnicate/.test(n.msg) && /Uso:/.test(n.msg),
 			),
 			JSON.stringify(notes.map((n) => n.type)),
 		);
@@ -587,7 +599,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		check("/container remove asks for confirmation", confirms.length === 1, `confirms=${confirms.length}`);
 		check(
 			"/container remove declined → refuses (needs force)",
-			notes.some((n) => n.type === "error" && /Refusing to delete/i.test(n.msg)),
+			notes.some((n) => n.type === "error" && /Me niego a eliminar/i.test(n.msg)),
 			JSON.stringify(notes),
 		);
 	}
@@ -606,7 +618,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		check("headless remove: never confirms", confirms.length === 0, `confirms=${confirms.length}`);
 		check(
 			"headless remove: refuses on stderr",
-			errs.some((m) => /Refusing to delete/i.test(m)),
+			errs.some((m) => /Me niego a eliminar/i.test(m)),
 			JSON.stringify({ errs, notes }),
 		);
 	}
@@ -620,7 +632,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		check("/container remove confirmed: confirm was asked", confirms.length === 1, `confirms=${confirms.length}`);
 		check(
 			"/container remove confirmed: force threads through (no needsForce refusal)",
-			notes.length > 0 && !notes.some((n) => /Refusing to delete/i.test(n.msg)),
+			notes.length > 0 && !notes.some((n) => /Me niego a eliminar/i.test(n.msg)),
 			JSON.stringify(notes),
 		);
 	}
@@ -636,7 +648,7 @@ async function scenarioCommandAndToolOutsideIn(url) {
 		const bogus = await tool.execute("t3", { action: "bogus" }, undefined, undefined, ctx);
 		check(
 			"tool unknown action → bounded error result",
-			bogus.details?.isError === true && /Unknown action/.test(bogus.content[0]?.text ?? ""),
+			bogus.details?.isError === true && /Acción desconocida/.test(bogus.content[0]?.text ?? ""),
 			JSON.stringify(bogus),
 		);
 	}
@@ -779,7 +791,7 @@ async function scenarioSizeTiers(url) {
 		const res = await mod.runExec(run, { machine: "dev", tier: "small", command: ["pwd"] }, {});
 		check(
 			"runExec: tier with existing machine refused, no spawn",
-			res.ok === false && run.calls.length === 0 && /fixed at creation/i.test(res.text),
+			res.ok === false && run.calls.length === 0 && /fijados en la creación/i.test(res.text),
 			JSON.stringify(res),
 		);
 	}

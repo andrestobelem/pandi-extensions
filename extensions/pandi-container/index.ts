@@ -65,33 +65,33 @@ export {
 const SUBCOMMANDS = ["status", "list", "create", "run", "stop", "remove"] as const;
 
 const HELP_TEXT = [
-	"Usage:",
-	"  /container [status]                         subsystem + machine overview",
-	"  /container list                            list container machines",
-	"  /container create <image> [name] [--size <tier>]   create a machine (e.g. alpine:latest dev --size small)",
-	"  /container run <machine> -- <cmd...>       run a command inside a machine",
-	"  /container stop [name]                     stop a machine (default if omitted)",
-	"  /container remove <name>                   delete a machine (confirms first)",
+	"Uso:",
+	"  /container [status]                         resumen del subsistema y las máquinas",
+	"  /container list                            lista las máquinas del contenedor",
+	"  /container create <image> [name] [--size <tier>]   crea una máquina (ej. alpine:latest dev --size small)",
+	"  /container run <machine> -- <cmd...>       ejecuta un comando dentro de una máquina",
+	"  /container stop [name]                     detiene una máquina (la default si se omite)",
+	"  /container remove <name>                   elimina una máquina (pide confirmación)",
 	"",
-	`Size tiers: ${describeTiers()}.`,
-	"Without a size, the CLI defaults memory to HALF of the host RAM (v1.0.0).",
-	"Machines need >= 1G (CLI floor), so micro/tiny apply to ephemeral runs only.",
+	`Niveles de tamaño: ${describeTiers()}.`,
+	"Sin un tamaño, la CLI usa por defecto la MITAD de la RAM del host (v1.0.0).",
+	"Las máquinas necesitan >= 1G (piso de la CLI); micro/tiny solo aplican a runs efímeros.",
 	"",
-	"Apple `container` needs macOS on Apple Silicon, `brew install container`, a",
-	"configured kernel (`container system kernel set --recommended`), and a booted",
-	"subsystem (`container system start`).",
+	"Apple `container` necesita macOS en Apple Silicon, `brew install container`, un",
+	"kernel configurado (`container system kernel set --recommended`), y un subsistema",
+	"iniciado (`container system start`).",
 ].join("\n");
 
-const PLATFORM_MSG = "Apple `container` requires macOS on Apple Silicon (arm64); this host is not supported.";
+const PLATFORM_MSG = "Apple `container` requiere macOS en Apple Silicon (arm64); este host no es compatible.";
 
 /** Human-labelled options for the bare `/container` action selector (first token is the value). */
 export const CONTAINER_SELECT_ITEMS = [
-	"status — subsystem + machine overview",
-	"list — list container machines",
-	"create — create a machine from an OCI image",
-	"run — run a command in a machine or an ephemeral container",
-	"stop — stop a machine",
-	"remove — delete a machine (asks for confirmation)",
+	"status — resumen del subsistema y las máquinas",
+	"list — lista las máquinas del contenedor",
+	"create — crea una máquina a partir de una imagen OCI",
+	"run — ejecuta un comando en una máquina o en un contenedor efímero",
+	"stop — detiene una máquina",
+	"remove — elimina una máquina (pide confirmación)",
 ];
 
 /**
@@ -123,7 +123,7 @@ export function parseSizeFlag(tokens: string[]): { tokens: string[]; tier?: stri
 		if (token === "--size" || token === "--tier") {
 			const next = tokens[i + 1];
 			if (!next || next.startsWith("--")) {
-				return { tokens: out, error: `--size requires a tier name. Valid tiers: ${describeTiers()}.` };
+				return { tokens: out, error: `--size requiere un nombre de nivel. Niveles válidos: ${describeTiers()}.` };
 			}
 			tier = next;
 			i += 1;
@@ -207,13 +207,16 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 		case "delete": {
 			const name = rest[0] ?? "";
 			const confirmed = ctx.hasUI
-				? await ctx.ui.confirm("Delete container machine?", `This permanently deletes machine "${name}".`)
+				? await ctx.ui.confirm(
+						"¿Eliminar la máquina del contenedor?",
+						`Esto elimina permanentemente la máquina "${name}".`,
+					)
 				: false;
 			result = await runRemove(runContainer, { name, force: confirmed }, opts);
 			break;
 		}
 		default:
-			notify(ctx, `Unknown subcommand: ${action}\n\n${HELP_TEXT}`, "warning");
+			notify(ctx, `Subcomando desconocido: ${action}\n\n${HELP_TEXT}`, "warning");
 			return;
 	}
 	notify(ctx, result.text, result.ok ? "info" : "error");
@@ -236,7 +239,7 @@ function toToolResult(result: HandlerResult) {
 
 export default function containerExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("container", {
-		description: "Manage Apple container sandboxes: status | list | create | run | stop | remove",
+		description: "Gestioná sandboxes de Apple container: status | list | create | run | stop | remove",
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/);
 			if (tokens.length > 1) {
@@ -262,41 +265,45 @@ export default function containerExtension(pi: ExtensionAPI): void {
 		name: "container_sandbox",
 		label: "Container Sandbox",
 		description:
-			"Manage Apple `container` sandboxes (Linux environments in lightweight micro-VMs) on macOS/Apple Silicon. Actions: 'status' (subsystem + machine overview), 'list' (list container machines), 'create' (create a machine from an OCI image), 'run' (run a command isolated inside an existing machine OR an ephemeral container), 'stop' (stop a machine), 'remove' (delete a machine; requires force). `container` is invoked with an argv array, never a shell.",
-		promptSnippet: "Manage Apple container sandboxes: status/list/create/run/stop/remove Linux micro-VMs.",
+			"Gestioná sandboxes de Apple `container` (entornos Linux en micro-VMs livianas) en macOS/Apple Silicon. Acciones: 'status' (resumen del subsistema y las máquinas), 'list' (lista las máquinas del contenedor), 'create' (crea una máquina a partir de una imagen OCI), 'run' (ejecuta un comando aislado dentro de una máquina existente O un contenedor efímero), 'stop' (detiene una máquina), 'remove' (elimina una máquina; requiere force). `container` se invoca con un array argv, nunca con un shell.",
+		promptSnippet: "Gestioná sandboxes de Apple container: status/list/create/run/stop/remove de micro-VMs Linux.",
 		promptGuidelines: [
-			"Use container_sandbox to run untrusted or isolated Linux commands inside Apple `container` micro-VMs instead of running them directly on the host.",
-			"For action 'run', pass 'command' as an argv array (e.g. [\"uname\",\"-a\"]) plus either 'machine' (an existing machine) or 'image' (ephemeral container). Never embed a shell string.",
-			"container_sandbox 'remove' never deletes by default: only pass force:true when the user explicitly accepts deleting the machine.",
-			"Prefer a named size tier for 'create' (small/medium/large; the CLI requires >= 1G for machines) and ephemeral 'run' (any tier, incl. micro/tiny): without one the CLI defaults machine memory to HALF of the host RAM. Explicit cpus/memory override the tier; tiers never apply to a run inside an existing machine.",
-			"Apple `container` needs macOS on Apple Silicon, `brew install container`, a configured kernel, and a booted subsystem; surface the install/start guidance instead of retrying blindly.",
+			"Usá container_sandbox para correr comandos Linux no confiables o aislados dentro de micro-VMs de Apple `container` en vez de correrlos directamente en el host.",
+			"Para la acción 'run', pasá 'command' como un array argv (ej. [\"uname\",\"-a\"]) más 'machine' (una máquina existente) o 'image' (contenedor efímero). Nunca embebas un string de shell.",
+			"container_sandbox 'remove' nunca elimina por defecto: pasá force:true solo cuando el usuario acepta explícitamente eliminar la máquina.",
+			"Preferí un nivel de tamaño con nombre para 'create' (small/medium/large; la CLI requiere >= 1G para máquinas) y para 'run' efímero (cualquier nivel, incl. micro/tiny): sin uno, la CLI usa por defecto la MITAD de la RAM del host como memoria de la máquina. cpus/memory explícitos pisan el nivel; los niveles nunca aplican a un run dentro de una máquina existente.",
+			"Apple `container` necesita macOS en Apple Silicon, `brew install container`, un kernel configurado, y un subsistema iniciado; mostrá la guía de instalación/inicio en vez de reintentar a ciegas.",
 		],
 		parameters: Type.Object({
 			action: StringEnum(["status", "list", "create", "run", "stop", "remove"] as const),
-			name: Type.Optional(Type.String({ description: "Machine name (for create/stop/remove, or run target)." })),
+			name: Type.Optional(
+				Type.String({ description: "Nombre de la máquina (para create/stop/remove, o el destino de run)." }),
+			),
 			image: Type.Optional(
-				Type.String({ description: "OCI image (for create, or ephemeral run), e.g. alpine:latest." }),
+				Type.String({ description: "Imagen OCI (para create, o run efímero), ej. alpine:latest." }),
 			),
 			command: Type.Optional(
-				Type.Array(Type.String(), { description: 'For run: the command as an argv array (e.g. ["uname","-a"]).' }),
+				Type.Array(Type.String(), {
+					description: 'Para run: el comando como array argv (ej. ["uname","-a"]).',
+				}),
 			),
 			machine: Type.Optional(
-				Type.String({ description: "For run: existing machine to run inside (else ephemeral via image)." }),
+				Type.String({ description: "Para run: máquina existente donde ejecutar (si no, efímero vía image)." }),
 			),
-			workdir: Type.Optional(Type.String({ description: "For run: working directory inside the container." })),
+			workdir: Type.Optional(Type.String({ description: "Para run: directorio de trabajo dentro del contenedor." })),
 			tier: Type.Optional(
 				StringEnum(TIER_NAMES, {
 					description:
-						"For create or ephemeral run: named size preset (micro 1cpu/256M, tiny 2cpu/512M, small 2cpu/1G, medium 4cpu/2G, large 8cpu/4G). create accepts small+ only (CLI requires >= 1G for machines); micro/tiny are ephemeral-run-only. Explicit cpus/memory override it.",
+						"Para create o run efímero: preset de tamaño con nombre (micro 1cpu/256M, tiny 2cpu/512M, small 2cpu/1G, medium 4cpu/2G, large 8cpu/4G). create solo acepta small+ (la CLI requiere >= 1G para máquinas); micro/tiny son solo para run efímero. cpus/memory explícitos lo pisan.",
 				}),
 			),
-			cpus: Type.Optional(Type.Number({ description: "For create or ephemeral run: number of virtual CPUs." })),
+			cpus: Type.Optional(Type.Number({ description: "Para create o run efímero: cantidad de CPUs virtuales." })),
 			memory: Type.Optional(
-				Type.String({ description: "For create or ephemeral run: memory allocation, e.g. 8G." }),
+				Type.String({ description: "Para create o run efímero: asignación de memoria, ej. 8G." }),
 			),
 			homeMount: Type.Optional(StringEnum(["ro", "rw", "none"] as const)),
-			setDefault: Type.Optional(Type.Boolean({ description: "For create: set this machine as the default." })),
-			force: Type.Optional(Type.Boolean({ description: "For remove: confirm deleting the machine." })),
+			setDefault: Type.Optional(Type.Boolean({ description: "Para create: marcar esta máquina como la default." })),
+			force: Type.Optional(Type.Boolean({ description: "Para remove: confirma eliminar la máquina." })),
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -352,7 +359,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 					);
 				default:
 					return {
-						content: [{ type: "text" as const, text: `Unknown action: ${params.action}` }],
+						content: [{ type: "text" as const, text: `Acción desconocida: ${params.action}` }],
 						details: { isError: true },
 					};
 			}

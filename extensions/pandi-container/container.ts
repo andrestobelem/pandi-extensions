@@ -173,7 +173,7 @@ export function describeMachine(m: MachineEntry): string {
 }
 
 export function formatMachineList(entries: MachineEntry[]): string {
-	if (entries.length === 0) return "No container machines.";
+	if (entries.length === 0) return "No hay máquinas de contenedor.";
 	return entries.map(describeMachine).join("\n");
 }
 
@@ -240,7 +240,7 @@ export function resolveSize(opts: { tier?: string; cpus?: number; memory?: strin
 	const { tier, cpus, memory } = opts;
 	if (tier != null && tier !== "") {
 		if (!isTierName(tier)) {
-			return { ok: false, error: `Unknown size tier "${tier}". Valid tiers: ${describeTiers()}.` };
+			return { ok: false, error: `Nivel de tamaño desconocido "${tier}". Niveles válidos: ${describeTiers()}.` };
 		}
 		const preset = TIER_PRESETS[tier];
 		return { ok: true, cpus: cpus ?? preset.cpus, memory: memory ?? preset.memory };
@@ -327,19 +327,19 @@ export function buildRemoveArgs(opts: { name: string }): string[] {
 // Error normalization
 // --------------------------------------------------------------------------
 
-const INSTALL_HINT = "The Apple `container` CLI was not found. Install it with: brew install container";
+const INSTALL_HINT = "No se encontró la CLI de Apple `container`. Instalala con: brew install container";
 
 /** Turn a failed ContainerResult into a single bounded, actionable line. */
 export function describeError(result: ContainerResult, action: string): string {
 	if (result.spawnError) {
 		if (/ENOENT/i.test(result.spawnError)) return INSTALL_HINT;
-		return `Could not run \`container ${action}\`: ${result.spawnError}`;
+		return `No se pudo ejecutar \`container ${action}\`: ${result.spawnError}`;
 	}
-	if (result.timedOut) return `\`container ${action}\` timed out.`;
+	if (result.timedOut) return `\`container ${action}\` agotó el tiempo de espera.`;
 	const detail = (result.stderr || result.stdout || "").trim();
 	return detail
-		? `\`container ${action}\` failed: ${detail}`
-		: `\`container ${action}\` failed (exit ${result.exitCode ?? "?"}).`;
+		? `\`container ${action}\` falló: ${detail}`
+		: `\`container ${action}\` falló (salida ${result.exitCode ?? "?"}).`;
 }
 
 // --------------------------------------------------------------------------
@@ -365,7 +365,7 @@ export async function runStatus(run: RunContainer, opts: HandlerOpts): Promise<H
 	}
 	const list = await run(buildMachineListArgs(), opts);
 	const machines = list.ok ? parseMachineList(list.stdout) : [];
-	const text = `Subsystem: running\n\nMachines:\n${formatMachineList(machines)}`;
+	const text = `Subsistema: en ejecución\n\nMáquinas:\n${formatMachineList(machines)}`;
 	return { ok: true, text, details: { action: "status", running: true, machines } };
 }
 
@@ -386,14 +386,14 @@ export async function runCreate(run: RunContainer, params: CreateOptions, opts: 
 	if (!params.image) {
 		return {
 			ok: false,
-			text: "create requires an 'image' (e.g. alpine:latest).",
+			text: "create requiere un 'image' (ej. alpine:latest).",
 			details: { isError: true, action: "create" },
 		};
 	}
 	if (params.name && !validateMachineName(params.name)) {
 		return {
 			ok: false,
-			text: `Invalid machine name "${params.name}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
+			text: `Nombre de máquina inválido "${params.name}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
 			details: { isError: true, action: "create" },
 		};
 	}
@@ -401,22 +401,26 @@ export async function runCreate(run: RunContainer, params: CreateOptions, opts: 
 		const machineTiers = describeTiers(MACHINE_TIER_NAMES);
 		return {
 			ok: false,
-			text: `Tier "${params.tier}" is too small for a persistent machine — the CLI requires at least 1G of memory for 'machine create'. Machine tiers: ${machineTiers}. Sub-1G tiers work only for ephemeral image runs.`,
+			text: `El nivel "${params.tier}" es demasiado chico para una máquina persistente — la CLI requiere al menos 1G de memoria para 'machine create'. Niveles de máquina: ${machineTiers}. Los niveles menores a 1G solo sirven para runs efímeros de imagen.`,
 			details: { isError: true, action: "create" },
 		};
 	}
 	const size = resolveSize({ tier: params.tier, cpus: params.cpus, memory: params.memory });
 	if (!size.ok) {
-		return { ok: false, text: size.error ?? "Invalid size tier.", details: { isError: true, action: "create" } };
+		return {
+			ok: false,
+			text: size.error ?? "Nivel de tamaño inválido.",
+			details: { isError: true, action: "create" },
+		};
 	}
 	const result = await run(buildMachineCreateArgs({ ...params, cpus: size.cpus, memory: size.memory }), opts);
 	if (!result.ok) {
 		return { ok: false, text: describeError(result, "machine create"), details: { isError: true, action: "create" } };
 	}
-	const name = params.name ?? "(default)";
+	const name = params.name ?? "(predeterminada)";
 	return {
 		ok: true,
-		text: `Created container machine ${name} from ${params.image}.`,
+		text: `Se creó la máquina de contenedor ${name} a partir de ${params.image}.`,
 		details: { action: "create", name: params.name, image: params.image },
 	};
 }
@@ -436,28 +440,28 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 	if (!Array.isArray(params.command) || params.command.length === 0) {
 		return {
 			ok: false,
-			text: "run requires a non-empty 'command' array (argv).",
+			text: "run requiere un array 'command' no vacío (argv).",
 			details: { isError: true, action: "run" },
 		};
 	}
 	if (!params.machine && !params.image) {
 		return {
 			ok: false,
-			text: "run requires either 'machine' (existing) or 'image' (ephemeral).",
+			text: "run requiere 'machine' (existente) o 'image' (efímero).",
 			details: { isError: true, action: "run" },
 		};
 	}
 	if (params.machine && !validateMachineName(params.machine)) {
 		return {
 			ok: false,
-			text: `Invalid machine name "${params.machine}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
+			text: `Nombre de máquina inválido "${params.machine}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
 			details: { isError: true, action: "run" },
 		};
 	}
 	if (params.machine && params.tier) {
 		return {
 			ok: false,
-			text: `Size tiers do not apply to a run inside existing machine "${params.machine}" — its resources are fixed at creation. Use a tier on 'create' or on an ephemeral image run.`,
+			text: `Los niveles de tamaño no aplican a un run dentro de la máquina existente "${params.machine}" — sus recursos quedan fijados en la creación. Usá un nivel en 'create' o en un run efímero de imagen.`,
 			details: { isError: true, action: "run" },
 		};
 	}
@@ -467,7 +471,11 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 	} else {
 		const size = resolveSize({ tier: params.tier, cpus: params.cpus, memory: params.memory });
 		if (!size.ok) {
-			return { ok: false, text: size.error ?? "Invalid size tier.", details: { isError: true, action: "run" } };
+			return {
+				ok: false,
+				text: size.error ?? "Nivel de tamaño inválido.",
+				details: { isError: true, action: "run" },
+			};
 		}
 		args = buildEphemeralRunArgs({
 			image: params.image as string,
@@ -482,7 +490,7 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 	if (!result.ok) {
 		return { ok: false, text: describeError(result, "run"), details: { isError: true, action: "run", target } };
 	}
-	const text = result.stdout.trim() || `(no output) — ran in ${target}`;
+	const text = result.stdout.trim() || `(sin salida) — ejecutado en ${target}`;
 	return { ok: true, text, details: { action: "run", target, exitCode: result.exitCode } };
 }
 
@@ -490,7 +498,7 @@ export async function runStop(run: RunContainer, params: { name?: string }, opts
 	if (params.name && !validateMachineName(params.name)) {
 		return {
 			ok: false,
-			text: `Invalid machine name "${params.name}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
+			text: `Nombre de máquina inválido "${params.name}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
 			details: { isError: true, action: "stop" },
 		};
 	}
@@ -500,7 +508,7 @@ export async function runStop(run: RunContainer, params: { name?: string }, opts
 	}
 	return {
 		ok: true,
-		text: `Stopped container machine ${params.name ?? "(default)"}.`,
+		text: `Se detuvo la máquina de contenedor ${params.name ?? "(predeterminada)"}.`,
 		details: { action: "stop", name: params.name },
 	};
 }
@@ -513,14 +521,14 @@ export async function runRemove(
 	if (!params.name || !validateMachineName(params.name)) {
 		return {
 			ok: false,
-			text: `Invalid machine name "${params.name}": use letters, digits, ".", "_", or "-", starting with a letter or digit (max 64 chars).`,
+			text: `Nombre de máquina inválido "${params.name}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
 			details: { isError: true, action: "remove" },
 		};
 	}
 	if (!params.force) {
 		return {
 			ok: false,
-			text: `Refusing to delete machine "${params.name}" without force. Pass force:true (tool) or confirm (command).`,
+			text: `Me niego a eliminar la máquina "${params.name}" sin force. Pasá force:true (en la tool) o confirmá (en el comando).`,
 			details: { isError: true, action: "remove", needsForce: true, name: params.name },
 		};
 	}
@@ -530,7 +538,7 @@ export async function runRemove(
 	}
 	return {
 		ok: true,
-		text: `Deleted container machine ${params.name}.`,
+		text: `Se eliminó la máquina de contenedor ${params.name}.`,
 		details: { action: "remove", name: params.name },
 	};
 }
