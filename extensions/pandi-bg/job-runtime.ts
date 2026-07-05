@@ -87,7 +87,7 @@ export function pipeWithBackpressure(
 			if (written[i] + chunk.length > capBytes) {
 				const remaining = Math.max(0, capBytes - written[i]);
 				if (remaining > 0) sink.write(chunk.subarray(0, remaining));
-				sink.write(`\n[log capped at ${capBytes} bytes]\n`);
+				sink.write(`\n[log topado en ${capBytes} bytes]\n`);
 				capped[i] = true;
 				return;
 			}

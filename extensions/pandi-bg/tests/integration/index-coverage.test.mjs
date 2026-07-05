@@ -76,7 +76,7 @@ async function topLevelCatchReturnsErrorResponse(url) {
 	}
 	const note = ctx._notes.at(-1) || {};
 	check("catch: handler does not throw out of the dispatch try/catch", !threw);
-	check("catch: surfaces a `/bg failed:` message", /\/bg failed:/.test(note.msg || ""), JSON.stringify(note));
+	check("catch: surfaces a `/bg failed:` message", /\/bg falló:/.test(note.msg || ""), JSON.stringify(note));
 	check("catch: response uses the 'error' type", note.type === "error", JSON.stringify(note));
 }
 
@@ -89,12 +89,12 @@ async function duplicateCancelIsReported(url) {
 		await commands.get("bg").handler(`cancel ${job.jobId}`, job.ctx);
 		check(
 			"dup-cancel: first cancel is accepted",
-			/Cancel requested/.test(job.ctx._notes.at(-1)?.msg || ""),
+			/Cancelación solicitada/.test(job.ctx._notes.at(-1)?.msg || ""),
 			job.ctx._notes.at(-1)?.msg,
 		);
 		await commands.get("bg").handler(`cancel ${job.jobId}`, job.ctx);
 		const msg = job.ctx._notes.at(-1)?.msg || "";
-		check("dup-cancel: second cancel reports already-requested", /Cancellation already requested/.test(msg), msg);
+		check("dup-cancel: second cancel reports already-requested", /Ya se solicitó la cancelación/.test(msg), msg);
 		const events = await fs.readFile(path.join(job.runDir, "events.jsonl"), "utf8").catch(() => "");
 		const requests = (events.match(/"event":"cancel-requested"/g) || []).length;
 		check("dup-cancel: only a single cancel-requested event is recorded", requests === 1, String(requests));
@@ -141,11 +141,11 @@ async function cancelPersistedRefusesReusedIdentity(url) {
 	check("persist-reuse: current process is never signaled", process.kill(process.pid, 0));
 	const status = await readJson(path.join(runDir, "status.json"));
 	check("persist-reuse: status is left running (not cancelled)", status.state === "running", JSON.stringify(status));
-	check("persist-reuse: refuses to cancel", /Refusing to cancel/.test(msg), msg);
+	check("persist-reuse: refuses to cancel", /Rechazando cancelar/.test(msg), msg);
 	if (process.platform === "win32") {
-		check("persist-reuse: win32 cites unverifiable identity", /could not be verified/.test(msg), msg);
+		check("persist-reuse: win32 cites unverifiable identity", /no se pudo verificar/.test(msg), msg);
 	} else {
-		check("persist-reuse: POSIX cites a reused PID", /was reused/.test(msg), msg);
+		check("persist-reuse: POSIX cites a reused PID", /fue reutilizado/.test(msg), msg);
 	}
 }
 
@@ -169,7 +169,7 @@ async function deleteRefusesLiveOrphan(url) {
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler(`delete ${jobId}`, ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
-	check("delete-live: refuses with `cannot be deleted`", /cannot be deleted/.test(msg), msg);
+	check("delete-live: refuses with `cannot be deleted`", /no se puede eliminar/.test(msg), msg);
 	check("delete-live: the run dir is left intact", existsSync(runDir), runDir);
 	check("delete-live: current process is still alive (never touched)", process.kill(process.pid, 0));
 }
@@ -185,7 +185,7 @@ async function pruneUntrustedAndPlanModeRejected(url) {
 	const untrustedMsg = untrustedCtx._notes.at(-1)?.msg || "";
 	check(
 		"prune-gate: untrusted project is rejected",
-		/Cannot \/bg prune in an untrusted project/.test(untrustedMsg),
+		/No se puede ejecutar \/bg prune en un proyecto no confiable/.test(untrustedMsg),
 		untrustedMsg,
 	);
 	check("prune-gate: untrusted rejection uses 'warning' type", untrustedCtx._notes.at(-1)?.type === "warning");
@@ -199,7 +199,11 @@ async function pruneUntrustedAndPlanModeRejected(url) {
 		const planCtx = makeCtx({ cwd: planCwd, trusted: true });
 		await commands.get("bg").handler("prune", planCtx);
 		const planMsg = planCtx._notes.at(-1)?.msg || "";
-		check("prune-gate: plan mode active is rejected", /Cannot \/bg prune while plan mode/.test(planMsg), planMsg);
+		check(
+			"prune-gate: plan mode active is rejected",
+			/No se puede ejecutar \/bg prune mientras el modo plan/.test(planMsg),
+			planMsg,
+		);
 		check("prune-gate: plan-mode rejection uses 'warning' type", planCtx._notes.at(-1)?.type === "warning");
 	} finally {
 		if (prev === undefined) delete globalThis[planSym];

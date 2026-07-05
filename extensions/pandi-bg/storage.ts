@@ -82,7 +82,8 @@ export async function ensurePlainDirectory(dir: string): Promise<void> {
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
 	}
-	if (!(await lstatPlainDirectory(dir))) throw new Error(`Refusing to use non-directory or symlink: ${dir}`);
+	if (!(await lstatPlainDirectory(dir)))
+		throw new Error(`Se rechaza usar algo que no es un directorio o es un symlink: ${dir}`);
 }
 
 export async function createRunDir(ctx: ExtensionContext, jobId: string): Promise<string> {

@@ -274,7 +274,7 @@ function planModeActive(): boolean {
 function rejectInPlanMode(action: "start" | "cancel" | "delete" | "prune"): BgResponse | undefined {
 	if (!planModeActive()) return undefined;
 	return response(
-		`Cannot /bg ${action} while plan mode is active. Approve or exit /plan first.`,
+		`No se puede ejecutar /bg ${action} mientras el modo plan está activo. Aprobá o salí de /plan primero.`,
 		{ action, blockedBy: "plan-mode" },
 		"warning",
 	);
@@ -288,15 +288,15 @@ function canRunInMode(ctx: ExtensionContext): boolean {
 // group signalling live in ./job-runtime.ts (imported above + re-exported for tests).
 
 async function handlePreview(command: string): Promise<BgResponse> {
-	if (!command.trim()) return response("Usage: /bg preview <command>", undefined, "warning");
+	if (!command.trim()) return response("Uso: /bg preview <command>", undefined, "warning");
 	return response(
 		[
-			"Dry run only — no background job was started.",
+			"Solo dry run — no se inició ningún job en segundo plano.",
 			"",
-			"Command to run:",
+			"Comando a ejecutar:",
 			command.trim(),
 			"",
-			"Use /bg start <command> in a trusted TUI/RPC session to run it.",
+			"Usá /bg start <command> en una sesión TUI/RPC confiable para ejecutarlo.",
 		].join("\n"),
 		{ action: "preview", command: command.trim(), dryRun: true },
 	);
@@ -306,15 +306,19 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 	const blocked = rejectInPlanMode("start");
 	if (blocked) return blocked;
 	const trimmed = command.trim();
-	if (!trimmed) return response("Usage: /bg start <command>", undefined, "warning");
+	if (!trimmed) return response("Uso: /bg start <command>", undefined, "warning");
 	if (!canRunInMode(ctx))
 		return response(
-			"Cannot /bg start outside a persistent TUI/RPC session.",
+			"No se puede ejecutar /bg start fuera de una sesión TUI/RPC persistente.",
 			{ action: "start", blockedBy: "mode", mode: ctx.mode },
 			"warning",
 		);
 	if (!ctx.isProjectTrusted())
-		return response("Cannot /bg start in an untrusted project.", { action: "start", blockedBy: "trust" }, "warning");
+		return response(
+			"No se puede ejecutar /bg start en un proyecto no confiable.",
+			{ action: "start", blockedBy: "trust" },
+			"warning",
+		);
 
 	const jobId = generateJobId();
 	const runDir = await createRunDir(ctx, jobId);
@@ -378,9 +382,9 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 
 	return response(
 		[
-			`Started background job ${jobId}.`,
-			`Artifacts: ${runDir}`,
-			`Status: /bg status ${jobId}`,
+			`Job en segundo plano ${jobId} iniciado.`,
+			`Artefactos: ${runDir}`,
+			`Estado: /bg status ${jobId}`,
 			`Logs: /bg logs ${jobId}`,
 		].join("\n"),
 		{ action: "start", jobId, artifactsDir: runDir, pid: child.pid },
@@ -395,7 +399,7 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 	const runDir = await findJobDir(ctx, jobId);
 	if (!runDir)
 		return response(
-			`Background job ${jobId} is not active in this session; no process was killed.`,
+			`El job en segundo plano ${jobId} no está activo en esta sesión; no se mató ningún proceso.`,
 			{ action: "cancel", jobId, active: false },
 			"warning",
 		);
@@ -403,7 +407,7 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 	const state = asString(status.state);
 	if (!state || !RECONCILABLE_STATES.has(state)) {
 		return response(
-			`Background job ${jobId} has already finished (${state ?? "unknown"}); nothing to cancel.`,
+			`El job en segundo plano ${jobId} ya terminó (${state ?? "unknown"}); no hay nada que cancelar.`,
 			{ action: "cancel", jobId, active: false, alreadyFinished: true },
 			"warning",
 		);
@@ -413,10 +417,10 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 	if (identity !== "same") {
 		const why =
 			identity === "different"
-				? `its PID ${pid} was reused by another process`
-				: "its process identity could not be verified";
+				? `su PID ${pid} fue reutilizado por otro proceso`
+				: "no se pudo verificar la identidad de su proceso";
 		return response(
-			`Refusing to cancel background job ${jobId}: ${why}, so it is not safe to signal. It was started by another Pi session; use OS tools (kill -- -${pid} / taskkill) if it is still running.`,
+			`Rechazando cancelar el job en segundo plano ${jobId}: ${why}, así que no es seguro enviarle una señal. Fue iniciado por otra sesión de Pi; usá herramientas del SO (kill -- -${pid} / taskkill) si sigue corriendo.`,
 			{ action: "cancel", jobId, active: false, signaled: false, identity },
 			"warning",
 		);
@@ -444,8 +448,8 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 	});
 	return response(
 		signaled
-			? `Sent SIGTERM to verified orphan ${jobId} (pid ${pid}) and marked it cancelled.`
-			: `Marked verified orphan ${jobId} cancelled, but signaling pid ${pid} failed.`,
+			? `Se envió SIGTERM al huérfano verificado ${jobId} (pid ${pid}) y se lo marcó como cancelado.`
+			: `Se marcó el huérfano verificado ${jobId} como cancelado, pero falló el envío de señal al pid ${pid}.`,
 		{ action: "cancel", jobId, active: false, signaled, identity: "verified" },
 	);
 }
@@ -454,19 +458,19 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	const blocked = rejectInPlanMode("cancel");
 	if (blocked) return blocked;
 	const trimmed = jobId.trim();
-	if (!trimmed || !validJobId(trimmed)) return response("Usage: /bg cancel <jobId>", undefined, "warning");
+	if (!trimmed || !validJobId(trimmed)) return response("Uso: /bg cancel <jobId>", undefined, "warning");
 	const runtime = activeJobs.get(trimmed);
 	if (!runtime) return await cancelPersistedJob(ctx, trimmed);
 	if (isJobFinished(runtime)) {
 		return response(
-			`Background job ${trimmed} has already finished; nothing to cancel.`,
+			`El job en segundo plano ${trimmed} ya terminó; no hay nada que cancelar.`,
 			{ action: "cancel", jobId: trimmed, active: false, alreadyFinished: true },
 			"warning",
 		);
 	}
 	if (runtime.status.cancelRequested) {
 		return response(
-			`Cancellation already requested for background job ${trimmed}.`,
+			`Ya se solicitó la cancelación del job en segundo plano ${trimmed}.`,
 			{ action: "cancel", jobId: trimmed, active: true, duplicate: true },
 			"warning",
 		);
@@ -504,7 +508,7 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 			});
 		}
 	}, CANCEL_GRACE_MS);
-	return response(`Cancel requested for background job ${trimmed}.`, {
+	return response(`Cancelación solicitada para el job en segundo plano ${trimmed}.`, {
 		action: "cancel",
 		jobId: trimmed,
 		active: true,
@@ -513,8 +517,8 @@ async function handleCancel(ctx: ExtensionContext, jobId: string): Promise<BgRes
 
 async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	const jobs = await listJobs(ctx);
-	if (jobs.length === 0) return response("No background jobs found.", { jobs: [] });
-	return response(["Background jobs:", ...jobs.map(formatJob)].join("\n"), { jobs });
+	if (jobs.length === 0) return response("No se encontraron jobs en segundo plano.", { jobs: [] });
+	return response(["Jobs en segundo plano:", ...jobs.map(formatJob)].join("\n"), { jobs });
 }
 
 // Single source of truth for whether a job's artifacts may be removed. Never trusts
@@ -525,17 +529,17 @@ function classifyForDeletion(
 	jobId: string,
 	status: Record<string, unknown> | undefined,
 ): { liveState: string; deletable: boolean; reason?: string } {
-	if (activeJobs.has(jobId)) return { liveState: "running", deletable: false, reason: "it is active in this session" };
+	if (activeJobs.has(jobId)) return { liveState: "running", deletable: false, reason: "está activo en esta sesión" };
 	const pid = asNumber(status?.pid);
 	let state: string = projectState(jobId, asString(status?.state), pid).state;
 	if (state === "orphaned") state = refineOrphanedIdentity(pid, asString(status?.startId)).state;
 	if (DELETABLE_STATES.has(state)) return { liveState: state, deletable: true };
 	const reason =
 		state === "orphaned"
-			? "its process is still alive (or its identity cannot be verified)"
+			? "su proceso sigue vivo (o no se puede verificar su identidad)"
 			: state === "stale"
-				? "its liveness cannot be proven"
-				: `it is not in a terminal state (${state})`;
+				? "no se puede comprobar si sigue vivo"
+				: `no está en un estado terminal (${state})`;
 	return { liveState: state, deletable: false, reason };
 }
 
@@ -546,14 +550,18 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 	const blocked = rejectInPlanMode("prune");
 	if (blocked) return blocked;
 	if (!ctx.isProjectTrusted())
-		return response("Cannot /bg prune in an untrusted project.", { action: "prune", blockedBy: "trust" }, "warning");
+		return response(
+			"No se puede ejecutar /bg prune en un proyecto no confiable.",
+			{ action: "prune", blockedBy: "trust" },
+			"warning",
+		);
 	const { yes } = parsePruneFlags(tail);
 	const candidates: { jobId: string; state: string; bytes: number }[] = [];
 	const skipped: { jobId: string; state: string; reason: string }[] = [];
 	for (const { jobId, runDir, status } of await eachProjectRunDir(ctx)) {
 		const verdict = classifyForDeletion(jobId, status);
 		if (verdict.deletable) candidates.push({ jobId, state: verdict.liveState, bytes: await dirSizeBytes(runDir) });
-		else skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "not deletable" });
+		else skipped.push({ jobId, state: verdict.liveState, reason: verdict.reason ?? "no se puede eliminar" });
 	}
 	const totalBytes = candidates.reduce((sum, c) => sum + c.bytes, 0);
 	if (yes) {
@@ -573,8 +581,8 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 				deleted.push(c.jobId);
 		}
 		const execLines = [
-			`Pruned ${deleted.length} of ${candidates.length} candidate job(s) (${skipped.length} skipped).`,
-			...deleted.map((id) => `  deleted ${id}`),
+			`Se eliminaron ${deleted.length} de ${candidates.length} job(s) candidato(s) (${skipped.length} omitido(s)).`,
+			...deleted.map((id) => `  eliminado ${id}`),
 		];
 		return response(execLines.join("\n"), {
 			action: "prune",
@@ -585,10 +593,10 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 		});
 	}
 	const lines = [
-		`Prune preview: ${candidates.length} deletable (${totalBytes} bytes), ${skipped.length} skipped.`,
-		...candidates.map((c) => `  delete ${c.jobId} · ${c.state} · ${c.bytes}B`),
-		...skipped.map((s) => `  skip   ${s.jobId} · ${s.state} · ${s.reason}`),
-		candidates.length ? `Run /bg prune --yes to delete ${candidates.length} job(s).` : "Nothing to prune.",
+		`Vista previa de prune: ${candidates.length} eliminable(s) (${totalBytes} bytes), ${skipped.length} omitido(s).`,
+		...candidates.map((c) => `  eliminar ${c.jobId} · ${c.state} · ${c.bytes}B`),
+		...skipped.map((s) => `  omitir  ${s.jobId} · ${s.state} · ${s.reason}`),
+		candidates.length ? `Ejecutá /bg prune --yes para eliminar ${candidates.length} job(s).` : "Nada para eliminar.",
 	];
 	return response(lines.join("\n"), {
 		action: "prune",
@@ -607,18 +615,18 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	if (blocked) return blocked;
 	if (!ctx.isProjectTrusted())
 		return response(
-			"Cannot /bg delete in an untrusted project.",
+			"No se puede ejecutar /bg delete en un proyecto no confiable.",
 			{ action: "delete", blockedBy: "trust" },
 			"warning",
 		);
-	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg delete <jobId>");
+	const runDir = await resolveRunDir(ctx, jobId, "Uso: /bg delete <jobId>");
 	if (typeof runDir !== "string") return runDir;
 	// Write boundary: only the project-local store is mutable. A global-fallback job
 	// resolves via findJobDir for reads, but delete refuses it (read-only).
 	const projectRuns = path.join(getProjectBgRoot(ctx), RUNS_DIR);
 	if (!path.resolve(runDir).startsWith(path.resolve(projectRuns) + path.sep)) {
 		return response(
-			`Background job ${jobId} lives in the global (read-only) fallback store; /bg delete only removes project-local jobs.`,
+			`El job en segundo plano ${jobId} vive en el almacén global de respaldo (solo lectura); /bg delete solo elimina jobs locales del proyecto.`,
 			{ action: "delete", jobId, deleted: false, scope: "global" },
 			"warning",
 		);
@@ -627,7 +635,7 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 	const verdict = classifyForDeletion(jobId, status);
 	if (!verdict.deletable) {
 		return response(
-			`Background job ${jobId} cannot be deleted: ${verdict.reason}.`,
+			`El job en segundo plano ${jobId} no se puede eliminar: ${verdict.reason}.`,
 			{ action: "delete", jobId, deleted: false, liveState: verdict.liveState },
 			"warning",
 		);
@@ -640,8 +648,12 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 		(reread) => classifyForDeletion(jobId, reread).deletable,
 	);
 	if (!removed)
-		return response(`Background job not found: ${jobId}`, { action: "delete", jobId, deleted: false }, "warning");
-	return response(`Background job ${jobId} deleted.`, { action: "delete", jobId, deleted: true });
+		return response(
+			`Job en segundo plano no encontrado: ${jobId}`,
+			{ action: "delete", jobId, deleted: false },
+			"warning",
+		);
+	return response(`Job en segundo plano ${jobId} eliminado.`, { action: "delete", jobId, deleted: true });
 }
 
 // Validate a job id and resolve its symlink-safe run directory, or return the
@@ -649,12 +661,12 @@ async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgRes
 async function resolveRunDir(ctx: ExtensionContext, jobId: string, usage: string): Promise<string | BgResponse> {
 	if (!jobId || !validJobId(jobId)) return response(usage, undefined, "warning");
 	const runDir = await findJobDir(ctx, jobId);
-	if (!runDir) return response(`Background job not found: ${jobId}`, { jobId, found: false }, "warning");
+	if (!runDir) return response(`Job en segundo plano no encontrado: ${jobId}`, { jobId, found: false }, "warning");
 	return runDir;
 }
 
 async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg status <jobId>");
+	const runDir = await resolveRunDir(ctx, jobId, "Uso: /bg status <jobId>");
 	if (typeof runDir !== "string") return runDir;
 	const job = (await readJson(path.join(runDir, "job.json"))) ?? {};
 	const rawStatus = (await readJson(path.join(runDir, "status.json"))) ?? {};
@@ -671,7 +683,7 @@ async function handleStatus(ctx: ExtensionContext, jobId: string): Promise<BgRes
 			status.interruptedCause = "pid-reused";
 		} else if (refined.verified) {
 			status.identity = "verified";
-			status.hint = `PID ${pid} is verified still running (same start identity). Stop it with kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`;
+			status.hint = `El PID ${pid} está verificado y sigue corriendo (misma identidad de inicio). Detenélo con kill -- -${pid} / taskkill; /bg cancel no le va a enviar una señal a un PID persistido.`;
 		}
 	}
 	return response(JSON.stringify({ jobId, artifactsDir: runDir, job, status }, null, 2), {
@@ -708,7 +720,7 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 		}
 		const data = buffer.subarray(start).toString("utf8");
 		if (!truncated) return data;
-		return `[truncated to last ${MAX_LOG_BYTES} bytes]\n${data}`;
+		return `[truncado a los últimos ${MAX_LOG_BYTES} bytes]\n${data}`;
 	} catch {
 		return undefined;
 	} finally {
@@ -731,14 +743,14 @@ async function boundedArtifactResponse(
 }
 
 async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg logs <jobId>");
+	const runDir = await resolveRunDir(ctx, jobId, "Uso: /bg logs <jobId>");
 	if (typeof runDir !== "string") return runDir;
 	const combined = await boundedArtifactResponse(runDir, jobId, "combined.log", "combined.log", "(empty log)");
 	if (combined) return combined;
 	const stdout = await readBoundedLog(path.join(runDir, "stdout.log"));
 	const stderr = await readBoundedLog(path.join(runDir, "stderr.log"));
 	if (stdout === undefined && stderr === undefined)
-		return response(`No logs found for ${jobId}.`, { jobId, found: true, logs: false }, "warning");
+		return response(`No se encontraron logs para ${jobId}.`, { jobId, found: true, logs: false }, "warning");
 	return response(
 		[
 			stdout !== undefined ? `== stdout ==\n${stdout}` : undefined,
@@ -759,11 +771,11 @@ async function handleLogs(ctx: ExtensionContext, jobId: string): Promise<BgRespo
 // failed/cancelled/interrupted — evidence that status.json alone does not carry.
 // Bounded/symlink-safe via the same readBoundedLog path as /bg logs.
 async function handleEvents(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
-	const runDir = await resolveRunDir(ctx, jobId, "Usage: /bg events <jobId>");
+	const runDir = await resolveRunDir(ctx, jobId, "Uso: /bg events <jobId>");
 	if (typeof runDir !== "string") return runDir;
 	const events = await boundedArtifactResponse(runDir, jobId, "events.jsonl", "events.jsonl", "(no events)");
 	if (events) return events;
-	return response(`No events found for ${jobId}.`, { jobId, found: true, events: false }, "warning");
+	return response(`No se encontraron eventos para ${jobId}.`, { jobId, found: true, events: false }, "warning");
 }
 
 async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgResponse> {
@@ -771,7 +783,7 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 		const match = /^(\S+)(?:\s+([\s\S]*))?$/.exec(args.trimStart());
 		if (!match) {
 			return response(
-				"Usage: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
+				"Uso: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
 				undefined,
 				"warning",
 			);
@@ -800,38 +812,38 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 				return await handlePrune(ctx, tail);
 			default:
 				return response(
-					`Unknown /bg subcommand: ${subcommand}. Supported: preview, start, cancel, list, status, logs, events, delete, prune.`,
+					`Subcomando /bg desconocido: ${subcommand}. Soportados: preview, start, cancel, list, status, logs, events, delete, prune.`,
 					undefined,
 					"warning",
 				);
 		}
 	} catch (err) {
-		return response(`/bg failed: ${(err as Error).message}`, { error: (err as Error).message }, "error");
+		return response(`/bg falló: ${(err as Error).message}`, { error: (err as Error).message }, "error");
 	}
 }
 
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
 		description:
-			"Background jobs: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
+			"Jobs en segundo plano: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{
 					value: "preview",
 					label: "preview",
-					description: "Dry-run (preview) a background command",
+					description: "Dry-run (vista previa) de un comando en segundo plano",
 				},
-				{ value: "start", label: "start", description: "Start a background job" },
-				{ value: "cancel", label: "cancel", description: "Cancel an active background job" },
-				{ value: "list", label: "list", description: "List background job artifacts" },
-				{ value: "status", label: "status", description: "Read job status" },
-				{ value: "logs", label: "logs", description: "Read bounded job logs" },
-				{ value: "events", label: "events", description: "Read bounded job lifecycle events" },
-				{ value: "delete", label: "delete", description: "Delete a finished job's artifacts" },
+				{ value: "start", label: "start", description: "Iniciar un job en segundo plano" },
+				{ value: "cancel", label: "cancel", description: "Cancelar un job activo en segundo plano" },
+				{ value: "list", label: "list", description: "Listar artefactos de jobs en segundo plano" },
+				{ value: "status", label: "status", description: "Leer el estado del job" },
+				{ value: "logs", label: "logs", description: "Leer logs acotados del job" },
+				{ value: "events", label: "events", description: "Leer eventos acotados del ciclo de vida del job" },
+				{ value: "delete", label: "delete", description: "Eliminar los artefactos de un job terminado" },
 				{
 					value: "prune",
 					label: "prune",
-					description: "Preview/prune finished job artifacts (--yes to delete)",
+					description: "Vista previa/prune de artefactos de jobs terminados (--yes para eliminar)",
 				},
 			];
 			const prefix = argumentPrefix.trim().toLowerCase();

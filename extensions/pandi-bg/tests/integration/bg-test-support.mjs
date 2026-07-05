@@ -132,7 +132,7 @@ export async function loadExtension(url) {
 }
 
 export function parseJobId(message) {
-	return /Started background job ([A-Za-z0-9_-]+(?:-[A-Za-z0-9_-]+)*)\./.exec(message)?.[1];
+	return /Job en segundo plano ([A-Za-z0-9_-]+(?:-[A-Za-z0-9_-]+)*) iniciado\./.exec(message)?.[1];
 }
 
 export async function readJson(file) {

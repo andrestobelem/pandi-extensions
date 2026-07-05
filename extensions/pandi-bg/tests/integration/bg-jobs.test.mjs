@@ -167,7 +167,7 @@ async function cancelStopsActiveJob(url) {
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
 	check(
 		"cancel: reports cancellation requested",
-		/Cancel requested/.test(ctx._notes.at(-1)?.msg || ""),
+		/Cancelación solicitada/.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 	const status = await waitFor("cancelled status", async () => {
@@ -268,7 +268,7 @@ async function cancelReachesGroupSurvivorsAfterShellExit(url) {
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
 	check(
 		"cancel-survivors: cancel is accepted (job is live until finalized)",
-		/Cancel requested/.test(ctx._notes.at(-1)?.msg || ""),
+		/Cancelación solicitada/.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 	const status = await waitFor(
@@ -315,7 +315,7 @@ async function orphanedPidIsLabeledNotKilled(url) {
 	await commands.get("bg").handler(`cancel ${jobId}`, ctx);
 	check(
 		"orphaned: cancel refuses non-owned persisted PID",
-		/refus/i.test(ctx._notes.at(-1)?.msg || ""),
+		/rechaz/i.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 	check("orphaned: current process is still alive", process.kill(process.pid, 0));
@@ -325,7 +325,7 @@ async function orphanedPidIsLabeledNotKilled(url) {
 	check("orphaned: persisted running state is reported", /"persistedState": "running"/.test(statusMsg), statusMsg);
 	check(
 		"orphaned: status surfaces a verify-before-kill hint",
-		/"hint":/.test(statusMsg) && /reused/.test(statusMsg),
+		/"hint":/.test(statusMsg) && /reutilizado/.test(statusMsg),
 		statusMsg,
 	);
 	await commands.get("bg").handler("list", ctx);
@@ -706,7 +706,7 @@ async function cancelSignalsVerifiedOrphan(url) {
 		const msg = ctx._notes.at(-1)?.msg || "";
 		check(
 			"cancel-orphan: reports signaling the verified orphan",
-			/SIGTERM/.test(msg) && /verified orphan/i.test(msg),
+			/SIGTERM/.test(msg) && /huérfano verificado/i.test(msg),
 			msg,
 		);
 		const dead = await waitFor(
@@ -780,9 +780,9 @@ async function cancelRefusesReusedPid(url) {
 	const status = await readJson(path.join(runDir, "status.json"));
 	check("cancel-reuse: status is left running (not cancelled)", status.state === "running", JSON.stringify(status));
 	if (process.platform === "win32") {
-		check("cancel-reuse: win32 refuses (identity unverifiable)", /refus/i.test(msg), msg);
+		check("cancel-reuse: win32 refuses (identity unverifiable)", /rechaz/i.test(msg), msg);
 	} else {
-		check("cancel-reuse: refuses a reused pid and explains why", /refus/i.test(msg) && /reus/i.test(msg), msg);
+		check("cancel-reuse: refuses a reused pid and explains why", /rechaz/i.test(msg) && /reutiliz/i.test(msg), msg);
 	}
 }
 
@@ -822,7 +822,7 @@ async function deleteGateReDerivesLiveState(url) {
 	});
 	const aliveMsg = await del("alive-orphan");
 	check("delete-gate: refuses a verified-alive orphan", existsSync(aliveDir), aliveMsg);
-	if (!win32) check("delete-gate: explains the alive refusal", /cannot be deleted|alive/i.test(aliveMsg), aliveMsg);
+	if (!win32) check("delete-gate: explains the alive refusal", /no se puede eliminar|vivo/i.test(aliveMsg), aliveMsg);
 
 	const unkDir = await seed("unknown-orphan", { state: "running", pid: process.pid });
 	const unkMsg = await del("unknown-orphan");
@@ -839,7 +839,7 @@ async function deleteGateReDerivesLiveState(url) {
 	} else {
 		check(
 			"delete-gate: deletes a reused-pid job (refined to interrupted)",
-			!existsSync(reusedDir) && /deleted/i.test(reusedMsg),
+			!existsSync(reusedDir) && /eliminado/i.test(reusedMsg),
 			reusedMsg,
 		);
 	}
@@ -851,7 +851,7 @@ async function deleteGateReDerivesLiveState(url) {
 	});
 	const activeMsg = await del(job.jobId);
 	check("delete-gate: refuses a job active in this session", existsSync(job.runDir), activeMsg);
-	check("delete-gate: explains the active refusal", /active/i.test(activeMsg), activeMsg);
+	check("delete-gate: explains the active refusal", /activ/i.test(activeMsg), activeMsg);
 	await fs.writeFile(job.release, "go");
 	await waitFor(
 		"active job finished",
@@ -943,10 +943,10 @@ async function prunePreviewListsCandidatesWithoutDeleting(url) {
 	);
 	check(
 		"prune-preview: lists the two terminal jobs as candidates",
-		/delete done-1/.test(msg) && /delete fail-1/.test(msg),
+		/eliminar done-1/.test(msg) && /eliminar fail-1/.test(msg),
 		msg,
 	);
-	check("prune-preview: skips the alive job with a reason", /skip\s+run-1/.test(msg), msg);
+	check("prune-preview: skips the alive job with a reason", /omitir\s+run-1/.test(msg), msg);
 	check("prune-preview: prompts for --yes", /--yes/.test(msg), msg);
 }
 
@@ -990,7 +990,7 @@ async function pruneYesExecutesReDerivesAndAudits(url) {
 	);
 	await commands.get("bg").handler("prune --yes", ctx);
 	const msg2 = ctx._notes.at(-1)?.msg || "";
-	check("prune-yes: a second pass is idempotent (deletes 0)", /Pruned 0 /.test(msg2), msg2);
+	check("prune-yes: a second pass is idempotent (deletes 0)", /Se eliminaron 0 /.test(msg2), msg2);
 	check(
 		"prune-yes: idempotent pass writes no new audit lines",
 		(await fs.readFile(path.join(runsRoot, ".audit.jsonl"), "utf8").catch(() => ""))
@@ -1088,7 +1088,7 @@ async function startSurfacesFilesystemErrors(url) {
 	}
 	const note = ctx._notes.at(-1) || {};
 	check("fs-error: handler does not throw on filesystem error", !threw);
-	check("fs-error: failure surfaced as a clean message", /failed/i.test(note.msg || ""), JSON.stringify(note));
+	check("fs-error: failure surfaced as a clean message", /falló/i.test(note.msg || ""), JSON.stringify(note));
 	check("fs-error: response uses the 'error' type", note.type === "error", JSON.stringify(note));
 }
 
@@ -1182,10 +1182,10 @@ async function writeCapStopsAndMarksLog(url) {
 	await new Promise((r) => setTimeout(r, 30));
 
 	const text = Buffer.concat(chunks).toString("utf8");
-	const payload = text.replace(/\n?\[log capped at 10 bytes\]\n?/g, ""); // strip marker (it contains 'c')
+	const payload = text.replace(/\n?\[log topado en 10 bytes\]\n?/g, ""); // strip marker (it contains 'c')
 	check(
 		"write-cap: emits exactly one capped marker",
-		(text.match(/\[log capped at 10 bytes\]/g) || []).length === 1,
+		(text.match(/\[log topado en 10 bytes\]/g) || []).length === 1,
 		text,
 	);
 	check("write-cap: drops payload once capped", !payload.includes("c"), payload);
@@ -1286,7 +1286,7 @@ async function modeGateRejectsStart(url) {
 	await commands.get("bg").handler("start echo nope", ctx);
 	check(
 		"mode: /bg start rejected outside TUI/RPC",
-		/Cannot \/bg start outside/.test(ctx._notes.at(-1)?.msg || ""),
+		/No se puede ejecutar \/bg start fuera/.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 	check("mode: rejected start creates no artifacts", !existsSync(path.join(cwd, ".pi")));

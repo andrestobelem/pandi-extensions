@@ -93,7 +93,7 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 	const okDir = await setupJob(runsRoot, "done-job", { state: "completed" });
 	const okMsg = await say("delete done-job");
 	check("delete: a terminal job is removed", !existsSync(okDir), okDir);
-	check("delete: reports the deletion", /deleted/i.test(okMsg), okMsg);
+	check("delete: reports the deletion", /eliminado/i.test(okMsg), okMsg);
 	const audit = await auditLines();
 	check(
 		"delete: appends one audit line for the removal",
@@ -102,7 +102,7 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 	);
 
 	const travMsg = await say("delete ../escape");
-	check("delete: rejects a path-traversal id with usage", /Usage: \/bg delete/.test(travMsg), travMsg);
+	check("delete: rejects a path-traversal id with usage", /Uso: \/bg delete/.test(travMsg), travMsg);
 
 	const realDir = await createBgTestDir("pi-bg-delete-target-");
 	await fs.writeFile(
@@ -112,7 +112,7 @@ async function deleteRemovesTerminalJobsAndGuards(url) {
 	await fs.mkdir(runsRoot, { recursive: true });
 	await fs.symlink(realDir, path.join(runsRoot, "linky"));
 	const linkMsg = await say("delete linky");
-	check("delete: refuses a symlinked run dir as not found", /not found/i.test(linkMsg), linkMsg);
+	check("delete: refuses a symlinked run dir as not found", /no encontrado/i.test(linkMsg), linkMsg);
 	check(
 		"delete: symlink target survives the refusal",
 		existsSync(realDir) && existsSync(path.join(realDir, "status.json")),
@@ -147,13 +147,17 @@ async function deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir) {
 	const globalRunsRoot = path.join(agentDir, "bg", "runs", stableHash(cwd));
 	const globalDir = await setupJob(globalRunsRoot, "global-job", { state: "completed" });
 	const globalMsg = await say("delete global-job", makeCtx({ cwd, trusted: true }));
-	check("delete-scope: refuses a global-fallback job", /global.*read-?only|out of scope/i.test(globalMsg), globalMsg);
+	check(
+		"delete-scope: refuses a global-fallback job",
+		/global.*solo lectura|fuera de alcance/i.test(globalMsg),
+		globalMsg,
+	);
 	check("delete-scope: the global job dir is left intact", existsSync(globalDir));
 
 	// (c) Untrusted project: trust-gated no-op; dir intact.
 	const keepDir = await setupJob(runsRoot, "keep-job", { state: "completed" });
 	const untrustedMsg = await say("delete keep-job", makeCtx({ cwd, trusted: false }));
-	check("delete-scope: untrusted project is refused", /untrusted/i.test(untrustedMsg), untrustedMsg);
+	check("delete-scope: untrusted project is refused", /no confiable/i.test(untrustedMsg), untrustedMsg);
 	check("delete-scope: untrusted leaves the dir intact", existsSync(keepDir));
 }
 
@@ -166,7 +170,7 @@ async function deleteRejectedInPlanMode(planUrl, bgUrl) {
 	const msg = ctx._notes.at(-1)?.msg || "";
 	check(
 		"delete-plan: /bg delete rejected while plan mode active",
-		/Cannot \/bg delete while plan mode is active/.test(msg),
+		/No se puede ejecutar \/bg delete mientras el modo plan está activo/.test(msg),
 		msg,
 	);
 	await commands.get("plan").handler("exit", ctx);
@@ -234,7 +238,7 @@ async function dryRunHasNoRuntimeWrites(url) {
 
 	check("dry-run: registers /bg command", commands.has("bg"));
 	check("dry-run: registers no LLM tools", tools.size === 0, `registered tools: ${[...tools.keys()].join(",")}`);
-	check("dry-run: reports no job started", /Dry run only/.test(ctx._notes.at(-1)?.msg || ""));
+	check("dry-run: reports no job started", /Solo dry run/.test(ctx._notes.at(-1)?.msg || ""));
 	check("dry-run: includes planned command", /npm test/.test(ctx._notes.at(-1)?.msg || ""));
 	check("dry-run: creates no project .pi artifacts", !existsSync(path.join(cwd, ".pi")));
 }
@@ -252,7 +256,7 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 	const startMsg = ctx._notes.at(-1)?.msg || "";
 	check(
 		"plan guard: /bg start rejected while plan mode active",
-		/Cannot \/bg start while plan mode is active/.test(startMsg),
+		/No se puede ejecutar \/bg start mientras el modo plan está activo/.test(startMsg),
 	);
 	check("plan guard: /bg start creates no project artifacts", !existsSync(path.join(cwd, ".pi")));
 
@@ -260,7 +264,7 @@ async function startCancelRejectInPlanMode(planUrl, bgUrl) {
 	const cancelMsg = ctx._notes.at(-1)?.msg || "";
 	check(
 		"plan guard: /bg cancel rejected while plan mode active",
-		/Cannot \/bg cancel while plan mode is active/.test(cancelMsg),
+		/No se puede ejecutar \/bg cancel mientras el modo plan está activo/.test(cancelMsg),
 	);
 	// bg's mutating surface is human-only slash commands: it must register ZERO LLM tools. The
 	// tools map here holds only what the bundled plan+bg extensions registered, so the invariant
@@ -305,7 +309,7 @@ async function listStatusLogsReadExistingArtifacts(url, agentDir) {
 
 	await commands.get("bg").handler("logs global-job", ctx);
 	const logsMsg = ctx._notes.at(-1)?.msg || "";
-	check("logs: truncates oversized combined.log", logsMsg.startsWith("[truncated to last 20000 bytes]"));
+	check("logs: truncates oversized combined.log", logsMsg.startsWith("[truncado a los últimos 20000 bytes]"));
 	check("logs: keeps tail of oversized combined.log", logsMsg.includes("TAIL"));
 	check("logs: drops old head of oversized combined.log", !logsMsg.includes("BEGIN"));
 	check("logs: output remains bounded", logsMsg.length <= 20_080, `length=${logsMsg.length}`);
@@ -325,7 +329,7 @@ async function logTailDoesNotSplitUtf8(url) {
 	const ctx = makeCtx({ cwd, trusted: true });
 	await commands.get("bg").handler("logs utf8-job", ctx);
 	const msg = ctx._notes.at(-1)?.msg || "";
-	check("utf8: oversized log is truncated", msg.startsWith("[truncated to last 20000 bytes]"), msg.slice(0, 40));
+	check("utf8: oversized log is truncated", msg.startsWith("[truncado a los últimos 20000 bytes]"), msg.slice(0, 40));
 	check("utf8: tail read does not emit a replacement char", !msg.includes("\uFFFD"), JSON.stringify(msg.slice(0, 40)));
 }
 
@@ -336,7 +340,7 @@ async function emptyAndUntrustedBehavior(url, agentDir) {
 	await loaded.commands.get("bg").handler("list", ctx);
 	check(
 		"empty: missing artifact roots returns empty list",
-		/No background jobs found/.test(ctx._notes.at(-1)?.msg || ""),
+		/No se encontraron jobs en segundo plano/.test(ctx._notes.at(-1)?.msg || ""),
 	);
 
 	const cwd = await createBgTestDir("pi-bg-untrusted-");
@@ -356,17 +360,17 @@ async function emptyAndUntrustedBehavior(url, agentDir) {
 	check("untrusted: still inspects global fallback", /global-only/.test(listMsg));
 
 	await loaded.commands.get("bg").handler("status project-only", ctx);
-	check("untrusted: project-local status is not found", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("untrusted: project-local status is not found", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 
 	await loaded.commands.get("bg").handler("status ..", ctx);
-	check("security: path traversal job id is rejected", /Usage: \/bg status/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: path traversal job id is rejected", /Uso: \/bg status/.test(ctx._notes.at(-1)?.msg || ""));
 
 	const startCwd = await createBgTestDir("pi-bg-untrusted-start-");
 	ctx = makeCtx({ cwd: startCwd, trusted: false });
 	await loaded.commands.get("bg").handler("start npm test", ctx);
 	check(
 		"untrusted: /bg start is rejected",
-		/Cannot \/bg start in an untrusted project/.test(ctx._notes.at(-1)?.msg || ""),
+		/No se puede ejecutar \/bg start en un proyecto no confiable/.test(ctx._notes.at(-1)?.msg || ""),
 	);
 	check("untrusted: /bg start creates no project artifacts", !existsSync(path.join(startCwd, ".pi")));
 }
@@ -395,10 +399,10 @@ async function symlinkedRunDirsAreRejected(url, agentDir) {
 	);
 
 	await loaded.commands.get("bg").handler("status linked-job", ctx);
-	check("security: global status rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: global status rejects symlinked run dirs", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 
 	await loaded.commands.get("bg").handler("logs linked-job", ctx);
-	check("security: global logs rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: global logs rejects symlinked run dirs", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 
 	loaded = await loadExtension(url);
 	ctx = makeCtx({ cwd, trusted: true });
@@ -409,10 +413,10 @@ async function symlinkedRunDirsAreRejected(url, agentDir) {
 	);
 
 	await loaded.commands.get("bg").handler("status linked-job", ctx);
-	check("security: project status rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: project status rejects symlinked run dirs", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 
 	await loaded.commands.get("bg").handler("logs linked-job", ctx);
-	check("security: project logs rejects symlinked run dirs", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: project logs rejects symlinked run dirs", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 }
 
 async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
@@ -436,9 +440,12 @@ async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
 		!/root-link-job|outside root secret/.test(ctx._notes.at(-1)?.msg || ""),
 	);
 	await loaded.commands.get("bg").handler("status root-link-job", ctx);
-	check("security: project status rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check(
+		"security: project status rejects symlinked artifact root",
+		/no encontrado/.test(ctx._notes.at(-1)?.msg || ""),
+	);
 	await loaded.commands.get("bg").handler("logs root-link-job", ctx);
-	check("security: project logs rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: project logs rejects symlinked artifact root", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 
 	const globalRunsParent = path.join(agentDir, "bg", "runs");
 	await fs.mkdir(globalRunsParent, { recursive: true });
@@ -452,9 +459,9 @@ async function symlinkedArtifactRootsAreIgnored(url, agentDir) {
 		!/root-link-job|outside root secret/.test(ctx._notes.at(-1)?.msg || ""),
 	);
 	await loaded.commands.get("bg").handler("status root-link-job", ctx);
-	check("security: global status rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: global status rejects symlinked artifact root", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 	await loaded.commands.get("bg").handler("logs root-link-job", ctx);
-	check("security: global logs rejects symlinked artifact root", /not found/.test(ctx._notes.at(-1)?.msg || ""));
+	check("security: global logs rejects symlinked artifact root", /no encontrado/.test(ctx._notes.at(-1)?.msg || ""));
 }
 
 async function symlinkedArtifactFilesAreIgnored(url, agentDir) {
@@ -485,7 +492,8 @@ async function symlinkedArtifactFilesAreIgnored(url, agentDir) {
 	await commands.get("bg").handler("logs file-link-job", ctx);
 	check(
 		"security: logs ignores symlinked log files",
-		/No logs found/.test(ctx._notes.at(-1)?.msg || "") && !/outside log secret/.test(ctx._notes.at(-1)?.msg || ""),
+		/No se encontraron logs/.test(ctx._notes.at(-1)?.msg || "") &&
+			!/outside log secret/.test(ctx._notes.at(-1)?.msg || ""),
 	);
 }
 
@@ -516,7 +524,7 @@ async function corruptArtifactsAreTolerated(url) {
 	await commands.get("bg").handler("logs corrupt-job", ctx);
 	check(
 		"corrupt: missing logs are reported safely",
-		/No logs found/.test(ctx._notes.at(-1)?.msg || ""),
+		/No se encontraron logs/.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 }
@@ -555,14 +563,14 @@ async function eventsSubcommandReadsBoundedEvents(url) {
 	await commands.get("bg").handler("events missing-job", ctx);
 	check(
 		"events: unknown job reports not found",
-		/not found/.test(ctx._notes.at(-1)?.msg || ""),
+		/no encontrado/.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 
 	await commands.get("bg").handler("events ..", ctx);
 	check(
 		"events: path traversal job id is rejected",
-		/Usage: \/bg events/.test(ctx._notes.at(-1)?.msg || ""),
+		/Uso: \/bg events/.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 
@@ -583,7 +591,7 @@ async function planAliasStillPreviews(url) {
 	await commands.get("bg").handler("plan npm test", ctx);
 	check(
 		"alias: deprecated /bg plan still previews (dry-run)",
-		/Dry run only/.test(ctx._notes.at(-1)?.msg || ""),
+		/Solo dry run/.test(ctx._notes.at(-1)?.msg || ""),
 		ctx._notes.at(-1)?.msg,
 	);
 	check("alias: /bg plan creates no artifacts", !existsSync(path.join(cwd, ".pi")));

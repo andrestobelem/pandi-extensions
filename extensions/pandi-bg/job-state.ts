@@ -24,7 +24,7 @@ export function projectState(
 			return {
 				state: "orphaned",
 				persistedState: persisted,
-				hint: `PID ${pid} may still be running (or the PID was reused). Verify before using kill -- -${pid} / taskkill; /bg cancel will not signal a persisted PID.`,
+				hint: `El PID ${pid} podría seguir corriendo (o el PID fue reutilizado). Verificalo antes de usar kill -- -${pid} / taskkill; /bg cancel no le va a enviar una señal a un PID persistido.`,
 			};
 		}
 		if (live === "dead") return { state: "interrupted", persistedState: persisted };

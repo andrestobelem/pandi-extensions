@@ -199,13 +199,13 @@ async function pipeIndependentCaps(mod) {
 	await tick();
 	const textA = Buffer.concat(bufA).toString("utf8");
 	const textB = Buffer.concat(bufB).toString("utf8");
-	const markers = (t) => (t.match(/\[log capped at 10 bytes\]/g) || []).length;
+	const markers = (t) => (t.match(/\[log topado en 10 bytes\]/g) || []).length;
 	check("pipe-caps: sink A gets exactly one cap marker", markers(textA) === 1, textA);
 	check("pipe-caps: sink B gets exactly one cap marker (independent)", markers(textB) === 1, textB);
 	check(
 		"pipe-caps: payload bytes per sink do not exceed the cap",
-		textA.replace(/\n?\[log capped at 10 bytes\]\n?/g, "").length <= cap &&
-			textB.replace(/\n?\[log capped at 10 bytes\]\n?/g, "").length <= cap,
+		textA.replace(/\n?\[log topado en 10 bytes\]\n?/g, "").length <= cap &&
+			textB.replace(/\n?\[log topado en 10 bytes\]\n?/g, "").length <= cap,
 		JSON.stringify({ a: textA.length, b: textB.length }),
 	);
 	source.destroy();

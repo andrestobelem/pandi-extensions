@@ -108,7 +108,7 @@ async function scenarioStorage(url) {
 		try {
 			await ensurePlainDirectory(regularFile); // exists but is a file
 		} catch (e) {
-			fileThrew = /Refusing to use non-directory or symlink/.test(String(e?.message));
+			fileThrew = /Se rechaza usar algo que no es un directorio o es un symlink/.test(String(e?.message));
 		}
 		check("ensurePlainDirectory refuses an existing regular file", fileThrew === true);
 
@@ -117,7 +117,7 @@ async function scenarioStorage(url) {
 			try {
 				await ensurePlainDirectory(symlinkToDir);
 			} catch (e) {
-				linkThrew = /Refusing to use non-directory or symlink/.test(String(e?.message));
+				linkThrew = /Se rechaza usar algo que no es un directorio o es un symlink/.test(String(e?.message));
 			}
 			check("ensurePlainDirectory refuses a symlink-to-dir", linkThrew === true);
 		} else {
