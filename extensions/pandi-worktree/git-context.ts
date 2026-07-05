@@ -31,10 +31,10 @@ export function notify(ctx: ExtensionContext, message: string, type: "info" | "w
 
 /** A short, single-line reason from a failed git invocation. */
 export function gitError(result: GitResult): string {
-	if (result.spawnError) return `git could not be started: ${result.spawnError}`;
-	if (result.timedOut) return "git timed out";
+	if (result.spawnError) return `No se pudo iniciar git: ${result.spawnError}`;
+	if (result.timedOut) return "git agotó el tiempo de espera";
 	const reason = (result.stderr || result.stdout).trim().split("\n")[0];
-	return reason || `git exited with code ${result.exitCode}`;
+	return reason || `git salió con el código ${result.exitCode}`;
 }
 
 /** Combined stdout+stderr (git worktree prune reports to stderr). */
@@ -63,7 +63,7 @@ export async function ensureGitRepo(ctx: ExtensionContext, signal?: AbortSignal)
 /** Diagnostic for a failed repo check: distinguish git-missing/timeout from "no repo". */
 export function repoError(result: GitResult, surface: string): string {
 	if (result.spawnError || result.timedOut) return gitError(result);
-	return `Not inside a git repository — ${surface} needs a git repo.`;
+	return `No estás dentro de un repositorio git — ${surface} necesita un repositorio git.`;
 }
 
 export async function listWorktrees(

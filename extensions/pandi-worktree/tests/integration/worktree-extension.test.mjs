@@ -242,8 +242,8 @@ async function scenarioParseCommand(url) {
 
 	const bogus = p("bogus");
 	check(
-		"parseCommand bogus: help + Unknown error",
-		bogus.action === "help" && /Unknown/.test(bogus.error || ""),
+		"parseCommand bogus: help + unknown-subcommand error",
+		bogus.action === "help" && /desconocido/i.test(bogus.error || ""),
 		JSON.stringify(bogus),
 	);
 }
@@ -400,11 +400,11 @@ async function scenarioRemoveCommandForce(url) {
 	check("remove cmd force: prompted twice", ctx._confirms.length === 2, String(ctx._confirms.length));
 	check(
 		"remove cmd force: second prompt mentions force/dirty",
-		/Force|dirty or locked/i.test(`${ctx._confirms[1]?.title} ${ctx._confirms[1]?.body}`),
+		/Forzar|cambios sin confirmar|bloqueado/i.test(`${ctx._confirms[1]?.title} ${ctx._confirms[1]?.body}`),
 		JSON.stringify(ctx._confirms[1]),
 	);
 	check("remove cmd force: worktree removed", !existsSync(wtPath));
-	check("remove cmd force: note says forced", /\(forced\)/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	check("remove cmd force: note says forced", /\(forzado\)/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 }
 
 async function scenarioRegisters(url) {
@@ -709,7 +709,7 @@ async function scenarioCopyFilesIntoWorktree(url) {
 	check("copyIgnored: worktrees base NOT recursed into new wt", !existsSync(path.join(igWt, ".pi", "worktrees")));
 	check(
 		"copyIgnored: result mentions copied count",
-		/copied .*ignored/.test(ig.content?.[0]?.text || ""),
+		/se copiaron .*ignorados/.test(ig.content?.[0]?.text || ""),
 		ig.content?.[0]?.text,
 	);
 

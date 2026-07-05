@@ -80,19 +80,19 @@ export {
 } from "./worktree.js";
 
 const HELP_TEXT = [
-	"Usage:",
-	"  /worktree [list]                       list worktrees",
-	"  /worktree add [-b <branch>] [--detach] [--force] [--copy-ignored] [--copy-untracked] <path> [<commit-ish>]   add a worktree",
-	"  /worktree open [-b <branch>] [--detach] [--force] <path> [<commit-ish>]  create-if-missing, then open Pi in it",
-	"  /worktree remove [--force] <path>      remove a worktree",
-	"  /worktree prune [--dry-run]            prune stale worktree metadata",
-	"  /worktree set [copy-ignored|copy-untracked] [on|off|status]   set the session copy default",
+	"Uso:",
+	"  /worktree [list]                       listar worktrees",
+	"  /worktree add [-b <branch>] [--detach] [--force] [--copy-ignored] [--copy-untracked] <path> [<commit-ish>]   crear un worktree",
+	"  /worktree open [-b <branch>] [--detach] [--force] <path> [<commit-ish>]  si falta, crearlo y luego abrir Pi ahí",
+	"  /worktree remove [--force] <path>      eliminar un worktree",
+	"  /worktree prune [--dry-run]            limpiar metadatos obsoletos de worktrees",
+	"  /worktree set [copy-ignored|copy-untracked] [on|off|status]   definir la copia por defecto de la sesión",
 	"",
-	"Pass --copy-ignored/--copy-untracked (or --no-copy-ignored/--no-copy-untracked) to override per call.",
-	"Or set a session default with `set` (also via PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED env vars).",
+	"Pasá --copy-ignored/--copy-untracked (o --no-copy-ignored/--no-copy-untracked) para sobrescribirlo en esta llamada.",
+	"O definí un valor por defecto de la sesión con `set` (también vía las env vars PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED).",
 	"",
-	`A bare <name> (no slash) is created under ${CONFIG_DIR_NAME}/worktrees/<name> (gitignored).`,
-	"Use ./x, ../x, /abs, or ~/x for an explicit location.",
+	`Un <name> simple (sin slash) se crea en ${CONFIG_DIR_NAME}/worktrees/<name> (gitignored).`,
+	"Usá ./x, ../x, /abs o ~/x para una ubicación explícita.",
 ].join("\n");
 
 // --------------------------------------------------------------------------
@@ -102,15 +102,15 @@ const HELP_TEXT = [
 async function handleList(ctx: ExtensionContext, signal?: AbortSignal): Promise<void> {
 	const listed = await listWorktrees(ctx, signal);
 	if (!listed.ok) {
-		notify(ctx, `Could not list worktrees: ${listed.error}`, "error");
+		notify(ctx, `No se pudieron listar los worktrees: ${listed.error}`, "error");
 		return;
 	}
 	if (listed.entries.length === 0) {
-		notify(ctx, "No worktrees found.", "info");
+		notify(ctx, "No se encontraron worktrees.", "info");
 		return;
 	}
 	const lines = listed.entries.map((entry) => `  • ${describeWorktree(entry)}`);
-	notify(ctx, `Worktrees (${listed.entries.length}):\n${lines.join("\n")}`, "info");
+	notify(ctx, `Lista de worktrees (${listed.entries.length}):\n${lines.join("\n")}`, "info");
 }
 
 interface CopyFilesOptions {
@@ -171,10 +171,10 @@ async function copyFilesToWorktree(
 function copyNote(opts: CopyFilesOptions, r: CopyFilesResult): string {
 	if (!opts.copyIgnored && !opts.copyUntracked) return "";
 	const parts: string[] = [];
-	if (opts.copyIgnored) parts.push(`${r.ignored} ignored`);
-	if (opts.copyUntracked) parts.push(`${r.untracked} untracked`);
-	const failed = r.failed ? `, ${r.failed} failed` : "";
-	return ` (copied ${parts.join(" + ")} file(s)${failed})`;
+	if (opts.copyIgnored) parts.push(`${r.ignored} ignorados`);
+	if (opts.copyUntracked) parts.push(`${r.untracked} sin seguimiento`);
+	const failed = r.failed ? `, ${r.failed} fallidos` : "";
+	return ` (se copiaron ${parts.join(" + ")} archivo(s)${failed})`;
 }
 
 /** One-line summary of the resolved copy defaults (session/env, no per-call params). */
@@ -191,16 +191,20 @@ function handleSet(ctx: ExtensionContext, parsed: ParsedCommand): void {
 	}
 	// No target, or an explicit `status`: just report the current resolution.
 	if (!parsed.setTarget || parsed.setValue === "status") {
-		notify(ctx, `Worktree copy defaults: ${describeCopyDefaults()}.`, "info");
+		notify(ctx, `Copias por defecto de worktrees: ${describeCopyDefaults()}.`, "info");
 		return;
 	}
 	if (parsed.setValue === "invalid") {
-		notify(ctx, `Usage: /worktree set ${parsed.setTarget} [on|off|status]`, "warning");
+		notify(ctx, `Uso: /worktree set ${parsed.setTarget} [on|off|status]`, "warning");
 		return;
 	}
 	const key: CopyPrefKey = parsed.setTarget === "copy-ignored" ? "copyIgnored" : "copyUntracked";
 	setSessionCopyDefault(key, parsed.setValue === "on");
-	notify(ctx, `Set ${parsed.setTarget} ${parsed.setValue} for this session: ${describeCopyDefaults()}.`, "info");
+	notify(
+		ctx,
+		`Se definió ${parsed.setTarget} ${parsed.setValue} para esta sesión: ${describeCopyDefaults()}.`,
+		"info",
+	);
 }
 
 async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
@@ -210,7 +214,7 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 	}
 	const target = resolveWorktreeTarget(parsed.path ?? "", ctx.cwd);
 	if (!target) {
-		notify(ctx, "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]", "warning");
+		notify(ctx, "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]", "warning");
 		return;
 	}
 	if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
@@ -223,14 +227,18 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 	});
 	const result = await runGit(args, { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
 	if (!result.ok) {
-		notify(ctx, `Could not add worktree: ${gitError(result)}`, "error");
+		notify(ctx, `No se pudo crear el worktree: ${gitError(result)}`, "error");
 		return;
 	}
 	const copyOpts = resolveCopyPrefs({ copyIgnored: parsed.copyIgnored, copyUntracked: parsed.copyUntracked });
 	const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal);
-	const branchNote = parsed.newBranch ? ` (new branch ${parsed.newBranch})` : "";
-	const locationNote = target.usedDefaultBase ? ` (default ${CONFIG_DIR_NAME}/worktrees/)` : "";
-	notify(ctx, `Added worktree at ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}.`, "info");
+	const branchNote = parsed.newBranch ? ` (rama nueva ${parsed.newBranch})` : "";
+	const locationNote = target.usedDefaultBase ? ` (por defecto ${CONFIG_DIR_NAME}/worktrees/)` : "";
+	notify(
+		ctx,
+		`Se creó el worktree en ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}.`,
+		"info",
+	);
 }
 
 // --------------------------------------------------------------------------
@@ -298,9 +306,9 @@ function runSupacode(
 			}
 			resolve(result);
 		};
-		const onAbort = (): void => finish({ ok: false, stdout, spawnFailed: false, error: "aborted" });
+		const onAbort = (): void => finish({ ok: false, stdout, spawnFailed: false, error: "abortado" });
 		const timer = setTimeout(
-			() => finish({ ok: false, stdout, spawnFailed: false, error: "supacode timed out" }),
+			() => finish({ ok: false, stdout, spawnFailed: false, error: "supacode agotó el tiempo de espera" }),
 			timeoutMs,
 		);
 		if (signal) {
@@ -322,7 +330,7 @@ function runSupacode(
 				ok: code === 0,
 				stdout,
 				spawnFailed: false,
-				error: code === 0 ? undefined : stderr.trim() || `supacode exited with code ${code}`,
+				error: code === 0 ? undefined : stderr.trim() || `supacode salió con el código ${code}`,
 			}),
 		);
 	});
@@ -354,14 +362,14 @@ async function openSupacodeTab(
 	try {
 		const deadline = Date.now() + SUPACODE_VERIFY_TIMEOUT_MS;
 		do {
-			if (signal?.aborted) return { ok: false, error: "aborted" };
+			if (signal?.aborted) return { ok: false, error: "abortado" };
 			if (spawnError) return { ok: false, error: spawnError };
 			const list = await runSupacode(["tab", "list"], SUPACODE_LIST_TIMEOUT_MS, signal);
-			if (list.spawnFailed) return { ok: false, error: list.error ?? "could not run supacode" };
+			if (list.spawnFailed) return { ok: false, error: list.error ?? "no se pudo ejecutar supacode" };
 			if (list.ok && list.stdout.toUpperCase().includes(tabId)) return { ok: true, tabId };
 			await delay(SUPACODE_VERIFY_DELAY_MS, signal);
 		} while (Date.now() < deadline);
-		return { ok: false, error: spawnError ?? "supacode did not report the new tab in time" };
+		return { ok: false, error: spawnError ?? "supacode no informó la nueva pestaña a tiempo" };
 	} finally {
 		try {
 			create.kill("SIGKILL");
@@ -406,7 +414,7 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 			created: false,
 			opened: false,
 			isError: true,
-			message: "open requires a 'path'.",
+			message: "La acción 'open' requiere 'path'.",
 		};
 	}
 	if (opts.newBranch !== undefined && !isValidBranchName(opts.newBranch)) {
@@ -416,7 +424,7 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 			created: false,
 			opened: false,
 			isError: true,
-			message: `Invalid branch name "${opts.newBranch}" — no spaces, control characters, or leading/trailing dots or slashes.`,
+			message: `Nombre de rama inválido "${opts.newBranch}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
 		};
 	}
 	let created = false;
@@ -438,14 +446,14 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 				created: false,
 				opened: false,
 				isError: true,
-				message: `Could not create worktree: ${gitError(result)}`,
+				message: `No se pudo crear el worktree: ${gitError(result)}`,
 			};
 		}
 		created = true;
 		const copyOpts = resolveCopyPrefs({ copyIgnored: opts.copyIgnored, copyUntracked: opts.copyUntracked });
 		copySuffix = copyNote(copyOpts, await copyFilesToWorktree(ctx, target.path, copyOpts, signal));
 	}
-	const state = created ? "created" : "ready";
+	const state = created ? "creado" : "listo";
 	const openHint = `cd ${target.path} && pi`;
 	if (!isSupacode()) {
 		return {
@@ -453,7 +461,7 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 			path: target.path,
 			created,
 			opened: false,
-			message: `Worktree ${state} at ${target.path}${copySuffix}. Open it with: ${openHint}`,
+			message: `Worktree ${state} en ${target.path}${copySuffix}. Abrilo con: ${openHint}`,
 		};
 	}
 	const tab = await openSupacodeTab(target.path, signal);
@@ -463,7 +471,7 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 			path: target.path,
 			created,
 			opened: false,
-			message: `Worktree ${state} at ${target.path}${copySuffix}, but could not open a Supacode tab: ${tab.error}. Open it with: ${openHint}`,
+			message: `Worktree ${state} en ${target.path}${copySuffix}, pero no se pudo abrir una pestaña de Supacode: ${tab.error}. Abrilo con: ${openHint}`,
 		};
 	}
 	return {
@@ -472,7 +480,7 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 		created,
 		opened: true,
 		tabId: tab.tabId,
-		message: `Opened Pi in a new Supacode tab${tab.tabId ? ` (${tab.tabId})` : ""} at ${target.path}${created ? " (new worktree)" : ""}${copySuffix}.`,
+		message: `Se abrió Pi en una pestaña nueva de Supacode${tab.tabId ? ` (${tab.tabId})` : ""} en ${target.path}${created ? " (worktree nuevo)" : ""}${copySuffix}.`,
 	};
 }
 
@@ -504,16 +512,16 @@ async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal
 	}
 	const target = resolveWorktreeTarget(parsed.path ?? "", ctx.cwd);
 	if (!target) {
-		notify(ctx, "Usage: /worktree remove [--force] <path>", "warning");
+		notify(ctx, "Uso: /worktree remove [--force] <path>", "warning");
 		return;
 	}
 	const resolved = target.path;
 
 	// Confirm in interactive mode — removal deletes the worktree directory.
 	if (ctx.hasUI) {
-		const ok = await ctx.ui.confirm("Remove worktree?", `This will remove the worktree at:\n${resolved}`);
+		const ok = await ctx.ui.confirm("¿Eliminar worktree?", `Esto eliminará el worktree en:\n${resolved}`);
 		if (!ok) {
-			notify(ctx, "Removal cancelled.", "info");
+			notify(ctx, "Eliminación cancelada.", "info");
 			return;
 		}
 	}
@@ -529,8 +537,8 @@ async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal
 	// second, explicit confirmation rather than silently forcing.
 	if (!result.ok && !force && ctx.hasUI && needsForce(result)) {
 		const forceOk = await ctx.ui.confirm(
-			"Force remove?",
-			`The worktree is dirty or locked:\n${gitError(result)}\n\nForce removal (discards changes)?`,
+			"¿Forzar eliminación?",
+			`El worktree tiene cambios sin confirmar o está bloqueado:\n${gitError(result)}\n\n¿Forzar la eliminación (descarta cambios)?`,
 		);
 		if (forceOk) {
 			force = true;
@@ -543,10 +551,10 @@ async function handleRemove(ctx: ExtensionContext, parsed: ParsedCommand, signal
 	}
 
 	if (!result.ok) {
-		notify(ctx, `Could not remove worktree: ${gitError(result)}`, "error");
+		notify(ctx, `No se pudo eliminar el worktree: ${gitError(result)}`, "error");
 		return;
 	}
-	notify(ctx, `Removed worktree at ${resolved}${force ? " (forced)" : ""}.`, "info");
+	notify(ctx, `Se eliminó el worktree en ${resolved}${force ? " (forzado)" : ""}.`, "info");
 }
 
 async function handlePrune(ctx: ExtensionContext, parsed: ParsedCommand, signal?: AbortSignal): Promise<void> {
@@ -557,22 +565,25 @@ async function handlePrune(ctx: ExtensionContext, parsed: ParsedCommand, signal?
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!preview.ok) {
-		notify(ctx, `Could not prune worktrees: ${gitError(preview)}`, "error");
+		notify(ctx, `No se pudieron limpiar los worktrees: ${gitError(preview)}`, "error");
 		return;
 	}
 	const previewText = combinedOutput(preview);
 	if (parsed.dryRun) {
-		notify(ctx, previewText ? `Would prune:\n${previewText}` : "Nothing to prune.", "info");
+		notify(ctx, previewText ? `Se limpiaría:\n${previewText}` : "No hay nada para limpiar.", "info");
 		return;
 	}
 	if (!previewText) {
-		notify(ctx, "Nothing to prune.", "info");
+		notify(ctx, "No hay nada para limpiar.", "info");
 		return;
 	}
 	if (ctx.hasUI) {
-		const ok = await ctx.ui.confirm("Prune worktrees?", `This will prune stale worktree metadata:\n${previewText}`);
+		const ok = await ctx.ui.confirm(
+			"¿Limpiar worktrees?",
+			`Esto limpiará metadatos obsoletos de worktrees:\n${previewText}`,
+		);
 		if (!ok) {
-			notify(ctx, "Prune cancelled.", "info");
+			notify(ctx, "Limpieza cancelada.", "info");
 			return;
 		}
 	}
@@ -582,53 +593,53 @@ async function handlePrune(ctx: ExtensionContext, parsed: ParsedCommand, signal?
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (!result.ok) {
-		notify(ctx, `Could not prune worktrees: ${gitError(result)}`, "error");
+		notify(ctx, `No se pudieron limpiar los worktrees: ${gitError(result)}`, "error");
 		return;
 	}
-	notify(ctx, "Pruned stale worktree metadata.", "info");
+	notify(ctx, "Se limpiaron los metadatos obsoletos de worktrees.", "info");
 }
 
 /** Resolve the action when `/worktree` is invoked without args in a TUI. */
 async function resolveInteractiveAction(ctx: ExtensionContext): Promise<ParsedCommand | undefined> {
-	const choice = await ctx.ui.select("Worktree action", [
-		"list — show worktrees",
-		"add — create a worktree",
-		"remove — delete a worktree",
-		"prune — clean stale metadata",
+	const choice = await ctx.ui.select("Acción de worktree", [
+		"list — listar worktrees",
+		"add — crear un worktree",
+		"remove — eliminar un worktree",
+		"prune — limpiar metadatos obsoletos",
 	]);
 	if (!choice) return undefined;
 	const action = choice.split(/\s+/)[0] as ParsedCommand["action"];
 	if (action === "remove") {
 		const listed = await listWorktrees(ctx);
 		if (!listed.ok || listed.entries.length === 0) {
-			notify(ctx, "No worktrees available to remove.", "warning");
+			notify(ctx, "No hay worktrees disponibles para eliminar.", "warning");
 			return undefined;
 		}
 		// The main worktree (first entry) cannot be removed; offer the rest.
 		const removable = listed.entries.slice(1);
 		if (removable.length === 0) {
-			notify(ctx, "Only the main worktree exists; nothing to remove.", "warning");
+			notify(ctx, "Solo existe el worktree principal; no hay nada para eliminar.", "warning");
 			return undefined;
 		}
 		const pick = await ctx.ui.select(
-			"Remove which worktree?",
+			"¿Qué worktree querés eliminar?",
 			removable.map((e) => e.path),
 		);
 		if (!pick) return undefined;
 		return { action: "remove", path: pick };
 	}
 	if (action === "add") {
-		const pathArg = await ctx.ui.input?.("New worktree path", "");
+		const pathArg = await ctx.ui.input?.("Ruta del worktree nuevo", "");
 		if (!pathArg) {
-			notify(ctx, "Add cancelled (no path).", "info");
+			notify(ctx, "Se canceló la creación porque falta la ruta.", "info");
 			return undefined;
 		}
-		const branch = await ctx.ui.input?.("New branch name (optional)", "");
+		const branch = await ctx.ui.input?.("Nombre de la rama nueva (opcional)", "");
 		const newBranch = branch?.trim() || undefined;
 		if (newBranch && !isValidBranchName(newBranch)) {
 			notify(
 				ctx,
-				`Invalid branch name "${newBranch}" — no spaces, control characters, or leading/trailing dots or slashes.`,
+				`Nombre de rama inválido "${newBranch}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
 				"warning",
 			);
 			return undefined;
@@ -695,7 +706,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("worktree", {
-		description: "Manage git worktrees: list | add | open | remove | prune",
+		description: "Gestionar worktrees de git: list | add | open | remove | prune",
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/);
 			// Only complete the first token (the subcommand).
@@ -713,55 +724,55 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		name: "git_worktree",
 		label: "Git Worktree",
 		description:
-			"Manage git worktrees in the current repository. Actions: 'list' (enumerate worktrees), 'add' (create a worktree at a path, optionally on a new branch), 'open' (create the worktree if missing, then start a NEW Pi session in it — a new Supacode tab when running under Supacode, otherwise it reports the cd+pi command; the current session's cwd never changes), 'remove' (delete a worktree; refuses a dirty worktree unless force=true), 'prune' (clean stale worktree metadata). git is invoked with an argv array, never a shell.",
-		promptSnippet: "List, add, open, remove, or prune git worktrees.",
+			"Gestiona los worktrees de git en el repositorio actual. Acciones: 'list' (enumerar worktrees), 'add' (crear un worktree en un path, opcionalmente en una rama nueva), 'open' (crear el worktree si falta y luego iniciar una sesión NUEVA de Pi en él: una pestaña nueva de Supacode cuando se ejecuta bajo Supacode; si no, informa el comando cd+pi; el cwd de la sesión actual nunca cambia), 'remove' (eliminar un worktree; se niega a eliminar uno con cambios o bloqueado salvo que force=true), 'prune' (limpiar metadatos obsoletos de worktrees). git se invoca con un array argv, nunca con un shell.",
+		promptSnippet: "Gestioná worktrees de git con las acciones list/add/open/remove/prune.",
 		promptGuidelines: [
-			"Use git_worktree to inspect or manage git worktrees (list/add/open/remove/prune) instead of hand-writing `git worktree` bash commands.",
-			"For add/open, pass copyIgnored:true to copy gitignored files (e.g. node_modules) and/or copyUntracked:true to copy untracked files from the main worktree into the new one (only when the worktree is newly created). Each is tri-state: true forces copy, false forces skip, and OMITTING it falls through to the session default (set via the /worktree set command) then the PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED env vars, else off.",
-			"git_worktree remove never force-deletes by default: only pass force=true when the user explicitly accepts discarding a dirty worktree's changes.",
-			"Pi's cwd is fixed for the session, so git_worktree cannot switch the CURRENT session into another worktree — report the worktree path so the user can open a new Pi there.",
-			"Use action 'open' when the user wants to start working in a worktree: it creates the worktree if missing and opens a NEW Pi session in it (a new Supacode tab under Supacode; otherwise it returns the `cd <path> && pi` command). It does not move the current session.",
+			"Usá git_worktree para inspeccionar o gestionar worktrees de git (list/add/open/remove/prune) en lugar de escribir a mano comandos bash con `git worktree`.",
+			"Para add/open, pasá copyIgnored:true para copiar archivos gitignored (por ejemplo, node_modules) y/o copyUntracked:true para copiar archivos sin seguimiento desde el worktree principal al nuevo (solo cuando el worktree se crea en esa llamada). Cada uno es tri-state: true fuerza copiar, false fuerza omitir y, si se omite, cae al valor por defecto de la sesión (definido con el comando /worktree set) y luego a las env vars PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED; si no, queda off.",
+			"git_worktree remove nunca elimina con force por defecto: pasá force=true solo cuando la persona usuaria acepta explícitamente descartar los cambios de un worktree con cambios.",
+			"El cwd de Pi es fijo durante la sesión, así que git_worktree no puede cambiar la sesión actual a otro worktree: informá el path del worktree para que la persona usuaria pueda abrir una sesión nueva de Pi ahí.",
+			"Usá la acción 'open' cuando la persona usuaria quiera empezar a trabajar en un worktree: crea el worktree si falta y abre una sesión NUEVA de Pi en él (una pestaña nueva de Supacode bajo Supacode; si no, devuelve el comando `cd <path> && pi`). No mueve la sesión actual.",
 		],
 		parameters: Type.Object({
 			action: StringEnum(["list", "add", "open", "remove", "prune"] as const),
 			path: Type.Optional(
 				Type.String({
 					description:
-						"Worktree location (required for add/open/remove). A BARE name with no '/' (e.g. \"feature\") is created under <configDir>/worktrees/<name> (gitignored). Use ./x, ../x, /abs, or ~/x to place it literally (relative to cwd / home / absolute).",
+						"Ubicación del worktree (obligatoria para add/open/remove). Un nombre SIMPLE sin '/' (por ejemplo, \"feature\") se crea en <configDir>/worktrees/<name> (gitignored). Usá ./x, ../x, /abs o ~/x para ubicarlo de forma literal (relativo al cwd / home / absoluto).",
 				}),
 			),
 			branch: Type.Optional(
 				Type.String({
-					description: "For add: create and check out this new branch (git worktree add -b).",
+					description: "Para add: crear y hacer checkout de esta rama nueva (git worktree add -b).",
 				}),
 			),
 			commitish: Type.Optional(
 				Type.String({
-					description: "For add: commit/branch/tag to base the worktree on (start point).",
+					description: "Para add: commit/branch/tag sobre el que basar el worktree (punto de inicio).",
 				}),
 			),
-			detach: Type.Optional(Type.Boolean({ description: "For add: check out in detached HEAD mode." })),
+			detach: Type.Optional(Type.Boolean({ description: "Para add: hacer checkout en modo detached HEAD." })),
 			force: Type.Optional(
 				Type.Boolean({
 					description:
-						"For add: allow a branch already checked out elsewhere. For remove: discard a dirty/locked worktree.",
+						"Para add: permitir una rama ya checkouteada en otro lugar. Para remove: descartar un worktree con cambios o bloqueado.",
 				}),
 			),
 			dryRun: Type.Optional(
 				Type.Boolean({
-					description: "For prune: only report what would be pruned without deleting.",
+					description: "Para prune: solo informar qué se limpiaría sin borrar nada.",
 				}),
 			),
 			copyIgnored: Type.Optional(
 				Type.Boolean({
 					description:
-						"For add/open: copy gitignored files (e.g. node_modules) from the main worktree into the newly created one. Omit to fall through to the session default / PI_WORKTREE_COPY_IGNORED env var (else off).",
+						"Para add/open: copiar archivos gitignored (por ejemplo, node_modules) desde el worktree principal al recién creado. Si se omite, cae al valor por defecto de la sesión / env var PI_WORKTREE_COPY_IGNORED (si no, off).",
 				}),
 			),
 			copyUntracked: Type.Optional(
 				Type.Boolean({
 					description:
-						"For add/open: copy untracked files from the main worktree into the newly created one. Omit to fall through to the session default / PI_WORKTREE_COPY_UNTRACKED env var (else off).",
+						"Para add/open: copiar archivos sin seguimiento desde el worktree principal al recién creado. Si se omite, cae al valor por defecto de la sesión / env var PI_WORKTREE_COPY_UNTRACKED (si no, off).",
 				}),
 			),
 		}),
@@ -781,12 +792,16 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const result = await runGit(buildListArgs(), opts);
 				if (!result.ok) {
 					return {
-						content: [{ type: "text" as const, text: `Could not list worktrees: ${gitError(result)}` }],
+						content: [
+							{ type: "text" as const, text: `No se pudieron listar los worktrees: ${gitError(result)}` },
+						],
 						details: { isError: true, action: "list" },
 					};
 				}
 				const entries = parseWorktreeList(result.stdout);
-				const text = entries.length ? entries.map((e) => describeWorktree(e)).join("\n") : "No worktrees found.";
+				const text = entries.length
+					? entries.map((e) => describeWorktree(e)).join("\n")
+					: "No se encontraron worktrees.";
 				return {
 					content: [{ type: "text" as const, text }],
 					details: { action: "list", count: entries.length, worktrees: entries },
@@ -798,16 +813,18 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const result = await runGit(buildPruneArgs(dryRun), opts);
 				if (!result.ok) {
 					return {
-						content: [{ type: "text" as const, text: `Could not prune worktrees: ${gitError(result)}` }],
+						content: [
+							{ type: "text" as const, text: `No se pudieron limpiar los worktrees: ${gitError(result)}` },
+						],
 						details: { isError: true, action: "prune" },
 					};
 				}
 				const out = combinedOutput(result);
 				const text = dryRun
 					? out
-						? `Would prune:\n${out}`
-						: "Nothing to prune."
-					: "Pruned stale worktree metadata.";
+						? `Se limpiaría:\n${out}`
+						: "No hay nada para limpiar."
+					: "Se limpiaron los metadatos obsoletos de worktrees.";
 				return {
 					content: [{ type: "text" as const, text }],
 					details: { action: "prune", dryRun, output: out },
@@ -818,7 +835,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const target = resolveWorktreeTarget(params.path ?? "", ctx.cwd);
 				if (!target) {
 					return {
-						content: [{ type: "text" as const, text: "git_worktree add requires a 'path'." }],
+						content: [{ type: "text" as const, text: "La acción 'add' requiere 'path'." }],
 						details: { isError: true, action: "add" },
 					};
 				}
@@ -827,7 +844,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 						content: [
 							{
 								type: "text" as const,
-								text: `Invalid branch name "${params.branch}" — no spaces, control characters, or leading/trailing dots or slashes.`,
+								text: `Nombre de rama inválido "${params.branch}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
 							},
 						],
 						details: { isError: true, action: "add" },
@@ -844,19 +861,19 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				const result = await runGit(args, opts);
 				if (!result.ok) {
 					return {
-						content: [{ type: "text" as const, text: `Could not add worktree: ${gitError(result)}` }],
+						content: [{ type: "text" as const, text: `No se pudo crear el worktree: ${gitError(result)}` }],
 						details: { isError: true, action: "add", path: target.path },
 					};
 				}
 				const copyOpts = resolveCopyPrefs({ copyIgnored: params.copyIgnored, copyUntracked: params.copyUntracked });
 				const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal ?? undefined);
-				const branchNote = params.branch ? ` (new branch ${params.branch})` : "";
-				const locationNote = target.usedDefaultBase ? ` (default ${CONFIG_DIR_NAME}/worktrees/)` : "";
+				const branchNote = params.branch ? ` (rama nueva ${params.branch})` : "";
+				const locationNote = target.usedDefaultBase ? ` (por defecto ${CONFIG_DIR_NAME}/worktrees/)` : "";
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: `Added worktree at ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}. Open it with: cd ${target.path} && pi`,
+							text: `Se creó el worktree en ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}. Abrilo con: cd ${target.path} && pi`,
 						},
 					],
 					details: {
@@ -901,7 +918,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			const target = resolveWorktreeTarget(params.path ?? "", ctx.cwd);
 			if (!target) {
 				return {
-					content: [{ type: "text" as const, text: "git_worktree remove requires a 'path'." }],
+					content: [{ type: "text" as const, text: "La acción 'remove' requiere 'path'." }],
 					details: { isError: true, action: "remove" },
 				};
 			}
@@ -911,13 +928,13 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			if (!result.ok) {
 				const hint =
 					!force && needsForce(result)
-						? " The worktree is dirty or locked; re-run with force=true only if the user accepts discarding changes."
+						? " El worktree tiene cambios o está bloqueado; reintentá con force=true solo si la persona usuaria acepta descartar cambios."
 						: "";
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: `Could not remove worktree: ${gitError(result)}.${hint}`,
+							text: `No se pudo eliminar el worktree: ${gitError(result)}.${hint}`,
 						},
 					],
 					details: { isError: true, action: "remove", path: resolved },
@@ -927,7 +944,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				content: [
 					{
 						type: "text" as const,
-						text: `Removed worktree at ${resolved}${force ? " (forced)" : ""}.`,
+						text: `Se eliminó el worktree en ${resolved}${force ? " (forzado)" : ""}.`,
 					},
 				],
 				details: { action: "remove", path: resolved, forced: force },

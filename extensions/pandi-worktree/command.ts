@@ -57,7 +57,7 @@ export function parseCommand(input: string): ParsedCommand {
 		if (rest.length === 0) return { action: "set" }; // show both
 		const target = rest[0].toLowerCase();
 		if (target !== "copy-ignored" && target !== "copy-untracked") {
-			return { action: "set", error: "Usage: /worktree set [copy-ignored|copy-untracked] [on|off|status]" };
+			return { action: "set", error: "Uso: /worktree set [copy-ignored|copy-untracked] [on|off|status]" };
 		}
 		return { action: "set", setTarget: target, setValue: parseCopyToggleValue(rest[1] ?? "") };
 	}
@@ -94,13 +94,13 @@ export function parseCommand(input: string): ParsedCommand {
 		const [pathArg, commitish] = positionals;
 		const usage =
 			head === "open"
-				? "Usage: /worktree open [-b <branch>] <path> [<commit-ish>]"
-				: "Usage: /worktree add [-b <branch>] <path> [<commit-ish>]";
+				? "Uso: /worktree open [-b <branch>] <path> [<commit-ish>]"
+				: "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]";
 		if (!pathArg) return { action: head, error: usage };
 		if (newBranch !== undefined && !isValidBranchName(newBranch)) {
 			return {
 				action: head,
-				error: `Invalid branch name "${newBranch ?? ""}" — no spaces, control characters, or leading/trailing dots or slashes.`,
+				error: `Nombre de rama inválido "${newBranch ?? ""}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
 			};
 		}
 		return { action: head, path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
@@ -110,9 +110,9 @@ export function parseCommand(input: string): ParsedCommand {
 		const rest = tokens.slice(1);
 		const force = rest.some((t) => t === "--force" || t === "-f");
 		const pathArg = rest.find((t) => t !== "--force" && t !== "-f");
-		if (!pathArg) return { action: "remove", error: "Usage: /worktree remove [--force] <path>" };
+		if (!pathArg) return { action: "remove", error: "Uso: /worktree remove [--force] <path>" };
 		return { action: "remove", path: pathArg, force };
 	}
 
-	return { action: "help", error: `Unknown subcommand: "${tokens[0]}"` };
+	return { action: "help", error: `Subcomando desconocido: "${tokens[0]}"` };
 }
