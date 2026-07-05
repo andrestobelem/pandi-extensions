@@ -13,7 +13,7 @@
  * - entrada faltante / path vacío devuelven un error acotado (notify error / details.isError),
  *   y no se escribe nada
  *
- * Autoarranque (mismo patrón que las suites de pi-mdview): hace esbuild del
+ * Autoarranque (mismo patrón que las suites de pandi-mdview): hace esbuild del
  * index.ts ACTUAL en un directorio temporal del OS y copia el directorio vendoreado skills/ junto al bundle,
  * porque index.ts resuelve pandi-tokens.css relativo a import.meta.url.
  */
@@ -35,7 +35,7 @@ async function buildDocs() {
 		src: path.join(REPO_ROOT, "extensions", "pandi-docs", "index.ts"),
 		outName: "docs.mjs",
 		// Sin stub de typebox: bundlea el real para que tool.parameters conserve un JSON schema real
-		// (.properties), igual que las suites de pi-mdview.
+		// (.properties), igual que las suites de pandi-mdview.
 		copyDirs: { skills: path.join(REPO_ROOT, "extensions", "pandi-docs", "skills") },
 	});
 }
