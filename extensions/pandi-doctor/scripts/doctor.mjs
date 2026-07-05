@@ -40,13 +40,13 @@ function findSuiteRoot(startDir) {
 	}
 }
 
-/** Fallback relativo al script: `<ext>/scripts` → raíz del repo, pero solo si de verdad ES la suite. */
+/** Respaldo relativo al script: `<ext>/scripts` → raíz del repo, pero solo si de verdad ES la suite. */
 function suiteRootFromScriptLocation() {
 	const candidate = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 	return findSuiteRoot(candidate) === candidate ? candidate : null;
 }
 
-// null ⇒ instalación standalone (p. ej. `npm:@pandi-coding-agent/pandi-doctor`): los
+// null ⇒ instalación independiente (p. ej. `npm:@pandi-coding-agent/pandi-doctor`): los
 // chequeos solo-del-repo se degradan a N/A en vez de dar warnings falsos.
 const SUITE_ROOT = findSuiteRoot(process.cwd()) ?? suiteRootFromScriptLocation();
 // Directorio del proyecto para lookups a nivel proyecto (`node_modules`, skills en
@@ -236,7 +236,7 @@ const shortDir = globalDir === home || globalDir.startsWith(home + path.sep) ? g
 const syncScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "sync-claude-global.mjs") : null;
 const syncLabel = `sync Claude global (${shortDir})`;
 if (!SUITE_ROOT) {
-	// Instalación standalone: el espejo es una preocupación de desarrollo del repo de
+	// Instalación independiente: el espejo es una preocupación de desarrollo del repo de
 	// la suite, no de esta máquina — N/A, no un warning falso de "out of sync".
 	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(syncScript)) {
@@ -279,7 +279,7 @@ if (!SUITE_ROOT) {
 }
 
 // hook pre-commit: ¿core.hooksPath apunta al dir versionado scripts/git-hooks y el hook existe?
-// Es el gate rápido local (typecheck + biome + markdownlint) que evita commits rotos en main.
+// Es la verificación rápida local (typecheck + biome + markdownlint) que evita commits rotos en main.
 // Opcional a propósito: avisa, no rompe el doctor. Standalone (fuera del repo) no aplica.
 const hookLabel = "hook pre-commit (git)";
 if (!SUITE_ROOT) {
@@ -335,7 +335,7 @@ const foreignCopies = packageEntries.filter(
 			src.includes("@pandi-coding-agent/")),
 );
 const workingTreeEntries = packageEntries.filter(({ src, base }) => {
-	// Sin un working tree de la suite no hay nada contra lo que hacer double-load.
+	// Sin un working tree de la suite no hay nada contra lo que hacer carga doble.
 	if (!SUITE_ROOT || isRemote(src)) return false;
 	const resolved = path.resolve(base, src);
 	return resolved === SUITE_ROOT || resolved.startsWith(SUITE_ROOT + path.sep);

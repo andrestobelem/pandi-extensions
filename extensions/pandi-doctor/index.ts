@@ -5,11 +5,11 @@
  * Es un wrapper de conveniencia sobre `npm run doctor`: ubica `scripts/doctor.mjs`
  * (subiendo desde el cwd de la sesión y, si no, con un fallback relativo a la
  * extensión) y le hace spawn con `node` (argv, nunca shell). NO importa el script
- * — eso rompería la carga standalone — así que fuera del repo se degrada a una
+ * — eso rompería la carga independiente — así que fuera del repo se degrada a una
  * sugerencia amigable.
  *
  * Los helpers puros + el punto de inyección del spawn viven en `./doctor.ts` y se
- * reexportan para que la suite de integración los maneje con un runner fake inyectado.
+ * reexportan para que la suite de integración los maneje con un runner falso inyectado.
  */
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,7 +20,7 @@ import { notify } from "./notify.js";
 const EXT_DIR = dirname(fileURLToPath(import.meta.url));
 
 export type { DoctorResult, RunDoctor, RunDoctorOptions } from "./doctor.js";
-// Reexportado para que la suite de integración pueda unit-testear los helpers puros + el seam.
+// Reexportado para que la suite de integración pueda probar unitariamente los helpers puros + el punto de inyección.
 export { formatDoctorOutput, resolveDoctorScript, runDoctor, runDoctorCheck } from "./doctor.js";
 
 export default function doctorExtension(pi: ExtensionAPI): void {

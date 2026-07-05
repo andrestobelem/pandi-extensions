@@ -11,14 +11,14 @@
  *     working tree de `extensions/pandi-doctor/scripts/doctor.mjs`, cae en la copia
  *     vendorizada propia de la extensión (`<extDir>/scripts/doctor.mjs`) y devuelve
  *     null cuando ninguna resuelve;
- *   - `runDoctorCheck` (manejado por un runner fake INJECTADO) mapea
+ *   - `runDoctorCheck` (manejado por un runner falso INJECTADO) mapea
  *     `ok`/`exit`/`spawnError` al texto + `type` correctos para notify, de forma
  *     determinística;
  *   - el camino de binario ausente se ejercita con un spawn REAL de un binario
- *     garantizadamente ausente (así `spawnError` es real, no mocked) → mensaje
+ *     garantizadamente ausente (así `spawnError` es real, no simulado) → mensaje
  *     acotado, sin crash;
- *   - el command handler corre end-to-end contra el doctor REAL del repo y llama a
- *     `ctx.ui.notify` una vez con texto no vacío (env-agnostic: `info` o `error`).
+ *   - el command handler corre de punta a punta contra el doctor REAL del repo y llama a
+ *     `ctx.ui.notify` una vez con texto no vacío (agnóstico del entorno: `info` o `error`).
  *
  * `doctor.mjs` se ejecuta con un array ARGV (nunca un shell string).
  */
@@ -74,7 +74,7 @@ async function loadExtension(url) {
 	return { commands, tools };
 }
 
-/** Runner fake que respeta la firma de `runDoctor`; registra llamadas y devuelve resultados prefijados. */
+/** Runner falso que respeta la firma de `runDoctor`; registra llamadas y devuelve resultados prefijados. */
 function fakeRunner(scripted = []) {
 	const calls = [];
 	const opts = [];
@@ -116,7 +116,7 @@ async function scenarioResolver(url) {
 		String(fromSubdir),
 	);
 
-	// Fallback relativo a la extensión: el `cwd` no tiene relación, pero `extDir` trae su propia copia.
+	// Respaldo relativo a la extensión: el `cwd` no tiene relación, pero `extDir` trae su propia copia.
 	const fromFallback = mod.resolveDoctorScript(path.parse(REPO_ROOT).root, EXT_DIR);
 	check(
 		"resolveDoctorScript: falls back to the extension's own scripts/doctor.mjs",
@@ -132,7 +132,7 @@ async function scenarioResolver(url) {
 async function scenarioCheckLogic(url) {
 	const mod = await loadModule(url);
 
-	// Run ok → `info`, con el texto del reporte pasado directo.
+	// Ejecución ok → `info`, con el texto del reporte pasado directo.
 	{
 		const run = fakeRunner([{ ok: true, stdout: "✓ all mandatory present\n", stderr: "", exitCode: 0 }]);
 		const res = await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR });
@@ -214,7 +214,7 @@ function scenarioStandaloneDoctor() {
 		const extDir = path.join(tmp, "ext");
 		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
 		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
-		const agentDir = path.join(tmp, "agent"); // seam vacío: la configuración host no debe filtrarse
+		const agentDir = path.join(tmp, "agent"); // punto de inyección vacío: la configuración host no debe filtrarse
 		fs.mkdirSync(agentDir, { recursive: true });
 		const r = spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
 			cwd: tmp,
@@ -247,7 +247,7 @@ function scenarioPreCommitHookCheck() {
 		const extDir = path.join(tmp, "ext");
 		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
 		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
-		const agentDir = path.join(tmp, "agent"); // seam vacío: la configuración host no debe filtrarse
+		const agentDir = path.join(tmp, "agent"); // punto de inyección vacío: la configuración host no debe filtrarse
 		fs.mkdirSync(agentDir, { recursive: true });
 		const runDoctorHere = () =>
 			spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
@@ -291,7 +291,7 @@ async function scenarioHandlerEndToEnd(url) {
 		cwd: REPO_ROOT,
 		ui: { notify: (message, type) => notifications.push({ message, type }) },
 	};
-	// Corre el `scripts/doctor.mjs` REAL contra este repo; aserción env-agnostic.
+	// Corre el `scripts/doctor.mjs` REAL contra este repo; aserción agnóstica del entorno.
 	await commands.get("doctor").handler("", ctx);
 	check("handler: notifies exactly once", notifications.length === 1, `count=${notifications.length}`);
 	check(

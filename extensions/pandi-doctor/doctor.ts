@@ -9,7 +9,7 @@
  *     (sube desde el cwd de la sesión hasta extensions/pandi-doctor/scripts/doctor.mjs,
  *     así el desarrollo dentro del repo siempre corre la versión más nueva), y luego
  *     cae en la copia vendorizada propia de la extensión `<extDir>/scripts/doctor.mjs`
- *     — que viaja en el npm tarball, así que una instalación standalone igual resuelve.
+ *     — que viaja en el npm tarball, así que una instalación independiente igual resuelve.
  *     Devuelve null cuando no existe ninguna.
  *   - `runDoctorCheck` es el paso de alto nivel inyectable que llama el command
  *     handler; `formatDoctorOutput` mapea un DoctorResult a texto + severidad para
@@ -40,7 +40,7 @@ export interface RunDoctorOptions {
 
 export const DEFAULT_DOCTOR_TIMEOUT_MS = 120_000;
 
-/** Firma compartida por `runDoctor` y el runner fake inyectado en tests. */
+/** Firma compartida por `runDoctor` y el runner falso inyectado en tests. */
 export type RunDoctor = (scriptPath: string, options?: RunDoctorOptions) => Promise<DoctorResult>;
 
 /**
