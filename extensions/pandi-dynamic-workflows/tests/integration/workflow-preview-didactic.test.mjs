@@ -35,6 +35,13 @@ function indexOfNeedle(html, needle) {
 	return i < 0 ? Number.POSITIVE_INFINITY : i;
 }
 
+function sectionHtml(html, id) {
+	const start = html.indexOf(`<section data-s="${id}"`);
+	if (start < 0) return "";
+	const end = html.indexOf("</section>", start);
+	return end < 0 ? html.slice(start) : html.slice(start, end);
+}
+
 async function writeFailedRunFixture() {
 	const runDir = await fs.mkdtemp(path.join(os.tmpdir(), "workflow-preview-didactic-run-"));
 	await fs.writeFile(
@@ -116,6 +123,7 @@ async function writeContractRunFixture() {
 
 const pre = await buildArtifact({ scriptPath: SCAFFOLD, argsJson });
 const preHtml = pre.html;
+const prePlanHtml = sectionHtml(preHtml, "plan");
 
 check("preview has a didactic opening", /class="opening"[^>]*>[^<]*Vista estática antes de ejecutar/i.test(preHtml));
 check(
@@ -127,10 +135,16 @@ check(
 	"preview no longer uses the old fixed English kicker",
 	!preHtml.includes("Dynamic workflow · review before launch"),
 );
+check("preview keeps Plan first and active", /<button data-t="plan" class="active">Plan<\/button>/.test(preHtml));
 check(
-	"preview keeps Diagram first and active",
-	/<button data-t="overview" class="active">Diagrama<\/button>/.test(preHtml),
+	"preview puts Plan before Diagram",
+	indexOfNeedle(preHtml, 'data-t="plan"') < indexOfNeedle(preHtml, 'data-t="overview"'),
 );
+check("preview renders an explicit Plan section", /<section data-s="plan" class="active">/.test(preHtml));
+check("plan labels the workflow summary in Spanish", prePlanHtml.includes("Qué va a ejecutar"));
+check("plan labels phases in Spanish", prePlanHtml.includes("Fases"));
+check("plan labels agents in Spanish", prePlanHtml.includes("Agentes y contratos"));
+check("plan derives phase content from the workflow", prePlanHtml.includes("Scout") && prePlanHtml.includes("Review"));
 check("preview labels agents in Spanish", preHtml.includes("Agentes y prompts"));
 check("preview labels based-on in Spanish", preHtml.includes("Basado en"));
 check("preview labels full script in Spanish", preHtml.includes("Script completo"));
@@ -171,8 +185,12 @@ try {
 		/<div class="callout error">[\s\S]*agente fall[oó]/i.test(postHtml),
 	);
 	check(
-		"post-run puts Results before Diagram",
-		indexOfNeedle(postHtml, 'data-t="results"') < indexOfNeedle(postHtml, 'data-t="overview"'),
+		"post-run puts Results before Plan",
+		indexOfNeedle(postHtml, 'data-t="results"') < indexOfNeedle(postHtml, 'data-t="plan"'),
+	);
+	check(
+		"post-run keeps Plan before Diagram",
+		indexOfNeedle(postHtml, 'data-t="plan"') < indexOfNeedle(postHtml, 'data-t="overview"'),
 	);
 	check(
 		"post-run makes Results the active tab",
@@ -202,8 +220,12 @@ try {
 		/<button data-t="agents" class="active">Agentes y prompts<\/button>/.test(noResultsHtml),
 	);
 	check(
-		"run without results puts Agents before Diagram",
-		indexOfNeedle(noResultsHtml, 'data-t="agents"') < indexOfNeedle(noResultsHtml, 'data-t="overview"'),
+		"run without results keeps Plan before Diagram",
+		indexOfNeedle(noResultsHtml, 'data-t="plan"') < indexOfNeedle(noResultsHtml, 'data-t="overview"'),
+	);
+	check(
+		"run without results puts Agents before Plan",
+		indexOfNeedle(noResultsHtml, 'data-t="agents"') < indexOfNeedle(noResultsHtml, 'data-t="plan"'),
 	);
 } finally {
 	await fs.rm(noResultsRunDir, { recursive: true, force: true });

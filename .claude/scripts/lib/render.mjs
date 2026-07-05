@@ -1,5 +1,6 @@
 // render.mjs — arma el objeto data (mermaid + fidelity notes + todo lo que necesita el cliente)
 // y produce el string HTML autocontenido. Puro: sin file IO, sin estado de proceso.
+import { renderWorkflowPlan } from "./plan.mjs";
 import { phaseTitleOf } from "./util.mjs";
 
 // Detecta un resultado de Contract Gate para mostrarlo en una tab Contract dedicada: el valor de retorno
@@ -226,23 +227,26 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const run = runData ? { runId: runData.runId, state: runData.state, active: runData.active, agentCount: runData.agentCount, ok: runData.ok, fail: runData.fail, running: runData.running, elapsedMs: runData.elapsedMs } : null;
   const contract = detectContract(runData);
   const hasContract = !!contract;
+  const warnText = fidelityNotes.length ? fidelityNotes.join(" · ") : null;
+  const argsLabel = argsJson ? "(provistos)" : "(defaults de extracción)";
   const data = {
     meta, phases, composes, __mm: mm, mermaidThemes,
     provenance, scaffolds, source: scriptPath,
-    args: argsJson ? "(provistos)" : "(defaults de extracción)",
+    args: argsLabel,
     schemas, nodes, skillRefs, script: raw, run, ...(hasContract ? { contract } : {}),
     results: runData ? runData.results : null,
-    warn: fidelityNotes.length ? fidelityNotes.join(" · ") : null,
+    warn: warnText,
   };
   const jsonBlob = JSON.stringify(data).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
   const autoRefresh = !!(runData && runData.active);
   const hasRun = !!runData;
   const hasResults = !!(runData && runData.results);
-  const initialTab = hasResults ? "results" : hasRun ? "agents" : "overview";
+  const initialTab = hasResults ? "results" : hasRun ? "agents" : "plan";
   const opening = escHtml(openingText({ runData, nodeCount: nodes.length, argsJson, hasResults }));
   const callouts = topCallouts(runData);
   const tabMap = {
     results: tabButton("results", "Resultados", initialTab === "results", 'id="tabresults"'),
+    plan: tabButton("plan", "Plan", initialTab === "plan"),
     overview: tabButton("overview", "Diagrama", initialTab === "overview"),
     contract: hasContract ? tabButton("contract", "Contrato", false) : "",
     agents: tabButton("agents", "Agentes y prompts", initialTab === "agents"),
@@ -251,19 +255,14 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
     script: tabButton("script", "Script completo", false),
   };
   const tabs = (hasRun
-    ? [
-        hasResults ? tabMap.results : "",
-        tabMap.agents,
-        tabMap.overview,
-        tabMap.contract,
-        tabMap.schemas,
-        tabMap.based,
-        tabMap.script,
-        !hasResults ? tabMap.results : "",
-      ]
-    : [tabMap.overview, tabMap.agents, tabMap.schemas, tabMap.based, tabMap.script, tabMap.results]
+    ? hasResults
+      ? [tabMap.results, tabMap.plan, tabMap.agents, tabMap.overview, tabMap.contract, tabMap.schemas, tabMap.based, tabMap.script]
+      : [tabMap.agents, tabMap.plan, tabMap.overview, tabMap.contract, tabMap.results, tabMap.schemas, tabMap.based, tabMap.script]
+    : [tabMap.plan, tabMap.overview, tabMap.agents, tabMap.schemas, tabMap.based, tabMap.script, tabMap.results]
   ).filter(Boolean).join("");
   const active = (id) => (initialTab === id ? ' class="active"' : "");
+  const planHtml = renderWorkflowPlan({ meta, phases, nodes, composes, scaffolds, provenance, args: argsLabel, schemas, warn: warnText, source: scriptPath });
+  const planSection = `<section data-s="plan"${active("plan")}><h2 class="sec">Plan — blueprint antes de ejecutar</h2><p class="section-intro">Este plan sale del workflow mismo: fases, agentes, contratos y composición detectados por el preview estático.</p>${planHtml}</section>`;
   const overviewSection = `<section data-s="overview"${active("overview")}><h2 class="sec">Orquestación</h2><p class="section-intro">El diagrama muestra la estructura detectada: fases, tipos de agente y composición entre workflows. Usalo como mapa; los prompts exactos están en la pestaña de agentes.</p><div class="diagram"><pre class="mermaid" id="mm"></pre></div></section>`;
   const contractSection = hasContract ? '<section data-s="contract"><h2 class="sec">Contrato — contrato de tarea del gate</h2><div class="mdbody" id="contract"></div></section>' : "";
   const resultsSection = `<section data-s="results"${active("results")}><h2 class="sec">Resultados — valor de retorno y artefactos</h2><div id="results"></div></section>`;
@@ -272,17 +271,10 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const basedSection = '<section data-s="based"><h2 class="sec">Basado en — fuentes y scaffolds</h2><div id="based"></div></section>';
   const scriptSection = '<section data-s="script"><h2 class="sec">Script completo</h2><pre class="block"><code class="language-javascript" id="script"></code></pre></section>';
   const sections = hasRun
-    ? [
-        hasResults ? resultsSection : "",
-        agentsSection,
-        overviewSection,
-        contractSection,
-        !hasResults ? resultsSection : "",
-        schemasSection,
-        basedSection,
-        scriptSection,
-      ]
-    : [overviewSection, agentsSection, resultsSection, schemasSection, basedSection, scriptSection];
+    ? hasResults
+      ? [resultsSection, planSection, agentsSection, overviewSection, contractSection, schemasSection, basedSection, scriptSection]
+      : [agentsSection, planSection, overviewSection, contractSection, resultsSection, schemasSection, basedSection, scriptSection]
+    : [planSection, overviewSection, agentsSection, resultsSection, schemasSection, basedSection, scriptSection];
 
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${autoRefresh ? '<meta http-equiv="refresh" content="2">' : ""}
 <title>${(meta.name || "workflow").replace(/[<>&]/g, "")} — workflow</title>
