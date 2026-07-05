@@ -27,6 +27,7 @@
  * Run it:
  *   node extensions/pandi-dynamic-workflows/tests/integration/race-cancellation.test.mjs
  */
+import { watch as watchDir } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -163,12 +164,39 @@ async function listMarkers(dir, prefix) {
 }
 
 async function waitForMarkers(dir, prefix, want, timeoutMs) {
-	const start = Date.now();
-	while (Date.now() - start < timeoutMs) {
-		if ((await listMarkers(dir, prefix)).length >= want) break;
-		await new Promise((r) => setTimeout(r, 25));
-	}
-	return await listMarkers(dir, prefix);
+	const initial = await listMarkers(dir, prefix);
+	if (initial.length >= want) return initial;
+
+	return await new Promise((resolve, reject) => {
+		let settled = false;
+		let watcher;
+		const finish = (fn, value) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			watcher?.close();
+			fn(value);
+		};
+		const readAndMaybeFinish = async () => {
+			try {
+				const markers = await listMarkers(dir, prefix);
+				if (markers.length >= want) finish(resolve, markers);
+			} catch (err) {
+				finish(reject, err);
+			}
+		};
+		const timer = setTimeout(async () => {
+			try {
+				finish(resolve, await listMarkers(dir, prefix));
+			} catch (err) {
+				finish(reject, err);
+			}
+		}, timeoutMs);
+		watcher = watchDir(dir, { persistent: false }, () => {
+			void readAndMaybeFinish();
+		});
+		void readAndMaybeFinish();
+	});
 }
 
 async function readJournalAgentRecords(runDir) {
