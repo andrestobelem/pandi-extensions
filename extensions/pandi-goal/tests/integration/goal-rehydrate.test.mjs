@@ -362,7 +362,7 @@ async function verifyingIndependentReloadSurvivesAgentEnd(goalUrl) {
 	for (const h of built.handlers.get("agent_end") ?? []) await h({}, ctx);
 	check(
 		"agent_end does NOT re-arm a reloaded verifying-independent goal",
-		!built.states.some((st) => st.goalId === s.goalId && st.lastReason === "auto: turn closed without goal_progress"),
+		!built.states.some((st) => st.goalId === s.goalId && st.lastReason === "auto: el turno cerró sin goal_progress"),
 		"unexpected auto re-arm",
 	);
 	check(

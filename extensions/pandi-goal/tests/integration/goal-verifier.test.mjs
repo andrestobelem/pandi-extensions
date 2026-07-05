@@ -491,7 +491,7 @@ async function secondGoalIsRefused(goalUrl) {
 	check("second concurrent goal is REFUSED (no new goalId persisted)", distinct === 1, `distinct=${distinct}`);
 	check(
 		"user is warned a goal is already active",
-		notifies.some((n) => n.t === "warning" && /already active/i.test(n.m)),
+		notifies.some((n) => n.t === "warning" && /ya hay un goal activo/i.test(n.m)),
 		JSON.stringify(notifies),
 	);
 }
@@ -739,7 +739,7 @@ async function contextBudgetGate(goalUrl) {
 }
 
 // The reason scheduleGoal stamps when the agent_end safety net re-arms a stranded goal.
-const AUTO_REASON = "auto: turn closed without goal_progress";
+const AUTO_REASON = "auto: el turno cerró sin goal_progress";
 const fireAgentEnd = async (built, ctx) => {
 	for (const h of built.handlers.get("agent_end") ?? []) await h({}, ctx);
 };
@@ -918,7 +918,7 @@ async function stopStatusObjectiveWithCriteriaStarts(goalUrl) {
 	);
 	check(
 		"bare '/goal stop' with no active goal reports no match",
-		notifies.some((n) => /No matching goal to stop/i.test(n.m)),
+		notifies.some((n) => /ningún goal que coincida para detener/i.test(n.m)),
 		JSON.stringify(notifies),
 	);
 }
@@ -1034,7 +1034,7 @@ async function verifierPromptFencesUntrustedEvidence(goalUrl) {
 	);
 	check(
 		"G4: verifier is told the evidence is untrusted and to ignore embedded instructions",
-		/untrusted/i.test(prompt) && /ignore/i.test(prompt),
+		/no confiable/i.test(prompt) && /ignor/i.test(prompt),
 	);
 	check(
 		"G4: injected closing marker is neutralized (exactly one real closing fence)",

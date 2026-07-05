@@ -142,13 +142,13 @@ async function promptNoCriteriaBranch(mod) {
 	);
 	const prompt = capturedPrompt(calls);
 	check(
-		"no-criteria prompt contains 'none were stated explicitly'",
-		prompt.includes("none were stated explicitly"),
+		"no-criteria prompt contains 'no se indicaron explícitamente'",
+		prompt.includes("no se indicaron explícitamente"),
 		"missing inference clause",
 	);
 	check(
 		"no-criteria prompt omits the definition-of-done criteria block",
-		!prompt.includes("SUCCESS CRITERIA (definition-of-done):"),
+		!prompt.includes("CRITERIOS DE ÉXITO (definición de terminado):"),
 		"unexpected definition-of-done block",
 	);
 }
@@ -160,13 +160,13 @@ async function promptWithCriteriaBranch(mod) {
 	const prompt = capturedPrompt(calls);
 	check(
 		"with-criteria prompt contains the definition-of-done block",
-		prompt.includes("SUCCESS CRITERIA (definition-of-done):"),
+		prompt.includes("CRITERIOS DE ÉXITO (definición de terminado):"),
 		"missing definition-of-done block",
 	);
 	check("with-criteria prompt embeds the criteria text", prompt.includes("the tests pass"), "missing criteria text");
 	check(
 		"with-criteria prompt omits the 'none were stated' inference clause",
-		!prompt.includes("none were stated explicitly"),
+		!prompt.includes("no se indicaron explícitamente"),
 		"unexpected inference clause",
 	);
 }
@@ -182,7 +182,7 @@ async function promptUsesDerivedCriteria(mod) {
 	const prompt = capturedPrompt(calls);
 	check(
 		"derivedCriteria fills the definition-of-done when successCriteria is absent",
-		prompt.includes("SUCCESS CRITERIA (definition-of-done):") && prompt.includes("lint is clean"),
+		prompt.includes("CRITERIOS DE ÉXITO (definición de terminado):") && prompt.includes("lint is clean"),
 		"derivedCriteria not used",
 	);
 }

@@ -24,10 +24,10 @@ export function formatProgressLog(goal: GoalState): string[] {
 	const lines: string[] = [];
 	const recent = goal.assessments.slice(-PROGRESS_LOG_KEEP);
 	if (recent.length === 0) return lines;
-	lines.push("PROGRESS LOG (most recent last):");
+	lines.push("REGISTRO DE PROGRESO (más reciente al final):");
 	for (const a of recent) {
-		const step = a.nextStep ? ` next: ${a.nextStep}` : "";
-		lines.push(`- it ${a.iteration} [${a.status}] ${a.assessment}${step}`);
+		const step = a.nextStep ? ` próximo: ${a.nextStep}` : "";
+		lines.push(`- iter ${a.iteration} [${a.status}] ${a.assessment}${step}`);
 	}
 	return lines;
 }
@@ -35,20 +35,20 @@ export function formatProgressLog(goal: GoalState): string[] {
 /** Stable iteration-prompt mold re-injected each `pursuing` iteration. */
 export function makeGoalIterationPrompt(goal: GoalState): string {
 	const lines: string[] = [];
-	lines.push(`You are pursuing a /goal (goal ${goal.goalId}).`);
+	lines.push(`Estás persiguiendo un /goal (goal ${goal.goalId}).`);
 	lines.push("");
-	lines.push("OBJECTIVE (verbatim):");
+	lines.push("OBJETIVO (textual):");
 	lines.push(goal.objective);
 	lines.push("");
 
 	const criteria = effectiveCriteria(goal);
 	if (criteria) {
-		lines.push("SUCCESS CRITERIA (definition-of-done):");
+		lines.push("CRITERIOS DE ÉXITO (definición de terminado):");
 		lines.push(criteria);
 	} else {
-		lines.push("SUCCESS CRITERIA: none were provided.");
+		lines.push("CRITERIOS DE ÉXITO: no se proporcionaron.");
 		lines.push(
-			"FIRST, derive 2-5 concrete, VERIFIABLE success criteria from the objective (each checkable by a command, a test, or an inspectable artifact). Pass them in the `successCriteria` argument of your FIRST goal_progress call (NOT only in `assessment`); they are recorded ONCE as the definition-of-done for the rest of this goal.",
+			"PRIMERO, derivá 2 a 5 criterios de éxito concretos y VERIFICABLES a partir del objetivo (cada uno chequeable con un comando, un test o un artifact inspeccionable). Pasalos en el argumento `successCriteria` de tu PRIMER llamado a goal_progress (NO solo en `assessment`); quedan registrados UNA VEZ como la definición de terminado para el resto de este goal.",
 		);
 	}
 	lines.push("");
@@ -59,26 +59,26 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 		lines.push("");
 	}
 
-	lines.push(`This is iteration ${goal.iteration}/${goal.maxIterations}.`);
-	if (goal.lastReason) lines.push(`Previous decision: ${goal.lastReason}`);
+	lines.push(`Esta es la iteración ${goal.iteration}/${goal.maxIterations}.`);
+	if (goal.lastReason) lines.push(`Decisión previa: ${goal.lastReason}`);
 	if (goal.ultracode) {
 		lines.push(
-			`ULTRACODE: prefer driving this work via dynamic workflows when it earns its cost. Scout inline first with cheap read-only probes; orchestrate (dynamic_workflow action=start) only for exhaustiveness, independent confidence, or scale, with explicit concurrency/maxAgents. Inspect the catalog (dynamic_workflow action=scaffold) and reuse an exact-fit workflow or write a gitignored ${CONFIG_DIR_NAME}/workflows/drafts/<slug>.js draft.`,
+			`ULTRACODE: preferí conducir este trabajo vía dynamic workflows cuando eso justifique su costo. Primero scouteá inline con sondas baratas de solo lectura; orquestá (dynamic_workflow action=start) solo para exhaustividad, confianza independiente o escala, con concurrency/maxAgents explícitos. Revisá el catálogo (dynamic_workflow action=scaffold) y reusá un workflow que calce exacto, o escribí un draft gitignoreado en ${CONFIG_DIR_NAME}/workflows/drafts/<slug>.js.`,
 		);
 	}
 	lines.push("");
 	lines.push(
-		"Do work toward the objective now. THEN self-evaluate against the success criteria and call goal_progress:",
+		"Trabajá en el objetivo ahora. LUEGO autoevaluá tu progreso contra los criterios de éxito y llamá a goal_progress:",
 	);
-	lines.push('- status "continue" (with a concrete nextStep) if criteria are not yet all met.');
+	lines.push('- estado "continue" (con un nextStep concreto) si todavía no se cumplen todos los criterios.');
 	lines.push(
-		'- status "done" only when you believe EVERY criterion is met; you will then get one verification turn before the goal closes.',
-	);
-	lines.push(
-		'- status "blocked" if you cannot progress without a human decision/credential/access (explain the blocker).',
+		'- estado "done" solo cuando creas que se cumple CADA criterio; luego vas a tener un turno de verificación antes de que el goal se cierre.',
 	);
 	lines.push(
-		`If you call neither, the goal will defensively re-arm and will hard-stop at iteration ${goal.maxIterations}.`,
+		'- estado "blocked" si no podés avanzar sin una decisión humana, credencial o acceso (explicá el blocker).',
+	);
+	lines.push(
+		`Si no llamás a ninguno, el goal se va a rearmar defensivamente y se va a detener de forma dura en la iteración ${goal.maxIterations}.`,
 	);
 	return lines.join("\n");
 }
@@ -86,26 +86,26 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 /** Verification-prompt mold, injected only in the `verifying` state (the completeness check). */
 export function makeGoalVerificationPrompt(goal: GoalState): string {
 	const lines: string[] = [];
-	lines.push(`COMPLETENESS CHECK for /goal ${goal.goalId}.`);
+	lines.push(`CHEQUEO DE COMPLETITUD para /goal ${goal.goalId}.`);
 	lines.push("");
-	lines.push("OBJECTIVE (verbatim):");
+	lines.push("OBJETIVO (textual):");
 	lines.push(goal.objective);
 	lines.push("");
 	const criteria = effectiveCriteria(goal);
 	if (criteria) {
-		lines.push("SUCCESS CRITERIA (definition-of-done):");
+		lines.push("CRITERIOS DE ÉXITO (definición de terminado):");
 		lines.push(criteria);
 		lines.push("");
 	}
-	lines.push("You declared the objective complete. Do NOT do new work now. VERIFY adversarially:");
+	lines.push("Declaraste el objetivo completo. NO hagas trabajo nuevo ahora. VERIFICÁ de forma adversarial:");
 	lines.push(
-		"- For EACH success criterion, present concrete evidence that it is met (a command you ran and its output, a test that passed, a file that exists). Do not assert; show.",
+		"- Para CADA criterio de éxito, presentá evidencia concreta de que se cumple (un comando que corriste y su salida, un test que pasó, un archivo que existe). No afirmes; mostrá.",
 	);
 	lines.push(
-		'- If every criterion is supported by evidence, call goal_progress({status:"done", assessment}) to CONFIRM and close the goal.',
+		'- Si cada criterio está respaldado por evidencia, llamá a goal_progress({status:"done", assessment}) para CONFIRMAR y cerrar el goal.',
 	);
 	lines.push(
-		'- If any criterion fails or the evidence is missing, call goal_progress({status:"continue", nextStep}) describing exactly what still has to be done.',
+		'- Si algún criterio falla o falta evidencia, llamá a goal_progress({status:"continue", nextStep}) describiendo exactamente qué falta hacer.',
 	);
 	return lines.join("\n");
 }

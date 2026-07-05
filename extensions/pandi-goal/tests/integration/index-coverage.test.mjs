@@ -191,7 +191,7 @@ async function stopsAtMaxIterations(goalUrl) {
 	check("maxIterations cap → final gstatus stopped", last?.gstatus === "stopped", `last=${last?.gstatus}`);
 	check(
 		"maxIterations cap → lastReason names the cap",
-		!!last && /reached maxIterations \(1\)/.test(last.lastReason || ""),
+		!!last && /alcanzó el límite de maxIterations \(1\)/.test(last.lastReason || ""),
 		`reason=${last?.lastReason}`,
 	);
 	check("maxIterations cap → a warning notify fired", warned(env.notifies, /maxIterations \(1\)/), "no warning");
@@ -213,7 +213,7 @@ async function agentEndReArmsStrandedPursuing(goalUrl) {
 	await runCommand(built, "make the build green", env);
 	const before = built.states.length;
 	await fireAgentEnd(built, env);
-	const rearm = built.states.find((st) => st.lastReason === "auto: turn closed without goal_progress");
+	const rearm = built.states.find((st) => st.lastReason === "auto: el turno cerró sin goal_progress");
 	check(
 		"agent_end re-armed a stranded pursuing goal (auto reason persisted)",
 		!!rearm,
@@ -256,8 +256,8 @@ async function goalProgressNoActiveGoal(goalUrl) {
 	const r = await runProgress(built, { status: "continue", assessment: "x", nextStep: "y" }, env);
 	check("goal_progress with no active goal → isError true", r?.details?.isError === true, JSON.stringify(r?.details));
 	check(
-		"goal_progress with no active goal → 'No active goal' text",
-		/No active goal/.test(r?.content?.[0]?.text || ""),
+		"goal_progress with no active goal → 'No hay ningún goal activo' text",
+		/No hay ningún goal activo/.test(r?.content?.[0]?.text || ""),
 		r?.content?.[0]?.text,
 	);
 	check(
@@ -450,8 +450,8 @@ async function stopNoMatchWarns(goalUrl) {
 	const env = makeEnv();
 	await runCommand(built, "stop", env);
 	check(
-		"`/goal stop` with no active goal warns 'No matching goal'",
-		warned(env.notifies, /No matching goal/),
+		"`/goal stop` with no active goal warns 'No hay ningún goal que coincida'",
+		warned(env.notifies, /No hay ningún goal que coincida/),
 		"no warning",
 	);
 	check(
@@ -532,7 +532,7 @@ async function stoppedGoalRemovedFromActiveMap(goalUrl) {
 	const last = env.notifies[env.notifies.length - 1];
 	check(
 		"`/goal status` after stop reports no active goals (terminal goal removed from activeGoals)",
-		/No goals\./.test(last?.message ?? ""),
+		/No hay goals\./.test(last?.message ?? ""),
 		`last notify=${JSON.stringify(last)}`,
 	);
 }

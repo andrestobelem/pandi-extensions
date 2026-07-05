@@ -141,7 +141,7 @@ function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
 function contextBudgetExceeded(ctx: ExtensionContext, goal: ActiveGoal): string | undefined {
 	const usage = ctx.getContextUsage?.();
 	if (usage && usage.percent !== null && usage.percent >= goal.contextPercentCap) {
-		return `context budget exhausted (${Math.round(usage.percent)}% ≥ ${goal.contextPercentCap}%)`;
+		return `presupuesto de contexto agotado (${Math.round(usage.percent)}% ≥ ${goal.contextPercentCap}%)`;
 	}
 	return undefined;
 }
@@ -155,8 +155,12 @@ function fireGoal(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): vo
 	if (goal.gstatus !== "pursuing" && goal.gstatus !== "verifying") return;
 
 	if (goal.iteration >= goal.maxIterations) {
-		stopGoal(pi, ctx, goal.goalId, `reached maxIterations (${goal.maxIterations})`, "stopped");
-		notify(ctx, `Goal ${goal.goalId} stopped: reached maxIterations (${goal.maxIterations}).`, "warning");
+		stopGoal(pi, ctx, goal.goalId, `alcanzó el límite de maxIterations (${goal.maxIterations})`, "stopped");
+		notify(
+			ctx,
+			`Goal ${goal.goalId} detenido: alcanzó el límite de maxIterations (${goal.maxIterations}).`,
+			"warning",
+		);
 		return;
 	}
 
@@ -164,7 +168,7 @@ function fireGoal(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): vo
 	const budget = contextBudgetExceeded(ctx, goal);
 	if (budget) {
 		stopGoal(pi, ctx, goal.goalId, budget, "stopped");
-		notify(ctx, `Goal ${goal.goalId} stopped: ${budget}. You can /compact and resume.`, "warning");
+		notify(ctx, `Goal ${goal.goalId} detenido: ${budget}. Podés hacer /compact y retomar.`, "warning");
 		return;
 	}
 
@@ -245,7 +249,7 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 	goal.verifierInFlight = true;
 	goal.gstatus = "verifying-independent";
 	goal.nextFireAt = null;
-	goal.lastReason = "independent verification in progress";
+	goal.lastReason = "verificación independiente en curso";
 	persist(pi, ctx, goal);
 	setGoalStatus(ctx, goal);
 
@@ -268,14 +272,18 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 			assessment: `independent verifier PASS: ${verdict.feedback}`.slice(0, 2000),
 			at,
 		});
-		stopGoal(pi, ctx, goal.goalId, "done: independently verified against success criteria", "done");
-		notify(ctx, `Goal ${goal.goalId} DONE: independently verified (fresh-eyes subagent confirmed). 🐼`, "info");
+		stopGoal(pi, ctx, goal.goalId, "done: verificado de forma independiente contra los criterios de éxito", "done");
+		notify(
+			ctx,
+			`Goal ${goal.goalId} DONE: verificado de forma independiente (subagente con ojos frescos confirmó). 🐼`,
+			"info",
+		);
 		return;
 	}
 
 	// FAIL. Count it; if we have exhausted the independent-verification budget, block.
 	goal.independentVerifyAttempts += 1;
-	const feedback = verdict.feedback.trim() || "independent verifier rejected the claim without detail";
+	const feedback = verdict.feedback.trim() || "el verificador independiente rechazó la afirmación sin detalle";
 	if (goal.independentVerifyAttempts >= goal.maxIndependentVerifications) {
 		goal.assessments.push({
 			iteration: goal.iteration,
@@ -287,11 +295,11 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 				),
 			at,
 		});
-		const blocker = `independent verification failed ${goal.independentVerifyAttempts} time(s); last verdict: ${feedback}`;
+		const blocker = `la verificación independiente falló ${goal.independentVerifyAttempts} vez(veces); último veredicto: ${feedback}`;
 		stopGoal(pi, ctx, goal.goalId, `blocked: ${blocker}`, "blocked");
 		notify(
 			ctx,
-			`Goal ${goal.goalId} is BLOCKED: independent verification kept failing (needs a human). ${feedback}`,
+			`Goal ${goal.goalId} está BLOCKED: la verificación independiente siguió fallando (necesita a un humano). ${feedback}`,
 			"warning",
 		);
 		return;
@@ -308,11 +316,14 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 				0,
 				2000,
 			),
-		nextStep: `Address the independent verifier's findings before re-declaring done: ${feedback}`.slice(0, 2000),
+		nextStep: `Atendé los hallazgos del verificador independiente antes de volver a declarar done: ${feedback}`.slice(
+			0,
+			2000,
+		),
 		at,
 	};
-	advanceGoal(pi, ctx, goal, assessment, 0, "independent verification failed → continue");
-	notify(ctx, `Goal ${goal.goalId}: independent verifier returned FAIL; iterating again.`, "info");
+	advanceGoal(pi, ctx, goal, assessment, 0, "la verificación independiente falló → continue");
+	notify(ctx, `Goal ${goal.goalId}: el verificador independiente devolvió FAIL; iterando de nuevo.`, "info");
 }
 
 // ---------------------------------------------------------------------------
@@ -354,7 +365,7 @@ function parseGoalArgs(args: string): { objective: string; successCriteria?: str
 function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): ActiveGoal | undefined {
 	// Mode gate: only TUI/RPC can sustain a persistent goal session.
 	if (!canGoalInMode(ctx)) {
-		notify(ctx, "/goal requires a TUI or RPC session (this mode cannot run a goal).", "error");
+		notify(ctx, "/goal requiere una sesión TUI o RPC (este modo no puede sostener un goal).", "error");
 		return undefined;
 	}
 	// Single active goal at a time: the P0 tool (goal_progress) carries no goalId and resolves
@@ -364,14 +375,14 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 	if (existing) {
 		notify(
 			ctx,
-			`A goal is already active (${existing.goalId}: ${existing.objective}). Stop it first with /goal stop.`,
+			`Ya hay un goal activo (${existing.goalId}: ${existing.objective}). Detenélo primero con /goal stop.`,
 			"warning",
 		);
 		return undefined;
 	}
 	const { objective, successCriteria, ultracode } = parseGoalArgs(args);
 	if (!objective) {
-		notify(ctx, "Usage: /goal [--ultracode] <objective> [-- <success criteria>]", "warning");
+		notify(ctx, "Uso: /goal [--ultracode] <objective> [-- <success criteria>]", "warning");
 		return undefined;
 	}
 
@@ -407,9 +418,9 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 
 	// Send the first iteration prompt immediately. fireGoal handles iteration++/persist/status.
 	fireGoal(pi, ctx, goal);
-	const crit = successCriteria ? " (with criteria)" : " (model will derive criteria)";
+	const crit = successCriteria ? " (con criterios)" : " (el modelo va a derivar los criterios)";
 	const uc = ultracode ? " [ultracode]" : "";
-	notify(ctx, `Started goal ${goalId}${crit}${uc}: ${objective}`, "info");
+	notify(ctx, `Goal ${goalId} iniciado${crit}${uc}: ${objective}`, "info");
 	return goal;
 }
 
@@ -428,7 +439,7 @@ async function resolveGoal(
 	if (candidates.length === 1) return candidates[0];
 	if (ctx.hasUI) {
 		const choice = await ctx.ui.select(
-			"Which goal?",
+			"¿Qué goal?",
 			candidates.map((g) => `${g.goalId} — ${g.objective}`),
 		);
 		if (!choice) return undefined;
@@ -554,14 +565,14 @@ function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
 function formatStatus(goal: GoalState): string {
 	const phase =
 		goal.gstatus === "verifying"
-			? " (verifying)"
+			? " (verificando)"
 			: goal.gstatus === "verifying-independent"
-				? " (independent verification)"
+				? " (verificación independiente)"
 				: "";
 	const eta =
-		goal.gstatus === "pursuing" || goal.gstatus === "verifying" ? `, next ${formatEta(goal.nextFireAt)}` : "";
-	const reason = goal.lastReason ? `, reason: ${goal.lastReason}` : "";
-	return `${goal.goalId} [${goal.gstatus}]${phase} it ${goal.iteration}/${goal.maxIterations}${eta}${reason} — ${goal.objective}`;
+		goal.gstatus === "pursuing" || goal.gstatus === "verifying" ? `, próximo ${formatEta(goal.nextFireAt)}` : "";
+	const reason = goal.lastReason ? `, razón: ${goal.lastReason}` : "";
+	return `${goal.goalId} [${goal.gstatus}]${phase} iter ${goal.iteration}/${goal.maxIterations}${eta}${reason} — ${goal.objective}`;
 }
 
 async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
@@ -576,11 +587,11 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	if (firstToken === "stop" && !hasCriteriaSeparator) {
 		const goal = await resolveGoal(ctx, rest || undefined);
 		if (!goal) {
-			notify(ctx, "No matching goal to stop — check the id with /goal status.", "warning");
+			notify(ctx, "No hay ningún goal que coincida para detener — revisá el id con /goal status.", "warning");
 			return;
 		}
-		stopGoal(pi, ctx, goal.goalId, "stopped by user (/goal stop)", "stopped");
-		notify(ctx, `Stopped goal ${goal.goalId}.`, "info");
+		stopGoal(pi, ctx, goal.goalId, "detenido por el usuario (/goal stop)", "stopped");
+		notify(ctx, `Goal ${goal.goalId} detenido.`, "info");
 		return;
 	}
 
@@ -589,14 +600,16 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 			const goal = activeGoals.get(rest);
 			notify(
 				ctx,
-				goal ? formatStatus(goal) : `No goal with id ${rest} — run /goal status to list active goals.`,
+				goal
+					? formatStatus(goal)
+					: `No hay ningún goal con id ${rest} — corré /goal status para listar los goals activos.`,
 				goal ? "info" : "warning",
 			);
 			return;
 		}
 		const all = [...activeGoals.values()];
 		if (all.length === 0) {
-			notify(ctx, "No goals.", "info");
+			notify(ctx, "No hay goals.", "info");
 			return;
 		}
 		notify(ctx, all.map(formatStatus).join("\n"), "info");
@@ -616,47 +629,49 @@ export default function goalExtension(pi: ExtensionAPI): void {
 		name: "goal_progress",
 		label: "Goal Progress",
 		description:
-			"Report progress on the active /goal after self-evaluating against its success criteria. The ONLY way to advance, finish, or block a goal.",
-		promptSnippet: "Report /goal progress: self-evaluate vs the success criteria and decide continue/done/blocked.",
+			"Reporta el progreso del /goal activo después de autoevaluar contra sus criterios de éxito. Es la ÚNICA forma de avanzar, terminar o bloquear un goal.",
+		promptSnippet:
+			"Reportá el progreso del /goal: autoevaluá contra los criterios de éxito y decidí continue/done/blocked.",
 		promptGuidelines: [
-			"Before declaring `done`, confront EACH success criterion with concrete, verifiable evidence (a command you ran, a test that passed, a file that exists). Never declare `done` on intuition.",
-			"After a first `done`, you will receive a VERIFICATION turn: review your own work adversarially. Only confirm `done` if the evidence supports every criterion; otherwise return `continue` with the missing nextStep.",
-			"Confirming `done` from the verification turn does NOT close the goal: an INDEPENDENT verifier (a separate, skeptical subagent with fresh eyes and read-only access) then judges the objective against the criteria using your recorded evidence. It closes only if that independent verifier returns PASS. So leave durable, inspectable evidence (committed files, passing tests, artifacts) — not just claims in your assessment — because a third party must be able to confirm each criterion without trusting you.",
-			"If the independent verifier returns FAIL, you will get a `continue` iteration carrying its findings as the nextStep; fix exactly what it faulted before re-declaring done. Repeated independent FAILs will block the goal for a human.",
-			"`continue` requires an actionable `nextStep`. If there is no next step, you are either `done` or `blocked`.",
-			"`blocked` is for what no number of your own iterations can resolve (a human decision, credential, or access). Explain the `blocker` in one sentence.",
-			"`waitSeconds` only when you are waiting on a real external signal (a deploy, a job). By default do NOT wait — the next iteration fires immediately.",
-			"`assessment` is always required: one or two sentences on where you stand versus the criteria. It is recorded in the progress log and re-injected for continuity.",
+			"Antes de declarar `done`, confrontá CADA criterio de éxito con evidencia concreta y verificable (un comando que corriste, un test que pasó, un archivo que existe). Nunca declares `done` por intuición.",
+			"Después de un primer `done`, vas a recibir un turno de VERIFICACIÓN: revisá tu propio trabajo de forma adversarial. Confirmá `done` solo si la evidencia respalda cada criterio; si no, devolvé `continue` con el nextStep que falta.",
+			"Confirmar `done` desde el turno de verificación NO cierra el goal: después, un verificador INDEPENDIENTE (un subagente aparte, escéptico, con ojos frescos y acceso de solo lectura) juzga el objetivo contra los criterios usando tu evidencia registrada. Cierra solo si ese verificador independiente devuelve PASS. Por eso dejá evidencia durable e inspeccionable (archivos commiteados, tests que pasan, artifacts) — no solo afirmaciones en tu assessment — porque un tercero tiene que poder confirmar cada criterio sin confiar en vos.",
+			"Si el verificador independiente devuelve FAIL, vas a recibir una iteración `continue` con sus hallazgos como nextStep; arreglá exactamente lo que marcó antes de volver a declarar done. FAILs independientes repetidos van a bloquear el goal para un humano.",
+			"`continue` requiere un `nextStep` accionable. Si no hay próximo paso, estás `done` o `blocked`.",
+			"`blocked` es para lo que ninguna cantidad de iteraciones propias puede resolver (una decisión humana, una credencial o un acceso). Explicá el `blocker` en una oración.",
+			"`waitSeconds` solo cuando estás esperando una señal externa real (un deploy, un job). Por default NO esperes — la próxima iteración se dispara de inmediato.",
+			"`assessment` siempre es obligatorio: una o dos oraciones sobre dónde estás parado respecto de los criterios. Queda registrado en el progress log y se reinyecta para dar continuidad.",
 		],
 		parameters: Type.Object({
 			status: Type.Union([Type.Literal("continue"), Type.Literal("done"), Type.Literal("blocked")], {
-				description: "continue = keep iterating; done = you believe all criteria are met; blocked = need a human.",
+				description:
+					"continue = seguí iterando; done = creés que se cumplen todos los criterios; blocked = necesitás a un humano.",
 			}),
 			assessment: Type.String({
 				minLength: 3,
-				description: "Self-evaluation against the success criteria (where you stand and why).",
+				description: "Autoevaluación contra los criterios de éxito (dónde estás parado y por qué).",
 			}),
 			successCriteria: Type.Optional(
 				Type.String({
 					description:
-						"Only when the goal started WITHOUT success criteria: state the 2-5 concrete, verifiable criteria you derived here (verbatim). Recorded ONCE as the definition-of-done — do NOT put the criteria only in `assessment`.",
+						"Solo cuando el goal empezó SIN criterios de éxito: indicá acá los 2 a 5 criterios concretos y verificables que derivaste (textuales). Se registran UNA VEZ como la definición de terminado — NO pongas los criterios solo en `assessment`.",
 				}),
 			),
 			nextStep: Type.Optional(
 				Type.String({
-					description: "Required when status is 'continue': the next actionable step.",
+					description: "Obligatorio cuando status es 'continue': el próximo paso accionable.",
 				}),
 			),
 			blocker: Type.Optional(
 				Type.String({
-					description: "Required when status is 'blocked': the human decision/access needed.",
+					description: "Obligatorio cuando status es 'blocked': la decisión o el acceso humano necesario.",
 				}),
 			),
 			// No schema bounds on waitSeconds on purpose: the SDK rejects out-of-range args
 			// BEFORE execute() runs, so min/max here would throw instead of letting us clamp.
 			waitSeconds: Type.Optional(
 				Type.Number({
-					description: `Optional: seconds to wait before the next iteration when waiting on an external signal; clamped to [${MIN_WAIT_SECONDS}, ${MAX_WAIT_SECONDS}]. Default 0 (immediate).`,
+					description: `Opcional: segundos a esperar antes de la próxima iteración cuando estás esperando una señal externa; se clampea a [${MIN_WAIT_SECONDS}, ${MAX_WAIT_SECONDS}]. Default 0 (inmediato).`,
 				}),
 			),
 		}),
@@ -668,7 +683,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: "No active goal. There is nothing to report progress on.",
+							text: "No hay ningún goal activo. No hay nada sobre lo que reportar progreso.",
 						},
 					],
 					details: { isError: true },
@@ -684,7 +699,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: `Goal ${goal.goalId} is under INDEPENDENT verification right now; that verdict (not this report) decides whether it closes. Wait for it — this report was not recorded.`,
+							text: `El goal ${goal.goalId} está bajo verificación INDEPENDIENTE en este momento; ese veredicto (no este reporte) decide si se cierra. Esperalo — este reporte no fue registrado.`,
 						},
 					],
 					details: { goalId: goal.goalId, status: "verifying-independent", ignored: true },
@@ -718,12 +733,12 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				goal.assessments.push(assessmentEntry);
 				const blocker = params.blocker?.trim() || params.assessment;
 				stopGoal(pi, ctx, goal.goalId, `blocked: ${blocker}`, "blocked");
-				notify(ctx, `Goal ${goal.goalId} is BLOCKED and needs you: ${blocker}`, "warning");
+				notify(ctx, `Goal ${goal.goalId} está BLOCKED y te necesita: ${blocker}`, "warning");
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: `Goal ${goal.goalId} marked blocked. A human was notified.`,
+							text: `Goal ${goal.goalId} marcado como blocked. Se notificó a un humano.`,
 						},
 					],
 					details: { goalId: goal.goalId, status: "blocked", blocker },
@@ -744,7 +759,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 						content: [
 							{
 								type: "text" as const,
-								text: `Recorded your confirmed 'done' for goal ${goal.goalId}. NOT closed yet — an INDEPENDENT verifier (fresh-eyes subagent) is now judging the objective against the criteria with the available evidence. The goal closes only if that independent verifier returns PASS.`,
+								text: `Registramos tu 'done' confirmado para el goal ${goal.goalId}. TODAVÍA NO se cerró — un verificador INDEPENDIENTE (subagente con ojos frescos) está juzgando el objetivo contra los criterios con la evidencia disponible. El goal se cierra solo si ese verificador independiente devuelve PASS.`,
 							},
 						],
 						details: { goalId: goal.goalId, status: "verifying-independent" },
@@ -754,12 +769,12 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				// re-inject the verification prompt (the hallmark completeness check).
 				goal.assessments.push(assessmentEntry);
 				goal.gstatus = "verifying";
-				scheduleGoal(pi, ctx, goal, 0, "self-declared done → verifying");
+				scheduleGoal(pi, ctx, goal, 0, "done autodeclarado → verifying");
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: `Recorded a first 'done' for goal ${goal.goalId}. NOT finished yet — a verification turn will confront each criterion with evidence before the goal can close.`,
+							text: `Registramos un primer 'done' para el goal ${goal.goalId}. TODAVÍA NO terminó — un turno de verificación va a confrontar cada criterio con evidencia antes de que el goal pueda cerrarse.`,
 						},
 					],
 					details: { goalId: goal.goalId, status: "verifying" },
@@ -775,16 +790,16 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				goal.verifyAttempts += 1;
 				if (goal.verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
 					goal.assessments.push(assessmentEntry);
-					const blocker = `verification kept failing after ${goal.verifyAttempts} attempt(s); last gap: ${
+					const blocker = `la verificación siguió fallando después de ${goal.verifyAttempts} intento(s); última brecha: ${
 						params.nextStep || params.assessment
 					}`;
 					stopGoal(pi, ctx, goal.goalId, `blocked: ${blocker}`, "blocked");
-					notify(ctx, `Goal ${goal.goalId} is BLOCKED: ${blocker}`, "warning");
+					notify(ctx, `Goal ${goal.goalId} está BLOCKED: ${blocker}`, "warning");
 					return {
 						content: [
 							{
 								type: "text" as const,
-								text: `Goal ${goal.goalId} blocked: the completeness check failed ${goal.verifyAttempts} time(s). A human was notified.`,
+								text: `Goal ${goal.goalId} blocked: el chequeo de completitud falló ${goal.verifyAttempts} vez(veces). Se notificó a un humano.`,
 							},
 						],
 						details: {
@@ -799,12 +814,12 @@ export default function goalExtension(pi: ExtensionAPI): void {
 			// Record + arm the next pursuing iteration.
 			const reason = params.nextStep ? `continue: ${params.nextStep}` : "continue";
 			advanceGoal(pi, ctx, goal, assessmentEntry, delaySec, reason);
-			const when = delaySec > 0 ? `in ${delaySec}s` : "immediately";
+			const when = delaySec > 0 ? `en ${delaySec}s` : "de inmediato";
 			return {
 				content: [
 					{
 						type: "text" as const,
-						text: `Recorded progress on goal ${goal.goalId}; next iteration ${when}.`,
+						text: `Registramos el progreso del goal ${goal.goalId}; próxima iteración ${when}.`,
 					},
 				],
 				details: {
@@ -819,12 +834,12 @@ export default function goalExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("goal", {
 		description:
-			"Pursue an objective until verified done: /goal [--ultracode] <objective> [-- <criteria>] | /goal stop [id] | /goal status [id]",
+			"Perseguí un objetivo hasta que quede verificado como terminado: /goal [--ultracode] <objective> [-- <criteria>] | /goal stop [id] | /goal status [id]",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
-				{ value: "stop", label: "stop", description: "Stop an active goal" },
-				{ value: "status", label: "status", description: "Show goal status" },
-				{ value: "--ultracode", label: "--ultracode", description: "Pursue the goal via dynamic workflows" },
+				{ value: "stop", label: "stop", description: "Detener un goal activo" },
+				{ value: "status", label: "status", description: "Mostrar el estado del goal" },
+				{ value: "--ultracode", label: "--ultracode", description: "Perseguir el goal vía dynamic workflows" },
 			];
 			for (const goal of activeGoals.values()) {
 				if (
@@ -855,7 +870,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				clearTimeout(goal.timer);
 				goal.timer = null;
 			}
-			goal.controller.abort("session shutdown");
+			goal.controller.abort("cierre de sesión");
 			if (goal.gstatus === "verifying" || goal.gstatus === "verifying-independent") {
 				// A verifying goal must resume verifying after reload (the completeness check
 				// survives), so persist the phase verbatim — rehydrate keeps it. A
@@ -891,7 +906,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 			const budget = contextBudgetExceeded(ctx, goal);
 			if (budget) {
 				stopGoal(pi, ctx, goal.goalId, budget, "stopped");
-				notify(ctx, `Goal ${goal.goalId} stopped: ${budget}. You can /compact and resume.`, "warning");
+				notify(ctx, `Goal ${goal.goalId} detenido: ${budget}. Podés hacer /compact y retomar.`, "warning");
 				continue;
 			}
 
@@ -908,7 +923,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 			// verification turn is already in flight; a `continue`/`done` from the model
 			// (or a later pursuing iteration) will re-arm legitimately.
 			if (goal.gstatus === "verifying") continue;
-			scheduleGoal(pi, ctx, goal, SAFETY_NET_DELAY_SECONDS, "auto: turn closed without goal_progress");
+			scheduleGoal(pi, ctx, goal, SAFETY_NET_DELAY_SECONDS, "auto: el turno cerró sin goal_progress");
 		}
 	});
 }

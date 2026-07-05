@@ -103,7 +103,7 @@ async function ultracodeInjectsGuidance(goalUrl) {
 	check("ultracode: guidance mentions dynamic workflows", /dynamic workflows/i.test(prompt));
 	check(
 		"ultracode: flag is stripped from the objective",
-		/OBJECTIVE \(verbatim\):\s*\nship the dashboard/.test(prompt) && !/--ultracode/.test(prompt),
+		/OBJETIVO \(textual\):\s*\nship the dashboard/.test(prompt) && !/--ultracode/.test(prompt),
 		prompt.slice(0, 200),
 	);
 	check("ultracode: posture is persisted on the snapshot", lastSnapshot(states)?.ultracode === true);
@@ -147,7 +147,7 @@ async function flagStrippedAlongsideCriteria(goalUrl) {
 	check("criteria+flag: ULTRACODE guidance present", /ULTRACODE:/.test(prompt));
 	check(
 		"criteria+flag: objective is clean (no flag token)",
-		/OBJECTIVE \(verbatim\):\s*\nship the dashboard/.test(prompt) && !/--ultracode/.test(prompt),
+		/OBJETIVO \(textual\):\s*\nship the dashboard/.test(prompt) && !/--ultracode/.test(prompt),
 	);
 	check(
 		"criteria+flag: success criteria survive",

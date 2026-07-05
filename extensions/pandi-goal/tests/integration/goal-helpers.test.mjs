@@ -69,17 +69,17 @@ async function scenarioPrompts(url) {
 	const log = formatProgressLog(baseGoal({ assessments: many }));
 	check(
 		"formatProgressLog has header + exactly PROGRESS_LOG_KEEP lines",
-		log.length === PROGRESS_LOG_KEEP + 1 && log[0] === "PROGRESS LOG (most recent last):",
+		log.length === PROGRESS_LOG_KEEP + 1 && log[0] === "REGISTRO DE PROGRESO (más reciente al final):",
 	);
 	check(
 		"formatProgressLog keeps the most recent (last) assessment",
-		log[log.length - 1].includes(`it ${PROGRESS_LOG_KEEP + 5}`),
+		log[log.length - 1].includes(`iter ${PROGRESS_LOG_KEEP + 5}`),
 	);
-	check("formatProgressLog drops the oldest assessment", !log.some((l) => l.includes("it 1 ")));
+	check("formatProgressLog drops the oldest assessment", !log.some((l) => l.includes("iter 1 ")));
 	check(
-		"formatProgressLog omits 'next:' when nextStep is absent",
+		"formatProgressLog omits 'próximo:' when nextStep is absent",
 		formatProgressLog(baseGoal({ assessments: [{ iteration: 1, status: "done", assessment: "ok" }] }))[1] ===
-			"- it 1 [done] ok",
+			"- iter 1 [done] ok",
 	);
 
 	// makeGoalIterationPrompt: criteria-present vs absent branch.
@@ -87,18 +87,18 @@ async function scenarioPrompts(url) {
 	check("iteration prompt includes objective verbatim", withCriteria.includes("Make the build green"));
 	check(
 		"iteration prompt shows definition-of-done when criteria present",
-		withCriteria.includes("SUCCESS CRITERIA (definition-of-done):") && withCriteria.includes("all tests pass"),
+		withCriteria.includes("CRITERIOS DE ÉXITO (definición de terminado):") && withCriteria.includes("all tests pass"),
 	);
 	const noCriteria = makeGoalIterationPrompt(baseGoal());
 	check(
 		"iteration prompt 'none were provided' when no criteria",
-		noCriteria.includes("SUCCESS CRITERIA: none were provided."),
+		noCriteria.includes("CRITERIOS DE ÉXITO: no se proporcionaron."),
 	);
 	check(
 		"iteration prompt asks to derive 2-5 criteria",
-		/derive 2-5 concrete, VERIFIABLE success criteria/.test(noCriteria),
+		/derivá 2 a 5 criterios de éxito concretos y VERIFICABLES/.test(noCriteria),
 	);
-	check("iteration prompt shows iteration N/max", noCriteria.includes("This is iteration 1/8."));
+	check("iteration prompt shows iteration N/max", noCriteria.includes("Esta es la iteración 1/8."));
 	check("iteration prompt omits ULTRACODE by default", !noCriteria.includes("ULTRACODE:"));
 	check(
 		"iteration prompt includes ULTRACODE when enabled",
@@ -106,17 +106,17 @@ async function scenarioPrompts(url) {
 	);
 	check(
 		"iteration prompt includes previous decision when set",
-		makeGoalIterationPrompt(baseGoal({ lastReason: "waiting on CI" })).includes("Previous decision: waiting on CI"),
+		makeGoalIterationPrompt(baseGoal({ lastReason: "waiting on CI" })).includes("Decisión previa: waiting on CI"),
 	);
 
 	// makeGoalVerificationPrompt: adversarial completeness check.
 	const verify = makeGoalVerificationPrompt(baseGoal({ successCriteria: "tests pass" }));
-	check("verification prompt has COMPLETENESS CHECK header", verify.includes("COMPLETENESS CHECK for /goal g1."));
+	check("verification prompt has COMPLETENESS CHECK header", verify.includes("CHEQUEO DE COMPLETITUD para /goal g1."));
 	check("verification prompt includes objective verbatim", verify.includes("Make the build green"));
-	check("verification prompt instructs adversarial verification", verify.includes("VERIFY adversarially:"));
+	check("verification prompt instructs adversarial verification", verify.includes("VERIFICÁ de forma adversarial:"));
 	check(
 		"verification prompt has the done-to-CONFIRM path",
-		/status:"done"/.test(verify) && verify.includes("CONFIRM"),
+		/status:"done"/.test(verify) && verify.includes("CONFIRMAR"),
 	);
 }
 
