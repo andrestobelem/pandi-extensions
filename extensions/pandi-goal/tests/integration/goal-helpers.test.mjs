@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Tests unitarios para los helpers PURE de pi-goal que la auditoría de cobertura marcó sin tests:
+ * Tests unitarios para los helpers PURE de pandi-goal que la auditoría de cobertura marcó sin tests:
  *   - prompts.ts:       effectiveCriteria, formatProgressLog (límite last-N),
  *                       makeGoalIterationPrompt (criterios presentes vs "none were provided"),
  *                       makeGoalVerificationPrompt (chequeo de completitud adversarial).

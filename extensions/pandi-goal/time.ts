@@ -2,7 +2,7 @@
  * Helper de formateo de tiempo, local a esta extensión para que siga siendo autocontenida.
  *
  * DUPLICACIÓN INTENCIONAL: vive una copia byte-idéntica en cada extensión que
- * la necesita (hoy pi-loop y pi-goal), en vez de un import cross-extension
+ * la necesita (hoy pandi-loop y pandi-goal), en vez de un import cross-extension
  * `../shared/`. Pi carga cada extensión de forma autocontenida —un solo archivo
  * o un directorio con sus PROPIOS helpers—, así que meterse en el directorio de
  * una extensión hermana solo resuelve mientras todo el paquete está

@@ -481,7 +481,7 @@ function stopGoal(
 	persist(pi, ctx, goal);
 	// Los goals terminales ya no están activos: conservar la instantánea final persistida
 	// para auditoría/rehydrate, pero soltar de inmediato la entrada en memoria (espeja
-	// stopLoop -> activeLoops.delete de pi-loop) para que agent_end/activeGoal()/scan y
+	// stopLoop -> activeLoops.delete de pandi-loop) para que agent_end/activeGoal()/scan y
 	// `/goal status` solo recorran goals vivos en vez de acumular muertos durante la sesión.
 	activeGoals.delete(goalId);
 	refreshGoalStatus(ctx);

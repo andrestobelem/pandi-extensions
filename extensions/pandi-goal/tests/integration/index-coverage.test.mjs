@@ -512,7 +512,7 @@ async function shutdownDuringIndependentVerifyDiscardsVerdict(goalUrl) {
 
 // ===========================================================================
 // Un goal detenido/terminal debe salir del map en memoria activeGoals (espeja
-// stopLoop -> activeLoops.delete de pi-loop). La fuga se observa vía `/goal status`
+// stopLoop -> activeLoops.delete de pandi-loop). La fuga se observa vía `/goal status`
 // (sin id), que lista [...activeGoals.values()]: después de un stop debe reportar "No goals.",
 // no seguir listando para siempre el goal terminal muerto.
 // ===========================================================================

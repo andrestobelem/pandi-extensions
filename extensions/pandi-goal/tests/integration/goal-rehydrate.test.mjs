@@ -63,7 +63,7 @@ const { check, counts } = createChecker();
 // (Misma estrategia de stubs que el sibling goal-verifier.test.mjs.)
 // ---------------------------------------------------------------------------
 async function buildGoal() {
-	// pi-goal solo necesita Type.* para declarar tool-schema (nunca validación) y los símbolos
+	// pandi-goal solo necesita Type.* para declarar tool-schema (nunca validación) y los símbolos
 	// del SDK para resolver state-dir.
 	return await buildExtension({
 		name: "pi-goal-rehydrate-integration",
@@ -73,7 +73,7 @@ async function buildGoal() {
 	});
 }
 
-// pi-goal mantiene un singleton de módulo (activeGoals). La query cache-busting de loadDefault
+// pandi-goal mantiene un singleton de módulo (activeGoals). La query cache-busting de loadDefault
 // da a cada escenario una instancia FRESH para que los escenarios no filtren estado entre sí.
 
 // Deja asentarse las cadenas async fire-and-forget (`void beginIndependentVerification(...)`) Y el
