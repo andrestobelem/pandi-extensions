@@ -1,8 +1,8 @@
 # pandi-extensions
 
-**Una suite de 21 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — que lleva a Pi la ergonomía y las capacidades de Claude Code: **dynamic multi-agent workflows** (la pieza central), además de `/loop`, `/goal`, `/plan`, memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX.
+**Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 21 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.
 
-El corazón del repo es **Dynamic Workflows / Ultracode**: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. El resto de las extensiones son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼
+El corazón es **Dynamic Workflows / Ultracode**: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor, cada extensión operacionaliza una disciplina de ingeniería — `/plan` ≈ pensar antes de codear, `/goal` ≈ ejecución con criterios verificables, `/loop` ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼
 
 - **Licencia:** MIT · **Repo:** <https://github.com/andrestobelem/pandi-extensions>
 - **Requisitos mínimos:** Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales: [`docs/setup.md`](docs/setup.md).
@@ -38,39 +38,36 @@ cd /your/project && pi
 
 Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple `container`, micro-VMs de Gondolin) y la skill externa `karpathy-guidelines` están cubiertos en [`docs/setup.md`](docs/setup.md).
 
-## Catálogo de extensiones
+## El concepto: patrones que se corren, no que se leen
 
-Las 21 extensiones de comando/tool se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
+Los patrones de diseño agénticos suelen vivir en papers y posts. Acá cada uno tiene una **implementación de referencia corta y legible** que podés leer, correr y auditar (`/workflow patterns` muestra el catálogo; [`docs/scaffolds/`](docs/scaffolds/index.md) son las páginas del libro):
 
-| Extensión | Surface (human · model) | Qué hace | Requisitos extra |
-| --- | --- | --- | --- |
-| **pandi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/ultracode`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | Runtime de workflows JS para orquestación multiagente con ejecución en paralelo, artifacts y resume idempotente. | opcional: mmdc, web_search, Context7 |
-| **pandi-loop** | `/loop` · `loop_schedule`, `loop_stop` | Loop iterativo con cadencia dinámica o fija, conducido por el modelo o por la extensión. | TUI/RPC; `autopilot` requiere trust |
-| **pandi-goal** | `/goal` · `goal_progress` | Loop guiado por objetivo con chequeo obligatorio de finalización y verificador independiente opcional. | TUI/RPC |
-| **pandi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Modo de plan read-only con mutaciones bloqueadas hasta que apruebes explícitamente el plan. | TUI/RPC (o `PI_PLAN_NONINTERACTIVE=1`) |
-| **pandi-effort** | `/effort status\|off\|minimal\|low\|medium\|high\|xhigh\|ultracode` | Selector de nivel de pensamiento estilo Claude; `ultracode` habilita el workflow router. | `ultracode` necesita el core cargado |
-| **pandi-local-memory** | `remember` | Memoria local en `.pi/memory/`: índice auto-inyectado + archivos temáticos on-demand. | ⚠ auto-inyecta memoria: solo proyectos trusted |
-| **pandi-auto-compact** | `/auto-compact [bar\|snapshot\|snapshots\|clear-tools]` | Compacta el contexto al pasar un umbral, con snapshots recuperables y barra de progreso. | configurable vía `PI_AUTO_COMPACT_*` |
-| **pandi-typescript-lsp** | `/tsc` · `typescript_diagnostics` | Feedback de `tsc --noEmit` acotado a los archivos tocados en este turno; no bloqueante. | proyecto con `tsconfig.json` |
-| **pandi-worktree** | `/worktree` · `git_worktree` | Administra git worktrees desde Pi; abre sesiones nuevas y nunca cambia el cwd. | git + un repo git |
-| **pandi-container** | `/container` · `container_sandbox` | Ejecuta comandos Linux aislados en micro-VMs Apple `container`, sin tocar el host. | macOS Apple Silicon + `container` |
-| **pandi-bg** | `/bg` | Jobs en background en memoria para comandos humanos puntuales; no son resumables (el hermano pequeño de `dynamic_workflow`). | trust para `start` |
-| **pandi-mdview** | `/mdview` · `view_markdown` | Abre un archivo Markdown en el viewer TUI con scroll de Pi. | — |
-| **pandi-docs** | `/docs` · `markdown_to_html` | Convierte Markdown en artifacts HTML autocontenidos con estilo pandi (light + dark). | — |
-| **pandi-btw** | `/btw` | Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial. | — |
-| **pandi-improve-prompt** | `/improve-prompt` | Reescribe un prompt borrador para que sea más claro y accionable, y ofrece enviarlo como tu próximo mensaje. | TUI/RPC para confirmar el envío |
-| **pandi-rename** | `/rename` | Renombra la sesión o genera el nombre automáticamente desde el historial (estilo Claude). | opcional: `PI_RENAME_*` |
-| **pandi** | `/pandi [art\|face\|off\|on]` | Personaje panda: splash animado, indicador, verbos y mood. | TUI para el efecto completo |
-| **pandi-exit** | `/exit` | Alias estilo Claude de `/quit` para una salida limpia. | — |
-| **pandi-clear** | `/clear` | Alias estilo Claude de `/new` para empezar una sesión nueva. | — |
-| **pandi-ask** | · `ask_choice`, `ask_confirm` | Tools interactivos de selector/confirmación TUI para puntos de decisión guiados por el modelo. | TUI/RPC |
-| **pandi-doctor** | `/doctor` | Ejecuta el chequeo read-only de entorno del repo (`scripts/doctor.mjs`) y muestra el reporte. | — |
+| De dónde viene | Scaffolds (entre otros) |
+| --- | --- |
+| Papers (ReAct, Self-Consistency, Reflexion, Self-Refine, Tree of Thoughts) | `react-scout`, `self-consistency`, `reflexion`, `self-refine`, `tree-of-thoughts` |
+| "Building effective agents" (Anthropic) | `router`, `orchestrator-workers`, `fan-out-and-synthesize` |
+| Ingeniería clásica y verificación | `map-reduce`, `guardrails`, `contract-gate`, `adversarial-verify`, `tournament` |
 
-> `extensions/shared/` no es una extensión: es código de test harness; nunca se publica ni se carga. `extensions/pandi-theme/` tampoco envía código: es un package solo de temas (`pi.themes`) con las variantes `panda-syntax-dark`/`panda-syntax-light`, el compañero visual de **pandi**; se carga con `pi install ./` y se habilita vía `/settings` o `"theme"`.
+El harness es el laboratorio: cada corrida deja **evidencia inspeccionable**, no solo una conclusión —
+
+- un **graph** del patrón antes de ejecutar (`dynamic_workflow action=graph`),
+- un **journal reanudable** de cada llamada (`/workflow resume latest` continúa sin reejecutar lo terminado),
+- **artifacts** persistidos en `.pi/workflows/runs/<run-id>/`,
+- un **reporte HTML** autocontenido por corrida (`dynamic_workflow action=report`).
+
+Y la progresión es deliberada — nadie empieza orquestando 16 agentes; el router de Ultracode elige el camino más liviano que pueda verificar la respuesta:
+
+```mermaid
+flowchart LR
+    A[prompt simple] --> B[scout inline]
+    B --> C[scaffold del catálogo]
+    C --> D[draft propio en drafts/]
+    D --> E[workflow-factory]
+```
 
 ## Dynamic Workflows en 60 segundos
 
-Un Dynamic Workflow es un **script de JavaScript trusted** que Pi ejecuta para orquestar trabajo grande con subagentes. El modelo mental es **MapReduce con agentes**: scoutear barato la lista real de trabajo, abrir ramas independientes con contratos de evidencia, persistir artifacts fuera del chat y dejar que una síntesis final haga deduplicación y priorización.
+Un Dynamic Workflow — el runtime del libro — es un **script de JavaScript trusted** que Pi ejecuta para orquestar trabajo grande con subagentes. El modelo mental es **MapReduce con agentes**: scoutear barato la lista real de trabajo, abrir ramas independientes con contratos de evidencia, persistir artifacts fuera del chat y dejar que una síntesis final haga deduplicación y priorización.
 
 ```js
 export default async function main() {
@@ -108,6 +105,36 @@ Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:
 
 Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.
 
+## Catálogo de extensiones
+
+Las 21 extensiones de comando/tool se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
+
+| Extensión | Surface (human · model) | Qué hace | Requisitos extra |
+| --- | --- | --- | --- |
+| **pandi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/ultracode`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | Runtime de workflows JS para orquestación multiagente con ejecución en paralelo, artifacts y resume idempotente. | opcional: mmdc, web_search, Context7 |
+| **pandi-loop** | `/loop` · `loop_schedule`, `loop_stop` | Loop iterativo con cadencia dinámica o fija, conducido por el modelo o por la extensión. | TUI/RPC; `autopilot` requiere trust |
+| **pandi-goal** | `/goal` · `goal_progress` | Loop guiado por objetivo con chequeo obligatorio de finalización y verificador independiente opcional. | TUI/RPC |
+| **pandi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Modo de plan read-only con mutaciones bloqueadas hasta que apruebes explícitamente el plan. | TUI/RPC (o `PI_PLAN_NONINTERACTIVE=1`) |
+| **pandi-effort** | `/effort status\|off\|minimal\|low\|medium\|high\|xhigh\|ultracode` | Selector de nivel de pensamiento estilo Claude; `ultracode` habilita el workflow router. | `ultracode` necesita el core cargado |
+| **pandi-local-memory** | `remember` | Memoria local en `.pi/memory/`: índice auto-inyectado + archivos temáticos on-demand. | ⚠ auto-inyecta memoria: solo proyectos trusted |
+| **pandi-auto-compact** | `/auto-compact [bar\|snapshot\|snapshots\|clear-tools]` | Compacta el contexto al pasar un umbral, con snapshots recuperables y barra de progreso. | configurable vía `PI_AUTO_COMPACT_*` |
+| **pandi-typescript-lsp** | `/tsc` · `typescript_diagnostics` | Feedback de `tsc --noEmit` acotado a los archivos tocados en este turno; no bloqueante. | proyecto con `tsconfig.json` |
+| **pandi-worktree** | `/worktree` · `git_worktree` | Administra git worktrees desde Pi; abre sesiones nuevas y nunca cambia el cwd. | git + un repo git |
+| **pandi-container** | `/container` · `container_sandbox` | Ejecuta comandos Linux aislados en micro-VMs Apple `container`, sin tocar el host. | macOS Apple Silicon + `container` |
+| **pandi-bg** | `/bg` | Jobs en background en memoria para comandos humanos puntuales; no son resumables (el hermano pequeño de `dynamic_workflow`). | trust para `start` |
+| **pandi-mdview** | `/mdview` · `view_markdown` | Abre un archivo Markdown en el viewer TUI con scroll de Pi. | — |
+| **pandi-docs** | `/docs` · `markdown_to_html` | Convierte Markdown en artifacts HTML autocontenidos con estilo pandi (light + dark). | — |
+| **pandi-btw** | `/btw` | Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial. | — |
+| **pandi-improve-prompt** | `/improve-prompt` | Reescribe un prompt borrador para que sea más claro y accionable, y ofrece enviarlo como tu próximo mensaje. | TUI/RPC para confirmar el envío |
+| **pandi-rename** | `/rename` | Renombra la sesión o genera el nombre automáticamente desde el historial (estilo Claude). | opcional: `PI_RENAME_*` |
+| **pandi** | `/pandi [art\|face\|off\|on]` | Personaje panda: splash animado, indicador, verbos y mood. | TUI para el efecto completo |
+| **pandi-exit** | `/exit` | Alias estilo Claude de `/quit` para una salida limpia. | — |
+| **pandi-clear** | `/clear` | Alias estilo Claude de `/new` para empezar una sesión nueva. | — |
+| **pandi-ask** | · `ask_choice`, `ask_confirm` | Tools interactivos de selector/confirmación TUI para puntos de decisión guiados por el modelo. | TUI/RPC |
+| **pandi-doctor** | `/doctor` | Ejecuta el chequeo read-only de entorno del repo (`scripts/doctor.mjs`) y muestra el reporte. | — |
+
+> `extensions/shared/` no es una extensión: es código de test harness; nunca se publica ni se carga. `extensions/pandi-theme/` tampoco envía código: es un package solo de temas (`pi.themes`) con las variantes `panda-syntax-dark`/`panda-syntax-light`, el compañero visual de **pandi**; se carga con `pi install ./` y se habilita vía `/settings` o `"theme"`.
+
 ## Comandos de todos los días
 
 ```text
@@ -130,6 +157,8 @@ Algunas extensiones también exponen tools que **Pi decide usar por su cuenta** 
 
 - [`docs/setup.md`](docs/setup.md) — requisitos completos, capacidades opcionales, configuración por env vars, canales de distribución y layout del repo.
 - [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) — guía profunda de Dynamic Workflows: ciclo de ejecución, API de globals, background y resume, concurrencia, catálogo de patterns, prompts y seguridad.
+- [`docs/scaffolds/`](docs/scaffolds/index.md) — las páginas del libro: una guía didáctica por scaffold, con diagrama, cuándo usarlo y cómo lanzarlo.
+- [`docs/handbooks/`](docs/handbooks/README.md) — referencia duradera del proyecto: convenciones, onboarding y playbooks.
 - [`docs/developing-extensions.md`](docs/developing-extensions.md) — cómo desarrollar extensiones en este repo self-hosted sin romper tu sesión.
 - [`RELEASING.md`](RELEASING.md) — política de versiones, tag de suite y publish npm de `@pandi-coding-agent/*`.
 - [`extensions/<name>/README.md`](extensions) — documentación por extensión (por ejemplo [`pandi-dynamic-workflows`](extensions/pandi-dynamic-workflows/README.md), [`pandi-bg`](extensions/pandi-bg/README.md)).
