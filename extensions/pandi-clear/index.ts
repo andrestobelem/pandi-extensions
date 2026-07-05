@@ -1,21 +1,21 @@
 /**
- * Claude-style `/clear` command for Pi.
+ * Comando `/clear` estilo Claude para Pi.
  *
- * Claude Code's `/clear` clears the conversation and starts fresh. Pi already ships a
- * native `/new` that starts a new session, but no `/clear`. This extension adds `/clear`
- * as a thin alias so the Claude muscle-memory works in Pi (it coexists with `/new`, never
- * overrides it):
+ * El `/clear` de Claude Code limpia la conversación y empieza de cero. Pi ya trae un
+ * `/new` nativo que inicia una sesión nueva, pero no `/clear`. Esta extensión agrega
+ * `/clear` como alias fino para que la memoria muscular de Claude funcione en Pi
+ * (convive con `/new`; nunca lo sobrescribe):
  *
- *   /clear   -> ctx.newSession()   (same fresh session as /new)
+ *   /clear   -> ctx.newSession()   (misma sesión nueva que /new)
  *
- * Arguments are ignored. A cancelled new session (an extension vetoed it via
- * session_before_switch) is left silent — the host already handled the interaction.
- * A thrown newSession is reported, not propagated, so a failure never crashes the TUI.
+ * Los argumentos se ignoran. Una sesión nueva cancelada (una extensión la vetó vía
+ * session_before_switch) queda en silencio: el host ya manejó la interacción. Si
+ * newSession lanza, se informa pero no se propaga, así una falla nunca rompe la TUI.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
-/** Notify the user, degrading gracefully outside the TUI (mirrors the sibling extensions). */
+/** Notifica al usuario y degrada con gracia fuera de la TUI (igual que las extensiones hermanas). */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
 		if (type === "info") console.log(message);

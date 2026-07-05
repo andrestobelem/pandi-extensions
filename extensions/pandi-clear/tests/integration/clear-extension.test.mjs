@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-clear/index.ts.
+ * Test de integración conductual estable para extensions/pandi-clear/index.ts.
  *
- * Pins the public /clear contract (a Claude-style alias for pi's native /new):
- * - registers a slash command named "clear" with a non-empty description
- * - the handler starts a fresh session via ctx.newSession() exactly once
- * - a cancelled new-session (an extension vetoed it) does not crash or error-notify
- * - a thrown newSession is reported as an error and never propagates
- * - success is STRICTLY silent (no notifications at all), in tui and in print mode
- * - print mode (mode="print", hasUI=false): a failure goes to stderr, never stdout,
- *   never ui.notify; note the info→stdout arm of notify() is unreachable through
- *   /clear's public contract (its only notify call site is type "error")
- * - a NON-Error throw is stringified via the String(error) arm (issue #12)
+ * Fija el contrato público de /clear (un alias estilo Claude para el /new nativo de pi):
+ * - registra un comando slash llamado "clear" con una descripción no vacía
+ * - el manejador inicia una sesión nueva vía ctx.newSession() exactamente una vez
+ * - una sesión nueva cancelada (una extensión la vetó) no rompe ni notifica error
+ * - si newSession lanza, se informa como error y nunca se propaga
+ * - el éxito es estrictamente silencioso (sin notificaciones), en `tui` y en modo `print`
+ * - modo `print` (mode="print", hasUI=false): una falla va a stderr, nunca a stdout,
+ *   nunca a ui.notify; notá que la rama info→stdout de notify() es inalcanzable a través
+ *   del contrato público de /clear (su único sitio de llamada a notify usa type "error")
+ * - un valor lanzado que no es Error se convierte a string por la rama String(error) (issue #12)
  */
 
 import * as fs from "node:fs/promises";
@@ -48,7 +48,7 @@ function makeCtx({ throwOnNew = false, throwValue, cancelled = false, mode = "tu
 	return ctx;
 }
 
-/** Run `fn` with console.log/console.error captured; returns { out, err }. */
+/** Ejecuta `fn` con console.log/console.error capturados; devuelve { out, err }. */
 async function withCapturedConsole(fn) {
 	const out = [];
 	const err = [];
@@ -89,7 +89,7 @@ async function main() {
 			JSON.stringify(ctx._notes),
 		);
 
-		// Cancelled (e.g. an extension vetoed the new session): no crash, no error note.
+		// Cancelada (p. ej. una extensión vetó la sesión nueva): no rompe, no deja nota de error.
 		const ctxCancel = makeCtx({ cancelled: true });
 		let threwCancel = false;
 		try {
@@ -104,7 +104,7 @@ async function main() {
 			JSON.stringify(ctxCancel._notes),
 		);
 
-		// newSession throws: reported as an error, never propagates.
+		// newSession lanza: se informa como error y nunca se propaga.
 		const ctxThrow = makeCtx({ throwOnNew: true });
 		let threw = false;
 		try {
@@ -119,7 +119,7 @@ async function main() {
 			JSON.stringify(ctxThrow._notes),
 		);
 
-		// A NON-Error throw exercises the String(error) arm of the message formatting.
+		// Un valor lanzado que no es Error ejercita la rama String(error) del formateo del mensaje.
 		const ctxThrowRaw = makeCtx({ throwOnNew: true, throwValue: "nope-not-an-error" });
 		await cmd.handler("", ctxThrowRaw);
 		check(
@@ -128,8 +128,8 @@ async function main() {
 			JSON.stringify(ctxThrowRaw._notes),
 		);
 
-		// Print mode (mode="print", hasUI=false): failures go to STDERR — never stdout,
-		// never ui.notify. This pins the print branch of notify().
+		// Modo `print` (mode="print", hasUI=false): las fallas van a STDERR — nunca a stdout,
+		// nunca a ui.notify. Esto fija la rama `print` de notify().
 		const ctxPrintFail = makeCtx({ throwOnNew: true, mode: "print" });
 		const failStreams = await withCapturedConsole(() => cmd.handler("", ctxPrintFail));
 		check(
@@ -144,7 +144,7 @@ async function main() {
 		);
 		check("print mode: ui.notify never used", ctxPrintFail._notes.length === 0, JSON.stringify(ctxPrintFail._notes));
 
-		// Print mode success: strictly silent on BOTH channels.
+		// Éxito en modo `print`: estrictamente silencioso en ambos canales.
 		const ctxPrintOk = makeCtx({ mode: "print" });
 		const okStreams = await withCapturedConsole(() => cmd.handler("", ctxPrintOk));
 		check(
