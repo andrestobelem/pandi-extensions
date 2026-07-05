@@ -1,10 +1,10 @@
 # router
 
-> Clasificá un request y despachalo al mejor workflow del catálogo, o solo recomendá.
+> Clasificá una solicitud y despachá el workflow del catálogo más adecuado, o solo recomendalo.
 
 ## En 30 segundos
 
-`router` es la puerta de entrada única para tareas crudas: en vez de que vos elijas a mano qué workflow del catálogo corresponde, un único nodo juez lee el catálogo, decide cuál es el mejor fit y (por default) lo ejecuta, devolviéndote directamente su output. Elegilo cuando tenés un request genérico y no querés nombrar vos mismo el workflow específico, o cuando querés previsualizar la decisión de ruteo sin disparar nada (`runSelected:false`).
+`router` es la puerta de entrada para solicitudes crudas: clasifica la entrada, elige un workflow del catálogo y, por defecto, lo ejecuta. Úsalo cuando no querés decidir a mano qué workflow corresponde, o cuando querés ver solo la recomendación con `runSelected:false`.
 
 ## Cómo lanzarlo
 
@@ -18,6 +18,14 @@
 ```text
 /workflow run mi-run {"request":"Resumí este log de 50MB","runSelected":false}
 ```
+
+## Decisión rápida
+
+| Si querés... | Usá |
+|---|---|
+| que el sistema elija entre varios workflows candidatos | `router` |
+| solo reencuadrar una tarea antes de ejecutar algo | `contract-gate` |
+| ejecutar un workflow específico que ya conocés | llamalo directo |
 
 ## Diagrama
 
@@ -58,7 +66,7 @@ flowchart TD
 
 ## Qué hace
 
-`router` implementa el patrón clásico de LLM-router (también llamado dispatch/handoff): un frente barato de autorear que clasifica un request entrante y lo reenvía al especialista más adecuado. Acá los "especialistas" son los workflows hermanos del catálogo de dynamic workflows, y la decisión de ruteo la toma UN solo nodo juez (rol `route`) que devuelve un objeto tipado `{ selected, why, suggestedArgs }`. Si el ruteo tiene éxito, `router` **despacha**: llama a `workflow(selected, …)` y devuelve el output de ese workflow tal cual — a diferencia de `contract-gate`, que solo *recomienda* una forma de encarar la tarea sin ejecutarla.
+`router` implementa el patrón clásico de LLM-router (también llamado dispatch/handoff): una puerta de entrada barata que clasifica un request entrante y lo reenvía al especialista más adecuado. Acá los "especialistas" son los workflows hermanos del catálogo de dynamic workflows, y la decisión de ruteo la toma UN solo nodo juez (rol `route`) que devuelve un objeto tipado `{ selected, why, suggestedArgs }`. Si el ruteo tiene éxito, `router` **despacha**: llama a `workflow(selected, …)` y devuelve el output de ese workflow tal cual — a diferencia de `contract-gate`, que solo *recomienda* una forma de encarar la tarea sin ejecutarla.
 
 Es "dinámico" porque el conjunto de candidatos no se conoce en tiempo de autoría: se **descubre** en runtime leyendo el catálogo del proyecto (`.pi/workflows/*.js`) y el global (`~/.pi/agent/workflows/*.js`), excluyendo `router` mismo y cualquier entrada bajo `drafts/`. El target elegido se invoca dinámicamente vía la primitiva `workflow()` — el único punto que varía según el request.
 
@@ -71,11 +79,11 @@ El diseño es robusto en cada uno de los tres pasos: si falla el escaneo del cat
 - Mapear una tarea al especialista correcto entre varios workflows candidatos.
 - Restringir el universo de candidatos vos mismo con `candidates: [...]` (allow-list explícita, salta el escaneo del catálogo).
 
-No usarlo cuando:
+Evitá `router` cuando:
 
-- Ya sabés exactamente qué workflow querés correr — llamalo directo, ahorrate el nodo de ruteo (`opus`·`high`, el más caro del scaffold).
-- Necesitás ejecutar **varios** workflows o combinarlos — `router` elige exactamente uno, nunca una lista.
-- El request es autosuficiente y trivial — el propio nodo `route` puede (y debe) devolver `"none"` en ese caso, evitando levantar un workflow multi-agente innecesario.
+- Ya sabés exactamente qué workflow querés correr: llamalo directo y ahorrate el nodo de ruteo (`opus`·`high`, el más caro del scaffold).
+- Necesitás ejecutar **varios** workflows o combinarlos: `router` elige exactamente uno, nunca una lista.
+- El request es autosuficiente y trivial: el propio nodo `route` puede (y debe) devolver `"none"` en ese caso, evitando levantar un workflow multi-agente innecesario.
 
 ## Cómo funciona
 

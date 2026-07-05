@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-Es el patrón para cuando querés cubrir un árbol de archivos entero pero no querés pagar una revisión profunda por cada uno. Un agente scout descubre el work-list real (no lo asumís vos), y después cada archivo pasa por un pipeline de dos pasos: una clasificación de riesgo barata y rápida, y solo si esa clasificación sale `high` o `medium`, una revisión profunda. Los archivos `low` cortan camino sin gastar el modelo caro. Elegilo cuando el volumen es grande pero solo una fracción va a resultar interesante.
+Sirve para auditar árboles grandes de archivos sin pagar revisión profunda por cada uno. Primero un scout descubre el work-list real; después cada archivo pasa por dos pasos: una clasificación barata y, solo si el riesgo sale `high` o `medium`, una deep review. Los archivos `low` cortan camino. Elegilo cuando querés cobertura amplia pero el presupuesto caro debe ir solo a los casos prometedores.
 
 ## Cómo lanzarlo
 
@@ -52,36 +52,41 @@ flowchart TD
 
 ## Qué hace
 
-`scout-fanout` combina descubrimiento dinámico del work-list con profundidad adaptativa por item: en vez de asumir de antemano qué archivos importan, un scout los descubre en runtime (`git ls-files` filtrado por un patrón), y en vez de aplicar la misma revisión cara a todos, cada archivo pasa primero por una clasificación de riesgo barata que decide si vale la pena el paso caro. Los archivos de riesgo `low` cortan camino inmediatamente después de la clasificación, sin invocar el modelo de deep-review.
+`scout-fanout` combina descubrimiento dinámico del work-list con profundidad adaptativa por archivo. No asume de antemano qué paths importan: el scout los descubre en runtime con `git ls-files` filtrado por `pattern`. Después, cada archivo recibe una clasificación barata; solo los de riesgo `high` o `medium` pagan deep review. Los archivos `low` se resuelven sin gastar el modelo caro.
 
-El componente dinámico central es el `pipeline(files, classifyStage, deepReviewStage)`: cada archivo fluye por sus propias dos etapas de forma independiente, y la segunda etapa (deep review) es condicional al resultado de la primera — es branching por item, no un fan-out uniforme. Esto es lo que el propio código llama "adaptive depth": gastar más solo donde paga.
+El branching es por item, no uniforme: cada archivo sigue su propia rama dentro de `pipeline(files, classifyStage, deepReviewStage)`. Eso es la profundidad adaptativa que implementa el scaffold: gastar más solo donde hay señal.
 
-Al final, una fase de síntesis toma todos los hallazgos de deep-review (descartando los `skipped`/`failed`), los deduplica y prioriza, y explícitamente advierte sobre cobertura parcial: los archivos saltados o fallidos NO se tratan como "limpios", se reportan como gaps de cobertura.
+Al final, una fase de síntesis reúne los hallazgos de deep review, los deduplica y prioriza, y marca explícitamente cualquier gap de cobertura. Los archivos saltados o con fallo NO se tratan como "limpios".
 
 ## Cuándo usarlo
+
+| Situación | Elegirlo | Motivo |
+|---|---|---|
+| Querés revisar un árbol grande de archivos | Sí | el scout descubre el work-list real en runtime |
+| La acción cara solo aplica a una parte del corpus | Sí | la clasificación barata corta camino en `low` |
+| Ya sabés que TODOS los archivos requieren deep review | No | no hay ahorro; conviene `fan-out-and-synthesize` o `repo-bug-hunt` |
+| El corpus es tan grande que no entra en una síntesis plana | No | conviene `map-reduce` |
 
 - Triage-then-review de un árbol grande de archivos (catálogo: "Triage-then-review a large tree").
 - Pasadas de clasificar-y-actuar donde la acción cara solo aplica a un subconjunto (catálogo: "classify-and-act").
 - Migraciones grandes donde interesa gastar presupuesto solo donde paga (catálogo: "large-migration", "Spend budget only where it pays").
-- **No usarlo** si ya sabés que TODOS los archivos necesitan revisión profunda (no hay ahorro por el corte de riesgo bajo) — ahí conviene un fan-out uniforme como `fan-out-and-synthesize` o `repo-bug-hunt`.
-- **No usarlo** si el corpus es tan grande que ni siquiera cabe describir cada archivo en un prompt de síntesis — ahí conviene `map-reduce` (reduce jerárquico) en vez de una síntesis plana al final.
 
 ## Cómo funciona
 
-**Fase Scout.** Si `input.files` viene como array no vacío, se usa directamente (recortado a `maxFiles`, logueando el descarte si excede). Si no, se lanza un `agent` en rol `scout` (modelo `haiku`, effort `low`, `schema: FILE_LIST`) que corre `git ls-files` y filtra por el regex de `pattern` (uno de los presets `code`/`docs`/`web`/`config`, o un regex libre) — el filtrado ocurre DENTRO del prompt del agente, nunca por interpolación de shell, así `input.pattern` no puede inyectar comandos. El patrón/tema se envuelve en `fence()` (delimitador derivado de un hash del contenido, anti-inyección) con instrucciones explícitas de tratar el contenido como dato, nunca como instrucción. El resultado se recorta a `maxFiles` (loguea si recorta). Si el work-list queda vacío, retorna inmediatamente `"No files matched; nothing to review."`.
+**Fase Scout.** Si `input.files` viene como array no vacío, se usa directamente y se recorta a `maxFiles` si hace falta, logueando el descarte. Si no, se lanza un `agent` en rol `scout` (modelo `haiku`, effort `low`, `schema: FILE_LIST`) que corre `git ls-files` y filtra por el regex de `pattern` (preset `code`/`docs`/`web`/`config`, o regex libre). Ese filtrado vive dentro del prompt del agente, no en una interpolación de shell, así `input.pattern` no puede inyectar comandos. El patrón se envuelve en `fence()` con tratamiento explícito de datos no confiables. Si el work-list queda vacío, retorna de una vez `"No files matched; nothing to review."`.
 
-**Fase Classify + Deep Review (pipeline).** Se llama `pipeline(files, classifyStage, deepReviewStage)`, que corre cada archivo por sus dos stages, en paralelo entre archivos.
-- Stage 1 (`classify`, rol `classify`, modelo `haiku`, effort `low`, `schema: VERDICT`): pide un veredicto rápido `{ risk: high|medium|low, why }` sobre si el archivo probablemente contiene lo que busca `lens` (presets `code`/`security`/`prose`, o texto libre). El contenido del archivo (path) va fenced anti-inyección.
-- Stage 2 (`deepReview`, condicional): si `risk` no es `high` ni `medium`, corta camino con `{ skipped: true }` — no llama al modelo caro. Si es `high`/`medium`, lanza un `agent` en rol `deep` (modelo `sonnet`, effort `medium`) que pide citar `file:line` por cada hallazgo o responder `NO_FINDINGS`, pasando también el `why` de la clasificación como contexto (`trace`), ambos fenced.
-Si el output del deep-review es `null` (fallo del agente), se marca `{ failed: true }` en vez de propagar la excepción — el fallo de un archivo no aborta el pipeline entero.
+**Fase Classify + Deep Review (pipeline).** Se llama `pipeline(files, classifyStage, deepReviewStage)`, que procesa cada archivo por sus dos stages, en paralelo entre archivos.
+- **Stage 1 (`classify`)**: rol `classify`, modelo `haiku`, effort `low`, `schema: VERDICT`. Devuelve un veredicto rápido `{ risk: high|medium|low, why }` sobre si el archivo probablemente contiene lo que busca `lens` (preset `code`/`security`/`prose`, o texto libre). El path va fenced anti-inyección.
+- **Stage 2 (`deepReview`)**: si `risk` no es `high` ni `medium`, corta camino con `{ skipped: true }` y no llama al modelo caro. Si es `high` o `medium`, lanza un `agent` en rol `deep` (modelo `sonnet`, effort `medium`) que pide citar `file:line` por hallazgo o responder `NO_FINDINGS`, usando también el `why` de la clasificación como contexto (`trace`), ambos fenced.
+Si el output del deep review es `null`, se marca `{ failed: true }` en vez de propagar la excepción. El fallo de un archivo no aborta el pipeline entero.
 
-**Post-pipeline.** `settled = reviewed.filter(Boolean)` descarta entradas nulas del `pipeline` mismo. Se calculan `failedCount` (diferencia entre lo devuelto y lo settled), `skippedCount` (deep.skipped), `failedDeep` (deep.failed), y `findings` (solo strings de deep-review que NO contienen `NO_FINDINGS`).
+**Post-pipeline.** `settled = reviewed.filter(Boolean)` descarta entradas nulas. Después se calculan `failedCount`, `skippedCount`, `failedDeep` y `findings` (solo strings de deep review que no contienen `NO_FINDINGS`).
 
-**Fase Synthesis.** Un `agent` en rol `synthesis` (modelo `opus`, effort `high`) recibe una nota de cobertura explícita (`coverage`: total de archivos, cuántos con hallazgos, cuántos low-risk/limpios saltados, cuántos branches fallidos) más los `findings` compactados (`compact()`, cap de 60000 chars) dentro de un fence anti-inyección. Se le pide deduplicar, descartar afirmaciones sin soporte, priorizar por severidad, y mencionar explícitamente cualquier gap de cobertura (saltados o fallidos NO son "limpios"). El resultado de esta síntesis es el retorno final del workflow.
+**Fase Synthesis.** Un `agent` en rol `synthesis` (modelo `opus`, effort `high`) recibe una nota de cobertura explícita (`coverage`: total de archivos, cuántos con hallazgos, cuántos low-risk/limpios saltados, cuántos branches fallidos) más los `findings` compactados (`compact()`, cap de 60000 chars) dentro de un fence anti-inyección. Se le pide deduplicar, descartar afirmaciones sin soporte, priorizar por severidad y mencionar cualquier gap de cobertura. Los archivos saltados o fallidos NO son "limpios".
 
-**Manejo de fallos parciales:** cada etapa del `agent` puede devolver `null` (por ejemplo por error interno); el código lo convierte en `{ skipped: true }` o `{ failed: true }` en vez de propagar la excepción, y los conteos correspondientes se loguean y se pasan a la síntesis como contexto de cobertura explícito.
+**Manejo de fallos parciales.** Cada etapa del `agent` puede devolver `null` por error interno; el código lo convierte en `{ skipped: true }` o `{ failed: true }`, y los conteos se loguean y se pasan a la síntesis como cobertura explícita.
 
-**Caching:** no se observa ningún mecanismo explícito de caché en el código; cada llamada a `agent` es fresca.
+**Caching.** No se observa ningún mecanismo explícito de caché en el código; cada llamada a `agent` es fresca.
 
 ## Input y output
 
@@ -93,7 +98,8 @@ Si el output del deep-review es `null` (fallo del agente), se marca `{ failed: t
 | `maxFiles` | number | no | default 40, clamp 1..200 |
 | `model` / `effort` | string | no | override global para todo nodo |
 | `models[role]` / `efforts[role]` | object | no | override por rol (`scout`, `classify`, `deep`, `synthesis`); precedencia: por-rol > global > default del call-site |
-| `tools` / `skills` / `excludeTools` (y variantes `*ByRole`) | array | no | pasados al `agent` si son arrays |
+| `tools` / `skills` / `excludeTools` | array | no | pasados al `agent` si son arrays |
+| `toolsByRole` / `skillsByRole` / `excludeByRole` | object | no | overrides por rol (`role → array`) |
 
 **Output:** un string (el texto de la síntesis final), o el mensaje literal `"No files matched; nothing to review."` si el work-list quedó vacío tras el scout.
 

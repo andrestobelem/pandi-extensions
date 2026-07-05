@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Research: ultracode always-on</title>
+<title>Investigación: ultracode siempre activo</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,23 +121,25 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs/research</div>
-		<h1>Research: ultracode always-on</h1>
+		<h1>Investigación: ultracode siempre activo</h1>
 	</header>
 	<main>
-<p>Date: 2026-06-25</p>
-<h2>Request</h2>
-<p>The user asked Pi to evaluate each task by default and decide whether it should be solved through a dynamic workflow, inspired by Claude Code&#39;s <code>ultracode</code> mode, and to keep it always active.</p>
-<h2>Findings about Claude Code</h2>
-<p>According to public Claude Code and Anthropic documentation:</p>
+<p>Fecha: 2026-06-25</p>
+<h2>En 30 segundos</h2>
+<p>Este documento resume una decisión de diseño: si Pi debía revisar cada tarea por defecto para decidir si conviene orquestarla con un dynamic workflow, al estilo de <code>ultracode</code> en Claude Code. La conclusión fue habilitar un router siempre activo para esa evaluación, pero sin forzar <code>xhigh</code> por ahora. Sirve como registro de la investigación, de las fuentes y de la implementación resultante.</p>
+<h2>Pedido</h2>
+<p>La solicitud fue hacer que Pi evalúe cada tarea por defecto y decida si debe resolverse mediante un dynamic workflow, inspirado en el modo <code>ultracode</code> de Claude Code, y mantener ese comportamiento siempre activo.</p>
+<h2>Hallazgos sobre Claude Code</h2>
+<p>Según la documentación pública de Claude Code y Anthropic:</p>
 <ul>
-<li>Dynamic workflows are JavaScript scripts that Claude writes/runs to orchestrate subagents in parallel.</li>
-<li>They are used for large audits, migrations, deep research, cross-checking, and tasks with independent branches.</li>
-<li>They can be triggered by requesting a workflow or using the word <code>ultracode</code>.</li>
-<li>The <code>/effort ultracode</code> mode makes Claude Code automatically decide whether a substantive task should be turned into dynamic workflows.</li>
-<li><code>ultracode</code> combines high reasoning (<code>xhigh</code>) with automatic workflow orchestration—it is not just a model effort level.</li>
-<li>Workflows can have potentially high cost, so the documentation recommends explicit limits, workflow review, and conscious use.</li>
+<li>Los dynamic workflows son scripts de JavaScript que Claude escribe y ejecuta para orquestar subagentes en paralelo.</li>
+<li>Se usan para auditorías grandes, migraciones, investigación profunda, verificación cruzada y tareas con ramas independientes.</li>
+<li>Pueden activarse al pedir un workflow o al usar la palabra <code>ultracode</code>.</li>
+<li>El modo <code>/effort ultracode</code> hace que Claude Code decida automáticamente si una tarea sustantiva debe convertirse en dynamic workflows.</li>
+<li><code>ultracode</code> combina razonamiento alto (<code>xhigh</code>) con orquestación automática de workflows; no es solo un nivel de esfuerzo del modelo.</li>
+<li>Los workflows pueden tener un costo potencialmente alto, así que la documentación recomienda límites explícitos, revisión del workflow y uso consciente.</li>
 </ul>
-<h3>Sources consulted</h3>
+<h3>Fuentes consultadas</h3>
 <ul>
 <li>Claude Code Docs — Dynamic workflows: <a href="https://code.claude.com/docs/en/workflows">https://code.claude.com/docs/en/workflows</a></li>
 <li>Claude Code Docs — Model configuration / effort ultracode: <a href="https://code.claude.com/docs/en/model-config">https://code.claude.com/docs/en/model-config</a></li>
@@ -145,18 +147,18 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li>Claude Code Docs — Subagents: <a href="https://code.claude.com/docs/en/sub-agents">https://code.claude.com/docs/en/sub-agents</a></li>
 <li>Claude Code Settings: <a href="https://docs.anthropic.com/en/docs/claude-code/settings">https://docs.anthropic.com/en/docs/claude-code/settings</a></li>
 </ul>
-<h2>Implementation decision for Pi</h2>
-<p>We implemented an always-on router in the <code>pandi-dynamic-workflows</code> extension:</p>
+<h2>Decisión de implementación en Pi</h2>
+<p>Implementamos un router always-on en la extensión <code>pandi-dynamic-workflows</code>:</p>
 <ul>
-<li>A short system prompt section is injected in <code>before_agent_start</code>.</li>
-<li>The extension tries to enable the <code>dynamic_workflow</code> tool so the router is available.</li>
-<li>The router asks Pi to silently evaluate each substantive task before deciding on an approach.</li>
-<li>For simple tasks, Pi should proceed normally.</li>
-<li>For potentially broad tasks, Pi should run a cheap inline scout before orchestrating.</li>
-<li>Pi should create/reuse/run workflows only when there is a clear reason: completeness, confidence, or scale, with explicit limits.</li>
-<li>For long-running work, it should prefer background (<code>start</code>) and then inspect with <code>runs/view</code>.</li>
+<li>Se inyecta una sección corta del system prompt en <code>before_agent_start</code>.</li>
+<li>La extensión intenta habilitar la herramienta <code>dynamic_workflow</code> para que el router esté disponible.</li>
+<li>El router le pide a Pi evaluar en silencio cada tarea sustantiva antes de decidir el enfoque.</li>
+<li>Para tareas simples, Pi debe seguir normalmente.</li>
+<li>Para tareas potencialmente amplias, Pi debe hacer primero un scout inline barato antes de orquestar.</li>
+<li>Pi debe crear, reutilizar o ejecutar workflows solo cuando haya una razón clara: completitud, confianza o escala, con límites explícitos.</li>
+<li>Para trabajo de larga duración, debe preferir background (<code>start</code>) y luego inspeccionar con <code>runs/view</code>.</li>
 </ul>
-<h2>Modified files</h2>
+<h2>Archivos modificados</h2>
 <ul>
 <li><code>extensions/dynamic-workflows.ts</code></li>
 <li><code>README.md</code></li>
@@ -165,28 +167,28 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li><code>docs/memoria.md</code></li>
 <li><code>docs/conversaciones/2026-06-25-revisar-estado-actual.md</code></li>
 </ul>
-<h2>New commands</h2>
+<h2>Comandos nuevos</h2>
 <pre><code class="language-text">/ultracode-mode status
 /ultracode-mode off
 /ultracode-mode on
 </code></pre>
-<h2>Validations performed</h2>
-<h3>Extension initialization without model prompt</h3>
-<p>We verified that Pi can explicitly initialize the extension without sending a prompt to the model:</p>
+<h2>Validaciones realizadas</h2>
+<h3>Inicialización de la extensión sin prompt del modelo</h3>
+<p>Verificamos que Pi puede inicializar explícitamente la extensión sin enviar un prompt al modelo:</p>
 <pre><code class="language-bash">pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__
 </code></pre>
-<p>Result: exit code <code>0</code>.</p>
-<h3>Command registration in print mode</h3>
-<p>We verified that the new command is registered and responds in print mode:</p>
+<p>Resultado: exit code <code>0</code>.</p>
+<h3>Registro del comando en modo print</h3>
+<p>Verificamos que el nuevo comando queda registrado y responde en modo print:</p>
 <pre><code class="language-bash">pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p &quot;/ultracode-mode status&quot;
 </code></pre>
-<p>Result:</p>
+<p>Resultado:</p>
 <pre><code class="language-text">Ultracode always-on is enabled.
 </code></pre>
-<h3>Validation limitation</h3>
-<p>The repo does not have TypeScript installed or <code>typecheck</code> scripts; <code>npx tsc</code> was not available.</p>
-<h2>Scope note</h2>
-<p>This implementation replicates the automatic routing behavior. For now, it does not force the thinking level to <code>xhigh</code> to avoid unexpectedly changing cost/model behavior; the main requested criterion was to decide by default whether to use a workflow.</p>
+<h3>Limitación de la validación</h3>
+<p>El repositorio no tiene TypeScript instalado ni scripts <code>typecheck</code>; <code>npx tsc</code> no estaba disponible.</p>
+<h2>Nota de alcance</h2>
+<p>Esta implementación replica el comportamiento de enrutamiento automático. Por ahora no fuerza el nivel de pensamiento a <code>xhigh</code> para evitar cambios inesperados en costo o comportamiento del modelo; el criterio principal pedido era decidir por defecto si conviene usar un workflow.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

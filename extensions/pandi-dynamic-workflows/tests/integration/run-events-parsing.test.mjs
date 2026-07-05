@@ -1,5 +1,5 @@
 /**
- * Characterization tests for the run-events parsing cluster of pi-dynamic-workflows.
+ * Characterization tests for the run-events parsing cluster of pandi-dynamic-workflows.
  *
  * These pin the CURRENT observable behavior of the pure value coercers, the
  * agent-monitor merge logic, the phase/elapsed derivations, and the events.jsonl

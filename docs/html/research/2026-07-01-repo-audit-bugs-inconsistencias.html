@@ -124,11 +124,12 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 		<h1>Auditoría del repo — errores e inconsistencias (2026-07-01)</h1>
 	</header>
 	<main>
-<p>Informe consolidado de una auditoría read-only del monorepo de extensiones
-<code>pandi-dynamic-workflows</code>, ejecutada con workflows dinámicos multi-agente. Recoge
-solo hallazgos con cita concreta <code>archivo:línea</code>; los marcados <strong>[verificado]</strong>
-fueron re-chequeados a mano contra el archivo, los <strong>[plausible]</strong> quedan
-pendientes de verificación fina.</p>
+<h2>En 30 segundos</h2>
+<p>Esta nota resume una auditoría read-only del monorepo de extensiones
+<code>pandi-dynamic-workflows</code>. Sirve para ubicar bugs e inconsistencias, con
+pistas concretas de <code>archivo:línea</code> en los hallazgos donde la cita lineal
+pudo verificarse a mano, y para separar lo que ya fue rechequeado a mano de
+lo que todavía pide una revisión fina.</p>
 <h2>Método</h2>
 <p>Tres corridas sucesivas (workflows <code>.pi/workflows/repo-audit{,-2,-3}.js</code>), cada
 una read-only con <code>tools: [read, grep, find, ls]</code> y un juez de síntesis:</p>

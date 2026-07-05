@@ -2,6 +2,11 @@
 
 Fecha inicial: 2026-06-25
 
+## En 30 segundos
+
+Este archivo es la memoria operativa de Pandi en este repositorio: resume cómo trabajamos, qué convenciones seguimos y qué decisiones quedan registradas.
+Consultalo antes de empezar una tarea no trivial o cuando necesites retomar contexto sin releer todo el historial.
+
 ## Cómo trabajamos
 
 - Hablamos en español, de forma directa y práctica.

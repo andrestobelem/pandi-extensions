@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-Es el patrón para cuando tu corpus (un log gigante, cientos de tickets, un documento enorme) no entra en una sola ventana de contexto. Un extractor barato lee cada chunk por separado (MAP) y después una serie de reducers va fusionando esos resultados de a lotes, ronda tras ronda, hasta que queda un único resumen (REDUCE jerárquico). Elegilo cuando el tamaño del input es el problema; si el work-list es chico, `fan-out-and-synthesize` alcanza y sale más barato.
+Es el patrón para cuando un corpus grande —un log enorme, cientos de tickets, un documento largo— no entra en una sola ventana de contexto. Un extractor barato procesa cada chunk por separado (MAP) y luego una serie de reducers va fusionando esos resultados en lotes, ronda tras ronda, hasta quedar en un único resumen (REDUCE jerárquico). Elegilo cuando el tamaño de entrada es el problema; si la lista de trabajo es chica, `fan-out-and-synthesize` suele ser más simple y más barato.
 
 ## Cómo lanzarlo
 
@@ -13,7 +13,7 @@ Es el patrón para cuando tu corpus (un log gigante, cientos de tickets, un docu
 /workflow run mi-run {"instruction":"Extraé cada incidente reportado y su causa raíz","content":"<texto completo del log>","chunkChars":6000,"reduceBatch":4}
 ```
 
-`instruction` es el único campo obligatorio; `content` (string grande, se parte en chunks) o `items` (array ya pre-cortado) aportan el corpus. El resto de los campos de `input` tiene defaults razonables — ver la tabla en [Input y output](#input-y-output).
+`instruction` es el único campo obligatorio; `content` (string grande, se parte en chunks) o `items` (array ya pre-cortado) aportan el corpus. El resto de los campos de `input` tiene valores por defecto razonables — ver la tabla en [Input y output](#input-y-output).
 
 ## Diagrama
 
@@ -77,11 +77,11 @@ flowchart TD
 
 ## Qué hace
 
-`map-reduce` implementa el patrón MapReduce clásico (Dean & Ghemawat) con un reduce **jerárquico/recursivo** en lugar de una síntesis plana. Divide un corpus (una lista de `items` o un `content` string grande) en un work-list, lanza un extractor barato en paralelo por cada chunk/item bajo un contrato de evidencia (citar la fuente, o declarar explícitamente `NO_FINDINGS`/`INSUFFICIENT_EVIDENCE` en vez de inventar), y luego fusiona los outputs del map en rondas: cada ronda agrupa los resultados en lotes de tamaño `reduceBatch` y llama a un reducer por lote, repitiendo hasta que sobrevive exactamente **un** resultado (el resumen-de-resúmenes).
+`map-reduce` implementa el patrón MapReduce clásico (Dean & Ghemawat) con un reduce **jerárquico/recursivo** en lugar de una síntesis plana. Divide un corpus (una lista de `items` o un `content` string grande) en una lista de trabajo, lanza un extractor barato en paralelo por cada chunk/item bajo un contrato de evidencia (citar la fuente, o declarar explícitamente `NO_FINDINGS`/`INSUFFICIENT_EVIDENCE` en vez de inventar), y luego fusiona las salidas del map en rondas: cada ronda agrupa los resultados en lotes de tamaño `reduceBatch` y llama a un reducer por lote, repitiendo hasta que sobrevive exactamente **un** resultado (el resumen de resúmenes).
 
 La razón de ser "dinámico" es que el tamaño del corpus (cantidad de items, o de chunks derivados de partir un string grande en runtime) no se conoce en tiempo de autoría: tanto el ancho del fan-out de MAP como el número de rondas de REDUCE (~`ceil(log_reduceBatch(N))`) se calculan en runtime y están acotados con clamps duros.
 
-El diseño es "robustness-first, nunca throw": usa `settle` en cada fan-out, un cap de rondas adaptativo, un detector de estancamiento (una ronda que no reduce el conteo de sobrevivientes), y una guardia de ronda estrictamente creciente. Cuando se ve forzado a detenerse antes de llegar a un único resultado (por cap o por estancamiento), NO colapsa todo en una llamada plana: sigue fusionando en pasadas de "drenaje" acotadas en lotes de `reduceBatch`, preservando así la invariante de fan-in jerárquico incluso en el peor caso.
+El diseño prioriza la robustez y nunca lanza excepciones: usa `settle` en cada fan-out, un cap de rondas adaptativo, un detector de estancamiento (una ronda que no reduce el conteo de sobrevivientes) y una guardia de ronda estrictamente creciente. Cuando se ve forzado a detenerse antes de llegar a un único resultado (por cap o por estancamiento), NO aplasta todo en una llamada plana: sigue fusionando en pasadas de drenaje acotadas en lotes de `reduceBatch`, preservando así la invariante jerárquica incluso en el peor caso.
 
 ## Cuándo usarlo
 
@@ -103,7 +103,7 @@ Casos típicos de `map-reduce`: resumir un documento o log enorme, consolidar ci
 
 **Fase Reduce.** El nivel inicial (`level`) es la lista de outputs de `findings`. El cap de rondas (`maxRounds`) por defecto es `ceil(log_reduceBatch(N)) + 2` (clamp 1..30), escalando con el tamaño del corpus; es overridable vía `input.maxRounds`. Cada ronda (`runRound`) agrupa `level` en lotes de `reduceBatch` (default 5, clamp 2..20) y lanza un `agent` reducer (modelo `sonnet`, effort `medium`) por lote en `parallel`. Si el lote colapsa a una sola batch, ese reducer recibe el framing de "reduce FINAL" (más fidelidad que el framing genérico intermedio de "esto se va a volver a fusionar"). Cada reducer debe deduplicar, preservar todas las citas distintas, resolver contradicciones señalándolas, y nunca inventar. Si una batch de reduce falla (settle → null), sus partials crudos se llevan sin fusionar al siguiente nivel (cobertura preservada, se loguea). El loop principal se repite mientras `level.length > 1` y no se alcance `maxRounds`; si una ronda no reduce el conteo de sobrevivientes (`level.length >= inCount`), se marca `stuck` y se sale del loop. Si tras el loop principal quedan >1 sobrevivientes (por cap o por stuck), se ejecuta un "drenaje forzado": rondas extra acotadas por `drainCap = ceil(log_reduceBatch(survivors)) + 1`, cada una contando como ronda ejecutada — nunca se hace un merge plano de todos los sobrevivientes de una vez. El resultado final es `level[0]`, o un mensaje de error si el nivel queda vacío.
 
-**Caching:** no se observa ningún mecanismo explícito de caché en el código (no hay llamadas a una API de cache); cada `agent` se invoca fresco.
+**Caché:** no se observa ningún mecanismo explícito de caché en el código (no hay llamadas a una API de cache); cada `agent` se invoca fresco.
 
 **Manejo de fallos parciales:** en ambos fan-outs (MAP y cada ronda de REDUCE) se usa el patrón "settle" (nulls filtrados post-hoc en vez de propagar la excepción), y todo fallo se loguea con nombres/índices específicos (`failedChunks`, `failedBatches`) en vez de fallar silenciosamente.
 
@@ -119,7 +119,7 @@ Casos típicos de `map-reduce`: resumir un documento o log enorme, consolidar ci
 | `chunkChars` | number | no | default 8000, clamp 500..200000 |
 | `reduceBatch` | number | no | default 5, clamp 2..20 |
 | `maxChunks` | number | no | default 400, clamp 1..2000 |
-| `maxRounds` | number | no | default `ceil(log_reduceBatch(findings)) + 2`, clamp 1..30 |
+| `maxRounds` | number | no | default `ceil(log_reduceBatch(N)) + 2`, clamp 1..30 |
 | `context` | string | no | opcional, framing extra para todos los nodos (truncado a 4000 chars) |
 | `model` / `effort` | string | no | override global para todo nodo |
 | `models[role]` / `efforts[role]` | object | no | override por rol (`mapper`, `reducer`); precedencia: por-rol > global > default del call-site |

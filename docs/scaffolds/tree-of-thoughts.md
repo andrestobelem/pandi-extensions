@@ -1,32 +1,19 @@
 # tree-of-thoughts
 
-> Beam search sobre soluciones parciales: expandí K pensamientos, el juez los puntúa, podá al top-B, recursá hasta la profundidad, y comprometé la respuesta final.
+> Búsqueda tipo *beam search* sobre soluciones parciales: expandí K pensamientos, puntúalos con un juez, podá al top-B y comprometé la mejor ruta.
 
 ## En 30 segundos
 
-En vez de generar una única cadena de razonamiento, explorá un ÁRBOL de
-soluciones parciales: en cada nivel, cada nodo vivo se expande en K
-"pensamientos" candidatos, un juez los puntúa a todos, y solo sobreviven los
-mejores B (beam width) para el siguiente nivel. Elegilo cuando el problema
-tiene pasos intermedios que vale la pena explorar y comparar — no solo
-candidatos finales completos.
+`tree-of-thoughts` explora un árbol de soluciones parciales en vez de elegir una sola respuesta de una vez. En cada nivel expande cada nodo vivo en `branching` hijos, los puntúa con un juez (`schema: SCORE`) y conserva solo los `beam` mejores. Úsalo cuando hay pasos intermedios evaluables y querés comparar caminos antes de comprometerte.
 
 ## Cómo lanzarlo
 
-```
+```text
 /workflow new mi-tot --pattern=tree-of-thoughts
+/workflow run mi-tot '{"problem":"Design the gate rollout in 4 staged steps.","branching":3,"beam":2,"depth":3}'
 ```
 
-Input típico:
-
-```json
-{
-  "problem": "Design the gate rollout in 4 staged steps.",
-  "branching": 3,
-  "beam": 2,
-  "depth": 3
-}
-```
+`problem` es obligatorio; también acepta `question`, `text` o `task`. Ver [Input y output](#input-y-output).
 
 ## Diagrama
 
@@ -68,37 +55,19 @@ flowchart TD
 
 ## Qué hace
 
-`tree-of-thoughts` implementa búsqueda en haz (beam search) sobre soluciones
-parciales, siguiendo el paper "Tree of Thoughts: Deliberate Problem Solving
-with LLMs" (arXiv:2305.10601). En lugar de comprometerse a una sola cadena de
-razonamiento, mantiene una frontera de nodos vivos y, en cada nivel, expande
-cada nodo en K pensamientos candidatos distintos entre sí, los hace juzgar
-por un modelo evaluador con salida tipada (`score` 0-10 + `why`), y poda todo
-menos el top-B por score. El backtracking es implícito: una rama que
-puntuaba bien temprano pero deja de mejorar simplemente no sobrevive a la
-poda cuando una hermana la supera.
+`tree-of-thoughts` implementa búsqueda en haz (*beam search*) sobre soluciones parciales, siguiendo el paper "Tree of Thoughts: Deliberate Problem Solving with LLMs" (arXiv:2305.10601). En lugar de comprometerse con una sola cadena de razonamiento, mantiene una frontera de nodos vivos y, en cada nivel, expande cada nodo en `branching` pensamientos candidatos distintos, los hace juzgar por un modelo evaluador con salida tipada (`score` 0-10 + `why`), y poda todo menos el top-`beam` por score. El backtracking es implícito: una rama que puntuaba bien temprano pero deja de mejorar simplemente no sobrevive al corte cuando otra la supera.
 
-El proceso se repite hasta `depth` niveles (o hasta que un nivel no produce
-hijos), y al final el nodo con mayor score de la frontera final se usa como
-base para sintetizar la respuesta definitiva.
+El proceso se repite hasta `depth` niveles (o hasta que un nivel no produce hijos), y al final el nodo con mayor score de la frontera final se usa como base para sintetizar la respuesta definitiva.
 
-Es la versión general de `judge-escalate` (que es esto mismo con
-`depth=1, beam=1`, es decir best-of-N con a lo sumo una ronda extra). Cuando
-la poda por score absoluto no es confiable pero sí la comparación relativa
-entre pares, el scaffold hermano `tournament` reemplaza el juez-de-scoring
-por rondas de brackets pairwise.
+Es la versión general de `judge-escalate` (que es esto mismo con `depth=1, beam=1`, es decir best-of-N con a lo sumo una ronda extra). Cuando la poda por score absoluto no es confiable pero sí la comparación relativa entre pares, el scaffold hermano `tournament` reemplaza el juez-de-scoring por rondas de brackets pairwise.
 
 ## Cuándo usarlo
 
 - Planificación o diseño multi-paso donde cada paso condiciona al siguiente.
-- Explorar un espacio de soluciones donde varias líneas de razonamiento
-  parcial compiten y conviene descartar temprano las menos prometedoras.
-- Flujo expandir → puntuar → podar → comprometer, con backtracking
-  automático vía el juez.
-- NO usarlo si el problema no tiene pasos intermedios evaluables por
-  separado (para eso alcanza `judge-escalate` o un simple best-of-N), o si
-  el costo de `beam × branching × depth` llamadas a `agent` por corrida no
-  se justifica frente a un enfoque más barato.
+- Explorar un espacio de soluciones donde varias líneas de razonamiento parcial compiten y conviene descartar temprano las menos prometedoras.
+- Flujo expandir → puntuar → podar → comprometer, con backtracking automático vía el juez.
+- **No usarlo** si el problema no tiene pasos intermedios evaluables por separado; para eso alcanza `judge-escalate` o un simple `best-of-N`.
+- **No usarlo** si la comparación relativa entre pares vale más que un score absoluto; ahí conviene `tournament`.
 
 ## Cómo funciona
 

@@ -35,7 +35,7 @@ Per distro: `set-distro` → build → branding test subset → publish. Skips v
 
 ### 2. Bump the bundled extension pins
 
-After publishing new `@pandi-coding-agent/*` versions from pi-dynamic-workflows (`node scripts/publish-npm.mjs --publish` there):
+After publishing new `@pandi-coding-agent/*` versions from pandi-extensions (`node scripts/publish-npm.mjs --publish` there):
 
 ```bash
 node scripts/bump-extensions.mjs           # dry run: report outdated pins
@@ -56,7 +56,7 @@ Conflicts land in `packages/coding-agent/package.json` and lockfiles: take the u
 ### Typical release day
 
 ```text
-pi-dynamic-workflows: publish-npm.mjs --publish
+pandi-extensions: publish-npm.mjs --publish
 → fork: bump-extensions --write → commit → release-distros --publish → push
 ```
 

@@ -46,7 +46,7 @@ export default async function main() {
 	const basePrompt =
 		`Contrato de estilo didáctico (cumplilo AL PIE DE LA LETRA):\n\n${style}\n\n` +
 		`Contrato de dosis de tono (aplicá la fila "Docs": condimento leve, 🐼 ≤ 1 por doc y cero es válido, jamás en tablas/hechos/frontmatter):\n\n${dose}\n\n` +
-		`Sos un documentador técnico del repo pi-dynamic-workflows. Tu tarea: escribir la documentación COMPLETA en Markdown (en español, tono técnico, no marketing) de UN workflow scaffold.\n\n` +
+		`Sos un documentador técnico del repo pandi-extensions. Tu tarea: escribir la documentación COMPLETA en Markdown (en español, tono técnico, no marketing) de UN workflow scaffold.\n\n` +
 		`Fuentes (leelas con tus tools de lectura):\n` +
 		`- El código fuente del scaffold: ${SCAFFOLDS_DIR}/<key>.js (leelo ENTERO; es la fuente de verdad).\n` +
 		`- Su entrada en el catálogo (blurb + use cases): ${CATALOG}.\n\n` +
@@ -94,7 +94,7 @@ export default async function main() {
 		log(`index.md NO regenerado (subset de ${ok.length} keys); el índice completo trackeado queda intacto`);
 	} else {
 		const indexMd = await agent(
-		`Escribí un index.md (en español) para la carpeta de documentación de workflow scaffolds. Para cada scaffold listado abajo: un item con link [\`<key>\`](./<key>.md) y su blurb de una línea tomado del catálogo (traducido). Agrupá por afinidad (verificación, research, fan-out, meta/composición, iterativos, etc.) con secciones H2. Título H1: "Workflow scaffolds". Aclarar al inicio qué es un scaffold (patrón ejecutable del catálogo de pi-dynamic-workflows). Respondé SOLO el Markdown.\n\nScaffolds documentados: ${ok.join(", ")}${failed.length ? `\nSIN página (mencionalos en una nota final como pendientes): ${failed.join(", ")}` : ""}\n\nCatálogo:\n${catalogSrc}`,
+		`Escribí un index.md (en español) para la carpeta de documentación de workflow scaffolds. Para cada scaffold listado abajo: un item con link [\`<key>\`](./<key>.md) y su blurb de una línea tomado del catálogo (traducido). Agrupá por afinidad (verificación, research, fan-out, meta/composición, iterativos, etc.) con secciones H2. Título H1: "Workflow scaffolds". Aclarar al inicio qué es un scaffold (patrón ejecutable del catálogo de pandi-extensions). Respondé SOLO el Markdown.\n\nScaffolds documentados: ${ok.join(", ")}${failed.length ? `\nSIN página (mencionalos en una nota final como pendientes): ${failed.join(", ")}` : ""}\n\nCatálogo:\n${catalogSrc}`,
 		{ label: "index", phase: "index", model: input.model ?? "sonnet", effort: "medium" },
 	);
 		// Robustez: si el agente envuelve la respuesta en un fence ```markdown, lo quitamos.

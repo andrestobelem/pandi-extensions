@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>pi-dynamic-workflows</title>
+<title>pandi-extensions</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -120,180 +120,180 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <body>
 <div class="container">
 	<header>
-		<div class="kicker">issue-34-run-report-smoke</div>
-		<h1>pi-dynamic-workflows</h1>
+		<div class="kicker">pandi-extensions</div>
+		<h1>pandi-extensions</h1>
 	</header>
 	<main>
-<p><strong>A suite of 20 extensions for <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — the <code>@earendil-works/pi-coding-agent</code> agentic coding CLI — that brings Claude Code&#39;s ergonomics and capabilities to Pi: <strong>dynamic multi-agent workflows</strong> (the centerpiece), plus <code>/loop</code>, <code>/goal</code>, <code>/plan</code>, local memory, context auto-compaction, TypeScript diagnostics, git worktrees, Linux sandboxes, and several UX aliases/shortcuts.</p>
-<p>The heart of the repo is <strong>Dynamic Workflows / Ultracode</strong>: trusted JavaScript scripts that Pi executes to orchestrate parallel subagents, persist artifacts outside the chat context, and return a coordinated synthesis. The other extensions are independent pieces you can install one by one or all together, whatever your project needs. 🐼</p>
+<p><strong>Una suite de 20 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — que lleva a Pi la ergonomía y las capacidades de Claude Code: <strong>dynamic multi-agent workflows</strong> (la pieza central), además de <code>/loop</code>, <code>/goal</code>, <code>/plan</code>, memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX.</p>
+<p>El corazón del repo es <strong>Dynamic Workflows / Ultracode</strong>: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. El resto de las extensiones son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼</p>
 <ul>
-<li><strong>License:</strong> MIT · <strong>Repo:</strong> <a href="https://github.com/andrestobelem/pi-dynamic-workflows">https://github.com/andrestobelem/pi-dynamic-workflows</a></li>
-<li><strong>Minimum requirements:</strong> Node.js ≥ 22.19.0 + the Pi CLI + git. Full requirements and optional capabilities: <a href="setup.html"><code>docs/setup.md</code></a>.</li>
+<li><strong>Licencia:</strong> MIT · <strong>Repo:</strong> <a href="https://github.com/andrestobelem/pandi-extensions">https://github.com/andrestobelem/pandi-extensions</a></li>
+<li><strong>Requisitos mínimos:</strong> Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales: <a href="setup.html"><code>docs/setup.md</code></a>.</li>
 </ul>
-<h2>Quickstart</h2>
-<pre><code class="language-bash"># 0. Node &gt;= 22.19.0 (nvm recommended; the repo ships .nvmrc)
+<h2>Inicio rápido</h2>
+<pre><code class="language-bash"># 0. Node &gt;= 22.19.0 (se recomienda nvm; el repo trae .nvmrc)
 nvm install &amp;&amp; nvm use
 
-# 1. Install the Pi runtime globally
+# 1. Instalá el runtime de Pi globalmente
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 pi --version
 
-# 2. Clone and install the dev toolchain
-git clone https://github.com/andrestobelem/pi-dynamic-workflows.git
-cd pi-dynamic-workflows
+# 2. Cloná el repo e instalá el toolchain de desarrollo
+git clone https://github.com/andrestobelem/pandi-extensions.git
+cd pandi-extensions
 npm install
 
-# 3. Check your environment, then run the full gate
+# 3. Verificá el entorno y luego corré el gate completo
 npm run doctor
 npm test
 
-# 4. Install ALL extensions + skills into Pi (global for your user)
-pi install ./                       # project-local: pi install -l ./
+# 4. Instalá TODAS las extensiones + skills en Pi (global para tu usuario)
+pi install ./                       # local al proyecto: pi install -l ./
 
-# 5. Open Pi in your project, trust it, and smoke test
+# 5. Abrí Pi en tu proyecto, confiá en él y hacé un smoke test
 cd /your/project &amp;&amp; pi
-#   inside Pi:  /trust  then  /reload
-#   /effort status      (ultracode router)
-#   /workflows          (TUI dashboard)  or  /workflow patterns
+#   dentro de Pi:  /trust  y luego  /reload
+#   /effort status      (router de ultracode)
+#   /workflows          (dashboard TUI)  o  /workflow patterns
 </code></pre>
-<p>Optional extras (web search for subagents, Context7 docs, PNG graphs, Apple <code>container</code> sandboxes, Gondolin micro-VMs) and the external <code>karpathy-guidelines</code> skill are covered in <a href="setup.html"><code>docs/setup.md</code></a>.</p>
-<h2>Extension catalog</h2>
-<p>All 20 extensions load by default from the <code>pi.extensions</code> field of <code>package.json</code> when you run <code>pi install ./</code>. Each one is also installable on its own with <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code>, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
+<h2>Catálogo de extensiones</h2>
+<p>Las 20 extensiones de comando/tool se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Extension</th>
+<th>Extensión</th>
 <th>Surface (human · model)</th>
-<th>What it does</th>
-<th>Extra requirements</th>
+<th>Qué hace</th>
+<th>Requisitos extra</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><strong>pandi-dynamic-workflows</strong> (core)</td>
 <td><code>/workflow</code>, <code>/workflows</code>, <code>/ultracode</code>, <code>/dynamic-workflow</code>, <code>/deep-research</code>, <code>/ultracode-mode</code>, <code>/ultracode-contract</code> · <code>dynamic_workflow</code></td>
-<td>JS workflow runtime for multi-agent orchestration with parallel execution, artifacts, and idempotent resume.</td>
-<td>optional: mmdc, web_search, Context7</td>
+<td>Runtime de workflows JS para orquestación multiagente con ejecución en paralelo, artifacts y resume idempotente.</td>
+<td>opcional: mmdc, web_search, Context7</td>
 </tr>
 <tr>
 <td><strong>pandi-loop</strong></td>
 <td><code>/loop</code> · <code>loop_schedule</code>, <code>loop_stop</code></td>
-<td>Iterative loop with dynamic or fixed cadence, driven by the model or the extension.</td>
-<td>TUI/RPC; autopilot requires trust</td>
+<td>Loop iterativo con cadencia dinámica o fija, conducido por el modelo o por la extensión.</td>
+<td>TUI/RPC; <code>autopilot</code> requiere trust</td>
 </tr>
 <tr>
 <td><strong>pandi-goal</strong></td>
 <td><code>/goal</code> · <code>goal_progress</code></td>
-<td>Goal-driven loop with a mandatory completion check and optional independent verifier.</td>
+<td>Loop guiado por objetivo con chequeo obligatorio de finalización y verificador independiente opcional.</td>
 <td>TUI/RPC</td>
 </tr>
 <tr>
 <td><strong>pandi-plan</strong></td>
 <td><code>/plan</code> · <code>enter_plan_mode</code>, <code>submit_plan</code></td>
-<td>Read-only plan mode with mutations blocked until you explicitly approve the plan.</td>
-<td>TUI/RPC (or <code>PI_PLAN_NONINTERACTIVE=1</code>)</td>
+<td>Modo de plan read-only con mutaciones bloqueadas hasta que apruebes explícitamente el plan.</td>
+<td>TUI/RPC (o <code>PI_PLAN_NONINTERACTIVE=1</code>)</td>
 </tr>
 <tr>
 <td><strong>pandi-effort</strong></td>
 <td><code>/effort status|off|minimal|low|medium|high|xhigh|ultracode</code></td>
-<td>Claude-style thinking-level switch; <code>ultracode</code> enables the workflow router.</td>
-<td><code>ultracode</code> needs the core loaded</td>
+<td>Selector de nivel de pensamiento estilo Claude; <code>ultracode</code> habilita el workflow router.</td>
+<td><code>ultracode</code> necesita el core cargado</td>
 </tr>
 <tr>
 <td><strong>pandi-local-memory</strong></td>
 <td><code>remember</code></td>
-<td>Local memory in <code>.pi/memory/</code>: auto-injected index + on-demand topic files.</td>
-<td>⚠ auto-injects memory: trusted projects only</td>
+<td>Memoria local en <code>.pi/memory/</code>: índice auto-inyectado + archivos temáticos on-demand.</td>
+<td>⚠ auto-inyecta memoria: solo proyectos trusted</td>
 </tr>
 <tr>
 <td><strong>pandi-auto-compact</strong></td>
 <td><code>/auto-compact [bar|snapshot|snapshots|clear-tools]</code></td>
-<td>Auto-compacts context past a threshold, with recoverable snapshots and a progress bar.</td>
-<td>configurable via <code>PI_AUTO_COMPACT_*</code></td>
+<td>Compacta el contexto al pasar un umbral, con snapshots recuperables y barra de progreso.</td>
+<td>configurable vía <code>PI_AUTO_COMPACT_*</code></td>
 </tr>
 <tr>
 <td><strong>pandi-typescript-lsp</strong></td>
 <td><code>/tsc</code> · <code>typescript_diagnostics</code></td>
-<td><code>tsc --noEmit</code> feedback scoped to the files touched this turn; non-blocking.</td>
-<td>project <code>tsconfig.json</code></td>
+<td>Feedback de <code>tsc --noEmit</code> acotado a los archivos tocados en este turno; no bloqueante.</td>
+<td>proyecto con <code>tsconfig.json</code></td>
 </tr>
 <tr>
 <td><strong>pandi-worktree</strong></td>
 <td><code>/worktree</code> · <code>git_worktree</code></td>
-<td>Manages git worktrees from Pi; opens new sessions, never changes the cwd.</td>
-<td>git + a git repo</td>
+<td>Administra git worktrees desde Pi; abre sesiones nuevas y nunca cambia el cwd.</td>
+<td>git + un repo git</td>
 </tr>
 <tr>
 <td><strong>pandi-container</strong></td>
 <td><code>/container</code> · <code>container_sandbox</code></td>
-<td>Runs isolated Linux commands in Apple <code>container</code> micro-VMs, without touching the host.</td>
+<td>Ejecuta comandos Linux aislados en micro-VMs Apple <code>container</code>, sin tocar el host.</td>
 <td>macOS Apple Silicon + <code>container</code></td>
 </tr>
 <tr>
 <td><strong>pandi-bg</strong></td>
 <td><code>/bg</code></td>
-<td>In-memory background jobs for one-off human commands; not resumable (the small sibling of <code>dynamic_workflow</code>).</td>
-<td>trust for <code>start</code></td>
+<td>Jobs en background en memoria para comandos humanos puntuales; no son resumables (el hermano pequeño de <code>dynamic_workflow</code>).</td>
+<td>trust para <code>start</code></td>
 </tr>
 <tr>
 <td><strong>pandi-mdview</strong></td>
 <td><code>/mdview</code> · <code>view_markdown</code></td>
-<td>Opens a Markdown file in Pi&#39;s scrollable TUI viewer.</td>
+<td>Abre un archivo Markdown en el viewer TUI con scroll de Pi.</td>
 <td>—</td>
 </tr>
 <tr>
 <td><strong>pandi-docs</strong></td>
 <td><code>/docs</code> · <code>markdown_to_html</code></td>
-<td>Converts Markdown into pandi-styled self-contained HTML artifacts (light + dark).</td>
+<td>Convierte Markdown en artifacts HTML autocontenidos con estilo pandi (light + dark).</td>
 <td>—</td>
 </tr>
 <tr>
 <td><strong>pandi-btw</strong></td>
 <td><code>/btw</code></td>
-<td>Quick side question about the current conversation, tool-free, in an overlay; not saved to history.</td>
+<td>Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial.</td>
 <td>—</td>
 </tr>
 <tr>
 <td><strong>pandi-rename</strong></td>
 <td><code>/rename</code></td>
-<td>Renames the session or auto-generates the name from history (Claude-style).</td>
-<td>optional: <code>PI_RENAME_*</code></td>
+<td>Renombra la sesión o genera el nombre automáticamente desde el historial (estilo Claude).</td>
+<td>opcional: <code>PI_RENAME_*</code></td>
 </tr>
 <tr>
 <td><strong>pandi</strong></td>
 <td><code>/pandi [art|face|off|on]</code></td>
-<td>Panda character: animated splash, indicator, verbs, and mood.</td>
-<td>TUI for the full effect</td>
+<td>Personaje panda: splash animado, indicador, verbos y mood.</td>
+<td>TUI para el efecto completo</td>
 </tr>
 <tr>
 <td><strong>pandi-exit</strong></td>
 <td><code>/exit</code></td>
-<td>Claude-style alias of <code>/quit</code> for a clean exit.</td>
+<td>Alias estilo Claude de <code>/quit</code> para una salida limpia.</td>
 <td>—</td>
 </tr>
 <tr>
 <td><strong>pandi-clear</strong></td>
 <td><code>/clear</code></td>
-<td>Claude-style alias of <code>/new</code> to start a fresh session.</td>
+<td>Alias estilo Claude de <code>/new</code> para empezar una sesión nueva.</td>
 <td>—</td>
 </tr>
 <tr>
 <td><strong>pandi-ask</strong></td>
 <td>· <code>ask_choice</code>, <code>ask_confirm</code></td>
-<td>Interactive TUI selector/confirm tools for model-driven decision points.</td>
+<td>Tools interactivos de selector/confirmación TUI para puntos de decisión guiados por el modelo.</td>
 <td>TUI/RPC</td>
 </tr>
 <tr>
 <td><strong>pandi-doctor</strong></td>
 <td><code>/doctor</code></td>
-<td>Runs the repo&#39;s read-only environment check (<code>scripts/doctor.mjs</code>) and shows the report.</td>
+<td>Ejecuta el chequeo read-only de entorno del repo (<code>scripts/doctor.mjs</code>) y muestra el reporte.</td>
 <td>—</td>
 </tr>
 </tbody></table>
 <blockquote>
-<p><code>extensions/shared/</code> is not an extension: it is test-harness code, never published or loaded. <code>extensions/pandi-theme/</code> ships no code either: it is a themes-only package (<code>pi.themes</code>) with the <code>panda-syntax-dark</code>/<code>panda-syntax-light</code> variants, the visual companion of <strong>pandi</strong>; it loads with <code>pi install ./</code> and is enabled via <code>/settings</code> or <code>&quot;theme&quot;</code>.</p>
+<p><code>extensions/shared/</code> no es una extensión: es código de test harness; nunca se publica ni se carga. <code>extensions/pandi-theme/</code> tampoco envía código: es un package solo de temas (<code>pi.themes</code>) con las variantes <code>panda-syntax-dark</code>/<code>panda-syntax-light</code>, el compañero visual de <strong>pandi</strong>; se carga con <code>pi install ./</code> y se habilita vía <code>/settings</code> o <code>&quot;theme&quot;</code>.</p>
 </blockquote>
-<h2>Dynamic Workflows in 60 seconds</h2>
-<p>A Dynamic Workflow is a <strong>trusted JavaScript script</strong> that Pi runs to orchestrate big work with subagents — mentally, a <strong>MapReduce with agents</strong>: scout the real work-list cheaply, fan out independent branches with evidence contracts, persist artifacts outside the chat, and let a final synthesis-as-judge deduplicate and prioritize.</p>
+<h2>Dynamic Workflows en 60 segundos</h2>
+<p>Un Dynamic Workflow es un <strong>script de JavaScript trusted</strong> que Pi ejecuta para orquestar trabajo grande con subagentes. El modelo mental es <strong>MapReduce con agentes</strong>: scoutear barato la lista real de trabajo, abrir ramas independientes con contratos de evidencia, persistir artifacts fuera del chat y dejar que una síntesis final haga deduplicación y priorización.</p>
 <pre><code class="language-js">export default async function main() {
   const items = [
     { label: &quot;a&quot;, prompt: &quot;Review src/a.ts&quot;, tools: [&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;], agentType: &quot;reviewer&quot; },
@@ -304,62 +304,62 @@ cd /your/project &amp;&amp; pi
   return compact(reviews.filter(Boolean), 20000);
 }
 </code></pre>
-<p>Key points:</p>
+<p>Puntos clave:</p>
 <ul>
-<li><strong>Injected globals, no imports</strong>: <code>agent</code>/<code>agents</code>, <code>pipeline</code>, <code>parallel</code>, <code>race</code>, <code>ask</code>, <code>workflow</code>, <code>bash</code>, <code>readFile</code>/<code>writeArtifact</code>, <code>log</code>, <code>compact</code>, plus read-only <code>args</code> and <code>limits</code>.</li>
-<li><strong>Personas</strong>: <code>agentType: &quot;explore&quot; | &quot;reviewer&quot; | &quot;planner&quot; | &quot;architect&quot; | &quot;implementer&quot; | &quot;researcher&quot;</code> applies role defaults (all read-only by default); explicit options win.</li>
-<li><strong>Background by default</strong> in TUI/RPC sessions, with a live dashboard (<code>/workflows</code>) and per-run artifacts under <code>.pi/workflows/runs/&lt;run-id&gt;/</code>.</li>
-<li><strong>Idempotent resume</strong>: completed <code>agent()</code> calls are journaled and never re-run; <code>/workflow resume &lt;runId&gt;</code> continues an interrupted run in place.</li>
-<li><strong>Ultracode always-on</strong>: a Claude Code-style router that weighs, per substantive task, whether to answer inline or orchestrate a workflow (<code>/effort ultracode</code>, <code>/ultracode-mode</code>).</li>
+<li><strong>Globals inyectados, sin imports</strong>: <code>agent</code>/<code>agents</code>, <code>pipeline</code>, <code>parallel</code>, <code>race</code>, <code>ask</code>, <code>workflow</code>, <code>bash</code>, <code>readFile</code>/<code>writeArtifact</code>, <code>log</code>, <code>compact</code>, más <code>args</code> y <code>limits</code> en modo read-only.</li>
+<li><strong>Personas</strong>: <code>agentType: &quot;explore&quot; | &quot;reviewer&quot; | &quot;planner&quot; | &quot;architect&quot; | &quot;implementer&quot; | &quot;researcher&quot;</code> aplica defaults por rol (todos read-only por defecto); las opciones explícitas ganan.</li>
+<li><strong>Background por defecto</strong> en sesiones TUI/RPC, con dashboard en vivo (<code>/workflows</code>) y artifacts por corrida en <code>.pi/workflows/runs/&lt;run-id&gt;/</code>.</li>
+<li><strong>Resume idempotente</strong>: las llamadas <code>agent()</code> completadas quedan journaled y no se reejecutan; <code>/workflow resume &lt;runId&gt;</code> continúa una corrida interrumpida en el mismo lugar.</li>
+<li><strong>Ultracode always-on</strong>: un router estilo Claude Code que decide, para cada tarea sustantiva, si conviene responder inline u orquestar un workflow (<code>/effort ultracode</code>, <code>/ultracode-mode</code>).</li>
 </ul>
-<p>Full guide — execution cycle, complete API, concurrency, resume journal, pattern catalog, security: <a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a>.</p>
-<h3>Research-backed templates</h3>
-<p>Map common agent papers/frameworks to Pi workflow design:</p>
+<p>Guía completa — ciclo de ejecución, API completa, concurrencia, journal de resume, catálogo de patterns, seguridad: <a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a>.</p>
+<h3>Plantillas apoyadas en research</h3>
+<p>Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:</p>
 <ul>
-<li><strong>ReAct</strong> -&gt; scout/observe with tools before fan-out; keep reasoning tied to evidence.</li>
-<li><strong>Self-consistency</strong> -&gt; sample independent branches, then select by consistency/evidence rather than trusting one path.</li>
-<li><strong>Reflexion / Self-Refine</strong> -&gt; generate -&gt; critique -&gt; refine loops, always bounded by rounds, quiet stops, <code>maxAgents</code>, and timeout.</li>
-<li><strong>Tree of Thoughts</strong> -&gt; branch alternatives, evaluate/prune with a judge, then commit to one path.</li>
-<li><strong>Multiagent debate</strong> -&gt; adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.</li>
-<li><strong>AutoGen / CAMEL / MetaGPT</strong> -&gt; explicit roles, stable artifacts, and clear handoff contracts.</li>
-<li><strong>SWE-agent / DSPy</strong> -&gt; interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.</li>
+<li><strong>ReAct</strong> -&gt; scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.</li>
+<li><strong>Self-consistency</strong> -&gt; muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.</li>
+<li><strong>Reflexion / Self-Refine</strong> -&gt; loops de generate -&gt; critique -&gt; refine, siempre acotados por rondas, quiet stops, <code>maxAgents</code> y timeout.</li>
+<li><strong>Tree of Thoughts</strong> -&gt; ramificar alternativas, evaluar/podar con un judge y luego comprometerse con un camino.</li>
+<li><strong>Multiagent debate</strong> -&gt; reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.</li>
+<li><strong>AutoGen / CAMEL / MetaGPT</strong> -&gt; roles explícitos, artifacts estables y contratos de handoff claros.</li>
+<li><strong>SWE-agent / DSPy</strong> -&gt; importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.</li>
 </ul>
-<p>Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.</p>
-<h2>Everyday commands</h2>
-<pre><code class="language-text">/workflows                              # TUI dashboard (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
+<p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
+<h2>Comandos de todos los días</h2>
+<pre><code class="language-text">/workflows                              # dashboard TUI (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
 /workflow run bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:6,&quot;maxAgents&quot;:16}
-/workflow view latest                   # timeline + artifacts of the latest run
-/workflow resume latest                 # resume an interrupted run without re-running finished agents
+/workflow view latest                   # timeline + artifacts de la corrida más reciente
+/workflow resume latest                 # retoma una corrida interrumpida sin reejecutar agentes terminados
 /ultracode audit the whole repo for concurrency bugs
 /deep-research research options to migrate X to Y
-/effort ultracode                       # xhigh thinking + Claude-style workflow router
-/plan                                   # read-only plan mode, mutations blocked until approval
-/loop fix the failing tests             # iterative loop with dynamic cadence
-/goal make npm test pass                # goal loop with independent verification
-/bg start npm test                      # one-off human background job (see extensions/pandi-bg/README.md)
+/effort ultracode                       # pensamiento xhigh + workflow router estilo Claude
+/plan                                   # modo de plan read-only; las mutaciones esperan tu aprobación
+/loop fix the failing tests             # loop iterativo con cadencia dinámica
+/goal make npm test pass                # goal loop con verificación independiente
+/bg start npm test                      # background job humano de una sola vez (ver extensions/pandi-bg/README.md)
 </code></pre>
-<p>Some extensions also expose tools that <strong>Pi decides to use on its own</strong> (not human slash commands): <code>enter_plan_mode</code>/<code>submit_plan</code> (plan before risky changes; only you approve), <code>remember</code> (persist durable notes under <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code>, and <code>goal_progress</code>. Each extension&#39;s README documents its surface.</p>
-<h2>Documentation</h2>
+<p>Algunas extensiones también exponen tools que <strong>Pi decide usar por su cuenta</strong> (no como slash commands humanos): <code>enter_plan_mode</code>/<code>submit_plan</code> (planificar antes de cambios riesgosos; solo vos aprobás), <code>remember</code> (persistir notas durables en <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code> y <code>goal_progress</code>. El README de cada extensión documenta su surface.</p>
+<h2>Documentación</h2>
 <ul>
-<li><a href="setup.html"><code>docs/setup.md</code></a> — full requirements, optional capabilities, env-var configuration, distribution channels, repo layout.</li>
-<li><a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a> — the deep Dynamic Workflows guide: execution cycle, globals API, background &amp; resume, concurrency, pattern catalog, prompts, security.</li>
-<li><a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a> — developing extensions in this self-hosted repo without breaking your session.</li>
-<li><a href="extensions"><code>extensions/&lt;name&gt;/README.md</code></a> — per-extension docs (e.g. <a href="extensions/pandi-dynamic-workflows/README.md"><code>pandi-dynamic-workflows</code></a>, <a href="extensions/pandi-bg/README.md"><code>pandi-bg</code></a>).</li>
+<li><a href="setup.html"><code>docs/setup.md</code></a> — requisitos completos, capacidades opcionales, configuración por env vars, canales de distribución y layout del repo.</li>
+<li><a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a> — guía profunda de Dynamic Workflows: ciclo de ejecución, API de globals, background y resume, concurrencia, catálogo de patterns, prompts y seguridad.</li>
+<li><a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a> — cómo desarrollar extensiones en este repo self-hosted sin romper tu sesión.</li>
+<li><a href="extensions"><code>extensions/&lt;name&gt;/README.md</code></a> — documentación por extensión (por ejemplo <a href="extensions/pandi-dynamic-workflows/README.md"><code>pandi-dynamic-workflows</code></a>, <a href="extensions/pandi-bg/README.md"><code>pandi-bg</code></a>).</li>
 </ul>
-<h2>Verification</h2>
+<h2>Verificación</h2>
 <pre><code class="language-bash">npm test
 </code></pre>
-<p>The gate runs, in order: <code>tsc</code> (typecheck of all extensions), <code>biome check .</code> (JS/TS/JSON lint + format), <code>markdownlint-cli2</code> (Markdown), and the colocated integration suites via <code>scripts/test/run-all.mjs</code>. Check your environment first with <code>npm run doctor</code>.</p>
-<h2>Issue tracking</h2>
-<p>Work is tracked in the GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pi-dynamic-workflows</a></strong> (v2 board).</p>
+<p>El gate corre, en este orden: <code>tsc</code> (typecheck de todas las extensiones), <code>biome check .</code> (lint + format de JS/TS/JSON), <code>markdownlint-cli2</code> (Markdown) y las suites de integración colocalizadas vía <code>scripts/test/run-all.mjs</code>. Verificá primero tu entorno con <code>npm run doctor</code>.</p>
+<h2>Seguimiento de issues</h2>
+<p>El trabajo se sigue en el GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pandi-extensions</a></strong> (board v2).</p>
 <ul>
-<li>Stories, tasks, and bugs are repo <a href="https://github.com/andrestobelem/pi-dynamic-workflows/issues">Issues</a>, labelled <code>story</code> / <code>task</code> / <code>bug</code> / <code>tests</code> / <code>tech-debt</code>.</li>
-<li>The board groups them by <strong>Status</strong> (Todo / In Progress / Done); a parent story links its sub-tasks in the body.</li>
-<li>Finishing work? Put <code>Closes #N</code> in the commit so the issue and its board card close automatically.</li>
-<li>Managed from the terminal with the <a href="https://cli.github.com/"><code>gh</code></a> CLI (e.g. <code>gh issue create</code>, <code>gh project item-add 4 --owner andrestobelem</code>).</li>
+<li>Las stories, tasks y bugs son <a href="https://github.com/andrestobelem/pandi-extensions/issues">Issues</a> del repo, con labels <code>story</code> / <code>task</code> / <code>bug</code> / <code>tests</code> / <code>tech-debt</code>.</li>
+<li>El board los agrupa por <strong>Status</strong> (Todo / In Progress / Done); una story padre enlaza sus sub-tareas en el body.</li>
+<li>¿Terminaste trabajo? Poné <code>Closes #N</code> en el commit para que el issue y su card del board se cierren automáticamente.</li>
+<li>Se gestiona desde terminal con el CLI <a href="https://cli.github.com/"><code>gh</code></a> (por ejemplo <code>gh issue create</code>, <code>gh project item-add 4 --owner andrestobelem</code>).</li>
 </ul>
-<h2>License</h2>
-<p>MIT — see <a href="./LICENSE"><code>LICENSE</code></a>.</p>
+<h2>Licencia</h2>
+<p>MIT — ver <a href="./LICENSE"><code>LICENSE</code></a>.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

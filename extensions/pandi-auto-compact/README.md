@@ -2,7 +2,7 @@
 
 Long Pi sessions eventually run out of context, and a plain `/compact` can quietly lose
 facts you needed. This extension watches context usage and compacts automatically once
-it crosses a threshold (default `35%`), with a footer gauge so you see it coming and a
+it crosses a threshold (default `35%` for Claude/other models, `50%` for Codex), with a footer gauge so you see it coming and a
 disk snapshot so a lossy summary is never unrecoverable.
 
 ## Quickstart
@@ -14,7 +14,7 @@ pi install npm:@pandi-coding-agent/pandi-auto-compact
 ```text
 /auto-compact                 # open the interactive menu (UI session)
 /auto-compact status          # show threshold, bar, snapshot, clear-tools state
-/auto-compact 50              # compact once usage crosses 50% instead of 35%
+/auto-compact 50              # override the model-sensitive default threshold
 /auto-compact clear-tools on  # also elide old tool output on every LLM call
 ```
 
@@ -56,7 +56,7 @@ Startup defaults, overridable via environment variables:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `PI_AUTO_COMPACT_PERCENT` | `35` | Compaction threshold percent. |
+| `PI_AUTO_COMPACT_PERCENT` | model-sensitive (`35` normally, `50` for Codex) | Compaction threshold percent. |
 | `PI_AUTO_COMPACT_BAR` | `on` | Footer progress bar visibility. |
 | `PI_AUTO_COMPACT_SNAPSHOT` | `on` | Recoverable pre-compaction snapshots. |
 | `PI_AUTO_COMPACT_SNAPSHOT_KEEP` | `20` | Per-session snapshot retention budget. |

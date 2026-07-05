@@ -39,7 +39,7 @@ export default async function main() {
 
 	// Shared stable framing (identical prefix across agents for prompt-cache reuse).
 	const FRAME =
-		"CONTEXT — repo pi-dynamic-workflows. We are DESIGNING (not implementing) a self-contained HTML view " +
+		"CONTEXT — repo pandi-extensions. We are DESIGNING (not implementing) a self-contained HTML view " +
 		"that renders a dynamic workflow's STRUCTURE together with its actual EXECUTION data from a " +
 		".pi/workflows/runs/<runId>/ directory. You are READ-ONLY: read code and run dirs; make NO file edits.\n\n" +
 		"Existing pieces you must ground your analysis in (read them):\n" +
@@ -66,7 +66,7 @@ export default async function main() {
 		"THE FOUR OPEN DESIGN QUESTIONS:\n" +
 		"(a) static post-run vs live-refresh HTML (v1 posture + follow-up path);\n" +
 		"(b) WHERE the feature lives: standalone script (.pi/scripts/), dynamic_workflow tool action / /workflow " +
-		"subcommand in the pi-dynamic-workflows extension, or pi-docs;\n" +
+		"subcommand in the pandi-dynamic-workflows extension, or pandi-docs;\n" +
 		"(c) unify with build-workflow-artifact.mjs vs a new piece (and what happens to the .claude mirror);\n" +
 		"(d) WHICH run data is shown and HOW large agent outputs are bounded (truncation thresholds, <details> " +
 		"collapsing, relative links to on-disk files).\n\n";
@@ -79,7 +79,7 @@ export default async function main() {
 			ask:
 				"Your lens: questions (b) and (c) — PLACEMENT and UNIFY-VS-NEW. Compare the candidate homes " +
 				"(standalone .pi/scripts/ script; a `report`/`html` action or /workflow subcommand inside the " +
-				"pi-dynamic-workflows extension; pi-docs) against: repo self-contained-extension rule, testability " +
+				"pandi-dynamic-workflows extension; pandi-docs) against: repo self-contained-extension rule, testability " +
 				"under tests/<ext>/integration, discoverability (/workflow UX), the existing byte-identical " +
 				".claude/scripts/ mirror, and how much run-parsing logic already lives in the extension " +
 				"(run-view.ts, dashboard-collectors.ts — quantify reuse potential by reading them). Recommend ONE " +

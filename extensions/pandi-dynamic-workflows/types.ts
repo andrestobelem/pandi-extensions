@@ -1,5 +1,5 @@
 /**
- * Shared contract types for pi-dynamic-workflows — the data shapes that flow between the engine
+ * Shared contract types for pandi-dynamic-workflows — the data shapes that flow between the engine
  * (index.ts) and its sibling modules: workflow files/locations/limits, agent options + results,
  * bash results, log entries, the run result/status/record union, journal records, prepared/active
  * runs, and the agent-monitor model. A pure type-only leaf (no imports, no runtime), so any module

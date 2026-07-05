@@ -111,10 +111,14 @@ export function syncDocsHtml(root, opts = {}) {
 	const stale = [];
 	const badHrefs = [];
 
+	const rootPackageJsonPath = path.join(root, "package.json");
+	const rootPackageName = fs.existsSync(rootPackageJsonPath)
+		? JSON.parse(fs.readFileSync(rootPackageJsonPath, "utf8")).name
+		: undefined;
 	const expected = new Map();
 	for (const rel of set) {
 		const md = fs.readFileSync(path.join(root, rel), "utf8");
-		const kicker = rel === "README.md" ? path.basename(root) : path.posix.dirname(rel);
+		const kicker = rel === "README.md" ? (rootPackageName ?? path.basename(root)) : path.posix.dirname(rel);
 		const rendered = renderMarkdownToHtml(md, { title: path.posix.basename(rel), kicker });
 		// Scan BEFORE rewriteHrefs: after it, every correct in-set .md link also reads .html.
 		badHrefs.push(...findBadSourceHrefs(rendered, rel, set));

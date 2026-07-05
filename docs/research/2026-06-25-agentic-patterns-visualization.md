@@ -1,20 +1,30 @@
-# Visualization of agentic patterns in Dynamic Workflows
+# Visualización de patrones agénticos en Dynamic Workflows
 
 Date: 2026-06-25
 
-## Objective
+Este trabajo mejora `/workflow graph` para que deje de verse como una lista lineal de llamadas y, en cambio, muestre los patrones agénticos relevantes: fan-out de muchos subagents por paso, pipelines por lanes/stages, barreras paralelas, síntesis/judge y loops aproximados.
 
-Improve `/workflow graph` so it no longer looks like a linear list of calls and instead shows relevant agentic patterns: fan-out of many subagents per step, pipelines by lanes/stages, parallel barriers, synthesis/judge, and approximate loops. Explicit requirement: if a step launches many agents, that must be visible in the diagram; the inline PNG must appear larger.
+La señal clave es visual: si un paso lanza muchos agentes, eso tiene que verse en el diagrama. Además, el PNG inline debe aparecer más grande para que la estructura se lea sin esfuerzo.
 
-## Sources reviewed
+## En 30 segundos
 
-**Documentation and frameworks:**
+Sirve cuando el grafo te está ocultando la forma real del workflow. Usalo para distinguir rápido entre secuencia, fan-out, paralelismo y síntesis, y para comprobar que una etapa con muchos agentes no quedó aplastada en una sola flecha.
+
+## Cómo probarlo
+
+```bash
+PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p "/workflow graph generated/agentic-viz-patterns-research"
+```
+
+## Fuentes revisadas
+
+**Documentación y frameworks:**
 - Anthropic, **Building effective agents**: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer.
 - LangGraph, **Workflows and agents**: Mermaid/graph rendering of workflows, parallelization, routing, orchestrator-worker, evaluator-optimizer.
 - Mermaid, **Flowchart syntax**: `subgraph`, local direction, edges to/from subgraphs, labels and shapes.
 - Mermaid CLI (`mmdc`): flags `-w/--width`, `-H/--height`, `-s/--scale`, `-t`, `-b`, JSON config.
 
-**Academic papers:**
+**Papers académicos:**
 - ReAct (arXiv:2210.03629)
 - Self-Consistency (arXiv:2203.11171)
 - Reflexion (arXiv:2303.11366)
@@ -22,58 +32,57 @@ Improve `/workflow graph` so it no longer looks like a linear list of calls and 
 - Tree of Thoughts (arXiv:2305.10601)
 - Multiagent Debate (arXiv:2305.14325)
 
-**Local research:**
+**Investigación local:**
 - Workflow `generated/agentic-viz-patterns-research`
 - Run `2026-06-25T10-17-20-913Z-generated-agentic-viz-patterns-research-ef06f94c`
-- Artifacts in project `.pi/workflow-runs/...` directory
+- Artifacts en el directorio `.pi/workflow-runs/...` del proyecto
 
-## Recommended visual grammar
+## Gramática visual recomendada
 
-- **◆ fan-out:** `ctx.agents(...)`; show `P1 ×items.length agents`, `concurrency`, `settle:true`, fork, visible workers, and join.
-- **▣ pipeline:** `ctx.pipeline(items, ...stages)`; show `×items.length lanes` and number of stages.
-- **⧉ barrier:** `ctx.parallel([...])`; show concurrent branches and join/barrier.
-- **● agent:** an individual Pi subagent.
-- **◇ workflow:** delegated sub-workflow.
-- **▤ artifact:** evidence persisted outside the chat.
-- **$ bash:** host command.
-- **Feedback loops:** ReAct/Reflexion/Self-Refine patterns; marked as loops with a stop condition when `for`/`while` are detected.
+- **◆ fan-out:** `ctx.agents(...)`; mostrar `P1 ×items.length agents`, `concurrency`, `settle:true`, fork, workers visibles y join.
+- **▣ pipeline:** `ctx.pipeline(items, ...stages)`; mostrar `×items.length lanes` y la cantidad de stages.
+- **⧉ barrier:** `ctx.parallel([...])`; mostrar ramas concurrentes y join/barrier.
+- **● agent:** un subagent individual de Pi.
+- **◇ workflow:** sub-workflow delegado.
+- **▤ artifact:** evidencia persistida fuera del chat.
+- **$ bash:** comando del host.
+- **Feedback loops:** patrones ReAct/Reflexion/Self-Refine; se marcan como loops con condición de corte cuando se detecta `for`/`while`.
 
-## Decisions implemented
+## Decisiones implementadas
 
-1. **Enriched graph model**
-   - `WorkflowGraphStep` can now carry `fanout` and `children`.
-   - Conservative static cardinality is inferred: `angles.map(...)` → `angles.length`; literal arrays → number; unknown → `dynamic`.
-   - `concurrency`, `settle:true`, and number of stages are extracted when they appear in arguments.
+1. **Modelo de grafo enriquecido**
+   - `WorkflowGraphStep` ahora puede llevar `fanout` y `children`.
+   - Se infiere cardinalidad estática conservadora: `angles.map(...)` → `angles.length`; arrays literales → número; desconocido → `dynamic`.
+   - `concurrency`, `settle:true` y la cantidad de stages se extraen cuando aparecen en los argumentos.
 
-2. **Grouping nested calls**
-   - `ctx.agent`/helper calls inside `ctx.pipeline`, `ctx.parallel`, or `ctx.agents` are shown as children of the orchestration step, not as independent serial steps.
+2. **Agrupación de llamadas anidadas**
+   - Las llamadas `ctx.agent`/helpers dentro de `ctx.pipeline`, `ctx.parallel` o `ctx.agents` se muestran como hijos del paso de orquestación, no como pasos seriales independientes.
 
-3. **Mermaid with subgraphs**
-   - Fan-outs/pipelines/barriers are rendered as `subgraph` with `direction LR`.
-   - For many agents, representative workers are drawn: `agent 1`, `agent 2`, `…`, `agent n`, or `agent N`.
-   - External connections point to the subgraph, not to internal nodes, so Mermaid's local direction is not broken.
+3. **Mermaid con subgraphs**
+   - Fan-outs/pipelines/barriers se renderizan como `subgraph` con `direction LR`.
+   - Para muchos agentes, se dibujan workers representativos: `agent 1`, `agent 2`, `…`, `agent n` o `agent N`.
+   - Las conexiones externas apuntan al subgraph, no a nodos internos, así no se rompe la dirección local de Mermaid.
 
-4. **Larger PNG**
-   - Dynamic render: `width 2200..3600`, `height 1300..2800`, `scale=2`.
-   - Larger inline TUI: up to `320` columns and `54..88` rows depending on complexity.
-   - The UI shows generated dimensions (`WIDTH×HEIGHT @2x`) next to the PNG/MMD path.
+4. **PNG más grande**
+   - Render dinámico: `width 2200..3600`, `height 1300..2800`, `scale=2`.
+   - TUI inline más grande: hasta `320` columnas y `54..88` filas según la complejidad.
+   - La UI muestra las dimensiones generadas (`WIDTH×HEIGHT @2x`) junto a la ruta PNG/MMD.
 
-5. **Documentation**
-   - README and skill document that `/workflow graph` now shows fan-out `×N`, lanes/branches, and a large inline PNG.
+5. **Documentación**
+   - El README y el skill documentan que `/workflow graph` ahora muestra fan-out `×N`, lanes/branches y un PNG inline grande.
 
-## Accepted limitations
+## Límites aceptados
 
-- The graph is still a static view: it does not execute JS or know the real value of `files.length` before the run.
-- Real post-run counts exist in `phaseTotal`/`phaseIndex`/`phaseLabel` for `ctx.agents(...)`; a future run-aware improvement can combine the static graph with run events.
-- Regex-based inference is still heuristic; an AST would be more robust, but this improvement avoids the most visible false serializations while keeping cost/dependencies low.
-- Huge fan-outs are collapsed with ellipses for readability; the PNG shows that there are many agents without trying to draw hundreds by default.
+- El grafo sigue siendo una vista estática: no ejecuta JS ni conoce el valor real de `files.length` antes de la corrida.
+- Los conteos reales post-run existen en `phaseTotal`/`phaseIndex`/`phaseLabel` para `ctx.agents(...)`; una mejora futura aware de la corrida puede combinar el grafo estático con los eventos de ejecución.
+- La inferencia por regex sigue siendo heurística; un AST sería más robusto, pero esta mejora evita las serializaciones falsas más visibles sin subir demasiado el costo/dependencias.
+- Los fan-outs enormes se colapsan con elipsis para mejorar la legibilidad; el PNG muestra que hay muchos agentes sin intentar dibujar cientos por defecto.
 
-## Validation
+## Validación
 
-Test the implementation:
+Probá la implementación:
 
 ```bash
 npm test
-PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p "/workflow graph generated/agentic-viz-patterns-research"
 ./node_modules/.bin/mmdc -q -i /tmp/subgraph-id-edge.mmd -o /tmp/subgraph-id-edge.png -e png -t dark -b transparent -w 2600 -H 1800 -s 2
 ```

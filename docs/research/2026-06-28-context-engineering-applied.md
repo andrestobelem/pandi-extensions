@@ -1,124 +1,125 @@
 ---
-# Context Engineering, Applied: Mapping the Research onto Our Extensions
+# Context Engineering, Aplicado: mapeo de la investigación a nuestras extensiones
 
-> **Status: ANALYSIS.** Companion to `2026-06-28-context-engineering-focus.md`. Reframes
-> that research as a concrete audit of the extensions in this package: what each lever
-> already implements, where the gaps are, and which fixes earn their place. No code is
-> changed by this document; it is the "think deeply" deliverable that precedes any plan.
-
----
-
-## 1. The core reframe
-
-The research reframes context as a **finite attention budget**, not a bucket to fill. Four
-concrete failure modes drive everything else:
-
-- **Lost in the middle** — models attend to the start/end of context, neglect the middle (U-curve).
-- **Context rot** — reliability decays as raw input grows, even on trivial tasks.
-- **Distraction** — a single off-topic-but-similar sentence pulls attention off task.
-- **Instruction-following decay** — obedience to rules falls with length, separable from retrieval.
-
-The striking finding for *this* package: **most of the paper's mitigations already exist here
-as runtime mechanisms.** The architecture is, in effect, "context engineering operationalized."
-The value is (a) recognizing that explicitly and (b) closing six or seven targeted gaps.
+> **Estado: ANÁLISIS.** Complemento de `2026-06-28-context-engineering-focus.md`. Relee
+> esa investigación como una auditoría concreta de las extensiones de este paquete: qué ya
+> implementa cada palanca, dónde están las brechas y qué arreglos realmente valen la pena.
+> Este documento no cambia código; es el entregable de “pensar a fondo” que precede a cualquier plan.
 
 ---
 
-## 2. What is already implemented (research lever → extension)
+## 1. Reencuadre central
 
-| Research lever | Where it lives | Evidence in code |
+La investigación presenta el contexto como un **presupuesto finito de atención**, no como un
+recipiente para llenar. Cuatro modos de falla concretos ordenan todo lo demás:
+
+- **Lost in the middle** — los modelos atienden más al inicio y al final del contexto, y descuidan el medio (curva en U).
+- **Context rot** — la confiabilidad cae a medida que crece la entrada bruta, incluso en tareas triviales.
+- **Distraction** — una sola frase fuera de tema, pero parecida, desvía la atención.
+- **Instruction-following decay** — la obediencia a las reglas disminuye con la longitud, separable de la recuperación.
+
+La conclusión más llamativa para *este* paquete: **la mayoría de las mitigaciones del paper ya existen aquí como mecanismos de runtime.** La arquitectura es, en la práctica, “context engineering operacionalizado”. El valor está en (a) reconocerlo explícitamente y (b) cerrar seis o siete brechas puntuales.
+
+---
+
+## 2. Qué ya está implementado (palanca de investigación → extensión)
+
+| Palanca de investigación | Dónde vive | Evidencia en el código |
 |---|---|---|
-| External memory / offloading (§3b, MemGPT) | `pandi-local-memory` | Injects `MEMORY.md` capped (200 lines/25 KB); topic files are **listed but read on demand** = textbook just-in-time |
-| Just-in-time retrieval (§3c) | `pandi-dynamic-workflows` + memory | Cheap scout (`git ls-files`/grep/glob), references + on-demand load, `writeArtifact` moves bulk out of chat |
-| Small tool budget (§3d, LongFuncEval 7–85%) | workflow personas | `READ_ONLY_AGENT_TOOLS = [read, grep, find, ls]` + `--no-extensions` by default (unless `includeExtensions:true`) |
-| Isolate-for-read / single-thread-for-write (§3d, Cognition↔Anthropic) | read-only personas + synthesis-as-judge | explore/reviewer/researcher are read-only; the orchestrator compresses findings |
-| Recitation / re-anchor the goal (§3e, Manus) | `pandi-goal` + `pandi-loop` | Stable mold re-injected each iteration; `successCriteria` recorded ONCE as definition-of-done; progress log **bounded** (anti self-mimicry) |
-| Trajectory + adversarial eval (§4, τ-bench) | `pandi-goal` independent verifier | Skeptical read-only verifier judges against criteria with evidence, not intuition |
-| Architecture-to-topology, not fashion (§3d) | Ultracode router + Contract Gate | Trivial gate avoids over-orchestration; Contract Gate synthesizes a contract before escalating |
-| Near-threshold compaction (§3b) | `pandi-auto-compact` | Relative edge-trigger at 30%; re-arms from post-compaction % to avoid looping; footer bar = budget gauge |
-| Authority separation (§3a) | `pandi-local-memory` | Durable directives go to the system channel (trusted content, written by `remember`/human) |
+| Memoria externa / offloading (§3b, MemGPT) | `pandi-local-memory` | Inyecta `MEMORY.md` con tope (200 líneas/25 KB); los archivos de tema se **listan pero se leen bajo demanda** = just-in-time de manual |
+| Recuperación just-in-time (§3c) | `pandi-dynamic-workflows` + memory | Scout barato (`git ls-files`/grep/glob), referencias + carga on-demand, `writeArtifact` saca volumen fuera del chat |
+| Presupuesto pequeño de herramientas (§3d, LongFuncEval 7–85%) | personas de workflow | `READ_ONLY_AGENT_TOOLS = [read, grep, find, ls]` + `--no-extensions` por defecto (salvo `includeExtensions:true`) |
+| Aislar-para-leer / un solo hilo para escribir (§3d, Cognition↔Anthropic) | personas read-only + synthesis-as-judge | `explore`/`reviewer`/`researcher` son read-only; el orquestador comprime hallazgos |
+| Recitación / reanclar el objetivo (§3e, Manus) | `pandi-goal` + `pandi-loop` | Se reinyecta un molde estable en cada iteración; `successCriteria` se registra UNA sola vez como definición de listo; el progreso queda **acotado** (anti self-mimicry) |
+| Trayectoria + evaluación adversarial (§4, τ-bench) | verificador independiente de `pandi-goal` | Un verificador escéptico read-only juzga contra criterios con evidencia, no intuición |
+| Topología antes que moda (§3d) | router de Ultracode + Contract Gate | Un gate trivial evita sobre-orquestación; Contract Gate sintetiza un contrato antes de escalar |
+| Compaction cerca del umbral (§3b) | `pandi-auto-compact` | Disparo por borde relativo al 30%; se rearma desde el % post-compaction para evitar loops; la barra del footer es un gauge de presupuesto |
+| Separación de autoridad (§3a) | `pandi-local-memory` | Las directivas durables van al canal de sistema (contenido confiable, escrito por `remember`/human) |
 
 ---
 
-## 3. Highest-value gaps (prioritized)
+## 3. Brechas de mayor valor (priorizadas)
 
-### 3.1 Recoverable compaction — the strongest gap (§3b)
+### 3.1 Compaction recuperable — la brecha más fuerte (§3b)
 
-`pandi-auto-compact` fires `ctx.compact()` (a harness summary) **without coupling to
-memory/artifacts**. The paper is explicit: recursive summarization can drop a fact you later
-need; *preserve the raw externally so compaction is recoverable, not destructive.* The 30%
-threshold is aggressive and good for the attention budget, but it amplifies cascading-error
-risk. Fix: snapshot key state to `.pi/memory` or a run artifact before compacting (or prompt
-the agent to do so).
+`pandi-auto-compact` llama a `ctx.compact()` (un resumen del harness) **sin acoplarlo a
+memory/artifacts**. El paper es explícito: la summarization recursiva puede perder un dato que
+luego necesitás; *conservá el material crudo afuera para que la compactación sea recuperable,
+no destructiva*. El umbral del 30% es agresivo y bueno para el presupuesto de atención, pero
+amplifica el riesgo de errores en cascada. Solución: guardar el estado clave en `.pi/memory` o
+en un artifact del run antes de compactar (o pedirle al agente que lo haga).
 
-### 3.2 Tool-result clearing as a cheaper lever than full compaction (§3b)
+### 3.2 Limpieza de tool results como palanca más barata que la compactación completa (§3b)
 
-The paper distinguishes *tool-result clearing* (drop bulky consumed payloads, keep the
-decision) from full *compaction*. We only have compaction at 30%. An intermediate lever that
-clears digested tool outputs would relieve pressure without the cascade risk of summarization.
-Complementary to 3.1.
+El paper distingue *tool-result clearing* (descartar payloads voluminosos ya consumidos,
+conservar la decisión) de la *compaction* completa. Hoy solo tenemos compactación al 30%.
+Una palanca intermedia que limpie salidas de herramientas ya digeridas aliviaría presión sin el
+riesgo de cascada de la summarization. Complementa a 3.1.
 
-### 3.3 Position-aware synthesis prompts (§2, lost-in-the-middle)
+### 3.3 Prompts de síntesis sensibles a la posición (§2, lost-in-the-middle)
 
-When a workflow's synthesis step receives N branch outputs, put **task + criteria at the start
-AND the end** of the synthesis prompt, and reorder the strongest evidence to the edges. Worth
-codifying in synthesis prompts and pattern scaffolds — cheap, directly counters the U-curve.
+Cuando la fase de síntesis de un workflow recibe N salidas de ramas, poné **tarea + criterios al
+inicio Y al final** del prompt de síntesis, y reordená la evidencia más fuerte hacia los
+bordes. Vale la pena codificarlo en prompts de síntesis y scaffolds de patrones: es barato y
+contrarresta directamente la U-curve.
 
-### 3.4 Stable KV-cache prefix in workflows (§3e, Manus + prompt caching)
+### 3.4 Prefijo estable de KV-cache en workflows (§3e, Manus + prompt caching)
 
-Keep subagent prompt prefixes stable, push volatile/per-item content to the end, and avoid
-`Date.now()`/`Math.random()` early. This matters for two reasons: it protects the provider
-cache, and it determines whether a call is cached for `resume` (the content-address cache
-journal). Codify "stable prefix" guidance in prompt construction.
+Mantené prefijos de prompt de subagentes estables, empujá el contenido volátil o por ítem al
+final, y evitá `Date.now()`/`Math.random()` al principio. Esto importa por dos motivos: protege
+el cache del proveedor y determina si una llamada queda cacheada para `resume` (el journal del
+content-address cache). Conviene codificar la guía de “stable prefix” en la construcción de
+prompts.
 
-### 3.5 Authority guard on memory (§3a, anti-injection)
+### 3.5 Guardia de autoridad sobre memory (§3a, anti-injection)
 
-`remember` writes to the system channel (currently trusted). Add an explicit **non-goal**:
-never ingest untrusted tool/retrieved content into `.pi/memory`. Cheap defense-in-depth;
-delimiters are not a security boundary.
+`remember` escribe en el canal de sistema (hoy confiable). Agregá un **non-goal** explícito:
+nunca ingerir contenido no confiable de herramientas o retrieval hacia `.pi/memory`. Defensa en
+depth barata; los delimitadores no son una barrera de seguridad.
 
-### 3.6 Focus observability (§4: token growth, tool-error rate, trajectory)
+### 3.6 Observabilidad del foco (§4: token growth, tool-error rate, trajectory)
 
-The auto-compact bar (budget gauge) and the goal progress log already exist. **The gap:**
-extend observability to **workflow runs** — capture per-step token growth, tool-error rate,
-and retries as artifacts, in the spirit of OpenTelemetry GenAI spans. This is the paper's
-"measure focus live."
+La barra de auto-compactación (budget gauge) y el log de progreso del goal ya existen. **La
+brecha:** extender la observabilidad a los **workflow runs** — capturar por paso el crecimiento
+de tokens, la tasa de errores de herramientas y los retries como artifacts, en espíritu de los
+spans de OpenTelemetry GenAI. Esta es la parte de “medir el foco en vivo”.
 
-### 3.7 NoLiMa-style evals (§4: do not rely on literal NIAH)
+### 3.7 Evals estilo NoLiMa (§4: no depender de NIAH literal)
 
-Integration suites verify behavior; the goal verifier is already evidence-based (non-lexical).
-Minor opportunity: when adding context evals, gate on **non-lexical needles + distractors**,
-not literal matches.
-
----
-
-## 4. Recommendation
-
-The two highest-ROI, low-risk items are **3.1 (recoverable compaction)** and **3.3
-(position-aware synthesis)** — they attack the paper's two central failure modes (compaction
-cascade + lost-in-the-middle) with surgical changes to extensions that are already well
-understood. Suggested order: plan 3.1 first (it spans `pandi-auto-compact` + memory/
-artifacts and deserves a design pass), then do 3.3 as a contained follow-up.
+Las suites de integración verifican comportamiento; el verificador de goal ya es basado en
+evidencia (no lexical). Oportunidad menor: al agregar context evals, gatear sobre **needles no
+lexicales + distractores**, no sobre matches literales.
 
 ---
 
-## 5. Implementation status
+## 4. Recomendación
 
-> **Status: IMPLEMENTED.** All seven prioritized gaps shipped as separate atomic commits,
-> each verified against the full `npm test` gate (typecheck + eslint + prettier + markdownlint
-> + integration). Each change is surgical and additive — no breaking change to a public
-> contract — in line with the "complexity must earn its place" ethos.
+Los dos ítems de mayor ROI y menor riesgo son **3.1 (compaction recuperable)** y **3.3
+(síntesis sensible a la posición)**: atacan los dos modos de falla centrales del paper
+(cascade de compactación + lost-in-the-middle) con cambios quirúrgicos sobre extensiones ya
+bien entendidas. Orden sugerido: planear 3.1 primero (cruza `pandi-auto-compact` + memory/
+artifacts y merece un pass de diseño), y luego hacer 3.3 como follow-up acotado.
 
-| Gap | What shipped | Commit |
+---
+
+## 5. Estado de implementación
+
+> **Estado: IMPLEMENTADO.** Las siete brechas priorizadas se publicaron como commits atómicos
+> separados, cada uno verificado contra el gate completo de `npm test` (typecheck + eslint +
+> prettier + markdownlint + integration). Cada cambio es quirúrgico y aditivo — sin breaking
+> changes en contratos públicos — en línea con el ethos de “la complejidad debe ganarse su
+> lugar”.
+
+| Gap | Qué se envió | Commit |
 |---|---|---|
-| 3.1 | Recoverable compaction: snapshot raw transcript before `ctx.compact()` (hooks `session_before_compact`/`session_compact`), pruning + `snapshot`/`snapshots` subcommands, env `PI_AUTO_COMPACT_SNAPSHOT[_KEEP]` | `9caf486` |
-| 3.2 | Opt-in tool-result clearing (`clearOldToolResults`) on the `context` hook — cheaper than compaction, ephemeral, fail-safe, default off | `ee01db5` |
-| 3.3 | Position-aware synthesis: restate task + criteria at BOTH ends of synthesis scaffolds; both-ends router guidance | `56d1140` |
-| 3.4 | Stable KV-cache prefix guidance in subagent prompt construction (guidance/docs only) | `51c318a` |
-| 3.5 | Authority guard on `remember`: anti-injection non-goal (never ingest untrusted content; delimiters are not a security boundary) | `0d2d18e` |
-| 3.6 | Per-run focus-metrics artifacts (`metrics.json`/`metrics.md`): token growth, tool-error rate, retries — folded from each subagent's JSON-mode stdout | `8fe6c8a` |
-| 3.7 | NoLiMa-style non-lexical eval primitive (`eval-needle.mjs`): non-lexical needle + lexical-lure distractors, never gate on the literal needle string | `900650b` |
+| 3.1 | Compaction recuperable: snapshot del transcript crudo antes de `ctx.compact()` (hooks `session_before_compact`/`session_compact`), pruning + subcomandos `snapshot`/`snapshots`, env `PI_AUTO_COMPACT_SNAPSHOT[_KEEP]` | `9caf486` |
+| 3.2 | Limpieza opt-in de tool results (`clearOldToolResults`) en el hook `context` — más barata que compactar, efímera, fail-safe, desactivada por defecto | `ee01db5` |
+| 3.3 | Síntesis sensible a la posición: reexpresar task + criteria en AMBOS extremos de los scaffolds de síntesis; guía del router con ambos extremos | `56d1140` |
+| 3.4 | Guía de prefijo estable de KV-cache en la construcción de prompts de subagentes (solo guía/docs) | `51c318a` |
+| 3.5 | Guardia de autoridad sobre `remember`: non-goal anti-injection (nunca ingerir contenido no confiable; los delimitadores no son barrera de seguridad) | `0d2d18e` |
+| 3.6 | Artifacts de métricas por run (`metrics.json`/`metrics.md`): token growth, tool-error rate, retries — consolidados desde stdout JSON-mode de cada subagente | `8fe6c8a` |
+| 3.7 | Primitiva de eval NoLiMa-style (`eval-needle.mjs`): needle no lexical + distractores lure lexicales, nunca gatear sobre la string literal del needle | `900650b` |
 
-Supporting change: a chat-export helper (`scripts/export-chat.mjs`, commit `2f56776`) writes
-session HTML into `.pi/chats/`, and `.gitignore`/`.prettierignore` now ignore stray root
-`pi-session-*.html` exports so the format gate stays green.
+Cambio de apoyo: un helper de exportación de chat (`scripts/export-chat.mjs`, commit `2f56776`)
+escribe el HTML de la sesión en `.pi/chats/`, y `.gitignore`/`.prettierignore` ahora ignoran
+exports sueltos `pi-session-*.html` en la raíz para que el gate de formato siga verde.

@@ -1,24 +1,27 @@
-# Handbooks
+# Manuales
 
-When you need the settled answer, not a snapshot — start here. Stable reference guides for
-working in this project: conventions, workflows, onboarding, and "how we do things here".
-Unlike `docs/research/` (point-in-time notes) or session handoffs (transient context),
-handbook pages are **durable** and kept up to date as the project evolves.
+Cuando necesitás la respuesta ya acordada, no una captura de momento, empezá acá. Esta carpeta reúne guías de referencia duraderas para trabajar en el proyecto: convenciones, flujos, onboarding y el "así hacemos las cosas aquí". A diferencia de `docs/research/` —que guarda notas puntuales— o de los handoffs de sesión —que son contexto transitorio—, estas páginas se mantienen vigentes a medida que el proyecto evoluciona.
 
-## What belongs here
+## En 30 segundos
 
-- Onboarding and project setup.
-- Engineering conventions and decisions meant to last (naming, commits, testing).
-- Recurring processes and playbooks (how to run/author workflows, release steps).
-- Anything a future contributor or session should be able to rely on as current.
+- **Usá esta carpeta** para reglas que deberían seguir siendo válidas mañana: setup, naming, commits, testing y playbooks recurrentes.
+- **No la uses** para investigación puntual, planes de implementación ni notas de avance.
+- **Si dudás**, preguntate: "¿esto debería servirle igual a la próxima persona o sesión?" Si la respuesta es sí, va acá.
 
-## What does NOT belong here
+## Qué entra aquí
 
-- One-off research or investigations → `docs/research/`.
-- Session/work handoffs ("where I left off, what's next") → keep transient.
-- Implementation plans/roadmaps → `docs/planes/`.
+- Onboarding y setup del proyecto.
+- Convenciones y decisiones de ingeniería pensadas para durar (naming, commits, testing).
+- Procesos recurrentes y playbooks (cómo ejecutar/crear workflows, pasos de release).
+- Cualquier cosa en la que una futura persona contribuidora o sesión deba poder confiar como vigente.
 
-## Index
+## Qué no entra aquí
 
-- [Workflow catalog (quick reference)](./workflow-catalog.md) — pick a dynamic-workflow family with a decision table/flowchart, then browse the 25 scaffolds by family (links to their HTML pages).
-- [Pandi artifact style (skill)](../../.pi/skills/pandi-artifact-style/SKILL.md) — style manual for HTML artifacts, reports, and styled docs: Claude-design layout with the Panda Syntax palette (tokens + template included).
+- Investigación o indagación puntual → `docs/research/`.
+- Handoffs de sesión o de trabajo ("dónde me quedé", "qué sigue") → dejalos transitorios.
+- Planes de implementación o roadmaps → `docs/planes/`.
+
+## Índice
+
+- [Catálogo de workflows (referencia rápida)](./workflow-catalog.md) — elegí una familia de dynamic workflows con una tabla o diagrama de decisión, y después explorá los 25 scaffolds por familia (enlaces a sus páginas HTML).
+- [Pandi artifact style (skill)](../../.pi/skills/pandi-artifact-style/SKILL.md) — manual de estilo para HTML artifacts, reportes y docs con estilo: layout Claude-design con la paleta Panda Syntax (tokens + template incluidos).

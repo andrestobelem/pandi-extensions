@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Agentic patterns and papers applicable to Dynamic Workflows</title>
+<title>Patrones agénticos y papers aplicables a Dynamic Workflows</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,107 +121,135 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs/research</div>
-		<h1>Agentic patterns and papers applicable to Dynamic Workflows</h1>
+		<h1>Patrones agénticos y papers aplicables a Dynamic Workflows</h1>
 	</header>
 	<main>
-<p>Date: 2026-06-25</p>
-<h2>Objective</h2>
-<p>Consolidate what we learned about agentic workflows and relevant papers to improve our Pi Dynamic Workflows: prompts, templates, examples, concurrency selection, and criteria for when to orchestrate.</p>
-<h2>Sources reviewed</h2>
+<p>Fecha: 2026-06-25</p>
+<h2>En 30 segundos</h2>
+<p>Esta nota resume los patrones y papers que más nos sirven para mejorar Pi Dynamic Workflows: prompts, plantillas, ejemplos, selección de concurrencia y criterios para decidir cuándo orquestar. La idea práctica es simple: primero scoutear barato, después fan-out solo cuando haya independencia real, y cerrar con una síntesis que juzgue con evidencia.</p>
+<table>
+<thead>
+<tr>
+<th>Si necesitás...</th>
+<th>Usá...</th>
+<th>Señal mínima</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tareas independientes</td>
+<td><code>ctx.agents</code></td>
+<td>cada rama puede avanzar sola</td>
+</tr>
+<tr>
+<td>Varios pasos por ítem</td>
+<td><code>ctx.pipeline</code></td>
+<td>una rama tiene su propia secuencia</td>
+</tr>
+<tr>
+<td>Dedupe, ranking o juez global</td>
+<td><code>ctx.parallel</code></td>
+<td>hace falta una barrera común</td>
+</tr>
+</tbody></table>
+<h2>Objetivo</h2>
+<p>Consolidar lo aprendido sobre workflows agénticos y papers relevantes para mejorar Pi Dynamic Workflows: prompts, plantillas, ejemplos, selección de concurrencia y criterios para decidir cuándo orquestar.</p>
+<h2>Fuentes revisadas</h2>
 <ul>
-<li><strong>ReAct: Synergizing Reasoning and Acting in Language Models</strong> — arXiv:2210.03629. Useful idea: alternate reasoning and actions/tools; in workflows, separate cheap scouting, execution with tools, and synthesis with evidence.</li>
-<li><strong>Self-Consistency Improves Chain of Thought Reasoning in Language Models</strong> — arXiv:2203.11171. Useful idea: multiple independent paths + selection by consensus; in workflows, use perspective fan-out and synthesis-as-judge.</li>
-<li><strong>Reflexion: Language Agents with Verbal Reinforcement Learning</strong> — arXiv:2303.11366. Useful idea: verbal memory of failures and reflection; in workflows, loops with error artifacts, retries, and verification.</li>
-<li><strong>Self-Refine: Iterative Refinement with Self-Feedback</strong> — arXiv:2303.17651. Useful idea: generate → critique → refine; in workflows, plan → adversarial critique → revised plan → checklist.</li>
-<li><strong>Tree of Thoughts: Deliberate Problem Solving with Large Language Models</strong> — arXiv:2305.10601. Useful idea: branch/evaluate/prune; in workflows, generate parallel alternatives, evaluate them by rubric, and prune before implementing.</li>
-<li><strong>Improving Factuality and Reasoning in Language Models through Multiagent Debate</strong> — arXiv:2305.14325. Useful idea: multi-agent debate improves factuality; in workflows, independent reviewers and a judge that discards unsupported claims.</li>
-<li><strong>AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation</strong> — arXiv:2308.08155. Useful idea: programmable multi-agent conversation patterns; in workflows, explicit roles, output contracts, and tool scopes.</li>
-<li><strong>CAMEL: Communicative Agents for &quot;Mind&quot; Exploration of Large Language Model Society</strong> — arXiv:2303.17760. Useful idea: role-play cooperation with defined roles; in workflows, <code>agentType</code> and non-overlapping responsibilities.</li>
-<li><strong>MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework</strong> — arXiv:2308.00352. Useful idea: encode human workflows into roles and artifacts; in workflows, stable artifacts and explicit phases.</li>
-<li><strong>AgentVerse: Facilitating Multi-Agent Collaboration and Exploring Emergent Behaviors</strong> — arXiv:2308.10848. Useful idea: dynamically adjust group composition; in workflows, choose the number/type of agents after scouting.</li>
-<li><strong>SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering</strong> — arXiv:2405.15793. Useful idea: the agent-computer interface matters; in workflows, restricted tools, prompts with paths/commands, and inspectable artifacts.</li>
-<li><strong>DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</strong> — arXiv:2310.03714. Useful idea: declarative modules and contracts; in workflows, schemas, fixed formats, and reusable helpers.</li>
+<li><strong>ReAct: Synergizing Reasoning and Acting in Language Models</strong> — arXiv:2210.03629. Idea útil: alternar razonamiento y acciones/herramientas; en workflows, separar scouting barato, ejecución con herramientas y síntesis con evidencia.</li>
+<li><strong>Self-Consistency Improves Chain of Thought Reasoning in Language Models</strong> — arXiv:2203.11171. Idea útil: múltiples caminos independientes + selección por consenso; en workflows, usar fan-out de perspectivas y síntesis como juez.</li>
+<li><strong>Reflexion: Language Agents with Verbal Reinforcement Learning</strong> — arXiv:2303.11366. Idea útil: memoria verbal de fallas y reflexión; en workflows, loops con artefactos de error, retries y verificación.</li>
+<li><strong>Self-Refine: Iterative Refinement with Self-Feedback</strong> — arXiv:2303.17651. Idea útil: generar → criticar → refinar; en workflows, plan → crítica adversarial → plan revisado → checklist.</li>
+<li><strong>Tree of Thoughts: Deliberate Problem Solving with Large Language Models</strong> — arXiv:2305.10601. Idea útil: ramificar/evaluar/podar; en workflows, generar alternativas en paralelo, evaluarlas con una rúbrica y podarlas antes de implementar.</li>
+<li><strong>Improving Factuality and Reasoning in Language Models through Multiagent Debate</strong> — arXiv:2305.14325. Idea útil: el debate multiagente mejora la factualidad; en workflows, reviewers independientes y un juez que descarte afirmaciones sin soporte.</li>
+<li><strong>AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation</strong> — arXiv:2308.08155. Idea útil: patrones de conversación multiagente programables; en workflows, roles explícitos, contratos de salida y scopes de herramientas.</li>
+<li><strong>CAMEL: Communicative Agents for &quot;Mind&quot; Exploration of Large Language Model Society</strong> — arXiv:2303.17760. Idea útil: cooperación con role-play y roles definidos; en workflows, <code>agentType</code> y responsabilidades no superpuestas.</li>
+<li><strong>MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework</strong> — arXiv:2308.00352. Idea útil: codificar workflows humanos en roles y artefactos; en workflows, artefactos estables y fases explícitas.</li>
+<li><strong>AgentVerse: Facilitating Multi-Agent Collaboration and Exploring Emergent Behaviors</strong> — arXiv:2308.10848. Idea útil: ajustar dinámicamente la composición del grupo; en workflows, elegir cantidad y tipo de agentes después del scouting.</li>
+<li><strong>SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering</strong> — arXiv:2405.15793. Idea útil: importa la interfaz agente-computadora; en workflows, herramientas restringidas, prompts con paths/comandos y artefactos inspectables.</li>
+<li><strong>DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</strong> — arXiv:2310.03714. Idea útil: módulos declarativos y contratos; en workflows, schemas, formatos fijos y helpers reutilizables.</li>
 </ul>
-<h2>Derived principles</h2>
+<h2>Principios derivados</h2>
 <ol>
-<li><p><strong>Dynamic-first, not hardcode-first</strong></p>
+<li><p><strong>Primero dinámico, no hardcodeado</strong></p>
 <ul>
-<li>Create task-specific workflows dynamically; versioned examples are references, not fixed jobs.</li>
-<li>Treat generated workflows as drafts under <code>generated/&lt;task-slug&gt;</code> and promote them to stable names only if the user liked them or wants to reuse them.</li>
-<li>Do not fix the number of agents/concurrency without examining the problem.</li>
-<li>Scout inline or inside the workflow, measure the work list, and choose fan-out based on size, cost, risk, and the request.</li>
+<li>Crear workflows específicos de la tarea de forma dinámica; los ejemplos versionados son referencia, no jobs fijos.</li>
+<li>Tratar los workflows generados como borradores bajo <code>generated/&lt;task-slug&gt;</code> y promoverlos a nombres estables solo si el usuario los aprobó o quiere reutilizarlos.</li>
+<li>No fijar la cantidad de agentes o la <code>concurrency</code> sin mirar el problema.</li>
+<li>Scoutear inline o dentro del workflow, medir la lista de trabajo y elegir fan-out según tamaño, costo, riesgo y pedido.</li>
 </ul>
 </li>
-<li><p><strong>Fan-out only with real independence</strong></p>
+<li><p><strong>Fan-out solo con independencia real</strong></p>
 <ul>
-<li>Use <code>ctx.agents</code> for independent items.</li>
-<li>Use <code>ctx.pipeline</code> when each item requires several stages of its own.</li>
-<li>Use <code>ctx.parallel</code> only if there is a real barrier: global deduplication, cross-ranking, consensus, or judge.</li>
+<li>Usar <code>ctx.agents</code> para ítems independientes.</li>
+<li>Usar <code>ctx.pipeline</code> cuando cada ítem necesite varias etapas propias.</li>
+<li>Usar <code>ctx.parallel</code> solo si hay una barrera real: deduplicación global, ranking cruzado, consenso o juez.</li>
 </ul>
 </li>
-<li><p><strong>Synthesis-as-judge, not passive summary</strong></p>
+<li><p><strong>Síntesis como juez, no como resumen pasivo</strong></p>
 <ul>
-<li>The synthesizer must judge, not average.</li>
-<li>It must discard unsupported claims, resolve contradictions, and preserve uncertainty.</li>
+<li>El sintetizador debe juzgar, no promediar.</li>
+<li>Debe descartar afirmaciones sin soporte, resolver contradicciones y preservar incertidumbre.</li>
 </ul>
 </li>
-<li><p><strong>Evidence as contract</strong></p>
+<li><p><strong>La evidencia es contrato</strong></p>
 <ul>
-<li>Each subagent must cite file/line, URL, observed command, or declare <code>NO_FINDINGS</code> / <code>INSUFFICIENT_EVIDENCE</code>.</li>
-<li>Findings without evidence do not make it into the final output.</li>
+<li>Cada subagente debe citar archivo/línea, URL, comando observado, o declarar <code>NO_FINDINGS</code> / <code>INSUFFICIENT_EVIDENCE</code>.</li>
+<li>Los hallazgos sin evidencia no entran al resultado final.</li>
 </ul>
 </li>
-<li><p><strong>Visible partial failure</strong></p>
+<li><p><strong>Falla parcial visible</strong></p>
 <ul>
-<li>Use <code>settle:true</code> in large fan-outs.</li>
-<li>Filter <code>null</code>, log how many branches failed, and require the synthesis to mention partial coverage.</li>
+<li>Usar <code>settle:true</code> en fan-outs grandes.</li>
+<li>Filtrar <code>null</code>, registrar cuántas ramas fallaron y exigir que la síntesis mencione la cobertura parcial.</li>
 </ul>
 </li>
-<li><p><strong>Loops with an explicit brake</strong></p>
+<li><p><strong>Loops con freno explícito</strong></p>
 <ul>
-<li>Reflexion/Self-Refine suggest loops, but they must have a stop condition: max rounds, quiet rounds, maxAgents, timeout, or budget.</li>
-<li>Use <code>{ cache:false }</code> only when deliberately seeking a new sample.</li>
+<li>Reflexion/Self-Refine sugieren loops, pero deben tener condición de corte: máximo de rondas, rondas silenciosas, <code>maxAgents</code>, timeout o budget.</li>
+<li>Usar <code>{ cache:false }</code> solo cuando se busca deliberadamente una muestra nueva.</li>
 </ul>
 </li>
-<li><p><strong>Minimal roles and tools</strong></p>
+<li><p><strong>Roles y herramientas mínimas</strong></p>
 <ul>
-<li>Role specialization: reviewer, researcher, planner, implementer.</li>
-<li>For audits, read-only tools.</li>
-<li>For implementation, separate plan/review from actual editing.</li>
+<li>Especialización de roles: reviewer, researcher, planner, implementer.</li>
+<li>Para auditorías, herramientas read-only.</li>
+<li>Para implementación, separar plan/review de la edición real.</li>
 </ul>
 </li>
-<li><p><strong>Artifacts as external memory</strong></p>
+<li><p><strong>Artefactos como memoria externa</strong></p>
 <ul>
-<li>Persist the work list, raw outputs, discarded items, synthesis, checks, and accepted risks.</li>
-<li>Do not depend on everything fitting into the chat context.</li>
+<li>Persistir la lista de trabajo, salidas crudas, descartes, síntesis, checks y riesgos aceptados.</li>
+<li>No depender de que todo entre en el contexto del chat.</li>
 </ul>
 </li>
 </ol>
-<h2>Changes applied</h2>
+<h2>Cambios aplicados</h2>
 <ul>
-<li>README: added research-backed patterns and an explanation of dynamic workflows/dynamic concurrency.</li>
-<li><code>dynamic-workflows</code> skill: strengthened decision rules, patterns, and partial failure.</li>
-<li>Base template: now scouts, logs caps, chooses concurrency dynamically, and uses <code>settle:true</code>.</li>
-<li>Examples: <code>repo-bug-hunt</code>, <code>deep-research</code>, and <code>adversarial-plan-review</code> now choose concurrency dynamically, log partial failures, and use personas/settling.</li>
-<li>Explicit Ultracode: <code>/ultracode</code> now forces a more operational instruction (&quot;create a task-specific workflow dynamically with <code>dynamic_workflow</code> in this turn if it passes the gate&quot;), prefers <code>generated/&lt;task-slug&gt;</code> as a draft, and activates the <code>dynamic_workflow</code> tool if it was inactive.</li>
-<li>TUI/widget: hardened rendering for <code>width &lt;= 0</code> and sanitize log messages before rendering.</li>
-<li>Updated policy: <code>examples/</code> must not contain <code>.pi</code>; open Pi from the repo root or copy examples to a temporary project.</li>
+<li>README: agregó patrones respaldados por investigación y una explicación de workflows dinámicos/concurrency dinámica.</li>
+<li><code>dynamic-workflows</code> skill: reforzó reglas de decisión, patrones y falla parcial.</li>
+<li>Base template: ahora scoutea, registra límites, elige la concurrencia dinámicamente y usa <code>settle:true</code>.</li>
+<li>Ejemplos: <code>repo-bug-hunt</code>, <code>deep-research</code> y <code>adversarial-plan-review</code> ahora eligen concurrencia dinámicamente, registran fallas parciales y usan personas/settling.</li>
+<li>Ultracode explícito: <code>/ultracode</code> ahora fuerza una instrucción más operativa (&quot;create a task-specific workflow dynamically with <code>dynamic_workflow</code> in this turn if it passes the gate&quot;), prefiere <code>generated/&lt;task-slug&gt;</code> como borrador y activa la herramienta <code>dynamic_workflow</code> si estaba inactiva.</li>
+<li>TUI/widget: endureció el render para <code>width &lt;= 0</code> y sanitiza mensajes de log antes de renderizar.</li>
+<li>Política actualizada: <code>examples/</code> no debe contener <code>.pi</code>; abrir Pi desde la raíz del repo o copiar ejemplos a un proyecto temporal.</li>
 </ul>
-<h2>Validation</h2>
-<pre><code class="language-bash">node --check examples/workflows/repo-bug-hunt.js examples/workflows/deep-research.js examples/workflows/adversarial-plan-review.js
+<h2>Validación</h2>
+<pre><code class="language-bash">node --check examples/workflows/repo-bug-hunt.js
+node --check examples/workflows/deep-research.js
+node --check examples/workflows/adversarial-plan-review.js
 npx --yes esbuild extensions/dynamic-workflows.ts --platform=node --format=esm --packages=external --outfile=/tmp/pi-dynamic-workflows-check.mjs
 ./node_modules/.bin/tsc --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext --types node extensions/dynamic-workflows.ts
 pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__
 PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p &quot;/ultracode-mode status&quot;
 </code></pre>
-<p>From <code>examples/</code>:</p>
+<p>Desde <code>examples/</code>:</p>
 <pre><code class="language-bash">PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-session -p &quot;/workflow list&quot;
 </code></pre>
-<h2>Recommended next steps</h2>
+<h2>Siguientes pasos recomendados</h2>
 <ul>
-<li>Add pattern scaffolds: <code>judge-panel</code>, <code>adversarial-verify</code>, <code>loop-until-dry</code>, <code>multi-modal-sweep</code>, <code>pipeline</code>.</li>
-<li>Add pre-run linting to detect silent caps and hardcoded concurrency.</li>
-<li>Improve always-on <code>/ultracode</code> so it distinguishes &quot;decide workflow&quot; from &quot;force workflow&quot; and logs the decision when it affects cost/latency.</li>
+<li>Agregar scaffolds de patrones: <code>judge-panel</code>, <code>adversarial-verify</code>, <code>loop-until-dry</code>, <code>multi-modal-sweep</code>, <code>pipeline</code>.</li>
+<li>Agregar linting pre-run para detectar caps silenciosos y <code>concurrency</code> hardcodeada.</li>
+<li>Mejorar <code>/ultracode</code> siempre activo para que distinga entre &quot;decide workflow&quot; y &quot;force workflow&quot; y registre la decisión cuando afecte costo/latencia.</li>
 </ul>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

@@ -1,12 +1,12 @@
-# Dynamic Workflows — the full guide
+# Dynamic Workflows — guía completa
 
-A Dynamic Workflow is a **trusted JavaScript script** that Pi runs to orchestrate large work across many subagents. Reach for one when a single conversation is not enough — you need to fan work out across parallel `pi -p` agents, cover many independent items, or get adversarial verification before a decision. Think of it as **MapReduce with agents**: `map` runs many subagents in parallel over independent units, `reduce` is a final synthesis that combines results, resolves contradictions, and prioritizes.
+Un Dynamic Workflow es un **script JavaScript confiable** que Pi ejecuta para orquestar trabajo grande entre muchos subagentes. Conviene cuando una sola conversación no alcanza: necesitás repartir trabajo en paralelo con varios agentes `pi -p`, cubrir muchos ítems independientes o pedir verificación adversarial antes de decidir. Pensalo como **MapReduce con agentes**: `map` ejecuta muchos subagentes en paralelo sobre unidades independientes, y `reduce` hace la síntesis final para combinar resultados, resolver contradicciones y priorizar.
 
-This is the deep reference for the `pandi-dynamic-workflows` extension. The root [`README.md`](../README.md) has the short overview, and [`extensions/pandi-dynamic-workflows/README.md`](../extensions/pandi-dynamic-workflows/README.md) documents the installable package.
+Esta es la referencia profunda de la extensión `pandi-dynamic-workflows`. El [`README.md`](../README.md) raíz tiene el resumen corto, y [`extensions/pandi-dynamic-workflows/README.md`](../extensions/pandi-dynamic-workflows/README.md) documenta el paquete instalable.
 
-## Quickstart
+## En 30 segundos
 
-A workflow is a JS module whose default export is an `async` function. It reads its input from the `args` global and calls injected helpers (`agent`, `agents`, `log`, `writeArtifact`, …) — never `import`/`require`, never `ctx`.
+Un workflow es un módulo JS cuyo export por defecto es una función `async`. Lee su entrada desde la global `args` y llama helpers inyectados (`agent`, `agents`, `log`, `writeArtifact`, …): no usa `import`/`require`, ni `ctx`.
 
 ```js
 // .pi/workflows/drafts/review-two-files.js
@@ -29,122 +29,122 @@ export default async function main() {
 }
 ```
 
-Run it (in a persistent TUI/RPC session this launches in **background** and returns a `runId` immediately):
+Ejecutalo (en una sesión TUI/RPC persistente esto arranca en **background** y devuelve `runId` al instante):
 
 ```text
 /workflow run review-two-files
 /workflow view latest
 ```
 
-That's the whole loop — **scout → fan out → synthesize → persist artifacts**. Everything else here just fills in the concepts, the primitive reference, and the operational details.
+Ese es todo el ciclo — **explorar → fan out → sintetizar → persistir artifacts**. El resto de esta guía solo completa los conceptos, la referencia de primitivas y los detalles operativos.
 
-## The typical shape
+## La forma típica
 
-- **Cheap scout**: first discover the real work-list (`git ls-files`, diff, grep, glob, etc.).
-- **Controlled fan-out**: spread files, topics, hypotheses, or perspectives across parallel subagents.
-- **Mandatory evidence**: every branch must return verifiable data — file/line, URL, observed command, or `NO_FINDINGS` / `INSUFFICIENT_EVIDENCE`.
-- **Artifacts outside the chat**: persist intermediate outputs in the run directory instead of relying on conversational context.
-- **Synthesis-as-judge**: a final agent deduplicates, drops unsupported claims, preserves uncertainty, and returns a prioritized conclusion.
+- **Exploración barata**: primero descubrí la lista real de trabajo (`git ls-files`, diff, grep, glob, etc.).
+- **Fan-out controlado**: distribuí archivos, temas, hipótesis o perspectivas entre subagentes en paralelo.
+- **Evidencia obligatoria**: cada rama debe devolver datos verificables — archivo/línea, URL, comando observado o `NO_FINDINGS` / `INSUFFICIENT_EVIDENCE`.
+- **Artifacts fuera del chat**: persistí los resultados intermedios en el directorio del run en lugar de depender del contexto conversacional.
+- **Síntesis como juez**: un agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y devuelve una conclusión priorizada.
 
-## When to use them
+## Cuándo usarlos
 
-Use a workflow only when there is a real orchestration reason; a small edit, a simple question, or a few direct tool calls are better single-agent.
+Usá un workflow solo cuando haya una razón real de orquestación; una edición chica, una pregunta simple o unos pocos tool calls directos son mejor como single-agent.
 
-| Reason | Use a workflow when… |
+| Motivo | Usá un workflow cuando… |
 | --- | --- |
-| **Exhaustiveness** | there are many independent files/items to cover |
-| **Confidence** | you need adversarial review, multiple perspectives, or verification before a decision |
-| **Scale** | there is more context than a single conversation should carry |
-| **Trivial task** | ❌ do it single-agent instead |
+| **Exhaustividad** | hay muchos archivos o ítems independientes que cubrir |
+| **Confianza** | necesitás revisión adversarial, múltiples perspectivas o verificación antes de decidir |
+| **Escala** | hay más contexto del que una sola conversación debería cargar |
+| **Tarea trivial** | ❌ hacelo single-agent en su lugar |
 
-## Which primitive do I use?
+## Qué primitiva uso?
 
-Everything composes from `agent()` (one unit of model work). Pick the higher-level primitive by the shape of the work:
-
-```mermaid
-flowchart TD
-  start([I have work to orchestrate]) --> many{More than<br/>one item?}
-  many -- no --> agent["agent()<br/>one subagent"]
-  many -- yes --> stages{Each item needs<br/>2+ dependent stages?}
-  stages -- yes --> pipeline["pipeline()<br/>per-item stages, no barrier"]
-  stages -- no --> barrier{A later step needs<br/>ALL results at once?}
-  barrier -- "yes (dedup / merge / rank)" --> parallel["parallel()<br/>barrier"]
-  barrier -- no --> agents["agents()<br/>bounded parallel map"]
-  start --> hedge{First good answer<br/>wins / hedge latency?}
-  hedge -- yes --> race["race()<br/>cancel the losers"]
-  start --> compose{Reusable sub-workflow,<br/>no human decision between?}
-  compose -- yes --> workflow["workflow()<br/>inline composition"]
-```
-
-- **`race` vs a judge**: `race` optimizes *latency* (first accepted answer wins). Picking the *best by quality* is a judge (`tournament`, `judge-escalate`) that must see all candidates.
-- **`parallel` vs `pipeline`**: use `parallel` only for a true barrier (global dedup/merge, early-exit on zero total, cross-branch ranking). `parallel → transform-with-no-cross-item-dependency → parallel` should be ONE `pipeline`.
-- **`workflow` vs sequenced runs**: if no human/external decision sits between two sub-steps, compose with `workflow()` in a single run; if you must read results and decide the next phase, sequence separate runs (`action=start/run` + `action=view`).
-
-## Execution cycle
-
-When you launch a workflow (`/workflow run`/`start` or `dynamic_workflow action=run`/`start`), the extension runs this cycle:
+Todo se compone desde `agent()` (una unidad de trabajo del modelo). Elegí la primitiva de mayor nivel según la forma del trabajo:
 
 ```mermaid
 flowchart TD
-  launch([run / start]) --> resolve[1. Resolve workflow<br/>by name: project + global]
-  resolve --> create[2. Create run: runId +<br/>.pi/workflows/runs/&lt;run-id&gt;/]
-  create --> persist[3. Persist initial state<br/>input/status/events/codeHash/agents]
-  persist --> worker[4. Execute JS in a Worker<br/>injected globals, no import/ctx]
-  worker --> spawn[5. Spawn subagents<br/>pi -p --no-session --mode json]
-  spawn --> limits[6. Apply limits<br/>concurrency, maxAgents, timeouts]
-  limits --> save[7. Save progress + artifacts<br/>events.jsonl, status.json, agents/*.md]
-  save --> result[8. Return final result → result.json]
+  start([Tengo trabajo para orquestar]) --> many{¿Más de<br/>un ítem?}
+  many -- no --> agent["agent()<br/>un subagente"]
+  many -- yes --> stages{¿Cada ítem necesita<br/>2+ etapas dependientes?}
+  stages -- yes --> pipeline["pipeline()<br/>etapas por ítem, sin barrera"]
+  stages -- no --> barrier{¿Una etapa posterior necesita<br/>TODOS los resultados juntos?}
+  barrier -- "sí (dedup / merge / rank)" --> parallel["parallel()<br/>barrera"]
+  barrier -- no --> agents["agents()<br/>map paralelo acotado"]
+  start --> hedge{¿Gana la primera<br/>respuesta buena / latencia?}
+  hedge -- yes --> race["race()<br/>cancela los perdedores"]
+  start --> compose{¿Subworkflow reutilizable,<br/>sin decisión humana entre medio?}
+  compose -- yes --> workflow["workflow()<br/>composición inline"]
 ```
 
-Details of each step:
+- **`race` vs un juez**: `race` optimiza la *latencia* (gana la primera respuesta aceptada). Elegir la *mejor por calidad* es un juez (`tournament`, `judge-escalate`) que necesita ver todos los candidatos.
+- **`parallel` vs `pipeline`**: usá `parallel` solo para una barrera real (dedup/merge global, early-exit con total cero, ranking cruzado entre ramas). `parallel → transform-with-no-cross-item-dependency → parallel` debería ser UN `pipeline`.
+- **`workflow` vs corridas secuenciadas**: si entre dos subpasos no hay una decisión humana/externa, componé con `workflow()` en una sola corrida; si tenés que leer resultados y decidir la fase siguiente, encadená corridas separadas (`action=start/run` + `action=view`).
 
-1. **Resolves the workflow** by name, searching project and global workflows.
-2. **Creates a run** with a `runId` and its own directory under `.pi/workflows/runs/<run-id>/` (or the equivalent global root).
-3. **Persists initial state**: `input.json`, `status.json`, `events.jsonl`, `codeHash`, and an `agents/` folder.
-4. **Executes the JS in a Worker** with **injected globals** (no `ctx`, no `import`/`require`). The workflow never imports Pi: it calls helpers like `agent`, `agents`, `bash`, `writeArtifact`, and `log`, and reads its input from the `args` global.
-5. **Spawns subagents**: each `agent()` runs a `pi -p --no-session --mode json` process with configurable prompt, tools, skills, extensions, keys/env, model, effort, and timeouts.
-6. **Applies limits**: `concurrency` caps how many subagents run at once; `maxAgents` caps the total subagents a run may spend; timeouts kill hung agents or workflows.
-7. **Saves progress and artifacts**: logs in `events.jsonl`, state in `status.json`, subagent outputs in `agents/*.md`, plus workflow-defined artifacts.
-8. **Returns the final result**: the workflow's return value is saved in `result.json` and shown as a summary.
+## Ciclo de ejecución
 
-## Injected globals API
+Cuando lanzás un workflow (`/workflow run`/`start` o `dynamic_workflow action=run`/`start`), la extensión ejecuta este ciclo:
 
-These globals are the entire authoring interface. The most important:
+```mermaid
+flowchart TD
+  launch([run / start]) --> resolve[1. Resolver workflow<br/>por nombre: project + global]
+  resolve --> create[2. Crear run: runId +<br/>.pi/workflows/runs/&lt;run-id&gt;/]
+  create --> persist[3. Persistir estado inicial<br/>input/status/events/codeHash/agents]
+  persist --> worker[4. Ejecutar JS en un Worker<br/>globals inyectadas, sin import/ctx]
+  worker --> spawn[5. Crear subagentes<br/>pi -p --no-session --mode json]
+  spawn --> limits[6. Aplicar límites<br/>concurrency, maxAgents, timeouts]
+  limits --> save[7. Guardar progreso + artifacts<br/>events.jsonl, status.json, agents/*.md]
+  save --> result[8. Devolver resultado final → result.json]
+```
 
-| Global | What it does | Returns |
+Detalles de cada paso:
+
+1. **Resuelve el workflow** por nombre, buscando workflows del proyecto y globales.
+2. **Crea una corrida** con un `runId` y su propio directorio bajo `.pi/workflows/runs/<run-id>/` (o el root global equivalente).
+3. **Persiste el estado inicial**: `input.json`, `status.json`, `events.jsonl`, `codeHash` y una carpeta `agents/`.
+4. **Ejecuta el JS en un Worker** con **globals inyectadas** (sin `ctx`, sin `import`/`require`). El workflow nunca importa Pi: llama helpers como `agent`, `agents`, `bash`, `writeArtifact` y `log`, y lee su entrada desde la global `args`.
+5. **Crea subagentes**: cada `agent()` ejecuta un proceso `pi -p --no-session --mode json` con prompt, tools, skills, extensions, keys/env, model, effort y timeouts configurables.
+6. **Aplica límites**: `concurrency` limita cuántos subagentes corren a la vez; `maxAgents` limita el total de subagentes que un run puede gastar; los timeouts matan agentes o workflows colgados.
+7. **Guarda progreso y artifacts**: logs en `events.jsonl`, estado en `status.json`, salidas de subagentes en `agents/*.md`, más los artifacts definidos por el workflow.
+8. **Devuelve el resultado final**: el valor de retorno del workflow se guarda en `result.json` y se muestra como resumen.
+
+## API de globals inyectadas
+
+Estas globals son toda la interfaz de autoría. Las más importantes:
+
+| Global | Qué hace | Devuelve |
 | --- | --- | --- |
-| `agent(prompt, opts)` | one subagent (`pi -p --no-session`); the expensive unit, cached by default | unwrapped text; parsed object with `{ schema }`; `null` on failure |
-| `agents(items, opts)` | bounded parallel fan-out (map) | `SubagentResult[]` (`.output`/`.data`/`.ok`); `null` per branch under `settle` |
-| `pipeline(items, ...stages)` | per-item dependent stages, no barrier | array aligned to items; `null` for a failed item |
-| `parallel([thunks])` | explicit barrier with bounded local concurrency | array aligned to thunks; `null` per failed thunk |
-| `race(thunks, { accept? })` | first accepted value wins; SIGTERM the losers | `{ winner, index, status }` (`"won"`/`"empty"`) |
-| `workflow(name, args)` | inline reusable sub-workflow (depth 1) | the sub-workflow's return value |
-| `ask(question, opts?)` | pause a branch to ask a human via Pi's UI | the answer (`string`/`boolean`) |
+| `agent(prompt, opts)` | un subagente (`pi -p --no-session`); la unidad cara, cacheada por defecto | texto sin envolver; objeto parseado con `{ schema }`; `null` si falla |
+| `agents(items, opts)` | fan-out paralelo acotado (map) | `SubagentResult[]` (`.output`/`.data`/`.ok`); `null` por rama con `settle` |
+| `pipeline(items, ...stages)` | etapas dependientes por ítem, sin barrera | array alineado con los ítems; `null` para un ítem fallido |
+| `parallel([thunks])` | barrera explícita con concurrencia local acotada | array alineado con los thunks; `null` por thunk fallido |
+| `race(thunks, { accept? })` | gana el primer valor aceptado; envía SIGTERM a los perdedores | `{ winner, index, status }` (`"won"`/`"empty"`) |
+| `workflow(name, args)` | sub-workflow reutilizable inline (profundidad 1) | el valor de retorno del sub-workflow |
+| `ask(question, opts?)` | pausa una rama para preguntarle a una persona vía la UI de Pi | la respuesta (`string`/`boolean`) |
 
-More on the key ones:
+Más sobre las claves:
 
-- `agent(prompt, opts)` — **unwraps** the result: plain text without a schema, the parsed object with `{ schema }`, or `null` if the branch fails. Cached by default for resume; opt out per call with `{ cache: false }`.
-- `agent(prompt, { schema })` — requests validated JSON and **returns the parsed object directly** (or `null` if it fails or never validates); retries with `schemaRetries` (default `2`). For the full envelope (`output`/`data`/`schemaOk`) use the plural `agents([...])`.
-- `agent(prompt, { agentType: "reviewer" })` — applies persona defaults (`explore`, `reviewer`, `planner`, `architect`, `implementer`, `researcher`); explicit options win.
-- `agents(items, { concurrency, settle: true })` — one failing branch does not sink the batch; returns `Array<SubagentResult | null>` with `null` for failed branches.
-- `pipeline(items, ...stages)` — multi-stage flow per item with no global barrier; each stage receives `(prev, item, index)` and failed items yield `null`.
-- `parallel([async () => ...])` — explicit barrier with bounded local concurrency; each failed thunk yields `null`. Use it only when a later step needs all results at once.
-- `race(thunks, { accept? })` — opens N branches and, as soon as one produces an accepted value (default `!= null`), **cancels the in-flight losers** (real SIGTERM to the subprocess, via the `AbortSignal` each thunk receives); returns `{ winner, index, status }` (`status: "won" | "empty"`). Typical shape: `race(items.map((s) => (signal) => agent(prompt, { signal })))`.
-- `ask(question, opts?)` — pauses a branch to ask a human (`kind: "input" | "confirm" | "select"`, inferred from `choices`/`default`). **Resume-safe**: the answer is journaled and reused on resume without re-asking. In headless mode (`hasUI=false`) it returns `opts.default` or throws a clear error; it never hangs. Cancelable inside `race()` via `{ signal }`.
-- `workflow(name, args)` — composes a reusable sub-workflow inline (depth 1) sharing the same run, limits, abort, and cache/journal; emits `workflow` events for auditability. Use it for libraries like `lib/verify-claims`, not for phases that need a human decision in between.
+- `agent(prompt, opts)` — **desenvuelve** el resultado: texto plano sin schema, el objeto parseado con `{ schema }`, o `null` si la rama falla. Cachea por defecto para resume; podés desactivarlo por llamada con `{ cache: false }`.
+- `agent(prompt, { schema })` — pide JSON validado y **devuelve directamente el objeto parseado** (o `null` si falla o nunca valida); reintenta con `schemaRetries` (default `2`). Para el envelope completo (`output`/`data`/`schemaOk`) usá el plural `agents([...])`.
+- `agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`, `architect`, `implementer`, `researcher`); las opciones explícitas ganan.
+- `agents(items, { concurrency, settle: true })` — una rama fallida no hunde el batch; devuelve `Array<SubagentResult | null>` con `null` para las ramas fallidas.
+- `pipeline(items, ...stages)` — flujo multi-etapa por ítem sin barrera global; cada etapa recibe `(prev, item, index)` y los ítems fallidos devuelven `null`.
+- `parallel([async () => ...])` — barrera explícita con concurrencia local acotada; cada thunk fallido devuelve `null`. Usalo solo cuando una etapa posterior necesite todos los resultados juntos.
+- `race(thunks, { accept? })` — abre N ramas y, en cuanto una produce un valor aceptado (por defecto `!= null`), **cancela los perdedores en vuelo** (SIGTERM real al subproceso, vía el `AbortSignal` que recibe cada thunk); devuelve `{ winner, index, status }` (`status: "won" | "empty"`). Forma típica: `race(items.map((s) => (signal) => agent(prompt, { signal })))`.
+- `ask(question, opts?)` — pausa una rama para preguntarle a una persona (`kind: "input" | "confirm" | "select"`, inferido desde `choices`/`default`). **Seguro para resume**: la respuesta queda journaled y se reutiliza al reanudar sin volver a preguntar. En modo headless (`hasUI=false`) devuelve `opts.default` o lanza un error claro; nunca queda colgado. Se puede cancelar dentro de `race()` con `{ signal }`.
+- `workflow(name, args)` — compone un sub-workflow reutilizable inline (profundidad 1), compartiendo el mismo run, límites, abort y cache/journal; emite eventos `workflow` para auditabilidad. Usalo para bibliotecas como `lib/verify-claims`, no para fases que necesitan una decisión humana en el medio.
 
-Supporting helpers:
+Helpers de apoyo:
 
-- `bash(command, opts)` — runs shell from the workflow cwd; cacheable only with `{ cache: true }` (deterministic commands only).
-- `readFile/writeFile/appendFile/listFiles` — file helpers confined to the workflow cwd.
-- `writeArtifact/appendArtifact` — persists run data outside the chat (idempotent; not cached, rewritten on resume).
-- `log(message, details)` — records progress visible in the dashboard, status line, and `events.jsonl`.
-- `sleep(ms)` — pauses the current branch for `ms` milliseconds, e.g. backoff between polling probes; abortable (resolves early/rejects if the run/branch is aborted) and never cached, so it always re-runs on resume.
-- `phase(label)` — sets a lightweight label for the calls that follow, shown in the dashboard as `P<phase> 1/n`, `P<phase> 2/n`, etc. on agents launched by the same `agents(...)` call; call `phase(null)` to clear it.
-- `compact(value, maxChars)` — serializes and truncates large results to hand to a synthesis. `json(value, maxChars)` is an alias (same serialization/truncation).
-- `args` — the workflow input; `limits` — effective read-only run limits (`concurrency`, `maxAgents`, timeouts).
+- `bash(command, opts)` — ejecuta shell desde el cwd del workflow; solo cacheable con `{ cache: true }` (comandos determinísticos only).
+- `readFile/writeFile/appendFile/listFiles` — helpers de archivos confinados al cwd del workflow.
+- `writeArtifact/appendArtifact` — persiste datos del run fuera del chat (idempotente; no cacheado, reescrito al resume).
+- `log(message, details)` — registra progreso visible en el dashboard, la status line y `events.jsonl`.
+- `sleep(ms)` — pausa la rama actual durante `ms` milisegundos, por ejemplo para backoff entre probes de polling; abortable (resuelve antes/rechaza si el run/rama se aborta) y nunca cacheado, así que siempre se re-ejecuta al resume.
+- `phase(label)` — define una etiqueta liviana para las llamadas que siguen, visible en el dashboard como `P<phase> 1/n`, `P<phase> 2/n`, etc. en los agentes lanzados por la misma llamada a `agents(...)`; llamá `phase(null)` para limpiarla.
+- `compact(value, maxChars)` — serializa y trunca resultados grandes para pasárselos a una síntesis. `json(value, maxChars)` es un alias (misma serialización/truncado).
+- `args` — la entrada del workflow; `limits` — límites efectivos de solo lectura del run (`concurrency`, `maxAgents`, timeouts).
 
-### Common subagent options
+### Opciones comunes de subagentes
 
 ```js
 {
@@ -161,39 +161,39 @@ Supporting helpers:
 }
 ```
 
-### Per-agent access
+### Acceso por agente
 
-`tools`/`excludeTools` limit Pi tools; by default explicit allowlists also receive `web_search` when the `pi-codex-web-search` package is available (opt out: `includeExtensions: false` or `excludeTools: ["web_search"]`). `skills: ["path/to/skill"]` loads explicit skills (`includeSkills: true` adds them to discovery, `includeSkills: false` disables discovery); normal discovery keeps `context7-cli` available, and if you pass an explicit skill list, Dynamic Workflows adds `context7-cli` when it finds it (opt out: `includeSkills: false`). `extensions: ["path/to/ext.ts"]` loads explicit extensions (`includeExtensions: true` enables discovery). `keys: ["GITHUB_TOKEN"]` exposes only those environment variables to the agent in an isolated env (values are redacted in artifacts/dashboard). Use `env: { NAME: "value" }` only to inject an explicit value; never write secrets in prompts.
+`tools`/`excludeTools` limitan las tools de Pi; por defecto, los allowlists explícitos también reciben `web_search` cuando el paquete `pi-codex-web-search` está disponible (opt out: `includeExtensions: false` o `excludeTools: ["web_search"]`). `skills: ["path/to/skill"]` carga skills explícitas (`includeSkills: true` las agrega al discovery, `includeSkills: false` lo desactiva); el discovery normal mantiene `context7-cli` disponible, y si pasás una lista explícita de skills, Dynamic Workflows agrega `context7-cli` cuando lo encuentra (opt out: `includeSkills: false`). `extensions: ["path/to/ext.ts"]` carga extensiones explícitas (`includeExtensions: true` habilita discovery). `keys: ["GITHUB_TOKEN"]` expone solo esas variables de entorno al agente en un entorno aislado (los valores se redacted en artifacts/dashboard). Usá `env: { NAME: "value" }` solo para inyectar un valor explícito; nunca escribas secretos en prompts.
 
-## Concurrency
+## Concurrencia
 
-`concurrency` controls how many subagents run `pi -p` at the same time — not the total amount of work. A 40-file bug hunt with `concurrency: 4` runs in waves of up to 4 simultaneous agents until the list is done.
+`concurrency` controla cuántos subagentes corren `pi -p` al mismo tiempo — no el total de trabajo. Un bug hunt de 40 archivos con `concurrency: 4` corre en olas de hasta 4 agentes simultáneos hasta terminar la lista.
 
-Related limits:
+Límites relacionados:
 
-- `concurrency` = max simultaneous subagents (normalized between `1` and `16`; unset, defaults to `4`).
-- `maxAgents` = max total subagents for the run.
-- `maxFiles`, `angles`, `rounds`, etc. = workflow-specific limits over the work-list.
+- `concurrency` = máximo de subagentes simultáneos (normalizado entre `1` y `16`; si no se setea, default `4`).
+- `maxAgents` = máximo total de subagentes para el run.
+- `maxFiles`, `angles`, `rounds`, etc. = límites específicos del workflow sobre la lista de trabajo.
 
-### Why the default is 4
+### Por qué el default es 4
 
-`4` is a safe point between speed, cost, and stability: it cuts wall-clock a lot versus serial without aggressively multiplying instantaneous cost, rate limits, or noise; it protects the provider and local machine from too many simultaneous `pi -p` processes saturating CPU/I-O/terminals/logs; it reduces correlated failures (timeouts, rate-limit errors) that grow with fan-out; and it keeps logs/artifacts/dashboard readable. It is a **conservative default, not a fixed recommendation** — long workflows should pass explicit limits per task, model, and budget.
+`4` es un punto seguro entre velocidad, costo y estabilidad: reduce mucho el tiempo total frente a serial sin multiplicar agresivamente el costo instantáneo, los rate limits o el ruido; protege al provider y a la máquina local de demasiados procesos `pi -p` simultáneos saturando CPU/I-O/terminales/logs; reduce fallas correlacionadas (timeouts, errores de rate limit) que crecen con el fan-out; y mantiene logs, artifacts y dashboard legibles. Es un **default conservador, no una recomendación fija** — los workflows largos deberían pasar límites explícitos según la tarea, el modelo y el presupuesto.
 
-### Choose concurrency dynamically
+### Elegir concurrencia dinámicamente
 
-The default being `4` does **not** mean workflows should hardcode 4. Workflows scout first, discover the real work-list, and only then pick parallelism. The decision is layered:
+Que el default sea `4` no significa que los workflows deban hardcodear 4. Los workflows primero exploran, descubren la lista real de trabajo y recién entonces eligen el paralelismo. La decisión está por capas:
 
-- **User/agent at launch** may pass explicit `concurrency` when they know budget, provider, or urgency.
-- **Runtime** enforces the effective limit (`limits.concurrency`) and the global hard cap.
-- **Workflow** picks a local concurrency from item count, risk, cost, and task type, never exceeding `limits.concurrency`.
+- **Usuario/agente al lanzar** puede pasar `concurrency` explícito cuando conoce presupuesto, provider o urgencia.
+- **Runtime** hace cumplir el límite efectivo (`limits.concurrency`) y el hard cap global.
+- **Workflow** elige una concurrencia local a partir del tamaño de la lista, el riesgo, el costo y el tipo de tarea, sin superar nunca `limits.concurrency`.
 
-| Situation | Concurrency |
+| Situación | Concurrencia |
 | --- | --- |
-| Expensive models, strict rate limits, debugging, side effects/writes | `1–2` |
-| Read-only review/research (safe default) | `4` |
-| Many independent branches, provider responds well | `6–8` |
-| Large read-only sweeps with explicit `maxAgents` + timeout | `12–16` |
-| 1–2 items | `1–2` (match the count) |
+| Modelos caros, rate limits estrictos, debugging, side effects/writes | `1–2` |
+| Revisión/investigación solo lectura (default seguro) | `4` |
+| Muchas ramas independientes, el provider responde bien | `6–8` |
+| Barridos grandes solo lectura con `maxAgents` + timeout explícitos | `12–16` |
+| 1–2 ítems | `1–2` (igual al conteo) |
 
 ```js
 function chooseConcurrency(items, opts = {}) {
@@ -209,20 +209,20 @@ function chooseConcurrency(items, opts = {}) {
 }
 ```
 
-How it applies:
+Cómo se aplica:
 
 ```js
 const concurrency = Math.min(args?.concurrency ?? limits.concurrency, limits.concurrency);
 const reviews = await agents(items, { concurrency, settle: true });
 ```
 
-- `limits.concurrency` is the effective run limit and is read-only.
-- `agents(..., { concurrency })` clamps again so it never exceeds the run limit; `pipeline()` and `parallel()` also use `limits.concurrency` as their local bound.
-- Cached calls on resume (`journal.jsonl` HIT) do not run `pi -p`, so they consume no concurrency slots and do not count against `maxAgents`.
+- `limits.concurrency` es el límite efectivo del run y es de solo lectura.
+- `agents(..., { concurrency })` vuelve a clamplear, así nunca supera el límite del run; `pipeline()` y `parallel()` también usan `limits.concurrency` como su límite local.
+- Las llamadas cacheadas al reanudar (`journal.jsonl` HIT) no ejecutan `pi -p`, así que no consumen slots de concurrencia ni cuentan contra `maxAgents`.
 
-## Background runs
+## Corridas en background
 
-In a persistent TUI/RPC session, all workflows launch in background by default (`run`, `start`, and `resume`):
+En una sesión TUI/RPC persistente, todos los workflows arrancan en background por defecto (`run`, `start` y `resume`):
 
 ```text
 /workflow start bug-hunt {"maxFiles":40,"concurrency":4,"maxAgents":20}
@@ -231,24 +231,24 @@ In a persistent TUI/RPC session, all workflows launch in background by default (
 /workflow cancel <runId>
 ```
 
-From the model tool:
+Desde la herramienta del modelo:
 
 ```json
 { "action": "start", "name": "bug-hunt", "input": { "maxFiles": 40 }, "concurrency": 4, "maxAgents": 20 }
 ```
 
-Notes:
+Notas:
 
-- `run`/`start` return immediately with the `runId`, `status.json`, and the artifacts directory in TUI/RPC.
-- On completion or failure, the background workflow wakes the agent with an automatic follow-up to inspect `dynamic_workflow action=view name=<runId>` and continue the task.
-- The run only continues while the current Pi session lives; after a restart, an incomplete run shows as `stale`. Resume it with `/workflow resume <runId>` (see "Resumable runs").
-- Monitor with `/workflow runs`, `/workflow view <runId>`, or the dashboard's `Monitor` tab; cancel with `/workflow cancel <runId>` or `dynamic_workflow action=cancel` (the dashboard only cancels runs active in this session).
-- Background runs keep spending model calls: use explicit limits.
-- **Foreground fallback**: in print/json mode there is no persistent session to sustain a background run, so `run` blocks until completion.
+- `run`/`start` devuelven enseguida el `runId`, `status.json` y el directorio de artifacts en TUI/RPC.
+- Al completar o fallar, el workflow en background despierta al agente con un follow-up automático para inspeccionar `dynamic_workflow action=view name=<runId>` y continuar la tarea.
+- La corrida solo sigue viva mientras viva la sesión actual de Pi; después de reiniciar, una corrida incompleta aparece como `stale`. Reanudala con `/workflow resume <runId>` (ver "Corridas reanudables").
+- Monitoreá con `/workflow runs`, `/workflow view <runId>` o la pestaña `Monitor` del dashboard; cancelá con `/workflow cancel <runId>` o `dynamic_workflow action=cancel` (el dashboard solo cancela corridas activas en esta sesión).
+- Las corridas en background siguen gastando llamadas al modelo: usá límites explícitos.
+- **Fallback en foreground**: en modo print/json no hay una sesión persistente para sostener una corrida en background, así que `run` bloquea hasta completar.
 
-## Resumable runs (idempotent)
+## Corridas reanudables (idempotentes)
 
-When a run is interrupted (the Pi session died and it shows `stale`, or it ended `failed`/`cancelled`), you can resume it without re-running the subagents that already completed (each subagent is an expensive `pi -p`):
+Cuando una corrida se interrumpe (la sesión de Pi murió y aparece `stale`, o terminó `failed`/`cancelled`), podés reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un `pi -p` caro):
 
 ```text
 /workflow resume latest              # background by default in TUI/RPC
@@ -256,198 +256,70 @@ When a run is interrupted (the Pi session died and it shows `stale`, or it ended
 /workflow resume <runId> --force       # even if the run is already completed
 ```
 
-From the model tool:
+Desde la herramienta del modelo:
 
 ```json
 { "action": "resume", "name": "<runId>", "force": false }
 ```
 
-How it works:
+Cómo funciona:
 
-- The run resumes **in place**: same `runId`, same directory. Resumable states: `stale`, `failed`, `cancelled`. A `completed` run requires `force:true`.
-- Each run keeps a host-side `journal.jsonl` of completed calls. The cache key is **content-addressed**: `sha256(method + normalized args)` with a per-key occurrence counter; it is correct under concurrency (`agents`) because it does not depend on non-deterministic host-side ids.
-- `agent()` is cached **by default**; disable per call with `agent(prompt, { cache: false })`.
-- To avoid leaking secrets, the cache records only `keys` names and redacted `env` (`[set]`), never values; if a result depends on the exact/rotated value of a credential, use `{ cache: false }`.
-- `bash()` is cached only **opt-in** with `bash(cmd, { cache: true })` (deterministic, side-effect-free commands only).
-- `writeArtifact`/`writeFile` are not cached: they re-execute, and rewriting is idempotent. `log`/`sleep` are never cached.
-- A cached call (HIT) does **not** spend a `pi -p` and does not count against `maxAgents`.
-- A call that was **in flight** when the session died has no journal record: it re-executes (cost: one call). A completed call is never duplicated.
-- **Determinism**: a call's cache depends exactly on its arguments. If you build the prompt or command with `Date.now()` or `Math.random()`, that call changes arguments on every attempt and re-runs on resume (cache miss). It is a safe degradation: never a wrong result, just a re-run.
-- A `codeHash` of the workflow (over the transformed code) is stored in `status.json`/`result.json` and in every journal record. If the workflow code changed since the original run, `/workflow view` and resume warn: calls whose arguments changed re-execute (miss); the rest stay cached.
-- `/workflow runs` marks resumable runs with `resumable` and shows `cached:N`; `/workflow view <runId>` adds a `Resume: /workflow resume <runId>` line, the `codeHash`, the cached-call count, and the code-changed warning.
-- Atomicity: `status.json`/`result.json` are written with temp+rename so a crash cannot corrupt them.
+- La corrida se reanuda **en el mismo lugar**: mismo `runId`, mismo directorio. Estados reanudables: `stale`, `failed`, `cancelled`. Una corrida `completed` requiere `force:true`.
+- Cada corrida mantiene un `journal.jsonl` host-side con las llamadas completadas. La cache key es **content-addressed**: `sha256(method + normalized args)` con un contador por key; es correcta bajo concurrencia (`agents`) porque no depende de ids no determinísticos del host.
+- `agent()` se cachea **por defecto**; desactivá por llamada con `agent(prompt, { cache: false })`.
+- Para evitar filtrar secretos, la cache registra solo los nombres de `keys` y `env` redacted (`[set]`), nunca los valores; si un resultado depende del valor exacto/rotado de una credencial, usá `{ cache: false }`.
+- `bash()` se cachea solo **opt-in** con `bash(cmd, { cache: true })` (solo comandos determinísticos y sin side effects).
+- `writeArtifact`/`writeFile` no se cachean: se reejecutan, y reescribir es idempotente. `log`/`sleep` nunca se cachean.
+- Una llamada cacheada (HIT) no gasta un `pi -p` y no cuenta contra `maxAgents`.
+- Una llamada que estaba **in flight** cuando murió la sesión no tiene registro en el journal: se reejecuta (costo: una llamada). Una llamada completada nunca se duplica.
+- **Determinismo**: la cache de una llamada depende exactamente de sus argumentos. Si construís el prompt o el comando con `Date.now()` o `Math.random()`, esa llamada cambia argumentos en cada intento y se reejecuta al resume (cache miss). Es una degradación segura: nunca da un resultado incorrecto, solo una reejecución.
+- Un `codeHash` del workflow (sobre el código transformado) se guarda en `status.json`/`result.json` y en cada registro del journal. Si el código cambió desde la corrida original, `/workflow view` y resume avisan: las llamadas cuyos argumentos cambiaron se reejecutan (miss); el resto queda cacheado.
+- `/workflow runs` marca las corridas reanudables con `resumable` y muestra `cached:N`; `/workflow view <runId>` agrega una línea `Resume: /workflow resume <runId>`, el `codeHash`, el conteo de llamadas cacheadas y el aviso de cambio de código.
+- Atomicidad: `status.json`/`result.json` se escriben con temp+rename para que un crash no los corrompa.
 
-## Pattern catalog and use cases
+## Catálogo de patrones y casos de uso
 
-The `Patterns` tab and `/workflow patterns` show all registered scaffolds and use cases. Scaffolds are embedded in the extension, so the package does not depend on files under `examples/workflows/`. Catalog keys ARE the scaffold filenames (1:1, no aliases):
+La pestaña `Patterns` y `/workflow patterns` muestran todos los scaffolds y casos de uso registrados. Los scaffolds están embebidos en la extensión, así que el paquete no depende de archivos bajo `examples/workflows/`. Las claves del catálogo SON los nombres de archivo de los scaffolds (1:1, sin alias):
 
 - **Scaffolds**: `fan-out-and-synthesize`, `adversarial-verify`, `judge-escalate`, `tournament`, `loop-until-dry`.
-- **Compose scaffolds**: `composition-driver`, `verify-claims-lib`, `workflow-factory`.
-- **Use-cases**: `repo-bug-hunt`, `large-migration`, `complex-research`, `adversarial-plan-review`, `bug-verify`.
+- **Scaffolds de composición**: `composition-driver`, `verify-claims-lib`, `workflow-factory`.
+- **Casos de uso**: `repo-bug-hunt`, `large-migration`, `complex-research`, `adversarial-plan-review`, `bug-verify`.
 
-An earlier, Claude-style naming (`classify-and-act`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`, `compose-verify-claims`, `lib-verify-claims`, `bug-hunt-repo-audit`, `plan-review`, `claim-bug-verification`) was retired by the single-interface refactor and no longer resolves as a pattern alias. The legacy intents `deep-research` and `default` live on as skills that route to `complex-research` and `fan-out-and-synthesize` respectively.
+Un naming anterior, al estilo Claude (`classify-and-act`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`, `compose-verify-claims`, `lib-verify-claims`, `bug-hunt-repo-audit`, `plan-review`, `claim-bug-verification`) quedó retirado por el refactor de interfaz única y ya no resuelve como alias de patrón. Los intents legacy `deep-research` y `default` siguen vivos como skills que enrutan a `complex-research` y `fan-out-and-synthesize` respectivamente.
 
-### Research-backed templates
+### Templates respaldados por papers
 
-Map common agent papers/frameworks to Pi workflow design:
+Mapeá papers/frameworks comunes de agentes al diseño de workflows en Pi:
 
-- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.
-- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.
-- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.
-- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.
-- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.
-- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.
-- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.
+- **ReAct** -> explorar/observar con tools antes del fan-out; mantener el razonamiento atado a evidencia.
+- **Self-consistency** -> muestrear ramas independientes y luego seleccionar por consistencia/evidencia en vez de confiar en un solo camino.
+- **Reflexion / Self-Refine** -> ciclos generate -> critique -> refine, siempre acotados por rounds, quiet stops, `maxAgents` y timeout.
+- **Tree of Thoughts** -> ramificar alternativas, evaluar/podar con un juez y después comprometerse con un camino.
+- **Multiagent debate** -> revisores adversariales más síntesis como juez; las afirmaciones sin respaldo se descartan.
+- **AutoGen / CAMEL / MetaGPT** -> roles explícitos, artifacts estables y contratos claros de handoff.
+- **SWE-agent / DSPy** -> importan la interfaz y los contratos: tools acotadas, schemas/fixed formats y checks reproducibles.
 
-Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
+Usalos como patrones, no como ceremonia: cada rama necesita una razón, un contrato y una condición de corte.
 
-See detailed notes in [`docs/research/2026-06-25-agentic-patterns-papers-workflows.md`](./research/2026-06-25-agentic-patterns-papers-workflows.md).
+Ver notas detalladas en [`docs/research/2026-06-25-agentic-patterns-papers-workflows.md`](./research/2026-06-25-agentic-patterns-papers-workflows.md).
 
-### Recommended prompt patterns
+### Patrones de prompt recomendados
 
-Workflows work best when every prompt declares its pattern explicitly:
+Los workflows funcionan mejor cuando cada prompt declara explícitamente su patrón:
 
-- **Independent fan-out**: each subagent must produce a useful report even if others fail.
-- **Evidence contract**: require file/line, URL, observed command, or `INSUFFICIENT_EVIDENCE` / `NO_FINDINGS`.
-- **Fixed format**: prefer `agent(prompt, { schema })` for JSON; otherwise fixed sections such as `Verdict`, `Findings`, `Evidence`, `Risks`, `Fix`, `Verification`.
-- **Synthesis-as-judge**: the final agent deduplicates, drops unsupported claims, preserves uncertainty, and picks one concrete path.
-- **Adversarial critique**: reviewers with the explicit goal of finding edge cases, cutting scope, and flagging accepted risks.
-- **Visible partial failures**: the synthesis must mention failed, empty, cancelled, or timed-out agents.
-- **Safe by default**: for audits, prompts with "do not edit files", read-only tools, only the required `skills`/`extensions`, and only the `keys` that branch needs.
+- **Fan-out independiente**: cada subagente debe producir un reporte útil aunque los demás fallen.
+- **Contrato de evidencia**: pedí archivo/línea, URL, comando observado o `INSUFFICIENT_EVIDENCE` / `NO_FINDINGS`.
+- **Formato fijo**: preferí `agent(prompt, { schema })` para JSON; si no, secciones fijas como `Verdict`, `Findings`, `Evidence`, `Risks`, `Fix`, `Verification`.
+- **Síntesis como juez**: el agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y elige un camino concreto.
+- **Crítica adversarial**: revisores con el objetivo explícito de encontrar edge cases, recortar alcance y marcar riesgos aceptados.
+- **Fallos parciales visibles**: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o con timeout.
+- **Seguro por defecto**: para audits, prompts con "do not edit files", tools solo de lectura, solo los `skills`/`extensions` necesarios y solo los `keys` que esa rama necesita.
 
-## Security and cost
+## Seguridad y costo
 
-**Workflows are trusted code, not a hard security sandbox.** They can execute JavaScript, use `fetch`, call `bash`, read/write files in the cwd, and fire many model calls through subagents.
-
-Good practices:
-
-- Use explicit limits: `concurrency`, `maxAgents`, `timeoutMs`, `agentTimeoutMs`.
-- For audits, restrict subagents to read-only tools: `tools: ["read", "grep", "find", "ls", "web_search"]`.
-- By default, subagents try to have web search (`pi-codex-web-search` + `web_search`) and Context7 (`context7-cli`) available; disable with `includeExtensions: false` / `excludeTools: ["web_search"]` and `includeSkills: false`.
-- For extra skills/extensions, use per-agent `skills: ["path"]` and `extensions: ["path.ts"]`. Explicit lists disable discovery for that type unless you set `includeSkills: true` or `includeExtensions: true`.
-- For credentials, use per-agent `keys: ["ENV_VAR"]`; when `keys` is present, the subagent runs with an isolated env plus those keys. `env: { NAME: "value" }` also exists, but avoid secret literals in code.
-- Avoid `bash` unless the workflow really needs it.
-- Review workflows before running them, especially third-party ones.
-
-To see the available scaffolds, use `/workflow patterns` or `dynamic_workflow action=scaffold`; real runs should create task-specific workflows dynamically.
-
-## Where workflows and artifacts live
-
-Stable workflows are stored in:
-
-- Project: `.pi/workflows/*.js`
-- Global: `~/.pi/agent/workflows/*.js`
-
-Generated task-specific drafts live next to the runs, in `.pi/workflows/drafts/*.js` (or `~/.pi/agent/workflows/drafts/*.js` for global). Promote to `.pi/workflows/` only the workflows you want to keep as stable/reusable.
-
-Results/artifacts are stored in `.pi/workflows/runs/<run-id>/` when the project is trusted. Untrusted projects use a global directory under `~/.pi/agent/workflows/runs/<hash>/`. The PNG/Mermaid files generated by `/workflow graph` land in `.pi/workflows/graphs/` or the equivalent global root. The extension also reads the global `.pi` (`~/.pi/agent/workflows/{drafts,runs,sessions}/`) as a fallback for drafts, runs, and sessions.
-
-## Dashboard and monitor
-
-During active background runs (the default in TUI/RPC), Pi shows the state in the status line (`▶ wf ... /workflows ↓ monitor ← agents Ctrl+Alt+W`) and the dashboard is the control tower. In print/json there is no persistent TUI: `run` blocks as a fallback and you inspect afterwards with `/workflow view`/`dynamic_workflow action=view`.
-
-In interactive mode, `/workflows`, `Ctrl+Alt+W`, or pressing `↓` when the editor cannot go lower opens a TUI dashboard on the `Monitor` tab by default; pressing `←` when the editor cannot move further left opens the same dashboard directly on the `Agents` tab. Tabs: `Monitor`, `Agents`, `Sessions`, `Runs`, `Workflows`, `Patterns`, and `Activity`.
-
-- The `Patterns` tab shows the compact catalog (`fan-out-and-synthesize`, `adversarial-verify`, `judge-escalate`, etc.) with when to use each one, expected input, and primitives; `Enter`/`n` creates a project workflow draft from the selected scaffold to edit before saving.
-- The `Monitor` tab prioritizes the active run or, failing that, the latest run; it shows workflow, state, elapsed, active/stale, agents running in parallel (`actual/concurrency`) plus peak, bash, artifacts, last log, and `runDir`. With subagents present, it lists state, duration, exit code, schema, tools, skills, extensions, keys, and prompt availability/preview; agents launched by the same `agents(...)` call are labeled `P<phase> 1/n`, `P<phase> 2/n`, etc. `↑`/`↓` select an agent, `Enter`/`o` opens a live agent view (1s refresh, parsed output, prompt, and access — no raw JSON stdout dump), and `←`/`→` switch tabs.
-- The `Agents` tab lists every agent registered across runs, grouped by recent runs, with the current parallel total on top; `↑`/`↓` select any agent and the bottom panel shows state, phase `1/n`, artifact, tools, skills, extensions, keys, prompt preview, and output preview before opening the live detail with `Enter`/`o`.
-- The `Sessions` tab shows the live Pi TUI/RPC sessions for the project via heartbeat (pid, mode, idle, session file, and active workflows), marking rows stale when a process died without cleanup; `Enter` switches the current session to the selected one when a session file is available.
-
-Dashboard shortcuts: `v` opens the full run, `g` opens the graph TUI (large inline Mermaid PNG via `mmdc` when the terminal supports images; the diagram groups `agents(...)` fan-outs as `P1 ×items.length` with visible agent/ellipsis/join nodes, plus `pipeline(...)` lanes and `parallel(...)` branches; fallback: width-safe ASCII topology + Mermaid export), `c`/`x` cancels active runs with confirmation, `r` reruns with confirmation using `input.json` (or a JSON editor when missing). On the `Monitor`/`Agents`/`Runs`/`Activity` tabs, `d`/Delete removes the selected run's artifacts/directory when it is no longer active; on the `Workflows` tab, `d`/Delete deletes the selected workflow with confirmation; `q`/`esc` closes. Non-persisted metrics (tokens/cost/model/toolCalls) are not shown. After any run you can use `/workflow view latest`, which also includes `Agents` and `Parallel agents` sections.
-
-## Creating, saving, and promoting workflows
-
-The normal path is to create a workflow dynamically for the concrete task:
-
-```text
-/dynamic-workflow audit this repo for concurrency bugs and propose verified fixes
-```
-
-Or from the tool:
-
-```json
-{ "action": "scaffold" }
-{ "action": "write", "name": "audit-concurrency-<slug>", "scope": "project", "code": "...workflow JS generated for this task..." }
-{ "action": "start", "name": "audit-concurrency-<slug>", "input": { "maxAgents": 20, "concurrency": 4 } }
-```
-
-Reusing an existing workflow is only right when it matches the task **exactly**; otherwise generate a new one under `.pi/workflows/drafts/` as a gitignored, task-specific draft. Treat a generated workflow as a **disposable draft** until it proves its value:
-
-| After running it… | Do this |
-| --- | --- |
-| It did not help | delete it with `/workflow delete <name>` |
-| Helped once, not reusable | leave it in `.pi/workflows/drafts/` as local history |
-| Liked it, want to reuse | **promote** it to a stable name (copy its code to another workflow) |
-
-```json
-{ "action": "read", "name": "audit-concurrency-<slug>" }
-{ "action": "write", "name": "audit-concurrency", "scope": "project", "code": "...same code, optionally cleaned/generalized..." }
-```
-
-When promoting, generalize inputs (`maxFiles`, `paths`, `angles`, `concurrency`), document the contract at the top of the file, and drop details that were too specific to the original run.
-
-## Ultracode always-on
-
-The extension enables a Claude Code-style `/effort ultracode` router by default: on every substantive task, Pi weighs solving it normally against creating/running a dynamic workflow. It does not force workflows for simple tasks; it only adds routing judgment to the system prompt when the `dynamic_workflow` tool is available. The always-on router alone does not change the thinking level (to avoid changing cost/model without an explicit decision); `/effort ultracode` does explicitly request `xhigh`.
-
-Ultracode injects a short reminder: decision rules, scaffold keys, and composition. The detailed catalog stays in `dynamic_workflow action=scaffold`; before writing a workflow the agent must inspect it, reuse an existing workflow only on an exact match, or pick the closest scaffold.
-
-It also includes a **Contract Gate** task-contract review: for substantive Ultracode tasks that survive the trivial gate, Pi should launch a small read-only workflow that synthesizes `improvedTask`, success criteria, assumptions, non-goals, and a verification plan before the normal scout/orchestration.
-
-Use it without prefixes: ask for a task and Pi decides. To control the mode during a session:
-
-```text
-/effort high          # only changes the thinking level
-/effort ultracode     # xhigh thinking + enables the workflow router
-/ultracode-mode status
-/ultracode-mode off
-/ultracode-mode on
-```
-
-Model-facing tool: `dynamic_workflow` with actions `list`, `scaffold`, `read`, `write`, `run`, `start`, `resume`, `cancel`, `delete`, `graph`, `runs`, `view`. `scaffold` without `name` lists the pattern catalog; `scaffold` with `name=<key>` returns that pattern's scaffold. In persistent TUI/RPC sessions, `run`, `start`, and `resume` always launch **in background** and return a `runId` immediately; `run` only blocks as a fallback in print/json, where no live session can sustain a background run.
-
-## Command reference
-
-```text
-/workflows                              # monitor-first TUI dashboard (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
-↓ at the bottom of the editor / Ctrl+Alt+W   # shortcuts to open the dashboard from the editor
-/workflow dashboard                     # alias of the TUI dashboard
-/workflow sessions                      # opens the live Pi sessions TUI tab (TUI/RPC)
-/workflow patterns                      # opens the TUI pattern/scaffold catalog
-/workflow list
-/workflow graph bug-hunt                # large Mermaid PNG in TUI; shows fan-out ×N, lanes/branches, Mermaid export
-/workflow runs                          # recent runs
-/workflow view latest                   # timeline + artifacts of the latest run
-/workflow new bug-hunt --pattern=repo-bug-hunt
-/workflow edit bug-hunt
-/workflow run bug-hunt {"maxFiles":40,"concurrency":6,"maxAgents":16}     # background by default in TUI/RPC
-/workflow start bug-hunt {"maxFiles":40,"concurrency":4,"maxAgents":16}   # explicit background alias
-/workflow bg bug-hunt {"maxFiles":40}                                      # alias
-/workflow resume latest                 # resumes in background by default in TUI/RPC
-/workflow resume <runId> --force         # resumes even a completed run
-/workflow cancel latest                 # cancels an active background run
-/workflow delete-run latest             # deletes artifacts/directory of an inactive run
-/workflow delete bug-hunt               # deletes a workflow with confirmation
-/ultracode audit the whole repo for concurrency bugs      # alias of /dynamic-workflow
-/dynamic-workflow audit the whole repo for concurrency bugs
-/deep-research research options to migrate X to Y
-```
-
-You can also start a message with `ultracode ...` or `dynamic workflow ...` and the extension turns it into a workflow-oriented request.
-
-## Troubleshooting
-
-If `/dynamic-workflow`, `/workflow`, `/workflows`, or the dashboard are missing:
-
-- Verify the package is loaded for the current cwd:
-
-  ```bash
-  pi list
-  ```
-
-- Start Pi from the repo root or a temp project; avoid test/fixture subdirectories with their own `.pi/`.
-- After installing or changing settings, run `/reload` or restart Pi.
-- `dynamic_workflow` must be active. `/ultracode-mode on` tries to enable it for the session.
-- The `/workflows` dashboard requires TUI mode. In `pi -p`/print use `/workflow list`, `/workflow runs`, and `/workflow view latest`.
-- Background requires a persistent TUI/RPC session. There, `/workflow run`, `/workflow start`, and `dynamic_workflow action=run/start` launch in background; in print/json `run` falls back to foreground.
-- The visual graph needs `mmdc` and terminal image support (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi disables it under tmux). If `mmdc` fails on Chrome/Puppeteer, run `npx puppeteer browsers install chrome-headless-shell`.
+- **Menor privilegio**: para auditorías y exploración, usá tools de solo lectura y cargá solo los `skills`/`extensions` necesarios.
+- **Secretos fuera del prompt**: no pegues credenciales, tokens ni dumps completos; si hace falta contexto sensible, pasá nombres de claves y valores redacted.
+- **Límites explícitos**: fijá `maxAgents`, `concurrency`, `timeout` y alcance de archivos antes de arrancar, para acotar costo y latencia.
+- **Cierre temprano**: si ya hay evidencia suficiente, terminá la corrida; no abras ramas extra “por si acaso”.
+- **Caché con criterio**: la caché reduce costo en resumes, pero solo conviene para entradas determinísticas; desactivala si el resultado depende de estado externo o credenciales rotadas.
+- **Trazabilidad**: preferí prompts que pidan evidencia verificable y artifacts persistentes, así el costo queda auditable.

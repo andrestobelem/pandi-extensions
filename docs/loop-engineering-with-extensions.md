@@ -1,120 +1,132 @@
-# Loop engineering with our extensions
+# Ingeniería de loops con nuestras extensiones
 
-Date: 2026-06-28
+Fecha: 2026-06-28
 
-An agent loop that never stops wastes money; one that stops on its own
-self-declared "done" is often wrong (a model judging its own work is
-unreliable — Huang et al., arXiv:2310.01798). This repo has two extensions
-that solve that: **`/goal`** iterates toward an objective until an
-*independent* check confirms it, and **`/loop`** repeats a task on a capped
-cadence with no notion of "finished" at all. Reach for `/goal` when you can
-write a checkable success criterion; reach for `/loop` for open-ended
-monitoring/polling work.
+Un loop de agente que nunca termina quema dinero; uno que se da por "done" por
+cuenta propia suele equivocarse (un modelo que juzga su propio trabajo es
+poco confiable — Huang et al., arXiv:2310.01798). Este repositorio trae dos
+extensiones para cubrir ese problema: **`/goal`** avanza hacia un objetivo hasta
+que una verificación *independiente* lo confirma, y **`/loop`** repite una tarea
+en una cadencia acotada sin ninguna noción de "finished". Usá `/goal` cuando
+podés escribir un criterio de éxito verificable; usá `/loop` para trabajo de
+monitoreo o polling sin estado final claro.
+
+## En 30 segundos
 
 ```bash
 /goal migrate tests to vitest -- all tests pass; no jest imports remain
 /loop watch the deploy and report when it stabilizes
 ```
 
-This guide turns the
-[loop-engineering investigation](./research/2026-06-28-loop-engineering.md)
-into concrete usage: the research explains *what* loop engineering is and *why*
-the repo's mechanisms work; this guide explains *which extension to reach for*
-and *how to drive it*.
+Esta guía convierte la
+[investigación sobre loop engineering](./research/2026-06-28-loop-engineering.md)
+en uso concreto: la investigación explica *qué* es loop engineering y *por qué*
+funcionan los mecanismos del repo; esta guía explica *qué extensión elegir* y
+*cómo operarla*.
 
-> **Definition (from the research).** *Loop engineering* is the discipline of
-> **designing, bounding, and verifying** iterative/feedback loops so a loop makes
-> measurable progress toward a goal and **stops on evidence** (`done` / `quiet` /
-> `blocked`) rather than on a timer, a self-declaration, or never. The one-line
-> version: bound the loop **and** keep the critique signal independent and
-> unbiased — `/goal` is the surface that enforces both at once.
+> **Definición (de la investigación).** *Loop engineering* es la disciplina de
+> **diseñar, acotar y verificar** loops iterativos/de feedback para que un loop
+> haga progreso medible hacia una meta y **se detenga por evidencia** (`done` /
+> `quiet` / `blocked`) en lugar de hacerlo por un timer, por auto-declaración o
+> nunca. La versión corta: acotá el loop **y** mantené la señal de crítica
+> independiente y no sesgada — `/goal` es la superficie que impone ambas cosas a
+> la vez.
 
-## TL;DR — pick the right loop surface
+## TL;DR — elegí la superficie de loop correcta
 
-| Surface | Question it answers | Reach for it when | Principle it embodies |
+| Superficie | Pregunta que responde | Usala cuando | Principio que encarna |
 | --- | --- | --- | --- |
-| `/goal` | *What state am I in?* | The work has a verifiable `done` | Independent verification (strongest) |
-| `/loop` | *When do I wake up?* | Recurring tasks with no finish state | Bounded cadence, never trust the model |
-| `loop-until-dry` workflow | *Has it converged yet?* | Exhaustive searches needing convergence | Convergence by quiet rounds |
-| `/effort ultracode` + Contract Gate | *What does "done" even mean?* | Vague or broad orchestration tasks | Bound and verify the scope first |
+| `/goal` | *¿En qué estado estoy?* | El trabajo tiene un `done` verificable | Verificación independiente (la más fuerte) |
+| `/loop` | *¿Cuándo me despierto?* | Tareas recurrentes sin estado de fin | Cadencia acotada, no confiar en el modelo |
+| `loop-until-dry` workflow | *¿Ya convergió?* | Búsquedas exhaustivas que necesitan converger | Convergencia por rondas quietas |
+| `/effort ultracode` + Contract Gate | *¿Qué significa "done"?* | Tareas de orquestación vagas o amplias | Acotar y verificar el alcance primero |
 
-## The four loop surfaces
+## Las cuatro superficies de loop
 
-### `/goal` — closed-loop with independent verification
+### `/goal` — loop cerrado con verificación independiente
 
-Use `/goal` whenever there is a concrete, checkable definition of done. It runs
-`pursuing → verifying → verifying-independent → done | blocked`: a self
-completeness check, then a **separate read-only adversarial subagent** that emits
-`VERDICT: PASS | FAIL`. Only an independent `PASS` closes the goal
-(`extensions/pandi-goal/index.ts:264-271`). This is the repo's direct architectural
-answer to the self-correction-is-unreliable result.
+Usá `/goal` siempre que exista una definición concreta y verificable de terminado.
+Ejecuta `pursuing → verifying → verifying-independent → done | blocked`: primero
+una comprobación de completitud, después un **subagente adversarial separado y
+solo de lectura** que emite `VERDICT: PASS | FAIL`. Solo un `PASS` independiente
+cierra el goal (`extensions/pandi-goal/index.ts:264-271`). Esta es la respuesta
+arquitectónica directa del repo al resultado de que la autocorrección no es
+confiable.
 
 ```bash
-# Objective -- success criteria after the `--`
+# Objetivo -- criterios de éxito después de `--`
 /goal migrate tests to vitest -- all tests pass; no jest imports remain
 /goal status
 /goal stop
 ```
 
-Guardrails you inherit for free:
+Guardrails que heredás gratis:
 
-- Never an infinite loop; bounded rounds and caps (`pi-goal/index.ts:157-159`, the `goal.iteration >= goal.maxIterations` guard).
-- A claim without verifiable evidence is a `FAIL` (`pi-goal/verifier.ts:69`).
-- Oscillation guard: `maxIndependentVerifications` (default 2) flips a thrashing
-  goal to `blocked` instead of looping forever (`pi-goal/index.ts:279-291`).
+- Nunca hay loop infinito; hay rondas y topes acotados (`extensions/pandi-goal/index.ts:157-159`, el guard `goal.iteration >= goal.maxIterations`).
+- Una afirmación sin evidencia verificable es `FAIL` (`extensions/pandi-goal/verifier.ts:69`).
+- Guard contra oscilación: `maxIndependentVerifications` (por defecto 2) pasa un goal que está thrashing a `blocked` en vez de dejarlo girando para siempre (`extensions/pandi-goal/index.ts:279-291`).
 
-### `/loop` — bounded cadence, never trust the model
+### `/loop` — cadencia acotada, no confiar en el modelo
 
-Use `/loop` for recurring work that has no binary "done": monitoring, polling,
-autopilot. The model proposes a wake delay; the extension **saturates it** to a
-safe band of `[60, 3600]s` so a bad value can never destabilize the loop
-(`extensions/pandi-loop/index.ts:115-116` for the constants, `:1249-1251` for the clamp).
+Usá `/loop` para trabajo recurrente que no tiene un `done` binario: monitoreo,
+polling, autopilot. El modelo propone un delay de wake; la extensión **lo satura**
+a una banda segura de `[60, 3600]s` para que un valor malo nunca desestabilice
+el loop (`extensions/pandi-loop/index.ts:115-116` para las constantes,
+`:1249-1251` para el clamp).
 
 ```bash
-# Fixed cadence (last token is the interval)
+# Cadencia fija (el último token es el intervalo)
 /loop check whether CI went green 10m
 
-# Dynamic cadence (the model picks the delay; it is clamped)
+# Cadencia dinámica (el modelo elige el delay; se limita)
 /loop watch the deploy and report when it stabilizes
 
-# Trusted autonomous loop (requires /trust first)
+# Loop autónomo confiado (requiere /trust primero)
 /loop auto keep the docs index in sync with docs/ 1h
 
 /loop status   /loop pause   /loop resume   /loop stop
 ```
 
-Choose the cadence regime deliberately:
+Elegí la cadencia con intención:
 
-- Short poll (`< 300s`, never exactly 300) for fast external state (CI, deploy)
-  while keeping a warm cache.
-- Long fallback (`1200–1800s`) when idle with no concrete signal.
-- Do not poll work the harness already tracks (subagents, workflows) — use a long
-  fallback and let it report back.
+- Poll corto (`< 300s`, nunca exactamente 300) para estado externo rápido (CI,
+  deploy) manteniendo cache caliente.
+- Fallback largo (`1200–1800s`) cuando está idle y no hay señal concreta.
+- No consultes trabajo que el harness ya rastrea (subagentes, workflows) — usá un
+  fallback largo y dejá que reporte de vuelta.
 
-Defense in depth: Layered caps include wall-clock and best-effort context-budget (see `extensions/pandi-loop/caps.ts:26-41`), plus a separate iteration-count cap inside `fireWake` in `extensions/pandi-loop/index.ts`, plus a watchdog backstop above the deadline. Note the context-budget cap is a **soft sensor** — it silently no-ops when usage is unknown, so do not rely on it alone.
+Defense in depth: los topes en capas incluyen wall-clock y un context-budget de
+mejor esfuerzo (ver `extensions/pandi-loop/caps.ts:26-41`), más un tope separado
+de conteo de iteraciones dentro de `fireWake` en `extensions/pandi-loop/index.ts`,
+y además un watchdog de respaldo por encima del deadline. Ojo: el tope de
+context-budget es un **soft sensor** — hace no-op silencioso cuando el uso se
+ignora, así que no dependas solo de él.
 
-### `loop-until-dry` — convergence by quiet rounds
+### `loop-until-dry` — convergencia por rondas quietas
 
-When the goal is exhaustiveness rather than a single `done` (audits, repo-wide
-searches), use the `loop-until-dry` workflow scaffold. It runs parallel finders
-each round and stops when **no new findings appear for `quietRounds` consecutive rounds** — a settle-to-tolerance detector, not a single transient-quiet flip.
+Cuando el objetivo es exhaustividad y no un solo `done` (auditorías, búsquedas
+a nivel repo), usá el scaffold `loop-until-dry`. Ejecuta finders en paralelo en
+cada ronda y se detiene cuando **no aparecen hallazgos nuevos durante
+`quietRounds` rondas consecutivas**: un detector de settle-to-tolerance, no un
+flip de quietud transitoria.
 
 ```bash
 /workflow run loop-until-dry {"target":"all places we parse SSE chunks","quietRounds":2,"maxRounds":8}
 ```
 
-- `quietRounds` (default 2) is a debounce/deadband, not a proven fixed point.
-- `maxRounds` (default 8) is the hard brake; when it stops there, it says so
-  out loud (`extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js:165`) — no
-  silent caps.
+- `quietRounds` (por defecto 2) es un debounce/deadband, no un punto fijo
+  probado.
+- `maxRounds` (por defecto 8) es el freno duro; cuando se detiene ahí, lo dice
+  en voz alta (`extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js:165`) —
+  no hay topes silenciosos.
 
-### Ultracode + Contract Gate — bound the scope first
+### Ultracode + Contract Gate — acotar primero el alcance
 
-Before orchestrating broad or repo-wide work, let the Contract Gate pin down what
-"done" means. It runs a small read-only task-contract review and emits
-`improvedTask`, `successCriteria`, `assumptions`, `nonGoals`, `routingHints`,
-`verificationPlan`, and `blockers` — so the loop optimizes against an agreed
-target instead of a vague prompt.
+Antes de orquestar trabajo amplio o a nivel repo, dejá que el Contract Gate
+precise qué significa "done". Corre una revisión pequeña y de solo lectura del
+contrato de tarea y emite `improvedTask`, `successCriteria`, `assumptions`,
+`nonGoals`, `routingHints`, `verificationPlan` y `blockers` — así el loop
+optimiza contra un objetivo acordado en vez de contra un prompt vago.
 
 ```bash
 /effort ultracode          # request xhigh + enable always-on routing
@@ -122,53 +134,54 @@ target instead of a vague prompt.
 /ultracode-mode off        # turn the router off (lowering effort does not)
 ```
 
-## The eight principles → knobs you control
+## Los ocho principios → perillas que controlás
 
-| Principle | What it means in practice | Where to set it |
+| Principio | Qué significa en la práctica | Dónde se configura |
 | --- | --- | --- |
-| Bounded termination | Never loop forever on a task with a goal | Use `/goal` instead of `/loop` |
-| Layered caps | Wall-clock + iterations + budget | `/loop` defaults; `maxRounds` in workflows |
-| Cadence clamp | The model's delay is saturated, not trusted | `/loop` clamps to `[60, 3600]s` |
-| Convergence | Stop when findings stay at ~0 | `quietRounds` in `loop-until-dry` |
-| Resumability | Rehydrate without a burst of catch-up | `dynamic_workflow action=resume` |
-| Destructive gating | Gate risky actions on autopilot only | `/loop auto` after `/trust` |
-| Independent verification | Close on an external signal, not self-claim | `/goal` independent verifier |
-| No silent caps | Stopping at a budget must be reported | Keep the "stopped at maxRounds" log |
+| Terminación acotada | Nunca dejes que un task con meta loopée para siempre | Usá `/goal` en vez de `/loop` |
+| Topes en capas | Wall-clock + iteraciones + budget | Defaults de `/loop`; `maxRounds` en workflows |
+| Clamp de cadencia | El delay del modelo se satura, no se confía | `/loop` limita a `[60, 3600]s` |
+| Convergencia | Cortar cuando los hallazgos se mantienen cerca de 0 | `quietRounds` en `loop-until-dry` |
+| Reanudación | Rehidratar sin una avalancha de catch-up | `dynamic_workflow action=resume` |
+| Gate de acciones destructivas | Gatear acciones riesgosas solo en autopilot | `/loop auto` después de `/trust` |
+| Verificación independiente | Cerrar por una señal externa, no por autoafirmación | Verificador independiente de `/goal` |
+| Sin topes silenciosos | Si se corta por budget, hay que reportarlo | Mantener el log "stopped at maxRounds" |
 
-## Recipes
+## Recetas
 
-Run different work in parallel (they do not compose — see below):
+Ejecutá trabajos distintos en paralelo (no se componen — ver abajo):
 
 ```bash
-/goal implement feature X -- criteria ...   # iterates until verified
-/loop watch the X deploy 5m                 # repeats on a cadence
+/goal implement feature X -- criteria ...   # itera hasta quedar verificado
+/loop watch the X deploy 5m                 # repite en una cadencia
 ```
 
-Manage each independently — they keep separate state and IDs:
+Manejá cada uno por separado — mantienen estado e IDs distintos:
 
 ```bash
 /goal status     /goal stop [id]
 /loop status     /loop pause [id]   /loop resume [id]   /loop stop [id]
 ```
 
-## Anti-patterns
+## Anti-patrones
 
-- **Do not** use `/loop` on a task that has a verifiable `done`; that is what
-  `/goal` is for. `/loop` has no notion of "finished".
-- **Do not** drive the *same* task with both `/goal` and `/loop` expecting the
-  goal to set the loop's cadence. They are independent extensions with separate
-  state and do **not** compose; only `ctx.isIdle()` keeps them from injecting into
-  an in-flight turn. Pick one surface per task.
-- **Do not** trust the context-budget cap as a hard guarantee — it is best-effort
-  and can silently no-op.
-- **Do not** report `done` when a loop merely hit its cap. Surface the cap.
+- **No** uses `/loop` en una tarea que tenga un `done` verificable; para eso es
+  `/goal`. `/loop` no tiene noción de "finished".
+- **No** manejes la *misma* tarea con `/goal` y `/loop` esperando que el goal le
+  fije la cadencia al loop. Son extensiones independientes, con estado separado,
+  y **no** se componen; solo `ctx.isIdle()` evita que inyecten en un turno en
+  vuelo. Elegí una sola superficie por tarea.
+- **No** confíes en el context-budget cap como garantía dura: es best-effort y
+  puede hacer no-op silencioso.
+- **No** reportes `done` cuando un loop apenas llegó a su cap. Mostrá el cap.
 
-## Provenance and sources
+## Procedencia y fuentes
 
-This guide operationalizes the source-backed investigation in
+Esta guía operacionaliza la investigación con fuentes de respaldo en
 [`docs/research/2026-06-28-loop-engineering.md`](./research/2026-06-28-loop-engineering.md),
-which carries the external citations (ReAct, Reflexion, Self-Refine, Huang et al.,
-control/feedback theory) and the verified `file:line` grounding for every
-mechanism referenced above. See also the broader
-[agentic patterns map](./research/2026-06-25-agentic-patterns-papers-workflows.md)
-The header comment in `extensions/pandi-goal/index.ts` also documents the `/loop` vs `/goal` distinction directly in code.
+que contiene las citas externas (ReAct, Reflexion, Self-Refine, Huang et al.,
+teoría de control/feedback) y el grounding verificado `file:line` para cada
+mecanismo mencionado arriba. Ver también el
+[mapa más amplio de patrones agentic](./research/2026-06-25-agentic-patterns-papers-workflows.md).
+El comentario de cabecera en `extensions/pandi-goal/index.ts` también documenta
+directamente en código la distinción `/loop` vs `/goal`.

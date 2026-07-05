@@ -50,6 +50,8 @@ examples/.pi/
 **/.pi/chats/
 .pi/plans/
 **/.pi/plans/
+.pi/plan-artifacts/
+**/.pi/plan-artifacts/
 # Raw transcript snapshots written before auto-compaction (pi-auto-compact #3.1).
 .pi/compaction-snapshots/
 **/.pi/compaction-snapshots/

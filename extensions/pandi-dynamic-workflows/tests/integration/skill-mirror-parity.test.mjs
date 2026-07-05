@@ -47,8 +47,8 @@ async function main() {
 	);
 
 	// The init skill is the concrete mirrored pair we shipped: assert byte-identity directly.
-	const piSkill = path.join(REPO_ROOT, ".pi", "skills", "init-pi-dynamic-workflows", "SKILL.md");
-	const claudeSkill = path.join(REPO_ROOT, ".claude", "skills", "init-pi-dynamic-workflows", "SKILL.md");
+	const piSkill = path.join(REPO_ROOT, ".pi", "skills", "init-pandi-extensions", "SKILL.md");
+	const claudeSkill = path.join(REPO_ROOT, ".claude", "skills", "init-pandi-extensions", "SKILL.md");
 	check("init skill exists in .pi (source of truth)", fs.existsSync(piSkill));
 	check("init skill exists in .claude (mirror)", fs.existsSync(claudeSkill));
 	if (fs.existsSync(piSkill) && fs.existsSync(claudeSkill)) {

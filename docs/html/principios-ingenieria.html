@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Principios de ingeniería de este repo (pi-dynamic-workflows)</title>
+<title>Principios de ingeniería de este repo (pandi-extensions)</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,16 +121,21 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs</div>
-		<h1>Principios de ingeniería de este repo (pi-dynamic-workflows)</h1>
+		<h1>Principios de ingeniería de este repo (pandi-extensions)</h1>
 	</header>
 	<main>
 <p>Destilado de <code>AGENTS.md</code>, <code>modern-software-engineering/SKILL.md</code>,
 <code>ai-assisted-engineering/SKILL.md</code> y <code>karpathy-guidelines</code>. Reglas accionables, no slogans.</p>
+<h2>En 30 segundos</h2>
+<p>Este documento resume las reglas de ingeniería que rigen este repo. Te sirve para decidir
+cómo encarar un cambio, revisar una PR o coordinarte con IA sin perder verificabilidad.
+Si hay varias opciones válidas, elegí el slice más chico, escribí/ejecutá tests y dejá
+evidencia concreta.</p>
 <h2>1. Mentalidad (Karpathy)</h2>
 <ul>
-<li><strong>Entendé antes de escribir código.</strong> Declará supuestos antes de implementar; si hay
-varias interpretaciones válidas, presentalas — no elijas en silencio; si algo no está
-claro, parás y preguntás en vez de suponer.</li>
+<li><strong>Entendé antes de escribir código.</strong> Declarar supuestos antes de implementar; si hay
+varias interpretaciones válidas, presentalas — no elijas en silencio. Si algo no está
+claro, frená y preguntá en vez de suponer.</li>
 <li><strong>La simplicidad se gana su lugar.</strong> Escribí el mínimo código que resuelve el problema
 pedido: sin abstracciones de uso único, sin &quot;flexibilidad&quot; no pedida, sin manejo de
 errores para casos imposibles. Si 200 líneas podían ser 50, reescribilas.</li>
@@ -159,12 +164,12 @@ evitá reescrituras especulativas grandes. Buscá el feedback de alta calidad M�
 (test que corre en segundos &gt; suite lenta; check local &gt; esperar CI completo). Cada
 cambio es una hipótesis; buscá evidencia (tests, CI, runtime, artifacts) antes que moda,
 intuición o &quot;consenso&quot; de IA.</li>
-<li><strong>Complejidad se gestiona en el Refactor, no como diseño especulativo:</strong> revisá
-modularidad, cohesión, separación de responsabilidades, ocultamiento de información,
+<li><strong>La complejidad se gestiona en el Refactor, no como diseño especulativo:</strong> revisá
+modularidad, cohesión, separación de responsabilidades, ocultamiento de información y
 acoplamiento.</li>
 <li><strong>Juzgá cada cambio por estabilidad + throughput.</strong> Solo agregá burocracia, abstracción
 o configurabilidad con evidencia de que mejoran una de las dos sin degradar la otra.
-Reportá evidencia, no confianza: comandos ejecutados, resultados de test/CI, o
+Reportá evidencia, no confianza: comandos ejecutados, resultados de test/CI o
 incertidumbre explícita.</li>
 </ul>
 <h2>3. Reglas del repo que NO son negociables</h2>

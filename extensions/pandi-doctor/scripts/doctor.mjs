@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * doctor.mjs — chequeo de entorno read-only para pi-dynamic-workflows.
+ * doctor.mjs — chequeo de entorno read-only para pandi-extensions.
  *
  * Reporta qué prerequisitos (obligatorios y opcionales) están presentes y usables,
  * para que un recién llegado sepa qué le falta antes de `pi install ./`.
@@ -18,7 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Walk up from `startDir` to find the pi-dynamic-workflows suite root (the repo
+ * Walk up from `startDir` to find the pandi-extensions suite root (the repo
  * package.json). The script now lives INSIDE the pi-doctor extension, so it can
  * run from any install location; the suite root is a property of the CWD, not of
  * where the script file sits.
@@ -29,7 +29,7 @@ function findSuiteRoot(startDir) {
 		const pkg = path.join(dir, "package.json");
 		if (existsSync(pkg)) {
 			try {
-				if (JSON.parse(readFileSync(pkg, "utf8")).name === "pi-dynamic-workflows") return dir;
+				if (JSON.parse(readFileSync(pkg, "utf8")).name === "pandi-extensions") return dir;
 			} catch {
 				// unreadable/invalid package.json: keep walking up.
 			}
@@ -238,7 +238,7 @@ const syncLabel = `sync Claude global (${shortDir})`;
 if (!SUITE_ROOT) {
 	// Standalone install: the mirror is a dev concern of the suite repo, not of
 	// this machine — N/A, not a false "out of sync" warning.
-	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pi-dynamic-workflows)");
+	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(syncScript)) {
 	const sync = spawnSync("node", [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
 	if (sync.error || typeof sync.status !== "number") {
@@ -257,14 +257,14 @@ if (!SUITE_ROOT) {
 	report("optional", WARN, "sync Claude global", "ausente — scripts/sync-claude-global.mjs no encontrado");
 }
 
-// vendor skills (extensión): ¿los skills que pi-dynamic-workflows vendoriza en su propio dir
+// vendor skills (extensión): ¿los skills que pandi-extensions vendoriza en su propio dir
 // (extensions/pandi-dynamic-workflows/skills/) siguen byte-idénticos a la fuente .pi/skills? Delegamos
 // en el propio generador vía --check. Opcional a propósito: avisa, no rompe el doctor. Standalone
 // (fuera del repo) no aplica: el árbol vendorizado ya viene fijado en el paquete instalado.
 const vendorScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "vendor-extension-skills.mjs") : null;
 const vendorLabel = "vendor skills (extensión)";
 if (!SUITE_ROOT) {
-	report("optional", dim("·"), vendorLabel, "N/A (fuera del repo pi-dynamic-workflows)");
+	report("optional", dim("·"), vendorLabel, "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(vendorScript)) {
 	const vendor = spawnSync("node", [vendorScript, "--check"], { encoding: "utf8", timeout: 20000 });
 	if (vendor.error || typeof vendor.status !== "number") {
@@ -283,7 +283,7 @@ if (!SUITE_ROOT) {
 // Opcional a propósito: avisa, no rompe el doctor. Standalone (fuera del repo) no aplica.
 const hookLabel = "hook pre-commit (git)";
 if (!SUITE_ROOT) {
-	report("optional", dim("·"), hookLabel, "N/A (fuera del repo pi-dynamic-workflows)");
+	report("optional", dim("·"), hookLabel, "N/A (fuera del repo pandi-extensions)");
 } else {
 	const hooksPathCfg = spawnSync("git", ["config", "core.hooksPath"], {
 		cwd: SUITE_ROOT,
@@ -329,7 +329,8 @@ const isRemote = (src) => /^(git:|npm:|https?:\/\/|ssh:\/\/)/.test(src);
 const foreignCopies = packageEntries.filter(
 	({ src }) =>
 		isRemote(src) &&
-		(src.includes("pi-dynamic-workflows") ||
+		(src.includes("pandi-extensions") ||
+			src.includes("pi-dynamic-workflows") ||
 			src.includes("pandi-dynamic-workflows") ||
 			src.includes("@pandi-coding-agent/")),
 );
@@ -357,7 +358,7 @@ if (foreignCopies.length && workingTreeEntries.length) {
 }
 
 // ── Salida ──────────────────────────────────────────────────────────────────
-console.log(bold("\npi-dynamic-workflows doctor\n"));
+console.log(bold("\npandi-extensions doctor\n"));
 console.log(bold("Obligatorios:"));
 for (const r of results.filter((r) => r.level === "required")) console.log(r.line);
 console.log(bold("\nOpcionales:"));

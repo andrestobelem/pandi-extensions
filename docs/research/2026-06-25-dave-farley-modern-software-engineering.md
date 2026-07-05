@@ -1,54 +1,58 @@
-# Software Engineering Principles According to Dave Farley
+# Principios de ingeniería de software según Dave Farley
 
-Date: 2026-06-25
+Fecha: 2026-06-25
 
-## Context
+## En 30 segundos
 
-Brief research on the software engineering principles Dave Farley presents in _Modern Software Engineering: Doing What Works to Build Better Software Faster_.
+Este texto resume cómo Dave Farley entiende la ingeniería de software moderna en _Modern Software Engineering: Doing What Works to Build Better Software Faster_. La idea central no es sumar burocracia, sino aprender más rápido y controlar mejor la complejidad. Si buscás una definición práctica del enfoque de Farley, esta es la página corta.
 
-## Executive Summary
+## Contexto
 
-For Farley, modern software engineering is not more bureaucracy or heavier process. It is applying scientific, empirical, and pragmatic thinking to create better software faster.
+Investigación breve sobre los principios de ingeniería de software que Dave Farley presenta en _Modern Software Engineering: Doing What Works to Build Better Software Faster_.
 
-The discipline is organized around two core competencies:
+## Resumen ejecutivo
 
-1. Being experts at learning.
-2. Being experts at managing complexity.
+Para Farley, la ingeniería de software moderna no es más proceso ni más burocracia. Es aplicar pensamiento científico, empírico y pragmático para construir mejor software más rápido.
 
-## Main Principles
+La disciplina se organiza alrededor de dos competencias centrales:
 
-### 1. Optimize for learning
+1. Ser expertos en aprender.
+2. Ser expertos en manejar la complejidad.
 
-Software development is an activity of exploration, discovery, and design, not a production line. That is why Farley proposes:
+## Principios principales
 
-- Work iteratively: move forward in short cycles to discover misunderstandings early.
-- Seek fast, high-quality feedback: tests, continuous integration, user feedback, design review.
-- Work incrementally: small, reversible, safe changes.
-- Be experimental: formulate hypotheses, measure results, and control variables.
-- Be empirical: decide based on evidence, not fashion, authority, or intuition.
+### 1. Optimizar para aprender
 
-### 2. Optimize for managing complexity
+El desarrollo de software es una actividad de exploración, descubrimiento y diseño, no una línea de producción. Por eso Farley propone:
 
-Because real systems cannot fit entirely in one person's head, engineering must control technical and organizational complexity. Farley highlights:
+- Trabajar de forma iterativa: avanzar en ciclos cortos para detectar malentendidos temprano.
+- Buscar feedback rápido y de calidad: tests, integración continua, feedback de usuarios, revisión de diseño.
+- Trabajar de manera incremental: cambios pequeños, reversibles y seguros.
+- Ser experimental: formular hipótesis, medir resultados y controlar variables.
+- Ser empírico: decidir con evidencia, no con moda, autoridad o intuición.
 
-- Modularity: divide the system into understandable and modifiable parts.
-- High cohesion: group together what changes for the same reasons.
-- Separation of responsibilities: isolate distinct concerns.
-- Information hiding and abstraction: expose simple interfaces and hide internal details.
-- Low coupling: reduce dependencies that make the system costly to change.
+### 2. Optimizar para manejar la complejidad
 
-### 3. Measure with useful criteria
+Como los sistemas reales no caben enteros en la cabeza de una sola persona, la ingeniería debe controlar la complejidad técnica y organizacional. Farley destaca:
 
-Farley uses two dimensions aligned with _Accelerate_ as an evaluation yardstick:
+- Modularidad: dividir el sistema en partes comprensibles y modificables.
+- Alta cohesión: agrupar lo que cambia por las mismas razones.
+- Separación de responsabilidades: aislar preocupaciones distintas.
+- Ocultamiento de información y abstracción: exponer interfaces simples y ocultar detalles internos.
+- Bajo acoplamiento: reducir dependencias que vuelven costoso el cambio.
 
-- Stability: quality, reliability, low failure rate, and fast recovery.
-- Throughput: the ability to deliver changes frequently and efficiently.
+### 3. Medir con criterios útiles
 
-A practice, tool, or process should be adopted if it improves —or at least does not worsen— those two dimensions.
+Farley usa dos dimensiones, alineadas con _Accelerate_, como vara de evaluación:
 
-### 4. Tools in service of engineering
+- Estabilidad: calidad, confiabilidad, baja tasa de fallos y recuperación rápida.
+- Throughput: capacidad de entregar cambios con frecuencia y eficiencia.
 
-For Farley, the important tools are not only languages or frameworks, but practices that enable learning and complexity control:
+Una práctica, herramienta o proceso debería adoptarse si mejora —o al menos no empeora— esas dos dimensiones.
+
+### 4. Las herramientas al servicio de la ingeniería
+
+Para Farley, lo importante no son solo los lenguajes o frameworks, sino las prácticas que habilitan aprendizaje y control de complejidad:
 
 - automated testing,
 - TDD,
@@ -59,11 +63,11 @@ For Farley, the important tools are not only languages or frameworks, but practi
 - small changes,
 - fast pipelines.
 
-## Condensed Thesis
+## Tesis condensada
 
-Modern software engineering consists of applying practical science to development, optimizing the work system to learn quickly and control complexity, using evidence instead of faith, fashion, or intuition.
+La ingeniería de software moderna consiste en aplicar ciencia práctica al desarrollo, optimizar el sistema de trabajo para aprender rápido y controlar la complejidad, usando evidencia en lugar de fe, moda o intuición.
 
-## Sources Consulted
+## Fuentes consultadas
 
 - InformIT/Pearson: _Modern Software Engineering: Doing What Works to Build Better Software Faster_. https://www.informit.com/store/modern-software-engineering-doing-what-works-to-build-9780137314911
 - InformIT/Pearson: sample chapter "Software Engineering Fundamentals". https://www.informit.com/articles/article.aspx?p=3129276

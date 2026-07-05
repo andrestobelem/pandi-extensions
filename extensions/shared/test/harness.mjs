@@ -217,7 +217,7 @@ export async function bundle({ src, outDir, outName, aliases = {}, npx = "--no-i
  *              needed and the run stays offline-deterministic) or "--yes" — preserved per suite.
  *   - copyDirs: { destName: absSrcDir } — sibling asset dirs copied into the tempdir next to the
  *               bundle, for entries that read files at runtime relative to import.meta.url
- *               (e.g. pi-dynamic-workflows reads scaffolds/*.js beside its module).
+ *               (e.g. pandi-dynamic-workflows reads scaffolds/*.js beside its module).
  */
 export async function buildExtension({ name, src, outName, stubs = {}, npx = "--no-install", copyDirs = {} }) {
 	const { outDir, aliases } = await makeBuildDir(name, stubs);

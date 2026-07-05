@@ -82,6 +82,7 @@ import {
 } from "./flags.js";
 import { blockedReason } from "./gate.js";
 import { notify } from "./notify.js";
+import { writeAndOpenPlanHtmlArtifact } from "./plan-html.js";
 import { makeImplementPrompt, makePlanningPrompt, type PlanFlags } from "./prompts.js";
 import { collectLatestByKey } from "./session-state.js";
 import { clearPlanStatus, formatStatus, setPlanStatus } from "./status.js";
@@ -541,6 +542,23 @@ export default function planExtension(pi: ExtensionAPI): void {
 					],
 					details: { planId: plan.planId, status: "planning", approved: false, reason: "no-ui" },
 				};
+			}
+
+			try {
+				const artifact = await writeAndOpenPlanHtmlArtifact(pi, ctx, planText, plan.planId, submission);
+				if (!artifact.opened) {
+					notify(
+						ctx,
+						`Plan HTML artifact saved, but the browser could not be opened automatically: ${artifact.htmlPath}`,
+						"warning",
+					);
+				}
+			} catch (error) {
+				notify(
+					ctx,
+					`Could not create/open the plan HTML preview: ${(error as Error).message}. Continuing with Markdown approval.`,
+					"warning",
+				);
 			}
 
 			const approved = await presentPlanForApproval(ctx, planText, plan.planId);

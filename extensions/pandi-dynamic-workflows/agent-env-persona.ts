@@ -1,5 +1,5 @@
 /**
- * Agent environment, persona, and default-access kernel for pi-dynamic-workflows.
+ * Agent environment, persona, and default-access kernel for pandi-dynamic-workflows.
  *
  * Builds the env wrapper for agent subprocesses (key allow-listing, isolation,
  * value sanitization), resolves built-in/project personas, and applies default

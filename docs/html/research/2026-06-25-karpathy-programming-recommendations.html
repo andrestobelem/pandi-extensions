@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Andrej Karpathy's recommendations for programming, learning, and using AI</title>
+<title>Recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,59 +121,61 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs/research</div>
-		<h1>Andrej Karpathy's recommendations for programming, learning, and using AI</h1>
+		<h1>Recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA</h1>
 	</header>
 	<main>
-<p>Date: 2026-06-25</p>
-<h2>Objective</h2>
-<p>Recover and apply research on Andrej Karpathy&#39;s programming principles to Dynamic Workflows, prompts, and agent UX. The historical workflow was restored from <code>HEAD</code> (<code>.pi/workflows/karpathy-programming-recommendations-research.js</code>), synthesizing primary sources on learning, AI-assisted coding, and engineering judgment.</p>
-<h2>Recovered workflow</h2>
-<p>Restored from <code>.pi/workflows/karpathy-programming-recommendations-research.js</code>.</p>
-<p><strong>Research approach:</strong> fan-out by angles (primary sources, learning programming/ML, AI-assisted coding, engineering principles, skeptical verification) and synthesize with evidence, quotes, confidence, and applicability.</p>
-<h2>Main sources</h2>
+<p>Fecha: 2026-06-25</p>
+<h2>En 30 segundos</h2>
+<p>Este informe recupera y aplica ideas de Karpathy sobre cómo programar, aprender y trabajar con IA. La lectura útil es simple: construir para entender, delegar con criterio y verificar siempre con evidencia.</p>
+<h2>Objetivo</h2>
+<p>Recuperar y aplicar la investigación sobre los principios de programación de Andrej Karpathy a Dynamic Workflows, los prompts y la UX de agentes. El workflow histórico fue restaurado desde <code>HEAD</code> (<code>.pi/workflows/karpathy-programming-recommendations-research.js</code>), sintetizando fuentes primarias sobre aprendizaje, programación asistida por IA y juicio de ingeniería.</p>
+<h2>Workflow recuperado</h2>
+<p>Restaurado desde <code>.pi/workflows/karpathy-programming-recommendations-research.js</code>.</p>
+<p><strong>Enfoque de investigación:</strong> fan-out por ángulos (fuentes primarias, aprendizaje de programación/ML, programación asistida por IA, principios de ingeniería, verificación escéptica) y síntesis con evidencia, citas, confianza y aplicabilidad.</p>
+<h2>Fuentes principales</h2>
 <ul>
 <li><a href="https://karpathy.ai/">Andrej Karpathy homepage</a></li>
 <li><a href="https://karpathy.bearblog.dev/sequoia-ascent-2026/">Sequoia Ascent 2026 summary: Software 3.0 &amp; agentic engineering</a></li>
 <li><a href="https://karpathy.bearblog.dev/vibe-coding-menugen/">Vibe coding MenuGen</a></li>
 <li><a href="https://karpathy.medium.com/software-2-0-a64152b37c35">Software 2.0</a></li>
 <li><a href="https://karpathy.github.io/2019/04/25/recipe/">A Recipe for Training Neural Networks</a></li>
-<li><a href="https://github.com/karpathy/micrograd">micrograd</a> and <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> repositories</li>
+<li>Repositorios <a href="https://github.com/karpathy/micrograd">micrograd</a> y <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a></li>
 <li><a href="https://arxiv.org/abs/2506.23253">Empirical cross-check on vibe coding</a></li>
 </ul>
-<h2>Practical synthesis</h2>
-<h3>1. Learn by building from scratch</h3>
-<p><strong>Principle:</strong> Small, readable, complete implementations reveal fundamentals.</p>
-<p><strong>Evidence:</strong> <code>micrograd</code>, <code>nanoGPT</code>, Zero to Hero, and educational material on karpathy.ai.</p>
-<p><strong>Application:</strong> Pi examples/workflows should be inspectable, modifiable, and avoid hidden magic.</p>
-<h3>2. Understand before delegating</h3>
-<p><strong>Principle:</strong> AI lowers friction but does not replace technical judgment for systems that matter.</p>
-<p><strong>Evidence:</strong> Posts on vibe coding and Software 3.0; MenuGen documents real frictions around auth, payments, deploy, API, and reliability.</p>
-<p><strong>Application:</strong> Use agents to accelerate, but preserve human review, tests, and evidence.</p>
-<h3>3. Software 3.0: Programming with prompts, context, and tools</h3>
-<p><strong>Principle:</strong> Evolution from Software 1.0 (explicit code) → Software 2.0 (learned weights) → Software 3.0 (LLMs programmed via prompts, context, examples, memory, tools).</p>
-<p><strong>Application:</strong> In Dynamic Workflows, prompts, artifacts, schemas, scoped tools, and dashboards are part of the programming interface, not secondary details.</p>
-<h3>4. Vibe coding for prototypes, not production</h3>
-<p><strong>Principle:</strong> Useful for personal apps, demos, and rapid exploration. Production requires specs, review, tests/evals, security, and human ownership.</p>
-<p><strong>Application:</strong> Separate &quot;explore/generate&quot; from &quot;verify/commit&quot;; make visible what was validated.</p>
-<h3>5. Incremental debugging and simple baselines</h3>
-<p><strong>Principle:</strong> Inspect data, start simple, verify assumptions, overfit small cases, add complexity gradually.</p>
-<p><strong>Evidence:</strong> &quot;A Recipe for Training Neural Networks.&quot;</p>
-<p><strong>Application:</strong> Complex workflows need cheap scouts, visible caps, smoke tests, and artifacts before large fan-outs.</p>
-<h3>6. The expert&#39;s role shifts toward specifying, evaluating, and debugging</h3>
-<p><strong>Principle:</strong> AI use shifts work from writing code to managing context, reviewing outputs, designing tests, and verifying correctness.</p>
-<p><strong>Application:</strong> Dashboards and graphs should show status, agents, evidence, and partial failures so humans can supervise.</p>
-<h2>Implications for this project</h2>
+<h2>Síntesis práctica</h2>
+<h3>1. Aprender construyendo desde cero</h3>
+<p><strong>Principio:</strong> las implementaciones pequeñas, legibles y completas revelan los fundamentos.</p>
+<p><strong>Evidencia:</strong> <code>micrograd</code>, <code>nanoGPT</code>, Zero to Hero y material educativo en karpathy.ai.</p>
+<p><strong>Aplicación:</strong> los ejemplos y workflows de Pi deben poder inspeccionarse, modificarse y evitar la magia oculta.</p>
+<h3>2. Entender antes de delegar</h3>
+<p><strong>Principio:</strong> la IA reduce fricción, pero no reemplaza el juicio técnico en sistemas importantes.</p>
+<p><strong>Evidencia:</strong> textos sobre vibe coding y Software 3.0; MenuGen documenta fricciones reales en auth, payments, deploy, API y reliability.</p>
+<p><strong>Aplicación:</strong> usar agentes para acelerar, pero conservar revisión humana, tests y evidencia.</p>
+<h3>3. Software 3.0: programar con prompts, contexto y tools</h3>
+<p><strong>Principio:</strong> evolución de Software 1.0 (código explícito) → Software 2.0 (pesos aprendidos) → Software 3.0 (LLMs programados mediante prompts, contexto, ejemplos, memoria y tools).</p>
+<p><strong>Aplicación:</strong> en Dynamic Workflows, los prompts, artifacts, schemas, scoped tools y dashboards forman parte de la interfaz de programación, no son detalles secundarios.</p>
+<h3>4. Vibe coding para prototipos, no para producción</h3>
+<p><strong>Principio:</strong> sirve para apps personales, demos y exploración rápida. Producción requiere specs, review, tests/evals, seguridad y responsabilidad humana.</p>
+<p><strong>Aplicación:</strong> separar <code>explore/generate</code> de <code>verify/commit</code>; hacer visible qué quedó validado.</p>
+<h3>5. Debugging incremental y baselines simples</h3>
+<p><strong>Principio:</strong> inspeccionar datos, empezar simple, verificar supuestos, overfit casos pequeños y sumar complejidad gradualmente.</p>
+<p><strong>Evidencia:</strong> &quot;A Recipe for Training Neural Networks&quot;.</p>
+<p><strong>Aplicación:</strong> los workflows complejos necesitan scouts baratos, caps visibles, smoke tests y artifacts antes de fan-outs grandes.</p>
+<h3>6. El rol del experto se desplaza hacia especificar, evaluar y depurar</h3>
+<p><strong>Principio:</strong> el uso de IA mueve el trabajo desde escribir código hacia gestionar contexto, revisar salidas, diseñar tests y verificar corrección.</p>
+<p><strong>Aplicación:</strong> los dashboards y graphs deberían mostrar estado, agentes, evidencia y fallos parciales para que las personas puedan supervisar.</p>
+<h2>Implicancias para este proyecto</h2>
 <ul>
-<li><strong>Workflow visualization:</strong> Show not only calls but the agentic pattern in use (fan-out, judge, feedback, pipeline, routing).</li>
-<li><strong>Prompts as programs:</strong> Make evidence contracts, allowed tools, output formats, and stop conditions readable.</li>
-<li><strong>Examples:</strong> Favor small, educational implementations (micrograd/nanoGPT style) that are easy to read and run.</li>
-<li><strong>Verification:</strong> For serious tasks, use synthesis-as-judge, tests, or external verification; never treat agent output as truth without evidence.</li>
+<li><strong>Visualización de workflows:</strong> mostrar no solo las llamadas, sino también el patrón agentic en uso (fan-out, judge, feedback, pipeline, routing).</li>
+<li><strong>Prompts como programas:</strong> dejar legibles los evidence contracts, los allowed tools, los output formats y las stop conditions.</li>
+<li><strong>Ejemplos:</strong> preferir implementaciones pequeñas y educativas (estilo <code>micrograd</code>/<code>nanoGPT</code>) que sean fáciles de leer y ejecutar.</li>
+<li><strong>Verificación:</strong> para tareas serias, usar synthesis-as-judge, tests o verificación externa; nunca tratar la salida de un agente como verdad sin evidencia.</li>
 </ul>
-<h2>Validation</h2>
+<h2>Validación</h2>
 <pre><code class="language-bash">node --check .pi/workflows/karpathy-programming-recommendations-research.js
 </code></pre>
-<h2>Next step</h2>
-<p>Update the restored workflow to runtime patterns (<code>settle:true</code>, <code>agentType:&quot;researcher&quot;</code>, partial-failure logging, explicit concurrency) while preserving its primary-source contract.</p>
+<h2>Próximo paso</h2>
+<p>Actualizar el workflow restaurado a patrones de runtime (<code>settle:true</code>, <code>agentType:&quot;researcher&quot;</code>, logging de partial-failure y explicit concurrency) sin perder su contrato con fuentes primarias.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

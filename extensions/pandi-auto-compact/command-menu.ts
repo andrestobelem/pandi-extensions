@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
+import { CODEX_DEFAULT_THRESHOLD_PERCENT, DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
 
 // Interactive menu shown for a bare `/auto-compact` in a UI session. The text
 // BEFORE " — " is the canonical command the handler already understands.
@@ -20,7 +20,9 @@ export const MENU_OPTIONS = [
 
 // Threshold presets offered after choosing "threshold"; derived so the current default
 // is always present (and marked below). The last entry opens a text input.
-const THRESHOLD_PRESETS = [...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT])].sort((a, b) => a - b);
+const THRESHOLD_PRESETS = [
+	...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT, CODEX_DEFAULT_THRESHOLD_PERCENT]),
+].sort((a, b) => a - b);
 export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "custom\u2026"];
 
 // Argument autocomplete items. `value` is inserted into the editor on accept.
@@ -42,7 +44,7 @@ export const ARG_COMPLETIONS: { value: string; label: string; description: strin
 	...THRESHOLD_PRESETS.map((p) => ({
 		value: String(p),
 		label: `${p}%`,
-		description: `Set threshold to ${p}%${p === DEFAULT_THRESHOLD_PERCENT ? " (default)" : ""}`,
+		description: `Set threshold to ${p}%${p === DEFAULT_THRESHOLD_PERCENT ? " (default)" : p === CODEX_DEFAULT_THRESHOLD_PERCENT ? " (Codex default)" : ""}`,
 	})),
 ];
 

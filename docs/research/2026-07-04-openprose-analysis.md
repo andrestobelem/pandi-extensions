@@ -1,67 +1,72 @@
-# OpenProse ("Prose") — analysis and comparison with Dynamic Workflows
+# OpenProse ("Prose") — análisis y comparación con Dynamic Workflows
 
-Date: 2026-07-04
+Fecha: 2026-07-04
 
-## Objective
+## En 30 segundos
 
-Understand what OpenProse is (the "programming language for AI sessions" behind
-the locally installed `open-prose` skill), how its declarative contract model
-works, and how it compares to this repo's imperative dynamic workflows — so we
-can borrow what helps and be explicit about the trade-offs.
+OpenProse propone tratar una sesión de IA como un programa declarativo escrito en Markdown. Sirve para convertir flujos exitosos en contratos versionables y reutilizables, con trazabilidad de ejecución.
 
-## Sources reviewed
+Este informe resume cómo funciona su modelo y qué cambia frente a los dynamic workflows imperativos de este repo. La comparación ayuda a decidir qué ideas conviene adoptar y cuáles chocan con nuestro foco en control explícito y evidencia inspeccionable.
 
-- **prose.md / openprose.ai** (official site; openprose.ai 301-redirects to
-  prose.md) — declarative model, primitives, "Prose Complete" harness list.
+## Objetivo
+
+Entender qué es OpenProse (el "programming language for AI sessions" detrás del skill local `open-prose`), cómo funciona su modelo de contratos declarativos y cómo se compara con los dynamic workflows imperativos de este repo — para poder tomar lo útil y dejar claras las compensaciones.
+
+## Fuentes revisadas
+
+- **prose.md / openprose.ai** (sitio oficial; openprose.ai redirige con 301 a
+  prose.md) — modelo declarativo, primitivas, lista de harnesses "Prose Complete".
   <https://prose.md/>
 - **Turing Post — "OpenProse: A Language for Reliable AI Agent Workflows"**
-  (guest post by creator Raymond Weitekamp, June 2026) — motivation, receipts,
-  ProseScript, honest limitations.
+  (artículo invitado de Raymond Weitekamp, junio de 2026) — motivación, receipts,
+  ProseScript, limitaciones honestas.
   <https://www.turingpost.com/p/openprose-a-language-for-reliable-agents>
 - **DEV Community — "OpenProse: A Programming Language for AI Sessions"**
-  (Steven Gonsalvez) — syntax example, Forme contract resolution, debugging
-  critique.
+  (Steven Gonsalvez) — ejemplo de sintaxis, resolución de contratos en Forme,
+  crítica de debugging.
   <https://dev.to/stevengonsalvez/openprose-a-programming-language-for-ai-sessions-d84>
-- **Sean Weldon — "Recursive Coding Agents" (interview with Raymond
-  Weitekamp, 2026-06-27)** — context on recursive/self-hosting usage.
+- **Sean Weldon — "Recursive Coding Agents" (entrevista con Raymond
+  Weitekamp, 2026-06-27)** — contexto sobre uso recursivo y self-hosted.
   <https://www.sean-weldon.com/blog/2026-06-27-recursive-coding-agents-raymond-weitekamp-openprose>
-- **Local skill** `~/.agents/skills/open-prose/` (v0.15.0, also installed at
-  `~/.claude/skills/open-prose/`) — SKILL.md, five load-bearing pieces,
-  activation contract.
+- **Skill local** `~/.agents/skills/open-prose/` (v0.15.0, también instalado en
+  `~/.claude/skills/open-prose/`) — `SKILL.md`, cinco piezas centrales,
+  contrato de activación.
 
-## What OpenProse is
+## Qué es OpenProse
 
-OpenProse (Raymond Weitekamp, open source) treats an AI session as a
-Turing-complete virtual machine. Programs are Markdown files (`*.prose.md`)
-with YAML frontmatter; the coding agent itself is the compiler and runtime —
-there is no external server or orchestration framework. It runs on any
-"Prose Complete" harness: Claude Code, OpenCode, Amp, Codex.
+OpenProse (Raymond Weitekamp, open source) trata una sesión de IA como una
+máquina virtual Turing-complete. Los programas son archivos Markdown
+(`*.prose.md`) con YAML frontmatter; el propio agente de código actúa como
+compiler y runtime — no hay servidor externo ni framework de orquestación.
+Funciona sobre cualquier harness "Prose Complete": Claude Code, OpenCode, Amp,
+Codex.
 
-The problem it targets is trust and reuse, not model capability: successful
-agent sessions vanish into chat history, forcing developers to babysit agents
-instead of replaying proven flows. OpenProse converts those flows into
-versionable contracts, and each run leaves an audit trail ("receipts").
+El problema que apunta no es la capacidad del modelo, sino la confianza y la
+reutilización: las sesiones exitosas desaparecen en el historial del chat,
+lo que obliga a babysittear agentes en vez de reproducir flujos probados.
+OpenProse convierte esos flujos en contratos versionables, y cada ejecución deja
+un audit trail ("receipts").
 
-## Execution model
+## Modelo de ejecución
 
-- **Declarative contracts.** A unit of work (a *responsibility*) declares
-  `### Requires` (preconditions/inputs), `### Ensures`
-  (postconditions/outputs), and preferred strategies. There is no explicit
-  sequencing: if step A *ensures* what step B *requires*, A runs first;
-  independent steps parallelize automatically.
-- **Forme** is the semantic dependency-injection container that wires
-  responsibilities by matching their contracts.
-- **ProseScript** is the optional imperative layer for pinned choreography —
-  explicit order, loops, conditionals, retries, and parallel blocks inside a
-  `### Execution` block.
-- **In-session execution.** Unlike LangChain/CrewAI/AutoGen (external
-  orchestration) or BAML/DSPy (external harness), the agent reads the Markdown
-  and becomes the VM, spawning subagents and persisting run state under an
-  OpenProse root.
-- Also supports persistent agents (state across invocations), pipelines, and
-  intermediate variables.
+- **Contratos declarativos.** Una unidad de trabajo (una *responsibility*)
+  declara `### Requires` (precondiciones/inputs), `### Ensures`
+  (poscondiciones/outputs) y estrategias preferidas. No hay secuenciación
+  explícita: si el paso A *ensures* lo que el paso B *requires*, A corre antes;
+  los pasos independientes se paralelizan automáticamente.
+- **Forme** es el contenedor semántico de dependency injection que conecta
+  responsibilities haciendo match entre sus contratos.
+- **ProseScript** es la capa imperativa opcional para coreografía fijada — orden
+  explícito, loops, conditionals, retries y bloques paralelos dentro de un
+  bloque `### Execution`.
+- **Ejecución en sesión.** A diferencia de LangChain/CrewAI/AutoGen
+  (orquestación externa) o BAML/DSPy (harness externo), el agente lee el Markdown
+  y se convierte en la VM, crea subagentes y persiste el estado de ejecución en
+  un OpenProse root.
+- También soporta persistent agents (estado entre invocaciones), pipelines y
+  variables intermedias.
 
-Minimal step example (from the DEV article):
+Ejemplo mínimo de paso (tomado del artículo de DEV):
 
 ```markdown
 ---
@@ -73,57 +78,57 @@ Review the codebase analysis and create a comprehensive test plan
 covering all edge cases for the authentication module.
 ```
 
-## Local skill (v0.15.0)
+## Skill local (v0.15.0)
 
-The installed `open-prose` skill documents five load-bearing pieces:
+El skill `open-prose` instalado documenta cinco piezas centrales:
 
-| Piece | File | Role |
-|-------|------|------|
-| Contract Markdown | `contract-markdown.md` | Human-readable `*.prose.md` source format |
-| Forme | `forme.md` | Semantic DI container that wires contracts |
-| Prose VM | `prose.md` | Execution engine for responsibilities/functions |
-| ProseScript | `prosescript.md` | Imperative layer for `### Execution` blocks |
-| Responsibility Runtime | `responsibility-runtime.md` | Standing goals, Reactor, compile/serve doctrine |
+| Pieza | Archivo | Rol |
+|-------|---------|-----|
+| Contract Markdown | `contract-markdown.md` | Formato fuente legible de `*.prose.md` |
+| Forme | `forme.md` | Contenedor semántico de DI que conecta contratos |
+| Prose VM | `prose.md` | Motor de ejecución para responsibilities/functions |
+| ProseScript | `prosescript.md` | Capa imperativa para bloques `### Execution` |
+| Responsibility Runtime | `responsibility-runtime.md` | Standing goals, Reactor, doctrina compile/serve |
 
-Activation: typing `prose ...`, opening a `.prose.md` with `kind:`
-frontmatter, or asking for reusable multi-agent orchestration; `prose run` is
-an in-session instruction (the agent embodies the VM — no `prose` binary).
+Activación: escribir `prose ...`, abrir un `.prose.md` con frontmatter `kind:`,
+o pedir orquestación multi-agente reutilizable; `prose run` es una instrucción
+en sesión (el agente encarna la VM — no existe un binario `prose`).
 
-## Strengths and limitations
+## Fortalezas y limitaciones
 
-Strengths: portable across harnesses, zero external dependencies, programs
-improve for free as models improve, Markdown+YAML is readable and
-git-friendly, automatic parallelization from contracts.
+Fortalezas: portable entre harnesses, sin dependencias externas, los programas
+mejoran gratis a medida que mejoran los modelos, Markdown+YAML es legible y
+amigable con Git, paralelización automática a partir de contratos.
 
-Limitations (the creator states them himself): it does **not** turn an LLM
-into deterministic infrastructure — runs remain non-deterministic, contracts
-must be well designed, and it works best with frontier models. Debugging is
-the sharpest trade-off: when the runtime decides execution order, explaining
-*why* it ran in that order requires understanding the contract-resolution
-algorithm.
+Limitaciones (el creador las plantea explícitamente): no convierte un LLM en
+infraestructura determinista — las ejecuciones siguen siendo no deterministas,
+los contratos tienen que estar bien diseñados y funciona mejor con frontier
+models. El debugging es el trade-off más duro: cuando el runtime decide el orden
+de ejecución, explicar *por qué* ejecutó en ese orden exige entender el
+algoritmo de resolución de contratos.
 
-## Comparison with this repo's dynamic workflows
+## Comparación con los dynamic workflows de este repo
 
-| Dimension | OpenProse | pi-dynamic-workflows |
+| Dimensión | OpenProse | pi-dynamic-workflows |
 |-----------|-----------|----------------------|
-| Paradigm | Declarative contracts (Requires/Ensures) | Imperative JavaScript (`pipeline()`, `parallel()`) |
-| Who decides order | Forme (semantic contract matching) | The script, explicitly |
-| Escape hatch | ProseScript for pinned choreography | n/a (order is always pinned) |
-| Determinism of control flow | Model-resolved, non-deterministic | Deterministic script |
-| Observability / debugging | Receipts; order requires understanding resolution | Runs, artifacts, journal; order is readable in code |
-| Portability | Any "Prose Complete" harness | Claude Code (Workflow) and pi (`dynamic_workflow`) |
+| Paradigma | Contratos declarativos (Requires/Ensures) | JavaScript imperativo (`pipeline()`, `parallel()`) |
+| Quién decide el orden | Forme (semantic contract matching) | El script, de forma explícita |
+| Escape hatch | ProseScript para coreografía fijada | n/a (el orden siempre está fijado) |
+| Determinismo del control flow | Resuelto por el modelo, no determinista | Script determinista |
+| Observabilidad / debugging | Receipts; el orden exige entender la resolución | Runs, artifacts, journal; el orden se lee en el código |
+| Portabilidad | Cualquier harness "Prose Complete" | Claude Code (Workflow) y pi (`dynamic_workflow`) |
 
-Same goal (reusable multi-agent orchestration), inverse bet: OpenProse
-optimizes expressiveness and intent reuse; this repo optimizes deterministic
-control flow and inspectable evidence — exactly the property the project
-instructions call "observable workflows, inspectable artifacts over hidden
-magic".
+Mismo objetivo (orquestación multi-agente reutilizable), apuesta inversa:
+OpenProse optimiza expresividad y reutilización de intención; este repo optimiza
+control flow determinista y evidencia inspeccionable — justo la propiedad que
+las instrucciones del proyecto llaman "observable workflows, inspectable
+artifacts over hidden magic".
 
-## Possible next steps
+## Próximos pasos posibles
 
-- Read the local examples (`~/.agents/skills/open-prose/examples/`,
-  e.g. `session-to-prose`) to see a full responsibility in practice.
-- Evaluate whether a Requires/Ensures-style contract header would improve our
-  workflow drafts' self-documentation without giving up scripted order.
-- Compare `workflow-factory` against OpenProse's session-to-prose flow (both
-  convert a successful ad-hoc session into a reusable artifact).
+- Leer los ejemplos locales (`~/.agents/skills/open-prose/examples/`, por
+  ejemplo `session-to-prose`) para ver una responsibility completa en práctica.
+- Evaluar si un encabezado de contrato estilo Requires/Ensures mejoraría la
+autodocumentación de nuestros workflow drafts sin perder el orden scriptado.
+- Comparar `workflow-factory` con el flujo session-to-prose de OpenProse (ambos
+  convierten una sesión ad hoc exitosa en un artifact reutilizable).

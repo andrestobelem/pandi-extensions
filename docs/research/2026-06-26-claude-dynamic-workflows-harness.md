@@ -1,5 +1,9 @@
 # Claude Dynamic Workflows: _A harness for every task_
 
+## En 30 segundos
+
+Este informe resume cómo Anthropic presenta los dynamic workflows en Claude Code: una capa de orquestación que saca la estrategia del contexto y la vuelve un script JavaScript ejecutable. Sirven para tareas grandes o inciertas, donde hace falta fan-out, verificación cruzada y estado persistente sin llenar la conversación principal. Si querés comparar esa propuesta con Pi Dynamic Workflows, empezá por la tesis y la sección de comparación.
+
 ## Fuentes revisadas
 
 - Anthropic blog: [_A harness for every task: dynamic workflows in Claude Code_](https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code), Thariq Shihipar y Sid Bidasaria, 2026-06-02.
@@ -29,23 +33,23 @@ Según la documentación oficial, un workflow dinámico es un script JavaScript 
 
 Diferencia principal frente a otras capacidades:
 
-| Mecanismo | Quién sostiene el plan | Dónde quedan resultados intermedios | Escala típica |
+| Mecanismo | Quién sostiene el plan | Dónde quedan los resultados intermedios | Escala típica |
 | --- | --- | --- | --- |
 | Subagents | Claude, turno por turno | Contexto de Claude | Pocas delegaciones por turno |
 | Skills | Instrucciones que Claude sigue | Contexto de Claude | Similar a subagents |
 | Agent teams | Un agente líder supervisa peers | Task list compartida | Algunos peers persistentes |
 | Workflows | Un script ejecutado por runtime | Variables/artifacts del script | Decenas a cientos de agentes |
 
-Claude recomienda workflows cuando una tarea necesita más agentes de los que una conversación puede coordinar bien, o cuando conviene que la orquestación quede codificada y se pueda leer/reusar.
+Claude recomienda workflows cuando una tarea necesita más agentes de los que una conversación puede coordinar bien, o cuando conviene que la orquestación quede codificada y se pueda leer o reutilizar.
 
 Ejemplos oficiales:
 
 - barrido de bugs en todo un codebase;
 - migración de cientos de archivos;
 - investigación que requiere cruzar fuentes;
-- plan difícil que conviene evaluar desde varios ángulos antes de implementar.
+- un plan difícil que conviene evaluar desde varios ángulos antes de implementar.
 
-## Triggers y UX en Claude Code
+## Entradas y UX en Claude Code
 
 Claude Code ofrece tres entradas principales:
 
@@ -66,7 +70,7 @@ Claude Code ofrece tres entradas principales:
    - Puede encadenar workflows: entender → modificar → verificar.
    - Es por sesión y se resetea al iniciar una nueva.
 
-## Approval, permisos y seguridad
+## Aprobación, permisos y seguridad
 
 Antes de correr un workflow, Claude Code muestra una aprobación con fases planeadas. Opciones documentadas:
 
@@ -107,14 +111,14 @@ Restricciones documentadas del runtime:
 Gestión de runs:
 
 - `/workflows` lista runs activos y completados.
-- Vista de progreso muestra fases, agentes, tokens y elapsed.
+- La vista de progreso muestra fases, agentes, tokens y elapsed.
 - Se puede pausar/reanudar (`p`), detener (`x`), reiniciar agentes (`r`) y guardar script (`s`).
 - Si se pausa un run, al reanudar los agentes completados devuelven resultados cacheados y el resto corre live.
 - La reanudación dentro de la misma sesión restaura estado. Si se cierra Claude Code durante un run, la siguiente sesión arranca de cero.
 
 ## Patrones nombrados por Anthropic
 
-Los patrones destacados en la cobertura del blog y docs son:
+Los patrones destacados en la cobertura del blog y la documentación son:
 
 - **Classify-and-act**: clasificar items y elegir acción por clase.
 - **Fan-out-and-synthesize**: dividir trabajo independiente y sintetizar.
@@ -125,15 +129,15 @@ Los patrones destacados en la cobertura del blog y docs son:
 
 ## Costo y cuándo no usarlo
 
-Anthropic advierte que un workflow puede gastar muchos más tokens que resolver la tarea conversacionalmente, porque dispara muchos subagentes. Recomendación oficial: probar primero con un slice pequeño, por ejemplo un directorio en vez de todo el repo, o una pregunta estrecha en vez de un tema amplio.
+Anthropic advierte que un workflow puede gastar muchos más tokens que resolver la tarea conversacionalmente, porque dispara muchos subagentes. La recomendación oficial es probar primero con un slice pequeño, por ejemplo un directorio en vez de todo el repo, o una pregunta estrecha en vez de un tema amplio.
 
-No conviene usar workflows para tareas normales de edición o preguntas simples. El criterio fuerte es si hay escala, independencia, verificación cruzada o necesidad de reusar la orquestación.
+No conviene usar workflows para tareas normales de edición o preguntas simples. El criterio fuerte es si hay escala, independencia, verificación cruzada o necesidad de reutilizar la orquestación.
 
-## Comparación con este repo Pi Dynamic Workflows
+## Comparación con este repo, Pi Dynamic Workflows
 
 Lo que ya está alineado:
 
-- Scripts JavaScript task-specific.
+- Scripts JavaScript específicos de la tarea.
 - `dynamic_workflow` para listar, templar, escribir, correr, resumir y ver workflows.
 - Background por defecto en TUI/RPC.
 - Dashboard `/workflows`.
@@ -147,12 +151,12 @@ Lo que ya está alineado:
 ## Deltas o ideas para acercarse más a Claude
 
 1. **Aprobación pre-run con fases y raw script**
-   - Claude muestra fases planeadas y deja ver/editar el script antes de ejecutar.
+   - Claude muestra fases planeadas y deja ver o editar el script antes de ejecutar.
    - En Pi: agregar modo de aprobación humano para workflows generados, especialmente con tools mutantes.
 
 2. **Guardar run como slash command directo**
    - Claude permite `s` en `/workflows` e invocar `/<name>` después.
-   - En Pi: ya existe `/workflow run <name>`, pero generar comandos dinámicos o UX equivalente mejoraría el flujo.
+   - En Pi: ya existe `/workflow run <name>`, pero generar comandos dinámicos o una UX equivalente mejoraría el flujo.
 
 3. **Input natural a workflows guardados**
    - Claude usa `args` estructurado inferido del prompt.
@@ -160,11 +164,11 @@ Lo que ya está alineado:
 
 4. **Métricas de tokens por fase/agente**
    - Claude muestra token totals en la vista de progreso.
-   - En Pi: las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran actualmente; documentar estado o agregar soporte.
+   - En Pi: las métricas no persistidas (`tokens`/`cost`/`model`/`toolCalls`) no se muestran actualmente; documentar el estado o agregar soporte.
 
 5. **Pause/restart granular desde dashboard**
    - Claude ofrece pause/resume de run, stop de agente/run y restart de agente.
-   - En Pi: se tiene cancel/resume; agregar pausa y restart por agente para más control.
+   - En Pi: se tiene cancel/resume; agregar pausa y restart por agente daría más control.
 
 6. **Modelo de permisos por agente**
    - Claude separa aprobación del run y permisos de subagente por allowlist.
@@ -172,16 +176,16 @@ Lo que ya está alineado:
 
 7. **Modo coordinador restringido (sin shell/filesystem directo)**
    - Claude restringe el script: solo coordina, los agentes actúan.
-   - En Pi: se permite `ctx.bash`, `readFile`, `writeFile` y artifacts (más potente, pero menos aislado). Podría existir modo restringido para workflows no confiables o compartibles.
+   - En Pi: se permite `ctx.bash`, `readFile`, `writeFile` y artifacts (más potente, pero menos aislado). Podría existir un modo restringido para workflows no confiables o compartibles.
 
 ## Recomendación para Pi
 
 Mantener la ventaja actual de Pi: workflows como código confiable, composable y resumable.
 
-Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reusabilidad:
+Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reutilización:
 
 1. **Pre-run approval para workflows generados**: mostrar nombre, fases, límites, tools mutantes y raw script.
 2. **Save-as-command**: promover desde run/draft a comando invocable sin recordar `/workflow run`.
 3. **Args ergonómicos**: permitir input estructurado o natural para workflows guardados.
 
-El siguiente slice seguro sería documentar estos deltas como roadmap e implementar primero `save-as-command`, porque es bajo riesgo: no cambia el runtime, solo la capa de descubrimiento/invocación.
+El siguiente slice seguro sería documentar estos deltas como roadmap e implementar primero `save-as-command`, porque es de bajo riesgo: no cambia el runtime, solo la capa de descubrimiento e invocación.

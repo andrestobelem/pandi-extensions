@@ -3,7 +3,7 @@
  * (`pi -p "<prompt>"`, "print response and exit") and return its stdout.
  *
  * The pi SDK exposes no completion/generate-text API, so a one-shot subprocess is the
- * mechanism (mirroring how pi-dynamic-workflows calls the model). The subprocess is
+ * mechanism (mirroring how pandi-dynamic-workflows calls the model). The subprocess is
  * isolated — `--no-extensions/--no-skills/--no-context-files` keeps it fast and avoids
  * recursively loading this very extension. The binary is `pi` on PATH unless overridden
  * by PI_RENAME_PI_COMMAND; the model is the user's default unless PI_RENAME_MODEL is set.

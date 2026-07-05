@@ -1,6 +1,6 @@
 # bug-verify
 
-> Confirma bugs sospechosos por REPRODUCCIÓN: solo es real si una corrida falla contra el código actual; check opcional de fix FAIL→PASS + minimización.
+> Confirma bugs sospechosos por REPRODUCCIÓN: solo es real si una corrida falla contra el código actual; verificación opcional de fix FAIL→PASS + minimización.
 
 ## En 30 segundos
 
@@ -80,13 +80,13 @@ Corre SECUENCIALMENTE, no en paralelo: usa el árbol de trabajo compartido con l
 
 ## Cómo funciona
 
-**Fase Source.** Si `input.bugs` o `input.findings` viene como array, se usa tal cual. Si no, requiere `input.topic` (o `input.text`); dispara un `agent` (`finder`, modelo `haiku`, effort `low`, con `schema` JSON) que devuelve hasta `maxBugs` sospechosos falsables. El texto del topic se envuelve con `fence()` (marcador delimitador derivado de un hash del contenido, no de aleatoriedad) para blindar contra inyección de instrucciones. Cada item crudo se normaliza a `{ id, claim, file, reportedEvidence }`, se deduplica por la clave `claim+file` en minúsculas, y se recorta a `maxBugs` (con `log()` de cuántos se descartaron).
+**Fase Source.** Si `input.bugs` o `input.findings` viene como array, se usa tal cual. Si no, requiere `input.topic` (o `input.text`); dispara un `agent` (`finder`, modelo `haiku`, effort `low`, con `schema` JSON) que devuelve hasta `maxBugs` sospechosos falsables. El texto del `topic` se envuelve con `fence()` (marcador delimitador derivado de un hash del contenido, no de aleatoriedad) para blindarlo contra inyección de instrucciones. Cada ítem crudo se normaliza a `{ id, claim, file, reportedEvidence }`, se deduplica por la clave `claim+file` en minúsculas, y se recorta a `maxBugs` (con `log()` de cuántos se descartaron).
 
 **Fase Reproduce.** Si `attemptFix` está activo, un agente `tree-baseline` (`haiku`, `low`) corre `git status --porcelain` para tener una foto del estado inicial. Después, un `for` secuencial (no `parallel`) recorre cada bug: un agente `repro` (`sonnet`, `medium`, `schema` VERDICT, label `repro:<id>`) recibe el claim, file y evidencia reportada (cada uno envuelto en su propio `fence()`), y debe construir y CORRER una reproducción real, citando el output. El prompt instruye explícitamente el intento de fix + revert si `attemptFix`, y la minimización delta-debugging-style si `minimize`. Tras cada bug, si `attemptFix`, otro agente `tree-check` (`haiku`, `low`) vuelve a correr `git status --porcelain` y compara contra el baseline para marcar `treeDirty` (revert fallido).
 
-No hay `parallel`/`settle` en este scaffold — cada resultado se empuja directo al array `results`, y un `agent` que devuelve `null`/vacío se registra como `inconclusive` en vez de abortar el loop. No hay caching explícito (sin `writeArtifact` ni memoización entre corridas); cada invocación reproduce desde cero.
+No hay `parallel`/`settle` en este scaffold — cada resultado se empuja directo al array `results`, y un `agent` que devuelve `null`/vacío se registra como `inconclusive` en vez de abortar el ciclo. No hay caché explícita (sin `writeArtifact` ni memoización entre corridas); cada invocación reproduce desde cero.
 
-## Input y output
+## Entrada y salida
 
 | Campo | Tipo / default | Notas |
 |---|---|---|
@@ -109,7 +109,7 @@ Retorna:
 }
 ```
 
-No escribe artifacts (`writeArtifact`) — el resultado viaja completo en el valor de retorno del workflow.
+No escribe artefactos (`writeArtifact`) — el resultado viaja completo en el valor de retorno del workflow.
 
 ## Fases
 

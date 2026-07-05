@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-Es el workflow que diseña OTRO workflow. Le pasás una tarea en lenguaje natural y gasta una corrida completa en: descubrir el catálogo de scaffolds existentes, planear el patrón/primitivas/presupuesto de modelos, generar el código JS del nuevo workflow, revisarlo de forma adversarial, refinarlo si hace falta, y finalmente escribir el draft a disco. Elegilo cuando ningún scaffold existente encaja y necesitás uno específico para la tarea — nunca cuando `fan-out-and-synthesize`, `map-reduce` u otro patrón catalogado ya resuelve el caso.
+Es el workflow que diseña otro workflow. Le das una tarea en lenguaje natural y usa una corrida completa para: descubrir el catálogo de scaffolds existentes, elegir el patrón y el presupuesto de modelos, generar el JS del nuevo workflow, revisarlo de forma adversarial, refinarlo si hace falta y escribir el draft en disco. Usalo cuando ningún scaffold existente encaja y necesitás uno específico para la tarea; si `fan-out-and-synthesize`, `map-reduce` u otro patrón catalogado ya resuelve el caso, conviene llamarlo directo.
 
 ## Cómo lanzarlo
 
@@ -66,7 +66,7 @@ flowchart TD
 
 ## Qué hace
 
-`workflow-factory` es un workflow que produce otro workflow: dado un `task` en lenguaje natural, ejecuta un pipeline de seis fases (Catalog → Plan → Generate → Review → Refine → Write) donde cada fase alimenta a la siguiente con contexto acumulado. El objetivo es que el resultado sea un draft JS listo para inspeccionar, no una respuesta final para confiar a ciegas — el propio código lo deja explícito en el resumen final ("inspect/edit the generated workflow (it is NOT syntax-checked)").
+`workflow-factory` produce otro workflow: parte de un `task` en lenguaje natural y ejecuta un pipeline de seis fases (Catalog → Plan → Generate → Review → Refine → Write) donde cada fase pasa contexto a la siguiente. El objetivo es dejar un draft JS listo para inspeccionar y editar, no una respuesta final para confiar sin revisión humana — el propio código lo deja claro en el resumen final ("inspect/edit the generated workflow (it is NOT syntax-checked)").
 
 Es "catalog-aware": antes de planear, un agente barato escanea los `.pi/workflows/*.js` existentes (del proyecto y, si existe, el catálogo global) y extrae `meta.name`/`meta.description`, clasificando cada uno como `lib` (sub-workflow reusable, p. ej. terminado en `-lib`), `composed` (usa `workflow(...)`) o `base`. Ese catálogo se inyecta en los prompts de Plan, Generate y Review para que el planificador PREFIERA reusar/especializar el scaffold más cercano y COMPONER sub-pasos reusables vía `workflow(name, args)` en vez de reinventar — el plan debe justificar explícitamente construir desde cero si nada encaja.
 

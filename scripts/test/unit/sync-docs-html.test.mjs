@@ -43,6 +43,7 @@ test("rewriteHrefs rewrites in-set relative .md links, preserves anchors, leaves
 
 function makeTree() {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-sync-"));
+	fs.writeFileSync(path.join(root, "package.json"), `${JSON.stringify({ name: "pandi-extensions" })}\n`);
 	fs.writeFileSync(path.join(root, "README.md"), "# Root\n\nSee [setup](docs/setup.md).\n");
 	fs.mkdirSync(path.join(root, "docs", "research"), { recursive: true });
 	fs.mkdirSync(path.join(root, "docs", "conversaciones"), { recursive: true });
@@ -61,6 +62,7 @@ test("syncDocsHtml writes the mirror, is idempotent, removes orphans, and check 
 		const mirror = path.join(root, "docs", "html");
 		const index = fs.readFileSync(path.join(mirror, "index.html"), "utf8");
 		assert.match(index, /<title>Root<\/title>/);
+		assert.match(index, />pandi-extensions</); // root README kicker comes from package metadata, not cwd basename
 		assert.match(index, /href="setup\.html"/); // link rewritten
 		assert.ok(!fs.existsSync(path.join(mirror, "conversaciones")));
 

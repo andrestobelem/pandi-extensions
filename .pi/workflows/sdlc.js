@@ -1,5 +1,5 @@
 /**
- * sdlc — single-issue SDLC executor for pi-dynamic-workflows (pi dynamic_workflow runtime).
+ * sdlc — single-issue SDLC executor for pandi-extensions (pi dynamic_workflow runtime).
  *
  * Execution complement of the `grooming` workflow: grooming decides WHAT (propose-only backlog
  * audit); sdlc EXECUTES exactly ONE GitHub issue end-to-end: UNDERSTAND -> PLAN -> IMPLEMENT
@@ -270,7 +270,7 @@ const UNDERSTAND_SCHEMA = {
 
 const understanding = await agent(
 	[
-		`You are the read-only UNDERSTAND scout for issue #${issueNumber} in the pi-dynamic-workflows repo.`,
+		`You are the read-only UNDERSTAND scout for issue #${issueNumber} in the pandi-extensions repo.`,
 		GH_READ_ONLY_NOTE,
 		UNTRUSTED_NOTICE,
 		"",

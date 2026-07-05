@@ -1,23 +1,42 @@
 # Configuración de kitty (entorno de desarrollo)
 
-Configuración del terminal [kitty](https://sw.kovidgoyal.net/kitty/) que usamos
-para trabajar en este repo (correr Pi, Supacode, y los dynamic workflows).
-
-- **Fecha de captura:** 2026-07-03
-- **kitty:** 0.47.4
-- **Archivos:** [`config/kitty/kitty.conf`](../config/kitty/kitty.conf) y
-  [`config/kitty/current-theme.conf`](../config/kitty/current-theme.conf)
+Esta guía registra la configuración activa de [kitty](https://sw.kovidgoyal.net/kitty/)
+que usamos para trabajar en este repo: correr Pi, Supacode y los dynamic workflows.
 
 Se versiona **solo lo que está activo**. El `kitty.conf` real generado por kitty
 trae ~3000 líneas de defaults comentados; acá guardamos únicamente los 19 ajustes
 que cambiamos, para que sea legible y reproducible. Todo lo demás usa los defaults
 de kitty.
 
+- **Fecha de captura:** 2026-07-03
+- **kitty:** 0.47.4
+- **Archivos:** [`config/kitty/kitty.conf`](../config/kitty/kitty.conf) y
+  [`config/kitty/current-theme.conf`](../config/kitty/current-theme.conf)
+
+## En 30 segundos
+
+Si querés reproducir este entorno, instalá los requisitos, copiá los dos archivos
+versionados a `~/.config/kitty/` y recargá kitty. Eso te deja el mismo tema,
+fuente, scrollback, tabs y control remoto que usamos en desarrollo.
+
 ## Requisitos
 
 - **kitty** ≥ 0.47 (`brew install --cask kitty` en macOS).
 - **FiraCode Nerd Font Mono** instalada (`brew install --cask font-fira-code-nerd-font`).
   Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi.
+
+## Cómo aplicarlo
+
+```bash
+# Backup de lo que tengas
+cp -a ~/.config/kitty ~/.config/kitty.bak 2>/dev/null || true
+
+mkdir -p ~/.config/kitty
+cp config/kitty/kitty.conf         ~/.config/kitty/kitty.conf
+cp config/kitty/current-theme.conf ~/.config/kitty/current-theme.conf
+```
+
+Recargá la configuración con `ctrl+shift+F5` (o reiniciá kitty) y listo 🐼.
 
 ## Qué hace cada ajuste
 
@@ -42,21 +61,8 @@ de kitty.
 
 `current-theme.conf` es **Catppuccin-Latte** (variante clara), tomado de
 [catppuccin/kitty](https://github.com/catppuccin/kitty). En el setup real,
-`~/.config/kitty/current-theme.conf` suele ser un symlink/copia que el theme
-switcher de kitty reescribe al alternar claro/oscuro.
-
-## Cómo aplicarlo
-
-```bash
-# Backup de lo que tengas
-cp -a ~/.config/kitty ~/.config/kitty.bak 2>/dev/null || true
-
-mkdir -p ~/.config/kitty
-cp config/kitty/kitty.conf         ~/.config/kitty/kitty.conf
-cp config/kitty/current-theme.conf ~/.config/kitty/current-theme.conf
-```
-
-Recargá la configuración con `ctrl+shift+F5` (o reiniciá kitty) y listo 🐼.
+`~/.config/kitty/current-theme.conf` suele ser un symlink o una copia que el
+cambiador de tema de kitty reescribe al alternar claro/oscuro.
 
 ## Actualizar esta copia
 

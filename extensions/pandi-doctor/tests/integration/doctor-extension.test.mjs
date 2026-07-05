@@ -182,7 +182,7 @@ async function scenarioCheckLogic(url) {
 		const res = await mod.runDoctorCheck(run, { cwd: path.parse(REPO_ROOT).root, extDir: "/nonexistent/ext" });
 		check(
 			"runDoctorCheck: script not found → warning, runner not called",
-			res.type === "warning" && /pi-dynamic-workflows/i.test(res.text) && run.calls.length === 0,
+			res.type === "warning" && /pandi-extensions/i.test(res.text) && run.calls.length === 0,
 			JSON.stringify(res),
 		);
 	}
@@ -220,7 +220,7 @@ function scenarioStandaloneDoctor() {
 		});
 		const out = `${r.stdout || ""}${r.stderr || ""}`;
 		check("standalone: exits 0/1 without crashing", r.status === 0 || r.status === 1, `status=${r.status}`);
-		check("standalone: prints the doctor report", out.includes("pi-dynamic-workflows doctor"), out.slice(0, 200));
+		check("standalone: prints the doctor report", out.includes("pandi-extensions doctor"), out.slice(0, 200));
 		const syncLine = out.split("\n").find((l) => l.includes("sync Claude global")) ?? "";
 		check("standalone: sync Claude global is N/A outside the repo", syncLine.includes("N/A"), syncLine);
 		const hookLine = out.split("\n").find((l) => l.includes("hook pre-commit")) ?? "";
@@ -239,7 +239,7 @@ function scenarioPreCommitHookCheck() {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-hook-"));
 	try {
 		spawnSync("git", ["init", "-q"], { cwd: tmp, encoding: "utf8", timeout: 10000 });
-		fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ name: "pi-dynamic-workflows" }));
+		fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ name: "pandi-extensions" }));
 		const extDir = path.join(tmp, "ext");
 		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
 		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));

@@ -1,6 +1,6 @@
 # react-scout
 
-> ReAct reason → act → observe loop: cada paso funda un pensamiento en una observación real de solo lectura antes del siguiente.
+> Bucle ReAct de reason → act → observe: cada paso apoya el siguiente pensamiento en una observación real de solo lectura.
 
 ## En 30 segundos
 
@@ -18,7 +18,7 @@ comprometerte a una respuesta o de lanzar un fan-out más caro.
 /workflow new mi-scout --pattern=react-scout
 ```
 
-Input típico:
+Entrada típica:
 
 ```json
 {
@@ -31,7 +31,7 @@ Input típico:
 
 ```mermaid
 flowchart TD
-    Start(["Input: question, maxSteps"]) --> Loop{"step < maxSteps and not done?"}
+    Start(["Entrada: question, maxSteps"]) --> Loop{"step < maxSteps and not done?"}
     Loop -- sí --> Reason["Fase Reason: agent actor (sonnet)\nemite thought + action + query (schema STEP)"]
     Reason -- "reason falló o done/none" --> Trace1["push a la traza\n(sentinela o 'actor done')"]
     Trace1 --> Done{"¿actor dijo done\no falló el reason?"}
@@ -41,7 +41,7 @@ flowchart TD
     Cite --> Trace2["push {thought, action, query, observation, uncited}"]
     Trace2 --> Loop
     Loop -- no --> Answer["Fase Answer: agent sintetizador (opus)\nresponde SOLO con la traza,\ncita evidencia o INSUFFICIENT_EVIDENCE"]
-    Answer --> Out(["Output: answer, trace, steps, converged"])
+    Answer --> Out(["Salida: answer, trace, steps, converged"])
 ```
 
 ## Qué hace
@@ -65,7 +65,7 @@ presupuesto de pasos (`maxSteps`). Al final, un tercer agente sintetizador
 citando evidencia por cada afirmación, o declarando `INSUFFICIENT_EVIDENCE`
 si la traza no alcanza.
 
-Es explícitamente el "front-end" canónico para un fan-out: se puede correr
+Es explícitamente la interfaz canónica para un fan-out: se puede correr
 primero para fundamentar una hipótesis o lista de trabajo, y luego pasar
 `result.trace` a `scout-fanout` o `fan-out-and-synthesize`.
 
@@ -82,8 +82,8 @@ primero para fundamentar una hipótesis o lista de trabajo, y luego pasar
 
 ## Cómo funciona
 
-El workflow parsea el input, valida `question` (obligatorio) y clampea
-`maxSteps` entre 1 y 50 (default 6, logueando si hubo clamp). Las
+El flujo parsea la entrada, valida `question` (obligatorio) y limita
+`maxSteps` entre 1 y 50 (predeterminado 6, registrando si hubo ajuste). Las
 observaciones/acciones permitidas por defecto son
 `["read", "grep", "find", "ls", "web_search"]` (todas de solo lectura),
 configurables vía `input.tools`.
@@ -119,12 +119,12 @@ sintetiza la respuesta usando solo la traza, citando evidencia, o devolviendo
 `null` (subagente caído o el usuario lo saltó), se sustituye por un mensaje
 explícito de insuficiencia en vez de propagar `null` en silencio.
 
-No hay caching explícito ni artifacts escritos por este scaffold; el
+No hay caché explícita ni artefactos escritos por este scaffold; el
 resultado se devuelve directamente al llamador.
 
-## Input y output
+## Entrada y salida
 
-| Campo | Tipo | Default | Notas |
+| Campo | Tipo | Predeterminado | Notas |
 |---|---|---|---|
 | `question` / `q` / `text` / `topic` | string | — | Obligatorio; lanza error si falta. |
 | `maxSteps` | number | `6` | Clampeado a `[1, 50]`; se loguea si hubo clamp. |
@@ -133,7 +133,7 @@ resultado se devuelve directamente al llamador.
 | `models[role]` / `efforts[role]` | object | — | Override por rol (`reason`, `observe`, `answer`); precede al default global. |
 | `toolsByRole` / `skillsByRole` / `excludeByRole` | object | — | Igual mecanismo, por rol, para tools/skills/excludeTools. |
 
-Salida (objeto retornado, sin artifacts):
+Salida (objeto devuelto, sin artifacts):
 
 - `answer`: string — respuesta final citada, o `INSUFFICIENT_EVIDENCE (...)`.
 - `trace`: array de `{ step, thought, action, query, observation, uncited }`.

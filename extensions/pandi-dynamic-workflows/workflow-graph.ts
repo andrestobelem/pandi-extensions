@@ -1,5 +1,5 @@
 /**
- * Workflow-graph render + image kernel for pi-dynamic-workflows.
+ * Workflow-graph render + image kernel for pandi-dynamic-workflows.
  *
  * Builds the workflow graph model from a parsed workflow (static JS introspection),
  * renders it as Markdown/overview/mermaid lines, and renders a PNG via the mermaid

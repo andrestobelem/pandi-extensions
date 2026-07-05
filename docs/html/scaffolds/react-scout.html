@@ -125,7 +125,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>ReAct reason → act → observe loop: cada paso funda un pensamiento en una observación real de solo lectura antes del siguiente.</p>
+<p>Bucle ReAct de reason → act → observe: cada paso apoya el siguiente pensamiento en una observación real de solo lectura.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
 <p>En vez de dejar que un solo agente improvise una respuesta, <code>react-scout</code>
@@ -138,7 +138,7 @@ comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-bash">/workflow new mi-scout --pattern=react-scout
 </code></pre>
-<p>Input típico:</p>
+<p>Entrada típica:</p>
 <pre><code class="language-json">{
   &quot;question&quot;: &quot;¿Dónde el decodificador WASM recibe los bytes de entrada?&quot;,
   &quot;maxSteps&quot;: 6
@@ -146,7 +146,7 @@ comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
 </code></pre>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Start(["Input: question, maxSteps"]) --&gt; Loop{"step &lt; maxSteps and not done?"}
+    Start(["Entrada: question, maxSteps"]) --&gt; Loop{"step &lt; maxSteps and not done?"}
     Loop -- sí --&gt; Reason["Fase Reason: agent actor (sonnet)\nemite thought + action + query (schema STEP)"]
     Reason -- "reason falló o done/none" --&gt; Trace1["push a la traza\n(sentinela o 'actor done')"]
     Trace1 --&gt; Done{"¿actor dijo done\no falló el reason?"}
@@ -156,7 +156,7 @@ comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
     Cite --&gt; Trace2["push {thought, action, query, observation, uncited}"]
     Trace2 --&gt; Loop
     Loop -- no --&gt; Answer["Fase Answer: agent sintetizador (opus)\nresponde SOLO con la traza,\ncita evidencia o INSUFFICIENT_EVIDENCE"]
-    Answer --&gt; Out(["Output: answer, trace, steps, converged"])</pre>
+    Answer --&gt; Out(["Salida: answer, trace, steps, converged"])</pre>
 <h2>Qué hace</h2>
 <p><code>react-scout</code> implementa el patrón ReAct (arXiv:2210.03629): en lugar de que
 un modelo genere una respuesta de una sola vez, el workflow fuerza un ciclo
@@ -174,7 +174,7 @@ presupuesto de pasos (<code>maxSteps</code>). Al final, un tercer agente sinteti
 (rol <code>answer</code>) redacta la respuesta usando ÚNICAMENTE la traza acumulada,
 citando evidencia por cada afirmación, o declarando <code>INSUFFICIENT_EVIDENCE</code>
 si la traza no alcanza.</p>
-<p>Es explícitamente el &quot;front-end&quot; canónico para un fan-out: se puede correr
+<p>Es explícitamente la interfaz canónica para un fan-out: se puede correr
 primero para fundamentar una hipótesis o lista de trabajo, y luego pasar
 <code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>.</p>
 <h2>Cuándo usarlo</h2>
@@ -189,8 +189,8 @@ resuelve en un paso, ni cuando se necesita escritura/mutación (el loop es
 deliberadamente de solo lectura).</li>
 </ul>
 <h2>Cómo funciona</h2>
-<p>El workflow parsea el input, valida <code>question</code> (obligatorio) y clampea
-<code>maxSteps</code> entre 1 y 50 (default 6, logueando si hubo clamp). Las
+<p>El flujo parsea la entrada, valida <code>question</code> (obligatorio) y limita
+<code>maxSteps</code> entre 1 y 50 (predeterminado 6, registrando si hubo ajuste). Las
 observaciones/acciones permitidas por defecto son
 <code>[&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;, &quot;web_search&quot;]</code> (todas de solo lectura),
 configurables vía <code>input.tools</code>.</p>
@@ -223,15 +223,15 @@ sintetiza la respuesta usando solo la traza, citando evidencia, o devolviendo
 <code>INSUFFICIENT_EVIDENCE</code> si no alcanza. Si el agente de respuesta devuelve
 <code>null</code> (subagente caído o el usuario lo saltó), se sustituye por un mensaje
 explícito de insuficiencia en vez de propagar <code>null</code> en silencio.</p>
-<p>No hay caching explícito ni artifacts escritos por este scaffold; el
+<p>No hay caché explícita ni artefactos escritos por este scaffold; el
 resultado se devuelve directamente al llamador.</p>
-<h2>Input y output</h2>
+<h2>Entrada y salida</h2>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default</th>
+<th>Predeterminado</th>
 <th>Notas</th>
 </tr>
 </thead>
@@ -272,7 +272,7 @@ resultado se devuelve directamente al llamador.</p>
 <td>Igual mecanismo, por rol, para tools/skills/excludeTools.</td>
 </tr>
 </tbody></table>
-<p>Salida (objeto retornado, sin artifacts):</p>
+<p>Salida (objeto devuelto, sin artifacts):</p>
 <ul>
 <li><code>answer</code>: string — respuesta final citada, o <code>INSUFFICIENT_EVIDENCE (...)</code>.</li>
 <li><code>trace</code>: array de <code>{ step, thought, action, query, observation, uncited }</code>.</li>

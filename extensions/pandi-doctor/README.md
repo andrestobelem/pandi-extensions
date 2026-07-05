@@ -1,6 +1,6 @@
 # @pandi-coding-agent/pandi-doctor
 
-Adds `/doctor`, an in-session shortcut for the pi-dynamic-workflows environment
+Adds `/doctor`, an in-session shortcut for the pandi-extensions environment
 check. It answers "is my machine set up right?" without leaving the chat —
 the same read-only report as `npm run doctor`, one keystroke away.
 
@@ -11,7 +11,7 @@ the same read-only report as `npm run doctor`, one keystroke away.
 ```
 
 ```text
-pi-dynamic-workflows doctor
+pandi-extensions doctor
 
 Obligatorios:
   ✓ Node.js 22.19.0 — ≥ 22.19.0

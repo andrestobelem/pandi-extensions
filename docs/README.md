@@ -1,16 +1,20 @@
-# Project documentation
+# Documentación del proyecto
 
-This directory holds the project's work history, decisions, created workflows, and relevant conversations — a durable reference and audit trail you can always come back to. 🐼
+Esta carpeta reúne el historial de trabajo del proyecto, sus decisiones, los workflows creados y las conversaciones relevantes. Es una referencia duradera y un rastro de auditoría al que siempre podés volver. 🐼
 
-## Quick reference
+## En 30 segundos
 
-- [Setup](./setup.md) — requirements, optional capabilities, configuration, distribution
+Si querés ubicarte rápido, empezá por la guía de `Setup`, la documentación de `Dynamic Workflows` o los `Handbooks`. Si buscás contexto histórico o decisiones, entrá en `research/`, `memoria.md` o las carpetas de planes y conversaciones.
+
+## Referencia rápida
+
+- [Setup](./setup.md) — requisitos, capacidades opcionales, configuración y distribución
 - [Configuración de kitty](./kitty.md) — terminal usado para desarrollo (config activa + tema)
-- [Dynamic Workflows — the full guide](./dynamic-workflows.md) — execution cycle, globals API, background & resume, concurrency, patterns, security
-- [Handbooks (durable project reference)](./handbooks/README.md) — conventions, onboarding, and playbooks
-- [Memoria de trabajo](./memoria.md) — work log and decisions
+- [Dynamic Workflows — guía completa](./dynamic-workflows.md) — ciclo de ejecución, API de globals, background y resume, concurrencia, patrones y seguridad
+- [Handbooks — referencia duradera del proyecto](./handbooks/README.md) — convenciones, onboarding y playbooks
+- [Memoria de trabajo](./memoria.md) — registro de trabajo y decisiones
 
-## Research & analysis
+## Investigación y análisis
 
 - [Loop engineering with our extensions (how-to)](./loop-engineering-with-extensions.md)
 - [Research: ultracode always-on](./research/2026-06-25-ultracode-always-on.md)
@@ -23,15 +27,15 @@ This directory holds the project's work history, decisions, created workflows, a
 - [Modularización de extensiones — Design Audit y roadmap](./research/2026-06-28-modularizacion-extensiones-design-audit.md)
 - [Research: loop engineering (source-backed)](./research/2026-06-28-loop-engineering.md)
 
-## Directory structure
+## Estructura del directorio
 
-- `docs/html/` — GENERATED pandi-styled HTML mirror of the docs (do not hand-edit; regenerate with `npm run sync:docs:html` — `npm test` fails on drift)
-- `docs/handbooks/` — durable project reference (conventions, onboarding, playbooks)
-- `docs/research/` — research notes, consulted sources, and implementation decisions
-- `docs/workflows/` — technical documentation for workflows and runs
-- `docs/conversaciones/` — summarized log of conversations and decisions
-- `docs/planes/` — implementation plans and roadmaps with priorities and dependencies
+- `docs/html/` — espejo HTML generado con estilo Pandi; no se edita a mano y se regenera con `npm run sync:docs:html` (`npm test` falla si hay drift)
+- `docs/handbooks/` — referencia duradera del proyecto (convenciones, onboarding y playbooks)
+- `docs/research/` — notas de investigación, fuentes consultadas y decisiones de implementación
+- `docs/workflows/` — documentación técnica de workflows y runs
+- `docs/conversaciones/` — registro resumido de conversaciones y decisiones
+- `docs/planes/` — planes de implementación y roadmaps con prioridades y dependencias
 
-## Documentation guidelines
+## Guía de documentación
 
-Each document should include date, context, affected files, and next steps.
+Cada documento debería incluir fecha, contexto, archivos afectados y próximos pasos.

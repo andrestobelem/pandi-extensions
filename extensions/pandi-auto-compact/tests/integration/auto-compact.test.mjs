@@ -62,7 +62,7 @@ function toolResult(id, size, { isError = false, toolName = "read", extra = [] }
  * `setStatus` calls are recorded so footer progress-bar behaviour can be
  * asserted; `theme.fg` is an identity so assertions see the raw bar text.
  */
-function makeEnv({ hasUI = true, sessionId = "s1", cwd } = {}) {
+function makeEnv({ hasUI = true, sessionId = "s1", cwd, model } = {}) {
 	const notes = [];
 	const statuses = []; // { key, text } in call order; text undefined means cleared
 	// Scripted interactive dialogs: tests push responses; calls are recorded.
@@ -90,6 +90,7 @@ function makeEnv({ hasUI = true, sessionId = "s1", cwd } = {}) {
 				return inputResponses.shift();
 			},
 		},
+		model,
 		getContextUsage: () => ({ percent: state.percent }),
 		compact: ({ onComplete, onError }) => {
 			state.compactCount += 1;
@@ -209,6 +210,33 @@ async function belowThresholdNeverCompacts(url) {
 	check(
 		"below: no compaction while under threshold",
 		env.state.compactCount === 0,
+		`compactCount=${env.state.compactCount}`,
+	);
+}
+
+async function codexDefaultThresholdIsFifty(url) {
+	const { handlers } = await loadExtension(url);
+	const env = makeEnv({ model: { provider: "openai-codex", id: "gpt-5.5" } });
+	env.state.percent = 40; // above Claude's 35%, below Codex's 50%
+	await fireAgentEnd(handlers, env.ctx);
+	check(
+		"default: Codex does not compact below 50%",
+		env.state.compactCount === 0,
+		`compactCount=${env.state.compactCount}`,
+	);
+	env.state.percent = 50;
+	await fireAgentEnd(handlers, env.ctx);
+	check("default: Codex compacts at 50%", env.state.compactCount === 1, `compactCount=${env.state.compactCount}`);
+}
+
+async function claudeDefaultThresholdRemainsThirtyFive(url) {
+	const { handlers } = await loadExtension(url);
+	const env = makeEnv({ model: { provider: "anthropic", id: "claude-sonnet-4-5" } });
+	env.state.percent = 40; // above Claude's 35% default
+	await fireAgentEnd(handlers, env.ctx);
+	check(
+		"default: Claude still compacts at 35%",
+		env.state.compactCount === 1,
 		`compactCount=${env.state.compactCount}`,
 	);
 }
@@ -401,6 +429,11 @@ async function defaultThresholdContract(url) {
 		"default: DEFAULT_THRESHOLD_PERCENT is 35",
 		mod.DEFAULT_THRESHOLD_PERCENT === 35,
 		`got ${mod.DEFAULT_THRESHOLD_PERCENT}`,
+	);
+	check(
+		"default: CODEX_DEFAULT_THRESHOLD_PERCENT is 50",
+		mod.CODEX_DEFAULT_THRESHOLD_PERCENT === 50,
+		`got ${mod.CODEX_DEFAULT_THRESHOLD_PERCENT}`,
 	);
 	check(
 		"default: THRESHOLD_OPTIONS includes the default preset",
@@ -843,6 +876,8 @@ async function main() {
 	await failedCompactionReArmsAndRetriggers(url);
 	await genuineRecrossRetriggers(url);
 	await belowThresholdNeverCompacts(url);
+	await codexDefaultThresholdIsFifty(url);
+	await claudeDefaultThresholdRemainsThirtyFive(url);
 	await parseThresholdEdgeCases(url);
 	await renderContextBarCases(url);
 	await barLevelColorCases(url);

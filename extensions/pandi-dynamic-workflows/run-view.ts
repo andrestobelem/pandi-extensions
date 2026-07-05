@@ -1,5 +1,5 @@
 /**
- * Run-list / run-view kernel for pi-dynamic-workflows.
+ * Run-list / run-view kernel for pandi-dynamic-workflows.
  *
  * Lists workflow runs, formats the run picker, resolves a run by id/alias, lists a
  * run's files, and renders the full Markdown run view (status, agents, timeline,

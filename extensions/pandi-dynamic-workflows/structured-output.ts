@@ -1,5 +1,5 @@
 /**
- * Structured-output kernel for pi-dynamic-workflows.
+ * Structured-output kernel for pandi-dynamic-workflows.
  *
  * The structured-output system-prompt builder, a generic appendSystemPrompt helper,
  * and TypeBox-backed schema validation (validateStructuredData) + retry-prompt

@@ -1,84 +1,88 @@
-# Andrej Karpathy's recommendations for programming, learning, and using AI
+# Recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA
 
-Date: 2026-06-25
+Fecha: 2026-06-25
 
-## Objective
+## En 30 segundos
 
-Recover and apply research on Andrej Karpathy's programming principles to Dynamic Workflows, prompts, and agent UX. The historical workflow was restored from `HEAD` (`.pi/workflows/karpathy-programming-recommendations-research.js`), synthesizing primary sources on learning, AI-assisted coding, and engineering judgment.
+Este informe recupera y aplica ideas de Karpathy sobre cómo programar, aprender y trabajar con IA. La lectura útil es simple: construir para entender, delegar con criterio y verificar siempre con evidencia.
 
-## Recovered workflow
+## Objetivo
 
-Restored from `.pi/workflows/karpathy-programming-recommendations-research.js`.
+Recuperar y aplicar la investigación sobre los principios de programación de Andrej Karpathy a Dynamic Workflows, los prompts y la UX de agentes. El workflow histórico fue restaurado desde `HEAD` (`.pi/workflows/karpathy-programming-recommendations-research.js`), sintetizando fuentes primarias sobre aprendizaje, programación asistida por IA y juicio de ingeniería.
 
-**Research approach:** fan-out by angles (primary sources, learning programming/ML, AI-assisted coding, engineering principles, skeptical verification) and synthesize with evidence, quotes, confidence, and applicability.
+## Workflow recuperado
 
-## Main sources
+Restaurado desde `.pi/workflows/karpathy-programming-recommendations-research.js`.
+
+**Enfoque de investigación:** fan-out por ángulos (fuentes primarias, aprendizaje de programación/ML, programación asistida por IA, principios de ingeniería, verificación escéptica) y síntesis con evidencia, citas, confianza y aplicabilidad.
+
+## Fuentes principales
 
 - [Andrej Karpathy homepage](https://karpathy.ai/)
 - [Sequoia Ascent 2026 summary: Software 3.0 & agentic engineering](https://karpathy.bearblog.dev/sequoia-ascent-2026/)
 - [Vibe coding MenuGen](https://karpathy.bearblog.dev/vibe-coding-menugen/)
 - [Software 2.0](https://karpathy.medium.com/software-2-0-a64152b37c35)
 - [A Recipe for Training Neural Networks](https://karpathy.github.io/2019/04/25/recipe/)
-- [micrograd](https://github.com/karpathy/micrograd) and [nanoGPT](https://github.com/karpathy/nanoGPT) repositories
+- Repositorios [micrograd](https://github.com/karpathy/micrograd) y [nanoGPT](https://github.com/karpathy/nanoGPT)
 - [Empirical cross-check on vibe coding](https://arxiv.org/abs/2506.23253)
 
-## Practical synthesis
+## Síntesis práctica
 
-### 1. Learn by building from scratch
+### 1. Aprender construyendo desde cero
 
-**Principle:** Small, readable, complete implementations reveal fundamentals.
+**Principio:** las implementaciones pequeñas, legibles y completas revelan los fundamentos.
 
-**Evidence:** `micrograd`, `nanoGPT`, Zero to Hero, and educational material on karpathy.ai.
+**Evidencia:** `micrograd`, `nanoGPT`, Zero to Hero y material educativo en karpathy.ai.
 
-**Application:** Pi examples/workflows should be inspectable, modifiable, and avoid hidden magic.
+**Aplicación:** los ejemplos y workflows de Pi deben poder inspeccionarse, modificarse y evitar la magia oculta.
 
-### 2. Understand before delegating
+### 2. Entender antes de delegar
 
-**Principle:** AI lowers friction but does not replace technical judgment for systems that matter.
+**Principio:** la IA reduce fricción, pero no reemplaza el juicio técnico en sistemas importantes.
 
-**Evidence:** Posts on vibe coding and Software 3.0; MenuGen documents real frictions around auth, payments, deploy, API, and reliability.
+**Evidencia:** textos sobre vibe coding y Software 3.0; MenuGen documenta fricciones reales en auth, payments, deploy, API y reliability.
 
-**Application:** Use agents to accelerate, but preserve human review, tests, and evidence.
+**Aplicación:** usar agentes para acelerar, pero conservar revisión humana, tests y evidencia.
 
-### 3. Software 3.0: Programming with prompts, context, and tools
+### 3. Software 3.0: programar con prompts, contexto y tools
 
-**Principle:** Evolution from Software 1.0 (explicit code) → Software 2.0 (learned weights) → Software 3.0 (LLMs programmed via prompts, context, examples, memory, tools).
+**Principio:** evolución de Software 1.0 (código explícito) → Software 2.0 (pesos aprendidos) → Software 3.0 (LLMs programados mediante prompts, contexto, ejemplos, memoria y tools).
 
-**Application:** In Dynamic Workflows, prompts, artifacts, schemas, scoped tools, and dashboards are part of the programming interface, not secondary details.
+**Aplicación:** en Dynamic Workflows, los prompts, artifacts, schemas, scoped tools y dashboards forman parte de la interfaz de programación, no son detalles secundarios.
 
-### 4. Vibe coding for prototypes, not production
+### 4. Vibe coding para prototipos, no para producción
 
-**Principle:** Useful for personal apps, demos, and rapid exploration. Production requires specs, review, tests/evals, security, and human ownership.
+**Principio:** sirve para apps personales, demos y exploración rápida. Producción requiere specs, review, tests/evals, seguridad y responsabilidad humana.
 
-**Application:** Separate "explore/generate" from "verify/commit"; make visible what was validated.
+**Aplicación:** separar `explore/generate` de `verify/commit`; hacer visible qué quedó validado.
 
-### 5. Incremental debugging and simple baselines
+### 5. Debugging incremental y baselines simples
 
-**Principle:** Inspect data, start simple, verify assumptions, overfit small cases, add complexity gradually.
+**Principio:** inspeccionar datos, empezar simple, verificar supuestos, overfit casos pequeños y sumar complejidad gradualmente.
 
-**Evidence:** "A Recipe for Training Neural Networks."
+**Evidencia:** "A Recipe for Training Neural Networks".
 
-**Application:** Complex workflows need cheap scouts, visible caps, smoke tests, and artifacts before large fan-outs.
+**Aplicación:** los workflows complejos necesitan scouts baratos, caps visibles, smoke tests y artifacts antes de fan-outs grandes.
 
-### 6. The expert's role shifts toward specifying, evaluating, and debugging
+### 6. El rol del experto se desplaza hacia especificar, evaluar y depurar
 
-**Principle:** AI use shifts work from writing code to managing context, reviewing outputs, designing tests, and verifying correctness.
+**Principio:** el uso de IA mueve el trabajo desde escribir código hacia gestionar contexto, revisar salidas, diseñar tests y verificar corrección.
 
-**Application:** Dashboards and graphs should show status, agents, evidence, and partial failures so humans can supervise.
+**Aplicación:** los dashboards y graphs deberían mostrar estado, agentes, evidencia y fallos parciales para que las personas puedan supervisar.
 
-## Implications for this project
+## Implicancias para este proyecto
 
-- **Workflow visualization:** Show not only calls but the agentic pattern in use (fan-out, judge, feedback, pipeline, routing).
-- **Prompts as programs:** Make evidence contracts, allowed tools, output formats, and stop conditions readable.
-- **Examples:** Favor small, educational implementations (micrograd/nanoGPT style) that are easy to read and run.
-- **Verification:** For serious tasks, use synthesis-as-judge, tests, or external verification; never treat agent output as truth without evidence.
+- **Visualización de workflows:** mostrar no solo las llamadas, sino también el patrón agentic en uso (fan-out, judge, feedback, pipeline, routing).
+- **Prompts como programas:** dejar legibles los evidence contracts, los allowed tools, los output formats y las stop conditions.
+- **Ejemplos:** preferir implementaciones pequeñas y educativas (estilo `micrograd`/`nanoGPT`) que sean fáciles de leer y ejecutar.
+- **Verificación:** para tareas serias, usar synthesis-as-judge, tests o verificación externa; nunca tratar la salida de un agente como verdad sin evidencia.
 
-## Validation
+## Validación
 
 ```bash
 node --check .pi/workflows/karpathy-programming-recommendations-research.js
 ```
 
-## Next step
+## Próximo paso
 
-Update the restored workflow to runtime patterns (`settle:true`, `agentType:"researcher"`, partial-failure logging, explicit concurrency) while preserving its primary-source contract.
+Actualizar el workflow restaurado a patrones de runtime (`settle:true`, `agentType:"researcher"`, logging de partial-failure y explicit concurrency) sin perder su contrato con fuentes primarias.

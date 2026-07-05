@@ -123,7 +123,7 @@ export function resolveDoctorScript(startCwd: string, extDir: string): string | 
 }
 
 const NOT_IN_REPO_HINT =
-	"Could not find `scripts/doctor.mjs` — run `/doctor` from within the pi-dynamic-workflows repo (or use `npm run doctor`).";
+	"Could not find `scripts/doctor.mjs` — run `/doctor` from within the pandi-extensions repo (or use `npm run doctor`).";
 
 /** Map a DoctorResult to notify text + severity. */
 export function formatDoctorOutput(result: DoctorResult): { text: string; type: "info" | "warning" | "error" } {

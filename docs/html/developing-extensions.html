@@ -126,12 +126,11 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	<main>
 <p>Fecha: 2026-07-04</p>
 <p>Una extensión de pi es un módulo TypeScript que agrega comandos, tools o
-reacciones a eventos del ciclo de vida del agente. Esta guía es la fuente
-autoritativa de <strong>cómo escribir una extensión de este repo y probarla a la
-vez</strong>, sin romper la sesión con la que estás trabajando. Recurrí a ella cuando
-vas a crear una extensión nueva, tocar una existente, o no sabés si conviene un
+manejadores de eventos al agente. Esta guía explica cómo escribir una
+extensión de este repo y probarla sin romper la sesión activa. Usala cuando
+quieras crear una extensión nueva, modificar una existente o decidir entre un
 comando, un tool o un event handler.</p>
-<h2>Quickstart: una extensión mínima</h2>
+<h2>En 30 segundos</h2>
 <p>Una extensión exporta una función default que recibe <code>pi: ExtensionAPI</code>. Podés
 probarla sin instalarla, apuntando <code>pi -e</code> al archivo:</p>
 <pre><code class="language-typescript">// extensions/pandi-hello/index.ts
@@ -194,7 +193,7 @@ de pi upstream (o <code>docs/extensions.md</code> de tu instalación local del p
 <p>Una vez que la extensión existe, queda el problema puntual de este repo: es
 <strong>auto-hospedado</strong>. La suite está instalada globalmente apuntando al propio
 checkout
-(<code>packages: [&quot;../../ws/at/pi-dynamic-workflows&quot;]</code> en <code>~/.pi/agent/settings.json</code>),
+(<code>packages: [&quot;../../ws/at/pandi-extensions&quot;]</code> en <code>~/.pi/agent/settings.json</code>),
 y <strong>pi carga el TypeScript de las extensiones desde disco</strong> (no bundlea). Entonces
 un <code>/reload</code> en tu sesión de trabajo ejecuta tus edits <strong>sin commitear</strong> al
 instante — y un error de sintaxis o de carga puede tumbar esa sesión.</p>
@@ -287,7 +286,7 @@ seguridad de ejecución, es de cuándo recargás.</p>
 <h2>Ver también</h2>
 <ul>
 <li><a href="index.html"><code>README.md</code></a> — instalación / dogfooding (<code>pi install ./</code>, <code>/reload</code>).</li>
-<li>Skill <code>init-pi-dynamic-workflows</code> — onboarding desde un clon fresco.</li>
+<li>Skill <code>init-pandi-extensions</code> — onboarding desde un clon fresco.</li>
 <li><a href="index.html#verification"><code>README.md#verification</code></a> — cómo correr <code>npm test</code> (harness de tests, lint, typecheck).</li>
 <li><a href="gondolin-isolation.html"><code>gondolin-isolation.md</code></a> — aislamiento por micro-VM (eje 3).</li>
 </ul>

@@ -1,5 +1,5 @@
 /**
- * Run-events parsing kernel for pi-dynamic-workflows.
+ * Run-events parsing kernel for pandi-dynamic-workflows.
  *
  * Pure value coercers, the agent-monitor merge logic, the phase/elapsed
  * derivations, and the events.jsonl -> { logs, agents } parsing pipeline

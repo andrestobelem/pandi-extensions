@@ -1,53 +1,57 @@
-# Improving prompts for dynamic workflows
+# Mejorar prompts para dynamic workflows
 
-Date: 2026-06-25
+Fecha: 2026-06-25
 
-## Objective
+## En 30 segundos
 
-Apply what we learned about agentic workflow patterns to the prompts used by our dynamic workflows.
+Este documento resume qué patrones de prompting conviene aplicar a los dynamic workflows y qué archivos se actualizaron con esos criterios. La idea es simple: cada subagent debe poder rendir por sí solo, la síntesis debe filtrar afirmaciones sin evidencia y los fallos parciales no se deben perder. Si estás ajustando prompts, acá tenés el mapa corto de decisiones y verificación.
 
-## Applied patterns
+## Objetivo
 
-- **Independent fan-out**: each subagent receives instructions to produce a self-contained result, even if other agents fail.
-- **Evidence contract**: require citations to files/lines, URLs, observed commands, or marking `INSUFFICIENT_EVIDENCE` / `NO_FINDINGS`.
-- **Fixed format**: prompts ask for repeatable sections such as verdict, findings, evidence, risks, fix, and verification.
-- **Synthesis-as-judge**: synthesis agents must deduplicate, discard claims without evidence, preserve uncertainty, and choose a concrete recommendation.
-- **Adversarial critique**: reviewers have an explicit goal of finding edge cases, reducing scope, and marking accepted risks.
-- **Partial failure handling**: synthesis must mention failed, empty, canceled, or timed-out agents.
-- **Security by default**: for audits, "do not edit files" is reinforced and tools remain read-only.
+Aplicar lo aprendido sobre patrones de workflow agentic a los prompts que usan nuestros dynamic workflows.
 
-## Updated workflows
+## Patrones aplicados
 
-Internal drafts and implementation:
+- **Fan-out independiente**: cada subagent recibe instrucciones para producir un resultado autocontenido, aunque fallen otros agentes.
+- **Contrato de evidencia**: exigir citas a archivos/líneas, URLs, comandos observados, o marcar `INSUFFICIENT_EVIDENCE` / `NO_FINDINGS`.
+- **Formato fijo**: los prompts piden secciones repetibles como veredicto, hallazgos, evidencia, riesgos, fix y verificación.
+- **Synthesis-as-judge**: los agentes de síntesis deben deduplicar, descartar afirmaciones sin evidencia, preservar la incertidumbre y elegir una recomendación concreta.
+- **Crítica adversarial**: los reviewers tienen el objetivo explícito de encontrar edge cases, reducir el alcance y marcar riesgos aceptados.
+- **Manejo de fallos parciales**: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o agotados por timeout.
+- **Seguridad por defecto**: en auditorías, se refuerza "do not edit files" y las herramientas quedan en modo read-only.
+
+## Workflows actualizados
+
+Borradores internos e implementación:
 - `.pi/workflows/drafts/agentic-workflow-patterns-research.js`
 - `.pi/workflows/background-workflow-implementation-plan.js`
 
-Core workflows:
+Workflows centrales:
 - `.pi/workflows/review-dynamic-workflows.js`
 - `.pi/workflows/revisar-estado-actual.js`
 - `.pi/workflows/inventar-mejor-tui-workflows.js`
 - `.pi/workflows/inventar-mejor-tui-workflows-lite.js`
 - `.pi/workflows/karpathy-programming-recommendations-research.js`
 
-Examples:
+Ejemplos:
 - `examples/workflows/adversarial-plan-review.js`
 - `examples/workflows/deep-research.js`
 - `examples/workflows/repo-bug-hunt.js`
 
-## Updated docs
+## Docs actualizadas
 
-- `README.md`: "Recommended prompt patterns" section.
-- `.pi/skills/dynamic-workflows/SKILL.md`: "Prompting Patterns" section.
-- `docs/memoria.md`: persistent preference.
-- `docs/research/2026-06-25-karpathy-programming-recommendations.md`: synthesis retrieved from Karpathy as prompt/workflow criteria.
+- `README.md`: sección "Recommended prompt patterns".
+- `.pi/skills/dynamic-workflows/SKILL.md`: sección "Prompting Patterns".
+- `docs/memoria.md`: preferencia persistente.
+- `docs/research/2026-06-25-karpathy-programming-recommendations.md`: síntesis recuperada de Karpathy como criterios de prompt/workflow.
 
-## Decisions
+## Decisiones
 
-- Another workflow was not launched for this task because the latest workflows with subagents hung without visible processes. A direct, verifiable refactor was done instead.
-- A shared prompt helper was not added yet to avoid coupling simple examples to the internal runtime.
-- Improving prompts was prioritized over changing the API.
+- No se lanzó otro workflow para esta tarea porque los workflows más recientes con subagents quedaron colgados sin procesos visibles. Se hizo, en cambio, un refactor directo y verificable.
+- Todavía no se agregó un helper compartido de prompts para evitar acoplar ejemplos simples al runtime interno.
+- Se priorizó mejorar prompts antes que cambiar la API.
 
-## Expected validation
+## Verificación esperada
 
-- `node --check` on all JS workflows.
-- Extension load: `pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__`.
+- `node --check` sobre todos los workflows JS.
+- Carga de extensión: `pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__`.

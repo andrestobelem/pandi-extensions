@@ -1,5 +1,5 @@
 /**
- * pi-dynamic-workflows JSON extraction (pure).
+ * pandi-dynamic-workflows JSON extraction (pure).
  *
  * Pull a single JSON value out of (possibly noisy) LLM text: try a direct
  * JSON.parse, then any \`\`\`json fenced blocks, then the first brace/bracket-

@@ -1,5 +1,5 @@
 /**
- * Child-process spawn kernel for pi-dynamic-workflows.
+ * Child-process spawn kernel for pandi-dynamic-workflows.
  *
  * runProcess (buffered, timeout + kill-grace) and runStreamingAgentProcess (live
  * stdout/stderr streaming with bounded journaling) — the two subprocess primitives

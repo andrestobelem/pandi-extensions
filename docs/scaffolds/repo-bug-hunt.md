@@ -40,7 +40,7 @@ flowchart TD
 
     I --> J["Phase: Synthesis"]
     J --> K["agent synthesis opus·high\n(juez: dedup + prioriza, descarta claims no citados,\nreporta coverage: reviewed/allFiles.length, failed branches)"]
-    K --> L["return synthesis\n(verdicto + tabla priorizada + rechazados + coverage gaps + tests sugeridos)"]
+    K --> L["return synthesis\n(veredicto + tabla priorizada + rechazados + coverage gaps + tests sugeridos)"]
 ```
 
 ## Qué hace
@@ -53,21 +53,25 @@ Tanto el patrón de archivos a revisar (`pattern`) como la lente de revisión (`
 
 ## Cuándo usarlo
 
-- Auditoría de repo completa cuando no sabés de antemano qué archivos revisar.
-- Barrido pre-review (después, confirmar los hallazgos más serios con `bug-verify`).
-- Necesitás una lista priorizada y citada de hallazgos, no un veredicto suelto.
-- **No** lo uses si ya tenés un bug puntual que necesitás reproducir y probar: usá `bug-verify` en su lugar.
-- **No** lo uses si necesitás confirmación de que los hallazgos son reales: este scaffold nunca ejecuta ni reproduce nada.
+| Elegí esto si… | Usá… |
+|---|---|
+| Querés barrer un repo entero sin saber de antemano qué archivos importan | `repo-bug-hunt` |
+| Ya tenés un bug puntual y necesitás reproducirlo y probarlo | `bug-verify` |
+| Necesitás hallazgos priorizados y citados, no un veredicto suelto | `repo-bug-hunt` |
+
+`repo-bug-hunt` es para descubrimiento amplio. Si después querés confirmar un hallazgo, seguí con `bug-verify`.
+
+**No** lo uses para “probar” un bug: este scaffold nunca ejecuta ni reproduce código.
 
 ## Cómo funciona
 
 **Entrada y saneo.** `args` se parsea de forma defensiva (`try/catch` a `{}`). `maxFiles` se sanea con un clamp entero entre 1 y 4096 (default 40; si el valor provisto era inválido, se loguea el fallback). `pattern` resuelve contra un mapa de presets (`code`, `docs`, `web`, `config`) o, si no matchea ningún preset, se usa el string tal cual como regex (default: extensiones de código `\.(ts|tsx|js|jsx|py|go|rs)$`). `lens` funciona igual, contra presets `code`/`security`/`prose`, o texto libre describiendo qué buscar (default: bugs genéricos, condiciones de carrera, seguridad, pérdida de datos, edge cases).
 
-**Fase Scout.** Si `input.files` es un array no vacío, se usa directamente y se salta el scout. Si no, un `agent` en rol `scout` (modelo `haiku`, effort `low`) ejecuta `git ls-files` y filtra por la regex de `pattern`, devolviendo un JSON `{ files: [...] }` validado contra un schema de objeto (`FILE_LIST`). El filtro de extensión vive en el prompt del regex, nunca vía interpolación de shell. La lista resultante se recorta a `maxFiles`; si se recorta, se loguea cuántos archivos quedaron fuera. Si el work-list final queda vacío, el scaffold retorna un mensaje explicativo sin llegar a Review/Synthesis.
+**Fase Scout.** Si `input.files` es un array no vacío, se usa directamente y se salta el scout. Si no, un `agent` en rol `scout` (modelo `haiku`, effort `low`) ejecuta `git ls-files` y filtra por la regex de `pattern`, devolviendo un JSON `{ files: [...] }` validado contra un schema de objeto (`FILE_LIST`). El filtro de extensión vive en el prompt del regex, nunca vía interpolación de shell. La lista resultante se recorta a `maxFiles`; si se recorta, se loguea cuántos archivos quedaron fuera. Si el work-list final queda vacío, el scaffold retorna un mensaje explicativo sin llegar a Review/Synthesis. Si el `agent` falla acá, la corrida aborta.
 
 **Fase Review.** `concurrency` se sanea con clamp entre 1 y `files.length` (default 6). Se lanza un `agent` independiente por archivo en `parallel` con `settle`: cada revisor (rol `bug-hunt`, modelo `sonnet`, effort `medium`) recibe el contenido del archivo envuelto en un fence anti-inyección derivado de un hash del contenido (`fence()`), con instrucciones explícitas de tratar ese contenido como datos, nunca como instrucciones, y de ignorar cualquier directiva embebida. El contrato de salida exige citar archivo y línea por cada hallazgo, explicar escenario/impacto/fix mínimo, ignorar estilo puro, y declarar explícitamente `NO_FINDINGS` o `INSUFFICIENT_EVIDENCE` en vez de inventar. Un branch fallido se vuelve `null` bajo `settle` y se filtra después (`completedReviews`); el conteo de fallos (`failed`) se loguea y se propaga a la síntesis.
 
-**Fase Synthesis.** Un único `agent` (rol `synthesis`, modelo `opus`, effort `high`) actúa como juez final: recibe todos los reviews completados (comprimidos a 80000 caracteres con `compact()`) envueltos en el mismo fence anti-inyección, junto con las cifras de cobertura (`reviewed/total`, `failed`). Debe deduplicar y priorizar, descartar claims concretos sin cita, y producir: veredicto ejecutivo, tabla priorizada (severidad/confianza/archivo-línea/issue/escenario/fix), hallazgos rechazados por baja confianza, gaps de cobertura/branches fallidos, y tests de verificación sugeridos. Este string es el retorno final del scaffold.
+**Fase Synthesis.** Un único `agent` (rol `synthesis`, modelo `opus`, effort `high`) actúa como juez final: recibe todos los reviews completados (comprimidos a 80000 caracteres con `compact()`) envueltos en el mismo fence anti-inyección, junto con las cifras de cobertura (`reviewed/total`, `failed`). Debe deduplicar y priorizar, descartar afirmaciones concretas sin cita, y producir: veredicto ejecutivo, tabla priorizada (severidad/confianza/archivo-línea/issue/escenario/fix), hallazgos rechazados por baja confianza, gaps de cobertura/branches fallidos, y tests de verificación sugeridos. Este string es el retorno final del scaffold.
 
 **Caching:** no se observa ningún mecanismo de caché explícito; cada `agent` se invoca fresco.
 

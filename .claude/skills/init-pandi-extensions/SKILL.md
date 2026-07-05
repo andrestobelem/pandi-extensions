@@ -1,7 +1,7 @@
 ---
-name: init-pi-dynamic-workflows
+name: init-pandi-extensions
 description: >-
-  Use when someone has freshly CLONED this pi-dynamic-workflows repo and wants to install it,
+  Use when someone has freshly CLONED this pandi-extensions repo and wants to install it,
   set it up, or onboard — i.e. get the Pi (or Claude Code) extensions, skills, and dynamic
   workflows working from scratch. Walks the ordered, platform-aware, idempotent setup: Node
   >=22.19 via nvm, the global Pi CLI, npm install, npm run doctor, npm test, pi install ./,
@@ -9,9 +9,9 @@ description: >-
   NOT for authoring new extensions, nor for a generic `npm install` of unrelated packages.
 ---
 
-# Initialize this harness (pi-dynamic-workflows)
+# Initialize this harness (pandi-extensions)
 
-Bring a **fresh clone** of `pandi-dynamic-workflows` to a working setup: the Pi extensions
+Bring a **fresh clone** of `pandi-extensions` to a working setup: the Pi extensions
 (`/workflow`, `/goal`, `/loop`, `/plan`, `/effort`, `/mdview`, …), the project skills, and the
 dynamic-workflow catalog — usable from Pi and from Claude Code.
 
@@ -26,7 +26,7 @@ guessing. Do not invent versions or steps — read them from `.nvmrc`, `package.
 Do NOT use for: authoring a new extension/skill, or `npm install`-ing some unrelated library.
 
 ## Preconditions to check first (read-only)
-1. Are we at the **repo root**? (`package.json` name must be `pandi-dynamic-workflows`.)
+1. Are we at the **repo root**? (`package.json` name must be `pandi-extensions`.)
 2. What does the environment already have? Run **`npm run doctor`** — it is read-only, lists every
    mandatory + optional prerequisite, and exits non-zero only if a MANDATORY one is missing. Let its
    output drive what you still need to install; don't reinstall what's already OK.

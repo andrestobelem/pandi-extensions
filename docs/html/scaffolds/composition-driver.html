@@ -125,34 +125,34 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Workflow padre: descubre claims, delega la verificación a verify-claims-lib y sintetiza.</p>
+<p>Workflow padre: descubre claims, delega la verificación a <code>verify-claims-lib</code> y sintetiza.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Es la referencia canónica de composición: un workflow padre (<code>composition-driver</code>)
-que hace su propio trabajo (descubrir claims) y delega la parte reutilizable
-(verificarlos) a un sub-workflow independiente (<code>verify-claims-lib</code>) vía
-<code>workflow(name, args)</code>. Elegilo cuando quieras ver el patrón &quot;padre + librería&quot;
-funcionando de punta a punta, o cuando necesites ese flujo exacto
-descubrir → verificar → sintetizar sobre un texto.</p>
+<p>Este scaffold muestra el patrón de composición más claro: un workflow padre
+(<code>composition-driver</code>) hace su parte, descubrir claims, y delega la verificación
+reutilizable a un sub-workflow independiente (<code>verify-claims-lib</code>) con
+<code>workflow(name, args)</code>. Usalo cuando quieras ver el flujo padre + librería de
+punta a punta, o cuando necesites exactamente descubrir → verificar → sintetizar
+sobre un texto.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-sh">/workflow new fact-check-sse --pattern=composition-driver
 </code></pre>
-<p>Input típico:</p>
+<p>Ejemplo mínimo de input:</p>
 <pre><code class="language-json">{ &quot;topic&quot;: &quot;claims en nuestro doc de paridad SSE&quot;, &quot;maxClaims&quot;: 8, &quot;skeptics&quot;: 3 }
 </code></pre>
 <p>Requiere que exista, junto a este scaffold, un workflow de proyecto o global
-llamado <code>verify-claims-lib</code> (ver <code>docs/scaffolds/verify-claims-lib.md</code>); si no
-está disponible, el workflow degrada en vez de fallar (ver más abajo).</p>
+llamado <code>verify-claims-lib</code> (ver <a href="verify-claims-lib.html">verify-claims-lib</a>).
+Si no está disponible, el workflow degrada en lugar de fallar.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Input["input: topic, maxClaims?, skeptics?"] --&gt; Discover
     subgraph Discover["Fase Discover"]
         Finder["agent: claim-finder (haiku, low)\nschema CLAIMS"]
     end
-    Discover --&gt; Clamp["clamp maxClaims (1..20)"]
+    Discover --&gt; Clamp["recortar maxClaims (1..20)"]
     Clamp --&gt; Empty{"¿hay claims?"}
     Empty --&gt;|no| NoClaims["return 'No falsifiable claims found to verify.'"]
-    Empty --&gt;|si| Verify
+    Empty --&gt;|sí| Verify
 
     subgraph Verify["Fase Verify: delega a sub-workflow"]
         Sub["workflow('verify-claims-lib', {claims, skeptics, topic})"]
@@ -166,29 +166,28 @@ está disponible, el workflow degrada en vez de fallar (ver más abajo).</p>
     end
     Synthesize --&gt; Output["return synthesis (texto)"]</pre>
 <h2>Qué hace</h2>
-<p><code>composition-driver</code> es un workflow de tres fases que ilustra composición
-real entre workflows: no reimplementa la verificación de claims, sino que la
-delega a <code>verify-claims-lib</code> pasándole exactamente el contrato que ese
-sub-workflow espera (<code>{ claims, skeptics, topic }</code>). El padre se queda con las
-dos partes que le son propias: encontrar los claims en el texto de entrada y
-sintetizar el resultado final para el usuario.</p>
-<p>La fase Discover usa un único agente barato (<code>haiku</code>, effort <code>low</code>) con un
-JSON Schema estricto para que la salida sea siempre parseable, evitando tener
-que hacer &quot;safe-parse&quot; de prosa libre. La fase Verify no ejecuta agentes
+<p><code>composition-driver</code> es un workflow de tres fases que muestra composición real
+entre workflows: no reimplementa la verificación de claims, sino que la delega a
+<code>verify-claims-lib</code> con el contrato exacto que ese sub-workflow espera
+(<code>{ claims, skeptics, topic }</code>). El padre conserva sus dos responsabilidades:
+identificar claims en el texto de entrada y sintetizar el resultado final para
+la persona usuaria.</p>
+<p>La fase Discover usa un único agente barato (<code>haiku</code>, <code>effort: low</code>) con un
+JSON Schema estricto para que la salida sea siempre parseable, sin tener que
+hacer &quot;safe-parse&quot; de prosa libre. La fase Verify no ejecuta agentes
 directamente: invoca el sub-workflow con <code>workflow(...)</code> y, si esa invocación
-falla (por ejemplo por límite de profundidad de anidamiento), degrada
-gracefully en vez de abortar todo el run. La fase Synthesize usa un modelo más
-caro (<code>opus</code>, effort <code>high</code>) porque ahí es donde se necesita criterio para
-preservar incertidumbre y citar evidencia.</p>
-<p>Todo el contenido no confiable (el <code>topic</code> del usuario, los resultados de
-verificación) se envuelve con <code>fence(...)</code>, un delimitador derivado de un hash
+falla (por ejemplo, por el límite de anidamiento), degrada en lugar de abortar
+todo el run. La fase Synthesize usa un modelo más caro (<code>opus</code>, <code>effort: high</code>)
+porque ahí hace falta criterio para preservar incertidumbre y citar evidencia.</p>
+<p>Todo el contenido no confiable (el <code>topic</code> del usuario y los resultados de
+verificación) se encierra con <code>fence(...)</code>, un delimitador derivado de un hash
 del contenido: un payload malicioso no puede falsificar el marcador de cierre
-porque cambiar el contenido cambia el hash. Cada prompt de agente instruye
+porque cambiar el contenido cambia el hash. Cada prompt de agente le pide
 explícitamente tratar ese contenido como datos, nunca como instrucciones.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Fact-checking de un documento (extraer afirmaciones verificables y
-contrastarlas).</li>
+<li>Fact-checking de un documento: extraer afirmaciones verificables y
+contrastarlas.</li>
 <li>Separar &quot;descubrimiento&quot; de &quot;verificación reutilizable&quot; en workflows
 distintos.</li>
 <li>Como referencia canónica de composición cuando vas a escribir tu propio
@@ -196,48 +195,48 @@ workflow padre que llama a un sub-workflow con <code>workflow(name, args)</code>
 </ul>
 <p>No lo uses si:</p>
 <ul>
-<li>Solo necesitás verificar claims que ya tenés (usá <code>verify-claims-lib</code>
-directo, sin la fase de descubrimiento).</li>
+<li>Solo necesitás verificar claims que ya tenés: usá <code>verify-claims-lib</code>
+directo, sin la fase de descubrimiento.</li>
 <li>No tenés desplegado el sub-workflow <code>verify-claims-lib</code>: el resultado sigue
-siendo válido pero la verificación queda degradada (<code>note: &quot;verification skipped (nesting depth exceeded)&quot;</code>).</li>
+siendo válido, pero la verificación queda degradada (<code>note: &quot;verification skipped (nesting depth exceeded)&quot;</code>).</li>
 </ul>
 <h2>Cómo funciona</h2>
 <ol>
 <li><strong>Parseo de input y overrides.</strong> <code>args</code> se parsea a JSON (string u objeto);
-si falla, cae a <code>{}</code>. Soporta overrides globales (<code>input.model</code>,
-<code>input.effort</code>, <code>input.tools</code>, <code>input.skills</code>, <code>input.excludeTools</code>) y
-overrides por rol vía <code>input.models[role]</code>, <code>input.efforts[role]</code>,
-<code>input.toolsByRole[role]</code>, <code>input.skillsByRole[role]</code>,
-<code>input.excludeByRole[role]</code>, con precedencia rol &gt; global &gt; default del
-call-site.</li>
-<li><strong>Discover</strong> (<code>agent</code>): un único agente <code>claim-finder</code> (<code>haiku</code>, effort
-<code>low</code>) recibe el <code>topic</code> fenceado y devuelve hasta <code>maxClaims</code> claims
-concretos y falsables como <code>{ id, claim, evidence }</code>, forzado por el
+si falla, cae a <code>{}</code>. Soporta overrides globales (<code>input.model</code>, <code>input.effort</code>,
+<code>input.tools</code>, <code>input.skills</code>, <code>input.excludeTools</code>) y overrides por rol vía
+<code>input.models[role]</code>, <code>input.efforts[role]</code>, <code>input.toolsByRole[role]</code>,
+<code>input.skillsByRole[role]</code>, <code>input.excludeByRole[role]</code>, con precedencia
+rol &gt; global &gt; default del call-site.</li>
+<li><strong>Discover</strong> (<code>agent</code>): un único agente <code>claim-finder</code> (<code>haiku</code>, <code>effort: low</code>)
+recibe el <code>topic</code> encapsulado con <code>fence(...)</code> y devuelve hasta <code>maxClaims</code>
+claims concretos y falsables como <code>{ id, claim, evidence }</code>, forzado por el
 schema <code>CLAIMS</code> (objeto, <code>additionalProperties: false</code>). Si la respuesta no
-es un array o los items no tienen <code>.claim</code>, se descartan silenciosamente;
-si no queda ningún claim, el workflow retorna temprano el mensaje <code>&quot;No falsifiable claims found to verify.&quot;</code>. Si el finder devolvió más de
-<code>maxClaims</code>, se loguea el recorte.</li>
-<li><strong>Verify</strong> (<code>workflow</code>): llama a <code>workflow(&quot;verify-claims-lib&quot;, { claims, skeptics, topic })</code>. Ese sub-workflow corre su propia fase con
-<code>parallel(...)</code> (jurado de skeptics por claim) y devuelve <code>{ verified, dropped, votes, coverage }</code>. Si la llamada lanza (por ejemplo, límite de
-anidamiento excedido), el <code>catch</code> loguea el error y arma un resultado
-degradado: <code>{ verified: claims, note: &quot;verification skipped (nesting depth exceeded)&quot; }</code>, es decir, todos los claims pasan sin contraste adversarial.</li>
-<li><strong>Synthesize</strong> (<code>agent</code>): un agente <code>composition-synthesis</code> (<code>opus</code>,
-effort <code>high</code>) recibe el resultado de verificación (compactado a 50 000
-caracteres) fenceado como datos no confiables, y redacta la síntesis final
-preservando incertidumbre, citando evidencia y mencionando explícitamente
-que la verificación fue delegada a <code>verify-claims-lib</code>. Ese texto es el
-valor de retorno del workflow.</li>
+es un array o los items no tienen <code>.claim</code>, se descartan silenciosamente; si
+no queda ningún claim, el workflow retorna temprano el mensaje <code>&quot;No falsifiable claims found to verify.&quot;</code>. Si el finder devolvió más de <code>maxClaims</code>, se loguea
+el recorte.</li>
+<li><strong>Verify</strong> (<code>workflow</code>): llama a <code>workflow(&quot;verify-claims-lib&quot;, { claims, skeptics, topic })</code>. Ese sub-workflow corre su propia fase con <code>parallel(...)</code>
+(jurado de skeptics por claim) y devuelve <code>{ verified, dropped, votes, coverage }</code>. Si la llamada lanza (por ejemplo, porque se excedió el límite de
+anidamiento), el <code>catch</code> loguea el error y arma un resultado degradado:
+<code>{ verified: claims, note: &quot;verification skipped (nesting depth exceeded)&quot; }</code>,
+es decir, todos los claims pasan sin contraste adversarial.</li>
+<li><strong>Synthesize</strong> (<code>agent</code>): un agente <code>composition-synthesis</code> (<code>opus</code>, <code>effort: high</code>)
+recibe el resultado de verificación (compactado a 50 000 caracteres) y lo
+encierra con <code>fence(...)</code> como datos no confiables. Luego redacta la síntesis
+final preservando incertidumbre, citando evidencia y mencionando explícitamente
+que la verificación fue delegada a <code>verify-claims-lib</code>. Ese texto es el valor
+de retorno del workflow.</li>
 </ol>
-<p>No hay <code>writeArtifact</code> en este scaffold: el único output es el valor de
-retorno de la fase Synthesize. El caching de agentes es el del runtime de
-Dynamic Workflows (no hay lógica de cache explícita en el código).</p>
+<p>No hay <code>writeArtifact</code> en este scaffold: el único output es el valor de retorno
+de la fase Synthesize. El caching de agentes es el del runtime de Dynamic
+Workflows; no hay lógica de cache explícita en el código.</p>
 <h2>Input y output</h2>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
 <th>Tipo</th>
-<th>Default / clamp</th>
+<th>Valor por defecto / recorte</th>
 </tr>
 </thead>
 <tbody><tr>
@@ -248,12 +247,12 @@ Dynamic Workflows (no hay lógica de cache explícita en el código).</p>
 <tr>
 <td><code>maxClaims</code></td>
 <td>number</td>
-<td>default <code>8</code>; clamp a <code>[1, 20]</code> (se loguea si se recorta)</td>
+<td>default <code>8</code>; recorte a <code>[1, 20]</code> (se loguea si se recorta)</td>
 </tr>
 <tr>
 <td><code>skeptics</code></td>
 <td>number</td>
-<td>default <code>3</code>; clamp a <code>[1, 8]</code> antes de pasarlo al sub-workflow (que a su vez lo vuelve a clampear a <code>[1, 64]</code>)</td>
+<td>default <code>3</code>; recorte a <code>[1, 8]</code> antes de pasarlo al sub-workflow (que a su vez lo vuelve a recortar a <code>[1, 64]</code>)</td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
@@ -268,10 +267,10 @@ Dynamic Workflows (no hay lógica de cache explícita en el código).</p>
 <tr>
 <td><code>tools</code> / <code>toolsByRole</code>, <code>skills</code> / <code>skillsByRole</code>, <code>excludeTools</code> / <code>excludeByRole</code></td>
 <td>array/object</td>
-<td>igual patrón global vs. por rol</td>
+<td>mismo patrón global vs. por rol</td>
 </tr>
 </tbody></table>
-<p><strong>Output:</strong> el texto de síntesis devuelto por el agente <code>composition-synthesis</code>
+<p><strong>Salida:</strong> el texto de síntesis devuelto por el agente <code>composition-synthesis</code>
 (sin schema forzado, prosa libre). No escribe artifacts a disco.</p>
 <h2>Fases</h2>
 <ol>

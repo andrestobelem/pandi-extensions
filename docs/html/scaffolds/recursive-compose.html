@@ -125,19 +125,13 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Referencia (pi, profundidad ≤ 3): un nodo vuelve a gatear una sub-tarea con
-contract-gate y luego despacha vía router — recursión acotada.</p>
+<p>Referencia (pi, profundidad ≤ 3): un nodo vuelve a gatear una sub-tarea con <code>contract-gate</code> y luego despacha vía <code>router</code>.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Este scaffold no hace trabajo por sí mismo: encadena dos workflows ya
-existentes. Primero vuelve a pasar la tarea por el gate de Fase-0
-(<code>contract-gate</code>) para re-scopearla, y si el gate dice que conviene un
-dynamic workflow, despacha el scaffold recomendado a través de <code>router</code>.
-Elegilo cuando quieras ver (o reutilizar) el patrón &quot;gate → compone
-recursivamente&quot; — por ejemplo, un nodo que re-evalúa una sub-tarea antes de
-seguir bajando en profundidad.</p>
+<p><code>recursive-compose</code> no hace trabajo de dominio: encadena workflows existentes. Primero vuelve a pasar la tarea por el gate de Fase-0 (<code>contract-gate</code>) para re-scopearla; si el gate concluye que hace falta un dynamic workflow, despacha el scaffold recomendado con <code>router</code>.</p>
+<p>Elegilo cuando quieras ver o reutilizar el patrón “gate → compone recursivamente”. Es útil como referencia de profundidad acotada y de cómo propagar el <code>resourcePlan</code> del gate hacia una ejecución más profunda.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code>/workflow new mi-run --pattern=recursive-compose
+<pre><code class="language-text">/workflow new mi-run --pattern=recursive-compose
 </code></pre>
 <p>Input típico:</p>
 <pre><code class="language-json">{
@@ -146,14 +140,8 @@ seguir bajando en profundidad.</p>
   &quot;args&quot;: { &quot;limit&quot;: 20 }
 }
 </code></pre>
-<p><code>task</code> es obligatorio (alias: <code>request</code>, <code>text</code>). <code>args</code> se reenvía tal cual
-al workflow que finalmente se despache.</p>
-<p><strong>Runtime:</strong> este scaffold anida <code>workflow(...)</code>, así que necesita un
-runtime que permita profundidad ≥ 2. En pi, exportá
-<code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH&lt;=3</code> (3 alcanza para esta cadena). En la
-herramienta Workflow de Claude Code (profundidad 1) el segundo salto
-(router → scaffold elegido) dispara el guard de recursión; el código lo
-atrapa y devuelve <code>status: &quot;DEPTH_BLOCKED&quot;</code> en vez de romper.</p>
+<p><code>task</code> es obligatorio (alias: <code>request</code>, <code>text</code>). <code>args</code> se reenvía al workflow que termine despachado.</p>
+<p><strong>Runtime:</strong> este scaffold anida <code>workflow(...)</code>, así que necesita un runtime que permita profundidad ≥ 3 si se cuenta el nodo raíz como profundidad 1. En pi funciona con <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH &gt;= 3</code>; la cadena llega a profundidad 3. En la Workflow tool de Claude Code (profundidad 1), el segundo salto (<code>router</code> → scaffold elegido) dispara el guard de recursión; el código lo captura y devuelve <code>status: &quot;DEPTH_BLOCKED&quot;</code>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Input: task, context, args"]) --&gt; Gate["Fase Gate&lt;br/&gt;workflow('contract-gate', generate:false)"]
@@ -167,60 +155,24 @@ atrapa y devuelve <code>status: &quot;DEPTH_BLOCKED&quot;</code> en vez de rompe
     Dispatch --&gt;|"error de profundidad"| DepthDispatch["DEPTH_BLOCKED (stage: dispatch)"]
     Router --&gt; Done["DONE&lt;br/&gt;+ gate + dispatched"]</pre>
 <h2>Qué hace</h2>
-<p><code>recursive-compose</code> es un ejemplo de composición pura: no define ningún
-<code>agent()</code> propio, solo orquesta dos workflows ya existentes del catálogo.
-Primero llama a <code>contract-gate</code> con <code>generate:false</code> para que el gate
-re-scopee la tarea sin volver a anidar (eso reservaría presupuesto de
-profundidad para el paso siguiente). Si el gate no da <code>PROCEED</code>, el
-scaffold corta ahí devolviendo las preguntas de clarificación.</p>
-<p>Si el gate da <code>PROCEED</code> y su <code>routing.shape</code> es <code>&quot;dynamic-workflow&quot;</code>, el
-scaffold pasa el <code>rewrittenPrompt</code> del gate a <code>router</code> con
-<code>runSelected:true</code>, para que el router elija el scaffold adecuado y lo
-ejecute de una. El presupuesto sugerido por el gate (<code>resourcePlan.models</code>
-/ <code>resourcePlan.efforts</code>) se reenvía dentro de <code>args</code> al workflow
-despachado, para que el trabajo profundo corra con el tier que el gate
-recomendó.</p>
-<p>Cada llamada anidada está envuelta en try/catch: si el runtime rechaza la
-profundidad (recursion guard), el error se captura y se traduce a
-<code>status: &quot;DEPTH_BLOCKED&quot;</code> con una nota de qué hacer, en vez de propagar la
-excepción.</p>
+<p><code>recursive-compose</code> es composición pura: no define ningún <code>agent()</code> propio y solo orquesta dos workflows ya existentes del catálogo. Primero llama a <code>contract-gate</code> con <code>generate:false</code> para que el gate re-scopee la tarea sin volver a anidar y reserve profundidad para el siguiente paso. Si el gate no responde <code>PROCEED</code>, el scaffold se corta ahí y devuelve sus preguntas de clarificación.</p>
+<p>Si el gate responde <code>PROCEED</code> y <code>routing.shape === &quot;dynamic-workflow&quot;</code>, el scaffold pasa <code>gate.rewrittenPrompt</code> a <code>router</code> con <code>runSelected:true</code>, para que <code>router</code> elija el scaffold adecuado y lo ejecute. El presupuesto sugerido por el gate (<code>resourcePlan.models</code> / <code>resourcePlan.efforts</code>) se reenvía dentro de <code>args</code> al workflow despachado.</p>
+<p>Cada llamada anidada está protegida con <code>try/catch</code>: si el runtime rechaza la profundidad, el error se traduce a <code>status: &quot;DEPTH_BLOCKED&quot;</code> con una nota de acción. No usa <code>agent</code>, <code>agents</code>, <code>parallel</code> ni <code>pipeline</code> directamente; tampoco tiene caché propio ni maneja fallos parciales más allá de esas capturas.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Necesitás el patrón de referencia &quot;gate se re-aplica sobre sí mismo&quot; para
-pipelines auto-similares (gate → compose → gate → compose...).</li>
-<li>Querés llevar el <code>resourcePlan</code> (presupuesto sugerido por el gate) hasta
-una corrida más profunda, sin recalcularlo.</li>
-<li>Buscás un ejemplo concreto de despacho recursivo acotado por profundidad.</li>
+<li>Querés un ejemplo de “gate → compose → gate → compose...” con profundidad acotada.</li>
+<li>Querés llevar el <code>resourcePlan</code> sugerido por el gate hasta una corrida más profunda, sin recalcularlo.</li>
+<li>Buscás ver cómo <code>contract-gate</code> y <code>router</code> se encadenan en un nodo recursivo.</li>
 </ul>
 <p><strong>No lo uses si:</strong></p>
 <ul>
-<li>Ya sabés qué scaffold necesitás — llamalo directo, no hace falta re-gatear.</li>
-<li>Corrés bajo la herramienta Workflow de Claude Code y necesitás que el
-despacho realmente se ejecute (ahí topa el guard de profundidad y vuelve
-<code>DEPTH_BLOCKED</code>; usá pi para ver la cadena completa).</li>
+<li>Ya sabés qué scaffold necesitás: llamalo directo.</li>
+<li>Necesitás que el dispatch se ejecute completo bajo la Workflow tool de Claude Code; ahí el segundo salto topa el guard de profundidad y devuelve <code>DEPTH_BLOCKED</code>.</li>
 </ul>
 <h2>Cómo funciona</h2>
 <p><strong>Fase Gate</strong> — llama a <code>workflow(&quot;contract-gate&quot;, { request: task, context, generate: false })</code>.
-<code>generate:false</code> evita que el propio <code>contract-gate</code> anide un nivel extra.
-Si la llamada tira una excepción (guard de profundidad), retorna
-<code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;gate&quot;, error, note }</code>. Si el gate
-responde pero <code>status !== &quot;PROCEED&quot;</code>, retorna
-<code>{ status: &quot;NEEDS_CLARIFICATION&quot;, questions, gate }</code>. Si <code>routing.shape</code>
-no es <code>&quot;dynamic-workflow&quot;</code> (tarea trivial o de un solo agente), retorna
-<code>{ status: &quot;NO_COMPOSE&quot;, reason, rewrittenPrompt, gate }</code> sin componer más.</p>
-<p><strong>Fase Dispatch</strong> — solo se alcanza si el gate dio <code>PROCEED</code> y
-<code>routing.shape === &quot;dynamic-workflow&quot;</code>. Construye <code>dispatchArgs</code> fusionando
-los <code>args</code> de entrada con <code>models</code>/<code>efforts</code> del <code>resourcePlan</code> del gate (si
-existen), y llama a
-<code>workflow(&quot;router&quot;, { request: compact(gate.rewrittenPrompt), runSelected: true, args: dispatchArgs })</code>.
-<code>compact()</code> trunca el prompt a 60000 caracteres para evitar payloads
-gigantes entre workflows anidados. Si esta llamada falla por profundidad,
-retorna <code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;dispatch&quot;, error, note, gate }</code>.
-Si tiene éxito, retorna <code>{ status: &quot;DONE&quot;, gate, dispatched }</code>.</p>
-<p>No usa <code>agent</code>, <code>agents</code>, <code>parallel</code> ni <code>pipeline</code> directamente — toda la
-concurrencia, modelos y efforts vienen de lo que <code>contract-gate</code> y <code>router</code>
-(y el scaffold que éste elija) hagan internamente. No hay caching propio ni
-manejo de fallos parciales más allá del try/catch por llamada anidada.</p>
+<code>generate:false</code> evita que <code>contract-gate</code> anide otro nivel. Si la llamada lanza una excepción por profundidad, retorna <code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;gate&quot;, error, note }</code>. Si el gate responde pero <code>status !== &quot;PROCEED&quot;</code>, retorna <code>{ status: &quot;NEEDS_CLARIFICATION&quot;, questions, gate }</code>. Si <code>routing.shape !== &quot;dynamic-workflow&quot;</code>, retorna <code>{ status: &quot;NO_COMPOSE&quot;, reason, rewrittenPrompt, gate }</code>.</p>
+<p><strong>Fase Dispatch</strong> — solo ocurre cuando el gate dio <code>PROCEED</code> y <code>routing.shape === &quot;dynamic-workflow&quot;</code>. Construye <code>dispatchArgs</code> uniendo <code>args</code> de entrada con <code>resourcePlan.models</code> y <code>resourcePlan.efforts</code> si existen, y llama a <code>workflow(&quot;router&quot;, { request: compact(gate.rewrittenPrompt), runSelected: true, args: dispatchArgs })</code>. <code>compact()</code> recorta el prompt a 60000 caracteres. Si esta llamada falla por profundidad, retorna <code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;dispatch&quot;, error, note, gate }</code>. Si sale bien, retorna <code>{ status: &quot;DONE&quot;, gate, dispatched }</code>.</p>
 <h2>Input y output</h2>
 <p><strong>Input:</strong></p>
 <table>
@@ -234,7 +186,7 @@ manejo de fallos parciales más allá del try/catch por llamada anidada.</p>
 <tbody><tr>
 <td><code>task</code> (alias <code>request</code>, <code>text</code>)</td>
 <td>sí</td>
-<td>La tarea a re-gatear y potencialmente despachar.</td>
+<td>Tarea a re-gatear y, si corresponde, despachar.</td>
 </tr>
 <tr>
 <td><code>context</code></td>
@@ -244,10 +196,10 @@ manejo de fallos parciales más allá del try/catch por llamada anidada.</p>
 <tr>
 <td><code>args</code></td>
 <td>no (default <code>{}</code>)</td>
-<td>Objeto reenviado al workflow finalmente despachado; se le suman <code>models</code>/<code>efforts</code> del <code>resourcePlan</code> del gate si existen.</td>
+<td>Objeto reenviado al workflow finalmente despachado; se le suman <code>models</code>/<code>efforts</code> de <code>resourcePlan</code> si existen.</td>
 </tr>
 </tbody></table>
-<p><strong>Output</strong> (uno de los siguientes <code>status</code>):</p>
+<p><strong>Output</strong> (uno de estos <code>status</code>):</p>
 <table>
 <thead>
 <tr>
@@ -258,27 +210,26 @@ manejo de fallos parciales más allá del try/catch por llamada anidada.</p>
 </thead>
 <tbody><tr>
 <td><code>DONE</code></td>
-<td>el router despachó con éxito</td>
+<td><code>router</code> despachó con éxito</td>
 <td><code>{ gate: { improvedTask, routing, resourcePlan }, dispatched }</code></td>
 </tr>
 <tr>
 <td><code>NEEDS_CLARIFICATION</code></td>
-<td>el gate no dio <code>PROCEED</code></td>
+<td><code>contract-gate</code> no dio <code>PROCEED</code></td>
 <td><code>{ questions, gate }</code></td>
 </tr>
 <tr>
 <td><code>NO_COMPOSE</code></td>
-<td>el gate resolvió que no hace falta un dynamic workflow</td>
+<td>no hacía falta un dynamic workflow</td>
 <td><code>{ reason, rewrittenPrompt, gate }</code></td>
 </tr>
 <tr>
 <td><code>DEPTH_BLOCKED</code></td>
-<td>el runtime rechazó una llamada anidada por profundidad</td>
+<td>el runtime rechazó una llamada anidada</td>
 <td><code>{ stage: &quot;gate&quot;|&quot;dispatch&quot;, error, note, gate? }</code></td>
 </tr>
 </tbody></table>
-<p>No escribe artifacts propios (<code>writeArtifact</code>); cualquier artifact viene del
-workflow despachado.</p>
+<p>No escribe artifacts propios (<code>writeArtifact</code>); cualquier artifact lo genera el workflow despachado.</p>
 <h2>Fases</h2>
 <ol>
 <li><strong>Gate</strong> — re-scope de Fase-0 vía <code>workflow(&#39;contract-gate&#39;, { generate: false })</code>.</li>

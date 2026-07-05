@@ -125,170 +125,129 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Convertí un pedido vago en un contrato inspeccionable y decidí preguntar-ahora vs proceder-sobre-un-supuesto-registrado antes de rutear o construir nada.</p>
+<p>Convierte un pedido crudo en un contrato inspeccionable y decide si hay que preguntar ahora o seguir con supuestos explícitos antes de rutear o construir nada.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>contract-gate</code> es el &quot;paso cero&quot; que corre ANTES de cualquier ruteo, generación o implementación: toma un pedido crudo (&quot;hacé X&quot;) y lo estructura en un contrato (tarea mejorada, criterios de éxito, supuestos, no-objetivos, restricciones, plan de verificación, pista de ruteo), aplicando un gate de valor-de-información sobre cada ambigüedad detectada. Elegilo cuando el pedido es ambiguo o de alto stake y necesitás decidir si preguntar o avanzar con un supuesto explícito, antes de gastar un fan-out completo en el trabajo equivocado.</p>
+<p><code>contract-gate</code> es el paso cero. Toma un pedido ambiguo, lo normaliza en un <code>contract</code> y clasifica cada ambigüedad con un gate de valor de información: si falta información bloqueante, devuelve <code>NEEDS_CLARIFICATION</code>; si no, sigue con <code>PROCEED</code> y puede reescribir el prompt e incluso encadenar <code>workflow-factory</code>.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-gate --pattern=contract-gate
 /workflow run mi-gate {&quot;request&quot;:&quot;Auditá el decoder SSE y arreglá lo que encuentres&quot;,&quot;reviewers&quot;:3,&quot;generate&quot;:true}
 </code></pre>
-<p><code>request</code> es el único campo obligatorio (acepta también los alias <code>task</code>/<code>text</code>/<code>question</code>). Con <code>generate:true</code> y verdict <code>PROCEED</code> sobre una ruta <code>dynamic-workflow</code>, el gate compone <code>workflow-factory</code> en línea y devuelve el borrador generado.</p>
+<p><code>request</code> es obligatorio; también acepta <code>task</code>, <code>text</code> o <code>question</code>. <code>generate:true</code> solo intenta el handoff a <code>workflow-factory</code> cuando <code>routingHint.shape === &quot;dynamic-workflow&quot;</code>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    A["Input: request (req, alias task/text/question), context, reviewers=3, improvePrompt=true, maxQuestions=4-&gt;clamp 1..3, generate=false, planResources=true, name, write=true"] --&gt; B["Phase: Analyze"]
-
-    subgraph ANALYZE["Analyze: N reviewers independientes (reviewers clamp 1..5)"]
-        R1["agent analyze-1 sonnet·medium\nlente: scope y criterios de exito"]
-        R2["agent analyze-2 sonnet·medium\nlente: riesgos/restricciones/irreversibilidad"]
-        R3["agent analyze-3 sonnet·medium\nlente: inputs faltantes y ambiguedad"]
-    end
-    B --&gt;|"reviewers &gt; 1"| ANALYZE
-    B --&gt;|"reviewers &lt;= 1"| A1["agent analyze-contract sonnet·medium (unico)"]
-    ANALYZE --&gt; SYN["agent analyze-synthesis opus·high\nreconcilia N drafts -&gt; UN contrato\nfail-safe: si algun reviewer marca blocking, queda blocking"]
-    A1 --&gt; C["contract: improvedTask, successCriteria, assumptions,\nnonGoals, constraints, verificationPlan, routingHint, ambiguities"]
-    SYN --&gt; C
-
-    C --&gt; D["Phase: Gate"]
-    D --&gt; E{"blocking.length &gt; 0?"}
-    E --&gt;|"si"| F["dedup + cap a maxQuestions (log si se recorta)"]
-    F --&gt; G["return status=NEEDS_CLARIFICATION\nverdict=BLOCKED, questions[]\nrewrittenPrompt=null\n(NUNCA rewrite ni handoff)"]
-    E --&gt;|"no"| H["fold non-blocking assumptions (log cada una)"]
-
-    H --&gt; I{"improvePrompt?"}
-    I --&gt;|"true"| J["Phase: Rewrite\nagent rewrite-prompt sonnet·medium\ncolapsa contrato -&gt; UN prompt limpio y autocontenido"]
-    I --&gt;|"false"| K["rewrittenPrompt = request crudo + contrato serializado"]
-    J --&gt; L{"prompt vacio?"}
-    L --&gt;|"si"| L1["throw: REWRITE produjo prompt vacio"]
-    L --&gt;|"no"| M
-    K --&gt; M["routing = contract.routingHint"]
-
-    M --&gt; N{"planResources AND\nrouting.shape == dynamic-workflow?"}
-    N --&gt;|"si"| O["Phase: Plan Resources\nagent resource-plan sonnet·medium\nlee node roles del pattern -&gt; tier economy/balanced/premium\n+ modelo/effort por rol"]
-    N --&gt;|"no"| P
-    O --&gt; P{"generate == true?"}
-
-    P --&gt;|"no"| Q["return status=PROCEED, contract, rewrittenPrompt,\nrouting, resourcePlan, generated=undefined"]
-    P --&gt;|"si, routing.shape != dynamic-workflow"| Q2["generated = handed_off:false\n(factory NO corre para trivial/single-agent)"]
-    P --&gt;|"si, routing.shape == dynamic-workflow"| S["Phase: Handoff\nworkflow('workflow-factory', {task:rewrittenPrompt, name, write})"]
-    S --&gt;|"exito"| T["generated = handed_off:true, output=resumen de la factory"]
-    S --&gt;|"workflow() no disponible (nested, C10)"| U["degrada: generated = handed_off:false\ncon rewrittenPrompt para handoff manual"]
-    S --&gt;|"retorno null"| V["generated = handed_off:false, reason=null"]</pre>
+    A["request + context"] --&gt; B["Analyze: N reviewers (1..5) + synthesis"]
+    B --&gt; C{"¿hay blocking?"}
+    C --&gt;|sí| D["NEEDS_CLARIFICATION + questions\n(rewrite y handoff se detienen)"]
+    C --&gt;|no| E["PROCEED + assumptions plegadas"]
+    E --&gt; F["Rewrite (opcional)"]
+    F --&gt; G{"routingHint.shape == dynamic-workflow?"}
+    G --&gt;|sí| H["Plan Resources (opcional)"]
+    G --&gt;|no| I["return sin workflow-factory"]
+    H --&gt; J{"generate == true?"}
+    J --&gt;|no| K["return PROCEED"]
+    J --&gt;|sí| L["workflow-factory(task, name, write)"]</pre>
 <h2>Qué hace</h2>
-<p><code>contract-gate</code> interroga el pedido crudo ANTES de decidir cómo resolverlo. En vez de rutear o generar directamente, produce un contrato estructurado (JSON con schema estricto) que separa lo asumible de lo bloqueante: cada ambigüedad se clasifica con un test de valor-de-información — es bloqueante solo cuando el impacto de la decisión es ALTO y no existe un default seguro (sistema objetivo desconocido, criterio de aceptación indefinido para una auditoría de alto stake, credencial faltante sin la cual la tarea no puede correr, dos lecturas que producen entregables incompatibles). Todo lo demás se resuelve con un supuesto explícito, confianza-tageado e inspeccionable, y el flujo PROCEDE.</p>
-<p>La razón de ser de este &quot;spec-first effect&quot; es que un contrato limpio es la mayor palanca sobre la calidad downstream: convierte el paso de planificación de un generador de adivinanza en conformidad-con-spec. El gate colapsa todo el contrato en UN solo prompt autocontenido (<code>rewrittenPrompt</code>) con un prefijo estable cacheable y sin preguntas sin resolver — cada ambigüedad previa ya es un supuesto o un no-objetivo.</p>
-<p>La composición con <code>workflow-factory</code> es condicional y unidireccional: solo cuando el verdict es <code>PROCEED</code> y el caller pasó <code>generate:true</code>, el gate le entrega el prompt reescrito al meta-workflow generador <code>workflow-factory</code>. Si el verdict es <code>BLOCKED</code>, el gate devuelve las preguntas y nunca compone nada. Además honra el ruteo más amplio: si <code>routingHint.shape</code> recomienda <code>trivial</code> o <code>single-agent</code>, la factory NO corre aunque <code>generate:true</code> esté seteado — el gate directamente reporta <code>handed_off:false</code> con la razón.</p>
-<p><code>contract-gate</code> precede y difiere de <code>workflow-factory</code>: la factory (catálogo→plan→generar→revisar→refinar→escribir) corre solo DESPUÉS de que el ruteo concluyó que un dynamic workflow está justificado, no tiene gate de ambigüedad y no puede detenerse a pedir aclaración — generará felizmente contra una tarea sub-especificada, que es exactamente la falla que <code>contract-gate</code> previene. <code>contract-gate</code> es estrictamente upstream y más amplio: puede parar y preguntarle a un humano, emite un contrato + prompt limpio (no código de workflow), y rutea también a resultados que no son de factory (trivial/single-agent) donde la factory no debería correr en absoluto.</p>
+<p><code>contract-gate</code> sirve para responder dos preguntas antes de gastar una corrida cara: <strong>qué hay que hacer</strong> y <strong>si hace falta aclarar algo primero</strong>. El contrato que produce separa <code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>, <code>nonGoals</code>, <code>constraints</code>, <code>verificationPlan</code>, <code>routingHint</code> y <code>ambiguities</code>.</p>
+<p>Una ambigüedad es <code>blocking</code> solo cuando el impacto es alto y no existe un default seguro. Todo lo demás se convierte en un supuesto explícito, con confianza e indicio de qué lo invalidaría. Esa es la diferencia central entre “preguntar porque sí” y “preguntar solo cuando cambiaría de verdad el resultado”.</p>
+<p>Si <code>improvePrompt</code> queda activo, <code>contract-gate</code> colapsa el contrato en un <code>rewrittenPrompt</code> autocontenido. Si <code>generate:true</code> y el ruteo recomendado es <code>dynamic-workflow</code>, puede pasarle ese prompt a <code>workflow-factory</code>. Si el ruteo es <code>trivial</code> o <code>single-agent</code>, no la ejecuta: devuelve la recomendación y deja el handoff afuera.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Scopear un ticket difuso antes de invertir en un fan-out costoso.</li>
-<li>Gatear (ask-vs-proceed) antes de una corrida multi-agente cara o irreversible.</li>
-<li>Reescribir un pedido crudo en una spec limpia y autocontenida para consumo downstream.</li>
-<li>Componer con <code>workflow-factory</code> cuando ya se sabe que se quiere generar un dynamic workflow y se busca garantizar que la tarea de entrada no sea ambigua.</li>
-</ul>
-<p><strong>Cuándo NO usarlo:</strong> si el pedido ya es una spec clara y de bajo stake, el gate agrega latencia y costo sin aportar valor de información — andá directo al patrón/agente que corresponda. Tampoco es el lugar para generar el código del workflow en sí (eso es <code>workflow-factory</code>, al que este scaffold puede componer pero no reemplaza).</p>
+<table>
+<thead>
+<tr>
+<th>Situación</th>
+<th>Usalo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>El pedido es difuso, caro o irreversible</td>
+<td>Sí: primero <code>contract-gate</code></td>
+</tr>
+<tr>
+<td>El pedido ya es una spec clara y de bajo riesgo</td>
+<td>No: andá directo al patrón/agente</td>
+</tr>
+<tr>
+<td>Querés generar un workflow nuevo</td>
+<td>Sí: <code>generate:true</code> + <code>routingHint.shape === &quot;dynamic-workflow&quot;</code></td>
+</tr>
+</tbody></table>
 <h2>Cómo funciona</h2>
-<p><strong>Validación de entrada.</strong> <code>request</code> (o sus alias <code>task</code>/<code>text</code>/<code>question</code>) es obligatorio; si falta, lanza un error instructivo de inmediato. <code>reviewers</code> se clampa a 1..5 (default 3, con log si el caller pidió otro valor); <code>maxQuestions</code> se clampa a la banda de la regla del gate, 1..3 (default 4 → recortado a 3, logueado explícitamente, &quot;no silent caps&quot;).</p>
-<p><strong>Fase Analyze.</strong> Con <code>reviewers &lt;= 1</code> corre un único <code>agent</code> (<code>analyze-contract</code>, sonnet·medium) contra el schema <code>CONTRACT</code> (objeto estricto con <code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>, <code>nonGoals</code>, <code>constraints</code>, <code>verificationPlan</code>, <code>routingHint</code>, <code>ambiguities</code>). Con <code>reviewers &gt; 1</code> (default) lanza N <code>agent</code>s independientes en <code>parallel</code>, cada uno enfatizando una lente distinta rotando entre &quot;scope &amp; success criteria&quot;, &quot;riesgos/restricciones/irreversibilidad&quot; y &quot;inputs faltantes/ambigüedad oculta&quot; — la robustez viene de que un analizador solo tiene puntos ciegos y el desacuerdo entre reviewers revela ambigüedad real. Los drafts (post-<code>filter(Boolean)</code>) se reconcilian con un <code>agent</code> de síntesis (<code>analyze-synthesis</code>, opus·high) que fusiona en UN contrato, es <strong>fail-safe</strong> sobre el flag <code>blocking</code> (si CUALQUIER reviewer marcó un gap como bloqueante con una razón sólida, queda bloqueante) y elige el <code>routingHint</code> más cauteloso consistente con los drafts. Si ningún draft se produce, o la síntesis no devuelve un objeto, la fase lanza error (no puede gatear sin contrato).</p>
-<p><strong>Fase Gate.</strong> Filtra <code>ambiguities</code> en <code>blockingAll</code> (blocking===true) y <code>nonBlocking</code>. Si hay bloqueantes: las dedupea por pregunta normalizada, aplica el cap <code>maxQuestions</code> (logueando si recorta), y <strong>retorna de inmediato</strong> <code>{ status: &quot;NEEDS_CLARIFICATION&quot;, verdict: &quot;BLOCKED&quot;, contract, questions, rewrittenPrompt: null, routing }</code> — nunca reescribe ni compone la factory en este camino; un humano debe re-correr con las respuestas incorporadas al contexto. Si no hay bloqueantes, cada supuesto no-bloqueante se loguea individualmente (&quot;safe-assumption folded&quot;) y el flujo continúa a PROCEED.</p>
-<p><strong>Fase Rewrite (condicional a <code>improvePrompt</code>, default true).</strong> Un <code>agent</code> (<code>rewrite-prompt</code>, sonnet·medium) colapsa el contrato en un único string de prompt, en orden estable (framing estable primero para que el prefijo sea cacheable; specifics volátiles al final): <code>improvedTask</code> como objetivo, <code>successCriteria</code> como bullets, cada supuesto como línea &quot;Assume: …&quot;, <code>nonGoals</code> como &quot;Out of scope: …&quot;, <code>constraints</code>, <code>verificationPlan</code> como &quot;Done when verified by: …&quot;, y <code>routingHint</code> como guía (no mandato). Si el prompt reescrito queda vacío, lanza error explícito — nunca se le entrega un prompt vacío a la factory. Con <code>improvePrompt:false</code> se salta el rewrite: se reenvía el <code>request</code> crudo más el contrato serializado como contexto adjunto.</p>
-<p><strong>Fase Plan Resources (condicional a <code>planResources</code>, default true, y solo si <code>routingHint.shape === &quot;dynamic-workflow&quot;</code> con <code>pattern</code> definido).</strong> Un <code>agent</code> (<code>resource-plan</code>, sonnet·medium) lee el archivo del pattern recomendado para extraer sus roles <code>node(&#39;&lt;role&gt;&#39;, …)</code> y emite un plan de modelo+effort por rol, escalado a un tier (<code>economy</code>/<code>balanced</code>/<code>premium</code>) derivado de los stakes/irreversibilidad del contrato — es un output <em>advisory</em> para configurar la corrida downstream, no los propios nodos de <code>contract-gate</code>. Si el planner no devuelve un plan usable, se loguea y <code>resourcePlan</code> queda <code>null</code>.</p>
-<p><strong>Fase Handoff (condicional a <code>generate === true</code>).</strong> Si <code>routing.shape !== &quot;dynamic-workflow&quot;</code>, la factory NO corre; se retorna <code>generated = { handed_off:false, reason }</code> honrando el ruteo más amplio. Si sí es <code>dynamic-workflow</code>, compone en línea <code>workflow(&quot;workflow-factory&quot;, { task: rewrittenPrompt, name, write })</code> — la composición inline es apropiada porque el único punto de decisión humana (preguntar vs proceder) ya se resolvió, sin gate intermedio entre los pasos. Maneja dos fallos parciales explícitamente: si <code>workflow()</code> no está disponible un nivel más adentro (composición anidada, caso &quot;C10&quot;), degrada devolviendo <code>handed_off:false</code> con el <code>rewrittenPrompt</code> para handoff manual en vez de tirar abajo la corrida; si la factory devuelve <code>null</code> (skip o subagent muerto), retorna <code>handed_off:false</code> con esa razón en vez de reenviar falsamente <code>handed_off:true</code>.</p>
-<p><strong>Caching:</strong> no se observa ningún mecanismo explícito de caché (sin llamadas a una API de cache); los reviewers de Analyze se invocan con <code>cache:false</code> explícito para preservar independencia entre drafts.</p>
-<p><strong>Manejo de fallos parciales:</strong> el fan-out de Analyze usa <code>parallel</code> + <code>.filter(Boolean)</code> (equivalente a settle) sobre los drafts de los reviewers; cada fase de agregación (Gate, Rewrite, Handoff) valida explícitamente que el output previo no sea nulo/vacío antes de continuar, y aborta con error o degrada de forma explícita en vez de fallar en silencio.</p>
+<ul>
+<li><strong>Entrada.</strong> <code>request</code> es requerido. <code>context</code> default <code>&quot;&quot;</code>. <code>reviewers</code> default <code>3</code> y se clampa a <code>1..5</code>. <code>maxQuestions</code> default <code>4</code> y se clampa a <code>1..3</code>. <code>improvePrompt</code> default <code>true</code>. <code>planResources</code> default <code>true</code>. <code>name</code> se deriva como slug de <code>improvedTask</code> o <code>request</code>. <code>write</code> default <code>true</code>.</li>
+<li><strong>Analyze.</strong> Con <code>reviewers &lt;= 1</code> corre un solo <code>agent</code> (<code>analyze-contract</code>, <code>sonnet</code> + <code>medium</code>). Con más de uno, lanza N reviewers en <code>parallel</code> con lentes distintas y luego sintetiza con <code>analyze-synthesis</code> (<code>opus</code> + <code>high</code>). Los reviewers paralelos usan <code>cache:false</code> para mantener independencia.</li>
+<li><strong>Gate.</strong> Deduplica las preguntas <code>blocking</code>, aplica el tope <code>maxQuestions</code> y, si hay bloqueantes, devuelve de inmediato <code>{ status: &quot;NEEDS_CLARIFICATION&quot;, verdict: &quot;BLOCKED&quot;, contract, questions, rewrittenPrompt: null, routing }</code>. En este camino no hay rewrite ni handoff.</li>
+<li><strong>Rewrite.</strong> Si <code>improvePrompt:true</code>, <code>rewrite-prompt</code> produce un único prompt limpio con este orden estable: <code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>, <code>nonGoals</code>, <code>constraints</code>, <code>verificationPlan</code>, <code>routingHint</code>. Si queda vacío, falla explícitamente. Si <code>improvePrompt:false</code>, reenvía <code>request</code> + contrato serializado.</li>
+<li><strong>Plan Resources.</strong> Solo corre cuando <code>planResources:true</code>, <code>routingHint.shape === &quot;dynamic-workflow&quot;</code> y existe <code>routingHint.pattern</code>. Devuelve un advisory <code>resourcePlan</code> con <code>{ tier, rationale, pattern, models, efforts }</code>; si el planner no produce algo usable, <code>resourcePlan</code> queda <code>null</code>.</li>
+<li><strong>Handoff.</strong> Solo corre si <code>generate:true</code>. Si el ruteo no es <code>dynamic-workflow</code>, devuelve <code>generated.handed_off:false</code>. Si sí lo es, llama <code>workflow(&quot;workflow-factory&quot;, { task: rewrittenPrompt, name, write })</code>. Si la composición anidada no está disponible una capa más adentro, degrada a handoff manual; si <code>workflow-factory</code> devuelve <code>null</code>, también degrada de forma explícita.</li>
+</ul>
 <h2>Input y output</h2>
 <table>
 <thead>
 <tr>
 <th>Campo</th>
-<th>Tipo</th>
-<th>Requerido</th>
-<th>Default / clamp</th>
+<th>Default / nota</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>request</code></td>
-<td>string</td>
-<td><strong>sí</strong> (alias <code>task</code>/<code>text</code>/<code>question</code>)</td>
-<td>— (si falta, throw inmediato)</td>
+<td><code>request</code> / <code>task</code> / <code>text</code> / <code>question</code></td>
+<td>requerido</td>
 </tr>
 <tr>
 <td><code>context</code></td>
-<td>string</td>
-<td>no</td>
 <td><code>&quot;&quot;</code></td>
 </tr>
 <tr>
 <td><code>reviewers</code></td>
-<td>number</td>
-<td>no</td>
-<td>default 3, clamp 1..5</td>
+<td><code>3</code> → clamp <code>1..5</code></td>
 </tr>
 <tr>
 <td><code>improvePrompt</code></td>
-<td>boolean</td>
-<td>no</td>
-<td>default <code>true</code></td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>maxQuestions</code></td>
-<td>number</td>
-<td>no</td>
-<td>default 4 → clamp 1..3 (banda del gate)</td>
+<td><code>4</code> → clamp <code>1..3</code></td>
 </tr>
 <tr>
 <td><code>generate</code></td>
-<td>boolean</td>
-<td>no</td>
-<td>default <code>false</code></td>
+<td><code>false</code></td>
 </tr>
 <tr>
 <td><code>planResources</code></td>
-<td>boolean</td>
-<td>no</td>
-<td>default <code>true</code></td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>name</code></td>
-<td>string</td>
-<td>no</td>
-<td>derivado (slug) de <code>improvedTask</code> o <code>request</code> si se omite</td>
+<td>slug derivado de <code>improvedTask</code> o <code>request</code></td>
 </tr>
 <tr>
 <td><code>write</code></td>
-<td>boolean</td>
-<td>no</td>
-<td>default <code>true</code> (pasado a la factory en el handoff)</td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>model</code> / <code>effort</code></td>
-<td>string</td>
-<td>no</td>
 <td>override global por nodo</td>
 </tr>
 <tr>
 <td><code>models[role]</code> / <code>efforts[role]</code></td>
-<td>object</td>
-<td>no</td>
-<td>override por rol (roles: <code>analyze</code>/<code>analyze-contract</code>/<code>analyze-synthesis</code>/<code>rewrite-prompt</code>/<code>resource-plan</code>)</td>
+<td>override por rol</td>
 </tr>
 <tr>
-<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
-<td>array</td>
-<td>no</td>
-<td>pasados al <code>agent</code> si son arrays</td>
+<td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> y variantes <code>*ByRole</code></td>
+<td>arrays pasados al <code>agent</code></td>
 </tr>
 </tbody></table>
-<p><strong>Output</strong> (camino <code>BLOCKED</code>): <code>{ status: &quot;NEEDS_CLARIFICATION&quot;, verdict: &quot;BLOCKED&quot;, contract, questions: [{question, rationale}], rewrittenPrompt: null, routing }</code>.</p>
-<p><strong>Output</strong> (camino <code>PROCEED</code>): <code>{ status: &quot;PROCEED&quot;, verdict: &quot;PROCEED&quot;, contract, rewrittenPrompt, routing: {shape, pattern, maxAgents, concurrency, rationale, note}, resourcePlan: {tier, rationale, pattern, models, efforts} | null, generated }</code>, donde <code>generated</code> es <code>undefined</code> si <code>generate:false</code>, o <code>{ handed_off, reason? , name?, write?, output? }</code> si <code>generate:true</code>.</p>
-<p>No se observan llamadas a <code>writeArtifact</code>; toda la observabilidad pasa por <code>log(...)</code> (verdict, supuestos plegados, caps aplicados, resourcePlan, resultado del handoff) y por el shape de retorno. El <code>write</code> que sí escribe a disco es el que hereda <code>workflow-factory</code> en el handoff, no este scaffold.</p>
+<p><strong>BLOCKED:</strong> <code>{ status: &quot;NEEDS_CLARIFICATION&quot;, verdict: &quot;BLOCKED&quot;, contract, questions: [{ question, rationale }], rewrittenPrompt: null, routing }</code></p>
+<p><strong>PROCEED:</strong> <code>{ status: &quot;PROCEED&quot;, verdict: &quot;PROCEED&quot;, contract, rewrittenPrompt, routing, resourcePlan, generated }</code></p>
+<p><code>contract</code> agrega <code>verdict</code>; <code>routing</code> replica <code>routingHint</code> y suma <code>note</code> solo en <code>PROCEED</code> (en <code>BLOCKED</code> devuelve <code>contract?.routingHint ?? null</code> sin <code>note</code>). <code>generated</code> queda <code>undefined</code> si <code>generate:false</code>. Si <code>generate:true</code>, puede ser <code>{ handed_off, reason?, name?, write?, output? }</code>.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Analyze</strong> — N reviewers independientes (o uno solo si <code>reviewers&lt;=1</code>) producen un contrato estructurado contra el schema <code>CONTRACT</code>; con N&gt;1, una síntesis-como-juez fail-safe los reconcilia en uno.</li>
-<li><strong>Gate</strong> — clasifica ambigüedades en bloqueantes vs no-bloqueantes; si hay bloqueantes, dedupea+capa a <code>maxQuestions</code> y retorna <code>BLOCKED</code> de inmediato (sin rewrite ni handoff); si no, pliega los supuestos no-bloqueantes y sigue.</li>
-<li><strong>Rewrite</strong> — colapsa el contrato en un único prompt limpio y autocontenido (o reenvía el request crudo + contrato si <code>improvePrompt:false</code>).</li>
-<li><strong>Plan Resources</strong> — solo si el ruteo recomienda <code>dynamic-workflow</code>: emite un budget advisory de modelo/effort por rol para esa corrida downstream.</li>
-<li><strong>Handoff</strong> — solo si <code>generate:true</code> y el ruteo es <code>dynamic-workflow</code>: compone <code>workflow-factory</code> en línea con el prompt reescrito; degrada explícitamente ante composición anidada no disponible o retorno nulo.</li>
+<li><strong>Analyze</strong> — N reviewers independientes o uno solo construyen el contrato estructurado.</li>
+<li><strong>Gate</strong> — separa ambigüedades bloqueantes de las asumibles; si hay bloqueantes, corta y devuelve preguntas.</li>
+<li><strong>Rewrite</strong> — colapsa el contrato en un prompt autocontenido, o adjunta el contrato al request si <code>improvePrompt:false</code>.</li>
+<li><strong>Plan Resources</strong> — solo para rutas <code>dynamic-workflow</code>: propone modelo y esfuerzo por rol para la corrida downstream.</li>
+<li><strong>Handoff</strong> — solo con <code>generate:true</code> y ruteo <code>dynamic-workflow</code>: compone <code>workflow-factory</code> o degrada de forma explícita.</li>
 </ol>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

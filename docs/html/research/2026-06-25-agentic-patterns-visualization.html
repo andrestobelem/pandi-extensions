@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Visualization of agentic patterns in Dynamic Workflows</title>
+<title>Visualización de patrones agénticos en Dynamic Workflows</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,21 +121,26 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs/research</div>
-		<h1>Visualization of agentic patterns in Dynamic Workflows</h1>
+		<h1>Visualización de patrones agénticos en Dynamic Workflows</h1>
 	</header>
 	<main>
 <p>Date: 2026-06-25</p>
-<h2>Objective</h2>
-<p>Improve <code>/workflow graph</code> so it no longer looks like a linear list of calls and instead shows relevant agentic patterns: fan-out of many subagents per step, pipelines by lanes/stages, parallel barriers, synthesis/judge, and approximate loops. Explicit requirement: if a step launches many agents, that must be visible in the diagram; the inline PNG must appear larger.</p>
-<h2>Sources reviewed</h2>
-<p><strong>Documentation and frameworks:</strong></p>
+<p>Este trabajo mejora <code>/workflow graph</code> para que deje de verse como una lista lineal de llamadas y, en cambio, muestre los patrones agénticos relevantes: fan-out de muchos subagents por paso, pipelines por lanes/stages, barreras paralelas, síntesis/judge y loops aproximados.</p>
+<p>La señal clave es visual: si un paso lanza muchos agentes, eso tiene que verse en el diagrama. Además, el PNG inline debe aparecer más grande para que la estructura se lea sin esfuerzo.</p>
+<h2>En 30 segundos</h2>
+<p>Sirve cuando el grafo te está ocultando la forma real del workflow. Usalo para distinguir rápido entre secuencia, fan-out, paralelismo y síntesis, y para comprobar que una etapa con muchos agentes no quedó aplastada en una sola flecha.</p>
+<h2>Cómo probarlo</h2>
+<pre><code class="language-bash">PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p &quot;/workflow graph generated/agentic-viz-patterns-research&quot;
+</code></pre>
+<h2>Fuentes revisadas</h2>
+<p><strong>Documentación y frameworks:</strong></p>
 <ul>
 <li>Anthropic, <strong>Building effective agents</strong>: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer.</li>
 <li>LangGraph, <strong>Workflows and agents</strong>: Mermaid/graph rendering of workflows, parallelization, routing, orchestrator-worker, evaluator-optimizer.</li>
 <li>Mermaid, <strong>Flowchart syntax</strong>: <code>subgraph</code>, local direction, edges to/from subgraphs, labels and shapes.</li>
 <li>Mermaid CLI (<code>mmdc</code>): flags <code>-w/--width</code>, <code>-H/--height</code>, <code>-s/--scale</code>, <code>-t</code>, <code>-b</code>, JSON config.</li>
 </ul>
-<p><strong>Academic papers:</strong></p>
+<p><strong>Papers académicos:</strong></p>
 <ul>
 <li>ReAct (arXiv:2210.03629)</li>
 <li>Self-Consistency (arXiv:2203.11171)</li>
@@ -144,68 +149,67 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li>Tree of Thoughts (arXiv:2305.10601)</li>
 <li>Multiagent Debate (arXiv:2305.14325)</li>
 </ul>
-<p><strong>Local research:</strong></p>
+<p><strong>Investigación local:</strong></p>
 <ul>
 <li>Workflow <code>generated/agentic-viz-patterns-research</code></li>
 <li>Run <code>2026-06-25T10-17-20-913Z-generated-agentic-viz-patterns-research-ef06f94c</code></li>
-<li>Artifacts in project <code>.pi/workflow-runs/...</code> directory</li>
+<li>Artifacts en el directorio <code>.pi/workflow-runs/...</code> del proyecto</li>
 </ul>
-<h2>Recommended visual grammar</h2>
+<h2>Gramática visual recomendada</h2>
 <ul>
-<li><strong>◆ fan-out:</strong> <code>ctx.agents(...)</code>; show <code>P1 ×items.length agents</code>, <code>concurrency</code>, <code>settle:true</code>, fork, visible workers, and join.</li>
-<li><strong>▣ pipeline:</strong> <code>ctx.pipeline(items, ...stages)</code>; show <code>×items.length lanes</code> and number of stages.</li>
-<li><strong>⧉ barrier:</strong> <code>ctx.parallel([...])</code>; show concurrent branches and join/barrier.</li>
-<li><strong>● agent:</strong> an individual Pi subagent.</li>
-<li><strong>◇ workflow:</strong> delegated sub-workflow.</li>
-<li><strong>▤ artifact:</strong> evidence persisted outside the chat.</li>
-<li><strong>$ bash:</strong> host command.</li>
-<li><strong>Feedback loops:</strong> ReAct/Reflexion/Self-Refine patterns; marked as loops with a stop condition when <code>for</code>/<code>while</code> are detected.</li>
+<li><strong>◆ fan-out:</strong> <code>ctx.agents(...)</code>; mostrar <code>P1 ×items.length agents</code>, <code>concurrency</code>, <code>settle:true</code>, fork, workers visibles y join.</li>
+<li><strong>▣ pipeline:</strong> <code>ctx.pipeline(items, ...stages)</code>; mostrar <code>×items.length lanes</code> y la cantidad de stages.</li>
+<li><strong>⧉ barrier:</strong> <code>ctx.parallel([...])</code>; mostrar ramas concurrentes y join/barrier.</li>
+<li><strong>● agent:</strong> un subagent individual de Pi.</li>
+<li><strong>◇ workflow:</strong> sub-workflow delegado.</li>
+<li><strong>▤ artifact:</strong> evidencia persistida fuera del chat.</li>
+<li><strong>$ bash:</strong> comando del host.</li>
+<li><strong>Feedback loops:</strong> patrones ReAct/Reflexion/Self-Refine; se marcan como loops con condición de corte cuando se detecta <code>for</code>/<code>while</code>.</li>
 </ul>
-<h2>Decisions implemented</h2>
+<h2>Decisiones implementadas</h2>
 <ol>
-<li><p><strong>Enriched graph model</strong></p>
+<li><p><strong>Modelo de grafo enriquecido</strong></p>
 <ul>
-<li><code>WorkflowGraphStep</code> can now carry <code>fanout</code> and <code>children</code>.</li>
-<li>Conservative static cardinality is inferred: <code>angles.map(...)</code> → <code>angles.length</code>; literal arrays → number; unknown → <code>dynamic</code>.</li>
-<li><code>concurrency</code>, <code>settle:true</code>, and number of stages are extracted when they appear in arguments.</li>
+<li><code>WorkflowGraphStep</code> ahora puede llevar <code>fanout</code> y <code>children</code>.</li>
+<li>Se infiere cardinalidad estática conservadora: <code>angles.map(...)</code> → <code>angles.length</code>; arrays literales → número; desconocido → <code>dynamic</code>.</li>
+<li><code>concurrency</code>, <code>settle:true</code> y la cantidad de stages se extraen cuando aparecen en los argumentos.</li>
 </ul>
 </li>
-<li><p><strong>Grouping nested calls</strong></p>
+<li><p><strong>Agrupación de llamadas anidadas</strong></p>
 <ul>
-<li><code>ctx.agent</code>/helper calls inside <code>ctx.pipeline</code>, <code>ctx.parallel</code>, or <code>ctx.agents</code> are shown as children of the orchestration step, not as independent serial steps.</li>
+<li>Las llamadas <code>ctx.agent</code>/helpers dentro de <code>ctx.pipeline</code>, <code>ctx.parallel</code> o <code>ctx.agents</code> se muestran como hijos del paso de orquestación, no como pasos seriales independientes.</li>
 </ul>
 </li>
-<li><p><strong>Mermaid with subgraphs</strong></p>
+<li><p><strong>Mermaid con subgraphs</strong></p>
 <ul>
-<li>Fan-outs/pipelines/barriers are rendered as <code>subgraph</code> with <code>direction LR</code>.</li>
-<li>For many agents, representative workers are drawn: <code>agent 1</code>, <code>agent 2</code>, <code>…</code>, <code>agent n</code>, or <code>agent N</code>.</li>
-<li>External connections point to the subgraph, not to internal nodes, so Mermaid&#39;s local direction is not broken.</li>
+<li>Fan-outs/pipelines/barriers se renderizan como <code>subgraph</code> con <code>direction LR</code>.</li>
+<li>Para muchos agentes, se dibujan workers representativos: <code>agent 1</code>, <code>agent 2</code>, <code>…</code>, <code>agent n</code> o <code>agent N</code>.</li>
+<li>Las conexiones externas apuntan al subgraph, no a nodos internos, así no se rompe la dirección local de Mermaid.</li>
 </ul>
 </li>
-<li><p><strong>Larger PNG</strong></p>
+<li><p><strong>PNG más grande</strong></p>
 <ul>
-<li>Dynamic render: <code>width 2200..3600</code>, <code>height 1300..2800</code>, <code>scale=2</code>.</li>
-<li>Larger inline TUI: up to <code>320</code> columns and <code>54..88</code> rows depending on complexity.</li>
-<li>The UI shows generated dimensions (<code>WIDTH×HEIGHT @2x</code>) next to the PNG/MMD path.</li>
+<li>Render dinámico: <code>width 2200..3600</code>, <code>height 1300..2800</code>, <code>scale=2</code>.</li>
+<li>TUI inline más grande: hasta <code>320</code> columnas y <code>54..88</code> filas según la complejidad.</li>
+<li>La UI muestra las dimensiones generadas (<code>WIDTH×HEIGHT @2x</code>) junto a la ruta PNG/MMD.</li>
 </ul>
 </li>
-<li><p><strong>Documentation</strong></p>
+<li><p><strong>Documentación</strong></p>
 <ul>
-<li>README and skill document that <code>/workflow graph</code> now shows fan-out <code>×N</code>, lanes/branches, and a large inline PNG.</li>
+<li>El README y el skill documentan que <code>/workflow graph</code> ahora muestra fan-out <code>×N</code>, lanes/branches y un PNG inline grande.</li>
 </ul>
 </li>
 </ol>
-<h2>Accepted limitations</h2>
+<h2>Límites aceptados</h2>
 <ul>
-<li>The graph is still a static view: it does not execute JS or know the real value of <code>files.length</code> before the run.</li>
-<li>Real post-run counts exist in <code>phaseTotal</code>/<code>phaseIndex</code>/<code>phaseLabel</code> for <code>ctx.agents(...)</code>; a future run-aware improvement can combine the static graph with run events.</li>
-<li>Regex-based inference is still heuristic; an AST would be more robust, but this improvement avoids the most visible false serializations while keeping cost/dependencies low.</li>
-<li>Huge fan-outs are collapsed with ellipses for readability; the PNG shows that there are many agents without trying to draw hundreds by default.</li>
+<li>El grafo sigue siendo una vista estática: no ejecuta JS ni conoce el valor real de <code>files.length</code> antes de la corrida.</li>
+<li>Los conteos reales post-run existen en <code>phaseTotal</code>/<code>phaseIndex</code>/<code>phaseLabel</code> para <code>ctx.agents(...)</code>; una mejora futura aware de la corrida puede combinar el grafo estático con los eventos de ejecución.</li>
+<li>La inferencia por regex sigue siendo heurística; un AST sería más robusto, pero esta mejora evita las serializaciones falsas más visibles sin subir demasiado el costo/dependencias.</li>
+<li>Los fan-outs enormes se colapsan con elipsis para mejorar la legibilidad; el PNG muestra que hay muchos agentes sin intentar dibujar cientos por defecto.</li>
 </ul>
-<h2>Validation</h2>
-<p>Test the implementation:</p>
+<h2>Validación</h2>
+<p>Probá la implementación:</p>
 <pre><code class="language-bash">npm test
-PI_DYNAMIC_WORKFLOWS_PI_COMMAND=true pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p &quot;/workflow graph generated/agentic-viz-patterns-research&quot;
 ./node_modules/.bin/mmdc -q -i /tmp/subgraph-id-edge.mmd -o /tmp/subgraph-id-edge.png -e png -t dark -b transparent -w 2600 -H 1800 -s 2
 </code></pre>
 	</main>

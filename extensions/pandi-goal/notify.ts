@@ -2,7 +2,7 @@
  * User-notification helper, local to this extension so it stays self-contained.
  *
  * INTENTIONAL DUPLICATION: a byte-identical copy lives in every extension that
- * needs it (pi-plan, pi-loop, pi-goal, pi-dynamic-workflows) instead of a
+ * needs it (pandi-plan, pandi-loop, pandi-goal, pandi-dynamic-workflows) instead of a
  * cross-extension `../shared/` import. Pi loads each extension self-contained (a
  * single file or a directory with its OWN helpers, via jiti filesystem
  * resolution), so a `../shared/` import only resolves while the whole package is

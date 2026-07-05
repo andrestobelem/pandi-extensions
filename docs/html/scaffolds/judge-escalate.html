@@ -125,33 +125,43 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Generá candidatos desde ángulos distintos, juzgalos con un veredicto tipado, y escalá solo cuando la confianza sea baja.</p>
+<p>Generá candidatos desde ángulos distintos, juzgalos con un veredicto tipado y escalá solo cuando la confianza siga baja.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>Es un best-of-N que gasta más SOLO cuando hace falta: genera una tanda de candidatos desde ángulos distintos, un juez elige el mejor con un veredicto tipado (<code>winner</code>, <code>confidence</code>, <code>why</code>), y si el juez no está seguro (<code>confidence != &quot;high&quot;</code>), se lanza otra ronda más rigurosa de candidatos en vez de conformarse con un ganador débil. Elegilo para decisiones donde casi siempre hay un ganador claro pero de vez en cuando conviene invertir más cómputo antes de comprometerse.</p>
+<p><code>judge-escalate</code> es un patrón de <code>best-of-N</code> con escalado adaptativo. Primero genera una ronda de candidatos por ángulo, luego un juez elige el mejor con <code>winner</code>, <code>confidence</code> y <code>why</code>; si <code>confidence</code> no es <code>high</code>, repite con una ronda más rigurosa y vuelve a juzgar sobre todo lo acumulado. Usalo cuando casi siempre hay una respuesta clara, pero vale la pena invertir más cómputo en los casos difíciles.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=judge-escalate
 /workflow run mi-run {&quot;question&quot;:&quot;Best rollback strategy for the gate?&quot;,&quot;angles&quot;:[&quot;risk-first&quot;,&quot;simplicity-first&quot;,&quot;user-first&quot;],&quot;maxEscalations&quot;:2}
 </code></pre>
-<p><code>question</code> es el único campo obligatorio. <code>angles</code> y <code>maxEscalations</code> tienen defaults razonables — ver la tabla en <a href="#input-y-output">Input y output</a>.</p>
+<p><code>question</code> es el único campo obligatorio. <code>angles</code> y <code>maxEscalations</code> tienen defaults razonables; ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    A["Input: question (req), angles (default 3, cap 8), maxEscalations (default 2, clamp 0..10)"] --&gt; B{"question ausente?"}
+    A["Input: question (req), angles (default 3, cap 8), maxEscalations (default 2, clamp 0..10)"] --&gt; B{"¿falta question?"}
     B --&gt;|"sí"| B1["throw Error"]
-    B --&gt;|"no"| C["Phase: Generate\nescalation = 0"]
+    B --&gt;|"no"| C["Phase: Generate
+escalation = 0"]
 
     subgraph LOOP["while true"]
         subgraph GEN["parallel: un agent por ángulo (settle)"]
-            G1["agent cand sonnet·medium\nángulo 1 -&gt; approach"]
-            G2["agent cand sonnet·medium\nángulo 2 -&gt; approach"]
-            G3["agent cand sonnet·medium\nángulo N -&gt; approach"]
+            G1["agent cand sonnet·medium
+ángulo 1 -&gt; approach"]
+            G2["agent cand sonnet·medium
+ángulo 2 -&gt; approach"]
+            G3["agent cand sonnet·medium
+ángulo N -&gt; approach"]
         end
         C --&gt; GEN
-        GEN --&gt; D["indexar por posición ORIGINAL del ángulo\n(nunca filter-then-index)\ncandidates.push({angle, text})"]
-        D --&gt; E["Phase: Judge\nagent judge opus·high, schema VERDICT\nsobre TODOS los candidatos acumulados"]
-        E --&gt; F{"confidence == 'high'\nOR escalation &gt;= maxEscalations?"}
+        GEN --&gt; D["indexar por posición ORIGINAL del ángulo
+(nunca filter-then-index)
+candidates.push({angle, text})"]
+        D --&gt; E["Phase: Judge
+agent judge opus·high, schema VERDICT
+sobre TODOS los candidatos acumulados"]
+        E --&gt; F{"confidence == 'high'
+OR escalation &gt;= maxEscalations?"}
         F --&gt;|"sí"| STOP["break loop"]
-        F --&gt;|"no"| INC["escalation += 1\n(próxima ronda: prompt 'be more rigorous')"]
+        F --&gt;|"no"| INC["escalation += 1
+(próxima ronda: prompt 'be more rigorous')"]
         INC --&gt; GEN
     end
 
@@ -159,28 +169,30 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     H --&gt;|"no"| H1["log fuera de rango, fallback a candidate 1"]
     H --&gt;|"sí"| I["winner = candidates[winner-1]"]
     H1 --&gt; I
-    I --&gt; J["Phase: Synthesize\nagent opus·high\nbuild-on winner + graft runners-up + flag riesgos"]
+    I --&gt; J["Phase: Synthesize
+agent opus·high
+build on winner + graft runners-up + flag riesgos"]
     J --&gt; K["return synthesis (string)"]</pre>
 <h2>Qué hace</h2>
-<p><code>judge-escalate</code> implementa un generate-and-filter adaptativo: en cada iteración lanza un <code>agent</code> por cada ángulo declarado (en <code>parallel</code>), acumula esos candidatos junto con los de rondas anteriores, y pide a un juez (<code>agent</code> con <code>schema</code> tipado) que elija el mejor y declare su confianza (<code>high</code>/<code>medium</code>/<code>low</code>). Si el juez confía, el loop se detiene ahí; si no, se genera otra tanda completa de candidatos —con un prompt más exigente que pide anticipar las objeciones de un crítico escéptico— y se vuelve a juzgar sobre el conjunto acumulado completo (no solo la tanda nueva).</p>
-<p>Lo &quot;dinámico&quot; del patrón es justamente ese loop condicionado por el resultado del juez: el número de rondas de generación no está fijado de antemano, sino que depende de si el veredicto llega con confianza alta o no, acotado por <code>maxEscalations</code> para no gastar sin límite.</p>
-<p>Al terminar el loop, un agente de síntesis final construye la respuesta definitiva a partir del candidato ganador, injertando las mejores ideas de los candidatos que no ganaron y señalando riesgos residuales — no descarta el trabajo de los perdedores, lo aprovecha.</p>
+<p><code>judge-escalate</code> implementa un <code>generate-and-filter</code> adaptativo: en cada iteración lanza un <code>agent</code> por cada ángulo declarado (en <code>parallel</code>), acumula esos candidatos junto con los de rondas anteriores y pide a un juez (<code>agent</code> con <code>schema</code> tipado) que elija el mejor y declare su confianza (<code>high</code>/<code>medium</code>/<code>low</code>). Si el juez confía, el loop se detiene ahí; si no, genera otra tanda completa de candidatos —con un prompt más exigente que pide anticipar las objeciones de un crítico escéptico— y vuelve a juzgar sobre el conjunto acumulado completo, no solo sobre la tanda nueva.</p>
+<p>La parte dinámica del patrón es ese loop condicionado por el veredicto: el número de rondas no está fijado de antemano, sino que depende de si la confianza llega a <code>high</code>, con tope en <code>maxEscalations</code> para no gastar sin límite.</p>
+<p>Al terminar, un agente de síntesis final construye la respuesta definitiva a partir del candidato ganador, injertando las mejores ideas de los candidatos que no ganaron y marcando riesgos residuales. No descarta el trabajo de los perdedores: lo aprovecha.</p>
 <p>Todo texto no confiable (la pregunta del usuario, los candidatos) viaja envuelto en un <code>fence()</code> con delimitador derivado de un hash del contenido, para blindar contra inyección de instrucciones dentro de esos textos.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Decisiones donde casi siempre hay un ganador claro entre alternativas (catálogo).</li>
-<li>Gasto adaptativo: preferís pagar más cómputo solo en los casos difíciles, no siempre.</li>
-<li>Selección de la mejor entre varias opciones (&quot;best-of-N&quot;) cuando ya tenés ángulos/criterios distintos para generar candidatos.</li>
-<li><strong>No usarlo</strong> cuando la comparación es par a par en vez de absoluta (ahí conviene <code>tournament</code>, que usa juicio pairwise en vez de un veredicto único sobre todo el conjunto).</li>
-<li><strong>No usarlo</strong> cuando el objetivo es medir consenso entre muestras independientes de un mismo enfoque (ahí conviene <code>self-consistency</code>, votación en vez de escalada por confianza).</li>
+<li>Decisiones donde casi siempre hay un ganador claro entre varias opciones.</li>
+<li>Gasto adaptativo: preferís pagar más cómputo solo en los casos difíciles.</li>
+<li>Selección de la mejor alternativa (<code>best-of-N</code>) cuando ya tenés ángulos o criterios distintos para generar candidatos.</li>
+<li><strong>No usarlo</strong> cuando la comparación es par a par en vez de absoluta: ahí conviene <code>tournament</code>, que usa juicio pairwise en vez de un veredicto único sobre todo el conjunto.</li>
+<li><strong>No usarlo</strong> cuando querés medir consenso entre muestras independientes de un mismo enfoque: ahí conviene <code>self-consistency</code>, votación en vez de escalado por confianza.</li>
 </ul>
 <h2>Cómo funciona</h2>
-<p><strong>Validación de entrada.</strong> <code>question</code> (o sus alias <code>q</code>/<code>text</code>) es obligatorio; si falta, lanza una excepción (<code>throw</code>, no aborta con graceful error). <code>angles</code> debe ser un array no vacío de strings; se recorta a <code>MAX_ANGLES = 8</code> con log si excede. <code>maxEscalations</code> se sanea a entero y se clampea a <code>[0, MAX_ESCALATIONS=10]</code>, con log si el valor pedido difiere del normalizado.</p>
-<p><strong>Fase Generate.</strong> Por cada ángulo, un <code>agent</code> (rol <code>cand</code>, modelo <code>sonnet</code>, effort <code>medium</code>) recibe la pregunta envuelta en <code>fence(&quot;topic&quot;, question)</code> y produce una propuesta de enfoque bajo ese ángulo. Todos los ángulos de la ronda se lanzan en <code>parallel</code>. A partir de la segunda ronda (<code>escalation &gt; 0</code>), el prompt agrega la frase &quot;Be more rigorous... pre-empt the weaknesses a skeptical critic would raise&quot;, subiendo el listón. El resultado se indexa por la posición ORIGINAL del ángulo (nunca filtrando y reindexando después), así un branch caído no corre las etiquetas de ángulo de los sobrevivientes; los <code>null</code> (fallo bajo settle) se descartan con log explícito y NO se agregan a <code>candidates</code>.</p>
-<p><strong>Fase Judge.</strong> Un único <code>agent</code> (rol <code>judge</code>, modelo <code>opus</code>, effort <code>high</code>, con <code>schema: VERDICT</code>) recibe la pregunta y <strong>todos</strong> los candidatos acumulados hasta el momento (de esta ronda y de rondas previas), cada uno truncado a 8000 chars vía <code>compact()</code> y envuelto en su propio fence. El veredicto tipado exige <code>winner</code> (índice 1-based), <code>confidence</code> (<code>high</code>|<code>medium</code>|<code>low</code>) y <code>why</code>. El loop se corta (<code>break</code>) si <code>confidence === &quot;high&quot;</code> o si <code>escalation &gt;= maxEscalations</code>; en caso contrario incrementa <code>escalation</code> y vuelve a Generate.</p>
-<p><strong>Fase Synthesize.</strong> Tras el loop, se valida que <code>verdict.winner</code> caiga dentro del rango de <code>candidates</code>; si no, se loguea y se usa el candidato 1 como fallback. Un <code>agent</code> final (modelo <code>opus</code>, effort <code>high</code>) recibe la pregunta, el texto del ganador y el conjunto completo de candidatos (truncado a 40000 chars), y escribe la respuesta final construyendo sobre el ganador, injertando ideas de los runners-up y señalando riesgos residuales. Este agente NO usa <code>schema</code>: retorna texto libre, que es lo que el scaffold devuelve como resultado final.</p>
-<p><strong>Manejo de fallos parciales:</strong> cada fan-out de Generate corre bajo <code>parallel</code> con settle implícito (se filtran los <code>null</code>); un candidato caído se loguea por índice y ángulo, y no bloquea el resto de la ronda ni el veredicto.</p>
-<p><strong>Caching:</strong> no se observa ningún mecanismo explícito de caché; cada <code>agent</code> se invoca fresco en cada ronda, y el juez re-evalúa el conjunto completo acumulado (no solo lo nuevo) en cada escalada.</p>
+<p><strong>Validación de entrada.</strong> <code>question</code> (o sus alias <code>q</code>/<code>text</code>) es obligatorio; si falta, lanza una excepción (<code>throw</code>, no aborta con un error suave). <code>angles</code> debe ser un array no vacío; se recorta a <code>MAX_ANGLES = 8</code> con log si excede. <code>maxEscalations</code> se normaliza a entero y se clampa a <code>[0, MAX_ESCALATIONS = 10]</code>, con log si el valor pedido difiere del normalizado.</p>
+<p><strong>Fase Generate.</strong> Por cada ángulo, un <code>agent</code> (rol <code>cand</code>, modelo <code>sonnet</code>, effort <code>medium</code>) recibe la pregunta envuelta en <code>fence(&quot;topic&quot;, question)</code> y produce una propuesta bajo ese ángulo. Todos los ángulos de la ronda se lanzan en <code>parallel</code>. A partir de la segunda ronda (<code>escalation &gt; 0</code>), el prompt agrega la frase <code>Be more rigorous than a basic answer; pre-empt the weaknesses a skeptical critic would raise.</code>, subiendo el listón. El resultado se indexa por la posición ORIGINAL del ángulo (nunca filtrando y reindexando después); los <code>null</code> de fallos bajo <code>settle</code> se descartan con log explícito y no se agregan a <code>candidates</code>.</p>
+<p><strong>Fase Judge.</strong> Un único <code>agent</code> (rol <code>judge</code>, modelo <code>opus</code>, effort <code>high</code>, con <code>schema: VERDICT</code>) recibe la pregunta y todos los candidatos acumulados hasta el momento, cada uno truncado a 8000 caracteres vía <code>compact()</code> y envuelto en su propio fence. El veredicto tipado exige <code>winner</code> (índice 1-based), <code>confidence</code> (<code>high</code>/<code>medium</code>/<code>low</code>) y <code>why</code>. El loop se corta (<code>break</code>) si <code>confidence === &quot;high&quot;</code> o si <code>escalation &gt;= maxEscalations</code>; si no, incrementa <code>escalation</code> y vuelve a Generate.</p>
+<p><strong>Fase Synthesize.</strong> Tras el loop, se valida que <code>verdict.winner</code> caiga dentro del rango de <code>candidates</code>; si no, se loguea y se usa el candidato 1 como fallback. Un <code>agent</code> final (modelo <code>opus</code>, effort <code>high</code>) recibe la pregunta, el texto del ganador y el conjunto completo de candidatos (truncado a 40000 caracteres), y escribe la respuesta final construyendo sobre el ganador, injertando ideas de los runners-up y señalando riesgos residuales. Este agente no usa <code>schema</code>: retorna texto libre, que es lo que el scaffold devuelve como resultado final.</p>
+<p><strong>Manejo de fallos parciales.</strong> Cada fan-out de Generate corre bajo <code>parallel</code> con <code>settle</code> implícito; un candidato caído se loguea por índice y ángulo, y no bloquea el resto de la ronda ni el veredicto.</p>
+<p><strong>Caching.</strong> No se observa ningún mecanismo explícito de caché: cada <code>agent</code> se invoca fresco en cada ronda, y el juez reevalúa el conjunto completo acumulado —no solo lo nuevo— en cada escalada.</p>
 <h2>Input y output</h2>
 <table>
 <thead>
@@ -225,15 +237,15 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> (y variantes <code>*ByRole</code>)</td>
 <td>array</td>
 <td>no</td>
-<td>pasados al <code>agent</code> si son arrays</td>
+<td>se pasan al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table>
 <p><strong>Output:</strong> el retorno del scaffold es directamente el string producido por el agente de síntesis final (no un objeto con campos separados).</p>
-<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> — normalización de <code>angles</code>/<code>maxEscalations</code>, resultado de cada escalada (<code>winner</code>, <code>confidence</code>), candidatos descartados por fallo, y el conteo final de candidatos junto al veredicto.</p>
+<p>No se observa ninguna llamada a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> — normalización de <code>angles</code>/<code>maxEscalations</code>, resultado de cada escalada (<code>winner</code>, <code>confidence</code>), candidatos descartados por fallo y el conteo final de candidatos junto al veredicto.</p>
 <h2>Fases</h2>
 <ol>
-<li><strong>Generate</strong> — un <code>agent</code> por ángulo (modelo <code>sonnet</code>, effort <code>medium</code>) en <code>parallel</code>, propone un enfoque distinto a la pregunta; desde la segunda ronda pide mayor rigor.</li>
-<li><strong>Judge</strong> — un <code>agent</code> (modelo <code>opus</code>, effort <code>high</code>, <code>schema</code> tipado) elige el mejor candidato entre TODOS los acumulados y declara su confianza; confianza alta o presupuesto agotado corta el loop, si no se vuelve a Generate.</li>
+<li><strong>Generate</strong> — un <code>agent</code> por ángulo (modelo <code>sonnet</code>, effort <code>medium</code>) en <code>parallel</code> propone un enfoque distinto a la pregunta; desde la segunda ronda pide mayor rigor.</li>
+<li><strong>Judge</strong> — un <code>agent</code> (modelo <code>opus</code>, effort <code>high</code>, <code>schema</code> tipado) elige el mejor candidato entre todos los acumulados y declara su confianza; confianza alta o presupuesto agotado corta el loop, si no se vuelve a Generate.</li>
 <li><strong>Synthesize</strong> — un <code>agent</code> final (modelo <code>opus</code>, effort <code>high</code>) escribe la respuesta definitiva construyendo sobre el candidato ganador, injertando ideas de los runners-up y señalando riesgos residuales.</li>
 </ol>
 	</main>

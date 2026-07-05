@@ -49,14 +49,18 @@ function checkReadmeCatalog(failures) {
 	const uniqueExtensions = [...new Set(extensions)].sort();
 	const count = uniqueExtensions.length;
 
-	const headline = readme.match(/\*\*A suite of (\d+) extensions for \[Pi\]/);
+	const headline =
+		readme.match(/\*\*A suite of (\d+) extensions for \[Pi\]/) ??
+		readme.match(/\*\*Una suite de (\d+) extensiones(?: más un tema)? para \[Pi\]/);
 	if (!headline) {
 		failures.push("README headline extension count is missing");
 	} else if (Number(headline[1]) !== count) {
 		failures.push(`README headline says ${headline[1]} extensions, package.json pi.extensions has ${count}`);
 	}
 
-	const catalogIntro = readme.match(/All (\d+) extensions load by default from the `pi\.extensions` field/);
+	const catalogIntro =
+		readme.match(/All (\d+) extensions load by default from the `pi\.extensions` field/) ??
+		readme.match(/Las (\d+) extensiones de comando\/tool se cargan por defecto desde el campo `pi\.extensions`/);
 	if (!catalogIntro) {
 		failures.push("README catalog intro extension count is missing");
 	} else if (Number(catalogIntro[1]) !== count) {

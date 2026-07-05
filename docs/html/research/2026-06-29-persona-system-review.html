@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sistema de Personas (agentType) — Code Review</title>
+<title>Sistema de Personas (`agentType`) — revisión técnica</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,26 +121,28 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs/research</div>
-		<h1>Sistema de Personas (agentType) — Code Review</h1>
+		<h1>Sistema de Personas (`agentType`) — revisión técnica</h1>
 	</header>
 	<main>
-<p>Date: 2026-06-29</p>
+<p>Fecha: 2026-06-29</p>
+<h2>En 30 segundos</h2>
+<p>Este documento revisa el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven y fusionan, y qué riesgos de correctitud, seguridad y consistencia aparecen. La lectura está pensada como una revisión escéptica y read-only, con referencias <code>file:line</code> para verificar cada afirmación.</p>
 <h2>Objetivo</h2>
-<p>Revisar el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene. Lente: skeptical code reviewer, read-only, con cita <code>file:line</code>.</p>
+<p>Revisar el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene.</p>
 <h2>Dónde vive</h2>
 <ul>
 <li><strong>Definición:</strong> <code>extensions/pandi-dynamic-workflows/agent-env-persona.ts</code>
-— <code>BUILTIN_AGENT_PERSONAS</code> (5 personas, líneas 27–58) + resolución/merge/carga.</li>
+— <code>BUILTIN_AGENT_PERSONAS</code> (6 personas, líneas 27–58) + resolución/fusión/carga.</li>
 <li><strong>Personas de proyecto:</strong> archivos <code>.pi/personas/&lt;name&gt;.json</code> (<code>loadProjectPersona</code>, línea 228).
-Hoy <strong>no hay ninguna</strong> en el repo.</li>
+Sí existen personas de proyecto en el repo: <code>.pi/personas/andrej-karpathy.json</code>, <code>uncle-bob.json</code>, <code>dave-farley.json</code>, <code>kent-beck.json</code>.</li>
 <li><strong>Aplicación:</strong> <code>index.ts:713</code> → <code>applyPersonaOptions</code> (antes de <code>applyDefaultAgentAccess</code>).</li>
 <li><strong>Uso real:</strong> <code>.pi/workflows/*.js</code> (loop-engineering, modularize-audit) + tests + README.
-Las 5 personas: <code>explore·medium</code>, <code>reviewer·high</code>, <code>planner·high</code>, <code>implementer·medium</code>,
-<code>researcher·high</code> — coinciden exacto con el README raíz y el skill <code>ultracode</code>.</li>
+Las 6 personas: <code>explore·medium</code>, <code>reviewer·high</code>, <code>planner·high</code>, <code>architect·high</code>, <code>implementer·medium</code>,
+<code>researcher·high</code> — no coinciden exactamente con el README raíz ni con el skill <code>ultracode</code>.</li>
 </ul>
 <h2>Lo que está bien (no tocar)</h2>
 <ul>
-<li><p><strong>Gate de confianza</strong> (<code>agent-env-persona.ts:229</code>): proyecto no-confiable → ignora
+<li><p><strong>Gate de confianza</strong> (<code>agent-env-persona.ts:229</code>): proyecto no confiable → ignora
 <code>.pi/personas/*</code> y cae a built-in. Correcto: una persona puede setear <code>env</code>/<code>keys</code>/<code>tools</code>/
 <code>systemPrompt</code>, todos poderosos.</p>
 </li>
@@ -150,8 +152,8 @@ que <code>${name}.json</code> no escapa del directorio de personas.</p>
 <li><p><code>sanitizePersonaOptions</code> (línea 199) <strong>no</strong> copia <code>agentType</code> → un JSON de proyecto no puede
 re-disparar la resolución (sin recursión) ni inyectar <code>schema</code>/<code>prompt</code>.</p>
 </li>
-<li><p><code>appendSystemPrompt</code> se concatena de forma determinista (línea 211); merge determinista; los
-niveles de <code>thinking</code> respetan el contrato documentado.</p>
+<li><p><code>appendSystemPrompt</code> se concatena de forma determinista (línea 211); la fusión es determinista;
+los niveles de <code>thinking</code> respetan el contrato documentado.</p>
 </li>
 </ul>
 <h2>Hallazgos (por peso)</h2>
@@ -160,9 +162,9 @@ niveles de <code>thinking</code> respetan el contrato documentado.</p>
 persona (lo que hace que <code>reviewer</code> sea escéptico) vive en <code>systemPrompt</code>, que es un campo
 pisable: si el caller pasa su propio <code>systemPrompt</code>, <strong>borra entero</strong> el de la persona y sólo
 <code>appendSystemPrompt</code> sobrevive (concatenado).</p>
-<p>Resultado: podés pedir <code>agentType:&quot;reviewer&quot;</code> y, si además pasás <code>systemPrompt</code>, la reviewer-ness
-desaparece en silencio. Es coherente con &quot;lo explícito gana&quot;, pero el comportamiento identitario
-quedó en el campo clobbereable.</p>
+<p>Resultado: podés pedir <code>agentType:&quot;reviewer&quot;</code> y, si además pasás <code>systemPrompt</code>, la identidad de
+<code>reviewer</code> desaparece en silencio. Es coherente con “lo explícito gana”, pero el comportamiento
+identitario quedó en el campo clobbereable.</p>
 <p><strong>Fix:</strong> si las personas deben ser <em>defaults pegajosos</em>, mover su prompt de identidad a
 <code>appendSystemPrompt</code>; si no, documentar explícitamente el clobber. <strong>Es el punto más sustantivo.</strong></p>
 <h3>2. Resolución case-insensitive para built-in, case-sensitive para proyecto</h3>
@@ -170,7 +172,7 @@ quedó en el campo clobbereable.</p>
 case preservado (líneas 230–231). En sistemas de archivos case-sensitive (Linux/CI), <code>agentType:&quot;Reviewer&quot;</code>
 <strong>no</strong> encuentra <code>Reviewer.json</code> pero <strong>sí</strong> el built-in <code>reviewer</code> → usa el built-in en silencio aunque
 hubiera un override de proyecto.</p>
-<p>En macOS el comportamiento del sistema de archivos lo tapa.</p>
+<p>En macOS, el comportamiento del sistema de archivos lo tapa.</p>
 <p><strong>Fix de 1 línea:</strong> bajar a minúscula en ambos lados (o en ninguno) para que built-in y proyecto
 resuelvan igual.</p>
 <h3>3. <code>sanitizePersonaOptions</code> valida claves pero no tipos</h3>
@@ -179,18 +181,17 @@ resuelvan igual.</p>
 <code>Array.isArray(out.tools)</code> (línea 329), otros consumidores asumen array.</p>
 <p><strong>Riesgo:</strong> bajo (gateado por confianza). <strong>Fix:</strong> chequeo de tipo por clave al sanitizar.</p>
 <h3>4. <code>implementer</code>: el prompt promete editar, los tools no dejan</h3>
-<p><code>agent-env-persona.ts:46–51</code>: el <code>systemPrompt</code> dice &quot;Do not edit files unless explicitly allowed
-by the caller&quot;, pero el default es <code>READ_ONLY_AGENT_TOOLS</code>. &quot;Allowed&quot; exige que el caller
-<strong>también</strong> override <code>tools</code> (con <code>approve</code> solo no alcanza).</p>
+<p><code>agent-env-persona.ts:46–51</code>: el <code>systemPrompt</code> dice &quot;Do not edit files unless explicitly allowed by the caller&quot;, pero el default es <code>READ_ONLY_AGENT_TOOLS</code>. &quot;Allowed&quot; exige que el caller
+<strong>también</strong> haga override de <code>tools</code> (con <code>approve</code> solo no alcanza).</p>
 <p>El comportamiento es seguro y conservador; sólo la redacción induce a error.</p>
 <p><strong>Fix:</strong> aclarar en el prompt que editar requiere que el caller provea tools de escritura.</p>
 <h3>5. Los scaffolds publicados NO usan personas (0/25)</h3>
 <p><code>agentType</code> aparece en <code>.pi/workflows/</code> (ejemplos), tests y README — pero ningún archivo de
 <code>scaffolds/</code> lo usa; ahí se rutea todo por <code>node(role)</code> + mapas <code>models{}</code>/<code>efforts{}</code>.</p>
 <p>Conviven dos mecanismos: <strong>persona</strong> (<code>systemPrompt</code> + <code>thinking</code>) vs <strong>node-role</strong> (<code>model</code>/<code>effort</code>).
-No es bug, pero los scaffolds hoy sólo heredan model/effort, no la <strong>identidad</strong> (el <code>systemPrompt</code>
+No es bug, pero los scaffolds hoy sólo heredan <code>model</code>/<code>effort</code>, no la <strong>identidad</strong> (el <code>systemPrompt</code>
 escéptico, etc.). Decisión pendiente: ¿adoptar <code>agentType</code> en los scaffolds?</p>
-<h3>6. Doc gap (menor)</h3>
+<h3>6. Brecha de documentación (menor)</h3>
 <p>El README de la extensión (<code>extensions/pandi-dynamic-workflows/README.md</code>) no menciona personas; sí
 lo hacen el README raíz (líneas 158, 402, 500, 525) y el skill.</p>
 <h2>Orden sugerido de arreglo</h2>

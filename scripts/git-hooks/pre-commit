@@ -1,5 +1,5 @@
 #!/bin/sh
-# Versioned pre-commit gate for pi-dynamic-workflows (issue #7).
+# Versioned pre-commit gate for pandi-extensions (issue #7).
 #
 # Runs the FAST subset of `npm test` (< 4s total): typecheck + biome +
 # markdownlint + repo-local sync/parity checks. Integration suites stay out on

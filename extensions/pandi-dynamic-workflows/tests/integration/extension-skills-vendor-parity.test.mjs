@@ -1,5 +1,5 @@
 /**
- * Durable parity test for VENDORED extension skills: the skills owned by pi-dynamic-workflows
+ * Durable parity test for VENDORED extension skills: the skills owned by pandi-dynamic-workflows
  * (ultracode, deep-research, default) are authored canonically under `.pi/skills/<name>/` and
  * mirrored verbatim into `extensions/pandi-dynamic-workflows/skills/<name>/` by
  * `scripts/vendor-extension-skills.mjs` (source of truth = .pi/skills), so the extension carries
@@ -96,7 +96,7 @@ async function main() {
 	// comment-only promises the design rests on; pin them so a config edit can't silently break them.
 	//   (a) The extension SHIPS its skills: package.json files[] carries "skills" and pi.skills points
 	//       at "./skills", so `pi install ./extensions/pandi-dynamic-workflows` includes + loads them.
-	//   (b) In-repo does NOT double-load: the pi-dynamic-workflows entry in .pi/settings.json is
+	//   (b) In-repo does NOT double-load: the pandi-dynamic-workflows entry in .pi/settings.json is
 	//       object-form with skills:[] (the repo already loads these via .pi/skills auto-discovery).
 	const extPkgPath = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "package.json");
 	const extPkg = JSON.parse(fs.readFileSync(extPkgPath, "utf8"));
@@ -117,7 +117,7 @@ async function main() {
 		(p) => typeof p === "object" && p !== null && String(p.source || "").endsWith("pandi-dynamic-workflows"),
 	);
 	check(
-		"in-repo .pi/settings.json filters pi-dynamic-workflows skills:[] (no double-load with .pi/skills)",
+		"in-repo .pi/settings.json filters pandi-dynamic-workflows skills:[] (no double-load with .pi/skills)",
 		!!dwEntry && Array.isArray(dwEntry.skills) && dwEntry.skills.length === 0,
 		`entry=${JSON.stringify(dwEntry)}`,
 	);

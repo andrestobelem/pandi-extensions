@@ -125,7 +125,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Confirma bugs sospechosos por REPRODUCCIÓN: solo es real si una corrida falla contra el código actual; check opcional de fix FAIL→PASS + minimización.</p>
+<p>Confirma bugs sospechosos por REPRODUCCIÓN: solo es real si una corrida falla contra el código actual; verificación opcional de fix FAIL→PASS + minimización.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
 <p>Es el hermano de <code>adversarial-verify</code>, pero para bugs de código: en vez de podar afirmaciones por cita de un escéptico, poda bugs por ejecución. Toma una lista de bugs sospechosos (o los descubre con un finder inline), y para cada uno exige una corrida real que falle por esa razón — nada de &quot;probablemente&quot; ni argumentación. Elegilo cuando necesitás PROBAR un bug antes de arreglarlo, típicamente como paso siguiente de un <code>repo-bug-hunt</code>.</p>
@@ -186,10 +186,10 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li><strong>No lo uses</strong> si necesitás verificar afirmaciones no ejecutables (diseño, arquitectura, hechos de texto) — para eso está <code>adversarial-verify</code>. Tampoco si necesitás paralelismo masivo sobre muchos bugs independientes: acá el árbol compartido fuerza secuencialidad.</li>
 </ul>
 <h2>Cómo funciona</h2>
-<p><strong>Fase Source.</strong> Si <code>input.bugs</code> o <code>input.findings</code> viene como array, se usa tal cual. Si no, requiere <code>input.topic</code> (o <code>input.text</code>); dispara un <code>agent</code> (<code>finder</code>, modelo <code>haiku</code>, effort <code>low</code>, con <code>schema</code> JSON) que devuelve hasta <code>maxBugs</code> sospechosos falsables. El texto del topic se envuelve con <code>fence()</code> (marcador delimitador derivado de un hash del contenido, no de aleatoriedad) para blindar contra inyección de instrucciones. Cada item crudo se normaliza a <code>{ id, claim, file, reportedEvidence }</code>, se deduplica por la clave <code>claim+file</code> en minúsculas, y se recorta a <code>maxBugs</code> (con <code>log()</code> de cuántos se descartaron).</p>
+<p><strong>Fase Source.</strong> Si <code>input.bugs</code> o <code>input.findings</code> viene como array, se usa tal cual. Si no, requiere <code>input.topic</code> (o <code>input.text</code>); dispara un <code>agent</code> (<code>finder</code>, modelo <code>haiku</code>, effort <code>low</code>, con <code>schema</code> JSON) que devuelve hasta <code>maxBugs</code> sospechosos falsables. El texto del <code>topic</code> se envuelve con <code>fence()</code> (marcador delimitador derivado de un hash del contenido, no de aleatoriedad) para blindarlo contra inyección de instrucciones. Cada ítem crudo se normaliza a <code>{ id, claim, file, reportedEvidence }</code>, se deduplica por la clave <code>claim+file</code> en minúsculas, y se recorta a <code>maxBugs</code> (con <code>log()</code> de cuántos se descartaron).</p>
 <p><strong>Fase Reproduce.</strong> Si <code>attemptFix</code> está activo, un agente <code>tree-baseline</code> (<code>haiku</code>, <code>low</code>) corre <code>git status --porcelain</code> para tener una foto del estado inicial. Después, un <code>for</code> secuencial (no <code>parallel</code>) recorre cada bug: un agente <code>repro</code> (<code>sonnet</code>, <code>medium</code>, <code>schema</code> VERDICT, label <code>repro:&lt;id&gt;</code>) recibe el claim, file y evidencia reportada (cada uno envuelto en su propio <code>fence()</code>), y debe construir y CORRER una reproducción real, citando el output. El prompt instruye explícitamente el intento de fix + revert si <code>attemptFix</code>, y la minimización delta-debugging-style si <code>minimize</code>. Tras cada bug, si <code>attemptFix</code>, otro agente <code>tree-check</code> (<code>haiku</code>, <code>low</code>) vuelve a correr <code>git status --porcelain</code> y compara contra el baseline para marcar <code>treeDirty</code> (revert fallido).</p>
-<p>No hay <code>parallel</code>/<code>settle</code> en este scaffold — cada resultado se empuja directo al array <code>results</code>, y un <code>agent</code> que devuelve <code>null</code>/vacío se registra como <code>inconclusive</code> en vez de abortar el loop. No hay caching explícito (sin <code>writeArtifact</code> ni memoización entre corridas); cada invocación reproduce desde cero.</p>
-<h2>Input y output</h2>
+<p>No hay <code>parallel</code>/<code>settle</code> en este scaffold — cada resultado se empuja directo al array <code>results</code>, y un <code>agent</code> que devuelve <code>null</code>/vacío se registra como <code>inconclusive</code> en vez de abortar el ciclo. No hay caché explícita (sin <code>writeArtifact</code> ni memoización entre corridas); cada invocación reproduce desde cero.</p>
+<h2>Entrada y salida</h2>
 <table>
 <thead>
 <tr>
@@ -238,7 +238,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
   coverage: { bugs: &lt;items.length&gt; }
 }
 </code></pre>
-<p>No escribe artifacts (<code>writeArtifact</code>) — el resultado viaja completo en el valor de retorno del workflow.</p>
+<p>No escribe artefactos (<code>writeArtifact</code>) — el resultado viaja completo en el valor de retorno del workflow.</p>
 <h2>Fases</h2>
 <ol>
 <li><strong>Source</strong> — junta o descubre los bugs sospechosos, normaliza, deduplica, recorta a <code>maxBugs</code>.</li>

@@ -49,7 +49,7 @@ re-discover them.
 
 | What | Value |
 | --- | --- |
-| Repo | `andrestobelem/pi-dynamic-workflows` |
+| Repo | `andrestobelem/pandi-extensions` |
 | Project | number `4`, owner `andrestobelem` (user project, private) |
 | Project ID | `PVT_kwHOAEKsO84BcY5A` |
 | Status field ID | `PVTSSF_lAHOAEKsO84BcY5AzhXCGf4` |
@@ -146,7 +146,7 @@ schema-verified; mutations exercised on demand):
 PARENT_ID=$(gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pandi-dynamic-workflows")
   { issue(number:<PARENT>) { id } }}' --jq .data.repository.issue.id)
 gh api graphql -f query="mutation { addSubIssue(input: { issueId: \"$PARENT_ID\",
-  subIssueUrl: \"https://github.com/andrestobelem/pi-dynamic-workflows/issues/<CHILD>\" })
+  subIssueUrl: \"https://github.com/andrestobelem/pandi-extensions/issues/<CHILD>\" })
   { issue { number } subIssue { number } } }"
 
 # List an epic's children + auto-computed progress
@@ -163,7 +163,7 @@ progress` fields (group a table view by Parent issue in the UI).
 ### Milestones (release buckets)
 
 ```bash
-gh api repos/andrestobelem/pi-dynamic-workflows/milestones -f title="v0.2 release" \
+gh api repos/andrestobelem/pandi-extensions/milestones -f title="v0.2 release" \
   -f description="<anchor story / scope>"          # create
 gh issue edit <N> --milestone "v0.2 release"       # assign
 gh issue list --milestone "v0.2 release"           # query

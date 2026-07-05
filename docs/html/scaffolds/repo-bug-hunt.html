@@ -157,24 +157,39 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 
     I --&gt; J["Phase: Synthesis"]
     J --&gt; K["agent synthesis opus·high\n(juez: dedup + prioriza, descarta claims no citados,\nreporta coverage: reviewed/allFiles.length, failed branches)"]
-    K --&gt; L["return synthesis\n(verdicto + tabla priorizada + rechazados + coverage gaps + tests sugeridos)"]</pre>
+    K --&gt; L["return synthesis\n(veredicto + tabla priorizada + rechazados + coverage gaps + tests sugeridos)"]</pre>
 <h2>Qué hace</h2>
 <p><code>repo-bug-hunt</code> es un mapeo por archivo con síntesis-como-juez: primero descubre qué archivos existen (o usa una lista explícita), después lanza un revisor independiente por archivo que busca bugs bajo una lente configurable, y finalmente un juez único deduplica, descarta hallazgos sin evidencia y produce una tabla priorizada. Es explícitamente una herramienta de <strong>descubrimiento</strong>: los hallazgos son leads a verificar, no bugs confirmados (el scaffold nunca reproduce ni ejecuta código).</p>
 <p>Es &quot;dinámico&quot; porque el work-list de archivos y el ancho del fan-out no se conocen en tiempo de autoría: dependen de qué archivos matchean el patrón en el repo actual, acotados por <code>maxFiles</code>. El diseño es robustness-first: cada revisor corre bajo <code>settle</code> (un branch fallido se vuelve <code>null</code> y no rompe el resto), y el juez recibe explícitamente cuántos archivos se revisaron sobre el total y cuántos branches fallaron, para no ocultar cobertura incompleta.</p>
 <p>Tanto el patrón de archivos a revisar (<code>pattern</code>) como la lente de revisión (<code>lens</code>) son configurables vía presets (<code>code</code>/<code>docs</code>/<code>web</code>/<code>config</code> para pattern; <code>code</code>/<code>security</code>/<code>prose</code> para lens) o texto libre, lo que permite reusar el mismo scaffold para auditorías de seguridad, revisión de prosa en docs, o bugs de código genéricos.</p>
 <h2>Cuándo usarlo</h2>
-<ul>
-<li>Auditoría de repo completa cuando no sabés de antemano qué archivos revisar.</li>
-<li>Barrido pre-review (después, confirmar los hallazgos más serios con <code>bug-verify</code>).</li>
-<li>Necesitás una lista priorizada y citada de hallazgos, no un veredicto suelto.</li>
-<li><strong>No</strong> lo uses si ya tenés un bug puntual que necesitás reproducir y probar: usá <code>bug-verify</code> en su lugar.</li>
-<li><strong>No</strong> lo uses si necesitás confirmación de que los hallazgos son reales: este scaffold nunca ejecuta ni reproduce nada.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Elegí esto si…</th>
+<th>Usá…</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Querés barrer un repo entero sin saber de antemano qué archivos importan</td>
+<td><code>repo-bug-hunt</code></td>
+</tr>
+<tr>
+<td>Ya tenés un bug puntual y necesitás reproducirlo y probarlo</td>
+<td><code>bug-verify</code></td>
+</tr>
+<tr>
+<td>Necesitás hallazgos priorizados y citados, no un veredicto suelto</td>
+<td><code>repo-bug-hunt</code></td>
+</tr>
+</tbody></table>
+<p><code>repo-bug-hunt</code> es para descubrimiento amplio. Si después querés confirmar un hallazgo, seguí con <code>bug-verify</code>.</p>
+<p><strong>No</strong> lo uses para “probar” un bug: este scaffold nunca ejecuta ni reproduce código.</p>
 <h2>Cómo funciona</h2>
 <p><strong>Entrada y saneo.</strong> <code>args</code> se parsea de forma defensiva (<code>try/catch</code> a <code>{}</code>). <code>maxFiles</code> se sanea con un clamp entero entre 1 y 4096 (default 40; si el valor provisto era inválido, se loguea el fallback). <code>pattern</code> resuelve contra un mapa de presets (<code>code</code>, <code>docs</code>, <code>web</code>, <code>config</code>) o, si no matchea ningún preset, se usa el string tal cual como regex (default: extensiones de código <code>\.(ts|tsx|js|jsx|py|go|rs)$</code>). <code>lens</code> funciona igual, contra presets <code>code</code>/<code>security</code>/<code>prose</code>, o texto libre describiendo qué buscar (default: bugs genéricos, condiciones de carrera, seguridad, pérdida de datos, edge cases).</p>
-<p><strong>Fase Scout.</strong> Si <code>input.files</code> es un array no vacío, se usa directamente y se salta el scout. Si no, un <code>agent</code> en rol <code>scout</code> (modelo <code>haiku</code>, effort <code>low</code>) ejecuta <code>git ls-files</code> y filtra por la regex de <code>pattern</code>, devolviendo un JSON <code>{ files: [...] }</code> validado contra un schema de objeto (<code>FILE_LIST</code>). El filtro de extensión vive en el prompt del regex, nunca vía interpolación de shell. La lista resultante se recorta a <code>maxFiles</code>; si se recorta, se loguea cuántos archivos quedaron fuera. Si el work-list final queda vacío, el scaffold retorna un mensaje explicativo sin llegar a Review/Synthesis.</p>
+<p><strong>Fase Scout.</strong> Si <code>input.files</code> es un array no vacío, se usa directamente y se salta el scout. Si no, un <code>agent</code> en rol <code>scout</code> (modelo <code>haiku</code>, effort <code>low</code>) ejecuta <code>git ls-files</code> y filtra por la regex de <code>pattern</code>, devolviendo un JSON <code>{ files: [...] }</code> validado contra un schema de objeto (<code>FILE_LIST</code>). El filtro de extensión vive en el prompt del regex, nunca vía interpolación de shell. La lista resultante se recorta a <code>maxFiles</code>; si se recorta, se loguea cuántos archivos quedaron fuera. Si el work-list final queda vacío, el scaffold retorna un mensaje explicativo sin llegar a Review/Synthesis. Si el <code>agent</code> falla acá, la corrida aborta.</p>
 <p><strong>Fase Review.</strong> <code>concurrency</code> se sanea con clamp entre 1 y <code>files.length</code> (default 6). Se lanza un <code>agent</code> independiente por archivo en <code>parallel</code> con <code>settle</code>: cada revisor (rol <code>bug-hunt</code>, modelo <code>sonnet</code>, effort <code>medium</code>) recibe el contenido del archivo envuelto en un fence anti-inyección derivado de un hash del contenido (<code>fence()</code>), con instrucciones explícitas de tratar ese contenido como datos, nunca como instrucciones, y de ignorar cualquier directiva embebida. El contrato de salida exige citar archivo y línea por cada hallazgo, explicar escenario/impacto/fix mínimo, ignorar estilo puro, y declarar explícitamente <code>NO_FINDINGS</code> o <code>INSUFFICIENT_EVIDENCE</code> en vez de inventar. Un branch fallido se vuelve <code>null</code> bajo <code>settle</code> y se filtra después (<code>completedReviews</code>); el conteo de fallos (<code>failed</code>) se loguea y se propaga a la síntesis.</p>
-<p><strong>Fase Synthesis.</strong> Un único <code>agent</code> (rol <code>synthesis</code>, modelo <code>opus</code>, effort <code>high</code>) actúa como juez final: recibe todos los reviews completados (comprimidos a 80000 caracteres con <code>compact()</code>) envueltos en el mismo fence anti-inyección, junto con las cifras de cobertura (<code>reviewed/total</code>, <code>failed</code>). Debe deduplicar y priorizar, descartar claims concretos sin cita, y producir: veredicto ejecutivo, tabla priorizada (severidad/confianza/archivo-línea/issue/escenario/fix), hallazgos rechazados por baja confianza, gaps de cobertura/branches fallidos, y tests de verificación sugeridos. Este string es el retorno final del scaffold.</p>
+<p><strong>Fase Synthesis.</strong> Un único <code>agent</code> (rol <code>synthesis</code>, modelo <code>opus</code>, effort <code>high</code>) actúa como juez final: recibe todos los reviews completados (comprimidos a 80000 caracteres con <code>compact()</code>) envueltos en el mismo fence anti-inyección, junto con las cifras de cobertura (<code>reviewed/total</code>, <code>failed</code>). Debe deduplicar y priorizar, descartar afirmaciones concretas sin cita, y producir: veredicto ejecutivo, tabla priorizada (severidad/confianza/archivo-línea/issue/escenario/fix), hallazgos rechazados por baja confianza, gaps de cobertura/branches fallidos, y tests de verificación sugeridos. Este string es el retorno final del scaffold.</p>
 <p><strong>Caching:</strong> no se observa ningún mecanismo de caché explícito; cada <code>agent</code> se invoca fresco.</p>
 <p><strong>Manejo de fallos parciales:</strong> tanto Scout (implícito, si <code>agent</code> falla no hay fallback) como Review usan <code>settle</code> vía <code>parallel</code>; en Review los <code>null</code> se filtran y se cuentan (<code>failed</code>), y ese número se comunica explícitamente al juez para que no oculte cobertura incompleta.</p>
 <h2>Input y output</h2>

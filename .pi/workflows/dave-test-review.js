@@ -42,7 +42,7 @@ const MIN_SUBSTANTIVE_CHARS = 200;
 
 const PREFIX = [
 	"Act as a Dave Farley-style reviewer of a TEST SUITE (you have the modern-software-engineering skill; apply it).",
-	"You are reviewing the integration test suites of ONE extension in the pi-dynamic-workflows monorepo.",
+	"You are reviewing the integration test suites of ONE extension in the pandi-extensions monorepo.",
 	"Judge the suites as ENGINEERING ARTIFACTS: do they optimize for learning and manage complexity?",
 	"Evaluate concretely:",
 	"- BEHAVIORAL coverage: do tests pin observable behavior (outputs, messages, state) or implementation detail?",

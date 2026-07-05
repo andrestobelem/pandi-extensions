@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Setup — requirements, optional capabilities, configuration, distribution</title>
+<title>Configuración — requisitos, capacidades opcionales, configuración y distribución</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,225 +121,228 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs</div>
-		<h1>Setup — requirements, optional capabilities, configuration, distribution</h1>
+		<h1>Configuración — requisitos, capacidades opcionales, configuración y distribución</h1>
 	</header>
 	<main>
-<p>This is the <strong>exhaustive</strong> setup reference for <code>pandi-dynamic-workflows</code>: every mandatory/optional requirement, environment variable, and distribution channel. Just cloned the repo? Run the condensed <a href="index.html#quickstart">Quickstart in the root README</a> instead — come back here for a specific detail (an env var, an optional capability, which distribution channel to pick).</p>
-<p>Fastest path from a clean machine — four commands and you&#39;re set:</p>
+<p>Esta es la referencia <strong>exhaustiva</strong> de configuración de <code>pandi-extensions</code>: reúne requisitos obligatorios y opcionales, variables de entorno y canales de distribución. Si recién clonaste el repo, mejor empezá por el <a href="index.html#inicio-r%C3%A1pido">Inicio rápido del README raíz</a> y volvé acá cuando necesites un detalle puntual: una variable, una capacidad opcional o qué canal de distribución conviene.</p>
+<h2>En 30 segundos</h2>
+<p>Si querés dejar una máquina lista rápido, estos cuatro comandos cubren el camino feliz:</p>
 <pre><code class="language-bash">nvm install &amp;&amp; nvm use                                             # Node &gt;= 22.19.0
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent    # Pi CLI
-npm install &amp;&amp; npm run doctor                                      # dev toolchain + env check
-pi install ./                                                      # every extension + skill
+npm install &amp;&amp; npm run doctor                                      # toolchain + chequeo de entorno
+pi install ./                                                      # todas las extensiones + skills
 </code></pre>
-<h2>Requirements</h2>
-<h3>Mandatory</h3>
+<p>Usá esta página cuando necesites decidir qué instalar, qué habilita cada dependencia opcional o cómo se distribuye el paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
+<h2>Requisitos</h2>
+<h3>Obligatorios</h3>
 <table>
 <thead>
 <tr>
-<th>Requirement</th>
-<th>Purpose</th>
-<th>Install</th>
+<th>Requisito</th>
+<th>Para qué sirve</th>
+<th>Instalación</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><strong>Node.js ≥ 22.19.0</strong></td>
-<td>Runtime (required by <code>@earendil-works/pi-coding-agent</code>; the repo pins <code>22</code> in <code>.nvmrc</code>).</td>
-<td><code>nvm install 22 &amp;&amp; nvm use 22</code> — or <code>brew install node</code></td>
+<td>Runtime requerido por <code>@earendil-works/pi-coding-agent</code>; el repo fija <code>22</code> en <code>.nvmrc</code>.</td>
+<td><code>nvm install 22 &amp;&amp; nvm use 22</code> — o <code>brew install node</code></td>
 </tr>
 <tr>
 <td><strong>Pi CLI</strong> (<code>@earendil-works/pi-coding-agent</code>)</td>
-<td>Host that loads extensions, TUI/RPC, <code>pi install</code>, and the subagent spawner.</td>
-<td><code>npm install -g --ignore-scripts @earendil-works/pi-coding-agent</code> (verify with <code>pi --version</code>)</td>
+<td>Host que carga extensiones, TUI/RPC, <code>pi install</code> y el spawner de subagentes.</td>
+<td><code>npm install -g --ignore-scripts @earendil-works/pi-coding-agent</code> (verificá con <code>pi --version</code>)</td>
 </tr>
 <tr>
 <td><strong>npm</strong></td>
-<td>Installs the dev toolchain and runs <code>npm test</code>. Ships with Node.</td>
-<td>(included with Node)</td>
+<td>Instala la toolchain de desarrollo y ejecuta <code>npm test</code>. Viene con Node.</td>
+<td>(incluido con Node)</td>
 </tr>
 <tr>
 <td><strong>git</strong></td>
-<td>Used by <code>pandi-worktree</code> and workflow scouts.</td>
-<td><code>xcode-select --install</code> or <code>brew install git</code></td>
+<td>Lo usan <code>pandi-worktree</code> y los scouts de workflows.</td>
+<td><code>xcode-select --install</code> o <code>brew install git</code></td>
 </tr>
 </tbody></table>
 <blockquote>
-<p>Node 22 is the floor. The optional Gondolin extension needs Node ≥ 23.6.0.</p>
+<p>Node 22 es el piso. La extensión opcional Gondolin necesita Node ≥ 23.6.0.</p>
 </blockquote>
-<h3>Optional (each unlocks one capability; without it, that capability is simply absent)</h3>
+<h3>Opcionales</h3>
+<p>Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no existe.</p>
 <table>
 <thead>
 <tr>
-<th>Capability</th>
-<th>Requirement</th>
-<th>Install</th>
+<th>Capacidad</th>
+<th>Requisito</th>
+<th>Instalación</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Web search for subagents (<code>web_search</code>)</td>
-<td><code>pi-codex-web-search</code> extension + <code>codex</code> CLI</td>
-<td><code>pi install npm:pi-codex-web-search</code> and <code>brew install codex</code> (or <code>npm install -g @openai/codex</code>)</td>
+<td>Búsqueda web para subagentes (<code>web_search</code>)</td>
+<td>Extensión <code>pi-codex-web-search</code> + CLI <code>codex</code></td>
+<td><code>pi install npm:pi-codex-web-search</code> y <code>brew install codex</code> (o <code>npm install -g @openai/codex</code>)</td>
 </tr>
 <tr>
-<td>On-demand library docs (Context7)</td>
-<td><code>context7-cli</code> skill (optional) + <code>ctx7</code> CLI</td>
-<td>Configure Context7 with <code>npx ctx7 setup --cli</code> (&quot;CLI + Skills&quot; mode; successor of the deprecated <code>ctx7 skills install</code>). The <code>ctx7</code> CLI is a devDependency: run it with <code>npx ctx7</code> after <code>npm install</code> (or globally: <code>npm i -g ctx7@latest</code>)</td>
+<td>Docs de librerías bajo demanda (Context7)</td>
+<td>Skill <code>context7-cli</code> (opcional) + CLI <code>ctx7</code></td>
+<td>Configurá Context7 con <code>npx ctx7 setup --cli</code> (modo &quot;CLI + Skills&quot;; sucesor de <code>ctx7 skills install</code>). <code>ctx7</code> es un devDependency: ejecutalo con <code>npx ctx7</code> después de <code>npm install</code> (o globalmente con <code>npm i -g ctx7@latest</code>)</td>
 </tr>
 <tr>
-<td>PNG graphs for <code>/workflow graph</code></td>
-<td><code>@mermaid-js/mermaid-cli</code> (<code>mmdc</code>) + Puppeteer&#39;s Chrome</td>
-<td>Installs automatically with <code>npm install</code>; if rendering fails: <code>npx puppeteer browsers install chrome-headless-shell</code></td>
+<td>Gráficos PNG para <code>/workflow graph</code></td>
+<td><code>@mermaid-js/mermaid-cli</code> (<code>mmdc</code>) + Chrome de Puppeteer</td>
+<td>Se instala automáticamente con <code>npm install</code>; si falla el render: <code>npx puppeteer browsers install chrome-headless-shell</code></td>
 </tr>
 <tr>
-<td>Linux sandboxes (<code>pandi-container</code>)</td>
+<td>Sandboxes Linux (<code>pandi-container</code>)</td>
 <td>Apple <code>container</code> (macOS Apple Silicon)</td>
 <td><code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code></td>
 </tr>
 <tr>
-<td>Micro-VM isolation (Gondolin)</td>
+<td>Aislamiento por micro-VM (Gondolin)</td>
 <td><code>@earendil-works/gondolin</code> (darwin-arm64 / linux-x64, Node ≥ 23.6.0)</td>
-<td><code>npm run setup:gondolin</code>, then <code>pi -e .pi/tools/gondolin</code></td>
+<td><code>npm run setup:gondolin</code>, después <code>pi -e .pi/tools/gondolin</code></td>
 </tr>
 </tbody></table>
 <blockquote>
-<p>The whole dev toolchain (<code>biome</code>, <code>tsc</code>, <code>esbuild</code>, <code>markdownlint-cli2</code>, <code>prettier</code>, <code>ctx7</code>) consists of <strong>devDependencies</strong>; <code>@mermaid-js/mermaid-cli</code> is an <strong>optionalDependency</strong> (it has an ASCII fallback, so a failed Chromium download does not break the install). Everything installs with <code>npm install</code> (optional ones unless <code>--omit=optional</code>) and runs via <code>npm run …</code>/<code>npx</code>, with no global installation. The only global install is the <strong>Pi CLI</strong>. Verify your environment with <code>npm run doctor</code>.</p>
+<p>Toda la toolchain de desarrollo (<code>biome</code>, <code>tsc</code>, <code>esbuild</code>, <code>markdownlint-cli2</code>, <code>prettier</code>, <code>ctx7</code>) vive como <strong>devDependencies</strong>; <code>@mermaid-js/mermaid-cli</code> es un <strong>optionalDependency</strong> (tiene fallback ASCII, así que una descarga fallida de Chromium no rompe la instalación). Todo se instala con <code>npm install</code> (los opcionales, salvo <code>--omit=optional</code>) y se ejecuta con <code>npm run …</code>/<code>npx</code>, sin instalaciones globales adicionales. La única instalación global es la del <strong>Pi CLI</strong>. Verificá el entorno con <code>npm run doctor</code>.</p>
 </blockquote>
-<h2>Installation variants</h2>
+<h2>Variantes de instalación</h2>
 <table>
 <thead>
 <tr>
-<th>Variant</th>
-<th>Command</th>
-<th>When</th>
+<th>Variante</th>
+<th>Comando</th>
+<th>Cuándo</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Global, for your user</td>
+<td>Global, para tu usuario</td>
 <td><code>pi install ./</code></td>
-<td>Default: use the extensions in every project</td>
+<td>Opción por defecto: usá las extensiones en todos los proyectos</td>
 </tr>
 <tr>
-<td>Local to this project</td>
+<td>Local a este proyecto</td>
 <td><code>pi install -l ./</code></td>
-<td>Only this one project needs them</td>
+<td>Solo este proyecto necesita esas extensiones</td>
 </tr>
 <tr>
-<td>Try without installing</td>
-<td><code>pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts</code> (or <code>-e .</code> for the whole bundle)</td>
-<td>Quick, throwaway test of one/all extension(s)</td>
+<td>Probar sin instalar</td>
+<td><code>pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts</code> (o <code>-e .</code> para todo el bundle)</td>
+<td>Prueba rápida y descartable de una o todas las extensiones</td>
 </tr>
 </tbody></table>
-<p>To use project workflows in <code>.pi/workflows/</code>, trust the project with <code>/trust</code> and restart or run <code>/reload</code>.</p>
-<h3>External skill: karpathy-guidelines</h3>
-<p>The <code>karpathy-guidelines</code> skill is <strong>not vendored</strong> in the repo; <code>AGENTS.md</code> expects it installed. Fetch it from upstream into your global skills (Pi reads <code>~/.agents/skills</code>, Claude Code <code>~/.claude/skills</code>):</p>
+<p>Para usar los workflows del proyecto en <code>.pi/workflows/</code>, confiá el proyecto con <code>/trust</code> y reiniciá o ejecutá <code>/reload</code>.</p>
+<h3>Skill externo: karpathy-guidelines</h3>
+<p>El skill <code>karpathy-guidelines</code> <strong>no</strong> viene vendorizado en el repo; <code>AGENTS.md</code> espera que esté instalado. Traelo desde upstream a tus skills globales (Pi lee <code>~/.agents/skills</code>, Claude Code <code>~/.claude/skills</code>):</p>
 <pre><code class="language-bash">for d in ~/.agents/skills ~/.claude/skills; do
   mkdir -p &quot;$d/karpathy-guidelines&quot;
   curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
     -o &quot;$d/karpathy-guidelines/SKILL.md&quot;
 done
 </code></pre>
-<h3>Vendored skills</h3>
-<p>The <code>pandi-dynamic-workflows</code> package <strong>vendors its own skills</strong> (<code>ultracode</code>, <code>deep-research</code>, <code>default</code>) in <code>extensions/pandi-dynamic-workflows/skills/</code>, so they travel when installing only that extension. They are a generated mirror of the canonical <code>.pi/skills/</code> source (regenerate with <code>npm run sync:skills:vendor</code>; the parity test and <code>npm run doctor</code> flag drift). In-repo they are not duplicated: that extension&#39;s entry in <code>.pi/settings.json</code> filters <code>skills: []</code> because the repo already loads them via <code>.pi/skills/</code> auto-discovery.</p>
-<h2>Optional capabilities in detail</h2>
+<h3>Skills vendorizados</h3>
+<p>El paquete <code>pandi-dynamic-workflows</code> <strong>vendoriza sus propios skills</strong> (<code>ultracode</code>, <code>deep-research</code>, <code>default</code>) en <code>extensions/pandi-dynamic-workflows/skills/</code>, para que viajen cuando instalás solo esa extensión. Son un espejo generado del origen canónico en <code>.pi/skills/</code> (regenerar con <code>npm run sync:skills:vendor</code>; el test de paridad y <code>npm run doctor</code> detectan drift). Dentro del repo no se duplican: la entrada de esa extensión en <code>.pi/settings.json</code> filtra <code>skills: []</code> porque el repo ya los carga por auto-discovery desde <code>.pi/skills/</code>.</p>
+<h2>Capacidades opcionales en detalle</h2>
 <ul>
-<li><strong>Web search (<code>web_search</code>) for subagents</strong> — install <code>pi install npm:pi-codex-web-search</code> (separate package, repo <code>github.com/ayagmar/pi-codex-web-search</code>) and the <code>codex</code> CLI (<code>brew install codex</code> or <code>npm install -g @openai/codex</code>). When the runtime finds the extension (in <code>~/.pi/agent/npm/node_modules/</code> or <code>./node_modules/</code>), it adds <code>web_search</code> to every subagent&#39;s tool list automatically. If <code>codex</code> is not on the PATH, point at it with <code>CODEX_PATH</code>. Per-subagent opt-out: <code>excludeTools: [&quot;web_search&quot;]</code> or <code>includeExtensions: false</code>.</li>
-<li><strong>Context7 (library docs)</strong> — the <code>context7-cli</code> skill is <strong>not</strong> vendored in the repo. Configure it with <code>npx ctx7 setup --cli</code> (&quot;CLI + Skills&quot; mode; successor of the deprecated <code>ctx7 skills install</code>, which stops working in the next major). Pi auto-discovers the skill from the global scope (<code>~/.agents/skills/</code> or <code>~/.pi/agent/skills/</code>) in any project and adds it to subagents. The <code>ctx7</code> CLI ships as a <strong>devDependency</strong>: run it with <code>npx ctx7</code> after <code>npm install</code> (or globally with <code>npm i -g ctx7@latest</code>). Per-subagent opt-out: <code>includeSkills: false</code>.</li>
-<li><strong><code>/workflow graph</code> visuals</strong> — <code>mmdc</code> installs automatically with <code>npm install</code> (optionalDependency <code>@mermaid-js/mermaid-cli</code>). Inline PNG needs a terminal with an image protocol (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi disables it under tmux). If <code>mmdc</code> fails on Chrome/Puppeteer: <code>npx puppeteer browsers install chrome-headless-shell</code>. Without <code>mmdc</code>: ASCII topology fallback + Mermaid export.</li>
-<li><strong>Linux sandboxes (<code>pandi-container</code>)</strong> — macOS Apple Silicon only: <code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code>. On unsupported hosts the extension returns a bounded message, it does not crash.</li>
-<li><strong>Gondolin isolation (micro-VM)</strong> — <code>npm run setup:gondolin</code> copies the example shipped with Pi into <code>.pi/tools/gondolin/</code> (gitignored, not auto-discovered) and installs its deps with <code>--ignore-scripts</code>; load it on demand with <code>pi -e .pi/tools/gondolin</code>. Requires darwin-arm64/linux-x64 and Node ≥ 23.6.0. It does not isolate dynamic-workflows subagent spawns (see <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</li>
+<li><strong>Búsqueda web (<code>web_search</code>) para subagentes</strong> — instalá <code>pi install npm:pi-codex-web-search</code> (paquete separado, repo <code>github.com/ayagmar/pi-codex-web-search</code>) y el CLI <code>codex</code> (<code>brew install codex</code> o <code>npm install -g @openai/codex</code>). Cuando el runtime encuentra la extensión (en <code>~/.pi/agent/npm/node_modules/</code> o <code>./node_modules/</code>), agrega <code>web_search</code> automáticamente a la lista de herramientas de cada subagente. Si <code>codex</code> no está en el <code>PATH</code>, apuntalo con <code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o <code>includeExtensions: false</code>.</li>
+<li><strong>Context7 (docs de librerías)</strong> — el skill <code>context7-cli</code> <strong>no</strong> viene vendorizado en el repo. Configuralo con <code>npx ctx7 setup --cli</code> (modo &quot;CLI + Skills&quot;; sucesor de <code>ctx7 skills install</code>, que deja de funcionar en la próxima major). Pi autodetecta el skill desde el scope global (<code>~/.agents/skills/</code> o <code>~/.pi/agent/skills/</code>) en cualquier proyecto y lo agrega a los subagentes. El CLI <code>ctx7</code> se distribuye como <strong>devDependency</strong>: ejecutalo con <code>npx ctx7</code> después de <code>npm install</code> (o globalmente con <code>npm i -g ctx7@latest</code>). Exclusión por subagente: <code>includeSkills: false</code>.</li>
+<li><strong>Visuales de <code>/workflow graph</code></strong> — <code>mmdc</code> se instala automáticamente con <code>npm install</code> (<code>@mermaid-js/mermaid-cli</code> como <code>optionalDependency</code>). El PNG inline necesita una terminal con protocolo de imagen (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi lo desactiva bajo <code>tmux</code>). Si <code>mmdc</code> falla con Chrome/Puppeteer: <code>npx puppeteer browsers install chrome-headless-shell</code>. Sin <code>mmdc</code>: fallback de topología ASCII + exportación Mermaid.</li>
+<li><strong>Sandboxes Linux (<code>pandi-container</code>)</strong> — solo macOS Apple Silicon: <code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code>. En hosts no compatibles, la extensión devuelve un mensaje acotado; no crashea.</li>
+<li><strong>Aislamiento Gondolin (micro-VM)</strong> — <code>npm run setup:gondolin</code> copia el ejemplo que trae Pi a <code>.pi/tools/gondolin/</code> (gitignored, no se auto-descubre) e instala sus dependencias con <code>--ignore-scripts</code>; cargalo cuando lo necesites con <code>pi -e .pi/tools/gondolin</code>. Requiere darwin-arm64/linux-x64 y Node ≥ 23.6.0. No aísla los spawns de subagentes de dynamic-workflows (ver <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</li>
 </ul>
-<h2>Configuration (environment variables)</h2>
-<p>All extensions ship sensible defaults; nothing needs configuring to start. To tune behavior, export environment variables — the full list with defaults lives in <strong><code>.env.example</code></strong>. The most used:</p>
+<h2>Configuración (variables de entorno)</h2>
+<p>Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el comportamiento, exportá variables de entorno — la lista completa con valores por defecto vive en <strong><code>.env.example</code></strong>. Las más usadas:</p>
 <table>
 <thead>
 <tr>
 <th>Variable</th>
-<th>Extension</th>
+<th>Extensión</th>
 <th>Default</th>
-<th>Purpose</th>
+<th>Propósito</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code></td>
 <td>core</td>
 <td><code>2</code></td>
-<td>Max workflow nesting depth; <code>0</code> = full kill-switch.</td>
+<td>Profundidad máxima de anidamiento de workflows; <code>0</code> = kill-switch total.</td>
 </tr>
 <tr>
 <td><code>PI_DYNAMIC_WORKFLOWS_PI_COMMAND</code></td>
 <td>core, goal</td>
 <td><code>pi</code></td>
-<td>Pi binary used to spawn subagents.</td>
+<td>Binario de Pi usado para spawnear subagentes.</td>
 </tr>
 <tr>
 <td><code>PI_AUTO_COMPACT_PERCENT</code></td>
 <td>auto-compact</td>
 <td><code>35</code></td>
-<td>Context % that triggers compaction.</td>
+<td>Porcentaje de contexto que dispara la compactación.</td>
 </tr>
 <tr>
 <td><code>PI_TS_LSP</code> / <code>PI_TS_LSP_MODE</code></td>
 <td>typescript-lsp</td>
 <td><code>on</code> / <code>advisory</code></td>
-<td>Enables tsc feedback and its mode (<code>advisory</code>/<code>autofix</code>).</td>
+<td>Habilita feedback de <code>tsc</code> y su modo (<code>advisory</code>/<code>autofix</code>).</td>
 </tr>
 <tr>
 <td><code>PI_PLAN_NONINTERACTIVE</code></td>
 <td>plan</td>
 <td>(off)</td>
-<td>Allows plan mode in print/json (subagents).</td>
+<td>Permite el modo plan en print/json (subagentes).</td>
 </tr>
 <tr>
 <td><code>CODEX_PATH</code></td>
 <td>web-search</td>
 <td>(PATH)</td>
-<td>Path to the <code>codex</code> binary when not on the PATH.</td>
+<td>Ruta al binario <code>codex</code> cuando no está en el <code>PATH</code>.</td>
 </tr>
 </tbody></table>
-<p><code>.env</code> is gitignored; <code>.env.example</code> is committed. This repo does not load <code>.env</code> automatically: export the variables in your shell or use <code>direnv</code>/<code>dotenvx</code>.</p>
-<h2>Distribution: channels and the single-identity rule</h2>
-<p>The suite is distributed through three channels; <strong>pick one per machine/scope</strong> — Pi dedupes packages by identity (npm name / git URL / resolved local path), so two different channels living together load every resource twice (<code>npm run doctor</code> detects and warns):</p>
+<p><code>.env</code> está gitignored; <code>.env.example</code> está committed. Este repo no carga <code>.env</code> automáticamente: exportá las variables en tu shell o usá <code>direnv</code>/<code>dotenvx</code>.</p>
+<h2>Distribución: canales y regla de identidad única</h2>
+<p>La suite se distribuye por tres canales; <strong>elegí uno por máquina o alcance</strong> — Pi deduplica paquetes por identidad (nombre npm / URL git / ruta local resuelta), así que dos canales conviviendo cargan todo dos veces (<code>npm run doctor</code> lo detecta y avisa):</p>
 <table>
 <thead>
 <tr>
-<th>Channel</th>
-<th>How</th>
-<th>When</th>
+<th>Canal</th>
+<th>Cómo</th>
+<th>Cuándo</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><strong>Pinned git bundle</strong></td>
-<td><code>pi install git:github.com/andrestobelem/pi-dynamic-workflows@v0.2.0</code></td>
-<td>Consumers: the whole suite, stable version.</td>
+<td><strong>Bundle git fijado</strong></td>
+<td><code>pi install git:github.com/andrestobelem/pandi-extensions@v0.2.0</code></td>
+<td>Consumo de toda la suite, con versión estable.</td>
 </tr>
 <tr>
-<td><strong>Working tree (local paths)</strong></td>
-<td>clone + <code>pi install ./</code> (or the per-extension paths)</td>
-<td>Development/dogfooding: changes apply with <code>/reload</code>.</td>
+<td><strong>Working tree (rutas locales)</strong></td>
+<td>clone + <code>pi install ./</code> (o las rutas por extensión)</td>
+<td>Desarrollo/dogfooding: los cambios se aplican con <code>/reload</code>.</td>
 </tr>
 <tr>
-<td><strong>npm scoped <code>@pandi-coding-agent/*</code></strong></td>
+<td><strong>npm con scope <code>@pandi-coding-agent/*</code></strong></td>
 <td><code>pi install npm:@pandi-coding-agent/pandi-&lt;ext&gt;</code></td>
-<td>À la carte per extension — packages publish under the <code>pandi-*</code> identity. With <code>min-release-age</code> set, freshly published versions only become installable after that window.</td>
+<td>A la carta por extensión — los paquetes publican bajo la identidad <code>pandi-*</code>. Con <code>min-release-age</code>, las versiones recién publicadas recién se pueden instalar después de esa ventana.</td>
 </tr>
 </tbody></table>
-<p>Every <code>extensions/pandi-&lt;ext&gt;/package.json</code> carries its public identity <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> to test the tarball). The root <code>pi</code> manifest is <strong>generated</strong> from the sub-packages (<code>npm run sync:manifest</code>); a parity test fails on drift. Horizon: <strong>Pandi</strong> as a distro on top of Pi (extensions + theme + persona), not a CLI fork.</p>
-<h2>Repository layout (extensions)</h2>
-<p>Each extension lives as a mini npm package under <code>extensions/&lt;name&gt;/</code>:</p>
+<p>Cada <code>extensions/pandi-&lt;ext&gt;/package.json</code> lleva su identidad pública <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> para probar el tarball). El manifiesto raíz de <code>pi</code> se <strong>genera</strong> desde los subpackages (<code>npm run sync:manifest</code>); un test de paridad falla si hay drift. Horizonte: <strong>Pandi</strong> como distro sobre Pi (extensiones + theme + persona), no como un fork del CLI.</p>
+<h2>Estructura del repositorio (extensiones)</h2>
+<p>Cada extensión vive como un mini paquete npm bajo <code>extensions/&lt;name&gt;/</code>:</p>
 <pre><code class="language-text">extensions/&lt;name&gt;/
-  index.ts              # Pi entrypoint
-  *.ts                  # runtime helpers for that extension
-  tests/unit/           # fast tests, where applicable
-  tests/integration/    # durable behavior suites
+  index.ts              # entrypoint de Pi
+  *.ts                  # helpers de runtime de esa extensión
+  tests/unit/           # tests rápidos, cuando aplica
+  tests/integration/    # suites durables de comportamiento
 </code></pre>
-<p><code>package.json</code> publishes only runtime files with <code>files: [&quot;extensions/*/*.ts&quot;, ...]</code>, so tests stay colocated in the repo but out of the npm tarball. <code>pi.extensions</code> explicitly lists the entrypoints loaded by default; optional extensions can follow the same convention and be loaded from settings.</p>
-<p><code>extensions/pandi-local-memory/</code> loads the <code>.pi/memory/</code> folder when present (injects the <code>MEMORY.md</code> index capped at 200 lines/25 KB and lists topic files for on-demand reading; falls back to the older <code>.pi/MEMORY.md</code>). The extension ships with the package; memory content stays private and gitignored.</p>
+<p><code>package.json</code> publica solo archivos de runtime con <code>files: [&quot;extensions/*/*.ts&quot;, ...]</code>, así que los tests quedan cerca del código pero fuera del tarball npm. <code>pi.extensions</code> lista explícitamente los entrypoints cargados por defecto; las extensiones opcionales pueden seguir el mismo patrón y cargarse desde settings.</p>
+<p><code>extensions/pandi-local-memory/</code> carga la carpeta <code>.pi/memory/</code> cuando existe (inyecta el índice <code>MEMORY.md</code> con tope de 200 líneas/25 KB y lista archivos temáticos para lectura bajo demanda; cae al viejo <code>.pi/MEMORY.md</code>). La extensión viene con el paquete; el contenido de memoria queda privado y gitignored.</p>
 <h2>Troubleshooting</h2>
 <ul>
-<li><strong>A command isn&#39;t available after install</strong> — open Pi in the target project, run <code>/trust</code>, then <code>/reload</code> (or restart). Project-scoped workflows are trust-gated.</li>
-<li><strong><code>pi</code> not found</strong> — the global install (Requirements above) didn&#39;t complete, or the global npm bin isn&#39;t on <code>PATH</code>.</li>
-<li><strong>Node too old</strong> — <code>nvm use</code> (need ≥ 22.19.0; Gondolin needs ≥ 23.6.0). <code>npm run doctor</code> exits non-zero on an old Node, but the repo declares no <code>engines</code> field, so a plain <code>npm install</code> won&#39;t block you.</li>
-<li><strong>Same resource seems to load twice</strong> — you likely mixed two distribution channels (see &quot;Distribution&quot; above); <code>npm run doctor</code> detects and warns. Pick one channel per machine/scope.</li>
-<li><strong>Anything else</strong> — <code>npm run doctor</code> is read-only and lists every mandatory/optional prerequisite with what&#39;s missing; treat it as authoritative over this page.</li>
+<li><strong>Un comando no aparece después de instalar</strong> — abrí Pi en el proyecto objetivo, ejecutá <code>/trust</code> y después <code>/reload</code> (o reiniciá). Los workflows con alcance de proyecto están protegidos por trust.</li>
+<li><strong><code>pi</code> no se encuentra</strong> — la instalación global (ver Requisitos) no terminó, o el binario global de npm no está en <code>PATH</code>.</li>
+<li><strong>Node demasiado viejo</strong> — corré <code>nvm use</code> (necesitás ≥ 22.19.0; Gondolin necesita ≥ 23.6.0). <code>npm run doctor</code> sale con código distinto de cero en un Node viejo, pero el repo no declara campo <code>engines</code>, así que un <code>npm install</code> normal no te bloquea.</li>
+<li><strong>Parece que el mismo recurso se carga dos veces</strong> — probablemente mezclaste dos canales de distribución (ver &quot;Distribución&quot; arriba); <code>npm run doctor</code> lo detecta y avisa. Elegí un canal por máquina o alcance.</li>
+<li><strong>Cualquier otra cosa</strong> — <code>npm run doctor</code> es de solo lectura y lista todos los prerrequisitos obligatorios/opcionales con lo que falta; tomalo como autoridad por encima de esta página.</li>
 </ul>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

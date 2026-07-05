@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Workflow catalog (quick reference)</title>
+<title>Catálogo de workflows (referencia rápida)</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,123 +121,118 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs/handbooks</div>
-		<h1>Workflow catalog (quick reference)</h1>
+		<h1>Catálogo de workflows (referencia rápida)</h1>
 	</header>
 	<main>
-<p><strong>Date:</strong> 2026-07-01 | <strong>Status:</strong> durable reference | <strong>Scope:</strong> 25 dynamic-workflow scaffolds in <code>pandi-dynamic-workflows</code></p>
-<p>Before you write a workflow from scratch, check here: this is the index of every built-in
-scaffold, grouped by family, so you can pick a pattern instead of reinventing one. Most tasks
-don&#39;t need any of this — a single agent call beats a workflow for almost everything; reach for
-a scaffold only for scale, exhaustiveness, or independent verification.</p>
+<p><strong>Fecha:</strong> 2026-07-01 | <strong>Estado:</strong> referencia durable | <strong>Alcance:</strong> 25 scaffolds de dynamic workflows en <code>pandi-dynamic-workflows</code></p>
+<p>Antes de escribir un workflow desde cero, mirá acá: este índice reúne todos los scaffolds integrados, agrupados por familia, para que elijas un patrón en vez de reinventarlo. La mayoría de las tareas no necesita nada de esto: una sola llamada a un agente gana en casi todo; usá un scaffold solo cuando necesites escala, exhaustividad o verificación independiente.</p>
 <pre><code class="language-text">dynamic_workflow action=scaffold name=fan-out-and-synthesize
 </code></pre>
-<p>runs the default/base scaffold (see its row below) — it&#39;s what <code>dynamic_workflow action=scaffold</code>
-and the Patterns tab serve when you don&#39;t pick a pattern — so you can see the shape of a result
-before choosing a bigger pattern.</p>
-<p><strong>Source of truth (do not hand-maintain the list against these):</strong></p>
+<p>Este comando ejecuta el scaffold base o por defecto (ver su fila más abajo) — es lo que muestra <code>dynamic_workflow action=scaffold</code> y la pestaña <strong>Patterns</strong> cuando no elegís un patrón —, así podés ver la forma de una salida antes de subir a un patrón más grande.</p>
+<p><strong>Fuente de verdad (no mantengas esta lista a mano):</strong></p>
 <ul>
-<li>Live catalog: <code>dynamic_workflow action=scaffold</code> (or <code>/workflow patterns</code>); fetch one with <code>action=scaffold name=&lt;key&gt;</code>.</li>
-<li>Scaffold code: <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code> (pi) and <code>.claude/workflows/*.js</code> (Claude Code) — 25 each.</li>
-<li>Full HTML pages per scaffold: <code>docs/html/scaffolds/&lt;key&gt;.html</code>.</li>
-<li>The <code>ultracode</code> skill (<code>.pi/skills/ultracode/SKILL.md</code>) carries the same catalog by family.</li>
+<li>Catálogo vivo: <code>dynamic_workflow action=scaffold</code> (o <code>/workflow patterns</code>); para uno puntual, <code>action=scaffold name=&lt;key&gt;</code>.</li>
+<li>Código de scaffolds: <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code> (pi) y <code>.claude/workflows/*.js</code> (Claude Code) — 25 en cada caso.</li>
+<li>Páginas HTML completas por scaffold: <code>docs/html/scaffolds/&lt;key&gt;.html</code>.</li>
+<li>El skill <code>ultracode</code> (<code>.pi/skills/ultracode/SKILL.md</code>) expone el mismo catálogo por familia.</li>
 </ul>
-<p><strong>Completeness check (2026-07-01):</strong> 25 pi scaffolds, 25 Claude workflows, 25 in the skill&#39;s bundled reference. The skill&#39;s &quot;pattern catalog&quot; section names all 25 with no extras.</p>
-<h2>Which family do I need?</h2>
-<p>Walk the gates first — most tasks stop early:</p>
+<p><strong>Chequeo de completitud (2026-07-01):</strong> 25 scaffolds de pi, 25 workflows de Claude y 25 en la referencia empaquetada del skill. La sección &quot;pattern catalog&quot; del skill nombra los 25 sin extras.</p>
+<h2>¿Qué familia necesito?</h2>
+<p>Recorré primero las compuertas: la mayoría de las tareas se resuelve antes de llegar al fondo.</p>
 <pre class="mermaid">flowchart TD
-    A[Vague or high-stakes ask?] --&gt;|yes| B[Gate &amp; guard]
-    A --&gt;|no| C[Trivial task?]
-    C --&gt;|yes| D[Just do it — no workflow]
-    C --&gt;|no| E[Scout inline first]
-    E --&gt; F{Still needs orchestration?}
+    A[¿Pedido vago o de alto riesgo?] --&gt;|sí| B[Gate &amp; guard]
+    A --&gt;|no| C[¿Tarea trivial?]
+    C --&gt;|sí| D[Hacelo directo — sin workflow]
+    C --&gt;|no| E[Escanear inline primero]
+    E --&gt; F{¿Sigue necesitando orquestación?}
     F --&gt;|no| D
-    F --&gt;|open-ended goal, shape unknown| G[Route &amp; orchestrate]
-    F --&gt;|discover across many items| H[Discover &amp; fan-out]
-    F --&gt;|have findings, need confidence| I[Verify]
-    F --&gt;|need the best of several options| J[Generate &amp; select]
-    F --&gt;|polish one artifact| K[Iterate &amp; refine]
-    F --&gt;|apply changes across a codebase| L[Migrate]</pre>
+    F --&gt;|objetivo abierto, forma desconocida| G[Route &amp; orchestrate]
+    F --&gt;|descubrir entre muchos ítems| H[Discover &amp; fan-out]
+    F --&gt;|hay hallazgos, hace falta confianza| I[Verify]
+    F --&gt;|hay que elegir lo mejor entre varias opciones| J[Generate &amp; select]
+    F --&gt;|pulir un solo artefacto| K[Iterate &amp; refine]
+    F --&gt;|aplicar cambios en una codebase| L[Migrate]</pre>
 <table>
 <thead>
 <tr>
-<th>Your problem</th>
-<th>Family</th>
-<th>Example scaffold</th>
+<th>Tu problema</th>
+<th>Familia</th>
+<th>Scaffold de ejemplo</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Ask is fuzzy or risky — need ask-vs-proceed decided</td>
+<td>El pedido es difuso o riesgoso — hay que decidir si proceder</td>
 <td>Gate &amp; guard</td>
 <td><code>contract-gate</code></td>
 </tr>
 <tr>
-<td>Don&#39;t want to pick the workflow yourself</td>
+<td>No querés elegir el workflow vos</td>
 <td>Route &amp; orchestrate</td>
 <td><code>router</code></td>
 </tr>
 <tr>
-<td>Goal is open-ended, subtasks unknown up front</td>
+<td>El objetivo es abierto y las subtareas no se conocen de antemano</td>
 <td>Route &amp; orchestrate</td>
 <td><code>orchestrator-workers</code></td>
 </tr>
 <tr>
-<td>Need broad coverage of a known-ish list of items</td>
+<td>Necesitás cobertura amplia sobre una lista más o menos conocida</td>
 <td>Discover &amp; fan-out</td>
 <td><code>fan-out-and-synthesize</code></td>
 </tr>
 <tr>
-<td>Set to discover is unknown-size</td>
+<td>El conjunto a descubrir tiene tamaño desconocido</td>
 <td>Discover &amp; fan-out</td>
 <td><code>loop-until-dry</code></td>
 </tr>
 <tr>
-<td>Have findings/claims, want only the ones that survive scrutiny</td>
+<td>Tenés hallazgos/afirmaciones y querés solo los que sobreviven al escrutinio</td>
 <td>Verify</td>
 <td><code>adversarial-verify</code></td>
 </tr>
 <tr>
-<td>Must prove a bug with a failing run, not argue it</td>
+<td>Hay que probar un bug con una ejecución fallida, no discutirlo</td>
 <td>Verify</td>
 <td><code>bug-verify</code></td>
 </tr>
 <tr>
-<td>Want the best of N candidates, absolute scoring unreliable</td>
+<td>Querés el mejor de N candidatos, pero el score absoluto no es confiable</td>
 <td>Generate &amp; select</td>
 <td><code>tournament</code></td>
 </tr>
 <tr>
-<td>One artifact needs polishing, not a fresh chorus</td>
+<td>Un artefacto necesita pulido, no una ronda nueva de generación</td>
 <td>Iterate &amp; refine</td>
 <td><code>self-refine</code></td>
 </tr>
 <tr>
-<td>Mutating many files, can&#39;t leave one broken</td>
+<td>Vas a mutar muchos archivos y no podés dejar ninguno roto</td>
 <td>Migrate</td>
 <td><code>large-migration</code></td>
 </tr>
 </tbody></table>
 <hr>
-<h2>🚪 Gate &amp; guard — frame and protect</h2>
+<h2>🚪 Gate &amp; guard — encuadrar y proteger</h2>
 <table>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/contract-gate.html"><code>contract-gate</code></a></td>
-<td>Turn a vague ask into an inspectable contract (improved task, success criteria, assumptions, non-goals) and decide <em>ask-now vs proceed-on-a-recorded-assumption</em>.</td>
-<td>Scope a fuzzy ticket; gate before a costly multi-agent run; rewrite a raw ask into a clean spec.</td>
-<td>The problem is <em>what should we even do</em>, not <em>is this output safe</em> — use <code>guardrails</code> for the latter.</td>
+<td>Convierte un pedido vago en un contrato inspeccionable (tarea mejorada, criterios de éxito, supuestos, no-objetivos) y decide <em>preguntar ahora vs seguir con un supuesto registrado</em>.</td>
+<td>Delimitar un ticket difuso; poner una compuerta antes de una corrida multi-agente costosa; reescribir un pedido crudo en una especificación limpia.</td>
+<td>El problema es <em>qué deberíamos hacer</em>, no <em>si esta salida es segura</em> — para eso usá <code>guardrails</code>.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/guardrails.html"><code>guardrails</code></a></td>
-<td>Cheap input/output tripwire that <strong>HALTS</strong> on a clear violation; can wrap any workflow via <code>protect:{name,args}</code>.</td>
-<td>Scope/safety gate before an agent; PII/secret check on an output; wrap a chosen workflow with tripwires.</td>
-<td>You already know the task and just need a hard limit (PII, secrets) enforced around it or its output.</td>
+<td>Tripwire barato de entrada/salida que <strong>SE DETIENE</strong> ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</td>
+<td>Compuerta de alcance/seguridad antes de un agente; chequeo de PII/secretos en una salida; envolver un workflow con tripwires.</td>
+<td>Ya sabés la tarea y solo necesitás un límite duro (PII, secretos) aplicado alrededor de ella o de su salida.</td>
 </tr>
 </tbody></table>
 <h2>🧭 Route &amp; orchestrate</h2>
@@ -245,40 +240,40 @@ before choosing a bigger pattern.</p>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/router.html"><code>router</code></a></td>
-<td>Classify a request and dispatch to the single best catalog workflow (or recommend-only).</td>
-<td>A single front door for raw tasks; map a task to the right specialist; preview the pick with <code>runSelected:false</code>.</td>
-<td>You want the <em>pattern itself</em> picked for you — <code>orchestrator-workers</code> still needs you to hand it a goal.</td>
+<td>Clasifica un pedido y lo deriva al workflow del catálogo más adecuado (o devuelve recomendación solamente).</td>
+<td>Una puerta de entrada única para tareas crudas; mapear una tarea al especialista correcto; previsualizar la elección con <code>runSelected:false</code>.</td>
+<td>Querés que te elijan el <em>patrón mismo</em> — <code>orchestrator-workers</code> todavía necesita que le des un objetivo.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/orchestrator-workers.html"><code>orchestrator-workers</code></a></td>
-<td>A planner decomposes an open goal into a <code>dependsOn</code> subtask graph; workers execute level-by-level; an integrator merges.</td>
-<td>Multi-part deliverables; research/build goals with interdependencies.</td>
-<td>Subtasks and their dependencies aren&#39;t known up front — <code>map-reduce</code> assumes chunks are already independent.</td>
+<td>Un planificador descompone un objetivo abierto en un grafo de subtareas <code>dependsOn</code>; los workers ejecutan nivel por nivel; un integrador fusiona.</td>
+<td>Entregables de varias partes; objetivos de research/build con interdependencias.</td>
+<td>Las subtareas y sus dependencias no se conocen de antemano — <code>map-reduce</code> asume que los chunks ya son independientes.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/map-reduce.html"><code>map-reduce</code></a></td>
-<td>Hierarchical map-reduce: per-chunk map under an evidence contract, reduce in bounded batches to one summary-of-summaries.</td>
-<td>Input bigger than one context window: huge doc/log, hundreds of tickets.</td>
-<td>The input is bigger than one context window and chunks are independent, unlike <code>orchestrator-workers</code>&#39; dependency graph.</td>
+<td>Map-reduce jerárquico: map por chunk bajo un contrato de evidencia, reduce en lotes acotados hasta una summary-of-summaries.</td>
+<td>Entrada más grande que una ventana de contexto: docs/logs enormes, cientos de tickets.</td>
+<td>La entrada supera una ventana de contexto y los chunks son independientes, a diferencia del grafo de dependencias de <code>orchestrator-workers</code>.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/workflow-factory.html"><code>workflow-factory</code></a></td>
-<td>Meta-workflow: catalog → plan → generate → review → refine, then write <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</td>
-<td>No existing workflow fits and you want a task-specific one; specialize the closest scaffold.</td>
-<td>Nothing in this catalog fits, even after specializing the closest scaffold.</td>
+<td>Meta-workflow: catalogar → planificar → generar → revisar → refinar, y después escribir <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</td>
+<td>Ningún workflow existente encaja y querés uno específico para la tarea; especializar el scaffold más cercano.</td>
+<td>Nada en este catálogo encaja, incluso después de especializar el scaffold más cercano.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/recursive-compose.html"><code>recursive-compose</code></a></td>
-<td>Reference (pi, depth ≤ 3): a node re-gates a sub-task via <code>contract-gate</code>, then dispatches via <code>router</code> — bounded recursion.</td>
-<td>Self-similar gate→compose pipelines; carry the gate&#39;s resource plan into a deeper run.</td>
-<td>You need the gate→dispatch pattern to recurse into sub-tasks, not just run once.</td>
+<td>Referencia (pi, profundidad ≤ 3): un nodo vuelve a poner una compuerta sobre una sub-tarea vía <code>contract-gate</code> y luego deriva con <code>router</code> — recursión acotada.</td>
+<td>Pipelines autosemejantes de gate→compose; llevar el plan de recursos de la compuerta a una ejecución más profunda.</td>
+<td>Necesitás que el patrón gate→dispatch recurra sobre subtareas, no solo correr una vez.</td>
 </tr>
 </tbody></table>
 <h2>🔍 Discover &amp; fan-out</h2>
@@ -286,46 +281,46 @@ before choosing a bigger pattern.</p>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/fan-out-and-synthesize.html"><code>fan-out-and-synthesize</code></a></td>
-<td>Scatter-gather: scout a work-list, one reviewer per item (parallel, settle), synthesize-as-judge with coverage/failure notes.</td>
-<td>Broad independent coverage of a known-ish work-list; multi-angle synthesis.</td>
-<td>The work-list is known-ish and every item deserves a look — <code>scout-fanout</code> skips low-risk items instead.</td>
+<td>Scatter-gather: releva una lista de trabajo, un revisor por ítem (parallel, settle), y sintetiza como juez con notas de cobertura/fallas.</td>
+<td>Cobertura amplia e independiente de una lista más o menos conocida; síntesis con varios ángulos.</td>
+<td>La lista de trabajo es más o menos conocida y cada ítem merece mirarse — <code>scout-fanout</code> omite los de bajo riesgo.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/scout-fanout.html"><code>scout-fanout</code></a></td>
-<td>Scout + adaptive-depth pipeline: risk-classify every file cheaply, deep-review only high/medium; low-risk short-circuits.</td>
-<td>Triage-then-review a large tree; spend budget only where it pays.</td>
-<td>You want coverage but only want to pay for the risky items.</td>
+<td>Pipeline de profundidad adaptativa: clasifica el riesgo de cada archivo barato, revisa en profundidad solo los de riesgo alto/medio; los de bajo riesgo cortan temprano.</td>
+<td>Triage y revisión de un árbol grande; gastar presupuesto solo donde rinde.</td>
+<td>Querés cobertura pero solo querés pagar por los ítems riesgosos.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/repo-bug-hunt.html"><code>repo-bug-hunt</code></a></td>
-<td>Scout files, per-file bug reviewers, judge dedupes + prioritizes with citations. Findings are <strong>leads</strong>, not confirmed bugs.</td>
-<td>Repo audit; pre-review sweep (then confirm with <code>bug-verify</code>).</td>
-<td>You want a prioritized cited bug list — pair with <code>bug-verify</code> after, since these leads are unconfirmed.</td>
+<td>Escanea archivos, asigna revisores por archivo, y el juez deduplica y prioriza con citas. Los hallazgos son <strong>leads</strong>, no bugs confirmados.</td>
+<td>Auditoría del repo; barrido previo a revisión (y después confirmar con <code>bug-verify</code>).</td>
+<td>Querés una lista priorizada de bugs con citas — emparejalo después con <code>bug-verify</code>, porque estos leads no están confirmados.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/loop-until-dry.html"><code>loop-until-dry</code></a></td>
-<td>Keep fanning out finders until K consecutive quiet rounds or <code>maxRounds</code>.</td>
-<td>Unknown-size set you want to exhaust: &quot;find all call-sites / edge-cases&quot;.</td>
-<td>The set is unknown-size and you need exhaustiveness, unlike the capped list in <code>fan-out-and-synthesize</code>.</td>
+<td>Sigue fan-out de buscadores hasta K rondas silenciosas consecutivas o <code>maxRounds</code>.</td>
+<td>Conjunto de tamaño desconocido que querés agotar: &quot;encontrar todos los call-sites / edge-cases&quot;.</td>
+<td>El conjunto es de tamaño desconocido y necesitás exhaustividad, a diferencia de la lista acotada en <code>fan-out-and-synthesize</code>.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/react-scout.html"><code>react-scout</code></a></td>
-<td>ReAct reason → act → observe loop: each step grounds a thought in a real read-only observation.</td>
-<td>Evidence-grounded investigation before committing or fanning out.</td>
-<td>You need evidence <em>before</em> committing to a fan-out, not coverage of a list.</td>
+<td>Bucle ReAct reason → act → observe: cada paso ancla un pensamiento en una observación real de solo lectura.</td>
+<td>Investigación basada en evidencia antes de comprometerte o hacer fan-out.</td>
+<td>Necesitás evidencia <em>antes</em> de comprometerte con un fan-out, no cobertura de una lista.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/complex-research.html"><code>complex-research</code></a></td>
-<td>Independent research angles (each runs web search), synthesized as judge with citations and coverage gaps.</td>
-<td>Cited answer to an external question: tech comparisons, landscape scans.</td>
-<td>The question is external (needs the web), not something answerable by reading this repo.</td>
+<td>Ángulos de research independientes (cada uno corre web search), sintetizados como juez con citas y vacíos de cobertura.</td>
+<td>Respuesta citada a una pregunta externa: comparaciones técnicas, barridos de panorama.</td>
+<td>La pregunta es externa (requiere la web), no algo que pueda responderse leyendo este repo.</td>
 </tr>
 </tbody></table>
 <h2>✅ Verify</h2>
@@ -333,34 +328,34 @@ before choosing a bigger pattern.</p>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/adversarial-verify.html"><code>adversarial-verify</code></a></td>
-<td>Per-finding skeptic jury that prunes by majority refutation; default-to-doubt.</td>
-<td>Prune a noisy findings list; drop hallucinated findings before acting.</td>
-<td>You have many findings/claims to prune by argument, not by running code — use <code>bug-verify</code> for the latter.</td>
+<td>Jurado escéptico por hallazgo que filtra por refutación mayoritaria; default-to-doubt.</td>
+<td>Podar una lista ruidosa de hallazgos; descartar hallazgos alucinados antes de actuar.</td>
+<td>Tenés muchos hallazgos/afirmaciones para podar por argumento, no ejecutando código — para eso usá <code>bug-verify</code>.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/bug-verify.html"><code>bug-verify</code></a></td>
-<td>Confirm suspected bugs by <strong>reproduction</strong>: real only if a run fails on current code; optional FAIL→PASS fix check + minimization. Sequential.</td>
-<td>Confirm <code>repo-bug-hunt</code> leads; reproduce-and-fix loop.</td>
-<td>You must prove it with a failing run (e.g. confirming <code>repo-bug-hunt</code> leads), not argue it.</td>
+<td>Confirma bugs sospechados por <strong>reproducción</strong>: solo son reales si una corrida falla en el código actual; chequeo opcional FAIL→PASS y minimización. Secuencial.</td>
+<td>Confirmar leads de <code>repo-bug-hunt</code>; bucle reproducir-y-corregir.</td>
+<td>Tenés que probarlo con una corrida fallida (por ejemplo, confirmando leads de <code>repo-bug-hunt</code>), no argumentarlo.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/verify-claims-lib.html"><code>verify-claims-lib</code></a></td>
-<td>Reusable sub-workflow: verify <code>{claims, skeptics?}</code> with skeptic juries; returns verified/dropped/votes/coverage.</td>
-<td>A verification building block for a parent workflow.</td>
-<td>You&#39;re authoring a <em>parent</em> workflow (like <code>composition-driver</code>) and need verification as a building block.</td>
+<td>Subworkflow reutilizable: verifica <code>{claims, skeptics?}</code> con jurados escépticos; devuelve verified/dropped/votes/coverage.</td>
+<td>Bloque de verificación para un workflow padre.</td>
+<td>Estás escribiendo un workflow <em>padre</em> (como <code>composition-driver</code>) y necesitás verificación como bloque de construcción.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/adversarial-plan-review.html"><code>adversarial-plan-review</code></a></td>
-<td>N fixed-angle reviewers (correctness, security, maintainability, scope) synthesize a revised plan.</td>
-<td>Design/RFC review; pre-implementation gate.</td>
-<td>The artifact under review is a <em>plan</em>, not code or claims — use before implementation starts.</td>
+<td>N revisores con ángulos fijos (correctness, security, maintainability, scope) sintetizan un plan revisado.</td>
+<td>Revisión de diseño/RFC; compuerta pre-implementación.</td>
+<td>El artefacto bajo revisión es un <em>plan</em>, no código ni afirmaciones — usalo antes de empezar a implementar.</td>
 </tr>
 </tbody></table>
 <h2>🎯 Generate &amp; select</h2>
@@ -368,34 +363,34 @@ before choosing a bigger pattern.</p>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/judge-escalate.html"><code>judge-escalate</code></a></td>
-<td>Generate candidates from distinct angles, typed judge, escalate only when confidence is low.</td>
-<td>Best-of-N where you&#39;d rather deepen than commit to a weak winner.</td>
-<td>There&#39;s usually a clear winner and you want adaptive spend, not always-run-everything.</td>
+<td>Genera candidatos desde ángulos distintos, un juez tipado, y escala solo cuando la confianza es baja.</td>
+<td>Best-of-N donde preferís profundizar antes que quedar atado a un ganador débil.</td>
+<td>Suele haber un ganador claro y querés gasto adaptativo, no correr siempre todo.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/tournament.html"><code>tournament</code></a></td>
-<td>Single-elimination bracket: pairwise judge rounds until one candidate survives.</td>
-<td>Pick the best of several drafts/designs when absolute scoring is unreliable but pairwise is easy.</td>
-<td>Absolute scoring is unreliable but pairwise comparison is easy.</td>
+<td>Bracket de eliminación simple: rondas de juicio por pares hasta que sobrevive un candidato.</td>
+<td>Elegir el mejor de varios borradores/diseños cuando el score absoluto no es confiable pero comparar por pares es fácil.</td>
+<td>El score absoluto no es confiable pero la comparación por pares sí.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/self-consistency.html"><code>self-consistency</code></a></td>
-<td>Sample N independent reasoning paths, pick by consensus (vote), tie-broken by an evidence-weighing judge.</td>
-<td>High-variance reasoning/math/judgment; report the consensus margin.</td>
-<td>It&#39;s high-variance reasoning/math and agreement across paths is the signal you trust.</td>
+<td>Muestra N rutas de razonamiento independientes, elige por consenso (vote), con desempate de un juez que pondera evidencia.</td>
+<td>Razonamiento/matemática/juicio de alta varianza; reportá el margen de consenso.</td>
+<td>El razonamiento/matemática es de alta varianza y la señal que confiás es el acuerdo entre rutas.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/tree-of-thoughts.html"><code>tree-of-thoughts</code></a></td>
-<td>Beam search over partial solutions: expand K thoughts, judge-score, prune to top-B, recurse to depth, commit.</td>
-<td>Multi-step planning/design search; explore a solution space.</td>
-<td>The problem has intermediate steps worth exploring, not just final candidates to compare.</td>
+<td>Beam search sobre soluciones parciales: expande K pensamientos, puntúa con un juez, poda a top-B, recurre por profundidad, commit.</td>
+<td>Planificación/diseño de varios pasos; explorar un espacio de soluciones.</td>
+<td>El problema tiene pasos intermedios que vale la pena explorar, no solo candidatos finales para comparar.</td>
 </tr>
 </tbody></table>
 <h2>🔁 Iterate &amp; refine</h2>
@@ -403,22 +398,22 @@ before choosing a bigger pattern.</p>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/self-refine.html"><code>self-refine</code></a></td>
-<td>Bounded in-place generate → critique → refine with verbal memory; quiet-stop when the critic is satisfied.</td>
-<td>Polish one artifact (doc/spec/code) to quality.</td>
-<td>One artifact needs polish and the critique can be intrinsic — no external oracle needed.</td>
+<td>Bucle acotado in-place de generar → criticar → refinar con memoria verbal; se detiene en silencio cuando el crítico queda conforme.</td>
+<td>Pulir un artefacto (doc/spec/code) hasta calidad.</td>
+<td>Un solo artefacto necesita pulido y la crítica puede ser intrínseca — no hace falta un oráculo externo.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/reflexion.html"><code>reflexion</code></a></td>
-<td>Verbal-RL outer trial loop: re-attempt each trial carrying self-reflections; evaluator can be externally grounded (<code>verifyCmd</code>).</td>
-<td>Code-with-tests; tasks with a pass/fail oracle; reset-and-re-attempt vs edit-in-place.</td>
-<td>You have a pass/fail oracle (e.g. tests) and a fresh re-attempt beats editing in place.</td>
+<td>Bucle outer trial de verbal-RL: reintenta cada trial llevando auto-reflexiones; el evaluador puede estar anclado externamente (<code>verifyCmd</code>).</td>
+<td>Code-with-tests; tareas con oráculo pass/fail; reset-and-re-attempt en vez de editar in place.</td>
+<td>Tenés un oráculo pass/fail (por ejemplo, tests) y un reintento fresco gana a editar en el lugar.</td>
 </tr>
 </tbody></table>
 <h2>🚚 Migrate</h2>
@@ -426,16 +421,16 @@ before choosing a bigger pattern.</p>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/large-migration.html"><code>large-migration</code></a></td>
-<td>A real applier: green-baseline gate, per-file apply → verify → bounded-repair, rollback on failure. Sequential.</td>
-<td>API/codemod rollouts; framework upgrades; capped, evidence-backed migration.</td>
-<td>You&#39;re mutating many files and must never leave a broken one behind — not for read-only discovery.</td>
+<td>Un aplicador real: compuerta de green-baseline, aplicar → verificar → repair acotado por archivo, rollback ante falla. Secuencial.</td>
+<td>Rollouts de API/codemod; upgrades de frameworks; migración acotada y respaldada por evidencia.</td>
+<td>Vas a mutar muchos archivos y no podés dejar ninguno roto atrás — no sirve para descubrimiento de solo lectura.</td>
 </tr>
 </tbody></table>
 <h2>🧩 Compose &amp; meta</h2>
@@ -443,23 +438,23 @@ before choosing a bigger pattern.</p>
 <thead>
 <tr>
 <th>Workflow</th>
-<th>What it does</th>
-<th>Use cases</th>
-<th>Use over its neighbor when…</th>
+<th>Qué hace</th>
+<th>Casos de uso</th>
+<th>Usalo en lugar de su vecino cuando…</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/composition-driver.html"><code>composition-driver</code></a></td>
-<td>Parent workflow: discover claims, delegate verification to <code>verify-claims-lib</code>, then synthesize.</td>
-<td>Fact-check a document; the canonical discover→verify composition reference.</td>
-<td>You want the canonical worked example of discover→verify composition, not just the library piece alone.</td>
+<td>Workflow padre: descubre afirmaciones, delega la verificación a <code>verify-claims-lib</code>, y luego sintetiza.</td>
+<td>Fact-check de un documento; la referencia canónica de composición discover→verify.</td>
+<td>Querés el ejemplo trabajado canónico de composición discover→verify, no solo la pieza de la biblioteca por separado.</td>
 </tr>
 </tbody></table>
 <hr>
-<h2>Next steps</h2>
+<h2>Próximos pasos</h2>
 <ul>
-<li>Keep this in sync when scaffolds are added/removed: re-run <code>dynamic_workflow action=scaffold</code> and diff the names against <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code>.</li>
-<li>For per-workflow input shapes and primitives, see the live catalog output (each entry lists a sample <code>Input</code> and <code>Primitives</code>) or the linked HTML page per scaffold.</li>
+<li>Mantené esto en sync cuando se agreguen o eliminen scaffolds: reejecutá <code>dynamic_workflow action=scaffold</code> y compará los nombres contra <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code>.</li>
+<li>Para las formas de input y las primitives de cada workflow, mirá la salida del catálogo vivo (cada entrada lista un <code>Input</code> y <code>Primitives</code> de ejemplo) o la página HTML enlazada de cada scaffold.</li>
 </ul>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

@@ -1,5 +1,5 @@
 /**
- * grooming — PROPOSE-ONLY backlog-grooming audit for pi-dynamic-workflows.
+ * grooming — PROPOSE-ONLY backlog-grooming audit for pandi-extensions.
  *
  * Pattern: fan-out-and-synthesize. Phase A scouts the LIVE work-list (open issues,
  * Project v2 #4 board, label set) via read-only `gh` calls — no hardcoded issue
@@ -251,7 +251,7 @@ const siblingIndex = allOpenIssues.map((i) => ({ number: i.number, title: i.titl
 
 const analystItems = analystIssues.map((issue) => ({
 	prompt: [
-		"You are a read-only backlog analyst auditing ONE open GitHub issue in the pi-dynamic-workflows repo.",
+		"You are a read-only backlog analyst auditing ONE open GitHub issue in the pandi-extensions repo.",
 		GH_READ_ONLY_NOTE,
 		UNTRUSTED_NOTICE,
 		"",
@@ -325,7 +325,7 @@ const boardIndex = boardItems.map((it) => ({
 const issueNodeIndex = allOpenIssues.map((i) => ({ number: i.number, nodeId: i.id ?? null, url: i.url }));
 
 const synthesisPrompt = [
-	"You are the CROSS-ISSUE SYNTHESIZER for a propose-only backlog-grooming audit of pi-dynamic-workflows.",
+	"You are the CROSS-ISSUE SYNTHESIZER for a propose-only backlog-grooming audit of pandi-extensions.",
 	UNTRUSTED_NOTICE,
 	"You NEVER execute gh commands yourself — you only draft them as text for a human to review.",
 	"",
@@ -472,7 +472,7 @@ const proposedSectionMd = [
 ].join("\n");
 
 const reportMd = [
-	`# Informe de revisión del backlog — pi-dynamic-workflows`,
+	`# Informe de revisión del backlog — pandi-extensions`,
 	"",
 	`_Generado por backlog-groom-propose. Issues abiertas analizadas: ${completedAnalyses.length}/${allOpenIssues.length}. Deriva de tablero: ${boardAudit?.driftCount ?? 0}._`,
 	"",

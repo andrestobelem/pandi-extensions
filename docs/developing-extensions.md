@@ -3,13 +3,12 @@
 Fecha: 2026-07-04
 
 Una extensión de pi es un módulo TypeScript que agrega comandos, tools o
-reacciones a eventos del ciclo de vida del agente. Esta guía es la fuente
-autoritativa de **cómo escribir una extensión de este repo y probarla a la
-vez**, sin romper la sesión con la que estás trabajando. Recurrí a ella cuando
-vas a crear una extensión nueva, tocar una existente, o no sabés si conviene un
+manejadores de eventos al agente. Esta guía explica cómo escribir una
+extensión de este repo y probarla sin romper la sesión activa. Usala cuando
+quieras crear una extensión nueva, modificar una existente o decidir entre un
 comando, un tool o un event handler.
 
-## Quickstart: una extensión mínima
+## En 30 segundos
 
 Una extensión exporta una función default que recibe `pi: ExtensionAPI`. Podés
 probarla sin instalarla, apuntando `pi -e` al archivo:
@@ -61,7 +60,7 @@ de pi upstream (o `docs/extensions.md` de tu instalación local del paquete).
 Una vez que la extensión existe, queda el problema puntual de este repo: es
 **auto-hospedado**. La suite está instalada globalmente apuntando al propio
 checkout
-(`packages: ["../../ws/at/pi-dynamic-workflows"]` en `~/.pi/agent/settings.json`),
+(`packages: ["../../ws/at/pandi-extensions"]` en `~/.pi/agent/settings.json`),
 y **pi carga el TypeScript de las extensiones desde disco** (no bundlea). Entonces
 un `/reload` en tu sesión de trabajo ejecuta tus edits **sin commitear** al
 instante — y un error de sintaxis o de carga puede tumbar esa sesión.
@@ -148,6 +147,6 @@ seguridad de ejecución, es de cuándo recargás.
 ## Ver también
 
 - [`README.md`](../README.md) — instalación / dogfooding (`pi install ./`, `/reload`).
-- Skill `init-pi-dynamic-workflows` — onboarding desde un clon fresco.
+- Skill `init-pandi-extensions` — onboarding desde un clon fresco.
 - [`README.md#verification`](../README.md#verification) — cómo correr `npm test` (harness de tests, lint, typecheck).
 - [`gondolin-isolation.md`](./gondolin-isolation.md) — aislamiento por micro-VM (eje 3).

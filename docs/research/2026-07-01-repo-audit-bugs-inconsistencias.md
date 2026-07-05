@@ -1,10 +1,12 @@
 # Auditoría del repo — errores e inconsistencias (2026-07-01)
 
-Informe consolidado de una auditoría read-only del monorepo de extensiones
-`pandi-dynamic-workflows`, ejecutada con workflows dinámicos multi-agente. Recoge
-solo hallazgos con cita concreta `archivo:línea`; los marcados **[verificado]**
-fueron re-chequeados a mano contra el archivo, los **[plausible]** quedan
-pendientes de verificación fina.
+## En 30 segundos
+
+Esta nota resume una auditoría read-only del monorepo de extensiones
+`pandi-dynamic-workflows`. Sirve para ubicar bugs e inconsistencias, con
+pistas concretas de `archivo:línea` en los hallazgos donde la cita lineal
+pudo verificarse a mano, y para separar lo que ya fue rechequeado a mano de
+lo que todavía pide una revisión fina.
 
 ## Método
 

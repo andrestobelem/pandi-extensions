@@ -4,12 +4,14 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { ARG_COMPLETIONS, resolveCommandValue } from "./command-menu.js";
 import { type ContextBarLevel, renderContextBar } from "./context-bar.js";
 import {
+	CODEX_DEFAULT_THRESHOLD_PERCENT,
 	DEFAULT_THRESHOLD_PERCENT,
 	parseBarSetting,
 	parseClearSetting,
 	parseSnapshotKeep,
 	parseSnapshotSetting,
 	parseThreshold,
+	resolveDefaultThresholdPercent,
 	resolveToggle,
 } from "./settings.js";
 import {
@@ -35,12 +37,14 @@ export type { CompactionSnapshot };
 // bundle keeps exporting the names the integration suite imports.
 export {
 	buildSnapshot,
+	CODEX_DEFAULT_THRESHOLD_PERCENT,
 	DEFAULT_THRESHOLD_PERCENT,
 	parseBarSetting,
 	parseClearSetting,
 	parseSnapshotKeep,
 	parseSnapshotSetting,
 	parseThreshold,
+	resolveDefaultThresholdPercent,
 	selectSnapshotsToPrune,
 	snapshotDirFor,
 	snapshotFileName,
@@ -137,8 +141,9 @@ export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "err
 
 export default function autoCompact(pi: ExtensionAPI) {
 	let enabled = true;
-	let thresholdPercent = parseThreshold(process.env.PI_AUTO_COMPACT_PERCENT) ?? DEFAULT_THRESHOLD_PERCENT;
+	let thresholdPercentOverride = parseThreshold(process.env.PI_AUTO_COMPACT_PERCENT);
 	let previousPercent: number | null | undefined;
+	let previousThresholdPercent: number | undefined;
 	let pendingReason: string | undefined;
 	let compacting = false;
 	let showBar = parseBarSetting(process.env.PI_AUTO_COMPACT_BAR) ?? true;
@@ -166,6 +171,9 @@ export default function autoCompact(pi: ExtensionAPI) {
 	// Render (or clear) the footer progress bar. The bar is shown whenever the
 	// extension is enabled and the bar is not turned off; it is cleared otherwise
 	// so a disabled extension leaves no stale gauge behind.
+	const getThresholdPercent = (ctx: ExtensionContext) =>
+		thresholdPercentOverride ?? resolveDefaultThresholdPercent(ctx.model);
+
 	const updateStatusBar = (ctx: ExtensionContext) => {
 		if (!ctx.hasUI) return;
 		if (!enabled || !showBar) {
@@ -174,7 +182,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 		}
 		const bar = renderContextBar({
 			percent: ctx.getContextUsage()?.percent ?? null,
-			thresholdPercent,
+			thresholdPercent: getThresholdPercent(ctx),
 			compacting,
 		});
 		if (!bar) {
@@ -227,8 +235,14 @@ export default function autoCompact(pi: ExtensionAPI) {
 		const currentPercent = usage?.percent ?? null;
 		if (currentPercent === null) return;
 
+		const thresholdPercent = getThresholdPercent(ctx);
+		const thresholdChanged = previousThresholdPercent !== undefined && previousThresholdPercent !== thresholdPercent;
 		const crossedThreshold =
-			previousPercent === undefined || previousPercent === null || previousPercent < thresholdPercent;
+			thresholdChanged ||
+			previousPercent === undefined ||
+			previousPercent === null ||
+			previousPercent < thresholdPercent;
+		previousThresholdPercent = thresholdPercent;
 		previousPercent = currentPercent;
 
 		if (!crossedThreshold || currentPercent < thresholdPercent) return;
@@ -359,7 +373,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("auto-compact", {
-		description: `Configure relative context auto-compaction (default enabled at ${DEFAULT_THRESHOLD_PERCENT}%). Run bare to pick a setting from a menu, or pass status|on|off|run|bar [on|off]|<1-99 percent>.`,
+		description: `Configure relative context auto-compaction (default enabled at ${DEFAULT_THRESHOLD_PERCENT}% for Claude/other models, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% for Codex). Run bare to pick a setting from a menu, or pass status|on|off|run|bar [on|off]|<1-99 percent>.`,
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = needle
@@ -370,9 +384,11 @@ export default function autoCompact(pi: ExtensionAPI) {
 		handler: async (args, ctx) => {
 			const trimmed = (await resolveCommandValue(args, ctx)).trim();
 			if (!trimmed || trimmed === "status") {
+				const thresholdPercent = getThresholdPercent(ctx);
+				const thresholdSource = thresholdPercentOverride === undefined ? "default" : "override";
 				notify(
 					ctx,
-					`Auto-compaction context is ${enabled ? "enabled" : "disabled"}; threshold: ${thresholdPercent}%; bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (keep ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (keep ${clearKeepRecent}, >=${clearMinChars} chars)`,
+					`Auto-compaction context is ${enabled ? "enabled" : "disabled"}; threshold: ${thresholdPercent}% (${thresholdSource}); bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (keep ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (keep ${clearKeepRecent}, >=${clearMinChars} chars)`,
 					"info",
 				);
 				return;
@@ -382,7 +398,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				enabled = true;
 				previousPercent = null;
 				pendingReason = undefined;
-				notify(ctx, `Auto-compaction context enabled at ${thresholdPercent}%`, "info");
+				notify(ctx, `Auto-compaction context enabled at ${getThresholdPercent(ctx)}%`, "info");
 				updateStatusBar(ctx);
 				return;
 			}
@@ -467,10 +483,10 @@ export default function autoCompact(pi: ExtensionAPI) {
 				return;
 			}
 
-			thresholdPercent = nextThreshold;
+			thresholdPercentOverride = nextThreshold;
 			previousPercent = null;
 			pendingReason = undefined;
-			notify(ctx, `Auto-compaction context threshold set to ${thresholdPercent}%`, "info");
+			notify(ctx, `Auto-compaction context threshold set to ${thresholdPercentOverride}%`, "info");
 			updateStatusBar(ctx);
 		},
 	});

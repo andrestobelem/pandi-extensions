@@ -34,7 +34,7 @@ const MIN_SUBSTANTIVE_CHARS = 200;
 
 const PREFIX = [
 	"Act as a Dave Farley-style DESIGN reviewer (you have the modern-software-engineering skill; apply it).",
-	"You are reviewing the SOURCE of ONE extension in the pi-dynamic-workflows monorepo (skip its tests/ dir; read them only to judge testability).",
+	"You are reviewing the SOURCE of ONE extension in the pandi-extensions monorepo (skip its tests/ dir; read them only to judge testability).",
 	"Judge the design by the two competencies that matter: does it optimize for LEARNING and manage COMPLEXITY?",
 	"Evaluate concretely:",
 	"- COMPLEXITY: modularity, cohesion, separation of concerns, information hiding, abstraction quality, coupling (incl. to pi's SDK surface).",

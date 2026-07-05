@@ -1,6 +1,6 @@
 # Modularización de extensiones — Design Audit y roadmap
 
-Date: 2026-06-28
+Fecha: 2026-06-28
 
 ## Objetivo
 
@@ -8,6 +8,14 @@ Auditar el diseño del monorepo de 9 extensiones Pi y producir un plan increment
 **behavior-preserving**, para: (1) modularizar el código, (2) sacar duplicación a módulos
 compartidos, (3) modularizar los tests, (4) revisar el diseño con lente Kent Beck / Dave
 Farley, y (5) aplicar los mismos conceptos (DRY / single-source) a los prompts.
+
+## En 30 segundos
+
+Este informe resume una auditoría de diseño del monorepo de 9 extensiones Pi y propone una ruta
+incremental para modularizar sin cambiar el comportamiento observable. Sirve para decidir qué
+extraer primero, qué dejar como está y dónde está el riesgo real: estado mutable compartido,
+bootstrap de tests duplicado y prompts que conviene tratar como fuente única de verdad.
+Si vas a tocar una extensión grande o a mover código compartido, empezá por acá.
 
 ## Procedencia
 

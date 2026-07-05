@@ -1,5 +1,5 @@
 /**
- * Workflow-graph source-introspection kernel for pi-dynamic-workflows.
+ * Workflow-graph source-introspection kernel for pandi-dynamic-workflows.
  *
  * Pure static analysis of workflow JavaScript source: label sanitization,
  * string-literal / call-argument extraction, top-level argument splitting, and

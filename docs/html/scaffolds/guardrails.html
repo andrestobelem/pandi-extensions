@@ -128,7 +128,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>Tripwire barato de input/output que HALTA ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p><code>guardrails</code> corre chequeos rápidos y acotados (un agente barato por regla) antes y/o después de un trabajo real, y detiene todo apenas uno de esos chequeos &quot;trippea&quot; — en vez de gastar una corrida completa (o entregar un resultado malo) y descubrir el problema después. Elegilo cuando necesitás imponer límites duros baratos alrededor de otro workflow, o validar un artefacto puntual contra un set de reglas.</p>
+<p><code>guardrails</code> pone un tripwire barato alrededor de un workflow o de un artefacto ya generado. Cada regla se evalúa con un agente chico y acotado; si una regla viola algo con evidencia clara, el flujo se detiene ahí mismo. Elegilo cuando querés imponer límites duros sin pagar el costo de correr todo el trabajo antes de descubrir el problema.</p>
 <h2>Cómo lanzarlo</h2>
 <pre><code class="language-text">/workflow new mi-run --pattern=guardrails
 /workflow run mi-run {&quot;protect&quot;:{&quot;name&quot;:&quot;deep-research&quot;,&quot;args&quot;:{&quot;request&quot;:&quot;...&quot;}},&quot;inputRules&quot;:[&quot;no pedir generar malware&quot;],&quot;outputRules&quot;:[&quot;no filtrar secretos/API keys&quot;]}
@@ -183,15 +183,34 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
     P --&gt;|"sí"| P1["return TRIPPED (stage=output)\ncon el output ya generado"]
     P --&gt;|"no"| Q["return PASS con output + inputChecks/outputChecks"]</pre>
 <h2>Qué hace</h2>
-<p><code>guardrails</code> implementa el patrón de guardrails de entrada/salida de la OpenAI Agents SDK: correr chequeos baratos y acotados en paralelo con (o alrededor de) el trabajo real, y detenerse temprano apenas uno se dispara, en vez de descubrir el problema al final. Cada regla se evalúa con un agente independiente (<code>haiku</code>, effort <code>low</code>) que debe devolver un veredicto tipado (<code>tripped</code>, <code>reason</code>, <code>evidence</code>) citando la evidencia exacta — nunca disparar por estilo o incertidumbre, solo ante una violación clara y evidenciada.</p>
-<p>El scaffold tiene dos modos. En modo <strong>wrapper</strong> (<code>protect:{name,args}</code>) actúa como front-end/back-end de cualquier workflow del catálogo: primero corre los guards de INPUT sobre la solicitud (si alguno trippea, ni siquiera se ejecuta el workflow protegido, ahorrando todo el costo); si pasan, corre el workflow real; y finalmente corre los guards de OUTPUT sobre el resultado antes de confiarlo/devolverlo. En modo <strong>validador</strong> (sin <code>protect</code>) simplemente chequea un <code>content</code> ya existente contra un set de reglas y devuelve PASS/TRIPPED — útil para gatear un output que ya generaste por otro medio.</p>
+<p><code>guardrails</code> sigue el patrón de guardrails de entrada/salida de la OpenAI Agents SDK: corre chequeos baratos y acotados en paralelo con el trabajo real y se detiene temprano apenas uno se dispara. Cada regla se evalúa con un agente independiente (<code>haiku</code>, effort <code>low</code>) que devuelve un veredicto tipado (<code>tripped</code>, <code>reason</code>, <code>evidence</code>) y solo trippea ante una violación clara y evidenciada.</p>
+<table>
+<thead>
+<tr>
+<th>Modo</th>
+<th>Entrada</th>
+<th>Cuándo usarlo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Wrapper (<code>protect:{name,args}</code>)</td>
+<td><code>content ?? protect.args</code> + <code>inputRules</code>/<code>outputRules</code></td>
+<td>para envolver cualquier workflow del catálogo y frenar antes o después de correrlo</td>
+</tr>
+<tr>
+<td>Validador</td>
+<td><code>content</code> + <code>rules</code> (o <code>inputRules</code>/<code>outputRules</code>)</td>
+<td>para gatear un artefacto ya generado y devolver <code>PASS</code> o <code>TRIPPED</code></td>
+</tr>
+</tbody></table>
+<p>En modo <strong>wrapper</strong> primero corren los guards de INPUT sobre la solicitud; si alguno trippea, el workflow protegido no se ejecuta. Si pasan, corre el workflow real y luego se validan los guards de OUTPUT sobre el resultado.</p>
 <p>A diferencia de <code>contract-gate</code> (que construye un contrato completo de tarea y decide ask-vs-proceed antes de rutear), <code>guardrails</code> es deliberadamente más liviano y corre en los bordes de la ejecución: un tripwire binario a la entrada (¿esto está en scope/es seguro de correr?) y a la salida (¿el resultado viola una regla?). Ambos componen: <code>contract-gate</code> puede decidir el scope, y el workflow elegido puede envolverse en <code>guardrails</code> para el enforcement barato.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
-<li>Gate de scope/seguridad antes de correr un agente (caso de catálogo).</li>
-<li>Chequeo de PII/secretos sobre un output ya generado (caso de catálogo).</li>
+<li>Filtro de scope o seguridad antes de correr un agente (caso de catálogo).</li>
+<li>Chequeo de PII o secretos sobre un output ya generado (caso de catálogo).</li>
 <li>Envolver un workflow elegido con tripwires de input/output (caso de catálogo).</li>
-<li>Enforcement de límites duros y baratos alrededor de CUALQUIER workflow, sin tocar su código.</li>
+<li>Aplicar límites duros y baratos alrededor de cualquier workflow, sin tocar su código.</li>
 </ul>
 <p>No usarlo cuando:</p>
 <ul>

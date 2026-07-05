@@ -125,26 +125,15 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 	</header>
 	<main>
 <blockquote>
-<p>Beam search sobre soluciones parciales: expandí K pensamientos, el juez los puntúa, podá al top-B, recursá hasta la profundidad, y comprometé la respuesta final.</p>
+<p>Búsqueda tipo <em>beam search</em> sobre soluciones parciales: expandí K pensamientos, puntúalos con un juez, podá al top-B y comprometé la mejor ruta.</p>
 </blockquote>
 <h2>En 30 segundos</h2>
-<p>En vez de generar una única cadena de razonamiento, explorá un ÁRBOL de
-soluciones parciales: en cada nivel, cada nodo vivo se expande en K
-&quot;pensamientos&quot; candidatos, un juez los puntúa a todos, y solo sobreviven los
-mejores B (beam width) para el siguiente nivel. Elegilo cuando el problema
-tiene pasos intermedios que vale la pena explorar y comparar — no solo
-candidatos finales completos.</p>
+<p><code>tree-of-thoughts</code> explora un árbol de soluciones parciales en vez de elegir una sola respuesta de una vez. En cada nivel expande cada nodo vivo en <code>branching</code> hijos, los puntúa con un juez (<code>schema: SCORE</code>) y conserva solo los <code>beam</code> mejores. Úsalo cuando hay pasos intermedios evaluables y querés comparar caminos antes de comprometerte.</p>
 <h2>Cómo lanzarlo</h2>
-<pre><code>/workflow new mi-tot --pattern=tree-of-thoughts
+<pre><code class="language-text">/workflow new mi-tot --pattern=tree-of-thoughts
+/workflow run mi-tot &#39;{&quot;problem&quot;:&quot;Design the gate rollout in 4 staged steps.&quot;,&quot;branching&quot;:3,&quot;beam&quot;:2,&quot;depth&quot;:3}&#39;
 </code></pre>
-<p>Input típico:</p>
-<pre><code class="language-json">{
-  &quot;problem&quot;: &quot;Design the gate rollout in 4 staged steps.&quot;,
-  &quot;branching&quot;: 3,
-  &quot;beam&quot;: 2,
-  &quot;depth&quot;: 3
-}
-</code></pre>
+<p><code>problem</code> es obligatorio; también acepta <code>question</code>, <code>text</code> o <code>task</code>. Ver <a href="#input-y-output">Input y output</a>.</p>
 <h2>Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start["frontier = [{ path: '', score: 0 }]"] --&gt; Level{"level 1..depth"}
@@ -180,34 +169,16 @@ candidatos finales completos.</p>
     EmptyCheck --&gt;|"sí"| NoPath["return 'Search produced no viable path.'"]
     EmptyCheck --&gt;|"no"| Commit</pre>
 <h2>Qué hace</h2>
-<p><code>tree-of-thoughts</code> implementa búsqueda en haz (beam search) sobre soluciones
-parciales, siguiendo el paper &quot;Tree of Thoughts: Deliberate Problem Solving
-with LLMs&quot; (arXiv:2305.10601). En lugar de comprometerse a una sola cadena de
-razonamiento, mantiene una frontera de nodos vivos y, en cada nivel, expande
-cada nodo en K pensamientos candidatos distintos entre sí, los hace juzgar
-por un modelo evaluador con salida tipada (<code>score</code> 0-10 + <code>why</code>), y poda todo
-menos el top-B por score. El backtracking es implícito: una rama que
-puntuaba bien temprano pero deja de mejorar simplemente no sobrevive a la
-poda cuando una hermana la supera.</p>
-<p>El proceso se repite hasta <code>depth</code> niveles (o hasta que un nivel no produce
-hijos), y al final el nodo con mayor score de la frontera final se usa como
-base para sintetizar la respuesta definitiva.</p>
-<p>Es la versión general de <code>judge-escalate</code> (que es esto mismo con
-<code>depth=1, beam=1</code>, es decir best-of-N con a lo sumo una ronda extra). Cuando
-la poda por score absoluto no es confiable pero sí la comparación relativa
-entre pares, el scaffold hermano <code>tournament</code> reemplaza el juez-de-scoring
-por rondas de brackets pairwise.</p>
+<p><code>tree-of-thoughts</code> implementa búsqueda en haz (<em>beam search</em>) sobre soluciones parciales, siguiendo el paper &quot;Tree of Thoughts: Deliberate Problem Solving with LLMs&quot; (arXiv:2305.10601). En lugar de comprometerse con una sola cadena de razonamiento, mantiene una frontera de nodos vivos y, en cada nivel, expande cada nodo en <code>branching</code> pensamientos candidatos distintos, los hace juzgar por un modelo evaluador con salida tipada (<code>score</code> 0-10 + <code>why</code>), y poda todo menos el top-<code>beam</code> por score. El backtracking es implícito: una rama que puntuaba bien temprano pero deja de mejorar simplemente no sobrevive al corte cuando otra la supera.</p>
+<p>El proceso se repite hasta <code>depth</code> niveles (o hasta que un nivel no produce hijos), y al final el nodo con mayor score de la frontera final se usa como base para sintetizar la respuesta definitiva.</p>
+<p>Es la versión general de <code>judge-escalate</code> (que es esto mismo con <code>depth=1, beam=1</code>, es decir best-of-N con a lo sumo una ronda extra). Cuando la poda por score absoluto no es confiable pero sí la comparación relativa entre pares, el scaffold hermano <code>tournament</code> reemplaza el juez-de-scoring por rondas de brackets pairwise.</p>
 <h2>Cuándo usarlo</h2>
 <ul>
 <li>Planificación o diseño multi-paso donde cada paso condiciona al siguiente.</li>
-<li>Explorar un espacio de soluciones donde varias líneas de razonamiento
-parcial compiten y conviene descartar temprano las menos prometedoras.</li>
-<li>Flujo expandir → puntuar → podar → comprometer, con backtracking
-automático vía el juez.</li>
-<li>NO usarlo si el problema no tiene pasos intermedios evaluables por
-separado (para eso alcanza <code>judge-escalate</code> o un simple best-of-N), o si
-el costo de <code>beam × branching × depth</code> llamadas a <code>agent</code> por corrida no
-se justifica frente a un enfoque más barato.</li>
+<li>Explorar un espacio de soluciones donde varias líneas de razonamiento parcial compiten y conviene descartar temprano las menos prometedoras.</li>
+<li>Flujo expandir → puntuar → podar → comprometer, con backtracking automático vía el juez.</li>
+<li><strong>No usarlo</strong> si el problema no tiene pasos intermedios evaluables por separado; para eso alcanza <code>judge-escalate</code> o un simple <code>best-of-N</code>.</li>
+<li><strong>No usarlo</strong> si la comparación relativa entre pares vale más que un score absoluto; ahí conviene <code>tournament</code>.</li>
 </ul>
 <h2>Cómo funciona</h2>
 <p>El input se parsea y valida un único campo requerido: <code>problem</code> (alias

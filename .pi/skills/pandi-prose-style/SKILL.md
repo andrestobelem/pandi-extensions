@@ -78,7 +78,9 @@ sentence's functional status is unclear, leave it byte-identical and flag it.
 
 - Technical accuracy is untouchable — reorder, reword, exemplify; never
   weaken or drop a fact (didactic-docs-style rule 5, extended repo-wide).
-- Each file keeps its existing language (bilingual repo).
+- Public repo docs use Spanish by default; keep English for commands, API names,
+  literals, package names, external titles, and canonical technical terms when
+  translating would reduce clarity.
 - `docs/html/` is generated — regenerate via `npm run sync:docs:html`, never
   hand-edit.
 - `npm test` stays green after every commit; markdownlint-cli2 passes on all

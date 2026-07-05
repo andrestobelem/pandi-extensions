@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Gondolin micro-VM isolation (opt-in)</title>
+<title>Aislamiento de micro-VM Gondolin (opt-in)</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,62 +121,48 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs</div>
-		<h1>Gondolin micro-VM isolation (opt-in)</h1>
+		<h1>Aislamiento de micro-VM Gondolin (opt-in)</h1>
 	</header>
 	<main>
-<p>Date: 2026-06-30</p>
-<p><a href="https://github.com/earendil-works/gondolin">Gondolin</a> is pi&#39;s local Linux
-micro-VM. The <code>pi-coding-agent</code> package ships it as an <strong>example extension</strong>
-(<code>&lt;pi&gt;/examples/extensions/gondolin/</code>) that routes pi&#39;s built-in tools and <code>!</code>
-commands into the VM.</p>
-<p>This is the <strong>execution-isolation</strong> axis of
-<a href="developing-extensions.html"><code>developing-extensions.md</code></a> (eje 3) — it sandboxes
-<em>where tools run</em>, not the develop/reload loop.</p>
-<p>It is <strong>not part of this repo&#39;s published package</strong>. We keep it opt-in because
-it requires a heavy, platform-specific native dependency (<code>@earendil-works/gondolin</code>)
-that would bloat the lockfile and only runs on a couple of platforms.</p>
-<h2>What it isolates (and what it does not)</h2>
+<p>Fecha: 2026-06-30</p>
+<p><a href="https://github.com/earendil-works/gondolin">Gondolin</a> es la micro-VM Linux local de pi. El paquete <code>pi-coding-agent</code> la incluye como <strong>extensión de ejemplo</strong> en <code>&lt;pi&gt;/examples/extensions/gondolin/</code>, y esa extensión redirige las herramientas internas de pi y los comandos <code>!</code> hacia la VM.</p>
+<p>Sirve cuando querés aislar <strong>dónde se ejecutan las herramientas</strong>, no el ciclo de desarrollo/reload. Es el eje de <strong>aislamiento de ejecución</strong> de <a href="developing-extensions.html"><code>developing-extensions.md</code></a> (eje 3).</p>
+<p>No forma parte del paquete publicado de este repo. Se mantiene opt-in porque depende de <code>@earendil-works/gondolin</code>, una dependencia nativa pesada y específica de plataforma que ensancharía el lockfile y solo funciona en unas pocas plataformas.</p>
+<h2>En 30 segundos</h2>
+<p>Usá Gondolin si querés que <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> corran dentro de una VM, pero sin cambiar cómo desarrollás o recargás extensiones.</p>
+<pre><code class="language-bash">npm run setup:gondolin
+pi -e .pi/tools/gondolin
+</code></pre>
+<p>Después, dentro de la sesión de pi, <code>!uname -a</code> debe devolver <strong>Linux</strong>.</p>
+<h2>Qué aísla y qué no</h2>
 <ul>
-<li><strong>Isolated:</strong> the built-in <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>,
-<code>ls</code> tools and user <code>!</code> commands run inside the VM. Your host cwd is mounted at
-<code>/workspace</code>; writes under <code>/workspace</code> pass through to the host.</li>
-<li><strong>NOT isolated:</strong> dynamic-workflow <strong>subagents</strong> spawn child <code>pi</code>/<code>codex</code>
-processes on the <strong>host</strong> (extensions run where <code>pi</code> runs). So Gondolin does not
-hide the <code>node → pi/codex → /bin/bash</code> process lineage. For full isolation
-of the whole orchestrator, run all of <code>pi</code> inside Docker instead (see pi&#39;s
-<code>docs/containerization.md</code>).</li>
+<li><strong>Aísla:</strong> las herramientas internas <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> del usuario se ejecutan dentro de la VM. El cwd del host se monta en <code>/workspace</code>; todo lo que escribas debajo de <code>/workspace</code> vuelve al host.</li>
+<li><strong>No aísla:</strong> los dynamic-workflow <strong>subagents</strong> lanzan procesos hijo <code>pi</code>/<code>codex</code> en el <strong>host</strong> (las extensiones corren donde corre <code>pi</code>). Por eso Gondolin no oculta la cadena de procesos <code>node → pi/codex → /bin/bash</code>. Para aislar todo el orquestador, ejecutá <code>pi</code> completo dentro de Docker; ver <code>docs/containerization.md</code>.</li>
 </ul>
-<h2>Requirements</h2>
+<h2>Requisitos</h2>
 <ul>
 <li>Node.js <code>&gt;= 23.6.0</code>.</li>
-<li>Platform with a prebuilt runner: <strong><code>darwin-arm64</code></strong> or <strong><code>linux-x64</code></strong> only.</li>
-<li>QEMU available (e.g. <code>brew install qemu</code> on macOS).</li>
+<li>Plataforma con runner precompilado: <strong><code>darwin-arm64</code></strong> o <strong><code>linux-x64</code></strong> solamente.</li>
+<li>QEMU disponible (por ejemplo, <code>brew install qemu</code> en macOS).</li>
 </ul>
-<h2>Install</h2>
+<h2>Instalación</h2>
 <pre><code class="language-bash">npm run setup:gondolin
 </code></pre>
-<p>This copies pi&#39;s shipped example into this repo&#39;s project-local
-<code>.pi/tools/gondolin</code> and runs <code>npm install --ignore-scripts</code> there. We
-deliberately install into <code>.pi/tools/</code> (NOT <code>.pi/extensions/</code>, which is
-auto-discovered and would boot a micro-VM on <strong>every</strong> pi session in this repo).
-<code>.pi/tools/</code> is gitignored, so the heavy platform-specific native deps stay out
-of version control.</p>
-<p>The <code>--ignore-scripts</code> install is the upstream-recommended, script-free path: the
-krun runner is a prebuilt binary and <code>ssh2</code> falls back to pure JS without the
-optional <code>cpu-features</code> native build.</p>
-<h2>Use</h2>
-<p>From this repo&#39;s root:</p>
+<p>Ese comando copia la extensión de ejemplo incluida en pi a <code>.pi/tools/gondolin</code> dentro de este repo y luego ejecuta <code>npm install --ignore-scripts</code> allí. La instalación va deliberadamente a <code>.pi/tools/</code> y no a <code>.pi/extensions/</code>, porque esta última ruta se autodetecta y levantaría una micro-VM en <strong>cada</strong> sesión de pi en este repo. <code>.pi/tools/</code> está ignorado por git, así que las dependencias nativas pesadas quedan fuera del control de versiones.</p>
+<p>La instalación con <code>--ignore-scripts</code> es la ruta recomendada upstream y sin scripts: el runner <code>krun</code> ya viene como binario precompilado y <code>ssh2</code> cae a JavaScript puro sin compilar <code>cpu-features</code> de forma opcional.</p>
+<h2>Uso</h2>
+<p>Desde la raíz de este repo:</p>
 <pre><code class="language-bash">pi -e .pi/tools/gondolin
 </code></pre>
-<p>A convenient shell alias:</p>
+<p>Alias útil de shell:</p>
 <pre><code class="language-bash">alias pi-vm=&#39;pi -e .pi/tools/gondolin&#39;
 </code></pre>
-<h2>Verify</h2>
-<p>Inside the pi session:</p>
+<h2>Verificación</h2>
+<p>Dentro de la sesión de pi:</p>
 <ul>
-<li><code>/gondolin</code> — shows VM id, host workspace, guest workspace, shell.</li>
-<li><code>!uname -a</code> — must report <strong>Linux</strong> (not Darwin).</li>
-<li><code>!ls -la /workspace</code> — must show your host project files.</li>
+<li><code>/gondolin</code> — muestra el id de la VM, el workspace del host, el workspace del guest y la shell.</li>
+<li><code>!uname -a</code> — debe reportar <strong>Linux</strong> (no Darwin).</li>
+<li><code>!ls -la /workspace</code> — debe mostrar los archivos de tu proyecto en el host.</li>
 </ul>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

@@ -35,8 +35,10 @@ generate docs must load it and pass it to every editor/reviewer agent.
 5. **Accuracy is untouchable.** Every claim must be checkable in the code. If
    unsure, read the implementation. Keep every existing fact; you may
    reorder, reword, exemplify, and illustrate — not weaken or drop.
-6. **Keep the document's existing language** (English docs stay English;
-   Spanish docs stay Spanish).
+6. **Spanish by default for public docs.** Public repo documentation is
+   written in Spanish by default. Keep English only for API names, commands,
+   flags, package names, literals, external titles, and canonical technical
+   terms where translating would reduce clarity.
 7. **Keep it tight.** Didactic ≠ longer. Cut redundancy; primitives docs stay
    short (they ship in the npm package): target ≤ ~65 lines each.
 8. **Markdown hygiene.** Valid GFM, sensible heading hierarchy, fenced code

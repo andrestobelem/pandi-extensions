@@ -124,6 +124,8 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 		<h1>Claude Dynamic Workflows: _A harness for every task_</h1>
 	</header>
 	<main>
+<h2>En 30 segundos</h2>
+<p>Este informe resume cómo Anthropic presenta los dynamic workflows en Claude Code: una capa de orquestación que saca la estrategia del contexto y la vuelve un script JavaScript ejecutable. Sirven para tareas grandes o inciertas, donde hace falta fan-out, verificación cruzada y estado persistente sin llenar la conversación principal. Si querés comparar esa propuesta con Pi Dynamic Workflows, empezá por la tesis y la sección de comparación.</p>
 <h2>Fuentes revisadas</h2>
 <ul>
 <li>Anthropic blog: <a href="https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code"><em>A harness for every task: dynamic workflows in Claude Code</em></a>, Thariq Shihipar y Sid Bidasaria, 2026-06-02.</li>
@@ -153,7 +155,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <tr>
 <th>Mecanismo</th>
 <th>Quién sostiene el plan</th>
-<th>Dónde quedan resultados intermedios</th>
+<th>Dónde quedan los resultados intermedios</th>
 <th>Escala típica</th>
 </tr>
 </thead>
@@ -182,15 +184,15 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <td>Decenas a cientos de agentes</td>
 </tr>
 </tbody></table>
-<p>Claude recomienda workflows cuando una tarea necesita más agentes de los que una conversación puede coordinar bien, o cuando conviene que la orquestación quede codificada y se pueda leer/reusar.</p>
+<p>Claude recomienda workflows cuando una tarea necesita más agentes de los que una conversación puede coordinar bien, o cuando conviene que la orquestación quede codificada y se pueda leer o reutilizar.</p>
 <p>Ejemplos oficiales:</p>
 <ul>
 <li>barrido de bugs en todo un codebase;</li>
 <li>migración de cientos de archivos;</li>
 <li>investigación que requiere cruzar fuentes;</li>
-<li>plan difícil que conviene evaluar desde varios ángulos antes de implementar.</li>
+<li>un plan difícil que conviene evaluar desde varios ángulos antes de implementar.</li>
 </ul>
-<h2>Triggers y UX en Claude Code</h2>
+<h2>Entradas y UX en Claude Code</h2>
 <p>Claude Code ofrece tres entradas principales:</p>
 <ol>
 <li><p><strong>Workflow bundled</strong>: <code>/deep-research &lt;question&gt;</code>.</p>
@@ -217,7 +219,7 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 </ul>
 </li>
 </ol>
-<h2>Approval, permisos y seguridad</h2>
+<h2>Aprobación, permisos y seguridad</h2>
 <p>Antes de correr un workflow, Claude Code muestra una aprobación con fases planeadas. Opciones documentadas:</p>
 <ul>
 <li>correr una vez;</li>
@@ -266,13 +268,13 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <p>Gestión de runs:</p>
 <ul>
 <li><code>/workflows</code> lista runs activos y completados.</li>
-<li>Vista de progreso muestra fases, agentes, tokens y elapsed.</li>
+<li>La vista de progreso muestra fases, agentes, tokens y elapsed.</li>
 <li>Se puede pausar/reanudar (<code>p</code>), detener (<code>x</code>), reiniciar agentes (<code>r</code>) y guardar script (<code>s</code>).</li>
 <li>Si se pausa un run, al reanudar los agentes completados devuelven resultados cacheados y el resto corre live.</li>
 <li>La reanudación dentro de la misma sesión restaura estado. Si se cierra Claude Code durante un run, la siguiente sesión arranca de cero.</li>
 </ul>
 <h2>Patrones nombrados por Anthropic</h2>
-<p>Los patrones destacados en la cobertura del blog y docs son:</p>
+<p>Los patrones destacados en la cobertura del blog y la documentación son:</p>
 <ul>
 <li><strong>Classify-and-act</strong>: clasificar items y elegir acción por clase.</li>
 <li><strong>Fan-out-and-synthesize</strong>: dividir trabajo independiente y sintetizar.</li>
@@ -282,12 +284,12 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li><strong>Loop-until-done</strong>: iterar con una condición de salida observable.</li>
 </ul>
 <h2>Costo y cuándo no usarlo</h2>
-<p>Anthropic advierte que un workflow puede gastar muchos más tokens que resolver la tarea conversacionalmente, porque dispara muchos subagentes. Recomendación oficial: probar primero con un slice pequeño, por ejemplo un directorio en vez de todo el repo, o una pregunta estrecha en vez de un tema amplio.</p>
-<p>No conviene usar workflows para tareas normales de edición o preguntas simples. El criterio fuerte es si hay escala, independencia, verificación cruzada o necesidad de reusar la orquestación.</p>
-<h2>Comparación con este repo Pi Dynamic Workflows</h2>
+<p>Anthropic advierte que un workflow puede gastar muchos más tokens que resolver la tarea conversacionalmente, porque dispara muchos subagentes. La recomendación oficial es probar primero con un slice pequeño, por ejemplo un directorio en vez de todo el repo, o una pregunta estrecha en vez de un tema amplio.</p>
+<p>No conviene usar workflows para tareas normales de edición o preguntas simples. El criterio fuerte es si hay escala, independencia, verificación cruzada o necesidad de reutilizar la orquestación.</p>
+<h2>Comparación con este repo, Pi Dynamic Workflows</h2>
 <p>Lo que ya está alineado:</p>
 <ul>
-<li>Scripts JavaScript task-specific.</li>
+<li>Scripts JavaScript específicos de la tarea.</li>
 <li><code>dynamic_workflow</code> para listar, templar, escribir, correr, resumir y ver workflows.</li>
 <li>Background por defecto en TUI/RPC.</li>
 <li>Dashboard <code>/workflows</code>.</li>
@@ -302,14 +304,14 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <ol>
 <li><p><strong>Aprobación pre-run con fases y raw script</strong></p>
 <ul>
-<li>Claude muestra fases planeadas y deja ver/editar el script antes de ejecutar.</li>
+<li>Claude muestra fases planeadas y deja ver o editar el script antes de ejecutar.</li>
 <li>En Pi: agregar modo de aprobación humano para workflows generados, especialmente con tools mutantes.</li>
 </ul>
 </li>
 <li><p><strong>Guardar run como slash command directo</strong></p>
 <ul>
 <li>Claude permite <code>s</code> en <code>/workflows</code> e invocar <code>/&lt;name&gt;</code> después.</li>
-<li>En Pi: ya existe <code>/workflow run &lt;name&gt;</code>, pero generar comandos dinámicos o UX equivalente mejoraría el flujo.</li>
+<li>En Pi: ya existe <code>/workflow run &lt;name&gt;</code>, pero generar comandos dinámicos o una UX equivalente mejoraría el flujo.</li>
 </ul>
 </li>
 <li><p><strong>Input natural a workflows guardados</strong></p>
@@ -321,13 +323,13 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li><p><strong>Métricas de tokens por fase/agente</strong></p>
 <ul>
 <li>Claude muestra token totals en la vista de progreso.</li>
-<li>En Pi: las métricas no persistidas (tokens/coste/model/toolCalls) no se muestran actualmente; documentar estado o agregar soporte.</li>
+<li>En Pi: las métricas no persistidas (<code>tokens</code>/<code>cost</code>/<code>model</code>/<code>toolCalls</code>) no se muestran actualmente; documentar el estado o agregar soporte.</li>
 </ul>
 </li>
 <li><p><strong>Pause/restart granular desde dashboard</strong></p>
 <ul>
 <li>Claude ofrece pause/resume de run, stop de agente/run y restart de agente.</li>
-<li>En Pi: se tiene cancel/resume; agregar pausa y restart por agente para más control.</li>
+<li>En Pi: se tiene cancel/resume; agregar pausa y restart por agente daría más control.</li>
 </ul>
 </li>
 <li><p><strong>Modelo de permisos por agente</strong></p>
@@ -339,19 +341,19 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li><p><strong>Modo coordinador restringido (sin shell/filesystem directo)</strong></p>
 <ul>
 <li>Claude restringe el script: solo coordina, los agentes actúan.</li>
-<li>En Pi: se permite <code>ctx.bash</code>, <code>readFile</code>, <code>writeFile</code> y artifacts (más potente, pero menos aislado). Podría existir modo restringido para workflows no confiables o compartibles.</li>
+<li>En Pi: se permite <code>ctx.bash</code>, <code>readFile</code>, <code>writeFile</code> y artifacts (más potente, pero menos aislado). Podría existir un modo restringido para workflows no confiables o compartibles.</li>
 </ul>
 </li>
 </ol>
 <h2>Recomendación para Pi</h2>
 <p>Mantener la ventaja actual de Pi: workflows como código confiable, composable y resumable.</p>
-<p>Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reusabilidad:</p>
+<p>Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reutilización:</p>
 <ol>
 <li><strong>Pre-run approval para workflows generados</strong>: mostrar nombre, fases, límites, tools mutantes y raw script.</li>
 <li><strong>Save-as-command</strong>: promover desde run/draft a comando invocable sin recordar <code>/workflow run</code>.</li>
 <li><strong>Args ergonómicos</strong>: permitir input estructurado o natural para workflows guardados.</li>
 </ol>
-<p>El siguiente slice seguro sería documentar estos deltas como roadmap e implementar primero <code>save-as-command</code>, porque es bajo riesgo: no cambia el runtime, solo la capa de descubrimiento/invocación.</p>
+<p>El siguiente slice seguro sería documentar estos deltas como roadmap e implementar primero <code>save-as-command</code>, porque es de bajo riesgo: no cambia el runtime, solo la capa de descubrimiento e invocación.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

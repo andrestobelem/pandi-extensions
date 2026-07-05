@@ -24,7 +24,7 @@ export { formatDoctorOutput, resolveDoctorScript, runDoctor, runDoctorCheck } fr
 
 export default function doctorExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("doctor", {
-		description: "Run the pi-dynamic-workflows environment check (scripts/doctor.mjs) and show the report",
+		description: "Run the pandi-extensions environment check (scripts/doctor.mjs) and show the report",
 		handler: async (_args, ctx) => {
 			const result = await runDoctorCheck(runDoctor, { cwd: process.cwd(), extDir: EXT_DIR });
 			notify(ctx, result.text, result.type);

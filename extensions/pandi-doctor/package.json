@@ -1,11 +1,11 @@
 {
 	"name": "@pandi-coding-agent/pandi-doctor",
 	"version": "0.2.1",
-	"description": "Pi extension that adds /doctor: an in-session run of the pi-dynamic-workflows environment check (scripts/doctor.mjs).",
+	"description": "Pi extension that adds /doctor: an in-session run of the pandi-extensions environment check (scripts/doctor.mjs).",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/andrestobelem/pi-dynamic-workflows.git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
 		"directory": "extensions/pandi-doctor"
 	},
 	"type": "module",

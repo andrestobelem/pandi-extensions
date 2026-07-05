@@ -8,7 +8,7 @@ const SKILLS_ROOT = join(REPO, ".pi", "skills");
 const OPTIONAL_CLAUDE_GLOBAL_SKILLS = ["open-prose"];
 
 const CLASSIFIED_SKILLS = {
-	"init-pi-dynamic-workflows": { mirrored: true, global: true },
+	"init-pandi-extensions": { mirrored: true, global: true },
 	"ai-assisted-engineering": { mirrored: true, global: true },
 	"modern-software-engineering": { mirrored: true, global: true },
 	"empirical-software-design": { mirrored: true },

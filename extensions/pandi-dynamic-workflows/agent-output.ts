@@ -1,5 +1,5 @@
 /**
- * pi-dynamic-workflows agent-output parsing (pure).
+ * pandi-dynamic-workflows agent-output parsing (pure).
  *
  * Turns a Pi JSON-mode event stream (the stdout of a non-interactive `pi` run)
  * into the final assistant text: extract text from message content, pull the

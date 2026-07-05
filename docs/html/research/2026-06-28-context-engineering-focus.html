@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Context Engineering: Keeping an LLM &amp; Agent Harness in Focus</title>
+<title>Context Engineering: mantener enfocado un LLM y su harness de agentes</title>
 <style>
 /* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
  * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
@@ -121,290 +121,290 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <div class="container">
 	<header>
 		<div class="kicker">docs/research</div>
-		<h1>Context Engineering: Keeping an LLM &amp; Agent Harness in Focus</h1>
+		<h1>Context Engineering: mantener enfocado un LLM y su harness de agentes</h1>
 	</header>
 	<main>
 <blockquote>
-<p><strong>Status: FINAL.</strong> Revised to address external review. Vendor/self-reported figures and disagreements are flagged <code>[UNVERIFIED]</code> or <code>[CONTESTED]</code>. Where the original draft cited unresolvable (future-dated) arXiv IDs, those specific numbers have been removed. Internal &quot;research-branch agreement&quot; has been replaced with counts of distinct external sources. Coverage gaps named by the reviewer (prompt compression, model-level context extension, injection defenses, advanced RAG, KV-cache eviction, eval breadth) have been added with verified sources. See <strong>§8 Confidence &amp; caveats</strong>.</p>
+<p><strong>Estado: FINAL.</strong> Revisión hecha para incorporar feedback externo. Las cifras autoinformadas o de proveedor, y los desacuerdos, están marcados como <code>[UNVERIFIED]</code> o <code>[CONTESTED]</code>. Cuando el borrador original citaba IDs de arXiv imposibles de verificar (por ser futuros), esos números se quitaron. El “acuerdo de research-branch” interno se reemplazó por conteos de fuentes externas distintas. También se agregaron vacíos de cobertura señalados por la revisión (prompt compression, extensión de contexto a nivel de modelo, defensas contra inyección, RAG avanzado, evacuación de KV-cache, amplitud de evaluaciones) con fuentes verificadas. Ver <strong>§8 Confidence &amp; caveats</strong>.</p>
 </blockquote>
 <hr>
-<h2>1. Executive summary</h2>
-<p><strong>Context engineering is the discipline of curating <em>all</em> the tokens a model sees.</strong> This includes system prompt, tool definitions, message history, retrieved data, and environment state—curated down to the smallest high-signal set, rather than maximizing what you cram into a large window (Anthropic, &quot;Effective context engineering for AI agents,&quot; Sep 29 2025 — <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a>).</p>
-<p><strong>The core reframing:</strong> context is a finite &quot;attention budget,&quot; not a bucket.</p>
-<p><strong>Empirically, recall and reasoning reliability degrade as input length grows</strong> — a phenomenon practitioners call &quot;context rot&quot; — even when the task is held constant. The <em>precise mechanism is debated</em> (see §2). Self-attention&#39;s roughly O(n²) compute/memory cost is often invoked as an intuition for why long contexts are harder, but that is a <em>cost</em> property of attention, not an established <em>cause</em> of recall loss; treat it as metaphor, not mechanism.</p>
-<p><strong>Why focus degrades (the through-line across the evidence):</strong></p>
+<h2>1. Resumen ejecutivo</h2>
+<p><strong>Context engineering es la disciplina de curar <em>todos</em> los tokens que ve un modelo.</strong> Eso incluye system prompt, definiciones de tools, historial de mensajes, datos recuperados y estado del entorno; todo reducido al conjunto mínimo de alta señal, en vez de intentar meter todo en una ventana grande (Anthropic, &quot;Effective context engineering for AI agents,&quot; Sep 29 2025 — <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a>).</p>
+<p><strong>La relectura central:</strong> el contexto es un “presupuesto de atención” finito, no un balde.</p>
+<p><strong>Empíricamente, la recuperación y la confiabilidad del razonamiento se degradan cuando crece la longitud de entrada</strong> — fenómeno que suele llamarse “context rot” — aun cuando la tarea se mantiene constante. El mecanismo preciso se debate (ver §2). La complejidad O(n²) de self-attention suele usarse como intuición de por qué los contextos largos son más difíciles, pero eso es una propiedad de <em>costo</em> de attention, no una causa establecida de pérdida de recall; tómese como metáfora, no como mecanismo.</p>
+<p><strong>Por qué se pierde el foco (la línea común en la evidencia):</strong></p>
 <ul>
-<li><strong>Position bias.</strong> Models attend best to the <em>start and end</em> of context and worst to the <em>middle</em> — a U-shaped curve (&quot;Lost in the Middle,&quot; Liu et al., TACL 2024 — <a href="https://arxiv.org/abs/2307.03172">https://arxiv.org/abs/2307.03172</a>). The position effect is independently observed in RULER, NoLiMa, and Chroma&#39;s Context Rot study.</li>
-<li><strong>Length-driven decay.</strong> Reliability falls as raw input grows, even on trivial tasks, across 18 models (GPT-4.1, Claude 4, Gemini 2.5, Qwen3 variants, etc.) (Chroma &quot;Context Rot,&quot; Jul 14 2025 — <a href="https://www.trychroma.com/research/context-rot">https://www.trychroma.com/research/context-rot</a>). This is corroborated by NoLiMa, RULER, and &quot;Context Length Alone Hurts…&quot;.</li>
-<li><strong>Distraction.</strong> Irrelevant-but-similar tokens — even a <em>single</em> off-topic sentence — pull attention away from the task (Shi et al., GSM-IC — <a href="https://arxiv.org/abs/2302.00093">https://arxiv.org/abs/2302.00093</a>).</li>
+<li><strong>Sesgo posicional.</strong> Los modelos atienden mejor al <em>inicio y al final</em> del contexto y peor al <em>medio</em> — una curva en U (&quot;Lost in the Middle,&quot; Liu et al., TACL 2024 — <a href="https://arxiv.org/abs/2307.03172">https://arxiv.org/abs/2307.03172</a>). El efecto posicional también aparece en RULER, NoLiMa y el estudio Context Rot de Chroma.</li>
+<li><strong>Caída por longitud.</strong> La confiabilidad baja a medida que crece la entrada cruda, incluso en tareas triviales, en 18 modelos (GPT-4.1, Claude 4, Gemini 2.5, variantes de Qwen3, etc.) (Chroma &quot;Context Rot,&quot; Jul 14 2025 — <a href="https://www.trychroma.com/research/context-rot">https://www.trychroma.com/research/context-rot</a>). Esto coincide con NoLiMa, RULER y &quot;Context Length Alone Hurts…&quot;.</li>
+<li><strong>Distracción.</strong> Tokens irrelevantes pero similares — incluso una sola oración off-topic — desvían la atención de la tarea (Shi et al., GSM-IC — <a href="https://arxiv.org/abs/2302.00093">https://arxiv.org/abs/2302.00093</a>).</li>
 </ul>
-<p><strong>Practical consequence:</strong> keep the working context small and high-signal, place critical material at the edges, retrieve just-in-time, isolate noisy work, and measure focus at realistic lengths rather than trusting advertised windows.</p>
+<p><strong>Consecuencia práctica:</strong> mantené el contexto de trabajo pequeño y de alta señal, poné el material crítico en los bordes, recuperá just-in-time, aislá el ruido y medí el foco a longitudes realistas en lugar de confiar en ventanas “advertised”.</p>
 <hr>
-<h2>2. How focus fails (mechanisms)</h2>
+<h2>2. Cómo falla el foco (mecanismos)</h2>
 <table>
 <thead>
 <tr>
-<th>Mechanism</th>
-<th>What happens</th>
-<th>Primary evidence</th>
+<th>Mecanismo</th>
+<th>Qué pasa</th>
+<th>Evidencia principal</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><strong>Lost in the middle (position bias)</strong></td>
-<td>Multi-doc QA &amp; key-value retrieval accuracy is highest when evidence is at the beginning/end, drops &quot;significantly&quot; in the middle — sometimes below the closed-book baseline; <em>long-context variants were not reliably better.</em></td>
+<td><strong>Lost in the middle (sesgo posicional)</strong></td>
+<td>La precisión en QA multi-doc y key-value retrieval es más alta cuando la evidencia está al principio o al final, cae “significantly” en el medio — a veces por debajo del baseline closed-book; las variantes long-context no fueron consistentemente mejores.</td>
 <td>Liu et al. — <a href="https://arxiv.org/abs/2307.03172">https://arxiv.org/abs/2307.03172</a> / <a href="https://aclanthology.org/2024.tacl-1.9/">https://aclanthology.org/2024.tacl-1.9/</a></td>
 </tr>
 <tr>
-<td><strong>Context rot (length decay)</strong></td>
-<td>Performance &quot;becomes less reliable as input length grows,&quot; even on controlled tasks, across GPT-4.1, Claude 4, Gemini 2.5, Qwen3 variants. In LongMemEval, ~113k-token full prompts scored <em>worse</em> than ~300-token focused prompts.</td>
+<td><strong>Context rot (caída por longitud)</strong></td>
+<td>El rendimiento “becomes less reliable as input length grows”, incluso en tareas controladas, en GPT-4.1, Claude 4, Gemini 2.5 y variantes de Qwen3. En LongMemEval, prompts completos de ~113k tokens rindieron <em>peor</em> que prompts enfocados de ~300 tokens.</td>
 <td>Chroma — <a href="https://www.trychroma.com/research/context-rot">https://www.trychroma.com/research/context-rot</a></td>
 </tr>
 <tr>
-<td><strong>Effective ≪ advertised window</strong></td>
-<td>RULER&#39;s &quot;effective length&quot; (threshold ≈ Llama-2-7B@4K, 85.6% over 13 tasks) shows many models fall below their claimed window; vanilla NIAH &quot;can hide major degradation.&quot;</td>
+<td><strong>Longitud efectiva ≪ ventana publicitada</strong></td>
+<td>La “effective length” de RULER (threshold ≈ Llama-2-7B@4K, 85.6% en 13 tareas) muestra que muchos modelos quedan por debajo de su ventana declarada; el NIAH vanilla puede “hide major degradation”.</td>
 <td>RULER, Hsieh et al. — <a href="https://arxiv.org/abs/2404.06654">https://arxiv.org/abs/2404.06654</a></td>
 </tr>
 <tr>
-<td><strong>Latent (non-lexical) retrieval collapse</strong></td>
-<td>When question/needle lexical overlap is removed, 10–11 of ~13 long-context models drop below 50% of short-context baseline at 32K; GPT-4o 99.3%→69.7%.</td>
+<td><strong>Colapso de recuperación latente (no lexical)</strong></td>
+<td>Cuando se elimina el solapamiento léxico entre pregunta y needle, 10–11 de ~13 modelos long-context caen por debajo del 50% del baseline short-context a 32K; GPT-4o pasa de 99.3% a 69.7%.</td>
 <td>NoLiMa, Modarressi et al., ICML 2025 — <a href="https://arxiv.org/abs/2502.05167">https://arxiv.org/abs/2502.05167</a></td>
 </tr>
 <tr>
-<td><strong>Distraction by irrelevant context</strong></td>
-<td>One irrelevant sentence cut code-davinci-002 CoT from 95%→72.4%; lexical/entity overlap with the distractor mattered more than magnitude. Self-consistency (20 samples) recovered to 88.1%.</td>
+<td><strong>Distracción por contexto irrelevante</strong></td>
+<td>Una sola oración irrelevante bajó CoT en code-davinci-002 de 95% a 72.4%; el solapamiento léxico/de entidad con el distractor pesó más que la magnitud. Self-consistency (20 samples) recuperó a 88.1%.</td>
 <td>Shi et al., GSM-IC — <a href="https://arxiv.org/abs/2302.00093">https://arxiv.org/abs/2302.00093</a></td>
 </tr>
 <tr>
-<td><strong>Context distraction in RAG</strong></td>
-<td>Answer quality rises then <em>declines</em> as retrieved chunks increase; the late drop is attributed to retrieved <em>hard negatives</em>. Even one distractor lowers performance; four compound it.</td>
-<td>OP-RAG — <a href="https://arxiv.org/abs/2409.01666">https://arxiv.org/abs/2409.01666</a>; &quot;LC LLMs Meet RAG&quot; — <a href="https://arxiv.org/abs/2410.05983">https://arxiv.org/abs/2410.05983</a>; Chroma (ibid.)</td>
+<td><strong>Distracción de contexto en RAG</strong></td>
+<td>La calidad de respuesta sube y luego <em>cae</em> a medida que aumentan los chunks recuperados; la caída tardía se atribuye a hard negatives recuperados. Incluso un distractor baja el rendimiento; cuatro lo agravan.</td>
+<td>OP-RAG — <a href="https://arxiv.org/abs/2409.01666">https://arxiv.org/abs/2409.01666</a>; “LC LLMs Meet RAG” — <a href="https://arxiv.org/abs/2410.05983">https://arxiv.org/abs/2410.05983</a>; Chroma (ibid.)</td>
 </tr>
 <tr>
-<td><strong>Length hurts even with perfect retrieval</strong></td>
-<td>Degradation as input grows <em>even when all relevant info is present</em> — pruning is a focus lever independent of recall.</td>
-<td>&quot;Context Length Alone Hurts…&quot; — <a href="https://arxiv.org/abs/2510.05381">https://arxiv.org/abs/2510.05381</a> <code>[UNVERIFIED magnitude — summary only]</code></td>
+<td><strong>La longitud perjudica incluso con recuperación perfecta</strong></td>
+<td>La degradación aparece al crecer la entrada <em>aunque toda la información relevante esté presente</em> — el pruning es una palanca de foco independiente del recall.</td>
+<td>“Context Length Alone Hurts…” — <a href="https://arxiv.org/abs/2510.05381">https://arxiv.org/abs/2510.05381</a> <code>[UNVERIFIED magnitude — summary only]</code></td>
 </tr>
 <tr>
 <td><strong>Attention sinks / recency</strong></td>
-<td>Autoregressive models route large attention mass to the first ~4 tokens regardless of meaning (a softmax artifact); evicting them collapses fluency. Explains why the <em>very start</em> of context steers strongly and why naive sliding windows fail.</td>
+<td>Los modelos autoregresivos concentran mucha atención en los primeros ~4 tokens, sin importar el significado (artefacto de softmax); si se los expulsa, la fluidez colapsa. Explica por qué el <em>inicio</em> de contexto dirige tanto y por qué los sliding windows ingenuos fallan.</td>
 <td>StreamingLLM, Xiao et al. — <a href="https://arxiv.org/abs/2309.17453">https://arxiv.org/abs/2309.17453</a></td>
 </tr>
 <tr>
-<td><strong>Instruction-following decays with length (distinct from retrieval)</strong></td>
-<td>Most models&#39; instruction-following declines as input grows, especially past 16k/32k tokens, with stability also worsening — separable from &quot;did it retrieve.&quot;</td>
+<td><strong>La obediencia a instrucciones cae con la longitud (distinta de retrieval)</strong></td>
+<td>La mayoría de los modelos obedecen menos las instrucciones al crecer la entrada, sobre todo después de 16k/32k tokens, y también empeora la estabilidad; es algo separable de “si recuperó o no”.</td>
 <td>LIFBench, ACL 2025 — <a href="https://aclanthology.org/2025.acl-long.803/">https://aclanthology.org/2025.acl-long.803/</a>; IFEval — <a href="https://arxiv.org/abs/2311.07911">https://arxiv.org/abs/2311.07911</a></td>
 </tr>
 <tr>
-<td><strong>Self-mimicry / few-shot drift</strong></td>
-<td>Overly uniform/repetitive history makes the model imitate its own past pattern instead of reasoning about current state.</td>
+<td><strong>Self-mimicry / drift few-shot</strong></td>
+<td>Un historial demasiado uniforme o repetitivo hace que el modelo imite su propio patrón pasado en vez de razonar sobre el estado actual.</td>
 <td>Manus — <a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus</a></td>
 </tr>
 </tbody></table>
-<p><strong>Mechanism vs. measurement caveat <code>[CONTESTED/INTERPRETED]</code>.</strong> Context rot, lost-in-the-middle, and NoLiMa <em>measure</em> degradation. The underlying cause—whether positional encoding, attention dilution, or softmax mass allocation—is partly inferred. StreamingLLM gives the most direct mechanistic account but explains streaming/eviction, not all middle-context loss. Whether attention-sink behavior and middle-context neglect are the <em>same</em> phenomenon remains <strong>open</strong>.</p>
-<p><strong>Model-level mitigation (context extension).</strong> Length decay is partly a <em>training-length</em> artifact: RoPE-based models extrapolate poorly past their trained window. <strong>Position Interpolation</strong> (Chen et al. — <a href="https://arxiv.org/abs/2306.15595">https://arxiv.org/abs/2306.15595</a>) and <strong>YaRN</strong> (Peng et al. — <a href="https://arxiv.org/abs/2309.00071">https://arxiv.org/abs/2309.00071</a>) rescale rotary position embeddings to extend the usable window with modest fine-tuning. Important caveat: these extend the <em>trained</em> length and reduce extrapolation failure, but do <strong>not</strong> by themselves eliminate lost-in-the-middle or context-rot degradation. Effective length still trails the extended window (RULER).</p>
+<p><strong>Caveat mecanismo vs. medición <code>[CONTESTED/INTERPRETED]</code>.</strong> Context rot, lost-in-the-middle y NoLiMa <em>miden</em> degradación. La causa subyacente — ya sea positional encoding, attention dilution o softmax mass allocation — se infiere parcialmente. StreamingLLM ofrece el relato mecánico más directo, pero explica streaming/eviction, no toda la pérdida en el medio del contexto. Sigue abierto si el comportamiento de attention sinks y la negligencia del medio son el mismo fenómeno.</p>
+<p><strong>Mitigación a nivel de modelo (extensión de contexto).</strong> Parte de la caída por longitud es un artefacto de la longitud de entrenamiento: los modelos basados en RoPE extrapolan mal más allá de su ventana entrenada. <strong>Position Interpolation</strong> (Chen et al. — <a href="https://arxiv.org/abs/2306.15595">https://arxiv.org/abs/2306.15595</a>) y <strong>YaRN</strong> (Peng et al. — <a href="https://arxiv.org/abs/2309.00071">https://arxiv.org/abs/2309.00071</a>) reescalan rotary position embeddings para extender la ventana usable con fine-tuning modesto. Cuidado: esto extiende la longitud <em>entrenada</em> y reduce fallos de extrapolación, pero no elimina por sí solo lost-in-the-middle ni la degradación de context-rot. La longitud efectiva sigue por debajo de la ventana extendida (RULER).</p>
 <hr>
-<h2>3. Techniques by layer</h2>
-<h3>3a. Context construction (prompt/system, placement, structure, signal-to-noise)</h3>
+<h2>3. Técnicas por capa</h2>
+<h3>3a. Construcción de contexto (prompt/system, placement, estructura, señal/ruido)</h3>
 <ul>
-<li><strong>Position-aware layout.</strong> Put task-critical material (instructions, the actual question, the single most relevant doc) at the <strong>start and/or end</strong>, never buried mid-context — directly counters the U-shape (Liu et al.). Anchoring durable directives at the <em>very first tokens</em> also exploits the attention-sink structure (StreamingLLM).</li>
-<li><strong>Instructions-first vs. query-at-end <code>[CONTESTED — reconcilable]</code>.</strong> OpenAI&#39;s guidance: put instructions at the <em>beginning</em> (<a href="https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api">https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api</a>). Anthropic&#39;s guidance for 20k+ tokens: put large documents at the <em>top</em> and the query at the <em>end</em>, reporting up to <strong>+30%</strong> response quality <code>[UNVERIFIED — Anthropic internal tests]</code> (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices</a>). Both exploit primacy/recency; the right choice is <strong>context-length-dependent and should be A/B tested</strong> (short prompt → instructions-first; very long doc → query-at-end).</li>
-<li><strong>Explicit delimiters / structure.</strong> XML or Markdown tags (<code>&lt;instructions&gt;</code>, <code>&lt;context&gt;</code>, <code>&lt;examples&gt;</code>, <code>&lt;input&gt;</code>, <code>&lt;documents&gt;</code>) let the model distinguish commands from reference data from user input (Anthropic, OpenAI prompt guides). Anthropic notes this is a <em>reliability aid, not a hard validator</em>.</li>
-<li><strong>Authority separation (security + stability).</strong> Durable behavior goes in the <code>system</code>/<code>developer</code> channel. <strong>Never place untrusted retrieved/tool content there</strong> (Anthropic mid-conversation system messages — <a href="https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages">https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages</a>; OpenAI prompt engineering guide).</li>
-<li><strong>Prompt-injection defenses beyond authority separation.</strong> Delimiters are <em>not</em> a security boundary. <strong>Spotlighting</strong> (Hines et al., Microsoft — <a href="https://arxiv.org/abs/2403.14720">https://arxiv.org/abs/2403.14720</a>) adds stronger data-marking: <em>delimiting</em>, <em>datamarking</em> (interleaving a special marker through untrusted text), and <em>encoding</em> (e.g., base64), reportedly cutting attack success from &gt;50% to &lt;2% <code>[author-reported]</code>. A 2026 follow-up benchmark finds effectiveness is <strong>model-dependent</strong> and insufficient against domain-camouflaged injections (<a href="https://arxiv.org/abs/2606.18530">https://arxiv.org/abs/2606.18530</a>) — treat as defense-in-depth, not a guarantee.</li>
-<li><strong>Quote-extraction step.</strong> Ask the model to extract relevant quotes <em>before</em> answering long-document tasks — forces attention-narrowing onto specific spans (Anthropic best-practices &amp; reduce-hallucinations docs).</li>
-<li><strong>Structured Outputs (JSON Schema).</strong> Prefer strict-mode schema over &quot;please output JSON&quot; to eliminate format-drift (OpenAI Structured Outputs — <a href="https://developers.openai.com/api/docs/guides/structured-outputs">https://developers.openai.com/api/docs/guides/structured-outputs</a>).</li>
-<li><strong>Few-shot is double-edged <code>[CONTESTED]</code>.</strong> Examples help when zero-shot is unreliable, but <strong>ordering alone can swing accuracy from chance to near-SOTA</strong> (Lu et al., &quot;Fantastically Ordered Prompts&quot; — <a href="https://aclanthology.org/2022.acl-long.556/">https://aclanthology.org/2022.acl-long.556/</a>). Calibration improved GPT-3 by up to 30 points (Zhao et al., &quot;Calibrate Before Use&quot; — <a href="https://arxiv.org/abs/2102.09690">https://arxiv.org/abs/2102.09690</a>). Default: <strong>start zero-shot</strong>, add a small diverse set only if needed, validate across shuffles. Calibration evidence is strongest for classification; transfer to agentic coding is <code>[UNVERIFIED]</code>.</li>
-<li><strong>Reasoning models:</strong> keep prompts simple/direct, use delimiters, zero-shot first, avoid forcing chain-of-thought (OpenAI reasoning best practices).</li>
-<li><strong>Explicit &quot;ignore irrelevant information&quot; + aggressive pruning</strong> measurably restored robustness in distraction tests (Shi et al., GSM-IC).</li>
+<li><strong>Diseño sensible a la posición.</strong> Poné el material crítico para la tarea (instrucciones, la pregunta real, el único documento más relevante) al <strong>inicio y/o al final</strong>, nunca enterrado en el medio del contexto — contrarresta directamente la U-shape (Liu et al.). Anclar directivas durables en los <em>primeros tokens</em> también aprovecha la estructura de attention sink (StreamingLLM).</li>
+<li><strong>Instructions-first vs. query-at-end <code>[CONTESTED — reconcilable]</code>.</strong> Guía de OpenAI: poner instrucciones al <em>comienzo</em> (<a href="https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api">https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api</a>). Guía de Anthropic para 20k+ tokens: poner documentos grandes arriba y la consulta al <em>final</em>, reportando hasta <strong>+30%</strong> de calidad de respuesta <code>[UNVERIFIED — Anthropic internal tests]</code> (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices</a>). Ambos explotan primacy/recency; la elección correcta depende de la longitud y debería probarse con A/B (prompt corto → instructions-first; documento muy largo → query-at-end).</li>
+<li><strong>Delimitadores / estructura explícita.</strong> Tags XML o Markdown (<code>&lt;instructions&gt;</code>, <code>&lt;context&gt;</code>, <code>&lt;examples&gt;</code>, <code>&lt;input&gt;</code>, <code>&lt;documents&gt;</code>) ayudan a que el modelo distinga comandos, referencia y entrada de usuario (Anthropic, OpenAI prompt guides). Anthropic aclara que esto es un <em>apoyo a la confiabilidad</em>, no un validador duro.</li>
+<li><strong>Separación de autoridad (seguridad + estabilidad).</strong> El comportamiento durable vive en los canales <code>system</code> / <code>developer</code>. <strong>Nunca pongas contenido no confiable recuperado por tools allí</strong> (Anthropic mid-conversation system messages — <a href="https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages">https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages</a>; OpenAI prompt engineering guide).</li>
+<li><strong>Defensas contra prompt injection más allá de la separación de autoridad.</strong> Los delimitadores <em>no</em> son una frontera de seguridad. <strong>Spotlighting</strong> (Hines et al., Microsoft — <a href="https://arxiv.org/abs/2403.14720">https://arxiv.org/abs/2403.14720</a>) agrega marcación más fuerte de datos: <em>delimiting</em>, <em>datamarking</em> (intercalar una marca especial a lo largo del texto no confiable) y <em>encoding</em> (por ejemplo, base64), y reporta bajar el éxito de ataques de &gt;50% a &lt;2% <code>[author-reported]</code>. Un benchmark de seguimiento de 2026 encontró que la eficacia es <strong>dependiente del modelo</strong> e insuficiente frente a inyecciones camufladas por dominio (<a href="https://arxiv.org/abs/2606.18530">https://arxiv.org/abs/2606.18530</a>) — usalo como defensa en profundidad, no como garantía.</li>
+<li><strong>Paso de extracción de citas.</strong> Pedile al modelo que extraiga citas relevantes <em>antes</em> de responder tareas sobre documentos largos — fuerza el estrechamiento de atención hacia spans concretos (Anthropic best-practices &amp; reduce-hallucinations docs).</li>
+<li><strong>Structured Outputs (JSON Schema).</strong> Preferí schema strict-mode antes que “please output JSON” para eliminar drift de formato (OpenAI Structured Outputs — <a href="https://developers.openai.com/api/docs/guides/structured-outputs">https://developers.openai.com/api/docs/guides/structured-outputs</a>).</li>
+<li><strong>Few-shot es un arma de doble filo <code>[CONTESTED]</code>.</strong> Los ejemplos ayudan cuando zero-shot no alcanza, pero <strong>el orden solo puede mover la precisión de azar a casi SOTA</strong> (Lu et al., “Fantastically Ordered Prompts” — <a href="https://aclanthology.org/2022.acl-long.556/">https://aclanthology.org/2022.acl-long.556/</a>). La calibración mejoró GPT-3 hasta 30 puntos (Zhao et al., “Calibrate Before Use” — <a href="https://arxiv.org/abs/2102.09690">https://arxiv.org/abs/2102.09690</a>). Default: <strong>empezar zero-shot</strong>, sumar un conjunto pequeño y diverso solo si hace falta, y validar barajando. La evidencia de calibración es más fuerte para clasificación; su transferencia a coding agentic es <code>[UNVERIFIED]</code>.</li>
+<li><strong>Reasoning models:</strong> mantené prompts simples y directos, usá delimitadores, zero-shot primero, y evitá forzar chain-of-thought (OpenAI reasoning best practices).</li>
+<li><strong>“Ignore irrelevant information” explícito + pruning agresivo</strong> restauró robustez de forma medible en tests de distracción (Shi et al., GSM-IC).</li>
 </ul>
-<h3>3b. Context-window management (compaction, offloading, memory, caching)</h3>
-<p>LangChain&#39;s <strong>write / select / compress / isolate</strong> taxonomy organizes every lever (Lance Martin — <a href="https://rlancemartin.github.io/2025/06/23/context_engineering/">https://rlancemartin.github.io/2025/06/23/context_engineering/</a>; <a href="https://www.langchain.com/blog/context-engineering-for-agents">https://www.langchain.com/blog/context-engineering-for-agents</a>):</p>
+<h3>3b. Gestión de la ventana de contexto (compaction, offloading, memory, caching)</h3>
+<p>La taxonomía de LangChain <strong>write / select / compress / isolate</strong> organiza todas las palancas (Lance Martin — <a href="https://rlancemartin.github.io/2025/06/23/context_engineering/">https://rlancemartin.github.io/2025/06/23/context_engineering/</a>; <a href="https://www.langchain.com/blog/context-engineering-for-agents">https://www.langchain.com/blog/context-engineering-for-agents</a>):</p>
 <ul>
-<li><strong>Compaction.</strong> Summarize accumulated history into a fresh context block near the token threshold. Claude offers <em>server-side</em> automatic compaction with custom summary instructions (<a href="https://platform.claude.com/docs/en/build-with-claude/compaction">https://platform.claude.com/docs/en/build-with-claude/compaction</a>).</li>
-<li><strong>Compaction is lossy and compounds.</strong> Recursive summarization layers can drop facts you later need. Wu et al.&#39;s book-summarization study found only ~5% of summaries reached near-human quality (<a href="https://arxiv.org/abs/2109.10862">https://arxiv.org/abs/2109.10862</a>) — this characterizes <em>summarization</em>, not compaction specifically. Treat multi-level compaction as a <strong>cascading-error risk</strong> and preserve raw artifacts externally so compaction is recoverable, not destructive.</li>
-<li><strong>Prompt compression.</strong> <strong>LLMLingua / LongLLMLingua</strong> (Jiang et al., Microsoft — <a href="https://arxiv.org/abs/2310.05736">https://arxiv.org/abs/2310.05736</a>, <a href="https://arxiv.org/abs/2310.06839">https://arxiv.org/abs/2310.06839</a>) use a small LM to drop low-information tokens. They report multi-× compression with limited quality loss and, for LongLLMLingua, reduced position bias in long contexts <code>[author-reported figures]</code>. Useful when verbose history/retrieved text must stay in-window; lossy, so validate on your task.</li>
-<li><strong>Tool-result clearing / context editing.</strong> Drop verbose past tool outputs once consumed, keeping the <em>decision</em> but not the payload (Anthropic context management — <a href="https://claude.com/blog/context-management">https://claude.com/blog/context-management</a>; cookbook — <a href="https://platform.claude.com/cookbook/tool-use-context-engineering-context-engineering-tools">https://platform.claude.com/cookbook/tool-use-context-engineering-context-engineering-tools</a>).</li>
-<li><strong>Filesystem / external memory.</strong> Write large observations to files; keep only references/paths in-window and re-read on demand. <strong>MemGPT</strong> treats the window like OS main memory, paging between in-context and external store via function calls (Packer et al. — <a href="https://arxiv.org/abs/2310.08560">https://arxiv.org/abs/2310.08560</a>). Anthropic&#39;s file-backed <strong>Memory tool</strong> does this cross-session (<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool">https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool</a>).</li>
-<li><strong>Recursive/hierarchical summarization.</strong> Summarize chunks, then summarize the summaries (OpenAI &quot;Recursively Summarizing Books,&quot; Wu et al. — <a href="https://arxiv.org/abs/2109.10862">https://arxiv.org/abs/2109.10862</a>).</li>
-<li><strong>Memory taxonomy.</strong> CoALA: working + episodic + semantic + procedural memory (<a href="https://arxiv.org/html/2309.02427v3">https://arxiv.org/html/2309.02427v3</a>). Generative Agents retrieve by <strong>relevance/recency/importance</strong> with reflection-based consolidation (<a href="https://arxiv.org/abs/2304.03442">https://arxiv.org/abs/2304.03442</a>). LangGraph splits thread-scoped scratchpads (checkpointers) from cross-thread stores (<a href="https://docs.langchain.com/oss/python/langgraph/add-memory">https://docs.langchain.com/oss/python/langgraph/add-memory</a>).</li>
-<li><strong>Prompt caching.</strong> Order content <code>tools → system → messages</code>; keep stable content first, volatile content last; use ≤4 breakpoints. Anthropic reports up to <strong>~90% cost / ~85% latency reduction</strong> for long prompts <code>[UNVERIFIED — vendor-reported, favorable conditions]</code> (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">https://platform.claude.com/docs/en/build-with-claude/prompt-caching</a>; <a href="https://claude.com/blog/prompt-caching">https://claude.com/blog/prompt-caching</a>).</li>
+<li><strong>Compaction.</strong> Resumí el historial acumulado en un nuevo bloque de contexto cerca del umbral de tokens. Claude ofrece <em>server-side</em> automatic compaction con instrucciones personalizadas de resumen (<a href="https://platform.claude.com/docs/en/build-with-claude/compaction">https://platform.claude.com/docs/en/build-with-claude/compaction</a>).</li>
+<li><strong>La compaction es con pérdida y se acumula.</strong> Las capas recursivas de resumen pueden borrar hechos que después necesitás. El estudio de resumen de libros de Wu et al. encontró que solo ~5% de los resúmenes llegó a calidad cercana a la humana (<a href="https://arxiv.org/abs/2109.10862">https://arxiv.org/abs/2109.10862</a>) — esto caracteriza <em>summarization</em>, no compaction específicamente. Tomá la compaction multinivel como un <strong>riesgo de error en cascada</strong> y preservá artefactos crudos fuera del contexto para que la compaction sea recuperable, no destructiva.</li>
+<li><strong>Prompt compression.</strong> <strong>LLMLingua / LongLLMLingua</strong> (Jiang et al., Microsoft — <a href="https://arxiv.org/abs/2310.05736">https://arxiv.org/abs/2310.05736</a>, <a href="https://arxiv.org/abs/2310.06839">https://arxiv.org/abs/2310.06839</a>) usan un LM pequeño para descartar tokens de baja información. Reportan compresión múltiple con pérdida de calidad limitada y, en LongLLMLingua, menor sesgo posicional en contextos largos <code>[author-reported figures]</code>. Útil cuando historial o recuperaciones verbosas deben quedarse en ventana; es con pérdida, así que validalo en tu tarea.</li>
+<li><strong>Limpieza de tool results / context editing.</strong> Eliminá outputs verbosos de tools una vez consumidos, conservando la <em>decisión</em> pero no el payload (Anthropic context management — <a href="https://claude.com/blog/context-management">https://claude.com/blog/context-management</a>; cookbook — <a href="https://platform.claude.com/cookbook/tool-use-context-engineering-context-engineering-tools">https://platform.claude.com/cookbook/tool-use-context-engineering-context-engineering-tools</a>).</li>
+<li><strong>Filesystem / memoria externa.</strong> Escribí observaciones grandes a archivos; mantené solo referencias o paths en ventana y releelas on demand. <strong>MemGPT</strong> trata la ventana como la memoria principal de un SO, paginando entre contexto y store externo mediante function calls (Packer et al. — <a href="https://arxiv.org/abs/2310.08560">https://arxiv.org/abs/2310.08560</a>). La <strong>Memory tool</strong> de Anthropic hace esto entre sesiones (<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool">https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool</a>).</li>
+<li><strong>Resumen recursivo / jerárquico.</strong> Resumí chunks, y luego resumí los resúmenes (OpenAI “Recursively Summarizing Books,” Wu et al. — <a href="https://arxiv.org/abs/2109.10862">https://arxiv.org/abs/2109.10862</a>).</li>
+<li><strong>Taxonomía de memoria.</strong> CoALA: working + episodic + semantic + procedural memory (<a href="https://arxiv.org/html/2309.02427v3">https://arxiv.org/html/2309.02427v3</a>). Generative Agents recupera por <strong>relevance/recency/importance</strong> con consolidación vía reflection (<a href="https://arxiv.org/abs/2304.03442">https://arxiv.org/abs/2304.03442</a>). LangGraph separa scratchpads por thread (checkpointers) de stores cross-thread (<a href="https://docs.langchain.com/oss/python/langgraph/add-memory">https://docs.langchain.com/oss/python/langgraph/add-memory</a>).</li>
+<li><strong>Prompt caching.</strong> Ordená el contenido <code>tools → system → messages</code>; mantené estable el contenido primero y el volátil al final; usá ≤4 breakpoints. Anthropic reporta hasta <strong>~90% cost / ~85% latency reduction</strong> para prompts largos <code>[UNVERIFIED — vendor-reported, favorable conditions]</code> (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">https://platform.claude.com/docs/en/build-with-claude/prompt-caching</a>; <a href="https://claude.com/blog/prompt-caching">https://claude.com/blog/prompt-caching</a>).</li>
 </ul>
-<h3>3c. Retrieval &amp; just-in-time context (RAG vs JIT, agentic search)</h3>
+<h3>3c. Retrieval y contexto just-in-time (RAG vs JIT, búsqueda agentic)</h3>
 <ul>
-<li><strong>Just-in-time over preloading.</strong> Hold lightweight references (file paths, query IDs, links); load contents at runtime via <code>glob</code>/<code>grep</code>/<code>head</code>/<code>tail</code>. Trades latency for &quot;less context pollution and better focus&quot; (Anthropic effective-context-engineering).</li>
-<li><strong>Cap retrieval depth.</strong> Don&#39;t dump top-50; find the OP-RAG sweet spot (often modest k) per dataset (<a href="https://arxiv.org/abs/2409.01666">https://arxiv.org/abs/2409.01666</a>).</li>
-<li><strong>Rerank when precision matters and latency allows.</strong> Retrieve broadly (BM25 + dense), fuse with RRF, then apply a cross-encoder reranker to the top candidates. Reranking is often among the largest precision lifts in retrieval pipelines, but cross-encoders add latency/cost and are not always worth it (BEIR benchmark suite — <a href="https://arxiv.org/abs/2104.08663">https://arxiv.org/abs/2104.08663</a>; SBERT retrieve-rerank docs). Anthropic&#39;s Contextual Retrieval ablation shows reranking adding further gains on top of contextual embeddings+BM25 (<a href="https://www.anthropic.com/engineering/contextual-retrieval">https://www.anthropic.com/engineering/contextual-retrieval</a>).</li>
-<li><strong>Hybrid lexical+dense, not dense-only.</strong> BM25 remains essential for exact identifiers, rare/domain terms, error codes, symbol names — critical in coding harnesses (BEIR benchmark suite — <a href="https://arxiv.org/abs/2104.08663">https://arxiv.org/abs/2104.08663</a>; SBERT retrieve-rerank docs).</li>
-<li><strong>Contextual Retrieval.</strong> Prepend a short situating description to each chunk before embedding/BM25. Anthropic reports top-20 retrieval <em>failure</em> rate reductions: 5.7% → 3.7% (contextual embeddings) → 2.9% (+contextual BM25) → 1.9% (+reranking, ~67% relative reduction) <code>[vendor-reported]</code> (<a href="https://www.anthropic.com/engineering/contextual-retrieval">https://www.anthropic.com/engineering/contextual-retrieval</a>).</li>
-<li><strong>Query-side and graph-side RAG patterns</strong> (beyond hybrid+rerank):<ul>
-<li><strong>HyDE</strong> generates a hypothetical answer document and embeds <em>that</em> for zero-shot dense retrieval (Gao et al. — <a href="https://arxiv.org/abs/2212.10496">https://arxiv.org/abs/2212.10496</a>).</li>
-<li><strong>Query decomposition / rewriting</strong> splits complex questions into sub-queries before retrieval (standard multi-hop recall lever; no single canonical source).</li>
-<li><strong>Self-RAG</strong> trains the model to retrieve on demand and critique passages via reflection tokens (Asai et al. — <a href="https://arxiv.org/abs/2310.11511">https://arxiv.org/abs/2310.11511</a>); <strong>Corrective RAG (CRAG)</strong> adds a retrieval-quality evaluator that triggers corrective web search/filtering (Yan et al. — <a href="https://arxiv.org/abs/2401.15884">https://arxiv.org/abs/2401.15884</a>).</li>
-<li><strong>GraphRAG</strong> builds an entity graph + community summaries for global, corpus-level questions (Edge et al., Microsoft — <a href="https://arxiv.org/abs/2404.16130">https://arxiv.org/abs/2404.16130</a>).</li>
-<li><strong>Late chunking</strong> embeds the full document first, then pools per-chunk, preserving cross-chunk context (Günther et al., Jina — <a href="https://arxiv.org/abs/2409.04701">https://arxiv.org/abs/2409.04701</a>).</li>
-<li><strong>Reorder retrieved docs to the edges.</strong> Place the strongest chunks at the start/end of the retrieved block to counter lost-in-the-middle (Liu et al.).</li>
+<li><strong>Just-in-time antes que preload.</strong> Mantené referencias livianas (paths, query IDs, links); cargá el contenido en runtime con <code>glob</code> / <code>grep</code> / <code>head</code> / <code>tail</code>. Cambia latencia por “less context pollution and better focus” (Anthropic effective-context-engineering).</li>
+<li><strong>Limitá la profundidad de retrieval.</strong> No vuelques top-50; encontrá el sweet spot de OP-RAG (a menudo k moderado) para tu dataset (<a href="https://arxiv.org/abs/2409.01666">https://arxiv.org/abs/2409.01666</a>).</li>
+<li><strong>Rerank cuando importa la precisión y la latencia lo permite.</strong> Recuperá amplio (BM25 + dense), fusioná con RRF y después aplicá un cross-encoder reranker a los candidatos top. El reranking suele ser una de las mayores mejoras de precisión en retrieval pipelines, pero los cross-encoders agregan latencia/costo y no siempre valen la pena (BEIR benchmark suite — <a href="https://arxiv.org/abs/2104.08663">https://arxiv.org/abs/2104.08663</a>; SBERT retrieve-rerank docs). El ablation de Anthropic Contextual Retrieval muestra que reranking suma sobre contextual embeddings + BM25 (<a href="https://www.anthropic.com/engineering/contextual-retrieval">https://www.anthropic.com/engineering/contextual-retrieval</a>).</li>
+<li><strong>Híbrido lexical + dense, no dense-only.</strong> BM25 sigue siendo clave para identificadores exactos, términos raros/de dominio, códigos de error y nombres de símbolos — crítico en harnesses de coding (BEIR benchmark suite — <a href="https://arxiv.org/abs/2104.08663">https://arxiv.org/abs/2104.08663</a>; SBERT retrieve-rerank docs).</li>
+<li><strong>Contextual Retrieval.</strong> Agregá una breve descripción situacional a cada chunk antes de embedder/BM25. Anthropic reporta reducciones en la tasa de <em>failure</em> top-20: 5.7% → 3.7% (contextual embeddings) → 2.9% (+contextual BM25) → 1.9% (+reranking, ~67% relative reduction) <code>[vendor-reported]</code> (<a href="https://www.anthropic.com/engineering/contextual-retrieval">https://www.anthropic.com/engineering/contextual-retrieval</a>).</li>
+<li><strong>Patrones de RAG del lado de la query y del grafo</strong> (más allá de híbrido + rerank):<ul>
+<li><strong>HyDE</strong> genera un documento hipotético de respuesta y lo embeddea para retrieval denso zero-shot (Gao et al. — <a href="https://arxiv.org/abs/2212.10496">https://arxiv.org/abs/2212.10496</a>).</li>
+<li><strong>Query decomposition / rewriting</strong> separa preguntas complejas en subqueries antes de recuperar (palanca estándar para multi-hop recall; no existe una única fuente canónica).</li>
+<li><strong>Self-RAG</strong> entrena al modelo para recuperar on demand y criticar pasajes vía reflection tokens (Asai et al. — <a href="https://arxiv.org/abs/2310.11511">https://arxiv.org/abs/2310.11511</a>); <strong>Corrective RAG (CRAG)</strong> agrega un evaluador de calidad de retrieval que dispara web search / filtering correctivo (Yan et al. — <a href="https://arxiv.org/abs/2401.15884">https://arxiv.org/abs/2401.15884</a>).</li>
+<li><strong>GraphRAG</strong> construye un grafo de entidades + resúmenes de comunidades para preguntas globales a nivel corpus (Edge et al., Microsoft — <a href="https://arxiv.org/abs/2404.16130">https://arxiv.org/abs/2404.16130</a>).</li>
+<li><strong>Late chunking</strong> embeddea primero el documento completo y después hace pooling por chunk, preservando contexto entre chunks (Günther et al., Jina — <a href="https://arxiv.org/abs/2409.04701">https://arxiv.org/abs/2409.04701</a>).</li>
+<li><strong>Reordená los docs recuperados hacia los bordes.</strong> Poné los chunks más fuertes al inicio y al final del bloque recuperado para contrarrestar lost-in-the-middle (Liu et al.).</li>
 </ul>
 </li>
-<li><strong>Route LC vs RAG by query type/cost <code>[CONTESTED — no universal winner]</code>.</strong> LC generally beats RAG on QA but RAG helps on dialogue/general queries (Li et al. — <a href="https://arxiv.org/abs/2501.01880">https://arxiv.org/abs/2501.01880</a>). Self-Route routes cheaply to RAG and only escalates to LC when needed (<a href="https://arxiv.org/abs/2407.16833">https://arxiv.org/abs/2407.16833</a>). Only recent SOTA models hold accuracy beyond 64K tokens (<a href="https://arxiv.org/abs/2411.03538">https://arxiv.org/abs/2411.03538</a>).</li>
-<li><strong>Agentic filesystem search vs vector RAG = scale tradeoff.</strong> Filesystem search wins on <em>tiny</em> corpora (full docs fit in context); RAG is faster and scales better at 100–1000 docs (LlamaIndex, Jan 13 2026 — <a href="https://www.llamaindex.ai/blog/did-filesystem-tools-kill-vector-search">https://www.llamaindex.ai/blog/did-filesystem-tools-kill-vector-search</a>).</li>
-<li><strong>Evaluate retrieval with realistic distractors + non-lexical needles</strong>, not literal NIAH (NoLiMa, Context Rot).</li>
+<li><strong>Enrutá LC vs RAG por tipo de consulta/costo <code>[CONTESTED — no universal winner]</code>.</strong> LC suele superar a RAG en QA, pero RAG ayuda en diálogo/consultas generales (Li et al. — <a href="https://arxiv.org/abs/2501.01880">https://arxiv.org/abs/2501.01880</a>). Self-Route enruta barato a RAG y solo escala a LC cuando hace falta (<a href="https://arxiv.org/abs/2407.16833">https://arxiv.org/abs/2407.16833</a>). Solo modelos SOTA recientes sostienen precisión más allá de 64K tokens (<a href="https://arxiv.org/abs/2411.03538">https://arxiv.org/abs/2411.03538</a>).</li>
+<li><strong>Filesystem search agentic vs vector RAG = tradeoff de escala.</strong> Filesystem search gana en corpus <em>pequeños</em> (docs completos caben en contexto); RAG es más rápido y escala mejor a 100–1000 docs (LlamaIndex, Jan 13 2026 — <a href="https://www.llamaindex.ai/blog/did-filesystem-tools-kill-vector-search">https://www.llamaindex.ai/blog/did-filesystem-tools-kill-vector-search</a>).</li>
+<li><strong>Evaluá retrieval con distractores realistas + needles no léxicos</strong>, no con NIAH literal (NoLiMa, Context Rot).</li>
 </ul>
 <blockquote>
-<p><em>Removed from the draft:</em> domain-specific finance reranking figures (e.g., Recall@5 / MRR@5 gains) that traced to citations with unresolvable, future-dated arXiv IDs.</p>
+<p><em>Eliminado del borrador:</em> cifras de reranking en finanzas específicas (por ejemplo, Recall@5 / MRR@5) que rastreaban citas con IDs de arXiv futuros e imposibles de resolver.</p>
 </blockquote>
-<h3>3d. Harness &amp; agent architecture (tool budget, sub-agents, isolation, orchestration)</h3>
-<p><strong>The central architectural debate <code>[CONTESTED — reconcilable]</code>:</strong></p>
+<h3>3d. Arquitectura de harness y agentes (presupuesto de tools, sub-agents, aislamiento, orquestación)</h3>
+<p><strong>El debate arquitectónico central <code>[CONTESTED — reconcilable]</code>:</strong></p>
 <ul>
-<li><strong>Cognition: default to single-threaded, linear agents with one continuous trace</strong> (<a href="https://cognition.com/blog/dont-build-multi-agents">https://cognition.com/blog/dont-build-multi-agents</a>). Two principles: (a) <em>share full agent traces, not isolated messages</em>; (b) <em>actions carry implicit decisions</em>. Naive fan-out drifts because a subagent receiving only a sub-task message lacks the reasoning that produced it and re-decides divergently. Their 2026 update allows multi-agent <em>only when writes stay single-threaded</em> and aux agents are read-only (<a href="https://cognition.com/blog/multi-agents-working">https://cognition.com/blog/multi-agents-working</a>).</li>
-<li><strong>Anthropic: orchestrator-worker subagents as parallel <em>context-compression</em> filters</strong> — each runs a clean window, explores breadth-first, returns only condensed findings (<a href="https://www.anthropic.com/engineering/multi-agent-research-system">https://www.anthropic.com/engineering/multi-agent-research-system</a>). Reports <strong>+90.2% over single-agent Opus 4</strong> on an internal research eval. <strong>Cost caveat (corrected):</strong> Anthropic separately reports multi-agent runs consume <strong>~15× the tokens of a typical <em>chat</em> interaction</strong> (agents alone are ~4× chat); the multiplier <em>relative to the single-agent baseline that produced the 90.2% gain</em> is <strong>not stated</strong> in the source. <code>[UNVERIFIED — Anthropic internal eval; unlikely to transfer to coding/editing.]</code></li>
+<li><strong>Cognition: por defecto, agentes single-threaded y lineales con un trace continuo</strong> (<a href="https://cognition.com/blog/dont-build-multi-agents">https://cognition.com/blog/dont-build-multi-agents</a>). Dos principios: (a) <em>compartir traces completos del agente, no mensajes aislados</em>; (b) <em>las acciones llevan decisiones implícitas</em>. El fan-out ingenuo deriva porque un subagent que recibe solo un mensaje de subtarea no tiene el razonamiento que lo produjo y vuelve a decidir de forma divergente. Su actualización de 2026 permite multi-agent <em>solo cuando las writes quedan single-threaded</em> y los agentes auxiliares son read-only (<a href="https://cognition.com/blog/multi-agents-working">https://cognition.com/blog/multi-agents-working</a>).</li>
+<li><strong>Anthropic: subagents orquestador-worker como filtros paralelos de compresión de contexto</strong> — cada uno corre con una ventana limpia, explora breadth-first y devuelve solo hallazgos condensados (<a href="https://www.anthropic.com/engineering/multi-agent-research-system">https://www.anthropic.com/engineering/multi-agent-research-system</a>). Reporta <strong>+90.2% sobre single-agent Opus 4</strong> en una evaluación interna de research. <strong>Caveat de costo (corregido):</strong> Anthropic también reporta que las corridas multi-agent consumen <strong>~15× tokens de una interacción típica de <em>chat</em></strong> (los agentes solos son ~4× chat); el multiplicador <em>respecto del baseline single-agent que produjo la mejora de 90.2%</em> no está indicado en la fuente. <code>[UNVERIFIED — Anthropic internal eval; unlikely to transfer to coding/editing.]</code></li>
 </ul>
-<p><strong>Reconciliation:</strong> <em>Isolate for read/explore</em> (independent, parallelizable, read-heavy work); <em>single-thread for write/decide</em> (interdependent, shared mutating state — typical coding). Match architecture to task topology, not fashion.</p>
-<p><strong>Tool budget (strong, multi-source evidence):</strong></p>
+<p><strong>Reconciliación:</strong> <em>Aislar para leer/explorar</em> (trabajo independiente, paralelizable, read-heavy); <em>single-thread para escribir/decidir</em> (estado compartido, mutación interdependiente — coding típico). Hacé que la arquitectura siga la topología de la tarea, no la moda.</p>
+<p><strong>Presupuesto de tools (evidencia fuerte, multifuente):</strong></p>
 <ul>
-<li><strong>Large flat tool surfaces degrade performance.</strong> LongFuncEval: tool-calling accuracy drops <strong>7%–85% as tool count rises</strong>; answer retrieval degrades <strong>7%–91% as tool responses lengthen</strong> (<a href="https://arxiv.org/abs/2505.10570">https://arxiv.org/abs/2505.10570</a>).</li>
-<li><strong>Retrieve a task-specific tool shortlist.</strong> RAG-MCP: <strong>&gt;50% prompt-token reduction</strong>, tool-selection accuracy <strong>43.13% vs 13.62%</strong> baseline (<a href="https://arxiv.org/abs/2505.03275">https://arxiv.org/abs/2505.03275</a>). Caveat: generic IR retrievers underperform on tool retrieval (ToolRet — <a href="https://arxiv.org/abs/2503.01763">https://arxiv.org/abs/2503.01763</a>), so measure retrieval quality.</li>
-<li><strong>On-demand tool discovery.</strong> Anthropic Tool Search keeps a search tool + 3–5 common tools, reports <strong>~85% token reduction</strong>; large multi-server MCP setups waste <strong>~55k tokens</strong> before any work starts (<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool</a>).</li>
-<li><strong>Build fewer, workflow-shaped, non-overlapping tools</strong> with namespacing and token-efficient outputs (<a href="https://www.anthropic.com/engineering/writing-tools-for-agents">https://www.anthropic.com/engineering/writing-tools-for-agents</a>).</li>
-<li><strong>Explicit delegation contract</strong> for every subagent: objective, output format, allowed tools/sources, task boundaries (Anthropic multi-agent).</li>
-<li><strong>Scoped tool allowlists / dynamic selection middleware</strong> restrict tools by role/stage/permission (LangChain Deep Agents — <a href="https://docs.langchain.com/oss/python/deepagents/context-engineering">https://docs.langchain.com/oss/python/deepagents/context-engineering</a>) <code>[line-level Claude Code --allowedTools behavior UNVERIFIED]</code>.</li>
+<li><strong>Las superficies planas grandes de tools degradan el rendimiento.</strong> LongFuncEval: la precisión de tool-calling cae <strong>7%–85%</strong> a medida que sube la cantidad de tools; la recuperación de respuesta cae <strong>7%–91%</strong> cuando crece la longitud de las respuestas de tools (<a href="https://arxiv.org/abs/2505.10570">https://arxiv.org/abs/2505.10570</a>).</li>
+<li><strong>Recuperá una shortlist de tools específica para la tarea.</strong> RAG-MCP: <strong>&gt;50% de reducción de tokens del prompt</strong>, precisión de selección de tools <strong>43.13% vs 13.62%</strong> baseline (<a href="https://arxiv.org/abs/2505.03275">https://arxiv.org/abs/2505.03275</a>). Cuidado: los retrievers genéricos de IR rinden peor para tool retrieval (ToolRet — <a href="https://arxiv.org/abs/2503.01763">https://arxiv.org/abs/2503.01763</a>), así que medí la calidad del retrieval.</li>
+<li><strong>Descubrimiento de tools on-demand.</strong> Anthropic Tool Search mantiene un search tool + 3–5 tools comunes, y reporta <strong>~85% token reduction</strong>; los setups grandes de MCP multi-server desperdician <strong>~55k tokens</strong> antes de hacer trabajo útil (<a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool</a>).</li>
+<li><strong>Construí menos tools, más orientadas al workflow y no superpuestas</strong>, con namespacing y salidas eficientes en tokens (<a href="https://www.anthropic.com/engineering/writing-tools-for-agents">https://www.anthropic.com/engineering/writing-tools-for-agents</a>).</li>
+<li><strong>Contrato de delegación explícito</strong> para cada subagent: objetivo, formato de salida, tools/sources permitidos, límites de tarea (Anthropic multi-agent).</li>
+<li><strong>Allowlists de tools acotadas / middleware de selección dinámica</strong> restringen tools por rol/etapa/permisos (LangChain Deep Agents — <a href="https://docs.langchain.com/oss/python/deepagents/context-engineering">https://docs.langchain.com/oss/python/deepagents/context-engineering</a>) <code>[line-level Claude Code --allowedTools behavior UNVERIFIED]</code>.</li>
 </ul>
-<h3>3e. Attention steering &amp; control</h3>
+<h3>3e. Steering y control de atención</h3>
 <ul>
-<li><strong>Recitation / re-anchoring.</strong> Maintain and rewrite a <code>todo.md</code> plan each step to push the goal into the high-attention recency zone (Manus — <a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus</a>). Gains are reported <em>qualitatively only</em>; no controlled ablation <code>[UNVERIFIED magnitude]</code>.</li>
-<li><strong>KV-cache-stable prefix.</strong> Keep prompt prefixes stable and context append-only; avoid timestamps/non-determinism early; use explicit breakpoints (Manus; Anthropic prompt-caching).</li>
-<li><strong>Tool masking over tool removal.</strong> Constrain availability via logit masking / response prefill / a state machine rather than editing the tool roster (Manus).</li>
-<li><strong>Keep errors / failed actions / stack traces in context.</strong> Preserving failures updates the model&#39;s &quot;beliefs&quot; and steers it away from repeating mistakes (Manus).</li>
-<li><strong>Inject controlled variation</strong> into repetitive histories to prevent self-mimicry few-shot drift (Manus).</li>
-<li><strong>Retain attention-sink tokens when truncating/streaming</strong> (~4 initial + recent window) instead of naive sliding-window eviction (StreamingLLM). Caveat: this stabilizes generation but does <strong>not</strong> expand the true window or recover evicted content.</li>
-<li><strong>KV-cache eviction</strong> (research-grade, model-internal). Beyond StreamingLLM&#39;s sink retention, eviction policies keep a bounded cache by scoring token importance: <strong>Scissorhands</strong> (persistence-of-importance — <a href="https://arxiv.org/abs/2305.17118">https://arxiv.org/abs/2305.17118</a>), <strong>H2O</strong> (heavy-hitter oracle — <a href="https://arxiv.org/abs/2306.14048">https://arxiv.org/abs/2306.14048</a>), and <strong>SnapKV</strong> (end-of-prompt observation window — <a href="https://arxiv.org/abs/2404.14469">https://arxiv.org/abs/2404.14469</a>). These cut memory/latency but, like StreamingLLM, <em>manage</em> the cache rather than expand the true window or recover evicted content.</li>
-<li><strong>Inference-time attention steering</strong> (research-grade):<ul>
-<li><strong>PASTA</strong> reweights a small subset of attention heads toward user-marked spans, no weight changes, reporting ~22% avg accuracy gain for LLaMA-7B across four tasks <code>[unchecked figure]</code> (<a href="https://arxiv.org/abs/2311.02262">https://arxiv.org/abs/2311.02262</a>).</li>
-<li><strong>AutoPASTA</strong> auto-identifies key context to emphasize; +7.95% avg for Llama3-70B-Instruct on open-book QA <code>[unchecked figure]</code> (<a href="https://arxiv.org/abs/2409.10790">https://arxiv.org/abs/2409.10790</a>).</li>
-<li><strong>Activation steering</strong> via instruction vectors added to the residual stream enforces format/length/word-inclusion constraints (Stolfo et al. — <a href="https://arxiv.org/abs/2410.12877">https://arxiv.org/abs/2410.12877</a>).</li>
+<li><strong>Recitation / re-anchoring.</strong> Mantené y reescribí un plan <code>todo.md</code> en cada paso para empujar el objetivo a la zona de recencia de alta atención (Manus — <a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus</a>). Los gains se reportan <em>solo cualitativamente</em>; no hay ablation controlada <code>[UNVERIFIED magnitude]</code>.</li>
+<li><strong>KV-cache stable prefix.</strong> Mantené prefijos de prompt estables y contexto append-only; evitá timestamps o no determinismo temprano; usá breakpoints explícitos (Manus; Anthropic prompt-caching).</li>
+<li><strong>Tool masking en lugar de tool removal.</strong> Limitá la disponibilidad mediante logit masking / response prefill / una state machine en vez de editar el roster de tools (Manus).</li>
+<li><strong>Mantené errores / acciones fallidas / stack traces en contexto.</strong> Preservar fallos actualiza las “beliefs” del modelo y lo orienta a no repetir errores (Manus).</li>
+<li><strong>Inyectá variación controlada</strong> en historiales repetitivos para evitar self-mimicry few-shot drift (Manus).</li>
+<li><strong>Conservá los tokens de attention sink al truncar/streaming</strong> (~4 iniciales + ventana reciente) en vez de un sliding-window eviction ingenuo (StreamingLLM). Cuidado: esto estabiliza la generación pero no expande la ventana real ni recupera contenido expulsado.</li>
+<li><strong>KV-cache eviction</strong> (nivel research, interno del modelo). Más allá de la retención de sink de StreamingLLM, las políticas de eviction mantienen un cache acotado puntuando la importancia de tokens: <strong>Scissorhands</strong> (persistence-of-importance — <a href="https://arxiv.org/abs/2305.17118">https://arxiv.org/abs/2305.17118</a>), <strong>H2O</strong> (heavy-hitter oracle — <a href="https://arxiv.org/abs/2306.14048">https://arxiv.org/abs/2306.14048</a>) y <strong>SnapKV</strong> (ventana de observación al final del prompt — <a href="https://arxiv.org/abs/2404.14469">https://arxiv.org/abs/2404.14469</a>). Reducen memoria/latencia pero, igual que StreamingLLM, <em>gestionan</em> el cache en lugar de ampliar la ventana real o recuperar contenido expulsado.</li>
+<li><strong>Attention steering en inferencia</strong> (research-grade):<ul>
+<li><strong>PASTA</strong> repondera un subconjunto pequeño de heads de attention hacia spans marcados por el usuario, sin cambiar pesos, y reporta ~22% de mejora promedio de accuracy para LLaMA-7B en cuatro tareas <code>[unchecked figure]</code> (<a href="https://arxiv.org/abs/2311.02262">https://arxiv.org/abs/2311.02262</a>).</li>
+<li><strong>AutoPASTA</strong> identifica automáticamente el contexto clave a enfatizar; +7.95% promedio para Llama3-70B-Instruct en open-book QA <code>[unchecked figure]</code> (<a href="https://arxiv.org/abs/2409.10790">https://arxiv.org/abs/2409.10790</a>).</li>
+<li><strong>Activation steering</strong> mediante instruction vectors agregados al residual stream impone restricciones de formato / longitud / inclusión de palabras (Stolfo et al. — <a href="https://arxiv.org/abs/2410.12877">https://arxiv.org/abs/2410.12877</a>).</li>
 </ul>
 </li>
-<li><strong>Self-consistency sampling</strong> dilutes distraction-induced errors (GSM-IC: 72.4%→88.1% with 20 samples).</li>
+<li><strong>Self-consistency sampling</strong> diluye errores inducidos por distracción (GSM-IC: 72.4% → 88.1% con 20 samples).</li>
 </ul>
 <hr>
-<h2>4. Evaluating &amp; observing focus</h2>
+<h2>4. Evaluar y observar el foco</h2>
 <p><strong>Benchmarks (offline):</strong></p>
 <table>
 <thead>
 <tr>
-<th>What it measures</th>
+<th>Qué mide</th>
 <th>Benchmark</th>
-<th>Source</th>
+<th>Fuente</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Effective vs advertised window</td>
-<td><strong>RULER</strong> (13 task types; threshold ≈85.6%)</td>
+<td>Longitud efectiva vs ventana declarada</td>
+<td><strong>RULER</strong> (13 tipos de tarea; threshold ≈85.6%)</td>
 <td><a href="https://arxiv.org/abs/2404.06654">https://arxiv.org/abs/2404.06654</a> / <a href="https://github.com/NVIDIA/RULER">https://github.com/NVIDIA/RULER</a></td>
 </tr>
 <tr>
-<td>Length-driven decay, distractors</td>
-<td><strong>Context Rot</strong> (18 models; sweep length, hold difficulty fixed)</td>
+<td>Caída por longitud, distractores</td>
+<td><strong>Context Rot</strong> (18 modelos; sweep de longitud, dificultad fija)</td>
 <td><a href="https://www.trychroma.com/research/context-rot">https://www.trychroma.com/research/context-rot</a></td>
 </tr>
 <tr>
-<td>Positional sensitivity</td>
+<td>Sensibilidad posicional</td>
 <td><strong>Lost in the Middle</strong> (multi-needle / position-swept)</td>
 <td><a href="https://arxiv.org/abs/2307.03172">https://arxiv.org/abs/2307.03172</a></td>
 </tr>
 <tr>
-<td>Non-lexical retrieval</td>
-<td><strong>NoLiMa</strong> (use as acceptance gate; vanilla NIAH = smoke test only)</td>
+<td>Recuperación no léxica</td>
+<td><strong>NoLiMa</strong> (usalo como acceptance gate; NIAH vanilla = smoke test solo)</td>
 <td><a href="https://arxiv.org/abs/2502.05167">https://arxiv.org/abs/2502.05167</a></td>
 </tr>
 <tr>
-<td>Instruction-following under length</td>
-<td><strong>IFEval</strong> + <strong>LIFBench</strong> (separates &quot;obeyed rules&quot; from &quot;retrieved&quot;)</td>
+<td>Seguir instrucciones bajo longitud</td>
+<td><strong>IFEval</strong> + <strong>LIFBench</strong> (separa “obedeció reglas” de “recuperó”)</td>
 <td><a href="https://arxiv.org/abs/2311.07911">https://arxiv.org/abs/2311.07911</a> / <a href="https://aclanthology.org/2025.acl-long.803/">https://aclanthology.org/2025.acl-long.803/</a></td>
 </tr>
 <tr>
-<td>Realistic long-context reasoning</td>
-<td><strong>LongBench v2</strong> (503 MCQs; experts 53.7%, best model 50.1%, o1-preview 57.7%)</td>
+<td>Razonamiento realista de largo contexto</td>
+<td><strong>LongBench v2</strong> (503 MCQs; expertos 53.7%, mejor modelo 50.1%, o1-preview 57.7%)</td>
 <td><a href="https://arxiv.org/abs/2412.15204">https://arxiv.org/abs/2412.15204</a></td>
 </tr>
 <tr>
-<td>Agent trajectory + final state</td>
-<td><strong>τ-bench</strong> (<code>pass^k</code>, final-state grading), <strong>TRAJECT-Bench</strong> (tool selection/args/order)</td>
+<td>Trayectoria de agente + estado final</td>
+<td><strong>τ-bench</strong> (<code>pass^k</code>, grading de estado final), <strong>TRAJECT-Bench</strong> (tool selection/args/order)</td>
 <td><a href="https://openreview.net/forum?id=roNSXZpUDN">https://openreview.net/forum?id=roNSXZpUDN</a> / <a href="https://arxiv.org/html/2510.04550v2">https://arxiv.org/html/2510.04550v2</a></td>
 </tr>
 </tbody></table>
-<p><strong>Observability (online):</strong></p>
+<p><strong>Observabilidad (online):</strong></p>
 <ul>
-<li><strong>OpenTelemetry GenAI spans</strong> define a standard vocabulary: <code>invoke_agent</code> (parent) → child <code>chat</code> (LLM) and <code>execute_tool</code>, plus <code>plan</code> and <code>invoke_workflow</code>. Chart per-step token growth, tool-error rate, and retries to watch focus degrade live (<a href="https://github.com/open-telemetry/semantic-conventions-genai/.../gen-ai-agent-spans.md">https://github.com/open-telemetry/semantic-conventions-genai/.../gen-ai-agent-spans.md</a>). Status is still &quot;Development&quot;; content capture (prompts/args) is opt-in.</li>
-<li><strong>Report model + harness together, with traces/cost/validator outputs logged</strong> — harness configuration materially changes scores (HAL — <a href="https://github.com/princeton-pli/hal-harness">https://github.com/princeton-pli/hal-harness</a>).</li>
+<li><strong>OpenTelemetry GenAI spans</strong> definen un vocabulario estándar: <code>invoke_agent</code> (padre) → hijos <code>chat</code> (LLM) y <code>execute_tool</code>, además de <code>plan</code> e <code>invoke_workflow</code>. Graficá crecimiento de tokens por paso, tasa de errores de tools y retries para ver cómo el foco se degrada en vivo (<a href="https://github.com/open-telemetry/semantic-conventions-genai/tree/main/docs/gen-ai-agent-spans.md">https://github.com/open-telemetry/semantic-conventions-genai/tree/main/docs/gen-ai-agent-spans.md</a>). El estado sigue siendo “Development”; la captura de contenido (prompts/args) es opt-in.</li>
+<li><strong>Reportá modelo + harness juntos, con traces/costo/validador logueados</strong> — la configuración del harness cambia materialmente los scores (HAL — <a href="https://github.com/princeton-pli/hal-harness">https://github.com/princeton-pli/hal-harness</a>).</li>
 </ul>
-<p><strong>Evaluation recipe (branch 7):</strong> Run RULER at your target length to find the cliff, then cap inputs below it → re-test with realistic lengths, NoLiMa-style non-lexical needles, and distractors → layer IFEval-style constraint checks → score trajectories (not just final answers) → emit OTel spans → pin/version the harness.</p>
+<p><strong>Receta de evaluación (branch 7):</strong> corré RULER en tu longitud objetivo para encontrar el cliff, después acotá la entrada por debajo de ese punto → re-test con longitudes realistas, needles no léxicos estilo NoLiMa y distractores → agregá checks estilo IFEval para restricciones → calificá trajectories (no solo respuestas finales) → emití spans OTel → fijá/versioná el harness.</p>
 <hr>
-<h2>5. Practical playbook / decision guide</h2>
-<p><strong>Defaults (high confidence — corroborated across ≥2 branches):</strong></p>
+<h2>5. Playbook práctico / guía de decisión</h2>
+<p><strong>Defaults (alta confianza — corroborados por ≥2 branches):</strong></p>
 <ol>
-<li><strong>Treat context as a scarce attention budget.</strong> Curate to the smallest high-signal set; start minimal, add only what&#39;s needed.</li>
-<li><strong>Place critical instructions/evidence at the edges (start and end), never the middle.</strong></li>
-<li><strong>Budget to <em>measured effective length</em> (RULER), not the advertised window.</strong></li>
-<li><strong>Retrieve just-in-time</strong> (references + on-demand load) rather than preloading.</li>
-<li><strong>Cap retrieval depth and always rerank</strong>; use hybrid lexical+dense.</li>
-<li><strong>Default to a single-threaded linear agent</strong> for interdependent/coding work; <strong>isolate subagents only for parallel, read-heavy exploration</strong> (and accept the token cost).</li>
-<li><strong>Keep a small, non-overlapping core toolset (≈3–5) + tool search</strong>; return token-efficient outputs.</li>
-<li><strong>Manage the window</strong> with compaction, tool-result clearing, and external memory as runs lengthen.</li>
-<li><strong>Re-anchor the goal</strong> (recitation/<code>todo.md</code>) and <strong>keep a stable cache prefix</strong>; mask tools rather than removing them.</li>
-<li><strong>Measure focus</strong> with non-lexical needles + distractors and <strong>trajectory-level</strong> agent scoring; trace with OTel.</li>
+<li><strong>Tratá el contexto como un presupuesto escaso de atención.</strong> Curá el conjunto mínimo de alta señal; empezá por lo mínimo y agregá solo lo necesario.</li>
+<li><strong>Poné instrucciones/evidencia críticas en los bordes (inicio y final), nunca en el medio.</strong></li>
+<li><strong>Presupuestá según la <em>longitud efectiva</em> medida (RULER), no según la ventana declarada.</strong></li>
+<li><strong>Recuperá just-in-time</strong> (referencias + carga on demand) en vez de pre-cargar.</li>
+<li><strong>Limitá la profundidad de retrieval y siempre rerankeá</strong>; usá híbrido lexical+dense.</li>
+<li><strong>Por defecto usá un agente lineal single-threaded</strong> para trabajo interdependiente/de coding; <strong>aislá subagents solo para exploración paralela y read-heavy</strong> (y aceptá el costo de tokens).</li>
+<li><strong>Mantené un toolset core pequeño y no superpuesto (≈3–5) + tool search</strong>; devolvé salidas eficientes en tokens.</li>
+<li><strong>Gestioná la ventana</strong> con compaction, limpieza de tool results y memoria externa a medida que las corridas se alargan.</li>
+<li><strong>Re-anclá el objetivo</strong> (recitation/<code>todo.md</code>) y <strong>mantené un prefijo de cache estable</strong>; masked tools en lugar de remover tools.</li>
+<li><strong>Medí el foco</strong> con needles no léxicos + distractores y scoring de trayectorias; trazá con OTel.</li>
 </ol>
-<p><strong>Decision quick-reference:</strong></p>
+<p><strong>Referencia rápida de decisión:</strong></p>
 <table>
 <thead>
 <tr>
-<th>Situation</th>
-<th>Recommendation</th>
+<th>Situación</th>
+<th>Recomendación</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Long single doc (20k+)</td>
-<td>Documents-top, query-at-end; quote-extraction step</td>
+<td>Documento largo (20k+)</td>
+<td>Documentos arriba, query al final; paso de extracción de citas</td>
 </tr>
 <tr>
-<td>Short prompt</td>
+<td>Prompt corto</td>
 <td>Instructions-first</td>
 </tr>
 <tr>
-<td>Large repo / corpus</td>
-<td>JIT/agentic search (small) or RAG (scale); hybrid + rerank</td>
+<td>Repo / corpus grande</td>
+<td>JIT/agentic search (pequeño) o RAG (escala); híbrido + rerank</td>
 </tr>
 <tr>
-<td>Parallel, read-only research</td>
-<td>Orchestrator-worker subagents with explicit contracts</td>
+<td>Investigación paralela, read-only</td>
+<td>Subagents orquestador-worker con contratos explícitos</td>
 </tr>
 <tr>
-<td>Interdependent edits / coding</td>
-<td>Single continuous trace + compaction</td>
+<td>Ediciones / coding interdependientes</td>
+<td>Un solo trace continuo + compaction</td>
 </tr>
 <tr>
-<td>Large/MCP tool library</td>
+<td>Librería grande de tools / MCP</td>
 <td>Core toolset + tool search/retrieval</td>
 </tr>
 <tr>
-<td>Long agent loop accumulating noise</td>
-<td>Tool-result clearing + external memory + recitation</td>
+<td>Loop largo de agente acumulando ruido</td>
+<td>Tool-result clearing + memoria externa + recitation</td>
 </tr>
 </tbody></table>
-<p><strong>Anti-patterns (evidence-backed):</strong></p>
+<p><strong>Anti-patterns (evidencia respaldada):</strong></p>
 <ul>
-<li>Trusting a big advertised window to mean uniform attention (RULER, Context Rot).</li>
-<li>Dumping all retrieved chunks / all tool schemas (OP-RAG distraction; LongFuncEval).</li>
-<li>Burying instructions in the middle (Lost in the Middle).</li>
-<li>Putting untrusted retrieved/tool content in the system channel (injection/authority drift).</li>
-<li>Scrubbing errors from context (removes recovery signal — Manus).</li>
-<li>Mutating tool definitions mid-loop (busts cache, dangling references — Manus).</li>
-<li>Naive sliding-window KV eviction that drops sink tokens (StreamingLLM).</li>
-<li>Using vanilla single-needle NIAH as your only long-context eval — it hides real degradation; gate on NoLiMa-style non-lexical needles + RULER (NoLiMa, RULER, Context Rot).</li>
+<li>Confiar en una ventana grande “advertised” como si implicara atención uniforme (RULER, Context Rot).</li>
+<li>Volcar todos los chunks recuperados / todos los schemas de tools (OP-RAG distraction; LongFuncEval).</li>
+<li>Enterrar instrucciones en el medio (Lost in the Middle).</li>
+<li>Poner contenido no confiable recuperado por tools en el canal system (injection / authority drift).</li>
+<li>Borrar errores del contexto (elimina señal de recuperación — Manus).</li>
+<li>Mutar definiciones de tools en medio del loop (rompe cache, deja referencias colgando — Manus).</li>
+<li>Naive sliding-window KV eviction que descarta tokens sink (StreamingLLM).</li>
+<li>Usar NIAH single-needle vanilla como única evaluación de largo contexto — oculta degradación real; gateá con needles no léxicos estilo NoLiMa + RULER (NoLiMa, RULER, Context Rot).</li>
 </ul>
 <hr>
-<h2>6. Evidence &amp; sources (consolidated)</h2>
-<p>Deduplicated, grouped by theme. Vendor/self-reported figures are flagged <code>[UNVERIFIED]</code> in-text.</p>
-<h3>Failure modes &amp; mechanisms</h3>
+<h2>6. Evidencia y fuentes (consolidado)</h2>
+<p>Fuentes deduplicadas y agrupadas por tema. Las cifras autoinformadas o de proveedor están marcadas <code>[UNVERIFIED]</code> en el texto.</p>
+<h3>Modos de falla y mecanismos</h3>
 <ul>
 <li>Lost in the Middle — Liu et al., TACL 2024 — <a href="https://arxiv.org/abs/2307.03172">https://arxiv.org/abs/2307.03172</a></li>
 <li>Context Rot — Chroma, 2025 — <a href="https://www.trychroma.com/research/context-rot">https://www.trychroma.com/research/context-rot</a></li>
@@ -415,11 +415,11 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li>StreamingLLM / attention sinks — Xiao et al. — <a href="https://arxiv.org/abs/2309.17453">https://arxiv.org/abs/2309.17453</a></li>
 <li>LIFBench — <a href="https://aclanthology.org/2025.acl-long.803/">https://aclanthology.org/2025.acl-long.803/</a> · IFEval — <a href="https://arxiv.org/abs/2311.07911">https://arxiv.org/abs/2311.07911</a></li>
 </ul>
-<h3>Model-level context extension</h3>
+<h3>Extensión de contexto a nivel de modelo</h3>
 <ul>
 <li>Position Interpolation — Chen et al. — <a href="https://arxiv.org/abs/2306.15595">https://arxiv.org/abs/2306.15595</a> · YaRN — Peng et al. — <a href="https://arxiv.org/abs/2309.00071">https://arxiv.org/abs/2309.00071</a></li>
 </ul>
-<h3>Context construction &amp; prompting</h3>
+<h3>Construcción de contexto y prompting</h3>
 <ul>
 <li>Anthropic, Effective context engineering — <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a></li>
 <li>Anthropic prompting best practices — <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices</a></li>
@@ -427,11 +427,11 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li>OpenAI Structured Outputs — <a href="https://developers.openai.com/api/docs/guides/structured-outputs">https://developers.openai.com/api/docs/guides/structured-outputs</a></li>
 <li>Fantastically Ordered Prompts — Lu et al. — <a href="https://aclanthology.org/2022.acl-long.556/">https://aclanthology.org/2022.acl-long.556/</a> · Calibrate Before Use — Zhao et al. — <a href="https://arxiv.org/abs/2102.09690">https://arxiv.org/abs/2102.09690</a></li>
 </ul>
-<h3>Prompt-injection defenses</h3>
+<h3>Defensas contra prompt injection</h3>
 <ul>
 <li>Spotlighting — Hines et al., Microsoft — <a href="https://arxiv.org/abs/2403.14720">https://arxiv.org/abs/2403.14720</a></li>
 </ul>
-<h3>Window management, compaction, memory, caching</h3>
+<h3>Gestión de ventana, compaction, memoria, caching</h3>
 <ul>
 <li>LangChain context engineering — <a href="https://www.langchain.com/blog/context-engineering-for-agents">https://www.langchain.com/blog/context-engineering-for-agents</a> · <a href="https://rlancemartin.github.io/2025/06/23/context_engineering/">https://rlancemartin.github.io/2025/06/23/context_engineering/</a></li>
 <li>Anthropic context management — <a href="https://claude.com/blog/context-management">https://claude.com/blog/context-management</a> · compaction — <a href="https://platform.claude.com/docs/en/build-with-claude/compaction">https://platform.claude.com/docs/en/build-with-claude/compaction</a></li>
@@ -447,41 +447,41 @@ footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
 <li>LC vs RAG — <a href="https://arxiv.org/abs/2501.01880">https://arxiv.org/abs/2501.01880</a> · Self-Route — <a href="https://arxiv.org/abs/2407.16833">https://arxiv.org/abs/2407.16833</a> · long-context limits — <a href="https://arxiv.org/abs/2411.03538">https://arxiv.org/abs/2411.03538</a></li>
 <li>Filesystem vs vector search — LlamaIndex — <a href="https://www.llamaindex.ai/blog/did-filesystem-tools-kill-vector-search">https://www.llamaindex.ai/blog/did-filesystem-tools-kill-vector-search</a></li>
 </ul>
-<h3>Harness &amp; agent architecture</h3>
+<h3>Arquitectura de harness y agentes</h3>
 <ul>
-<li>Cognition, Don&#39;t build multi-agents — <a href="https://cognition.com/blog/dont-build-multi-agents">https://cognition.com/blog/dont-build-multi-agents</a> · update — <a href="https://cognition.com/blog/multi-agents-working">https://cognition.com/blog/multi-agents-working</a></li>
+<li>Cognition, Don’t build multi-agents — <a href="https://cognition.com/blog/dont-build-multi-agents">https://cognition.com/blog/dont-build-multi-agents</a> · update — <a href="https://cognition.com/blog/multi-agents-working">https://cognition.com/blog/multi-agents-working</a></li>
 <li>Anthropic multi-agent research system — <a href="https://www.anthropic.com/engineering/multi-agent-research-system">https://www.anthropic.com/engineering/multi-agent-research-system</a></li>
 <li>LongFuncEval — <a href="https://arxiv.org/abs/2505.10570">https://arxiv.org/abs/2505.10570</a> · RAG-MCP — <a href="https://arxiv.org/abs/2505.03275">https://arxiv.org/abs/2505.03275</a> · ToolRet — <a href="https://arxiv.org/abs/2503.01763">https://arxiv.org/abs/2503.01763</a></li>
 <li>Anthropic Tool Search — <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool</a> · Writing tools for agents — <a href="https://www.anthropic.com/engineering/writing-tools-for-agents">https://www.anthropic.com/engineering/writing-tools-for-agents</a></li>
 <li>LangChain Deep Agents — <a href="https://docs.langchain.com/oss/python/deepagents/context-engineering">https://docs.langchain.com/oss/python/deepagents/context-engineering</a></li>
 </ul>
-<h3>Attention steering &amp; KV-cache</h3>
+<h3>Steering de atención y KV-cache</h3>
 <ul>
 <li>Manus context engineering — <a href="https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus">https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus</a></li>
 <li>Scissorhands — <a href="https://arxiv.org/abs/2305.17118">https://arxiv.org/abs/2305.17118</a> · H2O — <a href="https://arxiv.org/abs/2306.14048">https://arxiv.org/abs/2306.14048</a> · SnapKV — <a href="https://arxiv.org/abs/2404.14469">https://arxiv.org/abs/2404.14469</a></li>
 <li>PASTA — <a href="https://arxiv.org/abs/2311.02262">https://arxiv.org/abs/2311.02262</a> · AutoPASTA — <a href="https://arxiv.org/abs/2409.10790">https://arxiv.org/abs/2409.10790</a> · Activation steering — <a href="https://arxiv.org/abs/2410.12877">https://arxiv.org/abs/2410.12877</a></li>
 </ul>
-<h3>Evaluation &amp; observability</h3>
+<h3>Evaluación y observabilidad</h3>
 <ul>
 <li>LongBench v2 — <a href="https://arxiv.org/abs/2412.15204">https://arxiv.org/abs/2412.15204</a> · τ-bench — <a href="https://openreview.net/forum?id=roNSXZpUDN">https://openreview.net/forum?id=roNSXZpUDN</a> · TRAJECT-Bench — <a href="https://arxiv.org/html/2510.04550v2">https://arxiv.org/html/2510.04550v2</a></li>
 <li>OpenTelemetry GenAI agent spans — <a href="https://github.com/open-telemetry/semantic-conventions-genai">https://github.com/open-telemetry/semantic-conventions-genai</a> · HAL harness — <a href="https://github.com/princeton-pli/hal-harness">https://github.com/princeton-pli/hal-harness</a></li>
 </ul>
 <hr>
-<h2>7. Open questions &amp; coverage gaps</h2>
+<h2>7. Preguntas abiertas y vacíos de cobertura</h2>
 <ul>
-<li><strong>Mechanism vs measurement.</strong> Whether lost-in-the-middle, context rot, and attention-sink behavior share one cause (positional encoding vs. attention dilution vs. softmax mass allocation) is unresolved. StreamingLLM explains streaming/eviction, not all middle-context loss.</li>
-<li><strong>Does recitation actually work?</strong> Manus&#39;s &quot;re-anchor the goal / rewrite todo.md&quot; is reported only qualitatively; no controlled ablation quantifies the gain.</li>
-<li><strong>Multi-agent cost/benefit transfer.</strong> Anthropic&#39;s +90.2% is a research-retrieval eval; the cost multiplier vs the single-agent baseline that produced the 90.2% gain is unstated, and transfer to write-heavy coding is unknown.</li>
-<li><strong>LC vs RAG has no universal winner.</strong> Routing depends on query type, corpus scale, and model generation — measure per system.</li>
-<li><strong>Eval breadth.</strong> This report leans on RULER / NoLiMa / Context Rot / LongBench v2; the reviewer notes HELMET, ∞Bench (InfiniteBench), Michelangelo, BABILong would broaden the acceptance suite (not yet integrated here).</li>
-<li><strong>Provenance gap.</strong> One research branch (attention steering) was partly corrupted; §3e steering magnitudes (PASTA/AutoPASTA) are cited but were not independently re-verified.</li>
+<li><strong>Mecanismo vs. medición.</strong> Sigue sin resolverse si lost-in-the-middle, context rot y attention-sink behavior comparten una sola causa (positional encoding vs. attention dilution vs. softmax mass allocation). StreamingLLM explica streaming/eviction, no toda la pérdida en el medio.</li>
+<li><strong>¿Recitation realmente ayuda?</strong> El “re-anchor the goal / rewrite todo.md” de Manus se reporta solo en forma cualitativa; no hay una ablation controlada que cuantifique la ganancia.</li>
+<li><strong>Transferencia costo/beneficio de multi-agent.</strong> El +90.2% de Anthropic es una evaluación de research retrieval; el multiplicador de costo respecto del baseline single-agent que produjo esa mejora no se indica, y la transferencia a coding write-heavy es desconocida.</li>
+<li><strong>LC vs RAG no tiene ganador universal.</strong> El routing depende del tipo de consulta, la escala del corpus y la generación del modelo — medilo por sistema.</li>
+<li><strong>Amplitud de evaluación.</strong> Este informe se apoya en RULER / NoLiMa / Context Rot / LongBench v2; la revisión señala HELMET, ∞Bench (InfiniteBench), Michelangelo y BABILong como formas de ampliar la suite de aceptación (todavía no integradas aquí).</li>
+<li><strong>Vacío de procedencia.</strong> Una rama de research (attention steering) quedó parcialmente corrupta; §3e cita magnitudes de PASTA/AutoPASTA, pero no se re-verificaron de forma independiente.</li>
 </ul>
 <hr>
-<h2>8. Confidence &amp; caveats</h2>
-<p><strong>Solid (spot-checked against primary sources by the adversarial reviewer):</strong> the §2 mechanisms table; Context Rot, NoLiMa, Anthropic Contextual Retrieval, Anthropic multi-agent +90.2%, and the LlamaIndex filesystem-vs-RAG findings; the Cognition-vs-Anthropic architectural reconciliation in §3d.</p>
-<p><strong>Corrected during review (were wrong/over-claimed in the first draft):</strong> the multi-agent &quot;15× cost&quot; baseline conflation (15× is vs <em>chat</em>, not vs single-agent); the executive-summary O(n²) <em>causal</em> framing (reframed as observed correlation); &quot;Always rerank / single largest precision lift&quot; (softened to &quot;when precision matters and latency allows&quot;); unresolvable future-dated finance arXiv IDs and their numbers (removed); &quot;cited by N branches&quot; (replaced with distinct external sources); &quot;18 frontier models&quot; → &quot;18 models&quot;.</p>
-<p><strong>Shaky / <code>[UNVERIFIED]</code> (plausible, properly cited, not independently re-checked here):</strong> RULER&#39;s 85.6%/13-task threshold; PASTA ~22% / AutoPASTA +7.95%; RAG-MCP 43.13% vs 13.62%; LongFuncEval 7%–85%; GSM-IC 95%→72.4%→88.1%; vendor caching &quot;~90% cost / ~85% latency&quot;; Anthropic &quot;+30%&quot; long-doc layout figure.</p>
-<p><strong>Provenance of this document:</strong> produced by a 4-stage dynamic workflow (7 read-only web-research branches → synthesis → adversarial review → revision). The auto-generated final-revision artifact hit the subagent output cap and truncated mid-§4, so §1–§3e are the reviewer-corrected revision, §4–§5 are restored from the synthesis draft, and §6–§8 were assembled from the gathered evidence and the reviewer&#39;s confidence notes. Run: <code>2026-06-28T10-04-04-932Z-drafts-context-engineering-focus-6c131aa1</code>.</p>
+<h2>8. Confianza y advertencias</h2>
+<p><strong>Sólido (spot-checked contra fuentes primarias por el revisor adversarial):</strong> la tabla de mecanismos de §2; Context Rot, NoLiMa, Anthropic Contextual Retrieval, Anthropic multi-agent +90.2%, y los hallazgos de LlamaIndex filesystem-vs-RAG; la reconciliación arquitectónica Cognition-vs-Anthropic en §3d.</p>
+<p><strong>Corregido durante la revisión (estaba mal o sobreafirmado en el primer borrador):</strong> la confusión de la base de costo “15×” en multi-agent (15× es vs <em>chat</em>, no vs single-agent); el framing causal de O(n²) en el executive summary (reformulado como correlación observada); “Always rerank / single largest precision lift” (suavizado a “cuando importa la precisión y la latencia lo permite”); los IDs de arXiv financieros futuros e irresolubles y sus números (eliminados); “cited by N branches” (reemplazado por fuentes externas distintas); “18 frontier models” → “18 models”.</p>
+<p><strong>Frágil / <code>[UNVERIFIED]</code></strong> (plausible, bien citado, no re-verificado de forma independiente aquí): el threshold 85.6% / 13 tareas de RULER; PASTA ~22% / AutoPASTA +7.95%; RAG-MCP 43.13% vs 13.62%; LongFuncEval 7%–85%; GSM-IC 95%→72.4%→88.1%; caching vendor “~90% cost / ~85% latency”; la cifra long-doc de Anthropic “+30%”.</p>
+<p><strong>Procedencia de este documento:</strong> producido por un workflow dinámico de 4 etapas (7 ramas de web-research de solo lectura → síntesis → revisión adversarial → revisión). El artefacto final de la revisión automática alcanzó el límite de salida de subagents y truncó a mitad de §4, así que §1–§3e son la revisión corregida por el revisor, §4–§5 se restauraron desde el borrador de síntesis, y §6–§8 se armaron con la evidencia reunida y las notas de confianza del revisor. Run: <code>2026-06-28T10-04-04-932Z-drafts-context-engineering-focus-6c131aa1</code>.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

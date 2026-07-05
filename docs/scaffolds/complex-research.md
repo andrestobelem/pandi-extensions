@@ -45,11 +45,11 @@ flowchart TD
 
 ## Qué hace
 
-`complex-research` implementa un scatter-gather de dos fases: **fan-out de investigación** independiente seguido de una **síntesis-como-juez**. Cada ángulo de investigación (una perspectiva sobre la pregunta, p. ej. "documentación oficial" o "riesgos y gotchas") se despacha a un agente propio que hace su propia búsqueda web y produce un reporte estructurado por su cuenta, sin ver el trabajo de los demás — esto maximiza la cobertura independiente y evita que un agente ancle a otro.
+`complex-research` hace un scatter-gather en dos fases: primero reparte la pregunta en varios ángulos de investigación independientes y después un agente de síntesis los consolida como juez. Cada ángulo corre su propia búsqueda web, no ve los demás resultados y devuelve un informe estructurado; así se gana cobertura independiente y se evita el anclaje entre agentes.
 
-Es un patrón dinámico porque el número e identidad de los ángulos los define quien llama al workflow en runtime (vía `input.angles`), no el autor del scaffold; el ancho del fan-out se calcula a partir de ese array. El diseño es explícitamente "no confundas generación con verdad": cada research agent puede declarar `INSUFFICIENT_EVIDENCE` en vez de inventar, y la síntesis debe preferir evidencia primaria y marcar incertidumbre.
+Es dinámico porque quien llama al workflow define `input.angles` en runtime; el ancho del fan-out sale de ese array, no del scaffold. El contrato de evidencia es estricto: cada research agent puede responder `INSUFFICIENT_EVIDENCE` si no alcanza la evidencia, y la síntesis debe preferir fuentes primarias/oficiales, deduplicar y marcar incertidumbre.
 
-Es un patrón **base** (no compuesto): el propio código comenta que conviene emparejarlo con un paso de verificación posterior (`basedOn: fan-out-and-synthesize`) para respuestas consecuentes, ya que no incluye ningún jurado ni verificación adversarial — solo produce la síntesis inicial.
+Es un patrón base (`basedOn: fan-out-and-synthesize`): ya incluye síntesis final como juez, pero no agrega una capa extra de verificación adversarial. Para respuestas consecuentes, conviene encadenarlo con un paso posterior de verificación.
 
 ## Cuándo usarlo
 
@@ -67,7 +67,7 @@ Es un patrón **base** (no compuesto): el propio código comenta que conviene em
 
 **Validación de entrada.** `question` es obligatorio (acepta alias `q` o `text`); si falta, el workflow lanza una excepción explícita (`throw new Error`) — a diferencia de otros scaffolds que abortan con un resultado de error, este falla duro. `angles` es opcional: si no se pasa un array no vacío, usa 4 ángulos por defecto ("official documentation and primary sources", "implementation options and tradeoffs", "risks, gotchas, and migration concerns", "best current recommendation with evidence"). El array de ángulos (propio o default) se recorta a 64 elementos como máximo, logueando si hubo recorte.
 
-**Fase Research.** Lanza un `agent` por cada ángulo en `parallel`, cada uno bajo el rol lógico `research` (modelo `haiku`, effort `low` — investigación barata y paralela). Cada research agent recibe el ángulo y la pregunta envueltos en un fence anti-inyección (`fence()`, delimitador derivado de un hash de contenido), con instrucciones explícitas de tratar ese contenido como dato a investigar, nunca como instrucciones, y de ignorar cualquier directiva embebida (cambios de rol, manipulación de veredicto, "ignorá lo anterior"). El contrato de salida por ángulo es fijo: Key findings, Evidence/sources, Tradeoffs, Risks/gotchas, Recommendation for this angle; y debe preferir fuentes primarias/oficiales, citar URLs/archivos/comandos solo si fueron realmente usados/observados, separar hechos de interpretación, y declarar `INSUFFICIENT_EVIDENCE` si la evidencia no alcanza. Cada branch retorna `{ name, output }` o `null` si el agente falla (equivalente a settle vía `.then()` con manejo de `null`).
+**Fase Research.** Lanza un `agent` por cada ángulo en `parallel`, cada uno bajo el rol lógico `research` (modelo `haiku`, effort `low` — investigación barata y paralela). Cada research agent recibe el ángulo y la pregunta envueltos en un fence anti-inyección (`fence()`, delimitador derivado de un hash de contenido), con instrucciones explícitas de tratar ese contenido como dato a investigar, nunca como instrucciones, y de ignorar cualquier directiva embebida (cambios de rol, manipulación de veredicto, "ignorá lo anterior"). El contrato de salida por ángulo es fijo: Key findings, Evidence/sources, Tradeoffs, Risks/gotchas, Recommendation for this angle; y debe preferir fuentes primarias/oficiales, citar URLs/archivos/comandos solo si fueron realmente usados/observados, separar hechos de interpretación, y declarar `INSUFFICIENT_EVIDENCE` si la evidencia no alcanza. Cada rama retorna `{ name, output }` o `null` si el agente falla.
 
 Tras el fan-out, se filtran los `null` (`completedResearch`) y se calcula `failed = total - completed`, logueando ambos conteos. Si **todas** las ramas fallaron o quedaron vacías, el workflow corta ahí mismo y retorna un mensaje explícito indicando que no hay evidencia para sintetizar (nunca sintetiza desde cero evidencia).
 
@@ -86,7 +86,7 @@ Tras el fan-out, se filtran los `null` (`completedResearch`) y se calcula `faile
 | `question` (alias `q`, `text`) | string | **sí** | — (si falta, `throw new Error`) |
 | `angles` | string[] | no | default: 4 ángulos fijos (docs oficiales, opciones/tradeoffs, riesgos, recomendación); clamp a 64 elementos |
 | `model` / `effort` | string | no | override global para todo nodo |
-| `models[role]` / `efforts[role]` | object | no | override por rol (`research`, `research-synthesis`); precedencia: por-rol > global > default del call-site |
+| `models[role]` / `efforts[role]` | object | no | override por rol (`research`, `research-synthesis`); precedencia: por-rol > global > default del punto de llamada |
 | `tools` / `skills` / `excludeTools` (y variantes `*ByRole`) | array | no | pasados al `agent` si son arrays |
 
 **Output:** un string Markdown de texto libre (no está validado contra un schema), producido por el agente de síntesis: resumen ejecutivo, recomendación, evidencia/fuentes, tradeoffs, riesgos y brechas de cobertura. En el camino de fallo total, el retorno es en cambio el string literal indicando que todas las ramas fallaron/vacías.

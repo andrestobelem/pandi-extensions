@@ -1,5 +1,5 @@
 /**
- * Concurrency / abort primitives for pi-dynamic-workflows.
+ * Concurrency / abort primitives for pandi-dynamic-workflows.
  *
  * A pure, dependency-free leaf: bounded-parallelism (mapLimit), a fair semaphore
  * (createSemaphore), abort-aware sleep, parent+timeout signal combination, and

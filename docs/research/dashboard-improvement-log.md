@@ -1,7 +1,11 @@
-# Dashboard improvement log
+# Registro de mejoras del dashboard
 
-Chronological, append-only narrative of `/workflow` TUI dashboard improvement passes.
-Pending work lives in `dashboard-improvement-backlog.md`, not here.
+Crónica cronológica y de agregado único de los pasajes de mejora del dashboard TUI de `/workflow`.
+Si estás buscando trabajo pendiente, mirá `dashboard-improvement-backlog.md`; este archivo solo registra lo que ya se hizo.
+
+## En 30 segundos
+
+Este registro documenta cada pass de mejora del dashboard, en orden temporal. Sirve para reconstruir qué cambió, qué archivos tocó cada paso y cómo se verificó. El trabajo pendiente vive en `dashboard-improvement-backlog.md`, no acá.
 
 ## 2026-06-30 — DW-DASH-003: collapse the duplicated per-row agent meta suffix
 

@@ -1,13 +1,20 @@
-# Principios de ingeniería de este repo (pi-dynamic-workflows)
+# Principios de ingeniería de este repo (pandi-extensions)
 
 Destilado de `AGENTS.md`, `modern-software-engineering/SKILL.md`,
 `ai-assisted-engineering/SKILL.md` y `karpathy-guidelines`. Reglas accionables, no slogans.
 
+## En 30 segundos
+
+Este documento resume las reglas de ingeniería que rigen este repo. Te sirve para decidir
+cómo encarar un cambio, revisar una PR o coordinarte con IA sin perder verificabilidad.
+Si hay varias opciones válidas, elegí el slice más chico, escribí/ejecutá tests y dejá
+evidencia concreta.
+
 ## 1. Mentalidad (Karpathy)
 
-- **Entendé antes de escribir código.** Declará supuestos antes de implementar; si hay
-  varias interpretaciones válidas, presentalas — no elijas en silencio; si algo no está
-  claro, parás y preguntás en vez de suponer.
+- **Entendé antes de escribir código.** Declarar supuestos antes de implementar; si hay
+  varias interpretaciones válidas, presentalas — no elijas en silencio. Si algo no está
+  claro, frená y preguntá en vez de suponer.
 - **La simplicidad se gana su lugar.** Escribí el mínimo código que resuelve el problema
   pedido: sin abstracciones de uso único, sin "flexibilidad" no pedida, sin manejo de
   errores para casos imposibles. Si 200 líneas podían ser 50, reescribilas.
@@ -34,12 +41,12 @@ Destilado de `AGENTS.md`, `modern-software-engineering/SKILL.md`,
   (test que corre en segundos > suite lenta; check local > esperar CI completo). Cada
   cambio es una hipótesis; buscá evidencia (tests, CI, runtime, artifacts) antes que moda,
   intuición o "consenso" de IA.
-- **Complejidad se gestiona en el Refactor, no como diseño especulativo:** revisá
-  modularidad, cohesión, separación de responsabilidades, ocultamiento de información,
+- **La complejidad se gestiona en el Refactor, no como diseño especulativo:** revisá
+  modularidad, cohesión, separación de responsabilidades, ocultamiento de información y
   acoplamiento.
 - **Juzgá cada cambio por estabilidad + throughput.** Solo agregá burocracia, abstracción
   o configurabilidad con evidencia de que mejoran una de las dos sin degradar la otra.
-  Reportá evidencia, no confianza: comandos ejecutados, resultados de test/CI, o
+  Reportá evidencia, no confianza: comandos ejecutados, resultados de test/CI o
   incertidumbre explícita.
 
 ## 3. Reglas del repo que NO son negociables

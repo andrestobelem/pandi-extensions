@@ -1,6 +1,6 @@
 /**
  * Contract test for the self-contained notify helpers that drifted across the
- * runtime-local copies in pi-plan, pi-goal, pi-loop, and pi-dynamic-workflows.
+ * runtime-local copies in pandi-plan, pandi-goal, pandi-loop, and pandi-dynamic-workflows.
  *
  * The hardened contract is:
  *   - print mode: info goes to stdout; warning/error go to stderr; UI is skipped.

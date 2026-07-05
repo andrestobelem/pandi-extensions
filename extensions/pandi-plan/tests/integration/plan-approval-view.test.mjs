@@ -30,6 +30,7 @@
  */
 
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
@@ -56,6 +57,7 @@ function makePi() {
 	const handlers = new Map();
 	const entries = [];
 	const sentMessages = [];
+	const execCalls = [];
 	const pi = {
 		registerTool: (def) => tools.set(def.name, def),
 		registerCommand: (name, opts) => commands.set(name, opts),
@@ -65,9 +67,12 @@ function makePi() {
 		},
 		appendEntry: (customType, data) => entries.push({ type: "custom", customType, data }),
 		sendUserMessage: (content, options) => sentMessages.push({ content, options }),
-		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
+		exec: async (command, args, options) => {
+			execCalls.push({ command, args, options });
+			return { code: 0, stdout: "", stderr: "", killed: false };
+		},
 	};
-	return { pi, tools, commands, handlers, entries, sentMessages };
+	return { pi, tools, commands, handlers, entries, sentMessages, execCalls };
 }
 
 function makeTheme() {
@@ -85,6 +90,25 @@ function makeTheme() {
 
 function stripAnsi(value) {
 	return value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
+}
+
+async function findFiles(dir, predicate) {
+	const found = [];
+	async function walk(current) {
+		let entries;
+		try {
+			entries = await fs.readdir(current, { withFileTypes: true });
+		} catch {
+			return;
+		}
+		for (const entry of entries) {
+			const full = path.join(current, entry.name);
+			if (entry.isDirectory()) await walk(full);
+			else if (predicate(full)) found.push(full);
+		}
+	}
+	await walk(dir);
+	return found;
 }
 
 // makeCtx variants:
@@ -169,9 +193,10 @@ async function writeBlocked(handlers, ctx) {
 // ===========================================================================
 async function overlayPresentsAndRenders(url) {
 	const planExtension = await loadDefault(url);
-	const { pi, commands, tools, handlers, sentMessages } = makePi();
+	const { pi, commands, tools, handlers, sentMessages, execCalls } = makePi();
 	planExtension(pi);
-	const ctx = makeCtx({ decisionKey: "y" });
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "plan-html-"));
+	const ctx = makeCtx({ decisionKey: "y", cwd });
 
 	await commands.get("plan").handler("design a feature", ctx);
 	check("overlay: write BLOCKED while planning", await writeBlocked(handlers, ctx));
@@ -182,6 +207,18 @@ async function overlayPresentsAndRenders(url) {
 
 	check("overlay: ctx.ui.custom was used to present the plan", ctx._customCalls.length === 1);
 	check("overlay: confirm was NOT consulted when the overlay is available", ctx._confirmCalls === 0);
+
+	const htmlFiles = await findFiles(path.join(cwd, ".pi", "plan-artifacts"), (file) => file.endsWith(".html"));
+	check("html: writes one plan preview artifact", htmlFiles.length === 1, `got ${JSON.stringify(htmlFiles)}`);
+	const html = htmlFiles[0] ? await fs.readFile(htmlFiles[0], "utf8") : "";
+	check("html: rendered artifact contains the plan body", /Do the thing/.test(html), html.slice(0, 200));
+	check("html: rendered artifact uses the Pandi plan kicker", /Pandi plan/.test(html), html.slice(0, 200));
+	check("html: opens the rendered artifact in a browser", execCalls.length === 1, JSON.stringify(execCalls));
+	check(
+		"html: browser open points at the artifact",
+		execCalls[0]?.args?.includes(htmlFiles[0]),
+		JSON.stringify(execCalls[0]),
+	);
 
 	const rendered = stripAnsi((ctx._customCalls[0].firstRender || []).join("\n"));
 	check("overlay: renders the plan body text", /Do the thing/.test(rendered), rendered);

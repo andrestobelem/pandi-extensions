@@ -1,10 +1,10 @@
 # adversarial-verify
 
-> Jurado de escépticos por hallazgo que poda por mayoría de refutación; por defecto, duda.
+> Jurado hostil por hallazgo: si una mayoría estricta lo refuta, el hallazgo muere.
 
 ## En 30 segundos
 
-Tenés una lista de afirmaciones (o un tema del que hay que sacarlas) y querés quedarte solo con las que resisten un interrogatorio hostil. `adversarial-verify` arma, para CADA hallazgo, un jurado independiente cuyo único trabajo es intentar refutarlo; el hallazgo sobrevive solo si menos de la mayoría del jurado logra tumbarlo. Elegilo para podar listas de hallazgos ruidosas o para desconfiar sistemáticamente de afirmaciones antes de actuar sobre ellas — no para reproducir un bug (usá `bug-verify`) ni para sintetizar resultados independientes (usá `fan-out-and-synthesize`).
+Este workflow filtra afirmaciones dudosas con un jurado escéptico. Puede recibir `findings` ya armados o descubrirlos desde `topic`/`text`. Cada hallazgo sobrevive solo si menos de una mayoría estricta de escépticos logra refutarlo.
 
 ## Cómo lanzarlo
 
@@ -13,13 +13,13 @@ Tenés una lista de afirmaciones (o un tema del que hay que sacarlas) y querés 
 /workflow run mi-run {"topic":"afirmaciones de seguridad sobre nuestro flujo de tokens","skeptics":5}
 ```
 
-También podés saltear el descubrimiento y pasar los hallazgos directamente:
+Si ya tenés hallazgos:
 
 ```text
 /workflow run mi-run {"findings":[{"id":"f1","claim":"el endpoint valida el JWT en cada request","evidence":"src/auth.ts:42"}],"skeptics":5}
 ```
 
-Hay que pasar `findings` **o** `topic`/`text`; si no viene ninguno, el workflow lanza un error.
+`findings` o `topic`/`text` son obligatorios; si no hay ninguno, el workflow falla.
 
 ## Diagrama
 
@@ -62,66 +62,59 @@ flowchart TD
 
 ## Qué hace
 
-`adversarial-verify` implementa una verificación por votación de jurado: en vez de un único juez que da un veredicto de pasa/no-pasa, cada hallazgo se somete a `N` escépticos independientes cuyo único mandato es intentar refutarlo con evidencia — nunca confirmarlo. El sesgo es deliberadamente adversarial y "default-to-doubt": si un escéptico no encuentra evidencia sólida para tumbar el claim pero tampoco puede confirmarlo de forma independiente, debe votar `refuted=true`. Un hallazgo solo sobrevive si el número de votos de refutación queda **por debajo** de una mayoría estricta (`floor(skeptics/2)+1`).
+`adversarial-verify` filtra afirmaciones con un jurado hostil. Puede arrancar desde `input.findings` o descubrir hallazgos desde `topic`/`text`; en ambos casos, la regla es la misma: cada hallazgo solo sobrevive si menos de una mayoría estricta de escépticos lo refuta. La salida no es “verdadero/falso” en abstracto; es “sobrevive / muere” según los votos.
 
-La dinamicidad del patrón está en que el ancho y la forma del fan-out de verificación se calculan por hallazgo: cada claim arma su propio jurado paralelo (`parallel` de `skeptics` agentes), y la cantidad de jurados corridos en total depende de cuántos hallazgos entraron (ya sea provistos de entrada o descubiertos en runtime por un buscador inline). No hay un oráculo fijo de verdadero/falso: la sobrevivencia la deciden los votos.
-
-Los hallazgos pueden venir dados (`input.findings`) o descubrirse: si no hay `findings`, se lanza un `agent` "finder" barato (haiku, effort bajo) sobre un `topic`/`text` para extraer hasta `maxFindings` claims concretos y falsables. Todo el contenido no confiable (el `topic` del finder, el `claim`/`evidence` de cada hallazgo pasado a los escépticos) se envuelve con un fence anti-inyección derivado de un hash del contenido, con instrucciones explícitas de tratar cualquier directiva embebida como dato sospechoso, no como instrucción.
-
-El manejo de fallos es "fail closed, no throw": un skeptic que crashea o devuelve un voto inválido cuenta automáticamente como refutación, preservando el sesgo adversarial incluso ante fallas de infraestructura.
+El workflow prioriza el sesgo por defecto hacia la duda: si un escéptico no logra confirmar ni refutar con solidez, vota `refuted=true`. Además, cualquier voto `null` o inválido se interpreta como refutación, así que el sistema falla cerrado. La entrada no confiable (`topic`, `claim`, `evidence`) viaja dentro de fences con hash derivado del contenido para que las instrucciones embebidas no puedan hacerse pasar por datos.
 
 ## Cuándo usarlo
 
-- Podar una lista de hallazgos ruidosa (p. ej. la salida de un `repo-bug-hunt` o de un escaneo automático) antes de actuar sobre ella.
-- Chequear la cordura de afirmaciones antes de tomar una decisión basada en ellas.
-- Descartar hallazgos alucinados por un modelo, sometiéndolos a un jurado hostil independiente.
-- **No usarlo** cuando lo que hace falta es *probar* un bug reproduciéndolo en el código real (usar `bug-verify`, que corre secuencialmente sobre el working tree).
-- **No usarlo** cuando el objetivo es sintetizar/combinar resultados de exploraciones independientes en un único informe (usar `fan-out-and-synthesize`).
+- Podar una lista ruidosa de hallazgos antes de actuar sobre ella.
+- Evaluar afirmaciones que todavía no merecen confianza.
+- Someter resultados alucinados por un modelo a un jurado hostil independiente.
+- **No usarlo** para reproducir un bug en el árbol de trabajo real: para eso va `bug-verify`.
+- **No usarlo** para combinar exploraciones independientes en una síntesis única: para eso va `fan-out-and-synthesize`.
 
 ## Cómo funciona
 
-**Parseo de input y configuración por nodo.** El input llega como JSON en `args` y se parsea de forma defensiva (si falla, `{}`). Existe un helper `node(role, extra)` que resuelve overrides de `model`/`effort`/`tools`/`skills`/`excludeTools` con precedencia: override por-rol (`models[role]`, `efforts[role]`, etc.) > default global (`input.model`, `input.effort`, etc.) > default del call-site.
+**Parseo y overrides por nodo.** `args` se parsea de forma defensiva a JSON. El helper `node(role, extra)` arma las opciones de cada agente con precedencia: override por rol (`input.models[role]`, `input.efforts[role]`, `input.toolsByRole[role]`, `input.skillsByRole[role]`, `input.excludeByRole[role]`) > default global (`input.model`, `input.effort`, `input.tools`, `input.skills`, `input.excludeTools`) > default del call-site.
 
-**Jury size.** `skeptics` se toma de `input.skeptics` (default 3), clampeado a `[1, 99]` (cada finding arma su propio `parallel()` y ese primitivo acepta hasta 4096 thunks, pero los jurados son chicos así que 99 alcanza como techo). Si `skeptics < 3`, se loguea una advertencia explícita: con jurados chicos y sesgo default-to-doubt, un único escéptico indeciso puede matar cualquier hallazgo.
+**Tamaño del jurado.** `skeptics` sale de `input.skeptics`, con default 3 y clamp a `[1, 99]`. Si el valor pedido excede el tope, se loguea un warning; si queda por debajo de 3, también se avisa porque un jurado chico + sesgo a la duda vuelve muy fácil matar cualquier hallazgo.
 
-**Fase Find (opcional).** Si no vino `input.findings`, se requiere `input.topic` o `input.text`; si falta, lanza `Error`. Se corre un `agent` con rol `finder` (modelo `haiku`, effort `low`, `schema: FINDINGS`) que debe devolver hasta `maxFindings` (default 8, mínimo 1) claims concretos y falsables, con el `topic` envuelto en el fence anti-inyección. El resultado se recorta a `maxFindings`. Si tras esto la lista queda vacía, retorna el string `"No findings to verify."` sin pasar a la fase Verify.
+**Fase Find.** Si no viene `input.findings`, el workflow exige `input.topic` o `input.text`. Cuando descubre hallazgos, usa un `agent` `finder` con `model: "haiku"`, `effort: "low"` y `schema: FINDINGS`, que devuelve hasta `maxFindings` (default 8, mínimo 1). El `topic` se envuelve en un fence anti-inyección. Si después de eso no queda nada, retorna exactamente `"No findings to verify."`.
 
-**Normalización.** Cada hallazgo (string u objeto) se normaliza a `{ id, claim, evidence }`, generando un `id` sintético (`f1`, `f2`, ...) si falta. La lista se recorta a `maxVerify` (default 256, clamp `[1, 4096]`) porque cada finding corre su propio jurado paralelo secuencialmente, así que este cap acota el gasto/spawn total; si recorta, loguea una advertencia.
+**Normalización y límite de cobertura.** Cada hallazgo se normaliza a `{ id, claim, evidence }`: strings se convierten a claims directos; objetos usan `id` explícito o un `fX` sintético, y `title` puede actuar como fallback de `claim`. Luego la lista se recorta a `maxVerify` (default 256; `0` cae al default 256 antes de aplicar `floor` y clamp `[1, 4096]`) para limitar el costo total; si se recorta, se loguea.
 
-**Fase Verify.** Para cada finding, en un loop secuencial (jurado por jurado, no todos los jurados a la vez), se lanza un `parallel` de `skeptics` agentes con rol `skeptic` (modelo `opus`, effort `high`, `schema: VOTE`, label individualizado `skeptic-<id>-<n>`). Cada skeptic recibe el claim y la evidencia (o `"(none)"`) envueltos en fences separados, con la instrucción de intentar refutar y de votar `refuted=true` por defecto si no puede confirmar ni refutar con solidez, respaldando su voto con una cita concreta (file:line, URL, o output de comando) o `INSUFFICIENT_EVIDENCE`. Los votos `null` o sin `refuted` boolean válido (skeptic que falló) se normalizan a `refuted=true` con `citation: INSUFFICIENT_EVIDENCE` — no hay `settle` explícito porque `agent()` ya puede devolver `null`/inválido y el código lo cubre inline. Se cuentan los `refuted=true` (`refutes`); el hallazgo sobrevive (`survived=true`) solo si `refutes < majority`. Cada resultado se loguea (`finding <id>: X/N refuted -> SURVIVED|KILLED`) y se acumula en `verified` junto con los votos crudos.
+**Fase Verify.** Cada hallazgo corre en serie, pero dentro de ese hallazgo se arma un `parallel` con `skeptics` agentes `skeptic` (`model: "opus"`, `effort: "high"`, `schema: VOTE`). Cada skeptic recibe el claim y la evidencia envueltos en fences separados, y debe intentar refutar en vez de confirmar. Los votos inválidos o ausentes se tratan como `refuted=true` con `citation: "INSUFFICIENT_EVIDENCE"`; después se cuenta `refutes` y el hallazgo sobrevive solo si `refutes < floor(skeptics/2)+1`.
 
-**Caching:** no se observa ningún mecanismo explícito de caché; cada `agent` (finder o skeptic) se invoca fresco.
-
-**Manejo de fallos parciales:** no hay `settle` como primitivo separado — los votos inválidos se reinterpretan inline como refutación (fail-closed), de modo que un skeptic caído nunca hace sobrevivir un hallazgo por omisión.
+**Caching y observabilidad.** No hay caché explícita: cada `agent` se ejecuta fresco. Tampoco se usa `writeArtifact`; la observabilidad pasa por `log(...)` (warnings de clamp, progreso por hallazgo y resumen final) y por el shape de retorno.
 
 ## Input y output
 
-**Input** (JSON-stringified en `args`, parseado defensivamente):
+**Input** (JSON en `args`, parseado defensivamente):
 
 | Campo | Tipo | Requerido | Default / clamp |
 |---|---|---|---|
-| `findings` | array (string u objeto `{id?, claim, evidence?}`) | uno de `findings`\|`topic`/`text` | — (si viene, se usa tal cual filtrando nulls; gana sobre `topic`) |
-| `topic` / `text` | string | uno de `findings`\|`topic`/`text` | — (si falta y tampoco hay `findings`, `throw Error`) |
-| `maxFindings` | number | no | default 8, mínimo 1 (clamp hacia arriba si viene < 1) |
+| `findings` | array de strings u objetos `{id?, claim, evidence?, title?}` | uno de `findings` o `topic`/`text` | si viene, se usa tal cual y gana sobre `topic`/`text` |
+| `topic` / `text` | string | uno de `findings` o `topic`/`text` | solo se usan si no hay `findings` |
+| `maxFindings` | number | no | default 8, mínimo 1 |
 | `skeptics` | number | no | default 3, clamp `[1, 99]` |
-| `maxVerify` | number | no | default 256, clamp `[1, 4096]` |
-| `model` / `effort` | string | no | override global para todo nodo |
-| `models[role]` / `efforts[role]` | object | no | override por rol (`finder`, `skeptic`); precedencia: por-rol > global > default del call-site |
-| `tools` / `skills` / `excludeTools` (y variantes `*ByRole`) | array | no | pasados al `agent` si son arrays |
+| `maxVerify` | number | no | default 256; `0` cae al default 256 antes de aplicar `floor` y clamp `[1, 4096]` |
+| `model` / `effort` | string | no | default global para todos los nodos |
+| `models[role]` / `efforts[role]` | object | no | override por rol (`finder`, `skeptic`) |
+| `tools` / `skills` / `excludeTools` | array | no | defaults globales para todos los nodos |
+| `toolsByRole` / `skillsByRole` / `excludeByRole` | object | no | override por rol; solo se aplica si `input.<campo>[role]` es un array (otros valores se ignoran) |
 
 **Output:**
 
-- Si no hay hallazgos que verificar: el string `"No findings to verify."`.
+- Si no hay hallazgos para verificar: el string exacto `"No findings to verify."`.
 - En caso normal: `{ survivors, killedCount, totalFindings, skepticsPerFinding, majorityToKill }`
-  - `survivors`: array de hallazgos sobrevivientes, cada uno `{ id, claim, evidence, refutes, skeptics, survived: true }` (se excluyen los votos individuales del shape de retorno).
-  - `killedCount`: cantidad de hallazgos que no sobrevivieron.
-  - `totalFindings`: total de hallazgos efectivamente verificados (tras el clamp `maxVerify`).
+  - `survivors`: hallazgos que sobrevivieron, cada uno sin `votes`.
+  - `killedCount`: cantidad de hallazgos muertos.
+  - `totalFindings`: cantidad efectivamente verificada tras `maxVerify`.
   - `skepticsPerFinding`: tamaño del jurado usado.
-  - `majorityToKill`: cuántos votos de refutación bastan para matar un hallazgo.
-
-No se observan llamadas a `writeArtifact` en este scaffold: toda la observabilidad pasa por `log(...)` (advertencias de clamps, progreso por finding, resumen final con los `verified` completos incluyendo votos) y por el shape de retorno.
+  - `majorityToKill`: votos de refutación necesarios para matar un hallazgo.
 
 ## Fases
 
-1. **Find** — si no vinieron `findings`, descubre hasta `maxFindings` claims falsables desde `topic`/`text` con un `agent` finder barato (haiku·low); si vinieron, se usan tal cual.
-2. **Verify** — por cada hallazgo, arma un `parallel` de `skeptics` agentes (opus·high) cuyo único mandato es refutar (default a duda); el hallazgo sobrevive solo si menos de la mayoría estricta lo refuta.
+1. **Find** — si no vinieron `findings`, descubre hasta `maxFindings` claims falsables desde `topic`/`text` con un `finder` barato (`haiku`·`low`).
+2. **Verify** — por cada hallazgo, arma un jurado paralelo de `skeptics` agentes `skeptic` (`opus`·`high`) y mata el hallazgo si lo refuta una mayoría estricta.

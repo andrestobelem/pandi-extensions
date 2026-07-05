@@ -2,7 +2,7 @@
  * Test that the shared harness auto-cleans its `makeBuildDir` tempdirs at process exit.
  *
  * `buildExtension`/`makeBuildDir` create a fresh `mkdtemp` dir per call (harness.mjs), but cleanup
- * used to be opt-in per suite — only ~3 of ~90 pi-dynamic-workflows call sites deleted their outDir,
+ * used to be opt-in per suite — only ~3 of ~90 pandi-dynamic-workflows call sites deleted their outDir,
  * so the rest leaked esbuild output + copied assets into the OS temp dir on every run (test-review
  * finding P6 / D2#4). The harness now registers each build dir for removal on process exit.
  *

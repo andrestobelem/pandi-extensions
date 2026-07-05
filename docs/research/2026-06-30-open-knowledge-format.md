@@ -1,12 +1,22 @@
 # Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico
 
-> **Status: FINAL.** Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud:
+> **Estado: FINAL.** Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud:
 
 - Evidencia primaria: `okf/SPEC.md` y `okf/README.md` de `GoogleCloudPlatform/knowledge-catalog`, leídos directamente vía `raw.githubusercontent.com` y la API de GitHub.
 - Lagunas iniciales: 5 (blog de anuncio, ingestión en Knowledge Catalog, validadores, taxonomía de `type`, adopción de terceros) → **cerradas** con búsqueda dirigida (§8).
 - Marcado: hechos verificados en 2ª pasada → **[VERIFICADO]**; afirmaciones dependientes de búsqueda o interpretación → *[no verificado directamente]*.
 
 ---
+
+## En 30 segundos
+
+OKF es una especificación abierta en borrador para representar conocimiento en Markdown + YAML: un bundle portable, fácil de revisar en diffs y apto para humanos y agentes.
+Sirve cuando querés publicar contexto curado sobre tablas, métricas, runbooks o APIs sin depender de una plataforma central.
+Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real:
+
+```bash
+python -m reference_agent visualize --bundle ./bundles/ga4
+```
 
 ## 1. Resumen ejecutivo
 
@@ -26,7 +36,7 @@ La propuesta de valor es que el conocimiento organizativo (definiciones de tabla
 
 ## 2. Anatomía del formato
 
-### 2.1 Bundles (unidad de distribución, §3)
+### 2.1 Paquetes (bundles) — unidad de distribución (§3)
 
 Un **Knowledge Bundle** es un árbol de directorios de archivos Markdown UTF-8 y es "la unidad de distribución". PUEDE enviarse como:
 
@@ -51,7 +61,7 @@ my_bundle/
     └── customers.md
 ```
 
-### 2.2 Concept documents (§2, §4)
+### 2.2 Documentos de concepto (§2, §4)
 
 Un **Concept** es una unidad única de conocimiento = un archivo Markdown. El **Concept ID** es la ruta del archivo dentro del bundle sin el sufijo `.md` (p. ej., `tables/users.md` → `tables/users`).
 
@@ -115,7 +125,7 @@ Joined with [customers](/tables/customers.md) on `customer_id`.
 
 Un **concepto abstracto** (§4.4) no lleva `resource`: p. ej. un `type: Playbook` con secciones `# Trigger` / `# Steps`.
 
-### 2.6 Reserved filenames (§3.1)
+### 2.6 Nombres de archivo reservados (§3.1)
 
 Solo **dos** nombres reservados en cualquier nivel de jerarquía, prohibidos como nombres de concepto:
 
@@ -124,7 +134,7 @@ Solo **dos** nombres reservados en cualquier nivel de jerarquía, prohibidos com
 
 Cualquier otro archivo `.md` es un concepto. OKF **no** define un formato de archivo por-tag; las tags son únicamente un campo del frontmatter.
 
-### 2.7 Cross-linking (§5)
+### 2.7 Enlaces cruzados (§5)
 
 Enlaces Markdown estándar, en dos formas:
 
@@ -133,7 +143,7 @@ Enlaces Markdown estándar, en dos formas:
 
 Un enlace afirma una **relación no tipada** (arista dirigida); el *tipo* de relación (joins-with, depends-on) vive en la prosa circundante, no en el enlace. Los consumidores DEBEN tolerar enlaces rotos (pueden representar "conocimiento aún no escrito").
 
-### 2.8 Index files (§6)
+### 2.8 Archivos índice (§6)
 
 `index.md` puede aparecer en cualquier directorio para progressive disclosure. Los archivos index **no llevan frontmatter** (única excepción: la declaración de versión en el index raíz). El cuerpo son secciones de enlaces con viñetas y descripciones cortas:
 
@@ -144,7 +154,7 @@ Un enlace afirma una **relación no tipada** (arista dirigida); el *tipo* de rel
 
 > **Tensión señalada por la investigación:** §6 dice que los `index.md` "no contienen frontmatter", pero §11 permite `okf_version` solo en el `index.md` raíz. Cómo deben reconciliar esto los consumidores estrictos queda *no especificado* — marcar como incertidumbre.
 
-### 2.9 Log files (§7)
+### 2.9 Archivos log (§7)
 
 `log.md` opcional, con lo más reciente primero, agrupado por fecha con cabeceras ISO `YYYY-MM-DD`. Las palabras en negrita iniciales (`**Update**`, `**Creation**`, `**Deprecation**`) son convención, no requisito.
 
@@ -154,11 +164,11 @@ Un enlace afirma una **relación no tipada** (arista dirigida); el *tipo* de rel
 * **Update**: Added new BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
 ```
 
-### 2.10 Citations (§8)
+### 2.10 Citas (§8)
 
 Las afirmaciones con fuente DEBERÍAN listarse bajo una cabecera `# Citations` al final, numeradas. Los enlaces PUEDEN ser URLs absolutas, rutas relativas al bundle, o rutas hacia un subdirectorio `references/` que refleja material externo como conceptos de primera clase.
 
-### 2.11 Conformance (§9) — un único nivel, no escalonado
+### 2.11 Conformidad (§9) — un único nivel, no escalonado
 
 Un bundle es conforme con OKF v0.1 si:
 
@@ -168,13 +178,13 @@ Un bundle es conforme con OKF v0.1 si:
 
 Los consumidores **NO DEBEN** rechazar un bundle por: campos opcionales faltantes, valores `type` desconocidos, claves extra desconocidas, enlaces rotos, o `index.md` ausente. **No existen niveles de conformidad con nombre** (no hay "core/strict") en v0.1.
 
-### 2.12 Versioning (§11)
+### 2.12 Versionado (§11)
 
 Esquema `<major>.<minor>`: minor = adiciones retrocompatibles; major = cambios disruptivos. Un bundle PUEDE declarar su versión objetivo con `okf_version: "0.1"` en el frontmatter del `index.md` **raíz del bundle** — "el único lugar donde se permite frontmatter en un `index.md`". Versiones declaradas desconocidas → consumo de mejor esfuerzo.
 
 ---
 
-## 3. Repositorio y tooling (`knowledge-catalog`)
+## 3. Repositorio y herramientas (`knowledge-catalog`)
 
 **Repositorio:** `GoogleCloudPlatform/knowledge-catalog`, **Apache-2.0**. Metadatos (API de GitHub): creado **2026-05-04**, último push 2026-06-21, ~5.777 estrellas, 91 issues abiertos en el momento de la consulta. Descargo: **"This repository and its contents are not an official Google product."** Contribuir requiere el **Google CLA**.
 
@@ -187,7 +197,7 @@ Esquema `<major>.<minor>`: minor = adiciones retrocompatibles; major = cambios d
 - `okf/tests/`: tests de pytest — `test_bigquery_source.py`, `test_bundle_tools.py`, `test_document.py`, `test_index.py`, `test_viewer.py`, `test_web_fetcher.py`, `test_web_tools.py`.
 - `okf/bundles/`: tres bundles de ejemplo listos para navegar — `ga4/`, `stackoverflow/`, `crypto_bitcoin/`, cada uno con un `viz.html` incluido.
 
-### 3.2 Reference enrichment agent (PoC de *productor*)
+### 3.2 Agente de enriquecimiento de referencia (PoC de *productor*)
 
 Dos pasadas:
 
@@ -202,7 +212,7 @@ python -m reference_agent enrich \
   --web-seed-file <seeds.txt> --out ./bundles/<name>
 ```
 
-### 3.3 Visualizer (PoC de *consumidor*)
+### 3.3 Visualizador (PoC de *consumidor*)
 
 ```bash
 python -m reference_agent visualize --bundle ./bundles/<name>
@@ -320,7 +330,8 @@ El demo OKF mapea cada `.md` a una **entry** de Knowledge Catalog usando el **Do
 - `kcmd` "Metadata as Code" (ruta de ingestión `push`/`pull`, EntryGroup): https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode
 - Demo OKF Wiki (mapeo `.md` → entry, aspecto `overview`, fallback `generic`): https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/toolbox/mdcode/demo
 - Knowledge Catalog = Dataplex Universal Catalog (renombre 10-abr-2026): https://docs.cloud.google.com/dataplex/docs/introduction
-### Ecosistema de comunidad (tooling/adopción de terceros)
+
+### Ecosistema de comunidad (herramientas/adopción de terceros)
 
 - OKF Conformance Suite (validador): https://witscode.com/okf-conformance
 - Data Product SDK v0.2.5 (soporte OKF): https://blog.opendataproducts.org/open-knowledge-format-support-in-data-product-sdk-v0-2-5-3a4f5b3e4c3a

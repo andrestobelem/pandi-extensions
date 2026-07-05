@@ -1,25 +1,29 @@
-# Sistema de Personas (agentType) — Code Review
+# Sistema de Personas (`agentType`) — revisión técnica
 
-Date: 2026-06-29
+Fecha: 2026-06-29
+
+## En 30 segundos
+
+Este documento revisa el subsistema de **Personas** de `pandi-dynamic-workflows`: dónde se definen, cómo se resuelven y fusionan, y qué riesgos de correctitud, seguridad y consistencia aparecen. La lectura está pensada como una revisión escéptica y read-only, con referencias `file:line` para verificar cada afirmación.
 
 ## Objetivo
 
-Revisar el subsistema de **Personas** de `pandi-dynamic-workflows`: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene. Lente: skeptical code reviewer, read-only, con cita `file:line`.
+Revisar el subsistema de **Personas** de `pandi-dynamic-workflows`: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene.
 
 ## Dónde vive
 
 - **Definición:** `extensions/pandi-dynamic-workflows/agent-env-persona.ts`
-  — `BUILTIN_AGENT_PERSONAS` (5 personas, líneas 27–58) + resolución/merge/carga.
+  — `BUILTIN_AGENT_PERSONAS` (6 personas, líneas 27–58) + resolución/fusión/carga.
 - **Personas de proyecto:** archivos `.pi/personas/<name>.json` (`loadProjectPersona`, línea 228).
-  Hoy **no hay ninguna** en el repo.
+  Sí existen personas de proyecto en el repo: `.pi/personas/andrej-karpathy.json`, `uncle-bob.json`, `dave-farley.json`, `kent-beck.json`.
 - **Aplicación:** `index.ts:713` → `applyPersonaOptions` (antes de `applyDefaultAgentAccess`).
 - **Uso real:** `.pi/workflows/*.js` (loop-engineering, modularize-audit) + tests + README.
-  Las 5 personas: `explore·medium`, `reviewer·high`, `planner·high`, `implementer·medium`,
-  `researcher·high` — coinciden exacto con el README raíz y el skill `ultracode`.
+  Las 6 personas: `explore·medium`, `reviewer·high`, `planner·high`, `architect·high`, `implementer·medium`,
+  `researcher·high` — no coinciden exactamente con el README raíz ni con el skill `ultracode`.
 
 ## Lo que está bien (no tocar)
 
-- **Gate de confianza** (`agent-env-persona.ts:229`): proyecto no-confiable → ignora
+- **Gate de confianza** (`agent-env-persona.ts:229`): proyecto no confiable → ignora
   `.pi/personas/*` y cae a built-in. Correcto: una persona puede setear `env`/`keys`/`tools`/
   `systemPrompt`, todos poderosos.
 
@@ -29,8 +33,8 @@ Revisar el subsistema de **Personas** de `pandi-dynamic-workflows`: dónde se de
 - `sanitizePersonaOptions` (línea 199) **no** copia `agentType` → un JSON de proyecto no puede
   re-disparar la resolución (sin recursión) ni inyectar `schema`/`prompt`.
 
-- `appendSystemPrompt` se concatena de forma determinista (línea 211); merge determinista; los
-  niveles de `thinking` respetan el contrato documentado.
+- `appendSystemPrompt` se concatena de forma determinista (línea 211); la fusión es determinista;
+  los niveles de `thinking` respetan el contrato documentado.
 
 ## Hallazgos (por peso)
 
@@ -41,9 +45,9 @@ persona (lo que hace que `reviewer` sea escéptico) vive en `systemPrompt`, que 
 pisable: si el caller pasa su propio `systemPrompt`, **borra entero** el de la persona y sólo
 `appendSystemPrompt` sobrevive (concatenado).
 
-Resultado: podés pedir `agentType:"reviewer"` y, si además pasás `systemPrompt`, la reviewer-ness
-desaparece en silencio. Es coherente con "lo explícito gana", pero el comportamiento identitario
-quedó en el campo clobbereable.
+Resultado: podés pedir `agentType:"reviewer"` y, si además pasás `systemPrompt`, la identidad de
+`reviewer` desaparece en silencio. Es coherente con “lo explícito gana”, pero el comportamiento
+identitario quedó en el campo clobbereable.
 
 **Fix:** si las personas deben ser *defaults pegajosos*, mover su prompt de identidad a
 `appendSystemPrompt`; si no, documentar explícitamente el clobber. **Es el punto más sustantivo.**
@@ -55,7 +59,7 @@ case preservado (líneas 230–231). En sistemas de archivos case-sensitive (Lin
 **no** encuentra `Reviewer.json` pero **sí** el built-in `reviewer` → usa el built-in en silencio aunque
 hubiera un override de proyecto.
 
-En macOS el comportamiento del sistema de archivos lo tapa.
+En macOS, el comportamiento del sistema de archivos lo tapa.
 
 **Fix de 1 línea:** bajar a minúscula en ambos lados (o en ninguno) para que built-in y proyecto
 resuelvan igual.
@@ -70,9 +74,8 @@ resuelvan igual.
 
 ### 4. `implementer`: el prompt promete editar, los tools no dejan
 
-`agent-env-persona.ts:46–51`: el `systemPrompt` dice "Do not edit files unless explicitly allowed
-by the caller", pero el default es `READ_ONLY_AGENT_TOOLS`. "Allowed" exige que el caller
-**también** override `tools` (con `approve` solo no alcanza).
+`agent-env-persona.ts:46–51`: el `systemPrompt` dice "Do not edit files unless explicitly allowed by the caller", pero el default es `READ_ONLY_AGENT_TOOLS`. "Allowed" exige que el caller
+**también** haga override de `tools` (con `approve` solo no alcanza).
 
 El comportamiento es seguro y conservador; sólo la redacción induce a error.
 
@@ -84,10 +87,10 @@ El comportamiento es seguro y conservador; sólo la redacción induce a error.
 `scaffolds/` lo usa; ahí se rutea todo por `node(role)` + mapas `models{}`/`efforts{}`.
 
 Conviven dos mecanismos: **persona** (`systemPrompt` + `thinking`) vs **node-role** (`model`/`effort`).
-No es bug, pero los scaffolds hoy sólo heredan model/effort, no la **identidad** (el `systemPrompt`
+No es bug, pero los scaffolds hoy sólo heredan `model`/`effort`, no la **identidad** (el `systemPrompt`
 escéptico, etc.). Decisión pendiente: ¿adoptar `agentType` en los scaffolds?
 
-### 6. Doc gap (menor)
+### 6. Brecha de documentación (menor)
 
 El README de la extensión (`extensions/pandi-dynamic-workflows/README.md`) no menciona personas; sí
 lo hacen el README raíz (líneas 158, 402, 500, 525) y el skill.

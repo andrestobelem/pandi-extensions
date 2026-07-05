@@ -1,5 +1,5 @@
 /**
- * pi-dynamic-workflows focus observability (pure).
+ * pandi-dynamic-workflows focus observability (pure).
  *
  * "Measure focus live" (context-engineering §4), in the spirit of OpenTelemetry
  * GenAI spans: fold the Pi JSON-mode event stream a subagent already emits into
