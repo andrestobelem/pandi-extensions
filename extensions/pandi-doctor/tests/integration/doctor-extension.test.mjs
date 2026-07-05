@@ -171,7 +171,7 @@ async function scenarioCheckLogic(url) {
 		const res = await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR });
 		check(
 			"runDoctorCheck: spawnError → error + mentions the failure",
-			res.type === "error" && /ENOENT|could not run/i.test(res.text),
+			res.type === "error" && /ENOENT|no se pudo ejecutar/i.test(res.text),
 			JSON.stringify(res),
 		);
 	}

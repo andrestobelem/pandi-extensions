@@ -123,20 +123,20 @@ export function resolveDoctorScript(startCwd: string, extDir: string): string | 
 }
 
 const NOT_IN_REPO_HINT =
-	"Could not find `scripts/doctor.mjs` — run `/doctor` from within the pandi-extensions repo (or use `npm run doctor`).";
+	"No se encontró `scripts/doctor.mjs` — corré `/doctor` desde dentro del repo pandi-extensions (o usá `npm run doctor`).";
 
 /** Map a DoctorResult to notify text + severity. */
 export function formatDoctorOutput(result: DoctorResult): { text: string; type: "info" | "warning" | "error" } {
 	if (result.spawnError) {
-		return { text: `Could not run the doctor check: ${result.spawnError}`, type: "error" };
+		return { text: `No se pudo ejecutar el chequeo del doctor: ${result.spawnError}`, type: "error" };
 	}
 	if (result.timedOut) {
 		return {
-			text: "The doctor check timed out — run `npm run doctor` directly for more time to finish.",
+			text: "El chequeo del doctor superó el tiempo límite — corré `npm run doctor` directamente para darle más tiempo.",
 			type: "error",
 		};
 	}
-	const text = result.stdout.trim() || result.stderr.trim() || "(doctor produced no output)";
+	const text = result.stdout.trim() || result.stderr.trim() || "(el doctor no produjo salida)";
 	return { text, type: result.ok ? "info" : "error" };
 }
 
