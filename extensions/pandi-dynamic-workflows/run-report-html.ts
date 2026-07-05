@@ -195,6 +195,14 @@ header .sub { color:var(--ink2); font-size:13px; }
 .meter.warn span { background:var(--warning); }
 .monitor-table { margin-top:8px; }
 .monitor-table tr.featured td { background:var(--info-bg); }
+.agent-chipline { display:flex; flex-wrap:wrap; gap:5px; }
+.mini-chip { display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:999px; padding:2px 7px; background:var(--bg); color:var(--ink2); font-size:11.5px; white-space:nowrap; }
+.mini-chip.ok { border-color:var(--success); color:var(--success); background:var(--success-bg); }
+.mini-chip.warn { border-color:var(--warning); color:var(--warning); background:var(--warning-bg); }
+.mini-chip.fail { border-color:var(--error); color:var(--error); background:var(--error-bg); }
+.monitor-selected { display:grid; gap:5px; }
+.monitor-detail-line { color:var(--ink2); }
+.monitor-subtitle { margin-top:4px; color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
 .rpill { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }
 .rpill.ok   { background:var(--success-bg); color:var(--success); border:1px solid var(--success); }
 .rpill.run  { background:var(--info-bg);    color:var(--info);    border:1px solid var(--info); }
@@ -351,6 +359,39 @@ function progressValue(summary: ProgressSummary): string {
 	return `${summary.done}/${summary.total}${summary.openEnded ? "+" : ""}`;
 }
 
+function shortModel(model: string): string {
+	return model.split("/").filter(Boolean).pop() ?? model;
+}
+
+function commaListCount(value: string | undefined): number | undefined {
+	if (!value) return undefined;
+	const count = value
+		.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean).length;
+	return count || undefined;
+}
+
+function compactInlineText(value: string, max = 220): string {
+	const oneLine = value.replace(/\s+/g, " ").trim();
+	if (oneLine.length <= max) return oneLine;
+	return `${oneLine.slice(0, Math.max(0, max - 1))}…`;
+}
+
+function skillsText(agent: RunReportAgent): string {
+	if (agent.skills) return `${agent.skills}${agent.includeSkills ? " + discovery" : " (explicit only)"}`;
+	return agent.includeSkills === false ? "disabled" : "default discovery";
+}
+
+function extensionsText(agent: RunReportAgent): string {
+	if (agent.extensions) return `${agent.extensions}${agent.includeExtensions ? " + discovery" : " (explicit only)"}`;
+	return agent.includeExtensions ? "default discovery" : "disabled";
+}
+
+function keysText(agent: RunReportAgent): string {
+	return agent.keys ? agent.keys : agent.isolatedEnv ? "none selected" : "default inherited environment";
+}
+
 function agentAccessMeta(agent: RunReportAgent): string {
 	return [
 		agent.promptAvailable ? "prompt✓" : agent.promptAvailable === false ? "prompt?" : "",
@@ -359,26 +400,101 @@ function agentAccessMeta(agent: RunReportAgent): string {
 		agent.thinking ? `effort ${agent.thinking}` : "",
 		agent.tools ? `tools: ${agent.tools}` : "tools: default",
 		agent.excludeTools ? `exclude: ${agent.excludeTools}` : "",
-		agent.skills
-			? `skills: ${agent.skills}${agent.includeSkills ? " + discovery" : ""}`
-			: agent.includeSkills === false
-				? "skills: disabled"
-				: "skills: default discovery",
-		agent.extensions
-			? `extensions: ${agent.extensions}${agent.includeExtensions ? " + discovery" : ""}`
-			: agent.includeExtensions
-				? "extensions: default discovery"
-				: "extensions: disabled",
-		agent.keys
-			? `keys: ${agent.keys}`
-			: agent.isolatedEnv
-				? "keys: none selected"
-				: "keys: default inherited environment",
+		`skills: ${skillsText(agent)}`,
+		`extensions: ${extensionsText(agent)}`,
+		`keys: ${keysText(agent)}`,
 		agent.missingKeys ? `missing: ${agent.missingKeys}` : "",
 		agent.isolatedEnv ? "isolated env" : "",
 	]
 		.filter(Boolean)
 		.join(" · ");
+}
+
+function agentRowMeta(agent: RunReportAgent): string[] {
+	const toolCount = commaListCount(agent.tools);
+	const skillCount = commaListCount(agent.skills);
+	const extensionCount = commaListCount(agent.extensions);
+	const keyCount = commaListCount(agent.keys);
+	const missingCount = commaListCount(agent.missingKeys);
+	const chips = [
+		agent.promptAvailable ? "prompt✓" : "prompt?",
+		agent.schemaOk !== undefined ? `schema:${agent.schemaOk ? "ok" : "bad"}` : "",
+		agent.model ? `model:${shortModel(agent.model)}` : "",
+		agent.thinking ? `effort:${agent.thinking}` : "",
+		`tools:${toolCount ?? "default"}`,
+		`skills:${skillCount ?? (agent.includeSkills === false ? "off" : "default")}`,
+		`ext:${extensionCount ?? (agent.includeExtensions ? "default" : "off")}`,
+		`keys:${keyCount ?? (agent.isolatedEnv ? "none" : "default")}`,
+		missingCount ? `missing:${missingCount}` : "",
+	];
+	return chips.filter(Boolean);
+}
+
+function miniChipClass(label: string): string {
+	if (label === "prompt✓" || label === "schema:ok") return "ok";
+	if (label === "prompt?" || label.startsWith("missing:")) return "warn";
+	if (label === "schema:bad") return "fail";
+	return "";
+}
+
+function renderMiniChips(chips: string[]): string {
+	return `<div class="agent-chipline">${chips
+		.map(
+			(label) =>
+				`<span class="mini-chip${miniChipClass(label) ? ` ${miniChipClass(label)}` : ""}">${escapeHtml(label)}</span>`,
+		)
+		.join("")}</div>`;
+}
+
+function detailLine(label: string, valueHtml: string): string {
+	return `<div class="monitor-detail-line"><span class="kv muted">${escapeHtml(label)}:</span> ${valueHtml}</div>`;
+}
+
+function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): string {
+	const artifact = link(agent.artifactHref, "artifact.md");
+	const promptStatus = agent.promptAvailable ? "available" : "not available";
+	const phase = agent.phaseLabel ? detailLine("phase", escapeHtml(agent.phaseLabel)) : "";
+	const config = [
+		detailLine(
+			"model",
+			`${escapeHtml(agent.model ?? "default")} <span class="muted">•</span> effort: ${escapeHtml(agent.thinking ?? "default")}`,
+		),
+		detailLine(
+			"tools",
+			`${escapeHtml(agent.tools ?? "default")}${agent.excludeTools ? ` <span class="muted">•</span> exclude: ${escapeHtml(agent.excludeTools)}` : ""}`,
+		),
+		detailLine("skills", escapeHtml(skillsText(agent))),
+		detailLine("extensions", escapeHtml(extensionsText(agent))),
+		detailLine(
+			"keys",
+			`${escapeHtml(keysText(agent))}${agent.missingKeys ? ` <span class="muted">•</span> missing: ${escapeHtml(agent.missingKeys)}` : ""}`,
+		),
+		agent.isolatedEnv ? detailLine("env", "isolated") : "",
+	]
+		.filter(Boolean)
+		.join("");
+	const io = [
+		agent.promptPreview ? detailLine("prompt preview", escapeHtml(compactInlineText(agent.promptPreview, 220))) : "",
+		agent.output ? detailLine("output", escapeHtml(compactInlineText(agent.output.text, 220))) : "",
+	]
+		.filter(Boolean)
+		.join("");
+	return (
+		`<div class="callout ${failed ? "error" : "info"} monitor-selected"><b>Selected agent</b>` +
+		detailLine("agent", `#${escapeHtml(String(agent.id))} ${escapeHtml(agent.name)}`) +
+		detailLine(
+			"state",
+			`${escapeHtml(agent.state)}${agent.elapsedMs !== undefined ? ` <span class="muted">•</span> ${escapeHtml(`${Math.round(agent.elapsedMs / 100) / 10}s`)}` : ""}${agent.code !== undefined ? ` <span class="muted">•</span> code ${escapeHtml(String(agent.code))}` : ""}`,
+		) +
+		phase +
+		detailLine(
+			"prompt",
+			`${escapeHtml(promptStatus)}${artifact ? ` <span class="muted">•</span> ${artifact}` : ""}`,
+		) +
+		`<div class="monitor-subtitle">config</div>${config}` +
+		(io ? `<div class="monitor-subtitle">i/o</div>${io}` : "") +
+		`</div>`
+	);
 }
 
 function renderWorkflowMonitor(model: RunReportModel, summary: ProgressSummary): string {
@@ -393,7 +509,6 @@ function renderWorkflowMonitor(model: RunReportModel, summary: ProgressSummary):
 			agent.phaseLabel ? `phase ${agent.phaseLabel}` : "",
 			agent.elapsedMs !== undefined ? `elapsed ${Math.round(agent.elapsedMs / 100) / 10}s` : "",
 			agent.code !== undefined ? `code ${agent.code}` : "",
-			agentAccessMeta(agent),
 		]
 			.filter(Boolean)
 			.join(" · ");
@@ -402,15 +517,14 @@ function renderWorkflowMonitor(model: RunReportModel, summary: ProgressSummary):
 			`<td><span class="rpill ${pillClass(agent.state, agent.ok)}">${escapeHtml(agent.state)}</span></td>` +
 			`<td class="mono">#${escapeHtml(String(agent.id))}</td>` +
 			`<td>${escapeHtml(agent.name)}${meta ? `<div class="kv muted">${escapeHtml(meta)}</div>` : ""}</td>` +
-			`<td>${escapeHtml(agent.tools ?? "default")}</td>` +
-			`<td>${escapeHtml(agent.skills ?? "default")}</td>` +
+			`<td>${renderMiniChips(agentRowMeta(agent))}</td>` +
 			`</tr>`
 		);
 	};
 	const agentRows = model.agents.map(row).join("");
 	const featuredHint = featured
-		? `<div class="callout ${summary.failed ? "error" : "info"}"><b>Selected agent:</b> #${escapeHtml(String(featured.id))} ${escapeHtml(featured.name)} — ${escapeHtml(featured.state)}.<div class="kv muted">${escapeHtml(agentAccessMeta(featured))}</div></div>`
-		: `<div class="callout info"><b>Selected agent:</b> no agents recorded yet.</div>`;
+		? renderMonitorSelectedAgent(featured, summary.failed > 0)
+		: `<div class="callout info monitor-selected"><b>Selected agent</b><div class="monitor-detail-line muted">No agents recorded yet.</div></div>`;
 	return (
 		`<section class="monitor-panel"><div class="monitor-head"><h2>Workflow monitor</h2>` +
 		`<span class="rpill ${pillClass(model.state)}">${escapeHtml(model.state)}</span></div>` +
@@ -443,7 +557,7 @@ function renderWorkflowMonitor(model: RunReportModel, summary: ProgressSummary):
 		featuredHint +
 		`<h2>Agent monitor</h2>` +
 		(agentRows
-			? `<table class="monitor-table"><thead><tr><th>State</th><th>ID</th><th>Agent</th><th>Tools</th><th>Skills</th></tr></thead><tbody>${agentRows}</tbody></table>`
+			? `<table class="monitor-table"><thead><tr><th>State</th><th>ID</th><th>Agent</th><th>Monitor chips</th></tr></thead><tbody>${agentRows}</tbody></table>`
 			: `<div class="muted">No agents recorded for this run.</div>`) +
 		`</section>`
 	);

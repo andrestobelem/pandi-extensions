@@ -47,13 +47,14 @@ function model() {
 				state: "completed",
 				ok: true,
 				elapsedMs: 1200,
-				model: "haiku",
+				model: "anthropic/claude-sonnet-5",
 				thinking: "low",
 				schemaOk: true,
 				phaseLabel: "Scout",
 				promptAvailable: true,
+				promptPreview: "inspect target files and summarize the risk before editing",
 				prompt: { text: "inspect", truncated: false },
-				output: { text: "ok", truncated: false },
+				output: { text: "ok result for monitor", truncated: false },
 				artifactHref: "agents/0001-scout.md",
 				tools: "read, bash",
 				excludeTools: "write",
@@ -72,9 +73,23 @@ function model() {
 				ok: false,
 				code: 1,
 				elapsedMs: 3000,
-				model: "sonnet",
+				model: "anthropic/claude-sonnet-5",
 				thinking: "medium",
+				schemaOk: false,
 				phaseLabel: "Review",
+				promptAvailable: true,
+				promptPreview: "review failed branch and explain risk",
+				output: { text: "boom output for monitor", truncated: false },
+				artifactHref: "agents/0002-reviewer.md",
+				tools: "read, bash",
+				excludeTools: "write",
+				skills: "karpathy-guidelines",
+				includeSkills: true,
+				extensions: "pi-codex-web-search",
+				includeExtensions: true,
+				keys: "OPENAI_API_KEY",
+				missingKeys: "ANTHROPIC_API_KEY",
+				isolatedEnv: true,
 				stderrTail: { text: "boom" },
 			},
 		],
@@ -101,21 +116,52 @@ check("monitor shows latest activity", html.includes("Latest activity") && html.
 check("monitor includes a compact agent matrix", html.includes("Agent monitor") && html.includes("reviewer"));
 check("monitor makes failed agents visible early", html.indexOf("reviewer") < html.indexOf("Agents (2)"));
 const monitorSlice = html.slice(html.indexOf("Workflow monitor"), html.indexOf("Agents (2)"));
-check("monitor surfaces prompt availability early", monitorSlice.includes("prompt✓"), monitorSlice);
-check("monitor surfaces schema state early", monitorSlice.includes("schema ok"), monitorSlice);
-check("monitor surfaces excluded tools early", monitorSlice.includes("exclude: write"), monitorSlice);
+const monitorText = monitorSlice.replace(/<[^>]+>/g, "");
+check("monitor row surfaces prompt chip early", monitorSlice.includes("prompt✓"), monitorSlice);
+check("monitor row surfaces compact schema chip early", monitorSlice.includes("schema:ok"), monitorSlice);
+check("monitor row surfaces short model chip early", monitorSlice.includes("model:claude-sonnet-5"), monitorSlice);
+check("monitor row surfaces effort chip early", monitorSlice.includes("effort:low"), monitorSlice);
+check("monitor row counts tools early", monitorSlice.includes("tools:2"), monitorSlice);
+check("monitor row counts skills early", monitorSlice.includes("skills:1"), monitorSlice);
+check("monitor row counts extensions early", monitorSlice.includes("ext:1"), monitorSlice);
+check("monitor row counts key access early", monitorSlice.includes("keys:1"), monitorSlice);
+check("monitor row counts missing keys early", monitorSlice.includes("missing:1"), monitorSlice);
+check("monitor selected agent has a structured detail block", monitorText.includes("agent: #2 reviewer"), monitorSlice);
+check("monitor selected agent surfaces prompt artifact early", monitorText.includes("prompt: available"), monitorSlice);
+check("monitor selected agent surfaces config section early", monitorText.includes("config"), monitorSlice);
 check(
-	"monitor surfaces skills discovery early",
-	monitorSlice.includes("skills: karpathy-guidelines + discovery"),
+	"monitor selected agent surfaces full model and effort early",
+	monitorText.includes("model: anthropic/claude-sonnet-5") && monitorText.includes("effort: medium"),
+	monitorSlice,
+);
+check("monitor selected agent surfaces excluded tools early", monitorText.includes("exclude: write"), monitorSlice);
+check(
+	"monitor selected agent surfaces skills discovery early",
+	monitorText.includes("skills: karpathy-guidelines + discovery"),
 	monitorSlice,
 );
 check(
-	"monitor surfaces extension discovery early",
-	monitorSlice.includes("extensions: pi-codex-web-search + discovery"),
+	"monitor selected agent surfaces extension discovery early",
+	monitorText.includes("extensions: pi-codex-web-search + discovery"),
 	monitorSlice,
 );
-check("monitor surfaces key access early", monitorSlice.includes("keys: OPENAI_API_KEY"), monitorSlice);
-check("monitor surfaces missing keys early", monitorSlice.includes("missing: ANTHROPIC_API_KEY"), monitorSlice);
+check("monitor selected agent surfaces key access early", monitorText.includes("keys: OPENAI_API_KEY"), monitorSlice);
+check(
+	"monitor selected agent surfaces missing keys early",
+	monitorText.includes("missing: ANTHROPIC_API_KEY"),
+	monitorSlice,
+);
+check("monitor selected agent surfaces i/o section early", monitorText.includes("i/o"), monitorSlice);
+check(
+	"monitor selected agent surfaces prompt preview early",
+	monitorText.includes("prompt preview: review failed branch"),
+	monitorSlice,
+);
+check(
+	"monitor selected agent surfaces output preview early",
+	monitorText.includes("output: boom output for monitor"),
+	monitorSlice,
+);
 check("run report remains script-free", !/<script/i.test(html));
 
 const interruptedHtml = mod.buildRunReportHtml({
@@ -146,9 +192,9 @@ check(
 );
 check(
 	"interrupted selected agent uses an error callout",
-	/<div class="callout error"><b>Selected agent:<\/b>[\s\S]*interrupted-reviewer[\s\S]*interrupted/.test(
-		interruptedHtml,
-	),
+	interruptedHtml.includes('class="callout error monitor-selected"') &&
+		/interrupted-reviewer[\s\S]*state:<\/span> interrupted/.test(interruptedHtml),
+	interruptedHtml,
 );
 
 const unknownHtml = mod.buildRunReportHtml({
