@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-auto-compact",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Pi extension that auto-compacts context when usage crosses a configurable threshold.",
 	"license": "MIT",
 	"repository": {

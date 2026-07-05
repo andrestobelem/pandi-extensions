@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-ask",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Pi extension with interactive decision tools (ask_choice, ask_confirm) the model can call to pop a TUI selector / confirm dialog and read back the choice.",
 	"license": "MIT",
 	"repository": {

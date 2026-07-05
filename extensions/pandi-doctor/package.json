@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-doctor",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Pi extension that adds /doctor: an in-session run of the pandi-extensions environment check (scripts/doctor.mjs).",
 	"license": "MIT",
 	"repository": {
