@@ -43,6 +43,10 @@ function formatUltracodeContractGatePrompt(taskLabel = "Ultracode tasks"): strin
 - Use the improved task for the routing/scouting decision and mention whether the Contract Gate ran, was skipped as trivial, or was blocked.`;
 }
 
+function formatOptionalContractGatePrompt(taskLabel: string, contractGateEnabled: boolean): string {
+	return contractGateEnabled ? `\n\n${formatUltracodeContractGatePrompt(taskLabel)}` : "";
+}
+
 function formatUltracodeRoutingRules(style: "command" | "always-on"): string {
 	const trivialGate =
 		style === "command"
@@ -102,9 +106,10 @@ export function makeUltracodePrompt(
 		mode === "deep-research"
 			? "Use Pi Dynamic Workflows for a source-backed deep-research investigation."
 			: "Use Pi Dynamic Workflows when they are warranted for this task.";
-	const contractGate = contractGateEnabled
-		? `\n\n${formatUltracodeContractGatePrompt(mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks")}`
-		: "";
+	const contractGate = formatOptionalContractGatePrompt(
+		mode === "deep-research" ? "deep-research tasks" : "Ultracode tasks",
+		contractGateEnabled,
+	);
 	return `${header}
 
 Task:
@@ -116,7 +121,7 @@ ${formatUltracodeRoutingRules("command")}`;
 }
 
 export function makeAlwaysOnUltracodeSystemPrompt(contractGateEnabled = true): string {
-	const contractGate = contractGateEnabled ? `\n\n${formatUltracodeContractGatePrompt("tasks")}` : "";
+	const contractGate = formatOptionalContractGatePrompt("tasks", contractGateEnabled);
 	return `## Always-on Ultracode Router
 
 For substantive tasks, choose the lightest path that can verify the answer.${contractGate}
