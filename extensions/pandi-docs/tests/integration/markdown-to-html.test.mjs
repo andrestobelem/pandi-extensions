@@ -1,4 +1,4 @@
-// Tests de pinning para el conversor markdown-to-html de pi-docs (movidos acá desde el
+// Tests de pinning para el conversor markdown-to-html de pandi-docs (movidos acá desde el
 // skill pandi-artifact-style). Suite de pinning TDD: núcleo puro (renderMarkdownToHtml)
 // + una prueba de humo de CLI. Basada en node:test; run-all ejecuta el archivo directo y
 // node:test fija un código de salida distinto de cero ante fallas.

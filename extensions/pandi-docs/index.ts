@@ -1,5 +1,5 @@
 /**
- * pi-docs — convierte Markdown en un artifact HTML autocontenido con estilo según el
+ * pandi-docs — convierte Markdown en un artifact HTML autocontenido con estilo según el
  * manual pandi-artifact-style (layout Claude-design × paleta Panda Syntax).
  *
  * Dos superficies sobre el mismo conversor (./scripts/markdown-to-html.mjs):
