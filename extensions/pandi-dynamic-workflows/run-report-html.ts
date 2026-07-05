@@ -180,6 +180,7 @@ h2 { font-size:16px; color:var(--info); margin:28px 0 10px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+.opening { margin:14px 0 8px; color:var(--ink); background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:10px; padding:10px 14px; font-size:13.5px; }
 table { border-collapse:collapse; width:100%; font-size:13px; }
 th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
 th { color:var(--ink2); font-weight:600; }
@@ -236,6 +237,32 @@ function textBlock(
 		`<details${open ? " open" : ""}><summary>${escapeHtml(title)}${truncNote(t)}</summary>` +
 		`<div class="body">${body}</div></details>`
 	);
+}
+
+function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+	return count === 1 ? singular : pluralForm;
+}
+
+function openingText(model: RunReportModel, failedAgents: number): string {
+	const totalAgents = model.agents.length;
+	const agentLabel = plural(totalAgents, "agente");
+	const recordedLabel = plural(totalAgents, "registrado");
+	if (failedAgents > 0) {
+		return `${failedAgents} de ${totalAgents} ${plural(totalAgents, "agente")} falló${failedAgents === 1 ? "" : "n"}. Las tarjetas fallidas están abiertas abajo; empezá por ellas y luego revisá el output final si existe.`;
+	}
+	if (model.state === "running") {
+		return `Instantánea del run: ${totalAgents} ${agentLabel} ${recordedLabel} hasta ahora. El run sigue en progreso, así que outputs y métricas pueden cambiar.`;
+	}
+	if (model.state === "cancelled") {
+		return `El run fue cancelado con ${totalAgents} ${agentLabel} registrados. Usá la timeline y las tarjetas de agentes para encontrar el último paso confiable.`;
+	}
+	if (model.state === "stale") {
+		return `El run parece stale: hay ${totalAgents} ${agentLabel} ${recordedLabel}, pero esta sesión no confirma un owner activo. Tratá este reporte como diagnóstico, no como veredicto final.`;
+	}
+	if (model.state === "completed") {
+		return `${totalAgents} ${agentLabel} completaron el run sin fallas registradas. Empezá por el output final si existe; los detalles crudos quedan debajo para depurar.`;
+	}
+	return `Estado del run: ${model.state}. Hay ${totalAgents} ${agentLabel} registrados; revisá primero los callouts y después las tarjetas de agentes.`;
 }
 
 function link(href: string | undefined, label: string): string {
@@ -358,6 +385,7 @@ export function buildRunReportHtml(model: RunReportModel): string {
 		chip("elapsed", model.elapsedMs !== undefined ? `${Math.round(model.elapsedMs / 1000)}s` : undefined),
 		chip("generated", model.generatedAt),
 	].join("");
+	const opening = `<p class="opening">${escapeHtml(openingText(model, failedAgents))}</p>`;
 
 	const phaseRows = model.phases
 		.map(
@@ -439,6 +467,7 @@ ${LAYOUT_CSS}
 <div class="sub">${escapeHtml(model.scriptPath ?? "")}</div>
 <div class="chips">${chips}</div>
 </header>
+${opening}
 ${callouts.join("\n")}
 ${textBlock("Input", model.input)}
 ${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true)}` : ""}
