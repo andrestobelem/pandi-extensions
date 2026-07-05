@@ -2083,63 +2083,75 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		}),
 	});
 
-	pi.registerCommand("ultracode-contract", {
-		description: "Show or toggle the Ultracode Contract Gate for this session",
-		handler: async (args, ctx) => {
-			const value = parseToggleCommandValue(args);
+	const makeToggleCommandHandler = (options: {
+		resolveValue?: (args: string, ctx: ExtensionContext) => string | Promise<string>;
+		getEnabled: () => boolean;
+		setEnabled: (enabled: boolean) => void;
+		syncStatus: (ctx: ExtensionContext) => void;
+		onEnable?: (ctx: ExtensionContext) => void;
+		statusMessage: (enabled: boolean) => string;
+		enabledMessage: string;
+		disabledMessage: string;
+		usage: string;
+	}) => {
+		return async (args: string, ctx: ExtensionContext) => {
+			const rawValue = options.resolveValue ? await options.resolveValue(args, ctx) : args;
+			const value = parseToggleCommandValue(rawValue);
 			if (value === "status") {
-				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-				notify(ctx, `Ultracode Contract Gate is ${ultracodeContractGateEnabled ? "enabled" : "disabled"}.`, "info");
+				options.syncStatus(ctx);
+				notify(ctx, options.statusMessage(options.getEnabled()), "info");
 				return;
 			}
 			if (value === "on") {
-				ultracodeContractGateEnabled = true;
-				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-				notify(
-					ctx,
-					"Ultracode Contract Gate enabled: substantive workflow tasks will include task-contract review guidance.",
-					"info",
-				);
+				options.setEnabled(true);
+				options.onEnable?.(ctx);
+				options.syncStatus(ctx);
+				notify(ctx, options.enabledMessage, "info");
 				return;
 			}
 			if (value === "off") {
-				ultracodeContractGateEnabled = false;
-				setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-				notify(
-					ctx,
-					"Ultracode Contract Gate disabled for this session; workflow routing remains available.",
-					"warning",
-				);
+				options.setEnabled(false);
+				options.syncStatus(ctx);
+				notify(ctx, options.disabledMessage, "warning");
 				return;
 			}
-			notify(ctx, "Usage: /ultracode-contract [on|off|status]", "warning");
-		},
+			notify(ctx, options.usage, "warning");
+		};
+	};
+
+	pi.registerCommand("ultracode-contract", {
+		description: "Show or toggle the Ultracode Contract Gate for this session",
+		handler: makeToggleCommandHandler({
+			getEnabled: () => ultracodeContractGateEnabled,
+			setEnabled: (enabled) => {
+				ultracodeContractGateEnabled = enabled;
+			},
+			syncStatus: (ctx) => setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled),
+			statusMessage: (enabled) => `Ultracode Contract Gate is ${enabled ? "enabled" : "disabled"}.`,
+			enabledMessage:
+				"Ultracode Contract Gate enabled: substantive workflow tasks will include task-contract review guidance.",
+			disabledMessage: "Ultracode Contract Gate disabled for this session; workflow routing remains available.",
+			usage: "Usage: /ultracode-contract [on|off|status]",
+		}),
 	});
 
 	pi.registerCommand("ultracode-mode", {
 		description: "Show or toggle always-on ultracode workflow routing for this session",
-		handler: async (args, ctx) => {
-			const value = parseToggleCommandValue(await resolveUltracodeModeValue(args, ctx));
-			if (value === "status") {
-				setUltracodeStatus(ctx, ultracodeAlwaysOn);
-				notify(ctx, `Ultracode always-on is ${ultracodeAlwaysOn ? "enabled" : "disabled"}.`, "info");
-				return;
-			}
-			if (value === "on") {
-				ultracodeAlwaysOn = true;
+		handler: makeToggleCommandHandler({
+			resolveValue: resolveUltracodeModeValue,
+			getEnabled: () => ultracodeAlwaysOn,
+			setEnabled: (enabled) => {
+				ultracodeAlwaysOn = enabled;
+			},
+			syncStatus: (ctx) => setUltracodeStatus(ctx, ultracodeAlwaysOn),
+			onEnable: () => {
 				ensureDynamicWorkflowToolActive(pi);
-				setUltracodeStatus(ctx, ultracodeAlwaysOn);
-				notify(ctx, "Ultracode always-on enabled: Pi will evaluate each task for workflow routing.", "info");
-				return;
-			}
-			if (value === "off") {
-				ultracodeAlwaysOn = false;
-				setUltracodeStatus(ctx, ultracodeAlwaysOn);
-				notify(ctx, "Ultracode always-on disabled for this session.", "warning");
-				return;
-			}
-			notify(ctx, "Usage: /ultracode-mode [on|off|status]", "warning");
-		},
+			},
+			statusMessage: (enabled) => `Ultracode always-on is ${enabled ? "enabled" : "disabled"}.`,
+			enabledMessage: "Ultracode always-on enabled: Pi will evaluate each task for workflow routing.",
+			disabledMessage: "Ultracode always-on disabled for this session.",
+			usage: "Usage: /ultracode-mode [on|off|status]",
+		}),
 	});
 
 	pi.on("input", (event) => {
