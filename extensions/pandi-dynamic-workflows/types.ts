@@ -39,6 +39,17 @@ export interface AgentPhaseInfo {
 	label?: string;
 }
 
+export interface AgentFocusMetricsSummary {
+	turns?: number;
+	inputTokensPeak?: number;
+	outputTokensTotal?: number;
+	totalTokens?: number;
+	costTotal?: number;
+	toolCalls?: number;
+	toolErrors?: number;
+	autoRetries?: number;
+}
+
 export interface AgentOptions {
 	name?: string;
 	cwd?: string;
@@ -101,6 +112,7 @@ export interface SubagentResult {
 	phaseLabel?: string;
 	data?: unknown;
 	schemaOk?: boolean;
+	metrics?: AgentFocusMetricsSummary;
 }
 
 export interface BashResult {
@@ -250,7 +262,10 @@ export interface AgentMonitorModel {
 	phaseTotal?: number;
 	phaseLabel?: string;
 	promptPreview?: string;
+	promptCopy?: string;
+	promptTruncated?: boolean;
 	output?: string;
 	schemaOk?: boolean;
+	metrics?: AgentFocusMetricsSummary;
 	promptAvailable: boolean;
 }

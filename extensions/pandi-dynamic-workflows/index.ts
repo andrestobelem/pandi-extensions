@@ -64,6 +64,7 @@ import {
 	validateStructuredData,
 } from "./structured-output.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
+import { buildWorkflowGraphModelWithSubworkflows } from "./workflow-graph.js";
 
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 
@@ -185,6 +186,7 @@ export const PI_SESSION_HEARTBEAT_MS = 5_000;
 // Grace period after SIGTERM before escalating to SIGKILL for spawned child processes.
 export const PROCESS_KILL_GRACE_MS = 2_000;
 export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
+const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
 // Label embedded in the editor's top border (the violet prompt line) while
 // always-on Ultracode routing is active, so the router state is visible there too.
 /**
@@ -291,6 +293,7 @@ interface WorkflowRuntimeApi {
 	input: unknown;
 	limits: Readonly<RunLimits>;
 	log(message: string, details?: unknown): Promise<void>;
+	phase(label: string): Promise<void>;
 	agent(prompt: string, options?: AgentOptions): Promise<SubagentResult>;
 	agents(
 		items: (string | AgentSpec)[],
@@ -562,6 +565,7 @@ async function executeWorkflowCode(
 	throwIfAborted(signal);
 	const allowedMethods = new Set<keyof WorkflowRuntimeApi>([
 		"log",
+		"phase",
 		"agent",
 		"agents",
 		"workflow",
@@ -706,6 +710,25 @@ async function executeWorkflowCode(
 	});
 }
 
+async function writeWorkflowRunSnapshots(
+	ctx: ExtensionContext,
+	workflowFile: WorkflowFile,
+	code: string,
+	runDir: string,
+): Promise<void> {
+	await fs.writeFile(path.join(runDir, "workflow-source.js"), code, "utf8");
+	await fs.writeFile(path.join(runDir, "workflow-transformed.cjs"), transformWorkflowCode(code), "utf8");
+	try {
+		const graph = await buildWorkflowGraphModelWithSubworkflows(ctx, workflowFile, code);
+		await writeJsonFile(path.join(runDir, "workflow-graph.json"), graph);
+	} catch (err) {
+		await writeJsonFile(path.join(runDir, "workflow-graph.json"), {
+			workflow: { name: workflowFile.name, scope: workflowFile.scope, path: workflowFile.path },
+			error: err instanceof Error ? err.message : String(err),
+		});
+	}
+}
+
 export async function runWorkflow(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
@@ -730,6 +753,7 @@ export async function runWorkflow(
 	// so freshly re-run subagents never overwrite the cached ones.
 	let agentCount = preparedRun.resume?.baseAgentCount ?? 0;
 	let agentPhaseCount = 0;
+	let explicitPhaseCount = 0;
 	let parallelAgents = 0;
 	let peakParallelAgents = preparedRun.resume?.previousPeakParallelAgents ?? 0;
 	let state: WorkflowRunState = "running";
@@ -812,6 +836,15 @@ export async function runWorkflow(
 		logs.push(entry);
 		await appendEvent({ type: "log", ...entry });
 		await publishStatus();
+	}
+
+	async function phase(label: string): Promise<void> {
+		const text = String(label ?? "").trim();
+		if (!text) return;
+		const time = new Date().toISOString();
+		const id = ++explicitPhaseCount;
+		await appendEvent({ type: "phase", id, label: text, time });
+		await log(`phase: ${text}`);
 	}
 
 	async function writeArtifact(name: string, data: unknown): Promise<{ path: string }> {
@@ -1299,6 +1332,9 @@ export async function runWorkflow(
 			...phaseFields,
 			...(schema === undefined ? {} : { data: schemaData, schemaOk: schemaOk === true }),
 		};
+		const promptCopy =
+			prompt.length > MAX_AGENT_PROMPT_COPY_IN_EVENT ? prompt.slice(0, MAX_AGENT_PROMPT_COPY_IN_EVENT) : prompt;
+		const promptTruncated = prompt.length > MAX_AGENT_PROMPT_COPY_IN_EVENT;
 		const subagent = cacheEnabled ? normalizeSubagentResultForJournal(rawSubagent) : rawSubagent;
 		// A loser whose abort ARRIVED produces a hole, never a record or a phantom "completed" event.
 		// (A loser that completed before the abort round-tripped still journals -> B2, accepted.)
@@ -1312,6 +1348,9 @@ export async function runWorkflow(
 			startedAt: startedAtIso,
 			endedAt: endedAtIso,
 			promptAvailable: true,
+			promptCopy,
+			promptTruncated,
+			metrics: focus,
 			stdout: undefined,
 			stderr: undefined,
 			prompt: undefined,
@@ -1733,6 +1772,7 @@ export async function runWorkflow(
 			input: apiInput,
 			limits: runLimits,
 			log,
+			phase,
 			agent: namespacedAgent,
 			agents: makeRunAgents(namespacedAgent),
 			workflow: allowWorkflow
@@ -1801,6 +1841,7 @@ export async function runWorkflow(
 		// is written (resumes pass it in; fresh runs derive it here).
 		const code = await fs.readFile(workflowFile.path, "utf8");
 		if (!codeHash) codeHash = computeCodeHash(code);
+		await writeWorkflowRunSnapshots(ctx, workflowFile, code, runDir);
 		await persistStatus();
 		await log(`workflow start: ${workflowFile.name}`, {
 			file: workflowFile.path,

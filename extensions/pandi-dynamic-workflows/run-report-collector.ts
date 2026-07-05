@@ -242,12 +242,14 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 					).text,
 				}),
 	}));
-	const phases = logs
-		.map((entry) => {
-			const match = /^phase: (.+)$/.exec(entry.message);
-			return match ? { label: match[1], time: entry.time } : undefined;
-		})
-		.filter((p): p is { label: string; time: string } => p !== undefined);
+	const phases = events.phases.length
+		? events.phases
+		: logs
+				.map((entry) => {
+					const match = /^phase: (.+)$/.exec(entry.message);
+					return match ? { label: match[1], time: entry.time, source: "log" as const } : undefined;
+				})
+				.filter((p): p is { label: string; time: string; source: "log" } => p !== undefined);
 
 	const metricsById = new Map<number, NonNullable<MetricsFile["agents"]>[number]>();
 	for (const row of metrics?.agents ?? []) if (typeof row.id === "number") metricsById.set(row.id, row);
@@ -282,7 +284,9 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 		let prompt: RunReportText | undefined;
 		let output: RunReportText | undefined;
 		let data: RunReportText | undefined;
-		if (artifactHref) {
+		if (agent.promptCopy) {
+			prompt = { text: agent.promptCopy, truncated: agent.promptTruncated === true };
+		} else if (artifactHref) {
 			const prefix = await readBounded(path.join(runDir, artifactHref), B.promptChars);
 			const section = prefix ? extractMarkdownSection(prefix, "Prompt") : undefined;
 			if (section) prompt = boundedText(section, B.promptChars);
@@ -310,7 +314,7 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 			if (tail) stderrTail = { text: tail, href: stderrHref };
 		}
 
-		const m = metricsById.get(agent.id);
+		const m = agent.metrics ?? metricsById.get(agent.id);
 		agents.push({
 			id: agent.id,
 			name: agent.name,
