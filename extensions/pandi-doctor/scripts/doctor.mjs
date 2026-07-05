@@ -240,7 +240,7 @@ if (!SUITE_ROOT) {
 	// la suite, no de esta máquina — N/A, no un warning falso de "out of sync".
 	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(syncScript)) {
-	const sync = spawnSync("node", [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
+	const sync = spawnSync(process.execPath, [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
 	if (sync.error || typeof sync.status !== "number") {
 		// El check no pudo correr (spawn falló / timeout): no afirmes "drift", decí que no se verificó.
 		report("optional", WARN, syncLabel, "no se pudo verificar — corré `npm run sync:claude:global:check`");
@@ -266,7 +266,7 @@ const vendorLabel = "vendor skills (extensión)";
 if (!SUITE_ROOT) {
 	report("optional", dim("·"), vendorLabel, "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(vendorScript)) {
-	const vendor = spawnSync("node", [vendorScript, "--check"], { encoding: "utf8", timeout: 20000 });
+	const vendor = spawnSync(process.execPath, [vendorScript, "--check"], { encoding: "utf8", timeout: 20000 });
 	if (vendor.error || typeof vendor.status !== "number") {
 		report("optional", WARN, vendorLabel, "no se pudo verificar — corré `npm run sync:skills:vendor:check`");
 	} else if (vendor.status === 0) {

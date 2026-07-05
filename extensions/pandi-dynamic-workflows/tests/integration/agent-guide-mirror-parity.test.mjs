@@ -31,7 +31,7 @@ const CLAUDE = path.join(REPO_ROOT, "CLAUDE.md");
 const { check, counts } = createChecker();
 
 function runCheck() {
-	return spawnSync("node", [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+	return spawnSync(process.execPath, [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
 async function main() {

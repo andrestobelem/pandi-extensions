@@ -21,7 +21,7 @@ const SCRIPT = path.join(REPO_ROOT, "scripts", "check-doc-catalog-and-links.mjs"
 
 const { check, counts } = createChecker();
 
-const res = spawnSync("node", [SCRIPT], { cwd: REPO_ROOT, encoding: "utf8" });
+const res = spawnSync(process.execPath, [SCRIPT], { cwd: REPO_ROOT, encoding: "utf8" });
 
 check("check-doc-catalog-and-links.mjs exists", fs.existsSync(SCRIPT));
 check(

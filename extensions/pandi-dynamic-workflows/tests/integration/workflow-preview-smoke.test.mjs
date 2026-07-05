@@ -55,7 +55,7 @@ if (fs.existsSync(CLAUDE_TOKENS) && fs.existsSync(CANONICAL_TOKENS)) {
 for (const builder of BUILDERS) {
 	const out = path.join(tmp, `${builder.label.replace(/\W+/g, "-")}.html`);
 	check(`${builder.label} exists`, fs.existsSync(builder.path));
-	const res = spawnSync("node", [builder.path, SCAFFOLD, out, args], { cwd: REPO_ROOT, encoding: "utf8" });
+	const res = spawnSync(process.execPath, [builder.path, SCAFFOLD, out, args], { cwd: REPO_ROOT, encoding: "utf8" });
 	check(
 		`${builder.label} exits 0`,
 		res.status === 0,

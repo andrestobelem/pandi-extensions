@@ -37,7 +37,7 @@ const GEN = path.join(REPO_ROOT, "scripts", "vendor-extension-skills.mjs");
 const { check, counts } = createChecker();
 
 function runCheck() {
-	return spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+	return spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
 async function main() {

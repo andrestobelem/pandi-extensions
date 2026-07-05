@@ -42,7 +42,7 @@ const LABEL = "instalación sin doble copia";
 const { check, counts } = createChecker();
 
 function runDoctor(agentDir) {
-	return spawnSync("node", [DOCTOR], {
+	return spawnSync(process.execPath, [DOCTOR], {
 		cwd: REPO_ROOT,
 		encoding: "utf8",
 		env: { ...process.env, PI_DOCTOR_AGENT_DIR: agentDir, NO_COLOR: "1" },

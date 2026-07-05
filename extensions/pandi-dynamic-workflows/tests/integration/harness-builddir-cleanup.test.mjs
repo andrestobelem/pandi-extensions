@@ -40,7 +40,7 @@ console.log("EXISTS_DURING:" + existsSync(outDir));
 console.log("DIR:" + outDir);
 `,
 	);
-	const res = spawnSync("node", [childFile], { encoding: "utf8", timeout: 20000 });
+	const res = spawnSync(process.execPath, [childFile], { encoding: "utf8", timeout: 20000 });
 	const out = `${res.stdout || ""}`;
 	const existedDuring = /EXISTS_DURING:true/.test(out);
 	const m = out.match(/DIR:(.+)/);

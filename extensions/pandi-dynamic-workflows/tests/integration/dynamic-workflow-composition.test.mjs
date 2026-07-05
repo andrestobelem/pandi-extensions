@@ -710,7 +710,7 @@ async function scenarioRunProcessSigkillEscalation(url) {
 	if (typeof mod.runProcess !== "function") return;
 	const TIMED_OUT = Symbol("guard");
 	const guard = new Promise((res) => setTimeout(() => res(TIMED_OUT), 6000));
-	const run = mod.runProcess("node", ["-e", SIGTERM_IGNORING_CHILD], {
+	const run = mod.runProcess(process.execPath, ["-e", SIGTERM_IGNORING_CHILD], {
 		cwd: REPO_ROOT,
 		timeoutMs: 200,
 		killGraceMs: 200,
@@ -734,7 +734,7 @@ async function scenarioStreamingSigkillEscalation(url) {
 	if (typeof mod.runStreamingAgentProcess !== "function") return;
 	const TIMED_OUT = Symbol("guard");
 	const guard = new Promise((res) => setTimeout(() => res(TIMED_OUT), 6000));
-	const run = mod.runStreamingAgentProcess("node", ["-e", SIGTERM_IGNORING_CHILD], {
+	const run = mod.runStreamingAgentProcess(process.execPath, ["-e", SIGTERM_IGNORING_CHILD], {
 		cwd: REPO_ROOT,
 		timeoutMs: 200,
 		killGraceMs: 200,
@@ -764,7 +764,7 @@ async function scenarioShutdownTimerNoLeak(url) {
 	// must exit promptly. A leaked (uncleared) timer would hold the loop ~3s.
 	const childScript = `import(${JSON.stringify(url)}).then(async (m) => { await m.settleWithinTimeout(Promise.resolve("x"), 3000); process.stdout.write("SETTLED"); });`;
 	const start = Date.now();
-	const r = spawnSync("node", ["--input-type=module", "-e", childScript], {
+	const r = spawnSync(process.execPath, ["--input-type=module", "-e", childScript], {
 		encoding: "utf8",
 		timeout: 10000,
 	});

@@ -42,7 +42,7 @@ const { check, counts } = createChecker();
 
 async function main() {
 	// 1) Generated == committed for all scaffolds.
-	const res = spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+	const res = spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 	check(
 		"generate-claude-workflows.mjs --check is in sync (Claude files == generator output)",
 		res.status === 0,
@@ -76,7 +76,7 @@ async function main() {
 		// runtimes execute these) so a top-level `return`/`await` is legal, then node --check.
 		const wrapped = path.join(tmp, name.replace(/\.js$/, ".cjs"));
 		fs.writeFileSync(wrapped, `(async function(){\n${text.replace(/^export const /m, "const ")}\n})();\n`);
-		const chk = spawnSync("node", ["--check", wrapped], { encoding: "utf8" });
+		const chk = spawnSync(process.execPath, ["--check", wrapped], { encoding: "utf8" });
 		check(
 			`${name}: valid top-level-script syntax (wrapped node --check)`,
 			chk.status === 0,
@@ -105,7 +105,7 @@ async function main() {
 	const samplePath = path.join(OUT_DIR, sample);
 	const original = fs.readFileSync(samplePath, "utf8");
 	await withMutatedFile(samplePath, `${original}\nconst __drift_probe__ = 1;\n`, () => {
-		const tweaked = spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+		const tweaked = spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 		check(
 			`negative control: a hand-edit to ${sample} is detected as drift (--check exits non-zero)`,
 			tweaked.status !== 0,
@@ -122,7 +122,7 @@ async function main() {
 	} catch {}
 	if (snapOriginal !== null) {
 		await withMutatedFile(snapSamplePath, `${snapOriginal}\nconst __snapshot_drift_probe__ = 1;\n`, () => {
-			const tweaked = spawnSync("node", [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+			const tweaked = spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
 			check(
 				`negative control: a hand-edit to the SNAPSHOT copy of ${sample} is detected as drift`,
 				tweaked.status !== 0,

@@ -48,7 +48,7 @@ const OPTIONAL_SKILLS = ["open-prose"];
 const { check, counts } = createChecker();
 
 function run(dest, extra = []) {
-	return spawnSync("node", [SYNC, "--dest", dest, ...extra], { cwd: REPO_ROOT, encoding: "utf8" });
+	return spawnSync(process.execPath, [SYNC, "--dest", dest, ...extra], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
 function main() {

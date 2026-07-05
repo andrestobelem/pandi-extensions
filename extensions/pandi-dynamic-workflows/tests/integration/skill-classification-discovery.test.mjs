@@ -16,7 +16,7 @@ const CLAUDE = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
 const { check, counts } = createChecker();
 
 function runNode(script, args = [], env = {}) {
-	return spawnSync("node", [script, ...args], {
+	return spawnSync(process.execPath, [script, ...args], {
 		cwd: REPO_ROOT,
 		encoding: "utf8",
 		env: { ...process.env, ...env },

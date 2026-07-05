@@ -216,7 +216,7 @@ function scenarioStandaloneDoctor() {
 		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
 		const agentDir = path.join(tmp, "agent"); // punto de inyección vacío: la configuración host no debe filtrarse
 		fs.mkdirSync(agentDir, { recursive: true });
-		const r = spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
+		const r = spawnSync(process.execPath, [path.join(extDir, "scripts", "doctor.mjs")], {
 			cwd: tmp,
 			encoding: "utf8",
 			timeout: 60000,
@@ -250,7 +250,7 @@ function scenarioPreCommitHookCheck() {
 		const agentDir = path.join(tmp, "agent"); // punto de inyección vacío: la configuración host no debe filtrarse
 		fs.mkdirSync(agentDir, { recursive: true });
 		const runDoctorHere = () =>
-			spawnSync("node", [path.join(extDir, "scripts", "doctor.mjs")], {
+			spawnSync(process.execPath, [path.join(extDir, "scripts", "doctor.mjs")], {
 				cwd: tmp,
 				encoding: "utf8",
 				timeout: 60000,

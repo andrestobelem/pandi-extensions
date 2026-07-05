@@ -37,7 +37,7 @@ const SYNC = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
 const { check, counts } = createChecker();
 
 function runDoctor(globalDir) {
-	return spawnSync("node", [DOCTOR], {
+	return spawnSync(process.execPath, [DOCTOR], {
 		cwd: REPO_ROOT,
 		encoding: "utf8",
 		env: { ...process.env, CLAUDE_GLOBAL_DIR: globalDir, NO_COLOR: "1" },
@@ -45,7 +45,7 @@ function runDoctor(globalDir) {
 }
 
 function runSync(dest) {
-	return spawnSync("node", [SYNC, "--dest", dest], { cwd: REPO_ROOT, encoding: "utf8" });
+	return spawnSync(process.execPath, [SYNC, "--dest", dest], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
 // The line doctor prints for this capability. Matched loosely (label text may evolve) but must
