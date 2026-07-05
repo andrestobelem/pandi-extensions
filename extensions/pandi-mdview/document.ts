@@ -27,6 +27,11 @@ export type MarkdownLoad =
 	| { ok: true; filePath: string; content: string; bytes: number }
 	| { ok: false; message: string; level: "warning" | "error" };
 
+function formatReadMarkdownFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return `No se pudo leer el archivo Markdown: ${message}`;
+}
+
 /**
  * Resuelve + valida tamaño + lee un archivo Markdown. Lo comparten el comando `/mdview` y la
  * TOOL `view_markdown` invocable por el modelo para que ambos apliquen la MISMA validación y límites.
@@ -47,7 +52,6 @@ export async function loadMarkdownDocument(pathArg: string, cwd: string): Promis
 		const content = await fs.readFile(filePath, "utf8");
 		return { ok: true, filePath, content, bytes: stat.size };
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		return { ok: false, message: `No se pudo leer el archivo Markdown: ${message}`, level: "error" };
+		return { ok: false, message: formatReadMarkdownFailure(error), level: "error" };
 	}
 }
