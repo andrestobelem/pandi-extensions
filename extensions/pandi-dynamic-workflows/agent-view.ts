@@ -54,14 +54,14 @@ function fencedBlock(content: string, lang = "text"): string {
 
 // The agent detail document split into the sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
-interface AgentViewParts {
+export interface AgentViewParts {
 	card: string;
 	prompt: string;
 	output: string;
 	full: string;
 }
 
-async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentViewParts> {
+export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentViewParts> {
 	const artifactPath = resolveAgentArtifactPath(run, agent);
 	let artifactBody = "";
 	let artifactError = "";
@@ -95,8 +95,10 @@ async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMonitorMo
 			? `${stdout ? "Raw" : "Live"} stdout is a Pi JSON event stream; parsed assistant output is shown above and raw stdout is omitted.`
 			: `${stdout ? "Raw" : "Live"} stdout could not be parsed as Pi JSON (${parsedStdout?.warning ?? "unknown reason"}); see the artifact/live stream path if you need the raw stream.`
 		: undefined;
-	const promptText = prompt
-		? truncate(prompt, 12_000)
+	const promptFromEvent = agent.promptCopy || undefined;
+	const promptSource = promptFromEvent ?? prompt;
+	const promptText = promptSource
+		? `${truncate(promptSource)}${promptFromEvent && agent.promptTruncated ? "\n\n...[prompt copy truncated in events]" : ""}`
 		: agent.promptAvailable
 			? "Prompt artifact exists, but the prompt section could not be parsed."
 			: "Prompt not available for this run/agent.";
@@ -221,7 +223,7 @@ async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMonitorMo
 	const promptLines = [
 		"## Prompt sent to this agent",
 		"",
-		prompt ? fencedBlock(promptText, "text") : promptText,
+		promptText,
 		...(access ? ["", "## Runtime access (recorded in artifact)", "", truncate(access, 6000)] : []),
 	];
 	// `full` preserves the legacy single-document section order exactly: card, answer,
