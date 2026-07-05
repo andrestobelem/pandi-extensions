@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 
 /**
  * Subí desde `startDir` para encontrar la raíz de la suite pandi-extensions (el
- * `package.json` del repo). El script ahora vive DENTRO de la extensión pi-doctor,
+ * `package.json` del repo). El script ahora vive DENTRO de la extensión pandi-doctor,
  * así que puede correr desde cualquier lugar de instalación; la raíz de la suite es
  * una propiedad del CWD, no de dónde queda el archivo del script.
  */

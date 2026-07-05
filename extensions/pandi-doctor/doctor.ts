@@ -1,5 +1,5 @@
 /**
- * Helpers puros + un único punto de inyección del spawn para la extensión pi-doctor.
+ * Helpers puros + un único punto de inyección del spawn para la extensión pandi-doctor.
  *
  *   - `runDoctor` ejecuta `node <scripts/doctor.mjs>` con un array ARGV (nunca un
  *     shell string). Fallo de spawn, salida no cero, timeout o abort vuelven como un

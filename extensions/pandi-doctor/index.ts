@@ -1,5 +1,5 @@
 /**
- * pi-doctor — un comando `/doctor` liviano dentro de la sesión que corre el chequeo
+ * pandi-doctor — un comando `/doctor` liviano dentro de la sesión que corre el chequeo
  * read-only de entorno del repo (`scripts/doctor.mjs`) y muestra el reporte.
  *
  * Es un wrapper de conveniencia sobre `npm run doctor`: ubica `scripts/doctor.mjs`
