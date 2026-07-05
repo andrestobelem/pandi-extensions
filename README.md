@@ -1,6 +1,6 @@
 # pandi-extensions
 
-**Una suite de 20 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — que lleva a Pi la ergonomía y las capacidades de Claude Code: **dynamic multi-agent workflows** (la pieza central), además de `/loop`, `/goal`, `/plan`, memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX.
+**Una suite de 21 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — que lleva a Pi la ergonomía y las capacidades de Claude Code: **dynamic multi-agent workflows** (la pieza central), además de `/loop`, `/goal`, `/plan`, memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX.
 
 El corazón del repo es **Dynamic Workflows / Ultracode**: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. El resto de las extensiones son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼
 
@@ -40,7 +40,7 @@ Los extras opcionales (web search para subagentes, docs de Context7, gráficos P
 
 ## Catálogo de extensiones
 
-Las 20 extensiones de comando/tool se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
+Las 21 extensiones de comando/tool se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
 
 | Extensión | Surface (human · model) | Qué hace | Requisitos extra |
 | --- | --- | --- | --- |
@@ -58,6 +58,7 @@ Las 20 extensiones de comando/tool se cargan por defecto desde el campo `pi.exte
 | **pandi-mdview** | `/mdview` · `view_markdown` | Abre un archivo Markdown en el viewer TUI con scroll de Pi. | — |
 | **pandi-docs** | `/docs` · `markdown_to_html` | Convierte Markdown en artifacts HTML autocontenidos con estilo pandi (light + dark). | — |
 | **pandi-btw** | `/btw` | Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial. | — |
+| **pandi-improve-prompt** | `/improve-prompt` | Reescribe un prompt borrador para que sea más claro y accionable, y ofrece enviarlo como tu próximo mensaje. | TUI/RPC para confirmar el envío |
 | **pandi-rename** | `/rename` | Renombra la sesión o genera el nombre automáticamente desde el historial (estilo Claude). | opcional: `PI_RENAME_*` |
 | **pandi** | `/pandi [art\|face\|off\|on]` | Personaje panda: splash animado, indicador, verbos y mood. | TUI para el efecto completo |
 | **pandi-exit** | `/exit` | Alias estilo Claude de `/quit` para una salida limpia. | — |

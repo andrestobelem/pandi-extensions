@@ -1,0 +1,35 @@
+{
+	"name": "@pandi-coding-agent/pandi-improve-prompt",
+	"version": "0.1.0",
+	"description": "Pi extension that adds a /improve-prompt command: rewrite a rough prompt draft into a clearer, more actionable one, then optionally send it as your next message.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-improve-prompt"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"prompt",
+		"prompt-engineering"
+	],
+	"files": [
+		"index.ts",
+		"build-improve-context.ts",
+		"answer-overlay.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	}
+}

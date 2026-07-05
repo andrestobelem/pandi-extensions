@@ -88,6 +88,7 @@
 			"./extensions/pandi-typescript-lsp/index.ts",
 			"./extensions/pandi-rename/index.ts",
 			"./extensions/pandi-btw/index.ts",
+			"./extensions/pandi-improve-prompt/index.ts",
 			"./extensions/pandi/index.ts",
 			"./extensions/pandi-exit/index.ts",
 			"./extensions/pandi-clear/index.ts",

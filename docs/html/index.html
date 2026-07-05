@@ -124,7 +124,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>pandi-extensions</h1>
 	</header>
 	<main>
-<p><strong>Una suite de 20 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — que lleva a Pi la ergonomía y las capacidades de Claude Code: <strong>dynamic multi-agent workflows</strong> (la pieza central), además de <code>/loop</code>, <code>/goal</code>, <code>/plan</code>, memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX.</p>
+<p><strong>Una suite de 21 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — que lleva a Pi la ergonomía y las capacidades de Claude Code: <strong>dynamic multi-agent workflows</strong> (la pieza central), además de <code>/loop</code>, <code>/goal</code>, <code>/plan</code>, memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX.</p>
 <p>El corazón del repo es <strong>Dynamic Workflows / Ultracode</strong>: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. El resto de las extensiones son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼</p>
 <ul>
 <li><strong>Licencia:</strong> MIT · <strong>Repo:</strong> <a href="https://github.com/andrestobelem/pandi-extensions">https://github.com/andrestobelem/pandi-extensions</a></li>
@@ -158,7 +158,7 @@ cd /your/project &amp;&amp; pi
 </code></pre>
 <p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code>, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2>Catálogo de extensiones</h2>
-<p>Las 20 extensiones de comando/tool se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<p>Las 21 extensiones de comando/tool se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <table>
 <thead>
 <tr>
@@ -251,6 +251,12 @@ cd /your/project &amp;&amp; pi
 <td><code>/btw</code></td>
 <td>Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial.</td>
 <td>—</td>
+</tr>
+<tr>
+<td><strong>pandi-improve-prompt</strong></td>
+<td><code>/improve-prompt</code></td>
+<td>Reescribe un prompt borrador para que sea más claro y accionable, y ofrece enviarlo como tu próximo mensaje.</td>
+<td>TUI/RPC para confirmar el envío</td>
 </tr>
 <tr>
 <td><strong>pandi-rename</strong></td>

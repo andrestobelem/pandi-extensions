@@ -42,6 +42,7 @@ const LOAD_ORDER = [
 	"pandi-typescript-lsp",
 	"pandi-rename",
 	"pandi-btw",
+	"pandi-improve-prompt",
 	"pandi",
 	"pandi-exit",
 	"pandi-clear",
