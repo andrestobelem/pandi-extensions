@@ -1,5 +1,5 @@
 /**
- * pi-worktree UI + git-context glue: user notification and the small helpers that
+ * pandi-worktree UI + git-context glue: user notification and the small helpers that
  * detect a usable git repo, classify git failures, and list worktrees. Kept next to
  * the pure ./worktree.ts helpers (which build argv + parse output); this module adds
  * the ExtensionContext-aware surface that index.ts wires into the command/tool.

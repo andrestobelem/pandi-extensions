@@ -1,7 +1,7 @@
 /**
  * Worktree copy-default resolution + parsing (the "pass-per-call OR set" surface).
  *
- * Mirrors pi-plan's flags.ts pattern, kept SELF-CONTAINED in this extension
+ * Mirrors pandi-plan's flags.ts pattern, kept SELF-CONTAINED in this extension
  * (intentional per-extension duplication — NOT a cross-extension `../shared/`
  * import — so the extension keeps working when installed standalone).
  *

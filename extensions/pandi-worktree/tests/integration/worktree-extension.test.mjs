@@ -50,7 +50,7 @@ async function buildBundle() {
 	// Stub the SDK so esbuild does not pull the real @earendil-works/pi-coding-agent
 	// runtime (it transitively requires cross-spawn, which uses a dynamic require that
 	// breaks an ESM bundle). worktree.ts only needs CONFIG_DIR_NAME as a value; index.ts
-	// uses the package for types only (erased). Same approach as pi-bg.
+	// uses the package for types only (erased). Same approach as pandi-bg.
 	return await buildExtension({
 		name: "pi-worktree-build",
 		src: path.join(REPO_ROOT, "extensions", "pandi-worktree", "index.ts"),

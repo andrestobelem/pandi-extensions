@@ -1,5 +1,5 @@
 /**
- * pi-worktree helpers: pure, UI-free logic for driving `git worktree`.
+ * pandi-worktree helpers: pure, UI-free logic for driving `git worktree`.
  *
  * Everything here is deliberately free of pi's ExtensionContext / UI so it can be
  * unit-tested in isolation and reused by both the `/worktree` command and the

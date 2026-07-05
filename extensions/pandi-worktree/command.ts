@@ -1,4 +1,4 @@
-// pi-worktree `/worktree ...` command-line parsing: tokenize the argument string and
+// pandi-worktree `/worktree ...` command-line parsing: tokenize the argument string and
 // parse it into a structured ParsedCommand intent. Pure (no ctx/git); re-exported from
 // index.ts so the built bundle keeps the names the integration suite imports.
 

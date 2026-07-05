@@ -1,7 +1,7 @@
 /**
- * pi-worktree: manage git worktrees from inside a Pi session.
+ * pandi-worktree: manage git worktrees from inside a Pi session.
  *
- * Two surfaces (the project convention, see pi-mdview / pi-local-memory):
+ * Two surfaces (the project convention, see pandi-mdview / pandi-local-memory):
  *   - `/worktree`        human slash command (interactive, confirmations, completions)
  *   - `git_worktree`     model-callable tool (explicit actions, no surprise deletes)
  *
@@ -700,7 +700,7 @@ const SUBCOMMANDS = ["list", "add", "open", "remove", "prune", "set", "help"] as
 
 export default function worktreeExtension(pi: ExtensionAPI): void {
 	// Session-default copy toggles live in-memory; clear them at every session boundary
-	// (mirrors pi-plan resetting its ultracode posture toggles on session_start).
+	// (mirrors pandi-plan resetting its ultracode posture toggles on session_start).
 	pi.on("session_start", () => {
 		resetSessionCopyDefaults();
 	});
