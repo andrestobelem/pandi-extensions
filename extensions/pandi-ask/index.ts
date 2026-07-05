@@ -1,18 +1,18 @@
 /**
- * pi-ask — interactive decision tools the model can call.
+ * pi-ask — herramientas interactivas de decisión que el modelo puede invocar.
  *
- * The assistant produces text and tool calls; it cannot pop a TUI selector from a plain
- * reply. These tools wrap pi's dialog helpers (`ctx.ui.select` / `ctx.ui.confirm`, which
- * work in both TUI and RPC modes) so the model can present a decision point as an
- * interactive picker and read back the choice — instead of a plain-text numbered menu.
+ * El asistente produce texto y tool calls; no puede abrir un selector TUI desde una
+ * respuesta simple. Estas tools envuelven los helpers de diálogo de pi (`ctx.ui.select` / `ctx.ui.confirm`, que
+ * funcionan tanto en modo TUI como RPC) para que el modelo pueda presentar un punto de decisión como un
+ * selector interactivo y recuperar la elección, en vez de un menú numerado en texto plano.
  *
  * - `ask_choice(question, options)` → JSON `{ "index": <1-based>, "label": <option> }`,
- *   or `{ "cancelled": true }` if the user cancels.
- * - `ask_confirm(title, message?)` → JSON `{ "confirmed": true | false }` (false on
- *   cancel/timeout).
+ *   o `{ "cancelled": true }` si el usuario cancela.
+ * - `ask_confirm(title, message?)` → JSON `{ "confirmed": true | false }` (false en
+ *   cancelación/timeout).
  *
- * In non-interactive modes (no `ctx.hasUI`) both tools open no dialog and return a
- * plain-text error so the caller falls back to asking in text.
+ * En modos no interactivos (sin `ctx.hasUI`), ninguna tool abre un diálogo y ambas devuelven un
+ * error en texto plano para que quien llama vuelva a preguntar en texto.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";

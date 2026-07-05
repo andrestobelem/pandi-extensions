@@ -1,21 +1,21 @@
 /**
- * Durable behavioral integration test for the model-callable tools registered by
- * extensions/pandi-ask/index.ts: `ask_choice` and `ask_confirm`.
+ * Prueba de integración de comportamiento estable para las tools invocables por el modelo registradas en
+ * extensions/pandi-ask/index.ts: `ask_choice` y `ask_confirm`.
  *
- * Why this exists: the assistant cannot pop an interactive TUI selector from a plain
- * text reply — only a TOOL can. These tools wrap pi's dialog helpers (`ctx.ui.select`
- * / `ctx.ui.confirm`, which work in TUI and RPC) so the model can present a decision
- * point as an interactive picker and read back the choice. This suite pins the contract:
- *   - both tools are registered, with the expected parameters
- *   - ask_choice: with UI, calls ui.select(question, options) and returns JSON
- *     {index (1-based), label}; on cancel returns {cancelled:true}
- *   - ask_confirm: with UI, calls ui.confirm(title, message) and returns {confirmed}
- *   - non-interactive (no hasUI): opens no dialog and returns a plain-text error
- *   - ask_choice with empty options: opens no dialog and returns an error
+ * Por qué existe: el asistente no puede abrir un selector TUI interactivo desde una
+ * respuesta en texto plano; solo una TOOL puede hacerlo. Estas tools envuelven los helpers de diálogo de pi (`ctx.ui.select`
+ * / `ctx.ui.confirm`, que funcionan en TUI y RPC) para que el modelo pueda presentar un punto de decisión
+ * como un selector interactivo y recuperar la elección. Esta suite fija el contrato:
+ *   - ambas tools se registran, con los parámetros esperados
+ *   - ask_choice: con UI, llama a ui.select(question, options) y devuelve JSON
+ *     {index (1-based), label}; al cancelar devuelve {cancelled:true}
+ *   - ask_confirm: con UI, llama a ui.confirm(title, message) y devuelve {confirmed}
+ *   - en modo no interactivo (sin hasUI): no abre ningún diálogo y devuelve un error en texto plano
+ *   - ask_choice con options vacías: no abre ningún selector y devuelve un error
  *
- * Self-bootstrapping: esbuilds the CURRENT extensions/pandi-ask/index.ts into an OS temp
- * dir at run time (typebox stubbed to identity), so it never tests a stale bundle, then
- * drives the REAL registered tools with a fake ctx whose ui.select/ui.confirm are mocked.
+ * Auto-bootstrap: hace esbuild del archivo actual extensions/pandi-ask/index.ts en un dir temp del SO
+ * en tiempo de ejecución (con typebox stubbed to identity), así nunca prueba un bundle obsoleto; luego
+ * ejecuta las tools registradas reales con un ctx falso cuyos ui.select/ui.confirm están mockeados.
  */
 
 import * as path from "node:path";
