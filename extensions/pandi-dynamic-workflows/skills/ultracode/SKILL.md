@@ -155,31 +155,58 @@ Code; the rest are pi-runtime globals.
 | Run context (read-only) | `limits` | `{ concurrency, maxAgents, … }` caps (clamp + `log()`) | pi |
 | | `runId` / `runDir` / `cwd` | run id / run dir (artifacts) / working dir | pi |
 
-## Per-call model & effort
+## Per-call model & effort — two independent dials
 
-Decide model and reasoning effort **per call** — don't let every node inherit the session model.
+Decide model and effort **per call**, and decide them **independently** — they answer different
+questions, and coupling "cheap model" to "cheap thinking" is the classic mistake. Don't let every
+node inherit the session model either.
 
-- **Wide, cheap scouting / classify / extract** → a fast model at low effort.
-- **Synthesis, adversarial verification, planning, hard reasoning** → a strong model at high effort
-  (the highest tier only for the hardest judge/synthesis step).
+- **Dial 1 — `model` (capability per token).** Multiplies the price of *every* token, input included.
+  Ladder cheap→strong: `haiku` < `sonnet` < `opus` (bare aliases are pinned to the session provider
+  and mapped cross-provider at runtime — see "pi · provider models"). Driven by **fan-out width**
+  (wider fan-out → cheaper branch) and **per-item difficulty**. Keep scout/extract/mechanical roles
+  on the cheap model even at premium stakes.
+- **Dial 2 — `effort` (thinking budget per call).** Pay-per-use: `low`≈2k, `medium`≈8k, `high`≈16k,
+  `xhigh`≈32k thinking tokens; unused budget costs nothing. Driven by **reasoning depth the step
+  needs** and **cost of being wrong**. Raising a haiku-class node from `low` to `medium` costs cents.
 
-Decide each node's tier by four factors — **fan-out width** (the wider the fan-out, the cheaper each
-branch must be), **per-item difficulty** (mechanical extraction vs. real reasoning), **cost of being
-wrong** (a bad judge verdict is expensive; a bad scout note is caught later), and **downstream
-verification** (a node whose output a later node verifies can run cheaper; a FINAL judge/synthesis
-with no safety net below it earns the top tier). Ladder cheap→strong: haiku < sonnet < opus; keep
-scout/extract/mechanical roles cheap even at premium stakes — spend the budget on the
-judge/verify/synthesis/planning nodes.
+**When cutting cost, downgrade model before effort** — a fast model at low effort does weak work; a
+fast model at medium effort does honest work at nearly the same price. **Downstream verification**
+lowers both dials; a FINAL judge/synthesis with no safety net below it earns the top of both.
 
-| Tier | Claude (`model` · `effort`) | pi · Anthropic (`model` · `effort`) |
+Effort **floors** by kind of work (floors, not fixed pairs — raise either dial when stakes demand):
+
+| Kind of work | Model floor | Effort floor | Escalate when |
+| --- | --- | --- | --- |
+| Mechanical classify / flat extraction, verified downstream | haiku | `low` | fuzzy rubric, nesting, dedup, long docs → `medium` |
+| Gate that runs one pinned command and transcribes its **literal** `{green,evidence}` | haiku | `low` | the command is caller-supplied/flaky and "green" needs judgment over ambiguous output → `medium` (default for user-`verifyCmd` gates) |
+| Scout / discovery that **decides or ranks** the work-list (judgment) | haiku | `medium` | its output feeds an expensive fan-out → `sonnet · medium` |
+| Per-item review (**read-only, verified downstream**) | sonnet | `medium` | hard items → `high` |
+| Per-item worker that **mutates the tree** (no guaranteed net) | sonnet | `medium` | no explicit downstream verify node in the graph → `high` |
+| Adversarial verify (a judge checks it) | sonnet | `high` | — |
+| FINAL judge / synthesis / planner (no safety net) | opus | `high` | single hardest node only → `xhigh`/`max` |
+
+`low`/`minimal` is genuine economy only when all three hold: the per-item work is transcription (not
+judgment), the output is schema-checked **and** verified downstream, and failure is cheap and visible
+(settle + null filtering). False-economy signals — JSON repair loops, null branches, a judge
+overturning cheap verdicts, a scout that missed items — mean raise **effort**, not model.
+
+Worked contrast (the pairing the old diagonal table hid): a `git ls-files` scout is `haiku · low` —
+mechanical enumeration, verified downstream. A scout that *ranks* candidates by relevance is
+`haiku · medium` — same cheap model, more thinking, because it decides. The final synthesis over
+both is `opus · high`.
+
+**ALWAYS set model explicitly on fan-out nodes:** omission inherits the orchestrator model (an opus
+session prices 40 branches as opus). **Omitting `effort` is NOT safe here:** these scaffolds set no
+`agentType`, so an omitted `effort` inherits the raw session reasoning level (possibly `low`/`off`) —
+keep `effort` explicit on every node, or add an `agentType` persona if you want a ≥medium floor.
+`model`/`effort` are part of the cache key, so changing them re-runs that call on resume.
+
+| Capability tier | Claude | pi · Anthropic |
 | --- | --- | --- |
-| cheap | `haiku` · `low` | `anthropic/claude-haiku-4-5` · `low` (or `minimal`/`off`) |
-| balanced | `sonnet` · `medium` | `anthropic/claude-sonnet-4-6` · `medium` |
-| deep | `opus` · `high` (`xhigh`/`max` hardest) | strong model · `high` (`xhigh` hardest) |
-
-Both runtimes take `effort: low | medium | high | xhigh | max` on `agent()`. Under pi, `effort` maps
-onto the engine reasoning scale (`max` → `xhigh`; `minimal`/`off` also pass through for finer control).
-On both, `model`/`effort` are part of the cache key, so changing them re-runs that call on resume.
+| cheap | `haiku` | `anthropic/claude-haiku-4-5` |
+| balanced | `sonnet` | `anthropic/claude-sonnet-4-6` |
+| deep | `opus` | `anthropic/claude-opus-4-8` |
 
 ### pi · provider models
 
