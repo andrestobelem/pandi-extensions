@@ -80,6 +80,24 @@ export {
 	parseWorktreeList,
 } from "./worktree.js";
 
+const WORKTREE_ACTIONS = [
+	{ value: "list", selectLabel: "list — listar worktrees" },
+	{ value: "add", selectLabel: "add — crear un worktree" },
+	{ value: "open" },
+	{ value: "remove", selectLabel: "remove — eliminar un worktree" },
+	{ value: "prune", selectLabel: "prune — limpiar metadatos obsoletos" },
+	{ value: "set" },
+	{ value: "help" },
+] as const;
+
+const SUBCOMMANDS = WORKTREE_ACTIONS.map(({ value }) => value);
+const TOOL_ACTIONS = WORKTREE_ACTIONS.filter(({ value }) => value !== "set" && value !== "help").map(
+	({ value }) => value,
+);
+const WORKTREE_SELECT_ITEMS = WORKTREE_ACTIONS.flatMap((action) =>
+	"selectLabel" in action ? [action.selectLabel] : [],
+);
+
 const HELP_TEXT = [
 	"Uso:",
 	"  /worktree [list]                       listar worktrees",
@@ -606,12 +624,7 @@ async function handlePrune(ctx: ExtensionContext, parsed: ParsedCommand, signal?
 
 /** Resuelve la acción cuando `/worktree` se invoca sin args en una TUI. */
 async function resolveInteractiveAction(ctx: ExtensionContext): Promise<ParsedCommand | undefined> {
-	const choice = await ctx.ui.select("Acción de worktree", [
-		"list — listar worktrees",
-		"add — crear un worktree",
-		"remove — eliminar un worktree",
-		"prune — limpiar metadatos obsoletos",
-	]);
+	const choice = await ctx.ui.select("Acción de worktree", WORKTREE_SELECT_ITEMS);
 	if (!choice) return undefined;
 	const action = choice.split(/\s+/)[0] as ParsedCommand["action"];
 	if (action === "remove") {
@@ -701,8 +714,6 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 // Herramienta: git_worktree (invocable por el modelo)
 // --------------------------------------------------------------------------
 
-const SUBCOMMANDS = ["list", "add", "open", "remove", "prune", "set", "help"] as const;
-
 export default function worktreeExtension(pi: ExtensionAPI): void {
 	// Los toggles de copia por defecto de la sesión viven en memoria; limpialos en cada límite de sesión
 	// (refleja a pandi-plan reiniciando sus toggles de postura ultracode en session_start).
@@ -739,7 +750,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			"Usá la acción 'open' cuando la persona usuaria quiera empezar a trabajar en un worktree: crea el worktree si falta y abre una sesión NUEVA de Pi en él (una pestaña nueva de Supacode bajo Supacode; si no, devuelve el comando `cd <path> && pi`). No mueve la sesión actual.",
 		],
 		parameters: Type.Object({
-			action: StringEnum(["list", "add", "open", "remove", "prune"] as const),
+			action: StringEnum(TOOL_ACTIONS),
 			path: Type.Optional(
 				Type.String({
 					description:
