@@ -24,7 +24,7 @@ export interface AgentViewTab {
 
 export class AgentLiveViewComponent {
 	// The body is Markdown (formatAgentView & friends): render it RICH via pi-tui's
-	// Markdown component, the same renderer the run view and pi-mdview use. One
+	// Markdown component, the same renderer the run view and pandi-mdview use. One
 	// Markdown + one scroll offset per tab so switching keeps each tab's position.
 	private markdownByTab = new Map<string, Markdown>();
 	private scrollByTab = new Map<string, number>();

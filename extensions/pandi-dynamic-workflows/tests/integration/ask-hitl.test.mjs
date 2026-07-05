@@ -140,7 +140,7 @@ async function readJournalRecords(runDir, method) {
 
 // fake-pi: a [role:win-now] agent that emits then flushes before exit (used by the race scenario).
 async function writeFakePi(dir) {
-	const fakePi = path.join(dir, "fake-pi-ask.cjs");
+	const fakePi = path.join(dir, "fake-pandi-ask.cjs");
 	await fs.writeFile(
 		fakePi,
 		`#!/usr/bin/env node

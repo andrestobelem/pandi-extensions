@@ -13,7 +13,7 @@
  *     peerDependencies (subpaths match, e.g. "typebox/value")     -> ok
  *   - any other bare package                                      -> undeclared (reported,
  *     not failed — a handful of extensions rely on a peer's own transitive dependency, e.g.
- *     pi-mdview's `typebox` import resolves via @earendil-works/pi-coding-agent's own
+ *     pandi-mdview's `typebox` import resolves via @earendil-works/pi-coding-agent's own
  *     dependency; fixing that declaration is a separate, out-of-scope concern from the
  *     directory-escape rule this suite pins).
  *

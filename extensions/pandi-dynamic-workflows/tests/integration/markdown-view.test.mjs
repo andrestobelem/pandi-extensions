@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Behavioral contract for the dashboard's shared Markdown viewer (markdown-view.ts):
- * a self-contained viewer built on pi-tui's `Markdown` component (NOT importing pi-mdview
+ * a self-contained viewer built on pi-tui's `Markdown` component (NOT importing pandi-mdview
  * at runtime, per the self-contained-extension rule), used to show run views / agent views
  * / .md artifacts as RENDERED Markdown instead of a plain text editor dump.
  *
@@ -11,7 +11,7 @@
  *      scrolls, and (when enabled) advertises an `f` files affordance + signals "openFiles".
  *   3. `showMarkdown` in print mode emits the content via console.log and opens no UI.
  *
- * Built with REAL deps (no stubs) like the pi-mdview suite, so the actual Markdown renderer
+ * Built with REAL deps (no stubs) like the pandi-mdview suite, so the actual Markdown renderer
  * runs and we can assert real rendered output.
  */
 

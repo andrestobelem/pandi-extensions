@@ -3,12 +3,12 @@
  *
  * A self-contained scrollable viewer built on pi-tui's `Markdown` component so run views,
  * agent views, and `.md` artifacts render as RICH Markdown (headings, code blocks, lists)
- * instead of a plain text editor dump. We deliberately do NOT import pi-mdview at runtime
+ * instead of a plain text editor dump. We deliberately do NOT import pandi-mdview at runtime
  * (the self-contained-extension rule forbids cross-extension runtime imports), nor the SDK's
  * getMarkdownTheme() as a value (that pulls the whole coding-agent runtime —
  * cross-spawn/child_process — into the bundle and breaks standalone load). Instead the
  * Markdown theme is built from the runtime `theme` object using ONLY type-only SDK imports.
- * The small chrome duplication with pi-mdview's own viewer is intentional and sanctioned.
+ * The small chrome duplication with pandi-mdview's own viewer is intentional and sanctioned.
  */
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import {
