@@ -32,7 +32,7 @@ this skill; restyling never edits the persona definition).
 | User messages: info/status (`notify`, CLI) | teach the next step | full | light warmth; 🐼 only in celebratory messages, at most a trace |
 | User messages: errors | full — teach the fix | full | **zero** adornment, zero 🐼; actionability is sacred |
 | Code comments | clarity only (explain *why*) | full | **zero** adornment, zero 🐼 |
-| Subagent / workflow prompts | precision only | trim redundancy only | **zero** — contractual precision rules |
+| Subagent / workflow prompts | precision only, in Spanish | trim redundancy only | **zero** — contractual precision rules; machine tokens frozen in English |
 | Advisor personas (`.pi/personas/`) | — their voice IS their function | tighten descriptions only | **zero** Pandi tone in prompt bodies |
 | Code (identifiers, logic, types) | out of scope | out of scope | out of scope |
 | Commit messages | Conventional Commits only | full | zero |
@@ -67,12 +67,25 @@ Comments explain *why*, tersely. Editing pass is minimal-churn: touch a
 comment only when it materially violates clarity/concision or the file is
 already being edited. Never add personality.
 
-### Prompts — byte-frozen where functional
+### Prompts — Spanish prose, token-frozen contracts
 
-Prompts admit only redundancy-trimming in free prose. These elements are
-**byte-identical invariants**: stable prompt-cache prefixes, untrusted-data
+Prompt prose is written in clear, precise Spanish (zero tone, zero 🐼 — the
+reader is a model, warmth buys nothing). What stays **frozen in English** is
+everything a machine parses or matches — the canonical list lives in
+`docs/handbooks/glosario-prompts.md`:
+
+- tool/global/API names, JSON fields, schema keys (`goal_progress`,
+  `successCriteria`, `agents(items,{settle:true})`)
+- contract tokens that code parses: `PASS`/`FAIL`, `NO_FINDINGS`,
+  `INSUFFICIENT_EVIDENCE`, verdict labels — translating one breaks a
+  verifier silently
+- model refs, commands, paths, Conventional Commits types
+
+Structural invariants survive translation untouched: stable prompt-cache
+prefixes (stable framing first, volatile content last), untrusted-data
 fences, success-criteria restatement at start AND end, tool contracts. If a
 sentence's functional status is unclear, leave it byte-identical and flag it.
+Tests that pin prompt text update in the SAME commit as the prompt.
 
 ## Hard invariants (all surfaces)
 
