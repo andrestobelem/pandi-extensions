@@ -126,15 +126,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<main>
 <p>Esta carpeta reúne el historial de trabajo del proyecto, sus decisiones, los workflows creados y las conversaciones relevantes. Es una referencia duradera y un rastro de auditoría al que siempre podés volver. 🐼</p>
 <h2>En 30 segundos</h2>
-<p>Si querés ubicarte rápido, empezá por la guía de <code>Setup</code>, la documentación de <code>Dynamic Workflows</code> o los <code>Handbooks</code>. Si buscás contexto histórico o decisiones, entrá en <code>research/</code>, <code>memoria.md</code> o las carpetas de planes y conversaciones.</p>
+<p>Si querés ubicarte rápido, empezá por la guía de <code>Setup</code>, la documentación de <code>Dynamic Workflows</code> o los <code>Handbooks</code>. Si buscás contexto histórico o decisiones, entrá en <code>research/</code> o <code>memoria.md</code>.</p>
 <h2>Referencia rápida</h2>
 <ul>
+<li><a href="index.html">README raíz</a> — entrada narrativa: qué es Pandi, cómo instalarlo y por dónde empezar</li>
 <li><a href="setup.html">Setup</a> — requisitos, capacidades opcionales, configuración y distribución</li>
-<li><a href="kitty.html">Configuración de kitty</a> — terminal usado para desarrollo (config activa + tema)</li>
 <li><a href="dynamic-workflows.html">Dynamic Workflows — guía completa</a> — ciclo de ejecución, API de globals, background y resume, concurrencia, patrones y seguridad</li>
+<li><a href="scaffolds/index.html">Scaffolds</a> — páginas didácticas del catálogo: cuándo usar cada patrón, diagrama y comando mínimo</li>
 <li><a href="handbooks/README.html">Handbooks — referencia duradera del proyecto</a> — convenciones, onboarding y playbooks</li>
+<li><a href="kitty.html">Configuración de kitty</a> — terminal usado para desarrollo (config activa + tema)</li>
 <li><a href="memoria.html">Memoria de trabajo</a> — registro de trabajo y decisiones</li>
 </ul>
+<p>El sitio HTML generado vive en <code>docs/html/</code>. No se edita a mano: sale del Markdown con <code>npm run sync:docs:html</code> y <code>npm test</code> detecta drift.</p>
 <h2>Investigación y análisis</h2>
 <ul>
 <li><a href="research/index.html">Índice OKF de investigación</a> — mapa navegable de las notas en <code>docs/research/</code></li>
@@ -154,12 +157,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>docs/html/</code> — espejo HTML generado con estilo Pandi; no se edita a mano y se regenera con <code>npm run sync:docs:html</code> (<code>npm test</code> falla si hay drift)</li>
 <li><code>docs/handbooks/</code> — referencia duradera del proyecto (convenciones, onboarding y playbooks)</li>
 <li><code>docs/research/</code> — notas de investigación, fuentes consultadas y decisiones de implementación</li>
-<li><code>docs/workflows/</code> — documentación técnica de workflows y runs</li>
-<li><code>docs/conversaciones/</code> — registro resumido de conversaciones y decisiones</li>
-<li><code>docs/planes/</code> — planes de implementación y roadmaps con prioridades y dependencias</li>
+<li><code>docs/scaffolds/</code> — libro de patrones agénticos corribles, una página por scaffold</li>
+<li><code>docs/*.md</code> — guías principales, setup, ingeniería de extensiones y memoria del proyecto</li>
 </ul>
 <h2>Guía de documentación</h2>
-<p>Cada documento debería incluir fecha, contexto, archivos afectados y próximos pasos.</p>
+<p>Cada documento público debería abrir con 30 segundos de contexto, avanzar de ejemplo mínimo a referencia, y mantener links a Markdown fuente. Si necesitás una versión visual, regenerá <code>docs/html/</code>; si necesitás cambiar contenido, editá Markdown.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>

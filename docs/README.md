@@ -4,15 +4,19 @@ Esta carpeta reúne el historial de trabajo del proyecto, sus decisiones, los wo
 
 ## En 30 segundos
 
-Si querés ubicarte rápido, empezá por la guía de `Setup`, la documentación de `Dynamic Workflows` o los `Handbooks`. Si buscás contexto histórico o decisiones, entrá en `research/`, `memoria.md` o las carpetas de planes y conversaciones.
+Si querés ubicarte rápido, empezá por la guía de `Setup`, la documentación de `Dynamic Workflows` o los `Handbooks`. Si buscás contexto histórico o decisiones, entrá en `research/` o `memoria.md`.
 
 ## Referencia rápida
 
+- [README raíz](../README.md) — entrada narrativa: qué es Pandi, cómo instalarlo y por dónde empezar
 - [Setup](./setup.md) — requisitos, capacidades opcionales, configuración y distribución
-- [Configuración de kitty](./kitty.md) — terminal usado para desarrollo (config activa + tema)
 - [Dynamic Workflows — guía completa](./dynamic-workflows.md) — ciclo de ejecución, API de globals, background y resume, concurrencia, patrones y seguridad
+- [Scaffolds](./scaffolds/index.md) — páginas didácticas del catálogo: cuándo usar cada patrón, diagrama y comando mínimo
 - [Handbooks — referencia duradera del proyecto](./handbooks/README.md) — convenciones, onboarding y playbooks
+- [Configuración de kitty](./kitty.md) — terminal usado para desarrollo (config activa + tema)
 - [Memoria de trabajo](./memoria.md) — registro de trabajo y decisiones
+
+El sitio HTML generado vive en `docs/html/`. No se edita a mano: sale del Markdown con `npm run sync:docs:html` y `npm test` detecta drift.
 
 ## Investigación y análisis
 
@@ -33,10 +37,9 @@ Si querés ubicarte rápido, empezá por la guía de `Setup`, la documentación 
 - `docs/html/` — espejo HTML generado con estilo Pandi; no se edita a mano y se regenera con `npm run sync:docs:html` (`npm test` falla si hay drift)
 - `docs/handbooks/` — referencia duradera del proyecto (convenciones, onboarding y playbooks)
 - `docs/research/` — notas de investigación, fuentes consultadas y decisiones de implementación
-- `docs/workflows/` — documentación técnica de workflows y runs
-- `docs/conversaciones/` — registro resumido de conversaciones y decisiones
-- `docs/planes/` — planes de implementación y roadmaps con prioridades y dependencias
+- `docs/scaffolds/` — libro de patrones agénticos corribles, una página por scaffold
+- `docs/*.md` — guías principales, setup, ingeniería de extensiones y memoria del proyecto
 
 ## Guía de documentación
 
-Cada documento debería incluir fecha, contexto, archivos afectados y próximos pasos.
+Cada documento público debería abrir con 30 segundos de contexto, avanzar de ejemplo mínimo a referencia, y mantener links a Markdown fuente. Si necesitás una versión visual, regenerá `docs/html/`; si necesitás cambiar contenido, editá Markdown.

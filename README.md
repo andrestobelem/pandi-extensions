@@ -38,6 +38,20 @@ cd /your/project && pi
 
 Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple `container`, micro-VMs de Gondolin) y la skill externa `karpathy-guidelines` están cubiertos en [`docs/setup.md`](docs/setup.md).
 
+## Cómo leer este repo
+
+Este repo funciona como **paquete instalable** y como **libro práctico**. Elegí la ruta más chica que te lleve al próximo experimento verificable:
+
+| Si querés… | Empezá por | Después mirá |
+| --- | --- | --- |
+| Instalar y probar Pandi | [`docs/setup.md`](docs/setup.md) | `/effort status`, `/workflow patterns` |
+| Entender Dynamic Workflows | [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) | [`docs/scaffolds/`](docs/scaffolds/index.md) |
+| Aprender patrones agénticos | [`docs/scaffolds/`](docs/scaffolds/index.md) | [`docs/research/`](docs/research/index.md) |
+| Desarrollar extensiones | [`docs/developing-extensions.md`](docs/developing-extensions.md) | `extensions/<name>/README.md` + [`docs/handbooks/`](docs/handbooks/README.md) |
+| Navegar como sitio HTML | `docs/html/index.html` | mirror generado de este README + `docs/**/*.md` |
+
+Regla simple: **Markdown es la fuente; HTML es el artifact generado**. Editá `README.md` o `docs/**/*.md`, corré `npm run sync:docs:html`, y commiteá ambos si el mirror cambió.
+
 ## El concepto: patrones que se corren, no que se leen
 
 Los patrones de diseño agénticos suelen vivir en papers y posts. Acá cada uno tiene una **implementación de referencia corta y legible** que podés leer, correr y auditar (`/workflow patterns` muestra el catálogo; [`docs/scaffolds/`](docs/scaffolds/index.md) son las páginas del libro):
@@ -154,6 +168,8 @@ Las 21 extensiones de comando/tool se cargan por defecto desde el campo `pi.exte
 Algunas extensiones también exponen tools que **Pi decide usar por su cuenta** (no como slash commands humanos): `enter_plan_mode`/`submit_plan` (planificar antes de cambios riesgosos; solo vos aprobás), `remember` (persistir notas durables en `.pi/memory/`), `git_worktree`, `container_sandbox`, `typescript_diagnostics`, `ask_choice`/`ask_confirm`, `loop_schedule`/`loop_stop` y `goal_progress`. El README de cada extensión documenta su surface.
 
 ## Documentación
+
+El README raíz es la puerta de entrada; `docs/` es el libro completo; `docs/html/` es el espejo HTML navegable y generado por `npm run sync:docs:html`.
 
 - [`docs/setup.md`](docs/setup.md) — requisitos completos, capacidades opcionales, configuración por env vars, canales de distribución y layout del repo.
 - [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) — guía profunda de Dynamic Workflows: ciclo de ejecución, API de globals, background y resume, concurrencia, catálogo de patterns, prompts y seguridad.

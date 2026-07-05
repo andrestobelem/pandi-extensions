@@ -157,6 +157,43 @@ cd /your/project &amp;&amp; pi
 #   /workflows          (dashboard TUI)  o  /workflow patterns
 </code></pre>
 <p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code>, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
+<h2>Cómo leer este repo</h2>
+<p>Este repo funciona como <strong>paquete instalable</strong> y como <strong>libro práctico</strong>. Elegí la ruta más chica que te lleve al próximo experimento verificable:</p>
+<table>
+<thead>
+<tr>
+<th>Si querés…</th>
+<th>Empezá por</th>
+<th>Después mirá</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Instalar y probar Pandi</td>
+<td><a href="setup.html"><code>docs/setup.md</code></a></td>
+<td><code>/effort status</code>, <code>/workflow patterns</code></td>
+</tr>
+<tr>
+<td>Entender Dynamic Workflows</td>
+<td><a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a></td>
+<td><a href="scaffolds/index.html"><code>docs/scaffolds/</code></a></td>
+</tr>
+<tr>
+<td>Aprender patrones agénticos</td>
+<td><a href="scaffolds/index.html"><code>docs/scaffolds/</code></a></td>
+<td><a href="research/index.html"><code>docs/research/</code></a></td>
+</tr>
+<tr>
+<td>Desarrollar extensiones</td>
+<td><a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a></td>
+<td><code>extensions/&lt;name&gt;/README.md</code> + <a href="handbooks/README.html"><code>docs/handbooks/</code></a></td>
+</tr>
+<tr>
+<td>Navegar como sitio HTML</td>
+<td><code>docs/html/index.html</code></td>
+<td>mirror generado de este README + <code>docs/**/*.md</code></td>
+</tr>
+</tbody></table>
+<p>Regla simple: <strong>Markdown es la fuente; HTML es el artifact generado</strong>. Editá <code>README.md</code> o <code>docs/**/*.md</code>, corré <code>npm run sync:docs:html</code>, y commiteá ambos si el mirror cambió.</p>
 <h2>El concepto: patrones que se corren, no que se leen</h2>
 <p>Los patrones de diseño agénticos suelen vivir en papers y posts. Acá cada uno tiene una <strong>implementación de referencia corta y legible</strong> que podés leer, correr y auditar (<code>/workflow patterns</code> muestra el catálogo; <a href="scaffolds/index.html"><code>docs/scaffolds/</code></a> son las páginas del libro):</p>
 <table>
@@ -381,6 +418,7 @@ cd /your/project &amp;&amp; pi
 </code></pre>
 <p>Algunas extensiones también exponen tools que <strong>Pi decide usar por su cuenta</strong> (no como slash commands humanos): <code>enter_plan_mode</code>/<code>submit_plan</code> (planificar antes de cambios riesgosos; solo vos aprobás), <code>remember</code> (persistir notas durables en <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code> y <code>goal_progress</code>. El README de cada extensión documenta su surface.</p>
 <h2>Documentación</h2>
+<p>El README raíz es la puerta de entrada; <code>docs/</code> es el libro completo; <code>docs/html/</code> es el espejo HTML navegable y generado por <code>npm run sync:docs:html</code>.</p>
 <ul>
 <li><a href="setup.html"><code>docs/setup.md</code></a> — requisitos completos, capacidades opcionales, configuración por env vars, canales de distribución y layout del repo.</li>
 <li><a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a> — guía profunda de Dynamic Workflows: ciclo de ejecución, API de globals, background y resume, concurrencia, catálogo de patterns, prompts y seguridad.</li>
