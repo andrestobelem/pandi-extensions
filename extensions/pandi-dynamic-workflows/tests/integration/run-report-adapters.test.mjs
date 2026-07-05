@@ -155,7 +155,25 @@ async function main() {
 		),
 	);
 
-	// 3) /workflow report <id> goes through the slash surface.
+	// 3) action=report watch:true on a terminal run writes once and does not add refresh.
+	await fs.rm(reportPath, { force: true });
+	const watchedTerminal = await settle(
+		tool.execute("tc-report-3", { action: "report", watch: true }, new AbortController().signal, undefined, ctx),
+	);
+	check(
+		"action=report watch:true succeeds on terminal run",
+		watchedTerminal.ok === true,
+		watchedTerminal.ok ? "" : watchedTerminal.msg,
+	);
+	const watchedHtml = await fs.readFile(reportPath, "utf8").catch(() => undefined);
+	check("watched terminal report written", typeof watchedHtml === "string");
+	check("watched terminal report has no meta refresh", !/http-equiv="refresh"/.test(watchedHtml ?? ""));
+	check(
+		"tool watch response reports one write",
+		watchedTerminal.ok && JSON.stringify(watchedTerminal.v).includes("writes: 1"),
+	);
+
+	// 4) /workflow report <id> goes through the slash surface.
 	await fs.rm(reportPath, { force: true });
 	const workflowCommand = commands.get("workflow");
 	check("/workflow command registered", !!workflowCommand);
@@ -175,7 +193,7 @@ async function main() {
 		),
 	);
 
-	// 4) countRunArtifacts never counts report.html itself.
+	// 5) countRunArtifacts never counts report.html itself.
 	check("countRunArtifacts exported for the pin", typeof mod.countRunArtifacts === "function");
 	if (typeof mod.countRunArtifacts === "function") {
 		const withReport = await mod.countRunArtifacts(runDir);

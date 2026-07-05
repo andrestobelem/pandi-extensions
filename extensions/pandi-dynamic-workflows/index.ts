@@ -248,6 +248,7 @@ export interface DynamicWorkflowToolParams {
 	input?: unknown;
 	background?: boolean;
 	force?: boolean;
+	watch?: boolean;
 	concurrency?: number;
 	maxAgents?: number;
 	timeoutMs?: number;
@@ -327,7 +328,7 @@ interface WorkflowRuntimeApi {
 const workflowToolSchema = Type.Object({
 	action: StringEnum(TOOL_ACTIONS, {
 		description:
-			"Workflow operation to perform: list/scaffold/read/write/run/start/resume/cancel/delete/graph/runs/view/report. scaffold with no name lists the pattern catalog; scaffold with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed. report renders a run (default: latest) into a self-contained <runDir>/report.html.",
+			"Workflow operation to perform: list/scaffold/read/write/run/start/resume/cancel/delete/graph/runs/view/report. scaffold with no name lists the pattern catalog; scaffold with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed. report renders a run (default: latest) into a self-contained <runDir>/report.html; pass watch=true to regenerate it while the run is running.",
 	}),
 	name: Type.Optional(
 		Type.String({
@@ -355,6 +356,12 @@ const workflowToolSchema = Type.Object({
 	force: Type.Optional(
 		Type.Boolean({
 			description: "For action=resume, allow resuming an already completed run (re-runs only uncached calls).",
+		}),
+	),
+	watch: Type.Optional(
+		Type.Boolean({
+			description:
+				"For action=report, keep regenerating <runDir>/report.html while the run is running; the final report removes browser auto-refresh.",
 		}),
 	),
 	concurrency: Type.Optional(

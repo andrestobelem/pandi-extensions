@@ -44,17 +44,23 @@ export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
 	return dirs.sort((a, b) => b.mtimeMs - a.mtimeMs).map((entry) => entry.full);
 }
 
-export async function writeJsonFile(file: string, value: unknown): Promise<void> {
-	// Atomic write: write to a unique temp file then rename, so a crash mid-write
-	// never leaves a truncated/corrupt status.json or result.json behind.
+export async function writeTextFileAtomic(file: string, content: string): Promise<void> {
+	// Atomic write: write to a unique temp sibling then rename, so a crash mid-write
+	// never leaves a truncated/corrupt generated file behind.
 	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
-	await fs.writeFile(temp, `${safeJson(value)}\n`, "utf8");
+	await fs.writeFile(temp, content, "utf8");
 	try {
 		await fs.rename(temp, file);
 	} catch (err) {
 		await fs.rm(temp, { force: true }).catch(() => {});
 		throw err;
 	}
+}
+
+export async function writeJsonFile(file: string, value: unknown): Promise<void> {
+	// Atomic write: write to a unique temp file then rename, so a crash mid-write
+	// never leaves a truncated/corrupt status.json or result.json behind.
+	await writeTextFileAtomic(file, `${safeJson(value)}\n`);
 }
 
 export async function writeRunStatus(status: WorkflowRunStatus): Promise<void> {

@@ -70,6 +70,8 @@ export interface RunReportModel {
 	/** "verified" (in-session readRunStatus verdict) or "unverified" (foreign dir snapshot). */
 	liveness: "verified" | "unverified";
 	generatedAt: string;
+	/** Opt-in browser refresh for server-regenerated watched reports; ignored unless state is running. */
+	autoRefreshSeconds?: number;
 	startedAt?: string;
 	endedAt?: string;
 	updatedAt?: string;
@@ -301,6 +303,10 @@ function renderAgent(agent: RunReportAgent): string {
 export function buildRunReportHtml(model: RunReportModel): string {
 	const statePill = `<span class="rpill ${pillClass(model.state)}">${escapeHtml(model.state)}</span>`;
 	const failedAgents = model.agents.filter((a) => a.ok === false || a.state === "failed").length;
+	const autoRefreshSeconds =
+		model.state === "running" && model.autoRefreshSeconds !== undefined
+			? Math.max(1, Math.round(model.autoRefreshSeconds))
+			: undefined;
 
 	const callouts: string[] = [];
 	if (model.error !== undefined) {
@@ -336,6 +342,11 @@ export function buildRunReportHtml(model: RunReportModel): string {
 	}
 	for (const note of model.clampNotes) {
 		callouts.push(`<div class="callout warn"><b>Clamp:</b> ${escapeHtml(note)}</div>`);
+	}
+	if (autoRefreshSeconds !== undefined) {
+		callouts.push(
+			`<div class="callout info"><b>Auto-refresh:</b> this watched report reloads every ${autoRefreshSeconds}s while the run is running. The final regenerated report removes this refresh tag.</div>`,
+		);
 	}
 
 	const chips = [
@@ -415,6 +426,7 @@ export function buildRunReportHtml(model: RunReportModel): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+${autoRefreshSeconds !== undefined ? `<meta http-equiv="refresh" content="${autoRefreshSeconds}">` : ""}
 <title>${escapeHtml(`${model.workflow} — run report`)}</title>
 <style>
 ${PANDI_TOKENS_CSS}
