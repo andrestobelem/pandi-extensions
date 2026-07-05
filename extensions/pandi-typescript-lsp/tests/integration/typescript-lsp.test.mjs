@@ -302,7 +302,7 @@ async function scenarioTrackerOnlyTs(url) {
 	let res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
 	check(
 		"tracker: ignores non-.ts writes",
-		res.details?.count === 0 && /No TypeScript files have been touched/.test(res.content?.[0]?.text || ""),
+		res.details?.count === 0 && /No se tocó ningún archivo TypeScript/.test(res.content?.[0]?.text || ""),
 		JSON.stringify(res.details),
 	);
 
@@ -316,7 +316,7 @@ async function scenarioTrackerOnlyTs(url) {
 	res = await tools.get("typescript_diagnostics").execute("id", { scope: "touched" }, undefined, undefined, ctx);
 	check(
 		"tracker: records .ts and runs a clean check",
-		res.details?.hasErrors === false && /clean/i.test(res.content?.[0]?.text || ""),
+		res.details?.hasErrors === false && /limpio/i.test(res.content?.[0]?.text || ""),
 		JSON.stringify(res.details),
 	);
 	await fs.rm(dir, { recursive: true, force: true });
@@ -417,11 +417,11 @@ async function scenarioCommandRun(url) {
 
 	// status
 	await commands.get("tsc").handler("status", ctx);
-	check("cmd status: reports state", /TypeScript diagnostics: on/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	check("cmd status: reports state", /Diagnósticos de TypeScript: on/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 
 	// max <n> rejects junk, accepts a positive int.
 	await commands.get("tsc").handler("max zero", ctx);
-	check("cmd max: rejects non-int", /Usage: \/tsc max/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	check("cmd max: rejects non-int", /Uso: \/tsc max/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 	await commands.get("tsc").handler("max 5", ctx);
 	check("cmd max: accepts positive int", /max errors: 5/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 
@@ -436,7 +436,7 @@ async function scenarioCommandRun(url) {
 
 	// off → the coherent edge becomes a no-op even with a touched bad file.
 	await commands.get("tsc").handler("off", ctx);
-	check("cmd off: disabled state acknowledged", /disabled/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	check("cmd off: disabled state acknowledged", /deshabilitados/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
 	check("cmd off: agent_end is a no-op when disabled", messages.length === 0, String(messages.length));
@@ -556,7 +556,7 @@ async function scenarioNoEngine(url) {
 	check("no tsconfig: no feedback message", messages.length === 0, String(messages.length));
 	check(
 		"no tsconfig: advisory warning surfaced",
-		ctx._notes.some((n) => n.type === "warning" && /no tsconfig\.json or tsc found/i.test(n.msg)),
+		ctx._notes.some((n) => n.type === "warning" && /no se encontró tsconfig\.json ni tsc/i.test(n.msg)),
 		JSON.stringify(ctx._notes),
 	);
 	const warnsBefore = ctx._notes.length;
@@ -575,7 +575,7 @@ async function scenarioNoEngine(url) {
 	check(
 		"no tsconfig: tool touched scope → isError",
 		resTouched.details?.isError === true &&
-			/No tsconfig\.json or tsc found/i.test(resTouched.content?.[0]?.text || ""),
+			/No se encontró tsconfig\.json ni tsc/i.test(resTouched.content?.[0]?.text || ""),
 		JSON.stringify(resTouched),
 	);
 	const resProject = await tools
@@ -603,7 +603,7 @@ async function scenarioNoEngine(url) {
 		check("tsc absent: no feedback message", m2.length === 0, String(m2.length));
 		check(
 			"tsc absent: advisory no-engine warning",
-			ctx2._notes.some((n) => n.type === "warning" && /no tsconfig\.json or tsc found/i.test(n.msg)),
+			ctx2._notes.some((n) => n.type === "warning" && /no se encontró tsconfig\.json ni tsc/i.test(n.msg)),
 			JSON.stringify(ctx2._notes),
 		);
 	} finally {
@@ -689,10 +689,10 @@ async function scenarioTimeoutInconclusive(url) {
 			.get("typescript_diagnostics")
 			.execute("id", { scope: "project" }, undefined, undefined, ctx);
 		const text = res.content?.[0]?.text || "";
-		check("timeout: tool never claims clean", !/clean/i.test(text), text);
+		check("timeout: tool never claims clean", !/limpio/i.test(text), text);
 		check(
 			"timeout: tool → isError + timedOut + inconclusive text",
-			res.details?.isError === true && res.details?.timedOut === true && /timed out/i.test(text),
+			res.details?.isError === true && res.details?.timedOut === true && /tiempo de espera/i.test(text),
 			JSON.stringify(res),
 		);
 
@@ -703,7 +703,7 @@ async function scenarioTimeoutInconclusive(url) {
 			.execute("id", { scope: "touched" }, undefined, undefined, ctx);
 		check(
 			"timeout: touched scope inconclusive too",
-			resTouched.details?.timedOut === true && /timed out/i.test(resTouched.content?.[0]?.text || ""),
+			resTouched.details?.timedOut === true && /tiempo de espera/i.test(resTouched.content?.[0]?.text || ""),
 			JSON.stringify(resTouched),
 		);
 
@@ -712,7 +712,7 @@ async function scenarioTimeoutInconclusive(url) {
 		await commands.get("tsc").handler("run", ctx);
 		check(
 			"timeout: /tsc run warns inconclusive",
-			lastNote(ctx).type === "warning" && /timed out/i.test(lastNote(ctx).msg),
+			lastNote(ctx).type === "warning" && /tiempo de espera/i.test(lastNote(ctx).msg),
 			JSON.stringify(lastNote(ctx)),
 		);
 
@@ -725,8 +725,8 @@ async function scenarioTimeoutInconclusive(url) {
 		const newNotes = ctx._notes.slice(notesBefore);
 		check(
 			"timeout: advisory edge warns 'timed out' (not no-engine)",
-			newNotes.some((n) => n.type === "warning" && /timed out/i.test(n.msg)) &&
-				!newNotes.some((n) => /no tsconfig/i.test(n.msg)),
+			newNotes.some((n) => n.type === "warning" && /tiempo de espera/i.test(n.msg)) &&
+				!newNotes.some((n) => /no se encontró tsconfig/i.test(n.msg)),
 			JSON.stringify(newNotes),
 		);
 	} finally {
@@ -755,12 +755,12 @@ async function scenarioCommandEdges(url) {
 	const cmd = commands.get("tsc");
 
 	await cmd.handler("scope banana", ctx);
-	check("cmd scope: rejects junk with usage", /Usage: \/tsc scope/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	check("cmd scope: rejects junk with usage", /Uso: \/tsc scope/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 	await cmd.handler("scope touched", ctx);
 	check("cmd scope: accepts touched", /scope: touched/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 
 	await cmd.handler("autofix banana", ctx);
-	check("cmd autofix: rejects junk with usage", /Usage: \/tsc autofix/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	check("cmd autofix: rejects junk with usage", /Uso: \/tsc autofix/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 	await cmd.handler("autofix on", ctx);
 	await cmd.handler("status", ctx);
 	check(
@@ -770,13 +770,13 @@ async function scenarioCommandEdges(url) {
 	);
 
 	await cmd.handler("frobnicate", ctx);
-	check("cmd unknown: usage warning", /Usage: \/tsc \[status/.test(lastNote(ctx).msg), lastNote(ctx).msg);
+	check("cmd unknown: usage warning", /Uso: \/tsc \[status/.test(lastNote(ctx).msg), lastNote(ctx).msg);
 
 	// `run` with scope touched and nothing touched → its OWN message (not no-engine).
 	await cmd.handler("run", ctx);
 	check(
 		"cmd run: nothing touched → dedicated message",
-		/No TypeScript files touched this turn/.test(lastNote(ctx).msg),
+		/No se tocó ningún archivo TypeScript en este turno/.test(lastNote(ctx).msg),
 		lastNote(ctx).msg,
 	);
 	await fs.rm(dir, { recursive: true, force: true });

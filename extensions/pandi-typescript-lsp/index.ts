@@ -201,7 +201,7 @@ async function checkProject(tsconfigPath: string, signal: AbortSignal | undefine
 }
 
 const TIMEOUT_MESSAGE =
-	"TypeScript check timed out — results inconclusive. Re-run once tsc finishes, or raise PI_TS_LSP_TIMEOUT_MS.";
+	"El chequeo de TypeScript agotó el tiempo de espera — resultados no concluyentes. Reintentá cuando tsc termine, o aumentá PI_TS_LSP_TIMEOUT_MS.";
 
 // --------------------------------------------------------------------------
 // Extension
@@ -243,7 +243,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		warnedNoEngine = true;
 		notify(
 			ctx,
-			"pi-typescript-lsp: no tsconfig.json or tsc found — TypeScript diagnostics disabled for this session.",
+			"pi-typescript-lsp: no se encontró tsconfig.json ni tsc — diagnósticos de TypeScript deshabilitados para esta sesión.",
 			"warning",
 		);
 	};
@@ -385,18 +385,18 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 		name: "typescript_diagnostics",
 		label: "TypeScript Diagnostics",
 		description:
-			"Run TypeScript diagnostics (tsc --noEmit) on demand and return the errors. scope='touched' (default) checks only files written/edited so far this turn; scope='project' type-checks the whole project (<cwd>/tsconfig.json). This is diagnostics feedback only — not a full language server (no hover/go-to-definition). tsc is invoked with an argv array, never a shell.",
-		promptSnippet: "Type-check touched files or the project with typescript_diagnostics.",
+			"Ejecutá diagnósticos de TypeScript (tsc --noEmit) a pedido y devolvé los errores. scope='touched' (default) chequea solo los archivos escritos/editados en este turno; scope='project' tipa-chequea el proyecto completo (<cwd>/tsconfig.json). Esto es solo feedback de diagnósticos — no un language server completo (sin hover/go-to-definition). tsc se invoca con un array argv, nunca con un shell.",
+		promptSnippet: "Tipa-chequeá los archivos tocados o el proyecto con typescript_diagnostics.",
 		promptGuidelines: [
-			"Use typescript_diagnostics to verify your TypeScript edits compile (tsc --noEmit) instead of hand-writing `tsc` or `npx tsc` bash commands.",
-			"Prefer scope='touched' to check just the files you changed; use scope='project' for a full type-check before declaring done.",
-			"typescript_diagnostics reports diagnostics only — it cannot do hover, go-to-definition, or completions.",
+			"Usá typescript_diagnostics para verificar que tus ediciones de TypeScript compilan (tsc --noEmit) en vez de escribir a mano comandos bash `tsc` o `npx tsc`.",
+			"Preferí scope='touched' para chequear solo los archivos que cambiaste; usá scope='project' para un chequeo de tipos completo antes de dar por terminada la tarea.",
+			"typescript_diagnostics solo reporta diagnósticos — no puede hacer hover, go-to-definition, ni completions.",
 		],
 		parameters: Type.Object({
 			scope: Type.Optional(
 				StringEnum(["touched", "project"] as const, {
 					description:
-						"'touched' (default): only files edited so far this turn. 'project': the whole <cwd>/tsconfig.json.",
+						"'touched' (default): solo los archivos editados en este turno. 'project': el <cwd>/tsconfig.json completo.",
 				}),
 			),
 		}),
@@ -411,7 +411,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			} else {
 				if (touched.size === 0) {
 					return {
-						content: [{ type: "text" as const, text: "No TypeScript files have been touched this turn." }],
+						content: [{ type: "text" as const, text: "No se tocó ningún archivo TypeScript en este turno." }],
 						details: { scope: "touched", count: 0, diagnostics: [] },
 					};
 				}
@@ -423,7 +423,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 					content: [
 						{
 							type: "text" as const,
-							text: "No tsconfig.json or tsc found — cannot run TypeScript diagnostics.",
+							text: "No se encontró tsconfig.json ni tsc — no se pueden ejecutar los diagnósticos de TypeScript.",
 						},
 					],
 					details: { isError: true, scope: requested },
@@ -439,8 +439,8 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			const diags = outcome.diags;
 			const formatted = formatDiagnostics(diags, { maxErrors });
 			const text = formatted.hasErrors
-				? `TypeScript diagnostics (${diags.length}):\n${formatted.text}`
-				: "No TypeScript diagnostics — clean.";
+				? `Diagnósticos de TypeScript (${diags.length}):\n${formatted.text}`
+				: "No hay diagnósticos de TypeScript — limpio.";
 			return {
 				content: [{ type: "text" as const, text }],
 				details: {
@@ -458,7 +458,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("tsc", {
 		description:
-			"TypeScript diagnostics: status | on | off | run | scope <touched|project> | autofix <on|off> | max <n>",
+			"Diagnósticos de TypeScript: status | on | off | run | scope <touched|project> | autofix <on|off> | max <n>",
 		getArgumentCompletions: (prefix: string) => {
 			const tokens = prefix.split(/\s+/);
 			if (tokens.length > 1) return null;
@@ -473,7 +473,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			if (head === "status") {
 				notify(
 					ctx,
-					`TypeScript diagnostics: ${enabled ? "on" : "off"}; mode: ${mode}; scope: ${scope}; autofix: ${autofix ? "on" : "off"}; max: ${maxErrors}`,
+					`Diagnósticos de TypeScript: ${enabled ? "on" : "off"}; mode: ${mode}; scope: ${scope}; autofix: ${autofix ? "on" : "off"}; max: ${maxErrors}`,
 					"info",
 				);
 				return;
@@ -482,48 +482,48 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 			if (head === "on") {
 				enabled = true;
 				lastKey = undefined;
-				notify(ctx, "TypeScript diagnostics enabled.", "info");
+				notify(ctx, "Diagnósticos de TypeScript habilitados.", "info");
 				return;
 			}
 
 			if (head === "off") {
 				enabled = false;
 				touched.clear();
-				notify(ctx, "TypeScript diagnostics disabled.", "warning");
+				notify(ctx, "Diagnósticos de TypeScript deshabilitados.", "warning");
 				return;
 			}
 
 			if (head === "scope") {
 				const next = parseScope(tokens[1]);
 				if (!next) {
-					notify(ctx, "Usage: /tsc scope <touched|project>", "warning");
+					notify(ctx, "Uso: /tsc scope <touched|project>", "warning");
 					return;
 				}
 				scope = next;
-				notify(ctx, `TypeScript diagnostics scope: ${scope}`, "info");
+				notify(ctx, `Diagnósticos de TypeScript, scope: ${scope}`, "info");
 				return;
 			}
 
 			if (head === "autofix") {
 				const next = parseOnOff(tokens[1]);
 				if (next === undefined) {
-					notify(ctx, "Usage: /tsc autofix <on|off>", "warning");
+					notify(ctx, "Uso: /tsc autofix <on|off>", "warning");
 					return;
 				}
 				autofix = next;
 				mode = autofix ? "autofix" : "advisory";
-				notify(ctx, `TypeScript diagnostics autofix: ${autofix ? "on" : "off"}`, "info");
+				notify(ctx, `Diagnósticos de TypeScript, autofix: ${autofix ? "on" : "off"}`, "info");
 				return;
 			}
 
 			if (head === "max") {
 				const next = parseMax(tokens[1]);
 				if (next === undefined) {
-					notify(ctx, "Usage: /tsc max <positive integer>", "warning");
+					notify(ctx, "Uso: /tsc max <positive integer>", "warning");
 					return;
 				}
 				maxErrors = next;
-				notify(ctx, `TypeScript diagnostics max errors: ${maxErrors}`, "info");
+				notify(ctx, `Diagnósticos de TypeScript, max errors: ${maxErrors}`, "info");
 				return;
 			}
 
@@ -533,8 +533,8 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 					notify(
 						ctx,
 						scope === "touched" && touched.size === 0
-							? "No TypeScript files touched this turn."
-							: "No tsconfig.json or tsc found — cannot run TypeScript diagnostics.",
+							? "No se tocó ningún archivo TypeScript en este turno."
+							: "No se encontró tsconfig.json ni tsc — no se pueden ejecutar los diagnósticos de TypeScript.",
 						"warning",
 					);
 					return;
@@ -547,14 +547,14 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 				notify(
 					ctx,
 					formatted.hasErrors
-						? `TypeScript diagnostics (${outcome.diags.length}):\n${formatted.text}`
-						: "No TypeScript diagnostics — clean.",
+						? `Diagnósticos de TypeScript (${outcome.diags.length}):\n${formatted.text}`
+						: "No hay diagnósticos de TypeScript — limpio.",
 					formatted.hasErrors ? "warning" : "info",
 				);
 				return;
 			}
 
-			notify(ctx, "Usage: /tsc [status|on|off|run|scope <touched|project>|autofix <on|off>|max <n>]", "warning");
+			notify(ctx, "Uso: /tsc [status|on|off|run|scope <touched|project>|autofix <on|off>|max <n>]", "warning");
 		},
 	});
 }
