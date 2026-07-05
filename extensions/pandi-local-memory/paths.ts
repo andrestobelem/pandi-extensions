@@ -1,6 +1,6 @@
-// Helpers de paths de pandi-local-memory + lectura tolerante de archivos. Puras; index.ts conserva solo el wiring
-// e importa esto. Los nombres de carpeta/índice vienen de ./memory.ts, así que el layout queda
-// definido en un solo lugar.
+// Helpers de paths de pandi-local-memory + lectura tolerante de archivos. Puras; index.ts conserva solo la orquestación
+// e importa esto. Los nombres de carpeta/índice vienen de ./memory.ts, así que la estructura queda
+// definida en un solo lugar.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";

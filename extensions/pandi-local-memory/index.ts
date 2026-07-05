@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { composeInjectedMemory, INDEX_FILE, normalizeNote, slugifyTopic, upsertMemoryNote } from "./memory.js";
 import { indexPathOf, legacyPathOf, memoryDirOf, safeRead } from "./paths.js";
 
-/** Construye un resultado de la tool `remember` con un solo bloque de texto y detalles arbitrarios. */
+/** Construye un resultado de la herramienta `remember` con un solo bloque de texto y detalles arbitrarios. */
 function result(text: string, details: Record<string, unknown>) {
 	return {
 		content: [{ type: "text" as const, text }],
@@ -18,11 +18,11 @@ function errorResult(text: string, details?: Record<string, unknown>) {
 }
 
 export default function localMemoryExtension(pi: ExtensionAPI): void {
-	// Ruta de WRITE invocable por el modelo: permite que Pi persista una nota durable en .pi/memory/ por
+	// Ruta de escritura invocable por el modelo: permite que Pi persista una nota durable en .pi/memory/ por
 	// iniciativa propia (el hook de lectura/inyección de abajo vuelve a alimentar el índice en sesiones futuras).
 	// Sin `topic` -> el índice inyectado (.pi/memory/MEMORY.md); con `topic` -> un archivo de topic
 	// bajo demanda (.pi/memory/<slug>.md). Solo agrega a un bloque gestionado para no tocar nunca
-	// contenido curado por humanos; idempotente; fail-safe.
+	// contenido curado por humanos; idempotente; a prueba de fallos.
 	pi.registerTool({
 		name: "remember",
 		label: "Remember",
@@ -56,7 +56,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			const indexPath = indexPathOf(ctx.cwd);
 			const legacyPath = legacyPathOf(ctx.cwd);
 
-			// Resuelve el archivo destino: índice por defecto, o un archivo de topic slugificado cuando se pide.
+			// Resuelve el archivo destino: índice por defecto, o un archivo de topic convertido a slug cuando se pide.
 			const rawTopic = params.topic?.trim();
 			let targetPath = indexPath;
 			let targetLabel = `${CONFIG_DIR_NAME}/memory/MEMORY.md`;
@@ -72,9 +72,9 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 				targetLabel = `${CONFIG_DIR_NAME}/memory/${slug}.md`;
 			}
 
-			// Lee el contenido existente del destino (fail-safe). Para un índice nuevo, inicializa desde el
-			// .pi/MEMORY.md legacy para que una migración de una sola vez preserve notas curadas por humanos sin
-			// borrar nunca el archivo viejo. Un fallo de lectura (EISDIR/EACCES/TOCTOU) es un HARD stop: nunca
+			// Lee el contenido existente del destino de forma segura. Para un índice nuevo, inicializa desde el
+			// .pi/MEMORY.md heredado para que una migración de una sola vez preserve notas curadas por humanos sin
+			// borrar nunca el archivo viejo. Un fallo de lectura (EISDIR/EACCES/TOCTOU) es un corte duro: nunca
 			// pises un archivo que no pudiste leer.
 			let existing = "";
 			try {

@@ -1,7 +1,7 @@
 /**
- * Helpers puros para la tool `remember` invocable por el modelo: el lado WRITE de
+ * Helpers puros para la tool `remember` invocable por el modelo: el lado de escritura de
  * pandi-local-memory. Se mantienen sin efectos colaterales (sin fs) para que la política de
- * append/dedup sea trivial de testear en aislamiento; index.ts se encarga del file IO real.
+ * agregado/deduplicación sea trivial de testear en aislamiento; index.ts se encarga del I/O real de archivos.
  *
  * Layout (estilo Claude): las notas durables viven bajo la CARPETA `.pi/memory/`.
  *   - `.pi/memory/MEMORY.md` es el ÍNDICE/punto de entrada, inyectado al inicio (capado).
@@ -9,17 +9,17 @@
  *
  * Restricción de diseño: Pi puede persistir notas durables POR SÍ SOLO, pero NUNCA debe
  * pisar contenido curado por humanos. Por eso cada nota escrita por el agente vive dentro
- * de un único BLOQUE GESTIONADO delimitado por markers de comentario HTML, siempre al
- * FINAL del archivo destino. Todo lo que queda fuera de los markers pertenece al humano y
+ * de un único BLOQUE GESTIONADO delimitado por marcadores de comentario HTML, siempre al
+ * FINAL del archivo destino. Todo lo que queda fuera de los marcadores pertenece al humano y
  * se deja intacto byte por byte.
  *
- * Módulo hermano de profundidad 1 importado por index.ts vía "./memory.js"; typechecked
+ * Módulo hermano de profundidad 1 importado por index.ts vía "./memory.js"; verificado por tipos
  * de forma transitiva (tsconfig incluye extensions/**\/*.ts).
  */
 
-/** Marker que abre el bloque gestionado por el agente. */
+/** Marcador que abre el bloque gestionado por el agente. */
 export const REMEMBER_BEGIN = "<!-- pi:remember:begin -->";
-/** Marker que cierra el bloque gestionado por el agente. */
+/** Marcador que cierra el bloque gestionado por el agente. */
 export const REMEMBER_END = "<!-- pi:remember:end -->";
 /** Encabezado visible para quien lea MEMORY.md, para que el bloque gestionado sea obvio. */
 export const MANAGED_HEADING = "## Memoria del agente (gestionada automáticamente por la tool remember)";
@@ -45,7 +45,7 @@ function bulletNoteText(line: string): string {
  *
  * - Si todavía no hay bloque gestionado → crea uno al FINAL (precedido por el contenido existente,
  *   si lo hay, para que las notas humanas queden arriba).
- * - Si el bloque gestionado existe → inserta la nueva viñeta justo antes del marker END.
+ * - Si el bloque gestionado existe → inserta la nueva viñeta justo antes del marcador END.
  * - Idempotente: si el texto exacto de la nota ya existe en el bloque gestionado, devuelve
  *   el documento sin cambios con `added: false`.
  *
@@ -64,12 +64,12 @@ export function upsertMemoryNote(existing: string, note: string, date: string): 
 		return { content: `${sep}${block}`, added: true };
 	}
 
-	// Dedup dentro del bloque gestionado (markers + encabezado + viñetas), comparando por el texto de la nota.
+	// Deduplica dentro del bloque gestionado (marcadores + encabezado + viñetas), comparando por el texto de la nota.
 	const block = existing.slice(begin, end);
 	const already = block.split("\n").some((line) => bulletNoteText(line) === note);
 	if (already) return { content: existing, added: false };
 
-	// Inserta la nueva viñeta justo antes del marker END, conservando un solo salto de línea limpio.
+	// Inserta la nueva viñeta justo antes del marcador END, conservando un solo salto de línea limpio.
 	const head = existing.slice(0, end).replace(/\s+$/, "");
 	const tail = existing.slice(end); // empieza con REMEMBER_END
 	return { content: `${head}\n${bullet}\n${tail}`, added: true };
@@ -93,7 +93,7 @@ export const MAX_INJECT_BYTES = 25_000;
 export const MAX_SLUG_LENGTH = 64;
 
 /**
- * Convierte un título de topic libre en un slug de filename SAFE de un solo segmento.
+ * Convierte un título de topic libre en un slug de filename seguro de un solo segmento.
  *
  * Colapsa cada secuencia no alfanumérica (incluyendo `/`, `\\`, `.`, `..`, espacios) a
  * un solo guion, pasa a minúsculas, recorta guiones y limita la longitud. Eso vuelve el
@@ -141,15 +141,15 @@ export function capForInjection(
 	return { text: out, truncated };
 }
 
-/** Escapa tags literales de local_memory para que el contenido del archivo no pueda salir del fence. */
+/** Escapa tags literales de local_memory para que el contenido del archivo no pueda escaparse del delimitador. */
 export function escapeLocalMemoryTags(text: string): string {
 	return text.replace(/<\/?local_memory/gi, (match) => match.replace("<", "&lt;"));
 }
 
 /**
  * Construye el BODY totalmente escapado que se inyecta dentro del bloque <local_memory>: el
- * índice recortado, un marker opcional de truncado y un listado de archivos de topic bajo
- * demanda (solo paths: sus contenidos NO se inyectan; el agente los lee con sus file tools).
+ * índice recortado, un marcador opcional de truncado y un listado de archivos de topic bajo
+ * demanda (solo paths: sus contenidos NO se inyectan; el agente los lee con sus tools de archivos).
  */
 export function composeInjectedMemory(args: {
 	indexText: string;
