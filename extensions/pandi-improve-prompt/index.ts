@@ -10,7 +10,7 @@
  *        pi.sendUserMessage() injects it as a real user turn (like /plan's approval wake).
  *        Decline -> nothing is sent; the rewrite only stayed on screen.
  *
- * Mirrors pi-btw's shape (one-shot completeSimple call, no tools, overlay-or-print
+ * Mirrors pandi-btw's shape (one-shot completeSimple call, no tools, overlay-or-print
  * display) but ADDS the confirm-and-send step, because — unlike a side question — the
  * whole point of an improved prompt is to actually use it.
  *

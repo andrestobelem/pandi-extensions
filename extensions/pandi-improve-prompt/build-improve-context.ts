@@ -1,7 +1,7 @@
 /**
  * Pure, deterministic helpers for the `/improve-prompt` command.
  *
- * Like pi-btw's build-btw-context.ts, this module never touches the LLM, the network, or
+ * Like pandi-btw's build-btw-context.ts, this module never touches the LLM, the network, or
  * any Pi runtime API: it only builds the one-shot request and reads the model's answer, so
  * it can be unit-tested in isolation, leaving index.ts as the thin orchestration layer
  * (call the model, show the result, optionally send it).

@@ -1,7 +1,7 @@
 /**
  * The dismissible, scrollable overlay that shows an `/improve-prompt` result in the TUI.
  *
- * Vendored from pi-btw's answer-overlay.ts (cross-extension duplication is allowed so each
+ * Vendored from pandi-btw's answer-overlay.ts (cross-extension duplication is allowed so each
  * extension can be published standalone): same scroll model, same Markdown rendering, same
  * q/Esc-to-close. Rendered via ctx.ui.custom(), so nothing is persisted just by showing it —
  * closing the overlay only returns control to the editor; sending the result (if any) is a
