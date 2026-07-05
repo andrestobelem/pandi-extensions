@@ -27,25 +27,25 @@
   /* ===== Claude-design base layout ===== */
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--ink);
-         font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+         font:18px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
   .container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
 
   header { padding:40px 0 8px; }
-  header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+  header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                    color:var(--accent); font-weight:600; }
-  header h1 { margin:6px 0; font-size:28px; }
+  header h1 { margin:6px 0; font-size:34px; }
   header p { margin:0; color:var(--ink2); max-width:74ch; }
 
-  h2.sec { font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+  h2.sec { font-size:15px; letter-spacing:.08em; text-transform:uppercase;
            color:var(--muted); margin:32px 0 14px; }
 
   a { color:var(--link); }
 
   /* Chips & pills */
   .chips { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
-  .chip { font-size:12px; padding:4px 10px; border-radius:999px;
+  .chip { font-size:14px; padding:4px 10px; border-radius:999px;
           background:var(--raised); border:1px solid var(--line); color:var(--ink2); }
-  .rpill { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .rpill { font-size:13px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }
   .rpill.ok   { background:var(--success-bg); color:var(--success); border:1px solid var(--success); }
   .rpill.run  { background:var(--info-bg);    color:var(--info);    border:1px solid var(--info); }
   .rpill.fail { background:var(--error-bg);   color:var(--error);   border:1px solid var(--error); }
@@ -59,10 +59,10 @@
   .card.open .body { display:block; }
   .caret { color:var(--muted); transition:transform .15s; }
   .card.open .caret { transform:rotate(90deg); }
-  .nid { font-family:ui-monospace,Menlo,monospace; font-size:13.5px; font-weight:600; color:var(--info); }
+  .nid { font-family:ui-monospace,Menlo,monospace; font-size:16px; font-weight:600; color:var(--info); }
 
   /* Callouts */
-  .callout { margin:10px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+  .callout { margin:10px 0; padding:10px 14px; border-radius:10px; font-size:16px;
              border:1px solid var(--line); background:var(--paper); color:var(--ink2); }
   .callout.info    { background:var(--info-bg);    border-color:var(--purple);  color:var(--ink); }
   .callout.success { background:var(--success-bg); border-color:var(--success); color:var(--ink); }
@@ -73,16 +73,16 @@
   /* Tables */
   table { border-collapse:collapse; margin:8px 0; width:100%; background:var(--paper);
           border:1px solid var(--line); border-radius:12px; overflow:hidden; }
-  th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
-  th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+  th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
+  th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
        background:var(--raised); }
   tr:last-child td { border-bottom:none; }
 
   /* Code */
-  code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+  code { font-family:ui-monospace,Menlo,monospace; font-size:15px; color:var(--code);
          background:var(--raised); padding:1px 6px; border-radius:5px; }
   pre.block { background:var(--paper); border:1px solid var(--line); border-radius:12px;
-              padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+              padding:16px; overflow:auto; font-size:15px; line-height:1.6; }
   pre.block code { background:none; padding:0; color:var(--ink); }
   pre.block .kw { color:var(--accent); } pre.block .fn { color:var(--info); }
   pre.block .str { color:var(--success); } pre.block .cm { color:var(--line-strong); }
@@ -154,7 +154,7 @@
   uncertainty, verify outputs, and prefer inspectable artifacts over hidden magic.</blockquote>
 
   <hr>
-  <p style="color:var(--muted);font-size:12.5px">Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</p>
+  <p style="color:var(--muted);font-size:15px">Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</p>
 </div>
 </body>
 </html>

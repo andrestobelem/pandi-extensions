@@ -33,24 +33,24 @@ const ALERT_CALLOUTS = {
 const BODY_CSS = `
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--ink);
-       font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+       font:18px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
 .container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
 header { padding:40px 0 8px; }
-header .kicker { font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
-header h1 { margin:6px 0; font-size:28px; }
-main h2 { font-size:20px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
-main h3 { font-size:16px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
-main h4 { font-size:14px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
-main h5, main h6 { font-size:13px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+header h1 { margin:6px 0; font-size:34px; }
+main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:16px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
 main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
 main li { margin:3px 0; }
 a { color:var(--link); }
 strong { color:var(--ink); }
-code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--code);
+code { font-family:ui-monospace,Menlo,monospace; font-size:15px; color:var(--code);
        background:var(--raised); padding:1px 6px; border-radius:5px; }
 pre { background:var(--paper); border:1px solid var(--line); border-radius:12px;
-      padding:16px; overflow:auto; font-size:12.5px; line-height:1.6; }
+      padding:16px; overflow:auto; font-size:15px; line-height:1.6; }
 pre code { background:none; padding:0; color:var(--ink); }
 pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
@@ -58,18 +58,18 @@ blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
 table { border-collapse:collapse; margin:12px 0; background:var(--paper);
         border:1px solid var(--line); border-radius:12px; overflow:hidden; }
-th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:13.5px; }
-th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
+th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
 tr:last-child td { border-bottom:none; }
-.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:13.5px;
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
-footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+footer { margin-top:40px; color:var(--muted); font-size:15px; }
 `;
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

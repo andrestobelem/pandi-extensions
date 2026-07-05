@@ -25,12 +25,13 @@ token below. If the theme changes, this skill's tokens must be updated to match.
    (`--paper`) separated by subtle 1px borders (`--line`). No shadows, no
    gradients. Rounded corners: 10–12px for cards, 999px for chips/pills.
 2. **Quiet hierarchy.** One accent color does the pointing (`--accent`, panda
-   pink). Headings are small and structural, not loud: a 12px uppercase
-   letterspaced *kicker* above a 28px `h1`; section headings are 13px uppercase
+   pink). Headings are small and structural, not loud: a 14px uppercase
+   letterspaced *kicker* above a 34px `h1`; section headings are 15px uppercase
    letterspaced in `--muted`.
 3. **Generous whitespace.** Container max-width ~980px, 24px side padding,
-   40px header top padding, 80px bottom. Body copy at `15px/1.65` in the system
-   sans stack; prose measure ≤ ~74ch.
+   40px header top padding, 80px bottom. Body copy at `18px/1.65` in the system
+   sans stack (reader preference: fonts run ~20% larger than the original
+   Claude-design scale; the layout box does not scale); prose measure ≤ ~74ch.
 4. **Monospace for identity.** IDs, paths, models, and code use
    `ui-monospace, Menlo, monospace` — never for prose.
 5. **Evidence over decoration.** Status is shown with tinted pills/callouts
@@ -74,22 +75,22 @@ blue, strings green, numbers orange, types purple, comments `--line-strong`.
 Working markup + CSS for all of these: [`reference/template.html`](./reference/template.html)
 (open it in a browser to check both variants). Summary:
 
-- **Header**: kicker (12px uppercase `.12em` tracking, `--accent`, weight 600) →
-  `h1` 28px → one-paragraph summary in `--ink2` → a `chips` row for metadata
+- **Header**: kicker (14px uppercase `.12em` tracking, `--accent`, weight 600) →
+  `h1` 34px → one-paragraph summary in `--ink2` → a `chips` row for metadata
   (date, run id, counts).
-- **Chips**: 12px text, `4px 10px` padding, radius 999px, `--raised` background,
+- **Chips**: 14px text, `4px 10px` padding, radius 999px, `--raised` background,
   `--line` border.
-- **Status pills** (`ok`/`run`/`fail`): 11px bold, tinted background
+- **Status pills** (`ok`/`run`/`fail`): 13px bold, tinted background
   (`--success-bg`/`--info-bg`/`--error-bg`) with matching text/border color.
 - **Cards**: `--paper` on `--line` border, radius 12px; clickable head row
   (caret + monospace id in `--info` + title + right-aligned pill); collapsible
   body in `--ink2` separated by a top border.
 - **Callouts**: info/success/warn/error — tinted surface, colored border,
   primary-ink text with a bold lead word.
-- **Tables**: full-width inside a rounded `--paper` frame; uppercase 12px
+- **Tables**: full-width inside a rounded `--paper` frame; uppercase 14px
   header row on `--raised`; row separators with `--line` only.
 - **Code**: inline `code` in `--code` on `--raised`; blocks in a `--paper`
-  rounded frame at 12.5px/1.6.
+  rounded frame at 15px/1.6.
 - **Quotes**: 3px `--accent` left border, text in `--ink2`.
 
 ## Rules for HTML artifacts
@@ -102,7 +103,7 @@ Working markup + CSS for all of these: [`reference/template.html`](./reference/t
    `render.mjs` does for its JSON blob.
 5. Surface partial failure: failed/skipped/clamped work gets a warn or error
    callout near the top, not a footnote.
-6. Footer line in `--muted` 12.5px: generator + palette attribution.
+6. Footer line in `--muted` 15px: generator + palette attribution.
 7. Mermaid diagrams must use the pandi palette too: mermaid `base` theme with
    `themeVariables` mapped from the tokens (background/mainBkg/primaryColor from the
    surfaces, text from the inks, `titleColor` from the accent, lines from `--muted`).
@@ -128,7 +129,7 @@ node extensions/pandi-docs/scripts/markdown-to-html.mjs in.md -o out.html --kick
 - The first `# h1` becomes the page title/header; `--kicker` sets the kicker
   (default `Pandi artifact`).
 - GitHub alerts (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`) become pandi callouts.
-- Prose typography: `h2`/`h3`/`h4` are real ink headings (20/16/14px) and body text
+- Prose typography: `h2`/`h3`/`h4` are real ink headings (24/19/17px) and body text
   is justified — the uppercase label style stays dashboard-only (`h2.sec` in the template).
 - ` ```mermaid ` fences render as diagrams themed with the pandi palette (mermaid `base`
   theme + `themeVariables` parsed at runtime from the tokens file; dark/light follows
