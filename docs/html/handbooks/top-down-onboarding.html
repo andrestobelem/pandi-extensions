@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Onboarding top-down para programadores</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:18px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:34px; }
+main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:16px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+table { border-collapse:collapse; margin:12px 0; background:var(--paper);
+        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
+th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+footer { margin-top:40px; color:var(--muted); font-size:15px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/handbooks</div>
+		<h1>Onboarding top-down para programadores</h1>
+	</header>
+	<main>
+<p>Esta guía es el mapa corto para entender <code>pandi-extensions</code> sin perderse en los detalles. Empezá por el propósito del repo, bajá por subsistemas y recién después entrá a archivos concretos. Usala también como checklist cuando revises comentarios o prosa traducida: claridad primero, sin tocar tokens que el código parsea.</p>
+<h2>En 30 segundos</h2>
+<p><code>pandi-extensions</code> empaqueta una suite de extensiones para Pi/Pandi: comandos UX, memoria, planificación, loops, goals, worktrees, containers, diagnósticos TypeScript, documentación, tema visual y, como núcleo más complejo, <code>pandi-dynamic-workflows</code>.</p>
+<p>La idea central es: <strong>convertir patrones agénticos en herramientas ejecutables, observables y verificables</strong>.</p>
+<p>Tres anclas para orientarte:</p>
+<ul>
+<li><code>README.md</code> explica el producto y la ruta de instalación.</li>
+<li><code>extensions/pandi-dynamic-workflows/</code> contiene el runtime de workflows, el router Ultracode, dashboards, reports y artifacts.</li>
+<li><code>extensions/&lt;extension&gt;/tests/integration/</code> + <code>extensions/shared/test/</code> sostienen el loop de desarrollo seguro.</li>
+</ul>
+<h2>Ruta rápida de lectura</h2>
+<p>Si tenés poco tiempo, leé en este orden:</p>
+<ol>
+<li><code>README.md</code></li>
+<li><code>package.json</code> — scripts, paquetes y extensiones publicadas.</li>
+<li><code>AGENTS.md</code> — reglas de ingeniería del repo.</li>
+<li><code>docs/dynamic-workflows.md</code></li>
+<li><code>extensions/pandi-dynamic-workflows/README.md</code></li>
+<li><code>extensions/pandi-dynamic-workflows/index.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/command-handlers.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/worker-source.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/workflow-resolve.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/run-lifecycle.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/catalog.ts</code></li>
+<li><code>docs/scaffolds/index.md</code></li>
+<li><code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code></li>
+</ol>
+<h2>Mapa top-down del repo</h2>
+<table>
+<thead>
+<tr>
+<th>Capa</th>
+<th>Qué resuelve</th>
+<th>Dónde mirar</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Producto instalable</td>
+<td>Suite de extensiones, skills y docs para Pi/Pandi</td>
+<td><code>README.md</code>, <code>package.json</code>, <code>docs/setup.md</code></td>
+</tr>
+<tr>
+<td>Runtime agéntico</td>
+<td>Workflows JS, subagentes, artifacts, resume, reports</td>
+<td><code>extensions/pandi-dynamic-workflows/</code></td>
+</tr>
+<tr>
+<td>Disciplina de ejecución</td>
+<td>Plan antes de mutar, goals verificables, loops seguros, jobs background</td>
+<td><code>pandi-plan</code>, <code>pandi-goal</code>, <code>pandi-loop</code>, <code>pandi-bg</code></td>
+</tr>
+<tr>
+<td>Operaciones dev</td>
+<td>Worktrees, containers, TypeScript diagnostics, doctor</td>
+<td><code>pandi-worktree</code>, <code>pandi-container</code>, <code>pandi-typescript-lsp</code>, <code>pandi-doctor</code></td>
+</tr>
+<tr>
+<td>UX e interacción</td>
+<td>Persona Pandi, menús, preguntas laterales, mejora de prompts, nombres de sesión</td>
+<td><code>pandi</code>, <code>pandi-ask</code>, <code>pandi-btw</code>, <code>pandi-improve-prompt</code>, <code>pandi-rename</code></td>
+</tr>
+<tr>
+<td>Contexto y lectura</td>
+<td>Memoria local, auto-compactación, Markdown viewer, tema visual</td>
+<td><code>pandi-local-memory</code>, <code>pandi-auto-compact</code>, <code>pandi-mdview</code>, <code>pandi-theme</code></td>
+</tr>
+<tr>
+<td>Tests compartidos</td>
+<td>Harness aislado y helpers para suites de integración</td>
+<td><code>extensions/shared/test/</code></td>
+</tr>
+</tbody></table>
+<h3>Núcleo: <code>pandi-dynamic-workflows</code></h3>
+<p>Pensalo como el laboratorio del repo. Registra comandos/tools, resuelve workflows, ejecuta JavaScript confiable en un <code>Worker</code>, spawnea subagentes, escribe artifacts y deja evidencia reanudable.</p>
+<p>Flujo mental:</p>
+<pre><code class="hljs language-text">humano/modelo
+  → /workflow o dynamic_workflow
+  → command-handlers.ts
+  → workflow-resolve.ts
+  → index.ts engine
+  → Worker con worker-source.ts
+  → subagents/bash/artifacts
+  → .pi/workflows/runs/&lt;run-id&gt;/</code></pre>
+<p>Archivos clave:</p>
+<ul>
+<li><code>index.ts</code> — engine y registro principal.</li>
+<li><code>command-handlers.ts</code> — comandos <code>/workflow</code>, <code>/workflows</code>, <code>/ultracode</code>.</li>
+<li><code>worker-source.ts</code> — globals inyectados dentro del workflow.</li>
+<li><code>workflow-resolve.ts</code> — resolución project/global de scripts.</li>
+<li><code>run-lifecycle.ts</code> y <code>run-store.ts</code> — estado, resume y persistencia.</li>
+<li><code>catalog.ts</code>, <code>pattern-scaffolds.ts</code> y <code>scaffolds/*.js</code> — catálogo de patrones.</li>
+<li><code>workflow-dashboard.ts</code> y <code>run-report-writer.ts</code> — superficies de inspección.</li>
+</ul>
+<h3>Disciplina de ejecución</h3>
+<p>Este grupo existe para que el agente no “haga cosas” sin control:</p>
+<ul>
+<li><code>pandi-plan</code>: modo plan read-only antes de cambios no triviales.</li>
+<li><code>pandi-goal</code>: criterios de éxito, progreso y verificación independiente.</li>
+<li><code>pandi-loop</code>: ejecución iterativa con scheduling y safeguards.</li>
+<li><code>pandi-bg</code>: comandos largos en background, con logs y estado.</li>
+</ul>
+<p>Preguntas guía:</p>
+<ul>
+<li>¿Qué bloquea <code>/plan</code> y qué permite?</li>
+<li>¿Qué evidencia necesita <code>/goal</code> para declarar <code>done</code>?</li>
+<li>¿Cómo evita <code>/loop</code> iteraciones automáticas peligrosas?</li>
+<li>¿Por qué <code>/bg</code> no reemplaza a <code>dynamic_workflow</code>?</li>
+</ul>
+<h3>Operaciones de desarrollo</h3>
+<p>Este grupo toca el sistema o el entorno:</p>
+<ul>
+<li><code>pandi-worktree</code>: maneja worktrees sin mover el <code>cwd</code> actual.</li>
+<li><code>pandi-container</code>: corre comandos Linux en micro-VMs Apple <code>container</code>.</li>
+<li><code>pandi-typescript-lsp</code>: expone diagnósticos <code>tsc --noEmit</code>.</li>
+<li><code>pandi-doctor</code>: revisa instalación, dependencias y setup.</li>
+</ul>
+<p>Preguntas guía:</p>
+<ul>
+<li>¿Qué comando externo ejecuta cada extensión?</li>
+<li>¿Qué parte se puede testear con harness aislado?</li>
+<li>¿Qué depende de macOS, Apple Silicon, git, Node o <code>tsc</code>?</li>
+</ul>
+<h3>UX, contexto y lectura</h3>
+<p>Este grupo define cómo se siente usar Pandi:</p>
+<ul>
+<li><code>pandi</code>: cara, prompt/persona, spinner y detalles de presentación.</li>
+<li><code>pandi-ask</code>: tools interactivas <code>ask_choice</code> y <code>ask_confirm</code>.</li>
+<li><code>pandi-btw</code> e <code>pandi-improve-prompt</code>: overlays para preguntar/mejorar sin contaminar el flujo.</li>
+<li><code>pandi-local-memory</code>: notas durables en <code>.pi/memory/</code>.</li>
+<li><code>pandi-auto-compact</code>: compactación y snapshots de contexto.</li>
+<li><code>pandi-mdview</code>: visor Markdown desde la TUI.</li>
+</ul>
+<p>Preguntas guía:</p>
+<ul>
+<li>¿Este texto lo ve una persona o lo parsea una máquina?</li>
+<li>¿El estado persistido vive en <code>.pi/</code>, en memoria del runtime o en archivos del proyecto?</li>
+<li>¿Qué superficie debe ser cálida y cuál debe ser estrictamente contractual?</li>
+</ul>
+<h2>Equipo de programadores</h2>
+<p>Dividí el trabajo por responsabilidad, no por archivos al azar.</p>
+<table>
+<thead>
+<tr>
+<th>Rol</th>
+<th>Scope</th>
+<th>Entregable</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Arquitectura runtime</td>
+<td><code>pandi-dynamic-workflows</code></td>
+<td>Diagrama <code>/workflow</code> → run dir, invariantes del Worker y lista de tests relevantes</td>
+</tr>
+<tr>
+<td>Seguridad y disciplina</td>
+<td><code>pandi-plan</code>, <code>pandi-goal</code>, <code>pandi-loop</code>, <code>pandi-bg</code></td>
+<td>Matriz acción → permitida/bloqueada/confirmada, riesgos best-effort y tests de gates</td>
+</tr>
+<tr>
+<td>Developer operations</td>
+<td><code>pandi-worktree</code>, <code>pandi-container</code>, <code>pandi-typescript-lsp</code>, <code>pandi-doctor</code></td>
+<td>Tabla de side-effects, dependencias de plataforma y comandos de verificación</td>
+</tr>
+<tr>
+<td>UX/prosa</td>
+<td>comandos human-facing y comentarios</td>
+<td>Tabla <code>path → problema → propuesta</code>, separada de cambios de comportamiento</td>
+</tr>
+<tr>
+<td>Contexto/docs/tests</td>
+<td>memoria, compactación, mdview, theme, <code>shared</code></td>
+<td>Mapa de datos persistidos, riesgos de prompt injection y guía para tests</td>
+</tr>
+</tbody></table>
+<p>Definition of Done común:</p>
+<ul>
+<li>El rol puede explicar el subsistema sin abrir todo el repo.</li>
+<li>Todo claim importante cita un path, test, comando o artifact.</li>
+<li>Los cambios propuestos separan <strong>comportamiento</strong> de <strong>prosa/estructura</strong>.</li>
+<li>Si se toca código, hay test representativo o una razón explícita de por qué no aplica.</li>
+</ul>
+<h2>Comentarios y prosa traducida</h2>
+<p>La regla base: <strong>si lo parsea el código, no se traduce; si lo lee una persona, debe sonar claro en español</strong>.</p>
+<p>Prioridad de revisión:</p>
+<ol>
+<li>Comentarios que contradicen o simplifican mal el código.</li>
+<li>Falsos amigos o traducciones que cambian el sentido técnico.</li>
+<li>Texto user-facing inconsistente entre inglés y español.</li>
+<li>Spanglish que no aporta precisión.</li>
+</ol>
+<p>Ejemplos semilla para revisar antes de editar:</p>
+<table>
+<thead>
+<tr>
+<th>Prioridad</th>
+<th>Path/frase</th>
+<th>Problema</th>
+<th>Dirección de corrección</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Alta</td>
+<td><code>extensions/pandi-goal/persistence.ts</code> — “tragar errores”</td>
+<td>Puede sugerir que toda persistencia ignora errores, cuando solo el sidecar es best-effort</td>
+<td>Aclarar qué llamada mantiene errores y cuál los ignora</td>
+</tr>
+<tr>
+<td>Alta</td>
+<td><code>extensions/pandi-goal/verifier.ts</code> — “clamó”</td>
+<td>Falso amigo de <code>claimed</code>; suena a gritar/proclamar</td>
+<td>Usar “afirmó”</td>
+</tr>
+<tr>
+<td>Media</td>
+<td><code>extensions/pandi-goal/prompts.ts</code> — referencia a <code>index.ts</code></td>
+<td>El verificador vive en <code>verifier.ts</code></td>
+<td>Actualizar path conceptual</td>
+</tr>
+<tr>
+<td>Media</td>
+<td><code>extensions/pandi-goal/index.ts</code> — estados activos</td>
+<td>Puede omitir <code>verifying-independent</code></td>
+<td>Enumerar todos los estados relevantes</td>
+</tr>
+<tr>
+<td>Media</td>
+<td><code>extensions/pandi-goal/time.ts</code> / <code>pandi-loop/time.ts</code> — <code>null -&gt; &quot;now&quot;</code></td>
+<td>Puede sonar a wake inmediato</td>
+<td>Decir que es etiqueta fallback sin timestamp programado</td>
+</tr>
+<tr>
+<td>Media</td>
+<td><code>extensions/pandi-loop/index.ts</code> — “force-stoppea”, “loopear”</td>
+<td>Spanglish innecesario en texto humano</td>
+<td>“fuerza la detención”, “ejecutar iteraciones automáticas”</td>
+</tr>
+<tr>
+<td>Media</td>
+<td><code>extensions/pandi-dynamic-workflows/*</code> cabeceras en inglés</td>
+<td>Comentarios explicativos humanos quedan menos directos</td>
+<td>Traducir explicación, conservar nombres API</td>
+</tr>
+<tr>
+<td>Media</td>
+<td><code>extensions/pandi-improve-prompt/*</code> UX en inglés</td>
+<td>Superficie user-facing inconsistente</td>
+<td>Llevar mensajes visibles a español claro</td>
+</tr>
+<tr>
+<td>Baja</td>
+<td><code>AGENTS.md</code> — <code>owner user</code></td>
+<td>Calco del inglés</td>
+<td>“del usuario <code>andrestobelem</code>”</td>
+</tr>
+</tbody></table>
+<p>Antes de tocar cualquiera de estos puntos, revalidá con <code>rg</code> porque las líneas exactas pueden moverse:</p>
+<pre><code class="hljs language-bash">rg -n <span class="hljs-string">&quot;clamó|force-stoppea|loopear|tragar errores|owner user|read-time|reaped&quot;</span> .</code></pre>
+<h2>Glosario mínimo</h2>
+<h3>Dejar en inglés</h3>
+<p>No traduzcas comandos, APIs, eventos, nombres de tools, literales parseables ni nombres de paquetes:</p>
+<ul>
+<li><code>/workflow</code>, <code>/workflows</code>, <code>/dynamic-workflow</code>, <code>/ultracode</code></li>
+<li><code>dynamic_workflow</code>, <code>agent</code>, <code>agents</code>, <code>workflow</code></li>
+<li><code>ask_choice</code>, <code>ask_confirm</code></li>
+<li><code>goal_progress</code>, <code>loop_schedule</code>, <code>loop_stop</code></li>
+<li><code>runId</code>, <code>runDir</code>, <code>cwd</code></li>
+<li><code>Worker</code>, <code>CommonJS</code>, <code>JSONL</code></li>
+<li><code>VERDICT: PASS/FAIL</code>, <code>NO_FINDINGS</code>, <code>INSUFFICIENT_EVIDENCE</code></li>
+<li><code>status.json</code>, <code>result.json</code>, <code>events.jsonl</code></li>
+<li><code>pandi-dynamic-workflows</code>, <code>pandi-auto-compact</code>, etc.</li>
+</ul>
+<h3>Traducir o adaptar</h3>
+<p>Preferí español claro para explicación humana:</p>
+<ul>
+<li><code>default</code> → <code>predeterminado</code></li>
+<li><code>claimed</code> → <code>afirmó</code></li>
+<li><code>read-time</code> → <code>al leer</code> / <code>en tiempo de lectura</code></li>
+<li><code>force-stop</code> → <code>forzar la detención</code></li>
+<li><code>looping</code> → <code>iteraciones automáticas</code> / <code>sostener un loop</code></li>
+<li><code>agentic</code> → <code>agéntico</code>, salvo nombre propio o cita literal</li>
+<li><code>in flight</code> → <code>en ejecución</code></li>
+<li><code>re-launch</code> → <code>relanzamiento</code></li>
+<li><code>scheduling</code> → <code>programación de wakes</code> o <code>planificación de ejecución</code></li>
+</ul>
+<p>Para prompts, usá también <a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>: ahí vive la lista más estricta de tokens congelados.</p>
+<h2>Cómo verificar cambios futuros</h2>
+<p>Comandos base antes de merge:</p>
+<pre><code class="hljs language-bash">npm run doctor
+npm <span class="hljs-built_in">test</span></code></pre>
+<p>Checklist por tipo de cambio:</p>
+<table>
+<thead>
+<tr>
+<th>Tipo de cambio</th>
+<th>Verificación mínima</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Runtime</td>
+<td>Test de integración representativo en <code>extensions/&lt;extension&gt;/tests/integration/*</code> + <code>npm test</code></td>
+</tr>
+<tr>
+<td>Prosa user-facing</td>
+<td>Buscar snapshots/assertions sobre strings; actualizar README si cambia UX</td>
+</tr>
+<tr>
+<td>Docs Markdown</td>
+<td><code>npx markdownlint-cli2 &#39;:ruta.md&#39;</code> + <code>npm run sync:docs:html</code> + <code>npm run -s sync:docs:html:check</code></td>
+</tr>
+<tr>
+<td>Dynamic Workflows</td>
+<td>Revisar primitives parity, scaffolds packaging, resume/journal, reports y skill mirrors</td>
+</tr>
+<tr>
+<td>Comentarios internos</td>
+<td>Mantener el cambio separado de comportamiento; no mezclar con refactors amplios</td>
+</tr>
+</tbody></table>
+<h2>Gaps conocidos</h2>
+<p>Esta guía salió de una lectura top-down y una auditoría read-only. No reemplaza una revisión exhaustiva línea por línea.</p>
+<p>Gaps a recordar:</p>
+<ul>
+<li>No se ejecutó Pi real ni TUI real para validar cada flujo descrito.</li>
+<li>No se corrieron tests durante la auditoría original; los comandos de verificación quedan para la fase de implementación.</li>
+<li>No se inspeccionó cada scaffold JS uno por uno.</li>
+<li>Los ejemplos de comentarios/prosa son semillas priorizadas, no inventario completo.</li>
+<li><code>docs/html/</code> es mirror generado: nunca lo edites a mano; regeneralo desde Markdown.</li>
+</ul>
+	</main>
+	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

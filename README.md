@@ -47,6 +47,7 @@ Este repo funciona como **paquete instalable** y como **libro práctico**. Eleg�
 | Instalar y probar Pandi | [`docs/setup.md`](docs/setup.md) | `/effort status`, `/workflow patterns` |
 | Entender Dynamic Workflows | [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) | [`docs/scaffolds/`](docs/scaffolds/index.md) |
 | Aprender patrones agénticos | [`docs/scaffolds/`](docs/scaffolds/index.md) | [`docs/research/`](docs/research/index.md) |
+| Entender el código top-down | [`docs/handbooks/top-down-onboarding.md`](docs/handbooks/top-down-onboarding.md) | `extensions/<name>/README.md` + tests de integración |
 | Desarrollar extensiones | [`docs/developing-extensions.md`](docs/developing-extensions.md) | `extensions/<name>/README.md` + [`docs/handbooks/`](docs/handbooks/README.md) |
 | Navegar como sitio HTML | `docs/html/index.html` | mirror generado de este README + `docs/**/*.md` |
 

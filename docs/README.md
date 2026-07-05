@@ -13,6 +13,7 @@ Si querés ubicarte rápido, empezá por la guía de `Setup`, la documentación 
 - [Dynamic Workflows — guía completa](./dynamic-workflows.md) — ciclo de ejecución, API de globals, background y resume, concurrencia, patrones y seguridad
 - [Scaffolds](./scaffolds/index.md) — páginas didácticas del catálogo: cuándo usar cada patrón, diagrama y comando mínimo
 - [Handbooks — referencia duradera del proyecto](./handbooks/README.md) — convenciones, onboarding y playbooks
+- [Onboarding top-down para programadores](./handbooks/top-down-onboarding.md) — ruta de lectura del repo, roles de trabajo y criterio para comentarios traducidos
 - [Configuración de kitty](./kitty.md) — terminal usado para desarrollo (config activa + tema)
 - [Memoria de trabajo](./memoria.md) — registro de trabajo y decisiones
 
@@ -35,7 +36,7 @@ El sitio HTML generado vive en `docs/html/`. No se edita a mano: sale del Markdo
 ## Estructura del directorio
 
 - `docs/html/` — espejo HTML generado con estilo Pandi; no se edita a mano y se regenera con `npm run sync:docs:html` (`npm test` falla si hay drift)
-- `docs/handbooks/` — referencia duradera del proyecto (convenciones, onboarding y playbooks)
+- `docs/handbooks/` — referencia duradera del proyecto (convenciones, onboarding y playbooks; empezá por `top-down-onboarding.md` si querés entender el código)
 - `docs/research/` — notas de investigación, fuentes consultadas y decisiones de implementación
 - `docs/scaffolds/` — libro de patrones agénticos corribles, una página por scaffold
 - `docs/*.md` — guías principales, setup, ingeniería de extensiones y memoria del proyecto
