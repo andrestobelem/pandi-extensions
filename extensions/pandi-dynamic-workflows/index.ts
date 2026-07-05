@@ -190,14 +190,21 @@ const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
 // Label embedded in the editor's top border (the violet prompt line) while
 // always-on Ultracode routing is active, so the router state is visible there too.
 /**
- * Bin name of the HOST distribution (bin === piConfig.name: "pi" under vanilla pi,
- * "pi-cante" under pi-cante), read from the host package.json. Falls back to "pi".
+ * Bin name of the HOST distribution, read from the host package.json: the first
+ * `bin` key when present ("pi" under vanilla pi, "picante" under pi-cante), else
+ * piConfig.name (distros may rename the bin independently of the product name).
+ * Falls back to "pi".
  */
 function hostBinName(): string {
 	try {
 		const pkg = JSON.parse(readFileSync(path.join(getPackageDir(), "package.json"), "utf8")) as {
+			bin?: string | Record<string, string>;
 			piConfig?: { name?: string };
 		};
+		if (pkg.bin && typeof pkg.bin === "object") {
+			const first = Object.keys(pkg.bin)[0];
+			if (first) return first;
+		}
 		return pkg.piConfig?.name || "pi";
 	} catch {
 		return "pi";

@@ -10,15 +10,21 @@ import { join } from "node:path";
 import { getPackageDir } from "@earendil-works/pi-coding-agent";
 
 /**
- * Bin name of the HOST distribution (bin === piConfig.name: "pi" under vanilla pi,
- * "pi-cante" under pi-cante), read from the host package.json. Falls back to "pi".
- * Deliberately duplicated per extension (self-contained-extension rule).
+ * Bin name of the HOST distribution, read from the host package.json: the first
+ * `bin` key when present ("pi" under vanilla pi, "picante" under pi-cante), else
+ * piConfig.name (distros may rename the bin independently of the product name).
+ * Falls back to "pi". Deliberately duplicated per extension (self-contained-extension rule).
  */
 function hostBinName(): string {
 	try {
 		const pkg = JSON.parse(readFileSync(join(getPackageDir(), "package.json"), "utf8")) as {
+			bin?: string | Record<string, string>;
 			piConfig?: { name?: string };
 		};
+		if (pkg.bin && typeof pkg.bin === "object") {
+			const first = Object.keys(pkg.bin)[0];
+			if (first) return first;
+		}
 		return pkg.piConfig?.name || "pi";
 	} catch {
 		return "pi";
