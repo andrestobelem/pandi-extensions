@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral test for extensions/pandi pure persona block (persona.ts).
+ * Test de comportamiento durable para el bloque puro de persona de extensions/pandi
+ * (persona.ts).
  *
- * pandi appends this block to the END of the system prompt (via before_agent_start) to
- * give the assistant Pandi's gentle, bamboo-forest voice — including the soft 🐼 signature
- * the user likes. This suite pins the contract so the append stays well-formed and on-tone.
+ * pandi agrega este bloque al FINAL del system prompt (vía before_agent_start) para darle
+ * al asistente la voz suave, de bosque de bambú, de Pandi, incluida la firma 🐼 que le gusta
+ * al usuario. Esta suite fija el contrato para que el agregado siga bien formado y en tono.
  *
- * Contract:
- * - PANDI_PERSONA_TAG is a simple XML-safe identifier (letters/underscore only).
- * - pandiPersonaBlock() wraps the persona text in <TAG> … </TAG> (open first, close last).
- * - The block names "Pandi" and carries the 🐼 signature the persona is about.
- * - The block body (between the tags) is non-empty and trimmed.
- * - The 🐼 habit is framed as OCCASIONAL, not every message (so it stays a garnish).
+ * Contrato:
+ * - PANDI_PERSONA_TAG es un identificador simple, seguro para XML (solo letras/guion bajo).
+ * - pandiPersonaBlock() envuelve el texto de la persona en <TAG> … </TAG> (abre primero,
+ *   cierra al final).
+ * - El bloque nombra a "Pandi" y lleva la firma 🐼 de la que trata la persona.
+ * - El cuerpo del bloque (entre las etiquetas) no está vacío y está trimmeado.
+ * - El hábito del 🐼 está enmarcado como OCCASIONAL, no en cada mensaje (para que siga
+ *   siendo un condimento).
  */
 
 import * as fs from "node:fs/promises";
@@ -49,9 +52,10 @@ async function scenarioPersonaUnit(url) {
 		"persona frames the 🐼 as occasional, not every message",
 		/cada tanto|no en cada|de vez en cuando|ocasional/i.test(inner),
 	);
-	// Character traits: creativo, didáctico y conciso (asked 2026-07-04). The persona must
-	// carry all three — and honor "conciso" itself: the whole block stays a garnish, not an
-	// essay (guard against trait-creep bloating the system prompt).
+	// Rasgos de carácter: creativo, didáctico y conciso (pedido el 2026-07-04). La persona
+	// debe llevar los tres, y honrar "conciso" también en sí misma: todo el bloque sigue
+	// siendo un condimento, no un ensayo (evita que el crecimiento de rasgos infle el system
+	// prompt).
 	check("persona carries the creative trait", /creativ/i.test(inner), inner);
 	check("persona carries the didactic trait", /didáctic/i.test(inner), inner);
 	check("persona carries the concise trait", /concis/i.test(inner), inner);

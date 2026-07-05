@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral test for extensions/pandi pure data + helpers (moods.ts).
+ * Test de comportamiento durable para los datos puros y utilidades de extensions/pandi
+ * (moods.ts).
  *
- * Pins the tone/format contract of Pandi's rotating status text so future edits stay
- * coherent and never break the two templates the working indicator renders:
- *   `Pandi ${mood}`              and   `Pandi despierto y ${mood}`
+ * Fija el contrato de tono/formato del texto de estado rotativo de Pandi para que futuras
+ * ediciones sigan siendo coherentes y nunca rompan las dos plantillas que renderiza el
+ * indicador de trabajo:
+ *   `Pandi ${mood}`              y   `Pandi despierto y ${mood}`
  *
- * Contract:
- * - MOODS is a non-empty, duplicate-free list of short phrases.
- * - Every mood is trimmed, starts lowercase, and ends with a single ellipsis "…".
- * - Both render templates produce clean, non-empty strings for every mood.
- * - The list stays in the "bamboo forest" semantic field (a strong majority of moods
- *   reference panda/bamboo/forest vocabulary), so "same semantic field" is enforced,
- *   not just asserted in a commit message.
- * - pick() always returns a member of the array (incl. the single-element case).
- * - PANDI_QUOTE is a two-line, non-empty splash quote.
+ * Contrato:
+ * - MOODS es una lista no vacía y sin duplicados de frases cortas.
+ * - Cada mood está trimmeado, empieza en minúscula y termina con un único carácter de
+ *   elipsis "…".
+ * - Ambas plantillas de renderizado producen strings limpios y no vacíos para cada mood.
+ * - La lista se mantiene en el campo semántico de "bosque de bambú" (una fuerte mayoría
+ *   de moods referencia vocabulario de panda/bambú/bosque), así que se hace cumplir el
+ *   "mismo campo semántico", no solo se afirma en un mensaje de commit.
+ * - pick() siempre devuelve un miembro del array (incl. el caso de un solo elemento).
+ * - PANDI_QUOTE es una cita de splash de dos líneas y no vacía.
  */
 
 import * as fs from "node:fs/promises";
@@ -27,8 +30,9 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-// Vocabulary that anchors the "bamboo forest / panda" semantic field. A mood counts as
-// in-field when it contains any of these tokens (accent- and case-insensitive substring).
+// Vocabulario que ancla el campo semántico de "bosque de bambú / panda". Un mood cuenta
+// como dentro del campo cuando contiene cualquiera de estos tokens (subcadena insensible a
+// acentos y mayúsculas/minúsculas).
 const FIELD_VOCAB = [
 	"bambu",
 	"bambudal",
@@ -71,16 +75,16 @@ async function scenarioMoodsUnit(url) {
 			`mood starts lowercase: ${JSON.stringify(mood)}`,
 			mood[0] === mood[0].toLowerCase() && mood[0] !== mood[0].toUpperCase(),
 		);
-		// Reads cleanly in BOTH templates the indicator uses. The `"${mood}"` substrings are
-		// INTENTIONAL literal `${mood}` text (documenting the indicator's template), not a
-		// forgotten template literal — hence the targeted biome-ignore before each template.
+		// Se lee bien en AMBAS plantillas que usa el indicador. Las subcadenas `"${mood}"` son
+		// texto literal `${mood}` INTENCIONAL (documentan la plantilla del indicador), no un
+		// template literal olvidado; de ahí el biome-ignore puntual antes de cada plantilla.
 		check(
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` shown in the assertion label on purpose
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` mostrado en la etiqueta de la aserción a propósito
 			`mood renders in "Pandi ${"${mood}"}": ${JSON.stringify(mood)}`,
 			`Pandi ${mood}`.startsWith("Pandi ") && `Pandi ${mood}`.endsWith("…"),
 		);
 		check(
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` shown in the assertion label on purpose
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` mostrado en la etiqueta de la aserción a propósito
 			`mood renders in "Pandi despierto y ${"${mood}"}": ${JSON.stringify(mood)}`,
 			`Pandi despierto y ${mood}`.startsWith("Pandi despierto y ") && `Pandi despierto y ${mood}`.endsWith("…"),
 		);
@@ -93,7 +97,7 @@ async function scenarioMoodsUnit(url) {
 		`${inField.length}/${MOODS.length}`,
 	);
 
-	// pick() always returns a member of the array.
+	// pick() siempre devuelve un miembro del array.
 	let allMembers = true;
 	for (let i = 0; i < 300; i++) {
 		if (!MOODS.includes(pick(MOODS))) {
@@ -110,8 +114,9 @@ async function scenarioMoodsUnit(url) {
 		PANDI_QUOTE.every((line) => typeof line === "string" && line.trim().length > 0),
 	);
 
-	// GREETINGS: tierno/zen "otra cosa" shown after "Pandi listo." when the splash is visible,
-	// so we never repeat the splash's main phrase. Complete sentences, not the MOOD gerunds.
+	// GREETINGS: líneas tierno/zen de "otra cosa" que se muestran después de "Pandi listo."
+	// cuando el splash está visible, para no repetir la frase principal del splash. Son
+	// oraciones completas, no los gerundios de MOOD.
 	check("GREETINGS is a non-empty array", Array.isArray(GREETINGS) && GREETINGS.length > 0, String(GREETINGS?.length));
 	check("GREETINGS has no duplicates", new Set(GREETINGS).size === GREETINGS.length);
 	for (const g of GREETINGS) {
@@ -134,11 +139,12 @@ async function scenarioMoodsUnit(url) {
 		`${greetInField.length}/${GREETINGS.length}`,
 	);
 
-	// The start greeting must NOT repeat the splash's main phrase when the splash is visible
-	// (the two-line PANDI_QUOTE is the splash's job): instead it says "Pandi listo." + a
-	// tierno/zen flavor line. When the splash is hidden the greeting carries the quote so the
-	// meme still appears somewhere. Randomness lives at the call-site (pick), so greetingText
-	// takes the chosen flavor and stays deterministic/testable.
+	// El saludo de arranque NO debe repetir la frase principal del splash cuando el splash
+	// está visible (la cita de dos líneas PANDI_QUOTE le corresponde al splash): en su lugar
+	// dice "Pandi listo." + una línea flavor tierno/zen. Cuando el splash está oculto, el
+	// saludo lleva la cita para que el meme siga apareciendo en algún lado. La aleatoriedad
+	// vive en el sitio de llamada (pick), así que greetingText recibe el flavor elegido y se
+	// mantiene determinista/testeable.
 	check("greetingText is a function", typeof greetingText === "function");
 	const flavor = GREETINGS[0];
 	const withSplash = greetingText(true, flavor);

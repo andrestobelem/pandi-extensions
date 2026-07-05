@@ -1,22 +1,23 @@
 /**
- * Pure panda-face block-art + theme-adaptive palette for Pandi's splash. No SDK, no I/O,
- * no randomness at module load: importing this file is side-effect free, so it can be unit
- * tested in isolation (index.ts is the only orchestration layer).
+ * Block-art puro de la cara de Pandi + paleta adaptada al tema para el splash. Sin SDK, sin
+ * I/O, sin aleatoriedad al cargar el módulo: importar este archivo no tiene efectos
+ * secundarios, así que puede probarse en aislamiento (index.ts es la única capa de
+ * orquestación).
  *
- * Why a palette instead of fixed black/white: the face is two tones — ░ (the light face)
- * and █ (the dark patches: ears, eyes, nose). A single fixed black/white palette breaks in
- * one mode — the dark patches vanish on a dark terminal, and the light face vanishes on a
- * light terminal. So the palette ADAPTS to the terminal mode: each tone is nudged off the
- * background it would otherwise blend into, while keeping strong internal face/patch
- * contrast so Pandi always reads as a panda.
+ * Por qué usar una paleta y no blanco/negro fijos: la cara tiene dos tonos — ░ (cara clara)
+ * y █ (parches oscuros: orejas, ojos, nariz). Una sola paleta fija de blanco/negro falla en
+ * uno de los modos: los parches oscuros desaparecen en una terminal oscura y la cara clara
+ * desaparece en una terminal clara. Por eso la paleta se ADAPTA al modo de la terminal:
+ * cada tono se corre del fondo con el que, si no, se mezclaría, mientras mantiene un buen
+ * contraste interno entre cara y parches para que Pandi siempre se lea como panda.
  */
 
 export type TerminalMode = "dark" | "light";
 
-/** An 8-bit RGB triple. */
+/** Una tripla RGB de 8 bits. */
 export type Rgb = readonly [number, number, number];
 
-/** The panda face in block-art. ░ = light face, █ = dark patch. Spaces are transparent. */
+/** La cara del panda en block-art. ░ = cara clara, █ = parche oscuro. Los espacios son transparentes. */
 export const PANDA_FACE = [
 	"████    ████",
 	"░░░░░░░░░░░░░░░░",
@@ -29,23 +30,23 @@ export const PANDA_FACE = [
 	"  ████    ████",
 ] as const;
 
-/** Width of the widest face row (for padding the splash into a clean column). */
+/** Ancho de la fila más larga de la cara (para rellenar el splash en una columna prolija). */
 export const FACE_WIDTH = Math.max(...PANDA_FACE.map((line) => [...line].length));
 
-/** The two tones used to paint the face for a given terminal mode. */
+/** Los dos tonos usados para pintar la cara en un modo de terminal dado. */
 export interface PandaPalette {
-	/** Color for ░ — the panda's light face. */
+	/** Color para ░ — la cara clara del panda. */
 	face: Rgb;
-	/** Color for █ — the panda's dark patches (ears, eyes, nose). */
+	/** Color para █ — los parches oscuros del panda (orejas, ojos, nariz). */
 	patch: Rgb;
 }
 
 /**
- * Pick the face/patch tones for a terminal mode.
- * - dark mode: face stays bright white; the patch is lifted off pure black so it survives a
- *   dark background.
- * - light mode: the patch is near-black so it shows; the face is pulled down off pure white
- *   so it stays distinct from a light background.
+ * Elige los tonos de cara/parches para un modo de terminal.
+ * - modo dark: la cara queda en blanco brillante; el parche se levanta del negro puro para
+ *   que sobreviva sobre un fondo oscuro.
+ * - modo light: el parche queda casi negro para que se vea; la cara se baja del blanco puro
+ *   para que siga siendo distinta de un fondo claro.
  */
 export function pandaPalette(mode: TerminalMode): PandaPalette {
 	return mode === "light"
@@ -53,22 +54,26 @@ export function pandaPalette(mode: TerminalMode): PandaPalette {
 		: { face: [237, 237, 232], patch: [70, 74, 82] };
 }
 
-/** Blend an RGB triple toward black (t<1) or white via `blendTo`; each channel rounded + clamped. */
+/** Mezcla una tripla RGB hacia negro o blanco (`target`); cada canal se redondea y se acota. */
 function blend([r, g, b]: Rgb, target: number, t: number): Rgb {
 	const mix = (c: number) => Math.max(0, Math.min(255, Math.round(c + (target - c) * t)));
 	return [mix(r), mix(g), mix(b)];
 }
 
 /**
- * Derive Pandi's two tones from the THEME's ink (the `text` color). Themes expose no explicit
- * black/white role, so we use the ONE extreme the theme gives us — its ink — for the tone that
- * matches the mode, and derive the opposite tone by blending that same ink (preserving its hue,
- * so a tinted theme yields a tinted-but-monochrome panda):
- * - dark theme (light ink): face = the ink itself (the theme's white); patch = ink blended 70%
- *   toward black (a dark, same-hue version that survives a dark background).
- * - light theme (dark ink): patch = the ink itself (the theme's black); face = ink blended 60%
- *   toward white (a light, same-hue version distinct from a light background).
- * The mode threshold (text luminance ≥ 0.5 ⇒ dark) guarantees ≥ 0.3 face/patch contrast either way.
+ * Deriva los dos tonos de Pandi desde la tinta del THEME (el color `text`). Los themes no
+ * exponen un rol explícito de blanco/negro, así que usamos el ÚNICO extremo que el theme
+ * nos da — su tinta — para el tono que coincide con el modo, y derivamos el tono opuesto
+ * mezclando esa misma tinta (preservando su matiz, para que un theme teñido produzca un
+ * panda teñido pero monocromo):
+ * - theme dark (tinta clara): face = la tinta misma (el blanco del theme); patch = tinta
+ *   mezclada 70% hacia negro (una versión oscura, del mismo matiz, que sobrevive sobre un
+ *   fondo oscuro).
+ * - theme light (tinta oscura): patch = la tinta misma (el negro del theme); face = tinta
+ *   mezclada 60% hacia blanco (una versión clara, del mismo matiz, distinta de un fondo
+ *   claro).
+ * El umbral del modo (luminancia del texto ≥ 0.5 ⇒ dark) garantiza ≥ 0.3 de contraste
+ * entre cara y parches en ambos casos.
  */
 export function pandaPaletteFromInk(ink: Rgb, mode: TerminalMode): PandaPalette {
 	return mode === "light"
@@ -78,7 +83,7 @@ export function pandaPaletteFromInk(ink: Rgb, mode: TerminalMode): PandaPalette 
 
 const RESET = "\x1b[0m";
 
-/** Build a truecolor foreground SGR escape for an RGB triple. */
+/** Construye un escape SGR truecolor de foreground para una tripla RGB. */
 export const fgAnsi = ([r, g, b]: Rgb): string => `\x1b[38;2;${r};${g};${b}m`;
 
 /** Naranja-coral de Anthropic/Claude — el color del ◆ que es el "ADN de Claude". */
@@ -93,10 +98,10 @@ export const CLAUDE_ORANGE: Rgb = [217, 119, 87];
 export const glintEye = (glyph: string, fg: string): string => `${fg}${glyph}${RESET}`;
 
 /**
- * Rol de color de la PALETA DEL TEMA para los ojos de cada carita (theme-adaptive), elegido
+ * Rol de color de la PALETA DEL TEMA para los ojos de cada carita (adaptado al tema), elegido
  * semánticamente: happy=success (verde), error=error (rojo), el resto=accent. Son nombres de
  * `ThemeColor` válidos; el orquestador los resuelve con theme.getFgAnsi(rol). Se mantiene
- * SDK-free (as const) para que este módulo siga siendo puro y testeable en aislamiento.
+ * libre de SDK (as const) para que este módulo siga siendo puro y testeable en aislamiento.
  */
 export const FACE_EYE_ROLE = {
 	thinking: "accent",
@@ -115,20 +120,21 @@ export const FACE_STYLES = ["claude", "kaomoji", "ojitos", "decidido", "gatuno"]
 /** El estilo de carita del indicador. */
 export type FaceStyle = (typeof FACE_STYLES)[number];
 
-/** Valida un estilo persistido (viene de JSON de disco); default "claude" si no matchea. */
+/** Valida un estilo persistido (viene de JSON en disco); por defecto "claude" si no matchea. */
 export function parseFaceStyle(raw: unknown): FaceStyle {
 	return FACE_STYLES.includes(raw as FaceStyle) ? (raw as FaceStyle) : "claude";
 }
 
-/** El siguiente estilo en el ciclo, con wrap-around al principio. */
+/** El siguiente estilo en el ciclo, con vuelta al principio. */
 export function nextFaceStyle(current: FaceStyle): FaceStyle {
 	const i = FACE_STYLES.indexOf(current);
 	return FACE_STYLES[(i + 1) % FACE_STYLES.length];
 }
 
 /**
- * Paint one face row: █→patch block, ░→face block (both as solid █ so the face is opaque),
- * spaces left transparent. Each ink cell is reset so colors never bleed.
+ * Pinta una fila de la cara: █→bloque patch, ░→bloque face (ambos como █ sólido para que la
+ * cara sea opaca), con espacios transparentes. Cada celda de tinta se resetea para que los
+ * colores no se derramen.
  */
 export function colorizeFace(line: string, palette: PandaPalette): string {
 	const patch = fgAnsi(palette.patch);
@@ -142,22 +148,23 @@ export function colorizeFace(line: string, palette: PandaPalette): string {
 	return out;
 }
 
-/** Parse a truecolor fg SGR escape (`38;2;r;g;b`) into RGB; undefined for anything else. */
+/** Parsea un escape SGR truecolor de fg (`38;2;r;g;b`) a RGB; undefined para cualquier otra cosa. */
 export function parseFgRgb(ansi: string): Rgb | undefined {
 	const m = /38;2;(\d+);(\d+);(\d+)/.exec(ansi);
 	if (!m) return undefined;
 	return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
-/** Relative luminance in [0, 1] (Rec. 709 weights), used to compare tones. */
+/** Luminancia relativa en [0, 1] (pesos de Rec. 709), usada para comparar tonos. */
 export function luminance([r, g, b]: Rgb): number {
 	return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
 /**
- * Infer the terminal mode from the theme's primary text color: a light theme uses dark
- * text and a dark theme uses light text, so bright text => dark mode. Falls back when the
- * text color is not a parseable truecolor escape (e.g. a 256-color theme).
+ * Infiere el modo de terminal desde el color principal del texto del theme: un theme light
+ * usa texto oscuro y un theme dark usa texto claro, así que texto brillante => modo dark.
+ * Usa el fallback cuando el color del texto no es un escape truecolor parseable (p. ej. un
+ * theme de 256 colores).
  */
 export function modeFromTextColor(textAnsi: string, fallback: TerminalMode = "dark"): TerminalMode {
 	const rgb = parseFgRgb(textAnsi);

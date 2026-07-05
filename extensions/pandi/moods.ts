@@ -1,26 +1,28 @@
 /**
- * Pure data + helpers for Pandi's playful status text. No SDK, no I/O, no randomness at
- * module load: importing this file is side-effect free, so it can be unit-tested in
- * isolation (the extension's index.ts is the only orchestration layer).
+ * Datos puros y utilidades para el texto de estado juguetón de Pandi. Sin SDK, sin I/O,
+ * sin aleatoriedad al cargar el módulo: importar este archivo no tiene efectos secundarios,
+ * así que puede probarse en aislamiento (el index.ts de la extensión es la única capa de
+ * orquestación).
  *
- * Tone contract: every MOOD is a short, gentle "bamboo-forest" gerund/phrase — tierno y
- * zen, with the occasional soft dev wink ("acomodando los bytes…", "rumiando los
- * tokens…"). Each one must read naturally in BOTH templates the indicator uses:
- *   `Pandi ${mood}`              e.g. "Pandi trepando el bambú…"
- *   `Pandi despierto y ${mood}`  e.g. "Pandi despierto y trepando el bambú…"
- * and each ends with a single ellipsis character "…" (U+2026), lowercase, trimmed.
+ * Contrato de tono: cada MOOD es un gerundio/frase breve y suave de "bosque de bambú" —
+ * tierno y zen, con algún guiño dev sutil ("acomodando los bytes…", "rumiando los
+ * tokens…"). Cada uno tiene que leerse natural en AMBAS plantillas que usa el indicador:
+ *   `Pandi ${mood}`              p. ej. "Pandi trepando el bambú…"
+ *   `Pandi despierto y ${mood}`  p. ej. "Pandi despierto y trepando el bambú…"
+ * y cada uno termina con un único carácter de elipsis "…" (U+2026), en minúscula y sin
+ * espacios extra.
  */
 
 /**
- * Two-line splash quote shown on start (kept as-is; not a MOOD). The wording is a meme —
- * the spelling is intentional, do not "fix" it 🐼.
+ * Cita de splash de dos líneas que se muestra al iniciar (se deja tal cual; no es un
+ * MOOD). El texto es un meme: la ortografía es intencional; no la "corrijas".
  */
 export const PANDI_QUOTE = [
 	"Pobres pandas, toda la vida masticando bambú…",
 	"…lo que es yo, yo quiero todo el menú.",
 ] as const;
 
-/** Playful gerunds that rotate per turn. Tone: tierno/zen del bosque de bambú. */
+/** Gerundios juguetones que rotan por turno. Tono: tierno/zen del bosque de bambú. */
 export const MOODS = [
 	"rumiando bambú…",
 	"masticando bambú…",
@@ -47,10 +49,11 @@ export const MOODS = [
 ] as const;
 
 /**
- * Tierno/zen "otra cosa" lines shown after "Pandi listo." on start WHEN the splash is
- * visible — so the greeting never repeats the splash's main phrase (PANDI_QUOTE). Tone: soft
- * bamboo-forest calm, complete sentences (unlike the MOOD gerunds), each ending in "." or
- * "…". Never restate PANDI_QUOTE here.
+ * Líneas tierno/zen de "otra cosa" que se muestran después de "Pandi listo." al iniciar
+ * CUANDO el splash está visible, para que el saludo nunca repita la frase principal del
+ * splash (PANDI_QUOTE). Tono: calma suave de bosque de bambú, oraciones completas (a
+ * diferencia de los gerundios de MOOD), cada una terminada en "." o "…". Nunca repitas
+ * PANDI_QUOTE acá.
  */
 export const GREETINGS = [
 	"El bosque respira tranquilo.",
@@ -65,15 +68,16 @@ export const GREETINGS = [
 	"Enroscados y en paz, listos para pensar.",
 ] as const;
 
-/** Pick a uniformly-random element. Always returns a member of a non-empty array. */
+/** Elige un elemento uniformemente aleatorio. Siempre devuelve un miembro de un array no vacío. */
 export const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 
 /**
- * Text of the start greeting (the part after the animated face). The two-line PANDI_QUOTE is
- * the SPLASH's job, so when the splash art is visible we must NOT repeat it here — the
- * greeting is "Pandi listo." + a tierno/zen `flavor` line (pick one from GREETINGS at the
- * call-site so this helper stays deterministic). When the splash is hidden (`/pandi art`
- * off) the greeting carries the quote so the meme still appears somewhere.
+ * Texto del saludo de arranque (la parte que va después de la cara animada). La cita de dos
+ * líneas PANDI_QUOTE es trabajo del SPLASH, así que cuando el arte del splash está visible
+ * NO debemos repetirla acá: el saludo es "Pandi listo." + una línea `flavor` tierno/zen
+ * (elegí una de GREETINGS en el sitio de llamada para que este helper siga siendo
+ * determinista). Cuando el splash está oculto (`/pandi art` off), el saludo lleva la cita
+ * para que el meme siga apareciendo en algún lado.
  */
 export const greetingText = (splashVisible: boolean, flavor: string): string =>
 	splashVisible ? `Pandi listo. ${flavor}` : `Pandi listo. ${PANDI_QUOTE[0]} ${PANDI_QUOTE[1]}`;

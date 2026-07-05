@@ -3,24 +3,24 @@
  *
  * Cara de panda en block-art, con una paleta que se ADAPTA al tema (claro/oscuro) para
  * que las dos tintas — la cara clara y los parches oscuros — sigan visibles en cualquier
- * fondo de terminal. Se muestra en la PANTALLA DE PRESENTACIÓN (header de arranque) con
- * el texto al lado — como el splash de Claude Code, pero panda. Además: indicador
+ * fondo de terminal. Se muestra en la PANTALLA DE PRESENTACIÓN (encabezado de arranque)
+ * con el texto al lado — como el splash de Claude Code, pero panda. Además: indicador
  * animado mientras pi piensa.
  *
  * Qué hace:
- *   - Splash en el header de arranque: panda + nombre + frase (toggle /pandi art).
+ *   - Splash en el encabezado de arranque: panda + nombre + frase (/pandi art lo alterna).
  *   - Indicador animado mientras pi streamea. Dos estilos:
  *       kaomoji  ʕ•ᴥ•ʔ   ↔   Claude  (●  ●)  con ojos ◆
- *   - Verbo juguetón rotativo por turno + easter egg con la frase del meme.
- *   - Estado "◆ Pandi" en el footer.
+ *   - Verbo juguetón rotativo por turno + guiño con la frase del meme.
+ *   - Estado "◆ Pandi" en el pie.
  *
  * Ubicación: extensions/pandi/index.ts (cableado en package.json + .pi/settings.json).
  *
  * Comandos:
  *   /pandi        Estado + saludo
- *   /pandi art    Mostrar/ocultar el splash del panda (header de arranque)
+ *   /pandi art    Mostrar/ocultar el splash del panda (encabezado de arranque)
  *   /pandi face   Cambiar carita del indicador: kaomoji ʕ•ᴥ•ʔ ↔ Claude (●  ●) (se guarda)
- *   /pandi off    Apagar Pandi (restaura el header y el spinner default)
+ *   /pandi off    Apagar Pandi (restaura el encabezado y el spinner por defecto)
  *   /pandi on     Volver a encender Pandi
  */
 
@@ -95,13 +95,14 @@ function saveStyle(face: FaceStyle): void {
 	try {
 		writeFileSync(styleFile(), JSON.stringify({ face }));
 	} catch {
-		/* best-effort */
+		/* mejor esfuerzo */
 	}
 }
 
-// Las caritas kaomoji con ojos coloreados desde la PALETA DEL TEMA (theme-adaptive) según
-// FACE_EYE_ROLE (happy=success, error=error, el resto=accent). Se construyen por-llamada
-// porque necesitan el theme; todos los call-sites (notify) tienen ctx.ui.theme.
+// Las caritas kaomoji con ojos coloreados desde la PALETA DEL TEMA (adaptadas al tema)
+// según FACE_EYE_ROLE (happy=success, error=error, el resto=accent). Se construyen por
+// llamada porque necesitan el theme; todos los sitios de llamada (notify) tienen
+// ctx.ui.theme.
 function pandaFaces(theme: Theme) {
 	const kao = (role: keyof typeof FACE_EYE_ROLE, left: string, right: string): string => {
 		const fg = theme.getFgAnsi(FACE_EYE_ROLE[role]);
@@ -230,17 +231,17 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	const restoreDefaults = (ctx: ExtensionContext) => {
-		ctx.ui.setWorkingIndicator(); // spinner default de pi
-		ctx.ui.setWorkingMessage(); // mensaje default de pi
+		ctx.ui.setWorkingIndicator(); // spinner por defecto de pi
+		ctx.ui.setWorkingMessage(); // mensaje por defecto de pi
 		ctx.ui.setStatus(STATUS_KEY, undefined);
-		ctx.ui.setHeader(undefined); // header built-in de pi
+		ctx.ui.setHeader(undefined); // header integrado de pi
 	};
 
 	pi.on("session_start", async (_event, ctx) => {
 		apply(ctx);
 		if (enabled) {
 			const f = pandaFaces(ctx.ui.theme);
-			const greet = Math.random() < 0.1 ? f.gatuno : f.happy; // easter egg gatuno-panda
+			const greet = Math.random() < 0.1 ? f.gatuno : f.happy; // guiño gatuno-panda
 			// No repitas la frase principal si el splash ya la muestra (artVisible): en su lugar
 			// un saludo tierno/zen rotativo. Solo llevamos la frase en el saludo si el splash está
 			// oculto.
@@ -248,9 +249,9 @@ export default function (pi: ExtensionAPI) {
 		}
 	});
 
-	// System append: mientras Pandi está encendido, sumá su persona (tierno/zen + firma 🐼)
-	// al final del system prompt. /pandi off la quita (no devolvemos nada). Nunca pisamos el
-	// prompt original: appendeamos a event.systemPrompt.
+	// Agregado al system prompt: mientras Pandi está encendido, sumá su persona (tierno/zen +
+	// firma 🐼) al final del system prompt. /pandi off la quita (no devolvemos nada). Nunca
+	// pisamos el prompt original: agregamos sobre event.systemPrompt.
 	pi.on("before_agent_start", async (event) => {
 		if (!enabled) return;
 		return { systemPrompt: `${event.systemPrompt}\n\n${pandiPersonaBlock()}` };
@@ -258,7 +259,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("turn_start", async (_event, ctx) => {
 		if (!enabled) return;
-		// 1 de cada 4 turnos, easter egg con la frase del meme; si no, un verbo.
+		// 1 de cada 4 turnos, guiño con la frase del meme; si no, un verbo.
 		const msg = Math.random() < 0.25 ? PANDI_QUOTE[0] : `Pandi ${pick(MOODS)}`;
 		ctx.ui.setWorkingMessage(msg);
 	});
@@ -308,7 +309,7 @@ export default function (pi: ExtensionAPI) {
 				saveStyle(faceStyle);
 				const frames = pandaFrames(ctx.ui.theme, faceStyle);
 				ctx.ui.setWorkingIndicator(frames);
-				// Muestro el primer frame como sample en vivo del estilo recién elegido.
+				// Muestro el primer frame como muestra en vivo del estilo recién elegido.
 				ctx.ui.notify(`${frames.frames?.[0] ?? ""} Estilo ${faceStyle} (guardado).`, "info");
 				return;
 			}
