@@ -24,29 +24,41 @@ const EFFORT_STATUS_KEY = "effort";
 // cuando la extensión dynamic-workflows no está cargada.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 
-const COMPLETIONS: { value: string; description: string }[] = [
-	{ value: "off", description: "Desactivar el thinking/reasoning del modelo" },
-	{ value: "minimal", description: "Thinking mínimo" },
-	{ value: "low", description: "Thinking bajo" },
-	{ value: "medium", description: "Thinking medio" },
-	{ value: "high", description: "Thinking alto" },
-	{ value: "xhigh", description: "Thinking extra alto" },
-	{ value: "ultracode", description: "Thinking extra alto + router de dynamic workflow" },
+const CANONICAL_EFFORT_OPTIONS: {
+	value: ThinkingLevel | "ultracode" | "status";
+	description: string;
+	selectLabel?: string;
+}[] = [
+	{
+		value: "off",
+		description: "Desactivar el thinking/reasoning del modelo",
+		selectLabel: "off — desactivar el thinking",
+	},
+	{ value: "minimal", description: "Thinking mínimo", selectLabel: "minimal — thinking mínimo" },
+	{ value: "low", description: "Thinking bajo", selectLabel: "low — thinking bajo" },
+	{ value: "medium", description: "Thinking medio", selectLabel: "medium — thinking medio" },
+	{ value: "high", description: "Thinking alto", selectLabel: "high — thinking alto" },
+	{ value: "xhigh", description: "Thinking extra alto", selectLabel: "xhigh — thinking extra alto" },
+	{
+		value: "ultracode",
+		description: "Thinking extra alto + router de dynamic workflow",
+		selectLabel: "ultracode — xhigh + router de dynamic workflow",
+	},
 	{ value: "status", description: "Mostrar el esfuerzo actual" },
+];
+
+const ALIAS_COMPLETIONS: { value: string; description: string }[] = [
 	{ value: "none", description: "Alias de off" },
 	{ value: "max", description: "Alias de xhigh" },
 	{ value: "ultra-code", description: "Alias de ultracode" },
 ];
 
-const SELECT_ITEMS = [
-	"off — desactivar el thinking",
-	"minimal — thinking mínimo",
-	"low — thinking bajo",
-	"medium — thinking medio",
-	"high — thinking alto",
-	"xhigh — thinking extra alto",
-	"ultracode — xhigh + router de dynamic workflow",
+const COMPLETIONS: { value: string; description: string }[] = [
+	...CANONICAL_EFFORT_OPTIONS.map(({ value, description }) => ({ value, description })),
+	...ALIAS_COMPLETIONS,
 ];
+
+const SELECT_ITEMS = CANONICAL_EFFORT_OPTIONS.flatMap((item) => (item.selectLabel ? [item.selectLabel] : []));
 
 function usage(current: string): string {
 	return `Esfuerzo actual: ${current}. Uso: /effort <off|minimal|low|medium|high|xhigh|ultracode>`;
