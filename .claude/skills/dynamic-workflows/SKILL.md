@@ -170,9 +170,11 @@ node inherit the session model either.
   `xhigh`≈32k thinking tokens; unused budget costs nothing. Driven by **reasoning depth the step
   needs** and **cost of being wrong**. Raising a haiku-class node from `low` to `medium` costs cents.
 
-**When cutting cost, downgrade model before effort** — a fast model at low effort does weak work; a
-fast model at medium effort does honest work at nearly the same price. **Downstream verification**
-lowers both dials; a FINAL judge/synthesis with no safety net below it earns the top of both.
+**When cutting cost, don't couple cheap model to cheap thinking.** Default to downgrading model before
+effort when the task needs reasoning, but measure scout/ranking roles locally: on the #47 small
+crisp-ranking harness, `sonnet·low` beat `haiku·medium`, so capability can be the bottleneck.
+**Downstream verification** lowers both dials; a FINAL judge/synthesis with no safety net below it
+earns the top of both.
 
 Effort **floors** by kind of work (floors, not fixed pairs — raise either dial when stakes demand):
 
@@ -180,7 +182,7 @@ Effort **floors** by kind of work (floors, not fixed pairs — raise either dial
 | --- | --- | --- | --- |
 | Mechanical classify / flat extraction, verified downstream | haiku | `low` | fuzzy rubric, nesting, dedup, long docs → `medium` |
 | Gate that runs one pinned command and transcribes its **literal** `{green,evidence}` | haiku | `low` | the command is caller-supplied/flaky and "green" needs judgment over ambiguous output → `medium` (default for user-`verifyCmd` gates) |
-| Scout / discovery that **decides or ranks** the work-list (judgment) | haiku | `medium` | its output feeds an expensive fan-out → `sonnet · medium` |
+| Scout / discovery that **decides or ranks** a work-list | haiku | `low` for small/crisp rankings; `medium` when fuzzy, long, or high-cost | capability bottleneck or expensive fan-out → `sonnet · low/medium` |
 | Per-item review (**read-only, verified downstream**) | sonnet | `medium` | hard items → `high` |
 | Per-item worker that **mutates the tree** (no guaranteed net) | sonnet | `medium` | no explicit downstream verify node in the graph → `high` |
 | Adversarial verify (a judge checks it) | sonnet | `high` | — |
@@ -189,12 +191,14 @@ Effort **floors** by kind of work (floors, not fixed pairs — raise either dial
 `low`/`minimal` is genuine economy only when all three hold: the per-item work is transcription (not
 judgment), the output is schema-checked **and** verified downstream, and failure is cheap and visible
 (settle + null filtering). False-economy signals — JSON repair loops, null branches, a judge
-overturning cheap verdicts, a scout that missed items — mean raise **effort**, not model.
+overturning cheap verdicts, a scout that missed items — usually mean raise **effort**; if a small
+A/B shows effort does not help but the stronger model does, raise **model** instead.
 
 Worked contrast (the pairing the old diagonal table hid): a `git ls-files` scout is `haiku · low` —
-mechanical enumeration, verified downstream. A scout that *ranks* candidates by relevance is
-`haiku · medium` — same cheap model, more thinking, because it decides. The final synthesis over
-both is `opus · high`.
+mechanical enumeration, verified downstream. A small/crisp ranker can also stay `haiku · low` when
+misses are cheap and visible (the #47 harness did not show a `haiku·medium` gain). A fuzzy,
+long-context, or high-cost ranker earns `haiku · medium`; if capability dominates, try `sonnet · low`
+before spending both dials. The final synthesis over both is `opus · high`.
 
 **ALWAYS set model explicitly on fan-out nodes:** omission inherits the orchestrator model (an opus
 session prices 40 branches as opus). **Omitting `effort` is NOT safe here:** these scaffolds set no
