@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Context Engineering: mantener enfocado un LLM y su harness de agentes"
+description: "Investigación respaldada por fuentes sobre cómo mantener enfocado a un LLM y su harness de agentes."
+tags: [context-engineering, agents, llm, evidence]
+timestamp: 2026-06-28T00:00:00Z
+---
+
 # Context Engineering: mantener enfocado un LLM y su harness de agentes
 
 > **Estado: FINAL.** Revisión hecha para incorporar feedback externo. Las cifras autoinformadas o de proveedor, y los desacuerdos, están marcados como `[UNVERIFIED]` o `[CONTESTED]`. Cuando el borrador original citaba IDs de arXiv imposibles de verificar (por ser futuros), esos números se quitaron. El “acuerdo de research-branch” interno se reemplazó por conteos de fuentes externas distintas. También se agregaron vacíos de cobertura señalados por la revisión (prompt compression, extensión de contexto a nivel de modelo, defensas contra inyección, RAG avanzado, evacuación de KV-cache, amplitud de evaluaciones) con fuentes verificadas. Ver **§8 Confidence & caveats**.

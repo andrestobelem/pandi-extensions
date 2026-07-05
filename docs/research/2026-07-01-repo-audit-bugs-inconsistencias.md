@@ -1,3 +1,11 @@
+---
+type: "Research Review"
+title: "Auditoría del repo — errores e inconsistencias (2026-07-01)"
+description: "Auditoría read-only del repositorio para detectar errores e inconsistencias."
+tags: [repo-audit, bugs, consistency, verification]
+timestamp: 2026-07-01T00:00:00Z
+---
+
 # Auditoría del repo — errores e inconsistencias (2026-07-01)
 
 ## En 30 segundos

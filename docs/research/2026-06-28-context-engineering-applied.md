@@ -1,4 +1,11 @@
 ---
+type: "Research Review"
+title: "Context Engineering, Aplicado: mapeo de la investigación a nuestras extensiones"
+description: "Mapeo de la investigación de context engineering a las extensiones de Pandi."
+tags: [context-engineering, extensions, audit, pandi]
+timestamp: 2026-06-28T00:00:00Z
+---
+
 # Context Engineering, Aplicado: mapeo de la investigación a nuestras extensiones
 
 > **Estado: ANÁLISIS.** Complemento de `2026-06-28-context-engineering-focus.md`. Relee

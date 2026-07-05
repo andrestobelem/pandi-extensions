@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "OpenProse (\"Prose\") — análisis y comparación con Dynamic Workflows"
+description: "Análisis de OpenProse y comparación con Dynamic Workflows."
+tags: [openprose, workflows, declarative, agents]
+timestamp: 2026-07-04T00:00:00Z
+---
+
 # OpenProse ("Prose") — análisis y comparación con Dynamic Workflows
 
 Fecha: 2026-07-04

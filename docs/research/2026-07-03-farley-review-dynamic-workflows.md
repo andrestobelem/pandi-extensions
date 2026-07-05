@@ -1,3 +1,11 @@
+---
+type: "Research Review"
+title: "Revisión Farley (MSE) de Pi Dynamic Workflows — 2026-07-03"
+description: "Revisión de Pi Dynamic Workflows con la lente de Modern Software Engineering de Dave Farley."
+tags: [modern-software-engineering, dynamic-workflows, review, tests]
+timestamp: 2026-07-03T00:00:00Z
+---
+
 # Revisión Farley (MSE) de Pi Dynamic Workflows — 2026-07-03
 
 Revisión técnica de la extensión `pandi-dynamic-workflows` (engine/runtime,

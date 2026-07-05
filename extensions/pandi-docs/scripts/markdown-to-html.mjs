@@ -135,6 +135,16 @@ mermaid.initialize({
 </script>`;
 }
 
+// Drop optional YAML frontmatter before title extraction/rendering. Docs may use
+// frontmatter for skills or OKF metadata; the HTML artifact should show prose, not metadata.
+function stripYamlFrontmatter(md) {
+	if (!md.startsWith("---\n") && !md.startsWith("---\r\n")) return md;
+	const newline = md.startsWith("---\r\n") ? "\r\n" : "\n";
+	const close = md.indexOf(`${newline}---${newline}`, 4);
+	if (close < 0) return md;
+	return md.slice(close + newline.length + 3 + newline.length);
+}
+
 // Extract the first top-level `# heading` as the page title and drop it from the body.
 function splitTitle(md) {
 	const lines = md.split("\n");
@@ -167,7 +177,7 @@ function alertsToCallouts(html) {
 export function renderMarkdownToHtml(md, opts = {}) {
 	const tokensCss = opts.tokensCss ?? fs.readFileSync(TOKENS_CSS_PATH, "utf8");
 	const kicker = opts.kicker ?? "Pandi artifact";
-	const { title: docTitle, body } = splitTitle(md);
+	const { title: docTitle, body } = splitTitle(stripYamlFrontmatter(md));
 	const title = docTitle ?? opts.title ?? "Untitled";
 	const rendered = alertsToCallouts(engine.parse(body, { async: false }));
 	const mermaidBlock = rendered.includes('<pre class="mermaid">') ? `${mermaidScript(tokensCss)}\n` : "";

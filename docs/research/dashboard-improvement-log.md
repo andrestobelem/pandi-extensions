@@ -1,3 +1,11 @@
+---
+type: "Research Log"
+title: "Registro de mejoras del dashboard"
+description: "Registro cronológico de mejoras del dashboard TUI de workflows."
+tags: [dashboard, log, dynamic-workflows, tui]
+timestamp: 2026-06-30T00:00:00Z
+---
+
 # Registro de mejoras del dashboard
 
 Crónica cronológica y de agregado único de los pasajes de mejora del dashboard TUI de `/workflow`.

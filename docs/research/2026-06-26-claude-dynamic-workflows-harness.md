@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Claude Dynamic Workflows: _A harness for every task_"
+description: "Análisis del harness de Dynamic Workflows en Claude Code y comparación con Pi."
+tags: [claude-code, dynamic-workflows, harness, orchestration]
+timestamp: 2026-06-26T00:00:00Z
+---
+
 # Claude Dynamic Workflows: _A harness for every task_
 
 ## En 30 segundos

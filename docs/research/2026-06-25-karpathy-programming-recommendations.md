@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA"
+description: "Resumen y aplicación de ideas de Andrej Karpathy sobre programación, aprendizaje e IA."
+tags: [karpathy, ai-assisted-engineering, programming, learning]
+timestamp: 2026-06-25T00:00:00Z
+---
+
 # Recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA
 
 Fecha: 2026-06-25

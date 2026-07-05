@@ -1,3 +1,11 @@
+---
+type: "Research Review"
+title: "Modularización de extensiones — Design Audit y roadmap"
+description: "Auditoría de diseño y roadmap para modularizar extensiones Pi."
+tags: [architecture, refactoring, extensions, design-audit]
+timestamp: 2026-06-28T00:00:00Z
+---
+
 # Modularización de extensiones — Design Audit y roadmap
 
 Fecha: 2026-06-28

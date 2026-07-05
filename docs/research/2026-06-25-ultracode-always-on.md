@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Investigación: ultracode siempre activo"
+description: "Investigación sobre activar un router ultracode siempre activo en Pi."
+tags: [ultracode, dynamic-workflows, routing, pi]
+timestamp: 2026-06-25T00:00:00Z
+---
+
 # Investigación: ultracode siempre activo
 
 Fecha: 2026-06-25

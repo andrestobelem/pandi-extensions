@@ -16,6 +16,7 @@ Si querés ubicarte rápido, empezá por la guía de `Setup`, la documentación 
 
 ## Investigación y análisis
 
+- [Índice OKF de investigación](./research/index.md) — mapa navegable de las notas en `docs/research/`
 - [Ingeniería de loops con nuestras extensiones (how-to)](./loop-engineering-with-extensions.md)
 - [Investigación: ultracode siempre activo](./research/2026-06-25-ultracode-always-on.md)
 - [Mejorar prompts para dynamic workflows](./research/2026-06-25-prompt-patterns-workflows.md)

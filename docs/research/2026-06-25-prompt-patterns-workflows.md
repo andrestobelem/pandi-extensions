@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Mejorar prompts para dynamic workflows"
+description: "Mapa de patrones de prompting para dynamic workflows y subagentes."
+tags: [prompts, workflows, subagents, evidence]
+timestamp: 2026-06-25T00:00:00Z
+---
+
 # Mejorar prompts para dynamic workflows
 
 Fecha: 2026-06-25

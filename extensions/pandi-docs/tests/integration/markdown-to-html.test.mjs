@@ -39,6 +39,18 @@ test("falls back to opts.title when the document has no h1", () => {
 	assert.match(html, /Just a paragraph\./);
 });
 
+test("strips YAML frontmatter before extracting the h1 title", () => {
+	const html = renderMarkdownToHtml(
+		'---\ntype: Research Note\ntitle: "Frontmatter title"\n---\n\n# Real title\n\nBody.\n',
+		{ title: "fallback.md" },
+	);
+	assert.match(html, /<title>Real title<\/title>/);
+	assert.match(html, /<h1>Real title<\/h1>/);
+	assert.match(html, /Body\./);
+	assert.doesNotMatch(html, /Research Note/);
+	assert.doesNotMatch(html, /Frontmatter title/);
+});
+
 test("prose typography: body justified, h2 is a real heading above h3 (no uppercase label style)", () => {
 	const html = renderMarkdownToHtml("# T\n\n## Section\n\ntext\n", {});
 	assert.match(html, /text-align:\s*justify/);

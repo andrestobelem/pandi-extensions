@@ -1,3 +1,10 @@
+---
+type: "Research Backlog"
+title: "Backlog de mejoras del dashboard"
+description: "Backlog canónico de mejoras pendientes y cerradas del dashboard TUI de workflows."
+tags: [dashboard, backlog, dynamic-workflows, tui]
+---
+
 # Backlog de mejoras del dashboard
 
 Esta es la lista canónica de ítems pendientes y cerrados del ciclo de mejora del TUI `/workflow` del dashboard. El relato de cada pasada vive en `dashboard-improvement-log.md`; este archivo deja el estado actual, con una sola fuente de verdad para lo que sigue abierto. Cada ítem incluye id estable, título, motivo, rutas reales (verificadas) y estado (`open` / `done` / `human`).

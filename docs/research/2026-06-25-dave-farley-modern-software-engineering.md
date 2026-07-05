@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Principios de ingeniería de software según Dave Farley"
+description: "Resumen de principios de ingeniería de software moderna según Dave Farley."
+tags: [modern-software-engineering, tdd, complexity, dave-farley]
+timestamp: 2026-06-25T00:00:00Z
+---
+
 # Principios de ingeniería de software según Dave Farley
 
 Fecha: 2026-06-25

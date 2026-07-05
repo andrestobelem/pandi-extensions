@@ -1,3 +1,11 @@
+---
+type: "Research Review"
+title: "Sistema de Personas (`agentType`) — revisión técnica"
+description: "Revisión técnica del subsistema de personas agentType en pandi-dynamic-workflows."
+tags: [personas, agenttype, dynamic-workflows, security]
+timestamp: 2026-06-29T00:00:00Z
+---
+
 # Sistema de Personas (`agentType`) — revisión técnica
 
 Fecha: 2026-06-29

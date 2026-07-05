@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Visualización de patrones agénticos en Dynamic Workflows"
+description: "Investigación sobre visualización de patrones agénticos en grafos de Dynamic Workflows."
+tags: [agents, workflows, visualization, mermaid]
+timestamp: 2026-06-25T00:00:00Z
+---
+
 # Visualización de patrones agénticos en Dynamic Workflows
 
 Date: 2026-06-25

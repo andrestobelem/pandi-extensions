@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Loop engineering — una investigación respaldada por fuentes"
+description: "Investigación sobre bucles agente observación verificación y condiciones de parada basadas en evidencia."
+tags: [loop-engineering, agents, verification, control]
+timestamp: 2026-06-28T00:00:00Z
+---
+
 # Loop engineering — una investigación respaldada por fuentes
 
 Fecha: 2026-06-28

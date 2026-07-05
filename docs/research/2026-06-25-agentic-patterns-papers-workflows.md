@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Patrones agénticos y papers aplicables a Dynamic Workflows"
+description: "Síntesis de patrones agénticos y papers aplicables a Pi Dynamic Workflows."
+tags: [agents, workflows, papers, orchestration]
+timestamp: 2026-06-25T00:00:00Z
+---
+
 # Patrones agénticos y papers aplicables a Dynamic Workflows
 
 Fecha: 2026-06-25

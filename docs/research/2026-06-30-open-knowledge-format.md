@@ -1,3 +1,11 @@
+---
+type: "Research Note"
+title: "Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico"
+description: "Investigación sobre OKF de Google Cloud como formato de conocimiento agéntico."
+tags: [okf, knowledge, agents, google-cloud]
+timestamp: 2026-06-30T00:00:00Z
+---
+
 # Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico
 
 > **Estado: FINAL.** Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud:
