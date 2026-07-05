@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Unit tests for the PURE helpers in pi-goal that the coverage audit flagged as untested:
- *   - prompts.ts:       effectiveCriteria, formatProgressLog (last-N bound),
- *                       makeGoalIterationPrompt (criteria-present vs "none were provided"),
- *                       makeGoalVerificationPrompt (adversarial completeness check).
- *   - session-state.ts: collectLatestByKey (type/customType filter, falsy-data skip,
- *                       non-string-key skip, last-write-wins).
- *   - time.ts:          formatEta (null → "now", past clamps to "0s", s vs m formatting).
+ * Tests unitarios para los helpers PURE de pi-goal que la auditoría de cobertura marcó sin tests:
+ *   - prompts.ts:       effectiveCriteria, formatProgressLog (límite last-N),
+ *                       makeGoalIterationPrompt (criterios presentes vs "none were provided"),
+ *                       makeGoalVerificationPrompt (chequeo de completitud adversarial).
+ *   - session-state.ts: collectLatestByKey (filtro type/customType, omisión de falsy-data,
+ *                       omisión de non-string-key, last-write-wins).
+ *   - time.ts:          formatEta (null → "now", pasado acota a "0s", formato s vs m).
  *
- * All three are pure (no SDK/runtime imports beyond bundled constants), so they are tested
- * by bundling each module standalone and importing its named exports.
+ * Los tres son puros (sin imports SDK/runtime salvo constantes empaquetadas), así que se testean
+ * empaquetando cada módulo independiente e importando sus exports nombrados.
  *
- * Run it:
+ * Ejecución:
  *   node extensions/pandi-goal/tests/integration/goal-helpers.test.mjs
  */
 
@@ -25,7 +25,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-const PROGRESS_LOG_KEEP = 12; // mirrors extensions/pandi-goal/constants.ts (pinned here on purpose)
+const PROGRESS_LOG_KEEP = 12; // replica extensions/pandi-goal/constants.ts (fijado acá a propósito)
 
 function baseGoal(over = {}) {
 	return {
@@ -46,7 +46,7 @@ async function scenarioPrompts(url) {
 	const { effectiveCriteria, formatProgressLog, makeGoalIterationPrompt, makeGoalVerificationPrompt } =
 		await loadModule(url);
 
-	// effectiveCriteria: user criteria win; else derived; else undefined; whitespace trimmed.
+	// effectiveCriteria: ganan los criterios del usuario; si no, derivados; si no, undefined; recorta espacios.
 	check(
 		"effectiveCriteria prefers successCriteria",
 		effectiveCriteria(baseGoal({ successCriteria: "  ship it  ", derivedCriteria: "x" })) === "ship it",
@@ -58,7 +58,7 @@ async function scenarioPrompts(url) {
 	);
 	check("effectiveCriteria undefined when neither", effectiveCriteria(baseGoal()) === undefined);
 
-	// formatProgressLog: empty → []; otherwise header + bounded last-N lines, oldest dropped.
+	// formatProgressLog: vacío → []; si no, encabezado + últimas last-N líneas acotadas, descarta las más viejas.
 	check("formatProgressLog empty assessments → []", formatProgressLog(baseGoal()).length === 0);
 	const many = Array.from({ length: PROGRESS_LOG_KEEP + 5 }, (_, i) => ({
 		iteration: i + 1,
@@ -82,7 +82,7 @@ async function scenarioPrompts(url) {
 			"- iter 1 [done] ok",
 	);
 
-	// makeGoalIterationPrompt: criteria-present vs absent branch.
+	// makeGoalIterationPrompt: rama con criterios presentes vs ausentes.
 	const withCriteria = makeGoalIterationPrompt(baseGoal({ successCriteria: "all tests pass" }));
 	check("iteration prompt includes objective verbatim", withCriteria.includes("Make the build green"));
 	check(
@@ -109,7 +109,7 @@ async function scenarioPrompts(url) {
 		makeGoalIterationPrompt(baseGoal({ lastReason: "waiting on CI" })).includes("Decisión previa: waiting on CI"),
 	);
 
-	// makeGoalVerificationPrompt: adversarial completeness check.
+	// makeGoalVerificationPrompt: chequeo de completitud adversarial.
 	const verify = makeGoalVerificationPrompt(baseGoal({ successCriteria: "tests pass" }));
 	check("verification prompt has COMPLETENESS CHECK header", verify.includes("CHEQUEO DE COMPLETITUD para /goal g1."));
 	check("verification prompt includes objective verbatim", verify.includes("Make the build green"));
@@ -124,7 +124,7 @@ async function scenarioSessionState(url) {
 	const { collectLatestByKey } = await loadModule(url);
 	const keyOf = (d) => d.id;
 
-	// Only type==='custom' AND matching customType are kept.
+	// Solo se conservan type==='custom' Y customType coincidente.
 	const mixed = [
 		{ type: "message", data: { id: "a" } },
 		{ type: "custom", customType: "other", data: { id: "a" } },
@@ -133,7 +133,7 @@ async function scenarioSessionState(url) {
 	const m1 = collectLatestByKey(mixed, "goal-state", keyOf);
 	check("collectLatestByKey keeps only matching custom entries", m1.size === 1 && m1.get("a")?.v === 1);
 
-	// Falsy/missing data is skipped.
+	// Se omite data falsy/ausente.
 	const m2 = collectLatestByKey(
 		[
 			{ type: "custom", customType: "goal-state", data: undefined },
@@ -144,7 +144,7 @@ async function scenarioSessionState(url) {
 	);
 	check("collectLatestByKey skips entries with falsy data", m2.size === 1 && m2.has("x"));
 
-	// Non-string key is skipped.
+	// Se omite una key que no sea string.
 	const m3 = collectLatestByKey(
 		[
 			{ type: "custom", customType: "goal-state", data: { id: 42 } },
@@ -155,7 +155,7 @@ async function scenarioSessionState(url) {
 	);
 	check("collectLatestByKey skips non-string keys", m3.size === 1 && m3.has("ok"));
 
-	// Last write wins for a repeated key.
+	// La última escritura gana para una key repetida.
 	const m4 = collectLatestByKey(
 		[
 			{ type: "custom", customType: "goal-state", data: { id: "p1", status: "pursuing" } },
@@ -183,7 +183,7 @@ async function main() {
 		name: "pi-goal-prompts-helpers",
 		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "prompts.ts"),
 		outName: "prompts.mjs",
-		// prompts.ts imports CONFIG_DIR_NAME from the SDK, so the bundle needs the stub.
+		// prompts.ts importa CONFIG_DIR_NAME desde el SDK, así que el bundle necesita el stub.
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	try {

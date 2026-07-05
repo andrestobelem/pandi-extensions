@@ -1,8 +1,8 @@
 /**
- * Module-level constants for the `/goal` extension, factored into a sibling so
- * index.ts keeps only the engine/wiring. These are pure values (no closure over
- * mutable state or runtime objects); each is exported and imported back into
- * index.ts, so the extension's behavior and public surface are unchanged.
+ * Constantes a nivel de módulo para la extensión `/goal`, extraídas a un hermano para que
+ * index.ts conserve solo el engine/wiring. Son valores puros (sin cierre sobre estado
+ * mutable ni objetos de runtime); cada una se exporta y se importa de nuevo en index.ts,
+ * así que el comportamiento y la superficie pública de la extensión no cambian.
  */
 
 import { readFileSync } from "node:fs";
@@ -10,10 +10,11 @@ import { join } from "node:path";
 import { getPackageDir } from "@earendil-works/pi-coding-agent";
 
 /**
- * Bin name of the HOST distribution, read from the host package.json: the first
- * `bin` key when present ("pi" under vanilla pi, "picante" under pi-cante), else
- * piConfig.name (distros may rename the bin independently of the product name).
- * Falls back to "pi". Deliberately duplicated per extension (self-contained-extension rule).
+ * Nombre del binario de la distribución HOST, leído desde el package.json del host: la
+ * primera clave `bin` cuando existe ("pi" en pi vanilla, "picante" en pi-cante), o si no
+ * piConfig.name (las distribuciones pueden renombrar el binario independientemente del
+ * nombre del producto). Hace fallback a "pi". Duplicado deliberadamente por extensión
+ * (regla de extensión autocontenida).
  */
 function hostBinName(): string {
 	try {
@@ -36,39 +37,40 @@ export const GOAL_STATUS_KEY = "goal";
 export const GOAL_DIR = "goals";
 export const STATE_FILE = "state.json";
 export const DEFAULT_MAX_ITERATIONS = 30;
-// Optional external-wait bounds (seconds): the model only sets waitSeconds when it is
-// waiting on a real external signal; by default re-injection is immediate (delay 0).
+// Límites opcionales de espera externa (segundos): el modelo solo setea waitSeconds cuando
+// espera una señal externa real; por default la reinyección es inmediata (delay 0).
 export const MIN_WAIT_SECONDS = 60;
 export const MAX_WAIT_SECONDS = 3600;
-// Safety-net cadence when a turn closed without the model calling goal_progress.
+// Cadencia de la red de seguridad cuando un turno cerró sin que el modelo llame a goal_progress.
 export const SAFETY_NET_DELAY_SECONDS = 1500;
-// Best-effort context-usage percent cap (stop if getContextUsage().percent exceeds).
+// Tope best-effort de porcentaje de uso de contexto (detiene si getContextUsage().percent lo excede).
 export const DEFAULT_CONTEXT_PERCENT_CAP = 90;
-// How many recent assessments to keep in the progress log (bounded continuity).
+// Cuántas assessments recientes conservar en el log de progreso (continuidad acotada).
 export const PROGRESS_LOG_KEEP = 12;
-// How many failed SELF completeness checks (done → verifying → continue) we tolerate
-// before we stop the goal as blocked. Defends against a "self-declares done, fails the
-// check, keeps going" ping-pong silently burning the whole iteration budget without
-// progress. DISTINCT from DEFAULT_MAX_INDEPENDENT_VERIFICATIONS below: this caps the
-// model judging ITSELF (verifying); that one caps the independent read-only judge
-// (verifying-independent).
+// Cuántos chequeos de completitud SELF fallidos (done → verifying → continue) toleramos
+// antes de detener el goal como blocked. Defiende contra un ping-pong de "se autodeclara
+// done, falla el chequeo, sigue" que consume silenciosamente todo el presupuesto de
+// iteraciones sin progreso. DISTINTO de DEFAULT_MAX_INDEPENDENT_VERIFICATIONS abajo: esto
+// limita al modelo juzgándose A SÍ MISMO (verifying); aquello limita al juez independiente
+// de solo lectura (verifying-independent).
 export const MAX_VERIFY_ATTEMPTS = 3;
 
-// --- P1: independent adversarial verification (defaults) ---------------------
-// The verifier subagent (separate `pi -p` process) gets READ-ONLY tools only: it
-// judges, it never mutates the workspace.
+// --- P1: verificación adversarial independiente (defaults) -------------------
+// El subagente verificador (proceso `pi -p` separado) recibe solo tools READ-ONLY: juzga,
+// nunca muta el workspace.
 export const DEFAULT_VERIFIER_TOOLS = ["read", "grep", "find", "ls"] as const;
-// Wall-clock budget for one independent verification (ms). Generous: the subagent may
-// read files and run a few greps before emitting its verdict.
+// Presupuesto de wall-clock para una verificación independiente (ms). Generoso: el
+// subagente puede leer archivos y correr algunos greps antes de emitir su veredicto.
 export const DEFAULT_VERIFIER_TIMEOUT_MS = 120_000;
-// How many FAILED independent verifications we tolerate before stopping as blocked.
-// Small on purpose: a model that keeps claiming done while an independent judge keeps
-// failing it needs a human, not more turns. DISTINCT from MAX_VERIFY_ATTEMPTS above:
-// that caps the SELF check (verifying); this caps the independent judge
-// (verifying-independent). Each independent round spawns a separate `pi -p` process,
-// so this gate is not free — keep it small.
+// Cuántas verificaciones independientes FAILED toleramos antes de detener como blocked.
+// Bajo a propósito: un modelo que sigue afirmando done mientras un juez independiente lo
+// sigue fallando necesita un humano, no más turnos. DISTINTO de MAX_VERIFY_ATTEMPTS
+// arriba: aquello limita el chequeo SELF (verifying); esto limita al juez independiente
+// (verifying-independent). Cada ronda independiente spawnea un proceso `pi -p` separado,
+// así que este gate no es gratis: mantenerlo bajo.
 export const DEFAULT_MAX_INDEPENDENT_VERIFICATIONS = 2;
-// pi command used to spawn the verifier subagent (mirrors dynamic-workflows.ts).
-// Defaults to the HOST distribution's own binary (bin name === piConfig.name) so the
-// independent verifier runs the same distribution; the env override still wins.
+// Comando pi usado para spawnear el subagente verificador (refleja dynamic-workflows.ts).
+// Por default usa el binario propio de la distribución HOST (bin name === piConfig.name)
+// para que el verificador independiente corra la misma distribución; el override de env
+// sigue ganando.
 export const PI_COMMAND = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || hostBinName();

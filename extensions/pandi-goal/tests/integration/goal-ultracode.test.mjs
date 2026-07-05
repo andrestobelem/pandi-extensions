@@ -1,24 +1,24 @@
 /**
- * Behavioral integration test for the ULTRACODE posture of extensions/pandi-goal/index.ts.
+ * Test de integración de comportamiento para la postura ULTRACODE de extensions/pandi-goal/index.ts.
  *
- * `npm test` is a TYPECHECK only; it proves nothing about runtime behavior. This file pins
- * the observable contract of the `--ultracode` posture flag added to `/goal`:
- *   - `/goal --ultracode <obj>` makes the re-injected ITERATION prompt carry the ULTRACODE
- *     guidance (lean on dynamic workflows), while a plain `/goal <obj>` does NOT.
- *   - the flag is stripped from the objective text (and from the success-criteria split),
- *     so it never leaks into the objective the model sees.
- *   - the posture is persisted on the goal-state snapshot so it survives a reload.
+ * `npm test` solo hace TYPECHECK; no prueba nada sobre comportamiento runtime. Este archivo fija
+ * el contrato observable del flag de postura `--ultracode` agregado a `/goal`:
+ *   - `/goal --ultracode <obj>` hace que el prompt ITERATION reinyectado lleve la guía ULTRACODE
+ *     (apoyarse en dynamic workflows), mientras que `/goal <obj>` plano NO.
+ *   - el flag se quita del texto del objetivo (y del split de success-criteria),
+ *     así nunca se filtra al objetivo que ve el modelo.
+ *   - la postura se persiste en el snapshot goal-state para sobrevivir una recarga.
  *
- * Mechanism: the goal extension injects each iteration prompt via `pi.sendUserMessage`. We
- * build the CURRENT index.ts to ESM (same self-bootstrapping pattern as goal-verifier.test.mjs),
- * drive the REAL `/goal` command against a mocked pi/ctx, and capture sendUserMessage + the
- * persisted goal-state snapshots. We assert the OBSERVABLE prompt text and snapshot, not a
- * copy of the wording — if the posture wiring regresses, this suite goes red.
+ * Mecanismo: la extensión goal inyecta cada prompt de iteración vía `pi.sendUserMessage`. Generamos
+ * el index.ts ACTUAL como ESM (mismo patrón self-bootstrapping que goal-verifier.test.mjs),
+ * ejecutamos el comando REAL `/goal` contra pi/ctx mockeados, y capturamos sendUserMessage + los
+ * snapshots goal-state persistidos. Afirmamos el texto OBSERVABLE del prompt y el snapshot, no una
+ * copia del texto; si el wiring de la postura regresa, esta suite falla.
  *
- * Run it:
+ * Ejecución:
  *   node extensions/pandi-goal/tests/integration/goal-ultracode.test.mjs
  *
- * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
+ * Código de salida 0 = todos los checks pasaron; 1 = falló un check de comportamiento; 2 = falló el harness.
  */
 
 import * as fs from "node:fs/promises";
@@ -40,12 +40,12 @@ async function buildGoal() {
 	});
 }
 
-// Mock pi: capture the prompts injected via sendUserMessage and every persisted goal-state.
+// Mock pi: captura los prompts inyectados vía sendUserMessage y cada goal-state persistido.
 function makePi() {
 	const tools = new Map();
 	const commands = new Map();
-	const messages = []; // every injected iteration/verification prompt, in order
-	const states = []; // every appended goal-state snapshot, in order
+	const messages = []; // cada prompt de iteración/verificación inyectado, en orden
+	const states = []; // cada snapshot goal-state agregado, en orden
 	const pi = {
 		registerTool: (def) => tools.set(def.name, def),
 		registerCommand: (name, opts) => commands.set(name, opts),
@@ -82,7 +82,7 @@ function lastSnapshot(states) {
 	return states.length ? states[states.length - 1] : undefined;
 }
 
-// The first injected message is the iteration-1 prompt (fireGoal runs at start).
+// El primer mensaje inyectado es el prompt de iteración 1 (fireGoal corre al inicio).
 async function startGoalAndCapture(goalUrl, args) {
 	const goalExtension = await loadDefault(goalUrl);
 	const ctx = makeCtx();
@@ -93,7 +93,7 @@ async function startGoalAndCapture(goalUrl, args) {
 }
 
 // ===========================================================================
-// SCENARIO 1: `--ultracode` injects the ULTRACODE guidance into the iteration prompt.
+// ESCENARIO 1: `--ultracode` inyecta la guía ULTRACODE en el prompt de iteración.
 // ===========================================================================
 async function ultracodeInjectsGuidance(goalUrl) {
 	const { messages, states } = await startGoalAndCapture(goalUrl, "--ultracode ship the dashboard");
@@ -110,7 +110,7 @@ async function ultracodeInjectsGuidance(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO 2: alias `--uc` works the same way.
+// ESCENARIO 2: el alias `--uc` funciona igual.
 // ===========================================================================
 async function ucAliasWorks(goalUrl) {
 	const { messages, states } = await startGoalAndCapture(goalUrl, "--uc refactor the parser");
@@ -120,7 +120,7 @@ async function ucAliasWorks(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO 3: no flag → no ultracode wording, posture is off (characterizes the default).
+// ESCENARIO 3: sin flag → sin texto ultracode, postura apagada (caracteriza el default).
 // ===========================================================================
 async function defaultHasNoUltracode(goalUrl) {
 	const { messages, states } = await startGoalAndCapture(goalUrl, "ship the dashboard");
@@ -135,8 +135,8 @@ async function defaultHasNoUltracode(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO 4: the flag is stripped even when combined with `-- <criteria>`; both the
-// objective and the criteria survive intact.
+// ESCENARIO 4: el flag se quita incluso combinado con `-- <criteria>`; tanto el
+// objetivo como los criterios sobreviven intactos.
 // ===========================================================================
 async function flagStrippedAlongsideCriteria(goalUrl) {
 	const { messages, states } = await startGoalAndCapture(

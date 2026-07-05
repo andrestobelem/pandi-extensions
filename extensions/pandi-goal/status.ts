@@ -1,9 +1,10 @@
 /**
- * Status-line presentation for the `/goal` extension.
+ * Presentación de status-line para la extensión `/goal`.
  *
- * Pure rendering of a single goal's status into Pi's status line: no scheduling, no state
- * ownership, no I/O beyond ctx.ui. The "which goal is currently active" selection stays in
- * index.ts (refreshGoalStatus), which reads the activeGoals map and calls these renderers.
+ * Render puro del estado de un único goal en la status line de Pi: sin scheduling, sin
+ * ownership de estado, sin I/O fuera de ctx.ui. La selección de "qué goal está activo
+ * actualmente" queda en index.ts (refreshGoalStatus), que lee el map activeGoals y llama
+ * a estos renderers.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";

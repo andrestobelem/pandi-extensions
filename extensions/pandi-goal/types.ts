@@ -1,9 +1,10 @@
 /**
- * Shared type declarations for the `/goal` extension.
+ * Declaraciones de tipos compartidas para la extensión `/goal`.
  *
- * Pure type/interface declarations extracted from index.ts (zero runtime). The goal
- * state machine, scheduling, persistence, and verifier that USE these types stay in
- * index.ts; this module is an import-free leaf so any sibling can depend on it.
+ * Declaraciones puras de tipos/interfaces extraídas de index.ts (cero runtime). La state
+ * machine, scheduling, persistencia y verificador del goal que USAN estos tipos quedan en
+ * index.ts; este módulo es una hoja sin imports para que cualquier hermano pueda depender
+ * de él.
  */
 
 export type GoalStatus = "pursuing" | "verifying" | "verifying-independent" | "done" | "blocked" | "stopped" | "stale";
@@ -20,41 +21,41 @@ export interface GoalAssessment {
 export interface GoalState {
 	goalId: string;
 	objective: string;
-	/** Success criteria supplied by the user via `-- <criteria>`, if any. */
+	/** Criterios de éxito provistos por el usuario vía `-- <criteria>`, si existen. */
 	successCriteria?: string;
-	/** Criteria DERIVED by the model in iteration 1 when the user gave none (S2). */
+	/** Criterios DERIVADOS por el modelo en la iteración 1 cuando el usuario no dio ninguno (S2). */
 	derivedCriteria?: string;
-	/** Ultracode posture: lean on dynamic workflows to drive the work (prompt-injection only). */
+	/** Postura Ultracode: apoyarse en dynamic workflows para conducir el trabajo (solo inyección de prompt). */
 	ultracode?: boolean;
 	iteration: number;
 	maxIterations: number;
-	/** Best-effort context-usage percent cap. */
+	/** Tope best-effort de porcentaje de uso de contexto. */
 	contextPercentCap: number;
-	/** Bounded history of self-assessments (sliced to PROGRESS_LOG_KEEP at persist). */
+	/** Historial acotado de autoevaluaciones (recortado a PROGRESS_LOG_KEEP al persistir). */
 	assessments: GoalAssessment[];
-	/** Count of completeness checks that FAILED (verifying → continue). Caps verify ping-pong. */
+	/** Cantidad de chequeos de completitud que FAILED (verifying → continue). Limita el ping-pong de verificación. */
 	verifyAttempts: number;
-	/** P1: count of INDEPENDENT verifications that returned FAIL. Caps the independent ping-pong. */
+	/** P1: cantidad de verificaciones INDEPENDENT que devolvieron FAIL. Limita el ping-pong independiente. */
 	independentVerifyAttempts: number;
-	/** P1: max FAILED independent verifications tolerated before blocking (config, default 2). */
+	/** P1: máximo de verificaciones independientes FAILED toleradas antes de bloquear (config, default 2). */
 	maxIndependentVerifications: number;
-	/** P1: wall-clock budget (ms) for one independent verification subagent (config). */
+	/** P1: presupuesto de wall-clock (ms) para un subagente de verificación independiente (config). */
 	verifierTimeoutMs: number;
-	/** P1: read-only tools handed to the verifier subagent (config). */
+	/** P1: tools de solo lectura entregadas al subagente verificador (config). */
 	verifierTools: string[];
 	gstatus: GoalStatus;
 	startedAt: number;
 	nextFireAt: number | null;
 	lastReason?: string;
-	/** ISO timestamp of the last write; used to resolve JSONL-vs-sidecar conflicts. */
+	/** Timestamp ISO de la última escritura; usado para resolver conflictos JSONL-vs-sidecar. */
 	updatedAt: string;
 }
 
 export interface ActiveGoal extends GoalState {
 	timer: ReturnType<typeof setTimeout> | null;
 	controller: AbortController;
-	/** True once a wake was (re)armed in the current turn; reset on each fire. */
+	/** True una vez que un wake fue (re)armado en el turno actual; se resetea en cada fire. */
 	rearmedThisTurn: boolean;
-	/** P1: true while an independent verifier subagent is in flight (debounces re-launch). */
+	/** P1: true mientras un subagente verificador independiente está in flight (debounce del re-launch). */
 	verifierInFlight: boolean;
 }

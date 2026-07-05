@@ -1,48 +1,47 @@
 /**
- * Durable behavioral integration test for the REHYDRATION (crash/reload recovery) of extensions/pandi-goal/index.ts.
+ * Test de integración conductual durable para la REHYDRATION (recuperación crash/reload) de extensions/pandi-goal/index.ts.
  *
- * Why this file exists
- * --------------------
- * `npm test` is a TYPECHECK only (`tsc --noEmit` over the four extensions). It proves the
- * code compiles; it proves NOTHING about runtime behavior. A `/goal` is a PERSISTENT,
- * crash-recoverable agent: when the process restarts, `rehydrate()` (fired on `session_start`)
- * is the ONLY thing that brings a live goal back. Its contract is subtle and entirely
- * behavioral, so a silent regression here is among the most dangerous in the package:
+ * Por qué existe este archivo
+ * ---------------------------
+ * `npm test` es solo TYPECHECK (`tsc --noEmit` sobre las cuatro extensiones). Demuestra que
+ * el código compila; no demuestra NADA sobre comportamiento runtime. Un `/goal` es un agente
+ * PERSISTENTE, recuperable tras crash: cuando el proceso reinicia, `rehydrate()` (disparado en
+ * `session_start`) es lo ÚNICO que revive un goal activo. Su contrato es sutil y totalmente
+ * conductual, por eso una regresión silenciosa acá está entre las más peligrosas del paquete:
  *
- *   - A goal that crashed mid INDEPENDENT verification (`verifying-independent`) MUST
- *     re-run the skeptical subagent on reload — its in-flight verdict was lost, so we
- *     RE-JUDGE rather than guess. If rehydrate instead dropped it, or closed it as done,
- *     a goal would either silently die or close UNVERIFIED — the precise failure the
- *     independent verifier exists to prevent. (goal.ts rehydrate: the `verifying-independent`
- *     branch calls beginIndependentVerification.)
- *   - A `stale` snapshot (the shape `session_shutdown` writes for a pursuing goal) must
- *     resume as `pursuing` with a single catch-up tick — not a burst of N missed wakes.
- *   - A `verifying` snapshot must resume as `verifying` (the self-check survives a reload).
- *   - TERMINAL snapshots (`done`/`blocked`/`stopped`) must NOT be recovered: a finished
- *     goal must stay finished across a reload (no zombie goals re-arming timers).
- *   - last-wins by goalId across the append-only log; no double-fire if a timer is already
- *     alive in this process; and a `fork` session_start must NOT migrate a running goal.
+ *   - Un goal que crasheó durante una verificación INDEPENDIENTE (`verifying-independent`) DEBE
+ *     relanzar el subagente escéptico al recargar: su verdict en vuelo se perdió, así que
+ *     RE-JUZGAMOS en vez de adivinar. Si rehydrate lo descartara, o lo cerrara como done,
+ *     el goal moriría en silencio o cerraría SIN VERIFICAR: la falla exacta que el
+ *     verifier independiente existe para prevenir. (goal.ts rehydrate: la rama
+ *     `verifying-independent` llama a beginIndependentVerification.)
+ *   - Un snapshot `stale` (la forma que `session_shutdown` escribe para un goal pursuing) debe
+ *     reanudar como `pursuing` con un único catch-up tick, no una ráfaga de N wakes perdidos.
+ *   - Un snapshot `verifying` debe reanudar como `verifying` (el self-check sobrevive un reload).
+ *   - Los snapshots TERMINALES (`done`/`blocked`/`stopped`) NO deben recuperarse: un goal
+ *     terminado debe seguir terminado tras un reload (sin goals zombie rearmando timers).
+ *   - Último gana por goalId en el log append-only; sin double-fire si ya hay un timer vivo
+ *     en este proceso; y un `fork` session_start NO debe migrar un goal en ejecución.
  *
- * `tsc` sees none of this. This file pins the OBSERVABLE recovery contract.
+ * `tsc` no ve nada de esto. Este archivo fija el contrato de recuperación OBSERVABLE.
  *
- * How it works
- * ------------
- * Self-bootstrapping, same proven pattern as safety-gates / goal-verifier integration test: it esbuilds
- * the CURRENT extensions/pandi-goal/index.ts into an OS temp dir at run time (never a stale bundled
- * copy), aliasing the two external peer packages (typebox, @earendil-works/pi-coding-agent)
- * to tiny local stubs so it runs from a clean checkout with NO `npm install`. It then drives
- * the REAL registered `session_start` handler against a mocked pi/ctx whose
- * `sessionManager.getEntries()` returns crafted persisted `goal-state` entries — exactly the
- * snapshots `session_shutdown`/persist would have written. It asserts the OBSERVABLE outcome:
- * which goals become active, in which gstatus, whether the verifier subprocess (pi.exec) is
- * re-spawned, and the final persisted disposition. It NEVER copies the rehydrate logic; it
- * tracks the source, so a drift (e.g. recovering a terminal goal, or NOT re-running the
- * verifier) turns this suite red.
+ * Cómo funciona
+ * --------------
+ * Autoarranque, mismo patrón probado que safety-gates / goal-verifier integration test: esbuildea
+ * el extensions/pandi-goal/index.ts ACTUAL a un dir temporal del OS en runtime (nunca una copia
+ * bundled obsoleta), aliasando los dos peer packages externos (typebox, @earendil-works/pi-coding-agent)
+ * a stubs locales mínimos para correr desde un checkout limpio SIN `npm install`. Luego maneja
+ * el handler `session_start` REAL registrado contra pi/ctx mockeados cuyo
+ * `sessionManager.getEntries()` devuelve entradas `goal-state` persistidas preparadas: exactamente
+ * los snapshots que `session_shutdown`/persist habrían escrito. Afirma el resultado OBSERVABLE:
+ * qué goals quedan activos, en qué gstatus, si el subprocess verifier (pi.exec) se relanza,
+ * y la disposición final persistida. NUNCA copia la lógica de rehydrate; sigue la fuente, así
+ * un drift (p. ej. recuperar un goal terminal, o NO relanzar el verifier) pone esta suite en rojo.
  *
- * Run it:
+ * Ejecutar:
  *   node extensions/pandi-goal/tests/integration/goal-rehydrate.test.mjs
  *
- * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
+ * Código de salida 0 = todos los checks pasaron; 1 = falló un check conductual; 2 = crash del harness.
  */
 
 import * as fs from "node:fs/promises";
@@ -51,21 +50,21 @@ import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// extensions/pandi-goal/tests/integration/ -> repo root is four levels up.
+// extensions/pandi-goal/tests/integration/ -> repo root está cuatro niveles arriba.
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 // ---------------------------------------------------------------------------
-// Assertion harness
+// Harness de aserciones
 // ---------------------------------------------------------------------------
 const { check, counts } = createChecker();
 
 // ---------------------------------------------------------------------------
-// Build the current goal extension to ESM in a temp dir, return import URL.
-// (Identical stub strategy to the sibling goal-verifier.test.mjs.)
+// Compila la extensión goal actual a ESM en un dir temporal; devuelve la URL de import.
+// (Misma estrategia de stubs que el sibling goal-verifier.test.mjs.)
 // ---------------------------------------------------------------------------
 async function buildGoal() {
-	// pi-goal only needs Type.* for tool-schema declaration (never validation) and the SDK
-	// symbols for state-dir resolution.
+	// pi-goal solo necesita Type.* para declarar tool-schema (nunca validación) y los símbolos
+	// del SDK para resolver state-dir.
 	return await buildExtension({
 		name: "pi-goal-rehydrate-integration",
 		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "index.ts"),
@@ -74,15 +73,15 @@ async function buildGoal() {
 	});
 }
 
-// pi-goal keeps a module singleton (activeGoals). loadDefault's cache-busting query gives
-// each scenario a FRESH instance so scenarios never leak goal state into each other.
+// pi-goal mantiene un singleton de módulo (activeGoals). La query cache-busting de loadDefault
+// da a cada escenario una instancia FRESH para que los escenarios no filtren estado entre sí.
 
-// Let fire-and-forget async chains (`void beginIndependentVerification(...)`) AND the
-// rehydrate catch-up tick settle. rehydrate arms the catch-up wake with `setTimeout(fireGoal, 0)`
-// (goal.ts: a due nextFireAt → remaining 0), so each poll iteration must yield to BOTH the timer
-// phase (setTimeout) and the check phase (setImmediate). Awaiting setImmediate alone can starve
-// the timer phase under load (e.g. when run sequentially via run-all.mjs), which made this suite
-// flaky: scenarios B/C (stale/verifying due catch-up) intermittently saw the tick not yet fired.
+// Deja asentarse las cadenas async fire-and-forget (`void beginIndependentVerification(...)`) Y el
+// catch-up tick de rehydrate. rehydrate arma el catch-up wake con `setTimeout(fireGoal, 0)`
+// (goal.ts: un nextFireAt vencido → remaining 0), por eso cada iteración de poll debe ceder a AMBAS
+// fases: timer (setTimeout) y check (setImmediate). Esperar solo setImmediate puede hambrear la
+// fase timer bajo carga (p. ej. al correr secuencialmente vía run-all.mjs), lo que volvió flaky
+// esta suite: los escenarios B/C (stale/verifying con catch-up vencido) a veces no veían el tick.
 async function flush(predicate, tries = 100) {
 	for (let i = 0; i < tries; i++) {
 		await new Promise((r) => setTimeout(r, 0));
@@ -92,15 +91,15 @@ async function flush(predicate, tries = 100) {
 }
 
 // ---------------------------------------------------------------------------
-// Mock pi + ctx. We capture every persisted "goal-state" snapshot (pi.appendEntry), every
-// re-injected user message (pi.sendUserMessage), and every verifier subprocess (pi.exec).
-// ctx.sessionManager.getEntries() returns the crafted persisted log (the reload input).
+// Mock de pi + ctx. Capturamos cada snapshot "goal-state" persistido (pi.appendEntry), cada
+// mensaje de usuario reinyectado (pi.sendUserMessage) y cada subprocess verifier (pi.exec).
+// ctx.sessionManager.getEntries() devuelve el log persistido preparado (la entrada de reload).
 // ---------------------------------------------------------------------------
 function makePi(execImpl) {
 	const tools = new Map();
 	const commands = new Map();
 	const handlers = new Map();
-	const states = []; // every appended goal-state snapshot, in order
+	const states = []; // cada snapshot goal-state agregado, en orden
 	const execCalls = [];
 	const messages = [];
 	const pi = {
@@ -122,13 +121,13 @@ function makePi(execImpl) {
 	return { pi, tools, commands, handlers, states, execCalls, messages };
 }
 
-// A persisted goal-state custom entry, exactly the shape rehydrate() filters on
-// (entry.type === "custom" && entry.customType === "goal-state", data = the snapshot).
+// Entrada custom goal-state persistida, exactamente la forma que rehydrate() filtra
+// (entry.type === "custom" && entry.customType === "goal-state", data = el snapshot).
 function entry(snap) {
 	return { type: "custom", customType: "goal-state", data: snap };
 }
 
-// A minimally-complete GoalState snapshot (the fields rehydrate copies / re-arms on).
+// Snapshot GoalState mínimo completo (los campos que rehydrate copia / rearma).
 let _gid = 0;
 function snap(overrides = {}) {
 	const goalId = overrides.goalId ?? `g${(_gid++).toString(16).padStart(4, "0")}`;
@@ -177,7 +176,7 @@ function makeCtx(entries, { reason = "startup", mode = "tui" } = {}) {
 	};
 }
 
-// Build the extension, register it, fire session_start with the crafted persisted entries.
+// Compila la extensión, la registra y dispara session_start con las entradas persistidas preparadas.
 async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, mode = "tui" } = {}) {
 	const goalExtension = await loadDefault(goalUrl);
 	const built = makePi(execImpl);
@@ -189,16 +188,16 @@ async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, m
 	return { ctx, built };
 }
 
-// The last persisted gstatus for a given goalId is its observable disposition.
+// El último gstatus persistido para un goalId dado es su disposición observable.
 function lastStatusFor(states, goalId) {
 	for (let i = states.length - 1; i >= 0; i--) if (states[i].goalId === goalId) return states[i].gstatus;
 	return undefined;
 }
 
 // ===========================================================================
-// SCENARIO A: a `verifying-independent` snapshot RE-RUNS the independent verifier on reload.
-// The most consequential rehydrate path: the lost verdict is re-judged, and its result drives
-// the outcome (PASS closes done; the goal is NOT closed without actually re-running the judge).
+// SCENARIO A: un snapshot `verifying-independent` RELANZA el verifier independiente en reload.
+// La ruta de rehydrate más consecuente: el verdict perdido se rejuzga, y su resultado decide
+// el outcome (PASS cierra done; el goal NO se cierra sin relanzar realmente el judge).
 // ===========================================================================
 async function verifyingIndependentReRunsVerifierAndPasses(goalUrl) {
 	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
@@ -222,8 +221,8 @@ async function verifyingIndependentReRunsVerifierAndPasses(goalUrl) {
 	);
 }
 
-// A re-run verifier that FAILs (under the cap) must NOT close the goal; it iterates back to
-// pursuing. (The reload must never produce a false "done".)
+// Un verifier relanzado que devuelve FAIL (bajo el límite) NO debe cerrar el goal; itera de vuelta
+// a pursuing. (El reload nunca debe producir un "done" falso.)
 async function verifyingIndependentReRunFailDoesNotClose(goalUrl) {
 	const s = snap({
 		gstatus: "verifying-independent",
@@ -250,9 +249,9 @@ async function verifyingIndependentReRunFailDoesNotClose(goalUrl) {
 	);
 }
 
-// A re-run verifier that FAILs AT the cap must BLOCK (needs a human), never close.
+// Un verifier relanzado que devuelve FAIL EN el límite debe BLOCK (requiere humano), nunca cerrar.
 async function verifyingIndependentReRunFailAtCapBlocks(goalUrl) {
-	// independentVerifyAttempts already at cap-1 (=1, with max 2): one more FAIL hits the cap.
+	// independentVerifyAttempts ya está en cap-1 (=1, con max 2): un FAIL más alcanza el límite.
 	const s = snap({
 		gstatus: "verifying-independent",
 		nextFireAt: null,
@@ -273,11 +272,11 @@ async function verifyingIndependentReRunFailAtCapBlocks(goalUrl) {
 	);
 }
 
-// A goal recovered into `verifying-independent` re-runs the verifier OUT of the model turn. If
-// the model fires goal_progress while that re-run is in flight, it must be IGNORED (the verdict,
-// not the re-entrant report, decides) — otherwise the re-entry would flip gstatus and the
-// liveness guard would discard the in-flight verdict (the MEDIO bug, here on the RELOAD path).
-// We gate the re-run verifier in flight, poke goal_progress, then release: the verdict closes it.
+// Un goal recuperado en `verifying-independent` relanza el verifier FUERA del turno del modelo. Si
+// el modelo dispara goal_progress mientras ese relanzamiento está en vuelo, debe ser IGNORADO (decide
+// el verdict, no el reporte reentrante); si no, la reentrada cambiaría gstatus y el liveness guard
+// descartaría el verdict en vuelo (el bug MEDIO, acá en la ruta RELOAD).
+// Gateamos el verifier relanzado en vuelo, tocamos goal_progress y luego liberamos: el verdict lo cierra.
 async function verifyingIndependentReloadIgnoresReentry(goalUrl) {
 	let release;
 	const gate = new Promise((r) => {
@@ -290,7 +289,7 @@ async function verifyingIndependentReloadIgnoresReentry(goalUrl) {
 	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
 	const { ctx, built } = await rehydrateFrom(goalUrl, [entry(s)], { execImpl: exec });
 
-	// Re-run launched and gated → goal parked in verifying-independent.
+	// Relanzamiento iniciado y gateado → goal estacionado en verifying-independent.
 	check(
 		"reload re-spawns the verifier once (in flight)",
 		built.execCalls.length === 1,
@@ -327,7 +326,7 @@ async function verifyingIndependentReloadIgnoresReentry(goalUrl) {
 		`execCalls=${built.execCalls.length}`,
 	);
 
-	// Release the gated re-run: its PASS — not the discarded re-entry — closes the goal.
+	// Libera el relanzamiento gateado: su PASS, no la reentrada descartada, cierra el goal.
 	release();
 	await flush(() => lastStatusFor(built.states, s.goalId) === "done");
 	check(
@@ -337,10 +336,10 @@ async function verifyingIndependentReloadIgnoresReentry(goalUrl) {
 	);
 }
 
-// The agent_end safety net must NOT re-arm a reloaded verifying-independent goal: its verifier
-// runs OUTSIDE the turn and resolves the next transition itself; re-arming would race (and could
-// discard) the in-flight verdict. On the RELOAD path `rearmedThisTurn` is false, so the gstatus
-// EXCLUSION (goal.ts agent_end) is the SOLE guard here — this is where it is load-bearing.
+// La red de seguridad agent_end NO debe rearmar un goal verifying-independent recargado: su verifier
+// corre FUERA del turno y resuelve solo la siguiente transición; rearmar competiría (y podría
+// descartar) el verdict en vuelo. En la ruta RELOAD `rearmedThisTurn` es false, así que la EXCLUSIÓN
+// por gstatus (goal.ts agent_end) es el ÚNICO guard acá: este es su punto crítico.
 async function verifyingIndependentReloadSurvivesAgentEnd(goalUrl) {
 	let release;
 	const gate = new Promise((r) => {
@@ -358,7 +357,7 @@ async function verifyingIndependentReloadSurvivesAgentEnd(goalUrl) {
 		`last=${lastStatusFor(built.states, s.goalId)}`,
 	);
 
-	// Fire the safety net while the re-run verifier is mid-flight.
+	// Dispara la red de seguridad mientras el verifier relanzado está en vuelo.
 	for (const h of built.handlers.get("agent_end") ?? []) await h({}, ctx);
 	check(
 		"agent_end does NOT re-arm a reloaded verifying-independent goal",
@@ -381,16 +380,16 @@ async function verifyingIndependentReloadSurvivesAgentEnd(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO B: a `stale` snapshot resumes as `pursuing` (the shutdown shape for a pursuing
-// goal). rehydrate downgrades stale→pursuing in memory and arms a single catch-up tick. We
-// make nextFireAt due (in the past) so that tick fires immediately and proves the goal is
-// GENUINELY active again as pursuing: it persists a fresh snapshot with the iteration bumped
-// and re-injects ONE pursuing wake — not dropped, not a verifier, not a verifying prompt.
+// SCENARIO B: un snapshot `stale` reanuda como `pursuing` (la forma de shutdown para un goal
+// pursuing). rehydrate baja stale→pursuing en memoria y arma un único catch-up tick. Hacemos que
+// nextFireAt esté vencido (en el pasado) para que ese tick dispare de inmediato y pruebe que el goal
+// vuelve a estar GENUINAMENTE activo como pursuing: persiste un snapshot fresco con la iteración subida
+// y reinyecta UN wake pursuing; no se descarta, no es un verifier ni un prompt verifying.
 // ===========================================================================
 async function staleResumesPursuing(goalUrl) {
 	const s = snap({ gstatus: "stale", iteration: 3, nextFireAt: Date.now() - 1000 });
 	const { built } = await rehydrateFrom(goalUrl, [entry(s)]);
-	// Wait for the catch-up setTimeout(...,0) to fire and persist the next iteration.
+	// Espera que el catch-up setTimeout(...,0) dispare y persista la siguiente iteración.
 	await flush(() => built.states.some((st) => st.goalId === s.goalId && st.iteration > 3));
 	const fired = built.states.find((st) => st.goalId === s.goalId && st.iteration > 3);
 	check("stale snapshot is recovered (catch-up tick fires)", !!fired, `states=${built.states.length}`);
@@ -408,13 +407,13 @@ async function staleResumesPursuing(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO C: a `verifying` snapshot resumes as `verifying` (the self-completeness check
-// survives a reload — it is NOT downgraded to pursuing and does NOT spawn the independent
-// verifier, which only fires from a CONFIRMED done).
+// SCENARIO C: un snapshot `verifying` reanuda como `verifying` (el self-completeness check
+// sobrevive un reload: NO se baja a pursuing y NO lanza el verifier independiente, que solo
+// dispara desde un done CONFIRMADO).
 // ===========================================================================
 async function verifyingResumesVerifying(goalUrl) {
-	// Due catch-up tick: the re-armed goal fires immediately and must fire in the VERIFYING
-	// phase (re-injecting the verification prompt), proving the self-check survived the reload.
+	// Catch-up tick vencido: el goal rearmado dispara de inmediato y debe disparar en fase VERIFYING
+	// (reinyectando el prompt de verificación), probando que el self-check sobrevivió el reload.
 	const s = snap({ gstatus: "verifying", iteration: 4, nextFireAt: Date.now() - 1000 });
 	const { built } = await rehydrateFrom(goalUrl, [entry(s)]);
 	await flush(() => built.states.some((st) => st.goalId === s.goalId && st.iteration > 4));
@@ -442,9 +441,9 @@ async function verifyingResumesVerifying(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO D: TERMINAL snapshots (done / blocked / stopped) are NOT recovered. A finished
-// goal stays finished across reload — no zombie goal re-arming a timer or a verifier. We
-// verify by reloading a terminal snapshot and confirming NOTHING is re-scheduled or re-judged.
+// SCENARIO D: los snapshots TERMINALES (done / blocked / stopped) NO se recuperan. Un goal terminado
+// sigue terminado tras reload: sin goal zombie rearmando un timer o un verifier. Verificamos recargando
+// un snapshot terminal y confirmando que NADA se reagenda o rejuzga.
 // ===========================================================================
 async function terminalSnapshotsAreNotRecovered(goalUrl) {
 	for (const term of ["done", "blocked", "stopped"]) {
@@ -470,14 +469,14 @@ async function terminalSnapshotsAreNotRecovered(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO E: last-wins by goalId. The append-only log holds several snapshots of the SAME
-// goal; rehydrate keeps the LATEST. If the latest is terminal, the goal is NOT recovered even
-// though an earlier 'pursuing' snapshot exists; conversely a terminal-then-live sequence (the
-// goal was restarted) recovers the live one.
+// SCENARIO E: último gana por goalId. El log append-only tiene varios snapshots del MISMO
+// goal; rehydrate conserva el LATEST. Si el último es terminal, el goal NO se recupera aunque
+// exista un snapshot 'pursuing' anterior; a la inversa, una secuencia terminal-then-live (el
+// goal se reinició) recupera el vivo.
 // ===========================================================================
 async function lastWinsByGoalId(goalUrl) {
 	const id = "deadbeef";
-	// pursuing (early) ... then done (latest): latest is terminal -> NOT recovered.
+	// pursuing (early) ... luego done (latest): latest es terminal -> NO se recupera.
 	{
 		const early = snap({
 			goalId: id,
@@ -494,7 +493,7 @@ async function lastWinsByGoalId(goalUrl) {
 			`exec=${built.execCalls.length} msg=${built.messages.length} states=${built.states.length}`,
 		);
 	}
-	// done (early) ... then verifying-independent (latest, goal was restarted): recovered + re-judged.
+	// done (early) ... luego verifying-independent (latest, el goal se reinició): recuperado + rejuzgado.
 	{
 		const early = snap({ goalId: id, gstatus: "done", iteration: 5, nextFireAt: null });
 		const latest = snap({
@@ -517,9 +516,9 @@ async function lastWinsByGoalId(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO F: a `fork` session_start does NOT migrate a running goal. A forked session
-// inherits the parent's goal-state entries, but the goal must keep running only in the
-// parent — rehydrate must be a no-op on fork.
+// SCENARIO F: un `fork` session_start NO migra un goal en ejecución. Una sesión forked hereda
+// las entradas goal-state del padre, pero el goal debe seguir corriendo solo en el padre:
+// rehydrate debe ser no-op en fork.
 // ===========================================================================
 async function forkDoesNotMigrateGoal(goalUrl) {
 	const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
@@ -544,19 +543,19 @@ async function forkDoesNotMigrateGoal(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO G: rehydrate is robust to junk in the log. Non-goal-state entries, entries
-// missing a goalId, and a snapshot with an UNKNOWN gstatus are all ignored — they never
-// crash rehydrate nor produce a phantom active goal.
+// SCENARIO G: rehydrate es robusto ante basura en el log. Entradas non-goal-state, entradas
+// sin goalId y un snapshot con gstatus DESCONOCIDO se ignoran: nunca crashean rehydrate ni
+// producen un goal activo fantasma.
 // ===========================================================================
 async function junkEntriesAreIgnored(goalUrl) {
 	const good = snap({ gstatus: "verifying-independent", nextFireAt: null });
 	const exec = () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	const entries = [
-		{ type: "message", role: "user", content: "hello" }, // not custom
-		{ type: "custom", customType: "something-else", data: { goalId: "x" } }, // wrong customType
-		{ type: "custom", customType: "goal-state", data: { objective: "no id" } }, // missing goalId
-		{ type: "custom", customType: "goal-state", data: snap({ gstatus: "weird-unknown-status" }) }, // unknown status
-		entry(good), // the only recoverable one
+		{ type: "message", role: "user", content: "hello" }, // no custom
+		{ type: "custom", customType: "something-else", data: { goalId: "x" } }, // customType incorrecto
+		{ type: "custom", customType: "goal-state", data: { objective: "no id" } }, // falta goalId
+		{ type: "custom", customType: "goal-state", data: snap({ gstatus: "weird-unknown-status" }) }, // status desconocido
+		entry(good), // el único recuperable
 	];
 	const { built } = await rehydrateFrom(goalUrl, entries, { execImpl: exec });
 	await flush(() => lastStatusFor(built.states, good.goalId) === "done");
@@ -568,10 +567,10 @@ async function junkEntriesAreIgnored(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO H: no double-fire. If rehydrate runs again while a goal's timer is already alive
-// in this process (e.g. a second session_start), it must NOT re-arm a duplicate. We fire
-// session_start twice on the SAME extension instance with a due stale goal and assert the
-// catch-up wake happens ONCE, not twice.
+// SCENARIO H: sin double-fire. Si rehydrate corre de nuevo mientras el timer de un goal ya está vivo
+// en este proceso (p. ej. un segundo session_start), NO debe rearmar un duplicado. Disparamos
+// session_start dos veces en la MISMA instancia de extensión con un goal stale vencido y afirmamos que
+// el catch-up wake ocurre UNA vez, no dos.
 // ===========================================================================
 async function noDoubleFireOnSecondRehydrate(goalUrl) {
 	const goalExtension = await loadDefault(goalUrl);
@@ -580,12 +579,12 @@ async function noDoubleFireOnSecondRehydrate(goalUrl) {
 	const onStart = built.handlers.get("session_start");
 	const s = snap({ gstatus: "stale", iteration: 7, nextFireAt: Date.now() - 1000 });
 	const { event, ctx } = makeCtx([entry(s)]);
-	// First rehydrate arms the goal (and schedules a due catch-up tick).
+	// El primer rehydrate arma el goal (y agenda un catch-up tick vencido).
 	for (const h of onStart) await h(event, ctx);
-	// Second rehydrate while the timer/goal is already live: must be a no-op for this goal.
+	// Segundo rehydrate con timer/goal ya vivo: debe ser no-op para este goal.
 	for (const h of onStart) await h(event, ctx);
 	await flush(() => built.messages.length >= 1);
-	// Give any erroneous duplicate a chance to also fire before asserting "exactly one".
+	// Da chance a que cualquier duplicado erróneo también dispare antes de afirmar "exactly one".
 	await flush(() => false, 20);
 	check(
 		"second rehydrate does NOT double-arm: exactly one catch-up wake",
@@ -595,19 +594,18 @@ async function noDoubleFireOnSecondRehydrate(goalUrl) {
 }
 
 // ===========================================================================
-// SCENARIO I: NON-INTERACTIVE rehydrate (print / json) is a NO-OP. A /goal can only be
-// sustained in tui/rpc — startGoal() already refuses to START one in print/json. The same
-// gate must hold on the RELOAD path: rehydrate must not re-arm a catch-up timer NOR spawn the
-// independent verifier subprocess in a one-shot/non-interactive session that can never advance
-// the goal. wake() being mode-gated only suppresses the prompt RE-INJECTION; it does NOT stop
-// rehydrate from (a) launching a heavyweight `pi -p` verifier for a verifying-independent
-// snapshot or (b) firing a due catch-up tick that bumps the iteration and persists a fresh
-// snapshot. Both are side effects a non-interactive session must not produce; the persisted
-// state must be left untouched so a later tui/rpc session recovers it intact.
+// SCENARIO I: rehydrate NON-INTERACTIVE (print / json) es NO-OP. Un /goal solo puede sostenerse
+// en tui/rpc: startGoal() ya rechaza INICIAR uno en print/json. La misma gate debe regir en la ruta
+// RELOAD: rehydrate no debe rearmar un catch-up timer NI lanzar el subprocess verifier independiente
+// en una sesión one-shot/non-interactive que nunca puede avanzar el goal. Que wake() esté mode-gated
+// solo suprime la REINYECCIÓN del prompt; NO impide que rehydrate (a) lance un verifier pesado `pi -p`
+// para un snapshot verifying-independent o (b) dispare un catch-up tick vencido que sube la iteración
+// y persiste un snapshot fresco. Ambos son side effects que una sesión non-interactive no debe producir;
+// el estado persistido debe quedar intacto para que una sesión tui/rpc posterior lo recupere intacto.
 // ===========================================================================
 async function nonInteractiveRehydrateIsNoOp(goalUrl) {
 	for (const mode of ["print", "json"]) {
-		// (a) The heavyweight path: a verifying-independent snapshot must NOT spawn the verifier.
+		// (a) Ruta pesada: un snapshot verifying-independent NO debe lanzar el verifier.
 		{
 			const s = snap({ gstatus: "verifying-independent", nextFireAt: null });
 			const exec = () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
@@ -629,8 +627,8 @@ async function nonInteractiveRehydrateIsNoOp(goalUrl) {
 				"unexpected done",
 			);
 		}
-		// (b) The timer path: a DUE stale snapshot must NOT fire a catch-up tick (no iteration
-		// bump, no persisted snapshot, no wake) — the goal cannot run in this mode at all.
+		// (b) Ruta de timer: un snapshot stale VENCIDO NO debe disparar un catch-up tick (sin
+		// suba de iteración, sin snapshot persistido, sin wake); el goal no puede correr en este modo.
 		{
 			const s = snap({ gstatus: "stale", iteration: 3, nextFireAt: Date.now() - 1000 });
 			const { built } = await rehydrateFrom(goalUrl, [entry(s)], { mode });
@@ -677,8 +675,8 @@ async function main() {
 		for (const f of counts.failures) console.log(`  - ${f}`);
 		process.exit(1);
 	}
-	// Recovered goals re-arm with setTimeout timers that keep the event loop open; exit
-	// explicitly rather than hang after a green run.
+	// Los goals recuperados se rearman con timers setTimeout que mantienen abierto el event loop;
+	// salir explícitamente en vez de colgar tras una corrida verde.
 	process.exit(0);
 }
 

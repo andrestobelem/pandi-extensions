@@ -1,25 +1,26 @@
 /**
- * Prompt molds for the `/goal` extension.
+ * Moldes de prompt para la extensión `/goal`.
  *
- * Pure prompt-construction helpers: they turn a GoalState into the text re-injected each
- * `pursuing` iteration or `verifying` completeness check. No side effects, no scheduling,
- * no I/O — just string building — so they are trivially testable and depend only on the
- * type/constant leaves. The independent-verifier prompt stays with the verifier code in
- * index.ts and reuses effectiveCriteria/formatProgressLog imported from here.
+ * Helpers puros de construcción de prompts: convierten un GoalState en el texto
+ * reinyectado en cada iteración `pursuing` o chequeo de completitud `verifying`. Sin
+ * side effects, sin scheduling, sin I/O: solo armado de strings, así que son triviales de
+ * testear y dependen solo de las hojas de tipos/constantes. El prompt del verificador
+ * independiente queda con el código del verificador en index.ts y reutiliza
+ * effectiveCriteria/formatProgressLog importados desde acá.
  */
 
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { PROGRESS_LOG_KEEP } from "./constants.js";
 import type { GoalState } from "./types.js";
 
-/** The effective criteria text: user-supplied wins, else model-derived, else none yet. */
+/** Texto efectivo de criterios: ganan los provistos por el usuario; si no, los derivados por el modelo; si no, nada aún. */
 export function effectiveCriteria(goal: GoalState): string | undefined {
 	if (goal.successCriteria?.trim()) return goal.successCriteria.trim();
 	if (goal.derivedCriteria?.trim()) return goal.derivedCriteria.trim();
 	return undefined;
 }
 
-/** Compact progress log of the last N assessments, for continuity without re-reading the session. */
+/** Log de progreso compacto de las últimas N assessments, para continuidad sin releer la sesión. */
 export function formatProgressLog(goal: GoalState): string[] {
 	const lines: string[] = [];
 	const recent = goal.assessments.slice(-PROGRESS_LOG_KEEP);
@@ -32,7 +33,7 @@ export function formatProgressLog(goal: GoalState): string[] {
 	return lines;
 }
 
-/** Stable iteration-prompt mold re-injected each `pursuing` iteration. */
+/** Molde estable del prompt de iteración reinyectado en cada iteración `pursuing`. */
 export function makeGoalIterationPrompt(goal: GoalState): string {
 	const lines: string[] = [];
 	lines.push(`Estás persiguiendo un /goal (goal ${goal.goalId}).`);
@@ -83,7 +84,7 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 	return lines.join("\n");
 }
 
-/** Verification-prompt mold, injected only in the `verifying` state (the completeness check). */
+/** Molde del prompt de verificación, inyectado solo en el estado `verifying` (el chequeo de completitud). */
 export function makeGoalVerificationPrompt(goal: GoalState): string {
 	const lines: string[] = [];
 	lines.push(`CHEQUEO DE COMPLETITUD para /goal ${goal.goalId}.`);

@@ -1,32 +1,32 @@
 /**
- * Characterization integration test for extensions/pandi-goal/verifier.ts (the P1
- * independent adversarial verifier cluster).
+ * Test de integración de caracterización para extensions/pandi-goal/verifier.ts (el cluster P1
+ * del verificador adversarial independiente).
  *
- * Why this file exists
+ * Por qué existe este archivo
  * --------------------
- * `npm test` is a TYPECHECK only; it proves nothing about runtime behavior. verifier.ts
- * owns three load-bearing contracts that a silent regression could quietly break:
+ * `npm test` solo hace TYPECHECK; no prueba nada sobre comportamiento runtime. verifier.ts
+ * posee tres contratos críticos que una regresión silenciosa podría romper sin ruido:
  *
- *   1. parseVerdict's CONSERVATIVE parse: it anchors on the last non-empty line, and only
- *      when that line carries no verdict does it fall back to a whole-text scan where the
- *      LAST `VERDICT:` match wins. This fallback is what keeps a goal from closing on a
- *      malformed judge — pinning "last match wins" pins the contract.
- *   2. makeIndependentVerifierPrompt's criteria branch: with NO criteria (neither
- *      successCriteria nor derivedCriteria) the prompt must say "none were stated
- *      explicitly" and must NOT emit a definition-of-done criteria block.
- *   3. runIndependentVerifier's exec wiring: the subprocess is invoked with cwd=ctx.cwd,
- *      timeout=goal.verifierTimeoutMs, and signal=goal.controller.signal.
+ *   1. El parse CONSERVATIVE de parseVerdict: ancla en la última línea no vacía, y solo
+ *      cuando esa línea no trae veredicto cae a un escaneo de todo el texto donde gana el
+ *      ÚLTIMO match `VERDICT:`. Este fallback evita cerrar un goal con un judge malformado;
+ *      fijar "last match wins" fija el contrato.
+ *   2. La rama de criterios de makeIndependentVerifierPrompt: sin criterios (ni
+ *      successCriteria ni derivedCriteria), el prompt debe decir "none were stated
+ *      explicitly" y NO debe emitir un bloque de criterios definition-of-done.
+ *   3. El wiring de exec de runIndependentVerifier: el subprocess se invoca con cwd=ctx.cwd,
+ *      timeout=goal.verifierTimeoutMs y signal=goal.controller.signal.
  *
- * parseVerdict and makeIndependentVerifierPrompt are NOT exported, so we drive them through
- * the EXPORTED runIndependentVerifier: we control the verifier's stdout (and exit code /
- * killed flag) via a pi.exec mock, and we CAPTURE the prompt (the last argv element) and the
- * exec opts (the 3rd arg) the function actually passes. This asserts the real current
- * behavior of the source; if an assertion fails, the SOURCE is the source of truth.
+ * parseVerdict y makeIndependentVerifierPrompt NO se exportan, así que los ejercitamos a través
+ * del runIndependentVerifier EXPORTADO: controlamos el stdout del verifier (y exit code /
+ * flag killed) vía un mock pi.exec, y CAPTURAMOS el prompt (el último elemento de argv) y las
+ * opts de exec (el 3er arg) que la función pasa realmente. Esto afirma el comportamiento real
+ * actual de la fuente; si una aserción falla, la FUENTE es la fuente de verdad.
  *
- * Run it:
+ * Ejecución:
  *   node extensions/pandi-goal/tests/integration/verifier-coverage.test.mjs
  *
- * Exit code 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
+ * Código de salida 0 = todos los checks pasaron; 1 = falló un check de comportamiento; 2 = falló el harness.
  */
 
 import * as fs from "node:fs/promises";
@@ -35,24 +35,24 @@ import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// extensions/pandi-goal/tests/integration/ -> repo root is four levels up.
+// extensions/pandi-goal/tests/integration/ -> la raíz del repo está cuatro niveles arriba.
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-// verifier.ts only `import type`s the SDK; its runtime imports (constants.js, prompts.js,
-// types.js) are pure leaves with no external module deps, so it bundles with NO stubs.
+// verifier.ts solo hace `import type` del SDK; sus imports runtime (constants.js, prompts.js,
+// types.js) son hojas puras sin deps de módulos externos, así que se empaqueta SIN stubs.
 async function buildVerifier() {
 	return await buildExtension({
 		name: "pi-goal-verifier-coverage",
 		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "verifier.ts"),
 		outName: "verifier.mjs",
-		// verifier.ts pulls constants.ts, which imports getPackageDir from the SDK.
+		// verifier.ts trae constants.ts, que importa getPackageDir desde el SDK.
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 }
 
-// A minimally-complete ActiveGoal (only the fields the verifier reads).
+// Un ActiveGoal mínimamente completo (solo los campos que lee el verifier).
 function makeGoal(overrides = {}) {
 	return {
 		goalId: "g0001",
@@ -67,7 +67,7 @@ function makeGoal(overrides = {}) {
 	};
 }
 
-// pi.exec mock: records every call ({cmd,args,opts}) and returns a caller-supplied result.
+// Mock de pi.exec: registra cada llamada ({cmd,args,opts}) y devuelve un resultado provisto por quien llama.
 function makePi(result) {
 	const calls = [];
 	const pi = {
@@ -83,15 +83,16 @@ function makeCtx(overrides = {}) {
 	return { cwd: "/tmp/verifier-cwd", ...overrides };
 }
 
-// The prompt is always the LAST argv element buildVerifierArgs appends.
+// El prompt siempre es el ÚLTIMO elemento de argv que agrega buildVerifierArgs.
 function capturedPrompt(calls) {
 	const args = calls[0].args;
 	return args[args.length - 1];
 }
 
 // ===========================================================================
-// GAP 1: parseVerdict whole-text fallback — last non-empty line has NO verdict, so the
-// whole-text scan runs and the LAST `VERDICT:` match wins (here PASS, after an earlier FAIL).
+// BRECHA 1: fallback de parseVerdict con texto completo; la última línea no vacía NO tiene
+// veredicto, así que corre el escaneo de todo el texto y gana el ÚLTIMO match `VERDICT:`
+// (acá PASS, después de un FAIL anterior).
 // ===========================================================================
 async function fallbackLastMatchWins(mod) {
 	const stdout = "VERDICT: FAIL\nVERDICT: PASS\n(trailing prose with no verdict)";
@@ -109,8 +110,8 @@ async function fallbackLastMatchWins(mod) {
 	);
 }
 
-// Companion: when the FINAL non-empty line DOES carry a verdict, that line wins over any
-// earlier match (anchors on the last non-empty line first). Pins the non-fallback path too.
+// Complemento: cuando la línea FINAL no vacía SÍ trae un veredicto, esa línea gana sobre
+// cualquier match previo (ancla primero en la última línea no vacía). También fija la ruta sin fallback.
 async function finalLineAnchorsVerdict(mod) {
 	const stdout = "VERDICT: PASS\nVERDICT: FAIL";
 	const { pi } = makePi({ code: 0, killed: false, stdout, stderr: "" });
@@ -122,7 +123,7 @@ async function finalLineAnchorsVerdict(mod) {
 	);
 }
 
-// Companion: no parseable verdict anywhere → conservative FAIL flagged unparsed.
+// Complemento: sin veredicto parseable en ninguna parte → FAIL conservador marcado como unparsed.
 async function noVerdictIsConservativeFail(mod) {
 	const { pi } = makePi({ code: 0, killed: false, stdout: "the judge rambled but never voted", stderr: "" });
 	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal());
@@ -131,7 +132,7 @@ async function noVerdictIsConservativeFail(mod) {
 }
 
 // ===========================================================================
-// GAP 2: makeIndependentVerifierPrompt criteria branch — no criteria stated.
+// BRECHA 2: rama de criterios de makeIndependentVerifierPrompt; no se indicaron criterios.
 // ===========================================================================
 async function promptNoCriteriaBranch(mod) {
 	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
@@ -153,7 +154,7 @@ async function promptNoCriteriaBranch(mod) {
 	);
 }
 
-// Companion: criteria present → definition-of-done block with the criteria text; no inference clause.
+// Complemento: criterios presentes → bloque definition-of-done con el texto de criterios; sin cláusula de inferencia.
 async function promptWithCriteriaBranch(mod) {
 	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	await mod.runIndependentVerifier(pi, makeCtx(), makeGoal({ successCriteria: "the tests pass" }));
@@ -171,7 +172,7 @@ async function promptWithCriteriaBranch(mod) {
 	);
 }
 
-// derivedCriteria is used when successCriteria is absent (effectiveCriteria fallback).
+// derivedCriteria se usa cuando successCriteria está ausente (fallback de effectiveCriteria).
 async function promptUsesDerivedCriteria(mod) {
 	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	await mod.runIndependentVerifier(
@@ -188,7 +189,7 @@ async function promptUsesDerivedCriteria(mod) {
 }
 
 // ===========================================================================
-// GAP 3: runIndependentVerifier exec wiring — cwd, timeout, signal.
+// BRECHA 3: wiring de exec de runIndependentVerifier; cwd, timeout, signal.
 // ===========================================================================
 async function execWiring(mod) {
 	const goal = makeGoal({ verifierTimeoutMs: 4242 });
@@ -204,7 +205,7 @@ async function execWiring(mod) {
 		opts.signal === goal.controller.signal,
 		"signal not threaded from controller",
 	);
-	// The argv guarantees a read-only, sessionless judge run.
+	// El argv garantiza una corrida de judge read-only y sin sesión.
 	const args = calls[0].args;
 	check(
 		"argv requests a one-shot sessionless run (-p --no-session)",
@@ -218,7 +219,7 @@ async function execWiring(mod) {
 	);
 }
 
-// Empty verifierTools must DISABLE tools (--no-tools), never fall through to a mutating default.
+// verifierTools vacío debe DESHABILITAR tools (--no-tools), nunca caer en un default mutante.
 async function emptyToolsDisablesTools(mod) {
 	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	await mod.runIndependentVerifier(pi, makeCtx(), makeGoal({ verifierTools: [] }));
@@ -231,7 +232,7 @@ async function emptyToolsDisablesTools(mod) {
 }
 
 // ===========================================================================
-// Extra failure-mode characterization (cheap, deterministic).
+// Caracterización extra de modos de falla (barata, determinística).
 // ===========================================================================
 async function killedIsConservativeFail(mod) {
 	const { pi } = makePi({ code: 0, killed: true, stdout: "VERDICT: PASS", stderr: "" });

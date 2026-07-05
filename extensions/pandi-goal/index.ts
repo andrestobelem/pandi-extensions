@@ -1,72 +1,78 @@
 /**
- * Claude-style `/goal` for Pi (P0): a GOAL-DIRECTED agent.
+ * `/goal` estilo Claude para Pi (P0): un agente dirigido por objetivos.
  *
- * `/goal <objective>` is an agent of *directed persistence*: it iterates toward a
- * declared OBJECTIVE and, on each iteration, (a) does work, (b) SELF-EVALUATES progress
- * against SUCCESS CRITERIA (definition-of-done), (c) decides `continue` | `done` |
- * `blocked`. It terminates when the criteria are met AND VERIFIED (not by the model's
- * mere self-declaration of "done"), when it blocks (needs a human), or by a cap
- * (iterations / context budget).
+ * `/goal <objective>` es un agente de *persistencia dirigida*: itera hacia un
+ * OBJETIVO declarado y, en cada iteración, (a) trabaja, (b) AUTOEVALÚA el avance
+ * contra CRITERIOS DE ÉXITO (definición de terminado), (c) decide `continue` |
+ * `done` | `blocked`. Termina cuando los criterios se cumplen Y ESTÁN VERIFICADOS
+ * (no por la mera autodeclaración del modelo de "done"), cuando se bloquea
+ * (necesita a un humano), o por un tope (iteraciones / presupuesto de contexto).
  *
- * Difference vs `/loop` (mechanically identical, semantically opposite):
- * - `/loop` repeats a TASK at a cadence; the model picks WHEN to wake (delaySeconds);
- *   the loop has no notion of "finished".
- * - `/goal` pursues an OBJECTIVE with CRITERIA; the model picks WHAT STATE to report
- *   (goal_progress({status})). Its hallmark is the COMPLETENESS CHECK: before declaring
- *   `done`, the engine forces an explicit VERIFICATION of the objective against the
- *   criteria. Re-injection is immediate (delay 0) unless the model declares it is
- *   waiting on an external signal (optional waitSeconds, clamped).
+ * Diferencia vs `/loop` (mecánicamente idéntico, semánticamente opuesto):
+ * - `/loop` repite una TAREA a una cadencia; el modelo elige CUÁNDO despertar
+ *   (delaySeconds); el bucle no tiene noción de "terminado".
+ * - `/goal` persigue un OBJETIVO con CRITERIOS; el modelo elige QUÉ ESTADO reportar
+ *   (goal_progress({status})). Su sello es el CHEQUEO DE COMPLETITUD: antes de
+ *   declarar `done`, el motor fuerza una VERIFICACIÓN explícita del objetivo contra
+ *   los criterios. La reinyección es inmediata (delay 0) salvo que el modelo declare
+ *   que espera una señal externa (waitSeconds opcional, clampeado).
  *
- * Mechanism (Pi has no native scheduling, same inversion as /loop): the model reports
- * its decision by calling the `goal_progress` tool we register; THIS extension
- * materializes the next iteration with setTimeout, re-injecting the prompt via
- * pi.sendUserMessage. The goal lives in the extension's Node process.
+ * Mecanismo (Pi no tiene programación nativa, misma inversión que /loop): el modelo
+ * reporta su decisión llamando a la herramienta `goal_progress` que registramos; ESTA
+ * extensión materializa la próxima iteración con setTimeout, reinyectando el prompt
+ * vía pi.sendUserMessage. El goal vive en el proceso Node de la extensión.
  *
- * P0 scope:
- * - command: /goal <objective> [-- <criteria>], /goal stop [id], /goal status [id]
- * - tool: goal_progress({status, assessment, nextStep?, blocker?, waitSeconds?})
- * - engine: fireGoal / scheduleGoal / advanceGoal / startGoal / stopGoal
- * - state machine: pursuing -> verifying -> done | blocked | stopped | stale
- * - completeness check: a first `done` does NOT stop; it transitions to `verifying`
- *   and re-injects a verification prompt. Only a `done` confirmed FROM `verifying` stops.
- * - state: activeGoals Map + persistence via pi.appendEntry("goal-state", ...) + atomic sidecar
+ * Alcance P0:
+ * - comando: /goal <objective> [-- <criteria>], /goal stop [id], /goal status [id]
+ * - herramienta: goal_progress({status, assessment, nextStep?, blocker?, waitSeconds?})
+ * - motor: fireGoal / scheduleGoal / advanceGoal / startGoal / stopGoal
+ * - máquina de estados: pursuing -> verifying -> done | blocked | stopped | stale
+ * - chequeo de completitud: un primer `done` NO detiene; transiciona a `verifying`
+ *   y reinyecta un prompt de verificación. Solo detiene un `done` confirmado DESDE
+ *   `verifying`.
+ * - estado: activeGoals Map + persistencia vía pi.appendEntry("goal-state", ...) +
+ *   archivo auxiliar atómico
  *
- * P1 scope (ADDITIVE — independent adversarial verification of "done"):
- * - The P0 completeness check is a SELF-CHECK: the SAME agent re-evaluates in `verifying`.
- *   P1 escalates the model's CONFIRMED done into an INDEPENDENT verdict: when the model
- *   would close the goal (a `done` confirmed FROM `verifying`), the EXTENSION does not stop.
- *   It transitions to a new `verifying-independent` state and spawns a SEPARATE, skeptical
- *   subagent (`pi -p --no-session --no-extensions`, READ-ONLY tools) that judges the
- *   OBJECTIVE against the CRITERIA using only the recorded evidence/progress log, and emits
- *   a PARSEABLE verdict (`VERDICT: PASS` | `VERDICT: FAIL`). Only an independent PASS closes
- *   the goal as `done`.
- * - Subagent mechanism mirrors extensions/dynamic-workflows/index.ts runSubagent: piCommand =
- *   process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi"; args ["-p","--no-session",
- *   "--no-extensions", "--tools",<read-only>, model?, prompt]; pi.exec(cmd,args,{cwd,timeout,
- *   signal}). It runs OUTSIDE the model turn (own process): it does NOT call pi.sendUserMessage
- *   during the verdict, so it never fires the wake or the agent_end gate while it runs.
- * - FAIL → re-inject ONE normal `continue` iteration carrying the verifier's feedback as the
- *   nextStep, and bump verifyAttempts. A CAP (maxIndependentVerifications, default 2) of
- *   FAILED independent verifications → stopGoal("blocked") with the feedback (needs a human).
- *   Never an infinite loop.
- * - Config (defaults): verifierTools (read-only ["read","grep","find","ls"]),
+ * Alcance P1 (ADITIVO — verificación adversarial independiente de "done"):
+ * - El chequeo de completitud P0 es un AUTOCHEQUEO: el MISMO agente reevalúa en
+ *   `verifying`. P1 eleva el `done` CONFIRMADO del modelo a un veredicto
+ *   INDEPENDIENTE: cuando el modelo cerraría el goal (un `done` confirmado DESDE
+ *   `verifying`), la EXTENSIÓN no se detiene. Transiciona a un nuevo estado
+ *   `verifying-independent` y lanza un subagente SEPARADO y escéptico
+ *   (`pi -p --no-session --no-extensions`, herramientas de SOLO LECTURA) que juzga el
+ *   OBJETIVO contra los CRITERIOS usando solo la evidencia/log de progreso registrado,
+ *   y emite un veredicto ANALIZABLE (`VERDICT: PASS` | `VERDICT: FAIL`). Solo un PASS
+ *   independiente cierra el goal como `done`.
+ * - El mecanismo de subagente espeja extensions/dynamic-workflows/index.ts runSubagent:
+ *   piCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi"; args
+ *   ["-p","--no-session", "--no-extensions", "--tools",<read-only>, model?, prompt];
+ *   pi.exec(cmd,args,{cwd,timeout, signal}). Corre FUERA del turno del modelo
+ *   (proceso propio): NO llama a pi.sendUserMessage durante el veredicto, así que no
+ *   dispara el wake ni la compuerta agent_end mientras corre.
+ * - FAIL → reinyecta UNA iteración `continue` normal con la devolución del verificador
+ *   como nextStep, y sube verifyAttempts. Un TOPE (maxIndependentVerifications,
+ *   por defecto 2) de verificaciones independientes FALLIDAS → stopGoal("blocked") con la
+ *   devolución (necesita a un humano). Nunca es un bucle infinito.
+ * - Configuración (valores por defecto): verifierTools (solo lectura ["read","grep","find","ls"]),
  *   verifierTimeoutMs (120000), maxIndependentVerifications (2).
- * - state machine grows: pursuing -> verifying -> verifying-independent -> done | (continue→
- *   pursuing) | blocked. All P0 gates/caps/persistence/rehydrate stay intact.
- * - rehydrate on session_start (no double-fire; single catch-up tick)
- * - cleanup on session_shutdown (clearTimeout + abort + persist "stale")
- * - safety net on agent_end
- * - status line
+ * - la máquina de estados crece: pursuing -> verifying -> verifying-independent -> done |
+ *   (continue→ pursuing) | blocked. Todas las compuertas/topes/persistencia/rehydrate
+ *   de P0 quedan intactos.
+ * - rehydrate en session_start (sin doble disparo; un solo tick de puesta al día)
+ * - limpieza en session_shutdown (clearTimeout + abort + persist "stale")
+ * - red de seguridad en agent_end
+ * - línea de estado
  *
- * Hard rules (mirrored from the /loop family):
- * - print/json gate: only tui/rpc can sustain a goal; never re-inject elsewhere.
- * - clamp waitSeconds to [MIN, MAX] INSIDE execute() (do not trust the model).
- * - the heuristic / decision policy lives in goal_progress promptGuidelines, not in code.
- * - no new deps (typebox is already present).
- * - defaults: maxIterations = 30; best-effort context-budget cut via ctx.getContextUsage().
- * - on "fork" do NOT migrate the goal.
+ * Reglas estrictas (espejadas de la familia /loop):
+ * - compuerta print/json: solo tui/rpc puede sostener un goal; nunca reinyectar en otro modo.
+ * - clampear waitSeconds a [MIN, MAX] DENTRO de execute() (no confiar en el modelo).
+ * - la heurística / política de decisión vive en goal_progress promptGuidelines, no en código.
+ * - sin dependencias nuevas (typebox ya está presente).
+ * - valores por defecto: maxIterations = 30; corte de mejor esfuerzo de presupuesto de contexto vía
+ *   ctx.getContextUsage().
+ * - en "fork" NO migrar el goal.
  *
- * AUTONOMOUS: this file does not import from extensions/loop/index.ts; patterns are copied.
+ * AUTÓNOMO: este archivo no importa desde extensions/loop/index.ts; los patrones están copiados.
  */
 
 import * as crypto from "node:crypto";
@@ -93,15 +99,15 @@ import { formatEta } from "./time.js";
 import type { ActiveGoal, GoalAssessment, GoalState, GoalStatus } from "./types.js";
 import { runIndependentVerifier } from "./verifier.js";
 
-// Source of truth of "which timers live NOW". Map supports several, but P0 tools
-// resolve the single active goal (S4).
+// Fuente de verdad de "qué temporizadores viven AHORA". Map soporta varios, pero las
+// herramientas P0 resuelven el único goal activo (S4).
 const activeGoals = new Map<string, ActiveGoal>();
 
 // ---------------------------------------------------------------------------
-// Status line
+// Línea de estado
 // ---------------------------------------------------------------------------
 
-/** Refresh status from whatever goal is currently active (pursuing/verifying), if any. */
+/** Refresca el estado desde el goal actualmente activo (pursuing/verifying), si existe. */
 function refreshGoalStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
 	for (const goal of activeGoals.values()) {
@@ -114,29 +120,29 @@ function refreshGoalStatus(ctx: ExtensionContext): void {
 }
 
 // ---------------------------------------------------------------------------
-// Wake / scheduling
+// Despertar / programación
 // ---------------------------------------------------------------------------
 
 /**
- * A goal can only run where the agent loop is interactive enough to re-inject a
- * prompt and resume on its own: TUI and RPC. "print" is one-shot, "json" is
- * non-interactive — neither can sustain a goal.
+ * Un goal solo puede correr donde el bucle del agente es lo bastante interactivo para
+ * reinyectar un prompt y retomar por su cuenta: TUI y RPC. "print" es de una sola
+ * ejecución, "json" es no interactivo; ninguno puede sostener un goal.
  */
 function canGoalInMode(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
 }
 
 function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
-	// Mode gate: never re-inject outside tui/rpc (defends rehydrate paths too).
+	// Compuerta de modo: nunca reinyectar fuera de tui/rpc (también defiende rutas de rehydrate).
 	if (!canGoalInMode(ctx)) return;
 	if (ctx.isIdle()) pi.sendUserMessage(prompt);
 	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 }
 
 /**
- * Best-effort context-budget gate. Returns a stop-reason string if the context-usage
- * percent exceeds the cap, else undefined. `percent` may be null right after compaction
- * (per types.d.ts), in which case we do NOT cut.
+ * Compuerta de mejor esfuerzo de presupuesto de contexto. Devuelve un texto de razón
+ * de parada si el porcentaje de uso de contexto supera el tope; si no, undefined. `percent`
+ * puede ser null justo después de compactación (según types.d.ts), y en ese caso NO corta.
  */
 function contextBudgetExceeded(ctx: ExtensionContext, goal: ActiveGoal): string | undefined {
 	const usage = ctx.getContextUsage?.();
@@ -147,8 +153,9 @@ function contextBudgetExceeded(ctx: ExtensionContext, goal: ActiveGoal): string 
 }
 
 /**
- * Fire one iteration. Guards status, enforces maxIterations + context budget, then
- * re-injects the prompt appropriate to the current phase (iteration vs verification).
+ * Dispara una iteración. Protege el estado, aplica maxIterations + presupuesto de
+ * contexto y después reinyecta el prompt adecuado para la fase actual (iteración vs
+ * verificación).
  */
 function fireGoal(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): void {
 	goal.timer = null;
@@ -164,7 +171,7 @@ function fireGoal(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): vo
 		return;
 	}
 
-	// Best-effort budget gate before doing any work.
+	// Compuerta de mejor esfuerzo de presupuesto antes de hacer cualquier trabajo.
 	const budget = contextBudgetExceeded(ctx, goal);
 	if (budget) {
 		stopGoal(pi, ctx, goal.goalId, budget, "stopped");
@@ -182,8 +189,8 @@ function fireGoal(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): vo
 }
 
 /**
- * Arm the next wake after delaySec (0 = immediate via setTimeout(…, 0)). Caller is
- * responsible for clamping. Used by advanceGoal and the verification transition.
+ * Arma el próximo wake después de delaySec (0 = inmediato vía setTimeout(…, 0)). El
+ * llamador es responsable de clampear. Lo usan advanceGoal y la transición de verificación.
  */
 function scheduleGoal(
 	pi: ExtensionAPI,
@@ -205,9 +212,10 @@ function scheduleGoal(
 }
 
 /**
- * Record a self-assessment and arm the next `pursuing` iteration. `continue` keeps the
- * goal in `pursuing`; a failed verification (`continue` from `verifying`) drops back to
- * `pursuing` too. Cadence is immediate (delay 0) unless waitSeconds was given (clamped).
+ * Registra una autoevaluación y arma la próxima iteración `pursuing`. `continue`
+ * mantiene el goal en `pursuing`; una verificación fallida (`continue` desde
+ * `verifying`) también vuelve a `pursuing`. La cadencia es inmediata (delay 0) salvo
+ * que se haya dado waitSeconds (clampeado).
  */
 function advanceGoal(
 	pi: ExtensionAPI,
@@ -223,25 +231,25 @@ function advanceGoal(
 }
 
 /**
- * P1: the model has CONFIRMED done from `verifying`. Instead of P0's immediate close, run
- * an INDEPENDENT adversarial verifier (separate process, fresh eyes). Transition to
- * `verifying-independent`, launch the subagent, then resolve:
- *   - PASS                       → stopGoal(done) (finally closed, independently confirmed).
- *   - FAIL (under cap)           → record the verifier feedback as a progress assessment and
- *                                  re-inject ONE normal `continue` iteration with that feedback
- *                                  as nextStep; bump independentVerifyAttempts.
- *   - FAIL (cap reached)         → stopGoal(blocked) with the feedback (needs a human).
- * The subagent runs OUTSIDE the model turn; this function only re-injects (wake) AFTER the
- * verdict, exactly like a `continue`, so the gate semantics are unchanged.
+ * P1: el modelo CONFIRMÓ done desde `verifying`. En vez del cierre inmediato de P0,
+ * corre un verificador adversarial INDEPENDIENTE (proceso separado, mirada fresca).
+ * Transiciona a `verifying-independent`, lanza el subagente y después resuelve:
+ *   - PASS                       → stopGoal(done) (cerrado al fin, confirmado independientemente).
+ *   - FAIL (bajo el tope)        → registra la devolución del verificador como assessment de
+ *                                  progreso y reinyecta UNA iteración `continue` normal con
+ *                                  esa devolución como nextStep; sube independentVerifyAttempts.
+ *   - FAIL (tope alcanzado)      → stopGoal(blocked) con la devolución (necesita a un humano).
+ * El subagente corre FUERA del turno del modelo; esta función solo reinyecta (wake)
+ * DESPUÉS del veredicto, igual que un `continue`, así que la semántica de la compuerta no cambia.
  *
- * Concurrency: guarded by verifierInFlight so a stray re-entry (e.g. a duplicate confirm)
- * cannot launch two verifiers for the same goal.
+ * Concurrencia: protegida por verifierInFlight para que una reentrada suelta (p. ej.
+ * una confirmación duplicada) no pueda lanzar dos verificadores para el mismo goal.
  */
 async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): Promise<void> {
 	if (goal.verifierInFlight) return;
-	// Park the goal in the independent-verification phase. No timer is armed: the goal is
-	// neither pursuing nor (self-)verifying, so fireGoal / the agent_end safety net leave it
-	// alone while the external judge runs.
+	// Estaciona el goal en la fase de verificación independiente. No hay timer armado:
+	// el goal no está pursuing ni (auto)verifying, así que fireGoal / la red de
+	// seguridad agent_end lo dejan quieto mientras corre el juez externo.
 	if (goal.timer) {
 		clearTimeout(goal.timer);
 		goal.timer = null;
@@ -256,11 +264,12 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 	const verdict = await runIndependentVerifier(pi, ctx, goal);
 	goal.verifierInFlight = false;
 
-	// The goal may have been stopped (user /goal stop, shutdown) while the verifier ran. A user stop
-	// removes it from activeGoals; a session_shutdown keeps it (persisted verbatim so rehydrate
-	// re-runs the verifier) but ABORTS its controller — so also bail when the controller is aborted,
-	// otherwise a late verdict would finalize the goal (done/blocked), clobber the persisted
-	// verifying-independent snapshot, and message a dead session.
+	// El goal pudo haberse detenido (usuario /goal stop, shutdown) mientras corría el
+	// verificador. Un stop del usuario lo quita de activeGoals; session_shutdown lo mantiene
+	// (persistido textual para que rehydrate reejecute el verificador) pero ABORTA su
+	// controller; por eso también hay que salir si el controller está abortado. Si no, un
+	// veredicto tardío finalizaría el goal (done/blocked), pisaría la instantánea persistida
+	// verifying-independent y enviaría un mensaje a una sesión muerta.
 	const live = activeGoals.get(goal.goalId);
 	if (!live || live !== goal || goal.gstatus !== "verifying-independent" || goal.controller.signal.aborted) return;
 
@@ -281,7 +290,7 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 		return;
 	}
 
-	// FAIL. Count it; if we have exhausted the independent-verification budget, block.
+	// FAIL. Contarlo; si agotamos el presupuesto de verificación independiente, bloquear.
 	goal.independentVerifyAttempts += 1;
 	const feedback = verdict.feedback.trim() || "el verificador independiente rechazó la afirmación sin detalle";
 	if (goal.independentVerifyAttempts >= goal.maxIndependentVerifications) {
@@ -305,9 +314,9 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 		return;
 	}
 
-	// Under the cap → re-inject one normal pursuing iteration carrying the verifier feedback
-	// so the model fixes exactly what the independent judge faulted. Immediate (delay 0),
-	// identical mechanics to a `continue`.
+	// Bajo el tope → reinyectar una iteración pursuing normal con la devolución del
+	// verificador para que el modelo arregle exactamente lo que marcó el juez
+	// independiente. Inmediata (delay 0), mecánica idéntica a un `continue`.
 	const assessment: GoalAssessment = {
 		iteration: goal.iteration,
 		status: "continue",
@@ -327,13 +336,14 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 }
 
 // ---------------------------------------------------------------------------
-// Start / stop
+// Inicio / parada
 // ---------------------------------------------------------------------------
 
 /**
- * Strip a `--ultracode` / `--uc` posture flag off the args (anywhere in the string).
- * Returns the cleaned text plus whether the flag was present. Parsed BEFORE the ` -- `
- * criteria split so a flag placed after the criteria is still honored.
+ * Quita una bandera de postura `--ultracode` / `--uc` de los argumentos (en cualquier
+ * lugar del texto). Devuelve el texto limpio y si la bandera estaba presente. Se
+ * parsea ANTES de separar criterios con ` -- ` para honrar también una bandera puesta
+ * después de los criterios.
  */
 function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean } {
 	let ultracode = false;
@@ -347,10 +357,11 @@ function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean 
 }
 
 /**
- * Parse `/goal` start args. Convention: if the text contains the ` -- ` separator, the
- * left side is the objective and the right side is the success criteria (free text).
- * Without it, the whole text is the objective (the model derives criteria, S2). A
- * `--ultracode`/`--uc` flag (anywhere) sets the ultracode posture and is removed first.
+ * Parsea los argumentos de inicio de `/goal`. Convención: si el texto contiene el separador
+ * ` -- `, el lado izquierdo es el objetivo y el derecho son los criterios de éxito
+ * (texto libre). Sin eso, todo el texto es el objetivo (el modelo deriva criterios,
+ * S2). Una bandera `--ultracode`/`--uc` (en cualquier lugar) activa la postura
+ * ultracode y se quita primero.
  */
 function parseGoalArgs(args: string): { objective: string; successCriteria?: string; ultracode: boolean } {
 	const { rest, ultracode } = extractUltracodeFlag(args);
@@ -363,14 +374,15 @@ function parseGoalArgs(args: string): { objective: string; successCriteria?: str
 }
 
 function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): ActiveGoal | undefined {
-	// Mode gate: only TUI/RPC can sustain a persistent goal session.
+	// Compuerta de modo: solo TUI/RPC puede sostener una sesión persistente de goal.
 	if (!canGoalInMode(ctx)) {
 		notify(ctx, "/goal requiere una sesión TUI o RPC (este modo no puede sostener un goal).", "error");
 		return undefined;
 	}
-	// Single active goal at a time: the P0 tool (goal_progress) carries no goalId and resolves
-	// the one active goal, so a second concurrent goal would make reports ambiguous and let two
-	// goals fight over wake re-injection. Refuse to start a second; the user stops the first.
+	// Un solo goal activo a la vez: la herramienta P0 (goal_progress) no lleva goalId y resuelve
+	// el único goal activo, así que un segundo goal concurrente volvería ambiguos los
+	// reportes y haría que dos goals compitan por la reinyección de `wake`. Rechazar iniciar
+	// un segundo; el usuario detiene el primero.
 	const existing = activeGoal();
 	if (existing) {
 		notify(
@@ -416,7 +428,7 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 	activeGoals.set(goalId, goal);
 	persist(pi, ctx, goal);
 
-	// Send the first iteration prompt immediately. fireGoal handles iteration++/persist/status.
+	// Envía el primer prompt de iteración inmediatamente. fireGoal maneja iteration++/persist/status.
 	fireGoal(pi, ctx, goal);
 	const crit = successCriteria ? " (con criterios)" : " (el modelo va a derivar los criterios)";
 	const uc = ultracode ? " [ultracode]" : "";
@@ -425,8 +437,8 @@ function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): Activ
 }
 
 /**
- * Resolve a goal by id, the unique candidate, or via ui.select. `statuses` filters
- * which goals are eligible. Defaults to active (pursuing/verifying).
+ * Resuelve un goal por id, por candidato único o vía ui.select. `statuses` filtra qué
+ * goals son elegibles. Por defecto usa activos (pursuing/verifying).
  */
 async function resolveGoal(
 	ctx: ExtensionContext,
@@ -467,16 +479,16 @@ function stopGoal(
 	goal.nextFireAt = null;
 	goal.lastReason = reason;
 	persist(pi, ctx, goal);
-	// Terminal goals are no longer active: keep the persisted final snapshot for
-	// audit/rehydrate, but drop the in-memory entry immediately (mirrors pi-loop's
-	// stopLoop -> activeLoops.delete) so agent_end/activeGoal()/scan and `/goal status`
-	// only ever traverse live goals instead of accumulating dead ones for the session.
+	// Los goals terminales ya no están activos: conservar la instantánea final persistida
+	// para auditoría/rehydrate, pero soltar de inmediato la entrada en memoria (espeja
+	// stopLoop -> activeLoops.delete de pi-loop) para que agent_end/activeGoal()/scan y
+	// `/goal status` solo recorran goals vivos en vez de acumular muertos durante la sesión.
 	activeGoals.delete(goalId);
 	refreshGoalStatus(ctx);
 	return true;
 }
 
-/** The single active goal (pursuing, self-verifying, or independently verifying), or undefined. */
+/** El único goal activo (pursuing, en autoverificación o en verificación independiente), o undefined. */
 function activeGoal(): ActiveGoal | undefined {
 	return [...activeGoals.values()].find(
 		(g) => g.gstatus === "pursuing" || g.gstatus === "verifying" || g.gstatus === "verifying-independent",
@@ -484,29 +496,31 @@ function activeGoal(): ActiveGoal | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Rehydration (session_start)
+// Rehidratación (session_start)
 // ---------------------------------------------------------------------------
 
 /**
- * Rebuild goal state from persisted entries (last-wins by goalId) and re-arm active
- * goals. Avoids double-fire: if activeGoals already has the goal (timer alive in this
- * process), skip. Only a SINGLE catch-up tick — no replay of N missed wakes.
+ * Reconstruye el estado de goals desde entradas persistidas (gana la última por
+ * goalId) y rearma goals activos. Evita doble disparo: si activeGoals ya tiene el goal
+ * (timer vivo en este proceso), salta. Solo un tick de puesta al día, sin reproducir N
+ * activaciones perdidas.
  */
 function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
-	// Mode gate (mirrors startGoal): a /goal can only be sustained in tui/rpc. In a
-	// non-interactive session (print one-shot, json) the goal can never advance, so the
-	// reload path must be a NO-OP: do not re-arm a catch-up timer (fireGoal would bump the
-	// iteration and persist while wake() no-ops) and — crucially — do not spawn the
-	// independent verifier subprocess for a verifying-independent snapshot. wake() already
-	// suppresses the prompt RE-INJECTION, but only refusing rehydrate here stops those side
-	// effects. Leaving the persisted state untouched lets a later tui/rpc session recover it.
+	// Compuerta de modo (espeja startGoal): un /goal solo se puede sostener en tui/rpc. En
+	// una sesión no interactiva (print de una sola ejecución, json) el goal nunca puede
+	// avanzar, así que la ruta de recarga debe ser un NO-OP: no rearmar un timer de puesta
+	// al día (fireGoal subiría la iteración y persistiría mientras wake() no hace nada) y,
+	// sobre todo, no lanzar el subproceso del verificador independiente para una instantánea
+	// verifying-independent. wake() ya suprime la REINYECCIÓN del prompt, pero solo
+	// rechazar rehydrate acá frena esos efectos. Dejar intacto el estado persistido
+	// permite que una sesión tui/rpc posterior lo recupere.
 	if (!canGoalInMode(ctx)) return;
 	const entries = ctx.sessionManager.getEntries();
 	const latest = collectLatestByKey<GoalState>(entries, GOAL_STATE_TYPE, (d) => d.goalId);
 
 	for (const state of latest.values()) {
-		// Recover goals that were live ("pursuing"/"verifying"/"verifying-independent") or
-		// cleanly parked ("stale").
+		// Recupera goals que estaban vivos ("pursuing"/"verifying"/"verifying-independent") o
+		// estacionados limpiamente ("stale").
 		if (
 			state.gstatus !== "pursuing" &&
 			state.gstatus !== "verifying" &&
@@ -515,19 +529,19 @@ function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		) {
 			continue;
 		}
-		// Timer still alive in this process → do not re-arm (no double-fire).
+		// Timer todavía vivo en este proceso → no rearmar (sin doble disparo).
 		if (activeGoals.has(state.goalId)) continue;
 
 		const goal: ActiveGoal = {
 			...state,
-			// A recovered "stale" snapshot resumes pursuing; a "verifying" snapshot resumes
-			// verifying (the completeness check survives a reload); a "verifying-independent"
-			// snapshot resumes by re-running the independent verifier below (its verdict was
-			// lost on crash, so we re-judge rather than guess).
+			// Una instantánea "stale" recuperada retoma pursuing; una instantánea "verifying" retoma
+			// verifying (el chequeo de completitud sobrevive a recarga); una instantánea
+			// "verifying-independent" retoma reejecutando abajo el verificador independiente
+			// (su veredicto se perdió en la caída, así que rejuzgamos en vez de adivinar).
 			gstatus: state.gstatus === "stale" ? "pursuing" : state.gstatus,
 			assessments: Array.isArray(state.assessments) ? state.assessments : [],
 			verifyAttempts: typeof state.verifyAttempts === "number" ? state.verifyAttempts : 0,
-			// Backfill P1 fields for snapshots written by a pre-P1 build (defensive defaults).
+			// Completa campos P1 para instantáneas escritas por una versión pre-P1 (valores por defecto defensivos).
 			independentVerifyAttempts:
 				typeof state.independentVerifyAttempts === "number" ? state.independentVerifyAttempts : 0,
 			maxIndependentVerifications:
@@ -545,21 +559,22 @@ function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		activeGoals.set(goal.goalId, goal);
 
 		if (goal.gstatus === "verifying-independent") {
-			// Resume the lost independent verification: re-launch the subagent (no timer; the
-			// async verdict drives the next transition). Single launch — verifierInFlight guards.
+			// Retoma la verificación independiente perdida: relanza el subagente (sin timer;
+			// el veredicto asíncrono maneja la próxima transición). Lanzamiento único;
+			// verifierInFlight protege.
 			void beginIndependentVerification(pi, ctx, goal);
 			continue;
 		}
 
 		const remaining = goal.nextFireAt === null ? 0 : Math.max(0, goal.nextFireAt - Date.now());
-		// Single catch-up tick (clamped to >= 0); never a burst.
+		// Un solo tick de puesta al día (clampeado a >= 0); nunca una ráfaga.
 		goal.timer = setTimeout(() => fireGoal(pi, ctx, goal), remaining);
 	}
 	refreshGoalStatus(ctx);
 }
 
 // ---------------------------------------------------------------------------
-// Command handling
+// Manejo de comandos
 // ---------------------------------------------------------------------------
 
 function formatStatus(goal: GoalState): string {
@@ -581,8 +596,8 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
 	const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
 
-	// "stop"/"status" are only subcommands when they are the WHOLE first token AND there
-	// is no ` -- ` criteria separator capturing them as part of an objective.
+	// "stop"/"status" son subcomandos solo cuando son TODO el primer token Y no hay
+	// separador de criterios ` -- ` que los capture como parte de un objetivo.
 	const hasCriteriaSeparator = trimmed.includes(" -- ");
 	if (firstToken === "stop" && !hasCriteriaSeparator) {
 		const goal = await resolveGoal(ctx, rest || undefined);
@@ -616,12 +631,12 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	// Otherwise: the whole args is the objective (possibly with ` -- ` criteria).
+	// Si no: todos los argumentos son el objetivo (posiblemente con criterios ` -- `).
 	startGoal(pi, ctx, trimmed);
 }
 
 // ---------------------------------------------------------------------------
-// Extension entrypoint
+// Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
 
 export default function goalExtension(pi: ExtensionAPI): void {
@@ -667,8 +682,8 @@ export default function goalExtension(pi: ExtensionAPI): void {
 					description: "Obligatorio cuando status es 'blocked': la decisión o el acceso humano necesario.",
 				}),
 			),
-			// No schema bounds on waitSeconds on purpose: the SDK rejects out-of-range args
-			// BEFORE execute() runs, so min/max here would throw instead of letting us clamp.
+			// Sin límites de esquema en waitSeconds a propósito: el SDK rechaza args fuera de rango
+			// ANTES de que execute() corra, así que min/max acá tiraría error en vez de dejarnos clampear.
 			waitSeconds: Type.Optional(
 				Type.Number({
 					description: `Opcional: segundos a esperar antes de la próxima iteración cuando estás esperando una señal externa; se clampea a [${MIN_WAIT_SECONDS}, ${MAX_WAIT_SECONDS}]. Default 0 (inmediato).`,
@@ -690,10 +705,11 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				};
 			}
 
-			// An INDEPENDENT verifier is judging this goal right now (separate process, launched
-			// from a prior confirmed `done`). Its verdict — not this call — decides the outcome.
-			// Reject any re-entrant goal_progress so it cannot mutate gstatus out from under the
-			// in-flight verdict (which would corrupt the state machine and silently discard it).
+			// Un verificador INDEPENDIENTE está juzgando este goal ahora mismo (proceso
+			// separado, lanzado desde un `done` confirmado previo). Su veredicto, no esta
+			// llamada, decide el resultado. Rechazar cualquier goal_progress reentrante para
+			// que no pueda mutar gstatus por debajo del veredicto en vuelo (eso corrompería la
+			// máquina de estados y lo descartaría en silencio).
 			if (goal.gstatus === "verifying-independent") {
 				return {
 					content: [
@@ -706,8 +722,8 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				};
 			}
 
-			// Clamp waitSeconds INSIDE execute() — never trust the model. Absent/0/non-finite
-			// → immediate (delay 0). A finite positive value is clamped to [MIN, MAX].
+			// Clampear waitSeconds DENTRO de execute(); nunca confiar en el modelo. Ausente/0/no finito
+			// → inmediato (delay 0). Un valor finito positivo se clampea a [MIN, MAX].
 			const raw = params.waitSeconds;
 			let delaySec = 0;
 			if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
@@ -722,9 +738,10 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				at: new Date().toISOString(),
 			};
 
-			// If criteria were derived (no user criteria yet), capture them from the DEDICATED
-			// `successCriteria` field as the definition-of-done so later iterations carry it.
-			// Never reuse `assessment`: that is a self-evaluation, not a list of criteria.
+			// Si los criterios fueron derivados (todavía no hay criterios del usuario),
+			// capturarlos desde el campo DEDICADO `successCriteria` como definición de terminado
+			// para que las iteraciones posteriores los lleven. Nunca reutilizar `assessment`:
+			// eso es una autoevaluación, no una lista de criterios.
 			if (!goal.successCriteria && !goal.derivedCriteria && params.successCriteria?.trim()) {
 				goal.derivedCriteria = params.successCriteria.trim();
 			}
@@ -747,12 +764,13 @@ export default function goalExtension(pi: ExtensionAPI): void {
 
 			if (params.status === "done") {
 				if (goal.gstatus === "verifying") {
-					// P1: the model CONFIRMED done after its self-check. Do NOT close yet — escalate
-					// to an INDEPENDENT adversarial verifier (separate skeptical subagent). Only an
-					// independent PASS closes the goal. Record the model's confirmation, then launch
-					// the verifier OUTSIDE this turn (fire-and-forget: the subagent process resolves
-					// the verdict and either closes, re-injects continue, or blocks). We return to the
-					// model now so its turn ends cleanly; the goal sits in `verifying-independent`.
+					// P1: el modelo CONFIRMÓ done después de su autochequeo. NO cerrar todavía:
+					// escalar a un verificador adversarial INDEPENDIENTE (subagente escéptico
+					// separado). Solo un PASS independiente cierra el goal. Registrar la confirmación
+					// del modelo y lanzar el verificador FUERA de este turno (sin esperar: el
+					// proceso del subagente resuelve el veredicto y cierra, reinyecta continue o
+					// bloquea). Volvemos al modelo ahora para que su turno termine limpio; el goal
+					// queda en `verifying-independent`.
 					goal.assessments.push(assessmentEntry);
 					void beginIndependentVerification(pi, ctx, goal);
 					return {
@@ -765,8 +783,8 @@ export default function goalExtension(pi: ExtensionAPI): void {
 						details: { goalId: goal.goalId, status: "verifying-independent" },
 					};
 				}
-				// First `done` from `pursuing` → DO NOT stop. Transition to verifying and
-				// re-inject the verification prompt (the hallmark completeness check).
+				// Primer `done` desde `pursuing` → NO detener. Transicionar a verifying y
+				// reinyectar el prompt de verificación (el sello del chequeo de completitud).
 				goal.assessments.push(assessmentEntry);
 				goal.gstatus = "verifying";
 				scheduleGoal(pi, ctx, goal, 0, "done autodeclarado → verifying");
@@ -782,10 +800,10 @@ export default function goalExtension(pi: ExtensionAPI): void {
 			}
 
 			// status === "continue".
-			// A `continue` arriving FROM `verifying` means the completeness check FAILED:
-			// count it. If verification keeps failing, the model is ping-ponging
-			// done↔verify without real progress; stop as blocked instead of silently
-			// burning the whole iteration budget.
+			// Un `continue` que llega DESDE `verifying` significa que el chequeo de completitud
+			// FALLÓ: contarlo. Si la verificación sigue fallando, el modelo está haciendo
+			// ida y vuelta done↔verify sin progreso real; detener como blocked en vez de quemar en
+			// silencio todo el presupuesto de iteraciones.
 			if (goal.gstatus === "verifying") {
 				goal.verifyAttempts += 1;
 				if (goal.verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
@@ -811,7 +829,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				}
 			}
 
-			// Record + arm the next pursuing iteration.
+			// Registra + arma la próxima iteración pursuing.
 			const reason = params.nextStep ? `continue: ${params.nextStep}` : "continue";
 			advanceGoal(pi, ctx, goal, assessmentEntry, delaySec, reason);
 			const when = delaySec > 0 ? `en ${delaySec}s` : "de inmediato";
@@ -858,8 +876,8 @@ export default function goalExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_start", async (event, ctx) => {
-		// Do NOT migrate a goal into a forked session: a fork inherits the parent's
-		// "goal-state" entries, but the goal must keep running only in the parent.
+		// NO migrar un goal a una sesión bifurcada: un fork hereda las entradas
+		// "goal-state" del padre, pero el goal debe seguir corriendo solo en el padre.
 		if (event.reason === "fork") return;
 		rehydrate(pi, ctx);
 	});
@@ -872,15 +890,15 @@ export default function goalExtension(pi: ExtensionAPI): void {
 			}
 			goal.controller.abort("cierre de sesión");
 			if (goal.gstatus === "verifying" || goal.gstatus === "verifying-independent") {
-				// A verifying goal must resume verifying after reload (the completeness check
-				// survives), so persist the phase verbatim — rehydrate keeps it. A
-				// verifying-independent goal persists the same way; rehydrate RE-RUNS the
-				// independent verifier (the in-flight verdict was lost when we aborted here).
+				// Un goal verifying debe retomar verifying después de recarga (el chequeo de
+				// completitud sobrevive), así que persistir la fase textual; rehydrate la
+				// conserva. Un goal verifying-independent persiste igual; rehydrate REEJECUTA el
+				// verificador independiente (el veredicto en vuelo se perdió al abortar acá).
 				goal.verifierInFlight = false;
 				persist(pi, ctx, goal);
 			} else if (goal.gstatus === "pursuing") {
-				// Persist as "stale" (recoverable on next session_start), keeping nextFireAt intact;
-				// rehydrate resumes it as pursuing.
+				// Persistir como "stale" (recuperable en el próximo session_start), manteniendo
+				// nextFireAt intacto; rehydrate lo retoma como pursuing.
 				goal.gstatus = "stale";
 				persist(pi, ctx, goal);
 			}
@@ -889,20 +907,21 @@ export default function goalExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("agent_end", async (_event, ctx) => {
-		// Safety net: if a goal is still active and the turn closed without the model
-		// calling goal_progress (no re-arm) and with no live timer, re-arm defensively
-		// so the goal does not silently die.
+		// Red de seguridad: si un goal sigue activo y el turno cerró sin que el modelo llame
+		// a goal_progress (sin rearmar) y sin timer vivo, rearmar defensivamente para que el
+		// goal no muera en silencio.
 		for (const goal of activeGoals.values()) {
-			// Only `pursuing`/`verifying` goals participate in the safety net. A
-			// `verifying-independent` goal is deliberately EXCLUDED: its verifier runs in a
-			// separate process OUTSIDE the model turn and resolves the next transition itself
-			// (done / continue / blocked). Re-arming it here would race the in-flight verdict.
+			// Solo los goals `pursuing`/`verifying` participan en la red de seguridad. Un goal
+			// `verifying-independent` queda EXCLUIDO deliberadamente: su verificador corre en un
+			// proceso separado FUERA del turno del modelo y resuelve por sí mismo la próxima
+			// transición (done / continue / blocked). Rearmarlo acá competiría con el veredicto
+			// en vuelo.
 			if (goal.gstatus !== "pursuing" && goal.gstatus !== "verifying") continue;
 
-			// Budget gate BEFORE any re-arm (mirrors loop.ts agent_end): if the context
-			// budget is already exhausted, stop cleanly instead of paying for another turn
-			// (the `continue`/advanceGoal path arms without consulting the budget, so this
-			// is the earliest honest place to cut it on the re-arm side).
+			// Compuerta de presupuesto ANTES de cualquier rearme (espeja loop.ts agent_end): si el
+			// presupuesto de contexto ya está agotado, detener limpiamente en vez de pagar otro
+			// turno (la ruta `continue`/advanceGoal arma sin consultar el presupuesto, así que
+			// este es el primer lugar honesto para cortar del lado del rearme).
 			const budget = contextBudgetExceeded(ctx, goal);
 			if (budget) {
 				stopGoal(pi, ctx, goal.goalId, budget, "stopped");
@@ -912,16 +931,16 @@ export default function goalExtension(pi: ExtensionAPI): void {
 
 			if (goal.rearmedThisTurn) continue;
 			if (goal.timer) continue;
-			// A wake is already pending (e.g. a delay-0 fire armed this turn for the
-			// done→verifying transition has not run yet): do NOT stack a second wake on
-			// top of it, which would duplicate the verification / iteration prompt.
+			// Ya hay un wake pendiente (p. ej. un disparo delay-0 armado este turno para la
+			// transición done→verifying que todavía no corrió): NO apilar un segundo wake
+			// encima, porque duplicaría el prompt de verificación / iteración.
 			if (goal.nextFireAt !== null) continue;
-			// Never let the safety net re-arm a `verifying` goal. The done→verifying
-			// transition arms a delay-0 wake whose fireGoal resets rearmedThisTurn/timer;
-			// if that fireGoal already injected the verification prompt before this
-			// agent_end, re-arming here would inject a SECOND verification prompt. The
-			// verification turn is already in flight; a `continue`/`done` from the model
-			// (or a later pursuing iteration) will re-arm legitimately.
+			// Nunca dejar que la red de seguridad rearme un goal `verifying`. La transición
+			// done→verifying arma un wake delay-0 cuyo fireGoal resetea rearmedThisTurn/timer;
+			// si ese fireGoal ya inyectó el prompt de verificación antes de este agent_end,
+			// rearmar acá inyectaría un SEGUNDO prompt de verificación. El turno de
+			// verificación ya está en vuelo; un `continue`/`done` del modelo (o una iteración
+			// pursuing posterior) rearmará legítimamente.
 			if (goal.gstatus === "verifying") continue;
 			scheduleGoal(pi, ctx, goal, SAFETY_NET_DELAY_SECONDS, "auto: el turno cerró sin goal_progress");
 		}

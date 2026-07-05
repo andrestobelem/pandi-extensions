@@ -1,9 +1,10 @@
 /**
- * Persistence helpers for the `/goal` extension, factored into a sibling so index.ts
- * keeps only the engine/wiring. These are PARAMETERIZED (they take pi/ctx/goal/state as
- * arguments) and close over no module-mutable state, so they move cleanly. Behavior is
- * unchanged: identical JSONL append via pi.appendEntry + atomic sidecar write (temp file
- * then rename), same swallow-on-error semantics.
+ * Helpers de persistencia para la extensión `/goal`, extraídos a un hermano para que
+ * index.ts conserve solo el engine/wiring. Están PARAMETRIZADOS (reciben
+ * pi/ctx/goal/state como argumentos) y no cierran sobre estado mutable del módulo, así que
+ * se mueven limpiamente. El comportamiento no cambia: mismo append JSONL vía
+ * pi.appendEntry + escritura sidecar atómica (archivo temporal y luego rename), misma
+ * semántica de tragar errores.
  */
 
 import * as crypto from "node:crypto";
@@ -28,7 +29,7 @@ export function snapshot(goal: ActiveGoal): GoalState {
 		iteration: goal.iteration,
 		maxIterations: goal.maxIterations,
 		contextPercentCap: goal.contextPercentCap,
-		// Bound the persisted log so the JSONL entry never grows without limit.
+		// Acotar el log persistido para que la entrada JSONL nunca crezca sin límite.
 		assessments: goal.assessments.slice(-PROGRESS_LOG_KEEP),
 		verifyAttempts: goal.verifyAttempts,
 		independentVerifyAttempts: goal.independentVerifyAttempts,
@@ -44,8 +45,8 @@ export function snapshot(goal: ActiveGoal): GoalState {
 }
 
 /**
- * Persist a goal transition. Stamps `updatedAt`, appends to the session JSONL (does NOT
- * go to the LLM), and fire-and-forgets an ATOMIC sidecar write for crash recovery.
+ * Persiste una transición del goal. Sella `updatedAt`, agrega al JSONL de sesión (NO va
+ * al LLM) y dispara sin esperar una escritura sidecar ATÓMICA para recovery ante crashes.
  */
 export function persist(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): void {
 	goal.updatedAt = new Date().toISOString();
@@ -55,9 +56,9 @@ export function persist(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoa
 }
 
 /**
- * Dual-root state dir:
- * - trusted project → <cwd>/.pi/goals/<id>
- * - otherwise       → <agentDir>/goals/<projectHash>/<id>
+ * Dir de estado con doble raíz:
+ * - proyecto confiable → <cwd>/.pi/goals/<id>
+ * - en otro caso       → <agentDir>/goals/<projectHash>/<id>
  */
 function goalStateDir(ctx: ExtensionContext, goalId: string): string {
 	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, GOAL_DIR, goalId);
@@ -65,7 +66,7 @@ function goalStateDir(ctx: ExtensionContext, goalId: string): string {
 	return path.join(getAgentDir(), GOAL_DIR, projectHash, goalId);
 }
 
-/** Atomic write: temp file then rename, so a crash mid-write never truncates state.json. */
+/** Escritura atómica: archivo temporal y luego rename, así un crash a mitad de escritura nunca trunca state.json. */
 async function writeSidecar(ctx: ExtensionContext, state: GoalState): Promise<void> {
 	const dir = goalStateDir(ctx, state.goalId);
 	await fs.mkdir(dir, { recursive: true });

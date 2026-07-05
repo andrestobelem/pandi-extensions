@@ -1,32 +1,33 @@
 /**
- * Durable behavioral integration test for the COMMAND / TOOL / ENGINE paths of
- * extensions/pandi-goal/index.ts that the sibling goal-rehydrate.test.mjs does NOT exercise.
+ * Prueba de integración conductual durable para las rutas COMMAND / TOOL / ENGINE de
+ * extensions/pandi-goal/index.ts que el sibling goal-rehydrate.test.mjs NO ejerce.
  *
- * Why this file exists
- * --------------------
- * `npm test` is a TYPECHECK only (`tsc --noEmit`). The /goal engine is a persistent,
- * crash-recoverable scheduler whose live behavior — the iteration cap, the agent_end
- * safety net, the goal_progress tool's branches (no-active-goal, blocked), the independent
- * verifier reentrancy guard, the session_shutdown disposition, and the `/goal stop`
- * subcommand + resolveGoal selection — is invisible to `tsc`. This suite drives the REAL
- * registered command/tool/event handlers against a mocked pi/ctx and pins the OBSERVABLE
- * contract (persisted gstatus, notifications, verifier spawns, re-injected wakes).
+ * Por qué existe este archivo
+ * ---------------------------
+ * `npm test` es solo TYPECHECK (`tsc --noEmit`). El engine de /goal es un scheduler persistente,
+ * recuperable tras crash, cuyo comportamiento en vivo — el límite de iteraciones, la red de
+ * seguridad agent_end, las ramas de la tool goal_progress (no-active-goal, blocked), la guardia de
+ * reentrada del verifier independiente, la disposición de session_shutdown y la selección del
+ * subcomando `/goal stop` + resolveGoal — es invisible para `tsc`. Esta suite maneja los handlers
+ * REALES registrados de comando/tool/event contra un pi/ctx mockeado y fija el contrato
+ * OBSERVABLE (gstatus persistido, notificaciones, spawns del verifier, wakes reinyectados).
  *
- * These are CHARACTERIZATION tests: they assert the source's CURRENT behavior. The source is
- * the source of truth.
+ * Estas son pruebas de CARACTERIZACIÓN: afirman el comportamiento ACTUAL de la fuente. La fuente es
+ * la fuente de verdad.
  *
- * How it works
- * ------------
- * Self-bootstrapping, same proven pattern as goal-rehydrate.test.mjs: it esbuilds the CURRENT
- * extensions/pandi-goal/index.ts into an OS temp dir, aliasing the two external peer packages
- * (typebox, @earendil-works/pi-coding-agent) to local stubs so it runs from a clean checkout
- * with NO `npm install`. Each scenario gets a FRESH extension instance (loadDefault's
- * cache-busting query) so the module's activeGoals singleton never leaks between scenarios.
+ * Cómo funciona
+ * -------------
+ * Autoarranque, mismo patrón probado que goal-rehydrate.test.mjs: esbuildea el
+ * extensions/pandi-goal/index.ts ACTUAL a un dir temporal del OS, aliaseando los dos peer
+ * packages externos (typebox, @earendil-works/pi-coding-agent) a stubs locales para que corra
+ * desde un checkout limpio SIN `npm install`. Cada escenario recibe una instancia FRESCA de la
+ * extensión (la query de cache-busting de loadDefault) para que el singleton activeGoals del
+ * módulo nunca filtre estado entre escenarios.
  *
- * Run it:
+ * Ejecutar:
  *   node extensions/pandi-goal/tests/integration/index-coverage.test.mjs
  *
- * Exit 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
+ * Código de salida 0 = todos los checks pasaron; 1 = falló un check conductual; 2 = crasheó el harness.
  */
 
 import * as fs from "node:fs/promises";
@@ -48,8 +49,8 @@ async function buildGoal() {
 	});
 }
 
-// Yield to BOTH the timer phase (setTimeout) and the check phase (setImmediate) so
-// fire-and-forget async chains (the independent verifier) and the catch-up tick settle.
+// Ceder a AMBAS fases, timer (setTimeout) y check (setImmediate), para que asienten
+// las cadenas async fire-and-forget (el verifier independiente) y el tick de puesta al día.
 async function flush(predicate, tries = 100) {
 	for (let i = 0; i < tries; i++) {
 		await new Promise((r) => setTimeout(r, 0));
@@ -58,7 +59,7 @@ async function flush(predicate, tries = 100) {
 	}
 }
 
-// Mock pi: capture persisted snapshots, re-injected messages, and verifier subprocesses.
+// Mock de pi: captura snapshots persistidos, mensajes reinyectados y subprocesos del verifier.
 function makePi(execImpl) {
 	const tools = new Map();
 	const commands = new Map();
@@ -177,9 +178,9 @@ function warned(notifies, re) {
 }
 
 // ===========================================================================
-// 1. fireGoal stops when iteration >= maxIterations (cap → stopped + warning).
-// Recover a due `stale` snapshot whose iteration already equals maxIterations; the
-// catch-up tick fires fireGoal, which must cut it at the cap before doing any work.
+// 1. fireGoal se detiene cuando iteration >= maxIterations (cap → stopped + warning).
+// Recupera un snapshot `stale` vencido cuya iteration ya iguala maxIterations; el
+// tick de puesta al día dispara fireGoal, que debe cortarlo en el cap antes de hacer trabajo.
 // ===========================================================================
 async function stopsAtMaxIterations(goalUrl) {
 	const built = await register(goalUrl);
@@ -203,9 +204,9 @@ async function stopsAtMaxIterations(goalUrl) {
 }
 
 // ===========================================================================
-// 2. agent_end safety net re-arms a stranded pursuing goal. After startGoal the goal is
-// pursuing with no live timer, rearmedThisTurn=false, nextFireAt=null (a turn that ended
-// without goal_progress). agent_end must defensively re-arm it.
+// 2. La red de seguridad agent_end rearma un goal pursuing varado. Después de startGoal, el
+// goal queda pursuing sin timer vivo, con rearmedThisTurn=false y nextFireAt=null (un turno que
+// terminó sin goal_progress). agent_end debe rearmarlo defensivamente.
 // ===========================================================================
 async function agentEndReArmsStrandedPursuing(goalUrl) {
 	const built = await register(goalUrl);
@@ -231,8 +232,8 @@ async function agentEndReArmsStrandedPursuing(goalUrl) {
 	);
 }
 
-// agent_end must NOT double-arm: a second agent_end in the same turn (rearmedThisTurn=true
-// now) is a no-op.
+// agent_end NO debe armar doble: un segundo agent_end en el mismo turno (ahora
+// rearmedThisTurn=true) es un no-op.
 async function agentEndDoesNotDoubleArm(goalUrl) {
 	const built = await register(goalUrl);
 	const env = makeEnv();
@@ -248,7 +249,7 @@ async function agentEndDoesNotDoubleArm(goalUrl) {
 }
 
 // ===========================================================================
-// 3. goal_progress with no active goal → isError response.
+// 3. goal_progress sin goal activo → respuesta isError.
 // ===========================================================================
 async function goalProgressNoActiveGoal(goalUrl) {
 	const built = await register(goalUrl);
@@ -268,8 +269,8 @@ async function goalProgressNoActiveGoal(goalUrl) {
 }
 
 // ===========================================================================
-// 4. beginIndependentVerification reentrancy: a goal STOPPED while the verifier runs must
-// stay stopped — the late PASS verdict is discarded (no `done` snapshot appended).
+// 4. Reentrada de beginIndependentVerification: un goal STOPPED mientras corre el verifier debe
+// seguir detenido; el veredicto PASS tardío se descarta (sin agregar snapshot `done`).
 // ===========================================================================
 async function verifierStoppedMidFlightDiscardsVerdict(goalUrl) {
 	let release;
@@ -290,14 +291,14 @@ async function verifierStoppedMidFlightDiscardsVerdict(goalUrl) {
 		lastStatusFor(built.states, s.goalId) === "verifying-independent",
 		`last=${lastStatusFor(built.states, s.goalId)}`,
 	);
-	// Stop the goal while the verifier is gated mid-flight.
+	// Detiene el goal mientras el verifier está gateado en vuelo.
 	await runCommand(built, `stop ${s.goalId}`, env);
 	check(
 		"goal is stopped while verifier in flight",
 		lastStatusFor(built.states, s.goalId) === "stopped",
 		`last=${lastStatusFor(built.states, s.goalId)}`,
 	);
-	// Release the gated PASS: it must be discarded (goal already stopped).
+	// Libera el PASS gateado: debe descartarse (el goal ya está detenido).
 	release();
 	await flush(() => false, 40);
 	check(
@@ -314,7 +315,7 @@ async function verifierStoppedMidFlightDiscardsVerdict(goalUrl) {
 }
 
 // ===========================================================================
-// 5. goal_progress status==='blocked' → stopGoal(blocked) + warning notify.
+// 5. goal_progress status==='blocked' → stopGoal(blocked) + notify warning.
 // ===========================================================================
 async function goalProgressBlocked(goalUrl) {
 	const built = await register(goalUrl);
@@ -337,8 +338,8 @@ async function goalProgressBlocked(goalUrl) {
 }
 
 // ===========================================================================
-// 6. rehydrate of a verifying-independent snapshot re-runs the verifier exactly once; a
-// second session_start while the goal is already live does NOT re-launch it.
+// 6. rehydrate de un snapshot verifying-independent relanza el verifier exactamente una vez; un
+// segundo session_start mientras el goal ya está vivo NO lo vuelve a lanzar.
 // ===========================================================================
 async function rehydrateVerifierOnceNoDoubleFire(goalUrl) {
 	let release;
@@ -358,7 +359,7 @@ async function rehydrateVerifierOnceNoDoubleFire(goalUrl) {
 		built.execCalls.length === 1,
 		`execCalls=${built.execCalls.length}`,
 	);
-	// Second session_start while the goal is already live (timer/in-flight): no re-launch.
+	// Segundo session_start mientras el goal ya está vivo (timer/in-flight): sin relanzamiento.
 	await fireStart(built, env);
 	check(
 		"already-live goal is NOT re-launched on a second session_start",
@@ -375,8 +376,8 @@ async function rehydrateVerifierOnceNoDoubleFire(goalUrl) {
 }
 
 // ===========================================================================
-// 7. session_shutdown disposition: a pursuing goal persists as `stale`; a verifying goal
-// persists verbatim as `verifying`.
+// 7. Disposición de session_shutdown: un goal pursuing persiste como `stale`; un goal
+// verifying persiste textual como `verifying`.
 // ===========================================================================
 async function shutdownPursuingBecomesStale(goalUrl) {
 	const built = await register(goalUrl);
@@ -393,8 +394,8 @@ async function shutdownPursuingBecomesStale(goalUrl) {
 
 async function shutdownVerifyingStaysVerifying(goalUrl) {
 	const built = await register(goalUrl);
-	// Recover a verifying snapshot with a FUTURE nextFireAt so no catch-up tick fires; it
-	// stays verifying until shutdown persists it verbatim.
+	// Recupera un snapshot verifying con nextFireAt FUTURO para que no dispare ningún tick de
+	// puesta al día; sigue verifying hasta que shutdown lo persiste textual.
 	const s = snap({ gstatus: "verifying", nextFireAt: Date.now() + 100000 });
 	const env = makeEnv([entry(s)]);
 	await fireStart(built, env);
@@ -412,8 +413,8 @@ async function shutdownVerifyingStaysVerifying(goalUrl) {
 }
 
 // ===========================================================================
-// 8. /goal stop subcommand + resolveGoal: with two active goals, a stubbed ui.select picks
-// one; `/goal stop <id>` stops exactly that id.
+// 8. Subcomando /goal stop + resolveGoal: con dos goals activos, un ui.select stubbeado elige
+// uno; `/goal stop <id>` detiene exactamente ese id.
 // ===========================================================================
 async function stopSubcommandResolvesGoal(goalUrl) {
 	const built = await register(goalUrl);
@@ -423,7 +424,7 @@ async function stopSubcommandResolvesGoal(goalUrl) {
 		selectImpl: (_q, items) => items.find((i) => i.startsWith("aaaa1111")),
 	});
 	await fireStart(built, env);
-	// `/goal stop` with no id → two candidates → ui.select picks aaaa1111.
+	// `/goal stop` sin id → dos candidatos → ui.select elige aaaa1111.
 	await runCommand(built, "stop", env);
 	check(
 		"`/goal stop` (no id) stops the ui.select-chosen goal",
@@ -444,7 +445,7 @@ async function stopSubcommandResolvesGoal(goalUrl) {
 	);
 }
 
-// A `/goal stop` with no matching goal warns and persists nothing.
+// Un `/goal stop` sin goal coincidente avisa y no persiste nada.
 async function stopNoMatchWarns(goalUrl) {
 	const built = await register(goalUrl);
 	const env = makeEnv();
@@ -462,10 +463,10 @@ async function stopNoMatchWarns(goalUrl) {
 }
 
 // ===========================================================================
-// session_shutdown while an INDEPENDENT verifier is mid-flight: the goal is persisted verbatim
-// as verifying-independent (so rehydrate re-runs the verifier), and the aborted verifier's late
-// verdict must be DISCARDED — it must not finalize the goal (done/blocked) or message the dead
-// session. The post-await guard has to notice the controller was aborted by shutdown.
+// session_shutdown mientras un verifier INDEPENDIENTE está en vuelo: el goal persiste textual
+// como verifying-independent (así rehydrate relanza el verifier), y el veredicto tardío del
+// verifier abortado debe DESCARTARSE: no debe finalizar el goal (done/blocked) ni enviar mensaje
+// a la sesión muerta. La guardia post-await debe notar que shutdown abortó el controller.
 // ===========================================================================
 async function shutdownDuringIndependentVerifyDiscardsVerdict(goalUrl) {
 	let release;
@@ -481,7 +482,7 @@ async function shutdownDuringIndependentVerifyDiscardsVerdict(goalUrl) {
 	const env = makeEnv([entry(s)]);
 	await fireStart(built, env);
 	check("verifier launched once (in flight)", built.execCalls.length === 1, `execCalls=${built.execCalls.length}`);
-	// Shut down while the verifier is gated mid-flight.
+	// Cierra la sesión mientras el verifier está gateado en vuelo.
 	await fireShutdown(built, env);
 	check(
 		"shutdown persists the goal as verifying-independent (rehydrate re-runs the verifier)",
@@ -489,7 +490,7 @@ async function shutdownDuringIndependentVerifyDiscardsVerdict(goalUrl) {
 		`last=${lastStatusFor(built.states, s.goalId)}`,
 	);
 	const msgsBefore = built.messages.length;
-	// Release the gated PASS: it arrives AFTER shutdown and must be discarded.
+	// Libera el PASS gateado: llega DESPUÉS de shutdown y debe descartarse.
 	release();
 	await flush(() => false, 40);
 	check(
@@ -510,10 +511,10 @@ async function shutdownDuringIndependentVerifyDiscardsVerdict(goalUrl) {
 }
 
 // ===========================================================================
-// A stopped/terminal goal must be removed from the in-memory activeGoals map (mirrors
-// pi-loop's stopLoop -> activeLoops.delete). The leak is observable via `/goal status`
-// (no id), which lists [...activeGoals.values()]: after a stop it must report "No goals.",
-// not keep listing the dead terminal goal forever.
+// Un goal detenido/terminal debe salir del map en memoria activeGoals (espeja
+// stopLoop -> activeLoops.delete de pi-loop). La fuga se observa vía `/goal status`
+// (sin id), que lista [...activeGoals.values()]: después de un stop debe reportar "No goals.",
+// no seguir listando para siempre el goal terminal muerto.
 // ===========================================================================
 async function stoppedGoalRemovedFromActiveMap(goalUrl) {
 	const built = await register(goalUrl);
@@ -526,7 +527,7 @@ async function stoppedGoalRemovedFromActiveMap(goalUrl) {
 		lastStatusFor(built.states, s.goalId) === "stopped",
 		`last=${lastStatusFor(built.states, s.goalId)}`,
 	);
-	// Isolate the notify emitted by `/goal status` from the stop notify.
+	// Aísla el notify emitido por `/goal status` del notify del stop.
 	env.notifies.length = 0;
 	await runCommand(built, "status", env);
 	const last = env.notifies[env.notifies.length - 1];
@@ -565,8 +566,8 @@ async function main() {
 		for (const f of counts.failures) console.log(`  - ${f}`);
 		process.exit(1);
 	}
-	// Recovered/started goals re-arm setTimeout timers that keep the event loop open; exit
-	// explicitly rather than hang after a green run.
+	// Los goals recuperados/iniciados rearman timers setTimeout que mantienen abierto el event loop;
+	// salir explícitamente en vez de colgarse después de una corrida en verde.
 	process.exit(0);
 }
 

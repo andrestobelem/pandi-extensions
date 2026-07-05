@@ -1,32 +1,34 @@
 /**
- * Characterization integration suite for extensions/pandi-goal/persistence.ts.
+ * Suite de integración de caracterización para extensions/pandi-goal/persistence.ts.
  *
- * Why this file exists
+ * Por qué existe este archivo
  * --------------------
- * `npm test` only TYPECHECKS. persistence.ts owns the goal extension's durable side: the
- * field mapping that gets persisted (snapshot), the bounded progress log, the fire-and-forget
- * ATOMIC sidecar write (temp file then rename, swallow-on-error), and the dual-root state-dir
- * resolution (trusted project vs. sha1-hashed agent dir). A silent drift in any of these would
- * either lose recovery state or break the engine on a disk hiccup — none of which `tsc` sees.
+ * `npm test` solo hace TYPECHECK. persistence.ts posee el lado durable de la extensión goal: el
+ * mapeo de campos persistido (snapshot), el log de progreso acotado, la escritura sidecar ATOMIC
+ * fire-and-forget (archivo temp y luego rename, swallow-on-error), y la resolución state-dir de
+ * doble raíz (trusted project vs. agent dir hasheado con sha1). Un drift silencioso en cualquiera
+ * de estos puntos perdería estado de recuperación o rompería el engine ante un problema de disco;
+ * `tsc` no ve nada de eso.
  *
- * What is reachable
+ * Qué es alcanzable
  * -----------------
- * persistence.ts EXPORTS only `snapshot` and `persist`. `goalStateDir` and `writeSidecar` are
- * module-internal, so they are exercised INDIRECTLY through `persist` (which fire-and-forgets
- * `writeSidecar`). We assert the OBSERVABLE filesystem outcome rather than copying the logic.
+ * persistence.ts EXPORTA solo `snapshot` y `persist`. `goalStateDir` y `writeSidecar` son
+ * internos al módulo, así que se ejercitan INDIRECTAMENTE a través de `persist` (que ejecuta
+ * `writeSidecar` en modo fire-and-forget). Afirmamos el resultado OBSERVABLE en filesystem en vez
+ * de copiar la lógica.
  *
- * What is NOT testable here (see `skipped` in the result): the writeSidecar RETHROW on rename
- * failure. persist() deliberately swallows that rejection (`void writeSidecar(...).catch(() => {})`)
- * and the function is not exported, so the rejection is unobservable to any caller we can reach.
- * Forcing it would require monkeypatching `node:fs/promises` named bindings, which are read-only
- * ESM live bindings inside the bundle — not possible without rewriting the source. We DO cover
- * the temp-cleanup half of that path (no orphaned *.tmp left behind on a failed rename) via a
- * real EISDIR rename failure, observed through the filesystem.
+ * Qué NO es testeable acá (ver `skipped` en el resultado): el RETHROW de writeSidecar ante falla
+ * de rename. persist() traga deliberadamente ese rechazo (`void writeSidecar(...).catch(() => {})`)
+ * y la función no se exporta, así que el rechazo no es observable para ningún llamador alcanzable.
+ * Forzarlo requeriría monkeypatch de bindings nombrados de `node:fs/promises`, que son live
+ * bindings ESM read-only dentro del bundle; no es posible sin reescribir la fuente. SÍ cubrimos la
+ * mitad temp-cleanup de esa ruta (sin *.tmp huérfanos tras un rename fallido) mediante una falla
+ * real EISDIR de rename, observada en el filesystem.
  *
- * Run it:
+ * Ejecución:
  *   node extensions/pandi-goal/tests/integration/persistence-coverage.test.mjs
  *
- * Exit 0 = all checks passed; 1 = a behavioral check failed; 2 = harness crashed.
+ * Exit 0 = todos los checks pasaron; 1 = falló un check de comportamiento; 2 = falló el harness.
  */
 
 import { deepStrictEqual } from "node:assert";
@@ -41,8 +43,8 @@ import { buildExtension, createChecker, loadModule, sdkStub } from "../../../sha
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
-// Mirrors constants.ts: PROGRESS_LOG_KEEP. The source bundles it privately; we pin the value
-// here so a change to the cap surfaces as a red assertion to be consciously updated.
+// Replica constants.ts: PROGRESS_LOG_KEEP. La fuente lo empaqueta en privado; fijamos el valor
+// acá para que un cambio del límite aparezca como assertion fallida y se actualice conscientemente.
 const PROGRESS_LOG_KEEP = 12;
 const STATE_FILE = "state.json";
 const GOAL_DIR = "goals";
@@ -51,8 +53,8 @@ const GOAL_STATE_TYPE = "goal-state";
 
 const { check, counts } = createChecker();
 
-// persistence.ts imports runtime SDK symbols (CONFIG_DIR_NAME, getAgentDir) → needs the sdk
-// stub. It does NOT touch typebox. getAgentDir() resolves to <outDir>/agentdir.
+// persistence.ts importa símbolos runtime del SDK (CONFIG_DIR_NAME, getAgentDir) → necesita el
+// stub sdk. NO toca typebox. getAgentDir() resuelve a <outDir>/agentdir.
 async function buildPersistence() {
 	return await buildExtension({
 		name: "pi-goal-persistence-integration",
@@ -62,12 +64,12 @@ async function buildPersistence() {
 	});
 }
 
-// agentDir is deterministic from the build's outDir (sdkStub points getAgentDir there).
+// agentDir es determinístico desde el outDir del build (sdkStub apunta getAgentDir ahí).
 function agentDirFor(outDir) {
 	return path.join(outDir, "agentdir");
 }
 
-// Capture every appended snapshot.
+// Captura cada snapshot agregado.
 function makePi() {
 	const entries = [];
 	return {
@@ -78,8 +80,8 @@ function makePi() {
 	};
 }
 
-// A full ActiveGoal-shaped object with distinct sentinel values per field, plus the
-// extra runtime fields snapshot() must NOT copy.
+// Un objeto completo con forma ActiveGoal, con valores sentinel distintos por campo, más los
+// campos runtime extra que snapshot() NO debe copiar.
 function makeGoal(overrides = {}) {
 	return {
 		goalId: "goal-sentinel-id",
@@ -110,7 +112,7 @@ function makeGoal(overrides = {}) {
 	};
 }
 
-// Poll the filesystem (or any predicate) until true or attempts exhausted.
+// Sondea el filesystem (o cualquier predicate) hasta true o hasta agotar intentos.
 async function flush(predicate, tries = 200) {
 	for (let i = 0; i < tries; i++) {
 		await new Promise((r) => setImmediate(r));
@@ -121,11 +123,11 @@ async function flush(predicate, tries = 200) {
 }
 
 // ===========================================================================
-// snapshot(): full field mapping
+// snapshot(): mapeo completo de campos
 // ===========================================================================
 function snapshotCopiesAllFields(mod) {
 	const goal = makeGoal();
-	// kill the timer we created so it doesn't keep the loop alive
+	// cancelar el timer creado para que no mantenga vivo el event loop
 	clearTimeout(goal.timer);
 	const snap = mod.snapshot(goal);
 	const expected = {
@@ -166,7 +168,7 @@ function snapshotCopiesAllFields(mod) {
 }
 
 // ===========================================================================
-// snapshot(): bounds assessments via slice(-PROGRESS_LOG_KEEP), keeping the MOST RECENT.
+// snapshot(): acota assessments vía slice(-PROGRESS_LOG_KEEP), conservando los MÁS RECIENTES.
 // ===========================================================================
 function snapshotBoundsAssessments(mod) {
 	const total = PROGRESS_LOG_KEEP + 5;
@@ -198,7 +200,7 @@ function snapshotBoundsAssessments(mod) {
 }
 
 // ===========================================================================
-// persist(): stamps updatedAt, appends the snapshot synchronously, fire-and-forgets sidecar.
+// persist(): marca updatedAt, agrega el snapshot sincrónicamente y lanza sidecar en fire-and-forget.
 // ===========================================================================
 function persistAppendsAndStamps(mod) {
 	const { pi, entries } = makePi();
@@ -228,15 +230,15 @@ function persistAppendsAndStamps(mod) {
 }
 
 // ===========================================================================
-// persist(): a sidecar failure NEVER breaks the engine (fire-and-forget + swallow).
-// We point goalStateDir at an unwritable path (cwd is a real FILE → mkdir hits ENOTDIR).
+// persist(): una falla de sidecar NUNCA rompe el engine (fire-and-forget + swallow).
+// Apuntamos goalStateDir a una ruta no escribible (cwd es un ARCHIVO real → mkdir encuentra ENOTDIR).
 // ===========================================================================
 async function persistSwallowsSidecarError(mod) {
 	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "goal-persist-fail-"));
 	const fileAsCwd = path.join(tmp, "iam-a-file");
 	await fs.writeFile(fileAsCwd, "not a dir");
 	const { pi, entries } = makePi();
-	// trusted → goalStateDir = <cwd>/.pi/goals/<id>; mkdir of that under a FILE rejects (ENOTDIR).
+	// trusted → goalStateDir = <cwd>/.pi/goals/<id>; mkdir de eso bajo un ARCHIVO rechaza (ENOTDIR).
 	const ctx = { isProjectTrusted: () => true, cwd: fileAsCwd };
 	const goal = makeGoal();
 	clearTimeout(goal.timer);
@@ -252,16 +254,16 @@ async function persistSwallowsSidecarError(mod) {
 		entries.length === 1,
 		`n=${entries.length}`,
 	);
-	// Let the rejected sidecar promise settle; the source's .catch(() => {}) must swallow it
-	// (any unhandled rejection here would crash the process with exit 2 via main()'s handler).
+	// Dejar que la promise sidecar rechazada se resuelva; el .catch(() => {}) de la fuente debe tragarla
+	// (cualquier unhandled rejection acá haría caer el proceso con exit 2 vía el handler de main()).
 	await flush(() => false, 30);
 	check("persist() sidecar failure produced no observable throw/rejection", true);
 	await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
 }
 
 // ===========================================================================
-// writeSidecar() (via persist): atomic write — pretty JSON + trailing newline, no *.tmp left.
-// trusted root: <cwd>/.pi/goals/<id>/state.json.
+// writeSidecar() (vía persist): escritura atómica; JSON pretty + newline final, sin *.tmp restante.
+// raíz trusted: <cwd>/.pi/goals/<id>/state.json.
 // ===========================================================================
 async function sidecarAtomicWriteTrustedRoot(mod) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "goal-trusted-"));
@@ -299,15 +301,15 @@ async function sidecarAtomicWriteTrustedRoot(mod) {
 }
 
 // ===========================================================================
-// writeSidecar() (via persist): temp CLEANUP when rename fails. We pre-create state.json as a
-// non-empty DIRECTORY so fs.rename(temp, file) rejects with EISDIR; the source's catch must
-// `fs.rm(temp)` before rethrowing (rethrow is swallowed by persist, so we only observe cleanup).
+// writeSidecar() (vía persist): CLEANUP temp cuando rename falla. Precreamos state.json como
+// DIRECTORIO no vacío para que fs.rename(temp, file) rechace con EISDIR; el catch de la fuente debe
+// hacer `fs.rm(temp)` antes de relanzar (persist traga el rethrow, así que solo observamos cleanup).
 // ===========================================================================
 async function sidecarTempCleanupOnRenameFailure(mod) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "goal-rename-fail-"));
 	const dir = path.join(cwd, CONFIG_DIR_NAME, GOAL_DIR, "rename-fail-goal");
 	await fs.mkdir(dir, { recursive: true });
-	// Make state.json an EXISTING non-empty directory → rename(file, dir) → EISDIR.
+	// Hacer de state.json un directorio EXISTENTE no vacío → rename(file, dir) → EISDIR.
 	const stateAsDir = path.join(dir, STATE_FILE);
 	await fs.mkdir(stateAsDir, { recursive: true });
 	await fs.writeFile(path.join(stateAsDir, "blocker"), "x");
@@ -318,7 +320,7 @@ async function sidecarTempCleanupOnRenameFailure(mod) {
 	clearTimeout(goal.timer);
 	mod.persist(pi, ctx, goal);
 	check("persist() still appended despite the doomed rename", entries.length === 1, `n=${entries.length}`);
-	// Allow the write+failed-rename+cleanup chain to settle.
+	// Permitir que se complete la cadena write+failed-rename+cleanup.
 	await flush(() => false, 40);
 	const entriesInDir = await fs.readdir(dir);
 	const tmpLeftovers = entriesInDir.filter((f) => f.endsWith(".tmp"));
@@ -336,7 +338,7 @@ async function sidecarTempCleanupOnRenameFailure(mod) {
 }
 
 // ===========================================================================
-// goalStateDir() (via persist): UNTRUSTED root → <agentDir>/goals/<sha1(cwd)[:12]>/<id>.
+// goalStateDir() (vía persist): raíz UNTRUSTED → <agentDir>/goals/<sha1(cwd)[:12]>/<id>.
 // ===========================================================================
 async function sidecarUntrustedRootUsesSha1Hash(mod, outDir) {
 	const projectPath = "/some/path";
