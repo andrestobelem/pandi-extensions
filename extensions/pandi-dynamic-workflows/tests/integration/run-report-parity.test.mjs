@@ -60,11 +60,29 @@ async function makeRunDir() {
 	await fs.writeFile(path.join(runDir, "workflow.js"), "export default async function main() {}\n");
 	await fs.writeFile(
 		path.join(runDir, "events.jsonl"),
-		[
+		`${[
 			event({ type: "log", time: "2026-01-01T00:00:01.000Z", message: "event-log-loses" }),
-			event({ type: "agent", id: 1, name: "alpha", ok: true, state: "completed", elapsedMs: 1000 }),
+			event({
+				type: "agent",
+				id: 1,
+				name: "alpha",
+				ok: true,
+				state: "completed",
+				elapsedMs: 1000,
+				schemaOk: true,
+				promptAvailable: true,
+				tools: ["read", "bash"],
+				excludeTools: ["write"],
+				skills: ["karpathy-guidelines"],
+				includeSkills: true,
+				extensions: ["pi-codex-web-search"],
+				includeExtensions: true,
+				keys: ["OPENAI_API_KEY"],
+				missingKeys: ["ANTHROPIC_API_KEY"],
+				isolatedEnv: true,
+			}),
 			event({ type: "agent", id: 2, name: "beta", ok: false, code: 1, state: "failed", elapsedMs: 2000 }),
-		].join("\n") + "\n",
+		].join("\n")}\n`,
 	);
 	return { runDir, run };
 }
@@ -104,6 +122,21 @@ async function main() {
 	check("collector preserves failed agent state", report.agents.find((a) => a.name === "beta")?.state === "failed");
 	check("run view preserves failed agent state", view.includes("#2 beta — failed"));
 	check("monitor preserves failed agent state", monitor?.agents.find((a) => a.name === "beta")?.state === "failed");
+	const alpha = report.agents.find((a) => a.name === "alpha");
+	check("collector preserves prompt availability", alpha?.promptAvailable === true);
+	check("collector preserves excluded tools", alpha?.excludeTools === "write", String(alpha?.excludeTools));
+	check(
+		"collector preserves skill discovery",
+		alpha?.skills === "karpathy-guidelines" && alpha?.includeSkills === true,
+	);
+	check(
+		"collector preserves extension discovery",
+		alpha?.extensions === "pi-codex-web-search" && alpha?.includeExtensions === true,
+	);
+	check(
+		"collector preserves key access",
+		alpha?.keys === "OPENAI_API_KEY" && alpha?.missingKeys === "ANTHROPIC_API_KEY" && alpha?.isolatedEnv === true,
+	);
 
 	check(
 		"collector prefers status logs over event logs",

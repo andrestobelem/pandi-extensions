@@ -49,9 +49,21 @@ function model() {
 				elapsedMs: 1200,
 				model: "haiku",
 				thinking: "low",
+				schemaOk: true,
 				phaseLabel: "Scout",
+				promptAvailable: true,
 				prompt: { text: "inspect", truncated: false },
 				output: { text: "ok", truncated: false },
+				artifactHref: "agents/0001-scout.md",
+				tools: "read, bash",
+				excludeTools: "write",
+				skills: "karpathy-guidelines",
+				includeSkills: true,
+				extensions: "pi-codex-web-search",
+				includeExtensions: true,
+				keys: "OPENAI_API_KEY",
+				missingKeys: "ANTHROPIC_API_KEY",
+				isolatedEnv: true,
 			},
 			{
 				id: 2,
@@ -88,6 +100,22 @@ check("monitor shows artifacts", html.includes("artifacts") && html.includes("su
 check("monitor shows latest activity", html.includes("Latest activity") && html.includes("agent 2 end: reviewer"));
 check("monitor includes a compact agent matrix", html.includes("Agent monitor") && html.includes("reviewer"));
 check("monitor makes failed agents visible early", html.indexOf("reviewer") < html.indexOf("Agents (2)"));
+const monitorSlice = html.slice(html.indexOf("Workflow monitor"), html.indexOf("Agents (2)"));
+check("monitor surfaces prompt availability early", monitorSlice.includes("prompt✓"), monitorSlice);
+check("monitor surfaces schema state early", monitorSlice.includes("schema ok"), monitorSlice);
+check("monitor surfaces excluded tools early", monitorSlice.includes("exclude: write"), monitorSlice);
+check(
+	"monitor surfaces skills discovery early",
+	monitorSlice.includes("skills: karpathy-guidelines + discovery"),
+	monitorSlice,
+);
+check(
+	"monitor surfaces extension discovery early",
+	monitorSlice.includes("extensions: pi-codex-web-search + discovery"),
+	monitorSlice,
+);
+check("monitor surfaces key access early", monitorSlice.includes("keys: OPENAI_API_KEY"), monitorSlice);
+check("monitor surfaces missing keys early", monitorSlice.includes("missing: ANTHROPIC_API_KEY"), monitorSlice);
 check("run report remains script-free", !/<script/i.test(html));
 
 const interruptedHtml = mod.buildRunReportHtml({
@@ -111,6 +139,7 @@ check(
 	"interrupted agents drive the monitor failure metric",
 	interruptedHtml.includes('<div class="metric-label">failed</div><div class="metric-value">1</div>'),
 );
+check("interrupted progress meter is failure-toned", interruptedHtml.includes('class="meter fail"'));
 check(
 	"interrupted agents are highlighted as failed cards",
 	/<details class="fail-card" open>[\s\S]*interrupted-reviewer/.test(interruptedHtml),
@@ -120,6 +149,33 @@ check(
 	/<div class="callout error"><b>Selected agent:<\/b>[\s\S]*interrupted-reviewer[\s\S]*interrupted/.test(
 		interruptedHtml,
 	),
+);
+
+const unknownHtml = mod.buildRunReportHtml({
+	...model(),
+	agents: [{ id: 8, name: "unknown-worker", state: "unknown", phaseLabel: "Review" }],
+	metricsTotals: { measuredAgents: 1, okAgents: 0, failedAgents: 0 },
+});
+check(
+	"unknown terminal agents count as progress done",
+	unknownHtml.includes('<div class="metric-label">Progress</div><div class="metric-value">1/1</div>'),
+	unknownHtml,
+);
+
+const partialPhaseHtml = mod.buildRunReportHtml({
+	...model(),
+	state: "running",
+	agents: [
+		{ id: 1, name: "worker-1", state: "completed", ok: true, phaseId: 1, phaseIndex: 1, phaseTotal: 4 },
+		{ id: 2, name: "worker-2", state: "completed", ok: true, phaseId: 1, phaseIndex: 2, phaseTotal: 4 },
+		{ id: 3, name: "worker-3", state: "completed", ok: true, phaseId: 1, phaseIndex: 3, phaseTotal: 4 },
+	],
+	metricsTotals: { measuredAgents: 3, okAgents: 3, failedAgents: 0 },
+});
+check(
+	"phaseTotal drives monitor progress denominator",
+	partialPhaseHtml.includes('<div class="metric-label">Progress</div><div class="metric-value">3/4</div>'),
+	partialPhaseHtml,
 );
 
 if (counts.failed > 0) {

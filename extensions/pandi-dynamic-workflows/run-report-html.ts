@@ -39,6 +39,9 @@ export interface RunReportAgent {
 	thinking?: string;
 	schemaOk?: boolean;
 	phaseLabel?: string;
+	phaseId?: number;
+	phaseIndex?: number;
+	phaseTotal?: number;
 	promptPreview?: string;
 	/** Verbatim prompt copy; newer runs source this from bounded structured events. */
 	prompt?: RunReportText;
@@ -48,9 +51,16 @@ export interface RunReportAgent {
 	stderrTail?: { text: string; href?: string };
 	stdoutHref?: string;
 	artifactHref?: string;
+	promptAvailable?: boolean;
 	tools?: string;
+	excludeTools?: string;
 	skills?: string;
+	includeSkills?: boolean;
+	extensions?: string;
+	includeExtensions?: boolean;
 	keys?: string;
+	missingKeys?: string;
+	isolatedEnv?: boolean;
 	metrics?: {
 		turns?: number;
 		inputTokensPeak?: number;
@@ -180,6 +190,9 @@ header .sub { color:var(--ink2); font-size:13px; }
 .metric-detail { color:var(--ink2); font-size:12px; margin-top:5px; }
 .meter { display:inline-block; width:70px; height:8px; border-radius:999px; background:var(--raised); border:1px solid var(--line); overflow:hidden; vertical-align:middle; margin-right:6px; }
 .meter span { display:block; height:100%; background:var(--success); }
+.meter.fail span { background:var(--error); }
+.meter.run span { background:var(--info); }
+.meter.warn span { background:var(--warning); }
 .monitor-table { margin-top:8px; }
 .monitor-table tr.featured td { background:var(--info-bg); }
 .rpill { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }
@@ -256,9 +269,11 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`): s
 	return count === 1 ? singular : pluralForm;
 }
 
-function meter(fraction: number): string {
+type ProgressTone = "ok" | "fail" | "run" | "warn";
+
+function meter(fraction: number, tone: ProgressTone = "ok"): string {
 	const pct = Math.max(0, Math.min(1, Number.isFinite(fraction) ? fraction : 0));
-	return `<span class="meter" title="${Math.round(pct * 100)}%"><span style="width:${Math.round(pct * 100)}%"></span></span>`;
+	return `<span class="meter ${tone}" title="${Math.round(pct * 100)}%"><span style="width:${Math.round(pct * 100)}%"></span></span>`;
 }
 
 function metricCard(label: string, value: string | number, detail = ""): string {
@@ -270,19 +285,105 @@ function metricCard(label: string, value: string | number, detail = ""): string 
 	);
 }
 
-function agentDone(agent: RunReportAgent): boolean {
-	return agent.state !== "running" && agent.state !== "unknown";
-}
-
 function agentFailed(agent: RunReportAgent): boolean {
 	return agent.ok === false || agent.state === "failed" || agent.state === "interrupted";
 }
 
-function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): string {
-	const total = model.agents.length;
+function agentSucceeded(agent: RunReportAgent): boolean {
+	return (agent.state === "completed" || agent.state === "cached") && agent.ok !== false;
+}
+
+function agentDone(agent: RunReportAgent): boolean {
+	return agent.state !== "running";
+}
+
+interface ProgressSummary {
+	observed: number;
+	total: number;
+	done: number;
+	running: number;
+	failed: number;
+	unknown: number;
+	fraction: number;
+	tone: ProgressTone;
+	openEnded: boolean;
+}
+
+function plannedAgentTotal(agents: RunReportAgent[]): number {
+	const phaseTotals = new Map<string, number>();
+	let standalone = 0;
+	for (const agent of agents) {
+		if (agent.phaseTotal !== undefined && agent.phaseTotal > 0) {
+			const key = agent.phaseId !== undefined ? `phase:${agent.phaseId}` : `agent:${agent.name}`;
+			phaseTotals.set(key, Math.max(phaseTotals.get(key) ?? 0, agent.phaseTotal));
+		} else {
+			standalone += 1;
+		}
+	}
+	let planned = standalone;
+	for (const total of phaseTotals.values()) planned += total;
+	return Math.max(agents.length, planned);
+}
+
+function summarizeProgress(model: RunReportModel): ProgressSummary {
+	const observed = model.agents.length;
 	const done = model.agents.filter(agentDone).length;
 	const running = model.agents.filter((agent) => agent.state === "running").length;
-	const frac = total > 0 ? done / total : 0;
+	const failed = model.agents.filter(agentFailed).length;
+	const unknown = model.agents.filter(
+		(agent) => agentDone(agent) && !agentFailed(agent) && !agentSucceeded(agent),
+	).length;
+	const total = plannedAgentTotal(model.agents);
+	const openEnded = model.state === "running" && running === 0 && done >= total && total > 0;
+	const fraction = total > 0 ? (openEnded ? Math.min(done / total, 0.95) : done / total) : 0;
+	const tone: ProgressTone =
+		failed > 0 || model.state === "failed"
+			? "fail"
+			: model.state === "running" || running > 0 || openEnded
+				? "run"
+				: unknown > 0 || model.state === "cancelled" || model.state === "stale" || model.state === "unknown"
+					? "warn"
+					: "ok";
+	return { observed, total, done, running, failed, unknown, fraction, tone, openEnded };
+}
+
+function progressValue(summary: ProgressSummary): string {
+	return `${summary.done}/${summary.total}${summary.openEnded ? "+" : ""}`;
+}
+
+function agentAccessMeta(agent: RunReportAgent): string {
+	return [
+		agent.promptAvailable ? "prompt✓" : agent.promptAvailable === false ? "prompt?" : "",
+		agent.schemaOk !== undefined ? `schema ${agent.schemaOk ? "ok" : "bad"}` : "",
+		agent.model ? `model ${agent.model}` : "",
+		agent.thinking ? `effort ${agent.thinking}` : "",
+		agent.tools ? `tools: ${agent.tools}` : "tools: default",
+		agent.excludeTools ? `exclude: ${agent.excludeTools}` : "",
+		agent.skills
+			? `skills: ${agent.skills}${agent.includeSkills ? " + discovery" : ""}`
+			: agent.includeSkills === false
+				? "skills: disabled"
+				: "skills: default discovery",
+		agent.extensions
+			? `extensions: ${agent.extensions}${agent.includeExtensions ? " + discovery" : ""}`
+			: agent.includeExtensions
+				? "extensions: default discovery"
+				: "extensions: disabled",
+		agent.keys
+			? `keys: ${agent.keys}`
+			: agent.isolatedEnv
+				? "keys: none selected"
+				: "keys: default inherited environment",
+		agent.missingKeys ? `missing: ${agent.missingKeys}` : "",
+		agent.isolatedEnv ? "isolated env" : "",
+	]
+		.filter(Boolean)
+		.join(" · ");
+}
+
+function renderWorkflowMonitor(model: RunReportModel, summary: ProgressSummary): string {
+	const running = summary.running;
+	const frac = summary.fraction;
 	const last = model.logs.slice(-1)[0];
 	const featured =
 		model.agents.find(agentFailed) ?? model.agents.find((agent) => agent.state === "running") ?? model.agents[0];
@@ -290,11 +391,9 @@ function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): str
 		const isFeatured = featured && agent.id === featured.id;
 		const meta = [
 			agent.phaseLabel ? `phase ${agent.phaseLabel}` : "",
-			agent.model ? `model ${agent.model}` : "",
-			agent.thinking ? `effort ${agent.thinking}` : "",
 			agent.elapsedMs !== undefined ? `elapsed ${Math.round(agent.elapsedMs / 100) / 10}s` : "",
 			agent.code !== undefined ? `code ${agent.code}` : "",
-			agent.schemaOk !== undefined ? `schema ${agent.schemaOk ? "ok" : "bad"}` : "",
+			agentAccessMeta(agent),
 		]
 			.filter(Boolean)
 			.join(" · ");
@@ -310,13 +409,17 @@ function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): str
 	};
 	const agentRows = model.agents.map(row).join("");
 	const featuredHint = featured
-		? `<div class="callout ${failedAgents ? "error" : "info"}"><b>Selected agent:</b> #${escapeHtml(String(featured.id))} ${escapeHtml(featured.name)} — ${escapeHtml(featured.state)}.</div>`
+		? `<div class="callout ${summary.failed ? "error" : "info"}"><b>Selected agent:</b> #${escapeHtml(String(featured.id))} ${escapeHtml(featured.name)} — ${escapeHtml(featured.state)}.<div class="kv muted">${escapeHtml(agentAccessMeta(featured))}</div></div>`
 		: `<div class="callout info"><b>Selected agent:</b> no agents recorded yet.</div>`;
 	return (
 		`<section class="monitor-panel"><div class="monitor-head"><h2>Workflow monitor</h2>` +
 		`<span class="rpill ${pillClass(model.state)}">${escapeHtml(model.state)}</span></div>` +
 		`<div class="monitor-grid">` +
-		metricCard("Progress", `${done}/${total}`, `${meter(frac)} <span>${Math.round(frac * 100)}%</span>`) +
+		metricCard(
+			"Progress",
+			progressValue(summary),
+			`${meter(frac, summary.tone)} <span>${Math.round(frac * 100)}%</span>`,
+		) +
 		metricCard(
 			"parallel",
 			model.agentConcurrency !== undefined ? `${running}/${model.agentConcurrency}` : running,
@@ -324,7 +427,7 @@ function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): str
 				? `peak ${escapeHtml(String(model.peakParallelAgents))}`
 				: "running now",
 		) +
-		metricCard("failed", failedAgents, failedAgents ? "review failed cards" : "no failed agents") +
+		metricCard("failed", summary.failed, summary.failed ? "review failed cards" : "no failed agents") +
 		metricCard(
 			"artifacts",
 			model.artifacts.length,
@@ -346,12 +449,12 @@ function renderWorkflowMonitor(model: RunReportModel, failedAgents: number): str
 	);
 }
 
-function openingText(model: RunReportModel, failedAgents: number): string {
-	const totalAgents = model.agents.length;
+function openingText(model: RunReportModel, summary: ProgressSummary): string {
+	const totalAgents = summary.observed;
 	const agentLabel = plural(totalAgents, "agente");
 	const recordedLabel = plural(totalAgents, "registrado");
-	if (failedAgents > 0) {
-		return `${failedAgents} de ${totalAgents} ${plural(totalAgents, "agente")} falló${failedAgents === 1 ? "" : "n"}. Las tarjetas fallidas están abiertas abajo; empezá por ellas y luego revisá el output final si existe.`;
+	if (summary.failed > 0) {
+		return `${summary.failed} de ${totalAgents} ${plural(totalAgents, "agente")} falló${summary.failed === 1 ? "" : "n"}. Las tarjetas fallidas están abiertas abajo; empezá por ellas y luego revisá el output final si existe.`;
 	}
 	if (model.state === "running") {
 		return `Instantánea del run: ${totalAgents} ${agentLabel} ${recordedLabel} hasta ahora. El run sigue en progreso, así que outputs y métricas pueden cambiar.`;
@@ -413,11 +516,7 @@ function renderAgent(agent: RunReportAgent): string {
 		body += `<div class="kv muted">stderr (bounded tail):</div><pre>${escapeHtml(agent.stderrTail.text)}</pre>`;
 	}
 	if (!body) body = `<div class="muted">No inline content recorded for this agent.</div>`;
-	const access: string[] = [];
-	if (agent.tools) access.push(`tools: ${agent.tools}`);
-	if (agent.skills) access.push(`skills: ${agent.skills}`);
-	if (agent.keys) access.push(`keys: ${agent.keys}`);
-	if (access.length) body += `<div class="kv muted">${escapeHtml(access.join(" · "))}</div>`;
+	body += `<div class="kv muted">${escapeHtml(agentAccessMeta(agent))}</div>`;
 
 	return (
 		`<details class="${failed ? "fail-card" : ""}"${failed ? " open" : ""}>` +
@@ -429,8 +528,9 @@ function renderAgent(agent: RunReportAgent): string {
 }
 
 export function buildRunReportHtml(model: RunReportModel): string {
+	const summary = summarizeProgress(model);
 	const statePill = `<span class="rpill ${pillClass(model.state)}">${escapeHtml(model.state)}</span>`;
-	const failedAgents = model.agents.filter(agentFailed).length;
+	const failedAgents = summary.failed;
 	const autoRefreshSeconds =
 		model.state === "running" && model.autoRefreshSeconds !== undefined
 			? Math.max(1, Math.round(model.autoRefreshSeconds))
@@ -488,7 +588,7 @@ export function buildRunReportHtml(model: RunReportModel): string {
 		chip("elapsed", model.elapsedMs !== undefined ? `${Math.round(model.elapsedMs / 1000)}s` : undefined),
 		chip("generated", model.generatedAt),
 	].join("");
-	const opening = `<p class="opening">${escapeHtml(openingText(model, failedAgents))}</p>`;
+	const opening = `<p class="opening">${escapeHtml(openingText(model, summary))}</p>`;
 
 	const phaseRows = model.phases
 		.map(
@@ -572,7 +672,7 @@ ${LAYOUT_CSS}
 </header>
 ${opening}
 ${callouts.join("\n")}
-${renderWorkflowMonitor(model, failedAgents)}
+${renderWorkflowMonitor(model, summary)}
 ${textBlock("Input", model.input)}
 ${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true)}` : ""}
 ${metricsSection}

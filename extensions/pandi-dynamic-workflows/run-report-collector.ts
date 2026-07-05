@@ -329,6 +329,9 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 			...(agent.thinking ? { thinking: agent.thinking } : {}),
 			...(agent.schemaOk === undefined ? {} : { schemaOk: agent.schemaOk }),
 			...(agent.phaseLabel ? { phaseLabel: agent.phaseLabel } : {}),
+			...(agent.phaseId === undefined ? {} : { phaseId: agent.phaseId }),
+			...(agent.phaseIndex === undefined ? {} : { phaseIndex: agent.phaseIndex }),
+			...(agent.phaseTotal === undefined ? {} : { phaseTotal: agent.phaseTotal }),
 			...(agent.promptPreview ? { promptPreview: agent.promptPreview } : {}),
 			...(prompt ? { prompt } : {}),
 			...(output ? { output } : {}),
@@ -336,9 +339,16 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 			...(stderrTail ? { stderrTail } : {}),
 			...(stdoutHref ? { stdoutHref } : {}),
 			...(artifactHref ? { artifactHref } : {}),
+			...(agent.promptAvailable ? { promptAvailable: true } : {}),
 			...(agent.tools?.length ? { tools: agent.tools.join(", ") } : {}),
+			...(agent.excludeTools?.length ? { excludeTools: agent.excludeTools.join(", ") } : {}),
 			...(agent.skills?.length ? { skills: agent.skills.join(", ") } : {}),
+			...(agent.includeSkills === undefined ? {} : { includeSkills: agent.includeSkills }),
+			...(agent.extensions?.length ? { extensions: agent.extensions.join(", ") } : {}),
+			...(agent.includeExtensions === undefined ? {} : { includeExtensions: agent.includeExtensions }),
 			...(agent.keys?.length ? { keys: agent.keys.join(", ") } : {}),
+			...(agent.missingKeys?.length ? { missingKeys: agent.missingKeys.join(", ") } : {}),
+			...(agent.isolatedEnv === undefined ? {} : { isolatedEnv: agent.isolatedEnv }),
 			...(m
 				? {
 						metrics: {
