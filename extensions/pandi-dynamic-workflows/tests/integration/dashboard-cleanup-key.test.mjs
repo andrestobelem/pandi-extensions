@@ -43,7 +43,7 @@ async function buildExtension() {
 let instance = 0;
 async function freshExtension(url) {
 	const mod = await import(`${url}?i=${instance++}`);
-	return mod.default;
+	return { mod, ext: mod.default };
 }
 
 function makePi() {
@@ -102,7 +102,7 @@ function makeCtx(cwd) {
 }
 
 async function openComponent(url) {
-	const ext = await freshExtension(url);
+	const { mod, ext } = await freshExtension(url);
 	const { pi, handlers, commands } = makePi();
 	ext(pi);
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-cleanup-key-"));
@@ -122,7 +122,7 @@ async function openComponent(url) {
 	const component = captured.component;
 	// Reset captured so the first done() after this is what we assert.
 	captured = null;
-	return { component, getCaptured: () => captured };
+	return { component, getCaptured: () => captured, mod };
 }
 
 const mkRun = (runId, state) => ({
@@ -177,12 +177,17 @@ async function main() {
 
 	// 3) Lowercase c on Runs tab is still cancel semantics, never cleanup.
 	{
-		const { component, getCaptured } = await openComponent(url);
+		const { component, getCaptured, mod } = await openComponent(url);
 		component.setRuns([mkRun("r1", "running")]);
-		component.handleInput("R");
-		component.handleInput("c"); // cancel (gated on canCancelRun for a running bg run)
-		const c = getCaptured();
-		check("Runs + c is not cleanup", c?.type !== "cleanup", JSON.stringify(c));
+		mod.activeRuns.set("r1", {});
+		try {
+			component.handleInput("R");
+			component.handleInput("c"); // cancel (gated on canCancelRun for a running bg run)
+			const c = getCaptured();
+			check("Runs + c → cancel/r1", c && c.type === "cancel" && c.run?.runId === "r1", JSON.stringify(c));
+		} finally {
+			mod.activeRuns.clear();
+		}
 	}
 
 	if (counts.failed > 0) {
