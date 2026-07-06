@@ -22,6 +22,7 @@ import { formatRunView, pickAndOpenRunArtifact } from "./run-view.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "./types.js";
 
 type ParsedPiStdout = ReturnType<typeof parsePiJsonModeOutput>;
+type SettingRow = [string, string];
 
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
@@ -58,7 +59,7 @@ function escapeMarkdownTableCell(value: string): string {
 	return value.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
-function formatSettingTable(rows: [string, string][]): string {
+function formatSettingTable(rows: SettingRow[]): string {
 	return [
 		"| Setting | Value |",
 		"| --- | --- |",
@@ -123,7 +124,7 @@ function formatPromptMetadataRows(
 	promptSource: string | undefined,
 	promptWasTruncated: boolean,
 	artifactPath: string | undefined,
-): [string, string][] {
+): SettingRow[] {
 	return [
 		["Agent", `${agentRef} ${agent.name}`],
 		["State", `${stateIcon} ${agent.state}`],
@@ -131,6 +132,55 @@ function formatPromptMetadataRows(
 		["Characters", promptSource ? `${promptSource.length} source` : "n/a"],
 		["Truncated", promptWasTruncated ? "yes" : "no"],
 		["Artifact", artifactPath ?? "unavailable"],
+	];
+}
+
+function formatAgentConfigRows(agent: AgentMonitorModel): SettingRow[] {
+	// Full structured configuration: EVERY resolved runtime knob for this agent, always
+	// rendered (never conditional on the artifact), as a Markdown table so the Enter
+	// detail view is scannable/navigable. "default" means the option was not set and the
+	// subagent inherited the orchestrator/session value.
+	return [
+		["Model", agent.model ?? "default (inherited from orchestrator)"],
+		["Effort / thinking", agent.thinking ?? "default (inherited session level)"],
+		["Tools", agent.tools?.length ? agent.tools.join(", ") : "default (full toolset)"],
+		["Excluded tools", agent.excludeTools?.length ? agent.excludeTools.join(", ") : "none"],
+		[
+			"Skills",
+			agent.skills?.length
+				? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}`
+				: agent.includeSkills === false
+					? "disabled"
+					: "default discovery",
+		],
+		[
+			"Extensions",
+			agent.extensions?.length
+				? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}`
+				: agent.includeExtensions
+					? "default discovery"
+					: "disabled",
+		],
+		[
+			"Env keys",
+			agent.keys?.length
+				? `${agent.keys.join(", ")} (values redacted)`
+				: agent.isolatedEnv
+					? "none selected"
+					: "default inherited environment",
+		],
+		...(agent.missingKeys?.length ? [["Missing keys", `⚠ ${agent.missingKeys.join(", ")}`] as SettingRow] : []),
+		[
+			"Environment",
+			agent.isolatedEnv === undefined
+				? "unknown"
+				: agent.isolatedEnv
+					? "isolated + selected keys"
+					: "process default/inherited",
+		],
+		...(agent.schemaOk !== undefined
+			? [["Structured schema", agent.schemaOk ? "ok" : "❌ validation failed"] as SettingRow]
+			: []),
 	];
 }
 
@@ -198,52 +248,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	const phase = formatAgentPhase(agent);
 	const agentRef = formatAgentRef(agent, phase);
 	const outputText = formatAgentOutputText(modelOutput, agent.state);
-	// Full structured configuration: EVERY resolved runtime knob for this agent, always
-	// rendered (never conditional on the artifact), as a Markdown table so the Enter
-	// detail view is scannable/navigable. "default" means the option was not set and the
-	// subagent inherited the orchestrator/session value.
-	const configRows: [string, string][] = [
-		["Model", agent.model ?? "default (inherited from orchestrator)"],
-		["Effort / thinking", agent.thinking ?? "default (inherited session level)"],
-		["Tools", agent.tools?.length ? agent.tools.join(", ") : "default (full toolset)"],
-		["Excluded tools", agent.excludeTools?.length ? agent.excludeTools.join(", ") : "none"],
-		[
-			"Skills",
-			agent.skills?.length
-				? `${agent.skills.join(", ")}${agent.includeSkills ? " + discovery" : " (explicit only)"}`
-				: agent.includeSkills === false
-					? "disabled"
-					: "default discovery",
-		],
-		[
-			"Extensions",
-			agent.extensions?.length
-				? `${agent.extensions.join(", ")}${agent.includeExtensions ? " + discovery" : " (explicit only)"}`
-				: agent.includeExtensions
-					? "default discovery"
-					: "disabled",
-		],
-		[
-			"Env keys",
-			agent.keys?.length
-				? `${agent.keys.join(", ")} (values redacted)`
-				: agent.isolatedEnv
-					? "none selected"
-					: "default inherited environment",
-		],
-		...(agent.missingKeys?.length ? [["Missing keys", `⚠ ${agent.missingKeys.join(", ")}`] as [string, string]] : []),
-		[
-			"Environment",
-			agent.isolatedEnv === undefined
-				? "unknown"
-				: agent.isolatedEnv
-					? "isolated + selected keys"
-					: "process default/inherited",
-		],
-		...(agent.schemaOk !== undefined
-			? [["Structured schema", agent.schemaOk ? "ok" : "❌ validation failed"] as [string, string]]
-			: []),
-	];
+	const configRows = formatAgentConfigRows(agent);
 	const configTable = formatSettingTable(configRows);
 	const summary = [
 		`- Agent: ${agentRef} ${agent.name}`,
