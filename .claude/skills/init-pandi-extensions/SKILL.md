@@ -98,6 +98,30 @@ can kill your working session. For the full develop-and-test loop (isolated test
 in a separate worktree/instance; when to use sandboxing) see
 [`docs/developing-extensions.md`](../../../docs/developing-extensions.md).
 
+### Pi inside a repo worktree
+
+In a worktree of this repo, first try plain `pi`. If it starts cleanly, no wrapper is needed.
+
+If startup reports duplicate tool conflicts (`dynamic_workflow`, `loop_schedule`, `goal_progress`,
+etc.), Pi is loading both:
+
+1. the globally installed main checkout from `~/.pi/agent/settings.json`, and
+2. the worktree project packages from that worktree's `.pi/settings.json`.
+
+Use a gitignored wrapper in the worktree that points Pi at an isolated agent dir whose settings omit
+the global checkout package while keeping non-conflicting globals such as `npm:pi-codex-web-search`:
+
+```bash
+# .pi/tmp/pi-refactor.sh
+#!/usr/bin/env bash
+set -euo pipefail
+cd /path/to/worktree
+export PI_CODING_AGENT_DIR="$PWD/.pi/agent-refactor"
+exec pi --approve "$@"
+```
+
+Open Supacode tabs/splits with that wrapper instead of `pi` only when this conflict appears.
+
 ## About step 6: karpathy-guidelines (external skill)
 `karpathy-guidelines` is an EXTERNAL, community skill (from
 [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)) — this
