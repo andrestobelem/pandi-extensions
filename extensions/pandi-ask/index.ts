@@ -42,6 +42,11 @@ function jsonResult(payload: unknown, details: unknown) {
 }
 
 export default function askExtension(pi: ExtensionAPI) {
+	registerChoiceTool(pi);
+	registerConfirmTool(pi);
+}
+
+function registerChoiceTool(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "ask_choice",
 		label: "Ask choice",
@@ -85,7 +90,9 @@ export default function askExtension(pi: ExtensionAPI) {
 			);
 		},
 	});
+}
 
+function registerConfirmTool(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "ask_confirm",
 		label: "Ask confirm",
