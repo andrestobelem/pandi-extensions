@@ -5,7 +5,8 @@ description: >-
   set it up, or onboard — i.e. get the Pi (or Claude Code) extensions, skills, and dynamic
   workflows working from scratch. Walks the ordered, platform-aware, idempotent setup: Node
   >=22.19 via nvm, the global Pi CLI, npm install, npm run doctor, npm test, pi install ./,
-  then /trust + /reload and a smoke test, plus optional web_search / PNG-graph / sandbox extras.
+  then /trust + /reload and a smoke test. Also handles doctor-reported sync drift
+  (including ~/.claude) and optional web_search / Context7 / PNG-graph / sandbox extras.
   NOT for authoring new extensions, nor for a generic `npm install` of unrelated packages.
 ---
 
@@ -15,9 +16,10 @@ Bring a **fresh clone** of `pandi-extensions` to a working setup: the Pi extensi
 (`/workflow`, `/goal`, `/loop`, `/plan`, `/effort`, `/mdview`, …), the project skills, and the
 dynamic-workflow catalog — usable from Pi and from Claude Code.
 
-**Source of truth:** the README **"Quickstart"** section and `extensions/pandi-doctor/scripts/doctor.mjs`. This skill is the
-ordered procedure + judgment; when in doubt, run `npm run doctor` and follow the README rather than
-guessing. Do not invent versions or steps — read them from `.nvmrc`, `package.json`, and the README.
+**Source of truth:** the README **"Quickstart"** section, `docs/setup.md` for optional capabilities, and
+`extensions/pandi-doctor/scripts/doctor.mjs`. This skill is the ordered procedure + judgment; when
+in doubt, run `npm run doctor` and follow the README/docs rather than guessing. Do not invent
+versions or steps — read them from `.nvmrc`, `package.json`, the README, and `docs/setup.md`.
 
 ## When to use
 - "I just cloned this — how do I install/set it up?", "onboard me", "get the extensions working".
@@ -29,7 +31,7 @@ Do NOT use for: authoring a new extension/skill, or `npm install`-ing some unrel
 1. Are we at the **repo root**? (`package.json` name must be `pandi-extensions`.)
 2. What does the environment already have? Run **`npm run doctor`** — it is read-only, lists every
    mandatory + optional prerequisite, and exits non-zero only if a MANDATORY one is missing. Let its
-   output drive what you still need to install; don't reinstall what's already OK.
+   output drive what you still need to install or sync; don't reinstall what's already OK.
 3. Note the platform: install commands differ (macOS = `brew`, Linux = distro package manager;
    Apple `container` sandboxes are macOS Apple-Silicon only).
 
@@ -55,14 +57,21 @@ npm test
 
 # 5. Install ALL extensions + skills into Pi (global for your user)
 pi install ./                     # project-local instead: pi install -l ./
+```
 
-# 6. External skill karpathy-guidelines (community, not vendored) — install globally from upstream.
-#    Pi reads ~/.agents/skills; Claude Code reads ~/.claude/skills. AGENTS.md expects it installed.
-for d in ~/.agents/skills ~/.claude/skills; do
-  mkdir -p "$d/karpathy-guidelines"
-  curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
-    -o "$d/karpathy-guidelines/SKILL.md"
-done
+If `doctor` reports repo/global mirror drift, run the exact fix it prints, then re-run `npm run doctor`.
+Common sync fixes:
+
+```bash
+npm run sync:claude:global        # managed files in ~/.claude; honors CLAUDE_GLOBAL_DIR
+npm run sync:manifest             # package.json#pi from extension manifests
+npm run sync:settings             # .pi/settings*.json from extension manifests
+npm run sync:skills               # .pi/skills -> .claude/skills mirror
+npm run sync:skills:vendor        # .pi/skills -> vendored extension skill copies
+npm run sync:agents               # AGENTS.md -> CLAUDE.md
+npm run sync:claude:ultracode     # generated Claude ultracode skills
+npm run sync:docs:html            # generated docs/html mirror
+npm run sync:personas             # generated personas README/HTML
 ```
 
 Then, **in the project where you want to use them** (not necessarily this repo):
@@ -122,25 +131,44 @@ exec pi --approve "$@"
 
 Open Supacode tabs/splits with that wrapper instead of `pi` only when this conflict appears.
 
-## About step 6: karpathy-guidelines (external skill)
+## External skill: karpathy-guidelines
+
 `karpathy-guidelines` is an EXTERNAL, community skill (from
 [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)) — this
-repo does **not** vendor it, but AGENTS.md expects it *installed*, which is why **step 6** fetches
-it into your global skill dirs (Pi reads `~/.agents/skills/`, Claude Code reads `~/.claude/skills/`;
-idempotent — safe to re-run). Claude Code users can instead use the upstream plugin: `/plugin
-marketplace add multica-ai/andrej-karpathy-skills` then `/plugin install andrej-karpathy-skills`.
-`npm run doctor` reports whether the skill is present.
+repo does **not** vendor it, but AGENTS.md expects it *installed*. If `doctor` warns that it is
+missing, fetch it into your global skill dirs (Pi reads `~/.agents/skills/`, Claude Code reads
+`~/.claude/skills/`; idempotent — safe to re-run):
+
+```bash
+for d in ~/.agents/skills ~/.claude/skills; do
+  mkdir -p "$d/karpathy-guidelines"
+  curl -fsSL https://raw.githubusercontent.com/multica-ai/andrej-karpathy-skills/main/skills/karpathy-guidelines/SKILL.md \
+    -o "$d/karpathy-guidelines/SKILL.md"
+done
+```
+
+Claude Code users can instead use the upstream plugin: `/plugin marketplace add
+multica-ai/andrej-karpathy-skills` then `/plugin install andrej-karpathy-skills`. `npm run doctor`
+reports whether the skill is present.
 
 ## Optional capabilities (install only if asked / needed)
+
 Check `npm run doctor` for which are missing, then:
 
 ```bash
 # web_search for subagents
-npm install -g @openai/codex && pi install npm:pi-codex-web-search
+pi install npm:pi-codex-web-search
+brew install codex               # or: npm install -g @openai/codex
+
+# Context7 docs for subagents (ctx7 CLI is a devDependency here; global install also works)
+npx ctx7 setup --cli
+
 # PNG graphs for /workflow graph (if mmdc render fails)
 npx puppeteer browsers install chrome-headless-shell
+
 # Linux sandboxes (/container) — macOS Apple Silicon only
 brew install container && container system kernel set --recommended && container system start
+
 # micro-VM isolation (Gondolin) — Node >= 23.6.0
 npm run setup:gondolin && echo "then run:  pi -e .pi/tools/gondolin"
 ```
