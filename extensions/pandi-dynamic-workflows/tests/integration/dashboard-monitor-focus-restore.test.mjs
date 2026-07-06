@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Regression: the Monitor tab's focused RUN must survive a dashboard reopen.
+ * Regresión: el RUN enfocado del tab Monitor debe sobrevivir a una reapertura del dashboard.
  *
- * Farley review 2026-07-03, finding #3 (High): DashboardSelection persists
- * monitorAgentIndex but NOT monitorRunIndex, and the constructor never restores
- * it — so every reopen (which dashboard-orchestration does around any action)
- * silently resets the master-detail focus back to the first active run,
- * defeating the exact restore mechanism the selection object was built for.
+ * Review Farley 2026-07-03, hallazgo #3 (High): DashboardSelection persistía
+ * monitorAgentIndex pero NO monitorRunIndex, y el constructor nunca lo restauraba;
+ * entonces cada reapertura (que dashboard-orchestration hace alrededor de cualquier acción)
+ * reseteaba silenciosamente el foco master-detail al primer run activo,
+ * anulando el mecanismo exacto de restore para el que existía el objeto de selección.
  *
- * Contract pinned here (workflow-dashboard.ts):
- *   - "]" on the Monitor tab cycles the focused run (existing behavior).
- *   - getSelection() carries monitorRunIndex.
- *   - Rebuilding with restore keeps the focused run (and clamps it to the fresh
- *     model list, falling back safely when runs disappeared).
+ * Contrato fijado acá (workflow-dashboard.ts):
+ *   - "]" en el tab Monitor cicla el run enfocado (comportamiento existente).
+ *   - getSelection() transporta monitorRunIndex.
+ *   - Reconstruir con restore conserva el run enfocado (y lo clampa a la lista fresca
+ *     de modelos, con fallback seguro cuando desaparecieron runs).
  */
 
 import * as path from "node:path";
@@ -103,7 +103,7 @@ async function main() {
 
 	const models = [makeModel("run-aaa", "flow-a"), makeModel("run-bbb", "flow-b"), makeModel("run-ccc", "flow-c")];
 
-	// Focus the second run with "]" (existing behavior).
+	// Enfocar el segundo run con "]" (comportamiento existente).
 	const first = build(WorkflowDashboard, models);
 	first.handleInput("]");
 	check(
@@ -112,11 +112,11 @@ async function main() {
 		showing(first.render(120)),
 	);
 
-	// The selection must carry the focused run…
+	// La selección debe transportar el run enfocado…
 	const sel = first.getSelection();
 	check("getSelection carries monitorRunIndex", sel.monitorRunIndex === 1, JSON.stringify(sel));
 
-	// …and a reopen with restore must keep it.
+	// …y una reapertura con restore debe conservarlo.
 	const reopened = build(WorkflowDashboard, models, sel);
 	check(
 		"reopen restores the focused run (showing 2/3)",
@@ -124,7 +124,7 @@ async function main() {
 		showing(reopened.render(120)),
 	);
 
-	// Clamp: restore with fewer runs than before falls back safely.
+	// Clamp: restore con menos runs que antes cae a un fallback seguro.
 	const shrunk = build(WorkflowDashboard, [models[0]], { ...sel, monitorRunIndex: 5 });
 	const shrunkLines = shrunk.render(120);
 	check("restore clamps to the fresh model list (no crash)", Array.isArray(shrunkLines) && shrunkLines.length > 0);
