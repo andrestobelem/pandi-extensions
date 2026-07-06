@@ -24,6 +24,12 @@ export interface RunReportText {
 	truncated: boolean;
 }
 
+export interface RunReportBasedOn {
+	name: string;
+	role?: string;
+	desc?: string;
+}
+
 export interface RunReportAgent {
 	id: number;
 	name: string;
@@ -103,6 +109,8 @@ export interface RunReportModel {
 	codeDrift?: "match" | "changed" | "missing" | "unknown";
 	input?: RunReportText;
 	output?: RunReportText;
+	outputFormat?: "pre" | "markdown";
+	basedOn?: RunReportBasedOn[];
 	logs: { time: string; message: string; details?: string }[];
 	phases: { label: string; time: string; source?: "event" | "log" }[];
 	agents: RunReportAgent[];
@@ -807,6 +815,7 @@ export function buildRunReportHtml(model: RunReportModel): string {
 		chip("run", model.runId),
 		chip("scope", model.scope),
 		chip("agents", model.agents.length),
+		model.basedOn?.length ? chip("based on", model.basedOn.length) : "",
 		failedAgents ? chip("failed", failedAgents) : "",
 		model.integrity?.emptyOutputAgents ? chip("empty-output", model.integrity.emptyOutputAgents) : "",
 		model.integrity?.outputTruncatedAgents ? chip("output:truncated", model.integrity.outputTruncatedAgents) : "",
@@ -861,6 +870,16 @@ export function buildRunReportHtml(model: RunReportModel): string {
 				chip("schema failed", integrity.schemaFailedAgents),
 			].join("") +
 			`</div>`
+		: "";
+
+	const basedOnRows = (model.basedOn ?? [])
+		.map((item) => {
+			const detail = [item.role, item.desc].filter(Boolean).join(" · ");
+			return `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(detail)}</td></tr>`;
+		})
+		.join("");
+	const basedOnSection = basedOnRows
+		? `<h2>Based on</h2><table><thead><tr><th>Scaffold/source</th><th>Role</th></tr></thead><tbody>${basedOnRows}</tbody></table>`
 		: "";
 
 	const t = model.metricsTotals;
@@ -918,9 +937,10 @@ ${opening}
 ${callouts.join("\n")}
 ${renderWorkflowMonitor(model, summary)}
 ${textBlock("Input", model.input)}
-${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true)}` : ""}
+${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true, model.outputFormat === "markdown" ? "markdown" : "pre")}` : ""}
 ${integritySection}
 ${metricsSection}
+${basedOnSection}
 ${phaseSection}
 <h2>Agents (${model.agents.length})</h2>
 ${model.agents.map(renderAgent).join("\n")}
