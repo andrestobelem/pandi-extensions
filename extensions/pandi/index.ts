@@ -9,8 +9,8 @@
  *
  * Qué hace:
  *   - Splash en el encabezado de arranque: panda + nombre + frase (/pandi art lo alterna).
- *   - Indicador animado mientras pi streamea. El estilo default alterna la carita
- *       clásica `(●  ●)` con el osito `ʕ •ᴥ• ʔ`; `/pandi face` cambia variantes.
+ *   - Indicador animado mientras pi streamea. El estilo default muestra la carita
+ *       clásica `(●  ●)` moviéndose y luego el osito `ʕ •ᴥ• ʔ`; `/pandi face` cambia variantes.
  *   - Verbo juguetón rotativo por turno + guiño con la frase del meme.
  *   - Estado "◆ Pandi" en el pie.
  *
@@ -130,16 +130,16 @@ function framesClaude(theme: Theme): WorkingIndicatorOptions {
 		frames: [
 			face("●", "●") + dots(0),
 			face("●", "●") + dots(1),
-			bear("•", "•") + dots(1),
-			bear("•", "•") + dots(2),
 			face("◆", "●") + dots(2), // brilla el ojo izquierdo
-			bear("-", "-") + dots(3), // parpadeo del osito
 			face("●", "◆") + dots(3), // brilla el derecho
-			bear("·", "·") + dots(2),
 			face("◆", "◆") + dots(2), // alma de Claude
-			bear("^", "^") + dots(1), // respiración alegre
 			face("-", "-") + dots(1), // parpadeo clásico
 			bear("•", "•") + dots(0),
+			bear("•", "•") + dots(1),
+			bear("•", "•") + dots(2),
+			bear("-", "-") + dots(3), // parpadeo del osito
+			bear("·", "·") + dots(2),
+			bear("^", "^") + dots(1), // respiración alegre
 		],
 		intervalMs: 180,
 	};

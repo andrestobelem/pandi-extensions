@@ -4,7 +4,8 @@
  *
  * Contrato de esta suite:
  * - el estilo default/claude conserva la carita clásica con paréntesis;
- * - también alterna con el osito `ʕ •ᴥ• ʔ` pedido para darle más vida;
+ * - también incluye el osito `ʕ •ᴥ• ʔ` pedido para darle más vida;
+ * - cada carita se sostiene varios frames mientras se mueve, antes de pasar a la otra;
  * - la animación mantiene movimiento observable (frames distintos y puntitos de progreso).
  */
 
@@ -28,6 +29,23 @@ const fakeTheme = {
 
 const visibleText = (value) => String(value).replace(ANSI_RE, "").replace(TAG_RE, "");
 
+function faceFamily(frame) {
+	const visible = visibleText(frame);
+	if (visible.includes("ʕ") && visible.includes("ʔ")) return "bear";
+	if (visible.includes("(") && visible.includes(")")) return "classic";
+	return "unknown";
+}
+
+function runs(values) {
+	const result = [];
+	for (const value of values) {
+		const last = result.at(-1);
+		if (last?.value === value) last.length += 1;
+		else result.push({ value, length: 1 });
+	}
+	return result;
+}
+
 async function scenario(url) {
 	const mod = await loadModule(url);
 	check("pandaFrames is exported for indicator characterization", typeof mod.pandaFrames === "function");
@@ -43,11 +61,32 @@ async function scenario(url) {
 		visible,
 	);
 	check(
-		"claude indicator alternates with the bear kaomoji",
+		"claude indicator includes the bear kaomoji",
 		visible.includes("ʕ") && visible.includes("ᴥ") && visible.includes("ʔ"),
 		visible,
 	);
 	check("bear kaomoji uses the requested visible shape", visible.includes("ʕ •ᴥ• ʔ"), visible);
+	const families = frames.map(faceFamily);
+	const familyRuns = runs(families);
+	check(
+		"claude indicator shows one face family at a time before switching",
+		familyRuns.length === 2 && familyRuns.every((run) => run.length >= 4),
+		JSON.stringify(familyRuns),
+	);
+	check(
+		"each face family has its own movement before the next one appears",
+		["classic", "bear"].every(
+			(family) => new Set(frames.filter((frame) => faceFamily(frame) === family).map(visibleText)).size >= 4,
+		),
+		JSON.stringify(
+			Object.fromEntries(
+				["classic", "bear"].map((family) => [
+					family,
+					new Set(frames.filter((frame) => faceFamily(frame) === family).map(visibleText)).size,
+				]),
+			),
+		),
+	);
 	check("indicator has multiple animation frames", new Set(frames).size >= 6, `unique=${new Set(frames).size}`);
 	check(
 		"indicator keeps progress-dot movement",
