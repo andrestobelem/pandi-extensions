@@ -450,6 +450,12 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 	drainWakeQueue(pi, ctx);
 }
 
+function clearLoopTimer(loop: ActiveLoop): void {
+	if (!loop.timer) return;
+	clearTimeout(loop.timer);
+	loop.timer = null;
+}
+
 /** Arma el próximo wake después de delaySec. El caller es responsable de clampear. */
 function scheduleWake(
 	pi: ExtensionAPI,
@@ -458,10 +464,7 @@ function scheduleWake(
 	delaySec: number,
 	reason: string,
 ): void {
-	if (loop.timer) {
-		clearTimeout(loop.timer);
-		loop.timer = null;
-	}
+	clearLoopTimer(loop);
 	loop.nextFireAt = Date.now() + delaySec * 1000;
 	loop.lastReason = reason;
 	loop.rearmedThisTurn = true;
@@ -478,10 +481,7 @@ function scheduleWake(
  * dispara en el siguiente tick (delay 0): un solo catch-up, nunca un burst.
  */
 function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
-	if (loop.timer) {
-		clearTimeout(loop.timer);
-		loop.timer = null;
-	}
+	clearLoopTimer(loop);
 	const period = loop.intervalMs ?? 0;
 	// Anclar al fire time programado previo (seteado por fireWake) para que los períodos
 	// no deriven; fallback al nextFireAt actual (primer armado / resume) o now.
@@ -634,10 +634,7 @@ function stopLoop(
 ): boolean {
 	const loop = activeLoops.get(loopId);
 	if (!loop) return false;
-	if (loop.timer) {
-		clearTimeout(loop.timer);
-		loop.timer = null;
-	}
+	clearLoopTimer(loop);
 	loop.controller.abort(reason);
 	loop.status = finalStatus;
 	loop.nextFireAt = null;
@@ -668,10 +665,7 @@ function dropQueuedWakes(loopId: string): void {
  */
 function pauseLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): boolean {
 	if (loop.status !== "running") return false;
-	if (loop.timer) {
-		clearTimeout(loop.timer);
-		loop.timer = null;
-	}
+	clearLoopTimer(loop);
 	// Preservar el delay restante como offset relativo para que resume pueda restaurarlo
 	// incluso tras persist/rehydrate (rederivamos nextFireAt desde esto en resume).
 	loop.pausedRemainingMs = loop.nextFireAt === null ? null : Math.max(0, loop.nextFireAt - Date.now());
@@ -1216,10 +1210,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		for (const loop of activeLoops.values()) {
-			if (loop.timer) {
-				clearTimeout(loop.timer);
-				loop.timer = null;
-			}
+			clearLoopTimer(loop);
 			loop.controller.abort("cierre de sesión");
 			if (loop.status === "running") {
 				// Persistir como "stale" (recuperable en el próximo session_start), manteniendo nextFireAt intacto.
