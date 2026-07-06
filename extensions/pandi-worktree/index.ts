@@ -54,7 +54,10 @@ import {
 import {
 	ensureWorktreeWriterForCommand,
 	formatWorktreeWriterBlock,
+	isWorktreeWriterGuardEnabled,
 	registerWorktreeWriterGuard,
+	resetWorktreeWriterGuardSessionDefault,
+	setWorktreeWriterGuardEnabled,
 } from "./writer-guard.js";
 
 // --------------------------------------------------------------------------
@@ -110,10 +113,11 @@ const HELP_TEXT = [
 	"  /worktree open [-b <branch>] [--detach] [--force] <path> [<commit-ish>]  si falta, crearlo y luego abrir Pi ahí",
 	"  /worktree remove [--force] <path>      eliminar un worktree",
 	"  /worktree prune [--dry-run]            limpiar metadatos obsoletos de worktrees",
-	"  /worktree set [copy-ignored|copy-untracked] [on|off|status]   definir la copia por defecto de la sesión",
+	"  /worktree set [copy-ignored|copy-untracked|writer-guard] [on|off|status]   definir preferencias de la sesión",
 	"",
 	"Pasá --copy-ignored/--copy-untracked (o --no-copy-ignored/--no-copy-untracked) para sobrescribirlo en esta llamada.",
 	"O definí un valor por defecto de la sesión con `set` (también vía las env vars PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED).",
+	"El single-writer guard está desactivado por defecto; activalo con `/worktree set writer-guard on` o PI_WORKTREE_WRITER_GUARD=1.",
 	"",
 	`Un <name> simple (sin slash) se crea en ${CONFIG_DIR_NAME}/worktrees/<name> (gitignored).`,
 	"Usá ./x, ../x, /abs o ~/x para una ubicación explícita.",
@@ -208,19 +212,28 @@ function describeCopyDefaults(): string {
 	return `copy-ignored ${r.copyIgnored ? "on" : "off"}, copy-untracked ${r.copyUntracked ? "on" : "off"}`;
 }
 
-/** `/worktree set [copy-ignored|copy-untracked] [on|off|status]` — gestiona el valor por defecto de copia de la sesión. */
-function handleSet(ctx: ExtensionContext, parsed: ParsedCommand): void {
+function describeWriterGuardDefault(): string {
+	return `writer-guard ${isWorktreeWriterGuardEnabled() ? "on" : "off"}`;
+}
+
+/** `/worktree set [copy-ignored|copy-untracked|writer-guard] [on|off|status]` — gestiona preferencias de la sesión. */
+async function handleSet(ctx: ExtensionContext, parsed: ParsedCommand): Promise<void> {
 	if (parsed.error) {
 		notify(ctx, parsed.error, "warning");
 		return;
 	}
 	// Sin target, o con `status` explícito: solo informar la resolución actual.
 	if (!parsed.setTarget || parsed.setValue === "status") {
-		notify(ctx, `Copias por defecto de worktrees: ${describeCopyDefaults()}.`, "info");
+		notify(ctx, `Preferencias de worktrees: ${describeCopyDefaults()}, ${describeWriterGuardDefault()}.`, "info");
 		return;
 	}
 	if (parsed.setValue === "invalid") {
 		notify(ctx, `Uso: /worktree set ${parsed.setTarget} [on|off|status]`, "warning");
+		return;
+	}
+	if (parsed.setTarget === "writer-guard") {
+		await setWorktreeWriterGuardEnabled(parsed.setValue === "on");
+		notify(ctx, `Se definió writer-guard ${parsed.setValue} para esta sesión.`, "info");
 		return;
 	}
 	const key: CopyPrefKey = parsed.setTarget === "copy-ignored" ? "copyIgnored" : "copyUntracked";
@@ -714,7 +727,7 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 			await handleOpen(ctx, parsed, signal);
 			return;
 		case "set":
-			handleSet(ctx, parsed);
+			await handleSet(ctx, parsed);
 			return;
 		case "remove":
 			await handleRemove(ctx, parsed, signal);
@@ -747,6 +760,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 	// (refleja a pandi-plan reiniciando sus toggles de postura ultracode en session_start).
 	pi.on("session_start", () => {
 		resetSessionCopyDefaults();
+		resetWorktreeWriterGuardSessionDefault();
 	});
 
 	pi.registerCommand("worktree", {

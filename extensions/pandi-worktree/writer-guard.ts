@@ -20,11 +20,13 @@ import {
 import { DEFAULT_GIT_TIMEOUT_MS as GIT_TIMEOUT_MS, runGit } from "./worktree.js";
 
 const WRITER_LEASE_FILE = "worktree-writer.json";
+const WRITER_GUARD_ENV = "PI_WORKTREE_WRITER_GUARD";
 const HEARTBEAT_INTERVAL_MS = 15_000;
 const STALE_LEASE_MS = 2 * 60_000;
 const LOCK_STALE_MS = 10_000;
 const LOCK_RETRY_DEADLINE_MS = 250;
 const LOCK_RETRY_DELAY_MS = 25;
+const TRUE_TOKENS = new Set(["1", "true", "on", "yes"]);
 
 interface WriterLease {
 	version: 1;
@@ -69,6 +71,7 @@ interface MutationIntent {
 }
 
 let activeGuardState: GuardState | undefined;
+let sessionWriterGuardEnabled: boolean | undefined;
 
 export function registerWorktreeWriterGuard(pi: ExtensionAPI): void {
 	const state: GuardState = { id: randomUUID() };
@@ -79,6 +82,7 @@ export function registerWorktreeWriterGuard(pi: ExtensionAPI): void {
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
+		if (!isWorktreeWriterGuardEnabled()) return undefined;
 		const intent = mutationIntentForToolCall(event);
 		if (!intent) return undefined;
 		const decision = await ensureWriterLease(state, ctx, intent);
@@ -88,6 +92,7 @@ export function registerWorktreeWriterGuard(pi: ExtensionAPI): void {
 	});
 
 	pi.on("user_bash", async (event, ctx) => {
+		if (!isWorktreeWriterGuardEnabled()) return undefined;
 		if (!isMutatingBashCommand(event.command)) return undefined;
 		const decision = await ensureWriterLease(state, ctx, {
 			kind: "user_bash",
@@ -112,12 +117,30 @@ export async function ensureWorktreeWriterForCommand(
 	ctx: ExtensionContext,
 	intent: { action: string; command: string; dryRun?: boolean },
 ): Promise<LeaseDecision> {
-	// Slash commands are invoked in-process, so they need an explicit guard. Keep
-	// list/set/help read-only, prune --dry-run read-only, and add/open as the
-	// documented escape hatch for moving work into a separate worktree.
-	if (!isGuardedWorktreeCommand(intent.action, intent.dryRun)) return { allowed: true };
+	// Slash commands are invoked in-process, so they need an explicit guard only
+	// when the opt-in writer guard is enabled. Keep list/set/help read-only,
+	// prune --dry-run read-only, and add/open as the documented escape hatch for
+	// moving work into a separate worktree.
+	if (!isWorktreeWriterGuardEnabled() || !isGuardedWorktreeCommand(intent.action, intent.dryRun)) {
+		return { allowed: true };
+	}
 	const state: GuardState = getCommandGuardState();
 	return ensureWriterLease(state, ctx, { kind: "command", toolName: "/worktree", command: intent.command });
+}
+
+export function isWorktreeWriterGuardEnabled(): boolean {
+	return sessionWriterGuardEnabled ?? TRUE_TOKENS.has((process.env[WRITER_GUARD_ENV] ?? "").trim().toLowerCase());
+}
+
+export async function setWorktreeWriterGuardEnabled(enabled: boolean): Promise<void> {
+	sessionWriterGuardEnabled = enabled;
+	if (!enabled) {
+		await releaseWriterLease(activeGuardState ?? commandGuardState ?? { id: "" });
+	}
+}
+
+export function resetWorktreeWriterGuardSessionDefault(): void {
+	sessionWriterGuardEnabled = undefined;
 }
 
 export function formatWorktreeWriterBlock(reason: string | undefined): string {
@@ -162,17 +185,100 @@ function mutationIntentForToolCall(event: ToolCallEvent): MutationIntent | undef
 }
 
 function isMutatingBashCommand(command: string): boolean {
-	const trimmed = command.trim();
-	if (!trimmed) return false;
-	if (/[;&|]\s*tee\b/.test(trimmed) || /(^|[^<])>{1,2}[^>]/.test(trimmed) || /<<-?\s*\w+/.test(trimmed)) return true;
-	const parts = trimmed.split(/\s*(?:&&|\|\||;|\|)\s*/).filter(Boolean);
-	return parts.length === 0 ? false : !parts.every(isReadOnlySimpleCommand);
+	const parsed = splitShellCommands(command);
+	if (!parsed.ok) return true;
+	if (parsed.hasWriteRedirection) return true;
+	return parsed.parts.length === 0 ? false : !parsed.parts.every(isReadOnlySimpleCommand);
+}
+
+interface SplitShellCommandsResult {
+	ok: boolean;
+	parts: string[];
+	hasWriteRedirection: boolean;
+}
+
+function splitShellCommands(command: string): SplitShellCommandsResult {
+	const parts: string[] = [];
+	let current = "";
+	let quote: "'" | '"' | undefined;
+	let escaped = false;
+	let hasWriteRedirection = false;
+	const push = (): void => {
+		const part = current.trim();
+		if (part) parts.push(part);
+		current = "";
+	};
+	for (let i = 0; i < command.length; i++) {
+		const ch = command[i];
+		const next = command[i + 1];
+		if (escaped) {
+			current += ch;
+			escaped = false;
+			continue;
+		}
+		if (ch === "\\") {
+			current += ch;
+			escaped = true;
+			continue;
+		}
+		if (quote) {
+			current += ch;
+			if (ch === quote) quote = undefined;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			current += ch;
+			continue;
+		}
+		if (ch === ">" && next !== ">") {
+			hasWriteRedirection = true;
+			current += ch;
+			continue;
+		}
+		if (ch === ">" && next === ">") {
+			hasWriteRedirection = true;
+			current += ch;
+			current += next;
+			i++;
+			continue;
+		}
+		if (ch === "<" && next === "<") {
+			hasWriteRedirection = true;
+			current += ch;
+			current += next;
+			i++;
+			continue;
+		}
+		if (ch === "\n" || ch === ";") {
+			push();
+			continue;
+		}
+		if (ch === "&" && next === "&") {
+			push();
+			i++;
+			continue;
+		}
+		if (ch === "|" && next === "|") {
+			push();
+			i++;
+			continue;
+		}
+		if (ch === "|") {
+			push();
+			continue;
+		}
+		current += ch;
+	}
+	if (quote || escaped) return { ok: false, parts, hasWriteRedirection };
+	push();
+	return { ok: true, parts, hasWriteRedirection };
 }
 
 function isReadOnlySimpleCommand(command: string): boolean {
 	const c = command.trim();
 	if (!c) return true;
-	if (/^(pwd|ls|ll|la|rg|grep|find|cat|head|tail|wc)\b/.test(c)) return true;
+	if (/^(pwd|printf|ls|ll|la|rg|grep|find|cat|head|tail|wc)\b/.test(c)) return true;
 	if (/^sed\s+-n\b/.test(c)) return true;
 	if (/^git\s+(status|diff|log|show|rev-parse|ls-files)\b/.test(c)) return true;
 	if (/^git\s+branch\s+(--show-current|-vv?)(\s|$)/.test(c)) return true;
@@ -398,4 +504,8 @@ function errorMessage(err: unknown): string {
 export const __writerGuardForTests = {
 	isMutatingBashCommand,
 	isReadOnlySimpleCommand,
+	isWorktreeWriterGuardEnabled,
+	resetWorktreeWriterGuardSessionDefault,
+	setWorktreeWriterGuardEnabled,
+	splitShellCommands,
 };

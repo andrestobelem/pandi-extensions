@@ -85,7 +85,9 @@ Example tool call:
 
 - `git` is always spawned with an argv array — never a shell string — so
   paths and branch names cannot inject shell commands.
-- The single-writer guard stores a heartbeat lease at
+- The single-writer guard is **off by default**. Enable it per session with
+  `/worktree set writer-guard on`, or at startup with `PI_WORKTREE_WRITER_GUARD=1`
+  (`true`/`on`/`yes` also work). When enabled, it stores a heartbeat lease at
   `.pi/worktree-writer.json` inside the git worktree root. Read-only tools and
   `git_worktree`/`/worktree open` remain available as an escape hatch; if a
   session crashes, a stale lease is replaced automatically after a short grace

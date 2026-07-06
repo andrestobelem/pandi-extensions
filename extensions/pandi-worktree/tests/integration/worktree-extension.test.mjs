@@ -807,6 +807,14 @@ async function scenarioCopyPrefsResolution(url) {
 		setStatus.action === "set" && !setStatus.setTarget,
 		JSON.stringify(setStatus),
 	);
+	const setWriterGuard = mod.parseCommand("set writer-guard on");
+	check(
+		"parseCommand: set writer-guard on",
+		setWriterGuard.action === "set" &&
+			setWriterGuard.setTarget === "writer-guard" &&
+			setWriterGuard.setValue === "on",
+		JSON.stringify(setWriterGuard),
+	);
 	const setBogus = mod.parseCommand("set bogus on");
 	check("parseCommand: set bogus => error", setBogus.action === "set" && !!setBogus.error, JSON.stringify(setBogus));
 }
@@ -836,6 +844,16 @@ async function scenarioCopyPrefsSetCommand(url) {
 		/copy-ignored/.test(lastNote(setCtx).msg) && setCtx._notes.length > 0,
 		lastNote(setCtx).msg,
 	);
+	await handler("set writer-guard status", setCtx);
+	check(
+		"set writer-guard: default status is off",
+		/writer-guard off/.test(lastNote(setCtx).msg),
+		lastNote(setCtx).msg,
+	);
+	await handler("set writer-guard on", setCtx);
+	check("set writer-guard: can enable", /writer-guard on/.test(lastNote(setCtx).msg), lastNote(setCtx).msg);
+	await handler("set writer-guard off", setCtx);
+	check("set writer-guard: can disable", /writer-guard off/.test(lastNote(setCtx).msg), lastNote(setCtx).msg);
 
 	const added = await tool.execute(
 		"id",

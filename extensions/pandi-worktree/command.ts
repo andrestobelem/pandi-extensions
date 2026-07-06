@@ -16,8 +16,8 @@ export interface ParsedCommand {
 	/** Tres estados: true (--copy-ignored), false (--no-copy-ignored), undefined (seguir al siguiente valor). */
 	copyIgnored?: boolean;
 	copyUntracked?: boolean;
-	/** Para `set`: qué valor por defecto de copia leer/escribir (undefined = mostrar ambos). */
-	setTarget?: "copy-ignored" | "copy-untracked";
+	/** Para `set`: qué valor de sesión leer/escribir (undefined = mostrar todos). */
+	setTarget?: "copy-ignored" | "copy-untracked" | "writer-guard";
 	/** Para `set`: el valor parseado del toggle on|off|status|invalid. */
 	setValue?: "on" | "off" | "status" | "invalid";
 	error?: string;
@@ -55,10 +55,13 @@ export function parseCommand(input: string): ParsedCommand {
 
 	if (head === "set") {
 		const rest = tokens.slice(1);
-		if (rest.length === 0) return { action: "set" }; // mostrar ambos
+		if (rest.length === 0) return { action: "set" }; // mostrar todo
 		const target = rest[0].toLowerCase();
-		if (target !== "copy-ignored" && target !== "copy-untracked") {
-			return { action: "set", error: "Uso: /worktree set [copy-ignored|copy-untracked] [on|off|status]" };
+		if (target !== "copy-ignored" && target !== "copy-untracked" && target !== "writer-guard") {
+			return {
+				action: "set",
+				error: "Uso: /worktree set [copy-ignored|copy-untracked|writer-guard] [on|off|status]",
+			};
 		}
 		return { action: "set", setTarget: target, setValue: parseCopyToggleValue(rest[1] ?? "") };
 	}

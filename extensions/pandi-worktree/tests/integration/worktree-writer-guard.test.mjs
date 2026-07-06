@@ -140,6 +140,42 @@ function isBlocked(result) {
 	return result?.block === true && typeof result.reason === "string";
 }
 
+async function scenarioDefaultDisabled(url) {
+	const repo = await makeRepo();
+	try {
+		const first = await activate(url, repo, "writer-a");
+		const firstWrite = await emit(
+			first.handlers,
+			"tool_call",
+			toolCallEvent("write", { path: "file.txt", content: "x" }),
+			first.ctx,
+		);
+		check(
+			"writer guard is disabled by default: first write allowed",
+			firstWrite === undefined,
+			JSON.stringify(firstWrite),
+		);
+		check("writer guard is disabled by default: no lease is created", !existsSync(leasePath(repo)), leasePath(repo));
+
+		const second = await activate(url, repo, "writer-b");
+		const secondWrite = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("write", { path: "file.txt", content: "y" }),
+			second.ctx,
+		);
+		check(
+			"writer guard is disabled by default: second writer is not blocked",
+			secondWrite === undefined,
+			JSON.stringify(secondWrite),
+		);
+		await shutdown(second);
+		await shutdown(first);
+	} finally {
+		await fs.rm(repo, { recursive: true, force: true });
+	}
+}
+
 async function scenarioActiveConflict(url) {
 	const repo = await makeRepo();
 	try {
@@ -183,6 +219,49 @@ async function scenarioActiveConflict(url) {
 			second.ctx,
 		);
 		check("read-only bash is not blocked by another writer", status === undefined, JSON.stringify(status));
+		const quotedRegex = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "rg 'hello|nope' file.txt" }),
+			second.ctx,
+		);
+		check("read-only bash allows quoted regex pipes", quotedRegex === undefined, JSON.stringify(quotedRegex));
+		const quotedRegexPipeline = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "rg 'hello|nope' file.txt | head -20" }),
+			second.ctx,
+		);
+		check(
+			"read-only bash allows pipelines when every command is read-only",
+			quotedRegexPipeline === undefined,
+			JSON.stringify(quotedRegexPipeline),
+		);
+		const printfReadOnly = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "printf 'x\\n'" }),
+			second.ctx,
+		);
+		check(
+			"read-only bash allows printf without redirection",
+			printfReadOnly === undefined,
+			JSON.stringify(printfReadOnly),
+		);
+		const printfRedirect = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "printf x > file.txt" }),
+			second.ctx,
+		);
+		check("bash blocks printf redirection", isBlocked(printfRedirect), JSON.stringify(printfRedirect));
+		const multilineMutation = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "git status --short\nrm file.txt" }),
+			second.ctx,
+		);
+		check("bash blocks newline-separated mutations", isBlocked(multilineMutation), JSON.stringify(multilineMutation));
 		const worktreeOpen = await emit(
 			second.handlers,
 			"tool_call",
@@ -349,14 +428,20 @@ async function scenarioUserBashConflict(url) {
 }
 
 async function main() {
+	const previousWriterGuardEnv = process.env.PI_WORKTREE_WRITER_GUARD;
 	const { outDir, url } = await buildBundle();
 	try {
+		delete process.env.PI_WORKTREE_WRITER_GUARD;
+		await scenarioDefaultDisabled(url);
+		process.env.PI_WORKTREE_WRITER_GUARD = "1";
 		await scenarioActiveConflict(url);
 		await scenarioStaleLeaseRecovery(url);
 		await scenarioCleanRelease(url);
 		await scenarioSubdirSharesWorktreeRoot(url);
 		await scenarioUserBashConflict(url);
 	} finally {
+		if (previousWriterGuardEnv === undefined) delete process.env.PI_WORKTREE_WRITER_GUARD;
+		else process.env.PI_WORKTREE_WRITER_GUARD = previousWriterGuardEnv;
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
 
