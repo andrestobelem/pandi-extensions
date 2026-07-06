@@ -11,7 +11,7 @@
  * caja de arena de seguridad) y pueden consumir llamadas de modelo creando subagentes.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export { liveAgentHeaderStatus } from "./agent-view.js";
 export { countRunArtifacts } from "./dashboard-collectors.js";
@@ -30,6 +30,7 @@ export {
 
 import { registerUltracodeInputEvents } from "./ultracode-input-events.js";
 import { registerUltracodeModeEvent } from "./ultracode-mode-event.js";
+import { createUltracodeRuntimeState } from "./ultracode-runtime-state.js";
 import { registerUltracodeToggleCommands } from "./ultracode-toggle-commands.js";
 import { registerWorkflowRoutingCommands } from "./workflow-routing-commands.js";
 import { registerWorkflowSessionEvents } from "./workflow-session-events.js";
@@ -106,42 +107,16 @@ export { prepareWorkflowRun } from "./workflow-run-prepare.js";
 export { transformWorkflowCode } from "./workflow-transform.js";
 
 export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
-	let ultracodeAlwaysOn = true;
-	let ultracodeContractGateEnabled = true;
-	let currentCtx: ExtensionContext | undefined;
+	const ultracodeState = createUltracodeRuntimeState();
 
-	registerUltracodeModeEvent(pi, {
-		setAlwaysOn: (enabled) => {
-			ultracodeAlwaysOn = enabled;
-		},
-		getCurrentCtx: () => currentCtx,
-	});
+	registerUltracodeModeEvent(pi, ultracodeState);
 
 	registerDynamicWorkflowTool(pi);
 
 	registerWorkflowShellCommands(pi);
 
-	registerWorkflowRoutingCommands(pi, () => ultracodeContractGateEnabled);
-	registerUltracodeToggleCommands(pi, {
-		getContractGateEnabled: () => ultracodeContractGateEnabled,
-		setContractGateEnabled: (enabled) => {
-			ultracodeContractGateEnabled = enabled;
-		},
-		getAlwaysOn: () => ultracodeAlwaysOn,
-		setAlwaysOn: (enabled) => {
-			ultracodeAlwaysOn = enabled;
-		},
-	});
-	registerUltracodeInputEvents(pi, {
-		getAlwaysOn: () => ultracodeAlwaysOn,
-		getContractGateEnabled: () => ultracodeContractGateEnabled,
-	});
-
-	registerWorkflowSessionEvents(pi, {
-		getAlwaysOn: () => ultracodeAlwaysOn,
-		getContractGateEnabled: () => ultracodeContractGateEnabled,
-		setCurrentCtx: (ctx) => {
-			currentCtx = ctx;
-		},
-	});
+	registerWorkflowRoutingCommands(pi, ultracodeState.getContractGateEnabled);
+	registerUltracodeToggleCommands(pi, ultracodeState);
+	registerUltracodeInputEvents(pi, ultracodeState);
+	registerWorkflowSessionEvents(pi, ultracodeState);
 }
