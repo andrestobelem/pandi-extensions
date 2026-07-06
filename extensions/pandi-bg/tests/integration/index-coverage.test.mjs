@@ -264,6 +264,7 @@ async function main() {
 	skipped.push(
 		"handleCancel already-finished in-session branch (isJobFinished true while still in activeJobs): the window between child exit (exitCode set) and the 'close' handler running safeFinalize (which deletes the runtime from activeJobs) is not deterministically observable from the command handler, so a non-racy assertion is impossible.",
 	);
+	for (const reason of skipped) console.log(`SKIP: ${reason}`);
 
 	console.log(`${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed > 0) {
