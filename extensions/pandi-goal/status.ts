@@ -26,11 +26,16 @@ function formatGoalStatusReason(goal: GoalState): string {
 	return goal.lastReason ? ` · ${goal.lastReason}` : "";
 }
 
+function formatGoalStatusIteration(goal: GoalState): string {
+	return `it ${goal.iteration}/${goal.maxIterations}`;
+}
+
 function formatGoalStatusDetails(goal: GoalState): string {
+	const iteration = formatGoalStatusIteration(goal);
 	const phase = formatGoalStatusPhase(goal);
 	const eta = formatGoalStatusEta(goal);
 	const reason = formatGoalStatusReason(goal);
-	return `it ${goal.iteration}/${goal.maxIterations}${phase}${eta}${reason}`;
+	return `${iteration}${phase}${eta}${reason}`;
 }
 
 export function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
