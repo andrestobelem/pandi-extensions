@@ -25,9 +25,12 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	if (ctx.hasUI) ctx.ui.notify(message, type);
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatClearFailure(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `clear falló: ${message} — probá /new en su lugar.`;
+	return `clear falló: ${errorMessage(error)} — probá /new en su lugar.`;
 }
 
 export default function clearExtension(pi: ExtensionAPI): void {
