@@ -1064,6 +1064,25 @@ function selectToolOwnerLoop(
 	);
 }
 
+interface LoopArgumentCompletion {
+	value: string;
+	label: string;
+	description: string;
+}
+
+const STATIC_LOOP_ARGUMENT_COMPLETIONS: LoopArgumentCompletion[] = [
+	{ value: "auto", label: "auto", description: "Iniciar un loop autónomo (confianza + confirmación)" },
+	{ value: "stop", label: "stop", description: "Detener un loop" },
+	{ value: "pause", label: "pause", description: "Pausar un loop en ejecución" },
+	{ value: "resume", label: "resume", description: "Reanudar un loop pausado" },
+	{ value: "status", label: "status", description: "Mostrar el estado del loop" },
+	{
+		value: "--ultracode",
+		label: "--ultracode",
+		description: "Correr las iteraciones del loop vía dynamic workflows",
+	},
+];
+
 // ---------------------------------------------------------------------------
 // Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
@@ -1158,18 +1177,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		description:
 			"Corré una tarea de forma iterativa: /loop [--ultracode] <task> [interval] | /loop auto [--ultracode] <objective> [interval] | /loop stop [id] | /loop pause [id] | /loop resume [id] | /loop status [id]. El interval (p. ej. 5m, 30s, 2h) corre en una cadencia fija; omitilo para que lo module el modelo. 'auto' inicia un loop autónomo (requiere un proyecto de confianza + confirmación). --ultracode conduce las iteraciones vía dynamic workflows.",
 		getArgumentCompletions: (argumentPrefix: string) => {
-			const items = [
-				{ value: "auto", label: "auto", description: "Iniciar un loop autónomo (confianza + confirmación)" },
-				{ value: "stop", label: "stop", description: "Detener un loop" },
-				{ value: "pause", label: "pause", description: "Pausar un loop en ejecución" },
-				{ value: "resume", label: "resume", description: "Reanudar un loop pausado" },
-				{ value: "status", label: "status", description: "Mostrar el estado del loop" },
-				{
-					value: "--ultracode",
-					label: "--ultracode",
-					description: "Correr las iteraciones del loop vía dynamic workflows",
-				},
-			];
+			const items: LoopArgumentCompletion[] = [...STATIC_LOOP_ARGUMENT_COMPLETIONS];
 			for (const loop of activeLoops.values()) {
 				if (loop.status === "running" || loop.status === "paused") {
 					items.push({ value: loop.loopId, label: loop.loopId, description: loop.task });
