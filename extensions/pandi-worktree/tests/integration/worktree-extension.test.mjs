@@ -76,6 +76,13 @@ function makePi() {
 	};
 }
 
+function selectExactMenuItem(expected) {
+	return (items) => {
+		check(`interactive menu contains ${expected}`, items.includes(expected), JSON.stringify(items));
+		return expected;
+	};
+}
+
 function makeCtx({ cwd, mode = "tui", confirm = true, selectValue, inputValues } = {}) {
 	const notes = [];
 	const confirms = [];
@@ -634,7 +641,7 @@ async function scenarioInteractiveAdd(url) {
 	const wtPath = path.join(cwd, "wt-interactive");
 	const ctx = makeCtx({
 		cwd,
-		selectValue: (items) => items.find((i) => i.startsWith("add")),
+		selectValue: selectExactMenuItem("add — crear un worktree"),
 		inputValues: [wtPath, "interactive-b"],
 	});
 	await commands.get("worktree").handler("", ctx);
