@@ -310,6 +310,17 @@ function formatAgentPromptLines({
 	];
 }
 
+async function readAgentArtifactBody(
+	artifactPath: string | undefined,
+): Promise<{ artifactBody: string; artifactError: string }> {
+	if (!artifactPath) return { artifactBody: "", artifactError: "" };
+	try {
+		return { artifactBody: await fs.readFile(artifactPath, "utf8"), artifactError: "" };
+	} catch (err) {
+		return { artifactBody: "", artifactError: err instanceof Error ? err.message : String(err) };
+	}
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -321,15 +332,7 @@ export interface AgentViewParts {
 
 export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentViewParts> {
 	const artifactPath = resolveAgentArtifactPath(run, agent);
-	let artifactBody = "";
-	let artifactError = "";
-	if (artifactPath) {
-		try {
-			artifactBody = await fs.readFile(artifactPath, "utf8");
-		} catch (err) {
-			artifactError = err instanceof Error ? err.message : String(err);
-		}
-	}
+	const { artifactBody, artifactError } = await readAgentArtifactBody(artifactPath);
 	const access = artifactBody ? extractMarkdownSection(artifactBody, "Access") : undefined;
 	const prompt = artifactBody ? extractMarkdownSection(artifactBody, "Prompt") : undefined;
 	const stdout = artifactBody ? extractMarkdownSection(artifactBody, "Stdout") : undefined;
