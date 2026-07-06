@@ -101,43 +101,63 @@ function formatInvalidBranchNameError(branch: string | undefined): string {
 	return `Nombre de rama inválido "${branch ?? ""}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`;
 }
 
-function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCommand {
-	const positionals: string[] = [];
-	let newBranch: string | undefined;
-	let force = false;
-	let detach = false;
+interface AddOrOpenParseState {
+	positionals: string[];
+	newBranch?: string;
+	force: boolean;
+	detach: boolean;
 	// Tres estados: undefined salvo que un flag explícito active/desactive la copia en esta llamada.
-	let copyIgnored: boolean | undefined;
-	let copyUntracked: boolean | undefined;
-	for (let i = 0; i < rest.length; i++) {
-		const tok = rest[i];
-		if (tok === "-b" || tok === "--branch") {
-			newBranch = rest[++i];
-		} else if (tok === "--force" || tok === "-f") {
-			force = true;
-		} else if (tok === "--detach" || tok === "-d") {
-			detach = true;
-		} else if (tok === "--copy-ignored") {
-			copyIgnored = true;
-		} else if (tok === "--no-copy-ignored") {
-			copyIgnored = false;
-		} else if (tok === "--copy-untracked") {
-			copyUntracked = true;
-		} else if (tok === "--no-copy-untracked") {
-			copyUntracked = false;
-		} else {
-			positionals.push(tok);
-		}
+	copyIgnored?: boolean;
+	copyUntracked?: boolean;
+}
+
+function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenParseState): number {
+	const tok = rest[index];
+	if (tok === "-b" || tok === "--branch") {
+		state.newBranch = rest[index + 1];
+		return index + 1;
 	}
-	const [pathArg, commitish] = positionals;
+	if (tok === "--force" || tok === "-f") {
+		state.force = true;
+	} else if (tok === "--detach" || tok === "-d") {
+		state.detach = true;
+	} else if (tok === "--copy-ignored") {
+		state.copyIgnored = true;
+	} else if (tok === "--no-copy-ignored") {
+		state.copyIgnored = false;
+	} else if (tok === "--copy-untracked") {
+		state.copyUntracked = true;
+	} else if (tok === "--no-copy-untracked") {
+		state.copyUntracked = false;
+	} else {
+		state.positionals.push(tok);
+	}
+	return index;
+}
+
+function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCommand {
+	const state: AddOrOpenParseState = { positionals: [], force: false, detach: false };
+	for (let i = 0; i < rest.length; i++) {
+		i = applyAddOrOpenToken(rest, i, state);
+	}
+	const [pathArg, commitish] = state.positionals;
 	if (!pathArg) return { action, error: formatAddOrOpenUsage(action) };
-	if (newBranch !== undefined && !isValidBranchName(newBranch)) {
+	if (state.newBranch !== undefined && !isValidBranchName(state.newBranch)) {
 		return {
 			action,
-			error: formatInvalidBranchNameError(newBranch),
+			error: formatInvalidBranchNameError(state.newBranch),
 		};
 	}
-	return { action, path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
+	return {
+		action,
+		path: pathArg,
+		newBranch: state.newBranch,
+		commitish,
+		force: state.force,
+		detach: state.detach,
+		copyIgnored: state.copyIgnored,
+		copyUntracked: state.copyUntracked,
+	};
 }
 
 /** Parsea la línea de comandos `/worktree` en una intención estructurada. */
