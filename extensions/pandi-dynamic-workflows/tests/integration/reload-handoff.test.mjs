@@ -94,6 +94,10 @@ function makePi(label, sharedExecCalls = []) {
 	return { pi, tools, commands, handlers, shortcuts, activeTools, userMessages, execCalls: sharedExecCalls };
 }
 
+function bashExecCalls(calls) {
+	return calls.filter((call) => call.cmd === "bash");
+}
+
 function makeCtx(cwd, label) {
 	const notifications = [];
 	const statuses = [];
@@ -224,7 +228,7 @@ async function scenarioReloadAutoResume(url) {
 	await waitForJournaledBash(status.runDir);
 	check(
 		"reload: first attempt executed cached bash once",
-		sharedExecCalls.length === 1,
+		bashExecCalls(sharedExecCalls).length === 1,
 		JSON.stringify(sharedExecCalls),
 	);
 
@@ -252,7 +256,7 @@ async function scenarioReloadAutoResume(url) {
 	check("reload: auto-resume completes the same runId", completed.runId === status.runId, JSON.stringify(completed));
 	check(
 		"reload: cached bash was not re-executed after reload",
-		sharedExecCalls.length === 1,
+		bashExecCalls(sharedExecCalls).length === 1,
 		JSON.stringify(sharedExecCalls),
 	);
 	check(
@@ -264,6 +268,11 @@ async function scenarioReloadAutoResume(url) {
 		"reload: original run limits are preserved after auto-resume",
 		completed.agentConcurrency === 1 && completed.maxAgents === 2,
 		JSON.stringify({ agentConcurrency: completed.agentConcurrency, maxAgents: completed.maxAgents }),
+	);
+	await waitFor(
+		"reload completion notification",
+		async () =>
+			secondCtx.notifications.some((n) => /completed/i.test(n.message)) && secondPi.userMessages.length === 1,
 	);
 	check(
 		"reload: fresh ctx receives the normal completion notification",
@@ -304,7 +313,7 @@ async function scenarioMultipleReloadAutoResume(url) {
 	await Promise.all([waitForJournaledBash(firstStatus.runDir), waitForJournaledBash(secondStatus.runDir)]);
 	check(
 		"multi: both old attempts reached their cached bash before reload",
-		sharedExecCalls.length === 2,
+		bashExecCalls(sharedExecCalls).length === 2,
 		JSON.stringify(sharedExecCalls),
 	);
 
@@ -337,7 +346,7 @@ async function scenarioMultipleReloadAutoResume(url) {
 	);
 	check(
 		"multi: cached bash calls are not re-executed for either resumed run",
-		sharedExecCalls.length === 2,
+		bashExecCalls(sharedExecCalls).length === 2,
 		JSON.stringify(sharedExecCalls),
 	);
 	await emit(secondPi.handlers, "session_shutdown", { reason: "quit" }, secondCtx.ctx);
@@ -380,7 +389,7 @@ async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
 	const afterWrongCwd = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check(
 		"cwd: reload handoff is not resumed from a different cwd",
-		afterWrongCwd?.state === "failed" && sharedExecCalls.length === 1,
+		afterWrongCwd?.state === "failed" && bashExecCalls(sharedExecCalls).length === 1,
 		JSON.stringify({ afterWrongCwd, execCalls: sharedExecCalls }),
 	);
 	await emit(wrongCwdPi.handlers, "session_shutdown", { reason: "quit" }, wrongCwdCtx.ctx);
@@ -395,7 +404,7 @@ async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
 	const afterStartup = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check(
 		"cwd: non-reload session_start does not consume a valid handoff",
-		afterStartup?.state === "failed" && sharedExecCalls.length === 1,
+		afterStartup?.state === "failed" && bashExecCalls(sharedExecCalls).length === 1,
 		JSON.stringify({ afterStartup, execCalls: sharedExecCalls }),
 	);
 	await emit(startupPi.handlers, "session_shutdown", { reason: "quit" }, startupCtx.ctx);
@@ -409,7 +418,7 @@ async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
 	const completed = await waitForCompletedResult(status.runDir);
 	check(
 		"cwd: matching cwd plus reload reason resumes the preserved handoff",
-		completed.runId === status.runId && sharedExecCalls.length === 1,
+		completed.runId === status.runId && bashExecCalls(sharedExecCalls).length === 1,
 		JSON.stringify({ completed, execCalls: sharedExecCalls }),
 	);
 	await emit(reloadPi.handlers, "session_shutdown", { reason: "quit" }, reloadCtx.ctx);
@@ -516,7 +525,7 @@ async function scenarioQuitDoesNotAutoResume(url) {
 	const stillCancelled = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check(
 		"quit: no reload handoff is queued for ordinary shutdown",
-		stillCancelled?.state === "cancelled" && sharedExecCalls.length === 1,
+		stillCancelled?.state === "cancelled" && bashExecCalls(sharedExecCalls).length === 1,
 		JSON.stringify({ stillCancelled, execCalls: sharedExecCalls }),
 	);
 	await emit(secondPi.handlers, "session_shutdown", { reason: "quit" }, secondCtx.ctx);
