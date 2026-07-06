@@ -1,21 +1,21 @@
 /**
- * Behavioral integration tests for the `ask()` human-in-the-loop primitive.
+ * Tests de integración de comportamiento para la primitiva human-in-the-loop `ask()`.
  *
- * A workflow runs in the headless Worker and calls ask(); the host bridges to a CONTROLLABLE
- * ctx.ui (input/confirm/select) supplied per tool.execute() call, so each scenario scripts the
- * human answer and inspects what the dialog received ({ signal, timeout }).
+ * Un workflow corre en el Worker headless y llama ask(); el host puentea a un
+ * ctx.ui CONTROLABLE (input/confirm/select) provisto por cada llamada tool.execute(), así cada
+ * escenario scriptéa la respuesta humana e inspecciona qué recibió el diálogo ({ signal, timeout }).
  *
- *   input / confirm / select — ask drives the matching ctx.ui dialog and returns the human answer;
- *                              an `ask` event + a method:"ask" journal record are written.
- *   resume-replay (headline) — re-running a completed ask replays the journaled answer and NEVER
- *                              calls the UI again (the resume ctx.ui throws if touched).
- *   headless                 — hasUI:false returns options.default, or fails with a clear mode-named
- *                              error when no default is given (never hangs).
- *   race-cancellation        — race([ask, agent]) lets the agent win and DISMISSES the ask dialog via
- *                              its per-call signal; the ask branch never wins.
- *   timeout-passthrough      — options.timeoutMs reaches the dialog as opts.timeout.
+ *   input / confirm / select — ask maneja el diálogo ctx.ui correspondiente y devuelve la respuesta humana;
+ *                              se escriben un evento `ask` + un journal record method:"ask".
+ *   resume-replay (headline) — re-ejecutar un ask completado reproduce la respuesta journaled y NUNCA
+ *                              llama la UI de nuevo (el ctx.ui de resume lanza si se toca).
+ *   headless                 — hasUI:false devuelve options.default, o falla con un error claro que nombra el modo
+ *                              cuando no se da default (nunca cuelga).
+ *   race-cancellation        — race([ask, agent]) deja ganar al agente y CIERRA el diálogo ask vía
+ *                              su signal por llamada; la rama ask nunca gana.
+ *   timeout-passthrough      — options.timeoutMs llega al diálogo como opts.timeout.
  *
- * Run it:
+ * Corrélo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/ask-hitl.test.mjs
  */
 import * as fs from "node:fs/promises";
@@ -70,7 +70,7 @@ function makePi() {
 	return { pi, tools };
 }
 
-// A ctx whose ui input/confirm/select are supplied by the caller (records calls + last opts).
+// Un ctx cuyo ui input/confirm/select lo provee el caller (registra llamadas + últimos opts).
 function makeCtx(cwd, { ui = {}, hasUI = true } = {}) {
 	const baseUi = {
 		theme: { fg: (_c, v) => v },
@@ -86,8 +86,8 @@ function makeCtx(cwd, { ui = {}, hasUI = true } = {}) {
 		setEditorComponent: () => {},
 	};
 	return {
-		// Always print => the run executes FOREGROUND and returns its result (tui/rpc would background it).
-		// hasUI is varied independently to exercise the interactive vs headless ask() paths.
+		// Siempre print => el run ejecuta en FOREGROUND y devuelve su result (tui/rpc lo mandaría a background).
+		// hasUI varía independientemente para ejercitar los paths ask() interactivo vs headless.
 		mode: "print",
 		hasUI,
 		cwd,
@@ -138,7 +138,7 @@ async function readJournalRecords(runDir, method) {
 	return { parsedAll, records };
 }
 
-// fake-pi: a [role:win-now] agent that emits then flushes before exit (used by the race scenario).
+// fake-pi: un agente [role:win-now] que emite y luego flushea antes de salir (usado por el escenario race).
 async function writeFakePi(dir) {
 	const fakePi = path.join(dir, "fake-pandi-ask.cjs");
 	await fs.writeFile(
@@ -291,7 +291,7 @@ async function scenarioHeadless(url) {
 	);
 
 	const noDefault = await makeRunner(url, ASK_WORKFLOW, "ask-smoke");
-	// A workflow that throws fails the run; in foreground mode tool.execute may THROW or return ok:false.
+	// Un workflow que lanza falla el run; en modo foreground tool.execute puede LANZAR o devolver ok:false.
 	let failMsg = null;
 	try {
 		const r2 = await noDefault.run(
@@ -314,7 +314,7 @@ async function scenarioHeadless(url) {
 	);
 }
 
-// Run a workflow expected to FAIL; returns the failure message (run throws or returns ok:false).
+// Corre un workflow que se espera que FALLE; devuelve el mensaje de falla (run lanza o devuelve ok:false).
 async function runExpectFail(runner, params, ctxOpts) {
 	try {
 		const r = await runner.run(params, ctxOpts);
@@ -412,7 +412,7 @@ async function scenarioRaceCancellation(url) {
 			},
 			{
 				ui: {
-					// Hang until the per-call signal aborts (the race loser), then resolve.
+					// Colgá hasta que el signal por llamada aborte (el perdedor de la race), luego resolvé.
 					input: async (_t, _ph, opts) =>
 						await new Promise((resolve) => {
 							opts?.signal?.addEventListener("abort", () => {
@@ -467,8 +467,8 @@ async function scenarioTimeoutPassthrough(url) {
 	);
 }
 
-// A secret answer must reach the workflow but NEVER be persisted (events.jsonl/journal.jsonl)
-// or replayed on resume — otherwise an API key collected via ask() lands in plaintext on disk.
+// Una respuesta secreta debe llegar al workflow pero NUNCA persistirse (events.jsonl/journal.jsonl)
+// ni reproducirse en resume — si no, una API key recolectada vía ask() queda en plaintext en disco.
 async function scenarioSecretRedaction(url) {
 	const { run } = await makeRunner(url, ASK_WORKFLOW, "ask-smoke");
 	const SENTINEL = "sk-LIVE-SECRET-123";
