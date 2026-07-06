@@ -1,8 +1,8 @@
 /**
- * run-report-degradation — pins the collector's graceful-degradation matrix (design
- * record §5, run bd039ef9): partial/running/failed/cancelled/stale runs, crashed and
- * interrupted agents, missing files, determinism (no wall-clock reads; byte-stable
- * for a fixed generatedAt), code-drift detection, and the empty-dir hard error.
+ * run-report-degradation — fija la matriz de graceful-degradation del collector (design
+ * record §5, run bd039ef9): runs partial/running/failed/cancelled/stale, agentes crashed e
+ * interrupted, archivos faltantes, determinismo (sin lecturas wall-clock; byte-stable
+ * para un generatedAt fijo), detección de code-drift y hard error para dirs vacíos.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -59,7 +59,7 @@ function baseStatus(dir, extra = {}) {
 async function main() {
 	const mod = await buildCollector();
 
-	// 1) Empty dir: hard error, never an empty HTML.
+	// 1) Dir vacío: hard error, nunca un HTML vacío.
 	{
 		const dir = await makeRunDir("run-report-empty");
 		let threw = false;
@@ -71,7 +71,7 @@ async function main() {
 		check("empty dir throws", threw);
 	}
 
-	// 2) Status-only dir (no result/events/metrics/input): renders + missing files listed.
+	// 2) Dir solo con status (sin result/events/metrics/input): renderiza + lista archivos faltantes.
 	{
 		const dir = await makeRunDir("run-report-status-only");
 		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(baseStatus(dir)));
@@ -85,7 +85,7 @@ async function main() {
 		check("scriptPath relativized or omitted (no $HOME leak)", !(model.scriptPath ?? "").startsWith("/"));
 	}
 
-	// 3) Foreign running dir: snapshot posture, liveness unverified, no staleness claim.
+	// 3) Dir running ajeno: postura snapshot, liveness unverified, sin claim de staleness.
 	{
 		const dir = await makeRunDir("run-report-foreign-running");
 		await fs.writeFile(
@@ -101,7 +101,7 @@ async function main() {
 		check("generatedAt embedded", html.includes("2026-01-02T00:00:00.000Z"));
 	}
 
-	// 4) In-session stale verdict is rendered verbatim (report ≡ TUI).
+	// 4) El veredicto stale in-session se renderiza verbatim (report ≡ TUI).
 	{
 		const dir = await makeRunDir("run-report-stale");
 		const status = baseStatus(dir, { state: "running" });
@@ -114,7 +114,7 @@ async function main() {
 		check("in-session liveness verified", model.liveness === "verified");
 	}
 
-	// 5) Failed run: error surfaces; cancelled derivation matches getRunState semantics.
+	// 5) Run failed: el error aparece; la derivación cancelled coincide con semántica de getRunState.
 	{
 		const dir = await makeRunDir("run-report-failed");
 		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(baseStatus(dir, { state: "failed" })));
@@ -127,7 +127,7 @@ async function main() {
 		check("error message surfaces", model.error === "cancelled by user");
 	}
 
-	// 6) Crashed agent (start-only event) on a terminal run -> "interrupted", open fail card.
+	// 6) Agente crasheado (evento start-only) en un run terminal -> "interrupted", fail card abierta.
 	{
 		const dir = await makeRunDir("run-report-crashed-agent");
 		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(baseStatus(dir, { state: "failed" })));
@@ -144,7 +144,7 @@ async function main() {
 		check("crash keeps stderr evidence", agent?.stderrTail?.text.includes("segfault evidence") === true);
 	}
 
-	// 7) Determinism: identical fixture + generatedAt -> byte-identical HTML.
+	// 7) Determinismo: fixture idéntica + generatedAt -> HTML byte-identical.
 	{
 		const dir = await makeRunDir("run-report-determinism");
 		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(baseStatus(dir)));
@@ -153,7 +153,7 @@ async function main() {
 		check("byte-stable for fixed generatedAt", one === two);
 	}
 
-	// 8) Code drift: changed script -> "changed"; missing script -> "missing".
+	// 8) Code drift: script cambiado -> "changed"; script faltante -> "missing".
 	{
 		const dir = await makeRunDir("run-report-drift");
 		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(baseStatus(dir, { codeHash: "abc123" })));
@@ -169,7 +169,7 @@ async function main() {
 		check("missing script -> missing", missing.codeDrift === "missing", missing.codeDrift);
 	}
 
-	// 9) Corrupt events.jsonl lines are skipped, agents backfilled from the agents/ scan.
+	// 9) Líneas corruptas de events.jsonl se saltean; agents se backfillean desde el scan de agents/.
 	{
 		const dir = await makeRunDir("run-report-corrupt");
 		await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(baseStatus(dir)));
@@ -185,8 +185,8 @@ async function main() {
 		);
 	}
 
-	// 10) RELATIVE runDir (how humans invoke it from the repo root): hrefs must still be
-	// run-dir-relative — the agents/ scan records cwd-relative artifact paths in that case.
+	// 10) runDir RELATIVO (como lo invocan humanos desde la raíz del repo): los hrefs deben seguir siendo
+	// relativos al run-dir — en ese caso el scan de agents/ registra paths de artifacts relativos al cwd.
 	{
 		const rel = path.join(".pi", "tmp", `run-report-relative-${process.pid}`);
 		const dir = path.join(REPO_ROOT, rel);
