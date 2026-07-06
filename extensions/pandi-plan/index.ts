@@ -71,11 +71,11 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { renderPlanApprovalOverlay } from "./approval-view.js";
+import { parsePlanCommandIntent } from "./command-intent.js";
 import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
 import {
 	getSessionFlagDefault,
 	parsePlanCommandFlags,
-	parsePlanToggleValue,
 	resetSessionFlagDefaults,
 	resolvePlanFlags,
 	setSessionFlagDefault,
@@ -375,50 +375,37 @@ async function openPlanDashboard(ctx: ExtensionContext): Promise<void> {
 }
 
 async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
-	const trimmed = args.trim();
-	const firstSpace = trimmed.indexOf(" ");
-	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
+	const intent = parsePlanCommandIntent(args);
 
-	// "status"/"dashboard"/"exit"/"cancel" son subcomandos solo cuando son el PRIMER token COMPLETO
-	// (refleja el dispatch handleGoalCommand de goal). Sino el string de arg completo es <task>.
-	if (firstSpace === -1 && firstToken === "status") {
+	if (intent.kind === "status") {
 		const plan = currentPlan() ?? [...activePlans.values()].pop();
 		notify(ctx, plan ? formatStatus(plan) : "El modo plan no está activo.", "info");
 		return;
 	}
-	if (firstSpace === -1 && (firstToken === "dashboard" || firstToken === "tui")) {
+	if (intent.kind === "dashboard") {
 		await openPlanDashboard(ctx);
 		return;
 	}
-	// Toggles de defecto de sesión: `/plan ultracode on|off|status` y `/plan steps-ultracode ...`.
-	// Estos setean los defaults de postura ultracode en-memoria (param -> ESTE -> env -> off). Un primer
-	// token de "ultracode"/"steps-ultracode" es siempre un toggle, nunca una task (refleja cómo
-	// "status" no puede ser una task) — usa la forma flag `--ultracode` para un one-off en una task real.
-	if (firstToken === "ultracode" || firstToken === "steps-ultracode") {
-		const key = firstToken === "ultracode" ? "ultracode" : "ultracodeSteps";
-		const label = firstToken === "ultracode" ? "ultracode" : "steps-ultracode";
-		const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1);
-		const action = parsePlanToggleValue(rest);
-		if (action === "invalid") {
-			notify(ctx, `Uso: /plan ${label} [on|off|status]`, "warning");
-			return;
-		}
-		if (action === "on") setSessionFlagDefault(key, true);
-		else if (action === "off") setSessionFlagDefault(key, false);
-		const current = getSessionFlagDefault(key);
-		const state = current === undefined ? "sin definir (lo decide env/param)" : current ? "on" : "off";
-		notify(ctx, `/plan ${label} valor por defecto de sesión: ${state}.`, "info");
+	if (intent.kind === "invalid-toggle") {
+		notify(ctx, `Uso: /plan ${intent.label} [on|off|status]`, "warning");
 		return;
 	}
-	if (firstSpace === -1 && (firstToken === "exit" || firstToken === "cancel")) {
-		if (!exitPlan(pi, ctx, `${firstToken} por el usuario`)) {
+	if (intent.kind === "toggle") {
+		if (intent.action === "on") setSessionFlagDefault(intent.key, true);
+		else if (intent.action === "off") setSessionFlagDefault(intent.key, false);
+		const current = getSessionFlagDefault(intent.key);
+		const state = current === undefined ? "sin definir (lo decide env/param)" : current ? "on" : "off";
+		notify(ctx, `/plan ${intent.label} valor por defecto de sesión: ${state}.`, "info");
+		return;
+	}
+	if (intent.kind === "exit") {
+		if (!exitPlan(pi, ctx, intent.reason)) {
 			notify(ctx, "El modo plan no está activo; no hay nada de qué salir.", "warning");
 		}
 		return;
 	}
 
-	// Si no, los args completos son el <task>.
-	startPlan(pi, ctx, trimmed);
+	startPlan(pi, ctx, intent.task);
 }
 
 // ---------------------------------------------------------------------------
