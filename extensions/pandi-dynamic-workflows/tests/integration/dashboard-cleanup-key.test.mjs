@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Behavioral test for the dashboard cleanup shortcut: `C` emits a "cleanup" action scoped
- * to the current tab — sessions on the Sessions tab, runs on any run-bearing tab.
+ * Test de comportamiento para el shortcut cleanup del dashboard: `C` emite una acción "cleanup"
+ * scopeada al tab actual — sessions en el tab Sessions, runs en cualquier tab con runs.
  *
- * The command `/workflow cleanup` already exists; this wires the same intent into the TUI
- * so a user browsing the Sessions/Runs tabs can trigger the prune from where they see the
- * junk. `C` (capital) is chosen so it never collides with the run tabs' `c`/`x` = cancel.
+ * El comando `/workflow cleanup` ya existe; esto cablea la misma intención en la TUI
+ * para que una persona navegando los tabs Sessions/Runs pueda disparar el prune desde donde ve la
+ * basura. `C` (mayúscula) se elige para que nunca colisione con `c`/`x` = cancel en tabs de runs.
  *
- * Observable contract (this test):
+ * Contrato observable (este test):
  *   - Sessions tab + `C` → done({ type: "cleanup", cleanupTarget: "sessions" }).
  *   - Runs tab + `C`     → done({ type: "cleanup", cleanupTarget: "runs" }).
- *   - Lowercase `c` on the Runs tab still means cancel (never cleanup).
+ *   - `c` minúscula en el tab Runs todavía significa cancel (nunca cleanup).
  *
- * Mirrors dashboard-jump-active-run.test.mjs: builds the extension, opens the dashboard
- * component through the /workflow command, and feeds handleInput with a capturing done.
+ * Refleja dashboard-jump-active-run.test.mjs: build de la extensión, abre el componente dashboard
+ * por el comando /workflow, y alimenta handleInput con un done capturador.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -120,7 +120,7 @@ async function openComponent(url) {
 	};
 	await commands.get("workflow").handler("dashboard", ctx);
 	const component = captured.component;
-	// Reset captured so the first done() after this is what we assert.
+	// Reseteá captured para que el primer done() posterior sea lo que asertamos.
 	captured = null;
 	return { component, getCaptured: () => captured, mod };
 }
@@ -151,11 +151,11 @@ const mkSession = (id) => ({
 async function main() {
 	const { url } = await buildExtension();
 
-	// 1) Sessions tab + C → cleanup sessions.
+	// 1) Tab Sessions + C → cleanup sessions.
 	{
 		const { component, getCaptured } = await openComponent(url);
 		component.setPiSessions([mkSession("s1"), mkSession("s2")]);
-		component.handleInput("s"); // → sessions tab
+		component.handleInput("s"); // → tab sessions
 		component.handleInput("C");
 		const c = getCaptured();
 		check(
@@ -165,24 +165,24 @@ async function main() {
 		);
 	}
 
-	// 2) Runs tab + C → cleanup runs.
+	// 2) Tab Runs + C → cleanup runs.
 	{
 		const { component, getCaptured } = await openComponent(url);
 		component.setRuns([mkRun("r0", "completed"), mkRun("r1", "failed")]);
-		component.handleInput("R"); // → runs tab
+		component.handleInput("R"); // → tab runs
 		component.handleInput("C");
 		const c = getCaptured();
 		check("Runs + C → cleanup/runs", c && c.type === "cleanup" && c.cleanupTarget === "runs", JSON.stringify(c));
 	}
 
-	// 3) Lowercase c on Runs tab is still cancel semantics, never cleanup.
+	// 3) c minúscula en tab Runs sigue siendo semántica cancel, nunca cleanup.
 	{
 		const { component, getCaptured, mod } = await openComponent(url);
 		component.setRuns([mkRun("r1", "running")]);
 		mod.activeRuns.set("r1", {});
 		try {
 			component.handleInput("R");
-			component.handleInput("c"); // cancel (gated on canCancelRun for a running bg run)
+			component.handleInput("c"); // cancel (gateado por canCancelRun para un run bg running)
 			const c = getCaptured();
 			check("Runs + c → cancel/r1", c && c.type === "cancel" && c.run?.runId === "r1", JSON.stringify(c));
 		} finally {
