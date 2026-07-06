@@ -71,6 +71,10 @@ function isDetachFlag(token: string): boolean {
 	return token === "--detach" || token === "-d";
 }
 
+function isBranchFlag(token: string): boolean {
+	return token === "-b" || token === "--branch";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -121,7 +125,7 @@ interface AddOrOpenParseState {
 
 function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenParseState): number {
 	const tok = rest[index];
-	if (tok === "-b" || tok === "--branch") {
+	if (isBranchFlag(tok)) {
 		state.newBranch = rest[index + 1];
 		return index + 1;
 	}
