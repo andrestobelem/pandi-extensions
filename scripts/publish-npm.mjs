@@ -39,6 +39,31 @@ export function buildPublishArgs({ otp, provenance = false, tag = "latest" } = {
 	return withSafeNpmConfig(args);
 }
 
+export function parsePublishOptions(args) {
+	const tagIndex = args.indexOf("--tag");
+	return {
+		doPublish: args.includes("--publish"),
+		provenance: args.includes("--provenance"),
+		otp: args.find((a) => a.startsWith("--otp="))?.slice(6),
+		tag: args.find((a) => a.startsWith("--tag="))?.slice(6) || (tagIndex >= 0 ? args[tagIndex + 1] : undefined),
+	};
+}
+
+export function loadPublishWorkspaces(root) {
+	const extDir = join(root, "extensions");
+	return readdirSync(extDir)
+		.filter((d) => d === "pandi" || d.startsWith("pandi-"))
+		.map((d) => join(extDir, d))
+		.map((dir) => {
+			try {
+				return { dir, pkg: JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) };
+			} catch {
+				return null; // no es un workspace (package.json faltante o inválido)
+			}
+		})
+		.filter((w) => w !== null && !w.pkg.private);
+}
+
 function npm(cmdArgs, opts = {}) {
 	return execFileSync("npm", withSafeNpmConfig(cmdArgs), { encoding: "utf8", ...opts }).trim();
 }
@@ -66,25 +91,8 @@ function localShasum(dir) {
 
 function main() {
 	const root = fileURLToPath(new URL("..", import.meta.url));
-	const args = process.argv.slice(2);
-	const doPublish = args.includes("--publish");
-	const provenance = args.includes("--provenance");
-	const otp = args.find((a) => a.startsWith("--otp="))?.slice(6);
-	const tagIndex = args.indexOf("--tag");
-	const tag = args.find((a) => a.startsWith("--tag="))?.slice(6) || (tagIndex >= 0 ? args[tagIndex + 1] : undefined);
-
-	const extDir = join(root, "extensions");
-	const workspaces = readdirSync(extDir)
-		.filter((d) => d === "pandi" || d.startsWith("pandi-"))
-		.map((d) => join(extDir, d))
-		.map((dir) => {
-			try {
-				return { dir, pkg: JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) };
-			} catch {
-				return null; // no es un workspace (package.json faltante o inválido)
-			}
-		})
-		.filter((w) => w !== null && !w.pkg.private);
+	const { doPublish, provenance, otp, tag } = parsePublishOptions(process.argv.slice(2));
+	const workspaces = loadPublishWorkspaces(root);
 
 	const toPublish = [];
 	const needsBump = [];

@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { test } from "node:test";
-import { buildPublishArgs, classify, withSafeNpmConfig } from "../../publish-npm.mjs";
+import {
+	buildPublishArgs,
+	classify,
+	loadPublishWorkspaces,
+	parsePublishOptions,
+	withSafeNpmConfig,
+} from "../../publish-npm.mjs";
 
 test("classify: version not on npm -> publish", () => {
 	assert.equal(classify(null, "abc123"), "publish");
@@ -33,4 +42,43 @@ test("buildPublishArgs: optional provenance and otp", () => {
 		"--otp=123456",
 		"--min-release-age=0",
 	]);
+});
+
+test("parsePublishOptions: publish flags and tag spellings", () => {
+	assert.deepEqual(parsePublishOptions(["--publish", "--provenance", "--otp=123456", "--tag", "beta"]), {
+		doPublish: true,
+		provenance: true,
+		otp: "123456",
+		tag: "beta",
+	});
+	assert.deepEqual(parsePublishOptions(["--tag=next"]), {
+		doPublish: false,
+		provenance: false,
+		otp: undefined,
+		tag: "next",
+	});
+});
+
+function writePackage(root, dir, pkg) {
+	const file = path.join(root, "extensions", dir, "package.json");
+	fs.mkdirSync(path.dirname(file), { recursive: true });
+	fs.writeFileSync(file, `${JSON.stringify(pkg)}\n`);
+}
+
+test("loadPublishWorkspaces: keeps public pandi packages and skips private/invalid dirs", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "publish-workspaces-"));
+	try {
+		writePackage(root, "pandi-alpha", { name: "@pandi/alpha", version: "1.0.0" });
+		writePackage(root, "pandi-private", { name: "@pandi/private", private: true });
+		writePackage(root, "other", { name: "other" });
+		fs.mkdirSync(path.join(root, "extensions", "pandi-invalid"), { recursive: true });
+		fs.writeFileSync(path.join(root, "extensions", "pandi-invalid", "package.json"), "not json");
+
+		assert.deepEqual(
+			loadPublishWorkspaces(root).map(({ pkg }) => pkg.name),
+			["@pandi/alpha"],
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
 });
