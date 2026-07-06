@@ -40,15 +40,15 @@ const classification = discoverSkillClassification();
 // desde upstream, así que no se republican.
 const PROJECT_SKILLS = [...classification.global, ...classification.optionalClaudeGlobalSkills];
 
-function parseArgs(argv) {
+export function parseArgs(argv, env = process.env, homeDir = homedir()) {
 	const checkOnly = argv.includes("--check");
 	const di = argv.indexOf("--dest");
-	const dest = di !== -1 && argv[di + 1] ? argv[di + 1] : process.env.CLAUDE_GLOBAL_DIR || join(homedir(), ".claude");
+	const dest = di !== -1 && argv[di + 1] ? argv[di + 1] : env.CLAUDE_GLOBAL_DIR || join(homeDir, ".claude");
 	return { checkOnly, dest: resolve(dest) };
 }
 
 /** Lista recursivamente los archivos bajo `dir`, como paths relativos a `dir` (estilo POSIX). Vacío si falta. */
-function walk(dir) {
+export function walk(dir) {
 	if (!existsSync(dir)) return [];
 	const out = [];
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -60,28 +60,28 @@ function walk(dir) {
 }
 
 /** Construye la lista plana de pares de archivos absolutos {src, dst} a la que expande el manifiesto. */
-function planPairs(dest) {
+export function planPairs(dest, { repoRoot = REPO, skillsRoot = SKILLS_ROOT, projectSkills = PROJECT_SKILLS } = {}) {
 	const pairs = [];
 	const addTree = (srcDir, dstDir) => {
 		for (const rel of walk(srcDir)) pairs.push({ src: join(srcDir, rel), dst: join(dstDir, rel) });
 	};
 
 	// workflows (plano: *.js + README)
-	addTree(join(REPO, ".claude", "workflows"), join(dest, "workflows"));
+	addTree(join(repoRoot, ".claude", "workflows"), join(dest, "workflows"));
 
 	// script helper de runtime (archivo único) más su árbol de dependencias lib/ — el CLI importa
 	// ./lib/artifact.mjs, etc., así que ambos deben caer juntos para que la copia global resuelva.
-	const rtScript = join(REPO, ".claude", "scripts", "build-workflow-artifact.mjs");
+	const rtScript = join(repoRoot, ".claude", "scripts", "build-workflow-artifact.mjs");
 	if (existsSync(rtScript)) pairs.push({ src: rtScript, dst: join(dest, "scripts", "build-workflow-artifact.mjs") });
-	const rtLib = join(REPO, ".claude", "scripts", "lib");
+	const rtLib = join(repoRoot, ".claude", "scripts", "lib");
 	if (existsSync(rtLib)) addTree(rtLib, join(dest, "scripts", "lib"));
 
 	// skills del proyecto (recursivo)
-	for (const name of PROJECT_SKILLS) addTree(join(REPO, ".claude", "skills", name), join(dest, "skills", name));
+	for (const name of projectSkills) addTree(join(repoRoot, ".claude", "skills", name), join(dest, "skills", name));
 
 	// referencia de primitives, tomada desde el mirror canónico de .pi
 	addTree(
-		join(SKILLS_ROOT, "ultracode", "reference", "primitives"),
+		join(skillsRoot, "ultracode", "reference", "primitives"),
 		join(dest, "skills", "ultracode", "reference", "primitives"),
 	);
 
@@ -128,4 +128,4 @@ function main() {
 	}
 }
 
-main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
