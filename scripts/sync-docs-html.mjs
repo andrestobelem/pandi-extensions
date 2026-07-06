@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // sync-docs-html.mjs — espeja los docs humanos (README.md raíz + docs/**/*.md, salvo el
-// transitorio docs/conversaciones/) en `docs/html/` como HTML COMMITTEADO y navegable, estilado por
-// el converter de pandi-docs (pandi artifact style). Tiene la misma forma generator + --check que los otros
-// scripts sync-*.mjs: el mirror es un artifact GENERATED — no lo edites a mano; editá la fuente
-// Markdown y re-ejecutá esto. `npm test` corre el --check, así que el drift rompe la compuerta.
+// transitorio docs/conversaciones/) en `docs/html/` como HTML COMMITTEADO y navegable.
+//
+// Este script es la POLÍTICA del repo (qué archivos entran al set, dónde sale cada uno y
+// qué kicker lleva); el MECANISMO (render pandi, reescritura de links/assets, write
+// solo-si-cambió, check sin writes, poda de huérfanos, guard de hrefs .html) vive en
+// extensions/pandi-docs/scripts/sync-doc-mirrors.mjs y es reutilizable por otros repos.
 //
 // Mapeo: README.md -> docs/html/index.html; docs/<path>.md -> docs/html/<path>.html.
-// Los links relativos a .md entre documentos dentro del set se reescriben a su mirror .html para que
-// la salida se navegue como un sitio; las URLs externas y los targets fuera del set quedan intactos.
+// `npm test` corre el --check, así que el drift rompe la compuerta.
 //
 // Uso:
 //   node scripts/sync-docs-html.mjs           # escribe/refresca el mirror (y poda huérfanos)
@@ -18,10 +19,10 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const CONVERTER = path.join(REPO, "extensions", "pandi-docs", "scripts", "markdown-to-html.mjs");
-const { renderMarkdownToHtml } = await import(pathToFileURL(CONVERTER).href);
+const ENGINE = path.join(REPO, "extensions", "pandi-docs", "scripts", "sync-doc-mirrors.mjs");
+const engine = await import(pathToFileURL(ENGINE).href);
 
-const MIRROR = ["docs", "html"];
+const MIRROR = "docs/html";
 
 // Path .md relativo al repo -> path .html relativo al mirror, o null si está fuera del set.
 export function outPathFor(relMd) {
@@ -32,70 +33,24 @@ export function outPathFor(relMd) {
 	return `${p.slice("docs/".length, -".md".length)}.html`;
 }
 
-function isLocalRelativeUrl(url) {
-	return !/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith("#") && !url.startsWith("/");
+// Set fuente -> mapping repo-relativo {source -> out} que consume el motor.
+function mappingFor(set) {
+	const mapping = new Map();
+	for (const rel of set) mapping.set(rel, path.posix.join(MIRROR, outPathFor(rel)));
+	return mapping;
 }
 
-function splitUrlSuffix(url) {
-	const query = url.indexOf("?");
-	const hash = url.indexOf("#");
-	const cuts = [query, hash].filter((i) => i >= 0);
-	if (!cuts.length) return [url, ""];
-	const cut = Math.min(...cuts);
-	return [url.slice(0, cut), url.slice(cut)];
-}
-
-// Reescribe en el HTML renderizado los src relativos hacia rutas válidas desde el mirror docs/html/.
+// Adaptador con la firma histórica: reescribe srcs relativos hacia rutas válidas desde el mirror.
 export function rewriteAssetSrcs(html, fromMd) {
-	const fromOut = outPathFor(fromMd);
-	if (!fromOut) return html;
-	const fromOutRepoRel = path.posix.join("docs/html", fromOut);
-	return html.replace(/(\s)src="([^"]+)"/g, (all, prefix, src) => {
-		if (!isLocalRelativeUrl(src)) return all;
-		const [target, suffix] = splitUrlSuffix(src);
-		if (!target) return all;
-		const sourceRepoRel = path.posix.normalize(path.posix.join(path.posix.dirname(fromMd), target));
-		const rel =
-			path.posix.relative(path.posix.dirname(fromOutRepoRel), sourceRepoRel) || path.posix.basename(sourceRepoRel);
-		return `${prefix}src="${rel}${suffix}"`;
-	});
+	const out = outPathFor(fromMd);
+	if (!out) return html;
+	return engine.rewriteAssetSrcs(html, fromMd, path.posix.join(MIRROR, out));
 }
 
-// Reescribe en el HTML renderizado los href relativos a .md dentro del set hacia sus equivalentes .html del mirror.
+// Adaptador con la firma histórica: reescribe hrefs .md dentro del set hacia su mirror .html.
 export function rewriteHrefs(html, fromMd, set) {
-	const fromOut = outPathFor(fromMd);
-	if (!fromOut) return html;
-	return html.replace(/href="([^"]+)"/g, (all, href) => {
-		if (!isLocalRelativeUrl(href)) return all;
-		const [target, anchor] = href.split("#");
-		if (!target.endsWith(".md")) return all;
-		const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(fromMd), target));
-		const toOut = set.has(resolved) ? outPathFor(resolved) : null;
-		if (!toOut) return all;
-		const rel = path.posix.relative(path.posix.dirname(fromOut), toOut);
-		return `href="${rel}${anchor ? `#${anchor}` : ""}"`;
-	});
-}
-
-// Regla del lado fuente: el Markdown dentro del set linkea a Markdown; el mirror (no el autor)
-// es dueño de la reescritura .md -> .html. Un href relativo a .html cuyo target tenga un gemelo
-// .md dentro del set (directamente o a través del mirror docs/html) es un error de fuente que este script no puede arreglar — hay que reportarlo.
-export function findBadSourceHrefs(html, fromMd, set) {
-	const bad = [];
-	for (const [, href] of html.matchAll(/href="([^"]+)"/g)) {
-		if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("#") || href.startsWith("/")) continue;
-		const [target] = href.split("#");
-		if (!target.endsWith(".html")) continue;
-		const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(fromMd), target));
-		const twin =
-			resolved === "docs/html/index.html"
-				? "README.md"
-				: resolved.startsWith("docs/html/")
-					? `docs/${resolved.slice("docs/html/".length, -".html".length)}.md`
-					: `${resolved.slice(0, -".html".length)}.md`;
-		if (set.has(twin)) bad.push({ file: fromMd, href, twin });
-	}
-	return bad;
+	if (!outPathFor(fromMd)) return html;
+	return engine.rewriteHrefs(html, fromMd, mappingFor(set));
 }
 
 // Descubre el set fuente: README.md raíz + docs/**/*.md menos los subárboles excluidos.
@@ -113,69 +68,32 @@ function discoverSet(root) {
 	return set;
 }
 
-// Lista cada .html bajo el mirror como paths relativos al mirror.
-function listMirror(mirrorAbs) {
-	const out = [];
-	const walk = (rel) => {
-		const abs = path.join(mirrorAbs, rel);
-		if (!fs.existsSync(abs)) return;
-		for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
-			const entryRel = rel ? path.posix.join(rel, entry.name) : entry.name;
-			if (entry.isDirectory()) walk(entryRel);
-			else if (entry.name.endsWith(".html")) out.push(entryRel);
-		}
-	};
-	walk("");
-	return out;
+// Kicker por archivo: el README raíz lleva el nombre del package; el resto, su directorio.
+function kickerFor(rel, root) {
+	if (rel !== "README.md") return path.posix.dirname(rel);
+	const pkgPath = path.join(root, "package.json");
+	const pkgName = fs.existsSync(pkgPath) ? JSON.parse(fs.readFileSync(pkgPath, "utf8")).name : undefined;
+	return pkgName ?? path.basename(root);
 }
 
+// Quita el prefijo del mirror para conservar el reporte histórico (paths relativos al mirror).
+const mirrorRel = (outRel) => (outRel.startsWith(`${MIRROR}/`) ? outRel.slice(MIRROR.length + 1) : outRel);
+
 // Sincroniza el mirror bajo `root`. check:true reporta drift sin tocar el disco.
-// Devuelve { written, deleted, stale } (paths relativos al mirror).
+// Devuelve { written, deleted, stale, badHrefs } (paths relativos al mirror).
 export function syncDocsHtml(root, opts = {}) {
-	const check = !!opts.check;
-	const set = discoverSet(root);
-	const mirrorAbs = path.join(root, ...MIRROR);
-	const written = [];
-	const deleted = [];
-	const stale = [];
-	const badHrefs = [];
-
-	const rootPackageJsonPath = path.join(root, "package.json");
-	const rootPackageName = fs.existsSync(rootPackageJsonPath)
-		? JSON.parse(fs.readFileSync(rootPackageJsonPath, "utf8")).name
-		: undefined;
-	const expected = new Map();
-	for (const rel of set) {
-		const md = fs.readFileSync(path.join(root, rel), "utf8");
-		const kicker = rel === "README.md" ? (rootPackageName ?? path.basename(root)) : path.posix.dirname(rel);
-		const rendered = renderMarkdownToHtml(md, { title: path.posix.basename(rel), kicker });
-		// Escaneá ANTES de rewriteHrefs: después, todo link correcto a .md dentro del set también se verá como .html.
-		badHrefs.push(...findBadSourceHrefs(rendered, rel, set));
-		expected.set(outPathFor(rel), rewriteAssetSrcs(rewriteHrefs(rendered, rel, set), rel));
-	}
-
-	for (const [outRel, content] of expected) {
-		const abs = path.join(mirrorAbs, outRel);
-		const have = fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : null;
-		if (have === content) continue;
-		if (check) stale.push(outRel);
-		else {
-			fs.mkdirSync(path.dirname(abs), { recursive: true });
-			fs.writeFileSync(abs, content);
-			written.push(outRel);
-		}
-	}
-
-	for (const outRel of listMirror(mirrorAbs)) {
-		if (expected.has(outRel)) continue;
-		if (check) stale.push(outRel);
-		else {
-			fs.rmSync(path.join(mirrorAbs, outRel));
-			deleted.push(outRel);
-		}
-	}
-
-	return { written, deleted, stale, badHrefs };
+	const entries = [...discoverSet(root)].map((source) => ({
+		source,
+		out: path.posix.join(MIRROR, outPathFor(source)),
+		kicker: kickerFor(source, root),
+	}));
+	const report = engine.syncDocMirrors(root, { entries, check: !!opts.check, pruneDirs: [MIRROR] });
+	return {
+		written: report.written.map(mirrorRel),
+		deleted: report.deleted,
+		stale: report.stale.map(mirrorRel),
+		badHrefs: report.badHrefs,
+	};
 }
 
 const isMain = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
