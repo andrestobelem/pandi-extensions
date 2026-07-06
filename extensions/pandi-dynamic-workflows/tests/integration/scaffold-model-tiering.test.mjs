@@ -38,7 +38,7 @@ const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflow
 const factorySrc = fs.readFileSync(path.join(SCAFFOLDS_DIR, "workflow-factory.js"), "utf8");
 const gateSrc = fs.readFileSync(path.join(SCAFFOLDS_DIR, "contract-gate.js"), "utf8");
 
-// Política normativa de ladder: ambos fragmentos deben aparecer donde sea que la decisión de tier
+// Política normativa de ladder: los mismos anclajes deben aparecer donde sea que la decisión de tier
 // se delegue a un modelo (resource-plan de contract-gate Y planner de factory).
 const LADDER = "haiku < sonnet < opus";
 const KEEP_CHEAP = "baratos";
@@ -70,9 +70,9 @@ check(
 	"keep-cheap-even-at-premium sentence missing from workflow-factory",
 );
 check(
-	"policy single-source: contract-gate carries the same ladder sentence",
+	"policy alignment: contract-gate carries the same ladder anchors",
 	gateSrc.includes(LADDER) && gateSrc.includes("baratos") && gateSrc.includes("premium"),
-	"contract-gate lost the normative ladder policy",
+	"contract-gate lost the normative ladder anchors",
 );
 
 // ---------------------------------------------------------------------------
