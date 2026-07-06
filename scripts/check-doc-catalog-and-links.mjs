@@ -13,8 +13,6 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
-const README = path.join(REPO_ROOT, "README.md");
-const ROOT_PACKAGE = path.join(REPO_ROOT, "package.json");
 
 function readText(file) {
 	return fs.readFileSync(file, "utf8");
@@ -24,13 +22,13 @@ function readJson(file) {
 	return JSON.parse(readText(file));
 }
 
-function walk(dir, { include, skipDir }) {
+function walk(repoRoot, dir, { include, skipDir }) {
 	const out = [];
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		const full = path.join(dir, entry.name);
-		const rel = path.relative(REPO_ROOT, full);
+		const rel = path.relative(repoRoot, full);
 		if (entry.isDirectory()) {
-			if (!skipDir(rel)) out.push(...walk(full, { include, skipDir }));
+			if (!skipDir(rel)) out.push(...walk(repoRoot, full, { include, skipDir }));
 		} else if (include(rel)) {
 			out.push(full);
 		}
@@ -38,14 +36,14 @@ function walk(dir, { include, skipDir }) {
 	return out;
 }
 
-function extensionNamesFromManifest() {
-	const pkg = readJson(ROOT_PACKAGE);
+function extensionNamesFromManifest(repoRoot) {
+	const pkg = readJson(path.join(repoRoot, "package.json"));
 	return (pkg.pi?.extensions ?? []).map((entry) => entry.match(/^\.\/extensions\/([^/]+)\//)?.[1]).filter(Boolean);
 }
 
-function checkReadmeCatalog(failures) {
-	const readme = readText(README);
-	const extensions = extensionNamesFromManifest();
+function checkReadmeCatalog(repoRoot, failures) {
+	const readme = readText(path.join(repoRoot, "README.md"));
+	const extensions = extensionNamesFromManifest(repoRoot);
 	const uniqueExtensions = [...new Set(extensions)].sort();
 	const count = uniqueExtensions.length;
 
@@ -72,11 +70,11 @@ function checkReadmeCatalog(failures) {
 	}
 }
 
-function markdownFilesToCheck() {
+function markdownFilesToCheck(repoRoot) {
 	const roots = ["README.md", "AGENTS.md", "CLAUDE.md", "docs", ".pi/skills", ".claude/skills"];
 	const files = [];
 	for (const root of roots) {
-		const full = path.join(REPO_ROOT, root);
+		const full = path.join(repoRoot, root);
 		if (!fs.existsSync(full)) continue;
 		const stat = fs.statSync(full);
 		if (stat.isFile()) {
@@ -84,7 +82,7 @@ function markdownFilesToCheck() {
 			continue;
 		}
 		files.push(
-			...walk(full, {
+			...walk(repoRoot, full, {
 				include: (rel) => rel.endsWith(".md"),
 				skipDir: (rel) => rel === "docs/html" || rel.includes(`${path.sep}node_modules${path.sep}`),
 			}),
@@ -93,11 +91,11 @@ function markdownFilesToCheck() {
 	return files.sort();
 }
 
-function stripCodeSpans(line) {
+export function stripCodeSpans(line) {
 	return line.replace(/`[^`]*`/g, "");
 }
 
-function extractMarkdownLinks(text) {
+export function extractMarkdownLinks(text) {
 	const links = [];
 	const lines = text.split(/\r?\n/);
 	let inFence = false;
@@ -135,24 +133,24 @@ function decodePathname(href) {
 	}
 }
 
-function checkLinks(failures) {
-	for (const file of markdownFilesToCheck()) {
+function checkLinks(repoRoot, failures) {
+	for (const file of markdownFilesToCheck(repoRoot)) {
 		const text = readText(file);
 		const base = path.dirname(file);
-		const relFile = path.relative(REPO_ROOT, file);
+		const relFile = path.relative(repoRoot, file);
 		for (const { href, line } of extractMarkdownLinks(text)) {
 			if (isExternalOrSpecial(href)) continue;
 			const targetPath = decodePathname(href);
 			if (!targetPath) continue;
 			const target = path.resolve(base, targetPath);
-			if (!target.startsWith(REPO_ROOT + path.sep) && target !== REPO_ROOT) continue;
+			if (!target.startsWith(repoRoot + path.sep) && target !== repoRoot) continue;
 			if (!fs.existsSync(target)) failures.push(`${relFile}:${line} broken relative link: ${href}`);
 		}
 	}
 }
 
-function checkKnownStaleDocText(failures) {
-	const ag = readText(path.join(REPO_ROOT, "AGENTS.md"));
+function checkKnownStaleDocText(repoRoot, failures) {
+	const ag = readText(path.join(repoRoot, "AGENTS.md"));
 	if (ag.includes("tests/<extension>/integration/")) {
 		failures.push(
 			"AGENTS.md still references tests/<extension>/integration/ instead of extensions/<extension>/tests/integration/",
@@ -160,11 +158,17 @@ function checkKnownStaleDocText(failures) {
 	}
 }
 
-function main() {
+export function checkDocCatalogAndLinks(repoRoot = REPO_ROOT) {
+	const root = path.resolve(repoRoot);
 	const failures = [];
-	checkReadmeCatalog(failures);
-	checkKnownStaleDocText(failures);
-	checkLinks(failures);
+	checkReadmeCatalog(root, failures);
+	checkKnownStaleDocText(root, failures);
+	checkLinks(root, failures);
+	return failures;
+}
+
+function main() {
+	const failures = checkDocCatalogAndLinks(REPO_ROOT);
 
 	if (failures.length > 0) {
 		console.error(`doc catalog/link check failed (${failures.length})`);
@@ -174,4 +178,4 @@ function main() {
 	console.log("doc catalog/link check passed");
 }
 
-main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
