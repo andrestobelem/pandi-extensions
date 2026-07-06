@@ -1,34 +1,34 @@
 /**
- * Single-source-of-truth GUARDIAN for the "Research-backed templates" prompt block.
+ * GUARDIÁN single-source-of-truth para el bloque de prompt "Research-backed templates".
  *
- * Why this file exists
- * --------------------
- * The runtime CANONICAL source of the workflow pattern catalog is
- * `formatWorkflowPatternCatalog()` in extensions/pandi-dynamic-workflows/pattern-scaffolds.ts.
- * The same "Research-backed templates" block is mirrored, for human docs, in two
- * flavors:
- *   English (byte-identical to the canonical block, modulo heading level):
+ * Por qué existe este archivo
+ * ---------------------------
+ * La fuente CANÓNICA runtime del catálogo de patterns de workflow es
+ * `formatWorkflowPatternCatalog()` en extensions/pandi-dynamic-workflows/pattern-scaffolds.ts.
+ * El mismo bloque "Research-backed templates" se espeja, para docs humanas, en dos
+ * sabores:
+ *   Inglés (byte-idéntico al bloque canónico, salvo nivel de heading):
  *   - extensions/pandi-dynamic-workflows/README.md   (## Research-backed templates)
  *   - .pi/skills/ultracode/SKILL.md                (## Research-backed templates)
- *   Spanish (the human docs are in Spanish since the 2026-07 translation):
+ *   Español (las docs humanas están en español desde la traducción 2026-07):
  *   - README.md (repo root)                        (### Plantillas apoyadas en research)
  *   - docs/dynamic-workflows.md                    (### Plantillas apoyadas en research)
  *
- * `npm test` is otherwise a typecheck + behavior suite; nothing pins these doc
- * mirrors, so any future edit to the catalog wording would silently drift the docs
- * out of sync (DRY violation for prompts).
+ * `npm test` por lo demás es una suite de typecheck + comportamiento; nada pinea estos mirrors
+ * de docs, así que cualquier edición futura del wording del catálogo desincronizaría silenciosamente
+ * las docs (violación DRY para prompts).
  *
- * This test enforces the single source per flavor:
- *   - English mirrors must equal the block produced by `formatWorkflowPatternCatalog()`
- *     (strip the heading level, trim per-line trailing whitespace, drop trailing blanks).
- *   - Spanish mirrors must be byte-identical to EACH OTHER (one Spanish canon; the
- *     root README copy is the reference) and must list the same **bold** pattern
- *     names, in the same order, as the English canonical block (structural parity —
- *     a translation cannot be byte-compared against the English prompt).
- * If you intentionally change the wording, update pattern-scaffolds.ts AND the
- * mirrored docs together and this stays green.
+ * Este test exige una única fuente por sabor:
+ *   - Los mirrors en inglés deben igualar el bloque producido por `formatWorkflowPatternCatalog()`
+ *     (quitar nivel de heading, trim de whitespace final por línea, dropear blanks finales).
+ *   - Los mirrors en español deben ser byte-idénticos ENTRE SÍ (un canon español; la copia del
+ *     README raíz es la referencia) y deben listar los mismos nombres de patterns en **bold**,
+ *     en el mismo orden, que el bloque canónico inglés (paridad estructural: una traducción
+ *     no puede byte-compararse contra el prompt inglés).
+ * Si cambiás intencionalmente el wording, actualizá pattern-scaffolds.ts Y las docs espejadas
+ * juntas y esto queda verde.
  *
- * Run directly:
+ * Corrida directa:
  *   node extensions/pandi-dynamic-workflows/tests/integration/prompt-catalog-single-source.test.mjs
  */
 
@@ -45,9 +45,9 @@ const CLOSING = "Use these as patterns, not ceremony";
 const HEADING_ES = "Plantillas apoyadas en research";
 const CLOSING_ES = "Usalos como patterns, no como ceremonia";
 
-// pattern-scaffolds.ts has NO external imports, so it bundles standalone (no stubs needed).
+// pattern-scaffolds.ts NO tiene imports externos, así que bundlea standalone (sin stubs).
 async function buildTemplates() {
-	// pattern-scaffolds.ts has no peer-dependency imports, so no stubs are needed.
+	// pattern-scaffolds.ts no tiene imports de peer-dependency, así que no hacen falta stubs.
 	const { url } = await sharedBuildExtension({
 		name: "pi-dwf-prompt-ssot",
 		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "pattern-scaffolds.ts"),
@@ -57,8 +57,8 @@ async function buildTemplates() {
 }
 
 /**
- * Slice the block from its heading line through the CLOSING line (inclusive).
- * Returns null if the markers are not found.
+ * Cortá el bloque desde su línea de heading hasta la línea CLOSING (inclusive).
+ * Devuelve null si no encuentra los marcadores.
  */
 function sliceBlock(text, heading = HEADING, closing = CLOSING) {
 	const lines = text.split("\n");
@@ -75,7 +75,7 @@ function sliceBlock(text, heading = HEADING, closing = CLOSING) {
 	return lines.slice(start, end + 1).join("\n");
 }
 
-/** Strip heading level, trim per-line trailing whitespace, drop trailing blanks. */
+/** Quitá nivel de heading, trimmeá whitespace final por línea y dropeá blanks finales. */
 function canonicalize(block) {
 	const lines = block.split("\n").map((l) => l.replace(/\s+$/, ""));
 	lines[0] = lines[0].replace(/^#+\s*/, "");
@@ -121,8 +121,8 @@ async function main() {
 		);
 	}
 
-	// Spanish mirrors: one Spanish canon (root README is the reference) + structural
-	// parity of the bold pattern names against the English canonical block.
+	// Mirrors en español: un canon español (README raíz es la referencia) + paridad
+	// estructural de los nombres de patterns en bold contra el bloque canónico inglés.
 	const spanishDocs = ["README.md", "docs/dynamic-workflows.md"];
 	const boldNames = (block) => block.match(/\*\*[^*]+\*\*/g) ?? [];
 	const canonicalNames = boldNames(canonical).join(" | ");

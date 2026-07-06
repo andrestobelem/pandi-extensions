@@ -1,32 +1,32 @@
 #!/usr/bin/env node
 /**
- * Durable contract guard for the session-switch command argument quoting/parsing.
+ * Guard de contrato durable para quoting/parsing de argumentos del comando session-switch.
  *
- * The dashboard hands a Pi-session file off to the prompt as a slash command
+ * El dashboard entrega un archivo de sesión Pi al prompt como slash command
  * (dashboard-orchestration.ts, switchToPiSession):
  *
  *     options.submitCommand(`/workflow switch-session ${quoteWorkflowCommandArgument(sessionFile)}`)
  *
- * where `quoteWorkflowCommandArgument(value) === JSON.stringify(value)`. The command
- * handler then tokenizes the args with `/^(\S+)(?:\s+([\s\S]*))?$/` to split the action
- * from its argument and recovers the path with the EXPORTED helper
+ * donde `quoteWorkflowCommandArgument(value) === JSON.stringify(value)`. Luego el command
+ * handler tokeniza los args con `/^(\S+)(?:\s+([\s\S]*))?$/` para separar la action
+ * de su argumento y recupera el path con el helper EXPORTADO
  * `parseWorkflowCommandArgument` (command-handlers.ts, action === "switch-session").
  *
- * The non-obvious invariant that makes session switching work for real-world paths —
- * those with spaces, unicode, embedded quotes, or backslashes — is:
+ * El invariante no-obvio que hace funcionar session switching para paths del mundo real —
+ * con espacios, unicode, quotes embebidas o backslashes — es:
  *
  *     parseWorkflowCommandArgument(JSON.stringify(path)) === path
  *
- * and the handler's whitespace-tokenizing split must not corrupt that quoted argument.
- * There was NO coverage on this path. A tempting "simplification" of the quoting to a
- * bare string (or of the parser to a naive quote-strip / space-split) would silently
- * break any session file with a space in it. This pins the observable round-trip.
+ * y el split del handler por whitespace no debe corromper ese argumento quoted.
+ * NO había cobertura en esta ruta. Una "simplificación" tentadora del quoting a un
+ * string pelado (o del parser a un quote-strip / space-split ingenuo) rompería silenciosamente
+ * cualquier archivo de sesión con un espacio. Esto pinea el round-trip observable.
  *
- * Pure: bundles dashboard-orchestration.ts with the shared client stubs and calls the
- * exported parser in memory. Reproduces the producer (JSON.stringify) and the handler's
- * tokenizer split locally, with pointers to the source of truth above.
+ * Puro: bundlea dashboard-orchestration.ts con los stubs client compartidos y llama el
+ * parser exportado en memoria. Reproduce localmente el producer (JSON.stringify) y el split
+ * tokenizer del handler, con punteros a la fuente de verdad arriba.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs
  */
 import * as path from "node:path";
@@ -34,10 +34,10 @@ import { buildExtension, createChecker, loadModule, REPO_ROOT } from "../../../s
 
 const { check, counts } = createChecker();
 
-// Mirror of command-handlers.ts: action/arg split applied to the trimmed args.
+// Espejo de command-handlers.ts: split action/arg aplicado a los args trimmeados.
 const ACTION_SPLIT = /^(\S+)(?:\s+([\s\S]*))?$/;
 
-/** What the handler sees as `afterAction` for the submitted /workflow command. */
+/** Lo que el handler ve como `afterAction` para el comando /workflow enviado. */
 function handlerAfterAction(submittedArgs) {
 	const m = ACTION_SPLIT.exec(submittedArgs.trim());
 	return m?.[2]?.trimStart() ?? "";
@@ -61,7 +61,7 @@ async function main() {
 		typeof parseWorkflowCommandArgument,
 	);
 
-	// Real-world Pi-session file paths that MUST survive the producer→handler→parser trip.
+	// Paths de archivo de sesión Pi del mundo real que DEBEN sobrevivir el viaje producer→handler→parser.
 	const paths = [
 		"/Users/me/.pi/sessions/a.json",
 		"/Users/me/My Sessions/with spaces.json",
@@ -73,7 +73,7 @@ async function main() {
 		"relative/path.json",
 	];
 
-	// 1) Core invariant on the exported helper: it inverts the producer's JSON.stringify.
+	// 1) Invariante central sobre el helper exportado: invierte el JSON.stringify del producer.
 	for (const p of paths) {
 		const quoted = JSON.stringify(p); // === quoteWorkflowCommandArgument(p)
 		check(
@@ -83,9 +83,9 @@ async function main() {
 		);
 	}
 
-	// 2) Full path as the handler actually runs it: build the submitted command, apply the
-	//    handler's tokenizer split, then parse — the quoted arg must not be corrupted by the
-	//    whitespace split even when the path itself contains spaces/tabs.
+	// 2) Ruta completa como realmente la corre el handler: construir el comando enviado, aplicar el
+	//    split tokenizer del handler, luego parsear; el arg quoted no debe corromperse por el
+	//    split de whitespace incluso cuando el path contiene espacios/tabs.
 	for (const p of paths) {
 		const submitted = `switch-session ${JSON.stringify(p)}`;
 		const recovered = parseWorkflowCommandArgument(handlerAfterAction(submitted));
@@ -96,12 +96,12 @@ async function main() {
 		);
 	}
 
-	// 3) Empty / blank argument → undefined (handler shows the "Usage:" warning, never switches).
+	// 3) Argumento empty / blank → undefined (el handler muestra el warning "Usage:", nunca switchea).
 	check("empty arg → undefined", parseWorkflowCommandArgument("") === undefined);
 	check("blank arg → undefined", parseWorkflowCommandArgument("   ") === undefined);
 
-	// 4) A bare (unquoted) absolute path passes through verbatim — the handler accepts a path
-	//    typed without JSON quoting, and `[\s\S]*` keeps multi-word bare paths intact too.
+	// 4) Un path absoluto pelado (unquoted) pasa verbatim: el handler acepta un path
+	//    tipeado sin JSON quoting, y `[\s\S]*` también mantiene intactos paths pelados multi-word.
 	check(
 		"bare unquoted path passes through",
 		parseWorkflowCommandArgument("/no/quotes.json") === "/no/quotes.json",
@@ -113,7 +113,7 @@ async function main() {
 		JSON.stringify(parseWorkflowCommandArgument("/My Sessions/a.json")),
 	);
 
-	// 5) A malformed leading-quote argument → undefined (rejected, not half-parsed).
+	// 5) Un argumento malformed con leading-quote → undefined (rechazado, no half-parsed).
 	check(
 		"malformed leading-quote arg → undefined",
 		parseWorkflowCommandArgument('"unterminated') === undefined,

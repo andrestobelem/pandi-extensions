@@ -1,22 +1,22 @@
 /**
- * Durable behavioral integration test proving ctx.workflow() composition is resolvable + coherent.
+ * Test de integración conductual durable que prueba que la composición ctx.workflow() es resolvible + coherente.
  *
- * It installs inline fixture workflows into a temp project's .pi/workflows/ exactly
- * the way runtime composition resolves files: parent at the workflow root, reusable
- * child under lib/. This pins:
- *   - ctx.workflow("lib/rank-candidates", ...) RESOLVES from .pi/workflows/lib/.
- *   - The lib/ contract is coherent: { candidates, goal } -> { ranked, best,
- *     dropped, coverage }, with best === ranked[0] and dropped for unscorable.
- *   - The driver delegates ranking via ctx.workflow and emits sub-workflow
- *     start/end events for "lib/rank-candidates".
- *   - NEGATIVE control: if the lib/ directory is flattened, resolution fails.
+ * Instala workflows fixture inline en .pi/workflows/ de un proyecto temp exactamente
+ * como runtime composition resuelve archivos: parent en la root de workflows, child reutilizable
+ * bajo lib/. Esto pinea:
+ *   - ctx.workflow("lib/rank-candidates", ...) RESUELVE desde .pi/workflows/lib/.
+ *   - El contrato lib/ es coherente: { candidates, goal } -> { ranked, best,
+ *     dropped, coverage }, con best === ranked[0] y dropped para no-scoreables.
+ *   - El driver delega ranking vía ctx.workflow y emite eventos start/end de sub-workflow
+ *     para "lib/rank-candidates".
+ *   - Control NEGATIVO: si el directorio lib/ se aplana, la resolución falla.
  *
- * Self-bootstrapping: esbuilds the CURRENT extension to a tempdir (never stale),
- * aliasing typebox/SDK/tui to local stubs so it runs with no `npm install`. The agent
- * subprocess boundary is faked via PI_DYNAMIC_WORKFLOWS_PI_COMMAND (a tiny node script
- * that emits one JSON-mode `message_update` line), so no model is called.
+ * Self-bootstrapping: esbuild de la extensión ACTUAL a un tempdir (nunca stale),
+ * con alias typebox/SDK/tui a stubs locales para que corra sin `npm install`. La frontera
+ * del subprocess de agente se fakea vía PI_DYNAMIC_WORKFLOWS_PI_COMMAND (un script node mínimo
+ * que emite una línea `message_update` JSON-mode), así no se llama ningún modelo.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/composition-rank.test.mjs
  */
 
@@ -110,13 +110,13 @@ async function makeProject() {
 	return project;
 }
 
-// The fixture workflow sources live as real .js files under fixtures/ (prompts as
-// template literals, like the global ~/.claude/workflows and our scaffolds/*.js) so
-// Biome lints them as code instead of tripping noTemplateCurlyInString on inline
-// source strings.
+// Las fuentes de workflow fixture viven como archivos .js reales bajo fixtures/ (prompts como
+// template literals, igual que los ~/.claude/workflows globales y nuestros scaffolds/*.js), así
+// Biome las lintea como código en vez de disparar noTemplateCurlyInString sobre strings de fuente
+// inline.
 const FIXTURES_DIR = path.join(__dirname, "fixtures");
 
-// Install fixture workflow files into the project's workflow dir, preserving lib/.
+// Instalá archivos de workflow fixture en el dir de workflows del proyecto, preservando lib/.
 async function installCompositionFixtures(project, { flattenLib = false } = {}) {
 	const driver = await fs.readFile(path.join(FIXTURES_DIR, "composition-rank-driver.js"), "utf8");
 	const lib = await fs.readFile(path.join(FIXTURES_DIR, "rank-candidates.js"), "utf8");
@@ -143,12 +143,12 @@ async function runTool(tool, ctx, params) {
 	return await tool.execute("tc-integration", params, new AbortController().signal, undefined, ctx);
 }
 
-// Fake `pi` agent subprocess. Emits exactly one JSON-mode message_update line whose
-// assistant text is the agent's output. It branches on the prompt (last argv):
-//   - candidate-generator prompt -> a JSON array of { id, text }
-//   - juror prompt               -> a JSON { score, rationale }
-//   - anything else (synthesis)  -> prose
-// SCORES is a map { candidateText -> score } so the ranking is deterministic.
+// Subprocess de agente `pi` fake. Emite exactamente una línea message_update JSON-mode cuyo
+// texto assistant es el output del agente. Branch por prompt (último argv):
+//   - prompt candidate-generator -> un array JSON de { id, text }
+//   - prompt juror               -> un JSON { score, rationale }
+//   - cualquier otra cosa (synthesis) -> prosa
+// SCORES es un map { candidateText -> score } para que el ranking sea determinista.
 async function writeFakePi(outDir, scores) {
 	const fakePi = path.join(outDir, `fake-pi-${instance}.mjs`);
 	const scoreEntries = JSON.stringify(scores);
@@ -193,7 +193,7 @@ async function withFakePi(fakePi, fn) {
 async function scenarioResolvesAndRanks(url, outDir) {
 	const project = await makeProject();
 	await installCompositionFixtures(project);
-	// Deterministic scores: "Quartz" should win, "Vague" should lose.
+	// Scores deterministas: "Quartz" debería ganar, "Vague" debería perder.
 	const scores = { Quartz: 9, Mica: 6, Vague: 2 };
 	const fakePi = await writeFakePi(outDir, scores);
 
@@ -216,7 +216,7 @@ async function scenarioResolvesAndRanks(url, outDir) {
 	check("resolve: parent run succeeds", result.ok === true, result.error);
 	if (result.ok !== true) return;
 
-	// Ranking artifact written by the parent after delegating to lib/.
+	// Artifact de ranking escrito por el parent después de delegar a lib/.
 	const ranking = await readJson(path.join(result.runDir, "ranking.json"));
 	check(
 		"coherence: ranked is best-first (Quartz top)",
@@ -244,7 +244,7 @@ async function scenarioResolvesAndRanks(url, outDir) {
 		JSON.stringify(ranking.coverage),
 	);
 
-	// The lib/ sub-workflow itself wrote its own artifact into the SAME run dir.
+	// El propio sub-workflow lib/ escribió su artifact en el MISMO run dir.
 	const libArtifact = await readJson(path.join(result.runDir, "rank-candidates-result.json"));
 	check(
 		"resolve: lib/rank-candidates artifact lands in shared runDir",
@@ -252,7 +252,7 @@ async function scenarioResolvesAndRanks(url, outDir) {
 		JSON.stringify(libArtifact.best),
 	);
 
-	// Composition events prove ctx.workflow("lib/rank-candidates") actually ran.
+	// Los eventos de composición prueban que ctx.workflow("lib/rank-candidates") realmente corrió.
 	const events = await readEvents(result.runDir);
 	check(
 		"resolve: emits sub-workflow start for lib/rank-candidates",
@@ -271,9 +271,9 @@ async function scenarioResolvesAndRanks(url, outDir) {
 async function scenarioDropsUnscorable(url, outDir) {
 	const project = await makeProject();
 	await installCompositionFixtures(project);
-	// Call the lib/ sub-workflow DIRECTLY via a tiny parent so we can feed it a
-	// blank candidate and confirm the dropped/coherence contract without the
-	// generator. This still goes through the REAL resolution + composition path.
+	// Llamá DIRECTAMENTE al sub-workflow lib/ vía un parent mínimo para poder pasarle un
+	// candidate en blanco y confirmar el contrato dropped/coherence sin el
+	// generator. Esto igual pasa por la ruta REAL de resolución + composición.
 	await fs.writeFile(
 		path.join(project, ".pi", "workflows", "rank-direct.js"),
 		`module.exports = async function workflow(ctx, input) {
@@ -326,11 +326,11 @@ async function scenarioFlattenedLibDoesNotResolve(url, outDir) {
 	const scores = { Quartz: 9, Mica: 6 };
 	const fakePi = await writeFakePi(outDir, scores);
 
-	// The run must FAIL because ctx.workflow("lib/rank-candidates") cannot resolve
-	// when the file is not under lib/. The extension surfaces an unresolvable
-	// sub-workflow by THROWING out of the run (not by returning ok:false), so we
-	// capture either shape. This is the negative control proving the header's lib/
-	// layout instruction is load-bearing.
+	// El run debe FALLAR porque ctx.workflow("lib/rank-candidates") no puede resolver
+	// cuando el archivo no está bajo lib/. La extensión expone un sub-workflow
+	// irresoluble haciendo THROW fuera del run (no devolviendo ok:false), así que
+	// capturamos cualquiera de las dos formas. Este es el control negativo que prueba que la instrucción
+	// de layout lib/ del header es load-bearing.
 	let ok;
 	let errMessage;
 	try {
