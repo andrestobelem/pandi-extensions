@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * Contract test for the stale-Pi-session PRUNE policy (pi-session.ts,
+ * Test de contrato para la política PRUNE de sesiones Pi stale (pi-session.ts,
  * classifySessionFilesForPrune).
  *
- * `collectPiSessions` already computes a `staleReason` for dead session records, but the
- * on-disk `.pi/live-sessions/*.json` file is never removed — it lingers until something
- * sweeps it (today, by hand). `/workflow cleanup sessions` removes those files, and this
- * pins the safe-by-default decision so the sweep can never delete a LIVE or the CURRENT
- * session's file:
+ * `collectPiSessions` ya computa un `staleReason` para records de sesión muertos, pero el archivo
+ * `.pi/live-sessions/*.json` en disco nunca se elimina — queda ahí hasta que algo
+ * lo barre (hoy, a mano). `/workflow cleanup sessions` elimina esos archivos, y esto
+ * pinea la decisión safe-by-default para que el barrido nunca pueda borrar un archivo de sesión
+ * LIVE ni CURRENT:
  *
- *   - pid exited (process gone)      → remove (definitively safe)
- *   - live (pid alive + fresh)       → keep, always
- *   - the current session's file     → keep, always
- *   - heartbeat-stale (pid alive)    → keep by default; remove only with includeHeartbeatStale
- *   - malformed / unparseable record → keep (safe: never delete what we can't classify)
+ *   - pid exited (proceso ausente)       → remove (definitivamente seguro)
+ *   - live (pid vivo + fresco)          → keep, siempre
+ *   - archivo de la sesión current      → keep, siempre
+ *   - heartbeat-stale (pid vivo)        → keep por default; remove solo con includeHeartbeatStale
+ *   - record malformed / no parseable   → keep (seguro: nunca borrar lo que no podemos clasificar)
  *
- * `now` and `isPidAlive` are injected so the classifier is pure and offline; the IO wrapper
- * (prunePiSessionFiles) does the readdir + fs.unlink and is not exercised here.
+ * `now` e `isPidAlive` se inyectan para que el classifier sea puro y offline; el wrapper IO
+ * (prunePiSessionFiles) hace el readdir + fs.unlink y no se ejercita acá.
  *
- * Run it:
+ * Corrélo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/cleanup-session-prune.test.mjs
  */
 import * as path from "node:path";
@@ -26,7 +26,7 @@ import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../shar
 
 const { check, counts } = createChecker();
 
-// PI_SESSION_STALE_MS in pi-session.ts.
+// PI_SESSION_STALE_MS en pi-session.ts.
 const STALE_MS = 20_000;
 const NOW = Date.parse("2026-07-01T00:00:00Z");
 
@@ -61,18 +61,18 @@ async function main() {
 		typeof classifySessionFilesForPrune,
 	);
 
-	const deadPids = new Set([999]); // pid 999 is "dead"
+	const deadPids = new Set([999]); // pid 999 está "dead"
 	const isPidAlive = (pid) => !deadPids.has(pid);
 
-	// Mixed fixture: dead, live, current, heartbeat-stale (pid alive but old heartbeat).
+	// Fixture mixto: dead, live, current, heartbeat-stale (pid vivo pero heartbeat viejo).
 	const entries = [
-		entry("dead.json", 999, 1000), // pid exited → remove
-		entry("live.json", 100, 1000), // pid alive + fresh → keep
-		entry("current.json", 200, 1000, "cur"), // current session → keep
-		entry("hbstale.json", 300, STALE_MS + 5000), // pid alive, stale heartbeat → keep by default
+		entry("dead.json", 999, 1000), // pid salió → remove
+		entry("live.json", 100, 1000), // pid vivo + fresco → keep
+		entry("current.json", 200, 1000, "cur"), // sesión current → keep
+		entry("hbstale.json", 300, STALE_MS + 5000), // pid vivo, heartbeat stale → keep por default
 	];
 
-	// 1) Default: only pid-exited files are removed.
+	// 1) Default: solo se eliminan archivos cuyo pid salió.
 	{
 		const { remove, keep } = classifySessionFilesForPrune(entries, { now: NOW, isPidAlive, currentId: "cur" });
 		check("default removes only dead.json", remove.join(",") === "dead.json", JSON.stringify(remove));
@@ -83,8 +83,8 @@ async function main() {
 		);
 	}
 
-	// 2) includeHeartbeatStale: also removes the pid-alive-but-stale file, but STILL keeps
-	//    the current session and the live one.
+	// 2) includeHeartbeatStale: también elimina el archivo con pid vivo pero stale, pero TODAVÍA conserva
+	//    la sesión current y la live.
 	{
 		const { remove, keep } = classifySessionFilesForPrune(entries, {
 			now: NOW,
@@ -101,7 +101,7 @@ async function main() {
 		check("live still kept", keep.includes("live.json"), JSON.stringify(keep));
 	}
 
-	// 3) Current session is kept even if its pid looks dead (defensive: never delete our own).
+	// 3) La sesión current se conserva aunque su pid parezca muerto (defensivo: nunca borrar la propia).
 	{
 		const only = [entry("me.json", 999, 1000, "me")];
 		const { remove, keep } = classifySessionFilesForPrune(only, {
@@ -117,7 +117,7 @@ async function main() {
 		);
 	}
 
-	// 4) Malformed / unparseable records are kept (never delete what we can't classify).
+	// 4) Records malformed / no parseables se conservan (nunca borrar lo que no podemos clasificar).
 	{
 		const bad = [
 			{ file: "bad.json", record: null },
@@ -127,7 +127,7 @@ async function main() {
 		check("malformed records kept", remove.length === 0 && keep.length === 2, JSON.stringify({ remove, keep }));
 	}
 
-	// 5) Empty input → empty result.
+	// 5) Input vacío → resultado vacío.
 	{
 		const { remove, keep } = classifySessionFilesForPrune([], { now: NOW, isPidAlive });
 		check("empty input → empty", remove.length === 0 && keep.length === 0);
