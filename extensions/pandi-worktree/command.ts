@@ -155,15 +155,15 @@ function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenPars
 	}
 	if (isForceFlag(tok)) {
 		state.force = true;
-	} else if (isDetachFlag(tok)) {
-		state.detach = true;
-	} else if (applyCopyIgnoredFlag(tok, state)) {
-		// aplicado por el helper
-	} else if (applyCopyUntrackedFlag(tok, state)) {
-		// aplicado por el helper
-	} else {
-		state.positionals.push(tok);
+		return index;
 	}
+	if (isDetachFlag(tok)) {
+		state.detach = true;
+		return index;
+	}
+	if (applyCopyIgnoredFlag(tok, state)) return index;
+	if (applyCopyUntrackedFlag(tok, state)) return index;
+	state.positionals.push(tok);
 	return index;
 }
 
