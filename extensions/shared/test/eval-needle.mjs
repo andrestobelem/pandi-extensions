@@ -157,7 +157,10 @@ export function assertNonLexicalDesign(evalCase = {}) {
 		problems.push("no distractor overlaps the query (add a lexical-lure distractor)");
 	}
 
-	if (Array.isArray(evalCase.accept) && evalCase.accept.length === 0) {
+	const accept = Array.isArray(evalCase.accept)
+		? evalCase.accept.filter((s) => typeof s === "string" && s.length > 0)
+		: [];
+	if (accept.length === 0) {
 		problems.push("no `accept` paraphrase keys (grading would fall back to literal matching)");
 	}
 	return problems;

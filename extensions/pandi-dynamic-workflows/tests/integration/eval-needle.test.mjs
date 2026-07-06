@@ -93,15 +93,21 @@ async function main() {
 		"lint: flags a case with no lexical-lure distractor",
 		assertNonLexicalDesign(noLure).some((p) => /lure/.test(p)),
 	);
-	check(
-		"lint: flags missing accept keys",
-		assertNonLexicalDesign({
-			query,
-			needleSentence,
-			haystack: `${distractor}\n${needleSentence}`,
-			accept: [],
-		}).some((p) => /literal/.test(p)),
-	);
+	for (const [label, accept] of [
+		["empty accept keys", []],
+		["missing accept keys", undefined],
+		["non-array accept keys", "okonkwo"],
+	]) {
+		check(
+			`lint: flags ${label}`,
+			assertNonLexicalDesign({
+				query,
+				needleSentence,
+				haystack: `${distractor}\n${needleSentence}`,
+				...(accept === undefined ? {} : { accept }),
+			}).some((p) => /literal/.test(p)),
+		);
+	}
 
 	// 4) THE MONEY SHOT: literal grader is fooled by the distractor; non-lexical grader is robust.
 	// A model that latched onto the lexical lure would answer using the distractor's words.
