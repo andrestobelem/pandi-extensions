@@ -17,45 +17,72 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readMaybe } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
-const checkOnly = process.argv.includes("--check");
-const classification = discoverSkillClassification();
-const MIRRORED = classification.mirrored;
+export function parseCheckOnly(args = process.argv.slice(2)) {
+	return args.includes("--check");
+}
 
-if (checkOnly && reportUnclassifiedSkills("sync-skill-mirrors", classification) > 0) process.exit(1);
+export function mirroredSkillPairs(skillNames, { repo = REPO, skillsRoot = SKILLS_ROOT } = {}) {
+	return skillNames.map((name) => ({
+		name,
+		src: join(skillsRoot, name, "SKILL.md"),
+		dst: join(repo, ".claude", "skills", name, "SKILL.md"),
+	}));
+}
 
-let drift = 0;
-let wrote = 0;
-for (const name of MIRRORED) {
-	const src = join(SKILLS_ROOT, name, "SKILL.md");
-	const dst = join(REPO, ".claude", "skills", name, "SKILL.md");
-	const want = await readMaybe(src);
-	if (want === null) {
-		console.error(`[sync-skill-mirrors] ✗ missing source: .pi/skills/${name}/SKILL.md`);
-		drift++;
-		continue;
+export async function syncSkillMirrors({
+	checkOnly = false,
+	classification = discoverSkillClassification(),
+	repo = REPO,
+	skillsRoot = SKILLS_ROOT,
+	log = console.log,
+	error = console.error,
+} = {}) {
+	if (checkOnly && reportUnclassifiedSkills("sync-skill-mirrors", classification) > 0) {
+		return { drift: classification.unclassified.length, wrote: 0, total: classification.mirrored.length, ok: false };
 	}
-	const have = await readMaybe(dst);
-	if (have === want) continue;
+
+	let drift = 0;
+	let wrote = 0;
+	const pairs = mirroredSkillPairs(classification.mirrored, { repo, skillsRoot });
+	for (const { name, src, dst } of pairs) {
+		const want = await readMaybe(src);
+		if (want === null) {
+			error(`[sync-skill-mirrors] ✗ missing source: .pi/skills/${name}/SKILL.md`);
+			drift++;
+			continue;
+		}
+		const have = await readMaybe(dst);
+		if (have === want) continue;
+		if (checkOnly) {
+			error(`[sync-skill-mirrors] ✗ drift: ${name} (.claude copy differs from .pi source)`);
+			drift++;
+		} else {
+			await mkdir(dirname(dst), { recursive: true });
+			await writeFile(dst, want);
+			log(`[sync-skill-mirrors] wrote ${name}`);
+			wrote++;
+		}
+	}
+
 	if (checkOnly) {
-		console.error(`[sync-skill-mirrors] ✗ drift: ${name} (.claude copy differs from .pi source)`);
-		drift++;
+		if (drift > 0) {
+			error(`[sync-skill-mirrors] ${drift} skill(s) out of sync — run: node scripts/sync-skill-mirrors.mjs`);
+			return { drift, wrote, total: pairs.length, ok: false };
+		}
+		log(`[sync-skill-mirrors] ✅ all ${pairs.length} mirrored skill(s) in sync.`);
 	} else {
-		await mkdir(dirname(dst), { recursive: true });
-		await writeFile(dst, want);
-		console.log(`[sync-skill-mirrors] wrote ${name}`);
-		wrote++;
+		log(`[sync-skill-mirrors] ✅ ${pairs.length} mirrored skill(s) synced (${wrote} written).`);
 	}
+	return { drift, wrote, total: pairs.length, ok: true };
 }
 
-if (checkOnly) {
-	if (drift > 0) {
-		console.error(`[sync-skill-mirrors] ${drift} skill(s) out of sync — run: node scripts/sync-skill-mirrors.mjs`);
-		process.exit(1);
-	}
-	console.log(`[sync-skill-mirrors] ✅ all ${MIRRORED.length} mirrored skill(s) in sync.`);
-} else {
-	console.log(`[sync-skill-mirrors] ✅ ${MIRRORED.length} mirrored skill(s) synced (${wrote} written).`);
+async function main(args = process.argv.slice(2)) {
+	const result = await syncSkillMirrors({ checkOnly: parseCheckOnly(args) });
+	if (!result.ok) process.exit(1);
 }
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();
