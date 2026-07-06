@@ -81,6 +81,13 @@ import {
 	setSessionFlagDefault,
 } from "./flags.js";
 import { blockedReason } from "./gate.js";
+import {
+	markPlanApproved,
+	markPlanExited,
+	markPlanOnlyRecorded,
+	markPlanRejected,
+	recordPlanSubmission,
+} from "./lifecycle.js";
 import { notify } from "./notify.js";
 import { writeAndOpenPlanHtmlArtifact } from "./plan-html.js";
 import { makeImplementPrompt, makePlanningPrompt, type PlanFlags } from "./prompts.js";
@@ -312,8 +319,7 @@ function startPlan(pi: ExtensionAPI, ctx: ExtensionContext, task: string): PlanS
 function exitPlan(pi: ExtensionAPI, ctx: ExtensionContext, reason: string): boolean {
 	const plan = currentPlan();
 	if (!plan) return false;
-	plan.active = false;
-	plan.status = "exited";
+	markPlanExited(plan);
 	persist(pi, plan);
 	refreshPlanStatus(ctx);
 	notify(ctx, `Saliste del modo plan (${plan.planId}): ${reason}. No se inició ninguna implementación.`, "info");
@@ -467,9 +473,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 			}
 
 			const planText = params.plan;
-			plan.lastPlan = planText;
-			plan.submissions += 1;
-			const submission = plan.submissions;
+			const submission = recordPlanSubmission(plan, planText);
 			persist(pi, plan);
 			setPlanStatus(ctx, plan);
 
@@ -479,7 +483,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 			// Sin confirm, sin wake, sin reinyección de implementación. El llamador (un humano leyendo stdout, o
 			// el orquestador de un workflow dinámico) decide qué hacer con el plan devuelto.
 			if (plan.nonInteractive) {
-				plan.status = "planned"; // active sigue true a propósito; el gate de solo lectura persiste.
+				markPlanOnlyRecorded(plan); // active sigue true a propósito; el gate de solo lectura persiste.
 				persist(pi, plan);
 				setPlanStatus(ctx, plan);
 				notify(
@@ -554,8 +558,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 			if (approved) {
 				// APRUEBA: levanta el gate (desactiva así que el tool_call handler devuelve temprano),
 				// persiste, luego despierta el mensaje de implementación.
-				livePlan.active = false;
-				livePlan.status = "approved";
+				markPlanApproved(livePlan);
 				persist(pi, livePlan);
 				refreshPlanStatus(ctx);
 				wake(pi, ctx, makeImplementPrompt(planText, { ultracodeSteps: livePlan.ultracodeSteps }));
@@ -568,8 +571,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 
 			// RECHAZA: sigue en modo plan (gate sigue armado), cuéntalo, persiste, y devuelve al
 			// modelo para que revise y reenvíe en el mismo turno. Sin wake.
-			livePlan.rejections += 1;
-			livePlan.status = "planning"; // sigue activo; el status refleja que aún estamos planificando.
+			markPlanRejected(livePlan); // sigue activo; el status refleja que aún estamos planificando.
 			persist(pi, livePlan);
 			setPlanStatus(ctx, livePlan);
 			notify(ctx, `Plan ${livePlan.planId} rechazado. Seguimos en modo plan; el agente va a revisar.`, "info");

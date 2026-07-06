@@ -4,7 +4,7 @@
  * Este módulo es un leaf de tipos: nombra el concepto central que comparten
  * runtime, status line y dashboard sin hacer que esos renderers dependan de
  * `index.ts` (el wiring de la extensión). Mantenerlo sin imports preserva la
- * frontera: acá vive la forma del snapshot; las transiciones siguen en el runtime.
+ * frontera: acá vive la forma del snapshot; las transiciones pequeñas viven en `lifecycle.ts`.
  */
 
 export type PlanStatus = "planning" | "approved" | "rejected" | "exited" | "planned";
