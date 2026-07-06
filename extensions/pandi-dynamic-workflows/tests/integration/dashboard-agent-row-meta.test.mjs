@@ -31,7 +31,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const theme = { fg: (_c, v) => v, bg: (_c, v) => v, bold: (v) => v };
-const WIDTH = 10000; // wide enough that truncateToWidth never trims the row
+const WIDTH = 10000; // suficientemente ancho para que truncateToWidth nunca recorte la fila
 
 function makeAgent() {
 	return {
