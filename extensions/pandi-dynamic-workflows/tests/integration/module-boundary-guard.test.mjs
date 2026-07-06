@@ -3,8 +3,7 @@
  *
  * index.ts es el facade público + engine. Los siblings no deben usarlo como barrel
  * de contratos o constantes: eso reintroduce ciclos ESM difíciles de razonar. Las
- * pocas importaciones runtime restantes son intencionales y explícitas: UI/lifecycle
- * llaman entry points del engine.
+ * index.ts no tiene importadores internos: es facade público + activación.
  */
 
 import * as fs from "node:fs/promises";
@@ -14,10 +13,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_DIR = path.resolve(__dirname, "..", "..");
 
-const ALLOWED_INDEX_IMPORTS = new Map([
-	["dashboard-orchestration.ts", new Set(["runWorkflow"])],
-	["run-lifecycle.ts", new Set(["runWorkflow"])],
-]);
+const ALLOWED_INDEX_IMPORTS = new Map();
 
 let failures = 0;
 function check(name, ok, detail = "") {

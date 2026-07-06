@@ -22,7 +22,6 @@ import {
 	type WorkflowDashboardResult,
 } from "./dashboard-collectors.js";
 import { stringify } from "./format.js";
-import { runWorkflow } from "./index.js";
 import { notify } from "./notify.js";
 import type { WorkflowPattern } from "./pattern-scaffolds.js";
 import { loadWorkflowPatternCode } from "./pattern-scaffolds.js";
@@ -60,6 +59,7 @@ import type {
 } from "./types.js";
 import type { DashboardSelection, WorkflowDashboardTab } from "./workflow-dashboard.js";
 import { WorkflowDashboard } from "./workflow-dashboard.js";
+import { runWorkflow } from "./workflow-engine.js";
 import { showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, resolveWorkflow, resolveWorkflowForRun } from "./workflow-resolve.js";
 
