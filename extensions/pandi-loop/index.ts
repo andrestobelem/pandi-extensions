@@ -110,6 +110,7 @@ import {
 } from "./state.js";
 import { formatStatus } from "./status.js";
 import { formatEta } from "./time.js";
+import { toolError, toolResult } from "./tool-results.js";
 
 const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";
@@ -1055,14 +1056,6 @@ async function handleToolCall(
 	}
 	// Sin UI interactiva para confirmar → bloquear para mantener la seguridad.
 	return { block: true, reason };
-}
-
-function toolResult(text: string, details: Record<string, unknown>) {
-	return { content: [{ type: "text" as const, text }], details };
-}
-
-function toolError(text: string) {
-	return toolResult(text, { isError: true });
 }
 
 function selectToolOwnerLoop(
