@@ -38,13 +38,14 @@ function formatGoalStatusDetails(goal: GoalState): string {
 	return `${iteration}${phase}${eta}${reason}`;
 }
 
+function formatGoalStatusLine(ctx: ExtensionContext, goal: GoalState): string {
+	const theme = ctx.ui.theme;
+	return `${theme.fg("accent", "◎ goal")} ${theme.fg("dim", formatGoalStatusDetails(goal))}`;
+}
+
 export function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
 	if (!ctx.hasUI) return;
-	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(
-		GOAL_STATUS_KEY,
-		`${theme.fg("accent", "◎ goal")} ${theme.fg("dim", formatGoalStatusDetails(goal))}`,
-	);
+	ctx.ui.setStatus(GOAL_STATUS_KEY, formatGoalStatusLine(ctx, goal));
 }
 
 export function clearGoalStatus(ctx: ExtensionContext): void {
