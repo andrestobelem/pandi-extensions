@@ -1,16 +1,12 @@
 /**
- * Constructor del prompt de iteración de pandi-loop (puro). El molde estable que se
- * reinyecta en cada iteración (objetivo autónomo vs tarea verbatim; guía de cadencia
- * fija vs dinámica). Extraído de index.ts con el cuerpo verbatim; el único cambio es
- * el tipo del parámetro, desacoplado de LoopState a un input estructural para que esta
- * hoja no tenga ciclo de vuelta hacia index.ts. Hermano de profundidad uno importado vía
- * "./prompt.js".
+ * Constructor puro del prompt de iteración de pandi-loop. Usa un input estructural
+ * para evitar que esta hoja dependa del estado runtime de index.ts.
  */
 
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { formatInterval } from "./interval.js";
 
-/** Subconjunto estructural de LoopState que makeLoopIterationPrompt lee. Un LoopState completo lo satisface. */
+/** Subconjunto de LoopState que makeLoopIterationPrompt necesita. */
 export interface LoopIterationPromptInput {
 	loopId: string;
 	task: string;
@@ -33,8 +29,7 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 	lines.push(`Estás corriendo una iteración de /loop (loop ${loop.loopId}).`);
 	lines.push("");
 	if (loop.autonomous) {
-		// Modo autónomo (P2): sin tarea de usuario convencional. El campo "task" contiene el
-		// objetivo recurrente; el texto reinyectado es esta sentinela, no un mensaje de usuario.
+		// El campo "task" guarda el objetivo recurrente; el prompt reinyectado usa esta sentinela.
 		lines.push("LOOP AUTÓNOMO (sin usuario interactivo este turno).");
 		lines.push("Esta iteración fue generada por la extensión /loop para perseguir un objetivo recurrente:");
 		lines.push("");
@@ -62,8 +57,7 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 	lines.push("");
 	lines.push("Hacé EXACTAMENTE UNA iteración de la tarea ahora, y después decidí si continuar:");
 	if (loop.mode === "fixed") {
-		// Modo fijo: el período pertenece a la extensión; el modelo solo decide continuar vs
-		// detenerse. loop_schedule es un no-op acá (no puede cambiar la cadencia).
+		// El período pertenece a la extensión; el modelo solo decide continuar o detenerse.
 		const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
 		lines.push(
 			`- Este loop corre en un intervalo FIJO (cada ${formatInterval(periodSec)}). NO controlás la cadencia; no intentes cambiarla.`,
