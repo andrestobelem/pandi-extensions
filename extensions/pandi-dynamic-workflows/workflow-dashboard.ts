@@ -4,8 +4,8 @@
  * window/reselect helpers, and the DashboardSelection result type.
  *
  * Pure UI over already-derived models; the collectors and openWorkflowDashboard stay in
- * index.ts. Fully-deferred cycle: the class reads canCancelRun/canRerunRun/compactInline/
- * PI_SESSION_HEARTBEAT_MS from ./index.js only inside methods; index.ts imports the class
+ * index.ts. Fully-deferred cycle: the class reads canCancelRun/canRerunRun/compactInline
+ * only inside methods; runtime constants come from runtime-constants.ts, and index.ts imports the class
  * back (instantiated only inside the openWorkflowDashboard body) plus WorkflowDashboardTab/
  * DashboardSelection as erased types. Model types cross as import type. Run derivations
  * come from the run-state / event-parser / presentation / render-utils / templates
@@ -20,7 +20,6 @@ import {
 	type WorkflowMonitorModel,
 } from "./dashboard-collectors.js";
 import { formatAgentPhase, getAgentElapsedMs } from "./event-parser.js";
-import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
 import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { compactInline, formatElapsedMs } from "./presentation.js";
@@ -38,6 +37,7 @@ import {
 	isResumableState,
 } from "./run-state.js";
 import { canCancelRun } from "./run-status-ui.js";
+import { PI_SESSION_HEARTBEAT_MS } from "./runtime-constants.js";
 import type { AgentMonitorModel, WorkflowDefinition, WorkflowRunRecord } from "./types.js";
 
 const WORKFLOW_DASHBOARD_TABS = ["monitor", "agents", "sessions", "runs", "workflows", "patterns", "activity"] as const;

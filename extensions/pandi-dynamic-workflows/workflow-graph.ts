@@ -5,8 +5,7 @@
  * lo renderiza como Markdown/overview/mermaid lines, y renderiza un PNG via el mermaid
  * CLI (mmdc). Consume el graph-parse sibling para source-introspection helpers y el
  * process-spawn sibling (runProcess) para el mmdc subprocess. Los tipos WorkflowGraph
- * model viven en index.ts (compartidos con el WorkflowGraphComponent TUI) e se
- * importan aquí como types; WorkflowGraphImageRender/Attempt se poseen aquí.
+ * model y WorkflowGraphImageRender/Attempt se poseen aquí.
  *
  * Deferred cycle con index.ts: resolveWorkflow se lee solo dentro de bodies; los types
  * model cruzan como import type (erased). index.ts importa los externally-consumed
@@ -32,11 +31,11 @@ import {
 	summarizeWorkflowGraphChildren,
 	workflowGraphMethodInfo,
 } from "./graph-parse.js";
-import { EXTENSION_ROOT } from "./index.js";
 import { notify } from "./notify.js";
 import type { ProcessResult } from "./process-spawn.js";
 import { runProcess } from "./process-spawn.js";
 import { padRightVisible } from "./render-utils.js";
+import { EXTENSION_ROOT } from "./runtime-constants.js";
 import type { WorkflowDefinition } from "./types.js";
 import { WorkflowGraphComponent } from "./workflow-graph-component.js";
 import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";

@@ -5,14 +5,13 @@
  * de stdout/stderr con journaling acotado) — las dos primitivas de subprocess usadas
  * para lanzar subprocesses de agentes y la CLI de mermaid. Hoja muy cohesiva.
  *
- * Ciclo bidireccional diferido con index.ts: importa MAX_JOURNALED_STREAM y
- * PROCESS_KILL_GRACE_MS (valores, leídos solo dentro de los cuerpos run*) desde ./index.js.
+ * MAX_JOURNALED_STREAM y PROCESS_KILL_GRACE_MS vienen de runtime-constants.ts.
  * ProcessResult (la forma de resultado de runProcess) se define y exporta acá; index.ts
  * lo importa de vuelta como tipo. index.ts importa ambas funciones run* de vuelta y las reexporta
  * para el test de composición. spawn viene de node:child_process.
  */
 import { spawn } from "node:child_process";
-import { MAX_JOURNALED_STREAM, PROCESS_KILL_GRACE_MS } from "./index.js";
+import { MAX_JOURNALED_STREAM, PROCESS_KILL_GRACE_MS } from "./runtime-constants.js";
 
 export interface ProcessResult {
 	ok: boolean;

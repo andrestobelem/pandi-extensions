@@ -15,7 +15,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import { StringEnum } from "@earendil-works/pi-ai";
 import {
@@ -57,6 +56,7 @@ import { extractJsonCandidate } from "./json-extract.js";
 import { notify } from "./notify.js";
 import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./pattern-scaffolds.js";
 import { runStreamingAgentProcess, type StreamingProcessResult } from "./process-spawn.js";
+import { MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./runtime-constants.js";
 import {
 	appendSystemPromptOption,
 	formatSchemaRetryPrompt,
@@ -197,17 +197,21 @@ import { hasActiveRun } from "./run-registry.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
 
 export { estimatePeakParallelAgents } from "./run-state.js";
-
+export {
+	EXTENSION_ROOT,
+	JOURNAL_FILE,
+	MAX_AGENT_OUTPUT_IN_RESULT,
+	MAX_JOURNALED_STREAM,
+	PI_SESSION_HEARTBEAT_MS,
+	PROCESS_KILL_GRACE_MS,
+} from "./runtime-constants.js";
 export {
 	WORKFLOW_DIR,
 	WORKFLOW_DRAFT_DIR,
 	WORKFLOW_GRAPH_DIR,
 	WORKFLOW_RUN_DIR,
 } from "./workflow-resolve.js";
-export const PI_SESSION_HEARTBEAT_MS = 5_000;
-// Período de gracia tras SIGTERM antes de escalar a SIGKILL para procesos hijo creados.
-export const PROCESS_KILL_GRACE_MS = 2_000;
-export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
+
 const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
 // Etiqueta incrustada en el borde superior del editor (línea de prompt violeta) mientras
 // el enrutamiento Ultracode siempre activo está activo, para que el estado del enrutador también sea visible ahí.
@@ -236,12 +240,7 @@ function hostBinName(): string {
 const ULTRACODE_BORDER_LABEL = "ultracode auto";
 // Gancho inter-extensión de mejor esfuerzo usado por extensions/effort/index.ts para `/effort ultracode`.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
-export const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-// Ejecuciones reanudables / idempotentes: journal de caché con dirección de contenido en el lado del host.
-export const JOURNAL_FILE = "journal.jsonl";
 const JOURNAL_VERSION = 4;
-export const MAX_JOURNALED_STREAM = 200_000;
 
 const TOOL_ACTIONS = [
 	"list",

@@ -6,7 +6,6 @@
  */
 import { existsSync } from "node:fs";
 import { readRunEvents, readRunLogEvents } from "./event-parser.js";
-import { JOURNAL_FILE } from "./index.js";
 import type { WorkflowPattern } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { workflowProgress } from "./presentation.js";
@@ -20,6 +19,7 @@ import {
 } from "./run-state.js";
 import { canCancelRun, isActiveRunRecord } from "./run-status-ui.js";
 import { listRunFiles } from "./run-view.js";
+import { JOURNAL_FILE } from "./runtime-constants.js";
 import type {
 	AgentMonitorModel,
 	WorkflowDefinition,
