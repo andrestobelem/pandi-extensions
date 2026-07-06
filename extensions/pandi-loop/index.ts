@@ -543,6 +543,18 @@ function createStartedLoop(ctx: ExtensionContext, draft: StartLoopDraft): Active
 	});
 }
 
+function notifyLoopStarted(
+	ctx: ExtensionContext,
+	loop: ActiveLoop,
+	taskText: string,
+	options: { autonomous?: boolean; includeUltracode?: boolean } = {},
+): void {
+	const modeLabel = formatFixedModeLabel(loop);
+	const uc = options.includeUltracode && loop.ultracode ? " [ultracode]" : "";
+	const kind = options.autonomous ? "Loop autónomo" : "Loop";
+	notify(ctx, `${kind} ${loop.loopId} iniciado${modeLabel}${uc}: ${taskText}`, "info");
+}
+
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
 	if (!canLoopInMode(ctx)) {
@@ -558,9 +570,7 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 
 	const loop = createStartedLoop(ctx, { task: taskText, intervalMs, ultracode });
 	activateLoop(pi, ctx, loop);
-	const modeLabel = formatFixedModeLabel(loop);
-	const uc = ultracode ? " [ultracode]" : "";
-	notify(ctx, `Loop ${loop.loopId} iniciado${modeLabel}${uc}: ${taskText}`, "info");
+	notifyLoopStarted(ctx, loop, taskText, { includeUltracode: true });
 	return loop;
 }
 
@@ -610,8 +620,7 @@ async function startAutonomousLoop(
 
 	const loop = createStartedLoop(ctx, { task: objective, intervalMs, autonomous: true, ultracode });
 	activateLoop(pi, ctx, loop);
-	const modeLabel = formatFixedModeLabel(loop);
-	notify(ctx, `Loop autónomo ${loop.loopId} iniciado${modeLabel}: ${objective}`, "info");
+	notifyLoopStarted(ctx, loop, objective, { autonomous: true });
 	return loop;
 }
 
