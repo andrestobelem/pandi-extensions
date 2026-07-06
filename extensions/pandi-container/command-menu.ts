@@ -1,4 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { TIER_NAMES } from "./container.js";
 
 export const CONTAINER_ACTIONS = [
 	{ value: "status", selectLabel: "status — resumen del subsistema y las máquinas" },
@@ -11,6 +12,25 @@ export const CONTAINER_ACTIONS = [
 
 /** Opciones con etiqueta humana para el selector de acciones de `/container` sin args (el primer token es el valor). */
 export const CONTAINER_SELECT_ITEMS = CONTAINER_ACTIONS.map(({ selectLabel }) => selectLabel);
+
+const SUBCOMMANDS = CONTAINER_ACTIONS.map(({ value }) => value);
+
+export function completeContainerArgs(prefix: string): { value: string; label: string }[] | null {
+	const tokens = prefix.split(/\s+/);
+	if (tokens.length > 1) {
+		// `create … --size <tier>`: completa los nombres de tier.
+		const prev = tokens[tokens.length - 2];
+		if (tokens[0] === "create" && (prev === "--size" || prev === "--tier")) {
+			const needle = (tokens[tokens.length - 1] ?? "").toLowerCase();
+			const tiers = TIER_NAMES.filter((t) => t.startsWith(needle));
+			return tiers.length > 0 ? tiers.map((t) => ({ value: t, label: t })) : null;
+		}
+		return null;
+	}
+	const needle = (tokens[0] ?? "").toLowerCase();
+	const items = SUBCOMMANDS.filter((sub) => sub.startsWith(needle));
+	return items.length > 0 ? items.map((sub) => ({ value: sub, label: sub })) : null;
+}
 
 /**
  * Resuelve el argumento de `/container`, abriendo un selector interactivo de acciones cuando el

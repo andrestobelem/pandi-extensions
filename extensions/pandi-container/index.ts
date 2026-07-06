@@ -18,7 +18,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { parseContainerCommand, parseSizeFlag } from "./command.js";
-import { CONTAINER_ACTIONS, resolveContainerInput } from "./command-menu.js";
+import { completeContainerArgs, CONTAINER_ACTIONS, resolveContainerInput } from "./command-menu.js";
 import {
 	describeTiers,
 	type HandlerResult,
@@ -87,7 +87,7 @@ const HELP_TEXT = [
 const PLATFORM_MSG = "Apple `container` requiere macOS en Apple Silicon (arm64); este host no es compatible.";
 
 export { parseContainerCommand, parseSizeFlag } from "./command.js";
-export { CONTAINER_SELECT_ITEMS, resolveContainerInput } from "./command-menu.js";
+export { completeContainerArgs, CONTAINER_SELECT_ITEMS, resolveContainerInput } from "./command-menu.js";
 
 // --------------------------------------------------------------------------
 // Handler del comando
@@ -181,22 +181,7 @@ function toToolResult(result: HandlerResult) {
 export default function containerExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("container", {
 		description: "Gestioná sandboxes de Apple container: status | list | create | run | stop | remove",
-		getArgumentCompletions: (prefix: string) => {
-			const tokens = prefix.split(/\s+/);
-			if (tokens.length > 1) {
-				// `create … --size <tier>`: completa los nombres de tier.
-				const prev = tokens[tokens.length - 2];
-				if (tokens[0] === "create" && (prev === "--size" || prev === "--tier")) {
-					const needle = (tokens[tokens.length - 1] ?? "").toLowerCase();
-					const tiers = TIER_NAMES.filter((t) => t.startsWith(needle));
-					return tiers.length > 0 ? tiers.map((t) => ({ value: t, label: t })) : null;
-				}
-				return null;
-			}
-			const needle = (tokens[0] ?? "").toLowerCase();
-			const items = SUBCOMMANDS.filter((sub) => sub.startsWith(needle));
-			return items.length > 0 ? items.map((sub) => ({ value: sub, label: sub })) : null;
-		},
+		getArgumentCompletions: completeContainerArgs,
 		handler: async (args, ctx) => {
 			await runCommand(ctx, args);
 		},
