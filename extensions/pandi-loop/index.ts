@@ -1088,6 +1088,15 @@ const STATIC_LOOP_ARGUMENT_COMPLETIONS: LoopArgumentCompletion[] = [
 	},
 ];
 
+const LOOP_SCHEDULE_PROMPT_GUIDELINES = [
+	"Pensá QUÉ estás esperando, no cuánto tiempo querés dormir — y elegí una cadencia acorde. El delay se clampea a [60, 3600] segundos.",
+	"Usá un delay corto (<300s) para sondear un estado externo que cambia rápido (p. ej. un run de CI, un deploy) manteniendo caliente la caché de trabajo, pero nunca exactamente 300s.",
+	"Usá un delay largo (300-3600s) cuando esperás un cambio lento o estás esperando algo que tarda varios minutos.",
+	"Si estás ocioso sin ninguna señal concreta que esperar, programá un fallback largo (1200-1800s) en vez de hacer busy-polling.",
+	"NO sondees trabajo que el harness ya trackea por vos (jobs de background, subagentes, workflows) — programá un fallback largo y dejá que te reporte.",
+	"Pasá siempre una razón de una oración explicando qué elegíste y por qué; se muestra en la línea de estado y se reinyecta en la próxima iteración para dar continuidad.",
+];
+
 // ---------------------------------------------------------------------------
 // Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
@@ -1099,14 +1108,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		description:
 			"Programá la próxima iteración del /loop activo. Llamalo cuando haga falta más trabajo o esperar antes de la siguiente pasada.",
 		promptSnippet: "Programá la próxima iteración del /loop con un delay y una razón.",
-		promptGuidelines: [
-			"Pensá QUÉ estás esperando, no cuánto tiempo querés dormir — y elegí una cadencia acorde. El delay se clampea a [60, 3600] segundos.",
-			"Usá un delay corto (<300s) para sondear un estado externo que cambia rápido (p. ej. un run de CI, un deploy) manteniendo caliente la caché de trabajo, pero nunca exactamente 300s.",
-			"Usá un delay largo (300-3600s) cuando esperás un cambio lento o estás esperando algo que tarda varios minutos.",
-			"Si estás ocioso sin ninguna señal concreta que esperar, programá un fallback largo (1200-1800s) en vez de hacer busy-polling.",
-			"NO sondees trabajo que el harness ya trackea por vos (jobs de background, subagentes, workflows) — programá un fallback largo y dejá que te reporte.",
-			"Pasá siempre una razón de una oración explicando qué elegíste y por qué; se muestra en la línea de estado y se reinyecta en la próxima iteración para dar continuidad.",
-		],
+		promptGuidelines: LOOP_SCHEDULE_PROMPT_GUIDELINES,
 		parameters: Type.Object({
 			// Sin límites de schema a propósito: el SDK valida (y rechaza) args
 			// vía validateToolArguments ANTES de que corra execute(), así que min/max acá
