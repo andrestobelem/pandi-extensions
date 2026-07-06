@@ -89,8 +89,9 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { capExceeded } from "./caps.js";
+import { parseLoopCommandIntent, parseLoopStartArgs } from "./command-intent.js";
 import { destructiveReason } from "./gate.js";
-import { formatInterval, parseInterval } from "./interval.js";
+import { formatInterval } from "./interval.js";
 import { notify } from "./notify.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
 import { collectLatestByKey } from "./session-state.js";
@@ -565,50 +566,15 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 // Inicio / stop
 // ---------------------------------------------------------------------------
 
-/**
- * Quita de args un flag de postura `--ultracode` / `--uc` (en cualquier lugar del string).
- * Devuelve el texto limpio y si el flag estaba presente. Se parsea ANTES del token
- * interval final para que el flag nunca se confunda con un interval.
- */
-function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean } {
-	let ultracode = false;
-	const kept: string[] = [];
-	for (const token of args.split(/\s+/)) {
-		const lower = token.toLowerCase();
-		if (lower === "--ultracode" || lower === "--uc") ultracode = true;
-		else if (token.length) kept.push(token);
-	}
-	return { rest: kept.join(" "), ultracode };
-}
-
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
 	if (!canLoopInMode(ctx)) {
 		notify(ctx, "/loop requiere una sesión TUI o RPC (este modo no puede loopear).", "error");
 		return undefined;
 	}
-	const { rest: withoutFlag, ultracode } = extractUltracodeFlag(task);
-	const trimmed = withoutFlag.trim();
-	if (!trimmed) {
-		notify(ctx, "Uso: /loop [--ultracode] <task> [interval]", "warning");
-		return undefined;
-	}
-
-	// Modo fixed-interval: el ÚLTIMO token separado por espacios puede ser un interval
-	// (^\d+(s|m|h)$). Si matchea, quitarlo y poseer la cadencia; si no, quedar dynamic (P0).
-	let taskText = trimmed;
-	let intervalMs: number | undefined;
-	const lastSpace = trimmed.lastIndexOf(" ");
-	if (lastSpace !== -1) {
-		const candidate = trimmed.slice(lastSpace + 1);
-		const parsed = parseInterval(candidate);
-		if (parsed !== null) {
-			intervalMs = parsed;
-			taskText = trimmed.slice(0, lastSpace).trim();
-		}
-	}
+	const { text: taskText, intervalMs, ultracode } = parseLoopStartArgs(task);
 	if (!taskText) {
-		notify(ctx, "Uso: /loop <task> [interval]", "warning");
+		notify(ctx, "Uso: /loop [--ultracode] <task> [interval]", "warning");
 		return undefined;
 	}
 	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
@@ -678,25 +644,9 @@ async function startAutonomousLoop(
 		notify(ctx, "/loop auto requiere un proyecto de confianza. Corré /trust primero, y reintentá.", "error");
 		return undefined;
 	}
-	const { rest: withoutFlag, ultracode } = extractUltracodeFlag(rawArgs);
-	const trimmed = withoutFlag.trim();
-	if (!trimmed) {
-		notify(ctx, "Uso: /loop auto [--ultracode] <objective> [interval]", "warning");
-		return undefined;
-	}
-	// Quitar un token interval final opcional, con el mismo parser que startLoop.
-	let objective = trimmed;
-	let intervalMs: number | undefined;
-	const lastSpace = trimmed.lastIndexOf(" ");
-	if (lastSpace !== -1) {
-		const parsed = parseInterval(trimmed.slice(lastSpace + 1));
-		if (parsed !== null) {
-			intervalMs = parsed;
-			objective = trimmed.slice(0, lastSpace).trim();
-		}
-	}
+	const { text: objective, intervalMs, ultracode } = parseLoopStartArgs(rawArgs);
 	if (!objective) {
-		notify(ctx, "Uso: /loop auto <objective> [interval]", "warning");
+		notify(ctx, "Uso: /loop auto [--ultracode] <objective> [interval]", "warning");
 		return undefined;
 	}
 	// Confirmación obligatoria: si no hay UI para confirmar → rechazar (no se puede obtener consentimiento).
@@ -1095,13 +1045,10 @@ function formatLoopStatusList(loops: ActiveLoop[]): string {
 }
 
 async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
-	const trimmed = args.trim();
-	const firstSpace = trimmed.indexOf(" ");
-	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
-	const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+	const intent = parseLoopCommandIntent(args);
 
-	if (firstToken === "stop") {
-		const loop = await resolveLoop(ctx, rest || undefined, ["running", "paused"]);
+	if (intent.kind === "stop") {
+		const loop = await resolveLoop(ctx, intent.rest || undefined, ["running", "paused"]);
 		if (!loop) {
 			notify(
 				ctx,
@@ -1115,8 +1062,8 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	if (firstToken === "pause") {
-		const loop = await resolveLoop(ctx, rest || undefined, ["running"]);
+	if (intent.kind === "pause") {
+		const loop = await resolveLoop(ctx, intent.rest || undefined, ["running"]);
 		if (!loop) {
 			notify(
 				ctx,
@@ -1130,8 +1077,8 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	if (firstToken === "resume") {
-		const loop = await resolveLoop(ctx, rest || undefined, ["paused"]);
+	if (intent.kind === "resume") {
+		const loop = await resolveLoop(ctx, intent.rest || undefined, ["paused"]);
 		if (!loop) {
 			notify(
 				ctx,
@@ -1145,20 +1092,20 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	if (firstToken === "auto") {
+	if (intent.kind === "auto") {
 		// Modo autónomo (P2): requiere trust + una confirmación explícita (forzada adentro).
-		await startAutonomousLoop(pi, ctx, rest);
+		await startAutonomousLoop(pi, ctx, intent.rest);
 		return;
 	}
 
-	if (firstToken === "status") {
-		if (rest) {
-			const loop = activeLoops.get(rest);
+	if (intent.kind === "status") {
+		if (intent.rest) {
+			const loop = activeLoops.get(intent.rest);
 			notify(
 				ctx,
 				loop
 					? formatStatus(loop)
-					: `No hay ningún loop con id ${rest}. Usá /loop status para listar los loops activos.`,
+					: `No hay ningún loop con id ${intent.rest}. Usá /loop status para listar los loops activos.`,
 				loop ? "info" : "warning",
 			);
 			return;
@@ -1173,7 +1120,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	}
 
 	// Si no: args entero es la tarea (posiblemente con un token interval al final).
-	startLoop(pi, ctx, trimmed);
+	startLoop(pi, ctx, intent.rest);
 }
 
 // ---------------------------------------------------------------------------
