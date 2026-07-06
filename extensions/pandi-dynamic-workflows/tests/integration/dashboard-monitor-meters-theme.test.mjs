@@ -104,7 +104,7 @@ function renderWith(ns) {
 	return d.render(WIDTH);
 }
 
-// True iff cada glyph de meter (█ / ░) en el string queda DENTRO de un wrapper ⟦ns:token⟧…⟦/ns:token⟧.
+// True si y solo si cada glyph de meter (█ / ░) en el string queda DENTRO de un wrapper ⟦ns:token⟧…⟦/ns:token⟧.
 function everyMeterGlyphIsTokenWrapped(s, ns) {
 	// Quitá todos los spans envueltos por tokens, luego asertá que no quede ningún glyph de meter pelado.
 	const stripped = s.replace(new RegExp(`⟦${ns}:[a-z]+⟧[\\s\\S]*?⟦/${ns}:[a-z]+⟧`, "g"), "");
@@ -131,7 +131,7 @@ async function main() {
 		check(`[${ns}] agents line exists`, typeof agentsLine === "string", JSON.stringify(agentsLine));
 		check(`[${ns}] parallel line exists`, typeof parallelLine === "string", JSON.stringify(parallelLine));
 
-		// Run filled pintado por el token semántico esperado (success para progreso, accent para util).
+		// Glyphs filled pintados por el token semántico esperado (success para progreso, accent para util).
 		check(
 			`[${ns}] agents filled glyphs use the success token`,
 			new RegExp(`⟦${ns}:success⟧█+⟦/${ns}:success⟧`).test(agentsLine ?? ""),
@@ -142,7 +142,7 @@ async function main() {
 			new RegExp(`⟦${ns}:accent⟧█+⟦/${ns}:accent⟧`).test(parallelLine ?? ""),
 			JSON.stringify(parallelLine),
 		);
-		// Run empty pintado por el token muted en ambos meters.
+		// Glyphs empty pintados por el token muted en ambos meters.
 		check(
 			`[${ns}] agents empty glyphs use the muted token`,
 			new RegExp(`⟦${ns}:muted⟧░+⟦/${ns}:muted⟧`).test(agentsLine ?? ""),
