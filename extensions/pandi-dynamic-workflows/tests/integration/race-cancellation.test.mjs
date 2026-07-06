@@ -2,17 +2,17 @@
  * Tests de integración conductuales para el global `race()` + cancelación de subagentes in-flight.
  *
  * Corre workflows reales por el Worker con un subprocess de agente `pi` fakeado
- * (PI_DYNAMIC_WORKFLOWS_PI_COMMAND). El rol de cada branch se codifica en su prompt
+ * (PI_DYNAMIC_WORKFLOWS_PI_COMMAND). El rol de cada rama se codifica en su prompt
  * ([role:...][id:...][need:N]) para que un único fake-pi flexible cubra todos los escenarios:
  *
  *   winner-basic         — race devuelve value/index/status "won" del winner; los dos LOSERS
  *                          in-flight reciben cada uno un SIGTERM real (winner intacto); y el journal
  *                          contiene SOLO el record del winner (losers cancelados dejan huecos, no records).
- *   first-success-wins   — un branch que FALLA rápido (-> null) nunca gana; un branch posterior gana y el
+ *   first-success-wins   — una rama que FALLA rápido (-> null) nunca gana; una rama posterior gana y el
  *                          loser sano igual se cancela. Prueba accept-semantics + primer SUCCESS.
  *   resume-valid-winner  — re-correr una race completada reproduce el winner journaleado (cache hit) y
  *                          produce un winner VÁLIDO (B2: válido, no necesariamente idéntico), journal limpio.
- *   empty-contract       — todos los branches fallan -> { winner:null, index:-1, status:"empty" }; journal limpio.
+ *   empty-contract       — todas las ramas fallan -> { winner:null, index:-1, status:"empty" }; journal limpio.
  *
  * Determinismo: el winner espera marcadores `spawned-*` (una barrera de filesystem, nunca sleeps) y
  * flushea stdout antes de salir; los LOSERS hacen self-exit después de un fallback generoso para que un kill perdido
@@ -20,7 +20,7 @@
  *
  * Follow-up no cubierto acá (impl presente, verificada por typecheck): el régimen concurrency<branches
  * pre-spawn-guard (régimen B1 b). Con concurrency 1 una race es efectivamente SECUENCIAL, así que
- * qué branch corre (y gana) primero es un detalle de scheduling, no un orden fijo — lo que hace inviable
+ * qué rama corre (y gana) primero es un detalle de scheduling, no un orden fijo — lo que hace inviable
  * una aserción determinista "el winner instantáneo gana / el loser parked nunca completa"
  * sin un harness de scheduling más fino.
  *
@@ -102,13 +102,13 @@ function makeCtx(cwd) {
 	};
 }
 
-// Fake `pi` flexible. El prompt (último argv) codifica un rol:
+// `pi` fake flexible. El prompt (último argv) codifica un rol:
 //   [role:win-barrier][id:X][need:N] -> esperar hasta que existan N marcadores `spawned-*`, luego emitir + exit 0.
 //   [role:win-now][id:X]             -> emitir + exit 0 inmediatamente (winner instantáneo).
 //   [role:fail][id:X]                -> anunciar spawn, luego exit 1 (sin output -> null).
 //   [role:lose][id:X]                -> anunciar spawn; SIGTERM -> `cancelled-X` + exit; de lo contrario un
-//                                       fallback timer escribe `completed-X` + sale (sin bloqueo infinito).
-// El winner flushea stdout (write callback) ANTES de salir, así un exit rápido nunca trunca output.
+//                                       timer de fallback escribe `completed-X` + sale (sin bloqueo infinito).
+// El winner flushea stdout (callback de write) ANTES de salir, así un exit rápido nunca trunca output.
 // `.cjs` para que `require` funcione (el archivo se spawnea directamente vía shebang).
 async function writeFakePi(barrierDir, tag) {
 	const fakePi = path.join(barrierDir, `fake-pi-${tag}.cjs`);
@@ -386,7 +386,7 @@ async function scenarioEmptyContract(url) {
 // Cancelación a nivel run: cuando aborta el signal de TODO el run (cancelación de usuario) con una llamada
 // de subagente todavía in-flight, cleanup() debe SIGTERMear el child, no dejarlo corriendo hasta su propio timeout.
 // El bug: onAbort (signal del run) disparaba primero y cleanup disposeaba cada signal combinado por llamada
-// ANTES de que corriera el abort listener propio de ese signal, así que el child nunca se mataba.
+// ANTES de que corriera el listener de abort propio de ese signal, así que el child nunca se mataba.
 async function scenarioRunAbortCancelsInflight(url) {
 	const tag = tagSeq++;
 	const mod = await import(`${url}?i=${tag}`);
@@ -445,7 +445,7 @@ async function scenarioRunAbortCancelsInflight(url) {
 // Un loser de race() que hace fan-out vía agents({ signal }) debe CANCELAR sus children in-flight
 // cuando pierde, igual que hacen los losers de agent()/ask(). El worker debe puentear el abort por llamada al
 // host (post abort-call) Y el host debe honrar ese signal en el fan-out de agents; si no, los children
-// del branch agents perdedor corren hasta su propio timeout. (Nota: en Node >=20 postMessage puede
+// de la rama agents perdedora corren hasta su propio timeout. (Nota: en Node >=20 postMessage puede
 // structured-clonear un AbortSignal, así que esto es un gap de cancelación, no un crash DataCloneError).
 async function scenarioRaceAgentsLosersCancelled(url) {
 	const tag = tagSeq++;
@@ -460,8 +460,8 @@ async function scenarioRaceAgentsLosersCancelled(url) {
 			"  (signal) => agents(args.losers, { signal, concurrency: 2 }),",
 			"  (signal) => agent(args.winner, { signal }),",
 			"]);",
-			// Mantené vivo el run DESPUÉS de que race resuelva para que el cleanup de run-end no enmascare si el
-			// branch agents() perdedor se canceló EN RACE-LOSS (el gap real) vs solo al final del run.
+			// Mantené vivo el run DESPUÉS de que race resuelva para que el cleanup de run-end no enmascare si la
+			// rama agents() perdedora se canceló EN RACE-LOSS (el gap real) vs solo al final del run.
 			"await sleep(3000);",
 			"return result;",
 		].join("\n"),
@@ -494,7 +494,7 @@ async function scenarioRaceAgentsLosersCancelled(url) {
 		);
 		return res?.details?.result;
 	});
-	// El winner escribe won-win cuando gana => la race resolvió y el branch agents perdedor
+	// El winner escribe won-win cuando gana => la race resolvió y la rama agents perdedora
 	// perdió. Si los losers se cancelan EN RACE-LOSS reciben SIGTERM en ~ms; si solo al final del run,
 	// siguen vivos durante el sleep de 3s. Dales una ventana ajustada que termine bastante antes del run-end.
 	await waitForMarkers(barrierDir, "won-", 1, 8000);
