@@ -1,0 +1,19 @@
+# Bloquea indexado Y acceso del AI de Cursor a estos paths.
+# Solo para contenido que el agente nunca debería leer: scratch y estado runtime.
+# Lo gitignored ya queda fuera del índice por defecto; acá además se corta el acceso.
+
+# Scratch descartable del proyecto (ver "Espacio de scratch" en AGENTS.md).
+.pi/tmp/
+
+# Estado runtime de Pi: sesiones, jobs, artifacts de corridas de workflows.
+.pi/bg/
+.pi/goals/
+.pi/loops/
+.pi/workflows/runs/
+.pi/workflows/graphs/
+.pi/live-sessions/
+.pi/sessions/
+.pi/chats/
+.pi/compaction-snapshots/
+.pi/worktrees/
+.pi/memory/

@@ -1,0 +1,8 @@
+# Excluye del índice semántico de Cursor, pero el AI puede leerlos si se los referencia.
+# Solo para contenido versionado que duplica otra fuente y ensucia la búsqueda.
+
+# Generado desde docs/*.md con `npm run sync:docs:html`; la fuente son los Markdown.
+docs/html/
+
+# Espejo byte-idéntico de AGENTS.md (la fuente canónica); Cursor lee AGENTS.md nativo.
+CLAUDE.md
