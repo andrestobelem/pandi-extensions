@@ -784,7 +784,7 @@ export async function preflightWorkflowLaunch(
 const callSignal = new AsyncLocalStorage<AbortSignal>();
 
 async function executeWorkflowCode(
-	workflowFile: WorkflowDefinition,
+	workflowDefinition: WorkflowDefinition,
 	code: string,
 	api: WorkflowRuntimeApi,
 	input: unknown,
@@ -811,8 +811,8 @@ async function executeWorkflowCode(
 	const worker = new Worker(WORKFLOW_WORKER_SOURCE, {
 		eval: true,
 		workerData: {
-			workflowName: workflowFile.name,
-			filePath: workflowFile.path,
+			workflowName: workflowDefinition.name,
+			filePath: workflowDefinition.path,
 			code: transformWorkflowCode(code),
 			input,
 			cwd: api.cwd,
@@ -941,18 +941,18 @@ async function executeWorkflowCode(
 
 async function writeWorkflowRunSnapshots(
 	ctx: ExtensionContext,
-	workflowFile: WorkflowDefinition,
+	workflowDefinition: WorkflowDefinition,
 	code: string,
 	runDir: string,
 ): Promise<void> {
 	await fs.writeFile(path.join(runDir, "workflow-source.js"), code, "utf8");
 	await fs.writeFile(path.join(runDir, "workflow-transformed.cjs"), transformWorkflowCode(code), "utf8");
 	try {
-		const graph = await buildWorkflowGraphModelWithSubworkflows(ctx, workflowFile, code);
+		const graph = await buildWorkflowGraphModelWithSubworkflows(ctx, workflowDefinition, code);
 		await writeJsonFile(path.join(runDir, "workflow-graph.json"), graph);
 	} catch (err) {
 		await writeJsonFile(path.join(runDir, "workflow-graph.json"), {
-			workflow: { name: workflowFile.name, scope: workflowFile.scope, path: workflowFile.path },
+			workflow: { name: workflowDefinition.name, scope: workflowDefinition.scope, path: workflowDefinition.path },
 			error: err instanceof Error ? err.message : String(err),
 		});
 	}
@@ -961,15 +961,15 @@ async function writeWorkflowRunSnapshots(
 export async function runWorkflow(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	workflowFile: WorkflowDefinition,
+	workflowDefinition: WorkflowDefinition,
 	input: unknown,
 	limits: RunLimits,
 	signal: AbortSignal | undefined,
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 	prepared?: PreparedWorkflowRun,
 ): Promise<WorkflowRunResult> {
-	if (!prepared) await preflightWorkflowLaunch(ctx, workflowFile, input);
-	const preparedRun = prepared ?? (await prepareWorkflowRun(ctx, workflowFile.name, false));
+	if (!prepared) await preflightWorkflowLaunch(ctx, workflowDefinition, input);
+	const preparedRun = prepared ?? (await prepareWorkflowRun(ctx, workflowDefinition.name, false));
 	const { started, runId, runDir } = preparedRun;
 	const runLimits: Readonly<RunLimits> = Object.freeze({ ...limits });
 	const agentsDir = path.join(runDir, "agents");
@@ -1057,9 +1057,9 @@ export async function runWorkflow(
 	function makeStatus(statusState: WorkflowRunState = state, now = Date.now()): WorkflowRunStatus {
 		const integrity = resultIntegrity();
 		return {
-			workflow: workflowFile.name,
-			scope: workflowFile.scope,
-			file: workflowFile.path,
+			workflow: workflowDefinition.name,
+			scope: workflowDefinition.scope,
+			file: workflowDefinition.path,
 			runId,
 			runDir,
 			state: statusState,
@@ -1973,7 +1973,7 @@ export async function runWorkflow(
 	async function runSubworkflow(name: string, workflowInput: unknown = {}): Promise<unknown> {
 		throwIfAborted(runSignal.signal);
 		const subWorkflow = await resolveWorkflow(ctx, name, "auto");
-		if (path.resolve(subWorkflow.path) === path.resolve(workflowFile.path)) {
+		if (path.resolve(subWorkflow.path) === path.resolve(workflowDefinition.path)) {
 			throw new Error(
 				`workflow() refused recursive call to ${subWorkflow.name}. Sub-workflows are depth-1 and may not call their parent.`,
 			);
@@ -2124,23 +2124,23 @@ export async function runWorkflow(
 		await fs.writeFile(path.join(runDir, "input.json"), `${safeJson(input)}\n`, "utf8");
 		// Read the code up front so codeHash is available before the first status
 		// is written (resumes pass it in; fresh runs derive it here).
-		const code = await fs.readFile(workflowFile.path, "utf8");
+		const code = await fs.readFile(workflowDefinition.path, "utf8");
 		if (!codeHash) codeHash = computeCodeHash(code);
-		await writeWorkflowRunSnapshots(ctx, workflowFile, code, runDir);
+		await writeWorkflowRunSnapshots(ctx, workflowDefinition, code, runDir);
 		await persistStatus();
-		await log(`workflow start: ${workflowFile.name}`, {
-			file: workflowFile.path,
+		await log(`workflow start: ${workflowDefinition.name}`, {
+			file: workflowDefinition.path,
 			runDir,
 			...(resumedFrom ? { resumedFrom } : {}),
 		});
-		output = await executeWorkflowCode(workflowFile, code, api, input, runLimits, runSignal.signal);
+		output = await executeWorkflowCode(workflowDefinition, code, api, input, runLimits, runSignal.signal);
 		state = "completed";
-		await log(`workflow end: ${workflowFile.name}`);
+		await log(`workflow end: ${workflowDefinition.name}`);
 	} catch (err) {
 		error = err instanceof Error ? err.stack || err.message : String(err);
 		const reason = runSignal.signal.aborted ? abortReasonMessage(runSignal.signal) : "";
 		state = reason.toLowerCase().includes("cancel") ? "cancelled" : "failed";
-		await log(`workflow ${state}: ${workflowFile.name}`, { error });
+		await log(`workflow ${state}: ${workflowDefinition.name}`, { error });
 	} finally {
 		runSignal.abort();
 		await Promise.allSettled([...trackedSubagents]);
@@ -2153,9 +2153,9 @@ export async function runWorkflow(
 		state === "completed" || state === "cancelled" ? state : "failed";
 	const resultIntegritySnapshot = resultIntegrity();
 	const result: WorkflowRunResult = {
-		workflow: workflowFile.name,
-		scope: workflowFile.scope,
-		file: workflowFile.path,
+		workflow: workflowDefinition.name,
+		scope: workflowDefinition.scope,
+		file: workflowDefinition.path,
 		runId,
 		runDir,
 		ok: resultState === "completed",
