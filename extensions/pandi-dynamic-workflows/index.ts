@@ -11,12 +11,5 @@
  * caja de arena de seguridad) y pueden consumir llamadas de modelo creando subagentes.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-import { activateDynamicWorkflowsExtension } from "./workflow-extension-activation.js";
-
+export { dynamicWorkflowsExtension as default } from "./workflow-extension-activation.js";
 export * from "./workflow-public-api.js";
-
-export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
-	activateDynamicWorkflowsExtension(pi);
-}

@@ -8,7 +8,7 @@ import { registerWorkflowSessionEvents } from "./workflow-session-events.js";
 import { registerWorkflowShellCommands } from "./workflow-shell-commands.js";
 import { registerDynamicWorkflowTool } from "./workflow-tool-registration.js";
 
-export function activateDynamicWorkflowsExtension(pi: ExtensionAPI): void {
+export function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	const ultracodeState = createUltracodeRuntimeState();
 
 	registerUltracodeModeEvent(pi, ultracodeState);
