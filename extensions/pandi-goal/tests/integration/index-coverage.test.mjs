@@ -116,6 +116,19 @@ function snap(overrides = {}) {
 	};
 }
 
+function selectExactGoalChoice(goal) {
+	return (question, items) => {
+		const expected = `${goal.goalId} — ${goal.objective}`;
+		check("resolveGoal: select prompt asks for a goal", question === "¿Qué goal?", question);
+		check(
+			"resolveGoal: menu contains the exact id/objective choice",
+			items.includes(expected),
+			JSON.stringify(items),
+		);
+		return expected;
+	};
+}
+
 function makeEnv(entries = [], opts = {}) {
 	const { mode = "tui", reason = "startup", selectImpl } = opts;
 	const notifies = [];
@@ -421,7 +434,7 @@ async function stopSubcommandResolvesGoal(goalUrl) {
 	const a = snap({ goalId: "aaaa1111", gstatus: "pursuing", nextFireAt: Date.now() + 100000 });
 	const b = snap({ goalId: "bbbb2222", gstatus: "pursuing", nextFireAt: Date.now() + 100000 });
 	const env = makeEnv([entry(a), entry(b)], {
-		selectImpl: (_q, items) => items.find((i) => i.startsWith("aaaa1111")),
+		selectImpl: selectExactGoalChoice(a),
 	});
 	await fireStart(built, env);
 	// `/goal stop` sin id → dos candidatos → ui.select elige aaaa1111.
