@@ -86,8 +86,9 @@ function makeCtx({ mode = "tui", hasUI = true, selectResult } = {}) {
 			setWidget: () => {},
 			confirm: async () => true,
 			select: async (title, items) => {
-				selectCalls.push({ title, items });
-				return selectResult;
+				const result = typeof selectResult === "function" ? selectResult(items) : selectResult;
+				selectCalls.push({ title, items, result });
+				return result;
 			},
 		},
 	};
@@ -105,13 +106,16 @@ async function loadCommand(url) {
 
 async function scenarioBareWithUiOpensSelectorAndApplies(url) {
 	const cmd = await loadCommand(url);
-	const { ctx, notifies, selectCalls } = makeCtx({ selectResult: "on" });
+	const { ctx, notifies, selectCalls } = makeCtx({
+		selectResult: (items) => items.find((item) => String(item).toLowerCase().startsWith("on")),
+	});
 	await cmd.handler("", ctx);
 
 	check("bare + UI calls the selector exactly once", selectCalls.length === 1, `calls=${selectCalls.length}`);
 	const items = selectCalls[0]?.items ?? [];
 	const has = (v) => items.some((i) => String(i).toLowerCase().startsWith(v));
 	check("selector offers on / off / status", has("on") && has("off") && has("status"), JSON.stringify(items));
+	check("test selects a real offered item", items.includes(selectCalls[0]?.result), JSON.stringify(selectCalls[0]));
 	// The ON branch emits a message the status branch never does — proves the chosen
 	// value was actually applied, not that a default status readout happened to say "enabled".
 	const appliedOn = notifies.some((n) => /evaluate each task/i.test(n.message));
