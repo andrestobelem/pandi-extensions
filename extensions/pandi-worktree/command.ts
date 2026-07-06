@@ -51,6 +51,13 @@ function parseSetCommand(rest: string[]): ParsedCommand {
 	return { action: "set", setTarget: target, setValue: parseCopyToggleValue(rest[1] ?? "") };
 }
 
+function parseRemoveCommand(rest: string[]): ParsedCommand {
+	const force = rest.some((t) => t === "--force" || t === "-f");
+	const pathArg = rest.find((t) => t !== "--force" && t !== "-f");
+	if (!pathArg) return { action: "remove", error: "Uso: /worktree remove [--force] <path>" };
+	return { action: "remove", path: pathArg, force };
+}
+
 /** Parsea la línea de comandos `/worktree` en una intención estructurada. */
 export function parseCommand(input: string): ParsedCommand {
 	const tokens = tokenize(input.trim());
@@ -111,13 +118,7 @@ export function parseCommand(input: string): ParsedCommand {
 		return { action: head, path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
 	}
 
-	if (head === "remove" || head === "rm") {
-		const rest = tokens.slice(1);
-		const force = rest.some((t) => t === "--force" || t === "-f");
-		const pathArg = rest.find((t) => t !== "--force" && t !== "-f");
-		if (!pathArg) return { action: "remove", error: "Uso: /worktree remove [--force] <path>" };
-		return { action: "remove", path: pathArg, force };
-	}
+	if (head === "remove" || head === "rm") return parseRemoveCommand(tokens.slice(1));
 
 	return { action: "help", error: `Subcomando desconocido: "${tokens[0]}"` };
 }
