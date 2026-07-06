@@ -302,7 +302,7 @@ async function cancelReachesGroupSurvivorsAfterShellExit(url) {
 			return true;
 		}
 	});
-	check("cancel-survivors: no orphaned group member is left running", true);
+	check("cancel-survivors: no orphaned group member is left running", true, `pid=${survivorPid}`);
 }
 
 async function orphanedPidIsLabeledNotKilled(url) {
