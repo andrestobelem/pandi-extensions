@@ -39,6 +39,18 @@ export function tokenize(input: string): string[] {
 	return tokens;
 }
 
+function parseSetCommand(rest: string[]): ParsedCommand {
+	if (rest.length === 0) return { action: "set" }; // mostrar todo
+	const target = rest[0].toLowerCase();
+	if (target !== "copy-ignored" && target !== "copy-untracked" && target !== "writer-guard") {
+		return {
+			action: "set",
+			error: "Uso: /worktree set [copy-ignored|copy-untracked|writer-guard] [on|off|status]",
+		};
+	}
+	return { action: "set", setTarget: target, setValue: parseCopyToggleValue(rest[1] ?? "") };
+}
+
 /** Parsea la línea de comandos `/worktree` en una intención estructurada. */
 export function parseCommand(input: string): ParsedCommand {
 	const tokens = tokenize(input.trim());
@@ -53,18 +65,7 @@ export function parseCommand(input: string): ParsedCommand {
 		return { action: "prune", dryRun };
 	}
 
-	if (head === "set") {
-		const rest = tokens.slice(1);
-		if (rest.length === 0) return { action: "set" }; // mostrar todo
-		const target = rest[0].toLowerCase();
-		if (target !== "copy-ignored" && target !== "copy-untracked" && target !== "writer-guard") {
-			return {
-				action: "set",
-				error: "Uso: /worktree set [copy-ignored|copy-untracked|writer-guard] [on|off|status]",
-			};
-		}
-		return { action: "set", setTarget: target, setValue: parseCopyToggleValue(rest[1] ?? "") };
-	}
+	if (head === "set") return parseSetCommand(tokens.slice(1));
 
 	if (head === "add" || head === "open") {
 		const rest = tokens.slice(1);
