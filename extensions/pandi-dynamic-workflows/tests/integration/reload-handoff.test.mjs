@@ -19,11 +19,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
+const BARRIER_STARTED = "barrier-started";
+const BARRIER_RELEASE = "barrier-release";
+
 const WORKFLOW = `
 export const meta = { name: "reload-probe", description: "reload handoff probe" };
+const barrierStarted = runDir + "/${BARRIER_STARTED}";
+const barrierRelease = runDir + "/${BARRIER_RELEASE}";
 const first = await bash("printf first", { cache: true });
 await log("after cached bash");
-await sleep(2000);
+await writeFile(barrierStarted, "started");
+while (true) {
+	try {
+		await readFile(barrierRelease);
+		break;
+	} catch {
+		await sleep(20);
+	}
+}
 return { runId, first: first.stdout };
 `;
 
@@ -178,15 +191,30 @@ async function waitFor(label, fn, timeoutMs = 8000) {
 	throw new Error(`${label} timed out; last=${JSON.stringify(last)}`);
 }
 
-async function waitForJournaledBash(runDir) {
-	return await waitFor(
-		"journaled bash",
-		async () => {
-			const body = await fs.readFile(path.join(runDir, "journal.jsonl"), "utf8").catch(() => "");
-			return body.includes('"method":"bash"') || body.includes('"method": "bash"');
-		},
-		4000,
-	);
+async function fileExists(file) {
+	try {
+		await fs.access(file);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function barrierPath(runDir, name) {
+	return path.join(runDir, name);
+}
+
+async function waitForBarrierStarted(runDir) {
+	return await waitFor("workflow barrier", async () => await fileExists(barrierPath(runDir, BARRIER_STARTED)), 4000);
+}
+
+async function releaseBarrier(runDir) {
+	await fs.writeFile(barrierPath(runDir, BARRIER_RELEASE), "release", "utf8");
+}
+
+function hasReloadHandoff(runId) {
+	const store = globalThis.__pandiDynamicWorkflowsReloadHandoff;
+	return store instanceof Map && store.has(runId);
 }
 
 async function waitForCompletedResult(runDir) {
@@ -225,7 +253,7 @@ async function scenarioReloadAutoResume(url) {
 		status?.state === "running",
 		JSON.stringify(status),
 	);
-	await waitForJournaledBash(status.runDir);
+	await waitForBarrierStarted(status.runDir);
 	check(
 		"reload: first attempt executed cached bash once",
 		bashExecCalls(sharedExecCalls).length === 1,
@@ -244,6 +272,7 @@ async function scenarioReloadAutoResume(url) {
 		firstCtx.notifications.length === 0 && firstPi.userMessages.length === 0,
 		JSON.stringify({ notifications: firstCtx.notifications, userMessages: firstPi.userMessages }),
 	);
+	await releaseBarrier(status.runDir);
 
 	const secondMod = await loadExtensionModule(url);
 	const secondExt = secondMod.default;
@@ -310,7 +339,7 @@ async function scenarioMultipleReloadAutoResume(url) {
 	});
 	const firstStatus = firstStart.details.status;
 	const secondStatus = secondStart.details.status;
-	await Promise.all([waitForJournaledBash(firstStatus.runDir), waitForJournaledBash(secondStatus.runDir)]);
+	await Promise.all([waitForBarrierStarted(firstStatus.runDir), waitForBarrierStarted(secondStatus.runDir)]);
 	check(
 		"multi: both old attempts reached their cached bash before reload",
 		bashExecCalls(sharedExecCalls).length === 2,
@@ -327,6 +356,7 @@ async function scenarioMultipleReloadAutoResume(url) {
 		interrupted.every((result) => result?.state === "failed" && /reload/i.test(result.error || "")),
 		JSON.stringify(interrupted),
 	);
+	await Promise.all([releaseBarrier(firstStatus.runDir), releaseBarrier(secondStatus.runDir)]);
 
 	const secondMod = await loadExtensionModule(url);
 	const secondExt = secondMod.default;
@@ -370,7 +400,7 @@ async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
 		timeoutMs: 30_000,
 	});
 	const status = startResponse.details.status;
-	await waitForJournaledBash(status.runDir);
+	await waitForBarrierStarted(status.runDir);
 	await emit(firstPi.handlers, "session_shutdown", { reason: "reload" }, firstCtx.ctx);
 	const interrupted = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check(
@@ -385,12 +415,13 @@ async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
 	const wrongCwdCtx = makeCtx(otherProject, "cwd-wrong");
 	wrongCwdExt(wrongCwdPi.pi);
 	await emit(wrongCwdPi.handlers, "session_start", { reason: "reload" }, wrongCwdCtx.ctx);
-	await new Promise((resolve) => setTimeout(resolve, 300));
 	const afterWrongCwd = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check(
 		"cwd: reload handoff is not resumed from a different cwd",
-		afterWrongCwd?.state === "failed" && bashExecCalls(sharedExecCalls).length === 1,
-		JSON.stringify({ afterWrongCwd, execCalls: sharedExecCalls }),
+		afterWrongCwd?.state === "failed" &&
+			bashExecCalls(sharedExecCalls).length === 1 &&
+			hasReloadHandoff(status.runId),
+		JSON.stringify({ afterWrongCwd, execCalls: sharedExecCalls, hasHandoff: hasReloadHandoff(status.runId) }),
 	);
 	await emit(wrongCwdPi.handlers, "session_shutdown", { reason: "quit" }, wrongCwdCtx.ctx);
 
@@ -400,14 +431,14 @@ async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
 	const startupCtx = makeCtx(project, "cwd-startup");
 	startupExt(startupPi.pi);
 	await emit(startupPi.handlers, "session_start", { reason: "startup" }, startupCtx.ctx);
-	await new Promise((resolve) => setTimeout(resolve, 300));
 	const afterStartup = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check(
 		"cwd: non-reload session_start does not consume a valid handoff",
-		afterStartup?.state === "failed" && bashExecCalls(sharedExecCalls).length === 1,
-		JSON.stringify({ afterStartup, execCalls: sharedExecCalls }),
+		afterStartup?.state === "failed" && bashExecCalls(sharedExecCalls).length === 1 && hasReloadHandoff(status.runId),
+		JSON.stringify({ afterStartup, execCalls: sharedExecCalls, hasHandoff: hasReloadHandoff(status.runId) }),
 	);
 	await emit(startupPi.handlers, "session_shutdown", { reason: "quit" }, startupCtx.ctx);
+	await releaseBarrier(status.runDir);
 
 	const reloadMod = await loadExtensionModule(url);
 	const reloadExt = reloadMod.default;
@@ -510,7 +541,7 @@ async function scenarioQuitDoesNotAutoResume(url) {
 		timeoutMs: 30_000,
 	});
 	const status = startResponse.details.status;
-	await waitForJournaledBash(status.runDir);
+	await waitForBarrierStarted(status.runDir);
 	await emit(firstPi.handlers, "session_shutdown", { reason: "quit" }, firstCtx.ctx);
 	const cancelled = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check("quit: non-reload shutdown still cancels", cancelled?.state === "cancelled", JSON.stringify(cancelled));
@@ -521,7 +552,6 @@ async function scenarioQuitDoesNotAutoResume(url) {
 	const secondCtx = makeCtx(project, "quit-after");
 	secondExt(secondPi.pi);
 	await emit(secondPi.handlers, "session_start", { reason: "reload" }, secondCtx.ctx);
-	await new Promise((resolve) => setTimeout(resolve, 300));
 	const stillCancelled = await readJsonIfExists(path.join(status.runDir, "result.json"));
 	check(
 		"quit: no reload handoff is queued for ordinary shutdown",
