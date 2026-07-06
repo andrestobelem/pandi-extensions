@@ -26,11 +26,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const GEN = path.join(REPO_ROOT, ".claude", "scripts", "generate-claude-workflows.mjs");
 const SRC_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds");
 const OUT_DIR = path.join(REPO_ROOT, ".claude", "workflows");
 // Segundo destino generado (#26): el skill ultracode lleva su propia copia del catálogo
@@ -40,9 +39,17 @@ const SNAPSHOT_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode", "referen
 
 const { check, counts } = createChecker();
 
+function runCheck(repoRoot = REPO_ROOT) {
+	return spawnSync(
+		process.execPath,
+		[path.join(repoRoot, ".claude", "scripts", "generate-claude-workflows.mjs"), "--check"],
+		{ cwd: repoRoot, encoding: "utf8" },
+	);
+}
+
 async function main() {
 	// 1) Generado == commiteado para todos los scaffolds.
-	const res = spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+	const res = runCheck();
 	check(
 		"generate-claude-workflows.mjs --check is in sync (Claude files == generator output)",
 		res.status === 0,
@@ -102,40 +109,45 @@ async function main() {
 
 	// 4) Sensibilidad / negative control: un tweak de un carácter debe registrarse como drift.
 	const sample = outNames[0];
-	const samplePath = path.join(OUT_DIR, sample);
-	const original = fs.readFileSync(samplePath, "utf8");
-	await withMutatedFile(samplePath, `${original}\nconst __drift_probe__ = 1;\n`, () => {
-		const tweaked = spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
-		check(
-			`negative control: a hand-edit to ${sample} is detected as drift (--check exits non-zero)`,
-			tweaked.status !== 0,
-			`exit=${tweaked.status}`,
-		);
-	});
-	check(`negative control restored ${sample} byte-for-byte`, fs.readFileSync(samplePath, "utf8") === original);
-
-	// 5) Negative control para el destino SNAPSHOT: --check también debe vigilarlo.
-	const snapSamplePath = path.join(SNAPSHOT_DIR, sample);
-	let snapOriginal = null;
-	try {
-		snapOriginal = fs.readFileSync(snapSamplePath, "utf8");
-	} catch {}
-	if (snapOriginal !== null) {
-		await withMutatedFile(snapSamplePath, `${snapOriginal}\nconst __snapshot_drift_probe__ = 1;\n`, () => {
-			const tweaked = spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		const samplePath = path.join(copyRoot, ".claude", "workflows", sample);
+		const original = fs.readFileSync(samplePath, "utf8");
+		await withMutatedFile(samplePath, `${original}\nconst __drift_probe__ = 1;\n`, () => {
+			const tweaked = runCheck(copyRoot);
 			check(
-				`negative control: a hand-edit to the SNAPSHOT copy of ${sample} is detected as drift`,
+				`negative control: a hand-edit to ${sample} is detected as drift (--check exits non-zero)`,
 				tweaked.status !== 0,
 				`exit=${tweaked.status}`,
 			);
 		});
 		check(
-			`negative control restored snapshot ${sample} byte-for-byte`,
-			fs.readFileSync(snapSamplePath, "utf8") === snapOriginal,
+			`negative control restored isolated ${sample} byte-for-byte`,
+			fs.readFileSync(samplePath, "utf8") === original,
 		);
-	} else {
-		check(`negative control: snapshot copy of ${sample} exists`, false, "missing in snapshot dir");
-	}
+
+		// 5) Negative control para el destino SNAPSHOT: --check también debe vigilarlo.
+		const snapSamplePath = path.join(copyRoot, ".pi", "skills", "ultracode", "reference", "claude-workflows", sample);
+		let snapOriginal = null;
+		try {
+			snapOriginal = fs.readFileSync(snapSamplePath, "utf8");
+		} catch {}
+		if (snapOriginal !== null) {
+			await withMutatedFile(snapSamplePath, `${snapOriginal}\nconst __snapshot_drift_probe__ = 1;\n`, () => {
+				const tweaked = runCheck(copyRoot);
+				check(
+					`negative control: a hand-edit to the SNAPSHOT copy of ${sample} is detected as drift`,
+					tweaked.status !== 0,
+					`exit=${tweaked.status}`,
+				);
+			});
+			check(
+				`negative control restored isolated snapshot ${sample} byte-for-byte`,
+				fs.readFileSync(snapSamplePath, "utf8") === snapOriginal,
+			);
+		} else {
+			check(`negative control: snapshot copy of ${sample} exists`, false, "missing in snapshot dir");
+		}
+	});
 
 	console.log(`\nTOTAL: ${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {

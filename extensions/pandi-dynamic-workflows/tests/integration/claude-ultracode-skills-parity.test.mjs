@@ -27,7 +27,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -37,8 +37,15 @@ const CLAUDE_SKILLS = path.join(REPO_ROOT, ".claude", "skills");
 
 const { check, counts } = createChecker();
 
-function runCheck() {
-	return spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+function runCheck(repoRoot = REPO_ROOT) {
+	return spawnSync(
+		process.execPath,
+		[path.join(repoRoot, "scripts", "generate-claude-ultracode-skills.mjs"), "--check"],
+		{
+			cwd: repoRoot,
+			encoding: "utf8",
+		},
+	);
 }
 
 async function main() {
@@ -92,15 +99,21 @@ async function main() {
 		}
 	}
 
-	// 5) Sensitivity: mutate a generated file, confirm --check catches it, then revert.
-	await withMutatedFile(
-		dwSkill,
-		(orig) => `${orig}\n<!-- drift -->\n`,
-		() => {
-			check("a one-line tweak to a generated skill is detected as drift (exit 1)", runCheck().status === 1);
-		},
-	);
-	check("generated skill restored to in-sync after the negative control", runCheck().status === 0);
+	// 5) Sensitivity: mutate a generated file in an isolated repo copy and confirm --check catches it.
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		const copyDwSkill = path.join(copyRoot, ".claude", "skills", "dynamic-workflows", "SKILL.md");
+		await withMutatedFile(
+			copyDwSkill,
+			(orig) => `${orig}\n<!-- drift -->\n`,
+			() => {
+				check(
+					"a one-line tweak to a generated skill is detected as drift (exit 1)",
+					runCheck(copyRoot).status === 1,
+				);
+			},
+		);
+		check("isolated generated skill restored to in-sync after the negative control", runCheck(copyRoot).status === 0);
+	});
 
 	if (counts.failed > 0) {
 		console.error("\nFailures:");

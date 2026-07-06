@@ -28,7 +28,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -36,8 +36,11 @@ const GEN = path.join(REPO_ROOT, "scripts", "vendor-extension-skills.mjs");
 
 const { check, counts } = createChecker();
 
-function runCheck() {
-	return spawnSync(process.execPath, [GEN, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+function runCheck(repoRoot = REPO_ROOT) {
+	return spawnSync(process.execPath, [path.join(repoRoot, "scripts", "vendor-extension-skills.mjs"), "--check"], {
+		cwd: repoRoot,
+		encoding: "utf8",
+	});
 }
 
 async function main() {
@@ -73,23 +76,34 @@ async function main() {
 		);
 	}
 
-	// 2) Sensitivity: mutate a vendored copy by one char and confirm --check catches it, then revert.
+	// 2) Sensitivity: mutate a vendored copy by one char in an isolated repo copy and confirm --check catches it.
 	if (fs.existsSync(vendoredSkill)) {
-		// withMutatedFile keeps the in-place mutation the real --check needs, but restores on SIGTERM/exit.
-		await withMutatedFile(
-			vendoredSkill,
-			(orig) => `${orig}\n<!-- drift -->\n`,
-			() => {
-				const drifted = runCheck();
-				check(
-					"a one-line tweak to a vendored copy is detected as drift (exit 1)",
-					drifted.status === 1,
-					`exit=${drifted.status}`,
-				);
-			},
-		);
-		// Confirm the revert restored sync (guards against leaving the tree dirty).
-		check("vendored copy restored to in-sync after the negative control", runCheck().status === 0);
+		await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+			const copyVendoredSkill = path.join(
+				copyRoot,
+				"extensions",
+				"pandi-dynamic-workflows",
+				"skills",
+				"ultracode",
+				"SKILL.md",
+			);
+			await withMutatedFile(
+				copyVendoredSkill,
+				(orig) => `${orig}\n<!-- drift -->\n`,
+				() => {
+					const drifted = runCheck(copyRoot);
+					check(
+						"a one-line tweak to a vendored copy is detected as drift (exit 1)",
+						drifted.status === 1,
+						`exit=${drifted.status}`,
+					);
+				},
+			);
+			check(
+				"isolated vendored copy restored to in-sync after the negative control",
+				runCheck(copyRoot).status === 0,
+			);
+		});
 	}
 
 	// 3) BEHAVIOR invariants the vendoring exists for (not just byte parity). These are the two
