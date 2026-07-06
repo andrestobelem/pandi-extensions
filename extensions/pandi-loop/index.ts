@@ -826,7 +826,6 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	}
 
 	if (intent.kind === "auto") {
-		// Modo autónomo (P2): requiere trust + una confirmación explícita (forzada adentro).
 		await startAutonomousLoop(pi, ctx, intent.rest);
 		return;
 	}
@@ -857,20 +856,15 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 }
 
 // ---------------------------------------------------------------------------
-// Gate de acciones irreversibles (P1) — política pura en ./gate.ts (destructiveReason); cableado abajo.
+// Gate de acciones irreversibles
 // ---------------------------------------------------------------------------
 
-/** Verdadero si ALGÚN loop considera este turno, actualmente, como un turno autopilot (disparado por wake). */
+/** Verdadero si el turno actual fue disparado por un wake de loop. */
 function anyAutopilotActive(): boolean {
 	return hasRunningAutopilotLoop();
 }
 
-/**
- * Handler de tool_call (P1). Solo gatea cuando el turno actual es autopilot (disparado por wake)
- * Y la tool/args matchean la allowlist destructiva. Con UI: pedir ctx.ui.confirm y
- * bloquear si se rechaza. Sin UI (todavía caso tui/rpc edge, o confirm no disponible): bloqueo duro.
- * Un turno impulsado por un humano (sin flag autopilot) nunca se gatea.
- */
+/** Gatea solo acciones destructivas durante turnos autopilot; turnos humanos no se tocan. */
 async function handleToolCall(
 	ctx: ExtensionContext,
 	event: ToolCallEvent,
@@ -887,7 +881,7 @@ async function handleToolCall(
 		if (approved) return undefined;
 		return { block: true, reason };
 	}
-	// Sin UI interactiva para confirmar → bloquear para mantener la seguridad.
+	// Sin UI para confirmar, bloquear por seguridad.
 	return { block: true, reason };
 }
 
@@ -967,13 +961,10 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			if (running.length === 0) {
 				return toolError("No hay ningún loop activo para reprogramar. No hay nada que reprogramar.");
 			}
-			// Apuntar al loop cuyo turno autopilot está llamando realmente esta tool. Para schedule,
-			// si no hay dueño explícito, preservar el fallback histórico a un loop dynamic antes de cualquier loop.
+			// Preferir el dueño autopilot; sin dueño explícito, mantener el fallback histórico a dynamic.
 			const loop = selectToolOwnerLoop(running, { preferDynamicFallback: true });
 			if (!loop) return toolError("No hay ningún loop activo para reprogramar. No hay nada que reprogramar.");
-			// Modo fixed: la extensión posee la cadencia, así que loop_schedule es un
-			// NO-OP informativo — no tocar el timer ni nextFireAt. El modelo solo
-			// decide continuar (no hacer nada) vs detenerse (loop_stop) en un intervalo fijo.
+			// En fixed mode la extensión posee la cadencia; loop_schedule solo registra la razón.
 			if (loop.mode === "fixed") {
 				const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
 				return toolResult(
@@ -981,9 +972,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 					{ loopId: loop.loopId, mode: "fixed", noop: true, intervalSeconds: periodSec },
 				);
 			}
-			// Clampear DENTRO de execute() — nunca confíes en el valor del modelo. Un valor no finito
-			// (NaN/Infinity) hace fallback a la cadencia de safety-net en vez de
-			// armar setTimeout(NaN) (que dispararía inmediatamente).
+			// El schema no clampa; hacerlo acá evita setTimeout(NaN) o delays fuera de rango.
 			const raw = params.delaySeconds;
 			const delaySec = clampLoopDelaySeconds(raw);
 			scheduleWake(pi, ctx, loop, delaySec, params.reason);
@@ -1012,7 +1001,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			if (running.length === 0) {
 				return toolError("No hay ningún loop activo para detener.");
 			}
-			// Resolver el loop que POSEE el turno actual; sin dueño explícito, preservar el fallback histórico.
+			// Preferir el dueño autopilot; sin dueño explícito, usar el fallback histórico.
 			const loop = selectToolOwnerLoop(running);
 			if (!loop) return toolError("No hay ningún loop activo para detener.");
 			stopLoop(pi, ctx, loop.loopId, params.reason || "detenido por loop_stop", "stopped");
@@ -1037,7 +1026,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => await handleLoopCommand(pi, args, ctx),
 	});
 
-	// Gate de acciones irreversibles (P1): bloquear/confirmar tools destructivas en turnos autopilot.
+	// Bloquear/confirmar tools destructivas solo en turnos autopilot.
 	pi.on("tool_call", async (event, ctx) => await handleToolCall(ctx, event));
 
 	pi.on("session_start", async (event, ctx) => {
@@ -1046,8 +1035,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		// startup / reload / resume SÍ rehidratan; "new" no trae entradas del padre.
 		if (event.reason === "fork") return;
 		await rehydrate(pi, ctx);
-		// GC de estado sidecar terminal viejo (P2). Corre DESPUÉS de rehydrate para que los loops vivos estén en
-		// activeLoops y así nunca se recolecten. De mejor esfuerzo; nunca lanza hacia el engine.
+		// GC después de rehydrate: los loops vivos ya están en activeLoops y no se recolectan.
 		await gcOldTerminalLoops(ctx).catch(() => {});
 	});
 
