@@ -67,6 +67,10 @@ function isForceFlag(token: string): boolean {
 	return token === "--force" || token === "-f";
 }
 
+function isDetachFlag(token: string): boolean {
+	return token === "--detach" || token === "-d";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -123,7 +127,7 @@ function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenPars
 	}
 	if (isForceFlag(tok)) {
 		state.force = true;
-	} else if (tok === "--detach" || tok === "-d") {
+	} else if (isDetachFlag(tok)) {
 		state.detach = true;
 	} else if (tok === "--copy-ignored") {
 		state.copyIgnored = true;
