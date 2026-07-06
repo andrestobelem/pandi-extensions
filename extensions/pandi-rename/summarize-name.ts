@@ -14,6 +14,7 @@
  */
 
 import { DEFAULT_SESSION_NAME, type DeriveOptions, deriveSessionName, slugify } from "./derive-name.js";
+import { textContentFromMessageContent } from "./message-content.js";
 
 /** Cuántos mensajes finales cuentan como "la parte más reciente" de la conversación. */
 export const MAX_SUMMARY_MESSAGES = 8;
@@ -45,22 +46,7 @@ function extractRoleText(entry: unknown): { role: string; text: string } | undef
 	const message = (entry as { message?: { role?: string; content?: unknown } } | null)?.message;
 	const role = message?.role;
 	if (role !== "user" && role !== "assistant") return undefined;
-	const content = message?.content;
-	let text = "";
-	if (typeof content === "string") {
-		text = content;
-	} else if (Array.isArray(content)) {
-		text = content
-			.filter(
-				(block): block is { type: "text"; text: string } =>
-					!!block &&
-					(block as { type?: string }).type === "text" &&
-					typeof (block as { text?: unknown }).text === "string",
-			)
-			.map((block) => block.text)
-			.join(" ");
-	}
-	text = text.trim();
+	const text = textContentFromMessageContent(message?.content).trim();
 	return text ? { role, text } : undefined;
 }
 

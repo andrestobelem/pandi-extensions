@@ -10,6 +10,8 @@
  * guiones simples, sin guiones iniciales/finales/repetidos.
  */
 
+import { textContentFromMessageContent } from "./message-content.js";
+
 /** Nombre por defecto usado cuando no se puede derivar nada útil de la conversación. */
 export const DEFAULT_SESSION_NAME = "session";
 
@@ -138,20 +140,7 @@ export function slugify(raw: string, opts: SlugOptions = {}): string {
 function extractUserText(entry: unknown): string {
 	const message = (entry as { message?: { role?: string; content?: unknown } } | null)?.message;
 	if (message?.role !== "user") return "";
-	const content = message.content;
-	if (typeof content === "string") return content;
-	if (Array.isArray(content)) {
-		return content
-			.filter(
-				(block): block is { type: "text"; text: string } =>
-					!!block &&
-					(block as { type?: string }).type === "text" &&
-					typeof (block as { text?: unknown }).text === "string",
-			)
-			.map((block) => block.text)
-			.join(" ");
-	}
-	return "";
+	return textContentFromMessageContent(message.content);
 }
 
 /**
