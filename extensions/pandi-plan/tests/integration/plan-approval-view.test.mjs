@@ -262,7 +262,26 @@ async function decisionKeysMapSafely(url) {
 }
 
 // ===========================================================================
-// SCENARIO C: back-compat — with NO ctx.ui.custom, submit_plan still uses confirm.
+// SCENARIO C: auto-submit posture is visible in the overlay while preserving manual approval.
+// ===========================================================================
+async function overlayShowsAutoSubmitHint(url) {
+	const planExtension = await loadDefault(url);
+	const { pi, commands, tools } = makePi();
+	planExtension(pi);
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "plan-auto-submit-html-"));
+	const ctx = makeCtx({ decisionKey: "y", cwd });
+
+	await commands.get("plan").handler("auto-submit on", ctx);
+	await commands.get("plan").handler("design a feature", ctx);
+	const res = await tools.get("submit_plan").execute("tc1", { plan: "# P\n1. step" }, undefined, undefined, ctx);
+
+	const rendered = stripAnsi((ctx._customCalls[0].firstRender || []).join("\n"));
+	check("auto-submit overlay: renders countdown hint", /auto-submit/i.test(rendered), rendered);
+	check("auto-submit overlay: manual approval still wins", res?.details && res.details.status === "approved");
+}
+
+// ===========================================================================
+// SCENARIO D: back-compat — with NO ctx.ui.custom, submit_plan still uses confirm.
 // ===========================================================================
 async function fallsBackToConfirmWithoutCustom(url) {
 	const planExtension = await loadDefault(url);
@@ -285,6 +304,7 @@ async function main() {
 	try {
 		await overlayPresentsAndRenders(url);
 		await decisionKeysMapSafely(url);
+		await overlayShowsAutoSubmitHint(url);
 		await fallsBackToConfirmWithoutCustom(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});

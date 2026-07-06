@@ -57,6 +57,11 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 			"- ULTRACODE STEPS: estructurá el plan para que sus PASOS se ejecuten vía dynamic workflows cuando se justifique (exhaustividad, confianza, escala). Para cada paso, indicá si corre como workflow y con qué concurrency/maxAgents, o si corre inline.",
 		);
 	}
+	if (plan.autoSubmit && !plan.nonInteractive) {
+		lines.push(
+			"- AUTO-SUBMIT: cuando llames a submit_plan, el overlay de aprobación se auto-aprobará tras 60 segundos si el usuario no elige antes. Por eso el plan debe ser completo, autocontenido y seguro de aprobar por timeout.",
+		);
+	}
 	if (!plan.nonInteractive) {
 		lines.push(
 			"- Para aclarar requisitos antes de terminar el plan, podés hacerle al usuario una pregunta BLOQUEANTE con las tools interactivas cuando estén disponibles — ask_choice / ask_confirm (pi, de pandi-ask) o AskUserQuestion (Claude Code) — si no, preguntá en texto plano. Limitalo a preguntas genuinamente bloqueantes.",

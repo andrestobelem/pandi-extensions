@@ -18,6 +18,7 @@ function planFlagSuffix(plan: PlanState): string {
 	if (plan.nonInteractive) tags.push("plan-only");
 	if (plan.ultracode) tags.push("uc");
 	if (plan.ultracodeSteps) tags.push("uc-steps");
+	if (plan.autoSubmit) tags.push("auto-submit");
 	return tags.length ? ` · ${tags.join(" · ")}` : "";
 }
 
@@ -43,6 +44,7 @@ export function formatStatus(plan: PlanState): string {
 		plan.nonInteractive ? "plan-only" : undefined,
 		plan.ultracode ? "ultracode" : undefined,
 		plan.ultracodeSteps ? "ultracode-steps" : undefined,
+		plan.autoSubmit ? "auto-submit" : undefined,
 	].filter(Boolean);
 	const posture = tags.length ? ` [${tags.join(", ")}]` : "";
 	return `Plan ${plan.planId}: ${gate}${posture}${counts}. Tarea: ${plan.task}`;

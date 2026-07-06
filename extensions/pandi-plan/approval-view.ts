@@ -11,9 +11,8 @@
  * el plan (headings/lists/code, scrollable) como recoge la aprobación en una pantalla.
  *
  * Las teclas de decisión mapean SEGURAMENTE: y / Y / Enter => APPROVE; n / N / Esc / q => REJECT. Un cierre
- * (Esc/q) es un REJECT, nunca una aprobación implícita — el punto entero del modo plan es que el
- * usuario DEBE aprobar explícitamente antes de cualquier mutación, así que la dirección peligrosa (cerrar silenciosamente
- * aprobando) es imposible acá.
+ * (Esc/q) es un REJECT, nunca una aprobación implícita. El único caso no manual es el auto-submit opt-in:
+ * si el usuario lo activó, 60s sin elección equivalen a APPROVE y el overlay muestra la cuenta regresiva.
  *
  * Como el visor de pandi-mdview y el overlay de dashboard de pandi-plan, el cableado TUI vivo se ejercita por
  * una suite que maneja el componente a través de un ctx.ui.custom mocked (ver
@@ -34,6 +33,18 @@ import {
 
 const VIEWER_MIN_BODY_LINES = 3;
 const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
+const DEFAULT_AUTO_SUBMIT_TIMEOUT_MS = 60_000;
+
+interface RenderPlanApprovalOptions {
+	autoSubmit?: boolean;
+	timeoutMs?: number;
+}
+
+function normalizeTimeoutMs(timeoutMs: number | undefined): number {
+	return typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0
+		? Math.floor(timeoutMs)
+		: DEFAULT_AUTO_SUBMIT_TIMEOUT_MS;
+}
 
 function padToWidth(text: string, width: number): string {
 	return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
@@ -81,6 +92,7 @@ class PlanApprovalComponent implements Component {
 		private readonly planId: string,
 		content: string,
 		private readonly decide: (approved: boolean) => void,
+		private readonly autoSubmitDeadline?: number,
 	) {
 		this.markdown = new Markdown(content, 1, 0, createMarkdownTheme(theme), undefined, {
 			preserveOrderedListMarkers: true,
@@ -124,15 +136,21 @@ class PlanApprovalComponent implements Component {
 
 		const title = this.theme.fg("accent", this.theme.bold("Plan"));
 		const location = this.theme.fg("dim", this.planId);
+		const autoSubmitSeconds = this.autoSubmitDeadline === undefined ? undefined : this.remainingAutoSubmitSeconds();
+		const autoSubmitTitle =
+			autoSubmitSeconds === undefined
+				? ""
+				: ` ${this.theme.fg("warning", `(auto-submit en ${autoSubmitSeconds}s)`)}`;
+		const autoSubmitFooter = autoSubmitSeconds === undefined ? "" : `auto-submit en ${autoSubmitSeconds}s • `;
 		const footer = this.theme.fg(
 			"dim",
-			`↑/↓ j/k desplazar • PgUp/PgDn página • y/Enter aprobar • n/Esc rechazar • ${start + 1}-${end}/${bodyLines.length}`,
+			`${autoSubmitFooter}↑/↓ j/k desplazar • PgUp/PgDn página • y/Enter aprobar • n/Esc rechazar • ${start + 1}-${end}/${bodyLines.length}`,
 		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));
 		return [
 			border,
-			boundedLine(`${title} ${location}`, safeWidth),
+			boundedLine(`${title} ${location}${autoSubmitTitle}`, safeWidth),
 			"",
 			...visibleBody.map((line) => boundedLine(line, safeWidth)),
 			boundedLine(footer, safeWidth),
@@ -144,6 +162,10 @@ class PlanApprovalComponent implements Component {
 		const rows = this.tui.terminal.rows || 24;
 		return Math.max(VIEWER_MIN_BODY_LINES, rows - VIEWER_FIXED_LINES);
 	}
+	private remainingAutoSubmitSeconds(): number {
+		if (this.autoSubmitDeadline === undefined) return 0;
+		return Math.max(0, Math.ceil((this.autoSubmitDeadline - Date.now()) / 1000));
+	}
 	private pageSize(): number {
 		return Math.max(1, this.bodyHeight() - 1);
 	}
@@ -153,8 +175,33 @@ class PlanApprovalComponent implements Component {
  * Abre el overlay interactivo de aprobación Markdown; se resuelve a true (APPROVE) o false (REJECT).
  * El llamador debe haber ya confirmado una UI interactiva con ctx.ui.custom disponible.
  */
-export function renderPlanApprovalOverlay(ctx: ExtensionContext, planText: string, planId: string): Promise<boolean> {
+export function renderPlanApprovalOverlay(
+	ctx: ExtensionContext,
+	planText: string,
+	planId: string,
+	options: RenderPlanApprovalOptions = {},
+): Promise<boolean> {
 	return ctx.ui.custom<boolean>((tui, theme, _keybindings, done) => {
-		return new PlanApprovalComponent(tui, theme, planId, planText, (approved) => done(approved));
+		const autoSubmit = options.autoSubmit === true;
+		const timeoutMs = normalizeTimeoutMs(options.timeoutMs);
+		const deadline = autoSubmit ? Date.now() + timeoutMs : undefined;
+		let settled = false;
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		let interval: ReturnType<typeof setInterval> | undefined;
+		const finish = (approved: boolean) => {
+			if (settled) return;
+			settled = true;
+			if (timeout) clearTimeout(timeout);
+			if (interval) clearInterval(interval);
+			done(approved);
+		};
+		if (autoSubmit) {
+			timeout = setTimeout(() => {
+				tui.requestRender();
+				finish(true);
+			}, timeoutMs);
+			interval = setInterval(() => tui.requestRender(), 1000);
+		}
+		return new PlanApprovalComponent(tui, theme, planId, planText, finish, deadline);
 	});
 }

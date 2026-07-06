@@ -18,6 +18,17 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
+function makeTheme() {
+	const id = (_color, text) => text;
+	return {
+		fg: id,
+		bold: (text) => text,
+		italic: (text) => text,
+		underline: (text) => text,
+		strikethrough: (text) => text,
+	};
+}
+
 async function buildApprovalHandshake() {
 	return await buildExtension({
 		name: "pi-plan-approval-handshake-integration",
@@ -95,6 +106,70 @@ async function approvalPresentation(url) {
 	const throwingApproved = await presentPlanForApproval(throwingCtx, "throwing plan", "p3");
 	check("present: overlay failure falls back to confirm", fallbackAfterThrowCalled === true);
 	check("present: fallback decision after overlay failure is preserved", throwingApproved === false);
+
+	let timeoutSignalSeen = false;
+	const autoFallbackCtx = {
+		hasUI: true,
+		ui: {
+			confirm: async (_title, _body, options) => {
+				timeoutSignalSeen = !!options?.signal;
+				return await new Promise((resolve) => {
+					options?.signal?.addEventListener("abort", () => resolve(false), { once: true });
+				});
+			},
+		},
+	};
+	const autoFallbackApproved = await presentPlanForApproval(autoFallbackCtx, "timed plan", "p4", {
+		autoSubmit: true,
+		timeoutMs: 5,
+	});
+	check("present: auto-submit fallback passes an AbortSignal", timeoutSignalSeen === true);
+	check("present: auto-submit fallback approves on timeout", autoFallbackApproved === true);
+
+	const autoFallbackCancelCtx = {
+		hasUI: true,
+		ui: {
+			confirm: async () => false,
+		},
+	};
+	const autoFallbackCancelled = await presentPlanForApproval(autoFallbackCancelCtx, "cancelled plan", "p5", {
+		autoSubmit: true,
+		timeoutMs: 50,
+	});
+	check("present: auto-submit fallback preserves human cancel", autoFallbackCancelled === false);
+
+	let autoCustomRendered = "";
+	let autoCustomConfirmCalled = false;
+	let autoCustomRenders = 0;
+	const autoCustomCtx = {
+		hasUI: true,
+		ui: {
+			custom: async (factory) => {
+				const tui = {
+					terminal: { columns: 80, rows: 20 },
+					requestRender: () => {
+						autoCustomRenders += 1;
+					},
+				};
+				return await new Promise((resolve) => {
+					const component = factory(tui, makeTheme(), {}, resolve);
+					autoCustomRendered = component.render(80).join("\n");
+				});
+			},
+			confirm: async () => {
+				autoCustomConfirmCalled = true;
+				return false;
+			},
+		},
+	};
+	const autoCustomApproved = await presentPlanForApproval(autoCustomCtx, "custom timed plan", "p6", {
+		autoSubmit: true,
+		timeoutMs: 5,
+	});
+	check("present: auto-submit custom overlay approves on timeout", autoCustomApproved === true);
+	check("present: auto-submit custom overlay renders a countdown hint", /auto-submit/i.test(autoCustomRendered));
+	check("present: auto-submit custom overlay requested rerender", autoCustomRenders > 0);
+	check("present: auto-submit custom overlay does not fall back to confirm", autoCustomConfirmCalled === false);
 }
 
 async function main() {

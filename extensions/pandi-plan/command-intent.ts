@@ -8,8 +8,8 @@
 
 import { parsePlanToggleValue } from "./flags.js";
 
-export type PlanToggleKey = "ultracode" | "ultracodeSteps";
-export type PlanToggleLabel = "ultracode" | "steps-ultracode";
+export type PlanToggleKey = "ultracode" | "ultracodeSteps" | "autoSubmit";
+export type PlanToggleLabel = "ultracode" | "steps-ultracode" | "auto-submit";
 export type PlanToggleAction = "on" | "off" | "status";
 
 export type PlanCommandIntent =
@@ -26,7 +26,7 @@ export type PlanCommandIntent =
  * Reglas preservadas desde `handlePlanCommand`:
  * - `status`, `dashboard`/`tui`, `exit`/`cancel` solo son comandos si son el
  *   primer token completo y ÚNICO; con texto extra pasan a ser task.
- * - `ultracode` y `steps-ultracode` siempre son toggles cuando son primer token;
+ * - `ultracode`, `steps-ultracode` y `auto-submit` siempre son toggles cuando son primer token;
  *   un valor inválido no cae a task.
  * - las flags `--ultracode` / `--uc` se dejan dentro de `task` para que
  *   `startPlan` siga delegando su parsing a `parsePlanCommandFlags`.
@@ -39,9 +39,15 @@ export function parsePlanCommandIntent(args: string): PlanCommandIntent {
 	if (firstSpace === -1 && firstToken === "status") return { kind: "status" };
 	if (firstSpace === -1 && (firstToken === "dashboard" || firstToken === "tui")) return { kind: "dashboard" };
 
-	if (firstToken === "ultracode" || firstToken === "steps-ultracode") {
-		const key = firstToken === "ultracode" ? "ultracode" : "ultracodeSteps";
-		const label = firstToken === "ultracode" ? "ultracode" : "steps-ultracode";
+	if (firstToken === "ultracode" || firstToken === "steps-ultracode" || firstToken === "auto-submit") {
+		const key =
+			firstToken === "ultracode" ? "ultracode" : firstToken === "steps-ultracode" ? "ultracodeSteps" : "autoSubmit";
+		const label =
+			firstToken === "ultracode"
+				? "ultracode"
+				: firstToken === "steps-ultracode"
+					? "steps-ultracode"
+					: "auto-submit";
 		const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1);
 		const action = parsePlanToggleValue(rest);
 		if (action === "invalid") return { kind: "invalid-toggle", label };

@@ -7,11 +7,13 @@
  * accidentales entre sí.
  */
 
-/** Banderas opcionales aceptadas desde comando, tool params, env y defaults de sesión. */
+/** Banderas opcionales aceptadas desde comando, env y defaults de sesión. */
 export interface PlanPosture {
 	nonInteractive?: boolean;
 	ultracode?: boolean;
 	ultracodeSteps?: boolean;
+	/** Opt-in humano: aprobar automáticamente un plan si no hay elección en 60s. */
+	autoSubmit?: boolean;
 }
 
 /** Alias histórico: en las superficies de comando/tool estas posturas se reciben como flags. */

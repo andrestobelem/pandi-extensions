@@ -6,13 +6,13 @@
 /plan Add OAuth login to the API -- inspect the existing auth flow, then propose the changes
 ```
 
-Pi researches read-only, calls `submit_plan` with the full plan, and shows it in a scrollable Markdown overlay. Press `y`/`Enter` to approve and implement, or `n`/`Esc`/`q` to reject and have it revise.
+Pi researches read-only, calls `submit_plan` with the full plan, and shows it in a scrollable Markdown overlay. Press `y`/`Enter` to approve and implement, or `n`/`Esc`/`q` to reject and have it revise. If you opt in with auto-submit, no choice for 60 seconds approves the plan.
 
 ## What you get
 
 - A `/plan` command that arms a read-only gate for a task until you approve the submitted plan.
 - An `enter_plan_mode` model tool, so Pi can enter plan mode on its own before a non-trivial or risky change — approval still stays with you.
-- A `submit_plan` model tool with a scrollable, Markdown-rendered approval overlay; a dismiss is a reject, never an implicit approval.
+- A `submit_plan` model tool with a scrollable, Markdown-rendered approval overlay; a dismiss is a reject, never an implicit approval unless you explicitly enable auto-submit.
 - A per-session tracking dashboard and status line.
 - Composable "ultracode" posture flags that tell the planner or implementer to use dynamic workflows.
 
@@ -36,11 +36,12 @@ pi --no-extensions -e ./extensions/pandi-plan   # one-off trial, nothing else lo
 
 | Command | What it does |
 | --- | --- |
-| `/plan [--ultracode\|--uc] [--ultracode-steps\|--uc-steps] <task>` | Enter read-only plan mode for a task. |
+| `/plan [--ultracode\|--uc] [--ultracode-steps\|--uc-steps] [--auto-submit] <task>` | Enter read-only plan mode for a task. |
 | `/plan status` | Inspect the active plan: status, posture flags, counts. |
 | `/plan dashboard` | Open the tracking dashboard: session totals, the active plan, and a history table of every plan in the session (scrollable in a TUI; printed Markdown otherwise). |
 | `/plan ultracode on\|off\|status` | Session default for the ultracode posture; a flagless `/plan <task>` inherits it. |
 | `/plan steps-ultracode on\|off\|status` | Session default for the ultracode-steps posture. |
+| `/plan auto-submit on\|off\|status` | Session default for auto-approval after 60 seconds with no choice. |
 | `/plan exit\|cancel` | Leave plan mode without implementing. |
 | `enter_plan_mode` | Model tool: Pi enters plan mode itself before a multi-step or risky change. Accepts `nonInteractive`, `ultracode`, and `ultracodeSteps` booleans. |
 | `submit_plan` | Model tool: submit the plan artifact for explicit human approval. |
@@ -60,7 +61,7 @@ starts planning and where it can run.
 
 - While plan mode is active, mutating tools are blocked until you approve the submitted plan.
 - The model can *enter* plan mode but can never *approve* a plan: in an interactive session approval is always an explicit human confirmation.
-- The approval overlay is mdview-style: `↑/↓ j/k` scroll, `PgUp/PgDn` page; `y`/`Enter` approve, `n`/`Esc`/`q` reject. When a custom component can't be shown it degrades to a plain `confirm` dialog.
+- The approval overlay is mdview-style: `↑/↓ j/k` scroll, `PgUp/PgDn` page; `y`/`Enter` approve, `n`/`Esc`/`q` reject. When auto-submit is enabled, the overlay shows a countdown and approves after 60 seconds if you make no choice. When a custom component can't be shown it degrades to a plain `confirm` dialog with the same timeout behavior.
 - The read-only gate (see `gate.ts`) allows research only: `read`, `grep`, `find`, `ls`, and read-only shell (`git ls-files`, `git status`, `cat`, `head`, `sed -n`, …). It blocks `write`, `edit`, and mutating shell (`rm`, `mv`, `git commit/add/push/reset`, redirections `>`/`>>`, package installs, …).
 
 ## Limitations & safety notes
@@ -75,15 +76,16 @@ starts planning and where it can run.
 
 ### Posture flags
 
-Three orthogonal knobs tune plan mode. Ultracode and Ultracode steps resolve with precedence **explicit param → session toggle → environment setting → default (off)**; Non-interactive has no session toggle, so it resolves **explicit param → environment setting → default (off)**:
+Four orthogonal knobs tune plan mode. Ultracode, Ultracode steps, and Auto-submit resolve with precedence **explicit param/command flag → session toggle → environment setting → default (off)**; Non-interactive has no session toggle, so it resolves **explicit param → environment setting → default (off)**:
 
 | Flag | `enter_plan_mode` param | `/plan` flag | Env setting | Effect |
 | --- | --- | --- | --- | --- |
 | Non-interactive | `nonInteractive` | (tool/env only) | `PI_PLAN_NONINTERACTIVE` | Plan-only: enter even in `print`/`json` (e.g. a workflow subagent). |
 | Ultracode | `ultracode` | `--ultracode` | `PI_PLAN_ULTRACODE` | Tell the planner to research/design the plan **with dynamic workflows**. |
 | Ultracode steps | `ultracodeSteps` | `--ultracode-steps` | `PI_PLAN_ULTRACODE_STEPS` | Tell the planner/implementer to execute the plan's **steps via dynamic workflows**. |
+| Auto-submit | (human command/env only) | `--auto-submit` | `PI_PLAN_AUTO_SUBMIT` | Auto-approve the submitted plan after 60 seconds with no choice. |
 
-The `/plan` command is interactive-only, so it does not take `--non-interactive`; non-interactive entry is the `enter_plan_mode` tool's job. The session toggles (`/plan ultracode`, `/plan steps-ultracode`) set an in-memory default for the rest of the session and reset at every session boundary.
+The `/plan` command is interactive-only, so it does not take `--non-interactive`; non-interactive entry is the `enter_plan_mode` tool's job. The session toggles (`/plan ultracode`, `/plan steps-ultracode`, `/plan auto-submit`) set an in-memory default for the rest of the session and reset at every session boundary.
 
 ### Non-interactive (plan-only) mode
 

@@ -962,40 +962,60 @@ async function planDashboardReport(url) {
 }
 
 // ===========================================================================
-// SCENARIO 11: SESSION TOGGLES — /plan ultracode|steps-ultracode on|off|status set the
-// in-memory posture default (param -> toggle -> env -> off) for flagless /plan entries.
+// SCENARIO 11: SESSION TOGGLES — /plan ultracode|steps-ultracode|auto-submit on|off|status
+// set the in-memory posture default (param -> toggle -> env -> off) for flagless /plan entries.
 // ===========================================================================
 async function sessionToggles(url) {
 	const planExtension = await loadDefault(url);
-	const { pi, commands, sentMessages } = makePi();
+	const { pi, commands, entries, sentMessages } = makePi();
 	planExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true });
 
-	// Turn both ON, then a FLAGLESS /plan must inherit the ultracode posture.
+	// Turn all ON, then a FLAGLESS /plan must inherit the posture defaults.
 	await commands.get("plan").handler("ultracode on", ctx);
 	check(
 		"toggle: /plan ultracode on is acknowledged",
 		ctx._notes.some((n) => /ultracode valor por defecto de sesión: on/i.test(n.msg)),
 	);
 	await commands.get("plan").handler("steps-ultracode on", ctx);
+	await commands.get("plan").handler("auto-submit on", ctx);
+	check(
+		"toggle: /plan auto-submit on is acknowledged",
+		ctx._notes.some((n) => /auto-submit valor por defecto de sesión: on/i.test(n.msg)),
+	);
 	await commands.get("plan").handler("build the thing", ctx);
 	const prompt = sentMessages[sentMessages.length - 1].content;
 	check("toggle: session ultracode applies to a flagless /plan", /ULTRACODE:/i.test(prompt));
 	check("toggle: session ultracode-steps applies to a flagless /plan", /ULTRACODE STEPS/i.test(prompt));
+	check("toggle: session auto-submit applies to a flagless /plan", /AUTO-SUBMIT/i.test(prompt));
+	check("toggle: persisted autoSubmit=true", latestPlanState(entries)?.autoSubmit === true);
 
-	// Exit, turn OFF, then a fresh flagless /plan must have NO ultracode wording.
+	// Exit, turn OFF, then a fresh flagless /plan must have NO posture wording.
 	await commands.get("plan").handler("exit", ctx);
 	await commands.get("plan").handler("ultracode off", ctx);
 	await commands.get("plan").handler("steps-ultracode off", ctx);
+	await commands.get("plan").handler("auto-submit off", ctx);
 	await commands.get("plan").handler("another thing", ctx);
 	const prompt2 = sentMessages[sentMessages.length - 1].content;
 	check("toggle: ultracode off → no ULTRACODE wording", !/ULTRACODE/i.test(prompt2));
+	check("toggle: auto-submit off → no AUTO-SUBMIT wording", !/AUTO-SUBMIT/i.test(prompt2));
+	check("toggle: persisted autoSubmit=false", latestPlanState(entries)?.autoSubmit === false);
 
-	// status reports the current default.
+	// A one-shot flag also enables auto-submit without changing the session default.
+	await commands.get("plan").handler("exit", ctx);
+	await commands.get("plan").handler("--auto-submit one shot", ctx);
+	check("toggle: --auto-submit applies to one /plan", latestPlanState(entries)?.autoSubmit === true);
+
+	// status reports the current defaults.
 	await commands.get("plan").handler("ultracode status", ctx);
 	check(
 		"toggle: ultracode status reports off",
 		ctx._notes.some((n) => /ultracode valor por defecto de sesión: off/i.test(n.msg)),
+	);
+	await commands.get("plan").handler("auto-submit status", ctx);
+	check(
+		"toggle: auto-submit status reports off",
+		ctx._notes.some((n) => /auto-submit valor por defecto de sesión: off/i.test(n.msg)),
 	);
 }
 

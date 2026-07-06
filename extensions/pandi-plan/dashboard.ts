@@ -34,6 +34,7 @@ export function planPosture(plan: PlanSnapshot): string {
 	if (plan.nonInteractive) tags.push("plan-only");
 	if (plan.ultracode) tags.push("ultracode");
 	if (plan.ultracodeSteps) tags.push("ultracode-steps");
+	if (plan.autoSubmit) tags.push("auto-submit");
 	return tags.length ? tags.join(", ") : "interactive";
 }
 

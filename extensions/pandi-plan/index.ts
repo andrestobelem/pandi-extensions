@@ -13,9 +13,10 @@
  *   2. El plan como un ARTEFACTO — el modelo emite el plan a través de una tool registrada
  *      (submit_plan), exactamente como /loop emite vía loop_schedule y /goal vía
  *      goal_progress. El texto del plan es el payload.
- *   3. Aprobación EXPLÍCITA antes de cualquier mutación — submit_plan presenta el plan en un
+ *   3. Aprobación antes de cualquier mutación — submit_plan presenta el plan en un
  *      OVERLAY de aprobación scrollable, renderizado Markdown (de estilo mdview; ver approval-view.ts),
  *      degrada a ctx.ui.confirm cuando un componente personalizado no se puede mostrar (≈ ExitPlanMode de Claude).
+ *      Por defecto exige una elección humana explícita; con el toggle humano auto-submit, 60s sin elección aprueban.
  *      Aprueba → levanta el gate, reinyecta "implementa esto". Rechaza → sigue
  *      gateado, devuelve el rechazo al modelo.
  *
@@ -38,7 +39,7 @@
  *       resultado de la tool) — investiga de solo lectura, luego submit_plan
  *          ↓ (modelo investiga con tools de solo lectura; mutaciones bloqueadas)
  *     modelo llama submit_plan({ plan })
- *     → presenta el plan para aprobación (overlay Markdown, o fallback ctx.ui.confirm)
+ *     → presenta el plan para aprobación (overlay Markdown, o fallback ctx.ui.confirm; auto-submit opt-in)
  *          ├─ APPROVE → desactiva, levanta gate, persiste,
  *          │            despierta "Plan aprobado. Implementa ahora:\n<plan>"
  *          └─ REJECT  → sigue en plan-mode, devuelve al modelo para revisar + reenviar
@@ -263,6 +264,7 @@ function createAndArmPlan(
 		nonInteractive: flags.nonInteractive,
 		ultracode: flags.ultracode,
 		ultracodeSteps: flags.ultracodeSteps,
+		autoSubmit: flags.nonInteractive ? false : flags.autoSubmit,
 		startedAt: Date.now(),
 		updatedAt: new Date().toISOString(),
 	};
@@ -512,7 +514,10 @@ export default function planExtension(pi: ExtensionAPI): void {
 				);
 			}
 
-			const approved = await presentPlanForApproval(ctx, planText, plan.planId);
+			const approved = await presentPlanForApproval(ctx, planText, plan.planId, {
+				autoSubmit: plan.autoSubmit === true,
+				timeoutMs: 60_000,
+			});
 			const livePlan = currentPlan();
 			if (!isCurrentPlanApproval(livePlan, plan.planId, submission)) {
 				return {
@@ -676,7 +681,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 
 	pi.registerCommand("plan", {
 		description:
-			"Entrá en modo plan de solo lectura: /plan [--ultracode] [--ultracode-steps] <task> — investigá en solo lectura, escribí un plan, envialo para aprobación, y después implementá. /plan status | /plan dashboard | /plan exit | /plan cancel.",
+			"Entrá en modo plan de solo lectura: /plan [--ultracode] [--ultracode-steps] [--auto-submit] <task> — investigá en solo lectura, escribí un plan, envialo para aprobación, y después implementá. /plan status | /plan dashboard | /plan exit | /plan cancel.",
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "status", label: "status", description: "Mostrar el estado del modo plan" },
@@ -688,6 +693,11 @@ export default function planExtension(pi: ExtensionAPI): void {
 					description: "Ejecutar los pasos del plan vía dynamic workflows",
 				},
 				{
+					value: "--auto-submit",
+					label: "--auto-submit",
+					description: "Aprobar automáticamente el plan tras 60s sin elección",
+				},
+				{
 					value: "ultracode",
 					label: "ultracode",
 					description: "Alternar el valor por defecto de sesión: on|off|status",
@@ -696,6 +706,11 @@ export default function planExtension(pi: ExtensionAPI): void {
 					value: "steps-ultracode",
 					label: "steps-ultracode",
 					description: "Alternar el valor por defecto de sesión de pasos-vía-workflows: on|off|status",
+				},
+				{
+					value: "auto-submit",
+					label: "auto-submit",
+					description: "Alternar auto-aprobación tras 60s sin elección: on|off|status",
 				},
 				{ value: "exit", label: "exit", description: "Salir del modo plan sin implementar" },
 				{ value: "cancel", label: "cancel", description: "Salir del modo plan sin implementar" },

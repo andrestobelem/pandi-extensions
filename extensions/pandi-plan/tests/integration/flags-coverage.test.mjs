@@ -8,12 +8,13 @@
  *
  *   1. envFlag(name) — truthy tokens are 1/true/on/yes (case-insensitive, trimmed);
  *      everything else (incl. 0/false/no/empty/unset) is false.
- *   2. resolvePlanFlags({}) — the env layer for PI_PLAN_ULTRACODE / PI_PLAN_ULTRACODE_STEPS
- *      when there is no param and no session toggle.
+ *   2. resolvePlanFlags({}) — the env layer for PI_PLAN_ULTRACODE / PI_PLAN_ULTRACODE_STEPS /
+ *      PI_PLAN_AUTO_SUBMIT when there is no param and no session toggle.
  *   3. getSessionFlagDefault / setSessionFlagDefault — round-trip on the module singleton;
  *      a FRESH module starts unset (undefined).
  *   4. resetSessionFlagDefaults — clears the toggles at a session boundary, so resolvePlanFlags
  *      falls back to env/default again.
+ *   5. parsePlanCommandFlags — one-shot /plan flags include --auto-submit.
  *
  * sessionFlagDefaults is module-mutable singleton state. loadModule's cache-busting query gives
  * each scenario a FRESH module instance, so toggle mutations never leak between scenarios.
@@ -90,10 +91,13 @@ async function resolveEnvLayer(url) {
 	withEnv("PI_PLAN_ULTRACODE", "1", () => {
 		withEnv("PI_PLAN_ULTRACODE_STEPS", null, () => {
 			withEnv("PI_PLAN_NONINTERACTIVE", null, () => {
-				const r = resolvePlanFlags({});
-				check("resolve(env): PI_PLAN_ULTRACODE=1 → ultracode=true", r.ultracode === true);
-				check("resolve(env): no steps env → ultracodeSteps=false", r.ultracodeSteps === false);
-				check("resolve(env): no nonInteractive env → nonInteractive=false", r.nonInteractive === false);
+				withEnv("PI_PLAN_AUTO_SUBMIT", null, () => {
+					const r = resolvePlanFlags({});
+					check("resolve(env): PI_PLAN_ULTRACODE=1 → ultracode=true", r.ultracode === true);
+					check("resolve(env): no steps env → ultracodeSteps=false", r.ultracodeSteps === false);
+					check("resolve(env): no nonInteractive env → nonInteractive=false", r.nonInteractive === false);
+					check("resolve(env): no auto-submit env → autoSubmit=false", r.autoSubmit === false);
+				});
 			});
 		});
 	});
@@ -106,10 +110,19 @@ async function resolveEnvLayer(url) {
 		});
 	});
 
+	withEnv("PI_PLAN_AUTO_SUBMIT", "yes", () => {
+		const r = resolvePlanFlags({});
+		check("resolve(env): PI_PLAN_AUTO_SUBMIT=yes → autoSubmit=true", r.autoSubmit === true);
+	});
+
 	// Explicit param wins over env.
 	withEnv("PI_PLAN_ULTRACODE", "1", () => {
 		const r = resolvePlanFlags({ ultracode: false });
 		check("resolve(param): explicit param false beats env=1", r.ultracode === false);
+	});
+	withEnv("PI_PLAN_AUTO_SUBMIT", "1", () => {
+		const r = resolvePlanFlags({ autoSubmit: false });
+		check("resolve(param): explicit autoSubmit=false beats env=1", r.autoSubmit === false);
 	});
 }
 
@@ -119,13 +132,18 @@ async function resolveEnvLayer(url) {
 async function sessionDefaultRoundTrip(url) {
 	const { getSessionFlagDefault, setSessionFlagDefault } = await loadModule(url);
 
-	// Fresh module: both toggles unset.
+	// Fresh module: every session toggle starts unset.
 	check("session: fresh ultracode default is undefined", getSessionFlagDefault("ultracode") === undefined);
 	check("session: fresh ultracodeSteps default is undefined", getSessionFlagDefault("ultracodeSteps") === undefined);
+	check("session: fresh autoSubmit default is undefined", getSessionFlagDefault("autoSubmit") === undefined);
 
 	setSessionFlagDefault("ultracode", true);
 	check("session: set ultracode=true round-trips", getSessionFlagDefault("ultracode") === true);
 	check("session: unrelated ultracodeSteps still undefined", getSessionFlagDefault("ultracodeSteps") === undefined);
+	check("session: unrelated autoSubmit still undefined", getSessionFlagDefault("autoSubmit") === undefined);
+
+	setSessionFlagDefault("autoSubmit", true);
+	check("session: set autoSubmit=true round-trips", getSessionFlagDefault("autoSubmit") === true);
 
 	setSessionFlagDefault("ultracode", false);
 	check("session: set ultracode=false round-trips", getSessionFlagDefault("ultracode") === false);
@@ -140,23 +158,29 @@ async function resetClearsToggles(url) {
 
 	setSessionFlagDefault("ultracode", true);
 	setSessionFlagDefault("ultracodeSteps", true);
+	setSessionFlagDefault("autoSubmit", true);
 	// Session toggle wins over env even when env is unset → resolves true.
 	withEnv("PI_PLAN_ULTRACODE", null, () => {
 		const r = resolvePlanFlags({});
 		check("reset: session toggle applies before reset (ultracode=true)", r.ultracode === true);
 		check("reset: session toggle applies before reset (steps=true)", r.ultracodeSteps === true);
+		check("reset: session toggle applies before reset (autoSubmit=true)", r.autoSubmit === true);
 	});
 
 	resetSessionFlagDefaults();
 	check("reset: ultracode cleared to undefined", getSessionFlagDefault("ultracode") === undefined);
 	check("reset: ultracodeSteps cleared to undefined", getSessionFlagDefault("ultracodeSteps") === undefined);
+	check("reset: autoSubmit cleared to undefined", getSessionFlagDefault("autoSubmit") === undefined);
 
 	// After reset, with env unset, resolve falls back to the default (false).
 	withEnv("PI_PLAN_ULTRACODE", null, () => {
 		withEnv("PI_PLAN_ULTRACODE_STEPS", null, () => {
-			const r = resolvePlanFlags({});
-			check("reset: resolve falls back to default off (ultracode=false)", r.ultracode === false);
-			check("reset: resolve falls back to default off (steps=false)", r.ultracodeSteps === false);
+			withEnv("PI_PLAN_AUTO_SUBMIT", null, () => {
+				const r = resolvePlanFlags({});
+				check("reset: resolve falls back to default off (ultracode=false)", r.ultracode === false);
+				check("reset: resolve falls back to default off (steps=false)", r.ultracodeSteps === false);
+				check("reset: resolve falls back to default off (autoSubmit=false)", r.autoSubmit === false);
+			});
 		});
 	});
 	// After reset, env again decides.
@@ -164,6 +188,21 @@ async function resetClearsToggles(url) {
 		const r = resolvePlanFlags({});
 		check("reset: resolve falls back to env (ultracode=true)", r.ultracode === true);
 	});
+	withEnv("PI_PLAN_AUTO_SUBMIT", "1", () => {
+		const r = resolvePlanFlags({});
+		check("reset: resolve falls back to env (autoSubmit=true)", r.autoSubmit === true);
+	});
+}
+
+// ===========================================================================
+// SCENARIO 5: parsePlanCommandFlags recognizes one-shot auto-submit flags.
+// ===========================================================================
+async function commandFlagParsing(url) {
+	const { parsePlanCommandFlags } = await loadModule(url);
+	const parsed = parsePlanCommandFlags("--auto-submit --ultracode build it");
+	check("parse flags: --auto-submit sets autoSubmit", parsed.flags.autoSubmit === true);
+	check("parse flags: --ultracode still sets ultracode", parsed.flags.ultracode === true);
+	check("parse flags: task drops parsed flags", parsed.task === "build it", JSON.stringify(parsed));
 }
 
 // ===========================================================================
@@ -174,6 +213,7 @@ async function main() {
 		await resolveEnvLayer(url);
 		await sessionDefaultRoundTrip(url);
 		await resetClearsToggles(url);
+		await commandFlagParsing(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

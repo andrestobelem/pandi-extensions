@@ -85,9 +85,31 @@ async function intentParsing(url) {
 		label: "steps-ultracode",
 		action: "off",
 	});
+	same("intent: auto-submit status by default", parsePlanCommandIntent("auto-submit"), {
+		kind: "toggle",
+		key: "autoSubmit",
+		label: "auto-submit",
+		action: "status",
+	});
+	same("intent: auto-submit on", parsePlanCommandIntent("auto-submit on"), {
+		kind: "toggle",
+		key: "autoSubmit",
+		label: "auto-submit",
+		action: "on",
+	});
+	same("intent: auto-submit off", parsePlanCommandIntent("auto-submit off"), {
+		kind: "toggle",
+		key: "autoSubmit",
+		label: "auto-submit",
+		action: "off",
+	});
 	same("intent: invalid toggle is explicit", parsePlanCommandIntent("ultracode maybe"), {
 		kind: "invalid-toggle",
 		label: "ultracode",
+	});
+	same("intent: invalid auto-submit toggle is explicit", parsePlanCommandIntent("auto-submit maybe"), {
+		kind: "invalid-toggle",
+		label: "auto-submit",
 	});
 
 	same("intent: trims task", parsePlanCommandIntent("  design a feature  "), {

@@ -11,7 +11,7 @@
  *   1. makePlanningPrompt: the literal "TASK (verbatim):" header followed by the task
  *      injected VERBATIM (no escaping/truncation, multi-line preserved), the planId in
  *      the opening line, and the conditional NON-INTERACTIVE / ULTRACODE / ULTRACODE
- *      STEPS / AskUserQuestion blocks that the posture flags toggle.
+ *      STEPS / AUTO-SUBMIT / AskUserQuestion blocks that the posture flags toggle.
  *   2. makeImplementPrompt: the "Plan approved. Implement now:\n\n<plan>" base and the
  *      ultracodeSteps suffix.
  *
@@ -123,6 +123,13 @@ function planningPromptTests(mod) {
 		const out = makePlanningPrompt({ planId: "p5", task: "t", ultracode: true, ultracodeSteps: true });
 		check("planning(both): includes ULTRACODE:", /ULTRACODE:/.test(out));
 		check("planning(both): includes ULTRACODE STEPS:", /ULTRACODE STEPS/.test(out));
+	}
+
+	// --- autoSubmit flag ---
+	{
+		const out = makePlanningPrompt({ planId: "p-auto", task: "t", autoSubmit: true });
+		check("planning(autoSubmit): includes AUTO-SUBMIT guidance", /AUTO-SUBMIT:/.test(out));
+		check("planning(autoSubmit): mentions the 60 second timeout", /60 segundos/.test(out));
 	}
 
 	// --- result is a joined string of lines (no array leakage) ---

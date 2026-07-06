@@ -30,6 +30,8 @@ export interface PlanState {
 	nonInteractive?: boolean;
 	ultracode?: boolean;
 	ultracodeSteps?: boolean;
+	/** Si true, submit_plan aprueba automáticamente tras 60s sin elección humana. */
+	autoSubmit?: boolean;
 	startedAt: number;
 	/** Timestamp ISO de la última escritura (mantenido para paridad con la familia loop/goal). */
 	updatedAt: string;
