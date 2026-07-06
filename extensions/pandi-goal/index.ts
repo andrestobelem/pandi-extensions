@@ -132,6 +132,11 @@ function canGoalInMode(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
 }
 
+function normalizeWaitSeconds(raw: unknown): number {
+	if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return 0;
+	return Math.min(MAX_WAIT_SECONDS, Math.max(MIN_WAIT_SECONDS, Math.round(raw)));
+}
+
 function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
 	// Compuerta de modo: nunca reinyectar fuera de tui/rpc (también defiende rutas de rehydrate).
 	if (!canGoalInMode(ctx)) return;
@@ -722,13 +727,9 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				};
 			}
 
-			// Clampear waitSeconds DENTRO de execute(); nunca confiar en el modelo. Ausente/0/no finito
-			// → inmediato (delay 0). Un valor finito positivo se clampea a [MIN, MAX].
+			// Clampear waitSeconds DENTRO de execute(); nunca confiar en el modelo.
 			const raw = params.waitSeconds;
-			let delaySec = 0;
-			if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
-				delaySec = Math.min(MAX_WAIT_SECONDS, Math.max(MIN_WAIT_SECONDS, Math.round(raw)));
-			}
+			const delaySec = normalizeWaitSeconds(raw);
 
 			const assessmentEntry: GoalAssessment = {
 				iteration: goal.iteration,
