@@ -37,6 +37,21 @@ function requireObject(label, value) {
 	return ok ? value : undefined;
 }
 
+function completionValues(items) {
+	return (items ?? []).map((item) => item.value);
+}
+
+function expectedCompletionValues(canonicalCompletions, prefix) {
+	const needle = prefix.trim().toLowerCase();
+	return canonicalCompletions
+		.filter((item) => !needle || item.value.toLowerCase().startsWith(needle))
+		.map((item) => item.value);
+}
+
+function sameList(actual, expected) {
+	return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+}
+
 const DEFAULT_FAST_SUMMARY_RESPONSE = {
 	role: "assistant",
 	content: [{ type: "text", text: "## Goal\nResumen rápido\n\n## Next Steps\n1. Seguir" }],
@@ -535,56 +550,48 @@ async function defaultThresholdContract(url) {
 }
 
 async function argumentCompletions(url) {
+	const mod = await loadModule(url);
+	const canonicalCompletions = Array.isArray(mod.ARG_COMPLETIONS) ? mod.ARG_COMPLETIONS : [];
+	check(
+		"autocomplete: ARG_COMPLETIONS is exported as the canonical completion table",
+		canonicalCompletions.length > 0,
+		`got ${JSON.stringify(mod.ARG_COMPLETIONS)}`,
+	);
+
 	const { commands } = await loadExtension(url);
 	const cmd = commands.get("auto-compact");
 	const getArgumentCompletions = requireFunction(
 		"autocomplete: getArgumentCompletions is provided",
 		cmd?.getArgumentCompletions,
 	);
-	if (!getArgumentCompletions) return;
+	if (!getArgumentCompletions || canonicalCompletions.length === 0) return;
 
-	const all = (await getArgumentCompletions("")) ?? [];
-	const values = all.map((i) => i.value);
+	const checkPrefix = async (prefix, label) => {
+		const actual = completionValues((await getArgumentCompletions(prefix)) ?? []);
+		const expected = expectedCompletionValues(canonicalCompletions, prefix);
+		check(label, sameList(actual, expected), `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+		return actual;
+	};
+
+	const values = await checkPrefix("", "autocomplete: empty prefix matches ARG_COMPLETIONS exactly");
 	check(
-		"autocomplete: empty prefix lists the core subcommands",
-		["status", "on", "off", "run", "bar", "summary"].every((v) => values.includes(v)),
-		`got ${JSON.stringify(values)}`,
-	);
-	check(
-		"autocomplete: every item has a string value and label",
-		all.every((i) => typeof i.value === "string" && typeof i.label === "string"),
+		"autocomplete: every canonical item has a string value and label",
+		canonicalCompletions.every((i) => typeof i.value === "string" && typeof i.label === "string"),
 	);
 	check(
 		"autocomplete: empty prefix offers at least one percent preset",
-		all.some((i) => /^\d+$/.test(i.value)),
+		values.some((value) => /^\d+$/.test(value)),
 		`got ${JSON.stringify(values)}`,
 	);
 
-	const bar = (await getArgumentCompletions("bar")) ?? [];
-	check(
-		"autocomplete: 'bar' prefix surfaces bar on/off",
-		bar.some((i) => i.value === "bar on") && bar.some((i) => i.value === "bar off"),
-		`got ${JSON.stringify(bar.map((i) => i.value))}`,
-	);
-
-	const summary = (await getArgumentCompletions("summary")) ?? [];
-	check(
-		"autocomplete: 'summary' prefix surfaces summary on/off",
-		summary.some((i) => i.value === "summary on") && summary.some((i) => i.value === "summary off"),
-		`got ${JSON.stringify(summary.map((i) => i.value))}`,
-	);
-
-	const off = (await getArgumentCompletions("of")) ?? [];
-	check(
-		"autocomplete: 'of' prefix filters to off",
-		off.length > 0 && off.every((i) => i.value.startsWith("of")) && off.some((i) => i.value === "off"),
-		`got ${JSON.stringify(off.map((i) => i.value))}`,
-	);
+	await checkPrefix("bar", "autocomplete: 'bar' prefix matches ARG_COMPLETIONS");
+	await checkPrefix("summary", "autocomplete: 'summary' prefix matches ARG_COMPLETIONS");
+	await checkPrefix("of", "autocomplete: 'of' prefix matches ARG_COMPLETIONS");
 
 	const none = await getArgumentCompletions("zzz");
 	check(
 		"autocomplete: an unknown prefix returns null (no spurious matches)",
-		none === null,
+		none === null && expectedCompletionValues(canonicalCompletions, "zzz").length === 0,
 		`got ${JSON.stringify(none)}`,
 	);
 }
