@@ -1,29 +1,29 @@
 /**
- * Packaging GUARDIAN (repo-wide): every extension must ship its own runtime .ts modules
- * for a STANDALONE install (`pi install ./extensions/<ext>` / `npm pack ./extensions/<ext>`).
+ * GUARDIÁN de packaging (repo-wide): cada extensión debe shippear sus propios módulos .ts runtime
+ * para una instalación STANDALONE (`pi install ./extensions/<ext>` / `npm pack ./extensions/<ext>`).
  *
- * Why this file exists
- * --------------------
- * Pi loads each extension self-contained: its `index.ts` imports depth-one sibling `.ts`
- * modules (e.g. `./job-runtime.js` -> job-runtime.ts). Those siblings only resolve when the
- * npm package actually SHIPS them. A `package.json` whose `files[]` lists only `index.ts`
- * (or an incomplete subset) publishes a broken standalone package: the runtime siblings are
- * absent and module resolution fails on load.
+ * Por qué existe este archivo
+ * --------------------------
+ * Pi carga cada extensión autocontenida: su `index.ts` importa módulos `.ts` sibling de profundidad uno
+ * (p. ej. `./job-runtime.js` -> job-runtime.ts). Esos siblings solo resuelven cuando el paquete npm
+ * realmente los SHIPPEA. Un `package.json` cuyo `files[]` lista solo `index.ts`
+ * (o un subset incompleto) publica un paquete standalone roto: los siblings runtime están
+ * ausentes y la resolución de módulos falla al cargar.
  *
- * The monorepo ROOT package (`pandi-dynamic-workflows`) ships every `extensions/<ext>/<file>.ts`, so the ROOT
- * tarball is fine. This guardian protects the OTHER contract: per-extension standalone
- * publish (a real requirement — see AGENTS.md self-contained-extension rule + memory).
+ * El paquete ROOT del monorepo (`pandi-dynamic-workflows`) shippea cada `extensions/<ext>/<file>.ts`, así que el
+ * tarball ROOT está bien. Este guardián protege el OTRO contrato: publish standalone
+ * por extensión (un requisito real — ver regla self-contained-extension de AGENTS.md + memory).
  *
- * Invariant enforced here (minimal + deterministic, no npm spawn):
- *   For every extension under extensions/ (except `shared`, which is test-harness only),
- *   every depth-one runtime `*.ts` file in the extension root MUST be covered by its
- *   `package.json` `files[]` (either listed exactly or matched by a glob such as `*.ts`).
- *   Test files live under tests/ and are intentionally NOT shipped, so only ROOT .ts count.
+ * Invariante aplicado acá (mínimo + determinista, sin spawn de npm):
+ *   Para cada extensión bajo extensions/ (excepto `shared`, que es solo test-harness),
+ *   cada archivo runtime `*.ts` de profundidad uno en la raíz de la extensión DEBE estar cubierto por su
+ *   `package.json` `files[]` (listado exacto o matcheado por un glob como `*.ts`).
+ *   Los archivos de test viven bajo tests/ y NO se shippean intencionalmente, así que solo cuentan los .ts ROOT.
  *
- * The Karpathy-clean fix that satisfies this for all time is `files: ["*.ts", "README.md", ...]`
- * per extension, so newly added siblings never silently re-break the standalone package.
+ * El fix Karpathy-clean que satisface esto para siempre es `files: ["*.ts", "README.md", ...]`
+ * por extensión, así los siblings nuevos nunca rompen silenciosamente el paquete standalone de nuevo.
  *
- * Run directly:
+ * Corré directo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/standalone-packaging.test.mjs
  */
 
@@ -44,9 +44,9 @@ function check(name, ok, detail) {
 	}
 }
 
-// Minimal npm-files glob: only the leading-directory forms we actually use ("*.ts", "*",
-// exact names). npm `files` patterns without a slash match the package root; a bare "*.ts"
-// therefore covers every root-level .ts. This is deliberately small — not a full globber.
+// Glob mínimo de npm-files: solo las formas de directorio inicial que realmente usamos ("*.ts", "*",
+// nombres exactos). Los patrones npm `files` sin slash matchean la raíz del paquete; un "*.ts" pelado
+// por lo tanto cubre cada .ts root-level. Esto es deliberadamente chico: no un globber completo.
 function patternCoversRootFile(pattern, fileName) {
 	if (pattern === fileName) return true;
 	if (pattern === "*" || pattern === "*.*") return true;
@@ -74,7 +74,7 @@ function main() {
 		try {
 			pkg = JSON.parse(readFileSync(path.join(extDir, "package.json"), "utf8"));
 		} catch {
-			continue; // not a package
+			continue; // no es un paquete
 		}
 		const files = Array.isArray(pkg.files) ? pkg.files : [];
 		const tsFiles = rootTsFiles(extDir);
