@@ -145,13 +145,21 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		const phase = formatAgentPhase(agent);
 		const code = agent.code === undefined ? "" : ` code:${agent.code}`;
 		const schema = agent.schemaOk === undefined ? "" : ` schema:${agent.schemaOk ? "ok" : "bad"}`;
+		const outputState = [
+			agent.outputEmpty ? "empty" : "",
+			agent.outputTruncated ? "truncated" : "",
+			agent.outputChars !== undefined ? `${agent.outputChars}chars` : "",
+		]
+			.filter(Boolean)
+			.join(",");
+		const output = outputState ? ` output:${outputState}` : "";
 		const prompt = agent.promptAvailable ? " prompt:yes" : " prompt:no";
 		const tools = ` tools:${agent.tools?.length ? agent.tools.join(",") : "default"}`;
 		const skills = ` skills:${agent.skills?.length ? agent.skills.join(",") : agent.includeSkills === false ? "disabled" : "default"}`;
 		const extensions = ` extensions:${agent.extensions?.length ? agent.extensions.join(",") : agent.includeExtensions ? "default" : "disabled"}`;
 		const keys = ` keys:${agent.keys?.length ? agent.keys.join(",") : agent.isolatedEnv ? "none" : "default"}${agent.missingKeys?.length ? ` missing:${agent.missingKeys.join(",")}` : ""}`;
 		const preview = agent.promptPreview ? ` — prompt preview: ${compactInline(agent.promptPreview, 180)}` : "";
-		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
+		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${output}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
 	});
 
 	// Detecta si el workflow source cambió desde este run (best-effort:

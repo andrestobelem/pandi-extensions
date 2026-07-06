@@ -90,6 +90,12 @@ export interface SubagentResult {
 	queuedMs?: number;
 	prompt: string;
 	output: string;
+	/** Caracteres del output completo antes del truncado de display/journal. */
+	outputChars?: number;
+	/** True cuando el output completo es vacío o whitespace-only. */
+	outputEmpty?: boolean;
+	/** True cuando `output` es una versión truncada del output completo. */
+	outputTruncated?: boolean;
 	stdout: string;
 	stderr: string;
 	artifactPath: string;
@@ -140,6 +146,16 @@ export interface WorkflowLogEntry {
 	details?: unknown;
 }
 
+export interface WorkflowResultIntegrity {
+	agentOutputs: {
+		observed: number;
+		ok: number;
+		failed: number;
+		empty: number;
+		truncated: number;
+	};
+}
+
 export type WorkflowRunState = "running" | "completed" | "failed" | "cancelled" | "stale";
 
 export interface WorkflowRunResult {
@@ -162,6 +178,7 @@ export interface WorkflowRunResult {
 	logs: WorkflowLogEntry[];
 	output?: unknown;
 	error?: string;
+	integrity?: WorkflowResultIntegrity;
 	codeHash?: string;
 	cachedCalls?: number;
 	resumedFrom?: string;
@@ -215,6 +232,7 @@ export interface WorkflowRunStatus {
 	lastLog?: WorkflowLogEntry;
 	output?: unknown;
 	error?: string;
+	integrity?: WorkflowResultIntegrity;
 	codeHash?: string;
 	cachedCalls?: number;
 	resumedFrom?: string;
@@ -267,6 +285,9 @@ export interface AgentMonitorModel {
 	promptCopy?: string;
 	promptTruncated?: boolean;
 	output?: string;
+	outputChars?: number;
+	outputEmpty?: boolean;
+	outputTruncated?: boolean;
 	schemaOk?: boolean;
 	metrics?: AgentFocusMetricsSummary;
 	promptAvailable: boolean;
