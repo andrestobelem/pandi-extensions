@@ -1,25 +1,25 @@
 /**
- * Test for the shared crash-safe negative-control helper `withMutatedFile`
+ * Test para el helper compartido de negative-control crash-safe `withMutatedFile`
  * (extensions/shared/test/negative-control.mjs).
  *
- * The parity/drift suites prove their --check is non-vacuous by temporarily overwriting a TRACKED
- * repo file, running the real check, then restoring it in a `finally`. The hazard (design-review R4,
- * confirmed systemic across 7 suites): if the process is SIGTERM'd/crashes BETWEEN the mutation and
- * the finally-restore (the runner hard-kills a suite at 120s), the tracked file is left dirty/half-
- * written. `withMutatedFile` keeps the in-place mutation but also registers a process-level restore
- * on SIGTERM/exit so a hard kill still restores the original.
+ * Las suites de parity/drift prueban que su --check no sea vacuo sobrescribiendo temporalmente un archivo
+ * TRACKED del repo, corriendo el check real, y luego restaurándolo en un `finally`. El peligro (design-review R4,
+ * confirmado sistémico en 7 suites): si el proceso recibe SIGTERM/crashea ENTRE la mutación y
+ * el finally-restore (el runner hard-killea una suite a los 120s), el archivo tracked queda dirty/medio
+ * escrito. `withMutatedFile` mantiene la mutación in-place pero también registra un restore process-level
+ * en SIGTERM/exit para que un hard kill todavía restaure el original.
  *
- * This pins:
- *   1. Behavior: fn sees the mutated content; after, the file is byte-restored.
- *   2. Throw-safety: if fn throws, the file is still restored (finally) and the throw propagates.
- *   3. Crash-safety (the point): a child process SIGTERM'd mid-mutation still restores the file,
- *      via the registered signal handler — proven with a real child, not a mock.
- *   4. Nested same-file mutation is rejected rather than losing the original restore baseline.
- *   5. Atomicity (issue #8): every replacement lands via rename (new inode on POSIX), never by
- *      truncating the live file — a concurrent reader (esbuild resolving the REAL root
- *      package.json while a parity suite mutates it) must never observe a truncated file.
+ * Esto pinea:
+ *   1. Comportamiento: fn ve el contenido mutado; después, el archivo queda byte-restored.
+ *   2. Throw-safety: si fn hace throw, el archivo igual se restaura (finally) y el throw propaga.
+ *   3. Crash-safety (el punto): un proceso hijo SIGTERM'd a mitad de mutación igual restaura el archivo,
+ *      vía el signal handler registrado — probado con un hijo real, no un mock.
+ *   4. La mutación anidada del mismo archivo se rechaza en vez de perder el baseline original de restore.
+ *   5. Atomicidad (issue #8): cada reemplazo aterriza vía rename (inode nuevo en POSIX), nunca
+ *      truncando el archivo live — un lector concurrente (esbuild resolviendo el package.json root REAL
+ *      mientras una suite de parity lo muta) nunca debe observar un archivo truncado.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/negative-control-guard.test.mjs
  */
 
@@ -40,7 +40,7 @@ async function main() {
 	check("negative-control.mjs exists", fs.existsSync(HELPER));
 	const { withMutatedFile } = await import(HELPER);
 
-	// 1) Behavior: fn sees mutated content; file restored afterwards.
+	// 1) Comportamiento: fn ve contenido mutado; el archivo se restaura después.
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "negctl-"));
 	const f = path.join(dir, "tracked.txt");
 	const ORIGINAL = "original-content\n";
@@ -58,7 +58,7 @@ async function main() {
 	check("fn receives the original as its arg (return threaded)", ret === ORIGINAL.length, `ret=${ret}`);
 	check("file is byte-restored after withMutatedFile", fs.readFileSync(f, "utf8") === ORIGINAL);
 
-	// 2) Throw-safety: file restored even if fn throws, and the error propagates.
+	// 2) Throw-safety: el archivo se restaura aunque fn haga throw, y el error propaga.
 	let threw = false;
 	try {
 		await withMutatedFile(f, "TEMP", () => {
@@ -70,7 +70,7 @@ async function main() {
 	check("throw from fn propagates", threw);
 	check("file restored after fn throws", fs.readFileSync(f, "utf8") === ORIGINAL);
 
-	// 3) Crash-safety: a child SIGTERM'd mid-mutation still restores the file via the signal guard.
+	// 3) Crash-safety: un hijo SIGTERM'd a mitad de mutación igual restaura el archivo vía el signal guard.
 	const marker = path.join(dir, "child-target.txt");
 	fs.writeFileSync(marker, ORIGINAL);
 	const childSrc = `
@@ -84,7 +84,7 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 `;
 	const childFile = path.join(dir, "child.mjs");
 	fs.writeFileSync(childFile, childSrc);
-	// Run the child, let it mutate, then SIGTERM it; the signal guard must restore before exit.
+	// Corre el hijo, dejalo mutar, luego mandale SIGTERM; el signal guard debe restaurar antes de salir.
 	const crash = spawnSync(
 		process.execPath,
 		[
@@ -149,7 +149,7 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 		`after=${JSON.stringify(afterKill)}`,
 	);
 
-	// 4) Nested same-file mutation: reject instead of overwriting the restore baseline.
+	// 4) Mutación anidada del mismo archivo: rechazar en vez de sobrescribir el baseline de restore.
 	let nestedRejected = false;
 	await withMutatedFile(f, "OUTER", async () => {
 		try {
@@ -162,12 +162,12 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 	});
 	check("file restored after rejected nested mutation", fs.readFileSync(f, "utf8") === ORIGINAL);
 
-	// 5) Atomicity (issue #8): suites run in a parallel pool and esbuild (cwd = repo root)
-	// resolves the REAL root package.json while the parity suites mutate it in place. In-place
-	// fs.writeFileSync truncates before writing, so a parallel reader can observe an EMPTY file
-	// (CI: "Unexpected end of file in JSON — package.json:1:0"). Pin the atomic mechanism
-	// deterministically: each replacement must land via rename — a NEW inode on POSIX — never
-	// by truncating the live inode.
+	// 5) Atomicidad (issue #8): las suites corren en un pool paralelo y esbuild (cwd = repo root)
+	// resuelve el package.json root REAL mientras las suites de parity lo mutan in-place. Un
+	// fs.writeFileSync in-place trunca antes de escribir, así que un lector paralelo puede observar un archivo VACÍO
+	// (CI: "Unexpected end of file in JSON — package.json:1:0"). Pineá el mecanismo atómico
+	// determinísticamente: cada reemplazo debe aterrizar vía rename — un inode NUEVO en POSIX — nunca
+	// truncando el inode live.
 	if (process.platform !== "win32") {
 		const g = path.join(dir, "atomic-target.txt");
 		fs.writeFileSync(g, ORIGINAL);
