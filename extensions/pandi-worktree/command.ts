@@ -63,6 +63,10 @@ function isSetCommand(token: string): boolean {
 	return token === "set";
 }
 
+function isForceFlag(token: string): boolean {
+	return token === "--force" || token === "-f";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -81,8 +85,8 @@ function parseSetCommand(rest: string[]): ParsedCommand {
 }
 
 function parseRemoveCommand(rest: string[]): ParsedCommand {
-	const force = rest.some((t) => t === "--force" || t === "-f");
-	const pathArg = rest.find((t) => t !== "--force" && t !== "-f");
+	const force = rest.some(isForceFlag);
+	const pathArg = rest.find((t) => !isForceFlag(t));
 	if (!pathArg) return { action: "remove", error: "Uso: /worktree remove [--force] <path>" };
 	return { action: "remove", path: pathArg, force };
 }
@@ -117,7 +121,7 @@ function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenPars
 		state.newBranch = rest[index + 1];
 		return index + 1;
 	}
-	if (tok === "--force" || tok === "-f") {
+	if (isForceFlag(tok)) {
 		state.force = true;
 	} else if (tok === "--detach" || tok === "-d") {
 		state.detach = true;
