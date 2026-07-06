@@ -12,9 +12,12 @@ import { GOAL_STATUS_KEY } from "./constants.js";
 import { formatEta } from "./time.js";
 import type { GoalState } from "./types.js";
 
+function formatGoalStatusPhase(goal: GoalState): string {
+	return goal.gstatus === "verifying" ? " verifying" : goal.gstatus === "verifying-independent" ? " verifying⊥" : "";
+}
+
 function formatGoalStatusDetails(goal: GoalState): string {
-	const phase =
-		goal.gstatus === "verifying" ? " verifying" : goal.gstatus === "verifying-independent" ? " verifying⊥" : "";
+	const phase = formatGoalStatusPhase(goal);
 	const eta =
 		(goal.gstatus === "pursuing" || goal.gstatus === "verifying") && goal.nextFireAt
 			? ` next ${formatEta(goal.nextFireAt)}`
