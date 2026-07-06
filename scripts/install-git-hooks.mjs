@@ -15,12 +15,31 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-if (existsSync(path.join(repoRoot, ".git"))) {
-	const r = spawnSync("git", ["config", "core.hooksPath", "scripts/git-hooks"], {
-		cwd: repoRoot,
+const HOOKS_PATH = "scripts/git-hooks";
+
+export function shouldInstallGitHooks(root) {
+	return existsSync(path.join(root, ".git"));
+}
+
+export function gitHooksConfigArgs(hooksPath = HOOKS_PATH) {
+	return ["config", "core.hooksPath", hooksPath];
+}
+
+export function installGitHooks(root, spawn = spawnSync) {
+	if (!shouldInstallGitHooks(root)) return { skipped: true, status: 0 };
+	const r = spawn("git", gitHooksConfigArgs(), {
+		cwd: root,
 		encoding: "utf8",
 		timeout: 8000,
 	});
-	if (r.status === 0) console.error("git hooks: core.hooksPath -> scripts/git-hooks (pre-commit gate active)");
+	return { skipped: false, status: r.status };
 }
-process.exit(0);
+
+function main() {
+	const r = installGitHooks(repoRoot);
+	if (!r.skipped && r.status === 0)
+		console.error("git hooks: core.hooksPath -> scripts/git-hooks (pre-commit gate active)");
+	process.exit(0);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
