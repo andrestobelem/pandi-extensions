@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Theme-awareness regression for the Monitor meters (dark / light / auto).
+ * Regresión de theme-awareness para los meters de Monitor (dark / light / auto).
  *
- * The dashboard never picks raw ANSI/hex colors itself: it paints through the active
- * theme's semantic tokens (`theme.fg("accent"|"success"|"muted", …)`), and pi resolves
- * those per active background — including `auto`, which flips dark↔light at render time.
- * So the meters adapt automatically AS LONG AS their glyphs flow through theme.fg and are
- * never hardcoded.
+ * El dashboard nunca elige colores ANSI/hex raw por su cuenta: pinta a través de los tokens
+ * semánticos del theme activo (`theme.fg("accent"|"success"|"muted", …)`), y pi los resuelve
+ * por background activo, incluido `auto`, que alterna dark↔light en render time.
+ * Así los meters se adaptan automáticamente MIENTRAS sus glyphs fluyan por theme.fg y
+ * nunca estén hardcodeados.
  *
- * This pins exactly that, so a future edit can't regress light/auto by inlining a color:
- *   - The filled run (█) of the agents progress meter is wrapped by the `success` token.
- *   - The filled run (█) of the parallel utilization meter is wrapped by the `accent` token.
- *   - The empty run (░) of both is wrapped by the `muted` token.
- *   - No meter glyph (█/░) is ever emitted OUTSIDE a theme token wrapper.
+ * Esto pinea exactamente eso, para que una edición futura no regrese light/auto inlineando un color:
+ *   - El run filled (█) del meter de progreso de agentes está envuelto por el token `success`.
+ *   - El run filled (█) del meter de utilización paralela está envuelto por el token `accent`.
+ *   - El run empty (░) de ambos está envuelto por el token `muted`.
+ *   - Ningún glyph de meter (█/░) se emite jamás FUERA de un wrapper de token de theme.
  *
- * We assert it with a token-tagging theme that brackets every fg() call, and run it for a
- * "dark" and a "light" tag namespace to prove the SAME code path is used either way.
+ * Lo asertamos con un theme token-tagging que bracketiza cada llamada fg(), y lo corremos para un
+ * namespace de tags "dark" y "light" para probar que se usa el MISMO code path en ambos casos.
  */
 
 import * as path from "node:path";
@@ -29,9 +29,9 @@ const { check, counts } = createChecker();
 
 const WIDTH = 10000;
 
-// A theme whose fg() brackets its output with the token name, so the test can see which
-// semantic token painted each glyph. `ns` namespaces the tags so we can prove the dark and
-// light renders take the identical (token-based) path.
+// Theme cuyo fg() bracketiza su output con el nombre del token, para que el test vea qué
+// token semántico pintó cada glyph. `ns` namespacea los tags para probar que los renders dark y
+// light toman la ruta idéntica basada en tokens.
 function taggingTheme(ns) {
 	return { fg: (token, v) => `⟦${ns}:${token}⟧${v}⟦/${ns}:${token}⟧`, bg: (_t, v) => v, bold: (v) => v };
 }
@@ -104,9 +104,9 @@ function renderWith(ns) {
 	return d.render(WIDTH);
 }
 
-// True iff every meter glyph (█ / ░) in the string sits INSIDE a ⟦ns:token⟧…⟦/ns:token⟧ wrapper.
+// True iff cada glyph de meter (█ / ░) en el string queda DENTRO de un wrapper ⟦ns:token⟧…⟦/ns:token⟧.
 function everyMeterGlyphIsTokenWrapped(s, ns) {
-	// Strip all token-wrapped spans, then assert no bare meter glyph remains.
+	// Quitá todos los spans envueltos por tokens, luego asertá que no quede ningún glyph de meter pelado.
 	const stripped = s.replace(new RegExp(`⟦${ns}:[a-z]+⟧[\\s\\S]*?⟦/${ns}:[a-z]+⟧`, "g"), "");
 	return !/[█░]/.test(stripped);
 }
@@ -123,15 +123,15 @@ async function main() {
 	for (const ns of ["dark", "light"]) {
 		const lines = renderWith(ns);
 		const agentsLine = lines.find((l) => l.includes("done/started"));
-		// The detail `parallel:` label is the line with both the running count and the peak
-		// suffix (the agent ROW also says "running" but never carries "peak:"). The label prefix
-		// itself is token-wrapped, so we can't match on a leading "parallel:".
+		// El label de detail `parallel:` es la línea con el running count y el sufijo peak
+		// (la FILA de agente también dice "running" pero nunca lleva "peak:"). El prefijo del label
+		// en sí está token-wrapped, así que no podemos matchear un "parallel:" inicial.
 		const parallelLine = lines.find((l) => l.includes("running") && l.includes("peak:3"));
 
 		check(`[${ns}] agents line exists`, typeof agentsLine === "string", JSON.stringify(agentsLine));
 		check(`[${ns}] parallel line exists`, typeof parallelLine === "string", JSON.stringify(parallelLine));
 
-		// Filled run painted by the expected semantic token (success for progress, accent for util).
+		// Run filled pintado por el token semántico esperado (success para progreso, accent para util).
 		check(
 			`[${ns}] agents filled glyphs use the success token`,
 			new RegExp(`⟦${ns}:success⟧█+⟦/${ns}:success⟧`).test(agentsLine ?? ""),
@@ -142,7 +142,7 @@ async function main() {
 			new RegExp(`⟦${ns}:accent⟧█+⟦/${ns}:accent⟧`).test(parallelLine ?? ""),
 			JSON.stringify(parallelLine),
 		);
-		// Empty run painted by the muted token on both meters.
+		// Run empty pintado por el token muted en ambos meters.
 		check(
 			`[${ns}] agents empty glyphs use the muted token`,
 			new RegExp(`⟦${ns}:muted⟧░+⟦/${ns}:muted⟧`).test(agentsLine ?? ""),
@@ -154,8 +154,8 @@ async function main() {
 			JSON.stringify(parallelLine),
 		);
 
-		// The hard guarantee: NO meter glyph is ever emitted outside a theme token wrapper,
-		// so there is no hardcoded color that could break light/auto.
+		// Garantía hard: NINGÚN glyph de meter se emite fuera de un wrapper de token de theme,
+		// así no hay color hardcodeado que pueda romper light/auto.
 		check(
 			`[${ns}] no meter glyph is emitted outside a theme token`,
 			everyMeterGlyphIsTokenWrapped(agentsLine ?? "", ns) && everyMeterGlyphIsTokenWrapped(parallelLine ?? "", ns),
@@ -163,8 +163,8 @@ async function main() {
 		);
 	}
 
-	// The two namespaces are structurally identical except for the ns tag → same code path,
-	// proving dark/light/auto all render through the same token-based meters.
+	// Los dos namespaces son estructuralmente idénticos salvo por el tag ns → mismo code path,
+	// probando que dark/light/auto renderizan todos por los mismos meters basados en tokens.
 	const darkShape = renderWith("dark")
 		.find((l) => l.includes("done/started"))
 		?.replace(/dark:/g, "X:");

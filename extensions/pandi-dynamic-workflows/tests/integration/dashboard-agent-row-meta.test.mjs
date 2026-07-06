@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract test for the shared per-row agent meta suffix.
+ * Test de contrato conductual para el sufijo meta de agente compartido por fila.
  *
- * Each agent row in the Monitor tab (renderMonitorAgents) and the Agents tab
- * (renderAgents) ends with the same chip suffix:
+ * Cada fila de agente en la tab Monitor (renderMonitorAgents) y en la tab Agents
+ * (renderAgents) termina con el mismo sufijo de chips:
  *
  *   prompt<✓|?> schema:… tools:… skills:… ext:… keys:… [missing:…]
  *
- * That suffix used to be built with near-identical muted/success/warning/error
- * expressions in BOTH methods; it is now produced by one private helper
- * (renderAgentRowMeta). The two rows still differ ONLY in the segment between the
- * agent name and that suffix:
+ * Ese sufijo antes se construía con expresiones muted/success/warning/error casi idénticas
+ * en AMBOS métodos; ahora lo produce un helper privado
+ * (renderAgentRowMeta). Las dos filas todavía difieren SOLO en el segmento entre el
+ * nombre de agente y ese sufijo:
  *
- *   - Monitor inserts a `code:` chip after `elapsed:` (no workflow/run segment).
- *   - Agents inserts a `— <workflow> <runId>` segment before `elapsed:` (no code chip).
+ *   - Monitor inserta un chip `code:` después de `elapsed:` (sin segmento workflow/run).
+ *   - Agents inserta un segmento `— <workflow> <runId>` antes de `elapsed:` (sin chip code).
  *
- * This test pins the OBSERVABLE contract: for an equivalent agent, the meta suffix
- * (prompt…keys) is byte-identical across both tabs, while the two intended
- * differences are preserved. It guards against the two copies silently diverging
- * (e.g. a future edit touching only one tab's chip formatting).
+ * Este test pinea el contrato OBSERVABLE: para un agente equivalente, el sufijo meta
+ * (prompt…keys) es byte-idéntico entre ambas tabs, mientras se preservan las dos
+ * diferencias intencionales. Protege contra divergencia silenciosa entre las dos copias
+ * (p. ej. una edición futura que toque solo el formato de chips de una tab).
  */
 
 import * as path from "node:path";
@@ -103,17 +103,17 @@ function makeMonitorModel(run, agent) {
 	};
 }
 
-/** The agent ROW line is the unique line carrying the prompt chip (`prompt✓`). */
+/** La línea de FILA de agente es la única línea que lleva el chip de prompt (`prompt✓`). */
 function agentRow(lines) {
 	return lines.find((l) => l.includes("prompt✓"));
 }
 
-/** The shared meta suffix = from the prompt chip to end-of-line. */
+/** El sufijo meta compartido = desde el chip prompt hasta fin de línea. */
 function rowMeta(row) {
 	return typeof row === "string" ? row.slice(row.indexOf("prompt✓")) : undefined;
 }
 
-/** The tab-specific prefix = everything BEFORE the shared meta suffix. */
+/** El prefijo específico de tab = todo ANTES del sufijo meta compartido. */
 function rowPrefix(row) {
 	return typeof row === "string" ? row.slice(0, row.indexOf("prompt✓")) : undefined;
 }
@@ -148,20 +148,20 @@ async function main() {
 	const monitorRow = agentRow(build("monitor").render(WIDTH));
 	const agentsRow = agentRow(build("agents").render(WIDTH));
 
-	// Both tabs render an agent row with the prompt chip at all.
+	// Ambas tabs renderizan al menos una fila de agente con chip de prompt.
 	check("Monitor renders an agent row", typeof monitorRow === "string", JSON.stringify(monitorRow));
 	check("Agents renders an agent row", typeof agentsRow === "string", JSON.stringify(agentsRow));
 
 	const monitorMeta = rowMeta(monitorRow);
 	const agentsMeta = rowMeta(agentsRow);
 
-	// 1) The shared meta suffix (prompt…keys) is byte-identical across both tabs.
+	// 1) El sufijo meta compartido (prompt…keys) es byte-idéntico entre ambas tabs.
 	check(
 		"per-row meta suffix (prompt…keys) is byte-identical across Monitor and Agents",
 		monitorMeta !== undefined && monitorMeta === agentsMeta,
 		`monitor=${JSON.stringify(monitorMeta)} agents=${JSON.stringify(agentsMeta)}`,
 	);
-	// Sanity: the suffix actually carries every chip the helper builds.
+	// Sanity: el sufijo realmente lleva cada chip que construye el helper.
 	check(
 		"meta suffix carries every chip",
 		typeof monitorMeta === "string" &&
@@ -174,7 +174,7 @@ async function main() {
 	const monitorPrefix = rowPrefix(monitorRow);
 	const agentsPrefix = rowPrefix(agentsRow);
 
-	// 2) Intended difference A: only Monitor carries the `code:` chip.
+	// 2) Diferencia intencional A: solo Monitor lleva el chip `code:`.
 	check(
 		"Monitor row prefix includes the code chip",
 		typeof monitorPrefix === "string" && monitorPrefix.includes("code:0"),
@@ -186,7 +186,7 @@ async function main() {
 		JSON.stringify(agentsPrefix),
 	);
 
-	// 3) Intended difference B: only Agents carries the `— <workflow> <runId>` segment.
+	// 3) Diferencia intencional B: solo Agents lleva el segmento `— <workflow> <runId>`.
 	check(
 		"Agents row prefix includes the — workflow runId segment",
 		typeof agentsPrefix === "string" && agentsPrefix.includes(`— demo-flow ${"run-1234567890abcd".slice(-12)}`),
