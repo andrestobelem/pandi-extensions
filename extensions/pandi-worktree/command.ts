@@ -135,6 +135,18 @@ function applyCopyIgnoredFlag(token: string, state: AddOrOpenParseState): boolea
 	return false;
 }
 
+function applyCopyUntrackedFlag(token: string, state: AddOrOpenParseState): boolean {
+	if (token === "--copy-untracked") {
+		state.copyUntracked = true;
+		return true;
+	}
+	if (token === "--no-copy-untracked") {
+		state.copyUntracked = false;
+		return true;
+	}
+	return false;
+}
+
 function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenParseState): number {
 	const tok = rest[index];
 	if (isBranchFlag(tok)) {
@@ -147,10 +159,8 @@ function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenPars
 		state.detach = true;
 	} else if (applyCopyIgnoredFlag(tok, state)) {
 		// aplicado por el helper
-	} else if (tok === "--copy-untracked") {
-		state.copyUntracked = true;
-	} else if (tok === "--no-copy-untracked") {
-		state.copyUntracked = false;
+	} else if (applyCopyUntrackedFlag(tok, state)) {
+		// aplicado por el helper
 	} else {
 		state.positionals.push(tok);
 	}
