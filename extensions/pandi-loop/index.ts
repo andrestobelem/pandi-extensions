@@ -524,6 +524,25 @@ function activateLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop)
 	fireWake(pi, ctx, loop);
 }
 
+interface StartLoopDraft {
+	task: string;
+	intervalMs?: number;
+	ultracode: boolean;
+	autonomous?: boolean;
+}
+
+function createStartedLoop(ctx: ExtensionContext, draft: StartLoopDraft): ActiveLoop {
+	return createActiveLoop({
+		loopId: crypto.randomBytes(4).toString("hex"),
+		task: draft.task,
+		intervalMs: draft.intervalMs,
+		now: Date.now(),
+		autonomous: draft.autonomous,
+		ultracode: draft.ultracode,
+		ownerSessionId: currentOwnerSessionId(ctx),
+	});
+}
+
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
 	if (!canLoopInMode(ctx)) {
@@ -537,19 +556,11 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	}
 	if (refuseIfLoopLimitReached(ctx)) return undefined;
 
-	const loopId = crypto.randomBytes(4).toString("hex");
-	const loop = createActiveLoop({
-		loopId,
-		task: taskText,
-		intervalMs,
-		now: Date.now(),
-		ultracode,
-		ownerSessionId: currentOwnerSessionId(ctx),
-	});
+	const loop = createStartedLoop(ctx, { task: taskText, intervalMs, ultracode });
 	activateLoop(pi, ctx, loop);
 	const modeLabel = formatFixedModeLabel(loop);
 	const uc = ultracode ? " [ultracode]" : "";
-	notify(ctx, `Loop ${loopId} iniciado${modeLabel}${uc}: ${taskText}`, "info");
+	notify(ctx, `Loop ${loop.loopId} iniciado${modeLabel}${uc}: ${taskText}`, "info");
 	return loop;
 }
 
@@ -597,19 +608,10 @@ async function startAutonomousLoop(
 	}
 	if (refuseIfLoopLimitReached(ctx)) return undefined;
 
-	const loopId = crypto.randomBytes(4).toString("hex");
-	const loop = createActiveLoop({
-		loopId,
-		task: objective,
-		intervalMs,
-		now: Date.now(),
-		autonomous: true,
-		ultracode,
-		ownerSessionId: currentOwnerSessionId(ctx),
-	});
+	const loop = createStartedLoop(ctx, { task: objective, intervalMs, autonomous: true, ultracode });
 	activateLoop(pi, ctx, loop);
 	const modeLabel = formatFixedModeLabel(loop);
-	notify(ctx, `Loop autónomo ${loopId} iniciado${modeLabel}: ${objective}`, "info");
+	notify(ctx, `Loop autónomo ${loop.loopId} iniciado${modeLabel}: ${objective}`, "info");
 	return loop;
 }
 
