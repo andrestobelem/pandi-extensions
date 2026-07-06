@@ -3,7 +3,7 @@
  * Corre secuencialmente todas las suites de integración durables de paquetes Pi.
  *
  * Fuente de verdad = DISCOVERY por convención: se corre cada
- * `extensions/<ext>/tests/integration/*.test.mjs`. Cada extensión trae sus propias
+ * `extensions/<ext>/tests/integration/*.test.mjs` registrado en Git. Cada extensión trae sus propias
  * suites, así que agregar una no exige editar nada acá — este runner solo orquesta y agrega.
  * Una suite que todavía no se espera que esté verde se excluye SOLO listándola explícitamente
  * en `ignoredDraftSuites` (con una razón); nunca se saltea nada en silencio.
@@ -15,7 +15,7 @@
  *   node scripts/test/run-all.mjs --list
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -45,7 +45,127 @@ export function computeConcurrency(args, env = process.env, cpuCount = os.cpus()
 	return args.has("--serial") ? 1 : Math.max(1, Number(env.TEST_CONCURRENCY) || Math.min(4, cpuCount || 4));
 }
 
-export function discoverSuites(repoRoot, ignoredSuites = ignoredDraftSuites) {
+function toPosixPath(file) {
+	return file.replace(/\\/g, "/");
+}
+
+export function isIntegrationSuitePath(file) {
+	const parts = toPosixPath(file).split("/");
+	return (
+		parts.length === 5 &&
+		parts[0] === EXTENSIONS_DIR &&
+		parts[1].length > 0 &&
+		parts[2] === "tests" &&
+		parts[3] === "integration" &&
+		parts[4].endsWith(".test.mjs")
+	);
+}
+
+export function isRunnerInfluencingPath(file) {
+	const normalized = toPosixPath(file);
+	return (
+		normalized.startsWith(`${EXTENSIONS_DIR}/`) ||
+		normalized.startsWith("scripts/test/") ||
+		["package.json", "tsconfig.json", "biome.jsonc"].includes(normalized)
+	);
+}
+
+function fileSetContainsPathOrAncestor(files, file) {
+	if (!files) return false;
+	const normalized = toPosixPath(file);
+	if (files.has(normalized)) return true;
+	const parts = normalized.split("/");
+	for (let i = parts.length - 1; i > 0; i--) {
+		if (files.has(`${parts.slice(0, i).join("/")}/`)) return true;
+	}
+	return false;
+}
+
+function gitFileSet(repoRoot, args) {
+	const result = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8" });
+	if (result.status !== 0) return undefined;
+	return new Set(
+		result.stdout
+			.split(/\r?\n/)
+			.map((line) => toPosixPath(line.trim()))
+			.filter(Boolean),
+	);
+}
+
+export function collectSuiteGitState(repoRoot) {
+	const trackedFiles = gitFileSet(repoRoot, ["ls-files", "--cached"]);
+	if (!trackedFiles) return undefined;
+	return {
+		trackedFiles,
+		untrackedFiles: gitFileSet(repoRoot, ["ls-files", "--others", "--exclude-standard"]) ?? new Set(),
+		ignoredFiles: gitFileSet(repoRoot, ["ls-files", "--others", "--ignored", "--exclude-standard"]) ?? new Set(),
+	};
+}
+
+function collectContaminatingFiles(gitState) {
+	if (!gitState) return [];
+	const contaminated = new Set();
+	for (const files of [gitState.untrackedFiles, gitState.ignoredFiles]) {
+		for (const file of files ?? []) {
+			const normalized = toPosixPath(file);
+			if (!isRunnerInfluencingPath(normalized)) continue;
+			if (normalized.includes("/tests/integration/")) continue;
+			contaminated.add(normalized);
+		}
+	}
+	return [...contaminated].sort();
+}
+
+export function classifyDiscoveredSuites(discoveredSuites, ignoredSuites = ignoredDraftSuites, gitState) {
+	const hasGitState = gitState?.trackedFiles instanceof Set;
+	const suites = [];
+	const unregisteredSuites = [];
+	const ignoredSuiteFiles = [];
+
+	for (const suite of discoveredSuites) {
+		if (ignoredSuites.has(suite)) continue;
+		if (!hasGitState || gitState.trackedFiles.has(suite)) {
+			suites.push(suite);
+		} else if (fileSetContainsPathOrAncestor(gitState.ignoredFiles, suite)) {
+			ignoredSuiteFiles.push(suite);
+		} else {
+			unregisteredSuites.push(suite);
+		}
+	}
+
+	return { suites, unregisteredSuites, ignoredSuiteFiles, contaminatingFiles: collectContaminatingFiles(gitState) };
+}
+
+export function hasSuiteContamination(discovery) {
+	return (
+		(discovery.unregisteredSuites?.length ?? 0) > 0 ||
+		(discovery.ignoredSuiteFiles?.length ?? 0) > 0 ||
+		(discovery.contaminatingFiles?.length ?? 0) > 0
+	);
+}
+
+function formatSuiteList(title, suites) {
+	if (!suites.length) return [];
+	return [title, ...suites.map((suite) => `  - ${suite}`)];
+}
+
+export function formatSuiteContamination(discovery) {
+	if (!hasSuiteContamination(discovery)) return "";
+	return [
+		"ENVIRONMENT CONTAMINATED: integration suites exist outside the tracked runner set.",
+		"The integration runner aborts before executing registered suites so this is not reported as a test failure.",
+		"Stage/commit intended new suites, remove unrelated concurrent-session files, or run a focused suite directly.",
+		...formatSuiteList("Unregistered suites (untracked, skipped):", discovery.unregisteredSuites ?? []),
+		...formatSuiteList("Ignored suites (gitignored, skipped):", discovery.ignoredSuiteFiles ?? []),
+		...formatSuiteList("Other untracked/ignored runner-influencing files:", discovery.contaminatingFiles ?? []),
+	].join("\n");
+}
+
+export function discoverSuites(
+	repoRoot,
+	ignoredSuites = ignoredDraftSuites,
+	gitState = collectSuiteGitState(repoRoot),
+) {
 	// Descubre por convención los directorios de suites: los extensions/<ext>/tests/integration que existan.
 	const extensionsDirAbs = path.join(repoRoot, EXTENSIONS_DIR);
 	const suiteDirs = (fs.existsSync(extensionsDirAbs) ? fs.readdirSync(extensionsDirAbs, { withFileTypes: true }) : [])
@@ -65,7 +185,7 @@ export function discoverSuites(repoRoot, ignoredSuites = ignoredDraftSuites) {
 		.sort();
 
 	return {
-		suites: discoveredSuites.filter((suite) => !ignoredSuites.has(suite)),
+		...classifyDiscoveredSuites(discoveredSuites, ignoredSuites, gitState),
 		ignoredExisting: [...ignoredSuites].filter((suite) => fs.existsSync(path.join(repoRoot, suite))),
 	};
 }
@@ -152,11 +272,20 @@ async function main(rawArgs = process.argv.slice(2)) {
 		return 1;
 	}
 
-	const { suites, ignoredExisting } = discoverSuites(REPO_ROOT);
+	const discovery = discoverSuites(REPO_ROOT);
+	const { suites, ignoredExisting, unregisteredSuites, ignoredSuiteFiles, contaminatingFiles } = discovery;
 	if (args.has("--list")) {
 		for (const suite of suites) console.log(suite);
 		for (const suite of ignoredExisting) console.log(`# ignored draft: ${suite}`);
+		for (const suite of unregisteredSuites) console.log(`# unregistered suite (skipped): ${suite}`);
+		for (const suite of ignoredSuiteFiles) console.log(`# ignored suite (skipped): ${suite}`);
+		for (const file of contaminatingFiles) console.log(`# contaminated file (skipped): ${file}`);
 		return 0;
+	}
+
+	if (hasSuiteContamination(discovery)) {
+		console.error(formatSuiteContamination(discovery));
+		return 1;
 	}
 
 	if (suites.length === 0) {
