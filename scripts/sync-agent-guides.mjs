@@ -21,26 +21,46 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(REPO, "AGENTS.md");
 const DST = join(REPO, "CLAUDE.md");
 
-const checkOnly = process.argv.includes("--check");
-
-const want = await readMaybe(SRC);
-if (want === null) {
-	console.error("[sync-agent-guides] ✗ missing source: AGENTS.md");
-	process.exit(1);
-}
-const have = await readMaybe(DST);
-
-if (have === want) {
-	console.log("[sync-agent-guides] ✅ CLAUDE.md is in sync with AGENTS.md.");
-	process.exit(0);
+export function parseCheckOnly(args = process.argv.slice(2)) {
+	return args.includes("--check");
 }
 
-if (checkOnly) {
-	console.error(
-		"[sync-agent-guides] ✗ drift: CLAUDE.md differs from AGENTS.md — run: node scripts/sync-agent-guides.mjs",
-	);
-	process.exit(1);
+export function guideMirrorPair(repo = REPO) {
+	return { src: join(repo, "AGENTS.md"), dst: join(repo, "CLAUDE.md") };
 }
 
-await writeFile(DST, want);
-console.log("[sync-agent-guides] wrote CLAUDE.md from AGENTS.md.");
+export async function syncAgentGuides({
+	checkOnly = false,
+	src = SRC,
+	dst = DST,
+	log = console.log,
+	error = console.error,
+} = {}) {
+	const want = await readMaybe(src);
+	if (want === null) {
+		error("[sync-agent-guides] ✗ missing source: AGENTS.md");
+		return { ok: false, wrote: false, drift: false, missing: true };
+	}
+	const have = await readMaybe(dst);
+
+	if (have === want) {
+		log("[sync-agent-guides] ✅ CLAUDE.md is in sync with AGENTS.md.");
+		return { ok: true, wrote: false, drift: false, missing: false };
+	}
+
+	if (checkOnly) {
+		error("[sync-agent-guides] ✗ drift: CLAUDE.md differs from AGENTS.md — run: node scripts/sync-agent-guides.mjs");
+		return { ok: false, wrote: false, drift: true, missing: false };
+	}
+
+	await writeFile(dst, want);
+	log("[sync-agent-guides] wrote CLAUDE.md from AGENTS.md.");
+	return { ok: true, wrote: true, drift: false, missing: false };
+}
+
+async function main(args = process.argv.slice(2)) {
+	const result = await syncAgentGuides({ checkOnly: parseCheckOnly(args) });
+	if (!result.ok) process.exit(1);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();
