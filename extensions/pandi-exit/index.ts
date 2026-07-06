@@ -27,9 +27,12 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	if (ctx.hasUI) ctx.ui.notify(message, type);
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatExitFailure(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `no se pudo salir: ${message} — probá /quit en su lugar`;
+	return `no se pudo salir: ${errorMessage(error)} — probá /quit en su lugar`;
 }
 
 export default function exitExtension(pi: ExtensionAPI): void {
