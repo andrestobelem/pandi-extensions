@@ -22,6 +22,10 @@ export interface VerifierVerdict {
 	unparsed: boolean;
 }
 
+function renderIndependentVerifierPrompt(lines: string[]): string {
+	return lines.join("\n");
+}
+
 /**
  * Prompt para el verificador INDEPENDENT. Ojos frescos, escéptico, READ-ONLY: se le dice que
  * no es el autor, que no debe confiar en nada por fe, que debe juzgar EACH criterio contra
@@ -78,7 +82,7 @@ function makeIndependentVerifierPrompt(goal: GoalState): string {
 	lines.push("VERDICT: PASS   (solo si CADA criterio está cumplido con evidencia)");
 	lines.push("VERDICT: FAIL   (si CUALQUIER criterio no se cumple, no es verificable, o falta evidencia)");
 	lines.push("La última línea DEBE empezar con 'VERDICT:'. No agregues texto después.");
-	return lines.join("\n");
+	return renderIndependentVerifierPrompt(lines);
 }
 
 /** Construye el argv del subagente verificador, reflejando dynamic-workflows.ts buildAgentArgs (subset). */
