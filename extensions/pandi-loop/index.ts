@@ -95,6 +95,17 @@ import { formatInterval } from "./interval.js";
 import { notify } from "./notify.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
 import { collectLatestByKey } from "./session-state.js";
+import {
+	type ActiveLoop,
+	createActiveLoop,
+	DEFAULT_CONTEXT_PERCENT_CAP,
+	DEFAULT_MAX_ITERATIONS,
+	DEFAULT_MAX_WALL_CLOCK_MS,
+	type LoopState,
+	type LoopStatus,
+	positiveOr,
+	snapshot,
+} from "./state.js";
 import { formatStatus } from "./status.js";
 import { formatEta } from "./time.js";
 
@@ -102,28 +113,15 @@ const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";
 const LOOP_DIR = "loops";
 const STATE_FILE = "state.json";
-const DEFAULT_MAX_ITERATIONS = 25;
 // Tope duro de loops simultáneamente activos (running/paused). Acota la acumulación
 // ilimitada de timers/estado por starts repetidos de /loop: cada loop posee un setTimeout,
 // y sin esto un usuario podría hacer crecer activeLoops sin límite. Los starts nuevos
 // sobre el tope se rechazan; rehydrate de loops ya creados queda exento.
 const MAX_CONCURRENT_LOOPS = 20;
-// Trata un tope persistido como válido solo si es un número finito > 0; si no, usa el
-// valor por default. Defiende rehydrate de un sidecar corrupto/manipulado donde `0`/NaN/undefined
-// pasarían por `??` (que solo reemplaza null/undefined) y desactivarían un tope en silencio
-// (maxWallClockMs<=0 anula el deadline; maxIterations ausente hace que `iter >= undefined`
-// sea siempre false y anule el gate de iteraciones). Los call sites ajustan por tope:
-// Math.trunc para el conteo entero y clamp Math.min(.,100) para el tope porcentual.
-const positiveOr = (value: unknown, dflt: number): number =>
-	typeof value === "number" && Number.isFinite(value) && value > 0 ? value : dflt;
 const MIN_DELAY_SECONDS = 60;
 const MAX_DELAY_SECONDS = 3600;
 // Cadencia de seguridad cuando un turno cerró sin que el modelo llame loop_schedule.
 const SAFETY_NET_DELAY_SECONDS = 1500;
-// Topes P1. maxWallClockMs es un deadline absoluto medido desde startedAt; el umbral
-// de budget es una fracción best-effort de la ventana de contexto (getContextUsage).
-const DEFAULT_MAX_WALL_CLOCK_MS = 6 * 60 * 60 * 1000; // Deadline absoluto por default de 6h.
-const DEFAULT_CONTEXT_PERCENT_CAP = 90; // Detiene si getContextUsage().percent supera esto.
 // GC P2: barre dirs sidecar terminales (done/stopped/failed) más viejos que esto.
 // Los estados vivos (running/paused/stale) NUNCA se barren sin importar su edad.
 const GC_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días.
@@ -131,57 +129,6 @@ const GC_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días.
 // startedAt + esto (p. ej. colgado, caps sin disparar) se force-stoppea (done + cleanup).
 // Es deliberadamente amplio (por encima del deadline por default de 6h) para captar solo zombies.
 const WATCHDOG_HARD_DEADLINE_MS = 25 * 60 * 60 * 1000; // 25h.
-
-type LoopMode = "dynamic" | "fixed";
-type LoopStatus = "running" | "paused" | "stopped" | "done" | "failed" | "stale";
-
-interface LoopState {
-	loopId: string;
-	task: string;
-	mode: LoopMode;
-	/** Período de fixed-mode en ms (0/undefined para dynamic). La extensión lo posee. */
-	intervalMs?: number;
-	iteration: number;
-	maxIterations: number;
-	/** Deadline absoluto de wall-clock (epoch ms): detener cuando Date.now() lo supere. */
-	maxWallClockMs: number;
-	/** Tope porcentual best-effort de uso de contexto (detener si getContextUsage().percent lo supera). */
-	contextPercentCap: number;
-	startedAt: number;
-	nextFireAt: number | null;
-	lastReason?: string;
-	status: LoopStatus;
-	/**
-	 * Modo autónomo (P2): true si este loop no tiene tarea de usuario convencional; el
-	 * texto reinyectado es una sentinela generada por la extensión (un objetivo recurrente).
-	 * El start requiere trust + confirm explícito. Persistido para sobrevivir reloads.
-	 */
-	autonomous?: boolean;
-	/** Postura Ultracode: apoya el trabajo en dynamic workflows (solo inyección de prompt). */
-	ultracode?: boolean;
-	/** Timestamp ISO de la última escritura; resuelve conflictos JSONL-vs-sidecar. */
-	updatedAt: string;
-}
-
-interface ActiveLoop extends LoopState {
-	timer: ReturnType<typeof setTimeout> | null;
-	controller: AbortController;
-	/** Verdadero cuando un wake fue (re)armado en el turno actual; se resetea en cada fire. */
-	rearmedThisTurn: boolean;
-	/** Verdadero mientras el turno ACTUAL fue disparado por un wake (fireWake), no por el usuario. */
-	autopilot: boolean;
-	/**
-	 * Transitorio: ms restantes del timer dynamic al pausar, para que resume rearme
-	 * con el remanente. null = "fire immediately" (estaba en límite de iteración). No persistido.
-	 */
-	pausedRemainingMs?: number | null;
-	/**
-	 * Transitorio (fixed mode): timestamp absoluto para el que se programó la iteración
-	 * en vuelo. El próximo rearmado es fixedAnchor + period, así la cadencia no deriva
-	 * aunque una iteración tarde. No persistido.
-	 */
-	fixedAnchor?: number;
-}
 
 // Calca activeRuns de dynamic-workflows: fuente de verdad de "qué timers viven AHORA".
 const activeLoops = new Map<string, ActiveLoop>();
@@ -264,26 +211,6 @@ function refreshLoopStatus(ctx: ExtensionContext): void {
 // ---------------------------------------------------------------------------
 // Persistencia
 // ---------------------------------------------------------------------------
-
-function snapshot(loop: ActiveLoop): LoopState {
-	return {
-		loopId: loop.loopId,
-		task: loop.task,
-		mode: loop.mode,
-		intervalMs: loop.intervalMs,
-		iteration: loop.iteration,
-		maxIterations: loop.maxIterations,
-		maxWallClockMs: loop.maxWallClockMs,
-		contextPercentCap: loop.contextPercentCap,
-		startedAt: loop.startedAt,
-		nextFireAt: loop.nextFireAt,
-		lastReason: loop.lastReason,
-		status: loop.status,
-		autonomous: loop.autonomous,
-		ultracode: loop.ultracode,
-		updatedAt: loop.updatedAt,
-	};
-}
 
 /**
  * Persiste una transición de loop. Marca `updatedAt` (para resolver conflictos
@@ -587,26 +514,7 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	}
 
 	const loopId = crypto.randomBytes(4).toString("hex");
-	const loop: ActiveLoop = {
-		loopId,
-		task: taskText,
-		mode: intervalMs ? "fixed" : "dynamic",
-		intervalMs,
-		iteration: 0,
-		maxIterations: DEFAULT_MAX_ITERATIONS,
-		maxWallClockMs: DEFAULT_MAX_WALL_CLOCK_MS,
-		contextPercentCap: DEFAULT_CONTEXT_PERCENT_CAP,
-		startedAt: Date.now(),
-		nextFireAt: null,
-		lastReason: undefined,
-		status: "running",
-		ultracode,
-		updatedAt: new Date().toISOString(),
-		timer: null,
-		controller: new AbortController(),
-		rearmedThisTurn: false,
-		autopilot: false,
-	};
+	const loop = createActiveLoop({ loopId, task: taskText, intervalMs, now: Date.now(), ultracode });
 	activeLoops.set(loopId, loop);
 	persist(pi, ctx, loop);
 
@@ -672,27 +580,7 @@ async function startAutonomousLoop(
 	}
 
 	const loopId = crypto.randomBytes(4).toString("hex");
-	const loop: ActiveLoop = {
-		loopId,
-		task: objective,
-		mode: intervalMs ? "fixed" : "dynamic",
-		intervalMs,
-		iteration: 0,
-		maxIterations: DEFAULT_MAX_ITERATIONS,
-		maxWallClockMs: DEFAULT_MAX_WALL_CLOCK_MS,
-		contextPercentCap: DEFAULT_CONTEXT_PERCENT_CAP,
-		startedAt: Date.now(),
-		nextFireAt: null,
-		lastReason: undefined,
-		status: "running",
-		autonomous: true,
-		ultracode,
-		updatedAt: new Date().toISOString(),
-		timer: null,
-		controller: new AbortController(),
-		rearmedThisTurn: false,
-		autopilot: false,
-	};
+	const loop = createActiveLoop({ loopId, task: objective, intervalMs, now: Date.now(), autonomous: true, ultracode });
 	activeLoops.set(loopId, loop);
 	persist(pi, ctx, loop);
 
