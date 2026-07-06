@@ -32,44 +32,44 @@ const CLASSIFIED_SKILLS = {
 	},
 };
 
-const CLASSIFIED_SKILL_NAMES = Object.keys(CLASSIFIED_SKILLS).sort();
-const MIRRORED = CLASSIFIED_SKILL_NAMES.filter((name) => CLASSIFIED_SKILLS[name].mirrored);
-const GLOBAL = CLASSIFIED_SKILL_NAMES.filter((name) => CLASSIFIED_SKILLS[name].global);
-const EXCLUDED = CLASSIFIED_SKILL_NAMES.filter((name) => CLASSIFIED_SKILLS[name].excludeReason).map((name) => ({
-	name,
-	reason: CLASSIFIED_SKILLS[name].excludeReason,
-}));
-const VENDORED_BY_EXTENSION = (() => {
-	const vendoredByExtension = {};
-	for (const name of CLASSIFIED_SKILL_NAMES) {
-		for (const ext of CLASSIFIED_SKILLS[name].vendoredBy ?? []) {
-			const ownedSkills = vendoredByExtension[ext] ?? [];
-			ownedSkills.push(name);
-			vendoredByExtension[ext] = ownedSkills;
-		}
-	}
-	for (const skills of Object.values(vendoredByExtension)) skills.sort();
-	return vendoredByExtension;
-})();
-
-export function discoverSkillClassification() {
-	const skillDirs = readdirSync(SKILLS_ROOT, { withFileTypes: true })
+export function listSkillDirs(skillsRoot = SKILLS_ROOT) {
+	return readdirSync(skillsRoot, { withFileTypes: true })
 		.filter((entry) => entry.isDirectory())
 		.map((entry) => entry.name)
 		.sort();
+}
 
-	const unclassified = skillDirs.filter((name) => !CLASSIFIED_SKILLS[name]);
+export function vendoredByExtension(classifiedSkills = CLASSIFIED_SKILLS) {
+	const ownedByExtension = {};
+	for (const name of Object.keys(classifiedSkills).sort()) {
+		for (const ext of classifiedSkills[name].vendoredBy ?? []) {
+			const ownedSkills = ownedByExtension[ext] ?? [];
+			ownedSkills.push(name);
+			ownedByExtension[ext] = ownedSkills;
+		}
+	}
+	for (const skills of Object.values(ownedByExtension)) skills.sort();
+	return ownedByExtension;
+}
 
+export function deriveSkillClassification(skillDirs, classifiedSkills = CLASSIFIED_SKILLS) {
+	const classifiedNames = Object.keys(classifiedSkills).sort();
 	return {
-		mirrored: [...MIRRORED],
-		global: [...GLOBAL],
+		mirrored: classifiedNames.filter((name) => classifiedSkills[name].mirrored),
+		global: classifiedNames.filter((name) => classifiedSkills[name].global),
 		vendoredByExtension: Object.fromEntries(
-			Object.entries(VENDORED_BY_EXTENSION).map(([ext, skills]) => [ext, [...skills]]),
+			Object.entries(vendoredByExtension(classifiedSkills)).map(([ext, skills]) => [ext, [...skills]]),
 		),
-		excluded: EXCLUDED.map(({ name, reason }) => ({ name, reason })),
-		unclassified,
+		excluded: classifiedNames
+			.filter((name) => classifiedSkills[name].excludeReason)
+			.map((name) => ({ name, reason: classifiedSkills[name].excludeReason })),
+		unclassified: skillDirs.filter((name) => !classifiedSkills[name]),
 		optionalClaudeGlobalSkills: [...OPTIONAL_CLAUDE_GLOBAL_SKILLS],
 	};
+}
+
+export function discoverSkillClassification(skillsRoot = SKILLS_ROOT) {
+	return deriveSkillClassification(listSkillDirs(skillsRoot));
 }
 
 export function reportUnclassifiedSkills(scriptName, report = discoverSkillClassification()) {
