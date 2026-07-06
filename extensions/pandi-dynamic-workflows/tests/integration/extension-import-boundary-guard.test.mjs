@@ -33,12 +33,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const EXTENSIONS_DIR = path.join(REPO_ROOT, "extensions");
-
 const { check, counts } = createChecker();
 
 // Matchea el specifier de cualquier declaración `import ... from "spec"` / `export ... from "spec"` /
@@ -97,11 +95,11 @@ function scanExtension(extDir) {
 	return results;
 }
 
-function listExtensionDirs() {
+function listExtensionDirs(repoRoot = REPO_ROOT) {
 	return fs
-		.readdirSync(EXTENSIONS_DIR, { withFileTypes: true })
+		.readdirSync(path.join(repoRoot, "extensions"), { withFileTypes: true })
 		.filter((entry) => entry.isDirectory() && (entry.name === "pandi" || entry.name.startsWith("pandi-")))
-		.map((entry) => path.join(EXTENSIONS_DIR, entry.name));
+		.map((entry) => path.join(repoRoot, "extensions", entry.name));
 }
 
 async function main() {
@@ -128,46 +126,48 @@ async function main() {
 		allResults.some((r) => !r.spec.startsWith("node:") && !r.spec.startsWith(".") && r.kind === "ok"),
 	);
 
-	// 3) Control negativo: inyectá un import que escapa directorio en un archivo runtime real y
-	// confirmá que el scanner marque exactamente ese escape, luego revertí (crash-safe vía withMutatedFile).
-	const goalDir = path.join(EXTENSIONS_DIR, "pandi-goal");
-	const goalIndexPath = path.join(goalDir, "index.ts");
-	await withMutatedFile(
-		goalIndexPath,
-		(original) => `import { fake } from "../shared/runtime.js";\n${original}`,
-		() => {
-			const mutatedEscapes = scanExtension(goalDir).filter((r) => r.kind === "escape");
-			check(
-				"escaping ../shared/runtime.js import injected into pandi-goal/index.ts is flagged",
-				mutatedEscapes.length === 1 && mutatedEscapes[0].spec === "../shared/runtime.js",
-				JSON.stringify(mutatedEscapes),
-			);
-		},
-	);
-	check(
-		"pandi-goal/index.ts is restored to zero escapes after the negative control",
-		scanExtension(goalDir).filter((r) => r.kind === "escape").length === 0,
-	);
+	// 3) Control negativo: inyectá imports que escapan directorio en una copia aislada del repo y
+	// confirmá que el scanner los marque sin tocar el runtime tracked del checkout real.
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		const goalDir = path.join(copyRoot, "extensions", "pandi-goal");
+		const goalIndexPath = path.join(goalDir, "index.ts");
+		await withMutatedFile(
+			goalIndexPath,
+			(original) => `import { fake } from "../shared/runtime.js";\n${original}`,
+			() => {
+				const mutatedEscapes = scanExtension(goalDir).filter((r) => r.kind === "escape");
+				check(
+					"escaping ../shared/runtime.js import injected into pandi-goal/index.ts is flagged",
+					mutatedEscapes.length === 1 && mutatedEscapes[0].spec === "../shared/runtime.js",
+					JSON.stringify(mutatedEscapes),
+				);
+			},
+		);
+		check(
+			"isolated pandi-goal/index.ts is restored to zero escapes after the negative control",
+			scanExtension(goalDir).filter((r) => r.kind === "escape").length === 0,
+		);
 
-	// 4) Control negativo (dynamic import): `await import("../…")` escapa el directorio tan fuerte
-	// como un import estático cuando la extensión se instala standalone; el guard también debe
-	// marcarlo (hallazgo de review f3: el scanner original solo matcheaba sintaxis estática).
-	await withMutatedFile(
-		goalIndexPath,
-		(original) => `const lazy = await import("../shared/lazy.js");\n${original}`,
-		() => {
-			const mutatedEscapes = scanExtension(goalDir).filter((r) => r.kind === "escape");
-			check(
-				'escaping dynamic import("../shared/lazy.js") injected into pandi-goal/index.ts is flagged',
-				mutatedEscapes.length === 1 && mutatedEscapes[0].spec === "../shared/lazy.js",
-				JSON.stringify(mutatedEscapes),
-			);
-		},
-	);
-	check(
-		"pandi-goal/index.ts is restored to zero escapes after the dynamic-import control",
-		scanExtension(goalDir).filter((r) => r.kind === "escape").length === 0,
-	);
+		// 4) Control negativo (dynamic import): `await import("../…")` escapa el directorio tan fuerte
+		// como un import estático cuando la extensión se instala standalone; el guard también debe
+		// marcarlo (hallazgo de review f3: el scanner original solo matcheaba sintaxis estática).
+		await withMutatedFile(
+			goalIndexPath,
+			(original) => `const lazy = await import("../shared/lazy.js");\n${original}`,
+			() => {
+				const mutatedEscapes = scanExtension(goalDir).filter((r) => r.kind === "escape");
+				check(
+					'escaping dynamic import("../shared/lazy.js") injected into pandi-goal/index.ts is flagged',
+					mutatedEscapes.length === 1 && mutatedEscapes[0].spec === "../shared/lazy.js",
+					JSON.stringify(mutatedEscapes),
+				);
+			},
+		);
+		check(
+			"isolated pandi-goal/index.ts is restored to zero escapes after the dynamic-import control",
+			scanExtension(goalDir).filter((r) => r.kind === "escape").length === 0,
+		);
+	});
 
 	if (counts.failed > 0) {
 		console.error("\nFailures:");

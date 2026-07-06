@@ -18,13 +18,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds");
-const DOCS_DIR = path.join(REPO_ROOT, "docs", "scaffolds");
-
 const { check, counts } = createChecker();
 
 // Canonical section order from the tracked style contract (didactic-docs-style skill).
@@ -39,16 +36,24 @@ const REQUIRED_SECTIONS = [
 	"## Fases",
 ];
 
+function scaffoldDocsPaths(repoRoot = REPO_ROOT) {
+	return {
+		scaffoldsDir: path.join(repoRoot, "extensions", "pandi-dynamic-workflows", "scaffolds"),
+		docsDir: path.join(repoRoot, "docs", "scaffolds"),
+	};
+}
+
 // Pure checker over the on-disk tree; returns a list of human-readable problems.
-function checkScaffoldDocs() {
+function checkScaffoldDocs(repoRoot = REPO_ROOT) {
+	const { docsDir, scaffoldsDir } = scaffoldDocsPaths(repoRoot);
 	const problems = [];
 	const keys = fs
-		.readdirSync(SCAFFOLDS_DIR)
+		.readdirSync(scaffoldsDir)
 		.filter((f) => f.endsWith(".js"))
 		.map((f) => f.slice(0, -3))
 		.sort();
 	const pages = fs
-		.readdirSync(DOCS_DIR)
+		.readdirSync(docsDir)
 		.filter((f) => f.endsWith(".md") && f !== "index.md")
 		.map((f) => f.slice(0, -3))
 		.sort();
@@ -57,7 +62,7 @@ function checkScaffoldDocs() {
 	for (const page of pages) if (!keys.includes(page)) problems.push(`orphan page (no scaffold): ${page}.md`);
 
 	for (const key of pages.filter((p) => keys.includes(p))) {
-		const body = fs.readFileSync(path.join(DOCS_DIR, `${key}.md`), "utf8");
+		const body = fs.readFileSync(path.join(docsDir, `${key}.md`), "utf8");
 		const lines = body.split("\n");
 		if (lines[0] !== `# ${key}`) problems.push(`${key}.md: first line must be '# ${key}' (got '${lines[0]}')`);
 		if (!lines.some((l) => l.startsWith("> "))) problems.push(`${key}.md: missing blurb quote ('> ...')`);
@@ -72,7 +77,7 @@ function checkScaffoldDocs() {
 		}
 	}
 
-	const indexPath = path.join(DOCS_DIR, "index.md");
+	const indexPath = path.join(docsDir, "index.md");
 	if (!fs.existsSync(indexPath)) problems.push("missing docs/scaffolds/index.md");
 	else {
 		const index = fs.readFileSync(indexPath, "utf8");
@@ -88,63 +93,65 @@ async function main() {
 	const problems = checkScaffoldDocs();
 	check("docs/scaffolds conforms to the didactic contract", problems.length === 0, problems.join(" | "));
 
-	// 2) Negative controls: the checker is non-vacuous (crash-safe in-place mutations).
-	const victim = path.join(DOCS_DIR, "map-reduce.md");
-	await withMutatedFile(
-		victim,
-		(orig) => orig.replace("## Fases", "## Etapas"),
-		() => {
-			const p = checkScaffoldDocs();
-			check(
-				"dropping a required section is reported",
-				p.some((x) => x.includes("map-reduce.md") && x.includes("## Fases")),
-				p.join(" | "),
-			);
-		},
-	);
-	await withMutatedFile(
-		victim,
-		(orig) => orig.replace("```mermaid", "```text"),
-		() => {
-			const p = checkScaffoldDocs();
-			check(
-				"removing the mermaid fence is reported",
-				p.some((x) => x.includes("map-reduce.md") && x.includes("mermaid")),
-				p.join(" | "),
-			);
-		},
-	);
-	await withMutatedFile(
-		path.join(DOCS_DIR, "index.md"),
-		(orig) => orig.replaceAll("(./map-reduce.md)", "(./map-reduce.html)"),
-		() => {
-			const p = checkScaffoldDocs();
-			check(
-				"a missing index link is reported",
-				p.some((x) => x.includes("index.md") && x.includes("map-reduce")),
-				p.join(" | "),
-			);
-		},
-	);
-	// Section order: swap 'Qué hace' after 'Cuándo usarlo' by renaming across both.
-	await withMutatedFile(
-		victim,
-		(orig) =>
-			orig
-				.replace("## Qué hace", "## TMP")
-				.replace("## Cuándo usarlo", "## Qué hace")
-				.replace("## TMP", "## Cuándo usarlo"),
-		() => {
-			const p = checkScaffoldDocs();
-			check(
-				"out-of-order sections are reported",
-				p.some((x) => x.includes("map-reduce.md") && x.includes("order")),
-				p.join(" | "),
-			);
-		},
-	);
-	// Restored cleanly: the real tree passes again after the controls.
-	check("tree restored after negative controls", checkScaffoldDocs().length === 0);
+	// 2) Negative controls: the checker is non-vacuous, but mutations happen in an isolated repo copy.
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		const { docsDir } = scaffoldDocsPaths(copyRoot);
+		const victim = path.join(docsDir, "map-reduce.md");
+		await withMutatedFile(
+			victim,
+			(orig) => orig.replace("## Fases", "## Etapas"),
+			() => {
+				const p = checkScaffoldDocs(copyRoot);
+				check(
+					"dropping a required section is reported",
+					p.some((x) => x.includes("map-reduce.md") && x.includes("## Fases")),
+					p.join(" | "),
+				);
+			},
+		);
+		await withMutatedFile(
+			victim,
+			(orig) => orig.replace("```mermaid", "```text"),
+			() => {
+				const p = checkScaffoldDocs(copyRoot);
+				check(
+					"removing the mermaid fence is reported",
+					p.some((x) => x.includes("map-reduce.md") && x.includes("mermaid")),
+					p.join(" | "),
+				);
+			},
+		);
+		await withMutatedFile(
+			path.join(docsDir, "index.md"),
+			(orig) => orig.replaceAll("(./map-reduce.md)", "(./map-reduce.html)"),
+			() => {
+				const p = checkScaffoldDocs(copyRoot);
+				check(
+					"a missing index link is reported",
+					p.some((x) => x.includes("index.md") && x.includes("map-reduce")),
+					p.join(" | "),
+				);
+			},
+		);
+		// Section order: swap 'Qué hace' after 'Cuándo usarlo' by renaming across both.
+		await withMutatedFile(
+			victim,
+			(orig) =>
+				orig
+					.replace("## Qué hace", "## TMP")
+					.replace("## Cuándo usarlo", "## Qué hace")
+					.replace("## TMP", "## Cuándo usarlo"),
+			() => {
+				const p = checkScaffoldDocs(copyRoot);
+				check(
+					"out-of-order sections are reported",
+					p.some((x) => x.includes("map-reduce.md") && x.includes("order")),
+					p.join(" | "),
+				);
+			},
+		);
+		check("isolated tree restored after negative controls", checkScaffoldDocs(copyRoot).length === 0);
+	});
 
 	if (counts.failed > 0) {
 		console.error("\nFailures:");
