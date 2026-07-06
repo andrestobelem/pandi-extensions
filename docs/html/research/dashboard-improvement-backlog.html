@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Backlog de mejoras del dashboard</h1>
+		<p class="lede">Esta es la lista canónica de ítems pendientes y cerrados del ciclo de mejora del TUI <code>/workflow</code> del dashboard. El relato de cada pasada vive en <code>dashboard-improvement-log.md</code>; este archivo deja el estado actual, con una sola fuente de verdad para lo que sigue abierto. Cada ítem incluye id estable, título, motivo, rutas reales (verificadas) y estado (<code>open</code> / <code>done</code> / <code>human</code>).</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -161,7 +163,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#ideas-que-requieren-archivos-hot-solo-proponer--no-implementar-en-autopilot">Ideas que requieren archivos hot (solo proponer — no implementar en autopilot)</a></li>
 	</ol>
 </nav>
-<p>Esta es la lista canónica de ítems pendientes y cerrados del ciclo de mejora del TUI <code>/workflow</code> del dashboard. El relato de cada pasada vive en <code>dashboard-improvement-log.md</code>; este archivo deja el estado actual, con una sola fuente de verdad para lo que sigue abierto. Cada ítem incluye id estable, título, motivo, rutas reales (verificadas) y estado (<code>open</code> / <code>done</code> / <code>human</code>).</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Usá esta página para ver qué ya quedó cerrado, qué sigue abierto y qué requiere una decisión humana. Si vas a retomar el loop de mejoras, empezá por <strong>Abiertos</strong> y seguí cada ítem por su id estable.</p>
 <h2 id="cerrados">Cerrados</h2>

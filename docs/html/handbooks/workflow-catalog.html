@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/handbooks</div>
 		<h1>Catálogo de workflows (referencia rápida)</h1>
+		<p class="lede"><strong>Fecha:</strong> 2026-07-01 | <strong>Estado:</strong> referencia durable | <strong>Alcance:</strong> 25 scaffolds de dynamic workflows en <code>pandi-dynamic-workflows</code></p>
 	</header>
 	<main>
 <nav class="toc">
@@ -166,7 +168,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#próximos-pasos">Próximos pasos</a></li>
 	</ol>
 </nav>
-<p><strong>Fecha:</strong> 2026-07-01 | <strong>Estado:</strong> referencia durable | <strong>Alcance:</strong> 25 scaffolds de dynamic workflows en <code>pandi-dynamic-workflows</code></p>
 <p>Antes de escribir un workflow desde cero, mirá acá: este índice reúne todos los scaffolds integrados, agrupados por familia, para que elijas un patrón en vez de reinventarlo. La mayoría de las tareas no necesita nada de esto: una sola llamada a un agente gana en casi todo; usá un scaffold solo cuando necesites escala, exhaustividad o verificación independiente.</p>
 <pre><code class="hljs language-text">dynamic_workflow action=scaffold name=fan-out-and-synthesize</code></pre>
 <p>Este comando ejecuta el scaffold base o por defecto (ver su fila más abajo) — es lo que muestra <code>dynamic_workflow action=scaffold</code> y la pestaña <strong>Patterns</strong> cuando no elegís un patrón —, así podés ver la forma de una salida antes de subir a un patrón más grande.</p>

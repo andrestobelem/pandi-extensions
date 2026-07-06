@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Visualización de patrones agénticos en Dynamic Workflows</h1>
+		<p class="lede">Date: 2026-06-25</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -163,7 +165,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#validación">Validación</a></li>
 	</ol>
 </nav>
-<p>Date: 2026-06-25</p>
 <p>Este trabajo mejora <code>/workflow graph</code> para que deje de verse como una lista lineal de llamadas y, en cambio, muestre los patrones agénticos relevantes: fan-out de muchos subagents por paso, pipelines por lanes/stages, barreras paralelas, síntesis/judge y loops aproximados.</p>
 <p>La señal clave es visual: si un paso lanza muchos agentes, eso tiene que verse en el diagrama. Además, el PNG inline debe aparecer más grande para que la estructura se lea sin esfuerzo.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>

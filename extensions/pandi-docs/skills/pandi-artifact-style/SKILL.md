@@ -127,8 +127,13 @@ node extensions/pandi-docs/scripts/markdown-to-html.mjs in.md -o out.html --kick
 
 - Accepts multiple `.md` inputs (each writes a sibling `.html`); `-o` only with one.
 - The first `# h1` becomes the page title/header; `--kicker` sets the kicker
-  (default `Pandi artifact`).
-- GitHub alerts (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`) become pandi callouts.
+  (default `Pandi artifact`). The first paragraph after the h1 is promoted into
+  the header as a `lede` (20px, `--ink2`, left-aligned) — the doc's
+  30-second opening; image-led paragraphs stay in the body.
+- GitHub alerts (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`) become pandi
+  callouts with an uppercase tone label (`Note`/`Tip`/…).
+- Tables render inside a `table-scroll` container: wider-than-page tables
+  scroll horizontally instead of overflowing.
 - Prose typography: `h2`/`h3`/`h4` are real ink headings (24/19/17px) and body text
   is justified — the uppercase label style stays dashboard-only (`h2.sec` in the template).
 - ` ```mermaid ` fences render as diagrams themed with the pandi palette (mermaid `base`

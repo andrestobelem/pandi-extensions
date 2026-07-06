@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Desarrollar y probar extensiones en pi</h1>
+		<p class="lede">Fecha: 2026-07-04</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -161,7 +163,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#ver-también">Ver también</a></li>
 	</ol>
 </nav>
-<p>Fecha: 2026-07-04</p>
 <p>Una extensión de pi es un módulo TypeScript que agrega comandos, tools o
 manejadores de eventos al agente. Esta guía explica cómo escribir una
 extensión de este repo y probarla sin romper la sesión activa. Usala cuando

@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">pandi-extensions</div>
 		<h1>pandi-extensions</h1>
+		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 22 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -166,7 +168,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#licencia">Licencia</a></li>
 	</ol>
 </nav>
-<p><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 22 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
 <p>El corazón es <strong>Dynamic Workflows / Ultracode</strong>: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor, cada extensión operacionaliza una disciplina de ingeniería — <code>/plan</code> ≈ pensar antes de codear, <code>/goal</code> ≈ ejecución con criterios verificables, <code>/loop</code> ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼</p>
 <div align="center">
   <img src="../assets/pandi-avatar-pixel.png" alt="Avatar pixel-art de Pandi con brillo magenta y bambú" width="220">

@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Dynamic Workflows — guía completa</h1>
+		<p class="lede">Un Dynamic Workflow es un <strong>script JavaScript confiable</strong> que Pi ejecuta para orquestar trabajo grande entre muchos subagentes. Conviene cuando una sola conversación no alcanza: necesitás repartir trabajo en paralelo con varios agentes <code>pi -p</code>, cubrir muchos ítems independientes o pedir verificación adversarial antes de decidir. Pensalo como <strong>MapReduce con agentes</strong>: <code>map</code> ejecuta muchos subagentes en paralelo sobre unidades independientes, y <code>reduce</code> hace la síntesis final para combinar resultados, resolver contradicciones y priorizar.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -167,7 +169,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#seguridad-y-costo">Seguridad y costo</a></li>
 	</ol>
 </nav>
-<p>Un Dynamic Workflow es un <strong>script JavaScript confiable</strong> que Pi ejecuta para orquestar trabajo grande entre muchos subagentes. Conviene cuando una sola conversación no alcanza: necesitás repartir trabajo en paralelo con varios agentes <code>pi -p</code>, cubrir muchos ítems independientes o pedir verificación adversarial antes de decidir. Pensalo como <strong>MapReduce con agentes</strong>: <code>map</code> ejecuta muchos subagentes en paralelo sobre unidades independientes, y <code>reduce</code> hace la síntesis final para combinar resultados, resolver contradicciones y priorizar.</p>
 <p>Esta es la referencia profunda de la extensión <code>pandi-dynamic-workflows</code>. El <a href="index.html"><code>README.md</code></a> raíz tiene el resumen corto, y <a href="../extensions/pandi-dynamic-workflows/README.md"><code>extensions/pandi-dynamic-workflows/README.md</code></a> documenta el paquete instalable.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Un workflow es un módulo JS cuyo export por defecto es una función <code>async</code>. Lee su entrada desde la global <code>args</code> y llama helpers inyectados (<code>agent</code>, <code>agents</code>, <code>log</code>, <code>writeArtifact</code>, …): no usa <code>import</code>/<code>require</code>, ni <code>ctx</code>.</p>

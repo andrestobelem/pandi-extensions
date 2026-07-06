@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Índice OKF de investigación</h1>
+		<p class="lede">Este directorio es un piloto de <strong>Open Knowledge Format (OKF)</strong> sobre las notas de investigación del repo. Cada archivo Markdown no reservado es un concepto con frontmatter OKF; <code>index.md</code> organiza el bundle y <code>log.md</code> registra cambios del conocimiento.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -162,7 +164,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#convenciones-del-piloto">Convenciones del piloto</a></li>
 	</ol>
 </nav>
-<p>Este directorio es un piloto de <strong>Open Knowledge Format (OKF)</strong> sobre las notas de investigación del repo. Cada archivo Markdown no reservado es un concepto con frontmatter OKF; <code>index.md</code> organiza el bundle y <code>log.md</code> registra cambios del conocimiento.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Usá este índice para navegar las investigaciones por tema, no por fecha. Si necesitás el detalle completo, entrá al concepto enlazado: cada uno conserva el informe original y agrega metadatos legibles por agentes.</p>
 <h2 id="workflows-agentes-y-orquestación">Workflows, agentes y orquestación</h2>

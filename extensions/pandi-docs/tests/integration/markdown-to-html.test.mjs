@@ -68,6 +68,21 @@ test("prose typography: body justified, h2 is a real heading above h3 (no upperc
 	assert.ok(px(h2Rule) > px(h3Rule), `h2 (${px(h2Rule)}px) must be larger than h3 (${px(h3Rule)}px)`);
 });
 
+test("promotes the first paragraph after the h1 into a header lede", () => {
+	const html = renderMarkdownToHtml("# T\n\nIntro breve con `#AA0000`.\n\nCuerpo.\n", {});
+	assert.match(html, /<header>[\s\S]*<p class="lede">Intro breve[\s\S]*?<\/p>[\s\S]*<\/header>/);
+	assert.match(html, /class="lede">Intro breve con <span class="hex-chip">/, "el lede conserva los hex-chips");
+	const main = html.slice(html.indexOf("<main>"));
+	assert.doesNotMatch(main, /Intro breve/, "el lede no se duplica en el cuerpo");
+	assert.match(main, /Cuerpo\./);
+});
+
+test("lede is skipped without an h1, when the body starts elsewhere, or for image paragraphs", () => {
+	assert.doesNotMatch(renderMarkdownToHtml("Solo un párrafo.\n", { title: "x.md" }), /class="lede"/);
+	assert.doesNotMatch(renderMarkdownToHtml("# T\n\n## S\n\ntexto\n", {}), /class="lede"/);
+	assert.doesNotMatch(renderMarkdownToHtml("# T\n\n![logo](a.png)\n\ntexto\n", {}), /class="lede"/);
+});
+
 test("renders GFM tables inside a horizontal-scroll container", () => {
 	const html = renderMarkdownToHtml("# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n", {});
 	assert.match(html, /<div class="table-scroll"><table>/);

@@ -40,6 +40,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -254,6 +255,14 @@ function splitTitle(md) {
 	return { title: null, body: md };
 }
 
+// Promociona el primer párrafo del cuerpo como lede del header — la "apertura en 30 segundos"
+// del doc, destacada bajo el h1. Solo texto: un párrafo que arranca con imagen queda en el cuerpo.
+function extractLede(rendered) {
+	const m = /^\s*<p>([\s\S]*?)<\/p>\n?/.exec(rendered);
+	if (!m || m[1].includes("<img")) return { lede: "", body: rendered };
+	return { lede: m[1], body: rendered.slice(m[0].length) };
+}
+
 // Mapea blockquotes de alertas de GitHub (> [!NOTE] …) a callouts pandi posprocesando el
 // HTML renderizado: más simple y más estable que sobreescribir los renderizadores de tokens de marked.
 function alertsToCallouts(html) {
@@ -283,7 +292,9 @@ export function renderMarkdownToHtml(md, opts = {}) {
 	const { title: docTitle, body } = splitTitle(stripYamlFrontmatter(md));
 	const title = docTitle ?? opts.title ?? "Untitled";
 	const { body: withIds, toc } = addHeadingIdsAndToc(alertsToCallouts(engine.parse(body, { async: false })));
-	const rendered = addColorDots(wrapTables(withIds));
+	const processed = addColorDots(wrapTables(withIds));
+	// El lede solo existe cuando hubo h1 que promover: sin masthead propio no hay dónde colgarlo.
+	const { lede, body: rendered } = docTitle ? extractLede(processed) : { lede: "", body: processed };
 	const mermaidBlock = rendered.includes('<pre class="mermaid">') ? `${mermaidScript(opts.css ?? tokensCss)}\n` : "";
 
 	return `<!doctype html>
@@ -299,7 +310,7 @@ ${styleCss}</style>
 <div class="container">
 	<header>
 		<div class="kicker">${escapeHtml(kicker)}</div>
-		<h1>${escapeHtml(title)}</h1>
+		<h1>${escapeHtml(title)}</h1>${lede ? `\n\t\t<p class="lede">${lede}</p>` : ""}
 	</header>
 	<main>
 ${toc}${rendered}	</main>

@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Revisión Farley (MSE) de Pi Dynamic Workflows — 2026-07-03</h1>
+		<p class="lede">Revisión técnica de la extensión <code>pandi-dynamic-workflows</code> (engine/runtime,
+primitivas, catálogo de scaffolds, dashboard/graph) con la lente de Dave
+Farley (<em>Modern Software Engineering</em>): aprendizaje, TDD como feedback,
+gestión de complejidad, estabilidad + throughput. Contract Gate: PROCEED (run
+<code>…contract-gate-3abe7ce6</code>).</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -162,11 +168,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#estado-loop-until-dry-2026-07-03-misma-sesión">Estado (loop-until-dry 2026-07-03, misma sesión)</a></li>
 	</ol>
 </nav>
-<p>Revisión técnica de la extensión <code>pandi-dynamic-workflows</code> (engine/runtime,
-primitivas, catálogo de scaffolds, dashboard/graph) con la lente de Dave
-Farley (<em>Modern Software Engineering</em>): aprendizaje, TDD como feedback,
-gestión de complejidad, estabilidad + throughput. Contract Gate: PROCEED (run
-<code>…contract-gate-3abe7ce6</code>).</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este informe resume qué encontró la revisión técnica, qué defectos reales ya
 salieron del proceso y cuáles seguían abiertos en el momento del análisis. Sirve

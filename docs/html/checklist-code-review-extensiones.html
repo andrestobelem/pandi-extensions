@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Checklist de code review — extensiones Pandi (pandi-extensions)</h1>
+		<p class="lede">Esta checklist ayuda a revisar cambios en extensiones sin perder de vista el alcance, la calidad técnica y la forma de publicar.
+Sirve para decidir rápido si un PR está listo o si todavía le faltan tests, limpieza o verificación de empaquetado.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -163,8 +166,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#6-suite-completa-y-commit">6. Suite completa y commit</a></li>
 	</ol>
 </nav>
-<p>Esta checklist ayuda a revisar cambios en extensiones sin perder de vista el alcance, la calidad técnica y la forma de publicar.
-Sirve para decidir rápido si un PR está listo o si todavía le faltan tests, limpieza o verificación de empaquetado.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Si el cambio toca una extensión, revisá primero el alcance, después el contrato de diseño y por último la evidencia: tests, typecheck, lint, empaquetado y commit.
 Cada ítem trae el comando que lo verifica, así la review no depende de memoria.</p>

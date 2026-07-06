@@ -84,6 +84,7 @@ header { padding:40px 0 8px; }
 header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
                  color:var(--accent); font-weight:600; }
 header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
 main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
 main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
 main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
@@ -149,6 +150,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Loop engineering — una investigación respaldada por fuentes</h1>
+		<p class="lede">Fecha: 2026-06-28</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -165,7 +167,6 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#8-brechas-de-cobertura-y-qué-verificar-después">8. Brechas de cobertura y qué verificar después</a></li>
 	</ol>
 </nav>
-<p>Fecha: 2026-06-28</p>
 <p><strong>Proveniencia de registro.</strong> Generado por el workflow dinámico <code>loop-engineering-deep-research</code> (run <code>2026-06-28T10-08-08-680Z-drafts-loop-engineering-deep-research-ebc0fa72</code>), enrutado por un Contract Gate de solo lectura (interpretación C) y confirmado por un verificador independiente de citación/trazabilidad de solo lectura (veredicto PASS). No se modificó código fuente. La evidencia por rama y el informe del verificador viven en ese directorio de run dentro de <code>.pi/workflows/runs/</code>.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento explica qué significa <em>loop engineering</em> y cómo ese patrón aparece en este repo. La idea central es simple: diseñar bucles que <strong>actúan → observan → verifican → continúan</strong> hasta cumplir una condición de parada basada en evidencia.</p>
