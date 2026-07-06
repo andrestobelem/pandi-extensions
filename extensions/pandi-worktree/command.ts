@@ -23,6 +23,8 @@ export interface ParsedCommand {
 	error?: string;
 }
 
+type SetTarget = NonNullable<ParsedCommand["setTarget"]>;
+
 /**
  * Tokeniza una cadena de argumentos `/worktree ...`, respetando comillas
  * simples/dobles básicas para que funcionen paths con espacios. No es un parser
@@ -63,6 +65,10 @@ function isSetCommand(token: string): boolean {
 	return token === "set";
 }
 
+function isSetTarget(token: string): token is SetTarget {
+	return token === "copy-ignored" || token === "copy-untracked" || token === "writer-guard";
+}
+
 function isForceFlag(token: string): boolean {
 	return token === "--force" || token === "-f";
 }
@@ -87,7 +93,7 @@ function parsePruneCommand(rest: string[]): ParsedCommand {
 function parseSetCommand(rest: string[]): ParsedCommand {
 	if (rest.length === 0) return { action: "set" }; // mostrar todo
 	const target = rest[0].toLowerCase();
-	if (target !== "copy-ignored" && target !== "copy-untracked" && target !== "writer-guard") {
+	if (!isSetTarget(target)) {
 		return {
 			action: "set",
 			error: "Uso: /worktree set [copy-ignored|copy-untracked|writer-guard] [on|off|status]",
