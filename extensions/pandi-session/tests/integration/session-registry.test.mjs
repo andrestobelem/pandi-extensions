@@ -2,7 +2,7 @@
 /**
  * Behavioral contract for pandi-session's standalone live-session registry.
  *
- * The registry belongs to pandi-session, not pandi-dynamic-workflows:
+ * The registry belongs to pandi-session:
  * it writes its own heartbeat records, collects only project-local Pi TUI/RPC
  * sessions, classifies stale rows, and cleans up the current heartbeat on shutdown.
  */

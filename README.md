@@ -142,7 +142,7 @@ Las 22 extensiones de comando/tool se cargan por defecto desde el campo `pi.exte
 | **pandi-worktree** | `/worktree` · `git_worktree` | Administra git worktrees desde Pi; abre sesiones nuevas y nunca cambia el cwd. | git + un repo git |
 | **pandi-container** | `/container` · `container_sandbox` | Ejecuta comandos Linux aislados en micro-VMs Apple `container`, sin tocar el host. | macOS Apple Silicon + `container` |
 | **pandi-bg** | `/bg` | Jobs en background en memoria para comandos humanos puntuales; no son resumables (el hermano pequeño de `dynamic_workflow`). | trust para `start` |
-| **pandi-session** | `/session`, `/sessions` | Dashboard independiente de sesiones Pi TUI/RPC del proyecto, con heartbeats locales y limpieza de registros stale. | TUI/RPC para heartbeats vivos |
+| **pandi-session** | `/sessions` | Dashboard independiente de sesiones Pi TUI/RPC del proyecto, con heartbeats locales y limpieza de registros stale. | TUI/RPC para heartbeats vivos |
 | **pandi-mdview** | `/mdview` · `view_markdown` | Abre un archivo Markdown en el viewer TUI con scroll de Pi. | — |
 | **pandi-docs** | `/docs` · `markdown_to_html` | Convierte Markdown en artifacts HTML autocontenidos con estilo pandi (light + dark). | — |
 | **pandi-btw** | `/btw` | Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial. | — |

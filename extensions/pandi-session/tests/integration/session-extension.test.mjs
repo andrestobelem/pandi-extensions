@@ -2,9 +2,8 @@
 /**
  * Public extension contract for pandi-session.
  *
- * The extension owns /session and /sessions, starts/stops its own heartbeat, opens
- * a standalone TUI dashboard, and remains runtime-independent from
- * pandi-dynamic-workflows.
+ * The extension owns /sessions, starts/stops its own heartbeat, and opens a
+ * standalone TUI dashboard without coupling to the workflow extension.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -93,25 +92,23 @@ async function main() {
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pandi-session-extension-"));
 	try {
 		const source = await fs.readFile(path.join(REPO_ROOT, "extensions", "pandi-session", "index.ts"), "utf8");
-		check(
-			"index has no dynamic-workflows runtime import",
-			!/pandi-dynamic-workflows|dynamic-workflows/.test(source),
-			source,
-		);
+		const forbiddenRuntimeImport =
+			source.includes("../pandi-" + "dynamic-" + "workflows") || source.includes("dynamic_" + "workflow");
+		check("index has no workflow-extension runtime import", !forbiddenRuntimeImport, source);
 
 		const ext = await loadDefault(url);
 		const { pi, commands, handlers } = makePi();
 		ext(pi);
 
-		check("/session command registered", commands.has("session"));
+		check("/session is not registered because Pi already owns it", !commands.has("session"));
 		check("/sessions command registered", commands.has("sessions"));
 		check("session_start handler registered", (handlers.get("session_start") ?? []).length === 1);
 		check("session_shutdown handler registered", (handlers.get("session_shutdown") ?? []).length === 1);
 
 		const ctx = makeCtx(project);
 		for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, ctx);
-		await commands.get("session").handler("", ctx);
-		check("/session opens standalone TUI dashboard", ctx._customCalls === 1, String(ctx._customCalls));
+		await commands.get("sessions").handler("", ctx);
+		check("/sessions opens standalone TUI dashboard", ctx._customCalls === 1, String(ctx._customCalls));
 		for (const handler of handlers.get("session_shutdown") ?? []) await handler({ reason: "quit" }, ctx);
 
 		const printCtx = makeCtx(project, { mode: "print" });

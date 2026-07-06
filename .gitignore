@@ -44,6 +44,8 @@ examples/.pi/
 # Pi local chats, sessions, and plans.
 .pi/live-sessions/
 **/.pi/live-sessions/
+.pi/pandi-session/
+**/.pi/pandi-session/
 .pi/sessions/
 **/.pi/sessions/
 .pi/chats/

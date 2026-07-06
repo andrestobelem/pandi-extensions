@@ -31,19 +31,15 @@ async function handleSession(args: string, ctx: ExtensionCommandContext): Promis
 		}
 		await openPandiSessionDashboard(ctx);
 	} catch (error) {
-		notify(ctx, `No se pudo abrir /session: ${errorMessage(error)}`, "error");
+		notify(ctx, `No se pudo abrir /sessions: ${errorMessage(error)}`, "error");
 	}
 }
 
 export default function pandiSession(pi: ExtensionAPI): void {
 	pi.on("session_start", (event, ctx) => startPandiSessionHeartbeat(event, ctx));
 	pi.on("session_shutdown", () => stopPandiSessionHeartbeat());
-	pi.registerCommand("session", {
-		description: "Abrí el dashboard de sesiones Pandi de este proyecto.",
-		handler: handleSession,
-	});
 	pi.registerCommand("sessions", {
-		description: "Alias de /session; usá `/sessions list` para salida textual.",
+		description: "Abrí el dashboard de sesiones Pandi; usá `/sessions list` para salida textual.",
 		handler: handleSession,
 	});
 }
