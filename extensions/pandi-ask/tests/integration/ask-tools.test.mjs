@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Prueba de integración de comportamiento estable para las tools invocables por el modelo registradas en
  * extensions/pandi-ask/index.ts: `ask_choice` y `ask_confirm`.
@@ -12,6 +13,7 @@
  *   - ask_confirm: con UI, llama a ui.confirm(title, message) y devuelve {confirmed}
  *   - en modo no interactivo (sin hasUI): no abre ningún diálogo y devuelve un error en texto plano
  *   - ask_choice con options vacías: no abre ningún selector y devuelve un error
+ *   - los toggles de /ask pueden elegir una respuesta recomendada inmediatamente o tras 60s
  *
  * Auto-bootstrap: hace esbuild del archivo actual extensions/pandi-ask/index.ts en un dir temp del SO
  * en tiempo de ejecución (con typebox stubbed to identity), así nunca prueba un bundle obsoleto; luego
@@ -37,41 +39,48 @@ async function buildAsk() {
 	});
 }
 
-function makeCtx({ mode = "tui", selectReturn, confirmReturn } = {}) {
+function makeCtx({ mode = "tui", selectReturn, confirmReturn, selectImpl, confirmImpl } = {}) {
 	const selectCalls = [];
 	const confirmCalls = [];
+	const notifyCalls = [];
 	return {
 		mode,
 		hasUI: mode === "tui" || mode === "rpc",
 		ui: {
-			select: async (title, options) => {
-				selectCalls.push({ title, options });
-				return selectReturn;
+			select: async (title, options, opts) => {
+				selectCalls.push({ title, options, opts });
+				return selectImpl ? await selectImpl(title, options, opts) : selectReturn;
 			},
-			confirm: async (title, message) => {
-				confirmCalls.push({ title, message });
-				return confirmReturn;
+			confirm: async (title, message, opts) => {
+				confirmCalls.push({ title, message, opts });
+				return confirmImpl ? await confirmImpl(title, message, opts) : confirmReturn;
 			},
-			notify: () => {},
+			notify: (message, type) => notifyCalls.push({ message, type }),
 		},
 		_selectCalls: selectCalls,
 		_confirmCalls: confirmCalls,
+		_notifyCalls: notifyCalls,
 	};
 }
 
 function makePi() {
 	const tools = new Map();
+	const commands = new Map();
 	return {
-		pi: { registerTool: (tool) => tools.set(tool.name, tool), registerCommand: () => {} },
+		pi: {
+			registerTool: (tool) => tools.set(tool.name, tool),
+			registerCommand: (name, command) => commands.set(name, command),
+		},
 		tools,
+		commands,
 	};
 }
 
-async function loadTools(url) {
+async function loadExtension(url) {
 	const extension = await loadDefault(url);
-	const { pi, tools } = makePi();
+	const { pi, tools, commands } = makePi();
 	extension(pi);
-	return tools;
+	return { tools, commands };
 }
 
 function parseResult(result) {
@@ -83,11 +92,38 @@ function parseResult(result) {
 	}
 }
 
-async function scenarioRegistered(tools) {
+async function withImmediateTimers(fn) {
+	const realSetTimeout = globalThis.setTimeout;
+	const realClearTimeout = globalThis.clearTimeout;
+	globalThis.setTimeout = (callback, ms, ...args) => {
+		queueMicrotask(() => callback(...args));
+		return { ms };
+	};
+	globalThis.clearTimeout = () => {};
+	try {
+		return await fn();
+	} finally {
+		globalThis.setTimeout = realSetTimeout;
+		globalThis.clearTimeout = realClearTimeout;
+	}
+}
+
+function resolveOnAbort(opts) {
+	return new Promise((resolve) => {
+		if (opts?.signal?.aborted) {
+			resolve(undefined);
+			return;
+		}
+		opts?.signal?.addEventListener("abort", () => resolve(undefined), { once: true });
+	});
+}
+
+async function scenarioRegistered(tools, commands) {
 	const choice = tools.get("ask_choice");
 	const confirm = tools.get("ask_confirm");
 	check("ask_choice tool registered", !!choice, String(!!choice));
 	check("ask_confirm tool registered", !!confirm, String(!!confirm));
+	check("ask command registered", !!commands.get("ask"), String(!!commands.get("ask")));
 	check("ask_choice execute is a function", typeof choice?.execute === "function");
 	check("ask_confirm execute is a function", typeof confirm?.execute === "function");
 	check(
@@ -96,8 +132,13 @@ async function scenarioRegistered(tools) {
 		JSON.stringify(Object.keys(choice?.parameters ?? {})),
 	);
 	check(
-		"ask_confirm has a title param",
-		"title" in (confirm?.parameters ?? {}),
+		"ask_choice has recommended params",
+		"recommendedIndex" in (choice?.parameters ?? {}) && "recommendedLabel" in (choice?.parameters ?? {}),
+		JSON.stringify(Object.keys(choice?.parameters ?? {})),
+	);
+	check(
+		"ask_confirm has title + recommended params",
+		"title" in (confirm?.parameters ?? {}) && "recommended" in (confirm?.parameters ?? {}),
 		JSON.stringify(Object.keys(confirm?.parameters ?? {})),
 	);
 	check(
@@ -175,6 +216,92 @@ async function scenarioChoiceEmpty(tools) {
 	);
 }
 
+async function scenarioRecommendedChoiceImmediate(tools, commands) {
+	const tool = tools.get("ask_choice");
+	const ctx = makeCtx({ mode: "tui", selectReturn: "Alpha" });
+	await commands.get("ask").handler("recommended on", ctx);
+	const result = await tool.execute(
+		"c5",
+		{ question: "Pick one:", options: ["Alpha", "Beta", "Gamma"], recommendedIndex: 2 },
+		undefined,
+		undefined,
+		ctx,
+	);
+	const parsed = parseResult(result);
+	check("recommended/immediate: opens no selector", ctx._selectCalls.length === 0, String(ctx._selectCalls.length));
+	check(
+		"recommended/immediate: returns recommended label",
+		parsed?.index === 2 && parsed?.label === "Beta",
+		JSON.stringify(parsed),
+	);
+	check("recommended/immediate: marks result as recommended", parsed?.recommended === true, JSON.stringify(parsed));
+}
+
+async function scenarioRecommendedChoiceByLabel(tools, commands) {
+	const tool = tools.get("ask_choice");
+	const ctx = makeCtx({ mode: "tui", selectReturn: "Alpha" });
+	await commands.get("ask").handler("recommended on", ctx);
+	const result = await tool.execute(
+		"c6",
+		{ question: "Pick one:", options: ["Alpha", "Beta", "Gamma"], recommendedLabel: "Gamma" },
+		undefined,
+		undefined,
+		ctx,
+	);
+	const parsed = parseResult(result);
+	check(
+		"recommended/label: returns matching option",
+		parsed?.index === 3 && parsed?.label === "Gamma",
+		JSON.stringify(parsed),
+	);
+}
+
+async function scenarioRecommendedChoiceTimeout(tools, commands) {
+	const tool = tools.get("ask_choice");
+	let sawTimeoutMs;
+	const ctx = makeCtx({
+		mode: "tui",
+		selectImpl: async (_title, _options, opts) => {
+			sawTimeoutMs = opts?.timeout;
+			return await resolveOnAbort(opts);
+		},
+	});
+	await commands.get("ask").handler("recommended-timeout on", ctx);
+	const result = await withImmediateTimers(
+		async () =>
+			await tool.execute(
+				"c7",
+				{ question: "Pick one:", options: ["Alpha", "Beta"], recommendedIndex: 2 },
+				undefined,
+				undefined,
+				ctx,
+			),
+	);
+	const parsed = parseResult(result);
+	check("recommended-timeout: opens selector once", ctx._selectCalls.length === 1, String(ctx._selectCalls.length));
+	check("recommended-timeout: passes a 60s timeout", sawTimeoutMs === 60_000, `timeout=${sawTimeoutMs}`);
+	check(
+		"recommended-timeout: returns recommended after timeout",
+		parsed?.index === 2 && parsed?.recommended === true,
+		JSON.stringify(parsed),
+	);
+}
+
+async function scenarioRecommendedChoiceManualCancelStillCancels(tools, commands) {
+	const tool = tools.get("ask_choice");
+	const ctx = makeCtx({ mode: "tui", selectReturn: undefined });
+	await commands.get("ask").handler("recommended-timeout on", ctx);
+	const result = await tool.execute(
+		"c8",
+		{ question: "Pick one:", options: ["Alpha", "Beta"], recommendedIndex: 2 },
+		undefined,
+		undefined,
+		ctx,
+	);
+	const parsed = parseResult(result);
+	check("recommended-timeout/cancel: returns cancelled", parsed?.cancelled === true, JSON.stringify(parsed));
+}
+
 async function scenarioConfirmTrue(tools) {
 	const tool = tools.get("ask_confirm");
 	const ctx = makeCtx({ mode: "tui", confirmReturn: true });
@@ -211,18 +338,83 @@ async function scenarioConfirmNoUi(tools) {
 	);
 }
 
+async function scenarioRecommendedConfirmImmediate(tools, commands) {
+	const tool = tools.get("ask_confirm");
+	const ctx = makeCtx({ mode: "tui", confirmReturn: true });
+	await commands.get("ask").handler("recommended on", ctx);
+	const result = await tool.execute("k4", { title: "Proceed?", recommended: false }, undefined, undefined, ctx);
+	const parsed = parseResult(result);
+	check(
+		"confirm recommended/immediate: opens no dialog",
+		ctx._confirmCalls.length === 0,
+		String(ctx._confirmCalls.length),
+	);
+	check(
+		"confirm recommended/immediate: returns recommended false",
+		parsed?.confirmed === false,
+		JSON.stringify(parsed),
+	);
+	check("confirm recommended/immediate: marks recommended", parsed?.recommended === true, JSON.stringify(parsed));
+}
+
+async function scenarioRecommendedConfirmTimeout(tools, commands) {
+	const tool = tools.get("ask_confirm");
+	let sawTimeoutMs;
+	const ctx = makeCtx({
+		mode: "tui",
+		confirmImpl: async (_title, _message, opts) => {
+			sawTimeoutMs = opts?.timeout;
+			await resolveOnAbort(opts);
+			return false;
+		},
+	});
+	await commands.get("ask").handler("recommended-timeout on", ctx);
+	const result = await withImmediateTimers(
+		async () => await tool.execute("k5", { title: "Proceed?", recommended: true }, undefined, undefined, ctx),
+	);
+	const parsed = parseResult(result);
+	check(
+		"confirm recommended-timeout: opens dialog once",
+		ctx._confirmCalls.length === 1,
+		String(ctx._confirmCalls.length),
+	);
+	check("confirm recommended-timeout: passes a 60s timeout", sawTimeoutMs === 60_000, `timeout=${sawTimeoutMs}`);
+	check("confirm recommended-timeout: returns recommended true", parsed?.confirmed === true, JSON.stringify(parsed));
+}
+
+async function scenarioAskCommandStatus(tools, commands) {
+	void tools;
+	const ctx = makeCtx({ mode: "tui" });
+	await commands.get("ask").handler("status", ctx);
+	check(
+		"ask command: status reports both toggles",
+		/recommended: off; recommended-timeout: off/.test(ctx._notifyCalls[0]?.message ?? ""),
+		JSON.stringify(ctx._notifyCalls),
+	);
+}
+
 async function main() {
 	const { outDir, url } = await buildAsk();
 	try {
-		const tools = await loadTools(url);
-		await scenarioRegistered(tools);
+		const { tools, commands } = await loadExtension(url);
+		await scenarioRegistered(tools, commands);
 		await scenarioChoiceSelect(tools);
 		await scenarioChoiceCancel(tools);
 		await scenarioChoiceNoUi(tools);
 		await scenarioChoiceEmpty(tools);
+		await scenarioAskCommandStatus(tools, commands);
+
+		// Cada escenario de toggles carga una extensión fresca para que los toggles de sesión no filtren entre casos.
+		await scenarioRecommendedChoiceImmediate(...Object.values(await loadExtension(url)));
+		await scenarioRecommendedChoiceByLabel(...Object.values(await loadExtension(url)));
+		await scenarioRecommendedChoiceTimeout(...Object.values(await loadExtension(url)));
+		await scenarioRecommendedChoiceManualCancelStillCancels(...Object.values(await loadExtension(url)));
+
 		await scenarioConfirmTrue(tools);
 		await scenarioConfirmFalse(tools);
 		await scenarioConfirmNoUi(tools);
+		await scenarioRecommendedConfirmImmediate(...Object.values(await loadExtension(url)));
+		await scenarioRecommendedConfirmTimeout(...Object.values(await loadExtension(url)));
 	} finally {
 		const fs = await import("node:fs/promises");
 		await fs.rm(outDir, { recursive: true, force: true });
