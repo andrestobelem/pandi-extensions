@@ -115,80 +115,98 @@ function metricsByRun(runsRoot) {
 	return map;
 }
 
+function metricNumber(metric, key) {
+	const value = metric?.[key];
+	return Number.isFinite(value) ? value : null;
+}
+
+function falseEconomySignals({ schemaOk, retries, turns }) {
+	const signals = [];
+	if (schemaOk === false) signals.push("schemaOk:false");
+	if ((retries ?? 0) > 0) signals.push("retries>0");
+	if ((turns ?? 0) > 3) signals.push("turns>3");
+	return signals;
+}
+
+function parseAgentFile(file, metrics) {
+	const text = fs.readFileSync(file, "utf8");
+	const runId = runIdFromAgentPath(file);
+	const name = firstHeading(text, path.basename(file, ".md"));
+	const focus = parseFocus(text);
+	const metric = metrics.get(runId)?.get(name) || null;
+	const turns = focus.turns ?? metricNumber(metric, "turns");
+	const retries = focus.retries ?? metricNumber(metric, "autoRetries");
+	const toolErrors = focus.toolErrors ?? metricNumber(metric, "toolErrors");
+	const schemaOk = boolHeader(text, "schemaOk");
+	const model = headerValue(text, "model") || metric?.model || "unknown";
+	const effort = normalizeEffort(headerValue(text, "thinking") || headerValue(text, "effort") || metric?.thinking);
+	return {
+		file,
+		runId,
+		name,
+		rolePrefix: rolePrefix(name),
+		model,
+		effort,
+		ok: boolHeader(text, "ok"),
+		schemaOk,
+		turns,
+		retries,
+		toolErrors,
+		signals: falseEconomySignals({ schemaOk, retries, turns }),
+	};
+}
+
 function parseAgents(runsRoot) {
 	const metrics = metricsByRun(runsRoot);
 	const files = listFiles(runsRoot, (f) => f.includes(`${path.sep}agents${path.sep}`) && f.endsWith(".md"));
-	return files.map((file) => {
-		const text = fs.readFileSync(file, "utf8");
-		const runId = runIdFromAgentPath(file);
-		const name = firstHeading(text, path.basename(file, ".md"));
-		const focus = parseFocus(text);
-		const metric = metrics.get(runId)?.get(name) || null;
-		const turns = focus.turns ?? (Number.isFinite(metric?.turns) ? metric.turns : null);
-		const retries = focus.retries ?? (Number.isFinite(metric?.autoRetries) ? metric.autoRetries : null);
-		const toolErrors = focus.toolErrors ?? (Number.isFinite(metric?.toolErrors) ? metric.toolErrors : null);
-		const schemaOk = boolHeader(text, "schemaOk");
-		const model = headerValue(text, "model") || metric?.model || "unknown";
-		const effort = normalizeEffort(headerValue(text, "thinking") || headerValue(text, "effort") || metric?.thinking);
-		const signals = [];
-		if (schemaOk === false) signals.push("schemaOk:false");
-		if ((retries ?? 0) > 0) signals.push("retries>0");
-		if ((turns ?? 0) > 3) signals.push("turns>3");
-		return {
-			file,
-			runId,
-			name,
-			rolePrefix: rolePrefix(name),
-			model,
-			effort,
-			ok: boolHeader(text, "ok"),
-			schemaOk,
-			turns,
-			retries,
-			toolErrors,
-			signals,
-		};
-	});
+	return files.map((file) => parseAgentFile(file, metrics));
+}
+
+function groupKey(record) {
+	return `${record.model}\t${record.effort}\t${record.rolePrefix}`;
+}
+
+function countWhere(items, predicate) {
+	return items.filter(predicate).length;
+}
+
+function recommendationFor(effort, windowedSignalCount, signalCount) {
+	if (effort === "low" && windowedSignalCount >= 2) return "PROMOTE_LOW_TO_MEDIUM";
+	return signalCount > 0 ? "WATCH" : "OK";
+}
+
+function summarizeGroup(key, items, windowSize) {
+	const [model, effort, rolePrefix] = key.split("\t");
+	const sorted = [...items].sort((a, b) => `${a.runId}/${a.name}`.localeCompare(`${b.runId}/${b.name}`));
+	const window = sorted.slice(-windowSize);
+	const signalCount = countWhere(items, (r) => r.signals.length > 0);
+	const windowedSignalCount = countWhere(window, (r) => r.signals.length > 0);
+	return {
+		model,
+		effort,
+		rolePrefix,
+		agents: items.length,
+		schemaFailures: countWhere(items, (r) => r.schemaOk === false),
+		retrySignals: countWhere(items, (r) => (r.retries ?? 0) > 0),
+		longTurnSignals: countWhere(items, (r) => (r.turns ?? 0) > 3),
+		signalCount,
+		windowedAgents: window.length,
+		windowedSignalCount,
+		recommendation: recommendationFor(effort, windowedSignalCount, signalCount),
+		evidence: window.filter((r) => r.signals.length > 0).slice(-5),
+	};
 }
 
 function summarize(records, windowSize) {
 	const groups = new Map();
 	for (const record of records) {
-		const key = `${record.model}\t${record.effort}\t${record.rolePrefix}`;
+		const key = groupKey(record);
 		if (!groups.has(key)) groups.set(key, []);
 		groups.get(key).push(record);
 	}
 
-	const summaries = [];
-	for (const [key, items] of groups) {
-		const [model, effort, rolePrefix] = key.split("\t");
-		const sorted = [...items].sort((a, b) => `${a.runId}/${a.name}`.localeCompare(`${b.runId}/${b.name}`));
-		const window = sorted.slice(-windowSize);
-		const schemaFailures = items.filter((r) => r.schemaOk === false).length;
-		const retrySignals = items.filter((r) => (r.retries ?? 0) > 0).length;
-		const longTurnSignals = items.filter((r) => (r.turns ?? 0) > 3).length;
-		const signalCount = items.filter((r) => r.signals.length > 0).length;
-		const windowedSignalCount = window.filter((r) => r.signals.length > 0).length;
-		const recommendation =
-			effort === "low" && windowedSignalCount >= 2 ? "PROMOTE_LOW_TO_MEDIUM" : signalCount > 0 ? "WATCH" : "OK";
-		summaries.push({
-			model,
-			effort,
-			rolePrefix,
-			agents: items.length,
-			schemaFailures,
-			retrySignals,
-			longTurnSignals,
-			signalCount,
-			windowedAgents: window.length,
-			windowedSignalCount,
-			recommendation,
-			evidence: window.filter((r) => r.signals.length > 0).slice(-5),
-		});
-	}
-
 	const severity = { PROMOTE_LOW_TO_MEDIUM: 0, WATCH: 1, OK: 2 };
-	return summaries.sort(
+	return Array.from(groups, ([key, items]) => summarizeGroup(key, items, windowSize)).sort(
 		(a, b) =>
 			severity[a.recommendation] - severity[b.recommendation] ||
 			b.windowedSignalCount - a.windowedSignalCount ||
@@ -264,13 +282,20 @@ function ensureParent(file) {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 }
 
-function main() {
-	const opts = parseArgs(process.argv.slice(2));
+function buildReport(opts) {
 	const runsRoot = path.resolve(opts.runsRoot);
 	const records = parseAgents(runsRoot);
-	const runCount = new Set(records.map((r) => r.runId)).size;
-	const groups = summarize(records, opts.window);
-	const report = { generatedAt: new Date().toISOString(), runsRoot, window: opts.window, runCount, records, groups };
+	return {
+		generatedAt: new Date().toISOString(),
+		runsRoot,
+		window: opts.window,
+		runCount: new Set(records.map((r) => r.runId)).size,
+		records,
+		groups: summarize(records, opts.window),
+	};
+}
+
+function writeReport(report, opts) {
 	const md = renderMarkdown(report);
 	if (opts.out) {
 		ensureParent(opts.out);
@@ -282,6 +307,11 @@ function main() {
 		ensureParent(opts.json);
 		fs.writeFileSync(opts.json, `${JSON.stringify(report, null, 2)}\n`);
 	}
+}
+
+function main() {
+	const opts = parseArgs(process.argv.slice(2));
+	writeReport(buildReport(opts), opts);
 }
 
 main();
