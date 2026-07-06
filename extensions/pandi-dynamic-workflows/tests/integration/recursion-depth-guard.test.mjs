@@ -1,15 +1,15 @@
 /**
- * Behavior: the PI_DYNAMIC_WORKFLOWS_DEPTH recursion guard.
+ * Comportamiento: el guard de recursión PI_DYNAMIC_WORKFLOWS_DEPTH.
  *
- * ctx.workflow() composition is depth-1 and a single run is bounded by maxAgents, but a
- * subagent spawned with includeExtensions:true + the dynamic_workflow tool could otherwise
- * launch fresh top-level runs not counted against the parent budget — unbounded nesting.
- * The guard propagates a per-session DEPTH into every spawned subagent (depth+1) and REFUSES
- * start/run/resume once a session is at the limit (default 2, override PI_DYNAMIC_WORKFLOWS_MAX_DEPTH).
+ * La composición ctx.workflow() es depth-1 y un run individual está limitado por maxAgents, pero un
+ * subagente spawneado con includeExtensions:true + la tool dynamic_workflow podría, si no,
+ * lanzar runs top-level frescos no contados contra el presupuesto padre — nesting ilimitado.
+ * El guard propaga un DEPTH por sesión a cada subagente spawneado (depth+1) y RECHAZA
+ * start/run/resume cuando una sesión está en el límite (default 2, override PI_DYNAMIC_WORKFLOWS_MAX_DEPTH).
  *
- * This pins the REFUSE side (the safety guarantee) + the allowed boundary + the override.
- * Propagation into spawned subagents is a single env pass on the spawn and is not exercised
- * here (it requires a real `pi` subprocess).
+ * Esto fija el lado REFUSE (la garantía de seguridad) + el borde permitido + el override.
+ * La propagación a subagentes spawneados es un único pase de env al spawn y no se ejercita
+ * acá (requiere un subprocess `pi` real).
  */
 
 import * as fs from "node:fs/promises";
@@ -106,7 +106,7 @@ async function runTool(tool, ctx, params) {
 	return await tool.execute("tc-depth", params, new AbortController().signal, undefined, ctx);
 }
 
-/** Invoke the tool and capture the thrown error message (or undefined if it did not throw). */
+/** Invoca la tool y captura el mensaje de error lanzado (o undefined si no lanzó). */
 async function expectThrow(tool, ctx, params) {
 	try {
 		await runTool(tool, ctx, params);
@@ -125,34 +125,34 @@ const { pi, tools } = makePi();
 const tool = tools.get("dynamic_workflow");
 const ctx = makeCtx(project);
 
-// Clean env baseline; restore at the end.
+// Baseline limpio de env; restaurar al final.
 const savedDepth = process.env.PI_DYNAMIC_WORKFLOWS_DEPTH;
 const savedMax = process.env.PI_DYNAMIC_WORKFLOWS_MAX_DEPTH;
 delete process.env.PI_DYNAMIC_WORKFLOWS_DEPTH;
 delete process.env.PI_DYNAMIC_WORKFLOWS_MAX_DEPTH;
 
 try {
-	// 1) At the default limit (depth=2) start/run/resume are REFUSED with the guard message.
+	// 1) En el límite default (depth=2), start/run/resume se RECHAZAN con el mensaje del guard.
 	process.env.PI_DYNAMIC_WORKFLOWS_DEPTH = "2";
 	for (const action of ["start", "run", "resume"]) {
 		const msg = await expectThrow(tool, ctx, { action, name: "noop" });
 		check(`depth=2: ${action} refused by recursion guard`, !!msg && /recursion guard/i.test(msg), msg);
 	}
 
-	// 2) A read-only action (scaffold) is NEVER refused, even at/over the limit.
+	// 2) Una acción read-only (scaffold) NUNCA se rechaza, incluso en/sobre el límite.
 	{
 		const msg = await expectThrow(tool, ctx, { action: "scaffold" });
 		check("depth=2: read-only scaffold is NOT refused", msg === undefined, msg);
 	}
 
-	// 3) Below the limit (depth=1) a run proceeds past the guard (executes the noop workflow).
+	// 3) Debajo del límite (depth=1), un run pasa el guard (ejecuta el workflow noop).
 	{
 		process.env.PI_DYNAMIC_WORKFLOWS_DEPTH = "1";
 		const res = await runTool(tool, ctx, { action: "run", name: "noop", timeoutMs: 30_000 });
 		check("depth=1: run is allowed (below limit)", res?.details?.result?.ok === true, JSON.stringify(res?.details));
 	}
 
-	// 4) Override: PI_DYNAMIC_WORKFLOWS_MAX_DEPTH raises the limit so depth=2 is allowed again.
+	// 4) Override: PI_DYNAMIC_WORKFLOWS_MAX_DEPTH sube el límite para que depth=2 vuelva a permitirse.
 	{
 		process.env.PI_DYNAMIC_WORKFLOWS_DEPTH = "2";
 		process.env.PI_DYNAMIC_WORKFLOWS_MAX_DEPTH = "5";
@@ -165,7 +165,7 @@ try {
 		delete process.env.PI_DYNAMIC_WORKFLOWS_MAX_DEPTH;
 	}
 
-	// 5) Top-level (depth unset = 0) start is not refused by the guard.
+	// 5) Top-level (depth unset = 0) run no es rechazado por el guard.
 	{
 		delete process.env.PI_DYNAMIC_WORKFLOWS_DEPTH;
 		const msg = await expectThrow(tool, ctx, { action: "run", name: "noop", timeoutMs: 30_000 });
