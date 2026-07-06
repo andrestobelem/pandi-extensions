@@ -78,7 +78,7 @@ export class PandiSessionDashboard {
 			this.done({ type: "cleanup" });
 			return;
 		}
-		if (data === "enter" || data === "right" || matchesKey(data, Key.enter) || matchesKey(data, Key.right)) {
+		if (data === "enter" || matchesKey(data, Key.enter)) {
 			const session = this.sessions[this.selected];
 			if (session) this.done({ type: "switchSession", session });
 			return;

@@ -129,21 +129,25 @@ async function main() {
 			JSON.stringify(ss3UpCaptured),
 		);
 
-		let ss3RightCaptured = null;
-		const ss3Right = new PandiSessionDashboard(
+		let rightCaptured = null;
+		const rightDashboard = new PandiSessionDashboard(
 			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
 			theme,
 			() => {},
 			(result) => {
-				ss3RightCaptured = result;
+				rightCaptured = result;
 			},
 		);
-		ss3Right.handleInput("down");
-		ss3Right.handleInput("\x1bOC");
+		rightDashboard.handleInput("down");
+		rightDashboard.handleInput("\x1bOC");
+		check("SS3 right-arrow sequence does not switch sessions", rightCaptured === null, JSON.stringify(rightCaptured));
+		rightDashboard.handleInput("right");
+		check("named right key does not switch sessions", rightCaptured === null, JSON.stringify(rightCaptured));
+		rightDashboard.handleInput("enter");
 		check(
-			"SS3 right-arrow sequence switches to the selected row",
-			ss3RightCaptured?.type === "switchSession" && ss3RightCaptured.session?.id === "other",
-			JSON.stringify(ss3RightCaptured),
+			"Enter still switches to the selected row",
+			rightCaptured?.type === "switchSession" && rightCaptured.session?.id === "other",
+			JSON.stringify(rightCaptured),
 		);
 
 		component.markRefreshError("collector failed noisily");
