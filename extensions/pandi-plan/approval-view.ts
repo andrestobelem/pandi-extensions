@@ -42,6 +42,12 @@ function boundedLine(text: string, width: number): string {
 	return padToWidth(truncateToWidth(text, Math.max(1, width)), width);
 }
 
+function approvalDecisionForKey(data: string): boolean | undefined {
+	if (data === "y" || data === "Y" || matchesKey(data, "enter")) return true;
+	if (data === "n" || data === "N" || data === "q" || matchesKey(data, "escape")) return false;
+	return undefined;
+}
+
 // Arma el tema Markdown del objeto `theme` runtime usando SOLO importaciones type-only del SDK —
 // la misma razón que pandi-mdview: importar getMarkdownTheme() del SDK como VALUE tiraría todo el
 // runtime del coding-agent al bundle y rompia la carga de extensión autocontenida.
@@ -82,13 +88,10 @@ class PlanApprovalComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		// Teclas de decisión primero: y/Y/Enter aprueba; n/N/Esc/q rechaza (un cierre es un rechazo).
-		if (data === "y" || data === "Y" || matchesKey(data, "enter")) {
-			this.decide(true);
-			return;
-		}
-		if (data === "n" || data === "N" || data === "q" || matchesKey(data, "escape")) {
-			this.decide(false);
+		// Las teclas de decisión se evalúan antes que el scroll: cerrar el overlay siempre rechaza.
+		const approvalDecision = approvalDecisionForKey(data);
+		if (approvalDecision !== undefined) {
+			this.decide(approvalDecision);
 			return;
 		}
 
