@@ -1,15 +1,36 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { Model, SimpleStreamOptions } from "@earendil-works/pi-ai/compat";
+import { completeSimple } from "@earendil-works/pi-ai/compat";
+import {
+	convertToLlm,
+	type ExtensionAPI,
+	type ExtensionContext,
+	type SessionBeforeCompactEvent,
+	serializeConversation,
+} from "@earendil-works/pi-coding-agent";
 import { ARG_COMPLETIONS, resolveCommandValue } from "./command-menu.js";
 import { type ContextBarLevel, renderContextBar } from "./context-bar.js";
 import {
+	buildFastSummaryPrompt,
+	CODEX_FAST_SUMMARY_MODEL,
+	DEFAULT_FAST_SUMMARY_MODEL,
+	DEFAULT_SUMMARY_MAX_INPUT_CHARS,
+	DEFAULT_SUMMARY_MAX_TOKENS,
+	extractFastSummaryText,
+	FAST_SUMMARY_MODEL_FALLBACKS,
+	FAST_SUMMARY_REASONING,
+} from "./fast-summary.js";
+import {
 	CODEX_DEFAULT_THRESHOLD_PERCENT,
 	DEFAULT_THRESHOLD_PERCENT,
+	isCodexModel,
 	parseBarSetting,
 	parseClearSetting,
+	parseFastSummarySetting,
 	parseSnapshotKeep,
 	parseSnapshotSetting,
+	parseSummaryMaxTokens,
 	parseThreshold,
 	resolveDefaultThresholdPercent,
 	resolveToggle,
@@ -36,13 +57,21 @@ export type { CompactionSnapshot };
 // Los helpers de ruta/forma/poda de instantáneas viven en ./snapshots.ts; se reexportan para que el bundle compilado
 // siga exportando los nombres que importa la suite de integración.
 export {
+	buildFastSummaryPrompt,
 	buildSnapshot,
 	CODEX_DEFAULT_THRESHOLD_PERCENT,
+	CODEX_FAST_SUMMARY_MODEL,
+	DEFAULT_FAST_SUMMARY_MODEL,
+	DEFAULT_SUMMARY_MAX_INPUT_CHARS,
+	DEFAULT_SUMMARY_MAX_TOKENS,
 	DEFAULT_THRESHOLD_PERCENT,
+	extractFastSummaryText,
 	parseBarSetting,
 	parseClearSetting,
+	parseFastSummarySetting,
 	parseSnapshotKeep,
 	parseSnapshotSetting,
+	parseSummaryMaxTokens,
 	parseThreshold,
 	resolveDefaultThresholdPercent,
 	selectSnapshotsToPrune,
@@ -139,6 +168,63 @@ export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "err
 	compacting: "error",
 };
 
+type SummaryAuth = Awaited<ReturnType<ExtensionContext["modelRegistry"]["getApiKeyAndHeaders"]>>;
+
+interface SummaryModelSelection {
+	model: Model<any>;
+	auth: Extract<SummaryAuth, { ok: true }>;
+	ref: string;
+}
+
+const modelRef = (model: { provider?: string; id?: string } | undefined): string | undefined =>
+	model?.provider && model.id ? `${model.provider}/${model.id}` : undefined;
+
+const candidateModelRefs = (preferred: string | undefined, current: ExtensionContext["model"]): string[] => {
+	const modelSensitiveDefault = isCodexModel(current) ? CODEX_FAST_SUMMARY_MODEL : DEFAULT_FAST_SUMMARY_MODEL;
+	const refs = [preferred || modelSensitiveDefault, ...FAST_SUMMARY_MODEL_FALLBACKS, modelRef(current)].filter(
+		(ref): ref is string => typeof ref === "string" && ref.trim().length > 0,
+	);
+	return [...new Set(refs)];
+};
+
+const findModelByRef = (ctx: ExtensionContext, ref: string): Model<any> | undefined => {
+	const trimmed = ref.trim();
+	const slash = trimmed.indexOf("/");
+	if (slash > 0) return ctx.modelRegistry?.find?.(trimmed.slice(0, slash), trimmed.slice(slash + 1));
+	const providers = [ctx.model?.provider, "anthropic", "openai-codex", "ollama"].filter(
+		(provider): provider is string => typeof provider === "string" && provider.length > 0,
+	);
+	for (const provider of [...new Set(providers)]) {
+		const model = ctx.modelRegistry?.find?.(provider, trimmed);
+		if (model) return model;
+	}
+	return undefined;
+};
+
+const resolveSummaryModel = async (
+	ctx: ExtensionContext,
+	preferred: string | undefined,
+): Promise<SummaryModelSelection | undefined> => {
+	if (!ctx.modelRegistry?.find || !ctx.modelRegistry?.getApiKeyAndHeaders) return undefined;
+	for (const ref of candidateModelRefs(preferred, ctx.model)) {
+		const model = findModelByRef(ctx, ref);
+		if (!model) continue;
+		const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+		if (auth.ok) return { model, auth, ref: modelRef(model) ?? ref };
+	}
+	return undefined;
+};
+
+const serializeCompactionMessages = (
+	messages: SessionBeforeCompactEvent["preparation"]["messagesToSummarize"],
+): string => {
+	try {
+		return serializeConversation(convertToLlm(messages));
+	} catch {
+		return JSON.stringify(messages);
+	}
+};
+
 export default function autoCompact(pi: ExtensionAPI) {
 	let enabled = true;
 	let thresholdPercentOverride = parseThreshold(process.env.PI_AUTO_COMPACT_PERCENT);
@@ -163,6 +249,14 @@ export default function autoCompact(pi: ExtensionAPI) {
 	const clearMinChars = parseSnapshotKeep(process.env.PI_AUTO_COMPACT_CLEAR_MIN_CHARS) ?? 2000;
 	const CLEAR_HEAD_CHARS = 200;
 	const CLEAR_TAIL_CHARS = 200;
+	// Resumen rápido de compactación: reemplaza el summarizer default de Pi cuando puede usar un modelo
+	// explícitamente acotado. Si algo falla, el hook no devuelve compaction y Pi usa su camino nativo.
+	let fastSummaryEnabled = parseFastSummarySetting(process.env.PI_AUTO_COMPACT_FAST_SUMMARY) ?? true;
+	const fastSummaryModelOverride = process.env.PI_AUTO_COMPACT_SUMMARY_MODEL?.trim() || undefined;
+	const fastSummaryMaxTokens =
+		parseSummaryMaxTokens(process.env.PI_AUTO_COMPACT_SUMMARY_MAX_TOKENS) ?? DEFAULT_SUMMARY_MAX_TOKENS;
+	const fastSummaryMaxInputChars =
+		parseSummaryMaxTokens(process.env.PI_AUTO_COMPACT_SUMMARY_MAX_INPUT_CHARS) ?? DEFAULT_SUMMARY_MAX_INPUT_CHARS;
 
 	const notify = (ctx: ExtensionContext, message: string, level: "info" | "warning" | "error" = "info") => {
 		if (ctx.hasUI) ctx.ui.notify(message, level);
@@ -316,14 +410,78 @@ export default function autoCompact(pi: ExtensionAPI) {
 		}
 	};
 
+	const buildFastCompaction = async (event: SessionBeforeCompactEvent, ctx: ExtensionContext) => {
+		if (!enabled || !fastSummaryEnabled || !event.preparation) return undefined;
+		try {
+			const selected = await resolveSummaryModel(ctx, fastSummaryModelOverride);
+			if (!selected) return undefined;
+			const prep = event.preparation;
+			const conversationText = serializeCompactionMessages(prep.messagesToSummarize ?? []);
+			const turnPrefixText = prep.turnPrefixMessages?.length
+				? serializeCompactionMessages(prep.turnPrefixMessages)
+				: undefined;
+			const prompt = buildFastSummaryPrompt({
+				previousSummary: prep.previousSummary,
+				conversationText,
+				turnPrefixText,
+				customInstructions: event.customInstructions,
+				fileOps: prep.fileOps,
+				isSplitTurn: prep.isSplitTurn,
+				maxInputChars: fastSummaryMaxInputChars,
+			});
+			const options: SimpleStreamOptions = {
+				apiKey: selected.auth.apiKey,
+				headers: selected.auth.headers,
+				env: selected.auth.env,
+				maxTokens: fastSummaryMaxTokens,
+				signal: event.signal ?? ctx.signal,
+			};
+			if (selected.model.reasoning) options.reasoning = FAST_SUMMARY_REASONING as SimpleStreamOptions["reasoning"];
+			const response = await completeSimple(
+				selected.model,
+				{ messages: [{ role: "user", content: prompt.prompt, timestamp: 0 }] },
+				options,
+			);
+			if (response.stopReason === "error" || response.stopReason === "aborted") return undefined;
+			const summary = extractFastSummaryText(response);
+			if (!summary) return undefined;
+			return {
+				compaction: {
+					summary,
+					firstKeptEntryId: prep.firstKeptEntryId,
+					tokensBefore: prep.tokensBefore,
+					details: {
+						readFiles: prompt.readFiles,
+						modifiedFiles: prompt.modifiedFiles,
+						fastSummary: {
+							model: selected.ref,
+							maxTokens: fastSummaryMaxTokens,
+							maxInputChars: fastSummaryMaxInputChars,
+							inputChars: prompt.inputChars,
+							truncated: prompt.truncated,
+						},
+					},
+				},
+			};
+		} catch (err) {
+			notify(
+				ctx,
+				`El resumen rápido de compactación falló; uso el compactor nativo de Pi: ${(err as Error).message}`,
+				"warning",
+			);
+			return undefined;
+		}
+	};
+
 	pi.on("session_start", (_event, ctx) => {
 		updateStatusBar(ctx);
 	});
 
 	// Saca una instantánea en cada camino de compactación (manual /compact, auto-compactación por umbral, recuperación de
-	// overflow y el propio ctx.compact() de esta extensión). Nunca cancela: no devuelve nada.
-	pi.on("session_before_compact", (event, ctx) => {
+	// overflow y el propio ctx.compact() de esta extensión) y, si puede, reemplaza el resumen nativo por uno rápido/acotado.
+	pi.on("session_before_compact", async (event, ctx) => {
 		writeCompactionSnapshot(ctx, event);
+		return await buildFastCompaction(event, ctx);
 	});
 	pi.on("session_compact", (event, ctx) => {
 		finalizeCompactionSnapshot(ctx, event);
@@ -373,7 +531,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("auto-compact", {
-		description: `Configurá la auto-compactación relativa de contexto (habilitada por default al ${DEFAULT_THRESHOLD_PERCENT}% para Claude/otros modelos, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% para Codex). Corré el comando sin argumentos para elegir una configuración desde un menú, o pasá status|on|off|run|bar [on|off]|<1-99 percent>.`,
+		description: `Configurá la auto-compactación relativa de contexto (habilitada por default al ${DEFAULT_THRESHOLD_PERCENT}% para Claude/otros modelos, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% para Codex). Corré el comando sin argumentos para elegir una configuración desde un menú, o pasá status|on|off|run|bar [on|off]|summary [on|off]|<1-99 percent>.`,
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = needle
@@ -388,7 +546,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				const thresholdSource = thresholdPercentOverride === undefined ? "predeterminado" : "personalizado";
 				notify(
 					ctx,
-					`La auto-compactación de contexto está ${enabled ? "habilitada" : "deshabilitada"}; threshold: ${thresholdPercent}% (${thresholdSource}); bar: ${showBar ? "on" : "off"}; snapshots: ${snapshotsEnabled ? "on" : "off"} (mantiene ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (mantiene ${clearKeepRecent}, >=${clearMinChars} caracteres)`,
+					`La auto-compactación de contexto está ${enabled ? "habilitada" : "deshabilitada"}; threshold: ${thresholdPercent}% (${thresholdSource}); bar: ${showBar ? "on" : "off"}; summary: ${fastSummaryEnabled ? "on" : "off"} (modelo ${fastSummaryModelOverride ?? (isCodexModel(ctx.model) ? CODEX_FAST_SUMMARY_MODEL : DEFAULT_FAST_SUMMARY_MODEL)}, max ${fastSummaryMaxTokens} tokens); snapshots: ${snapshotsEnabled ? "on" : "off"} (mantiene ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (mantiene ${clearKeepRecent}, >=${clearMinChars} caracteres)`,
 					"info",
 				);
 				return;
@@ -477,11 +635,28 @@ export default function autoCompact(pi: ExtensionAPI) {
 				return;
 			}
 
+			// `summary` (toggle), `summary on`, `summary off` — resumen rápido/acotado en session_before_compact.
+			if (trimmed === "summary" || trimmed.startsWith("summary ")) {
+				const arg = trimmed.slice("summary".length).trim();
+				const next = resolveToggle(arg, fastSummaryEnabled, parseFastSummarySetting);
+				if (next === undefined) {
+					notify(ctx, "Uso: /auto-compact summary [on|off]", "warning");
+					return;
+				}
+				fastSummaryEnabled = next;
+				notify(
+					ctx,
+					`Resumen rápido de auto-compactación de contexto: ${fastSummaryEnabled ? "on" : "off"}`,
+					"info",
+				);
+				return;
+			}
+
 			const nextThreshold = parseThreshold(trimmed);
 			if (nextThreshold === undefined) {
 				notify(
 					ctx,
-					"Uso: /auto-compact [status|on|off|run|bar [on|off]|snapshot [on|off]|snapshots|clear-tools [on|off]|<1-99 percent>]",
+					"Uso: /auto-compact [status|on|off|run|bar [on|off]|summary [on|off]|snapshot [on|off]|snapshots|clear-tools [on|off]|<1-99 percent>]",
 					"warning",
 				);
 				return;

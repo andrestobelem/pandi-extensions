@@ -285,8 +285,20 @@ pi install ./                                                      <span class="
 <tr>
 <td><code>PI_AUTO_COMPACT_PERCENT</code></td>
 <td>auto-compact</td>
-<td><code>35</code></td>
+<td><code>35</code> (<code>50</code> en Codex)</td>
 <td>Porcentaje de contexto que dispara la compactación.</td>
+</tr>
+<tr>
+<td><code>PI_AUTO_COMPACT_FAST_SUMMARY</code></td>
+<td>auto-compact</td>
+<td><code>on</code></td>
+<td>Usa un resumen rápido/acotado en <code>session_before_compact</code>; cae al compactor nativo si falla.</td>
+</tr>
+<tr>
+<td><code>PI_AUTO_COMPACT_SUMMARY_MODEL</code></td>
+<td>auto-compact</td>
+<td>Sonnet 5 (<code>gpt-5.5</code> en Codex)</td>
+<td>Override del modelo de resumen como <code>provider/model</code>.</td>
 </tr>
 <tr>
 <td><code>PI_TS_LSP</code> / <code>PI_TS_LSP_MODE</code></td>

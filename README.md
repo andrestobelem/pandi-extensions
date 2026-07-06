@@ -132,7 +132,7 @@ Las 21 extensiones de comando/tool se cargan por defecto desde el campo `pi.exte
 | **pandi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Modo de plan read-only con mutaciones bloqueadas hasta que apruebes explícitamente el plan. | TUI/RPC (o `PI_PLAN_NONINTERACTIVE=1`) |
 | **pandi-effort** | `/effort status\|off\|minimal\|low\|medium\|high\|xhigh\|ultracode` | Selector de nivel de pensamiento estilo Claude; `ultracode` habilita el workflow router. | `ultracode` necesita el core cargado |
 | **pandi-local-memory** | `remember` | Memoria local en `.pi/memory/`: índice auto-inyectado + archivos temáticos on-demand. | ⚠ auto-inyecta memoria: solo proyectos trusted |
-| **pandi-auto-compact** | `/auto-compact [bar\|snapshot\|snapshots\|clear-tools]` | Compacta el contexto al pasar un umbral, con snapshots recuperables y barra de progreso. | configurable vía `PI_AUTO_COMPACT_*` |
+| **pandi-auto-compact** | `/auto-compact [bar\|summary\|snapshot\|snapshots\|clear-tools]` | Compacta el contexto al pasar un umbral, con resumen rápido/acotado, snapshots recuperables y barra de progreso. | configurable vía `PI_AUTO_COMPACT_*` |
 | **pandi-typescript-lsp** | `/tsc` · `typescript_diagnostics` | Feedback de `tsc --noEmit` acotado a los archivos tocados en este turno; no bloqueante. | proyecto con `tsconfig.json` |
 | **pandi-worktree** | `/worktree` · `git_worktree` | Administra git worktrees desde Pi; abre sesiones nuevas y nunca cambia el cwd. | git + un repo git |
 | **pandi-container** | `/container` · `container_sandbox` | Ejecuta comandos Linux aislados en micro-VMs Apple `container`, sin tocar el host. | macOS Apple Silicon + `container` |

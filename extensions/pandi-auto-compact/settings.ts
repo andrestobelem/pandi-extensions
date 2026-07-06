@@ -59,6 +59,12 @@ export const parseSnapshotKeep = (value: string | undefined): number | undefined
 // La limpieza de tool-result comparte la gramática on/off (con alias por intención en los puntos de uso).
 export const parseClearSetting = parseOnOff;
 
+// El resumen rápido de compactación también comparte la gramática on/off.
+export const parseFastSummarySetting = parseOnOff;
+
+// Parsea presupuestos enteros positivos para el resumen rápido (maxTokens / max input chars).
+export const parseSummaryMaxTokens = parseSnapshotKeep;
+
 // Resuelve un argumento de `/auto-compact <toggle> [on|off]`: un arg vacío invierte el
 // valor actual; si no, parsea el token explícito on/off (undefined => no reconocido, así que
 // quien llama muestra el uso). Lo comparten los subcomandos bar/snapshot/clear-tools.

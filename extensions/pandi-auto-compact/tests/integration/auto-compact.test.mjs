@@ -8,26 +8,67 @@
  */
 
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	bundle,
+	createChecker,
+	loadDefault,
+	loadModule,
+	makeBuildDir,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
+const DEFAULT_FAST_SUMMARY_RESPONSE = {
+	role: "assistant",
+	content: [{ type: "text", text: "## Goal\nResumen rápido\n\n## Next Steps\n1. Seguir" }],
+	model: "summary-model",
+	usage: {},
+	stopReason: "stop",
+	timestamp: 0,
+};
+
+const COMPAT_STUB =
+	"export async function completeSimple(model, context, options) {\n" +
+	"  (globalThis.__autoCompactSummaryCalls ??= []).push({ model, context, options });\n" +
+	"  if (globalThis.__autoCompactSummaryThrows) throw new Error(globalThis.__autoCompactSummaryThrows);\n" +
+	"  const r = globalThis.__autoCompactSummaryResponse;\n" +
+	`  return r ?? ${JSON.stringify(DEFAULT_FAST_SUMMARY_RESPONSE)};\n` +
+	"}\n";
+
+function resetFastSummaryGlobals() {
+	delete globalThis.__autoCompactSummaryCalls;
+	delete globalThis.__autoCompactSummaryResponse;
+	delete globalThis.__autoCompactSummaryThrows;
+}
+
 async function build() {
-	const { url } = await buildExtension({
-		name: "pandi-auto-compact-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-auto-compact", "index.ts"),
-		outName: "ac.mjs",
-		npx: "--no-install",
-		// snapshots.ts importa CONFIG_DIR_NAME desde el SDK, así que el bundle necesita el stub.
-		stubs: { sdk: (dir) => sdkStub(dir) },
+	const { outDir, aliases } = await makeBuildDir("pandi-auto-compact-integration", {
+		// snapshots.ts importa CONFIG_DIR_NAME desde el SDK, y el fast-summary usa helpers de compaction.
+		sdk: (dir) => sdkStub(dir),
 	});
-	return url;
+	await fs.appendFile(
+		aliases["@earendil-works/pi-coding-agent"],
+		"export function convertToLlm(messages) { return messages; }\n" +
+			"export function serializeConversation(messages) { return messages.map((m) => { const c = Array.isArray(m.content) ? m.content.map((b) => b.text ?? JSON.stringify(b)).join(' ') : String(m.content ?? ''); return '[' + m.role + ']: ' + c; }).join('\\n'); }\n",
+	);
+	const compatFile = path.join(outDir, "stub-ai-compat.mjs");
+	await fs.writeFile(compatFile, COMPAT_STUB, "utf8");
+	aliases["@earendil-works/pi-ai/compat"] = compatFile;
+	return await bundle({
+		src: path.join(REPO_ROOT, "extensions", "pandi-auto-compact", "index.ts"),
+		outDir,
+		outName: "ac.mjs",
+		aliases,
+		npx: "--no-install",
+	});
 }
 
 async function loadExtension(url) {
@@ -62,7 +103,7 @@ function toolResult(id, size, { isError = false, toolName = "read", extra = [] }
  * Las llamadas a `setStatus` se registran para poder afirmar el comportamiento de la barra del footer;
  * `theme.fg` es una identidad para que las aserciones vean el texto crudo de la barra.
  */
-function makeEnv({ hasUI = true, sessionId = "s1", cwd, model } = {}) {
+function makeEnv({ hasUI = true, sessionId = "s1", cwd, model, modelRegistry } = {}) {
 	const notes = [];
 	const statuses = []; // { key, text } en orden de llamada; text undefined significa limpio
 	// Diálogos interactivos guionados: los tests empujan respuestas; las llamadas se registran.
@@ -91,6 +132,7 @@ function makeEnv({ hasUI = true, sessionId = "s1", cwd, model } = {}) {
 			},
 		},
 		model,
+		modelRegistry,
 		getContextUsage: () => ({ percent: state.percent }),
 		compact: ({ onComplete, onError }) => {
 			state.compactCount += 1;
@@ -118,6 +160,52 @@ async function fireBeforeCompact(handlers, ctx, { branchEntries = [], reason = "
 
 async function fireSessionCompact(handlers, ctx, { summary = "" } = {}) {
 	return handlers.get("session_compact")?.({ compactionEntry: { summary } }, ctx);
+}
+
+function makeSummaryRegistry({ models, authOk = true, authError = "no auth" }) {
+	const byKey = new Map(models.map((m) => [`${m.provider}/${m.id}`, m]));
+	const authCalls = [];
+	return {
+		authCalls,
+		registry: {
+			find: (provider, id) => byKey.get(`${provider}/${id}`),
+			getApiKeyAndHeaders: async (model) => {
+				authCalls.push(model);
+				return authOk
+					? { ok: true, apiKey: "summary-key", headers: { "x-test": "1" }, env: { TEST_ENV: "1" } }
+					: { ok: false, error: authError };
+			},
+		},
+	};
+}
+
+function compactPreparation(overrides = {}) {
+	return {
+		firstKeptEntryId: "keep-1",
+		messagesToSummarize: [{ role: "user", content: [{ type: "text", text: "Necesito mejorar auto-compact" }] }],
+		turnPrefixMessages: [],
+		isSplitTurn: false,
+		tokensBefore: 12345,
+		previousSummary: "Resumen anterior importante",
+		fileOps: {
+			read: new Set(["extensions/pandi-auto-compact/README.md", "extensions/pandi-auto-compact/index.ts"]),
+			written: new Set(["extensions/pandi-auto-compact/fast-summary.ts"]),
+			edited: new Set(["extensions/pandi-auto-compact/index.ts"]),
+		},
+		settings: { enabled: true, reserveTokens: 16384, keepRecentTokens: 20000 },
+		...overrides,
+	};
+}
+
+function beforeCompactEvent(overrides = {}) {
+	return {
+		branchEntries: [],
+		reason: "threshold",
+		willRetry: false,
+		signal: new AbortController().signal,
+		preparation: compactPreparation(),
+		...overrides,
+	};
 }
 
 // El directorio de instantáneas por sesión en el que escribe esta extensión.
@@ -460,7 +548,7 @@ async function argumentCompletions(url) {
 	const values = all.map((i) => i.value);
 	check(
 		"autocomplete: empty prefix lists the core subcommands",
-		["status", "on", "off", "run", "bar"].every((v) => values.includes(v)),
+		["status", "on", "off", "run", "bar", "summary"].every((v) => values.includes(v)),
 		`got ${JSON.stringify(values)}`,
 	);
 	check(
@@ -478,6 +566,13 @@ async function argumentCompletions(url) {
 		"autocomplete: 'bar' prefix surfaces bar on/off",
 		bar.some((i) => i.value === "bar on") && bar.some((i) => i.value === "bar off"),
 		`got ${JSON.stringify(bar.map((i) => i.value))}`,
+	);
+
+	const summary = (await cmd.getArgumentCompletions("summary")) ?? [];
+	check(
+		"autocomplete: 'summary' prefix surfaces summary on/off",
+		summary.some((i) => i.value === "summary on") && summary.some((i) => i.value === "summary off"),
+		`got ${JSON.stringify(summary.map((i) => i.value))}`,
 	);
 
 	const off = (await cmd.getArgumentCompletions("of")) ?? [];
@@ -741,6 +836,127 @@ async function snapshotPureHelpers(url) {
 }
 
 // ---------------------------------------------------------------------------
+// Fast-summary: custom session_before_compact con modelo rápido, prompt acotado y fallback
+// a la compactación nativa de Pi si algo falla.
+// ---------------------------------------------------------------------------
+async function fastSummaryPureHelpers(url) {
+	const mod = await loadModule(url);
+	check(
+		"parseFastSummarySetting: shares the on/off grammar",
+		mod.parseFastSummarySetting("on") === true &&
+			mod.parseFastSummarySetting("off") === false &&
+			mod.parseFastSummarySetting("maybe") === undefined,
+	);
+	check("parseSummaryMaxTokens: accepts positive integers", mod.parseSummaryMaxTokens("4096") === 4096);
+	check(
+		"parseSummaryMaxTokens: rejects non-positive/invalid values",
+		mod.parseSummaryMaxTokens("0") === undefined && mod.parseSummaryMaxTokens("nope") === undefined,
+	);
+}
+
+async function fastSummaryProvidesCustomCompaction(url) {
+	resetFastSummaryGlobals();
+	const { handlers } = await loadExtension(url);
+	const fast = { provider: "anthropic", id: "claude-sonnet-5", reasoning: true };
+	const current = { provider: "anthropic", id: "claude-opus-4-8", reasoning: true };
+	const { registry, authCalls } = makeSummaryRegistry({ models: [fast, current] });
+	const env = makeEnv({ model: current, modelRegistry: registry });
+
+	const result = await handlers.get("session_before_compact")?.(
+		beforeCompactEvent({ customInstructions: "Enfatizá próximos pasos accionables" }),
+		env.ctx,
+	);
+	const calls = globalThis.__autoCompactSummaryCalls ?? [];
+	const call = calls[0];
+	const prompt = call?.context?.messages?.[0]?.content ?? "";
+	check("fast-summary: session_before_compact returns a custom compaction", !!result?.compaction);
+	check("fast-summary: calls the LLM exactly once", calls.length === 1, `calls=${calls.length}`);
+	check(
+		"fast-summary: prefers Sonnet 5 over the current heavier model",
+		call?.model === fast,
+		`model=${call?.model?.id}`,
+	);
+	check("fast-summary: resolves auth for the selected summary model", authCalls[0] === fast);
+	check(
+		"fast-summary: passes auth headers/env and caps maxTokens",
+		call?.options?.apiKey === "summary-key" &&
+			call?.options?.headers?.["x-test"] === "1" &&
+			call?.options?.env?.TEST_ENV === "1" &&
+			call?.options?.maxTokens === 4096,
+	);
+	check(
+		"fast-summary: uses minimal reasoning for reasoning-capable summary models",
+		call?.options?.reasoning === "minimal",
+		`reasoning=${call?.options?.reasoning}`,
+	);
+	check(
+		"fast-summary: prompt preserves previous summary, custom instructions and file ops",
+		prompt.includes("Resumen anterior importante") &&
+			prompt.includes("Enfatizá próximos pasos accionables") &&
+			prompt.includes("extensions/pandi-auto-compact/index.ts") &&
+			prompt.includes("extensions/pandi-auto-compact/fast-summary.ts"),
+		`prompt=${prompt.slice(0, 240)}`,
+	);
+	check(
+		"fast-summary: compaction result preserves core fields and file details",
+		result?.compaction?.summary?.includes("Resumen rápido") &&
+			result.compaction.firstKeptEntryId === "keep-1" &&
+			result.compaction.tokensBefore === 12345 &&
+			result.compaction.details?.fastSummary?.model === "anthropic/claude-sonnet-5" &&
+			result.compaction.details?.readFiles?.includes("extensions/pandi-auto-compact/README.md") &&
+			result.compaction.details?.modifiedFiles?.includes("extensions/pandi-auto-compact/fast-summary.ts") &&
+			result.compaction.details?.modifiedFiles?.includes("extensions/pandi-auto-compact/index.ts"),
+		`result=${JSON.stringify(result?.compaction).slice(0, 260)}`,
+	);
+	check("fast-summary: still writes the recoverable raw snapshot first", snapFiles(env).length === 1);
+}
+
+async function fastSummaryPrefersCodex55ForCodexSessions(url) {
+	resetFastSummaryGlobals();
+	const { handlers } = await loadExtension(url);
+	const fast = { provider: "openai-codex", id: "gpt-5.5", reasoning: true };
+	const current = { provider: "openai-codex", id: "gpt-5.4", reasoning: true };
+	const { registry } = makeSummaryRegistry({ models: [fast, current] });
+	const env = makeEnv({ model: current, modelRegistry: registry });
+	await handlers.get("session_before_compact")?.(beforeCompactEvent(), env.ctx);
+	const call = (globalThis.__autoCompactSummaryCalls ?? [])[0];
+	check("fast-summary: Codex sessions prefer GPT 5.5", call?.model === fast, `model=${call?.model?.id}`);
+}
+
+async function fastSummaryFallsBackWhenAuthFails(url) {
+	resetFastSummaryGlobals();
+	const { handlers } = await loadExtension(url);
+	const fast = { provider: "anthropic", id: "claude-sonnet-5", reasoning: true };
+	const { registry, authCalls } = makeSummaryRegistry({ models: [fast], authOk: false, authError: "missing key" });
+	const env = makeEnv({ model: fast, modelRegistry: registry });
+	const result = await handlers.get("session_before_compact")?.(beforeCompactEvent(), env.ctx);
+	check(
+		"fast-summary: auth failure falls back to native compaction",
+		!result?.compaction,
+		`result=${JSON.stringify(result)}`,
+	);
+	check(
+		"fast-summary: auth failure does not call completeSimple",
+		(globalThis.__autoCompactSummaryCalls ?? []).length === 0,
+	);
+	check("fast-summary: tried auth before falling back", authCalls.length > 0);
+}
+
+async function fastSummaryCommandToggle(url) {
+	resetFastSummaryGlobals();
+	const { handlers, commands } = await loadExtension(url);
+	const fast = { provider: "anthropic", id: "claude-sonnet-5", reasoning: false };
+	const { registry } = makeSummaryRegistry({ models: [fast] });
+	const env = makeEnv({ model: fast, modelRegistry: registry });
+	await commands.get("auto-compact").handler("summary off", env.ctx);
+	let result = await handlers.get("session_before_compact")?.(beforeCompactEvent(), env.ctx);
+	check("fast-summary command: summary off disables custom compaction", !result?.compaction);
+	await commands.get("auto-compact").handler("summary on", env.ctx);
+	result = await handlers.get("session_before_compact")?.(beforeCompactEvent(), env.ctx);
+	check("fast-summary command: summary on re-enables custom compaction", !!result?.compaction);
+}
+
+// ---------------------------------------------------------------------------
 // Limpieza de tool-result (research §3b): una palanca más barata, EFÍMERA y no destructiva
 // que compactar. clearOldToolResults debe elidir texto VIEJO y grande de tool-result mientras
 // conserva resultados recientes + con error, nunca muta inputs y es idempotente.
@@ -898,6 +1114,11 @@ async function main() {
 	await snapshotIsFailSafe(url);
 	await snapshotRetentionPrunes(url);
 	await snapshotPureHelpers(url);
+	await fastSummaryPureHelpers(url);
+	await fastSummaryProvidesCustomCompaction(url);
+	await fastSummaryPrefersCodex55ForCodexSessions(url);
+	await fastSummaryFallsBackWhenAuthFails(url);
+	await fastSummaryCommandToggle(url);
 	await clearElidesOldLargeResults(url);
 	await clearSkipsRecentShortAndErrors(url);
 	await clearPreservesImagesAndDoesNotMutate(url);

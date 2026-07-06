@@ -11,6 +11,8 @@ const MENU_ACTIONS = [
 	{ value: "snapshot on", description: "mantener instantáneas recuperables antes de compactar" },
 	{ value: "snapshot off", description: "dejar de guardar instantáneas" },
 	{ value: "snapshots", description: "listar las instantáneas recientes" },
+	{ value: "summary on", description: "usar resumen rápido y acotado durante la compactación" },
+	{ value: "summary off", description: "usar el resumen nativo de Pi" },
 	{ value: "clear-tools on", description: "elidir salidas de tools viejas y grandes (más barato que compactar)" },
 	{ value: "clear-tools off", description: "dejar de elidir salidas de tools viejas" },
 	{ value: "threshold", description: "configurar el % de umbral de compactación" },
@@ -51,6 +53,17 @@ export const ARG_COMPLETIONS: { value: string; label: string; description: strin
 	},
 	{ value: "snapshot off", label: "snapshot off", description: "Dejar de guardar instantáneas" },
 	{ value: "snapshots", label: "snapshots", description: "Listar las instantáneas recientes de esta sesión" },
+	{
+		value: "summary",
+		label: "summary",
+		description: "Alternar el resumen rápido/acotado de compactación",
+	},
+	{
+		value: "summary on",
+		label: "summary on",
+		description: "Usar resumen rápido y acotado durante la compactación",
+	},
+	{ value: "summary off", label: "summary off", description: "Usar el resumen nativo de Pi" },
 	{
 		value: "clear-tools",
 		label: "clear-tools",
