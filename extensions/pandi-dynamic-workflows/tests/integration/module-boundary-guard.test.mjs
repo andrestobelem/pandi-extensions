@@ -16,7 +16,7 @@ const EXTENSION_DIR = path.resolve(__dirname, "..", "..");
 
 const ALLOWED_INDEX_IMPORTS = new Map([
 	["dashboard-orchestration.ts", new Set(["runWorkflow"])],
-	["run-lifecycle.ts", new Set(["prepareWorkflowRun", "runWorkflow"])],
+	["run-lifecycle.ts", new Set(["runWorkflow"])],
 ]);
 
 let failures = 0;

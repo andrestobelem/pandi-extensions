@@ -3,8 +3,8 @@
  * scaffolding and shutdown abort. Sits between the runWorkflow engine and the command/tool
  * handlers in index.ts.
  *
- * Fully-deferred bidirectional cycle: this module calls runWorkflow/prepareWorkflowRun from
- * ./index.js only inside bodies and reads the active-run registry from ./run-registry.js;
+ * Fully-deferred bidirectional cycle: this module calls runWorkflow from ./index.js only
+ * inside bodies and reads the active-run registry from ./run-registry.js;
  * index.ts imports the lifecycle entry points back (invoked only from
  * handler bodies) and re-exports settleWithinTimeout for the shutdown test. Run records come
  * from the run-store / run-state / run-view siblings; workflow contracts cross from types.ts as import type.
@@ -14,7 +14,7 @@ import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput } from "./config.js";
 import { runWorkflowWithUi } from "./dashboard-orchestration.js";
-import { prepareWorkflowRun, runWorkflow } from "./index.js";
+import { runWorkflow } from "./index.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
 import { notify } from "./notify.js";
 import {
@@ -50,6 +50,7 @@ import type {
 } from "./types.js";
 import { preflightWorkflowLaunch } from "./workflow-preflight.js";
 import { ensureDir, resolveWorkflow } from "./workflow-resolve.js";
+import { prepareWorkflowRun } from "./workflow-run-prepare.js";
 
 function initialRunStatus(
 	workflow: WorkflowDefinition,

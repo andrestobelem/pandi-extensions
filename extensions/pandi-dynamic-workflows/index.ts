@@ -67,6 +67,7 @@ import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
 import { currentWorkflowDepth, WORKFLOW_DEPTH_ENV } from "./workflow-depth.js";
 import { buildWorkflowGraphModelWithSubworkflows } from "./workflow-graph.js";
 import { preflightWorkflowLaunch } from "./workflow-preflight.js";
+import { prepareWorkflowRun } from "./workflow-run-prepare.js";
 import { transformWorkflowCode } from "./workflow-transform.js";
 
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
@@ -159,7 +160,7 @@ export type {
 } from "./types.js";
 
 import { appendJsonLine } from "./file-append.js";
-import { createRunDirectory, ensureDir, resolveWorkflow, slugify } from "./workflow-resolve.js";
+import { ensureDir, resolveWorkflow, slugify } from "./workflow-resolve.js";
 
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
 
@@ -220,6 +221,7 @@ export {
 	WORKFLOW_GRAPH_DIR,
 	WORKFLOW_RUN_DIR,
 } from "./workflow-resolve.js";
+export { prepareWorkflowRun } from "./workflow-run-prepare.js";
 export { transformWorkflowCode } from "./workflow-transform.js";
 
 const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
@@ -399,17 +401,6 @@ const workflowToolSchema = Type.Object({
 		}),
 	),
 });
-
-export async function prepareWorkflowRun(
-	ctx: ExtensionContext,
-	workflowName: string,
-	background = false,
-): Promise<PreparedWorkflowRun> {
-	const started = Date.now();
-	const { runId, runDir } = await createRunDirectory(ctx, workflowName, started);
-	await ensureDir(path.join(runDir, "agents"));
-	return { started, runId, runDir, background };
-}
 
 function makeModelArg(ctx: ExtensionContext): string | undefined {
 	if (!ctx.model) return undefined;
