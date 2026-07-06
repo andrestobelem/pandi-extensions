@@ -2,7 +2,7 @@
 
 ## En 30 segundos
 
-`pandi-session` agrega `/sessions`: un dashboard TUI propio para ver las sesiones Pi vivas de este proyecto, detectar registros stale y cambiar a otra sesión cuando Pi expone `ctx.switchSession`.
+`pandi-session` agrega `/sessions`: un menú estilo `/workflow` para abrir un dashboard TUI propio, listar sesiones Pi vivas de este proyecto, detectar registros stale y cambiar a otra sesión cuando Pi expone `ctx.switchSession`.
 
 Es independiente del runtime de workflows. Por ahora existe como superficie separada; cualquier consolidación futura se decidirá con evidencia después.
 
@@ -10,7 +10,8 @@ Es independiente del runtime de workflows. Por ahora existe como superficie sepa
 
 | Comando | Qué hace |
 | --- | --- |
-| `/sessions` | Abre el dashboard TUI si hay UI; en headless imprime la lista textual. |
+| `/sessions` | En UI abre un menú interactivo; en headless imprime la lista textual. |
+| `/sessions dashboard` | Abre el dashboard TUI si hay UI; en headless imprime la lista textual. |
 | `/sessions list` | Imprime la lista textual de sesiones del proyecto. |
 | `/sessions cleanup` | Limpia registros stale seguros; nunca toca la sesión actual ni sesiones live. |
 

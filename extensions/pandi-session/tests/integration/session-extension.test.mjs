@@ -37,26 +37,34 @@ function makePi() {
 	return { pi, commands, handlers };
 }
 
-function makeCtx(cwd, { mode = "tui" } = {}) {
+function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult } = {}) {
 	const notes = [];
+	const selectCalls = [];
 	let customCalls = 0;
+	const ui = {
+		theme: { fg: (_c, value) => value, bg: (_c, value) => value, bold: (value) => value },
+		notify: (msg, type) => notes.push({ msg, type }),
+		confirm: async () => true,
+		custom: async (factory) => {
+			customCalls += 1;
+			const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => {} };
+			factory(tui, { fg: (_c, value) => value, bg: (_c, value) => value, bold: (value) => value }, {}, () => {});
+			return null;
+		},
+	};
+	if (withSelect) {
+		ui.select = async (title, items) => {
+			selectCalls.push({ title, items });
+			return selectResult;
+		};
+	}
 	return {
 		mode,
 		hasUI: mode === "tui" || mode === "rpc",
 		cwd,
 		isProjectTrusted: () => true,
 		isIdle: () => true,
-		ui: {
-			theme: { fg: (_c, value) => value, bg: (_c, value) => value, bold: (value) => value },
-			notify: (msg, type) => notes.push({ msg, type }),
-			confirm: async () => true,
-			custom: async (factory) => {
-				customCalls += 1;
-				const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => {} };
-				factory(tui, { fg: (_c, value) => value, bg: (_c, value) => value, bold: (value) => value }, {}, () => {});
-				return null;
-			},
-		},
+		ui,
 		sessionManager: {
 			getSessionId: () => "current-session-id",
 			getSessionFile: () => path.join(cwd, ".pi", "sessions", "current.jsonl"),
@@ -64,6 +72,9 @@ function makeCtx(cwd, { mode = "tui" } = {}) {
 		},
 		get _notes() {
 			return notes;
+		},
+		get _selectCalls() {
+			return selectCalls;
 		},
 		get _customCalls() {
 			return customCalls;
@@ -108,7 +119,58 @@ async function main() {
 		const ctx = makeCtx(project);
 		for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, ctx);
 		await commands.get("sessions").handler("", ctx);
-		check("/sessions opens standalone TUI dashboard", ctx._customCalls === 1, String(ctx._customCalls));
+		check(
+			"/sessions without ui.select keeps standalone TUI dashboard fallback",
+			ctx._customCalls === 1,
+			String(ctx._customCalls),
+		);
+
+		const menuCtx = makeCtx(project, {
+			withSelect: true,
+			selectResult: "dashboard — abrir el dashboard de sesiones",
+		});
+		await commands.get("sessions").handler("", menuCtx);
+		check(
+			"bare /sessions + UI opens the selector once",
+			menuCtx._selectCalls.length === 1,
+			String(menuCtx._selectCalls.length),
+		);
+		const items = menuCtx._selectCalls[0]?.items ?? [];
+		const has = (token) => items.some((item) => String(item).startsWith(token));
+		check(
+			"/sessions selector offers dashboard/list/cleanup",
+			["dashboard", "list", "cleanup"].every(has),
+			JSON.stringify(items),
+		);
+		check(
+			"selecting dashboard opens standalone TUI dashboard",
+			menuCtx._customCalls === 1,
+			String(menuCtx._customCalls),
+		);
+
+		const explicitCtx = makeCtx(project, {
+			withSelect: true,
+			selectResult: "cleanup — limpiar registros stale seguros",
+		});
+		const explicitStreams = await captureConsole(() => commands.get("sessions").handler("list", explicitCtx));
+		check(
+			"explicit /sessions list bypasses selector",
+			explicitCtx._selectCalls.length === 0,
+			String(explicitCtx._selectCalls.length),
+		);
+		check(
+			"/sessions list works with UI selector available",
+			explicitStreams.out.join("\n").includes("Pandi sessions"),
+			JSON.stringify(explicitStreams),
+		);
+
+		const cancelCtx = makeCtx(project, { withSelect: true, selectResult: undefined });
+		await commands.get("sessions").handler("", cancelCtx);
+		check(
+			"cancelled /sessions selector does not open dashboard",
+			cancelCtx._customCalls === 0,
+			String(cancelCtx._customCalls),
+		);
 		for (const handler of handlers.get("session_shutdown") ?? []) await handler({ reason: "quit" }, ctx);
 
 		const printCtx = makeCtx(project, { mode: "print" });
