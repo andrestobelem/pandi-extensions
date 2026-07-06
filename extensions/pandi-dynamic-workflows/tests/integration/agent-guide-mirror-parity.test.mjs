@@ -20,7 +20,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -30,8 +30,11 @@ const CLAUDE = path.join(REPO_ROOT, "CLAUDE.md");
 
 const { check, counts } = createChecker();
 
-function runCheck() {
-	return spawnSync(process.execPath, [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+function runCheck(repoRoot = REPO_ROOT) {
+	return spawnSync(process.execPath, [path.join(repoRoot, "scripts", "sync-agent-guides.mjs"), "--check"], {
+		cwd: repoRoot,
+		encoding: "utf8",
+	});
 }
 
 async function main() {
@@ -56,20 +59,23 @@ async function main() {
 		);
 	}
 
-	// 2) Sensitivity: mutate the mirror by one line and confirm --check catches it, then revert.
-	await withMutatedFile(
-		CLAUDE,
-		(orig) => `${orig}\n<!-- drift -->\n`,
-		() => {
-			const drifted = runCheck();
-			check(
-				"a one-line tweak to CLAUDE.md is detected as drift (exit 1)",
-				drifted.status === 1,
-				`exit=${drifted.status}`,
-			);
-		},
-	);
-	check("mirror restored to in-sync after the negative control", runCheck().status === 0);
+	// 2) Sensitivity: mutate the mirror by one line in an isolated repo copy and confirm --check catches it.
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		const copyClaude = path.join(copyRoot, "CLAUDE.md");
+		await withMutatedFile(
+			copyClaude,
+			(orig) => `${orig}\n<!-- drift -->\n`,
+			() => {
+				const drifted = runCheck(copyRoot);
+				check(
+					"a one-line tweak to CLAUDE.md is detected as drift (exit 1)",
+					drifted.status === 1,
+					`exit=${drifted.status}`,
+				);
+			},
+		);
+		check("isolated mirror restored to in-sync after the negative control", runCheck(copyRoot).status === 0);
+	});
 
 	if (counts.failed > 0) {
 		console.error("\nFailures:");

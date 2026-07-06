@@ -24,7 +24,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -33,8 +33,11 @@ const ROOT_PKG = path.join(REPO_ROOT, "package.json");
 
 const { check, counts } = createChecker();
 
-function runCheck() {
-	return spawnSync(process.execPath, [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+function runCheck(repoRoot = REPO_ROOT) {
+	return spawnSync(process.execPath, [path.join(repoRoot, "scripts", "sync-root-manifest.mjs"), "--check"], {
+		cwd: repoRoot,
+		encoding: "utf8",
+	});
 }
 
 async function main() {
@@ -73,18 +76,21 @@ async function main() {
 		}
 	}
 
-	// 3) Sensibilidad: dropeá la última entry root pi.extensions y confirmá que --check la detecta.
+	// 3) Sensibilidad: dropeá la última entry root pi.extensions en una copia aislada y confirmá
+	// que --check la detecta sin tocar el package.json tracked del checkout real.
 	const dropLastExtension = (orig) => {
 		const mutated = JSON.parse(orig);
 		mutated.pi.extensions = mutated.pi.extensions.slice(0, -1);
 		return `${JSON.stringify(mutated, null, "\t")}\n`;
 	};
-	await withMutatedFile(ROOT_PKG, dropLastExtension, () => {
-		const drifted = runCheck();
-		check("a dropped root entry is detected as drift (exit 1)", drifted.status === 1, `exit=${drifted.status}`);
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		const copyRootPkg = path.join(copyRoot, "package.json");
+		await withMutatedFile(copyRootPkg, dropLastExtension, () => {
+			const drifted = runCheck(copyRoot);
+			check("a dropped root entry is detected as drift (exit 1)", drifted.status === 1, `exit=${drifted.status}`);
+		});
+		check("isolated root manifest restored to in-sync after the negative control", runCheck(copyRoot).status === 0);
 	});
-	// Confirmá que el revert restauró el sync (protege contra dejar sucio el árbol).
-	check("root manifest restored to in-sync after the negative control", runCheck().status === 0);
 
 	if (counts.failed > 0) {
 		console.error("\nFailures:");

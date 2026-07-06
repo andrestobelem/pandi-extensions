@@ -23,7 +23,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../shared/test/harness.mjs";
-import { withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -31,8 +31,11 @@ const SYNC = path.join(REPO_ROOT, "scripts", "sync-skill-mirrors.mjs");
 
 const { check, counts } = createChecker();
 
-function runCheck() {
-	return spawnSync(process.execPath, [SYNC, "--check"], { cwd: REPO_ROOT, encoding: "utf8" });
+function runCheck(repoRoot = REPO_ROOT) {
+	return spawnSync(process.execPath, [path.join(repoRoot, "scripts", "sync-skill-mirrors.mjs"), "--check"], {
+		cwd: repoRoot,
+		encoding: "utf8",
+	});
 }
 
 async function main() {
@@ -61,22 +64,23 @@ async function main() {
 		);
 	}
 
-	// 2) Sensitivity: mutate a mirror by one char and confirm --check catches it, then revert.
-	// withMutatedFile keeps the in-place mutation the real --check needs, but restores on SIGTERM/exit.
-	await withMutatedFile(
-		claudeSkill,
-		(orig) => `${orig}\n<!-- drift -->\n`,
-		() => {
-			const drifted = runCheck();
-			check(
-				"a one-line tweak to a mirror is detected as drift (exit 1)",
-				drifted.status === 1,
-				`exit=${drifted.status}`,
-			);
-		},
-	);
-	// Confirm the revert restored sync (guards against leaving the tree dirty).
-	check("mirror restored to in-sync after the negative control", runCheck().status === 0);
+	// 2) Sensitivity: mutate a mirror by one char in an isolated repo copy and confirm --check catches it.
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		const copyClaudeSkill = path.join(copyRoot, ".claude", "skills", "init-pandi-extensions", "SKILL.md");
+		await withMutatedFile(
+			copyClaudeSkill,
+			(orig) => `${orig}\n<!-- drift -->\n`,
+			() => {
+				const drifted = runCheck(copyRoot);
+				check(
+					"a one-line tweak to a mirror is detected as drift (exit 1)",
+					drifted.status === 1,
+					`exit=${drifted.status}`,
+				);
+			},
+		);
+		check("isolated mirror restored to in-sync after the negative control", runCheck(copyRoot).status === 0);
+	});
 
 	if (counts.failed > 0) {
 		console.error("\nFailures:");
