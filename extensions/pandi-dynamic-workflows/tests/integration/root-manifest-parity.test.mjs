@@ -1,20 +1,21 @@
 /**
- * Durable parity test for the root pi manifest: the root package.json `pi.extensions`
- * and `pi.themes` are DERIVED from each `extensions/pandi-<name>/package.json` pi manifest by
- * `scripts/sync-root-manifest.mjs` (source of truth = the sub-packages). Adding an
- * extension must never require hand-editing the root list — and forgetting to register
- * one must be caught here instead of silently not loading.
+ * Test durable de paridad para el manifest raíz de pi: `pi.extensions` y `pi.themes`
+ * del package.json raíz se DERIVAN desde cada manifest pi de
+ * `extensions/pandi-<name>/package.json` vía `scripts/sync-root-manifest.mjs`
+ * (fuente de verdad = los sub-paquetes). Agregar una extensión nunca debe requerir editar
+ * a mano la lista raíz — y olvidar registrar una debe detectarse acá en vez de no cargarla
+ * silenciosamente.
  *
- * This pins:
- *   - In sync: `sync-root-manifest.mjs --check` exits 0 (root manifest == derivation).
- *   - Coverage: every extensions/pandi package that declares pi.extensions appears in the
- *     root pi.extensions (and likewise pi.themes), so nothing ships unregistered.
- *   - Sensitivity (negative control): dropping one root entry is detected as drift
- *     (exit 1), so the check is not vacuous. The root file is restored afterwards.
+ * Esto fija:
+ *   - En sync: `sync-root-manifest.mjs --check` sale 0 (manifest raíz == derivación).
+ *   - Cobertura: cada package extensions/pandi que declara pi.extensions aparece en
+ *     root pi.extensions (e igual pi.themes), así nada se shipea sin registrar.
+ *   - Sensibilidad (control negativo): dropear una entry raíz se detecta como drift
+ *     (exit 1), así el check no es vacuo. El archivo raíz se restaura después.
  *
- * No extension build / no model: a pure filesystem + script-process test.
+ * Sin build de extensión / sin modelo: test puro de filesystem + proceso de script.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/root-manifest-parity.test.mjs
  */
 
@@ -39,7 +40,7 @@ function runCheck() {
 async function main() {
 	check("sync-root-manifest.mjs exists", fs.existsSync(SYNC));
 
-	// 1) Root manifest in sync with the derivation from sub-packages.
+	// 1) Manifest raíz en sync con la derivación desde sub-paquetes.
 	const res = runCheck();
 	check(
 		"sync-root-manifest.mjs --check is in sync (root pi manifest == derivation)",
@@ -47,7 +48,7 @@ async function main() {
 		`exit=${res.status} ${(res.stderr || res.stdout || "").trim().split("\n").slice(-3).join(" | ")}`,
 	);
 
-	// 2) Coverage: every sub-package pi.extensions/pi.themes entry is present in the root.
+	// 2) Cobertura: cada entry pi.extensions/pi.themes de sub-paquete está presente en raíz.
 	const root = JSON.parse(fs.readFileSync(ROOT_PKG, "utf8"));
 	const extensionsDir = path.join(REPO_ROOT, "extensions");
 	const dirs = fs
@@ -72,7 +73,7 @@ async function main() {
 		}
 	}
 
-	// 3) Sensitivity: drop the last root pi.extensions entry and confirm --check catches it.
+	// 3) Sensibilidad: dropeá la última entry root pi.extensions y confirmá que --check la detecta.
 	const dropLastExtension = (orig) => {
 		const mutated = JSON.parse(orig);
 		mutated.pi.extensions = mutated.pi.extensions.slice(0, -1);
@@ -82,7 +83,7 @@ async function main() {
 		const drifted = runCheck();
 		check("a dropped root entry is detected as drift (exit 1)", drifted.status === 1, `exit=${drifted.status}`);
 	});
-	// Confirm the revert restored sync (guards against leaving the tree dirty).
+	// Confirmá que el revert restauró el sync (protege contra dejar sucio el árbol).
 	check("root manifest restored to in-sync after the negative control", runCheck().status === 0);
 
 	if (counts.failed > 0) {
