@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 /**
- * Durable single-source parity test for the built-in agent personas.
+ * Test durable de paridad single-source para las personas de agente built-in.
  *
- * Source of truth = the `BUILTIN_AGENT_PERSONAS` object in agent-env-persona.ts. Every
- * persona key defined there MUST be surfaced 1:1 everywhere the persona menu is exposed,
- * or agents/users get an inconsistent list:
- *   - the runtime prompt string in index.ts (the agentType:'…' union)
- *   - the primitives/agent.md reference and its self-contained ultracode skill mirror
- *   - the README persona list
- *   - the ultracode skill: SKILL.md and its reference/personas.md catalog
+ * Fuente de verdad = el objeto `BUILTIN_AGENT_PERSONAS` en agent-env-persona.ts. Cada key
+ * de persona definida ahí DEBE exponerse 1:1 en todas las superficies donde aparece el menú
+ * de personas, o agentes/personas usuarias reciben una lista inconsistente:
+ *   - el string de prompt runtime en index.ts (la unión agentType:'…')
+ *   - la referencia primitives/agent.md y su mirror autocontenido del skill ultracode
+ *   - la lista de personas del README
+ *   - el skill ultracode: SKILL.md y su catálogo reference/personas.md
  *
- * It also pins the read-only security invariant: every current built-in persona defaults
- * to READ_ONLY_AGENT_TOOLS. Adding a write-capable persona (e.g. an executor) must be a
- * CONSCIOUS change that updates this test — it should not slip in silently.
+ * También fija el invariante de seguridad read-only: cada persona built-in actual defaulta
+ * a READ_ONLY_AGENT_TOOLS. Agregar una persona con capacidad de escritura (p. ej. un executor)
+ * debe ser un cambio CONSCIENTE que actualice este test; no debería colarse en silencio.
  *
- * No extension build / no model: pure filesystem + regex over source.
+ * Sin build de extensión / sin modelo: filesystem puro + regex sobre la fuente.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/persona-catalog-parity.test.mjs
  */
 
@@ -43,7 +43,7 @@ const SURFACES = {
 const { check, counts } = createChecker();
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "");
 
-/** Parse BUILTIN_AGENT_PERSONAS into [{ name, body }] entries. */
+/** Parsea BUILTIN_AGENT_PERSONAS en entries [{ name, body }]. */
 function parsePersonas(source) {
 	const block = source.match(/BUILTIN_AGENT_PERSONAS[^{]*{([\s\S]*?)\n};/);
 	if (!block) return [];
@@ -58,23 +58,23 @@ function main() {
 	const personaSrc = read(PERSONA_SRC);
 	const personas = parsePersonas(personaSrc);
 
-	// Negative control: extraction must be non-vacuous and include known sentinels.
+	// Control negativo: la extracción debe ser no vacua e incluir sentinels conocidos.
 	check("persona extraction is non-vacuous", personas.length >= 5, `found=${personas.length}`);
 	const names = personas.map((p) => p.name);
 	check("extraction includes sentinel 'reviewer'", names.includes("reviewer"), names.join(","));
 	check("extraction includes new 'architect'", names.includes("architect"), names.join(","));
 
-	// Read every surface once.
+	// Leé cada superficie una sola vez.
 	const surfaceText = Object.fromEntries(Object.entries(SURFACES).map(([label, p]) => [label, read(p)]));
 
 	for (const { name, body } of personas) {
-		// Read-only security invariant.
+		// Invariante de seguridad read-only.
 		check(
 			`persona '${name}' defaults to READ_ONLY_AGENT_TOOLS`,
 			/tools:\s*READ_ONLY_AGENT_TOOLS/.test(body),
 			body.trim(),
 		);
-		// Present on every surface.
+		// Presente en cada superficie.
 		for (const [label, text] of Object.entries(surfaceText)) {
 			check(`persona '${name}' is surfaced in ${label}`, text.includes(name), label);
 		}
