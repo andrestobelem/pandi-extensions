@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Behavioral regression test for actionable empty states on the workflow dashboard.
+ * Test de regresión de comportamiento para empty states accionables en el dashboard de workflows.
  *
- * Observable contract: every empty run-bearing tab (Monitor, Runs, Agents, Activity)
- * tells a first-time user the EXACT command to create the missing artifact, instead of
- * a dead-end "nothing here" line. Before this fix, Runs / Agents / Activity rendered no
- * "/workflow start" guidance, so the user had no concrete next step from those tabs.
+ * Contrato observable: cada tab vacío que puede contener runs (Monitor, Runs, Agents, Activity)
+ * le dice a una persona primeriza el comando EXACTO para crear el artifact faltante, en vez de
+ * una línea dead-end de "nada acá". Antes de este fix, Runs / Agents / Activity no renderizaban
+ * guía "/workflow start", así la persona no tenía un próximo paso concreto desde esos tabs.
  *
- * This is distinct from `dashboard-usability-fixes.test.mjs`, which only asserts the
- * idle *status bar* advertises the entrypoint; here we assert the empty *tab bodies*.
+ * Esto es distinto de `dashboard-usability-fixes.test.mjs`, que solo aserta que la
+ * *status bar* idle publicita el entrypoint; acá asertamos los *bodies de tabs* vacíos.
  */
 
 import * as fs from "node:fs/promises";
@@ -92,7 +92,7 @@ function makeCtx(cwd) {
 			editor: async (_title, initial = "") => initial,
 			getEditorComponent: () => undefined,
 			setEditorComponent: () => {},
-			// Overridden in openComponent() to capture the live component handle.
+			// Sobrescrito en openComponent() para capturar el handle vivo del componente.
 			custom: async () => null,
 		},
 		sessionManager: {
@@ -119,7 +119,7 @@ async function openComponent(url) {
 	const project = await makeProject();
 	const { ctx } = makeCtx(project);
 	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, ctx);
-	// Capture the live component handle so the test can drive handleInput directly.
+	// Capturá el handle vivo del componente para que el test pueda manejar handleInput directo.
 	let captured = null;
 	ctx.ui.custom = async (factory) => {
 		const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => {} };
@@ -139,7 +139,7 @@ async function main() {
 	const HINT = "/workflow start";
 	const component = await openComponent(url);
 
-	// Monitor (default tab) on an empty project: keeps the existing guidance.
+	// Monitor (tab default) en un proyecto vacío: conserva la guía existente.
 	const monitor = tabBody(component);
 	check(
 		"empty Monitor advertises the /workflow start command",
@@ -147,7 +147,7 @@ async function main() {
 		monitor.split("\n").slice(0, 6).join(" | "),
 	);
 
-	// Runs tab: used to render a bare "No workflow runs found." with no next step.
+	// Tab Runs: antes renderizaba un "No workflow runs found." pelado sin próximo paso.
 	component.handleInput("R");
 	const runs = tabBody(component);
 	check("Runs tab is empty as expected", runs.includes("No workflow runs found."), runs.split("\n")[0]);
@@ -157,7 +157,7 @@ async function main() {
 		runs.split("\n").slice(0, 6).join(" | "),
 	);
 
-	// Agents tab: used to describe but never give the exact command.
+	// Tab Agents: antes describía pero nunca daba el comando exacto.
 	component.handleInput("A");
 	const agents = tabBody(component);
 	check("Agents tab is empty as expected", agents.includes("No workflow agents found yet."), agents.split("\n")[0]);
@@ -167,7 +167,7 @@ async function main() {
 		agents.split("\n").slice(0, 6).join(" | "),
 	);
 
-	// Activity tab: used to render "No workflow activity yet." with no next step.
+	// Tab Activity: antes renderizaba "No workflow activity yet." sin próximo paso.
 	component.handleInput("a");
 	const activity = tabBody(component);
 	check("Activity tab is empty as expected", activity.includes("No workflow activity yet."), activity.split("\n")[0]);
