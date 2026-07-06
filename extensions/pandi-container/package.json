@@ -19,6 +19,7 @@
 	],
 	"files": [
 		"index.ts",
+		"command-menu.ts",
 		"container.ts",
 		"notify.ts",
 		"README.md"
