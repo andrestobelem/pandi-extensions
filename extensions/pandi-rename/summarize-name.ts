@@ -75,6 +75,13 @@ function recentMessages(entries: unknown, maxMessages: number): { role: string; 
 	return out.reverse();
 }
 
+function formatRecentConversation(messages: { role: string; text: string }[], maxChars: number): string {
+	let convo = messages.map((m) => `${m.role}: ${m.text}`).join("\n");
+	// Conservá la cola más reciente cuando supera el tope.
+	if (convo.length > maxChars) convo = convo.slice(convo.length - maxChars);
+	return convo;
+}
+
 /**
  * Arma el prompt de resumen a partir de la parte más reciente de la conversación. Devuelve
  * "" cuando no hay nada para resumir (así quien llama puede saltear el LLM por completo).
@@ -84,9 +91,7 @@ export function buildSummaryPrompt(entries: unknown, opts: SummarizeOptions = {}
 	const maxChars = opts.maxChars ?? MAX_SUMMARY_CHARS;
 	const messages = recentMessages(entries, maxMessages);
 	if (messages.length === 0) return "";
-	let convo = messages.map((m) => `${m.role}: ${m.text}`).join("\n");
-	// Conservá la cola más reciente cuando supera el tope.
-	if (convo.length > maxChars) convo = convo.slice(convo.length - maxChars);
+	const convo = formatRecentConversation(messages, maxChars);
 	return [
 		"Estás nombrando una sesión de trabajo en base a su actividad MÁS RECIENTE.",
 		"Leé la conversación reciente de abajo y responde con un título CORTO de 2 a 4 palabras",
