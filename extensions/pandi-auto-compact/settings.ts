@@ -31,13 +31,16 @@ export const parseThreshold = (value: string | undefined): number | undefined =>
 	return parsed;
 };
 
+const ON_VALUES = new Set(["on", "1", "true", "yes", "show"]);
+const OFF_VALUES = new Set(["off", "0", "false", "no", "hide"]);
+
 // Parsea una configuración estilo on/off (env var o argumento de subcomando). Devuelve
 // undefined para entradas no reconocidas para que quien llama pueda volver a un valor predeterminado.
 const parseOnOff = (value: string | undefined): boolean | undefined => {
 	if (value === undefined) return undefined;
 	const v = value.trim().toLowerCase();
-	if (v === "on" || v === "1" || v === "true" || v === "yes" || v === "show") return true;
-	if (v === "off" || v === "0" || v === "false" || v === "no" || v === "hide") return false;
+	if (ON_VALUES.has(v)) return true;
+	if (OFF_VALUES.has(v)) return false;
 	return undefined;
 };
 export const parseBarSetting = parseOnOff;
