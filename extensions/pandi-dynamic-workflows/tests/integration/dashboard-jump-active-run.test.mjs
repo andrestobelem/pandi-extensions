@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Behavioral regression test for DW-DASH-H3: a one-key jump to the next/previous
- * RUNNING run on the flat lists (Runs and Activity tabs), via `]` / `[`.
+ * Test de regresión de comportamiento para DW-DASH-H3: salto de una tecla al run
+ * RUNNING siguiente/anterior en listas planas (tabs Runs y Activity), vía `]` / `[`.
  *
- * Observable contract:
- *   - On the Runs tab, `]` advances selection to the next run whose state is "running"
- *     (wrapping), and `[` goes to the previous one; completed/failed runs are skipped.
- *   - On the Activity tab, `]` / `[` jump between entries whose state is "running".
- *   - With nothing running, the keys are a no-op (selection unchanged).
- * This mirrors the Monitor's existing `[` / `]` run cycling and the Agents tab's `f`
- * (next failed agent), giving long lists one-key triage to the in-progress items.
+ * Contrato observable:
+ *   - En el tab Runs, `]` avanza la selección al siguiente run cuyo state es "running"
+ *     (con wrap), y `[` va al anterior; runs completed/failed se saltean.
+ *   - En el tab Activity, `]` / `[` saltan entre entries cuyo state es "running".
+ *   - Si no hay nada running, las teclas son no-op (selección sin cambios).
+ * Esto refleja el cycling de runs `[` / `]` ya existente en Monitor y la `f` del tab Agents
+ * (siguiente agente failed), dando a listas largas triage de una tecla hacia items in-progress.
  */
 
 import * as fs from "node:fs/promises";
@@ -147,45 +147,45 @@ async function main() {
 	const { url } = await buildExtension();
 	const component = await openComponent(url);
 
-	// Runs tab: [completed, running, completed, running], cursor starts at 0.
+	// Tab Runs: [completed, running, completed, running], cursor empieza en 0.
 	component.setRuns([
 		mkRun("r0", "completed"),
 		mkRun("r1", "running"),
 		mkRun("r2", "completed"),
 		mkRun("r3", "running"),
 	]);
-	component.handleInput("R"); // jump to Runs tab
+	component.handleInput("R"); // saltar al tab Runs
 	check("Runs: starts at index 0", component.getSelection().runIndex === 0, String(component.getSelection().runIndex));
 
-	component.handleInput("]"); // -> next running after 0 => r1 (index 1)
+	component.handleInput("]"); // -> siguiente running después de 0 => r1 (index 1)
 	check(
 		"Runs: ] skips completed r0 to running r1",
 		component.getSelection().runIndex === 1,
 		String(component.getSelection().runIndex),
 	);
 
-	component.handleInput("]"); // -> next running after 1 => r3 (index 3)
+	component.handleInput("]"); // -> siguiente running después de 1 => r3 (index 3)
 	check(
 		"Runs: ] skips completed r2 to running r3",
 		component.getSelection().runIndex === 3,
 		String(component.getSelection().runIndex),
 	);
 
-	component.handleInput("]"); // wraps -> r1 (index 1)
+	component.handleInput("]"); // wrap -> r1 (index 1)
 	check(
 		"Runs: ] wraps from last running back to first",
 		component.getSelection().runIndex === 1,
 		String(component.getSelection().runIndex),
 	);
 
-	component.handleInput("["); // previous running from 1 => wraps to r3 (index 3)
+	component.handleInput("["); // running anterior desde 1 => wrap a r3 (index 3)
 	check(
 		"Runs: [ goes to previous running, wrapping",
 		component.getSelection().runIndex === 3,
 		String(component.getSelection().runIndex),
 	);
 
-	// No running runs: keys are a no-op.
+	// Sin runs running: las teclas son no-op.
 	component.setRuns([mkRun("a", "completed"), mkRun("b", "failed"), mkRun("c", "completed")]);
 	component.handleInput("R");
 	const before = component.getSelection().runIndex;
@@ -196,9 +196,9 @@ async function main() {
 		`${before} -> ${component.getSelection().runIndex}`,
 	);
 
-	// Activity tab: jump between running entries.
+	// Tab Activity: saltá entre entries running.
 	component.setActivity([mkActivity("a0", "completed"), mkActivity("a1", "running"), mkActivity("a2", "completed")]);
-	component.handleInput("a"); // Activity tab
+	component.handleInput("a"); // tab Activity
 	check(
 		"Activity: starts at index 0",
 		component.getSelection().activityIndex === 0,
@@ -211,7 +211,7 @@ async function main() {
 		String(component.getSelection().activityIndex),
 	);
 
-	// Help advertises the new shortcut.
+	// Help publicita el shortcut nuevo.
 	component.handleInput("?");
 	const help = component.render(100).join("\n");
 	check(
