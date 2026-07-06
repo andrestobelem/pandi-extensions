@@ -38,7 +38,7 @@ const { check, counts } = createChecker();
 
 async function main() {
 	check("negative-control.mjs exists", fs.existsSync(HELPER));
-	const { withMutatedFile } = await import(HELPER);
+	const { withIsolatedRepoCopy, withMutatedFile } = await import(HELPER);
 
 	// 1) Comportamiento: fn ve contenido mutado; el archivo se restaura después.
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "negctl-"));
@@ -70,7 +70,24 @@ async function main() {
 	check("throw from fn propagates", threw);
 	check("file restored after fn throws", fs.readFileSync(f, "utf8") === ORIGINAL);
 
-	// 3) Crash-safety: un hijo SIGTERM'd a mitad de mutación igual restaura el archivo vía el signal guard.
+	// 3) Aislamiento: los controles negativos que necesitan scripts reales deben mutar una copia del
+	// repo, nunca los archivos tracked del checkout de trabajo.
+	const realRootPackage = path.join(REPO_ROOT, "package.json");
+	const realRootPackageOriginal = fs.readFileSync(realRootPackage, "utf8");
+	let isolatedRoot = null;
+	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
+		isolatedRoot = copyRoot;
+		const copiedRootPackage = path.join(copyRoot, "package.json");
+		check("isolated repo copy contains tracked package.json", fs.existsSync(copiedRootPackage));
+		fs.writeFileSync(copiedRootPackage, `${fs.readFileSync(copiedRootPackage, "utf8")}\n<!-- isolated drift -->\n`);
+		check(
+			"mutating the isolated copy does not alter the real tracked package.json",
+			fs.readFileSync(realRootPackage, "utf8") === realRootPackageOriginal,
+		);
+	});
+	check("isolated repo copy is removed after callback", isolatedRoot !== null && !fs.existsSync(isolatedRoot));
+
+	// 4) Crash-safety: un hijo SIGTERM'd a mitad de mutación igual restaura el archivo vía el signal guard.
 	const marker = path.join(dir, "child-target.txt");
 	fs.writeFileSync(marker, ORIGINAL);
 	const childSrc = `
@@ -149,7 +166,7 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 		`after=${JSON.stringify(afterKill)}`,
 	);
 
-	// 4) Mutación anidada del mismo archivo: rechazar en vez de sobrescribir el baseline de restore.
+	// 5) Mutación anidada del mismo archivo: rechazar en vez de sobrescribir el baseline de restore.
 	let nestedRejected = false;
 	await withMutatedFile(f, "OUTER", async () => {
 		try {
@@ -162,7 +179,7 @@ await withMutatedFile(f, "DIRTY-BY-CHILD", async () => {
 	});
 	check("file restored after rejected nested mutation", fs.readFileSync(f, "utf8") === ORIGINAL);
 
-	// 5) Atomicidad (issue #8): las suites corren en un pool paralelo y esbuild (cwd = repo root)
+	// 6) Atomicidad (issue #8): las suites corren en un pool paralelo y esbuild (cwd = repo root)
 	// resuelve el package.json root REAL mientras las suites de parity lo mutan in-place. Un
 	// fs.writeFileSync in-place trunca antes de escribir, así que un lector paralelo puede observar un archivo VACÍO
 	// (CI: "Unexpected end of file in JSON — package.json:1:0"). Pineá el mecanismo atómico
