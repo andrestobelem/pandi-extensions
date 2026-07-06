@@ -83,12 +83,15 @@ async function loadExtension(url) {
 	return { tools, commands };
 }
 
-function parseResult(result) {
-	const text = result?.content?.[0]?.text ?? "";
+function expectJsonResult(label, result) {
+	const text = result?.content?.[0]?.text;
+	check(`${label}: result content[0].text is a string`, typeof text === "string", JSON.stringify(result));
+	if (typeof text !== "string") return undefined;
 	try {
 		return JSON.parse(text);
-	} catch {
-		return null;
+	} catch (err) {
+		check(`${label}: result text is valid JSON`, false, `${err?.message ?? err}: ${text}`);
+		return undefined;
 	}
 }
 
@@ -165,7 +168,7 @@ async function scenarioChoiceSelect(tools) {
 		JSON.stringify(ctx._selectCalls[0]?.options) === JSON.stringify(["Alpha", "Beta", "Gamma"]),
 		JSON.stringify(ctx._selectCalls[0]?.options),
 	);
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("choice", result);
 	check("choice: returns JSON with 1-based index", parsed?.index === 2, JSON.stringify(parsed));
 	check("choice: returns the chosen label", parsed?.label === "Beta", JSON.stringify(parsed));
 	check("choice: not cancelled", parsed?.cancelled !== true, JSON.stringify(parsed));
@@ -182,7 +185,7 @@ async function scenarioChoiceCancel(tools) {
 		ctx,
 	);
 	check("cancel: ui.select was called", ctx._selectCalls.length === 1, String(ctx._selectCalls.length));
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("cancel", result);
 	check("cancel: returns cancelled:true", parsed?.cancelled === true, JSON.stringify(parsed));
 }
 
@@ -227,7 +230,7 @@ async function scenarioRecommendedChoiceImmediate(tools, commands) {
 		undefined,
 		ctx,
 	);
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("recommended/immediate", result);
 	check("recommended/immediate: opens no selector", ctx._selectCalls.length === 0, String(ctx._selectCalls.length));
 	check(
 		"recommended/immediate: returns recommended label",
@@ -248,7 +251,7 @@ async function scenarioRecommendedChoiceByLabel(tools, commands) {
 		undefined,
 		ctx,
 	);
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("recommended/label", result);
 	check(
 		"recommended/label: returns matching option",
 		parsed?.index === 3 && parsed?.label === "Gamma",
@@ -277,7 +280,7 @@ async function scenarioRecommendedChoiceTimeout(tools, commands) {
 				ctx,
 			),
 	);
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("recommended-timeout", result);
 	check("recommended-timeout: opens selector once", ctx._selectCalls.length === 1, String(ctx._selectCalls.length));
 	check("recommended-timeout: passes a 60s timeout", sawTimeoutMs === 60_000, `timeout=${sawTimeoutMs}`);
 	check(
@@ -298,7 +301,7 @@ async function scenarioRecommendedChoiceManualCancelStillCancels(tools, commands
 		undefined,
 		ctx,
 	);
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("recommended-timeout/cancel", result);
 	check("recommended-timeout/cancel: returns cancelled", parsed?.cancelled === true, JSON.stringify(parsed));
 }
 
@@ -312,18 +315,16 @@ async function scenarioConfirmTrue(tools) {
 		ctx._confirmCalls[0]?.title === "Proceed?" && ctx._confirmCalls[0]?.message === "This is safe.",
 		JSON.stringify(ctx._confirmCalls[0]),
 	);
-	check("confirm-true: returns confirmed:true", parseResult(result)?.confirmed === true, result?.content?.[0]?.text);
+	const parsed = expectJsonResult("confirm-true", result);
+	check("confirm-true: returns confirmed:true", parsed?.confirmed === true, result?.content?.[0]?.text);
 }
 
 async function scenarioConfirmFalse(tools) {
 	const tool = tools.get("ask_confirm");
 	const ctx = makeCtx({ mode: "tui", confirmReturn: false });
 	const result = await tool.execute("k2", { title: "Proceed?" }, undefined, undefined, ctx);
-	check(
-		"confirm-false: returns confirmed:false",
-		parseResult(result)?.confirmed === false,
-		result?.content?.[0]?.text,
-	);
+	const parsed = expectJsonResult("confirm-false", result);
+	check("confirm-false: returns confirmed:false", parsed?.confirmed === false, result?.content?.[0]?.text);
 }
 
 async function scenarioConfirmNoUi(tools) {
@@ -343,7 +344,7 @@ async function scenarioRecommendedConfirmImmediate(tools, commands) {
 	const ctx = makeCtx({ mode: "tui", confirmReturn: true });
 	await commands.get("ask").handler("recommended on", ctx);
 	const result = await tool.execute("k4", { title: "Proceed?", recommended: false }, undefined, undefined, ctx);
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("confirm recommended/immediate", result);
 	check(
 		"confirm recommended/immediate: opens no dialog",
 		ctx._confirmCalls.length === 0,
@@ -372,7 +373,7 @@ async function scenarioRecommendedConfirmTimeout(tools, commands) {
 	const result = await withImmediateTimers(
 		async () => await tool.execute("k5", { title: "Proceed?", recommended: true }, undefined, undefined, ctx),
 	);
-	const parsed = parseResult(result);
+	const parsed = expectJsonResult("confirm recommended-timeout", result);
 	check(
 		"confirm recommended-timeout: opens dialog once",
 		ctx._confirmCalls.length === 1,
