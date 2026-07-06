@@ -43,6 +43,14 @@ type AgentOutputLinesInput = {
 	liveStderr: string;
 };
 
+type AgentPromptLinesInput = {
+	agentRef: string;
+	agentName: string;
+	promptTable: string;
+	promptText: string;
+	access: string | undefined;
+};
+
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
 	// artifactPath se origina en events.jsonl no confiable; conténlo dentro de runDir
@@ -281,6 +289,27 @@ function formatAgentOutputLines({
 	];
 }
 
+function formatAgentPromptLines({
+	agentRef,
+	agentName,
+	promptTable,
+	promptText,
+	access,
+}: AgentPromptLinesInput): string[] {
+	return [
+		`# Prompt: Agent ${agentRef}: ${agentName}`,
+		"",
+		"## Summary",
+		"",
+		promptTable,
+		"",
+		"## Prompt body",
+		"",
+		promptText,
+		...(access ? ["", "## Runtime access", "", truncate(access, 6000)] : []),
+	];
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -363,18 +392,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 		artifactPath,
 	);
 	const promptTable = formatSettingTable(promptRows);
-	const promptLines = [
-		`# Prompt: Agent ${agentRef}: ${agent.name}`,
-		"",
-		"## Summary",
-		"",
-		promptTable,
-		"",
-		"## Prompt body",
-		"",
-		promptText,
-		...(access ? ["", "## Runtime access", "", truncate(access, 6000)] : []),
-	];
+	const promptLines = formatAgentPromptLines({ agentRef, agentName: agent.name, promptTable, promptText, access });
 	// `full` preserves the legacy single-document section order exactly: card, answer,
 	// structured output, prompt, access, diagnostics.
 	const diagnosticsIndex = outputLines.indexOf("## Diagnostics");
