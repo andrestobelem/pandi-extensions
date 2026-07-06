@@ -436,6 +436,10 @@ export interface ExecParams {
 	memory?: string;
 }
 
+function describeRunTarget(params: Pick<ExecParams, "machine" | "image">): string {
+	return params.machine ? `machine ${params.machine}` : `ephemeral ${params.image}`;
+}
+
 export async function runExec(run: RunContainer, params: ExecParams, opts: HandlerOpts): Promise<HandlerResult> {
 	if (!Array.isArray(params.command) || params.command.length === 0) {
 		return {
@@ -486,7 +490,7 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 		});
 	}
 	const result = await run(args, opts);
-	const target = params.machine ? `machine ${params.machine}` : `ephemeral ${params.image}`;
+	const target = describeRunTarget(params);
 	if (!result.ok) {
 		return { ok: false, text: describeError(result, "run"), details: { isError: true, action: "run", target } };
 	}
