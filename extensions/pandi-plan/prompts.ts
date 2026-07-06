@@ -30,6 +30,10 @@ export interface PlanFlags {
 	ultracodeSteps?: boolean;
 }
 
+function renderPlanningPrompt(lines: string[]): string {
+	return lines.join("\n");
+}
+
 /** La instrucción de planificación inyectada cuando /plan entra al modo. */
 export function makePlanningPrompt(plan: { planId: string; task: string } & PlanFlags): string {
 	const lines: string[] = [];
@@ -91,7 +95,7 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 			"Si se aprueba, vas a salir del modo plan y se te va a pedir que implementes. Si el plan se rechaza vas a recibir feedback y deberías revisarlo, y después volver a llamar a submit_plan.",
 		);
 	}
-	return lines.join("\n");
+	return renderPlanningPrompt(lines);
 }
 
 /** El mensaje de implementación reinyectado después de que el usuario aprueba el plan. */
