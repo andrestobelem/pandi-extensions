@@ -98,6 +98,16 @@ import {
 } from "./ultracode.js";
 
 export { liveAgentHeaderStatus } from "./agent-view.js";
+export {
+	activeRunCount,
+	activeRunIds,
+	clearActiveRuns,
+	getActiveRun,
+	hasActiveRun,
+	listActiveRuns,
+	registerActiveRun,
+	unregisterActiveRun,
+} from "./run-registry.js";
 
 import { resolveArtifactPath, resolveCwdPath } from "./path-safety.js";
 import type {

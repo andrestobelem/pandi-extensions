@@ -179,14 +179,14 @@ async function main() {
 	{
 		const { component, getCaptured, mod } = await openComponent(url);
 		component.setRuns([mkRun("r1", "running")]);
-		mod.activeRuns.set("r1", {});
+		mod.registerActiveRun({ runId: "r1" });
 		try {
 			component.handleInput("R");
 			component.handleInput("c"); // cancel (gateado por canCancelRun para un run bg running)
 			const c = getCaptured();
 			check("Runs + c → cancel/r1", c && c.type === "cancel" && c.run?.runId === "r1", JSON.stringify(c));
 		} finally {
-			mod.activeRuns.clear();
+			mod.clearActiveRuns();
 		}
 	}
 
