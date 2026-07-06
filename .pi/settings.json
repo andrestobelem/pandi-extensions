@@ -1,26 +1,33 @@
 {
-  "packages": [
-    { "source": "../extensions/pandi-dynamic-workflows", "skills": [] },
-    "../extensions/pandi-loop",
-    "../extensions/pandi-goal",
-    "../extensions/pandi-plan",
-    "../extensions/pandi-bg",
-    "../extensions/pandi-effort",
-    "../extensions/pandi-mdview",
-    { "source": "../extensions/pandi-docs", "skills": [] },
-    "../extensions/pandi-local-memory",
-    "../extensions/pandi-auto-compact",
-    "../extensions/pandi-worktree",
-    "../extensions/pandi-container",
-    "../extensions/pandi-typescript-lsp",
-    "../extensions/pandi-rename",
-    "../extensions/pandi-btw",
-    "../extensions/pandi",
-    "../extensions/pandi-exit",
-    "../extensions/pandi-clear",
-    "../extensions/pandi-ask",
-    "../extensions/pandi-doctor",
-    "../extensions/pandi-theme"
-  ],
-  "extensions": []
+	"packages": [
+		{
+			"source": "../extensions/pandi-dynamic-workflows",
+			"skills": []
+		},
+		"../extensions/pandi-loop",
+		"../extensions/pandi-goal",
+		"../extensions/pandi-plan",
+		"../extensions/pandi-bg",
+		"../extensions/pandi-effort",
+		"../extensions/pandi-mdview",
+		{
+			"source": "../extensions/pandi-docs",
+			"skills": []
+		},
+		"../extensions/pandi-local-memory",
+		"../extensions/pandi-auto-compact",
+		"../extensions/pandi-worktree",
+		"../extensions/pandi-container",
+		"../extensions/pandi-typescript-lsp",
+		"../extensions/pandi-rename",
+		"../extensions/pandi-btw",
+		"../extensions/pandi-improve-prompt",
+		"../extensions/pandi",
+		"../extensions/pandi-exit",
+		"../extensions/pandi-clear",
+		"../extensions/pandi-ask",
+		"../extensions/pandi-doctor",
+		"../extensions/pandi-theme"
+	],
+	"extensions": []
 }
