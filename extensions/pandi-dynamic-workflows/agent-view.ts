@@ -33,6 +33,16 @@ type AgentSummaryFormatInput = {
 	artifactError: string;
 };
 
+type AgentOutputLinesInput = {
+	outputText: string;
+	structuredOutput: string | undefined;
+	stdoutNote: string | undefined;
+	liveStdoutPath: string | undefined;
+	liveStderrPath: string | undefined;
+	stderr: string | undefined;
+	liveStderr: string;
+};
+
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
 	// artifactPath se origina en events.jsonl no confiable; conténlo dentro de runDir
@@ -241,6 +251,36 @@ function formatStdoutNote(
 	return `${source} stdout could not be parsed as Pi JSON (${parsedStdout?.warning ?? "unknown reason"}); see the artifact/live stream path if you need the raw stream.`;
 }
 
+function formatAgentOutputLines({
+	outputText,
+	structuredOutput,
+	stdoutNote,
+	liveStdoutPath,
+	liveStderrPath,
+	stderr,
+	liveStderr,
+}: AgentOutputLinesInput): string[] {
+	return [
+		"## Agent answer",
+		"",
+		"Best available agent text. Raw Pi JSON stdout is hidden when it parses cleanly; otherwise see Diagnostics/artifact.",
+		"",
+		outputText,
+		...(structuredOutput
+			? ["", "## Structured output", "", fencedBlock(truncate(structuredOutput, MAX_TOOL_TEXT), "text")]
+			: []),
+		"",
+		"## Diagnostics",
+		"",
+		...(stdoutNote ? [`- stdout: ${stdoutNote}`] : ["- stdout: not recorded yet."]),
+		...(liveStdoutPath ? [`- live stdout: ${liveStdoutPath}`] : []),
+		...(liveStderrPath ? [`- live stderr: ${liveStderrPath}`] : []),
+		...(stderr || liveStderr
+			? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")]
+			: []),
+	];
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -302,25 +342,15 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 		"",
 		configTable,
 	];
-	const outputLines = [
-		"## Agent answer",
-		"",
-		"Best available agent text. Raw Pi JSON stdout is hidden when it parses cleanly; otherwise see Diagnostics/artifact.",
-		"",
+	const outputLines = formatAgentOutputLines({
 		outputText,
-		...(structuredOutput
-			? ["", "## Structured output", "", fencedBlock(truncate(structuredOutput, MAX_TOOL_TEXT), "text")]
-			: []),
-		"",
-		"## Diagnostics",
-		"",
-		...(stdoutNote ? [`- stdout: ${stdoutNote}`] : ["- stdout: not recorded yet."]),
-		...(liveStdoutPath ? [`- live stdout: ${liveStdoutPath}`] : []),
-		...(liveStderrPath ? [`- live stderr: ${liveStderrPath}`] : []),
-		...(stderr || liveStderr
-			? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")]
-			: []),
-	];
+		structuredOutput,
+		stdoutNote,
+		liveStdoutPath,
+		liveStderrPath,
+		stderr,
+		liveStderr,
+	});
 	const promptSourceLabel = describePromptSource(promptFromEvent, prompt, agent.promptAvailable);
 	const promptWasTruncated = isPromptSourceTruncated(promptSource, promptFromEvent, agent.promptTruncated);
 	const promptRows = formatPromptMetadataRows(
