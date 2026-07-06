@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Regression: every slash command is registered exactly ONCE.
+ * Regresión: cada slash command se registra exactamente UNA VEZ.
  *
- * Farley review 2026-07-03, finding #6: /ultracode was registered twice — the
- * shared makeWorkflowRoutingHandler registration and, right below it, the older
- * inline block the refactor forgot to delete. The later registration overwrites
- * the earlier one, so one handler closure is permanently unreachable dead code
- * and the palette description silently comes from the survivor.
+ * Review Farley 2026-07-03, hallazgo #6: /ultracode se registraba dos veces — el
+ * registro compartido makeWorkflowRoutingHandler y, justo debajo, el bloque inline
+ * viejo que el refactor olvidó borrar. El registro posterior sobrescribe el anterior,
+ * así un closure handler queda permanentemente como dead code inalcanzable
+ * y la descripción de palette viene silenciosamente del sobreviviente.
  *
- * Contract pinned here:
- *   - activate() registers each command name at most once (no silent overwrite).
- *   - /ultracode still works: with a task it sends ONE user message carrying the
- *     task; without a task it warns usage.
+ * Contrato pineado acá:
+ *   - activate() registra cada nombre de comando como mucho una vez (sin overwrite silencioso).
+ *   - /ultracode todavía funciona: con una task manda UN user message que lleva la
+ *     task; sin task avisa usage.
  */
 
 import * as fs from "node:fs/promises";
@@ -89,14 +89,14 @@ async function main() {
 	const { pi, registrations, sent } = makePi();
 	(ext.activate ?? ext)(pi, makeCtx(project));
 
-	// --- no command name registered twice ---------------------------------------
+	// --- ningún nombre de comando registrado dos veces ---------------------------
 	const byName = new Map();
 	for (const r of registrations) byName.set(r.name, (byName.get(r.name) ?? 0) + 1);
 	const dupes = [...byName.entries()].filter(([, n]) => n > 1);
 	check("no duplicate command registrations", dupes.length === 0, JSON.stringify(dupes));
 	check("ultracode registered exactly once", byName.get("ultracode") === 1, String(byName.get("ultracode")));
 
-	// --- the surviving /ultracode still behaves ----------------------------------
+	// --- el /ultracode sobreviviente todavía se comporta -------------------------
 	const ultra = registrations.filter((r) => r.name === "ultracode").at(-1)?.def;
 	check("ultracode handler present", typeof ultra?.handler === "function");
 	if (typeof ultra?.handler === "function") {
@@ -109,8 +109,8 @@ async function main() {
 		);
 		check("the message carries the task", sent[0]?.text?.includes("audit the repo"), sent[0]?.text?.slice(0, 120));
 		const before = sent.length;
-		// (notify() routes to console in print mode, so only pin the observable
-		// contract here: no user message is sent without a task.)
+		// (notify() routea a console en modo print, así que acá solo pineamos el contrato
+		// observable: no se manda user message sin una task.)
 		await ultra.handler("", makeCtx(project));
 		check("without a task: sends nothing", sent.length === before, String(sent.length - before));
 	}
