@@ -9,7 +9,11 @@
 
 import { parseInterval } from "./interval.js";
 
-export type LoopCommandKind = "start" | "auto" | "stop" | "pause" | "resume" | "status";
+const LOOP_SUBCOMMANDS = ["auto", "stop", "pause", "resume", "status"] as const;
+type LoopSubcommandKind = (typeof LOOP_SUBCOMMANDS)[number];
+const LOOP_SUBCOMMAND_SET: ReadonlySet<string> = new Set(LOOP_SUBCOMMANDS);
+
+export type LoopCommandKind = "start" | LoopSubcommandKind;
 
 export interface LoopCommandIntent {
 	kind: LoopCommandKind;
@@ -63,14 +67,12 @@ export function parseLoopCommandIntent(args: string): LoopCommandIntent {
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
 	const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
 
-	if (
-		firstToken === "stop" ||
-		firstToken === "pause" ||
-		firstToken === "resume" ||
-		firstToken === "status" ||
-		firstToken === "auto"
-	) {
+	if (isLoopSubcommandKind(firstToken)) {
 		return { kind: firstToken, rest };
 	}
 	return { kind: "start", rest: trimmed };
+}
+
+function isLoopSubcommandKind(value: string): value is LoopSubcommandKind {
+	return LOOP_SUBCOMMAND_SET.has(value);
 }
