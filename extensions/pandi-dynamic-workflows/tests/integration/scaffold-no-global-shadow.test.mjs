@@ -12,47 +12,45 @@
  * name). This test asserts no scaffold names its default export after an injected
  * global, so the bug cannot silently return.
  *
- * Mutation-free: reads the scaffold sources and pattern-matches.
+ * Mutation-free: derives injected globals from the worker source export, then scans scaffold sources.
  *
  * Run it:
  *   node extensions/pandi-dynamic-workflows/tests/integration/scaffold-no-global-shadow.test.mjs
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createChecker, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { createChecker, REPO_ROOT, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 
-// The names the runtime injects as globals (worker-source.ts). A default function
-// named after any of these would shadow that global inside its own body.
-const INJECTED_GLOBALS = new Set([
-	"agent",
-	"agents",
-	"parallel",
-	"pipeline",
-	"workflow",
-	"log",
-	"phase",
-	"bash",
-	"readFile",
-	"writeFile",
-	"appendFile",
-	"listFiles",
-	"writeArtifact",
-	"appendArtifact",
-	"sleep",
-	"json",
-	"compact",
-	"args",
-	"limits",
-	"runId",
-	"runDir",
-	"cwd",
-]);
+const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
+const SCAFFOLDS_DIR = path.join(EXT_DIR, "scaffolds");
 
-const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds");
+/** Extrae el set de globals inyectados: `sandbox.<name> = …`. */
+function injectedGlobals(source) {
+	const names = new Set();
+	for (const m of source.matchAll(/sandbox\.([A-Za-z][A-Za-z0-9]*)\s*=/g)) names.add(m[1]);
+	return names;
+}
 
-function main() {
+async function loadInjectedGlobals() {
+	const { url } = await sharedBuildExtension({
+		name: "pi-dw-scaffold-shadow-globals",
+		src: path.join(EXT_DIR, "worker-source.ts"),
+		outName: "worker-source.mjs",
+	});
+	const mod = await import(url);
+	return injectedGlobals(mod.WORKFLOW_WORKER_SOURCE);
+}
+
+async function main() {
+	const injected = await loadInjectedGlobals();
+	check("extracted injected globals from worker source", injected.size > 0, `count=${injected.size}`);
+	check(
+		"extraction includes composition + HITL sentinels",
+		["workflow", "race", "ask"].every((name) => injected.has(name)),
+		[...injected].sort().join(","),
+	);
 	const files = fs
 		.readdirSync(SCAFFOLDS_DIR)
 		.filter((f) => f.endsWith(".js"))
@@ -68,7 +66,7 @@ function main() {
 		// fn — but if named, the name must not collide with an injected global.
 		check(
 			`${file}: default fn name does not shadow an injected global`,
-			name === null || !INJECTED_GLOBALS.has(name),
+			name === null || !injected.has(name),
 			`named "${name}" (collides with global)`,
 		);
 	}
@@ -80,4 +78,7 @@ function main() {
 	}
 }
 
-main();
+main().catch((err) => {
+	console.error("INTEGRATION TEST CRASH:", err?.stack ? err.stack : err);
+	process.exit(2);
+});
