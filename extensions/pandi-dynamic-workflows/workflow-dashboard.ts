@@ -346,6 +346,11 @@ export class WorkflowDashboard {
 			return;
 		}
 		if (matchesKey(data, Key.right)) {
+			if (this.tab === "sessions") {
+				const session = this.piSessions[this.sessionIndex];
+				if (session) this.done({ type: "switchSession", session });
+				return;
+			}
 			this.moveTab(1);
 			return;
 		}

@@ -234,19 +234,13 @@ export async function switchToPiSession(
 		return;
 	}
 	const label = session.sessionName || session.sessionId || path.basename(sessionFile);
-	const activeWarning =
-		activeRunCount() > 0
-			? `\n\nWarning: ${activeRunCount()} active workflow run(s) in this Pi will be cancelled by the session switch.`
-			: "";
-	const pidLine =
-		session.pid > 0
-			? `\nPID: ${session.pid}${session.live ? " (live)" : session.staleReason ? ` (${session.staleReason})` : ""}`
-			: "";
-	const ok = await ctx.ui.confirm(
-		"Switch Pi session?",
-		`Target: ${label}\nFile: ${sessionFile}${pidLine}\n\nThis replaces the current conversation view. If another Pi process is still using this file, both processes may append to the same session.${activeWarning}`,
-	);
-	if (!ok) return;
+	const activeRuns = activeRunCount();
+	if (activeRuns > 0)
+		notify(
+			ctx,
+			`Switching Pi session; ${activeRuns} active workflow run(s) in this Pi will be cancelled.`,
+			"warning",
+		);
 	const result = await switchSession(sessionFile, {
 		withSession: async (nextCtx) => {
 			nextCtx.ui.notify?.(`Switched to Pi session: ${label}`, "info");

@@ -10,6 +10,7 @@
  *   - /workflow sessions opens the live Pi sessions tab.
  *   - Enter on a selected Pi session switches to that session file from both
  *     slash-command and editor-opened dashboards.
+ *   - Right on a selected Pi session switches directly without confirmation.
  */
 
 import * as fs from "node:fs/promises";
@@ -107,6 +108,7 @@ function makeCtx(cwd, baseFactory, opts = {}) {
 	let editorFactory;
 	const customCalls = [];
 	const switchCalls = [];
+	const confirmCalls = [];
 	const customInputs = [...(opts.customInputs ?? [])];
 	let renderRequests = 0;
 	const theme = {
@@ -126,7 +128,10 @@ function makeCtx(cwd, baseFactory, opts = {}) {
 			notify: () => {},
 			setStatus: () => {},
 			setWidget: () => {},
-			confirm: async () => true,
+			confirm: async (title, message) => {
+				confirmCalls.push({ title, message });
+				return opts.confirmResult ?? true;
+			},
 			select: async () => undefined,
 			editor: async (_title, initial = "") => initial,
 			getEditorComponent: () => baseFactory,
@@ -170,6 +175,7 @@ function makeCtx(cwd, baseFactory, opts = {}) {
 		ctx,
 		customCalls,
 		switchCalls,
+		confirmCalls,
 		getEditorFactory: () => editorFactory,
 		getRenderRequests: () => renderRequests,
 	};
@@ -354,6 +360,33 @@ async function scenarioWorkflowSessionsEnterSwitches(url) {
 	);
 }
 
+async function scenarioWorkflowSessionsRightSwitchesDirectly(url) {
+	const project = await makeProject();
+	const ext = await freshExtension(url);
+	const { pi, handlers, commands } = makePi();
+	ext(pi);
+	const state = makeCtx(project, () => makeBaseEditor(), {
+		customInputs: ["down", "right"],
+		confirmResult: false,
+	});
+	for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, state.ctx);
+
+	const sessionFile = await seedOtherPiSession(project);
+
+	await commands.get("workflow").handler("sessions", state.ctx);
+	check("Right on Sessions tab switches once", state.switchCalls.length === 1, `calls=${state.switchCalls.length}`);
+	check(
+		"Right on selected Pi session switches to its session file",
+		state.switchCalls[0]?.sessionPath === sessionFile,
+		`path=${state.switchCalls[0]?.sessionPath}`,
+	);
+	check(
+		"Right on selected Pi session does not ask for confirmation",
+		state.confirmCalls.length === 0,
+		`confirm calls=${state.confirmCalls.length}`,
+	);
+}
+
 async function scenarioEditorOpenedSessionsEnterSwitches(url) {
 	const project = await makeProject();
 	const ext = await freshExtension(url);
@@ -403,6 +436,7 @@ async function main() {
 	await scenarioWorkflowAgentsCommand(url);
 	await scenarioWorkflowSessionsCommand(url);
 	await scenarioWorkflowSessionsEnterSwitches(url);
+	await scenarioWorkflowSessionsRightSwitchesDirectly(url);
 	await scenarioEditorOpenedSessionsEnterSwitches(url);
 
 	if (counts.failed > 0) {
