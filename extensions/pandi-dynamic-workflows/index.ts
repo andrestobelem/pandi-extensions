@@ -13,26 +13,11 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
-
-import { installWorkflowDashboardDownEditor } from "./dashboard-down-editor.js";
-import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
-import {
-	abortActiveWorkflowRuns,
-	interruptActiveWorkflowRunsForReload,
-	resumeReloadInterruptedWorkflowRuns,
-} from "./run-lifecycle.js";
-
 export { countRunArtifacts } from "./dashboard-collectors.js";
+export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export { settleWithinTimeout } from "./run-lifecycle.js";
 
-import {
-	clearUltracodeContractGateStatus,
-	clearUltracodeStatus,
-	ensureDynamicWorkflowToolActive,
-	setUltracodeContractGateStatus,
-	setUltracodeStatus,
-} from "./ultracode.js";
+import { ensureDynamicWorkflowToolActive, setUltracodeStatus } from "./ultracode.js";
 
 export { liveAgentHeaderStatus } from "./agent-view.js";
 export {
@@ -49,10 +34,34 @@ export {
 import { registerUltracodeInputEvents } from "./ultracode-input-events.js";
 import { registerUltracodeToggleCommands } from "./ultracode-toggle-commands.js";
 import { registerWorkflowRoutingCommands } from "./workflow-routing-commands.js";
+import { registerWorkflowSessionEvents } from "./workflow-session-events.js";
 import { registerWorkflowShellCommands } from "./workflow-shell-commands.js";
 import { registerDynamicWorkflowTool } from "./workflow-tool-registration.js";
 
+export {
+	booleanValue,
+	formatAgentPhase,
+	getAgentElapsedMs,
+	isAgentMonitorState,
+	mergeAgentMonitor,
+	numberValue,
+	phaseEventFields,
+	readRunEvents,
+	recordValue,
+	stringArrayValue,
+	stringValue,
+} from "./event-parser.js";
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
+export { estimatePeakParallelAgents } from "./run-state.js";
+export { selectRunByKey } from "./run-view.js";
+export {
+	EXTENSION_ROOT,
+	JOURNAL_FILE,
+	MAX_AGENT_OUTPUT_IN_RESULT,
+	MAX_JOURNALED_STREAM,
+	PI_SESSION_HEARTBEAT_MS,
+	PROCESS_KILL_GRACE_MS,
+} from "./runtime-constants.js";
 export type {
 	ActiveWorkflowRun,
 	AgentMonitorModel,
@@ -80,32 +89,6 @@ export type {
 	WorkflowScope,
 	WorkflowScopeInput,
 } from "./types.js";
-
-import { clearWorkflowWidget, refreshActiveWorkflowStatus, setWorkflowIdleStatus } from "./run-status-ui.js";
-
-export {
-	booleanValue,
-	formatAgentPhase,
-	getAgentElapsedMs,
-	isAgentMonitorState,
-	mergeAgentMonitor,
-	numberValue,
-	phaseEventFields,
-	readRunEvents,
-	recordValue,
-	stringArrayValue,
-	stringValue,
-} from "./event-parser.js";
-export { estimatePeakParallelAgents } from "./run-state.js";
-export { selectRunByKey } from "./run-view.js";
-export {
-	EXTENSION_ROOT,
-	JOURNAL_FILE,
-	MAX_AGENT_OUTPUT_IN_RESULT,
-	MAX_JOURNALED_STREAM,
-	PI_SESSION_HEARTBEAT_MS,
-	PROCESS_KILL_GRACE_MS,
-} from "./runtime-constants.js";
 export { extractUltracodeTask } from "./ultracode.js";
 export { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
 export { runWorkflow } from "./workflow-engine.js";
@@ -124,9 +107,6 @@ export {
 export { prepareWorkflowRun } from "./workflow-run-prepare.js";
 export { transformWorkflowCode } from "./workflow-transform.js";
 
-// Etiqueta incrustada en el borde superior del editor (línea de prompt violeta) mientras
-// el enrutamiento Ultracode siempre activo está activo, para que el estado del enrutador también sea visible ahí.
-const ULTRACODE_BORDER_LABEL = "ultracode auto";
 // Gancho inter-extensión de mejor esfuerzo usado por extensions/effort/index.ts para `/effort ultracode`.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
@@ -161,25 +141,11 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		getContractGateEnabled: () => ultracodeContractGateEnabled,
 	});
 
-	pi.on("session_start", async (event, ctx) => {
-		currentCtx = ctx;
-		await startPiSessionHeartbeat(event, ctx);
-		installWorkflowDashboardDownEditor(pi, ctx, () => (ultracodeAlwaysOn ? ULTRACODE_BORDER_LABEL : undefined));
-		if (ultracodeAlwaysOn) ensureDynamicWorkflowToolActive(pi);
-		refreshActiveWorkflowStatus(ctx);
-		setUltracodeStatus(ctx, ultracodeAlwaysOn);
-		setUltracodeContractGateStatus(ctx, ultracodeContractGateEnabled);
-		if (event.reason === "reload") await resumeReloadInterruptedWorkflowRuns(pi, ctx);
-	});
-
-	pi.on("session_shutdown", async (event, ctx) => {
-		await stopPiSessionHeartbeat();
-		if (event.reason === "reload") await interruptActiveWorkflowRunsForReload();
-		else await abortActiveWorkflowRuns("Workflow cancelled by session shutdown.");
-		clearWorkflowWidget(ctx);
-		setWorkflowIdleStatus(ctx);
-		clearUltracodeStatus(ctx);
-		clearUltracodeContractGateStatus(ctx);
-		currentCtx = undefined;
+	registerWorkflowSessionEvents(pi, {
+		getAlwaysOn: () => ultracodeAlwaysOn,
+		getContractGateEnabled: () => ultracodeContractGateEnabled,
+		setCurrentCtx: (ctx) => {
+			currentCtx = ctx;
+		},
 	});
 }
