@@ -44,6 +44,12 @@ function formatImprovePromptFailure(error: unknown): string {
 	return `improve-prompt failed: ${message}`;
 }
 
+function setImprovePromptStatus(ctx: ExtensionCommandContext, value: string | undefined): boolean {
+	if (!ctx.hasUI || typeof ctx.ui.setStatus !== "function") return false;
+	ctx.ui.setStatus(STATUS_KEY, value);
+	return true;
+}
+
 /** Send the improved prompt as the next user turn, idle vs. mid-stream (mirrors /plan's wake). */
 function send(pi: ExtensionAPI, ctx: ExtensionCommandContext, improved: string): void {
 	if (ctx.isIdle()) pi.sendUserMessage(improved);
@@ -81,8 +87,7 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 	// Reasoning only applies to reasoning-capable models; otherwise it is rejected/ignored.
 	if (model.reasoning) options.reasoning = pi.getThinkingLevel() as SimpleStreamOptions["reasoning"];
 
-	const showStatus = ctx.hasUI && typeof ctx.ui.setStatus === "function";
-	if (showStatus) ctx.ui.setStatus(STATUS_KEY, "improve-prompt: thinking…");
+	const showStatus = setImprovePromptStatus(ctx, "improve-prompt: thinking…");
 
 	let response: AssistantMessage;
 	try {
@@ -91,7 +96,7 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 		notify(ctx, formatImprovePromptFailure(error), "error");
 		return;
 	} finally {
-		if (showStatus) ctx.ui.setStatus(STATUS_KEY, undefined);
+		if (showStatus) setImprovePromptStatus(ctx, undefined);
 	}
 
 	if (response.stopReason === "error") {
