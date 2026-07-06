@@ -172,7 +172,7 @@ function persist(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): voi
 	void writeSidecar(ctx, snap).catch(() => {});
 }
 
-// --- Sidecar atómico (P1) -------------------------------------------------------
+// --- Sidecar atómico ------------------------------------------------------------
 
 /**
  * Dir de estado dual-root, reflejando dynamic-workflows getRunRoot:
@@ -374,17 +374,13 @@ function scheduleWake(
 }
 
 /**
- * Rearmado fixed-mode (P1). La extensión posee la cadencia: programa el próximo wake
- * en un timestamp ABSOLUTO (nextFireAt += periodMs) para que los períodos no deriven,
- * y usa un setTimeout rearmado (nunca setInterval) para que una iteración lenta no se
- * solape con la siguiente. Si el target absoluto ya está en el pasado (iteración larga),
- * dispara en el siguiente tick (delay 0): un solo catch-up, nunca un burst.
+ * Rearma fixed mode desde un target absoluto: evita deriva y evita solapar
+ * iteraciones lentas. Si el target quedó atrás, entrega un único catch-up inmediato.
  */
 function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	clearLoopTimer(loop);
 	const period = loop.intervalMs ?? 0;
-	// Anclar al fire time programado previo (seteado por fireWake) para que los períodos
-	// no deriven; fallback al nextFireAt actual (primer armado / resume) o now.
+	// El target anterior evita deriva; resume/primer armado caen a nextFireAt o now.
 	const base = loop.fixedAnchor ?? loop.nextFireAt ?? Date.now();
 	loop.fixedAnchor = undefined;
 	const target = base + period;
@@ -425,9 +421,7 @@ function formatFixedModeLabel(loop: ActiveLoop): string {
 function activateLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	activeLoops.set(loop.loopId, loop);
 	persist(pi, ctx, loop);
-	// Enviar de inmediato el primer prompt de iteración. fireWake maneja iteration++/persist/status.
-	// deliverWake construye el prompt fresco vía makeLoopIterationPrompt(loop), así que nunca
-	// se guarda en el loop: solo estaría stale cuando se leyera.
+	// El primer tick pasa por fireWake para compartir límites, persistencia y FIFO.
 	fireWake(pi, ctx, loop);
 }
 
@@ -479,14 +473,8 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 }
 
 /**
- * Inicia un loop AUTÓNOMO (P2): un loop cuyo texto reinyectado es un sentinel/objective
- * generado por la extensión, no una tarea de usuario puntual. Como ese loop seguirá
- * actuando sin un humano en el turno, el umbral es más alto:
- *   - el proyecto DEBE ser trusted (ctx.isProjectTrusted()), y
- *   - el usuario DEBE confirmar explícitamente vía ctx.ui.confirm.
- * Si falta CUALQUIERA → reject (no se crea loop). Sin UI no hay forma de confirmar, así
- * que el modo autónomo también se rechaza. Todo lo demás (modes, caps, persistencia,
- * gate de acciones irreversibles, cola FIFO, watchdog) se comparte con startLoop.
+ * Inicia un objetivo autónomo. Como actuará sin un mensaje humano por turno,
+ * exige proyecto trusted y confirmación interactiva explícita.
  */
 async function startAutonomousLoop(
 	pi: ExtensionAPI,
@@ -494,7 +482,7 @@ async function startAutonomousLoop(
 	rawArgs: string,
 ): Promise<ActiveLoop | undefined> {
 	if (refuseIfCannotLoopInMode(ctx, "/loop auto")) return undefined;
-	// Gate de trust PRIMERO: un loop autónomo nunca debe correr en un proyecto untrusted.
+	// Un objetivo autónomo no debe correr en un proyecto sin trust.
 	if (!ctx.isProjectTrusted()) {
 		notify(ctx, "/loop auto requiere un proyecto de confianza. Corré /trust primero, y reintentá.", "error");
 		return undefined;
@@ -504,7 +492,7 @@ async function startAutonomousLoop(
 		notify(ctx, "Uso: /loop auto [--ultracode] <objective> [interval]", "warning");
 		return undefined;
 	}
-	// Confirmación obligatoria: si no hay UI para confirmar → rechazar (no se puede obtener consentimiento).
+	// Sin UI no hay consentimiento explícito, así que no se crea el loop.
 	if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
 		notify(ctx, "/loop auto requiere una confirmación interactiva; corrélo desde una sesión TUI o RPC.", "error");
 		return undefined;
