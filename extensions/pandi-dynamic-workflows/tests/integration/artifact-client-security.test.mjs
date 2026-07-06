@@ -26,13 +26,62 @@ const { check, counts } = createChecker();
 
 /**
  * Extrae las definiciones de `esc` y `linkify` desde el archivo source real y las evalúa
- * en un sandbox fresco (sin `document`, sin otros globals). Ambas son statements de una línea
- * en el archivo shipeado; `linkify` cierra sobre `esc` vía el scope compartido del
- * function-body, exactamente como lo hace en el browser.
+ * en un sandbox fresco (sin `document`, sin otros globals). El extractor camina statements
+ * completos, así no depende de que las funciones shipeadas sigan ocupando una sola línea.
+ * `linkify` cierra sobre `esc` vía el scope compartido del function-body, exactamente como
+ * lo hace en el browser.
  */
+function previousNonSpace(source, index) {
+	for (let i = index - 1; i >= 0; i--) if (/\S/.test(source[i])) return source[i];
+	return "";
+}
+
+function startsRegexLiteral(source, index) {
+	return "(=,:?[!{".includes(previousNonSpace(source, index));
+}
+
+function sliceStatement(source, startNeedle, label) {
+	const start = source.indexOf(startNeedle);
+	if (start < 0) throw new Error(`could not find ${label} in artifact-client.js`);
+	let quote = null;
+	let regex = false;
+	let regexClass = false;
+	let escaped = false;
+	let paren = 0;
+	let brace = 0;
+	let bracket = 0;
+	for (let i = start; i < source.length; i++) {
+		const ch = source[i];
+		if (quote || regex) {
+			if (escaped) escaped = false;
+			else if (ch === "\\") escaped = true;
+			else if (regex && ch === "[") regexClass = true;
+			else if (regex && ch === "]") regexClass = false;
+			else if (regex && ch === "/" && !regexClass) regex = false;
+			else if (!regex && ch === quote) quote = null;
+			continue;
+		}
+		if (ch === "/" && startsRegexLiteral(source, i)) {
+			regex = true;
+			continue;
+		}
+		if (ch === '"' || ch === "'" || ch === "`") {
+			quote = ch;
+			continue;
+		}
+		if (ch === "(") paren += 1;
+		else if (ch === ")") paren -= 1;
+		else if (ch === "{") brace += 1;
+		else if (ch === "}") brace -= 1;
+		else if (ch === "[") bracket += 1;
+		else if (ch === "]") bracket -= 1;
+		else if (ch === ";" && paren === 0 && brace === 0 && bracket === 0) return source.slice(start, i + 1);
+	}
+	throw new Error(`could not finish ${label} statement in artifact-client.js`);
+}
+
 function loadPureFunctions(source) {
-	const escLine = /^const esc=.*;$/m.exec(source);
-	if (!escLine) throw new Error("could not find `const esc=...;` line in artifact-client.js");
+	const escStatement = sliceStatement(source, "const esc=", "`const esc=...` statement");
 	const markdownStart = source.indexOf("const escapeMarkdownHtmlInlineCode=");
 	const markdownFallbackStart = source.indexOf("const escapeMarkdownHtml=");
 	const markdownBlockStart = markdownStart >= 0 ? markdownStart : markdownFallbackStart;
@@ -41,11 +90,9 @@ function loadPureFunctions(source) {
 		throw new Error("could not find markdown escaper definitions in artifact-client.js");
 	}
 	const markdownBlock = source.slice(markdownBlockStart, markdownBlockEnd).trim();
-	const linkifyLine = /var linkify=function\(t\)\{[^\n]*?\};/.exec(source);
-	if (!linkifyLine) throw new Error("could not find `var linkify=function(t){...};` in artifact-client.js");
-	const mdToHtmlLine = /var mdToHtml=function\(md\)\{[^\n]*?\};/.exec(source);
-	if (!mdToHtmlLine) throw new Error("could not find `var mdToHtml=function(md){...};` in artifact-client.js");
-	const factory = new Function(`${escLine[0]}
+	const linkifyStatement = sliceStatement(source, "var linkify=function", "`var linkify=function...` statement");
+	const mdToHtmlStatement = sliceStatement(source, "var mdToHtml=function", "`var mdToHtml=function...` statement");
+	const factory = new Function(`${escStatement}
 ${markdownBlock}
 const sanitizeRenderedHtml=(html)=>String(html);
 const fakeEscape=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -54,8 +101,8 @@ const fenceRe=new RegExp(fence+"(?:\\\\w+)?\\\\n([\\\\s\\\\S]*?)\\\\n"+fence,"g"
 const inlineRe=new RegExp(tick+"([^"+tick+"]+)"+tick,"g");
 const window={marked:{parse(md){return String(md).replace(fenceRe,function(_match,code){return "<pre><code>"+fakeEscape(code)+"</code></pre>";}).replace(inlineRe,function(_match,code){return "<code>"+fakeEscape(code)+"</code>";});}}};
 const marked=window.marked;
-${linkifyLine[0]}
-${mdToHtmlLine[0]}
+${linkifyStatement}
+${mdToHtmlStatement}
 return { esc, escapeMarkdownHtml, linkify, mdToHtml };`);
 	return factory();
 }
