@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract for the dashboard's visual layout pass: more breathing room
- * (grouped sections) and a theme-aware color hierarchy (dim/border tokens), without
- * regressing any pinned format.
+ * Contrato conductual para la pasada de layout visual del dashboard: más aire
+ * (secciones agrupadas) y jerarquía de color theme-aware (tokens dim/border), sin
+ * romper ningún formato fijado.
  *
- * Observable contract pinned here:
- *   1. The Monitor detail body is GROUPED: it renders standalone section captions
- *      ("Progress" and "Location") on their own lines, separating the dense
- *      "label: value" block instead of stacking ~14 lines with no breaks.
- *   2. The per-row agent chip suffix is spaced with a " · " divider for readability,
- *      and stays BYTE-IDENTICAL across the Monitor and Agents tabs (one helper).
- *   3. The header rule (─────) is painted with the `border` theme token (not muted),
- *      so it follows the active theme (dark/light/auto).
- *   4. Tertiary detail (the runDir path) is painted with the `dim` theme token, giving
- *      a 3-level hierarchy (accent → muted label → dim path). No hardcoded color.
+ * Contrato observable fijado acá:
+ *   1. El body de detail de Monitor está AGRUPADO: renderiza captions de sección
+ *      independientes ("Progress" y "Location") en líneas propias, separando el bloque
+ *      denso "label: value" en vez de apilar ~14 líneas sin cortes.
+ *   2. El sufijo de chips por fila de agente se espacia con divisor " · " para legibilidad,
+ *      y queda BYTE-IDENTICAL entre los tabs Monitor y Agents (un helper).
+ *   3. La regla de header (─────) se pinta con el token de theme `border` (no muted),
+ *      así sigue el theme activo (dark/light/auto).
+ *   4. El detail terciario (path runDir) se pinta con el token de theme `dim`, dando
+ *      jerarquía de 3 niveles (accent → muted label → dim path). Sin color hardcodeado.
  */
 
 import * as path from "node:path";
@@ -130,7 +130,7 @@ async function main() {
 	});
 	({ WorkflowDashboard } = await loadModule(url));
 
-	// 1) Grouped sections in the Monitor body.
+	// 1) Secciones agrupadas en el body de Monitor.
 	const monitor = build("monitor").render(WIDTH);
 	check(
 		"Monitor renders a 'Progress' section caption",
@@ -143,7 +143,7 @@ async function main() {
 		JSON.stringify(monitor.filter((l) => l.toLowerCase().includes("location"))),
 	);
 
-	// 2) Chip suffix spaced with " · " and byte-identical across tabs.
+	// 2) Sufijo de chips espaciado con " · " y byte-identical entre tabs.
 	const monitorMeta = rowMeta(monitor);
 	const agentsMeta = rowMeta(build("agents").render(WIDTH));
 	check("chip suffix uses the ' · ' divider", monitorMeta?.includes(" · "), JSON.stringify(monitorMeta));
@@ -152,7 +152,7 @@ async function main() {
 		monitorMeta !== undefined && monitorMeta === agentsMeta,
 		`monitor=${JSON.stringify(monitorMeta)} agents=${JSON.stringify(agentsMeta)}`,
 	);
-	// All chips still present after re-spacing.
+	// Todos los chips siguen presentes después del re-spacing.
 	check(
 		"chip suffix still carries every chip",
 		["prompt✓", "schema:ok", "tools:2", "skills:1", "ext:1", "keys:1", "missing:1"].every((c) =>
@@ -161,7 +161,7 @@ async function main() {
 		JSON.stringify(monitorMeta),
 	);
 
-	// 3) Header rule uses the `border` token.
+	// 3) La regla de header usa el token `border`.
 	const tagged = build("monitor", taggingTheme("t")).render(WIDTH);
 	check(
 		"header rule is painted with the border token",
@@ -169,7 +169,7 @@ async function main() {
 		JSON.stringify(tagged.find((l) => l.includes("─"))),
 	);
 
-	// 4) Tertiary runDir path uses the `dim` token.
+	// 4) El path runDir terciario usa el token `dim`.
 	const runDirLine = tagged.find((l) => l.includes("runDir:") && l.includes("/tmp/nonexistent-run-dir"));
 	check("runDir line exists", typeof runDirLine === "string", JSON.stringify(runDirLine));
 	check(
