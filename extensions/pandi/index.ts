@@ -9,8 +9,8 @@
  *
  * Qué hace:
  *   - Splash en el encabezado de arranque: panda + nombre + frase (/pandi art lo alterna).
- *   - Indicador animado mientras pi streamea. Dos estilos:
- *       kaomoji  ʕ•ᴥ•ʔ   ↔   Claude  (●  ●)  con ojos ◆
+ *   - Indicador animado mientras pi streamea. El estilo default alterna la carita
+ *       clásica `(●  ●)` con el osito `ʕ •ᴥ• ʔ`; `/pandi face` cambia variantes.
  *   - Verbo juguetón rotativo por turno + guiño con la frase del meme.
  *   - Estado "◆ Pandi" en el pie.
  *
@@ -122,17 +122,24 @@ function pandaFaces(theme: Theme) {
 function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	const eye = (c: string) => (c === "◆" ? theme.fg("accent", "◆") : c);
 	const face = (l: string, r: string) => `${theme.fg("dim", "(")}${eye(l)}  ${eye(r)}${theme.fg("dim", ")")}`;
+	const bearEye = (c: string) => glintEye(c, theme.getFgAnsi("accent"));
+	const bear = (l: string, r: string) =>
+		`${theme.fg("dim", "ʕ ")}${bearEye(l)}${theme.fg("dim", "ᴥ")}${bearEye(r)}${theme.fg("dim", " ʔ")}`;
 	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
 	return {
 		frames: [
 			face("●", "●") + dots(0),
 			face("●", "●") + dots(1),
-			face("●", "●") + dots(2),
+			bear("•", "•") + dots(1),
+			bear("•", "•") + dots(2),
 			face("◆", "●") + dots(2), // brilla el ojo izquierdo
+			bear("-", "-") + dots(3), // parpadeo del osito
 			face("●", "◆") + dots(3), // brilla el derecho
-			face("◆", "◆") + dots(3), // alma de Claude
-			face("-", "-") + dots(2), // parpadeo
-			face("●", "●") + dots(1),
+			bear("·", "·") + dots(2),
+			face("◆", "◆") + dots(2), // alma de Claude
+			bear("^", "^") + dots(1), // respiración alegre
+			face("-", "-") + dots(1), // parpadeo clásico
+			bear("•", "•") + dots(0),
 		],
 		intervalMs: 180,
 	};
@@ -169,7 +176,7 @@ function framesKaomoji(
 
 // Cada estilo del indicador → sus frames. claude tiene su propia animación (◆); los otros
 // cuatro son variantes kaomoji (corchetes/ojos/color).
-function pandaFrames(theme: Theme, style: FaceStyle): WorkingIndicatorOptions {
+export function pandaFrames(theme: Theme, style: FaceStyle): WorkingIndicatorOptions {
 	switch (style) {
 		case "kaomoji":
 			return framesKaomoji(theme, { l: "ʕ ", r: " ʔ", eyeL: "•", eyeR: "•", role: "accent" });
