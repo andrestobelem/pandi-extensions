@@ -33,6 +33,10 @@ export function formatProgressLog(goal: GoalState): string[] {
 	return lines;
 }
 
+function renderPromptLines(lines: string[]): string {
+	return lines.join("\n");
+}
+
 /** Molde estable del prompt de iteración reinyectado en cada iteración `pursuing`. */
 export function makeGoalIterationPrompt(goal: GoalState): string {
 	const lines: string[] = [];
@@ -81,7 +85,7 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 	lines.push(
 		`Si no llamás a ninguno, el goal se va a rearmar defensivamente y se va a detener de forma dura en la iteración ${goal.maxIterations}.`,
 	);
-	return lines.join("\n");
+	return renderPromptLines(lines);
 }
 
 /** Molde del prompt de verificación, inyectado solo en el estado `verifying` (el chequeo de completitud). */
@@ -108,5 +112,5 @@ export function makeGoalVerificationPrompt(goal: GoalState): string {
 	lines.push(
 		'- Si algún criterio falla o falta evidencia, llamá a goal_progress({status:"continue", nextStep}) describiendo exactamente qué falta hacer.',
 	);
-	return lines.join("\n");
+	return renderPromptLines(lines);
 }
