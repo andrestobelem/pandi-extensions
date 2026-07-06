@@ -86,6 +86,12 @@ function describePromptSource(
 	return promptAvailable ? "artifact missing/unparsed" : "unavailable";
 }
 
+function formatAgentOutputText(output: string | undefined, state: AgentMonitorModel["state"]): string {
+	if (output !== undefined) return truncate(output, MAX_TOOL_TEXT);
+	if (state === "running") return "Agent is still running. The parsed answer will appear here when it finishes.";
+	return "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -139,12 +145,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	const stateIcon = agentStateIcon(agent.state);
 	const phase = formatAgentPhase(agent);
 	const agentRef = formatAgentRef(agent, phase);
-	const outputText =
-		modelOutput !== undefined
-			? truncate(modelOutput, MAX_TOOL_TEXT)
-			: agent.state === "running"
-				? "Agent is still running. The parsed answer will appear here when it finishes."
-				: "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
+	const outputText = formatAgentOutputText(modelOutput, agent.state);
 	// Full structured configuration: EVERY resolved runtime knob for this agent, always
 	// rendered (never conditional on the artifact), as a Markdown table so the Enter
 	// detail view is scannable/navigable. "default" means the option was not set and the
