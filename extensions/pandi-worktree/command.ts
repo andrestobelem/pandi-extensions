@@ -59,6 +59,10 @@ function isPruneCommand(token: string): boolean {
 	return token === "prune";
 }
 
+function isSetCommand(token: string): boolean {
+	return token === "set";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -137,7 +141,7 @@ export function parseCommand(input: string): ParsedCommand {
 
 	if (isPruneCommand(head)) return parsePruneCommand(tokens.slice(1));
 
-	if (head === "set") return parseSetCommand(tokens.slice(1));
+	if (isSetCommand(head)) return parseSetCommand(tokens.slice(1));
 
 	if (isAddOrOpenCommand(head)) return parseAddOrOpenCommand(head, tokens.slice(1));
 
