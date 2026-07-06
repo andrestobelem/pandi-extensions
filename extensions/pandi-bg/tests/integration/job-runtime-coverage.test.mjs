@@ -27,7 +27,10 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 const noop = () => {};
-const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+
+async function flushStreamTurn() {
+	await new Promise((resolve) => setImmediate(resolve));
+}
 
 async function buildRuntime() {
 	const { url } = await buildExtension({
@@ -145,7 +148,6 @@ async function pipeMultiSinkCoordination(mod) {
 	});
 	pipe(source, [slowA, slowB]);
 	source.write(Buffer.from("a".repeat(4096)));
-	await tick();
 	check(
 		"pipe-multi: source pauses while both sinks are full",
 		source.isPaused() === true,
@@ -153,7 +155,7 @@ async function pipeMultiSinkCoordination(mod) {
 	);
 	// Libera solo slowA -> el otro sink aún necesita drain, así que la fuente sigue pausada.
 	if (cbA) cbA();
-	await tick();
+	await flushStreamTurn();
 	check(
 		"pipe-multi: still paused after only one sink drains",
 		source.isPaused() === true,
@@ -161,7 +163,7 @@ async function pipeMultiSinkCoordination(mod) {
 	);
 	// Libera slowB -> todos los sinks drenaron, la fuente reanuda.
 	if (cbB) cbB();
-	await tick();
+	await flushStreamTurn();
 	check(
 		"pipe-multi: resumes only after EVERY sink drains",
 		source.isPaused() === false,
@@ -196,7 +198,6 @@ async function pipeIndependentCaps(mod) {
 	source.write(Buffer.from("a".repeat(8))); // bajo cap
 	source.write(Buffer.from("b".repeat(8))); // cruza el cap
 	source.write(Buffer.from("c".repeat(8))); // descartado tras llegar al cap
-	await tick();
 	const textA = Buffer.concat(bufA).toString("utf8");
 	const textB = Buffer.concat(bufB).toString("utf8");
 	const markers = (t) => (t.match(/\[log topado en 10 bytes\]/g) || []).length;
@@ -307,9 +308,20 @@ async function finalizeIdempotentAndClearsTimer(mod) {
 	let fired = false;
 	rt.cancelTimer = setTimeout(() => {
 		fired = true;
-	}, 40);
+	}, 10_000);
+	const realClearTimeout = globalThis.clearTimeout;
+	let clearedTimer = false;
+	globalThis.clearTimeout = (timer) => {
+		if (timer === rt.cancelTimer) clearedTimer = true;
+		return realClearTimeout(timer);
+	};
 
-	await finalizeJob(rt, 0, null);
+	try {
+		await finalizeJob(rt, 0, null);
+	} finally {
+		globalThis.clearTimeout = realClearTimeout;
+		realClearTimeout(rt.cancelTimer);
+	}
 	check("finalize-idem: first call marks finalized", rt.finalized === true);
 	await finalizeJob(rt, 7, null); // debe ser no-op
 
@@ -323,8 +335,8 @@ async function finalizeIdempotentAndClearsTimer(mod) {
 	const finishCount = (events.match(/"event":"finish"/g) || []).length;
 	check("finalize-idem: exactly one finish event written", finishCount === 1, String(finishCount));
 
-	await tick(80);
-	check("finalize-idem: cancelTimer was cleared (callback never fired)", fired === false);
+	check("finalize-idem: cancelTimer was cleared", clearedTimer === true);
+	check("finalize-idem: cleared cancelTimer callback never fired", fired === false);
 }
 
 // --- killRuntime: job finalized es no-op; job vivo sin pid cae a child.kill ---
@@ -422,7 +434,7 @@ async function killRuntimePosixGroup(mod) {
 	if (typeof killRuntime !== "function") return check("kill-posix: exported", false, typeof killRuntime);
 	const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { detached: true, stdio: "ignore" });
 	child.unref();
-	await tick(150);
+	await waitFor("detached child alive", async () => isAlive(child.pid));
 	let directKillSig = null;
 	const rt = {
 		finalized: false,
