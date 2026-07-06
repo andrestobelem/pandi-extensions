@@ -1,79 +1,25 @@
 /**
- * `/loop` estilo Claude para Pi (P0 dynamic + P1).
+ * `/loop` para Pi: ejecuta un objetivo por iteraciones programadas por el modelo
+ * (`loop_schedule`) o por una cadencia fija (`/loop <task> <interval>`).
  *
- * Ejecuta una tarea iterativamente. Pi no tiene ScheduleWakeup/cron nativo,
- * así que la primitiva se invierte: el modelo decide la próxima cadencia
- * llamando a la tool `loop_schedule`, y esta extensión materializa el wake
- * con setTimeout, reinyectando el prompt de iteración vía pi.sendUserMessage.
- * El loop vive en el proceso Node de la extensión.
+ * Arquitectura:
+ * - los wakes viven en memoria (`activeLoops` + `setTimeout`) y se materializan
+ *   reinyectando un prompt con `pi.sendUserMessage`;
+ * - cada transición se persiste en JSONL y en un sidecar atómico con `updatedAt`;
+ * - al recargar, `session_start` rehidrata el estado más nuevo y entrega como máximo
+ *   un catch-up tick;
+ * - una FIFO a nivel módulo serializa wakes de múltiples loops para mantener un solo
+ *   turno autopilot activo;
+ * - `agent_end` es la red de seguridad: limpia flags, aplica caps y rearma fixed mode.
  *
- * Alcance P0:
- * - comandos: /loop <task>, /loop stop [id], /loop status [id]
- * - tools: loop_schedule(delaySeconds, reason), loop_stop(reason)
- * - engine: fireWake / scheduleWake / startLoop / stopLoop
- * - estado: activeLoops Map + persistencia vía pi.appendEntry("loop-state", ...)
- * - rehydrate en session_start (sin double-fire; tick único de recuperación)
- * - limpieza en session_shutdown (clearTimeout + abort + persistir "stale")
- * - red de seguridad en agent_end
- * - línea de estado
- *
- * Alcance P1 (todo aditivo sobre P0; comportamiento P0 sin cambios):
- * - modo fixed-interval: `/loop <task> <interval>` donde interval matchea
- *   ^\d+(s|m|h)$ (el último token). Sin interval = dynamic (P0). En fixed mode la
- *   extensión posee el período: rearma después de cada iteración con un timestamp
- *   ABSOLUTO (nextFireAt += periodMs) vía setTimeout rearmado (nunca setInterval,
- *   para que las iteraciones no se solapen). loop_schedule es un NO-OP informativo
- *   en fixed mode (el modelo solo decide continue/stop; el período es fijo).
- * - máquina de estados completa: running|paused|stopped|done|failed|stale, con
- *   `/loop pause [id]` y `/loop resume [id]`.
- * - gate de acciones irreversibles vía pi.on("tool_call"): un flag `autopilot`
- *   por loop se activa cuando fireWake inyecta (el turno fue disparado por un wake,
- *   no por el usuario) y se limpia en agent_end. Mientras autopilot está activo,
- *   las tools destructivas que matchean una allowlist conservadora se confirman
- *   (si hay UI) o se bloquean (si no hay UI).
- * - topes de tiempo/budget: maxWallClockMs (deadline absoluto) además de
- *   maxIterations, más un umbral porcentual best-effort de ctx.getContextUsage().
- *   Se chequean ANTES de rearmar (en fireWake y agent_end). Al tocar un tope -> stop
- *   con status "done" + notify.
- * - persistencia robusta: sidecar JSON ATOMIC (temp+rename) con `updatedAt` además
- *   de appendEntry; en rehydrate gana por updatedAt el más nuevo de {last JSONL entry,
- *   sidecar}. Dual-root: .pi/loops/<id>/state.json si es trusted, o
- *   getAgentDir()/loops/<projectHash>/<id>/state.json. Mantiene un solo catch-up tick.
- * - la red de seguridad en agent_end también cubre fixed mode (rearmado del período) y topes.
- *
- * Alcance P2 (todo aditivo sobre P0/P1; comportamiento P0/P1 sin cambios):
- * - cola FIFO multi-loop de wakes: con N loops vivos, sus callbacks de setTimeout
- *   podrían dispararse casi simultáneamente y llamar cada uno a sendUserMessage,
- *   compitiendo por el turno. Una FIFO a nivel módulo de wakes pendientes los serializa:
- *   un wake se ENTREGA solo cuando ctx.isIdle() Y no hay otro wake autopilot en vuelo
- *   en este turno; si no, se encola y se drena en el siguiente agent_end. Garantiza
- *   exactamente UN turno autopilot a la vez. loop_schedule/loop_stop resuelven el loop
- *   que posee el turno actual (el que tiene el flag autopilot activo), robustecido para
- *   N loops coexistentes.
- * - modo autónomo: `/loop auto <task> [interval]` — un loop SIN tarea de usuario en el
- *   sentido convencional; el texto reinyectado es una sentinela generada por la extensión
- *   (un objetivo recurrente). Iniciar REQUIERE ctx.isProjectTrusted() Y un
- *   ctx.ui.confirm explícito; si falta cualquiera → reject. (Documentado en
- *   handleAutoStart.) El gate de trust también aplica en RE-ENTRY: rehydrate retira
- *   un loop autónomo (terminal "stopped") si el proyecto ya no es trusted, para que un
- *   loop autónomo confirmado una vez no siga disparando sin supervisión tras reloads en
- *   un proyecto que perdió trust.
- * - GC de estado terminal viejo: barre dirs sidecar state.json de loops en status TERMINAL
- *   (done/stopped/failed) cuyo updatedAt es más viejo que GC_MAX_AGE_MS, reflejando
- *   dynamic-workflows getRunDirs. Corre en session_start (y con sweep explícito). NUNCA
- *   toca loops vivos (running/paused/stale).
- * - watchdog anti-zombie: respaldo POR ENCIMA de maxWallClockMs. Un sweep periódico a
- *   nivel módulo force-stoppea (done + cleanup) cualquier loop que pasó un deadline DURO
- *   (startedAt + WATCHDOG_HARD_DEADLINE_MS), capturando loops colgados sin que disparen
- *   los caps normales/agent_end. Los loops sanos nunca se matan.
- *
- * Reglas duras:
- * - gate de print: ctx.mode === "print" → notify + reject.
- * - clampear delaySeconds a [60, 3600] DENTRO de execute() (no confiar en el modelo).
- * - la heurística de cadencia vive en promptGuidelines de loop_schedule, no en código.
- * - sin deps nuevas (typebox ya está presente).
- * - defaults: maxIterations = 25; en "fork" NO migrar el loop.
- * - nunca reinyectar fuera de tui/rpc.
+ * Invariantes de seguridad:
+ * - no correr en `print` ni reinyectar fuera de `tui`/`rpc`;
+ * - clampear `delaySeconds` dinámicos a [60, 3600] dentro del tool;
+ * - confirmar o bloquear tools destructivas cuando el turno es autopilot;
+ * - exigir trust + confirmación explícita para `/loop auto`, y revalidar trust al
+ *   rehidratar;
+ * - no migrar loops al hacer fork de sesión;
+ * - limitar loops activos, iteraciones, wall-clock, contexto y zombies por watchdog.
  */
 
 import * as crypto from "node:crypto";
