@@ -41,6 +41,7 @@ async function stateContract(url) {
 		DEFAULT_MAX_WALL_CLOCK_MS,
 		createActiveLoop,
 		positiveOr,
+		shouldRehydrateLoopForSession,
 		snapshot,
 	} = mod;
 
@@ -55,6 +56,7 @@ async function stateContract(url) {
 		intervalMs: undefined,
 		now,
 		ultracode: true,
+		ownerSessionId: "session-a",
 	});
 	check("factory: creates an AbortController", loop.controller instanceof AbortController);
 	same(
@@ -74,6 +76,7 @@ async function stateContract(url) {
 			status: loop.status,
 			autonomous: loop.autonomous,
 			ultracode: loop.ultracode,
+			ownerSessionId: loop.ownerSessionId,
 			updatedAt: loop.updatedAt,
 			timer: loop.timer,
 			rearmedThisTurn: loop.rearmedThisTurn,
@@ -91,6 +94,7 @@ async function stateContract(url) {
 			nextFireAt: null,
 			status: "running",
 			ultracode: true,
+			ownerSessionId: "session-a",
 			updatedAt: new Date(now).toISOString(),
 			timer: null,
 			rearmedThisTurn: false,
@@ -105,6 +109,7 @@ async function stateContract(url) {
 		now,
 		autonomous: true,
 		ultracode: false,
+		ownerSessionId: "session-b",
 	});
 	same(
 		"factory: fixed autonomous loop state",
@@ -113,12 +118,14 @@ async function stateContract(url) {
 			intervalMs: fixed.intervalMs,
 			autonomous: fixed.autonomous,
 			ultracode: fixed.ultracode,
+			ownerSessionId: fixed.ownerSessionId,
 		},
 		{
 			mode: "fixed",
 			intervalMs: 300000,
 			autonomous: true,
 			ultracode: false,
+			ownerSessionId: "session-b",
 		},
 	);
 
@@ -146,6 +153,7 @@ async function stateContract(url) {
 		status: "running",
 		autonomous: true,
 		ultracode: false,
+		ownerSessionId: "session-b",
 		updatedAt: new Date(now).toISOString(),
 	});
 	check("snapshot: omits runtime timer", !("timer" in snap));
@@ -156,6 +164,17 @@ async function stateContract(url) {
 	check("positiveOr: rejects zero", positiveOr(0, 25) === 25);
 	check("positiveOr: rejects NaN", positiveOr(Number.NaN, 25) === 25);
 	check("positiveOr: rejects non-numbers", positiveOr("7", 25) === 25);
+
+	check("owner: matching owner rehydrates", shouldRehydrateLoopForSession(snap, "session-b", false) === true);
+	check("owner: foreign owner is skipped", shouldRehydrateLoopForSession(snap, "session-a", false) === false);
+	check(
+		"owner: legacy JSONL entry rehydrates",
+		shouldRehydrateLoopForSession({ ...snap, ownerSessionId: undefined }, "session-x", true) === true,
+	);
+	check(
+		"owner: legacy sidecar-only state is skipped",
+		shouldRehydrateLoopForSession({ ...snap, ownerSessionId: undefined }, "session-x", false) === false,
+	);
 }
 
 async function main() {

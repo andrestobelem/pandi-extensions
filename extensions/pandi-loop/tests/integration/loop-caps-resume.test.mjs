@@ -127,9 +127,11 @@ function makePi() {
 }
 
 // usage es un getter para que un escenario pueda cambiar el context percent reportado a mitad de vuelo.
-function makeCtx({ mode = "tui", hasUI = true, isIdle = true, trusted = true, usage, cwd } = {}) {
+function makeCtx({ mode = "tui", hasUI = true, isIdle = true, trusted = true, usage, cwd, sessionId } = {}) {
 	const notes = [];
-	const projectCwd = cwd ?? path.join(TEST_PROJECT_ROOT, `ctx-${++TEST_CTX_SEQ}`);
+	const ctxSeq = ++TEST_CTX_SEQ;
+	const projectCwd = cwd ?? path.join(TEST_PROJECT_ROOT, `ctx-${ctxSeq}`);
+	const effectiveSessionId = sessionId ?? `session-${ctxSeq}`;
 	const ctx = {
 		mode,
 		hasUI,
@@ -144,7 +146,7 @@ function makeCtx({ mode = "tui", hasUI = true, isIdle = true, trusted = true, us
 			confirm: async () => true,
 			select: async () => undefined,
 		},
-		sessionManager: { getEntries: () => [] },
+		sessionManager: { getEntries: () => [], getSessionId: () => effectiveSessionId },
 	};
 	ctx._notes = notes;
 	return ctx;
@@ -829,13 +831,14 @@ async function rehydrateSidecarOnly(url) {
 	const { pi, handlers, entries, sentMessages } = makePi();
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-sidecar-only-"));
 	try {
-		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: true, cwd });
+		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: true, cwd, sessionId: "sidecar-session" });
 		loopExtension(pi);
 		const now = Date.now();
 		const state = snap("onlysidecar", {
 			status: "running",
 			iteration: 4,
 			nextFireAt: now - 1000,
+			ownerSessionId: "sidecar-session",
 			updatedAt: new Date(now - 1000).toISOString(),
 		});
 		const dir = path.join(cwd, ".pi", "loops", state.loopId);
@@ -853,6 +856,44 @@ async function rehydrateSidecarOnly(url) {
 			`delivered=${sentMessages.length}`,
 		);
 		check("rehydrate: sidecar-only catch-up advances iteration", s?.iteration === 5, `it=${s?.iteration}`);
+	} finally {
+		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
+	}
+}
+
+// ===========================================================================
+// ESCENARIO C7: aislamiento por ventana/sesión. El sidecar vive bajo el cwd del
+// proyecto compartido, pero un loop debe pertenecer a la ventana que lo creó. Una
+// segunda ventana en el mismo repo NO debe adoptar ni disparar el state.json ajeno.
+// ==========================================================================
+async function rehydrateSkipsForeignSessionSidecar(url) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-foreign-sidecar-"));
+	try {
+		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: true, cwd, sessionId: "window-b" });
+		loopExtension(pi);
+		const now = Date.now();
+		const state = snap("foreignsidecar", {
+			status: "running",
+			iteration: 3,
+			nextFireAt: now - 1000,
+			ownerSessionId: "window-a",
+			updatedAt: new Date(now - 1000).toISOString(),
+		});
+		const dir = path.join(cwd, ".pi", "loops", state.loopId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`, "utf8");
+
+		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+		await tick();
+		const s = latestSnapshot(entries, "foreignsidecar");
+		check("rehydrate-owner: foreign sidecar is not persisted by this window", s === undefined, `status=${s?.status}`);
+		check(
+			"rehydrate-owner: foreign sidecar does not wake this window",
+			sentMessages.length === 0,
+			`delivered=${sentMessages.length}`,
+		);
 	} finally {
 		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
 	}
@@ -996,6 +1037,7 @@ async function main() {
 		await rehydrateRespectsCap(url);
 		await shutdownThenStartupRehydrates(url);
 		await rehydrateSidecarOnly(url);
+		await rehydrateSkipsForeignSessionSidecar(url);
 		await concurrentLoopCap(url);
 		await rehydrateZeroWallClockSanitized(url);
 		await rehydrateMissingMaxIterationsSanitized(url);

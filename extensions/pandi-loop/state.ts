@@ -46,6 +46,8 @@ export interface LoopState {
 	autonomous?: boolean;
 	/** Postura Ultracode: apoya el trabajo en dynamic workflows (solo inyección de prompt). */
 	ultracode?: boolean;
+	/** Id de la sesión/ventana que posee este loop. Evita que otras ventanas del mismo repo adopten el sidecar. */
+	ownerSessionId?: string;
 	/** Timestamp ISO de la última escritura; resuelve conflictos JSONL-vs-sidecar. */
 	updatedAt: string;
 }
@@ -77,6 +79,7 @@ export interface CreateActiveLoopInput {
 	now: number;
 	autonomous?: boolean;
 	ultracode?: boolean;
+	ownerSessionId?: string;
 }
 
 export function createActiveLoop(input: CreateActiveLoopInput): ActiveLoop {
@@ -95,6 +98,7 @@ export function createActiveLoop(input: CreateActiveLoopInput): ActiveLoop {
 		status: "running",
 		autonomous: input.autonomous,
 		ultracode: input.ultracode,
+		ownerSessionId: input.ownerSessionId,
 		updatedAt: new Date(input.now).toISOString(),
 		timer: null,
 		controller: new AbortController(),
@@ -119,6 +123,23 @@ export function snapshot(loop: ActiveLoop): LoopState {
 		status: loop.status,
 		autonomous: loop.autonomous,
 		ultracode: loop.ultracode,
+		ownerSessionId: loop.ownerSessionId,
 		updatedAt: loop.updatedAt,
 	};
+}
+
+/**
+ * Decide si un snapshot durable pertenece a la sesión actual.
+ *
+ * Los sidecars viven bajo el cwd del proyecto, compartido por todas las ventanas. Por eso
+ * los snapshots nuevos llevan ownerSessionId y solo los revive su dueña. Los snapshots
+ * legacy sin owner se aceptan únicamente si también aparecen en el JSONL de ESTA sesión;
+ * así no perdemos reloads locales viejos, pero otra ventana no adopta un sidecar legacy.
+ */
+export function shouldRehydrateLoopForSession(
+	state: LoopState,
+	currentOwnerSessionId: string | undefined,
+	hasSessionEntry: boolean,
+): boolean {
+	return state.ownerSessionId ? state.ownerSessionId === currentOwnerSessionId : hasSessionEntry;
 }
