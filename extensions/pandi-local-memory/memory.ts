@@ -40,6 +40,19 @@ function bulletNoteText(line: string): string {
 	return line.replace(/^-\s+\d{4}-\d{2}-\d{2}:\s+/, "").trim();
 }
 
+function createManagedMemoryBlock(existing: string, bullet: string): string {
+	const base = existing.replace(/\s+$/, "");
+	const sep = base.length ? `${base}\n\n` : "";
+	const block = `${REMEMBER_BEGIN}\n${MANAGED_HEADING}\n\n${bullet}\n${REMEMBER_END}\n`;
+	return `${sep}${block}`;
+}
+
+function insertManagedMemoryBullet(existing: string, end: number, bullet: string): string {
+	const head = existing.slice(0, end).replace(/\s+$/, "");
+	const tail = existing.slice(end); // empieza con REMEMBER_END
+	return `${head}\n${bullet}\n${tail}`;
+}
+
 /**
  * Agrega `note` (como viñeta fechada) al bloque gestionado de un documento MEMORY.md.
  *
@@ -57,12 +70,7 @@ export function upsertMemoryNote(existing: string, note: string, date: string): 
 	const end = existing.indexOf(REMEMBER_END);
 	const hasBlock = begin !== -1 && end !== -1 && end > begin;
 
-	if (!hasBlock) {
-		const base = existing.replace(/\s+$/, "");
-		const sep = base.length ? `${base}\n\n` : "";
-		const block = `${REMEMBER_BEGIN}\n${MANAGED_HEADING}\n\n${bullet}\n${REMEMBER_END}\n`;
-		return { content: `${sep}${block}`, added: true };
-	}
+	if (!hasBlock) return { content: createManagedMemoryBlock(existing, bullet), added: true };
 
 	// Deduplica dentro del bloque gestionado (marcadores + encabezado + viñetas), comparando por el texto de la nota.
 	const block = existing.slice(begin, end);
@@ -70,9 +78,7 @@ export function upsertMemoryNote(existing: string, note: string, date: string): 
 	if (already) return { content: existing, added: false };
 
 	// Inserta la nueva viñeta justo antes del marcador END, conservando un solo salto de línea limpio.
-	const head = existing.slice(0, end).replace(/\s+$/, "");
-	const tail = existing.slice(end); // empieza con REMEMBER_END
-	return { content: `${head}\n${bullet}\n${tail}`, added: true };
+	return { content: insertManagedMemoryBullet(existing, end, bullet), added: true };
 }
 
 // ===========================================================================
