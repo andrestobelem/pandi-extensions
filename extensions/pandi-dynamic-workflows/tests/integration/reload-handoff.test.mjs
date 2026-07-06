@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Regression: background dynamic workflows survive `/reload` by interrupting the
- * old in-process attempt and auto-resuming the same runId in the fresh extension
- * instance. Completed cached calls must not be re-executed, and the stale
- * pre-reload ctx must not emit the expected reload-interrupt failure wake-up.
+ * Regresión: los dynamic workflows de background sobreviven a `/reload` interrumpiendo
+ * el intento viejo in-process y auto-reanudando el mismo runId en la instancia fresca
+ * de la extensión. Las llamadas cacheadas completadas no deben re-ejecutarse, y el ctx
+ * stale pre-reload no debe emitir el wake-up esperado de falla por interrupción de reload.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/reload-handoff.test.mjs
  */
 
