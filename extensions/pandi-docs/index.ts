@@ -26,10 +26,13 @@ const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "re
 
 const USAGE = 'Uso: /docs <input.md> [más.md…] [-o output.html] [--kicker "Texto"]';
 
+function expandHomePath(input: string): string {
+	return input === "~" || input.startsWith("~/") ? path.join(os.homedir(), input.slice(1)) : input;
+}
+
 /** Resuelve una ruta de usuario contra el cwd de la sesión, expandiendo un `~` inicial. */
 function resolveUserPath(input: string, cwd: string): string {
-	const expanded = input === "~" || input.startsWith("~/") ? path.join(os.homedir(), input.slice(1)) : input;
-	return path.resolve(cwd, expanded);
+	return path.resolve(cwd, expandHomePath(input));
 }
 
 /** Ruta de salida por defecto: la entrada con su extensión .md reemplazada por .html. */
