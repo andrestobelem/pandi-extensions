@@ -19,32 +19,15 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createChecker, REPO_ROOT, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker } from "../../../shared/test/harness.mjs";
+import { EXT_DIR, loadInjectedGlobals } from "./worker-source-test-support.mjs";
 
 const { check, counts } = createChecker();
 
-const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SCAFFOLDS_DIR = path.join(EXT_DIR, "scaffolds");
 
-/** Extrae el set de globals inyectados: `sandbox.<name> = …`. */
-function injectedGlobals(source) {
-	const names = new Set();
-	for (const m of source.matchAll(/sandbox\.([A-Za-z][A-Za-z0-9]*)\s*=/g)) names.add(m[1]);
-	return names;
-}
-
-async function loadInjectedGlobals() {
-	const { url } = await sharedBuildExtension({
-		name: "pi-dw-scaffold-shadow-globals",
-		src: path.join(EXT_DIR, "worker-source.ts"),
-		outName: "worker-source.mjs",
-	});
-	const mod = await import(url);
-	return injectedGlobals(mod.WORKFLOW_WORKER_SOURCE);
-}
-
 async function main() {
-	const injected = await loadInjectedGlobals();
+	const injected = await loadInjectedGlobals("pi-dw-scaffold-shadow-globals");
 	check("extracted injected globals from worker source", injected.size > 0, `count=${injected.size}`);
 	check(
 		"extraction includes composition + HITL sentinels",

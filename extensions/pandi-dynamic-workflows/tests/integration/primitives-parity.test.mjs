@@ -20,12 +20,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createChecker, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { EXT_DIR, injectedGlobals, loadWorkerSource } from "./worker-source-test-support.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const PRIM_DIR = path.join(EXT_DIR, "primitives");
 // Mirror autocontenido del skill: una copia byte-idéntica para que el skill ultracode funcione standalone
 // (instalado sin la extensión). Se mantiene en sync acá — más estricto que el snapshot claude-workflows.
@@ -33,25 +30,8 @@ const MIRROR_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode", "reference
 
 const { check, counts } = createChecker();
 
-/** Extrae el set de globals inyectados: `sandbox.<name> = …`, excluyendo internos con prefijo `_`. */
-function injectedGlobals(source) {
-	const names = new Set();
-	for (const m of source.matchAll(/sandbox\.([A-Za-z][A-Za-z0-9]*)\s*=/g)) names.add(m[1]);
-	return names;
-}
-
-async function loadWorkerSource() {
-	const { url } = await sharedBuildExtension({
-		name: "pi-dw-primitives-parity",
-		src: path.join(EXT_DIR, "worker-source.ts"),
-		outName: "worker-source.mjs",
-	});
-	const mod = await import(url);
-	return mod.WORKFLOW_WORKER_SOURCE;
-}
-
 async function main() {
-	const source = await loadWorkerSource();
+	const source = await loadWorkerSource("pi-dw-primitives-parity");
 	const globals = injectedGlobals(source);
 
 	// Control negativo: la extracción debe ser no vacua e incluir un sentinel conocido.
