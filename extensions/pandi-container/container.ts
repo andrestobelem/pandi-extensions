@@ -122,6 +122,19 @@ export interface MachineEntry {
 	createdDate?: string;
 }
 
+function normalizeMachineRow(row: Record<string, unknown>): MachineEntry {
+	return {
+		id: String(row.id ?? ""),
+		status: row.status != null ? String(row.status) : undefined,
+		ipAddress: row.ipAddress != null ? String(row.ipAddress) : undefined,
+		cpus: typeof row.cpus === "number" ? row.cpus : undefined,
+		memory: typeof row.memory === "number" ? row.memory : undefined,
+		diskSize: typeof row.diskSize === "number" ? row.diskSize : undefined,
+		isDefault: row.default === true,
+		createdDate: row.createdDate != null ? String(row.createdDate) : undefined,
+	};
+}
+
 /** Parsea `container machine ls --format json`; entrada basura/inválida → []. */
 export function parseMachineList(jsonText: string): MachineEntry[] {
 	let parsed: unknown;
@@ -133,16 +146,7 @@ export function parseMachineList(jsonText: string): MachineEntry[] {
 	if (!Array.isArray(parsed)) return [];
 	return parsed
 		.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
-		.map((row) => ({
-			id: String(row.id ?? ""),
-			status: row.status != null ? String(row.status) : undefined,
-			ipAddress: row.ipAddress != null ? String(row.ipAddress) : undefined,
-			cpus: typeof row.cpus === "number" ? row.cpus : undefined,
-			memory: typeof row.memory === "number" ? row.memory : undefined,
-			diskSize: typeof row.diskSize === "number" ? row.diskSize : undefined,
-			isDefault: row.default === true,
-			createdDate: row.createdDate != null ? String(row.createdDate) : undefined,
-		}))
+		.map(normalizeMachineRow)
 		.filter((m) => m.id.length > 0);
 }
 
