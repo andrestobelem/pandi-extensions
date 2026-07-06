@@ -39,6 +39,11 @@ export function tokenize(input: string): string[] {
 	return tokens;
 }
 
+function parsePruneCommand(rest: string[]): ParsedCommand {
+	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
+	return { action: "prune", dryRun };
+}
+
 function parseSetCommand(rest: string[]): ParsedCommand {
 	if (rest.length === 0) return { action: "set" }; // mostrar todo
 	const target = rest[0].toLowerCase();
@@ -110,10 +115,7 @@ export function parseCommand(input: string): ParsedCommand {
 	if (head === "help" || head === "-h" || head === "--help") return { action: "help" };
 	if (head === "list" || head === "ls") return { action: "list" };
 
-	if (head === "prune") {
-		const dryRun = tokens.slice(1).some((t) => t === "--dry-run" || t === "-n");
-		return { action: "prune", dryRun };
-	}
+	if (head === "prune") return parsePruneCommand(tokens.slice(1));
 
 	if (head === "set") return parseSetCommand(tokens.slice(1));
 
