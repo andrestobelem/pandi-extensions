@@ -174,12 +174,15 @@ function inFlightOwnerAlive(): boolean {
 // Línea de estado
 // ---------------------------------------------------------------------------
 
+function formatLoopInterval(intervalMs: number | undefined): string {
+	return formatInterval(Math.round((intervalMs ?? 0) / 1000));
+}
+
 function setLoopStatus(ctx: ExtensionContext, loop: LoopState): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
 	const paused = loop.status === "paused" ? " paused" : "";
-	const fixed =
-		loop.mode === "fixed" && loop.intervalMs ? ` @${formatInterval(Math.round(loop.intervalMs / 1000))}` : "";
+	const fixed = loop.mode === "fixed" && loop.intervalMs ? ` @${formatLoopInterval(loop.intervalMs)}` : "";
 	const eta = loop.status === "running" && loop.nextFireAt ? ` next ${formatEta(loop.nextFireAt)}` : "";
 	const reason = loop.lastReason ? ` · ${loop.lastReason}` : "";
 	ctx.ui.setStatus(
@@ -490,7 +493,7 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 	const target = base + period;
 	const delay = Math.max(0, target - Date.now());
 	loop.nextFireAt = target;
-	loop.lastReason = `auto: intervalo fijo ${formatInterval(Math.round(period / 1000))}`;
+	loop.lastReason = `auto: intervalo fijo ${formatLoopInterval(period)}`;
 	loop.rearmedThisTurn = true;
 	persist(pi, ctx, loop);
 	setLoopStatus(ctx, loop);
@@ -519,7 +522,7 @@ function refuseIfLoopLimitReached(ctx: ExtensionContext): boolean {
 
 function formatFixedModeLabel(loop: ActiveLoop): string {
 	if (loop.mode !== "fixed") return "";
-	return ` (cada ${formatInterval(Math.round((loop.intervalMs ?? 0) / 1000))})`;
+	return ` (cada ${formatLoopInterval(loop.intervalMs)})`;
 }
 
 function activateLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
@@ -1134,7 +1137,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			if (loop.mode === "fixed") {
 				const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
 				return toolResult(
-					`El loop ${loop.loopId} corre en un intervalo fijo (cada ${formatInterval(periodSec)}); la cadencia es fija y loop_schedule es un no-op. Razón registrada: ${params.reason}.`,
+					`El loop ${loop.loopId} corre en un intervalo fijo (cada ${formatLoopInterval(loop.intervalMs)}); la cadencia es fija y loop_schedule es un no-op. Razón registrada: ${params.reason}.`,
 					{ loopId: loop.loopId, mode: "fixed", noop: true, intervalSeconds: periodSec },
 				);
 			}
