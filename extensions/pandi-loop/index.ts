@@ -1069,6 +1069,11 @@ function selectToolOwnerLoop(
 	);
 }
 
+function clampLoopDelaySeconds(raw: number): number {
+	if (!Number.isFinite(raw)) return SAFETY_NET_DELAY_SECONDS;
+	return Math.min(MAX_DELAY_SECONDS, Math.max(MIN_DELAY_SECONDS, Math.round(raw)));
+}
+
 interface LoopArgumentCompletion {
 	value: string;
 	label: string;
@@ -1143,9 +1148,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			// (NaN/Infinity) hace fallback a la cadencia de safety-net en vez de
 			// armar setTimeout(NaN) (que dispararía inmediatamente).
 			const raw = params.delaySeconds;
-			const delaySec = Number.isFinite(raw)
-				? Math.min(MAX_DELAY_SECONDS, Math.max(MIN_DELAY_SECONDS, Math.round(raw)))
-				: SAFETY_NET_DELAY_SECONDS;
+			const delaySec = clampLoopDelaySeconds(raw);
 			scheduleWake(pi, ctx, loop, delaySec, params.reason);
 			return toolResult(
 				`Próxima iteración del loop ${loop.loopId} programada en ${delaySec}s (razón: ${params.reason}).`,
