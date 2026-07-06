@@ -9,7 +9,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadDefault, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -112,6 +112,7 @@ async function main() {
 			source.includes("../pandi-" + "dynamic-" + "workflows") || source.includes("dynamic_" + "workflow");
 		check("index has no workflow-extension runtime import", !forbiddenRuntimeImport, source);
 
+		const mod = await loadModule(url);
 		const ext = await loadDefault(url);
 		const { pi, commands, handlers } = makePi();
 		ext(pi);
@@ -141,10 +142,9 @@ async function main() {
 			String(menuCtx._selectCalls.length),
 		);
 		const items = menuCtx._selectCalls[0]?.items ?? [];
-		const has = (token) => items.some((item) => String(item).startsWith(token));
 		check(
-			"/sessions selector offers dashboard/list/cleanup",
-			["dashboard", "list", "cleanup"].every(has),
+			"/sessions selector offers exactly the exported action labels",
+			JSON.stringify(items) === JSON.stringify(mod.PANDI_SESSION_SELECT_ITEMS),
 			JSON.stringify(items),
 		);
 		check(
