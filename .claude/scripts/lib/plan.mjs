@@ -4,12 +4,16 @@
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
 
 const empty = (value) => value === undefined || value === null || value === "" || value === "—";
-const unique = (items) => [...new Set(items.filter((x) => !empty(x)).map(String))];
+const emptyPhase = (value) => value === undefined || value === null || value === "";
+const uniqueBy = (items, isEmpty) => [...new Set(items.filter((x) => !isEmpty(x)).map(String))];
+const unique = (items) => uniqueBy(items, empty);
+const uniquePhases = (items) => uniqueBy(items, emptyPhase);
 const mono = (value) => `<code>${esc(value)}</code>`;
 
 function phaseOrder(phases, nodes) {
-  const fromNodes = unique(nodes.map((n) => n.phase || "—"));
-  return [...unique(phases), ...fromNodes.filter((p) => !phases.includes(p))];
+  const declared = uniquePhases(phases);
+  const fromNodes = uniquePhases(nodes.map((n) => n.phase || "—"));
+  return [...declared, ...fromNodes.filter((p) => !declared.includes(p))];
 }
 
 function phaseCards(phases, nodes) {
