@@ -32,12 +32,41 @@ export function outPathFor(relMd) {
 	return `${p.slice("docs/".length, -".md".length)}.html`;
 }
 
+function isLocalRelativeUrl(url) {
+	return !/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith("#") && !url.startsWith("/");
+}
+
+function splitUrlSuffix(url) {
+	const query = url.indexOf("?");
+	const hash = url.indexOf("#");
+	const cuts = [query, hash].filter((i) => i >= 0);
+	if (!cuts.length) return [url, ""];
+	const cut = Math.min(...cuts);
+	return [url.slice(0, cut), url.slice(cut)];
+}
+
+// Reescribe en el HTML renderizado los src relativos hacia rutas válidas desde el mirror docs/html/.
+export function rewriteAssetSrcs(html, fromMd) {
+	const fromOut = outPathFor(fromMd);
+	if (!fromOut) return html;
+	const fromOutRepoRel = path.posix.join("docs/html", fromOut);
+	return html.replace(/(\s)src="([^"]+)"/g, (all, prefix, src) => {
+		if (!isLocalRelativeUrl(src)) return all;
+		const [target, suffix] = splitUrlSuffix(src);
+		if (!target) return all;
+		const sourceRepoRel = path.posix.normalize(path.posix.join(path.posix.dirname(fromMd), target));
+		const rel =
+			path.posix.relative(path.posix.dirname(fromOutRepoRel), sourceRepoRel) || path.posix.basename(sourceRepoRel);
+		return `${prefix}src="${rel}${suffix}"`;
+	});
+}
+
 // Reescribe en el HTML renderizado los href relativos a .md dentro del set hacia sus equivalentes .html del mirror.
 export function rewriteHrefs(html, fromMd, set) {
 	const fromOut = outPathFor(fromMd);
 	if (!fromOut) return html;
 	return html.replace(/href="([^"]+)"/g, (all, href) => {
-		if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("#") || href.startsWith("/")) return all;
+		if (!isLocalRelativeUrl(href)) return all;
 		const [target, anchor] = href.split("#");
 		if (!target.endsWith(".md")) return all;
 		const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(fromMd), target));
@@ -122,7 +151,7 @@ export function syncDocsHtml(root, opts = {}) {
 		const rendered = renderMarkdownToHtml(md, { title: path.posix.basename(rel), kicker });
 		// Escaneá ANTES de rewriteHrefs: después, todo link correcto a .md dentro del set también se verá como .html.
 		badHrefs.push(...findBadSourceHrefs(rendered, rel, set));
-		expected.set(outPathFor(rel), rewriteHrefs(rendered, rel, set));
+		expected.set(outPathFor(rel), rewriteAssetSrcs(rewriteHrefs(rendered, rel, set), rel));
 	}
 
 	for (const [outRel, content] of expected) {

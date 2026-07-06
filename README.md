@@ -4,6 +4,11 @@
 
 El corazón es **Dynamic Workflows / Ultracode**: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor, cada extensión operacionaliza una disciplina de ingeniería — `/plan` ≈ pensar antes de codear, `/goal` ≈ ejecución con criterios verificables, `/loop` ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼
 
+<div align="center">
+  <img src="docs/assets/pandi-avatar-pixel.png" alt="Avatar pixel-art de Pandi con brillo magenta y bambú" width="220">
+  <img src="docs/assets/pandi-avatar-pixel-meditating.png" alt="Avatar pixel-art de Pandi meditando con brote de bambú" width="220">
+</div>
+
 - **Licencia:** MIT · **Repo:** <https://github.com/andrestobelem/pandi-extensions>
 - **Requisitos mínimos:** Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales: [`docs/setup.md`](docs/setup.md).
 

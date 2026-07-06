@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SCRIPT = path.join(REPO, "scripts", "sync-docs-html.mjs");
-const { outPathFor, rewriteHrefs, syncDocsHtml } = await import(pathToFileURL(SCRIPT).href);
+const { outPathFor, rewriteAssetSrcs, rewriteHrefs, syncDocsHtml } = await import(pathToFileURL(SCRIPT).href);
 
 test("outPathFor maps the set and rejects everything else", () => {
 	assert.equal(outPathFor("README.md"), "index.html");
@@ -20,6 +20,20 @@ test("outPathFor maps the set and rejects everything else", () => {
 	assert.equal(outPathFor("docs/conversaciones/x.md"), null);
 	assert.equal(outPathFor("AGENTS.md"), null);
 	assert.equal(outPathFor("extensions/pandi-bg/README.md"), null);
+});
+
+test("rewriteAssetSrcs rewrites relative image sources for the html mirror", () => {
+	let html = '<img src="docs/assets/pandi.png"> <img src="https://x.io/pandi.png"> <img src="/assets/pandi.png">';
+	assert.equal(
+		rewriteAssetSrcs(html, "README.md"),
+		'<img src="../assets/pandi.png"> <img src="https://x.io/pandi.png"> <img src="/assets/pandi.png">',
+	);
+
+	html = '<img src="assets/pandi.png">';
+	assert.equal(rewriteAssetSrcs(html, "docs/README.md"), '<img src="../assets/pandi.png">');
+
+	html = '<img src="../assets/pandi.png">';
+	assert.equal(rewriteAssetSrcs(html, "docs/research/x.md"), '<img src="../../assets/pandi.png">');
 });
 
 test("rewriteHrefs rewrites in-set relative .md links, preserves anchors, leaves the rest", () => {
@@ -44,7 +58,10 @@ test("rewriteHrefs rewrites in-set relative .md links, preserves anchors, leaves
 function makeTree() {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-sync-"));
 	fs.writeFileSync(path.join(root, "package.json"), `${JSON.stringify({ name: "pandi-extensions" })}\n`);
-	fs.writeFileSync(path.join(root, "README.md"), "# Root\n\nSee [setup](docs/setup.md).\n");
+	fs.writeFileSync(
+		path.join(root, "README.md"),
+		'# Root\n\nSee [setup](docs/setup.md).\n\n<img src="docs/assets/pandi.png" alt="Pandi">\n',
+	);
 	fs.mkdirSync(path.join(root, "docs", "research"), { recursive: true });
 	fs.mkdirSync(path.join(root, "docs", "conversaciones"), { recursive: true });
 	fs.writeFileSync(path.join(root, "docs", "setup.md"), "# Setup\n\nBack to [root](../README.md).\n");
@@ -64,6 +81,7 @@ test("syncDocsHtml writes the mirror, is idempotent, removes orphans, and check 
 		assert.match(index, /<title>Root<\/title>/);
 		assert.match(index, />pandi-extensions</); // el kicker del README raíz sale del metadata del package, no del basename de cwd
 		assert.match(index, /href="setup\.html"/); // link reescrito
+		assert.match(index, /src="\.\.\/assets\/pandi\.png"/); // asset reescrito hacia docs/assets
 		assert.ok(!fs.existsSync(path.join(mirror, "conversaciones")));
 
 		// Segunda pasada: no hay nada que hacer.
