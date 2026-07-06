@@ -16,12 +16,15 @@ function formatGoalStatusPhase(goal: GoalState): string {
 	return goal.gstatus === "verifying" ? " verifying" : goal.gstatus === "verifying-independent" ? " verifying⊥" : "";
 }
 
+function formatGoalStatusEta(goal: GoalState): string {
+	return (goal.gstatus === "pursuing" || goal.gstatus === "verifying") && goal.nextFireAt
+		? ` next ${formatEta(goal.nextFireAt)}`
+		: "";
+}
+
 function formatGoalStatusDetails(goal: GoalState): string {
 	const phase = formatGoalStatusPhase(goal);
-	const eta =
-		(goal.gstatus === "pursuing" || goal.gstatus === "verifying") && goal.nextFireAt
-			? ` next ${formatEta(goal.nextFireAt)}`
-			: "";
+	const eta = formatGoalStatusEta(goal);
 	const reason = goal.lastReason ? ` · ${goal.lastReason}` : "";
 	return `it ${goal.iteration}/${goal.maxIterations}${phase}${eta}${reason}`;
 }
