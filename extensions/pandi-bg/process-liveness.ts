@@ -23,6 +23,17 @@ function isUsablePid(pid: number | undefined): pid is number {
 	return typeof pid === "number" && Number.isInteger(pid) && pid > 0;
 }
 
+function parseLinuxProcStartId(stat: string): string | undefined {
+	// comm puede contener espacios/parens, así que parsea campos después del último ')'.
+	// starttime es el campo 22 (1-indexed) => índice 19 de los tokens post-comm.
+	const afterComm = stat
+		.slice(stat.lastIndexOf(")") + 1)
+		.trim()
+		.split(/\s+/);
+	const starttime = afterComm[19];
+	return starttime ? `lin:${starttime}` : undefined;
+}
+
 // Captura una identidad de inicio estable por proceso para que una prueba posterior distinga el
 // proceso de nuestro job de otro no relacionado que reutilizó su pid. Mejor esfuerzo, con
 // degradación entre plataformas: Linux lee /proc (sin subprocess); macOS/BSD ejecuta
@@ -33,14 +44,7 @@ export function readProcessStartId(pid: number | undefined): string | undefined 
 	try {
 		if (process.platform === "linux") {
 			const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
-			// comm puede contener espacios/parens, así que parsea campos después del último ')'.
-			// starttime es el campo 22 (1-indexed) => índice 19 de los tokens post-comm.
-			const afterComm = stat
-				.slice(stat.lastIndexOf(")") + 1)
-				.trim()
-				.split(/\s+/);
-			const starttime = afterComm[19];
-			return starttime ? `lin:${starttime}` : undefined;
+			return parseLinuxProcStartId(stat);
 		}
 		if (process.platform === "darwin" || process.platform.endsWith("bsd")) {
 			const res = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8" });
