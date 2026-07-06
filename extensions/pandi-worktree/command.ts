@@ -75,8 +75,12 @@ function isBranchFlag(token: string): boolean {
 	return token === "-b" || token === "--branch";
 }
 
+function isDryRunFlag(token: string): boolean {
+	return token === "--dry-run" || token === "-n";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
-	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
+	const dryRun = rest.some(isDryRunFlag);
 	return { action: "prune", dryRun };
 }
 
