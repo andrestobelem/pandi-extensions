@@ -59,6 +59,10 @@ function renderDashboardMarkdown(lines: string[]): string {
 	return lines.join("\n");
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 /** Un paso de checklist de estilo Claude parseado del Markdown de un plan. */
 export interface ChecklistItem {
 	text: string;
@@ -232,10 +236,6 @@ export async function renderPlanDashboardOverlay(ctx: ExtensionContext, markdown
 			};
 		});
 	} catch (error) {
-		notify(
-			ctx,
-			`No se pudo abrir el tablero de plan: ${error instanceof Error ? error.message : String(error)}`,
-			"warning",
-		);
+		notify(ctx, `No se pudo abrir el tablero de plan: ${errorMessage(error)}`, "warning");
 	}
 }
