@@ -243,6 +243,13 @@ function snapFiles(env, sessionId = "s1") {
 	return existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".json")) : [];
 }
 
+function readSingleSnapshot(env, label, sessionId = "s1") {
+	const files = snapFiles(env, sessionId).sort();
+	check(`${label}: exactly one JSON snapshot exists`, files.length === 1, `files=${JSON.stringify(files)}`);
+	if (files.length !== 1) return undefined;
+	return JSON.parse(readFileSync(path.join(snapDir(env, sessionId), files[0]), "utf8"));
+}
+
 // El texto más reciente del estado del footer (o undefined cuando se limpió por última vez).
 const lastStatus = (env) => (env.statuses.length ? env.statuses[env.statuses.length - 1].text : undefined);
 
@@ -716,10 +723,8 @@ async function snapshotWritesRawEntries(url) {
 		{ type: "message", id: "b", message: { role: "assistant", content: "world raw" } },
 	];
 	await fireBeforeCompact(handlers, env.ctx, { branchEntries: entries, reason: "threshold" });
-	const files = snapFiles(env);
-	check("snapshot: a JSON snapshot is written on session_before_compact", files.length === 1, `files=${files.length}`);
-	if (files.length !== 1) return;
-	const snap = JSON.parse(readFileSync(path.join(snapDir(env), files[0]), "utf8"));
+	const snap = readSingleSnapshot(env, "snapshot: session_before_compact writes raw entries");
+	if (!snap) return;
 	check(
 		"snapshot: preserves every raw entry + metadata",
 		snap.entryCount === 2 &&
@@ -742,12 +747,8 @@ async function snapshotPatchesSummary(url) {
 	const env = makeEnv();
 	await fireBeforeCompact(handlers, env.ctx, { branchEntries: [{ type: "message", id: "x" }] });
 	await fireSessionCompact(handlers, env.ctx, { summary: "a lossy summary of x" });
-	const files = snapFiles(env);
-	if (files.length !== 1) {
-		check("snapshot: single file to patch", false, `files=${files.length}`);
-		return;
-	}
-	const snap = JSON.parse(readFileSync(path.join(snapDir(env), files[0]), "utf8"));
+	const snap = readSingleSnapshot(env, "snapshot: session_compact patches the single raw snapshot");
+	if (!snap) return;
 	check(
 		"snapshot: session_compact patches in the produced summary (raw + summary pair)",
 		snap.summary === "a lossy summary of x" && snap.entries[0].id === "x",
