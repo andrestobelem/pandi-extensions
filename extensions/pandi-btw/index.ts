@@ -56,6 +56,12 @@ function formatBtwFailure(error: unknown): string {
 	return `btw falló: ${message}`;
 }
 
+function setBtwStatus(ctx: ExtensionCommandContext, value: string | undefined): boolean {
+	if (!ctx.hasUI || typeof ctx.ui.setStatus !== "function") return false;
+	ctx.ui.setStatus(STATUS_KEY, value);
+	return true;
+}
+
 async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
 	const question = args.trim();
 	if (!question) {
@@ -94,8 +100,7 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 	// ThinkingLevel distintas (pero compatibles), así que estrechá al tipo de la opción.
 	if (model.reasoning) options.reasoning = pi.getThinkingLevel() as SimpleStreamOptions["reasoning"];
 
-	const showStatus = ctx.hasUI && typeof ctx.ui.setStatus === "function";
-	if (showStatus) ctx.ui.setStatus(STATUS_KEY, "btw: thinking…");
+	const showStatus = setBtwStatus(ctx, "btw: thinking…");
 
 	let response: AssistantMessage;
 	try {
@@ -104,7 +109,7 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 		notify(ctx, formatBtwFailure(error), "error");
 		return;
 	} finally {
-		if (showStatus) ctx.ui.setStatus(STATUS_KEY, undefined);
+		if (showStatus) setBtwStatus(ctx, undefined);
 	}
 
 	if (response.stopReason === "error") {
