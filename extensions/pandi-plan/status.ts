@@ -9,7 +9,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { PlanState } from "./index.js";
+import type { PlanState } from "./state.js";
 
 const PLAN_STATUS_KEY = "plan";
 

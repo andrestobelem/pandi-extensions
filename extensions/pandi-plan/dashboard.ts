@@ -12,9 +12,9 @@
  * texto del plan sumado más recientemente por `extractPlanChecklist` (también puro): el estado
  * de la task-list GFM se preserva, en otro caso los pasos se derivan de las listas/headings del plan.
  *
- * Desacoplado del PlanState de index.ts por un mínimo ESTRUCTURAL `PlanSnapshot`
- * (replica el enfoque PersistedEntry de session-state.ts); cualquier PlanState real
- * lo satisface. Sibling de profundidad uno importado vía "./dashboard.js".
+ * Depende del concepto leaf `PlanState` vía `state.ts`, no del runtime `index.ts`.
+ * El alias `PlanSnapshot` mantiene el nombre de la vista sin duplicar la forma del estado.
+ * Sibling de profundidad uno importado vía "./dashboard.js".
  *
  * `renderPlanDashboardOverlay` hospeda el overlay de scroll TUI (un mínimo
  * componente autocontenido — sin importación de runtime pi-tui) así que index.ts solo mantiene el
@@ -23,22 +23,10 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "./notify.js";
+import type { PlanState } from "./state.js";
 
-/** Forma estructural de un plan que este dashboard renderiza. Cualquier PlanState lo satisface. */
-export interface PlanSnapshot {
-	planId: string;
-	task: string;
-	active: boolean;
-	status: string;
-	submissions: number;
-	rejections: number;
-	nonInteractive?: boolean;
-	ultracode?: boolean;
-	ultracodeSteps?: boolean;
-	startedAt: number;
-	updatedAt: string;
-	lastPlan?: string;
-}
+/** Snapshot de plan que este dashboard renderiza: el mismo concepto persistido por el runtime. */
+export type PlanSnapshot = PlanState;
 
 /** Tags de postura legibles (o "interactive" cuando no se setea ninguna bandera). */
 export function planPosture(plan: PlanSnapshot): string {

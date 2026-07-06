@@ -85,37 +85,12 @@ import { notify } from "./notify.js";
 import { writeAndOpenPlanHtmlArtifact } from "./plan-html.js";
 import { makeImplementPrompt, makePlanningPrompt, type PlanFlags } from "./prompts.js";
 import { collectLatestByKey } from "./session-state.js";
+import type { PlanState } from "./state.js";
 import { clearPlanStatus, formatStatus, setPlanStatus } from "./status.js";
 
+export type { PlanState, PlanStatus } from "./state.js";
+
 const PLAN_STATE_TYPE = "plan-state";
-
-type PlanStatus = "planning" | "approved" | "rejected" | "exited" | "planned";
-
-export interface PlanState {
-	planId: string;
-	/** The task the user handed to /plan. */
-	task: string;
-	/** True while the read-only GATE is armed (the mode is active). */
-	active: boolean;
-	status: PlanStatus;
-	/** Cuántas veces el modelo llamó submit_plan. */
-	submissions: number;
-	/** Cuántos de esos fueron rechazados por el usuario. */
-	rejections: number;
-	/** El último texto de plan que el modelo sumitó (para status + reinyección de aprobación). */
-	lastPlan?: string;
-	/**
-	 * Banderas de postura resueltas al entry (param -> env -> default). Sintonizán el wording del prompt
-	 * y, para nonInteractive, el ciclo de vida submit_plan (solo plan: sin aprobación,
-	 * sin implementación, gate nunca se levanta). Persistidas así que dashboard/status las reflejan.
-	 */
-	nonInteractive?: boolean;
-	ultracode?: boolean;
-	ultracodeSteps?: boolean;
-	startedAt: number;
-	/** Timestamp ISO de la última escritura (mantenido para paridad con la familia loop/goal). */
-	updatedAt: string;
-}
 
 // Fuente de verdad de "¿está el modo plan activo AHORA?" en este proceso. Un Map para paridad con
 // la familia loop/goal, pero /plan es single-session: a lo más un plan activo al tiempo.
