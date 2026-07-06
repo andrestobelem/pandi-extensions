@@ -92,6 +92,14 @@ function formatAgentOutputText(output: string | undefined, state: AgentMonitorMo
 	return "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
 }
 
+function isPromptSourceTruncated(
+	promptSource: string | undefined,
+	promptFromEvent: string | undefined,
+	promptTruncated: boolean | undefined,
+): boolean {
+	return !!promptSource && (promptSource.length > MAX_TOOL_TEXT || !!(promptFromEvent && promptTruncated));
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -244,8 +252,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 			: []),
 	];
 	const promptSourceLabel = describePromptSource(promptFromEvent, prompt, agent.promptAvailable);
-	const promptWasTruncated =
-		!!promptSource && (promptSource.length > MAX_TOOL_TEXT || !!(promptFromEvent && agent.promptTruncated));
+	const promptWasTruncated = isPromptSourceTruncated(promptSource, promptFromEvent, agent.promptTruncated);
 	const promptRows: [string, string][] = [
 		["Agent", `${agentRef} ${agent.name}`],
 		["State", `${stateIcon} ${agent.state}`],
