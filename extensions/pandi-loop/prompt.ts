@@ -23,6 +23,10 @@ export interface LoopIterationPromptInput {
 	ultracode?: boolean;
 }
 
+function renderLoopIterationPrompt(lines: string[]): string {
+	return lines.join("\n");
+}
+
 /** Molde estable de prompt de iteración (cf. makeWorkflowWakePrompt). */
 export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string {
 	const lines: string[] = [];
@@ -84,5 +88,5 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 			`Si no hacés ninguna de las dos, el loop se va a reprogramar automáticamente por defensa y se va a detener de forma dura en la iteración ${loop.maxIterations}.`,
 		);
 	}
-	return lines.join("\n");
+	return renderLoopIterationPrompt(lines);
 }
