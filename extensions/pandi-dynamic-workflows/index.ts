@@ -13,13 +13,10 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+export { liveAgentHeaderStatus } from "./agent-view.js";
 export { countRunArtifacts } from "./dashboard-collectors.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export { settleWithinTimeout } from "./run-lifecycle.js";
-
-import { ensureDynamicWorkflowToolActive, setUltracodeStatus } from "./ultracode.js";
-
-export { liveAgentHeaderStatus } from "./agent-view.js";
 export {
 	activeRunCount,
 	activeRunIds,
@@ -32,6 +29,7 @@ export {
 } from "./run-registry.js";
 
 import { registerUltracodeInputEvents } from "./ultracode-input-events.js";
+import { registerUltracodeModeEvent } from "./ultracode-mode-event.js";
 import { registerUltracodeToggleCommands } from "./ultracode-toggle-commands.js";
 import { registerWorkflowRoutingCommands } from "./workflow-routing-commands.js";
 import { registerWorkflowSessionEvents } from "./workflow-session-events.js";
@@ -107,18 +105,16 @@ export {
 export { prepareWorkflowRun } from "./workflow-run-prepare.js";
 export { transformWorkflowCode } from "./workflow-transform.js";
 
-// Gancho inter-extensión de mejor esfuerzo usado por extensions/effort/index.ts para `/effort ultracode`.
-const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 	let ultracodeAlwaysOn = true;
 	let ultracodeContractGateEnabled = true;
 	let currentCtx: ExtensionContext | undefined;
 
-	pi.events?.on?.(ULTRACODE_MODE_EVENT, (data) => {
-		const request = data as { enabled?: unknown } | undefined;
-		ultracodeAlwaysOn = request?.enabled !== false;
-		if (ultracodeAlwaysOn) ensureDynamicWorkflowToolActive(pi);
-		if (currentCtx) setUltracodeStatus(currentCtx, ultracodeAlwaysOn);
+	registerUltracodeModeEvent(pi, {
+		setAlwaysOn: (enabled) => {
+			ultracodeAlwaysOn = enabled;
+		},
+		getCurrentCtx: () => currentCtx,
 	});
 
 	registerDynamicWorkflowTool(pi);
