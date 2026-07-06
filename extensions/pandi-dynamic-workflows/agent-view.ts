@@ -94,6 +94,19 @@ function formatAgentOutputText(output: string | undefined, state: AgentMonitorMo
 	return "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
 }
 
+function formatPromptText(
+	promptSource: string | undefined,
+	promptFromEvent: string | undefined,
+	promptTruncated: boolean | undefined,
+	promptAvailable: boolean | undefined,
+): string {
+	if (promptSource)
+		return `${truncate(promptSource)}${promptFromEvent && promptTruncated ? "\n\n...[prompt copy truncated in events]" : ""}`;
+	return promptAvailable
+		? "Prompt artifact exists, but the prompt section could not be parsed."
+		: "Prompt not available for this run/agent.";
+}
+
 function isPromptSourceTruncated(
 	promptSource: string | undefined,
 	promptFromEvent: string | undefined,
@@ -161,11 +174,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	const stdoutNote = formatStdoutNote(stdoutForParsing, parsedStdout, stdout);
 	const promptFromEvent = agent.promptCopy || undefined;
 	const promptSource = promptFromEvent ?? prompt;
-	const promptText = promptSource
-		? `${truncate(promptSource)}${promptFromEvent && agent.promptTruncated ? "\n\n...[prompt copy truncated in events]" : ""}`
-		: agent.promptAvailable
-			? "Prompt artifact exists, but the prompt section could not be parsed."
-			: "Prompt not available for this run/agent.";
+	const promptText = formatPromptText(promptSource, promptFromEvent, agent.promptTruncated, agent.promptAvailable);
 	const stateIcon = agentStateIcon(agent.state);
 	const phase = formatAgentPhase(agent);
 	const agentRef = formatAgentRef(agent, phase);
