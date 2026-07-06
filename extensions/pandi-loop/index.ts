@@ -352,12 +352,7 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		if (loop?.status !== "running") continue;
 		// Guards rechequeados al entregar (el estado puede haber cambiado en cola).
 		if (loop.iteration >= loop.maxIterations) {
-			stopLoop(pi, ctx, loop.loopId, `alcanzó el límite de maxIterations (${loop.maxIterations})`, "done");
-			notify(
-				ctx,
-				`Loop ${loop.loopId} detenido: alcanzó el límite de maxIterations (${loop.maxIterations}).`,
-				"warning",
-			);
+			stopForMaxIterations(pi, ctx, loop);
 			continue;
 		}
 		const cap = capExceeded(ctx, loop);
@@ -386,6 +381,12 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 	persist(pi, ctx, loop);
 	setLoopStatus(ctx, loop);
 	wake(pi, ctx, makeLoopIterationPrompt(loop));
+}
+
+/** Detiene un loop porque alcanzó su tope de iteraciones. Status "done" (fin limpio y esperado). */
+function stopForMaxIterations(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
+	stopLoop(pi, ctx, loop.loopId, `alcanzó el límite de maxIterations (${loop.maxIterations})`, "done");
+	notify(ctx, `Loop ${loop.loopId} detenido: alcanzó el límite de maxIterations (${loop.maxIterations}).`, "warning");
 }
 
 /** Detiene un loop porque se tocó un tope. Status "done" (fin limpio y esperado). */
@@ -426,12 +427,7 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 	}
 
 	if (loop.iteration >= loop.maxIterations) {
-		stopLoop(pi, ctx, loop.loopId, `alcanzó el límite de maxIterations (${loop.maxIterations})`, "done");
-		notify(
-			ctx,
-			`Loop ${loop.loopId} detenido: alcanzó el límite de maxIterations (${loop.maxIterations}).`,
-			"warning",
-		);
+		stopForMaxIterations(pi, ctx, loop);
 		return;
 	}
 
