@@ -58,6 +58,49 @@ function parseRemoveCommand(rest: string[]): ParsedCommand {
 	return { action: "remove", path: pathArg, force };
 }
 
+function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCommand {
+	const positionals: string[] = [];
+	let newBranch: string | undefined;
+	let force = false;
+	let detach = false;
+	// Tres estados: undefined salvo que un flag explícito active/desactive la copia en esta llamada.
+	let copyIgnored: boolean | undefined;
+	let copyUntracked: boolean | undefined;
+	for (let i = 0; i < rest.length; i++) {
+		const tok = rest[i];
+		if (tok === "-b" || tok === "--branch") {
+			newBranch = rest[++i];
+		} else if (tok === "--force" || tok === "-f") {
+			force = true;
+		} else if (tok === "--detach" || tok === "-d") {
+			detach = true;
+		} else if (tok === "--copy-ignored") {
+			copyIgnored = true;
+		} else if (tok === "--no-copy-ignored") {
+			copyIgnored = false;
+		} else if (tok === "--copy-untracked") {
+			copyUntracked = true;
+		} else if (tok === "--no-copy-untracked") {
+			copyUntracked = false;
+		} else {
+			positionals.push(tok);
+		}
+	}
+	const [pathArg, commitish] = positionals;
+	const usage =
+		action === "open"
+			? "Uso: /worktree open [-b <branch>] <path> [<commit-ish>]"
+			: "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]";
+	if (!pathArg) return { action, error: usage };
+	if (newBranch !== undefined && !isValidBranchName(newBranch)) {
+		return {
+			action,
+			error: `Nombre de rama inválido "${newBranch ?? ""}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
+		};
+	}
+	return { action, path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
+}
+
 /** Parsea la línea de comandos `/worktree` en una intención estructurada. */
 export function parseCommand(input: string): ParsedCommand {
 	const tokens = tokenize(input.trim());
@@ -74,49 +117,7 @@ export function parseCommand(input: string): ParsedCommand {
 
 	if (head === "set") return parseSetCommand(tokens.slice(1));
 
-	if (head === "add" || head === "open") {
-		const rest = tokens.slice(1);
-		const positionals: string[] = [];
-		let newBranch: string | undefined;
-		let force = false;
-		let detach = false;
-		// Tres estados: undefined salvo que un flag explícito active/desactive la copia en esta llamada.
-		let copyIgnored: boolean | undefined;
-		let copyUntracked: boolean | undefined;
-		for (let i = 0; i < rest.length; i++) {
-			const tok = rest[i];
-			if (tok === "-b" || tok === "--branch") {
-				newBranch = rest[++i];
-			} else if (tok === "--force" || tok === "-f") {
-				force = true;
-			} else if (tok === "--detach" || tok === "-d") {
-				detach = true;
-			} else if (tok === "--copy-ignored") {
-				copyIgnored = true;
-			} else if (tok === "--no-copy-ignored") {
-				copyIgnored = false;
-			} else if (tok === "--copy-untracked") {
-				copyUntracked = true;
-			} else if (tok === "--no-copy-untracked") {
-				copyUntracked = false;
-			} else {
-				positionals.push(tok);
-			}
-		}
-		const [pathArg, commitish] = positionals;
-		const usage =
-			head === "open"
-				? "Uso: /worktree open [-b <branch>] <path> [<commit-ish>]"
-				: "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]";
-		if (!pathArg) return { action: head, error: usage };
-		if (newBranch !== undefined && !isValidBranchName(newBranch)) {
-			return {
-				action: head,
-				error: `Nombre de rama inválido "${newBranch ?? ""}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
-			};
-		}
-		return { action: head, path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
-	}
+	if (head === "add" || head === "open") return parseAddOrOpenCommand(head, tokens.slice(1));
 
 	if (head === "remove" || head === "rm") return parseRemoveCommand(tokens.slice(1));
 
