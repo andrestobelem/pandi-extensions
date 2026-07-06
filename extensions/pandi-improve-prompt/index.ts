@@ -39,9 +39,12 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	else console.error(message);
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatImprovePromptFailure(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `improve-prompt failed: ${message}`;
+	return `improve-prompt failed: ${errorMessage(error)}`;
 }
 
 function setImprovePromptStatus(ctx: ExtensionCommandContext, value: string | undefined): boolean {
