@@ -1,9 +1,9 @@
 /**
- * run-report-adapters — pins the user-facing surfaces of the run report (design
- * record §6.5, run bd039ef9): the `report` dynamic_workflow tool action and the
- * `/workflow report` slash command resolve a run (explicit id or latest), write a
- * self-contained report.html INSIDE the run dir (so relative artifact links work),
- * and countRunArtifacts never counts the report itself as a run artifact.
+ * run-report-adapters — fija las superficies user-facing del run report (design
+ * record §6.5, run bd039ef9): la acción `report` de la tool dynamic_workflow y el
+ * slash command `/workflow report` resuelven un run (id explícito o latest), escriben
+ * un report.html autocontenido DENTRO del run dir (para que funcionen los links relativos
+ * a artifacts), y countRunArtifacts nunca cuenta el reporte mismo como artifact del run.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -119,7 +119,7 @@ async function main() {
 	const tool = tools.get("dynamic_workflow");
 	const ctx = makeCtx(project);
 
-	// The action is part of the tool schema.
+	// La acción forma parte del schema de la tool.
 	check("tool registered", !!tool);
 
 	const oldRunId = "2026-01-01T00-00-00-000Z-adapter-demo-aaaa1111";
@@ -127,7 +127,7 @@ async function main() {
 	const runDir = await makeRunDir(project, oldRunId, { startedAt: "2026-01-01T00:00:00.000Z" });
 	const latestRunDir = await makeRunDir(project, latestRunId, { startedAt: "2026-01-02T00:00:00.000Z" });
 
-	// 1) Tool action=report with explicit run id writes <runDir>/report.html.
+	// 1) Tool action=report con run id explícito escribe <runDir>/report.html.
 	const explicit = await settle(
 		tool.execute("tc-report-1", { action: "report", name: oldRunId }, new AbortController().signal, undefined, ctx),
 	);
@@ -141,7 +141,7 @@ async function main() {
 	check("report links the agent artifact relatively", (html ?? "").includes('href="agents/0001-solo.md"'));
 	check("tool response mentions the output path", explicit.ok && JSON.stringify(explicit.v).includes("report.html"));
 
-	// 2) action=report without a name resolves the LATEST run among multiple candidates.
+	// 2) action=report sin name resuelve el run LATEST entre múltiples candidatos.
 	await fs.rm(reportPath, { force: true });
 	await fs.rm(latestReportPath, { force: true });
 	const latest = await settle(
@@ -163,7 +163,7 @@ async function main() {
 		),
 	);
 
-	// 3) action=report watch:true on a terminal run writes once and does not add refresh.
+	// 3) action=report watch:true en un run terminal escribe una vez y no agrega refresh.
 	await fs.rm(reportPath, { force: true });
 	await fs.rm(latestReportPath, { force: true });
 	const watchedTerminal = await settle(
@@ -182,7 +182,7 @@ async function main() {
 		watchedTerminal.ok && JSON.stringify(watchedTerminal.v).includes("writes: 1"),
 	);
 
-	// 4) /workflow report <id> goes through the slash surface.
+	// 4) /workflow report <id> pasa por la superficie slash.
 	await fs.rm(reportPath, { force: true });
 	const workflowCommand = commands.get("workflow");
 	check("/workflow command registered", !!workflowCommand);
@@ -202,7 +202,7 @@ async function main() {
 		),
 	);
 
-	// 5) countRunArtifacts never counts report.html itself.
+	// 5) countRunArtifacts nunca cuenta report.html en sí.
 	check("countRunArtifacts exported for the pin", typeof mod.countRunArtifacts === "function");
 	if (typeof mod.countRunArtifacts === "function") {
 		const withReport = await mod.countRunArtifacts(runDir);
