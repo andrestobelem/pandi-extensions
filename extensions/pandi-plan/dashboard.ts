@@ -55,6 +55,10 @@ function clip(text: string, max: number): string {
 	return oneLine.length <= max ? oneLine : `${oneLine.slice(0, Math.max(0, max - 1))}…`;
 }
 
+function renderDashboardMarkdown(lines: string[]): string {
+	return lines.join("\n");
+}
+
 /** Un paso de checklist de estilo Claude parseado del Markdown de un plan. */
 export interface ChecklistItem {
 	text: string;
@@ -117,7 +121,7 @@ export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 		lines.push(
 			"Todavía no hay planes registrados en esta sesión. Empezá uno con `/plan <task>` o la tool `enter_plan_mode`.",
 		);
-		return lines.join("\n");
+		return renderDashboardMarkdown(lines);
 	}
 
 	const sorted = [...plans].sort((a, b) => a.startedAt - b.startedAt);
@@ -168,7 +172,7 @@ export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 			`| ${p.planId} | ${status} | ${planPosture(p)} | ${p.submissions} | ${p.rejections} | ${clip(p.task, 60)} |`,
 		);
 	}
-	return lines.join("\n");
+	return renderDashboardMarkdown(lines);
 }
 
 /**
