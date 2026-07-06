@@ -28,76 +28,92 @@ const SUPPORTED = new Set(["darwin-arm64", "linux-x64"]);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const target = path.join(repoRoot, ".pi", "tools", "gondolin");
 
+export function platformKey({ platform = process.platform, arch = process.arch } = {}) {
+	return `${platform}-${arch}`;
+}
+
+export function isSupportedPlatform(key, supported = SUPPORTED) {
+	return supported.has(key);
+}
+
+export function nodeVersionSupportsGondolin(version = process.versions.node) {
+	const [major, minor] = version.split(".").map(Number);
+	return major > 23 || (major === 23 && minor >= 6);
+}
+
+export function npmInstallEnv(env = process.env) {
+	// Quitá del env heredado los npm_config_* para que un `npm run` padre no filtre config
+	// (por ejemplo allow-scripts desde ~/.npmrc -> npm_config_allow_scripts) a esta
+	// instalación anidada, que npm rechaza junto con --ignore-scripts (EALLOWSCRIPTS).
+	return Object.fromEntries(Object.entries(env).filter(([k]) => !k.toLowerCase().startsWith("npm_config_")));
+}
+
 function fail(message) {
 	console.error(`\n✖ ${message}\n`);
 	process.exit(1);
 }
 
-// 1. Guardia de arquitectura: solo se soportan plataformas con runner krun prebuilt.
-const platformKey = `${process.platform}-${process.arch}`;
-if (!SUPPORTED.has(platformKey)) {
-	fail(
-		`Gondolin only ships prebuilt micro-VM runners for: ${[...SUPPORTED].join(", ")}.\n` +
-			`  This host is "${platformKey}", which is unsupported and would crash at runtime.`,
+function main() {
+	// 1. Guardia de arquitectura: solo se soportan plataformas con runner krun prebuilt.
+	const hostPlatform = platformKey();
+	if (!isSupportedPlatform(hostPlatform)) {
+		fail(
+			`Gondolin only ships prebuilt micro-VM runners for: ${[...SUPPORTED].join(", ")}.\n` +
+				`  This host is "${hostPlatform}", which is unsupported and would crash at runtime.`,
+		);
+	}
+
+	// 2. Guardia de engine de Node (@earendil-works/gondolin requiere Node >= 23.6.0).
+	if (!nodeVersionSupportsGondolin(process.versions.node)) {
+		fail(`Gondolin requires Node >= 23.6.0; this is ${process.versions.node}.`);
+	}
+
+	// 3. Ubicá el ejemplo de Gondolin que trae pi.
+	let globalRoot;
+	try {
+		globalRoot = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
+	} catch {
+		fail("Could not run `npm root -g` to locate the global pi install.");
+	}
+	const example = path.join(globalRoot, "@earendil-works", "pi-coding-agent", "examples", "extensions", "gondolin");
+	if (!existsSync(path.join(example, "index.ts"))) {
+		fail(
+			`Could not find pi's Gondolin example at:\n  ${example}\n` +
+				"  If you installed pi via brew/npx/bun, copy <pi>/examples/extensions/gondolin manually\n" +
+				`  into ${target} and run: npm install --ignore-scripts`,
+		);
+	}
+
+	// Rechazá pisar una instalación existente (por ejemplo, una movida acá manualmente).
+	if (existsSync(path.join(target, "index.ts"))) {
+		console.log(`✓ Gondolin already installed at ${target} — nothing to do.`);
+		process.exit(0);
+	}
+
+	// 4. Copiá el ejemplo (autocontenido) e instalá deps SIN lifecycle scripts.
+	console.log(`→ Installing Gondolin into ${target}`);
+	mkdirSync(target, { recursive: true });
+	cpSync(example, target, { recursive: true });
+	execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
+		cwd: target,
+		env: npmInstallEnv(),
+		stdio: "inherit",
+	});
+
+	console.log(
+		[
+			"",
+			"✓ Gondolin installed (project-local, not auto-loaded).",
+			"",
+			"Use it on demand from this repo:",
+			"  pi -e .pi/tools/gondolin",
+			"",
+			"Verify inside the session:  /gondolin   •   !uname -a (Linux)   •   !ls -la /workspace",
+			"",
+			"Note: Gondolin isolates built-in tools and ! commands inside the VM, but does NOT",
+			"isolate dynamic-workflow subagent process spawns. See docs/gondolin-isolation.md.",
+		].join("\n"),
 	);
 }
 
-// 2. Guardia de engine de Node (@earendil-works/gondolin requiere Node >= 23.6.0).
-const major = Number(process.versions.node.split(".")[0]);
-const minor = Number(process.versions.node.split(".")[1]);
-if (major < 23 || (major === 23 && minor < 6)) {
-	fail(`Gondolin requires Node >= 23.6.0; this is ${process.versions.node}.`);
-}
-
-// 3. Ubicá el ejemplo de Gondolin que trae pi.
-let globalRoot;
-try {
-	globalRoot = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
-} catch {
-	fail("Could not run `npm root -g` to locate the global pi install.");
-}
-const example = path.join(globalRoot, "@earendil-works", "pi-coding-agent", "examples", "extensions", "gondolin");
-if (!existsSync(path.join(example, "index.ts"))) {
-	fail(
-		`Could not find pi's Gondolin example at:\n  ${example}\n` +
-			"  If you installed pi via brew/npx/bun, copy <pi>/examples/extensions/gondolin manually\n" +
-			`  into ${target} and run: npm install --ignore-scripts`,
-	);
-}
-
-// Rechazá pisar una instalación existente (por ejemplo, una movida acá manualmente).
-if (existsSync(path.join(target, "index.ts"))) {
-	console.log(`✓ Gondolin already installed at ${target} — nothing to do.`);
-	process.exit(0);
-}
-
-// 4. Copiá el ejemplo (autocontenido) e instalá deps SIN lifecycle scripts.
-console.log(`→ Installing Gondolin into ${target}`);
-mkdirSync(target, { recursive: true });
-cpSync(example, target, { recursive: true });
-// Quitá del env heredado los npm_config_* para que un `npm run` padre no filtre config
-// (por ejemplo allow-scripts desde ~/.npmrc -> npm_config_allow_scripts) a esta
-// instalación anidada, que npm rechaza junto con --ignore-scripts (EALLOWSCRIPTS).
-const childEnv = Object.fromEntries(
-	Object.entries(process.env).filter(([k]) => !k.toLowerCase().startsWith("npm_config_")),
-);
-execFileSync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
-	cwd: target,
-	env: childEnv,
-	stdio: "inherit",
-});
-
-console.log(
-	[
-		"",
-		"✓ Gondolin installed (project-local, not auto-loaded).",
-		"",
-		"Use it on demand from this repo:",
-		"  pi -e .pi/tools/gondolin",
-		"",
-		"Verify inside the session:  /gondolin   •   !uname -a (Linux)   •   !ls -la /workspace",
-		"",
-		"Note: Gondolin isolates built-in tools and ! commands inside the VM, but does NOT",
-		"isolate dynamic-workflow subagent process spawns. See docs/gondolin-isolation.md.",
-	].join("\n"),
-);
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
