@@ -1,4 +1,4 @@
-import type { DynamicWorkflowToolParams, WorkflowScopeInput } from "./index.js";
+import type { DynamicWorkflowToolParams, WorkflowScopeInput } from "./types.js";
 
 type DynamicWorkflowAction = DynamicWorkflowToolParams["action"];
 
