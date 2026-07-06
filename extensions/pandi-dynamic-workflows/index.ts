@@ -41,7 +41,6 @@ import {
 	makeUltracodePrompt,
 	parseToggleCommandValue,
 	resolveUltracodeModeValue,
-	sendWorkflowPrompt,
 	setUltracodeContractGateStatus,
 	setUltracodeStatus,
 } from "./ultracode.js";
@@ -59,6 +58,7 @@ export {
 } from "./run-registry.js";
 
 import { resolveWorkflowMenu } from "./workflow-menu.js";
+import { registerWorkflowRoutingCommands } from "./workflow-routing-commands.js";
 import { registerDynamicWorkflowTool } from "./workflow-tool-registration.js";
 
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
@@ -168,47 +168,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		handler: async (ctx) => await openWorkflowDashboard(pi, ctx),
 	});
 
-	// /dynamic-workflow is the primary command; /ultracode is a working slash alias with identical
-	// behavior. Both route the task through the ultracode Contract Gate + workflow guidance.
-	const makeWorkflowRoutingHandler = (
-		commandName: string,
-		options: { promptMode?: "ultracode" | "deep-research"; usageTarget?: string } = {},
-	) => {
-		const promptMode = options.promptMode ?? "ultracode";
-		const usageTarget = options.usageTarget ?? "<task>";
-		return async (args: string, ctx: ExtensionContext) => {
-			const task = args.trim();
-			if (!task) {
-				notify(ctx, `Usage: /${commandName} ${usageTarget}`, "warning");
-				return;
-			}
-			if (!ensureDynamicWorkflowToolActive(pi))
-				notify(
-					ctx,
-					`dynamic_workflow tool is not active; ${commandName} will only provide routing guidance.`,
-					"warning",
-				);
-			sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, promptMode, ultracodeContractGateEnabled));
-		};
-	};
-
-	pi.registerCommand("dynamic-workflow", {
-		description: "Ask Pi to solve a complex task using dynamic workflows when warranted",
-		handler: makeWorkflowRoutingHandler("dynamic-workflow"),
-	});
-
-	pi.registerCommand("ultracode", {
-		description: "Alias for /dynamic-workflow: solve a complex task using dynamic workflows when warranted",
-		handler: makeWorkflowRoutingHandler("ultracode"),
-	});
-
-	pi.registerCommand("deep-research", {
-		description: "Ask Pi to create/run a dynamic workflow for deep research",
-		handler: makeWorkflowRoutingHandler("deep-research", {
-			promptMode: "deep-research",
-			usageTarget: "<research question>",
-		}),
-	});
+	registerWorkflowRoutingCommands(pi, () => ultracodeContractGateEnabled);
 
 	const makeToggleCommandHandler = (options: {
 		resolveValue?: (args: string, ctx: ExtensionContext) => string | Promise<string>;
