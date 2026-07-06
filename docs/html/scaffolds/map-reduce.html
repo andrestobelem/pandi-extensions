@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -233,7 +234,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>La razón de ser &quot;dinámico&quot; es que el tamaño del corpus (cantidad de items, o de chunks derivados de partir un string grande en runtime) no se conoce en tiempo de autoría: tanto el ancho del fan-out de MAP como el número de rondas de REDUCE (~`ceil(log_reduceBatch(N))`) se calculan en runtime y están acotados con clamps duros.</p>
 <p>El diseño prioriza la robustez y nunca lanza excepciones: usa <code>settle</code> en cada fan-out, un cap de rondas adaptativo, un detector de estancamiento (una ronda que no reduce el conteo de sobrevivientes) y una guardia de ronda estrictamente creciente. Cuando se ve forzado a detenerse antes de llegar a un único resultado (por cap o por estancamiento), NO aplasta todo en una llamada plana: sigue fusionando en pasadas de drenaje acotadas en lotes de <code>reduceBatch</code>, preservando así la invariante jerárquica incluso en el peor caso.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Situación</th>
@@ -252,7 +253,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Se necesita un juicio comparativo/de ranking entre alternativas</td>
 <td>otro patrón (no map-reduce)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Casos típicos de <code>map-reduce</code>: resumir un documento o log enorme, consolidar cientos de tickets (&quot;roll up&quot;), o extraer información a través de un corpus grande (p. ej. &quot;extraer todos los cambios de API que rompen compatibilidad&quot;). Usar <code>fan-out-and-synthesize</code> cuando no hay problema de tamaño de contexto: <code>map-reduce</code> paga el costo de rondas de reduce adicionales que no aportan valor si el work-list ya cabe en un prompt.</p>
 <h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Validación de entrada.</strong> <code>instruction</code> es el único parámetro requerido (qué extraer/producir de cada chunk y llevar a través del merge). Si falta, aborta de forma graciosa devolviendo el shape de salida declarado con <code>chunks=0</code> (nunca lanza excepción). Los demás parámetros numéricos se sanean con una función <code>clamp</code> (parsea a entero, aplica límites).</p>
@@ -263,7 +264,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Manejo de fallos parciales:</strong> en ambos fan-outs (MAP y cada ronda de REDUCE) se usa el patrón &quot;settle&quot; (nulls filtrados post-hoc en vez de propagar la excepción), y todo fallo se loguea con nombres/índices específicos (<code>failedChunks</code>, <code>failedBatches</code>) en vez de fallar silenciosamente.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -338,7 +339,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>pasados al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> <code>{ result, chunks, mapCount, reduceRounds }</code></p>
 <ul>
 <li><code>result</code>: string final (resumen-de-resúmenes), o un mensaje <code>ERROR:</code>/<code>NO_FINDINGS:</code> en los caminos de aborto.</li>

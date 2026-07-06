@@ -68,8 +68,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -111,6 +112,13 @@ const slugify = (html) =>
 		.replace(/[^\p{L}\p{N}\s_-]/gu, "")
 		.trim()
 		.replace(/\s/g, "-");
+
+// Envuelve cada tabla en un contenedor con scroll horizontal: una tabla más ancha que la
+// página scrollea en vez de desbordar. Tolera tags con atributos para no dejar divs desbalanceados.
+const wrapTables = (html) =>
+	html
+		.replace(/<table(\s[^>]*)?>/g, (_, attrs) => `<div class="table-scroll"><table${attrs ?? ""}>`)
+		.replaceAll("</table>", "</table></div>");
 
 // Marca cada `#RRGGBB` en un code span inline con un swatch de color — no toca hashes de prosa
 // (issue #123) porque el code span ya viene delimitado por marked antes de este paso.
@@ -275,7 +283,7 @@ export function renderMarkdownToHtml(md, opts = {}) {
 	const { title: docTitle, body } = splitTitle(stripYamlFrontmatter(md));
 	const title = docTitle ?? opts.title ?? "Untitled";
 	const { body: withIds, toc } = addHeadingIdsAndToc(alertsToCallouts(engine.parse(body, { async: false })));
-	const rendered = addColorDots(withIds);
+	const rendered = addColorDots(wrapTables(withIds));
 	const mermaidBlock = rendered.includes('<pre class="mermaid">') ? `${mermaidScript(opts.css ?? tokensCss)}\n` : "";
 
 	return `<!doctype html>

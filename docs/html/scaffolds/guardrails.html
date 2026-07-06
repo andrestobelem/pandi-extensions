@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -221,7 +222,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     P --&gt;|"no"| Q["return PASS con output + inputChecks/outputChecks"]</pre>
 <h2 id="qué-hace">Qué hace</h2>
 <p><code>guardrails</code> sigue el patrón de guardrails de entrada/salida de la OpenAI Agents SDK: corre chequeos baratos y acotados en paralelo con el trabajo real y se detiene temprano apenas uno se dispara. Cada regla se evalúa con un agente independiente (<code>haiku</code>, effort <code>low</code>) que devuelve un veredicto tipado (<code>tripped</code>, <code>reason</code>, <code>evidence</code>) y solo trippea ante una violación clara y evidenciada.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Modo</th>
@@ -239,7 +240,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><code>content</code> + <code>rules</code> (o <code>inputRules</code>/<code>outputRules</code>)</td>
 <td>para gatear un artefacto ya generado y devolver <code>PASS</code> o <code>TRIPPED</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>En modo <strong>wrapper</strong> primero corren los guards de INPUT sobre la solicitud; si alguno trippea, el workflow protegido no se ejecuta. Si pasan, corre el workflow real y luego se validan los guards de OUTPUT sobre el resultado.</p>
 <p>A diferencia de <code>contract-gate</code> (que construye un contrato completo de tarea y decide ask-vs-proceed antes de rutear), <code>guardrails</code> es deliberadamente más liviano y corre en los bordes de la ejecución: un tripwire binario a la entrada (¿esto está en scope/es seguro de correr?) y a la salida (¿el resultado viola una regla?). Ambos componen: <code>contract-gate</code> puede decidir el scope, y el workflow elegido puede envolverse en <code>guardrails</code> para el enforcement barato.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
@@ -267,7 +268,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Fallos parciales:</strong> todos los fan-outs usan <code>parallel</code> + settle (nulls filtrados/normalizados post-hoc, nunca una excepción sin manejar); el comportamiento ante un guard caído es configurable con <code>strict</code> (fail-open por default, fail-closed opcional). El workflow protegido en sí se envuelve en <code>try/catch</code> explícito.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -330,7 +331,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>pasados a cada <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Reglas de validez: sin <code>content</code> ni <code>protect</code> → error inmediato. Sin <code>protect</code> y sin ninguna regla (<code>rules</code>/<code>inputRules</code>/<code>outputRules</code>) → error explícito (&quot;Validator mode needs at least one rule...&quot;).</p>
 <p><strong>Output:</strong></p>
 <ul>

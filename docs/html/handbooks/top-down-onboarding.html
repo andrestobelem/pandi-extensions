@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -191,7 +192,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code></li>
 </ol>
 <h2 id="mapa-top-down-del-repo">Mapa top-down del repo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Capa</th>
@@ -234,7 +235,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Harness aislado y helpers para suites de integración</td>
 <td><code>extensions/shared/test/</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h3>Núcleo: <code>pandi-dynamic-workflows</code></h3>
 <p>Pensalo como el laboratorio del repo. Registra comandos/tools, resuelve workflows, ejecuta JavaScript confiable en un <code>Worker</code>, spawnea subagentes, escribe artifacts y deja evidencia reanudable.</p>
 <p>Flujo mental:</p>
@@ -303,7 +304,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <h2 id="equipo-de-programadores">Equipo de programadores</h2>
 <p>Dividí el trabajo por responsabilidad, no por archivos al azar.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Rol</th>
@@ -336,7 +337,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>memoria, compactación, mdview, theme, <code>shared</code></td>
 <td>Mapa de datos persistidos, riesgos de prompt injection y guía para tests</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Definition of Done común:</p>
 <ul>
 <li>El rol puede explicar el subsistema sin abrir todo el repo.</li>
@@ -354,7 +355,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Spanglish que no aporta precisión.</li>
 </ol>
 <p>Ejemplos semilla para revisar antes de editar:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Prioridad</th>
@@ -417,7 +418,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Calco del inglés</td>
 <td>“del usuario <code>andrestobelem</code>”</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Antes de tocar cualquiera de estos puntos, revalidá con <code>rg</code> porque las líneas exactas pueden moverse:</p>
 <pre><code class="hljs language-bash">rg -n <span class="hljs-string">&quot;clamó|force-stoppea|loopear|tragar errores|owner user|read-time|reaped&quot;</span> .</code></pre>
 <h2 id="glosario-mínimo">Glosario mínimo</h2>
@@ -453,7 +454,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <pre><code class="hljs language-bash">npm run doctor
 npm <span class="hljs-built_in">test</span></code></pre>
 <p>Checklist por tipo de cambio:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Tipo de cambio</th>
@@ -480,7 +481,7 @@ npm <span class="hljs-built_in">test</span></code></pre>
 <td>Comentarios internos</td>
 <td>Mantener el cambio separado de comportamiento; no mezclar con refactors amplios</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="gaps-conocidos">Gaps conocidos</h2>
 <p>Esta guía salió de una lectura top-down y una auditoría read-only. No reemplaza una revisión exhaustiva línea por línea.</p>
 <p>Gaps a recordar:</p>

@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -218,7 +219,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>El bucle está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de &quot;seguir mejorando&quot; suelen fallar: un tope duro <code>maxRounds</code> (el paper reporta retornos decrecientes después de ~4 rondas) y un &quot;quiet stop&quot; cuando el crítico declara <code>satisfied</code> (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial — nunca acordar mansamente con el propio draft.</p>
 <p>La corrección puramente intrínseca (el crítico es, en esencia, el mismo generador acordando consigo mismo) puede degradar el output en vez de mejorarlo (Huang et al., arXiv:2310.01798). El scaffold mitiga esto de dos formas: (1) el crítico es una instancia de agente separada con un brief explícitamente adversarial, y (2) opcionalmente (<code>useJury: true</code>) reemplaza al crítico único por una COMPOSICIÓN con el workflow <code>adversarial-verify</code> — un jurado de escépticos que refuta por mayoría las afirmaciones del draft, un oráculo más fuerte e independiente que evalúa antes de confiar en un &quot;satisfied&quot;.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Si querés...</th>
@@ -233,7 +234,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>reintentar la tarea completa en cada trial, con memoria cross-trial y un oráculo externo</td>
 <td><code>reflexion</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <ul>
 <li>Activá <code>useJury: true</code> cuando quieras que la crítica venga de <code>adversarial-verify</code>, un jurado más duro que un solo crítico.</li>
 <li>No lo uses cuando ya tenés tests o un comando de verificación que te diga objetivamente si pasaste o no.</li>
@@ -255,7 +256,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -306,7 +307,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>pasados al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> <code>{ result, rounds, satisfied, critiques, failure? }</code></p>
 <ul>
 <li><code>result</code>: string del draft final (el último bueno, sea que se haya llegado a <code>satisfied</code> o se haya frenado por cap/fallo).</li>

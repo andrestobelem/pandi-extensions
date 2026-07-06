@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -162,7 +163,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento reúne los hallazgos de una auditoría multiagente sobre <code>pi-dynamic-workflows</code>. Sirve para priorizar riesgos: primero los hallazgos <strong>altos</strong>, luego los <strong>medios</strong> y, al final, los <strong>bajos</strong>.</p>
 <p>Hay <strong>45 hallazgos distintos</strong>: 13 altos, 21 medios y 11 bajos. Las zonas más sensibles son el puente VM/worker-source, <code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code>.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Severidad</th>
@@ -181,7 +182,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Baja</td>
 <td align="right">11</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <blockquote>
 <p>La auditoría nunca se agotó por completo — la cobertura es buena, pero no exhaustiva; el puente VM/worker-source, <code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code> son las zonas calientes.</p>
 </blockquote>

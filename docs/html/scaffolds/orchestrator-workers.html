@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -237,7 +238,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Manejo de fallos parciales:</strong> ambas ramas de fan-out (solo la de Execute) usan <code>parallel</code> con settle; un worker fallido no aborta el nivel ni el resto del DAG, solo se registra y se comunica a sus dependientes y al integrator. <strong>Caching:</strong> no se observa ningún mecanismo explícito de caché; cada <code>agent</code> se invoca fresco.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -288,7 +289,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>pasados al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> <code>{ result, plan, workers }</code> — siempre este shape, en toda salida sin excepción.</p>
 <ul>
 <li><code>result</code>: el entregable fusionado por el integrator, o un mensaje explicativo si nada completó.</li>

@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -260,7 +261,7 @@ skills y exclusión de tools se resuelven vía <code>input.models[role]</code> /
 (<code>input.model</code>, <code>input.effort</code>, ...) y finalmente al default hardcodeado de
 cada llamada.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -311,7 +312,7 @@ cada llamada.</p>
 <td>—</td>
 <td>por rol o global</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> objeto <code>{ answer, bestScore, search }</code>, donde <code>answer</code> es el
 texto final sintetizado en Commit, <code>bestScore</code> el score (0-10) del camino
 ganador, y <code>search</code> un eco de <code>{ branching, beam, depth }</code> efectivamente

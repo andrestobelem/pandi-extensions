@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -173,7 +174,7 @@ pi install ./                                                      <span class="
 <p>Usá esta página cuando necesites decidir qué instalar, qué habilita cada dependencia opcional o cómo se distribuye el paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
 <h2 id="requisitos">Requisitos</h2>
 <h3>Obligatorios</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Requisito</th>
@@ -201,13 +202,13 @@ pi install ./                                                      <span class="
 <td>Lo usan <code>pandi-worktree</code> y los scouts de workflows.</td>
 <td><code>xcode-select --install</code> o <code>brew install git</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <blockquote>
 <p>Node 22 es el piso. La extensión opcional Gondolin necesita Node ≥ 23.6.0.</p>
 </blockquote>
 <h3>Opcionales</h3>
 <p>Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no existe.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Capacidad</th>
@@ -240,12 +241,12 @@ pi install ./                                                      <span class="
 <td><code>@earendil-works/gondolin</code> (darwin-arm64 / linux-x64, Node ≥ 23.6.0)</td>
 <td><code>npm run setup:gondolin</code>, después <code>pi -e .pi/tools/gondolin</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <blockquote>
 <p>Toda la toolchain de desarrollo (<code>biome</code>, <code>tsc</code>, <code>esbuild</code>, <code>markdownlint-cli2</code>, <code>prettier</code>, <code>ctx7</code>) vive como <strong>devDependencies</strong>; <code>@mermaid-js/mermaid-cli</code> es un <strong>optionalDependency</strong> (tiene fallback ASCII, así que una descarga fallida de Chromium no rompe la instalación). Todo se instala con <code>npm install</code> (los opcionales, salvo <code>--omit=optional</code>) y se ejecuta con <code>npm run …</code>/<code>npx</code>, sin instalaciones globales adicionales. La única instalación global es la del <strong>Pi CLI</strong>. Verificá el entorno con <code>npm run doctor</code>.</p>
 </blockquote>
 <h2 id="variantes-de-instalación">Variantes de instalación</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Variante</th>
@@ -268,7 +269,7 @@ pi install ./                                                      <span class="
 <td><code>pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts</code> (o <code>-e .</code> para todo el bundle)</td>
 <td>Prueba rápida y descartable de una o todas las extensiones</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Para usar los workflows del proyecto en <code>.pi/workflows/</code>, confiá el proyecto con <code>/trust</code> y reiniciá o ejecutá <code>/reload</code>.</p>
 <h3>Skill externo: karpathy-guidelines</h3>
 <p>El skill <code>karpathy-guidelines</code> <strong>no</strong> viene vendorizado en el repo; <code>AGENTS.md</code> espera que esté instalado. Traelo desde upstream a tus skills globales (Pi lee <code>~/.agents/skills</code>, Claude Code <code>~/.claude/skills</code>):</p>
@@ -289,7 +290,7 @@ pi install ./                                                      <span class="
 </ul>
 <h2 id="configuración-variables-de-entorno">Configuración (variables de entorno)</h2>
 <p>Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el comportamiento, exportá variables de entorno — la lista completa con valores por defecto vive en <strong><code>.env.example</code></strong>. Las más usadas:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Variable</th>
@@ -346,11 +347,11 @@ pi install ./                                                      <span class="
 <td>(PATH)</td>
 <td>Ruta al binario <code>codex</code> cuando no está en el <code>PATH</code>.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><code>.env</code> está gitignored; <code>.env.example</code> está committed. Este repo no carga <code>.env</code> automáticamente: exportá las variables en tu shell o usá <code>direnv</code>/<code>dotenvx</code>.</p>
 <h2 id="distribución-canales-y-regla-de-identidad-única">Distribución: canales y regla de identidad única</h2>
 <p>La suite se distribuye por tres canales; <strong>elegí uno por máquina o alcance</strong> — Pi deduplica paquetes por identidad (nombre npm / URL git / ruta local resuelta), así que dos canales conviviendo cargan todo dos veces (<code>npm run doctor</code> lo detecta y avisa):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Canal</th>
@@ -373,11 +374,11 @@ pi install ./                                                      <span class="
 <td><code>pi install npm:@pandi-coding-agent/pandi-&lt;ext&gt;</code></td>
 <td>A la carta por extensión — los paquetes publican bajo la identidad <code>pandi-*</code>. Con <code>min-release-age</code>, las versiones recién publicadas recién se pueden instalar después de esa ventana.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Cada <code>extensions/pandi-&lt;ext&gt;/package.json</code> lleva su identidad pública <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> para probar el tarball). El manifiesto raíz de <code>pi</code> se <strong>genera</strong> desde los subpackages (<code>npm run sync:manifest</code>); un test de paridad falla si hay drift. Horizonte: <strong>Pandi</strong> como distro sobre Pi (extensiones + theme + persona), no como un fork del CLI.</p>
 <h3>Fuentes canónicas y syncs generados</h3>
 <p>Regla simple: editá la fuente canónica, no el mirror generado. <code>npm run doctor</code> verifica estos dominios en modo read-only y muestra el comando de arreglo cuando detecta drift.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Dominio</th>
@@ -443,7 +444,7 @@ pi install ./                                                      <span class="
 <td><code>npm run sync:personas:check</code></td>
 <td><code>npm run sync:personas</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo <code>~/.claude</code> o instalaciones Pi globales) se reporta como diagnóstico/propose-only: <code>doctor</code> te dice qué correr, pero no lo muta por vos.</p>
 <h2 id="estructura-del-repositorio-extensiones">Estructura del repositorio (extensiones)</h2>
 <p>Cada extensión vive como un mini paquete npm bajo <code>extensions/&lt;name&gt;/</code>:</p>

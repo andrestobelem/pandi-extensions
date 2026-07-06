@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -207,7 +208,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>La diferencia frente a <code>fan-out-and-synthesize</code> es que acá no se arma un resumen mezclado: se <strong>cuentan votos</strong> sobre un campo de respuesta estructurado y se reporta el margen de consenso. Así, un 5/5 y un 2/2/1 quedan distinguibles. Si hay empate, no se resuelve a dedo: se delega a un juez de mayor capacidad que pesa evidencia solo entre las respuestas empatadas.</p>
 <p>Es el contraparte de consenso de <code>adversarial-verify</code> (que poda una afirmación por mayoría de refutación): <code>self-consistency</code> se usa para <strong>acordar</strong> una respuesta; <code>adversarial-verify</code>, para <strong>refutar</strong> una afirmación puntual.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Situación</th>
@@ -226,7 +227,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Quieres refutar una afirmación concreta</td>
 <td><code>adversarial-verify</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Úsalo cuando te importe medir cuánta coincidencia hay entre varios razonamientos independientes. No lo uses si la tarea no tiene una respuesta canónica corta: ahí el voto deja de ser una señal útil.</p>
 <h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Validación de entrada.</strong> <code>question</code> (o <code>q</code>/<code>text</code>) es obligatorio; si falta, el workflow lanza <code>Error</code>. <code>samples</code> se convierte a entero y se clampa a <code>[2, 20]</code>; si el valor pedido se recorta, se registra con <code>log(...)</code>.</p>
@@ -235,7 +236,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Decide.</strong> Si hay un único líder, gana por <code>plurality</code>. Si hay empate, un <code>agent</code> <code>tiebreak</code> (<code>opus</code>, <code>high</code>) elige entre las respuestas empatadas; si devuelve una respuesta fuera de la lista, se usa <code>tied[0]</code> como fallback seguro.</p>
 <p><strong>Observabilidad.</strong> No hay <code>writeArtifact</code>: la trazabilidad vive en <code>log(...)</code> y en el shape de retorno.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -280,7 +281,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>mapas por rol; cada valor útil debe ser un array</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Salida normal:</strong> <code>{ answer, votes, method, totalSamples, counted, distribution, tiedAmong? }</code></p>
 <ul>
 <li><code>answer</code>: respuesta consensuada final.</li>

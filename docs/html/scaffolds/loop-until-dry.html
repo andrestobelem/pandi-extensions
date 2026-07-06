@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -220,7 +221,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Cada finder devuelve JSON validado por schema (<code>{ items: [{ id, title, evidence }] }</code>), así que el dedupe por <code>id</code> vive en un <code>Set</code> global (<code>seen</code>) y no depende de texto libre. Al final, un único agente de síntesis-como-juez (<code>opus</code>, <code>high</code>) recibe todos los hallazgos acumulados y devuelve el resultado final: deduplicado, priorizado por severidad y sin claims sin sustento.</p>
 <p>El diseño es &quot;robustness-first&quot;: el fan-out de cada ronda usa el patrón settle (un finder que crashea se vuelve <code>null</code> y no tumba la ronda), y se distingue explícitamente una ronda &quot;quieta de verdad&quot; (todos los finders corrieron y no encontraron nada nuevo) de una ronda donde TODOS los finders fallaron (esa no cuenta para el contador de sequedad, para no confundir infraestructura caída con &quot;ya no hay más para encontrar&quot;). El código solo emite un log explícito al salir por <code>maxRounds</code> (<code>stopped at maxRounds...</code>); al terminar por sequedad (<code>quietRounds</code>) no hay un log equivalente, así que no toda decisión de parada queda observada.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Usalo</th>
@@ -239,7 +240,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Para auditorías donde importa parar solo cuando ya no aparece nada nuevo.</td>
 <td>Cuando el descubrimiento abierto no aporta valor: usá <code>map-reduce</code> si el conjunto es grande, o <code>fan-out-and-synthesize</code> si entra en un prompt.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Validación de entrada.</strong> <code>target</code> (o sus alias <code>scope</code>/<code>task</code>) es obligatorio: describe qué buscar o auditar. Si falta, el scaffold hace <code>throw</code> de inmediato. Los números se sanan con <code>Number(...) || default</code> y luego con <code>clamp</code> manual: <code>quietRounds</code> por defecto 2 (1..100), <code>maxRounds</code> por defecto 8 (1..1000) y <code>finders</code> por defecto 3 (1..6). Si el valor pedido se corrige, eso queda logueado.</p>
 <p><strong>Fase Discover.</strong> En cada iteración del loop se incrementa <code>round</code>, se marca <code>phase(&quot;Discover&quot;)</code> y se lanzan <code>finders</code> agentes en <code>parallel</code>. Cada finder corre con rol <code>finder</code>, modelo <code>haiku</code> y <code>effort</code> <code>low</code>; recibe fences anti-inyección para <code>target</code> y para lo ya acumulado (truncado a 4000 caracteres con <code>compact</code>), además de la instrucción de usar un ángulo de búsqueda distinto y devolver JSON que cumpla <code>ITEMS</code>. Después del fan-out, los <code>null</code> se filtran (<code>settle</code>); si alguno falló, se loguea cuántos. Los ítems nuevos se agregan a <code>all</code> solo si su <code>id</code> no está en <code>seen</code>.</p>
@@ -249,7 +250,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Fallos parciales</strong>: el patrón settle evita que un finder caído tumbe la ronda y permite distinguir ese caso del verdadero stop por sequedad.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado de forma defensiva):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -300,7 +301,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>se pasan al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> el resultado devuelto directamente por el agente de síntesis (texto, no un objeto envuelto) — los hallazgos deduplicados, priorizados por severidad, con evidencia.</p>
 <p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (parámetros efectivos, hallazgos nuevos por ronda, finders fallidos, motivo de parada) y por el valor de retorno final.</p>
 <h2 id="fases">Fases</h2>

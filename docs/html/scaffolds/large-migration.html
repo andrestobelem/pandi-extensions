@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -267,7 +268,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Fallos parciales:</strong> cada paso de verificación (<code>baseline</code>, <code>recheck</code> de integridad, <code>verify-gate</code>, <code>final-verify</code>) es un <code>agent</code> dedicado con schema estricto, no una inferencia; el status por archivo distingue explícitamente entre self-report confiado (<code>migrated</code>), self-report desmentido (<code>verify-mismatch-not-rolled-back</code>), reparado y revertido (<code>failed-rolled-back</code>), sin necesidad (<code>skipped</code>), sin gate (<code>applied-unverified</code>) y solo-preview (<code>dry-run-preview</code>). No hay <code>try/catch</code> alrededor de la lógica de negocio: los abortos son retornos explícitos con razón (<code>red tree</code>, <code>tree roto por archivo previo</code>), no excepciones.</p>
 <p><strong>Caché:</strong> no se observa ningún mecanismo explícito de caché; cada llamada a <code>agent</code> es fresca.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -342,7 +343,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>pasados al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong></p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;instruction&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span>

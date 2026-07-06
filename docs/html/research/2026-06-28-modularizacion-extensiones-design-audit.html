@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -210,7 +211,7 @@ ejecutado como dynamic workflow read-only.</p>
 <li>Move-only / behavior-preserving (sin cambios de comportamiento)</li>
 <li>Baseline previo verde registrado</li>
 </ul>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Ronda</th>
@@ -243,7 +244,7 @@ ejecutado como dynamic workflow read-only.</p>
 <td>gate read-only puro (MUTATING_BASH_PATTERNS/isMutatingBash/blockedReason) → <code>pi-plan/gate.ts</code> (diff: byte-idéntico + export)</td>
 <td>npm test 23/23 (incl. plan-gate 45 asserts)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Validado empíricamente:</strong> el seam <code>extensions/shared/*.ts</code> importado vía <code>../shared/x.js</code> se empaqueta (files glob), se typechequea transitivamente (tsc sigue imports), y se bundlea en los tests (esbuild reescribe <code>.js</code>→<code>.ts</code>).</p>
 <p><em>Lección Karpathy:</em> un glob <code>*/</code> dentro de un comentario JSDoc cierra el bloque — inspecciona el dato (corregido en <code>time.ts</code>).</p>
 <p><strong>Decisión de diseño (skip consciente):</strong> Ronda 2.2 <code>projectHash</code> se OMITIÓ.</p>
@@ -300,7 +301,7 @@ ejecutado como dynamic workflow read-only.</p>
 <p>También contratos cross-extension por <code>Symbol.for</code>/evento.</p>
 <hr>
 <h2 id="2-mapa-de-duplicación-cross-extension">2. Mapa de duplicación (cross-extension)</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Cluster</th>
@@ -363,12 +364,12 @@ ejecutado como dynamic workflow read-only.</p>
 <td>Low (no-acción)</td>
 <td>~0</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Notas duras del transversal de packaging: <code>extensions/shared/*.ts</code> SÍ casa con el glob <code>files: extensions/*/*.ts</code> y se empaqueta; NodeNext exige specifiers <code>.js</code> (p.ej. <code>../shared/notify.js</code>). <strong>Antes de fusionar cualquier par, diff a nivel de cuerpo</strong>: el analizador de packaging advierte explícitamente que los nombres iguales (notify×7, walk×3, etc.) pueden tener cuerpos divergentes; toda consolidación es condicional a que un diff pruebe equivalencia.</p>
 <hr>
 <h2 id="3-límites-de-módulos-por-extensión">3. Límites de módulos por extensión</h2>
 <h3>pi-dynamic-workflows (7143 LOC) — monolito, descomponer último y con tests</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Módulo</th>
@@ -443,10 +444,10 @@ ejecutado como dynamic workflow read-only.</p>
 <td><code>index.ts:1584-1691,5580-6170</code></td>
 <td>700</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Queda en <code>index.ts</code>: registro del tool <code>dynamic_workflow</code>, comandos <code>/workflow</code>,<code>/workflows</code>,<code>/ultracode</code>,<code>/deep-research</code>,<code>/ultracode-contract</code>,<code>/ultracode-mode</code>, atajo <code>ctrl-alt-w</code>, hooks <code>input/before_agent_start/session_start/session_shutdown</code>, evento <code>ULTRACODE_MODE_EVENT</code>, y claves de status/widget (<code>index.ts:6971-7143</code>). <strong>Más riesgosos (al final, con caracterización):</strong> <code>runtime.ts</code> (singletons <code>activeRuns</code>/<code>appendFileMutexes</code> y la invariante de occurrence-cache) y <code>worker-source.ts</code> (debe quedar byte-compatible).</p>
 <h3>pi-loop (1599 LOC) — monolito, descomponer tras pi-plan/pi-bg</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Módulo</th>
@@ -515,10 +516,10 @@ ejecutado como dynamic workflow read-only.</p>
 <td><code>index.ts:950-1148</code></td>
 <td>190</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Queda en <code>index.ts</code> (~210): tools <code>loop_schedule</code>/<code>loop_stop</code> + promptGuidelines, comando <code>/loop</code> + completions, handlers <code>tool_call/session_start/session_shutdown/agent_end</code>. <strong>Invariante crítica:</strong> todos importan <strong>un solo</strong> <code>state.ts</code>; <code>autopilotTurnInFlight</code> debe ser una celda compartida (no copiada) o se rompen serialización/seguridad.</p>
 <h3>pi-plan (656 LOC) — descomposición opcional, value-driven</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Módulo</th>
@@ -551,10 +552,10 @@ ejecutado como dynamic workflow read-only.</p>
 <td><code>index.ts:171-200,209-222,488-492</code></td>
 <td>60</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Queda en <code>index.ts</code>: única <code>piExtension</code>, comando <code>/plan</code>, tool <code>submit_plan</code>, eventos, y <strong>re-export</strong> de <code>isPlanModeActive</code>/<code>PLAN_MODE_GUARD</code>/<code>PLAN_MODE_GUARD_SYMBOL</code> (<code>index.ts:88-122</code>) que otras extensiones consumen vía <code>globalThis</code>. Mejor ganancia: <code>gate.ts</code> + <code>prompts.ts</code>.</p>
 <h3>pi-bg (637 LOC) — cohesiva; preferir solo <code>storage.ts</code> primero</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Módulo</th>
@@ -587,7 +588,7 @@ ejecutado como dynamic workflow read-only.</p>
 <td><code>index.ts:236-589</code></td>
 <td>230</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Queda en <code>index.ts</code>: comando <code>/bg</code>, completions, wiring; <strong>re-exportar</strong> helpers que los tests importan (<code>atomicWriteJson</code>,<code>guardStreamErrors</code>,<code>isJobFinished</code>,<code>pipeWithBackpressure</code>,<code>finalizeJob</code>,<code>safeFinalize</code>). Riesgo: <code>Symbol.for</code> plan-mode guard y <code>activeJobs</code>.</p>
 <h3>Extensiones &quot;verificar, no forzar&quot;</h3>
 <h4>pi-effort (247 LOC)</h4>
@@ -615,7 +616,7 @@ ejecutado como dynamic workflow read-only.</p>
 </ul>
 <hr>
 <h2 id="4-plan-single-source-of-truth-de-prompts">4. Plan single-source-of-truth de prompts</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Prompt / instrucción</th>
@@ -654,7 +655,7 @@ ejecutado como dynamic workflow read-only.</p>
 <td>READMEs parafrasean en prosa (no copias)</td>
 <td><strong>No DRY cruzado</strong>: packaging (profundidad uno, sin carpeta común en <code>files</code> para README) lo desaconseja</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Regla general: el único trabajo de prompts en Fase 1 es <strong>añadir guardianes</strong> (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde <code>formatWorkflowPatternCatalog()</code> en un paso de build, dejando los <code>.md</code> como artefactos derivados.</p>
 <hr>
 <h2 id="5-plan-de-modularización-de-tests">5. Plan de modularización de tests</h2>
@@ -722,7 +723,7 @@ ejecutado como dynamic workflow read-only.</p>
 <h2 id="7-roadmap-incremental-priorizado">7. Roadmap incremental priorizado</h2>
 <p>Cada ronda = 1 Conventional Commit atómico, todo estructural (tidy-first), <code>npm test</code> verde antes/después. Empezar Low/alto-payoff.</p>
 <h3>Fase 1 — Guardianes de prompts (Low, cero cambio de wording)</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>#</th>
@@ -749,9 +750,9 @@ ejecutado como dynamic workflow read-only.</p>
 <td>nueva suite + <code>npm test</code></td>
 <td>Low</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h3>Fase 2 — Código compartido (Low→Medium, default-preserving, body-diff obligatorio)</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>#</th>
@@ -802,12 +803,12 @@ ejecutado como dynamic workflow read-only.</p>
 <td>plan-approval + loop-caps-resume + goal-rehydrate + <code>npm test</code></td>
 <td>Low</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <blockquote>
 <p>Excluido deliberadamente de Fase 2: plegar <code>bg.appendEvent</code> al <code>appendJsonLine</code> con mutex (cambia concurrencia/error-handling — <code>bg-jobs.test.mjs</code>), folding de effort/mdview en <code>notify</code> (tipo de ctx distinto), cuerpos de C4 y esquemas C5.</p>
 </blockquote>
 <h3>Fase 3 — Descomposición de monolitos (validar patrón en pequeñas → grandes)</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>#</th>
@@ -946,7 +947,7 @@ ejecutado como dynamic workflow read-only.</p>
 <td>composition + smoke worker + <code>npm test</code></td>
 <td>High</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <blockquote>
 <p>La síntesis se truncó tras la ronda 3.16 (la 3.17 <code>runtime.ts</code> quedó cortada). El roadmap completo está en <code>roadmap.json</code> del run; la Fase 4 (tests) se describe en §5.</p>
 </blockquote>

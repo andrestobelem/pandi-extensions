@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -194,7 +195,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2 id="qué-es-un-dynamic-workflow-en-claude-code">Qué es un Dynamic Workflow en Claude Code</h2>
 <p>Según la documentación oficial, un workflow dinámico es un script JavaScript que Claude escribe para la tarea descrita por el usuario y que un runtime ejecuta en background. El script actúa como coordinador: mantiene loops, branching, variables intermedias y reglas de reducción, mientras los subagentes hacen el trabajo concreto.</p>
 <p>Diferencia principal frente a otras capacidades:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Mecanismo</th>
@@ -227,7 +228,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Variables/artifacts del script</td>
 <td>Decenas a cientos de agentes</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Claude recomienda workflows cuando una tarea necesita más agentes de los que una conversación puede coordinar bien, o cuando conviene que la orquestación quede codificada y se pueda leer o reutilizar.</p>
 <p>Ejemplos oficiales:</p>
 <ul>
@@ -285,7 +286,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Claude Code carga workflows de <code>.claude/workflows/</code> a lo largo del path del proyecto; si hay nombres duplicados, gana el más cercano al cwd. Los workflows de proyecto ganan sobre los personales.</p>
 <h2 id="runtime-y-límites-oficiales">Runtime y límites oficiales</h2>
 <p>Restricciones documentadas del runtime:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Restricción</th>
@@ -308,7 +309,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Hasta 1,000 agentes por run</td>
 <td>Evitar loops descontrolados</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Gestión de runs:</p>
 <ul>
 <li><code>/workflows</code> lista runs activos y completados.</li>

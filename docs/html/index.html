@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -202,7 +203,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code>, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2 id="cómo-leer-este-repo">Cómo leer este repo</h2>
 <p>Este repo funciona como <strong>paquete instalable</strong> y como <strong>libro práctico</strong>. Elegí la ruta más chica que te lleve al próximo experimento verificable:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Si querés…</th>
@@ -240,11 +241,11 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <td><code>docs/html/index.html</code></td>
 <td>mirror generado de este README + <code>docs/**/*.md</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Regla simple: <strong>Markdown es la fuente; HTML es el artifact generado</strong>. Editá <code>README.md</code> o <code>docs/**/*.md</code>, corré <code>npm run sync:docs:html</code>, y commiteá ambos si el mirror cambió.</p>
 <h2 id="el-concepto-patrones-que-se-corren-no-que-se-leen">El concepto: patrones que se corren, no que se leen</h2>
 <p>Los patrones de diseño agénticos suelen vivir en papers y posts. Acá cada uno tiene una <strong>implementación de referencia corta y legible</strong> que podés leer, correr y auditar (<code>/workflow patterns</code> muestra el catálogo; <a href="scaffolds/index.html"><code>docs/scaffolds/</code></a> son las páginas del libro):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>De dónde viene</th>
@@ -263,7 +264,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <td>Ingeniería clásica y verificación</td>
 <td><code>map-reduce</code>, <code>guardrails</code>, <code>contract-gate</code>, <code>adversarial-verify</code>, <code>tournament</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>El harness es el laboratorio: cada corrida deja <strong>evidencia inspeccionable</strong>, no solo una conclusión —</p>
 <ul>
 <li>un <strong>graph</strong> del patrón antes de ejecutar (<code>dynamic_workflow action=graph</code>),</li>
@@ -311,7 +312,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <h2 id="catálogo-de-extensiones">Catálogo de extensiones</h2>
 <p>Las 22 extensiones de comando/tool se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Extensión</th>
@@ -452,7 +453,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <td>Ejecuta el chequeo read-only de entorno del repo (<code>scripts/doctor.mjs</code>) y muestra el reporte.</td>
 <td>—</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <blockquote>
 <p><code>extensions/shared/</code> no es una extensión: es código de test harness; nunca se publica ni se carga. <code>extensions/pandi-theme/</code> tampoco envía código: es un package solo de temas (<code>pi.themes</code>) con las variantes <code>panda-syntax-dark</code>/<code>panda-syntax-light</code>, el compañero visual de <strong>pandi</strong>; se carga con <code>pi install ./</code> y se habilita vía <code>/settings</code> o <code>&quot;theme&quot;</code>.</p>
 </blockquote>

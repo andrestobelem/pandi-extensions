@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -190,7 +191,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Una ambigüedad es <code>blocking</code> solo cuando el impacto es alto y no existe un default seguro. Todo lo demás se convierte en un supuesto explícito, con confianza e indicio de qué lo invalidaría. Esa es la diferencia central entre “preguntar porque sí” y “preguntar solo cuando cambiaría de verdad el resultado”.</p>
 <p>Si <code>improvePrompt</code> queda activo, <code>contract-gate</code> colapsa el contrato en un <code>rewrittenPrompt</code> autocontenido. Si <code>generate:true</code> y el ruteo recomendado es <code>dynamic-workflow</code>, puede pasarle ese prompt a <code>workflow-factory</code>. Si el ruteo es <code>trivial</code> o <code>single-agent</code>, no la ejecuta: devuelve la recomendación y deja el handoff afuera.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Situación</th>
@@ -209,7 +210,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Querés generar un workflow nuevo</td>
 <td>Sí: <code>generate:true</code> + <code>routingHint.shape === &quot;dynamic-workflow&quot;</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="cómo-funciona">Cómo funciona</h2>
 <ul>
 <li><strong>Entrada.</strong> <code>request</code> es requerido. <code>context</code> default <code>&quot;&quot;</code>. <code>reviewers</code> default <code>3</code> y se clampa a <code>1..5</code>. <code>maxQuestions</code> default <code>4</code> y se clampa a <code>1..3</code>. <code>improvePrompt</code> default <code>true</code>. <code>planResources</code> default <code>true</code>. <code>name</code> se deriva como slug de <code>improvedTask</code> o <code>request</code>. <code>write</code> default <code>true</code>.</li>
@@ -220,7 +221,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Handoff.</strong> Solo corre si <code>generate:true</code>. Si el ruteo no es <code>dynamic-workflow</code>, devuelve <code>generated.handed_off:false</code>. Si sí lo es, llama <code>workflow(&quot;workflow-factory&quot;, { task: rewrittenPrompt, name, write })</code>. Si la composición anidada no está disponible una capa más adentro, degrada a handoff manual; si <code>workflow-factory</code> devuelve <code>null</code>, también degrada de forma explícita.</li>
 </ul>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -275,7 +276,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><code>tools</code> / <code>skills</code> / <code>excludeTools</code> y variantes <code>*ByRole</code></td>
 <td>arrays pasados al <code>agent</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h3>BLOCKED</h3>
 <pre><code class="hljs language-js">{
   <span class="hljs-attr">status</span>: <span class="hljs-string">&quot;NEEDS_CLARIFICATION&quot;</span>,

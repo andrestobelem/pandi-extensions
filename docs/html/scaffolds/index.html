@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -165,7 +166,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <p>Esta página es el mapa del catálogo de scaffolds de <code>pandi-extensions</code>. Un scaffold es una plantilla ejecutable lista para instanciar (agentes, paralelismo, loops, votación, etc.) que resuelve una forma recurrente de tarea. Si ya sabés qué forma tiene tu problema, andá directo a la categoría; si no, empezá por la tabla.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Si necesitás...</th>
@@ -204,7 +205,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>mover datos grandes con pasos controlados</td>
 <td><a href="#migraciones-y-datos-grandes">Migraciones y datos grandes</a></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="gate-ruteo-y-guardas">Gate, ruteo y guardas</h2>
 <ul>
 <li><a href="contract-gate.html"><code>contract-gate</code></a>: Convierte un pedido vago en un contrato inspeccionable y decide entre preguntar ahora o seguir con un supuesto registrado.</li>

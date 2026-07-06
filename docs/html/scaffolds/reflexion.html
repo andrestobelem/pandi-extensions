@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -221,7 +222,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>La fortaleza del diseño es que el grounding se puede falsar. Cuando se pasa <code>verifyCmd</code>, el Evaluador debe correr ese comando de verdad con la tool de bash en un directorio scratch aislado, y citar el output real en <code>evidence</code>. El código no confía en lo que el modelo diga: si <code>verifyCmd</code> fue pedido pero el Evaluador no citó output no vacío, <code>grounded</code> se degrada a <code>false</code> y un <code>pass</code> reclamado sin evidencia NO se acepta como éxito. Eso imita la regla de <em>no reproduced without quoted output</em> de <code>bug-verify.js</code>.</p>
 <p>La memoria episódica es un buffer acotado (<code>memoryCap</code>, default 3, siguiendo el paper que usa 1-3 lecciones para entrar en contexto): cada lección de un trial fallido se agrega al final y, si se excede el cap, se descarta la más vieja. El loop está acotado en ambos extremos: se detiene en el primer <code>pass</code> aceptable, o cuando se agota <code>maxTrials</code>. Si se agota el presupuesto sin pasar, devuelve el mejor intento observado (<code>best</code>, por <code>score</code>, con desempate hacia el más reciente).</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Situación</th>
@@ -240,7 +241,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>No tenés forma de verificar objetivamente el resultado ni un criterio claro de éxito/fracaso</td>
 <td>reconsiderar: el Evaluador ungrounded es intrínsecamente más débil (arXiv:2310.01798)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Casos de uso listados en el catálogo: código con tests, tareas con señal binaria de pass/fail y decisiones de reset-y-reintentar vs. editar-en-el-lugar. <strong>Caveat del código:</strong> en runtimes que no aíslan las tools por agente (por ejemplo, el runtime de Claude Code Workflow), el Actor conserva acceso completo a archivos y bash, puede leer el propio verificador y correr <code>verifyCmd</code> él mismo, y entonces converge en el trial 1. Para ejercitar el loop reflect→retry ahí hace falta una tarea cuyo primer intento falle de verdad, o un harness de test que stubee <code>agent</code>.</p>
 <h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Validación de entrada.</strong> <code>task</code> (o sus alias <code>question</code>/<code>text</code>) es obligatorio; si falta, lanza <code>Error</code> directamente. <code>maxTrials</code> se normaliza a entero con clamp 1..50 (default 3, con log si se recortó). <code>memoryCap</code> se normaliza a entero &gt;= 1 (default 3). Los overrides <code>actorModel</code>/<code>evaluatorModel</code> se enrutan a <code>models.actor</code>/<code>models.evaluator</code>, así ganan sobre el default global <code>input.model</code>, respetando la precedencia por rol &gt; global &gt; default del call-site. <code>actorTools</code>, si es un array, restringe las tools del Actor.</p>
@@ -251,7 +252,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Fallos parciales.</strong> Un Actor nulo no aborta el run: cuenta como trial fallido con lección genérica. Un Evaluador nulo se trata como fail-closed. Un <code>pass</code> reclamado sin evidencia bajo <code>verifyCmd</code> se rechaza explícitamente en vez de aceptarse. <strong>Caché:</strong> no se observa ningún mecanismo de caché; cada llamada a <code>agent</code> es fresca.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -320,7 +321,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>se pasan al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong></p>
 <ul>
 <li><code>result</code>: el intento ganador (si <code>passed</code>) o el de mejor <code>score</code> observado (<code>best.attempt</code>) si se agotó el presupuesto.</li>

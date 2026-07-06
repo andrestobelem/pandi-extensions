@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -176,7 +177,7 @@ traducción — humana o por workflow.</p>
 dejala byte-idéntica. Si no estás seguro de si algo es funcional, dejalo
 byte-idéntico y marcalo para revisión — nunca adivines.</p>
 <h2 id="1-nombres-que-el-código-resuelve">1. Nombres que el código resuelve</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Categoría</th>
@@ -209,11 +210,11 @@ byte-idéntico y marcalo para revisión — nunca adivines.</p>
 <td><code>feat</code>, <code>fix</code>, <code>style(&lt;scope&gt;)</code>, <code>chore</code></td>
 <td>Convención externa del repo</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="2-tokens-de-contrato-que-un-parser-matchea">2. Tokens de contrato que un parser matchea</h2>
 <p>Estos son el <strong>riesgo #1</strong>: aparecen dentro de prosa de prompt pidiendo al
 modelo que responda con un token exacto, y otro agente o función lo parsea.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Token</th>
@@ -240,7 +241,7 @@ modelo que responda con un token exacto, y otro agente o función lo parsea.</p>
 <td>Labels de estado (<code>ok</code>, <code>failed</code>, <code>running</code>)</td>
 <td><code>status.json</code> de runs; dashboards</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>La regla práctica: si el prompt dice <em>&quot;respond with exactly …&quot;</em> (o
 equivalente), lo que sigue queda en inglés aunque la oración se traduzca.</p>
 <h2 id="3-estructura-que-sobrevive-intacta-a-la-traducción">3. Estructura que sobrevive intacta a la traducción</h2>

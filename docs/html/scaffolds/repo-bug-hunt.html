@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -201,7 +202,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Es &quot;dinámico&quot; porque el work-list de archivos y el ancho del fan-out no se conocen en tiempo de autoría: dependen de qué archivos matchean el patrón en el repo actual, acotados por <code>maxFiles</code>. El diseño es robustness-first: cada revisor corre bajo <code>settle</code> (un branch fallido se vuelve <code>null</code> y no rompe el resto), y el juez recibe explícitamente cuántos archivos se revisaron sobre el total y cuántos branches fallaron, para no ocultar cobertura incompleta.</p>
 <p>Tanto el patrón de archivos a revisar (<code>pattern</code>) como la lente de revisión (<code>lens</code>) son configurables vía presets (<code>code</code>/<code>docs</code>/<code>web</code>/<code>config</code> para pattern; <code>code</code>/<code>security</code>/<code>prose</code> para lens) o texto libre, lo que permite reusar el mismo scaffold para auditorías de seguridad, revisión de prosa en docs, o bugs de código genéricos.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Elegí esto si…</th>
@@ -220,7 +221,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Necesitás hallazgos priorizados y citados, no un veredicto suelto</td>
 <td><code>repo-bug-hunt</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><code>repo-bug-hunt</code> es para descubrimiento amplio. Si después querés confirmar un hallazgo, seguí con <code>bug-verify</code>.</p>
 <p><strong>No</strong> lo uses para “probar” un bug: este scaffold nunca ejecuta ni reproduce código.</p>
 <h2 id="cómo-funciona">Cómo funciona</h2>
@@ -231,7 +232,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Caching:</strong> no se observa ningún mecanismo de caché explícito; cada <code>agent</code> se invoca fresco.</p>
 <p><strong>Manejo de fallos parciales:</strong> tanto Scout (implícito, si <code>agent</code> falla no hay fallback) como Review usan <code>settle</code> vía <code>parallel</code>; en Review los <code>null</code> se filtran y se cuentan (<code>failed</code>), y ese número se comunica explícitamente al juez para que no oculte cobertura incompleta.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -288,7 +289,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>pasados al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> un único string, el reporte del juez de síntesis (veredicto ejecutivo, tabla priorizada de hallazgos, hallazgos rechazados, gaps de cobertura, tests sugeridos). En el camino sin archivos candidatos, retorna un mensaje explicativo en su lugar.</p>
 <p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (archivos descubiertos, caps aplicados, ancho de fan-out, fallos por branch) y por el string de retorno.</p>
 <h2 id="fases">Fases</h2>

@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -202,7 +203,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <h2 id="cuándo-usarlos">Cuándo usarlos</h2>
 <p>Usá un workflow solo cuando haya una razón real de orquestación; una edición chica, una pregunta simple o unos pocos tool calls directos son mejor como single-agent.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Motivo</th>
@@ -225,7 +226,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><strong>Tarea trivial</strong></td>
 <td>❌ hacelo single-agent en su lugar</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="qué-primitiva-uso">Qué primitiva uso?</h2>
 <p>Todo se compone desde <code>agent()</code> (una unidad de trabajo del modelo). Elegí la primitiva de mayor nivel según la forma del trabajo:</p>
 <pre class="mermaid">flowchart TD
@@ -269,7 +270,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ol>
 <h2 id="api-de-globals-inyectadas">API de globals inyectadas</h2>
 <p>Estas globals son toda la interfaz de autoría. Las más importantes:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Global</th>
@@ -312,7 +313,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>pausa una rama para preguntarle a una persona vía la UI de Pi</td>
 <td>la respuesta (<code>string</code>/<code>boolean</code>)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Más sobre las claves:</p>
 <ul>
 <li><code>agent(prompt, opts)</code> — <strong>desenvuelve</strong> el resultado: texto plano sin schema, el objeto parseado con <code>{ schema }</code>, o <code>null</code> si la rama falla. Cachea por defecto para resume; podés desactivarlo por llamada con <code>{ cache: false }</code>.</li>
@@ -368,7 +369,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Runtime</strong> hace cumplir el límite efectivo (<code>limits.concurrency</code>) y el hard cap global.</li>
 <li><strong>Workflow</strong> elige una concurrencia local a partir del tamaño de la lista, el riesgo, el costo y el tipo de tarea, sin superar nunca <code>limits.concurrency</code>.</li>
 </ul>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Situación</th>
@@ -395,7 +396,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>1–2 ítems</td>
 <td><code>1–2</code> (igual al conteo)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <pre><code class="hljs language-js"><span class="hljs-keyword">function</span> <span class="hljs-title function_">chooseConcurrency</span>(<span class="hljs-params">items, opts = {}</span>) {
   <span class="hljs-keyword">if</span> (<span class="hljs-title class_">Number</span>.<span class="hljs-built_in">isFinite</span>(args?.<span class="hljs-property">concurrency</span>)) {
     <span class="hljs-keyword">return</span> <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(<span class="hljs-title class_">Math</span>.<span class="hljs-title function_">max</span>(<span class="hljs-title class_">Math</span>.<span class="hljs-title function_">floor</span>(args.<span class="hljs-property">concurrency</span>), <span class="hljs-number">1</span>), limits.<span class="hljs-property">concurrency</span>);

@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -212,7 +213,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Fase Dispatch</strong> — solo ocurre cuando el gate dio <code>PROCEED</code> y <code>routing.shape === &quot;dynamic-workflow&quot;</code>. Construye <code>dispatchArgs</code> uniendo <code>args</code> de entrada con <code>resourcePlan.models</code> y <code>resourcePlan.efforts</code> si existen, y llama a <code>workflow(&quot;router&quot;, { request: compact(gate.rewrittenPrompt), runSelected: true, args: dispatchArgs })</code>. <code>compact()</code> recorta el prompt a 60000 caracteres. Si esta llamada falla por profundidad, retorna <code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;dispatch&quot;, error, note, gate }</code>. Si sale bien, retorna <code>{ status: &quot;DONE&quot;, gate, dispatched }</code>.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input:</strong></p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -235,9 +236,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no (default <code>{}</code>)</td>
 <td>Objeto reenviado al workflow finalmente despachado; se le suman <code>models</code>/<code>efforts</code> de <code>resourcePlan</code> si existen.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output</strong> (uno de estos <code>status</code>):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>status</th>
@@ -265,7 +266,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>el runtime rechazó una llamada anidada</td>
 <td><code>{ stage: &quot;gate&quot;|&quot;dispatch&quot;, error, note, gate? }</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>No escribe artifacts propios (<code>writeArtifact</code>); cualquier artifact lo genera el workflow despachado.</p>
 <h2 id="fases">Fases</h2>
 <ol>

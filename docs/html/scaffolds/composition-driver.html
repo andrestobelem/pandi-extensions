@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -268,7 +269,7 @@ de retorno del workflow.</li>
 de la fase Synthesize. El caching de agentes es el del runtime de Dynamic
 Workflows; no hay lógica de cache explícita en el código.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -306,7 +307,7 @@ Workflows; no hay lógica de cache explícita en el código.</p>
 <td>array/object</td>
 <td>mismo patrón global vs. por rol</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Salida:</strong> el texto de síntesis devuelto por el agente <code>composition-synthesis</code>
 (sin schema forzado, prosa libre). No escribe artifacts a disco.</p>
 <h2 id="fases">Fases</h2>

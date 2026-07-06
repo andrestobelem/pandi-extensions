@@ -68,11 +68,17 @@ test("prose typography: body justified, h2 is a real heading above h3 (no upperc
 	assert.ok(px(h2Rule) > px(h3Rule), `h2 (${px(h2Rule)}px) must be larger than h3 (${px(h3Rule)}px)`);
 });
 
-test("renders GFM tables", () => {
+test("renders GFM tables inside a horizontal-scroll container", () => {
 	const html = renderMarkdownToHtml("# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n", {});
-	assert.match(html, /<table>/);
+	assert.match(html, /<div class="table-scroll"><table>/);
+	assert.match(html, /<\/table><\/div>/);
 	assert.match(html, /<th>a<\/th>/);
 	assert.match(html, /<td>2<\/td>/);
+	// Cada tabla queda envuelta — un wrapper sin cierre balanceado rompería el layout.
+	assert.equal(
+		(html.match(/<div class="table-scroll">/g) ?? []).length,
+		(html.match(/<\/table><\/div>/g) ?? []).length,
+	);
 });
 
 test("maps GitHub alerts to labeled pandi callouts and strips the marker", () => {

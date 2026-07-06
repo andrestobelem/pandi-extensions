@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -229,7 +230,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Caching y observabilidad.</strong> No hay caché explícita: cada <code>agent</code> se ejecuta fresco. Tampoco se usa <code>writeArtifact</code>; la observabilidad pasa por <code>log(...)</code> (warnings de clamp, progreso por hallazgo y resumen final) y por el shape de retorno.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON en <code>args</code>, parseado defensivamente):</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -292,7 +293,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>override por rol; solo se aplica si <code>input.&lt;campo&gt;[role]</code> es un array (otros valores se ignoran)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong></p>
 <ul>
 <li>Si no hay hallazgos para verificar: el string exacto <code>&quot;No findings to verify.&quot;</code>.</li>

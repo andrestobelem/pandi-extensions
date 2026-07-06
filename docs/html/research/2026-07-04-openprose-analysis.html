@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -231,7 +232,7 @@ Review the codebase analysis and create a comprehensive test plan
 covering all edge cases for the authentication module.</code></pre>
 <h2 id="skill-local-v0150">Skill local (v0.15.0)</h2>
 <p>El skill <code>open-prose</code> instalado documenta cinco piezas centrales:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Pieza</th>
@@ -264,7 +265,7 @@ covering all edge cases for the authentication module.</code></pre>
 <td><code>responsibility-runtime.md</code></td>
 <td>Standing goals, Reactor, doctrina compile/serve</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Activación: escribir <code>prose ...</code>, abrir un <code>.prose.md</code> con frontmatter <code>kind:</code>,
 o pedir orquestación multi-agente reutilizable; <code>prose run</code> es una instrucción
 en sesión (el agente encarna la VM — no existe un binario <code>prose</code>).</p>
@@ -279,7 +280,7 @@ models. El debugging es el trade-off más duro: cuando el runtime decide el orde
 de ejecución, explicar <em>por qué</em> ejecutó en ese orden exige entender el
 algoritmo de resolución de contratos.</p>
 <h2 id="comparación-con-los-dynamic-workflows-de-este-repo">Comparación con los dynamic workflows de este repo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Dimensión</th>
@@ -317,7 +318,7 @@ algoritmo de resolución de contratos.</p>
 <td>Cualquier harness &quot;Prose Complete&quot;</td>
 <td>Claude Code (Workflow) y pi (<code>dynamic_workflow</code>)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Mismo objetivo (orquestación multi-agente reutilizable), apuesta inversa:
 OpenProse optimiza expresividad y reutilización de intención; este repo optimiza
 control flow determinista y evidencia inspeccionable — justo la propiedad que

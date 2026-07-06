@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -175,7 +176,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><code>request</code> es el único campo obligatorio. Para solo ver qué elegiría sin ejecutar nada:</p>
 <pre><code class="hljs language-text">/workflow run mi-run {&quot;request&quot;:&quot;Resumí este log de 50MB&quot;,&quot;runSelected&quot;:false}</code></pre>
 <h2 id="decisión-rápida">Decisión rápida</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Si querés...</th>
@@ -194,7 +195,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>ejecutar un workflow específico que ya conocés</td>
 <td>llamalo directo</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: request (req, alias task/text), candidates[]?, runSelected=true, args?, context?, maxCandidates=60"] --&gt; B{"request vacío?"}
@@ -253,7 +254,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Caching:</strong> no hay mecanismo explícito de caché — cada <code>agent</code> se invoca fresco.</p>
 <p><strong>Fallos parciales:</strong> cada uno de los tres pasos (scan, route, dispatch) está aislado con try/catch propio; ninguno propaga excepción hacia el caller salvo la validación inicial de <code>request</code> vacío.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -316,7 +317,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>pasados al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> <code>{ selected, why, dispatched, output? }</code>, con extensiones opcionales <code>candidates</code> (lista de nombres considerados) y <code>error</code> (presente solo en un fallo guardado de ruteo o dispatch).</p>
 <ul>
 <li><code>selected</code>: nombre del workflow elegido, o <code>&quot;none&quot;</code>.</li>

@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -208,7 +209,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>El branching es por item, no uniforme: cada archivo sigue su propia rama dentro de <code>pipeline(files, classifyStage, deepReviewStage)</code>. Eso es la profundidad adaptativa que implementa el scaffold: gastar más solo donde hay señal.</p>
 <p>Al final, una fase de síntesis reúne los hallazgos de deep review, los deduplica y prioriza, y marca explícitamente cualquier gap de cobertura. Los archivos saltados o con fallo NO se tratan como &quot;limpios&quot;.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Situación</th>
@@ -236,7 +237,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>No</td>
 <td>conviene <code>map-reduce</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <ul>
 <li>Triage-then-review de un árbol grande de archivos (catálogo: &quot;Triage-then-review a large tree&quot;).</li>
 <li>Pasadas de clasificar-y-actuar donde la acción cara solo aplica a un subconjunto (catálogo: &quot;classify-and-act&quot;).</li>
@@ -255,7 +256,7 @@ Si el output del deep review es <code>null</code>, se marca <code>{ failed: true
 <p><strong>Manejo de fallos parciales.</strong> Cada etapa del <code>agent</code> puede devolver <code>null</code> por error interno; el código lo convierte en <code>{ skipped: true }</code> o <code>{ failed: true }</code>, y los conteos se loguean y se pasan a la síntesis como cobertura explícita.</p>
 <p><strong>Caching.</strong> No se observa ningún mecanismo explícito de caché en el código; cada llamada a <code>agent</code> es fresca.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -312,7 +313,7 @@ Si el output del deep review es <code>null</code>, se marca <code>{ failed: true
 <td>no</td>
 <td>overrides por rol (<code>role → array</code>)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> un string (el texto de la síntesis final), o el mensaje literal <code>&quot;No files matched; nothing to review.&quot;</code> si el work-list quedó vacío tras el scout.</p>
 <p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (archivos scouteados, recortes por <code>maxFiles</code>, conteo deep-reviewed vs. total) y por el string de retorno.</p>
 <h2 id="fases">Fases</h2>

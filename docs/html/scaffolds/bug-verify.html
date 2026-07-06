@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -227,7 +228,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Fase Reproduce.</strong> Si <code>attemptFix</code> está activo, un agente <code>tree-baseline</code> (<code>haiku</code>, <code>low</code>) corre <code>git status --porcelain</code> para tener una foto del estado inicial. Después, un <code>for</code> secuencial (no <code>parallel</code>) recorre cada bug: un agente <code>repro</code> (<code>sonnet</code>, <code>medium</code>, <code>schema</code> VERDICT, label <code>repro:&lt;id&gt;</code>) recibe el claim, file y evidencia reportada (cada uno envuelto en su propio <code>fence()</code>), y debe construir y CORRER una reproducción real, citando el output. El prompt instruye explícitamente el intento de fix + revert si <code>attemptFix</code>, y la minimización delta-debugging-style si <code>minimize</code>. Tras cada bug, si <code>attemptFix</code>, otro agente <code>tree-check</code> (<code>haiku</code>, <code>low</code>) vuelve a correr <code>git status --porcelain</code> y compara contra el baseline para marcar <code>treeDirty</code> (revert fallido).</p>
 <p>No hay <code>parallel</code>/<code>settle</code> en este scaffold — cada resultado se empuja directo al array <code>results</code>, y un <code>agent</code> que devuelve <code>null</code>/vacío se registra como <code>inconclusive</code> en vez de abortar el ciclo. No hay caché explícita (sin <code>writeArtifact</code> ni memoización entre corridas); cada invocación reproduce desde cero.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -265,7 +266,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>number, default <code>12</code>, clamp <code>1..4096</code></td>
 <td>cap tras dedup</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Retorna:</p>
 <pre><code class="hljs language-text">{
   confirmed: [...],          // bugs con status &quot;reproduced&quot;

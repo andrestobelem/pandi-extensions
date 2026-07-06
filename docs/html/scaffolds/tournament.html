@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -234,7 +235,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Personas/modelos:</strong> rol <code>seed</code> en <code>sonnet</code>/<code>medium</code> (generación barata de propuestas); rol <code>match</code> en <code>opus</code>/<code>high</code> (juicio de mayor calidad, porque decide quién avanza). Los overrides por rol se aplican con <code>input.models[role]</code> / <code>input.efforts[role]</code> y con <code>input.toolsByRole</code> / <code>input.skillsByRole</code> / <code>input.excludeByRole</code>; la precedencia es por rol &gt; global (<code>input.model</code> / <code>input.effort</code>) &gt; default del call-site.</p>
 <p><strong>Caching:</strong> no hay una API de cache explícita; cada <code>agent</code> corre fresco, aunque los labels estables por ronda y match evitan colisiones si el runtime cachea por label.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -285,7 +286,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>no</td>
 <td>overrides globales pasados al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> el texto del candidato campeón (<code>champion.text</code>), o <code>&quot;&quot;</code>/el único entrante si el campo tenía menos de 2 candidatos. No se observan llamadas a <code>writeArtifact</code>; toda la observabilidad pasa por <code>log(...)</code>: tamaño del bracket inicial, byes, conteo de defaults por ronda, y un resumen final <code>tournament.json</code> (compactado a 60000 chars) con <code>entrants</code>, <code>rounds</code>, el <code>transcript</code> completo de partidos (<code>round</code>, <code>match</code>, <code>a</code>, <code>b</code>, <code>winner</code>, <code>why</code>) y el <code>championId</code>.</p>
 <h2 id="fases">Fases</h2>
 <ol>

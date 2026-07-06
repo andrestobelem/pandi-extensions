@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -222,7 +223,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ol>
 <p>No hay caching explícito en el scaffold: cada corrida repite scout, reviews y síntesis desde cero.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -273,7 +274,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>—</td>
 <td>Mismo mecanismo global vs. por rol</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Output: el resultado del agente juez — <strong>texto libre, sin schema</strong> (el propio scaffold lo marca como pendiente de mejora antes de componerlo downstream). No escribe artifacts con <code>writeArtifact</code>; todo el estado relevante (cobertura, archivos fallidos) se loggea con <code>log()</code> durante la corrida.</p>
 <h2 id="fases">Fases</h2>
 <ol>

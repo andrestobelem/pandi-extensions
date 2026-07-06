@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -309,7 +310,7 @@ con path crudo (LOW, es un string mostrado, no ejecutado); varios casts sin
 validar sobre <code>event.input</code> en el gate.</li>
 </ul>
 <h2 id="cobertura-y-límites">Cobertura y límites</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Área</th>
@@ -352,7 +353,7 @@ validar sobre <code>event.input</code> en el gate.</li>
 <td>docs-consistency (README vs código)</td>
 <td>cubierto (auditoría inline)</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Cobertura completa. Las áreas que volvían vacías en los workflows se cerraron
 con opus (core-dispatch-b) o con auditoría manual (devtools-a, docs-consistency),
 sin hallazgos nuevos en estas dos últimas.</p>

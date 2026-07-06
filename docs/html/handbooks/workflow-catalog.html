@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -192,7 +193,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     F --&gt;|hay que elegir lo mejor entre varias opciones| J[Generate &amp; select]
     F --&gt;|pulir un solo artefacto| K[Iterate &amp; refine]
     F --&gt;|aplicar cambios en una codebase| L[Migrate]</pre>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Tu problema</th>
@@ -250,10 +251,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Migrate</td>
 <td><code>large-migration</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <hr>
 <h2 id="gate--guard--encuadrar-y-proteger">🚪 Gate &amp; guard — encuadrar y proteger</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -274,9 +275,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Compuerta de alcance/seguridad antes de un agente; chequeo de PII/secretos en una salida; envolver un workflow con tripwires.</td>
 <td>Ya sabés la tarea y solo necesitás un límite duro (PII, secretos) aplicado alrededor de ella o de su salida.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="route--orchestrate">🧭 Route &amp; orchestrate</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -315,9 +316,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Pipelines autosemejantes de gate→compose; llevar el plan de recursos de la compuerta a una ejecución más profunda.</td>
 <td>Necesitás que el patrón gate→dispatch recurra sobre subtareas, no solo correr una vez.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="discover--fan-out">🔍 Discover &amp; fan-out</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -362,9 +363,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Respuesta citada a una pregunta externa: comparaciones técnicas, barridos de panorama.</td>
 <td>La pregunta es externa (requiere la web), no algo que pueda responderse leyendo este repo.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="verify">✅ Verify</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -397,9 +398,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Revisión de diseño/RFC; compuerta pre-implementación.</td>
 <td>El artefacto bajo revisión es un <em>plan</em>, no código ni afirmaciones — usalo antes de empezar a implementar.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="generate--select">🎯 Generate &amp; select</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -432,9 +433,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Planificación/diseño de varios pasos; explorar un espacio de soluciones.</td>
 <td>El problema tiene pasos intermedios que vale la pena explorar, no solo candidatos finales para comparar.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="iterate--refine">🔁 Iterate &amp; refine</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -455,9 +456,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Code-with-tests; tareas con oráculo pass/fail; reset-and-re-attempt en vez de editar in place.</td>
 <td>Tenés un oráculo pass/fail (por ejemplo, tests) y un reintento fresco gana a editar en el lugar.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="migrate">🚚 Migrate</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -472,9 +473,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Rollouts de API/codemod; upgrades de frameworks; migración acotada y respaldada por evidencia.</td>
 <td>Vas a mutar muchos archivos y no podés dejar ninguno roto atrás — no sirve para descubrimiento de solo lectura.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="compose--meta">🧩 Compose &amp; meta</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Workflow</th>
@@ -489,7 +490,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Fact-check de un documento; la referencia canónica de composición discover→verify.</td>
 <td>Querés el ejemplo trabajado canónico de composición discover→verify, no solo la pieza de la biblioteca por separado.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <hr>
 <h2 id="próximos-pasos">Próximos pasos</h2>
 <ul>

@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -197,7 +198,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <p><strong>Definición de trabajo sintetizada (este artefacto):</strong> <em>loop engineering</em> es la disciplina de <strong>diseñar, acotar y verificar</strong> loops iterativos/de feedback alrededor de sistemas agénticos y de software. Un loop debe hacer progreso medible hacia una meta y <strong>parar en evidencia</strong> (done/quiet/blocked) en vez de hacerlo por reloj, por autodeclaración o nunca. Este es el marco paraguas que el repo ya practica bajo otros nombres: <code>/loop</code>, <code>loop-until-done</code>, <code>/goal</code>.</p>
 <h2 id="3-fundamentos-y-trabajos-previos--con-citas">3. Fundamentos y trabajos previos — con citas</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Patrón</th>
@@ -236,7 +237,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Åström &amp; Murray <em>Feedback Systems</em> (MIT) <code>https://introcontrol.mit.edu/_static/fall21/extras/Feedback%20Systems%20Murray.pdf</code>; MathWorks <code>https://www.mathworks.com/help/mcb/gs/open-loop-and-closed-loop-control.html</code>; ISA <code>https://www.isa.org/intech-home/2023/june-2023/features/fundamentals-pid-control</code>; NI <code>https://www.ni.com/en/shop/labview/pid-theory-explained.html</code>; MIT pole-zero <code>https://web.mit.edu/2.14/www/Handouts/PoleZero.pdf</code></td>
 <td>Preservado desde la rama 3; <strong>no se volvió a buscar en la síntesis</strong> (ver §8).</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>El índice interno del repo ya mapea estos papers a prácticas de workflow, incluyendo &quot;loops with an explicit brake … must have a stop condition: max rounds, quiet rounds, maxAgents, timeout, or budget&quot; (<code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md:51-52</code>, derived-principle 6).</p>
 <h2 id="4-principios-centrales-de-loop-engineering">4. Principios centrales de loop engineering</h2>
 <p>Sintetizados a partir de las fuentes anteriores y verificados contra el repo (§6). Cada principio empareja un ancla de literatura/teoría con el mecanismo del repo.</p>
@@ -251,7 +252,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Sin caps silenciosos.</strong> Un loop que se detiene por presupuesto pero reporta &quot;done&quot; oculta incompletitud. Repo registra <code>&quot;stopped at maxRounds (not dry)&quot;</code> (<code>templates.ts:392-394</code>).</li>
 </ol>
 <h2 id="5-modos-de-falla-y-mitigaciones">5. Modos de falla y mitigaciones</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Modo de falla</th>
@@ -289,10 +290,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>La autocorrección intrínseca puede degradar resultados (<a href="https://arxiv.org/abs/2310.01798">Huang et al., 2310.01798</a>).</td>
 <td>Verificador INDEPENDIENTE de solo lectura; &quot;a claim without verifiable evidence is a FAIL&quot; <code>extensions/pandi-goal/index.ts:620-625</code>; el veredicto se ancla a la última línea no vacía para que no se pueda falsificar un PASS repitiendo el prompt <code>extensions/pandi-goal/verifier.ts:105-141</code>; exit no cero + PASS se trata como FAIL <code>extensions/pandi-goal/verifier.ts:172-183</code>.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="6-fundamento-en-este-repo">6. Fundamento en este repo</h2>
 <p>Todos los <code>file:line</code> fueron verificados en este run. <strong>Alignment</strong> = el mecanismo coincide con el principio; <strong>Gap</strong> = limitación/discrepancia.</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Principio / falla</th>
@@ -370,7 +371,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md:51-52</code> (&quot;Loops with an explicit brake&quot;), <code>:9-12</code> (paper→pattern map)</td>
 <td><strong>Aligned</strong>; ReAct/Reflexion/Self-Refine están mapeados. ReAct fue re-verificado de forma independiente en el source pass del 2026-06-28 (Yao et al., ICLR 2023, arXiv:2210.03629).</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="7-gaps-limitaciones-y-observaciones-opcionales-sin-diffs">7. Gaps, limitaciones y observaciones OPCIONALES (sin diffs)</h2>
 <p>Solo observaciones; no se proponen cambios de código.</p>
 <p><strong>Actualización — observaciones aplicadas (2026-06-28).</strong> Un seguimiento aplicó los ítems seguros y quirúrgicos de abajo: <strong>#3</strong> (inexactitud de la read-list) se corrigió en la grounding read-list del workflow de investigación y en los prompts del reviewer (<code>.pi/workflows/drafts/loop-engineering-deep-research.js</code>) para que un re-run ya no atribuya erróneamente el clamp dinámico <code>[60,3600]s</code> a <code>interval.ts</code>; <strong>#6</strong> (dos caps de verificación distintos) y <strong>#5</strong> (costo del verificador independiente) se abordaron con comentarios de cruce sobre <code>MAX_VERIFY_ATTEMPTS</code> (<code>extensions/pandi-goal/constants.ts:43-49</code>) y <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS</code> (<code>extensions/pandi-goal/constants.ts:58-64</code>). <strong>#1</strong> se dejó igual: <code>extensions/pandi-loop/caps.ts:20-40</code> ya documenta el best-effort/silent no-op en su docstring. <strong>#2</strong> (eval sweep de <code>quietRounds</code>/<code>maxRounds</code>) y <strong>#4</strong> (allowlist finita del destructive-gate) siguen abiertos por diseño — el primero necesita datos, el segundo es una asimetría aceptada deliberada. La guía práctica derivada de esta investigación vive en <a href="../loop-engineering-with-extensions.html"><code>docs/loop-engineering-with-extensions.md</code></a>.</p>

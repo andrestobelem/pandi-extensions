@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -214,7 +215,7 @@ Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real
 <p>Un <strong>Concept</strong> es una unidad única de conocimiento = un archivo Markdown. El <strong>Concept ID</strong> es la ruta del archivo dentro del bundle sin el sufijo <code>.md</code> (p. ej., <code>tables/users.md</code> → <code>tables/users</code>).</p>
 <p>Cada concepto consta de: un bloque de <strong>frontmatter</strong> YAML (delimitado por <code>---</code>) y un <strong>cuerpo</strong> Markdown libre.</p>
 <h3>2.3 Campos del frontmatter (§4.1) — requeridos vs. opcionales</h3>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -252,7 +253,7 @@ Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real
 <td>Recomendado</td>
 <td>Datetime ISO 8601 del último cambio significativo.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Extensiones:</strong> los productores PUEDEN añadir claves arbitrarias; los consumidores DEBERÍAN preservar las claves desconocidas en round-trip y NO DEBEN rechazar documentos por campos no reconocidos.</p>
 <p><strong>Plantilla de frontmatter (§4.1, verbatim):</strong></p>
 <pre><code class="hljs language-yaml"><span class="hljs-meta">---</span>
@@ -393,7 +394,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 <blockquote>
 <p><strong>Advertencia importante de evidencia.</strong> Se verificó por grep que <strong>A2A, MCP, AGENTS.md, llms.txt, &quot;Agent Card&quot; y &quot;Model Context&quot; NO aparecen en <code>SPEC.md</code> ni en <code>okf/README.md</code></strong>. El §10 del SPEC (&quot;Relationship to other formats&quot;) solo nombra tres comparadores: <strong>repositorios &quot;wiki&quot; para LLM</strong>, <strong>herramientas de conocimiento personal (Obsidian/Notion)</strong> y <strong>&quot;metadata as code&quot;</strong>, afirmando que OKF &quot;difiere principalmente en estar <em>especificado</em>&quot;. Por tanto, <strong>la comparativa siguiente es síntesis/interpretación</strong> a partir de las fuentes primarias de cada formato, <strong>no texto normativo de OKF</strong>.</p>
 </blockquote>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Formato</th>
@@ -438,7 +439,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 <td>&quot;¿Qué contenido público/docs debería leer un LLM?&quot;</td>
 <td>H1 requerido; opcional blockquote-resumen, guía, listas de enlaces H2</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Solapamientos y límites (interpretación):</strong></p>
 <ul>
 <li><strong>OKF vs llms.txt:</strong> ambos Markdown-first. llms.txt es un <em>único fichero índice</em> en la raíz de un sitio para consumo <em>web en inferencia</em>; OKF es un <em>bundle multi-fichero, tipado, cross-enlazado y versionado</em> (más cercano a una wiki que a un índice raíz plano).</li>

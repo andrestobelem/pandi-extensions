@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -189,7 +190,7 @@ independiente y no sesgada — <code>/goal</code> es la superficie que impone am
 la vez.</p>
 </blockquote>
 <h2 id="tldr--elegí-la-superficie-de-loop-correcta">TL;DR — elegí la superficie de loop correcta</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Superficie</th>
@@ -222,7 +223,7 @@ la vez.</p>
 <td>Tareas de orquestación vagas o amplias</td>
 <td>Acotar y verificar el alcance primero</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="las-cuatro-superficies-de-loop">Las cuatro superficies de loop</h2>
 <h3><code>/goal</code> — loop cerrado con verificación independiente</h3>
 <p>Usá <code>/goal</code> siempre que exista una definición concreta y verificable de terminado.
@@ -296,7 +297,7 @@ optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
 /ultracode-contract off    <span class="hljs-comment"># disable the Contract Gate for this session</span>
 /ultracode-mode off        <span class="hljs-comment"># turn the router off (lowering effort does not)</span></code></pre>
 <h2 id="los-ocho-principios--perillas-que-controlás">Los ocho principios → perillas que controlás</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Principio</th>
@@ -344,7 +345,7 @@ optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
 <td>Si se corta por budget, hay que reportarlo</td>
 <td>Mantener el log &quot;stopped at maxRounds&quot;</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h2 id="recetas">Recetas</h2>
 <p>Ejecutá trabajos distintos en paralelo (no se componen — ver abajo):</p>
 <pre><code class="hljs language-bash">/goal implement feature X -- criteria ...   <span class="hljs-comment"># itera hasta quedar verificado</span>

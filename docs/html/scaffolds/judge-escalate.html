@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -232,7 +233,7 @@ build on winner + graft runners-up + flag riesgos"]
 <p><strong>Manejo de fallos parciales.</strong> Cada fan-out de Generate corre bajo <code>parallel</code> con <code>settle</code> implícito; un candidato caído se loguea por índice y ángulo, y no bloquea el resto de la ronda ni el veredicto.</p>
 <p><strong>Caching.</strong> No se observa ningún mecanismo explícito de caché: cada <code>agent</code> se invoca fresco en cada ronda, y el juez reevalúa el conjunto completo acumulado —no solo lo nuevo— en cada escalada.</p>
 <h2 id="input-y-output">Input y output</h2>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Campo</th>
@@ -277,7 +278,7 @@ build on winner + graft runners-up + flag riesgos"]
 <td>no</td>
 <td>se pasan al <code>agent</code> si son arrays</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Output:</strong> el retorno del scaffold es directamente el string producido por el agente de síntesis final (no un objeto con campos separados).</p>
 <p>No se observa ninguna llamada a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> — normalización de <code>angles</code>/<code>maxEscalations</code>, resultado de cada escalada (<code>winner</code>, <code>confidence</code>), candidatos descartados por fallo y el conteo final de candidatos junto al veredicto.</p>
 <h2 id="fases">Fases</h2>

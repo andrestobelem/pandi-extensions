@@ -112,8 +112,9 @@ pre.mermaid { text-align:center; }
 blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
 blockquote p { margin:6px 0; }
 hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
-table { border-collapse:collapse; margin:12px 0; background:var(--paper);
-        border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
 th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
 th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
      background:var(--raised); }
@@ -192,7 +193,7 @@ propósito: así cada una se puede instalar sola vía <code>pi install</code>.</
 <h2 id="comando-tool-o-event-handler">¿Comando, tool o event handler?</h2>
 <p>Los tres primitivos conviven en la misma extensión; la pregunta es <strong>quién
 dispara el código</strong>:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Primitivo</th>
@@ -219,7 +220,7 @@ dispara el código</strong>:</p>
 <td>Necesitás reaccionar o interceptar sin que nadie lo pida (bloquear un tool, inyectar contexto, persistir estado)</td>
 <td><code>pi.on(&quot;tool_call&quot;)</code> bloqueando mutaciones en <code>pandi-plan</code>/<code>pandi-loop</code>; <code>pi.on(&quot;session_before_compact&quot;)</code> en <code>pandi-auto-compact</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Ver la referencia completa de eventos y <code>ExtensionAPI</code> en el
 <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md"><code>extensions.md</code></a>
 de pi upstream (o <code>docs/extensions.md</code> de tu instalación local del paquete).</p>
@@ -263,7 +264,7 @@ patrón de reload seguro (un tool no puede llamar <code>ctx.reload()</code> dire
 un follow-up <code>/reload</code>).</p>
 <p>El riesgo no es de sandbox — es de <strong>topología de instalación</strong>: dónde apunta el
 <code>packages[]</code> global y cuándo hacés <code>/reload</code>. Estrategias, de más a menos segura:</p>
-<table>
+<div class="table-scroll"><table>
 <thead>
 <tr>
 <th>Estrategia</th>
@@ -286,7 +287,7 @@ un follow-up <code>/reload</code>).</p>
 <td>editás + <code>/reload</code> en la misma sesión</td>
 <td><strong>Ninguno.</strong> Rápido pero podés cortar tu loop de trabajo. Solo tras <code>npm test</code> verde</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Recomendación:</strong> eje 1 como feedback principal; para smoke en vivo, <strong>estrategia
 A</strong> — &quot;desarrollar&quot; y &quot;probar&quot; nunca comparten proceso.</p>
 <blockquote>
