@@ -12,9 +12,7 @@ import { GOAL_STATUS_KEY } from "./constants.js";
 import { formatEta } from "./time.js";
 import type { GoalState } from "./types.js";
 
-export function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
-	if (!ctx.hasUI) return;
-	const theme = ctx.ui.theme;
+function formatGoalStatusDetails(goal: GoalState): string {
 	const phase =
 		goal.gstatus === "verifying" ? " verifying" : goal.gstatus === "verifying-independent" ? " verifying⊥" : "";
 	const eta =
@@ -22,9 +20,15 @@ export function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
 			? ` next ${formatEta(goal.nextFireAt)}`
 			: "";
 	const reason = goal.lastReason ? ` · ${goal.lastReason}` : "";
+	return `it ${goal.iteration}/${goal.maxIterations}${phase}${eta}${reason}`;
+}
+
+export function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {
+	if (!ctx.hasUI) return;
+	const theme = ctx.ui.theme;
 	ctx.ui.setStatus(
 		GOAL_STATUS_KEY,
-		`${theme.fg("accent", "◎ goal")} ${theme.fg("dim", `it ${goal.iteration}/${goal.maxIterations}${phase}${eta}${reason}`)}`,
+		`${theme.fg("accent", "◎ goal")} ${theme.fg("dim", formatGoalStatusDetails(goal))}`,
 	);
 }
 
