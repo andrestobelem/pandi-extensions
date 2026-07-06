@@ -15,6 +15,10 @@ const SCRIPT = path.join(REPO, "extensions", "pandi-docs", "scripts", "markdown-
 
 const { renderMarkdownToHtml } = await import(pathToFileURL(SCRIPT).href);
 
+function countMatches(text, regex) {
+	return text.match(regex)?.length ?? 0;
+}
+
 test("renders a full self-contained page: h1 becomes the title, body keeps the prose, tokens embedded", () => {
 	const html = renderMarkdownToHtml("# My report\n\nHello *world*.\n", {});
 	assert.match(html, /<!doctype html>/i);
@@ -25,7 +29,7 @@ test("renders a full self-contained page: h1 becomes the title, body keeps the p
 	assert.match(html, /--bg:\s*#242526/);
 	assert.match(html, /prefers-color-scheme:\s*light/);
 	// El h1 se promociona al encabezado, no se duplica en el cuerpo.
-	assert.equal(html.match(/<h1>My report<\/h1>/g).length, 1);
+	assert.equal(countMatches(html, /<h1>My report<\/h1>/g), 1);
 });
 
 test("kicker is configurable and defaults to Pandi artifact", () => {
