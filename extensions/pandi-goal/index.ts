@@ -78,6 +78,7 @@
 import * as crypto from "node:crypto";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { parseGoalArgs, parseGoalCommandIntent } from "./command-intent.js";
 import {
 	DEFAULT_CONTEXT_PERCENT_CAP,
 	DEFAULT_MAX_INDEPENDENT_VERIFICATIONS,
@@ -344,40 +345,6 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 // Inicio / parada
 // ---------------------------------------------------------------------------
 
-/**
- * Quita una bandera de postura `--ultracode` / `--uc` de los argumentos (en cualquier
- * lugar del texto). Devuelve el texto limpio y si la bandera estaba presente. Se
- * parsea ANTES de separar criterios con ` -- ` para honrar también una bandera puesta
- * después de los criterios.
- */
-function extractUltracodeFlag(args: string): { rest: string; ultracode: boolean } {
-	let ultracode = false;
-	const kept: string[] = [];
-	for (const token of args.split(/\s+/)) {
-		const lower = token.toLowerCase();
-		if (lower === "--ultracode" || lower === "--uc") ultracode = true;
-		else if (token.length) kept.push(token);
-	}
-	return { rest: kept.join(" "), ultracode };
-}
-
-/**
- * Parsea los argumentos de inicio de `/goal`. Convención: si el texto contiene el separador
- * ` -- `, el lado izquierdo es el objetivo y el derecho son los criterios de éxito
- * (texto libre). Sin eso, todo el texto es el objetivo (el modelo deriva criterios,
- * S2). Una bandera `--ultracode`/`--uc` (en cualquier lugar) activa la postura
- * ultracode y se quita primero.
- */
-function parseGoalArgs(args: string): { objective: string; successCriteria?: string; ultracode: boolean } {
-	const { rest, ultracode } = extractUltracodeFlag(args);
-	const SEP = " -- ";
-	const idx = rest.indexOf(SEP);
-	if (idx === -1) return { objective: rest.trim(), ultracode };
-	const objective = rest.slice(0, idx).trim();
-	const successCriteria = rest.slice(idx + SEP.length).trim();
-	return { objective, successCriteria: successCriteria || undefined, ultracode };
-}
-
 function startGoal(pi: ExtensionAPI, ctx: ExtensionContext, args: string): ActiveGoal | undefined {
 	// Compuerta de modo: solo TUI/RPC puede sostener una sesión persistente de goal.
 	if (!canGoalInMode(ctx)) {
@@ -600,16 +567,10 @@ function formatGoalStatusList(goals: GoalState[]): string {
 }
 
 async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
-	const trimmed = args.trim();
-	const firstSpace = trimmed.indexOf(" ");
-	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
-	const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+	const intent = parseGoalCommandIntent(args);
 
-	// "stop"/"status" son subcomandos solo cuando son TODO el primer token Y no hay
-	// separador de criterios ` -- ` que los capture como parte de un objetivo.
-	const hasCriteriaSeparator = trimmed.includes(" -- ");
-	if (firstToken === "stop" && !hasCriteriaSeparator) {
-		const goal = await resolveGoal(ctx, rest || undefined);
+	if (intent.kind === "stop") {
+		const goal = await resolveGoal(ctx, intent.rest || undefined);
 		if (!goal) {
 			notify(ctx, "No hay ningún goal que coincida para detener — revisá el id con /goal status.", "warning");
 			return;
@@ -619,14 +580,14 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 		return;
 	}
 
-	if (firstToken === "status" && !hasCriteriaSeparator) {
-		if (rest) {
-			const goal = activeGoals.get(rest);
+	if (intent.kind === "status") {
+		if (intent.rest) {
+			const goal = activeGoals.get(intent.rest);
 			notify(
 				ctx,
 				goal
 					? formatStatus(goal)
-					: `No hay ningún goal con id ${rest} — corré /goal status para listar los goals activos.`,
+					: `No hay ningún goal con id ${intent.rest} — corré /goal status para listar los goals activos.`,
 				goal ? "info" : "warning",
 			);
 			return;
@@ -641,7 +602,7 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	}
 
 	// Si no: todos los argumentos son el objetivo (posiblemente con criterios ` -- `).
-	startGoal(pi, ctx, trimmed);
+	startGoal(pi, ctx, intent.rest);
 }
 
 // ---------------------------------------------------------------------------
