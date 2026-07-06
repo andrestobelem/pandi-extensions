@@ -72,6 +72,10 @@ function agentStateIcon(state: AgentMonitorModel["state"]): string {
 	return "?";
 }
 
+function formatAgentRef(agent: AgentMonitorModel, phase: string | undefined): string {
+	return `#${agent.id}${phase ? ` ${phase}` : ""}`;
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -124,6 +128,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 			: "Prompt not available for this run/agent.";
 	const stateIcon = agentStateIcon(agent.state);
 	const phase = formatAgentPhase(agent);
+	const agentRef = formatAgentRef(agent, phase);
 	const outputText =
 		modelOutput !== undefined
 			? truncate(modelOutput, MAX_TOOL_TEXT)
@@ -178,7 +183,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	];
 	const configTable = formatSettingTable(configRows);
 	const summary = [
-		`- Agent: #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name}`,
+		`- Agent: ${agentRef} ${agent.name}`,
 		`- State: ${stateIcon} ${agent.state}`,
 		`- Model: ${agent.model ?? "default"} • effort: ${agent.thinking ?? "default"}`,
 		...(phase ? [`- Phase: ${phase}${agent.phaseLabel ? ` (${agent.phaseLabel})` : ""}`] : []),
@@ -194,7 +199,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 		`- Artifact: ${artifactPath ?? "unavailable"}`,
 		...(artifactError ? [`- Artifact read error: ${artifactError}`] : []),
 	];
-	const titleLine = `# Agent #${agent.id}${phase ? ` ${phase}` : ""}: ${agent.name}`;
+	const titleLine = `# Agent ${agentRef}: ${agent.name}`;
 	const cardLines = [
 		titleLine,
 		"",
@@ -237,7 +242,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	const promptWasTruncated =
 		!!promptSource && (promptSource.length > MAX_TOOL_TEXT || !!(promptFromEvent && agent.promptTruncated));
 	const promptRows: [string, string][] = [
-		["Agent", `#${agent.id}${phase ? ` ${phase}` : ""} ${agent.name}`],
+		["Agent", `${agentRef} ${agent.name}`],
 		["State", `${stateIcon} ${agent.state}`],
 		["Source", promptSourceLabel],
 		["Characters", promptSource ? `${promptSource.length} source` : "n/a"],
@@ -246,7 +251,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	];
 	const promptTable = formatSettingTable(promptRows);
 	const promptLines = [
-		`# Prompt: Agent #${agent.id}${phase ? ` ${phase}` : ""}: ${agent.name}`,
+		`# Prompt: Agent ${agentRef}: ${agent.name}`,
 		"",
 		"## Summary",
 		"",
