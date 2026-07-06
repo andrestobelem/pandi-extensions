@@ -144,9 +144,12 @@ function parseVerdict(stdout: string): VerifierVerdict {
 	return { pass, feedback: text, unparsed: false };
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatVerifierRunFailure(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `verifier could not run: ${message}`;
+	return `verifier could not run: ${errorMessage(error)}`;
 }
 
 /**
