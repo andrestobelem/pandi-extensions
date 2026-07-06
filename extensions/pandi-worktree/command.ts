@@ -43,6 +43,10 @@ function isHelpCommand(token: string): boolean {
 	return token === "help" || token === "-h" || token === "--help";
 }
 
+function isListCommand(token: string): boolean {
+	return token === "list" || token === "ls";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -117,7 +121,7 @@ export function parseCommand(input: string): ParsedCommand {
 
 	const head = tokens[0].toLowerCase();
 	if (isHelpCommand(head)) return { action: "help" };
-	if (head === "list" || head === "ls") return { action: "list" };
+	if (isListCommand(head)) return { action: "list" };
 
 	if (head === "prune") return parsePruneCommand(tokens.slice(1));
 
