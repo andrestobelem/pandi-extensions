@@ -23,6 +23,15 @@ import type { AgentMonitorModel, WorkflowRunRecord } from "./types.js";
 
 type ParsedPiStdout = ReturnType<typeof parsePiJsonModeOutput>;
 type SettingRow = [string, string];
+type AgentSummaryFormatInput = {
+	run: WorkflowRunRecord;
+	agent: AgentMonitorModel;
+	agentRef: string;
+	stateIcon: string;
+	phase: string | undefined;
+	artifactPath: string | undefined;
+	artifactError: string;
+};
 
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
@@ -184,6 +193,34 @@ function formatAgentConfigRows(agent: AgentMonitorModel): SettingRow[] {
 	];
 }
 
+function formatAgentSummaryLines({
+	run,
+	agent,
+	agentRef,
+	stateIcon,
+	phase,
+	artifactPath,
+	artifactError,
+}: AgentSummaryFormatInput): string[] {
+	return [
+		`- Agent: ${agentRef} ${agent.name}`,
+		`- State: ${stateIcon} ${agent.state}`,
+		`- Model: ${agent.model ?? "default"} • effort: ${agent.thinking ?? "default"}`,
+		...(phase ? [`- Phase: ${phase}${agent.phaseLabel ? ` (${agent.phaseLabel})` : ""}`] : []),
+		`- Workflow: ${run.workflow}`,
+		`- Run: ${run.runId}`,
+		...(agent.startedAt ? [`- Started: ${agent.startedAt}`] : []),
+		...(agent.endedAt ? [`- Ended: ${agent.endedAt}`] : []),
+		...(agent.elapsedMs !== undefined ? [`- Elapsed: ${formatElapsedMs(agent.elapsedMs)}`] : []),
+		...(agent.ok !== undefined ? [`- OK: ${agent.ok}`] : []),
+		...(agent.code !== undefined ? [`- Exit code: ${agent.code}`] : []),
+		...(agent.killed !== undefined ? [`- Killed: ${agent.killed}`] : []),
+		...(agent.schemaOk !== undefined ? [`- Schema OK: ${agent.schemaOk}`] : []),
+		`- Artifact: ${artifactPath ?? "unavailable"}`,
+		...(artifactError ? [`- Artifact read error: ${artifactError}`] : []),
+	];
+}
+
 async function readLiveStreamIfSectionMissing(
 	streamPath: string | undefined,
 	artifactSection: string | undefined,
@@ -250,23 +287,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	const outputText = formatAgentOutputText(modelOutput, agent.state);
 	const configRows = formatAgentConfigRows(agent);
 	const configTable = formatSettingTable(configRows);
-	const summary = [
-		`- Agent: ${agentRef} ${agent.name}`,
-		`- State: ${stateIcon} ${agent.state}`,
-		`- Model: ${agent.model ?? "default"} • effort: ${agent.thinking ?? "default"}`,
-		...(phase ? [`- Phase: ${phase}${agent.phaseLabel ? ` (${agent.phaseLabel})` : ""}`] : []),
-		`- Workflow: ${run.workflow}`,
-		`- Run: ${run.runId}`,
-		...(agent.startedAt ? [`- Started: ${agent.startedAt}`] : []),
-		...(agent.endedAt ? [`- Ended: ${agent.endedAt}`] : []),
-		...(agent.elapsedMs !== undefined ? [`- Elapsed: ${formatElapsedMs(agent.elapsedMs)}`] : []),
-		...(agent.ok !== undefined ? [`- OK: ${agent.ok}`] : []),
-		...(agent.code !== undefined ? [`- Exit code: ${agent.code}`] : []),
-		...(agent.killed !== undefined ? [`- Killed: ${agent.killed}`] : []),
-		...(agent.schemaOk !== undefined ? [`- Schema OK: ${agent.schemaOk}`] : []),
-		`- Artifact: ${artifactPath ?? "unavailable"}`,
-		...(artifactError ? [`- Artifact read error: ${artifactError}`] : []),
-	];
+	const summary = formatAgentSummaryLines({ run, agent, agentRef, stateIcon, phase, artifactPath, artifactError });
 	const titleLine = `# Agent ${agentRef}: ${agent.name}`;
 	const cardLines = [
 		titleLine,
