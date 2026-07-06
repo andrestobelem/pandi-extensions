@@ -22,10 +22,14 @@ function formatGoalStatusEta(goal: GoalState): string {
 		: "";
 }
 
+function formatGoalStatusReason(goal: GoalState): string {
+	return goal.lastReason ? ` · ${goal.lastReason}` : "";
+}
+
 function formatGoalStatusDetails(goal: GoalState): string {
 	const phase = formatGoalStatusPhase(goal);
 	const eta = formatGoalStatusEta(goal);
-	const reason = goal.lastReason ? ` · ${goal.lastReason}` : "";
+	const reason = formatGoalStatusReason(goal);
 	return `it ${goal.iteration}/${goal.maxIterations}${phase}${eta}${reason}`;
 }
 
