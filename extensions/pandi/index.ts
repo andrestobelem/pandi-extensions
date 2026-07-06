@@ -54,6 +54,7 @@ import { GREETINGS, greetingText, MOODS, PANDI_QUOTE, pick } from "./moods.js";
 import { pandiPersonaBlock } from "./persona.js";
 
 const STATUS_KEY = "pandi";
+const FACE_FAMILY_ANIMATION_LOOPS = 3;
 
 // Naranja-coral de Anthropic/Claude (el ◆ "ADN de Claude"). Mismo RGB que face.CLAUDE_ORANGE.
 const ORANGE = fgAnsi(CLAUDE_ORANGE);
@@ -118,6 +119,12 @@ function pandaFaces(theme: Theme) {
 	};
 }
 
+function repeatFrames(frames: string[], loops: number): string[] {
+	const repeated: string[] = [];
+	for (let i = 0; i < loops; i++) repeated.push(...frames);
+	return repeated;
+}
+
 /** Estilo "claude": carita `(● ●)` con ojos que a veces brillan con el rombo ◆. */
 function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	const eye = (c: string) => (c === "◆" ? theme.fg("accent", "◆") : c);
@@ -126,20 +133,26 @@ function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	const bear = (l: string, r: string) =>
 		`${theme.fg("dim", "ʕ ")}${bearEye(l)}${theme.fg("dim", "ᴥ")}${bearEye(r)}${theme.fg("dim", " ʔ")}`;
 	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
+	const classicFrames = [
+		face("●", "●") + dots(0),
+		face("●", "●") + dots(1),
+		face("◆", "●") + dots(2), // brilla el ojo izquierdo
+		face("●", "◆") + dots(3), // brilla el derecho
+		face("◆", "◆") + dots(2), // alma de Claude
+		face("-", "-") + dots(1), // parpadeo clásico
+	];
+	const bearFrames = [
+		bear("•", "•") + dots(0),
+		bear("•", "•") + dots(1),
+		bear("•", "•") + dots(2),
+		bear("-", "-") + dots(3), // parpadeo del osito
+		bear("·", "·") + dots(2),
+		bear("^", "^") + dots(1), // respiración alegre
+	];
 	return {
 		frames: [
-			face("●", "●") + dots(0),
-			face("●", "●") + dots(1),
-			face("◆", "●") + dots(2), // brilla el ojo izquierdo
-			face("●", "◆") + dots(3), // brilla el derecho
-			face("◆", "◆") + dots(2), // alma de Claude
-			face("-", "-") + dots(1), // parpadeo clásico
-			bear("•", "•") + dots(0),
-			bear("•", "•") + dots(1),
-			bear("•", "•") + dots(2),
-			bear("-", "-") + dots(3), // parpadeo del osito
-			bear("·", "·") + dots(2),
-			bear("^", "^") + dots(1), // respiración alegre
+			...repeatFrames(classicFrames, FACE_FAMILY_ANIMATION_LOOPS),
+			...repeatFrames(bearFrames, FACE_FAMILY_ANIMATION_LOOPS),
 		],
 		intervalMs: 180,
 	};

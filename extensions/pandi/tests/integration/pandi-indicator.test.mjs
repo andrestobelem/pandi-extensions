@@ -5,7 +5,7 @@
  * Contrato de esta suite:
  * - el estilo default/claude conserva la carita clásica con paréntesis;
  * - también incluye el osito `ʕ •ᴥ• ʔ` pedido para darle más vida;
- * - cada carita se sostiene varios frames mientras se mueve, antes de pasar a la otra;
+ * - cada carita se sostiene al menos 3 vueltas completas de animación antes de pasar a la otra;
  * - la animación mantiene movimiento observable (frames distintos y puntitos de progreso).
  */
 
@@ -46,6 +46,29 @@ function runs(values) {
 	return result;
 }
 
+function frameRunsByFamily(frames) {
+	const result = [];
+	for (const frame of frames) {
+		const family = faceFamily(frame);
+		const last = result.at(-1);
+		if (last?.family === family) last.frames.push(frame);
+		else result.push({ family, frames: [frame] });
+	}
+	return result;
+}
+
+function repeatsFirstCycleAtLeast(frames, minCycles) {
+	const visibleFrames = frames.map(visibleText);
+	const cycleLength = new Set(visibleFrames).size;
+	if (cycleLength === 0 || visibleFrames.length < cycleLength * minCycles) return false;
+	const cycle = visibleFrames.slice(0, cycleLength);
+	for (let cycleIndex = 1; cycleIndex < minCycles; cycleIndex++) {
+		const start = cycleIndex * cycleLength;
+		if (!cycle.every((frame, i) => visibleFrames[start + i] === frame)) return false;
+	}
+	return true;
+}
+
 async function scenario(url) {
 	const mod = await loadModule(url);
 	check("pandaFrames is exported for indicator characterization", typeof mod.pandaFrames === "function");
@@ -83,6 +106,19 @@ async function scenario(url) {
 				["classic", "bear"].map((family) => [
 					family,
 					new Set(frames.filter((frame) => faceFamily(frame) === family).map(visibleText)).size,
+				]),
+			),
+		),
+	);
+	const familyFrameRuns = frameRunsByFamily(frames);
+	check(
+		"each face family stays for at least 3 full animation cycles before switching",
+		familyFrameRuns.length === 2 && familyFrameRuns.every((run) => repeatsFirstCycleAtLeast(run.frames, 3)),
+		JSON.stringify(
+			Object.fromEntries(
+				familyFrameRuns.map((run) => [
+					run.family,
+					{ frames: run.frames.length, unique: new Set(run.frames.map(visibleText)).size },
 				]),
 			),
 		),
