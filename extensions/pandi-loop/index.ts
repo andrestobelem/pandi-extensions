@@ -500,6 +500,12 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 // Inicio / stop
 // ---------------------------------------------------------------------------
 
+function refuseIfCannotLoopInMode(ctx: ExtensionContext, commandName: "/loop" | "/loop auto"): boolean {
+	if (canLoopInMode(ctx)) return false;
+	notify(ctx, `${commandName} requiere una sesión TUI o RPC (este modo no puede loopear).`, "error");
+	return true;
+}
+
 function refuseIfLoopLimitReached(ctx: ExtensionContext): boolean {
 	if (activeLoops.size < MAX_CONCURRENT_LOOPS) return false;
 	notify(
@@ -557,10 +563,7 @@ function notifyLoopStarted(
 
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
-	if (!canLoopInMode(ctx)) {
-		notify(ctx, "/loop requiere una sesión TUI o RPC (este modo no puede loopear).", "error");
-		return undefined;
-	}
+	if (refuseIfCannotLoopInMode(ctx, "/loop")) return undefined;
 	const { text: taskText, intervalMs, ultracode } = parseLoopStartArgs(task);
 	if (!taskText) {
 		notify(ctx, "Uso: /loop [--ultracode] <task> [interval]", "warning");
@@ -589,10 +592,7 @@ async function startAutonomousLoop(
 	ctx: ExtensionContext,
 	rawArgs: string,
 ): Promise<ActiveLoop | undefined> {
-	if (!canLoopInMode(ctx)) {
-		notify(ctx, "/loop auto requiere una sesión TUI o RPC (este modo no puede loopear).", "error");
-		return undefined;
-	}
+	if (refuseIfCannotLoopInMode(ctx, "/loop auto")) return undefined;
 	// Gate de trust PRIMERO: un loop autónomo nunca debe correr en un proyecto untrusted.
 	if (!ctx.isProjectTrusted()) {
 		notify(ctx, "/loop auto requiere un proyecto de confianza. Corré /trust primero, y reintentá.", "error");
