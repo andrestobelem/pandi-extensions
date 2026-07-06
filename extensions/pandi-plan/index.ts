@@ -91,6 +91,7 @@ import {
 import { notify } from "./notify.js";
 import { writeAndOpenPlanHtmlArtifact } from "./plan-html.js";
 import { makeImplementPrompt, makePlanningPrompt, type PlanFlags } from "./prompts.js";
+import { findActivePlan, findLastPlan, hasActivePlan, overlayRuntimePlans, restoreActivePlans } from "./registry.js";
 import { collectLatestByKey } from "./session-state.js";
 import type { PlanState } from "./state.js";
 import { clearPlanStatus, formatStatus, setPlanStatus } from "./status.js";
@@ -115,10 +116,7 @@ export const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pandi-plan.plan-mode.guard");
 
 /** ¿Está el gate de solo lectura armado (algún plan actualmente activo)? */
 function planModeActive(): boolean {
-	for (const plan of activePlans.values()) {
-		if (plan.active) return true;
-	}
-	return false;
+	return hasActivePlan(activePlans.values());
 }
 
 export function isPlanModeActive(): boolean {
@@ -140,10 +138,7 @@ export const PLAN_MODE_GUARD: PlanModeGuard = {
 
 /** The single currently-active plan (gate armed), or undefined. */
 function currentPlan(): PlanState | undefined {
-	for (const plan of activePlans.values()) {
-		if (plan.active) return plan;
-	}
-	return undefined;
+	return findActivePlan(activePlans.values());
 }
 
 // ---------------------------------------------------------------------------
@@ -341,13 +336,7 @@ function rehydrate(ctx: ExtensionContext): void {
 	const entries = ctx.sessionManager.getEntries();
 	const latest = collectLatestByKey<PlanState>(entries, PLAN_STATE_TYPE, (d) => d.planId);
 
-	for (const state of latest.values()) {
-		// Solo un plan ACTIVO necesita ser restaurado (su gate debe volver arriba). Estados
-		// terminales (approved/rejected-after-exit/exited) llevan active=false → nada que armar.
-		if (!state.active) continue;
-		if (activePlans.has(state.planId)) continue; // ya está vivo en este proceso.
-		activePlans.set(state.planId, { ...state });
-	}
+	restoreActivePlans(activePlans, latest.values());
 	refreshPlanStatus(ctx);
 }
 
@@ -362,8 +351,7 @@ function rehydrate(ctx: ExtensionContext): void {
  */
 function collectAllPlans(ctx: ExtensionContext): PlanState[] {
 	const latest = collectLatestByKey<PlanState>(ctx.sessionManager.getEntries(), PLAN_STATE_TYPE, (d) => d.planId);
-	for (const plan of activePlans.values()) latest.set(plan.planId, plan);
-	return [...latest.values()];
+	return overlayRuntimePlans(latest, activePlans.values());
 }
 
 /**
@@ -384,7 +372,7 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	const intent = parsePlanCommandIntent(args);
 
 	if (intent.kind === "status") {
-		const plan = currentPlan() ?? [...activePlans.values()].pop();
+		const plan = currentPlan() ?? findLastPlan(activePlans.values());
 		notify(ctx, plan ? formatStatus(plan) : "El modo plan no está activo.", "info");
 		return;
 	}
