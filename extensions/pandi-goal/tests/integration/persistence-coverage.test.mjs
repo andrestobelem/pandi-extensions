@@ -242,6 +242,9 @@ async function persistSwallowsSidecarError(mod) {
 	const ctx = { isProjectTrusted: () => true, cwd: fileAsCwd };
 	const goal = makeGoal();
 	clearTimeout(goal.timer);
+	const unhandledRejections = [];
+	const onUnhandledRejection = (reason) => unhandledRejections.push(String(reason?.message ?? reason));
+	process.on("unhandledRejection", onUnhandledRejection);
 	let threw = false;
 	try {
 		mod.persist(pi, ctx, goal);
@@ -256,8 +259,16 @@ async function persistSwallowsSidecarError(mod) {
 	);
 	// Dejar que la promise sidecar rechazada se resuelva; el .catch(() => {}) de la fuente debe tragarla
 	// (cualquier unhandled rejection acá haría caer el proceso con exit 2 vía el handler de main()).
-	await flush(() => false, 30);
-	check("persist() sidecar failure produced no observable throw/rejection", true);
+	try {
+		await flush(() => false, 30);
+	} finally {
+		process.off("unhandledRejection", onUnhandledRejection);
+	}
+	check(
+		"persist() sidecar failure produced no observable throw/rejection",
+		unhandledRejections.length === 0,
+		JSON.stringify(unhandledRejections),
+	);
 	await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
 }
 
