@@ -125,7 +125,7 @@ async function scenarioGateHelpers(url) {
 	);
 
 	// --- blockedReason: dynamic_workflow read-only allowlist ---
-	for (const action of ["list", "scaffold", "read", "graph", "runs", "view"]) {
+	for (const action of ["list", "scaffold", "read", "check", "graph", "runs", "view"]) {
 		check(
 			`blockedReason allows dynamic_workflow ${action}`,
 			blockedReason(ev("dynamic_workflow", { action })) === undefined,

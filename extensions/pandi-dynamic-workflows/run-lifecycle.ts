@@ -27,7 +27,7 @@ import type {
 	WorkflowRunState,
 	WorkflowRunStatus,
 } from "./index.js";
-import { activeRuns, prepareWorkflowRun, runWorkflow } from "./index.js";
+import { activeRuns, preflightWorkflowLaunch, prepareWorkflowRun, runWorkflow } from "./index.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
 import { notify } from "./notify.js";
 import {
@@ -192,6 +192,7 @@ export async function startWorkflowBackground(
 		);
 	}
 	// Para reanudar, preparedRun reutiliza el runDir/runId existente en su lugar.
+	if (!preparedRun) await preflightWorkflowLaunch(ctx, workflow, input);
 	const prepared = preparedRun ?? (await prepareWorkflowRun(ctx, workflow.name, true));
 	const controller = new AbortController();
 	const active: ActiveWorkflowRun = {

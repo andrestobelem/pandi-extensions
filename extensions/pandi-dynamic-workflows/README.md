@@ -23,17 +23,18 @@ return await agent(`Turn these notes into one tight paragraph:\n${notes}`, { eff
 Then, from a Pi session:
 
 ```text
+/workflow check hello {"topic": "circuit breakers"}
 /workflow run hello {"topic": "circuit breakers"}
 ```
 
-That's the whole loop: write a `.js` file, `/workflow run <name> [json-input]`.
+That's the whole loop: write a `.js` file, optionally preflight it with `/workflow check`, then `/workflow run <name> [json-input]`.
 No UI? Ask the agent to call the `dynamic_workflow` tool with
 `action: "write"` (name + code) and `action: "run"` (name + input) instead.
 
 ## What you get
 
 - A JavaScript workflow runtime with injected globals: `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`, `workflow`, `phase`, `log`, `args`, plus read-only `limits`/`runId`/`runDir`/`cwd`.
-- The `dynamic_workflow` model tool for listing, scaffolding, reading, writing, running, resuming, cancelling, deleting, graphing, listing runs, and viewing workflows (and more).
+- The `dynamic_workflow` model tool for listing, scaffolding, reading, checking, writing, running, resuming, cancelling, deleting, graphing, listing runs, and viewing workflows (and more).
 - A resumable journal and per-run artifacts, so crashed or cancelled runs continue instead of restarting.
 - A live TUI dashboard (`/workflows` or `Ctrl+Alt+W`) with Monitor, Agents, Sessions, Runs, Workflows, Patterns, and Activity tabs.
 - Ultracode routing commands and a Contract Gate that reviews the task contract before broad orchestration.
@@ -73,15 +74,15 @@ pi --no-extensions -e ./extensions/pandi-dynamic-workflows   # one-off trial, no
 
 | Command | What it does |
 | --- | --- |
-| `/workflow …` | Manage workflows: `new` (scaffold), `run`, `start`, `agents`, `sessions`, `cleanup`, `delete`, `delete-run`, and more. |
+| `/workflow …` | Manage workflows: `new` (scaffold), `check`, `run`, `start`, `agents`, `sessions`, `cleanup`, `delete`, `delete-run`, and more. |
 | `/workflows` | Open the workflow dashboard (also `Ctrl+Alt+W`). |
 | `/dynamic-workflow` (alias `/ultracode`) | Route the current task through the Ultracode workflow router. |
 | `/deep-research` | Legacy intent; routes to the `complex-research` pattern. |
 | `/ultracode-mode` | Toggle always-on Ultracode routing for the session. |
 | `/ultracode-contract` | Toggle the Contract Gate; `/ultracode-contract off` disables it for the session. |
-| `dynamic_workflow` | Model tool: list, scaffold, read, write, run, start, resume, cancel, delete, graph, runs, view, and report on workflows (and more). |
+| `dynamic_workflow` | Model tool: list, scaffold, read, check, write, run, start, resume, cancel, delete, graph, runs, view, and report on workflows (and more). |
 
-`/workflow run <name>` runs in the foreground and prints the result — except
+`/workflow check <name> [json-input]` validates the workflow source and launch input without creating a run. `/workflow run <name>` runs in the foreground and prints the result — except
 inside a persistent (TUI) session, where it auto-backgrounds so the dashboard
 stays the control plane. `/workflow start <name>` launches in the background
 when the session is TUI or RPC, so you can keep chatting while it runs; in

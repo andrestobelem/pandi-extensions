@@ -26,7 +26,14 @@ import {
 } from "./dashboard-orchestration.js";
 import { text } from "./format.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
-import { currentWorkflowDepth, maxWorkflowDepth, transformWorkflowCode, WORKFLOW_DRAFT_DIR } from "./index.js";
+import {
+	currentWorkflowDepth,
+	formatWorkflowPreflightSummary,
+	maxWorkflowDepth,
+	preflightWorkflowLaunch,
+	transformWorkflowCode,
+	WORKFLOW_DRAFT_DIR,
+} from "./index.js";
 import { notify } from "./notify.js";
 import {
 	formatWorkflowPatternCatalog,
@@ -168,6 +175,13 @@ export async function handleTool(
 		const code = await fs.readFile(workflow.path, "utf8");
 		const graph = await makeWorkflowGraphForContext(ctx, workflow, code);
 		return { content: [text(graph)], details: { action, workflow, graph } };
+	}
+
+	if (action === "check") {
+		const workflow = await resolveWorkflow(ctx, params.name, scope);
+		const workflowInput = normalizeWorkflowInput(params.input);
+		const preflight = await preflightWorkflowLaunch(ctx, workflow, workflowInput);
+		return { content: [text(formatWorkflowPreflightSummary(preflight))], details: { action, workflow, preflight } };
 	}
 
 	if (action === "write") {
@@ -407,6 +421,19 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 			const workflow = await resolveWorkflow(ctx, name, "auto");
 			const code = await fs.readFile(workflow.path, "utf8");
 			await showWorkflowGraph(ctx, workflow, code);
+			return;
+		}
+
+		if (action === "check") {
+			const name = commandName;
+			if (!name) {
+				notify(ctx, "Usage: /workflow check <name> [json-input]", "warning");
+				return;
+			}
+			const workflow = await resolveWorkflow(ctx, name, "auto");
+			const input = parseCliJsonOrText(trailingText.trim());
+			const preflight = await preflightWorkflowLaunch(ctx, workflow, input);
+			notify(ctx, formatWorkflowPreflightSummary(preflight), "info");
 			return;
 		}
 
@@ -681,7 +708,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 
 		notify(
 			ctx,
-			"Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | cleanup [sessions|runs] [--keep=N] [--all-stale] [--dry-run] [--yes] | delete-run [latest|runId] | delete <name>",
+			"Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | check <name> [json] | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | cleanup [sessions|runs] [--keep=N] [--all-stale] [--dry-run] [--yes] | delete-run [latest|runId] | delete <name>",
 			"warning",
 		);
 	} catch (err) {

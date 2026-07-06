@@ -196,7 +196,7 @@ async function planGate(planUrl) {
 		const r = await runGate(handlers, ctx, toolCallEvent("dynamic_workflow", action ? { action } : {}));
 		check(`plan: BLOCKS dynamic_workflow action=${String(action)}`, !!r && r.block === true);
 	}
-	for (const action of ["list", "scaffold", "read", "graph", "runs", "view"]) {
+	for (const action of ["list", "scaffold", "read", "check", "graph", "runs", "view"]) {
 		const r = await runGate(handlers, ctx, toolCallEvent("dynamic_workflow", { action }));
 		check(`plan: ALLOWS dynamic_workflow action=${action}`, r === undefined, r ? r.reason : "");
 	}

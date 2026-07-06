@@ -465,7 +465,7 @@ export function isMutatingBash(command: string): boolean {
  *                                                allowlist mutante (arriba); sino permitido.
  * Tools personalizadas mutantes conocidas:         dynamic_workflow se bloquea a menos que su
  *                                                acción sea de solo lectura (list/scaffold/read/
- *                                                graph/runs/view). Puede escribir archivos en el
+ *                                                check/graph/runs/view). Puede escribir archivos en el
  *                                                workspace y generar subagentes que corran
  *                                                write/edit/bash, y esas llamadas a tool de subagente
  *                                                NO pasan por este main-session
@@ -478,7 +478,15 @@ export function isMutatingBash(command: string): boolean {
  *                                                por otra extensión/MCP caería acá
  *                                                (best-effort — nos basamos en el prompt para esas).
  */
-export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set(["list", "scaffold", "read", "graph", "runs", "view"]);
+export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set([
+	"list",
+	"scaffold",
+	"read",
+	"check",
+	"graph",
+	"runs",
+	"view",
+]);
 
 /**
  * Mutadores built-in estructurados que SIEMPRE se bloquean mientras se planifica. notebook-edit se
@@ -520,7 +528,7 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	if (name === "dynamic_workflow") {
 		const action = (event.input as { action?: unknown }).action;
 		if (typeof action === "string" && DYNAMIC_WORKFLOW_READONLY_ACTIONS.has(action)) return undefined;
-		return `el modo plan es de SOLO LECTURA: dynamic_workflow "${String(action)}" puede escribir archivos o lanzar subagentes mutantes y está bloqueado mientras planificás. Usá solo acciones de solo lectura (list/scaffold/read/graph/runs/view), o submit_plan cuando tu plan esté listo.`;
+		return `el modo plan es de SOLO LECTURA: dynamic_workflow "${String(action)}" puede escribir archivos o lanzar subagentes mutantes y está bloqueado mientras planificás. Usá solo acciones de solo lectura (list/scaffold/read/check/graph/runs/view), o submit_plan cuando tu plan esté listo.`;
 	}
 	// Herramientas desconocidas / otras: permite. Las garantías duras arriba (mutadores built-in + bash
 	// heurística + bloqueo custom-tool conocido) son best-effort; una tool personalizada mutante desconocida
