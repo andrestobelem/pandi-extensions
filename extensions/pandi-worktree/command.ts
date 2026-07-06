@@ -51,6 +51,10 @@ function isRemoveCommand(token: string): boolean {
 	return token === "remove" || token === "rm";
 }
 
+function isAddOrOpenCommand(token: string): token is "add" | "open" {
+	return token === "add" || token === "open";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -131,7 +135,7 @@ export function parseCommand(input: string): ParsedCommand {
 
 	if (head === "set") return parseSetCommand(tokens.slice(1));
 
-	if (head === "add" || head === "open") return parseAddOrOpenCommand(head, tokens.slice(1));
+	if (isAddOrOpenCommand(head)) return parseAddOrOpenCommand(head, tokens.slice(1));
 
 	if (isRemoveCommand(head)) return parseRemoveCommand(tokens.slice(1));
 
