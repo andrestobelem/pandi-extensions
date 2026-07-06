@@ -52,6 +52,18 @@ function fencedBlock(content: string, lang = "text"): string {
 	return `${fence}${lang}\n${content}\n${fence}`;
 }
 
+function escapeMarkdownTableCell(value: string): string {
+	return value.replace(/\|/g, "\\|").replace(/\n/g, " ");
+}
+
+function formatSettingTable(rows: [string, string][]): string {
+	return [
+		"| Setting | Value |",
+		"| --- | --- |",
+		...rows.map(([key, value]) => `| ${escapeMarkdownTableCell(key)} | ${escapeMarkdownTableCell(value)} |`),
+	].join("\n");
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -165,12 +177,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 			? [["Structured schema", agent.schemaOk ? "ok" : "❌ validation failed"] as [string, string]]
 			: []),
 	];
-	const escapeCell = (value: string) => value.replace(/\|/g, "\\|").replace(/\n/g, " ");
-	const configTable = [
-		"| Setting | Value |",
-		"| --- | --- |",
-		...configRows.map(([key, value]) => `| ${escapeCell(key)} | ${escapeCell(value)} |`),
-	].join("\n");
+	const configTable = formatSettingTable(configRows);
 	const summary = [
 		`- Agent: #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name}`,
 		`- State: ${stateIcon} ${agent.state}`,
@@ -238,11 +245,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 		["Truncated", promptWasTruncated ? "yes" : "no"],
 		["Artifact", artifactPath ?? "unavailable"],
 	];
-	const promptTable = [
-		"| Setting | Value |",
-		"| --- | --- |",
-		...promptRows.map(([key, value]) => `| ${escapeCell(key)} | ${escapeCell(value)} |`),
-	].join("\n");
+	const promptTable = formatSettingTable(promptRows);
 	const promptLines = [
 		`# Prompt: Agent #${agent.id}${phase ? ` ${phase}` : ""}: ${agent.name}`,
 		"",
