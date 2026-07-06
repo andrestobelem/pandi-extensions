@@ -1,30 +1,19 @@
 /**
- * Gate DESTRUCTIVE-ACTION de autopilot de pandi-loop (política de seguridad pura).
- *
- * Extraído literal de index.ts (conserva comportamiento) para que la política
- * de seguridad - qué comandos bash de autopilot / escrituras fuera del proyecto
- * pasan por el gate - viva en un lugar puro y testeable. El cableado
- * (anyAutopilotActive / handleToolCall, que leen estado compartido del loop)
- * queda en index.ts e importa destructiveReason. Hermano de profundidad uno
- * importado vía "./gate.js"; los imports del SDK son solo de tipos y se borran
- * al compilar.
+ * Política pura del gate destructivo de pandi-loop. index.ts decide cuándo aplicarla;
+ * este módulo solo clasifica comandos bash y rutas write/edit.
  */
 
 import * as path from "node:path";
 import type { ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 
 /**
- * Lista conservadora de operaciones destructivas que requieren confirmación cuando un
- * turno AUTOPILOT (disparado por wake, no por el usuario) intenta ejecutarlas. Busca
- * atrapar acciones claramente irreversibles / de alto radio de impacto sin interferir
- * NUNCA con un turno humano ni con trabajo normal del loop (lecturas, greps,
- * ediciones normales).
+ * Operaciones destructivas que requieren confirmación en turnos autopilot. Busca
+ * atrapar acciones irreversibles o de alto radio sin interferir con turnos humanos
+ * ni con trabajo normal del loop (lecturas, greps, ediciones normales).
  *
- * Lista documentada:
+ * Cubre:
  *  - comandos bash que matchean:
- *      rm recursivo en CUALQUIER forma de flag: -r / -R / -rf / -fr / --recursive (force es
- *        opcional; el flag recursivo es el riesgo de pérdida de datos). rm de archivo
- *        único no se bloquea.
+ *      rm recursivo: -r / -R / -rf / -fr / --recursive. rm de archivo único no se bloquea.
  *      find ... -delete y find ... -exec rm (incluye rm con ruta como /bin/rm)
  *      truncate / shred (destrucción in-place de archivos existentes)
  *      redirecciones de shell (>, >>, la forma clobber `>|`/`>>|`, y AMBAS escrituras
@@ -48,38 +37,19 @@ import type { ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-
  *  Las continuaciones de línea con backslash se colapsan a espacio antes del match, así
  *  dividir un comando en líneas (`rm \\<newline> -rf d`) no oculta sus flags a los patrones.
  *
- * NOTE sobre "deploy": intencionalmente NO hay patrón /\bdeploy\b/ suelto. "deploy" es una
- * palabra común en inglés, no un binario, así que da falsos positivos en trabajo normal del
- * loop como `cat deploy.md`, `ls deploy/`, `grep deploy src/`, `npm run deploy:dry-run`; eso
- * es lo opuesto a conservador (un loop cuyo trabajo es *watch a deploy* se autobloquearía
- * en cada iteración). Las herramientas reales de deploy ya están cubiertas por los patrones
- * estructurados kubectl/terraform/helm de abajo.
+ * No hay patrón genérico para "deploy": es una palabra común y produciría falsos
+ * positivos (`cat deploy.md`, `npm run deploy:dry-run`). Las herramientas reales de
+ * deploy ya quedan cubiertas por kubectl/terraform/helm.
  *
  *  - write/edit apuntando a una ruta FUERA del cwd confiable del proyecto (ruta absoluta
  *    que no empieza con ctx.cwd, o cualquier ruta que escape vía "..").
  *
- * Sesgo conservador: ante duda, NO bloquear; solo los turnos autopilot pasan por el gate,
- * y solo cuando el patrón matchea claramente uno de los anteriores.
- *
- * LIMITACIONES ACEPTADAS (por diseño: esto es defense-in-depth, NO un límite de seguridad;
- * los controles principales son confianza del proyecto + confirm/block de autopilot). Una
- * lista regex no puede atrapar destrucción expresada vía intérprete general o indirección
- * runtime, y gatear eso daría falsos positivos en trabajo normal. Entonces estos casos
- * intencionalmente pasan: borrado vía intérprete (`perl -e unlink`, `python -c
- * shutil.rmtree`), borrado vía `xargs rm` (no recursivo), flags armados desde variable de
- * shell (`R=-rf; rm $R d`), ejecución codificada (`… | base64 -d | sh`), verbos destructivos
- * detrás de alias genéricos de una letra (`k delete …`) o tools fuera de la lista
- * estructurada (la mayoría de subcomandos `docker`/cloud-CLI, y `rsync --delete`, cuyo
- * mirror-wipe no se distingue de un sync normal), y escrituras fuera del proyecto alcanzadas
- * solo en runtime vía symlink (sin realpath ni conciencia de filesystem aquí). `git -C
- * <outside>` no se gatea por la ruta, pero su subcomando destructivo sí, porque los patrones
- * de verbos matchean sin importar el directorio `-C`.
+ * Sesgo: ante duda, permitir. Este gate es defense-in-depth, no un sandbox: regexes no
+ * cubren intérpretes genéricos, alias, variables ni indirección runtime sin demasiados
+ * falsos positivos.
  */
 export const DESTRUCTIVE_BASH_PATTERNS: RegExp[] = [
-	// rm recursivo, en CUALQUIER forma de flag (-r, -R, -rf, -fr, --recursive). El flag
-	// recursivo es el riesgo de pérdida de datos; force solo suprime prompts, así que
-	// `rm -r dir` en una shell autopilot no interactiva igual borra un árbol completo.
-	// `rm foo.txt` de un solo archivo intencionalmente no se gatea.
+	// rm recursivo; rm de un archivo suelto queda permitido.
 	/\brm\b(?=[^\n]*(\s-[a-z]*[rR]|\s--recursive\b))/i,
 	// Borrado vía find: `find … -delete` y `find … -exec rm …` (permite rm con ruta
 	// como `-exec /bin/rm` o `-exec /usr/bin/rm`, que `rm\b` suelto no vería).
