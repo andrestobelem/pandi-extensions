@@ -1,27 +1,35 @@
 {
-  "$comment": "Plantilla de settings de Pi para este repo. Copiá a .pi/settings.json si el tuyo no existe o querés resetearlo. NO pongas secretos ni rutas absolutas con tu usuario acá: los secretos van por entorno (ver .env.example) y este archivo se commitea. Los paths de packages son relativos a .pi/, por eso apuntan a ../extensions/*. El campo theme usa el formato light/dark; los temas panda-syntax los provee el paquete pi-pandi-theme.",
-  "theme": "panda-syntax-light/panda-syntax-dark",
-  "packages": [
-    "../extensions/pandi-dynamic-workflows",
-    "../extensions/pandi-loop",
-    "../extensions/pandi-goal",
-    "../extensions/pandi-plan",
-    "../extensions/pandi-bg",
-    "../extensions/pandi-effort",
-    "../extensions/pandi-mdview",
-    "../extensions/pandi-local-memory",
-    "../extensions/pandi-auto-compact",
-    "../extensions/pandi-worktree",
-    "../extensions/pandi-container",
-    "../extensions/pandi-typescript-lsp",
-    "../extensions/pandi-rename",
-    "../extensions/pandi-btw",
-    "../extensions/pandi",
-    "../extensions/pandi-exit",
-    "../extensions/pandi-clear",
-    "../extensions/pandi-ask",
-    "../extensions/pandi-doctor",
-    "../extensions/pandi-theme"
-  ],
-  "extensions": []
+	"$comment": "Plantilla de settings de Pi para este repo. Copiá a .pi/settings.json si el tuyo no existe o querés resetearlo. NO pongas secretos ni rutas absolutas con tu usuario acá: los secretos van por entorno (ver .env.example) y este archivo se commitea. Los paths de packages son relativos a .pi/, por eso apuntan a ../extensions/*. El campo theme usa el formato light/dark; los temas panda-syntax los provee el paquete pi-pandi-theme.",
+	"theme": "panda-syntax-light/panda-syntax-dark",
+	"packages": [
+		{
+			"source": "../extensions/pandi-dynamic-workflows",
+			"skills": []
+		},
+		"../extensions/pandi-loop",
+		"../extensions/pandi-goal",
+		"../extensions/pandi-plan",
+		"../extensions/pandi-bg",
+		"../extensions/pandi-effort",
+		"../extensions/pandi-mdview",
+		{
+			"source": "../extensions/pandi-docs",
+			"skills": []
+		},
+		"../extensions/pandi-local-memory",
+		"../extensions/pandi-auto-compact",
+		"../extensions/pandi-worktree",
+		"../extensions/pandi-container",
+		"../extensions/pandi-typescript-lsp",
+		"../extensions/pandi-rename",
+		"../extensions/pandi-btw",
+		"../extensions/pandi-improve-prompt",
+		"../extensions/pandi",
+		"../extensions/pandi-exit",
+		"../extensions/pandi-clear",
+		"../extensions/pandi-ask",
+		"../extensions/pandi-doctor",
+		"../extensions/pandi-theme"
+	],
+	"extensions": []
 }

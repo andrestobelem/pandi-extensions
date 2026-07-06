@@ -235,6 +235,70 @@ function scenarioStandaloneDoctor() {
 	}
 }
 
+function writeFakeSyncScript(file, name) {
+	fs.mkdirSync(path.dirname(file), { recursive: true });
+	fs.writeFileSync(
+		file,
+		`#!/usr/bin/env node\nif (process.argv.includes("--check")) { console.error("[${name}] drift"); process.exit(1); }\n`,
+		{ mode: 0o755 },
+	);
+}
+
+function scenarioCanonicalSyncChecks() {
+	// Doctor debe delegar a los checks canónicos repo-locales y hacer que cada drift sea accionable:
+	// qué dominio falló y qué comando seguro/idempotente lo arregla. Estos son opcionales: no deben
+	// convertir el doctor en error si los prerequisitos obligatorios están presentes.
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-sync-"));
+	try {
+		fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ name: "pandi-extensions" }));
+		const extDir = path.join(tmp, "ext");
+		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
+		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
+		const agentDir = path.join(tmp, "agent");
+		fs.mkdirSync(agentDir, { recursive: true });
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-root-manifest.mjs"), "sync-root-manifest");
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-project-settings.mjs"), "sync-project-settings");
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-skill-mirrors.mjs"), "sync-skill-mirrors");
+		writeFakeSyncScript(path.join(tmp, "scripts", "vendor-extension-skills.mjs"), "vendor-extension-skills");
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-agent-guides.mjs"), "sync-agent-guides");
+		writeFakeSyncScript(
+			path.join(tmp, "scripts", "generate-claude-ultracode-skills.mjs"),
+			"generate-claude-ultracode-skills",
+		);
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-docs-html.mjs"), "sync-docs-html");
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-personas-readme.mjs"), "sync-personas-readme");
+
+		const r = spawnSync(process.execPath, [path.join(extDir, "scripts", "doctor.mjs")], {
+			cwd: tmp,
+			encoding: "utf8",
+			timeout: 60000,
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+				PI_DOCTOR_AGENT_DIR: agentDir,
+				PI_DYNAMIC_WORKFLOWS_PI_COMMAND: process.execPath,
+			},
+		});
+		const out = `${r.stdout || ""}${r.stderr || ""}`;
+		check("canonical sync: optional drift does not fail mandatory doctor", r.status === 0, out.slice(0, 800));
+		for (const [label, fix] of [
+			["root manifest", "npm run sync:manifest"],
+			["project settings", "npm run sync:settings"],
+			["skill mirrors", "npm run sync:skills"],
+			["vendor skills", "npm run sync:skills:vendor"],
+			["agent guides", "npm run sync:agents"],
+			["Claude ultracode skills", "npm run sync:claude:ultracode"],
+			["docs HTML mirror", "npm run sync:docs:html"],
+			["personas README", "npm run sync:personas"],
+		]) {
+			const line = out.split("\n").find((l) => l.includes(label)) ?? "";
+			check(`canonical sync: ${label} warning names fix command`, /⚠/.test(line) && line.includes(fix), line || out);
+		}
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+}
+
 function scenarioPreCommitHookCheck() {
 	// Dentro de un repo git parecido a la suite, doctor debe reportar si el hook
 	// `pre-commit` versionado (`scripts/git-hooks` + `core.hooksPath`) está instalado:
@@ -310,6 +374,7 @@ async function main() {
 	await scenarioCheckLogic(url);
 	await scenarioRealSpawnMissingBin(url);
 	scenarioStandaloneDoctor();
+	scenarioCanonicalSyncChecks();
 	scenarioPreCommitHookCheck();
 	await scenarioHandlerEndToEnd(url);
 

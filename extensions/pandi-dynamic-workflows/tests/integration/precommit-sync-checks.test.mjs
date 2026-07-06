@@ -30,6 +30,7 @@ check("package.json defines sync:check:all", typeof syncAll === "string" && sync
 for (const required of [
 	"format:claude:check",
 	"sync:manifest:check",
+	"sync:settings:check",
 	"sync:skills:check",
 	"sync:skills:vendor:check",
 	"sync:agents:check",

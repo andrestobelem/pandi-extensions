@@ -105,6 +105,23 @@ La suite se distribuye por tres canales; **elegí uno por máquina o alcance** �
 
 Cada `extensions/pandi-<ext>/package.json` lleva su identidad pública `@pandi-coding-agent/pandi-<ext>` (npm workspaces; `npm pack -w @pandi-coding-agent/pandi-<ext>` para probar el tarball). El manifiesto raíz de `pi` se **genera** desde los subpackages (`npm run sync:manifest`); un test de paridad falla si hay drift. Horizonte: **Pandi** como distro sobre Pi (extensiones + theme + persona), no como un fork del CLI.
 
+### Fuentes canónicas y syncs generados
+
+Regla simple: editá la fuente canónica, no el mirror generado. `npm run doctor` verifica estos dominios en modo read-only y muestra el comando de arreglo cuando detecta drift.
+
+| Dominio | Fuente canónica | Artifact/mirror generado | Check | Fix seguro |
+| --- | --- | --- | --- | --- |
+| Manifest raíz de Pi | `extensions/pandi*/package.json` (`pi.extensions`, `pi.themes`) | `package.json#pi` | `npm run sync:manifest:check` | `npm run sync:manifest` |
+| Settings del repo | Los mismos manifests de subpackages | `.pi/settings.json`, `.pi/settings.json.example` | `npm run sync:settings:check` | `npm run sync:settings` |
+| Skill mirrors Pi↔Claude | `.pi/skills/<name>/SKILL.md` clasificado como `mirrored` | `.claude/skills/<name>/SKILL.md` | `npm run sync:skills:check` | `npm run sync:skills` |
+| Skills vendorizados por extensión | `.pi/skills/<name>/` clasificado como `vendoredBy` | `extensions/<ext>/skills/<name>/` | `npm run sync:skills:vendor:check` | `npm run sync:skills:vendor` |
+| Guía para agentes | `AGENTS.md` | `CLAUDE.md` | `npm run sync:agents:check` | `npm run sync:agents` |
+| Skills Claude de ultracode | `.pi/skills/ultracode/` | `.claude/skills/{ultracode,dynamic-workflows}/` | `npm run sync:claude:ultracode:check` | `npm run sync:claude:ultracode` |
+| Docs HTML | `README.md`, `docs/**/*.md` | `docs/html/**` | `npm run sync:docs:html:check` | `npm run sync:docs:html` |
+| Personas README | `.pi/personas/*.json` | `.pi/personas/README.md` y HTML | `npm run sync:personas:check` | `npm run sync:personas` |
+
+Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo `~/.claude` o instalaciones Pi globales) se reporta como diagnóstico/propose-only: `doctor` te dice qué correr, pero no lo muta por vos.
+
 ## Estructura del repositorio (extensiones)
 
 Cada extensión vive como un mini paquete npm bajo `extensions/<name>/`:
