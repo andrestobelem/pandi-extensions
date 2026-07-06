@@ -1090,6 +1090,10 @@ function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Da
 // Manejo de comandos
 // ---------------------------------------------------------------------------
 
+function formatLoopStatusList(loops: ActiveLoop[]): string {
+	return loops.map(formatStatus).join("\n");
+}
+
 async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
 	const trimmed = args.trim();
 	const firstSpace = trimmed.indexOf(" ");
@@ -1164,7 +1168,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 			notify(ctx, "No hay loops.", "info");
 			return;
 		}
-		notify(ctx, all.map(formatStatus).join("\n"), "info");
+		notify(ctx, formatLoopStatusList(all), "info");
 		return;
 	}
 
