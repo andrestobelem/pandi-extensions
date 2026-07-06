@@ -143,6 +143,10 @@ function extractUserText(entry: unknown): string {
 	return textContentFromMessageContent(message.content);
 }
 
+function stripLeadingSlashCommand(raw: string): string {
+	return raw.replace(/^\s*\/[a-zA-Z][\w-]*\s*/, "");
+}
+
 /**
  * Deriva un nombre de sesión slug a partir del historial de la conversación, reflejando lo que el usuario está
  * haciendo AHORA. Recorre las entradas desde la MÁS RECIENTE hacia atrás y usa el último mensaje `user`
@@ -160,7 +164,7 @@ export function deriveSessionName(entries: unknown, opts: DeriveOptions = {}): s
 		const raw = extractUserText(list[i]);
 		if (!raw) continue;
 		// Quitá un token inicial de slash-command, p. ej. "/explain the cache" -> "the cache".
-		const cleaned = raw.replace(/^\s*\/[a-zA-Z][\w-]*\s*/, "");
+		const cleaned = stripLeadingSlashCommand(raw);
 		const slug = slugify(cleaned, opts);
 		if (slug) return slug;
 	}
