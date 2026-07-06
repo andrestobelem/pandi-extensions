@@ -25,12 +25,7 @@ import {
 	switchToPiSession,
 } from "./dashboard-orchestration.js";
 import { text } from "./format.js";
-import {
-	currentWorkflowDepth,
-	formatWorkflowPreflightSummary,
-	maxWorkflowDepth,
-	preflightWorkflowLaunch,
-} from "./index.js";
+import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./index.js";
 import { notify } from "./notify.js";
 import {
 	formatWorkflowPatternCatalog,
@@ -56,6 +51,7 @@ import { getRunState, getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from "./run-view.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
+import { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./workflow-resolve.js";
 import { classifyDynamicWorkflowRequest } from "./workflow-tool-request.js";

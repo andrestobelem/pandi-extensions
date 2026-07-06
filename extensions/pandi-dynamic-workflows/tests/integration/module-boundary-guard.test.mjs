@@ -4,7 +4,7 @@
  * index.ts es el facade público + engine. Los siblings no deben usarlo como barrel
  * de contratos o constantes: eso reintroduce ciclos ESM difíciles de razonar. Las
  * pocas importaciones runtime restantes son intencionales y explícitas: UI/lifecycle
- * llaman entry points del engine, y command-handlers llama preflight/depth helpers.
+ * llaman entry points del engine, y command-handlers llama helpers de preflight.
  */
 
 import * as fs from "node:fs/promises";
@@ -15,15 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_DIR = path.resolve(__dirname, "..", "..");
 
 const ALLOWED_INDEX_IMPORTS = new Map([
-	[
-		"command-handlers.ts",
-		new Set([
-			"currentWorkflowDepth",
-			"formatWorkflowPreflightSummary",
-			"maxWorkflowDepth",
-			"preflightWorkflowLaunch",
-		]),
-	],
+	["command-handlers.ts", new Set(["formatWorkflowPreflightSummary", "preflightWorkflowLaunch"])],
 	["dashboard-orchestration.ts", new Set(["runWorkflow"])],
 	["run-lifecycle.ts", new Set(["preflightWorkflowLaunch", "prepareWorkflowRun", "runWorkflow"])],
 ]);
