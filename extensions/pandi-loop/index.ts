@@ -510,6 +510,11 @@ function refuseIfLoopLimitReached(ctx: ExtensionContext): boolean {
 	return true;
 }
 
+function formatFixedModeLabel(loop: ActiveLoop): string {
+	if (loop.mode !== "fixed") return "";
+	return ` (cada ${formatInterval(Math.round((loop.intervalMs ?? 0) / 1000))})`;
+}
+
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
 	if (!canLoopInMode(ctx)) {
@@ -539,7 +544,7 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	// deliverWake construye el prompt fresco vía makeLoopIterationPrompt(loop), así que nunca
 	// se guarda en el loop: solo estaría stale cuando se leyera.
 	fireWake(pi, ctx, loop);
-	const modeLabel = loop.mode === "fixed" ? ` (cada ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
+	const modeLabel = formatFixedModeLabel(loop);
 	const uc = ultracode ? " [ultracode]" : "";
 	notify(ctx, `Loop ${loopId} iniciado${modeLabel}${uc}: ${taskText}`, "info");
 	return loop;
@@ -603,7 +608,7 @@ async function startAutonomousLoop(
 	persist(pi, ctx, loop);
 
 	fireWake(pi, ctx, loop);
-	const modeLabel = loop.mode === "fixed" ? ` (cada ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
+	const modeLabel = formatFixedModeLabel(loop);
 	notify(ctx, `Loop autónomo ${loopId} iniciado${modeLabel}: ${objective}`, "info");
 	return loop;
 }
