@@ -82,6 +82,11 @@ function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult } = {}) {
 	};
 }
 
+async function writeJson(file, value) {
+	await fs.mkdir(path.dirname(file), { recursive: true });
+	await fs.writeFile(file, JSON.stringify(value), "utf8");
+}
+
 async function captureConsole(fn) {
 	const out = [];
 	const err = [];
@@ -181,6 +186,60 @@ async function main() {
 			JSON.stringify(streams),
 		);
 		check("headless list does not open custom TUI", printCtx._customCalls === 0, String(printCtx._customCalls));
+
+		const deadFile = path.join(project, ".pi", "pandi-session", "live", "dead.json");
+		await writeJson(deadFile, {
+			id: "dead",
+			pid: 99999999,
+			mode: "tui",
+			cwd: project,
+			startedAt: "2020-01-01T00:00:00.000Z",
+			updatedAt: "2020-01-01T00:00:00.000Z",
+		});
+		const cleanupPreview = await captureConsole(() =>
+			commands.get("sessions").handler("cleanup --dry-run", printCtx),
+		);
+		check(
+			"/sessions cleanup --dry-run lists delete candidate with reason",
+			cleanupPreview.out.join("\n").includes("delete") && cleanupPreview.out.join("\n").includes("pid exited"),
+			JSON.stringify(cleanupPreview),
+		);
+		check(
+			"/sessions cleanup --dry-run keeps the candidate file",
+			await fs.stat(deadFile).then(
+				() => true,
+				() => false,
+			),
+		);
+		const unsafeCleanup = await captureConsole(() => commands.get("sessions").handler("cleanup", printCtx));
+		check(
+			"headless /sessions cleanup without --yes refuses destructive cleanup",
+			unsafeCleanup.err.join("\n").includes("--yes"),
+			JSON.stringify(unsafeCleanup),
+		);
+		check(
+			"refused headless cleanup keeps candidate file",
+			await fs.stat(deadFile).then(
+				() => true,
+				() => false,
+			),
+		);
+		const cleanupYes = await captureConsole(() => commands.get("sessions").handler("cleanup --yes", printCtx));
+		check(
+			"/sessions cleanup --yes removes stale candidate",
+			cleanupYes.out.join("\n").includes("Removed 1") &&
+				!(await fs.stat(deadFile).then(
+					() => true,
+					() => false,
+				)),
+			JSON.stringify(cleanupYes),
+		);
+		const cleanupAgain = await captureConsole(() => commands.get("sessions").handler("cleanup --yes", printCtx));
+		check(
+			"/sessions cleanup --yes is idempotent after missing file",
+			cleanupAgain.out.join("\n").includes("No stale Pandi session files"),
+			JSON.stringify(cleanupAgain),
+		);
 	} finally {
 		await fs.rm(project, { recursive: true, force: true }).catch(() => {});
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});

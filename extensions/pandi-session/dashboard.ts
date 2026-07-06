@@ -5,6 +5,7 @@ import { PandiSessionDashboard, type PandiSessionDashboardResult } from "./sessi
 import {
 	collectPandiSessions,
 	formatPandiSessionList,
+	type PandiSessionCleanupItem,
 	type PandiSessionModel,
 	prunePandiSessionFiles,
 	sessionManagerMetadata,
@@ -13,6 +14,12 @@ import {
 type NotifyType = "info" | "warning" | "error";
 
 type SwitchResult = { cancelled?: boolean } | undefined;
+
+export interface PandiSessionCleanupArgs {
+	dryRun: boolean;
+	yes: boolean;
+	includeHeartbeatStale: boolean;
+}
 
 type SwitchableSessionContext = ExtensionCommandContext & {
 	switchSession?: (
@@ -39,6 +46,28 @@ async function showSessionList(ctx: ExtensionCommandContext): Promise<void> {
 
 function quoteShellish(value: string): string {
 	return JSON.stringify(value);
+}
+
+export function parsePandiSessionCleanupArgs(args: string): PandiSessionCleanupArgs {
+	const result: PandiSessionCleanupArgs = { dryRun: false, yes: false, includeHeartbeatStale: false };
+	for (const token of args.trim().split(/\s+/).filter(Boolean)) {
+		if (token === "--dry-run" || token === "-n") result.dryRun = true;
+		else if (token === "--yes" || token === "-y") result.yes = true;
+		else if (token === "--all-stale") result.includeHeartbeatStale = true;
+	}
+	return result;
+}
+
+function formatCleanupItem(item: PandiSessionCleanupItem): string {
+	return `${item.action.padEnd(6)} ${item.file} — ${item.reason}`;
+}
+
+function formatCleanupDryRun(items: PandiSessionCleanupItem[], removed: string[], kept: number): string {
+	const lines = [`Pandi session cleanup dry-run: ${removed.length} delete candidate(s), ${kept} kept.`];
+	if (items.length === 0) lines.push("No Pandi session files found for this project.");
+	else lines.push(...items.map(formatCleanupItem));
+	lines.push(removed.length ? "Run /sessions cleanup --yes to delete candidates." : "Nothing to delete.");
+	return lines.join("\n");
 }
 
 export async function switchToPandiSession(ctx: ExtensionCommandContext, session: PandiSessionModel): Promise<void> {
@@ -74,21 +103,35 @@ export async function switchToPandiSession(ctx: ExtensionCommandContext, session
 	if (result && typeof result === "object" && result.cancelled) notify(ctx, "Session switch cancelled.", "warning");
 }
 
-async function cleanupStaleSessions(ctx: ExtensionCommandContext): Promise<void> {
-	const preview = await prunePandiSessionFiles(ctx as ExtensionContext, { dryRun: true });
+async function cleanupStaleSessions(ctx: ExtensionCommandContext, rawArgs = ""): Promise<void> {
+	const opts = parsePandiSessionCleanupArgs(rawArgs);
+	const preview = await prunePandiSessionFiles(ctx as ExtensionContext, {
+		dryRun: true,
+		includeHeartbeatStale: opts.includeHeartbeatStale,
+	});
+	if (opts.dryRun) {
+		notify(ctx, formatCleanupDryRun(preview.items, preview.removed, preview.kept), "info");
+		return;
+	}
 	if (preview.removed.length === 0) {
 		notify(ctx, "No stale Pandi session files to clean up.", "info");
 		return;
 	}
+	if (!ctx.hasUI && !opts.yes) {
+		notify(ctx, "/sessions cleanup is destructive; pass --yes (or --dry-run) in no-UI mode.", "warning");
+		return;
+	}
 	let ok = true;
-	if (ctx.hasUI && ctx.ui && typeof ctx.ui.confirm === "function") {
+	if (ctx.hasUI && !opts.yes && ctx.ui && typeof ctx.ui.confirm === "function") {
 		ok = await ctx.ui.confirm(
 			"Clean up stale Pandi session files?",
 			`This removes ${preview.removed.length} stale session file(s). Live and current sessions are never touched.`,
 		);
 	}
 	if (!ok) return;
-	const result = await prunePandiSessionFiles(ctx as ExtensionContext);
+	const result = await prunePandiSessionFiles(ctx as ExtensionContext, {
+		includeHeartbeatStale: opts.includeHeartbeatStale,
+	});
 	notify(ctx, `Removed ${result.removed.length} stale Pandi session file(s); kept ${result.kept}.`, "info");
 }
 
@@ -141,6 +184,6 @@ export async function listPandiSessions(ctx: ExtensionCommandContext): Promise<v
 	await showSessionList(ctx);
 }
 
-export async function cleanupPandiSessions(ctx: ExtensionCommandContext): Promise<void> {
-	await cleanupStaleSessions(ctx);
+export async function cleanupPandiSessions(ctx: ExtensionCommandContext, args = ""): Promise<void> {
+	await cleanupStaleSessions(ctx, args);
 }

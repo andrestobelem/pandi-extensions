@@ -39,16 +39,18 @@ async function handleSession(args: string, ctx: ExtensionCommandContext): Promis
 		const resolved = await resolvePandiSessionInput(args, ctx);
 		if (resolved === undefined) return;
 		const trimmed = resolved.trim();
-		if (trimmed === "" || trimmed === "dashboard" || trimmed === "tui") {
+		const [action = "", ...rest] = trimmed.split(/\s+/);
+		const tail = rest.join(" ");
+		if (trimmed === "" || action === "dashboard" || action === "tui") {
 			await openPandiSessionDashboard(ctx);
 			return;
 		}
-		if (trimmed === "list") {
+		if (action === "list") {
 			await listPandiSessions(ctx);
 			return;
 		}
-		if (trimmed === "cleanup") {
-			await cleanupPandiSessions(ctx);
+		if (action === "cleanup") {
+			await cleanupPandiSessions(ctx, tail);
 			return;
 		}
 		notify(ctx, "Uso: /sessions [dashboard|list|cleanup]", "warning");

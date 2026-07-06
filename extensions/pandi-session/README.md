@@ -13,7 +13,9 @@ Es independiente del runtime de workflows. Por ahora existe como superficie sepa
 | `/sessions` | En UI abre un menú interactivo; en headless imprime la lista textual. |
 | `/sessions dashboard` | Abre el dashboard TUI si hay UI; en headless imprime la lista textual. |
 | `/sessions list` | Imprime la lista textual de sesiones del proyecto. |
-| `/sessions cleanup` | Limpia registros stale seguros; nunca toca la sesión actual ni sesiones live. |
+| `/sessions cleanup` | Limpia registros stale seguros; en UI pide confirmación y en headless requiere `--yes`. |
+| `/sessions cleanup --dry-run` | Lista cada archivo con acción (`delete`/`keep`) y razón, sin borrar nada. |
+| `/sessions cleanup --all-stale --yes` | También permite borrar heartbeats stale con PID vivo; nunca borra la sesión actual. |
 
 ## Teclas del dashboard
 

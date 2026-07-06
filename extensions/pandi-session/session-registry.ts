@@ -47,6 +47,14 @@ export interface SessionPruneEntry {
 	record: unknown;
 }
 
+export interface PandiSessionCleanupItem {
+	file: string;
+	action: "delete" | "keep";
+	reason: string;
+	id?: string;
+	pid?: number;
+}
+
 let livePandiSession: LivePandiSessionRuntime | undefined;
 
 function projectHash(cwd: string): string {
@@ -255,35 +263,40 @@ export function formatPandiSessionList(sessions: PandiSessionModel[]): string {
 	return lines.join("\n");
 }
 
+export function classifyPandiSessionFilesForCleanup(
+	entries: SessionPruneEntry[],
+	opts: { now: number; isPidAlive: (pid: number) => boolean; currentId?: string; includeHeartbeatStale?: boolean },
+): PandiSessionCleanupItem[] {
+	return entries.map((entry) => {
+		const record = parsePandiSessionRecord(entry.record);
+		if (!record) return { file: entry.file, action: "keep", reason: "unparseable session record" };
+		const base = { file: entry.file, id: record.id, pid: record.pid };
+		if (opts.currentId && record.id === opts.currentId) return { ...base, action: "keep", reason: "current session" };
+		if (!opts.isPidAlive(record.pid)) return { ...base, action: "delete", reason: "pid exited" };
+		const updatedMs = Date.parse(record.updatedAt);
+		const ageMs = Number.isFinite(updatedMs) ? Math.max(0, opts.now - updatedMs) : Number.POSITIVE_INFINITY;
+		const fresh = ageMs <= PANDI_SESSION_STALE_MS;
+		if (!fresh && opts.includeHeartbeatStale) return { ...base, action: "delete", reason: "heartbeat stale" };
+		if (!fresh) return { ...base, action: "keep", reason: "heartbeat stale but pid is alive" };
+		return { ...base, action: "keep", reason: "live session" };
+	});
+}
+
 export function classifyPandiSessionFilesForPrune(
 	entries: SessionPruneEntry[],
 	opts: { now: number; isPidAlive: (pid: number) => boolean; currentId?: string; includeHeartbeatStale?: boolean },
 ): { remove: string[]; keep: string[] } {
-	const remove: string[] = [];
-	const keep: string[] = [];
-	for (const entry of entries) {
-		const record = parsePandiSessionRecord(entry.record);
-		if (!record || (opts.currentId && record.id === opts.currentId)) {
-			keep.push(entry.file);
-			continue;
-		}
-		if (!opts.isPidAlive(record.pid)) {
-			remove.push(entry.file);
-			continue;
-		}
-		const updatedMs = Date.parse(record.updatedAt);
-		const ageMs = Number.isFinite(updatedMs) ? Math.max(0, opts.now - updatedMs) : Number.POSITIVE_INFINITY;
-		const fresh = ageMs <= PANDI_SESSION_STALE_MS;
-		if (!fresh && opts.includeHeartbeatStale) remove.push(entry.file);
-		else keep.push(entry.file);
-	}
-	return { remove, keep };
+	const items = classifyPandiSessionFilesForCleanup(entries, opts);
+	return {
+		remove: items.filter((item) => item.action === "delete").map((item) => item.file),
+		keep: items.filter((item) => item.action === "keep").map((item) => item.file),
+	};
 }
 
 export async function prunePandiSessionFiles(
 	ctx: ExtensionContext,
 	opts: { includeHeartbeatStale?: boolean; dryRun?: boolean } = {},
-): Promise<{ removed: string[]; kept: number }> {
+): Promise<{ removed: string[]; kept: number; items: PandiSessionCleanupItem[] }> {
 	const now = Date.now();
 	const entries: SessionPruneEntry[] = [];
 	const seen = new Set<string>();
@@ -305,13 +318,14 @@ export async function prunePandiSessionFiles(
 			entries.push({ file, record });
 		}
 	}
-	const { remove } = classifyPandiSessionFilesForPrune(entries, {
+	const items = classifyPandiSessionFilesForCleanup(entries, {
 		now,
 		isPidAlive,
 		currentId: livePandiSession?.id,
 		includeHeartbeatStale: opts.includeHeartbeatStale,
 	});
-	if (opts.dryRun) return { removed: [...remove], kept: entries.length - remove.length };
+	const remove = items.filter((item) => item.action === "delete").map((item) => item.file);
+	if (opts.dryRun) return { removed: [...remove], kept: entries.length - remove.length, items };
 	const removed: string[] = [];
 	for (const file of remove) {
 		try {
@@ -321,5 +335,5 @@ export async function prunePandiSessionFiles(
 			// Already gone or lost a race.
 		}
 	}
-	return { removed, kept: entries.length - removed.length };
+	return { removed, kept: entries.length - removed.length, items };
 }

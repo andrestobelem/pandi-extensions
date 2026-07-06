@@ -108,6 +108,76 @@ async function main() {
 			formatted.includes("Stale session") && formatted.includes("Current session"),
 			formatted,
 		);
+
+		const now = Date.parse("2026-07-01T00:00:00Z");
+		const iso = (msAgo) => new Date(now - msAgo).toISOString();
+		const cleanupEntries = [
+			{
+				file: "dead.json",
+				record: { id: "dead", pid: 999, mode: "tui", cwd: project, startedAt: iso(1000), updatedAt: iso(1000) },
+			},
+			{
+				file: "live.json",
+				record: { id: "live", pid: 100, mode: "tui", cwd: project, startedAt: iso(1000), updatedAt: iso(1000) },
+			},
+			{
+				file: "current.json",
+				record: { id: "current", pid: 999, mode: "tui", cwd: project, startedAt: iso(1000), updatedAt: iso(1000) },
+			},
+			{
+				file: "heartbeat-stale.json",
+				record: {
+					id: "heartbeat-stale",
+					pid: 100,
+					mode: "tui",
+					cwd: project,
+					startedAt: iso(registry.PANDI_SESSION_STALE_MS + 1000),
+					updatedAt: iso(registry.PANDI_SESSION_STALE_MS + 1000),
+				},
+			},
+			{ file: "bad.json", record: { pid: "nope" } },
+		];
+		const cleanup = registry.classifyPandiSessionFilesForCleanup(cleanupEntries, {
+			now,
+			isPidAlive: (pid) => pid !== 999,
+			currentId: "current",
+		});
+		const actionByFile = Object.fromEntries(cleanup.map((item) => [item.file, item]));
+		check("cleanup inventory marks dead pid for delete", actionByFile["dead.json"]?.action === "delete");
+		check("cleanup inventory keeps live session", actionByFile["live.json"]?.action === "keep");
+		check("cleanup inventory keeps current session", actionByFile["current.json"]?.reason === "current session");
+		check(
+			"cleanup inventory keeps heartbeat-stale by default",
+			actionByFile["heartbeat-stale.json"]?.action === "keep" &&
+				/heartbeat stale/.test(actionByFile["heartbeat-stale.json"]?.reason ?? ""),
+			JSON.stringify(actionByFile["heartbeat-stale.json"]),
+		);
+		check("cleanup inventory keeps malformed records", actionByFile["bad.json"]?.action === "keep");
+		const cleanupAllStale = registry.classifyPandiSessionFilesForCleanup(cleanupEntries, {
+			now,
+			isPidAlive: (pid) => pid !== 999,
+			currentId: "current",
+			includeHeartbeatStale: true,
+		});
+		check(
+			"cleanup inventory can delete heartbeat-stale when requested",
+			cleanupAllStale.find((item) => item.file === "heartbeat-stale.json")?.action === "delete",
+			JSON.stringify(cleanupAllStale),
+		);
+
+		const preview = await registry.prunePandiSessionFiles(ctx, { dryRun: true });
+		check("dry-run reports per-file cleanup inventory", Array.isArray(preview.items), JSON.stringify(preview));
+		check(
+			"dry-run does not delete stale heartbeat file",
+			await fs.stat(staleFile).then(
+				() => true,
+				() => false,
+			),
+		);
+		const pruned = await registry.prunePandiSessionFiles(ctx);
+		check("cleanup deletes dead-pid stale file", pruned.removed.includes(staleFile), JSON.stringify(pruned));
+		const prunedAgain = await registry.prunePandiSessionFiles(ctx);
+		check("cleanup is idempotent after missing files", prunedAgain.removed.length === 0, JSON.stringify(prunedAgain));
 	} finally {
 		try {
 			const registry = await import(`${url}?cleanup`);
