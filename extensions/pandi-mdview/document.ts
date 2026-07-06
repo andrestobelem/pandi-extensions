@@ -31,9 +31,12 @@ function missingMarkdownPath(): MarkdownLoad {
 	return { ok: false, message: "Uso: /mdview <ruta-al-archivo-markdown>", level: "warning" };
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatReadMarkdownFailure(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `No se pudo leer el archivo Markdown: ${message}`;
+	return `No se pudo leer el archivo Markdown: ${errorMessage(error)}`;
 }
 
 /**
