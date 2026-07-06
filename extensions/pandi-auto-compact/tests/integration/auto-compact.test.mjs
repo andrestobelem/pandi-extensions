@@ -659,6 +659,45 @@ async function bareCommandWithoutUiNeverOpensMenu(url) {
 	check("menu: a non-UI session never opens a menu", env.selectCalls.length === 0, `calls=${env.selectCalls.length}`);
 }
 
+async function bareCommandWithUiButNoSelectFallsBackToStatus(url) {
+	const { commands } = await loadExtension(url);
+	const env = makeEnv();
+	env.ctx.ui.select = undefined;
+	let threw = false;
+	try {
+		await commands.get("auto-compact").handler("", env.ctx);
+	} catch {
+		threw = true;
+	}
+	check("menu: UI without select does not throw", threw === false, "handler threw");
+	check(
+		"menu: UI without select falls back to status",
+		env.notes.some((n) => typeof n.m === "string" && n.m.includes("La auto-compactación de contexto está")),
+		`notes=${JSON.stringify(env.notes.map((n) => n.m))}`,
+	);
+}
+
+async function menuCustomThresholdWithoutInputFallsBackToStatus(url) {
+	const { commands } = await loadExtension(url);
+	const env = makeEnv();
+	env.selectResponses.push("threshold — configurar el % de umbral de compactación");
+	env.selectResponses.push("personalizado\u2026");
+	env.ctx.ui.input = undefined;
+	let threw = false;
+	try {
+		await commands.get("auto-compact").handler("", env.ctx);
+	} catch {
+		threw = true;
+	}
+	check("menu: custom threshold without input does not throw", threw === false, "handler threw");
+	check(
+		"menu: custom threshold without input falls back to status",
+		env.notes.some((n) => typeof n.m === "string" && n.m.includes("La auto-compactación de contexto está")) &&
+			env.inputCalls.length === 0,
+		`notes=${JSON.stringify(env.notes.map((n) => n.m))}; inputCalls=${env.inputCalls.length}`,
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Compactación recuperable: las instantáneas preservan las entradas sin procesar ANTES de que el resumen con pérdida
 // las reemplace, así que la compactación es recuperable en vez de destructiva.
@@ -1143,6 +1182,8 @@ async function main() {
 	await menuThresholdPresetSetsThreshold(url);
 	await menuThresholdCustomUsesInput(url);
 	await bareCommandWithoutUiNeverOpensMenu(url);
+	await bareCommandWithUiButNoSelectFallsBackToStatus(url);
+	await menuCustomThresholdWithoutInputFallsBackToStatus(url);
 	await snapshotWritesRawEntries(url);
 	await snapshotPatchesSummary(url);
 	await snapshotDisabledWritesNothing(url);

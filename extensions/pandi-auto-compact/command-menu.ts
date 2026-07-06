@@ -87,7 +87,7 @@ export const ARG_COMPLETIONS: { value: string; label: string; description: strin
 // Devuelve un texto que el manejador del comando ya entiende.
 export async function resolveCommandValue(args: string, ctx: ExtensionContext): Promise<string> {
 	const trimmed = args.trim();
-	if (trimmed || !ctx.hasUI) return trimmed;
+	if (trimmed || !ctx.hasUI || typeof ctx.ui.select !== "function") return trimmed;
 
 	const choice = await ctx.ui.select("Auto-compactación de contexto — elegí una configuración", MENU_OPTIONS);
 	if (!choice) return "status"; // cancelado → no-op inofensivo (status)
@@ -100,6 +100,7 @@ export async function resolveCommandValue(args: string, ctx: ExtensionContext): 
 	);
 	if (!pick) return "status";
 	if (!pick.startsWith("personalizado")) return pick;
+	if (typeof ctx.ui.input !== "function") return "status";
 	const custom = await ctx.ui.input("Porcentaje de umbral personalizado (1\u201399)", "ej. 45");
 	return (custom ?? "").trim() || "status";
 }
