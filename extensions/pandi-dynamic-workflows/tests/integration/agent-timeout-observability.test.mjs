@@ -1,23 +1,23 @@
 /**
- * Regression: an agent killed by its timeout budget must SAY so, and queue wait
- * must be separated from runtime.
+ * Regresión: un agente matado por su presupuesto de timeout debe DECIRLO, y la espera en cola
+ * debe separarse del runtime.
  *
- * Finding (run 2026-07-03T01-36-13 revisar-dw-farley): 3 reviewer agents were
- * SIGTERMed by DEFAULT_AGENT_TIMEOUT_MS (10 min) mid-work (61-89 real turns,
- * 10-18 MB of conversation), but their .md artifacts only said "code: 143" —
- * nothing named the timeout or its budget. Worse, elapsedMs (23-31 min) counts
- * the semaphore QUEUE wait (concurrency 4, 64 agents), so the tell-tale
- * "everyone dies at exactly 10 min" pattern was invisible, and the workflow
- * retried a timed-out agent with the same budget (same failure, doubled cost).
+ * Hallazgo (run 2026-07-03T01-36-13 revisar-dw-farley): 3 agentes reviewer fueron
+ * SIGTERMed por DEFAULT_AGENT_TIMEOUT_MS (10 min) a medio trabajo (61-89 turnos reales,
+ * 10-18 MB de conversación), pero sus artifacts .md solo decían "code: 143" —
+ * nada nombraba el timeout ni su presupuesto. Peor, elapsedMs (23-31 min) cuenta
+ * la espera en COLA del semáforo (concurrency 4, 64 agentes), así el patrón delator
+ * "todos mueren exactamente a los 10 min" quedaba invisible, y el workflow
+ * reintentaba un agente timed-out con el mismo presupuesto (misma falla, costo duplicado).
  *
- * This drives a real agent() through the Worker with a fake `pi` that emits one
- * message_end and then hangs forever, under a small timeoutMs. With the fix:
- *  - SubagentResult carries timedOut:true and queuedMs,
- *  - the .md artifact records `- timedOut: true (timeoutMs 1500)` and `- queuedMs: N`,
- * so post-mortems (and workflow scripts deciding whether to retry) can see the
- * harness killed a productive agent.
+ * Esto empuja un agent() real por el Worker con un `pi` fake que emite un
+ * message_end y luego cuelga para siempre, bajo un timeoutMs chico. Con el fix:
+ *  - SubagentResult lleva timedOut:true y queuedMs,
+ *  - el artifact .md registra `- timedOut: true (timeoutMs 1500)` y `- queuedMs: N`,
+ * así los post-mortems (y scripts de workflow que deciden si reintentar) pueden ver que el
+ * harness mató a un agente productivo.
  *
- * Run it:
+ * Corrélo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/agent-timeout-observability.test.mjs
  */
 import * as fs from "node:fs/promises";
@@ -30,7 +30,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
-// One agent with a small explicit timeout; return the fields under test.
+// Un agente con timeout explícito chico; devolvé los campos bajo test.
 const WORKFLOW = [
 	"export const meta = { name: 'timeout-obs', description: 'timeout observability', phases: [{ title: 'P' }] };",
 	"phase('P');",
@@ -100,8 +100,8 @@ async function makeProject() {
 	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
 	await fs.writeFile(path.join(project, ".pi", "workflows", "timeout-obs.js"), `${WORKFLOW}\n`, "utf8");
 
-	// Fake `pi`: emit one message_end (the agent IS productive), then hang forever
-	// so the harness timeout (1500 ms) SIGTERMs it — the production scenario.
+	// `pi` fake: emití un message_end (el agente SÍ es productivo), luego colgá para siempre
+	// para que el timeout del harness (1500 ms) le haga SIGTERM — el escenario de producción.
 	const event = JSON.stringify({
 		type: "message_end",
 		message: { role: "assistant", content: [{ type: "text", text: "working" }], usage: { input: 1, output: 1 } },
@@ -163,7 +163,7 @@ async function main() {
 	);
 	check("agent failed with the SIGTERM code", out?.ok === false && out?.code === 143, JSON.stringify(out));
 
-	// The .md artifact must name the timeout budget and the queue wait.
+	// El artifact .md debe nombrar el presupuesto de timeout y la espera en cola.
 	let md = "";
 	try {
 		const runsDir = path.join(project, ".pi", "workflows", "runs");
@@ -172,7 +172,7 @@ async function main() {
 		const mdName = (await fs.readdir(agentsDir)).find((f) => f.endsWith(".md"));
 		md = await fs.readFile(path.join(agentsDir, mdName), "utf8");
 	} catch {
-		// md stays empty; checks fail with evidence
+		// md queda vacío; los checks fallan con evidencia
 	}
 	check(
 		"artifact names the timeout and its budget (- timedOut: true (timeoutMs 1500))",
