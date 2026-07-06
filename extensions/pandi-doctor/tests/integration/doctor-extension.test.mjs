@@ -244,6 +244,10 @@ function writeFakeSyncScript(file, name) {
 	);
 }
 
+function findDoctorLine(output, label) {
+	return output.split("\n").find((line) => line.includes(label)) ?? "";
+}
+
 function scenarioCanonicalSyncChecks() {
 	// Doctor debe delegar a los checks canónicos repo-locales y hacer que cada drift sea accionable:
 	// qué dominio falló y qué comando seguro/idempotente lo arregla. Estos son opcionales: no deben
@@ -291,7 +295,7 @@ function scenarioCanonicalSyncChecks() {
 			["docs HTML mirror", "npm run sync:docs:html"],
 			["personas README", "npm run sync:personas"],
 		]) {
-			const line = out.split("\n").find((l) => l.includes(label)) ?? "";
+			const line = findDoctorLine(out, label);
 			check(`canonical sync: ${label} warning names fix command`, /⚠/.test(line) && line.includes(fix), line || out);
 		}
 	} finally {
@@ -322,7 +326,7 @@ function scenarioPreCommitHookCheck() {
 			});
 
 		const before = `${runDoctorHere().stdout || ""}`;
-		const beforeLine = before.split("\n").find((l) => l.includes("hook pre-commit")) ?? "";
+		const beforeLine = findDoctorLine(before, "hook pre-commit");
 		check("hook check: reported when not installed", beforeLine.length > 0, before.slice(0, 400));
 		check("hook check: WARN + actionable hint when not installed", /⚠/.test(beforeLine), beforeLine);
 
@@ -337,7 +341,7 @@ function scenarioPreCommitHookCheck() {
 		});
 
 		const after = `${runDoctorHere().stdout || ""}`;
-		const afterLine = after.split("\n").find((l) => l.includes("hook pre-commit")) ?? "";
+		const afterLine = findDoctorLine(after, "hook pre-commit");
 		check("hook check: OK once hooksPath + hook file are in place", /✓/.test(afterLine), afterLine);
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
