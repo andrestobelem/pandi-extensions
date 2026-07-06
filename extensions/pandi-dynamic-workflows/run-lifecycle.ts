@@ -106,6 +106,17 @@ function wakeAgentForWorkflowResult(pi: ExtensionAPI, ctx: ExtensionContext, res
 	else pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 }
 
+function notifyWorkflowResult(pi: ExtensionAPI, ctx: ExtensionContext, result: WorkflowRunResult): void {
+	const resultState = getRunState(result);
+	const type = resultState === "completed" ? "info" : resultState === "cancelled" ? "warning" : "error";
+	notify(
+		ctx,
+		`Background workflow ${getRunStatusLabel(result)}: ${result.workflow}\nRun: ${result.runId}\nArtifacts: ${result.runDir}`,
+		type,
+	);
+	wakeAgentForWorkflowResult(pi, ctx, result);
+}
+
 const RELOAD_INTERRUPT_REASON =
 	"Workflow interrupted by /reload; the new extension instance will resume this run from the journal.";
 const RELOAD_HANDOFF_GLOBAL_KEY = "__pandiDynamicWorkflowsReloadHandoff";
@@ -115,6 +126,7 @@ interface ReloadHandoffEntry {
 	cwd: string;
 	limits: RunLimits;
 	settled: Promise<WorkflowRunResult | undefined>;
+	settledResult?: WorkflowRunResult;
 	interruptedByReload?: boolean;
 	resuming?: boolean;
 }
@@ -134,14 +146,17 @@ function isReloadInterruptResult(result: WorkflowRunResult | undefined): boolean
 }
 
 function shouldSuppressReloadHandoffResult(result: WorkflowRunResult): boolean {
-	return reloadHandoffStore().has(result.runId) && isReloadInterruptResult(result);
+	return reloadHandoffStore().has(result.runId);
 }
 
 function makeReloadHandoffSettledPromise(run: ActiveWorkflowRun): Promise<WorkflowRunResult | undefined> {
 	return (run.promise ?? Promise.resolve(undefined))
 		.then((result) => {
 			const entry = reloadHandoffStore().get(run.runId);
-			if (entry) entry.interruptedByReload = isReloadInterruptResult(result);
+			if (entry) {
+				if (result) entry.settledResult = result;
+				entry.interruptedByReload = isReloadInterruptResult(result);
+			}
 			return result;
 		})
 		.catch((err) => {
@@ -198,16 +213,7 @@ export async function startWorkflowBackground(
 	const promise = runStartGate
 		.then(() => runWorkflow(pi, ctx, workflow, input, limits, controller.signal, undefined, prepared))
 		.then((result) => {
-			if (!shouldSuppressReloadHandoffResult(result)) {
-				const resultState = getRunState(result);
-				const type = resultState === "completed" ? "info" : resultState === "cancelled" ? "warning" : "error";
-				notify(
-					ctx,
-					`Background workflow ${getRunStatusLabel(result)}: ${workflow.name}\nRun: ${result.runId}\nArtifacts: ${result.runDir}`,
-					type,
-				);
-				wakeAgentForWorkflowResult(pi, ctx, result);
-			}
+			if (!shouldSuppressReloadHandoffResult(result)) notifyWorkflowResult(pi, ctx, result);
 			return result;
 		})
 		.catch(async (err) => {
@@ -520,23 +526,30 @@ export async function interruptActiveWorkflowRunsForReload(): Promise<{ interrup
 export async function resumeReloadInterruptedWorkflowRuns(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-): Promise<{ resumed: string[]; skipped: string[]; failed: string[] }> {
+): Promise<{ resumed: string[]; settled: string[]; skipped: string[]; failed: string[] }> {
 	const store = reloadHandoffStore();
 	const entries = [...store.values()].filter((entry) => entry.cwd === ctx.cwd && !entry.resuming);
 	for (const entry of entries) entry.resuming = true;
 	const resumed: string[] = [];
+	const settled: string[] = [];
 	const skipped: string[] = [];
 	const failed: string[] = [];
 
 	for (const entry of entries) {
 		try {
-			await settleWithinTimeout(entry.settled, 5000);
-			if (!entry.interruptedByReload) {
-				skipped.push(entry.runId);
+			const handoffResult = await resolveWithinTimeout(entry.settled, 5000);
+			const settledResult = (handoffResult.timedOut ? undefined : handoffResult.value) ?? entry.settledResult;
+			if (entry.interruptedByReload) {
+				const record = await resumeWorkflow(pi, ctx, entry.runId, { limits: entry.limits });
+				resumed.push(record.runId);
 				continue;
 			}
-			const record = await resumeWorkflow(pi, ctx, entry.runId, { limits: entry.limits });
-			resumed.push(record.runId);
+			if (settledResult) {
+				settled.push(entry.runId);
+				notifyWorkflowResult(pi, ctx, settledResult);
+				continue;
+			}
+			skipped.push(entry.runId);
 		} catch (err) {
 			failed.push(`${entry.runId}: ${err instanceof Error ? err.message : String(err)}`);
 		} finally {
@@ -563,7 +576,22 @@ export async function resumeReloadInterruptedWorkflowRuns(
 		);
 	}
 	refreshActiveWorkflowStatus(ctx);
-	return { resumed, skipped, failed };
+	return { resumed, settled, skipped, failed };
+}
+
+async function resolveWithinTimeout<T>(
+	work: Promise<T>,
+	timeoutMs: number,
+): Promise<{ timedOut: false; value: T } | { timedOut: true }> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const guard = new Promise<{ timedOut: true }>((resolve) => {
+		timer = setTimeout(() => resolve({ timedOut: true }), timeoutMs);
+	});
+	try {
+		return await Promise.race([work.then((value) => ({ timedOut: false as const, value })), guard]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
 }
 
 // Carrera de una promesa contra un tiempo de espera. El temporizador de tiempo de espera siempre se borra después para que

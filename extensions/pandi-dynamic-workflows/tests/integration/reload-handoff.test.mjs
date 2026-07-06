@@ -42,6 +42,21 @@ async function buildExtension() {
 	});
 }
 
+async function buildLifecycleModule() {
+	return await sharedBuildExtension({
+		name: "pi-dw-reload-lifecycle",
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-lifecycle.ts"),
+		outName: "run-lifecycle.mjs",
+		stubs: {
+			typebox: true,
+			typeboxValue: true,
+			ai: true,
+			tui: true,
+			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
+		},
+	});
+}
+
 let importCounter = 0;
 async function loadExtensionModule(url) {
 	return await import(`${url}?reload=${importCounter++}`);
@@ -400,6 +415,76 @@ async function scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url) {
 	await emit(reloadPi.handlers, "session_shutdown", { reason: "quit" }, reloadCtx.ctx);
 }
 
+async function scenarioCompletedDuringReloadHandoffNotifiesFreshSession(lifecycleUrl) {
+	const project = await makeProject();
+	const runId = "2026-01-01T00-00-00-000Z-completed-during-reload";
+	const runDir = path.join(project, ".pi", "workflows", "runs", runId);
+	const result = {
+		workflow: "reload-probe",
+		scope: "project",
+		file: path.join(project, ".pi", "workflows", "reload-probe.js"),
+		runId,
+		runDir,
+		ok: true,
+		state: "completed",
+		background: true,
+		startedAt: "2026-01-01T00:00:00.000Z",
+		endedAt: "2026-01-01T00:00:01.000Z",
+		elapsedMs: 1000,
+		agentCount: 0,
+		agentConcurrency: 1,
+		maxAgents: 1,
+		parallelAgents: 0,
+		peakParallelAgents: 0,
+		logs: [],
+		output: { ok: true },
+	};
+	globalThis.__pandiDynamicWorkflowsReloadHandoff = new Map([
+		[
+			runId,
+			{
+				runId,
+				cwd: project,
+				limits: { concurrency: 1, maxAgents: 1, timeoutMs: 30_000, agentTimeoutMs: 30_000 },
+				settled: Promise.resolve(result),
+			},
+		],
+	]);
+
+	const lifecycle = await import(`${lifecycleUrl}?completed-handoff`);
+	const piState = makePi("completed-after-reload");
+	const ctxState = makeCtx(project, "completed-after-reload");
+	const handoff = await lifecycle.resumeReloadInterruptedWorkflowRuns(piState.pi, ctxState.ctx);
+	const notificationText = ctxState.notifications.map((n) => n.message).join("\n---\n");
+	const wakeText = piState.userMessages.map((m) => m.message).join("\n---\n");
+
+	check(
+		"completed handoff: recorded as settled, not skipped",
+		handoff.settled?.includes(runId) && !handoff.skipped?.includes(runId),
+		JSON.stringify(handoff),
+	);
+	check(
+		"completed handoff: fresh ctx gets completion notification",
+		/Background workflow completed/.test(notificationText),
+		notificationText,
+	);
+	check(
+		"completed handoff: fresh ctx wake mentions the completed run",
+		wakeText.includes(runId) && /State: completed/.test(wakeText),
+		wakeText,
+	);
+	check(
+		"completed handoff: no bogus manual resume guidance",
+		!/resume <runId>|Use \/workflow resume/i.test(notificationText),
+		notificationText,
+	);
+	check(
+		"completed handoff: entry consumed",
+		globalThis.__pandiDynamicWorkflowsReloadHandoff.size === 0,
+		String(globalThis.__pandiDynamicWorkflowsReloadHandoff.size),
+	);
+}
+
 async function scenarioQuitDoesNotAutoResume(url) {
 	const project = await makeProject();
 	const sharedExecCalls = [];
@@ -439,9 +524,11 @@ async function scenarioQuitDoesNotAutoResume(url) {
 
 async function main() {
 	const { url } = await buildExtension();
+	const { url: lifecycleUrl } = await buildLifecycleModule();
 	await scenarioReloadAutoResume(url);
 	await scenarioMultipleReloadAutoResume(url);
 	await scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url);
+	await scenarioCompletedDuringReloadHandoffNotifiesFreshSession(lifecycleUrl);
 	await scenarioQuitDoesNotAutoResume(url);
 	console.log(`\nTOTAL: ${counts.passed} passed, ${counts.failed} failed`);
 	if (counts.failed) {
