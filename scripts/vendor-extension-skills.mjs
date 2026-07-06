@@ -18,19 +18,27 @@
 
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
-const SKILLS_SRC = SKILLS_ROOT;
-const checkOnly = process.argv.includes("--check");
-const classification = discoverSkillClassification();
-const VENDOR = classification.vendoredByExtension;
+export function parseCheckOnly(args = process.argv.slice(2)) {
+	return args.includes("--check");
+}
 
-if (checkOnly && reportUnclassifiedSkills("vendor-extension-skills", classification) > 0) process.exit(1);
+export function vendoredSkillTargets(vendoredByExtension, { repo = REPO } = {}) {
+	return Object.entries(vendoredByExtension).flatMap(([ext, skills]) =>
+		skills.map((skillName) => ({
+			ext,
+			skillName,
+			outRoot: join(repo, "extensions", ext, "skills", skillName),
+		})),
+	);
+}
 
 // Construye el conjunto completo de archivos esperados (path relativo -> contenido) para un árbol de skill vendorizado.
-async function expectedFilesFor(skillName) {
-	const srcRoot = join(SKILLS_SRC, skillName);
+export async function expectedFilesFor(skillName, skillsRoot = SKILLS_ROOT) {
+	const srcRoot = join(skillsRoot, skillName);
 	const files = new Map();
 	for (const rel of await listFilesRec(srcRoot)) {
 		files.set(rel, await readFile(join(srcRoot, rel), "utf8"));
@@ -38,59 +46,89 @@ async function expectedFilesFor(skillName) {
 	return files;
 }
 
-let drift = 0;
-let wrote = 0;
-let treesWritten = 0;
+async function checkGeneratedTree(expected, outRoot, label, error) {
+	let drift = 0;
+	// ¿Los archivos esperados están presentes y son byte-idénticos?
+	for (const [rel, want] of expected) {
+		const have = await readMaybe(join(outRoot, rel));
+		if (have !== want) {
+			error(`[vendor-extension-skills] ✗ drift: ${label}/${rel}`);
+			drift++;
+		}
+	}
+	// ¿No hay archivos stale que el generador no emitiría?
+	for (const rel of await listFilesRec(outRoot)) {
+		if (!expected.has(rel)) {
+			error(`[vendor-extension-skills] ✗ stale (not generated): ${label}/${rel}`);
+			drift++;
+		}
+	}
+	return drift;
+}
 
-for (const [ext, skills] of Object.entries(VENDOR)) {
-	for (const skillName of skills) {
-		const expected = await expectedFilesFor(skillName);
+async function writeGeneratedTree(expected, outRoot) {
+	let wrote = 0;
+	// Modo escritura: reescribe el target en limpio para que no queden archivos stale.
+	await rm(outRoot, { recursive: true, force: true });
+	for (const [rel, content] of expected) {
+		const dst = join(outRoot, rel);
+		await mkdir(dirname(dst), { recursive: true });
+		await writeFile(dst, content);
+		wrote++;
+	}
+	return wrote;
+}
+
+export async function syncVendorExtensionSkills({
+	checkOnly = false,
+	classification = discoverSkillClassification(),
+	repo = REPO,
+	skillsRoot = SKILLS_ROOT,
+	log = console.log,
+	error = console.error,
+} = {}) {
+	if (checkOnly && reportUnclassifiedSkills("vendor-extension-skills", classification) > 0) {
+		return { drift: classification.unclassified.length, wrote: 0, treesWritten: 0, ok: false };
+	}
+
+	let drift = 0;
+	let wrote = 0;
+	let treesWritten = 0;
+	for (const { ext, skillName, outRoot } of vendoredSkillTargets(classification.vendoredByExtension, { repo })) {
+		const expected = await expectedFilesFor(skillName, skillsRoot);
 		if (expected.size === 0) {
-			console.error(`[vendor-extension-skills] ✗ missing source: .pi/skills/${skillName}/`);
+			error(`[vendor-extension-skills] ✗ missing source: .pi/skills/${skillName}/`);
 			drift++;
 			continue;
 		}
-		const outRoot = join(REPO, "extensions", ext, "skills", skillName);
 
+		const label = `${ext}/skills/${skillName}`;
 		if (checkOnly) {
-			// ¿Los archivos esperados están presentes y son byte-idénticos?
-			for (const [rel, want] of expected) {
-				const have = await readMaybe(join(outRoot, rel));
-				if (have !== want) {
-					console.error(`[vendor-extension-skills] ✗ drift: ${ext}/skills/${skillName}/${rel}`);
-					drift++;
-				}
-			}
-			// ¿No hay archivos stale que el generador no emitiría?
-			for (const rel of await listFilesRec(outRoot)) {
-				if (!expected.has(rel)) {
-					console.error(`[vendor-extension-skills] ✗ stale (not generated): ${ext}/skills/${skillName}/${rel}`);
-					drift++;
-				}
-			}
+			drift += await checkGeneratedTree(expected, outRoot, label, error);
 			continue;
 		}
 
-		// Modo escritura: reescribe el target en limpio para que no queden archivos stale.
-		await rm(outRoot, { recursive: true, force: true });
-		for (const [rel, content] of expected) {
-			const dst = join(outRoot, rel);
-			await mkdir(dirname(dst), { recursive: true });
-			await writeFile(dst, content);
-			wrote++;
-		}
+		wrote += await writeGeneratedTree(expected, outRoot);
 		treesWritten++;
 	}
+
+	if (checkOnly) {
+		if (drift > 0) {
+			error(
+				`[vendor-extension-skills] ${drift} file(s) out of sync — run: node scripts/vendor-extension-skills.mjs`,
+			);
+			return { drift, wrote, treesWritten, ok: false };
+		}
+		log("[vendor-extension-skills] ✅ all vendored extension skills in sync with .pi/skills.");
+	} else {
+		log(`[vendor-extension-skills] ✅ vendored ${treesWritten} skill tree(s) (${wrote} files written).`);
+	}
+	return { drift, wrote, treesWritten, ok: true };
 }
 
-if (checkOnly) {
-	if (drift > 0) {
-		console.error(
-			`[vendor-extension-skills] ${drift} file(s) out of sync — run: node scripts/vendor-extension-skills.mjs`,
-		);
-		process.exit(1);
-	}
-	console.log("[vendor-extension-skills] ✅ all vendored extension skills in sync with .pi/skills.");
-} else {
-	console.log(`[vendor-extension-skills] ✅ vendored ${treesWritten} skill tree(s) (${wrote} files written).`);
+async function main(args = process.argv.slice(2)) {
+	const result = await syncVendorExtensionSkills({ checkOnly: parseCheckOnly(args) });
+	if (!result.ok) process.exit(1);
 }
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();
