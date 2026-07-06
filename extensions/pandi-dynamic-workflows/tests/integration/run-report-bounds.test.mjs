@@ -1,9 +1,9 @@
 /**
- * run-report-bounds — pins the collector's output-bounding contract (design record
- * §4, run bd039ef9): per-item caps with visible truncation, stderr read as a bounded
- * TAIL (never the head), stdout/journal never inlined (links only), a global inline
- * budget that degrades later agents to metadata+links with a visible clamp note, and
- * a bounded artifacts listing. Fixtures are synthetic tmp run dirs.
+ * run-report-bounds — fija el contrato de bounding de output del collector (design record
+ * §4, run bd039ef9): caps por item con truncamiento visible, stderr leído como TAIL bounded
+ * (nunca la head), stdout/journal nunca inlineados (solo links), un presupuesto inline global
+ * que degrada agentes posteriores a metadata+links con nota de clamp visible, y un listado
+ * de artifacts acotado. Las fixtures son run dirs tmp sintéticos.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -70,16 +70,16 @@ async function writeOversizedFixture() {
 	await fs.writeFile(path.join(dir, "status.json"), JSON.stringify(status));
 	const events = [];
 	for (let id = 1; id <= 60; id++) {
-		// 24 000-char outputs: 60 of them overflow a 1 MB global budget around agent ~44.
+		// Outputs de 24 000 chars: 60 de ellos desbordan un presupuesto global de 1 MB cerca del agente ~44.
 		events.push(agentEvent(id, `agent-${id}`, { output: `A${id}-`.padEnd(24_000, "x") }));
 	}
 	await fs.writeFile(path.join(dir, "events.jsonl"), `${events.join("\n")}\n`);
-	// Agent 1 artifact: prompt whose depth exceeds the 16 000-byte prefix read.
+	// Artifact del agente 1: prompt cuya profundidad excede la lectura de prefijo de 16 000 bytes.
 	await fs.writeFile(
 		path.join(dir, "agents", "0001-agent-1.md"),
 		`# agent-1\n\n## Prompt\n\n${"p".repeat(20_000)}\n${DEEP_PROMPT_SENTINEL}\n\n## Structured Output\n\nData\n`,
 	);
-	// Agent 2: failed, with a stderr log far larger than the 6 000-char tail bound.
+	// Agente 2: failed, con un log stderr mucho más grande que el tail bound de 6 000 chars.
 	await fs.writeFile(
 		path.join(dir, "agents", "0002-agent-2.md"),
 		"# agent-2\n\n## Prompt\n\nshort prompt\n\n## Stderr\n\nboom\n",
@@ -92,7 +92,7 @@ async function writeOversizedFixture() {
 	);
 	await fs.writeFile(path.join(dir, "agents", "0002-agent-2.stdout.log"), `${STDOUT_SENTINEL}\n${"o".repeat(1000)}\n`);
 	await fs.writeFile(path.join(dir, "journal.jsonl"), `{"v":1,"note":"${JOURNAL_SENTINEL}"}\n`);
-	// Artifact flood for the listing bound.
+	// Inundación de artifacts para el bound del listado.
 	for (let i = 0; i < 130; i++) await fs.writeFile(path.join(dir, `artifact-${String(i).padStart(3, "0")}.txt`), "x");
 	return dir;
 }
@@ -106,7 +106,7 @@ async function main() {
 	const model = await mod.collectRunReport(dir, { generatedAt: "2026-01-02T00:00:00.000Z" });
 	const html = mod.buildRunReportHtml(model);
 
-	// Per-item caps with visible truncation markers.
+	// Caps por item con marcadores visibles de truncamiento.
 	const a1 = model.agents.find((a) => a.id === 1);
 	check("agent output inline <= 24000", (a1?.output?.text ?? "").length <= 24_000);
 	check(
@@ -120,19 +120,19 @@ async function main() {
 		String(model.logs[0]?.details?.length),
 	);
 
-	// stderr: bounded TAIL — end sentinel present, head sentinel absent.
+	// stderr: TAIL bounded — sentinel final presente, sentinel inicial ausente.
 	const a2 = model.agents.find((a) => a.id === 2);
 	check("failed agent has stderr tail", !!a2?.stderrTail?.text);
 	check("stderr tail keeps the END", a2?.stderrTail?.text.includes(TAIL_SENTINEL) === true);
 	check("stderr tail drops the head", a2?.stderrTail?.text.includes(HEAD_SENTINEL) === false);
 	check("stderr tail <= 6000 chars", (a2?.stderrTail?.text ?? "").length <= 6_000);
 
-	// stdout and journal are link-only, never inlined.
+	// stdout y journal son link-only, nunca inlineados.
 	check("stdout sentinel not in HTML", !html.includes(STDOUT_SENTINEL));
 	check("journal sentinel not in HTML", !html.includes(JOURNAL_SENTINEL));
 	check("failed agent links stdout", typeof a2?.stdoutHref === "string" && a2.stdoutHref.includes("stdout.log"));
 
-	// Global 1 MB inline budget: later agents degrade to metadata + links, visibly.
+	// Presupuesto inline global de 1 MB: los agentes posteriores degradan a metadata + links, visiblemente.
 	const omitted = model.agents.filter((a) => a.inlineOmitted === true);
 	check("global budget omits later agents", omitted.length > 0, `omitted=${omitted.length}`);
 	check(
@@ -142,7 +142,7 @@ async function main() {
 	);
 	check("early agent keeps inline content", model.agents.find((a) => a.id === 3)?.inlineOmitted !== true);
 
-	// Artifacts listing is bounded with a visible remainder.
+	// El listado de artifacts está bounded con remainder visible.
 	check("artifacts listed", model.artifacts.length > 0);
 	check(
 		"artifact remainder reported",
@@ -150,7 +150,7 @@ async function main() {
 		`listed=${model.artifacts.length} omitted=${model.artifactsOmitted}`,
 	);
 
-	// Relative, containment-checked hrefs.
+	// Hrefs relativos y chequeados por containment.
 	check("artifact href relative to run dir", a2?.artifactHref === "agents/0002-agent-2.md", String(a2?.artifactHref));
 
 	if (counts.failed > 0) {
