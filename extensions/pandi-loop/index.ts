@@ -156,12 +156,16 @@ const wakeQueue: PendingWake[] = [];
 // Mientras sea verdadero, no se entrega otro wake (un turno autopilot a la vez).
 let autopilotTurnInFlight = false;
 
-/** ¿El loop dueño del turno autopilot en vuelo sigue presente y running? */
-function inFlightOwnerAlive(): boolean {
+function hasRunningAutopilotLoop(): boolean {
 	for (const loop of activeLoops.values()) {
 		if (loop.autopilot && loop.status === "running") return true;
 	}
 	return false;
+}
+
+/** ¿El loop dueño del turno autopilot en vuelo sigue presente y running? */
+function inFlightOwnerAlive(): boolean {
+	return hasRunningAutopilotLoop();
 }
 
 // ---------------------------------------------------------------------------
@@ -1023,10 +1027,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 
 /** Verdadero si ALGÚN loop considera este turno, actualmente, como un turno autopilot (disparado por wake). */
 function anyAutopilotActive(): boolean {
-	for (const loop of activeLoops.values()) {
-		if (loop.autopilot && loop.status === "running") return true;
-	}
-	return false;
+	return hasRunningAutopilotLoop();
 }
 
 /**
