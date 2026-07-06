@@ -1055,6 +1055,10 @@ async function handleToolCall(
 	return { block: true, reason };
 }
 
+function runningLoops(): ActiveLoop[] {
+	return [...activeLoops.values()].filter((loop) => loop.status === "running");
+}
+
 function selectToolOwnerLoop(
 	running: ActiveLoop[],
 	options: { preferDynamicFallback?: boolean } = {},
@@ -1123,7 +1127,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const running = [...activeLoops.values()].filter((l) => l.status === "running");
+			const running = runningLoops();
 			if (running.length === 0) {
 				return toolError("No hay ningún loop activo para reprogramar. No hay nada que reprogramar.");
 			}
@@ -1168,7 +1172,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const running = [...activeLoops.values()].filter((l) => l.status === "running");
+			const running = runningLoops();
 			if (running.length === 0) {
 				return toolError("No hay ningún loop activo para detener.");
 			}
