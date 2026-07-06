@@ -82,6 +82,8 @@ pi --no-extensions -e ./extensions/pandi-dynamic-workflows   # one-off trial, no
 | `/ultracode-contract` | Toggle the Contract Gate; `/ultracode-contract off` disables it for the session. |
 | `dynamic_workflow` | Model tool: list, scaffold, read, check, write, run, start, resume, cancel, delete, graph, runs, view, and report on workflows (and more). |
 
+`/workflow cleanup` is dry-run friendly and owned by this extension: `sessions` prunes stale workflow heartbeats, `runs` removes terminal run dirs while retaining recent history, `drafts` removes old unused draft files, and `tmp` removes old `.pi/tmp` scratch entries. Use `--dry-run` to see every `delete`/`keep` decision with a reason; destructive cleanup requires UI confirmation or `--yes` in headless mode. `both` keeps the legacy default (`sessions+runs`); `all` includes `drafts` and `tmp` too.
+
 `/workflow check <name> [json-input]` validates the workflow source and launch input without creating a run. `/workflow run <name>` runs in the foreground and prints the result — except
 inside a persistent (TUI) session, where it auto-backgrounds so the dashboard
 stays the control plane. `/workflow start <name>` launches in the background

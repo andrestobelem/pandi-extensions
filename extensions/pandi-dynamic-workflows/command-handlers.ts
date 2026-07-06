@@ -17,6 +17,12 @@ import {
 	type ExtensionAPI,
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import {
+	cleanupWorkflowDrafts,
+	cleanupWorkflowTmp,
+	formatCleanupInventory,
+	inventoryWorkflowRuns,
+} from "./cleanup-inventory.js";
 import { buildLimits, limitParamsFromInput, normalizeWorkflowInput, parseCliJsonOrText } from "./config.js";
 import {
 	openWorkflowDashboard,
@@ -253,22 +259,37 @@ export async function handleTool(
 // the CLI parser and its test can reference it without reaching across modules.
 export { DEFAULT_CLEANUP_KEEP };
 
+export const DEFAULT_CLEANUP_OLDER_THAN_MS = 24 * 60 * 60 * 1000;
+
 export interface CleanupArgs {
-	target: "sessions" | "runs" | "both";
+	target: "sessions" | "runs" | "drafts" | "tmp" | "both" | "all";
 	keep: number;
+	olderThanMs: number;
 	includeHeartbeatStale: boolean;
 	dryRun: boolean;
 	yes: boolean;
 }
 
-// Pure parser for `/workflow cleanup [sessions|runs|both] [--keep=N] [--all-stale] [--dry-run|-n] [--yes|-y]`.
-// Order-independent; unknown tokens are ignored (target stays "both"). Safe defaults: both
-// targets, keep the DEFAULT_CLEANUP_KEEP most-recent runs, leave heartbeat-stale sessions,
-// and neither preview nor auto-confirm.
+function parseCleanupDurationMs(raw: string): number | undefined {
+	const match = /^(\d+)([mhd])$/.exec(raw.trim());
+	if (!match) return undefined;
+	const value = Number.parseInt(match[1] ?? "", 10);
+	if (!Number.isFinite(value)) return undefined;
+	const unit = match[2];
+	if (unit === "m") return value * 60 * 1000;
+	if (unit === "h") return value * 60 * 60 * 1000;
+	return value * 24 * 60 * 60 * 1000;
+}
+
+// Pure parser for `/workflow cleanup [sessions|runs|drafts|tmp|both|all] [--keep=N] [--older-than=24h] [--all-stale] [--dry-run|-n] [--yes|-y]`.
+// Order-independent; unknown tokens are ignored (target stays "both"). Safe defaults: sessions+runs,
+// keep the DEFAULT_CLEANUP_KEEP most-recent runs, leave heartbeat-stale sessions, use a 24h age
+// threshold for drafts/tmp, and neither preview nor auto-confirm.
 export function parseCleanupArgs(afterAction: string): CleanupArgs {
 	const result: CleanupArgs = {
 		target: "both",
 		keep: DEFAULT_CLEANUP_KEEP,
+		olderThanMs: DEFAULT_CLEANUP_OLDER_THAN_MS,
 		includeHeartbeatStale: false,
 		dryRun: false,
 		yes: false,
@@ -276,13 +297,19 @@ export function parseCleanupArgs(afterAction: string): CleanupArgs {
 	for (const token of afterAction.trim().split(/\s+/).filter(Boolean)) {
 		if (token === "sessions" || token === "session") result.target = "sessions";
 		else if (token === "runs" || token === "run") result.target = "runs";
-		else if (token === "both" || token === "all") result.target = "both";
+		else if (token === "drafts" || token === "draft") result.target = "drafts";
+		else if (token === "tmp" || token === "temp") result.target = "tmp";
+		else if (token === "both") result.target = "both";
+		else if (token === "all") result.target = "all";
 		else if (token === "--all-stale") result.includeHeartbeatStale = true;
 		else if (token === "--dry-run" || token === "-n") result.dryRun = true;
 		else if (token === "--yes" || token === "-y") result.yes = true;
 		else if (token.startsWith("--keep=")) {
 			const value = Number.parseInt(token.slice("--keep=".length), 10);
 			if (Number.isFinite(value)) result.keep = Math.max(0, value);
+		} else if (token.startsWith("--older-than=")) {
+			const value = parseCleanupDurationMs(token.slice("--older-than=".length));
+			if (value !== undefined) result.olderThanMs = value;
 		}
 	}
 	return result;
@@ -608,8 +635,10 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 
 		if (action === "cleanup" || action === "prune" || action === "gc") {
 			const opts = parseCleanupArgs(afterAction);
-			const doSessions = opts.target === "sessions" || opts.target === "both";
-			const doRuns = opts.target === "runs" || opts.target === "both";
+			const doSessions = opts.target === "sessions" || opts.target === "both" || opts.target === "all";
+			const doRuns = opts.target === "runs" || opts.target === "both" || opts.target === "all";
+			const doDrafts = opts.target === "drafts" || opts.target === "all";
+			const doTmp = opts.target === "tmp" || opts.target === "all";
 
 			// Dry-run: previsualiza a través de los selectores puros sin eliminar nada.
 			if (opts.dryRun) {
@@ -620,14 +649,27 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 						dryRun: true,
 					});
 					lines.push(`Stale session files to remove: ${preview.removed.length} (keeping ${preview.kept})`);
-					for (const file of preview.removed) lines.push(`  - ${file}`);
+					for (const item of preview.items) {
+						lines.push(`  - sessions ${item.action}: ${item.file} — ${item.reason}`);
+					}
 				}
 				if (doRuns) {
-					const preview = await cleanupWorkflowRuns(ctx, { keep: opts.keep, dryRun: true });
+					const runItems = await inventoryWorkflowRuns(ctx, { keep: opts.keep });
+					const removed = runItems.filter((item) => item.action === "delete").length;
 					lines.push(
-						`Terminal runs to remove: ${preview.removed.length} (keeping ${preview.kept}, keep=${opts.keep})`,
+						`Terminal runs to remove: ${removed} (keeping ${runItems.length - removed}, keep=${opts.keep})`,
 					);
-					for (const runId of preview.removed) lines.push(`  - ${runId}`);
+					lines.push(...formatCleanupInventory(runItems));
+				}
+				if (doDrafts) {
+					const preview = await cleanupWorkflowDrafts(ctx, { olderThanMs: opts.olderThanMs, dryRun: true });
+					lines.push(`Draft files to remove: ${preview.removed.length} (keeping ${preview.kept})`);
+					lines.push(...formatCleanupInventory(preview.items));
+				}
+				if (doTmp) {
+					const preview = await cleanupWorkflowTmp(ctx, { olderThanMs: opts.olderThanMs, dryRun: true });
+					lines.push(`Tmp entries to remove: ${preview.removed.length} (keeping ${preview.kept})`);
+					lines.push(...formatCleanupInventory(preview.items));
 				}
 				await showText(ctx, "Workflow cleanup (dry run)", lines.join("\n"));
 				return;
@@ -642,6 +684,8 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 				const scope = [
 					doSessions ? "stale session files" : "",
 					doRuns ? `terminal runs (keep last ${opts.keep})` : "",
+					doDrafts ? `old unused drafts (older than ${Math.round(opts.olderThanMs / 3_600_000)}h)` : "",
+					doTmp ? `old .pi/tmp entries (older than ${Math.round(opts.olderThanMs / 3_600_000)}h)` : "",
 				]
 					.filter(Boolean)
 					.join(" and ");
@@ -657,9 +701,19 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 				const res = await prunePiSessionFiles(ctx, { includeHeartbeatStale: opts.includeHeartbeatStale });
 				summary.push(`Removed ${res.removed.length} stale session file(s); kept ${res.kept}.`);
 			}
+			if (doDrafts) {
+				// Draft usage is derived from the current run store. Run draft cleanup before run cleanup so
+				// `cleanup all` cannot cascade from "delete old runs" into "now this draft looks unused".
+				const res = await cleanupWorkflowDrafts(ctx, { olderThanMs: opts.olderThanMs });
+				summary.push(`Removed ${res.removed.length} old unused draft file(s); kept ${res.kept}.`);
+			}
 			if (doRuns) {
 				const res = await cleanupWorkflowRuns(ctx, { keep: opts.keep });
 				summary.push(`Removed ${res.removed.length} terminal run(s); kept ${res.kept} (keep=${opts.keep}).`);
+			}
+			if (doTmp) {
+				const res = await cleanupWorkflowTmp(ctx, { olderThanMs: opts.olderThanMs });
+				summary.push(`Removed ${res.removed.length} old tmp entr(y/ies); kept ${res.kept}.`);
 			}
 			notify(ctx, summary.join("\n"), "info");
 			return;
@@ -705,7 +759,7 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 
 		notify(
 			ctx,
-			"Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | check <name> [json] | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | cleanup [sessions|runs] [--keep=N] [--all-stale] [--dry-run] [--yes] | delete-run [latest|runId] | delete <name>",
+			"Usage: /workflow list | dashboard | agents | sessions | patterns | graph <name> | check <name> [json] | runs | view [latest|runId] | new <name> [--pattern=<key>] | edit <name> | run <name> [json] | start <name> [json] | resume [latest|runId] [--force] | cancel [latest|runId] | cleanup [sessions|runs|drafts|tmp|all] [--keep=N] [--older-than=24h] [--all-stale] [--dry-run] [--yes] | delete-run [latest|runId] | delete <name>",
 			"warning",
 		);
 	} catch (err) {

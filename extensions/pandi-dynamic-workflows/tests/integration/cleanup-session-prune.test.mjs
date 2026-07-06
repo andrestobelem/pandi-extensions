@@ -54,11 +54,16 @@ const entry = (file, pid, updatedMsAgo, id = file) => ({
 });
 
 async function main() {
-	const { classifySessionFilesForPrune } = await loadModule();
+	const { classifySessionFilesForPrune, classifySessionFilesForCleanup } = await loadModule();
 	check(
 		"exports classifySessionFilesForPrune",
 		typeof classifySessionFilesForPrune === "function",
 		typeof classifySessionFilesForPrune,
+	);
+	check(
+		"exports classifySessionFilesForCleanup",
+		typeof classifySessionFilesForCleanup === "function",
+		typeof classifySessionFilesForCleanup,
 	);
 
 	const deadPids = new Set([999]); // pid 999 está "dead"
@@ -83,7 +88,22 @@ async function main() {
 		);
 	}
 
-	// 2) includeHeartbeatStale: también elimina el archivo con pid vivo pero stale, pero TODAVÍA conserva
+	// 2) Inventario por item: cada decisión tiene acción y razón visible para dry-run.
+	{
+		const items = classifySessionFilesForCleanup(entries, { now: NOW, isPidAlive, currentId: "cur" });
+		const byFile = Object.fromEntries(items.map((item) => [item.file, item]));
+		check("inventory marks dead pid for delete", byFile["dead.json"]?.action === "delete", JSON.stringify(items));
+		check("inventory explains dead pid", /pid exited/.test(byFile["dead.json"]?.reason ?? ""), JSON.stringify(items));
+		check("inventory keeps live", byFile["live.json"]?.action === "keep", JSON.stringify(items));
+		check("inventory keeps current", byFile["current.json"]?.reason === "current session", JSON.stringify(items));
+		check(
+			"inventory explains heartbeat-stale keep",
+			/heartbeat stale/.test(byFile["hbstale.json"]?.reason ?? ""),
+			JSON.stringify(items),
+		);
+	}
+
+	// 3) includeHeartbeatStale: también elimina el archivo con pid vivo pero stale, pero TODAVÍA conserva
 	//    la sesión current y la live.
 	{
 		const { remove, keep } = classifySessionFilesForPrune(entries, {
@@ -101,7 +121,7 @@ async function main() {
 		check("live still kept", keep.includes("live.json"), JSON.stringify(keep));
 	}
 
-	// 3) La sesión current se conserva aunque su pid parezca muerto (defensivo: nunca borrar la propia).
+	// 4) La sesión current se conserva aunque su pid parezca muerto (defensivo: nunca borrar la propia).
 	{
 		const only = [entry("me.json", 999, 1000, "me")];
 		const { remove, keep } = classifySessionFilesForPrune(only, {
@@ -117,7 +137,7 @@ async function main() {
 		);
 	}
 
-	// 4) Records malformed / no parseables se conservan (nunca borrar lo que no podemos clasificar).
+	// 5) Records malformed / no parseables se conservan (nunca borrar lo que no podemos clasificar).
 	{
 		const bad = [
 			{ file: "bad.json", record: null },
@@ -127,7 +147,7 @@ async function main() {
 		check("malformed records kept", remove.length === 0 && keep.length === 2, JSON.stringify({ remove, keep }));
 	}
 
-	// 5) Input vacío → resultado vacío.
+	// 6) Input vacío → resultado vacío.
 	{
 		const { remove, keep } = classifySessionFilesForPrune([], { now: NOW, isPidAlive });
 		check("empty input → empty", remove.length === 0 && keep.length === 0);
