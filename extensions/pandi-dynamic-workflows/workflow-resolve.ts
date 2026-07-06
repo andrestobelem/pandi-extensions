@@ -4,8 +4,8 @@
  * resolveWorkflow, createRunDirectory). La incumbencia "dónde viven los workflows y adónde van sus runs/
  * graphs", separada del engine que los ejecuta.
  *
- * Imports de valores diferidos desde index.ts (las consts de segmentos de path, usadas solo dentro de cuerpos);
- * los tipos record/scope cruzan como import type. Extraído byte-idéntico.
+ * Los segmentos de path canónicos viven acá para que el engine importe el layout desde una hoja de resolución,
+ * no al revés. Los tipos record/scope cruzan como import type. Extraído byte-idéntico.
  */
 
 import * as crypto from "node:crypto";
@@ -13,15 +13,19 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { resolveInsideRoot } from "./path-safety.js";
 import type {
 	WorkflowDefinition,
 	WorkflowLocation,
 	WorkflowRunRecord,
 	WorkflowScope,
 	WorkflowScopeInput,
-} from "./index.js";
-import { WORKFLOW_DIR, WORKFLOW_DRAFT_DIR, WORKFLOW_GRAPH_DIR, WORKFLOW_RUN_DIR } from "./index.js";
-import { resolveInsideRoot } from "./path-safety.js";
+} from "./types.js";
+
+export const WORKFLOW_DIR = "workflows";
+export const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
+export const WORKFLOW_RUN_DIR = path.join(WORKFLOW_DIR, "runs");
+export const WORKFLOW_GRAPH_DIR = path.join(WORKFLOW_DIR, "graphs");
 
 const RESERVED_WORKFLOW_SUBDIRS = new Set(["drafts", "runs", "graphs", "sessions"]);
 

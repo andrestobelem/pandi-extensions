@@ -198,10 +198,12 @@ import { writeJsonFile, writeRunStatus } from "./run-store.js";
 
 export { estimatePeakParallelAgents } from "./run-state.js";
 
-export const WORKFLOW_DIR = "workflows";
-export const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");
-export const WORKFLOW_RUN_DIR = path.join(WORKFLOW_DIR, "runs");
-export const WORKFLOW_GRAPH_DIR = path.join(WORKFLOW_DIR, "graphs");
+export {
+	WORKFLOW_DIR,
+	WORKFLOW_DRAFT_DIR,
+	WORKFLOW_GRAPH_DIR,
+	WORKFLOW_RUN_DIR,
+} from "./workflow-resolve.js";
 export const PI_SESSION_HEARTBEAT_MS = 5_000;
 // Período de gracia tras SIGTERM antes de escalar a SIGKILL para procesos hijo creados.
 export const PROCESS_KILL_GRACE_MS = 2_000;

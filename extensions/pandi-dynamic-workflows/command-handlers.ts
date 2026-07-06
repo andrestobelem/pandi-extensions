@@ -32,7 +32,6 @@ import {
 	maxWorkflowDepth,
 	preflightWorkflowLaunch,
 	transformWorkflowCode,
-	WORKFLOW_DRAFT_DIR,
 } from "./index.js";
 import { notify } from "./notify.js";
 import {
@@ -59,7 +58,7 @@ import { getRunState, getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from "./run-view.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
-import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow } from "./workflow-resolve.js";
+import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./workflow-resolve.js";
 import { classifyDynamicWorkflowRequest } from "./workflow-tool-request.js";
 
 export async function handleTool(
