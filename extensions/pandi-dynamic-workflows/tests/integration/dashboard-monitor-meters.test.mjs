@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract test for the Monitor tab's at-a-glance meters.
+ * Test de contrato conductual para los meters de lectura rápida del tab Monitor.
  *
- * The Monitor used to surface progress as bare numbers ("agents: 3/8 done/started",
- * "parallel: 2/4 running"). This pins the visual upgrade: those two lines now also carry
- * a unicode meter bar (renderMeter) so utilization is readable at a glance, and the
- * agents line carries a rounded completion percentage. The multi-run summary list (shown
- * when >1 run is active) gains a compact per-row meter too.
+ * Monitor antes mostraba progreso como números pelados ("agents: 3/8 done/started",
+ * "parallel: 2/4 running"). Esto fija el upgrade visual: esas dos líneas ahora también llevan
+ * una barra de meter unicode (renderMeter) para que la utilización se lea de un vistazo, y la
+ * línea de agents lleva un porcentaje de finalización redondeado. La lista resumen multi-run
+ * (visible cuando hay >1 run activo) también gana un meter compacto por fila.
  *
- * Observable contract:
- *   - The agents line keeps "3/8" AND adds "38%" (3/8 = 37.5% → 38) AND a meter (█/░).
- *   - The parallel line keeps its running count AND adds a meter for running/limit.
- *   - With >1 active run, each summary row carries a meter.
+ * Contrato observable:
+ *   - La línea de agents conserva "3/8" Y agrega "38%" (3/8 = 37.5% → 38) Y un meter (█/░).
+ *   - La línea de parallel conserva su conteo running Y agrega un meter de running/limit.
+ *   - Con >1 run activo, cada fila resumen lleva un meter.
  */
 
 import * as path from "node:path";
@@ -103,7 +103,7 @@ async function main() {
 	});
 	({ WorkflowDashboard } = await loadModule(url));
 
-	// Single active run: detail block carries agents + parallel meters.
+	// Un solo run activo: el bloque de detail lleva meters de agents + parallel.
 	const single = build([makeMonitorModel(makeRun("run-aaaaaaaaaaaa", "flow-a"), makeAgent())]).render(WIDTH);
 
 	const agentsLine = single.find((l) => l.includes("done/started"));
@@ -116,7 +116,7 @@ async function main() {
 	check("parallel line exists", typeof parallelLine === "string", JSON.stringify(parallelLine));
 	check("parallel line carries a meter", hasMeter(parallelLine), JSON.stringify(parallelLine));
 
-	// Multiple active runs: each summary row carries a compact meter.
+	// Múltiples runs activos: cada fila resumen lleva un meter compacto.
 	const multi = build([
 		makeMonitorModel(makeRun("run-aaaaaaaaaaaa", "flow-a"), makeAgent()),
 		makeMonitorModel(makeRun("run-bbbbbbbbbbbb", "flow-b"), makeAgent(), { agentsDone: 6 }),
