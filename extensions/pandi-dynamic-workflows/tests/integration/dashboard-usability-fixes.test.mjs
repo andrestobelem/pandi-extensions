@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Behavioral regression tests for the P1 usability fixes on the workflow monitor.
+ * Tests de regresión conductual para los arreglos P1 de usabilidad en el monitor de workflows.
  *
- * Observable contracts:
- *   - Idle workflow status advertises the /workflows entrypoint (not a bare "wf"),
- *     so a first-time user can discover the monitor before any run exists.
- *   - On the Patterns tab, `n` scaffolds a pattern (matches the on-screen
- *     "Enter/n use pattern" hint) instead of being shadowed by the global tab jump.
- *   - On other tabs, `n` still jumps to the Agents tab (no regression).
- *   - Backspace no longer triggers a destructive delete; the Delete key still does.
- *   - Lines that overflow the width render a visible "…" truncation marker.
+ * Contratos observables:
+ *   - El estado idle de workflow anuncia el entrypoint /workflows (no un "wf" pelado),
+ *     para que un usuario nuevo pueda descubrir el monitor antes de que exista cualquier run.
+ *   - En la tab Patterns, `n` scaffolda un pattern (coincide con el hint en pantalla
+ *     "Enter/n use pattern") en vez de quedar sombreado por el salto global de tab.
+ *   - En otras tabs, `n` todavía salta a la tab Agents (sin regresión).
+ *   - Backspace ya no dispara un borrado destructivo; la tecla Delete todavía lo hace.
+ *   - Las líneas que desbordan el ancho renderizan un marcador visible de truncamiento "…".
  */
 
 import * as fs from "node:fs/promises";
@@ -98,8 +98,8 @@ function makeCtx(cwd, { editorReturns = "use-initial", customInputs = [] } = {})
 			setEditorComponent: () => {},
 			custom: async (factory) => {
 				const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => {} };
-				// Live entry: `doneValue` keeps updating if the test drives the captured
-				// component's handleInput after the dashboard has "closed".
+				// Entry viva: `doneValue` sigue actualizándose si el test maneja el handleInput
+				// del componente capturado después de que el dashboard se haya "cerrado".
 				const entry = { component: null, lines: [], doneValue: undefined };
 				const done = (value) => {
 					entry.doneValue = value;
@@ -187,7 +187,7 @@ async function scenarioIdleStatusShowsEntrypoint(url) {
 
 async function scenarioPatternsAndMonitorN(url) {
 	const project = await makeProject();
-	// Patterns tab: `n` should scaffold a pattern (newPattern), not jump to Agents.
+	// Tab Patterns: `n` debe scaffoldar un pattern (newPattern), no saltar a Agents.
 	const patterns = await bootExtension(url, project, {
 		editorReturns: undefined,
 		customInputs: ["p", "n"],
@@ -205,7 +205,7 @@ async function scenarioPatternsAndMonitorN(url) {
 		renderedText(pCall).split("\n")[0],
 	);
 
-	// Monitor tab: `n` should still jump to Agents (no regression).
+	// Tab Monitor: `n` todavía debe saltar a Agents (sin regresión).
 	const monitor = await bootExtension(url, project, { customInputs: ["n"] });
 	await monitor.commands.get("workflow").handler("dashboard", monitor.ctx);
 	const mCall = monitor.customCalls[0];
@@ -218,8 +218,8 @@ async function scenarioPatternsAndMonitorN(url) {
 }
 
 async function scenarioBackspaceVsDelete(url) {
-	// Independent projects: the delete path unlinks the workflow file, so each
-	// sub-scenario seeds its own file to stay order-independent.
+	// Proyectos independientes: la ruta delete deslinkea el archivo de workflow, así que cada
+	// subescenario siembra su propio archivo para mantenerse independiente del orden.
 	const backProject = await makeProject();
 	await seedWorkflowFile(backProject);
 	const back = await bootExtension(url, backProject, { customInputs: ["w", "backspace"] });
@@ -244,8 +244,8 @@ async function scenarioBackspaceVsDelete(url) {
 	);
 }
 
-// Drive the captured dashboard component directly to simulate the 1.5s refresh
-// reordering lists under the cursor (lists are mtime-sorted on disk).
+// Manejamos directamente el componente de dashboard capturado para simular el refresh de 1.5s
+// reordenando listas bajo el cursor (las listas se ordenan por mtime en disco).
 async function openDashboardComponent(url) {
 	const project = await makeProject();
 	const boot = await bootExtension(url, project, { customInputs: [] });
@@ -268,10 +268,10 @@ async function scenarioRunsSelectionStability(url) {
 	component.handleInput("tab"); // monitor -> agents
 	component.handleInput("tab"); // -> sessions
 	component.handleInput("tab"); // -> runs
-	component.handleInput("down"); // select run B (index 1)
-	// A refresh reorders the list (B slides from index 1 to index 2).
+	component.handleInput("down"); // selecciona run B (índice 1)
+	// Un refresh reordena la lista (B se desliza del índice 1 al índice 2).
 	component.setRuns([mkRun("C"), mkRun("A"), mkRun("B")]);
-	component.handleInput("d"); // delete the *selected* run
+	component.handleInput("d"); // borra el run *seleccionado*
 	const dv = getDone();
 	check(
 		"runs: delete still targets the selected run after a reorder",
@@ -294,11 +294,11 @@ async function scenarioAgentsSelectionStability(url) {
 		agent: { id, name: `a${id}`, state: "running", promptAvailable: true },
 	});
 	component.setAgentEntries([mkEntry("A", 1), mkEntry("B", 1), mkEntry("C", 1)]);
-	component.handleInput("A"); // jump to Agents tab
-	component.handleInput("down"); // select B#1 (index 1)
-	// A refresh reorders entries (B#1 slides from index 1 to index 2).
+	component.handleInput("A"); // salta a la tab Agents
+	component.handleInput("down"); // selecciona B#1 (índice 1)
+	// Un refresh reordena entries (B#1 se desliza del índice 1 al índice 2).
 	component.setAgentEntries([mkEntry("C", 1), mkEntry("A", 1), mkEntry("B", 1)]);
-	component.handleInput("d"); // delete the selected agent's run
+	component.handleInput("d"); // borra el run del agente seleccionado
 	const dv = getDone();
 	check(
 		"agents: delete still targets the selected agent's run after a reorder",
@@ -320,7 +320,7 @@ async function scenarioListPaging(url) {
 	component.setRuns(runs);
 	component.handleInput("tab"); // monitor -> agents
 	component.handleInput("tab"); // -> sessions
-	component.handleInput("tab"); // -> runs (index 0)
+	component.handleInput("tab"); // -> runs (índice 0)
 
 	component.handleInput("end");
 	component.handleInput("v");
@@ -342,7 +342,7 @@ async function scenarioListPaging(url) {
 async function scenarioReopenAfterAction(url) {
 	const project = await makeProject();
 	await seedFailedRun(project, { runId: "delme", error: "x" });
-	const boot = await bootExtension(url, project, { customInputs: ["tab", "tab", "tab", "d"] }); // -> runs tab, delete selected
+	const boot = await bootExtension(url, project, { customInputs: ["tab", "tab", "tab", "d"] }); // -> tab runs, borra seleccionado
 	await boot.commands.get("workflow").handler("dashboard", boot.ctx);
 	check(
 		"dashboard reopens after a (delete) action instead of exiting",
@@ -401,7 +401,7 @@ async function scenarioRunningAgentLiveElapsed(url) {
 		},
 	];
 	component.setAgentEntries(entries);
-	component.handleInput("A"); // -> agents tab
+	component.handleInput("A"); // -> tab agents
 	const text = component.render(100).join("\n");
 	check(
 		"running agent shows live elapsed (not frozen elapsed:…)",
@@ -502,8 +502,8 @@ async function scenarioEllipsisOnOverflow(url) {
 }
 
 async function scenarioMonitorHelpGating(url) {
-	// The top help banner used to advertise 'c/x cancel' and 'r rerun' even when the
-	// selected run could not be cancelled/rerun, contradicting the gated detail row.
+	// El banner superior de ayuda antes anunciaba 'c/x cancel' y 'r rerun' incluso cuando el
+	// run seleccionado no se podía cancelar/rerun, contradiciendo la fila de detail gateada.
 	const { component } = await openDashboardComponent(url);
 	const now = new Date().toISOString();
 	const mkModel = (runId, canCancel, canRerun) => ({
@@ -539,12 +539,12 @@ async function scenarioMonitorHelpGating(url) {
 	});
 	const helpLine = () => component.render(300)[1];
 
-	component.setMonitorModels([mkModel("ACT", true, false)]); // active run
+	component.setMonitorModels([mkModel("ACT", true, false)]); // run activo
 	const active = helpLine();
 	check("monitor help advertises cancel for an active run", active.includes("cancel"), active);
 	check("monitor help hides delete for an active run", !active.includes("delete run"), active);
 
-	component.setMonitorModels([mkModel("DONE", false, true)]); // finished run
+	component.setMonitorModels([mkModel("DONE", false, true)]); // run terminado
 	const done = helpLine();
 	check("monitor help hides cancel for a finished run", !done.includes("cancel"), done);
 	check(
@@ -555,8 +555,8 @@ async function scenarioMonitorHelpGating(url) {
 }
 
 async function scenarioMonitorMultiRun(url) {
-	// The Monitor used to render a single run even when several were active (the
-	// bar shows "▶ N active"). It must expose all active runs and switch focus.
+	// Monitor antes renderizaba un único run aunque hubiera varios activos (la
+	// barra muestra "▶ N active"). Debe exponer todos los runs activos y cambiar foco.
 	const { component, getDone } = await openDashboardComponent(url);
 	const now = new Date().toISOString();
 	const mkModel = (runId) => ({
@@ -600,8 +600,8 @@ async function scenarioMonitorMultiRun(url) {
 		shown.split("\n").slice(0, 10).join(" | "),
 	);
 
-	component.handleInput("]"); // focus the second active run
-	component.handleInput("v"); // view the focused run
+	component.handleInput("]"); // enfoca el segundo run activo
+	component.handleInput("v"); // ve el run enfocado
 	const dv = getDone();
 	check(
 		"monitor ] switches the focused active run",
@@ -611,8 +611,8 @@ async function scenarioMonitorMultiRun(url) {
 }
 
 async function scenarioAgentsJumpToFailed(url) {
-	// Agents announces failed:N but, before this, only ↑↓ navigation existed; finding the
-	// failed agents (the reason to open the tab) meant manual scrolling. 'f' should jump.
+	// Agents anuncia failed:N pero, antes de esto, solo existía navegación ↑↓; encontrar los
+	// agentes fallidos (la razón para abrir la tab) implicaba scroll manual. 'f' debe saltar.
 	const { component, getDone } = await openDashboardComponent(url);
 	const mk = (runId, id, state) => ({
 		run: {
@@ -631,9 +631,9 @@ async function scenarioAgentsJumpToFailed(url) {
 		mk("C", 1, "failed"),
 		mk("D", 1, "running"),
 	]);
-	component.handleInput("A"); // Agents tab (agentIndex starts at 0)
-	component.handleInput("f"); // jump to the next failed agent
-	component.handleInput("o"); // open the selected agent
+	component.handleInput("A"); // tab Agents (agentIndex empieza en 0)
+	component.handleInput("f"); // salta al siguiente agente fallido
+	component.handleInput("o"); // abre el agente seleccionado
 	const dv = getDone();
 	check(
 		"agents: 'f' jumps to the next failed agent",
@@ -643,8 +643,8 @@ async function scenarioAgentsJumpToFailed(url) {
 }
 
 async function scenarioRefreshFreshnessAndErrors(url) {
-	// The 1.5s dashboard refresh wraps disk reads; a failure must stay visible
-	// (not a silent unhandled rejection) and a healthy refresh must advertise recency.
+	// El refresh de dashboard de 1.5s envuelve lecturas de disco; una falla debe seguir visible
+	// (no una unhandled rejection silenciosa) y un refresh sano debe anunciar recencia.
 	const { component } = await openDashboardComponent(url);
 	const initial = component.render(100).join("\n");
 	check(
@@ -671,10 +671,10 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 }
 
 async function scenarioRunActionsConsistentAcrossTabs(url) {
-	// SIMPLICITY contract: the run-action shortcuts (g graph, v view, d delete) are
-	// handled by a single shared helper, so they must resolve to the SAME selection
-	// on every run-bearing tab (monitor, agents, runs, activity). This anchors the
-	// de-duplicated handler against drift between the previously-copied branches.
+	// Contrato SIMPLICITY: los atajos de acciones de run (g graph, v view, d delete) los
+	// maneja un único helper compartido, así que deben resolver a la MISMA selección
+	// en cada tab con runs (monitor, agents, runs, activity). Esto ancla el handler
+	// deduplicado contra drift entre las ramas previamente copiadas.
 	const { component, getDone } = await openDashboardComponent(url);
 	const run = {
 		runId: "SHARED",
@@ -746,7 +746,7 @@ async function scenarioRunActionsConsistentAcrossTabs(url) {
 }
 
 async function scenarioKeyboardNav(url) {
-	// P3: a direct Runs jump key, vim j/k + G, and Shift+Tab for previous tab.
+	// P3: tecla directa para saltar a Runs, vim j/k + G, y Shift+Tab para la tab previa.
 	const { component, getDone } = await openDashboardComponent(url);
 	const runs = Array.from({ length: 5 }, (_, i) => ({
 		runId: `r${i}`,
@@ -758,28 +758,28 @@ async function scenarioKeyboardNav(url) {
 	}));
 	component.setRuns(runs);
 
-	component.handleInput("R"); // jump straight to Runs (only tab without a letter before)
+	component.handleInput("R"); // salta directo a Runs (la única tab sin letra antes)
 	let txt = component.render(100).join("\n");
 	check("R jumps to the Runs tab", txt.includes("[Runs]"), txt.split("\n")[0]);
 
-	component.handleInput("j"); // vim down -> index 1
-	component.handleInput("j"); // -> index 2
-	component.handleInput("k"); // vim up -> index 1
+	component.handleInput("j"); // vim down -> índice 1
+	component.handleInput("j"); // -> índice 2
+	component.handleInput("k"); // vim up -> índice 1
 	component.handleInput("v");
 	check("j/k navigate the list (vim down/up)", getDone()?.run?.runId === "r1", JSON.stringify(getDone()));
 
-	component.handleInput("G"); // jump to last
+	component.handleInput("G"); // salta al último
 	component.handleInput("v");
 	check("G jumps to the last item", getDone()?.run?.runId === "r4", JSON.stringify(getDone()));
 
-	component.handleInput("shift+tab"); // previous tab: runs -> sessions
+	component.handleInput("shift+tab"); // tab previa: runs -> sessions
 	txt = component.render(100).join("\n");
 	check("Shift+Tab cycles to the previous tab", txt.includes("[Sessions]"), txt.split("\n")[0]);
 }
 
 async function scenarioLiveAgentHeaderStatus(url) {
-	// The live agent viewer used to hardcode 'refresh 1s' in its header even after
-	// the agent finished (and kept polling). The header label must reflect state.
+	// El visor live de agente antes hardcodeaba 'refresh 1s' en su header incluso después de que
+	// el agente terminara (y seguía polleando). El label del header debe reflejar el estado.
 	const mod = await import(url);
 	const fn = mod.liveAgentHeaderStatus;
 	check("liveAgentHeaderStatus is exported", typeof fn === "function", String(typeof fn));
