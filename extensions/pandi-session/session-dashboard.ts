@@ -27,18 +27,49 @@ function statusLabel(session: PandiSessionModel): string {
 	return `stale:${session.staleReason ?? "unknown"}`;
 }
 
+function isEnter(data: string): boolean {
+	return data === "enter" || data === "\r" || data === "\n";
+}
+
+function isEscape(data: string): boolean {
+	return data === "escape" || data === "\u001b";
+}
+
 export class PandiSessionDashboard {
+	private sessions: PandiSessionModel[];
 	private selected = 0;
+	private refreshError: string | undefined;
 
 	constructor(
-		private readonly sessions: PandiSessionModel[],
+		sessions: PandiSessionModel[],
 		private readonly theme: DashboardTheme,
 		private readonly requestRender: () => void,
 		private readonly done: (result: PandiSessionDashboardResult) => void,
-	) {}
+	) {
+		this.sessions = sessions;
+	}
 
 	private styledHeader(text: string): string {
 		return this.theme.bold?.(text) ?? text;
+	}
+
+	setSessions(next: PandiSessionModel[]): void {
+		const previous = this.sessions[this.selected];
+		this.sessions = next;
+		if (previous) {
+			const found = next.findIndex((session) => session.id === previous.id);
+			this.selected = found >= 0 ? found : Math.min(this.selected, Math.max(0, next.length - 1));
+		} else {
+			this.selected = Math.min(this.selected, Math.max(0, next.length - 1));
+		}
+	}
+
+	markRefreshOk(): void {
+		this.refreshError = undefined;
+	}
+
+	markRefreshError(message: string): void {
+		this.refreshError = message;
 	}
 
 	invalidate(): void {
@@ -46,15 +77,15 @@ export class PandiSessionDashboard {
 	}
 
 	handleInput(data: string): void {
-		if (data === "q" || data === "\u001b") {
+		if (data === "q" || isEscape(data)) {
 			this.done(null);
 			return;
 		}
-		if (data === "C") {
+		if (data === "C" || data === "c") {
 			this.done({ type: "cleanup" });
 			return;
 		}
-		if (data === "enter" || data === "\r" || data === "\n") {
+		if (isEnter(data) || data === "right" || data === "\u001b[C") {
 			const session = this.sessions[this.selected];
 			if (session) this.done({ type: "switchSession", session });
 			return;
@@ -72,20 +103,24 @@ export class PandiSessionDashboard {
 
 	render(width = 100): string[] {
 		const safeWidth = Math.max(60, width);
-		const live = this.sessions.filter((s) => s.live).length;
+		const live = this.sessions.filter((session) => session.live).length;
 		const stale = this.sessions.length - live;
+		const current = this.sessions.filter((session) => session.current).length;
 		const lines: string[] = [
-			this.styledHeader(`Pandi sessions · total:${this.sessions.length} live:${live} stale:${stale}`),
+			this.styledHeader(
+				`Pandi sessions · total:${this.sessions.length} live:${live} stale:${stale} current:${current}`,
+			),
 			"",
 		];
+		if (this.refreshError) lines.push(`refresh warning: ${clip(this.refreshError, safeWidth - 17)}`, "");
 		if (this.sessions.length === 0) {
 			lines.push("No hay sesiones Pandi registradas para este proyecto.");
 			return lines;
 		}
 		for (const [index, session] of this.sessions.entries()) {
 			const cursor = index === this.selected ? "›" : " ";
-			const current = session.current ? "★" : " ";
-			const row = `${cursor} ${current} ${pad(statusLabel(session), 18)} ${pad(clip(sessionLabel(session), 28), 28)} ${clip(session.cwd, safeWidth - 54)}`;
+			const currentMark = session.current ? "★" : " ";
+			const row = `${cursor} ${currentMark} ${pad(statusLabel(session), 18)} ${pad(clip(sessionLabel(session), 28), 28)} ${clip(session.cwd, safeWidth - 54)}`;
 			lines.push(row);
 		}
 		const selected = this.sessions[this.selected];
@@ -100,7 +135,7 @@ export class PandiSessionDashboard {
 				`updated: ${selected.updatedAt}`,
 				`state: ${statusLabel(selected)}`,
 				"",
-				"↑/↓ j/k seleccionar · Enter cambiar · C limpiar stale · q cerrar",
+				"↑/↓ j/k seleccionar · Enter/→ cambiar · C limpiar stale · q cerrar",
 			);
 		}
 		return lines.map((line) => line.slice(0, safeWidth));

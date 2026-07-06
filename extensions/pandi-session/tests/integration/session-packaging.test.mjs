@@ -21,6 +21,7 @@ check(
 	pkg.name,
 );
 check("package publishes depth-one runtime TS files", pkg.files?.includes("*.ts"), JSON.stringify(pkg.files));
+check("package publishes its README", pkg.files?.includes("README.md"), JSON.stringify(pkg.files));
 check(
 	"package registers index.ts as the Pi extension entrypoint",
 	pkg.pi?.extensions?.includes("./index.ts"),
@@ -28,7 +29,8 @@ check(
 );
 check(
 	"package pins the current Pi peer floor",
-	pkg.peerDependencies?.["@earendil-works/pi-coding-agent"] === "^0.80.3",
+	pkg.peerDependencies?.["@earendil-works/pi-coding-agent"] === "^0.80.3" &&
+		pkg.peerDependencies?.["@earendil-works/pi-tui"] === "^0.80.3",
 	JSON.stringify(pkg.peerDependencies),
 );
 

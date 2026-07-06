@@ -1,84 +1,35 @@
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { PandiSessionDashboard, type PandiSessionDashboardResult } from "./session-dashboard.js";
-import {
-	collectPandiSessions,
-	formatPandiSessionList,
-	type PandiSessionModel,
-	prunePandiSessionFiles,
-	startPandiSessionHeartbeat,
-	stopPandiSessionHeartbeat,
-} from "./session-registry.js";
-
-function canUseDashboard(ctx: ExtensionCommandContext): boolean {
-	return Boolean(ctx.hasUI && typeof ctx.ui?.custom === "function");
-}
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { cleanupPandiSessions, listPandiSessions, openPandiSessionDashboard } from "./dashboard.js";
+import { startPandiSessionHeartbeat, stopPandiSessionHeartbeat } from "./session-registry.js";
 
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	if (ctx.mode === "print" || !ctx.hasUI) {
-		if (type === "info") console.log(message);
-		else console.error(message);
+	if (ctx.mode === "print") {
+		(type === "info" ? console.log : console.error)(message);
 		return;
 	}
-	ctx.ui.notify(message, type);
+	if (ctx.hasUI && ctx.ui) {
+		ctx.ui.notify(message, type);
+		return;
+	}
+	if (type !== "info") console.error(message);
 }
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-async function cleanupStaleSessions(ctx: ExtensionCommandContext): Promise<number> {
-	const result = await prunePandiSessionFiles(ctx as ExtensionContext, { includeHeartbeatStale: true });
-	return result.removed.length;
-}
-
-async function switchSession(ctx: ExtensionCommandContext, session: PandiSessionModel): Promise<void> {
-	const file = session.sessionFile;
-	if (!file) {
-		notify(ctx, "Esa sesión no tiene archivo de transcript asociado.", "warning");
-		return;
-	}
-	if (typeof ctx.switchSession === "function") {
-		await ctx.switchSession(file);
-		return;
-	}
-	notify(ctx, `Abrí la sesión con: pi -r ${file}`, "info");
-}
-
-async function openDashboard(ctx: ExtensionCommandContext): Promise<PandiSessionDashboardResult> {
-	if (!canUseDashboard(ctx)) {
-		console.log(formatPandiSessionList(await collectPandiSessions(ctx as ExtensionContext)));
-		return null;
-	}
-	const sessions = await collectPandiSessions(ctx as ExtensionContext);
-	return await ctx.ui.custom<PandiSessionDashboardResult>((tui, theme, _keybindings, done) => {
-		return new PandiSessionDashboard(sessions, theme, () => tui.requestRender(), done);
-	});
-}
-
-async function handleDashboardResult(ctx: ExtensionCommandContext, result: PandiSessionDashboardResult): Promise<void> {
-	if (!result) return;
-	if (result.type === "cleanup") {
-		const removed = await cleanupStaleSessions(ctx);
-		notify(ctx, `Sesiones stale limpiadas: ${removed}.`, "info");
-		return;
-	}
-	await switchSession(ctx, result.session);
-}
-
 async function handleSession(args: string, ctx: ExtensionCommandContext): Promise<void> {
 	try {
 		const trimmed = args.trim();
 		if (trimmed === "list") {
-			console.log(formatPandiSessionList(await collectPandiSessions(ctx as ExtensionContext)));
+			await listPandiSessions(ctx);
 			return;
 		}
 		if (trimmed === "cleanup") {
-			const removed = await cleanupStaleSessions(ctx);
-			notify(ctx, `Sesiones stale limpiadas: ${removed}.`, "info");
+			await cleanupPandiSessions(ctx);
 			return;
 		}
-		const result = await openDashboard(ctx);
-		await handleDashboardResult(ctx, result ?? null);
+		await openPandiSessionDashboard(ctx);
 	} catch (error) {
 		notify(ctx, `No se pudo abrir /session: ${errorMessage(error)}`, "error");
 	}

@@ -88,6 +88,22 @@ async function main() {
 		);
 
 		captured = null;
+		component.setSessions([mkSession("fresh"), mkSession("other", { live: true })]);
+		component.handleInput("enter");
+		check(
+			"setSessions preserves selected row by session id",
+			captured?.type === "switchSession" && captured.session?.id === "other",
+			JSON.stringify(captured),
+		);
+		component.markRefreshError("collector failed noisily");
+		check(
+			"refresh errors are visible in the dashboard",
+			component.render(120).join("\n").includes("refresh warning"),
+		);
+		component.markRefreshOk();
+		check("refresh ok clears dashboard warning", !component.render(120).join("\n").includes("refresh warning"));
+
+		captured = null;
 		component.handleInput("C");
 		check("C emits cleanup action", captured?.type === "cleanup", JSON.stringify(captured));
 
