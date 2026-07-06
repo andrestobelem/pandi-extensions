@@ -1053,6 +1053,17 @@ function toolError(text: string) {
 	return toolResult(text, { isError: true });
 }
 
+function selectToolOwnerLoop(
+	running: ActiveLoop[],
+	options: { preferDynamicFallback?: boolean } = {},
+): ActiveLoop | undefined {
+	return (
+		running.find((loop) => loop.autopilot) ??
+		(options.preferDynamicFallback ? running.find((loop) => loop.mode === "dynamic") : undefined) ??
+		running[0]
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
@@ -1088,11 +1099,10 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			if (running.length === 0) {
 				return toolError("No hay ningún loop activo para reprogramar. No hay nada que reprogramar.");
 			}
-			// Apuntar al loop cuyo turno autopilot está llamando realmente esta tool: el que
-			// tiene autopilot seteado. Esto importa cuando coexisten un loop fixed y uno dynamic —
-			// sin eso, el turno autopilot de un loop fixed podría reprogramar el timer del loop dynamic.
-			// Hacer fallback a un loop dynamic corriendo, y luego a cualquier loop corriendo.
-			const loop = running.find((l) => l.autopilot) ?? running.find((l) => l.mode === "dynamic") ?? running[0];
+			// Apuntar al loop cuyo turno autopilot está llamando realmente esta tool. Para schedule,
+			// si no hay dueño explícito, preservar el fallback histórico a un loop dynamic antes de cualquier loop.
+			const loop = selectToolOwnerLoop(running, { preferDynamicFallback: true });
+			if (!loop) return toolError("No hay ningún loop activo para reprogramar. No hay nada que reprogramar.");
 			// Modo fixed: la extensión posee la cadencia, así que loop_schedule es un
 			// NO-OP informativo — no tocar el timer ni nextFireAt. El modelo solo
 			// decide continuar (no hacer nada) vs detenerse (loop_stop) en un intervalo fijo.
@@ -1136,10 +1146,9 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			if (running.length === 0) {
 				return toolError("No hay ningún loop activo para detener.");
 			}
-			// Resolver el loop que POSEE el turno actual (su flag autopilot está seteado), así
-			// con N loops coexistentes un loop_stop disparado por wake termina el loop CORRECTO en vez
-			// de un running[0] arbitrario. Si no, hacer fallback al único loop corriendo.
-			const loop = running.find((l) => l.autopilot) ?? running[0];
+			// Resolver el loop que POSEE el turno actual; sin dueño explícito, preservar el fallback histórico.
+			const loop = selectToolOwnerLoop(running);
+			if (!loop) return toolError("No hay ningún loop activo para detener.");
 			stopLoop(pi, ctx, loop.loopId, params.reason || "detenido por loop_stop", "stopped");
 			return toolResult(`Loop ${loop.loopId} detenido (razón: ${params.reason}).`, { loopId: loop.loopId });
 		},
