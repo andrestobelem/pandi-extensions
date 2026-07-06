@@ -168,6 +168,11 @@ export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "err
 	compacting: "error",
 };
 
+// Autito ASCII chiquito que encabeza el aviso de activación de la auto-compactación (el
+// contexto se "muda" a un resumen). Solo en la activación; completada/falla quedan en texto plano.
+// Se exporta para que la suite de integración pueda pinear el arte.
+export const COMPACT_CAR = ["_/[]\\_", "-o--o-"].join("\n");
+
 type SummaryAuth = Awaited<ReturnType<ExtensionContext["modelRegistry"]["getApiKeyAndHeaders"]>>;
 
 interface SummaryModelSelection {
@@ -290,7 +295,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 		if (compacting) return;
 		pendingReason = undefined;
 		compacting = true;
-		notify(ctx, `Compactando el contexto automáticamente: ${reason}`, "info");
+		notify(ctx, `${COMPACT_CAR}\nCompactando el contexto automáticamente: ${reason}`, "info");
 		updateStatusBar(ctx);
 
 		ctx.compact({

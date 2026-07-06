@@ -89,7 +89,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 		: liveStdout
 			? parsePiJsonModeOutputLenient(liveStdout)
 			: undefined;
-	const modelOutput = agent.output || (parsedStdout?.ok ? parsedStdout.output : undefined);
+	const modelOutput = agent.output !== undefined ? agent.output : parsedStdout?.ok ? parsedStdout.output : undefined;
 	const stdoutNote = stdoutForParsing
 		? parsedStdout?.ok
 			? `${stdout ? "Raw" : "Live"} stdout is a Pi JSON event stream; parsed assistant output is shown above and raw stdout is omitted.`
@@ -113,11 +113,12 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 						? "❌"
 						: "?";
 	const phase = formatAgentPhase(agent);
-	const outputText = modelOutput
-		? truncate(modelOutput, MAX_TOOL_TEXT)
-		: agent.state === "running"
-			? "Agent is still running. The parsed answer will appear here when it finishes."
-			: "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
+	const outputText =
+		modelOutput !== undefined
+			? truncate(modelOutput, MAX_TOOL_TEXT)
+			: agent.state === "running"
+				? "Agent is still running. The parsed answer will appear here when it finishes."
+				: "No parsed answer was recorded. Check Diagnostics and the artifact path below if you need the raw stdout/stderr.";
 	// Full structured configuration: EVERY resolved runtime knob for this agent, always
 	// rendered (never conditional on the artifact), as a Markdown table so the Enter
 	// detail view is scannable/navigable. "default" means the option was not set and the

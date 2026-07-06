@@ -56,7 +56,7 @@ import {
 import { extractJsonCandidate } from "./json-extract.js";
 import { notify } from "./notify.js";
 import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./pattern-scaffolds.js";
-import { runStreamingAgentProcess } from "./process-spawn.js";
+import { runStreamingAgentProcess, type StreamingProcessResult } from "./process-spawn.js";
 import {
 	appendSystemPromptOption,
 	formatSchemaRetryPrompt,
@@ -101,21 +101,20 @@ export { liveAgentHeaderStatus } from "./agent-view.js";
 
 import { resolveArtifactPath, resolveCwdPath } from "./path-safety.js";
 import type {
-	ActiveWorkflowRun,
 	AgentOptions,
 	AgentPhaseInfo,
 	AskResult,
 	BashResult,
+	DynamicWorkflowAction,
 	PreparedWorkflowRun,
 	RunLimits,
 	SubagentResult,
-	WorkflowFile,
+	WorkflowDefinition,
 	WorkflowLogEntry,
 	WorkflowResultIntegrity,
 	WorkflowRunResult,
 	WorkflowRunState,
 	WorkflowRunStatus,
-	WorkflowScopeInput,
 } from "./types.js";
 
 export type {
@@ -126,11 +125,14 @@ export type {
 	AgentPhaseInfo,
 	AskResult,
 	BashResult,
+	DynamicWorkflowAction,
+	DynamicWorkflowToolParams,
 	JournalCache,
 	JournalRecord,
 	PreparedWorkflowRun,
 	RunLimits,
 	SubagentResult,
+	WorkflowDefinition,
 	WorkflowFile,
 	WorkflowLocation,
 	WorkflowLogEntry,
@@ -181,6 +183,7 @@ import {
 	normalizeSubagentResultForJournal,
 } from "./journal.js";
 import { OccurrenceCounter } from "./occurrence-counter.js";
+import { hasActiveRun } from "./run-registry.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
 
 export { estimatePeakParallelAgents } from "./run-state.js";
@@ -243,25 +246,8 @@ const TOOL_ACTIONS = [
 	"runs",
 	"view",
 	"report",
-] as const;
+] as const satisfies readonly DynamicWorkflowAction[];
 const WORKFLOW_SCOPE_INPUTS = ["auto", "project", "global"] as const;
-
-type ToolAction = (typeof TOOL_ACTIONS)[number];
-
-export interface DynamicWorkflowToolParams {
-	action: ToolAction;
-	name?: string;
-	scope?: WorkflowScopeInput;
-	code?: string;
-	input?: unknown;
-	background?: boolean;
-	force?: boolean;
-	watch?: boolean;
-	concurrency?: number;
-	maxAgents?: number;
-	timeoutMs?: number;
-	agentTimeoutMs?: number;
-}
 
 interface InternalAgentOptions extends AgentOptions {
 	/**
@@ -279,8 +265,6 @@ interface InternalAgentOptions extends AgentOptions {
 interface AgentSpec extends InternalAgentOptions {
 	prompt: string;
 }
-
-export const activeRuns = new Map<string, ActiveWorkflowRun>();
 
 interface BashOptions {
 	cwd?: string;
@@ -570,12 +554,12 @@ export function transformWorkflowCode(code: string): string {
 }
 
 export interface WorkflowPreflightResult {
-	workflow: WorkflowFile;
+	workflow: WorkflowDefinition;
 	checks: string[];
 	codeHash: string;
 }
 
-function workflowPreflightError(workflow: WorkflowFile, cause: string, fix: string): Error {
+function workflowPreflightError(workflow: WorkflowDefinition, cause: string, fix: string): Error {
 	const err = new Error(`Workflow preflight failed for ${workflow.name} (${workflow.path}): ${cause}. Fix: ${fix}`);
 	err.name = "WorkflowPreflightError";
 	return err;
@@ -706,7 +690,7 @@ export function formatWorkflowPreflightSummary(result: WorkflowPreflightResult):
 
 export async function preflightWorkflowLaunch(
 	ctx: ExtensionContext,
-	workflow: WorkflowFile,
+	workflow: WorkflowDefinition,
 	input: unknown,
 ): Promise<WorkflowPreflightResult> {
 	const inputProblem = jsonSerializableProblem(input);
@@ -790,7 +774,7 @@ export async function preflightWorkflowLaunch(
 const callSignal = new AsyncLocalStorage<AbortSignal>();
 
 async function executeWorkflowCode(
-	workflowFile: WorkflowFile,
+	workflowFile: WorkflowDefinition,
 	code: string,
 	api: WorkflowRuntimeApi,
 	input: unknown,
@@ -947,7 +931,7 @@ async function executeWorkflowCode(
 
 async function writeWorkflowRunSnapshots(
 	ctx: ExtensionContext,
-	workflowFile: WorkflowFile,
+	workflowFile: WorkflowDefinition,
 	code: string,
 	runDir: string,
 ): Promise<void> {
@@ -967,7 +951,7 @@ async function writeWorkflowRunSnapshots(
 export async function runWorkflow(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	workflowFile: WorkflowFile,
+	workflowFile: WorkflowDefinition,
 	input: unknown,
 	limits: RunLimits,
 	signal: AbortSignal | undefined,
@@ -1013,21 +997,41 @@ export async function runWorkflow(
 	// subagent's JSON-mode stdout, aggregated into metrics.json/metrics.md at run end.
 	// Cached/resumed calls (served from the journal) are not re-run, so they are excluded.
 	const focusByAgent: AgentFocusMetrics[] = [];
-	const outputIntegrityCounts = { observed: 0, ok: 0, failed: 0, empty: 0, truncated: 0 };
+	const integrity: WorkflowResultIntegrity = {
+		agentResults: 0,
+		failedAgents: 0,
+		emptyOutputAgents: 0,
+		outputTruncatedAgents: 0,
+		stdoutTruncatedAgents: 0,
+		timedOutAgents: 0,
+		schemaFailedAgents: 0,
+	};
 
-	function recordAgentOutputIntegrity(
-		result: Pick<SubagentResult, "ok" | "output" | "outputEmpty" | "outputTruncated">,
-	): void {
-		outputIntegrityCounts.observed += 1;
-		if (result.ok) outputIntegrityCounts.ok += 1;
-		else outputIntegrityCounts.failed += 1;
-		const empty = result.outputEmpty ?? result.output.trim().length === 0;
-		if (empty) outputIntegrityCounts.empty += 1;
-		if (result.outputTruncated === true) outputIntegrityCounts.truncated += 1;
+	function recordAgentIntegrity(result: SubagentResult): void {
+		integrity.agentResults++;
+		if (!result.ok) integrity.failedAgents++;
+		if (result.outputEmpty) integrity.emptyOutputAgents++;
+		if (result.outputTruncated) integrity.outputTruncatedAgents++;
+		if (result.stdoutTruncated) integrity.stdoutTruncatedAgents++;
+		if (result.timedOut) integrity.timedOutAgents++;
+		if (result.schemaOk === false) integrity.schemaFailedAgents++;
 	}
 
 	function resultIntegrity(): WorkflowResultIntegrity | undefined {
-		return outputIntegrityCounts.observed > 0 ? { agentOutputs: { ...outputIntegrityCounts } } : undefined;
+		if (integrity.agentResults === 0) return undefined;
+		return {
+			...integrity,
+			agentOutputs: {
+				observed: integrity.agentResults,
+				ok: integrity.agentResults - integrity.failedAgents,
+				failed: integrity.failedAgents,
+				empty: integrity.emptyOutputAgents,
+				truncated: integrity.outputTruncatedAgents,
+				stdoutTruncated: integrity.stdoutTruncatedAgents,
+				timedOut: integrity.timedOutAgents,
+				schemaFailed: integrity.schemaFailedAgents,
+			},
+		};
 	}
 
 	function trackSubagent<T>(promise: Promise<T>): Promise<T> {
@@ -1050,7 +1054,7 @@ export async function runWorkflow(
 			runDir,
 			state: statusState,
 			background: preparedRun.background,
-			active: statusState === "running" && activeRuns.has(runId),
+			active: statusState === "running" && hasActiveRun(runId),
 			startedAt: new Date(started).toISOString(),
 			updatedAt: new Date(now).toISOString(),
 			...(statusState !== "running" && statusState !== "stale" ? { endedAt: new Date(now).toISOString() } : {}),
@@ -1209,7 +1213,7 @@ export async function runWorkflow(
 					...((hit.outputEmpty ?? hit.output.trim().length === 0) ? { outputEmpty: true } : {}),
 					...(hit.outputTruncated ? { outputTruncated: true } : {}),
 				};
-				recordAgentOutputIntegrity(cachedHit);
+				recordAgentIntegrity(cachedHit);
 				await appendEvent({
 					type: "agent",
 					...cachedHit,
@@ -1420,7 +1424,7 @@ export async function runWorkflow(
 		const schema = effectiveOptions.schema;
 		const schemaRetries = schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
 		const schemaOnInvalid = effectiveOptions.schemaOnInvalid ?? "throw";
-		let result: { code: number; killed: boolean; timedOut: boolean; stdout: string; stderr: string } | undefined;
+		let result: StreamingProcessResult | undefined;
 		const agentTimeoutMs = effectiveOptions.timeoutMs ?? runLimits.agentTimeoutMs;
 		// Semaphore wait before the FIRST spawn. elapsedMs spans queue + all attempts, so
 		// without this the tell-tale "every agent dies at exactly agentTimeoutMs" pattern
@@ -1554,15 +1558,18 @@ export async function runWorkflow(
 		// Bounded head of the authoritative disk stdout for the .md embed and the
 		// journaled result; the complete copy stays in the adjacent .stdout.log.
 		const boundedStdout = truncate(attemptStdout, MAX_JOURNALED_STREAM);
+		const outputEmpty = fullOutput.trim().length === 0;
+		const outputTruncated = fullOutput.length > MAX_AGENT_OUTPUT_IN_RESULT;
+		const stdoutTruncated = result.stdoutTruncated || attemptStdout.length > MAX_JOURNALED_STREAM;
+		const outputChars = fullOutput.length;
+		const stdoutChars = Math.max(result.stdoutChars ?? 0, attemptStdout.length);
 		const timeoutLine = result.timedOut ? `\n- timedOut: true (timeoutMs ${agentTimeoutMs})` : "";
 		const queuedLine = `\n- queuedMs: ${queuedMs ?? 0}`;
+		const integrityLine = `\n- outputEmpty: ${outputEmpty}\n- outputTruncated: ${outputTruncated}\n- stdoutTruncated: ${stdoutTruncated}\n- outputChars: ${outputChars}\n- stdoutChars: ${stdoutChars}`;
 		const focusLine = `\n- focus: ${focus.turns} turns, peakInput ${focus.inputTokensPeak} tok, out ${focus.outputTokensTotal} tok, tools ${focus.toolCalls} (${focus.toolErrors} err), retries ${focus.autoRetries}`;
-		const outputChars = fullOutput.length;
-		const outputEmpty = fullOutput.trim().length === 0;
-		const outputTruncated = outputChars > MAX_AGENT_OUTPUT_IN_RESULT;
 		const artifact = await writeArtifact(
 			artifactName,
-			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${queuedLine}${timeoutLine}${focusLine}\n- outputChars: ${outputChars}\n- outputEmpty: ${outputEmpty}${outputTruncated ? "\n- outputTruncated: true" : ""}${modelLine}${thinkingLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
+			`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${queuedLine}${timeoutLine}${integrityLine}${focusLine}${modelLine}${thinkingLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
 		);
 		const rawSubagent: SubagentResult = {
 			id,
@@ -1578,6 +1585,8 @@ export async function runWorkflow(
 			outputChars,
 			...(outputEmpty ? { outputEmpty: true } : {}),
 			...(outputTruncated ? { outputTruncated: true } : {}),
+			...(stdoutTruncated ? { stdoutTruncated: true } : {}),
+			stdoutChars,
 			stdout: boundedStdout,
 			stderr: result.stderr,
 			artifactPath: artifact.path,
@@ -1606,7 +1615,7 @@ export async function runWorkflow(
 		if (effectiveSignal.aborted && !runSignal.signal.aborted)
 			await log("agent cancelled (race lost)", { key: key.slice(0, 12), occ });
 		throwIfAborted(effectiveSignal);
-		recordAgentOutputIntegrity(subagent);
+		recordAgentIntegrity(subagent);
 		await appendEvent({
 			type: "agent",
 			...subagent,
@@ -2132,7 +2141,7 @@ export async function runWorkflow(
 	const ended = Date.now();
 	const resultState: Exclude<WorkflowRunState, "running" | "stale"> =
 		state === "completed" || state === "cancelled" ? state : "failed";
-	const integrity = resultIntegrity();
+	const resultIntegritySnapshot = resultIntegrity();
 	const result: WorkflowRunResult = {
 		workflow: workflowFile.name,
 		scope: workflowFile.scope,
@@ -2153,7 +2162,7 @@ export async function runWorkflow(
 		logs,
 		...(output === undefined ? {} : { output }),
 		...(error === undefined ? {} : { error }),
-		...(integrity ? { integrity } : {}),
+		...(resultIntegritySnapshot ? { integrity: resultIntegritySnapshot } : {}),
 		...(codeHash ? { codeHash } : {}),
 		...(cachedCalls ? { cachedCalls } : {}),
 		...(resumedFrom ? { resumedFrom } : {}),

@@ -4,8 +4,8 @@
  * handlers in index.ts.
  *
  * Fully-deferred bidirectional cycle: this module calls runWorkflow/prepareWorkflowRun/
- * refreshActiveWorkflowStatus/resolveWorkflow + reads activeRuns from ./index.js only
- * inside bodies, and index.ts imports the lifecycle entry points back (invoked only from
+ * refreshActiveWorkflowStatus/resolveWorkflow from ./index.js only inside bodies and reads
+ * the active-run registry from ./run-registry.js; index.ts imports the lifecycle entry points back (invoked only from
  * handler bodies) and re-exports settleWithinTimeout for the shutdown test. Run records come
  * from the run-store / run-state / run-view siblings; run record types cross as import type.
  * Extracted byte-identically.
@@ -20,16 +20,25 @@ import type {
 	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,
 	RunLimits,
-	WorkflowFile,
+	WorkflowDefinition,
 	WorkflowLogEntry,
 	WorkflowRunRecord,
 	WorkflowRunResult,
 	WorkflowRunState,
 	WorkflowRunStatus,
 } from "./index.js";
-import { activeRuns, preflightWorkflowLaunch, prepareWorkflowRun, runWorkflow } from "./index.js";
+import { preflightWorkflowLaunch, prepareWorkflowRun, runWorkflow } from "./index.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
 import { notify } from "./notify.js";
+import {
+	activeRunIds,
+	clearActiveRuns,
+	getActiveRun,
+	hasActiveRun,
+	listActiveRuns,
+	registerActiveRun,
+	unregisterActiveRun,
+} from "./run-registry.js";
 import {
 	formatParallelAgents,
 	getRunPeakParallelAgents,
@@ -43,7 +52,7 @@ import { listRuns, resolveRun, selectRunByKey } from "./run-view.js";
 import { ensureDir, resolveWorkflow } from "./workflow-resolve.js";
 
 function initialRunStatus(
-	workflow: WorkflowFile,
+	workflow: WorkflowDefinition,
 	prepared: PreparedWorkflowRun,
 	active: boolean,
 	limits?: RunLimits,
@@ -181,7 +190,7 @@ export function shouldLaunchWorkflowInBackground(ctx: ExtensionContext): boolean
 export async function startWorkflowBackground(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	workflow: WorkflowFile,
+	workflow: WorkflowDefinition,
 	input: unknown,
 	limits: RunLimits,
 	preparedRun?: PreparedWorkflowRun,
@@ -200,7 +209,7 @@ export async function startWorkflowBackground(
 		runDir: prepared.runDir,
 		started: prepared.started,
 		cwd: ctx.cwd,
-		workflow,
+		workflowDefinition: workflow,
 		limits,
 		controller,
 	};
@@ -261,11 +270,11 @@ export async function startWorkflowBackground(
 			return result;
 		})
 		.finally(() => {
-			activeRuns.delete(prepared.runId);
+			unregisterActiveRun(prepared.runId);
 			refreshActiveWorkflowStatus(ctx);
 		});
 	active.promise = promise;
-	activeRuns.set(prepared.runId, active);
+	registerActiveRun(active);
 	try {
 		await writeRunStatus(status);
 		refreshActiveWorkflowStatus(ctx);
@@ -279,7 +288,7 @@ export async function startWorkflowBackground(
 }
 
 // Reserva síncrona para reanudaciones en vuelo: resumeWorkflow espera varios
-// lecturas entre su guardia activeRuns y el momento que startWorkflowBackground /
+// lecturas entre su guardia del registro de runs activos y el momento que startWorkflowBackground /
 // runWorkflowWithUi registra la ejecución, así que dos reanudaciones disparadas en el mismo tick
 // pasarían ambas la guardia e impulsarían runWorkflow contra el mismo runDir y
 // journal (agentes duplicados, aplastamiento de artefactos). El Set se reserva en
@@ -297,7 +306,7 @@ export async function resumeWorkflow(
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 ): Promise<WorkflowRunRecord> {
 	const record = await resolveRun(ctx, idOrLatest);
-	if (activeRuns.has(record.runId) || resumingRuns.has(record.runId)) {
+	if (hasActiveRun(record.runId) || resumingRuns.has(record.runId)) {
 		throw new Error(`Workflow run is already active: ${record.runId}. Cancel it first or wait for it to finish.`);
 	}
 	const state = getRunState(record);
@@ -398,16 +407,16 @@ async function resumeReservedRun(
 }
 
 function resolveActiveRun(id: string | undefined): ActiveWorkflowRun | undefined {
-	const runs = [...activeRuns.values()].sort((a, b) => b.started - a.started);
+	const runs = listActiveRuns().sort((a, b) => b.started - a.started);
 	const key = id?.trim();
 	if (!key || key === "latest") return runs[0];
 	return (
-		activeRuns.get(key) ??
+		getActiveRun(key) ??
 		selectRunByKey(
 			runs,
 			key,
 			(run) => run.runId,
-			(run) => run.workflow.name,
+			(run) => run.workflowDefinition.name,
 		)
 	);
 }
@@ -467,7 +476,7 @@ async function resolveRunForDeletion(
 
 export async function deleteWorkflowRun(ctx: ExtensionContext, id: string | undefined): Promise<string> {
 	const { run, runDir } = await resolveRunForDeletion(ctx, id);
-	if (activeRuns.has(run.runId))
+	if (hasActiveRun(run.runId))
 		throw new Error(`Workflow run is active; cancel it before deleting artifacts: ${run.runId}`);
 	await fs.rm(runDir, { recursive: true, force: false });
 	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
@@ -480,20 +489,20 @@ export const DEFAULT_CLEANUP_KEEP = 20;
 // Limpieza masiva: selecciona las ejecuciones terminales seguras para eliminar (nunca en ejecución/activas, reteniendo
 // las `keep` más recientes) y elimina sus directorios de ejecución. `dryRun` devuelve la selección
 // sin eliminar para que los llamadores puedan previsualizar. selectRunsForCleanup (run-state.ts) posee
-// la política pura; esto la envuelve con el conjunto activeRuns en vivo y la IO fs.rm.
+// la política pura; esto la envuelve con el conjunto de runs activos en vivo y la IO fs.rm.
 export async function cleanupWorkflowRuns(
 	ctx: ExtensionContext,
 	opts: { keep?: number; states?: WorkflowRunState[]; dryRun?: boolean } = {},
 ): Promise<{ removed: string[]; kept: number }> {
 	const runs = await listRuns(ctx);
-	const activeIds = new Set(activeRuns.keys());
+	const activeIds = new Set(activeRunIds());
 	const keep = opts.keep ?? DEFAULT_CLEANUP_KEEP;
 	const selected = selectRunsForCleanup(runs, { keep, states: opts.states, activeIds });
 	const kept = runs.length - selected.length;
 	if (opts.dryRun) return { removed: selected.map((run) => run.runId), kept };
 	const removed: string[] = [];
 	for (const run of selected) {
-		if (activeRuns.has(run.runId)) continue;
+		if (hasActiveRun(run.runId)) continue;
 		try {
 			await fs.rm(run.runDir, { recursive: true, force: false });
 			removed.push(run.runId);
@@ -505,7 +514,7 @@ export async function cleanupWorkflowRuns(
 }
 
 export async function interruptActiveWorkflowRunsForReload(): Promise<{ interrupted: string[] }> {
-	const runs = [...activeRuns.values()];
+	const runs = listActiveRuns();
 	if (runs.length === 0) return { interrupted: [] };
 	const store = reloadHandoffStore();
 	for (const run of runs) {
@@ -520,7 +529,7 @@ export async function interruptActiveWorkflowRunsForReload(): Promise<{ interrup
 		run.controller.abort(RELOAD_INTERRUPT_REASON);
 	}
 	await settleWithinTimeout(Promise.allSettled(runs.map((run) => store.get(run.runId)?.settled)), 3000);
-	activeRuns.clear();
+	clearActiveRuns();
 	return { interrupted: runs.map((run) => run.runId) };
 }
 
@@ -611,7 +620,7 @@ export async function settleWithinTimeout<T>(work: Promise<T>, timeoutMs: number
 }
 
 export async function abortActiveWorkflowRuns(reason: string): Promise<void> {
-	const promises = [...activeRuns.values()]
+	const promises = listActiveRuns()
 		.map((run) => {
 			run.controller.abort(reason);
 			return run.promise;
@@ -619,5 +628,5 @@ export async function abortActiveWorkflowRuns(reason: string): Promise<void> {
 		.filter((promise): promise is Promise<WorkflowRunResult> => promise !== undefined);
 	if (promises.length === 0) return;
 	await settleWithinTimeout(Promise.allSettled(promises), 3000);
-	activeRuns.clear();
+	clearActiveRuns();
 }

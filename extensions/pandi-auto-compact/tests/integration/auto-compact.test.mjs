@@ -1086,8 +1086,42 @@ async function barLevelColorCases(url) {
 	check("BAR_LEVEL_COLOR: compacting → error (urgent)", map.compacting === "error", `got ${map.compacting}`);
 }
 
+// El aviso de ACTIVACIÓN de la auto-compactación lleva el dibujo de un autito (arte ASCII
+// multilínea exportado como COMPACT_CAR); el aviso de completada queda limpio de arte.
+async function compactionNoticeShowsCar(url) {
+	const mod = await loadModule(url);
+	const car = mod.COMPACT_CAR;
+	check(
+		"car: COMPACT_CAR exported as multi-line ASCII art",
+		typeof car === "string" && car.includes("\n"),
+		`got ${typeof car}`,
+	);
+
+	const { handlers } = await loadExtension(url);
+	const env = makeEnv();
+	env.state.percent = 60;
+	env.state.reduceTo = 20;
+	await fireAgentEnd(handlers, env.ctx); // cruce genuino -> compactación #1
+
+	const activation = env.notes.find((n) => n.m.includes("Compactando el contexto automáticamente"));
+	check("car: activation notice exists", !!activation, `notes=${JSON.stringify(env.notes)}`);
+	check(
+		"car: activation notice includes the car drawing",
+		!!car && !!activation && activation.m.includes(car),
+		`got ${activation?.m}`,
+	);
+
+	const completion = env.notes.find((n) => n.m.includes("Auto-compactación completada"));
+	check(
+		"car: completion notice stays art-free",
+		!!completion && (!car || !completion.m.includes(car)),
+		`got ${completion?.m}`,
+	);
+}
+
 async function main() {
 	const url = await build();
+	await compactionNoticeShowsCar(url);
 	await stuckAboveThresholdDoesNotLoop(url);
 	await failedCompactionReArmsAndRetriggers(url);
 	await genuineRecrossRetriggers(url);

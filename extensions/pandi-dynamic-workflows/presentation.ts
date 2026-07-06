@@ -5,7 +5,7 @@
  *
  * Sibling a profundidad uno bajo extensions/pandi-dynamic-workflows; bundled en index.ts
  * (jiti at runtime, esbuild en tests). El único coupling de vuelta a index.ts es
- * TYPE-only (WorkflowFile, WorkflowLogEntry) via `import type`, que se borra
+ * TYPE-only (WorkflowDefinition, WorkflowLogEntry) via `import type`, que se borra
  * at build time, así no hay runtime import cycle.
  *
  * NOTE: formatRunSummary y los getRun* run-state helpers permanecen en index.ts
@@ -14,13 +14,13 @@
  */
 
 import { stringify } from "./format.js";
-import type { WorkflowFile, WorkflowLogEntry } from "./index.js";
+import type { WorkflowDefinition, WorkflowLogEntry } from "./index.js";
 
 export function compactInline(value: unknown, maxChars = 160): string {
 	return stringify(value, maxChars).replace(/\s+/g, " ").trim();
 }
 
-export function formatWorkflowList(files: WorkflowFile[]): string {
+export function formatWorkflowList(files: WorkflowDefinition[]): string {
 	if (files.length === 0) {
 		return "No workflows found. Create one with `/workflow new <name>` or dynamic_workflow action=write.";
 	}

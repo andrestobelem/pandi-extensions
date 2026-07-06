@@ -32,7 +32,7 @@ import {
 	summarizeWorkflowGraphChildren,
 	workflowGraphMethodInfo,
 } from "./graph-parse.js";
-import type { WorkflowFile } from "./index.js";
+import type { WorkflowDefinition } from "./index.js";
 import { EXTENSION_ROOT } from "./index.js";
 import { notify } from "./notify.js";
 import type { ProcessResult } from "./process-spawn.js";
@@ -41,7 +41,7 @@ import { padRightVisible } from "./render-utils.js";
 import { WorkflowGraphComponent } from "./workflow-graph-component.js";
 import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";
 
-function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): WorkflowGraphModel {
+function buildWorkflowGraphModel(workflow: WorkflowDefinition, code: string): WorkflowGraphModel {
 	// Detect BOTH authoring styles the runtime supports: the ctx-legacy form (`ctx.agents(...)`) and
 	// the globals form (bare `agents(...)`, no ctx.*). `(?<![\w.])` rejects a method glued to another
 	// identifier or a property access on a different object (`fs.readFile`, `myagents(`); the optional
@@ -132,7 +132,7 @@ function buildWorkflowGraphModel(workflow: WorkflowFile, code: string): Workflow
 
 export async function buildWorkflowGraphModelWithSubworkflows(
 	ctx: ExtensionContext,
-	workflow: WorkflowFile,
+	workflow: WorkflowDefinition,
 	code: string,
 	depth = 0,
 	seen = new Set<string>(),
@@ -596,7 +596,7 @@ export function renderWorkflowGraphDocumentLines(model: WorkflowGraphModel, widt
 
 export async function makeWorkflowGraphForContext(
 	ctx: ExtensionContext,
-	workflow: WorkflowFile,
+	workflow: WorkflowDefinition,
 	code: string,
 ): Promise<string> {
 	return renderWorkflowGraphDocumentLines(
@@ -671,7 +671,7 @@ export interface WorkflowGraphCall extends WorkflowGraphChildCall {
 }
 
 export interface WorkflowGraphModel {
-	workflow: WorkflowFile;
+	workflow: WorkflowDefinition;
 	steps: WorkflowGraphStep[];
 	notes: string[];
 }
@@ -683,7 +683,11 @@ export interface WorkflowGraphRenderTheme {
 	warning(text: string): string;
 }
 
-export async function showWorkflowGraph(ctx: ExtensionContext, workflow: WorkflowFile, code: string): Promise<void> {
+export async function showWorkflowGraph(
+	ctx: ExtensionContext,
+	workflow: WorkflowDefinition,
+	code: string,
+): Promise<void> {
 	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code);
 	if (ctx.mode === "print") {
 		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));

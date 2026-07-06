@@ -1,21 +1,55 @@
 /**
  * Tipos de contrato compartidos para pandi-dynamic-workflows — las formas de datos que fluyen entre el engine
- * (index.ts) y sus módulos sibling: archivos/ubicaciones/límites de workflow, opciones + resultados de agentes,
+ * (index.ts) y sus módulos sibling: definición resuelta de workflow, ubicaciones/límites, opciones + resultados de agentes,
  * resultados de bash, entradas de log, la unión de resultado/status/registro de run, registros de journal, runs
  * prepared/active y el modelo agent-monitor. Hoja pura solo de tipos (sin imports, sin runtime), así cualquier módulo
  * puede depender del contrato sin importar el engine. index.ts reexporta esto por back-compat.
  *
- * Extraído byte-idéntico desde index.ts.
+ * Nació como extracción byte-idéntica desde index.ts; ahora es la espina de lenguaje ubicuo del módulo.
  */
 export type WorkflowScope = "project" | "global";
 export type WorkflowScopeInput = WorkflowScope | "auto";
 
-export interface WorkflowFile {
+export type DynamicWorkflowAction =
+	| "list"
+	| "scaffold"
+	| "read"
+	| "check"
+	| "write"
+	| "run"
+	| "start"
+	| "resume"
+	| "cancel"
+	| "delete"
+	| "graph"
+	| "runs"
+	| "view"
+	| "report";
+
+export interface DynamicWorkflowToolParams {
+	action: DynamicWorkflowAction;
+	name?: string;
+	scope?: WorkflowScopeInput;
+	code?: string;
+	input?: unknown;
+	background?: boolean;
+	force?: boolean;
+	watch?: boolean;
+	concurrency?: number;
+	maxAgents?: number;
+	timeoutMs?: number;
+	agentTimeoutMs?: number;
+}
+
+export interface WorkflowDefinition {
 	name: string;
 	scope: WorkflowScope;
 	path: string;
 	relativePath: string;
 }
+
+/** @deprecated Use WorkflowDefinition for the resolved executable workflow definition. */
+export type WorkflowFile = WorkflowDefinition;
 
 export interface WorkflowLocation {
 	scope: WorkflowScope;
@@ -96,6 +130,9 @@ export interface SubagentResult {
 	outputEmpty?: boolean;
 	/** True cuando `output` es una versión truncada del output completo. */
 	outputTruncated?: boolean;
+	/** True when journaled stdout is bounded; the adjacent .stdout.log remains authoritative. */
+	stdoutTruncated?: boolean;
+	stdoutChars?: number;
 	stdout: string;
 	stderr: string;
 	artifactPath: string;
@@ -146,15 +183,29 @@ export interface WorkflowLogEntry {
 	details?: unknown;
 }
 
-export interface WorkflowResultIntegrity {
-	agentOutputs: {
+export interface WorkflowIntegritySummary {
+	agentResults: number;
+	failedAgents: number;
+	emptyOutputAgents: number;
+	outputTruncatedAgents: number;
+	stdoutTruncatedAgents: number;
+	timedOutAgents: number;
+	schemaFailedAgents: number;
+	/** Back-compat for result/status files written by the older output-only summary. */
+	agentOutputs?: {
 		observed: number;
 		ok: number;
 		failed: number;
 		empty: number;
 		truncated: number;
+		stdoutTruncated?: number;
+		timedOut?: number;
+		schemaFailed?: number;
 	};
 }
+
+/** @deprecated Use WorkflowIntegritySummary. */
+export type WorkflowResultIntegrity = WorkflowIntegritySummary;
 
 export type WorkflowRunState = "running" | "completed" | "failed" | "cancelled" | "stale";
 
@@ -245,7 +296,7 @@ export interface ActiveWorkflowRun {
 	runDir: string;
 	started: number;
 	cwd: string;
-	workflow: WorkflowFile;
+	workflowDefinition: WorkflowDefinition;
 	limits: RunLimits;
 	controller: AbortController;
 	promise?: Promise<WorkflowRunResult>;
@@ -288,6 +339,8 @@ export interface AgentMonitorModel {
 	outputChars?: number;
 	outputEmpty?: boolean;
 	outputTruncated?: boolean;
+	stdoutTruncated?: boolean;
+	stdoutChars?: number;
 	schemaOk?: boolean;
 	metrics?: AgentFocusMetricsSummary;
 	promptAvailable: boolean;

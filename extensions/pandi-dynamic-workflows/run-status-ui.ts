@@ -4,8 +4,8 @@
  * por el engine y los command handlers (showWorkflowGraph queda en index.ts con los tipos de graph
  * que renderiza).
  *
- * Ciclo diferido: refreshActiveWorkflowStatus lee activeRuns desde ./index.js dentro de su
- * cuerpo y el engine llama de vuelta a los helpers setWorkflow*Status; los siblings importan desde acá
+ * Ciclo diferido: refreshActiveWorkflowStatus usa run-registry.ts dentro de su cuerpo y el engine
+ * llama de vuelta a los helpers setWorkflow*Status; los siblings importan desde acá
  * los helpers de resumen/status de run. Es dueño de sus dos consts de status-key del host. Los tipos Record
  * cruzan como import type. Extraído byte-idéntico.
  */
@@ -14,10 +14,10 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { MAX_TOOL_TEXT, stringify } from "./format.js";
 import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
-import { activeRuns } from "./index.js";
 import { notify } from "./notify.js";
 import { shortWorkflowName, workflowDashboardHint, workflowProgress, workflowProgressLabel } from "./presentation.js";
 import { renderSafeInline } from "./render-utils.js";
+import { activeRunCount, hasActiveRun } from "./run-registry.js";
 import { formatParallelAgents, formatParallelAgentsCompact, getRunState, getRunStatusLabel } from "./run-state.js";
 
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
@@ -31,6 +31,11 @@ export function formatRunSummary(result: WorkflowRunResult): string {
 		`State: ${status}${result.background ? " (background)" : ""}`,
 		`Agents: ${result.agentCount}`,
 		`Parallel agents: ${formatParallelAgents(result)}`,
+		...(result.integrity
+			? [
+					`Integrity: failed:${result.integrity.failedAgents} empty-output:${result.integrity.emptyOutputAgents} output:truncated:${result.integrity.outputTruncatedAgents} stdout:truncated:${result.integrity.stdoutTruncatedAgents} timedOut:${result.integrity.timedOutAgents} schemaFailed:${result.integrity.schemaFailedAgents}`,
+				]
+			: []),
 		`Elapsed: ${Math.round(result.elapsedMs / 1000)}s`,
 		`Artifacts: ${result.runDir}`,
 	];
@@ -58,7 +63,7 @@ export async function showText(ctx: ExtensionContext, title: string, content: st
 }
 
 export function isActiveRunRecord(run: WorkflowRunRecord): boolean {
-	return getRunState(run) === "running" && activeRuns.has(run.runId);
+	return getRunState(run) === "running" && hasActiveRun(run.runId);
 }
 
 export function canCancelRun(run: WorkflowRunRecord): boolean {
@@ -112,7 +117,7 @@ export function setWorkflowErrorStatus(ctx: ExtensionContext, workflowName: stri
 
 export function refreshActiveWorkflowStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
-	const count = activeRuns.size;
+	const count = activeRunCount();
 	if (count === 0) {
 		setWorkflowIdleStatus(ctx);
 		return;

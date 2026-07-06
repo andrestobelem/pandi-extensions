@@ -20,7 +20,7 @@ import {
 	type WorkflowMonitorModel,
 } from "./dashboard-collectors.js";
 import { formatAgentPhase, getAgentElapsedMs } from "./event-parser.js";
-import type { AgentMonitorModel, WorkflowFile, WorkflowRunRecord } from "./index.js";
+import type { AgentMonitorModel, WorkflowDefinition, WorkflowRunRecord } from "./index.js";
 import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
 import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
@@ -113,7 +113,7 @@ export class WorkflowDashboard {
 	}
 
 	constructor(
-		private readonly workflows: WorkflowFile[],
+		private readonly workflows: WorkflowDefinition[],
 		private runs: WorkflowRunRecord[],
 		private activity: WorkflowActivityEntry[],
 		private piSessions: PiSessionModel[],
@@ -867,7 +867,13 @@ export class WorkflowDashboard {
 				`keys: ${agent.keys?.length ? agent.keys.join(", ") : agent.isolatedEnv ? "none selected" : "default inherited environment"}${agent.missingKeys?.length ? warning(` • missing: ${agent.missingKeys.join(", ")}`) : ""}`,
 			),
 		);
-		if (agent.promptPreview || agent.output) {
+		if (
+			agent.promptPreview ||
+			agent.output !== undefined ||
+			agent.outputEmpty ||
+			agent.outputTruncated ||
+			agent.stdoutTruncated
+		) {
 			lines.push(line(""));
 			lines.push(line(dim("i/o")));
 		}
@@ -875,8 +881,25 @@ export class WorkflowDashboard {
 			lines.push(
 				line(`prompt preview: ${renderSafeInline(compactInline(agent.promptPreview, options.compactWidth))}`),
 			);
-		if (agent.output)
+		if (agent.output !== undefined)
 			lines.push(line(`output: ${renderSafeInline(compactInline(agent.output, options.compactWidth))}`));
+		if (agent.outputEmpty) lines.push(line(warning("integrity: empty-output")));
+		if (agent.outputTruncated)
+			lines.push(
+				line(
+					warning(
+						`integrity: output:truncated${agent.outputChars === undefined ? "" : ` (${agent.outputChars} chars)`}`,
+					),
+				),
+			);
+		if (agent.stdoutTruncated)
+			lines.push(
+				line(
+					warning(
+						`integrity: stdout:truncated${agent.stdoutChars === undefined ? "" : ` (${agent.stdoutChars} chars)`}`,
+					),
+				),
+			);
 	}
 
 	// Common per-row chip suffix (`prompt schema tools skills extensions keys`)
@@ -895,6 +918,9 @@ export class WorkflowDashboard {
 		// los chips que llevan estado (prompt✓ / schema:bad / missing) sigan siendo los que atraen la vista.
 		const chips: string[] = [agent.promptAvailable ? success("prompt✓") : warning("prompt?")];
 		if (agent.schemaOk !== undefined) chips.push(agent.schemaOk ? muted("schema:ok") : error("schema:bad"));
+		if (agent.outputEmpty) chips.push(error("empty-output"));
+		if (agent.outputTruncated) chips.push(warning("output:truncated"));
+		if (agent.stdoutTruncated) chips.push(warning("stdout:truncated"));
 		// chips de modelo/esfuerzo: id de modelo corto (último segmento de ruta) para mantener la fila compacta;
 		// omitido completamente cuando se desconoce (ejecuciones registradas antes de que existieran estos campos).
 		if (agent.model) chips.push(dim(`model:${renderSafeInline(agent.model.split("/").pop() ?? agent.model)}`));

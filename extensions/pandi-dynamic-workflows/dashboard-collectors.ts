@@ -8,7 +8,7 @@ import { existsSync } from "node:fs";
 import { readRunEvents, readRunLogEvents } from "./event-parser.js";
 import type {
 	AgentMonitorModel,
-	WorkflowFile,
+	WorkflowDefinition,
 	WorkflowLogEntry,
 	WorkflowRunRecord,
 	WorkflowRunState,
@@ -41,7 +41,7 @@ export interface WorkflowDashboardResult {
 		| "cleanup"
 		| "newPattern"
 		| "switchSession";
-	workflow?: WorkflowFile;
+	workflow?: WorkflowDefinition;
 	run?: WorkflowRunRecord;
 	agent?: AgentMonitorModel;
 	pattern?: WorkflowPattern;

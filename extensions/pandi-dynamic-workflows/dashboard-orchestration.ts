@@ -25,13 +25,13 @@ import { stringify } from "./format.js";
 import type {
 	PreparedWorkflowRun,
 	RunLimits,
-	WorkflowFile,
+	WorkflowDefinition,
 	WorkflowLogEntry,
 	WorkflowRunRecord,
 	WorkflowRunResult,
 	WorkflowRunStatus,
 } from "./index.js";
-import { activeRuns, runWorkflow } from "./index.js";
+import { runWorkflow } from "./index.js";
 import { notify } from "./notify.js";
 import type { WorkflowPattern } from "./pattern-scaffolds.js";
 import { loadWorkflowPatternCode } from "./pattern-scaffolds.js";
@@ -46,6 +46,7 @@ import {
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "./run-lifecycle.js";
+import { activeRunCount, listActiveRuns } from "./run-registry.js";
 import { getRunStatusLabel } from "./run-state.js";
 import {
 	canCancelRun,
@@ -65,7 +66,7 @@ import { ensureDir, listWorkflows, resolveWorkflow, resolveWorkflowForRun } from
 export async function runWorkflowWithUi(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	workflow: WorkflowFile,
+	workflow: WorkflowDefinition,
 	input: unknown,
 	limits: RunLimits,
 	signal: AbortSignal | undefined,
@@ -106,7 +107,7 @@ export async function runWorkflowWithUi(
 async function runWorkflowFromUi(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	workflow: WorkflowFile,
+	workflow: WorkflowDefinition,
 	input: unknown,
 ): Promise<WorkflowRunRecord> {
 	const limits = buildLimits(limitParamsFromInput(input));
@@ -150,7 +151,7 @@ export type DashboardOpener = (submitCommand?: DashboardCommandSubmitter) => Pro
 async function createWorkflowDraftFromPattern(
 	ctx: ExtensionContext,
 	pattern: WorkflowPattern,
-): Promise<WorkflowFile | undefined> {
+): Promise<WorkflowDefinition | undefined> {
 	const nameText = await ctx.ui.editor("Workflow name", pattern.defaultName);
 	const name = nameText?.trim();
 	if (!name) return undefined;
@@ -234,8 +235,8 @@ export async function switchToPiSession(
 	}
 	const label = session.sessionName || session.sessionId || path.basename(sessionFile);
 	const activeWarning =
-		activeRuns.size > 0
-			? `\n\nWarning: ${activeRuns.size} active workflow run(s) in this Pi will be cancelled by the session switch.`
+		activeRunCount() > 0
+			? `\n\nWarning: ${activeRunCount()} active workflow run(s) in this Pi will be cancelled by the session switch.`
 			: "";
 	const pidLine =
 		session.pid > 0
@@ -442,8 +443,10 @@ async function handleDashboardChoice(
 		return "reopen";
 	}
 	if (choice.type === "deleteWorkflow" && choice.workflow) {
-		const activeForWorkflow = [...activeRuns.values()].filter(
-			(run) => run.workflow.path === choice.workflow?.path || run.workflow.name === choice.workflow?.name,
+		const activeForWorkflow = listActiveRuns().filter(
+			(run) =>
+				run.workflowDefinition.path === choice.workflow?.path ||
+				run.workflowDefinition.name === choice.workflow?.name,
 		);
 		const ok = await ctx.ui.confirm(
 			"Delete workflow?",

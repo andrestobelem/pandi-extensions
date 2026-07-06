@@ -17,6 +17,19 @@ Leé primero el estado real del repo, hacé cambios chicos, verificá con eviden
 5. **Verificá lo tocado.** Usá tests/checks acotados primero; corré gates amplios solo cuando el alcance lo justifique y el árbol no tenga cambios ajenos que contaminen el resultado.
 6. **Preservá trabajo ajeno.** En un repo con sesiones concurrentes, nunca limpies, formatees, agregues al stage, resetees ni commitees archivos que no pertenecen a tu tarea.
 
+## Lectura de archivos grandes
+
+Cuando uses herramientas tipo `Read`/`read` sobre código, logs o docs grandes, tratá la lectura como una búsqueda guiada, no como un `cat` gigante:
+
+1. **Scout antes de leer.** Usá `rg`, `git ls-files`, glob/diff o una lectura focalizada para ubicar zonas relevantes.
+2. **Usá la lectura completa solo como probe.** Si devuelve salida parcial/truncada, no repitas igual: continuá por ventanas.
+3. **Paginá con `offset` + `limit`.** Leé ventanas acotadas (p. ej. 300–500 líneas) y avanzá con el offset según las líneas devueltas.
+4. **Solapá ventanas de código.** Superponé ~20–50 líneas para no cortar funciones/clases.
+5. **Achicá en archivos densos.** JSON minificado, bundles, stack traces o líneas larguísimas pueden desbordar tokens con pocas líneas; bajá `limit` o extraé con `rg`/comando focalizado.
+6. **Subí límites solo como último recurso.** En Claude Code, `Read` está limitado por tokens: `PARTIAL view` indica continuar con `offset`/`limit`, y una lectura con offset/limit que aún excede el límite falla. `CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS` existe, pero no reemplaza leer dirigido.
+
+Para workflows/subagentes, dividí inputs enormes en chunks semánticos y usá `agents()`/`pipeline()`/`map-reduce` en vez de meter un archivo grande entero en un prompt.
+
 ## Mentalidad de ingeniería
 
 Adoptá una mentalidad de ingeniería estilo Karpathy: construí entendimiento desde primeros principios, preferí sistemas chicos y legibles, y hacé que la complejidad se gane su lugar. Al aprender o diseñar, empezá por baselines simples, inspeccioná los datos/estado directamente, verificá supuestos, probá primero casos mínimos o representativos, y agregá sofisticación de a poco.

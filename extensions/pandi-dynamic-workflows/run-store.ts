@@ -5,10 +5,10 @@
  * descubre directorios de run: writeJsonFile atómico (temp + rename), writeRunStatus,
  * readRunResult / readRunStatus / readRunRecord y getRunDirs (dirs de run ordenados por mtime
  * entre roots). Movido textualmente desde index.ts (preserva comportamiento), incluida
- * la derivación live de staleness de readRunStatus contra activeRuns.
+ * la derivación live de staleness de readRunStatus contra el registro de runs activos.
  *
- * Las deps runtime desde index.ts (getRunRoots, el Map activeRuns) y safeJson desde
- * ./format.js se usan SOLO dentro de cuerpos de función, así que el ciclo ESM run-store.ts <-> index.ts
+ * Las deps runtime desde index.ts (getRunRoots) y run-registry.ts, más safeJson desde
+ * ./format.js, se usan SOLO dentro de cuerpos de función, así que el ciclo ESM run-store.ts <-> index.ts
  * queda totalmente diferido (sin uso cruzado top-level); los tipos vienen vía `import type`
  * (borrados). Sibling de profundidad uno para que se shipee bajo el glob `files`.
  */
@@ -21,7 +21,7 @@ import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { safeJson } from "./format.js";
 import type { WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
-import { activeRuns } from "./index.js";
+import { hasActiveRun } from "./run-registry.js";
 import { getRunRoots } from "./workflow-resolve.js";
 
 export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
@@ -78,7 +78,7 @@ export async function readRunResult(runDir: string): Promise<WorkflowRunResult |
 export async function readRunStatus(runDir: string): Promise<WorkflowRunStatus | undefined> {
 	try {
 		const status = JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")) as WorkflowRunStatus;
-		if (status.state === "running" && !activeRuns.has(status.runId)) {
+		if (status.state === "running" && !hasActiveRun(status.runId)) {
 			const now = Date.now();
 			const started = new Date(status.startedAt).getTime();
 			return {
@@ -89,7 +89,7 @@ export async function readRunStatus(runDir: string): Promise<WorkflowRunStatus |
 				elapsedMs: Number.isFinite(started) ? now - started : status.elapsedMs,
 			};
 		}
-		return { ...status, active: status.state === "running" && activeRuns.has(status.runId) };
+		return { ...status, active: status.state === "running" && hasActiveRun(status.runId) };
 	} catch {
 		return undefined;
 	}

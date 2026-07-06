@@ -73,6 +73,18 @@ export async function runProcess(
 	});
 }
 
+export interface StreamingProcessResult {
+	code: number;
+	killed: boolean;
+	timedOut: boolean;
+	stdout: string;
+	stderr: string;
+	stdoutChars: number;
+	stderrChars: number;
+	stdoutTruncated: boolean;
+	stderrTruncated: boolean;
+}
+
 export async function runStreamingAgentProcess(
 	command: string,
 	args: string[],
@@ -86,17 +98,19 @@ export async function runStreamingAgentProcess(
 		onStdout?: (chunk: Buffer) => void | Promise<void>;
 		onStderr?: (chunk: Buffer) => void | Promise<void>;
 	},
-): Promise<{ code: number; killed: boolean; timedOut: boolean; stdout: string; stderr: string }> {
+): Promise<StreamingProcessResult> {
 	return await new Promise((resolve, reject) => {
 		let stdout = "";
 		let stderr = "";
+		let stdoutChars = 0;
+		let stderrChars = 0;
 		let killed = false;
 		// True solo cuando el TIMEOUT mató al child (no un abort/pérdida de race), para que
 		// los callers puedan nombrar el presupuesto en artifacts en vez de un exit code mudo.
 		let timedOut = false;
 		let finished = false;
-		const append = (current: string, chunk: Buffer, options: { preserveLineBoundary?: boolean } = {}) => {
-			const next = current + chunk.toString("utf8");
+		const append = (current: string, chunkText: string, options: { preserveLineBoundary?: boolean } = {}) => {
+			const next = current + chunkText;
 			if (next.length <= MAX_JOURNALED_STREAM) return next;
 			const tail = next.slice(-MAX_JOURNALED_STREAM);
 			if (!options.preserveLineBoundary) return tail;
@@ -131,14 +145,29 @@ export async function runStreamingAgentProcess(
 			if (killTimer) clearTimeout(killTimer);
 			options.signal.removeEventListener("abort", onAbort);
 			if (err) reject(err);
-			else resolve({ code, killed, timedOut, stdout, stderr });
+			else
+				resolve({
+					code,
+					killed,
+					timedOut,
+					stdout,
+					stderr,
+					stdoutChars,
+					stderrChars,
+					stdoutTruncated: stdoutChars > stdout.length,
+					stderrTruncated: stderrChars > stderr.length,
+				});
 		};
 		child.stdout?.on("data", (chunk: Buffer) => {
-			stdout = append(stdout, chunk, { preserveLineBoundary: true });
+			const chunkText = chunk.toString("utf8");
+			stdoutChars += chunkText.length;
+			stdout = append(stdout, chunkText, { preserveLineBoundary: true });
 			void options.onStdout?.(chunk);
 		});
 		child.stderr?.on("data", (chunk: Buffer) => {
-			stderr = append(stderr, chunk);
+			const chunkText = chunk.toString("utf8");
+			stderrChars += chunkText.length;
+			stderr = append(stderr, chunkText);
 			void options.onStderr?.(chunk);
 		});
 		child.on("error", (err) => finish(err instanceof Error ? err : new Error(String(err))));

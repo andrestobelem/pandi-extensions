@@ -187,8 +187,8 @@ export function mergeAgentMonitor(
 		...(existing?.output !== undefined || patch.output !== undefined
 			? { output: patch.output ?? existing?.output }
 			: {}),
-		...(existing?.outputChars !== undefined || patch.outputChars !== undefined
-			? { outputChars: patch.outputChars ?? existing?.outputChars }
+		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined
+			? { schemaOk: patch.schemaOk ?? existing?.schemaOk }
 			: {}),
 		...(existing?.outputEmpty !== undefined || patch.outputEmpty !== undefined
 			? { outputEmpty: patch.outputEmpty ?? existing?.outputEmpty }
@@ -196,8 +196,14 @@ export function mergeAgentMonitor(
 		...(existing?.outputTruncated !== undefined || patch.outputTruncated !== undefined
 			? { outputTruncated: patch.outputTruncated ?? existing?.outputTruncated }
 			: {}),
-		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined
-			? { schemaOk: patch.schemaOk ?? existing?.schemaOk }
+		...(existing?.stdoutTruncated !== undefined || patch.stdoutTruncated !== undefined
+			? { stdoutTruncated: patch.stdoutTruncated ?? existing?.stdoutTruncated }
+			: {}),
+		...(existing?.outputChars !== undefined || patch.outputChars !== undefined
+			? { outputChars: patch.outputChars ?? existing?.outputChars }
+			: {}),
+		...(existing?.stdoutChars !== undefined || patch.stdoutChars !== undefined
+			? { stdoutChars: patch.stdoutChars ?? existing?.stdoutChars }
 			: {}),
 		...(existing?.metrics || patch.metrics ? { metrics: patch.metrics ?? existing?.metrics } : {}),
 		promptAvailable: existing?.promptAvailable === true || patch.promptAvailable === true || !!artifactPath,
@@ -269,6 +275,21 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							...(booleanValue(details?.schemaOk) === undefined
 								? {}
 								: { schemaOk: booleanValue(details?.schemaOk) }),
+							...(booleanValue(details?.outputEmpty) === undefined
+								? {}
+								: { outputEmpty: booleanValue(details?.outputEmpty) }),
+							...(booleanValue(details?.outputTruncated) === undefined
+								? {}
+								: { outputTruncated: booleanValue(details?.outputTruncated) }),
+							...(booleanValue(details?.stdoutTruncated) === undefined
+								? {}
+								: { stdoutTruncated: booleanValue(details?.stdoutTruncated) }),
+							...(numberValue(details?.outputChars) === undefined
+								? {}
+								: { outputChars: numberValue(details?.outputChars) }),
+							...(numberValue(details?.stdoutChars) === undefined
+								? {}
+								: { stdoutChars: numberValue(details?.stdoutChars) }),
 						});
 					}
 				} else if (event.type === "phase") {
@@ -329,17 +350,23 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							...(booleanValue(event.promptTruncated) === undefined
 								? {}
 								: { promptTruncated: booleanValue(event.promptTruncated) }),
-							...(stringValue(event.output) === undefined ? {} : { output: stringValue(event.output) }),
-							...(numberValue(event.outputChars) === undefined
-								? {}
-								: { outputChars: numberValue(event.outputChars) }),
+							...(stringValue(event.output) !== undefined ? { output: stringValue(event.output) } : {}),
+							...(booleanValue(event.schemaOk) === undefined ? {} : { schemaOk: booleanValue(event.schemaOk) }),
 							...(booleanValue(event.outputEmpty) === undefined
 								? {}
 								: { outputEmpty: booleanValue(event.outputEmpty) }),
 							...(booleanValue(event.outputTruncated) === undefined
 								? {}
 								: { outputTruncated: booleanValue(event.outputTruncated) }),
-							...(booleanValue(event.schemaOk) === undefined ? {} : { schemaOk: booleanValue(event.schemaOk) }),
+							...(booleanValue(event.stdoutTruncated) === undefined
+								? {}
+								: { stdoutTruncated: booleanValue(event.stdoutTruncated) }),
+							...(numberValue(event.outputChars) === undefined
+								? {}
+								: { outputChars: numberValue(event.outputChars) }),
+							...(numberValue(event.stdoutChars) === undefined
+								? {}
+								: { stdoutChars: numberValue(event.stdoutChars) }),
 							...(metrics ? { metrics } : {}),
 							promptAvailable: booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),
 						});

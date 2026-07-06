@@ -13,7 +13,13 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { WorkflowFile, WorkflowLocation, WorkflowRunRecord, WorkflowScope, WorkflowScopeInput } from "./index.js";
+import type {
+	WorkflowDefinition,
+	WorkflowLocation,
+	WorkflowRunRecord,
+	WorkflowScope,
+	WorkflowScopeInput,
+} from "./index.js";
 import { WORKFLOW_DIR, WORKFLOW_DRAFT_DIR, WORKFLOW_GRAPH_DIR, WORKFLOW_RUN_DIR } from "./index.js";
 import { resolveInsideRoot } from "./path-safety.js";
 
@@ -130,8 +136,8 @@ async function walkWorkflowFiles(
 	return out.sort();
 }
 
-export async function listWorkflows(ctx: ExtensionContext): Promise<WorkflowFile[]> {
-	const files: WorkflowFile[] = [];
+export async function listWorkflows(ctx: ExtensionContext): Promise<WorkflowDefinition[]> {
+	const files: WorkflowDefinition[] = [];
 	for (const location of getLocations(ctx)) {
 		if (!location.trusted) continue;
 		for (const file of await walkWorkflowFiles(location.root, {
@@ -154,7 +160,7 @@ export async function resolveWorkflow(
 	name: string,
 	scope: WorkflowScopeInput = "auto",
 	forWrite: false | "draft" | "workflow" = false,
-): Promise<WorkflowFile> {
+): Promise<WorkflowDefinition> {
 	const relativePath = normalizeWorkflowName(name);
 	const locations = getLocations(ctx);
 
@@ -200,7 +206,7 @@ export async function resolveWorkflow(
 export async function resolveWorkflowForRun(
 	ctx: ExtensionContext,
 	run: WorkflowRunRecord,
-): Promise<WorkflowFile | undefined> {
+): Promise<WorkflowDefinition | undefined> {
 	try {
 		return await resolveWorkflow(ctx, run.workflow, run.scope);
 	} catch {

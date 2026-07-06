@@ -49,6 +49,8 @@ export interface RunReportAgent {
 	outputChars?: number;
 	outputEmpty?: boolean;
 	outputTruncated?: boolean;
+	stdoutTruncated?: boolean;
+	stdoutChars?: number;
 	/** Datos estructurados reserializados (nunca bytes crudos). */
 	data?: RunReportText;
 	stderrTail?: { text: string; href?: string };
@@ -104,6 +106,15 @@ export interface RunReportModel {
 	logs: { time: string; message: string; details?: string }[];
 	phases: { label: string; time: string; source?: "event" | "log" }[];
 	agents: RunReportAgent[];
+	integrity?: {
+		agentResults?: number;
+		failedAgents?: number;
+		emptyOutputAgents?: number;
+		outputTruncatedAgents?: number;
+		stdoutTruncatedAgents?: number;
+		timedOutAgents?: number;
+		schemaFailedAgents?: number;
+	};
 	metricsTotals?: {
 		measuredAgents?: number;
 		okAgents?: number;
@@ -466,10 +477,11 @@ function agentRowMeta(agent: RunReportAgent): string[] {
 	const chips = [
 		agent.promptAvailable ? "prompt✓" : "prompt?",
 		agent.schemaOk !== undefined ? `schema:${agent.schemaOk ? "ok" : "bad"}` : "",
+		agent.outputEmpty ? "empty-output" : "",
+		agent.outputTruncated ? "output:truncated" : "",
+		agent.stdoutTruncated ? "stdout:truncated" : "",
 		agent.model ? `model:${shortModel(agent.model)}` : "",
 		agent.thinking ? `effort:${agent.thinking}` : "",
-		agent.outputEmpty ? "output:empty" : "",
-		agent.outputTruncated ? "output:truncated" : "",
 		`tools:${toolCount ?? "default"}`,
 		`skills:${skillCount ?? (agent.includeSkills === false ? "off" : "default")}`,
 		`ext:${extensionCount ?? (agent.includeExtensions ? "default" : "off")}`,
@@ -481,8 +493,8 @@ function agentRowMeta(agent: RunReportAgent): string[] {
 
 function miniChipClass(label: string): string {
 	if (label === "prompt✓" || label === "schema:ok") return "ok";
-	if (label === "prompt?" || label.startsWith("missing:") || label === "output:truncated") return "warn";
-	if (label === "schema:bad" || label === "output:empty") return "fail";
+	if (label === "prompt?" || label.startsWith("missing:") || label.includes("truncated")) return "warn";
+	if (label === "schema:bad" || label === "empty-output") return "fail";
 	return "";
 }
 
@@ -550,7 +562,20 @@ function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): str
 	const io = [
 		agent.promptPreview ? detailLine("prompt preview", escapeHtml(compactInlineText(agent.promptPreview, 220))) : "",
 		outputState ? detailLine("output state", escapeHtml(outputState)) : "",
-		agent.output ? detailLine("output", escapeHtml(compactInlineText(agent.output.text, 220))) : "",
+		agent.output !== undefined ? detailLine("output", escapeHtml(compactInlineText(agent.output.text, 220))) : "",
+		agent.outputEmpty ? detailLine("integrity", "empty-output") : "",
+		agent.outputTruncated
+			? detailLine(
+					"integrity",
+					`output:truncated${agent.outputChars === undefined ? "" : ` (${escapeHtml(String(agent.outputChars))} chars)`}`,
+				)
+			: "",
+		agent.stdoutTruncated
+			? detailLine(
+					"integrity",
+					`stdout:truncated${agent.stdoutChars === undefined ? "" : ` (${escapeHtml(String(agent.stdoutChars))} chars)`}`,
+				)
+			: "",
 	]
 		.filter(Boolean)
 		.join("");
@@ -678,6 +703,9 @@ function renderAgent(agent: RunReportAgent): string {
 	if (m?.costTotal !== undefined) meta.push(`cost ${m.costTotal}`);
 	if (m?.totalTokens !== undefined) meta.push(`tokens ${m.totalTokens}`);
 	if (m?.toolCalls !== undefined) meta.push(`tools ${m.toolCalls}${m.toolErrors ? ` (${m.toolErrors} err)` : ""}`);
+	if (agent.outputEmpty) meta.push("empty-output");
+	if (agent.outputTruncated) meta.push("output:truncated");
+	if (agent.stdoutTruncated) meta.push("stdout:truncated");
 
 	const links: string[] = [];
 	const artifact = link(agent.artifactHref, "artifact.md");
@@ -695,8 +723,20 @@ function renderAgent(agent: RunReportAgent): string {
 			body += `<div class="kv muted">Prompt (extracted from artifact; section boundaries are forgeable):</div>`;
 			body += textBlock("Prompt", agent.prompt);
 		}
-		if (agent.output) body += textBlock("Output", agent.output, false, "markdown");
+		if (agent.output !== undefined) body += textBlock("Output", agent.output, false, "markdown");
 		if (agent.data) body += textBlock("Structured data", agent.data);
+	}
+	if (agent.outputEmpty || agent.outputTruncated || agent.stdoutTruncated) {
+		const facts = [
+			agent.outputEmpty ? "empty-output" : "",
+			agent.outputTruncated
+				? `output:truncated${agent.outputChars === undefined ? "" : ` (${agent.outputChars} chars)`}`
+				: "",
+			agent.stdoutTruncated
+				? `stdout:truncated${agent.stdoutChars === undefined ? "" : ` (${agent.stdoutChars} chars)`}`
+				: "",
+		].filter(Boolean);
+		body += `<div class="callout warn"><b>Result integrity:</b> ${escapeHtml(facts.join(" · "))}. Full stdout remains linked when available.</div>`;
 	}
 	if (agent.stderrTail) {
 		body += `<div class="kv muted">stderr (bounded tail):</div><pre>${escapeHtml(agent.stderrTail.text)}</pre>`;
@@ -768,6 +808,9 @@ export function buildRunReportHtml(model: RunReportModel): string {
 		chip("scope", model.scope),
 		chip("agents", model.agents.length),
 		failedAgents ? chip("failed", failedAgents) : "",
+		model.integrity?.emptyOutputAgents ? chip("empty-output", model.integrity.emptyOutputAgents) : "",
+		model.integrity?.outputTruncatedAgents ? chip("output:truncated", model.integrity.outputTruncatedAgents) : "",
+		model.integrity?.stdoutTruncatedAgents ? chip("stdout:truncated", model.integrity.stdoutTruncatedAgents) : "",
 		chip("concurrency", model.agentConcurrency),
 		chip("maxAgents", model.maxAgents),
 		chip("peak parallel", model.peakParallelAgents),
@@ -803,6 +846,21 @@ export function buildRunReportHtml(model: RunReportModel): string {
 	const logSection = model.logs.length
 		? `<details><summary>Timeline (${model.logs.length} log entries)</summary><div class="body">` +
 			`<table><thead><tr><th>Time</th><th>Message</th></tr></thead><tbody>${logRows}</tbody></table></div></details>`
+		: "";
+
+	const integrity = model.integrity;
+	const integritySection = integrity
+		? `<h2>Result integrity</h2><div class="chips">` +
+			[
+				chip("agent results", integrity.agentResults),
+				chip("failed", integrity.failedAgents),
+				chip("empty-output", integrity.emptyOutputAgents),
+				chip("output:truncated", integrity.outputTruncatedAgents),
+				chip("stdout:truncated", integrity.stdoutTruncatedAgents),
+				chip("timed out", integrity.timedOutAgents),
+				chip("schema failed", integrity.schemaFailedAgents),
+			].join("") +
+			`</div>`
 		: "";
 
 	const t = model.metricsTotals;
@@ -861,6 +919,7 @@ ${callouts.join("\n")}
 ${renderWorkflowMonitor(model, summary)}
 ${textBlock("Input", model.input)}
 ${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true)}` : ""}
+${integritySection}
 ${metricsSection}
 ${phaseSection}
 <h2>Agents (${model.agents.length})</h2>

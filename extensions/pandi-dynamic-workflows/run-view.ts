@@ -140,26 +140,29 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 						: "❌";
 	const cachedCalls = getRunCachedCalls(run);
 	const resumable = isResumableState(state);
+	const integrity = "integrity" in run ? run.integrity : undefined;
+	const integrityLine = integrity
+		? `Integrity: failed:${integrity.failedAgents} empty-output:${integrity.emptyOutputAgents} output:truncated:${integrity.outputTruncatedAgents} stdout:truncated:${integrity.stdoutTruncatedAgents} timedOut:${integrity.timedOutAgents} schemaFailed:${integrity.schemaFailedAgents}`
+		: undefined;
 	const agentLines = agents.map((agent) => {
 		const elapsed = agent.elapsedMs === undefined ? "elapsed:?" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
 		const phase = formatAgentPhase(agent);
 		const code = agent.code === undefined ? "" : ` code:${agent.code}`;
 		const schema = agent.schemaOk === undefined ? "" : ` schema:${agent.schemaOk ? "ok" : "bad"}`;
-		const outputState = [
-			agent.outputEmpty ? "empty" : "",
-			agent.outputTruncated ? "truncated" : "",
-			agent.outputChars !== undefined ? `${agent.outputChars}chars` : "",
-		]
-			.filter(Boolean)
-			.join(",");
-		const output = outputState ? ` output:${outputState}` : "";
 		const prompt = agent.promptAvailable ? " prompt:yes" : " prompt:no";
 		const tools = ` tools:${agent.tools?.length ? agent.tools.join(",") : "default"}`;
 		const skills = ` skills:${agent.skills?.length ? agent.skills.join(",") : agent.includeSkills === false ? "disabled" : "default"}`;
 		const extensions = ` extensions:${agent.extensions?.length ? agent.extensions.join(",") : agent.includeExtensions ? "default" : "disabled"}`;
 		const keys = ` keys:${agent.keys?.length ? agent.keys.join(",") : agent.isolatedEnv ? "none" : "default"}${agent.missingKeys?.length ? ` missing:${agent.missingKeys.join(",")}` : ""}`;
+		const integrityChips = [
+			agent.outputEmpty ? " output:empty" : "",
+			agent.outputTruncated ? " output:truncated" : "",
+			agent.stdoutTruncated ? " stdout:truncated" : "",
+		]
+			.filter(Boolean)
+			.join("");
 		const preview = agent.promptPreview ? ` — prompt preview: ${compactInline(agent.promptPreview, 180)}` : "";
-		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${output}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
+		return `- #${agent.id}${phase ? ` ${phase}` : ""} ${agent.name} — ${agent.state} ${elapsed}${code}${schema}${integrityChips}${prompt}${tools}${skills}${extensions}${keys}${agent.artifactPath ? ` — ${agent.artifactPath}` : ""}${preview}`;
 	});
 
 	// Detecta si el workflow source cambió desde este run (best-effort:
@@ -187,6 +190,7 @@ export async function formatRunView(run: WorkflowRunRecord): Promise<string> {
 		...(cachedCalls > 0 ? [`Cached calls: ${cachedCalls}`] : []),
 		...(run.resumedFrom ? [`Resumed from: ${run.resumedFrom}`] : []),
 		...(run.codeHash ? [`Code hash: ${run.codeHash.slice(0, 16)}`] : []),
+		...(integrityLine ? [integrityLine] : []),
 		`Directory: ${run.runDir}`,
 		...(state === "running" ? [`Cancel: /workflow cancel ${run.runId}`] : []),
 		...(resumable ? [`Resume: /workflow resume ${run.runId}`] : []),

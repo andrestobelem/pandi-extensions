@@ -83,6 +83,14 @@ fan-out from the *actual* shape of the task:
   `timedOut: true (timeoutMs N)` in results/artifacts with `queuedMs` (semaphore wait) separated
   from runtime; never retry a `timedOut` failure without raising the budget or shrinking the scope.
 
+### Large-file reads
+
+Follow the repo-level guidance in `AGENTS.md` / `CLAUDE.md` as the default. In workflow prompts, do
+not tell workers to "read every file fully" over large scopes; tell them to scout first, page large
+files with `Read` `offset`/`limit` when needed, overlap code windows, shrink dense windows, and report
+partial coverage explicitly. For huge inputs, split semantic chunks into `agents()`/`pipeline()` or
+choose `map-reduce` instead of embedding one giant file in a prompt.
+
 ## Choosing a primitive
 
 Pick by data dependency, not aesthetics. (The `agent`/`agents`/`pipeline`/`parallel`/`workflow` core is

@@ -331,6 +331,11 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 			...(agent.model ? { model: agent.model } : {}),
 			...(agent.thinking ? { thinking: agent.thinking } : {}),
 			...(agent.schemaOk === undefined ? {} : { schemaOk: agent.schemaOk }),
+			...(agent.outputEmpty === undefined ? {} : { outputEmpty: agent.outputEmpty }),
+			...(agent.outputTruncated === undefined ? {} : { outputTruncated: agent.outputTruncated }),
+			...(agent.stdoutTruncated === undefined ? {} : { stdoutTruncated: agent.stdoutTruncated }),
+			...(agent.outputChars === undefined ? {} : { outputChars: agent.outputChars }),
+			...(agent.stdoutChars === undefined ? {} : { stdoutChars: agent.stdoutChars }),
 			...(agent.phaseLabel ? { phaseLabel: agent.phaseLabel } : {}),
 			...(agent.phaseId === undefined ? {} : { phaseId: agent.phaseId }),
 			...(agent.phaseIndex === undefined ? {} : { phaseIndex: agent.phaseIndex }),
@@ -427,6 +432,7 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 		logs,
 		phases,
 		agents,
+		...(record.integrity ? { integrity: record.integrity } : {}),
 		...(metrics
 			? {
 					metricsTotals: {

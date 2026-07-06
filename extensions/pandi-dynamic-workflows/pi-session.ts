@@ -4,8 +4,8 @@
  *
  * PiSessionRecord/LivePiSessionRuntime son module-internal; PiSessionModel (el enriched
  * record que el dashboard renderiza) se exporta, así como los live-session path helpers.
- * Deferred cycle: los heartbeat/root helpers leen ensureDir/activeRuns/projectHash/
- * PI_SESSION_HEARTBEAT_MS desde ./index.js solo dentro de sus bodies, e index.ts importa
+ * Deferred cycle: los heartbeat/root helpers leen ensureDir/projectHash/
+ * PI_SESSION_HEARTBEAT_MS desde ./index.js y el contador de runs activos desde run-registry.ts solo dentro de sus bodies, e index.ts importa
  * los session helpers de vuelta (invocados solo en session_start/session_end handlers y
  * dashboard body). Extraído byte-idénticamente (cluster + los cuatro live-session symbols
  * que fueron sus únicos usuarios).
@@ -17,8 +17,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { activeRuns, PI_SESSION_HEARTBEAT_MS } from "./index.js";
+import { PI_SESSION_HEARTBEAT_MS } from "./index.js";
 import { formatElapsedMs } from "./presentation.js";
+import { activeRunCount } from "./run-registry.js";
 import { writeJsonFile } from "./run-store.js";
 import { ensureDir, projectHash } from "./workflow-resolve.js";
 
@@ -106,7 +107,7 @@ function buildPiSessionRecord(runtime: LivePiSessionRuntime): PiSessionRecord {
 		...metadata,
 		trusted: ctx.isProjectTrusted(),
 		idle: ctx.isIdle(),
-		activeWorkflowRuns: activeRuns.size,
+		activeWorkflowRuns: activeRunCount(),
 	};
 }
 
