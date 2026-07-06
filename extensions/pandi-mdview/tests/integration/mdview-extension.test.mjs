@@ -229,25 +229,35 @@ async function scenarioPrintModeErrorToStderr(url) {
 	);
 }
 
+function findPiCli() {
+	const which = spawnSync("bash", ["-lc", "command -v pi"], { encoding: "utf8" });
+	if (which.status !== 0) return { ok: false, reason: "`pi` CLI not on PATH" };
+	return { ok: true, command: which.stdout.trim() || "pi" };
+}
+
 // End-to-end contra el binario real `pi --print` para ejercitar la toma de stdout de pi
 // (reserva stdout real para la respuesta del modelo y enruta toda la salida de consola
 // de la extensión a stderr). Un console.log mockeado nunca puede revelar
 // esto, que es exactamente por lo que los checks unitarios in-process dieron falsa confianza.
 async function scenarioPrintModeRealStdout() {
-	const which = spawnSync("bash", ["-lc", "command -v pi"], { encoding: "utf8" });
-	if (which.status !== 0) {
-		console.log("SKIP: print-real: `pi` CLI not on PATH");
+	const piCli = findPiCli();
+	if (!piCli.ok) {
+		console.log(`SKIP: print-real: ${piCli.reason}`);
 		return;
 	}
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-print-real-"));
 	const docPath = path.join(cwd, "doc.md");
 	await fs.writeFile(docPath, "# Heading\n\nUNIQUE_BODY_TOKEN\n", "utf8");
 	const extPath = path.join(REPO_ROOT, "extensions", "pandi-mdview");
-	const r = spawnSync("pi", ["--no-extensions", "-e", extPath, "--no-session", "--print", `/mdview ${docPath}`], {
-		cwd,
-		encoding: "utf8",
-		timeout: 30000,
-	});
+	const r = spawnSync(
+		piCli.command,
+		["--no-extensions", "-e", extPath, "--no-session", "--print", `/mdview ${docPath}`],
+		{
+			cwd,
+			encoding: "utf8",
+			timeout: 30000,
+		},
+	);
 	const stdout = r.stdout || "";
 	const stderr = r.stderr || "";
 	check("print-real: exits cleanly", r.status === 0, JSON.stringify({ status: r.status, err: stderr.slice(0, 200) }));
