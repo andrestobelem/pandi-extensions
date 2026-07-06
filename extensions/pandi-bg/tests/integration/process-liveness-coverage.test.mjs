@@ -66,9 +66,8 @@ function requireFunction(mod, name, label) {
 // --- ramas de código de error de probeProcessAlive ------------------------------------
 
 function probeMapsErrorCodes(mod) {
-	const probe = mod.probeProcessAlive;
-	check("probe: probeProcessAlive is exported", typeof probe === "function", typeof probe);
-	if (typeof probe !== "function") return;
+	const probe = requireFunction(mod, "probeProcessAlive", "probe");
+	if (!probe) return;
 
 	// EPERM = el proceso existe pero pertenece a otro usuario -> sigue "alive".
 	const eperm = withKill(
@@ -205,9 +204,8 @@ function readStartIdWin32Branch(mod) {
 // --- degradación win32 de verifyProcessIdentity ---------------------------------------
 
 function verifyWin32Degrades(mod) {
-	const verify = mod.verifyProcessIdentity;
-	check("verify: verifyProcessIdentity is exported", typeof verify === "function", typeof verify);
-	if (typeof verify !== "function") return;
+	const verify = requireFunction(mod, "verifyProcessIdentity", "verify");
+	if (!verify) return;
 	// En win32, readProcessStartId(pid) es undefined, así que incluso CON un id registrado el
 	// id actual es ilegible -> "unknown" (nunca afirma same/different).
 	const result = withPlatform("win32", () => verify(4321, "ps:anything"));
