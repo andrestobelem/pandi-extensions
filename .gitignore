@@ -58,9 +58,13 @@ examples/.pi/
 # Stray native /export output (no path) lands a pi-session-*.html in the repo root.
 pi-session-*.html
 
-# Pi git worktrees scratch space (default base for the pandi-worktree extension).
+# Pi git worktrees scratch space and writer leases (pandi-worktree runtime state).
 .pi/worktrees/
 **/.pi/worktrees/
+.pi/worktree-writer.json
+**/.pi/worktree-writer.json
+.pi/worktree-writer.json.lock
+**/.pi/worktree-writer.json.lock
 
 # Pi private memory and local extension plugins.
 .pi/MEMORY.md
