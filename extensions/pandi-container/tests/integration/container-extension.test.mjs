@@ -116,6 +116,24 @@ async function scenarioPureHelpers(url) {
 		check(`validateMachineName(${JSON.stringify(name)}) === ${ok}`, mod.validateMachineName(name) === ok, name);
 	}
 
+	// completions del comando slash: raíz + tiers de create --size
+	{
+		const root = mod.completeContainerArgs("");
+		const rootValues = (root ?? []).map((item) => item.value);
+		check(
+			"completeContainerArgs: empty prefix lists the core actions",
+			["status", "list", "create", "run", "stop", "remove"].every((value) => rootValues.includes(value)),
+			JSON.stringify(rootValues),
+		);
+		const tiers = mod.completeContainerArgs("create --size sm");
+		check(
+			"completeContainerArgs: create --size filters tiers",
+			JSON.stringify(tiers) === JSON.stringify([{ value: "small", label: "small" }]),
+			JSON.stringify(tiers),
+		);
+		check("completeContainerArgs: non-tier second token returns null", mod.completeContainerArgs("run dev") === null);
+	}
+
 	// parser pineado a JSON REAL capturado
 	const entries = mod.parseMachineList(REAL_MACHINE_JSON);
 	check("parseMachineList: one entry", entries.length === 1, String(entries.length));
