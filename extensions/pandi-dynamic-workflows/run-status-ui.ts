@@ -35,6 +35,12 @@ export function formatRunSummary(result: WorkflowRunResult): string {
 		`Artifacts: ${result.runDir}`,
 	];
 	if (result.error) parts.push(`Error: ${result.error}`);
+	const agentOutputs = result.integrity?.agentOutputs;
+	if (agentOutputs) {
+		parts.push(
+			`Agent output integrity: observed ${agentOutputs.observed}, empty ${agentOutputs.empty}, truncated ${agentOutputs.truncated}, failed ${agentOutputs.failed}`,
+		);
+	}
 	if (result.output !== undefined) parts.push(`\nOutput:\n${stringify(result.output, MAX_TOOL_TEXT)}`);
 	return parts.join("\n");
 }

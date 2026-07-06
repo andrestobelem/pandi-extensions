@@ -46,6 +46,9 @@ export interface RunReportAgent {
 	/** Copia textual del prompt; los runs nuevos la obtienen desde eventos estructurados acotados. */
 	prompt?: RunReportText;
 	output?: RunReportText;
+	outputChars?: number;
+	outputEmpty?: boolean;
+	outputTruncated?: boolean;
 	/** Datos estructurados reserializados (nunca bytes crudos). */
 	data?: RunReportText;
 	stderrTail?: { text: string; href?: string };
@@ -439,6 +442,9 @@ function agentAccessMeta(agent: RunReportAgent): string {
 		agent.schemaOk !== undefined ? `schema ${agent.schemaOk ? "ok" : "bad"}` : "",
 		agent.model ? `model ${agent.model}` : "",
 		agent.thinking ? `effort ${agent.thinking}` : "",
+		agent.outputEmpty ? "output empty" : "",
+		agent.outputTruncated ? "output truncated" : "",
+		agent.outputChars !== undefined ? `output chars: ${agent.outputChars}` : "",
 		agent.tools ? `tools: ${agent.tools}` : "tools: default",
 		agent.excludeTools ? `exclude: ${agent.excludeTools}` : "",
 		`skills: ${skillsText(agent)}`,
@@ -462,6 +468,8 @@ function agentRowMeta(agent: RunReportAgent): string[] {
 		agent.schemaOk !== undefined ? `schema:${agent.schemaOk ? "ok" : "bad"}` : "",
 		agent.model ? `model:${shortModel(agent.model)}` : "",
 		agent.thinking ? `effort:${agent.thinking}` : "",
+		agent.outputEmpty ? "output:empty" : "",
+		agent.outputTruncated ? "output:truncated" : "",
 		`tools:${toolCount ?? "default"}`,
 		`skills:${skillCount ?? (agent.includeSkills === false ? "off" : "default")}`,
 		`ext:${extensionCount ?? (agent.includeExtensions ? "default" : "off")}`,
@@ -473,8 +481,8 @@ function agentRowMeta(agent: RunReportAgent): string[] {
 
 function miniChipClass(label: string): string {
 	if (label === "prompt✓" || label === "schema:ok") return "ok";
-	if (label === "prompt?" || label.startsWith("missing:")) return "warn";
-	if (label === "schema:bad") return "fail";
+	if (label === "prompt?" || label.startsWith("missing:") || label === "output:truncated") return "warn";
+	if (label === "schema:bad" || label === "output:empty") return "fail";
 	return "";
 }
 
@@ -532,8 +540,16 @@ function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): str
 	]
 		.filter(Boolean)
 		.join("");
+	const outputState = [
+		agent.outputEmpty ? "empty" : "",
+		agent.outputTruncated ? "truncated" : "",
+		agent.outputChars !== undefined ? `${agent.outputChars} chars` : "",
+	]
+		.filter(Boolean)
+		.join(" • ");
 	const io = [
 		agent.promptPreview ? detailLine("prompt preview", escapeHtml(compactInlineText(agent.promptPreview, 220))) : "",
+		outputState ? detailLine("output state", escapeHtml(outputState)) : "",
 		agent.output ? detailLine("output", escapeHtml(compactInlineText(agent.output.text, 220))) : "",
 	]
 		.filter(Boolean)
@@ -654,6 +670,9 @@ function renderAgent(agent: RunReportAgent): string {
 	if (agent.code !== undefined) meta.push(`code ${agent.code}`);
 	if (agent.killed) meta.push("killed");
 	if (agent.schemaOk !== undefined) meta.push(`schema ${agent.schemaOk ? "ok" : "FAILED"}`);
+	if (agent.outputEmpty) meta.push("output:empty");
+	if (agent.outputTruncated) meta.push("output:truncated");
+	if (agent.outputChars !== undefined) meta.push(`output chars ${agent.outputChars}`);
 	if (agent.phaseLabel) meta.push(`phase ${agent.phaseLabel}`);
 	const m = agent.metrics;
 	if (m?.costTotal !== undefined) meta.push(`cost ${m.costTotal}`);
