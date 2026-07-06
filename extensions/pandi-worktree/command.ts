@@ -91,6 +91,12 @@ function parseUnknownCommand(token: string): ParsedCommand {
 	return { action: "help", error: `Subcomando desconocido: "${token}"` };
 }
 
+function formatAddOrOpenUsage(action: "add" | "open"): string {
+	return action === "open"
+		? "Uso: /worktree open [-b <branch>] <path> [<commit-ish>]"
+		: "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]";
+}
+
 function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCommand {
 	const positionals: string[] = [];
 	let newBranch: string | undefined;
@@ -120,11 +126,7 @@ function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCo
 		}
 	}
 	const [pathArg, commitish] = positionals;
-	const usage =
-		action === "open"
-			? "Uso: /worktree open [-b <branch>] <path> [<commit-ish>]"
-			: "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]";
-	if (!pathArg) return { action, error: usage };
+	if (!pathArg) return { action, error: formatAddOrOpenUsage(action) };
 	if (newBranch !== undefined && !isValidBranchName(newBranch)) {
 		return {
 			action,
