@@ -49,10 +49,13 @@ const LEVEL_ALIASES: Record<string, ThinkingLevel> = {
 	extra: "xhigh",
 };
 
+const STATUS_ALIASES = new Set(["", "status", "show", "current"]);
+const ULTRACODE_ALIASES = new Set(["ultracode", "ultra-code"]);
+
 export function parseEffortTarget(raw: string): EffortTarget {
 	const value = raw.trim().toLowerCase();
-	if (!value || value === "status" || value === "show" || value === "current") return { kind: "status" };
-	if (value === "ultracode" || value === "ultra-code") return { kind: "ultracode" };
+	if (STATUS_ALIASES.has(value)) return { kind: "status" };
+	if (ULTRACODE_ALIASES.has(value)) return { kind: "ultracode" };
 
 	// Acepta `/effort thinking=high`, `/effort level high`, etc. usando el
 	// token significativo final después de separadores/palabras prefijo livianos.
