@@ -27,6 +27,10 @@ export type MarkdownLoad =
 	| { ok: true; filePath: string; content: string; bytes: number }
 	| { ok: false; message: string; level: "warning" | "error" };
 
+function missingMarkdownPath(): MarkdownLoad {
+	return { ok: false, message: "Uso: /mdview <ruta-al-archivo-markdown>", level: "warning" };
+}
+
 function formatReadMarkdownFailure(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	return `No se pudo leer el archivo Markdown: ${message}`;
@@ -39,7 +43,7 @@ function formatReadMarkdownFailure(error: unknown): string {
  */
 export async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<MarkdownLoad> {
 	const filePath = resolveMarkdownPath(pathArg, cwd);
-	if (!filePath) return { ok: false, message: "Uso: /mdview <ruta-al-archivo-markdown>", level: "warning" };
+	if (!filePath) return missingMarkdownPath();
 	try {
 		const stat = await fs.stat(filePath);
 		if (stat.size > MAX_MDVIEW_BYTES) {
