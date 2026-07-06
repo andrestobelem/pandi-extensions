@@ -100,6 +100,14 @@ function isPromptSourceTruncated(
 	return !!promptSource && (promptSource.length > MAX_TOOL_TEXT || !!(promptFromEvent && promptTruncated));
 }
 
+async function readLiveStreamIfSectionMissing(
+	streamPath: string | undefined,
+	artifactSection: string | undefined,
+): Promise<string> {
+	if (!streamPath || artifactSection) return "";
+	return fs.readFile(streamPath, "utf8").catch(() => "");
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -127,10 +135,8 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	const structuredOutput = artifactBody ? extractMarkdownSection(artifactBody, "Structured Output") : undefined;
 	const liveStdoutPath = resolveAgentLiveStreamPath(artifactPath, "stdout");
 	const liveStderrPath = resolveAgentLiveStreamPath(artifactPath, "stderr");
-	let liveStdout = "";
-	let liveStderr = "";
-	if (liveStdoutPath && !stdout) liveStdout = await fs.readFile(liveStdoutPath, "utf8").catch(() => "");
-	if (liveStderrPath && !stderr) liveStderr = await fs.readFile(liveStderrPath, "utf8").catch(() => "");
+	const liveStdout = await readLiveStreamIfSectionMissing(liveStdoutPath, stdout);
+	const liveStderr = await readLiveStreamIfSectionMissing(liveStderrPath, stderr);
 	const stdoutForParsing = stdout || liveStdout;
 	const parsedStdout = stdout
 		? parsePiJsonModeOutput(stdout)
