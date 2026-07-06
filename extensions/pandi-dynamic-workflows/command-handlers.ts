@@ -30,7 +30,6 @@ import {
 	formatWorkflowPreflightSummary,
 	maxWorkflowDepth,
 	preflightWorkflowLaunch,
-	transformWorkflowCode,
 } from "./index.js";
 import { notify } from "./notify.js";
 import {
@@ -60,6 +59,7 @@ import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, Wo
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./workflow-resolve.js";
 import { classifyDynamicWorkflowRequest } from "./workflow-tool-request.js";
+import { transformWorkflowCode } from "./workflow-transform.js";
 
 export async function handleTool(
 	pi: ExtensionAPI,

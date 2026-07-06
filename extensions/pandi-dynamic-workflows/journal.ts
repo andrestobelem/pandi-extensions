@@ -7,10 +7,8 @@
  * para journaling, y las derivaciones agent-id / artifact-number que mantienen
  * resume idempotente. Movido verbatim desde index.ts (behavior-preserving).
  *
- * Runtime deps desde index.ts (transformWorkflowCode) se usan SOLO dentro de bodies
- * de función; los budgets JOURNAL_FILE / MAX_* vienen de runtime-constants.ts.
- * El ciclo ESM journal.ts <-> index.ts queda deferred (sin top-level cross-use);
- * types vienen via `import type` (erased). Sibling a profundidad uno
+ * El transform de workflow vive en workflow-transform.ts, y los budgets JOURNAL_FILE / MAX_*
+ * vienen de runtime-constants.ts. Types vienen via `import type` (erased). Sibling a profundidad uno
  * así se incluye bajo el glob `files`.
  */
 
@@ -19,9 +17,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { appendJsonLine } from "./file-append.js";
 import { truncate } from "./format.js";
-import { transformWorkflowCode } from "./index.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./runtime-constants.js";
 import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "./types.js";
+import { transformWorkflowCode } from "./workflow-transform.js";
 
 // --- Runs resumibles: diario de cache content-address ---
 
