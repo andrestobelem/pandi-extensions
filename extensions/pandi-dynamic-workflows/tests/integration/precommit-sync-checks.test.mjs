@@ -1,7 +1,7 @@
 /**
  * Durable guard for issue #20.
  *
- * The versioned pre-commit hook should run the cheap repo sync/parity checks,
+ * The versioned pre-commit hook should reach the cheap repo sync/parity checks,
  * not only typecheck/biome/markdownlint, so mirror drift is caught before CI.
  *
  * Run it:
@@ -24,6 +24,7 @@ const { check, counts } = createChecker();
 const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8"));
 const hook = fs.readFileSync(HOOK, "utf8");
 const syncAll = pkg.scripts?.["sync:check:all"] ?? "";
+const testFast = pkg.scripts?.["test:fast"] ?? "";
 
 check("package.json defines sync:check:all", typeof syncAll === "string" && syncAll.length > 0);
 for (const required of [
@@ -40,7 +41,12 @@ for (const required of [
 	check(`sync:check:all includes ${required}`, syncAll.includes(`npm run -s ${required}`));
 }
 check("sync:check:all stays repo-local", !syncAll.includes("sync:claude:global:check"));
-check("pre-commit runs sync:check:all", hook.includes("npm run --silent sync:check:all"));
+check(
+	"pre-commit reaches sync:check:all via the fast gate",
+	hook.includes("npm run --silent sync:check:all") ||
+		(hook.includes("npm run --silent test:fast") && testFast.includes("npm run sync:check:all")),
+	`hook=${JSON.stringify(hook)} test:fast=${JSON.stringify(testFast)}`,
+);
 
 if (syncAll) {
 	const res = spawnSync("npm", ["run", "-s", "sync:check:all"], { cwd: REPO_ROOT, encoding: "utf8" });
