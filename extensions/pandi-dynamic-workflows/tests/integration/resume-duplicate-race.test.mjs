@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
- * Regression: two CONCURRENT resumes of the same run must not both execute.
+ * Regresión: dos resumes CONCURRENTES del mismo run no deben ejecutarse ambos.
  *
- * Farley review 2026-07-03, finding #1 (High): resumeWorkflow checks
- * `activeRuns.has(runId)` and then awaits resolveWorkflow/readFile/loadJournal/…
- * before startWorkflowBackground/runWorkflowWithUi eventually registers the run,
- * so two resumes fired in the same tick both pass the guard and both drive
- * runWorkflow against the SAME runDir/journal (duplicate agents, artifact
- * clobbering, corrupted status).
+ * Review Farley 2026-07-03, hallazgo #1 (High): resumeWorkflow chequea
+ * `activeRuns.has(runId)` y después espera resolveWorkflow/readFile/loadJournal/…
+ * antes de que startWorkflowBackground/runWorkflowWithUi registre finalmente el run,
+ * así que dos resumes disparados en el mismo tick pasaban el guard y ambos manejaban
+ * runWorkflow contra el MISMO runDir/journal (agentes duplicados, clobbering de artifacts,
+ * status corrupto).
  *
- * Contract pinned here:
- *   - Firing action=resume twice without awaiting the first: exactly ONE call
- *     executes; the other is rejected with an "already active/being resumed"
- *     error (no silent double execution).
- *   - A sequential resume after the first finishes still works (the reservation
- *     is released on completion), rejected only for non-resumable states.
+ * Contrato fijado acá:
+ *   - Disparar action=resume dos veces sin esperar la primera: exactamente UNA llamada
+ *     ejecuta; la otra se rechaza con error "already active/being resumed"
+ *     (sin doble ejecución silenciosa).
+ *   - Un resume secuencial después de que termina el primero todavía funciona (la reserva
+ *     se libera al completar), y solo se rechaza para estados no resumibles.
  */
 
 import * as fs from "node:fs/promises";
@@ -27,7 +27,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
-// Sleeps so both resumes overlap, then fails so the run stays resumable.
+// Duerme para que ambos resumes se solapen, luego falla para que el run siga resumible.
 const WORKFLOW = [
 	"export const meta = { name: 'race', description: 'resume race probe' };",
 	"await sleep(500);",
@@ -97,7 +97,7 @@ const settle = (p) =>
 		(e) => ({ ok: false, msg: String(e?.message ?? e) }),
 	);
 
-// A resume attempt "executed" unless it was rejected as already active/resuming.
+// Un intento de resume "ejecutó" salvo que se haya rechazado como already active/resuming.
 const wasRejectedAsActive = (r) => {
 	if (!r.ok) return /already (active|being resumed|resuming)/i.test(r.msg);
 	const text = JSON.stringify(r.v ?? "");
@@ -118,14 +118,14 @@ async function main() {
 	const run = (params) =>
 		tool.execute(`tc-${Math.random().toString(36).slice(2)}`, params, new AbortController().signal, undefined, ctx);
 
-	// Seed: one failed (resumable) run.
+	// Seed: un run failed (resumible).
 	const first = await settle(run({ action: "run", name: "race", input: {}, timeoutMs: 30_000 }));
 	const runsDir = path.join(project, ".pi", "workflows", "runs");
 	const runIds = (await fs.readdir(runsDir)).filter((d) => d.includes("race"));
 	check("seed run left exactly one run dir", runIds.length === 1, JSON.stringify({ first, runIds }));
 	const runId = runIds[0];
 
-	// The race: two resumes in the same tick.
+	// La race: dos resumes en el mismo tick.
 	const [a, b] = await Promise.all([
 		settle(run({ action: "resume", name: runId, timeoutMs: 30_000 })),
 		settle(run({ action: "resume", name: runId, timeoutMs: 30_000 })),
@@ -137,8 +137,8 @@ async function main() {
 		JSON.stringify({ a: a.ok ? "(ran)" : a.msg, b: b.ok ? "(ran)" : b.msg }),
 	);
 
-	// Reservation released: a later sequential resume reaches normal validation
-	// (it executes again — the run is still failed/resumable — not "already active").
+	// Reserva liberada: un resume secuencial posterior llega a la validación normal
+	// (ejecuta otra vez — el run sigue failed/resumible — no "already active").
 	const later = await settle(run({ action: "resume", name: runId, timeoutMs: 30_000 }));
 	check(
 		"sequential resume afterwards is not blocked by a stale reservation",
