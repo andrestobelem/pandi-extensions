@@ -1,17 +1,16 @@
 /**
- * Behavior: every committed project workflow under `.pi/workflows/*.js` must
- * compile and module-load under the real runtime rule. The workflow runner rejects
- * static `import` statements and any non-`export default` top-level `export`
- * (`transformWorkflowCode`), then evaluates the transformed CommonJS module in a
- * sandbox without `require`/node builtins. A workflow that violates this fails at
- * second 0 with "Static import statements are not supported in workflows" — which
- * is exactly how `.pi/workflows/continuous-improvement.js` silently broke after
- * the import-ban was introduced.
+ * Comportamiento: cada workflow de proyecto commiteado bajo `.pi/workflows/*.js` debe
+ * compilar y cargar como módulo bajo la regla real de runtime. El runner de workflows rechaza
+ * statements `import` estáticos y cualquier `export` top-level que no sea `export default`
+ * (`transformWorkflowCode`), y luego evalúa el módulo CommonJS transformado en un sandbox
+ * sin `require` ni builtins de node. Un workflow que viola esto falla en el segundo 0 con
+ * "Static import statements are not supported in workflows" — exactamente así se rompió
+ * `.pi/workflows/continuous-improvement.js` en silencio cuando se introdujo el ban de imports.
  *
- * This guard calls the REAL exported `transformWorkflowCode`, evaluates the
- * transformed module in a minimal VM context, and asserts it exports a workflow
- * function. It deliberately does NOT execute the workflow body: project workflows
- * are trusted/costly and may spawn agents, run bash, or write artifacts.
+ * Este guard llama el `transformWorkflowCode` exportado REAL, evalúa el módulo transformado
+ * en un contexto VM mínimo y aserta que exporta una función de workflow. Deliberadamente NO
+ * ejecuta el body del workflow: los workflows de proyecto son confiables/costosos y pueden
+ * spawnear agentes, correr bash o escribir artifacts.
  */
 
 import * as fs from "node:fs/promises";
