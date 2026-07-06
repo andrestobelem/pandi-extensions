@@ -693,15 +693,10 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 }
 
 // ---------------------------------------------------------------------------
-// GC de estado terminal viejo (P2)
+// GC de sidecars terminales
 // ---------------------------------------------------------------------------
 
-/**
- * Root que guarda dirs sidecar por loop, espejando el padre de loopStateDir:
- * - proyecto trusted → <cwd>/.pi/loops
- * - si no            → <agentDir>/loops/<projectHash>
- * (Misma partición que dynamic-workflows getRunRoot, así que GC recorre el árbol correcto.)
- */
+/** Root que guarda los sidecars del proyecto actual. */
 function loopStateRoot(ctx: ExtensionContext): string {
 	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, LOOP_DIR);
 	const projectHash = crypto.createHash("sha1").update(ctx.cwd).digest("hex").slice(0, 12);
@@ -711,16 +706,8 @@ function loopStateRoot(ctx: ExtensionContext): string {
 const TERMINAL_STATUSES: ReadonlySet<LoopStatus> = new Set<LoopStatus>(["done", "stopped", "failed"]);
 
 /**
- * Barre dirs sidecar terminales viejos (P2). Para cada <root>/<id>/state.json, lo parsea y
- * quita el dir SOLO cuando el loop está en un estado terminal (done/stopped/failed) Y su
- * updatedAt es más viejo que GC_MAX_AGE_MS. Los loops vivos (running/paused/stale) y los loops
- * todavía presentes en activeLoops NUNCA se quitan sin importar la edad. De mejor esfuerzo: cualquier
- * error de read/parse/rm se traga para que GC nunca pueda crashear la sesión. Devuelve cuántos dirs quitó.
- *
- * Refleja dynamic-workflows getRunDirs (readdir withFileTypes + stat), pero la decisión de recencia
- * usa el updatedAt persistido (no el mtime del dir), así que un FS con skew de reloj no puede hacernos
- * borrar estado fresco — y además seguimos exigiendo un estado TERMINAL, así que un loop vivo está seguro
- * aunque su state.json sea antiquísimo.
+ * Borra sidecars viejos solo si el snapshot es terminal y su `updatedAt` supera
+ * GC_MAX_AGE_MS. Los loops vivos o presentes en memoria se preservan siempre.
  */
 async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Date.now()): Promise<number> {
 	const root = loopStateRoot(ctx);
@@ -735,7 +722,7 @@ async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Date.now(
 	for (const dirent of dirents) {
 		if (!dirent.isDirectory()) continue;
 		const loopId = dirent.name;
-		// Nunca hacer GC de un loop que está vivo en este proceso (el timer puede estar armado).
+		// Un loop vivo en este proceso puede tener timer armado.
 		if (activeLoops.has(loopId)) continue;
 		const dir = path.join(root, loopId);
 		const file = path.join(dir, STATE_FILE);
@@ -743,49 +730,35 @@ async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Date.now(
 			const body = await fs.readFile(file, "utf8");
 			const state = JSON.parse(body) as LoopState;
 			if (!state || typeof state.status !== "string") continue;
-			// Solo los estados terminales son elegibles; los estados vivos se preservan indefinidamente.
+			// Los estados vivos se preservan indefinidamente.
 			if (!TERMINAL_STATUSES.has(state.status)) continue;
 			const updated = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
-			// Exigir un updatedAt parseable y suficientemente viejo antes de borrar.
+			// Sin fecha confiable no hay borrado.
 			if (!Number.isFinite(updated) || now - updated < GC_MAX_AGE_MS) continue;
 			await fs.rm(dir, { recursive: true, force: true });
 			removed += 1;
 		} catch {
-			// state.json faltante/corrupto o fallo de rm → saltear (nunca lanzar hacia el engine).
+			// GC es best-effort: estado corrupto o fallo de rm no debe romper la sesión.
 		}
 	}
 	return removed;
 }
 
 // ---------------------------------------------------------------------------
-// Watchdog anti-zombie (P2)
+// Watchdog anti-zombie
 // ---------------------------------------------------------------------------
 
 /**
- * Force-stoppea cualquier loop que haya superado su deadline ABSOLUTO de respaldo (P2). Esta es una
- * red de último recurso POR ENCIMA de maxWallClockMs / el cap de contexto: esos se chequean al momento
- * de rearmar, así que un loop que se colgó SIN llegar a un agent_end (o cuyos caps de algún modo nunca
- * dispararon) podría vivir para siempre. Acá hard-stoppeamos (done + cleanup completo) cualquier loop
- * RUNNING cuyo startedAt + WATCHDOG_HARD_DEADLINE_MS quedó en el pasado.
- * Los loops sanos (bien dentro del deadline) no se tocan. Devuelve la cantidad force-stoppeada.
+ * Último respaldo contra loops running colgados más allá del deadline duro. Paused no
+ * es zombie: no tiene timer armado y espera una reanudación explícita del usuario.
  *
- * Los loops PAUSED NO son zombies y se excluyen deliberadamente: un loop pausado no tiene timer armado
- * y no consume nada — está idle a propósito esperando /loop resume, un estado totalmente legítimo.
- * Su wall-clock desde startedAt sigue creciendo mientras está paused, así que medirlo contra startedAt
- * mataría un loop paused sano a espaldas del usuario (p. ej. pausado durante un fin de semana). Un loop
- * paused solo pasa a ser elegible para el watchdog después de reanudarse (status de vuelta a "running").
- * El cap blando de wall-clock (capExceeded) ya nunca dispara sobre un loop paused, así que excluir paused
- * acá mantiene consistente el respaldo duro con eso.
- *
- * Sin timer periódico dedicado: el barrido se dispara desde los puntos naturales de pulso
- * (session_start después de rehydrate, cada agent_end y cada fireWake). Eso evita
- * agregar un timer de módulo ortogonal (y es igual de efectivo — un proceso muerto tampoco
- * correría un timer periódico; la recuperación pasa en el siguiente session_start).
+ * No hay timer dedicado; los pulsos naturales (session_start, agent_end, fireWake)
+ * bastan, y un proceso muerto solo puede recuperarse en el siguiente session_start.
  */
 function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Date.now()): number {
 	let killed = 0;
 	for (const loop of [...activeLoops.values()]) {
-		// Solo los loops RUNNING pueden ser zombies; un loop paused está idle a propósito (ver docstring).
+		// Solo running puede ser zombie; paused está idle a propósito.
 		if (loop.status !== "running") continue;
 		if (now - loop.startedAt < WATCHDOG_HARD_DEADLINE_MS) continue;
 		const reason = `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
