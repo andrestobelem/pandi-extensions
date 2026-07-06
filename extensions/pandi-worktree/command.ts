@@ -123,6 +123,18 @@ interface AddOrOpenParseState {
 	copyUntracked?: boolean;
 }
 
+function applyCopyIgnoredFlag(token: string, state: AddOrOpenParseState): boolean {
+	if (token === "--copy-ignored") {
+		state.copyIgnored = true;
+		return true;
+	}
+	if (token === "--no-copy-ignored") {
+		state.copyIgnored = false;
+		return true;
+	}
+	return false;
+}
+
 function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenParseState): number {
 	const tok = rest[index];
 	if (isBranchFlag(tok)) {
@@ -133,10 +145,8 @@ function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenPars
 		state.force = true;
 	} else if (isDetachFlag(tok)) {
 		state.detach = true;
-	} else if (tok === "--copy-ignored") {
-		state.copyIgnored = true;
-	} else if (tok === "--no-copy-ignored") {
-		state.copyIgnored = false;
+	} else if (applyCopyIgnoredFlag(tok, state)) {
+		// aplicado por el helper
 	} else if (tok === "--copy-untracked") {
 		state.copyUntracked = true;
 	} else if (tok === "--no-copy-untracked") {
