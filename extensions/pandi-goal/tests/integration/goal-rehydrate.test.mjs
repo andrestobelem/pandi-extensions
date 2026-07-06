@@ -76,15 +76,45 @@ async function buildGoal() {
 // pandi-goal mantiene un singleton de módulo (activeGoals). La query cache-busting de loadDefault
 // da a cada escenario una instancia FRESH para que los escenarios no filtren estado entre sí.
 
-// Deja asentarse las cadenas async fire-and-forget (`void beginIndependentVerification(...)`) Y el
-// catch-up tick de rehydrate. rehydrate arma el catch-up wake con `setTimeout(fireGoal, 0)`
-// (goal.ts: un nextFireAt vencido → remaining 0), por eso cada iteración de poll debe ceder a AMBAS
-// fases: timer (setTimeout) y check (setImmediate). Esperar solo setImmediate puede hambrear la
-// fase timer bajo carga (p. ej. al correr secuencialmente vía run-all.mjs), lo que volvió flaky
-// esta suite: los escenarios B/C (stale/verifying con catch-up vencido) a veces no veían el tick.
-async function flush(predicate, tries = 100) {
-	for (let i = 0; i < tries; i++) {
-		await new Promise((r) => setTimeout(r, 0));
+const ZERO_DELAY_TIMER = Symbol("zero-delay-timer");
+
+// El contrato de rehydrate usa `setTimeout(fireGoal, 0)` para los catch-up ticks vencidos. En vez
+// de depender de sleeps/reintentos reales del event loop, el harness convierte SOLO esos timers de
+// delay 0 en microtasks determinísticas. Los timers futuros (>0) siguen siendo timers reales, así
+// que los snapshots no vencidos no disparan accidentalmente durante el test.
+function installImmediateTimerHarness() {
+	const realSetTimeout = globalThis.setTimeout;
+	const realClearTimeout = globalThis.clearTimeout;
+	globalThis.setTimeout = (handler, timeout = 0, ...args) => {
+		const delay = Number(timeout) || 0;
+		if (delay <= 0 && typeof handler === "function") {
+			const handle = { [ZERO_DELAY_TIMER]: true, cleared: false };
+			queueMicrotask(() => {
+				if (!handle.cleared) handler(...args);
+			});
+			return handle;
+		}
+		return realSetTimeout(handler, timeout, ...args);
+	};
+	globalThis.clearTimeout = (handle) => {
+		if (handle?.[ZERO_DELAY_TIMER]) {
+			handle.cleared = true;
+			return;
+		}
+		return realClearTimeout(handle);
+	};
+	return () => {
+		globalThis.setTimeout = realSetTimeout;
+		globalThis.clearTimeout = realClearTimeout;
+	};
+}
+
+// Deja asentarse las cadenas async fire-and-forget (`void beginIndependentVerification(...)`) y
+// los catch-up ticks de delay 0 que el harness anterior vuelve determinísticos. No duerme por tiempo:
+// cede microtasks/check y corta cuando el predicado observable se cumple.
+async function flush(predicate, turns = 20) {
+	for (let i = 0; i < turns; i++) {
+		await Promise.resolve();
 		await new Promise((r) => setImmediate(r));
 		if (predicate?.()) return;
 	}
@@ -650,6 +680,7 @@ async function nonInteractiveRehydrateIsNoOp(goalUrl) {
 // ===========================================================================
 async function main() {
 	const { outDir, url } = await buildGoal();
+	const restoreTimers = installImmediateTimerHarness();
 	try {
 		await verifyingIndependentReRunsVerifierAndPasses(url);
 		await verifyingIndependentReRunFailDoesNotClose(url);
@@ -665,6 +696,7 @@ async function main() {
 		await noDoubleFireOnSecondRehydrate(url);
 		await nonInteractiveRehydrateIsNoOp(url);
 	} finally {
+		restoreTimers();
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
 
