@@ -14,6 +14,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { getEffortArgumentCompletions, resolveEffortCommandValue } from "./command-menu.js";
 import { notify } from "./notify.js";
 import type { EffortTarget, ThinkingLevel } from "./parse.js";
 import { parseEffortTarget, THINKING_LEVELS } from "./parse.js";
@@ -23,42 +24,6 @@ const EFFORT_STATUS_KEY = "effort";
 // intencionalmente best-effort: `/effort` igual funciona como comando de nivel de thinking
 // cuando la extensión dynamic-workflows no está cargada.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
-
-const CANONICAL_EFFORT_OPTIONS: {
-	value: ThinkingLevel | "ultracode" | "status";
-	description: string;
-	selectLabel?: string;
-}[] = [
-	{
-		value: "off",
-		description: "Desactivar el thinking/reasoning del modelo",
-		selectLabel: "off — desactivar el thinking",
-	},
-	{ value: "minimal", description: "Thinking mínimo", selectLabel: "minimal — thinking mínimo" },
-	{ value: "low", description: "Thinking bajo", selectLabel: "low — thinking bajo" },
-	{ value: "medium", description: "Thinking medio", selectLabel: "medium — thinking medio" },
-	{ value: "high", description: "Thinking alto", selectLabel: "high — thinking alto" },
-	{ value: "xhigh", description: "Thinking extra alto", selectLabel: "xhigh — thinking extra alto" },
-	{
-		value: "ultracode",
-		description: "Thinking extra alto + router de dynamic workflow",
-		selectLabel: "ultracode — xhigh + router de dynamic workflow",
-	},
-	{ value: "status", description: "Mostrar el esfuerzo actual" },
-];
-
-const ALIAS_COMPLETIONS: { value: string; description: string }[] = [
-	{ value: "none", description: "Alias de off" },
-	{ value: "max", description: "Alias de xhigh" },
-	{ value: "ultra-code", description: "Alias de ultracode" },
-];
-
-const COMPLETIONS: { value: string; description: string }[] = [
-	...CANONICAL_EFFORT_OPTIONS.map(({ value, description }) => ({ value, description })),
-	...ALIAS_COMPLETIONS,
-];
-
-const SELECT_ITEMS = CANONICAL_EFFORT_OPTIONS.flatMap((item) => (item.selectLabel ? [item.selectLabel] : []));
 
 function usage(current: string): string {
 	return `Esfuerzo actual: ${current}. Uso: /effort <off|minimal|low|medium|high|xhigh|ultracode>`;
@@ -138,14 +103,6 @@ function ensureToolActive(pi: ExtensionAPI, toolName: string): boolean {
 	}
 }
 
-async function resolveCommandValue(args: string, ctx: ExtensionContext): Promise<string> {
-	const trimmed = args.trim();
-	if (trimmed || !ctx.hasUI) return trimmed;
-
-	const choice = await ctx.ui.select("Seleccioná el esfuerzo de pensamiento", SELECT_ITEMS);
-	return choice?.split(/\s+/)[0] ?? "status";
-}
-
 function enableUltracodeEffort(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	const actual = setThinkingEffort(pi, ctx, "xhigh", { announce: false });
 	const workflowToolActive = ensureToolActive(pi, "dynamic_workflow");
@@ -181,19 +138,9 @@ function handleEffortTarget(pi: ExtensionAPI, ctx: ExtensionContext, target: Eff
 export default function effortExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("effort", {
 		description: "Configurar el esfuerzo de pensamiento: off|minimal|low|medium|high|xhigh|ultracode",
-		getArgumentCompletions: (prefix: string) => {
-			const needle = prefix.trim().toLowerCase();
-			const items = COMPLETIONS.filter((item) => item.value.startsWith(needle));
-			return items.length > 0
-				? items.map((item) => ({
-						value: item.value,
-						label: item.value,
-						description: item.description,
-					}))
-				: null;
-		},
+		getArgumentCompletions: getEffortArgumentCompletions,
 		handler: async (args, ctx) => {
-			const value = await resolveCommandValue(args, ctx);
+			const value = await resolveEffortCommandValue(args, ctx);
 			handleEffortTarget(pi, ctx, parseEffortTarget(value));
 		},
 	});
