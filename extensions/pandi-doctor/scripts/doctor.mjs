@@ -312,6 +312,13 @@ checkRepoSync({
 	okDetail: "espejo al día de .pi/skills",
 });
 checkRepoSync({
+	label: "agent guides",
+	script: path.join("scripts", "sync-agent-guides.mjs"),
+	checkCommand: "npm run sync:agents:check",
+	fixCommand: "npm run sync:agents",
+	okDetail: "CLAUDE.md al día de AGENTS.md",
+});
+checkRepoSync({
 	label: "Claude ultracode skills",
 	script: path.join("scripts", "generate-claude-ultracode-skills.mjs"),
 	checkCommand: "npm run sync:claude:ultracode:check",

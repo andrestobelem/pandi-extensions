@@ -115,6 +115,7 @@ Regla simple: editá la fuente canónica, no el mirror generado. `npm run doctor
 | Settings del repo | Los mismos manifests de subpackages | `.pi/settings.json`, `.pi/settings.json.example` | `npm run sync:settings:check` | `npm run sync:settings` |
 | Skill mirrors Pi↔Claude | `.pi/skills/<name>/SKILL.md` clasificado como `mirrored` | `.claude/skills/<name>/SKILL.md` | `npm run sync:skills:check` | `npm run sync:skills` |
 | Skills vendorizados por extensión | `.pi/skills/<name>/` clasificado como `vendoredBy` | `extensions/<ext>/skills/<name>/` | `npm run sync:skills:vendor:check` | `npm run sync:skills:vendor` |
+| Guía para agentes | `AGENTS.md` | `CLAUDE.md` | `npm run sync:agents:check` | `npm run sync:agents` |
 | Skills Claude de ultracode | `.pi/skills/ultracode/` | `.claude/skills/{ultracode,dynamic-workflows}/` | `npm run sync:claude:ultracode:check` | `npm run sync:claude:ultracode` |
 | Docs HTML | `README.md`, `docs/**/*.md` | `docs/html/**` | `npm run sync:docs:html:check` | `npm run sync:docs:html` |
 | Personas README | `.pi/personas/*.json` | `.pi/personas/README.md` y HTML | `npm run sync:personas:check` | `npm run sync:personas` |

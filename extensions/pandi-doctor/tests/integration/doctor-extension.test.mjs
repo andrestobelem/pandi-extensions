@@ -260,6 +260,7 @@ function scenarioCanonicalSyncChecks() {
 		writeFakeSyncScript(path.join(tmp, "scripts", "sync-project-settings.mjs"), "sync-project-settings");
 		writeFakeSyncScript(path.join(tmp, "scripts", "sync-skill-mirrors.mjs"), "sync-skill-mirrors");
 		writeFakeSyncScript(path.join(tmp, "scripts", "vendor-extension-skills.mjs"), "vendor-extension-skills");
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-agent-guides.mjs"), "sync-agent-guides");
 		writeFakeSyncScript(
 			path.join(tmp, "scripts", "generate-claude-ultracode-skills.mjs"),
 			"generate-claude-ultracode-skills",
@@ -285,6 +286,7 @@ function scenarioCanonicalSyncChecks() {
 			["project settings", "npm run sync:settings"],
 			["skill mirrors", "npm run sync:skills"],
 			["vendor skills", "npm run sync:skills:vendor"],
+			["agent guides", "npm run sync:agents"],
 			["Claude ultracode skills", "npm run sync:claude:ultracode"],
 			["docs HTML mirror", "npm run sync:docs:html"],
 			["personas README", "npm run sync:personas"],
