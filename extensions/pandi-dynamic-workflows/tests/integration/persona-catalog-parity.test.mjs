@@ -31,13 +31,41 @@ const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SKILL_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode");
 
 const READ_ONLY_TOOLS = ["read", "grep", "find", "ls"];
+function escapeRegExp(value) {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function lineSpan(text, marker, lineCount = 1) {
+	const lines = text.split("\n");
+	const start = lines.findIndex((line) => line.includes(marker));
+	return start === -1 ? "" : lines.slice(start, start + lineCount).join("\n");
+}
+
 const SURFACES = {
-	"workflow tool prompt": path.join(EXT_DIR, "workflow-tool-contract.ts"),
-	"primitives/agent.md": path.join(EXT_DIR, "primitives", "agent.md"),
-	"skill mirror agent.md": path.join(SKILL_DIR, "reference", "primitives", "agent.md"),
-	README: path.join(REPO_ROOT, "README.md"),
-	"skill SKILL.md": path.join(SKILL_DIR, "SKILL.md"),
-	"skill reference/personas.md": path.join(SKILL_DIR, "reference", "personas.md"),
+	"workflow tool prompt": {
+		path: path.join(EXT_DIR, "workflow-tool-contract.ts"),
+		hasPersona: (text, name) => lineSpan(text, "agentType:'explore'").includes(`'${name}'`),
+	},
+	"primitives/agent.md": {
+		path: path.join(EXT_DIR, "primitives", "agent.md"),
+		hasPersona: (text, name) => lineSpan(text, "`name`/`label`, `agentType`", 2).includes(`\`${name}\``),
+	},
+	"skill mirror agent.md": {
+		path: path.join(SKILL_DIR, "reference", "primitives", "agent.md"),
+		hasPersona: (text, name) => lineSpan(text, "`name`/`label`, `agentType`", 2).includes(`\`${name}\``),
+	},
+	README: {
+		path: path.join(REPO_ROOT, "README.md"),
+		hasPersona: (text, name) => lineSpan(text, "- **Personas**:").includes(`"${name}"`),
+	},
+	"skill SKILL.md": {
+		path: path.join(SKILL_DIR, "SKILL.md"),
+		hasPersona: (text, name) => lineSpan(text, "`agentType` personas set", 2).includes(`\`${name}\``),
+	},
+	"skill reference/personas.md": {
+		path: path.join(SKILL_DIR, "reference", "personas.md"),
+		hasPersona: (text, name) => new RegExp(`\\|\\s*\`${escapeRegExp(name)}\`\\s*\\|`).test(text),
+	},
 };
 
 const { check, counts } = createChecker();
@@ -64,7 +92,9 @@ async function main() {
 	check("extraction includes new 'architect'", names.includes("architect"), names.join(","));
 
 	// Leé cada superficie una sola vez.
-	const surfaceText = Object.fromEntries(Object.entries(SURFACES).map(([label, p]) => [label, read(p)]));
+	const surfaceText = Object.fromEntries(
+		Object.entries(SURFACES).map(([label, surface]) => [label, read(surface.path)]),
+	);
 
 	for (const { name, options } of personas) {
 		// Invariante de seguridad read-only.
@@ -74,8 +104,9 @@ async function main() {
 			`tools=${JSON.stringify(options?.tools)}`,
 		);
 		// Presente en cada superficie.
-		for (const [label, text] of Object.entries(surfaceText)) {
-			check(`persona '${name}' is surfaced in ${label}`, text.includes(name), label);
+		for (const [label, surface] of Object.entries(SURFACES)) {
+			const text = surfaceText[label] ?? "";
+			check(`persona '${name}' is surfaced in ${label}`, surface.hasPersona(text, name), label);
 		}
 	}
 
