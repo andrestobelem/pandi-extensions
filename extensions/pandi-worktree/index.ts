@@ -714,6 +714,17 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 // Herramienta: git_worktree (invocable por el modelo)
 // --------------------------------------------------------------------------
 
+function toolResult(text: string, details: Record<string, unknown> = {}) {
+	return {
+		content: [{ type: "text" as const, text }],
+		details,
+	};
+}
+
+function toolError(text: string, details: Record<string, unknown> = {}) {
+	return toolResult(text, { isError: true, ...details });
+}
+
 export default function worktreeExtension(pi: ExtensionAPI): void {
 	// Los toggles de copia por defecto de la sesión viven en memoria; limpialos en cada límite de sesión
 	// (refleja a pandi-plan reiniciando sus toggles de postura ultracode en session_start).
@@ -796,10 +807,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const repo = await ensureGitRepo(ctx, signal ?? undefined);
 			if (!repo.ok) {
-				return {
-					content: [{ type: "text" as const, text: repoError(repo, "git_worktree") }],
-					details: { isError: true, action: params.action },
-				};
+				return toolError(repoError(repo, "git_worktree"), { action: params.action });
 			}
 
 			const opts = { cwd: ctx.cwd, signal: signal ?? undefined, timeoutMs: GIT_TIMEOUT_MS };
@@ -807,33 +815,20 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			if (params.action === "list") {
 				const result = await runGit(buildListArgs(), opts);
 				if (!result.ok) {
-					return {
-						content: [
-							{ type: "text" as const, text: `No se pudieron listar los worktrees: ${gitError(result)}` },
-						],
-						details: { isError: true, action: "list" },
-					};
+					return toolError(`No se pudieron listar los worktrees: ${gitError(result)}`, { action: "list" });
 				}
 				const entries = parseWorktreeList(result.stdout);
 				const text = entries.length
 					? entries.map((e) => describeWorktree(e)).join("\n")
 					: "No se encontraron worktrees.";
-				return {
-					content: [{ type: "text" as const, text }],
-					details: { action: "list", count: entries.length, worktrees: entries },
-				};
+				return toolResult(text, { action: "list", count: entries.length, worktrees: entries });
 			}
 
 			if (params.action === "prune") {
 				const dryRun = params.dryRun ?? false;
 				const result = await runGit(buildPruneArgs(dryRun), opts);
 				if (!result.ok) {
-					return {
-						content: [
-							{ type: "text" as const, text: `No se pudieron limpiar los worktrees: ${gitError(result)}` },
-						],
-						details: { isError: true, action: "prune" },
-					};
+					return toolError(`No se pudieron limpiar los worktrees: ${gitError(result)}`, { action: "prune" });
 				}
 				const out = combinedOutput(result);
 				const text = dryRun
@@ -841,30 +836,19 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 						? `Se limpiaría:\n${out}`
 						: "No hay nada para limpiar."
 					: "Se limpiaron los metadatos obsoletos de worktrees.";
-				return {
-					content: [{ type: "text" as const, text }],
-					details: { action: "prune", dryRun, output: out },
-				};
+				return toolResult(text, { action: "prune", dryRun, output: out });
 			}
 
 			if (params.action === "add") {
 				const target = resolveWorktreeTarget(params.path ?? "", ctx.cwd);
 				if (!target) {
-					return {
-						content: [{ type: "text" as const, text: "La acción 'add' requiere 'path'." }],
-						details: { isError: true, action: "add" },
-					};
+					return toolError("La acción 'add' requiere 'path'.", { action: "add" });
 				}
 				if (params.branch !== undefined && !isValidBranchName(params.branch)) {
-					return {
-						content: [
-							{
-								type: "text" as const,
-								text: `Nombre de rama inválido "${params.branch}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
-							},
-						],
-						details: { isError: true, action: "add" },
-					};
+					return toolError(
+						`Nombre de rama inválido "${params.branch}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
+						{ action: "add" },
+					);
 				}
 				if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
 				const args = buildAddArgs({
@@ -876,30 +860,25 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 				});
 				const result = await runGit(args, opts);
 				if (!result.ok) {
-					return {
-						content: [{ type: "text" as const, text: `No se pudo crear el worktree: ${gitError(result)}` }],
-						details: { isError: true, action: "add", path: target.path },
-					};
+					return toolError(`No se pudo crear el worktree: ${gitError(result)}`, {
+						action: "add",
+						path: target.path,
+					});
 				}
 				const copyOpts = resolveCopyPrefs({ copyIgnored: params.copyIgnored, copyUntracked: params.copyUntracked });
 				const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal ?? undefined);
 				const branchNote = params.branch ? ` (rama nueva ${params.branch})` : "";
 				const locationNote = target.usedDefaultBase ? ` (por defecto ${CONFIG_DIR_NAME}/worktrees/)` : "";
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Se creó el worktree en ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}. Abrilo con: cd ${target.path} && pi`,
-						},
-					],
-					details: {
+				return toolResult(
+					`Se creó el worktree en ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}. Abrilo con: cd ${target.path} && pi`,
+					{
 						action: "add",
 						path: target.path,
 						branch: params.branch ?? null,
 						defaultBase: target.usedDefaultBase,
 						copied: copyRes,
 					},
-				};
+				);
 			}
 
 			if (params.action === "open") {
@@ -916,9 +895,9 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 					},
 					signal ?? undefined,
 				);
-				return {
-					content: [{ type: "text" as const, text: outcome.message }],
-					details: outcome.isError
+				return toolResult(
+					outcome.message,
+					outcome.isError
 						? { isError: true, action: "open", path: outcome.path || null }
 						: {
 								action: "open",
@@ -927,16 +906,13 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 								opened: outcome.opened,
 								tabId: outcome.tabId ?? null,
 							},
-				};
+				);
 			}
 
 			// remove
 			const target = resolveWorktreeTarget(params.path ?? "", ctx.cwd);
 			if (!target) {
-				return {
-					content: [{ type: "text" as const, text: "La acción 'remove' requiere 'path'." }],
-					details: { isError: true, action: "remove" },
-				};
+				return toolError("La acción 'remove' requiere 'path'.", { action: "remove" });
 			}
 			const resolved = target.path;
 			const force = params.force ?? false;
@@ -946,25 +922,16 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 					!force && needsForce(result)
 						? " El worktree tiene cambios o está bloqueado; reintentá con force=true solo si la persona usuaria acepta descartar cambios."
 						: "";
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `No se pudo eliminar el worktree: ${gitError(result)}.${hint}`,
-						},
-					],
-					details: { isError: true, action: "remove", path: resolved },
-				};
+				return toolError(`No se pudo eliminar el worktree: ${gitError(result)}.${hint}`, {
+					action: "remove",
+					path: resolved,
+				});
 			}
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: `Se eliminó el worktree en ${resolved}${force ? " (forzado)" : ""}.`,
-					},
-				],
-				details: { action: "remove", path: resolved, forced: force },
-			};
+			return toolResult(`Se eliminó el worktree en ${resolved}${force ? " (forzado)" : ""}.`, {
+				action: "remove",
+				path: resolved,
+				forced: force,
+			});
 		},
 	});
 }
