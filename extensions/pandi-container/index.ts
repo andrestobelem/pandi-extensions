@@ -18,7 +18,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { parseContainerCommand, parseSizeFlag } from "./command.js";
-import { completeContainerArgs, CONTAINER_ACTIONS, resolveContainerInput } from "./command-menu.js";
+import { CONTAINER_ACTIONS, completeContainerArgs, resolveContainerInput } from "./command-menu.js";
 import {
 	describeTiers,
 	type HandlerResult,
@@ -87,7 +87,7 @@ const HELP_TEXT = [
 const PLATFORM_MSG = "Apple `container` requiere macOS en Apple Silicon (arm64); este host no es compatible.";
 
 export { parseContainerCommand, parseSizeFlag } from "./command.js";
-export { completeContainerArgs, CONTAINER_SELECT_ITEMS, resolveContainerInput } from "./command-menu.js";
+export { CONTAINER_SELECT_ITEMS, completeContainerArgs, resolveContainerInput } from "./command-menu.js";
 
 // --------------------------------------------------------------------------
 // Handler del comando
