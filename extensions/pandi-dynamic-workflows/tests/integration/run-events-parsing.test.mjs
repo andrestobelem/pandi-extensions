@@ -1,20 +1,19 @@
 /**
- * Characterization tests for the run-events parsing cluster of pandi-dynamic-workflows.
+ * Tests de caracterización para el cluster de parsing de run-events de pandi-dynamic-workflows.
  *
- * These pin the CURRENT observable behavior of the pure value coercers, the
- * agent-monitor merge logic, the phase/elapsed derivations, and the events.jsonl
- * parsing pipeline (readRunEvents) BEFORE that cluster is moved into a sibling
- * module. They are a safety net for the byte-identical extraction (the Refactor
- * step of Red -> Green -> Refactor): they pass against the cluster in index.ts
- * today and must keep passing after it is relocated, proving no behavior changed.
+ * Fijan el comportamiento observable ACTUAL de los coercers puros de valores, la lógica
+ * de merge de agent-monitor, las derivaciones de phase/elapsed y el pipeline de parsing
+ * de events.jsonl (readRunEvents) ANTES de mover ese cluster a un módulo hermano. Son una
+ * red de seguridad para la extracción byte-idéntica (el paso Refactor de Red -> Green ->
+ * Refactor): hoy pasan contra el cluster en index.ts y deben seguir pasando después de
+ * reubicarlo, probando que no cambió el comportamiento.
  *
- * Self-bootstrapping like the other dynamic-workflows suites: esbuilds the CURRENT
- * extension (so it tracks index.ts + every sibling module it imports) with the SDK/
- * tui/typebox aliased to local stubs, then imports the bundle's named exports. No
- * model or agent subprocess is involved — every function under test is synchronous
- * or reads a fixture directory on disk.
+ * Self-bootstrapping como las otras suites de dynamic-workflows: esbuild de la extensión ACTUAL
+ * (así trackea index.ts + cada módulo hermano que importa) con SDK/tui/typebox aliaseados a
+ * stubs locales, luego importa los named exports del bundle. No participa ningún modelo ni
+ * subprocess de agente — cada función bajo test es sincrónica o lee un directorio fixture en disco.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/run-events-parsing.test.mjs
  */
 
@@ -47,13 +46,13 @@ async function buildExtension() {
 function scenarioValueCoercers(mod) {
 	const { recordValue, stringValue, numberValue, booleanValue, stringArrayValue, isAgentMonitorState } = mod;
 
-	// recordValue: plain non-null non-array object -> itself; everything else -> undefined.
+	// recordValue: objeto plano non-null y non-array -> sí mismo; todo lo demás -> undefined.
 	check("recordValue keeps a plain object", recordValue({ a: 1 })?.a === 1, JSON.stringify(recordValue({ a: 1 })));
 	check("recordValue rejects null", recordValue(null) === undefined, String(recordValue(null)));
 	check("recordValue rejects arrays", recordValue([1, 2]) === undefined, String(recordValue([1, 2])));
 	check("recordValue rejects primitives", recordValue("x") === undefined && recordValue(5) === undefined, "x/5");
 
-	// stringValue / numberValue / booleanValue: strict typeof, finite for numbers.
+	// stringValue / numberValue / booleanValue: typeof estricto, finite para números.
 	check("stringValue keeps a string", stringValue("hi") === "hi", String(stringValue("hi")));
 	check("stringValue rejects non-strings", stringValue(5) === undefined && stringValue(null) === undefined, "5/null");
 	check(
@@ -77,7 +76,7 @@ function scenarioValueCoercers(mod) {
 		"0/'true'",
 	);
 
-	// stringArrayValue: array of ALL strings -> array; any non-string -> undefined; [] -> [].
+	// stringArrayValue: array de TODO strings -> array; cualquier non-string -> undefined; [] -> [].
 	check(
 		"stringArrayValue keeps an all-string array",
 		JSON.stringify(stringArrayValue(["a", "b"])) === JSON.stringify(["a", "b"]),
@@ -95,7 +94,7 @@ function scenarioValueCoercers(mod) {
 	);
 	check("stringArrayValue rejects non-arrays", stringArrayValue("a") === undefined, String(stringArrayValue("a")));
 
-	// isAgentMonitorState: exactly the five known states.
+	// isAgentMonitorState: exactamente los cinco states conocidos.
 	const good = ["running", "completed", "failed", "cached", "unknown"].every((s) => isAgentMonitorState(s) === true);
 	check("isAgentMonitorState accepts the five known states", good, "running/completed/failed/cached/unknown");
 	check(
@@ -108,7 +107,7 @@ function scenarioValueCoercers(mod) {
 function scenarioDerivations(mod) {
 	const { getAgentElapsedMs, formatAgentPhase, phaseEventFields } = mod;
 
-	// getAgentElapsedMs: recorded value wins; running uses startedAt clamped to >= 0; otherwise undefined.
+	// getAgentElapsedMs: el valor registrado gana; running usa startedAt clampeado a >= 0; si no, undefined.
 	check(
 		"getAgentElapsedMs returns the recorded elapsedMs",
 		getAgentElapsedMs({ state: "running", elapsedMs: 1234 }) === 1234,
@@ -136,7 +135,7 @@ function scenarioDerivations(mod) {
 		String(getAgentElapsedMs({ state: "running", startedAt: "nope" })),
 	);
 
-	// formatAgentPhase: needs truthy index AND total; phaseId prefixes "P{id} ".
+	// formatAgentPhase: necesita index Y total truthy; phaseId antepone "P{id} ".
 	check(
 		"formatAgentPhase renders index/total",
 		formatAgentPhase({ phaseIndex: 1, phaseTotal: 3 }) === "1/3",
@@ -158,7 +157,7 @@ function scenarioDerivations(mod) {
 		String(formatAgentPhase({ phaseIndex: 1 })),
 	);
 
-	// phaseEventFields: empty for missing/zero-total phase; otherwise id/index/total (+ optional label).
+	// phaseEventFields: vacío para phase faltante/total cero; si no, id/index/total (+ label opcional).
 	check(
 		"phaseEventFields is empty for undefined",
 		JSON.stringify(phaseEventFields(undefined)) === "{}",
