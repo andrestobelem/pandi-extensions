@@ -60,6 +60,15 @@ function fold(value) {
 		.toLowerCase();
 }
 
+function checkBambooFieldMajority(label, list) {
+	const inField = list.filter((item) => FIELD_VOCAB.some((word) => fold(item).includes(word)));
+	check(
+		`a strong majority of ${label} are in the bamboo-forest field (>=60%): ${inField.length}/${list.length}`,
+		inField.length / list.length >= 0.6,
+		`${inField.length}/${list.length}`,
+	);
+}
+
 async function scenarioMoodsUnit(url) {
 	const { MOODS, GREETINGS, PANDI_QUOTE, pick, greetingText } = await loadModule(url);
 
@@ -90,12 +99,7 @@ async function scenarioMoodsUnit(url) {
 		);
 	}
 
-	const inField = MOODS.filter((mood) => FIELD_VOCAB.some((word) => fold(mood).includes(word)));
-	check(
-		`a strong majority of moods are in the bamboo-forest field (>=60%): ${inField.length}/${MOODS.length}`,
-		inField.length / MOODS.length >= 0.6,
-		`${inField.length}/${MOODS.length}`,
-	);
+	checkBambooFieldMajority("moods", MOODS);
 
 	// pick() siempre devuelve un miembro del array.
 	let allMembers = true;
@@ -132,12 +136,7 @@ async function scenarioMoodsUnit(url) {
 			!g.includes(PANDI_QUOTE[0]) && !g.includes(PANDI_QUOTE[1]),
 		);
 	}
-	const greetInField = GREETINGS.filter((g) => FIELD_VOCAB.some((word) => fold(g).includes(word)));
-	check(
-		`a strong majority of greetings are in the bamboo-forest field (>=60%): ${greetInField.length}/${GREETINGS.length}`,
-		greetInField.length / GREETINGS.length >= 0.6,
-		`${greetInField.length}/${GREETINGS.length}`,
-	);
+	checkBambooFieldMajority("greetings", GREETINGS);
 
 	// El saludo de arranque NO debe repetir la frase principal del splash cuando el splash
 	// está visible (la cita de dos líneas PANDI_QUOTE le corresponde al splash): en su lugar
