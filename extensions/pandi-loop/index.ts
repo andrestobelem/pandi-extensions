@@ -227,26 +227,14 @@ async function discoverSidecarLoopIds(ctx: ExtensionContext): Promise<string[]> 
 // Wake / scheduling
 // ---------------------------------------------------------------------------
 
-/**
- * Un loop solo puede correr donde el agent loop sea suficientemente interactivo
- * para reinyectar un prompt y reanudarse solo: TUI y RPC. "print" es one-shot, y
- * "json" no es interactivo (hasUI es true solo en tui/rpc); ninguno sostiene una
- * sesión de loop. Refleja wakeAgentForWorkflowResult en dynamic-workflows.
- */
+/** Solo TUI/RPC sostienen una sesión viva donde un wake puede reinyectar prompts. */
 function canLoopInMode(ctx: ExtensionContext): boolean {
 	return ctx.mode === "tui" || ctx.mode === "rpc";
 }
 
 /**
- * Primitiva de entrega de bajo nivel: reinyecta un prompt en la sesión. Refleja
- * wakeAgentForWorkflowResult (idle → steer; busy → followUp). Tiene gate por modo.
- * La cola FIFO (deliverWake/drainWakeQueue) es el único caller; nunca llamar esto
- * directamente para reinyectar una iteración autopilot porque saltearía la serialización.
- *
- * NOTE (P2): drainWakeQueue ahora gatea la entrega con ctx.isIdle(), así que el único
- * camino alcanzable acá es la rama idle (steer); la rama followUp se conserva
- * defensivamente (un caller futuro / modo distinto podría alcanzarla), pero la cola
- * nunca entrega mientras está busy.
+ * Entrega de bajo nivel. La FIFO es el único caller normal: saltarla rompería la
+ * garantía de un solo turno autopilot en vuelo.
  */
 function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
 	// Gate por modo: nunca reinyectar fuera de tui/rpc (también defiende rutas de rehydrate).
@@ -256,28 +244,15 @@ function wake(pi: ExtensionAPI, ctx: ExtensionContext, prompt: string): void {
 }
 
 /**
- * Intenta entregar el siguiente wake encolado (P2). Entrega COMO MÁXIMO UNO, y solo
- * cuando el agente está idle (nunca en medio de un turno de usuario) Y no hay otro turno
- * autopilot en vuelo. Garantiza un único turno autopilot a la vez entre N loops y nunca
- * abre un turno autopilot mientras el humano todavía posee el turno. Lo demás queda
- * encolado (FIFO) y se reintenta en el siguiente agent_end. Saltea/descarta entradas cuyo
- * loop ya no está running (stopped/paused/gone), para que una entrada stale nunca reinyecte.
- *
- * El contador de iteración avanza y el flag autopilot se arma ACÁ (al entregar), no al
- * encolar, así un loop encolado pero no entregado no avanza ni bloquea el gate de
- * acciones destructivas.
+ * Entrega como máximo un wake, solo cuando el agente está idle y no hay otro autopilot
+ * en vuelo. Las entradas stale se descartan; la iteración avanza recién al entregar.
  */
 function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	if (!canLoopInMode(ctx)) return;
-	// Entregar SOLO cuando el agente está idle: un wake inyectado durante el turno del usuario
-	// abriría un turno autopilot en medio del turno humano (anyAutopilotActive() entonces gatearía
-	// los comandos destructivos del humano, violando "a human-driven turn is never gated"). Si el
-	// agente está busy, dejar todo encolado; agent_end vuelve a drenar cuando el turno termina y el
-	// agente está idle otra vez.
+	// Nunca abrir un autopilot durante el turno humano: el gate de herramientas
+	// destructivas debe aplicar solo a turnos disparados por el loop.
 	if (!ctx.isIdle()) return;
-	// Un turno autopilot a la vez: nunca entregar un segundo wake mientras ya hay un turno
-	// en vuelo (su loop dueño sigue running). Esta serialización evita que N loops inyecten
-	// en el mismo turno.
+	// Serializar loops: un segundo wake espera hasta que termine el turno en vuelo.
 	if (autopilotTurnInFlight && inFlightOwnerAlive()) return;
 
 	while (wakeQueue.length > 0) {
@@ -300,17 +275,14 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	}
 }
 
-/** Entrega una iteración de loop: avanza contador, arma autopilot, persiste, reinyecta. */
+/** Entrega una iteración: avanza contador, arma autopilot, persiste y reinyecta. */
 function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	loop.iteration += 1;
-	// En modo fixed, recordar el timestamp ABSOLUTO para el que se programó esta iteración
-	// para que el próximo rearmado sea previousTarget + period (sin deriva). En modo dynamic
-	// el modelo elige la próxima cadencia, así que se limpia el anchor.
+	// Fixed mode rearma desde el target previo para evitar deriva; dynamic no usa anchor.
 	loop.fixedAnchor = loop.mode === "fixed" ? (loop.nextFireAt ?? Date.now()) : undefined;
 	loop.nextFireAt = null;
 	loop.rearmedThisTurn = false;
-	// Este turno lo disparó un wake (no el usuario): armar el gate autopilot y marcar un
-	// turno en vuelo para que no se entregue otro wake encolado hasta que termine.
+	// Este turno lo disparó un wake, así que activa el gate autopilot hasta agent_end.
 	loop.autopilot = true;
 	autopilotTurnInFlight = true;
 	persist(pi, ctx, loop);
@@ -330,13 +302,7 @@ function stopForCap(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop, r
 	notify(ctx, `Loop ${loop.loopId} detenido: ${reason}.`, "warning");
 }
 
-/**
- * Dispara una iteración. Valida status, aplica maxIterations + caps, luego ENCOLA el
- * wake en la FIFO del módulo e intenta drenarla. Con N loops cuyos timers disparan casi
- * al mismo instante, esto los serializa: drainWakeQueue entrega como máximo un turno
- * autopilot a la vez; el resto queda en cola y se drena en agent_end. (P2 cambió esto
- * de reinyectar directo a enqueue+drain; el bookkeeping por iteración pasó a deliverWake.)
- */
+/** Valida límites y encola una iteración; la FIFO decide cuándo entregarla. */
 function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	loop.timer = null;
 	if (loop.status !== "running") return;
