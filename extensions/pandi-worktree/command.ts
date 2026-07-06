@@ -87,6 +87,10 @@ function parseRemoveCommand(rest: string[]): ParsedCommand {
 	return { action: "remove", path: pathArg, force };
 }
 
+function parseUnknownCommand(token: string): ParsedCommand {
+	return { action: "help", error: `Subcomando desconocido: "${token}"` };
+}
+
 function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCommand {
 	const positionals: string[] = [];
 	let newBranch: string | undefined;
@@ -147,5 +151,5 @@ export function parseCommand(input: string): ParsedCommand {
 
 	if (isRemoveCommand(head)) return parseRemoveCommand(tokens.slice(1));
 
-	return { action: "help", error: `Subcomando desconocido: "${tokens[0]}"` };
+	return parseUnknownCommand(tokens[0]);
 }
