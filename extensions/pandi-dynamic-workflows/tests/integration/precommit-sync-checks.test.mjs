@@ -1,10 +1,10 @@
 /**
- * Durable guard for issue #20.
+ * Guard durable para el issue #20.
  *
- * The versioned pre-commit hook should reach the cheap repo sync/parity checks,
- * not only typecheck/biome/markdownlint, so mirror drift is caught before CI.
+ * El hook pre-commit versionado debe llegar a los checks baratos de sync/paridad del repo,
+ * no solo a typecheck/biome/markdownlint, para detectar drift de mirrors antes de CI.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/precommit-sync-checks.test.mjs
  */
 
