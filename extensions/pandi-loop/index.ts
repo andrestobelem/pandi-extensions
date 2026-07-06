@@ -515,6 +515,15 @@ function formatFixedModeLabel(loop: ActiveLoop): string {
 	return ` (cada ${formatInterval(Math.round((loop.intervalMs ?? 0) / 1000))})`;
 }
 
+function activateLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
+	activeLoops.set(loop.loopId, loop);
+	persist(pi, ctx, loop);
+	// Enviar de inmediato el primer prompt de iteración. fireWake maneja iteration++/persist/status.
+	// deliverWake construye el prompt fresco vía makeLoopIterationPrompt(loop), así que nunca
+	// se guarda en el loop: solo estaría stale cuando se leyera.
+	fireWake(pi, ctx, loop);
+}
+
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
 	if (!canLoopInMode(ctx)) {
@@ -537,13 +546,7 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		ultracode,
 		ownerSessionId: currentOwnerSessionId(ctx),
 	});
-	activeLoops.set(loopId, loop);
-	persist(pi, ctx, loop);
-
-	// Enviar de inmediato el primer prompt de iteración. fireWake maneja iteration++/persist/status.
-	// deliverWake construye el prompt fresco vía makeLoopIterationPrompt(loop), así que nunca
-	// se guarda en el loop: solo estaría stale cuando se leyera.
-	fireWake(pi, ctx, loop);
+	activateLoop(pi, ctx, loop);
 	const modeLabel = formatFixedModeLabel(loop);
 	const uc = ultracode ? " [ultracode]" : "";
 	notify(ctx, `Loop ${loopId} iniciado${modeLabel}${uc}: ${taskText}`, "info");
@@ -604,10 +607,7 @@ async function startAutonomousLoop(
 		ultracode,
 		ownerSessionId: currentOwnerSessionId(ctx),
 	});
-	activeLoops.set(loopId, loop);
-	persist(pi, ctx, loop);
-
-	fireWake(pi, ctx, loop);
+	activateLoop(pi, ctx, loop);
 	const modeLabel = formatFixedModeLabel(loop);
 	notify(ctx, `Loop autónomo ${loopId} iniciado${modeLabel}: ${objective}`, "info");
 	return loop;
