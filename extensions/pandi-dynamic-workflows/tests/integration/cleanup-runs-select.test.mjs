@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Contract test for the run-cleanup SELECTION policy (run-state.ts, selectRunsForCleanup).
+ * Test de contrato para la política de SELECCIÓN de run-cleanup (run-state.ts, selectRunsForCleanup).
  *
- * `/workflow cleanup runs` must be safe by construction: it deletes only TERMINAL run
- * directories and never a run that is still running or tracked as active in-memory, and it
- * always retains the `keep` most-recent runs so a bulk cleanup can't wipe the freshest
- * history. The IO wrapper (run-lifecycle.ts, cleanupWorkflowRuns) does the actual `fs.rm`;
- * this pins the pure decision so a future refactor of the wrapper can't silently start
- * selecting a running/active run or dropping the retention window.
+ * `/workflow cleanup runs` debe ser seguro por construcción: borra solo directorios de run
+ * TERMINALES y nunca un run que sigue corriendo o trackeado como activo en memoria, y siempre
+ * retiene los `keep` runs más recientes para que un cleanup masivo no borre la historia más fresca.
+ * El wrapper IO (run-lifecycle.ts, cleanupWorkflowRuns) hace el `fs.rm` real;
+ * esto pinea la decisión pura para que un refactor futuro del wrapper no empiece silenciosamente
+ * a seleccionar un run running/active ni a soltar la ventana de retención.
  *
- * Pure + offline: bundles run-state.ts (type-only dep on index.ts) with standard stubs and
- * calls the exported selector in memory. No run dirs are touched.
+ * Puro + offline: bundlea run-state.ts (dep type-only en index.ts) con stubs estándar y
+ * llama el selector exportado en memoria. No toca run dirs.
  *
- * Run it:
+ * Corrélo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/cleanup-runs-select.test.mjs
  */
 import * as path from "node:path";
@@ -30,7 +30,7 @@ async function loadModule() {
 	return await import(url);
 }
 
-// A run record WITHOUT an "ok" key so getRunState returns run.state verbatim.
+// Un run record SIN key "ok" para que getRunState devuelva run.state verbatim.
 const run = (runId, state, startedAt) => ({
 	runId,
 	workflow: "drafts/x",
@@ -46,7 +46,7 @@ async function main() {
 
 	const empty = new Set();
 
-	// 1) running is NEVER selected, even beyond the keep window.
+	// 1) running NUNCA se selecciona, incluso más allá de la ventana keep.
 	{
 		const runs = [
 			run("r5", "running", "2026-06-01T00:00:05Z"),
@@ -64,7 +64,7 @@ async function main() {
 		);
 	}
 
-	// 2) activeIds are never selected even if their state looks terminal.
+	// 2) activeIds nunca se seleccionan aunque su state parezca terminal.
 	{
 		const runs = [run("a1", "failed", "2026-06-01T00:00:02Z"), run("a2", "completed", "2026-06-01T00:00:01Z")];
 		const selected = selectRunsForCleanup(runs, { keep: 0, activeIds: new Set(["a1"]) });
@@ -72,7 +72,7 @@ async function main() {
 		check("non-active terminal included", ids(selected).includes("a2"), JSON.stringify(ids(selected)));
 	}
 
-	// 3) keep=N retains the N most-recent (by startedAt desc); older terminal runs are selected.
+	// 3) keep=N retiene los N más recientes (por startedAt desc); se seleccionan runs terminales más viejos.
 	{
 		const runs = [
 			run("old1", "completed", "2026-06-01T00:00:01Z"),
@@ -93,7 +93,7 @@ async function main() {
 		);
 	}
 
-	// 4) state filter restricts selection to the requested states (still honoring keep).
+	// 4) El filtro state restringe la selección a los states pedidos (honrando keep todavía).
 	{
 		const runs = [
 			run("c1", "completed", "2026-06-01T00:00:03Z"),
@@ -108,10 +108,10 @@ async function main() {
 		);
 	}
 
-	// 5) empty input → empty selection.
+	// 5) input vacío → selección vacía.
 	check("empty input → []", selectRunsForCleanup([], { keep: 0, activeIds: empty }).length === 0);
 
-	// 6) keep larger than the terminal count → nothing selected.
+	// 6) keep mayor que el conteo terminal → no se selecciona nada.
 	{
 		const runs = [run("t1", "completed", "2026-06-01T00:00:01Z"), run("t2", "failed", "2026-06-01T00:00:02Z")];
 		check("keep >= count → []", selectRunsForCleanup(runs, { keep: 5, activeIds: empty }).length === 0);
