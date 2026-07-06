@@ -78,6 +78,7 @@
 	"pi": {
 		"extensions": [
 			"./extensions/pandi-dynamic-workflows/index.ts",
+			"./extensions/pandi-session/index.ts",
 			"./extensions/pandi-loop/index.ts",
 			"./extensions/pandi-goal/index.ts",
 			"./extensions/pandi-plan/index.ts",

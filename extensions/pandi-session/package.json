@@ -1,0 +1,31 @@
+{
+	"name": "@pandi-coding-agent/pandi-session",
+	"version": "0.1.3",
+	"description": "Pi extension that adds standalone /session and /sessions commands for project-local Pandi session discovery.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-session"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"session",
+		"dashboard"
+	],
+	"files": [
+		"*.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "^0.80.3"
+	}
+}
